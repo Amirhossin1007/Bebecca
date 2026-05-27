@@ -273,6 +273,12 @@ def _host_map_has_hosts(host_map: dict | None) -> bool:
     return any(hosts for hosts in host_map.values())
 
 
+def _inbounds_has_tags(inbounds: dict | None) -> bool:
+    if not inbounds:
+        return False
+    return any(bool(tags) for tags in inbounds.values())
+
+
 def _enum_value(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
 
@@ -520,7 +526,7 @@ def process_inbounds_and_tags(
                 if proxy_key_str == protocol:
                     service_inbounds[proxy_key].append(tag)
         inbounds = service_inbounds
-    elif not inbounds:
+    elif not _inbounds_has_tags(inbounds):
         excluded_data = (extra_data or {}).get("excluded_inbounds") or {}
         has_explicit_exclusions = any(bool(tags) for tags in excluded_data.values())
         if not has_explicit_exclusions:

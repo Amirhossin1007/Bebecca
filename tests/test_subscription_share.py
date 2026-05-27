@@ -44,7 +44,7 @@ def test_no_service_subscription_falls_back_to_enabled_hosts_when_inbounds_missi
 
     links = generate_v2ray_links(
         proxies={ProxyTypes.VLESS: VLESSSettings(id="8fa6ab13-f503-f5e3-19cf-eb8601d5baca")},
-        inbounds={},
+        inbounds={ProxyTypes.VLESS: []},
         extra_data={
             "username": "fallback-user",
             "status": "active",
