@@ -6,11 +6,26 @@ from pathlib import Path
 from app import app
 from config import DEBUG, VITE_BASE_API, DASHBOARD_PATH, ONLINE_ACTIVE_WINDOW_SECONDS
 from fastapi.responses import RedirectResponse
+from starlette.exceptions import HTTPException
 from fastapi.staticfiles import StaticFiles
 
 base_dir = Path(__file__).parent
 build_dir = base_dir / "build"
 statics_dir = build_dir / "statics"
+
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        try:
+            response = await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code != 404 or Path(path).suffix:
+                raise
+            return await super().get_response("index.html", scope)
+
+        if response.status_code == 404 and not Path(path).suffix:
+            return await super().get_response("index.html", scope)
+        return response
 
 
 def _normalize_dashboard_root(path: str) -> str:
@@ -93,7 +108,7 @@ def run_build():
     if not build_dir.is_dir() or not (build_dir / "index.html").exists():
         build()
     register_dashboard_login_redirects()
-    app.mount(DASHBOARD_PATH, StaticFiles(directory=build_dir, html=True), name="dashboard")
+    app.mount(DASHBOARD_PATH, SPAStaticFiles(directory=build_dir, html=True), name="dashboard")
     if statics_dir.is_dir():
         app.mount("/statics/", StaticFiles(directory=statics_dir, html=True), name="statics")
 
