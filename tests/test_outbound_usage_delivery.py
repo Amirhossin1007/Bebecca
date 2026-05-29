@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 import app.runtime
-from app.db.models import NodeUsage, OutboundTraffic, System, User
+from app.db.models import Node, NodeUsage, OutboundTraffic, System, User
 
 app.runtime.scheduler = SimpleNamespace(add_job=lambda *args, **kwargs: None)
 
@@ -304,20 +304,18 @@ def test_outbound_usage_buffer_rolls_back_partial_persist_until_retry_succeeds(m
         def ack_outbound_stats(self, batch_id):
             pass
 
-    fake_xray = _fake_xray(node=BufferedNode())
-    monkeypatch.setattr(node_usage, "xray", fake_xray)
-    monkeypatch.setattr(outbound_traffic, "xray", fake_xray)
-    monkeypatch.setattr(node_usage, "DISABLE_RECORDING_NODE_USAGE", False)
-
-    original_persist_node_stats = node_usage._persist_node_stats_in_session
-
-    def fail_after_outbound_persist(*args, **kwargs):
-        raise RuntimeError("db is down")
-
-    monkeypatch.setattr(node_usage, "_persist_node_stats_in_session", fail_after_outbound_persist)
-
     db = TestingSessionLocal()
     try:
+        dbnode = Node(
+            name="buffered-outbound-test-node",
+            address="127.0.0.1",
+            port=62050,
+            api_port=62051,
+        )
+        db.add(dbnode)
+        db.flush()
+        node_id = dbnode.id
+
         system = db.query(System).first()
         if system:
             system.uplink = 0
@@ -328,43 +326,61 @@ def test_outbound_usage_buffer_rolls_back_partial_persist_until_retry_succeeds(m
     finally:
         db.close()
 
-    with pytest.raises(RuntimeError, match="db is down"):
+    try:
+        fake_xray = _fake_xray()
+        fake_xray.nodes = {node_id: BufferedNode()}
+        monkeypatch.setattr(node_usage, "xray", fake_xray)
+        monkeypatch.setattr(outbound_traffic, "xray", fake_xray)
+        monkeypatch.setattr(node_usage, "DISABLE_RECORDING_NODE_USAGE", False)
+
+        original_persist_node_stats = node_usage._persist_node_stats_in_session
+
+        def fail_after_outbound_persist(*args, **kwargs):
+            raise RuntimeError("db is down")
+
+        monkeypatch.setattr(node_usage, "_persist_node_stats_in_session", fail_after_outbound_persist)
+
+        with pytest.raises(RuntimeError, match="db is down"):
+            node_usage.record_node_usages()
+
+        assert usage_delivery_buffer.pending_outbound_stats(node_id) == [{"tag": "proxy", "up": 9, "down": 1}]
+
+        db = TestingSessionLocal()
+        try:
+            assert db.query(OutboundTraffic).filter(OutboundTraffic.tag == "proxy").first() is None
+            system = db.query(System).first()
+            if system:
+                assert system.uplink == 0
+                assert system.downlink == 0
+            assert db.query(NodeUsage).count() == 0
+        finally:
+            db.close()
+
+        monkeypatch.setattr(node_usage, "_persist_node_stats_in_session", original_persist_node_stats)
+
         node_usage.record_node_usages()
 
-    assert usage_delivery_buffer.pending_outbound_stats(1) == [{"tag": "proxy", "up": 9, "down": 1}]
-
-    db = TestingSessionLocal()
-    try:
-        assert db.query(OutboundTraffic).filter(OutboundTraffic.tag == "proxy").first() is None
-        system = db.query(System).first()
-        if system:
-            assert system.uplink == 0
-            assert system.downlink == 0
-        assert db.query(NodeUsage).count() == 0
+        db = TestingSessionLocal()
+        try:
+            record = db.query(OutboundTraffic).filter(OutboundTraffic.tag == "proxy").first()
+            assert record is not None
+            assert record.uplink == 9
+            assert record.downlink == 1
+            system = db.query(System).first()
+            if system:
+                assert system.uplink == 9
+                assert system.downlink == 1
+            node_usage_row = db.query(NodeUsage).filter(NodeUsage.node_id == node_id).first()
+            assert node_usage_row is not None
+            assert node_usage_row.uplink == 9
+            assert node_usage_row.downlink == 1
+        finally:
+            db.close()
     finally:
-        db.close()
-
-    monkeypatch.setattr(node_usage, "_persist_node_stats_in_session", original_persist_node_stats)
-
-    node_usage.record_node_usages()
-
-    db = TestingSessionLocal()
-    try:
-        record = db.query(OutboundTraffic).filter(OutboundTraffic.tag == "proxy").first()
-        assert record is not None
-        assert record.uplink == 9
-        assert record.downlink == 1
-        system = db.query(System).first()
-        if system:
-            assert system.uplink == 9
-            assert system.downlink == 1
-        node_usage_row = db.query(NodeUsage).filter(NodeUsage.node_id == 1).first()
-        assert node_usage_row is not None
-        assert node_usage_row.uplink == 9
-        assert node_usage_row.downlink == 1
-    finally:
+        db = TestingSessionLocal()
         db.query(NodeUsage).delete(synchronize_session=False)
         db.query(OutboundTraffic).filter(OutboundTraffic.tag == "proxy").delete(synchronize_session=False)
+        db.query(Node).filter(Node.id == node_id).delete(synchronize_session=False)
         system = db.query(System).first()
         if system:
             system.uplink = 0
@@ -373,4 +389,4 @@ def test_outbound_usage_buffer_rolls_back_partial_persist_until_retry_succeeds(m
         db.close()
         usage_delivery_buffer.clear()
 
-    assert usage_delivery_buffer.pending_outbound_stats(1) == []
+    assert usage_delivery_buffer.pending_outbound_stats(node_id) == []

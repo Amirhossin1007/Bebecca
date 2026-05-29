@@ -160,6 +160,21 @@ def get_all_log_sources() -> list[NodeLogSource]:
 
     sources: list[NodeLogSource] = []
 
+    try:
+        master_log_path = resolve_access_log_path()
+        if master_log_path and master_log_path.exists():
+            sources.append(
+                NodeLogSource(
+                    node_id=None,
+                    node_name="master",
+                    log_path=master_log_path,
+                    is_master=True,
+                    connected=True,
+                )
+            )
+    except Exception:
+        pass
+
     # Add node logs via REST API. The master has no local runtime.
     if xray and hasattr(xray, "nodes"):
         node_metadata = _load_node_metadata()

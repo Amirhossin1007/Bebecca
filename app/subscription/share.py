@@ -426,9 +426,16 @@ def process_inbounds_and_tags(
         try:
             with GetDB() as db:
                 raw_config = crud.get_xray_config(db)
-                xray_config = XRayConfig(raw_config, api_port=xray.config.api_port)
+                runtime_config = getattr(xray, "config", None)
+                xray_config = XRayConfig(raw_config, api_port=getattr(runtime_config, "api_port", 0))
         except Exception:
             xray_config = getattr(xray, "config", None)
+
+        runtime_config = getattr(xray, "config", None)
+        if xray_config and not getattr(xray_config, "inbounds_by_tag", None):
+            runtime_inbounds = getattr(runtime_config, "inbounds_by_tag", None)
+            if runtime_inbounds:
+                xray_config = runtime_config
 
         if not xray_config:
             return [] if isinstance(conf, list) else ""
@@ -486,8 +493,11 @@ def process_inbounds_and_tags(
         try:
             with GetDB() as db:
                 raw_config = crud.get_xray_config(db)
-                xray_config = XRayConfig(raw_config, api_port=xray.config.api_port)
+                runtime_config = getattr(xray, "config", None)
+                xray_config = XRayConfig(raw_config, api_port=getattr(runtime_config, "api_port", 0))
             inbounds_by_tag = getattr(xray_config, "inbounds_by_tag", {}) or {}
+            if not inbounds_by_tag:
+                inbounds_by_tag = getattr(getattr(xray, "config", None), "inbounds_by_tag", {}) or {}
         except Exception:
             inbounds_by_tag = getattr(getattr(xray, "config", None), "inbounds_by_tag", {}) or {}
         inbound_index = {tag: index for index, tag in enumerate(inbounds_by_tag.keys())}

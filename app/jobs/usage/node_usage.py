@@ -112,6 +112,13 @@ def record_node_stats(params: dict, node_id: Union[int, None]):
     created_at = hour_bucket()
 
     with GetDB() as db:
+        dbnode = None
+        if node_id is not None:
+            dbnode = db.query(Node).filter(Node.id == node_id).with_for_update().first()
+            if dbnode is None:
+                logger.warning("Skipping node usage for missing node id %s", node_id)
+                return
+
         select_stmt = select(NodeUsage.node_id).where(
             and_(NodeUsage.node_id == node_id, NodeUsage.created_at == created_at)
         )
@@ -127,12 +134,10 @@ def record_node_stats(params: dict, node_id: Union[int, None]):
         )
         safe_execute(db, stmt, params)
 
-        if node_id is not None and (total_up or total_down):
-            dbnode = db.query(Node).filter(Node.id == node_id).with_for_update().first()
-            if dbnode:
-                limited_triggered, limit_cleared, status_change_payload = _update_node_limits(
-                    db, dbnode, total_up, total_down
-                )
+        if dbnode is not None and (total_up or total_down):
+            limited_triggered, limit_cleared, status_change_payload = _update_node_limits(
+                db, dbnode, total_up, total_down
+            )
 
     if status_change_payload:
         node_resp, prev_status = status_change_payload
@@ -157,6 +162,13 @@ def _persist_node_stats_in_session(db, params: list, node_id: Union[int, None], 
     total_up = sum(item.get("up", 0) for item in params)
     total_down = sum(item.get("down", 0) for item in params)
 
+    dbnode = None
+    if node_id is not None:
+        dbnode = db.query(Node).filter(Node.id == node_id).with_for_update().first()
+        if dbnode is None:
+            logger.warning("Skipping node usage for missing node id %s", node_id)
+            return False, False, None
+
     usage_query = db.query(NodeUsage).filter(
         and_(NodeUsage.node_id == node_id, NodeUsage.created_at == created_at)
     )
@@ -169,10 +181,8 @@ def _persist_node_stats_in_session(db, params: list, node_id: Union[int, None], 
     usage_row.uplink = int(usage_row.uplink or 0) + total_up
     usage_row.downlink = int(usage_row.downlink or 0) + total_down
 
-    if node_id is not None and (total_up or total_down):
-        dbnode = db.query(Node).filter(Node.id == node_id).with_for_update().first()
-        if dbnode:
-            return _update_node_limits(db, dbnode, total_up, total_down, commit=False)
+    if dbnode is not None and (total_up or total_down):
+        return _update_node_limits(db, dbnode, total_up, total_down, commit=False)
 
     return False, False, None
 

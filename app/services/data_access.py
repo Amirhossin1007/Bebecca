@@ -30,14 +30,16 @@ def get_inbounds_by_tag_cached(db: Session, force_refresh: bool = False) -> Dict
     inbounds: Dict[str, Any] = {}
     for _target_id, raw_config in iter_stored_raw_configs(db):
         try:
-            config = XRayConfig(raw_config, api_port=xray.config.api_port)
+            runtime_config = getattr(xray, "config", None)
+            config = XRayConfig(raw_config, api_port=getattr(runtime_config, "api_port", 0))
         except Exception:
             continue
         for tag, inbound in config.inbounds_by_tag.items():
             inbounds.setdefault(tag, inbound)
-    for tag, inbound in getattr(xray.config, "inbounds_by_tag", {}).items():
+    runtime_config = getattr(xray, "config", None)
+    for tag, inbound in getattr(runtime_config, "inbounds_by_tag", {}).items():
         inbounds.setdefault(tag, inbound)
-    for protocol, protocol_inbounds in getattr(xray.config, "inbounds_by_protocol", {}).items():
+    for protocol, protocol_inbounds in getattr(runtime_config, "inbounds_by_protocol", {}).items():
         protocol_value = protocol.value if hasattr(protocol, "value") else str(protocol)
         for inbound in protocol_inbounds or []:
             tag = inbound.get("tag") if isinstance(inbound, dict) else None

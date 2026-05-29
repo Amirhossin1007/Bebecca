@@ -95,7 +95,13 @@ def _generate_subscription_config(
     settings,
 ) -> str:
     if config_format == "v2ray":
-        return generate_v2ray_subscription(user=user, user_id=user_id, as_base64=as_base64, reverse=reverse)
+        return generate_v2ray_subscription(
+            user=user,
+            user_id=user_id,
+            as_base64=as_base64,
+            reverse=reverse,
+            settings=settings,
+        )
     return generate_subscription(
         user=user,
         config_format=config_format,
