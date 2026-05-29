@@ -67,7 +67,6 @@ COMMON_PYINSTALLER_ARGS=(
     --add-data "$(pyinstaller_add_data "app/db/migrations" "app/db/migrations")"
     --collect-submodules app
     --collect-submodules alembic
-    --collect-submodules cli
     --collect-submodules xray_api
     --collect-all alembic
     --collect-all apscheduler
@@ -110,16 +109,4 @@ env REBECCA_SKIP_RUNTIME_INIT=1 DEBUG=false DOCS=false python -m PyInstaller \
     --add-data "$(pyinstaller_add_data "dashboard/build" "dashboard/build")" \
     packaging/binary_launcher.py
 
-go_cli_status=0
-bash scripts/build_go_cli.sh || go_cli_status=$?
-if [ "$go_cli_status" -ne 0 ]; then
-    if [ "$go_cli_status" -ne 2 ]; then
-        exit "$go_cli_status"
-    fi
-    env REBECCA_SKIP_RUNTIME_INIT=1 DEBUG=false DOCS=false python -m PyInstaller \
-        "${COMMON_PYINSTALLER_ARGS[@]}" \
-        "${XRAY_PROTO_HIDDEN_IMPORT_ARGS[@]}" \
-        "${JOB_HIDDEN_IMPORT_ARGS[@]}" \
-        --name rebecca-cli \
-        rebecca-cli.py
-fi
+bash scripts/build_go_cli.sh

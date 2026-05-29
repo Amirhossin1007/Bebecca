@@ -33,7 +33,8 @@ ADD . /build
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-RUN bash scripts/build_go_bridge.sh
+RUN bash scripts/build_go_bridge.sh \
+    && bash scripts/build_go_cli.sh
 
 FROM python:$PYTHON_VERSION-slim-bookworm
 
@@ -52,6 +53,7 @@ WORKDIR /code
 ENV PATH="/code/.venv/bin:$PATH"
 
 RUN find /code/scripts -type f -name '*.sh' -exec sed -i 's/\r$//' {} + \
+    && install -m 755 /code/dist/rebecca-cli /usr/bin/rebecca-cli \
     && chmod +x /code/scripts/entrypoint.sh
 
 ENTRYPOINT ["/code/scripts/entrypoint.sh"]

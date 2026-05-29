@@ -1,7 +1,5 @@
 #!/bin/bash
 
-ln -s /code/rebecca-cli.py /usr/bin/rebecca-cli && chmod +x /usr/bin/rebecca-cli && rebecca-cli completion install --shell bash
-
 DATA_DIR="${REBECCA_DATA_DIR:-/var/lib/rebecca}"
 XRAY_DIR="${DATA_DIR}/xray-core"
 XRAY_BIN="${XRAY_DIR}/xray"
