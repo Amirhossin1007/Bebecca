@@ -42,6 +42,8 @@ done < <(
 
 JOB_HIDDEN_IMPORT_ARGS=(
     --hidden-import app.jobs.xray_core
+    --hidden-import app.jobs.node_operations
+    --hidden-import app.jobs.node_runtime
     --hidden-import app.jobs.add_db_users
     --hidden-import app.jobs.record_usages
     --hidden-import app.jobs.remove_expired_users
@@ -51,6 +53,7 @@ JOB_HIDDEN_IMPORT_ARGS=(
     --hidden-import app.jobs.usage
     --hidden-import app.jobs.usage.collectors
     --hidden-import app.jobs.usage.delivery_buffer
+    --hidden-import app.jobs.usage.go_collector
     --hidden-import app.jobs.usage.node_usage
     --hidden-import app.jobs.usage.outbound_traffic
     --hidden-import app.jobs.usage.user_usage
