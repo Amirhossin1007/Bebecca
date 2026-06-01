@@ -284,6 +284,21 @@ WHERE status IN ('pending', 'retrying')`
 	return result, nil
 }
 
+func (r Repository) RecoverStaleOperations(ctx context.Context, olderThan time.Duration) error {
+	if olderThan <= 0 {
+		olderThan = 2 * time.Minute
+	}
+	cutoff := time.Now().UTC().Add(-olderThan)
+	_, err := r.db.ExecContext(
+		ctx,
+		`UPDATE node_operations SET status = 'retrying', attempts = attempts + 1, last_error = ?, updated_at = ? WHERE status = 'running' AND updated_at < ?`,
+		"operation was left running and will be retried",
+		r.timeArg(time.Now().UTC()),
+		r.timeArg(cutoff),
+	)
+	return err
+}
+
 func (r Repository) MarkOperationRunning(ctx context.Context, id int64) (bool, error) {
 	res, err := r.db.ExecContext(
 		ctx,

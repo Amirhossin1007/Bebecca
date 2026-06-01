@@ -168,6 +168,9 @@ func (c Controller) Logs(ctx context.Context, req Request) (RuntimeResult, error
 }
 
 func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsRequest) (ProcessOperationsResult, error) {
+	if err := c.repo.RecoverStaleOperations(ctx, 2*time.Minute); err != nil {
+		return ProcessOperationsResult{}, err
+	}
 	operations, err := c.repo.PendingOperations(ctx, req.NodeID, req.Limit)
 	if err != nil {
 		return ProcessOperationsResult{}, err
