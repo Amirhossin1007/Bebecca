@@ -2,9 +2,12 @@ import logging
 
 from app.db import GetDB, crud
 from app.models.node import NodeStatus
+from app import runtime
+from app.runtime import scheduler
 from app.services import go_node, node_operations
 
 logger = logging.getLogger("uvicorn.error")
+xray = getattr(runtime, "xray", None)
 
 
 def node_runtime_health_check():
@@ -21,6 +24,26 @@ def start_node_runtime():
     nodes converge to the database state.
     """
     logger.info("Bootstrapping Go node controller")
+    try:
+        scheduler.add_job(
+            node_runtime_health_check,
+            "interval",
+            seconds=30,
+            id="node_runtime_health_check",
+            replace_existing=True,
+            max_instances=1,
+        )
+    except Exception as exc:  # pragma: no cover - scheduler may be unavailable in CLI contexts
+        logger.debug("Failed to register legacy node runtime health check: %s", exc)
+
+    legacy_config = getattr(xray, "config", None)
+    include_db_users = getattr(legacy_config, "include_db_users", None)
+    if include_db_users is not None:
+        try:
+            include_db_users()
+        except Exception:
+            pass
+
     try:
         node_operations.queue_sync_config()
     except Exception as exc:

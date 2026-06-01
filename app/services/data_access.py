@@ -74,4 +74,38 @@ def get_inbounds_by_tag_cached(db: Session, force_refresh: bool = False) -> Dict
             continue
         for tag, inbound in config.inbounds_by_tag.items():
             inbounds.setdefault(tag, inbound)
+    runtime_inbounds = _runtime_inbounds_by_tag()
+    if runtime_inbounds:
+        inbounds.update(runtime_inbounds)
+    return inbounds
+
+
+def _runtime_inbounds_by_tag() -> Dict[str, Any]:
+    try:
+        from app import runtime
+
+        config = getattr(getattr(runtime, "xray", None), "config", None)
+        if not config:
+            return {}
+        by_tag = getattr(config, "inbounds_by_tag", None) or {}
+        by_protocol = getattr(config, "inbounds_by_protocol", None) or {}
+    except Exception:
+        return {}
+
+    inbounds: Dict[str, Any] = {}
+    for protocol, protocol_inbounds in by_protocol.items():
+        for inbound in protocol_inbounds or []:
+            if not isinstance(inbound, dict):
+                continue
+            tag = inbound.get("tag")
+            if not tag:
+                continue
+            normalized = dict(inbound)
+            normalized.setdefault("protocol", protocol.value if hasattr(protocol, "value") else str(protocol))
+            inbounds[tag] = normalized
+    for tag, inbound in dict(by_tag).items():
+        if isinstance(inbound, dict):
+            inbounds[tag] = {**inbounds.get(tag, {}), **inbound, "tag": tag}
+        else:
+            inbounds.setdefault(tag, {"tag": tag})
     return inbounds

@@ -214,7 +214,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.22.x"
+          go-version-file: "go/go.mod"
 
       - name: Install Windows C toolchain
         shell: pwsh

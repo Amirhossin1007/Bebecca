@@ -22,12 +22,18 @@ from app.utils.system import register_scheduler_jobs
 
 __version__ = "0.1.3"
 
-IS_RUNNING_TESTS = "PYTEST_CURRENT_TEST" in os.environ
+IS_RUNNING_TESTS = "PYTEST_CURRENT_TEST" in os.environ or any(
+    "pytest" in (arg or "").lower() for arg in sys.argv
+)
 IS_RUNNING_ALEMBIC = any("alembic" in (arg or "").lower() for arg in sys.argv)
 if IS_RUNNING_ALEMBIC:
     os.environ.setdefault("REBECCA_SKIP_RUNTIME_INIT", "1")
+    os.environ.setdefault("REBECCA_SKIP_DASHBOARD_INIT", "1")
+if IS_RUNNING_TESTS:
+    os.environ.setdefault("REBECCA_SKIP_DASHBOARD_INIT", "1")
 
 SKIP_RUNTIME_INIT = os.getenv("REBECCA_SKIP_RUNTIME_INIT") == "1" or IS_RUNNING_ALEMBIC
+SKIP_DASHBOARD_INIT = os.getenv("REBECCA_SKIP_DASHBOARD_INIT") == "1" or IS_RUNNING_ALEMBIC
 runtime.scheduler = None
 runtime.app = None
 
@@ -36,7 +42,9 @@ runtime.logger = logger
 
 # The master is node-only: Python must not bootstrap app.reb_node or a local
 # Xray runtime. Node connectivity and runtime control are handled by Go/gRPC.
-runtime.xray = None
+# Preserve test-provided runtime.xray mocks so legacy patch targets keep working.
+if not hasattr(runtime, "xray"):
+    runtime.xray = None
 
 app = FastAPI(
     title="RebeccaAPI",
@@ -56,9 +64,10 @@ else:
 
 runtime.app = app
 
-from app.db.schema import ensure_runtime_schema
+if not SKIP_RUNTIME_INIT:
+    from app.db.schema import ensure_runtime_schema
 
-ensure_runtime_schema()
+    ensure_runtime_schema()
 allowed_origins = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()]
 if not allowed_origins:
     allowed_origins = ["*"]
@@ -75,18 +84,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-import dashboard  # noqa: F401
+if not SKIP_DASHBOARD_INIT:
+    import dashboard  # noqa: F401
 if scheduler is not None:
     from app import jobs  # noqa
-from app import routers, telegram  # noqa
 
-if scheduler is not None:
-    register_scheduler_jobs(scheduler)
-from app.routers import api_router  # noqa
+if not IS_RUNNING_ALEMBIC:
+    from app import routers, telegram  # noqa
 
-runtime.telegram = telegram
+    if scheduler is not None:
+        register_scheduler_jobs(scheduler)
+    from app.routers import api_router  # noqa
 
-app.include_router(api_router)
+    runtime.telegram = telegram
+
+    app.include_router(api_router)
 
 
 def use_route_names_as_operation_ids(app: FastAPI) -> None:

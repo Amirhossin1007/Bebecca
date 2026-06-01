@@ -7,13 +7,26 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
-from app.db import Session, crud, get_db
+from app.db.base import SessionLocal
 from app.utils.jwt import get_admin_payload
 from config import SUDOERS
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/token")  # Admin view url
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def _to_utc_aware(dt: Optional[datetime]) -> Optional[datetime]:
@@ -681,6 +694,8 @@ class Admin(BaseModel):
 
     @classmethod
     def get_admin(cls, token: str, db: Session):
+        from app.db import crud
+
         payload = get_admin_payload(token)
         if not payload:
             try:

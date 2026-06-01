@@ -13,9 +13,13 @@ import os
 import requests
 from urllib.parse import urlsplit, urlunsplit
 
+from app import runtime
 from app.services import go_node
 from config import XRAY_ASSETS_PATH, XRAY_LOG_DIR
 from app.proto.rebecca.app.router import config_pb2
+
+
+xray = getattr(runtime, "xray", None)
 
 
 @dataclass
@@ -176,6 +180,31 @@ def get_all_log_sources() -> list[NodeLogSource]:
         pass
 
     node_metadata = _load_node_metadata()
+    legacy_nodes = getattr(xray, "nodes", {}) or {}
+    if legacy_nodes:
+        for node_id, node in legacy_nodes.items():
+            try:
+                node_id = int(node_id)
+                metadata = node_metadata.get(node_id, {})
+                status_raw = metadata.get("status")
+                status = str(getattr(status_raw, "value", status_raw)).strip().lower() if status_raw is not None else ""
+                if status in {"disabled", "limited"}:
+                    continue
+                node_name = metadata.get("name") or getattr(node, "name", None) or f"Node-{node_id}"
+                sources.append(
+                    NodeLogSource(
+                        node_id=node_id,
+                        node_name=node_name,
+                        log_path=None,
+                        is_master=False,
+                        fetch_lines=lambda max_lines, _node=node: _fetch_legacy_node_access_logs(_node, max_lines),
+                        connected=bool(getattr(node, "_session_id", None) or getattr(node, "connected", False)),
+                    )
+                )
+            except Exception:
+                continue
+        return sources
+
     try:
         runtime_nodes = go_node.list_nodes()
     except Exception:
@@ -1120,6 +1149,20 @@ def _fetch_node_access_logs(node_id: int, max_lines: int = 500) -> list[str]:
         return go_node.logs(node_id, max_lines=max_lines)
     except Exception as exc:
         raise RuntimeError(str(exc)) from exc
+
+
+def _fetch_legacy_node_access_logs(node, max_lines: int = 500) -> list[str]:
+    max_lines = max(1, int(max_lines))
+    for method_name in ("get_logs", "logs", "access_logs"):
+        method = getattr(node, method_name, None)
+        if method is None:
+            continue
+        result = method(max_lines=max_lines)
+        if isinstance(result, list):
+            return [str(line) for line in result]
+        if isinstance(result, str):
+            return result.splitlines()[-max_lines:]
+    return []
 
 
 def _iter_source_lines(source: NodeLogSource, max_lines: int) -> list[str]:

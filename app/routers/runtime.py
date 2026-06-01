@@ -9,6 +9,7 @@ import threading
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, Body, BackgroundTasks
 from starlette.websockets import WebSocketDisconnect
 
+from app import runtime as app_runtime
 from app.runtime import logger
 from app.services import access_insights
 from app.db import Session, get_db, crud, GetDB
@@ -54,16 +55,29 @@ GEO_TEMPLATES_INDEX_DEFAULT = "https://raw.githubusercontent.com/ppouria/geo-tem
 OUTBOUND_TEST_DEFAULT_URL = "https://www.google.com/generate_204"
 _OUTBOUND_TEST_LOCK = threading.Lock()
 _ALLOWED_GEO_FILENAMES = {"geoip.dat", "geosite.dat"}
+xray = getattr(app_runtime, "xray", None)
 
 
 def _select_runtime_log_source(node_id_raw: str | None = None):
     node_id_raw = (node_id_raw or "").strip()
+    legacy_nodes = getattr(xray, "nodes", {}) or {}
     if node_id_raw:
         try:
             node_id = int(node_id_raw)
         except ValueError as exc:
             raise ValueError("Invalid node_id") from exc
+        if legacy_nodes:
+            node = legacy_nodes.get(node_id)
+            if node is None:
+                raise ValueError("Node not found")
+            if not getattr(node, "connected", False):
+                raise ValueError("Node is not connected")
+            return node
         return node_id
+
+    for node in legacy_nodes.values():
+        if getattr(node, "connected", False):
+            return node
 
     try:
         nodes = go_node.list_nodes()
@@ -835,7 +849,18 @@ def _get_outbound_test_url() -> str:
 
 
 def _run_node_outbound_ping_test(outbound_tag: str, all_outbounds: list, outbound_protocol: str = "") -> dict | None:
-    del outbound_tag, all_outbounds, outbound_protocol
+    legacy_nodes = getattr(xray, "nodes", {}) or {}
+    for node in legacy_nodes.values():
+        if not getattr(node, "connected", False):
+            continue
+        test_outbound = getattr(node, "test_outbound", None)
+        if test_outbound is None:
+            continue
+        return test_outbound(
+            outbound_tag=outbound_tag,
+            all_outbounds=all_outbounds,
+            outbound_protocol=outbound_protocol,
+        )
     return None
 
 

@@ -69,7 +69,10 @@ def get_admin_daily_usage(db: Session, admin: AdminModel, start: datetime, end: 
     if cached is not None:
         return cached
 
-    rows = go_usage.get_admin_usage_by_day(int(admin.id), start, end, granularity="day")
+    try:
+        rows = go_usage.get_admin_usage_by_day(int(admin.id), start, end, granularity="day")
+    except go_usage.GoUsageUnavailable:
+        rows = []
     _cache_set(key, rows)
     return rows
 
@@ -97,13 +100,16 @@ def get_admin_usage_chart(
     if cached is not None:
         return cached
 
-    rows = go_usage.get_admin_usage_by_day(
-        int(admin.id),
-        start,
-        end,
-        node_id=node_id,
-        granularity=granularity,
-    )
+    try:
+        rows = go_usage.get_admin_usage_by_day(
+            int(admin.id),
+            start,
+            end,
+            node_id=node_id,
+            granularity=granularity,
+        )
+    except go_usage.GoUsageUnavailable:
+        rows = []
     _cache_set(key, rows)
     return rows
 
@@ -122,7 +128,10 @@ def get_admin_usage_by_nodes(
     if cached is not None:
         return cached
 
-    rows = go_usage.get_admin_usage_by_nodes(int(admin.id), start, end)
+    try:
+        rows = go_usage.get_admin_usage_by_nodes(int(admin.id), start, end)
+    except go_usage.GoUsageUnavailable:
+        rows = []
     _cache_set(key, rows)
     return rows
 
@@ -371,7 +380,10 @@ def get_user_usage(db: Session, user: UserModel, start: datetime, end: datetime)
     if cached is not None:
         return cached
 
-    rows = go_usage.get_user_usage(int(user.id), start, end)
+    try:
+        rows = go_usage.get_user_usage(int(user.id), start, end)
+    except go_usage.GoUsageUnavailable:
+        rows = []
     _cache_set(key, rows)
     return rows
 
@@ -384,6 +396,9 @@ def get_users_usage(db: Session, admins: Optional[List[str]], start: datetime, e
     if cached is not None:
         return cached
 
-    rows = go_usage.get_users_usage(admins, start, end)
+    try:
+        rows = go_usage.get_users_usage(admins, start, end)
+    except go_usage.GoUsageUnavailable:
+        rows = []
     _cache_set(key, rows)
     return rows

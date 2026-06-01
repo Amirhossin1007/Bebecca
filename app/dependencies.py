@@ -160,6 +160,7 @@ def get_validated_sub_by_key_only(
         db.query(User)
         .filter(User.credential_key.isnot(None))
         .filter(func.replace(func.lower(User.credential_key), "-", "") == normalized_key)
+        .order_by(User.created_at.desc(), User.id.desc())
         .first()
     )
     if not dbuser:

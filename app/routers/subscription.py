@@ -325,6 +325,10 @@ def _build_usage_payload(
             ]
 
         node_usages = go_usage.get_user_usage_by_nodes(dbuser.id, start_dt, end_dt)
+    except go_usage.GoUsageUnavailable:
+        daily_usages = []
+        hourly_usages = []
+        node_usages = []
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Failed to load usage data") from exc
 

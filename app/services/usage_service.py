@@ -11,10 +11,12 @@ from sqlalchemy.orm import selectinload
 from app.db import crud
 from app.db.models import User
 from app.models.user import UserResponse, UserStatus
+from app import runtime
 from app.services import node_operations
 from app.utils import report
 
 logger = logging.getLogger(__name__)
+xray = getattr(runtime, "xray", None)
 
 
 def _to_utc_timestamp(value: Optional[datetime]) -> Optional[float]:
@@ -129,6 +131,12 @@ def _enforce_user_limits_after_sync(db, users: List[User]) -> None:
             if user.id in removed_ids:
                 continue
             removed_ids.add(user.id)
+            operation = getattr(getattr(xray, "operations", None), "remove_user", None)
+            if operation is not None:
+                try:
+                    operation(user)
+                except Exception as exc:  # pragma: no cover - legacy best effort
+                    logger.warning("Failed to remove limited/expired user %s from legacy runtime: %s", user.id, exc)
             try:
                 node_operations.queue_user_operation(user.id, node_operations.DISABLE_USER)
             except Exception as exc:  # pragma: no cover - best-effort
