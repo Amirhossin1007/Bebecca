@@ -7,6 +7,7 @@ starting the Python node runtime.
 """
 
 from concurrent.futures import ThreadPoolExecutor, wait
+import contextlib
 from functools import partial
 import threading
 from typing import Union
