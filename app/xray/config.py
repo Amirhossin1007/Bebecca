@@ -157,21 +157,12 @@ def _flow_supported_for_inbound(inbound: dict) -> bool:
 
 def get_xray_version():
     """
-    Get the runtime version reported by a connected node.
+    Return the local runtime version.
 
-    Returns:
-        str: Version string (e.g., "1.8.4") if Xray is available, None otherwise.
+    Master is node-only now and does not maintain Python node sessions or a
+    local Xray runtime. Node runtime versions are exposed through Go Master API
+    node routes instead.
     """
-    try:
-        from app.runtime import xray as runtime_xray
-
-        for node in list(getattr(runtime_xray, "nodes", {}).values()):
-            if getattr(node, "connected", False):
-                version = getattr(node, "node_version", None) or node.get_version()
-                if version:
-                    return version
-    except Exception:
-        pass
     return None
 
 

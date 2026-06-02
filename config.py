@@ -159,6 +159,10 @@ USERS_LIST_SUBSCRIPTION_URLS_ENABLED = config(
 USERS_LIST_TIMEOUT_SECONDS = config("USERS_LIST_TIMEOUT_SECONDS", default=0, cast=float)
 USERS_LIST_TIMEOUT_KILL_QUERY = config("USERS_LIST_TIMEOUT_KILL_QUERY", default=True, cast=_cast_bool_compat)
 
+GO_MASTER_API_URL = config("GO_MASTER_API_URL", default="").rstrip("/")
+GO_MASTER_API_TIMEOUT_SECONDS = config("GO_MASTER_API_TIMEOUT_SECONDS", default=30, cast=float)
+GO_MASTER_API_VERIFY_TLS = config("GO_MASTER_API_VERIFY_TLS", default=False, cast=_cast_bool_compat)
+
 
 # USERNAME: PASSWORD
 SUDOERS = (

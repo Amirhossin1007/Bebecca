@@ -26,8 +26,11 @@ def test_get_all_log_sources_reads_node_name_from_db_metadata(monkeypatch, tmp_p
         lambda: {1: {"name": "node1", "status": "connected"}},
     )
 
-    node_without_name = SimpleNamespace(_session_id="session-1")
-    monkeypatch.setattr(access_insights, "xray", SimpleNamespace(nodes={1: node_without_name}))
+    monkeypatch.setattr(
+        access_insights,
+        "_runtime_nodes_from_go_master",
+        lambda authorization=None: [{"id": 1, "status": "connected"}],
+    )
 
     sources = access_insights.get_all_log_sources()
 
@@ -56,14 +59,12 @@ def test_get_all_log_sources_skips_disabled_and_limited_nodes(monkeypatch, tmp_p
 
     monkeypatch.setattr(
         access_insights,
-        "xray",
-        SimpleNamespace(
-            nodes={
-                1: SimpleNamespace(_session_id="s1"),
-                2: SimpleNamespace(_session_id="s2"),
-                3: SimpleNamespace(_session_id="s3"),
-            }
-        ),
+        "_runtime_nodes_from_go_master",
+        lambda authorization=None: [
+            {"id": 1, "status": "connected"},
+            {"id": 2, "status": "connected"},
+            {"id": 3, "status": "connected"},
+        ],
     )
 
     sources = access_insights.get_all_log_sources()

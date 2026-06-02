@@ -56,7 +56,7 @@ def test_multi_node_insights_contains_source_node_mapping(monkeypatch):
             connected=True,
         ),
     ]
-    monkeypatch.setattr(access_insights, "get_all_log_sources", lambda: sources)
+    monkeypatch.setattr(access_insights, "get_all_log_sources", lambda authorization=None: sources)
 
     payload = access_insights.build_multi_node_insights(
         limit=50,

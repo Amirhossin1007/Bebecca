@@ -2,7 +2,6 @@ import importlib
 
 
 JOB_MODULES = (
-    "node_operations",
     "add_db_users",
     "record_usages",
     "remove_expired_users",

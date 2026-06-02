@@ -7,7 +7,6 @@ starting the Python node runtime.
 """
 
 from concurrent.futures import ThreadPoolExecutor, wait
-import contextlib
 from functools import partial
 import threading
 from typing import Union
@@ -15,7 +14,6 @@ from typing import Union
 from sqlalchemy import and_, bindparam, insert, select, text, update
 from sqlalchemy.exc import OperationalError, TimeoutError as SQLTimeoutError
 
-from app import runtime
 from app.db import GetDB
 from app.db.models import Node, NodeUsage, System
 from app.jobs.usage.collectors import get_outbounds_stats, resolve_stats_api
@@ -34,7 +32,6 @@ from config import (
 )
 
 
-xray = getattr(runtime, "xray", None)
 _record_node_usages_lock = threading.Lock()
 
 
@@ -50,11 +47,7 @@ def _set_usage_lock_wait_timeout(db) -> None:
 
 
 def _nodes():
-    return getattr(xray, "nodes", {}) or {}
-
-
-def _operations():
-    return getattr(xray, "operations", None)
+    return {}
 
 
 def _update_node_limits(db, dbnode: Node, total_up: int, total_down: int, *, commit: bool = True):
@@ -174,12 +167,7 @@ def record_node_stats(params: dict, node_id: Union[int, None]):
         node_resp, prev_status = status_change_payload
         report.node_status_change(node_resp, previous_status=prev_status)
 
-    ops = _operations()
-    if limited_triggered and ops is not None:
-        with contextlib.suppress(Exception):
-            ops.remove_node(node_id)
-    elif limit_cleared and ops is not None:
-        ops.connect_node(node_id)
+    return None
 
 
 def _persist_node_stats_in_session(db, params: list, node_id: Union[int, None], created_at):
@@ -248,17 +236,11 @@ def _persist_node_usage_batch(api_params: dict, total_up: int, total_down: int):
 
 
 def _dispatch_node_limit_events(status_events):
-    ops = _operations()
     for node_id, limited_triggered, limit_cleared, status_change_payload in status_events:
+        del node_id, limited_triggered, limit_cleared
         if status_change_payload:
             node_resp, prev_status = status_change_payload
             report.node_status_change(node_resp, previous_status=prev_status)
-
-        if limited_triggered and ops is not None:
-            with contextlib.suppress(Exception):
-                ops.remove_node(node_id)
-        elif limit_cleared and ops is not None:
-            ops.connect_node(node_id)
 
 
 def record_node_usages():
@@ -353,5 +335,4 @@ __all__ = [
     "_record_node_usages_once",
     "_persist_node_usage_batch",
     "_persist_node_stats_in_session",
-    "xray",
 ]

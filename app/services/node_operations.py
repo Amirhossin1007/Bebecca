@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from app.db import GetDB, crud
 from app.db.models import Node, NodeOperation, User
 from app.models.node import NodeStatus
-from app.services.go_usage import GoUsageError, GoUsageUnavailable, call_bridge
 
 logger = logging.getLogger(__name__)
 
@@ -131,32 +130,26 @@ def queue_user_operation(user_id: int, operation_type: str) -> int:
         if not db.query(User.id).filter(User.id == actual_user_id).first():
             actual_user_id = None
         created = enqueue_config_operations(db, operation_type=operation_type, user_id=actual_user_id)
-    process_pending_operations()
     return created
 
 
 def queue_sync_config(node_id: int | None = None) -> int:
     with GetDB() as db:
         created = enqueue_config_operations(db, operation_type=SYNC_CONFIG, node_id=node_id)
-    process_pending_operations()
     return created
 
 
 def queue_restart_node(node_id: int, *, config_json: str | None = None) -> int:
     with GetDB() as db:
         created = enqueue_restart_operation(db, int(node_id), config_json=config_json)
-    process_pending_operations()
     return created
 
 
 def process_pending_operations(*, limit: int = 50, node_id: int | None = None) -> dict[str, Any] | None:
-    payload: dict[str, Any] = {"limit": int(limit)}
-    if node_id is not None:
-        payload["node_id"] = int(node_id)
-    try:
-        result = call_bridge("node.operations.process", payload)
-        if isinstance(result, dict):
-            return result
-    except (GoUsageError, GoUsageUnavailable) as exc:
-        logger.warning("Failed to process node operations: %s", exc)
-    return None
+    logger.debug(
+        "Node operation queue processing is owned by Go Master API sidecar; "
+        "Python trigger ignored (limit=%s, node_id=%s)",
+        limit,
+        node_id,
+    )
+    return {"processed": 0, "delegated": "go_master_api"}

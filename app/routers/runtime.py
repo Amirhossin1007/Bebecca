@@ -6,17 +6,16 @@ import ipaddress
 import socket
 import threading
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, Body, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, Body, BackgroundTasks, Request
 from starlette.websockets import WebSocketDisconnect
 
-from app import runtime as app_runtime
 from app.runtime import logger
 from app.services import access_insights
 from app.db import Session, get_db, crud, GetDB
 from app.db.models import OutboundTraffic
 from app.models.admin import Admin, AdminRole
 from app.models.runtime import RuntimeStats, ServerIPs
-from app.utils.xray_logs import normalize_log_chunk, sort_log_lines
+from app.utils.xray_logs import sort_log_lines
 from app.models.warp import (
     WarpAccountResponse,
     WarpConfigResponse,
@@ -25,7 +24,7 @@ from app.models.warp import (
     WarpRegisterResponse,
 )
 from app.services.warp import WarpAccountNotFound, WarpService, WarpServiceError
-from app.services import go_node
+from app.services import go_master_api
 from app.utils import responses
 from app.utils.system import get_public_ip, get_public_ipv6
 from app.utils.outbound import extract_outbound_metadata, generate_outbound_id
@@ -55,38 +54,36 @@ GEO_TEMPLATES_INDEX_DEFAULT = "https://raw.githubusercontent.com/ppouria/geo-tem
 OUTBOUND_TEST_DEFAULT_URL = "https://www.google.com/generate_204"
 _OUTBOUND_TEST_LOCK = threading.Lock()
 _ALLOWED_GEO_FILENAMES = {"geoip.dat", "geosite.dat"}
-xray = getattr(app_runtime, "xray", None)
+NATIVE_NODE_API_REQUIRED_DETAIL = "Native Go Master API is required for this node operation."
 
 
-def _select_runtime_log_source(node_id_raw: str | None = None):
-    node_id_raw = (node_id_raw or "").strip()
-    legacy_nodes = getattr(xray, "nodes", {}) or {}
-    if node_id_raw:
-        try:
-            node_id = int(node_id_raw)
-        except ValueError as exc:
-            raise ValueError("Invalid node_id") from exc
-        if legacy_nodes:
-            node = legacy_nodes.get(node_id)
-            if node is None:
-                raise ValueError("Node not found")
-            if not getattr(node, "connected", False):
-                raise ValueError("Node is not connected")
-            return node
-        return node_id
+def _authorization_from_token(token: str) -> str:
+    return token if token.lower().startswith("bearer ") else f"Bearer {token}"
 
-    for node in legacy_nodes.values():
-        if getattr(node, "connected", False):
-            return node
 
+def _go_master_json_from_token(token: str, method: str, path: str, **kwargs):
     try:
-        nodes = go_node.list_nodes()
-    except Exception as exc:
-        raise ValueError(f"No connected node is available for logs: {exc}") from exc
-    for node in nodes:
+        return go_master_api.request_json(method, path, authorization=_authorization_from_token(token), **kwargs)
+    except go_master_api.GoMasterAPIUnavailable as exc:
+        raise ValueError(NATIVE_NODE_API_REQUIRED_DETAIL) from exc
+
+
+def _connected_node_id_from_token(token: str) -> int:
+    nodes = _go_master_json_from_token(token, "GET", "/api/nodes")
+    for node in nodes or []:
         if str(node.get("status", "")).lower() == "connected":
             return int(node["id"])
     raise ValueError("No connected node is available for logs")
+
+
+def _select_runtime_log_source(token: str, node_id_raw: str | None = None) -> int:
+    node_id_raw = (node_id_raw or "").strip()
+    if node_id_raw:
+        try:
+            return int(node_id_raw)
+        except ValueError as exc:
+            raise ValueError("Invalid node_id") from exc
+    return _connected_node_id_from_token(token)
 
 
 def _validate_download_url(url: str, *, field_name: str = "url") -> str:
@@ -201,9 +198,10 @@ async def runtime_logs(websocket: WebSocket):
             return await websocket.close(reason="Interval must be more than 0 and at most 10 seconds", code=4400)
 
     try:
-        logs_source = _select_runtime_log_source(websocket.query_params.get("node_id"))
-    except ValueError as exc:
-        return await websocket.close(reason=str(exc), code=4404)
+        logs_source = _select_runtime_log_source(token, websocket.query_params.get("node_id"))
+    except Exception as exc:
+        reason = getattr(exc, "detail", None) or str(exc)
+        return await websocket.close(reason=reason, code=4404)
 
     await websocket.accept()
 
@@ -229,7 +227,13 @@ async def runtime_logs(websocket: WebSocket):
             if not await _flush_cache():
                 break
         try:
-            lines = go_node.logs(logs_source, max_lines=200)
+            payload = _go_master_json_from_token(
+                token,
+                "GET",
+                f"/api/node/{logs_source}/logs",
+                params={"max_lines": 200},
+            )
+            lines = payload.get("logs", []) if isinstance(payload, dict) else []
         except Exception as exc:
             lines = [str(exc)]
         fresh = [line for line in sort_log_lines(lines) if line not in sent]
@@ -252,6 +256,7 @@ async def runtime_logs(websocket: WebSocket):
 
 @router.get("/core/access/insights", responses={403: responses._403})
 def get_access_insights(
+    request: Request,
     limit: int = 200,
     lookback: int = 2000,
     search: str = "",
@@ -264,7 +269,11 @@ def get_access_insights(
     """
     try:
         payload = access_insights.build_multi_node_insights(
-            limit=limit, lookback_lines=lookback, search=search, window_seconds=window_seconds
+            limit=limit,
+            lookback_lines=lookback,
+            search=search,
+            window_seconds=window_seconds,
+            authorization=request.headers.get("authorization"),
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -274,6 +283,7 @@ def get_access_insights(
 
 @router.get("/core/access/insights/multi-node", responses={403: responses._403})
 def get_multi_node_access_insights(
+    request: Request,
     limit: int = 200,
     lookback: int = 1000,
     search: str = "",
@@ -303,7 +313,7 @@ def get_multi_node_access_insights(
                 raise HTTPException(status_code=400, detail="Invalid node_ids format")
 
         if mode in {"raw", "frontend"}:
-            sources = access_insights.get_all_log_sources()
+            sources = access_insights.get_all_log_sources(authorization=request.headers.get("authorization"))
             return {
                 "mode": "raw",
                 "sources": [
@@ -322,6 +332,7 @@ def get_multi_node_access_insights(
             search=search,
             window_seconds=window_seconds,
             node_ids=node_id_list,
+            authorization=request.headers.get("authorization"),
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -331,6 +342,7 @@ def get_multi_node_access_insights(
 
 @router.get("/core/access/logs/raw", responses={403: responses._403})
 def get_raw_access_logs(
+    request: Request,
     max_lines: int = 500,
     node_id: int = None,
     search: str = "",
@@ -358,6 +370,7 @@ def get_raw_access_logs(
                 max_lines=max_lines,
                 node_id=node_id,
                 search=search,
+                authorization=request.headers.get("authorization"),
             ):
                 yield json.dumps(chunk) + "\n"
         except Exception as e:
@@ -446,6 +459,7 @@ async def access_logs_ws(websocket: WebSocket):
             max_lines=max_lines,
             node_id=node_id,
             search=search,
+            authorization=_authorization_from_token(token),
         ):
             await websocket.send_text(json.dumps(chunk))
     except WebSocketDisconnect:
@@ -458,12 +472,13 @@ async def access_logs_ws(websocket: WebSocket):
 
 
 @router.get("/core", response_model=RuntimeStats)
-def get_runtime_stats(admin: Admin = Depends(Admin.get_current)):
+def get_runtime_stats(request: Request, admin: Admin = Depends(Admin.get_current)):
     """Retrieve aggregate node runtime status."""
     started = False
     version = None
     try:
-        for node in go_node.list_nodes():
+        nodes = go_master_api.proxy_json(request, "GET", "/api/nodes")
+        for node in nodes or []:
             if str(node.get("status", "")).lower() == "connected":
                 started = True
                 version = node.get("xray_version") or node.get("node_service_version") or version
@@ -619,6 +634,7 @@ def list_geo_templates(index_url: str = "", admin: Admin = Depends(Admin.check_s
 
 @router.post("/core/geo/apply", responses={403: responses._403})
 def apply_geo_assets(
+    request: Request,
     payload: dict = Body(
         ...,
         examples={
@@ -670,8 +686,19 @@ def apply_geo_assets(
             if db_node.geo_mode != "default":
                 continue
             try:
-                go_node.update_geo(node_id, files=files)
-                go_node.sync_node(node_id)
+                go_master_api.proxy_json(
+                    request,
+                    "POST",
+                    f"/api/node/{node_id}/geo/update",
+                    json_body={"files": files},
+                    timeout=300,
+                )
+                go_master_api.proxy_json(
+                    request,
+                    "POST",
+                    f"/api/node/{node_id}/sync",
+                    timeout=90,
+                )
                 results["nodes"][str(node_id)] = {"status": "ok"}
             except Exception as e:
                 detail = str(e) or "Unknown node error"
@@ -685,6 +712,7 @@ def apply_geo_assets(
 
 @router.post("/core/geo/update", responses={403: responses._403})
 def update_geo_assets(
+    request: Request,
     payload: dict = Body(
         ...,
         examples={
@@ -717,7 +745,7 @@ def update_geo_assets(
         "apply_to_nodes": payload.get("apply_to_nodes", payload.get("applyToNodes", True)),
         "skip_node_ids": payload.get("skip_node_ids") or payload.get("skipNodeIds") or [],
     }
-    return apply_geo_assets(normalized_payload, admin, db)
+    return apply_geo_assets(request, normalized_payload, admin, db)
 
 
 def _warp_service(db: Session) -> WarpService:
@@ -849,18 +877,7 @@ def _get_outbound_test_url() -> str:
 
 
 def _run_node_outbound_ping_test(outbound_tag: str, all_outbounds: list, outbound_protocol: str = "") -> dict | None:
-    legacy_nodes = getattr(xray, "nodes", {}) or {}
-    for node in legacy_nodes.values():
-        if not getattr(node, "connected", False):
-            continue
-        test_outbound = getattr(node, "test_outbound", None)
-        if test_outbound is None:
-            continue
-        return test_outbound(
-            outbound_tag=outbound_tag,
-            all_outbounds=all_outbounds,
-            outbound_protocol=outbound_protocol,
-        )
+    del outbound_tag, all_outbounds, outbound_protocol
     return None
 
 

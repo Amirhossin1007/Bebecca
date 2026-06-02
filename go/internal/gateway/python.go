@@ -28,6 +28,9 @@ func StartPython(ctx context.Context, cfg Config) (*PythonRuntime, error) {
 	if cfg.PythonEnvFile != "" {
 		cmd.Env = append(cmd.Env, "REBECCA_ENV_FILE="+cfg.PythonEnvFile)
 	}
+	if cfg.MasterAPIURL != "" {
+		cmd.Env = append(cmd.Env, "GO_MASTER_API_URL="+cfg.MasterAPIURL)
+	}
 	configurePythonCommand(cmd)
 
 	if err := cmd.Start(); err != nil {

@@ -1,12 +1,9 @@
-import asyncio
-import time
 from typing import List, Union
 
 import requests
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, Body
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, Body, Request
 from sqlalchemy.exc import IntegrityError
-from starlette.websockets import WebSocketDisconnect
 
 from app.runtime import logger
 from app.db import Session, crud, get_db, GetDB
@@ -26,9 +23,8 @@ from app.models.proxy import ProxyHost
 from app.utils import responses, report
 from app.db.models import MasterNodeState as DBMasterNodeState, Node as DBNode
 from app.routers.runtime import GEO_TEMPLATES_INDEX_DEFAULT, _resolve_geo_template_index_url
-from app.services import go_node, go_usage, node_operations
+from app.services import go_master_api, node_operations
 from app.utils.binary_control import build_rebecca_update_args, require_binary_runtime
-from app.utils.xray_logs import normalize_log_chunk, sort_log_lines
 from app.utils.crypto import (
     generate_certificate,
     generate_unique_cn,
@@ -60,63 +56,33 @@ NODE_BINARY_REQUIRED_DETAIL = (
     "This node host-level action is available only when the node is installed in binary mode. "
     "Migrate the node to the binary version before using update, restart, runtime, or geo actions from the web UI."
 )
+NATIVE_NODE_API_REQUIRED_DETAIL = "Native Go Master API is required for this node operation."
+
+
+def _go_master_proxy_or_none(
+    request: Request,
+    method: str,
+    path: str,
+    *,
+    params: dict | None = None,
+    json_body: object | None = None,
+):
+    if not go_master_api.is_enabled():
+        return None
+    try:
+        return go_master_api.proxy_json(request, method, path, params=params, json_body=json_body)
+    except go_master_api.GoMasterAPIUnavailable as exc:
+        logger.warning("Go Master API unavailable for %s %s; falling back to Python path: %s", method, path, exc)
+        return None
 
 
 def _serialize_node_response(dbnode: Union[DBNode, NodeResponse]) -> NodeResponse:
-    """Convert DB node rows to API responses enriched with runtime metadata."""
-    node_response = dbnode if isinstance(dbnode, NodeResponse) else NodeResponse.model_validate(dbnode)
-    try:
-        runtime = go_node.get_node(int(node_response.id))
-    except Exception as exc:
-        logger.debug("Unable to refresh node runtime metadata for %s via Go bridge: %s", node_response.id, exc)
-        return node_response
-
-    runtime = _flatten_go_node_payload(runtime)
-    for field, value in runtime.items():
-        if hasattr(node_response, field) and value is not None:
-            setattr(node_response, field, value)
-    return node_response
+    """Convert DB node rows to API responses without Python runtime probing."""
+    return dbnode if isinstance(dbnode, NodeResponse) else NodeResponse.model_validate(dbnode)
 
 
-def _flatten_go_node_payload(payload: dict) -> dict:
-    if not isinstance(payload, dict):
-        return {}
-    result = dict(payload)
-    cpu = payload.get("cpu") if isinstance(payload.get("cpu"), dict) else {}
-    memory = payload.get("memory") if isinstance(payload.get("memory"), dict) else {}
-    transfer = payload.get("transfer") if isinstance(payload.get("transfer"), dict) else {}
-    if cpu:
-        result["cpu_cores"] = cpu.get("cores")
-        result["cpu_frequency_hz"] = cpu.get("frequency_hz")
-        result["cpu_usage_percent"] = cpu.get("usage_percent")
-    if memory:
-        result["memory_used"] = memory.get("used_bytes")
-        result["memory_total"] = memory.get("total_bytes")
-        result["memory_usage_percent"] = memory.get("usage_percent")
-    if transfer:
-        result["upload_speed"] = transfer.get("upload_bytes_per_second")
-        result["download_speed"] = transfer.get("download_bytes_per_second")
-    return result
-
-
-def _node_response_from_go(payload: dict) -> NodeResponse:
-    return NodeResponse.model_validate(_flatten_go_node_payload(payload))
-
-
-def _apply_runtime_fields(node_response: NodeResponse, runtime: dict) -> NodeResponse:
-    runtime = _flatten_go_node_payload(runtime)
-    node_response.node_service_version = runtime.get("node_service_version") or node_response.node_service_version
-    node_response.node_install_mode = runtime.get("node_install_mode") or node_response.node_install_mode
-    node_response.node_update_channel = runtime.get("node_update_channel") or node_response.node_update_channel
-    node_response.cpu_cores = runtime.get("cpu_cores")
-    node_response.cpu_frequency_hz = runtime.get("cpu_frequency_hz")
-    node_response.cpu_usage_percent = runtime.get("cpu_usage_percent")
-    node_response.memory_used = runtime.get("memory_used")
-    node_response.memory_total = runtime.get("memory_total")
-    node_response.memory_usage_percent = runtime.get("memory_usage_percent")
-    node_response.upload_speed = runtime.get("upload_speed")
-    node_response.download_speed = runtime.get("download_speed")
-    return node_response
+def _native_node_api_required() -> None:
+    raise HTTPException(status_code=503, detail=NATIVE_NODE_API_REQUIRED_DETAIL)
 
 
 def _augment_node_cert_fields(
@@ -255,7 +221,7 @@ def add_node(
         db.rollback()
         raise HTTPException(status_code=409, detail=f'Node "{new_node.name}" already exists')
 
-    bg.add_task(go_node.connect_node, node_id=dbnode.id)
+    bg.add_task(node_operations.queue_sync_config, node_id=dbnode.id)
     bg.add_task(add_host_if_needed, new_node, db)
     bg.add_task(
         report.node_created,
@@ -276,19 +242,39 @@ def add_node(
 @router.get("/node/{node_id}", response_model=NodeResponse)
 def get_node(
     node_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
     """Retrieve details of a specific node by its ID."""
+    proxied = _go_master_proxy_or_none(request, "GET", f"/api/node/{node_id}")
+    if proxied is not None:
+        return proxied
+
     dbnode = crud.get_node_by_id(db, node_id)
     if not dbnode:
         raise HTTPException(status_code=404, detail="Node not found")
-    try:
-        return _node_response_from_go(go_node.get_node(node_id))
-    except Exception as exc:
-        logger.warning("Go node get failed for %s, falling back to DB row: %s", node_id, exc)
-        default_cert = crud.get_tls_certificate(db).certificate
-        return _augment_node_cert_fields(NodeResponse.model_validate(dbnode), dbnode, default_cert)
+    default_cert = crud.get_tls_certificate(db).certificate
+    return _augment_node_cert_fields(NodeResponse.model_validate(dbnode), dbnode, default_cert)
+
+
+@router.get("/node/{node_id}/logs")
+def get_node_logs(
+    node_id: int,
+    request: Request,
+    max_lines: int = 200,
+    _: Admin = Depends(Admin.check_sudo_admin),
+):
+    """Retrieve recent node logs through the native Go Master API when enabled."""
+    proxied = _go_master_proxy_or_none(
+        request,
+        "GET",
+        f"/api/node/{node_id}/logs",
+        params={"max_lines": max_lines},
+    )
+    if proxied is not None:
+        return proxied
+    _native_node_api_required()
 
 
 @router.post("/node/{node_id}/certificate/regenerate", response_model=NodeResponse)
@@ -324,83 +310,23 @@ async def node_logs(node_id: int, websocket: WebSocket):
     if admin.role not in (AdminRole.sudo, AdminRole.full_access):
         return await websocket.close(reason="You're not allowed", code=4403)
 
-    try:
-        go_node.health(node_id)
-    except Exception as exc:
-        return await websocket.close(reason=f"Node is not connected: {exc}", code=4400)
-
-    interval = websocket.query_params.get("interval")
-    if interval:
-        try:
-            interval = float(interval)
-        except ValueError:
-            return await websocket.close(reason="Invalid interval value", code=4400)
-        if interval > 10:
-            return await websocket.close(reason="Interval must be more than 0 and at most 10 seconds", code=4400)
-
-    await websocket.accept()
-
-    cache: list[str] = []
-    last_sent_ts = 0
-    async def _flush_cache() -> bool:
-        nonlocal cache, last_sent_ts
-        if not cache:
-            return True
-        try:
-            for line in sort_log_lines(cache):
-                await websocket.send_text(line)
-        except (WebSocketDisconnect, RuntimeError):
-            return False
-        cache = []
-        last_sent_ts = time.time()
-        return True
-
-    sent: set[str] = set()
-    while True:
-        try:
-            lines = go_node.logs(node_id, max_lines=200)
-        except Exception as exc:
-            try:
-                await websocket.send_text(str(exc))
-            except (WebSocketDisconnect, RuntimeError):
-                break
-            await asyncio.sleep(2)
-            continue
-
-        fresh = [line for line in sort_log_lines(lines) if line not in sent]
-        for line in fresh:
-            sent.add(line)
-
-        if interval:
-            cache.extend(fresh)
-            if time.time() - last_sent_ts >= interval:
-                if not await _flush_cache():
-                    break
-        else:
-            for line in fresh:
-                try:
-                    await websocket.send_text(line)
-                except (WebSocketDisconnect, RuntimeError):
-                    return
-
-        try:
-            await asyncio.wait_for(websocket.receive(), timeout=2)
-        except asyncio.TimeoutError:
-            continue
-        except (WebSocketDisconnect, RuntimeError):
-            break
+    return await websocket.close(reason=NATIVE_NODE_API_REQUIRED_DETAIL, code=4400)
 
 
 @router.get("/nodes", response_model=List[NodeResponse])
-def get_nodes(db: Session = Depends(get_db), _: Admin = Depends(Admin.check_sudo_admin)):
+def get_nodes(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: Admin = Depends(Admin.check_sudo_admin),
+):
     """Retrieve a list of all nodes. Accessible only to sudo admins."""
-    try:
-        return [_node_response_from_go(node) for node in go_node.list_nodes()]
-    except Exception as exc:
-        logger.warning("Go node list failed, falling back to DB rows: %s", exc)
-        nodes = crud.get_nodes(db)
-        default_cert = crud.get_tls_certificate(db).certificate
-        return [_augment_node_cert_fields(NodeResponse.model_validate(node), node, default_cert) for node in nodes]
+    proxied = _go_master_proxy_or_none(request, "GET", "/api/nodes")
+    if proxied is not None:
+        return proxied
+
+    nodes = crud.get_nodes(db)
+    default_cert = crud.get_tls_certificate(db).certificate
+    return [_augment_node_cert_fields(NodeResponse.model_validate(node), node, default_cert) for node in nodes]
 
 
 @router.put("/node/{node_id}", response_model=NodeResponse)
@@ -420,7 +346,7 @@ def modify_node(
         bg.add_task(report.node_status_change, updated_node_resp, previous_status=previous_status)
 
     if updated_node.status not in {NodeStatus.disabled, NodeStatus.limited}:
-        bg.add_task(go_node.sync_node, node_id=updated_node.id)
+        bg.add_task(node_operations.queue_sync_config, node_id=updated_node.id)
 
     logger.info(f'Node "{dbnode.name}" modified')
     default_cert = crud.get_tls_certificate(db).certificate
@@ -436,7 +362,7 @@ def reset_node_usage(
 ):
     """Reset the tracked data usage of a node."""
     updated_node = crud.reset_node_usage(db, dbnode)
-    bg.add_task(go_node.sync_node, node_id=updated_node.id)
+    bg.add_task(node_operations.queue_sync_config, node_id=updated_node.id)
     report.node_usage_reset(updated_node, admin)
     logger.info(f'Node "{dbnode.name}" usage reset')
     default_cert = crud.get_tls_certificate(db).certificate
@@ -445,25 +371,34 @@ def reset_node_usage(
 
 @router.post("/node/{node_id}/reconnect")
 def reconnect_node(
+    request: Request,
     bg: BackgroundTasks,
     dbnode: DBNode = Depends(get_dbnode),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
     """Force a reconnection for the specified node (disconnect + reconnect)."""
+    proxied = _go_master_proxy_or_none(request, "POST", f"/api/node/{dbnode.id}/reconnect")
+    if proxied is not None:
+        return proxied
+
     if dbnode.status in {NodeStatus.disabled, NodeStatus.limited}:
         raise HTTPException(status_code=400, detail="Node is disabled or limited")
 
-    bg.add_task(go_node.reconnect_node, node_id=dbnode.id)
-    return {"detail": "Reconnection task scheduled", "node_id": dbnode.id}
+    _native_node_api_required()
 
 
 @router.post("/node/{node_id}/restart")
 def restart_node_runtime(
+    request: Request,
     bg: BackgroundTasks,
     dbnode: DBNode = Depends(get_dbnode),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
     """Restart a node runtime through the Go gRPC node controller."""
+    proxied = _go_master_proxy_or_none(request, "POST", f"/api/node/{dbnode.id}/restart")
+    if proxied is not None:
+        return proxied
+
     if dbnode.status in {NodeStatus.disabled, NodeStatus.limited}:
         raise HTTPException(status_code=400, detail="Node is disabled or limited")
 
@@ -489,21 +424,29 @@ def remove_node(
 
 @router.get("/nodes/usage", response_model=NodesUsageResponse)
 def get_usage(
+    request: Request,
     start: str = "",
     end: str = "",
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
     """Retrieve usage statistics for nodes within a specified date range."""
     start, end = validate_dates(start, end)
+    proxied = _go_master_proxy_or_none(
+        request,
+        "GET",
+        "/api/nodes/usage",
+        params={"start": start.isoformat(), "end": end.isoformat()},
+    )
+    if proxied is not None:
+        return proxied
 
-    usages = go_usage.get_nodes_usage(start, end)
-
-    return {"usages": usages}
+    _native_node_api_required()
 
 
 @router.get("/node/{node_id}/usage/daily", responses={403: responses._403, 404: responses._404})
 def get_node_usage_daily(
     node_id: int,
+    request: Request,
     start: str = "",
     end: str = "",
     granularity: str = "day",
@@ -519,17 +462,30 @@ def get_node_usage_daily(
     if granularity not in {"day", "hour"}:
         raise HTTPException(status_code=400, detail="Invalid granularity. Use 'day' or 'hour'.")
 
+    proxied = _go_master_proxy_or_none(
+        request,
+        "GET",
+        f"/api/node/{node_id}/usage/daily",
+        params={
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "granularity": granularity,
+        },
+    )
+    if proxied is not None:
+        return proxied
+
     dbnode = db.query(DBNode).filter(DBNode.id == node_id).first()
     if not dbnode:
         raise HTTPException(status_code=404, detail="Node not found")
 
-    usages = go_usage.get_node_usage_by_day(node_id, start, end, granularity)
-    return {"node_id": node_id, "node_name": dbnode.name, "usages": usages}
+    _native_node_api_required()
 
 
 @router.post("/node/{node_id}/xray/update", responses={403: responses._403, 404: responses._404})
 def update_node_runtime(
     node_id: int,
+    request: Request,
     payload: dict = Body(..., examples={"default": {"version": "v1.8.11"}}),
     dbnode: NodeResponse = Depends(get_node),
     admin: Admin = Depends(Admin.check_sudo_admin),
@@ -541,18 +497,21 @@ def update_node_runtime(
         raise HTTPException(status_code=422, detail="version is required")
 
     _require_node_binary_runtime(dbnode)
-    try:
-        go_node.update_runtime(node_id, version=version)
-        go_node.sync_node(node_id)
-    except Exception as exc:
-        raise HTTPException(502, detail=f'Node "{dbnode.name}" runtime update failed: {exc}') from exc
-
-    return {"detail": f"Node {dbnode.name} switched to {version}"}
+    proxied = _go_master_proxy_or_none(
+        request,
+        "POST",
+        f"/api/node/{node_id}/xray/update",
+        json_body={"version": version},
+    )
+    if proxied is not None:
+        return proxied
+    _native_node_api_required()
 
 
 @router.post("/node/{node_id}/geo/update", responses={403: responses._403, 404: responses._404})
 def update_node_geo(
     node_id: int,
+    request: Request,
     payload: dict = Body(
         ...,
         examples={
@@ -605,46 +564,37 @@ def update_node_geo(
         raise HTTPException(422, detail="'files' must be a non-empty list of {name,url}.")
 
     _require_node_binary_runtime(dbnode)
-    try:
-        go_node.update_geo(node_id, files=files)
-        go_node.sync_node(node_id)
-    except Exception as exc:
-        raise HTTPException(502, detail=f'Node "{dbnode.name}" geo update failed: {exc}') from exc
-
-    return {"detail": f"Geo assets updated on node {dbnode.name}"}
-
-
-def _node_operation_or_raise(node_id: int, node_name: str, action, failure_message: str):
-    try:
-        return action()
-    except Exception as exc:
-        logger.exception(failure_message)
-        detail = getattr(exc, "detail", None) or str(exc) or "Unknown node error"
-        status_code = getattr(exc, "status_code", None) or 502
-        if not isinstance(status_code, int) or status_code < 400:
-            status_code = 502
-        raise HTTPException(status_code, detail=f'Node "{node_name}" has problem: {detail}') from exc
+    proxied = _go_master_proxy_or_none(
+        request,
+        "POST",
+        f"/api/node/{node_id}/geo/update",
+        json_body={"files": files},
+    )
+    if proxied is not None:
+        return proxied
+    _native_node_api_required()
 
 
 @router.post("/node/{node_id}/service/restart", responses={403: responses._403, 404: responses._404})
 def restart_node_service(
     node_id: int,
+    request: Request,
     dbnode: NodeResponse = Depends(get_node),
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
     """Trigger the Rebecca-node binary service to restart on a node."""
     require_binary_runtime()
     _require_node_binary_runtime(dbnode)
-    try:
-        go_node.restart_service(node_id)
-    except Exception as exc:
-        raise HTTPException(502, detail=f'Node "{dbnode.name}" service restart failed: {exc}') from exc
-    return {"detail": f"Restart requested for node {dbnode.name}"}
+    proxied = _go_master_proxy_or_none(request, "POST", f"/api/node/{node_id}/service/restart")
+    if proxied is not None:
+        return proxied
+    _native_node_api_required()
 
 
 @router.post("/node/{node_id}/service/update", responses={403: responses._403, 404: responses._404})
 def update_node_service(
     node_id: int,
+    request: Request,
     payload: dict | None = Body(default=None),
     dbnode: NodeResponse = Depends(get_node),
     _: Admin = Depends(Admin.check_sudo_admin),
@@ -657,8 +607,13 @@ def update_node_service(
     version = payload.get("version")
     build_rebecca_update_args(channel=channel, version=version)
 
-    try:
-        go_node.update_service(node_id, channel=channel, version=version)
-    except Exception as exc:
-        raise HTTPException(502, detail=f'Node "{dbnode.name}" service update failed: {exc}') from exc
-    return {"detail": f"Update requested for node {dbnode.name}"}
+    proxied = _go_master_proxy_or_none(
+        request,
+        "POST",
+        f"/api/node/{node_id}/service/update",
+        json_body={"channel": channel, "version": version},
+    )
+    if proxied is not None:
+        return proxied
+
+    _native_node_api_required()

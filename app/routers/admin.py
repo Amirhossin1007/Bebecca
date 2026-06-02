@@ -86,14 +86,6 @@ def _restart_node_runtimes(startup_config=None):
     """Restart connected node runtimes; best-effort to keep request fast."""
     del startup_config
     try:
-        from app import runtime
-
-        include_db_users = getattr(getattr(getattr(runtime, "xray", None), "config", None), "include_db_users", None)
-        if include_db_users is not None:
-            include_db_users()
-    except Exception:
-        pass
-    try:
         node_operations.queue_sync_config()
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.warning("Failed to restart runtime after admin status change: %s", exc, exc_info=True)

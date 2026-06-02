@@ -12,6 +12,11 @@ type Config struct {
 	Addr               string
 	TLSCertFile        string
 	TLSKeyFile         string
+	MasterAPIEnabled   bool
+	MasterAPIAddr      string
+	MasterAPIURL       string
+	NativeNodeRoutes   bool
+	MasterAPIStartWait time.Duration
 	PythonBin          string
 	PythonApp          string
 	PythonHost         string
@@ -25,6 +30,11 @@ func LoadConfig() Config {
 		Addr:               env("REBECCA_GATEWAY_ADDR", ":8000"),
 		TLSCertFile:        firstEnv("REBECCA_GATEWAY_TLS_CERTFILE", "UVICORN_SSL_CERTFILE"),
 		TLSKeyFile:         firstEnv("REBECCA_GATEWAY_TLS_KEYFILE", "UVICORN_SSL_KEYFILE"),
+		MasterAPIEnabled:   envBool("REBECCA_MASTER_API_ENABLED", true),
+		MasterAPIAddr:      env("REBECCA_MASTER_API_ADDR", "127.0.0.1:18081"),
+		MasterAPIURL:       env("GO_MASTER_API_URL", ""),
+		NativeNodeRoutes:   envBool("REBECCA_GATEWAY_NATIVE_NODE_ROUTES", true),
+		MasterAPIStartWait: time.Duration(envInt("REBECCA_MASTER_API_START_TIMEOUT_SECONDS", 30)) * time.Second,
 		PythonBin:          env("REBECCA_PYTHON_BIN", "python"),
 		PythonApp:          env("REBECCA_PYTHON_APP", "app:app"),
 		PythonHost:         env("REBECCA_PYTHON_HOST", "127.0.0.1"),
@@ -36,6 +46,20 @@ func LoadConfig() Config {
 
 func (c Config) PythonAddr() string {
 	return net.JoinHostPort(c.PythonHost, strconv.Itoa(c.PythonPort))
+}
+
+func (c Config) ResolvedMasterAPIURL() string {
+	if strings.TrimSpace(c.MasterAPIURL) != "" {
+		return strings.TrimRight(strings.TrimSpace(c.MasterAPIURL), "/")
+	}
+	host, port, err := net.SplitHostPort(c.MasterAPIAddr)
+	if err != nil {
+		return "http://" + strings.TrimRight(c.MasterAPIAddr, "/")
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" || host == "[::]" {
+		host = "127.0.0.1"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
 
 func env(key, fallback string) string {
@@ -65,4 +89,19 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+func envBool(key string, fallback bool) bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
 }

@@ -17,6 +17,19 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	masterAPI, masterAPIURL, err := gateway.StartMasterAPI(ctx, cfg)
+	if err != nil {
+		log.Printf("native Go Master API sidecar is unavailable; Python node routes will use fallback: %v", err)
+	} else {
+		cfg.MasterAPIURL = masterAPIURL
+		log.Printf("native Go Master API sidecar is healthy on %s", cfg.MasterAPIURL)
+		go func() {
+			if err := <-masterAPI.Err(); err != nil {
+				log.Printf("native Go Master API sidecar stopped; gateway will fall back to Python for node routes: %v", err)
+			}
+		}()
+	}
+
 	python, err := gateway.StartPython(ctx, cfg)
 	if err != nil {
 		log.Fatalf("failed to start python runtime: %v", err)

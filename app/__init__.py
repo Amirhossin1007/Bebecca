@@ -125,14 +125,6 @@ if not SKIP_RUNTIME_INIT:
         # Start scheduler first (so server can start quickly)
         scheduler.start()
 
-        # Ensure enabled nodes attempt to connect through the Go/gRPC controller.
-        try:
-            from app.jobs.node_runtime import start_node_runtime  # legacy wrapper
-
-            start_node_runtime()
-        except Exception as e:
-            logger.error(f"Failed to bootstrap Go node controller on startup: {e}", exc_info=True)
-
     def on_shutdown():
         if IS_RUNNING_TESTS:
             return

@@ -7,8 +7,7 @@ module remains only for imports from older tests or integrations.
 
 import logging
 
-from app import runtime
-from app.db import GetDB
+from app.db import GetDB, crud
 from app.db.models import Node, OutboundTraffic
 from app.jobs.usage.go_collector import record_node_usages
 from app.utils.outbound import extract_outbound_metadata, generate_outbound_id
@@ -16,7 +15,6 @@ from app.utils.xray_targets import MASTER_TARGET_ID, get_node_effective_raw_conf
 
 
 logger = logging.getLogger(__name__)
-xray = getattr(runtime, "xray", None)
 
 
 def _target_identity(node_id: int | None) -> tuple[str, int | None]:
@@ -27,7 +25,7 @@ def _target_identity(node_id: int | None) -> tuple[str, int | None]:
 
 def _load_outbound_configs(db, node_id: int | None) -> dict[str, dict]:
     try:
-        config = getattr(xray, "config", {}) or {}
+        config = crud.get_xray_config(db) or {}
         if node_id is None:
             outbounds_config = config.get("outbounds", []) if isinstance(config, dict) else []
         else:

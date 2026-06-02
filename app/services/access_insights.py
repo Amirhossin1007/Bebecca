@@ -13,13 +13,9 @@ import os
 import requests
 from urllib.parse import urlsplit, urlunsplit
 
-from app import runtime
-from app.services import go_node
+from app.services import go_master_api
 from config import XRAY_ASSETS_PATH, XRAY_LOG_DIR
 from app.proto.rebecca.app.router import config_pb2
-
-
-xray = getattr(runtime, "xray", None)
 
 
 @dataclass
@@ -145,11 +141,19 @@ def _load_node_metadata() -> dict[int, dict[str, Any]]:
     return metadata
 
 
+def _runtime_nodes_from_go_master(authorization: str | None = None) -> list[dict[str, Any]]:
+    try:
+        nodes = go_master_api.request_json("GET", "/api/nodes", authorization=authorization)
+    except Exception:
+        return []
+    return nodes if isinstance(nodes, list) else []
+
+
 def _resolve_assets_base() -> Path:
     return Path(XRAY_ASSETS_PATH).expanduser()
 
 
-def get_all_log_sources() -> list[NodeLogSource]:
+def get_all_log_sources(authorization: str | None = None) -> list[NodeLogSource]:
     """
     Get all available log sources (master + connected nodes).
     Returns empty list if Access Insights is disabled.
@@ -180,35 +184,7 @@ def get_all_log_sources() -> list[NodeLogSource]:
         pass
 
     node_metadata = _load_node_metadata()
-    legacy_nodes = getattr(xray, "nodes", {}) or {}
-    if legacy_nodes:
-        for node_id, node in legacy_nodes.items():
-            try:
-                node_id = int(node_id)
-                metadata = node_metadata.get(node_id, {})
-                status_raw = metadata.get("status")
-                status = str(getattr(status_raw, "value", status_raw)).strip().lower() if status_raw is not None else ""
-                if status in {"disabled", "limited"}:
-                    continue
-                node_name = metadata.get("name") or getattr(node, "name", None) or f"Node-{node_id}"
-                sources.append(
-                    NodeLogSource(
-                        node_id=node_id,
-                        node_name=node_name,
-                        log_path=None,
-                        is_master=False,
-                        fetch_lines=lambda max_lines, _node=node: _fetch_legacy_node_access_logs(_node, max_lines),
-                        connected=bool(getattr(node, "_session_id", None) or getattr(node, "connected", False)),
-                    )
-                )
-            except Exception:
-                continue
-        return sources
-
-    try:
-        runtime_nodes = go_node.list_nodes()
-    except Exception:
-        runtime_nodes = []
+    runtime_nodes = _runtime_nodes_from_go_master(authorization=authorization)
     for runtime_node in runtime_nodes:
         try:
             node_id = int(runtime_node.get("id"))
@@ -226,7 +202,11 @@ def get_all_log_sources() -> list[NodeLogSource]:
                     node_name=node_name,
                     log_path=None,
                     is_master=False,
-                    fetch_lines=lambda max_lines, _node_id=node_id: _fetch_node_access_logs(_node_id, max_lines),
+                    fetch_lines=lambda max_lines, _node_id=node_id, _authorization=authorization: _fetch_node_access_logs(
+                        _node_id,
+                        max_lines,
+                        authorization=_authorization,
+                    ),
                     connected=connected,
                 )
             )
@@ -1138,30 +1118,33 @@ def build_access_insights(
     }
 
 
-def _fetch_node_access_logs(node_id: int, max_lines: int = 500) -> list[str]:
+def _fetch_node_access_logs(node_id: int, max_lines: int = 500, authorization: str | None = None) -> list[str]:
     """
     Fetch access logs from a remote node.
-    Uses websocket transport when available on the node, otherwise REST fallback.
+    Uses the Go Master API node logs endpoint.
     Returns list of log lines.
     """
     max_lines = max(1, int(max_lines))
     try:
-        return go_node.logs(node_id, max_lines=max_lines)
+        payload = go_master_api.request_json(
+            "GET",
+            f"/api/node/{int(node_id)}/logs",
+            authorization=authorization,
+            params={"max_lines": max_lines},
+        )
     except Exception as exc:
         raise RuntimeError(str(exc)) from exc
 
-
-def _fetch_legacy_node_access_logs(node, max_lines: int = 500) -> list[str]:
-    max_lines = max(1, int(max_lines))
-    for method_name in ("get_logs", "logs", "access_logs"):
-        method = getattr(node, method_name, None)
-        if method is None:
-            continue
-        result = method(max_lines=max_lines)
-        if isinstance(result, list):
-            return [str(line) for line in result]
-        if isinstance(result, str):
-            return result.splitlines()[-max_lines:]
+    if isinstance(payload, dict):
+        lines = payload.get("logs") or payload.get("lines") or []
+    elif isinstance(payload, list):
+        lines = payload
+    else:
+        lines = []
+    if isinstance(lines, str):
+        return lines.splitlines()[-max_lines:]
+    if isinstance(lines, list):
+        return [str(line) for line in lines][-max_lines:]
     return []
 
 
@@ -1209,6 +1192,7 @@ def stream_raw_logs(
     max_lines: int = 500,
     node_id: Optional[int] = None,
     search: str = "",
+    authorization: str | None = None,
 ) -> Iterator[dict[str, Any]]:
     """
     Stream raw log entries for frontend processing.
@@ -1226,7 +1210,7 @@ def stream_raw_logs(
         yield {"error": "settings_unavailable"}
         return
 
-    sources = get_all_log_sources()
+    sources = get_all_log_sources(authorization=authorization)
 
     # Filter to specific node if requested
     if node_id is not None:
@@ -1331,6 +1315,7 @@ def build_multi_node_insights(
     search: str = "",
     window_seconds: int = 120,
     node_ids: Optional[list[int]] = None,
+    authorization: str | None = None,
 ) -> dict[str, Any]:
     """
     Build access insights from multiple nodes with optimized memory usage.
@@ -1349,7 +1334,7 @@ def build_multi_node_insights(
     except Exception:
         pass
 
-    sources = get_all_log_sources()
+    sources = get_all_log_sources(authorization=authorization)
 
     if node_ids is not None:
         sources = [s for s in sources if s.node_id in node_ids or (s.is_master and None in node_ids)]

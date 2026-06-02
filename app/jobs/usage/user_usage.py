@@ -23,6 +23,7 @@ from app.db.models import Admin, AdminServiceLink, NodeUserUsage, Service, User
 from app.jobs.usage.collectors import get_users_stats, resolve_stats_api
 from app.jobs.usage.delivery_buffer import usage_delivery_buffer
 from app.jobs.usage.utils import hour_bucket, is_retryable_db_error, retry_delay, safe_execute, utcnow_naive
+from app.services import node_operations
 from app.models.admin import AdminStatus
 from app.models.admin import Admin as AdminSchema
 from app.models.user import UserResponse, UserStatus
@@ -46,20 +47,21 @@ _record_user_usages_lock = threading.Lock()
 
 
 def _runtime_xray():
-    try:
-        from app import runtime
-
-        return getattr(runtime, "xray", None)
-    except Exception:
-        return None
+    return None
 
 
 def _call_runtime_operation(name: str, user: User) -> None:
-    xray = _runtime_xray()
-    operation = getattr(getattr(xray, "operations", None), name, None)
-    if operation is None:
+    user_id = getattr(user, "id", None)
+    if user_id is None:
         return
-    operation(user)
+    operation_type = {
+        "add_user": node_operations.ENABLE_USER,
+        "update_user": node_operations.UPDATE_USER,
+        "remove_user": node_operations.DISABLE_USER,
+    }.get(name)
+    if operation_type is None:
+        return
+    node_operations.queue_user_operation(user_id, operation_type)
 
 
 def _chunked(items, size: int):
@@ -88,8 +90,7 @@ def _set_usage_lock_wait_timeout(db) -> None:
 
 
 def _runtime_nodes():
-    xray = _runtime_xray()
-    return getattr(xray, "nodes", {}) or {}
+    return {}
 
 
 def _build_api_instances():
