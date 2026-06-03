@@ -49,10 +49,21 @@ from config import USERS_LIST_LINKS_ENABLED, USERS_LIST_TIMEOUT_KILL_QUERY, USER
 
 router = APIRouter(tags=["User"], prefix="/api", responses={401: responses._401})
 
-# Compatibility target for older tests and import paths that patch inbound
-# metadata through app.routers.user.xray. Runtime node communication remains
-# owned by the Go Master API sidecar.
-xray = runtime_state.xray
+
+class _RuntimeXrayProxy:
+    """Live compatibility target for legacy inbound metadata patch paths."""
+
+    def __getattr__(self, name):
+        target = runtime_state.xray
+        if target is None:
+            raise AttributeError(name)
+        return getattr(target, name)
+
+
+# Runtime node communication remains owned by the Go Master API sidecar. This
+# proxy only preserves older tests/import paths that patch inbound metadata via
+# app.routers.user.xray after app.runtime.xray is initialized.
+xray = _RuntimeXrayProxy()
 
 
 _AUTO_SERVICE_INBOUND_RE = re.compile(r"^setservice-(\d+)$", re.IGNORECASE)
