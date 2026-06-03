@@ -168,7 +168,7 @@ class ServiceRepository:
         for proxy in list(dbuser.proxies):
             proxy_type = ProxyTypes(proxy.type)
             if proxy_type not in allowed_protocols:
-                self.db.delete(proxy)
+                dbuser.proxies.remove(proxy)
                 continue
             existing_proxies[proxy_type] = proxy
 

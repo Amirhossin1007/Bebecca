@@ -1414,9 +1414,9 @@ def update_user(
                 dbuser.proxies.append(new_proxy)
                 added_proxies.update({proxy_type: new_proxy})
         existing_types = {pt.value for pt in modify_proxy_types}
-        for proxy in dbuser.proxies:
+        for proxy in list(dbuser.proxies):
             if proxy.type not in modify.proxies and proxy.type not in existing_types:
-                db.delete(proxy)
+                dbuser.proxies.remove(proxy)
     if modify.inbounds:
         for proxy_type, tags in modify.excluded_inbounds.items():
             dbproxy = db.query(Proxy).where(
