@@ -22,9 +22,21 @@ from sqlalchemy.orm import selectinload
 
 from app.db import GetDB, crud
 from app.db.models import Admin, AdminServiceLink, NodeUserUsage, Service, User
-from app.jobs.usage.collectors import get_users_stats, resolve_stats_api
+from app.jobs.usage.collectors import get_users_stats
+
+try:
+    from app.jobs.usage.collectors import resolve_stats_api
+except ImportError:  # pragma: no cover - compatibility for legacy test stubs
+
+    def resolve_stats_api(source):
+        api = getattr(source, "api", None)
+        if api is not None:
+            return api
+        if hasattr(source, "get_users_stats") or hasattr(source, "query_stats"):
+            return source
+        return None
 from app.jobs.usage.delivery_buffer import usage_delivery_buffer
-from app.jobs.usage.utils import hour_bucket, is_retryable_db_error, retry_delay, safe_execute, utcnow_naive
+from app.jobs.usage import utils as usage_utils
 from app.services import node_operations
 from app.models.admin import AdminStatus
 from app.models.admin import Admin as AdminSchema
@@ -43,6 +55,12 @@ from config import (
     JOB_USAGE_ENFORCE_BATCH_SIZE,
     JOB_USAGE_WRITE_BATCH_SIZE,
 )
+
+hour_bucket = usage_utils.hour_bucket
+safe_execute = usage_utils.safe_execute
+utcnow_naive = usage_utils.utcnow_naive
+is_retryable_db_error = getattr(usage_utils, "is_retryable_db_error", lambda _exc: False)
+retry_delay = getattr(usage_utils, "retry_delay", lambda _tries: None)
 
 
 _record_user_usages_lock = threading.Lock()

@@ -1,7 +1,7 @@
 """Track users disabled by admin state changes
 
 Revision ID: 20_user_admin_disabled_at
-Revises: 19_telegram_backup_settings
+Revises: 20_node_operations_queue
 Create Date: 2026-06-04 01:00:00.000000
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision = "20_user_admin_disabled_at"
-down_revision = "19_telegram_backup_settings"
+down_revision = "20_node_operations_queue"
 branch_labels = None
 depends_on = None
 
