@@ -511,16 +511,24 @@ async def access_logs_ws(websocket: WebSocket):
 
 
 @router.get("/core", response_model=RuntimeStats)
-def get_runtime_stats(request: Request, admin: Admin = Depends(Admin.get_current)):
+def get_runtime_stats(
+    admin: Admin = Depends(Admin.get_current),
+    db: Session = Depends(get_db),
+):
     """Retrieve aggregate node runtime status."""
     started = False
     version = None
     try:
-        nodes = go_master_api.proxy_json(request, "GET", "/api/nodes")
-        for node in nodes or []:
-            if str(node.get("status", "")).lower() == "connected":
+        for node in crud.get_nodes(db):
+            status_raw = getattr(node, "status", "")
+            status_value = str(getattr(status_raw, "value", status_raw)).lower()
+            if status_value == "connected":
                 started = True
-                version = node.get("xray_version") or node.get("node_service_version") or version
+                version = (
+                    getattr(node, "xray_version", None)
+                    or getattr(node, "node_service_version", None)
+                    or version
+                )
                 break
     except Exception:
         pass
@@ -725,17 +733,18 @@ def apply_geo_assets(
             if db_node.geo_mode != "default":
                 continue
             try:
-                go_master_api.proxy_json(
-                    request,
+                authorization = request.headers.get("authorization")
+                go_master_api.request_json(
                     "POST",
                     f"/api/node/{node_id}/geo/update",
+                    authorization=authorization,
                     json_body={"files": files},
                     timeout=300,
                 )
-                go_master_api.proxy_json(
-                    request,
+                go_master_api.request_json(
                     "POST",
                     f"/api/node/{node_id}/sync",
+                    authorization=authorization,
                     timeout=90,
                 )
                 results["nodes"][str(node_id)] = {"status": "ok"}

@@ -1,8 +1,11 @@
 package gateway
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -42,5 +45,44 @@ func TestIsNativeNodeRoute(t *testing.T) {
 				t.Fatalf("isNativeNodeRoute() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNativeNodeRouteDoesNotFallbackToPython(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("python fallback"))
+	}))
+	defer python.Close()
+
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		MasterAPIURL:     "http://127.0.0.1:1",
+		NativeNodeRoutes: true,
+		PythonHost:       host,
+		PythonPort:       port,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/nodes", nil)
+	server.server.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "python fallback") {
+		t.Fatalf("native node route fell back to python: %s", rec.Body.String())
 	}
 }

@@ -36,7 +36,7 @@ func NewServer(cfg Config) (*Server, error) {
 		}
 		masterProxy = httputil.NewSingleHostReverseProxy(masterTarget)
 		masterProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-			pythonProxy.ServeHTTP(w, r)
+			http.Error(w, fmt.Sprintf("native Go Master API unavailable: %s", err), http.StatusServiceUnavailable)
 		}
 	}
 

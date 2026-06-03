@@ -1,13 +1,11 @@
 from typing import List, Union
 
-import requests
-
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, Body, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket
 from sqlalchemy.exc import IntegrityError
 
 from app.runtime import logger
 from app.db import Session, crud, get_db, GetDB
-from app.dependencies import get_dbnode, validate_dates
+from app.dependencies import get_dbnode
 from app.models.admin import Admin, AdminRole
 from app.models.node import (
     MasterNodeResponse,
@@ -22,9 +20,7 @@ from app.models.node import (
 from app.models.proxy import ProxyHost
 from app.utils import responses, report
 from app.db.models import MasterNodeState as DBMasterNodeState, Node as DBNode
-from app.routers.runtime import GEO_TEMPLATES_INDEX_DEFAULT, _resolve_geo_template_index_url
-from app.services import go_master_api, node_operations
-from app.utils.binary_control import build_rebecca_update_args, require_binary_runtime
+from app.services import node_operations
 from app.utils.crypto import (
     generate_certificate,
     generate_unique_cn,
@@ -52,28 +48,9 @@ def add_host_if_needed(new_node: NodeCreate, db: Session):
 
 
 MASTER_NODE_NAME = "Master"
-NODE_BINARY_REQUIRED_DETAIL = (
-    "This node host-level action is available only when the node is installed in binary mode. "
-    "Migrate the node to the binary version before using update, restart, runtime, or geo actions from the web UI."
+OPERATIONAL_NODE_ROUTE_DISABLED_DETAIL = (
+    "This operational node route is served directly by the Go gateway and Go Master API."
 )
-NATIVE_NODE_API_REQUIRED_DETAIL = "Native Go Master API is required for this node operation."
-
-
-def _go_master_proxy_or_none(
-    request: Request,
-    method: str,
-    path: str,
-    *,
-    params: dict | None = None,
-    json_body: object | None = None,
-):
-    if not go_master_api.is_enabled():
-        return None
-    try:
-        return go_master_api.proxy_json(request, method, path, params=params, json_body=json_body)
-    except go_master_api.GoMasterAPIUnavailable as exc:
-        logger.warning("Go Master API unavailable for %s %s; falling back to Python path: %s", method, path, exc)
-        return None
 
 
 def _serialize_node_response(dbnode: Union[DBNode, NodeResponse]) -> NodeResponse:
@@ -81,8 +58,11 @@ def _serialize_node_response(dbnode: Union[DBNode, NodeResponse]) -> NodeRespons
     return dbnode if isinstance(dbnode, NodeResponse) else NodeResponse.model_validate(dbnode)
 
 
-def _native_node_api_required() -> None:
-    raise HTTPException(status_code=503, detail=NATIVE_NODE_API_REQUIRED_DETAIL)
+def _operational_node_route_disabled() -> None:
+    raise HTTPException(
+        status_code=503,
+        detail=OPERATIONAL_NODE_ROUTE_DISABLED_DETAIL,
+    )
 
 
 def _augment_node_cert_fields(
@@ -116,12 +96,6 @@ def _augment_node_cert_fields(
         }
     )
     return updated
-
-
-def _require_node_binary_runtime(node) -> None:
-    install_mode = getattr(node, "install_mode", None) or getattr(node, "node_install_mode", None)
-    if install_mode != "binary":
-        raise HTTPException(status_code=409, detail=NODE_BINARY_REQUIRED_DETAIL)
 
 
 def _build_master_response(master: DBMasterNodeState) -> MasterNodeResponse:
@@ -242,39 +216,20 @@ def add_node(
 @router.get("/node/{node_id}", response_model=NodeResponse)
 def get_node(
     node_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    admin: Admin = Depends(Admin.check_sudo_admin),
+    _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Retrieve details of a specific node by its ID."""
-    proxied = _go_master_proxy_or_none(request, "GET", f"/api/node/{node_id}")
-    if proxied is not None:
-        return proxied
-
-    dbnode = crud.get_node_by_id(db, node_id)
-    if not dbnode:
-        raise HTTPException(status_code=404, detail="Node not found")
-    default_cert = crud.get_tls_certificate(db).certificate
-    return _augment_node_cert_fields(NodeResponse.model_validate(dbnode), dbnode, default_cert)
+    """Operational node detail is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.get("/node/{node_id}/logs")
 def get_node_logs(
     node_id: int,
-    request: Request,
     max_lines: int = 200,
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Retrieve recent node logs through the native Go Master API when enabled."""
-    proxied = _go_master_proxy_or_none(
-        request,
-        "GET",
-        f"/api/node/{node_id}/logs",
-        params={"max_lines": max_lines},
-    )
-    if proxied is not None:
-        return proxied
-    _native_node_api_required()
+    """Operational node logs are served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.post("/node/{node_id}/certificate/regenerate", response_model=NodeResponse)
@@ -310,23 +265,15 @@ async def node_logs(node_id: int, websocket: WebSocket):
     if admin.role not in (AdminRole.sudo, AdminRole.full_access):
         return await websocket.close(reason="You're not allowed", code=4403)
 
-    return await websocket.close(reason=NATIVE_NODE_API_REQUIRED_DETAIL, code=4400)
+    return await websocket.close(reason=OPERATIONAL_NODE_ROUTE_DISABLED_DETAIL, code=4400)
 
 
 @router.get("/nodes", response_model=List[NodeResponse])
 def get_nodes(
-    request: Request,
-    db: Session = Depends(get_db),
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Retrieve a list of all nodes. Accessible only to sudo admins."""
-    proxied = _go_master_proxy_or_none(request, "GET", "/api/nodes")
-    if proxied is not None:
-        return proxied
-
-    nodes = crud.get_nodes(db)
-    default_cert = crud.get_tls_certificate(db).certificate
-    return [_augment_node_cert_fields(NodeResponse.model_validate(node), node, default_cert) for node in nodes]
+    """Operational node listing is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.put("/node/{node_id}", response_model=NodeResponse)
@@ -371,39 +318,20 @@ def reset_node_usage(
 
 @router.post("/node/{node_id}/reconnect")
 def reconnect_node(
-    request: Request,
-    bg: BackgroundTasks,
-    dbnode: DBNode = Depends(get_dbnode),
-    admin: Admin = Depends(Admin.check_sudo_admin),
+    node_id: int,
+    _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Force a reconnection for the specified node (disconnect + reconnect)."""
-    proxied = _go_master_proxy_or_none(request, "POST", f"/api/node/{dbnode.id}/reconnect")
-    if proxied is not None:
-        return proxied
-
-    if dbnode.status in {NodeStatus.disabled, NodeStatus.limited}:
-        raise HTTPException(status_code=400, detail="Node is disabled or limited")
-
-    _native_node_api_required()
+    """Operational node reconnect is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.post("/node/{node_id}/restart")
 def restart_node_runtime(
-    request: Request,
-    bg: BackgroundTasks,
-    dbnode: DBNode = Depends(get_dbnode),
-    admin: Admin = Depends(Admin.check_sudo_admin),
+    node_id: int,
+    _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Restart a node runtime through the Go gRPC node controller."""
-    proxied = _go_master_proxy_or_none(request, "POST", f"/api/node/{dbnode.id}/restart")
-    if proxied is not None:
-        return proxied
-
-    if dbnode.status in {NodeStatus.disabled, NodeStatus.limited}:
-        raise HTTPException(status_code=400, detail="Node is disabled or limited")
-
-    bg.add_task(node_operations.queue_restart_node, dbnode.id)
-    return {"detail": "Restart task scheduled", "node_id": dbnode.id}
+    """Operational node runtime restart is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.delete("/node/{node_id}")
@@ -424,196 +352,57 @@ def remove_node(
 
 @router.get("/nodes/usage", response_model=NodesUsageResponse)
 def get_usage(
-    request: Request,
     start: str = "",
     end: str = "",
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Retrieve usage statistics for nodes within a specified date range."""
-    start, end = validate_dates(start, end)
-    proxied = _go_master_proxy_or_none(
-        request,
-        "GET",
-        "/api/nodes/usage",
-        params={"start": start.isoformat(), "end": end.isoformat()},
-    )
-    if proxied is not None:
-        return proxied
-
-    _native_node_api_required()
+    """Operational node usage is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.get("/node/{node_id}/usage/daily", responses={403: responses._403, 404: responses._404})
 def get_node_usage_daily(
     node_id: int,
-    request: Request,
     start: str = "",
     end: str = "",
     granularity: str = "day",
-    db: Session = Depends(get_db),
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """
-    Get usage for a specific node, regardless of admin.
-    Supports daily (default) or hourly granularity.
-    """
-    start, end = validate_dates(start, end)
-    granularity = (granularity or "day").lower()
-    if granularity not in {"day", "hour"}:
-        raise HTTPException(status_code=400, detail="Invalid granularity. Use 'day' or 'hour'.")
-
-    proxied = _go_master_proxy_or_none(
-        request,
-        "GET",
-        f"/api/node/{node_id}/usage/daily",
-        params={
-            "start": start.isoformat(),
-            "end": end.isoformat(),
-            "granularity": granularity,
-        },
-    )
-    if proxied is not None:
-        return proxied
-
-    dbnode = db.query(DBNode).filter(DBNode.id == node_id).first()
-    if not dbnode:
-        raise HTTPException(status_code=404, detail="Node not found")
-
-    _native_node_api_required()
+    """Operational node daily usage is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.post("/node/{node_id}/xray/update", responses={403: responses._403, 404: responses._404})
 def update_node_runtime(
     node_id: int,
-    request: Request,
-    payload: dict = Body(..., examples={"default": {"version": "v1.8.11"}}),
-    dbnode: NodeResponse = Depends(get_node),
-    admin: Admin = Depends(Admin.check_sudo_admin),
+    _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Ask a node to update/switch its Xray-core to a specific version, then restart node runtime."""
-    require_binary_runtime()
-    version = payload.get("version")
-    if not version or not isinstance(version, str):
-        raise HTTPException(status_code=422, detail="version is required")
-
-    _require_node_binary_runtime(dbnode)
-    proxied = _go_master_proxy_or_none(
-        request,
-        "POST",
-        f"/api/node/{node_id}/xray/update",
-        json_body={"version": version},
-    )
-    if proxied is not None:
-        return proxied
-    _native_node_api_required()
+    """Operational node runtime update is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.post("/node/{node_id}/geo/update", responses={403: responses._403, 404: responses._404})
 def update_node_geo(
     node_id: int,
-    request: Request,
-    payload: dict = Body(
-        ...,
-        examples={
-            "default": {
-                "files": [
-                    {"name": "geosite.dat", "url": "https://.../geosite.dat"},
-                    {"name": "geoip.dat", "url": "https://.../geoip.dat"},
-                ],
-                "template_index_url": "https://.../index.json",
-                "template_name": "standard",
-            }
-        },
-    ),
-    dbnode: NodeResponse = Depends(get_node),
-    admin: Admin = Depends(Admin.check_sudo_admin),
+    _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """
-    Download and install geo assets on a specific node (custom mode).
-    Supports direct files list or template selection.
-    """
-    require_binary_runtime()
-    files = payload.get("files") or []
-    mode = (payload.get("mode") or "").strip().lower()
-    template_index_url = (
-        payload.get("template_index_url") or payload.get("templateIndexUrl") or GEO_TEMPLATES_INDEX_DEFAULT
-    ).strip()
-    template_name = (payload.get("template_name") or payload.get("templateName") or "").strip()
-
-    if not files and (mode == "template" or template_name):
-        try:
-            index_url = _resolve_geo_template_index_url(template_index_url, field_name="template_index_url")
-            r = requests.get(index_url, timeout=60)
-            r.raise_for_status()
-            data = r.json()
-        except Exception as e:
-            raise HTTPException(502, detail=f"Failed to fetch template index: {e}")
-        candidates = data.get("templates", data if isinstance(data, list) else [])
-        if not isinstance(candidates, list) or not candidates:
-            raise HTTPException(404, detail="No templates found in index.")
-
-        target_name = template_name or candidates[0].get("name") or ""
-        found = next((t for t in candidates if t.get("name") == target_name), None)
-        if not found:
-            raise HTTPException(404, detail="Template not found in index.")
-
-        links = found.get("links") or {}
-        files = found.get("files") or [{"name": k, "url": v} for k, v in links.items()]
-
-    if not files or not isinstance(files, list):
-        raise HTTPException(422, detail="'files' must be a non-empty list of {name,url}.")
-
-    _require_node_binary_runtime(dbnode)
-    proxied = _go_master_proxy_or_none(
-        request,
-        "POST",
-        f"/api/node/{node_id}/geo/update",
-        json_body={"files": files},
-    )
-    if proxied is not None:
-        return proxied
-    _native_node_api_required()
+    """Operational node geo update is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.post("/node/{node_id}/service/restart", responses={403: responses._403, 404: responses._404})
 def restart_node_service(
     node_id: int,
-    request: Request,
-    dbnode: NodeResponse = Depends(get_node),
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Trigger the Rebecca-node binary service to restart on a node."""
-    require_binary_runtime()
-    _require_node_binary_runtime(dbnode)
-    proxied = _go_master_proxy_or_none(request, "POST", f"/api/node/{node_id}/service/restart")
-    if proxied is not None:
-        return proxied
-    _native_node_api_required()
+    """Operational node service restart is served directly by the Go gateway."""
+    _operational_node_route_disabled()
 
 
 @router.post("/node/{node_id}/service/update", responses={403: responses._403, 404: responses._404})
 def update_node_service(
     node_id: int,
-    request: Request,
-    payload: dict | None = Body(default=None),
-    dbnode: NodeResponse = Depends(get_node),
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    """Trigger the Rebecca-node binary service to update itself on a node."""
-    require_binary_runtime()
-    _require_node_binary_runtime(dbnode)
-    payload = payload or {}
-    channel = payload.get("channel")
-    version = payload.get("version")
-    build_rebecca_update_args(channel=channel, version=version)
-
-    proxied = _go_master_proxy_or_none(
-        request,
-        "POST",
-        f"/api/node/{node_id}/service/update",
-        json_body={"channel": channel, "version": version},
-    )
-    if proxied is not None:
-        return proxied
-
-    _native_node_api_required()
+    """Operational node service update is served directly by the Go gateway."""
+    _operational_node_route_disabled()

@@ -342,22 +342,21 @@ func (s *Server) handleNodeRuntimeUpdate(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *Server) handleNodeGeoUpdate(w http.ResponseWriter, r *http.Request, nodeID int64) {
-	var payload struct {
-		Files []nodecontroller.File `json:"files"`
-	}
+	var payload geoUpdatePayload
 	if err := decodeOptionalJSON(r, &payload); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if len(payload.Files) == 0 {
-		writeError(w, http.StatusUnprocessableEntity, "files is required")
+	files, status, err := resolveGeoUpdateFiles(r.Context(), payload)
+	if err != nil {
+		writeError(w, status, err.Error())
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 	result, err := s.nodeController.UpdateGeo(ctx, nodecontroller.Request{
 		NodeID: nodeID,
-		Files:  payload.Files,
+		Files:  files,
 	})
 	if err != nil {
 		writeControllerError(w, err)

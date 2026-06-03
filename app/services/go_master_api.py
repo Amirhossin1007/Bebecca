@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import requests
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 
 from config import GO_MASTER_API_TIMEOUT_SECONDS, GO_MASTER_API_URL, GO_MASTER_API_VERIFY_TLS
 
@@ -14,25 +14,6 @@ class GoMasterAPIUnavailable(RuntimeError):
 
 def is_enabled() -> bool:
     return bool(GO_MASTER_API_URL)
-
-
-def proxy_json(
-    request: Request,
-    method: str,
-    path: str,
-    *,
-    params: dict[str, Any] | None = None,
-    json_body: Any | None = None,
-    timeout: float | None = None,
-) -> Any:
-    return request_json(
-        method,
-        path,
-        authorization=request.headers.get("authorization"),
-        params=params,
-        json_body=json_body,
-        timeout=timeout,
-    )
 
 
 def request_json(

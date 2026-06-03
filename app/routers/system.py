@@ -11,7 +11,7 @@ from typing import Dict, List
 
 import commentjson
 import psutil
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app import __version__
@@ -19,7 +19,7 @@ from app.db import Session, crud, get_db
 from app.db.models import ProxyHost as DbProxyHost, ServiceHostLink
 from app.models.admin import Admin, AdminRole
 from app.models.proxy import ProxyHost, ProxyInbound, ProxyTypes
-from app.services import go_dashboard, go_master_api, node_operations
+from app.services import go_dashboard, node_operations
 from app.models.system import (
     AdminOverviewStats,
     PersonalUsageStats,
@@ -128,7 +128,10 @@ def _queue_service_users_refresh(bg: BackgroundTasks, service_ids: set[int]) -> 
 
 
 @router.get("/system", response_model=SystemStats)
-def get_system_stats(request: Request, admin: Admin = Depends(Admin.get_current)):
+def get_system_stats(
+    admin: Admin = Depends(Admin.get_current),
+    db: Session = Depends(get_db),
+):
     """Fetch system stats including CPU and user metrics."""
     cpu = cpu_usage()
     dashboard_summary = go_dashboard.get_system_summary(admin)
@@ -168,11 +171,12 @@ def get_system_stats(request: Request, admin: Admin = Depends(Admin.get_current)
     xray_version = None
     last_xray_error = None
     try:
-        nodes = go_master_api.proxy_json(request, "GET", "/api/nodes")
-        for node in nodes or []:
-            if str(node.get("status", "")).lower() == "connected":
+        for node in crud.get_nodes(db):
+            status_raw = getattr(node, "status", "")
+            status_value = str(getattr(status_raw, "value", status_raw)).lower()
+            if status_value == "connected":
                 xray_running = True
-                xray_version = node.get("xray_version") or xray_version
+                xray_version = getattr(node, "xray_version", None) or xray_version
                 break
     except Exception:
         pass
