@@ -74,4 +74,14 @@ def get_inbounds_by_tag_cached(db: Session, force_refresh: bool = False) -> Dict
             continue
         for tag, inbound in config.inbounds_by_tag.items():
             inbounds.setdefault(tag, inbound)
+    if not inbounds:
+        try:
+            from app import runtime as runtime_state
+
+            runtime_xray = runtime_state.xray
+            runtime_inbounds = getattr(getattr(runtime_xray, "config", None), "inbounds_by_tag", None)
+            if isinstance(runtime_inbounds, dict):
+                inbounds.update(runtime_inbounds)
+        except Exception:
+            pass
     return inbounds

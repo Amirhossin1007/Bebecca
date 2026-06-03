@@ -10,6 +10,8 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from itertools import islice
+import contextlib
+import os
 import threading
 import time
 from typing import Dict, List, Optional, Tuple, Union
@@ -47,7 +49,9 @@ _record_user_usages_lock = threading.Lock()
 
 
 def _runtime_xray():
-    return None
+    from app import runtime as runtime_state
+
+    return runtime_state.xray
 
 
 def _call_runtime_operation(name: str, user: User) -> None:
@@ -62,6 +66,11 @@ def _call_runtime_operation(name: str, user: User) -> None:
     if operation_type is None:
         return
     node_operations.queue_user_operation(user_id, operation_type)
+    if os.getenv("REBECCA_SKIP_RUNTIME_INIT") == "1":
+        with contextlib.suppress(Exception):
+            operation = getattr(getattr(_runtime_xray(), "operations", None), name, None)
+            if operation is not None:
+                operation(user)
 
 
 def _chunked(items, size: int):
@@ -90,7 +99,10 @@ def _set_usage_lock_wait_timeout(db) -> None:
 
 
 def _runtime_nodes():
-    return {}
+    runtime_xray = _runtime_xray()
+    if runtime_xray is None:
+        return {}
+    return getattr(runtime_xray, "nodes", {}) or {}
 
 
 def _build_api_instances():

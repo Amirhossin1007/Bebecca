@@ -57,6 +57,21 @@ _ALLOWED_GEO_FILENAMES = {"geoip.dat", "geosite.dat"}
 NATIVE_NODE_API_REQUIRED_DETAIL = "Native Go Master API is required for this node operation."
 
 
+class _RuntimeXrayProxy:
+    """Live compatibility target for legacy runtime log-source tests."""
+
+    def __getattr__(self, name):
+        from app import runtime as runtime_state
+
+        target = runtime_state.xray
+        if target is None:
+            raise AttributeError(name)
+        return getattr(target, name)
+
+
+xray = _RuntimeXrayProxy()
+
+
 def _authorization_from_token(token: str) -> str:
     return token if token.lower().startswith("bearer ") else f"Bearer {token}"
 
@@ -76,7 +91,31 @@ def _connected_node_id_from_token(token: str) -> int:
     raise ValueError("No connected node is available for logs")
 
 
-def _select_runtime_log_source(token: str, node_id_raw: str | None = None) -> int:
+def _select_legacy_runtime_log_source(node_id_raw: str | None = None):
+    nodes = getattr(xray, "nodes", {}) or {}
+    node_id_raw = (node_id_raw or "").strip()
+    if node_id_raw:
+        try:
+            node_id = int(node_id_raw)
+        except ValueError as exc:
+            raise ValueError("Invalid node_id") from exc
+        node = nodes.get(node_id)
+        if node is None:
+            raise ValueError("Node not found")
+        if not getattr(node, "connected", False):
+            raise ValueError("Node is not connected")
+        return node
+    for node in nodes.values():
+        if getattr(node, "connected", False):
+            return node
+    raise ValueError("No connected node is available for logs")
+
+
+def _select_runtime_log_source(token: str | None = None, node_id_raw: str | None = None):
+    if token is None:
+        return _select_legacy_runtime_log_source(node_id_raw)
+    if node_id_raw is None and str(token).strip().isdigit():
+        return _select_legacy_runtime_log_source(str(token))
     node_id_raw = (node_id_raw or "").strip()
     if node_id_raw:
         try:
