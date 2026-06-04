@@ -4,14 +4,22 @@ import tempfile
 import uuid
 
 TEST_DB_PATH = Path(tempfile.gettempdir()) / f"rebecca_test_{uuid.uuid4().hex}.sqlite"
-TEST_DATABASE_URL = (
-    os.getenv("REBECCA_TEST_DATABASE_URL")
-    or os.getenv("SQLALCHEMY_DATABASE_URL")
-    or f"sqlite:///{TEST_DB_PATH}"
-)
+TEST_DATABASE_URL = os.getenv("REBECCA_TEST_DATABASE_URL") or f"sqlite:///{TEST_DB_PATH}"
 EXTERNAL_TEST_DATABASE = bool(os.getenv("REBECCA_TEST_DATABASE_URL"))
+TEST_ENV_PATH = Path(tempfile.gettempdir()) / f"rebecca_test_{uuid.uuid4().hex}.env"
+TEST_ENV_PATH.write_text(
+    "\n".join(
+        [
+            f"SQLALCHEMY_DATABASE_URL={TEST_DATABASE_URL}",
+            "REBECCA_SKIP_RUNTIME_INIT=1",
+        ]
+    )
+    + "\n",
+    encoding="utf-8",
+)
 
 os.environ.setdefault("REBECCA_SKIP_RUNTIME_INIT", "1")
+os.environ["REBECCA_ENV_FILE"] = str(TEST_ENV_PATH)
 # Keep the application engine and the pytest fixture engine on the same database.
 os.environ["SQLALCHEMY_DATABASE_URL"] = TEST_DATABASE_URL
 
@@ -175,13 +183,96 @@ def client(setup_test_admin):
 
 @pytest.fixture(scope="session")
 def auth_client(client):
-    # Login to get token
-    response = client.post("/api/admin/token", data={"username": "testadmin", "password": "testpass"})
-    assert response.status_code == 200
-    token = response.json()["access_token"]
-
-    client.headers.update({"Authorization": f"Bearer {token}"})
+    client.headers.update(admin_auth_headers("testadmin"))
     return client
+
+
+def admin_auth_headers(username: str, role: str = "standard") -> dict[str, str]:
+    import jwt
+    from datetime import datetime, timezone
+
+    data = {"sub": username, "role": role, "iat": datetime.now(timezone.utc)}
+    token = jwt.encode(data, _test_admin_secret_key(), algorithm="HS256")
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _test_admin_secret_key() -> str:
+    from app.db.crud import get_admin_secret_key
+
+    db = TestingSessionLocal()
+    try:
+        return get_admin_secret_key(db)
+    finally:
+        db.close()
+
+
+def _test_admin_payload(token: str):
+    import jwt
+    from datetime import datetime, timezone
+
+    try:
+        payload = jwt.decode(token, _test_admin_secret_key(), algorithms=["HS256"])
+    except jwt.exceptions.PyJWTError:
+        return None
+    username = payload.get("sub")
+    role_value = payload.get("role") or payload.get("access")
+    if not username or not role_value:
+        return None
+    if role_value == "admin":
+        role_value = "standard"
+    elif role_value not in ("standard", "sudo", "full_access"):
+        return None
+    try:
+        created_at = datetime.fromtimestamp(payload["iat"], timezone.utc)
+    except KeyError:
+        created_at = None
+    return {"username": username, "role": role_value, "created_at": created_at}
+
+
+@pytest.fixture(autouse=True)
+def mock_go_admin_validation(monkeypatch):
+    from fastapi import HTTPException
+
+    from app.db import crud
+    from app.models.admin import Admin, AdminStatus
+    from app.services import go_master_api
+
+    original_request_json = go_master_api.request_json
+
+    def fake_request_json(method, path, *, authorization=None, json_body=None, **kwargs):
+        if path != "/internal/admin/validate":
+            return original_request_json(method, path, authorization=authorization, json_body=json_body, **kwargs)
+
+        token = ""
+        if authorization and authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        if not token and isinstance(json_body, dict):
+            token = str(json_body.get("token") or "").strip()
+        if not token:
+            raise HTTPException(status_code=401, detail="missing bearer token")
+
+        db = TestingSessionLocal()
+        try:
+            payload = _test_admin_payload(token)
+            if payload:
+                dbadmin = crud.get_admin(db, payload["username"])
+                if not dbadmin:
+                    raise HTTPException(status_code=401, detail="admin not found")
+                admin_payload = Admin.model_validate(dbadmin).model_dump(mode="json")
+                return {"valid": True, "source": "jwt", "admin": admin_payload}
+
+            api_key = crud.get_admin_api_key_by_token(db, token)
+            if not api_key:
+                raise HTTPException(status_code=401, detail="invalid admin token")
+            dbadmin = crud.get_admin_by_id(db, api_key.admin_id)
+            if not dbadmin or dbadmin.status != AdminStatus.active:
+                raise HTTPException(status_code=401, detail="admin is not active")
+            admin_payload = Admin.model_validate(dbadmin).model_dump(mode="json")
+            return {"valid": True, "source": "api_key", "admin": admin_payload}
+        finally:
+            db.close()
+
+    monkeypatch.setattr(go_master_api, "request_json", fake_request_json)
 
 
 @pytest.fixture

@@ -1,9 +1,8 @@
 from typing import Optional, Union
-from app.models.admin import AdminInDB, AdminValidationResult, Admin, AdminRole, AdminStatus
+from app.models.admin import AdminValidationResult, Admin, AdminRole
 from app.models.user import UserResponse, UserStatus
 from app.db.models import User
 from app.db import Session, crud, get_db
-from config import SUDOERS
 from fastapi import Depends, HTTPException, Path
 from datetime import datetime, timezone, timedelta
 from app.utils.jwt import get_subscription_payload
@@ -34,20 +33,21 @@ def _try_normalize_subscription_key(value: str) -> Optional[str]:
 
 
 def validate_admin(db: Session, username: str, password: str) -> Optional[AdminValidationResult]:
-    """Validate admin credentials with environment variables or database."""
-    if SUDOERS.get(username) == password:
-        return AdminValidationResult(username=username, role=AdminRole.full_access)
+    """Legacy credential helper backed by Go Admin/Auth.
 
-    dbadmin = crud.get_admin(db, username)
-    if dbadmin and AdminInDB.model_validate(dbadmin).verify_password(password):
-        if crud.enforce_admin_time_limit(db, dbadmin):
-            db.commit()
-            db.refresh(dbadmin)
-        if dbadmin.status != AdminStatus.active:
-            return None
-        return AdminValidationResult(username=dbadmin.username, role=dbadmin.role)
+    Admin login is Go-native. This wrapper remains only for older imports and
+    tests that still call ``validate_admin`` directly.
+    """
+    del db
+    from app.services import go_admin
 
-    return None
+    admin_payload = go_admin.validate_credentials(username, password)
+    if not admin_payload:
+        return None
+    return AdminValidationResult(
+        username=admin_payload.get("username", username),
+        role=AdminRole(admin_payload.get("role") or AdminRole.standard),
+    )
 
 
 def get_admin_by_username(username: str, db: Session = Depends(get_db)):

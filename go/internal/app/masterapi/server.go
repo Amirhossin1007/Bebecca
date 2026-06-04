@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	adminapp "github.com/rebeccapanel/rebecca/go/internal/app/admin"
 	"github.com/rebeccapanel/rebecca/go/internal/app/nodecontroller"
 	"github.com/rebeccapanel/rebecca/go/internal/app/usage"
 	"github.com/rebeccapanel/rebecca/go/internal/platform/db"
@@ -21,6 +22,8 @@ type Server struct {
 	cfg            Config
 	db             *sql.DB
 	dialect        string
+	adminRepo      adminapp.Repository
+	adminAuth      adminapp.Authenticator
 	nodeController nodecontroller.Controller
 	usageService   usage.Service
 }
@@ -30,12 +33,19 @@ func New(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	adminRepo := adminapp.NewRepository(pool.DB, pool.Dialect)
 	nodeRepo := nodecontroller.NewRepository(pool.DB, pool.Dialect)
 	usageRepo := usage.NewRepository(pool.DB, pool.Dialect)
+	sudoers := []string{}
+	if strings.TrimSpace(cfg.SudoUsername) != "" && strings.TrimSpace(cfg.SudoPassword) != "" {
+		sudoers = append(sudoers, cfg.SudoUsername)
+	}
 	return &Server{
 		cfg:            cfg,
 		db:             pool.DB,
 		dialect:        pool.Dialect,
+		adminRepo:      adminRepo,
+		adminAuth:      adminapp.NewAuthenticator(adminRepo, adminapp.WithSudoers(sudoers)),
 		nodeController: nodecontroller.NewController(nodeRepo),
 		usageService:   usage.NewService(usageRepo),
 	}, nil
@@ -44,6 +54,20 @@ func New(cfg Config) (*Server, error) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/__rebecca_master_api/healthz", s.handleHealth)
+	mux.HandleFunc("/admin/token", s.handleAdminToken)
+	mux.HandleFunc("/api/admin/token", s.handleAdminToken)
+	mux.HandleFunc("/api/admin/permissions/standard/bulk", s.requireAdmin(s.handleBulkStandardPermissions))
+	mux.HandleFunc("/api/admin/usage/reset/", s.requireAdmin(s.handleAdminUsageResetPath))
+	mux.HandleFunc("/api/admin/usage/", s.requireAdmin(s.handleAdminUsageValuePath))
+	mux.HandleFunc("/api/admin/", s.requireAdmin(s.handleAdminMutationPath))
+	mux.HandleFunc("/api/admin", s.requireAdmin(s.handleAdminRoot))
+	mux.HandleFunc("/api/admins", s.requireAdmin(s.handleAdminsList))
+	mux.HandleFunc("/internal/admin/validate", s.handleInternalAdminValidate)
+	mux.HandleFunc("/api/myaccount/change_password", s.requireAdmin(s.handleMyAccountChangePassword))
+	mux.HandleFunc("/api/myaccount/api-keys/", s.requireAdmin(s.handleMyAccountAPIKeyPath))
+	mux.HandleFunc("/api/myaccount/api-keys", s.requireAdmin(s.handleMyAccountAPIKeys))
+	mux.HandleFunc("/api/myaccount/nodes", s.requireAdmin(s.handleMyAccountNodes))
+	mux.HandleFunc("/api/myaccount", s.requireAdmin(s.handleMyAccount))
 	mux.HandleFunc("/api/nodes", s.requireSudo(s.handleNodes))
 	mux.HandleFunc("/api/nodes/usage", s.requireSudo(s.handleNodesUsage))
 	mux.HandleFunc("/api/node/", s.requireSudo(s.handleNodePath))

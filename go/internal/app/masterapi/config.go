@@ -11,11 +11,14 @@ import (
 const defaultAddress = "127.0.0.1:18080"
 
 type Config struct {
-	Address                    string
-	Database                   string
-	TLSCert                    string
-	TLSKey                     string
-	NodeOperationsPollInterval string
+	Address                     string
+	Database                    string
+	TLSCert                     string
+	TLSKey                      string
+	NodeOperationsPollInterval  string
+	JWTAccessTokenExpireMinutes int
+	SudoUsername                string
+	SudoPassword                string
 }
 
 func LoadConfig() (Config, error) {
@@ -47,16 +50,31 @@ func LoadConfig() (Config, error) {
 	}
 
 	cfg := Config{
-		Address:                    addr,
-		Database:                   lookup("SQLALCHEMY_DATABASE_URL", "DATABASE_URL"),
-		TLSCert:                    lookup("REBECCA_MASTER_API_TLS_CERTFILE", "UVICORN_SSL_CERTFILE", "SSL_CERTFILE"),
-		TLSKey:                     lookup("REBECCA_MASTER_API_TLS_KEYFILE", "UVICORN_SSL_KEYFILE", "SSL_KEYFILE"),
-		NodeOperationsPollInterval: lookup("REBECCA_NODE_OPERATIONS_POLL_INTERVAL"),
+		Address:                     addr,
+		Database:                    lookup("SQLALCHEMY_DATABASE_URL", "DATABASE_URL"),
+		TLSCert:                     lookup("REBECCA_MASTER_API_TLS_CERTFILE", "UVICORN_SSL_CERTFILE", "SSL_CERTFILE"),
+		TLSKey:                      lookup("REBECCA_MASTER_API_TLS_KEYFILE", "UVICORN_SSL_KEYFILE", "SSL_KEYFILE"),
+		NodeOperationsPollInterval:  lookup("REBECCA_NODE_OPERATIONS_POLL_INTERVAL"),
+		JWTAccessTokenExpireMinutes: parseIntDefault(lookup("JWT_ACCESS_TOKEN_EXPIRE_MINUTES"), 1440),
+		SudoUsername:                lookup("SUDO_USERNAME"),
+		SudoPassword:                lookup("SUDO_PASSWORD"),
 	}
 	if cfg.Database == "" {
 		return Config{}, fmt.Errorf("SQLALCHEMY_DATABASE_URL is required")
 	}
 	return cfg, nil
+}
+
+func parseIntDefault(value string, fallback int) int {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	var result int
+	if _, err := fmt.Sscanf(value, "%d", &result); err != nil {
+		return fallback
+	}
+	return result
 }
 
 func loadEnvFiles() map[string]string {

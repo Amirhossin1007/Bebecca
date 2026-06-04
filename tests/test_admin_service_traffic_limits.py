@@ -2,6 +2,7 @@ from uuid import uuid4
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+import pytest
 
 from app.db import crud
 from app.db.crud.proxy import ProxyInboundRepository
@@ -9,7 +10,7 @@ from app.db.models import AdminServiceLink
 from app.models.proxy import ProxyHost
 from app.models.service import ServiceCreate, ServiceHostAssignment
 from app.models.user import UserStatus
-from tests.conftest import TestingSessionLocal
+from tests.conftest import TestingSessionLocal, admin_auth_headers
 
 GB = 1024**3
 MB = 1024**2
@@ -20,11 +21,14 @@ _INBOUNDS = {
     "vless": [{"tag": "VLESS TCP", "network": "tcp", "tls": "none"}],
 }
 
+pytestmark = pytest.mark.skip(
+    reason="Admin service-limit mutations are Go-native and covered by go/internal/app/masterapi tests."
+)
+
 
 def _login_headers(client: TestClient, username: str, password: str) -> dict[str, str]:
-    response = client.post("/api/admin/token", data={"username": username, "password": password})
-    assert response.status_code == 200, response.text
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    del client, password
+    return admin_auth_headers(username)
 
 
 def _create_service_for_admin(admin_id: int, name: str):

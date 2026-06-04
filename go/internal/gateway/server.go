@@ -29,7 +29,7 @@ func NewServer(cfg Config) (*Server, error) {
 	}
 
 	var masterProxy *httputil.ReverseProxy
-	if cfg.NativeNodeRoutes && strings.TrimSpace(cfg.MasterAPIURL) != "" {
+	if strings.TrimSpace(cfg.MasterAPIURL) != "" {
 		masterTarget, err := url.Parse(strings.TrimRight(cfg.MasterAPIURL, "/"))
 		if err != nil {
 			return nil, err
@@ -73,7 +73,19 @@ func NewServer(cfg Config) (*Server, error) {
 		}
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if masterProxy != nil && isNativeNodeRoute(r) {
+		if isNativeAdminRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
+		if cfg.NativeNodeRoutes && isNativeNodeRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
 			masterProxy.ServeHTTP(w, r)
 			return
 		}
@@ -88,6 +100,28 @@ func NewServer(cfg Config) (*Server, error) {
 			ReadHeaderTimeout: 15 * time.Second,
 		},
 	}, nil
+}
+
+func isNativeAdminRoute(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	switch path {
+	case "/api/admin":
+		return r.Method == http.MethodGet || r.Method == http.MethodPost
+	case "/api/admins":
+		return r.Method == http.MethodGet
+	case "/api/admin/token", "/admin/token":
+		return r.Method == http.MethodPost
+	}
+	if strings.HasPrefix(path, "/api/admin/") {
+		return true
+	}
+	if path == "/api/myaccount" || strings.HasPrefix(path, "/api/myaccount/") {
+		return true
+	}
+	return false
 }
 
 func isNativeNodeRoute(r *http.Request) bool {

@@ -1,6 +1,5 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-from datetime import datetime, timezone
 from collections.abc import Mapping
 
 from fastapi import Depends, HTTPException, status
@@ -11,8 +10,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.base import SessionLocal
-from app.utils.jwt import get_admin_payload
-from config import SUDOERS
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/token")  # Admin view url
@@ -27,18 +24,6 @@ def get_db():
         raise
     finally:
         db.close()
-
-
-def _to_utc_aware(dt: Optional[datetime]) -> Optional[datetime]:
-    """
-    Normalize datetimes so comparisons never mix aware/naive objects.
-    We treat naive values as UTC (the DB stores naive UTC timestamps).
-    """
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
 
 
 class AdminStatus(str, Enum):
@@ -633,35 +618,6 @@ class Admin(BaseModel):
                     detail="Next plan with unlimited duration is not allowed for your role.",
                 )
 
-    def ensure_can_manage_admin(self, target: "Admin") -> None:
-        if target.username == self.username:
-            return
-        if target.role == AdminRole.full_access:
-            if not self.has_full_access:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Only full access admins can manage other full access accounts.",
-                )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Full access admins cannot manage other full access accounts.",
-            )
-        if self.has_full_access:
-            return
-        perms = self.permissions.admin_management
-        if not perms.allows(AdminManagementPermission.edit):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You're not allowed to manage other admins.",
-            )
-        if target.role in (AdminRole.sudo, AdminRole.full_access) and not perms.allows(
-            AdminManagementPermission.manage_sudo
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You're not allowed to manage sudo admins.",
-            )
-
     @field_validator("users_usage", mode="before")
     def cast_to_int(cls, v):
         if v is None:  # Allow None values
@@ -694,56 +650,11 @@ class Admin(BaseModel):
 
     @classmethod
     def get_admin(cls, token: str, db: Session):
-        from app.db import crud
+        del db
+        from app.services import go_admin
 
-        payload = get_admin_payload(token)
-        if not payload:
-            try:
-                api_key = crud.get_admin_api_key_by_token(db, token)
-            except Exception:
-                api_key = None
-            if api_key:
-                if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
-                    return
-                dbadmin = crud.get_admin_by_id(db, api_key.admin_id)
-                if not dbadmin or dbadmin.status != AdminStatus.active:
-                    return
-                api_key.last_used_at = datetime.now(timezone.utc)
-                try:
-                    db.add(api_key)
-                    db.commit()
-                except Exception:
-                    db.rollback()
-                return cls.model_validate(dbadmin)
-            return
-
-        role_name = payload.get("role")
-        try:
-            payload_role = AdminRole(role_name) if role_name else AdminRole.standard
-        except ValueError:
-            payload_role = AdminRole.standard
-
-        if payload["username"] in SUDOERS:
-            return cls(
-                username=payload["username"],
-                role=payload_role,
-                permissions=ROLE_DEFAULT_PERMISSIONS[payload_role],
-            )
-
-        dbadmin = crud.get_admin(db, payload["username"])
-        if not dbadmin:
-            return
-
-        if dbadmin.password_reset_at:
-            if not payload.get("created_at"):
-                return
-            # Normalize both datetimes to UTC-aware for comparison
-            password_reset_at_utc = _to_utc_aware(dbadmin.password_reset_at)
-            created_at_utc = _to_utc_aware(payload.get("created_at"))
-            if password_reset_at_utc and created_at_utc and password_reset_at_utc > created_at_utc:
-                return
-
-        return cls.model_validate(dbadmin)
+        admin_payload = go_admin.validate_token(token)
+        return cls.model_validate(admin_payload)
 
     @classmethod
     def get_current(cls, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
@@ -915,14 +826,6 @@ class AdminPartialModify(AdminModify):
         description="Maximum number of users (null = unlimited)",
         json_schema_extra={"example": 100},
     )
-
-
-class AdminInDB(Admin):
-    username: str
-    hashed_password: str
-
-    def verify_password(self, plain_password):
-        return pwd_context.verify(plain_password, self.hashed_password)
 
 
 class AdminValidationResult(BaseModel):

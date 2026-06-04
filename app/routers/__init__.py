@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from app.utils.request_context import capture_subscription_request_origin
 from . import (
     ads,
-    admin,
     runtime,
     node,
     subscription,
@@ -13,14 +12,12 @@ from . import (
     home,
     service,
     settings,
-    myaccount,
 )
 
 api_router = APIRouter()
 
 routers = [
     ads.router,
-    admin.router,
     runtime.router,
     node.router,
     subscription.router,
@@ -30,7 +27,6 @@ routers = [
     home.router,
     service.router,
     settings.router,
-    myaccount.router,
     subscription_alias.router,
 ]
 

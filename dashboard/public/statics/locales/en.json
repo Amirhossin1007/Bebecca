@@ -560,6 +560,7 @@
 	"login": "Login",
 	"login.fieldRequired": "This field is required",
 	"login.loginYourAccount": "Login to your account",
+	"login.welcome": "Welcome",
 	"login.welcomeBack": "Welcome back, please enter your details",
 	"memoryHistory": "Memory history",
 	"memoryUsage": "Memory usage",

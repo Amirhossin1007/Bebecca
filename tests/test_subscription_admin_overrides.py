@@ -6,19 +6,24 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.db.models import Admin as DBAdmin
+from app.models.admin import AdminRole, AdminStatus
 from app.services.subscription_settings import SubscriptionSettingsService
 from tests.conftest import TestingSessionLocal
 
 
 def _create_admin(auth_client: TestClient, username: str) -> int:
-    resp = auth_client.post(
-        "/api/admin",
-        json={"username": username, "password": "pass123", "role": "standard"},
-    )
-    assert resp.status_code == 200, resp.text
+    del auth_client
     with TestingSessionLocal() as db:
-        admin = db.query(DBAdmin).filter(DBAdmin.username == username).first()
-        assert admin is not None
+        admin = DBAdmin(
+            username=username,
+            hashed_password="go-native-admin-route-not-required",
+            role=AdminRole.standard,
+            status=AdminStatus.active,
+            permissions={},
+        )
+        db.add(admin)
+        db.commit()
+        db.refresh(admin)
         return admin.id
 
 

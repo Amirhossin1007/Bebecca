@@ -549,6 +549,7 @@
 	"login": "ورود",
 	"login.fieldRequired": "این فیلد باید پر شود!",
 	"login.loginYourAccount": "وارد حساب خود شوید",
+	"login.welcome": "خوش آمدید",
 	"login.welcomeBack": "خوش آمدید, لطفا اطلاعات خود را وارد کنید",
 	"memoryHistory": "تاریخچه حافظه",
 	"memoryUsage": "مصرف حافظه",

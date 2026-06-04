@@ -51,6 +51,10 @@ _logger = logging.getLogger(__name__)
 _RECORD_CHANGED_ERRNO = 1020
 ADMIN_DATA_LIMIT_EXHAUSTED_REASON_KEY = "admin_data_limit_exhausted"
 ADMIN_TIME_LIMIT_EXHAUSTED_REASON_KEY = "admin_time_limit_exhausted"
+GO_NATIVE_ADMIN_MUTATION_NOTICE = (
+    "Deprecated: Admin/Auth mutations are Go-native. This helper is kept for "
+    "legacy tests/import tooling and must not be used by active API routes."
+)
 
 # ============================================================================
 
@@ -210,12 +214,20 @@ def get_admin(db: Session, username: Optional[str] = None, admin_id: Optional[in
 
 
 def list_admin_api_keys(db: Session, admin: Admin) -> List[AdminApiKey]:
-    """Return API keys owned by the given admin."""
+    """Return API keys owned by the given admin.
+
+    Deprecated for active API routes: MyAccount/Admin API key management is
+    Go-native. Kept for legacy tests/import tooling.
+    """
     return db.query(AdminApiKey).filter(AdminApiKey.admin_id == admin.id).order_by(AdminApiKey.created_at.desc()).all()
 
 
 def create_admin_api_key(db: Session, admin: Admin, expires_at: Optional[datetime] = None) -> tuple[AdminApiKey, str]:
-    """Create a new API key for the admin and return (record, plaintext key)."""
+    """Create a new API key for the admin and return (record, plaintext key).
+
+    Deprecated for active API routes: MyAccount/Admin API key management is
+    Go-native. Kept for legacy tests/import tooling.
+    """
     token = "rk_" + secrets.token_urlsafe(32)
     key_hash = sha256(token.encode()).hexdigest()
     record = AdminApiKey(admin_id=admin.id, key_hash=key_hash, expires_at=expires_at)
@@ -226,7 +238,11 @@ def create_admin_api_key(db: Session, admin: Admin, expires_at: Optional[datetim
 
 
 def delete_admin_api_key(db: Session, admin: Admin, key_id: int) -> bool:
-    """Delete an API key by id if it belongs to the admin."""
+    """Delete an API key by id if it belongs to the admin.
+
+    Deprecated for active API routes: MyAccount/Admin API key management is
+    Go-native. Kept for legacy tests/import tooling.
+    """
     record = db.query(AdminApiKey).filter(AdminApiKey.id == key_id, AdminApiKey.admin_id == admin.id).first()
     if not record:
         return False
@@ -449,7 +465,11 @@ def enforce_admin_time_limit(db: Session, dbadmin: Admin, *, now_ts: Optional[fl
 
 
 def create_admin(db: Session, admin: AdminCreate) -> Admin:
-    """Creates a new admin in the database."""
+    """Creates a new admin in the database.
+
+    Deprecated for active API routes: Admin mutations are Go-native. Kept for
+    legacy tests/import tooling.
+    """
     normalized_username = admin.username.lower()
     existing_admin = (
         db.query(Admin)
@@ -526,6 +546,9 @@ def bulk_update_standard_admin_permissions(
 
     mode="disable": force selected permissions to False.
     mode="restore": reset selected permissions to role defaults.
+
+    Deprecated for active API routes: Admin permission mutations are Go-native.
+    Kept for legacy tests/import tooling.
     """
     if mode not in {"disable", "restore"}:
         raise ValueError("Unsupported bulk permission mode")
@@ -562,7 +585,11 @@ def bulk_update_standard_admin_permissions(
 
 
 def update_admin(db: Session, dbadmin: Admin, modified_admin: AdminModify) -> Admin:
-    """Updates an admin's details."""
+    """Updates an admin's details.
+
+    Deprecated for active API routes: Admin mutations are Go-native. Kept for
+    legacy tests/import tooling.
+    """
     target_role = modified_admin.role or dbadmin.role
     if modified_admin.role is not None:
         dbadmin.role = modified_admin.role
@@ -624,7 +651,11 @@ def update_admin(db: Session, dbadmin: Admin, modified_admin: AdminModify) -> Ad
 
 
 def partial_update_admin(db: Session, dbadmin: Admin, modified_admin: AdminPartialModify) -> Admin:
-    """Partially updates an admin's details."""
+    """Partially updates an admin's details.
+
+    Deprecated for active API routes: Admin mutations are Go-native. Kept for
+    legacy tests/import tooling.
+    """
     target_role = modified_admin.role or dbadmin.role
     if modified_admin.role is not None:
         dbadmin.role = modified_admin.role
@@ -687,7 +718,11 @@ def partial_update_admin(db: Session, dbadmin: Admin, modified_admin: AdminParti
 
 
 def disable_admin(db: Session, dbadmin: Admin, reason: str) -> Admin:
-    """Disable an admin account and store the provided reason via set-based update."""
+    """Disable an admin account and store the provided reason via set-based update.
+
+    Deprecated for active API routes: Admin mutations are Go-native. Kept for
+    legacy tests/import tooling.
+    """
     db.query(Admin).filter(Admin.id == dbadmin.id).update(
         {Admin.status: AdminStatus.disabled, Admin.disabled_reason: reason},
         synchronize_session=False,
@@ -698,7 +733,11 @@ def disable_admin(db: Session, dbadmin: Admin, reason: str) -> Admin:
 
 
 def disable_admin_with_active_users(db: Session, dbadmin: Admin, reason: str) -> Admin:
-    """Disable an admin account and mark only currently active users for restore."""
+    """Disable an admin account and mark only currently active users for restore.
+
+    Deprecated for active API routes: Admin mutations are Go-native. Kept for
+    legacy tests/import tooling.
+    """
     _disable_admin_and_active_users(db, dbadmin, reason)
     db.commit()
     db.refresh(dbadmin)
@@ -706,7 +745,11 @@ def disable_admin_with_active_users(db: Session, dbadmin: Admin, reason: str) ->
 
 
 def enable_admin(db: Session, dbadmin: Admin) -> Admin:
-    """Re-activate an admin and restore users disabled by that admin transition."""
+    """Re-activate an admin and restore users disabled by that admin transition.
+
+    Deprecated for active API routes: Admin mutations are Go-native. Kept for
+    legacy tests/import tooling.
+    """
     db.query(Admin).filter(Admin.id == dbadmin.id).update(
         {Admin.status: AdminStatus.active, Admin.disabled_reason: None},
         synchronize_session=False,
@@ -721,6 +764,9 @@ def remove_admin(db: Session, dbadmin: Admin) -> None:
     """
     Hard delete an admin and all associated records using set-based SQL operations
     to minimize request time and resource usage.
+
+    Deprecated for active API routes: Admin mutations are Go-native. Kept for
+    legacy tests/import tooling.
     """
     if dbadmin.id is None:
         raise ValueError("Admin must have a valid identifier before removal")
