@@ -32,6 +32,8 @@ _REPORT_WORKERS = max(1, int(TELEGRAM_REPORT_WORKERS or 1))
 _REPORT_QUEUE_LIMIT = max(_REPORT_WORKERS, int(TELEGRAM_REPORT_QUEUE_LIMIT or _REPORT_WORKERS))
 _report_executor = ThreadPoolExecutor(max_workers=_REPORT_WORKERS, thread_name_prefix="report")
 _report_slots = BoundedSemaphore(_REPORT_QUEUE_LIMIT)
+_telegram_executor = ThreadPoolExecutor(max_workers=_REPORT_WORKERS, thread_name_prefix="telegram-report")
+_telegram_slots = BoundedSemaphore(_REPORT_QUEUE_LIMIT)
 
 
 def _report_name(func: Callable[..., object]) -> str:
@@ -61,6 +63,13 @@ def queue_report(func: Callable[..., object], *args, **kwargs) -> bool:
     return True
 
 
+def _run_telegram_handler(method_name: str, handler: Callable[..., object], args: tuple, kwargs: dict) -> None:
+    try:
+        handler(*args, **kwargs)
+    except Exception:
+        runtime.logger.exception("Telegram handler '%s' failed", method_name)
+
+
 def _call_telegram(method_name: str, *args, **kwargs) -> bool:
     module = runtime.telegram
     if module is None:
@@ -76,12 +85,19 @@ def _call_telegram(method_name: str, *args, **kwargs) -> bool:
             _telegram_warning_cache.add(method_name)
         return False
 
-    try:
-        handler(*args, **kwargs)
-        return True
-    except Exception:
-        runtime.logger.exception("Telegram handler '%s' failed", method_name)
+    if not _telegram_slots.acquire(blocking=False):
+        runtime.logger.warning("Telegram report queue is full; dropping handler '%s'", method_name)
         return False
+
+    try:
+        future = _telegram_executor.submit(_run_telegram_handler, method_name, handler, args, kwargs)
+    except Exception:
+        _telegram_slots.release()
+        runtime.logger.exception("Failed to queue Telegram handler '%s'", method_name)
+        return False
+
+    future.add_done_callback(lambda _future: _telegram_slots.release())
+    return True
 
 
 def _event_enabled(event_key: str) -> bool:

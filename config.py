@@ -160,7 +160,7 @@ LOGIN_NOTIFY_WHITE_LIST = [
     ip.strip() for ip in config("LOGIN_NOTIFY_WHITE_LIST", default="", cast=str).split(",") if ip.strip()
 ]
 
-TELEGRAM_REPORT_SEND_TIMEOUT_SECONDS = config("TELEGRAM_REPORT_SEND_TIMEOUT_SECONDS", default=4, cast=int)
+TELEGRAM_REPORT_SEND_TIMEOUT_SECONDS = config("TELEGRAM_REPORT_SEND_TIMEOUT_SECONDS", default=8, cast=int)
 TELEGRAM_REPORT_WORKERS = config("TELEGRAM_REPORT_WORKERS", default=2, cast=int)
 TELEGRAM_REPORT_QUEUE_LIMIT = config("TELEGRAM_REPORT_QUEUE_LIMIT", default=1000, cast=int)
 

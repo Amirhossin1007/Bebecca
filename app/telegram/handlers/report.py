@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 from typing import Callable, Optional, Dict, Any
 
+import requests
 from telebot.apihelper import ApiTelegramException
 from telebot.formatting import escape_html
 
@@ -26,8 +27,45 @@ CATEGORY_ERRORS = "errors"
 
 _MAX_RATE_LIMIT_DELAY = 60
 _SEND_TIMEOUT_SECONDS = max(1, int(TELEGRAM_REPORT_SEND_TIMEOUT_SECONDS or 1))
+_NETWORK_WARNING_INTERVAL_SECONDS = 60
 
 _last_telegram_error: Optional[Dict[str, Any]] = None
+_last_network_warning_at: Dict[str, float] = {}
+
+
+def _remember_telegram_error(error_msg: str, *, category: str, target_desc: str, error_code: Optional[int] = None) -> None:
+    global _last_telegram_error
+    _last_telegram_error = {
+        "error": error_msg,
+        "error_code": error_code,
+        "description": error_msg,
+        "category": category,
+        "target": target_desc,
+        "timestamp": time.time(),
+    }
+
+
+def _log_network_warning(exc: Exception, *, category: str, target_desc: str) -> None:
+    key = f"{category}:{target_desc}:{exc.__class__.__name__}"
+    now = time.time()
+    last_logged_at = _last_network_warning_at.get(key, 0)
+    message = str(exc)
+    if now - last_logged_at >= _NETWORK_WARNING_INTERVAL_SECONDS:
+        _last_network_warning_at[key] = now
+        logger.warning(
+            "Telegram notification to %s for category '%s' timed out or failed: %s",
+            target_desc,
+            category,
+            message,
+        )
+    else:
+        logger.debug(
+            "Telegram notification to %s for category '%s' failed again: %s",
+            target_desc,
+            category,
+            message,
+        )
+    _remember_telegram_error(message, category=category, target_desc=target_desc)
 
 
 def _extract_retry_after(exc: ApiTelegramException) -> Optional[int]:
@@ -80,15 +118,12 @@ def _send_with_retry(send_callable: Callable[[], None], *, category: str, target
             error_code = getattr(exc, "error_code", None)
             error_description = getattr(exc, "description", error_msg)
 
-            # Store last error for dashboard display
-            _last_telegram_error = {
-                "error": error_msg,
-                "error_code": error_code,
-                "description": error_description,
-                "category": category,
-                "target": target_desc,
-                "timestamp": time.time(),
-            }
+            _remember_telegram_error(
+                error_description,
+                category=category,
+                target_desc=target_desc,
+                error_code=error_code,
+            )
 
             logger.error(
                 "Failed to send Telegram notification to %s for category '%s': %s",
@@ -96,6 +131,9 @@ def _send_with_retry(send_callable: Callable[[], None], *, category: str, target
                 category,
                 exc,
             )
+            return False
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+            _log_network_warning(exc, category=category, target_desc=target_desc)
             return False
         except Exception as e:  # pragma: no cover - defensive logging
             error_msg = str(e)
