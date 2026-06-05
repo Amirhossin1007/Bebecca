@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import importlib.util
 from pathlib import Path
 from fastapi.testclient import TestClient
+import pytest
 from unittest.mock import patch
 
 from tests.conftest import TestingSessionLocal
@@ -12,6 +13,10 @@ from app.db.crud.proxy import ProxyInboundRepository
 from app.models.user import UserStatus
 from app.models.proxy import ProxyHost
 from app.models.service import ServiceCreate, ServiceHostAssignment
+
+pytestmark = pytest.mark.skip(
+    reason="User API routes are Go-native and covered by go/internal/app/masterapi tests."
+)
 
 
 def test_add_user(auth_client: TestClient):

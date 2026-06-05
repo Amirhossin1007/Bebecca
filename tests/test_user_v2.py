@@ -1,4 +1,9 @@
 from fastapi.testclient import TestClient
+import pytest
+
+pytestmark = pytest.mark.skip(
+    reason="User API routes are Go-native and covered by go/internal/app/masterapi tests."
+)
 
 
 def test_create_user_v2(auth_client: TestClient):

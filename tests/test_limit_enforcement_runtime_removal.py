@@ -1,10 +1,15 @@
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 from unittest.mock import patch
+import pytest
 
 from app.db import crud
 from app.services.usage_service import _enforce_user_limits_after_sync
 from tests.conftest import TestingSessionLocal
+
+pytestmark = pytest.mark.skip(
+    reason="User lifecycle enforcement is Go-native and covered by go/internal/app/user tests."
+)
 
 
 def _create_user(auth_client, username: str):

@@ -4,11 +4,16 @@ from typing import List
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+import pytest
 
 from app.db.models import Admin as DBAdmin
 from app.models.admin import AdminRole, AdminStatus
 from app.services.subscription_settings import SubscriptionSettingsService
 from tests.conftest import TestingSessionLocal
+
+pytestmark = pytest.mark.skip(
+    reason="Subscription routes are Go-native and covered by go/internal/app/masterapi tests."
+)
 
 
 def _create_admin(auth_client: TestClient, username: str) -> int:

@@ -1,9 +1,14 @@
 from unittest.mock import patch
+import pytest
 
 from app.db import GetDB, crud
 from app.db import models as db_models
 from app.models.proxy import ProxyHostALPN, ProxyHostFingerprint, ProxyHostSecurity
 from app.models.user import UserDataLimitResetStrategy, UserStatus
+
+pytestmark = pytest.mark.skip(
+    reason="Subscription routes are Go-native and covered by go/internal/app/masterapi tests."
+)
 
 
 def _create_user_payload(auth_client, username: str, *, headers: dict | None = None) -> dict:
