@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/rebeccapanel/Rebecca" target="_blank" rel="noopener noreferrer">
-    <img width="160" height="160" src="./dashboard/src/assets/logo.svg" alt="Rebecca logo">
+    <img width="160" height="160" src="../dashboard/src/assets/logo.svg" alt="Rebecca logo">
   </a>
 </p>
 
@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
- <a href="./README.md">
+ <a href="../README.md">
  English
  </a>
  /

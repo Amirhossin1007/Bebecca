@@ -34,15 +34,15 @@
  English
  </a>
  /
- <a href="./README-fa.md">
+ <a href="./docs/README-fa.md">
  فارسی
  </a>
   /
-  <a href="./README-zh-cn.md">
+  <a href="./docs/README-zh-cn.md">
  简体中文
  </a>
    /
-  <a href="./README-ru.md">
+  <a href="./docs/README-ru.md">
  Русский
  </a>
 </p>
@@ -394,7 +394,7 @@ If you've installed Rebecca using the easy install script, you can access the CL
 rebecca cli [OPTIONS] COMMAND [ARGS]...
 ```
 
-For more information, you can read the CLI documentation in `./cli/README.md`.
+For more information, you can read the CLI documentation in `./docs/cli/README.md`.
 
 # Rebecca Node
 
@@ -444,7 +444,7 @@ Made in [Unknown!] and published under [AGPL-3.0](./LICENSE).
 
 # Contributors
 
-We ❤️‍🔥 contributors! If you'd like to contribute, please check out our [Contributing Guidelines](CONTRIBUTING.md) and feel free to submit a pull request or open an issue.
+We ❤️‍🔥 contributors! If you'd like to contribute, please check out our [Contributing Guidelines](docs/CONTRIBUTING.md) and feel free to submit a pull request or open an issue.
 
 Check [open issues](https://github.com/rebeccapanel/Rebecca/issues) to help the progress of this project.
 
