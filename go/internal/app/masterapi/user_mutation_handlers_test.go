@@ -20,7 +20,6 @@ func testUserMutationServer(t *testing.T) (*Server, *sql.DB, string) {
 		`ALTER TABLE users ADD COLUMN sub_revoked_at DATETIME NULL`,
 		`ALTER TABLE users ADD COLUMN edit_at DATETIME NULL`,
 		`ALTER TABLE user_usage_logs ADD COLUMN reset_at DATETIME NULL`,
-		`ALTER TABLE nodes ADD COLUMN status TEXT DEFAULT 'connected'`,
 		`ALTER TABLE admins_services ADD COLUMN updated_at DATETIME NULL`,
 		`CREATE TABLE IF NOT EXISTS inbounds (id INTEGER PRIMARY KEY, tag TEXT UNIQUE)`,
 		`INSERT INTO xray_config (id, data) VALUES (1, '{"inbounds":[{"tag":"vless-in","protocol":"vless","port":443,"settings":{"decryption":"none"},"streamSettings":{"network":"tcp","security":"none","tcpSettings":{"header":{"type":"none"}}}}]}')`,

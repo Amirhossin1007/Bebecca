@@ -4,7 +4,7 @@ from ipaddress import ip_address, IPv6Address
 from typing import Any, Mapping, Optional, Union
 from uuid import UUID
 
-from xray_api.types.account import XTLSFlows
+from app.models.xray_account import XTLSFlows
 
 
 def calculate_usage_percent(used_traffic: int, data_limit: int) -> float:

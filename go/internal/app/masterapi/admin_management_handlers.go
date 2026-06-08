@@ -1192,6 +1192,27 @@ func scanInt64Rows(rows *sql.Rows) ([]int64, error) {
 }
 
 func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType string, nodeID *int64, userID *int64, payload any) error {
+	now := time.Now().UTC()
+	if nodeID == nil && userID != nil && operationType != "sync_config" {
+		rows, err := tx.QueryContext(ctx, `SELECT id FROM nodes WHERE COALESCE(status, '') NOT IN ('disabled', 'limited') ORDER BY id`)
+		if err != nil {
+			return err
+		}
+		nodeIDs, err := scanInt64Rows(rows)
+		if err != nil {
+			return err
+		}
+		if len(nodeIDs) > 0 {
+			for _, id := range nodeIDs {
+				targetNodeID := id
+				if err := enqueueNodeOperationTx(ctx, tx, operationType, &targetNodeID, userID, payload); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	payload = operationPayloadWithQueuedAt(payload, now)
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -1215,10 +1236,29 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 		nullableInt64(userID),
 		string(payloadJSON),
 		key,
-		dbTimestamp(time.Now().UTC()),
-		dbTimestamp(time.Now().UTC()),
+		dbTimestamp(now),
+		dbTimestamp(now),
 	)
 	return err
+}
+
+func operationPayloadWithQueuedAt(payload any, now time.Time) any {
+	queuedAt := now.Format(time.RFC3339Nano)
+	if payload == nil {
+		return map[string]any{"queued_at": queuedAt}
+	}
+	mapped, ok := payload.(map[string]any)
+	if !ok {
+		return payload
+	}
+	cloned := make(map[string]any, len(mapped)+1)
+	for key, value := range mapped {
+		cloned[key] = value
+	}
+	if _, exists := cloned["queued_at"]; !exists {
+		cloned["queued_at"] = queuedAt
+	}
+	return cloned
 }
 
 func setUserPermission(perms *adminapp.AdminPermissions, key string, mode string, defaults adminapp.AdminPermissions) {

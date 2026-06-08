@@ -75,7 +75,6 @@ indent-width = 4
 respect-gitignore = true
 exclude = [
     "app/db/migrations",
-    "xray_api/proto",  # Auto-generated proto files
     "Rebecca-node",   # Separate node service
     "scripts/rebecca", # Installer and maintenance scripts
     "3x-ui",          # External dependencies
@@ -94,7 +93,6 @@ ignore = [
     "F405",   # May be undefined from star imports (intentional)
     "E712",   # Equality comparisons to False/True (in proto files)
     "E402",   # Module level import not at top of file (in proto files)
-    "F401",   # Unused imports (in auto-generated xray_api files)
 ]
 
 [tool.ruff.lint.isort]

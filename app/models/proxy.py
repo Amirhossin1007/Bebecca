@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.utils.system import random_password
-from xray_api.types.account import (
+from app.models.xray_account import (
     ShadowsocksAccount,
     ShadowsocksMethods,
     TrojanAccount,

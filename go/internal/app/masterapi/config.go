@@ -26,6 +26,8 @@ type Config struct {
 	SubscriptionReadOnly        bool
 	SudoUsername                string
 	SudoPassword                string
+	XrayFallbackInboundTag      string
+	XrayExcludeInboundTags      []string
 }
 
 func LoadConfig() (Config, error) {
@@ -71,11 +73,21 @@ func LoadConfig() (Config, error) {
 		SubscriptionReadOnly:        parseBoolDefault(lookup("SUBSCRIPTION_READ_ONLY"), false),
 		SudoUsername:                lookup("SUDO_USERNAME"),
 		SudoPassword:                lookup("SUDO_PASSWORD"),
+		XrayFallbackInboundTag:      firstNonEmpty(lookup("XRAY_FALLBACKS_INBOUND_TAG"), lookup("XRAY_FALLBACK_INBOUND_TAG")),
+		XrayExcludeInboundTags:      splitWhitespace(lookup("XRAY_EXCLUDE_INBOUND_TAGS")),
 	}
 	if cfg.Database == "" {
 		return Config{}, fmt.Errorf("SQLALCHEMY_DATABASE_URL is required")
 	}
 	return cfg, nil
+}
+
+func splitWhitespace(value string) []string {
+	parts := strings.Fields(value)
+	if len(parts) == 0 {
+		return nil
+	}
+	return parts
 }
 
 func firstNonEmpty(values ...string) string {

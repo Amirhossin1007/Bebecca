@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, Body, Backgrou
 from starlette.websockets import WebSocketDisconnect
 
 from app.runtime import logger
-from app.services import access_insights
+from app.services import access_insights, node_operations
 from app.db import Session, get_db, crud, GetDB
 from app.db.models import OutboundTraffic
 from app.models.admin import Admin, AdminRole
@@ -28,19 +28,10 @@ from app.services import go_master_api
 from app.utils import responses
 from app.utils.system import get_public_ip, get_public_ipv6
 from app.utils.outbound import extract_outbound_metadata, generate_outbound_id
-from app.models.node import XrayConfigMode
-from app.utils.xray_config import (
-    apply_runtime_config_and_restart,
-    apply_target_runtime_config_and_restart,
-    restart_runtime_targets,
-)
 from app.utils.xray_targets import (
     MASTER_TARGET_ID,
-    get_target_raw_config,
-    list_config_targets,
     node_target_id,
     parse_target_id,
-    set_node_xray_config_mode,
     get_node_effective_raw_config,
 )
 import os
@@ -562,7 +553,17 @@ def queue_runtime_restart(
             raise HTTPException(status_code=404, detail="Node not found")
 
     def _restart():
-        restart_runtime_targets({target} if target else None)
+        # TODO(go-runtime-cleanup): route this endpoint directly through the Go
+        # Master API. For now Python only enqueues config sync work; it no
+        # longer restarts or talks to a local Xray runtime.
+        if not target:
+            node_operations.queue_sync_config()
+            return
+        kind, node_id = parse_target_id(target)
+        if kind == MASTER_TARGET_ID:
+            node_operations.queue_sync_config()
+        elif node_id is not None:
+            node_operations.queue_sync_config(node_id=node_id)
 
     bg.add_task(_restart)
 
@@ -576,7 +577,10 @@ def get_runtime_config(
     db: Session = Depends(get_db),
 ) -> dict:
     """Get the current runtime configuration."""
-    return get_target_raw_config(db, target)
+    raise HTTPException(
+        status_code=503,
+        detail="Xray config routes are handled by the native Go Master API",
+    )
 
 
 @router.put("/core/config", responses={403: responses._403})
@@ -586,11 +590,10 @@ def modify_runtime_config(
     admin: Admin = Depends(Admin.check_sudo_admin),
 ) -> dict:
     """Modify the runtime configuration and restart the target runtime."""
-    if target == MASTER_TARGET_ID:
-        apply_runtime_config_and_restart(payload)
-    else:
-        apply_target_runtime_config_and_restart(target, payload)
-    return payload
+    raise HTTPException(
+        status_code=503,
+        detail="Xray config routes are handled by the native Go Master API",
+    )
 
 
 @router.get("/core/config/targets", responses={403: responses._403})
@@ -598,7 +601,10 @@ def get_runtime_config_targets(
     admin: Admin = Depends(Admin.check_sudo_admin),
     db: Session = Depends(get_db),
 ):
-    return {"targets": list_config_targets(db)}
+    raise HTTPException(
+        status_code=503,
+        detail="Xray config target routes are handled by the native Go Master API",
+    )
 
 
 @router.put("/core/config/targets/{node_id}/mode", responses={403: responses._403})
@@ -609,19 +615,10 @@ def modify_node_config_mode(
     admin: Admin = Depends(Admin.check_sudo_admin),
     db: Session = Depends(get_db),
 ):
-    raw_mode = str(payload.get("mode") or "").strip()
-    try:
-        mode = XrayConfigMode(raw_mode)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid Xray config mode") from exc
-
-    set_node_xray_config_mode(db, node_id, mode)
-
-    def _restart():
-        restart_runtime_targets({node_target_id(node_id)})
-
-    bg.add_task(_restart)
-    return {"target": node_target_id(node_id), "mode": mode.value}
+    raise HTTPException(
+        status_code=503,
+        detail="Xray config target routes are handled by the native Go Master API",
+    )
 
 
 @router.get("/core/xray/releases", responses={403: responses._403})

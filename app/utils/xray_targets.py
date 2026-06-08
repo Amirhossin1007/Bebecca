@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# TODO(go-config-cleanup): this compatibility layer is only used by remaining
+# Python host/subscription helpers and node-create host seeding. Active
+# config/inbound/host/auto-inbound routes are served by Go without Python
+# fallback.
 from copy import deepcopy
 from typing import Any, Iterable
 

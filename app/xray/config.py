@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# TODO(go-config-cleanup): this module is kept only for legacy Python
+# subscription/share and access-insight compatibility. Active config builder,
+# inbound/host, helper, and node sync routes are Go-native and must not call
+# local Xray runtime from here.
 import base64
 import binascii
 import json

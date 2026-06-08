@@ -18,7 +18,7 @@ from app.utils.credentials import (
     UUID_PROTOCOLS,
     normalize_flow_value,
 )
-from xray_api.types.account import Account
+from app.models.xray_account import Account
 
 # Fallback import to avoid deployment breakage when settings model isn't updated yet
 try:  # pragma: no cover

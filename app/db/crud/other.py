@@ -25,7 +25,7 @@ from app.utils.credentials import (
     serialize_proxy_settings,
 )
 from app.models.proxy import ProxySettings
-from xray_api.types.account import XTLSFlows
+from app.models.xray_account import XTLSFlows
 from app.models.service import ServiceCreate, ServiceHostAssignment, ServiceModify
 from app.models.user import (
     UserStatus,

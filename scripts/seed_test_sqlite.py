@@ -20,8 +20,8 @@ from app.models.proxy import (
     VLESSSettings,
     VMessSettings,
 )
+from app.models.xray_account import ShadowsocksMethods, XTLSFlows
 from app.models.user import UserDataLimitResetStrategy, UserStatus
-from xray_api.types.account import ShadowsocksMethods, XTLSFlows
 
 
 GB = 1024**3

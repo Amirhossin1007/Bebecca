@@ -10,6 +10,8 @@ from app.db import models as db_models
 
 
 def get_xray_config_cached(db: Session, force_refresh: bool = False) -> dict:
+    # TODO(go-config-cleanup): keep only until Python subscription/share and
+    # access-insight compatibility no longer need to inspect stored Xray JSON.
     del force_refresh
     return crud.get_xray_config(db)
 
@@ -95,6 +97,8 @@ def _runtime_inbounds_by_tag() -> Dict[str, Any]:
 
 
 def get_inbounds_by_tag_cached(db: Session, force_refresh: bool = False) -> Dict[str, Any]:
+    # TODO(go-config-cleanup): active inbound management is Go-native. This
+    # reader remains for legacy Python serializers that have not yet moved.
     del force_refresh
     from app.utils.xray_targets import iter_stored_raw_configs
     from app.xray.config import XRayConfig

@@ -83,6 +83,137 @@ func TestIsNativeAdminRoute(t *testing.T) {
 	}
 }
 
+func TestIsNativeCoreConfigRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "get config", method: http.MethodGet, path: "/api/core/config", want: true},
+		{name: "put config", method: http.MethodPut, path: "/api/core/config", want: true},
+		{name: "get targets", method: http.MethodGet, path: "/api/core/config/targets", want: true},
+		{name: "mode update", method: http.MethodPut, path: "/api/core/config/targets/7/mode", want: true},
+		{name: "mode update trailing slash", method: http.MethodPut, path: "/api/core/config/targets/7/mode/", want: true},
+		{name: "bad node id stays python", method: http.MethodPut, path: "/api/core/config/targets/nope/mode", want: false},
+		{name: "wrong target method stays python", method: http.MethodPost, path: "/api/core/config/targets", want: false},
+		{name: "runtime root stays python", method: http.MethodGet, path: "/api/core", want: false},
+		{name: "websocket stays python", method: http.MethodGet, path: "/api/core/config", header: "websocket", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeCoreConfigRoute(req); got != tt.want {
+				t.Fatalf("isNativeCoreConfigRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsNativeXrayHelperRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "api vlessenc", method: http.MethodGet, path: "/api/xray/vlessenc", want: true},
+		{name: "api reality keypair", method: http.MethodGet, path: "/api/xray/reality-keypair", want: true},
+		{name: "api reality shortid", method: http.MethodGet, path: "/api/xray/reality-shortid", want: true},
+		{name: "api mldsa65", method: http.MethodGet, path: "/api/xray/mldsa65", want: true},
+		{name: "api ech", method: http.MethodGet, path: "/api/xray/ech", want: true},
+		{name: "legacy vlessenc", method: http.MethodGet, path: "/xray/vlessenc", want: true},
+		{name: "wrong method stays python", method: http.MethodPost, path: "/api/xray/vlessenc", want: false},
+		{name: "unknown helper stays python", method: http.MethodGet, path: "/api/xray/unknown", want: false},
+		{name: "websocket stays python", method: http.MethodGet, path: "/api/xray/reality-keypair", header: "websocket", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeXrayHelperRoute(req); got != tt.want {
+				t.Fatalf("isNativeXrayHelperRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsNativeInboundRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "legacy inbounds list", method: http.MethodGet, path: "/inbounds", want: true},
+		{name: "legacy inbounds full", method: http.MethodGet, path: "/inbounds/full", want: true},
+		{name: "legacy inbound detail", method: http.MethodGet, path: "/inbounds/cdn", want: true},
+		{name: "legacy inbound create", method: http.MethodPost, path: "/inbounds", want: true},
+		{name: "legacy inbound update", method: http.MethodPut, path: "/inbounds/cdn", want: true},
+		{name: "legacy inbound delete", method: http.MethodDelete, path: "/inbounds/cdn", want: true},
+		{name: "api inbounds list", method: http.MethodGet, path: "/api/inbounds", want: true},
+		{name: "api inbounds full", method: http.MethodGet, path: "/api/inbounds/full", want: true},
+		{name: "api inbound detail", method: http.MethodGet, path: "/api/inbounds/cdn", want: true},
+		{name: "wrong full method stays python", method: http.MethodPost, path: "/api/inbounds/full", want: false},
+		{name: "nested path stays python", method: http.MethodGet, path: "/api/inbounds/cdn/extra", want: false},
+		{name: "websocket stays python", method: http.MethodGet, path: "/api/inbounds/cdn", header: "websocket", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeInboundRoute(req); got != tt.want {
+				t.Fatalf("isNativeInboundRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsNativeHostRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "legacy hosts list", method: http.MethodGet, path: "/hosts", want: true},
+		{name: "legacy hosts modify", method: http.MethodPut, path: "/hosts", want: true},
+		{name: "legacy host status", method: http.MethodPut, path: "/hosts/7/status", want: true},
+		{name: "api hosts list", method: http.MethodGet, path: "/api/hosts", want: true},
+		{name: "api hosts modify", method: http.MethodPut, path: "/api/hosts", want: true},
+		{name: "api host status", method: http.MethodPut, path: "/api/hosts/7/status", want: true},
+		{name: "bad id stays python", method: http.MethodPut, path: "/api/hosts/nope/status", want: false},
+		{name: "wrong suffix stays python", method: http.MethodPut, path: "/api/hosts/7/other", want: false},
+		{name: "host websocket stays python", method: http.MethodGet, path: "/api/hosts", header: "websocket", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeHostRoute(req); got != tt.want {
+				t.Fatalf("isNativeHostRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsNativeUserRoute(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -120,6 +251,46 @@ func TestIsNativeUserRoute(t *testing.T) {
 			}
 			if got := isNativeUserRoute(req); got != tt.want {
 				t.Fatalf("isNativeUserRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsNativeServiceRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "services list", method: http.MethodGet, path: "/api/v2/services", want: true},
+		{name: "service create", method: http.MethodPost, path: "/api/v2/services", want: true},
+		{name: "service detail", method: http.MethodGet, path: "/api/v2/services/7", want: true},
+		{name: "service update", method: http.MethodPut, path: "/api/v2/services/7", want: true},
+		{name: "service delete", method: http.MethodDelete, path: "/api/v2/services/7", want: true},
+		{name: "service reset usage", method: http.MethodPost, path: "/api/v2/services/7/reset-usage", want: true},
+		{name: "service admin limits", method: http.MethodPut, path: "/api/v2/services/7/admins/2/limits", want: true},
+		{name: "service usage timeseries", method: http.MethodGet, path: "/api/v2/services/7/usage/timeseries", want: true},
+		{name: "service usage admins", method: http.MethodGet, path: "/api/v2/services/7/usage/admins", want: true},
+		{name: "service admin usage timeseries", method: http.MethodGet, path: "/api/v2/services/7/usage/admin-timeseries", want: true},
+		{name: "service scoped users action", method: http.MethodPost, path: "/api/v2/services/7/users/actions", want: true},
+		{name: "service users list", method: http.MethodGet, path: "/api/v2/services/7/users", want: true},
+		{name: "service users wrong method stays python", method: http.MethodPost, path: "/api/v2/services/7/users", want: false},
+		{name: "service auto inbound create", method: http.MethodPost, path: "/api/v2/services/7/auto-inbound", want: true},
+		{name: "service auto inbound delete", method: http.MethodDelete, path: "/api/v2/services/7/auto-inbound", want: true},
+		{name: "service websocket stays python", method: http.MethodGet, path: "/api/v2/services/7", header: "websocket", want: false},
+		{name: "bad service id stays python", method: http.MethodGet, path: "/api/v2/services/nope", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeServiceRoute(req); got != tt.want {
+				t.Fatalf("isNativeServiceRoute() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -236,6 +407,215 @@ func TestNativeSubscriptionRouteDoesNotFallbackToPython(t *testing.T) {
 	}
 }
 
+func TestNativeCoreConfigRouteDoesNotFallbackToPython(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("python fallback"))
+	}))
+	defer python.Close()
+
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		MasterAPIURL: "http://127.0.0.1:1",
+		PythonHost:   host,
+		PythonPort:   port,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/core/config"},
+		{method: http.MethodPut, path: "/api/core/config"},
+		{method: http.MethodGet, path: "/api/core/config/targets"},
+		{method: http.MethodPut, path: "/api/core/config/targets/7/mode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			server.server.Handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), "python fallback") {
+				t.Fatalf("native core config route fell back to python: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestNativeXrayHelperRouteDoesNotFallbackToPython(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("python fallback"))
+	}))
+	defer python.Close()
+
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		MasterAPIURL: "http://127.0.0.1:1",
+		PythonHost:   host,
+		PythonPort:   port,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range []string{
+		"/api/xray/vlessenc",
+		"/api/xray/reality-keypair",
+		"/api/xray/reality-shortid",
+		"/api/xray/mldsa65",
+		"/api/xray/ech",
+		"/xray/vlessenc",
+	} {
+		t.Run(path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			server.server.Handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), "python fallback") {
+				t.Fatalf("native xray helper route fell back to python: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestNativeInboundRouteDoesNotFallbackToPython(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("python fallback"))
+	}))
+	defer python.Close()
+
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		MasterAPIURL: "http://127.0.0.1:1",
+		PythonHost:   host,
+		PythonPort:   port,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/inbounds"},
+		{method: http.MethodGet, path: "/inbounds/full"},
+		{method: http.MethodGet, path: "/inbounds/cdn"},
+		{method: http.MethodPost, path: "/inbounds"},
+		{method: http.MethodPut, path: "/inbounds/cdn"},
+		{method: http.MethodDelete, path: "/inbounds/cdn"},
+		{method: http.MethodGet, path: "/api/inbounds"},
+		{method: http.MethodGet, path: "/api/inbounds/full"},
+		{method: http.MethodGet, path: "/api/inbounds/cdn"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			server.server.Handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), "python fallback") {
+				t.Fatalf("native inbound route fell back to python: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestNativeHostRouteDoesNotFallbackToPython(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("python fallback"))
+	}))
+	defer python.Close()
+
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		MasterAPIURL: "http://127.0.0.1:1",
+		PythonHost:   host,
+		PythonPort:   port,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/hosts"},
+		{method: http.MethodPut, path: "/hosts"},
+		{method: http.MethodPut, path: "/hosts/7/status"},
+		{method: http.MethodGet, path: "/api/hosts"},
+		{method: http.MethodPut, path: "/api/hosts"},
+		{method: http.MethodPut, path: "/api/hosts/7/status"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			server.server.Handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), "python fallback") {
+				t.Fatalf("native host route fell back to python: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestNativeUserRouteDoesNotFallbackToPython(t *testing.T) {
 	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
@@ -292,6 +672,66 @@ func TestNativeUserRouteDoesNotFallbackToPython(t *testing.T) {
 			}
 			if strings.Contains(rec.Body.String(), "python fallback") {
 				t.Fatalf("native user route fell back to python: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestNativeServiceRouteDoesNotFallbackToPython(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("python fallback"))
+	}))
+	defer python.Close()
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		MasterAPIURL: "http://127.0.0.1:1",
+		PythonHost:   host,
+		PythonPort:   port,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/v2/services"},
+		{method: http.MethodPost, path: "/api/v2/services"},
+		{method: http.MethodGet, path: "/api/v2/services/7"},
+		{method: http.MethodPut, path: "/api/v2/services/7"},
+		{method: http.MethodDelete, path: "/api/v2/services/7"},
+		{method: http.MethodPost, path: "/api/v2/services/7/reset-usage"},
+		{method: http.MethodPut, path: "/api/v2/services/7/admins/2/limits"},
+		{method: http.MethodGet, path: "/api/v2/services/7/usage/timeseries"},
+		{method: http.MethodGet, path: "/api/v2/services/7/usage/admins"},
+		{method: http.MethodGet, path: "/api/v2/services/7/usage/admin-timeseries"},
+		{method: http.MethodGet, path: "/api/v2/services/7/users"},
+		{method: http.MethodPost, path: "/api/v2/services/7/users/actions"},
+		{method: http.MethodPost, path: "/api/v2/services/7/auto-inbound"},
+		{method: http.MethodDelete, path: "/api/v2/services/7/auto-inbound"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			server.server.Handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), "python fallback") {
+				t.Fatalf("native service route fell back to python: %s", rec.Body.String())
 			}
 		})
 	}

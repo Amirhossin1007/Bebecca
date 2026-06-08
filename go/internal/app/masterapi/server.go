@@ -16,6 +16,7 @@ import (
 	"github.com/rebeccapanel/rebecca/go/internal/app/nodecontroller"
 	"github.com/rebeccapanel/rebecca/go/internal/app/usage"
 	userapp "github.com/rebeccapanel/rebecca/go/internal/app/user"
+	"github.com/rebeccapanel/rebecca/go/internal/app/xrayconfig"
 	"github.com/rebeccapanel/rebecca/go/internal/platform/db"
 )
 
@@ -28,6 +29,7 @@ type Server struct {
 	nodeController nodecontroller.Controller
 	usageService   usage.Service
 	userService    userapp.Service
+	configRepo     xrayconfig.Repository
 }
 
 func New(cfg Config) (*Server, error) {
@@ -39,6 +41,10 @@ func New(cfg Config) (*Server, error) {
 	nodeRepo := nodecontroller.NewRepository(pool.DB, pool.Dialect)
 	usageRepo := usage.NewRepository(pool.DB, pool.Dialect)
 	userRepo := userapp.NewRepository(pool.DB, pool.Dialect)
+	configRepo := xrayconfig.NewRepository(pool.DB, pool.Dialect, xrayconfig.Options{
+		FallbackInboundTag:  cfg.XrayFallbackInboundTag,
+		ExcludedInboundTags: cfg.XrayExcludeInboundTags,
+	})
 	sudoers := []string{}
 	if strings.TrimSpace(cfg.SudoUsername) != "" && strings.TrimSpace(cfg.SudoPassword) != "" {
 		sudoers = append(sudoers, cfg.SudoUsername)
@@ -52,6 +58,7 @@ func New(cfg Config) (*Server, error) {
 		nodeController: nodecontroller.NewController(nodeRepo),
 		usageService:   usage.NewService(usageRepo),
 		userService:    userapp.NewService(userRepo),
+		configRepo:     configRepo,
 	}, nil
 }
 
@@ -72,7 +79,23 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/myaccount/api-keys", s.requireAdmin(s.handleMyAccountAPIKeys))
 	mux.HandleFunc("/api/myaccount/nodes", s.requireAdmin(s.handleMyAccountNodes))
 	mux.HandleFunc("/api/myaccount", s.requireAdmin(s.handleMyAccount))
-	mux.HandleFunc("/api/v2/services/", s.requireAdmin(s.handleServiceUsersActionPath))
+	mux.HandleFunc("/api/core/config/targets/", s.requireSudo(s.handleCoreConfigTargetPath))
+	mux.HandleFunc("/api/core/config/targets", s.requireSudo(s.handleCoreConfigTargets))
+	mux.HandleFunc("/api/core/config", s.requireSudo(s.handleCoreConfig))
+	mux.HandleFunc("/api/xray/", s.requireSudo(s.handleXrayHelperPath))
+	mux.HandleFunc("/xray/", s.requireSudo(s.handleXrayHelperPath))
+	mux.HandleFunc("/api/inbounds/full", s.requireSudo(s.handleInboundsFull))
+	mux.HandleFunc("/api/inbounds/", s.requireSudo(s.handleInboundPath))
+	mux.HandleFunc("/api/inbounds", s.handleInboundsRootEntry)
+	mux.HandleFunc("/api/hosts/", s.requireAdmin(s.handleHostStatusPath))
+	mux.HandleFunc("/api/hosts", s.requireAdmin(s.handleHostsRoot))
+	mux.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
+	mux.HandleFunc("/inbounds/", s.requireSudo(s.handleInboundPath))
+	mux.HandleFunc("/inbounds", s.handleInboundsRootEntry)
+	mux.HandleFunc("/hosts/", s.requireAdmin(s.handleHostStatusPath))
+	mux.HandleFunc("/hosts", s.requireAdmin(s.handleHostsRoot))
+	mux.HandleFunc("/api/v2/services", s.requireAdmin(s.handleServicesRoot))
+	mux.HandleFunc("/api/v2/services/", s.requireAdmin(s.handleServicePath))
 	mux.HandleFunc("/api/v2/users/", s.requireAdmin(s.handleUserV2Path))
 	mux.HandleFunc("/api/v2/users", s.requireAdmin(s.handleUserV2Root))
 	mux.HandleFunc("/api/users/actions", s.requireAdmin(s.handleUsersBulkAction))

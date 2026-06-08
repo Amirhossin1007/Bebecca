@@ -81,6 +81,46 @@ func NewServer(cfg Config) (*Server, error) {
 			masterProxy.ServeHTTP(w, r)
 			return
 		}
+		if isNativeCoreConfigRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
+		if isNativeXrayHelperRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
+		if isNativeInboundRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
+		if isNativeHostRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
+		if isNativeServiceRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
 		if isNativeUserRoute(r) {
 			if masterProxy == nil {
 				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
@@ -163,6 +203,91 @@ func isNativeAdminRoute(r *http.Request) bool {
 	return false
 }
 
+func isNativeCoreConfigRoute(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	switch path {
+	case "/api/core/config":
+		return r.Method == http.MethodGet || r.Method == http.MethodPut
+	case "/api/core/config/targets":
+		return r.Method == http.MethodGet
+	}
+	if r.Method != http.MethodPut || !strings.HasPrefix(path, "/api/core/config/targets/") {
+		return false
+	}
+	rest := strings.TrimPrefix(path, "/api/core/config/targets/")
+	parts := strings.Split(rest, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] != "mode" {
+		return false
+	}
+	_, err := strconv.ParseInt(parts[0], 10, 64)
+	return err == nil
+}
+
+func isNativeXrayHelperRoute(r *http.Request) bool {
+	if r.Method != http.MethodGet || strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	switch path {
+	case "/api/xray/vlessenc", "/api/xray/reality-keypair", "/api/xray/reality-shortid", "/api/xray/mldsa65", "/api/xray/ech",
+		"/xray/vlessenc", "/xray/reality-keypair", "/xray/reality-shortid", "/xray/mldsa65", "/xray/ech":
+		return true
+	default:
+		return false
+	}
+}
+
+func isNativeInboundRoute(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	switch path {
+	case "/api/inbounds", "/inbounds":
+		return r.Method == http.MethodGet || r.Method == http.MethodPost
+	case "/api/inbounds/full", "/inbounds/full":
+		return r.Method == http.MethodGet
+	}
+	for _, prefix := range []string{"/api/inbounds/", "/inbounds/"} {
+		if !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		rest := strings.TrimPrefix(path, prefix)
+		if rest == "" || strings.Contains(rest, "/") || rest == "full" {
+			return false
+		}
+		return r.Method == http.MethodGet || r.Method == http.MethodPut || r.Method == http.MethodDelete
+	}
+	return false
+}
+
+func isNativeHostRoute(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	switch path {
+	case "/api/hosts", "/hosts":
+		return r.Method == http.MethodGet || r.Method == http.MethodPut
+	}
+	for _, prefix := range []string{"/api/hosts/", "/hosts/"} {
+		if !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		rest := strings.TrimPrefix(path, prefix)
+		parts := strings.Split(rest, "/")
+		if len(parts) != 2 || parts[0] == "" || parts[1] != "status" {
+			return false
+		}
+		_, err := strconv.ParseInt(parts[0], 10, 64)
+		return err == nil && r.Method == http.MethodPut
+	}
+	return false
+}
+
 func isNativeUserRoute(r *http.Request) bool {
 	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 		return false
@@ -219,6 +344,53 @@ func isNativeServiceUsersActionRoute(path string, method string) bool {
 	}
 	_, err := strconv.ParseInt(parts[0], 10, 64)
 	return err == nil
+}
+
+func isNativeServiceRoute(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	if path == "/api/v2/services" {
+		return r.Method == http.MethodGet || r.Method == http.MethodPost
+	}
+	if !strings.HasPrefix(path, "/api/v2/services/") {
+		return false
+	}
+	rest := strings.TrimPrefix(path, "/api/v2/services/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 0 || parts[0] == "" {
+		return false
+	}
+	if _, err := strconv.ParseInt(parts[0], 10, 64); err != nil {
+		return false
+	}
+	if len(parts) == 1 {
+		return r.Method == http.MethodGet || r.Method == http.MethodPut || r.Method == http.MethodDelete
+	}
+	if len(parts) == 2 {
+		switch parts[1] {
+		case "reset-usage":
+			return r.Method == http.MethodPost
+		case "users":
+			return r.Method == http.MethodGet
+		case "auto-inbound":
+			return r.Method == http.MethodPost || r.Method == http.MethodDelete
+		}
+	}
+	if len(parts) == 4 && parts[1] == "admins" && parts[2] != "" && parts[3] == "limits" {
+		_, err := strconv.ParseInt(parts[2], 10, 64)
+		return err == nil && r.Method == http.MethodPut
+	}
+	if len(parts) == 3 && parts[1] == "usage" {
+		switch parts[2] {
+		case "timeseries", "admins", "admin-timeseries":
+			return r.Method == http.MethodGet
+		default:
+			return false
+		}
+	}
+	return isNativeServiceUsersActionRoute(path, r.Method)
 }
 
 func isNativeNodeRoute(r *http.Request) bool {

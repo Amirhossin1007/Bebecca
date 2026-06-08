@@ -321,7 +321,10 @@ func (r Repository) mutationContextTx(ctx context.Context, tx *sql.Tx, admin adm
 	}
 	rows.Close()
 
-	resolved, _, _ := r.ResolvedInboundsByTag(ctx)
+	resolved, _, err := r.resolvedInboundsByTagTx(ctx, tx)
+	if err != nil {
+		return ctxData, err
+	}
 	hostRows, err := tx.QueryContext(ctx, `
 SELECT h.inbound_tag, COALESCE(h.is_disabled, 0), COALESCE(sh.service_id, 0)
 FROM hosts h
@@ -413,6 +416,72 @@ LEFT JOIN service_hosts sh ON sh.host_id = h.id`)
 	return ctxData, nil
 }
 
+func (r Repository) resolvedInboundsByTagTx(ctx context.Context, tx *sql.Tx) (map[string]ResolvedInbound, []string, error) {
+	rawConfigs, err := r.rawXrayConfigsTx(ctx, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+	result := map[string]ResolvedInbound{}
+	order := make([]string, 0)
+	excluded := excludedInboundTags()
+	for _, raw := range rawConfigs {
+		inbounds := listOfMaps(raw["inbounds"])
+		for _, inbound := range inbounds {
+			tag := stringValue(inbound["tag"])
+			protocol := stringValue(inbound["protocol"])
+			if tag == "" || protocol == "" {
+				continue
+			}
+			if _, ok := proxyProtocols[protocol]; !ok {
+				continue
+			}
+			if _, skip := excluded[tag]; skip {
+				continue
+			}
+			if _, exists := result[tag]; exists {
+				continue
+			}
+			resolved, err := resolveInbound(inbound)
+			if err != nil {
+				return nil, nil, err
+			}
+			result[tag] = resolved
+			order = append(order, tag)
+		}
+	}
+	return result, order, nil
+}
+
+func (r Repository) rawXrayConfigsTx(ctx context.Context, tx *sql.Tx) ([]map[string]any, error) {
+	result := make([]map[string]any, 0, 2)
+	var master any
+	err := tx.QueryRowContext(ctx, `SELECT data FROM xray_config WHERE id = 1 LIMIT 1`).Scan(&master)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err == nil {
+		if parsed := jsonMap(master); len(parsed) > 0 {
+			result = append(result, parsed)
+		}
+	}
+
+	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE xray_config_mode = 'custom' AND xray_config IS NOT NULL ORDER BY id`)
+	if err != nil {
+		return result, nil
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var raw any
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		if parsed := jsonMap(raw); len(parsed) > 0 {
+			result = append(result, parsed)
+		}
+	}
+	return result, rows.Err()
+}
+
 func (r Repository) replaceProxiesTx(ctx context.Context, tx *sql.Tx, userID int64, proxies ProxyPayload, inbounds map[string][]string, serviceID *int64, catalog MutationContext) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM exclude_inbounds_association WHERE proxy_id IN (SELECT id FROM proxies WHERE user_id = ?)`, userID); err != nil {
 		return err
@@ -471,18 +540,32 @@ func (r Repository) updateProxyInboundsTx(ctx context.Context, tx *sql.Tx, userI
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	type proxyRow struct {
+		id       int64
+		protocol string
+	}
+	proxies := []proxyRow{}
 	for rows.Next() {
-		var proxyID int64
-		var protocol string
-		if err := rows.Scan(&proxyID, &protocol); err != nil {
+		var item proxyRow
+		if err := rows.Scan(&item.id, &item.protocol); err != nil {
+			rows.Close()
 			return err
 		}
-		if err := r.replaceProxyExcludedTx(ctx, tx, proxyID, excludedTagsForProtocol(protocol, inbounds[normalizeProtocol(protocol)], catalog)); err != nil {
+		proxies = append(proxies, item)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, item := range proxies {
+		if err := r.replaceProxyExcludedTx(ctx, tx, item.id, excludedTagsForProtocol(item.protocol, inbounds[normalizeProtocol(item.protocol)], catalog)); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func (r Repository) replaceProxyExcludedTx(ctx context.Context, tx *sql.Tx, proxyID int64, excluded []string) error {
@@ -567,19 +650,28 @@ func (r Repository) compactNextPlansTx(ctx context.Context, tx *sql.Tx, userID i
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
-	pos := int64(0)
+	ids := []int64{}
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
+			rows.Close()
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE next_plans SET position = ? WHERE id = ?`, pos, id); err != nil {
-			return err
-		}
-		pos++
+		ids = append(ids, id)
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for pos, id := range ids {
+		if _, err := tx.ExecContext(ctx, `UPDATE next_plans SET position = ? WHERE id = ?`, int64(pos), id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r Repository) enqueueUserOperationForNodesTx(ctx context.Context, tx *sql.Tx, operationType string, userID int64, queuedAt time.Time) error {
@@ -587,18 +679,29 @@ func (r Repository) enqueueUserOperationForNodesTx(ctx context.Context, tx *sql.
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	nodeIDs := []int64{}
 	for rows.Next() {
 		var nodeID int64
 		if err := rows.Scan(&nodeID); err != nil {
+			rows.Close()
 			return err
 		}
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, nodeID := range nodeIDs {
 		payload := map[string]any{"queued_at": queuedAt.Format(time.RFC3339Nano)}
 		if err := r.enqueueNodeOperationTx(ctx, tx, operationType, nodeID, userID, payload, queuedAt); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func (r Repository) enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType string, nodeID int64, userID int64, payload any, now time.Time) error {

@@ -19,6 +19,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	adminapp "github.com/rebeccapanel/rebecca/go/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/go/internal/app/xrayconfig"
 )
 
 func testAdminServer(t *testing.T) (*Server, *sql.DB) {
@@ -97,14 +98,68 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			id INTEGER PRIMARY KEY,
 			username TEXT,
 			admin_id INTEGER,
+			service_id INTEGER NULL,
 			status TEXT NOT NULL,
 			on_hold_timeout DATETIME NULL,
 			last_status_change DATETIME NULL,
 			admin_disabled_at DATETIME NULL
 		)`,
+		`CREATE TABLE services (
+			id INTEGER PRIMARY KEY,
+			name TEXT,
+			users_usage BIGINT DEFAULT 0,
+			lifetime_usage BIGINT DEFAULT 0
+		)`,
+		`CREATE TABLE inbounds (
+			id INTEGER PRIMARY KEY,
+			tag TEXT NOT NULL UNIQUE
+		)`,
+		`CREATE TABLE hosts (
+			id INTEGER PRIMARY KEY,
+			remark TEXT NOT NULL,
+			address TEXT NOT NULL,
+			port INTEGER NULL,
+			sort INTEGER NOT NULL DEFAULT 0,
+			path TEXT NULL,
+			sni TEXT NULL,
+			host TEXT NULL,
+			security TEXT NOT NULL DEFAULT 'inbound_default',
+			alpn TEXT NOT NULL DEFAULT 'none',
+			fingerprint TEXT NOT NULL DEFAULT 'none',
+			inbound_tag TEXT NOT NULL,
+			allowinsecure INTEGER NULL,
+			is_disabled INTEGER NULL DEFAULT 0,
+			mux_enable INTEGER NOT NULL DEFAULT 0,
+			fragment_setting TEXT NULL,
+			noise_setting TEXT NULL,
+			random_user_agent INTEGER NOT NULL DEFAULT 0,
+			use_sni_as_host INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE TABLE service_hosts (
+			service_id INTEGER NOT NULL,
+			host_id INTEGER NOT NULL,
+			sort INTEGER DEFAULT 0
+		)`,
+		`CREATE TABLE exclude_inbounds_association (
+			proxy_id INTEGER NOT NULL,
+			inbound_tag TEXT NOT NULL
+		)`,
+		`CREATE TABLE template_inbounds_association (
+			template_id INTEGER NOT NULL,
+			inbound_tag TEXT NOT NULL
+		)`,
 		`CREATE TABLE nodes (
 			id INTEGER PRIMARY KEY,
-			name TEXT
+			name TEXT,
+			status TEXT DEFAULT 'connected',
+			xray_config_mode TEXT DEFAULT 'default',
+			xray_config TEXT NULL
+		)`,
+		`CREATE TABLE xray_config (
+			id INTEGER PRIMARY KEY,
+			data TEXT NOT NULL,
+			created_at DATETIME NULL,
+			updated_at DATETIME NULL
 		)`,
 		`CREATE TABLE node_user_usages (
 			id INTEGER PRIMARY KEY,
@@ -151,6 +206,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			repo,
 			adminapp.WithSudoers([]string{"env-admin"}),
 		),
+		configRepo: xrayconfig.NewRepository(db, "sqlite", xrayconfig.Options{}),
 	}, db
 }
 

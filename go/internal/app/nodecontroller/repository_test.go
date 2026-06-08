@@ -89,3 +89,65 @@ VALUES ('sync_config', 7, 42, '{"config_json":"{}"}', 'pending', 'op-1', CURRENT
 		t.Fatalf("expected no pending operations after done, got %d", len(rows))
 	}
 }
+
+func TestControllerCompletesGlobalSyncConfigWhenNoNodesExist(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "queue-global.db")+"?_busy_timeout=30000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	name TEXT,
+	address TEXT,
+	port INTEGER,
+	api_port INTEGER,
+	status TEXT,
+	xray_version TEXT,
+	message TEXT,
+	certificate TEXT,
+	certificate_key TEXT,
+	xray_config_mode TEXT,
+	xray_config TEXT,
+	usage_coefficient REAL DEFAULT 1
+);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('sync_config', NULL, NULL, '{}', 'pending', 'global-sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	controller := NewController(NewRepository(db, "sqlite"))
+	result, err := controller.ProcessQueue(ctx, ProcessOperationsRequest{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Done != 1 || result.Failed != 0 || result.Retrying != 0 {
+		t.Fatalf("unexpected process result: %#v", result)
+	}
+
+	var status string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM node_operations WHERE id = 1`).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "done" {
+		t.Fatalf("expected global sync to be done, got %q", status)
+	}
+}

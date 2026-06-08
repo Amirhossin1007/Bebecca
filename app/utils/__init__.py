@@ -11,6 +11,9 @@ from config import XRAY_HOSTS
 
 
 def _runtime_inbound_data():
+    # TODO(go-config-cleanup): this legacy share-link helper remains only for
+    # Python compatibility paths. New subscription/config generation is
+    # Go-native and should not inspect Python Xray config.
     try:
         from app.db import GetDB, crud
         from app.xray.config import XRayConfig

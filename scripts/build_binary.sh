@@ -31,15 +31,6 @@ pyinstaller_add_data() {
     printf "%s%s%s" "$1" "$PYINSTALLER_DATA_SEP" "$2"
 }
 
-XRAY_PROTO_HIDDEN_IMPORT_ARGS=()
-while IFS= read -r proto_module; do
-    XRAY_PROTO_HIDDEN_IMPORT_ARGS+=(--hidden-import "$proto_module")
-done < <(
-    find xray_api/proto -type f -name "*.py" -print |
-        sed 's#^\./##; s#/#.#g; s#\.py$##' |
-        sort
-)
-
 JOB_HIDDEN_IMPORT_ARGS=(
     --hidden-import app.jobs.add_db_users
     --hidden-import app.jobs.remove_expired_users
@@ -56,7 +47,6 @@ COMMON_PYINSTALLER_ARGS=(
     --add-data "$(pyinstaller_add_data "app/db/migrations" "app/db/migrations")"
     --collect-submodules app
     --collect-submodules alembic
-    --collect-submodules xray_api
     --collect-all alembic
     --collect-all apscheduler
     --collect-all fastapi
@@ -92,7 +82,6 @@ fi
 env REBECCA_SKIP_RUNTIME_INIT=1 DEBUG=false DOCS=false python -m PyInstaller \
     "${COMMON_PYINSTALLER_ARGS[@]}" \
     "${GO_BRIDGE_BINARY_ARGS[@]}" \
-    "${XRAY_PROTO_HIDDEN_IMPORT_ARGS[@]}" \
     "${JOB_HIDDEN_IMPORT_ARGS[@]}" \
     --name rebecca-python-server \
     --add-data "$(pyinstaller_add_data "dashboard/build" "dashboard/build")" \

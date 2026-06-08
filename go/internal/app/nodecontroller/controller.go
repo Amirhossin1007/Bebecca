@@ -2,6 +2,7 @@ package nodecontroller
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -218,14 +219,33 @@ type operationPayload struct {
 }
 
 func (c Controller) applyOperation(ctx context.Context, operation OperationRow) error {
-	if !operation.NodeID.Valid {
-		return fmt.Errorf("node_id is required")
-	}
 	var payload operationPayload
 	if len(operation.Payload) > 0 {
 		if err := json.Unmarshal(operation.Payload, &payload); err != nil {
 			return err
 		}
+	}
+	if !operation.NodeID.Valid {
+		switch operation.OperationType {
+		case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user", "restart_node":
+		default:
+			return fmt.Errorf("unsupported node operation: %s", operation.OperationType)
+		}
+		nodes, err := c.repo.UsageNodes(ctx, 0, 0)
+		if err != nil {
+			return err
+		}
+		if len(nodes) == 0 && operation.OperationType != "sync_config" {
+			return fmt.Errorf("no active nodes available")
+		}
+		for _, node := range nodes {
+			nodeOperation := operation
+			nodeOperation.NodeID = sql.NullInt64{Int64: node.ID, Valid: true}
+			if err := c.applyOperation(ctx, nodeOperation); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	switch operation.OperationType {
 	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user":
@@ -274,7 +294,6 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow) 
 func isPermanentOperationError(err error) bool {
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "unsupported node operation") ||
-		strings.Contains(message, "node_id is required") ||
 		strings.Contains(message, "config_json is required") ||
 		strings.Contains(message, "invalid character")
 }

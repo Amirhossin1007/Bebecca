@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import logging
-import random
-from copy import deepcopy
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -40,7 +38,6 @@ from app.models.user import (
     UsersResponse,
 )
 from app.utils import responses
-from app.utils.xray_config import apply_config
 
 router = APIRouter(
     prefix="/api/v2/services",
@@ -49,87 +46,16 @@ router = APIRouter(
 )
 
 logger = logging.getLogger(__name__)
-_AUTO_INBOUND_PREFIX = "setservice-"
+NATIVE_SERVICE_API_REQUIRED_DETAIL = (
+    "This service route is served directly by the Go gateway and Go Master API."
+)
 
 
-def _queue_runtime_restart(bg: BackgroundTasks) -> None:
-    def _restart() -> None:
-        try:
-            node_operations.queue_sync_config()
-        except Exception as exc:  # pragma: no cover - best effort background task
-            logger.error("Failed to restart runtime after service inbound change: %s", exc)
-
-    bg.add_task(_restart)
-
-
-def _load_config(db: Session) -> dict:
-    return deepcopy(crud.get_xray_config(db))
-
-
-def _auto_inbound_tag(service_id: int) -> str:
-    return f"{_AUTO_INBOUND_PREFIX}{service_id}"
-
-
-def _collect_ports(value: object, used: Set[int], ranges: List[Tuple[int, int]]) -> None:
-    if value is None:
-        return
-    if isinstance(value, int):
-        used.add(value)
-        return
-    if isinstance(value, str):
-        for chunk in value.split(","):
-            part = chunk.strip()
-            if not part:
-                continue
-            if part.isdigit():
-                used.add(int(part))
-                continue
-            if "-" in part:
-                start_str, end_str = part.split("-", 1)
-                if start_str.strip().isdigit() and end_str.strip().isdigit():
-                    start = int(start_str.strip())
-                    end = int(end_str.strip())
-                    if start > end:
-                        start, end = end, start
-                    ranges.append((start, end))
-        return
-    if isinstance(value, (list, tuple)):
-        for item in value:
-            _collect_ports(item, used, ranges)
-
-
-def _extract_used_ports(config: dict) -> tuple[Set[int], List[Tuple[int, int]]]:
-    used: Set[int] = set()
-    ranges: List[Tuple[int, int]] = []
-    for inbound in config.get("inbounds", []) or []:
-        if isinstance(inbound, dict):
-            _collect_ports(inbound.get("port"), used, ranges)
-    return used, ranges
-
-
-def _is_port_used(port: int, used: Set[int], ranges: List[Tuple[int, int]]) -> bool:
-    if port in used:
-        return True
-    for start, end in ranges:
-        if start <= port <= end:
-            return True
-    return False
-
-
-def _pick_available_port(config: dict, *, min_port: int = 10000, max_port: int = 60000) -> int:
-    used, ranges = _extract_used_ports(config)
-    for _ in range(200):
-        candidate = random.randint(min_port, max_port)
-        if not _is_port_used(candidate, used, ranges):
-            return candidate
-    for candidate in range(min_port, max_port + 1):
-        if not _is_port_used(candidate, used, ranges):
-            return candidate
-    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No available port found")
-
-
-def _refresh_inbounds_cache(db: Session) -> None:
-    del db
+def _native_service_route_disabled() -> None:
+    raise HTTPException(
+        status_code=503,
+        detail=NATIVE_SERVICE_API_REQUIRED_DETAIL,
+    )
 
 
 @threaded_function
@@ -256,6 +182,7 @@ def get_services(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.get_current),
 ):
+    _native_service_route_disabled()
     data = crud.list_services(
         db=db,
         name=name,
@@ -276,6 +203,7 @@ def create_service(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin  # silence linters about unused variable
     try:
         service = crud.create_service(db, payload)
@@ -296,6 +224,7 @@ def update_service_admin_limits(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin
     service = crud.get_service(db, service_id)
     if not service:
@@ -343,6 +272,7 @@ def get_service_detail(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.get_current),
 ):
+    _native_service_route_disabled()
     service = crud.get_service(db, service_id)
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
@@ -357,6 +287,7 @@ def modify_service(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin
     service = crud.get_service(db, service_id)
     if not service:
@@ -382,40 +313,11 @@ def modify_service(
 )
 def create_service_auto_inbound(
     service_id: int,
-    bg: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
-    del admin
-    service = crud.get_service(db, service_id)
-    if not service:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
-
-    tag = _auto_inbound_tag(service_id)
-    config = _load_config(db)
-    if any(inbound.get("tag") == tag for inbound in config.get("inbounds", []) or []):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auto inbound already exists")
-
-    port = _pick_available_port(config)
-    inbound = {
-        "tag": tag,
-        "listen": "::",
-        "port": port,
-        "protocol": "shadowsocks",
-        "settings": {
-            "clients": [],
-            "network": "tcp,udp",
-        },
-    }
-
-    config.setdefault("inbounds", []).append(inbound)
-    apply_config(config)
-    _queue_runtime_restart(bg)
-
-    crud.get_or_create_inbound(db, tag)
-    _refresh_inbounds_cache(db)
-
-    return {"detail": "Auto inbound created", "tag": tag, "port": port}
+    del service_id, db, admin
+    _native_service_route_disabled()
 
 
 @router.delete(
@@ -424,39 +326,11 @@ def create_service_auto_inbound(
 )
 def delete_service_auto_inbound(
     service_id: int,
-    bg: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
-    del admin
-    service = crud.get_service(db, service_id)
-    if not service:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
-
-    tag = _auto_inbound_tag(service_id)
-    config = _load_config(db)
-    index = None
-    for idx, inbound in enumerate(config.get("inbounds", []) or []):
-        if inbound.get("tag") == tag:
-            index = idx
-            break
-
-    if index is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auto inbound not found")
-
-    del config["inbounds"][index]
-    apply_config(config)
-    _queue_runtime_restart(bg)
-
-    try:
-        crud.delete_inbound(db, tag)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-    db.commit()
-    _refresh_inbounds_cache(db)
-
-    return {"detail": "Auto inbound removed"}
+    del service_id, db, admin
+    _native_service_route_disabled()
 
 
 @router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -466,6 +340,7 @@ def delete_service(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin
     service = crud.get_service(db, service_id)
     if not service:
@@ -503,6 +378,7 @@ def reset_service_usage(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin
     service = crud.get_service(db, service_id)
     if not service:
@@ -520,6 +396,7 @@ def get_service_usage_timeseries(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin
     service = crud.get_service(db, service_id)
     if not service:
@@ -550,6 +427,7 @@ def get_service_usage_by_admin(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin
     service = crud.get_service(db, service_id)
     if not service:
@@ -584,6 +462,7 @@ def get_service_admin_usage_timeseries(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
+    _native_service_route_disabled()
     del admin
     service = crud.get_service(db, service_id)
     if not service:
@@ -641,6 +520,7 @@ def get_service_users(
     db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.get_current),
 ):
+    _native_service_route_disabled()
     service = crud.get_service(db, service_id)
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
