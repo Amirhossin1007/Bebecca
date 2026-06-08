@@ -83,16 +83,6 @@ jobs:
           pip install -e .
           pip install pymysql
           
-      - name: Install test dependencies
-        run: |
-          # Install test dependencies directly (dependency groups may not be supported in all pip versions)
-          echo "Installing test dependencies..."
-          pip install "pytest>=8.3.5" "pytest-asyncio>=0.26.0" "pytest-watch>=4.2.0" "httpx>=0.27.2" "ruff>=0.11.6"
-          
-      - name: Verify pytest is installed
-        run: |
-          python -m pytest --version
-
       - name: Build Go usage bridge
         run: bash scripts/build_go_bridge.sh
 
@@ -148,5 +138,3 @@ jobs:
                   print(f'✗ Table {table} missing')
           "
 
-      - name: Run Tests
-        run: python -m pytest

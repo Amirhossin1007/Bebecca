@@ -221,23 +221,16 @@ jobs:
         with:
           msystem: UCRT64
           update: false
+          path-type: inherit
           install: mingw-w64-ucrt-x86_64-gcc
 
       - name: Add Windows C toolchain to PATH
-        shell: pwsh
+        shell: msys2 {0}
         run: |
-          $paths = @(
-            "C:\msys64\ucrt64\bin",
-            "C:\msys64\mingw64\bin"
-          )
-          foreach ($path in $paths) {
-            if (Test-Path (Join-Path $path "gcc.exe")) {
-              $path | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-              & (Join-Path $path "gcc.exe") --version
-              exit 0
-            }
-          }
-          throw "No MSYS2 GCC toolchain found"
+          set -euo pipefail
+          toolchain_path="$(cygpath -w "${MINGW_PREFIX}/bin")"
+          echo "${toolchain_path}" >> "${GITHUB_PATH}"
+          gcc --version
 
       - name: Install Python build dependencies
         run: |
