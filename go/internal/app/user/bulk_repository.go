@@ -56,10 +56,6 @@ func (r Repository) bulkUsersActionMutation(ctx context.Context, requester admin
 			return BulkUsersActionResult{}, clientError(403, "Service not assigned to admin")
 		}
 	}
-	if opts.ServiceRouteID != nil && payload.Action == AdvancedUserActionChangeService {
-		return BulkUsersActionResult{}, clientError(400, "Unsupported action")
-	}
-
 	if payload.TargetServiceID != nil {
 		destination, ok := catalog.Services[*payload.TargetServiceID]
 		if !ok {
@@ -382,19 +378,20 @@ func (r Repository) ensureBulkActivateCapacityTx(ctx context.Context, tx *sql.Tx
 		return nil
 	}
 
-	rows, err := tx.QueryContext(ctx, "SELECT admin_id, COUNT(*) FROM users WHERE "+whereSQL+" AND admin_id IS NOT NULL GROUP BY admin_id", args...)
+	rows, err := tx.QueryContext(ctx, "SELECT admin_id, service_id, COUNT(*) FROM users WHERE "+whereSQL+" AND admin_id IS NOT NULL GROUP BY admin_id, service_id", args...)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 	type requiredRow struct {
-		adminID int64
-		count   int64
+		adminID   int64
+		serviceID sql.NullInt64
+		count     int64
 	}
 	requiredRows := []requiredRow{}
 	for rows.Next() {
 		var item requiredRow
-		if err := rows.Scan(&item.adminID, &item.count); err != nil {
+		if err := rows.Scan(&item.adminID, &item.serviceID, &item.count); err != nil {
 			return err
 		}
 		requiredRows = append(requiredRows, item)
@@ -405,11 +402,44 @@ func (r Repository) ensureBulkActivateCapacityTx(ctx context.Context, tx *sql.Tx
 	for _, item := range requiredRows {
 		var usersLimit sql.NullInt64
 		var useServiceLimits int64
-		if err := tx.QueryRowContext(ctx, `SELECT users_limit, COALESCE(use_service_traffic_limits, 0) FROM admins WHERE id = ?`, item.adminID).Scan(&usersLimit, &useServiceLimits); err != nil {
+		var trafficMode string
+		var dataLimit sql.NullInt64
+		var usersUsage int64
+		if err := tx.QueryRowContext(ctx, `SELECT users_limit, COALESCE(use_service_traffic_limits, 0), COALESCE(traffic_limit_mode, 'used_traffic'), data_limit, COALESCE(users_usage, 0) FROM admins WHERE id = ?`, item.adminID).Scan(&usersLimit, &useServiceLimits, &trafficMode, &dataLimit, &usersUsage); err != nil {
 			return err
 		}
 		if useServiceLimits != 0 {
+			if !item.serviceID.Valid {
+				continue
+			}
+			var serviceUsersLimit sql.NullInt64
+			var serviceTrafficMode string
+			var serviceDataLimit sql.NullInt64
+			var serviceUsedTraffic int64
+			err := tx.QueryRowContext(ctx, `SELECT users_limit, COALESCE(traffic_limit_mode, 'used_traffic'), data_limit, COALESCE(used_traffic, 0) FROM admins_services WHERE admin_id = ? AND service_id = ?`, item.adminID, item.serviceID.Int64).Scan(&serviceUsersLimit, &serviceTrafficMode, &serviceDataLimit, &serviceUsedTraffic)
+			if err == sql.ErrNoRows {
+				return clientError(403, "Service not assigned to admin")
+			}
+			if err != nil {
+				return err
+			}
+			if serviceTrafficMode == string(adminapp.TrafficLimitUsedTraffic) && serviceDataLimit.Valid && serviceDataLimit.Int64 > 0 && serviceUsedTraffic >= serviceDataLimit.Int64 {
+				return clientError(403, "This service traffic limit has been reached. You can't activate users in this service.")
+			}
+			if serviceUsersLimit.Valid && serviceUsersLimit.Int64 > 0 {
+				serviceID := item.serviceID.Int64
+				active, err := r.activeUsersForScopeTx(ctx, tx, item.adminID, &serviceID)
+				if err != nil {
+					return err
+				}
+				if active+item.count > serviceUsersLimit.Int64 {
+					return clientError(400, fmt.Sprintf("Users limit reached. Maximum active users: %d", serviceUsersLimit.Int64))
+				}
+			}
 			continue
+		}
+		if trafficMode == string(adminapp.TrafficLimitUsedTraffic) && dataLimit.Valid && dataLimit.Int64 > 0 && usersUsage >= dataLimit.Int64 {
+			return clientError(403, "Admin traffic limit reached. You can't activate users for this admin.")
 		}
 		if !usersLimit.Valid || usersLimit.Int64 <= 0 {
 			continue

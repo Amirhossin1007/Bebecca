@@ -388,6 +388,7 @@ func (r Repository) ServiceAdminUsage(ctx context.Context, serviceID int64, star
 	defer rows.Close()
 
 	result := make([]ServiceAdminUsageRow, 0)
+	index := map[string]int{}
 	for rows.Next() {
 		var adminID sql.NullInt64
 		var username sql.NullString
@@ -409,8 +410,52 @@ func (r Repository) ServiceAdminUsage(ctx context.Context, serviceID int64, star
 			Username:    name,
 			UsedTraffic: used.Int64,
 		})
+		index[adminUsageKey(idPtr)] = len(result) - 1
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	linkedRows, err := r.db.QueryContext(
+		ctx,
+		`SELECT a.id, a.username
+		  FROM admins_services l
+		  JOIN admins a ON a.id = l.admin_id
+		  WHERE l.service_id = ? AND COALESCE(a.status, '') != 'deleted'
+		  ORDER BY a.username`,
+		serviceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer linkedRows.Close()
+	for linkedRows.Next() {
+		var adminID int64
+		var username string
+		if err := linkedRows.Scan(&adminID, &username); err != nil {
+			return nil, err
+		}
+		idPtr := usageInt64Ptr(adminID)
+		if _, ok := index[adminUsageKey(idPtr)]; ok {
+			continue
+		}
+		result = append(result, ServiceAdminUsageRow{
+			AdminID:     idPtr,
+			Username:    username,
+			UsedTraffic: 0,
+		})
+		index[adminUsageKey(idPtr)] = len(result) - 1
+	}
+	if err := linkedRows.Err(); err != nil {
+		return nil, err
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].UsedTraffic != result[j].UsedTraffic {
+			return result[i].UsedTraffic > result[j].UsedTraffic
+		}
+		return adminUsageSortKey(result[i]) < adminUsageSortKey(result[j])
+	})
+	return result, nil
 }
 
 func (r Repository) ServiceAdminUsageTimeseries(ctx context.Context, serviceID int64, adminID int64, granularity string, start time.Time, end time.Time) ([]TimeseriesRow, error) {
@@ -525,6 +570,25 @@ func scanUsageRows(rows *sql.Rows, result []UsageRow, index map[string]int) erro
 		}
 	}
 	return nil
+}
+
+func usageInt64Ptr(value int64) *int64 {
+	v := value
+	return &v
+}
+
+func adminUsageKey(adminID *int64) string {
+	if adminID == nil {
+		return "null"
+	}
+	return fmt.Sprintf("%d", *adminID)
+}
+
+func adminUsageSortKey(row ServiceAdminUsageRow) string {
+	if row.AdminID == nil {
+		return "00000000000000000000:"
+	}
+	return fmt.Sprintf("%020d:%s", *row.AdminID, row.Username)
 }
 
 func scanDateUsageRows(rows *sql.Rows) ([]DateUsageRow, error) {

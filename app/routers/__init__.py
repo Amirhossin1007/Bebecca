@@ -7,7 +7,6 @@ from . import (
     system,
     user_template,
     home,
-    service,
     settings,
 )
 
@@ -20,7 +19,6 @@ routers = [
     system.router,
     user_template.router,
     home.router,
-    service.router,
     settings.router,
 ]
 

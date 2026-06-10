@@ -750,3 +750,60 @@ func (r Repository) recordCreatedTrafficTx(ctx context.Context, tx *sql.Tx, admi
 	_, err := tx.ExecContext(ctx, `INSERT INTO admin_created_traffic_logs (admin_id, service_id, amount, action, created_at) VALUES (?, ?, ?, ?, ?)`, admin.ID, nullableInt64Ptr(serviceID), delta, action, dbTime(now))
 	return err
 }
+
+func (r Repository) recordDeletedUserUsageCreditTx(ctx context.Context, tx *sql.Tx, admin adminapp.Admin, user UserSnapshot, now time.Time) error {
+	if admin.ID <= 0 || user.UsedTraffic <= 0 {
+		return nil
+	}
+	scope, ok := adminTrafficScope(admin, user.ServiceID)
+	if !ok || !trafficScopeUsesCreatedTraffic(scope) {
+		return nil
+	}
+	capEnabled, _ := deleteUsageCap(scope)
+	if !capEnabled {
+		return nil
+	}
+
+	amount := user.UsedTraffic
+	if admin.UseServiceTrafficLimits && user.ServiceID != nil {
+		if _, err := tx.ExecContext(ctx, `
+UPDATE admins_services
+SET deleted_users_usage = COALESCE(deleted_users_usage, 0) + ?,
+	created_traffic = CASE
+		WHEN COALESCE(created_traffic, 0) - ? < 0 THEN 0
+		ELSE COALESCE(created_traffic, 0) - ?
+	END,
+	updated_at = ?
+WHERE admin_id = ? AND service_id = ?`,
+			amount,
+			amount,
+			amount,
+			dbTime(now),
+			admin.ID,
+			*user.ServiceID,
+		); err != nil {
+			return err
+		}
+	} else if !admin.UseServiceTrafficLimits {
+		if _, err := tx.ExecContext(ctx, `
+UPDATE admins
+SET deleted_users_usage = COALESCE(deleted_users_usage, 0) + ?,
+	created_traffic = CASE
+		WHEN COALESCE(created_traffic, 0) - ? < 0 THEN 0
+		ELSE COALESCE(created_traffic, 0) - ?
+	END
+WHERE id = ?`,
+			amount,
+			amount,
+			amount,
+			admin.ID,
+		); err != nil {
+			return err
+		}
+	} else {
+		return nil
+	}
+
+	_, err := tx.ExecContext(ctx, `INSERT INTO admin_created_traffic_logs (admin_id, service_id, amount, action, created_at) VALUES (?, ?, ?, ?, ?)`, admin.ID, nullableInt64Ptr(user.ServiceID), -amount, "user_delete_credit", dbTime(now))
+	return err
+}

@@ -3,7 +3,6 @@
 # Import all functions from submodules
 from .system import *
 from .proxy import *
-from .service import *
 from .user import *
 from .admin import *
 from .template import *

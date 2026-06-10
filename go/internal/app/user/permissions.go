@@ -131,16 +131,6 @@ func ValidateUserModifyPermissions(admin adminapp.Admin, payload UserModify, ctx
 	}); err != nil {
 		return err
 	}
-	if ctx.ExistingUser != nil && payload.DataLimit != nil {
-		_, err := ValidateCreatedTrafficDataLimitChange(
-			admin,
-			ctx.ExistingUser.DataLimit,
-			payload.DataLimit,
-			ctx.ExistingUser.UsedTraffic,
-			ctx.ExistingUser.ServiceID,
-		)
-		return err
-	}
 	return nil
 }
 

@@ -15,10 +15,6 @@ def get_xray_config_cached(db: Session, force_refresh: bool = False) -> dict:
     return crud.get_xray_config(db)
 
 
-def get_service_allowed_inbounds_cached(db: Session, service) -> Dict[str, Any]:
-    return crud.get_service_allowed_inbounds(service)
-
-
 def _host_to_dict(host, service_ids: list[int]) -> dict:
     return {
         "remark": host.remark,

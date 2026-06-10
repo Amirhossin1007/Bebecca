@@ -459,7 +459,7 @@ func (s *Server) handleServiceResetUsage(w http.ResponseWriter, r *http.Request,
 			return err
 		}
 		now := dbTimestamp(time.Now().UTC())
-		if _, err := tx.ExecContext(r.Context(), `UPDATE services SET used_traffic = 0, updated_at = ? WHERE id = ?`, now, serviceID); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `UPDATE services SET used_traffic = 0, users_usage = 0, updated_at = ? WHERE id = ?`, now, serviceID); err != nil {
 			return err
 		}
 		_, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET used_traffic = 0, updated_at = ? WHERE service_id = ?`, now, serviceID)
@@ -520,7 +520,7 @@ func (s *Server) handleServiceAdminLimitUpdate(w http.ResponseWriter, r *http.Re
 		if err := ensureServiceExistsTx(r.Context(), tx, serviceID); err != nil {
 			return err
 		}
-		target, ok, err := s.adminRepo.AdminByID(r.Context(), adminID)
+		targetCanDeleteUsers, ok, err := adminCanDeleteUsersTx(r.Context(), tx, adminID)
 		if err != nil {
 			return err
 		}
@@ -553,7 +553,7 @@ func (s *Server) handleServiceAdminLimitUpdate(w http.ResponseWriter, r *http.Re
 			args = append(args, nullableInt64(payload.UsersLimit))
 		}
 		if _, ok := payload.fields["delete_user_usage_limit_enabled"]; ok {
-			enabled := optionalBool(payload.DeleteUserUsageLimitEnabled, false) && target.Permissions.Users.Delete
+			enabled := optionalBool(payload.DeleteUserUsageLimitEnabled, false) && targetCanDeleteUsers
 			assignments = append(assignments, "delete_user_usage_limit_enabled = ?")
 			args = append(args, boolInt(enabled))
 		}
@@ -634,6 +634,10 @@ func (s *Server) handleServiceUsersList(w http.ResponseWriter, r *http.Request, 
 		}
 		writeError(w, status, err.Error())
 		return
+	}
+	if !principal.Context.Admin.Role.IsGlobal() && principal.Context.Admin.ID > 0 {
+		id := principal.Context.Admin.ID
+		req.Admin.ID = &id
 	}
 	ctx, cancel := s.usersListContext(r.Context())
 	defer cancel()
@@ -1174,11 +1178,49 @@ func syncServiceAdminsTx(ctx context.Context, tx *sql.Tx, serviceID int64, admin
 		if _, ok := existing[id]; ok {
 			continue
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO admins_services (admin_id, service_id) VALUES (?, ?)`, id, serviceID); err != nil {
+		now := dbTimestamp(time.Now().UTC())
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO admins_services (
+	admin_id,
+	service_id,
+	used_traffic,
+	lifetime_used_traffic,
+	created_traffic,
+	deleted_users_usage,
+	data_limit,
+	traffic_limit_mode,
+	show_user_traffic,
+	users_limit,
+	delete_user_usage_limit_enabled,
+	delete_user_usage_limit,
+	created_at,
+	updated_at
+) VALUES (?, ?, 0, 0, 0, 0, NULL, 'used_traffic', 1, NULL, 0, NULL, ?, ?)`, id, serviceID, now, now); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func adminCanDeleteUsersTx(ctx context.Context, tx *sql.Tx, adminID int64) (bool, bool, error) {
+	var roleText string
+	var rawPermissions any
+	err := tx.QueryRowContext(ctx, `SELECT COALESCE(role, 'standard'), permissions FROM admins WHERE id = ? AND status != ? LIMIT 1`, adminID, string(adminapp.StatusDeleted)).Scan(&roleText, &rawPermissions)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	role, err := adminapp.ParseRole(roleText)
+	if err != nil {
+		return false, false, err
+	}
+	permissions, err := adminapp.BuildPermissions(role, jsonTextFromDB(rawPermissions))
+	if err != nil {
+		return false, false, err
+	}
+	return permissions.Users.Delete, true, nil
 }
 
 func validateUniqueServiceHosts(hosts []serviceHostAssignment) error {

@@ -1256,8 +1256,7 @@ def create_user(db: Session, user: UserCreate, admin: Admin = None, service: Opt
 
     if service:
         dbuser.service = service
-        from app.db.crud.service import _service_allowed_inbounds
-        from app.db.crud.service import _ensure_admin_service_link
+        from .other import _ensure_admin_service_link, _service_allowed_inbounds
 
         allowed = _service_allowed_inbounds(service)
         from .other import _apply_service_to_user
@@ -1504,7 +1503,7 @@ def update_user(
         if service is None:
             dbuser.service = None
         else:
-            from app.db.crud.service import _service_allowed_inbounds
+            from .other import _service_allowed_inbounds
 
             allowed = _service_allowed_inbounds(service)
             dbuser.service = service
@@ -1512,7 +1511,7 @@ def update_user(
 
             _apply_service_to_user(db, dbuser, service, allowed)
             if admin:
-                from app.db.crud.service import _ensure_admin_service_link
+                from .other import _ensure_admin_service_link
 
                 _ensure_admin_service_link(db, admin, service)
 

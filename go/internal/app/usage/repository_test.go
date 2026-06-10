@@ -24,7 +24,7 @@ func testRepository(t *testing.T) Repository {
 
 	statements := []string{
 		`CREATE TABLE nodes (id INTEGER PRIMARY KEY, name TEXT NOT NULL)`,
-		`CREATE TABLE admins (id INTEGER PRIMARY KEY, username TEXT NOT NULL)`,
+		`CREATE TABLE admins (id INTEGER PRIMARY KEY, username TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active')`,
 		`CREATE TABLE users (
 			id INTEGER PRIMARY KEY,
 			username TEXT NOT NULL,
@@ -39,8 +39,13 @@ func testRepository(t *testing.T) Repository {
 			node_id INTEGER,
 			used_traffic BIGINT DEFAULT 0
 		)`,
+		`CREATE TABLE admins_services (
+			admin_id INTEGER NOT NULL,
+			service_id INTEGER NOT NULL
+		)`,
 		`INSERT INTO nodes (id, name) VALUES (10, 'edge-a'), (11, 'edge-b')`,
 		`INSERT INTO admins (id, username) VALUES (1, 'alpha'), (2, 'beta')`,
+		`INSERT INTO admins_services (admin_id, service_id) VALUES (1, 7), (2, 7)`,
 		`INSERT INTO users (id, username, status, admin_id, service_id) VALUES
 			(1, 'u1', 'active', 1, 7),
 			(2, 'u2', 'active', 1, 7),
@@ -135,8 +140,9 @@ func TestServiceUsage(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantAdmins := []ServiceAdminUsageRow{
-		{AdminID: nil, Username: "No Admin", UsedTraffic: 50},
 		{AdminID: int64Ptr(1), Username: "alpha", UsedTraffic: 1999},
+		{AdminID: nil, Username: "No Admin", UsedTraffic: 50},
+		{AdminID: int64Ptr(2), Username: "beta", UsedTraffic: 0},
 	}
 	if !reflect.DeepEqual(adminRows, wantAdmins) {
 		t.Fatalf("ServiceAdminUsage() = %#v, want %#v", adminRows, wantAdmins)

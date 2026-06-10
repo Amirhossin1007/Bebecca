@@ -372,10 +372,6 @@ func (s *Server) handleBulkUsersAction(w http.ResponseWriter, r *http.Request, s
 	if serviceRouteID != nil {
 		payload.ServiceID = serviceRouteID
 		payload.ServiceIDIsNull = nil
-		if payload.Action == userapp.AdvancedUserActionChangeService {
-			writeError(w, http.StatusBadRequest, "Unsupported action")
-			return
-		}
 	}
 	targetAdmin, err := s.bulkTargetAdmin(r.Context(), principal.Context.Admin, payload, serviceRouteID)
 	if err != nil {

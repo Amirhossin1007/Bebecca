@@ -259,6 +259,28 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 			return MutationResult{}, permissionHTTPError(err)
 		}
 	}
+	if serviceFieldPresent && !sameInt64Ptr(existing.ServiceID, targetServiceID) && isRuntimeStatus(UserStatus(newStatus)) {
+		if err := EnsureUsersLimit(admin, targetServiceID, catalog); err != nil {
+			return MutationResult{}, permissionHTTPError(err)
+		}
+	}
+	if rawFieldPresent(rawFields, "data_limit") || serviceFieldPresent {
+		if !sameInt64Ptr(existing.ServiceID, targetServiceID) {
+			if admin.UseServiceTrafficLimits {
+				if _, err := ValidateCreatedTrafficDataLimitChange(admin, nil, newDataLimit, existing.UsedTraffic, targetServiceID); err != nil {
+					return MutationResult{}, permissionHTTPError(err)
+				}
+			} else if rawFieldPresent(rawFields, "data_limit") {
+				if _, err := ValidateCreatedTrafficDataLimitChange(admin, existing.DataLimit, newDataLimit, existing.UsedTraffic, targetServiceID); err != nil {
+					return MutationResult{}, permissionHTTPError(err)
+				}
+			}
+		} else if rawFieldPresent(rawFields, "data_limit") {
+			if _, err := ValidateCreatedTrafficDataLimitChange(admin, existing.DataLimit, newDataLimit, existing.UsedTraffic, targetServiceID); err != nil {
+				return MutationResult{}, permissionHTTPError(err)
+			}
+		}
+	}
 
 	sets := []string{"edit_at = ?", "last_status_change = CASE WHEN status != ? THEN ? ELSE last_status_change END"}
 	args := []any{dbTime(time.Now().UTC()), newStatus, dbTime(time.Now().UTC())}
@@ -395,6 +417,9 @@ func (r Repository) deleteUserMutation(ctx context.Context, admin adminapp.Admin
 	snapshot := UserSnapshot{ID: existing.ID, Username: existing.Username, Status: existing.Status, UsedTraffic: existing.UsedTraffic, DataLimit: existing.DataLimit, ServiceID: existing.ServiceID, AdminID: existing.AdminID}
 	if err := EnsureUserDeleteAllowed(admin, snapshot); err != nil {
 		return MutationResult{}, permissionHTTPError(err)
+	}
+	if err := r.recordDeletedUserUsageCreditTx(ctx, tx, admin, snapshot, time.Now().UTC()); err != nil {
+		return MutationResult{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE users SET status = ?, last_status_change = ? WHERE id = ?`, string(UserStatusDeleted), dbTime(time.Now().UTC()), existing.ID); err != nil {
 		return MutationResult{}, err
