@@ -45,10 +45,10 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			telegram_id BIGINT NULL,
 			subscription_domain TEXT NULL,
 			subscription_settings TEXT NULL,
-			users_usage BIGINT DEFAULT 0,
-			lifetime_usage BIGINT DEFAULT 0,
-			created_traffic BIGINT DEFAULT 0,
-			deleted_users_usage BIGINT DEFAULT 0,
+			users_usage BIGINT NOT NULL,
+			lifetime_usage BIGINT NOT NULL,
+			created_traffic BIGINT NOT NULL,
+			deleted_users_usage BIGINT NOT NULL,
 			data_limit BIGINT NULL,
 			traffic_limit_mode TEXT DEFAULT 'used_traffic',
 			use_service_traffic_limits INTEGER DEFAULT 0,
@@ -78,7 +78,9 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			show_user_traffic INTEGER DEFAULT 1,
 			users_limit INTEGER NULL,
 			delete_user_usage_limit_enabled INTEGER DEFAULT 0,
-			delete_user_usage_limit BIGINT NULL
+			delete_user_usage_limit BIGINT NULL,
+			created_at DATETIME NULL,
+			updated_at DATETIME NULL
 		)`,
 		`CREATE TABLE admin_usage_logs (
 			id INTEGER PRIMARY KEY,
@@ -512,13 +514,17 @@ func TestAdminLoginSudoer(t *testing.T) {
 func TestAdminManagementCreateUpdateAndBulkPermissions(t *testing.T) {
 	server, db := testAdminServer(t)
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (7, 'vip')`); err != nil {
+		t.Fatal(err)
+	}
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
 	rec := adminJSONRequest(t, server, http.MethodPost, "/api/admin", token, `{
 		"username":"seller",
 		"password":"secret1",
 		"role":"standard",
-		"permissions":{"admin_management":{"can_view":true}}
+		"permissions":{"admin_management":{"can_view":true}},
+		"services":[7]
 	}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("create admin status = %d body=%s", rec.Code, rec.Body.String())
@@ -529,6 +535,46 @@ func TestAdminManagementCreateUpdateAndBulkPermissions(t *testing.T) {
 	}
 	if created["username"] != "seller" || created["role"] != "standard" {
 		t.Fatalf("unexpected created admin: %#v", created)
+	}
+	var usersUsage, lifetimeUsage, createdTraffic, deletedUsersUsage int64
+	if err := db.QueryRow(`SELECT users_usage, lifetime_usage, created_traffic, deleted_users_usage FROM admins WHERE username = 'seller'`).Scan(&usersUsage, &lifetimeUsage, &createdTraffic, &deletedUsersUsage); err != nil {
+		t.Fatal(err)
+	}
+	if usersUsage != 0 || lifetimeUsage != 0 || createdTraffic != 0 || deletedUsersUsage != 0 {
+		t.Fatalf("unexpected admin counters users=%d lifetime=%d created=%d deleted=%d", usersUsage, lifetimeUsage, createdTraffic, deletedUsersUsage)
+	}
+	var serviceCounters struct {
+		used             int64
+		lifetime         int64
+		created          int64
+		deleted          int64
+		showTraffic      int64
+		deleteLimit      int64
+		createdAt        sql.NullString
+		updatedAt        sql.NullString
+		trafficLimitMode string
+	}
+	if err := db.QueryRow(`
+SELECT used_traffic, lifetime_used_traffic, created_traffic, deleted_users_usage,
+       show_user_traffic, delete_user_usage_limit_enabled, created_at, updated_at, traffic_limit_mode
+FROM admins_services WHERE admin_id = (SELECT id FROM admins WHERE username = 'seller') AND service_id = 7`).Scan(
+		&serviceCounters.used,
+		&serviceCounters.lifetime,
+		&serviceCounters.created,
+		&serviceCounters.deleted,
+		&serviceCounters.showTraffic,
+		&serviceCounters.deleteLimit,
+		&serviceCounters.createdAt,
+		&serviceCounters.updatedAt,
+		&serviceCounters.trafficLimitMode,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if serviceCounters.used != 0 || serviceCounters.lifetime != 0 || serviceCounters.created != 0 || serviceCounters.deleted != 0 {
+		t.Fatalf("unexpected service counters: %#v", serviceCounters)
+	}
+	if serviceCounters.showTraffic != 1 || serviceCounters.deleteLimit != 0 || serviceCounters.trafficLimitMode != "used_traffic" || !serviceCounters.createdAt.Valid || !serviceCounters.updatedAt.Valid {
+		t.Fatalf("unexpected service defaults: %#v", serviceCounters)
 	}
 
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/admin/seller", token, `{

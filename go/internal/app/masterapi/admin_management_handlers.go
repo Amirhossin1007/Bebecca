@@ -149,10 +149,10 @@ func (s *Server) handleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 			r.Context(),
 			`INSERT INTO admins (
 	username, hashed_password, role, permissions, status, telegram_id, subscription_domain,
-	subscription_settings, created_traffic, deleted_users_usage, data_limit, traffic_limit_mode,
+	subscription_settings, users_usage, lifetime_usage, created_traffic, deleted_users_usage, data_limit, traffic_limit_mode,
 	use_service_traffic_limits, show_user_traffic, delete_user_usage_limit_enabled,
 	delete_user_usage_limit, expire, users_limit
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			payload.Username,
 			hash,
 			string(role),
@@ -1080,9 +1080,26 @@ func syncAdminServicesTx(ctx context.Context, tx *sql.Tx, adminID int64, service
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	now := dbTimestamp(time.Now().UTC())
 	for _, id := range ids {
 		if !existing[id] {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO admins_services (admin_id, service_id) VALUES (?, ?)`, adminID, id); err != nil {
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO admins_services (
+	admin_id,
+	service_id,
+	used_traffic,
+	lifetime_used_traffic,
+	created_traffic,
+	deleted_users_usage,
+	data_limit,
+	traffic_limit_mode,
+	show_user_traffic,
+	users_limit,
+	delete_user_usage_limit_enabled,
+	delete_user_usage_limit,
+	created_at,
+	updated_at
+) VALUES (?, ?, 0, 0, 0, 0, NULL, 'used_traffic', 1, NULL, 0, NULL, ?, ?)`, adminID, id, now, now); err != nil {
 				return err
 			}
 		}
