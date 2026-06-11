@@ -172,20 +172,6 @@ SUDOERS = (
 )
 
 
-WEBHOOK_ADDRESS = config(
-    "WEBHOOK_ADDRESS",
-    default="",
-    cast=lambda v: [address.strip() for address in v.split(",")] if v else [],
-)
-WEBHOOK_SECRET = config("WEBHOOK_SECRET", default=None)
-
-# recurrent notifications
-
-# timeout between each retry of sending a notification in seconds
-RECURRENT_NOTIFICATIONS_TIMEOUT = config("RECURRENT_NOTIFICATIONS_TIMEOUT", default=180, cast=int)
-# how many times to try after ok response not recevied after sending a notifications
-NUMBER_OF_RECURRENT_NOTIFICATIONS = config("NUMBER_OF_RECURRENT_NOTIFICATIONS", default=3, cast=int)
-
 DISABLE_RECORDING_NODE_USAGE = config("DISABLE_RECORDING_NODE_USAGE", cast=_cast_bool_compat, default=False)
 
 # headers: profile-update-interval, support-url, profile-title (DB-driven; keep static defaults)
@@ -201,7 +187,6 @@ NODE_HEALTH_CACHE_SECONDS = config("NODE_HEALTH_CACHE_SECONDS", cast=int, defaul
 JOB_RECORD_USER_USAGES_INTERVAL = config("JOB_RECORD_USER_USAGES_INTERVAL", cast=int, default=10)
 ONLINE_ACTIVE_WINDOW_SECONDS = config("ONLINE_ACTIVE_WINDOW_SECONDS", cast=int, default=20)
 JOB_REVIEW_USERS_INTERVAL = config("JOB_REVIEW_USERS_INTERVAL", cast=int, default=10)
-JOB_SEND_NOTIFICATIONS_INTERVAL = config("JOB_SEND_NOTIFICATIONS_INTERVAL", cast=int, default=30)
 JOB_REVIEW_USERS_BATCH_SIZE = config("JOB_REVIEW_USERS_BATCH_SIZE", cast=int, default=200)
 JOB_RECORD_USER_USAGE_COLLECT_TIMEOUT = config("JOB_RECORD_USER_USAGE_COLLECT_TIMEOUT", cast=int, default=8)
 JOB_RECORD_USER_USAGE_WORKERS = config("JOB_RECORD_USER_USAGE_WORKERS", cast=int, default=10)

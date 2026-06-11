@@ -64,10 +64,8 @@
 - [API](#api)
 - [Backup](#backup)
 - [Community](#community)
-- [Telegram Bot](#telegram-bot)
 - [Rebecca CLI](#rebecca-cli)
 - [Rebecca Node](#rebecca-node)
-- [Webhook notifications](#webhook-notifications)
 - [Donation](#donation)
 - [License](#license)
 - [Contributors](#contributors)
@@ -96,7 +94,6 @@ Rebecca is user-friendly, feature-rich and reliable. It lets you create differen
 - System monitoring and **traffic statistics**
 - Customizable xray configuration
 - **TLS** and **REALITY** support
-- Integrated **Telegram Bot**
 - Integrated **Command Line Interface (CLI)**
 - **Multi-language**
 - **Multi-admin** support (WIP)
@@ -313,18 +310,9 @@ By default the app will be run on `http://localhost:8000/dashboard`. You can con
 | CLASH_SUBSCRIPTION_TEMPLATE              | The template that will be used for generating clash configs (default: `clash/default.yml`)                               |
 | SUBSCRIPTION_PAGE_TEMPLATE               | The template used for generating subscription info page (default: `subscription/index.html`)                             |
 | HOME_PAGE_TEMPLATE                       | Decoy page template (default: `home/index.html`)                                                                         |
-| TELEGRAM_API_TOKEN                       | Telegram bot API token  (get token from [@botfather](https://t.me/botfather))                                            |
-| TELEGRAM_ADMIN_ID                        | Numeric Telegram ID of admin (use [@userinfobot](https://t.me/userinfobot) to found your ID)                             |
-| TELEGRAM_PROXY_URL                       | Run Telegram Bot over proxy                                                                                              |
 | JWT_ACCESS_TOKEN_EXPIRE_MINUTES          | Expire time for the Access Tokens in minutes, `0` considered as infinite (default: `1440`)                               |
 | DOCS                                     | Whether API documents should be available on `/docs` and `/redoc` or not (default: `False`)                              |
 | DEBUG                                    | Debug mode for development (default: `False`)                                                                            |
-| WEBHOOK_ADDRESS                          | Webhook address to send notifications to. Webhook notifications will be sent if this value was set.                      |
-| WEBHOOK_SECRET                           | Webhook secret will be sent with each request as `x-webhook-secret` in the header (default: `None`)                      |
-| NUMBER_OF_RECURRENT_NOTIFICATIONS        | How many times to retry if an error detected in sending a notification (default: `3`)                                    |
-| RECURRENT_NOTIFICATIONS_TIMEOUT          | Timeout between each retry if an error detected in sending a notification in seconds (default: `180`)                    |
-| NOTIFY_REACHED_USAGE_PERCENT             | At which percentage of usage to send the warning notification (default: `80`)                                            |
-| NOTIFY_DAYS_LEFT                         | When to send warning notifaction about expiration (default: `3`)                                                         |
 | USERS_AUTODELETE_DAYS                    | Delete expired (and optionally limited users) after this many days (Negative values disable this feature, default: `-1`) |
 | USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS | Whether to include limited accounts in the auto-delete feature (default: `False`)                                        |
 | USE_CUSTOM_JSON_DEFAULT                  | Enable custom JSON config for ALL supported clients (default: `False`)                                                   |
@@ -350,16 +338,11 @@ It's always a good idea to back up your Rebecca files regularly to prevent data 
 1. By default, all Rebecca important files are saved in `/var/lib/rebecca` (Docker versions). Copy the entire `/var/lib/rebecca` directory to a backup location of your choice, such as an external hard drive or cloud storage.
 2. Additionally, make sure to back up your env file, which contains your configuration variables, and also your Xray config file. With the standard installer, the env and other configurations are inside the `/opt/rebecca/` directory.
 
-Rebecca's backup service efficiently zips all necessary files and sends them to your specified Telegram bot. It supports SQLite, MySQL, and MariaDB databases. One of its key features is automation, allowing you to schedule backups every hour. There are no limitations concerning Telegram's upload limits for bots; if a file exceeds the limit, it will be split and sent in multiple parts. Additionally, you can initiate an immediate backup at any time.
+Telegram-delivered backup automation is temporarily disabled during the Go migration. The future Go implementation is tracked in `docs/TODO_GO_TELEGRAM.md`.
 
 Install the Latest Version of Rebecca Command:
 ```bash
 sudo bash -c "$(curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca.sh)" @ install-script
-```
-
-Setup the Backup Service:
-```bash
-rebecca backup-service
 ```
 
 Get an Immediate Backup:
@@ -375,14 +358,9 @@ Join the Telegram channel for project updates and community discussion:
 
 https://t.me/rebeccapanel_rebecca
 
-# Telegram Bot
+# Telegram integration
 
-Rebecca comes with an integrated Telegram bot that can handle server management, user creation and removal, and send notifications. This bot can be easily enabled by following a few simple steps, and it provides a convenient way to interact with Rebecca without having to log in to the server every time.
-
-To enable Telegram Bot:
-
-1. set `TELEGRAM_API_TOKEN` to your bot's API Token
-2. set `TELEGRAM_ADMIN_ID` to your Telegram account's numeric ID, you can get your ID from [@userinfobot](https://t.me/userinfobot)
+Telegram bot commands, Telegram reports, Telegram settings, and Telegram backup delivery are temporarily disabled while Rebecca is migrated to native Go services. The rebuild plan and legacy behavior notes are documented in `docs/TODO_GO_TELEGRAM.md`.
 
 # Rebecca CLI
 
@@ -403,30 +381,7 @@ For more detailed information and installation instructions, please refer to the
 
 # Webhook notifications
 
-You can set a webhook address and Rebecca will send the notifications to that address.
-
-the requests will be sent as a post request to the adress provided by `WEBHOOK_ADDRESS` with `WEBHOOK_SECRET` as `x-webhook-secret` in the headers.
-
-Example request sent from Rebecca:
-
-```
-Headers:
-Host: 0.0.0.0:9000
-User-Agent: python-requests/2.28.1
-Accept-Encoding: gzip, deflate
-Accept: */*
-Connection: keep-alive
-x-webhook-secret: something-very-very-secret
-Content-Length: 107
-Content-Type: application/json
-
-
-
-Body:
-{"username": "rebecca_test_user", "action": "user_updated", "enqueued_at": 1680506457.636369, "tries": 0}
-```
-
-Different action typs are: `user_created`, `user_updated`, `user_deleted`, `user_limited`, `user_expired`, `user_disabled`, `user_enabled`
+Webhook notifications are temporarily disabled with Telegram/report delivery. The future Go event outbox and retry behavior are tracked in `docs/TODO_GO_TELEGRAM.md`.
 
 # Donation
 

@@ -73,9 +73,6 @@ mock_xray.operations.remove_user = MagicMock()
 mock_xray.operations.restart_node = MagicMock()
 mock_xray.nodes = {}
 
-# Patch TelegramSettingsService to avoid external DB connections in tests
-patch("app.utils.report._event_enabled", return_value=False).start()
-
 import app.runtime
 
 app.runtime.xray = mock_xray

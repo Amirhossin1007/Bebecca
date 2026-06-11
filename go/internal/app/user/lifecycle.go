@@ -33,6 +33,18 @@ type UsageResetResult struct {
 	Reactivated int64 `json:"reactivated"`
 }
 
+type AutodeleteOptions struct {
+	BatchSize      int
+	Now            time.Time
+	GlobalDays     int
+	IncludeLimited bool
+}
+
+type AutodeleteResult struct {
+	Checked int64 `json:"checked"`
+	Deleted int64 `json:"deleted"`
+}
+
 type lifecycleUserRow struct {
 	ID                   int64
 	Status               UserStatus
@@ -60,12 +72,23 @@ type resetCandidateRow struct {
 	UseServiceCap bool
 }
 
+type autodeleteCandidateRow struct {
+	ID               int64
+	Status           UserStatus
+	AutoDeleteInDays int64
+	LastStatusChange time.Time
+}
+
 func (s Service) ReviewLifecycle(ctx context.Context, opts LifecycleOptions) (LifecycleResult, error) {
 	return s.repo.reviewUserLifecycle(ctx, opts)
 }
 
 func (s Service) ResetPeriodicUsage(ctx context.Context, opts UsageResetOptions) (UsageResetResult, error) {
 	return s.repo.resetPeriodicUserUsage(ctx, opts)
+}
+
+func (s Service) AutodeleteExpiredUsers(ctx context.Context, opts AutodeleteOptions) (AutodeleteResult, error) {
+	return s.repo.autodeleteExpiredUsers(ctx, opts)
 }
 
 func (r Repository) reviewUserLifecycle(ctx context.Context, opts LifecycleOptions) (LifecycleResult, error) {
@@ -166,6 +189,90 @@ WHERE id = ?`,
 		return result, err
 	}
 	return result, nil
+}
+
+func (r Repository) autodeleteExpiredUsers(ctx context.Context, opts AutodeleteOptions) (AutodeleteResult, error) {
+	now := opts.Now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	batchSize := opts.BatchSize
+	if batchSize <= 0 {
+		batchSize = defaultLifecycleBatchSize
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return AutodeleteResult{}, err
+	}
+	defer rollbackQuiet(tx)
+
+	candidates, err := r.autodeleteCandidateRowsTx(ctx, tx, opts, batchSize)
+	if err != nil {
+		return AutodeleteResult{}, err
+	}
+	result := AutodeleteResult{}
+	for _, row := range candidates {
+		result.Checked++
+		if row.AutoDeleteInDays < 0 {
+			continue
+		}
+		if row.LastStatusChange.IsZero() || row.LastStatusChange.Add(time.Duration(row.AutoDeleteInDays)*24*time.Hour).After(now) {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET status = ? WHERE id = ?`, string(UserStatusDeleted), row.ID); err != nil {
+			return result, err
+		}
+		if err := r.enqueueUserOperationForNodesTx(ctx, tx, NodeOperationRemoveUser, row.ID, now); err != nil {
+			return result, err
+		}
+		result.Deleted++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+func (r Repository) autodeleteCandidateRowsTx(ctx context.Context, tx *sql.Tx, opts AutodeleteOptions, limit int) ([]autodeleteCandidateRow, error) {
+	statusSQL := "status = ?"
+	args := []any{opts.GlobalDays, string(UserStatusExpired)}
+	if opts.IncludeLimited {
+		statusSQL = "status IN (?, ?)"
+		args = []any{opts.GlobalDays, string(UserStatusExpired), string(UserStatusLimited)}
+	}
+	args = append(args, limit)
+	rows, err := tx.QueryContext(
+		ctx,
+		`SELECT id,
+		        status,
+		        COALESCE(auto_delete_in_days, ?),
+		        last_status_change
+		   FROM users
+		  WHERE `+statusSQL+`
+		  ORDER BY id
+		  LIMIT ?`,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []autodeleteCandidateRow{}
+	for rows.Next() {
+		var row autodeleteCandidateRow
+		var lastStatus any
+		if err := rows.Scan(&row.ID, &row.Status, &row.AutoDeleteInDays, &lastStatus); err != nil {
+			return nil, err
+		}
+		if parsed := optionalDBTime(lastStatus); parsed != nil {
+			row.LastStatusChange = parsed.UTC()
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
 }
 
 func (r Repository) lifecycleActiveRowsTx(ctx context.Context, tx *sql.Tx, now time.Time, limit int) ([]lifecycleUserRow, error) {

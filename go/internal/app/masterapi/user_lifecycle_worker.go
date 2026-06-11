@@ -12,11 +12,13 @@ import (
 const (
 	defaultUserLifecycleInterval  = 30 * time.Second
 	defaultUserUsageResetInterval = time.Hour
+	defaultUserAutodeleteInterval = 6 * time.Hour
 )
 
 func (s *Server) runUserLifecycleWorkers(ctx context.Context) {
 	go s.runUserLifecycleWorker(ctx)
 	go s.runUserUsageResetWorker(ctx)
+	go s.runUserAutodeleteWorker(ctx)
 }
 
 func (s *Server) runUserLifecycleWorker(ctx context.Context) {
@@ -100,6 +102,50 @@ func (s *Server) resetPeriodicUserUsage(ctx context.Context) {
 			result.Checked,
 			result.Reset,
 			result.Reactivated,
+		)
+	}
+}
+
+func (s *Server) runUserAutodeleteWorker(ctx context.Context) {
+	interval := parseWorkerInterval(s.cfg.UserAutodeleteInterval, defaultUserAutodeleteInterval)
+	if interval <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	s.autodeleteExpiredUsers(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.autodeleteExpiredUsers(ctx)
+		}
+	}
+}
+
+func (s *Server) autodeleteExpiredUsers(ctx context.Context) {
+	workerCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	result, err := s.userService.AutodeleteExpiredUsers(workerCtx, userapp.AutodeleteOptions{
+		BatchSize:      s.cfg.UserAutodeleteBatchSize,
+		GlobalDays:     s.cfg.UsersAutodeleteDays,
+		IncludeLimited: s.cfg.UserAutodeleteIncludeLimited,
+	})
+	if err != nil {
+		log.Printf("Go expired user autodelete failed: %v", err)
+		return
+	}
+	if result.Deleted > 0 {
+		log.Printf(
+			"Go expired user autodelete checked=%d deleted=%d include_limited=%t global_days=%d",
+			result.Checked,
+			result.Deleted,
+			s.cfg.UserAutodeleteIncludeLimited,
+			s.cfg.UsersAutodeleteDays,
 		)
 	}
 }

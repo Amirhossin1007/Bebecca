@@ -86,17 +86,12 @@ app.add_middleware(
 )
 if not SKIP_DASHBOARD_INIT:
     import dashboard  # noqa: F401
-if scheduler is not None:
-    from app import jobs  # noqa
-
 if not IS_RUNNING_ALEMBIC:
-    from app import routers, telegram  # noqa
+    from app import routers  # noqa
 
     if scheduler is not None:
         register_scheduler_jobs(scheduler)
     from app.routers import api_router  # noqa
-
-    runtime.telegram = telegram
 
     app.include_router(api_router)
 

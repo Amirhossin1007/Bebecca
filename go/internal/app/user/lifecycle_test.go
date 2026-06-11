@@ -90,6 +90,50 @@ INSERT INTO node_user_usages (created_at, user_id, node_id, used_traffic) VALUES
 	assertLifecycleInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'enable_user' AND user_id = 20`, 1)
 }
 
+func TestAutodeleteExpiredUsersQueuesRemoveOperations(t *testing.T) {
+	ctx := context.Background()
+	db := newLifecycleTestDB(t)
+	service := NewService(NewRepository(db, "sqlite"))
+	now := time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC)
+	oldStatus := now.Add(-72 * time.Hour).Format("2006-01-02 15:04:05")
+	recentStatus := now.Add(-12 * time.Hour).Format("2006-01-02 15:04:05")
+
+	_, err := db.ExecContext(ctx, `
+INSERT INTO nodes (id, status) VALUES (1, 'connected');
+INSERT INTO users (id, username, status, last_status_change, auto_delete_in_days)
+VALUES
+  (30, 'expired_due', 'expired', ?, NULL),
+  (31, 'limited_due', 'limited', ?, 1),
+  (32, 'expired_recent', 'expired', ?, 1),
+  (33, 'expired_disabled', 'expired', ?, -1);`,
+		oldStatus,
+		oldStatus,
+		recentStatus,
+		oldStatus,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := service.AutodeleteExpiredUsers(ctx, AutodeleteOptions{
+		Now:            now,
+		GlobalDays:     2,
+		IncludeLimited: true,
+		BatchSize:      100,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Deleted != 2 {
+		t.Fatalf("unexpected autodelete result: %#v", result)
+	}
+	assertLifecycleString(t, db, `SELECT status FROM users WHERE id = 30`, "deleted")
+	assertLifecycleString(t, db, `SELECT status FROM users WHERE id = 31`, "deleted")
+	assertLifecycleString(t, db, `SELECT status FROM users WHERE id = 32`, "expired")
+	assertLifecycleString(t, db, `SELECT status FROM users WHERE id = 33`, "expired")
+	assertLifecycleInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'remove_user'`, 2)
+}
+
 func newLifecycleTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "lifecycle.db")+"?_busy_timeout=30000")
@@ -112,6 +156,7 @@ func newLifecycleTestDB(t *testing.T) *sql.DB {
 			created_at DATETIME NULL,
 			last_status_change DATETIME NULL,
 			data_limit_reset_strategy TEXT NULL,
+			auto_delete_in_days BIGINT NULL,
 			admin_id INTEGER NULL,
 			service_id INTEGER NULL
 		)`,

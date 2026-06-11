@@ -12,23 +12,27 @@ import (
 const defaultAddress = "127.0.0.1:18080"
 
 type Config struct {
-	Address                     string
-	Database                    string
-	TLSCert                     string
-	TLSKey                      string
-	NodeOperationsPollInterval  string
-	UserLifecycleInterval       string
-	UserLifecycleBatchSize      int
-	UserUsageResetInterval      string
-	UserUsageResetBatchSize     int
-	JWTAccessTokenExpireMinutes int
-	UsersListTimeoutSeconds     float64
-	SubscriptionReadOnly        bool
-	SudoUsername                string
-	SudoPassword                string
-	WarpAPIBase                 string
-	XrayFallbackInboundTag      string
-	XrayExcludeInboundTags      []string
+	Address                      string
+	Database                     string
+	TLSCert                      string
+	TLSKey                       string
+	NodeOperationsPollInterval   string
+	UserLifecycleInterval        string
+	UserLifecycleBatchSize       int
+	UserUsageResetInterval       string
+	UserUsageResetBatchSize      int
+	UserAutodeleteInterval       string
+	UserAutodeleteBatchSize      int
+	UsersAutodeleteDays          int
+	UserAutodeleteIncludeLimited bool
+	JWTAccessTokenExpireMinutes  int
+	UsersListTimeoutSeconds      float64
+	SubscriptionReadOnly         bool
+	SudoUsername                 string
+	SudoPassword                 string
+	WarpAPIBase                  string
+	XrayFallbackInboundTag       string
+	XrayExcludeInboundTags       []string
 }
 
 func LoadConfig() (Config, error) {
@@ -60,23 +64,27 @@ func LoadConfig() (Config, error) {
 	}
 
 	cfg := Config{
-		Address:                     addr,
-		Database:                    lookup("SQLALCHEMY_DATABASE_URL", "DATABASE_URL"),
-		TLSCert:                     lookup("REBECCA_MASTER_API_TLS_CERTFILE", "UVICORN_SSL_CERTFILE", "SSL_CERTFILE"),
-		TLSKey:                      lookup("REBECCA_MASTER_API_TLS_KEYFILE", "UVICORN_SSL_KEYFILE", "SSL_KEYFILE"),
-		NodeOperationsPollInterval:  lookup("REBECCA_NODE_OPERATIONS_POLL_INTERVAL"),
-		UserLifecycleInterval:       firstNonEmpty(lookup("REBECCA_USER_LIFECYCLE_INTERVAL"), secondsEnv(lookup("JOB_REVIEW_USERS_INTERVAL"))),
-		UserLifecycleBatchSize:      parseIntDefault(lookup("REBECCA_USER_LIFECYCLE_BATCH_SIZE", "JOB_REVIEW_USERS_BATCH_SIZE"), 500),
-		UserUsageResetInterval:      lookup("REBECCA_USER_USAGE_RESET_INTERVAL"),
-		UserUsageResetBatchSize:     parseIntDefault(lookup("REBECCA_USER_USAGE_RESET_BATCH_SIZE"), 500),
-		JWTAccessTokenExpireMinutes: parseIntDefault(lookup("JWT_ACCESS_TOKEN_EXPIRE_MINUTES"), 1440),
-		UsersListTimeoutSeconds:     parseFloatDefault(lookup("USERS_LIST_TIMEOUT_SECONDS"), 0),
-		SubscriptionReadOnly:        parseBoolDefault(lookup("SUBSCRIPTION_READ_ONLY"), false),
-		SudoUsername:                lookup("SUDO_USERNAME"),
-		SudoPassword:                lookup("SUDO_PASSWORD"),
-		WarpAPIBase:                 lookup("REBECCA_WARP_API_BASE"),
-		XrayFallbackInboundTag:      firstNonEmpty(lookup("XRAY_FALLBACKS_INBOUND_TAG"), lookup("XRAY_FALLBACK_INBOUND_TAG")),
-		XrayExcludeInboundTags:      splitWhitespace(lookup("XRAY_EXCLUDE_INBOUND_TAGS")),
+		Address:                      addr,
+		Database:                     lookup("SQLALCHEMY_DATABASE_URL", "DATABASE_URL"),
+		TLSCert:                      lookup("REBECCA_MASTER_API_TLS_CERTFILE", "UVICORN_SSL_CERTFILE", "SSL_CERTFILE"),
+		TLSKey:                       lookup("REBECCA_MASTER_API_TLS_KEYFILE", "UVICORN_SSL_KEYFILE", "SSL_KEYFILE"),
+		NodeOperationsPollInterval:   lookup("REBECCA_NODE_OPERATIONS_POLL_INTERVAL"),
+		UserLifecycleInterval:        firstNonEmpty(lookup("REBECCA_USER_LIFECYCLE_INTERVAL"), secondsEnv(lookup("JOB_REVIEW_USERS_INTERVAL"))),
+		UserLifecycleBatchSize:       parseIntDefault(lookup("REBECCA_USER_LIFECYCLE_BATCH_SIZE", "JOB_REVIEW_USERS_BATCH_SIZE"), 500),
+		UserUsageResetInterval:       lookup("REBECCA_USER_USAGE_RESET_INTERVAL"),
+		UserUsageResetBatchSize:      parseIntDefault(lookup("REBECCA_USER_USAGE_RESET_BATCH_SIZE"), 500),
+		UserAutodeleteInterval:       lookup("REBECCA_USER_AUTODELETE_INTERVAL"),
+		UserAutodeleteBatchSize:      parseIntDefault(lookup("REBECCA_USER_AUTODELETE_BATCH_SIZE"), 500),
+		UsersAutodeleteDays:          parseIntDefault(lookup("USERS_AUTODELETE_DAYS"), -1),
+		UserAutodeleteIncludeLimited: parseBoolDefault(lookup("USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS"), false),
+		JWTAccessTokenExpireMinutes:  parseIntDefault(lookup("JWT_ACCESS_TOKEN_EXPIRE_MINUTES"), 1440),
+		UsersListTimeoutSeconds:      parseFloatDefault(lookup("USERS_LIST_TIMEOUT_SECONDS"), 0),
+		SubscriptionReadOnly:         parseBoolDefault(lookup("SUBSCRIPTION_READ_ONLY"), false),
+		SudoUsername:                 lookup("SUDO_USERNAME"),
+		SudoPassword:                 lookup("SUDO_PASSWORD"),
+		WarpAPIBase:                  lookup("REBECCA_WARP_API_BASE"),
+		XrayFallbackInboundTag:       firstNonEmpty(lookup("XRAY_FALLBACKS_INBOUND_TAG"), lookup("XRAY_FALLBACK_INBOUND_TAG")),
+		XrayExcludeInboundTags:       splitWhitespace(lookup("XRAY_EXCLUDE_INBOUND_TAGS")),
 	}
 	if cfg.Database == "" {
 		return Config{}, fmt.Errorf("SQLALCHEMY_DATABASE_URL is required")

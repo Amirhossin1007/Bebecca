@@ -16,10 +16,13 @@ admin API to Telegram delivery.
 - Python Telegram bot command handlers are disabled during the Go migration.
   The old handlers mutated users, nodes, templates, subscriptions, and runtime
   state through Python paths that are no longer the source of truth.
-- Python Telegram report functions are intentionally no-op placeholders. They
-  remain import-compatible while Go-native mutation/reporting is rebuilt.
-- Telegram backup delivery remains enabled because it only uses the bot as a
-  delivery transport and does not mutate Rebecca business state.
+- Python Telegram bot, report, Telegram settings, periodic Telegram backup, and
+  webhook notification queue code has been removed from the active runtime.
+- `/api/settings/telegram` now returns `410 Gone` at the Go gateway. Restore it
+  only as a Go-native settings API.
+- Periodic Telegram backup delivery is disabled until it is rebuilt in Go.
+- Legacy in-memory webhook notification queue delivery is disabled until a Go
+  event/outbox design exists.
 
 ## Future Go Scope
 
@@ -30,8 +33,9 @@ admin API to Telegram delivery.
   direct database CRUD helpers.
 - Decide whether events are delivered synchronously, through an outbox table, or
   through a background worker.
-- Implement Telegram settings lookup in Go, including per-topic enable flags and
-  chat/thread routing.
+- Implement Telegram settings CRUD/lookup in Go, including per-topic enable
+  flags, backup settings, chat/thread routing, and dashboard response
+  compatibility.
 - Port report formatting currently implemented in Python to Go templates.
 - Add rate-limit handling and retry behavior for Telegram API calls.
 - Add tests for notification opt-in/opt-out, formatting, retry, and disabled
@@ -207,8 +211,7 @@ tracking for the dashboard.
 
 ## Backup Delivery Logic To Preserve
 
-Telegram backup delivery remains active in Python for now. If moved to Go later,
-preserve:
+Telegram backup delivery is currently disabled. When moved to Go, preserve:
 
 - Backup enabled/scope/interval settings.
 - Logs chat or admin-chat fallback.
@@ -218,6 +221,25 @@ preserve:
   number.
 - Final completion message.
 - Last sent/error status updates in Telegram settings.
+
+## Webhook Notification Queue To Preserve
+
+The removed Python webhook queue used `WEBHOOK_ADDRESS` and `WEBHOOK_SECRET` to
+send batches of user/admin events to external HTTP endpoints. It was in-memory,
+retried failed batches with `RECURRENT_NOTIFICATIONS_TIMEOUT`, and stopped after
+`NUMBER_OF_RECURRENT_NOTIFICATIONS`.
+
+When rebuilt in Go:
+
+- Prefer a persistent outbox table over an in-memory queue so events survive
+  restarts.
+- Keep payload compatibility for existing webhook consumers where possible:
+  `action`, `username`, user/admin snapshots, actor, enqueue/send timestamps,
+  and retry count.
+- Send `x-webhook-secret` when configured.
+- Batch events per tick and retry failed events with bounded attempts.
+- Ensure webhook delivery failure never rolls back the business mutation that
+  produced the event.
 
 ## Rollout Notes
 

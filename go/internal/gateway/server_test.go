@@ -329,6 +329,47 @@ func TestDeprecatedRuntimeRoutesReturnGone(t *testing.T) {
 	}
 }
 
+func TestDeprecatedTelegramSettingsRouteReturnsGone(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("deprecated telegram settings route reached python: %s %s", r.Method, r.URL.Path)
+	}))
+	defer python.Close()
+	master := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("deprecated telegram settings route reached master api: %s %s", r.Method, r.URL.Path)
+	}))
+	defer master.Close()
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		Addr:         "127.0.0.1:0",
+		PythonHost:   host,
+		PythonPort:   port,
+		MasterAPIURL: master.URL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, method := range []string{http.MethodGet, http.MethodPut} {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/settings/telegram", nil)
+			rec := httptest.NewRecorder()
+			server.server.Handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusGone {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestIsNativeNodeRoute(t *testing.T) {
 	tests := []struct {
 		name   string
