@@ -15,7 +15,6 @@ from app.db.models import PanelSettings as PanelSettingsModel
 class PanelSettingsData:
     use_nobetci: bool = False
     default_subscription_type: str = "key"
-    access_insights_enabled: bool = False
 
 
 class PanelSettingsService:
@@ -44,33 +43,14 @@ class PanelSettingsService:
             db.rollback()
             return
 
-    @staticmethod
-    def _ensure_access_insights_column(db: Session) -> None:
-        """
-        Ensure the access_insights_enabled column exists for legacy databases.
-        """
-        try:
-            inspector = inspect(db.get_bind())
-            columns = {col["name"] for col in inspector.get_columns("panel_settings")}
-            if "access_insights_enabled" not in columns:
-                db.execute(
-                    text("ALTER TABLE panel_settings ADD COLUMN access_insights_enabled BOOLEAN NOT NULL DEFAULT 0")
-                )
-                db.commit()
-        except Exception:
-            db.rollback()
-            return
-
     @classmethod
     def _ensure_record(cls, db: Session) -> PanelSettingsModel:
         cls._ensure_subscription_type_column(db)
-        cls._ensure_access_insights_column(db)
         record = db.query(PanelSettingsModel).order_by(PanelSettingsModel.id.desc()).first()
         if record is None:
             record = PanelSettingsModel(
                 use_nobetci=False,
                 default_subscription_type="key",
-                access_insights_enabled=False,
             )
             db.add(record)
             db.commit()
@@ -91,23 +71,6 @@ class PanelSettingsService:
                     db.add(record)
                     db.commit()
                     db.refresh(record)
-            if not hasattr(record, "access_insights_enabled"):
-                try:
-                    record.access_insights_enabled = False
-                    db.add(record)
-                    db.commit()
-                    db.refresh(record)
-                except Exception:
-                    pass
-            else:
-                if record.access_insights_enabled is None:
-                    try:
-                        record.access_insights_enabled = False
-                        db.add(record)
-                        db.commit()
-                        db.refresh(record)
-                    except Exception:
-                        pass
         return record
 
     @classmethod
@@ -117,7 +80,6 @@ class PanelSettingsService:
         return PanelSettingsData(
             use_nobetci=bool(record.use_nobetci),
             default_subscription_type=getattr(record, "default_subscription_type", None) or "key",
-            access_insights_enabled=bool(getattr(record, "access_insights_enabled", False)),
         )
 
     @classmethod
@@ -132,7 +94,6 @@ class PanelSettingsService:
             db = SessionLocal()
             close_db = True
         try:
-            cls._ensure_access_insights_column(db)
             record = db.query(PanelSettingsModel).order_by(PanelSettingsModel.id.desc()).first()
             if record is None and ensure_record:
                 record = cls._ensure_record(db)
@@ -153,7 +114,6 @@ class PanelSettingsService:
             db = SessionLocal()
             close_db = True
         try:
-            cls._ensure_access_insights_column(db)
             record = cls._ensure_record(db)
             if "use_nobetci" in payload:
                 incoming = payload.get("use_nobetci")
@@ -173,10 +133,6 @@ class PanelSettingsService:
                     except Exception:
                         # If column is missing in legacy schema, ignore silently
                         pass
-            if "access_insights_enabled" in payload:
-                incoming = payload.get("access_insights_enabled")
-                value = False if incoming is None else bool(incoming)
-                record.access_insights_enabled = value
             record.updated_at = datetime.now(UTC).replace(tzinfo=None)
             db.add(record)
             db.commit()

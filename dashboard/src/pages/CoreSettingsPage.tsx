@@ -527,9 +527,13 @@ export const CoreSettingsPage: FC = () => {
 	const { onEditingCore } = useDashboard();
 	const canManageXraySettings =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
+	const [selectedTarget, setSelectedTarget] = useState("master");
 	const { data: serverIPs } = useQuery(
-		["server-ips"],
-		() => apiFetch<{ ipv4: string; ipv6: string }>("/core/ips"),
+		["server-ips", selectedTarget],
+		() =>
+			apiFetch<{ ipv4: string; ipv6: string }>("/core/ips", {
+				query: { target: selectedTarget },
+			}),
 		{
 			staleTime: 5 * 60 * 1000, // 5 minutes
 			enabled: canManageXraySettings,
@@ -634,7 +638,6 @@ export const CoreSettingsPage: FC = () => {
 	const [warpOptionValue, setWarpOptionValue] = useState<string>("");
 	const [warpCustomDomain, setWarpCustomDomain] = useState<string>("");
 	const [activeTab, setActiveTab] = useState<number>(0);
-	const [selectedTarget, setSelectedTarget] = useState("master");
 	const [isChangingTargetMode, setIsChangingTargetMode] = useState(false);
 	const selectedTargetInfo = useMemo(
 		() => configTargets.find((target) => target.id === selectedTarget),
@@ -1171,6 +1174,7 @@ export const CoreSettingsPage: FC = () => {
 				body: {
 					outbound: JSON.stringify(outbound),
 					allOutbounds: JSON.stringify(outbounds),
+					target_id: selectedTarget,
 				},
 			});
 

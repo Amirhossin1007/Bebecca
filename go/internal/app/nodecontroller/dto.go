@@ -1,13 +1,17 @@
 package nodecontroller
 
 type Request struct {
-	NodeID     int64  `json:"node_id"`
-	ConfigJSON string `json:"config_json,omitempty"`
-	Force      bool   `json:"force,omitempty"`
-	MaxLines   int    `json:"max_lines,omitempty"`
-	Version    string `json:"version,omitempty"`
-	Channel    string `json:"channel,omitempty"`
-	Files      []File `json:"files,omitempty"`
+	NodeID           int64  `json:"node_id"`
+	ConfigJSON       string `json:"config_json,omitempty"`
+	Force            bool   `json:"force,omitempty"`
+	MaxLines         int    `json:"max_lines,omitempty"`
+	Version          string `json:"version,omitempty"`
+	Channel          string `json:"channel,omitempty"`
+	Files            []File `json:"files,omitempty"`
+	OutboundTag      string `json:"outbound_tag,omitempty"`
+	OutboundProtocol string `json:"outbound_protocol,omitempty"`
+	AllOutboundsJSON string `json:"all_outbounds_json,omitempty"`
+	OutboundTestURL  string `json:"test_url,omitempty"`
 }
 
 type File struct {
@@ -61,6 +65,18 @@ type RuntimeResult struct {
 	Memory             MemInfo  `json:"memory"`
 	Transfer           NetInfo  `json:"transfer"`
 	Logs               []string `json:"logs,omitempty"`
+}
+
+type PublicIPsResult struct {
+	IPv4 string `json:"ipv4"`
+	IPv6 string `json:"ipv6"`
+}
+
+type OutboundTestResult struct {
+	Success    bool   `json:"success"`
+	Delay      int64  `json:"delay,omitempty"`
+	StatusCode int32  `json:"statusCode,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 type NodeListResult struct {

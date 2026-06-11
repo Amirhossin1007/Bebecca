@@ -1,5 +1,3 @@
-import importlib.util
-from os.path import dirname
 from threading import Lock, Thread
 from typing import Optional, Tuple, Union
 
@@ -11,12 +9,10 @@ from telebot.apihelper import ApiTelegramException
 
 
 bot: Optional[TeleBot] = None
-_handler_names = ["admin", "report", "user"]
 _bot_lock = Lock()
 _topic_lock = Lock()
 _polling_thread: Optional[Thread] = None
 _current_token: Optional[str] = None
-_handlers_token: Optional[str] = None
 
 
 def _apply_proxy(proxy_url: Optional[str]) -> None:
@@ -95,33 +91,14 @@ def ensure_forum_topic(
         return message_thread_id
 
 
-def _load_handlers() -> None:
-    handler_dir = dirname(__file__) + "/handlers/"
-    for name in _handler_names:
-        spec = importlib.util.spec_from_file_location(name, f"{handler_dir}{name}.py")
-        if not spec or not spec.loader:
-            logger.error("Unable to load Telegram handler module '%s'", name)
-            continue
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-
 def _prepare_handlers() -> None:
-    global _handlers_token
-    if not bot:
-        return
-    if _handlers_token == _current_token:
-        return
-    _load_handlers()
-
-    from app.telegram import utils
-
-    utils.setup()
-    _handlers_token = _current_token
+    # TODO(go-telegram): rebuild bot command handlers in Go. The legacy Python
+    # handlers mutated users/nodes through removed Python paths.
+    return
 
 
 def _stop_polling(reset_token: bool = False) -> None:
-    global bot, _polling_thread, _current_token, _handlers_token
+    global bot, _polling_thread, _current_token
     with _bot_lock:
         if bot:
             try:
@@ -134,7 +111,6 @@ def _stop_polling(reset_token: bool = False) -> None:
         if reset_token:
             bot = None
             _current_token = None
-            _handlers_token = None
 
 
 def _start_polling(bot_instance: TeleBot) -> None:
@@ -146,18 +122,13 @@ def _start_polling(bot_instance: TeleBot) -> None:
 
 
 def ensure_polling() -> None:
-    bot_instance, settings = get_bot(with_settings=True)
+    settings = TelegramSettingsService.get_settings(ensure_record=True)
     if not settings.use_telegram:
         logger.info("Telegram bot disabled; skipping bot polling")
         _stop_polling(reset_token=True)
         return
-    if not bot_instance or not settings.api_token:
-        logger.info("Telegram bot token not configured; skipping bot polling")
-        _stop_polling(reset_token=not settings.api_token)
-        return
-
-    _prepare_handlers()
-    _start_polling(bot_instance)
+    logger.info("Telegram bot command handlers are temporarily disabled during Go migration")
+    _stop_polling(reset_token=False)
 
 
 def reload_bot() -> None:
@@ -166,14 +137,8 @@ def reload_bot() -> None:
         _stop_polling(reset_token=True)
         return
 
+    logger.info("Telegram bot command handlers are temporarily disabled during Go migration")
     _stop_polling(reset_token=True)
-    bot_instance = _configure_bot(settings)
-    if not bot_instance:
-        logger.warning("Unable to configure Telegram bot with provided token")
-        return
-
-    _prepare_handlers()
-    _start_polling(bot_instance)
 
 
 def start_bot() -> None:
@@ -193,6 +158,8 @@ from .handlers.report import (  # noqa
     report_admin_usage_reset,
     report_login,
     report_status_change,
+    report_user_auto_renew_applied,
+    report_user_auto_renew_set,
     report_user_data_reset_by_next,
     report_user_deletion,
     report_user_modification,
@@ -214,6 +181,8 @@ __all__ = [
     "report_status_change",
     "report_user_usage_reset",
     "report_user_data_reset_by_next",
+    "report_user_auto_renew_set",
+    "report_user_auto_renew_applied",
     "report_user_subscription_revoked",
     "report_login",
     "report_admin_created",

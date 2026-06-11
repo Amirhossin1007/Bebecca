@@ -4,7 +4,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
@@ -27,12 +27,8 @@ from app.models.settings import (
     TelegramSettingsResponse,
     TelegramSettingsUpdate,
     TelegramTopicSettings,
-    ThreeXUiImportJobResponse,
-    ThreeXUiImportRequest,
-    ThreeXUiPreviewResponse,
 )
 from app.services.panel_settings import PanelSettingsService
-from app.services.import_3xui import ThreeXUiImportService
 from app.services.rebecca_backup import (
     BACKUP_MEDIA_TYPE,
     RebeccaBackupError,
@@ -55,6 +51,9 @@ router = APIRouter(
 BACKUP_DISABLED_DETAIL = (
     "Rebecca backup and import is available only on binary installations. "
     "Migrate this panel to the binary version before using backup or restore from the web UI."
+)
+THREEXUI_IMPORT_DISABLED_DETAIL = (
+    "3x-ui database import is temporarily disabled and will return as a Go-native importer."
 )
 
 
@@ -116,7 +115,6 @@ def get_panel_settings(_: Admin = Depends(Admin.require_active)):
     return PanelSettingsResponse(
         use_nobetci=settings.use_nobetci,
         default_subscription_type=settings.default_subscription_type,
-        access_insights_enabled=settings.access_insights_enabled,
     )
 
 
@@ -130,7 +128,6 @@ def update_panel_settings(
     return PanelSettingsResponse(
         use_nobetci=settings.use_nobetci,
         default_subscription_type=settings.default_subscription_type,
-        access_insights_enabled=settings.access_insights_enabled,
     )
 
 
@@ -360,39 +357,33 @@ def renew_certificate(
 
 @router.post(
     "/database/3xui/preview",
-    response_model=ThreeXUiPreviewResponse,
     responses={403: responses._403},
 )
 def preview_3xui_database(
-    file: UploadFile = File(...),
     _: Admin = Depends(Admin.check_sudo_admin),
-    db: Session = Depends(get_db),
 ):
-    return ThreeXUiImportService.create_preview(file, db)
+    # TODO: restore 3x-ui import as a Go-native importer.
+    raise HTTPException(status_code=410, detail=THREEXUI_IMPORT_DISABLED_DETAIL)
 
 
 @router.post(
     "/database/3xui/import",
-    response_model=ThreeXUiImportJobResponse,
     responses={403: responses._403},
 )
 def start_3xui_import(
-    payload: ThreeXUiImportRequest,
-    bg: BackgroundTasks,
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    job = ThreeXUiImportService.start_import(payload)
-    bg.add_task(ThreeXUiImportService.run_import_job, job.job_id, payload)
-    return job
+    # TODO: restore 3x-ui import as a Go-native importer.
+    raise HTTPException(status_code=410, detail=THREEXUI_IMPORT_DISABLED_DETAIL)
 
 
 @router.get(
     "/database/3xui/jobs/{job_id}",
-    response_model=ThreeXUiImportJobResponse,
     responses={403: responses._403, 404: responses._404},
 )
 def get_3xui_import_job(
-    job_id: str,
+    _job_id: str,
     _: Admin = Depends(Admin.check_sudo_admin),
 ):
-    return ThreeXUiImportService.get_job(job_id)
+    # TODO: restore 3x-ui import as a Go-native importer.
+    raise HTTPException(status_code=410, detail=THREEXUI_IMPORT_DISABLED_DETAIL)

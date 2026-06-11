@@ -19,6 +19,8 @@ service NodeRuntimeService {
   rpc UpdateUser(InboundUserRequest) returns (RuntimeActionResponse);
   rpc RemoveUser(RemoveInboundUserRequest) returns (RuntimeActionResponse);
   rpc Metrics(MetricsRequest) returns (MetricsResponse);
+  rpc PublicIPs(PublicIPsRequest) returns (PublicIPsResponse);
+  rpc TestOutbound(OutboundTestRequest) returns (OutboundTestResponse);
   rpc UpdateRuntime(RuntimeUpdateRequest) returns (RuntimeActionResponse);
   rpc UpdateGeo(GeoUpdateRequest) returns (RuntimeActionResponse);
   rpc RestartService(ServiceRestartRequest) returns (RuntimeActionResponse);
@@ -127,6 +129,28 @@ message MetricsResponse {
   SystemMetrics system = 2;
   TransferMetrics transfer = 3;
   int64 sampled_at_unix = 4;
+}
+
+message PublicIPsRequest {}
+
+message PublicIPsResponse {
+  string ipv4 = 1;
+  string ipv6 = 2;
+}
+
+message OutboundTestRequest {
+  string operation_id = 1;
+  string outbound_tag = 2;
+  string outbound_protocol = 3;
+  string all_outbounds_json = 4;
+  string test_url = 5;
+}
+
+message OutboundTestResponse {
+  bool success = 1;
+  int64 delay = 2;
+  int32 status_code = 3;
+  string error = 4;
 }
 
 message RuntimeUpdateRequest {

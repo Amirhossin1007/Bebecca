@@ -15,8 +15,10 @@ import (
 	adminapp "github.com/rebeccapanel/rebecca/go/internal/app/admin"
 	nodeapp "github.com/rebeccapanel/rebecca/go/internal/app/node"
 	"github.com/rebeccapanel/rebecca/go/internal/app/nodecontroller"
+	systemapp "github.com/rebeccapanel/rebecca/go/internal/app/system"
 	"github.com/rebeccapanel/rebecca/go/internal/app/usage"
 	userapp "github.com/rebeccapanel/rebecca/go/internal/app/user"
+	warpapp "github.com/rebeccapanel/rebecca/go/internal/app/warp"
 	"github.com/rebeccapanel/rebecca/go/internal/app/xrayconfig"
 	"github.com/rebeccapanel/rebecca/go/internal/platform/db"
 )
@@ -29,8 +31,11 @@ type Server struct {
 	adminAuth      adminapp.Authenticator
 	nodeController nodecontroller.Controller
 	nodeMutations  nodeapp.Repository
+	systemService  *systemapp.Service
+	maintenance    *systemapp.MaintenanceService
 	usageService   usage.Service
 	userService    userapp.Service
+	warpService    warpapp.Service
 	configRepo     xrayconfig.Repository
 }
 
@@ -44,6 +49,7 @@ func New(cfg Config) (*Server, error) {
 	nodeMutationRepo := nodeapp.NewRepository(pool.DB, pool.Dialect)
 	usageRepo := usage.NewRepository(pool.DB, pool.Dialect)
 	userRepo := userapp.NewRepository(pool.DB, pool.Dialect)
+	warpRepo := warpapp.NewRepository(pool.DB, pool.Dialect)
 	configRepo := xrayconfig.NewRepository(pool.DB, pool.Dialect, xrayconfig.Options{
 		FallbackInboundTag:  cfg.XrayFallbackInboundTag,
 		ExcludedInboundTags: cfg.XrayExcludeInboundTags,
@@ -60,8 +66,11 @@ func New(cfg Config) (*Server, error) {
 		adminAuth:      adminapp.NewAuthenticator(adminRepo, adminapp.WithSudoers(sudoers)),
 		nodeController: nodecontroller.NewController(nodeRepo),
 		nodeMutations:  nodeMutationRepo,
+		systemService:  systemapp.NewService(pool.DB, pool.Dialect, systemapp.DefaultVersion),
+		maintenance:    systemapp.NewMaintenanceService(),
 		usageService:   usage.NewService(usageRepo),
 		userService:    userapp.NewService(userRepo),
+		warpService:    warpapp.NewService(warpRepo, warpapp.NewClient(cfg.WarpAPIBase)),
 		configRepo:     configRepo,
 	}, nil
 }
@@ -86,6 +95,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/core/config/targets/", s.requireSudo(s.handleCoreConfigTargetPath))
 	mux.HandleFunc("/api/core/config/targets", s.requireSudo(s.handleCoreConfigTargets))
 	mux.HandleFunc("/api/core/config", s.requireSudo(s.handleCoreConfig))
+	mux.HandleFunc("/api/core/ips", s.requireAdmin(s.handleCoreIPs))
+	mux.HandleFunc("/api/core/xray/releases", s.requireSudo(s.handleCoreXrayReleases))
+	mux.HandleFunc("/api/core/geo/templates", s.requireSudo(s.handleGeoTemplates))
+	mux.HandleFunc("/api/core/geo/apply", s.requireSudo(s.handleGeoApply))
+	mux.HandleFunc("/api/core/geo/update", s.requireSudo(s.handleGeoApply))
+	mux.HandleFunc("/api/core/warp/register", s.requireSudo(s.handleWarpRegister))
+	mux.HandleFunc("/api/core/warp/license", s.requireSudo(s.handleWarpLicense))
+	mux.HandleFunc("/api/core/warp/config", s.requireSudo(s.handleWarpConfig))
+	mux.HandleFunc("/api/core/warp", s.requireSudo(s.handleWarpAccount))
 	mux.HandleFunc("/api/xray/", s.requireSudo(s.handleXrayHelperPath))
 	mux.HandleFunc("/xray/", s.requireSudo(s.handleXrayHelperPath))
 	mux.HandleFunc("/api/inbounds/full", s.requireSudo(s.handleInboundsFull))
@@ -98,6 +116,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/inbounds", s.handleInboundsRootEntry)
 	mux.HandleFunc("/hosts/", s.requireAdmin(s.handleHostStatusPath))
 	mux.HandleFunc("/hosts", s.requireAdmin(s.handleHostsRoot))
+	mux.HandleFunc("/api/system", s.requireAdmin(s.handleSystemStats))
+	mux.HandleFunc("/api/maintenance/info", s.requireSudo(s.handleMaintenanceInfo))
+	mux.HandleFunc("/api/maintenance/update", s.requireSudo(s.handleMaintenanceUpdate))
+	mux.HandleFunc("/api/maintenance/restart", s.requireSudo(s.handleMaintenanceRestart))
+	mux.HandleFunc("/api/maintenance/soft-reload", s.requireSudo(s.handleMaintenanceSoftReload))
 	mux.HandleFunc("/api/v2/services", s.requireAdmin(s.handleServicesRoot))
 	mux.HandleFunc("/api/v2/services/", s.requireAdmin(s.handleServicePath))
 	mux.HandleFunc("/api/v2/users/", s.requireAdmin(s.handleUserV2Path))
@@ -107,6 +130,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/users", s.requireAdmin(s.handleUsers))
 	mux.HandleFunc("/api/user", s.requireAdmin(s.handleUserRoot))
 	mux.HandleFunc("/api/user/", s.requireAdmin(s.handleUserPath))
+	mux.HandleFunc("/api/panel/xray/testOutbound", s.requireSudo(s.handleOutboundTest))
+	mux.HandleFunc("/api/panel/xray/getOutboundsTraffic", s.requireSudo(s.handleOutboundsTraffic))
+	mux.HandleFunc("/api/panel/xray/resetOutboundsTraffic", s.requireSudo(s.handleResetOutboundsTraffic))
 	mux.HandleFunc("/sub/", s.handleSubscriptionPath)
 	mux.HandleFunc("/api/v1/client/subscribe", s.handleSubscriptionPath)
 	mux.HandleFunc("/api/v1/client/subscribe/", s.handleSubscriptionPath)

@@ -26,6 +26,7 @@ type Config struct {
 	SubscriptionReadOnly        bool
 	SudoUsername                string
 	SudoPassword                string
+	WarpAPIBase                 string
 	XrayFallbackInboundTag      string
 	XrayExcludeInboundTags      []string
 }
@@ -73,6 +74,7 @@ func LoadConfig() (Config, error) {
 		SubscriptionReadOnly:        parseBoolDefault(lookup("SUBSCRIPTION_READ_ONLY"), false),
 		SudoUsername:                lookup("SUDO_USERNAME"),
 		SudoPassword:                lookup("SUDO_PASSWORD"),
+		WarpAPIBase:                 lookup("REBECCA_WARP_API_BASE"),
 		XrayFallbackInboundTag:      firstNonEmpty(lookup("XRAY_FALLBACKS_INBOUND_TAG"), lookup("XRAY_FALLBACK_INBOUND_TAG")),
 		XrayExcludeInboundTags:      splitWhitespace(lookup("XRAY_EXCLUDE_INBOUND_TAGS")),
 	}

@@ -9,6 +9,243 @@ import (
 	"testing"
 )
 
+func TestIsNativeSystemMaintenanceRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "system stats", method: http.MethodGet, path: "/api/system", want: true},
+		{name: "maintenance info", method: http.MethodGet, path: "/api/maintenance/info", want: true},
+		{name: "maintenance update", method: http.MethodPost, path: "/api/maintenance/update", want: true},
+		{name: "maintenance restart", method: http.MethodPost, path: "/api/maintenance/restart", want: true},
+		{name: "maintenance soft reload", method: http.MethodPost, path: "/api/maintenance/soft-reload", want: true},
+		{name: "system wrong method", method: http.MethodPost, path: "/api/system", want: false},
+		{name: "maintenance info wrong method", method: http.MethodPost, path: "/api/maintenance/info", want: false},
+		{name: "maintenance unknown", method: http.MethodPost, path: "/api/maintenance/unknown", want: false},
+		{name: "system websocket stays python", method: http.MethodGet, path: "/api/system", header: "websocket", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeSystemMaintenanceRoute(req); got != tt.want {
+				t.Fatalf("isNativeSystemMaintenanceRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNativeSystemMaintenanceRoutesProxyToMasterAPI(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("native system/maintenance route reached python: %s %s", r.Method, r.URL.Path)
+	}))
+	defer python.Close()
+	masterHits := 0
+	master := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		masterHits++
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer master.Close()
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		Addr:         "127.0.0.1:0",
+		PythonHost:   host,
+		PythonPort:   port,
+		MasterAPIURL: master.URL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/system"},
+		{method: http.MethodGet, path: "/api/maintenance/info"},
+		{method: http.MethodPost, path: "/api/maintenance/update"},
+		{method: http.MethodPost, path: "/api/maintenance/restart"},
+		{method: http.MethodPost, path: "/api/maintenance/soft-reload"},
+	}
+	for _, tc := range routes {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			rec := httptest.NewRecorder()
+			server.server.Handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+	if masterHits != len(routes) {
+		t.Fatalf("master hits=%d want %d", masterHits, len(routes))
+	}
+}
+
+func TestNativeSystemMaintenanceRoutesReturnUnavailableWhenMasterAPIDown(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("native system/maintenance route reached python while master API was down: %s %s", r.Method, r.URL.Path)
+	}))
+	defer python.Close()
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		Addr:       "127.0.0.1:0",
+		PythonHost: host,
+		PythonPort: port,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/system"},
+		{method: http.MethodPost, path: "/api/maintenance/restart"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			rec := httptest.NewRecorder()
+			server.server.Handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), "native Go Master API unavailable") {
+				t.Fatalf("unexpected body=%s", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestIsNativeRuntimeHelperRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "core ips", method: http.MethodGet, path: "/api/core/ips", want: true},
+		{name: "xray releases", method: http.MethodGet, path: "/api/core/xray/releases", want: true},
+		{name: "geo templates", method: http.MethodGet, path: "/api/core/geo/templates", want: true},
+		{name: "geo apply", method: http.MethodPost, path: "/api/core/geo/apply", want: true},
+		{name: "geo update", method: http.MethodPost, path: "/api/core/geo/update", want: true},
+		{name: "warp get", method: http.MethodGet, path: "/api/core/warp", want: true},
+		{name: "warp delete", method: http.MethodDelete, path: "/api/core/warp", want: true},
+		{name: "warp register", method: http.MethodPost, path: "/api/core/warp/register", want: true},
+		{name: "warp license", method: http.MethodPost, path: "/api/core/warp/license", want: true},
+		{name: "warp config", method: http.MethodGet, path: "/api/core/warp/config", want: true},
+		{name: "outbound test", method: http.MethodPost, path: "/api/panel/xray/testOutbound", want: true},
+		{name: "outbound traffic", method: http.MethodGet, path: "/api/panel/xray/getOutboundsTraffic", want: true},
+		{name: "reset outbound traffic", method: http.MethodPost, path: "/api/panel/xray/resetOutboundsTraffic", want: true},
+		{name: "core ips wrong method", method: http.MethodPost, path: "/api/core/ips", want: false},
+		{name: "outbound test wrong method", method: http.MethodGet, path: "/api/panel/xray/testOutbound", want: false},
+		{name: "outbound traffic wrong method", method: http.MethodPost, path: "/api/panel/xray/getOutboundsTraffic", want: false},
+		{name: "warp register wrong method", method: http.MethodGet, path: "/api/core/warp/register", want: false},
+		{name: "websocket stays python", method: http.MethodGet, path: "/api/core/ips", header: "websocket", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeRuntimeHelperRoute(req); got != tt.want {
+				t.Fatalf("isNativeRuntimeHelperRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNativeRuntimeHelperRoutesProxyToMasterAPI(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("native runtime helper route reached python: %s %s", r.Method, r.URL.Path)
+	}))
+	defer python.Close()
+	masterHits := 0
+	master := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		masterHits++
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer master.Close()
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		Addr:         "127.0.0.1:0",
+		PythonHost:   host,
+		PythonPort:   port,
+		MasterAPIURL: master.URL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/core/ips"},
+		{method: http.MethodGet, path: "/api/core/xray/releases"},
+		{method: http.MethodGet, path: "/api/core/geo/templates"},
+		{method: http.MethodPost, path: "/api/core/geo/apply"},
+		{method: http.MethodPost, path: "/api/core/geo/update"},
+		{method: http.MethodGet, path: "/api/core/warp"},
+		{method: http.MethodDelete, path: "/api/core/warp"},
+		{method: http.MethodPost, path: "/api/core/warp/register"},
+		{method: http.MethodPost, path: "/api/core/warp/license"},
+		{method: http.MethodGet, path: "/api/core/warp/config"},
+		{method: http.MethodPost, path: "/api/panel/xray/testOutbound"},
+		{method: http.MethodGet, path: "/api/panel/xray/getOutboundsTraffic"},
+		{method: http.MethodPost, path: "/api/panel/xray/resetOutboundsTraffic"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			rec := httptest.NewRecorder()
+			server.server.Handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+	if masterHits != 13 {
+		t.Fatalf("master hits=%d want 13", masterHits)
+	}
+}
+
 func TestIsNativeNodeRoute(t *testing.T) {
 	tests := []struct {
 		name   string

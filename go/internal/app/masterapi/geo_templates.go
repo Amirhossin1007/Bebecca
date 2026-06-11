@@ -29,6 +29,10 @@ type geoUpdatePayload struct {
 	TemplateName          string                `json:"template_name"`
 	TemplateNameCamel     string                `json:"templateName"`
 	Files                 []nodecontroller.File `json:"files"`
+	ApplyToNodes          *bool                 `json:"apply_to_nodes"`
+	ApplyToNodesCamel     *bool                 `json:"applyToNodes"`
+	SkipNodeIDs           []int64               `json:"skip_node_ids"`
+	SkipNodeIDsCamel      []int64               `json:"skipNodeIds"`
 }
 
 func resolveGeoUpdateFiles(ctx context.Context, payload geoUpdatePayload) ([]nodecontroller.File, int, error) {
@@ -99,7 +103,70 @@ func fetchGeoTemplateFiles(ctx context.Context, indexURL string, templateName st
 	if err != nil {
 		return nil, status, err
 	}
+	files = allowedGeoTemplateFiles(files)
+	if len(files) == 0 {
+		return nil, http.StatusUnprocessableEntity, fmt.Errorf("template has no supported geo files")
+	}
 	return files, http.StatusOK, nil
+}
+
+func fetchGeoTemplates(ctx context.Context, indexURL string) ([]map[string]any, int, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, indexURL, nil)
+	if err != nil {
+		return nil, http.StatusBadGateway, fmt.Errorf("failed to fetch index: %w", err)
+	}
+	client := http.Client{Timeout: 60 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, http.StatusBadGateway, fmt.Errorf("failed to fetch index: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, http.StatusBadGateway, fmt.Errorf("failed to fetch index: status %d", response.StatusCode)
+	}
+	var data any
+	if err := json.NewDecoder(response.Body).Decode(&data); err != nil {
+		return nil, http.StatusBadGateway, fmt.Errorf("failed to parse template index: %w", err)
+	}
+	templates := geoTemplatesFromIndex(data)
+	if len(templates) == 0 {
+		return nil, http.StatusNotFound, fmt.Errorf("no templates found in index")
+	}
+	return templates, http.StatusOK, nil
+}
+
+func geoTemplatesFromIndex(data any) []map[string]any {
+	candidates := templateCandidates(data)
+	result := make([]map[string]any, 0, len(candidates))
+	for _, candidate := range candidates {
+		name, ok := stringFromMap(candidate, "name")
+		if !ok || name == "" {
+			continue
+		}
+		if rawFiles, exists := candidate["files"]; exists {
+			files := filesFromList(rawFiles)
+			if len(files) > 0 {
+				items := make([]map[string]string, 0, len(files))
+				for _, file := range files {
+					items = append(items, map[string]string{"name": file.Name, "url": file.URL})
+				}
+				result = append(result, map[string]any{"name": name, "files": items})
+				continue
+			}
+		}
+		if links, ok := candidate["links"].(map[string]any); ok && len(links) > 0 {
+			cleanLinks := map[string]string{}
+			for key, raw := range links {
+				if value, ok := raw.(string); ok && strings.TrimSpace(value) != "" {
+					cleanLinks[key] = strings.TrimSpace(value)
+				}
+			}
+			if len(cleanLinks) > 0 {
+				result = append(result, map[string]any{"name": name, "links": cleanLinks})
+			}
+		}
+	}
+	return result
 }
 
 func geoTemplateFilesFromIndex(data any, templateName string) ([]nodecontroller.File, int, error) {
@@ -195,6 +262,17 @@ func validateGeoFiles(files []nodecontroller.File) ([]nodecontroller.File, error
 		validated = append(validated, nodecontroller.File{Name: name, URL: urlValue})
 	}
 	return validated, nil
+}
+
+func allowedGeoTemplateFiles(files []nodecontroller.File) []nodecontroller.File {
+	filtered := make([]nodecontroller.File, 0, len(files))
+	for _, file := range files {
+		name := filepath.Base(strings.ReplaceAll(strings.TrimSpace(file.Name), "\\", "/"))
+		if _, ok := allowedGeoFilenames[name]; ok {
+			filtered = append(filtered, nodecontroller.File{Name: name, URL: file.URL})
+		}
+	}
+	return filtered
 }
 
 func safeGeoFilename(name string) (string, error) {

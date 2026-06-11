@@ -77,6 +77,14 @@ func NewServer(cfg Config) (*Server, error) {
 			http.Error(w, "master node usage/runtime routes have been removed", http.StatusGone)
 			return
 		}
+		if isNativeSystemMaintenanceRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
 		if isNativeAdminRoute(r) {
 			if masterProxy == nil {
 				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
@@ -86,6 +94,14 @@ func NewServer(cfg Config) (*Server, error) {
 			return
 		}
 		if isNativeCoreConfigRoute(r) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
+		if isNativeRuntimeHelperRoute(r) {
 			if masterProxy == nil {
 				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
 				return
@@ -162,6 +178,23 @@ func NewServer(cfg Config) (*Server, error) {
 	}, nil
 }
 
+func isNativeSystemMaintenanceRoute(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	switch path {
+	case "/api/system":
+		return r.Method == http.MethodGet
+	case "/api/maintenance/info":
+		return r.Method == http.MethodGet
+	case "/api/maintenance/update", "/api/maintenance/restart", "/api/maintenance/soft-reload":
+		return r.Method == http.MethodPost
+	default:
+		return false
+	}
+}
+
 func isNativeSubscriptionRoute(r *http.Request, prefixes []string) bool {
 	if r.Method != http.MethodGet || strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 		return false
@@ -228,6 +261,35 @@ func isNativeCoreConfigRoute(r *http.Request) bool {
 	}
 	_, err := strconv.ParseInt(parts[0], 10, 64)
 	return err == nil
+}
+
+func isNativeRuntimeHelperRoute(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	switch path {
+	case "/api/core/ips":
+		return r.Method == http.MethodGet
+	case "/api/core/xray/releases", "/api/core/geo/templates":
+		return r.Method == http.MethodGet
+	case "/api/core/geo/apply", "/api/core/geo/update":
+		return r.Method == http.MethodPost
+	case "/api/core/warp":
+		return r.Method == http.MethodGet || r.Method == http.MethodDelete
+	case "/api/core/warp/register", "/api/core/warp/license":
+		return r.Method == http.MethodPost
+	case "/api/core/warp/config":
+		return r.Method == http.MethodGet
+	case "/api/panel/xray/getOutboundsTraffic":
+		return r.Method == http.MethodGet
+	case "/api/panel/xray/testOutbound":
+		return r.Method == http.MethodPost
+	case "/api/panel/xray/resetOutboundsTraffic":
+		return r.Method == http.MethodPost
+	default:
+		return false
+	}
 }
 
 func isNativeXrayHelperRoute(r *http.Request) bool {

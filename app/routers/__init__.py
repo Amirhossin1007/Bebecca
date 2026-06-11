@@ -5,7 +5,6 @@ from . import (
     runtime,
     node,
     system,
-    user_template,
     home,
     settings,
 )
@@ -17,7 +16,6 @@ routers = [
     runtime.router,
     node.router,
     system.router,
-    user_template.router,
     home.router,
     settings.router,
 ]

@@ -189,7 +189,6 @@ class PanelSettings(Base):
         default="key",
         server_default=text("'key'"),
     )
-    access_insights_enabled = Column(Boolean, nullable=False, default=False, server_default=text("0"))
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -438,14 +437,6 @@ excluded_inbounds_association = Table(
     Column("inbound_tag", ForeignKey("inbounds.tag")),
 )
 
-template_inbounds_association = Table(
-    "template_inbounds_association",
-    Base.metadata,
-    Column("user_template_id", ForeignKey("user_templates.id")),
-    Column("inbound_tag", ForeignKey("inbounds.tag")),
-)
-
-
 class NextPlan(Base):
     __tablename__ = "next_plans"
 
@@ -461,19 +452,6 @@ class NextPlan(Base):
     trigger_on = Column(String(16), nullable=False, default="either", server_default="either")
 
     user = relationship("User", back_populates="next_plans")
-
-
-class UserTemplate(Base):
-    __tablename__ = "user_templates"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(64), nullable=False, unique=True)
-    data_limit = Column(BigInteger, default=0)
-    expire_duration = Column(BigInteger, default=0)  # in seconds
-    username_prefix = Column(String(20), nullable=True)
-    username_suffix = Column(String(20), nullable=True)
-
-    inbounds = relationship("ProxyInbound", secondary=template_inbounds_association)
 
 
 class UserUsageResetLogs(Base):

@@ -1,7 +1,5 @@
 from typing import Optional
 
-from app import runtime
-from app.services import TelegramSettingsService
 from app.db.models import UserStatus
 from app.models.admin import Admin
 from app.models.user import UserResponse
@@ -22,34 +20,14 @@ from app.utils.notification import (
     notify,
 )
 
-_telegram_warning_cache: set[str] = set()
-
 
 def _call_telegram(method_name: str, *args, **kwargs) -> bool:
-    module = runtime.telegram
-    if module is None:
-        if method_name not in _telegram_warning_cache:
-            runtime.logger.warning("Telegram module is not initialized; skipping '%s'", method_name)
-            _telegram_warning_cache.add(method_name)
-        return False
-
-    handler = getattr(module, method_name, None)
-    if handler is None:
-        if method_name not in _telegram_warning_cache:
-            runtime.logger.warning("Telegram module does not expose '%s'", method_name)
-            _telegram_warning_cache.add(method_name)
-        return False
-
-    try:
-        handler(*args, **kwargs)
-        return True
-    except Exception:
-        runtime.logger.exception("Telegram handler '%s' failed", method_name)
-        return False
+    # TODO(go-telegram): dispatch Telegram reports from the Go event boundary.
+    return False
 
 
 def _event_enabled(event_key: str) -> bool:
-    return TelegramSettingsService.is_event_enabled(event_key)
+    return False
 
 
 def status_change(

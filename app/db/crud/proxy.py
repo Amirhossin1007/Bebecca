@@ -1,5 +1,5 @@
 """
-Functions for managing proxy hosts, users, user templates, nodes, and administrative tasks.
+Functions for managing proxy hosts, users, nodes, and administrative tasks.
 """
 
 import logging
@@ -17,7 +17,6 @@ from app.db.models import (
     ServiceHostLink,
     User,
     excluded_inbounds_association,
-    template_inbounds_association,
 )
 from app.utils.credentials import (
     normalize_key,
@@ -189,10 +188,6 @@ class ProxyInboundRepository:
         self.db.execute(
             delete(excluded_inbounds_association).where(excluded_inbounds_association.c.inbound_tag == inbound_tag)
         )
-        self.db.execute(
-            delete(template_inbounds_association).where(template_inbounds_association.c.inbound_tag == inbound_tag)
-        )
-
         self.db.delete(inbound)
         self.db.flush()
         return True

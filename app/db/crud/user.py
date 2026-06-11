@@ -1,5 +1,5 @@
 """
-Functions for managing proxy hosts, users, user templates, nodes, and administrative tasks.
+Functions for managing proxy hosts, users, nodes, and administrative tasks.
 """
 
 import logging
@@ -22,11 +22,9 @@ from app.db.models import (
     NextPlan,
     NodeUserUsage,
     Proxy,
-    ProxyInbound,
     ProxyTypes,
     Service,
     User,
-    UserTemplate,
     UserUsageResetLogs,
 )
 from .proxy import get_or_create_inbound, _apply_key_to_existing_proxies
@@ -48,7 +46,6 @@ from app.models.user import (
     UserStatus,
 )
 from app.utils.jwt import get_subscription_payload
-from app.models.user_template import UserTemplateCreate, UserTemplateModify
 from config import (
     ONLINE_ACTIVE_WINDOW_SECONDS,
     USERS_AUTODELETE_DAYS,
@@ -2108,71 +2105,3 @@ def start_user_expire(db: Session, dbuser: User) -> User:
     db.commit()
     db.refresh(dbuser)
     return dbuser
-
-
-def create_user_template(db: Session, user_template: UserTemplateCreate) -> UserTemplate:
-    """Creates a new user template in the database."""
-    inbound_tags: List[str] = []
-    for _, i in user_template.inbounds.items():
-        inbound_tags.extend(i)
-    dbuser_template = UserTemplate(
-        name=user_template.name,
-        data_limit=user_template.data_limit,
-        expire_duration=user_template.expire_duration,
-        username_prefix=user_template.username_prefix,
-        username_suffix=user_template.username_suffix,
-        inbounds=db.query(ProxyInbound).filter(ProxyInbound.tag.in_(inbound_tags)).all(),
-    )
-    db.add(dbuser_template)
-    db.commit()
-    db.refresh(dbuser_template)
-    return dbuser_template
-
-
-def update_user_template(
-    db: Session, dbuser_template: UserTemplate, modified_user_template: UserTemplateModify
-) -> UserTemplate:
-    """Updates a user template's details."""
-    if modified_user_template.name is not None:
-        dbuser_template.name = modified_user_template.name
-    if modified_user_template.data_limit is not None:
-        dbuser_template.data_limit = modified_user_template.data_limit
-    if modified_user_template.expire_duration is not None:
-        dbuser_template.expire_duration = modified_user_template.expire_duration
-    if modified_user_template.username_prefix is not None:
-        dbuser_template.username_prefix = modified_user_template.username_prefix
-    if modified_user_template.username_suffix is not None:
-        dbuser_template.username_suffix = modified_user_template.username_suffix
-
-    if modified_user_template.inbounds:
-        inbound_tags: List[str] = []
-        for _, i in modified_user_template.inbounds.items():
-            inbound_tags.extend(i)
-        dbuser_template.inbounds = db.query(ProxyInbound).filter(ProxyInbound.tag.in_(inbound_tags)).all()
-
-    db.commit()
-    db.refresh(dbuser_template)
-    return dbuser_template
-
-
-def remove_user_template(db: Session, dbuser_template: UserTemplate):
-    """Removes a user template from the database."""
-    db.delete(dbuser_template)
-    db.commit()
-
-
-def get_user_template(db: Session, user_template_id: int) -> UserTemplate:
-    """Retrieves a user template by its ID."""
-    return db.query(UserTemplate).filter(UserTemplate.id == user_template_id).first()
-
-
-def get_user_templates(
-    db: Session, offset: Union[int, None] = None, limit: Union[int, None] = None
-) -> List[UserTemplate]:
-    """Retrieves a list of user templates with optional pagination."""
-    query = db.query(UserTemplate)
-    if offset:
-        query = query.offset(offset)
-    if limit:
-        query = query.limit(limit)
-    return query.all()

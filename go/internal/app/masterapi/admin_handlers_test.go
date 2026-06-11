@@ -20,6 +20,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	adminapp "github.com/rebeccapanel/rebecca/go/internal/app/admin"
 	nodeapp "github.com/rebeccapanel/rebecca/go/internal/app/node"
+	warpapp "github.com/rebeccapanel/rebecca/go/internal/app/warp"
 	"github.com/rebeccapanel/rebecca/go/internal/app/xrayconfig"
 )
 
@@ -152,10 +153,6 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			proxy_id INTEGER NOT NULL,
 			inbound_tag TEXT NOT NULL
 		)`,
-		`CREATE TABLE template_inbounds_association (
-			template_id INTEGER NOT NULL,
-			inbound_tag TEXT NOT NULL
-		)`,
 		`CREATE TABLE nodes (
 			id INTEGER PRIMARY KEY,
 			name TEXT UNIQUE,
@@ -221,6 +218,16 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			uplink BIGINT DEFAULT 0,
 			downlink BIGINT DEFAULT 0
 		)`,
+		`CREATE TABLE warp_accounts (
+			id INTEGER PRIMARY KEY,
+			device_id TEXT NOT NULL UNIQUE,
+			access_token TEXT NOT NULL,
+			license_key TEXT NULL,
+			private_key TEXT NOT NULL,
+			public_key TEXT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 		`CREATE TABLE node_operations (
 			id INTEGER PRIMARY KEY,
 			operation_type TEXT NOT NULL,
@@ -247,6 +254,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 	}
 
 	repo := adminapp.NewRepository(db, "sqlite")
+	warpRepo := warpapp.NewRepository(db, "sqlite")
 	return &Server{
 		cfg: Config{
 			JWTAccessTokenExpireMinutes: 1440,
@@ -261,6 +269,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			adminapp.WithSudoers([]string{"env-admin"}),
 		),
 		nodeMutations: nodeapp.NewRepository(db, "sqlite"),
+		warpService:   warpapp.NewService(warpRepo, warpapp.NewClient("")),
 		configRepo:    xrayconfig.NewRepository(db, "sqlite", xrayconfig.Options{}),
 	}, db
 }

@@ -75,6 +75,8 @@ const buildDefaultInboundConfig = (
 const isJobRunning = (job?: ThreeXUiImportJobResponse | null) =>
 	job?.status === "pending" || job?.status === "running";
 
+const IMPORT_COMING_SOON = true;
+
 export const ThreeXUiDatabaseImportPanel = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
@@ -192,6 +194,17 @@ export const ThreeXUiDatabaseImportPanel = () => {
 	};
 
 	const handlePreview = () => {
+		if (IMPORT_COMING_SOON) {
+			toast({
+				status: "info",
+				title: t("settings.database.comingSoon", "Coming soon"),
+				description: t(
+					"settings.database.comingSoonDescription",
+					"3x-ui database import is being rebuilt and will return in a future update.",
+				),
+			});
+			return;
+		}
 		if (!selectedFile) {
 			toast({
 				status: "warning",
@@ -294,6 +307,17 @@ export const ThreeXUiDatabaseImportPanel = () => {
 	};
 
 	const handleImport = () => {
+		if (IMPORT_COMING_SOON) {
+			toast({
+				status: "info",
+				title: t("settings.database.comingSoon", "Coming soon"),
+				description: t(
+					"settings.database.comingSoonDescription",
+					"3x-ui database import is being rebuilt and will return in a future update.",
+				),
+			});
+			return;
+		}
 		const payload = buildImportPayload();
 		if (!payload) {
 			return;
@@ -309,6 +333,28 @@ export const ThreeXUiDatabaseImportPanel = () => {
 					"Upload a 3x-ui SQLite database, preview supported inbounds and import users with per-inbound owner, service and conflict policies.",
 				)}
 			</Text>
+			<Alert status="info" borderRadius="md">
+				<AlertIcon />
+				<Stack spacing={1}>
+					<HStack spacing={2}>
+						<Badge colorScheme="orange" borderRadius="full">
+							{t("settings.database.comingSoon", "Coming soon")}
+						</Badge>
+						<Text fontWeight="semibold">
+							{t(
+								"settings.database.importPausedTitle",
+								"3x-ui import is temporarily paused.",
+							)}
+						</Text>
+					</HStack>
+					<Text fontSize="sm">
+						{t(
+							"settings.database.importPausedDescription",
+							"The importer is being rebuilt on the Go backend. The UI is kept here so the workflow can return without redesign.",
+						)}
+					</Text>
+				</Stack>
+			</Alert>
 
 			<Box borderWidth="1px" borderRadius="lg" p={4}>
 				<Stack spacing={4}>
@@ -341,6 +387,7 @@ export const ThreeXUiDatabaseImportPanel = () => {
 						<Button
 							leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
 							onClick={handlePreview}
+							isDisabled={IMPORT_COMING_SOON}
 							isLoading={previewMutation.isLoading}
 						>
 							{t("settings.database.previewAction", "Preview Database")}
@@ -966,7 +1013,7 @@ export const ThreeXUiDatabaseImportPanel = () => {
 					<HStack justify="flex-end">
 						<Button
 							onClick={handleImport}
-							isDisabled={!canStartImport || running}
+							isDisabled={IMPORT_COMING_SOON || !canStartImport || running}
 							isLoading={importMutation.isLoading}
 						>
 							{t("settings.database.importAction", "Import Users")}

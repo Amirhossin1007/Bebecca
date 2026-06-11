@@ -205,6 +205,8 @@ const (
 	NodeRuntimeService_UpdateUser_FullMethodName     = "/rebecca.node.v1.NodeRuntimeService/UpdateUser"
 	NodeRuntimeService_RemoveUser_FullMethodName     = "/rebecca.node.v1.NodeRuntimeService/RemoveUser"
 	NodeRuntimeService_Metrics_FullMethodName        = "/rebecca.node.v1.NodeRuntimeService/Metrics"
+	NodeRuntimeService_PublicIPs_FullMethodName      = "/rebecca.node.v1.NodeRuntimeService/PublicIPs"
+	NodeRuntimeService_TestOutbound_FullMethodName   = "/rebecca.node.v1.NodeRuntimeService/TestOutbound"
 	NodeRuntimeService_UpdateRuntime_FullMethodName  = "/rebecca.node.v1.NodeRuntimeService/UpdateRuntime"
 	NodeRuntimeService_UpdateGeo_FullMethodName      = "/rebecca.node.v1.NodeRuntimeService/UpdateGeo"
 	NodeRuntimeService_RestartService_FullMethodName = "/rebecca.node.v1.NodeRuntimeService/RestartService"
@@ -223,6 +225,8 @@ type NodeRuntimeServiceClient interface {
 	UpdateUser(ctx context.Context, in *InboundUserRequest, opts ...grpc.CallOption) (*RuntimeActionResponse, error)
 	RemoveUser(ctx context.Context, in *RemoveInboundUserRequest, opts ...grpc.CallOption) (*RuntimeActionResponse, error)
 	Metrics(ctx context.Context, in *MetricsRequest, opts ...grpc.CallOption) (*MetricsResponse, error)
+	PublicIPs(ctx context.Context, in *PublicIPsRequest, opts ...grpc.CallOption) (*PublicIPsResponse, error)
+	TestOutbound(ctx context.Context, in *OutboundTestRequest, opts ...grpc.CallOption) (*OutboundTestResponse, error)
 	UpdateRuntime(ctx context.Context, in *RuntimeUpdateRequest, opts ...grpc.CallOption) (*RuntimeActionResponse, error)
 	UpdateGeo(ctx context.Context, in *GeoUpdateRequest, opts ...grpc.CallOption) (*RuntimeActionResponse, error)
 	RestartService(ctx context.Context, in *ServiceRestartRequest, opts ...grpc.CallOption) (*RuntimeActionResponse, error)
@@ -317,6 +321,26 @@ func (c *nodeRuntimeServiceClient) Metrics(ctx context.Context, in *MetricsReque
 	return out, nil
 }
 
+func (c *nodeRuntimeServiceClient) PublicIPs(ctx context.Context, in *PublicIPsRequest, opts ...grpc.CallOption) (*PublicIPsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublicIPsResponse)
+	err := c.cc.Invoke(ctx, NodeRuntimeService_PublicIPs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeRuntimeServiceClient) TestOutbound(ctx context.Context, in *OutboundTestRequest, opts ...grpc.CallOption) (*OutboundTestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OutboundTestResponse)
+	err := c.cc.Invoke(ctx, NodeRuntimeService_TestOutbound_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *nodeRuntimeServiceClient) UpdateRuntime(ctx context.Context, in *RuntimeUpdateRequest, opts ...grpc.CallOption) (*RuntimeActionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RuntimeActionResponse)
@@ -369,6 +393,8 @@ type NodeRuntimeServiceServer interface {
 	UpdateUser(context.Context, *InboundUserRequest) (*RuntimeActionResponse, error)
 	RemoveUser(context.Context, *RemoveInboundUserRequest) (*RuntimeActionResponse, error)
 	Metrics(context.Context, *MetricsRequest) (*MetricsResponse, error)
+	PublicIPs(context.Context, *PublicIPsRequest) (*PublicIPsResponse, error)
+	TestOutbound(context.Context, *OutboundTestRequest) (*OutboundTestResponse, error)
 	UpdateRuntime(context.Context, *RuntimeUpdateRequest) (*RuntimeActionResponse, error)
 	UpdateGeo(context.Context, *GeoUpdateRequest) (*RuntimeActionResponse, error)
 	RestartService(context.Context, *ServiceRestartRequest) (*RuntimeActionResponse, error)
@@ -406,6 +432,12 @@ func (UnimplementedNodeRuntimeServiceServer) RemoveUser(context.Context, *Remove
 }
 func (UnimplementedNodeRuntimeServiceServer) Metrics(context.Context, *MetricsRequest) (*MetricsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Metrics not implemented")
+}
+func (UnimplementedNodeRuntimeServiceServer) PublicIPs(context.Context, *PublicIPsRequest) (*PublicIPsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PublicIPs not implemented")
+}
+func (UnimplementedNodeRuntimeServiceServer) TestOutbound(context.Context, *OutboundTestRequest) (*OutboundTestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TestOutbound not implemented")
 }
 func (UnimplementedNodeRuntimeServiceServer) UpdateRuntime(context.Context, *RuntimeUpdateRequest) (*RuntimeActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateRuntime not implemented")
@@ -584,6 +616,42 @@ func _NodeRuntimeService_Metrics_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeRuntimeService_PublicIPs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublicIPsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeRuntimeServiceServer).PublicIPs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeRuntimeService_PublicIPs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeRuntimeServiceServer).PublicIPs(ctx, req.(*PublicIPsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeRuntimeService_TestOutbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OutboundTestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeRuntimeServiceServer).TestOutbound(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeRuntimeService_TestOutbound_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeRuntimeServiceServer).TestOutbound(ctx, req.(*OutboundTestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NodeRuntimeService_UpdateRuntime_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RuntimeUpdateRequest)
 	if err := dec(in); err != nil {
@@ -694,6 +762,14 @@ var NodeRuntimeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Metrics",
 			Handler:    _NodeRuntimeService_Metrics_Handler,
+		},
+		{
+			MethodName: "PublicIPs",
+			Handler:    _NodeRuntimeService_PublicIPs_Handler,
+		},
+		{
+			MethodName: "TestOutbound",
+			Handler:    _NodeRuntimeService_TestOutbound_Handler,
 		},
 		{
 			MethodName: "UpdateRuntime",
