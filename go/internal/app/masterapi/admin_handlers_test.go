@@ -20,6 +20,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	adminapp "github.com/rebeccapanel/rebecca/go/internal/app/admin"
 	nodeapp "github.com/rebeccapanel/rebecca/go/internal/app/node"
+	"github.com/rebeccapanel/rebecca/go/internal/app/nodecontroller"
 	warpapp "github.com/rebeccapanel/rebecca/go/internal/app/warp"
 	"github.com/rebeccapanel/rebecca/go/internal/app/xrayconfig"
 )
@@ -268,9 +269,10 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			repo,
 			adminapp.WithSudoers([]string{"env-admin"}),
 		),
-		nodeMutations: nodeapp.NewRepository(db, "sqlite"),
-		warpService:   warpapp.NewService(warpRepo, warpapp.NewClient("")),
-		configRepo:    xrayconfig.NewRepository(db, "sqlite", xrayconfig.Options{}),
+		nodeController: nodecontroller.NewController(nodecontroller.NewRepository(db, "sqlite")),
+		nodeMutations:  nodeapp.NewRepository(db, "sqlite"),
+		warpService:    warpapp.NewService(warpRepo, warpapp.NewClient("")),
+		configRepo:     xrayconfig.NewRepository(db, "sqlite", xrayconfig.Options{}),
 	}, db
 }
 

@@ -133,8 +133,6 @@ func (c Controller) Metrics(ctx context.Context, req Request) (RuntimeResult, er
 }
 
 func (c Controller) Logs(ctx context.Context, req Request) (RuntimeResult, error) {
-	// TODO: expose NodeLogsService.StreamLogs end-to-end through the Go gateway
-	// WebSocket/streaming path; this handler intentionally buffers a bounded tail.
 	client, node, err := c.dial(ctx, req.NodeID)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
@@ -168,6 +166,54 @@ func (c Controller) Logs(ctx context.Context, req Request) (RuntimeResult, error
 		result.Logs = append(result.Logs, line.GetLine())
 	}
 	return result, nil
+}
+
+func (c Controller) StreamLogs(ctx context.Context, req StreamLogsRequest, send func(string) error) error {
+	if send == nil {
+		return fmt.Errorf("log sender is required")
+	}
+	nodeID := req.NodeID
+	var node NodeRow
+	var err error
+	if nodeID <= 0 {
+		node, err = c.repo.FirstConnectedNode(ctx)
+		if err != nil {
+			return err
+		}
+		nodeID = node.ID
+	}
+	client, dialedNode, err := c.dial(ctx, nodeID)
+	if err != nil {
+		_ = c.repo.SetError(ctx, nodeID, err.Error())
+		return friendlyNodeError("logs", nodeID, err)
+	}
+	defer client.Close()
+	if node.ID == 0 {
+		node = dialedNode
+	}
+	maxLines := req.MaxLines
+	if maxLines <= 0 {
+		maxLines = 200
+	}
+	stream, err := client.Logs().StreamLogs(ctx, &nodev1.StreamLogsRequest{
+		StreamId: strconv.FormatInt(node.ID, 10),
+		MaxLines: uint32(maxLines),
+	})
+	if err != nil {
+		return friendlyNodeError("logs", node.ID, err)
+	}
+	for {
+		line, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := send(line.GetLine()); err != nil {
+			return err
+		}
+	}
 }
 
 func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsRequest) (ProcessOperationsResult, error) {

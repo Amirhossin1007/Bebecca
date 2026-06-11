@@ -2,6 +2,7 @@ package nodecontroller
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -354,6 +355,47 @@ func (r Repository) MarkOperationFailed(ctx context.Context, id int64, message s
 	return err
 }
 
+func (r Repository) FirstConnectedNode(ctx context.Context) (NodeRow, error) {
+	var id int64
+	err := r.db.QueryRowContext(ctx, `SELECT id FROM nodes WHERE LOWER(COALESCE(status, '')) = 'connected' ORDER BY id LIMIT 1`).Scan(&id)
+	if err == sql.ErrNoRows {
+		return NodeRow{}, fmt.Errorf("no connected node is available")
+	}
+	if err != nil {
+		return NodeRow{}, err
+	}
+	return r.Node(ctx, id)
+}
+
+func (r Repository) QueueSyncConfig(ctx context.Context, nodeID *int64, payload any) error {
+	now := time.Now().UTC()
+	payloadJSON := []byte("{}")
+	if payload != nil {
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		payloadJSON = encoded
+	}
+	idempotencySource := fmt.Sprintf("sync_config:%s:%d", string(payloadJSON), now.UnixNano())
+	if nodeID != nil {
+		idempotencySource = fmt.Sprintf("sync_config:%d:%s:%d", *nodeID, string(payloadJSON), now.UnixNano())
+	}
+	sum := sha256.Sum256([]byte(idempotencySource))
+	key := hex.EncodeToString(sum[:])
+	_, err := r.db.ExecContext(
+		ctx,
+		`INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
+VALUES ('sync_config', ?, NULL, ?, 'pending', 0, ?, ?, ?)`,
+		nullableInt64Ptr(nodeID),
+		string(payloadJSON),
+		key,
+		r.timeArg(now),
+		r.timeArg(now),
+	)
+	return err
+}
+
 func (r Repository) updateStatus(ctx context.Context, nodeID int64, status string, message string, version string) error {
 	_, err := r.db.ExecContext(
 		ctx,
@@ -372,6 +414,13 @@ func (r Repository) timeArg(value time.Time) any {
 		return value.UTC().Format("2006-01-02 15:04:05.000000")
 	}
 	return value.UTC()
+}
+
+func nullableInt64Ptr(value *int64) any {
+	if value == nil {
+		return nil
+	}
+	return *value
 }
 
 func nullableString(value string) any {

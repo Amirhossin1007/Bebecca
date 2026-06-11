@@ -95,6 +95,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/core/config/targets/", s.requireSudo(s.handleCoreConfigTargetPath))
 	mux.HandleFunc("/api/core/config/targets", s.requireSudo(s.handleCoreConfigTargets))
 	mux.HandleFunc("/api/core/config", s.requireSudo(s.handleCoreConfig))
+	mux.HandleFunc("/api/core/logs", s.requireSudo(s.handleRuntimeLogsWebSocket))
+	mux.HandleFunc("/api/core/restart", s.requireSudo(s.handleCoreRestart))
+	mux.HandleFunc("/api/core", s.requireAdmin(s.handleCoreRuntime))
 	mux.HandleFunc("/api/core/ips", s.requireAdmin(s.handleCoreIPs))
 	mux.HandleFunc("/api/core/xray/releases", s.requireSudo(s.handleCoreXrayReleases))
 	mux.HandleFunc("/api/core/geo/templates", s.requireSudo(s.handleGeoTemplates))
@@ -305,6 +308,10 @@ func (s *Server) handleNodePath(w http.ResponseWriter, r *http.Request) {
 	case "logs":
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			s.handleNodeLogsWebSocket(w, r, id)
 			return
 		}
 		s.handleNodeLogs(w, r, id)

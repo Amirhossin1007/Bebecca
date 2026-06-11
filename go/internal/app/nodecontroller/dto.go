@@ -67,6 +67,11 @@ type RuntimeResult struct {
 	Logs               []string `json:"logs,omitempty"`
 }
 
+type StreamLogsRequest struct {
+	NodeID   int64 `json:"node_id,omitempty"`
+	MaxLines int   `json:"max_lines,omitempty"`
+}
+
 type PublicIPsResult struct {
 	IPv4 string `json:"ipv4"`
 	IPv6 string `json:"ipv6"`

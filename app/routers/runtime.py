@@ -1,24 +1,10 @@
-import asyncio
-import time
-
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, Body, BackgroundTasks, Request
-from starlette.websockets import WebSocketDisconnect
-
-from app.services import node_operations
-from app.db import Session, get_db, crud, GetDB
-from app.models.admin import Admin, AdminRole
-from app.models.runtime import RuntimeStats
-from app.utils.xray_logs import sort_log_lines
-from app.services import go_master_api
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, Body, Request
+from app.db import Session, get_db
+from app.models.admin import Admin
 from app.utils import responses
-from app.utils.xray_targets import (
-    MASTER_TARGET_ID,
-    parse_target_id,
-)
 
 router = APIRouter(tags=["Runtime"], prefix="/api", responses={401: responses._401})
 
-NATIVE_NODE_API_REQUIRED_DETAIL = "Native Go Master API is required for this node operation."
 # TODO(go-access-insights): rebuild Access Insights in Go with node gRPC log
 # streaming, then remove these disabled compatibility endpoints.
 ACCESS_INSIGHTS_DISABLED_DETAIL = (
@@ -26,149 +12,9 @@ ACCESS_INSIGHTS_DISABLED_DETAIL = (
 )
 
 
-class _RuntimeXrayProxy:
-    """Live compatibility target for legacy runtime log-source tests."""
-
-    def __getattr__(self, name):
-        from app import runtime as runtime_state
-
-        target = runtime_state.xray
-        if target is None:
-            raise AttributeError(name)
-        return getattr(target, name)
-
-
-xray = _RuntimeXrayProxy()
-
-
-def _authorization_from_token(token: str) -> str:
-    return token if token.lower().startswith("bearer ") else f"Bearer {token}"
-
-
-def _go_master_json_from_token(token: str, method: str, path: str, **kwargs):
-    try:
-        return go_master_api.request_json(method, path, authorization=_authorization_from_token(token), **kwargs)
-    except go_master_api.GoMasterAPIUnavailable as exc:
-        raise ValueError(NATIVE_NODE_API_REQUIRED_DETAIL) from exc
-
-
-def _connected_node_id_from_token(token: str) -> int:
-    nodes = _go_master_json_from_token(token, "GET", "/api/nodes")
-    for node in nodes or []:
-        if str(node.get("status", "")).lower() == "connected":
-            return int(node["id"])
-    raise ValueError("No connected node is available for logs")
-
-
-def _select_legacy_runtime_log_source(node_id_raw: str | None = None):
-    nodes = getattr(xray, "nodes", {}) or {}
-    node_id_raw = (node_id_raw or "").strip()
-    if node_id_raw:
-        try:
-            node_id = int(node_id_raw)
-        except ValueError as exc:
-            raise ValueError("Invalid node_id") from exc
-        node = nodes.get(node_id)
-        if node is None:
-            raise ValueError("Node not found")
-        if not getattr(node, "connected", False):
-            raise ValueError("Node is not connected")
-        return node
-    for node in nodes.values():
-        if getattr(node, "connected", False):
-            return node
-    raise ValueError("No connected node is available for logs")
-
-
-def _select_runtime_log_source(token: str | None = None, node_id_raw: str | None = None):
-    if token is None:
-        return _select_legacy_runtime_log_source(node_id_raw)
-    if node_id_raw is None and str(token).strip().isdigit():
-        return _select_legacy_runtime_log_source(str(token))
-    node_id_raw = (node_id_raw or "").strip()
-    if node_id_raw:
-        try:
-            return int(node_id_raw)
-        except ValueError as exc:
-            raise ValueError("Invalid node_id") from exc
-    return _connected_node_id_from_token(token)
-
-
 @router.websocket("/core/logs")
 async def runtime_logs(websocket: WebSocket):
-    token = websocket.query_params.get("token") or websocket.headers.get("Authorization", "").removeprefix("Bearer ")
-    with GetDB() as db:
-        admin = Admin.get_admin(token, db)
-    if not admin:
-        return await websocket.close(reason="Unauthorized", code=4401)
-
-    if admin.role not in (AdminRole.sudo, AdminRole.full_access):
-        return await websocket.close(reason="You're not allowed", code=4403)
-
-    interval = websocket.query_params.get("interval")
-    if interval:
-        try:
-            interval = float(interval)
-        except ValueError:
-            return await websocket.close(reason="Invalid interval value", code=4400)
-        if interval > 10:
-            return await websocket.close(reason="Interval must be more than 0 and at most 10 seconds", code=4400)
-
-    try:
-        logs_source = _select_runtime_log_source(token, websocket.query_params.get("node_id"))
-    except Exception as exc:
-        reason = getattr(exc, "detail", None) or str(exc)
-        return await websocket.close(reason=reason, code=4404)
-
-    await websocket.accept()
-
-    cache: list[str] = []
-    last_sent_ts = 0
-
-    async def _flush_cache() -> bool:
-        nonlocal cache, last_sent_ts
-        if not cache:
-            return True
-        try:
-            for line in sort_log_lines(cache):
-                await websocket.send_text(line)
-        except (WebSocketDisconnect, RuntimeError):
-            return False
-        cache = []
-        last_sent_ts = time.time()
-        return True
-
-    sent: set[str] = set()
-    while True:
-        if interval and time.time() - last_sent_ts >= interval and cache:
-            if not await _flush_cache():
-                break
-        try:
-            payload = _go_master_json_from_token(
-                token,
-                "GET",
-                f"/api/node/{logs_source}/logs",
-                params={"max_lines": 200},
-            )
-            lines = payload.get("logs", []) if isinstance(payload, dict) else []
-        except Exception as exc:
-            lines = [str(exc)]
-        fresh = [line for line in sort_log_lines(lines) if line not in sent]
-        sent.update(fresh)
-        if interval:
-            cache.extend(fresh)
-        else:
-            for line in fresh:
-                try:
-                    await websocket.send_text(line)
-                except (WebSocketDisconnect, RuntimeError):
-                    return
-        try:
-            await asyncio.wait_for(websocket.receive(), timeout=1.0)
-        except asyncio.TimeoutError:
-            continue
-        except (WebSocketDisconnect, RuntimeError):
-            break
+    await websocket.close(reason="Core logs are served by the Go gateway and Go Master API.", code=4400)
 
 
 @router.get("/core/access/insights", responses={403: responses._403})
@@ -212,32 +58,15 @@ async def access_logs_ws(websocket: WebSocket):
     await websocket.close(reason=ACCESS_INSIGHTS_DISABLED_DETAIL, code=4404)
 
 
-@router.get("/core", response_model=RuntimeStats)
+@router.get("/core")
 def get_runtime_stats(
     admin: Admin = Depends(Admin.get_current),
-    db: Session = Depends(get_db),
 ):
     """Retrieve aggregate node runtime status."""
-    started = False
-    version = None
-    try:
-        for node in crud.get_nodes(db):
-            status_raw = getattr(node, "status", "")
-            status_value = str(getattr(status_raw, "value", status_raw)).lower()
-            if status_value == "connected":
-                started = True
-                version = (
-                    getattr(node, "xray_version", None)
-                    or getattr(node, "node_service_version", None)
-                    or version
-                )
-                break
-    except Exception:
-        pass
-    return RuntimeStats(
-        version=version,
-        started=started,
-        logs_websocket=router.url_path_for("runtime_logs"),
+    _ = admin
+    raise HTTPException(
+        status_code=503,
+        detail="Core runtime routes are handled by the native Go Master API",
     )
 
 
@@ -252,33 +81,15 @@ def get_server_ips(admin: Admin = Depends(Admin.get_current)):
 
 @router.post("/core/restart", responses={403: responses._403})
 def queue_runtime_restart(
-    bg: BackgroundTasks,
     target: str | None = None,
-    db: Session = Depends(get_db),
     admin: Admin = Depends(Admin.check_sudo_admin),
 ):
     """Restart the selected runtime target."""
-    if target:
-        kind, node_id = parse_target_id(target)
-        if kind != MASTER_TARGET_ID and not crud.get_node_by_id(db, node_id):
-            raise HTTPException(status_code=404, detail="Node not found")
-
-    def _restart():
-        # TODO(go-runtime-cleanup): route this endpoint directly through the Go
-        # Master API. For now Python only enqueues config sync work; it no
-        # longer restarts or talks to a local Xray runtime.
-        if not target:
-            node_operations.queue_sync_config()
-            return
-        kind, node_id = parse_target_id(target)
-        if kind == MASTER_TARGET_ID:
-            node_operations.queue_sync_config()
-        elif node_id is not None:
-            node_operations.queue_sync_config(node_id=node_id)
-
-    bg.add_task(_restart)
-
-    return {"detail": "Runtime restart queued"}
+    _ = target, admin
+    raise HTTPException(
+        status_code=503,
+        detail="Core restart routes are handled by the native Go Master API",
+    )
 
 
 @router.get("/core/config", responses={403: responses._403})

@@ -73,6 +73,14 @@ func NewServer(cfg Config) (*Server, error) {
 		}
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if isNativeRuntimeWebSocketRoute(r) || (cfg.NativeNodeRoutes && isNativeNodeWebSocketRoute(r)) {
+			if masterProxy == nil {
+				http.Error(w, "native Go Master API unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			masterProxy.ServeHTTP(w, r)
+			return
+		}
 		if isDeprecatedMasterNodeRoute(r) {
 			http.Error(w, "master node usage/runtime routes have been removed", http.StatusGone)
 			return
@@ -269,6 +277,10 @@ func isNativeRuntimeHelperRoute(r *http.Request) bool {
 	}
 	path := strings.TrimRight(r.URL.Path, "/")
 	switch path {
+	case "/api/core":
+		return r.Method == http.MethodGet
+	case "/api/core/restart":
+		return r.Method == http.MethodPost
 	case "/api/core/ips":
 		return r.Method == http.MethodGet
 	case "/api/core/xray/releases", "/api/core/geo/templates":
@@ -290,6 +302,14 @@ func isNativeRuntimeHelperRoute(r *http.Request) bool {
 	default:
 		return false
 	}
+}
+
+func isNativeRuntimeWebSocketRoute(r *http.Request) bool {
+	if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	return path == "/api/core/logs" && r.Method == http.MethodGet
 }
 
 func isNativeXrayHelperRoute(r *http.Request) bool {
@@ -513,6 +533,23 @@ func isNativeNodeRoute(r *http.Request) bool {
 	default:
 		return false
 	}
+}
+
+func isNativeNodeWebSocketRoute(r *http.Request) bool {
+	if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") || r.Method != http.MethodGet {
+		return false
+	}
+	path := strings.TrimRight(r.URL.Path, "/")
+	if !strings.HasPrefix(path, "/api/node/") {
+		return false
+	}
+	rest := strings.TrimPrefix(path, "/api/node/")
+	parts := strings.Split(rest, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] != "logs" {
+		return false
+	}
+	_, err := strconv.ParseInt(parts[0], 10, 64)
+	return err == nil
 }
 
 func (s *Server) Run() error {

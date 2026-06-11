@@ -152,6 +152,9 @@ func TestIsNativeRuntimeHelperRoute(t *testing.T) {
 		want   bool
 	}{
 		{name: "core ips", method: http.MethodGet, path: "/api/core/ips", want: true},
+		{name: "core runtime", method: http.MethodGet, path: "/api/core", want: true},
+		{name: "core restart", method: http.MethodPost, path: "/api/core/restart", want: true},
+		{name: "core logs websocket is separate", method: http.MethodGet, path: "/api/core/logs", header: "websocket", want: false},
 		{name: "xray releases", method: http.MethodGet, path: "/api/core/xray/releases", want: true},
 		{name: "geo templates", method: http.MethodGet, path: "/api/core/geo/templates", want: true},
 		{name: "geo apply", method: http.MethodPost, path: "/api/core/geo/apply", want: true},
@@ -165,6 +168,7 @@ func TestIsNativeRuntimeHelperRoute(t *testing.T) {
 		{name: "outbound traffic", method: http.MethodGet, path: "/api/panel/xray/getOutboundsTraffic", want: true},
 		{name: "reset outbound traffic", method: http.MethodPost, path: "/api/panel/xray/resetOutboundsTraffic", want: true},
 		{name: "core ips wrong method", method: http.MethodPost, path: "/api/core/ips", want: false},
+		{name: "core runtime wrong method", method: http.MethodPost, path: "/api/core", want: false},
 		{name: "outbound test wrong method", method: http.MethodGet, path: "/api/panel/xray/testOutbound", want: false},
 		{name: "outbound traffic wrong method", method: http.MethodPost, path: "/api/panel/xray/getOutboundsTraffic", want: false},
 		{name: "warp register wrong method", method: http.MethodGet, path: "/api/core/warp/register", want: false},
@@ -178,6 +182,32 @@ func TestIsNativeRuntimeHelperRoute(t *testing.T) {
 			}
 			if got := isNativeRuntimeHelperRoute(req); got != tt.want {
 				t.Fatalf("isNativeRuntimeHelperRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsNativeRuntimeWebSocketRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "core logs websocket", method: http.MethodGet, path: "/api/core/logs", header: "websocket", want: true},
+		{name: "core logs plain http", method: http.MethodGet, path: "/api/core/logs", want: false},
+		{name: "core runtime websocket wrong path", method: http.MethodGet, path: "/api/core", header: "websocket", want: false},
+		{name: "core logs wrong method", method: http.MethodPost, path: "/api/core/logs", header: "websocket", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeRuntimeWebSocketRoute(req); got != tt.want {
+				t.Fatalf("isNativeRuntimeWebSocketRoute() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -218,6 +248,8 @@ func TestNativeRuntimeHelperRoutesProxyToMasterAPI(t *testing.T) {
 		method string
 		path   string
 	}{
+		{method: http.MethodGet, path: "/api/core"},
+		{method: http.MethodPost, path: "/api/core/restart"},
 		{method: http.MethodGet, path: "/api/core/ips"},
 		{method: http.MethodGet, path: "/api/core/xray/releases"},
 		{method: http.MethodGet, path: "/api/core/geo/templates"},
@@ -241,8 +273,8 @@ func TestNativeRuntimeHelperRoutesProxyToMasterAPI(t *testing.T) {
 			}
 		})
 	}
-	if masterHits != 13 {
-		t.Fatalf("master hits=%d want 13", masterHits)
+	if masterHits != 15 {
+		t.Fatalf("master hits=%d want 15", masterHits)
 	}
 }
 
@@ -286,6 +318,33 @@ func TestIsNativeNodeRoute(t *testing.T) {
 			}
 			if got := isNativeNodeRoute(req); got != tt.want {
 				t.Fatalf("isNativeNodeRoute() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsNativeNodeWebSocketRoute(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		header string
+		want   bool
+	}{
+		{name: "node logs websocket", method: http.MethodGet, path: "/api/node/12/logs", header: "websocket", want: true},
+		{name: "node logs plain http", method: http.MethodGet, path: "/api/node/12/logs", want: false},
+		{name: "node logs wrong method", method: http.MethodPost, path: "/api/node/12/logs", header: "websocket", want: false},
+		{name: "node bad id", method: http.MethodGet, path: "/api/node/nope/logs", header: "websocket", want: false},
+		{name: "node other action", method: http.MethodGet, path: "/api/node/12/restart", header: "websocket", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.header != "" {
+				req.Header.Set("Upgrade", tt.header)
+			}
+			if got := isNativeNodeWebSocketRoute(req); got != tt.want {
+				t.Fatalf("isNativeNodeWebSocketRoute() = %v, want %v", got, tt.want)
 			}
 		})
 	}
