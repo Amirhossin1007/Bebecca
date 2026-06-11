@@ -278,6 +278,57 @@ func TestNativeRuntimeHelperRoutesProxyToMasterAPI(t *testing.T) {
 	}
 }
 
+func TestDeprecatedRuntimeRoutesReturnGone(t *testing.T) {
+	python := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("deprecated runtime route reached python: %s %s", r.Method, r.URL.Path)
+	}))
+	defer python.Close()
+	master := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("deprecated runtime route reached master api: %s %s", r.Method, r.URL.Path)
+	}))
+	defer master.Close()
+	pythonURL := strings.TrimPrefix(python.URL, "http://")
+	host, portValue, err := net.SplitHostPort(pythonURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := NewServer(Config{
+		Addr:         "127.0.0.1:0",
+		PythonHost:   host,
+		PythonPort:   port,
+		MasterAPIURL: master.URL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/core/access/insights"},
+		{method: http.MethodGet, path: "/api/core/access/insights/multi-node"},
+		{method: http.MethodGet, path: "/api/core/access/logs/raw"},
+		{method: http.MethodPost, path: "/api/core/access/operators"},
+		{method: http.MethodGet, path: "/api/core/access/logs/ws"},
+		{method: http.MethodPost, path: "/api/core/xray/update"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			rec := httptest.NewRecorder()
+			server.server.Handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusGone {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestIsNativeNodeRoute(t *testing.T) {
 	tests := []struct {
 		name   string

@@ -81,6 +81,10 @@ func NewServer(cfg Config) (*Server, error) {
 			masterProxy.ServeHTTP(w, r)
 			return
 		}
+		if isDeprecatedRuntimeRoute(r) {
+			http.Error(w, deprecatedRuntimeRouteDetail(r), http.StatusGone)
+			return
+		}
 		if isDeprecatedMasterNodeRoute(r) {
 			http.Error(w, "master node usage/runtime routes have been removed", http.StatusGone)
 			return
@@ -310,6 +314,19 @@ func isNativeRuntimeWebSocketRoute(r *http.Request) bool {
 	}
 	path := strings.TrimRight(r.URL.Path, "/")
 	return path == "/api/core/logs" && r.Method == http.MethodGet
+}
+
+func isDeprecatedRuntimeRoute(r *http.Request) bool {
+	path := strings.TrimRight(r.URL.Path, "/")
+	return path == "/api/core/xray/update" || path == "/api/core/access" || strings.HasPrefix(path, "/api/core/access/")
+}
+
+func deprecatedRuntimeRouteDetail(r *http.Request) string {
+	path := strings.TrimRight(r.URL.Path, "/")
+	if path == "/api/core/xray/update" {
+		return "Master runtime is node-only; update nodes instead."
+	}
+	return "Access Insights is temporarily disabled while it is rebuilt as a Go-native feature."
 }
 
 func isNativeXrayHelperRoute(r *http.Request) bool {
