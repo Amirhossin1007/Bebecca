@@ -3,7 +3,9 @@ module github.com/rebeccapanel/rebecca
 go 1.25.0
 
 require (
+	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-sql-driver/mysql v1.8.1
+	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/pressly/goose/v3 v3.21.1
 	github.com/shirou/gopsutil/v4 v4.26.5
@@ -20,7 +22,6 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
