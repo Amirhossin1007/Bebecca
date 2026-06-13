@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/mattn/go-sqlite3"
 	_ "modernc.org/sqlite"
 )
 
@@ -61,18 +60,7 @@ func Open(databaseURL string) (Pool, error) {
 	defer cancel()
 	if err := sqlDB.PingContext(pingCtx); err != nil {
 		_ = sqlDB.Close()
-		if dialect == "sqlite" && strings.Contains(err.Error(), "go-sqlite3 requires cgo") {
-			sqlDB, err = sql.Open("sqlite", dsn)
-			if err != nil {
-				return Pool{}, err
-			}
-			if pingErr := sqlDB.PingContext(pingCtx); pingErr != nil {
-				_ = sqlDB.Close()
-				return Pool{}, pingErr
-			}
-		} else {
-			return Pool{}, err
-		}
+		return Pool{}, err
 	}
 
 	pool := Pool{DB: sqlDB, Dialect: dialect}
@@ -91,7 +79,7 @@ func parseDatabaseURL(databaseURL string) (driver string, dsn string, dialect st
 		if path == "" {
 			return "", "", "", fmt.Errorf("sqlite database path is empty")
 		}
-		return "sqlite3", sqliteDSN(path), "sqlite", nil
+		return "sqlite", sqliteDSN(path), "sqlite", nil
 	case strings.HasPrefix(databaseURL, "sqlite://"):
 		parsed, parseErr := url.Parse(databaseURL)
 		if parseErr != nil {
@@ -101,7 +89,7 @@ func parseDatabaseURL(databaseURL string) (driver string, dsn string, dialect st
 		if path == "" {
 			return "", "", "", fmt.Errorf("sqlite database path is empty")
 		}
-		return "sqlite3", sqliteDSN(path), "sqlite", nil
+		return "sqlite", sqliteDSN(path), "sqlite", nil
 	default:
 		return parseMySQLURL(databaseURL)
 	}

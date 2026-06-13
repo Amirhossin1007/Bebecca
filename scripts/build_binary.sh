@@ -38,7 +38,7 @@ fi
 (
     prepare_go_dashboard_embed
     cd "$ROOT_DIR"
-    CGO_ENABLED=1 go build -trimpath -buildvcs=false -o "$gateway_output" ./cmd/rebecca_gateway
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$gateway_output" ./cmd/rebecca_gateway
 )
 
 echo "Rebecca Go gateway built at $gateway_output"

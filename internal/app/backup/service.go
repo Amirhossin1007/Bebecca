@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type Service struct {
@@ -704,7 +704,7 @@ func validateScope(scope string) (string, error) {
 }
 
 func validateSQLiteFile(path string) error {
-	db, err := sql.Open("sqlite3", "file:"+path+"?mode=ro")
+	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
 	if err != nil {
 		return err
 	}
@@ -713,7 +713,7 @@ func validateSQLiteFile(path string) error {
 }
 
 func restoreSQLiteLogically(ctx context.Context, target *sql.DB, sourcePath string) error {
-	source, err := sql.Open("sqlite3", "file:"+sourcePath+"?mode=ro")
+	source, err := sql.Open("sqlite", "file:"+sourcePath+"?mode=ro")
 	if err != nil {
 		return err
 	}

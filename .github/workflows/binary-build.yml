@@ -99,6 +99,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Validate installer shell scripts
+        shell: bash
+        run: bash -n scripts/rebecca/rebecca-binary.sh scripts/rebecca/rebecca.sh scripts/rebecca/rebecca-node-binary.sh scripts/rebecca/rebecca-node.sh
+
       - name: Download dashboard
         uses: actions/download-artifact@v4
         with:

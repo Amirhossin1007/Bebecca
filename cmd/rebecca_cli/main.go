@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
@@ -21,6 +22,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	admincore "github.com/rebeccapanel/rebecca/internal/app/admin"
 	"github.com/rebeccapanel/rebecca/internal/app/migrations"
 	"github.com/rebeccapanel/rebecca/internal/platform/db"
 	"golang.org/x/crypto/bcrypt"
@@ -47,6 +49,34 @@ type adminRecord struct {
 	CreatedAt  sql.NullTime
 	TelegramID sql.NullInt64
 	Status     string
+}
+
+type adminCLIView struct {
+	ID                          int64      `json:"id"`
+	Username                    string     `json:"username"`
+	Role                        string     `json:"role"`
+	Status                      string     `json:"status"`
+	DisabledReason              *string    `json:"disabled_reason,omitempty"`
+	CreatedAt                   *time.Time `json:"created_at,omitempty"`
+	TelegramID                  *int64     `json:"telegram_id,omitempty"`
+	UsersUsage                  int64      `json:"users_usage"`
+	LifetimeUsage               int64      `json:"lifetime_usage"`
+	CreatedTraffic              int64      `json:"created_traffic"`
+	DeletedUsersUsage           int64      `json:"deleted_users_usage"`
+	DataLimit                   *int64     `json:"data_limit,omitempty"`
+	TrafficLimitMode            string     `json:"traffic_limit_mode"`
+	UseServiceTrafficLimits     bool       `json:"use_service_traffic_limits"`
+	ShowUserTraffic             bool       `json:"show_user_traffic"`
+	DeleteUserUsageLimitEnabled bool       `json:"delete_user_usage_limit_enabled"`
+	DeleteUserUsageLimit        *int64     `json:"delete_user_usage_limit,omitempty"`
+	Expire                      *int64     `json:"expire,omitempty"`
+	UsersLimit                  *int64     `json:"users_limit,omitempty"`
+	ServiceCount                int64      `json:"service_count"`
+	ServiceUsersUsage           int64      `json:"service_users_usage"`
+	ServiceLifetimeUsage        int64      `json:"service_lifetime_usage"`
+	ServiceCreatedTraffic       int64      `json:"service_created_traffic"`
+	ServiceDeletedUsersUsage    int64      `json:"service_deleted_users_usage"`
+	EffectiveUsage              int64      `json:"effective_usage"`
 }
 
 type subscriptionUser struct {
@@ -264,14 +294,26 @@ func (c *cli) runAdmin(args []string) error {
 	switch args[0] {
 	case "list":
 		return c.adminList(args[1:])
+	case "show", "get":
+		return c.adminShow(args[1:])
 	case "create":
 		return c.adminCreate(args[1:])
 	case "update":
 		return c.adminUpdate(args[1:])
+	case "set-password", "reset-password", "password":
+		return c.adminSetPassword(args[1:])
+	case "enable":
+		return c.adminSetStatus(args[1:], "active")
+	case "disable":
+		return c.adminSetStatus(args[1:], "disabled")
 	case "change-role":
 		return c.adminChangeRole(args[1:])
 	case "delete":
 		return c.adminDelete(args[1:])
+	case "usage":
+		return c.adminUsage(args[1:])
+	case "reset-usage":
+		return c.adminResetUsage(args[1:])
 	case "import-from-env":
 		return c.adminImportFromEnv(args[1:])
 	case "-h", "--help", "help":
@@ -284,112 +326,167 @@ func (c *cli) runAdmin(args []string) error {
 
 func (c *cli) adminList(args []string) error {
 	fs := newFlagSet("admin list")
+	leading, args := leadingPositional(args)
 	var username string
+	var status string
 	var limit int
 	var offset int
+	var jsonOutput bool
+	var includeAll bool
 	fs.StringVar(&username, "username", "", "search by username")
 	fs.StringVar(&username, "u", "", "search by username")
+	fs.StringVar(&status, "status", "", "filter by status: active, disabled, deleted, all")
+	fs.BoolVar(&includeAll, "all", false, "include deleted admins")
 	fs.IntVar(&limit, "limit", 0, "limit")
 	fs.IntVar(&limit, "l", 0, "limit")
 	fs.IntVar(&offset, "offset", 0, "offset")
 	fs.IntVar(&offset, "o", 0, "offset")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	query := `
-SELECT a.id, a.username, a.role, a.created_at, a.telegram_id, a.status,
-       COALESCE(a.users_usage, 0),
-       COALESCE((SELECT SUM(u.used_traffic) FROM users u WHERE u.admin_id = a.id), 0),
-       COALESCE((
-           SELECT SUM(ul.used_traffic_at_reset)
-           FROM user_usage_logs ul
-           JOIN users u2 ON u2.id = ul.user_id
-           WHERE u2.admin_id = a.id
-       ), 0)
-FROM admins a
-WHERE a.status != 'deleted'`
+	if leading != "" && username == "" {
+		username = leading
+	} else if fs.NArg() > 0 && username == "" {
+		username = fs.Arg(0)
+	}
+
+	where := []string{}
 	params := []any{}
 	if strings.TrimSpace(username) != "" {
-		query += " AND LOWER(a.username) LIKE ?"
+		where = append(where, "LOWER(a.username) LIKE ?")
 		params = append(params, "%"+strings.ToLower(strings.TrimSpace(username))+"%")
 	}
-	query += " ORDER BY a.id"
+	status = strings.ToLower(strings.TrimSpace(status))
+	if includeAll || status == "all" {
+		// no status filter
+	} else if status != "" {
+		if !isValidAdminStatus(status) {
+			return errors.New("status must be one of: active, disabled, deleted, all")
+		}
+		where = append(where, "COALESCE(a.status, 'active') = ?")
+		params = append(params, status)
+	} else {
+		where = append(where, "COALESCE(a.status, 'active') != 'deleted'")
+	}
+	suffix := " ORDER BY a.id"
 	if limit > 0 {
-		query += " LIMIT ?"
+		suffix += " LIMIT ?"
 		params = append(params, limit)
 		if offset > 0 {
-			query += " OFFSET ?"
+			suffix += " OFFSET ?"
 			params = append(params, offset)
 		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	rows, err := c.db.QueryContext(ctx, query, params...)
+	admins, err := c.listAdminViews(ctx, where, params, suffix)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	if jsonOutput {
+		return writeJSON(admins)
+	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "Username\tUsage\tReseted usage\tUsers Usage\tRole\tCreated at\tTelegram ID\tStatus")
-	for rows.Next() {
-		var admin adminRecord
-		var usersUsage, usage, resetedUsage int64
-		if err := rows.Scan(
-			&admin.ID,
-			&admin.Username,
-			&admin.Role,
-			&admin.CreatedAt,
-			&admin.TelegramID,
-			&admin.Status,
-			&usersUsage,
-			&usage,
-			&resetedUsage,
-		); err != nil {
-			return err
-		}
+	fmt.Fprintln(w, "ID\tUsername\tRole\tStatus\tEffective usage\tUsers usage\tCreated traffic\tService usage\tServices\tTelegram\tCreated at")
+	for _, admin := range admins {
 		fmt.Fprintf(
 			w,
-			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+			admin.ID,
 			admin.Username,
-			readableSize(usage),
-			readableSize(resetedUsage),
-			readableSize(usersUsage),
 			admin.Role,
-			formatTime(admin.CreatedAt),
-			formatNullInt(admin.TelegramID),
 			admin.Status,
+			readableSize(admin.EffectiveUsage),
+			readableSize(admin.UsersUsage),
+			readableSize(admin.CreatedTraffic),
+			readableSize(admin.ServiceUsersUsage),
+			admin.ServiceCount,
+			formatIntPtr(admin.TelegramID),
+			formatTimePtr(admin.CreatedAt),
 		)
-	}
-	if err := rows.Err(); err != nil {
-		return err
 	}
 	return w.Flush()
 }
 
+func (c *cli) adminShow(args []string) error {
+	fs := newFlagSet("admin show")
+	leading, args := leadingPositional(args)
+	var username string
+	var jsonOutput bool
+	var includeDeleted bool
+	fs.StringVar(&username, "username", "", "admin username or id")
+	fs.StringVar(&username, "u", "", "admin username or id")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
+	fs.BoolVar(&includeDeleted, "include-deleted", false, "allow deleted admins")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
+	}
+	if username == "" {
+		username = c.mustPrompt("Username or ID", "")
+	}
+	admin, err := c.adminViewByIdentifier(username, includeDeleted)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return writeJSON(admin)
+	}
+	printAdminDetail(admin)
+	return nil
+}
+
 func (c *cli) adminCreate(args []string) error {
 	fs := newFlagSet("admin create")
+	leading, args := leadingPositional(args)
 	var username string
 	var roleValue string
 	var password string
 	var telegramID optionalString
+	var randomPassword bool
+	var jsonOutput bool
 	fs.StringVar(&username, "username", "", "admin username")
 	fs.StringVar(&username, "u", "", "admin username")
 	fs.StringVar(&roleValue, "role", "", "admin role")
 	fs.StringVar(&password, "password", "", "admin password")
+	fs.BoolVar(&randomPassword, "random", false, "generate a secure random password")
 	fs.Var(&telegramID, "telegram-id", "telegram id")
 	fs.Var(&telegramID, "tg", "telegram id")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
+	}
+	username = strings.TrimSpace(username)
 	if username == "" {
 		username = c.mustPrompt("Username", "")
+	}
+	if username == "" {
+		return errors.New("username cannot be empty")
 	}
 	role, err := parseRoleOrPrompt(roleValue, c, "")
 	if err != nil {
 		return err
+	}
+	generatedPassword := ""
+	if randomPassword {
+		generatedPassword, err = generatePassword(24)
+		if err != nil {
+			return err
+		}
+		password = generatedPassword
 	}
 	if password == "" {
 		password = os.Getenv(envAdminPassword)
@@ -420,7 +517,12 @@ func (c *cli) adminCreate(args []string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	_, err = c.db.ExecContext(ctx, `
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	_, err = tx.ExecContext(ctx, `
 INSERT INTO admins (
     username, hashed_password, created_at, role, permissions, telegram_id,
     subscription_settings, users_usage, lifetime_usage, created_traffic,
@@ -438,24 +540,55 @@ INSERT INTO admins (
 	if err != nil {
 		return err
 	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	admin, err := c.adminViewByIdentifier(username, false)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		payload := map[string]any{"admin": admin}
+		if generatedPassword != "" {
+			payload["password"] = generatedPassword
+		}
+		return writeJSON(payload)
+	}
 	fmt.Printf("Admin %q created successfully.\n", username)
+	if generatedPassword != "" {
+		fmt.Printf("Generated password: %s\n", generatedPassword)
+	}
 	return nil
 }
 
 func (c *cli) adminUpdate(args []string) error {
 	fs := newFlagSet("admin update")
+	leading, args := leadingPositional(args)
 	var username string
 	var roleValue optionalString
 	var password optionalString
+	var statusValue optionalString
 	var telegramID optionalString
+	var disabledReason optionalString
+	var clearTelegram bool
+	var jsonOutput bool
 	fs.StringVar(&username, "username", "", "admin username")
 	fs.StringVar(&username, "u", "", "admin username")
 	fs.Var(&roleValue, "role", "admin role")
 	fs.Var(&password, "password", "new password")
+	fs.Var(&statusValue, "status", "admin status: active, disabled, deleted")
 	fs.Var(&telegramID, "telegram-id", "telegram id")
 	fs.Var(&telegramID, "tg", "telegram id")
+	fs.Var(&disabledReason, "disabled-reason", "disabled reason")
+	fs.BoolVar(&clearTelegram, "clear-telegram", false, "clear telegram id")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
 	}
 	if username == "" {
 		username = c.mustPrompt("Username", "")
@@ -465,7 +598,7 @@ func (c *cli) adminUpdate(args []string) error {
 		return err
 	}
 
-	if !roleValue.set && !password.set && !telegramID.set {
+	if !roleValue.set && !password.set && !statusValue.set && !telegramID.set && !disabledReason.set && !clearTelegram {
 		fmt.Printf("Editing %q. Press Enter to leave a field unchanged.\n", admin.Username)
 		role, changed, err := c.promptRole(admin.Role)
 		if err != nil {
@@ -480,6 +613,10 @@ func (c *cli) adminUpdate(args []string) error {
 		}
 		if newPassword != "" {
 			password = optionalString{value: newPassword, set: true}
+		}
+		status := c.mustPrompt("Status", admin.Status)
+		if status != admin.Status {
+			statusValue = optionalString{value: status, set: true}
 		}
 		currentTelegram := ""
 		if admin.TelegramID.Valid {
@@ -522,7 +659,29 @@ func (c *cli) adminUpdate(args []string) error {
 		updates = append(updates, "hashed_password = ?", "password_reset_at = ?")
 		params = append(params, hash, time.Now().UTC())
 	}
-	if telegramID.set {
+	if statusValue.set {
+		status := strings.ToLower(strings.TrimSpace(statusValue.value))
+		if !isValidAdminStatus(status) {
+			return errors.New("status must be one of: active, disabled, deleted")
+		}
+		updates = append(updates, "status = ?")
+		params = append(params, status)
+		if status != "disabled" && !disabledReason.set {
+			updates = append(updates, "disabled_reason = NULL")
+		}
+	}
+	if disabledReason.set {
+		reason := strings.TrimSpace(disabledReason.value)
+		if reason == "" {
+			updates = append(updates, "disabled_reason = NULL")
+		} else {
+			updates = append(updates, "disabled_reason = ?")
+			params = append(params, reason)
+		}
+	}
+	if clearTelegram {
+		updates = append(updates, "telegram_id = NULL")
+	} else if telegramID.set {
 		telegramValue, err := normalizeTelegramValue(telegramID.value, true)
 		if err != nil {
 			return err
@@ -542,12 +701,118 @@ func (c *cli) adminUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
+	if jsonOutput {
+		updated, err := c.adminViewByIdentifier(username, true)
+		if err != nil {
+			return err
+		}
+		return writeJSON(updated)
+	}
 	fmt.Printf("Admin %q updated successfully.\n", admin.Username)
 	return nil
 }
 
+func (c *cli) adminSetPassword(args []string) error {
+	fs := newFlagSet("admin set-password")
+	leading, args := leadingPositional(args)
+	var username string
+	var password string
+	var randomPassword bool
+	var jsonOutput bool
+	fs.StringVar(&username, "username", "", "admin username")
+	fs.StringVar(&username, "u", "", "admin username")
+	fs.StringVar(&password, "password", "", "new password")
+	fs.BoolVar(&randomPassword, "random", false, "generate a secure random password")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
+	}
+	if username == "" {
+		username = c.mustPrompt("Username", "")
+	}
+	if randomPassword {
+		generated, err := generatePassword(24)
+		if err != nil {
+			return err
+		}
+		password = generated
+	}
+	if password == "" {
+		value, err := c.promptPassword("New password")
+		if err != nil {
+			return err
+		}
+		password = value
+	}
+	if password == "" {
+		return errors.New("password cannot be empty")
+	}
+	admin, err := c.getAdminByUsername(username)
+	if err != nil {
+		return err
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := c.db.ExecContext(ctx, `UPDATE admins SET hashed_password = ?, password_reset_at = ? WHERE id = ?`, hash, time.Now().UTC(), admin.ID); err != nil {
+		return err
+	}
+	if jsonOutput {
+		payload := map[string]any{"username": admin.Username, "password_reset": true}
+		if randomPassword {
+			payload["password"] = password
+		}
+		return writeJSON(payload)
+	}
+	fmt.Printf("Password for %q reset successfully.\n", admin.Username)
+	if randomPassword {
+		fmt.Printf("Generated password: %s\n", password)
+	}
+	return nil
+}
+
+func (c *cli) adminSetStatus(args []string, status string) error {
+	fs := newFlagSet("admin " + status)
+	leading, args := leadingPositional(args)
+	var username string
+	var reason string
+	var jsonOutput bool
+	fs.StringVar(&username, "username", "", "admin username")
+	fs.StringVar(&username, "u", "", "admin username")
+	fs.StringVar(&reason, "reason", "", "disabled reason")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
+	}
+	if username == "" {
+		username = c.mustPrompt("Username", "")
+	}
+	updateArgs := []string{"--username", username, "--status", status}
+	if status == "disabled" && strings.TrimSpace(reason) != "" {
+		updateArgs = append(updateArgs, "--disabled-reason", reason)
+	}
+	if jsonOutput {
+		updateArgs = append(updateArgs, "--json")
+	}
+	return c.adminUpdate(updateArgs)
+}
+
 func (c *cli) adminChangeRole(args []string) error {
 	fs := newFlagSet("admin change-role")
+	leading, args := leadingPositional(args)
 	var username string
 	var roleValue string
 	var yes bool
@@ -558,6 +823,11 @@ func (c *cli) adminChangeRole(args []string) error {
 	fs.BoolVar(&yes, "y", false, "skip confirmations")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
 	}
 	if username == "" {
 		username = c.mustPrompt("Username", "")
@@ -582,14 +852,22 @@ func (c *cli) adminChangeRole(args []string) error {
 
 func (c *cli) adminDelete(args []string) error {
 	fs := newFlagSet("admin delete")
+	leading, args := leadingPositional(args)
 	var username string
 	var yes bool
+	var jsonOutput bool
 	fs.StringVar(&username, "username", "", "admin username")
 	fs.StringVar(&username, "u", "", "admin username")
 	fs.BoolVar(&yes, "yes", false, "skip confirmations")
 	fs.BoolVar(&yes, "y", false, "skip confirmations")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
 	}
 	if username == "" {
 		username = c.mustPrompt("Username", "")
@@ -607,15 +885,124 @@ func (c *cli) adminDelete(args []string) error {
 	if err != nil {
 		return err
 	}
+	if jsonOutput {
+		return writeJSON(map[string]any{"username": admin.Username, "deleted": true})
+	}
 	fmt.Printf("Admin %q deleted successfully.\n", admin.Username)
+	return nil
+}
+
+func (c *cli) adminUsage(args []string) error {
+	fs := newFlagSet("admin usage")
+	leading, args := leadingPositional(args)
+	var username string
+	var jsonOutput bool
+	var includeDeleted bool
+	fs.StringVar(&username, "username", "", "admin username or id")
+	fs.StringVar(&username, "u", "", "admin username or id")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
+	fs.BoolVar(&includeDeleted, "include-deleted", false, "allow deleted admins")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
+	}
+	if username == "" {
+		username = c.mustPrompt("Username or ID", "")
+	}
+	admin, err := c.adminViewByIdentifier(username, includeDeleted)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return writeJSON(map[string]any{
+			"admin": admin,
+			"usage": map[string]any{
+				"effective_usage":                admin.EffectiveUsage,
+				"users_usage":                    admin.UsersUsage,
+				"lifetime_usage":                 admin.LifetimeUsage,
+				"created_traffic":                admin.CreatedTraffic,
+				"deleted_users_usage":            admin.DeletedUsersUsage,
+				"service_users_usage":            admin.ServiceUsersUsage,
+				"service_lifetime_usage":         admin.ServiceLifetimeUsage,
+				"service_created_traffic":        admin.ServiceCreatedTraffic,
+				"service_deleted_users_usage":    admin.ServiceDeletedUsersUsage,
+				"use_service_traffic_limits":     admin.UseServiceTrafficLimits,
+				"traffic_limit_mode":             admin.TrafficLimitMode,
+				"show_user_traffic":              admin.ShowUserTraffic,
+				"delete_user_usage_limit_active": admin.DeleteUserUsageLimitEnabled,
+			},
+		})
+	}
+	printAdminDetail(admin)
+	return nil
+}
+
+func (c *cli) adminResetUsage(args []string) error {
+	fs := newFlagSet("admin reset-usage")
+	leading, args := leadingPositional(args)
+	var username string
+	var yes bool
+	var jsonOutput bool
+	fs.StringVar(&username, "username", "", "admin username or id")
+	fs.StringVar(&username, "u", "", "admin username or id")
+	fs.BoolVar(&yes, "yes", false, "skip confirmations")
+	fs.BoolVar(&yes, "y", false, "skip confirmations")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if username == "" && leading != "" {
+		username = leading
+	} else if username == "" && fs.NArg() > 0 {
+		username = fs.Arg(0)
+	}
+	if username == "" {
+		username = c.mustPrompt("Username or ID", "")
+	}
+	admin, err := c.adminViewByIdentifier(username, false)
+	if err != nil {
+		return err
+	}
+	if !yes && !c.confirm(fmt.Sprintf("Reset usage counters for %q?", admin.Username), false) {
+		return errors.New("operation aborted")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := c.insertAdminUsageResetLog(ctx, tx, admin); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE admins SET users_usage = 0, created_traffic = 0 WHERE id = ?`, admin.ID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE admins_services SET used_traffic = 0, created_traffic = 0, updated_at = ? WHERE admin_id = ?`, time.Now().UTC(), admin.ID); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if jsonOutput {
+		return writeJSON(map[string]any{"username": admin.Username, "usage_reset": true})
+	}
+	fmt.Printf("Usage for %q reset successfully.\n", admin.Username)
 	return nil
 }
 
 func (c *cli) adminImportFromEnv(args []string) error {
 	fs := newFlagSet("admin import-from-env")
 	var yes bool
+	var jsonOutput bool
 	fs.BoolVar(&yes, "yes", false, "skip confirmations")
 	fs.BoolVar(&yes, "y", false, "skip confirmations")
+	fs.BoolVar(&jsonOutput, "json", false, "print machine-readable JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -650,8 +1037,249 @@ func (c *cli) adminImportFromEnv(args []string) error {
 		return err
 	}
 	count, _ := result.RowsAffected()
+	if jsonOutput {
+		return writeJSON(map[string]any{"username": username, "linked_users": count})
+	}
 	fmt.Printf("Admin %q imported successfully. %d users linked.\n", username, count)
 	return nil
+}
+
+func (c *cli) listAdminViews(ctx context.Context, where []string, params []any, suffix string) ([]adminCLIView, error) {
+	query := adminCLISelect()
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+	query += suffix
+	rows, err := c.db.QueryContext(ctx, query, params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var admins []adminCLIView
+	for rows.Next() {
+		admin, err := scanAdminCLIView(rows)
+		if err != nil {
+			return nil, err
+		}
+		admins = append(admins, admin)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return admins, nil
+}
+
+func (c *cli) adminViewByIdentifier(identifier string, includeDeleted bool) (adminCLIView, error) {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return adminCLIView{}, errors.New("admin identifier cannot be empty")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	where := []string{"LOWER(a.username) = LOWER(?)"}
+	params := []any{identifier}
+	if !includeDeleted {
+		where = append(where, "COALESCE(a.status, 'active') != 'deleted'")
+	}
+	admins, err := c.listAdminViews(ctx, where, params, " LIMIT 1")
+	if err != nil {
+		return adminCLIView{}, err
+	}
+	if len(admins) > 0 {
+		return admins[0], nil
+	}
+	if id, err := strconv.ParseInt(identifier, 10, 64); err == nil {
+		where = []string{"a.id = ?"}
+		params = []any{id}
+		if !includeDeleted {
+			where = append(where, "COALESCE(a.status, 'active') != 'deleted'")
+		}
+		admins, err = c.listAdminViews(ctx, where, params, " LIMIT 1")
+		if err != nil {
+			return adminCLIView{}, err
+		}
+		if len(admins) > 0 {
+			return admins[0], nil
+		}
+	}
+	return adminCLIView{}, fmt.Errorf("admin %q not found", identifier)
+}
+
+func adminCLISelect() string {
+	return `
+SELECT a.id,
+       a.username,
+       COALESCE(a.role, 'standard'),
+       a.created_at,
+       a.telegram_id,
+       COALESCE(a.status, 'active'),
+       a.disabled_reason,
+       COALESCE(a.users_usage, 0),
+       COALESCE(a.lifetime_usage, 0),
+       COALESCE(a.created_traffic, 0),
+       COALESCE(a.deleted_users_usage, 0),
+       a.data_limit,
+       COALESCE(a.traffic_limit_mode, 'used_traffic'),
+       COALESCE(a.use_service_traffic_limits, 0),
+       COALESCE(a.show_user_traffic, 1),
+       COALESCE(a.delete_user_usage_limit_enabled, 0),
+       a.delete_user_usage_limit,
+       a.expire,
+       a.users_limit,
+       COALESCE(s.service_count, 0),
+       COALESCE(s.used_traffic, 0),
+       COALESCE(s.lifetime_used_traffic, 0),
+       COALESCE(s.created_traffic, 0),
+       COALESCE(s.deleted_users_usage, 0)
+FROM admins a
+LEFT JOIN (
+    SELECT admin_id,
+           COUNT(*) AS service_count,
+           SUM(COALESCE(used_traffic, 0)) AS used_traffic,
+           SUM(COALESCE(lifetime_used_traffic, 0)) AS lifetime_used_traffic,
+           SUM(COALESCE(created_traffic, 0)) AS created_traffic,
+           SUM(COALESCE(deleted_users_usage, 0)) AS deleted_users_usage
+    FROM admins_services
+    GROUP BY admin_id
+) s ON s.admin_id = a.id`
+}
+
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanAdminCLIView(scanner rowScanner) (adminCLIView, error) {
+	var admin adminCLIView
+	var createdAt sql.NullTime
+	var telegramID sql.NullInt64
+	var disabledReason sql.NullString
+	var dataLimit sql.NullInt64
+	var deleteUserUsageLimit sql.NullInt64
+	var expire sql.NullInt64
+	var usersLimit sql.NullInt64
+	var useServiceTrafficLimits int64
+	var showUserTraffic int64
+	var deleteUserUsageLimitEnabled int64
+	if err := scanner.Scan(
+		&admin.ID,
+		&admin.Username,
+		&admin.Role,
+		&createdAt,
+		&telegramID,
+		&admin.Status,
+		&disabledReason,
+		&admin.UsersUsage,
+		&admin.LifetimeUsage,
+		&admin.CreatedTraffic,
+		&admin.DeletedUsersUsage,
+		&dataLimit,
+		&admin.TrafficLimitMode,
+		&useServiceTrafficLimits,
+		&showUserTraffic,
+		&deleteUserUsageLimitEnabled,
+		&deleteUserUsageLimit,
+		&expire,
+		&usersLimit,
+		&admin.ServiceCount,
+		&admin.ServiceUsersUsage,
+		&admin.ServiceLifetimeUsage,
+		&admin.ServiceCreatedTraffic,
+		&admin.ServiceDeletedUsersUsage,
+	); err != nil {
+		return adminCLIView{}, err
+	}
+	if createdAt.Valid {
+		value := createdAt.Time
+		admin.CreatedAt = &value
+	}
+	if telegramID.Valid {
+		value := telegramID.Int64
+		admin.TelegramID = &value
+	}
+	if disabledReason.Valid && strings.TrimSpace(disabledReason.String) != "" {
+		value := disabledReason.String
+		admin.DisabledReason = &value
+	}
+	admin.DataLimit = nullableInt64PtrFromSQL(dataLimit)
+	admin.DeleteUserUsageLimit = nullableInt64PtrFromSQL(deleteUserUsageLimit)
+	admin.Expire = nullableInt64PtrFromSQL(expire)
+	admin.UsersLimit = nullableInt64PtrFromSQL(usersLimit)
+	admin.UseServiceTrafficLimits = useServiceTrafficLimits != 0
+	admin.ShowUserTraffic = showUserTraffic != 0
+	admin.DeleteUserUsageLimitEnabled = deleteUserUsageLimitEnabled != 0
+	admin.EffectiveUsage = admin.effectiveUsage()
+	return admin, nil
+}
+
+func (a adminCLIView) effectiveUsage() int64 {
+	if a.UseServiceTrafficLimits {
+		if a.TrafficLimitMode == string(admincore.TrafficLimitCreatedTraffic) {
+			return a.ServiceCreatedTraffic
+		}
+		return a.ServiceUsersUsage
+	}
+	if a.TrafficLimitMode == string(admincore.TrafficLimitCreatedTraffic) {
+		return a.CreatedTraffic
+	}
+	return a.UsersUsage
+}
+
+func (c *cli) insertAdminUsageResetLog(ctx context.Context, tx *sql.Tx, admin adminCLIView) error {
+	if !c.tableExists(ctx, tx, "admin_usage_logs") {
+		return nil
+	}
+	_, err := tx.ExecContext(
+		ctx,
+		`INSERT INTO admin_usage_logs (admin_id, used_traffic_at_reset, created_traffic_at_reset, reset_at) VALUES (?, ?, ?, ?)`,
+		admin.ID,
+		admin.UsersUsage,
+		admin.CreatedTraffic,
+		time.Now().UTC(),
+	)
+	return err
+}
+
+func (c *cli) tableExists(ctx context.Context, tx *sql.Tx, table string) bool {
+	switch c.dialect {
+	case "mysql", "mariadb":
+		var count int
+		err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?`, table).Scan(&count)
+		return err == nil && count > 0
+	default:
+		var name string
+		err := tx.QueryRowContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&name)
+		return err == nil
+	}
+}
+
+func printAdminDetail(admin adminCLIView) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "ID:\t%d\n", admin.ID)
+	fmt.Fprintf(w, "Username:\t%s\n", admin.Username)
+	fmt.Fprintf(w, "Role:\t%s\n", admin.Role)
+	fmt.Fprintf(w, "Status:\t%s\n", admin.Status)
+	if admin.DisabledReason != nil {
+		fmt.Fprintf(w, "Disabled reason:\t%s\n", *admin.DisabledReason)
+	}
+	fmt.Fprintf(w, "Created at:\t%s\n", formatTimePtr(admin.CreatedAt))
+	fmt.Fprintf(w, "Telegram ID:\t%s\n", formatIntPtr(admin.TelegramID))
+	fmt.Fprintf(w, "Traffic limit mode:\t%s\n", admin.TrafficLimitMode)
+	fmt.Fprintf(w, "Effective usage:\t%s\n", readableSize(admin.EffectiveUsage))
+	fmt.Fprintf(w, "Users usage:\t%s\n", readableSize(admin.UsersUsage))
+	fmt.Fprintf(w, "Lifetime usage:\t%s\n", readableSize(admin.LifetimeUsage))
+	fmt.Fprintf(w, "Created traffic:\t%s\n", readableSize(admin.CreatedTraffic))
+	fmt.Fprintf(w, "Deleted users usage:\t%s\n", readableSize(admin.DeletedUsersUsage))
+	fmt.Fprintf(w, "Service limits:\t%t\n", admin.UseServiceTrafficLimits)
+	fmt.Fprintf(w, "Service count:\t%d\n", admin.ServiceCount)
+	fmt.Fprintf(w, "Service usage:\t%s\n", readableSize(admin.ServiceUsersUsage))
+	fmt.Fprintf(w, "Service lifetime usage:\t%s\n", readableSize(admin.ServiceLifetimeUsage))
+	fmt.Fprintf(w, "Service created traffic:\t%s\n", readableSize(admin.ServiceCreatedTraffic))
+	fmt.Fprintf(w, "Show user traffic:\t%t\n", admin.ShowUserTraffic)
+	fmt.Fprintf(w, "Data limit:\t%s\n", formatSizePtr(admin.DataLimit))
+	fmt.Fprintf(w, "Users limit:\t%s\n", formatInt64Ptr(admin.UsersLimit))
+	fmt.Fprintf(w, "Delete user usage limit:\t%s\n", formatSizePtr(admin.DeleteUserUsageLimit))
+	_ = w.Flush()
 }
 
 func (c *cli) runUser(args []string) error {
@@ -2048,7 +2676,11 @@ func parseRole(value string) (string, error) {
 	case "4":
 		return "full_access", nil
 	case "standard", "reseller", "sudo", "full_access":
-		return value, nil
+		role, err := admincore.ParseRole(value)
+		if err != nil {
+			return "", fmt.Errorf("role must be one of: standard, reseller, sudo, full_access")
+		}
+		return string(role), nil
 	default:
 		return "", fmt.Errorf("role must be one of: standard, reseller, sudo, full_access")
 	}
@@ -2080,58 +2712,11 @@ func (c *cli) promptRole(current string) (string, bool, error) {
 }
 
 func rolePermissionsJSON(role string) (string, error) {
-	users := map[string]any{
-		"create":                  true,
-		"delete":                  false,
-		"reset_usage":             false,
-		"revoke":                  true,
-		"create_on_hold":          true,
-		"allow_unlimited_data":    true,
-		"allow_unlimited_expire":  true,
-		"allow_next_plan":         true,
-		"advanced_actions":        true,
-		"set_flow":                false,
-		"allow_custom_key":        false,
-		"max_data_limit_per_user": nil,
+	parsedRole, err := admincore.ParseRole(role)
+	if err != nil {
+		return "", err
 	}
-	adminManagement := map[string]any{
-		"can_view":        false,
-		"can_edit":        false,
-		"can_manage_sudo": false,
-	}
-	sections := map[string]any{
-		"usage":        false,
-		"admins":       false,
-		"services":     false,
-		"hosts":        false,
-		"nodes":        false,
-		"integrations": false,
-		"xray":         false,
-	}
-	if role == "sudo" || role == "full_access" {
-		users["set_flow"] = true
-		users["allow_custom_key"] = true
-		adminManagement["can_view"] = true
-		adminManagement["can_edit"] = true
-		for key := range sections {
-			sections[key] = true
-		}
-	}
-	if role == "full_access" {
-		users["delete"] = true
-		users["reset_usage"] = true
-		adminManagement["can_manage_sudo"] = true
-	}
-	payload := map[string]any{
-		"users":            users,
-		"admin_management": adminManagement,
-		"sections":         sections,
-		"self_permissions": map[string]bool{
-			"self_myaccount":       true,
-			"self_change_password": true,
-			"self_api_keys":        true,
-		},
-	}
+	payload := admincore.RoleDefaultPermissions(parsedRole)
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
@@ -2157,6 +2742,40 @@ func normalizeTelegramValue(value string, wasSet bool) (any, error) {
 func hashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(hash), err
+}
+
+func generatePassword(length int) (string, error) {
+	if length < 16 {
+		length = 16
+	}
+	raw := make([]byte, length)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw)[:length], nil
+}
+
+func isValidAdminStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case string(admincore.StatusActive), string(admincore.StatusDisabled), string(admincore.StatusDeleted):
+		return true
+	default:
+		return false
+	}
+}
+
+func nullableInt64PtrFromSQL(value sql.NullInt64) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Int64
+	return &result
+}
+
+func writeJSON(value any) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
 
 func (c *cli) mustPrompt(label string, defaultValue string) string {
@@ -2231,6 +2850,13 @@ func newFlagSet(name string) *flag.FlagSet {
 	return fs
 }
 
+func leadingPositional(args []string) (string, []string) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "", args
+	}
+	return args[0], args[1:]
+}
+
 func readableSize(value int64) string {
 	if value < 0 {
 		value = 0
@@ -2255,11 +2881,39 @@ func formatTime(value sql.NullTime) string {
 	return value.Time.Format("02 January 2006, 15:04:05")
 }
 
+func formatTimePtr(value *time.Time) string {
+	if value == nil {
+		return "-"
+	}
+	return value.Format("02 January 2006, 15:04:05")
+}
+
 func formatNullInt(value sql.NullInt64) string {
 	if !value.Valid || value.Int64 == 0 {
 		return "-"
 	}
 	return strconv.FormatInt(value.Int64, 10)
+}
+
+func formatIntPtr(value *int64) string {
+	if value == nil || *value == 0 {
+		return "-"
+	}
+	return strconv.FormatInt(*value, 10)
+}
+
+func formatInt64Ptr(value *int64) string {
+	if value == nil {
+		return "-"
+	}
+	return strconv.FormatInt(*value, 10)
+}
+
+func formatSizePtr(value *int64) string {
+	if value == nil {
+		return "-"
+	}
+	return readableSize(*value)
 }
 
 func boolToDB(value bool) int {
@@ -2281,7 +2935,19 @@ func printUsage() {
 
 func printAdminUsage() {
 	fmt.Println("Usage: rebecca cli admin <command> [options]")
-	fmt.Println("Commands: list, create, update, change-role, delete, import-from-env")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("  list                 List admins, with --json for automation")
+	fmt.Println("  show <admin>          Show one admin and usage counters")
+	fmt.Println("  create <username>     Create an admin")
+	fmt.Println("  update <admin>        Update role, status, password, or Telegram ID")
+	fmt.Println("  set-password <admin>  Reset password and invalidate older tokens")
+	fmt.Println("  enable <admin>        Mark admin active")
+	fmt.Println("  disable <admin>       Mark admin disabled")
+	fmt.Println("  delete <admin>        Soft delete admin")
+	fmt.Println("  usage <admin>         Show admin usage counters")
+	fmt.Println("  reset-usage <admin>   Reset usage/created traffic counters")
+	fmt.Println("  import-from-env       Create or sync SUDO_USERNAME/SUDO_PASSWORD")
 }
 
 func printUserUsage() {
