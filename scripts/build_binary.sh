@@ -27,6 +27,10 @@ prepare_go_dashboard_embed() {
 
 gateway_output="$ROOT_DIR/dist/rebecca-server"
 mkdir -p "$ROOT_DIR/dist"
+rm -rf "$ROOT_DIR/dist/templates"
+if [[ -d "$ROOT_DIR/templates" ]]; then
+    cp -R "$ROOT_DIR/templates" "$ROOT_DIR/dist/templates"
+fi
 if [[ "${OS:-}" == "Windows_NT" ]]; then
     gateway_output="$ROOT_DIR/dist/rebecca-server.exe"
 fi

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 )
@@ -125,7 +126,9 @@ func (s Service) CreateUser(ctx context.Context, admin adminapp.Admin, raw []byt
 	} else if serviceID == nil && auto.Detected {
 		serviceID = &auto.ServiceID
 	}
-	return s.repo.createUserMutation(ctx, admin, payload, serviceID)
+	return retryMutationResult(ctx, func() (MutationResult, error) {
+		return s.repo.createUserMutation(ctx, admin, payload, serviceID)
+	})
 }
 
 func (s Service) UpdateUser(ctx context.Context, admin adminapp.Admin, username string, raw []byte) (MutationResult, error) {
@@ -146,30 +149,107 @@ func (s Service) UpdateUser(ctx context.Context, admin adminapp.Admin, username 
 		payload.ServiceID = &auto.ServiceID
 		fields["service_id"] = []byte(fmt.Sprintf("%d", auto.ServiceID))
 	}
-	return s.repo.updateUserMutation(ctx, admin, username, payload, fields)
+	return retryMutationResult(ctx, func() (MutationResult, error) {
+		return s.repo.updateUserMutation(ctx, admin, username, payload, fields)
+	})
 }
 
 func (s Service) DeleteUser(ctx context.Context, admin adminapp.Admin, username string) (MutationResult, error) {
-	return s.repo.deleteUserMutation(ctx, admin, username)
+	return retryMutationResult(ctx, func() (MutationResult, error) {
+		return s.repo.deleteUserMutation(ctx, admin, username)
+	})
 }
 
 func (s Service) ResetUser(ctx context.Context, admin adminapp.Admin, username string) (MutationResult, error) {
-	return s.repo.resetUserMutation(ctx, admin, username)
+	return retryMutationResult(ctx, func() (MutationResult, error) {
+		return s.repo.resetUserMutation(ctx, admin, username)
+	})
 }
 
 func (s Service) RevokeUserSubscription(ctx context.Context, admin adminapp.Admin, username string) (MutationResult, error) {
-	return s.repo.revokeUserMutation(ctx, admin, username)
+	return retryMutationResult(ctx, func() (MutationResult, error) {
+		return s.repo.revokeUserMutation(ctx, admin, username)
+	})
 }
 
 func (s Service) ActiveNextPlan(ctx context.Context, admin adminapp.Admin, username string) (MutationResult, error) {
-	return s.repo.activeNextMutation(ctx, admin, username)
+	return retryMutationResult(ctx, func() (MutationResult, error) {
+		return s.repo.activeNextMutation(ctx, admin, username)
+	})
 }
 
 func (s Service) BulkUsersAction(ctx context.Context, admin adminapp.Admin, payload BulkUsersActionRequest, opts BulkUsersActionOptions) (BulkUsersActionResult, error) {
 	if err := ValidateBulkUsersAction(&payload); err != nil {
 		return BulkUsersActionResult{}, clientError(400, err.Error())
 	}
-	return s.repo.bulkUsersActionMutation(ctx, admin, payload, opts)
+	result, err := retryBulkActionResult(ctx, func() (BulkUsersActionResult, error) {
+		return s.repo.bulkUsersActionMutation(ctx, admin, payload, opts)
+	})
+	return result, err
+}
+
+func retryMutationResult(ctx context.Context, fn func() (MutationResult, error)) (MutationResult, error) {
+	var lastErr error
+	for attempt := 0; attempt < 25; attempt++ {
+		result, err := fn()
+		if err == nil {
+			return result, nil
+		}
+		if !isTransientTransactionError(err) {
+			return MutationResult{}, err
+		}
+		lastErr = err
+		if !sleepBeforeRetry(ctx, attempt) {
+			return MutationResult{}, ctx.Err()
+		}
+	}
+	return MutationResult{}, lastErr
+}
+
+func retryBulkActionResult(ctx context.Context, fn func() (BulkUsersActionResult, error)) (BulkUsersActionResult, error) {
+	var lastErr error
+	for attempt := 0; attempt < 25; attempt++ {
+		result, err := fn()
+		if err == nil {
+			return result, nil
+		}
+		if !isTransientTransactionError(err) {
+			return BulkUsersActionResult{}, err
+		}
+		lastErr = err
+		if !sleepBeforeRetry(ctx, attempt) {
+			return BulkUsersActionResult{}, ctx.Err()
+		}
+	}
+	return BulkUsersActionResult{}, lastErr
+}
+
+func isTransientTransactionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "error 1213") ||
+		strings.Contains(message, "deadlock found") ||
+		strings.Contains(message, "try restarting transaction") ||
+		strings.Contains(message, "error 1205") ||
+		strings.Contains(message, "lock wait timeout")
+}
+
+func sleepBeforeRetry(ctx context.Context, attempt int) bool {
+	step := attempt + 1
+	delay := time.Duration(50*step*step) * time.Millisecond
+	if delay > 2*time.Second {
+		delay = 2 * time.Second
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 func decodeRawFields(raw []byte) (map[string]json.RawMessage, error) {

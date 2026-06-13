@@ -165,7 +165,7 @@ JOIN proxies p ON u.id = p.user_id
 LEFT JOIN exclude_inbounds_association e ON p.id = e.proxy_id
 WHERE u.status IN ('active', 'on_hold')
 GROUP BY u.id, u.username, u.credential_key, u.flow, u.service_id, LOWER(p.type), p.settings
-ORDER BY u.id, p.id`)
+ORDER BY u.id, MIN(p.id)`)
 	if err != nil {
 		return nil, err
 	}

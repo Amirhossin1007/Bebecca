@@ -135,7 +135,7 @@ jobs:
               git \
               pkg-config
             bash scripts/build_binary.sh
-            tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli
+            tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli templates
             sha256sum "dist/${ASSET_NAME}"
             exit 0
           fi
@@ -162,7 +162,7 @@ jobs:
                 git \
                 pkg-config
               bash scripts/build_binary.sh
-              tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli
+              tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli templates
               sha256sum "dist/${ASSET_NAME}"
             ' 2>&1 | tee "build-${ASSET_ARCH}.log"
           status="${PIPESTATUS[0]}"
@@ -234,7 +234,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path dist/rebecca-server.exe, dist/rebecca-cli.exe `
+            -Path dist/rebecca-server.exe, dist/rebecca-cli.exe, dist/templates `
             -DestinationPath dist/rebecca-windows-amd64.zip `
             -Force
 
