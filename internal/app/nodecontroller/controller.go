@@ -238,44 +238,142 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 	}
 	result := ProcessOperationsResult{}
 	blockedNodes := map[int64]bool{}
+	coalesced := map[string][]OperationRow{}
+	coalescedOrder := make([]string, 0)
 	for _, operation := range operations {
-		if operation.NodeID.Valid && blockedNodes[operation.NodeID.Int64] {
+		if canCoalesceRuntimeSyncOperation(operation) {
+			key := operationCoalesceKey(operation)
+			if _, ok := coalesced[key]; !ok {
+				coalescedOrder = append(coalescedOrder, key)
+			}
+			coalesced[key] = append(coalesced[key], operation)
 			continue
 		}
-		claimed, err := c.repo.MarkOperationRunning(ctx, operation.ID)
-		if err != nil {
+		if err := c.processSingleOperation(ctx, operation, blockedNodes, &result); err != nil {
 			return result, err
 		}
-		if !claimed {
-			continue
-		}
-		result.Processed++
-		opCtx, cancel := WithDefaultTimeout(ctx)
-		err = c.applyOperation(opCtx, operation)
-		cancel()
-		if err != nil {
-			if isPermanentOperationError(err) {
-				_ = c.repo.MarkOperationFailed(ctx, operation.ID, err.Error())
-				result.Failed++
-				continue
-			}
-			_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
-			result.Retrying++
-			if operation.NodeID.Valid {
-				blockedNodes[operation.NodeID.Int64] = true
-			}
-			continue
-		}
-		if err := c.repo.MarkOperationDone(ctx, operation.ID); err != nil {
+	}
+	for _, key := range coalescedOrder {
+		if err := c.processCoalescedOperations(ctx, coalesced[key], blockedNodes, &result); err != nil {
 			return result, err
 		}
-		result.Done++
 	}
 	return result, nil
 }
 
+func (c Controller) processSingleOperation(ctx context.Context, operation OperationRow, blockedNodes map[int64]bool, result *ProcessOperationsResult) error {
+	if operation.NodeID.Valid && blockedNodes[operation.NodeID.Int64] {
+		return nil
+	}
+	claimed, err := c.repo.MarkOperationRunning(ctx, operation.ID)
+	if err != nil {
+		return err
+	}
+	if !claimed {
+		return nil
+	}
+	result.Processed++
+	opCtx, cancel := WithDefaultTimeout(ctx)
+	err = c.applyOperation(opCtx, operation)
+	cancel()
+	if err != nil {
+		if isPermanentOperationError(err) {
+			_ = c.repo.MarkOperationFailed(ctx, operation.ID, err.Error())
+			result.Failed++
+			return nil
+		}
+		_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
+		result.Retrying++
+		if operation.NodeID.Valid {
+			blockedNodes[operation.NodeID.Int64] = true
+		}
+		return nil
+	}
+	if err := c.repo.MarkOperationDone(ctx, operation.ID); err != nil {
+		return err
+	}
+	result.Done++
+	return nil
+}
+
+func (c Controller) processCoalescedOperations(ctx context.Context, operations []OperationRow, blockedNodes map[int64]bool, result *ProcessOperationsResult) error {
+	if len(operations) == 0 {
+		return nil
+	}
+	representative := operations[0]
+	if representative.NodeID.Valid && blockedNodes[representative.NodeID.Int64] {
+		return nil
+	}
+	claimed := make([]OperationRow, 0, len(operations))
+	for _, operation := range operations {
+		ok, err := c.repo.MarkOperationRunning(ctx, operation.ID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		claimed = append(claimed, operation)
+	}
+	if len(claimed) == 0 {
+		return nil
+	}
+	result.Processed += len(claimed)
+	representative = claimed[0]
+	opCtx, cancel := WithDefaultTimeout(ctx)
+	err := c.applyOperation(opCtx, representative)
+	cancel()
+	if err != nil {
+		if isPermanentOperationError(err) {
+			for _, operation := range claimed {
+				_ = c.repo.MarkOperationFailed(ctx, operation.ID, err.Error())
+			}
+			result.Failed += len(claimed)
+			return nil
+		}
+		for _, operation := range claimed {
+			_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
+		}
+		result.Retrying += len(claimed)
+		if representative.NodeID.Valid {
+			blockedNodes[representative.NodeID.Int64] = true
+		}
+		return nil
+	}
+	for _, operation := range claimed {
+		if err := c.repo.MarkOperationDone(ctx, operation.ID); err != nil {
+			return err
+		}
+	}
+	result.Done += len(claimed)
+	return nil
+}
+
 type operationPayload struct {
 	ConfigJSON string `json:"config_json"`
+}
+
+func canCoalesceRuntimeSyncOperation(operation OperationRow) bool {
+	switch operation.OperationType {
+	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user":
+	default:
+		return false
+	}
+	if len(operation.Payload) == 0 {
+		return true
+	}
+	var payload operationPayload
+	if err := json.Unmarshal(operation.Payload, &payload); err != nil {
+		return false
+	}
+	return strings.TrimSpace(payload.ConfigJSON) == ""
+}
+
+func operationCoalesceKey(operation OperationRow) string {
+	if operation.NodeID.Valid {
+		return fmt.Sprintf("node:%d", operation.NodeID.Int64)
+	}
+	return "all"
 }
 
 func (c Controller) applyOperation(ctx context.Context, operation OperationRow) error {

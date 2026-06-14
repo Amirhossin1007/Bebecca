@@ -10,6 +10,7 @@ import (
 )
 
 const defaultNodeOperationsPollInterval = 15 * time.Second
+const defaultNodeOperationsBatchSize = 500
 
 func (s *Server) runNodeOperationsWorker(ctx context.Context) {
 	interval := parseNodeOperationsPollInterval(s.cfg.NodeOperationsPollInterval)
@@ -35,7 +36,7 @@ func (s *Server) processNodeOperations(ctx context.Context) {
 	workerCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
-	result, err := s.nodeController.ProcessQueue(workerCtx, nodecontroller.ProcessOperationsRequest{Limit: 100})
+	result, err := s.nodeController.ProcessQueue(workerCtx, nodecontroller.ProcessOperationsRequest{Limit: defaultNodeOperationsBatchSize})
 	if err != nil {
 		log.Printf("Go node operation queue processing failed: %v", err)
 		return
