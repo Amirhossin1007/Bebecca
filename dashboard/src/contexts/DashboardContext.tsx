@@ -182,6 +182,7 @@ type DashboardStateType = {
 	filters: FilterType;
 	subscribeUrl: string | null;
 	QRcodeLinks: string[] | null;
+	qrCodeUsername: string | null;
 	isEditingNodes: boolean;
 	isResetingAllUsage: boolean;
 	lastUsersFetchAt: number | null;
@@ -202,7 +203,7 @@ type DashboardStateType = {
 	createUserWithService: (user: UserCreateWithService) => Promise<void>;
 	editUser: (username: string, body: UserCreate) => Promise<void>;
 	fetchUserUsage: (user: UserListItem, query: FilterUsageType) => Promise<void>;
-	setQRCode: (links: string[] | null) => void;
+	setQRCode: (links: string[] | null, username?: string | null) => void;
 	setSubLink: (subscribeURL: string | null) => void;
 	onEditingNodes: (isEditingNodes: boolean) => void;
 	resetDataUsage: (user: UserListItem) => Promise<void>;
@@ -215,6 +216,8 @@ type DashboardStateType = {
 
 let usersFetchSequence = 0;
 let usersAbortController: AbortController | null = null;
+let inboundsFetchSequence = 0;
+let inboundsAbortController: AbortController | null = null;
 
 const fetchUsers = (
 	query: FilterType,
@@ -321,24 +324,54 @@ const fetchUsers = (
 };
 
 export const fetchInbounds = () => {
-	return fetch("/inbounds")
+	const requestId = ++inboundsFetchSequence;
+	inboundsAbortController?.abort();
+	const abortController = new AbortController();
+	inboundsAbortController = abortController;
+	return fetch("/inbounds", { signal: abortController.signal })
 		.then((inbounds: Inbounds) => {
+			if (
+				requestId !== inboundsFetchSequence ||
+				abortController.signal.aborted
+			) {
+				return;
+			}
 			useDashboard.setState({
 				inbounds: new Map(Object.entries(inbounds)) as Inbounds,
 			});
 		})
+		.catch((error) => {
+			if (
+				requestId !== inboundsFetchSequence ||
+				abortController.signal.aborted ||
+				isAbortError(error)
+			) {
+				return;
+			}
+			console.error("Failed to fetch inbounds:", error);
+			useDashboard.setState({ inbounds: new Map() });
+		})
 		.finally(() => {
-			useDashboard.setState({ loading: false });
+			if (requestId === inboundsFetchSequence) {
+				if (inboundsAbortController === abortController) {
+					inboundsAbortController = null;
+				}
+				useDashboard.setState({ loading: false });
+			}
 		});
 };
 
 export const clearDashboardCache = () => {
 	usersFetchSequence += 1;
+	inboundsFetchSequence += 1;
 	usersAbortController?.abort();
+	inboundsAbortController?.abort();
 	usersAbortController = null;
+	inboundsAbortController = null;
 	useDashboard.setState({
 		users: createEmptyUsersResponse(),
 		linkTemplates: undefined,
+		inbounds: new Map(),
 		loading: false,
 		isUserLimitReached: false,
 		lastUsersFetchAt: null,
@@ -350,6 +383,7 @@ export const clearDashboardCache = () => {
 		revokeSubscriptionUser: null,
 		subscribeUrl: null,
 		QRcodeLinks: null,
+		qrCodeUsername: null,
 		filters: createDefaultFilters(),
 	});
 };
@@ -361,6 +395,7 @@ export const useDashboard = create(
 		deletingUser: null,
 		isCreatingNewUser: false,
 		QRcodeLinks: null,
+		qrCodeUsername: null,
 		subscribeUrl: null,
 		users: createEmptyUsersResponse(),
 		loading: true,
@@ -410,8 +445,11 @@ export const useDashboard = create(
 			});
 			get().refetchUsers(true);
 		},
-		setQRCode: (QRcodeLinks) => {
-			set({ QRcodeLinks });
+		setQRCode: (QRcodeLinks, qrCodeUsername = null) => {
+			set({
+				QRcodeLinks,
+				qrCodeUsername: QRcodeLinks === null ? null : qrCodeUsername,
+			});
 		},
 		deleteUser: (user: UserListItem) => {
 			set({ editingUser: null });

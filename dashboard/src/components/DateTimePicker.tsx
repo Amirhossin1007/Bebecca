@@ -217,8 +217,9 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 					_dark={{ bg: "transparent" }}
 				/>
 			</PopoverTrigger>
-			<Portal>
+			<Portal appendToParentPortal={false}>
 				<PopoverContent
+					className="date-time-picker-popover"
 					w={{
 						base: "calc(100vw - 16px)",
 						sm: "min(420px, calc(100vw - 16px))",
@@ -230,7 +231,7 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 					bg={popoverBg}
 					borderColor={popoverBorderColor}
 					color={popoverText}
-					zIndex={17002}
+					zIndex={17020}
 					_focus={{ boxShadow: "none" }}
 				>
 					<PopoverBody p={0} maxH="inherit" overflowY="auto">

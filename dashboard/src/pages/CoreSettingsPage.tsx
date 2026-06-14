@@ -527,9 +527,13 @@ export const CoreSettingsPage: FC = () => {
 	const { onEditingCore } = useDashboard();
 	const canManageXraySettings =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
+	const [selectedTarget, setSelectedTarget] = useState("master");
 	const { data: serverIPs } = useQuery(
-		["server-ips"],
-		() => apiFetch<{ ipv4: string; ipv6: string }>("/core/ips"),
+		["server-ips", selectedTarget],
+		() =>
+			apiFetch<{ ipv4: string; ipv6: string }>("/core/ips", {
+				query: { target: selectedTarget },
+			}),
 		{
 			staleTime: 5 * 60 * 1000, // 5 minutes
 			enabled: canManageXraySettings,
@@ -634,7 +638,6 @@ export const CoreSettingsPage: FC = () => {
 	const [warpOptionValue, setWarpOptionValue] = useState<string>("");
 	const [warpCustomDomain, setWarpCustomDomain] = useState<string>("");
 	const [activeTab, setActiveTab] = useState<number>(0);
-	const [selectedTarget, setSelectedTarget] = useState("master");
 	const [isChangingTargetMode, setIsChangingTargetMode] = useState(false);
 	const selectedTargetInfo = useMemo(
 		() => configTargets.find((target) => target.id === selectedTarget),
@@ -1171,6 +1174,7 @@ export const CoreSettingsPage: FC = () => {
 				body: {
 					outbound: JSON.stringify(outbound),
 					allOutbounds: JSON.stringify(outbounds),
+					target_id: selectedTarget,
 				},
 			});
 
@@ -1834,6 +1838,25 @@ export const CoreSettingsPage: FC = () => {
 		[canonicalOutbounds],
 	);
 
+	const excludedBalancerOutboundTags = useMemo<string[]>(
+		() =>
+			Array.from(
+				new Set(
+					canonicalOutbounds
+						.filter((outbound: any) => {
+							const protocol = String(outbound?.protocol ?? "")
+								.toLowerCase()
+								.trim();
+							const tag = String(outbound?.tag ?? "").toLowerCase().trim();
+							return protocol === "blackhole" || tag === "blocked";
+						})
+						.map((outbound: any) => outbound?.tag)
+						.filter((tag: string | undefined): tag is string => Boolean(tag)),
+				),
+			),
+		[canonicalOutbounds],
+	);
+
 	const availableBalancerTags = useMemo<string[]>(
 		() =>
 			Array.from(
@@ -1862,7 +1885,7 @@ export const CoreSettingsPage: FC = () => {
 		const domainRule = domainRules[0];
 		const routeRule = routeRules[0];
 
-		return {
+		const initial: ReverseFormValues = {
 			type: editingReverseRow.type,
 			tag: editingReverseRow.tag,
 			domain: editingReverseRow.domain,
@@ -1873,6 +1896,7 @@ export const CoreSettingsPage: FC = () => {
 			),
 			inboundTags: routeRules.flatMap((rule) => rule.inboundTag ?? []),
 		};
+		return initial;
 	}, [canonicalRoutingRules, editingReverseRow, getReverseRules]);
 
 	const existingReverseTags = useMemo(
@@ -4078,6 +4102,7 @@ export const CoreSettingsPage: FC = () => {
 						: null
 				}
 				outboundTags={availableOutboundTags}
+				excludedOutboundTags={excludedBalancerOutboundTags}
 				existingTags={availableBalancerTags
 					.map((tag) => tag.trim())
 					.filter(

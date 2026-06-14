@@ -34,23 +34,17 @@
  English
  </a>
  /
- <a href="./README-fa.md">
+ <a href="./docs/README-fa.md">
  فارسی
  </a>
   /
-  <a href="./README-zh-cn.md">
+  <a href="./docs/README-zh-cn.md">
  简体中文
  </a>
    /
-  <a href="./README-ru.md">
+  <a href="./docs/README-ru.md">
  Русский
  </a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/rebeccapanel/Rebecca" target="_blank" rel="noopener noreferrer" >
-    <img src="https://github.com/xmohammad1/Rebecca-docs/raw/master/screenshots/preview.png" alt="Rebecca screenshots" width="600" height="auto">
-  </a>
 </p>
 
 ## Table of Contents
@@ -60,21 +54,13 @@
     - [Features](#features)
 - [Installation guide](#installation-guide)
 - [Configuration](#configuration)
-- [Documentation](#documentation)
-- [API](#api)
-- [Backup](#backup)
-- [Community](#community)
-- [Telegram Bot](#telegram-bot)
-- [Rebecca CLI](#rebecca-cli)
-- [Rebecca Node](#rebecca-node)
-- [Webhook notifications](#webhook-notifications)
 - [Donation](#donation)
 - [License](#license)
 - [Contributors](#contributors)
 
 # Overview
 
-Rebecca is a proxy management tool that provides a simple and easy-to-use user interface for managing hundreds of proxy accounts powered by [Xray-core](https://github.com/XTLS/Xray-core) and built using Python and React.
+Rebecca is a proxy management tool that provides a simple and easy-to-use user interface for managing hundreds of proxy accounts powered by [Xray-core](https://github.com/XTLS/Xray-core) and built with a Go backend and React dashboard.
 
 ## Why use Rebecca?
 
@@ -84,7 +70,7 @@ Rebecca is user-friendly, feature-rich and reliable. It lets you create differen
 
 - Built-in **Web UI**
 - Fully **REST API** backend
-- [**Multiple Nodes**](#rebecca-node) support (for infrastructure distribution & scalability)
+- **Multiple Nodes** support (for infrastructure distribution & scalability)
 - Supports protocols **Vmess**, **VLESS**, **Trojan** and **Shadowsocks**
 - **Multi-protocol** for a single user
 - **Multi-user** on a single inbound
@@ -96,37 +82,25 @@ Rebecca is user-friendly, feature-rich and reliable. It lets you create differen
 - System monitoring and **traffic statistics**
 - Customizable xray configuration
 - **TLS** and **REALITY** support
-- Integrated **Telegram Bot**
 - Integrated **Command Line Interface (CLI)**
 - **Multi-language**
 - **Multi-admin** support (WIP)
 
 # Installation guide
 
-Run the Docker installer with:
-
-```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca.sh)" @ install
-```
-
-Run the binary installer with:
+Install Rebecca master with the binary installer:
 
 ```bash
 sudo bash -c "$(curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca-binary.sh)" @ install
 ```
 
-The two installers are intentionally separate. The Docker script manages docker-compose installs, while the binary script installs the published native systemd release artifact. Release builds publish Linux binaries for `386`, `amd64`, `arm64`, `armv5`, `armv6`, `armv7`, and `s390x`; the binary installer picks the matching asset automatically. The `--dev` channel downloads the latest successful binary artifact from the `dev` branch workflow.
-
-Dockerized mode supports SQLite, MySQL, and MariaDB. Run the following command to install Rebecca with MySQL database:
+Install Rebecca-node on each node server with the binary node installer:
 
 ```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca.sh)" @ install --database mysql
+sudo bash -c "$(curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca-node-binary.sh)" @ install
 ```
 
-Run the following command to install Rebecca with MariaDB database:
-```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca.sh)" @ install --database mariadb
-```
+The binary installers create native systemd services and automatically download the matching Linux release asset for the server architecture. The master installer supports SQLite, MySQL, and MariaDB through its install options; the node installer installs only the node runtime and connects it to the master through the certificate/token flow in the panel.
 
 Once the installation is complete:
 
@@ -177,29 +151,33 @@ You can install it using [Xray-install](https://github.com/XTLS/Xray-install)
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
 ```
 
-Clone this project and install the dependencies (you need Python >= 3.8)
+Clone this project and build the dashboard and Go binaries:
 
 ```bash
 git clone https://github.com/rebeccapanel/Rebecca.git
 cd Rebecca
-wget -qO- https://bootstrap.pypa.io/get-pip.py | python3 -
-python3 -m pip install -r requirements.txt
+cd dashboard
+npm ci
+VITE_BASE_API=/api/ npm run build -- --outDir=build --assetsDir=statics
+cp ./build/index.html ./build/404.html
+cd ..
+bash scripts/build_binary.sh
 ```
 
-Alternatively, to have an isolated environment you can use [Python Virtualenv](https://pypi.org/project/virtualenv/)
-
-Then run the following command to run the database migration scripts
+Then run the following command to run the Go database migrations:
 
 ```bash
-alembic upgrade head
+./dist/rebecca-cli migrate up
 ```
 
-If you want to use the CLI, you can link the bundled `rebecca-cli.py` to a new executable name and install the auto-completion:
+Downgrade migrations are not supported. For troubleshooting legacy databases,
+see `docs/MIGRATION_GO_ONLY.md`.
+
+If you want to use the CLI globally, install the built Go CLI:
 
 ```bash
-sudo ln -s $(pwd)/rebecca-cli.py /usr/bin/rebecca-cli
-sudo chmod +x /usr/bin/rebecca-cli
-rebecca-cli completion install
+sudo install -m 755 ./dist/rebecca-cli /usr/local/bin/rebecca
+rebecca cli --help
 ```
 
 Now it's time to configuration
@@ -215,17 +193,36 @@ nano .env
 
 > Check [configurations](#configuration) section for more information
 
-Eventually, launch the application using command below
+Eventually, launch the application using command below:
 
 ```bash
-python3 main.py
+./dist/rebecca-server
 ```
 
-To launch with linux systemctl (copy rebecca.service file to `/var/lib/rebecca/rebecca.service`)
+For source/manual installs, create a systemd unit that runs the Go server binary:
 
+```ini
+[Unit]
+Description=Rebecca
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/rebecca
+EnvironmentFile=/opt/rebecca/.env
+ExecStart=/opt/rebecca/dist/rebecca-server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 ```
-systemctl enable /var/lib/rebecca/rebecca.service
-systemctl start rebecca
+
+Then enable it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now rebecca
 ```
 
 To use with nginx
@@ -294,139 +291,40 @@ By default the app will be run on `http://localhost:8000/dashboard`. You can con
 > You can set settings below using environment variables or placing them in `.env` file.
 
 | Variable                                 | Description                                                                                                              |
-| ---------------------------------------- |--------------------------------------------------------------------------------------------------------------------------|
-| SUDO_USERNAME                            | Superuser's username                                                                                                     |
-| SUDO_PASSWORD                            | Superuser's password                                                                                                     |
-| SQLALCHEMY_DATABASE_URL                  | Database URL ([SQLAlchemy's docs](https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls))                    |
-| UVICORN_HOST                             | Bind application to this host (default: `0.0.0.0`)                                                                       |
-| UVICORN_PORT                             | Bind application to this port (default: `8000`)                                                                          |
-| UVICORN_UDS                              | Bind application to a UNIX domain socket                                                                                 |
-| UVICORN_SSL_CERTFILE                     | SSL certificate file to have application on https                                                                        |
-| UVICORN_SSL_KEYFILE                      | SSL key file to have application on https                                                                                |
-| UVICORN_SSL_CA_TYPE                      | Type of authority SSL certificate. Use `private` for testing self-signed CA (default: `public`)                          |
-| XRAY_EXECUTABLE_PATH                     | Path of Xray binary (default: `/usr/local/bin/xray`)                                                                     |
-| XRAY_ASSETS_PATH                         | Path of Xray assets (default: `/usr/local/share/xray`)                                                                   |
-| XRAY_SUBSCRIPTION_URL_PREFIX             | Prefix of subscription URLs                                                                                              |
-| XRAY_FALLBACKS_INBOUND_TAG               | Tag of the inbound that includes fallbacks, needed in the case you're using fallbacks                                    |
-| XRAY_EXCLUDE_INBOUND_TAGS                | Tags of the inbounds that shouldn't be managed and included in links by application                                      |
-| CUSTOM_TEMPLATES_DIRECTORY               | Customized templates directory (default: `app/templates`)                                                                |
-| CLASH_SUBSCRIPTION_TEMPLATE              | The template that will be used for generating clash configs (default: `clash/default.yml`)                               |
-| SUBSCRIPTION_PAGE_TEMPLATE               | The template used for generating subscription info page (default: `subscription/index.html`)                             |
-| HOME_PAGE_TEMPLATE                       | Decoy page template (default: `home/index.html`)                                                                         |
-| TELEGRAM_API_TOKEN                       | Telegram bot API token  (get token from [@botfather](https://t.me/botfather))                                            |
-| TELEGRAM_ADMIN_ID                        | Numeric Telegram ID of admin (use [@userinfobot](https://t.me/userinfobot) to found your ID)                             |
-| TELEGRAM_PROXY_URL                       | Run Telegram Bot over proxy                                                                                              |
-| JWT_ACCESS_TOKEN_EXPIRE_MINUTES          | Expire time for the Access Tokens in minutes, `0` considered as infinite (default: `1440`)                               |
-| DOCS                                     | Whether API documents should be available on `/docs` and `/redoc` or not (default: `False`)                              |
-| DEBUG                                    | Debug mode for development (default: `False`)                                                                            |
-| WEBHOOK_ADDRESS                          | Webhook address to send notifications to. Webhook notifications will be sent if this value was set.                      |
-| WEBHOOK_SECRET                           | Webhook secret will be sent with each request as `x-webhook-secret` in the header (default: `None`)                      |
-| NUMBER_OF_RECURRENT_NOTIFICATIONS        | How many times to retry if an error detected in sending a notification (default: `3`)                                    |
-| RECURRENT_NOTIFICATIONS_TIMEOUT          | Timeout between each retry if an error detected in sending a notification in seconds (default: `180`)                    |
-| NOTIFY_REACHED_USAGE_PERCENT             | At which percentage of usage to send the warning notification (default: `80`)                                            |
-| NOTIFY_DAYS_LEFT                         | When to send warning notifaction about expiration (default: `3`)                                                         |
-| USERS_AUTODELETE_DAYS                    | Delete expired (and optionally limited users) after this many days (Negative values disable this feature, default: `-1`) |
-| USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS | Whether to include limited accounts in the auto-delete feature (default: `False`)                                        |
-| USE_CUSTOM_JSON_DEFAULT                  | Enable custom JSON config for ALL supported clients (default: `False`)                                                   |
-| USE_CUSTOM_JSON_FOR_V2RAYNG              | Enable custom JSON config only for V2rayNG (default: `False`)                                                            |
-| USE_CUSTOM_JSON_FOR_STREISAND            | Enable custom JSON config only for Streisand (default: `False`)                                                          |
-| USE_CUSTOM_JSON_FOR_V2RAYN               | Enable custom JSON config only for V2rayN (default: `False`)                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| SUDO_USERNAME                            | Bootstrap superuser username.                                                                                            |
+| SUDO_PASSWORD                            | Bootstrap superuser password.                                                                                            |
+| SQLALCHEMY_DATABASE_URL                  | Database URL. The legacy name is still used by the Go runtime for compatibility.                                         |
+| UVICORN_HOST                             | Public gateway bind host (default: `0.0.0.0`).                                                                           |
+| UVICORN_PORT                             | Public gateway bind port (default: `8000`).                                                                              |
+| UVICORN_SSL_CERTFILE                     | TLS certificate path for the Go gateway.                                                                                |
+| UVICORN_SSL_KEYFILE                      | TLS private key path for the Go gateway.                                                                                |
+| UVICORN_SSL_CA_TYPE                      | Certificate authority type used by install scripts (`public` or `private`).                                             |
+| REBECCA_GATEWAY_ADDR                     | Optional full gateway listen address. Overrides `UVICORN_HOST`/`UVICORN_PORT`.                                          |
+| REBECCA_NODE_OPERATIONS_POLL_INTERVAL    | Node operation queue polling interval.                                                                                   |
+| REBECCA_USER_LIFECYCLE_INTERVAL          | User lifecycle review interval.                                                                                          |
+| REBECCA_USER_USAGE_RESET_INTERVAL        | Periodic user usage reset interval.                                                                                      |
+| REBECCA_USER_AUTODELETE_INTERVAL         | Expired/limited user auto-delete job interval.                                                                            |
+| USERS_AUTODELETE_DAYS                    | Delete expired users after this many days. Negative values disable this feature.                                         |
+| USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS | Whether auto-delete includes limited accounts.                                                                            |
+| USERS_LIST_TIMEOUT_SECONDS               | Optional timeout for large user list queries. `0` disables the timeout.                                                  |
+| SUBSCRIPTION_READ_ONLY                   | If true, subscription reads do not update last-used metadata.                                                            |
+| XRAY_SUBSCRIPTION_URL_PREFIX             | Prefix used by CLI subscription-link helpers.                                                                             |
+| XRAY_FALLBACKS_INBOUND_TAG               | Inbound tag that includes fallbacks.                                                                                      |
+| XRAY_EXCLUDE_INBOUND_TAGS                | Inbound tags excluded from config/link generation.                                                                        |
+| REBECCA_APP_TEMPLATE_BASE                | Default bundled template base path.                                                                                       |
+| REBECCA_CERT_BASE                        | Base directory for managed certificates.                                                                                  |
+| REBECCA_CONFIG_DIR                       | Configuration root included in full backup export/import.                                                                |
+| GEO_TEMPLATES_INDEX_URL                  | Optional allowed Geo template index URL.                                                                                  |
+| REBECCA_WARP_API_BASE                    | Cloudflare WARP API base URL override.                                                                                    |
 
+# Telegram integration
 
-# Documentation
-
-Rebecca documentation is a work in progress. We welcome and appreciate your contributions to help us improve it. Please open issues or PRs in the main repository.
-
-
-# API
-
-Rebecca provides a REST API that enables developers to interact with its services programmatically. To view the API documentation in Swagger UI or ReDoc, set the configuration variable `DOCS=True` and navigate to `/docs` and `/redoc`.
-
-
-# Backup
-
-It's always a good idea to back up your Rebecca files regularly to prevent data loss in case of system failures or accidental deletion. Here are the steps to back up Rebecca:
-
-1. By default, all Rebecca important files are saved in `/var/lib/rebecca` (Docker versions). Copy the entire `/var/lib/rebecca` directory to a backup location of your choice, such as an external hard drive or cloud storage.
-2. Additionally, make sure to back up your env file, which contains your configuration variables, and also your Xray config file. With the standard installer, the env and other configurations are inside the `/opt/rebecca/` directory.
-
-Rebecca's backup service efficiently zips all necessary files and sends them to your specified Telegram bot. It supports SQLite, MySQL, and MariaDB databases. One of its key features is automation, allowing you to schedule backups every hour. There are no limitations concerning Telegram's upload limits for bots; if a file exceeds the limit, it will be split and sent in multiple parts. Additionally, you can initiate an immediate backup at any time.
-
-Install the Latest Version of Rebecca Command:
-```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca.sh)" @ install-script
-```
-
-Setup the Backup Service:
-```bash
-rebecca backup-service
-```
-
-Get an Immediate Backup:
-```bash
-rebecca backup
-```
-
-By following these steps, you can ensure that you have a backup of all your Rebecca files and data, as well as your configuration variables and Xray configuration, in case you need to restore them in the future. Remember to update your backups regularly to keep them up-to-date.
-
-# Community
-
-Join the Telegram channel for project updates and community discussion:
-
-https://t.me/rebeccapanel_rebecca
-
-# Telegram Bot
-
-Rebecca comes with an integrated Telegram bot that can handle server management, user creation and removal, and send notifications. This bot can be easily enabled by following a few simple steps, and it provides a convenient way to interact with Rebecca without having to log in to the server every time.
-
-To enable Telegram Bot:
-
-1. set `TELEGRAM_API_TOKEN` to your bot's API Token
-2. set `TELEGRAM_ADMIN_ID` to your Telegram account's numeric ID, you can get your ID from [@userinfobot](https://t.me/userinfobot)
-
-# Rebecca CLI
-
-Rebecca comes with an integrated CLI which allows administrators to have direct interaction with it.
-
-If you've installed Rebecca using the easy install script, you can access the CLI commands by running
-
-```bash
-rebecca cli [OPTIONS] COMMAND [ARGS]...
-```
-
-For more information, you can read the CLI documentation in `./cli/README.md`.
-
-# Rebecca Node
-
-The Rebecca project introduces the [Rebecca-node](https://github.com/rebeccapanel/Rebecca-node), which enables infrastructure distribution. With Rebecca-node, you can distribute your infrastructure across multiple locations, unlocking benefits such as redundancy, high availability, scalability, and flexibility. Rebecca-node empowers users to connect to different servers, offering them the flexibility to choose and connect to multiple servers instead of being limited to only one server.
-For more detailed information and installation instructions, please refer to the [Rebecca-node repository](https://github.com/rebeccapanel/Rebecca-node).
+Telegram bot commands, Telegram reports, Telegram settings, and Telegram backup delivery are temporarily disabled while Rebecca is migrated to native Go services. The rebuild plan and legacy behavior notes are documented in `docs/TODO_GO_TELEGRAM.md`.
 
 # Webhook notifications
 
-You can set a webhook address and Rebecca will send the notifications to that address.
-
-the requests will be sent as a post request to the adress provided by `WEBHOOK_ADDRESS` with `WEBHOOK_SECRET` as `x-webhook-secret` in the headers.
-
-Example request sent from Rebecca:
-
-```
-Headers:
-Host: 0.0.0.0:9000
-User-Agent: python-requests/2.28.1
-Accept-Encoding: gzip, deflate
-Accept: */*
-Connection: keep-alive
-x-webhook-secret: something-very-very-secret
-Content-Length: 107
-Content-Type: application/json
-
-
-
-Body:
-{"username": "rebecca_test_user", "action": "user_updated", "enqueued_at": 1680506457.636369, "tries": 0}
-```
-
-Different action typs are: `user_created`, `user_updated`, `user_deleted`, `user_limited`, `user_expired`, `user_disabled`, `user_enabled`
+Webhook notifications are temporarily disabled with Telegram/report delivery. The future Go event outbox and retry behavior are tracked in `docs/TODO_GO_TELEGRAM.md`.
 
 # Donation
 
@@ -444,7 +342,7 @@ Made in [Unknown!] and published under [AGPL-3.0](./LICENSE).
 
 # Contributors
 
-We ❤️‍🔥 contributors! If you'd like to contribute, please check out our [Contributing Guidelines](CONTRIBUTING.md) and feel free to submit a pull request or open an issue.
+We ❤️‍🔥 contributors! If you'd like to contribute, please check out our [Contributing Guidelines](docs/CONTRIBUTING.md) and feel free to submit a pull request or open an issue.
 
 Check [open issues](https://github.com/rebeccapanel/Rebecca/issues) to help the progress of this project.
 

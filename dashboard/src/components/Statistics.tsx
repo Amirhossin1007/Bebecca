@@ -9,6 +9,7 @@ import {
 	Modal,
 	ModalCloseButton,
 	ModalOverlay,
+	Progress,
 	SimpleGrid,
 	Stack,
 	Tag,
@@ -18,7 +19,10 @@ import {
 	Wrap,
 	WrapItem,
 } from "@chakra-ui/react";
-import { ChartBarIcon } from "@heroicons/react/24/outline";
+import {
+	ArrowDownTrayIcon,
+	ArrowUpTrayIcon,
+} from "@heroicons/react/24/outline";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
@@ -51,10 +55,17 @@ const iconProps = {
 	},
 };
 
-const ChartIcon = chakra(ChartBarIcon, iconProps);
+const DownloadIcon = chakra(ArrowDownTrayIcon, iconProps);
+const UploadIcon = chakra(ArrowUpTrayIcon, iconProps);
 
 const formatNumberValue = (value: number) =>
 	numberWithCommas(value) ?? value.toString();
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
+const getUsageColorScheme = (percent: number) => {
+	if (percent >= 80) return "red";
+	if (percent >= 60) return "yellow";
+	return "green";
+};
 const normalizeVersion = (value?: string | null) => {
 	if (!value) return "";
 	const trimmed = value.trim();
@@ -330,17 +341,129 @@ const HistorySparkline: FC<{ values: number[]; accent?: string }> = ({
 	);
 };
 
-const HistoryPreview: FC<{
+const UsageMetricCard: FC<{
 	label: string;
-	value: string;
-	history: number[];
-	accent?: string;
+	percent: number;
+	detail?: string;
+	history?: number[];
 	onOpen?: () => void;
-	actionLabel: string;
-}> = ({ label, value, history, accent, onOpen, actionLabel }) => {
+	actionLabel?: string;
+}> = ({ label, percent, detail, history, onOpen, actionLabel }) => {
+	const colorScheme = getUsageColorScheme(percent);
+	const safePercent = clampPercent(percent);
 	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
 	const bg = useColorModeValue("white", "whiteAlpha.50");
-	const mutedColor = useColorModeValue("gray.500", "gray.400");
+	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const mutedColor = useColorModeValue("gray.600", "gray.400");
+	const valueColor = useColorModeValue(
+		`${colorScheme}.600`,
+		`${colorScheme}.300`,
+	);
+	const accentBg = useColorModeValue(
+		`${colorScheme}.50`,
+		"rgba(255, 255, 255, 0.04)",
+	);
+	const accent = useColorModeValue(
+		`${colorScheme}.400`,
+		`${colorScheme}.300`,
+	);
+
+	return (
+		<Box
+			borderWidth="1px"
+			borderColor={borderColor}
+			borderRadius="md"
+			bg={bg}
+			overflow="hidden"
+			p={3}
+			minH={history ? "126px" : "96px"}
+		>
+			<Stack spacing={2}>
+				<HStack justifyContent="space-between" alignItems="center" gap={3}>
+					<Text fontSize="xs" fontWeight="semibold" color={labelColor}>
+						{label}
+					</Text>
+					{onOpen && actionLabel && (
+						<Button size="xs" variant="outline" onClick={onOpen} flexShrink={0}>
+							{actionLabel}
+						</Button>
+					)}
+				</HStack>
+				<HStack justifyContent="space-between" alignItems="baseline" gap={3}>
+					<Text fontSize="2xl" lineHeight="1" fontWeight="800" color={valueColor}>
+						{Math.max(0, percent).toFixed(1)}%
+					</Text>
+					{detail && (
+						<Text
+							fontSize="xs"
+							color={mutedColor}
+							className="rb-usage-pair"
+							textAlign="end"
+						>
+							{detail}
+						</Text>
+					)}
+				</HStack>
+				<Progress
+					value={safePercent}
+					colorScheme={colorScheme}
+					bg={accentBg}
+					borderRadius="full"
+					h="7px"
+				/>
+				{history && <HistorySparkline values={history} accent={accent} />}
+			</Stack>
+		</Box>
+	);
+};
+
+const SpeedItem: FC<{
+	icon: ReactNode;
+	label: string;
+	value: string;
+	colorScheme: "blue" | "green";
+}> = ({ icon, label, value, colorScheme }) => {
+	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const iconBg = useColorModeValue(`${colorScheme}.50`, "whiteAlpha.100");
+	const iconColor = useColorModeValue(
+		`${colorScheme}.600`,
+		`${colorScheme}.300`,
+	);
+
+	return (
+		<HStack
+			alignItems="center"
+			spacing={3}
+			borderRadius="md"
+			bg={iconBg}
+			px={3}
+			py={2.5}
+			minH="76px"
+		>
+			<Box color={iconColor} flexShrink={0}>
+				{icon}
+			</Box>
+			<Box minW={0}>
+				<Text fontSize="xs" fontWeight="semibold" color={labelColor}>
+					{label}
+				</Text>
+				<Text fontSize={{ base: "lg", md: "xl" }} fontWeight="800" mt={1}>
+					{value}
+				</Text>
+			</Box>
+		</HStack>
+	);
+};
+
+const NetworkSpeedCard: FC<{
+	incoming: number;
+	outgoing: number;
+	t: TFunction;
+	onOpen: () => void;
+}> = ({ incoming, outgoing, t, onOpen }) => {
+	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
+	const bg = useColorModeValue("white", "whiteAlpha.50");
+	const labelColor = useColorModeValue("gray.600", "gray.400");
 
 	return (
 		<Box
@@ -350,23 +473,29 @@ const HistoryPreview: FC<{
 			bg={bg}
 			p={3}
 		>
-			<Stack spacing={1}>
+			<Stack spacing={3}>
 				<HStack justifyContent="space-between" alignItems="center" gap={3}>
-					<Box minW={0}>
-						<Text fontSize="xs" fontWeight="semibold" color={mutedColor}>
-							{label}
-						</Text>
-						<Text fontSize="xl" fontWeight="semibold" mt={1}>
-							{value}
-						</Text>
-					</Box>
-					{onOpen && (
-						<Button size="xs" variant="outline" onClick={onOpen} flexShrink={0}>
-							{actionLabel}
-						</Button>
-					)}
+					<Text fontSize="xs" fontWeight="semibold" color={labelColor}>
+						{t("networkHistory")}
+					</Text>
+					<Button size="xs" variant="outline" onClick={onOpen} flexShrink={0}>
+						{t("viewHistory")}
+					</Button>
 				</HStack>
-				<HistorySparkline values={history} accent={accent} />
+				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+					<SpeedItem
+						icon={<DownloadIcon />}
+						label={t("incomingSpeed")}
+						value={`${formatBytes(incoming)}/s`}
+						colorScheme="green"
+					/>
+					<SpeedItem
+						icon={<UploadIcon />}
+						label={t("outgoingSpeed")}
+						value={`${formatBytes(outgoing)}/s`}
+						colorScheme="blue"
+					/>
+				</SimpleGrid>
 			</Stack>
 		</Box>
 	);
@@ -432,9 +561,7 @@ const SystemOverviewCard: FC<{
 }> = ({ data, t, onOpenHistory }) => {
 	const cpuHistoryValues = data.cpu_history.map((entry) => entry.value);
 	const memoryHistoryValues = data.memory_history.map((entry) => entry.value);
-	const networkHistoryValues = data.network_history.map(
-		(entry) => entry.incoming,
-	);
+	const hasSwap = data.swap.current > 0 || data.swap.total > 0;
 	const latestPanelRelease = useQuery({
 		queryKey: ["panel-latest-release"],
 		queryFn: async () => {
@@ -489,9 +616,9 @@ const SystemOverviewCard: FC<{
 		>
 			<Stack spacing={4}>
 				<SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-					<HistoryPreview
+					<UsageMetricCard
 						label={t("cpuUsage")}
-						value={`${data.cpu_usage.toFixed(1)}%`}
+						percent={data.cpu_usage}
 						history={cpuHistoryValues}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
@@ -503,9 +630,10 @@ const SystemOverviewCard: FC<{
 							})
 						}
 					/>
-					<HistoryPreview
+					<UsageMetricCard
 						label={t("memoryUsage")}
-						value={`${data.memory.percent.toFixed(1)}%`}
+						percent={data.memory.percent}
+						detail={`${formatBytes(data.memory.current)} / ${formatBytes(data.memory.total)}`}
 						history={memoryHistoryValues}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
@@ -517,49 +645,31 @@ const SystemOverviewCard: FC<{
 							})
 						}
 					/>
-					<HistoryPreview
-						label={t("networkHistory")}
-						value={`${formatBytes(data.incoming_bandwidth_speed)}/s`}
-						history={networkHistoryValues}
-						actionLabel={t("viewHistory")}
-						onOpen={() =>
-							onOpenHistory({
-								type: "network",
-								title: t("networkHistory"),
-								entries: data.network_history,
-							})
-						}
-					/>
-				</SimpleGrid>
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-					<MetricBadge
-						label={t("incomingSpeed")}
-						value={`${formatBytes(data.incoming_bandwidth_speed)}/s`}
-						colorScheme="green"
-					/>
-					<MetricBadge
-						label={t("outgoingSpeed")}
-						value={`${formatBytes(data.outgoing_bandwidth_speed)}/s`}
-						colorScheme="blue"
-					/>
-				</SimpleGrid>
-				<SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-					<MetricBadge
-						label={t("memoryUsage")}
-						value={`${formatBytes(data.memory.current)} / ${formatBytes(data.memory.total)}`}
-						valueClassName="rb-usage-pair"
-					/>
-					<MetricBadge
-						label={t("swapUsage")}
-						value={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
-						valueClassName="rb-usage-pair"
-					/>
-					<MetricBadge
+					<UsageMetricCard
 						label={t("diskUsage")}
-						value={`${formatBytes(data.disk.current)} / ${formatBytes(data.disk.total)}`}
-						valueClassName="rb-usage-pair"
+						percent={data.disk.percent}
+						detail={`${formatBytes(data.disk.current)} / ${formatBytes(data.disk.total)}`}
 					/>
 				</SimpleGrid>
+				<NetworkSpeedCard
+					incoming={data.incoming_bandwidth_speed}
+					outgoing={data.outgoing_bandwidth_speed}
+					t={t}
+					onOpen={() =>
+						onOpenHistory({
+							type: "network",
+							title: t("networkHistory"),
+							entries: data.network_history,
+						})
+					}
+				/>
+				{hasSwap && (
+					<UsageMetricCard
+						label={t("swapUsage")}
+						percent={data.swap.percent}
+						detail={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
+					/>
+				)}
 				<Stack
 					direction={{ base: "column", md: "row" }}
 					spacing={2}
@@ -686,9 +796,9 @@ const PanelOverviewCard: FC<{
 		>
 			<Stack spacing={4}>
 				<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-					<HistoryPreview
+					<UsageMetricCard
 						label={t("cpuUsage")}
-						value={`${data.panel_cpu_percent.toFixed(1)}%`}
+						percent={data.panel_cpu_percent}
 						history={panelCpuHistory}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
@@ -700,9 +810,9 @@ const PanelOverviewCard: FC<{
 							})
 						}
 					/>
-					<HistoryPreview
+					<UsageMetricCard
 						label={t("memoryUsage")}
-						value={`${data.panel_memory_percent.toFixed(1)}%`}
+						percent={data.panel_memory_percent}
 						history={panelMemoryHistory}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
@@ -732,37 +842,6 @@ const PanelOverviewCard: FC<{
 	);
 };
 
-const UsersUsageCard: FC<{ value: number; t: TFunction }> = ({ value, t }) => {
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const bg = useColorModeValue("white", "whiteAlpha.50");
-	const iconBg = useColorModeValue("primary.50", "whiteAlpha.100");
-	const iconColor = useColorModeValue("primary.600", "primary.200");
-	const mutedColor = useColorModeValue("gray.500", "gray.400");
-	return (
-		<Box
-			borderWidth="1px"
-			borderColor={borderColor}
-			borderRadius="md"
-			bg={bg}
-			p={4}
-		>
-			<HStack justifyContent="space-between" alignItems="center">
-				<HStack alignItems="center" spacing={3}>
-					<Box p={2} borderRadius="md" bg={iconBg}>
-						<ChartIcon color={iconColor} />
-					</Box>
-					<Text fontSize="xs" fontWeight="semibold" color={mutedColor}>
-						{t("dashboard.systemUsage", "System usage")}
-					</Text>
-				</HStack>
-				<Text fontSize="2xl" fontWeight="semibold">
-					{formatBytes(value)}
-				</Text>
-			</HStack>
-		</Box>
-	);
-};
-
 const UsersOverviewCard: FC<{
 	data: SystemStats;
 	t: TFunction;
@@ -774,7 +853,6 @@ const UsersOverviewCard: FC<{
 				value={formatNumberValue(data.total_user)}
 				colorScheme="blue"
 			/>
-			<UsersUsageCard value={data.panel_total_bandwidth} t={t} />
 			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
 				<MetricBadge
 					label={t("status.active")}

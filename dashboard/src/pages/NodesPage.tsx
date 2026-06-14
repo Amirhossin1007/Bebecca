@@ -18,7 +18,6 @@ import {
 	Input,
 	InputGroup,
 	InputLeftElement,
-	InputRightElement,
 	Menu,
 	MenuButton,
 	MenuItem,
@@ -74,7 +73,6 @@ import {
 	Squares2X2Icon,
 	WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
-import { NumericInput } from "components/common/NumericInput";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import {
 	FetchNodesQueryKey,
@@ -90,7 +88,6 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { useNavigate } from "react-router-dom";
 import { fetch as apiFetch } from "service/http";
-import type { Status as UserStatus } from "types/User";
 import { formatBytes } from "utils/formatByte";
 import {
 	generateErrorMessage,
@@ -155,45 +152,6 @@ const ServiceIconStyled = chakra(WrenchScrewdriverIcon, {
 const BYTES_IN_GB = 1024 ** 3;
 const EMPTY_CELL_VALUE = "-";
 
-interface MasterNodeSummary {
-	status: NodeType["status"];
-	message?: string | null;
-	data_limit?: number | null;
-	uplink: number;
-	downlink: number;
-	total_usage: number;
-	remaining_data?: number | null;
-	limit_exceeded: boolean;
-	updated_at?: string | null;
-}
-
-const formatDataLimitForInput = (value?: number | null): string => {
-	if (value === null || value === undefined) {
-		return "";
-	}
-	const gbValue = value / BYTES_IN_GB;
-	if (!Number.isFinite(gbValue)) {
-		return "";
-	}
-	const rounded = Math.round(gbValue * 100) / 100;
-	return rounded.toString();
-};
-
-const convertLimitInputToBytes = (value: string): number | null | undefined => {
-	const trimmed = value.trim();
-	if (!trimmed) {
-		return null;
-	}
-	const numeric = Number(trimmed);
-	if (!Number.isFinite(numeric) || numeric < 0) {
-		return undefined;
-	}
-	if (numeric === 0) {
-		return null;
-	}
-	return Math.round(numeric * BYTES_IN_GB);
-};
-
 const formatCellValue = (value?: string | number | null): string => {
 	if (value === null || value === undefined || value === "") {
 		return EMPTY_CELL_VALUE;
@@ -204,34 +162,6 @@ const formatCellValue = (value?: string | number | null): string => {
 const uniqueValues = (items: string[]): string[] =>
 	Array.from(new Set(items.filter(Boolean)));
 
-const getConfigInbounds = (config: NodeType["xray_config"]): string[] => {
-	if (!config || typeof config !== "object" || Array.isArray(config)) {
-		return [];
-	}
-
-	const inbounds = (config as { inbounds?: unknown }).inbounds;
-	if (!Array.isArray(inbounds)) {
-		return [];
-	}
-
-	return inbounds
-		.map((inbound) => {
-			if (!inbound || typeof inbound !== "object") {
-				return "";
-			}
-			const item = inbound as {
-				tag?: unknown;
-				remark?: unknown;
-			};
-			return typeof item.tag === "string" && item.tag
-				? item.tag
-				: typeof item.remark === "string" && item.remark
-					? item.remark
-					: "inbound";
-		})
-		.filter(Boolean);
-};
-
 const getNodeServiceUpdateAvailable = (
 	currentVersion?: string | null,
 	latestVersion?: string | null,
@@ -241,78 +171,34 @@ const getNodeServiceUpdateAvailable = (
 	return Boolean(current && latest && current !== latest);
 };
 
-const NodeInboundTags: FC<{
-	tags: string[];
-	emptyLabel: string;
-	detailsLabel: string;
-}> = ({ tags, emptyLabel, detailsLabel }) => {
-	const visibleTags = tags.slice(0, 3);
-	const hiddenTags = tags.slice(3);
+const formatNodeBytes = (value?: number | null, precision = 2) =>
+	value !== null && value !== undefined ? formatBytes(value, precision) : "-";
 
-	if (!tags.length) {
-		return <Text color="gray.400">{emptyLabel}</Text>;
+const formatNodePercent = (value?: number | null) =>
+	value !== null && value !== undefined && Number.isFinite(value)
+		? `${Math.round(value * 10) / 10}%`
+		: "-";
+
+const formatCPUFrequency = (value?: number | null) => {
+	if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) {
+		return "-";
 	}
-
-	return (
-		<HStack spacing={1.5} align="center" flexWrap="wrap">
-			{visibleTags.map((tag) => (
-				<Tag key={tag} size="sm" colorScheme="teal">
-					{tag}
-				</Tag>
-			))}
-			{hiddenTags.length > 0 && (
-				<Popover
-					trigger="hover"
-					placement="bottom-start"
-					openDelay={120}
-					closeDelay={120}
-					isLazy
-				>
-					<PopoverTrigger>
-						<Tag
-							size="sm"
-							colorScheme="teal"
-							variant="outline"
-							cursor="default"
-						>
-							+{hiddenTags.length}
-						</Tag>
-					</PopoverTrigger>
-					<PopoverContent w="auto" minW="180px" maxW="320px" p={2}>
-						<PopoverArrow />
-						<PopoverBody p={1}>
-							<VStack align="stretch" spacing={1}>
-								<Text fontSize="xs" fontWeight="semibold" color="gray.500">
-									{detailsLabel}
-								</Text>
-								<HStack spacing={1.5} align="center" flexWrap="wrap">
-									{tags.map((tag) => (
-										<Tag key={tag} size="sm" colorScheme="teal">
-											{tag}
-										</Tag>
-									))}
-								</HStack>
-							</VStack>
-						</PopoverBody>
-					</PopoverContent>
-				</Popover>
-			)}
-		</HStack>
-	);
+	return `${Math.round((value / 1_000_000_000) * 100) / 100} GHz`;
 };
 
-interface CoreStatsResponse {
-	version: string | null;
-	started: string | null;
-	logs_websocket?: string;
-}
+const formatNodeLimit = (value?: number | null) =>
+	value !== null && value !== undefined && value > 0
+		? formatBytes(value, 2)
+		: "Unlimited";
+
+const formatNodeSpeed = (value?: number | null) =>
+	value !== null && value !== undefined ? `${formatBytes(value, 2)}/s` : "-";
 
 type VersionDialogTarget =
-	| { type: "master" }
 	| { type: "node"; node: NodeType }
 	| { type: "bulk" };
 
-type GeoDialogTarget = { type: "master" } | { type: "node"; node: NodeType };
+type GeoDialogTarget = { type: "node"; node: NodeType };
 
 type MaintenanceInfo = {
 	panel?: { mode?: string; install_mode?: string } | null;
@@ -346,8 +232,6 @@ export const NodesPage: FC = () => {
 		restartNodeService,
 		updateNodeService,
 		resetNodeUsage,
-		updateMasterNode,
-		resetMasterUsage,
 		deleteNode,
 		setDeletingNode,
 	} = useNodes();
@@ -378,9 +262,7 @@ export const NodesPage: FC = () => {
 	const [updatingGeoNodeId, setUpdatingGeoNodeId] = useState<number | null>(
 		null,
 	);
-	const [updatingMasterCore, setUpdatingMasterCore] = useState(false);
 	const [updatingBulkCore, setUpdatingBulkCore] = useState(false);
-	const [updatingMasterGeo, setUpdatingMasterGeo] = useState(false);
 	const [togglingNodeId, setTogglingNodeId] = useState<number | null>(null);
 	const [pendingStatus, setPendingStatus] = useState<Record<number, boolean>>(
 		{},
@@ -418,20 +300,6 @@ export const NodesPage: FC = () => {
 		onClose: closeDeleteConfirm,
 	} = useDisclosure();
 	const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
-	const [masterLimitInput, setMasterLimitInput] = useState<string>("");
-	const [masterLimitDirty, setMasterLimitDirty] = useState(false);
-	const {
-		isOpen: isMasterResetOpen,
-		onOpen: openMasterReset,
-		onClose: closeMasterReset,
-	} = useDisclosure();
-	const {
-		isOpen: isMasterEditOpen,
-		onOpen: openMasterEdit,
-		onClose: closeMasterEdit,
-	} = useDisclosure();
-	const masterResetCancelRef = useRef<HTMLButtonElement | null>(null);
-
 	useEffect(() => {
 		if (typeof window === "undefined") {
 			return;
@@ -443,34 +311,6 @@ export const NodesPage: FC = () => {
 		}
 	}, [viewMode]);
 
-	const {
-		data: coreStats,
-		isLoading: isCoreLoading,
-		refetch: refetchCoreStats,
-		error: coreError,
-	} = useQuery<CoreStatsResponse>(
-		["core-stats"],
-		() => apiFetch<CoreStatsResponse>("/core"),
-		{
-			refetchOnWindowFocus: false,
-			enabled: canManageNodes,
-		},
-	);
-
-	const {
-		data: masterState,
-		isLoading: isMasterStateLoading,
-		error: masterStateError,
-		refetch: refetchMasterState,
-	} = useQuery<MasterNodeSummary>(
-		["master-node-state"],
-		() => apiFetch<MasterNodeSummary>("/node/master"),
-		{
-			refetchInterval: canManageNodes && isEditingNodes ? 3000 : undefined,
-			refetchOnWindowFocus: false,
-			enabled: canManageNodes,
-		},
-	);
 	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>(
 		["maintenance-info"],
 		() => apiFetch<MaintenanceInfo>("/maintenance/info"),
@@ -512,24 +352,6 @@ export const NodesPage: FC = () => {
 		}
 	}, [canManageNodes, inbounds.size]);
 
-	useEffect(() => {
-		if (!masterState) {
-			return;
-		}
-		if (masterLimitDirty) {
-			const parsedValue = convertLimitInputToBytes(masterLimitInput);
-			const currentLimit = masterState.data_limit ?? null;
-			if (parsedValue !== currentLimit) {
-				return;
-			}
-		}
-		const formatted = formatDataLimitForInput(masterState.data_limit ?? null);
-		setMasterLimitInput(formatted);
-		if (masterLimitDirty) {
-			setMasterLimitDirty(false);
-		}
-	}, [masterState, masterLimitDirty, masterLimitInput]);
-
 	const currentNodeVersion = useMemo(() => {
 		const versionedNode = nodes?.find(
 			(nodeItem) => nodeItem.node_binary_tag || nodeItem.node_service_version,
@@ -560,19 +382,9 @@ export const NodesPage: FC = () => {
 			generateSuccessMessage(t("nodes.addNodeSuccess"), toast);
 			queryClient.invalidateQueries(FetchNodesQueryKey);
 			refetchNodes();
-			setAddNodeOpen(false);
-			if (createdNode?.node_certificate) {
-				setNewNodeCertificate({
-					certificate: createdNode.node_certificate,
-					name: createdNode.name,
-				});
-			}
 		},
 		onError: (err) => {
 			generateErrorMessage(err, toast);
-		},
-		onSettled: () => {
-			setAddNodeOpen(false);
 		},
 	});
 
@@ -583,13 +395,9 @@ export const NodesPage: FC = () => {
 				generateSuccessMessage(t("nodes.nodeUpdated"), toast);
 				queryClient.invalidateQueries(FetchNodesQueryKey);
 				refetchNodes();
-				setEditingNode(null);
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
-			},
-			onSettled: () => {
-				setEditingNode(null);
 			},
 		},
 	);
@@ -738,100 +546,7 @@ export const NodesPage: FC = () => {
 			},
 		});
 
-	const { isLoading: isUpdatingMasterLimit, mutate: updateMasterLimitMutate } =
-		useMutation(updateMasterNode, {
-			onSuccess: () => {
-				generateSuccessMessage(
-					t("nodes.masterLimitUpdateSuccess", "Master data limit saved"),
-					toast,
-				);
-				refetchMasterState();
-				setMasterLimitDirty(false);
-				closeMasterEdit();
-			},
-			onError: (err) => {
-				generateErrorMessage(err, toast);
-			},
-		});
-
-	const { isLoading: isResettingMasterUsage, mutate: resetMasterUsageMutate } =
-		useMutation(resetMasterUsage, {
-			onSuccess: () => {
-				generateSuccessMessage(
-					t("nodes.resetMasterUsageSuccess", "Master usage reset"),
-					toast,
-				);
-				refetchMasterState();
-				closeMasterReset();
-			},
-			onError: (err) => {
-				generateErrorMessage(err, toast);
-			},
-		});
-
-	const parsedMasterLimit = useMemo(
-		() => convertLimitInputToBytes(masterLimitInput),
-		[masterLimitInput],
-	);
-	const currentMasterLimit = masterState?.data_limit ?? null;
-	const masterLimitInvalid = parsedMasterLimit === undefined;
-	const hasMasterLimitChanged =
-		parsedMasterLimit !== undefined && parsedMasterLimit !== currentMasterLimit;
-	const isMasterCardLoading = isCoreLoading || isMasterStateLoading;
-	const masterErrorMessage = useMemo(() => {
-		if (coreError instanceof Error) return coreError.message;
-		if (typeof coreError === "string") return coreError;
-		if (masterStateError instanceof Error) return masterStateError.message;
-		if (typeof masterStateError === "string") return masterStateError;
-		return undefined;
-	}, [coreError, masterStateError]);
-	const masterTotalUsage = masterState?.total_usage ?? 0;
-	const masterDataLimit = masterState?.data_limit ?? null;
-	const masterRemainingBytes = masterState?.remaining_data ?? null;
-	const masterUpdatedAt = masterState?.updated_at
-		? dayjs(masterState.updated_at).local().format("YYYY-MM-DD HH:mm")
-		: null;
-	const masterStatus: UserStatus = (masterState?.status ??
-		"error") as UserStatus;
-	const masterUsageDisplay = formatBytes(masterTotalUsage, 2);
-	const masterDataLimitDisplay =
-		masterDataLimit !== null && masterDataLimit > 0
-			? formatBytes(masterDataLimit, 2)
-			: t("nodes.unlimited", "Unlimited");
-	const masterRemainingDisplay =
-		masterRemainingBytes !== null && masterRemainingBytes !== undefined
-			? formatBytes(masterRemainingBytes, 2)
-			: null;
 	const nodeGridColumns = useMemo(() => ({ base: 1, md: 2, xl: 3 }), []);
-
-	const handleMasterLimitInputChange = (value: string) => {
-		setMasterLimitDirty(true);
-		setMasterLimitInput(value);
-	};
-
-	const handleMasterLimitSave = () => {
-		if (masterLimitInvalid || parsedMasterLimit === undefined) {
-			generateErrorMessage(
-				t(
-					"nodes.dataLimitValidation",
-					"Data limit must be a non-negative number",
-				),
-				toast,
-			);
-			return;
-		}
-		updateMasterLimitMutate({ data_limit: parsedMasterLimit ?? null });
-	};
-
-	const handleMasterLimitClear = () => {
-		setMasterLimitDirty(true);
-		setMasterLimitInput("");
-		updateMasterLimitMutate({ data_limit: null });
-	};
-
-	const handleResetMasterUsageRequest = () => {
-		openMasterReset();
-	};
 
 	const handleToggleNode = (node: NodeType) => {
 		if (!node?.id) return;
@@ -941,30 +656,6 @@ export const NodesPage: FC = () => {
 		persist?: boolean;
 	}) => {
 		if (!versionDialogTarget) {
-			return;
-		}
-
-		if (versionDialogTarget.type === "master") {
-			setUpdatingMasterCore(true);
-			try {
-				await apiFetch("/core/xray/update", {
-					method: "POST",
-					body: { version, persist_env: Boolean(persist) },
-				});
-				generateSuccessMessage(
-					t("nodes.coreVersionDialog.masterUpdateSuccess", { version }),
-					toast,
-				);
-				await Promise.all([
-					refetchCoreStats(),
-					queryClient.invalidateQueries(FetchNodesQueryKey),
-				]);
-				closeVersionDialog();
-			} catch (err) {
-				generateErrorMessage(err, toast);
-			} finally {
-				setUpdatingMasterCore(false);
-			}
 			return;
 		}
 
@@ -1085,20 +776,6 @@ export const NodesPage: FC = () => {
 			persist_env: payload.persistEnv,
 		};
 
-		if (geoDialogTarget.type === "master") {
-			setUpdatingMasterGeo(true);
-			try {
-				await apiFetch("/core/geo/update", { method: "POST", body });
-				generateSuccessMessage(t("nodes.geoDialog.masterUpdateSuccess"), toast);
-				closeGeoDialog();
-			} catch (err) {
-				generateErrorMessage(err, toast);
-			} finally {
-				setUpdatingMasterGeo(false);
-			}
-			return;
-		}
-
 		if (geoDialogTarget.type === "node") {
 			const targetNode = geoDialogTarget.node;
 			if (!targetNode?.id) {
@@ -1140,6 +817,15 @@ export const NodesPage: FC = () => {
 		});
 	}, [nodes, searchTerm]);
 
+	const nodeSummary = useMemo(() => {
+		const items = nodes ?? [];
+		return {
+			total: items.length,
+			connected: items.filter((node) => node.status === "connected").length,
+			disabled: items.filter((node) => node.status === "disabled").length,
+		};
+	}, [nodes]);
+
 	const hasConnectedNodes = useMemo(
 		() =>
 			(nodes ?? []).some(
@@ -1160,37 +846,26 @@ export const NodesPage: FC = () => {
 	}, [error, t]);
 
 	const hasError = Boolean(errorMessage);
-	const masterLabel = t("nodes.masterNode", "Master");
 	const normalizedSearch = searchTerm.trim().toLowerCase();
-	const masterMatchesSearch =
-		!normalizedSearch ||
-		masterLabel.toLowerCase().includes(normalizedSearch) ||
-		(coreStats?.version ?? "").toLowerCase().includes(normalizedSearch);
 
 	const versionDialogLoading =
-		versionDialogTarget?.type === "master"
-			? updatingMasterCore
-			: versionDialogTarget?.type === "node"
-				? versionDialogTarget.node.id != null &&
-					updatingCoreNodeId === versionDialogTarget.node.id
-				: versionDialogTarget?.type === "bulk"
-					? updatingBulkCore
-					: false;
-
-	const geoDialogLoading =
-		geoDialogTarget?.type === "master"
-			? updatingMasterGeo
-			: geoDialogTarget?.type === "node"
-				? geoDialogTarget.node.id != null &&
-					updatingGeoNodeId === geoDialogTarget.node.id
+		versionDialogTarget?.type === "node"
+			? versionDialogTarget.node.id != null &&
+				updatingCoreNodeId === versionDialogTarget.node.id
+			: versionDialogTarget?.type === "bulk"
+				? updatingBulkCore
 				: false;
 
+	const geoDialogLoading =
+		geoDialogTarget?.type === "node"
+			? geoDialogTarget.node.id != null &&
+				updatingGeoNodeId === geoDialogTarget.node.id
+			: false;
+
 	const versionDialogTitle =
-		versionDialogTarget?.type === "master"
-			? t("nodes.coreVersionDialog.masterTitle")
-			: versionDialogTarget?.type === "bulk"
-				? t("nodes.coreVersionDialog.bulkTitle")
-				: versionDialogTarget?.type === "node"
+		versionDialogTarget?.type === "bulk"
+			? t("nodes.coreVersionDialog.bulkTitle")
+			: versionDialogTarget?.type === "node"
 					? t("nodes.coreVersionDialog.nodeTitle", {
 							name:
 								versionDialogTarget.node.name ??
@@ -1199,11 +874,9 @@ export const NodesPage: FC = () => {
 					: "";
 
 	const versionDialogDescription =
-		versionDialogTarget?.type === "master"
-			? t("nodes.coreVersionDialog.masterDescription")
-			: versionDialogTarget?.type === "bulk"
-				? t("nodes.coreVersionDialog.bulkDescription")
-				: versionDialogTarget?.type === "node"
+		versionDialogTarget?.type === "bulk"
+			? t("nodes.coreVersionDialog.bulkDescription")
+			: versionDialogTarget?.type === "node"
 					? t("nodes.coreVersionDialog.nodeDescription", {
 							name:
 								versionDialogTarget.node.name ??
@@ -1212,241 +885,18 @@ export const NodesPage: FC = () => {
 					: "";
 
 	const versionDialogCurrentVersion =
-		versionDialogTarget?.type === "master"
-			? (coreStats?.version ?? "")
-			: versionDialogTarget?.type === "node"
-				? (versionDialogTarget.node.xray_version ?? "")
-				: "";
+		versionDialogTarget?.type === "node"
+			? (versionDialogTarget.node.xray_version ?? "")
+			: "";
 
 	const geoDialogTitle =
-		geoDialogTarget?.type === "master"
-			? t("nodes.geoDialog.masterTitle")
-			: geoDialogTarget?.type === "node"
-				? t("nodes.geoDialog.nodeTitle", {
-						name:
+		geoDialogTarget?.type === "node"
+			? t("nodes.geoDialog.nodeTitle", {
+					name:
 							geoDialogTarget.node.name ??
 							t("nodes.unnamedNode", "Unnamed node"),
 					})
 				: "";
-
-	const masterContent = isMasterCardLoading ? (
-		<VStack spacing={3} align="center" justify="center">
-			<Spinner />
-			<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
-				{t("loading")}
-			</Text>
-		</VStack>
-	) : masterErrorMessage ? (
-		<VStack spacing={3} align="stretch">
-			<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
-				{masterErrorMessage}
-			</Text>
-			<Button
-				size="sm"
-				variant="outline"
-				onClick={() => {
-					refetchCoreStats();
-					refetchMasterState();
-				}}
-			>
-				{t("refresh", "Refresh")}
-			</Button>
-		</VStack>
-	) : !masterState ? (
-		<VStack spacing={3} align="stretch">
-			<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
-				{t("nodes.masterLoadFailed", "Unable to load master details.")}
-			</Text>
-			<Button
-				size="sm"
-				variant="outline"
-				onClick={() => {
-					refetchCoreStats();
-					refetchMasterState();
-				}}
-			>
-				{t("refresh", "Refresh")}
-			</Button>
-		</VStack>
-	) : (
-		<VStack align="stretch" spacing={4}>
-			<Stack spacing={2}>
-				<HStack spacing={3} align="center" flexWrap="wrap">
-					<Text fontWeight="semibold" fontSize="lg">
-						{masterLabel}
-					</Text>
-					<Tag
-						as="button"
-						type="button"
-						colorScheme="purple"
-						size="sm"
-						cursor="pointer"
-						_hover={{ opacity: 0.82 }}
-						onClick={() => setVersionDialogTarget({ type: "master" })}
-					>
-						{coreStats?.version
-							? `Xray ${coreStats.version}`
-							: t("nodes.versionUnknown", "Version unknown")}
-					</Tag>
-				</HStack>
-				<HStack spacing={2} align="center">
-					<NodeModalStatusBadge status={masterStatus} compact />
-					{masterState.limit_exceeded && (
-						<Tag colorScheme="red" size="sm">
-							{t("nodes.limitReached", "Limit reached")}
-						</Tag>
-					)}
-				</HStack>
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
-					{coreStats?.started
-						? t("nodes.masterStartedAt", {
-								date: dayjs(coreStats.started)
-									.local()
-									.format("YYYY-MM-DD HH:mm"),
-							})
-						: t("nodes.masterStartedUnknown", "Start time unavailable")}
-				</Text>
-			</Stack>
-			{masterState.message && (
-				<Alert status="warning" variant="left-accent" borderRadius="md">
-					<AlertIcon />
-					<AlertDescription fontSize="sm">
-						{masterState.message}
-					</AlertDescription>
-				</Alert>
-			)}
-			<Divider />
-			<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-				<Box>
-					<Text fontSize="xs" textTransform="uppercase" color="gray.500">
-						{t("nodes.totalUsage", "Total usage")}
-					</Text>
-					<Text fontWeight="medium">{masterUsageDisplay}</Text>
-				</Box>
-				<Box>
-					<Text fontSize="xs" textTransform="uppercase" color="gray.500">
-						{t("nodes.dataLimitLabel", "Data limit")}
-					</Text>
-					<Text fontWeight="medium">{masterDataLimitDisplay}</Text>
-				</Box>
-				{masterRemainingDisplay && (
-					<Box>
-						<Text fontSize="xs" textTransform="uppercase" color="gray.500">
-							{t("nodes.remainingData", "Remaining data")}
-						</Text>
-						<Text fontWeight="medium">{masterRemainingDisplay}</Text>
-					</Box>
-				)}
-				{masterUpdatedAt && (
-					<Box>
-						<Text fontSize="xs" textTransform="uppercase" color="gray.500">
-							{t("nodes.lastUpdated", "Last updated")}
-						</Text>
-						<Text fontWeight="medium">{masterUpdatedAt}</Text>
-					</Box>
-				)}
-			</SimpleGrid>
-			<Stack
-				direction={{ base: "column", md: "row" }}
-				spacing={2}
-				align={{ base: "stretch", md: "center" }}
-			>
-				<InputGroup size="sm" maxW={{ base: "full", md: "240px" }}>
-					<NumericInput
-						step={0.01}
-						min={0}
-						value={masterLimitInput}
-						onChange={(value) => handleMasterLimitInputChange(value)}
-						placeholder={t(
-							"nodes.dataLimitPlaceholder",
-							"e.g., 500 (empty = unlimited)",
-						)}
-					/>
-					<InputRightElement pointerEvents="none">
-						<Text fontSize="xs" color="gray.500">
-							GB
-						</Text>
-					</InputRightElement>
-				</InputGroup>
-				<Button
-					colorScheme="primary"
-					size="sm"
-					onClick={handleMasterLimitSave}
-					isDisabled={
-						!hasMasterLimitChanged ||
-						masterLimitInvalid ||
-						isUpdatingMasterLimit
-					}
-					isLoading={isUpdatingMasterLimit}
-				>
-					{t("save", "Save")}
-				</Button>
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={handleMasterLimitClear}
-					isDisabled={masterDataLimit === null || isUpdatingMasterLimit}
-					isLoading={isUpdatingMasterLimit && masterDataLimit === null}
-				>
-					{t("nodes.clearDataLimit", "Clear limit")}
-				</Button>
-			</Stack>
-			{masterLimitInvalid && (
-				<Text fontSize="xs" color="red.500">
-					{t(
-						"nodes.dataLimitValidation",
-						"Data limit must be a non-negative number",
-					)}
-				</Text>
-			)}
-			<Stack
-				direction={{ base: "column", sm: "row" }}
-				spacing={2}
-				flexWrap="wrap"
-			>
-				<Button
-					size="sm"
-					variant="outline"
-					colorScheme="primary"
-					onClick={() => setVersionDialogTarget({ type: "master" })}
-					isLoading={updatingMasterCore}
-					isDisabled={!hostActionsAvailable}
-					flex={{ base: "1", sm: "0 1 auto" }}
-					minW={{ base: "full", sm: "auto" }}
-					whiteSpace="normal"
-					wordBreak="break-word"
-				>
-					{t("nodes.coreVersionDialog.updateMasterButton")}
-				</Button>
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={() => setGeoDialogTarget({ type: "master" })}
-					isLoading={updatingMasterGeo}
-					isDisabled={!hostActionsAvailable}
-					flex={{ base: "1", sm: "0 1 auto" }}
-					minW={{ base: "full", sm: "auto" }}
-					whiteSpace="normal"
-					wordBreak="break-word"
-				>
-					{t("nodes.geoDialog.updateMasterButton")}
-				</Button>
-				<Button
-					size="sm"
-					variant="outline"
-					colorScheme="red"
-					onClick={handleResetMasterUsageRequest}
-					isLoading={isResettingMasterUsage}
-					flex={{ base: "1", sm: "0 1 auto" }}
-					minW={{ base: "full", sm: "auto" }}
-					whiteSpace="normal"
-					wordBreak="break-word"
-				>
-					{t("nodes.resetUsage", "Reset usage")}
-				</Button>
-			</Stack>
-		</VStack>
-	);
 
 	if (!getUserIsSuccess) {
 		return (
@@ -1488,7 +938,7 @@ export const NodesPage: FC = () => {
 				<Text fontSize="sm" color="gray.600" _dark={{ color: "gray.300" }}>
 					{t(
 						"nodes.pageDescription",
-						"Manage your master and satellite nodes. Update core versions, control availability, and edit node settings.",
+						"Manage node availability, update runtime versions, and edit node settings.",
 					)}
 				</Text>
 				<HStack spacing={2} flexWrap="wrap" pt={1}>
@@ -1537,9 +987,24 @@ export const NodesPage: FC = () => {
 				bg={nodePanelBg}
 				p={3}
 			>
-				<Text fontWeight="semibold">
-					{t("nodes.manageNodesHeader", "Node list")}
-				</Text>
+				<VStack align="flex-start" spacing={1}>
+					<Text fontWeight="semibold">
+						{t("nodes.manageNodesHeader", "Node list")}
+					</Text>
+					<HStack spacing={2} flexWrap="wrap">
+						<Tag size="sm" colorScheme="gray" variant="subtle">
+							{t("nodes.summaryTotal", "Total")}: {nodeSummary.total}
+						</Tag>
+						<Tag size="sm" colorScheme="green" variant="subtle">
+							{t("nodes.summaryConnected", "Connected")}:{" "}
+							{nodeSummary.connected}
+						</Tag>
+						<Tag size="sm" colorScheme="gray" variant="subtle">
+							{t("nodes.summaryDisabled", "Disabled")}:{" "}
+							{nodeSummary.disabled}
+						</Tag>
+					</HStack>
+				</VStack>
 				<Stack
 					direction={{ base: "column", md: "row" }}
 					spacing={{ base: 3, md: 3 }}
@@ -1688,174 +1153,32 @@ export const NodesPage: FC = () => {
 					boxShadow="sm"
 					overflowX="auto"
 				>
-					<Table size="sm" variant="simple" minW="1680px">
+					<Table size="sm" variant="simple" minW="1120px">
 						<Thead bg={nodePanelBg}>
 							<Tr>
 								<Th minW="180px">{t("nodes.columns.name", "Name")}</Th>
-								<Th minW="170px">{t("nodes.columns.address", "Address")}</Th>
-								<Th minW="180px">{t("nodes.columns.ports", "Ports")}</Th>
 								<Th minW="130px">{t("nodes.columns.status", "Status")}</Th>
-								<Th minW="240px">{t("nodes.columns.inbounds", "Inbounds")}</Th>
-								<Th minW="140px">
+								<Th minW="150px">{t("nodes.columns.address", "Address")}</Th>
+								<Th minW="130px">
 									{t("nodes.columns.xrayVersion", "Xray version")}
 								</Th>
 								<Th minW="150px">
-									{t("nodes.columns.nodeVersion", "Node version")}
+									{t("nodes.columns.nodeRuntime", "Node / install")}
 								</Th>
-								<Th minW="170px">{t("nodes.columns.install", "Install")}</Th>
-								<Th minW="210px">{t("nodes.columns.traffic", "Traffic")}</Th>
-								<Th minW="240px">{t("nodes.columns.limit", "Limit")}</Th>
 								<Th minW="150px">
-									{t("nodes.columns.coefficient", "Coefficient")}
+									{t("nodes.columns.trafficLimit", "Traffic / Limit")}
 								</Th>
-								<Th minW="210px">{t("nodes.columns.proxy", "Proxy")}</Th>
-								<Th minW="220px">
+								<Th minW="130px">
+									{t("nodes.columns.bandwidth", "Upload / Download")}
+								</Th>
+								<Th minW="110px">{t("nodes.columns.cpu", "CPU")}</Th>
+								<Th minW="130px">{t("nodes.columns.ram", "RAM")}</Th>
+								<Th minW="160px">
 									{t("nodes.columns.certificate", "Certificate")}
 								</Th>
 							</Tr>
 						</Thead>
 						<Tbody>
-							{masterMatchesSearch && (
-								<Tr key="master-node-table">
-									<Td>
-										<HStack align="center" spacing={3}>
-											<Menu
-												placement="bottom-start"
-												strategy="fixed"
-												autoSelect={false}
-											>
-												<MenuButton
-													as={IconButton}
-													size="xs"
-													variant="ghost"
-													aria-label={t("nodes.actions", "Node actions")}
-													icon={<MoreIconStyled />}
-												/>
-												<Portal>
-													<MenuList
-														minW="220px"
-														maxW="calc(100vw - 24px)"
-														maxH="min(70vh, 420px)"
-														overflowY="auto"
-													>
-														<MenuItem
-															icon={<EditIconStyled />}
-															onClick={openMasterEdit}
-														>
-															{t("edit")}
-														</MenuItem>
-														<MenuItem
-															icon={<CoreIconStyled />}
-															onClick={() =>
-																setVersionDialogTarget({ type: "master" })
-															}
-															isDisabled={!hostActionsAvailable}
-														>
-															{t("nodes.updateCoreAction")}
-														</MenuItem>
-														<MenuItem
-															icon={<GeoIconStyled />}
-															onClick={() =>
-																setGeoDialogTarget({ type: "master" })
-															}
-															isDisabled={!hostActionsAvailable}
-														>
-															{t("nodes.updateGeoAction", "Update geo")}
-														</MenuItem>
-														<MenuItem
-															icon={<ArrowPathIconStyled />}
-															color="red.500"
-															onClick={handleResetMasterUsageRequest}
-														>
-															{t("nodes.resetUsage", "Reset usage")}
-														</MenuItem>
-													</MenuList>
-												</Portal>
-											</Menu>
-											<VStack align="flex-start" spacing={1}>
-												<Text fontWeight="semibold">{masterLabel}</Text>
-												<Text
-													fontSize="xs"
-													color="gray.500"
-													_dark={{ color: "gray.400" }}
-												>
-													{t("nodes.thisNode", "this node")}
-												</Text>
-											</VStack>
-										</HStack>
-									</Td>
-									<Td>{EMPTY_CELL_VALUE}</Td>
-									<Td>{EMPTY_CELL_VALUE}</Td>
-									<Td>
-										<VStack align="flex-start" spacing={2}>
-											<NodeModalStatusBadge status={masterStatus} compact />
-											{masterState?.limit_exceeded && (
-												<Tag colorScheme="red" size="sm">
-													{t("nodes.limitReached", "Limit reached")}
-												</Tag>
-											)}
-										</VStack>
-									</Td>
-									<Td>
-										<NodeInboundTags
-											tags={defaultInboundSummaries}
-											emptyLabel={t(
-												"nodes.noInboundsConfigured",
-												"No inbounds configured",
-											)}
-											detailsLabel={t("nodes.inbounds", "Inbounds")}
-										/>
-									</Td>
-									<Td>
-										<Tag
-											as="button"
-											type="button"
-											colorScheme="purple"
-											size="sm"
-											cursor="pointer"
-											_hover={{ opacity: 0.82 }}
-											onClick={() => setVersionDialogTarget({ type: "master" })}
-										>
-											{coreStats?.version
-												? `Xray ${coreStats.version}`
-												: t("nodes.versionUnknown", "Version unknown")}
-										</Tag>
-									</Td>
-									<Td>{EMPTY_CELL_VALUE}</Td>
-									<Td>
-										<Tag size="sm" colorScheme="gray">
-											{panelInstallMode}
-										</Tag>
-									</Td>
-									<Td>
-										<VStack align="flex-start" spacing={1}>
-											<Text fontWeight="medium">{masterUsageDisplay}</Text>
-											<Text fontSize="xs" color="gray.500">
-												{t("nodes.uplink", "Uplink")}:{" "}
-												{formatBytes(masterState?.uplink ?? 0, 2)}
-											</Text>
-											<Text fontSize="xs" color="gray.500">
-												{t("nodes.downlink", "Downlink")}:{" "}
-												{formatBytes(masterState?.downlink ?? 0, 2)}
-											</Text>
-										</VStack>
-									</Td>
-									<Td>
-										<VStack align="flex-start" spacing={1}>
-											<Text fontWeight="medium">{masterDataLimitDisplay}</Text>
-											{masterRemainingDisplay && (
-												<Text fontSize="xs" color="gray.500">
-													{t("nodes.remainingData", "Remaining data")}:{" "}
-													{masterRemainingDisplay}
-												</Text>
-											)}
-										</VStack>
-									</Td>
-									<Td>{EMPTY_CELL_VALUE}</Td>
-									<Td>{EMPTY_CELL_VALUE}</Td>
-									<Td>{EMPTY_CELL_VALUE}</Td>
-								</Tr>
-							)}
 							{filteredNodes.map((node) => {
 								const status = node.status || "error";
 								const nodeId = node?.id as number | undefined;
@@ -1887,22 +1210,35 @@ export const NodesPage: FC = () => {
 										latestNodeVersion,
 									);
 								const totalUsage = (node.uplink ?? 0) + (node.downlink ?? 0);
-								const remainingData =
+								const nodeInstallLabel =
+									[node.node_install_mode, node.node_update_channel]
+										.filter(Boolean)
+										.join(" / ") || EMPTY_CELL_VALUE;
+								const nodeTrafficLimitDisplay = `${formatNodeBytes(
+									totalUsage,
+									2,
+								)} / ${
 									node.data_limit != null && node.data_limit > 0
-										? Math.max(node.data_limit - totalUsage, 0)
+										? formatNodeLimit(node.data_limit)
+										: t("nodes.unlimited", "Unlimited")
+								}`;
+								const nodeRemainingDataDisplay =
+									node.data_limit != null && node.data_limit > 0
+										? formatNodeBytes(
+												Math.max(node.data_limit - totalUsage, 0),
+												2,
+											)
 										: null;
-								const customInbounds = uniqueValues(
-									getConfigInbounds(node.xray_config),
-								);
-								const inboundSummaries = customInbounds.length
-									? customInbounds
-									: defaultInboundSummaries;
-								const proxyLabel =
-									node.proxy_enabled && node.proxy_type
-										? `${node.proxy_type} ${formatCellValue(
-												node.proxy_host,
-											)}:${formatCellValue(node.proxy_port)}`
-										: t("nodes.proxyDisabled", "Disabled");
+								const nodeCPUDisplay = `${formatCPUFrequency(
+									node.cpu_frequency_hz,
+								)} / ${formatNodePercent(node.cpu_usage_percent)}`;
+								const nodeRAMDisplay = `${formatNodeBytes(
+									node.memory_used,
+									2,
+								)} / ${formatNodeBytes(node.memory_total, 2)}`;
+								const nodeBandwidthDisplay = `${formatNodeSpeed(
+									node.upload_speed,
+								)} / ${formatNodeSpeed(node.download_speed)}`;
 								const certificateCopyValue =
 									node.node_certificate || node.certificate_public_key || "";
 								const statusBadge = (
@@ -2081,16 +1417,19 @@ export const NodesPage: FC = () => {
 													</Portal>
 												</Menu>
 												<VStack align="flex-start" spacing={1}>
-													<Text fontWeight="semibold">
-														{node.name ||
-															t("nodes.unnamedNode", "Unnamed node")}
-													</Text>
+													<HStack spacing={2} align="center" flexWrap="wrap">
+														<Text fontWeight="semibold">
+															{node.name ||
+																t("nodes.unnamedNode", "Unnamed node")}
+														</Text>
+													</HStack>
 													<Text fontSize="xs" color="gray.500">
 														{t("nodes.id", "ID")}: {node.id ?? EMPTY_CELL_VALUE}
 													</Text>
 												</VStack>
 											</HStack>
 										</Td>
+										<Td>{statusDisplay}</Td>
 										<Td>
 											<Tooltip label={t("copy", "Copy")}>
 												<Text
@@ -2111,35 +1450,6 @@ export const NodesPage: FC = () => {
 													{formatCellValue(node.address)}
 												</Text>
 											</Tooltip>
-										</Td>
-										<Td>
-											<VStack align="flex-start" spacing={1}>
-												<Text dir="ltr">
-													{t("nodes.nodePort", "Node port")}:{" "}
-													{formatCellValue(node.port)}
-												</Text>
-												<Text fontSize="xs" color="gray.500" dir="ltr">
-													{t("nodes.nodeAPIPort", "API port")}:{" "}
-													{formatCellValue(node.api_port)}
-												</Text>
-												{node.use_nobetci && (
-													<Text fontSize="xs" color="gray.500" dir="ltr">
-														{t("nodes.nobetciPort", "Nobetci")}:{" "}
-														{formatCellValue(node.nobetci_port)}
-													</Text>
-												)}
-											</VStack>
-										</Td>
-										<Td>{statusDisplay}</Td>
-										<Td>
-											<NodeInboundTags
-												tags={inboundSummaries}
-												emptyLabel={t(
-													"nodes.noInboundsConfigured",
-													"No inbounds configured",
-												)}
-												detailsLabel={t("nodes.inbounds", "Inbounds")}
-											/>
 										</Td>
 										<Td>
 											<Tag
@@ -2168,9 +1478,12 @@ export const NodesPage: FC = () => {
 															})
 														: t(
 																"nodes.nodeServiceVersionUnknown",
-																"Node version unknown",
+														"Node version unknown",
 															)}
 												</Tag>
+												<Text fontSize="xs" color="gray.500">
+													{nodeInstallLabel}
+												</Text>
 												{nodeServiceUpdateAvailable && (
 													<Button
 														size="xs"
@@ -2188,60 +1501,23 @@ export const NodesPage: FC = () => {
 										</Td>
 										<Td>
 											<VStack align="flex-start" spacing={1}>
-												<Tag size="sm" colorScheme="gray">
-													{formatCellValue(node.node_install_mode)}
-												</Tag>
-												<Text fontSize="xs" color="gray.500">
-													{t("nodes.updateChannel", "Channel")}:{" "}
-													{formatCellValue(node.node_update_channel)}
-												</Text>
-											</VStack>
-										</Td>
-										<Td>
-											<VStack align="flex-start" spacing={1}>
-												<Text fontWeight="medium">
-													{formatBytes(totalUsage, 2)}
-												</Text>
-												<Text fontSize="xs" color="gray.500">
-													{t("nodes.uplink", "Uplink")}:{" "}
-													{formatBytes(node.uplink ?? 0, 2)}
-												</Text>
-												<Text fontSize="xs" color="gray.500">
-													{t("nodes.downlink", "Downlink")}:{" "}
-													{formatBytes(node.downlink ?? 0, 2)}
-												</Text>
-											</VStack>
-										</Td>
-										<Td>
-											<VStack align="flex-start" spacing={1}>
-												<Text fontWeight="medium">
-													{node.data_limit != null && node.data_limit > 0
-														? formatBytes(node.data_limit, 2)
-														: t("nodes.unlimited", "Unlimited")}
-												</Text>
-												{remainingData !== null && (
+												<Text fontWeight="medium">{nodeTrafficLimitDisplay}</Text>
+												{nodeRemainingDataDisplay && (
 													<Text fontSize="xs" color="gray.500">
 														{t("nodes.remainingData", "Remaining data")}:{" "}
-														{formatBytes(remainingData, 2)}
+														{nodeRemainingDataDisplay}
 													</Text>
 												)}
 											</VStack>
 										</Td>
-										<Td>{formatCellValue(node.usage_coefficient)}</Td>
 										<Td>
-											<VStack align="flex-start" spacing={1}>
-												<Tag
-													size="sm"
-													colorScheme={node.proxy_enabled ? "green" : "gray"}
-												>
-													{proxyLabel}
-												</Tag>
-												{node.proxy_username && (
-													<Text fontSize="xs" color="gray.500">
-														{node.proxy_username}
-													</Text>
-												)}
-											</VStack>
+											<Text fontWeight="medium">{nodeBandwidthDisplay}</Text>
+										</Td>
+										<Td>
+											<Text fontWeight="medium">{nodeCPUDisplay}</Text>
+										</Td>
+										<Td>
+											<Text fontWeight="medium">{nodeRAMDisplay}</Text>
 										</Td>
 										<Td>
 											<VStack align="flex-start" spacing={1}>
@@ -2321,9 +1597,9 @@ export const NodesPage: FC = () => {
 									</Tr>
 								);
 							})}
-							{!masterMatchesSearch && filteredNodes.length === 0 && (
+							{filteredNodes.length === 0 && (
 								<Tr>
-									<Td colSpan={13}>
+									<Td colSpan={10}>
 										<Text
 											fontSize="sm"
 											color="gray.500"
@@ -2344,22 +1620,6 @@ export const NodesPage: FC = () => {
 				</Box>
 			) : (
 				<SimpleGrid columns={nodeGridColumns} spacing={4}>
-					{masterMatchesSearch && (
-						<Box
-							key="master-node"
-							bg={nodeCardBg}
-							borderWidth="1px"
-							borderColor={nodeCardBorder}
-							borderRadius="lg"
-							p={6}
-							boxShadow="sm"
-							_hover={{ boxShadow: "md" }}
-							transition="box-shadow 0.2s ease-in-out"
-						>
-							{masterContent}
-						</Box>
-					)}
-
 					{filteredNodes.length > 0 ? (
 						filteredNodes.map((node) => {
 							const status = node.status || "error";
@@ -2386,10 +1646,29 @@ export const NodesPage: FC = () => {
 								hostActionsAvailable && node.node_install_mode === "binary";
 							const nodeRuntimeVersion =
 								node.node_binary_tag || node.node_service_version;
-							const nodeServiceUpdateAvailable = getNodeServiceUpdateAvailable(
-								nodeRuntimeVersion,
-								latestNodeVersion,
-							);
+							const nodeInstallLabel =
+								[node.node_install_mode, node.node_update_channel]
+									.filter(Boolean)
+									.join(" / ") || "-";
+							const nodeTotalUsage = (node.uplink ?? 0) + (node.downlink ?? 0);
+							const nodeTrafficLimitDisplay = `${formatNodeBytes(
+								nodeTotalUsage,
+								2,
+							)} / ${
+								node.data_limit != null && node.data_limit > 0
+									? formatNodeLimit(node.data_limit)
+									: t("nodes.unlimited", "Unlimited")
+							}`;
+							const nodeCPUDisplay = `${formatCPUFrequency(
+								node.cpu_frequency_hz,
+							)} / ${formatNodePercent(node.cpu_usage_percent)}`;
+							const nodeRAMDisplay = `${formatNodeBytes(
+								node.memory_used,
+								2,
+							)} / ${formatNodeBytes(node.memory_total, 2)}`;
+							const nodeBandwidthDisplay = `${formatNodeSpeed(
+								node.upload_speed,
+							)} / ${formatNodeSpeed(node.download_speed)}`;
 							const statusBadge = (
 								<NodeModalStatusBadge status={status} compact />
 							);
@@ -2421,6 +1700,7 @@ export const NodesPage: FC = () => {
 											<Text fontWeight="semibold" fontSize="lg">
 												{node.name || t("nodes.unnamedNode", "Unnamed node")}
 											</Text>
+											{statusDisplay}
 											<Switch
 												size="sm"
 												colorScheme="primary"
@@ -2445,61 +1725,24 @@ export const NodesPage: FC = () => {
 											)}
 										</HStack>
 										<HStack spacing={2} flexWrap="wrap">
-											{statusDisplay}
-											<HStack spacing={1} align="center">
-												<Tag
-													as="button"
-													type="button"
-													colorScheme="blue"
-													size="sm"
-													cursor="pointer"
-													_hover={{ opacity: 0.82 }}
-													onClick={() =>
-														nodeId &&
-														setVersionDialogTarget({ type: "node", node })
-													}
-												>
-													{node.xray_version
-														? `Xray ${node.xray_version}`
-														: t("nodes.versionUnknown", "Version unknown")}
-												</Tag>
-												<Tag colorScheme="green" size="sm">
-													{nodeRuntimeVersion
-														? t("nodes.nodeServiceVersionTag", {
-																version: nodeRuntimeVersion,
-															})
-														: t(
-																"nodes.nodeServiceVersionUnknown",
-																"Node version unknown",
-															)}
-												</Tag>
-												{nodeServiceUpdateAvailable && (
-													<Button
-														size="xs"
-														variant="link"
-														colorScheme="orange"
-														leftIcon={<DownloadIconStyled />}
-														onClick={() => handleUpdateNodeService(node)}
-														isLoading={isUpdatingMaintenance}
-														isDisabled={!nodeId || !nodeHostActionsAvailable}
-													>
-														{t("nodes.updateAvailable", "Update available")}
-													</Button>
-												)}
-												<Button
-													size="xs"
-													variant="ghost"
-													colorScheme="primary"
-													onClick={() =>
-														nodeId &&
-														setVersionDialogTarget({ type: "node", node })
-													}
-													isLoading={isCoreUpdating}
-													isDisabled={!nodeId || !nodeHostActionsAvailable}
-												>
-													{t("nodes.updateCoreAction")}
-												</Button>
-											</HStack>
+											<Tag colorScheme="blue" size="sm">
+												{node.xray_version
+													? `Xray ${node.xray_version}`
+													: t("nodes.versionUnknown", "Version unknown")}
+											</Tag>
+											<Button
+												size="xs"
+												variant="ghost"
+												colorScheme="primary"
+												onClick={() =>
+													nodeId &&
+													setVersionDialogTarget({ type: "node", node })
+												}
+												isLoading={isCoreUpdating}
+												isDisabled={!nodeId || !nodeHostActionsAvailable}
+											>
+												{t("nodes.updateCoreAction")}
+											</Button>
 											<Button
 												size="xs"
 												variant="ghost"
@@ -2609,7 +1852,11 @@ export const NodesPage: FC = () => {
 									</Stack>
 
 									<Divider />
-									<SimpleGrid columns={{ base: 1, sm: 2 }} spacingY={2}>
+									<SimpleGrid
+										columns={{ base: 1, sm: 2, lg: 3 }}
+										spacingY={2}
+										spacingX={3}
+									>
 										<Box>
 											<Text
 												fontSize="xs"
@@ -2643,43 +1890,20 @@ export const NodesPage: FC = () => {
 												textTransform="uppercase"
 												color="gray.500"
 											>
-												{t("nodes.nodePort")}
+												{t("nodes.runtime", "Runtime")}
 											</Text>
-											<Text fontWeight="medium">{node.port}</Text>
-										</Box>
-										<Box>
-											<Text
-												fontSize="xs"
-												textTransform="uppercase"
-												color="gray.500"
-											>
-												{t("nodes.nodeAPIPort")}
+											<Text fontWeight="medium" lineHeight="short">
+												{nodeRuntimeVersion
+													? t("nodes.nodeServiceVersionTag", {
+															version: nodeRuntimeVersion,
+														})
+													: t(
+															"nodes.nodeServiceVersionUnknown",
+															"Node version unknown",
+														)}
 											</Text>
-											<Text fontWeight="medium">{node.api_port}</Text>
-										</Box>
-										<Box>
-											<Text
-												fontSize="xs"
-												textTransform="uppercase"
-												color="gray.500"
-											>
-												{t("nodes.usageCoefficient", "Usage coefficient")}
-											</Text>
-											<Text fontWeight="medium">{node.usage_coefficient}</Text>
-										</Box>
-										<Box>
-											<Text
-												fontSize="xs"
-												textTransform="uppercase"
-												color="gray.500"
-											>
-												{t("nodes.totalUsage", "Total usage")}
-											</Text>
-											<Text fontWeight="medium">
-												{formatBytes(
-													(node.uplink ?? 0) + (node.downlink ?? 0),
-													2,
-												)}
+											<Text fontSize="xs" color="gray.500">
+												{nodeInstallLabel}
 											</Text>
 										</Box>
 										<Box>
@@ -2688,13 +1912,39 @@ export const NodesPage: FC = () => {
 												textTransform="uppercase"
 												color="gray.500"
 											>
-												{t("nodes.dataLimitLabel", "Data limit")}
+												{t("nodes.trafficLimit", "Traffic / Limit")}
 											</Text>
-											<Text fontWeight="medium">
-												{node.data_limit != null && node.data_limit > 0
-													? formatBytes(node.data_limit, 2)
-													: t("nodes.unlimited", "Unlimited")}
+											<Text fontWeight="medium">{nodeTrafficLimitDisplay}</Text>
+										</Box>
+										<Box>
+											<Text
+												fontSize="xs"
+												textTransform="uppercase"
+												color="gray.500"
+											>
+												{t("nodes.bandwidthSpeed", "Upload / Download")}
 											</Text>
+											<Text fontWeight="medium">{nodeBandwidthDisplay}</Text>
+										</Box>
+										<Box>
+											<Text
+												fontSize="xs"
+												textTransform="uppercase"
+												color="gray.500"
+											>
+												{t("nodes.cpu", "CPU")}
+											</Text>
+											<Text fontWeight="medium">{nodeCPUDisplay}</Text>
+										</Box>
+										<Box>
+											<Text
+												fontSize="xs"
+												textTransform="uppercase"
+												color="gray.500"
+											>
+												{t("nodes.ram", "RAM")}
+											</Text>
+											<Text fontWeight="medium">{nodeRAMDisplay}</Text>
 										</Box>
 									</SimpleGrid>
 									<Divider />
@@ -2777,7 +2027,7 @@ export const NodesPage: FC = () => {
 				currentVersion={versionDialogCurrentVersion}
 				title={versionDialogTitle}
 				description={versionDialogDescription}
-				allowPersist={versionDialogTarget?.type === "master"}
+				allowPersist={false}
 				isSubmitting={versionDialogLoading}
 			/>
 			<GeoUpdateDialog
@@ -2785,75 +2035,9 @@ export const NodesPage: FC = () => {
 				onClose={closeGeoDialog}
 				onSubmit={handleGeoSubmit}
 				title={geoDialogTitle}
-				showMasterOptions={geoDialogTarget?.type === "master"}
+				showMasterOptions={false}
 				isSubmitting={geoDialogLoading}
 			/>
-			<Modal isOpen={isMasterEditOpen} onClose={closeMasterEdit} size="md">
-				<ModalOverlay />
-				<ModalContent>
-					<ModalHeader>{t("nodes.editMasterNode", "Edit master")}</ModalHeader>
-					<ModalCloseButton />
-					<ModalBody>
-						<VStack align="stretch" spacing={3}>
-							<Text fontSize="sm" color="gray.500">
-								{t("nodes.dataLimitLabel", "Data limit")}
-							</Text>
-							<InputGroup size="sm">
-								<NumericInput
-									step={0.01}
-									min={0}
-									value={masterLimitInput}
-									onChange={(value) => handleMasterLimitInputChange(value)}
-									placeholder={t(
-										"nodes.dataLimitPlaceholder",
-										"e.g., 500 (empty = unlimited)",
-									)}
-								/>
-								<InputRightElement pointerEvents="none">
-									<Text fontSize="xs" color="gray.500">
-										GB
-									</Text>
-								</InputRightElement>
-							</InputGroup>
-							{masterLimitInvalid && (
-								<Text fontSize="xs" color="red.500">
-									{t(
-										"nodes.dataLimitValidation",
-										"Data limit must be a non-negative number",
-									)}
-								</Text>
-							)}
-						</VStack>
-					</ModalBody>
-					<ModalFooter gap={2}>
-						<Button variant="ghost" size="sm" onClick={closeMasterEdit}>
-							{t("cancel", "Cancel")}
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={handleMasterLimitClear}
-							isDisabled={masterDataLimit === null || isUpdatingMasterLimit}
-							isLoading={isUpdatingMasterLimit && masterDataLimit === null}
-						>
-							{t("nodes.clearDataLimit", "Clear limit")}
-						</Button>
-						<Button
-							colorScheme="primary"
-							size="sm"
-							onClick={handleMasterLimitSave}
-							isDisabled={
-								!hasMasterLimitChanged ||
-								masterLimitInvalid ||
-								isUpdatingMasterLimit
-							}
-							isLoading={isUpdatingMasterLimit}
-						>
-							{t("save", "Save")}
-						</Button>
-					</ModalFooter>
-				</ModalContent>
-			</Modal>
 			<AlertDialog
 				isOpen={isDeleteConfirmOpen}
 				leastDestructiveRef={cancelDeleteRef}
@@ -2937,55 +2121,26 @@ export const NodesPage: FC = () => {
 				</AlertDialogOverlay>
 			</AlertDialog>
 
-			<AlertDialog
-				isOpen={isMasterResetOpen}
-				leastDestructiveRef={masterResetCancelRef}
-				onClose={closeMasterReset}
-			>
-				<AlertDialogOverlay>
-					<AlertDialogContent>
-						<AlertDialogHeader fontSize="lg" fontWeight="bold">
-							{t("nodes.resetUsage", "Reset usage")}
-						</AlertDialogHeader>
-
-						<AlertDialogBody>
-							{t(
-								"nodes.resetUsageConfirm",
-								"Are you sure you want to reset usage for {{name}}?",
-								{
-									name: masterLabel,
-								},
-							)}
-						</AlertDialogBody>
-
-						<AlertDialogFooter>
-							<Button ref={masterResetCancelRef} onClick={closeMasterReset}>
-								{t("cancel", "Cancel")}
-							</Button>
-							<Button
-								colorScheme="red"
-								onClick={() => resetMasterUsageMutate()}
-								ml={3}
-								isLoading={isResettingMasterUsage}
-							>
-								{t("nodes.resetUsage", "Reset usage")}
-							</Button>
-						</AlertDialogFooter>
-					</AlertDialogContent>
-				</AlertDialogOverlay>
-			</AlertDialog>
-
 			<NodeFormModal
 				isOpen={isAddNodeOpen}
 				onClose={() => setAddNodeOpen(false)}
 				mutate={addNodeMutate}
 				isLoading={isAdding}
 				isAddMode
+				onSubmitSuccess={(createdNode) => {
+					if (createdNode?.node_certificate) {
+						setNewNodeCertificate({
+							certificate: createdNode.node_certificate,
+							name: createdNode.name,
+						});
+					}
+				}}
 			/>
 			<NodeFormModal
 				isOpen={!!editingNode}
 				onClose={() => setEditingNode(null)}
 				node={editingNode || undefined}
+				defaultInboundTags={defaultInboundSummaries}
 				mutate={updateNodeMutate}
 				isLoading={isUpdating}
 			/>

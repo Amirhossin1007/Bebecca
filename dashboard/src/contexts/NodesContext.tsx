@@ -58,13 +58,20 @@ export const NodeSchema = z
 		node_install_mode: z.string().nullable().optional(),
 		node_binary_tag: z.string().nullable().optional(),
 		node_update_channel: z.string().nullable().optional(),
+		cpu_cores: z.number().nullable().optional(),
+		cpu_frequency_hz: z.number().nullable().optional(),
+		cpu_usage_percent: z.number().nullable().optional(),
+		memory_used: z.number().nullable().optional(),
+		memory_total: z.number().nullable().optional(),
+		memory_usage_percent: z.number().nullable().optional(),
+		upload_speed: z.number().nullable().optional(),
+		download_speed: z.number().nullable().optional(),
 		id: z.number().nullable().optional(),
 		status: z
 			.enum(["connected", "connecting", "error", "disabled", "limited"])
 			.nullable()
 			.optional(),
 		message: z.string().nullable().optional(),
-		add_as_new_host: z.boolean().optional(),
 		usage_coefficient: z
 			.number()
 			.or(z.string().transform((v) => parseFloat(v))),
@@ -89,7 +96,6 @@ export const NodeSchema = z
 		uplink: z.number().nullable().optional(),
 		downlink: z.number().nullable().optional(),
 		use_nobetci: z.boolean().optional(),
-		access_insights_enabled: z.boolean().optional(),
 		nobetci_port: z.number().nullable().optional(),
 		proxy_enabled: z.boolean().optional(),
 		proxy_type: z.enum(["http", "socks5"]).nullable().optional(),
@@ -161,13 +167,20 @@ export const getNodeDefaultValues = (): NodeType => ({
 	api_port: 62051,
 	xray_version: "",
 	node_service_version: "",
+	cpu_cores: null,
+	cpu_frequency_hz: null,
+	cpu_usage_percent: null,
+	memory_used: null,
+	memory_total: null,
+	memory_usage_percent: null,
+	upload_speed: null,
+	download_speed: null,
 	usage_coefficient: 1,
 	xray_config_mode: "default",
 	data_limit: null,
 	uplink: 0,
 	downlink: 0,
 	use_nobetci: false,
-	access_insights_enabled: false,
 	nobetci_port: null,
 	proxy_enabled: false,
 	proxy_type: null,
@@ -193,10 +206,6 @@ export type NodeStore = {
 	restartNodeService: (node: NodeType) => Promise<unknown>;
 	updateNodeService: (node: NodeServiceUpdateRequest) => Promise<unknown>;
 	resetNodeUsage: (node: NodeType) => Promise<unknown>;
-	updateMasterNode: (payload: {
-		data_limit: number | null;
-	}) => Promise<unknown>;
-	resetMasterUsage: () => Promise<unknown>;
 	deletingNode?: NodeType | null;
 	deleteNode: () => Promise<unknown>;
 	setDeletingNode: (node: NodeType | null) => void;
@@ -259,17 +268,6 @@ export const useNodes = create<NodeStore>((set, get) => ({
 	},
 	resetNodeUsage(body) {
 		return fetch(`/node/${body.id}/usage/reset`, {
-			method: "POST",
-		});
-	},
-	updateMasterNode(body) {
-		return fetch("/node/master", {
-			method: "PUT",
-			body,
-		});
-	},
-	resetMasterUsage() {
-		return fetch("/node/master/usage/reset", {
 			method: "POST",
 		});
 	},

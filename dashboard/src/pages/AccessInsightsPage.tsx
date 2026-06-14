@@ -69,9 +69,7 @@ import {
 	SiX,
 	SiYoutube,
 } from "react-icons/si";
-import { useMutation, useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
-import { getPanelSettings, updatePanelSettings } from "service/settings";
 import type {
 	AccessInsightClient,
 	AccessInsightPlatform,
@@ -89,6 +87,8 @@ import TciSvg from "../assets/operators/tci-svgrepo-com.svg";
 const REFRESH_INTERVAL = 5000;
 const DEFAULT_LIMIT = 250;
 const DEFAULT_WINDOW_SECONDS = 120;
+// TODO(go-access-insights): re-enable once the backend is rebuilt in Go.
+const ACCESS_INSIGHTS_COMING_SOON = true;
 const ACCESS_INSIGHTS_PAGE_SIZE_OPTIONS = [10, 30, 50, 100] as const;
 const ACCESS_INSIGHTS_PAGE_SIZE_STORAGE_KEY =
 	"rebecca-access-insights-per-page";
@@ -936,34 +936,21 @@ type PlatformStat = [string, number, number | undefined];
 const AccessInsightsPage: FC = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const queryClient = useQueryClient();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canViewXray =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
-	const { data: panelSettings, isLoading: panelSettingsLoading } = useQuery(
-		"panel-settings",
-		getPanelSettings,
-	);
-	const insightsEnabled = panelSettings?.access_insights_enabled ?? false;
-	const accessInsightsMutation = useMutation(updatePanelSettings, {
-		onSuccess: (updated) => {
-			queryClient.setQueryData("panel-settings", updated);
-			toast({
-				status: "success",
-				title: t("settings.panel.saved", "Panel settings saved."),
-				duration: 2500,
-			});
-		},
-		onError: () => {
-			toast({
-				status: "error",
-				title: t("errors.generic", "Something went wrong."),
-			});
-		},
-	});
+	const insightsEnabled = !ACCESS_INSIGHTS_COMING_SOON;
 
-	const handleAccessInsightsToggle = (enabled: boolean) => {
-		accessInsightsMutation.mutate({ access_insights_enabled: enabled });
+	const handleAccessInsightsToggle = () => {
+		toast({
+			status: "info",
+			title: t("pages.accessInsights.comingSoonTitle", "Coming soon"),
+			description: t(
+				"pages.accessInsights.comingSoonDescription",
+				"Access Insights is being rebuilt as a Go-native feature.",
+			),
+			duration: 3500,
+		});
 	};
 
 	const [data, setData] = useState<AccessInsightsResponse | null>(null);
@@ -978,7 +965,8 @@ const AccessInsightsPage: FC = () => {
 	const [currentPage, setCurrentPage] = useState(0);
 
 	const loadData = useCallback(async () => {
-		if (!canViewXray || !insightsEnabled) return;
+		if (ACCESS_INSIGHTS_COMING_SOON || !canViewXray || !insightsEnabled)
+			return;
 		setLoading(true);
 		setError(null);
 		try {
@@ -1233,12 +1221,36 @@ const AccessInsightsPage: FC = () => {
 						"Recent connections are grouped using geosite/geoip data to highlight which platforms users are reaching.",
 					)}
 				</Text>
-				<Text color="gray.600" fontSize="sm" fontFamily="mono">
+				<Alert status="info" borderRadius="md">
+					<AlertIcon />
+					<Text fontSize="sm">
+						{t(
+							"pages.accessInsights.comingSoonBody",
+							"Access Insights is coming soon. The backend is being rebuilt in Go, so live log analysis is temporarily unavailable.",
+						)}
+					</Text>
+				</Alert>
+				<Text
+					color="gray.600"
+					fontSize="sm"
+					fontFamily="mono"
+					whiteSpace="normal"
+					overflowWrap="anywhere"
+					wordBreak="break-word"
+					maxW="full"
+				>
 					nodes:{" "}
 					{successfulNodeNames.length ? successfulNodeNames.join(",") : "-"}
 				</Text>
 				{failedNodeStatuses.length ? (
-					<Text color="red.400" fontSize="sm">
+					<Text
+						color="red.400"
+						fontSize="sm"
+						whiteSpace="normal"
+						overflowWrap="anywhere"
+						wordBreak="break-word"
+						maxW="full"
+					>
 						unreachable:{" "}
 						{failedNodeStatuses.map((status) => status.node_name).join(",")}
 					</Text>
@@ -1268,15 +1280,21 @@ const AccessInsightsPage: FC = () => {
 					</Stack>
 					<Switch
 						isChecked={insightsEnabled}
-						isDisabled={
-							panelSettingsLoading || accessInsightsMutation.isLoading
-						}
-						onChange={(event) =>
-							handleAccessInsightsToggle(event.target.checked)
-						}
+						isDisabled={ACCESS_INSIGHTS_COMING_SOON}
+						onChange={handleAccessInsightsToggle}
 					/>
 				</HStack>
-				{!insightsEnabled ? (
+				{ACCESS_INSIGHTS_COMING_SOON ? (
+					<Alert status="info" borderRadius="md" mt={3}>
+						<AlertIcon />
+						<Text fontSize="sm">
+							{t(
+								"pages.accessInsights.comingSoonDescription",
+								"Access Insights is being rebuilt as a Go-native feature.",
+							)}
+						</Text>
+					</Alert>
+				) : !insightsEnabled ? (
 					<Alert status="warning" borderRadius="md" mt={3}>
 						<AlertIcon />
 						<Text fontSize="sm">
@@ -1330,8 +1348,17 @@ const AccessInsightsPage: FC = () => {
 						/>
 					</Tooltip>
 				</HStack>
-				<HStack spacing={2} color="gray.500" fontSize="sm">
-					<Text>
+				<Box
+					display="flex"
+					flexWrap="wrap"
+					alignItems="center"
+					gap={2}
+					color="gray.500"
+					fontSize="sm"
+					minW={0}
+					maxW="full"
+				>
+					<Text flexShrink={0}>
 						{t("pages.accessInsights.sources", "Sources")}:{" "}
 						<Badge colorScheme="blue">{data?.sources?.length || 0}</Badge>
 					</Text>
@@ -1342,21 +1369,51 @@ const AccessInsightsPage: FC = () => {
 								.filter(Boolean)
 								.join(", ")}
 						>
-							<Badge colorScheme="green">
+							<Badge
+								colorScheme="green"
+								maxW={{ base: "full", md: "420px" }}
+								whiteSpace="normal"
+								overflowWrap="anywhere"
+								wordBreak="break-word"
+							>
 								{t("pages.accessInsights.multiNode", "Master + active nodes")}
 							</Badge>
 						</Tooltip>
 					) : null}
-					<Text>
+					<Text
+						minW={0}
+						maxW={{ base: "full", md: "520px" }}
+						whiteSpace="normal"
+						overflowWrap="anywhere"
+						wordBreak="break-word"
+					>
 						{t("pages.accessInsights.logPath", "Log")}:{" "}
-						<Badge colorScheme="gray">
+						<Badge
+							colorScheme="gray"
+							whiteSpace="normal"
+							overflowWrap="anywhere"
+							wordBreak="break-word"
+						>
 							{data?.log_path || t("pages.accessInsights.unknown", "Unknown")}
 						</Badge>
 					</Text>
 					{data?.geo_assets_path ? (
-						<Text>
+						<Text
+							minW={0}
+							maxW={{ base: "full", md: "520px" }}
+							whiteSpace="normal"
+							overflowWrap="anywhere"
+							wordBreak="break-word"
+						>
 							{t("pages.accessInsights.geoPath", "Geo assets")}:{" "}
-							<Badge colorScheme="gray">{data.geo_assets_path}</Badge>
+							<Badge
+								colorScheme="gray"
+								whiteSpace="normal"
+								overflowWrap="anywhere"
+								wordBreak="break-word"
+							>
+								{data.geo_assets_path}
+							</Badge>
 						</Text>
 					) : null}
 					{data?.geo_assets ? (
@@ -1376,7 +1433,7 @@ const AccessInsightsPage: FC = () => {
 							? t("pages.accessInsights.frontMode", "Frontend aggregation")
 							: t("pages.accessInsights.backMode", "Backend aggregation")}
 					</Badge>
-				</HStack>
+				</Box>
 			</HStack>
 
 			{error ? (

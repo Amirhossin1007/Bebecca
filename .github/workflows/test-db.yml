@@ -3,10 +3,20 @@ name: Test Database Migrations
 on:
   push:
     paths:
-      - "**.py"
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - "scripts/build_go_cli.sh"
+      - ".github/workflows/test-db.yml"
   pull_request:
     paths:
-      - "**.py"
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - "scripts/build_go_cli.sh"
+      - ".github/workflows/test-db.yml"
 
 jobs:
   test-databases:
@@ -55,86 +65,35 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-go@v6
         with:
-          python-version: "3.13"
+          go-version-file: "go.mod"
 
-      - name: Set DATABASE_URL
+      - name: Set SQLALCHEMY_DATABASE_URL
         run: |
           echo "TEST_FROM=github" >> $GITHUB_ENV
           echo "REBECCA_TEST_DATABASE_URL=${{ matrix.url }}" >> $GITHUB_ENV
           echo "SQLALCHEMY_DATABASE_URL=${{ matrix.url }}" >> $GITHUB_ENV
 
-      - name: Upgrade pip, setuptools and wheel
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-
-      - name: Install project dependencies
-        run: |
-          pip install -e .
-          pip install pymysql
-          
-      - name: Install test dependencies
-        run: |
-          # Install test dependencies directly (dependency groups may not be supported in all pip versions)
-          echo "Installing test dependencies..."
-          pip install "pytest>=8.3.5" "pytest-asyncio>=0.26.0" "pytest-watch>=4.2.0" "httpx>=0.27.2" "ruff>=0.11.6"
-          
-      - name: Verify pytest is installed
-        run: |
-          python -m pytest --version
-
       - name: Verify database connection
         run: |
-          python -c "
-          import os
-          from sqlalchemy import create_engine, text
-          url = os.environ.get('SQLALCHEMY_DATABASE_URL', '')
-          if 'sqlite' not in url:
-              engine = create_engine(url)
-              with engine.connect() as conn:
-                  result = conn.execute(text('SELECT 1'))
-                  print(f'Database connection successful: {url.split(\"@\")[-1] if \"@\" in url else url}')
-          else:
-              print(f'Using SQLite: {url}')
-          "
+          go run ./cmd/rebecca_cli migrate status || true
 
-      - name: Check migration status before upgrade
+      - name: Run Go migration unit tests
         run: |
-          alembic current || echo "No migrations applied yet"
+          go test ./internal/app/migrations ./cmd/rebecca_cli
 
-      - name: Run Alembic Migrations
+      - name: Run Go Migrations
         run: |
           echo "Running migrations for: ${{ matrix.db }}"
-          alembic upgrade head
+          go run ./cmd/rebecca_cli migrate up
           echo "Migrations completed successfully"
 
       - name: Verify migration status after upgrade
         run: |
-          echo "Current migration revision:"
-          alembic current
+          go run ./cmd/rebecca_cli migrate status
 
       - name: Verify database schema
         run: |
-          python -c "
-          import os
-          from sqlalchemy import create_engine, inspect, text
-          url = os.environ.get('SQLALCHEMY_DATABASE_URL', '')
-          engine = create_engine(url)
-          inspector = inspect(engine)
-          tables = inspector.get_table_names()
-          print(f'Found {len(tables)} tables: {sorted(tables)}')
-          
-          # Verify key tables exist
-          key_tables = ['users', 'admins', 'nodes', 'services']
-          for table in key_tables:
-              if table in tables:
-                  print(f'✓ Table {table} exists')
-                  cols = [col['name'] for col in inspector.get_columns(table)]
-                  print(f'  Columns: {len(cols)} columns')
-              else:
-                  print(f'✗ Table {table} missing')
-          "
+          go test ./internal/app/migrations -run TestRunMigrationsExternalDatabase
 
-      - name: Run Tests
-        run: python -m pytest
