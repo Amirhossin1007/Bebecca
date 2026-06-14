@@ -1536,10 +1536,10 @@ install_command() {
         echo "docker" > "$INSTALL_MODE_FILE"
     fi
     up_rebecca_node
-    follow_rebecca_node_logs
     SERVICE_PORT="${SERVICE_PORT:-$(get_env_value "SERVICE_PORT")}"
     XRAY_API_PORT="${XRAY_API_PORT:-$(get_env_value "XRAY_API_PORT")}"
     echo "Use your IP: $NODE_IP and defaults ports: $SERVICE_PORT and $XRAY_API_PORT to setup your Rebecca Main Panel"
+    colorized_echo yellow "Run '$APP_NAME logs' if you want to follow live node logs."
 }
 
 uninstall_command() {
