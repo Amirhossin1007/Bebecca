@@ -557,8 +557,8 @@ INSERT INTO admins (
 		}
 		return writeJSON(payload)
 	}
-	fmt.Printf("Admin %q created successfully.\n", username)
-	return nil
+	_, err = os.Stdout.WriteString("Admin " + strconv.Quote(username) + " created successfully.\n")
+	return err
 }
 
 func (c *cli) adminUpdate(args []string) error {
@@ -775,8 +775,8 @@ func (c *cli) adminSetPassword(args []string) error {
 		}
 		return writeJSON(payload)
 	}
-	fmt.Printf("Password for %q reset successfully.\n", admin.Username)
-	return nil
+	_, err = os.Stdout.WriteString("Password for " + strconv.Quote(admin.Username) + " reset successfully.\n")
+	return err
 }
 
 func (c *cli) adminSetStatus(args []string, status string) error {
