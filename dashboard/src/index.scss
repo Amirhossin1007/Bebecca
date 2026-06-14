@@ -180,6 +180,10 @@ textarea,
     max-width: calc(100vw - 16px);
   }
 
+  .chakra-popover__popper {
+    z-index: 17002 !important;
+  }
+
   .chakra-tabs__tablist {
     overflow-x: auto;
     overflow-y: hidden;
