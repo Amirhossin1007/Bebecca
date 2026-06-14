@@ -629,12 +629,24 @@ func (r Repository) templateSelectionTx(ctx context.Context, tx *sql.Tx, templat
 			return templateSelection{}, ErrAdminNotFound
 		}
 	}
-	query := `SELECT ` + templateKey + `, custom_templates_directory FROM subscription_settings ORDER BY id DESC LIMIT 1`
-	var templateName string
+	var columns subscriptionTemplateColumns
 	var customDir sql.NullString
-	if err := tx.QueryRowContext(ctx, query).Scan(&templateName, &customDir); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT clash_subscription_template, clash_settings_template, subscription_page_template, home_page_template, v2ray_subscription_template, v2ray_settings_template, singbox_subscription_template, singbox_settings_template, mux_template, custom_templates_directory FROM subscription_settings ORDER BY id DESC LIMIT 1`).
+		Scan(
+			&columns.ClashSubscription,
+			&columns.ClashSettings,
+			&columns.SubscriptionPage,
+			&columns.HomePage,
+			&columns.V2RaySubscription,
+			&columns.V2RaySettings,
+			&columns.SingBoxSubscription,
+			&columns.SingBoxSettings,
+			&columns.Mux,
+			&customDir,
+		); err != nil {
 		return templateSelection{}, err
 	}
+	templateName := columns.value(templateKey)
 	var custom *string
 	if customDir.Valid {
 		custom = &customDir.String
@@ -653,6 +665,43 @@ func (r Repository) templateSelectionTx(ctx context.Context, tx *sql.Tx, templat
 		}
 	}
 	return templateSelection{TemplateName: templateName, CustomDirectory: custom}, nil
+}
+
+type subscriptionTemplateColumns struct {
+	ClashSubscription   string
+	ClashSettings       string
+	SubscriptionPage    string
+	HomePage            string
+	V2RaySubscription   string
+	V2RaySettings       string
+	SingBoxSubscription string
+	SingBoxSettings     string
+	Mux                 string
+}
+
+func (c subscriptionTemplateColumns) value(templateKey string) string {
+	switch templateKey {
+	case "clash_subscription_template":
+		return c.ClashSubscription
+	case "clash_settings_template":
+		return c.ClashSettings
+	case "subscription_page_template":
+		return c.SubscriptionPage
+	case "home_page_template":
+		return c.HomePage
+	case "v2ray_subscription_template":
+		return c.V2RaySubscription
+	case "v2ray_settings_template":
+		return c.V2RaySettings
+	case "singbox_subscription_template":
+		return c.SingBoxSubscription
+	case "singbox_settings_template":
+		return c.SingBoxSettings
+	case "mux_template":
+		return c.Mux
+	default:
+		return ""
+	}
 }
 
 func (r Repository) adminExistsTx(ctx context.Context, tx *sql.Tx, adminID int64) (bool, error) {

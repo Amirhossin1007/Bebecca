@@ -855,10 +855,11 @@ func safeExtract(archivePath string, destination string) error {
 		if err != nil {
 			return err
 		}
-		target, err := safeArchiveTarget(base, header.Name)
+		entryName, err := safeArchiveName(header.Name)
 		if err != nil {
 			return err
 		}
+		target := filepath.Join(base, entryName)
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, fs.FileMode(header.Mode)&0o777); err != nil {
@@ -885,13 +886,21 @@ func safeExtract(archivePath string, destination string) error {
 	}
 }
 
-func safeArchiveTarget(base string, name string) (string, error) {
+func safeArchiveName(name string) (string, error) {
 	if strings.TrimSpace(name) == "" {
 		return "", Error{Message: "Backup archive contains unsafe paths"}
 	}
 	cleaned := filepath.Clean(filepath.FromSlash(name))
-	if filepath.IsAbs(cleaned) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+	if filepath.IsAbs(cleaned) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) || !filepath.IsLocal(cleaned) {
 		return "", Error{Message: "Backup archive contains unsafe paths"}
+	}
+	return cleaned, nil
+}
+
+func safeArchiveTarget(base string, name string) (string, error) {
+	cleaned, err := safeArchiveName(name)
+	if err != nil {
+		return "", err
 	}
 	target := filepath.Join(base, cleaned)
 	resolved, err := filepath.Abs(target)

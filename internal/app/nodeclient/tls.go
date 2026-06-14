@@ -71,20 +71,28 @@ func LoadClientTLSFromPEM(config PEMTLSConfig) (*tls.Config, error) {
 	}
 
 	serverName := config.ServerName
+	if serverName == "" && len(serverCert.DNSNames) > 0 {
+		serverName = serverCert.DNSNames[0]
+	}
+	if serverName == "" && len(serverCert.IPAddresses) > 0 {
+		serverName = serverCert.IPAddresses[0].String()
+	}
 	if serverName == "" {
 		serverName = serverCert.Subject.CommonName
 	}
+	serverRoots := x509.NewCertPool()
+	serverRoots.AddCert(serverCert)
 
 	return &tls.Config{
-		Certificates:       []tls.Certificate{clientCert},
-		ServerName:         serverName,
-		InsecureSkipVerify: true,
-		MinVersion:         tls.VersionTLS12,
-		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-			if len(rawCerts) == 0 {
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      serverRoots,
+		ServerName:   serverName,
+		MinVersion:   tls.VersionTLS12,
+		VerifyConnection: func(state tls.ConnectionState) error {
+			if len(state.PeerCertificates) == 0 {
 				return fmt.Errorf("server certificate is missing")
 			}
-			if !equalBytes(rawCerts[0], serverCert.Raw) {
+			if !equalBytes(state.PeerCertificates[0].Raw, serverCert.Raw) {
 				return fmt.Errorf("server certificate does not match the pinned node certificate")
 			}
 			return nil

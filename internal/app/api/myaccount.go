@@ -3,10 +3,8 @@ package api
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -255,7 +253,7 @@ func (s *Server) handleCreateMyAccountAPIKey(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	keyHash := sha256.Sum256([]byte(token))
+	keyHash := adminapp.APIKeyTokenHash(token)
 	var response apiKeyResponse
 	err = s.withTx(r.Context(), func(tx *sql.Tx) error {
 		now := time.Now().UTC()
@@ -263,7 +261,7 @@ func (s *Server) handleCreateMyAccountAPIKey(w http.ResponseWriter, r *http.Requ
 			r.Context(),
 			`INSERT INTO admin_api_keys (admin_id, key_hash, created_at, expires_at) VALUES (?, ?, ?, ?)`,
 			dbadmin.ID,
-			hex.EncodeToString(keyHash[:]),
+			keyHash,
 			dbTimestamp(now),
 			timePtrDB(expiresAt),
 		)

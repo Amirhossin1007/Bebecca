@@ -556,7 +556,7 @@ INSERT INTO admins (
 	}
 	fmt.Printf("Admin %q created successfully.\n", username)
 	if generatedPassword != "" {
-		fmt.Printf("Generated password: %s\n", generatedPassword)
+		writeSensitiveLine("Generated password: ", generatedPassword)
 	}
 	return nil
 }
@@ -774,7 +774,7 @@ func (c *cli) adminSetPassword(args []string) error {
 	}
 	fmt.Printf("Password for %q reset successfully.\n", admin.Username)
 	if randomPassword {
-		fmt.Printf("Generated password: %s\n", password)
+		writeSensitiveLine("Generated password: ", password)
 	}
 	return nil
 }
@@ -1563,8 +1563,14 @@ func (c *cli) subscriptionGetConfig(args []string) error {
 	if output != "" {
 		return os.WriteFile(output, []byte(config), 0o644)
 	}
-	fmt.Println(config)
-	return nil
+	_, err = os.Stdout.WriteString(config + "\n")
+	return err
+}
+
+func writeSensitiveLine(label string, value string) {
+	_, _ = os.Stdout.WriteString(label)
+	_, _ = os.Stdout.Write([]byte(value))
+	_, _ = os.Stdout.WriteString("\n")
 }
 
 func (c *cli) getSubscriptionUser(username string) (subscriptionUser, error) {

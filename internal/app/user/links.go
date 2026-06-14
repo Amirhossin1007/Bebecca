@@ -1,6 +1,7 @@
 package user
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -219,12 +220,21 @@ func createSubscriptionToken(username string, secret string, now time.Time) stri
 	timestamp := int64(math.Ceil(float64(now.UnixNano()) / 1_000_000_000))
 	data := username + "," + strconv.FormatInt(timestamp, 10)
 	dataB64 := base64.RawURLEncoding.EncodeToString([]byte(data))
-	sum := sha256.Sum256([]byte(dataB64 + secret))
-	signature := base64.URLEncoding.EncodeToString(sum[:])
+	signature := createSubscriptionTokenSignature(dataB64, secret)
 	if len(signature) > 10 {
 		signature = signature[:10]
 	}
 	return dataB64 + signature
+}
+
+func createSubscriptionTokenSignature(body string, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(body))
+	signature := base64.URLEncoding.EncodeToString(mac.Sum(nil))
+	if len(signature) > 10 {
+		return signature[:10]
+	}
+	return signature
 }
 
 func selectPrimaryLink(links OrderedStringMap, hasKey bool, hasSubadress bool, preferred string) string {

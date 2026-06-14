@@ -144,9 +144,10 @@ func (c Controller) Logs(ctx context.Context, req Request) (RuntimeResult, error
 	if maxLines <= 0 {
 		maxLines = 200
 	}
+	maxLinesProto := boundedLogLineLimit(maxLines)
 	stream, err := client.Logs().StreamLogs(ctx, &nodev1.StreamLogsRequest{
 		StreamId: strconv.FormatInt(req.NodeID, 10),
-		MaxLines: uint32(maxLines),
+		MaxLines: maxLinesProto,
 	})
 	if err != nil {
 		return RuntimeResult{}, friendlyNodeError("logs", req.NodeID, err)
@@ -195,9 +196,10 @@ func (c Controller) StreamLogs(ctx context.Context, req StreamLogsRequest, send 
 	if maxLines <= 0 {
 		maxLines = 200
 	}
+	maxLinesProto := boundedLogLineLimit(maxLines)
 	stream, err := client.Logs().StreamLogs(ctx, &nodev1.StreamLogsRequest{
 		StreamId: strconv.FormatInt(node.ID, 10),
-		MaxLines: uint32(maxLines),
+		MaxLines: maxLinesProto,
 	})
 	if err != nil {
 		return friendlyNodeError("logs", node.ID, err)
@@ -214,6 +216,16 @@ func (c Controller) StreamLogs(ctx context.Context, req StreamLogsRequest, send 
 			return err
 		}
 	}
+}
+
+func boundedLogLineLimit(maxLines int) uint32 {
+	if maxLines <= 0 {
+		return 200
+	}
+	if maxLines > 10000 {
+		return 10000
+	}
+	return uint32(maxLines)
 }
 
 func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsRequest) (ProcessOperationsResult, error) {

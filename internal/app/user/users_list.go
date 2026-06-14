@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -699,15 +698,6 @@ func (r Repository) subscriptionUsernameFromToken(token string) string {
 	return parts[0]
 }
 
-func createSubscriptionTokenSignature(body string, secret string) string {
-	sum := sha256Bytes(body + secret)
-	signature := base64.URLEncoding.EncodeToString(sum)
-	if len(signature) > 10 {
-		return signature[:10]
-	}
-	return signature
-}
-
 func uuidToKey(uuidValue string, mask []byte) (string, error) {
 	cleaned := strings.ReplaceAll(strings.TrimSpace(uuidValue), "-", "")
 	bytes, err := hexToBytes(cleaned)
@@ -806,9 +796,4 @@ func decodeBase64Flexible(value string) (string, error) {
 
 func lowerHasScheme(value string, scheme string) bool {
 	return strings.HasPrefix(value, scheme+"://")
-}
-
-func sha256Bytes(value string) []byte {
-	sum := sha256.Sum256([]byte(value))
-	return sum[:]
 }

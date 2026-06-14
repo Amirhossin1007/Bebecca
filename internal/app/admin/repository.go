@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -59,8 +60,25 @@ func (r Repository) APIKeyByToken(ctx context.Context, token string) (AdminAPIKe
 	if token == "" {
 		return AdminAPIKey{}, false, nil
 	}
+	row, found, err := r.apiKeyByHash(ctx, APIKeyTokenHash(token))
+	if err != nil || found {
+		return row, found, err
+	}
+	return r.apiKeyByHash(ctx, legacyAPIKeyTokenHash(token))
+}
+
+func APIKeyTokenHash(token string) string {
+	mac := hmac.New(sha256.New, []byte("rebecca-admin-api-key-v1"))
+	_, _ = mac.Write([]byte(token))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func legacyAPIKeyTokenHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
-	keyHash := hex.EncodeToString(sum[:])
+	return hex.EncodeToString(sum[:])
+}
+
+func (r Repository) apiKeyByHash(ctx context.Context, keyHash string) (AdminAPIKey, bool, error) {
 	var row AdminAPIKey
 	var createdRaw, expiresRaw, lastUsedRaw any
 	err := r.db.QueryRowContext(
