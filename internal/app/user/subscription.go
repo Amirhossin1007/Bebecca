@@ -289,11 +289,7 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 	case "outline":
 		return marshalPretty(map[string]any{"servers": raw})
 	case "v2ray-json":
-		outbounds := make([]map[string]any, 0, len(raw))
-		for i, link := range raw {
-			outbounds = append(outbounds, map[string]any{"tag": fmt.Sprintf("proxy-%d", i+1), "share_link": link})
-		}
-		return marshalPretty(map[string]any{"remarks": []string{user.Username}, "outbounds": outbounds})
+		return renderV2RayJSONSubscription(raw, false)
 	case "sing-box":
 		outbounds := make([]map[string]any, 0, len(raw)+1)
 		for i, link := range raw {
@@ -717,6 +713,389 @@ func renderClashLikeYAML(username string, links []string, meta bool) string {
 	b.WriteString(yamlQuote(username))
 	b.WriteString("\n")
 	return b.String()
+}
+
+func renderV2RayJSONSubscription(links []string, reverse bool) (string, error) {
+	configs := make([]map[string]any, 0, len(links))
+	for _, link := range links {
+		remark, outbound, ok := v2rayOutboundFromShareLink(link)
+		if !ok {
+			continue
+		}
+		config := defaultV2RayClientConfig()
+		config["remarks"] = remark
+		existing := listAny(config["outbounds"])
+		config["outbounds"] = append([]any{outbound}, existing...)
+		configs = append(configs, config)
+	}
+	if reverse {
+		for i, j := 0, len(configs)-1; i < j; i, j = i+1, j-1 {
+			configs[i], configs[j] = configs[j], configs[i]
+		}
+	}
+	return marshalPretty(configs)
+}
+
+func defaultV2RayClientConfig() map[string]any {
+	return map[string]any{
+		"log": map[string]any{
+			"access":   "",
+			"error":    "",
+			"loglevel": "warning",
+		},
+		"inbounds": []any{
+			map[string]any{
+				"tag":      "socks",
+				"port":     10808,
+				"listen":   "::",
+				"protocol": "socks",
+				"sniffing": map[string]any{
+					"enabled":      true,
+					"destOverride": []any{"http", "tls"},
+					"routeOnly":    false,
+				},
+				"settings": map[string]any{
+					"auth":             "noauth",
+					"udp":              true,
+					"allowTransparent": false,
+				},
+			},
+			map[string]any{
+				"tag":      "http",
+				"port":     10809,
+				"listen":   "::",
+				"protocol": "http",
+				"sniffing": map[string]any{
+					"enabled":      true,
+					"destOverride": []any{"http", "tls"},
+					"routeOnly":    false,
+				},
+				"settings": map[string]any{
+					"auth":             "noauth",
+					"udp":              true,
+					"allowTransparent": false,
+				},
+			},
+		},
+		"outbounds": []any{},
+		"dns":       map[string]any{"servers": []any{"1.1.1.1", "8.8.8.8"}},
+		"routing": map[string]any{
+			"domainStrategy": "AsIs",
+			"rules":          []any{},
+		},
+	}
+}
+
+func v2rayOutboundFromShareLink(link string) (string, map[string]any, bool) {
+	parsed, err := url.Parse(link)
+	if err != nil {
+		return "", nil, false
+	}
+	switch parsed.Scheme {
+	case "vless":
+		return v2rayVLESSOutbound(parsed)
+	case "trojan":
+		return v2rayTrojanOutbound(parsed)
+	case "ss":
+		return v2rayShadowsocksOutbound(parsed)
+	case "vmess":
+		return v2rayVMessOutbound(link)
+	default:
+		return "", nil, false
+	}
+}
+
+func v2rayVLESSOutbound(parsed *url.URL) (string, map[string]any, bool) {
+	port, ok := parseURLPort(parsed)
+	id := strings.TrimSpace(parsed.User.Username())
+	if !ok || id == "" {
+		return "", nil, false
+	}
+	query := parsed.Query()
+	user := map[string]any{
+		"id":         id,
+		"encryption": firstNonEmptyString(query.Get("encryption"), "none"),
+		"level":      0,
+	}
+	if flow := query.Get("flow"); flow != "" {
+		user["flow"] = flow
+	}
+	outbound := map[string]any{
+		"tag":      "proxy",
+		"protocol": "vless",
+		"settings": map[string]any{
+			"vnext": []any{map[string]any{
+				"address": parsed.Hostname(),
+				"port":    port,
+				"users":   []any{user},
+			}},
+		},
+	}
+	if stream := v2rayStreamSettings(query); len(stream) > 0 {
+		outbound["streamSettings"] = stream
+	}
+	return v2rayLinkRemark(parsed), outbound, true
+}
+
+func v2rayTrojanOutbound(parsed *url.URL) (string, map[string]any, bool) {
+	port, ok := parseURLPort(parsed)
+	password := strings.TrimSpace(parsed.User.Username())
+	if !ok || password == "" {
+		return "", nil, false
+	}
+	outbound := map[string]any{
+		"tag":      "proxy",
+		"protocol": "trojan",
+		"settings": map[string]any{
+			"servers": []any{map[string]any{
+				"address":  parsed.Hostname(),
+				"port":     port,
+				"password": password,
+				"level":    0,
+			}},
+		},
+	}
+	if stream := v2rayStreamSettings(parsed.Query()); len(stream) > 0 {
+		outbound["streamSettings"] = stream
+	}
+	return v2rayLinkRemark(parsed), outbound, true
+}
+
+func v2rayShadowsocksOutbound(parsed *url.URL) (string, map[string]any, bool) {
+	port, ok := parseURLPort(parsed)
+	if !ok {
+		return "", nil, false
+	}
+	user := parsed.User.Username()
+	if decoded, err := decodeFlexibleBase64(user); err == nil {
+		user = string(decoded)
+	}
+	method, password, ok := strings.Cut(user, ":")
+	if !ok || strings.TrimSpace(method) == "" || strings.TrimSpace(password) == "" {
+		return "", nil, false
+	}
+	outbound := map[string]any{
+		"tag":      "proxy",
+		"protocol": "shadowsocks",
+		"settings": map[string]any{
+			"servers": []any{map[string]any{
+				"address":  parsed.Hostname(),
+				"port":     port,
+				"method":   method,
+				"password": password,
+			}},
+		},
+	}
+	return v2rayLinkRemark(parsed), outbound, true
+}
+
+func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
+	raw := strings.TrimPrefix(link, "vmess://")
+	decoded, err := decodeFlexibleBase64(raw)
+	if err != nil {
+		return "", nil, false
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		return "", nil, false
+	}
+	port, err := strconv.Atoi(stringValue(payload["port"]))
+	if err != nil || port <= 0 || stringValue(payload["add"]) == "" || stringValue(payload["id"]) == "" {
+		return "", nil, false
+	}
+	user := map[string]any{
+		"id":       stringValue(payload["id"]),
+		"alterId":  intValue(payload["aid"]),
+		"security": firstNonEmptyString(payload["scy"], "auto"),
+		"level":    0,
+	}
+	outbound := map[string]any{
+		"tag":      "proxy",
+		"protocol": "vmess",
+		"settings": map[string]any{
+			"vnext": []any{map[string]any{
+				"address": stringValue(payload["add"]),
+				"port":    port,
+				"users":   []any{user},
+			}},
+		},
+	}
+	query := url.Values{}
+	query.Set("type", firstNonEmptyString(payload["net"], "tcp"))
+	query.Set("security", stringValue(payload["tls"]))
+	query.Set("headerType", stringValue(payload["type"]))
+	query.Set("path", stringValue(payload["path"]))
+	query.Set("host", stringValue(payload["host"]))
+	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
+	query.Set("fp", stringValue(payload["fp"]))
+	query.Set("alpn", stringValue(payload["alpn"]))
+	query.Set("pbk", stringValue(payload["pbk"]))
+	query.Set("sid", stringValue(payload["sid"]))
+	query.Set("spx", stringValue(payload["spx"]))
+	query.Set("mode", stringValue(payload["mode"]))
+	if stream := v2rayStreamSettings(query); len(stream) > 0 {
+		outbound["streamSettings"] = stream
+	}
+	return firstNonEmptyString(payload["ps"], "proxy"), outbound, true
+}
+
+func v2rayStreamSettings(query url.Values) map[string]any {
+	network := firstNonEmptyString(query.Get("type"), "tcp")
+	if network == "raw" {
+		network = "tcp"
+	}
+	security := strings.TrimSpace(query.Get("security"))
+	stream := map[string]any{"network": network}
+	if security != "" && security != "none" {
+		stream["security"] = security
+		switch security {
+		case "tls":
+			stream["tlsSettings"] = v2rayTLSSettings(query)
+		case "reality":
+			stream["realitySettings"] = v2rayRealitySettings(query)
+		}
+	}
+	switch network {
+	case "ws":
+		settings := map[string]any{}
+		if path := query.Get("path"); path != "" {
+			settings["path"] = path
+		}
+		if host := query.Get("host"); host != "" {
+			settings["headers"] = map[string]any{"Host": host}
+		}
+		if heartbeat := intValue(query.Get("heartbeatPeriod")); heartbeat > 0 {
+			settings["heartbeatPeriod"] = heartbeat
+		}
+		if len(settings) > 0 {
+			stream["wsSettings"] = settings
+		}
+	case "grpc", "gun":
+		stream["network"] = "grpc"
+		settings := map[string]any{}
+		if service := query.Get("serviceName"); service != "" {
+			settings["serviceName"] = service
+		}
+		if authority := query.Get("authority"); authority != "" {
+			settings["authority"] = authority
+		}
+		settings["multiMode"] = query.Get("mode") == "multi"
+		stream["grpcSettings"] = settings
+	case "tcp":
+		if header := query.Get("headerType"); header == "http" {
+			settings := map[string]any{"header": map[string]any{"type": "http", "request": map[string]any{}}}
+			request := settings["header"].(map[string]any)["request"].(map[string]any)
+			if path := query.Get("path"); path != "" {
+				request["path"] = []any{path}
+			}
+			if host := query.Get("host"); host != "" {
+				request["headers"] = map[string]any{"Host": []any{host}}
+			}
+			stream["tcpSettings"] = settings
+		} else {
+			stream["tcpSettings"] = map[string]any{"header": map[string]any{"type": "none"}}
+		}
+	case "kcp":
+		settings := map[string]any{"header": map[string]any{"type": firstNonEmptyString(query.Get("headerType"), "none")}}
+		if seed := query.Get("seed"); seed != "" {
+			settings["seed"] = seed
+		}
+		stream["kcpSettings"] = settings
+	case "http", "h2", "h3":
+		settings := map[string]any{}
+		if path := query.Get("path"); path != "" {
+			settings["path"] = path
+		}
+		if host := query.Get("host"); host != "" {
+			settings["host"] = []any{host}
+		}
+		stream["httpSettings"] = settings
+	case "quic":
+		settings := map[string]any{
+			"security": firstNonEmptyString(query.Get("quicSecurity"), "none"),
+			"key":      query.Get("key"),
+			"header":   map[string]any{"type": firstNonEmptyString(query.Get("headerType"), "none")},
+		}
+		stream["quicSettings"] = settings
+	case "splithttp", "xhttp":
+		settings := map[string]any{}
+		if path := query.Get("path"); path != "" {
+			settings["path"] = path
+		}
+		if host := query.Get("host"); host != "" {
+			settings["host"] = host
+		}
+		if mode := query.Get("mode"); mode != "" {
+			settings["mode"] = mode
+		}
+		if len(settings) > 0 {
+			stream["splithttpSettings"] = settings
+		}
+	}
+	return stream
+}
+
+func v2rayTLSSettings(query url.Values) map[string]any {
+	settings := map[string]any{"allowInsecure": false, "show": false}
+	if sni := query.Get("sni"); sni != "" {
+		settings["serverName"] = sni
+	}
+	if fp := query.Get("fp"); fp != "" {
+		settings["fingerprint"] = fp
+	}
+	if alpn := query.Get("alpn"); alpn != "" {
+		settings["alpn"] = stringList(alpn)
+	}
+	if allow := query.Get("allowInsecure"); allow == "1" || strings.EqualFold(allow, "true") {
+		settings["allowInsecure"] = true
+	}
+	return settings
+}
+
+func v2rayRealitySettings(query url.Values) map[string]any {
+	settings := map[string]any{"show": false}
+	if sni := query.Get("sni"); sni != "" {
+		settings["serverName"] = sni
+	}
+	if fp := query.Get("fp"); fp != "" {
+		settings["fingerprint"] = fp
+	}
+	if pbk := query.Get("pbk"); pbk != "" {
+		settings["publicKey"] = pbk
+	}
+	if sid := query.Get("sid"); sid != "" {
+		settings["shortId"] = sid
+	}
+	if spx := query.Get("spx"); spx != "" {
+		settings["spiderX"] = spx
+	}
+	return settings
+}
+
+func v2rayLinkRemark(parsed *url.URL) string {
+	if parsed.Fragment == "" {
+		return "proxy"
+	}
+	remark, err := url.QueryUnescape(parsed.Fragment)
+	if err != nil {
+		return parsed.Fragment
+	}
+	return remark
+}
+
+func listAny(value any) []any {
+	switch typed := value.(type) {
+	case []any:
+		return typed
+	case []map[string]any:
+		result := make([]any, 0, len(typed))
+		for _, item := range typed {
+			result = append(result, item)
+		}
+		return result
+	default:
+		return nil
+	}
 }
 
 type subscriptionHTMLData struct {

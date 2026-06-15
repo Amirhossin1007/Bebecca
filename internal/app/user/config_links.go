@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const defaultShadowsocksMethod = "chacha20-ietf-poly1305"
@@ -96,7 +97,12 @@ func BuildConfigLinks(
 				continue
 			}
 			for _, host := range hostsByTag[tag] {
-				remark, address, effective, ok := effectiveInboundForHost(username, formatVariables, inbound, host.host)
+				inboundVariables := cloneFormatVariables(formatVariables)
+				inboundVariables["PROTOCOL"] = strings.ToUpper(protocol)
+				inboundVariables["protocol"] = protocol
+				inboundVariables["TRANSPORT"] = configTransportName(inbound)
+				inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
+				remark, address, effective, ok := effectiveInboundForHost(username, inboundVariables, inbound, host.host)
 				if !ok {
 					continue
 				}
@@ -346,12 +352,81 @@ func firstHostOverride(value *string, fallback string) string {
 }
 
 func configFormatVariables(item ConfigLinkUser) map[string]string {
+	now := time.Now().UTC()
+	dataLimit := "\u221e"
+	dataLeft := "\u221e"
+	if item.DataLimit != nil && *item.DataLimit > 0 {
+		dataLimit = formatBytes(*item.DataLimit)
+		remaining := *item.DataLimit - item.UsedTraffic
+		if remaining < 0 {
+			remaining = 0
+		}
+		dataLeft = formatBytes(remaining)
+	}
+
+	daysLeft := "\u221e"
+	timeLeft := "\u221e"
+	expireDate := "\u221e"
+	jalaliExpireDate := "\u221e"
+	if item.Status == "on_hold" {
+		if item.OnHoldExpireDuration != nil && *item.OnHoldExpireDuration >= 0 {
+			duration := *item.OnHoldExpireDuration
+			daysLeft = strconv.FormatInt(duration/(24*60*60), 10)
+			timeLeft = formatSubscriptionTimeLeft(duration)
+			expireDate = "-"
+			jalaliExpireDate = "-"
+		}
+	} else if item.Expire != nil && *item.Expire >= 0 {
+		expire := time.Unix(*item.Expire, 0).UTC()
+		expireDate = expire.Format("2006-01-02")
+		jalaliExpireDate = formatJalaliDate(expire)
+		secondsLeft := *item.Expire - now.Unix()
+		if secondsLeft > 0 {
+			days := int64(expire.Sub(now).Hours()/24) + 1
+			if days < 0 {
+				days = 0
+			}
+			daysLeft = strconv.FormatInt(days, 10)
+			timeLeft = formatSubscriptionTimeLeft(secondsLeft)
+		} else {
+			daysLeft = "0"
+			timeLeft = "0"
+		}
+	}
+
+	statusEmoji := map[string]string{
+		"active":   "\u2705",
+		"expired":  "\u231b\ufe0f",
+		"limited":  "\U0001faab",
+		"disabled": "\u274c",
+		"on_hold":  "\U0001f50c",
+	}[item.Status]
+	statusText := map[string]string{
+		"active":   "Active",
+		"expired":  "Expired",
+		"limited":  "Limited",
+		"disabled": "Disabled",
+		"on_hold":  "On hold",
+	}[item.Status]
+
 	values := map[string]string{
-		"id":           strconv.FormatInt(item.ID, 10),
-		"user_id":      strconv.FormatInt(item.ID, 10),
-		"username":     item.Username,
-		"status":       item.Status,
-		"used_traffic": strconv.FormatInt(item.UsedTraffic, 10),
+		"id":                 strconv.FormatInt(item.ID, 10),
+		"user_id":            strconv.FormatInt(item.ID, 10),
+		"username":           item.Username,
+		"status":             item.Status,
+		"used_traffic":       strconv.FormatInt(item.UsedTraffic, 10),
+		"USERNAME":           item.Username,
+		"DATA_USAGE":         formatBytes(item.UsedTraffic),
+		"DATA_LIMIT":         dataLimit,
+		"DATA_LEFT":          dataLeft,
+		"REMAINING_DATA":     dataLeft,
+		"DAYS_LEFT":          daysLeft,
+		"EXPIRE_DATE":        expireDate,
+		"JALALI_EXPIRE_DATE": jalaliExpireDate,
+		"TIME_LEFT":          timeLeft,
+		"STATUS_EMOJI":       statusEmoji,
+		"STATUS_TEXT":        statusText,
+		"SERVER_IPV6":        "",
 	}
 	if strings.TrimSpace(item.ServerIP) != "" {
 		values["server_ip"] = strings.TrimSpace(item.ServerIP)
@@ -364,6 +439,92 @@ func configFormatVariables(item ConfigLinkUser) map[string]string {
 		values["expire"] = strconv.FormatInt(*item.Expire, 10)
 	}
 	return values
+}
+
+func cloneFormatVariables(values map[string]string) map[string]string {
+	result := make(map[string]string, len(values)+4)
+	for key, value := range values {
+		result[key] = value
+	}
+	return result
+}
+
+func configTransportName(inbound ResolvedInbound) string {
+	transport := strings.TrimSpace(stringValue(inbound["network"]))
+	if transport == "" {
+		return "TCP"
+	}
+	return strings.ToUpper(transport)
+}
+
+func formatSubscriptionTimeLeft(secondsLeft int64) string {
+	if secondsLeft <= 0 {
+		return "\u221e"
+	}
+	minutes := secondsLeft / 60
+	seconds := secondsLeft % 60
+	hours := minutes / 60
+	minutes = minutes % 60
+	days := hours / 24
+	hours = hours % 24
+	months := days / 30
+	days = days % 30
+	parts := make([]string, 0, 4)
+	if months > 0 {
+		parts = append(parts, strconv.FormatInt(months, 10)+"m")
+	}
+	if days > 0 {
+		parts = append(parts, strconv.FormatInt(days, 10)+"d")
+	}
+	if hours > 0 && days < 7 {
+		parts = append(parts, strconv.FormatInt(hours, 10)+"h")
+	}
+	if minutes > 0 && months == 0 && days == 0 {
+		parts = append(parts, strconv.FormatInt(minutes, 10)+"m")
+	}
+	if seconds > 0 && months == 0 && days == 0 {
+		parts = append(parts, strconv.FormatInt(seconds, 10)+"s")
+	}
+	if len(parts) == 0 {
+		return "\u221e"
+	}
+	return strings.Join(parts, " ")
+}
+
+func formatJalaliDate(value time.Time) string {
+	year, month, day := gregorianToJalali(value.Date())
+	return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+}
+
+func gregorianToJalali(gy int, gm time.Month, gd int) (int, int, int) {
+	gDaysInMonth := []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+	jDaysInMonth := []int{31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29}
+	gy -= 1600
+	gmInt := int(gm) - 1
+	gd--
+	gDayNo := 365*gy + (gy+3)/4 - (gy+99)/100 + (gy+399)/400
+	for i := 0; i < gmInt; i++ {
+		gDayNo += gDaysInMonth[i]
+	}
+	if gmInt > 1 && ((gy+1600)%4 == 0 && ((gy+1600)%100 != 0 || (gy+1600)%400 == 0)) {
+		gDayNo++
+	}
+	gDayNo += gd
+	jDayNo := gDayNo - 79
+	jNP := jDayNo / 12053
+	jDayNo %= 12053
+	jy := 979 + 33*jNP + 4*(jDayNo/1461)
+	jDayNo %= 1461
+	if jDayNo >= 366 {
+		jy += (jDayNo - 1) / 365
+		jDayNo = (jDayNo - 1) % 365
+	}
+	jm := 0
+	for jm < 11 && jDayNo >= jDaysInMonth[jm] {
+		jDayNo -= jDaysInMonth[jm]
+		jm++
+	}
+	return jy, jm + 1, jDayNo + 1
 }
 
 func applyFormat(value string, variables map[string]string) string {
