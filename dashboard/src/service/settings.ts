@@ -40,9 +40,47 @@ export interface TelegramSettingsUpdatePayload {
 	backup_interval_unit?: "minutes" | "hours" | "days";
 }
 
+const disabledTelegramSettings: TelegramSettingsResponse = {
+	api_token: null,
+	use_telegram: false,
+	proxy_url: null,
+	admin_chat_ids: [],
+	logs_chat_id: null,
+	logs_chat_is_forum: false,
+	default_vless_flow: null,
+	forum_topics: {},
+	event_toggles: {},
+	backup_enabled: false,
+	backup_scope: "database",
+	backup_interval_value: 24,
+	backup_interval_unit: "hours",
+	backup_last_sent_at: null,
+	backup_last_error: null,
+};
+
+const isGoneResponse = (error: unknown): boolean => {
+	const maybeError = error as {
+		status?: number;
+		statusCode?: number;
+		response?: { status?: number };
+		data?: { status?: number };
+	};
+	return (
+		maybeError?.status === 410 ||
+		maybeError?.statusCode === 410 ||
+		maybeError?.response?.status === 410 ||
+		maybeError?.data?.status === 410
+	);
+};
+
 export const getTelegramSettings =
 	async (): Promise<TelegramSettingsResponse> => {
-		return apiFetch("/settings/telegram");
+		try {
+			return await apiFetch("/settings/telegram");
+		} catch (error) {
+			if (isGoneResponse(error)) return disabledTelegramSettings;
+			throw error;
+		}
 	};
 
 export const updateTelegramSettings = async (

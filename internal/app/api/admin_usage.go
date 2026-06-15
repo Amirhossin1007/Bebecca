@@ -390,12 +390,15 @@ func scanUsagePoints(rows *sql.Rows) ([]map[string]any, error) {
 	defer rows.Close()
 	points := []map[string]any{}
 	for rows.Next() {
-		var bucket string
+		var bucket sql.NullString
 		var usedTraffic int64
 		if err := rows.Scan(&bucket, &usedTraffic); err != nil {
 			return nil, err
 		}
-		points = append(points, map[string]any{"date": bucket, "used_traffic": usedTraffic})
+		if !bucket.Valid || strings.TrimSpace(bucket.String) == "" {
+			continue
+		}
+		points = append(points, map[string]any{"date": bucket.String, "used_traffic": usedTraffic})
 	}
 	return points, rows.Err()
 }
