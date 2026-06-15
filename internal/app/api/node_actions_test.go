@@ -35,6 +35,7 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/node", token, `{
 		"name":"de-1",
+		"note":"first note",
 		"address":"192.0.2.10",
 		"port":62050,
 		"api_port":62051,
@@ -49,13 +50,14 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 	var created struct {
 		ID              int64   `json:"id"`
 		Name            string  `json:"name"`
+		Note            *string `json:"note"`
 		Status          string  `json:"status"`
 		NodeCertificate *string `json:"node_certificate"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
-	if created.ID == 0 || created.Name != "de-1" || created.Status != "connecting" {
+	if created.ID == 0 || created.Name != "de-1" || created.Note == nil || *created.Note != "first note" || created.Status != "connecting" {
 		t.Fatalf("unexpected created node: %#v", created)
 	}
 	if created.NodeCertificate == nil || strings.TrimSpace(*created.NodeCertificate) != strings.TrimSpace(certResponse.Certificate) {
@@ -78,6 +80,7 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/node/1", token, `{
 		"name":"de-1-edit",
+		"note":"edited note",
 		"address":"192.0.2.20",
 		"port":62060,
 		"api_port":62061,
@@ -101,6 +104,7 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 	}
 	var updated struct {
 		Name      string `json:"name"`
+		Note      string `json:"note"`
 		Address   string `json:"address"`
 		Port      int64  `json:"port"`
 		APIPort   int64  `json:"api_port"`
@@ -110,7 +114,7 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
 		t.Fatal(err)
 	}
-	if updated.Name != "de-1-edit" || updated.Address != "192.0.2.20" || updated.Port != 62060 || updated.APIPort != 62061 || updated.Status != "disabled" {
+	if updated.Name != "de-1-edit" || updated.Note != "edited note" || updated.Address != "192.0.2.20" || updated.Port != 62060 || updated.APIPort != 62061 || updated.Status != "disabled" {
 		t.Fatalf("unexpected updated node: %#v", updated)
 	}
 	assertDBInt64(t, db, `SELECT data_limit FROM nodes WHERE id = 1`, 4096)

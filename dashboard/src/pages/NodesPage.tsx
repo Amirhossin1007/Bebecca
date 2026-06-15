@@ -35,6 +35,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 	Portal,
+	Select,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -194,6 +195,14 @@ const formatNodeLimit = (value?: number | null) =>
 const formatNodeSpeed = (value?: number | null) =>
 	value !== null && value !== undefined ? `${formatBytes(value, 2)}/s` : "-";
 
+type NodeSortKey = "name" | "status" | "usage" | "bandwidth" | "cpu" | "ram";
+type NodeSortDirection = "asc" | "desc";
+
+const getNodeUsage = (node: NodeType) => (node.uplink ?? 0) + (node.downlink ?? 0);
+
+const getNodeBandwidth = (node: NodeType) =>
+	(node.upload_speed ?? 0) + (node.download_speed ?? 0);
+
 type VersionDialogTarget =
 	| { type: "node"; node: NodeType }
 	| { type: "bulk" };
@@ -244,6 +253,13 @@ export const NodesPage: FC = () => {
 	const [editingNode, setEditingNode] = useState<NodeType | null>(null);
 	const [isAddNodeOpen, setAddNodeOpen] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
+	const [statusFilter, setStatusFilter] = useState("all");
+	const [installModeFilter, setInstallModeFilter] = useState("all");
+	const [sortKey, setSortKey] = useState<NodeSortKey>("name");
+	const [sortDirection, setSortDirection] =
+		useState<NodeSortDirection>("asc");
+	const [page, setPage] = useState(1);
+	const [pageSize, setPageSize] = useState(12);
 	const viewModeStorageKey = "nodesViewMode";
 	const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
 		if (typeof window === "undefined") {
@@ -806,16 +822,101 @@ export const NodesPage: FC = () => {
 	const filteredNodes = useMemo(() => {
 		if (!nodes) return [];
 		const term = searchTerm.trim().toLowerCase();
-		if (!term) return nodes;
 		return nodes.filter((node) => {
 			const name = (node.name ?? "").toLowerCase();
 			const address = (node.address ?? "").toLowerCase();
 			const version = (node.xray_version ?? "").toLowerCase();
-			return (
-				name.includes(term) || address.includes(term) || version.includes(term)
-			);
+			const note = (node.note ?? "").toLowerCase();
+			const runtime = (
+				node.node_binary_tag ||
+				node.node_service_version ||
+				""
+			).toLowerCase();
+			const matchesSearch =
+				!term ||
+				name.includes(term) ||
+				address.includes(term) ||
+				version.includes(term) ||
+				runtime.includes(term) ||
+				note.includes(term);
+			const matchesStatus =
+				statusFilter === "all" || (node.status || "error") === statusFilter;
+			const matchesInstallMode =
+				installModeFilter === "all" ||
+				(node.node_install_mode || "unknown") === installModeFilter;
+			return matchesSearch && matchesStatus && matchesInstallMode;
 		});
-	}, [nodes, searchTerm]);
+	}, [nodes, searchTerm, statusFilter, installModeFilter]);
+
+	const sortedNodes = useMemo(() => {
+		const sorted = [...filteredNodes];
+		sorted.sort((left, right) => {
+			const direction = sortDirection === "asc" ? 1 : -1;
+			const compareText = (a: string, b: string) =>
+				a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+			let result = 0;
+			switch (sortKey) {
+				case "usage":
+					result = getNodeUsage(left) - getNodeUsage(right);
+					break;
+				case "bandwidth":
+					result = getNodeBandwidth(left) - getNodeBandwidth(right);
+					break;
+				case "cpu":
+					result = (left.cpu_usage_percent ?? -1) - (right.cpu_usage_percent ?? -1);
+					break;
+				case "ram":
+					result =
+						(left.memory_usage_percent ?? -1) -
+						(right.memory_usage_percent ?? -1);
+					break;
+				case "status":
+					result = compareText(left.status || "error", right.status || "error");
+					break;
+				case "name":
+				default:
+					result = compareText(left.name || "", right.name || "");
+					break;
+			}
+			return result * direction;
+		});
+		return sorted;
+	}, [filteredNodes, sortDirection, sortKey]);
+
+	const totalPages = Math.max(1, Math.ceil(sortedNodes.length / pageSize));
+	const currentPage = Math.min(page, totalPages);
+	const paginatedNodes = useMemo(
+		() =>
+			sortedNodes.slice(
+				(currentPage - 1) * pageSize,
+				currentPage * pageSize,
+			),
+		[sortedNodes, currentPage, pageSize],
+	);
+
+	const paginationStart =
+		sortedNodes.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+	const paginationEnd = Math.min(currentPage * pageSize, sortedNodes.length);
+
+	const handleSort = (key: NodeSortKey) => {
+		if (sortKey === key) {
+			setSortDirection((value) => (value === "asc" ? "desc" : "asc"));
+			return;
+		}
+		setSortKey(key);
+		setSortDirection(
+			key === "usage" || key === "bandwidth" || key === "cpu" || key === "ram"
+				? "desc"
+				: "asc",
+		);
+	};
+
+	const sortLabel = (key: NodeSortKey, label: string) =>
+		sortKey === key ? `${label} ${sortDirection === "asc" ? "↑" : "↓"}` : label;
+
+	useEffect(() => {
+		setPage(1);
+	}, [searchTerm, statusFilter, installModeFilter, sortKey, sortDirection, pageSize]);
 
 	const nodeSummary = useMemo(() => {
 		const items = nodes ?? [];
@@ -846,7 +947,6 @@ export const NodesPage: FC = () => {
 	}, [error, t]);
 
 	const hasError = Boolean(errorMessage);
-	const normalizedSearch = searchTerm.trim().toLowerCase();
 
 	const versionDialogLoading =
 		versionDialogTarget?.type === "node"
@@ -1017,6 +1117,7 @@ export const NodesPage: FC = () => {
 						alignItems="center"
 						justifyContent="flex-end"
 						w={{ base: "full", md: "auto" }}
+						flexWrap="wrap"
 					>
 						<InputGroup size="sm" maxW={{ base: "full", md: "260px" }}>
 							<InputLeftElement pointerEvents="none">
@@ -1028,6 +1129,53 @@ export const NodesPage: FC = () => {
 								placeholder={t("nodes.searchPlaceholder", "Search nodes")}
 							/>
 						</InputGroup>
+						<Select
+							size="sm"
+							value={statusFilter}
+							onChange={(event) => setStatusFilter(event.target.value)}
+							w={{ base: "full", sm: "150px" }}
+						>
+							<option value="all">{t("nodes.filters.allStatuses", "All status")}</option>
+							<option value="connected">{t("status.connected", "Connected")}</option>
+							<option value="connecting">{t("status.connecting", "Connecting")}</option>
+							<option value="error">{t("status.error", "Error")}</option>
+							<option value="disabled">{t("status.disabled", "Disabled")}</option>
+							<option value="limited">{t("status.limited", "Limited")}</option>
+						</Select>
+						<Select
+							size="sm"
+							value={installModeFilter}
+							onChange={(event) => setInstallModeFilter(event.target.value)}
+							w={{ base: "full", sm: "150px" }}
+						>
+							<option value="all">{t("nodes.filters.allModes", "All modes")}</option>
+							<option value="binary">{t("nodes.installMode.binary", "Binary")}</option>
+							<option value="docker">{t("nodes.installMode.docker", "Docker")}</option>
+							<option value="unknown">{t("nodes.installMode.unknown", "Unknown")}</option>
+						</Select>
+						<Select
+							size="sm"
+							value={`${sortKey}.${sortDirection}`}
+							onChange={(event) => {
+								const [nextKey, nextDirection] = event.target.value.split(".");
+								setSortKey(nextKey as NodeSortKey);
+								setSortDirection(nextDirection as NodeSortDirection);
+							}}
+							w={{ base: "full", sm: "170px" }}
+						>
+							<option value="name.asc">{t("nodes.sort.nameAsc", "Name A-Z")}</option>
+							<option value="name.desc">{t("nodes.sort.nameDesc", "Name Z-A")}</option>
+							<option value="usage.asc">{t("nodes.sort.usageAsc", "Usage low-high")}</option>
+							<option value="usage.desc">{t("nodes.sort.usageDesc", "Usage high-low")}</option>
+							<option value="status.asc">{t("nodes.sort.statusAsc", "Status A-Z")}</option>
+							<option value="status.desc">{t("nodes.sort.statusDesc", "Status Z-A")}</option>
+							<option value="bandwidth.asc">{t("nodes.sort.bandwidthAsc", "Bandwidth low-high")}</option>
+							<option value="bandwidth.desc">{t("nodes.sort.bandwidthDesc", "Bandwidth high-low")}</option>
+							<option value="cpu.asc">{t("nodes.sort.cpuAsc", "CPU low-high")}</option>
+							<option value="cpu.desc">{t("nodes.sort.cpuDesc", "CPU high-low")}</option>
+							<option value="ram.asc">{t("nodes.sort.ramAsc", "RAM low-high")}</option>
+							<option value="ram.desc">{t("nodes.sort.ramDesc", "RAM high-low")}</option>
+						</Select>
 						<Tooltip label={t("nodes.refreshNodes", "Refresh nodes")}>
 							<IconButton
 								aria-label={t("nodes.refreshNodes", "Refresh nodes")}
@@ -1156,8 +1304,20 @@ export const NodesPage: FC = () => {
 					<Table size="sm" variant="simple" minW="1120px">
 						<Thead bg={nodePanelBg}>
 							<Tr>
-								<Th minW="180px">{t("nodes.columns.name", "Name")}</Th>
-								<Th minW="130px">{t("nodes.columns.status", "Status")}</Th>
+								<Th
+									minW="220px"
+									cursor="pointer"
+									onClick={() => handleSort("name")}
+								>
+									{sortLabel("name", t("nodes.columns.name", "Name"))}
+								</Th>
+								<Th
+									minW="130px"
+									cursor="pointer"
+									onClick={() => handleSort("status")}
+								>
+									{sortLabel("status", t("nodes.columns.status", "Status"))}
+								</Th>
 								<Th minW="150px">{t("nodes.columns.address", "Address")}</Th>
 								<Th minW="130px">
 									{t("nodes.columns.xrayVersion", "Xray version")}
@@ -1165,21 +1325,47 @@ export const NodesPage: FC = () => {
 								<Th minW="150px">
 									{t("nodes.columns.nodeRuntime", "Node / install")}
 								</Th>
-								<Th minW="150px">
-									{t("nodes.columns.trafficLimit", "Traffic / Limit")}
+								<Th
+									minW="150px"
+									cursor="pointer"
+									onClick={() => handleSort("usage")}
+								>
+									{sortLabel(
+										"usage",
+										t("nodes.columns.trafficLimit", "Traffic / Limit"),
+									)}
 								</Th>
-								<Th minW="130px">
-									{t("nodes.columns.bandwidth", "Upload / Download")}
+								<Th
+									minW="130px"
+									cursor="pointer"
+									onClick={() => handleSort("bandwidth")}
+								>
+									{sortLabel(
+										"bandwidth",
+										t("nodes.columns.bandwidth", "Upload / Download"),
+									)}
 								</Th>
-								<Th minW="110px">{t("nodes.columns.cpu", "CPU")}</Th>
-								<Th minW="130px">{t("nodes.columns.ram", "RAM")}</Th>
+								<Th
+									minW="110px"
+									cursor="pointer"
+									onClick={() => handleSort("cpu")}
+								>
+									{sortLabel("cpu", t("nodes.columns.cpu", "CPU"))}
+								</Th>
+								<Th
+									minW="130px"
+									cursor="pointer"
+									onClick={() => handleSort("ram")}
+								>
+									{sortLabel("ram", t("nodes.columns.ram", "RAM"))}
+								</Th>
 								<Th minW="160px">
 									{t("nodes.columns.certificate", "Certificate")}
 								</Th>
 							</Tr>
 						</Thead>
 						<Tbody>
-							{filteredNodes.map((node) => {
+							{paginatedNodes.map((node) => {
 								const status = node.status || "error";
 								const nodeId = node?.id as number | undefined;
 								const isEnabled = status !== "disabled" && status !== "limited";
@@ -1416,9 +1602,14 @@ export const NodesPage: FC = () => {
 														</MenuList>
 													</Portal>
 												</Menu>
-												<VStack align="flex-start" spacing={1}>
+												<VStack align="flex-start" spacing={1} minW={0}>
 													<HStack spacing={2} align="center" flexWrap="wrap">
-														<Text fontWeight="semibold">
+														<Text
+															fontWeight="semibold"
+															maxW="220px"
+															noOfLines={2}
+															wordBreak="break-word"
+														>
 															{node.name ||
 																t("nodes.unnamedNode", "Unnamed node")}
 														</Text>
@@ -1426,6 +1617,17 @@ export const NodesPage: FC = () => {
 													<Text fontSize="xs" color="gray.500">
 														{t("nodes.id", "ID")}: {node.id ?? EMPTY_CELL_VALUE}
 													</Text>
+													{node.note && (
+														<Text
+															fontSize="xs"
+															color="gray.500"
+															maxW="240px"
+															noOfLines={2}
+															wordBreak="break-word"
+														>
+															{node.note}
+														</Text>
+													)}
 												</VStack>
 											</HStack>
 										</Td>
@@ -1523,6 +1725,8 @@ export const NodesPage: FC = () => {
 											<VStack align="flex-start" spacing={1}>
 												<HStack
 													spacing={1}
+													maxW="180px"
+													flexWrap="nowrap"
 													role={certificateCopyValue ? "button" : undefined}
 													tabIndex={certificateCopyValue ? 0 : undefined}
 													cursor={certificateCopyValue ? "pointer" : "default"}
@@ -1547,6 +1751,8 @@ export const NodesPage: FC = () => {
 												>
 													<Tag
 														size="sm"
+														flexShrink={1}
+														minW={0}
 														colorScheme={
 															node.uses_default_certificate
 																? "orange"
@@ -1568,6 +1774,7 @@ export const NodesPage: FC = () => {
 														variant="ghost"
 														isDisabled={!certificateCopyValue}
 														pointerEvents="none"
+														flexShrink={0}
 													/>
 												</HStack>
 												{node.certificate_public_key && (
@@ -1621,7 +1828,7 @@ export const NodesPage: FC = () => {
 			) : (
 				<SimpleGrid columns={nodeGridColumns} spacing={4}>
 					{filteredNodes.length > 0 ? (
-						filteredNodes.map((node) => {
+						paginatedNodes.map((node) => {
 							const status = node.status || "error";
 							const nodeId = node?.id as number | undefined;
 							const isEnabled = status !== "disabled" && status !== "limited";
@@ -1697,7 +1904,13 @@ export const NodesPage: FC = () => {
 								<VStack align="stretch" spacing={4}>
 									<Stack spacing={2}>
 										<HStack spacing={3} align="center" flexWrap="wrap">
-											<Text fontWeight="semibold" fontSize="lg">
+											<Text
+												fontWeight="semibold"
+												fontSize="lg"
+												noOfLines={2}
+												wordBreak="break-word"
+												minW={0}
+											>
 												{node.name || t("nodes.unnamedNode", "Unnamed node")}
 											</Text>
 											{statusDisplay}
@@ -1724,6 +1937,16 @@ export const NodesPage: FC = () => {
 												</Button>
 											)}
 										</HStack>
+										{node.note && (
+											<Text
+												fontSize="sm"
+												color="gray.500"
+												noOfLines={3}
+												wordBreak="break-word"
+											>
+												{node.note}
+											</Text>
+										)}
 										<HStack spacing={2} flexWrap="wrap">
 											<Tag colorScheme="blue" size="sm">
 												{node.xray_version
@@ -2018,6 +2241,61 @@ export const NodesPage: FC = () => {
 						</Box>
 					)}
 				</SimpleGrid>
+			)}
+
+			{filteredNodes.length > 0 && (
+				<Stack
+					direction={{ base: "column", md: "row" }}
+					align={{ base: "stretch", md: "center" }}
+					justify="space-between"
+					spacing={3}
+					borderWidth="1px"
+					borderColor={nodePanelBorder}
+					borderRadius="md"
+					bg={nodePanelBg}
+					p={3}
+				>
+					<Text fontSize="sm" color="gray.500">
+						{t("nodes.paginationSummary", {
+							defaultValue: "Showing {{start}}-{{end}} of {{total}} nodes",
+							start: paginationStart,
+							end: paginationEnd,
+							total: filteredNodes.length,
+						})}
+					</Text>
+					<HStack spacing={2} justify={{ base: "space-between", md: "flex-end" }}>
+						<Select
+							size="sm"
+							value={pageSize}
+							onChange={(event) => setPageSize(Number(event.target.value))}
+							w="90px"
+						>
+							<option value={12}>12</option>
+							<option value={24}>24</option>
+							<option value={48}>48</option>
+							<option value={96}>96</option>
+						</Select>
+						<ButtonGroup size="sm" isAttached variant="outline">
+							<Button
+								onClick={() => setPage((value) => Math.max(1, value - 1))}
+								isDisabled={currentPage <= 1}
+							>
+								{t("previous", "Previous")}
+							</Button>
+							<Button isDisabled>
+								{currentPage} / {totalPages}
+							</Button>
+							<Button
+								onClick={() =>
+									setPage((value) => Math.min(totalPages, value + 1))
+								}
+								isDisabled={currentPage >= totalPages}
+							>
+								{t("next", "Next")}
+							</Button>
+						</ButtonGroup>
+					</HStack>
+				</Stack>
 			)}
 
 			<CoreVersionDialog

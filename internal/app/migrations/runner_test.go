@@ -50,7 +50,7 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("version: %v", err)
 	}
-	if !version.HasGoose || version.GooseVersion != 19 {
+	if !version.HasGoose || version.GooseVersion != 20 {
 		t.Fatalf("unexpected version after first run: %#v", version)
 	}
 	assertTableColumns(t, ctx, db, "sqlite", "admins", []string{"id", "username", "role", "permissions", "status", "created_traffic", "delete_user_usage_limit"})
@@ -66,7 +66,7 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertNoTable(t, ctx, db, "sqlite", "exclude_inbounds_association")
 	assertNoTable(t, ctx, db, "sqlite", "access_insights")
 	assertTableColumns(t, ctx, db, "sqlite", "hosts", []string{"id", "remark", "inbound_tag", "noise_setting", "random_user_agent"})
-	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"id", "name", "certificate", "certificate_key", "xray_config_mode"})
+	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"id", "name", "note", "certificate", "certificate_key", "xray_config_mode"})
 	assertTableColumns(t, ctx, db, "sqlite", "node_operations", []string{"operation_type", "status", "idempotency_key"})
 	assertTableColumns(t, ctx, db, "sqlite", "pending_node_certificates", []string{"token", "certificate", "certificate_key", "expires_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "xray_config", []string{"id", "data", "created_at", "updated_at"})
@@ -118,7 +118,7 @@ func TestRunMigrationsExternalDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("external version: %v", err)
 	}
-	if !version.HasGoose || version.GooseVersion != 19 {
+	if !version.HasGoose || version.GooseVersion != 20 {
 		t.Fatalf("unexpected external version: %#v", version)
 	}
 	for _, table := range []string{"admins", "users", "nodes", "services", "subscription_settings", "goose_db_version"} {
@@ -178,7 +178,7 @@ func TestKnownBadAlembicMergeRevisionIsBypassed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("version after migration: %v", err)
 	}
-	if !version.HasGoose || version.GooseVersion != 19 {
+	if !version.HasGoose || version.GooseVersion != 20 {
 		t.Fatalf("unexpected goose version after bypass: %#v", version)
 	}
 	if !version.LegacyRevisionKnownBad || !strings.Contains(version.LegacyRevisionHandling, "merge/no-op") {
@@ -225,7 +225,7 @@ VALUES
 	if err != nil {
 		t.Fatalf("version after migration: %v", err)
 	}
-	if !version.HasGoose || version.GooseVersion != 19 {
+	if !version.HasGoose || version.GooseVersion != 20 {
 		t.Fatalf("unexpected goose version after repair: %#v", version)
 	}
 	if !version.LegacyRevisionKnownBad || !strings.Contains(version.LegacyRevisionHandling, "admin role repair") {
@@ -281,7 +281,7 @@ func TestDetectGooseVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("version: %v", err)
 	}
-	if !version.HasGoose || version.GooseVersion != 19 {
+	if !version.HasGoose || version.GooseVersion != 20 {
 		t.Fatalf("unexpected goose version: %#v", version)
 	}
 }
@@ -302,14 +302,14 @@ func TestRunMigrationsToSQLite(t *testing.T) {
 	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"id", "name", "address", "port"})
 	assertNoTable(t, ctx, db, "sqlite", "services")
 
-	if err := RunMigrationsTo(ctx, db, "sqlite", 19); err != nil {
+	if err := RunMigrationsTo(ctx, db, "sqlite", 20); err != nil {
 		t.Fatalf("run migrations to final checkpoint: %v", err)
 	}
 	finalVersion, err := Version(ctx, db, "sqlite")
 	if err != nil {
 		t.Fatalf("version after final checkpoint: %v", err)
 	}
-	if finalVersion.GooseVersion != 19 {
+	if finalVersion.GooseVersion != 20 {
 		t.Fatalf("unexpected final version: %#v", finalVersion)
 	}
 	assertTableColumns(t, ctx, db, "sqlite", "services", []string{"id", "name", "used_traffic"})
@@ -881,7 +881,7 @@ CREATE TABLE outbound_traffic (
 		t.Fatalf("run migrations: %v", err)
 	}
 
-	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"certificate", "certificate_key", "xray_config_mode", "xray_config", "data_limit", "proxy_enabled", "use_nobetci"})
+	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"note", "certificate", "certificate_key", "xray_config_mode", "xray_config", "data_limit", "proxy_enabled", "use_nobetci"})
 	assertDBStringMigration(t, db, `SELECT geo_mode FROM nodes WHERE id = 2`, "default")
 	assertDBStringMigration(t, db, `SELECT xray_config_mode FROM nodes WHERE id = 2`, "default")
 	assertDBInt64Migration(t, db, `SELECT uplink FROM node_usages WHERE id = 1`, 1000)

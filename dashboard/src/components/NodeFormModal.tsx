@@ -18,6 +18,7 @@ import {
 	Switch,
 	Tag,
 	Text,
+	Textarea,
 	Tooltip,
 	useClipboard,
 	useToast,
@@ -482,14 +483,29 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 						{!isAddMode && node && (
 							<Stack className="xray-dialog-section" spacing={4}>
 								<HStack justify="space-between" align="flex-start" gap={3}>
-									<VStack align="flex-start" spacing={1}>
+									<VStack align="flex-start" spacing={1} minW={0}>
 										<Text fontWeight="semibold">
 											{t("nodes.overview", "Node overview")}
 										</Text>
-										<Text fontSize="xs" color="gray.500">
+										<Text
+											fontSize="xs"
+											color="gray.500"
+											noOfLines={2}
+											wordBreak="break-word"
+										>
 											{node.name || t("nodes.unnamedNode", "Unnamed node")} ·{" "}
 											{t("nodes.id", "ID")}: {node.id ?? "-"}
 										</Text>
+										{node.note && (
+											<Text
+												fontSize="xs"
+												color="gray.500"
+												noOfLines={3}
+												wordBreak="break-word"
+											>
+												{node.note}
+											</Text>
+										)}
 									</VStack>
 									<NodeModalStatusBadge status={nodeStatus} compact />
 								</HStack>
@@ -633,9 +649,16 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 
 						{!isAddMode && nodeCertificateValue && (
 							<Stack className="xray-dialog-section" spacing={3}>
-								<HStack justify="space-between" align="center">
-									<Text fontWeight="medium">{t("nodes.certificate")}</Text>
-									<HStack spacing={2}>
+								<Stack
+									direction={{ base: "column", sm: "row" }}
+									justify="space-between"
+									align={{ base: "stretch", sm: "center" }}
+									spacing={2}
+								>
+									<Text fontWeight="medium" minW={0}>
+										{t("nodes.certificate")}
+									</Text>
+									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
 										<Button
 											size="xs"
 											variant="outline"
@@ -678,7 +701,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 											</IconButton>
 										</Tooltip>
 									</HStack>
-								</HStack>
+								</Stack>
 								<Collapse in={showCertificate} animateOpacity>
 									<Box
 										borderWidth="1px"
@@ -717,6 +740,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 									label={t("nodes.nodeName")}
 									size="sm"
 									placeholder="Rebecca-S2"
+									maxLength={120}
 									{...form.register("name")}
 									error={getInputError(form.formState?.errors?.name)}
 								/>
@@ -728,6 +752,22 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 									error={getInputError(form.formState?.errors?.address)}
 								/>
 							</SimpleGrid>
+							<FormControl isInvalid={Boolean(form.formState?.errors?.note)}>
+								<FormLabel>{t("nodes.note", "Note")}</FormLabel>
+								<Textarea
+									size="sm"
+									maxLength={500}
+									rows={3}
+									placeholder={t(
+										"nodes.notePlaceholder",
+										"Optional internal note for this node",
+									)}
+									{...form.register("note")}
+								/>
+								<FormErrorMessage>
+									{getInputError(form.formState?.errors?.note)}
+								</FormErrorMessage>
+							</FormControl>
 							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 								<Input
 									label={t("nodes.nodePort")}

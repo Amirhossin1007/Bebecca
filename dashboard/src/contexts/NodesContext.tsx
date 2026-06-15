@@ -29,7 +29,8 @@ const configSchema = z
 
 export const NodeSchema = z
 	.object({
-		name: z.string().min(1),
+		name: z.string().min(1).max(120),
+		note: z.string().max(500).nullable().optional(),
 		address: z
 			.string()
 			.min(1)
@@ -162,6 +163,7 @@ type NodeServiceUpdateRequest = NodeType & {
 
 export const getNodeDefaultValues = (): NodeType => ({
 	name: "",
+	note: "",
 	address: "",
 	port: 62050,
 	api_port: 62051,

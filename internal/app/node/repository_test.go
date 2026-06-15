@@ -72,11 +72,12 @@ func TestNodeRepositoryCreateUpdateResetDeleteAndRegenerate(t *testing.T) {
 	name := "de-1-edit"
 	disabled := StatusDisabled
 	limit := int64(5000)
-	updated, err := repo.UpdateNode(ctx, created.ID, NodeModify{Name: &name, Status: &disabled, DataLimit: &limit})
+	note := "internal note"
+	updated, err := repo.UpdateNode(ctx, created.ID, NodeModify{Name: &name, Note: &note, Status: &disabled, DataLimit: &limit})
 	if err != nil {
 		t.Fatalf("UpdateNode error: %v", err)
 	}
-	if updated.Name != name || updated.Status != StatusDisabled || updated.DataLimit == nil || *updated.DataLimit != limit {
+	if updated.Name != name || updated.Note == nil || *updated.Note != note || updated.Status != StatusDisabled || updated.DataLimit == nil || *updated.DataLimit != limit {
 		t.Fatalf("unexpected updated node: %#v", updated)
 	}
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
@@ -106,6 +107,42 @@ func TestNodeRepositoryCreateUpdateResetDeleteAndRegenerate(t *testing.T) {
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1`, 0)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1`, 0)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM outbound_traffic WHERE node_id = 1`, 0)
+}
+
+func TestNodeRepositoryDoesNotSyncForNonConnectionEdits(t *testing.T) {
+	db := newNodeTestDB(t)
+	repo := NewRepository(db, "sqlite").WithNow(fixedNow())
+	ctx := context.Background()
+
+	created, err := repo.CreateNode(ctx, baseNodeCreate("quiet-node"))
+	if err != nil {
+		t.Fatalf("CreateNode error: %v", err)
+	}
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+
+	name := "quiet-node-renamed"
+	note := "does not reconnect"
+	coefficient := 2.0
+	limit := int64(2048)
+	updated, err := repo.UpdateNode(ctx, created.ID, NodeModify{
+		Name:             &name,
+		Note:             &note,
+		UsageCoefficient: &coefficient,
+		DataLimit:        &limit,
+	})
+	if err != nil {
+		t.Fatalf("UpdateNode non-connection fields error: %v", err)
+	}
+	if updated.Status != StatusConnecting || updated.Note == nil || *updated.Note != note {
+		t.Fatalf("unexpected non-connection update: %#v", updated)
+	}
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+
+	address := "198.51.100.10"
+	if _, err := repo.UpdateNode(ctx, created.ID, NodeModify{Address: &address}); err != nil {
+		t.Fatalf("UpdateNode connection field error: %v", err)
+	}
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 2)
 }
 
 func TestNodeCreateRollsBackWhenNodeOperationFails(t *testing.T) {
@@ -154,6 +191,7 @@ func newNodeTestDB(t *testing.T) *sql.DB {
 		`CREATE TABLE nodes (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT UNIQUE,
+			note TEXT NULL,
 			address TEXT NOT NULL,
 			port INTEGER NOT NULL,
 			api_port INTEGER NOT NULL,

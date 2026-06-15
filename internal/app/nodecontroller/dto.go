@@ -91,6 +91,7 @@ type NodeListResult struct {
 type NodeListItem struct {
 	ID                     int64   `json:"id"`
 	Name                   string  `json:"name"`
+	Note                   *string `json:"note"`
 	Address                string  `json:"address"`
 	Port                   int     `json:"port"`
 	APIPort                int     `json:"api_port"`

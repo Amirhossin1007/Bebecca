@@ -6,6 +6,7 @@ func flattenNodeItem(node nodecontroller.NodeListItem) map[string]any {
 	return map[string]any{
 		"id":                       node.ID,
 		"name":                     node.Name,
+		"note":                     node.Note,
 		"address":                  node.Address,
 		"port":                     node.Port,
 		"api_port":                 node.APIPort,

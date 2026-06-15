@@ -13,6 +13,10 @@ import (
 )
 
 const DefaultPendingCertificateTTL = 30 * time.Minute
+const (
+	MaxNodeNameLength = 120
+	MaxNodeNoteLength = 500
+)
 
 type Repository struct {
 	db      *sql.DB
@@ -84,12 +88,13 @@ func (r Repository) CreateNode(ctx context.Context, payload NodeCreate) (NodeRes
 	now := r.now().UTC()
 	res, err := tx.ExecContext(ctx, `
 INSERT INTO nodes (
-	name, address, port, api_port, status, last_status_change, created_at,
+	name, note, address, port, api_port, status, last_status_change, created_at,
 	uplink, downlink, usage_coefficient, geo_mode, data_limit,
 	use_nobetci, nobetci_port, proxy_enabled, proxy_type, proxy_host, proxy_port,
 	proxy_username, proxy_password, xray_config_mode, xray_config
-) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		strings.TrimSpace(payload.Name),
+		nullableStringPtr(payload.Note, true),
 		strings.TrimSpace(payload.Address),
 		defaultInt(payload.Port, 62050),
 		defaultInt(payload.APIPort, 62051),
@@ -163,6 +168,9 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 		if name == "" {
 			return NodeResponse{}, wrapInvalid("name is required")
 		}
+		if len([]rune(name)) > MaxNodeNameLength {
+			return NodeResponse{}, wrapInvalid("name can be a maximum of %d characters", MaxNodeNameLength)
+		}
 		if err := r.ensureNodeNameAvailableTx(ctx, tx, name, nodeID); err != nil {
 			return NodeResponse{}, err
 		}
@@ -176,19 +184,40 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 	if payload.Name != nil {
 		add("name", strings.TrimSpace(*payload.Name))
 	}
+	if payload.Note != nil {
+		note := strings.TrimSpace(*payload.Note)
+		if len([]rune(note)) > MaxNodeNoteLength {
+			return NodeResponse{}, wrapInvalid("note can be a maximum of %d characters", MaxNodeNoteLength)
+		}
+		add("note", emptyStringAsNil(note))
+	}
+	connectionChanged := false
+	markConnectionChanged := func() {
+		connectionChanged = true
+	}
 	if payload.Address != nil {
 		address := strings.TrimSpace(*payload.Address)
 		if address == "" {
 			return NodeResponse{}, wrapInvalid("address is required")
 		}
 		add("address", address)
+		if address != current.Address {
+			markConnectionChanged()
+		}
 	}
 	if payload.Port != nil {
 		add("port", *payload.Port)
+		if *payload.Port != current.Port {
+			markConnectionChanged()
+		}
 	}
 	if payload.APIPort != nil {
 		add("api_port", *payload.APIPort)
+		if *payload.APIPort != current.APIPort {
+			markConnectionChanged()
+		}
 	}
+	statusReconnectRequested := false
 	if payload.Status != nil {
 		status := strings.TrimSpace(*payload.Status)
 		switch status {
@@ -202,12 +231,11 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 		case StatusConnected, StatusConnecting, StatusError:
 			add("status", StatusConnecting)
 			add("message", nil)
+			statusReconnectRequested = true
 		default:
 			return NodeResponse{}, wrapInvalid("invalid node status")
 		}
 		add("last_status_change", dbTimestamp(r.now().UTC()))
-	} else if current.Status != StatusDisabled && current.Status != StatusLimited {
-		add("status", StatusConnecting)
 	}
 	if payload.UsageCoefficient != nil {
 		if *payload.UsageCoefficient <= 0 {
@@ -224,10 +252,12 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 		if mode == XrayConfigModeDefault {
 			add("xray_config", nil)
 		}
+		markConnectionChanged()
 	}
 	if len(payload.XrayConfig) > 0 {
 		add("xray_config", string(payload.XrayConfig))
 		add("xray_config_mode", XrayConfigModeCustom)
+		markConnectionChanged()
 	}
 	if payload.DataLimit != nil {
 		add("data_limit", nullableInt64Ptr(payload.DataLimit))
@@ -251,6 +281,9 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 	}
 	if payload.ProxyEnabled != nil {
 		add("proxy_enabled", boolInt(*payload.ProxyEnabled))
+		if *payload.ProxyEnabled != current.ProxyEnabled {
+			markConnectionChanged()
+		}
 		if !*payload.ProxyEnabled {
 			add("proxy_type", nil)
 			add("proxy_host", nil)
@@ -261,18 +294,38 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 	}
 	if payload.ProxyType != nil {
 		add("proxy_type", strings.TrimSpace(string(*payload.ProxyType)))
+		if current.ProxyType == nil || strings.TrimSpace(*current.ProxyType) != strings.TrimSpace(string(*payload.ProxyType)) {
+			markConnectionChanged()
+		}
 	}
 	if payload.ProxyHost != nil {
 		add("proxy_host", emptyStringAsNil(*payload.ProxyHost))
+		if stringPtrValue(current.ProxyHost) != strings.TrimSpace(*payload.ProxyHost) {
+			markConnectionChanged()
+		}
 	}
 	if payload.ProxyPort != nil {
 		add("proxy_port", nullableInt64Ptr(payload.ProxyPort))
+		if current.ProxyPort == nil || *current.ProxyPort != *payload.ProxyPort {
+			markConnectionChanged()
+		}
 	}
 	if payload.ProxyUsername != nil {
 		add("proxy_username", emptyStringAsNil(*payload.ProxyUsername))
+		if stringPtrValue(current.ProxyUsername) != strings.TrimSpace(*payload.ProxyUsername) {
+			markConnectionChanged()
+		}
 	}
 	if payload.ProxyPassword != nil {
 		add("proxy_password", emptyStringAsNil(*payload.ProxyPassword))
+		if stringPtrValue(current.ProxyPassword) != strings.TrimSpace(*payload.ProxyPassword) {
+			markConnectionChanged()
+		}
+	}
+	if payload.Status == nil && connectionChanged && current.Status != StatusDisabled && current.Status != StatusLimited {
+		add("status", StatusConnecting)
+		add("message", nil)
+		add("last_status_change", dbTimestamp(r.now().UTC()))
 	}
 	if len(updates) > 0 {
 		args = append(args, nodeID)
@@ -287,7 +340,7 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 	if payload.Status != nil {
 		updatedStatus = strings.TrimSpace(*payload.Status)
 	}
-	if updatedStatus != StatusDisabled && updatedStatus != StatusLimited {
+	if (connectionChanged || statusReconnectRequested) && updatedStatus != StatusDisabled && updatedStatus != StatusLimited {
 		if err := r.enqueueNodeOperationTx(ctx, tx, NodeOperationSyncConfig, &nodeID, nil, map[string]any{"node_id": nodeID}, r.now().UTC()); err != nil {
 			return NodeResponse{}, err
 		}
@@ -469,16 +522,16 @@ func (r Repository) consumePendingCertificateTx(ctx context.Context, tx *sql.Tx,
 func (r Repository) getNode(ctx context.Context, q queryer, nodeID int64, defaultCert string) (NodeResponse, error) {
 	var row NodeResponse
 	var dataLimit, nobetciPort, proxyPort sql.NullInt64
-	var proxyType, proxyHost, proxyUsername, proxyPassword, message, xrayVersion, cert sql.NullString
+	var note, proxyType, proxyHost, proxyUsername, proxyPassword, message, xrayVersion, cert sql.NullString
 	var useNobetci, proxyEnabled bool
 	err := q.QueryRowContext(ctx, `SELECT
-	id, COALESCE(name, ''), address, port, api_port, usage_coefficient, data_limit,
+	id, COALESCE(name, ''), note, address, port, api_port, usage_coefficient, data_limit,
 	use_nobetci, nobetci_port, proxy_enabled, proxy_type, proxy_host, proxy_port,
 	proxy_username, proxy_password, status, message, xray_version,
 	COALESCE(geo_mode, 'default'), COALESCE(xray_config_mode, 'default'),
 	COALESCE(uplink, 0), COALESCE(downlink, 0), certificate
 FROM nodes WHERE id = ? LIMIT 1`, nodeID).Scan(
-		&row.ID, &row.Name, &row.Address, &row.Port, &row.APIPort, &row.UsageCoefficient, &dataLimit,
+		&row.ID, &row.Name, &note, &row.Address, &row.Port, &row.APIPort, &row.UsageCoefficient, &dataLimit,
 		&useNobetci, &nobetciPort, &proxyEnabled, &proxyType, &proxyHost, &proxyPort,
 		&proxyUsername, &proxyPassword, &row.Status, &message, &xrayVersion,
 		&row.GeoMode, &row.XrayConfigMode, &row.Uplink, &row.Downlink, &cert,
@@ -492,6 +545,7 @@ FROM nodes WHERE id = ? LIMIT 1`, nodeID).Scan(
 	if row.UsageCoefficient <= 0 {
 		row.UsageCoefficient = 1
 	}
+	row.Note = stringPtrFromNull(note)
 	row.DataLimit = int64PtrFromNull(dataLimit)
 	row.UseNobetci = useNobetci
 	row.NobetciPort = int64PtrFromNull(nobetciPort)
@@ -578,8 +632,15 @@ type queryer interface {
 }
 
 func validateNodeCreate(payload NodeCreate) error {
-	if strings.TrimSpace(payload.Name) == "" {
+	name := strings.TrimSpace(payload.Name)
+	if name == "" {
 		return wrapInvalid("name is required")
+	}
+	if len([]rune(name)) > MaxNodeNameLength {
+		return wrapInvalid("name can be a maximum of %d characters", MaxNodeNameLength)
+	}
+	if payload.Note != nil && len([]rune(strings.TrimSpace(*payload.Note))) > MaxNodeNoteLength {
+		return wrapInvalid("note can be a maximum of %d characters", MaxNodeNoteLength)
 	}
 	if strings.TrimSpace(payload.Address) == "" {
 		return wrapInvalid("address is required")
@@ -720,6 +781,13 @@ func stringPtrFromNull(value sql.NullString) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }
 
 func int64PtrFromNull(value sql.NullInt64) *int64 {

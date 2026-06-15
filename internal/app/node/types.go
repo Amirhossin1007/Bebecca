@@ -28,6 +28,7 @@ const (
 
 type NodeCreate struct {
 	Name             string          `json:"name"`
+	Note             *string         `json:"note"`
 	Address          string          `json:"address"`
 	Port             int             `json:"port"`
 	APIPort          int             `json:"api_port"`
@@ -54,6 +55,7 @@ type NodeCreate struct {
 
 type NodeModify struct {
 	Name             *string         `json:"name"`
+	Note             *string         `json:"note"`
 	Address          *string         `json:"address"`
 	Port             *int64          `json:"port"`
 	APIPort          *int64          `json:"api_port"`
@@ -76,6 +78,7 @@ type NodeModify struct {
 type NodeResponse struct {
 	ID                     int64    `json:"id"`
 	Name                   string   `json:"name"`
+	Note                   *string  `json:"note"`
 	Address                string   `json:"address"`
 	Port                   int64    `json:"port"`
 	APIPort                int64    `json:"api_port"`

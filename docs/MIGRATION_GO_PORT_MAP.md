@@ -57,6 +57,7 @@ an `alembic_version` table.
 | 17 | `000017_performance_indexes.go` | production read/write performance indexes and redundant index cleanup |
 | 18 | `000018_remove_user_inbound_selection.go` | removes legacy per-user inbound exclusion storage |
 | 19 | `000019_materialize_legacy_proxy_credentials.go` | stores legacy masked VMess/VLESS UUIDs in proxies and removes jwt mask columns |
+| 20 | `000020_node_notes.go` | adds optional operator notes to nodes |
 
 Legacy dialect repairs such as historical MySQL collation fixes are tracked as
 compatibility notes when the final Go schema already includes the corrected
