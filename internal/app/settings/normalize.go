@@ -2,6 +2,7 @@ package settings
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 )
 
 var placeholderRegexp = regexp.MustCompile(`//+`)
+
+var ErrTemplateNotFound = errors.New("template not found")
 
 func normalizePrefix(prefix string) string {
 	cleaned := strings.TrimSpace(prefix)
@@ -318,7 +321,7 @@ func resolveExistingTemplatePath(templateName string, customDirectory *string) (
 	if info, statErr := os.Stat(path); statErr == nil && !info.IsDir() {
 		return path, nil
 	}
-	return "", fmt.Errorf("template not found: %s", templateName)
+	return "", fmt.Errorf("%w: %s", ErrTemplateNotFound, templateName)
 }
 
 func resolveWritableTemplatePath(templateName string, customDirectory string) (string, error) {

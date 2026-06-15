@@ -525,7 +525,18 @@ func (r Repository) ReadTemplateContent(ctx context.Context, templateKey string,
 	}
 	path, err := resolveExistingTemplatePath(selection.TemplateName, selection.CustomDirectory)
 	if err != nil {
-		return TemplateContent{}, err
+		if !errors.Is(err, ErrTemplateNotFound) {
+			return TemplateContent{}, err
+		}
+		resolved := displayTemplatePath(filepath.Join(appTemplateBasePath(), selection.TemplateName), selection.TemplateName, selection.CustomDirectory)
+		return TemplateContent{
+			TemplateKey:     templateKey,
+			TemplateName:    selection.TemplateName,
+			CustomDirectory: selection.CustomDirectory,
+			ResolvedPath:    &resolved,
+			AdminID:         adminID,
+			Content:         "",
+		}, nil
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
