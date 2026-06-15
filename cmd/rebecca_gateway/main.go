@@ -36,7 +36,11 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("rebecca server listening on %s", cfg.Addr)
+		scheme := "http"
+		if cfg.TLSCertFile != "" && cfg.TLSKeyFile != "" {
+			scheme = "https"
+		}
+		log.Printf("rebecca server listening on %s://%s", scheme, cfg.Addr)
 		errCh <- server.Run()
 	}()
 

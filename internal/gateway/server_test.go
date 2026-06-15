@@ -60,6 +60,15 @@ func TestGatewayReturnsUnavailableWithoutAPIHandler(t *testing.T) {
 	}
 }
 
+func TestGatewayRejectsIncompleteTLSConfig(t *testing.T) {
+	if _, err := NewServer(Config{TLSCertFile: "/tmp/fullchain.pem"}); err == nil || !strings.Contains(err.Error(), "incomplete TLS configuration") {
+		t.Fatalf("expected incomplete TLS error for cert-only config, got %v", err)
+	}
+	if _, err := NewServer(Config{TLSKeyFile: "/tmp/key.pem"}); err == nil || !strings.Contains(err.Error(), "incomplete TLS configuration") {
+		t.Fatalf("expected incomplete TLS error for key-only config, got %v", err)
+	}
+}
+
 func TestGatewayServesEmbeddedDashboardAndStatics(t *testing.T) {
 	server, err := NewServer(Config{DashboardPath: "/dashboard/"})
 	if err != nil {

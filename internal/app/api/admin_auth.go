@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -36,18 +38,21 @@ func (s *Server) handleAdminToken(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(credentials.Username)
 	password := credentials.Password
 	if username == "" || password == "" {
+		log.Printf("admin login failed username=%q remote=%s reason=missing_credentials", username, requestRemote(r))
 		writeAdminLoginFailed(w)
 		return
 	}
 
-	role, ok, err := s.validateLogin(r.Context(), username, password)
+	role, ok, reason, err := s.validateLogin(r.Context(), username, password)
 	if err != nil {
+		log.Printf("admin login error username=%q remote=%s error=%v", username, requestRemote(r), err)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if !ok {
 		// TODO: send failed Go-native admin login reports through Telegram once
 		// docs/TODO_GO_TELEGRAM.md is implemented.
+		log.Printf("admin login failed username=%q remote=%s reason=%s", username, requestRemote(r), reason)
 		writeAdminLoginFailed(w)
 		return
 	}
@@ -68,6 +73,7 @@ func (s *Server) handleAdminToken(w http.ResponseWriter, r *http.Request) {
 	}
 	// TODO: send successful Go-native admin login reports through Telegram once
 	// docs/TODO_GO_TELEGRAM.md is implemented.
+	log.Printf("admin login success username=%q role=%s remote=%s", username, role, requestRemote(r))
 	writeJSON(w, http.StatusOK, map[string]any{"access_token": token, "token_type": "bearer"})
 }
 
@@ -118,27 +124,27 @@ func (s *Server) handleInternalAdminValidate(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-func (s *Server) validateLogin(ctx context.Context, username string, password string) (adminapp.AdminRole, bool, error) {
+func (s *Server) validateLogin(ctx context.Context, username string, password string) (adminapp.AdminRole, bool, string, error) {
 	if strings.TrimSpace(s.cfg.SudoUsername) != "" &&
 		username == s.cfg.SudoUsername &&
 		password == s.cfg.SudoPassword {
-		return adminapp.RoleFullAccess, true, nil
+		return adminapp.RoleFullAccess, true, "ok", nil
 	}
 
 	dbadmin, found, err := s.adminRepo.AdminByUsername(ctx, username)
 	if err != nil {
-		return "", false, err
+		return "", false, "repository_error", err
 	}
 	if !found {
-		return "", false, nil
+		return "", false, "admin_not_found", nil
 	}
 	if !adminapp.VerifyPassword(dbadmin.HashedPassword, password) {
-		return "", false, nil
+		return "", false, "invalid_password", nil
 	}
 	if err := dbadmin.ValidateAuthAllowed(time.Now().UTC()); err != nil {
-		return "", false, nil
+		return "", false, "auth_not_allowed", nil
 	}
-	return dbadmin.Role, true, nil
+	return dbadmin.Role, true, "ok", nil
 }
 
 func readAdminLoginRequest(r *http.Request) (adminLoginRequest, error) {
@@ -162,6 +168,28 @@ func readAdminLoginRequest(r *http.Request) (adminLoginRequest, error) {
 func writeAdminLoginFailed(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", "Bearer")
 	writeError(w, http.StatusUnauthorized, "Incorrect username or password")
+}
+
+func requestRemote(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	for _, header := range []string{"CF-Connecting-IP", "X-Real-IP"} {
+		if value := strings.TrimSpace(r.Header.Get(header)); value != "" {
+			return value
+		}
+	}
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+		if first, _, ok := strings.Cut(forwarded, ","); ok {
+			return strings.TrimSpace(first)
+		}
+		return forwarded
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && host != "" {
+		return host
+	}
+	return r.RemoteAddr
 }
 
 func adminResponse(dbadmin adminapp.Admin) map[string]any {

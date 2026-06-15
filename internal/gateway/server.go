@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,10 @@ type Server struct {
 }
 
 func NewServer(cfg Config) (*Server, error) {
+	if (strings.TrimSpace(cfg.TLSCertFile) == "") != (strings.TrimSpace(cfg.TLSKeyFile) == "") {
+		return nil, fmt.Errorf("incomplete TLS configuration: set both UVICORN_SSL_CERTFILE and UVICORN_SSL_KEYFILE, or leave both empty for plain HTTP")
+	}
+
 	dashboard := newDashboardFiles(cfg)
 	apiHandler := cfg.APIHandler
 
