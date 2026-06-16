@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type TLSConfig struct {
@@ -16,33 +17,27 @@ type TLSConfig struct {
 }
 
 func LoadClientTLS(config TLSConfig) (*tls.Config, error) {
-	if config.ClientCertFile == "" || config.ClientKeyFile == "" {
-		return nil, fmt.Errorf("client certificate and key are required")
-	}
 	if config.ServerCertFile == "" {
 		return nil, fmt.Errorf("server certificate is required")
-	}
-
-	clientCert, err := tls.LoadX509KeyPair(config.ClientCertFile, config.ClientKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("load client certificate: %w", err)
 	}
 
 	serverPEM, err := os.ReadFile(config.ServerCertFile)
 	if err != nil {
 		return nil, fmt.Errorf("read server certificate: %w", err)
 	}
-	serverRoots := x509.NewCertPool()
-	if !serverRoots.AppendCertsFromPEM(serverPEM) {
-		return nil, fmt.Errorf("append server certificate")
+	serverCert, err := firstCertificate(serverPEM)
+	if err != nil {
+		return nil, err
 	}
 
-	return &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
-		RootCAs:      serverRoots,
-		ServerName:   config.ServerName,
-		MinVersion:   tls.VersionTLS12,
-	}, nil
+	tlsConfig := pinnedServerTLSConfig(serverCert, config.ServerName)
+	if strings.TrimSpace(config.ClientCertFile) != "" && strings.TrimSpace(config.ClientKeyFile) != "" {
+		clientCert, err := tls.LoadX509KeyPair(config.ClientCertFile, config.ClientKeyFile)
+		if err == nil {
+			tlsConfig.Certificates = []tls.Certificate{clientCert}
+		}
+	}
+	return tlsConfig, nil
 }
 
 type PEMTLSConfig struct {
@@ -53,16 +48,8 @@ type PEMTLSConfig struct {
 }
 
 func LoadClientTLSFromPEM(config PEMTLSConfig) (*tls.Config, error) {
-	if config.ClientCertPEM == "" || config.ClientKeyPEM == "" {
-		return nil, fmt.Errorf("client certificate and key are required")
-	}
 	if config.ServerCertPEM == "" {
 		return nil, fmt.Errorf("server certificate is required")
-	}
-
-	clientCert, err := tls.X509KeyPair([]byte(config.ClientCertPEM), []byte(config.ClientKeyPEM))
-	if err != nil {
-		return nil, fmt.Errorf("load client certificate: %w", err)
 	}
 
 	serverCert, err := firstCertificate([]byte(config.ServerCertPEM))
@@ -70,7 +57,18 @@ func LoadClientTLSFromPEM(config PEMTLSConfig) (*tls.Config, error) {
 		return nil, err
 	}
 
-	serverName := config.ServerName
+	tlsConfig := pinnedServerTLSConfig(serverCert, config.ServerName)
+	if strings.TrimSpace(config.ClientCertPEM) != "" && strings.TrimSpace(config.ClientKeyPEM) != "" {
+		clientCert, err := tls.X509KeyPair([]byte(config.ClientCertPEM), []byte(config.ClientKeyPEM))
+		if err == nil {
+			tlsConfig.Certificates = []tls.Certificate{clientCert}
+		}
+	}
+	return tlsConfig, nil
+}
+
+func pinnedServerTLSConfig(serverCert *x509.Certificate, configuredServerName string) *tls.Config {
+	serverName := strings.TrimSpace(configuredServerName)
 	if serverName == "" && len(serverCert.DNSNames) > 0 {
 		serverName = serverCert.DNSNames[0]
 	}
@@ -80,14 +78,11 @@ func LoadClientTLSFromPEM(config PEMTLSConfig) (*tls.Config, error) {
 	if serverName == "" {
 		serverName = serverCert.Subject.CommonName
 	}
-	serverRoots := x509.NewCertPool()
-	serverRoots.AddCert(serverCert)
 
 	return &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
-		RootCAs:      serverRoots,
-		ServerName:   serverName,
-		MinVersion:   tls.VersionTLS12,
+		ServerName:         serverName,
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: true, // Verification is the pinned certificate check below.
 		VerifyConnection: func(state tls.ConnectionState) error {
 			if len(state.PeerCertificates) == 0 {
 				return fmt.Errorf("server certificate is missing")
@@ -97,7 +92,7 @@ func LoadClientTLSFromPEM(config PEMTLSConfig) (*tls.Config, error) {
 			}
 			return nil
 		},
-	}, nil
+	}
 }
 
 func firstCertificate(certPEM []byte) (*x509.Certificate, error) {
