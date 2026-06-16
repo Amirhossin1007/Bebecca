@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
 const defaultShadowsocksMethod = "chacha20-ietf-poly1305"
@@ -985,11 +987,22 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	}
 	if security == "reality" {
 		realitySettings := mapValue(stream["realitySettings"])
-		resolved["fp"] = firstNonEmptyString(realitySettings["fingerprint"], "chrome")
-		resolved["sni"] = stringList(realitySettings["serverNames"])
-		resolved["pbk"] = stringValue(realitySettings["publicKey"])
+		realityMeta := mapValue(realitySettings["settings"])
+		resolved["fp"] = firstNonEmptyString(realityMeta["fingerprint"], realitySettings["fingerprint"], "chrome")
+		sni := stringList(realitySettings["serverNames"])
+		if len(sni) == 0 {
+			sni = nonEmptyStrings(firstNonEmptyString(realityMeta["serverName"], realitySettings["serverName"]))
+		}
+		resolved["sni"] = sni
+		pbk := firstNonEmptyString(realityMeta["publicKey"], realitySettings["publicKey"])
+		if pbk == "" {
+			if derived, err := xrayconfig.DeriveRealityPublicKey(stringValue(realitySettings["privateKey"])); err == nil {
+				pbk = derived
+			}
+		}
+		resolved["pbk"] = pbk
 		resolved["sids"] = stringList(realitySettings["shortIds"])
-		resolved["spx"] = stringValue(realitySettings["spiderX"])
+		resolved["spx"] = firstNonEmptyString(realityMeta["spiderX"], realitySettings["SpiderX"], realitySettings["spiderX"])
 	}
 
 	network := stringValue(resolved["network"])

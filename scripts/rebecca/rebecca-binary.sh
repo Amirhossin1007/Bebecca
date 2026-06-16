@@ -1364,6 +1364,21 @@ find_php_fpm_sock() {
     [ -n "$sock" ] && printf "%s" "$sock"
 }
 
+escape_nginx_regex_path() {
+    printf '%s' "$1" | sed -e 's/[.[\*^$()+?{}|]/\\&/g'
+}
+
+open_host_firewall_port() {
+    local port="$1"
+    if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi "Status: active"; then
+        ufw allow "${port}/tcp" >/dev/null 2>&1 || true
+    fi
+    if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+        firewall-cmd --add-port="${port}/tcp" --permanent >/dev/null 2>&1 || true
+        firewall-cmd --reload >/dev/null 2>&1 || true
+    fi
+}
+
 phpmyadmin_nginx_config_path() {
     printf "/etc/nginx/sites-available/%s-phpmyadmin" "$APP_NAME"
 }
@@ -1375,6 +1390,7 @@ enable_host_phpmyadmin() {
     local normalized_path
     local fpm_sock
     local nginx_config
+    local escaped_path
 
     database_type=$(get_configured_database_type)
     if [ "$database_type" = "sqlite" ]; then
@@ -1403,6 +1419,7 @@ enable_host_phpmyadmin() {
         colorized_echo red "Could not find php-fpm socket under /run/php."
         return 1
     fi
+    escaped_path=$(escape_nginx_regex_path "$path")
 
     nginx_config=$(phpmyadmin_nginx_config_path)
     cat > "$nginx_config" <<EOF
@@ -1417,20 +1434,32 @@ server {
     location ${path}/ {
         alias /usr/share/phpmyadmin/;
         index index.php index.html;
+        try_files \$uri \$uri/ ${path}/index.php?\$query_string;
     }
 
-    location ~ ^${path}/(.+\.php)$ {
+    location ~ ^${escaped_path}/(.+\.php)$ {
         alias /usr/share/phpmyadmin/\$1;
         include fastcgi_params;
+        fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME /usr/share/phpmyadmin/\$1;
+        fastcgi_param SCRIPT_NAME ${path}/\$1;
+        fastcgi_param DOCUMENT_ROOT /usr/share/phpmyadmin;
+        fastcgi_param HTTPS off;
         fastcgi_param PATH_INFO \$fastcgi_path_info;
         fastcgi_pass unix:${fpm_sock};
+    }
+
+    location ~ ^${escaped_path}/(.+\.(?:css|js|gif|png|jpg|jpeg|ico|svg|woff|woff2|ttf|eot|html|txt|xml))$ {
+        alias /usr/share/phpmyadmin/\$1;
+        access_log off;
+        expires 7d;
     }
 }
 EOF
     ln -sf "$nginx_config" "/etc/nginx/sites-enabled/${APP_NAME}-phpmyadmin"
     nginx -t >/dev/null
     systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
+    open_host_firewall_port "$port"
 
     upsert_env_assignment "PHPMYADMIN_ENABLED" "true"
     upsert_env_assignment "PHPMYADMIN_PORT" "$port"

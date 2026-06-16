@@ -113,6 +113,101 @@ func TestBuildConfigLinksKeepsXHTTPPaddingJSONCompact(t *testing.T) {
 	}
 }
 
+func TestBuildConfigLinksKeepsRealityPublicKeyForXHTTP(t *testing.T) {
+	serviceID := int64(1)
+	inbound, err := resolveInbound(map[string]any{
+		"tag":      "Reality XHTTP",
+		"protocol": "vless",
+		"port":     int64(443),
+		"settings": map[string]any{
+			"decryption": "none",
+		},
+		"streamSettings": map[string]any{
+			"network":  "xhttp",
+			"security": "reality",
+			"xhttpSettings": map[string]any{
+				"path": "/x",
+				"host": "edge.example.com",
+			},
+			"realitySettings": map[string]any{
+				"serverNames": []any{"edge.example.com"},
+				"shortIds":    []any{"abcd"},
+				"settings": map[string]any{
+					"publicKey":   "public-key-from-settings",
+					"fingerprint": "chrome",
+					"spiderX":     "/",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolveInbound error: %v", err)
+	}
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            10,
+			Username:      "dave",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1",
+			ServiceHostOrders: map[int64]int64{
+				1: 0,
+			},
+		},
+		map[string]ResolvedInbound{"Reality XHTTP": inbound},
+		[]string{"Reality XHTTP"},
+		[]Host{{
+			ID:         1,
+			InboundTag: "Reality XHTTP",
+			Remark:     "reality-xhttp",
+			Address:    "edge.example.com",
+			Security:   "inbound_default",
+			ServiceIDs: []int64{1},
+		}},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("BuildConfigLinks error: %v", err)
+	}
+	if len(links.Links) != 1 {
+		t.Fatalf("expected one link, got %#v", links.Links)
+	}
+	parsed, err := url.Parse(links.Links[0])
+	if err != nil {
+		t.Fatalf("parse link: %v", err)
+	}
+	if got := parsed.Query().Get("pbk"); got != "public-key-from-settings" {
+		t.Fatalf("reality public key was not preserved, got %q link=%s", got, links.Links[0])
+	}
+	if got := parsed.Query().Get("type"); got != "xhttp" {
+		t.Fatalf("expected xhttp link, got %q link=%s", got, links.Links[0])
+	}
+}
+
+func TestResolveInboundDerivesRealityPublicKeyForSubscriptionLinks(t *testing.T) {
+	inbound, err := resolveInbound(map[string]any{
+		"tag":      "Reality TCP",
+		"protocol": "vless",
+		"port":     int64(443),
+		"streamSettings": map[string]any{
+			"network":  "tcp",
+			"security": "reality",
+			"realitySettings": map[string]any{
+				"privateKey":  strings.Repeat("02", 32),
+				"serverNames": []any{"example.com"},
+				"shortIds":    []any{"abcd"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolveInbound error: %v", err)
+	}
+	if inbound["pbk"] == "" {
+		t.Fatalf("expected derived reality public key: %#v", inbound)
+	}
+}
+
 func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 	serviceID := int64(1)
 	links, err := BuildConfigLinks(
