@@ -4225,6 +4225,7 @@ update_command() {
 
 update_rebecca_script() {
     local source_version="${1:-}"
+    local temp_script
     if [ -n "$source_version" ]; then
         set_rebecca_source_for_version "$source_version"
     elif is_rebecca_installed; then
@@ -4232,7 +4233,15 @@ update_rebecca_script() {
     fi
     SCRIPT_URL="$REBECCA_SCRIPT_BASE_URL/$REBECCA_SCRIPT_SOURCE_FILE"
     colorized_echo blue "Updating rebecca script"
-    curl -fsSL "$SCRIPT_URL" | install -m 755 /dev/stdin "$REBECCA_SCRIPT_INSTALL_PATH"
+    temp_script=$(mktemp)
+    curl -fsSL "$SCRIPT_URL" -o "$temp_script"
+    if head -n 1 "$temp_script" | grep -qi "<!DOCTYPE"; then
+        rm -f "$temp_script"
+        colorized_echo red "Unexpected HTML response while downloading script"
+        exit 1
+    fi
+    install -m 755 "$temp_script" "$REBECCA_SCRIPT_INSTALL_PATH"
+    rm -f "$temp_script"
     colorized_echo green "rebecca script updated successfully"
 }
 
