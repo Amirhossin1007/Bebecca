@@ -2418,7 +2418,7 @@ export const NodesPage: FC = () => {
 								<VStack align="stretch" spacing={4}>
 									<Stack spacing={2}>
 										<HStack spacing={3} align="center" flexWrap="wrap">
-											<Text fontWeight="semibold" fontSize="lg">
+											<Text fontWeight="semibold" fontSize="lg" whiteSpace="nowrap">
 												{node.name || t("nodes.unnamedNode", "Unnamed node")}
 											</Text>
 											<Switch
@@ -2439,6 +2439,7 @@ export const NodesPage: FC = () => {
 													leftIcon={<ArrowPathIconStyled />}
 													onClick={() => reconnect(node)}
 													isLoading={isReconnecting}
+													whiteSpace="nowrap"
 												>
 													{t("nodes.reconnect")}
 												</Button>
@@ -2446,35 +2447,43 @@ export const NodesPage: FC = () => {
 										</HStack>
 										<HStack spacing={2} flexWrap="wrap">
 											{statusDisplay}
-											
 											{nodeServiceUpdateAvailable && (
 												<Tag
 													as="button"
 													type="button"
-													colorScheme="orange"
-													size="sm"
+													display="inline-flex"
+													alignItems="center"
+													justifyContent="center"
+													h="24px"
+													fontSize="12px"
+													fontWeight="700"
+													borderRadius="9999px"
+													px="10px"
+													bg="rgba(237, 137, 54, 0.16)"
+													color="rgb(237, 137, 54)"
 													cursor={(!nodeId || !nodeHostActionsAvailable || isUpdatingMaintenance) ? "not-allowed" : "pointer"}
 													opacity={(!nodeId || !nodeHostActionsAvailable || isUpdatingMaintenance) ? 0.6 : 1}
-													_hover={{ opacity: (!nodeId || !nodeHostActionsAvailable || isUpdatingMaintenance) ? 0.6 : 0.82 }}
+													whiteSpace="nowrap"
+													gap="6px"
+													transition="background 0.2s ease-in-out"
+													_hover={{ bg: (!nodeId || !nodeHostActionsAvailable || isUpdatingMaintenance) ? "rgba(237, 137, 54, 0.16)" : "rgba(237, 137, 54, 0.28)" }}
 													onClick={() => {
 														if (nodeId && nodeHostActionsAvailable && !isUpdatingMaintenance) {
 															handleUpdateNodeService(node);
 														}
 													}}
-													whiteSpace="nowrap"
-													display="inline-flex"
-													alignItems="center"
 												>
 													{isUpdatingMaintenance ? (
-														<Spinner size="xs" marginEnd={1.5} />
+														<Spinner size="xs" display="block" />
 													) : (
-														<DownloadIconStyled marginEnd={1.5} />
+														<DownloadIconStyled w="14px" h="14px" display="block" flexShrink={0} />
 													)}
-													{t("nodes.nodeUpdateAvailable", "Update available")}
+													<span style={{ position: "relative", top: "2px" }}>
+														{t("nodes.nodeUpdateAvailable", "Update available")}
+													</span>
 												</Tag>
 											)}
-
-											<HStack spacing={2} align="center" flexWrap="wrap">
+											<HStack spacing={1} align="center" flexWrap="wrap">
 												<Tag
 													as="button"
 													type="button"
@@ -2525,6 +2534,7 @@ export const NodesPage: FC = () => {
 												}
 												isLoading={isGeoUpdating}
 												isDisabled={!nodeId || !nodeHostActionsAvailable}
+												whiteSpace="nowrap"
 											>
 												{t("nodes.updateGeoAction", "Update geo")}
 											</Button>
@@ -2535,6 +2545,7 @@ export const NodesPage: FC = () => {
 												onClick={() => handleRestartNodeService(node)}
 												isLoading={isRestartingMaintenance}
 												isDisabled={!nodeId || !nodeHostActionsAvailable}
+												whiteSpace="nowrap"
 											>
 												{t(
 													"nodes.restartServiceAction",
@@ -2548,6 +2559,7 @@ export const NodesPage: FC = () => {
 												onClick={() => handleUpdateNodeService(node)}
 												isLoading={isUpdatingMaintenance}
 												isDisabled={!nodeId || !nodeHostActionsAvailable}
+												whiteSpace="nowrap"
 											>
 												{t("nodes.updateServiceAction", "Update node service")}
 											</Button>
@@ -2562,6 +2574,7 @@ export const NodesPage: FC = () => {
 													resettingNodeId === nodeId
 												}
 												isDisabled={!nodeId}
+												whiteSpace="nowrap"
 											>
 												{t("nodes.resetUsage", "Reset usage")}
 											</Button>
