@@ -252,7 +252,6 @@ type Host struct {
 	Remark          string  `json:"remark"`
 	Address         string  `json:"address"`
 	Port            *int64  `json:"port"`
-	Sort            int64   `json:"sort"`
 	Path            *string `json:"path"`
 	SNI             *string `json:"sni"`
 	Host            *string `json:"host"`

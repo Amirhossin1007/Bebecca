@@ -510,7 +510,7 @@ const AdminsUsage: FC = () => {
 						>
 							<InfoIcon />
 							<Text>
-								{t("services.totalUsage", "Total")}:{" "}
+								{t("usage.selectedRangeTotal", "Selected range total")}:{" "}
 								<chakra.span fontWeight="medium">
 									{formatBytes(serviceUsageTotal, 2)}
 								</chakra.span>

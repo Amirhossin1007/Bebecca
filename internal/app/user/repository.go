@@ -377,7 +377,7 @@ func (r Repository) inbounds(ctx context.Context) ([]Inbound, error) {
 }
 
 func (r Repository) hosts(ctx context.Context) ([]Host, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, inbound_tag, remark, address, port, sort, path, sni, host, security, alpn, fingerprint, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting, random_user_agent, use_sni_as_host FROM hosts ORDER BY inbound_tag, sort, id`)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, inbound_tag, remark, address, port, path, sni, host, security, alpn, fingerprint, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting, random_user_agent, use_sni_as_host FROM hosts ORDER BY inbound_tag, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +397,6 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 			&item.Remark,
 			&item.Address,
 			&port,
-			&item.Sort,
 			&path,
 			&sni,
 			&hostName,

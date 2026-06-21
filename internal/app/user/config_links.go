@@ -190,17 +190,12 @@ func sortConfigHosts(hosts []configHost, serviceOrders map[int64]int64, inboundI
 	sort.SliceStable(hosts, func(i, j int) bool {
 		left := hosts[i].host
 		right := hosts[j].host
-		leftOrder := left.Sort
-		rightOrder := right.Sort
-		if serviceOrders != nil {
-			if value, ok := serviceOrders[left.ID]; ok {
-				leftOrder = value
-			}
-			if value, ok := serviceOrders[right.ID]; ok {
-				rightOrder = value
-			}
+		leftOrder, leftHasOrder := serviceOrders[left.ID]
+		rightOrder, rightHasOrder := serviceOrders[right.ID]
+		if leftHasOrder != rightHasOrder {
+			return leftHasOrder
 		}
-		if leftOrder != rightOrder {
+		if leftHasOrder && leftOrder != rightOrder {
 			return leftOrder < rightOrder
 		}
 		leftInbound := inboundIndex[left.InboundTag]

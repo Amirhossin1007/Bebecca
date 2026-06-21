@@ -129,7 +129,6 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			remark TEXT NOT NULL,
 			address TEXT NOT NULL,
 			port INTEGER NULL,
-			sort INTEGER NOT NULL DEFAULT 0,
 			path TEXT NULL,
 			sni TEXT NULL,
 			host TEXT NULL,

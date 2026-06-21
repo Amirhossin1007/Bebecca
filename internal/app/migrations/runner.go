@@ -20,7 +20,7 @@ var gooseMu sync.Mutex
 var migrationDialect string
 
 const (
-	latestGooseVersion         int64 = 22
+	latestGooseVersion         int64 = 23
 	legacyAlembicFinalRevision       = "23_drop_access_insights"
 	legacyAlembicFinalBaseline int64 = 16
 )
@@ -213,7 +213,11 @@ func schemaLooksGoLatest(ctx context.Context, db *sql.DB, dialect string) (bool,
 	if err != nil {
 		return false, err
 	}
-	return !hasJWTMasks && !hasExcludedInbounds, nil
+	hasHostSort, err := HasColumn(ctx, db, dialect, "hosts", "sort")
+	if err != nil {
+		return false, err
+	}
+	return !hasJWTMasks && !hasExcludedInbounds && !hasHostSort, nil
 }
 
 func schemaLooksLegacyAlembicFinal(ctx context.Context, db *sql.DB, dialect string) (bool, error) {

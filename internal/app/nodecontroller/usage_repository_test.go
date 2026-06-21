@@ -113,6 +113,21 @@ func TestParseUserUsageSampleUID(t *testing.T) {
 	if _, _, ok := parseUserUsageSampleUID("online:"); ok {
 		t.Fatal("empty online marker should be ignored")
 	}
+
+	userID, onlineOnly, ok = parseUserUsageSampleUID("42.alice")
+	if !ok || userID != 42 || onlineOnly {
+		t.Fatalf("unexpected email-style marker parse: id=%d onlineOnly=%v ok=%v", userID, onlineOnly, ok)
+	}
+
+	userID, onlineOnly, ok = parseUserUsageSampleUID("online:42.alice")
+	if !ok || userID != 42 || !onlineOnly {
+		t.Fatalf("unexpected online email-style marker parse: id=%d onlineOnly=%v ok=%v", userID, onlineOnly, ok)
+	}
+
+	userID, onlineOnly, ok = parseUserUsageSampleUID("user>>>42.alice>>>traffic>>>downlink")
+	if !ok || userID != 42 || onlineOnly {
+		t.Fatalf("unexpected xray stat marker parse: id=%d onlineOnly=%v ok=%v", userID, onlineOnly, ok)
+	}
 }
 
 func createUsageTables(t *testing.T, ctx context.Context, db *sql.DB) {

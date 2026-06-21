@@ -55,7 +55,7 @@ func TestAdminTokenRouteIsNotCapturedByAdminWildcard(t *testing.T) {
 }
 
 func TestDocsRoutes(t *testing.T) {
-	handler := (&Server{}).Handler()
+	handler := (&Server{cfg: Config{APIDocsEnabled: true}}).Handler()
 
 	t.Run("openapi json", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
@@ -92,7 +92,24 @@ func TestDocsRoutes(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected docs UI 200, got %d body %q", rec.Code, rec.Body.String())
 		}
+		if !strings.Contains(rec.Body.String(), "--rebecca-docs-bg") {
+			t.Fatalf("expected docs UI to include Rebecca dark theme CSS")
+		}
 	})
+}
+
+func TestDocsRoutesDisabledByDefault(t *testing.T) {
+	handler := (&Server{}).Handler()
+	for _, path := range []string{"/docs", "/docs/", "/openapi.json"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("expected disabled docs route %s to return 404, got %d body %q", path, rec.Code, rec.Body.String())
+			}
+		})
+	}
 }
 
 func TestOpenAPIOperationsHaveDeveloperDetails(t *testing.T) {

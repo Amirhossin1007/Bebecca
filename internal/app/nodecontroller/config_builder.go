@@ -109,7 +109,11 @@ func applyRuntimeAPI(raw map[string]any, apiPort int) {
 	raw["stats"] = map[string]any{}
 	policy := mapValue(raw["policy"])
 	levels := mapValue(policy["levels"])
-	levels["0"] = mergeMaps(mapValue(levels["0"]), map[string]any{"statsUserUplink": true, "statsUserDownlink": true})
+	levels["0"] = mergeMaps(mapValue(levels["0"]), map[string]any{
+		"statsUserUplink":   true,
+		"statsUserDownlink": true,
+		"statsUserOnline":   true,
+	})
 	policy["levels"] = levels
 	policy["system"] = mergeMaps(mapValue(policy["system"]), map[string]any{
 		"statsInboundDownlink":  false,

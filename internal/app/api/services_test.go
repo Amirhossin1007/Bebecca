@@ -47,7 +47,6 @@ func testServiceServer(t *testing.T) (*Server, *sql.DB, string) {
 			remark TEXT,
 			address TEXT,
 			port BIGINT NULL,
-			sort INTEGER NOT NULL DEFAULT 0,
 			path TEXT NULL,
 			sni TEXT NULL,
 			host TEXT NULL,
@@ -69,9 +68,9 @@ func testServiceServer(t *testing.T) (*Server, *sql.DB, string) {
 			sort BIGINT DEFAULT 0,
 			created_at DATETIME NULL
 		)`,
-		`INSERT INTO hosts (id, inbound_tag, remark, address, port, sort, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host) VALUES
-			(1, 'vless-in', 'main', 'example.com', 443, 0, 'inbound_default', 'none', 'none', 0, 0, 0, 0),
-			(2, 'vmess-in', 'second', 'example.org', 8443, 1, 'inbound_default', 'none', 'none', 0, 0, 0, 0)`,
+		`INSERT INTO hosts (id, inbound_tag, remark, address, port, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host) VALUES
+			(1, 'vless-in', 'main', 'example.com', 443, 'inbound_default', 'none', 'none', 0, 0, 0, 0),
+			(2, 'vmess-in', 'second', 'example.org', 8443, 'inbound_default', 'none', 'none', 0, 0, 0, 0)`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {

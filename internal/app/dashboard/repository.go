@@ -94,6 +94,7 @@ func (r Repository) SystemSummary(ctx context.Context, req SystemSummaryRequest)
 		ConsumedBytes: consumed,
 		BuiltBytes:    built,
 		ResetBytes:    reset,
+		TrafficBasis:  usageBasis(dbadmin, hasDBAdmin),
 	}
 
 	overview, err := r.adminOverview(ctx)
@@ -341,6 +342,16 @@ func effectiveUsage(row adminRow) int64 {
 		return row.CreatedTraffic
 	}
 	return row.UsersUsage
+}
+
+func usageBasis(row adminRow, ok bool) string {
+	if !ok {
+		return "used_traffic"
+	}
+	if adminUsesCreatedTrafficLimit(row) {
+		return "created_traffic"
+	}
+	return "used_traffic"
 }
 
 func adminUsesCreatedTrafficLimit(row adminRow) bool {

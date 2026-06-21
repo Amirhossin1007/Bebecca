@@ -6,6 +6,10 @@ import { mode, type StyleFunctionProps } from "@chakra-ui/theme-tools";
 // The variables below provide sensible defaults which match the previous
 // primary color scale.
 const sharedThemeConfig = {
+	config: {
+		initialColorMode: "dark",
+		useSystemColorMode: false,
+	},
 	direction: "ltr" as const,
 	shadows: { outline: "0 0 0 2px var(--chakra-colors-primary-200)" },
 	fonts: {

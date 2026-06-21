@@ -217,6 +217,12 @@ export const Login: FC = () => {
 	);
 	const cardBorder = useColorModeValue("whiteAlpha.900", "whiteAlpha.200");
 	const subtleTextColor = useColorModeValue("gray.600", "gray.400");
+	const logoTileBg = useColorModeValue("gray.950", "whiteAlpha.200");
+	const logoTileBorder = useColorModeValue("blackAlpha.200", "whiteAlpha.300");
+	const logoTileShadow = useColorModeValue(
+		"0 14px 28px rgba(14, 23, 48, 0.22)",
+		"0 14px 28px rgba(0, 0, 0, 0.28)",
+	);
 	const {
 		register,
 		formState: { errors },
@@ -278,15 +284,21 @@ export const Login: FC = () => {
 		setError("");
 		setInvalidSubmit(false);
 		setSubmitStatus("loading");
-		const formData = new FormData();
-		formData.append("username", values.username);
-		formData.append("password", values.password);
-		formData.append("grant_type", "password");
+		const formData = new URLSearchParams();
+		formData.set("username", values.username);
+		formData.set("password", values.password);
+		formData.set("grant_type", "password");
 
 		try {
 			const { access_token: token } = await fetch<{ access_token: string }>(
 				"/admin/token",
-				{ method: "post", body: formData },
+				{
+					method: "post",
+					body: formData,
+					headers: {
+						"content-type": "application/x-www-form-urlencoded",
+					},
+				},
 			);
 			clearClientSession();
 			setAuthToken(token);
@@ -389,7 +401,7 @@ export const Login: FC = () => {
 				borderWidth="1px"
 				boxShadow="0 24px 70px rgba(14, 23, 48, 0.18)"
 				maxW="460px"
-				overflow="hidden"
+				overflow="visible"
 				position="relative"
 				sx={{ backdropFilter: "blur(18px)" }}
 				w={{ base: "calc(100vw - 32px)", sm: "full" }}
@@ -398,15 +410,27 @@ export const Login: FC = () => {
 				<CardBody p={{ base: 6, sm: 8 }}>
 					<HStack justifyContent="space-between" mb={8} spacing={4}>
 						<HStack spacing={3}>
-							<LogoIcon
-								alt={t("appName") || "Rebecca"}
-								filter={
-									colorMode === "dark" ? "brightness(0) invert(1)" : "none"
-								}
-								h={10}
-								src={logoUrl}
-								w={10}
-							/>
+							<Box
+								alignItems="center"
+								bg={logoTileBg}
+								borderColor={logoTileBorder}
+								borderRadius="8px"
+								borderWidth="1px"
+								boxShadow={logoTileShadow}
+								display="inline-flex"
+								h={12}
+								justifyContent="center"
+								p={2}
+								w={12}
+							>
+								<LogoIcon
+									alt={t("appName") || "Rebecca"}
+									filter="brightness(0) invert(1)"
+									h={8}
+									src={logoUrl}
+									w={8}
+								/>
+							</Box>
 							<Text fontSize="lg" fontWeight="800">
 								Rebecca
 							</Text>

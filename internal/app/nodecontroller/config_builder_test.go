@@ -1,11 +1,29 @@
 package nodecontroller
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+func TestApplyRuntimeAPIEnablesOnlineUserStats(t *testing.T) {
+	raw := map[string]any{
+		"inbounds":  []any{},
+		"outbounds": []any{},
+	}
+
+	applyRuntimeAPI(raw, 10085)
+
+	policy := mapValue(raw["policy"])
+	levels := mapValue(policy["levels"])
+	level0 := mapValue(levels["0"])
+	if level0["statsUserUplink"] != true || level0["statsUserDownlink"] != true || level0["statsUserOnline"] != true {
+		encoded, _ := json.Marshal(level0)
+		t.Fatalf("runtime user stats policy is incomplete: %s", encoded)
+	}
+}
 
 func TestInlineTLSCertificateFilesReadsMasterPaths(t *testing.T) {
 	dir := t.TempDir()

@@ -29,6 +29,7 @@ import {
 	ArrowLeftOnRectangleIcon,
 	ArrowUpOnSquareIcon,
 	Bars3Icon,
+	BookOpenIcon,
 	CheckIcon,
 	Cog6ToothIcon,
 	GlobeAltIcon,
@@ -40,6 +41,7 @@ import {
 	UserCircleIcon,
 	UserGroupIcon,
 } from "@heroicons/react/24/outline";
+import { motion } from "framer-motion";
 import { useAppleEmoji } from "hooks/useAppleEmoji";
 import useGetUser from "hooks/useGetUser";
 import {
@@ -73,6 +75,7 @@ const iconProps = {
 const LogoutIcon = chakra(ArrowLeftOnRectangleIcon, iconProps);
 const MenuIcon = chakra(Bars3Icon, iconProps);
 const LanguageIconStyled = chakra(LanguageIcon, iconProps);
+const DocsIcon = chakra(BookOpenIcon, iconProps);
 const UserIcon = chakra(UserCircleIcon, iconProps);
 const HomeIcon = chakra(Squares2X2Icon, iconProps);
 const UsersIcon = chakra(UserGroupIcon, iconProps);
@@ -89,6 +92,7 @@ type SettingsMenuItem = {
 	label: string;
 	to: string;
 	icon?: ElementType;
+	external?: boolean;
 };
 
 type BottomNavItem = {
@@ -283,6 +287,12 @@ export function AppLayout() {
 						icon: InsightsIcon,
 					}
 				: null,
+			{
+				key: "api-docs",
+				label: t("apiDocs.menu", "API Docs"),
+				to: "/api-docs",
+				icon: DocsIcon,
+			},
 		];
 		return items.filter(Boolean) as SettingsMenuItem[];
 	}, [isPrivilegedAdmin, sectionAccess, t]);
@@ -420,6 +430,7 @@ export function AppLayout() {
 	const activeSettingsItem = useMemo(
 		() =>
 			settingsMenuItems.find((item) => {
+				if (item.external) return false;
 				if (item.to === "/") return location.pathname === "/";
 				return location.pathname.startsWith(item.to);
 			}),
@@ -683,6 +694,11 @@ export function AppLayout() {
 	};
 
 	const navigateToSettingsItem = (target: string) => {
+		const item = settingsMenuItems.find((entry) => entry.to === target);
+		if (item?.external) {
+			window.location.assign(target);
+			return;
+		}
 		const defaultTab = settingsDefaultTabByPath[target];
 		if (defaultTab) {
 			navigate(`${target}#${defaultTab}`);
@@ -1084,6 +1100,8 @@ export function AppLayout() {
 									position: "relative",
 									overflow: "hidden",
 									isolation: "isolate",
+									transform: "translateZ(0)",
+									willChange: "transform",
 									"@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px)))":
 										{
 											backgroundColor: glassPanelFallbackBg,
@@ -1119,6 +1137,9 @@ export function AppLayout() {
 									onPointerMove={handleNavPointerMove}
 									onPointerUp={handleNavPointerUp}
 									onPointerCancel={handleNavPointerCancel}
+									sx={{
+										touchAction: "pan-y",
+									}}
 								>
 									{bottomNavItems.map((item) => {
 										const isActive = resolveActive(item);
@@ -1159,15 +1180,23 @@ export function AppLayout() {
 													w="fit-content"
 												>
 													{isSelected && (
-														<Box
-															position="absolute"
-															inset="0"
-															borderRadius="999px"
-															bg={activePillBg}
-															boxShadow={activePillShadow}
-															transition="opacity 0.12s ease-out"
-															zIndex={0}
-															pointerEvents="none"
+														<motion.div
+															layoutId="mobile-bottom-nav-active-pill"
+															transition={{
+																type: "spring",
+																stiffness: 520,
+																damping: 38,
+																mass: 0.7,
+															}}
+															style={{
+																position: "absolute",
+																inset: 0,
+																borderRadius: 999,
+																background: activePillBg,
+																boxShadow: activePillShadow,
+																zIndex: 0,
+																pointerEvents: "none",
+															}}
 														/>
 													)}
 													<Box
@@ -1178,9 +1207,20 @@ export function AppLayout() {
 														display="grid"
 														placeItems="center"
 													>
-														<Box position="relative" zIndex={1}>
+														<motion.div
+															animate={{
+																y: isSelected ? -2 : 0,
+																scale: isSelected ? 1.06 : 1,
+															}}
+															transition={{
+																type: "spring",
+																stiffness: 500,
+																damping: 32,
+															}}
+															style={{ position: "relative", zIndex: 1 }}
+														>
 															{icon}
-														</Box>
+														</motion.div>
 													</Box>
 													<Text
 														position="relative"

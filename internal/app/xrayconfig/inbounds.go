@@ -857,11 +857,10 @@ func (r Repository) ensureInboundRecordTx(ctx context.Context, tx *sql.Tx, tag s
 	}
 	_, err = tx.ExecContext(
 		ctx,
-		`INSERT INTO hosts (remark, address, inbound_tag, sort) VALUES (?, ?, ?, ?)`,
+		`INSERT INTO hosts (remark, address, inbound_tag) VALUES (?, ?, ?)`,
 		"Rebecca ({USERNAME}) [{PROTOCOL} - {TRANSPORT}]",
 		"{SERVER_IP}",
 		tag,
-		0,
 	)
 	return err
 }

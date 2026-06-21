@@ -66,6 +66,7 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertNoTable(t, ctx, db, "sqlite", "exclude_inbounds_association")
 	assertNoTable(t, ctx, db, "sqlite", "access_insights")
 	assertTableColumns(t, ctx, db, "sqlite", "hosts", []string{"id", "remark", "inbound_tag", "noise_setting", "random_user_agent"})
+	assertNoColumn(t, ctx, db, "sqlite", "hosts", "sort")
 	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"id", "name", "note", "certificate", "certificate_key", "xray_config_mode"})
 	assertTableColumns(t, ctx, db, "sqlite", "node_operations", []string{"operation_type", "status", "idempotency_key"})
 	assertTableColumns(t, ctx, db, "sqlite", "pending_node_certificates", []string{"token", "certificate", "certificate_key", "expires_at"})
@@ -86,6 +87,7 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertNoIndex(t, ctx, db, "sqlite", "admin_api_keys", "ix_admin_api_keys_key_hash")
 	assertNoIndex(t, ctx, db, "sqlite", "subscription_domains", "ix_subscription_domains_domain")
 	assertNoIndex(t, ctx, db, "sqlite", "warp_accounts", "ix_warp_accounts_device_id")
+	assertNoIndex(t, ctx, db, "sqlite", "hosts", "ix_hosts_inbound_tag_sort_id")
 	assertTableColumns(t, ctx, db, "sqlite", "warp_accounts", []string{"device_id", "access_token", "license_key", "private_key", "public_key"})
 
 	if err := RunMigrations(ctx, db, "sqlite"); err != nil {
@@ -353,6 +355,7 @@ VALUES
 		t.Fatalf("legacy baseline did not seed versions 1..16, got %d", appliedBeforeGoOnly)
 	}
 	assertNoTable(t, ctx, db, "sqlite", "exclude_inbounds_association")
+	assertNoColumn(t, ctx, db, "sqlite", "hosts", "sort")
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vmess_mask")
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vless_mask")
 	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"note"})

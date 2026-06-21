@@ -26,7 +26,6 @@ type hostPayload struct {
 	Remark          string  `json:"remark"`
 	Address         string  `json:"address"`
 	Port            *int64  `json:"port"`
-	Sort            *int64  `json:"sort"`
 	SNI             *string `json:"sni"`
 	Host            *string `json:"host"`
 	Path            *string `json:"path"`
@@ -47,7 +46,6 @@ type hostResponse struct {
 	Remark          string  `json:"remark"`
 	Address         string  `json:"address"`
 	Port            *int64  `json:"port"`
-	Sort            *int64  `json:"sort"`
 	SNI             *string `json:"sni"`
 	Host            *string `json:"host"`
 	Path            *string `json:"path"`
@@ -288,11 +286,7 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 		remaining[id] = true
 	}
 
-	for index, host := range payload {
-		sortValue := int64(index)
-		if host.Sort != nil {
-			sortValue = *host.Sort
-		}
+	for _, host := range payload {
 		if err := validateHostPayload(host); err != nil {
 			return err
 		}
@@ -305,7 +299,7 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 			if exists, err := hostExistsTx(r.Context(), tx, *host.ID); err != nil {
 				return err
 			} else if exists {
-				if err := updateHostTx(r.Context(), tx, inboundTag, sortValue, host); err != nil {
+				if err := updateHostTx(r.Context(), tx, inboundTag, host); err != nil {
 					return err
 				}
 				delete(remaining, *host.ID)
@@ -317,7 +311,7 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 				continue
 			}
 		}
-		id, err := insertHostTx(r.Context(), tx, inboundTag, sortValue, host)
+		id, err := insertHostTx(r.Context(), tx, inboundTag, host)
 		if err != nil {
 			return err
 		}
@@ -379,8 +373,8 @@ func ensureHostInboundRecordTx(ctx context.Context, tx *sql.Tx, tag string) erro
 	}
 	_, err = tx.ExecContext(
 		ctx,
-		`INSERT INTO hosts (remark, address, inbound_tag, sort, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host)
-		 VALUES (?, ?, ?, 0, 'inbound_default', 'none', 'none', 0, 0, 0, 0)`,
+		`INSERT INTO hosts (remark, address, inbound_tag, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host)
+		 VALUES (?, ?, ?, 'inbound_default', 'none', 'none', 0, 0, 0, 0)`,
 		"Rebecca ({USERNAME}) [{PROTOCOL} - {TRANSPORT}]",
 		"{SERVER_IP}",
 		tag,
@@ -389,7 +383,7 @@ func ensureHostInboundRecordTx(ctx context.Context, tx *sql.Tx, tag string) erro
 }
 
 func queryHostsByInbound(r *http.Request, db queryer, inboundTag string) ([]hostResponse, error) {
-	rows, err := db.QueryContext(r.Context(), hostSelectSQL()+` WHERE inbound_tag = ? ORDER BY sort ASC, id ASC`, inboundTag)
+	rows, err := db.QueryContext(r.Context(), hostSelectSQL()+` WHERE inbound_tag = ? ORDER BY id ASC`, inboundTag)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +412,7 @@ type queryer interface {
 }
 
 func hostSelectSQL() string {
-	return `SELECT id, COALESCE(remark, ''), COALESCE(address, ''), port, sort, path, sni, host,
+	return `SELECT id, COALESCE(remark, ''), COALESCE(address, ''), port, path, sni, host,
 		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
 		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting,
@@ -430,7 +424,7 @@ func scanHostResponses(rows *sql.Rows) ([]hostResponse, error) {
 	hosts := []hostResponse{}
 	for rows.Next() {
 		var item hostResponse
-		var port, sortValue sql.NullInt64
+		var port sql.NullInt64
 		var path, sni, hostValue, fragment, noise sql.NullString
 		var allowInsecure sql.NullInt64
 		var disabled, muxEnable, randomUA, useSNI int64
@@ -439,7 +433,6 @@ func scanHostResponses(rows *sql.Rows) ([]hostResponse, error) {
 			&item.Remark,
 			&item.Address,
 			&port,
-			&sortValue,
 			&path,
 			&sni,
 			&hostValue,
@@ -460,7 +453,6 @@ func scanHostResponses(rows *sql.Rows) ([]hostResponse, error) {
 		item.ALPN = hostEnumResponseValue(item.ALPN)
 		item.Fingerprint = hostEnumResponseValue(item.Fingerprint)
 		item.Port = nullableInt64Response(port)
-		item.Sort = nullableInt64Response(sortValue)
 		item.Path = nullableStringResponse(path)
 		item.SNI = nullableStringResponse(sni)
 		item.Host = nullableStringResponse(hostValue)
@@ -532,18 +524,17 @@ func validateFormatString(value string) error {
 	return nil
 }
 
-func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, sortValue int64, payload hostPayload) (int64, error) {
+func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload hostPayload) (int64, error) {
 	res, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO hosts (
-			remark, address, port, sort, path, sni, host, security, alpn, fingerprint,
+			remark, address, port, path, sni, host, security, alpn, fingerprint,
 			inbound_tag, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting,
 			random_user_agent, use_sni_as_host
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		payload.Remark,
 		payload.Address,
 		nullableInt64Value(payload.Port),
-		sortValue,
 		nullableStringValue(payload.Path),
 		nullableStringValue(payload.SNI),
 		nullableStringValue(payload.Host),
@@ -565,11 +556,11 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, sortValue 
 	return res.LastInsertId()
 }
 
-func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, sortValue int64, payload hostPayload) error {
+func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload hostPayload) error {
 	_, err := tx.ExecContext(
 		ctx,
 		`UPDATE hosts SET
-			remark = ?, address = ?, port = ?, sort = ?, path = ?, sni = ?, host = ?,
+			remark = ?, address = ?, port = ?, path = ?, sni = ?, host = ?,
 			security = ?, alpn = ?, fingerprint = ?, inbound_tag = ?, allowinsecure = ?,
 			is_disabled = ?, mux_enable = ?, fragment_setting = ?, noise_setting = ?,
 			random_user_agent = ?, use_sni_as_host = ?
@@ -577,7 +568,6 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, sortValue 
 		payload.Remark,
 		payload.Address,
 		nullableInt64Value(payload.Port),
-		sortValue,
 		nullableStringValue(payload.Path),
 		nullableStringValue(payload.SNI),
 		nullableStringValue(payload.Host),

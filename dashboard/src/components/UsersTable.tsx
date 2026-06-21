@@ -307,7 +307,7 @@ const UsageMeter: FC<UsageMeterProps> = ({
 					{resetLabel ? ` · ${resetLabel}` : ""}
 				</Text>
 				<HStack spacing={1}>
-					<Text>{t("usersTable.total")}:</Text>
+					<Text>{t("usersTable.lifetimeUsage", "Lifetime")}:</Text>
 					<chakra.span dir="ltr" sx={{ unicodeBidi: "isolate" }}>
 						{formatBytes(totalUsedTraffic)}
 					</chakra.span>
@@ -410,6 +410,13 @@ export const UsersTable: FC<UsersTableProps> = (props) => {
 	const isDesktop = useBreakpointValue({ base: false, lg: true }) ?? false;
 	const isMobile = useBreakpointValue({ base: true, md: false }) ?? false;
 	const hasSearchQuery = Boolean(filters.search?.trim());
+	const hasUsageScopeFilter = Boolean(
+		filters.search?.trim() ||
+			filters.status ||
+			(filters.advancedFilters && filters.advancedFilters.length > 0) ||
+			filters.owner ||
+			filters.serviceId,
+	);
 	const compactMobileSearch = isMobile && hasSearchQuery;
 	const [contextMenu, setContextMenu] = useState<{
 		visible: boolean;
@@ -806,7 +813,6 @@ export const UsersTable: FC<UsersTableProps> = (props) => {
 		}
 	}
 
-	const userUsage = userData.users_usage ?? null;
 	const filteredUsageTotal = usersResponse.usage_total ?? null;
 	const activeUsersCount =
 		statusBreakdown.active ?? usersResponse.active_total ?? 0;
@@ -843,15 +849,24 @@ export const UsersTable: FC<UsersTableProps> = (props) => {
 		},
 	];
 
-	const usageForSummary = canViewTraffic
-		? (filteredUsageTotal ?? userUsage)
-		: null;
+	const usageForSummary = canViewTraffic ? filteredUsageTotal : null;
 
 	if (usageForSummary !== null) {
 		summaryItems.push({
-			label: t("UsersUsage", "Users Usage"),
+			label: hasUsageScopeFilter
+				? t("usersTable.filteredUsage", "Filtered usage")
+				: t("usersTable.listUsage", "Listed users usage"),
 			value: formatBytes(usageForSummary),
 			accentColor: "primary.500",
+			helper: hasUsageScopeFilter
+				? t(
+						"usersTable.filteredUsageHelper",
+						"Sum of user traffic in the current filters.",
+					)
+				: t(
+						"usersTable.listUsageHelper",
+						"Sum of user traffic in the current visible scope.",
+					),
 		});
 	}
 

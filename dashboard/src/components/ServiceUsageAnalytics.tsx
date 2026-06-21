@@ -619,7 +619,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 						<HStack fontSize="sm" color="gray.500">
 							<InfoIcon />
 							<Text>
-								{t("services.totalUsage", "Total")}{" "}
+								{t("usage.selectedRangeTotal", "Selected range total")}{" "}
 								<chakra.span fontWeight="medium">
 									{formatBytes(
 										timeseries.reduce(
@@ -723,7 +723,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 						<chakra.span fontWeight="medium">
 							{adminDisplayLabel || adminTimeseriesUsername || "-"}
 						</chakra.span>{" "}
-						{t("services.totalUsage", "Total")}:{" "}
+						{t("usage.selectedRangeTotal", "Selected range total")}:{" "}
 						<chakra.span fontWeight="medium">
 							{formatBytes(adminTimeseriesTotal || 0, 2)}
 						</chakra.span>
@@ -761,7 +761,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 						<HStack fontSize="sm" color="gray.500">
 							<InfoIcon />
 							<Text>
-								{t("services.totalUsage", "Total")}{" "}
+								{t("usage.selectedRangeTotal", "Selected range total")}{" "}
 								<chakra.span fontWeight="medium">
 									{formatBytes(adminTotal, 2)}
 								</chakra.span>

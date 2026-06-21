@@ -247,8 +247,11 @@ const getTrafficLabels = (
 			? t("myaccount.dailyCreatedTraffic", "Daily created traffic")
 			: t("myaccount.dailyUsage"),
 		dailyTotalLabel: isCreated
-			? t("myaccount.totalCreatedTraffic", "Total created traffic")
-			: t("nodes.totalUsage", "Total usage"),
+			? t(
+					"myaccount.selectedPeriodCreatedTraffic",
+					"Selected period created traffic",
+				)
+			: t("myaccount.selectedPeriodUsage", "Selected period usage"),
 		modeLabel: isCreated
 			? t("myaccount.serviceModeCreated", "Created traffic")
 			: t("myaccount.serviceModeUsed", "Used traffic"),
@@ -830,7 +833,10 @@ export const MyAccountPage: React.FC = () => {
 		? t("myaccount.dailyServiceTraffic", "Daily service traffic")
 		: trafficLabels.dailyChartTitle;
 	const dailyTotalLabel = isPerServiceLimits
-		? t("myaccount.totalServiceTraffic", "Total service traffic")
+		? t(
+				"myaccount.selectedPeriodServiceTraffic",
+				"Selected period service traffic",
+			)
 		: trafficLabels.dailyTotalLabel;
 	const showServiceBalances = isPerServiceLimits || serviceLimits.length > 0;
 
@@ -982,7 +988,11 @@ export const MyAccountPage: React.FC = () => {
 					<Box minW={0}>
 						<ChartBox title={t("myaccount.perNodeUsage")} minH="500px">
 							<Text fontSize="sm" color={labelColor} mb={3}>
-								{t("nodes.totalUsage", "Total usage")}:{" "}
+								{t(
+									"myaccount.selectedPeriodNodeUsage",
+									"Selected period node usage",
+								)}
+								:{" "}
 								<chakra.span fontWeight="semibold">
 									{formatBytes(perNodeTotal, 2)}
 								</chakra.span>

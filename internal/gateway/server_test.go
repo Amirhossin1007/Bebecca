@@ -92,6 +92,12 @@ func TestGatewayServesEmbeddedDashboardAndStatics(t *testing.T) {
 	if static.Code != http.StatusOK || !strings.Contains(static.Body.String(), "dashboard") {
 		t.Fatalf("static status=%d body=%s", static.Code, static.Body.String())
 	}
+
+	missingModule := httptest.NewRecorder()
+	server.server.Handler.ServeHTTP(missingModule, httptest.NewRequest(http.MethodGet, "/assets/SwaggerDocsViewer.missing.js", nil))
+	if missingModule.Code != http.StatusNotFound || strings.Contains(strings.ToLower(missingModule.Body.String()), "<!doctype html>") {
+		t.Fatalf("missing module status=%d body=%s", missingModule.Code, missingModule.Body.String())
+	}
 }
 
 func TestRemovedAndDeprecatedRoutes(t *testing.T) {

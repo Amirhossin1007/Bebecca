@@ -20,6 +20,7 @@ export interface PersonalUsageStats {
 	consumed_bytes: number;
 	built_bytes: number;
 	reset_bytes: number;
+	traffic_basis?: "used_traffic" | "created_traffic";
 }
 
 export interface AdminOverviewStats {

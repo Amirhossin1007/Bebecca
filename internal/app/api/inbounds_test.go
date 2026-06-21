@@ -144,7 +144,7 @@ func TestInboundDeleteRemovesHostsAndRefreshesUsers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := db.Exec(`INSERT INTO hosts (remark, address, inbound_tag, sort) VALUES ('h', 'example.com', 'delete-me', 0)`)
+	res, err := db.Exec(`INSERT INTO hosts (remark, address, inbound_tag) VALUES ('h', 'example.com', 'delete-me')`)
 	if err != nil {
 		t.Fatal(err)
 	}

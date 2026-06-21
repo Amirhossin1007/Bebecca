@@ -838,7 +838,7 @@ const NodesUsageAnalytics: FC = () => {
 			>
 				<VStack align="start" spacing={1} mb={4}>
 					<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
-						{t("nodes.totalLabel", "Total")}:{" "}
+						{t("usage.selectedRangeTotal", "Selected range total")}:{" "}
 						<chakra.span fontWeight="medium">
 							{formatBytes(totalNodeUsage || 0, 2)}
 						</chakra.span>

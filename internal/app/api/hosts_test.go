@@ -50,7 +50,7 @@ func TestHostStatusDisablesAndDetachesServiceUsers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(`INSERT INTO hosts (id, remark, address, inbound_tag, sort, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host) VALUES (44, 'h', 'example.com', 'cdn', 0, 'tls', 'h2', 'chrome', 0, 0, 0, 0)`)
+	_, err = db.Exec(`INSERT INTO hosts (id, remark, address, inbound_tag, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host) VALUES (44, 'h', 'example.com', 'cdn', 'tls', 'h2', 'chrome', 0, 0, 0, 0)`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,11 +116,11 @@ func TestHostsBulkModifyMoveDisableAndEnqueue(t *testing.T) {
 
 	payload := `{
 		"cdn": [
-			{"remark":"fresh","address":"new.example.com","port":2053,"sort":0,"path":"/x","sni":"sni.example.com","host":"host.example.com","security":"tls","alpn":"h3","fingerprint":"firefox","allowinsecure":true,"is_disabled":false,"mux_enable":true,"fragment_setting":"10-20,100-200,tlshello","noise_setting":"rand:10-20,100-200","random_user_agent":true,"use_sni_as_host":true}
+			{"remark":"fresh","address":"new.example.com","port":2053,"path":"/x","sni":"sni.example.com","host":"host.example.com","security":"tls","alpn":"h3","fingerprint":"firefox","allowinsecure":true,"is_disabled":false,"mux_enable":true,"fragment_setting":"10-20,100-200,tlshello","noise_setting":"rand:10-20,100-200","random_user_agent":true,"use_sni_as_host":true}
 		],
 		"info": [
-			{"id":` + itoa(cdnID) + `,"remark":"moved","address":"move.example.com","port":443,"sort":0,"security":"none","alpn":"","fingerprint":"","is_disabled":false},
-			{"id":` + itoa(infoID) + `,"remark":"disabled","address":"disabled.example.com","sort":1,"security":"inbound_default","is_disabled":true}
+			{"id":` + itoa(cdnID) + `,"remark":"moved","address":"move.example.com","port":443,"security":"none","alpn":"","fingerprint":"","is_disabled":false},
+			{"id":` + itoa(infoID) + `,"remark":"disabled","address":"disabled.example.com","security":"inbound_default","is_disabled":true}
 		]
 	}`
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/hosts", token, payload)

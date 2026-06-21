@@ -138,7 +138,6 @@ type hostInfo struct {
 	FragmentSetting sql.NullString
 	RandomUserAgent bool
 	UseSNIAsHost    bool
-	Sort            int64
 	ServiceSort     int64
 }
 
@@ -1641,11 +1640,11 @@ func (c *cli) loadServiceHosts(serviceID int64) ([]hostInfo, error) {
 	query := `
 SELECT h.id, h.remark, h.address, h.port, h.path, h.sni, h.host, h.security, h.alpn,
        h.fingerprint, h.inbound_tag, h.allowinsecure, h.is_disabled, h.mux_enable,
-       h.fragment_setting, h.random_user_agent, h.use_sni_as_host, h.sort, sh.sort
+       h.fragment_setting, h.random_user_agent, h.use_sni_as_host, sh.sort
 FROM service_hosts sh
 JOIN hosts h ON h.id = sh.host_id
 WHERE sh.service_id = ? AND (h.is_disabled IS NULL OR h.is_disabled = 0)
-ORDER BY sh.sort, h.sort, h.id`
+ORDER BY sh.sort, h.id`
 	rows, err := c.db.Query(query, serviceID)
 	if err != nil {
 		return nil, err
@@ -1655,19 +1654,7 @@ ORDER BY sh.sort, h.sort, h.id`
 }
 
 func (c *cli) loadAllHosts() ([]hostInfo, error) {
-	query := `
-SELECT id, remark, address, port, path, sni, host, security, alpn,
-       fingerprint, inbound_tag, allowinsecure, is_disabled, mux_enable,
-       fragment_setting, random_user_agent, use_sni_as_host, sort, sort
-FROM hosts
-WHERE is_disabled IS NULL OR is_disabled = 0
-ORDER BY sort, id`
-	rows, err := c.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanHosts(rows)
+	return nil, nil
 }
 
 func scanHosts(rows *sql.Rows) ([]hostInfo, error) {
@@ -1695,7 +1682,6 @@ func scanHosts(rows *sql.Rows) ([]hostInfo, error) {
 			&h.FragmentSetting,
 			&randomUA,
 			&useSNI,
-			&h.Sort,
 			&h.ServiceSort,
 		); err != nil {
 			return nil, err
@@ -1725,9 +1711,6 @@ func (c *cli) buildSubscriptionNodes(user subscriptionUser, proxies []proxyRecor
 	sort.SliceStable(hosts, func(i, j int) bool {
 		if hosts[i].ServiceSort != hosts[j].ServiceSort {
 			return hosts[i].ServiceSort < hosts[j].ServiceSort
-		}
-		if hosts[i].Sort != hosts[j].Sort {
-			return hosts[i].Sort < hosts[j].Sort
 		}
 		return hosts[i].ID < hosts[j].ID
 	})

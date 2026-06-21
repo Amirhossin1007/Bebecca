@@ -44,7 +44,6 @@ func up000017PerformanceIndexes(ctx context.Context, tx *sql.Tx) error {
 		{"users", "ix_users_status_expire_id", []string{"status", "expire", "id"}},
 		{"users", "ix_users_credential_key", []string{"credential_key"}},
 		{"proxies", "ix_proxies_user_type", []string{"user_id", "type"}},
-		{"hosts", "ix_hosts_inbound_tag_sort_id", []string{"inbound_tag", "sort", "id"}},
 		{"service_hosts", "ix_service_hosts_service_sort_host", []string{"service_id", "sort", "host_id"}},
 		{"next_plans", "ix_next_plans_user_position_id", []string{"user_id", "position", "id"}},
 		{"user_usage_logs", "ix_user_usage_logs_user_id", []string{"user_id"}},

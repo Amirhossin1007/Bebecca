@@ -13,10 +13,11 @@ type SystemSummaryRequest struct {
 }
 
 type PersonalUsageStats struct {
-	TotalUsers    int64 `json:"total_users"`
-	ConsumedBytes int64 `json:"consumed_bytes"`
-	BuiltBytes    int64 `json:"built_bytes"`
-	ResetBytes    int64 `json:"reset_bytes"`
+	TotalUsers    int64  `json:"total_users"`
+	ConsumedBytes int64  `json:"consumed_bytes"`
+	BuiltBytes    int64  `json:"built_bytes"`
+	ResetBytes    int64  `json:"reset_bytes"`
+	TrafficBasis  string `json:"traffic_basis"`
 }
 
 type AdminOverviewStats struct {

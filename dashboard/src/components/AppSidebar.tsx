@@ -81,7 +81,8 @@ type SidebarItem = {
 	title: string;
 	icon: ElementType;
 	url?: string;
-	subItems?: { title: string; url: string; icon: ElementType }[];
+	external?: boolean;
+	subItems?: { title: string; url: string; icon: ElementType; external?: boolean }[];
 };
 type SidebarSubItems = NonNullable<SidebarItem["subItems"]>;
 
@@ -204,6 +205,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const currentLanguage = i18n.language || "en";
 	const sectionAccess = userData.permissions?.sections;
 	const isFullAccess = userData.role === AdminRole.FullAccess;
+	const isPrivilegedAdmin =
+		isFullAccess || userData.role === AdminRole.Sudo;
 	const sidebarBg = useColorModeValue("white", "surface.dark");
 	const sidebarBorderColor = useColorModeValue(
 		"blackAlpha.200",
@@ -318,6 +321,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					title: t("header.accessInsights", "Access insights"),
 					url: "/access-insights",
 					icon: InsightsIconStyled,
+				}
+			: null,
+		isPrivilegedAdmin
+			? {
+					title: t("apiDocs.menu", "API Docs"),
+					url: "/api-docs",
+					icon: TutorialIconStyled,
 				}
 			: null,
 	].filter(Boolean) as SidebarSubItems;
@@ -557,46 +567,58 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												>
 													{item.subItems.map((subItem) => {
 														const isSubActive =
+															!subItem.external &&
 															location.pathname === subItem.url;
 														const SubIcon = subItem.icon;
+														const content = (
+															<HStack
+																spacing={3}
+																px={3}
+																py={2}
+																borderRadius="md"
+																cursor="pointer"
+																bg={isSubActive ? activeItemBg : "transparent"}
+																color={isSubActive ? activeItemColor : itemColor}
+																_hover={{
+																	bg: isSubActive ? activeItemBg : hoverItemBg,
+																}}
+																transition="background 0.15s ease, color 0.15s ease"
+															>
+																<SubIcon
+																	w={collapsed ? 5 : undefined}
+																	h={collapsed ? 5 : undefined}
+																/>
+																<Text
+																	fontSize="sm"
+																	fontWeight={isSubActive ? "semibold" : "normal"}
+																>
+																	{subItem.title}
+																</Text>
+															</HStack>
+														);
+														if (subItem.external) {
+															return (
+																<Box
+																	key={subItem.url}
+																	as="a"
+																	href={subItem.url}
+																	onClick={() => {
+																		if (inDrawer && onRequestExpand) {
+																			onRequestExpand();
+																		}
+																	}}
+																>
+																	{content}
+																</Box>
+															);
+														}
 														return (
 															<NavLink
 																key={subItem.url}
 																to={subItem.url}
 																onClick={(e) => handleNavClick(e, subItem.url)}
 															>
-																<HStack
-																	spacing={3}
-																	px={3}
-																	py={2}
-																	borderRadius="md"
-																	cursor="pointer"
-																	bg={
-																		isSubActive ? activeItemBg : "transparent"
-																	}
-																	color={
-																		isSubActive ? activeItemColor : itemColor
-																	}
-																	_hover={{
-																		bg: isSubActive
-																			? activeItemBg
-																			: hoverItemBg,
-																	}}
-																	transition="background 0.15s ease, color 0.15s ease"
-																>
-																	<SubIcon
-																		w={collapsed ? 5 : undefined}
-																		h={collapsed ? 5 : undefined}
-																	/>
-																	<Text
-																		fontSize="sm"
-																		fontWeight={
-																			isSubActive ? "semibold" : "normal"
-																		}
-																	>
-																		{subItem.title}
-																	</Text>
-																</HStack>
+																{content}
 															</NavLink>
 														);
 													})}

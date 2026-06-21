@@ -32,6 +32,7 @@ type Config struct {
 	TelegramAPIBase              string
 	XrayFallbackInboundTag       string
 	XrayExcludeInboundTags       []string
+	APIDocsEnabled               bool
 }
 
 func LoadConfig() (Config, error) {
@@ -71,6 +72,7 @@ func LoadConfig() (Config, error) {
 		TelegramAPIBase:              lookup("REBECCA_TELEGRAM_API_BASE"),
 		XrayFallbackInboundTag:       firstNonEmpty(lookup("XRAY_FALLBACKS_INBOUND_TAG"), lookup("XRAY_FALLBACK_INBOUND_TAG")),
 		XrayExcludeInboundTags:       splitWhitespace(lookup("XRAY_EXCLUDE_INBOUND_TAGS")),
+		APIDocsEnabled:               parseBoolDefault(lookup("REBECCA_API_DOCS_ENABLED"), false),
 	}
 	if cfg.Database == "" {
 		return Config{}, fmt.Errorf("SQLALCHEMY_DATABASE_URL is required")

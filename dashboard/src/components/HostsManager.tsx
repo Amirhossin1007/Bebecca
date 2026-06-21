@@ -41,7 +41,6 @@ import {
 	VStack,
 } from "@chakra-ui/react";
 import {
-	Bars3Icon,
 	InformationCircleIcon,
 	ListBulletIcon,
 	PencilIcon,
@@ -55,10 +54,8 @@ import {
 } from "constants/Proxies";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import { type HostsSchema, useHosts } from "contexts/HostsContext";
-import { Reorder, useDragControls } from "framer-motion";
 import {
 	type FC,
-	type PointerEvent as ReactPointerEvent,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -81,7 +78,6 @@ type HostData = {
 	id: number | null;
 	remark: string;
 	address: string;
-	sort: number;
 	port: number | null;
 	path: string;
 	sni: string;
@@ -103,12 +99,6 @@ const coerceHostValue = <Key extends keyof HostData>(
 	value: unknown,
 	currentData: HostData,
 ): HostData[Key] => {
-	if (key === "sort") {
-		const numeric = Number(value);
-		return Number.isFinite(numeric)
-			? (numeric as HostData[Key])
-			: (currentData.sort as HostData[Key]);
-	}
 	if (key === "port") {
 		if (value === null || value === "") {
 			return null as HostData[Key];
@@ -143,7 +133,6 @@ const EMPTY_HOST_DATA: HostData = {
 	id: null,
 	remark: "",
 	address: "",
-	sort: 0,
 	port: null,
 	path: "",
 	sni: "",
@@ -179,7 +168,6 @@ type CreateHostValues = {
 	inboundTag: string;
 	remark: string;
 	address: string;
-	sort: number;
 	port: number | null;
 	path: string;
 	sni: string;
@@ -194,13 +182,6 @@ const EditIcon = chakra(PencilIcon, {
 });
 
 const AddIcon = chakra(PlusIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-});
-
-const HandleIcon = chakra(Bars3Icon, {
 	baseStyle: {
 		w: 4,
 		h: 4,
@@ -291,11 +272,6 @@ const DynamicTokensPopover: FC = () => {
 const createUid = () =>
 	`${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-const safeSortValue = (value: number | null | undefined) =>
-	typeof value === "number" && !Number.isNaN(value)
-		? value
-		: Number.MAX_SAFE_INTEGER;
-
 const normalizeString = (value: string | null | undefined) =>
 	(value ?? "").trim();
 
@@ -304,14 +280,10 @@ const normalizeBoolean = (
 	fallback = false,
 ) => (typeof value === "boolean" ? value : fallback);
 
-const normalizeHostData = (
-	host: HostsSchema[string][number],
-	fallbackSort: number,
-): HostData => ({
+const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	id: host.id ?? null,
 	remark: host.remark ?? "",
 	address: host.address ?? "",
-	sort: host.sort ?? fallbackSort,
 	port: host.port ?? null,
 	path: normalizeString(host.path),
 	sni: normalizeString(host.sni),
@@ -332,7 +304,6 @@ const cloneHostData = (data: HostData): HostData => ({
 	id: data.id ?? null,
 	remark: data.remark,
 	address: data.address,
-	sort: data.sort,
 	port: data.port ?? null,
 	path: data.path,
 	sni: data.sni,
@@ -373,7 +344,6 @@ const formatHostForApi = (data: HostData): HostsSchema[string][number] => ({
 	id: data.id ?? null,
 	remark: data.remark.trim(),
 	address: data.address.trim(),
-	sort: data.sort,
 	port: data.port,
 	path: data.path.trim() ? data.path.trim() : null,
 	sni: data.sni.trim() ? data.sni.trim() : null,
@@ -394,8 +364,11 @@ const formatHostForApi = (data: HostData): HostsSchema[string][number] => ({
 
 const sortHosts = (hosts: HostState[]) =>
 	[...hosts].sort((a, b) => {
-		const diff = safeSortValue(a.data.sort) - safeSortValue(b.data.sort);
-		if (diff !== 0) return diff;
+		const inboundDiff = a.inboundTag.localeCompare(b.inboundTag);
+		if (inboundDiff !== 0) return inboundDiff;
+		const leftID = a.data.id ?? Number.MAX_SAFE_INTEGER;
+		const rightID = b.data.id ?? Number.MAX_SAFE_INTEGER;
+		if (leftID !== rightID) return leftID - rightID;
 		return a.data.remark.localeCompare(b.data.remark);
 	});
 
@@ -411,7 +384,7 @@ const mapHostsToState = (hosts: HostsSchema): HostState[] => {
 		}
 		hostList.forEach((host, index) => {
 			try {
-				const normalized = normalizeHostData(host, index);
+				const normalized = normalizeHostData(host);
 				const persistentUid =
 					normalized.id != null ? `host-${normalized.id}` : createUid();
 				result.push({
@@ -442,9 +415,7 @@ const groupHostsByInbound = (items: HostState[]): HostsSchema => {
 	});
 	const result: HostsSchema = {};
 	grouped.forEach((value, key) => {
-		result[key] = value
-			.map((host) => formatHostForApi(host))
-			.sort((a, b) => safeSortValue(a.sort) - safeSortValue(b.sort));
+		result[key] = value.map((host) => formatHostForApi(host));
 	});
 	return result;
 };
@@ -465,7 +436,6 @@ const buildInboundPayload = (
 type HostCardProps = {
 	host: HostState;
 	inboundOptions: InboundOption[];
-	orderIndex: number;
 	onToggleActive: (uid: string, active: boolean) => void;
 	onEdit: (uid: string) => void;
 	onDelete: (uid: string) => void;
@@ -476,7 +446,6 @@ type HostCardProps = {
 const HostCard: FC<HostCardProps> = ({
 	host,
 	inboundOptions,
-	orderIndex,
 	onToggleActive,
 	onEdit,
 	onDelete,
@@ -513,9 +482,6 @@ const HostCard: FC<HostCardProps> = ({
 							</Text>
 						</Tooltip>
 						<HStack spacing={2} flexWrap="wrap">
-							<Tag colorScheme="gray" size="sm">
-								{t("hostsPage.orderIndex", { value: orderIndex + 1 })}
-							</Tag>
 							{inbound && (
 								<Tag colorScheme="purple" size="sm">
 									{`${inbound.value} (${inbound.protocol.toUpperCase()} - ${inbound.network})`}
@@ -613,7 +579,6 @@ const HostCard: FC<HostCardProps> = ({
 const HostListRow: FC<HostCardProps> = ({
 	host,
 	inboundOptions,
-	orderIndex,
 	onToggleActive,
 	onEdit,
 	onDelete,
@@ -647,9 +612,6 @@ const HostListRow: FC<HostCardProps> = ({
 			<HStack justify="space-between" align="center" spacing={4}>
 				<VStack align="flex-start" spacing={1} flex="1">
 					<HStack spacing={2} flexWrap="wrap">
-						<Tag colorScheme="gray" size="sm">
-							{t("hostsPage.orderIndex", { value: orderIndex + 1 })}
-						</Tag>
 						<Text fontWeight="semibold" noOfLines={1}>
 							{hostName}
 						</Text>
@@ -721,83 +683,6 @@ const HostListRow: FC<HostCardProps> = ({
 				</HStack>
 			</HStack>
 		</Box>
-	);
-};
-
-type SortRowProps = {
-	host: HostState;
-	index: number;
-};
-
-const SortRow: FC<SortRowProps> = ({ host, index }) => {
-	const { t } = useTranslation();
-	const dragControls = useDragControls();
-	const hostName = host.data.remark || t("hostsPage.untitledHost");
-
-	const handlePointerDown = useCallback(
-		(event: ReactPointerEvent<HTMLButtonElement>) => {
-			if (event.pointerType === "mouse" && event.button !== 0) {
-				return;
-			}
-			event.preventDefault();
-			dragControls.start(event);
-		},
-		[dragControls],
-	);
-
-	return (
-		<Reorder.Item
-			value={host}
-			id={host.uid}
-			dragListener={false}
-			dragControls={dragControls}
-			drag
-			dragMomentum={false}
-			whileDrag={{ zIndex: 10, scale: 1.01 }}
-			dragTransition={{ bounceStiffness: 600, bounceDamping: 40 }}
-			style={{ listStyle: "none", touchAction: "none" }}
-		>
-			<HStack
-				borderWidth="1px"
-				borderRadius="md"
-				borderColor="gray.200"
-				_dark={{ borderColor: "gray.600", bg: "gray.800" }}
-				px={4}
-				py={3}
-				spacing={4}
-				align="center"
-			>
-				<Tooltip label={t("hostsPage.dragHandle")} hasArrow>
-					<IconButton
-						aria-label={t("hostsPage.dragHandle")}
-						size="sm"
-						variant="ghost"
-						icon={<HandleIcon />}
-						cursor="grab"
-						onPointerDown={handlePointerDown}
-						style={{ touchAction: "none" }}
-					/>
-				</Tooltip>
-				<Tag colorScheme="gray" size="sm">
-					{t("hostsPage.orderIndex", { value: index + 1 })}
-				</Tag>
-				<VStack align="flex-start" spacing={0} flex="1">
-					<Tooltip label={host.data.remark} isDisabled={!host.data.remark}>
-						<Text fontWeight="medium" noOfLines={1} maxW="full">
-							{hostName}
-						</Text>
-					</Tooltip>
-					<Text
-						fontSize="sm"
-						color="gray.500"
-						_dark={{ color: "gray.300" }}
-						noOfLines={1}
-					>
-						{host.data.address || host.inboundTag}
-					</Text>
-				</VStack>
-			</HStack>
-		</Reorder.Item>
 	);
 };
 
@@ -995,20 +880,6 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 																</option>
 															))}
 														</Select>
-													</FormControl>
-													<FormControl>
-														<FormLabel>{t("hostsDialog.sort")}</FormLabel>
-														<NumericInput
-															value={host.data.sort}
-															allowMouseWheel
-															onChange={(_, num) =>
-																onChange(
-																	host.uid,
-																	"sort",
-																	Number.isNaN(num) ? host.data.sort : num,
-																)
-															}
-														/>
 													</FormControl>
 												</SimpleGrid>
 												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
@@ -1318,7 +1189,6 @@ type CreateHostModalProps = {
 	inboundOptions: InboundOption[];
 	onSubmit: (values: CreateHostValues) => void;
 	isSubmitting: boolean;
-	defaultSort: number;
 };
 
 const CreateHostModal: FC<CreateHostModalProps> = ({
@@ -1327,7 +1197,6 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 	inboundOptions,
 	onSubmit,
 	isSubmitting,
-	defaultSort,
 }) => {
 	const { t } = useTranslation();
 	const initialRef = useRef<HTMLInputElement | null>(null);
@@ -1335,7 +1204,6 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 		inboundTag: inboundOptions[0]?.value ?? "",
 		remark: "",
 		address: "",
-		sort: defaultSort ?? 0,
 		port: null,
 		path: "",
 		sni: "",
@@ -1348,7 +1216,6 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 				inboundTag: inboundOptions[0]?.value ?? "",
 				remark: "",
 				address: "",
-				sort: defaultSort ?? 0,
 				port: null,
 				path: "",
 				sni: "",
@@ -1356,7 +1223,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 			});
 			setTimeout(() => initialRef.current?.focus(), 150);
 		}
-	}, [defaultSort, inboundOptions, isOpen]);
+	}, [inboundOptions, isOpen]);
 
 	const handleSubmit = () => {
 		if (
@@ -1496,31 +1363,6 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 								</InputRightElement>
 							</InputGroup>
 						</FormControl>
-						<FormControl>
-							<FormLabel>{t("hostsDialog.sort")}</FormLabel>
-							<NumericInput
-								value={Number.isFinite(formState.sort) ? formState.sort : ""}
-								onChange={(_, num) =>
-									setFormState((prev) => ({
-										...prev,
-										sort: Number.isNaN(num) ? prev.sort : num,
-									}))
-								}
-							/>
-						</FormControl>
-						<Box
-							borderRadius="md"
-							bg="gray.50"
-							color="gray.600"
-							fontSize="sm"
-							px={4}
-							py={3}
-							_dark={{ bg: "gray.800", color: "gray.300" }}
-						>
-							{t("hostsPage.create.sortHint", {
-								value: formState.sort ?? defaultSort,
-							})}
-						</Box>
 					</VStack>
 				</XrayModalBody>
 				<XrayModalFooter justifyContent="flex-end">
@@ -1571,11 +1413,6 @@ export const HostsManager: FC = () => {
 	const [savingHostUid, setSavingHostUid] = useState<string | null>(null);
 	const [deletingUid, setDeletingUid] = useState<string | null>(null);
 
-	const [orderDirtyState, setOrderDirtyState] = useState(false);
-	const orderDirtyRef = useRef(false);
-	const [savingOrder, setSavingOrder] = useState(false);
-	const [isSorting, setIsSorting] = useState(false);
-	const [visualOrder, setVisualOrder] = useState<HostState[] | null>(null);
 	const viewModeStorageKey = "hostsViewMode";
 	const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
 		if (typeof window === "undefined") {
@@ -1625,30 +1462,6 @@ export const HostsManager: FC = () => {
 		}
 	}, [selectedHostUid]);
 
-	const setOrderDirtyFlag = useCallback((value: boolean) => {
-		orderDirtyRef.current = value;
-		setOrderDirtyState(value);
-	}, []);
-
-	useEffect(() => {
-		if (!isSorting) {
-			setVisualOrder(null);
-			setOrderDirtyFlag(false);
-		}
-	}, [isSorting, setOrderDirtyFlag]);
-
-	useEffect(() => {
-		if (!isSorting || !visualOrder) {
-			return;
-		}
-		const currentIds = new Set(hostItemsRef.current.map((host) => host.uid));
-		const stillValid = visualOrder.every((host) => currentIds.has(host.uid));
-		if (!stillValid) {
-			setVisualOrder(null);
-			setOrderDirtyFlag(false);
-		}
-	}, [isSorting, setOrderDirtyFlag, visualOrder]);
-
 	const inboundOptions: InboundOption[] = useMemo(() => {
 		const options: InboundOption[] = [];
 		inbounds.forEach((list) => {
@@ -1665,20 +1478,12 @@ export const HostsManager: FC = () => {
 	}, [inbounds]);
 
 	const activeHosts = useMemo(
-		() =>
-			_hostItemsState
-				.filter((host) => !host.data.is_disabled)
-				.sort(
-					(a, b) => safeSortValue(a.data.sort) - safeSortValue(b.data.sort),
-				),
+		() => sortHosts(_hostItemsState.filter((host) => !host.data.is_disabled)),
 		[_hostItemsState],
 	);
 
 	const allHosts = useMemo(
-		() =>
-			[..._hostItemsState].sort(
-				(a, b) => safeSortValue(a.data.sort) - safeSortValue(b.data.sort),
-			),
+		() => sortHosts(_hostItemsState),
 		[_hostItemsState],
 	);
 
@@ -1709,34 +1514,17 @@ export const HostsManager: FC = () => {
 		});
 	}, [baseFilteredHosts, normalizedSearchQuery]);
 
-	useEffect(() => {
-		if (isSorting) {
-			setVisualOrder((prev) => prev ?? [...activeHosts]);
-		}
-	}, [activeHosts, isSorting]);
-
-	const displayedHosts = isSorting
-		? (visualOrder ?? activeHosts)
-		: filteredHosts;
+	const displayedHosts = filteredHosts;
 
 	const hasLoadedHosts = hostItemsRef.current.length > 0;
 	const isInitialLoading = isLoading && !hasLoadedHosts;
 	const isRefreshing = isLoading && hasLoadedHosts;
 	const isSearchActive = normalizedSearchQuery.length > 0;
 	const showSearchEmptyState =
-		!isSorting &&
 		!isInitialLoading &&
 		isSearchActive &&
 		baseFilteredHosts.length > 0 &&
 		filteredHosts.length === 0;
-
-	const orderIndexMap = useMemo(() => {
-		const map = new Map<string, number>();
-		displayedHosts.forEach((host, index) => {
-			map.set(host.uid, index);
-		});
-		return map;
-	}, [displayedHosts]);
 
 	const selectedHost = selectedHostUid
 		? (hostItemsRef.current.find((host) => host.uid === selectedHostUid) ??
@@ -1773,145 +1561,6 @@ export const HostsManager: FC = () => {
 			),
 		);
 	};
-
-	const persistOrder = useCallback(async () => {
-		if (!isSorting || savingOrder) return false;
-		const baseOrder = activeHosts;
-		const targetOrder = visualOrder ?? baseOrder;
-
-		const hasChanges =
-			targetOrder.length !== baseOrder.length ||
-			targetOrder.some((host, index) => host.uid !== baseOrder[index]?.uid);
-
-		if (!hasChanges) {
-			setIsSorting(false);
-			setVisualOrder(null);
-			setOrderDirtyFlag(false);
-			return true;
-		}
-
-		if (!visualOrder || targetOrder.length === 0) {
-			setIsSorting(false);
-			setVisualOrder(null);
-			setOrderDirtyFlag(false);
-			return true;
-		}
-
-		const orderedUids = targetOrder.map((host) => host.uid);
-		const orderedIndexMap = new Map<string, number>();
-		orderedUids.forEach((uid, index) => {
-			orderedIndexMap.set(uid, index);
-		});
-
-		const previousHosts = hostItemsRef.current;
-
-		const orderedSegment = hostItemsRef.current
-			.filter((host) => orderedIndexMap.has(host.uid))
-			.sort(
-				(a, b) =>
-					(orderedIndexMap.get(a.uid) ?? Number.MAX_SAFE_INTEGER) -
-					(orderedIndexMap.get(b.uid) ?? Number.MAX_SAFE_INTEGER),
-			);
-
-		const remainingSegment = hostItemsRef.current
-			.filter((host) => !orderedIndexMap.has(host.uid))
-			.sort((a, b) => safeSortValue(a.data.sort) - safeSortValue(b.data.sort));
-
-		const combined = [...orderedSegment, ...remainingSegment].map(
-			(host, index) => ({
-				...host,
-				data: { ...host.data, sort: index },
-				original: { ...host.original, sort: index },
-			}),
-		);
-
-		applyHostItems(combined);
-		setVisualOrder(combined.filter((host) => !host.data.is_disabled));
-		setSavingOrder(true);
-
-		try {
-			const payload = groupHostsByInbound(combined);
-			await setHosts(payload);
-			await fetchHosts();
-			setOrderDirtyFlag(false);
-			setIsSorting(false);
-			setVisualOrder(null);
-			toast({
-				title: t("hostsPage.reorderSaved"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
-			return true;
-		} catch (_error) {
-			applyHostItems(previousHosts);
-			const previousActive = previousHosts
-				.filter((host) => !host.data.is_disabled)
-				.sort(
-					(a, b) => safeSortValue(a.data.sort) - safeSortValue(b.data.sort),
-				);
-			setVisualOrder(previousActive);
-			setOrderDirtyFlag(true);
-			toast({
-				title: t("hostsPage.reorderFailed"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
-			return false;
-		} finally {
-			setSavingOrder(false);
-		}
-	}, [
-		applyHostItems,
-		activeHosts,
-		fetchHosts,
-		isSorting,
-		savingOrder,
-		setHosts,
-		setOrderDirtyFlag,
-		t,
-		toast,
-		visualOrder,
-	]);
-
-	const handleReorder = useCallback(
-		(orderedSubset: HostState[]) => {
-			if (!isSorting || !orderedSubset.length) return;
-			const referenceOrder = visualOrder ?? activeHosts;
-			const changed =
-				orderedSubset.length !== referenceOrder.length ||
-				orderedSubset.some(
-					(host, index) => host.uid !== referenceOrder[index]?.uid,
-				);
-
-			if (!changed) {
-				return;
-			}
-
-			setVisualOrder(orderedSubset);
-			if (!orderDirtyRef.current) {
-				setOrderDirtyFlag(true);
-			}
-		},
-		[activeHosts, isSorting, setOrderDirtyFlag, visualOrder],
-	);
-
-	const enterSortMode = useCallback(() => {
-		setVisualOrder([...activeHosts]);
-		setOrderDirtyFlag(false);
-		setIsSorting(true);
-	}, [activeHosts, setOrderDirtyFlag]);
-
-	const cancelSort = useCallback(() => {
-		setIsSorting(false);
-		setVisualOrder(null);
-		setOrderDirtyFlag(false);
-	}, [setOrderDirtyFlag]);
-
-	const handleSaveSort = useCallback(() => {
-		void persistOrder();
-	}, [persistOrder]);
 
 	const saveHost = async (uid: string) => {
 		const host = hostItemsRef.current.find((item) => item.uid === uid);
@@ -2018,21 +1667,13 @@ export const HostsManager: FC = () => {
 			return;
 		}
 
-		const previousHosts = hostItemsRef.current;
-		const nextSort = previousHosts.length
-			? Math.max(...previousHosts.map((host) => host.data.sort)) + 1
-			: 0;
-		const sortValue = Number.isFinite(cloneHost.data.sort)
-			? cloneHost.data.sort
-			: nextSort;
-
 		const newData: HostData = {
 			...cloneHostData(cloneHost.data),
 			id: null,
 			remark,
 			address,
-			sort: sortValue,
 		};
+		const previousHosts = hostItemsRef.current;
 		const newHost: HostState = {
 			uid: createUid(),
 			inboundTag: cloneHost.inboundTag,
@@ -2141,9 +1782,6 @@ export const HostsManager: FC = () => {
 	};
 
 	const handleCreateHost = async (values: CreateHostValues) => {
-		const nextSort = hostItemsRef.current.length
-			? Math.max(...hostItemsRef.current.map((host) => host.data.sort)) + 1
-			: 0;
 		setSavingHostUid("create");
 		try {
 			const newHost: HostState = {
@@ -2154,7 +1792,6 @@ export const HostsManager: FC = () => {
 					id: null,
 					remark: values.remark,
 					address: values.address,
-					sort: Number.isFinite(values.sort) ? values.sort : nextSort,
 					port: values.port,
 					path: values.path,
 					sni: values.sni,
@@ -2174,7 +1811,6 @@ export const HostsManager: FC = () => {
 					id: null,
 					remark: values.remark,
 					address: values.address,
-					sort: Number.isFinite(values.sort) ? values.sort : nextSort,
 					port: values.port,
 					path: values.path,
 					sni: values.sni,
@@ -2219,120 +1855,68 @@ export const HostsManager: FC = () => {
 
 	return (
 		<VStack align="stretch" spacing={4}>
-			{isSorting ? (
-				<VStack align="stretch" spacing={2}>
-					<HStack justify="space-between" align="center" wrap="wrap" rowGap={2}>
-						<Text fontWeight="semibold">{t("hostsPage.sortingTitle")}</Text>
-						<HStack spacing={2}>
-							<Button
-								variant="ghost"
-								onClick={cancelSort}
-								isDisabled={savingOrder}
-							>
-								{t("hostsPage.cancel")}
-							</Button>
-							<Button
-								colorScheme="primary"
-								onClick={handleSaveSort}
-								isLoading={savingOrder}
-								isDisabled={!orderDirtyState && !savingOrder}
-							>
-								{t("hostsPage.saveOrder")}
-							</Button>
-						</HStack>
-					</HStack>
-					<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.300" }}>
-						{t("hostsPage.sortingInstructions")}
-					</Text>
-					{savingOrder ? (
-						<HStack
-							spacing={2}
-							fontSize="sm"
-							color="gray.600"
-							_dark={{ color: "gray.300" }}
-						>
-							<Spinner size="xs" />
-							<Text>{t("hostsPage.orderSaving")}</Text>
-						</HStack>
-					) : orderDirtyState ? (
-						<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.300" }}>
-							{t("hostsPage.orderDirty")}
-						</Text>
-					) : null}
-				</VStack>
-			) : (
-				<Stack
-					direction={{ base: "column", md: "row" }}
-					spacing={3}
-					align={{ base: "stretch", md: "center" }}
-					justify="space-between"
-				>
-					<HStack spacing={3} flexWrap="wrap">
-						<Button
-							colorScheme="primary"
-							size="sm"
-							onClick={() => setCreateOpen(true)}
-							leftIcon={<AddIcon />}
-							isDisabled={!inboundOptions.length}
-						>
-							{t("hostsPage.addHost")}
-						</Button>
-						<Switch
-							isChecked={includeDisabled}
-							onChange={(event) => setIncludeDisabled(event.target.checked)}
-						>
-							{t("hostsPage.showDisabled")}
-						</Switch>
-					</HStack>
-					<Stack
-						direction={{ base: "column", sm: "row" }}
-						spacing={2}
-						align={{ base: "stretch", sm: "center" }}
-						justify="flex-end"
-						w="full"
+			<Stack
+				direction={{ base: "column", md: "row" }}
+				spacing={3}
+				align={{ base: "stretch", md: "center" }}
+				justify="space-between"
+			>
+				<HStack spacing={3} flexWrap="wrap">
+					<Button
+						colorScheme="primary"
+						size="sm"
+						onClick={() => setCreateOpen(true)}
+						leftIcon={<AddIcon />}
+						isDisabled={!inboundOptions.length}
 					>
-						<Input
-							value={searchQuery}
-							onChange={(event) => setSearchQuery(event.target.value)}
-							placeholder={t("hostsPage.searchPlaceholder")}
-							size="sm"
-							w="100%"
-						/>
-						<HStack spacing={2} justify="flex-end">
-							{isRefreshing && <Spinner size="sm" />}
-							<Tooltip label={t("hostsPage.viewList", "List view")}>
-								<IconButton
-									aria-label={t("hostsPage.viewList", "List view")}
-									icon={<ListViewIcon />}
-									variant={viewMode === "list" ? "solid" : "ghost"}
-									colorScheme={viewMode === "list" ? "primary" : undefined}
-									size="sm"
-									onClick={() => setViewMode("list")}
-								/>
-							</Tooltip>
-							<Tooltip label={t("hostsPage.viewGrid", "Grid view")}>
-								<IconButton
-									aria-label={t("hostsPage.viewGrid", "Grid view")}
-									icon={<GridViewIcon />}
-									variant={viewMode === "grid" ? "solid" : "ghost"}
-									colorScheme={viewMode === "grid" ? "primary" : undefined}
-									size="sm"
-									onClick={() => setViewMode("grid")}
-								/>
-							</Tooltip>
-							<Button
+						{t("hostsPage.addHost")}
+					</Button>
+					<Switch
+						isChecked={includeDisabled}
+						onChange={(event) => setIncludeDisabled(event.target.checked)}
+					>
+						{t("hostsPage.showDisabled")}
+					</Switch>
+				</HStack>
+				<Stack
+					direction={{ base: "column", sm: "row" }}
+					spacing={2}
+					align={{ base: "stretch", sm: "center" }}
+					justify="flex-end"
+					w="full"
+				>
+					<Input
+						value={searchQuery}
+						onChange={(event) => setSearchQuery(event.target.value)}
+						placeholder={t("hostsPage.searchPlaceholder")}
+						size="sm"
+						w="100%"
+					/>
+					<HStack spacing={2} justify="flex-end">
+						{isRefreshing && <Spinner size="sm" />}
+						<Tooltip label={t("hostsPage.viewList", "List view")}>
+							<IconButton
+								aria-label={t("hostsPage.viewList", "List view")}
+								icon={<ListViewIcon />}
+								variant={viewMode === "list" ? "solid" : "ghost"}
+								colorScheme={viewMode === "list" ? "primary" : undefined}
 								size="sm"
-								variant="outline"
-								leftIcon={<HandleIcon />}
-								onClick={enterSortMode}
-								isDisabled={isInitialLoading || !activeHosts.length}
-							>
-								{t("hostsPage.enterSort")}
-							</Button>
-						</HStack>
-					</Stack>
+								onClick={() => setViewMode("list")}
+							/>
+						</Tooltip>
+						<Tooltip label={t("hostsPage.viewGrid", "Grid view")}>
+							<IconButton
+								aria-label={t("hostsPage.viewGrid", "Grid view")}
+								icon={<GridViewIcon />}
+								variant={viewMode === "grid" ? "solid" : "ghost"}
+								colorScheme={viewMode === "grid" ? "primary" : undefined}
+								size="sm"
+								onClick={() => setViewMode("grid")}
+							/>
+						</Tooltip>
+					</HStack>
 				</Stack>
-			)}
+			</Stack>
 
 			{isInitialLoading ? (
 				<HStack justify="center" py={10}>
@@ -2354,33 +1938,13 @@ export const HostsManager: FC = () => {
 							: t("hostsPage.emptyState")}
 					</Text>
 				</Box>
-			) : isSorting ? (
-				<Reorder.Group
-					axis="y"
-					values={displayedHosts}
-					onReorder={handleReorder}
-					layoutScroll
-					style={{
-						display: "flex",
-						flexDirection: "column",
-						gap: "0.75rem",
-						listStyle: "none",
-						padding: 0,
-						margin: 0,
-					}}
-				>
-					{displayedHosts.map((host, index) => (
-						<SortRow key={host.uid} host={host} index={index} />
-					))}
-				</Reorder.Group>
 			) : viewMode === "list" ? (
 				<VStack align="stretch" spacing={3}>
-					{displayedHosts.map((host, index) => (
+					{displayedHosts.map((host) => (
 						<HostListRow
 							key={host.uid}
 							host={host}
 							inboundOptions={inboundOptions}
-							orderIndex={orderIndexMap.get(host.uid) ?? index}
 							onToggleActive={toggleActive}
 							onEdit={setSelectedHostUid}
 							onDelete={handleDeleteHost}
@@ -2391,12 +1955,11 @@ export const HostsManager: FC = () => {
 				</VStack>
 			) : (
 				<SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={4}>
-					{displayedHosts.map((host, index) => (
+					{displayedHosts.map((host) => (
 						<HostCard
 							key={host.uid}
 							host={host}
 							inboundOptions={inboundOptions}
-							orderIndex={orderIndexMap.get(host.uid) ?? index}
 							onToggleActive={toggleActive}
 							onEdit={setSelectedHostUid}
 							onDelete={handleDeleteHost}
@@ -2413,12 +1976,6 @@ export const HostsManager: FC = () => {
 				inboundOptions={inboundOptions}
 				onSubmit={handleCreateHost}
 				isSubmitting={savingHostUid === "create" && isPostLoading}
-				defaultSort={
-					hostItemsRef.current.length
-						? Math.max(...hostItemsRef.current.map((host) => host.data.sort)) +
-							1
-						: 0
-				}
 			/>
 
 			<HostDetailModal

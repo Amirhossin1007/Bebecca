@@ -211,6 +211,15 @@ func parseUserUsageSampleUID(raw string) (int64, bool, bool) {
 		onlineOnly = true
 		uid = strings.TrimSpace(strings.TrimPrefix(uid, onlineUsageSamplePrefix))
 	}
+	if strings.Contains(uid, ">>>") {
+		parts := strings.Split(uid, ">>>")
+		if len(parts) >= 2 {
+			uid = strings.TrimSpace(parts[1])
+		}
+	}
+	if beforeDot, _, found := strings.Cut(uid, "."); found {
+		uid = strings.TrimSpace(beforeDot)
+	}
 	userID, err := strconv.ParseInt(uid, 10, 64)
 	if err != nil || userID <= 0 {
 		return 0, false, false

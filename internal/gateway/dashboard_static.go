@@ -40,7 +40,7 @@ func normalizeDashboardRoot(value string) string {
 }
 
 func (d *dashboardFiles) matches(r *http.Request) bool {
-	if d == nil || r.Method != http.MethodGet {
+	if d == nil || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
 		return false
 	}
 	cleaned := strings.TrimRight(r.URL.Path, "/")
@@ -78,6 +78,11 @@ func (d *dashboardFiles) serve(w http.ResponseWriter, r *http.Request) {
 	if name == "." || name == "" {
 		name = "index.html"
 	}
+	staticAsset := strings.HasPrefix(name, "assets/") || strings.HasPrefix(name, "statics/")
+	if staticAsset && (!fileExists(d.fs, name) || path.Ext(name) == "") {
+		http.NotFound(w, r)
+		return
+	}
 	if !fileExists(d.fs, name) || path.Ext(name) == "" {
 		name = "index.html"
 	}
@@ -85,6 +90,9 @@ func (d *dashboardFiles) serve(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.NotFound(w, r)
 		return
+	}
+	if name == "index.html" {
+		w.Header().Set("Cache-Control", "no-store")
 	}
 	http.ServeContent(w, r, path.Base(name), time.Time{}, bytes.NewReader(content))
 }

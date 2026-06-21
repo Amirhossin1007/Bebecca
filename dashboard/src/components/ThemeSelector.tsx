@@ -621,9 +621,9 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	const [active, setActive] = useState<string>(() => {
 		try {
-			return localStorage.getItem(THEME_KEY) || "default";
+			return localStorage.getItem(THEME_KEY) || "dark";
 		} catch {
-			return "default";
+			return "dark";
 		}
 	});
 
@@ -1572,6 +1572,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				variant="outline"
 				icon={<SwatchIconChakra />}
 				position="relative"
+				type="button"
 			/>
 		) : (
 			<MenuButton
@@ -1580,6 +1581,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				justifyContent="space-between"
 				variant="ghost"
 				rightIcon={<SwatchIconChakra />}
+				type="button"
 			>
 				{triggerLabel || t("theme.triggerLabel", "Theme")}
 			</MenuButton>
@@ -1600,7 +1602,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				{portalContainer ? (
 					<Portal containerRef={portalContainer}>{menuList}</Portal>
 				) : (
-					menuList
+					<Portal>{menuList}</Portal>
 				)}
 			</Menu>
 

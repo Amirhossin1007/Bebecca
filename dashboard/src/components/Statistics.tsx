@@ -506,10 +506,12 @@ const MetricBadge: FC<{
 	value: ReactNode;
 	colorScheme?: string;
 	valueClassName?: string;
-}> = ({ label, value, colorScheme = "gray", valueClassName }) => {
+	helper?: string;
+}> = ({ label, value, colorScheme = "gray", valueClassName, helper }) => {
 	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
 	const bg = useColorModeValue("white", "whiteAlpha.50");
 	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const helperColor = useColorModeValue("gray.500", "gray.400");
 	const valueColor = useColorModeValue(
 		colorScheme === "gray" ? "gray.800" : `${colorScheme}.600`,
 		colorScheme === "gray" ? "gray.100" : `${colorScheme}.300`,
@@ -550,6 +552,11 @@ const MetricBadge: FC<{
 					value
 				)}
 			</Text>
+			{helper ? (
+				<Text mt={1} fontSize="xs" color={helperColor}>
+					{helper}
+				</Text>
+			) : null}
 		</Box>
 	);
 };
@@ -886,6 +893,20 @@ const YourUsageCard: FC<{
 	t: TFunction;
 }> = ({ data, t }) => {
 	if (!data) return null;
+	const usageLabel =
+		data.traffic_basis === "created_traffic"
+			? t("dashboard.currentCreatedTraffic", "Current created traffic")
+			: t("dashboard.currentUserUsage", "Current user usage");
+	const usageHelper =
+		data.traffic_basis === "created_traffic"
+			? t(
+					"dashboard.currentCreatedTrafficHint",
+					"Traffic counted against your created-traffic limit.",
+				)
+			: t(
+					"dashboard.currentUserUsageHint",
+					"Traffic currently counted against your user data limit.",
+				);
 	return (
 		<ChartBox title={t("yourUsage")}>
 			<Stack spacing={4}>
@@ -896,19 +917,10 @@ const YourUsageCard: FC<{
 						colorScheme="blue"
 					/>
 					<MetricBadge
-						label={t("consumedData")}
+						label={usageLabel}
 						value={formatBytes(data.consumed_bytes)}
 						colorScheme="green"
-					/>
-					<MetricBadge
-						label={t("builtData")}
-						value={formatBytes(data.built_bytes)}
-						colorScheme="purple"
-					/>
-					<MetricBadge
-						label={t("resetData")}
-						value={formatBytes(data.reset_bytes)}
-						colorScheme="orange"
+						helper={usageHelper}
 					/>
 				</SimpleGrid>
 			</Stack>

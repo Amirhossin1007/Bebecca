@@ -7,7 +7,6 @@ export type HostsSchema = Record<
 		id?: number | null;
 		remark: string;
 		address: string;
-		sort: number | null;
 		port: number | null;
 		path: string | null;
 		sni: string | null;
