@@ -88,6 +88,7 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertNoIndex(t, ctx, db, "sqlite", "subscription_domains", "ix_subscription_domains_domain")
 	assertNoIndex(t, ctx, db, "sqlite", "warp_accounts", "ix_warp_accounts_device_id")
 	assertNoIndex(t, ctx, db, "sqlite", "hosts", "ix_hosts_inbound_tag_sort_id")
+	assertIndex(t, ctx, db, "sqlite", "hosts", "ix_hosts_inbound_tag")
 	assertTableColumns(t, ctx, db, "sqlite", "warp_accounts", []string{"device_id", "access_token", "license_key", "private_key", "public_key"})
 
 	if err := RunMigrations(ctx, db, "sqlite"); err != nil {

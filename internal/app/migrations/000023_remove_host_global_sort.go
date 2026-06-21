@@ -13,6 +13,9 @@ func init() {
 
 func up000023RemoveHostGlobalSort(ctx context.Context, tx *sql.Tx) error {
 	dialect := activeDialect()
+	if _, err := CreateIndexIfMissing(ctx, tx, dialect, "hosts", "ix_hosts_inbound_tag", []string{"inbound_tag"}, false); err != nil {
+		return err
+	}
 	if _, err := DropIndexIfExists(ctx, tx, dialect, "hosts", "ix_hosts_inbound_tag_sort_id"); err != nil {
 		return err
 	}
