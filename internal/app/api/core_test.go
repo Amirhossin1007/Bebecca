@@ -3,8 +3,11 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
@@ -64,5 +67,26 @@ func TestCoreRestartQueuesSyncConfig(t *testing.T) {
 	}
 	if globalOps != 1 {
 		t.Fatalf("global sync operations = %d, want 1", globalOps)
+	}
+}
+
+func TestOutboundTestRejectsMasterTarget(t *testing.T) {
+	server := &Server{}
+	payload := []byte(`{
+		"target_id": "master",
+		"outbound": "{\"tag\":\"direct\",\"protocol\":\"freedom\"}",
+		"allOutbounds": "[{\"tag\":\"direct\",\"protocol\":\"freedom\"}]"
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/panel/xray/testOutbound", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.handleOutboundTest(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Change the target to a node") {
+		t.Fatalf("unexpected body=%s", rec.Body.String())
 	}
 }

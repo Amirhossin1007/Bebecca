@@ -73,7 +73,7 @@ func (s *Server) handleOutboundTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isNode || nodeID <= 0 {
-		writeError(w, http.StatusBadRequest, "node target is required for outbound test")
+		writeError(w, http.StatusBadRequest, "Outbound tests run on nodes only. Change the target to a node before testing this outbound.")
 		return
 	}
 	outboundTag := strings.TrimSpace(stringFromAny(outbound["tag"]))

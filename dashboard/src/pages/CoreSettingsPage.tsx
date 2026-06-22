@@ -643,6 +643,12 @@ export const CoreSettingsPage: FC = () => {
 		() => configTargets.find((target) => target.id === selectedTarget),
 		[configTargets, selectedTarget],
 	);
+	const isMasterTarget =
+		selectedTarget === "master" || selectedTargetInfo?.type === "master";
+	const outboundNodeTargetRequiredMessage = t(
+		"pages.xray.outbound.testNodeTargetRequired",
+		"Change the target to a node before testing this outbound.",
+	);
 	const hasNodeTargets = useMemo(
 		() => configTargets.some((target) => target.type === "node"),
 		[configTargets],
@@ -1137,6 +1143,17 @@ export const CoreSettingsPage: FC = () => {
 				isClosable: true,
 				position: "top",
 				duration: 3000,
+			});
+			return;
+		}
+
+		if (isMasterTarget) {
+			toast({
+				title: outboundNodeTargetRequiredMessage,
+				status: "warning",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
 			});
 			return;
 		}
@@ -3233,26 +3250,35 @@ export const CoreSettingsPage: FC = () => {
 													</Td>
 													<Td>
 														<VStack align="start" spacing={1}>
-															<IconButton
-																aria-label={t(
-																	"pages.xray.outbound.test",
-																	"Test",
-																)}
-																icon={<BoltIconStyled />}
-																size="xs"
-																variant="ghost"
-																colorScheme="yellow"
-																isLoading={Boolean(
-																	outboundTestStates[originalIndex]?.testing,
-																)}
-																isDisabled={
-																	outbound.protocol === "blackhole" ||
-																	String(outbound.tag ?? "")
-																		.toLowerCase()
-																		.trim() === "blocked"
-																}
-																onClick={() => testOutbound(originalIndex)}
-															/>
+															<Tooltip
+																hasArrow
+																isDisabled={!isMasterTarget}
+																label={outboundNodeTargetRequiredMessage}
+																shouldWrapChildren
+															>
+																<IconButton
+																	aria-label={t(
+																		"pages.xray.outbound.test",
+																		"Test",
+																	)}
+																	icon={<BoltIconStyled />}
+																	size="xs"
+																	variant="ghost"
+																	colorScheme="yellow"
+																	isLoading={Boolean(
+																		outboundTestStates[originalIndex]
+																			?.testing,
+																	)}
+																	isDisabled={
+																		isMasterTarget ||
+																		outbound.protocol === "blackhole" ||
+																		String(outbound.tag ?? "")
+																			.toLowerCase()
+																			.trim() === "blocked"
+																	}
+																	onClick={() => testOutbound(originalIndex)}
+																/>
+															</Tooltip>
 															{outboundTestStates[originalIndex]?.result ? (
 																outboundTestStates[originalIndex].result
 																	.success ? (
