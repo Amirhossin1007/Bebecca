@@ -24,7 +24,7 @@ i18n
 		{
 			debug: import.meta.env.NODE_ENV === "development",
 			returnNull: false,
-			fallbackLng: "en",
+            fallbackLng: "fa",
 			interpolation: {
 				escapeValue: false,
 			},
@@ -39,7 +39,6 @@ i18n
                lookupSessionStorage: "i18nextLng",
                lookupCookie: "i18nextLng",
             },
-fallbackLng: "fa",
 			backend: {
 				loadPath: joinPaths([
 					import.meta.env.BASE_URL,
