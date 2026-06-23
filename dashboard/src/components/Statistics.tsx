@@ -546,17 +546,17 @@ const SystemOverviewCard: FC<{
 				<SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
 					<MetricBadge
 						label={t("memoryUsage")}
-						value={`${formatBytes(data.memory.current)} / ${formatBytes(data.memory.total)}`}
+						value={`${formatBytes(data.memory.current)}`}
 						valueClassName="rb-usage-pair"
 					/>
 					<MetricBadge
 						label={t("swapUsage")}
-						value={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
+						value={`${formatBytes(data.swap.current)}`}
 						valueClassName="rb-usage-pair"
 					/>
 					<MetricBadge
 						label={t("diskUsage")}
-						value={`${formatBytes(data.disk.current)} / ${formatBytes(data.disk.total)}`}
+						value={`${formatBytes(data.disk.current)}`}
 						valueClassName="rb-usage-pair"
 					/>
 				</SimpleGrid>
