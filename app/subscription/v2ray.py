@@ -795,7 +795,7 @@ class V2rayJsonConfig(str):
                     "address": address,
                     "port": port,
                     "users": [
-                        {"id": id, "alterId": 0, "email": "https://rebeccapanel.github.io/rebecca/", "security": "auto"}
+                        {"id": id, "alterId": 0, "email": "VentoV2ray", "security": "auto"}
                     ],
                 }
             ]
@@ -818,7 +818,7 @@ class V2rayJsonConfig(str):
                         {
                             "id": id,
                             "encryption": encryption or "none",
-                            "email": "https://rebeccapanel.github.io/rebecca/",
+                            "email": "VentoV2ray",
                             "alterId": 0,
                             "flow": flow,
                         }
@@ -835,7 +835,7 @@ class V2rayJsonConfig(str):
                     "address": address,
                     "port": port,
                     "password": password,
-                    "email": "https://rebeccapanel.github.io/rebecca/",
+                    "email": "VentoV2ray",
                 }
             ]
         }
@@ -848,7 +848,7 @@ class V2rayJsonConfig(str):
                     "address": address,
                     "port": port,
                     "password": password,
-                    "email": "https://rebeccapanel.github.io/rebecca/",
+                    "email": "VentoV2ray",
                     "method": method,
                     "uot": False,
                     "ivCheck": iv_check,
