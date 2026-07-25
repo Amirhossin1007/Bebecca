@@ -99,3 +99,37 @@ func TestRecentActionSnapshotPreviewUsesLifecycleTemplate(t *testing.T) {
 		t.Fatalf("unexpected outbound preview: %#v", preview)
 	}
 }
+
+func TestRecentActionConfigPreviewsKeepChangedResource(t *testing.T) {
+	before := xrayconfig.TargetState{
+		TargetID: "master", HasStoredConfig: true,
+		StoredConfig: map[string]any{"outbounds": []any{map[string]any{
+			"tag": "tor-de", "settings": map[string]any{"servers": []any{map[string]any{"port": 9050}}},
+		}}},
+	}
+	after := xrayconfig.TargetState{
+		TargetID: "master", HasStoredConfig: true,
+		StoredConfig: map[string]any{"outbounds": []any{map[string]any{
+			"tag": "tor-de", "settings": map[string]any{"servers": []any{map[string]any{"port": 9051}}},
+		}}},
+	}
+	patches, err := xrayconfig.BuildConfigPatches([]xrayconfig.TargetState{before}, []xrayconfig.TargetState{after})
+	if err != nil {
+		t.Fatal(err)
+	}
+	previews := recentActionConfigPreviews(patches, []xrayconfig.TargetState{before}, []xrayconfig.TargetState{after})
+	if len(previews) != 1 || previews[0].Path != "/outbounds/@tag=tor-de" {
+		t.Fatalf("unexpected previews: %#v", previews)
+	}
+	if got := previews[0].ChangedPaths; len(got) != 1 || got[0] != "/outbounds/@tag=tor-de/settings/servers/0/port" {
+		t.Fatalf("unexpected changed paths: %#v", got)
+	}
+	beforeOutbound, ok := previews[0].Before.(map[string]any)
+	if !ok || beforeOutbound["tag"] != "tor-de" {
+		t.Fatalf("expected complete outbound before change, got %#v", previews[0].Before)
+	}
+	afterOutbound, ok := previews[0].After.(map[string]any)
+	if !ok || afterOutbound["tag"] != "tor-de" {
+		t.Fatalf("expected complete outbound after change, got %#v", previews[0].After)
+	}
+}
