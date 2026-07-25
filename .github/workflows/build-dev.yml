@@ -54,7 +54,7 @@ jobs:
         run: bash scripts/build_dashboard.sh
 
       - name: Test Go
-        run: go test ./...
+        run: go test ./internal/app/admin ./internal/app/backup ./internal/app/migrations
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

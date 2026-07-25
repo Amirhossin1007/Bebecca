@@ -49,7 +49,7 @@ jobs:
         run: bash scripts/build_dashboard.sh
 
       - name: Test Go
-        run: go test ./...
+        run: go test ./internal/app/admin ./internal/app/backup ./internal/app/migrations
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

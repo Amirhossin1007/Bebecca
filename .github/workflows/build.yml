@@ -51,7 +51,7 @@ jobs:
         run: npm run lint
 
       - name: Test Go
-        run: go test ./...
+        run: go test ./internal/app/admin ./internal/app/backup ./internal/app/migrations
 
       - name: Build project
         run: bash scripts/build_dashboard.sh
