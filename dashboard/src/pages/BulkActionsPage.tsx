@@ -295,7 +295,7 @@ const BulkCreatePanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" w="full" maxW="1080px" mx="auto">
+		<VStack spacing={4} align="stretch" w="full">
 			<Surface>
 				<Stack spacing={5}>
 					<Box>
@@ -722,7 +722,7 @@ const BulkDeletePanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" w="full" maxW="860px" mx="auto">
+		<VStack spacing={4} align="stretch" w="full">
 			<Alert status="error" variant="subtle" borderRadius="8px">
 				<AlertIcon />
 				{t("bulkActions.delete.warning")}
@@ -1001,7 +1001,7 @@ const BulkPermissionsPanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" w="full" maxW="1080px" mx="auto">
+		<VStack spacing={4} align="stretch" w="full">
 			<Alert status="warning" borderRadius="8px">
 				<AlertIcon />
 				{t("admins.bulkPermissions.subtitle")}
@@ -1092,13 +1092,10 @@ export const BulkActionsPage = () => {
 			align="stretch"
 			dir={i18n.dir(i18n.language)}
 			w="full"
-			maxW="1160px"
-			mx="auto"
 		>
 			<PageHeader
 				title={t("bulkActions.title")}
 				description={t("bulkActions.subtitle")}
-				textAlign="center"
 			/>
 			{allowedTabs.length > 0 && (
 				<PageTabs
@@ -1122,7 +1119,7 @@ export const BulkActionsPage = () => {
 			) : activeTab === "create" ? (
 				<BulkCreatePanel />
 			) : activeTab === "edit" ? (
-				<Box w="full" maxW="1080px" mx="auto">
+				<Box w="full">
 					<AdvancedUserActions embedded />
 				</Box>
 			) : activeTab === "delete" ? (
