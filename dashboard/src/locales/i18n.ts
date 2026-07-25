@@ -25,7 +25,7 @@ i18n
 		{
 			debug: import.meta.env.NODE_ENV === "development",
 			returnNull: false,
-			fallbackLng: "en",
+			fallbackLng: "fa",
 			interpolation: {
 				escapeValue: false,
 			},
