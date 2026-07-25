@@ -82,7 +82,7 @@ type RecentActionDetail = {
 	before?: unknown;
 	after?: unknown;
 	config_changes?: RecentActionConfigChange[];
-	config_previews?: RecentActionConfigPreview[];
+	config_previews?: RecentActionConfigDisplay[];
 };
 
 type RecentActionConfigChange = {
@@ -95,8 +95,8 @@ type RecentActionConfigChange = {
 	after_exists: boolean;
 };
 
-type RecentActionConfigPreview = RecentActionConfigChange & {
-	changed_paths: string[];
+type RecentActionConfigDisplay = RecentActionConfigChange & {
+	changed_paths?: string[];
 };
 
 const statusTone = (status: RecentAction["rollback_status"]) => {
@@ -213,6 +213,9 @@ const changedFieldTranslationKey = (path?: string) => {
 		? `recentActions.fields.${field}`
 		: undefined;
 };
+
+const configChangePaths = (change: RecentActionConfigDisplay) =>
+	change.changed_paths ?? [change.path];
 
 const actionTypeResource = (actionType: string) => {
 	switch (actionType.split(".")[0]) {
@@ -566,13 +569,11 @@ export const RecentActionsPage: FC = () => {
 	const detail = detailQuery.data;
 	const configChanges = detail?.config_changes ?? [];
 	const configPreviews = detail?.config_previews ?? [];
-	const displayConfigChanges =
+	const displayConfigChanges: RecentActionConfigDisplay[] =
 		configPreviews.length > 0 ? configPreviews : configChanges;
 	const diffPaths =
 		displayConfigChanges.length > 0
-			? displayConfigChanges.flatMap((change) =>
-					"changed_paths" in change ? change.changed_paths : [change.path],
-				)
+			? displayConfigChanges.flatMap(configChangePaths)
 			: detail?.snapshot_available
 				? changedPaths(detail.before, detail.after)
 				: [];
@@ -796,10 +797,7 @@ export const RecentActionsPage: FC = () => {
 							{displayConfigChanges.length > 0 ? (
 								<Stack spacing={4}>
 									{displayConfigChanges.map((change, index) => {
-										const paths =
-											"changed_paths" in change
-												? change.changed_paths
-												: [change.path];
+										const paths = configChangePaths(change);
 										const labels = Array.from(
 											new Set(
 												paths
