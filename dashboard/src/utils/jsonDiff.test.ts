@@ -10,8 +10,16 @@ describe("buildJsonDiff", () => {
 
 		expect(diff).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ type: "remove", text: '  "name": "name",' }),
-				expect.objectContaining({ type: "add", text: '  "name": "newname",' }),
+				expect.objectContaining({
+					type: "remove",
+					text: '  "name": "name",',
+					beforeLine: 2,
+				}),
+				expect.objectContaining({
+					type: "add",
+					text: '  "name": "newname",',
+					afterLine: 2,
+				}),
 				expect.objectContaining({ type: "context", text: '  "enabled": true' }),
 			]),
 		);

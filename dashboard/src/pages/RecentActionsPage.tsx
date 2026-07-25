@@ -9,6 +9,7 @@ import {
 	Input,
 	InputGroup,
 	InputLeftElement,
+	SimpleGrid,
 	Spinner,
 	Stack,
 	Text,
@@ -17,9 +18,11 @@ import {
 import {
 	ArrowPathIcon,
 	ArrowUturnLeftIcon,
+	EyeIcon,
 	MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { JsonEditor } from "components/JsonEditor";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -128,75 +131,58 @@ const changedPaths = (
 	return output;
 };
 
-const JsonDiff: FC<{ before: unknown; after: unknown }> = ({
+const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 	before,
 	after,
 }) => {
+	const { t } = useTranslation();
 	const lines = useMemo(() => buildJsonDiff(before, after), [before, after]);
+	const beforeChangedLines = useMemo(
+		() =>
+			lines.flatMap((line) =>
+				line.type === "remove" && line.beforeLine ? [line.beforeLine] : [],
+			),
+		[lines],
+	);
+	const afterChangedLines = useMemo(
+		() =>
+			lines.flatMap((line) =>
+				line.type === "add" && line.afterLine ? [line.afterLine] : [],
+			),
+		[lines],
+	);
 
 	return (
-		<Box
-			borderWidth="1px"
-			borderColor="panel.border"
-			borderRadius="md"
-			bg="panel.elevated"
-			maxH="560px"
-			overflow="auto"
-			dir="ltr"
-		>
-			{lines.length ? (
-				<VStack align="stretch" spacing={0} minW="max-content">
-					{lines.map((line, index) => (
-						<Box
-							key={`${line.type}-${line.beforeLine ?? ""}-${line.afterLine ?? ""}-${index}`}
-							display="grid"
-							gridTemplateColumns="42px 42px 18px minmax(0, 1fr)"
-							gap={2}
-							px={3}
-							py={0.5}
-							bg={
-								line.type === "remove"
-									? "red.50"
-									: line.type === "add"
-										? "green.50"
-										: "transparent"
-							}
-							_dark={{
-								bg:
-									line.type === "remove"
-										? "red.900"
-										: line.type === "add"
-											? "green.900"
-											: "transparent",
-							}}
-							fontFamily="mono"
-							fontSize="xs"
-						>
-							<Text color="panel.textMuted" textAlign="end">
-								{line.beforeLine ?? ""}
-							</Text>
-							<Text color="panel.textMuted" textAlign="end">
-								{line.afterLine ?? ""}
-							</Text>
-							<Text
-								color={
-									line.type === "remove"
-										? "red.200"
-										: line.type === "add"
-											? "green.200"
-											: "panel.textMuted"
-								}
-							>
-								{line.type === "remove" ? "-" : line.type === "add" ? "+" : " "}
-							</Text>
-							<Text whiteSpace="pre" color="panel.text">
-								{line.text || " "}
-							</Text>
-						</Box>
-					))}
-				</VStack>
-			) : null}
-		</Box>
+		<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} dir="ltr">
+			<Box>
+				<Text fontWeight="medium" mb={2}>
+					{t("recentActions.before")}
+				</Text>
+				<JsonEditor
+					json={before}
+					onChange={() => undefined}
+					readOnly
+					showToolbar={false}
+					minHeight="440px"
+					highlightLines={beforeChangedLines}
+					highlightVariant="removed"
+				/>
+			</Box>
+			<Box>
+				<Text fontWeight="medium" mb={2}>
+					{t("recentActions.after")}
+				</Text>
+				<JsonEditor
+					json={after}
+					onChange={() => undefined}
+					readOnly
+					showToolbar={false}
+					minHeight="440px"
+					highlightLines={afterChangedLines}
+					highlightVariant="added"
+				/>
+			</Box>
+		</SimpleGrid>
 	);
 };
 
@@ -380,6 +366,7 @@ export const RecentActionsPage: FC = () => {
 		{
 			id: "details",
 			label: t("recentActions.details"),
+			icon: <EyeIcon width={16} />,
 			onClick: () => setSelectedID(action.id),
 		},
 		...(action.rollback_status === "available"
@@ -605,7 +592,7 @@ export const RecentActionsPage: FC = () => {
 											<Text fontSize="sm" color="panel.textSecondary" mb={3}>
 												{change.target_id}:{change.path || "/"}
 											</Text>
-											<JsonDiff
+											<JsonDiffEditors
 												before={
 													change.before_exists ? change.before : undefined
 												}
@@ -615,7 +602,7 @@ export const RecentActionsPage: FC = () => {
 									))}
 								</Stack>
 							) : (
-								<JsonDiff before={detail.before} after={detail.after} />
+								<JsonDiffEditors before={detail.before} after={detail.after} />
 							)}
 						</Stack>
 					) : (

@@ -46,6 +46,8 @@ export type JSONEditorProps = {
 	canonicalContext?: RebeccaJsonContext;
 	toolbarActions?: ReactNode;
 	onValidityChange?: (isValid: boolean, error?: string) => void;
+	highlightLines?: number[];
+	highlightVariant?: "added" | "removed";
 };
 
 type JsonValidation = {
@@ -128,6 +130,8 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 			canonicalContext,
 			toolbarActions,
 			onValidityChange,
+			highlightLines,
+			highlightVariant,
 		},
 		ref,
 	) => {
@@ -142,6 +146,7 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 		const pendingPropTextRef = useRef<string | null>(null);
 		const lastEmittedTextRef = useRef<string>("");
 		const errorMarkerRef = useRef<number | null>(null);
+		const highlightMarkerRefs = useRef<number[]>([]);
 		const validationTimerRef = useRef<number | null>(null);
 		const [validation, setValidation] = useState<JsonValidation>(() =>
 			validateJsonText(getJsonText(json)),
@@ -476,6 +481,36 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 			}
 			ace.setOptions({ readOnly });
 		}, [readOnly]);
+
+		useEffect(() => {
+			const ace = jsonEditorRef.current?.aceEditor as any;
+			const session = ace?.session;
+			if (!session) {
+				return;
+			}
+			for (const marker of highlightMarkerRefs.current) {
+				session.removeMarker?.(marker);
+			}
+			highlightMarkerRefs.current = [];
+			if (!highlightVariant || !highlightLines?.length || !session.addMarker) {
+				return;
+			}
+			const Range = ace?.getSelectionRange?.()?.constructor;
+			if (!Range) {
+				return;
+			}
+			for (const line of highlightLines) {
+				const row = Math.max(0, line - 1);
+				highlightMarkerRefs.current.push(
+					session.addMarker(
+						new Range(row, 0, row, 1),
+						`rebecca-json-diff-${highlightVariant}`,
+						"fullLine",
+						true,
+					),
+				);
+			}
+		}, [highlightLines, highlightVariant]);
 
 		useEffect(() => {
 			const ace = jsonEditorRef.current?.aceEditor as any;
