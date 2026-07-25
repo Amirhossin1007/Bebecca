@@ -271,7 +271,7 @@ func recentActionConfigPreviews(patches []xrayconfig.ConfigPatch, before, after 
 	for _, patch := range patches {
 		for _, change := range patch.Changes {
 			scope := recentActionConfigPreviewScope(change.Path)
-			if scope == "" || scope == change.Path {
+			if scope == "" {
 				continue
 			}
 			found := false
@@ -316,10 +316,11 @@ func recentActionConfigPreviewValue(state xrayconfig.TargetState, path string) (
 }
 
 func recentActionConfigPreviewScope(path string) string {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) < 2 || parts[0] == "" {
-		return ""
+	trimmed := strings.Trim(path, "/")
+	if trimmed == "" {
+		return "/"
 	}
+	parts := strings.Split(trimmed, "/")
 	scope := []string{parts[0]}
 	for _, part := range parts[1:] {
 		scope = append(scope, part)
@@ -443,8 +444,12 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 		if len(snapshot.ConfigPatches) > 0 {
 			response["config_changes"] = redactRecentActionConfigChanges(snapshot.ConfigPatches)
 		}
-		if len(snapshot.ConfigPreviews) > 0 {
-			response["config_previews"] = redactRecentActionConfigPreviews(snapshot.ConfigPreviews)
+		previews := snapshot.ConfigPreviews
+		if len(previews) == 0 {
+			previews = s.recoverRecentActionConfigPreviews(r.Context(), snapshot.ConfigPatches)
+		}
+		if len(previews) > 0 {
+			response["config_previews"] = redactRecentActionConfigPreviews(previews)
 		}
 	}
 	response["action"] = action.recentActionItem
@@ -519,6 +524,24 @@ func redactRecentActionConfigPreviews(previews []recentActionConfigPreview) []re
 		result[index].After = redactRecentActionSnapshot(result[index].After)
 	}
 	return result
+}
+
+func (s *Server) recoverRecentActionConfigPreviews(ctx context.Context, patches []xrayconfig.ConfigPatch) []recentActionConfigPreview {
+	before := make([]xrayconfig.TargetState, 0, len(patches))
+	after := make([]xrayconfig.TargetState, 0, len(patches))
+	for _, patch := range patches {
+		current, err := s.configRepo.GetTargetState(ctx, patch.TargetID)
+		if err != nil {
+			return nil
+		}
+		restored, err := xrayconfig.ApplyConfigPatch(current, patch)
+		if err != nil {
+			return nil
+		}
+		before = append(before, restored)
+		after = append(after, current)
+	}
+	return recentActionConfigPreviews(patches, before, after)
 }
 
 type rowScanner interface{ Scan(...any) error }

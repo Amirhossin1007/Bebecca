@@ -133,3 +133,38 @@ func TestRecentActionConfigPreviewsKeepChangedResource(t *testing.T) {
 		t.Fatalf("expected complete outbound after change, got %#v", previews[0].After)
 	}
 }
+
+func TestRecoverRecentActionConfigPreviewsUsesCurrentConfig(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE xray_config (id INTEGER PRIMARY KEY, data TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	beforeConfig := map[string]any{"outbounds": []any{map[string]any{
+		"tag": "tor-de", "settings": map[string]any{"servers": []any{map[string]any{"port": 9050}}},
+	}}}
+	afterConfig := map[string]any{"outbounds": []any{map[string]any{
+		"tag": "tor-de", "settings": map[string]any{"servers": []any{map[string]any{"port": 9051}}},
+	}}}
+	if _, err := db.Exec(`INSERT INTO xray_config (id, data) VALUES (1, ?)`, `{"outbounds":[{"tag":"tor-de","settings":{"servers":[{"port":9051}]}}]}`); err != nil {
+		t.Fatal(err)
+	}
+	before := xrayconfig.TargetState{TargetID: "master", Mode: xrayconfig.ConfigModeCustom, HasStoredConfig: true, StoredConfig: beforeConfig}
+	after := xrayconfig.TargetState{TargetID: "master", Mode: xrayconfig.ConfigModeCustom, HasStoredConfig: true, StoredConfig: afterConfig}
+	patches, err := xrayconfig.BuildConfigPatches([]xrayconfig.TargetState{before}, []xrayconfig.TargetState{after})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &Server{configRepo: xrayconfig.NewRepository(db, "sqlite", xrayconfig.Options{})}
+	previews := server.recoverRecentActionConfigPreviews(context.Background(), patches)
+	if len(previews) != 1 || previews[0].Path != "/outbounds/@tag=tor-de" {
+		t.Fatalf("unexpected previews: %#v", previews)
+	}
+	beforeOutbound, ok := previews[0].Before.(map[string]any)
+	if !ok || beforeOutbound["tag"] != "tor-de" {
+		t.Fatalf("expected complete outbound before change, got %#v", previews[0].Before)
+	}
+}
