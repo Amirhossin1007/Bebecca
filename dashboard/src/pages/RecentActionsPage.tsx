@@ -146,6 +146,7 @@ const recentActionResourceKeys = new Set([
 	"xray_config",
 	"routing",
 	"routing_rule",
+	"balancer",
 	"dns",
 	"dns_server",
 	"dns_host",
@@ -154,11 +155,12 @@ const recentActionResourceKeys = new Set([
 	"policy",
 	"stats",
 	"transport",
-	"reverse",
+	"reverse_proxy",
 	"metrics",
 	"observatory",
 	"burst_observatory",
-	"fakedns",
+	"fake_dns",
+	"services",
 ]);
 
 const recentActionFieldKeys = new Set([
@@ -280,6 +282,42 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 			),
 		[lines],
 	);
+	const beforeHighlightRanges = useMemo(
+		() =>
+			lines.flatMap((line) =>
+				line.type === "remove" &&
+				line.beforeLine &&
+				line.highlightStart !== undefined &&
+				line.highlightEnd !== undefined
+					? [
+							{
+								line: line.beforeLine,
+								start: line.highlightStart,
+								end: line.highlightEnd,
+							},
+						]
+					: [],
+			),
+		[lines],
+	);
+	const afterHighlightRanges = useMemo(
+		() =>
+			lines.flatMap((line) =>
+				line.type === "add" &&
+				line.afterLine &&
+				line.highlightStart !== undefined &&
+				line.highlightEnd !== undefined
+					? [
+							{
+								line: line.afterLine,
+								start: line.highlightStart,
+								end: line.highlightEnd,
+							},
+						]
+					: [],
+			),
+		[lines],
+	);
 
 	return (
 		<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} dir="ltr">
@@ -296,6 +334,7 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 						minHeight={0}
 						highlightLines={beforeChangedLines}
 						highlightVariant="removed"
+						highlightRanges={beforeHighlightRanges}
 					/>
 				</Box>
 			</Box>
@@ -312,6 +351,7 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 						minHeight={0}
 						highlightLines={afterChangedLines}
 						highlightVariant="added"
+						highlightRanges={afterHighlightRanges}
 					/>
 				</Box>
 			</Box>

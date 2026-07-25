@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -448,6 +449,7 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 		if len(previews) == 0 {
 			previews = s.recoverRecentActionConfigPreviews(r.Context(), snapshot.ConfigPatches)
 		}
+		previews = append(previews, recentActionHostPreviews(snapshot.Before.Hosts, snapshot.After.Hosts)...)
 		if len(previews) > 0 {
 			response["config_previews"] = redactRecentActionConfigPreviews(previews)
 		}
@@ -544,6 +546,37 @@ func (s *Server) recoverRecentActionConfigPreviews(ctx context.Context, patches 
 	return recentActionConfigPreviews(patches, before, after)
 }
 
+func recentActionHostPreviews(before, after []xrayconfig.HostSnapshot) []recentActionConfigPreview {
+	afterByID := make(map[int64]xrayconfig.HostSnapshot, len(after))
+	for _, host := range after {
+		afterByID[host.ID] = host
+	}
+	previews := make([]recentActionConfigPreview, 0, len(before)+len(after))
+	seen := make(map[int64]bool, len(before))
+	for _, host := range before {
+		next, exists := afterByID[host.ID]
+		if exists && reflect.DeepEqual(host, next) {
+			seen[host.ID] = true
+			continue
+		}
+		previews = append(previews, recentActionConfigPreview{
+			TargetID: "host", Path: fmt.Sprintf("/hosts/@id=%d", host.ID),
+			Before: host, After: next, BeforeExists: true, AfterExists: exists,
+		})
+		seen[host.ID] = true
+	}
+	for _, host := range after {
+		if seen[host.ID] {
+			continue
+		}
+		previews = append(previews, recentActionConfigPreview{
+			TargetID: "host", Path: fmt.Sprintf("/hosts/@id=%d", host.ID),
+			After: host, AfterExists: true,
+		})
+	}
+	return previews
+}
+
 type rowScanner interface{ Scan(...any) error }
 
 func scanRecentActionListItem(scanner rowScanner) (recentActionItem, []byte, error) {
@@ -632,11 +665,11 @@ func recentActionOperation(actionType string) string {
 
 func recentActionConfigOperation(change xrayconfig.ConfigPatchChange) (string, string) {
 	parts := strings.Split(strings.Trim(change.Path, "/"), "/")
-	if len(parts) != 2 || !strings.HasPrefix(parts[1], "@tag=") || change.BeforeExists == change.AfterExists {
+	if len(parts) == 0 || change.BeforeExists == change.AfterExists {
 		return "", ""
 	}
 	resource := recentActionConfigResource(change.Path)
-	if resource == "" {
+	if resource == "" || (len(parts) > 1 && !strings.HasPrefix(parts[len(parts)-1], "@tag=")) {
 		return "", ""
 	}
 	if change.AfterExists {
@@ -659,6 +692,9 @@ func recentActionConfigResource(path string) string {
 		if len(parts) > 1 && parts[1] == "rules" {
 			return "routing_rule"
 		}
+		if len(parts) > 1 && parts[1] == "balancers" {
+			return "balancer"
+		}
 		return "routing"
 	case "dns":
 		if len(parts) > 1 && parts[1] == "servers" {
@@ -668,10 +704,14 @@ func recentActionConfigResource(path string) string {
 			return "dns_host"
 		}
 		return "dns"
-	case "log", "api", "policy", "stats", "transport", "reverse", "metrics", "observatory", "fakedns":
+	case "log", "api", "policy", "stats", "transport", "metrics", "observatory", "services":
 		return parts[0]
+	case "reverse":
+		return "reverse_proxy"
 	case "burstObservatory":
 		return "burst_observatory"
+	case "fakedns":
+		return "fake_dns"
 	}
 	return ""
 }

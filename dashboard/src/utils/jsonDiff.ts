@@ -3,6 +3,8 @@ export type JsonDiffLine = {
 	text: string;
 	beforeLine?: number;
 	afterLine?: number;
+	highlightStart?: number;
+	highlightEnd?: number;
 };
 
 const jsonLines = (value: unknown) => {
@@ -18,6 +20,66 @@ const appendLine = (
 	beforeLine: number | undefined,
 	afterLine: number | undefined,
 ) => output.push({ type, text, beforeLine, afterLine });
+
+const inlineHighlight = (text: string, other: string) => {
+	let start = 0;
+	while (
+		start < text.length &&
+		start < other.length &&
+		text[start] === other[start]
+	) {
+		start++;
+	}
+	let suffix = 0;
+	while (
+		suffix < text.length - start &&
+		suffix < other.length - start &&
+		text[text.length - suffix - 1] === other[other.length - suffix - 1]
+	) {
+		suffix++;
+	}
+	const end = text.length - suffix;
+	if (end > start) return { start, end };
+
+	const boundary = /[\s,:[\]{}]/;
+	let tokenStart = Math.min(start, Math.max(0, text.length - 1));
+	let tokenEnd = tokenStart;
+	while (tokenStart > 0 && !boundary.test(text[tokenStart - 1])) tokenStart--;
+	while (tokenEnd < text.length && !boundary.test(text[tokenEnd])) tokenEnd++;
+	return tokenEnd > tokenStart
+		? { start: tokenStart, end: tokenEnd }
+		: undefined;
+};
+
+const addInlineHighlights = (lines: JsonDiffLine[]) => {
+	for (let index = 0; index < lines.length; ) {
+		if (lines[index]?.type !== "remove") {
+			index++;
+			continue;
+		}
+		const removesStart = index;
+		while (lines[index]?.type === "remove") index++;
+		const addsStart = index;
+		while (lines[index]?.type === "add") index++;
+		const pairs = Math.min(index - addsStart, addsStart - removesStart);
+		for (let offset = 0; offset < pairs; offset++) {
+			const removed = lines[removesStart + offset];
+			const added = lines[addsStart + offset];
+			const removedRange = inlineHighlight(removed.text, added.text);
+			const addedRange = inlineHighlight(added.text, removed.text);
+			if (removedRange)
+				Object.assign(removed, {
+					highlightStart: removedRange.start,
+					highlightEnd: removedRange.end,
+				});
+			if (addedRange)
+				Object.assign(added, {
+					highlightStart: addedRange.start,
+					highlightEnd: addedRange.end,
+				});
+		}
+	}
+};
 
 const appendChangedLines = (
 	output: JsonDiffLine[],
@@ -134,5 +196,6 @@ export const buildJsonDiff = (
 			rightIndex + 1,
 		);
 	}
+	addInlineHighlights(output);
 	return output;
 };
