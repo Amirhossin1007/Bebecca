@@ -149,14 +149,14 @@ const AccessInsightsPage: FC = () => {
 	const protocolTotals = useMemo(
 		() => {
 			const totals = new Map<string, number>();
-			filteredItems.forEach((item) =>
-				item.platforms.forEach((platform) =>
+			filteredItems.forEach((item) => {
+				item.platforms.forEach((platform) => {
 					totals.set(
 						platform.platform,
 						(totals.get(platform.platform) || 0) + platform.connections,
 					),
-				),
-			);
+				});
+			});
 			return Array.from(totals.entries()).sort(
 				(left, right) => right[1] - left[1],
 			);
