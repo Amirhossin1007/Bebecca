@@ -41,10 +41,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
 import {
-	AdminManagementPermission,
 	AdminRole,
 	AdminSection,
-	UserPermissionToggle,
 } from "types/Admin";
 import {
 	getTutorialManifestUrl,
@@ -125,18 +123,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const sectionAccess = userData.permissions?.sections;
 	const isFullAccess = userData.role === AdminRole.FullAccess;
 	const isPrivilegedAdmin = isFullAccess || userData.role === AdminRole.Sudo;
-	const canUseBulkActions =
-		isFullAccess ||
-		Boolean(
-			userData.permissions?.admin_management?.[
-				AdminManagementPermission.Edit
-			],
-		) ||
-		Boolean(
-			userData.permissions?.users?.[UserPermissionToggle.Create] ||
-				userData.permissions?.users?.[UserPermissionToggle.Delete] ||
-				userData.permissions?.users?.[UserPermissionToggle.AdvancedActions],
-		);
 	const sidebarBg = useColorModeValue("panel.sidebar", "panel.sidebar");
 	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
 	const sidebarPanelBg = useColorModeValue("panel.elevated", "panel.elevated");
@@ -300,13 +286,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		{ title: t("users"), url: "/users", icon: UsersIconStyled },
 	];
 
-	if (canUseBulkActions) {
-		items.push({
-			title: t("bulkActions.menu"),
-			url: "/bulk-actions",
-			icon: BulkActionsIconStyled,
-		});
-	}
+	items.push({
+		title: t("bulkActions.menu"),
+		url: "/bulk-actions",
+		icon: BulkActionsIconStyled,
+	});
 
 	if (selfAccess.self_myaccount) {
 		items.splice(1, 0, {

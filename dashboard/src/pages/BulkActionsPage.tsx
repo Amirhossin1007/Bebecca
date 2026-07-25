@@ -130,8 +130,9 @@ const Surface = ({ children }: { children: React.ReactNode }) => (
 	<Box
 		borderWidth="1px"
 		borderColor="panel.border"
-		borderRadius="8px"
+		borderRadius="12px"
 		bg="panel.surface"
+		boxShadow="sm"
 		p={{ base: 4, md: 5 }}
 	>
 		{children}
@@ -294,7 +295,7 @@ const BulkCreatePanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" maxW="1080px">
+		<VStack spacing={4} align="stretch" w="full" maxW="1080px" mx="auto">
 			<Surface>
 				<Stack spacing={5}>
 					<Box>
@@ -307,6 +308,7 @@ const BulkCreatePanel = () => {
 					</Box>
 					<PageTabs
 						px={0}
+						justifyContent={{ base: "flex-start", md: "center" }}
 						tabs={[
 							{
 								value: "sequence",
@@ -720,7 +722,7 @@ const BulkDeletePanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" maxW="860px">
+		<VStack spacing={4} align="stretch" w="full" maxW="860px" mx="auto">
 			<Alert status="error" variant="subtle" borderRadius="8px">
 				<AlertIcon />
 				{t("bulkActions.delete.warning")}
@@ -729,6 +731,7 @@ const BulkDeletePanel = () => {
 				<Stack spacing={4}>
 					<PageTabs
 						px={0}
+						justifyContent={{ base: "flex-start", md: "center" }}
 						tabs={[
 							{
 								value: "list",
@@ -998,7 +1001,7 @@ const BulkPermissionsPanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" maxW="1080px">
+		<VStack spacing={4} align="stretch" w="full" maxW="1080px" mx="auto">
 			<Alert status="warning" borderRadius="8px">
 				<AlertIcon />
 				{t("admins.bulkPermissions.subtitle")}
@@ -1084,14 +1087,23 @@ export const BulkActionsPage = () => {
 	const setTab = (tab: BulkTab) => navigate({ hash: tab });
 
 	return (
-		<VStack spacing={4} align="stretch" dir={i18n.dir(i18n.language)}>
+		<VStack
+			spacing={5}
+			align="stretch"
+			dir={i18n.dir(i18n.language)}
+			w="full"
+			maxW="1160px"
+			mx="auto"
+		>
 			<PageHeader
 				title={t("bulkActions.title")}
 				description={t("bulkActions.subtitle")}
+				textAlign="center"
 			/>
 			{allowedTabs.length > 0 && (
 				<PageTabs
-						tabs={allowedTabs.map((tab) => ({
+					justifyContent={{ base: "flex-start", md: "center" }}
+					tabs={allowedTabs.map((tab) => ({
 							value: tab,
 							label: t(
 								`bulkActions.tabs.${tab}`,
@@ -1110,7 +1122,7 @@ export const BulkActionsPage = () => {
 			) : activeTab === "create" ? (
 				<BulkCreatePanel />
 			) : activeTab === "edit" ? (
-				<Box maxW="1080px">
+				<Box w="full" maxW="1080px" mx="auto">
 					<AdvancedUserActions embedded />
 				</Box>
 			) : activeTab === "delete" ? (
