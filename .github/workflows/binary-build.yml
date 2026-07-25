@@ -70,11 +70,11 @@ jobs:
         working-directory: ${{ env.DASH_DIR }}
         run: npm run lint
 
-      - name: Test Go
-        run: go test ./...
-
       - name: Build dashboard
         run: bash scripts/build_dashboard.sh
+
+      - name: Test Go
+        run: go test ./...
 
       - name: Upload dashboard
         uses: actions/upload-artifact@v4

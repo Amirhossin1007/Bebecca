@@ -50,11 +50,11 @@ jobs:
         working-directory: ${{ env.DASH_DIR }}
         run: npm run lint
 
-      - name: Test Go
-        run: go test ./...
-
       - name: Build project
         run: bash scripts/build_dashboard.sh
+
+      - name: Test Go
+        run: go test ./...
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

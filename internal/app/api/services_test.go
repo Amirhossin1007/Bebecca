@@ -329,7 +329,7 @@ func TestServiceUsageAnalyticsRoutes(t *testing.T) {
 }
 
 func TestServiceHostOrderingAndDetailResponse(t *testing.T) {
-	server, _, token := testServiceServer(t)
+	server, db, token := testServiceServer(t)
 
 	rec := adminJSONRequest(t, server, http.MethodPost, "/api/v2/services", token, `{"name":"Ordered","hosts":[{"host_id":2,"sort":0},{"host_id":1,"sort":1}],"admin_ids":[2]}`)
 	if rec.Code != http.StatusCreated {
