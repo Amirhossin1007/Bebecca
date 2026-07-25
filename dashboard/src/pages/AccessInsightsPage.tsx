@@ -9,7 +9,6 @@ import {
 	Input,
 	InputGroup,
 	InputLeftElement,
-	Select,
 	Spinner,
 	Stack,
 	Switch,
@@ -21,6 +20,7 @@ import {
 	MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import { OperatorIdentity } from "components/OperatorIdentity";
+import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	DataTable,
 	type DataTableColumn,
