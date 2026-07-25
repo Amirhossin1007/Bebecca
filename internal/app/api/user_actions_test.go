@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
@@ -56,9 +57,19 @@ func TestUserMutationCreateUpdateDeleteQueuesOperations(t *testing.T) {
 	}
 
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/user", token, `{"username":"proxy_payload","service_id":1,"proxies":{"vless":{"id":"11111111-1111-4111-8111-111111111111"}}}`)
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), userapp.ProxiesPayloadRemovedMessage) {
+	if rec.Code != http.StatusCreated {
 		t.Fatalf("proxies create status = %d body=%s", rec.Code, rec.Body.String())
 	}
+	assertDBString(t, db, `SELECT credential_key FROM users WHERE username = 'proxy_payload'`, "11111111111141118111111111111111")
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM proxies WHERE user_id = (SELECT id FROM users WHERE username = 'proxy_payload')`, 0)
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/user", token, `{"username":"string_numbers","service_id":"1","data_limit":"3000","ip_limit":"0"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("string numeric create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBInt64(t, db, `SELECT service_id FROM users WHERE username = 'string_numbers'`, 1)
+	assertDBInt64(t, db, `SELECT data_limit FROM users WHERE username = 'string_numbers'`, 3000)
+	assertDBInt64(t, db, `SELECT ip_limit FROM users WHERE username = 'string_numbers'`, 0)
 
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/go_user", token, `{"status":"disabled","data_limit":2000}`)
 	if rec.Code != http.StatusOK {
@@ -73,10 +84,32 @@ func TestUserMutationCreateUpdateDeleteQueuesOperations(t *testing.T) {
 	}
 	assertUserOperationCount(t, db, "enable_user", "go_user", 1)
 
+	if _, err := db.Exec(`UPDATE users SET status = 'limited', used_traffic = 1500, data_limit = 1000 WHERE username = 'go_user'`); err != nil {
+		t.Fatal(err)
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/go_user", token, `{"data_limit":2000}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("limited traffic update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'go_user'`, "active")
+	assertUserOperationCount(t, db, "enable_user", "go_user", 2)
+
+	if _, err := db.Exec(`UPDATE users SET status = 'expired', expire = 1000 WHERE username = 'go_user'`); err != nil {
+		t.Fatal(err)
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/go_user", token, `{"expire":2000000000}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expired time update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'go_user'`, "active")
+	assertUserOperationCount(t, db, "enable_user", "go_user", 3)
+
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/go_user", token, `{"proxies":{"vless":{"id":"11111111-1111-4111-8111-111111111111"}}}`)
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), userapp.ProxiesPayloadRemovedMessage) {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("proxies update status = %d body=%s", rec.Code, rec.Body.String())
 	}
+	assertDBString(t, db, `SELECT credential_key FROM users WHERE username = 'go_user'`, "11111111111141118111111111111111")
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM proxies WHERE user_id = (SELECT id FROM users WHERE username = 'go_user')`, 0)
 
 	rec = adminJSONRequest(t, server, http.MethodDelete, "/api/user/go_user", token, `{}`)
 	if rec.Code != http.StatusOK {
@@ -165,7 +198,8 @@ VALUES
 		t.Fatalf("increase bulk status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBInt64(t, db, `SELECT data_limit FROM users WHERE username = 'bulk_a'`, 1024+1073741824)
-	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user' AND user_id IN (20, 21)`, 2)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
 
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services/1/users/actions", token, `{"action":"disable_users"}`)
 	if rec.Code != http.StatusOK {
@@ -185,6 +219,62 @@ VALUES
 		t.Fatalf("cleanup bulk status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBString(t, db, `SELECT status FROM users WHERE username = 'bulk_c'`, "deleted")
+}
+
+func TestBulkDeleteUsersConditionsAndPreview(t *testing.T) {
+	server, db, token := testUserMutationServer(t)
+	old := time.Now().UTC().Add(-120 * 24 * time.Hour)
+	recent := time.Now().UTC().Add(-24 * time.Hour)
+	if _, err := db.Exec(`
+INSERT INTO users (id, username, admin_id, status, credential_key, created_at, online_at, last_status_change, service_id)
+VALUES
+	(70, 'old_expired', 1, 'expired', 'old-key', ?, ?, ?, 1),
+	(71, 'recent_expired', 1, 'expired', 'recent-key', ?, ?, ?, 1),
+	(72, 'named_target', 1, 'active', 'named-key', ?, ?, ?, 1),
+	(73, 'old_active', 1, 'active', 'active-key', ?, ?, ?, 1)`,
+		old, old, old,
+		recent, recent, recent,
+		recent, recent, recent,
+		old, old, old,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/users/actions", token, `{"action":"delete_users","scope":["expired"],"status_age_days":90,"dry_run":true}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete preview status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var preview userapp.BulkUsersActionResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.Count != 1 {
+		t.Fatalf("preview count = %d, want 1", preview.Count)
+	}
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'old_expired'`, "expired")
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/users/actions", token, `{"action":"delete_users","scope":["expired"],"status_age_days":90}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("conditional delete status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'old_expired'`, "deleted")
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'recent_expired'`, "expired")
+	assertUserOperationCount(t, db, "remove_user", "old_expired", 1)
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/users/actions", token, `{"action":"disable_users","usernames":["old_active"],"last_online_days":90}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("conditional update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'old_active'`, "disabled")
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'named_target'`, "active")
+	assertUserOperationCount(t, db, "update_user", "old_active", 1)
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/users/actions", token, `{"action":"delete_users","usernames":["named_target"]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("named delete status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT status FROM users WHERE username = 'named_target'`, "deleted")
+	assertUserOperationCount(t, db, "remove_user", "named_target", 1)
 }
 
 func TestServiceScopedBulkActionsGoNative(t *testing.T) {
@@ -255,7 +345,8 @@ VALUES
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM users WHERE service_id = 2 AND username IN ('svc_bulk_active', 'svc_bulk_disabled')`, 2)
 	assertDBInt64(t, db, `SELECT service_id FROM users WHERE username = 'svc_bulk_other'`, 2)
-	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 8)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 10)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
 }
 
 func TestServiceScopedBulkActionsRespectStandardAdminScope(t *testing.T) {

@@ -1,29 +1,53 @@
 import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
-import { createBrowserRouter } from "react-router-dom";
-import { AppLayout } from "../components/AppLayout";
-import { fetch } from "../service/http";
-import { getAuthToken } from "../utils/authStorage";
-import AccessInsightsPage from "./AccessInsightsPage";
-import { AdminsPage } from "./AdminsPage";
-import { ApiDocsPage } from "./ApiDocsPage";
-import { CoreSettingsPage } from "./CoreSettingsPage";
-import { DashboardPage } from "./DashboardPage";
-import { HostsPage } from "./HostsPage";
-import { IntegrationSettingsPage } from "./IntegrationSettingsPage";
-import { Login } from "./Login";
-import MyAccountPage from "./MyAccountPage";
-import { NodesPage } from "./NodesPage";
-import ServicesPage from "./ServicesPage";
-import TutorialsPage from "./TutorialsPage";
-import UsagePage from "./UsagePage";
-import { UsersPage } from "./UsersPage";
-import { XrayLogsPage } from "./XrayLogsPage";
+import { useTranslation } from "react-i18next";
 import {
+	createBrowserRouter,
 	isRouteErrorResponse,
+	Navigate,
 	redirect,
 	useNavigate,
 	useRouteError,
 } from "react-router-dom";
+import { lazy, Suspense, type ComponentType } from "react";
+import { AppLayout } from "../components/AppLayout";
+import { fetch } from "../service/http";
+import { DashboardPage } from "./DashboardPage";
+import { Login } from "./Login";
+import { UsersPage } from "./UsersPage";
+
+const AccessInsightsPage = lazy(() => import("./AccessInsightsPage"));
+const AdminsPage = lazy(async () => ({
+	default: (await import("./AdminsPage")).AdminsPage,
+}));
+const ApiDocsPage = lazy(async () => ({
+	default: (await import("./ApiDocsPage")).ApiDocsPage,
+}));
+const BulkActionsPage = lazy(() => import("./BulkActionsPage"));
+const CoreSettingsPage = lazy(() => import("./CoreSettingsPage"));
+const HostsPage = lazy(() => import("./HostsPage"));
+const IntegrationSettingsPage = lazy(async () => ({
+	default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
+}));
+const RecentActionsPage = lazy(async () => ({
+	default: (await import("./RecentActionsPage")).RecentActionsPage,
+}));
+const MyAccountPage = lazy(() => import("./MyAccountPage"));
+const NodesPage = lazy(() => import("./NodesPage"));
+const PhpMyAdminPage = lazy(async () => ({
+	default: (await import("./PhpMyAdminPage")).PhpMyAdminPage,
+}));
+const ServicesPage = lazy(() => import("./ServicesPage"));
+const TutorialsPage = lazy(async () => ({
+	default: (await import("./TutorialsPage")).TutorialsPage,
+}));
+const UsagePage = lazy(() => import("./UsagePage"));
+const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
+
+const LazyPage = ({ Page }: { Page: ComponentType }) => (
+	<Suspense fallback={<Box minH="160px" />}>
+		<Page />
+	</Suspense>
+);
 
 const routeErrorMessage = (error: unknown) => {
 	if (isRouteErrorResponse(error)) {
@@ -38,14 +62,14 @@ const routeErrorMessage = (error: unknown) => {
 const RouteErrorPage = () => {
 	const error = useRouteError();
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 
 	return (
 		<Box minH="100vh" bg="gray.950" color="white" px={6} py={10}>
 			<VStack align="start" spacing={4} maxW="720px" mx="auto">
-				<Heading size="lg">Something went wrong</Heading>
+				<Heading size="lg">{t("router.errorTitle")}</Heading>
 				<Text color="gray.300">
-					Rebecca kept your session active. You can retry the page or go back to
-					the dashboard.
+					{t("router.errorDescription")}
 				</Text>
 				<Text
 					bg="whiteAlpha.100"
@@ -62,7 +86,7 @@ const RouteErrorPage = () => {
 					{routeErrorMessage(error)}
 				</Text>
 				<Button colorScheme="blue" onClick={() => navigate("/")}>
-					Back to dashboard
+					{t("router.backToDashboard")}
 				</Button>
 			</VStack>
 		</Box>
@@ -72,6 +96,7 @@ const RouteErrorPage = () => {
 const routeSegments = new Set([
 	"login",
 	"users",
+	"bulk-actions",
 	"admins",
 	"myaccount",
 	"usage",
@@ -80,10 +105,13 @@ const routeSegments = new Set([
 	"hosts",
 	"node-settings",
 	"integrations",
+	"settings",
 	"xray-settings",
 	"xray-logs",
 	"access-insights",
 	"api-docs",
+	"phpmyadmin",
+	"recent-actions",
 ]);
 
 const trimTrailingSlash = (value: string) => {
@@ -95,7 +123,9 @@ const getDashboardBasename = () => {
 	if (typeof window === "undefined") return "/dashboard";
 	const segments = window.location.pathname.split("/").filter(Boolean);
 	if (!segments.length) return import.meta.env.DEV ? "/" : "/dashboard";
-	const routeIndex = segments.findIndex((segment) => routeSegments.has(segment));
+	const routeIndex = segments.findIndex((segment) =>
+		routeSegments.has(segment),
+	);
 	if (routeIndex > 0) {
 		return `/${segments.slice(0, routeIndex).join("/")}`;
 	}
@@ -120,18 +150,15 @@ const normalizeLegacyHashRoute = (basename: string) => {
 const dashboardBasename = getDashboardBasename();
 normalizeLegacyHashRoute(dashboardBasename);
 
-const fetchAdminLoader = async () => {
+const fetchAdminLoader = async ({ request }: { request: Request }) => {
 	try {
-		const token = getAuthToken();
-		if (!token) {
-			console.warn("No authentication token found");
+		const response = await fetch<{ state?: string }>("/auth/session");
+		if (response?.state === "disabled") {
+			const pathname = new URL(request.url).pathname.replace(/\/+$/, "");
+			if (!pathname.endsWith("/users")) throw redirect("/users/");
+		} else if (response?.state !== "active") {
 			throw redirect("/login/");
 		}
-		const response = await fetch("/admin", {
-			headers: {
-				Authorization: `Bearer ${token}`,
-			},
-		});
 		if (response && typeof response === "object" && "error" in response) {
 			throw new Error(`API error: ${response.error || "Unknown error"}`);
 		}
@@ -165,52 +192,68 @@ export const router = createBrowserRouter(
 					element: <UsersPage />,
 				},
 				{
+					path: "bulk-actions",
+					element: <LazyPage Page={BulkActionsPage} />,
+				},
+				{
 					path: "admins",
-					element: <AdminsPage />,
+					element: <LazyPage Page={AdminsPage} />,
 				},
 				{
 					path: "myaccount",
-					element: <MyAccountPage />,
+					element: <LazyPage Page={MyAccountPage} />,
 				},
 				{
 					path: "usage",
-					element: <UsagePage />,
+					element: <LazyPage Page={UsagePage} />,
 				},
 				{
 					path: "tutorials",
-					element: <TutorialsPage />,
+					element: <LazyPage Page={TutorialsPage} />,
 				},
 				{
 					path: "services",
-					element: <ServicesPage />,
+					element: <LazyPage Page={ServicesPage} />,
 				},
 				{
 					path: "hosts",
-					element: <HostsPage />,
+					element: <LazyPage Page={HostsPage} />,
 				},
 				{
 					path: "node-settings",
-					element: <NodesPage />,
+					element: <LazyPage Page={NodesPage} />,
+				},
+				{
+					path: "settings",
+					element: <LazyPage Page={IntegrationSettingsPage} />,
 				},
 				{
 					path: "integrations",
-					element: <IntegrationSettingsPage />,
+					element: <Navigate to="/settings#panel" replace />,
 				},
 				{
 					path: "xray-settings",
-					element: <CoreSettingsPage />,
+					element: <LazyPage Page={CoreSettingsPage} />,
 				},
 				{
 					path: "xray-logs",
-					element: <XrayLogsPage />,
+					element: <LazyPage Page={XrayLogsPage} />,
 				},
 				{
 					path: "access-insights",
-					element: <AccessInsightsPage />,
+					element: <LazyPage Page={AccessInsightsPage} />,
+				},
+				{
+					path: "recent-actions",
+					element: <LazyPage Page={RecentActionsPage} />,
 				},
 				{
 					path: "api-docs",
-					element: <ApiDocsPage />,
+					element: <LazyPage Page={ApiDocsPage} />,
+				},
+				{
+					path: "phpmyadmin",
+					element: <LazyPage Page={PhpMyAdminPage} />,
 				},
 			],
 		},

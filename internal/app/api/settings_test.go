@@ -21,8 +21,17 @@ func createSettingsTables(t *testing.T, db *sql.DB) {
 	statements := []string{
 		`CREATE TABLE panel_settings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			use_nobetci INTEGER NOT NULL DEFAULT 0,
 			default_subscription_type TEXT NOT NULL DEFAULT 'key',
+			created_at DATETIME NULL,
+			updated_at DATETIME NULL
+		)`,
+		`CREATE TABLE settings (
+			id INTEGER PRIMARY KEY,
+			dashboard_path TEXT NOT NULL DEFAULT '/dashboard/',
+			record_node_usage INTEGER NOT NULL DEFAULT 1,
+			record_node_user_usages INTEGER NOT NULL DEFAULT 1,
+			subscription_read_only INTEGER NOT NULL DEFAULT 0,
+			api_docs_enabled INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,
@@ -41,6 +50,8 @@ func createSettingsTables(t *testing.T, db *sql.DB) {
 			home_page_template TEXT NOT NULL DEFAULT 'home/index.html',
 			v2ray_subscription_template TEXT NOT NULL DEFAULT 'v2ray/default.json',
 			v2ray_settings_template TEXT NOT NULL DEFAULT 'v2ray/settings.json',
+			happ_subscription_template TEXT NOT NULL DEFAULT 'v2ray/default.json',
+			incy_subscription_template TEXT NOT NULL DEFAULT 'v2ray/default.json',
 			singbox_subscription_template TEXT NOT NULL DEFAULT 'singbox/default.json',
 			singbox_settings_template TEXT NOT NULL DEFAULT 'singbox/settings.json',
 			mux_template TEXT NOT NULL DEFAULT 'mux/default.json',
@@ -49,6 +60,7 @@ func createSettingsTables(t *testing.T, db *sql.DB) {
 			use_custom_json_for_v2rayng INTEGER NOT NULL DEFAULT 0,
 			use_custom_json_for_streisand INTEGER NOT NULL DEFAULT 0,
 			use_custom_json_for_happ INTEGER NOT NULL DEFAULT 0,
+			use_custom_json_for_incy INTEGER NOT NULL DEFAULT 0,
 			subscription_aliases TEXT NOT NULL DEFAULT '[]',
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
@@ -218,23 +230,75 @@ func TestSettingsPanelRoutes(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &panel); err != nil {
 		t.Fatal(err)
 	}
-	if panel["use_nobetci"] != false || panel["default_subscription_type"] != "key" {
+	if _, ok := panel["use_nobetci"]; ok {
+		t.Fatalf("panel settings should not expose use_nobetci: %#v", panel)
+	}
+	if panel["default_subscription_type"] != "key" {
 		t.Fatalf("unexpected default panel settings: %#v", panel)
 	}
 
-	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/panel", fullToken, `{"use_nobetci":true,"default_subscription_type":"token"}`)
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/panel", fullToken, `{"default_subscription_type":"token"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update panel status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &panel); err != nil {
 		t.Fatal(err)
 	}
-	if panel["use_nobetci"] != true || panel["default_subscription_type"] != "token" {
+	if _, ok := panel["use_nobetci"]; ok {
+		t.Fatalf("panel settings should not expose use_nobetci: %#v", panel)
+	}
+	if panel["default_subscription_type"] != "token" {
 		t.Fatalf("unexpected updated panel settings: %#v", panel)
 	}
 
 	standardToken := adminBearerToken(t, server, "seller", "pass123")
-	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/panel", standardToken, `{"use_nobetci":false}`)
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/panel", standardToken, `{"default_subscription_type":"key"}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("standard update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRuntimeSettingsRoutes(t *testing.T) {
+	server, db := testAdminServer(t)
+	createSettingsTables(t, db)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
+
+	fullToken := adminBearerToken(t, server, "pouria", "pass123")
+	rec := adminJSONRequest(t, server, http.MethodGet, "/api/settings", fullToken, `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get runtime settings status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings["dashboard_path"] != "/dashboard/" || settings["record_node_usage"] != true || settings["record_node_user_usages"] != true {
+		t.Fatalf("unexpected default runtime settings: %#v", settings)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings", fullToken, `{
+		"dashboard_path": "panel",
+		"record_node_usage": false,
+		"record_node_user_usages": false,
+		"subscription_read_only": true,
+		"api_docs_enabled": true
+	}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update runtime settings status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings["dashboard_path"] != "/panel/" || settings["record_node_usage"] != false || settings["record_node_user_usages"] != false || settings["subscription_read_only"] != true || settings["api_docs_enabled"] != true {
+		t.Fatalf("unexpected updated runtime settings: %#v", settings)
+	}
+	if server.cfg.RecordNodeUsage || server.cfg.RecordNodeUserUsages || !server.cfg.SubscriptionReadOnly || !server.cfg.APIDocsEnabled {
+		t.Fatalf("server config was not updated: %#v", server.cfg)
+	}
+
+	standardToken := adminBearerToken(t, server, "seller", "pass123")
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings", standardToken, `{"api_docs_enabled":false}`)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("standard update status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -349,14 +413,14 @@ func TestSubscriptionTemplateContentRoutes(t *testing.T) {
 	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
-	defaultTemplates := filepath.Join(t.TempDir(), "app-templates")
-	if err := os.MkdirAll(filepath.Join(defaultTemplates, "clash"), 0o755); err != nil {
+	templateRoot := t.TempDir()
+	t.Chdir(templateRoot)
+	if err := os.MkdirAll(filepath.Join(templateRoot, "templates", "clash"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(defaultTemplates, "clash", "default.yml"), []byte("mode: Global\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(templateRoot, "templates", "clash", "default.yml"), []byte("mode: Global\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("REBECCA_APP_TEMPLATE_BASE", defaultTemplates)
 	dataDir := t.TempDir()
 	t.Setenv("REBECCA_DATA_DIR", dataDir)
 
@@ -393,6 +457,22 @@ func TestSubscriptionTemplateContentRoutes(t *testing.T) {
 		t.Fatalf("global template file missing: %v", err)
 	}
 
+	missingAdminDir := filepath.Join(t.TempDir(), "missing-admin-templates")
+	encodedOverrides, _ := json.Marshal(map[string]any{"custom_templates_directory": missingAdminDir})
+	if _, err := db.Exec(`UPDATE admins SET subscription_settings = ? WHERE id = 2`, string(encodedOverrides)); err != nil {
+		t.Fatal(err)
+	}
+	rec = adminJSONRequest(t, server, http.MethodGet, "/api/settings/subscriptions/templates/clash_subscription_template?admin_id=2", token, `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("read admin missing template status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &content); err != nil {
+		t.Fatal(err)
+	}
+	if content.Content != "mode: Rule\n" || content.CustomDirectory == nil || *content.CustomDirectory != filepath.Join(dataDir, "templates") {
+		t.Fatalf("expected admin missing template to fall back to global custom template, got %#v", content)
+	}
+
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions/templates/clash_subscription_template?admin_id=2", token, `{"content":"mode: Direct\n"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("write admin template status = %d body=%s", rec.Code, rec.Body.String())
@@ -410,8 +490,11 @@ func TestSubscriptionTemplateContentRoutes(t *testing.T) {
 	}
 
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions", token, `{"clash_subscription_template":"../escape.yml"}`)
-	if rec.Code != http.StatusOK {
+	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("set traversal template status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if _, err := db.Exec(`UPDATE subscription_settings SET clash_subscription_template = '../escape.yml'`); err != nil {
+		t.Fatal(err)
 	}
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions/templates/clash_subscription_template", token, `{"content":"nope"}`)
 	if rec.Code != http.StatusBadRequest {
@@ -432,9 +515,6 @@ func TestSettingsDisabledRoutes(t *testing.T) {
 	}{
 		{http.MethodPost, "/api/settings/subscriptions/certificates/issue", subscriptionCertificateDisabledDetail},
 		{http.MethodPost, "/api/settings/subscriptions/certificates/renew", subscriptionCertificateDisabledDetail},
-		{http.MethodPost, "/api/settings/database/3xui/preview", threeXUIImportDisabledDetail},
-		{http.MethodPost, "/api/settings/database/3xui/import", threeXUIImportDisabledDetail},
-		{http.MethodGet, "/api/settings/database/3xui/jobs/job-1", threeXUIImportDisabledDetail},
 	}
 	for _, tc := range cases {
 		rec := adminJSONRequest(t, server, tc.method, tc.path, token, `{}`)
@@ -449,9 +529,5 @@ func TestSettingsDisabledRoutes(t *testing.T) {
 	rec := adminJSONRequest(t, server, http.MethodGet, "/api/settings/subscriptions/certificates/issue", token, `{}`)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("certificate GET status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	rec = adminJSONRequest(t, server, http.MethodPost, "/api/settings/database/3xui/jobs/job-1", token, `{}`)
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("3xui job POST status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }

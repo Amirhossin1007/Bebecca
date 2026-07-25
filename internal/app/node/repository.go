@@ -90,9 +90,9 @@ func (r Repository) CreateNode(ctx context.Context, payload NodeCreate) (NodeRes
 INSERT INTO nodes (
 	name, note, address, port, api_port, status, last_status_change, created_at,
 	uplink, downlink, usage_coefficient, geo_mode, data_limit,
-	use_nobetci, nobetci_port, proxy_enabled, proxy_type, proxy_host, proxy_port,
+	proxy_enabled, proxy_type, proxy_host, proxy_port,
 	proxy_username, proxy_password, xray_config_mode, xray_config
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		strings.TrimSpace(payload.Name),
 		nullableStringPtr(payload.Note, true),
 		strings.TrimSpace(payload.Address),
@@ -104,8 +104,6 @@ INSERT INTO nodes (
 		defaultFloat(payload.UsageCoefficient, 1),
 		geoMode,
 		nullableInt64Ptr(payload.DataLimit),
-		boolInt(payload.UseNobetci),
-		nullableInt64Ptr(payload.NobetciPort),
 		boolInt(payload.ProxyEnabled),
 		nullableProxyType(payload.ProxyType, payload.ProxyEnabled),
 		nullableStringPtr(payload.ProxyHost, payload.ProxyEnabled),
@@ -222,25 +220,37 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 			markConnectionChanged()
 		}
 	}
+	finalStatus := current.Status
 	statusReconnectRequested := false
 	if payload.Status != nil {
 		status := strings.TrimSpace(*payload.Status)
 		switch status {
 		case StatusDisabled:
-			add("status", StatusDisabled)
-			add("xray_version", nil)
-			add("message", nil)
+			if status != current.Status {
+				add("status", StatusDisabled)
+				add("xray_version", nil)
+				add("message", nil)
+				add("last_status_change", dbTimestamp(r.now().UTC()))
+				finalStatus = StatusDisabled
+			}
 		case StatusLimited:
-			add("status", StatusLimited)
-			add("message", "Data limit reached")
+			if status != current.Status {
+				add("status", StatusLimited)
+				add("message", "Data limit reached")
+				add("last_status_change", dbTimestamp(r.now().UTC()))
+				finalStatus = StatusLimited
+			}
 		case StatusConnected, StatusConnecting, StatusError:
-			add("status", StatusConnecting)
-			add("message", nil)
-			statusReconnectRequested = true
+			if status != current.Status {
+				add("status", StatusConnecting)
+				add("message", nil)
+				add("last_status_change", dbTimestamp(r.now().UTC()))
+				finalStatus = StatusConnecting
+				statusReconnectRequested = true
+			}
 		default:
 			return NodeResponse{}, wrapInvalid("invalid node status")
 		}
-		add("last_status_change", dbTimestamp(r.now().UTC()))
 	}
 	if payload.UsageCoefficient != nil {
 		if *payload.UsageCoefficient <= 0 {
@@ -251,18 +261,31 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 	if payload.GeoMode != nil {
 		add("geo_mode", defaultString(*payload.GeoMode, GeoModeDefault))
 	}
-	if payload.XrayConfigMode != nil {
-		mode := defaultString(*payload.XrayConfigMode, XrayConfigModeDefault)
-		add("xray_config_mode", mode)
-		if mode == XrayConfigModeDefault {
-			add("xray_config", nil)
-		}
-		markConnectionChanged()
-	}
 	if len(payload.XrayConfig) > 0 {
 		add("xray_config", string(payload.XrayConfig))
 		add("xray_config_mode", XrayConfigModeCustom)
 		markConnectionChanged()
+	} else if payload.XrayConfigMode != nil {
+		currentHasStoredConfig, err := r.nodeStoredXrayConfigExistsTx(ctx, tx, nodeID)
+		if err != nil {
+			return NodeResponse{}, err
+		}
+		mode := defaultString(*payload.XrayConfigMode, XrayConfigModeDefault)
+		switch mode {
+		case XrayConfigModeCustom:
+			if current.XrayConfigMode != XrayConfigModeCustom {
+				add("xray_config_mode", XrayConfigModeCustom)
+				markConnectionChanged()
+			}
+		case XrayConfigModeDefault:
+			if current.XrayConfigMode != XrayConfigModeCustom || !currentHasStoredConfig {
+				add("xray_config_mode", XrayConfigModeDefault)
+				add("xray_config", nil)
+				markConnectionChanged()
+			}
+		default:
+			return NodeResponse{}, wrapInvalid("invalid xray_config_mode")
+		}
 	}
 	if payload.DataLimit != nil {
 		add("data_limit", nullableInt64Ptr(payload.DataLimit))
@@ -270,18 +293,6 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 		if current.Status == StatusLimited && (*payload.DataLimit == 0 || usageTotal < *payload.DataLimit) && payload.Status == nil {
 			add("status", StatusConnecting)
 			add("message", nil)
-		}
-	}
-	if payload.UseNobetci != nil {
-		add("use_nobetci", boolInt(*payload.UseNobetci))
-		if !*payload.UseNobetci {
-			add("nobetci_port", nil)
-		}
-	}
-	if payload.NobetciPort != nil {
-		add("nobetci_port", nullableInt64Ptr(payload.NobetciPort))
-		if *payload.NobetciPort > 0 {
-			add("use_nobetci", 1)
 		}
 	}
 	if payload.ProxyEnabled != nil {
@@ -327,10 +338,11 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 			markConnectionChanged()
 		}
 	}
-	if payload.Status == nil && connectionChanged && current.Status != StatusDisabled && current.Status != StatusLimited {
+	if connectionChanged && !statusReconnectRequested && current.Status != StatusDisabled && current.Status != StatusLimited && finalStatus != StatusDisabled && finalStatus != StatusLimited {
 		add("status", StatusConnecting)
 		add("message", nil)
 		add("last_status_change", dbTimestamp(r.now().UTC()))
+		finalStatus = StatusConnecting
 	}
 	if len(updates) > 0 {
 		args = append(args, nodeID)
@@ -341,11 +353,7 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 			return NodeResponse{}, err
 		}
 	}
-	updatedStatus := current.Status
-	if payload.Status != nil {
-		updatedStatus = strings.TrimSpace(*payload.Status)
-	}
-	if (connectionChanged || statusReconnectRequested) && updatedStatus != StatusDisabled && updatedStatus != StatusLimited {
+	if (connectionChanged || statusReconnectRequested) && finalStatus != StatusDisabled && finalStatus != StatusLimited {
 		if err := r.enqueueNodeOperationTx(ctx, tx, NodeOperationSyncConfig, &nodeID, nil, map[string]any{"node_id": nodeID}, r.now().UTC()); err != nil {
 			return NodeResponse{}, err
 		}
@@ -371,6 +379,10 @@ func (r Repository) DeleteNode(ctx context.Context, nodeID int64) error {
 	}
 	for _, stmt := range []string{
 		`DELETE FROM node_operations WHERE node_id = ?`,
+		`DELETE FROM node_usage_user_queue WHERE node_id = ?`,
+		`DELETE FROM node_usage_outbound_queue WHERE node_id = ?`,
+		`DELETE FROM vpn_user_sessions WHERE node_id = ?`,
+		`DELETE FROM user_online_ips WHERE node_id = ?`,
 		`DELETE FROM node_usages WHERE node_id = ?`,
 		`DELETE FROM node_user_usages WHERE node_id = ?`,
 		`DELETE FROM outbound_traffic WHERE node_id = ?`,
@@ -537,20 +549,31 @@ func (r Repository) consumePendingCertificateTx(ctx context.Context, tx *sql.Tx,
 	return row, nil
 }
 
+func (r Repository) nodeStoredXrayConfigExistsTx(ctx context.Context, tx *sql.Tx, nodeID int64) (bool, error) {
+	var raw sql.NullString
+	err := tx.QueryRowContext(ctx, `SELECT xray_config FROM nodes WHERE id = ? LIMIT 1`, nodeID).Scan(&raw)
+	if err == nil {
+		return raw.Valid && strings.TrimSpace(raw.String) != "", nil
+	}
+	if isMissingColumnError(err) {
+		return false, nil
+	}
+	return false, err
+}
 func (r Repository) getNode(ctx context.Context, q queryer, nodeID int64, defaultCert string) (NodeResponse, error) {
 	var row NodeResponse
-	var dataLimit, nobetciPort, proxyPort sql.NullInt64
+	var dataLimit, proxyPort sql.NullInt64
 	var note, proxyType, proxyHost, proxyUsername, proxyPassword, message, xrayVersion, cert sql.NullString
-	var useNobetci, proxyEnabled bool
+	var proxyEnabled bool
 	err := q.QueryRowContext(ctx, `SELECT
 	id, COALESCE(name, ''), note, address, port, api_port, usage_coefficient, data_limit,
-	use_nobetci, nobetci_port, proxy_enabled, proxy_type, proxy_host, proxy_port,
+	proxy_enabled, proxy_type, proxy_host, proxy_port,
 	proxy_username, proxy_password, status, message, xray_version,
 	COALESCE(geo_mode, 'default'), COALESCE(xray_config_mode, 'default'),
 	COALESCE(uplink, 0), COALESCE(downlink, 0), certificate
 FROM nodes WHERE id = ? LIMIT 1`, nodeID).Scan(
 		&row.ID, &row.Name, &note, &row.Address, &row.Port, &row.APIPort, &row.UsageCoefficient, &dataLimit,
-		&useNobetci, &nobetciPort, &proxyEnabled, &proxyType, &proxyHost, &proxyPort,
+		&proxyEnabled, &proxyType, &proxyHost, &proxyPort,
 		&proxyUsername, &proxyPassword, &row.Status, &message, &xrayVersion,
 		&row.GeoMode, &row.XrayConfigMode, &row.Uplink, &row.Downlink, &cert,
 	)
@@ -565,8 +588,6 @@ FROM nodes WHERE id = ? LIMIT 1`, nodeID).Scan(
 	}
 	row.Note = stringPtrFromNull(note)
 	row.DataLimit = int64PtrFromNull(dataLimit)
-	row.UseNobetci = useNobetci
-	row.NobetciPort = int64PtrFromNull(nobetciPort)
 	row.ProxyEnabled = proxyEnabled
 	row.ProxyType = stringPtrFromNull(proxyType)
 	row.ProxyHost = stringPtrFromNull(proxyHost)
@@ -815,6 +836,13 @@ func int64PtrFromNull(value sql.NullInt64) *int64 {
 	return &value.Int64
 }
 
+func isMissingColumnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "no such column") || strings.Contains(lower, "unknown column")
+}
 func isUniqueConstraint(err error) bool {
 	if err == nil {
 		return false

@@ -34,6 +34,7 @@ REBECCA_BINARY_WORKFLOW_NAME="${REBECCA_BINARY_WORKFLOW_NAME:-binary-build}"
 REBECCA_BINARY_DEV_MANIFEST_BRANCH="${REBECCA_BINARY_DEV_MANIFEST_BRANCH:-dev-build-manifest}"
 REBECCA_BINARY_DEV_MANIFEST_PATH="${REBECCA_BINARY_DEV_MANIFEST_PATH:-dev-builds.json}"
 REBECCA_BINARY_DEV_MANIFEST_URL="${REBECCA_BINARY_DEV_MANIFEST_URL:-}"
+REBECCA_BINARY_DEV_RELEASE_TAG="${REBECCA_BINARY_DEV_RELEASE_TAG:-dev-builds}"
 INSTALL_MODE_FILE="$APP_DIR/.install-mode"
 CHANNEL_FILE="$APP_DIR/.channel"
 BINARY_BIN_DIR="$APP_DIR/bin"
@@ -278,7 +279,59 @@ ui_spinner_run() {
 }
 
 format_rebecca_journal_logs() {
-    sed -u -E "s/^[0-9-]+[ T]([0-9]{2}:[0-9]{2}:[0-9]{2})(\\.[0-9]+)?([+-][0-9:]+|Z)? [^ ]+ [^:]+: /Rebecca-\1: /; s/^[A-Za-z]{3} [ 0-9][0-9] ([0-9]{2}:[0-9]{2}:[0-9]{2}) [^ ]+ [^:]+: /Rebecca-\1: /; s/^([0-9]{2}:[0-9]{2}:[0-9]{2}) [^ ]+ [^:]+: /Rebecca-\1: /"
+    while IFS= read -r line; do
+        local log_time=""
+        local message="$line"
+        if [[ "$line" =~ ^[0-9-]+[[:space:]T]([0-9]{2}:[0-9]{2}:[0-9]{2})(\.[0-9]+)?([+-][0-9:]+|Z)?[[:space:]][^[:space:]]+[[:space:]][^:]+:[[:space:]](.*)$ ]]; then
+            log_time="${BASH_REMATCH[1]}"
+            message="${BASH_REMATCH[4]}"
+        elif [[ "$line" =~ ^[A-Za-z]{3}[[:space:]][[:space:][:digit:]][[:digit:]][[:space:]]([0-9]{2}:[0-9]{2}:[0-9]{2})[[:space:]][^[:space:]]+[[:space:]][^:]+:[[:space:]](.*)$ ]]; then
+            log_time="${BASH_REMATCH[1]}"
+            message="${BASH_REMATCH[2]}"
+        elif [[ "$line" =~ ^([0-9]{2}:[0-9]{2}:[0-9]{2})[[:space:]][^[:space:]]+[[:space:]][^:]+:[[:space:]](.*)$ ]]; then
+            log_time="${BASH_REMATCH[1]}"
+            message="${BASH_REMATCH[2]}"
+        fi
+        if [[ "$message" =~ ^[0-9]{4}/[0-9]{2}/[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}[[:space:]](.*)$ ]]; then
+            message="${BASH_REMATCH[1]}"
+        fi
+        if [ -z "$log_time" ]; then
+            printf "%s\n" "$message"
+            continue
+        fi
+        ui_color "38;5;208;1" "Rebecca"
+        printf "-"
+        ui_color "38;5;245" "$log_time"
+        printf ": "
+        if [[ "$message" =~ ^\[([^]]+)\][[:space:]](DEBUG|INFO|WARN|ERROR)[[:space:]](.*)$ ]]; then
+            local component="${BASH_REMATCH[1]}"
+            local level="${BASH_REMATCH[2]}"
+            local text="${BASH_REMATCH[3]}"
+            local component_color="38;5;45;1"
+            local level_color="38;5;250"
+            case "$component" in
+                Admin) component_color="38;5;141;1" ;;
+                Database) component_color="38;5;220;1" ;;
+                Node) component_color="38;5;45;1" ;;
+                Runtime) component_color="38;5;82;1" ;;
+                Telegram) component_color="38;5;39;1" ;;
+                User) component_color="38;5;213;1" ;;
+                Webhook) component_color="38;5;214;1" ;;
+            esac
+            case "$level" in
+                DEBUG) level_color="38;5;245" ;;
+                INFO) level_color="38;5;82" ;;
+                WARN) level_color="38;5;220;1" ;;
+                ERROR) level_color="38;5;196;1" ;;
+            esac
+            ui_color "$component_color" "$component"
+            printf " "
+            ui_color "$level_color" "$level"
+            printf " : %s\n" "$text"
+        else
+            printf "%s\n" "$message"
+        fi
+    done
 }
 
 journal_output_format() {
@@ -435,11 +488,49 @@ detect_os() {
     fi
 }
 
+remove_broken_xanmod_apt_sources() {
+    local matches
+    matches=$(grep -RIlE 'deb\.xanmod\.org|xanmod\.org' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || true)
+    if [ -z "$matches" ]; then
+        return 1
+    fi
+    colorized_echo yellow "Removing broken XanMod apt source entries"
+    while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        case "$file" in
+            /etc/apt/sources.list)
+                sed -i.bak '/deb\.xanmod\.org/d;/xanmod\.org/d' "$file"
+            ;;
+            /etc/apt/sources.list.d/*)
+                rm -f "$file"
+            ;;
+        esac
+    done <<< "$matches"
+    return 0
+}
+
+apt_update_with_repo_repair() {
+    local log_file
+    log_file=$(mktemp)
+    if DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a "$PKG_MANAGER" "$@" update -qq >"$log_file" 2>&1; then
+        rm -f "$log_file"
+        return 0
+    fi
+    cat "$log_file" >&2
+    if grep -qiE 'deb\.xanmod\.org|xanmod.*release file|does not have a release file' "$log_file" && remove_broken_xanmod_apt_sources; then
+        rm -f "$log_file"
+        DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a "$PKG_MANAGER" "$@" update -qq
+        return
+    fi
+    rm -f "$log_file"
+    return 1
+}
+
 
 detect_and_update_package_manager() {
     if [[ "$OS" == "Ubuntu"* ]] || [[ "$OS" == "Debian"* ]]; then
         PKG_MANAGER="apt-get"
-        ui_spinner_run "Updating package index" bash -c "DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a $PKG_MANAGER update -qq"
+        ui_spinner_run "Updating package index" apt_update_with_repo_repair -o Acquire::AllowReleaseInfoChange=true -o Acquire::AllowReleaseInfoChange::Label=true
     elif [[ "$OS" == "CentOS"* ]] || [[ "$OS" == "AlmaLinux"* ]]; then
         PKG_MANAGER="yum"
         ui_spinner_run "Updating package index" "$PKG_MANAGER" update -y -q
@@ -1255,19 +1346,14 @@ select_database_type_interactive() {
 
 prompt_dashboard_bind_settings() {
     local port
-    local path
     if [ ! -t 0 ]; then
         upsert_env_assignment "UVICORN_PORT" "8000"
-        upsert_env_assignment "DASHBOARD_PATH" "/dashboard/"
         return
     fi
     ui_section "Dashboard"
     port=$(prompt_tcp_port "Dashboard port" "8000")
     echo
-    path=$(prompt_url_path "Dashboard path" "dashboard")
-    echo
     upsert_env_assignment "UVICORN_PORT" "$port"
-    upsert_env_assignment "DASHBOARD_PATH" "$path"
 }
 
 mysql_password_is_strong() {
@@ -1352,8 +1438,6 @@ create_initial_admin_if_requested() {
 }
 
 prompt_phpmyadmin_settings() {
-    PHPMYADMIN_PORT=$(prompt_tcp_port "phpMyAdmin HTTP port" "8080")
-    echo
     PHPMYADMIN_PATH=$(prompt_url_path "phpMyAdmin path" "phpmyadmin")
     echo
 }
@@ -1364,18 +1448,56 @@ find_php_fpm_sock() {
     [ -n "$sock" ] && printf "%s" "$sock"
 }
 
-escape_nginx_regex_path() {
-    printf '%s' "$1" | sed -e 's/[.[\*^$()+?{}|]/\\&/g'
+install_phpmyadmin_blueberry_theme() {
+    local theme_dir="/usr/share/phpmyadmin/themes"
+    local theme_url="https://files.phpmyadmin.net/themes/blueberry/1.1.0/blueberry-1.1.0.zip"
+    local temp_zip
+
+    if [ ! -d "$theme_dir" ]; then
+        return 0
+    fi
+    if [ -d "$theme_dir/blueberry" ]; then
+        return 0
+    fi
+    install_package unzip
+    temp_zip=$(mktemp)
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$theme_url" -o "$temp_zip" || {
+            rm -f "$temp_zip"
+            colorized_echo yellow "Could not download phpMyAdmin blueberry theme."
+            return 0
+        }
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "$theme_url" -O "$temp_zip" || {
+            rm -f "$temp_zip"
+            colorized_echo yellow "Could not download phpMyAdmin blueberry theme."
+            return 0
+        }
+    else
+        rm -f "$temp_zip"
+        colorized_echo yellow "curl or wget is required to download phpMyAdmin blueberry theme."
+        return 0
+    fi
+    unzip -qo "$temp_zip" -d "$theme_dir" >/dev/null 2>&1 || colorized_echo yellow "Could not extract phpMyAdmin blueberry theme."
+    rm -f "$temp_zip"
 }
 
-open_host_firewall_port() {
-    local port="$1"
-    if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi "Status: active"; then
-        ufw allow "${port}/tcp" >/dev/null 2>&1 || true
-    fi
-    if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
-        firewall-cmd --add-port="${port}/tcp" --permanent >/dev/null 2>&1 || true
-        firewall-cmd --reload >/dev/null 2>&1 || true
+configure_phpmyadmin_upload_limits() {
+    local ini_content
+    ini_content="upload_max_filesize=4096M
+post_max_size=4096M
+memory_limit=4096M
+max_execution_time=0
+max_input_time=0"
+    local wrote=0
+    local dir
+    for dir in /etc/php/*/fpm/conf.d /etc/php/*/cli/conf.d; do
+        [ -d "$dir" ] || continue
+        printf "%s\n" "$ini_content" > "$dir/99-rebecca-phpmyadmin-upload.ini" || true
+        wrote=1
+    done
+    if [ "$wrote" = "1" ]; then
+        systemctl reload php*-fpm >/dev/null 2>&1 || systemctl restart php*-fpm >/dev/null 2>&1 || true
     fi
 }
 
@@ -1385,12 +1507,9 @@ phpmyadmin_nginx_config_path() {
 
 enable_host_phpmyadmin() {
     local database_type
-    local port="${1:-}"
-    local path="${2:-}"
+    local path="${1:-}"
     local normalized_path
     local fpm_sock
-    local nginx_config
-    local escaped_path
 
     database_type=$(get_configured_database_type)
     if [ "$database_type" = "sqlite" ]; then
@@ -1399,15 +1518,14 @@ enable_host_phpmyadmin() {
     fi
 
     detect_os
-    for package in nginx php-fpm php-mysql phpmyadmin; do
+    for package in php-fpm php-mysql phpmyadmin; do
         install_package "$package"
     done
-    systemctl enable --now nginx >/dev/null 2>&1 || true
+    install_phpmyadmin_blueberry_theme
+    configure_phpmyadmin_upload_limits
     systemctl enable --now php*-fpm >/dev/null 2>&1 || true
 
-    port="${port:-${PHPMYADMIN_PORT:-$(get_env_value "PHPMYADMIN_PORT")}}"
-    path="${path:-${PHPMYADMIN_PATH:-$(get_env_value "PHPMYADMIN_PATH")}}"
-    port="${port:-8080}"
+    path="${path:-${PHPMYADMIN_PATH:-phpmyadmin}}"
     normalized_path=$(normalize_url_path "$path" "phpmyadmin") || {
         colorized_echo red "Invalid phpMyAdmin path."
         return 1
@@ -1419,52 +1537,12 @@ enable_host_phpmyadmin() {
         colorized_echo red "Could not find php-fpm socket under /run/php."
         return 1
     fi
-    escaped_path=$(escape_nginx_regex_path "$path")
 
-    nginx_config=$(phpmyadmin_nginx_config_path)
-    cat > "$nginx_config" <<EOF
-server {
-    listen ${port};
-    server_name _;
-
-    location = ${path} {
-        return 301 ${path}/;
-    }
-
-    location ${path}/ {
-        alias /usr/share/phpmyadmin/;
-        index index.php index.html;
-        try_files \$uri \$uri/ ${path}/index.php?\$query_string;
-    }
-
-    location ~ ^${escaped_path}/(.+\.php)$ {
-        alias /usr/share/phpmyadmin/\$1;
-        include fastcgi_params;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME /usr/share/phpmyadmin/\$1;
-        fastcgi_param SCRIPT_NAME ${path}/\$1;
-        fastcgi_param DOCUMENT_ROOT /usr/share/phpmyadmin;
-        fastcgi_param HTTPS off;
-        fastcgi_param PATH_INFO \$fastcgi_path_info;
-        fastcgi_pass unix:${fpm_sock};
-    }
-
-    location ~ ^${escaped_path}/(.+\.(?:css|js|gif|png|jpg|jpeg|ico|svg|woff|woff2|ttf|eot|html|txt|xml))$ {
-        alias /usr/share/phpmyadmin/\$1;
-        access_log off;
-        expires 7d;
-    }
-}
-EOF
-    ln -sf "$nginx_config" "/etc/nginx/sites-enabled/${APP_NAME}-phpmyadmin"
-    nginx -t >/dev/null
-    systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
-    open_host_firewall_port "$port"
-
-    upsert_env_assignment "PHPMYADMIN_ENABLED" "true"
-    upsert_env_assignment "PHPMYADMIN_PORT" "$port"
-    upsert_env_assignment "PHPMYADMIN_PATH" "${path}/"
-    colorized_echo green "phpMyAdmin is available at http://$(hostname -I 2>/dev/null | awk '{print $1}'):${port}${path}/"
+    rm -f "/etc/nginx/sites-enabled/${APP_NAME}-phpmyadmin" "$(phpmyadmin_nginx_config_path)"
+    if command -v nginx >/dev/null 2>&1; then
+        nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
+    fi
+    colorized_echo green "phpMyAdmin is installed and will be served through Rebecca using local php-fpm."
 }
 
 disable_host_phpmyadmin() {
@@ -1472,7 +1550,6 @@ disable_host_phpmyadmin() {
     if command -v nginx >/dev/null 2>&1; then
         nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
     fi
-    upsert_env_assignment "PHPMYADMIN_ENABLED" "false"
     colorized_echo green "phpMyAdmin has been disabled."
 }
 
@@ -1518,6 +1595,25 @@ EOF
 
 enable_phpmyadmin() {
     check_running_as_root
+    local cli_path=""
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --port)
+                shift 2
+                ;;
+            --path)
+                cli_path="${2:-}"
+                shift 2
+                ;;
+            --yes|-y)
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
 
     if ! is_rebecca_installed; then
         colorized_echo red "Rebecca is not installed. Please install Rebecca first."
@@ -1534,8 +1630,12 @@ enable_phpmyadmin() {
         return 0
     fi
 
-    prompt_phpmyadmin_settings
-    enable_host_phpmyadmin "$PHPMYADMIN_PORT" "$PHPMYADMIN_PATH"
+    if [ -n "$cli_path" ]; then
+        PHPMYADMIN_PATH="$cli_path"
+    else
+        prompt_phpmyadmin_settings
+    fi
+    enable_host_phpmyadmin "$PHPMYADMIN_PATH"
 }
 
 disable_phpmyadmin() {
@@ -2383,12 +2483,12 @@ write_mysql_backup_defaults() {
     local defaults_file="$1"
     {
         echo "[client]"
-        [ -n "${BACKUP_DB_USER:-}" ] && printf 'user=%s\n' "$BACKUP_DB_USER"
-        [ -n "${BACKUP_DB_PASSWORD:-}" ] && printf 'password=%s\n' "$BACKUP_DB_PASSWORD"
+        [ -n "${BACKUP_DB_USER:-}" ] && printf 'user="%s"\n' "${BACKUP_DB_USER//\"/\\\"}"
+        [ -n "${BACKUP_DB_PASSWORD:-}" ] && printf 'password="%s"\n' "${BACKUP_DB_PASSWORD//\"/\\\"}"
         if [ -n "${BACKUP_DB_SOCKET:-}" ]; then
-            printf 'socket=%s\n' "$BACKUP_DB_SOCKET"
+            printf 'socket="%s"\n' "${BACKUP_DB_SOCKET//\"/\\\"}"
         else
-            printf 'host=%s\n' "${BACKUP_DB_HOST:-127.0.0.1}"
+            printf 'host="%s"\n' "${BACKUP_DB_HOST:-127.0.0.1}"
             printf 'port=%s\n' "${BACKUP_DB_PORT:-3306}"
             echo "protocol=tcp"
         fi
@@ -2413,6 +2513,7 @@ backup_command() {
 
     rm -rf "$backup_dir"
     mkdir -p "$backup_dir"
+    rm -rf "$temp_dir"
     mkdir -p "$temp_dir"
 
     if [ -f "$ENV_FILE" ]; then
@@ -2443,11 +2544,11 @@ backup_command() {
         sqlite_file="$BACKUP_SQLITE_FILE"
     elif grep -q "image: mariadb" "$COMPOSE_FILE" 2>/dev/null; then
         db_type="mariadb"
-        container_name=$(docker compose -f "$COMPOSE_FILE" ps -q mariadb || echo "mariadb")
+        container_name=$(docker compose -f "$COMPOSE_FILE" ps -q mariadb 2>/dev/null || true)
 
     elif grep -q "image: mysql" "$COMPOSE_FILE" 2>/dev/null; then
         db_type="mysql"
-        container_name=$(docker compose -f "$COMPOSE_FILE" ps -q mysql || echo "mysql")
+        container_name=$(docker compose -f "$COMPOSE_FILE" ps -q mysql 2>/dev/null || true)
 
     elif grep -q "SQLALCHEMY_DATABASE_URL = .*sqlite" "$ENV_FILE"; then
         db_type="sqlite"
@@ -2511,11 +2612,13 @@ backup_command() {
         esac
     fi
 
-    cp "$APP_DIR/.env" "$temp_dir/" 2>>"$log_file"
-    cp "$APP_DIR/docker-compose.yml" "$temp_dir/" 2>>"$log_file"
-    rsync -av --exclude 'xray-core' --exclude 'mysql' "$DATA_DIR/" "$temp_dir/rebecca_data/" >>"$log_file" 2>&1
+    cp "$APP_DIR/.env" "$temp_dir/" 2>>"$log_file" || true
+    cp "$APP_DIR/docker-compose.yml" "$temp_dir/" 2>>"$log_file" || true
+    if ! rsync -a --delete --exclude 'xray-core' --exclude 'mysql' --exclude 'logs' "$DATA_DIR/" "$temp_dir/rebecca_data/" >>"$log_file" 2>&1; then
+        error_messages+=("Failed to copy Rebecca data files.")
+    fi
 
-    if ! tar -czf "$backup_file" -C "$temp_dir" .; then
+    if ! tar -C "$temp_dir" -cf - . | gzip -1 > "$backup_file"; then
         error_messages+=("Failed to create backup archive.")
         echo "Failed to create backup archive." >> "$log_file"
     fi
@@ -3039,18 +3142,45 @@ get_binary_dev_manifest_metadata() {
 
     selected=$(echo "$manifest_payload" | jq -r \
         --arg arch "linux-${binary_arch}" \
-        --arg requested "$requested_version" '
+        --arg requested "$requested_version" \
+        --arg repo "$REBECCA_RELEASE_REPO" \
+        --arg release_tag "$REBECCA_BINARY_DEV_RELEASE_TAG" '
+        def legacy_build:
+            .latest? as $latest
+            | if ($latest | type) == "object" then
+                {
+                    tag: ($latest.build_tag // $latest.tag // ""),
+                    assets: (
+                        reduce ($latest.assets[]? | strings) as $name
+                          ({};
+                            if ($name | startswith("rebecca-" + $arch + "-")) then
+                              .[$arch] = {
+                                name: $name,
+                                url: ("https://github.com/" + $repo + "/releases/download/" + $release_tag + "/" + $name)
+                              }
+                            else
+                              .
+                            end)
+                    )
+                }
+              else
+                empty
+              end;
+        def builds:
+            ([.builds[]? | select(type == "object")] + [legacy_build]);
         . as $root
-        | def selected_build:
-            if ($requested != "" and $requested != "dev") then
-                ($root.builds[]? | select(.tag == $requested))
-            else
-                (($root.builds[]? | select(.tag == ($root.latest // ""))) // $root.builds[0]?)
-            end;
-        selected_build as $build
+        | builds as $builds
+        | (if ($requested != "" and $requested != "dev") then
+              ($builds[]? | select(.tag == $requested))
+           else
+              (if ($root.latest | type) == "string" then $root.latest else "" end) as $latest_tag
+              | (($builds[]? | select(.tag == $latest_tag)) // $builds[0]?)
+           end) as $build
         | ($build.assets[$arch] // empty) as $asset
-        | select(($build.tag // "") != "" and ($asset.url // "") != "")
-        | [$build.tag, $asset.url, ($asset.name // "")] | @tsv
+        | ($asset.name // "") as $asset_name
+        | ($asset.url // "") as $asset_url
+        | select(($build.tag // "") != "" and $asset_name != "" and $asset_url != "")
+        | [$build.tag, $asset_url, $asset_name] | @tsv
     ' | head -n 1)
 
     if [ -z "$selected" ]; then
@@ -3073,7 +3203,6 @@ get_binary_dev_artifact_metadata() {
     local artifacts_payload
     local artifact_url
     local nightly_workflow
-    local workflow_path
 
     if get_binary_dev_manifest_metadata "$binary_arch" "$requested_version"; then
         return
@@ -3089,16 +3218,19 @@ get_binary_dev_artifact_metadata() {
         *.yml|*.yaml) ;;
         *) nightly_workflow="${nightly_workflow}.yml" ;;
     esac
-    workflow_path=".github/workflows/${nightly_workflow}"
-    workflow_runs_api="https://api.github.com/repos/${REBECCA_RELEASE_REPO}/actions/runs?per_page=50"
-    workflow_runs_payload=$(curl -fsSL "$workflow_runs_api") || {
+    workflow_runs_api="https://api.github.com/repos/${REBECCA_RELEASE_REPO}/actions/workflows/${nightly_workflow}/runs"
+    workflow_runs_payload=$(curl -fsSLG "$workflow_runs_api" \
+        --data-urlencode "branch=${REBECCA_BINARY_DEV_BRANCH}" \
+        --data-urlencode "event=push" \
+        --data-urlencode "status=success" \
+        --data-urlencode "per_page=100") || {
         colorized_echo red "Unable to read binary dev workflow metadata: $workflow_runs_api" >&2
         exit 1
     }
 
-    latest_run_json=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_BINARY_DEV_BRANCH" --arg workflow_path "$workflow_path" '
+    latest_run_json=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_BINARY_DEV_BRANCH" '
         .workflow_runs[]?
-        | select(.head_branch == $branch and .event == "push" and .conclusion == "success" and .path == $workflow_path)
+        | select(.head_branch == $branch and .event == "push" and .conclusion == "success")
     ' | head -n 1)
 
     if [ -z "$latest_run_json" ]; then
@@ -3309,6 +3441,27 @@ up_rebecca() {
 
     repair_docker_compose_startup_gates
     $COMPOSE -f $COMPOSE_FILE -p "$APP_NAME" up -d --remove-orphans
+}
+
+schedule_binary_service_restart() {
+    local delay_seconds="${1:-1}"
+    local unit_name="${APP_NAME}-delayed-restart-$(date +%s%N)"
+    local restart_script="sleep ${delay_seconds}; systemctl restart ${APP_NAME}.service"
+
+    if command -v systemd-run >/dev/null 2>&1; then
+        systemd-run \
+            --unit "$unit_name" \
+            --collect \
+            --description "Rebecca delayed service restart" \
+            -- /bin/sh -c "$restart_script" >/dev/null
+        return
+    fi
+
+    nohup /bin/sh -c "$restart_script" >/dev/null 2>&1 &
+}
+
+restart_binary_service_now() {
+    systemctl restart "$APP_NAME.service"
 }
 
 repair_docker_compose_startup_gates() {
@@ -3722,7 +3875,7 @@ install_command() {
                 if [ "$install_phpmyadmin" = "true" ]; then
                     ui_section "phpMyAdmin"
                     prompt_phpmyadmin_settings
-                    enable_host_phpmyadmin "$PHPMYADMIN_PORT" "$PHPMYADMIN_PATH"
+                    enable_host_phpmyadmin "$PHPMYADMIN_PATH"
                 fi
             else
                 install_rebecca "$rebecca_version" "$database_type"
@@ -4002,6 +4155,17 @@ restart_command() {
         detect_compose
     fi
     
+    if is_binary_install; then
+        if [ "$no_logs" = true ]; then
+            schedule_binary_service_restart 1
+            colorized_echo green "Rebecca restart scheduled."
+            return
+        fi
+        restart_binary_service_now
+        follow_rebecca_logs
+        return
+    fi
+
     down_rebecca
     up_rebecca
     if [ "$no_logs" = false ]; then
@@ -4214,10 +4378,14 @@ update_command() {
     write_rebecca_channel "$rebecca_version"
     
     colorized_echo blue "Restarting Rebecca's services"
-    down_rebecca
-    if ! is_binary_install; then
-        prune_unused_docker_images
+    if is_binary_install; then
+        schedule_binary_service_restart 1
+        colorized_echo blue "Rebecca updated successfully; restart scheduled."
+        return
     fi
+
+    down_rebecca
+    prune_unused_docker_images
     up_rebecca
     
     colorized_echo blue "Rebecca updated successfully"
@@ -4555,7 +4723,7 @@ menu_description_for() {
         script-uninstall) echo "Uninstall Rebecca script" ;;
         core-update) echo "Deprecated; Xray is managed by nodes" ;;
         enable-phpmyadmin) echo "Enable phpMyAdmin on local MySQL/MariaDB" ;;
-        disable-phpmyadmin) echo "Disable phpMyAdmin Nginx endpoint" ;;
+        disable-phpmyadmin) echo "Disable phpMyAdmin panel bridge" ;;
         edit) echo "Edit docker-compose.yml" ;;
         edit-env) echo "Edit environment file" ;;
         ssl) echo "Issue or renew SSL certificates" ;;

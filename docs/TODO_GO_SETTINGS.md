@@ -66,5 +66,4 @@ Recommended rebuild:
 ## 3x-ui Import
 
 The 3x-ui importer is also disabled from Go with `410 Gone` and should be
-rebuilt as a Go-native importer. The full design notes are in
-[`TODO_GO_3XUI_IMPORT.md`](TODO_GO_3XUI_IMPORT.md).
+rebuilt as a Go-native importer.

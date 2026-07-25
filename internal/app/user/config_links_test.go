@@ -1,12 +1,98 @@
 package user
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestBuildConfigLinksAddsMissingServiceProtocolForLegacyUser(t *testing.T) {
+	serviceID := int64(1)
+	credentialKey := "05bfddf81eb418fa1edbce7cd286eee1"
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            22,
+			Username:      "legacy",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: credentialKey,
+			Proxies: []StoredProxy{{
+				Type:     "vless",
+				Settings: map[string]any{"id": "05bfddf8-1eb4-18fa-1edb-ce7cd286eee1"},
+			}},
+		},
+		map[string]ResolvedInbound{
+			"VLESS": {"tag": "VLESS", "protocol": "vless", "port": int64(443), "network": "tcp", "tls": "none"},
+			"SS": {
+				"tag": "SS", "protocol": "shadowsocks", "port": int64(8388), "network": "tcp", "tls": "none",
+				"settings": map[string]any{"method": "aes-256-gcm"},
+			},
+		},
+		[]string{"VLESS", "SS"},
+		[]Host{
+			{ID: 1, InboundTag: "VLESS", Remark: "vless", Address: "vpn.example.com", Security: "inbound_default", ServiceIDs: []int64{1}},
+			{ID: 2, InboundTag: "SS", Remark: "ss", Address: "vpn.example.com", Security: "inbound_default", ServiceIDs: []int64{1}},
+		},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links.Links) != 2 || !strings.HasPrefix(links.Links[1], "ss://") {
+		t.Fatalf("expected legacy user to receive vless and shadowsocks links, got %#v", links.Links)
+	}
+	encoded := strings.SplitN(strings.TrimPrefix(links.Links[1], "ss://"), "@", 2)[0]
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("invalid SIP002 user info %q: %v", encoded, err)
+	}
+	want := "aes-256-gcm:" + keyToPassword(credentialKey, "shadowsocks")
+	if string(decoded) != want {
+		t.Fatalf("unexpected SIP002 user info: got %q want %q", decoded, want)
+	}
+}
+
+func TestShadowsocks2022LinkUsesSIP022UserInfo(t *testing.T) {
+	settings := map[string]any{"method": defaultShadowsocksMethod, "password": "client-password"}
+	inbound := ResolvedInbound{
+		"port": int64(8388), "network": "tcp", "tls": "none",
+		"settings": map[string]any{
+			"method":   "2022-blake3-aes-128-gcm",
+			"password": "c2VydmVyLXBhc3N3ZA==",
+		},
+	}
+	link := shadowsocksShareLink("ss2022", "vpn.example.com", inbound, settings)
+	if !strings.HasPrefix(link, "ss://2022-blake3-aes-128-gcm:c2VydmVyLXBhc3N3ZA%3D%3D:") {
+		t.Fatalf("unexpected SIP022 link: %s", link)
+	}
+	if strings.Contains(strings.SplitN(strings.TrimPrefix(link, "ss://"), "@", 2)[0], "method") {
+		t.Fatalf("SIP022 user info must not be base64 encoded: %s", link)
+	}
+}
+
+func TestHostRotationSelectionModes(t *testing.T) {
+	value := "one.example.com,two.example.com,one.example.com"
+	selected := selectHostRotationValue(10, "address", value, nil, "random", nil)
+	if selected != "one.example.com" && selected != "two.example.com" {
+		t.Fatalf("random selection returned unexpected value: %q", selected)
+	}
+
+	ttl := int64(31536000)
+	first := selectHostRotationValue(10, "sni", value, nil, "ttl", &ttl)
+	second := selectHostRotationValue(10, "sni", value, nil, "ttl", &ttl)
+	if first == "" || first != second {
+		t.Fatalf("ttl selection should be stable inside the current bucket: %q vs %q", first, second)
+	}
+
+	fallback := selectHostRotationValue(10, "host", "fallback.example.com", nil, "ttl", &ttl)
+	if fallback != "fallback.example.com" {
+		t.Fatalf("empty options should keep fallback, got %q", fallback)
+	}
+}
 
 func TestBuildConfigLinksReplacesServerIPPlaceholder(t *testing.T) {
 	serviceID := int64(1)
@@ -110,6 +196,132 @@ func TestBuildConfigLinksKeepsXHTTPPaddingJSONCompact(t *testing.T) {
 	}
 	if extra["xPaddingBytes"] != "100-1000" {
 		t.Fatalf("unexpected xPaddingBytes: %#v", extra)
+	}
+}
+
+func TestBuildConfigLinksFallsBackToInboundTransportSettingsWhenHostUsesDefaults(t *testing.T) {
+	serviceID := int64(1)
+	allowInsecure := false
+	emptyPath := ""
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            12,
+			Username:      "fallback",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1",
+			ServiceHostOrders: map[int64]int64{
+				1: 0,
+			},
+		},
+		map[string]ResolvedInbound{
+			"VLESS TLS": {
+				"tag":           "VLESS TLS",
+				"protocol":      "vless",
+				"port":          int64(443),
+				"network":       "ws",
+				"tls":           "tls",
+				"encryption":    "none",
+				"path":          "/from-inbound",
+				"host":          []string{"inbound-host.example.com"},
+				"sni":           []string{"inbound-sni.example.com"},
+				"fp":            "chrome",
+				"alpn":          "h2,http/1.1",
+				"ais":           true,
+				"allowinsecure": true,
+				"header_type":   "none",
+			},
+		},
+		[]string{"VLESS TLS"},
+		[]Host{{
+			ID:            1,
+			InboundTag:    "VLESS TLS",
+			Remark:        "fallback",
+			Address:       "edge.example.com",
+			Path:          &emptyPath,
+			Security:      "none",
+			ALPN:          "none",
+			Fingerprint:   "none",
+			AllowInsecure: &allowInsecure,
+			ServiceIDs:    []int64{1},
+		}},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("BuildConfigLinks error: %v", err)
+	}
+	if len(links.Links) != 1 {
+		t.Fatalf("expected one link, got %#v", links.Links)
+	}
+	parsed, err := url.Parse(links.Links[0])
+	if err != nil {
+		t.Fatalf("parse link: %v", err)
+	}
+	query := parsed.Query()
+	for key, expected := range map[string]string{
+		"security":      "tls",
+		"path":          "/from-inbound",
+		"host":          "inbound-host.example.com",
+		"sni":           "inbound-sni.example.com",
+		"fp":            "chrome",
+		"alpn":          "h2,http/1.1",
+		"allowInsecure": "1",
+	} {
+		if got := query.Get(key); got != expected {
+			t.Fatalf("expected query %s=%q, got %q link=%s", key, expected, got, links.Links[0])
+		}
+	}
+}
+
+func TestBuildConfigLinksOmitsEmptyNetworkHostParameter(t *testing.T) {
+	serviceID := int64(1)
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            13,
+			Username:      "emptyhost",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1",
+			ServiceHostOrders: map[int64]int64{
+				1: 0,
+			},
+		},
+		map[string]ResolvedInbound{
+			"VLESS WS": {
+				"tag":        "VLESS WS",
+				"protocol":   "vless",
+				"port":       int64(80),
+				"network":    "ws",
+				"tls":        "none",
+				"encryption": "none",
+				"path":       "/",
+			},
+		},
+		[]string{"VLESS WS"},
+		[]Host{{
+			ID:         1,
+			InboundTag: "VLESS WS",
+			Remark:     "empty-host",
+			Address:    "edge.example.com",
+			Security:   "inbound_default",
+			ServiceIDs: []int64{1},
+		}},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("BuildConfigLinks error: %v", err)
+	}
+	if len(links.Links) != 1 {
+		t.Fatalf("expected one link, got %#v", links.Links)
+	}
+	parsed, err := url.Parse(links.Links[0])
+	if err != nil {
+		t.Fatalf("parse link: %v", err)
+	}
+	if _, ok := parsed.Query()["host"]; ok {
+		t.Fatalf("empty host parameter should be omitted: %s", links.Links[0])
 	}
 }
 
@@ -225,12 +437,13 @@ func TestBuildConfigLinksKeepsRealityMetadataForTCPAndJSON(t *testing.T) {
 		map[string]ResolvedInbound{"Reality TCP": inbound},
 		[]string{"Reality TCP"},
 		[]Host{{
-			ID:         1,
-			InboundTag: "Reality TCP",
-			Remark:     "reality-tcp",
-			Address:    "edge.example.com",
-			Security:   "inbound_default",
-			ServiceIDs: []int64{1},
+			ID:          1,
+			InboundTag:  "Reality TCP",
+			Remark:      "reality-tcp",
+			Address:     "edge.example.com",
+			Security:    "inbound_default",
+			Fingerprint: "none",
+			ServiceIDs:  []int64{1},
 		}},
 		map[string][]byte{},
 		false,
@@ -247,13 +460,14 @@ func TestBuildConfigLinksKeepsRealityMetadataForTCPAndJSON(t *testing.T) {
 	}
 	query := parsed.Query()
 	for key, expected := range map[string]string{
-		"security": "reality",
-		"type":     "tcp",
-		"sni":      "origin.example.com",
-		"fp":       "firefox",
-		"pbk":      "public-key-from-settings",
-		"sid":      "abcd",
-		"spx":      "/spider",
+		"security":   "reality",
+		"type":       "tcp",
+		"headerType": "none",
+		"sni":        "origin.example.com",
+		"fp":         "firefox",
+		"pbk":        "public-key-from-settings",
+		"sid":        "abcd",
+		"spx":        "/spider",
 	} {
 		if got := query.Get(key); got != expected {
 			t.Fatalf("expected query %s=%q, got %q link=%s", key, expected, got, links.Links[0])
@@ -357,20 +571,28 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 		},
 		map[string]ResolvedInbound{
 			"Trojan TLS": {
-				"tag":      "Trojan TLS",
-				"protocol": "trojan",
-				"port":     int64(443),
-				"network":  "tcp",
-				"tls":      "tls",
-				"sni":      "trojan.example.com",
+				"tag":       "Trojan TLS",
+				"protocol":  "trojan",
+				"port":      int64(443),
+				"network":   "tcp",
+				"tls":       "tls",
+				"sni":       "trojan.example.com",
+				"fp":        "chrome",
+				"alpn":      "h2,http/1.1",
+				"ech":       "ECH",
+				"pinSHA256": "PCS",
 			},
 			"SS TLS": {
-				"tag":      "SS TLS",
-				"protocol": "shadowsocks",
-				"port":     int64(8443),
-				"network":  "tcp",
-				"tls":      "tls",
-				"sni":      "ss.example.com",
+				"tag":       "SS TLS",
+				"protocol":  "shadowsocks",
+				"port":      int64(8443),
+				"network":   "tcp",
+				"tls":       "tls",
+				"sni":       "ss.example.com",
+				"fp":        "chrome",
+				"alpn":      "h2,http/1.1",
+				"ech":       "ECH",
+				"pinSHA256": "PCS",
 			},
 		},
 		[]string{"Trojan TLS", "SS TLS"},
@@ -386,6 +608,12 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 	}
 	if len(links.Links) != 2 {
 		t.Fatalf("expected two links, got %#v", links.Links)
+	}
+	// Links must follow the service-configured host order (Trojan host order 0,
+	// SS host order 1), not alphabetical protocol order which would pull
+	// shadowsocks to the top for virtual-proxy users.
+	if !strings.HasPrefix(links.Links[0], "trojan://") || !strings.HasPrefix(links.Links[1], "ss://") {
+		t.Fatalf("links not in service host order: %#v", links.Links)
 	}
 	trojanLink := ""
 	shadowsocksLink := ""
@@ -403,7 +631,98 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 	if shadowsocksLink == "" || !strings.Contains(shadowsocksLink, "security=tls") {
 		t.Fatalf("shadowsocks TLS link missing TLS params: %#v", links.Links)
 	}
-	body, err := renderV2RayJSONSubscription([]string{shadowsocksLink}, false)
+	if !strings.Contains(shadowsocksLink, "type=tcp") {
+		t.Fatalf("shadowsocks TLS link should carry explicit tcp type: %s", shadowsocksLink)
+	}
+	for _, item := range []struct {
+		name string
+		link string
+		sni  string
+	}{
+		{name: "trojan", link: trojanLink, sni: "trojan.example.com"},
+		{name: "shadowsocks", link: shadowsocksLink, sni: "ss.example.com"},
+	} {
+		body, err := renderV2RayJSONSubscription([]string{item.link}, false)
+		if err != nil {
+			t.Fatalf("render %s v2ray-json: %v", item.name, err)
+		}
+		var configs []map[string]any
+		if err := json.Unmarshal([]byte(body), &configs); err != nil {
+			t.Fatalf("invalid %s v2ray-json: %v\n%s", item.name, err, body)
+		}
+		stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
+		if stream["security"] != "tls" {
+			t.Fatalf("%s TLS stream was not preserved: %#v", item.name, stream)
+		}
+		tls := stream["tlsSettings"].(map[string]any)
+		if tls["serverName"] != item.sni || tls["fingerprint"] != "chrome" || tls["echConfigList"] != "ECH" {
+			t.Fatalf("%s TLS settings incomplete: %#v", item.name, tls)
+		}
+		if got := strings.Join(stringList(tls["alpn"]), ","); got != "h2,http/1.1" {
+			t.Fatalf("%s ALPN not preserved: %#v", item.name, tls)
+		}
+		if got := strings.Join(stringList(tls["pinnedPeerCertSha256"]), ","); got != "PCS" {
+			t.Fatalf("%s pinned cert not preserved: %#v", item.name, tls)
+		}
+	}
+}
+
+func TestV2RayJSONSubscriptionAppliesHostFragmentAndNoiseFinalMask(t *testing.T) {
+	serviceID := int64(1)
+	fragment := "10-100,100-200,tlshello,3"
+	noise := "rand:10-20,100-200&str:hello,50"
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            19,
+			Username:      "mask",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1",
+			ServiceHostOrders: map[int64]int64{
+				1: 0,
+			},
+		},
+		map[string]ResolvedInbound{
+			"VLESS TLS": {
+				"tag":        "VLESS TLS",
+				"protocol":   "vless",
+				"port":       int64(443),
+				"network":    "ws",
+				"tls":        "tls",
+				"encryption": "none",
+				"path":       "/ws",
+				"host":       "mask.example.com",
+				"sni":        "mask.example.com",
+			},
+		},
+		[]string{"VLESS TLS"},
+		[]Host{{
+			ID:              1,
+			InboundTag:      "VLESS TLS",
+			Remark:          "mask",
+			Address:         "mask.example.com",
+			Security:        "inbound_default",
+			FragmentSetting: &fragment,
+			NoiseSetting:    &noise,
+			ServiceIDs:      []int64{1},
+		}},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("BuildConfigLinks error: %v", err)
+	}
+	if len(links.Links) != 1 {
+		t.Fatalf("expected one link, got %#v", links.Links)
+	}
+	parsed, err := url.Parse(links.Links[0])
+	if err != nil {
+		t.Fatalf("parse link: %v", err)
+	}
+	if parsed.Query().Get("fragment") != fragment || parsed.Query().Get("noise") != noise {
+		t.Fatalf("mask params were not preserved in link: %s", links.Links[0])
+	}
+	body, err := renderV2RayJSONSubscription(links.Links, false)
 	if err != nil {
 		t.Fatalf("render v2ray-json: %v", err)
 	}
@@ -412,8 +731,30 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 		t.Fatalf("invalid v2ray-json: %v\n%s", err, body)
 	}
 	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
-	if stream["security"] != "tls" {
-		t.Fatalf("shadowsocks TLS stream was not preserved: %#v", stream)
+	finalmask := stream["finalmask"].(map[string]any)
+	tcp := finalmask["tcp"].([]any)[0].(map[string]any)
+	if tcp["type"] != "fragment" {
+		t.Fatalf("tcp mask type = %v, want fragment", tcp["type"])
+	}
+	fragmentSettings := tcp["settings"].(map[string]any)
+	if fragmentSettings["length"] != "10-100" || fragmentSettings["delay"] != "100-200" || fragmentSettings["packets"] != "tlshello" || fragmentSettings["maxSplit"] != "3" {
+		t.Fatalf("fragment finalmask mismatch: %#v", fragmentSettings)
+	}
+	udp := finalmask["udp"].([]any)[0].(map[string]any)
+	if udp["type"] != "noise" {
+		t.Fatalf("udp mask type = %v, want noise", udp["type"])
+	}
+	noiseItems := udp["settings"].(map[string]any)["noise"].([]any)
+	if len(noiseItems) != 2 {
+		t.Fatalf("expected two noise items, got %#v", noiseItems)
+	}
+	first := noiseItems[0].(map[string]any)
+	if first["type"] != "rand" || first["rand"] != "10-20" || first["delay"] != "100-200" {
+		t.Fatalf("rand noise mismatch: %#v", first)
+	}
+	second := noiseItems[1].(map[string]any)
+	if second["type"] != "str" || second["packet"] != "hello" || second["delay"] != "50" {
+		t.Fatalf("str noise mismatch: %#v", second)
 	}
 }
 
@@ -473,5 +814,170 @@ func TestBuildConfigLinksReplacesSubscriptionRemarkPlaceholders(t *testing.T) {
 		if !strings.Contains(link, expected) {
 			t.Fatalf("expected %q in link: %s", expected, link)
 		}
+	}
+}
+
+func TestBuildConfigLinksFollowsServiceHostOrderAcrossProtocols(t *testing.T) {
+	serviceID := int64(1)
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            13,
+			Username:      "grace",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1",
+			// Configured order interleaves protocols: SS, VLESS, Trojan.
+			ServiceHostOrders: map[int64]int64{
+				1: 0, // SS TCP
+				2: 1, // VLESS TCP
+				3: 2, // Trojan TCP
+			},
+		},
+		map[string]ResolvedInbound{
+			"SS TCP": {
+				"tag": "SS TCP", "protocol": "shadowsocks", "port": int64(1080), "network": "tcp",
+			},
+			"VLESS TCP": {
+				"tag": "VLESS TCP", "protocol": "vless", "port": int64(443), "network": "tcp", "encryption": "none",
+			},
+			"Trojan TCP": {
+				"tag": "Trojan TCP", "protocol": "trojan", "port": int64(8443), "network": "tcp",
+			},
+		},
+		[]string{"SS TCP", "VLESS TCP", "Trojan TCP"},
+		[]Host{
+			{ID: 1, InboundTag: "SS TCP", Remark: "ss", Address: "ss.example.com", Security: "inbound_default", ServiceIDs: []int64{1}},
+			{ID: 2, InboundTag: "VLESS TCP", Remark: "vless", Address: "vless.example.com", Security: "inbound_default", ServiceIDs: []int64{1}},
+			{ID: 3, InboundTag: "Trojan TCP", Remark: "trojan", Address: "trojan.example.com", Security: "inbound_default", ServiceIDs: []int64{1}},
+		},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("BuildConfigLinks error: %v", err)
+	}
+	if len(links.Links) != 3 {
+		t.Fatalf("expected three links, got %#v", links.Links)
+	}
+	wantPrefixes := []string{"ss://", "vless://", "trojan://"}
+	for i, prefix := range wantPrefixes {
+		if !strings.HasPrefix(links.Links[i], prefix) {
+			t.Fatalf("link %d expected prefix %q, got %q (all=%#v)", i, prefix, links.Links[i], links.Links)
+		}
+	}
+}
+
+func TestBuildConfigLinksBuildsHysteriaShareLink(t *testing.T) {
+	serviceID := int64(1)
+	inbound, err := resolveInbound(map[string]any{
+		"tag":      "HY2",
+		"protocol": "hysteria",
+		"port":     int64(443),
+		"settings": map[string]any{
+			"version": int64(2),
+		},
+		"streamSettings": map[string]any{
+			"network":  "hysteria",
+			"security": "tls",
+			"tlsSettings": map[string]any{
+				"serverName":    "hy.example.com",
+				"fingerprint":   "chrome",
+				"alpn":          []any{"h3"},
+				"allowInsecure": true,
+			},
+			"hysteriaSettings": map[string]any{
+				"version":        int64(2),
+				"udpIdleTimeout": int64(60),
+			},
+			"finalmask": map[string]any{
+				"udp": []any{
+					map[string]any{
+						"type": "salamander",
+						"settings": map[string]any{
+							"password": "mask-secret",
+						},
+					},
+				},
+				"quicParams": map[string]any{
+					"udpHop": map[string]any{
+						"ports": "20000-50000",
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolveInbound error: %v", err)
+	}
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            21,
+			Username:      "hyuser",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1",
+			ServiceHostOrders: map[int64]int64{
+				1: 0,
+			},
+		},
+		map[string]ResolvedInbound{
+			"HY2": inbound,
+		},
+		[]string{"HY2"},
+		[]Host{
+			{
+				ID:         1,
+				InboundTag: "HY2",
+				Remark:     "hy",
+				Address:    "hy.example.com",
+				Security:   "inbound_default",
+				ServiceIDs: []int64{serviceID},
+			},
+		},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("BuildConfigLinks error: %v", err)
+	}
+	if len(links.Links) != 1 {
+		t.Fatalf("expected one link, got %#v", links.Links)
+	}
+	link := links.Links[0]
+	if !strings.HasPrefix(link, "hysteria2://") {
+		t.Fatalf("expected hysteria2 link, got %q", link)
+	}
+	if !strings.Contains(link, ":443/?") {
+		t.Fatalf("expected strict Hysteria URI path before query: %s", link)
+	}
+	for _, expected := range []string{"security=tls", "sni=hy.example.com", "fp=chrome", "alpn=h3", "insecure=1", "obfs=salamander", "obfs-password=mask-secret", "mport=20000-50000"} {
+		if !strings.Contains(link, expected) {
+			t.Fatalf("expected %q in link: %s", expected, link)
+		}
+	}
+}
+
+func TestResolveInboundKeepsL2TPSettings(t *testing.T) {
+	resolved, err := resolveInbound(map[string]any{
+		"tag":      "l2tp",
+		"protocol": "l2tp",
+		"port":     1701,
+		"settings": map[string]any{
+			"ipsec_psk":   "secret",
+			"tunnel_port": 1702,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := normalizeProxyProtocol(stringValue(resolved["protocol"])); got != "l2tp" {
+		t.Fatalf("protocol = %q, want l2tp", got)
+	}
+	settings := mapValue(resolved["settings"])
+	if got := stringValue(settings["ipsec_psk"]); got != "secret" {
+		t.Fatalf("ipsec_psk = %q, want secret", got)
+	}
+	if got := intValue(settings["tunnel_port"]); got != 1702 {
+		t.Fatalf("tunnel_port = %d, want 1702", got)
 	}
 }

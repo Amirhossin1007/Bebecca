@@ -20,10 +20,11 @@ import (
 )
 
 type SubscriptionClientConfig struct {
-	Format  string
-	Media   string
-	Base64  bool
-	Reverse bool
+	Format      string
+	Media       string
+	Base64      bool
+	Reverse     bool
+	TemplateKey string
 }
 
 type SubscriptionRenderRequest struct {
@@ -31,6 +32,8 @@ type SubscriptionRenderRequest struct {
 	Username   string
 	Key        string
 	ClientType string
+	InboundTag string
+	HostTag    string
 	UserAgent  string
 	Accept     string
 	URL        string
@@ -54,18 +57,50 @@ type subscriptionTokenPayload struct {
 }
 
 var subscriptionClientConfigs = map[string]SubscriptionClientConfig{
-	"clash-meta": {Format: "clash-meta", Media: "text/yaml"},
-	"sing-box":   {Format: "sing-box", Media: "application/json"},
-	"clash":      {Format: "clash", Media: "text/yaml"},
-	"v2ray":      {Format: "v2ray", Media: "text/plain", Base64: true},
-	"outline":    {Format: "outline", Media: "application/json"},
-	"v2ray-json": {Format: "v2ray-json", Media: "application/json"},
+	"clash-meta":   {Format: "clash-meta", Media: "text/yaml"},
+	"sing-box":     {Format: "sing-box", Media: "application/json"},
+	"clash":        {Format: "clash", Media: "text/yaml"},
+	"v2ray":        {Format: "v2ray", Media: "text/plain", Base64: true},
+	"outline":      {Format: "outline", Media: "application/json"},
+	"v2ray-json":   {Format: "v2ray-json", Media: "application/json", TemplateKey: "v2ray_subscription_template"},
+	"happ":         {Format: "v2ray-json", Media: "application/json", TemplateKey: "happ_subscription_template"},
+	"v2raytun":     {Format: "v2ray", Media: "text/plain", Base64: true},
+	"throne":       {Format: "v2ray", Media: "text/plain", Base64: true},
+	"shadowrocket": {Format: "v2ray", Media: "text/plain", Base64: true},
+	"karing":       {Format: "v2ray", Media: "text/plain", Base64: true},
+	"hiddify":      {Format: "v2ray", Media: "text/plain", Base64: true},
+	"clash-mi":     {Format: "clash-meta", Media: "text/yaml"},
+	"incy":         {Format: "v2ray-json", Media: "application/json", TemplateKey: "incy_subscription_template"},
+	"passwall":     {Format: "v2ray", Media: "text/plain", Base64: true},
+	"nekobox":      {Format: "v2ray", Media: "text/plain", Base64: true},
+	"openvpn":      {Format: "openvpn", Media: "application/x-openvpn-profile"},
+	"wireguard":    {Format: "wireguard", Media: "application/x-wireguard-profile"},
 }
 
 func NormalizeSubscriptionClientType(value string) (string, bool) {
-	value = strings.TrimSpace(value)
-	if value == "json" {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.ReplaceAll(value, "_", "-")
+	switch value {
+	case "json":
 		value = "v2ray-json"
+	case "clashmeta", "clash.meta", "mihomo", "clash-mihomo":
+		value = "clash-meta"
+	case "clashmi":
+		value = "clash-mi"
+	case "singbox", "sing":
+		value = "sing-box"
+	case "hiddify-next", "hiddifynext", "hiddifynextx":
+		value = "hiddify"
+	case "v2ray-tun", "v2ray-tunnel", "v2raytun-plus":
+		value = "v2raytun"
+	case "thron", "throne-vpn", "thronevpn":
+		value = "throne"
+	case "nekobox-plus", "nekoboxplus", "nekobox+":
+		value = "nekobox"
+	case "passwall2":
+		value = "passwall"
+	case "wg":
+		value = "wireguard"
 	}
 	_, ok := subscriptionClientConfigs[value]
 	return value, ok
@@ -76,7 +111,7 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
 	}
-	if strings.Contains(req.Accept, "text/html") && req.ClientType == "" {
+	if wantsSubscriptionHTML(req) && req.ClientType == "" {
 		settings := s.effectiveSettings(ctx, user.AdminID)
 		html, err := s.renderSubscriptionHTML(ctx, user, req, settings)
 		if err != nil {
@@ -90,6 +125,12 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	}
 	if !req.ReadOnly {
 		_ = s.repo.updateSubscriptionAccess(ctx, user.ID, req.UserAgent)
+	}
+	if req.ClientType == "openvpn" {
+		return s.generateOVProfile(ctx, user, req)
+	}
+	if req.ClientType == "wireguard" {
+		return s.generateWGProfile(ctx, user, req)
 	}
 	clientType := req.ClientType
 	if clientType == "" {
@@ -111,8 +152,97 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	}, nil
 }
 
-func (s Service) SubscriptionInfo(ctx context.Context, req SubscriptionRenderRequest) (UserDetail, error) {
-	return s.resolveSubscriptionUser(ctx, req)
+func wantsSubscriptionHTML(req SubscriptionRenderRequest) bool {
+	accept := strings.ToLower(req.Accept)
+	if strings.Contains(accept, "text/html") || strings.Contains(accept, "application/xhtml+xml") {
+		return true
+	}
+	if strings.TrimSpace(req.ClientType) != "" {
+		return false
+	}
+	ua := strings.ToLower(req.UserAgent)
+	for _, marker := range []string{"mozilla/", "chrome/", "safari/", "firefox/", "edg/", "opr/"} {
+		if strings.Contains(ua, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s Service) SubscriptionInfo(ctx context.Context, req SubscriptionRenderRequest) (map[string]any, error) {
+	user, err := s.resolveSubscriptionUser(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL)
+	if err != nil {
+		return nil, err
+	}
+	info := map[string]any{
+		"user": user,
+	}
+	for key, value := range vpnInfo {
+		info[key] = value
+	}
+	return info, nil
+}
+
+func (s Service) subscriptionVPNInfo(ctx context.Context, user UserDetail, subscriptionURL string) (map[string]any, error) {
+	ovProfiles, err := s.OVDownloadProfiles(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	ovLinks := make([]string, 0, len(ovProfiles))
+	for _, profile := range ovProfiles {
+		if strings.TrimSpace(profile.DownloadURL) != "" {
+			ovLinks = append(ovLinks, profile.DownloadURL)
+		}
+	}
+	wgProfiles, err := s.WGDownloadProfiles(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	wgDownloads := make([]string, 0, len(wgProfiles))
+	wgLinks := make([]string, 0, len(wgProfiles))
+	for _, profile := range wgProfiles {
+		if strings.TrimSpace(profile.DownloadURL) != "" {
+			wgDownloads = append(wgDownloads, profile.DownloadURL)
+		}
+		if strings.TrimSpace(profile.Link) != "" {
+			wgLinks = append(wgLinks, profile.Link)
+		}
+	}
+	l2tpItems, err := s.L2TPInfos(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	pptpItems, err := s.PPTPInfos(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	ikev2Items, err := s.IKEv2Infos(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	anyConnectItems, err := s.AnyConnectInfos(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"openvpn": map[string]any{
+			"downloads": ovLinks,
+			"profiles":  ovProfiles,
+		},
+		"wireguard": map[string]any{
+			"downloads": wgDownloads,
+			"links":     wgLinks,
+			"profiles":  wgProfiles,
+		},
+		"l2tp":       l2tpItems,
+		"pptp":       pptpItems,
+		"ikev2":      ikev2Items,
+		"anyconnect": anyConnectItems,
+	}, nil
 }
 
 func (s Service) SubscriptionUsage(ctx context.Context, req SubscriptionRenderRequest) (map[string]any, error) {
@@ -287,20 +417,34 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 		}
 		return content, nil
 	case "outline":
-		return marshalPretty(map[string]any{"servers": raw})
-	case "v2ray-json":
-		return renderV2RayJSONSubscription(raw, false)
-	case "sing-box":
-		outbounds := make([]map[string]any, 0, len(raw)+1)
-		for i, link := range raw {
-			outbounds = append(outbounds, map[string]any{"type": "selector", "tag": fmt.Sprintf("proxy-%d", i+1), "outbounds": []string{link}})
+		servers := make([]string, 0, len(raw))
+		for _, link := range raw {
+			if strings.HasPrefix(strings.TrimSpace(link), "ss://") {
+				servers = append(servers, link)
+			}
 		}
-		return marshalPretty(map[string]any{"outbounds": outbounds})
+		return marshalPretty(map[string]any{"servers": servers})
+	case "v2ray-json":
+		templateKey := firstNonEmptyString(config.TemplateKey, "v2ray_subscription_template")
+		return renderV2RayJSONSubscriptionWithTemplate(raw, false, s.subscriptionTemplateContent(ctx, templateKey, user.AdminID))
+	case "sing-box":
+		return renderSingBoxJSON(raw)
 	case "clash", "clash-meta":
 		return renderClashLikeYAML(user.Username, raw, config.Format == "clash-meta"), nil
 	default:
 		return "", clientError(404, "Unsupported client type")
 	}
+}
+
+func (s Service) subscriptionTemplateContent(ctx context.Context, templateKey string, adminID *int64) string {
+	if s.templates == nil {
+		return ""
+	}
+	templateContent, err := s.templates.ReadTemplateContent(ctx, templateKey, adminID)
+	if err != nil {
+		return ""
+	}
+	return templateContent.Content
 }
 
 func (r Repository) subscriptionUserByUsername(ctx context.Context, username string) (UserDetail, error) {
@@ -438,7 +582,7 @@ func parseSubscriptionToken(token string, secret string) (subscriptionTokenPaylo
 	}
 	body := token[:len(token)-10]
 	signature := token[len(token)-10:]
-	if createSubscriptionTokenSignature(body, secret) != signature {
+	if !subscriptionTokenSignatureMatches(body, signature, secret) {
 		return subscriptionTokenPayload{}, false
 	}
 	decoded, err := base64.RawURLEncoding.DecodeString(body)
@@ -528,12 +672,42 @@ func resolvePrefixedSubscriptionPath(path string, prefix string) (SubscriptionRe
 		return SubscriptionRenderRequest{Username: segments[0], Key: segments[1]}, true
 	}
 	if len(segments) == 3 {
+		if segments[1] == "ov" {
+			return SubscriptionRenderRequest{
+				Identifier: segments[0],
+				ClientType: "openvpn",
+				HostTag:    strings.TrimSuffix(segments[2], ".ovpn"),
+			}, true
+		}
+		if segments[1] == "wg" || segments[1] == "wireguard" {
+			return SubscriptionRenderRequest{
+				Identifier: segments[0],
+				ClientType: "wireguard",
+				HostTag:    strings.TrimSuffix(segments[2], ".conf"),
+			}, true
+		}
 		if segments[2] == "info" || segments[2] == "usage" {
 			return SubscriptionRenderRequest{Username: segments[0], Key: segments[1], ClientType: segments[2]}, true
 		}
 		if client, ok := NormalizeSubscriptionClientType(segments[2]); ok {
 			return SubscriptionRenderRequest{Username: segments[0], Key: segments[1], ClientType: client}, true
 		}
+	}
+	if len(segments) == 4 && segments[2] == "ov" {
+		return SubscriptionRenderRequest{
+			Username:   segments[0],
+			Key:        segments[1],
+			ClientType: "openvpn",
+			HostTag:    strings.TrimSuffix(segments[3], ".ovpn"),
+		}, true
+	}
+	if len(segments) == 4 && (segments[2] == "wg" || segments[2] == "wireguard") {
+		return SubscriptionRenderRequest{
+			Username:   segments[0],
+			Key:        segments[1],
+			ClientType: "wireguard",
+			HostTag:    strings.TrimSuffix(segments[3], ".conf"),
+		}, true
 	}
 	return SubscriptionRenderRequest{}, false
 }
@@ -603,11 +777,35 @@ func selectSubscriptionClientType(userAgent string, settings SubscriptionSetting
 	if regexp.MustCompile(`^([Cc]lash-verge|[Cc]lash[-\.]?[Mm]eta|[Ff][Ll][Cc]lash|[Mm]ihomo)`).MatchString(ua) {
 		return "clash-meta"
 	}
+	if regexp.MustCompile(`(?i)^clash\s*mi`).MatchString(ua) || regexp.MustCompile(`(?i)^clashmi`).MatchString(ua) {
+		return "clash-mi"
+	}
 	if regexp.MustCompile(`^([Cc]lash|[Ss]tash)`).MatchString(ua) {
 		return "clash"
 	}
-	if regexp.MustCompile(`^(SFA|SFI|SFM|SFT|[Kk]aring|[Hh]iddify[Nn]ext)`).MatchString(ua) {
+	if regexp.MustCompile(`(?i)^karing`).MatchString(ua) {
+		return "karing"
+	}
+	if regexp.MustCompile(`(?i)^hiddifynextx?`).MatchString(ua) {
+		return "hiddify"
+	}
+	if regexp.MustCompile(`^(SFA|SFI|SFM|SFT)`).MatchString(ua) {
 		return "sing-box"
+	}
+	if regexp.MustCompile(`(?i)^v2raytun`).MatchString(ua) {
+		return "v2raytun"
+	}
+	if regexp.MustCompile(`(?i)^shadowrocket`).MatchString(ua) {
+		return "shadowrocket"
+	}
+	if regexp.MustCompile(`(?i)^(nekobox|nekoboxforandroid)`).MatchString(ua) {
+		return "nekobox"
+	}
+	if regexp.MustCompile(`(?i)^passwall`).MatchString(ua) {
+		return "passwall"
+	}
+	if regexp.MustCompile(`(?i)^thron(e)?`).MatchString(ua) {
+		return "throne"
 	}
 	if regexp.MustCompile(`^(SS|SSR|SSD|SSS|Outline|Shadowsocks|SSconf)`).MatchString(ua) {
 		return "outline"
@@ -622,8 +820,11 @@ func selectSubscriptionClientType(userAgent string, settings SubscriptionSetting
 	}
 	if (settings.UseCustomJSONDefault || settings.UseCustomJSONForHapp) && regexp.MustCompile(`^Happ/(\d+\.\d+\.\d+)`).MatchString(ua) {
 		if versionAtLeast(firstVersion(ua), "1.63.1") {
-			return "v2ray-json"
+			return "happ"
 		}
+	}
+	if (settings.UseCustomJSONDefault || settings.UseCustomJSONForIncy) && regexp.MustCompile(`(?i)^incy`).MatchString(ua) {
+		return "incy"
 	}
 	if (settings.UseCustomJSONDefault || settings.UseCustomJSONForStreisand) && strings.HasPrefix(ua, "Streisand") {
 		return "v2ray-json"
@@ -651,6 +852,24 @@ func (s Service) renderSubscriptionHTML(ctx context.Context, user UserDetail, re
 	if parsed, err := url.Parse(req.URL); err == nil {
 		path = strings.TrimRight(parsed.Path, "/")
 	}
+	rawLinks := append([]string{}, links.Links...)
+	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL)
+	if err != nil {
+		return "", err
+	}
+	if openvpn, ok := vpnInfo["openvpn"].(map[string]any); ok {
+		if downloadLinks, ok := openvpn["downloads"].([]string); ok {
+			rawLinks = append(rawLinks, downloadLinks...)
+		}
+	}
+	if wireguard, ok := vpnInfo["wireguard"].(map[string]any); ok {
+		if wgLinks, ok := wireguard["links"].([]string); ok {
+			rawLinks = append(rawLinks, wgLinks...)
+		}
+		if downloadLinks, ok := wireguard["downloads"].([]string); ok {
+			rawLinks = append(rawLinks, downloadLinks...)
+		}
+	}
 	content := fallbackSubscriptionPageTemplate
 	if s.templates != nil {
 		templateContent, err := s.templates.ReadTemplateContent(ctx, "subscription_page_template", user.AdminID)
@@ -661,7 +880,7 @@ func (s Service) renderSubscriptionHTML(ctx context.Context, user UserDetail, re
 			content = templateContent.Content
 		}
 	}
-	return renderSubscriptionPageTemplate(content, user, links.Links, path+"/usage", strings.TrimSpace(settings.SubscriptionSupportURL), req.Identifier)
+	return renderSubscriptionPageTemplate(content, user, rawLinks, path+"/usage", strings.TrimSpace(settings.SubscriptionSupportURL), req.Identifier, vpnInfo)
 }
 
 func renderClashLikeYAML(username string, links []string, meta bool) string {
@@ -707,14 +926,306 @@ func renderClashLikeYAML(username string, links []string, meta bool) string {
 	return b.String()
 }
 
+func renderSingBoxJSON(links []string) (string, error) {
+	proxies := make([]map[string]any, 0, len(links))
+	tags := make([]string, 0, len(links))
+	for i, link := range links {
+		tag := fmt.Sprintf("proxy-%d", i+1)
+		outbound, ok := singBoxOutboundFromShareLink(link, tag)
+		if !ok {
+			continue
+		}
+		proxies = append(proxies, outbound)
+		tags = append(tags, tag)
+	}
+	outbounds := make([]map[string]any, 0, len(proxies)+1)
+	if len(tags) > 0 {
+		outbounds = append(outbounds, map[string]any{
+			"type":      "selector",
+			"tag":       "proxy",
+			"outbounds": tags,
+		})
+	}
+	outbounds = append(outbounds, proxies...)
+	return marshalPretty(map[string]any{"outbounds": outbounds})
+}
+
+func singBoxOutboundFromShareLink(link string, tag string) (map[string]any, bool) {
+	parsed, err := url.Parse(link)
+	if err != nil {
+		return nil, false
+	}
+	switch parsed.Scheme {
+	case "vless":
+		port, ok := parseURLPort(parsed)
+		if !ok || parsed.User == nil || parsed.User.Username() == "" {
+			return nil, false
+		}
+		query := parsed.Query()
+		outbound := map[string]any{
+			"type":        "vless",
+			"tag":         tag,
+			"server":      parsed.Hostname(),
+			"server_port": port,
+			"uuid":        parsed.User.Username(),
+		}
+		if flow := query.Get("flow"); flow != "" {
+			outbound["flow"] = flow
+		}
+		return outbound, applySingBoxStream(outbound, query)
+	case "trojan":
+		port, ok := parseURLPort(parsed)
+		if !ok || parsed.User == nil || parsed.User.Username() == "" {
+			return nil, false
+		}
+		outbound := map[string]any{
+			"type":        "trojan",
+			"tag":         tag,
+			"server":      parsed.Hostname(),
+			"server_port": port,
+			"password":    parsed.User.Username(),
+		}
+		return outbound, applySingBoxStream(outbound, parsed.Query())
+	case "ss":
+		return singBoxShadowsocksOutbound(parsed, tag)
+	case "vmess":
+		return singBoxVMessOutbound(link, tag)
+	case "hysteria", "hysteria2", "hy2":
+		return singBoxHysteriaOutbound(parsed, tag)
+	default:
+		return nil, false
+	}
+}
+
+func singBoxShadowsocksOutbound(parsed *url.URL, tag string) (map[string]any, bool) {
+	method, password, port, ok := parseShadowsocksURL(parsed)
+	if !ok {
+		return nil, false
+	}
+	outbound := map[string]any{
+		"type":        "shadowsocks",
+		"tag":         tag,
+		"server":      parsed.Hostname(),
+		"server_port": port,
+		"method":      method,
+		"password":    password,
+	}
+	query := parsed.Query()
+	plugin, _ := parseSIP003Plugin(query.Get("plugin"))
+	if plugin != "" {
+		outbound["plugin"] = plugin
+		if raw := query.Get("plugin"); strings.Contains(raw, ";") {
+			outbound["plugin_opts"] = strings.SplitN(raw, ";", 2)[1]
+		}
+		return outbound, true
+	}
+	network := firstNonEmptyString(query.Get("type"), "tcp")
+	if network != "tcp" && network != "raw" {
+		return nil, false
+	}
+	if security := query.Get("security"); security != "" && security != "none" {
+		return nil, false
+	}
+	return outbound, true
+}
+
+func singBoxVMessOutbound(link string, tag string) (map[string]any, bool) {
+	decoded, err := decodeFlexibleBase64(strings.TrimPrefix(link, "vmess://"))
+	if err != nil {
+		return nil, false
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		return nil, false
+	}
+	port, err := strconv.Atoi(stringValue(payload["port"]))
+	if err != nil || port <= 0 || stringValue(payload["add"]) == "" || stringValue(payload["id"]) == "" {
+		return nil, false
+	}
+	outbound := map[string]any{
+		"type":        "vmess",
+		"tag":         tag,
+		"server":      stringValue(payload["add"]),
+		"server_port": port,
+		"uuid":        stringValue(payload["id"]),
+		"security":    firstNonEmptyString(payload["scy"], "auto"),
+		"alter_id":    intValue(payload["aid"]),
+	}
+	query := url.Values{}
+	query.Set("type", firstNonEmptyString(payload["net"], "tcp"))
+	query.Set("security", stringValue(payload["tls"]))
+	query.Set("headerType", stringValue(payload["type"]))
+	query.Set("path", stringValue(payload["path"]))
+	query.Set("host", stringValue(payload["host"]))
+	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
+	query.Set("fp", stringValue(payload["fp"]))
+	query.Set("alpn", stringValue(payload["alpn"]))
+	query.Set("pbk", stringValue(payload["pbk"]))
+	query.Set("sid", stringValue(payload["sid"]))
+	return outbound, applySingBoxStream(outbound, query)
+}
+
+func singBoxHysteriaOutbound(parsed *url.URL, tag string) (map[string]any, bool) {
+	port, ok := parseURLPort(parsed)
+	if !ok || parsed.User == nil || parsed.User.Username() == "" {
+		return nil, false
+	}
+	query := parsed.Query()
+	version2 := parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2"
+	typeName := "hysteria"
+	if version2 {
+		typeName = "hysteria2"
+	}
+	outbound := map[string]any{
+		"type":   typeName,
+		"tag":    tag,
+		"server": parsed.Hostname(),
+	}
+	if ports := splitCommaLines(query.Get("mport")); len(ports) > 0 {
+		outbound["server_ports"] = ports
+	} else {
+		outbound["server_port"] = port
+	}
+	if version2 {
+		outbound["password"] = parsed.User.Username()
+		if obfs := query.Get("obfs"); obfs != "" {
+			outbound["obfs"] = map[string]any{"type": obfs, "password": query.Get("obfs-password")}
+		}
+	} else {
+		outbound["auth_str"] = parsed.User.Username()
+		outbound["up_mbps"] = firstPositiveInt(query.Get("upmbps"), 100)
+		outbound["down_mbps"] = firstPositiveInt(query.Get("downmbps"), 100)
+		if obfs := query.Get("obfs"); obfs != "" {
+			outbound["obfs"] = firstNonEmptyString(query.Get("obfs-password"), obfs)
+		}
+	}
+	outbound["tls"] = singBoxTLS(query)
+	return outbound, true
+}
+
+func firstPositiveInt(value string, fallback int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func applySingBoxStream(outbound map[string]any, query url.Values) bool {
+	transport, ok := singBoxTransport(query)
+	if !ok {
+		return false
+	}
+	if transport != nil {
+		outbound["transport"] = transport
+	}
+	security := query.Get("security")
+	if security == "" || security == "none" {
+		return true
+	}
+	if security != "tls" && security != "reality" {
+		return false
+	}
+	outbound["tls"] = singBoxTLS(query)
+	return true
+}
+
+func singBoxTransport(query url.Values) (map[string]any, bool) {
+	network := firstNonEmptyString(query.Get("type"), "tcp")
+	if network == "raw" {
+		network = "tcp"
+	}
+	switch network {
+	case "tcp":
+		if query.Get("headerType") != "http" {
+			return nil, true
+		}
+		transport := map[string]any{"type": "http"}
+		if hosts := stringList(query.Get("host")); len(hosts) > 0 {
+			transport["host"] = hosts
+		}
+		if path := query.Get("path"); path != "" {
+			transport["path"] = path
+		}
+		return transport, true
+	case "ws":
+		transport := map[string]any{"type": "ws"}
+		if path := query.Get("path"); path != "" {
+			transport["path"] = path
+		}
+		if host := query.Get("host"); host != "" {
+			transport["headers"] = map[string]any{"Host": host}
+		}
+		return transport, true
+	case "grpc", "gun":
+		return map[string]any{"type": "grpc", "service_name": query.Get("serviceName")}, true
+	case "http", "h2", "h3":
+		transport := map[string]any{"type": "http"}
+		if hosts := stringList(query.Get("host")); len(hosts) > 0 {
+			transport["host"] = hosts
+		}
+		if path := query.Get("path"); path != "" {
+			transport["path"] = path
+		}
+		return transport, true
+	case "httpupgrade":
+		transport := map[string]any{"type": "httpupgrade", "path": firstNonEmptyString(query.Get("path"), "/")}
+		if host := query.Get("host"); host != "" {
+			transport["host"] = host
+		}
+		return transport, true
+	case "quic":
+		return map[string]any{"type": "quic"}, true
+	default:
+		return nil, false
+	}
+}
+
+func singBoxTLS(query url.Values) map[string]any {
+	tls := map[string]any{"enabled": true}
+	if serverName := query.Get("sni"); serverName != "" {
+		tls["server_name"] = serverName
+	}
+	if queryFlag(query, "allowInsecure", "insecure") {
+		tls["insecure"] = true
+	}
+	if alpn := stringList(query.Get("alpn")); len(alpn) > 0 {
+		tls["alpn"] = alpn
+	}
+	if fingerprint := query.Get("fp"); fingerprint != "" && fingerprint != "none" {
+		tls["utls"] = map[string]any{"enabled": true, "fingerprint": fingerprint}
+	}
+	if query.Get("security") == "reality" {
+		reality := map[string]any{"enabled": true}
+		if publicKey := query.Get("pbk"); publicKey != "" {
+			reality["public_key"] = publicKey
+		}
+		if shortID := query.Get("sid"); shortID != "" {
+			reality["short_id"] = shortID
+		}
+		tls["reality"] = reality
+	}
+	return tls
+}
+
 func renderV2RayJSONSubscription(links []string, reverse bool) (string, error) {
+	return renderV2RayJSONSubscriptionWithTemplate(links, reverse, "")
+}
+
+func renderV2RayJSONSubscriptionWithTemplate(links []string, reverse bool, templateContent string) (string, error) {
 	configs := make([]map[string]any, 0, len(links))
+	templateConfig := defaultV2RayClientConfig()
+	if strings.TrimSpace(templateContent) != "" {
+		if err := json.Unmarshal([]byte(templateContent), &templateConfig); err != nil {
+			return "", fmt.Errorf("invalid v2ray subscription template: %w", err)
+		}
+	}
 	for _, link := range links {
 		remark, outbound, ok := v2rayOutboundFromShareLink(link)
 		if !ok {
 			continue
 		}
-		config := defaultV2RayClientConfig()
+		config := cloneJSONMap(templateConfig)
 		config["remarks"] = remark
 		existing := listAny(config["outbounds"])
 		config["outbounds"] = append([]any{outbound}, existing...)
@@ -726,6 +1237,21 @@ func renderV2RayJSONSubscription(links []string, reverse bool) (string, error) {
 		}
 	}
 	return marshalPretty(configs)
+}
+
+func cloneJSONMap(source map[string]any) map[string]any {
+	if len(source) == 0 {
+		return map[string]any{}
+	}
+	raw, err := json.Marshal(source)
+	if err != nil {
+		return map[string]any{}
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(raw, &cloned); err != nil {
+		return map[string]any{}
+	}
+	return cloned
 }
 
 func defaultV2RayClientConfig() map[string]any {
@@ -792,6 +1318,8 @@ func v2rayOutboundFromShareLink(link string) (string, map[string]any, bool) {
 		return v2rayShadowsocksOutbound(parsed)
 	case "vmess":
 		return v2rayVMessOutbound(link)
+	case "hysteria", "hysteria2", "hy2":
+		return v2rayHysteriaOutbound(parsed)
 	default:
 		return "", nil, false
 	}
@@ -854,16 +1382,8 @@ func v2rayTrojanOutbound(parsed *url.URL) (string, map[string]any, bool) {
 }
 
 func v2rayShadowsocksOutbound(parsed *url.URL) (string, map[string]any, bool) {
-	port, ok := parseURLPort(parsed)
+	method, password, port, ok := parseShadowsocksURL(parsed)
 	if !ok {
-		return "", nil, false
-	}
-	user := parsed.User.Username()
-	if decoded, err := decodeFlexibleBase64(user); err == nil {
-		user = string(decoded)
-	}
-	method, password, ok := strings.Cut(user, ":")
-	if !ok || strings.TrimSpace(method) == "" || strings.TrimSpace(password) == "" {
 		return "", nil, false
 	}
 	outbound := map[string]any{
@@ -878,8 +1398,122 @@ func v2rayShadowsocksOutbound(parsed *url.URL) (string, map[string]any, bool) {
 			}},
 		},
 	}
-	if stream := v2rayStreamSettings(parsed.Query()); len(stream) > 0 {
+	query := parsed.Query()
+	if plugin, options := parseSIP003Plugin(query.Get("plugin")); plugin == "obfs-local" || plugin == "simple-obfs" {
+		if options["obfs"] == "http" {
+			query.Set("type", "tcp")
+			query.Set("headerType", "http")
+			query.Set("host", options["obfs-host"])
+		}
+	}
+	if stream := v2rayStreamSettings(query); len(stream) > 0 {
 		outbound["streamSettings"] = stream
+	}
+	return v2rayLinkRemark(parsed), outbound, true
+}
+
+func parseShadowsocksURL(parsed *url.URL) (string, string, int, bool) {
+	port, ok := parseURLPort(parsed)
+	if !ok || parsed.User == nil {
+		return "", "", 0, false
+	}
+	userInfo := parsed.User.Username()
+	if password, hasPassword := parsed.User.Password(); hasPassword {
+		userInfo += ":" + password
+	}
+	if decoded, err := decodeFlexibleBase64(userInfo); err == nil {
+		userInfo = string(decoded)
+	}
+	method, password, ok := strings.Cut(userInfo, ":")
+	if !ok || strings.TrimSpace(method) == "" || strings.TrimSpace(password) == "" {
+		return "", "", 0, false
+	}
+	return method, password, port, true
+}
+
+func parseSIP003Plugin(raw string) (string, map[string]string) {
+	parts := strings.Split(strings.TrimSpace(raw), ";")
+	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+		return "", nil
+	}
+	options := make(map[string]string, len(parts)-1)
+	for _, part := range parts[1:] {
+		key, value, ok := strings.Cut(part, "=")
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if !ok {
+			options[key] = "true"
+			continue
+		}
+		options[key] = strings.TrimSpace(value)
+	}
+	return strings.TrimSpace(parts[0]), options
+}
+
+func queryFlag(query url.Values, keys ...string) bool {
+	for _, key := range keys {
+		value := query.Get(key)
+		if value == "1" || strings.EqualFold(value, "true") {
+			return true
+		}
+	}
+	return false
+}
+
+func v2rayHysteriaOutbound(parsed *url.URL) (string, map[string]any, bool) {
+	port, ok := parseURLPort(parsed)
+	if !ok || parsed.User == nil || parsed.User.Username() == "" {
+		return "", nil, false
+	}
+	query := parsed.Query()
+	version := 1
+	if parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2" {
+		version = 2
+	}
+	tlsQuery := url.Values{}
+	for key, values := range query {
+		tlsQuery[key] = append([]string(nil), values...)
+	}
+	tlsQuery.Set("security", "tls")
+	if pin := query.Get("pinSHA256"); pin != "" {
+		tlsQuery.Set("pcs", pin)
+	}
+	stream := map[string]any{
+		"network":  "hysteria",
+		"security": "tls",
+		"hysteriaSettings": map[string]any{
+			"version":        version,
+			"auth":           parsed.User.Username(),
+			"udpIdleTimeout": 60,
+		},
+		"tlsSettings": v2rayTLSSettings(tlsQuery),
+	}
+	finalMask := map[string]any{}
+	if obfs := query.Get("obfs"); obfs != "" {
+		finalMask["udp"] = []any{map[string]any{
+			"type": obfs,
+			"settings": map[string]any{
+				"password": query.Get("obfs-password"),
+			},
+		}}
+	}
+	if ports := query.Get("mport"); ports != "" {
+		finalMask["quicParams"] = map[string]any{"udpHop": map[string]any{"ports": ports}}
+	}
+	if len(finalMask) > 0 {
+		stream["finalmask"] = finalMask
+	}
+	outbound := map[string]any{
+		"tag":      "proxy",
+		"protocol": "hysteria",
+		"settings": map[string]any{
+			"address": parsed.Hostname(),
+			"port":    port,
+			"version": version,
+		},
+		"streamSettings": stream,
 	}
 	return v2rayLinkRemark(parsed), outbound, true
 }
@@ -928,6 +1562,8 @@ func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
 	query.Set("sid", stringValue(payload["sid"]))
 	query.Set("spx", stringValue(payload["spx"]))
 	query.Set("mode", stringValue(payload["mode"]))
+	query.Set("fragment", stringValue(payload["fragment"]))
+	query.Set("noise", stringValue(payload["noise"]))
 	if stream := v2rayStreamSettings(query); len(stream) > 0 {
 		outbound["streamSettings"] = stream
 	}
@@ -990,6 +1626,14 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 		} else {
 			stream["tcpSettings"] = map[string]any{"header": map[string]any{"type": "none"}}
 		}
+	case "httpupgrade":
+		settings := map[string]any{
+			"path": firstNonEmptyString(query.Get("path"), "/"),
+		}
+		if host := query.Get("host"); host != "" {
+			settings["host"] = host
+		}
+		stream["httpupgradeSettings"] = settings
 	case "kcp":
 		settings := map[string]any{"header": map[string]any{"type": firstNonEmptyString(query.Get("headerType"), "none")}}
 		if seed := query.Get("seed"); seed != "" {
@@ -1044,6 +1688,7 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 			}
 		}
 	}
+	applyV2RayFinalMask(stream, query)
 	return stream
 }
 
@@ -1058,7 +1703,16 @@ func v2rayTLSSettings(query url.Values) map[string]any {
 	if alpn := query.Get("alpn"); alpn != "" {
 		settings["alpn"] = stringList(alpn)
 	}
-	if allow := query.Get("allowInsecure"); allow == "1" || strings.EqualFold(allow, "true") {
+	if ech := query.Get("ech"); ech != "" {
+		settings["echConfigList"] = ech
+	}
+	if vcn := query.Get("vcn"); vcn != "" {
+		settings["verifyPeerCertByName"] = vcn
+	}
+	if pcs := query.Get("pcs"); pcs != "" {
+		settings["pinnedPeerCertSha256"] = stringList(pcs)
+	}
+	if queryFlag(query, "allowInsecure", "insecure") {
 		settings["allowInsecure"] = true
 	}
 	return settings
@@ -1082,6 +1736,128 @@ func v2rayRealitySettings(query url.Values) map[string]any {
 		settings["spiderX"] = spx
 	}
 	return settings
+}
+
+func applyV2RayFinalMask(stream map[string]any, query url.Values) {
+	merged := mergeV2RayFinalMask(stream["finalmask"], nil)
+	if raw := query.Get("fm"); raw != "" {
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
+			merged = mergeV2RayFinalMask(merged, parsed)
+		}
+	}
+	if generated := finalMaskFromLinkParams(query); len(generated) > 0 {
+		merged = mergeV2RayFinalMask(merged, generated)
+	}
+	if len(merged) > 0 {
+		stream["finalmask"] = merged
+	}
+}
+
+func finalMaskFromLinkParams(query url.Values) map[string]any {
+	result := map[string]any{}
+	if fragment := fragmentFinalMask(query.Get("fragment")); len(fragment) > 0 {
+		result["tcp"] = []any{map[string]any{"type": "fragment", "settings": fragment}}
+	}
+	if noises := noiseFinalMask(query.Get("noise")); len(noises) > 0 {
+		result["udp"] = []any{map[string]any{"type": "noise", "settings": map[string]any{"noise": noises}}}
+	}
+	return result
+}
+
+func fragmentFinalMask(value string) map[string]any {
+	parts := splitCommaLines(value)
+	if len(parts) == 0 {
+		return nil
+	}
+	length := firstSliceValue(parts, 0)
+	if length == "" {
+		return nil
+	}
+	settings := map[string]any{"length": length}
+	if interval := firstSliceValue(parts, 1); interval != "" {
+		settings["delay"] = interval
+	}
+	if packets := firstSliceValue(parts, 2); packets != "" {
+		settings["packets"] = packets
+	}
+	if maxSplit := firstSliceValue(parts, 3); maxSplit != "" {
+		settings["maxSplit"] = maxSplit
+	}
+	return settings
+}
+
+func noiseFinalMask(value string) []any {
+	patterns := strings.Split(value, "&")
+	result := make([]any, 0, len(patterns))
+	for _, raw := range patterns {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		noiseType := "rand"
+		rest := raw
+		if before, after, ok := strings.Cut(raw, ":"); ok {
+			noiseType = strings.ToLower(strings.TrimSpace(before))
+			rest = after
+		}
+		switch noiseType {
+		case "rand", "str", "hex", "base64":
+		default:
+			noiseType = "rand"
+		}
+		parts := splitCommaLines(rest)
+		packet := firstSliceValue(parts, 0)
+		if packet == "" {
+			continue
+		}
+		item := map[string]any{"type": noiseType}
+		if noiseType == "rand" {
+			item["rand"] = packet
+		} else {
+			item["packet"] = packet
+		}
+		if delay := firstSliceValue(parts, 1); delay != "" {
+			item["delay"] = delay
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
+func mergeV2RayFinalMask(base any, extra map[string]any) map[string]any {
+	merged := map[string]any{}
+	if baseMap, ok := base.(map[string]any); ok {
+		for key, value := range baseMap {
+			switch key {
+			case "tcp", "udp":
+				if items := listAny(value); len(items) > 0 {
+					merged[key] = append([]any(nil), items...)
+				}
+			default:
+				merged[key] = value
+			}
+		}
+	}
+	for key, value := range extra {
+		switch key {
+		case "tcp", "udp":
+			items := append(listAny(merged[key]), listAny(value)...)
+			if len(items) > 0 {
+				merged[key] = items
+			}
+		default:
+			merged[key] = value
+		}
+	}
+	return merged
+}
+
+func firstSliceValue(values []string, index int) string {
+	if index < 0 || index >= len(values) {
+		return ""
+	}
+	return strings.TrimSpace(values[index])
 }
 
 func v2rayLinkRemark(parsed *url.URL) string {
@@ -1183,13 +1959,20 @@ const fallbackSubscriptionPageTemplate = `<!DOCTYPE html>
 </html>`
 
 var (
-	subscriptionTemplateFiltersOnce sync.Once
-	subscriptionTemplateFiltersErr  error
-	subscriptionTemplateTagPattern  = regexp.MustCompile(`(?s)(\{\{.*?\}\}|\{%.*?%\})`)
-	subscriptionRemainingSetPattern = regexp.MustCompile(`\{% set remaining_days = .*?%\}`)
+	subscriptionTemplateFiltersOnce        sync.Once
+	subscriptionTemplateFiltersErr         error
+	subscriptionTemplateTagPattern         = regexp.MustCompile(`(?s)(\{\{.*?\}\}|\{%.*?%\})`)
+	subscriptionCurrentTimeSetPattern      = regexp.MustCompile(`(?s)\{%\s*set\s+current_timestamp\s*=.*?%\}`)
+	subscriptionRemainingSetPattern        = regexp.MustCompile(`(?s)\{%\s*set\s+remaining_days\s*=.*?%\}`)
+	subscriptionPythonDatetimeFilter       = regexp.MustCompile(`\|\s*datetime\s*\([^)]*\)`)
+	subscriptionPythonBytesFormatFilter    = regexp.MustCompile(`\|\s*bytesformat\s*\([^)]*\)`)
+	subscriptionPythonIntFilter            = regexp.MustCompile(`\|\s*int\s*\([^)]*\)`)
+	subscriptionPythonDefaultFilterPattern = regexp.MustCompile(`\|\s*default\s*\(([^)]*)\)`)
+	subscriptionRemainingDaysClampPattern  = regexp.MustCompile(`\{\{\s*remaining_days\s*\|\s*int\s+if\s*\([^}]*remaining_days[^}]*\)\s*>\s*-?1\s+else\s+0\s*\}\}`)
+	subscriptionDirectUserLinksPattern     = regexp.MustCompile(`\{\{\s*user\.links\s*\}\}`)
 )
 
-func renderSubscriptionPageTemplate(content string, user UserDetail, links []string, usageURL string, supportURL string, token string) (string, error) {
+func renderSubscriptionPageTemplate(content string, user UserDetail, links []string, usageURL string, supportURL string, token string, vpnInfo ...map[string]any) (string, error) {
 	if err := registerSubscriptionTemplateFilters(); err != nil {
 		return "", err
 	}
@@ -1200,7 +1983,7 @@ func renderSubscriptionPageTemplate(content string, user UserDetail, links []str
 	if err != nil {
 		return "", err
 	}
-	rendered, err := tpl.Execute(subscriptionTemplateContext(user, links, usageURL, supportURL, token))
+	rendered, err := tpl.Execute(subscriptionTemplateContext(user, links, usageURL, supportURL, token, vpnInfo...))
 	if err != nil {
 		return "", err
 	}
@@ -1229,14 +2012,22 @@ func normalizeLegacySubscriptionTemplate(content string) string {
 	})
 	normalized = strings.ReplaceAll(normalized, "user.status.value", "user.status")
 	normalized = strings.ReplaceAll(normalized, "user.data_limit_reset_strategy.value", "user.data_limit_reset_strategy")
-	normalized = strings.ReplaceAll(normalized, "{% set current_timestamp = now().timestamp() %}", "")
+	normalized = subscriptionCurrentTimeSetPattern.ReplaceAllString(normalized, "")
 	normalized = subscriptionRemainingSetPattern.ReplaceAllString(normalized, "")
+	normalized = strings.ReplaceAll(normalized, "now().timestamp()", "current_timestamp")
+	normalized = strings.ReplaceAll(normalized, "datetime.now().timestamp()", "current_timestamp")
+	normalized = subscriptionPythonDatetimeFilter.ReplaceAllString(normalized, "| datetime")
+	normalized = subscriptionPythonBytesFormatFilter.ReplaceAllString(normalized, "| bytesformat")
+	normalized = subscriptionPythonIntFilter.ReplaceAllString(normalized, "| int")
+	normalized = subscriptionPythonDefaultFilterPattern.ReplaceAllString(normalized, `| default:$1`)
+	normalized = subscriptionRemainingDaysClampPattern.ReplaceAllString(normalized, `{{ remaining_days | int }}`)
+	normalized = subscriptionDirectUserLinksPattern.ReplaceAllString(normalized, `{{ links_text|safe }}`)
 	normalized = strings.ReplaceAll(normalized, "user.status == 'active'", "user.status == 'active' or user.status == 'on_hold'")
 	normalized = strings.ReplaceAll(normalized, `user.status == "active"`, `user.status == "active" or user.status == "on_hold"`)
 	return normalized
 }
 
-func subscriptionTemplateContext(user UserDetail, links []string, usageURL string, supportURL string, token string) pongo2.Context {
+func subscriptionTemplateContext(user UserDetail, links []string, usageURL string, supportURL string, token string, vpnInfo ...map[string]any) pongo2.Context {
 	var dataLimit any
 	if user.DataLimit != nil && *user.DataLimit > 0 {
 		dataLimit = *user.DataLimit
@@ -1249,7 +2040,11 @@ func subscriptionTemplateContext(user UserDetail, links []string, usageURL strin
 	if resetStrategy == "" {
 		resetStrategy = "no_reset"
 	}
-	return pongo2.Context{
+	vpn := map[string]any{}
+	if len(vpnInfo) > 0 && vpnInfo[0] != nil {
+		vpn = vpnInfo[0]
+	}
+	context := pongo2.Context{
 		"user": map[string]any{
 			"username":                  user.Username,
 			"status":                    user.Status,
@@ -1258,18 +2053,42 @@ func subscriptionTemplateContext(user UserDetail, links []string, usageURL strin
 			"used_traffic":              user.UsedTraffic,
 			"data_limit_reset_strategy": resetStrategy,
 			"expire":                    expire,
+			"created_at":                user.CreatedAt,
+			"online_at":                 user.OnlineAt,
 			"links":                     links,
 			"subscription_url":          user.SubscriptionURL,
 			"subscription_urls":         user.SubscriptionURLs,
 			"service_id":                user.ServiceID,
 			"service_name":              user.ServiceName,
 		},
-		"links":          links,
-		"usage_url":      usageURL,
-		"support_url":    supportURL,
-		"token":          token,
-		"remaining_days": subscriptionRemainingDaysInt(user.Expire),
+		"links":             links,
+		"links_text":        legacyTemplateStringList(links),
+		"usage_url":         usageURL,
+		"support_url":       supportURL,
+		"token":             token,
+		"current_timestamp": time.Now().UTC().Unix(),
+		"remaining_days":    subscriptionRemainingDaysInt(user.Expire),
 	}
+	for _, key := range []string{"openvpn", "wireguard", "l2tp", "pptp", "ikev2", "anyconnect"} {
+		if value, ok := vpn[key]; ok {
+			context[key] = value
+		}
+	}
+	context["vpn"] = vpn
+	return context
+}
+
+func legacyTemplateStringList(values []string) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		escaped := strings.ReplaceAll(value, `\`, `\\`)
+		escaped = strings.ReplaceAll(escaped, `'`, `\'`)
+		quoted = append(quoted, `'`+escaped+`'`)
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 func subscriptionBytesFilter(in *pongo2.Value, param *pongo2.Value) (*pongo2.Value, *pongo2.Error) {
@@ -1300,6 +2119,9 @@ func subscriptionRemainingDaysInt(value *int64) int64 {
 		return 0
 	}
 	days := int64(time.Until(time.Unix(*value, 0).UTC()).Hours() / 24)
+	if days < 0 {
+		return 0
+	}
 	return days
 }
 
@@ -1334,25 +2156,19 @@ func clashProxyFromShareLink(name string, link string) (map[string]any, bool) {
 		return clashTrojanProxy(name, parsed)
 	case "vmess":
 		return clashVMessProxy(name, parsed)
+	case "hysteria", "hysteria2", "hy2":
+		return clashHysteriaProxy(name, parsed)
 	default:
 		return nil, false
 	}
 }
 
 func clashShadowsocksProxy(name string, parsed *url.URL) (map[string]any, bool) {
-	user := parsed.User.Username()
-	if decoded, err := decodeFlexibleBase64(user); err == nil {
-		user = string(decoded)
-	}
-	method, password, ok := strings.Cut(user, ":")
-	if !ok || strings.TrimSpace(method) == "" || strings.TrimSpace(password) == "" {
-		return nil, false
-	}
-	port, ok := parseURLPort(parsed)
+	method, password, port, ok := parseShadowsocksURL(parsed)
 	if !ok {
 		return nil, false
 	}
-	return map[string]any{
+	proxy := map[string]any{
 		"name":     name,
 		"type":     "ss",
 		"server":   parsed.Hostname(),
@@ -1360,7 +2176,83 @@ func clashShadowsocksProxy(name string, parsed *url.URL) (map[string]any, bool) 
 		"cipher":   method,
 		"password": password,
 		"udp":      true,
-	}, true
+	}
+	query := parsed.Query()
+	plugin, options := parseSIP003Plugin(query.Get("plugin"))
+	switch plugin {
+	case "obfs-local", "simple-obfs":
+		proxy["plugin"] = "obfs"
+		pluginOpts := map[string]any{"mode": firstNonEmptyString(options["obfs"], "http")}
+		if host := options["obfs-host"]; host != "" {
+			pluginOpts["host"] = host
+		}
+		proxy["plugin-opts"] = pluginOpts
+	case "v2ray-plugin":
+		proxy["plugin"] = "v2ray-plugin"
+		pluginOpts := make(map[string]any, len(options))
+		for key, value := range options {
+			if value == "true" {
+				pluginOpts[key] = true
+			} else {
+				pluginOpts[key] = value
+			}
+		}
+		proxy["plugin-opts"] = pluginOpts
+	}
+	return proxy, true
+}
+
+func clashHysteriaProxy(name string, parsed *url.URL) (map[string]any, bool) {
+	port, ok := parseURLPort(parsed)
+	if !ok || parsed.User == nil {
+		return nil, false
+	}
+	password := strings.TrimSpace(parsed.User.Username())
+	if password == "" {
+		return nil, false
+	}
+	query := parsed.Query()
+	version2 := parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2"
+	typeName := "hysteria"
+	if version2 {
+		typeName = "hysteria2"
+	}
+	proxy := map[string]any{
+		"name":   name,
+		"type":   typeName,
+		"server": parsed.Hostname(),
+		"port":   port,
+		"udp":    true,
+	}
+	if version2 {
+		proxy["password"] = password
+	} else {
+		proxy["auth-str"] = password
+		proxy["up"] = firstNonEmptyString(query.Get("up"), "100 Mbps")
+		proxy["down"] = firstNonEmptyString(query.Get("down"), "100 Mbps")
+	}
+	if ports := query.Get("mport"); ports != "" {
+		proxy["ports"] = ports
+	}
+	if obfs := query.Get("obfs"); obfs != "" {
+		proxy["obfs"] = obfs
+	}
+	if password := query.Get("obfs-password"); password != "" {
+		proxy["obfs-password"] = password
+	}
+	if sni := query.Get("sni"); sni != "" {
+		proxy["sni"] = sni
+	}
+	if fp := query.Get("fp"); fp != "" {
+		proxy["client-fingerprint"] = fp
+	}
+	if alpn := stringList(query.Get("alpn")); len(alpn) > 0 {
+		proxy["alpn"] = alpn
+	}
+	if queryFlag(query, "allowInsecure", "insecure") {
+		proxy["skip-cert-verify"] = true
+	}
+	return proxy, true
 }
 
 func clashVLESSProxy(name string, parsed *url.URL) (map[string]any, bool) {
@@ -1392,7 +2284,7 @@ func clashVLESSProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	if flow := query.Get("flow"); flow != "" {
 		proxy["flow"] = flow
 	}
-	if query.Get("allowInsecure") == "1" || strings.EqualFold(query.Get("allowInsecure"), "true") {
+	if queryFlag(query, "allowInsecure", "insecure") {
 		proxy["skip-cert-verify"] = true
 	}
 	if security == "reality" {
@@ -1436,7 +2328,7 @@ func clashTrojanProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	if sni := query.Get("sni"); sni != "" {
 		proxy["sni"] = sni
 	}
-	if query.Get("allowInsecure") == "1" || strings.EqualFold(query.Get("allowInsecure"), "true") {
+	if queryFlag(query, "allowInsecure", "insecure") {
 		proxy["skip-cert-verify"] = true
 	}
 	appendClashNetworkOptions(proxy, network, query)
@@ -1524,7 +2416,8 @@ func writeClashProxy(b *strings.Builder, proxy map[string]any) {
 	order := []string{
 		"name", "type", "server", "port", "cipher", "password", "uuid", "alterId",
 		"tls", "servername", "sni", "skip-cert-verify", "client-fingerprint",
-		"flow", "network", "udp", "ws-opts", "grpc-opts", "http-opts", "reality-opts",
+		"flow", "network", "udp", "plugin", "plugin-opts", "auth-str", "up", "down",
+		"ports", "obfs", "obfs-password", "alpn", "ws-opts", "grpc-opts", "http-opts", "reality-opts",
 	}
 	b.WriteString("  - ")
 	first := true
@@ -1568,7 +2461,7 @@ func writeYAMLValue(b *strings.Builder, value any, indent int) {
 }
 
 func writeYAMLMap(b *strings.Builder, values map[string]any, indent int) {
-	keys := []string{"path", "headers", "Host", "grpc-service-name", "public-key", "short-id", "spider-x"}
+	keys := []string{"mode", "host", "path", "headers", "Host", "grpc-service-name", "public-key", "short-id", "spider-x"}
 	seen := map[string]bool{}
 	for _, key := range keys {
 		if value, ok := values[key]; ok && !isEmptyYAMLValue(value) {

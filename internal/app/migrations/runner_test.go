@@ -65,9 +65,12 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertNoTable(t, ctx, db, "sqlite", "template_inbounds_association")
 	assertNoTable(t, ctx, db, "sqlite", "exclude_inbounds_association")
 	assertNoTable(t, ctx, db, "sqlite", "access_insights")
-	assertTableColumns(t, ctx, db, "sqlite", "hosts", []string{"id", "remark", "inbound_tag", "noise_setting", "random_user_agent"})
+	assertTableColumns(t, ctx, db, "sqlite", "hosts", []string{"id", "remark", "inbound_tag", "noise_setting", "random_user_agent", "dns_primary", "dns_secondary"})
 	assertNoColumn(t, ctx, db, "sqlite", "hosts", "sort")
 	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"id", "name", "note", "certificate", "certificate_key", "xray_config_mode"})
+	assertNoColumn(t, ctx, db, "sqlite", "nodes", "use_nobetci")
+	assertNoColumn(t, ctx, db, "sqlite", "nodes", "nobetci_port")
+	assertNoColumn(t, ctx, db, "sqlite", "panel_settings", "use_nobetci")
 	assertTableColumns(t, ctx, db, "sqlite", "node_operations", []string{"operation_type", "status", "idempotency_key"})
 	assertTableColumns(t, ctx, db, "sqlite", "pending_node_certificates", []string{"token", "certificate", "certificate_key", "expires_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "xray_config", []string{"id", "data", "created_at", "updated_at"})
@@ -75,8 +78,11 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertTableColumns(t, ctx, db, "sqlite", "services", []string{"id", "name", "description", "flow", "used_traffic", "lifetime_used_traffic", "users_usage"})
 	assertTableColumns(t, ctx, db, "sqlite", "admins_services", []string{"admin_id", "service_id", "used_traffic", "lifetime_used_traffic", "created_traffic", "data_limit", "users_limit", "traffic_limit_mode", "show_user_traffic", "delete_user_usage_limit", "deleted_users_usage"})
 	assertTableColumns(t, ctx, db, "sqlite", "service_hosts", []string{"service_id", "host_id", "sort", "created_at"})
-	assertTableColumns(t, ctx, db, "sqlite", "subscription_settings", []string{"subscription_profile_title", "subscription_support_url", "subscription_aliases", "subscription_path", "subscription_ports"})
+	assertTableColumns(t, ctx, db, "sqlite", "settings", []string{"dashboard_path", "record_node_usage", "phpmyadmin_enabled", "phpmyadmin_port", "phpmyadmin_path", "phpmyadmin_public_url", "phpmyadmin_login_mode", "phpmyadmin_username", "phpmyadmin_password"})
+	assertTableColumns(t, ctx, db, "sqlite", "subscription_settings", []string{"subscription_profile_title", "subscription_support_url", "subscription_aliases", "subscription_path", "subscription_ports", "happ_subscription_template", "incy_subscription_template", "use_custom_json_for_incy"})
 	assertTableColumns(t, ctx, db, "sqlite", "subscription_domains", []string{"domain", "admin_id", "email", "provider", "alt_names"})
+	assertTableColumns(t, ctx, db, "sqlite", "vpn_user_sessions", []string{"node_id", "user_id", "protocol", "session_id", "assigned_ip", "client_ip", "ended_at"})
+	assertTableColumns(t, ctx, db, "sqlite", "user_online_ips", []string{"node_id", "user_id", "protocol", "ip", "last_seen_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "telegram_settings", []string{"use_telegram", "event_toggles", "backup_enabled", "backup_scope", "backup_interval_value", "backup_chat_id", "backup_chat_is_forum", "last_sent_at", "last_error"})
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vmess_mask")
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vless_mask")
@@ -114,6 +120,21 @@ func TestRunMigrationsExternalDatabase(t *testing.T) {
 		t.Fatalf("open external database: %v", err)
 	}
 	t.Cleanup(func() { _ = pool.DB.Close() })
+	initial, err := Version(ctx, pool.DB, pool.Dialect)
+	if err != nil {
+		t.Fatalf("read external version: %v", err)
+	}
+	if !initial.HasGoose {
+		if err := RunMigrationsTo(ctx, pool.DB, pool.Dialect, 3); err != nil {
+			t.Fatalf("migrate external database to legacy checkpoint: %v", err)
+		}
+		if _, err := pool.DB.ExecContext(ctx, `INSERT INTO admins (id, username, hashed_password, role, status) VALUES (?, ?, ?, ?, ?)`, 9001, "legacy_external_admin", "hash", "standard", "active"); err != nil {
+			t.Fatalf("seed external legacy admin: %v", err)
+		}
+		if _, err := pool.DB.ExecContext(ctx, `INSERT INTO users (id, username, admin_id, status, data_limit) VALUES (?, ?, ?, ?, ?)`, 9001, "legacy_external_user", 9001, "active", 123); err != nil {
+			t.Fatalf("seed external legacy user: %v", err)
+		}
+	}
 	if err := RunMigrations(ctx, pool.DB, pool.Dialect); err != nil {
 		t.Fatalf("run external migrations: %v", err)
 	}
@@ -131,6 +152,15 @@ func TestRunMigrationsExternalDatabase(t *testing.T) {
 		}
 		if !hasTable {
 			t.Fatalf("missing external table %s", table)
+		}
+	}
+	if !initial.HasGoose {
+		var dataLimit int64
+		if err := pool.DB.QueryRowContext(ctx, `SELECT data_limit FROM users WHERE id = ?`, 9001).Scan(&dataLimit); err != nil {
+			t.Fatalf("read migrated external legacy user: %v", err)
+		}
+		if dataLimit != 123 {
+			t.Fatalf("legacy data limit = %d, want 123", dataLimit)
 		}
 	}
 }
@@ -359,8 +389,10 @@ VALUES
 	assertNoColumn(t, ctx, db, "sqlite", "hosts", "sort")
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vmess_mask")
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vless_mask")
+	assertTableColumns(t, ctx, db, "sqlite", "vpn_user_sessions", []string{"client_ip"})
+	assertTableColumns(t, ctx, db, "sqlite", "user_online_ips", []string{"node_id", "user_id", "protocol", "ip"})
 	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"note"})
-	assertDBStringMigration(t, db, `SELECT username FROM users WHERE id = 1`, "dupe_2")
+	assertDBStringMigration(t, db, `SELECT username FROM users WHERE id = 1`, "dupe")
 	assertDBStringMigration(t, db, `SELECT username FROM users WHERE id = 2`, "DUPE")
 	assertDBStringMigration(t, db, `SELECT status FROM users WHERE id = 3`, "disabled")
 	var proxyRows int
@@ -370,8 +402,8 @@ VALUES
 	if proxyRows != 6 {
 		t.Fatalf("expected legacy VMess/VLESS proxy materialization for three users, got %d rows", proxyRows)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO users (id, username) VALUES (99, 'DUPE')`); err == nil {
-		t.Fatal("expected duplicate username insert to fail after legacy repair")
+	if _, err := db.ExecContext(ctx, `INSERT INTO users (id, username) VALUES (99, 'dupe')`); err != nil {
+		t.Fatalf("duplicate username insert should remain database-compatible: %v", err)
 	}
 }
 
@@ -417,6 +449,37 @@ func TestRunMigrationsToSQLite(t *testing.T) {
 		t.Fatalf("unexpected final version: %#v", finalVersion)
 	}
 	assertTableColumns(t, ctx, db, "sqlite", "services", []string{"id", "name", "used_traffic"})
+}
+
+func TestRepairDuplicateUsernamesPreservesExistingUsernames(t *testing.T) {
+	ctx := context.Background()
+	db := openSQLiteTestDB(t)
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE users (
+	id INTEGER PRIMARY KEY,
+	username TEXT,
+	status TEXT
+);
+INSERT INTO users (id, username, status) VALUES
+	(1, 'seller', 'deleted'),
+	(2, 'Seller', 'active'),
+	(3, 'seller', 'disabled');`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repairDuplicateUsernames(ctx, tx); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	assertDBStringMigration(t, db, `SELECT username FROM users WHERE id = 1`, "seller")
+	assertDBStringMigration(t, db, `SELECT username FROM users WHERE id = 2`, "Seller")
+	assertDBStringMigration(t, db, `SELECT username FROM users WHERE id = 3`, "seller")
 }
 
 func TestUnsupportedDowngrade(t *testing.T) {
@@ -651,12 +714,12 @@ VALUES
 		t.Fatalf("run migrations: %v", err)
 	}
 
-	assertUserRow(t, db, 1, "Alice_2", "disabled", "11111111111141118111111111111111", "xtls-rprx-vision")
+	assertUserRow(t, db, 1, "Alice", "disabled", "11111111111141118111111111111111", "xtls-rprx-vision")
 	assertUserRow(t, db, 2, "alice", "active", "22222222222242228222222222222222", "")
 	assertUserStatus(t, db, 3, "expired")
 	assertUserStatus(t, db, 4, "limited")
 	assertCredentialKeyNull(t, db, 5)
-	assertUserName(t, db, 6, "bob_2_6")
+	assertUserName(t, db, 6, "bob")
 	assertUserName(t, db, 7, "bob")
 	assertTableColumns(t, ctx, db, "sqlite", "next_plans", []string{"position", "increase_data_limit", "start_on_first_connect", "trigger_on"})
 
@@ -751,6 +814,86 @@ VALUES (1, 'legacy_user', '00000000000000000000000000000000', 'deleted', 0, 100,
 	}
 	if ids["vless"] != "11111111-1111-1111-1111-111111111111" {
 		t.Fatalf("vless id = %q", ids["vless"])
+	}
+}
+
+func TestLegacyMaskedCredentialMaterializesMissingProtocolWhenOtherProxyExists(t *testing.T) {
+	ctx := context.Background()
+	db := openSQLiteTestDB(t)
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE jwt (
+	id INTEGER PRIMARY KEY,
+	secret_key VARCHAR(64),
+	subscription_secret_key VARCHAR(64) NOT NULL DEFAULT 'sub',
+	admin_secret_key VARCHAR(64) NOT NULL DEFAULT 'admin',
+	vmess_mask VARCHAR(32) NOT NULL DEFAULT '00000000000000000000000000000000',
+	vless_mask VARCHAR(32) NOT NULL DEFAULT '11111111111111111111111111111111'
+)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO jwt (id, secret_key, subscription_secret_key, admin_secret_key, vmess_mask, vless_mask)
+VALUES (1, 'legacy', 'sub', 'admin', '00000000000000000000000000000000', '11111111111111111111111111111111')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE users (
+	id INTEGER PRIMARY KEY,
+	username VARCHAR(34),
+	credential_key VARCHAR(64),
+	status VARCHAR(32),
+	used_traffic BIGINT,
+	data_limit BIGINT,
+	admin_id INTEGER,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO users (id, username, credential_key, status, used_traffic, data_limit, admin_id)
+VALUES (1, 'legacy_user', '00000000000000000000000000000000', 'active', 0, 100, NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type VARCHAR(32) NOT NULL, settings TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO proxies (user_id, type, settings)
+VALUES
+	(1, 'vless', '{"id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}'),
+	(1, 'trojan', '{"password":"legacy-password"}')`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RunMigrations(ctx, db, "sqlite"); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+
+	rows, err := db.QueryContext(ctx, `SELECT type, settings FROM proxies WHERE user_id = 1 ORDER BY type`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	ids := map[string]string{}
+	for rows.Next() {
+		var protocol string
+		var raw any
+		if err := rows.Scan(&protocol, &raw); err != nil {
+			t.Fatal(err)
+		}
+		ids[protocol] = stringValue(decodeJSONMap(raw)["id"])
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if ids["vmess"] != "00000000-0000-0000-0000-000000000000" {
+		t.Fatalf("vmess id = %q", ids["vmess"])
+	}
+	if ids["vless"] != "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" {
+		t.Fatalf("existing vless id was overwritten: %q", ids["vless"])
+	}
+	if _, ok := ids["trojan"]; !ok {
+		t.Fatal("expected existing trojan proxy to be preserved")
 	}
 }
 
@@ -989,7 +1132,7 @@ CREATE TABLE outbound_traffic (
 		t.Fatalf("run migrations: %v", err)
 	}
 
-	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"note", "certificate", "certificate_key", "xray_config_mode", "xray_config", "data_limit", "proxy_enabled", "use_nobetci"})
+	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"note", "certificate", "certificate_key", "xray_config_mode", "xray_config", "data_limit", "proxy_enabled"})
 	assertDBStringMigration(t, db, `SELECT geo_mode FROM nodes WHERE id = 2`, "default")
 	assertDBStringMigration(t, db, `SELECT xray_config_mode FROM nodes WHERE id = 2`, "default")
 	assertDBInt64Migration(t, db, `SELECT uplink FROM node_usages WHERE id = 1`, 1000)
@@ -1105,6 +1248,7 @@ VALUES (1, 'device-legacy', 'access-legacy', 'private-legacy')`); err != nil {
 	assertDBStringMigration(t, db, `SELECT subscription_domain FROM admins WHERE id = 1`, "sub.example.com")
 	assertDBStringMigration(t, db, `SELECT subscription_settings FROM admins WHERE id = 1`, `{"subscription_path":"seller"}`)
 	assertDBStringMigration(t, db, `SELECT default_subscription_type FROM panel_settings WHERE id = 1`, "token")
+	assertNoColumn(t, ctx, db, "sqlite", "panel_settings", "use_nobetci")
 	assertDBInt64Migration(t, db, `SELECT backup_enabled FROM panel_settings WHERE id = 1`, 0)
 	assertDBStringMigration(t, db, `SELECT subscription_url_prefix FROM subscription_settings WHERE id = 1`, "https://subs.example")
 	assertDBStringMigration(t, db, `SELECT clash_subscription_template FROM subscription_settings WHERE id = 1`, "legacy/clash.yml")
@@ -1182,6 +1326,7 @@ CREATE TABLE template_inbounds_association (
 	assertNoTable(t, ctx, db, "sqlite", "user_templates")
 	assertNoTable(t, ctx, db, "sqlite", "access_insights")
 	assertNoColumn(t, ctx, db, "sqlite", "panel_settings", "access_insights_enabled")
+	assertNoColumn(t, ctx, db, "sqlite", "panel_settings", "use_nobetci")
 	assertTableColumns(t, ctx, db, "sqlite", "panel_settings", []string{"default_subscription_type", "backup_enabled"})
 }
 

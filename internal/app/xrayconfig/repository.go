@@ -94,12 +94,19 @@ func (r Repository) SaveTargetRawConfig(ctx context.Context, targetID string, pa
 	if _, err := Parse(normalized, r.options); err != nil {
 		return nil, err
 	}
+	if err := ValidateCertificateFiles(normalized); err != nil {
+		return nil, err
+	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer rollbackQuietly(tx)
+	before, err := r.captureMutationForRecordTx(ctx, tx, SnapshotScope{TargetIDs: []string{targetID}})
+	if err != nil {
+		return nil, err
+	}
 
 	if kind == MasterTargetID {
 		if err := r.saveMasterRawConfigTx(ctx, tx, normalized); err != nil {
@@ -119,6 +126,16 @@ func (r Repository) SaveTargetRawConfig(ctx context.Context, targetID string, pa
 			return nil, err
 		}
 	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, SnapshotScope{TargetIDs: []string{targetID}})
+	if err != nil {
+		return nil, err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "xray.config.update", ResourceType: "xray_config", ResourceKey: targetID,
+		Summary: "Updated Xray configuration", Before: before, After: after,
+	}); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -136,6 +153,11 @@ func (r Repository) SetNodeConfigMode(ctx context.Context, nodeID int64, mode st
 		return err
 	}
 	defer rollbackQuietly(tx)
+	targetID := NodeTargetID(nodeID)
+	before, err := r.captureMutationForRecordTx(ctx, tx, SnapshotScope{TargetIDs: []string{targetID}})
+	if err != nil {
+		return err
+	}
 
 	if err := r.ensureNodeExistsTx(ctx, tx, nodeID); err != nil {
 		return err
@@ -162,6 +184,16 @@ func (r Repository) SetNodeConfigMode(ctx context.Context, nodeID int64, mode st
 		}
 	}
 	if err := r.enqueueSyncConfigTx(ctx, tx, &nodeID, map[string]any{"target_id": NodeTargetID(nodeID), "mode": normalizedMode}); err != nil {
+		return err
+	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, SnapshotScope{TargetIDs: []string{targetID}})
+	if err != nil {
+		return err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "xray.config.mode.update", ResourceType: "xray_config", ResourceKey: targetID,
+		Summary: "Updated Xray configuration mode", Before: before, After: after,
+	}); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -364,7 +396,7 @@ func (r Repository) enqueueSyncConfigTx(ctx context.Context, tx *sql.Tx, nodeID 
 func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType string, nodeID *int64, userID *int64, payload any) error {
 	nowTime := time.Now().UTC()
 	if nodeID == nil && userID != nil && operationType != NodeOperationSyncConfig {
-		rows, err := tx.QueryContext(ctx, `SELECT id FROM nodes WHERE COALESCE(status, '') NOT IN ('disabled', 'limited') ORDER BY id`)
+		rows, err := tx.QueryContext(ctx, `SELECT id FROM nodes WHERE LOWER(COALESCE(status, '')) = 'connected' ORDER BY id`)
 		if err != nil {
 			return err
 		}
@@ -410,6 +442,11 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	if err != sql.ErrNoRows {
 		return err
 	}
+	if nodeID != nil && userID != nil && isRuntimeUserNodeOperationType(operationType) {
+		if err := compactPendingRuntimeUserOperationsTx(ctx, tx, *nodeID, *userID, nowTime); err != nil {
+			return err
+		}
+	}
 	now := dbTimestamp(nowTime)
 	_, err = tx.ExecContext(
 		ctx,
@@ -421,6 +458,33 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 		key,
 		now,
 		now,
+	)
+	return err
+}
+
+func isRuntimeUserNodeOperationType(operationType string) bool {
+	switch operationType {
+	case "add_user", "update_user", "remove_user", "disable_user", "enable_user":
+		return true
+	default:
+		return false
+	}
+}
+
+func compactPendingRuntimeUserOperationsTx(ctx context.Context, tx *sql.Tx, nodeID int64, userID int64, now time.Time) error {
+	if nodeID <= 0 || userID <= 0 {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, `
+UPDATE node_operations
+SET status = 'done', updated_at = ?
+WHERE node_id = ?
+  AND user_id = ?
+  AND status IN ('pending', 'retrying')
+  AND operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')`,
+		dbTimestamp(now),
+		nodeID,
+		userID,
 	)
 	return err
 }

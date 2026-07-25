@@ -3,6 +3,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -76,7 +77,34 @@ func TestHostStatusDisablesAndDetachesServiceUsers(t *testing.T) {
 		t.Fatalf("unexpected host response: %#v", host)
 	}
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE host_id = 44`, 0)
-	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user' AND user_id = 77`, 1)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 0)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+}
+
+func TestAffectedServiceRuntimeChangeQueuesSingleSyncConfig(t *testing.T) {
+	_, db := testAdminServer(t)
+	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (9, 'vip')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+INSERT INTO users (id, username, admin_id, service_id, status) VALUES
+(77, 'alice', 1, 9, 'active'),
+(78, 'bob', 1, 9, 'on_hold')`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enqueueAffectedServicesUsersTx(context.Background(), tx, map[int64]bool{9: true}); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 0)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
 }
 
 func TestHostsBulkModifyMoveDisableAndEnqueue(t *testing.T) {
@@ -141,9 +169,121 @@ func TestHostsBulkModifyMoveDisableAndEnqueue(t *testing.T) {
 		t.Fatalf("disabled host did not stay disabled: %#v", updated["info"][1])
 	}
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE host_id = `+itoa(infoID), 0)
-	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user' AND user_id = 88`, 1)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 0)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM hosts WHERE inbound_tag = 'cdn'`, 1)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM hosts WHERE inbound_tag = 'info'`, 2)
+}
+
+func TestHostsBulkModifySubscriptionChangeEnqueuesRuntimeSync(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("cdn", "vless", 443)))
+	token := adminBearerToken(t, server, "pouria", "pass123")
+	rec := adminJSONRequest(t, server, http.MethodGet, "/hosts", token, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hosts list status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var initial map[string][]hostResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &initial); err != nil {
+		t.Fatal(err)
+	}
+	hostID := initial["cdn"][0].ID
+	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (10, 'vip')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO service_hosts (service_id, host_id, sort) VALUES (10, ?, 0)`, hostID); err != nil {
+		t.Fatal(err)
+	}
+
+	payload := `{
+		"cdn": [
+			{"id":` + itoa(hostID) + `,"remark":"new label","address":"new.example.com","port":443,"security":"inbound_default","is_disabled":false}
+		]
+	}`
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/hosts", token, payload)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hosts update status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = 10 AND host_id = `+itoa(hostID), 1)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+}
+
+func TestWireGuardHostDNSPersists(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("wg-main", "wireguard", 51820)))
+	token := adminBearerToken(t, server, "pouria", "pass123")
+
+	rec := adminJSONRequest(t, server, http.MethodGet, "/hosts", token, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hosts list status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var initial map[string][]hostResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &initial); err != nil {
+		t.Fatal(err)
+	}
+	if initial["wg-main"][0].DNSPrimary != "1.1.1.1" || initial["wg-main"][0].DNSSecondary != "8.8.8.8" {
+		t.Fatalf("unexpected default WireGuard host DNS: %#v", initial["wg-main"][0])
+	}
+	hostID := initial["wg-main"][0].ID
+	payload := `{"wg-main":[{"id":` + itoa(hostID) + `,"remark":"wg-edge","address":"wg.example.com","dns_primary":"9.9.9.9","dns_secondary":"149.112.112.112"}]}`
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/hosts", token, payload)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hosts update status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var updated map[string][]hostResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	host := updated["wg-main"][0]
+	if host.DNSPrimary != "9.9.9.9" || host.DNSSecondary != "149.112.112.112" {
+		t.Fatalf("unexpected WireGuard host DNS: %#v", host)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/hosts", token,
+		`{"wg-main":[{"id":`+itoa(hostID)+`,"remark":"wg-edge","address":"wg.example.com","dns_primary":"not-an-ip","dns_secondary":"8.8.8.8"}]}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "primary DNS") {
+		t.Fatalf("invalid DNS status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHostsBulkModifyDeletingDuplicateInboundHostEnqueuesRuntimeSync(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("cdn", "vless", 443)))
+	token := adminBearerToken(t, server, "pouria", "pass123")
+	rec := adminJSONRequest(t, server, http.MethodGet, "/hosts", token, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hosts list status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var initial map[string][]hostResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &initial); err != nil {
+		t.Fatal(err)
+	}
+	firstHostID := initial["cdn"][0].ID
+	if _, err := db.Exec(`INSERT INTO hosts (id, remark, address, inbound_tag, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host) VALUES (55, 'second', 'second.example.com', 'cdn', 'tls', 'h2', 'chrome', 0, 0, 0, 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (10, 'vip')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO service_hosts (service_id, host_id, sort) VALUES (10, ?, 0), (10, 55, 1)`, firstHostID); err != nil {
+		t.Fatal(err)
+	}
+
+	payload := `{
+		"cdn": [
+			{"id":` + itoa(firstHostID) + `,"remark":"kept","address":"kept.example.com","port":443,"security":"inbound_default","is_disabled":false}
+		]
+	}`
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/hosts", token, payload)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hosts update status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM hosts WHERE id = 55`, 0)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = 10 AND host_id = `+itoa(firstHostID), 1)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
 }
 
 func TestHostsRejectUnknownInbound(t *testing.T) {

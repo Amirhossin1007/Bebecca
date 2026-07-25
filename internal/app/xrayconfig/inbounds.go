@@ -58,6 +58,11 @@ func (r Repository) GroupedInbounds(ctx context.Context) (map[string][]map[strin
 			grouped[protocol] = []map[string]any{}
 		}
 	}
+	for protocol := range virtualTunnelProtocols {
+		if _, ok := grouped[protocol]; !ok {
+			grouped[protocol] = []map[string]any{}
+		}
+	}
 	return grouped, nil
 }
 
@@ -106,6 +111,14 @@ func (r Repository) CreateInbound(ctx context.Context, payload map[string]any) (
 	if len(directTargets) > 0 {
 		return InboundMutationResult{}, fmt.Errorf("%w: inbound %q already exists", ErrDuplicateInboundTag, tag)
 	}
+	if err := r.ensureSingleL2TPInboundTx(ctx, tx, inbound, ""); err != nil {
+		return InboundMutationResult{}, err
+	}
+	scope := SnapshotScope{TargetIDs: targetIDs, InboundTag: tag, HostTags: []string{tag}}
+	before, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
 
 	configs, err := r.ensureTargetConfigsForMutationTx(ctx, tx, targetIDs)
 	if err != nil {
@@ -124,6 +137,16 @@ func (r Repository) CreateInbound(ctx context.Context, payload map[string]any) (
 		return InboundMutationResult{}, err
 	}
 	if err := r.enqueueSyncForTargetsTx(ctx, tx, sortedTargetIDs(configs)); err != nil {
+		return InboundMutationResult{}, err
+	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "inbound.create", ResourceType: "inbound", ResourceKey: tag,
+		Summary: "Created inbound", Before: before, After: after,
+	}); err != nil {
 		return InboundMutationResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -160,6 +183,9 @@ func (r Repository) UpdateInbound(ctx context.Context, tag string, payload map[s
 	if err != nil {
 		return InboundMutationResult{}, err
 	}
+	if err := r.ensureSingleL2TPInboundTx(ctx, tx, inbound, tag); err != nil {
+		return InboundMutationResult{}, err
+	}
 	targetSet := make(map[string]bool, len(targetIDs))
 	for _, targetID := range targetIDs {
 		targetSet[targetID] = true
@@ -176,17 +202,34 @@ func (r Repository) UpdateInbound(ctx context.Context, tag string, payload map[s
 		changedTargets = append(changedTargets, targetID)
 	}
 	sort.Strings(changedTargets)
+	scope := SnapshotScope{TargetIDs: changedTargets, InboundTag: tag, HostTags: []string{tag}}
+	before, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
 
 	configs, err := r.ensureTargetConfigsForMutationTx(ctx, tx, changedTargets)
 	if err != nil {
 		return InboundMutationResult{}, err
 	}
+	fallbackReverseClients := []any{}
+	for _, targetID := range currentTargets {
+		if clients, _ := reverseClientsForInbound(configs[targetID], tag); len(clients) > 0 {
+			fallbackReverseClients = clients
+			break
+		}
+	}
 	for _, targetID := range changedTargets {
 		if targetSet[targetID] {
-			if err := validatePortAvailable(configs[targetID], inbound, tag); err != nil {
+			clients, exists := reverseClientsForInbound(configs[targetID], tag)
+			if !exists {
+				clients = fallbackReverseClients
+			}
+			nextInbound := withReverseClients(inbound, clients)
+			if err := validatePortAvailable(configs[targetID], nextInbound, tag); err != nil {
 				return InboundMutationResult{}, err
 			}
-			upsertInbound(configs[targetID], inbound, tag)
+			upsertInbound(configs[targetID], nextInbound, tag)
 			continue
 		}
 		removeInboundFromConfig(configs[targetID], tag)
@@ -198,6 +241,16 @@ func (r Repository) UpdateInbound(ctx context.Context, tag string, payload map[s
 		return InboundMutationResult{}, err
 	}
 	if err := r.enqueueSyncForTargetsTx(ctx, tx, changedTargets); err != nil {
+		return InboundMutationResult{}, err
+	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "inbound.update", ResourceType: "inbound", ResourceKey: tag,
+		Summary: "Updated inbound", Before: before, After: after,
+	}); err != nil {
 		return InboundMutationResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -233,6 +286,11 @@ func (r Repository) DeleteInbound(ctx context.Context, tag string) (InboundMutat
 	if !r.isManageableInbound(inbound) {
 		return InboundMutationResult{}, ErrInboundNotFound
 	}
+	scope := SnapshotScope{TargetIDs: currentTargets, InboundTag: tag, HostTags: []string{tag}}
+	before, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
 
 	affectedServiceIDs, err := r.removeHostsForInboundTx(ctx, tx, tag)
 	if err != nil {
@@ -256,6 +314,16 @@ func (r Repository) DeleteInbound(ctx context.Context, tag string) (InboundMutat
 		return InboundMutationResult{}, err
 	}
 	if err := r.enqueueAffectedServiceUsersTx(ctx, tx, affectedServiceIDs); err != nil {
+		return InboundMutationResult{}, err
+	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "inbound.delete", ResourceType: "inbound", ResourceKey: tag,
+		Summary: "Deleted inbound", Before: before, After: after,
+	}); err != nil {
 		return InboundMutationResult{}, err
 	}
 
@@ -419,59 +487,72 @@ func (r Repository) prepareInboundPayload(payload map[string]any, enforceTag str
 	if protocol == "" {
 		return nil, fmt.Errorf("%w: protocol is required", ErrInvalidInbound)
 	}
-	if _, ok := proxyProtocols[protocol]; !ok {
+	protocol = normalizeProxyProtocol(protocol)
+	if !isManageableInboundProtocol(protocol) {
 		return nil, fmt.Errorf("%w: unsupported protocol %q", ErrInvalidInbound, protocol)
+	}
+	if isVirtualTunnelProtocol(protocol) {
+		inbound["tag"] = tag
+		inbound["protocol"] = protocol
+		inbound = normalizeVirtualTunnelInbound(inbound)
+		if err := validateExecutableInbound(inbound); err != nil {
+			return nil, err
+		}
+		return inbound, nil
 	}
 	settings := mapValue(inbound["settings"])
 	if len(settings) == 0 {
 		settings = make(map[string]any)
 	}
-	settings["clients"] = []any{}
+	settings["clients"] = ReverseClients(settings["clients"])
+	if protocol == "hysteria" {
+		if _, ok := settings["version"]; !ok {
+			settings["version"] = 2
+		}
+		stream := mapValue(inbound["streamSettings"])
+		if len(stream) == 0 {
+			stream = make(map[string]any)
+		}
+		stream["network"] = "hysteria"
+		stream["security"] = "tls"
+		hysteriaSettings := mapValue(stream["hysteriaSettings"])
+		if len(hysteriaSettings) == 0 {
+			hysteriaSettings = make(map[string]any)
+		}
+		if _, ok := hysteriaSettings["version"]; !ok {
+			hysteriaSettings["version"] = 2
+		}
+		if _, ok := hysteriaSettings["udpIdleTimeout"]; !ok {
+			hysteriaSettings["udpIdleTimeout"] = 60
+		}
+		stream["hysteriaSettings"] = hysteriaSettings
+		inbound["streamSettings"] = stream
+	}
 	inbound["settings"] = settings
 	inbound["tag"] = tag
 	inbound["protocol"] = protocol
 	if err := normalizeRealitySettings(inbound); err != nil {
 		return nil, err
 	}
+	if err := validateExecutableInbound(inbound); err != nil {
+		return nil, err
+	}
+	if err := validateStreamCertificateFiles(inbound); err != nil {
+		return nil, fmt.Errorf("inbound %q TLS certificate: %w", tag, err)
+	}
 	return inbound, nil
 }
 
 func (r Repository) isReservedInboundTag(tag string) bool {
-	if tag == "" {
-		return false
-	}
-	if r.options.FallbackInboundTag != "" && tag == r.options.FallbackInboundTag {
-		return true
-	}
-	for _, excluded := range r.options.ExcludedInboundTags {
-		if strings.TrimSpace(excluded) == tag {
-			return true
-		}
-	}
 	return false
 }
 
 func (r Repository) isManageableInbound(inbound map[string]any) bool {
-	return IsManageableInbound(inbound, r.excludedInboundTags())
+	return IsManageableInbound(inbound)
 }
 
 func (r Repository) manageableParseOptions() Options {
-	opts := r.options
-	opts.ExcludedInboundTags = r.excludedInboundTags()
-	return opts
-}
-
-func (r Repository) excludedInboundTags() []string {
-	excluded := make([]string, 0, len(r.options.ExcludedInboundTags)+1)
-	for _, tag := range r.options.ExcludedInboundTags {
-		if cleaned := strings.TrimSpace(tag); cleaned != "" {
-			excluded = append(excluded, cleaned)
-		}
-	}
-	if fallback := strings.TrimSpace(r.options.FallbackInboundTag); fallback != "" {
-		excluded = append(excluded, fallback)
-	}
-	return excluded
+	return r.options
 }
 
 func normalizeRealitySettings(inbound map[string]any) error {
@@ -553,20 +634,50 @@ func removeWhitespace(value string) string {
 }
 
 func validatePortAvailable(config map[string]any, inbound map[string]any, skipTag string) error {
-	port := fmt.Sprint(inbound["port"])
-	if port == "" || port == "<nil>" {
+	ports := inboundRuntimePorts(inbound)
+	if len(ports) == 0 {
 		return nil
+	}
+	seen := map[int]struct{}{}
+	for _, port := range ports {
+		if _, exists := seen[port]; exists {
+			return fmt.Errorf("%w: port %d is already used in target", ErrDuplicateInboundPort, port)
+		}
+		seen[port] = struct{}{}
 	}
 	for _, existing := range listOfMaps(config["inbounds"]) {
 		tag := stringValue(existing["tag"])
 		if skipTag != "" && tag == skipTag {
 			continue
 		}
-		if fmt.Sprint(existing["port"]) == port {
-			return fmt.Errorf("%w: port %s is already used in target", ErrDuplicateInboundPort, port)
+		for _, existingPort := range inboundRuntimePorts(existing) {
+			for _, port := range ports {
+				if existingPort == port {
+					return fmt.Errorf("%w: port %d is already used in target", ErrDuplicateInboundPort, port)
+				}
+			}
 		}
 	}
 	return nil
+}
+
+func inboundRuntimePorts(inbound map[string]any) []int {
+	ports := make([]int, 0, 2)
+	if port, err := parseConfigPort(inbound["port"]); err == nil && port > 0 {
+		ports = append(ports, port)
+	}
+	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	if !isVirtualTunnelProtocol(protocol) {
+		return ports
+	}
+	settings := normalizeVirtualTunnelSettings(protocol, mapValue(inbound["settings"]))
+	if !virtualTunnelRoutesToXray(settings) {
+		return ports
+	}
+	if tunnelPort, ok := virtualTunnelPort(settings); ok && tunnelPort > 0 {
+		ports = append(ports, tunnelPort)
+	}
+	return ports
 }
 
 func upsertInbound(config map[string]any, inbound map[string]any, oldTag string) {
@@ -612,11 +723,30 @@ func sanitizeInbound(inbound map[string]any, directTargets []string, effectiveTa
 	if len(settings) == 0 {
 		settings = make(map[string]any)
 	}
-	settings["clients"] = []any{}
+	if !isVirtualTunnelProtocol(normalizeProxyProtocol(stringValue(sanitized["protocol"]))) {
+		settings["clients"] = []any{}
+	}
 	sanitized["settings"] = settings
 	sanitized["targets"] = targetObjects(directTargets)
 	sanitized["effective_targets"] = targetObjects(effectiveTargets)
 	return sanitized
+}
+
+func reverseClientsForInbound(config map[string]any, tag string) ([]any, bool) {
+	for _, inbound := range listOfMaps(config["inbounds"]) {
+		if stringValue(inbound["tag"]) == tag {
+			return ReverseClients(mapValue(inbound["settings"])["clients"]), true
+		}
+	}
+	return nil, false
+}
+
+func withReverseClients(inbound map[string]any, clients []any) map[string]any {
+	next := deepCopyMap(inbound)
+	settings := mapValue(next["settings"])
+	settings["clients"] = clients
+	next["settings"] = settings
+	return next
 }
 
 func targetObjects(targetIDs []string) []any {
@@ -755,6 +885,102 @@ func (r Repository) findManageableInboundTx(ctx context.Context, tx *sql.Tx, tag
 	return nil, ErrInboundNotFound
 }
 
+func (r Repository) ensureSingleL2TPInboundTx(ctx context.Context, tx *sql.Tx, inbound map[string]any, allowedTag string) error {
+	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	if protocol != L2TPProtocol && protocol != IKEv2Protocol {
+		return nil
+	}
+	tag, err := r.findSingleIPSecInboundTagTx(ctx, tx, allowedTag, protocol)
+	if err != nil {
+		return err
+	}
+	if tag != "" {
+		if protocol == IKEv2Protocol {
+			return fmt.Errorf("%w: only one IKEv2 inbound is supported; existing inbound %q already uses UDP 500/4500", ErrInvalidInbound, tag)
+		}
+		return fmt.Errorf("%w: only one L2TP/IPsec inbound is supported; existing inbound %q already uses UDP 500/4500/1701", ErrInvalidInbound, tag)
+	}
+	return nil
+}
+
+func (r Repository) findSingleIPSecInboundTagTx(ctx context.Context, tx *sql.Tx, allowedTag, protocol string) (string, error) {
+	master, err := r.masterRawConfigTx(ctx, tx)
+	if err != nil {
+		return "", err
+	}
+	if tag := r.findProtocolInboundTagInConfig(master, allowedTag, protocol); tag != "" {
+		return tag, nil
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			return "", err
+		}
+		if tag := r.findProtocolInboundTagInConfig(NormalizePayload(jsonMap(raw)), allowedTag, protocol); tag != "" {
+			return tag, nil
+		}
+	}
+	return "", rows.Err()
+}
+
+func (r Repository) findProtocolInboundTagInConfig(config map[string]any, allowedTag, protocol string) string {
+	for _, candidate := range listOfMaps(config["inbounds"]) {
+		tag := stringValue(candidate["tag"])
+		if tag != "" && tag != allowedTag && r.isManageableInbound(candidate) && normalizeProxyProtocol(stringValue(candidate["protocol"])) == protocol {
+			return tag
+		}
+	}
+	return ""
+}
+
+func (r Repository) findL2TPInboundTagTx(ctx context.Context, tx *sql.Tx, allowedTag string) (string, error) {
+	master, err := r.masterRawConfigTx(ctx, tx)
+	if err != nil {
+		return "", err
+	}
+	if master != nil {
+		if tag := r.findL2TPInboundTagInConfig(master, allowedTag); tag != "" {
+			return tag, nil
+		}
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			return "", err
+		}
+		if tag := r.findL2TPInboundTagInConfig(NormalizePayload(jsonMap(raw)), allowedTag); tag != "" {
+			return tag, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	return "", nil
+}
+
+func (r Repository) findL2TPInboundTagInConfig(config map[string]any, allowedTag string) string {
+	for _, candidate := range listOfMaps(config["inbounds"]) {
+		tag := stringValue(candidate["tag"])
+		if tag == "" || tag == allowedTag || !r.isManageableInbound(candidate) {
+			continue
+		}
+		if normalizeProxyProtocol(stringValue(candidate["protocol"])) == L2TPProtocol {
+			return tag
+		}
+	}
+	return ""
+}
+
 func findInboundInConfig(config map[string]any, tag string) map[string]any {
 	for _, inbound := range listOfMaps(config["inbounds"]) {
 		if stringValue(inbound["tag"]) == tag {
@@ -842,18 +1068,28 @@ func (r Repository) enqueueSyncForTargetsTx(ctx context.Context, tx *sql.Tx, tar
 func (r Repository) ensureInboundRecordTx(ctx context.Context, tx *sql.Tx, tag string) error {
 	var id int64
 	err := tx.QueryRowContext(ctx, `SELECT id FROM inbounds WHERE tag = ?`, tag).Scan(&id)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO inbounds (tag) VALUES (?)`, tag); err != nil {
+			return err
+		}
+	}
+	return r.ensureDefaultHostForInboundTx(ctx, tx, tag)
+}
+
+func (r Repository) ensureDefaultHostForInboundTx(ctx context.Context, tx *sql.Tx, tag string) error {
+	if autoServiceTagRegexp.MatchString(tag) {
+		return nil
+	}
+	var hostID int64
+	err := tx.QueryRowContext(ctx, `SELECT id FROM hosts WHERE inbound_tag = ? LIMIT 1`, tag).Scan(&hostID)
 	if err == nil {
 		return nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return err
-	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO inbounds (tag) VALUES (?)`, tag)
-	if err != nil {
-		return err
-	}
-	if autoServiceTagRegexp.MatchString(tag) {
-		return nil
 	}
 	_, err = tx.ExecContext(
 		ctx,
@@ -926,23 +1162,11 @@ func (r Repository) enqueueAffectedServiceUsersTx(ctx context.Context, tx *sql.T
 	if len(serviceIDs) == 0 {
 		return nil
 	}
-	placeholders := sqlPlaceholders(len(serviceIDs))
-	args := int64SliceToAny(serviceIDs)
-	rows, err := tx.QueryContext(ctx, `SELECT id FROM users WHERE service_id IN (`+placeholders+`) AND status IN ('active', 'on_hold')`, args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var userID int64
-		if err := rows.Scan(&userID); err != nil {
-			return err
-		}
-		if err := enqueueNodeOperationTx(ctx, tx, "update_user", nil, &userID, map[string]any{}); err != nil {
-			return err
-		}
-	}
-	return rows.Err()
+	sort.Slice(serviceIDs, func(i, j int) bool { return serviceIDs[i] < serviceIDs[j] })
+	return r.enqueueSyncConfigTx(ctx, tx, nil, map[string]any{
+		"source":      "inbounds",
+		"service_ids": serviceIDs,
+	})
 }
 
 func sqlPlaceholders(count int) string {

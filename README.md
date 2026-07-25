@@ -94,6 +94,14 @@ Install Rebecca master with the binary installer:
 curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install
 ```
 
+Do not run the installers with `sudo bash -c "$(curl ...)"`; the downloaded script can exceed Linux's single-argument limit and fail with `Argument list too long`. Always pipe the download into `sudo bash -s --` as shown above.
+
+For the dev channel, use:
+
+```bash
+curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/dev/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install --dev
+```
+
 Install Rebecca-node on each node server with the binary node installer:
 
 ```bash
@@ -170,8 +178,8 @@ Then run the following command to run the Go database migrations:
 ./dist/rebecca-cli migrate up
 ```
 
-Downgrade migrations are not supported. For troubleshooting legacy databases,
-see `docs/MIGRATION_GO_ONLY.md`.
+Downgrade migrations are not supported. Check the migration status with
+`./dist/rebecca-cli migrate status` before upgrading a legacy database.
 
 If you want to use the CLI globally, install the built Go CLI:
 
@@ -292,8 +300,6 @@ By default the app will be run on `http://localhost:8000/dashboard`. You can con
 
 | Variable                                 | Description                                                                                                              |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| SUDO_USERNAME                            | Bootstrap superuser username.                                                                                            |
-| SUDO_PASSWORD                            | Bootstrap superuser password.                                                                                            |
 | SQLALCHEMY_DATABASE_URL                  | Database URL. The legacy name is still used by the Go runtime for compatibility.                                         |
 | UVICORN_HOST                             | Public gateway bind host (default: `0.0.0.0`).                                                                           |
 | UVICORN_PORT                             | Public gateway bind port (default: `8000`).                                                                              |
@@ -308,23 +314,16 @@ By default the app will be run on `http://localhost:8000/dashboard`. You can con
 | USERS_AUTODELETE_DAYS                    | Delete expired users after this many days. Negative values disable this feature.                                         |
 | USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS | Whether auto-delete includes limited accounts.                                                                            |
 | USERS_LIST_TIMEOUT_SECONDS               | Optional timeout for large user list queries. `0` disables the timeout.                                                  |
-| SUBSCRIPTION_READ_ONLY                   | If true, subscription reads do not update last-used metadata.                                                            |
-| XRAY_SUBSCRIPTION_URL_PREFIX             | Prefix used by CLI subscription-link helpers.                                                                             |
-| XRAY_FALLBACKS_INBOUND_TAG               | Inbound tag that includes fallbacks.                                                                                      |
-| XRAY_EXCLUDE_INBOUND_TAGS                | Inbound tags excluded from config/link generation.                                                                        |
-| REBECCA_APP_TEMPLATE_BASE                | Default bundled template base path.                                                                                       |
 | REBECCA_CERT_BASE                        | Base directory for managed certificates.                                                                                  |
 | REBECCA_CONFIG_DIR                       | Configuration root included in full backup export/import.                                                                |
-| GEO_TEMPLATES_INDEX_URL                  | Optional allowed Geo template index URL.                                                                                  |
-| REBECCA_WARP_API_BASE                    | Cloudflare WARP API base URL override.                                                                                    |
 
 # Telegram integration
 
-Telegram bot commands, Telegram reports, Telegram settings, and Telegram backup delivery are temporarily disabled while Rebecca is migrated to native Go services. The rebuild plan and legacy behavior notes are documented in `docs/TODO_GO_TELEGRAM.md`.
+Telegram bot commands, reports, settings, and backup delivery are handled by the Go services and can be configured from the panel.
 
 # Webhook notifications
 
-Webhook notifications are temporarily disabled with Telegram/report delivery. The future Go event outbox and retry behavior are tracked in `docs/TODO_GO_TELEGRAM.md`.
+Webhook notifications are handled by the Go event worker and can be configured from the panel.
 
 # Donation
 

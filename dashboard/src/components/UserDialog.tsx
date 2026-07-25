@@ -24,7 +24,6 @@ import {
 	ModalCloseButton,
 	ModalHeader,
 	ModalOverlay,
-	Select,
 	SlideFade,
 	Spinner,
 	Stack,
@@ -43,6 +42,7 @@ import {
 	useToast,
 	VStack,
 } from "@chakra-ui/react";
+import { PanelSelect as Select } from "components/common/PanelSelect";
 import { keyframes } from "@emotion/react";
 import {
 	CheckIcon,
@@ -73,12 +73,9 @@ import {
 	useState,
 } from "react";
 import ReactApexChart from "react-apexcharts";
-import CopyToClipboard from "react-copy-to-clipboard";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
 
-import { getPanelSettings } from "service/settings";
 import { fetch as apiFetch } from "service/http";
 import {
 	AdminRole,
@@ -97,6 +94,7 @@ import {
 	getAdminTrafficScope,
 	isUserManagementLocked,
 } from "utils/adminTraffic";
+import { copyTextToClipboard } from "utils/clipboard";
 import { getConfigLabelFromLink } from "utils/configLabel";
 import { relativeExpiryDate } from "utils/dateFormatter";
 import { formatBytes } from "utils/formatByte";
@@ -105,9 +103,9 @@ import { generateUserLinks } from "utils/userLinks";
 import { z } from "zod";
 import { NumericInput } from "./common/NumericInput";
 import { AnimatedSubmitButton } from "./common/AnimatedSubmitButton";
+import { DeleteIcon } from "./common/DeleteIcon";
 import { DateTimePicker } from "./DateTimePicker";
-import { DeleteConfirmPopover } from "./DeleteConfirmPopover";
-import { DeleteIcon } from "./DeleteUserModal";
+import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { Icon } from "./Icon";
 import { Input } from "./Input";
 import { createUsageConfig, UsageFilter } from "./UsageFilter";
@@ -580,6 +578,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		linkTemplates,
 		setQRCode,
 		setSubLink,
+		editingUserInitialTab,
 	} = useDashboard();
 
 	const isEditing = !!editingUser;
@@ -607,7 +606,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const isMobileDialog =
 		useBreakpointValue({ base: true, md: false }) ?? false;
 	const DATA_UNIT = "GB";
-	const DAYS_UNIT = t("userDialog.days", "Days");
+	const DAYS_UNIT = t("userDialog.days");
 	const basePad = "0.75rem";
 	const endPadding = isRTL
 		? { paddingInlineStart: "2.75rem", paddingInlineEnd: basePad }
@@ -837,7 +836,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 				Number.isNaN(parsedLimit) ||
 				parsedLimit < 0)
 		) {
-			setError(t("userDialog.autoRenewInvalidLimit", "Invalid renewal limit"));
+			setError(t("userDialog.autoRenewInvalidLimit"));
 			return;
 		}
 
@@ -851,7 +850,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 				Number.isNaN(parsedDays) ||
 				parsedDays < 0)
 		) {
-			setError(t("userDialog.autoRenewInvalidDays", "Invalid renewal days"));
+			setError(t("userDialog.autoRenewInvalidDays"));
 			return;
 		}
 
@@ -895,23 +894,24 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 	const quickExpiryOptions = [
 		{
-			label: t("userDialog.quickSelectOneMonth", "+1 month"),
+			label: t("userDialog.quickSelectOneMonth"),
 			amount: 1,
 			unit: "month",
 		},
 		{
-			label: t("userDialog.quickSelectThreeMonths", "+3 months"),
+			label: t("userDialog.quickSelectThreeMonths"),
 			amount: 3,
 			unit: "month",
 		},
 		{
-			label: t("userDialog.quickSelectOneYear", "+1 year"),
+			label: t("userDialog.quickSelectOneYear"),
 			amount: 1,
 			unit: "year",
 		},
 	] as const;
 
-	const services = useServicesStore((state) => state.serviceOptions);
+	const rawServices = useServicesStore((state) => state.serviceOptions);
+	const services = Array.isArray(rawServices) ? rawServices : [];
 	const servicesLoading = useServicesStore((state) => state.isOptionsLoading);
 	const { userData, getUserIsSuccess } = useGetUser();
 	const hasPrivilegedRole = Boolean(
@@ -992,13 +992,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const useTwoColumns = showServiceSelector && services.length > 0;
 	const shouldCenterForm = !useTwoColumns;
 	const shouldCompactModal = !hasPrivilegedRole && services.length === 0;
-	const { data: panelSettings } = useQuery("panel-settings", getPanelSettings, {
-		enabled: isOpen,
-		staleTime: 5 * 60 * 1000,
-		refetchOnWindowFocus: false,
-	});
-	const allowIpLimit = Boolean(panelSettings?.use_nobetci);
-
 	const [activeTab, setActiveTab] = useState(0);
 	const [usageFetched, setUsageFetched] = useState(false);
 
@@ -1246,12 +1239,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		const urls = editingUser.subscription_urls ?? {};
 		const order = ["username-key", "key", "token"] as const;
 		const labels: Record<(typeof order)[number], string> = {
-			"username-key": t(
-				"userDialog.links.subscriptionUsernameKey",
-				"Username + Key",
-			),
-			key: t("userDialog.links.subscriptionKey", "Key"),
-			token: t("userDialog.links.subscriptionToken", "Token"),
+			"username-key": t("userDialog.links.subscriptionUsernameKey"),
+			key: t("userDialog.links.subscriptionKey"),
+			token: t("userDialog.links.subscriptionToken"),
 		};
 		const orderIndex = new Map(order.map((key, index) => [key, index]));
 
@@ -1296,7 +1286,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			if (fallback) {
 				results.push({
 					key: "primary",
-					label: t("userDialog.links.subscription", "Subscription link"),
+					label: t("userDialog.links.subscription"),
 					url: fallback,
 				});
 			}
@@ -1321,7 +1311,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		return userLinks.map((link, index) => {
 			const label =
 				getConfigLabelFromLink(link) ||
-				t("userDialog.links.configFallback", "Config {{index}}", {
+				t("userDialog.links.configFallback", {
 					index: index + 1,
 				});
 			return { link, label };
@@ -1369,12 +1359,15 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const [usage, setUsage] = useState(createUsageConfig(colorMode, usageTitle));
 
 	const [usageFilter, setUsageFilter] = useState("1m");
+	const usageFetchSequence = useRef(0);
 
 	const fetchUsageWithFilter = useCallback(
 		(query: FilterUsageType) => {
 			if (!editingUser) return;
-			fetchUserUsage(editingUser as unknown as UserListItem, query).then(
-				(data: any) => {
+			const requestId = ++usageFetchSequence.current;
+			fetchUserUsage(editingUser as unknown as UserListItem, query)
+				.then((data: any) => {
+					if (requestId !== usageFetchSequence.current) return;
 					const labels = [];
 
 					const series = [];
@@ -1386,21 +1379,39 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					}
 
 					setUsage(createUsageConfig(colorMode, usageTitle, series, labels));
-				},
-			);
+				})
+				.catch((error) => {
+					if (requestId === usageFetchSequence.current) {
+						console.error("Failed to fetch user usage:", error);
+					}
+				});
 		},
 		[editingUser, colorMode, usageTitle, fetchUserUsage],
 	);
 
 	useEffect(() => {
+		usageFetchSequence.current += 1;
 		if (editingUser) {
 			const formatted = formatUser(editingUser);
 			form.reset(formatted);
 			setExpireDays(deriveDaysFromSeconds(formatted.expire));
 			setUsage(createUsageConfig(colorMode, usageTitle));
 			setUsageFilter("1m");
-			setUsageFetched(false);
-			setActiveTab(0);
+			// Deep-link support: open directly on the Usage tab (index 1) when
+			// requested via onEditingUser(user, 1), otherwise the Edit tab.
+			const wantsUsageTab = editingUserInitialTab === 1 && canViewTraffic;
+			if (wantsUsageTab) {
+				setUsageFetched(true);
+				fetchUsageWithFilter({
+					start: dayjs()
+						.utc()
+						.subtract(30, "day")
+						.format("YYYY-MM-DDTHH:00:00"),
+				});
+			} else {
+				setUsageFetched(false);
+			}
+			setActiveTab(wantsUsageTab ? 1 : 0);
 			setCopiedSubscriptionKey(null);
 			setCopiedAllConfigs(false);
 			setCopiedConfigIndex(null);
@@ -1446,6 +1457,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		}
 	}, [
 		editingUser,
+		editingUserInitialTab,
+		canViewTraffic,
+		fetchUsageWithFilter,
 		deriveDaysFromSeconds,
 		form.reset,
 		resetAutoRenewFormValues,
@@ -1479,14 +1493,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			activeUsersCount !== null
 		) {
 			if (activeUsersCount >= usersLimit) {
-				const errorMessage = t(
-					"userDialog.usersLimitReached",
-					"User limit reached. You have {{active}} active users out of {{limit}} allowed.",
-					{
+				const errorMessage = t("userDialog.usersLimitReached", {
 						active: activeUsersCount,
 						limit: usersLimit,
-					},
-				);
+					});
 				setError(errorMessage);
 				setLoading(false);
 				showSubmitError();
@@ -1560,10 +1570,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 		if (isCreatedTrafficScope && dataLimitBytes <= 0) {
 			setDataLimitError(
-				t(
-					"userDialog.createdTrafficUnlimitedNotAllowed",
-					"Unlimited data is not allowed while your admin traffic mode is created traffic.",
-				),
+				t("userDialog.createdTrafficUnlimitedNotAllowed"),
 			);
 			return;
 		}
@@ -1572,11 +1579,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			const usedTraffic = Math.max(0, editingUser.used_traffic ?? 0);
 			if (dataLimitBytes > 0 && dataLimitBytes < usedTraffic) {
 				setDataLimitError(
-					t("userDialog.dataLimitBelowUsedTraffic", {
-						used: formatBytes(usedTraffic, 2),
-						defaultValue:
-							"Data limit cannot be lower than this user's used traffic ({{used}}).",
-					}),
+					t("userDialog.dataLimitBelowUsedTraffic", { used: formatBytes(usedTraffic, 2) }),
 				);
 				return;
 			}
@@ -1681,7 +1684,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					(nonSudoSingleService ? (services[0]?.id ?? null) : null));
 
 			if (!effectiveServiceId) {
-				setError(t("userDialog.selectService", "Please choose a service"));
+				setError(t("userDialog.selectService"));
 				setLoading(false);
 				showSubmitError();
 				return;
@@ -1813,7 +1816,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		}
 
 		if (!selectedServiceId) {
-			setError(t("userDialog.selectService", "Please choose a service"));
+			setError(t("userDialog.selectService"));
 			setLoading(false);
 			showSubmitError();
 			return;
@@ -2089,13 +2092,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											<AlertIcon />
 											<Box flex="1" minW={0}>
 												<AlertDescription>
-													{t(
-														"userDialog.serviceManagedNotice",
-														"This user is tied to service {{service}}. Update the service to change shared settings.",
-														{
+													{t("userDialog.serviceManagedNotice", {
 															service: editingUser?.service_name ?? "",
-														},
-													)}
+														})}
 												</AlertDescription>
 											</Box>
 											<Box
@@ -2176,13 +2175,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 									>
 										<AlertIcon />
 										<AlertDescription>
-											{`${t(
-												"userDialog.noServicesAvailable",
-												"No services are available yet.",
-											)} ${t(
-												"userDialog.createServiceToManage",
-												"Create a service to manage users.",
-											)}`}
+											{`${t("userDialog.noServicesAvailable")} ${t("userDialog.createServiceToManage")}`}
 										</AlertDescription>
 									</Alert>
 								)}
@@ -2191,10 +2184,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 									<Alert status="warning" mb={4} borderRadius="md">
 										<AlertIcon />
 										<AlertDescription>
-											{t(
-												"userDialog.managementLocked",
-												"User management is locked because the created traffic limit has been reached. Only disable and enable actions remain available.",
-											)}
+											{t("userDialog.managementLocked")}
 										</AlertDescription>
 									</Alert>
 								)}
@@ -2202,7 +2192,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 								<Tabs
 									index={activeTab}
 									onChange={handleTabChange}
-									variant="enclosed"
+									className="xray-dialog-auto-sections"
+									variant="unstyled"
 									isLazy
 									w="full"
 								>
@@ -2215,15 +2206,15 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											"&::-webkit-scrollbar": { display: "none" },
 										}}
 									>
-										<Tab flexShrink={0}>{t("userDialog.tabs.edit", "Edit")}</Tab>
+										<Tab flexShrink={0}>{t("edit")}</Tab>
 										{isEditing && canViewTraffic && (
 											<Tab flexShrink={0}>
-												{t("userDialog.tabs.usage", "Usage")}
+												{t("userDialog.tabs.usage")}
 											</Tab>
 										)}
 										{isEditing && (
 											<Tab flexShrink={0}>
-												{t("userDialog.tabs.links", "Links")}
+												{t("userDialog.tabs.links")}
 											</Tab>
 										)}
 									</TabList>
@@ -2271,10 +2262,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		<Tooltip
 																			hasArrow
 																			placement="top"
-																			label={t(
-																				"userDialog.usernameHint",
-																				"Username only can be 3 to 32 characters and contain a-z, 0-9, underscores, hyphens, dots, or @.",
-																			)}
+																			label={t("userDialog.usernameHint")}
 																		>
 																			<chakra.span
 																				display="inline-flex"
@@ -2315,10 +2303,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						left={endAdornmentProps.left}
 																					>
 																						<IconButton
-																							aria-label={t(
-																								"userDialog.generateUsername",
-																								"Generate random username",
-																							)}
+																							aria-label={t("userDialog.generateUsername")}
 																							size="sm"
 																							variant="ghost"
 																							icon={<SparklesIcon width={18} />}
@@ -2405,10 +2390,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				mt={1}
 																				textAlign={isRTL ? "end" : "start"}
 																			>
-																				{t(
-																					"userDialog.createdBy",
-																					"Created by",
-																				)}
+																				{t("userDialog.createdBy")}
 																				: {editingUser.admin_username}
 																			</FormHelperText>
 																		)}
@@ -2471,8 +2453,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		}}
 																	/>
 																</FormControl>
-																{allowIpLimit && (
-																	<FormControl flex="1">
+																<FormControl flex="1">
 																		<FormLabel
 																			display="flex"
 																			alignItems="center"
@@ -2485,14 +2466,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																			}
 																			textAlign={isRTL ? "right" : "left"}
 																		>
-																			{t("userDialog.ipLimitLabel", "IP limit")}
+																			{t("userDialog.ipLimitLabel")}
 																			<Tooltip
 																				hasArrow
 																				placement="top"
-																				label={t(
-																					"userDialog.ipLimitHint",
-																					"Maximum number of unique IPs allowed. Leave empty or '-' for unlimited.",
-																				)}
+																				label={t("userDialog.ipLimitHint")}
 																			>
 																				<chakra.span
 																					display="inline-flex"
@@ -2521,27 +2499,18 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						typeof value !== "number" ||
 																						Number.isNaN(value)
 																					) {
-																						return t(
-																							"userDialog.ipLimitValidation",
-																							"Enter a valid non-negative number",
-																						);
+																						return t("userDialog.ipLimitValidation");
 																					}
 																					return value >= 0
 																						? true
-																						: t(
-																								"userDialog.ipLimitValidation",
-																								"Enter a valid non-negative number",
-																							);
+																						: t("userDialog.ipLimitValidation");
 																				},
 																			}}
 																			render={({ field }) => (
 																				<Input
 																					size="sm"
 																					borderRadius="6px"
-																					placeholder={t(
-																						"userDialog.ipLimitPlaceholder",
-																						"Leave empty or '-' for unlimited",
-																					)}
+																					placeholder={t("userDialog.ipLimitPlaceholder")}
 																					value={
 																						typeof field.value === "number" &&
 																						field.value > 0
@@ -2577,8 +2546,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				/>
 																			)}
 																		/>
-																	</FormControl>
-																)}
+																</FormControl>
 															</Stack>
 
 															<Collapse
@@ -2679,11 +2647,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		textAlign={isRTL ? "right" : "left"}
 																	>
 																		{isOnHold
-																			? t("expires.days", "Expires in (days)")
-																			: t(
-																					"expires.selectDate",
-																					"Select expiration date",
-																				)}
+																			? t("expires.days")
+																			: t("expires.selectDate")}
 																	</FormLabel>
 																	<Box gridArea="field" minW={0}>
 																		{isOnHold ? (
@@ -2765,10 +2730,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						<DateTimePicker
 																							value={selectedDate}
 																							onChange={handleDateChange}
-																							placeholder={t(
-																								"expires.selectDate",
-																								"Select expiration date",
-																							)}
+																							placeholder={t("expires.selectDate")}
 																							disabled={disabled}
 																							minDate={new Date()}
 																							quickSelects={quickExpiryOptions.map(
@@ -2857,7 +2819,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															{canSetFlow && (
 																<FormControl mb="10px">
 																	<FormLabel>
-																		{t("userDialog.flow.label", "Flow")}
+																		{t("userDialog.flow.label")}
 																	</FormLabel>
 																	<Controller
 																		name="flow"
@@ -2872,19 +2834,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				isDisabled={disabled}
 																			>
 																				<option value="">
-																					{t("userDialog.flow.none", "None")}
+																					{t("userDialog.flow.none")}
 																				</option>
 																				<option value="xtls-rprx-vision">
-																					{t(
-																						"userDialog.flow.xtls_rprx_vision",
-																						"xtls-rprx-vision",
-																					)}
+																					{t("userDialog.flow.xtls_rprx_vision")}
 																				</option>
 																				<option value="xtls-rprx-vision-udp443">
-																					{t(
-																						"userDialog.flow.xtls_rprx_vision_udp443",
-																						"xtls-rprx-vision-udp443",
-																					)}
+																					{t("userDialog.flow.xtls_rprx_vision_udp443")}
 																				</option>
 																			</Select>
 																		)}
@@ -2910,7 +2866,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 													<GridItem mt={useTwoColumns ? 0 : 4}>
 														<FormControl isRequired>
 															<FormLabel>
-																{t("userDialog.selectServiceLabel", "Service")}
+																{t("userDialog.selectServiceLabel")}
 															</FormLabel>
 
 															{servicesLoading ? (
@@ -3040,22 +2996,15 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						color="gray.500"
 																						_dark={{ color: "gray.400" }}
 																					>
-																						{t(
-																							"userDialog.serviceSummary",
-																							"{{hosts}} hosts, {{users}} users",
-																							{
+																						{t("userDialog.serviceSummary", {
 																								hosts: service.host_count,
 
 																								users: service.user_count,
-																							},
-																						)}
+																							})}
 																					</Text>
 																					{isBroken && (
 																						<Badge colorScheme="red" mt={1}>
-																							{t(
-																								"userDialog.brokenService",
-																								"No hosts",
-																							)}
+																							{t("userDialog.brokenService")}
 																						</Badge>
 																					)}
 																				</HStack>
@@ -3067,17 +3016,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 															{selectedService && (
 																<FormHelperText mt={2}>
-																	{t(
-																		"userDialog.serviceSummary",
-
-																		"{{hosts}} hosts, {{users}} users",
-
-																		{
+																	{t("userDialog.serviceSummary", {
 																			hosts: selectedService.host_count,
 
 																			users: selectedService.user_count,
-																		},
-																	)}
+																		})}
 
 																	{selectedService &&
 																		(selectedService.broken ||
@@ -3087,10 +3030,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				fontSize="sm"
 																				mt={1}
 																			>
-																				{t(
-																					"userDialog.brokenServiceWarning",
-																					"Selected service has no hosts. Please pick another service.",
-																				)}
+																				{t("userDialog.brokenServiceWarning")}
 																			</Text>
 																		)}
 																</FormHelperText>
@@ -3105,15 +3045,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 													{hasExistingKey && canSetCustomKey && (
 														<>
 															<FormControl
-																display="flex"
-																alignItems="center"
-																justifyContent="space-between"
+																className="rb-dialog-switch-row"
 															>
 																<FormLabel mb={0}>
-																	{t(
-																		"userDialog.allowManualKeyEntry",
-																		"Custom key",
-																	)}
+																	{t("userDialog.allowManualKeyEntry")}
 																</FormLabel>
 																<Controller
 																	name="manual_key_entry"
@@ -3139,10 +3074,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	)}
 																>
 																	<FormLabel>
-																		{t(
-																			"userDialog.credentialKeyLabel",
-																			"Credential key",
-																		)}
+																		{t("userDialog.credentialKeyLabel")}
 																	</FormLabel>
 																	<Controller
 																		name="credential_key"
@@ -3162,10 +3094,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		)}
 																	/>
 																	<FormHelperText>
-																		{t(
-																			"userDialog.manualKeyHelper",
-																			"Enter a 32-character hexadecimal credential key.",
-																		)}
+																		{t("userDialog.manualKeyHelper")}
 																	</FormHelperText>
 																	<FormErrorMessage>
 																		{
@@ -3185,20 +3114,15 @@ export const UserDialog: FC<UserDialogProps> = () => {
 													minW={0}
 												>
 													<Box
+														className="xray-dialog-section rb-dialog-collapsible-section"
 														w="full"
 														minW={0}
-														borderWidth="1px"
-														borderRadius="md"
-														bg="white"
-														_dark={{ bg: "gray.900", borderColor: "gray.700" }}
-														overflow="hidden"
 														mb="10px"
 													>
 														<Flex
+															className="rb-dialog-collapsible-trigger"
 															align="center"
 															justify="space-between"
-															px={4}
-															py={3}
 															cursor="pointer"
 															onClick={() => setAutoRenewOpen((prev) => !prev)}
 															gap={3}
@@ -3211,6 +3135,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																justify="flex-start"
 															>
 																<Text
+																	className="rb-dialog-collapsible-title"
 																	fontWeight="semibold"
 																	textAlign={isRTL ? "right" : "left"}
 																	w="full"
@@ -3234,10 +3159,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 														</Flex>
 														<Collapse in={autoRenewOpen} animateOpacity>
 															<VStack
+																className="rb-dialog-collapsible-body"
 																align="stretch"
 																spacing={4}
-																px={4}
-																pb={4}
 																w="full"
 																minW={0}
 															>
@@ -3265,7 +3189,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																			isDisabled={disabled}
 																			w="full"
 																		>
-																			{t("autoRenew.add")}
+																			{t("add")}
 																		</Button>
 																	</VStack>
 																) : (
@@ -3381,7 +3305,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																			onClick={startAddAutoRenew}
 																			isDisabled={disabled}
 																		>
-																			{t("autoRenew.add")}
+																			{t("add")}
 																		</Button>
 																	</>
 																)}
@@ -3555,7 +3479,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				onClick={handleCancelAutoRenewForm}
 																				isDisabled={disabled}
 																			>
-																				{t("autoRenew.cancel")}
+																				{t("cancel")}
 																			</Button>
 
 																			<Button
@@ -3565,8 +3489,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				isDisabled={disabled}
 																			>
 																				{autoRenewFormMode === "edit"
-																					? t("autoRenew.save")
-																					: t("autoRenew.add")}
+																					? t("save")
+																					: t("add")}
 																			</Button>
 																		</HStack>
 																	</VStack>
@@ -3582,25 +3506,21 @@ export const UserDialog: FC<UserDialogProps> = () => {
 													minW={0}
 												>
 													<Box
+														className="xray-dialog-section rb-dialog-collapsible-section"
 														w="full"
 														minW={0}
-														borderWidth="1px"
-														borderRadius="md"
-														bg="white"
-														_dark={{ bg: "gray.900", borderColor: "gray.700" }}
-														overflow="hidden"
 														mb="10px"
 													>
 														<Flex
+															className="rb-dialog-collapsible-trigger"
 															align="center"
 															justify="space-between"
-															px={4}
-															py={3}
 															cursor="pointer"
 															onClick={() => setOtherInfoOpen((prev) => !prev)}
 															gap={3}
 														>
 															<Text
+																className="rb-dialog-collapsible-title"
 																fontWeight="semibold"
 																textAlign="start"
 																flex="1"
@@ -3618,10 +3538,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 														</Flex>
 														<Collapse in={otherInfoOpen} animateOpacity>
 															<VStack
+																className="rb-dialog-collapsible-body"
 																align="stretch"
 																spacing={3}
-																px={4}
-																pb={4}
 																w="full"
 																minW={0}
 															>
@@ -3750,19 +3669,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 														<HStack spacing={2} minW={0} mb={3}>
 															<SubscriptionActionIcon />
 															<Text fontWeight="semibold">
-																{t(
-																	"userDialog.links.subscription",
-																	"Subscription link",
-																)}
+																{t("userDialog.links.subscription")}
 															</Text>
 														</HStack>
 														<VStack spacing={2} align="stretch">
 															{subscriptionLinks.length === 0 ? (
 																<Text fontSize="sm" color="gray.500">
-																	{t(
-																		"userDialog.links.noSubscription",
-																		"No subscription links",
-																	)}
+																	{t("userDialog.links.noSubscription")}
 																</Text>
 															) : (
 																subscriptionLinks.map((item) => (
@@ -3790,55 +3703,47 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						borderRadius="full"
 																						fontSize="xs"
 																					>
-																						{t(
-																							"userDialog.links.recommended",
-																							"Recommended",
-																						)}
+																						{t("userDialog.links.recommended")}
 																					</Badge>
 																				)}
 																			</HStack>
 																			<HStack spacing={1} flexShrink={0}>
-																				<CopyToClipboard
-																					text={item.url}
-																					onCopy={() =>
-																						setCopiedSubscriptionKey(item.key)
-																					}
-																				>
-																					<div>
-																						<Tooltip
-																							label={
-																								copiedSubscriptionKey ===
-																								item.key
-																									? t("usersTable.copied")
-																									: t(
-																											"userDialog.links.copy",
-																											"Copy",
-																										)
-																							}
-																							placement="top"
-																						>
-																							<IconButton
-																								aria-label="copy subscription link"
-																								variant="ghost"
-																								size="sm"
-																								type="button"
-																							>
-																								{copiedSubscriptionKey ===
-																								item.key ? (
-																									<CopiedActionIcon />
-																								) : (
-																									<CopyActionIcon />
-																								)}
-																							</IconButton>
-																						</Tooltip>
-																					</div>
-																				</CopyToClipboard>
 																				<Tooltip
-																					label={t("userDialog.links.qr", "QR")}
+																					label={
+																						copiedSubscriptionKey === item.key
+																							? t("copied")
+																							: t("copy")
+																					}
 																					placement="top"
 																				>
 																					<IconButton
-																						aria-label="subscription qr"
+																		aria-label={t("a11y.copySubscriptionLink")}
+																						variant="ghost"
+																						size="sm"
+																						type="button"
+																						onClick={() => {
+																							void copyTextToClipboard(
+																								item.url,
+																							).then(() =>
+																								setCopiedSubscriptionKey(
+																									item.key,
+																								),
+																							);
+																						}}
+																					>
+																						{copiedSubscriptionKey === item.key ? (
+																							<CopiedActionIcon />
+																						) : (
+																							<CopyActionIcon />
+																						)}
+																					</IconButton>
+																				</Tooltip>
+																				<Tooltip
+																					label={t("userDialog.links.qr")}
+																					placement="top"
+																				>
+																					<IconButton
+																		aria-label={t("a11y.subscriptionQr")}
 																						variant="ghost"
 																						size="sm"
 																						type="button"
@@ -3876,48 +3781,37 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															mb={3}
 														>
 															<Text fontWeight="semibold">
-																{t("userDialog.links.configs", "Configs")}
+																{t("userDialog.links.configs")}
 															</Text>
-															<CopyToClipboard
-																text={configLinksText}
-																onCopy={() => {
-																	if (configItems.length > 0) {
-																		setCopiedAllConfigs(true);
-																	}
+															<Button
+																size="sm"
+																variant="outline"
+																type="button"
+																isDisabled={configItems.length === 0}
+																leftIcon={
+																	copiedAllConfigs ? (
+																		<CopiedActionIcon />
+																	) : (
+																		<CopyActionIcon />
+																	)
+																}
+																onClick={() => {
+																	if (configItems.length === 0) return;
+																	void copyTextToClipboard(configLinksText).then(() =>
+																		setCopiedAllConfigs(true),
+																	);
 																}}
 															>
-																<div>
-																	<Button
-																		size="sm"
-																		variant="outline"
-																		type="button"
-																		isDisabled={configItems.length === 0}
-																		leftIcon={
-																			copiedAllConfigs ? (
-																				<CopiedActionIcon />
-																			) : (
-																				<CopyActionIcon />
-																			)
-																		}
-																	>
-																		{copiedAllConfigs
-																			? t("usersTable.copied")
-																			: t(
-																					"userDialog.links.copyAllConfigs",
-																					"Copy all configs",
-																				)}
-																	</Button>
-																</div>
-															</CopyToClipboard>
+																{copiedAllConfigs
+																	? t("copied")
+																	: t("userDialog.links.copyAllConfigs")}
+															</Button>
 														</HStack>
 
 														<VStack spacing={2} align="stretch">
 															{configItems.length === 0 ? (
 																<Text fontSize="sm" color="gray.500">
-																	{t(
-																		"userDialog.links.noConfigs",
-																		"No configs available",
-																	)}
+																	{t("userDialog.links.noConfigs")}
 																</Text>
 															) : (
 																configItems.map((item, index) => (
@@ -3948,45 +3842,40 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				{item.label}
 																			</Text>
 																			<HStack spacing={1} flexShrink={0}>
-																				<CopyToClipboard
-																					text={item.link}
-																					onCopy={() =>
-																						setCopiedConfigIndex(index)
-																					}
-																				>
-																					<div>
-																						<Tooltip
-																							label={
-																								copiedConfigIndex === index
-																									? t("usersTable.copied")
-																									: t(
-																											"userDialog.links.copy",
-																											"Copy",
-																										)
-																							}
-																							placement="top"
-																						>
-																							<IconButton
-																								aria-label="copy config"
-																								variant="ghost"
-																								size="sm"
-																								type="button"
-																							>
-																								{copiedConfigIndex === index ? (
-																									<CopiedActionIcon />
-																								) : (
-																									<CopyActionIcon />
-																								)}
-																							</IconButton>
-																						</Tooltip>
-																					</div>
-																				</CopyToClipboard>
 																				<Tooltip
-																					label={t("userDialog.links.qr", "QR")}
+																					label={
+																						copiedConfigIndex === index
+																							? t("copied")
+																							: t("copy")
+																					}
 																					placement="top"
 																				>
 																					<IconButton
-																						aria-label="config qr"
+																		aria-label={t("a11y.copyConfig")}
+																						variant="ghost"
+																						size="sm"
+																						type="button"
+																						onClick={() => {
+																							void copyTextToClipboard(
+																								item.link,
+																							).then(() =>
+																								setCopiedConfigIndex(index),
+																							);
+																						}}
+																					>
+																						{copiedConfigIndex === index ? (
+																							<CopiedActionIcon />
+																						) : (
+																							<CopyActionIcon />
+																						)}
+																					</IconButton>
+																				</Tooltip>
+																				<Tooltip
+																					label={t("userDialog.links.qr")}
+																					placement="top"
+																				>
+																					<IconButton
+																		aria-label={t("a11y.configQr")}
 																						variant="ghost"
 																						size="sm"
 																						type="button"
@@ -4057,8 +3946,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 										{isEditing && (
 											<>
 												{canDeleteUsersVisible && (
-													<DeleteConfirmPopover
-														message={t("deleteUser.prompt", {
+											<DeleteConfirmDialog
+												description={t("deleteUser.prompt", {
 															username: editingUser?.username ?? "",
 														})}
 														isLoading={deleteLoading}
@@ -4066,13 +3955,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 													>
 														<Tooltip label={t("delete")} placement="top">
 															<IconButton
-																aria-label="Delete"
+																aria-label={t("delete")}
 																size={{ base: "md", sm: "sm" }}
 															>
 																<DeleteIcon />
 															</IconButton>
 														</Tooltip>
-													</DeleteConfirmPopover>
+											</DeleteConfirmDialog>
 												)}
 
 												{canResetUsageVisible && (
@@ -4108,7 +3997,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											idleContent={
 												isEditing ? t("userDialog.editUser") : t("createUser")
 											}
-											successLabel={t("userDialog.submitSuccess", "Done")}
+											successLabel={t("userDialog.submitSuccess")}
 											isDisabled={submitDisabled}
 											type="submit"
 										/>

@@ -528,7 +528,6 @@ func (r Repository) resolvedInboundsByTagTx(ctx context.Context, tx *sql.Tx) (ma
 	}
 	result := map[string]ResolvedInbound{}
 	order := make([]string, 0)
-	excluded := excludedInboundTags()
 	for _, raw := range rawConfigs {
 		inbounds := listOfMaps(raw["inbounds"])
 		for _, inbound := range inbounds {
@@ -538,9 +537,6 @@ func (r Repository) resolvedInboundsByTagTx(ctx context.Context, tx *sql.Tx) (ma
 				continue
 			}
 			if _, ok := proxyProtocols[protocol]; !ok {
-				continue
-			}
-			if _, skip := excluded[tag]; skip {
 				continue
 			}
 			resolved, err := resolveInbound(inbound)
@@ -650,6 +646,11 @@ func (r Repository) insertNodeOperationTx(ctx context.Context, tx *sql.Tx, opera
 	if err != nil {
 		return err
 	}
+	if isRuntimeUserNodeOperation(operationType) && nodeID > 0 && userID > 0 {
+		if err := compactPendingRuntimeUserOperationsTx(ctx, tx, nodeID, userID); err != nil {
+			return err
+		}
+	}
 	keySource := fmt.Sprintf("%s:%d:%d:%s", operationType, nodeID, userID, string(payloadJSON))
 	sum := sha256.Sum256([]byte(keySource))
 	key := hex.EncodeToString(sum[:])
@@ -663,6 +664,29 @@ func (r Repository) insertNodeOperationTx(ctx context.Context, tx *sql.Tx, opera
 		key,
 		dbTime(now),
 		dbTime(now),
+	)
+	return err
+}
+
+func compactPendingRuntimeUserOperationsTx(ctx context.Context, tx *sql.Tx, nodeID int64, userID int64) error {
+	if nodeID <= 0 || userID <= 0 {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, `
+UPDATE node_operations
+SET status = 'done', updated_at = ?
+WHERE node_id = ?
+  AND user_id = ?
+  AND status IN ('pending', 'retrying')
+  AND operation_type IN (?, ?, ?, ?, ?)`,
+		dbTime(time.Now().UTC()),
+		nodeID,
+		userID,
+		NodeOperationAddUser,
+		NodeOperationUpdateUser,
+		NodeOperationRemoveUser,
+		NodeOperationDisableUser,
+		NodeOperationEnableUser,
 	)
 	return err
 }
@@ -754,25 +778,128 @@ func (r Repository) compactNextPlansTx(ctx context.Context, tx *sql.Tx, userID i
 	return nil
 }
 
-func (r Repository) enqueueUserOperationForNodesTx(ctx context.Context, tx *sql.Tx, operationType string, userID int64, queuedAt time.Time) error {
+func (r Repository) enqueueUserOperationForNodesTx(ctx context.Context, tx *sql.Tx, operationType string, userID int64, queuedAt time.Time, serviceHints ...*int64) error {
 	nodeIDs, err := r.activeNodeIDsTx(ctx, tx)
 	if err != nil {
 		return err
 	}
+	queueOperationType := operationType
+	payload := map[string]any{"queued_at": queuedAt.Format(time.RFC3339Nano)}
+	if isRuntimeUserNodeOperation(operationType) && userID > 0 {
+		if email, err := r.runtimeUserEmailTx(ctx, tx, userID); err != nil {
+			return err
+		} else if email != "" {
+			payload["runtime_email"] = email
+		}
+	}
 	for _, nodeID := range nodeIDs {
-		payload := map[string]any{"queued_at": queuedAt.Format(time.RFC3339Nano)}
-		if err := r.insertNodeOperationTx(ctx, tx, operationType, nodeID, userID, payload, queuedAt); err != nil {
+		if err := r.insertNodeOperationTx(ctx, tx, queueOperationType, nodeID, userID, payload, queuedAt); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func (r Repository) runtimeUserEmailTx(ctx context.Context, tx *sql.Tx, userID int64) (string, error) {
+	if userID <= 0 {
+		return "", nil
+	}
+	var username string
+	err := tx.QueryRowContext(ctx, `SELECT username FROM users WHERE id = ? LIMIT 1`, userID).Scan(&username)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return "", nil
+	}
+	return fmt.Sprintf("%d.%s", userID, username), nil
+}
+
+func isRuntimeUserNodeOperation(operationType string) bool {
+	switch operationType {
+	case NodeOperationAddUser, NodeOperationUpdateUser, NodeOperationRemoveUser, NodeOperationDisableUser, NodeOperationEnableUser:
+		return true
+	default:
+		return false
+	}
+}
+
+func (r Repository) userServiceUsesProtocolTx(ctx context.Context, tx *sql.Tx, userID int64, protocol string, serviceHints ...*int64) (bool, error) {
+	targetProtocol := normalizeProtocol(protocol)
+	if targetProtocol == "" {
+		return false, nil
+	}
+	serviceIDs := make([]int64, 0, len(serviceHints)+1)
+	seen := map[int64]struct{}{}
+	addServiceID := func(value *int64) {
+		if value == nil || *value <= 0 {
+			return
+		}
+		if _, ok := seen[*value]; ok {
+			return
+		}
+		seen[*value] = struct{}{}
+		serviceIDs = append(serviceIDs, *value)
+	}
+	for _, hint := range serviceHints {
+		addServiceID(hint)
+	}
+	var serviceID sql.NullInt64
+	err := tx.QueryRowContext(ctx, `SELECT service_id FROM users WHERE id = ? LIMIT 1`, userID).Scan(&serviceID)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	if serviceID.Valid {
+		addServiceID(&serviceID.Int64)
+	}
+	if len(serviceIDs) == 0 {
+		return false, nil
+	}
+
+	resolved, _, err := r.resolvedInboundsByTagTx(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	query := fmt.Sprintf(`
+SELECT DISTINCT h.inbound_tag
+FROM hosts h
+JOIN service_hosts sh ON sh.host_id = h.id
+WHERE sh.service_id IN (%s)
+  AND COALESCE(h.is_disabled, 0) = 0`, placeholders(len(serviceIDs)))
+	rows, err := tx.QueryContext(ctx, query, int64Args(serviceIDs)...)
+	if err != nil {
+		lower := strings.ToLower(err.Error())
+		if strings.Contains(lower, "no such table") || strings.Contains(lower, "doesn't exist") {
+			return false, nil
+		}
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return false, err
+		}
+		inbound, ok := resolved[tag]
+		if !ok {
+			continue
+		}
+		if normalizeProtocol(stringValueAny(inbound["protocol"])) == targetProtocol {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
 func (r Repository) activeNodeIDsTx(ctx context.Context, tx *sql.Tx) ([]int64, error) {
 	if cached, ok := r.cachedActiveNodeIDs(); ok {
 		return cached, nil
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT id FROM nodes WHERE COALESCE(status, '') NOT IN ('disabled', 'limited') ORDER BY id`)
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM nodes WHERE LOWER(COALESCE(status, '')) = 'connected' ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -823,6 +950,11 @@ func (r Repository) enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, oper
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return err
+	}
+	if isRuntimeUserNodeOperation(operationType) && nodeID > 0 && userID > 0 {
+		if err := compactPendingRuntimeUserOperationsTx(ctx, tx, nodeID, userID); err != nil {
+			return err
+		}
 	}
 	keySource := fmt.Sprintf("%s:%d:%d:%s", operationType, nodeID, userID, string(payloadJSON))
 	sum := sha256.Sum256([]byte(keySource))

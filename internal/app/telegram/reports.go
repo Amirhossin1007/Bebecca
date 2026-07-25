@@ -14,7 +14,6 @@ type Reporter struct {
 
 type LoginReport struct {
 	Username string
-	Password string
 	ClientIP string
 	Success  bool
 }
@@ -70,7 +69,6 @@ func (r Reporter) Login(ctx context.Context, report LoginReport) {
 	r.sendHTML(ctx, "login", reportText(
 		"🔐 <b>#Login</b>",
 		line("Username", report.Username),
-		line("Password", report.Password),
 		line("Client IP", report.ClientIP),
 		separator(),
 		line("Status", status),
@@ -337,6 +335,35 @@ func FormatOptionalBytes(value *int64) string {
 	default:
 		return fmt.Sprintf("%.2f %s", size, units[unit])
 	}
+}
+
+func FormatOptionalBytesDelta(before *int64, after *int64) string {
+	beforeValue := int64(0)
+	afterValue := int64(0)
+	beforeFinite := before != nil && *before > 0
+	afterFinite := after != nil && *after > 0
+	if beforeFinite {
+		beforeValue = *before
+	}
+	if afterFinite {
+		afterValue = *after
+	}
+	if beforeFinite == afterFinite && beforeValue == afterValue {
+		return ""
+	}
+	if !afterFinite {
+		return "∞"
+	}
+	delta := afterValue - beforeValue
+	if delta == 0 {
+		return ""
+	}
+	sign := "+"
+	if delta < 0 {
+		sign = "-"
+		delta = -delta
+	}
+	return sign + FormatOptionalBytes(&delta)
 }
 
 func formatOptionalInt(value *int64) string {

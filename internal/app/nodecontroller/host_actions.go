@@ -30,13 +30,6 @@ func (c Controller) UpdateRuntime(ctx context.Context, req Request) (RuntimeResu
 func (c Controller) UpdateGeo(ctx context.Context, req Request) (RuntimeResult, error) {
 	client, node, err := c.dial(ctx, req.NodeID)
 	if err != nil {
-		if node.ID != 0 {
-			if result, legacyErr := c.legacyUpdateGeo(ctx, node, req.Files); legacyErr == nil {
-				return result, nil
-			} else {
-				err = fmt.Errorf("%w; legacy REST failed: %v", err, legacyErr)
-			}
-		}
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("update geo", req.NodeID, err)
 	}
@@ -93,4 +86,73 @@ func (c Controller) UpdateService(ctx context.Context, req Request) (RuntimeResu
 		return RuntimeResult{}, fmt.Errorf("node %d update service returned no response", req.NodeID)
 	}
 	return runtimeResult(node, res.GetRuntime(), nil), nil
+}
+
+func (c Controller) RebootHost(ctx context.Context, req Request) (RuntimeResult, error) {
+	client, node, err := c.dial(ctx, req.NodeID)
+	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		return RuntimeResult{}, friendlyNodeError("reboot host", req.NodeID, err)
+	}
+	defer client.Close()
+	res, err := client.Runtime().RebootHost(ctx, &nodev1.HostRebootRequest{
+		OperationId: "reboot-host-" + strconv.FormatInt(req.NodeID, 10),
+	})
+	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		return RuntimeResult{}, friendlyNodeError("reboot host", req.NodeID, err)
+	}
+	return runtimeResult(node, res.GetRuntime(), nil), nil
+}
+
+func (c Controller) ApplyTorProxy(ctx context.Context, req Request) (RuntimeResult, error) {
+	client, node, err := c.dial(ctx, req.NodeID)
+	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		return RuntimeResult{}, friendlyNodeError("apply tor proxy", req.NodeID, err)
+	}
+	defer client.Close()
+	res, err := client.Runtime().ApplyTorProxy(ctx, &nodev1.TorProxyRequest{
+		OperationId: "apply-tor-proxy-" + strconv.FormatInt(req.NodeID, 10),
+		SocksPort:   req.TorSocksPort,
+		ExitCountry: strings.TrimSpace(req.TorExitCountry),
+		StrictExit:  req.TorStrictExit,
+	})
+	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		return RuntimeResult{}, friendlyNodeError("apply tor proxy", req.NodeID, err)
+	}
+	return runtimeResult(node, res.GetRuntime(), nil), nil
+}
+
+func (c Controller) ConfigureWindscribe(ctx context.Context, req Request) (WindscribeResult, error) {
+	client, node, err := c.dial(ctx, req.NodeID)
+	if err != nil {
+		return WindscribeResult{}, friendlyNodeError("configure Windscribe", req.NodeID, err)
+	}
+	defer client.Close()
+	res, err := client.Runtime().ConfigureWindscribe(ctx, &nodev1.WindscribeProxyRequest{
+		OperationId:   "windscribe-" + strings.TrimSpace(req.WindscribeAction) + "-" + strconv.FormatInt(req.NodeID, 10),
+		Action:        strings.TrimSpace(req.WindscribeAction),
+		Username:      strings.TrimSpace(req.WindscribeUsername),
+		Password:      req.WindscribePassword,
+		Location:      strings.TrimSpace(req.WindscribeLocation),
+		SocksPort:     req.WindscribeSocksPort,
+		ProxyUsername: req.WindscribeProxyUsername,
+		ProxyPassword: req.WindscribeProxyPassword,
+	})
+	if err != nil {
+		return WindscribeResult{}, friendlyNodeError("configure Windscribe", req.NodeID, err)
+	}
+	locations := make([]WindscribeLocation, 0, len(res.GetLocations()))
+	for _, location := range res.GetLocations() {
+		locations = append(locations, WindscribeLocation{
+			Name:      location.GetName(),
+			Available: location.GetAvailable(),
+		})
+	}
+	return WindscribeResult{
+		Runtime:   runtimeResult(node, res.GetRuntime(), nil),
+		Locations: locations,
+	}, nil
 }

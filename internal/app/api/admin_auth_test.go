@@ -25,6 +25,7 @@ import (
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
+	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 	warpapp "github.com/rebeccapanel/rebecca/internal/app/warp"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -62,7 +63,25 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			delete_user_usage_limit_enabled INTEGER DEFAULT 0,
 			delete_user_usage_limit BIGINT NULL,
 			expire INTEGER NULL,
-			users_limit INTEGER NULL
+			users_limit INTEGER NULL,
+			require_2fa INTEGER NOT NULL DEFAULT 0,
+			totp_secret TEXT NULL,
+			totp_enabled_at DATETIME NULL,
+			totp_last_counter BIGINT NULL
+		)`,
+		`CREATE TABLE admin_sessions (
+			id INTEGER PRIMARY KEY,
+			admin_id INTEGER NOT NULL,
+			token_hash TEXT NOT NULL UNIQUE,
+			state TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			last_seen_at DATETIME NOT NULL,
+			expires_at DATETIME NOT NULL,
+			ip_address TEXT NULL,
+			user_agent TEXT NULL,
+			pending_totp_secret TEXT NULL,
+			otp_attempts INTEGER NOT NULL DEFAULT 0,
+			revoked_at DATETIME NULL
 		)`,
 		`CREATE TABLE admin_api_keys (
 			id INTEGER PRIMARY KEY,
@@ -175,8 +194,6 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			usage_coefficient REAL NOT NULL DEFAULT 1,
 			geo_mode TEXT NOT NULL DEFAULT 'default',
 			data_limit INTEGER NULL,
-			use_nobetci INTEGER NOT NULL DEFAULT 0,
-			nobetci_port INTEGER NULL,
 			proxy_enabled INTEGER NOT NULL DEFAULT 0,
 			proxy_type TEXT NULL,
 			proxy_host TEXT NULL,
@@ -261,27 +278,29 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 
 	repo := adminapp.NewRepository(db, "sqlite")
 	warpRepo := warpapp.NewRepository(db, "sqlite")
-	return &Server{
+	server := &Server{
 		cfg: Config{
 			Database:                    "sqlite:///" + filepath.ToSlash(path),
 			JWTAccessTokenExpireMinutes: 1440,
-			SudoUsername:                "env-admin",
-			SudoPassword:                "env-pass",
 		},
-		db:        db,
-		dialect:   "sqlite",
-		adminRepo: repo,
-		adminAuth: adminapp.NewAuthenticator(
-			repo,
-			adminapp.WithSudoers([]string{"env-admin"}),
-		),
+		db:             db,
+		dialect:        "sqlite",
+		adminRepo:      repo,
+		adminAuth:      adminapp.NewAuthenticator(repo),
 		nodeController: nodecontroller.NewController(nodecontroller.NewRepository(db, "sqlite")),
 		nodeMutations:  nodeapp.NewRepository(db, "sqlite"),
 		warpService:    warpapp.NewService(warpRepo, warpapp.NewClient("")),
 		configRepo:     xrayconfig.NewRepository(db, "sqlite", xrayconfig.Options{}),
 		settingsRepo:   settingsapp.NewRepository(db, "sqlite"),
 		backupService:  backupapp.NewService(db, "sqlite", "sqlite:///"+filepath.ToSlash(path)),
-	}, db
+	}
+	telegramRepo := telegramapp.NewRepository(db, "sqlite")
+	telegramSender := telegramapp.NewSender(telegramRepo, "")
+	server.telegramRepo = telegramRepo
+	server.telegramSender = telegramSender
+	server.telegramReports = telegramapp.NewReporter(telegramRepo, telegramSender)
+	server.telegramBackup = telegramapp.NewBackupDelivery(telegramRepo, telegramSender)
+	return server, db
 }
 
 func insertMasterAPIAdmin(t *testing.T, db *sql.DB, id int64, username string, password string, role adminapp.AdminRole, status adminapp.AdminStatus) {
@@ -323,6 +342,172 @@ func postAdminLogin(t *testing.T, server *Server, username string, password stri
 	rec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(rec, req)
 	return rec
+}
+
+func TestAdminSessionLoginAndPasswordRevocation(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 40, "session-admin", "session-pass", adminapp.RoleFullAccess, adminapp.StatusActive)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":"session-admin","password":"session-pass"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://example.com")
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session login status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var cookie *http.Cookie
+	for _, candidate := range rec.Result().Cookies() {
+		if candidate.Name == adminSessionCookie {
+			cookie = candidate
+		}
+	}
+	if cookie == nil || cookie.Value == "" {
+		t.Fatal("session cookie was not set")
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/auth/session", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"active"`) {
+		t.Fatalf("session context status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/myaccount/change_password", strings.NewReader(`{"current_password":"session-pass","new_password":"new-session-pass"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://example.com")
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("password update status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/auth/session", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked session status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDisabledAdminGetsRestrictedSessionWithReason(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 43, "disabled-admin", "session-pass", adminapp.RoleStandard, adminapp.StatusDisabled)
+	if _, err := db.Exec(`UPDATE admins SET disabled_reason = ? WHERE id = 43`, "Payment is overdue"); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":"disabled-admin","password":"session-pass"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://example.com")
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"disabled"`) || !strings.Contains(rec.Body.String(), `"disabled_reason":"Payment is overdue"`) {
+		t.Fatalf("disabled login status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var cookie *http.Cookie
+	for _, candidate := range rec.Result().Cookies() {
+		if candidate.Name == adminSessionCookie {
+			cookie = candidate
+		}
+	}
+	if cookie == nil || cookie.Value == "" {
+		t.Fatal("restricted session cookie was not set")
+	}
+	if _, err := db.Exec(`UPDATE admin_sessions SET state = ? WHERE admin_id = 43`, string(adminapp.SessionActive)); err != nil {
+		t.Fatal(err)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/auth/session", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"disabled"`) {
+		t.Fatalf("disabled session status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/admin", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("disabled session accessed admin API: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
+	req.Header.Set("Origin", "http://example.com")
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("disabled session logout status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminSessionLoginBehindReverseProxy(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 42, "proxy-admin", "session-pass", adminapp.RoleFullAccess, adminapp.StatusActive)
+
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8000/api/auth/login", strings.NewReader(`{"username":"proxy-admin","password":"session-pass"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "https://panel.example")
+	req.Header.Set("X-Forwarded-Host", "panel.example")
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK || len(rec.Result().Cookies()) == 0 {
+		t.Fatalf("session login status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminSessionRequiresOriginAndMandatory2FASetup(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 41, "setup-admin", "session-pass", adminapp.RoleFullAccess, adminapp.StatusActive)
+	if _, err := db.Exec(`UPDATE admins SET require_2fa = 1 WHERE id = 41`); err != nil {
+		t.Fatal(err)
+	}
+
+	loginBody := `{"username":"setup-admin","password":"session-pass"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(loginBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-origin login status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(loginBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://example.com")
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"setup_required"`) {
+		t.Fatalf("mandatory 2FA login status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("session cookie was not set")
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/admin", nil)
+	req.AddCookie(cookies[0])
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("restricted session accessed admin API: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/auth/2fa/setup", nil)
+	req.Header.Set("Origin", "http://example.com")
+	req.AddCookie(cookies[0])
+	rec = httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"otpauth://totp/`) {
+		t.Fatalf("mandatory 2FA setup status=%d body=%s", rec.Code, rec.Body.String())
+	}
 }
 
 func adminBearerToken(t *testing.T, server *Server, username string, password string) string {
@@ -382,6 +567,20 @@ func TestAdminLoginValidAndCurrentAdmin(t *testing.T) {
 	}
 	if current["username"] != "pouria" || current["role"] != "full_access" {
 		t.Fatalf("unexpected current admin: %#v", current)
+	}
+}
+
+func TestLegacyAdminLoginBypassesRequired2FA(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "legacy-admin", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	if _, err := db.Exec(`UPDATE admins SET require_2fa = 1 WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	token := adminBearerToken(t, server, "legacy-admin", "pass123")
+	rec := adminJSONRequest(t, server, http.MethodGet, "/api/admin", token, ``)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("legacy JWT with required 2FA status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -537,24 +736,11 @@ VALUES (?, 1, ?, ?, ?)`,
 	}
 }
 
-func TestAdminLoginSudoer(t *testing.T) {
+func TestAdminLoginDoesNotReadSudoEnvironment(t *testing.T) {
 	server, _ := testAdminServer(t)
 	rec := postAdminLogin(t, server, "env-admin", "env-pass")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("sudoer login status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	var tokenResponse struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &tokenResponse); err != nil {
-		t.Fatal(err)
-	}
-	req := httptest.NewRequest(http.MethodGet, "/api/admin", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenResponse.AccessToken)
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("sudoer current status = %d body=%s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("env-only login status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -774,17 +960,24 @@ func TestAdminManagementFullAccessProtectionAndDelete(t *testing.T) {
 		t.Fatalf("delete worker status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	var adminsCount, usersCount, operationsCount int
+	var adminStatus, userStatus string
 	if err := db.QueryRow(`SELECT COUNT(*) FROM admins WHERE username = 'worker'`).Scan(&adminsCount); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.QueryRow(`SELECT COUNT(*) FROM users WHERE admin_id = 3`).Scan(&usersCount); err != nil {
 		t.Fatal(err)
 	}
+	if err := db.QueryRow(`SELECT status FROM admins WHERE username = 'worker'`).Scan(&adminStatus); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT status FROM users WHERE id = 10`).Scan(&userStatus); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.QueryRow(`SELECT COUNT(*) FROM node_operations WHERE operation_type = 'remove_user' AND user_id = 10`).Scan(&operationsCount); err != nil {
 		t.Fatal(err)
 	}
-	if adminsCount != 0 || usersCount != 0 || operationsCount != 1 {
-		t.Fatalf("delete cleanup admins=%d users=%d operations=%d", adminsCount, usersCount, operationsCount)
+	if adminsCount != 1 || usersCount != 1 || adminStatus != "deleted" || userStatus != "deleted" || operationsCount != 1 {
+		t.Fatalf("delete cleanup admins=%d users=%d admin_status=%q user_status=%q operations=%d", adminsCount, usersCount, adminStatus, userStatus, operationsCount)
 	}
 }
 
@@ -993,7 +1186,7 @@ func TestMyAccountAPIKeyLifecycle(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
-	if created.ID == 0 || created.APIKey == nil || !strings.HasPrefix(*created.APIKey, "rk_") || created.MaskedKey == nil {
+	if created.ID == 0 || created.APIKey == nil || !strings.HasPrefix(*created.APIKey, "rk_") || created.MaskedKey == nil || created.TokenType != "bearer" {
 		t.Fatalf("unexpected created key: %#v", created)
 	}
 
@@ -1005,6 +1198,18 @@ func TestMyAccountAPIKeyLifecycle(t *testing.T) {
 		t.Fatalf("api key validate status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
+	rec = adminJSONRequest(t, server, http.MethodGet, "/api/admin", "Bearer "+*created.APIKey, ``)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("api key current admin status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var current map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &current); err != nil {
+		t.Fatal(err)
+	}
+	if current["username"] != "pouria" {
+		t.Fatalf("api key should authenticate as owner admin, got %#v", current)
+	}
+
 	rec = adminJSONRequest(t, server, http.MethodGet, "/api/myaccount/api-keys", token, ``)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list api keys after create status = %d body=%s", rec.Code, rec.Body.String())
@@ -1012,7 +1217,7 @@ func TestMyAccountAPIKeyLifecycle(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 1 || list[0].APIKey != nil || list[0].MaskedKey == nil {
+	if len(list) != 1 || list[0].APIKey != nil || list[0].MaskedKey == nil || list[0].TokenType != "bearer" {
 		t.Fatalf("unexpected list after create: %#v", list)
 	}
 
@@ -1032,5 +1237,68 @@ func TestMyAccountAPIKeyLifecycle(t *testing.T) {
 	server.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("deleted api key validate status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestMyAccountAPIKeyUsesOwnerPermissions(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
+	token := adminBearerToken(t, server, "seller", "pass123")
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/myaccount/api-keys", token, `{"lifetime":"forever"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create standard api key status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var created apiKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.APIKey == nil || created.TokenType != "bearer" {
+		t.Fatalf("unexpected created key: %#v", created)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/admin", "Bearer "+*created.APIKey, `{
+		"username": "blocked",
+		"password": "pass123",
+		"role": "standard"
+	}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("api key should preserve owner admin permissions, status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestExpiredAdminTokenReturnsPythonCompatibleAuthError(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+
+	// Mint a JWT that is already expired relative to now.
+	expired, err := adminapp.CreateAdminTokenAt(
+		"pouria",
+		adminapp.RoleFullAccess,
+		"admin-secret",
+		time.Minute,
+		time.Now().UTC().Add(-time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin", nil)
+	req.Header.Set("Authorization", "Bearer "+expired)
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expired token status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("WWW-Authenticate"); got != "Bearer" {
+		t.Fatalf("expected WWW-Authenticate=Bearer, got %q", got)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["detail"] != "Could not validate credentials" {
+		t.Fatalf("expected Python-compatible auth error, got %#v", body)
 	}
 }

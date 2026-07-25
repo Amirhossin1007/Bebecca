@@ -18,37 +18,51 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/migrations"
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	nordvpnapp "github.com/rebeccapanel/rebecca/internal/app/nordvpn"
+	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 	"github.com/rebeccapanel/rebecca/internal/app/usage"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	warpapp "github.com/rebeccapanel/rebecca/internal/app/warp"
+	webhookapp "github.com/rebeccapanel/rebecca/internal/app/webhook"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	"github.com/rebeccapanel/rebecca/internal/platform/db"
 )
 
 type Server struct {
-	cfg             Config
-	db              *sql.DB
-	dialect         string
-	adminRepo       adminapp.Repository
-	adminAuth       adminapp.Authenticator
-	nodeController  nodecontroller.Controller
-	nodeMutations   nodeapp.Repository
-	systemService   *systemapp.Service
-	maintenance     *systemapp.MaintenanceService
-	usageService    usage.Service
-	userService     userapp.Service
-	warpService     warpapp.Service
-	configRepo      xrayconfig.Repository
-	settingsRepo    settingsapp.Repository
-	telegramRepo    telegramapp.Repository
-	telegramSender  telegramapp.Sender
-	telegramReports telegramapp.Reporter
-	telegramBackup  telegramapp.BackupDelivery
-	backupService   *backupapp.Service
-	backgroundOnce  sync.Once
+	cfg                  Config
+	db                   *sql.DB
+	dialect              string
+	adminRepo            adminapp.Repository
+	adminAuth            adminapp.Authenticator
+	nodeController       nodecontroller.Controller
+	nodeMutations        nodeapp.Repository
+	systemService        *systemapp.Service
+	maintenance          *systemapp.MaintenanceService
+	usageService         usage.Service
+	userService          userapp.Service
+	warpService          warpapp.Service
+	nordService          nordvpnapp.Service
+	outboundSubs         outboundsubapp.Service
+	configRepo           xrayconfig.Repository
+	settingsRepo         settingsapp.Repository
+	telegramRepo         telegramapp.Repository
+	telegramSender       telegramapp.Sender
+	telegramReports      telegramapp.Reporter
+	telegramBackup       telegramapp.BackupDelivery
+	webhookRepo          webhookapp.Repository
+	webhookDispatch      webhookapp.Dispatcher
+	backupService        *backupapp.Service
+	backgroundOnce       sync.Once
+	userOpsKickMu        sync.Mutex
+	userOpsKicking       bool
+	userOpsKickUserIDs   map[int64]struct{}
+	sessionAdmissionMu   sync.Mutex
+	loginLimiter         loginRateLimiter
+	operators            *operatorResolver
+	recentActionsEnabled bool
 }
 
 func New(cfg Config) (*Server, error) {
@@ -70,32 +84,40 @@ func New(cfg Config) (*Server, error) {
 	usageRepo := usage.NewRepository(pool.DB, pool.Dialect)
 	userRepo := userapp.NewRepository(pool.DB, pool.Dialect)
 	warpRepo := warpapp.NewRepository(pool.DB, pool.Dialect)
+	nordRepo := nordvpnapp.NewRepository(pool.DB, pool.Dialect)
 	settingsRepo := settingsapp.NewRepository(pool.DB, pool.Dialect)
+	runtimeSettings, err := settingsRepo.RuntimeSettings(migrationCtx)
+	if err != nil {
+		return nil, fmt.Errorf("load runtime settings: %w", err)
+	}
+	applyRuntimeSettingsToConfig(&cfg, runtimeSettings)
 	telegramRepo := telegramapp.NewRepository(pool.DB, pool.Dialect)
 	telegramSender := telegramapp.NewSender(telegramRepo, cfg.TelegramAPIBase)
-	backupService := backupapp.NewService(pool.DB, pool.Dialect, cfg.Database)
-	configRepo := xrayconfig.NewRepository(pool.DB, pool.Dialect, xrayconfig.Options{
-		FallbackInboundTag:  cfg.XrayFallbackInboundTag,
-		ExcludedInboundTags: cfg.XrayExcludeInboundTags,
+	webhookRepo := webhookapp.NewRepository(pool.DB, pool.Dialect)
+	webhookDispatch := webhookapp.NewDispatcher(webhookRepo, webhookapp.Config{
+		Addresses:     cfg.WebhookAddresses,
+		Secret:        cfg.WebhookSecret,
+		MaxRetries:    cfg.WebhookMaxRetries,
+		RetryInterval: parseWorkerInterval(cfg.WebhookRetryInterval, 30*time.Second),
 	})
-	sudoers := []string{}
-	if strings.TrimSpace(cfg.SudoUsername) != "" && strings.TrimSpace(cfg.SudoPassword) != "" {
-		sudoers = append(sudoers, cfg.SudoUsername)
-	}
-	return &Server{
+	backupService := backupapp.NewService(pool.DB, pool.Dialect, cfg.Database)
+	outboundSubs := outboundsubapp.NewService(pool.DB, pool.Dialect)
+	server := &Server{
 		cfg:            cfg,
 		db:             pool.DB,
 		dialect:        pool.Dialect,
 		adminRepo:      adminRepo,
-		adminAuth:      adminapp.NewAuthenticator(adminRepo, adminapp.WithSudoers(sudoers)),
+		adminAuth:      adminapp.NewAuthenticator(adminRepo),
 		nodeController: nodecontroller.NewController(nodeRepo),
 		nodeMutations:  nodeMutationRepo,
 		systemService:  systemapp.NewService(pool.DB, pool.Dialect, systemapp.DefaultVersion),
 		maintenance:    systemapp.NewMaintenanceService(),
 		usageService:   usage.NewService(usageRepo),
 		userService:    userapp.NewServiceWithTemplates(userRepo, settingsRepo),
-		warpService:    warpapp.NewService(warpRepo, warpapp.NewClient(cfg.WarpAPIBase)),
-		configRepo:     configRepo,
+		warpService:    warpapp.NewService(warpRepo, warpapp.NewClient("")),
+		nordService:    nordvpnapp.NewService(nordRepo, nordvpnapp.NewClient("")),
+		outboundSubs:   outboundSubs,
+		operators:      newOperatorResolver(),
 		settingsRepo:   settingsRepo,
 		telegramRepo:   telegramRepo,
 		telegramSender: telegramSender,
@@ -103,18 +125,50 @@ func New(cfg Config) (*Server, error) {
 			telegramRepo,
 			telegramSender,
 		),
-		telegramBackup: telegramapp.NewBackupDelivery(telegramRepo, telegramSender),
-		backupService:  backupService,
-	}, nil
+		telegramBackup:       telegramapp.NewBackupDelivery(telegramRepo, telegramSender),
+		webhookRepo:          webhookRepo,
+		webhookDispatch:      webhookDispatch,
+		backupService:        backupService,
+		recentActionsEnabled: true,
+	}
+	server.configRepo = xrayconfig.NewRepository(pool.DB, pool.Dialect, xrayconfig.Options{
+		MutationRecorder: server.recordXrayMutationTx,
+		RollbackMarker:   server.markRecentActionUndoneTx,
+	})
+	return server, nil
+}
+
+func applyRuntimeSettingsToConfig(cfg *Config, settings settingsapp.RuntimeSettings) {
+	cfg.RecordNodeUsage = settings.RecordNodeUsage
+	cfg.RecordNodeUserUsages = settings.RecordNodeUserUsages
+	cfg.SubscriptionReadOnly = settings.SubscriptionReadOnly
+	cfg.APIDocsEnabled = settings.APIDocsEnabled
+}
+
+func (s *Server) applyRuntimeSettings(settings settingsapp.RuntimeSettings) {
+	applyRuntimeSettingsToConfig(&s.cfg, settings)
+}
+
+func (s *Server) RuntimeSettings(ctx context.Context) (settingsapp.RuntimeSettings, error) {
+	return s.settingsRepo.RuntimeSettings(ctx)
+}
+
+func (s *Server) SubscriptionSettings(ctx context.Context) (settingsapp.SubscriptionSettings, error) {
+	return s.settingsRepo.SubscriptionSettings(ctx)
 }
 
 func (s *Server) StartBackground(ctx context.Context) {
 	s.backgroundOnce.Do(func() {
 		go s.runNodeOperationsWorker(ctx)
+		go s.runNodeRecoveryWorker(ctx)
 		go s.runNodeUsageCollector(ctx)
+		go s.runNodeUsageFlushWorker(ctx)
 		go s.runAdminLifecycleWorker(ctx)
 		s.runUserLifecycleWorkers(ctx)
 		go s.runTelegramBackupScheduler(ctx)
+		go s.runWebhookWorker(ctx)
+		go s.runTelegramBot(ctx)
+		go s.runOutboundSubscriptionRefresher(ctx)
 	})
 }
 
@@ -141,7 +195,7 @@ func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	result, err := s.nodeController.List(ctx, nodecontroller.Request{})
 	if err != nil {
@@ -283,6 +337,12 @@ func (s *Server) handleNodePath(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.handleNodeServiceUpdate(w, r, id)
+	case "host/reboot":
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		s.handleNodeHostReboot(w, r, id)
 	case "certificate/regenerate":
 		if r.Method != http.MethodPost {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -415,17 +475,20 @@ func (s *Server) handleNodeRuntimeUpdate(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusUnprocessableEntity, "version is required")
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
-	defer cancel()
-	result, err := s.nodeController.UpdateRuntime(ctx, nodecontroller.Request{
-		NodeID:  nodeID,
-		Version: payload.Version,
+	version := strings.TrimSpace(payload.Version)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		_, _ = s.nodeController.UpdateRuntime(ctx, nodecontroller.Request{
+			NodeID:  nodeID,
+			Version: version,
+		})
+	}()
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"status":  "accepted",
+		"node_id": nodeID,
+		"detail":  "Node core update started. Refresh the node list to see the final status.",
 	})
-	if err != nil {
-		writeControllerError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
 }
 
 func (s *Server) handleNodeGeoUpdate(w http.ResponseWriter, r *http.Request, nodeID int64) {
@@ -484,6 +547,17 @@ func (s *Server) handleNodeServiceUpdate(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
+}
+
+func (s *Server) handleNodeHostReboot(w http.ResponseWriter, r *http.Request, nodeID int64) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	result, err := s.nodeController.RebootHost(ctx, nodecontroller.Request{NodeID: nodeID})
+	if err != nil {
+		writeControllerError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, flattenRuntimeResult(result))
 }
 
 func parseNodePath(path string) (int64, string, bool) {

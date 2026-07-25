@@ -27,3 +27,18 @@ func TestLoadConfigFallsBackToDatabaseURL(t *testing.T) {
 		t.Fatalf("Database=%q want %q", cfg.Database, "sqlite:///fallback.db")
 	}
 }
+
+func TestLoadConfigUsesRecordingDefaultsFromDatabaseSettings(t *testing.T) {
+	t.Setenv("SQLALCHEMY_DATABASE_URL", "sqlite:///usage-flags.db")
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.RecordNodeUsage {
+		t.Fatal("RecordNodeUsage=false want true")
+	}
+	if !cfg.RecordNodeUserUsages {
+		t.Fatal("RecordNodeUserUsages=false want true")
+	}
+}

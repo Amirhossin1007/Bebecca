@@ -156,8 +156,10 @@ fi
 REBECCA_SCRIPT_BASE_URL="${REBECCA_SCRIPT_BASE_URL:-https://raw.githubusercontent.com/${REBECCA_REPO}/${REBECCA_REF}/scripts/rebecca}"
 REBECCA_NODE_RELEASE_REPO="${REBECCA_NODE_RELEASE_REPO:-rebeccapanel/Rebecca-node}"
 REBECCA_NODE_BINARY_DEV_BRANCH="${REBECCA_NODE_BINARY_DEV_BRANCH:-dev}"
+REBECCA_NODE_BINARY_DEV_RELEASE_TAG="${REBECCA_NODE_BINARY_DEV_RELEASE_TAG:-dev-binaries}"
 REBECCA_NODE_BINARY_WORKFLOW_NAME="${REBECCA_NODE_BINARY_WORKFLOW_NAME:-binary-build}"
 REBECCA_NODE_BINARY_ARTIFACT_PREFIX="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX:-rebecca-node-binaries}"
+DEFAULT_XRAY_CORE_VERSION="${DEFAULT_XRAY_CORE_VERSION:-v26.7.11}"
 
 # Default node channel values
 BRANCH="master"
@@ -751,10 +753,48 @@ detect_os() {
     fi
 }
 
+remove_broken_xanmod_apt_sources() {
+    local matches
+    matches=$(grep -RIlE 'deb\.xanmod\.org|xanmod\.org' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || true)
+    if [ -z "$matches" ]; then
+        return 1
+    fi
+    colorized_echo yellow "Removing broken XanMod apt source entries"
+    while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        case "$file" in
+            /etc/apt/sources.list)
+                sed -i.bak '/deb\.xanmod\.org/d;/xanmod\.org/d' "$file"
+            ;;
+            /etc/apt/sources.list.d/*)
+                rm -f "$file"
+            ;;
+        esac
+    done <<< "$matches"
+    return 0
+}
+
+apt_update_with_repo_repair() {
+    local log_file
+    log_file=$(mktemp)
+    if DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a "$PKG_MANAGER" "$@" update -qq >"$log_file" 2>&1; then
+        rm -f "$log_file"
+        return 0
+    fi
+    cat "$log_file" >&2
+    if grep -qiE 'deb\.xanmod\.org|xanmod.*release file|does not have a release file' "$log_file" && remove_broken_xanmod_apt_sources; then
+        rm -f "$log_file"
+        DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a "$PKG_MANAGER" "$@" update -qq
+        return
+    fi
+    rm -f "$log_file"
+    return 1
+}
+
 detect_and_update_package_manager() {
     if [[ "$OS" == "Ubuntu"* ]] || [[ "$OS" == "Debian"* ]]; then
         PKG_MANAGER="apt-get"
-        ui_spinner_run "Updating package index" bash -c "DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a $PKG_MANAGER update -qq"
+        ui_spinner_run "Updating package index" apt_update_with_repo_repair
     elif [[ "$OS" == "CentOS"* ]] || [[ "$OS" == "AlmaLinux"* ]]; then
         PKG_MANAGER="yum"
         ui_spinner_run "Updating package index" "$PKG_MANAGER" update -y -q
@@ -905,9 +945,15 @@ get_node_binary_release_asset_metadata() {
 
 get_node_binary_dev_artifact_metadata() {
     local binary_arch="$1"
+    local release_api
+    local release_payload
+    local release_asset_name
+    local release_asset_url
+    local release_target
     local workflow_runs_api
     local workflow_runs_payload
-    local latest_run_json
+    local matching_runs
+    local run_json
     local run_id
     local head_sha
     local artifacts_api
@@ -916,6 +962,25 @@ get_node_binary_dev_artifact_metadata() {
     local artifact_url
     local nightly_workflow
     local workflow_path
+
+    release_asset_name="rebecca-node-dev-linux-${binary_arch}"
+    release_api="https://api.github.com/repos/${REBECCA_NODE_RELEASE_REPO}/releases/tags/${REBECCA_NODE_BINARY_DEV_RELEASE_TAG}"
+    if release_payload=$(curl -fsSL "$release_api" 2>/dev/null); then
+        release_asset_url=$(echo "$release_payload" | jq -r --arg name "$release_asset_name" '
+            .assets[]?
+            | select(.name == $name)
+            | .browser_download_url
+        ' | head -n 1)
+        if [ -n "$release_asset_url" ] && [ "$release_asset_url" != "null" ]; then
+            release_target=$(echo "$release_payload" | jq -r '.target_commitish // empty')
+            if [[ "$release_target" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+                printf '%s|%s\n' "dev-${release_target:0:7}" "$release_asset_url"
+            else
+                printf '%s|%s\n' "dev-${REBECCA_NODE_BINARY_DEV_BRANCH}" "$release_asset_url"
+            fi
+            return 0
+        fi
+    fi
 
     nightly_workflow="$REBECCA_NODE_BINARY_WORKFLOW_NAME"
     case "$nightly_workflow" in
@@ -929,40 +994,53 @@ get_node_binary_dev_artifact_metadata() {
         exit 1
     }
 
-    latest_run_json=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_NODE_BINARY_DEV_BRANCH" --arg workflow_path "$workflow_path" '
+    matching_runs=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_NODE_BINARY_DEV_BRANCH" --arg workflow_path "$workflow_path" '
         .workflow_runs[]?
-        | select(.head_branch == $branch and .event == "push" and .conclusion == "success" and .path == $workflow_path)
-    ' | head -n 1)
+        | select(
+            .head_branch == $branch
+            and (.event == "push" or .event == "workflow_dispatch")
+            and .conclusion == "success"
+            and .path == $workflow_path
+        )
+    ')
 
-    if [ -z "$latest_run_json" ]; then
+    if [ -z "$matching_runs" ]; then
         colorized_echo red "No successful Rebecca-node binary workflow run was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
         exit 1
     fi
 
-    run_id=$(echo "$latest_run_json" | jq -r '.id // empty')
-    head_sha=$(echo "$latest_run_json" | jq -r '.head_sha // empty')
-    artifacts_api="https://api.github.com/repos/${REBECCA_NODE_RELEASE_REPO}/actions/runs/${run_id}/artifacts"
-    artifacts_payload=$(curl -fsSL "$artifacts_api") || {
-        colorized_echo red "Unable to read Rebecca-node binary workflow artifacts: $artifacts_api" >&2
-        exit 1
-    }
+    while IFS= read -r run_json; do
+        [ -n "$run_json" ] || continue
 
-    artifact_name=$(echo "$artifacts_payload" | jq -r --arg preferred "${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch}" --arg arch "linux-${binary_arch}" '
-        [
-            .artifacts[]?
-            | select((.expired | not) and (.name == $preferred or ((.name | startswith("rebecca-node")) and (.name | contains($arch)))))
-        ]
-        | sort_by(if .name == $preferred then 0 else 1 end, .created_at)
-        | .[0].name // empty
-    ')
+        run_id=$(echo "$run_json" | jq -r '.id // empty')
+        head_sha=$(echo "$run_json" | jq -r '.head_sha // empty')
+        artifacts_api="https://api.github.com/repos/${REBECCA_NODE_RELEASE_REPO}/actions/runs/${run_id}/artifacts"
+        if ! artifacts_payload=$(curl -fsSL "$artifacts_api"); then
+            colorized_echo yellow "Unable to read Rebecca-node binary artifacts for workflow run ${run_id}; checking an older successful run." >&2
+            continue
+        fi
 
-    if [ -z "$artifact_name" ]; then
-        colorized_echo red "No usable Rebecca-node binary dev artifact was found for workflow run ${run_id}." >&2
-        exit 1
-    fi
+        artifact_name=$(echo "$artifacts_payload" | jq -r --arg preferred "${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch}" --arg arch "linux-${binary_arch}" '
+            [
+                .artifacts[]?
+                | select((.expired | not) and (.name == $preferred or ((.name | startswith("rebecca-node")) and (.name | contains($arch)))))
+            ]
+            | sort_by(if .name == $preferred then 0 else 1 end, .created_at)
+            | .[0].name // empty
+        ')
 
-    artifact_url="https://nightly.link/${REBECCA_NODE_RELEASE_REPO}/workflows/${nightly_workflow}/${REBECCA_NODE_BINARY_DEV_BRANCH}/${artifact_name}.zip"
-    printf '%s|%s\n' "dev-${head_sha:0:7}" "$artifact_url"
+        if [ -n "$artifact_name" ]; then
+            artifact_url="https://nightly.link/${REBECCA_NODE_RELEASE_REPO}/workflows/${nightly_workflow}/${REBECCA_NODE_BINARY_DEV_BRANCH}/${artifact_name}.zip"
+            printf '%s|%s\n' "dev-${head_sha:0:7}" "$artifact_url"
+            return 0
+        fi
+
+        colorized_echo yellow "Rebecca-node binary workflow run ${run_id} has no usable linux-${binary_arch} artifact; checking an older successful run." >&2
+    done <<< "$matching_runs"
+
+    colorized_echo red "No usable Rebecca-node linux-${binary_arch} dev artifact was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
+    colorized_echo yellow "The dev binary workflow must publish ${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch} before this server can install the dev binary." >&2
+    exit 1
 }
 
 write_node_binary_release_metadata() {
@@ -1018,11 +1096,11 @@ EOF
 
 install_latest_xray_for_binary_node() {
     mkdir -p "$APP_DIR/scripts" "$DATA_DIR/xray-core"
-    colorized_echo blue "Installing Xray core for binary node"
+    colorized_echo blue "Installing Xray core ${XRAY_CORE_VERSION:-$DEFAULT_XRAY_CORE_VERSION} for binary node"
     curl -fsSL "$REBECCA_SCRIPT_BASE_URL/install_latest_xray.sh" -o "$APP_DIR/scripts/install_latest_xray.sh"
     sed -i 's/\r$//' "$APP_DIR/scripts/install_latest_xray.sh"
     chmod +x "$APP_DIR/scripts/install_latest_xray.sh"
-    REBECCA_DATA_DIR="$DATA_DIR" XRAY_INSTALL_DIR="$DATA_DIR/xray-core" XRAY_ASSETS_DIR="$DATA_DIR/xray-core" bash "$APP_DIR/scripts/install_latest_xray.sh"
+    REBECCA_DATA_DIR="$DATA_DIR" XRAY_INSTALL_DIR="$DATA_DIR/xray-core" XRAY_ASSETS_DIR="$DATA_DIR/xray-core" XRAY_CORE_VERSION="${XRAY_CORE_VERSION:-$DEFAULT_XRAY_CORE_VERSION}" bash "$APP_DIR/scripts/install_latest_xray.sh"
 }
 
 read_node_certificate_bundle() {
@@ -1038,11 +1116,15 @@ read_node_certificate_bundle() {
             if [ "$bundle_started" -eq 0 ]; then
                 break
             fi
+            if grep -q -- "-----END CERTIFICATE-----" "$bundle_file" && grep -Eq -- "-----END( [^-]+)? PRIVATE KEY-----" "$bundle_file"; then
+                bundle_completed=1
+                break
+            fi
             continue
         fi
         bundle_started=1
         echo "$line" >>"$bundle_file"
-        if [[ "$line" =~ ^-----END\ .+PRIVATE\ KEY-----$ ]] && grep -q -- "-----END CERTIFICATE-----" "$bundle_file"; then
+        if grep -q -- "-----END CERTIFICATE-----" "$bundle_file" && grep -Eq -- "-----END( [^-]+)? PRIVATE KEY-----" "$bundle_file"; then
             bundle_completed=1
             break
         fi
@@ -1055,7 +1137,7 @@ read_node_certificate_bundle() {
     fi
 
     awk 'BEGIN{capture=0} /-----BEGIN CERTIFICATE-----/{capture=1} capture{print} /-----END CERTIFICATE-----/{exit}' "$bundle_file" >"$CERT_FILE"
-    awk 'BEGIN{capture=0} /-----BEGIN .*PRIVATE KEY-----/{capture=1} capture{print} /-----END .*PRIVATE KEY-----/{exit}' "$bundle_file" >"$CERT_KEY_FILE"
+    awk 'BEGIN{capture=0} /-----BEGIN( [^-]+)? PRIVATE KEY-----/{capture=1} capture{print} /-----END( [^-]+)? PRIVATE KEY-----/{exit}' "$bundle_file" >"$CERT_KEY_FILE"
     rm -f "$bundle_file"
 
     if ! grep -q -- "-----END CERTIFICATE-----" "$CERT_FILE"; then
@@ -1063,7 +1145,7 @@ read_node_certificate_bundle() {
         rm -f "$CERT_FILE" "$CERT_KEY_FILE"
         exit 1
     fi
-    if ! grep -Eq -- "-----END .+PRIVATE KEY-----" "$CERT_KEY_FILE"; then
+    if ! grep -Eq -- "-----END( [^-]+)? PRIVATE KEY-----" "$CERT_KEY_FILE"; then
         colorized_echo red "The bundle does not contain a valid PEM private key."
         rm -f "$CERT_FILE" "$CERT_KEY_FILE"
         exit 1
@@ -1084,50 +1166,10 @@ configure_binary_node_env() {
 
     get_occupied_ports
 
-    if ! grep -qE '^[[:space:]]*SERVICE_PORT[[:space:]]*=' "$ENV_FILE" 2>/dev/null; then
-        while true; do
-            read -p "Enter the SERVICE_PORT (default 62050): " -r SERVICE_PORT
-            if [[ -z "$SERVICE_PORT" ]]; then
-                SERVICE_PORT=62050
-            fi
-            if [[ "$SERVICE_PORT" -ge 1 && "$SERVICE_PORT" -le 65535 ]]; then
-                if is_port_occupied "$SERVICE_PORT"; then
-                    colorized_echo red "Port $SERVICE_PORT is already in use. Please enter another port."
-                else
-                    break
-                fi
-            else
-                colorized_echo red "Invalid port. Please enter a port between 1 and 65535."
-            fi
-        done
-        set_env_value "SERVICE_PORT" "$SERVICE_PORT"
-    fi
-    SERVICE_PORT="${SERVICE_PORT:-$(get_env_value "SERVICE_PORT")}"
-    SERVICE_PORT="${SERVICE_PORT:-62050}"
+    SERVICE_PORT=$(prompt_node_port_setting "SERVICE_PORT" "SERVICE_PORT" "62050")
     set_env_value "SERVICE_PORT" "$SERVICE_PORT"
 
-    if ! grep -qE '^[[:space:]]*XRAY_API_PORT[[:space:]]*=' "$ENV_FILE" 2>/dev/null; then
-        while true; do
-            read -p "Enter the XRAY_API_PORT (default 62051): " -r XRAY_API_PORT
-            if [[ -z "$XRAY_API_PORT" ]]; then
-                XRAY_API_PORT=62051
-            fi
-            if [[ "$XRAY_API_PORT" -ge 1 && "$XRAY_API_PORT" -le 65535 ]]; then
-                if is_port_occupied "$XRAY_API_PORT"; then
-                    colorized_echo red "Port $XRAY_API_PORT is already in use. Please enter another port."
-                elif [[ "$XRAY_API_PORT" -eq "$SERVICE_PORT" ]]; then
-                    colorized_echo red "Port $XRAY_API_PORT cannot be the same as SERVICE_PORT. Please enter another port."
-                else
-                    break
-                fi
-            else
-                colorized_echo red "Invalid port. Please enter a port between 1 and 65535."
-            fi
-        done
-        set_env_value "XRAY_API_PORT" "$XRAY_API_PORT"
-    fi
-    XRAY_API_PORT="${XRAY_API_PORT:-$(get_env_value "XRAY_API_PORT")}"
-    XRAY_API_PORT="${XRAY_API_PORT:-62051}"
+    XRAY_API_PORT=$(prompt_node_port_setting "XRAY_API_PORT" "XRAY_API_PORT" "62051" "$SERVICE_PORT")
     set_env_value "XRAY_API_PORT" "$XRAY_API_PORT"
 
     set_env_value "REBECCA_DATA_DIR" "$DATA_DIR"
@@ -1203,10 +1245,15 @@ install_binary_rebecca_node() {
         artifact_url="local-override"
     elif [ "$node_version" = "dev" ]; then
         IFS='|' read -r resolved_version artifact_url < <(get_node_binary_dev_artifact_metadata "$binary_arch")
-        package_path="$tmp_dir/rebecca-node-binaries.zip"
-        ui_spinner_run "Downloading Rebecca-node dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
-        ui_spinner_run "Extracting Rebecca-node dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
-        normalize_node_dev_artifact "$tmp_dir" "$binary_arch"
+        if [[ "$artifact_url" == *.zip ]]; then
+            package_path="$tmp_dir/rebecca-node-binaries.zip"
+            ui_spinner_run "Downloading Rebecca-node dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
+            ui_spinner_run "Extracting Rebecca-node dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
+            normalize_node_dev_artifact "$tmp_dir" "$binary_arch"
+        else
+            ui_spinner_run "Downloading Rebecca-node dev binary" curl -fL "$artifact_url" -o "$tmp_dir/rebecca-node"
+            chmod +x "$tmp_dir/rebecca-node"
+        fi
     else
         IFS='|' read -r resolved_version node_asset_url < <(get_node_binary_release_asset_metadata "$node_version" "$binary_arch")
         ui_spinner_run "Downloading Rebecca-node binary" curl -fL "$node_asset_url" -o "$tmp_dir/rebecca-node"
@@ -1279,6 +1326,34 @@ is_port_occupied() {
     else
         return 1
     fi
+}
+
+prompt_node_port_setting() {
+    local key="$1"
+    local label="$2"
+    local fallback="$3"
+    local other_port="${4:-}"
+    local current_port
+    local value
+
+    current_port=$(get_env_value "$key")
+    fallback="${current_port:-$fallback}"
+
+    while true; do
+        printf "Enter the %s (default %s): " "$label" "$fallback" >&2
+        IFS= read -r value
+        value="${value:-$fallback}"
+        if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
+            colorized_echo red "Invalid port. Please enter a port between 1 and 65535." >&2
+        elif [ -n "$other_port" ] && [ "$value" -eq "$other_port" ]; then
+            colorized_echo red "Port $value cannot be the same as SERVICE_PORT. Please enter another port." >&2
+        elif is_port_occupied "$value" && [ "$value" != "$current_port" ]; then
+            colorized_echo red "Port $value is already in use. Please enter another port." >&2
+        else
+            echo "$value"
+            return 0
+        fi
+    done
 }
 
 install_rebecca_node() {
@@ -1452,6 +1527,35 @@ update_rebecca_node_script() {
     install_rebecca_node_script
 }
 
+reexec_updated_node_script() {
+    local target_path="/usr/local/bin/$APP_NAME"
+    local args=("update")
+
+    if [ "${REBECCA_NODE_SKIP_REEXEC:-0}" = "1" ]; then
+        return
+    fi
+    if [ ! -x "$target_path" ]; then
+        return
+    fi
+
+    if [ "$NODE_VERSION_SET" -eq 1 ]; then
+        case "${NODE_VERSION_REQUESTED:-}" in
+            dev)
+                args+=("--dev")
+            ;;
+            "")
+                args+=("--version" "latest")
+            ;;
+            *)
+                args+=("--version" "$NODE_VERSION_REQUESTED")
+            ;;
+        esac
+    fi
+
+    colorized_echo blue "Reloading updated $APP_NAME script"
+    REBECCA_NODE_SKIP_REEXEC=1 exec "$target_path" "${args[@]}"
+}
+
 update_rebecca_node() {
     local requested_version="${1:-}"
     if is_binary_install; then
@@ -1565,7 +1669,7 @@ install_command() {
     up_rebecca_node
     SERVICE_PORT="${SERVICE_PORT:-$(get_env_value "SERVICE_PORT")}"
     XRAY_API_PORT="${XRAY_API_PORT:-$(get_env_value "XRAY_API_PORT")}"
-    echo "Use your IP: $NODE_IP and defaults ports: $SERVICE_PORT and $XRAY_API_PORT to setup your Rebecca Main Panel"
+    echo "Use your IP: $NODE_IP and selected ports: $SERVICE_PORT and $XRAY_API_PORT to setup your Rebecca Main Panel"
     colorized_echo yellow "Run '$APP_NAME logs' if you want to follow live node logs."
 }
 
@@ -1858,6 +1962,7 @@ update_command() {
     fi
 
     update_rebecca_node_script
+    reexec_updated_node_script
 
     if is_binary_install; then
         colorized_echo blue "Updating Rebecca-node binary files"

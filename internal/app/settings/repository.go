@@ -14,6 +14,10 @@ import (
 
 const (
 	defaultSubscriptionType            = "key"
+	defaultDashboardPath               = "/dashboard/"
+	defaultPHPMyAdminPort              = 8080
+	defaultPHPMyAdminPath              = "/phpmyadmin/"
+	defaultPHPMyAdminLoginMode         = "rebecca"
 	defaultSubscriptionProfileTitle    = "Subscription"
 	defaultSubscriptionSupportURL      = "https://t.me/"
 	defaultSubscriptionUpdateInterval  = "12"
@@ -23,6 +27,8 @@ const (
 	defaultHomePageTemplate            = "home/index.html"
 	defaultV2RaySubscriptionTemplate   = "v2ray/default.json"
 	defaultV2RaySettingsTemplate       = "v2ray/settings.json"
+	defaultHappSubscriptionTemplate    = "v2ray/default.json"
+	defaultIncySubscriptionTemplate    = "v2ray/default.json"
 	defaultSingBoxSubscriptionTemplate = "singbox/default.json"
 	defaultSingBoxSettingsTemplate     = "singbox/settings.json"
 	defaultMuxTemplate                 = "mux/default.json"
@@ -42,6 +48,8 @@ var templateKeys = map[string]bool{
 	"home_page_template":            true,
 	"v2ray_subscription_template":   true,
 	"v2ray_settings_template":       true,
+	"happ_subscription_template":    true,
+	"incy_subscription_template":    true,
 	"singbox_subscription_template": true,
 	"singbox_settings_template":     true,
 	"mux_template":                  true,
@@ -75,10 +83,6 @@ func (r Repository) UpdatePanelSettings(ctx context.Context, raw map[string]json
 	}
 	sets := []string{}
 	args := []any{}
-	if value, ok := raw["use_nobetci"]; ok {
-		sets = append(sets, "use_nobetci = ?")
-		args = append(args, rawBoolDefault(value, false))
-	}
 	if value, ok := raw["default_subscription_type"]; ok {
 		incoming := strings.TrimSpace(rawStringDefault(value, ""))
 		if allowedSubscriptionTypes[incoming] {
@@ -95,6 +99,56 @@ func (r Repository) UpdatePanelSettings(ctx context.Context, raw map[string]json
 		}
 	}
 	return r.panelSettings(ctx)
+}
+
+func (r Repository) RuntimeSettings(ctx context.Context) (RuntimeSettings, error) {
+	if err := r.ensureRuntimeSettingsRecord(ctx); err != nil {
+		return RuntimeSettings{}, err
+	}
+	return r.runtimeSettings(ctx)
+}
+
+func (r Repository) UpdateRuntimeSettings(ctx context.Context, raw map[string]json.RawMessage) (RuntimeSettings, error) {
+	if err := r.ensureRuntimeSettingsRecord(ctx); err != nil {
+		return RuntimeSettings{}, err
+	}
+	sets := []string{}
+	args := []any{}
+	add := func(column string, value any) {
+		sets = append(sets, column+" = ?")
+		args = append(args, value)
+	}
+	for key, value := range raw {
+		switch key {
+		case "dashboard_path":
+			add(key, normalizeDashboardPath(rawStringDefault(value, defaultDashboardPath)))
+		case "phpmyadmin_port":
+			add(key, normalizePort(rawIntDefault(value, defaultPHPMyAdminPort), defaultPHPMyAdminPort))
+		case "phpmyadmin_path":
+			add(key, normalizeURLPath(rawStringDefault(value, defaultPHPMyAdminPath), defaultPHPMyAdminPath))
+		case "phpmyadmin_public_url":
+			add(key, strings.TrimSpace(rawStringDefault(value, "")))
+		case "phpmyadmin_login_mode":
+			add(key, normalizePHPMyAdminLoginMode(rawStringDefault(value, defaultPHPMyAdminLoginMode)))
+		case "phpmyadmin_username":
+			add(key, strings.TrimSpace(rawStringDefault(value, "")))
+		case "phpmyadmin_password":
+			add(key, rawStringDefault(value, ""))
+		case "record_node_usage", "record_node_user_usages", "subscription_read_only", "api_docs_enabled":
+			add(key, rawBoolDefault(value, false))
+		case "phpmyadmin_enabled":
+			add(key, rawBoolDefault(value, false))
+		}
+	}
+	if len(sets) > 0 {
+		sets = append(sets, "updated_at = ?")
+		args = append(args, dbTime(time.Now().UTC()))
+		args = append(args, 1)
+		if _, err := r.db.ExecContext(ctx, "UPDATE settings SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...); err != nil {
+			return RuntimeSettings{}, err
+		}
+	}
+	return r.runtimeSettings(ctx)
 }
 
 func (r Repository) SubscriptionBundle(ctx context.Context) (SubscriptionBundle, error) {
@@ -154,14 +208,23 @@ func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[stri
 			}
 			encoded, _ := json.Marshal(normalizePorts(ports))
 			add(key, string(encoded))
-		case "use_custom_json_default", "use_custom_json_for_v2rayn", "use_custom_json_for_v2rayng", "use_custom_json_for_streisand", "use_custom_json_for_happ":
+		case "use_custom_json_default", "use_custom_json_for_v2rayn", "use_custom_json_for_v2rayng", "use_custom_json_for_streisand", "use_custom_json_for_happ", "use_custom_json_for_incy":
 			add(key, rawBoolDefault(value, false))
-		case "custom_templates_directory", "clash_subscription_template", "clash_settings_template", "subscription_page_template", "home_page_template", "v2ray_subscription_template", "v2ray_settings_template", "singbox_subscription_template", "singbox_settings_template", "mux_template":
+		case "custom_templates_directory":
 			if string(value) == "null" {
 				add(key, nil)
 			} else {
 				add(key, strings.TrimSpace(rawStringDefault(value, "")))
 			}
+		case "clash_subscription_template", "clash_settings_template", "subscription_page_template", "home_page_template", "v2ray_subscription_template", "v2ray_settings_template", "happ_subscription_template", "incy_subscription_template", "singbox_subscription_template", "singbox_settings_template", "mux_template":
+			if string(value) == "null" {
+				continue
+			}
+			templateName, err := normalizeTemplateName(rawStringDefault(value, ""))
+			if err != nil {
+				return SubscriptionSettings{}, fmt.Errorf("%s: %w", key, err)
+			}
+			add(key, templateName)
 		}
 	}
 	if len(sets) > 0 {
@@ -227,17 +290,103 @@ var ErrAdminNotFound = errors.New("admin not found")
 var ErrUnsupportedTemplateKey = errors.New("unsupported template key")
 
 func (r Repository) panelSettings(ctx context.Context) (PanelSettings, error) {
-	var useNobetci sql.NullBool
 	var defaultType sql.NullString
-	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(use_nobetci, 0), COALESCE(default_subscription_type, 'key') FROM panel_settings ORDER BY id DESC LIMIT 1`).Scan(&useNobetci, &defaultType)
+	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(default_subscription_type, 'key') FROM panel_settings ORDER BY id DESC LIMIT 1`).Scan(&defaultType)
 	if err != nil {
 		return PanelSettings{}, err
 	}
-	result := PanelSettings{UseNobetci: useNobetci.Valid && useNobetci.Bool, DefaultSubscriptionType: defaultType.String}
+	result := PanelSettings{DefaultSubscriptionType: defaultType.String}
 	if !allowedSubscriptionTypes[result.DefaultSubscriptionType] {
 		result.DefaultSubscriptionType = defaultSubscriptionType
 	}
 	return result, nil
+}
+
+func (r Repository) runtimeSettings(ctx context.Context) (RuntimeSettings, error) {
+	var result RuntimeSettings
+	err := r.db.QueryRowContext(ctx, `
+SELECT
+	COALESCE(dashboard_path, '/dashboard/'),
+	COALESCE(record_node_usage, 1),
+	COALESCE(record_node_user_usages, 1),
+	COALESCE(subscription_read_only, 0),
+	COALESCE(api_docs_enabled, 0),
+	COALESCE(phpmyadmin_enabled, 0),
+	COALESCE(phpmyadmin_port, 8080),
+	COALESCE(phpmyadmin_path, '/phpmyadmin/'),
+	COALESCE(phpmyadmin_public_url, ''),
+	COALESCE(phpmyadmin_login_mode, 'rebecca'),
+	COALESCE(phpmyadmin_username, ''),
+	COALESCE(phpmyadmin_password, '')
+FROM settings
+WHERE id = 1
+LIMIT 1`).Scan(
+		&result.DashboardPath,
+		&result.RecordNodeUsage,
+		&result.RecordNodeUserUsages,
+		&result.SubscriptionReadOnly,
+		&result.APIDocsEnabled,
+		&result.PHPMyAdminEnabled,
+		&result.PHPMyAdminPort,
+		&result.PHPMyAdminPath,
+		&result.PHPMyAdminPublicURL,
+		&result.PHPMyAdminLoginMode,
+		&result.PHPMyAdminUsername,
+		&result.PHPMyAdminPassword,
+	)
+	if err != nil {
+		return RuntimeSettings{}, err
+	}
+	result.DashboardPath = normalizeDashboardPath(result.DashboardPath)
+	result.PHPMyAdminPort = normalizePort(result.PHPMyAdminPort, defaultPHPMyAdminPort)
+	result.PHPMyAdminPath = normalizeURLPath(result.PHPMyAdminPath, defaultPHPMyAdminPath)
+	result.PHPMyAdminLoginMode = normalizePHPMyAdminLoginMode(result.PHPMyAdminLoginMode)
+	return result, nil
+}
+
+func (r Repository) ensureRuntimeSettingsRecord(ctx context.Context) error {
+	var count int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM settings WHERE id = 1`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO settings (
+	id,
+	dashboard_path,
+	record_node_usage,
+	record_node_user_usages,
+	subscription_read_only,
+	api_docs_enabled,
+	phpmyadmin_enabled,
+	phpmyadmin_port,
+	phpmyadmin_path,
+	phpmyadmin_public_url,
+	phpmyadmin_login_mode,
+	phpmyadmin_username,
+	phpmyadmin_password,
+	created_at,
+	updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		1,
+		defaultDashboardPath,
+		true,
+		true,
+		false,
+		false,
+		false,
+		defaultPHPMyAdminPort,
+		defaultPHPMyAdminPath,
+		"",
+		defaultPHPMyAdminLoginMode,
+		"",
+		"",
+		dbTime(time.Now().UTC()),
+		dbTime(time.Now().UTC()),
+	)
+	return err
 }
 
 func (r Repository) ensurePanelRecord(ctx context.Context) error {
@@ -248,7 +397,7 @@ func (r Repository) ensurePanelRecord(ctx context.Context) error {
 	if count > 0 {
 		return nil
 	}
-	_, err := r.db.ExecContext(ctx, `INSERT INTO panel_settings (use_nobetci, default_subscription_type, created_at, updated_at) VALUES (?, ?, ?, ?)`, false, defaultSubscriptionType, dbTime(time.Now().UTC()), dbTime(time.Now().UTC()))
+	_, err := r.db.ExecContext(ctx, `INSERT INTO panel_settings (default_subscription_type, created_at, updated_at) VALUES (?, ?, ?)`, defaultSubscriptionType, dbTime(time.Now().UTC()), dbTime(time.Now().UTC()))
 	return err
 }
 
@@ -287,6 +436,8 @@ subscription_page_template,
 home_page_template,
 v2ray_subscription_template,
 v2ray_settings_template,
+happ_subscription_template,
+incy_subscription_template,
 singbox_subscription_template,
 singbox_settings_template,
 mux_template,
@@ -295,6 +446,7 @@ COALESCE(use_custom_json_for_v2rayn, 0),
 COALESCE(use_custom_json_for_v2rayng, 0),
 COALESCE(use_custom_json_for_streisand, 0),
 COALESCE(use_custom_json_for_happ, 0),
+COALESCE(use_custom_json_for_incy, 0),
 subscription_path,
 subscription_aliases,
 subscription_ports
@@ -302,7 +454,7 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	var result SubscriptionSettings
 	var customDir sql.NullString
 	var aliasesRaw, portsRaw sql.NullString
-	var useDefault, useV2RayN, useV2RayNG, useStreisand, useHapp sql.NullBool
+	var useDefault, useV2RayN, useV2RayNG, useStreisand, useHapp, useIncy sql.NullBool
 	if err := row.Scan(
 		&result.SubscriptionURLPrefix,
 		&result.SubscriptionProfileTitle,
@@ -315,6 +467,8 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 		&result.HomePageTemplate,
 		&result.V2RaySubscriptionTemplate,
 		&result.V2RaySettingsTemplate,
+		&result.HappSubscriptionTemplate,
+		&result.IncySubscriptionTemplate,
 		&result.SingBoxSubscriptionTemplate,
 		&result.SingBoxSettingsTemplate,
 		&result.MuxTemplate,
@@ -323,6 +477,7 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 		&useV2RayNG,
 		&useStreisand,
 		&useHapp,
+		&useIncy,
 		&result.SubscriptionPath,
 		&aliasesRaw,
 		&portsRaw,
@@ -337,6 +492,7 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	result.UseCustomJSONForV2RayNG = useV2RayNG.Valid && useV2RayNG.Bool
 	result.UseCustomJSONForStreisand = useStreisand.Valid && useStreisand.Bool
 	result.UseCustomJSONForHapp = useHapp.Valid && useHapp.Bool
+	result.UseCustomJSONForIncy = useIncy.Valid && useIncy.Bool
 	result.SubscriptionURLPrefix = normalizePrefix(result.SubscriptionURLPrefix)
 	result.SubscriptionSupportURL = normalizeSupportURL(result.SubscriptionSupportURL)
 	result.SubscriptionPath = normalizePath(result.SubscriptionPath)
@@ -367,6 +523,8 @@ subscription_page_template,
 home_page_template,
 v2ray_subscription_template,
 v2ray_settings_template,
+happ_subscription_template,
+incy_subscription_template,
 singbox_subscription_template,
 singbox_settings_template,
 mux_template,
@@ -375,12 +533,13 @@ use_custom_json_for_v2rayn,
 use_custom_json_for_v2rayng,
 use_custom_json_for_streisand,
 use_custom_json_for_happ,
+use_custom_json_for_incy,
 subscription_path,
 subscription_aliases,
 subscription_ports,
 created_at,
 updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"",
 		defaultSubscriptionProfileTitle,
 		defaultSubscriptionSupportURL,
@@ -392,9 +551,12 @@ updated_at
 		defaultHomePageTemplate,
 		defaultV2RaySubscriptionTemplate,
 		defaultV2RaySettingsTemplate,
+		defaultHappSubscriptionTemplate,
+		defaultIncySubscriptionTemplate,
 		defaultSingBoxSubscriptionTemplate,
 		defaultSingBoxSettingsTemplate,
 		defaultMuxTemplate,
+		false,
 		false,
 		false,
 		false,
@@ -523,24 +685,48 @@ func (r Repository) ReadTemplateContent(ctx context.Context, templateKey string,
 	if err != nil {
 		return TemplateContent{}, err
 	}
-	path, err := resolveExistingTemplatePath(selection.TemplateName, selection.CustomDirectory)
-	if err != nil {
-		if !errors.Is(err, ErrTemplateNotFound) {
+	if adminID != nil {
+		if content, ok, err := r.readTemplateSelection(templateKey, adminID, selection, true); err != nil || ok {
+			return content, err
+		}
+		globalSelection, err := r.templateSelection(ctx, templateKey, nil)
+		if err != nil {
 			return TemplateContent{}, err
 		}
-		resolved := displayTemplatePath(filepath.Join(appTemplateBasePath(), selection.TemplateName), selection.TemplateName, selection.CustomDirectory)
-		return TemplateContent{
-			TemplateKey:     templateKey,
-			TemplateName:    selection.TemplateName,
-			CustomDirectory: selection.CustomDirectory,
-			ResolvedPath:    &resolved,
-			AdminID:         adminID,
-			Content:         "",
-		}, nil
+		if content, ok, err := r.readTemplateSelection(templateKey, nil, globalSelection, true); err != nil || ok {
+			return content, err
+		}
+		if content, ok, err := r.readTemplateSelection(templateKey, adminID, selection, false); err != nil || ok {
+			return content, err
+		}
+		return r.emptyTemplateContent(templateKey, globalSelection, nil), nil
+	}
+	if content, ok, err := r.readTemplateSelection(templateKey, adminID, selection, true); err != nil || ok {
+		return content, err
+	}
+	if content, ok, err := r.readTemplateSelection(templateKey, adminID, selection, false); err != nil || ok {
+		return content, err
+	}
+	return r.emptyTemplateContent(templateKey, selection, adminID), nil
+}
+
+func (r Repository) readTemplateSelection(templateKey string, adminID *int64, selection templateSelection, customOnly bool) (TemplateContent, bool, error) {
+	var path string
+	var err error
+	if customOnly {
+		path, err = resolveCustomTemplatePath(selection.TemplateName, selection.CustomDirectory, adminID)
+	} else {
+		path, err = resolveAppTemplatePath(selection.TemplateName)
+	}
+	if err != nil {
+		if errors.Is(err, ErrTemplateNotFound) {
+			return TemplateContent{}, false, nil
+		}
+		return TemplateContent{}, false, err
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return TemplateContent{}, fmt.Errorf("unable to load template %s: %w", selection.TemplateName, err)
+		return TemplateContent{}, false, fmt.Errorf("unable to load template %s: %w", selection.TemplateName, err)
 	}
 	contentText := strings.ReplaceAll(string(content), "\r\n", "\n")
 	resolved := displayTemplatePath(path, selection.TemplateName, selection.CustomDirectory)
@@ -551,7 +737,19 @@ func (r Repository) ReadTemplateContent(ctx context.Context, templateKey string,
 		ResolvedPath:    &resolved,
 		AdminID:         adminID,
 		Content:         contentText,
-	}, nil
+	}, true, nil
+}
+
+func (r Repository) emptyTemplateContent(templateKey string, selection templateSelection, adminID *int64) TemplateContent {
+	resolved := displayTemplatePath(filepath.Join(appTemplateBasePath(), selection.TemplateName), selection.TemplateName, selection.CustomDirectory)
+	return TemplateContent{
+		TemplateKey:     templateKey,
+		TemplateName:    selection.TemplateName,
+		CustomDirectory: selection.CustomDirectory,
+		ResolvedPath:    &resolved,
+		AdminID:         adminID,
+		Content:         "",
+	}
 }
 
 func (r Repository) WriteTemplateContent(ctx context.Context, templateKey string, adminID *int64, content string) (TemplateContent, error) {
@@ -642,7 +840,7 @@ func (r Repository) templateSelectionTx(ctx context.Context, tx *sql.Tx, templat
 	}
 	var columns subscriptionTemplateColumns
 	var customDir sql.NullString
-	if err := tx.QueryRowContext(ctx, `SELECT clash_subscription_template, clash_settings_template, subscription_page_template, home_page_template, v2ray_subscription_template, v2ray_settings_template, singbox_subscription_template, singbox_settings_template, mux_template, custom_templates_directory FROM subscription_settings ORDER BY id DESC LIMIT 1`).
+	if err := tx.QueryRowContext(ctx, `SELECT clash_subscription_template, clash_settings_template, subscription_page_template, home_page_template, v2ray_subscription_template, v2ray_settings_template, happ_subscription_template, incy_subscription_template, singbox_subscription_template, singbox_settings_template, mux_template, custom_templates_directory FROM subscription_settings ORDER BY id DESC LIMIT 1`).
 		Scan(
 			&columns.ClashSubscription,
 			&columns.ClashSettings,
@@ -650,6 +848,8 @@ func (r Repository) templateSelectionTx(ctx context.Context, tx *sql.Tx, templat
 			&columns.HomePage,
 			&columns.V2RaySubscription,
 			&columns.V2RaySettings,
+			&columns.HappSubscription,
+			&columns.IncySubscription,
 			&columns.SingBoxSubscription,
 			&columns.SingBoxSettings,
 			&columns.Mux,
@@ -685,6 +885,8 @@ type subscriptionTemplateColumns struct {
 	HomePage            string
 	V2RaySubscription   string
 	V2RaySettings       string
+	HappSubscription    string
+	IncySubscription    string
 	SingBoxSubscription string
 	SingBoxSettings     string
 	Mux                 string
@@ -704,6 +906,10 @@ func (c subscriptionTemplateColumns) value(templateKey string) string {
 		return c.V2RaySubscription
 	case "v2ray_settings_template":
 		return c.V2RaySettings
+	case "happ_subscription_template":
+		return c.HappSubscription
+	case "incy_subscription_template":
+		return c.IncySubscription
 	case "singbox_subscription_template":
 		return c.SingBoxSubscription
 	case "singbox_settings_template":

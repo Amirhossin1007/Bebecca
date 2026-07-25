@@ -1,6 +1,7 @@
 package system
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -82,10 +84,15 @@ type CommandScheduler interface {
 	Schedule(args []string) error
 }
 
+type ProgressCommandScheduler interface {
+	ScheduleWithProgress(args []string, onOutput func(string), onDone func(error)) error
+}
+
 type MaintenanceService struct {
 	Runtime  RuntimeDetector
 	Updates  UpdateChecker
 	Commands CommandScheduler
+	ops      *MaintenanceOperationStore
 }
 
 func NewMaintenanceService() *MaintenanceService {
@@ -106,6 +113,7 @@ func NewMaintenanceServiceWithDeps(runtimeDetector RuntimeDetector, updateChecke
 		Runtime:  runtimeDetector,
 		Updates:  updateChecker,
 		Commands: scheduler,
+		ops:      NewMaintenanceOperationStore(),
 	}
 }
 
@@ -119,29 +127,70 @@ func (s *MaintenanceService) Info(ctx context.Context) (MaintenanceInfo, error) 
 	}, nil
 }
 
-func (s *MaintenanceService) Update(_ context.Context, req MaintenanceUpdateRequest) error {
+func (s *MaintenanceService) Update(_ context.Context, req MaintenanceUpdateRequest) (MaintenanceOperationSnapshot, error) {
 	if err := requireBinaryRuntime(s.Runtime.Info()); err != nil {
-		return err
+		return MaintenanceOperationSnapshot{}, err
 	}
 	args, err := BuildRebeccaUpdateArgs(req.Channel, req.Version)
 	if err != nil {
-		return err
+		return MaintenanceOperationSnapshot{}, err
 	}
-	return s.Commands.Schedule(args)
+	return s.startOperation("update", args, "Preparing panel update")
 }
 
-func (s *MaintenanceService) Restart(context.Context) error {
+func (s *MaintenanceService) Restart(context.Context) (MaintenanceOperationSnapshot, error) {
 	if err := requireBinaryRuntime(s.Runtime.Info()); err != nil {
-		return err
+		return MaintenanceOperationSnapshot{}, err
 	}
-	return s.Commands.Schedule([]string{"restart", "-n"})
+	return s.startOperation("restart", []string{"restart", "-n"}, "Preparing panel restart")
 }
 
-func (s *MaintenanceService) SoftReload(context.Context) error {
+func (s *MaintenanceService) SoftReload(context.Context) (MaintenanceOperationSnapshot, error) {
 	if err := requireBinaryRuntime(s.Runtime.Info()); err != nil {
-		return err
+		return MaintenanceOperationSnapshot{}, err
 	}
-	return s.Commands.Schedule([]string{"restart", "-n"})
+	return s.startOperation("soft-reload", []string{"restart", "-n"}, "Preparing panel reload")
+}
+
+func (s *MaintenanceService) Status() MaintenanceOperationSnapshot {
+	if s.ops == nil {
+		s.ops = NewMaintenanceOperationStore()
+	}
+	return s.ops.Latest()
+}
+
+func (s *MaintenanceService) startOperation(action string, args []string, message string) (MaintenanceOperationSnapshot, error) {
+	if s.ops == nil {
+		s.ops = NewMaintenanceOperationStore()
+	}
+	op := s.ops.Start(action, args, message)
+	onOutput := func(line string) {
+		s.ops.AppendOutput(op.ID, line)
+	}
+	onDone := func(err error) {
+		s.ops.Finish(op.ID, err)
+	}
+	if action == "restart" || action == "soft-reload" {
+		if err := s.Commands.Schedule(args); err != nil {
+			s.ops.Finish(op.ID, err)
+			return s.ops.Get(op.ID), err
+		}
+		s.ops.MarkRestarting(op.ID, "Command accepted. Waiting for Rebecca to restart.")
+		return s.ops.Get(op.ID), nil
+	}
+	if scheduler, ok := s.Commands.(ProgressCommandScheduler); ok {
+		if err := scheduler.ScheduleWithProgress(args, onOutput, onDone); err != nil {
+			s.ops.Finish(op.ID, err)
+			return s.ops.Get(op.ID), err
+		}
+		return s.ops.Get(op.ID), nil
+	}
+	if err := s.Commands.Schedule(args); err != nil {
+		s.ops.Finish(op.ID, err)
+		return s.ops.Get(op.ID), err
+	}
+	s.ops.MarkRestarting(op.ID, "Command accepted. Waiting for Rebecca to restart.")
+	return s.ops.Get(op.ID), nil
 }
 
 func requireBinaryRuntime(info RuntimeInfo) error {
@@ -302,6 +351,44 @@ func (DefaultCommandScheduler) Schedule(args []string) error {
 	return nil
 }
 
+func (DefaultCommandScheduler) ScheduleWithProgress(args []string, onOutput func(string), onDone func(error)) error {
+	cli, err := resolveRebeccaCLI()
+	if err != nil {
+		return err
+	}
+	command := append([]string{cli}, args...)
+	cmd := exec.Command(command[0], command[1:]...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return MaintenanceError{Status: http.StatusInternalServerError, Detail: "Failed to capture Rebecca command output: " + err.Error()}
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return MaintenanceError{Status: http.StatusInternalServerError, Detail: "Failed to capture Rebecca command output: " + err.Error()}
+	}
+	if err := cmd.Start(); err != nil {
+		return MaintenanceError{Status: http.StatusInternalServerError, Detail: "Failed to schedule Rebecca command: " + err.Error()}
+	}
+	readPipe := func(reader io.Reader) {
+		scanner := bufio.NewScanner(reader)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			if onOutput != nil {
+				onOutput(scanner.Text())
+			}
+		}
+	}
+	go readPipe(stdout)
+	go readPipe(stderr)
+	go func() {
+		err := cmd.Wait()
+		if onDone != nil {
+			onDone(err)
+		}
+	}()
+	return nil
+}
+
 func resolveRebeccaCLI() (string, error) {
 	candidates := []string{strings.TrimSpace(os.Getenv("REBECCA_SCRIPT_BIN"))}
 	if path, err := exec.LookPath("rebecca"); err == nil {
@@ -326,6 +413,22 @@ type GitHubUpdateChecker struct {
 	ManifestBranch string
 	ManifestPath   string
 	Now            func() time.Time
+	CacheTTL       time.Duration
+	ErrorTTL       time.Duration
+
+	mu       sync.Mutex
+	cache    map[string]githubUpdateCacheEntry
+	inFlight map[string]*githubUpdateCall
+}
+
+type githubUpdateCacheEntry struct {
+	status    UpdateStatus
+	expiresAt time.Time
+}
+
+type githubUpdateCall struct {
+	done   chan struct{}
+	status UpdateStatus
 }
 
 func NewGitHubUpdateChecker() *GitHubUpdateChecker {
@@ -336,14 +439,64 @@ func NewGitHubUpdateChecker() *GitHubUpdateChecker {
 		ManifestBranch: firstEnv("REBECCA_BINARY_DEV_MANIFEST_BRANCH", "dev-build-manifest"),
 		ManifestPath:   "dev-builds.json",
 		Now:            time.Now,
+		CacheTTL:       10 * time.Minute,
+		ErrorTTL:       5 * time.Minute,
 	}
 }
 
 func (c *GitHubUpdateChecker) Status(ctx context.Context, repo string, current *string, channel string) UpdateStatus {
-	checkedAt := time.Now().Unix()
-	if c.Now != nil {
-		checkedAt = c.Now().Unix()
+	now := c.now()
+	key := c.statusCacheKey(repo, current, channel)
+
+	c.mu.Lock()
+	if c.cache == nil {
+		c.cache = map[string]githubUpdateCacheEntry{}
 	}
+	if c.inFlight == nil {
+		c.inFlight = map[string]*githubUpdateCall{}
+	}
+	if cached, ok := c.cache[key]; ok && now.Before(cached.expiresAt) {
+		status := cloneUpdateStatus(cached.status)
+		c.mu.Unlock()
+		return status
+	}
+	if call, ok := c.inFlight[key]; ok {
+		c.mu.Unlock()
+		select {
+		case <-call.done:
+			return cloneUpdateStatus(call.status)
+		case <-ctx.Done():
+			return c.errorStatus(repo, current, channel, now, ctx.Err().Error())
+		}
+	}
+	call := &githubUpdateCall{done: make(chan struct{})}
+	c.inFlight[key] = call
+	c.mu.Unlock()
+
+	status := c.statusUncached(ctx, repo, current, channel, now)
+	ttl := c.CacheTTL
+	if ttl <= 0 {
+		ttl = 10 * time.Minute
+	}
+	if status.Error != "" {
+		ttl = c.ErrorTTL
+		if ttl <= 0 {
+			ttl = 5 * time.Minute
+		}
+	}
+
+	c.mu.Lock()
+	c.cache[key] = githubUpdateCacheEntry{status: cloneUpdateStatus(status), expiresAt: now.Add(ttl)}
+	delete(c.inFlight, key)
+	call.status = cloneUpdateStatus(status)
+	close(call.done)
+	c.mu.Unlock()
+
+	return status
+}
+
+func (c *GitHubUpdateChecker) statusUncached(ctx context.Context, repo string, current *string, channel string, now time.Time) UpdateStatus {
+	checkedAt := now.Unix()
 	currentChannel := strings.ToLower(strings.TrimSpace(channel))
 	if currentChannel == "" {
 		currentChannel = InferUpdateChannel(current)
@@ -383,6 +536,69 @@ func (c *GitHubUpdateChecker) Status(ctx context.Context, repo string, current *
 	return status
 }
 
+func (c *GitHubUpdateChecker) now() time.Time {
+	if c.Now != nil {
+		return c.Now()
+	}
+	return time.Now()
+}
+
+func (c *GitHubUpdateChecker) statusCacheKey(repo string, current *string, channel string) string {
+	currentValue := ""
+	if current != nil {
+		currentValue = strings.TrimSpace(*current)
+	}
+	return strings.ToLower(strings.TrimSpace(repo)) + "|" + strings.ToLower(strings.TrimSpace(channel)) + "|" + currentValue
+}
+
+func (c *GitHubUpdateChecker) errorStatus(repo string, current *string, channel string, now time.Time, detail string) UpdateStatus {
+	currentChannel := strings.ToLower(strings.TrimSpace(channel))
+	if currentChannel == "" {
+		currentChannel = InferUpdateChannel(current)
+	}
+	if currentChannel == "" {
+		currentChannel = "unknown"
+	}
+	return UpdateStatus{
+		Repo:      repo,
+		Current:   cloneStringPtr(current),
+		Channel:   currentChannel,
+		CheckedAt: now.Unix(),
+		Error:     detail,
+	}
+}
+
+func cloneUpdateStatus(status UpdateStatus) UpdateStatus {
+	clone := status
+	clone.Current = cloneStringPtr(status.Current)
+	clone.Target = cloneStringPtr(status.Target)
+	if status.LatestRelease != nil {
+		release := cloneReleaseInfo(*status.LatestRelease)
+		clone.LatestRelease = &release
+	}
+	if status.LatestDev != nil {
+		dev := cloneReleaseInfo(*status.LatestDev)
+		clone.LatestDev = &dev
+	}
+	return clone
+}
+
+func cloneStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	clone := *value
+	return &clone
+}
+
+func cloneReleaseInfo(info ReleaseInfo) ReleaseInfo {
+	clone := make(ReleaseInfo, len(info))
+	for key, value := range info {
+		clone[key] = value
+	}
+	return clone
+}
+
 func (c *GitHubUpdateChecker) latestRelease(ctx context.Context, repo string) (*ReleaseInfo, error) {
 	var data map[string]any
 	if err := c.getJSON(ctx, strings.TrimRight(c.APIBase, "/")+"/repos/"+repo+"/releases/latest", &data); err != nil {
@@ -406,7 +622,8 @@ func (c *GitHubUpdateChecker) latestDev(ctx context.Context, repo string) (*Rele
 		return info, nil
 	}
 	var data map[string]any
-	if err := c.getJSON(ctx, strings.TrimRight(c.APIBase, "/")+"/repos/"+repo+"/actions/runs?per_page=50", &data); err != nil {
+	workflowURL := strings.TrimRight(c.APIBase, "/") + "/repos/" + repo + "/actions/workflows/binary-build.yml/runs?branch=dev&event=push&status=success&per_page=100"
+	if err := c.getJSON(ctx, workflowURL, &data); err != nil {
 		return nil, err
 	}
 	runs, _ := data["workflow_runs"].([]any)
@@ -417,8 +634,7 @@ func (c *GitHubUpdateChecker) latestDev(ctx context.Context, repo string) (*Rele
 		}
 		if stringFromAny(run["head_branch"]) != "dev" ||
 			stringFromAny(run["conclusion"]) != "success" ||
-			(stringFromAny(run["status"]) != "" && stringFromAny(run["status"]) != "completed") ||
-			stringFromAny(run["path"]) != ".github/workflows/binary-build.yml" {
+			(stringFromAny(run["status"]) != "" && stringFromAny(run["status"]) != "completed") {
 			continue
 		}
 		sha := strings.TrimSpace(stringFromAny(run["head_sha"]))
@@ -460,7 +676,7 @@ func (c *GitHubUpdateChecker) latestDevFromManifest(ctx context.Context, repo st
 	if build == nil {
 		return nil, nil
 	}
-	tag := strings.TrimSpace(stringFromAny((*build)["tag"]))
+	tag := firstNonEmptyString(stringFromAny((*build)["tag"]), stringFromAny((*build)["build_tag"]))
 	if tag == "" {
 		return nil, nil
 	}
@@ -473,8 +689,8 @@ func (c *GitHubUpdateChecker) latestDevFromManifest(ctx context.Context, repo st
 		"tag":          tag,
 		"sha":          (*build)["sha"],
 		"branch":       firstNonEmptyString(stringFromAny((*build)["branch"]), "dev"),
-		"created_at":   (*build)["created_at"],
-		"updated_at":   data["updated_at"],
+		"created_at":   firstNonEmptyAny((*build)["created_at"], (*build)["generated_at"]),
+		"updated_at":   firstNonEmptyAny(data["updated_at"], (*build)["generated_at"]),
 		"html_url":     htmlURL,
 		"manifest_url": url,
 	}
@@ -488,11 +704,8 @@ func (c *GitHubUpdateChecker) latestDevFromManifest(ctx context.Context, repo st
 
 func selectManifestBuild(data map[string]any) *map[string]any {
 	builds, _ := data["builds"].([]any)
-	if len(builds) == 0 {
-		return nil
-	}
 	latest := strings.TrimSpace(stringFromAny(data["latest"]))
-	if latest != "" {
+	if len(builds) > 0 && latest != "" {
 		for _, item := range builds {
 			build, ok := item.(map[string]any)
 			if ok && stringFromAny(build["tag"]) == latest {
@@ -504,6 +717,18 @@ func selectManifestBuild(data map[string]any) *map[string]any {
 		build, ok := item.(map[string]any)
 		if ok {
 			return &build
+		}
+	}
+	if legacy, ok := data["latest"].(map[string]any); ok {
+		return &legacy
+	}
+	return nil
+}
+
+func firstNonEmptyAny(values ...any) any {
+	for _, value := range values {
+		if strings.TrimSpace(stringFromAny(value)) != "" {
+			return value
 		}
 	}
 	return nil

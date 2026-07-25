@@ -33,6 +33,7 @@ type Service struct {
 	dashboard dashboardapp.Repository
 	metrics   MetricsProvider
 	version   string
+	channel   string
 
 	mu                 sync.Mutex
 	cpuHistory         []HistoryEntry
@@ -59,6 +60,7 @@ func NewServiceWithProvider(db *sql.DB, dialect string, version string, provider
 		dashboard: dashboardapp.NewRepository(db, dialect),
 		metrics:   provider,
 		version:   version,
+		channel:   DefaultRuntimeDetector{}.Info().Channel,
 	}
 }
 
@@ -77,9 +79,11 @@ func (s *Service) Stats(ctx context.Context, admin dashboardapp.AdminContext) (S
 	}
 	history := s.appendHistory(snapshot)
 	lastTelegramError := s.telegramLastError(ctx)
+	lastXrayError := s.lastXrayError(ctx)
 
 	return SystemStats{
 		Version:               s.version,
+		Channel:               s.channel,
 		CPUCores:              snapshot.CPUCores,
 		CPUUsage:              snapshot.CPUUsage,
 		TotalUser:             summary.TotalUser,
@@ -114,7 +118,7 @@ func (s *Service) Stats(ctx context.Context, admin dashboardapp.AdminContext) (S
 		PanelMemoryHistory:    history.panelMemory,
 		PersonalUsage:         summary.PersonalUsage,
 		AdminOverview:         summary.AdminOverview,
-		LastXrayError:         nil,
+		LastXrayError:         lastXrayError,
 		LastTelegramError:     lastTelegramError,
 	}, nil
 }
@@ -140,6 +144,44 @@ func (s *Service) telegramLastError(ctx context.Context) *string {
 	}
 	result := value.String
 	return &result
+}
+
+func (s *Service) lastXrayError(ctx context.Context) *string {
+	if s.db == nil {
+		return nil
+	}
+	hasTable, err := hasSystemTable(ctx, s.db, s.dialect, "nodes")
+	if err != nil || !hasTable {
+		return nil
+	}
+	for _, column := range []string{"message", "name", "status"} {
+		hasColumn, err := hasSystemColumn(ctx, s.db, s.dialect, "nodes", column)
+		if err != nil || !hasColumn {
+			return nil
+		}
+	}
+	var name, message sql.NullString
+	query := `
+SELECT name, message
+FROM nodes
+WHERE LOWER(COALESCE(status, '')) = 'error' AND TRIM(COALESCE(message, '')) <> ''
+ORDER BY id
+LIMIT 1`
+	if err := s.db.QueryRowContext(ctx, query).Scan(&name, &message); err != nil {
+		return nil
+	}
+	text := strings.TrimSpace(message.String)
+	if text == "" {
+		return nil
+	}
+	if len(text) > 3000 {
+		text = text[:3000] + "..."
+	}
+	label := strings.TrimSpace(name.String)
+	if label != "" {
+		text = "Node " + label + ": " + text
+	}
+	return &text
 }
 
 func hasSystemTable(ctx context.Context, db *sql.DB, dialect string, table string) (bool, error) {

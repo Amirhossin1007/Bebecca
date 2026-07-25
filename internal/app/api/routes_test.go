@@ -19,11 +19,13 @@ func TestRoutesMatchProtectedGroups(t *testing.T) {
 		"/api/inbounds/full",
 		"/api/inbounds/vless-in",
 		"/api/hosts/1/status",
+		"/api/settings",
 		"/api/settings/telegram",
 		"/api/settings/telegram/backup/send",
 		"/api/settings/telegram/test",
 		"/api/settings/subscriptions/templates/home_page_template",
-		"/api/settings/database/3xui/jobs/abc",
+		"/api/panel/xray/outbound-subs",
+		"/api/panel/xray/outbound-subs/1/refresh",
 		"/api/v2/services/1/users/actions",
 		"/api/v2/users/example",
 		"/api/user/example/reset",
@@ -94,6 +96,12 @@ func TestDocsRoutes(t *testing.T) {
 		}
 		if !strings.Contains(rec.Body.String(), "--rebecca-docs-bg") {
 			t.Fatalf("expected docs UI to include Rebecca dark theme CSS")
+		}
+		if !strings.Contains(rec.Body.String(), "preauthorizeApiKey") {
+			t.Fatalf("expected docs UI to auto-authorize with the current dashboard token")
+		}
+		if !strings.Contains(rec.Body.String(), "dialog-ux .modal-ux") {
+			t.Fatalf("expected docs UI to include dark authorization modal styling")
 		}
 	})
 }

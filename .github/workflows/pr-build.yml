@@ -22,17 +22,34 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ env.DASH_DIR }}/package-lock.json
 
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.147.7'
+          extended: true
+
       - name: Install dashboard dependencies
         working-directory: ${{ env.DASH_DIR }}
         run: npm ci
 
-      - name: Build dashboard
+      - name: Test dashboard
         working-directory: ${{ env.DASH_DIR }}
-        run: VITE_BASE_API=/api/ npm run build -- --outDir=build --assetsDir=statics
+        run: npm test
 
-      - name: Create 404.html
+      - name: Lint dashboard
         working-directory: ${{ env.DASH_DIR }}
-        run: cp ./build/index.html ./build/404.html
+        run: npm run lint
+
+      - name: Build dashboard
+        run: bash scripts/build_dashboard.sh
+
+      - name: Test Go
+        run: go test ./internal/app/admin ./internal/app/backup ./internal/app/migrations
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 	"sort"
@@ -13,52 +14,75 @@ import (
 	"strings"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
 var (
-	hostFragmentPattern = regexp.MustCompile(`^((\d{1,4}-\d{1,4})|(\d{1,4})),((\d{1,3}-\d{1,3})|(\d{1,3})),(tlshello|\d|\d-\d)$`)
+	hostFragmentPattern = regexp.MustCompile(`^((\d{1,4}-\d{1,4})|(\d{1,4})),((\d{1,3}-\d{1,3})|(\d{1,3})),(tlshello|\d|\d-\d)(,(\d{1,4}-\d{1,4}|\d{1,4}))?$`)
 	hostNoisePattern    = regexp.MustCompile(`^(rand:(\d{1,4}-\d{1,4}|\d{1,4})|str:.+|hex:.+|base64:.+)(,(\d{1,4}-\d{1,4}|\d{1,4}))?(&(rand:(\d{1,4}-\d{1,4}|\d{1,4})|str:.+|hex:.+|base64:.+)(,(\d{1,4}-\d{1,4}|\d{1,4}))?)*$`)
 	autoServiceHostTag  = regexp.MustCompile(`^setservice-\d+$`)
 )
 
 type hostPayload struct {
-	ID              *int64  `json:"id"`
-	Remark          string  `json:"remark"`
-	Address         string  `json:"address"`
-	Port            *int64  `json:"port"`
-	SNI             *string `json:"sni"`
-	Host            *string `json:"host"`
-	Path            *string `json:"path"`
-	Security        string  `json:"security"`
-	ALPN            string  `json:"alpn"`
-	Fingerprint     string  `json:"fingerprint"`
-	AllowInsecure   *bool   `json:"allowinsecure"`
-	IsDisabled      *bool   `json:"is_disabled"`
-	MuxEnable       *bool   `json:"mux_enable"`
-	FragmentSetting *string `json:"fragment_setting"`
-	NoiseSetting    *string `json:"noise_setting"`
-	RandomUserAgent *bool   `json:"random_user_agent"`
-	UseSNIAsHost    *bool   `json:"use_sni_as_host"`
+	ID              *int64   `json:"id"`
+	Remark          string   `json:"remark"`
+	Address         string   `json:"address"`
+	AddressOptions  []string `json:"address_options"`
+	AddressMode     string   `json:"address_selection_mode"`
+	AddressTTL      *int64   `json:"address_ttl_seconds"`
+	Port            *int64   `json:"port"`
+	SNI             *string  `json:"sni"`
+	SNIOptions      []string `json:"sni_options"`
+	SNIMode         string   `json:"sni_selection_mode"`
+	SNITTL          *int64   `json:"sni_ttl_seconds"`
+	Host            *string  `json:"host"`
+	HostOptions     []string `json:"host_options"`
+	HostMode        string   `json:"host_selection_mode"`
+	HostTTL         *int64   `json:"host_ttl_seconds"`
+	Path            *string  `json:"path"`
+	Security        string   `json:"security"`
+	ALPN            string   `json:"alpn"`
+	Fingerprint     string   `json:"fingerprint"`
+	AllowInsecure   *bool    `json:"allowinsecure"`
+	IsDisabled      *bool    `json:"is_disabled"`
+	MuxEnable       *bool    `json:"mux_enable"`
+	FragmentSetting *string  `json:"fragment_setting"`
+	NoiseSetting    *string  `json:"noise_setting"`
+	RandomUserAgent *bool    `json:"random_user_agent"`
+	UseSNIAsHost    *bool    `json:"use_sni_as_host"`
+	DNSPrimary      string   `json:"dns_primary"`
+	DNSSecondary    string   `json:"dns_secondary"`
 }
 
 type hostResponse struct {
-	ID              int64   `json:"id"`
-	Remark          string  `json:"remark"`
-	Address         string  `json:"address"`
-	Port            *int64  `json:"port"`
-	SNI             *string `json:"sni"`
-	Host            *string `json:"host"`
-	Path            *string `json:"path"`
-	Security        string  `json:"security"`
-	ALPN            string  `json:"alpn"`
-	Fingerprint     string  `json:"fingerprint"`
-	AllowInsecure   *bool   `json:"allowinsecure"`
-	IsDisabled      bool    `json:"is_disabled"`
-	MuxEnable       *bool   `json:"mux_enable"`
-	FragmentSetting *string `json:"fragment_setting"`
-	NoiseSetting    *string `json:"noise_setting"`
-	RandomUserAgent *bool   `json:"random_user_agent"`
-	UseSNIAsHost    *bool   `json:"use_sni_as_host"`
+	ID              int64    `json:"id"`
+	Remark          string   `json:"remark"`
+	Address         string   `json:"address"`
+	AddressOptions  []string `json:"address_options"`
+	AddressMode     string   `json:"address_selection_mode"`
+	AddressTTL      *int64   `json:"address_ttl_seconds"`
+	Port            *int64   `json:"port"`
+	SNI             *string  `json:"sni"`
+	SNIOptions      []string `json:"sni_options"`
+	SNIMode         string   `json:"sni_selection_mode"`
+	SNITTL          *int64   `json:"sni_ttl_seconds"`
+	Host            *string  `json:"host"`
+	HostOptions     []string `json:"host_options"`
+	HostMode        string   `json:"host_selection_mode"`
+	HostTTL         *int64   `json:"host_ttl_seconds"`
+	Path            *string  `json:"path"`
+	Security        string   `json:"security"`
+	ALPN            string   `json:"alpn"`
+	Fingerprint     string   `json:"fingerprint"`
+	AllowInsecure   *bool    `json:"allowinsecure"`
+	IsDisabled      bool     `json:"is_disabled"`
+	MuxEnable       *bool    `json:"mux_enable"`
+	FragmentSetting *string  `json:"fragment_setting"`
+	NoiseSetting    *string  `json:"noise_setting"`
+	RandomUserAgent *bool    `json:"random_user_agent"`
+	UseSNIAsHost    *bool    `json:"use_sni_as_host"`
+	DNSPrimary      string   `json:"dns_primary"`
+	DNSSecondary    string   `json:"dns_secondary"`
 }
 
 func (s *Server) handleHostsRoot(w http.ResponseWriter, r *http.Request) {
@@ -170,15 +194,7 @@ func (s *Server) listHostsGrouped(r *http.Request) (map[string][]hostResponse, e
 		return nil, err
 	}
 
-	result := make(map[string][]hostResponse, len(tags))
-	for _, tag := range tags {
-		hosts, err := queryHostsByInbound(r, s.db, tag)
-		if err != nil {
-			return nil, err
-		}
-		result[tag] = hosts
-	}
-	return result, nil
+	return queryHostsGroupedByInbound(r.Context(), s.db, tags)
 }
 
 func (s *Server) modifyHosts(r *http.Request, payload map[string][]hostPayload) (map[string][]hostResponse, error) {
@@ -195,6 +211,10 @@ func (s *Server) modifyHosts(r *http.Request, payload map[string][]hostPayload) 
 			return nil, statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("Inbound %s doesn't exist", inboundTag)}
 		}
 	}
+	inboundProtocols := make(map[string]string, len(payload))
+	for inboundTag := range payload {
+		inboundProtocols[inboundTag] = s.hostInboundProtocol(r.Context(), inboundTag)
+	}
 
 	allKeptIDs := make(map[int64]bool)
 	for _, hosts := range payload {
@@ -205,34 +225,51 @@ func (s *Server) modifyHosts(r *http.Request, payload map[string][]hostPayload) 
 		}
 	}
 
+	inboundTags := sortedMapKeys(payload)
 	tx, err := s.db.BeginTx(r.Context(), nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
+	var before xrayconfig.MutationSnapshot
+	if s.recentActionsEnabled {
+		before, err = s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: inboundTags})
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	affectedServices := make(map[int64]bool)
-	inboundTags := sortedMapKeys(payload)
+	beforeServiceTags := map[int64]map[string]bool{}
 	for _, inboundTag := range inboundTags {
 		if err := ensureHostInboundRecordTx(r.Context(), tx, inboundTag); err != nil {
 			return nil, err
 		}
-		before, err := serviceIDsForInboundHostsTx(r.Context(), tx, inboundTag)
-		if err != nil {
+		if err := s.replaceHostsForInboundTx(r, tx, inboundTag, inboundProtocols[inboundTag], payload[inboundTag], allKeptIDs, affectedServices, beforeServiceTags); err != nil {
 			return nil, err
 		}
-		addServiceIDs(affectedServices, before)
-		if err := s.replaceHostsForInboundTx(r, tx, inboundTag, payload[inboundTag], allKeptIDs, affectedServices); err != nil {
-			return nil, err
-		}
-		after, err := serviceIDsForInboundHostsTx(r.Context(), tx, inboundTag)
-		if err != nil {
-			return nil, err
-		}
-		addServiceIDs(affectedServices, after)
 	}
-	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, affectedServices); err != nil {
+	changedServices, err := changedServiceRuntimeInboundSetsTx(r.Context(), tx, beforeServiceTags, affectedServices)
+	if err != nil {
 		return nil, err
+	}
+	for serviceID := range affectedServices {
+		changedServices[serviceID] = true
+	}
+	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, changedServices); err != nil {
+		return nil, err
+	}
+	if s.recentActionsEnabled {
+		after, err := s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: inboundTags})
+		if err != nil {
+			return nil, err
+		}
+		if err := s.recordRecentActionTx(r.Context(), tx, xrayconfig.Mutation{
+			ActionType: "host.bulk_update", ResourceType: "host", ResourceKey: strings.Join(inboundTags, ","),
+			Summary: "Updated inbound hosts", Before: before, After: after,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -248,6 +285,20 @@ func (s *Server) updateHostStatus(r *http.Request, hostID int64, disabled bool) 
 	}
 	defer tx.Rollback()
 
+	var inboundTag string
+	if err := tx.QueryRowContext(r.Context(), `SELECT inbound_tag FROM hosts WHERE id = ? LIMIT 1`, hostID).Scan(&inboundTag); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return hostResponse{}, statusError{status: http.StatusNotFound, detail: "Host not found"}
+		}
+		return hostResponse{}, err
+	}
+	var before xrayconfig.MutationSnapshot
+	if s.recentActionsEnabled {
+		before, err = s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: []string{inboundTag}})
+		if err != nil {
+			return hostResponse{}, err
+		}
+	}
 	if exists, err := hostExistsTx(r.Context(), tx, hostID); err != nil {
 		return hostResponse{}, err
 	} else if !exists {
@@ -257,18 +308,40 @@ func (s *Server) updateHostStatus(r *http.Request, hostID int64, disabled bool) 
 	if err != nil {
 		return hostResponse{}, err
 	}
+	serviceSet := make(map[int64]bool)
+	beforeServiceTags := map[int64]map[string]bool{}
+	if err := addAffectedServiceIDsTx(r.Context(), tx, serviceSet, beforeServiceTags, affectedServices); err != nil {
+		return hostResponse{}, err
+	}
 	if _, err := tx.ExecContext(r.Context(), `UPDATE hosts SET is_disabled = ? WHERE id = ?`, boolToInt(disabled), hostID); err != nil {
 		return hostResponse{}, err
 	}
-	serviceSet := make(map[int64]bool)
-	addServiceIDs(serviceSet, affectedServices)
 	if disabled {
 		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_hosts WHERE host_id = ?`, hostID); err != nil {
 			return hostResponse{}, err
 		}
 	}
-	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, serviceSet); err != nil {
+	changedServices, err := changedServiceRuntimeInboundSetsTx(r.Context(), tx, beforeServiceTags, serviceSet)
+	if err != nil {
 		return hostResponse{}, err
+	}
+	for serviceID := range serviceSet {
+		changedServices[serviceID] = true
+	}
+	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, changedServices); err != nil {
+		return hostResponse{}, err
+	}
+	if s.recentActionsEnabled {
+		after, err := s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: []string{inboundTag}})
+		if err != nil {
+			return hostResponse{}, err
+		}
+		if err := s.recordRecentActionTx(r.Context(), tx, xrayconfig.Mutation{
+			ActionType: "host.status.update", ResourceType: "host", ResourceKey: strconv.FormatInt(hostID, 10),
+			Summary: "Updated host status", Before: before, After: after,
+		}); err != nil {
+			return hostResponse{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return hostResponse{}, err
@@ -276,7 +349,7 @@ func (s *Server) updateHostStatus(r *http.Request, hostID int64, disabled bool) 
 	return queryHostByID(r, s.db, hostID)
 }
 
-func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTag string, payload []hostPayload, keptIDs map[int64]bool, affectedServices map[int64]bool) error {
+func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTag string, inboundProtocol string, payload []hostPayload, keptIDs map[int64]bool, affectedServices map[int64]bool, beforeServiceTags map[int64]map[string]bool) error {
 	existing, err := existingHostIDsForInboundTx(r.Context(), tx, inboundTag)
 	if err != nil {
 		return err
@@ -287,23 +360,28 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 	}
 
 	for _, host := range payload {
+		host = normalizeHostPayload(host)
+		host = sanitizeHostPayloadForInboundProtocol(host, inboundProtocol)
 		if err := validateHostPayload(host); err != nil {
 			return err
 		}
 		if host.ID != nil && *host.ID > 0 {
-			oldServices, err := serviceIDsForHostTx(r.Context(), tx, *host.ID)
-			if err != nil {
-				return err
-			}
-			addServiceIDs(affectedServices, oldServices)
 			if exists, err := hostExistsTx(r.Context(), tx, *host.ID); err != nil {
 				return err
 			} else if exists {
+				newDisabled := boolPtrValue(host.IsDisabled)
+				oldServices, err := serviceIDsForHostTx(r.Context(), tx, *host.ID)
+				if err != nil {
+					return err
+				}
+				if err := addAffectedServiceIDsTx(r.Context(), tx, affectedServices, beforeServiceTags, oldServices); err != nil {
+					return err
+				}
 				if err := updateHostTx(r.Context(), tx, inboundTag, host); err != nil {
 					return err
 				}
 				delete(remaining, *host.ID)
-				if boolPtrValue(host.IsDisabled) {
+				if newDisabled {
 					if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_hosts WHERE host_id = ?`, *host.ID); err != nil {
 						return err
 					}
@@ -330,7 +408,9 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 		if err != nil {
 			return err
 		}
-		addServiceIDs(affectedServices, oldServices)
+		if err := addAffectedServiceIDsTx(r.Context(), tx, affectedServices, beforeServiceTags, oldServices); err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_hosts WHERE host_id = ?`, id); err != nil {
 			return err
 		}
@@ -341,12 +421,64 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 	return nil
 }
 
+func (s *Server) hostInboundProtocol(ctx context.Context, tag string) string {
+	inbound, err := s.configRepo.GetInbound(ctx, tag)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(fmt.Sprint(inbound["protocol"])))
+}
+
+func sanitizeHostPayloadForInboundProtocol(payload hostPayload, protocol string) hostPayload {
+	if protocol == "wireguard" {
+		if payload.DNSPrimary = strings.TrimSpace(payload.DNSPrimary); payload.DNSPrimary == "" {
+			payload.DNSPrimary = "1.1.1.1"
+		}
+		if payload.DNSSecondary = strings.TrimSpace(payload.DNSSecondary); payload.DNSSecondary == "" {
+			payload.DNSSecondary = "8.8.8.8"
+		}
+	} else {
+		payload.DNSPrimary = ""
+		payload.DNSSecondary = ""
+	}
+	if protocol != "openvpn" {
+		return payload
+	}
+	payload.Port = nil
+	payload.Path = nil
+	payload.SNI = nil
+	payload.SNIOptions = nil
+	payload.SNIMode = "random"
+	payload.SNITTL = nil
+	payload.Host = nil
+	payload.HostOptions = nil
+	payload.HostMode = "random"
+	payload.HostTTL = nil
+	payload.Security = "inbound_default"
+	payload.ALPN = "none"
+	payload.Fingerprint = "none"
+	payload.AllowInsecure = nil
+	payload.MuxEnable = boolPtr(false)
+	payload.FragmentSetting = nil
+	payload.NoiseSetting = nil
+	payload.RandomUserAgent = boolPtr(false)
+	payload.UseSNIAsHost = boolPtr(false)
+	return payload
+}
+
 func (s *Server) manageableInboundTags(r *http.Request) ([]string, error) {
+	tags, err := queryRegisteredInboundTags(r.Context(), s.db)
+	if err != nil {
+		return nil, err
+	}
+	if len(tags) > 0 {
+		return tags, nil
+	}
 	inbounds, err := s.configRepo.FullInbounds(r.Context())
 	if err != nil {
 		return nil, err
 	}
-	tags := make([]string, 0, len(inbounds))
+	tags = make([]string, 0, len(inbounds))
 	for _, inbound := range inbounds {
 		if tag, ok := inbound["tag"].(string); ok && tag != "" {
 			tags = append(tags, tag)
@@ -354,6 +486,39 @@ func (s *Server) manageableInboundTags(r *http.Request) ([]string, error) {
 	}
 	sort.Strings(tags)
 	return tags, nil
+}
+
+func queryRegisteredInboundTags(ctx context.Context, db queryer) ([]string, error) {
+	rows, err := db.QueryContext(ctx, `SELECT tag FROM inbounds WHERE tag IS NOT NULL AND tag <> '' ORDER BY tag ASC`)
+	if err != nil {
+		if isHostsMissingTableError(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	tags := []string{}
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		tag = strings.TrimSpace(tag)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags, rows.Err()
+}
+
+func isHostsMissingTableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no such table") ||
+		strings.Contains(msg, "doesn't exist") ||
+		strings.Contains(msg, "unknown table")
 }
 
 func ensureHostInboundRecordTx(ctx context.Context, tx *sql.Tx, tag string) error {
@@ -391,6 +556,34 @@ func queryHostsByInbound(r *http.Request, db queryer, inboundTag string) ([]host
 	return scanHostResponses(rows)
 }
 
+func queryHostsGroupedByInbound(ctx context.Context, db queryer, inboundTags []string) (map[string][]hostResponse, error) {
+	result := make(map[string][]hostResponse, len(inboundTags))
+	tagSet := make(map[string]bool, len(inboundTags))
+	for _, tag := range inboundTags {
+		result[tag] = []hostResponse{}
+		tagSet[tag] = true
+	}
+	rows, err := db.QueryContext(ctx, hostSelectSQLWithInbound()+` ORDER BY inbound_tag ASC, id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var inboundTag string
+		host, err := scanHostResponseWithInbound(rows, &inboundTag)
+		if err != nil {
+			return nil, err
+		}
+		if tagSet[inboundTag] {
+			result[inboundTag] = append(result[inboundTag], host)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func queryHostByID(r *http.Request, db queryer, hostID int64) (hostResponse, error) {
 	rows, err := db.QueryContext(r.Context(), hostSelectSQL()+` WHERE id = ? LIMIT 1`, hostID)
 	if err != nil {
@@ -412,7 +605,24 @@ type queryer interface {
 }
 
 func hostSelectSQL() string {
-	return `SELECT id, COALESCE(remark, ''), COALESCE(address, ''), port, path, sni, host,
+	return `SELECT id, COALESCE(remark, ''), COALESCE(address, ''),
+		COALESCE(dns_primary, ''), COALESCE(dns_secondary, ''),
+		address_options, COALESCE(address_selection_mode, 'random'), address_ttl_seconds,
+		port, path, sni, sni_options, COALESCE(sni_selection_mode, 'random'), sni_ttl_seconds,
+		host, host_options, COALESCE(host_selection_mode, 'random'), host_ttl_seconds,
+		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
+		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
+		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting,
+		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
+		FROM hosts`
+}
+
+func hostSelectSQLWithInbound() string {
+	return `SELECT inbound_tag, id, COALESCE(remark, ''), COALESCE(address, ''),
+		COALESCE(dns_primary, ''), COALESCE(dns_secondary, ''),
+		address_options, COALESCE(address_selection_mode, 'random'), address_ttl_seconds,
+		port, path, sni, sni_options, COALESCE(sni_selection_mode, 'random'), sni_ttl_seconds,
+		host, host_options, COALESCE(host_selection_mode, 'random'), host_ttl_seconds,
 		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
 		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting,
@@ -423,60 +633,202 @@ func hostSelectSQL() string {
 func scanHostResponses(rows *sql.Rows) ([]hostResponse, error) {
 	hosts := []hostResponse{}
 	for rows.Next() {
-		var item hostResponse
-		var port sql.NullInt64
-		var path, sni, hostValue, fragment, noise sql.NullString
-		var allowInsecure sql.NullInt64
-		var disabled, muxEnable, randomUA, useSNI int64
-		if err := rows.Scan(
-			&item.ID,
-			&item.Remark,
-			&item.Address,
-			&port,
-			&path,
-			&sni,
-			&hostValue,
-			&item.Security,
-			&item.ALPN,
-			&item.Fingerprint,
-			&allowInsecure,
-			&disabled,
-			&muxEnable,
-			&fragment,
-			&noise,
-			&randomUA,
-			&useSNI,
-		); err != nil {
+		item, err := scanHostResponse(rows)
+		if err != nil {
 			return nil, err
 		}
-		item.Security = normalizeHostSecurity(item.Security)
-		item.ALPN = hostEnumResponseValue(item.ALPN)
-		item.Fingerprint = hostEnumResponseValue(item.Fingerprint)
-		item.Port = nullableInt64Response(port)
-		item.Path = nullableStringResponse(path)
-		item.SNI = nullableStringResponse(sni)
-		item.Host = nullableStringResponse(hostValue)
-		item.FragmentSetting = nullableStringResponse(fragment)
-		item.NoiseSetting = nullableStringResponse(noise)
-		item.AllowInsecure = nullableBoolResponse(allowInsecure)
-		item.IsDisabled = disabled != 0
-		item.MuxEnable = boolPtr(muxEnable != 0)
-		item.RandomUserAgent = boolPtr(randomUA != 0)
-		item.UseSNIAsHost = boolPtr(useSNI != 0)
 		hosts = append(hosts, item)
 	}
 	return hosts, rows.Err()
 }
 
+type hostScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanHostResponseWithInbound(scanner hostScanner, inboundTag *string) (hostResponse, error) {
+	if inboundTag == nil {
+		return hostResponse{}, errors.New("inbound tag destination is required")
+	}
+	var item hostResponse
+	var port, addressTTL, sniTTL, hostTTL sql.NullInt64
+	var path, sni, hostValue, fragment, noise sql.NullString
+	var addressOptions, sniOptions, hostOptions sql.NullString
+	var allowInsecure sql.NullInt64
+	var disabled, muxEnable, randomUA, useSNI int64
+	if err := scanner.Scan(
+		inboundTag,
+		&item.ID,
+		&item.Remark,
+		&item.Address,
+		&item.DNSPrimary,
+		&item.DNSSecondary,
+		&addressOptions,
+		&item.AddressMode,
+		&addressTTL,
+		&port,
+		&path,
+		&sni,
+		&sniOptions,
+		&item.SNIMode,
+		&sniTTL,
+		&hostValue,
+		&hostOptions,
+		&item.HostMode,
+		&hostTTL,
+		&item.Security,
+		&item.ALPN,
+		&item.Fingerprint,
+		&allowInsecure,
+		&disabled,
+		&muxEnable,
+		&fragment,
+		&noise,
+		&randomUA,
+		&useSNI,
+	); err != nil {
+		return hostResponse{}, err
+	}
+	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
+}
+
+func scanHostResponse(scanner hostScanner) (hostResponse, error) {
+	var item hostResponse
+	var port, addressTTL, sniTTL, hostTTL sql.NullInt64
+	var path, sni, hostValue, fragment, noise sql.NullString
+	var addressOptions, sniOptions, hostOptions sql.NullString
+	var allowInsecure sql.NullInt64
+	var disabled, muxEnable, randomUA, useSNI int64
+	if err := scanner.Scan(
+		&item.ID,
+		&item.Remark,
+		&item.Address,
+		&item.DNSPrimary,
+		&item.DNSSecondary,
+		&addressOptions,
+		&item.AddressMode,
+		&addressTTL,
+		&port,
+		&path,
+		&sni,
+		&sniOptions,
+		&item.SNIMode,
+		&sniTTL,
+		&hostValue,
+		&hostOptions,
+		&item.HostMode,
+		&hostTTL,
+		&item.Security,
+		&item.ALPN,
+		&item.Fingerprint,
+		&allowInsecure,
+		&disabled,
+		&muxEnable,
+		&fragment,
+		&noise,
+		&randomUA,
+		&useSNI,
+	); err != nil {
+		return hostResponse{}, err
+	}
+	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
+}
+
+func normalizeScannedHostResponse(
+	item hostResponse,
+	addressOptions sql.NullString,
+	addressTTL sql.NullInt64,
+	port sql.NullInt64,
+	path sql.NullString,
+	sni sql.NullString,
+	sniOptions sql.NullString,
+	sniTTL sql.NullInt64,
+	hostValue sql.NullString,
+	hostOptions sql.NullString,
+	hostTTL sql.NullInt64,
+	fragment sql.NullString,
+	noise sql.NullString,
+	allowInsecure sql.NullInt64,
+	disabled int64,
+	muxEnable int64,
+	randomUA int64,
+	useSNI int64,
+) hostResponse {
+	item.Security = normalizeHostSecurity(item.Security)
+	item.ALPN = hostEnumResponseValue(item.ALPN)
+	item.Fingerprint = hostEnumResponseValue(item.Fingerprint)
+	item.AddressOptions = decodeHostOptions(addressOptions)
+	item.AddressMode = normalizeHostRotationMode(item.AddressMode)
+	item.AddressTTL = nullableInt64Response(addressTTL)
+	item.Port = nullableInt64Response(port)
+	item.Path = nullableStringResponse(path)
+	item.SNI = nullableStringResponse(sni)
+	item.SNIOptions = decodeHostOptions(sniOptions)
+	item.SNIMode = normalizeHostRotationMode(item.SNIMode)
+	item.SNITTL = nullableInt64Response(sniTTL)
+	item.Host = nullableStringResponse(hostValue)
+	item.HostOptions = decodeHostOptions(hostOptions)
+	item.HostMode = normalizeHostRotationMode(item.HostMode)
+	item.HostTTL = nullableInt64Response(hostTTL)
+	item.FragmentSetting = nullableStringResponse(fragment)
+	item.NoiseSetting = nullableStringResponse(noise)
+	item.AllowInsecure = nullableBoolResponse(allowInsecure)
+	item.IsDisabled = disabled != 0
+	item.MuxEnable = boolPtr(muxEnable != 0)
+	item.RandomUserAgent = boolPtr(randomUA != 0)
+	item.UseSNIAsHost = boolPtr(useSNI != 0)
+	return item
+}
+
 func validateHostPayload(host hostPayload) error {
+	if strings.TrimSpace(host.Remark) == "" {
+		return statusError{status: http.StatusBadRequest, detail: "Host remark is required"}
+	}
+	if strings.TrimSpace(host.Address) == "" {
+		return statusError{status: http.StatusBadRequest, detail: "Host address is required"}
+	}
+	if host.Port != nil && (*host.Port < 1 || *host.Port > 65535) {
+		return statusError{status: http.StatusBadRequest, detail: "Host port must be between 1 and 65535"}
+	}
+	for _, dns := range []struct {
+		name  string
+		value string
+	}{
+		{name: "primary", value: host.DNSPrimary},
+		{name: "secondary", value: host.DNSSecondary},
+	} {
+		if dns.value != "" && net.ParseIP(dns.value) == nil {
+			return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("Host %s DNS must be a valid IP address", dns.name)}
+		}
+	}
+	if host.Path != nil {
+		path := strings.TrimSpace(*host.Path)
+		if path != "" && !strings.HasPrefix(path, "/") {
+			return statusError{status: http.StatusBadRequest, detail: "Host path must start with /"}
+		}
+	}
 	if err := validateFormatString(host.Remark); err != nil {
 		return statusError{status: http.StatusBadRequest, detail: "Invalid formatting variables"}
 	}
 	if err := validateFormatString(host.Address); err != nil {
 		return statusError{status: http.StatusBadRequest, detail: "Invalid formatting variables"}
 	}
+	for _, item := range []struct {
+		name    string
+		options []string
+		mode    string
+		ttl     *int64
+	}{
+		{name: "address", options: host.AddressOptions, mode: host.AddressMode, ttl: host.AddressTTL},
+		{name: "sni", options: host.SNIOptions, mode: host.SNIMode, ttl: host.SNITTL},
+		{name: "host", options: host.HostOptions, mode: host.HostMode, ttl: host.HostTTL},
+	} {
+		if err := validateHostRotation(item.name, item.options, item.mode, item.ttl); err != nil {
+			return err
+		}
+	}
 	if host.FragmentSetting != nil && strings.TrimSpace(*host.FragmentSetting) != "" && !hostFragmentPattern.MatchString(strings.TrimSpace(*host.FragmentSetting)) {
-		return statusError{status: http.StatusBadRequest, detail: "Fragment setting must be like this: length,interval,packet (10-100,100-200,tlshello)."}
+		return statusError{status: http.StatusBadRequest, detail: "Fragment setting must be like this: length,interval,packet[,maxSplit] (10-100,100-200,tlshello or 10-100,100-200,tlshello,3)."}
 	}
 	if host.NoiseSetting != nil && strings.TrimSpace(*host.NoiseSetting) != "" {
 		if len(*host.NoiseSetting) > 2000 {
@@ -487,6 +839,90 @@ func validateHostPayload(host hostPayload) error {
 		}
 	}
 	return nil
+}
+
+func normalizeHostPayload(payload hostPayload) hostPayload {
+	payload.Remark = strings.TrimSpace(payload.Remark)
+	payload.AddressOptions = normalizeHostRotationOptions(payload.AddressOptions)
+	payload.SNIOptions = normalizeHostRotationOptions(payload.SNIOptions)
+	payload.HostOptions = normalizeHostRotationOptions(payload.HostOptions)
+	payload.AddressMode = normalizeHostRotationMode(payload.AddressMode)
+	payload.SNIMode = normalizeHostRotationMode(payload.SNIMode)
+	payload.HostMode = normalizeHostRotationMode(payload.HostMode)
+	if strings.TrimSpace(payload.Address) == "" && len(payload.AddressOptions) > 0 {
+		payload.Address = payload.AddressOptions[0]
+	}
+	payload.Address = strings.TrimSpace(payload.Address)
+	payload.DNSPrimary = strings.TrimSpace(payload.DNSPrimary)
+	payload.DNSSecondary = strings.TrimSpace(payload.DNSSecondary)
+	return payload
+}
+
+func validateHostRotation(name string, options []string, mode string, ttl *int64) error {
+	mode = normalizeHostRotationMode(mode)
+	if mode == "ttl" && ttl != nil && (*ttl < 1 || *ttl > 2592000) {
+		return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("%s TTL must be between 1 and 2592000 seconds", name)}
+	}
+	for _, option := range normalizeHostRotationOptions(options) {
+		if err := validateFormatString(option); err != nil {
+			return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("Invalid %s rotation formatting variables", name)}
+		}
+	}
+	return nil
+}
+
+func normalizeHostRotationMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "ttl":
+		return "ttl"
+	default:
+		return "random"
+	}
+}
+
+func normalizeHostRotationOptions(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		for _, part := range strings.FieldsFunc(value, func(r rune) bool {
+			return r == '\n' || r == '\r' || r == ','
+		}) {
+			cleaned := strings.TrimSpace(part)
+			if cleaned == "" {
+				continue
+			}
+			key := strings.ToLower(cleaned)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			result = append(result, cleaned)
+		}
+	}
+	return result
+}
+
+func hostOptionsValue(values []string) any {
+	normalized := normalizeHostRotationOptions(values)
+	if len(normalized) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(normalized)
+	if err != nil {
+		return nil
+	}
+	return string(raw)
+}
+
+func decodeHostOptions(value sql.NullString) []string {
+	if !value.Valid || strings.TrimSpace(value.String) == "" {
+		return []string{}
+	}
+	var values []string
+	if err := json.Unmarshal([]byte(value.String), &values); err != nil {
+		return []string{}
+	}
+	return normalizeHostRotationOptions(values)
 }
 
 func validateFormatString(value string) error {
@@ -528,16 +964,29 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 	res, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO hosts (
-			remark, address, port, path, sni, host, security, alpn, fingerprint,
+			remark, address, dns_primary, dns_secondary, address_options, address_selection_mode, address_ttl_seconds,
+			port, path, sni, sni_options, sni_selection_mode, sni_ttl_seconds,
+			host, host_options, host_selection_mode, host_ttl_seconds, security, alpn, fingerprint,
 			inbound_tag, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting,
 			random_user_agent, use_sni_as_host
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		payload.Remark,
 		payload.Address,
+		payload.DNSPrimary,
+		payload.DNSSecondary,
+		hostOptionsValue(payload.AddressOptions),
+		normalizeHostRotationMode(payload.AddressMode),
+		nullableInt64Value(payload.AddressTTL),
 		nullableInt64Value(payload.Port),
 		nullableStringValue(payload.Path),
 		nullableStringValue(payload.SNI),
+		hostOptionsValue(payload.SNIOptions),
+		normalizeHostRotationMode(payload.SNIMode),
+		nullableInt64Value(payload.SNITTL),
 		nullableStringValue(payload.Host),
+		hostOptionsValue(payload.HostOptions),
+		normalizeHostRotationMode(payload.HostMode),
+		nullableInt64Value(payload.HostTTL),
 		normalizeHostSecurity(payload.Security),
 		normalizeHostALPN(payload.ALPN),
 		normalizeHostFingerprint(payload.Fingerprint),
@@ -560,17 +1009,30 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 	_, err := tx.ExecContext(
 		ctx,
 		`UPDATE hosts SET
-			remark = ?, address = ?, port = ?, path = ?, sni = ?, host = ?,
+			remark = ?, address = ?, dns_primary = ?, dns_secondary = ?, address_options = ?, address_selection_mode = ?, address_ttl_seconds = ?,
+			port = ?, path = ?, sni = ?, sni_options = ?, sni_selection_mode = ?, sni_ttl_seconds = ?,
+			host = ?, host_options = ?, host_selection_mode = ?, host_ttl_seconds = ?,
 			security = ?, alpn = ?, fingerprint = ?, inbound_tag = ?, allowinsecure = ?,
 			is_disabled = ?, mux_enable = ?, fragment_setting = ?, noise_setting = ?,
 			random_user_agent = ?, use_sni_as_host = ?
 		WHERE id = ?`,
 		payload.Remark,
 		payload.Address,
+		payload.DNSPrimary,
+		payload.DNSSecondary,
+		hostOptionsValue(payload.AddressOptions),
+		normalizeHostRotationMode(payload.AddressMode),
+		nullableInt64Value(payload.AddressTTL),
 		nullableInt64Value(payload.Port),
 		nullableStringValue(payload.Path),
 		nullableStringValue(payload.SNI),
+		hostOptionsValue(payload.SNIOptions),
+		normalizeHostRotationMode(payload.SNIMode),
+		nullableInt64Value(payload.SNITTL),
 		nullableStringValue(payload.Host),
+		hostOptionsValue(payload.HostOptions),
+		normalizeHostRotationMode(payload.HostMode),
+		nullableInt64Value(payload.HostTTL),
 		normalizeHostSecurity(payload.Security),
 		normalizeHostALPN(payload.ALPN),
 		normalizeHostFingerprint(payload.Fingerprint),
@@ -627,32 +1089,55 @@ WHERE h.inbound_tag = ?`, inboundTag)
 	return scanInt64Rows(rows)
 }
 
-func enqueueAffectedServicesUsersTx(ctx context.Context, tx *sql.Tx, serviceIDs map[int64]bool) error {
-	ids := make([]int64, 0, len(serviceIDs))
-	for id := range serviceIDs {
-		if id > 0 {
-			ids = append(ids, id)
+func addAffectedServiceIDsTx(ctx context.Context, tx *sql.Tx, target map[int64]bool, before map[int64]map[string]bool, serviceIDs []int64) error {
+	for _, serviceID := range serviceIDs {
+		if serviceID <= 0 {
+			continue
+		}
+		if _, exists := before[serviceID]; !exists {
+			tags, err := serviceRuntimeInboundTagsTx(ctx, tx, serviceID)
+			if err != nil {
+				return err
+			}
+			before[serviceID] = tags
+		}
+		target[serviceID] = true
+	}
+	return nil
+}
+
+func changedServiceRuntimeInboundSetsTx(ctx context.Context, tx *sql.Tx, before map[int64]map[string]bool, candidates map[int64]bool) (map[int64]bool, error) {
+	changed := map[int64]bool{}
+	for serviceID := range candidates {
+		if serviceID <= 0 {
+			continue
+		}
+		after, err := serviceRuntimeInboundTagsTx(ctx, tx, serviceID)
+		if err != nil {
+			return nil, err
+		}
+		if !stringBoolMapsEqual(before[serviceID], after) {
+			changed[serviceID] = true
 		}
 	}
-	ids = uniqueInt64(ids)
+	return changed, nil
+}
+
+func enqueueAffectedServicesUsersTx(ctx context.Context, tx *sql.Tx, serviceIDs map[int64]bool) error {
+	ids := make([]int64, 0, len(serviceIDs))
+	for serviceID := range serviceIDs {
+		if serviceID > 0 {
+			ids = append(ids, serviceID)
+		}
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	if len(ids) == 0 {
 		return nil
 	}
-	placeholders, args := sqlInClauseInt64(ids)
-	rows, err := tx.QueryContext(ctx, `SELECT id FROM users WHERE service_id IN (`+placeholders+`) AND status IN ('active', 'on_hold')`, args...)
-	if err != nil {
-		return err
-	}
-	userIDs, err := scanInt64Rows(rows)
-	if err != nil {
-		return err
-	}
-	for _, userID := range userIDs {
-		if err := enqueueNodeOperationTx(ctx, tx, "update_user", nil, &userID, map[string]any{}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return enqueueNodeOperationTx(ctx, tx, "sync_config", nil, nil, map[string]any{
+		"source":      "hosts",
+		"service_ids": ids,
+	})
 }
 
 func sortedMapKeys[T any](value map[string]T) []string {
@@ -662,14 +1147,6 @@ func sortedMapKeys[T any](value map[string]T) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func addServiceIDs(target map[int64]bool, ids []int64) {
-	for _, id := range ids {
-		if id > 0 {
-			target[id] = true
-		}
-	}
 }
 
 func normalizeHostSecurity(value string) string {

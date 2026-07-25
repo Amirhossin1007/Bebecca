@@ -33,6 +33,7 @@ type apiKeyResponse struct {
 	ExpiresAt  *string `json:"expires_at"`
 	LastUsedAt *string `json:"last_used_at"`
 	MaskedKey  *string `json:"masked_key"`
+	TokenType  string  `json:"token_type,omitempty"`
 	APIKey     *string `json:"api_key,omitempty"`
 }
 
@@ -96,12 +97,17 @@ func (s *Server) handleMyAccountChangePassword(w http.ResponseWriter, r *http.Re
 			dbTimestamp(time.Now().UTC()),
 			dbadmin.ID,
 		)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(r.Context(), `UPDATE admin_sessions SET revoked_at = ? WHERE admin_id = ? AND revoked_at IS NULL`, dbTimestamp(time.Now().UTC()), dbadmin.ID)
 		return err
 	})
 	if err != nil {
 		writeStatusError(w, err)
 		return
 	}
+	clearAdminSessionCookie(w, r)
 	writeJSON(w, http.StatusOK, map[string]any{"detail": "Password updated successfully"})
 }
 
@@ -280,6 +286,7 @@ func (s *Server) handleCreateMyAccountAPIKey(w http.ResponseWriter, r *http.Requ
 			CreatedAt: createdAt,
 			ExpiresAt: expires,
 			MaskedKey: &masked,
+			TokenType: "bearer",
 			APIKey:    &token,
 		}
 		return nil
@@ -347,6 +354,7 @@ func listAdminAPIKeys(ctx context.Context, db *sql.DB, adminID int64) ([]apiKeyR
 			ExpiresAt:  formatAPIKeyTime(parseDBTime(expiresRaw)),
 			LastUsedAt: formatAPIKeyTime(parseDBTime(lastUsedRaw)),
 			MaskedKey:  &masked,
+			TokenType:  "bearer",
 		})
 	}
 	return keys, rows.Err()

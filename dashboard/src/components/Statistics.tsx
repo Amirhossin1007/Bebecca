@@ -26,14 +26,15 @@ import {
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
-import { type FC, type ReactNode, useMemo, useState } from "react";
+import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
 import Chart from "react-apexcharts";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
+import { useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
 import type { SystemStats } from "types/System";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { formatDuration } from "utils/formatDuration";
+import { getAPIWebSocketURL } from "utils/websocket";
 import { ChartBox } from "./common/ChartBox";
 import {
 	XrayModalBody,
@@ -58,8 +59,172 @@ const iconProps = {
 const DownloadIcon = chakra(ArrowDownTrayIcon, iconProps);
 const UploadIcon = chakra(ArrowUpTrayIcon, iconProps);
 
-const formatNumberValue = (value: number) =>
-	numberWithCommas(value) ?? value.toString();
+const useSystemMetricsStream = (enabled = true) => {
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		if (!enabled || typeof window === "undefined") {
+			return;
+		}
+		const url = getAPIWebSocketURL("/system/metrics", { interval: 3 });
+		if (!url) {
+			return;
+		}
+		let closed = false;
+		let ws: WebSocket | null = null;
+		let reconnectTimer: number | undefined;
+
+		const connect = () => {
+			ws = new WebSocket(url);
+			ws.onmessage = (event) => {
+				try {
+					const payload = JSON.parse(event.data);
+					const stats = payload?.stats ?? payload;
+					if (!stats || typeof stats !== "object" || !("version" in stats)) {
+						return;
+					}
+					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, stats);
+				} catch (error) {
+					console.error("Unable to parse system metrics stream payload", error);
+				}
+			};
+			ws.onerror = () => {
+				ws?.close();
+			};
+			ws.onclose = () => {
+				if (!closed) {
+					reconnectTimer = window.setTimeout(connect, 3000);
+				}
+			};
+		};
+
+		connect();
+		return () => {
+			closed = true;
+			if (reconnectTimer) {
+				window.clearTimeout(reconnectTimer);
+			}
+			ws?.close();
+		};
+	}, [enabled, queryClient]);
+};
+
+const toFiniteNumber = (value: unknown, fallback = 0) => {
+	const next = Number(value);
+	return Number.isFinite(next) ? next : fallback;
+};
+
+const safeHistory = (value: unknown): SystemStats["cpu_history"] =>
+	Array.isArray(value)
+		? value.map((entry) => ({
+				timestamp: toFiniteNumber((entry as any)?.timestamp),
+				value: toFiniteNumber((entry as any)?.value),
+			}))
+		: [];
+
+const safeNetworkHistory = (
+	value: unknown,
+): SystemStats["network_history"] =>
+	Array.isArray(value)
+		? value.map((entry) => ({
+				timestamp: toFiniteNumber((entry as any)?.timestamp),
+				incoming: toFiniteNumber((entry as any)?.incoming),
+				outgoing: toFiniteNumber((entry as any)?.outgoing),
+			}))
+		: [];
+
+const safeUsageStats = (value: unknown): SystemStats["memory"] => {
+	const raw = value && typeof value === "object" ? (value as any) : {};
+	return {
+		current: toFiniteNumber(raw.current),
+		total: toFiniteNumber(raw.total),
+		percent: toFiniteNumber(raw.percent),
+	};
+};
+
+const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null => {
+	if (!value || typeof value !== "object") return null;
+	const raw = value as any;
+	return {
+		...value,
+		version: String(raw.version ?? ""),
+		cpu_cores: toFiniteNumber(raw.cpu_cores),
+		cpu_usage: toFiniteNumber(raw.cpu_usage),
+		total_user: toFiniteNumber(raw.total_user),
+		online_users: toFiniteNumber(raw.online_users),
+		users_active: toFiniteNumber(raw.users_active),
+		users_on_hold: toFiniteNumber(raw.users_on_hold),
+		users_disabled: toFiniteNumber(raw.users_disabled),
+		users_expired: toFiniteNumber(raw.users_expired),
+		users_limited: toFiniteNumber(raw.users_limited),
+		incoming_bandwidth: toFiniteNumber(raw.incoming_bandwidth),
+		outgoing_bandwidth: toFiniteNumber(raw.outgoing_bandwidth),
+		panel_total_bandwidth: toFiniteNumber(raw.panel_total_bandwidth),
+		incoming_bandwidth_speed: toFiniteNumber(raw.incoming_bandwidth_speed),
+		outgoing_bandwidth_speed: toFiniteNumber(raw.outgoing_bandwidth_speed),
+		memory: safeUsageStats(raw.memory),
+		swap: safeUsageStats(raw.swap),
+		disk: safeUsageStats(raw.disk),
+		load_avg: Array.isArray(raw.load_avg)
+			? raw.load_avg.map((item: unknown) => toFiniteNumber(item))
+			: [],
+		uptime_seconds: toFiniteNumber(raw.uptime_seconds),
+		panel_uptime_seconds: toFiniteNumber(raw.panel_uptime_seconds),
+		xray_uptime_seconds: toFiniteNumber(raw.xray_uptime_seconds),
+		xray_running: Boolean(raw.xray_running),
+		xray_version: raw.xray_version ?? null,
+		app_memory: toFiniteNumber(raw.app_memory),
+		app_threads: toFiniteNumber(raw.app_threads),
+		panel_cpu_percent: toFiniteNumber(raw.panel_cpu_percent),
+		panel_memory_percent: toFiniteNumber(raw.panel_memory_percent),
+		cpu_history: safeHistory(raw.cpu_history),
+		memory_history: safeHistory(raw.memory_history),
+		network_history: safeNetworkHistory(raw.network_history),
+		panel_cpu_history: safeHistory(raw.panel_cpu_history),
+		panel_memory_history: safeHistory(raw.panel_memory_history),
+		personal_usage:
+			raw.personal_usage && typeof raw.personal_usage === "object"
+				? {
+						total_users: toFiniteNumber(raw.personal_usage.total_users),
+						consumed_bytes: toFiniteNumber(raw.personal_usage.consumed_bytes),
+						built_bytes: toFiniteNumber(raw.personal_usage.built_bytes),
+						reset_bytes: toFiniteNumber(raw.personal_usage.reset_bytes),
+						traffic_basis: raw.personal_usage.traffic_basis,
+					}
+				: {
+						total_users: 0,
+						consumed_bytes: 0,
+						built_bytes: 0,
+						reset_bytes: 0,
+						traffic_basis: "used_traffic",
+					},
+		admin_overview:
+			raw.admin_overview && typeof raw.admin_overview === "object"
+				? {
+						total_admins: toFiniteNumber(raw.admin_overview.total_admins),
+						sudo_admins: toFiniteNumber(raw.admin_overview.sudo_admins),
+						full_access_admins: toFiniteNumber(
+							raw.admin_overview.full_access_admins,
+						),
+						standard_admins: toFiniteNumber(
+							raw.admin_overview.standard_admins,
+						),
+						top_admin_username: raw.admin_overview.top_admin_username ?? null,
+						top_admin_usage: toFiniteNumber(
+							raw.admin_overview.top_admin_usage,
+						),
+					}
+				: {
+						total_admins: 0,
+						sudo_admins: 0,
+						full_access_admins: 0,
+						standard_admins: 0,
+						top_admin_username: null,
+						top_admin_usage: 0,
+					},
+	};
+};
+
+const formatNumberValue = (value?: number | null) => numberWithCommas(value);
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 const getUsageColorScheme = (percent: number) => {
 	if (percent >= 80) return "red";
@@ -108,6 +273,27 @@ type HistoryModalPayload =
 	| CpuMemoryHistoryPayload
 	| NetworkHistoryPayload
 	| PanelHistoryPayload;
+
+type DashboardMaintenanceInfo = {
+	panel?: {
+		tag?: string | null;
+		channel?: string | null;
+		update?: {
+			available?: boolean;
+			target?: string | null;
+			error?: string;
+		} | null;
+	};
+};
+
+const isDevPanelVersion = (version?: string | null, channel?: string | null) => {
+	const normalizedVersion = (version || "").trim().toLowerCase();
+	const normalizedChannel = (channel || "").trim().toLowerCase();
+	return normalizedChannel === "dev" || normalizedVersion.startsWith("dev-");
+};
+
+const dashboardVersionLabel = (version?: string | null, channel?: string | null) =>
+	isDevPanelVersion(version, channel) ? "dev" : version || "-";
 
 const HistoryModal: FC<{
 	isOpen: boolean;
@@ -351,10 +537,10 @@ const UsageMetricCard: FC<{
 }> = ({ label, percent, detail, history, onOpen, actionLabel }) => {
 	const colorScheme = getUsageColorScheme(percent);
 	const safePercent = clampPercent(percent);
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const bg = useColorModeValue("white", "whiteAlpha.50");
-	const labelColor = useColorModeValue("gray.500", "gray.400");
-	const mutedColor = useColorModeValue("gray.600", "gray.400");
+	const borderColor = useColorModeValue("panel.border", "panel.border");
+	const bg = useColorModeValue("panel.input", "panel.input");
+	const labelColor = useColorModeValue("panel.textMuted", "panel.textMuted");
+	const mutedColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
 	const valueColor = useColorModeValue(
 		`${colorScheme}.600`,
 		`${colorScheme}.300`,
@@ -372,7 +558,7 @@ const UsageMetricCard: FC<{
 		<Box
 			borderWidth="1px"
 			borderColor={borderColor}
-			borderRadius="md"
+			borderRadius="6px"
 			bg={bg}
 			overflow="hidden"
 			p={3}
@@ -424,7 +610,7 @@ const SpeedItem: FC<{
 	colorScheme: "blue" | "green";
 }> = ({ icon, label, value, colorScheme }) => {
 	const labelColor = useColorModeValue("gray.500", "gray.400");
-	const iconBg = useColorModeValue(`${colorScheme}.50`, "whiteAlpha.100");
+	const iconBg = useColorModeValue("panel.input", "panel.input");
 	const iconColor = useColorModeValue(
 		`${colorScheme}.600`,
 		`${colorScheme}.300`,
@@ -434,8 +620,10 @@ const SpeedItem: FC<{
 		<HStack
 			alignItems="center"
 			spacing={3}
-			borderRadius="md"
+			borderRadius="6px"
 			bg={iconBg}
+			borderWidth="1px"
+			borderColor="panel.border"
 			px={3}
 			py={2.5}
 			minH="76px"
@@ -461,15 +649,15 @@ const NetworkSpeedCard: FC<{
 	t: TFunction;
 	onOpen: () => void;
 }> = ({ incoming, outgoing, t, onOpen }) => {
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const bg = useColorModeValue("white", "whiteAlpha.50");
-	const labelColor = useColorModeValue("gray.600", "gray.400");
+	const borderColor = useColorModeValue("panel.border", "panel.border");
+	const bg = useColorModeValue("panel.input", "panel.input");
+	const labelColor = useColorModeValue("panel.textMuted", "panel.textMuted");
 
 	return (
 		<Box
 			borderWidth="1px"
 			borderColor={borderColor}
-			borderRadius="md"
+			borderRadius="6px"
 			bg={bg}
 			p={3}
 		>
@@ -508,10 +696,10 @@ const MetricBadge: FC<{
 	valueClassName?: string;
 	helper?: string;
 }> = ({ label, value, colorScheme = "gray", valueClassName, helper }) => {
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const bg = useColorModeValue("white", "whiteAlpha.50");
-	const labelColor = useColorModeValue("gray.500", "gray.400");
-	const helperColor = useColorModeValue("gray.500", "gray.400");
+	const borderColor = useColorModeValue("panel.border", "panel.border");
+	const bg = useColorModeValue("panel.input", "panel.input");
+	const labelColor = useColorModeValue("panel.textMuted", "panel.textMuted");
+	const helperColor = useColorModeValue("panel.textMuted", "panel.textMuted");
 	const valueColor = useColorModeValue(
 		colorScheme === "gray" ? "gray.800" : `${colorScheme}.600`,
 		colorScheme === "gray" ? "gray.100" : `${colorScheme}.300`,
@@ -525,7 +713,7 @@ const MetricBadge: FC<{
 		<Box
 			px={3}
 			py={2}
-			borderRadius="md"
+			borderRadius="6px"
 			borderWidth="1px"
 			borderColor={borderColor}
 			bg={bg}
@@ -569,6 +757,19 @@ const SystemOverviewCard: FC<{
 	const cpuHistoryValues = data.cpu_history.map((entry) => entry.value);
 	const memoryHistoryValues = data.memory_history.map((entry) => entry.value);
 	const hasSwap = data.swap.current > 0 || data.swap.total > 0;
+	const maintenanceInfo = useQuery<DashboardMaintenanceInfo>({
+		queryKey: ["dashboard-maintenance-info"],
+		queryFn: () =>
+			fetch<DashboardMaintenanceInfo>("/maintenance/info", {
+				timeout: 8000,
+			}),
+		refetchOnWindowFocus: false,
+		staleTime: 5 * 60 * 1000,
+		retry: false,
+	});
+	const panelTag = maintenanceInfo.data?.panel?.tag || data.version;
+	const panelChannel = maintenanceInfo.data?.panel?.channel || data.channel || "";
+	const isDevPanel = isDevPanelVersion(panelTag, panelChannel);
 	const latestPanelRelease = useQuery({
 		queryKey: ["panel-latest-release"],
 		queryFn: async () => {
@@ -579,23 +780,34 @@ const SystemOverviewCard: FC<{
 			if (!response.ok) throw new Error("Failed to load latest panel release");
 			return response.json();
 		},
+		enabled: maintenanceInfo.isFetched && !isDevPanel,
 		refetchOnWindowFocus: false,
 		staleTime: 5 * 60 * 1000,
 		retry: 1,
 	});
-	const latestPanelVersion =
-		latestPanelRelease.data?.tag_name || latestPanelRelease.data?.name || "";
-	const isPanelUpdateAvailable =
-		normalizeVersion(latestPanelVersion) &&
-		normalizeVersion(data.version) &&
-		normalizeVersion(latestPanelVersion) !== normalizeVersion(data.version);
+	const maintenanceUpdate = maintenanceInfo.data?.panel?.update;
+	const latestPanelVersion = isDevPanel
+		? maintenanceUpdate?.target
+			? dashboardVersionLabel(maintenanceUpdate.target, "dev")
+			: ""
+		: latestPanelRelease.data?.tag_name || latestPanelRelease.data?.name || "";
+	const isPanelUpdateAvailable = isDevPanel
+		? Boolean(maintenanceUpdate?.available)
+		: Boolean(
+				normalizeVersion(latestPanelVersion) &&
+					normalizeVersion(data.version) &&
+					normalizeVersion(latestPanelVersion) !== normalizeVersion(data.version),
+			);
+	const currentPanelVersion = dashboardVersionLabel(panelTag, panelChannel);
 	return (
 		<ChartBox
 			title={t("systemOverview")}
 			headerActions={
 				<Wrap spacing={2} justify={{ base: "flex-start", md: "flex-end" }}>
 					<WrapItem>
-						<Tag colorScheme="gray">v{data.version}</Tag>
+						<Tag colorScheme="gray">
+							{isDevPanel ? currentPanelVersion : `v${currentPanelVersion}`}
+						</Tag>
 					</WrapItem>
 					{latestPanelVersion && (
 						<WrapItem>
@@ -690,7 +902,7 @@ const SystemOverviewCard: FC<{
 						{t("panelUptime")}: {formatDuration(data.panel_uptime_seconds)}
 					</Tag>
 				</Stack>
-				{data.last_xray_error && !data.xray_running && (
+				{data.last_xray_error && (
 					<Box
 						mt={4}
 						p={4}
@@ -710,7 +922,7 @@ const SystemOverviewCard: FC<{
 								color="red.600"
 								_dark={{ color: "red.400" }}
 							>
-								{t("coreError", "Core Error")}:
+								{t("coreError")}:
 							</Text>
 						</HStack>
 						<Text
@@ -750,17 +962,17 @@ const SystemOverviewCard: FC<{
 								color="orange.600"
 								_dark={{ color: "orange.400" }}
 							>
-								{t("telegramError", "Telegram Error")}:
+								{t("telegramError")}:
 							</Text>
 							<Button
 								size="xs"
 								colorScheme="orange"
 								variant="outline"
 								onClick={() => {
-									window.location.href = "/integrations";
+									window.location.href = "/settings";
 								}}
 							>
-								{t("goToTelegramSettings", "Go to Telegram Settings")}
+								{t("goToTelegramSettings")}
 							</Button>
 						</HStack>
 						<Text
@@ -853,7 +1065,7 @@ const UsersOverviewCard: FC<{
 	<ChartBox title={t("usersOverview")}>
 		<Stack spacing={4}>
 			<MetricBadge
-				label={t("totalUsersLabel")}
+				label={t("total")}
 				value={formatNumberValue(data.total_user)}
 				colorScheme="blue"
 			/>
@@ -895,24 +1107,18 @@ const YourUsageCard: FC<{
 	if (!data) return null;
 	const usageLabel =
 		data.traffic_basis === "created_traffic"
-			? t("dashboard.currentCreatedTraffic", "Current created traffic")
-			: t("dashboard.currentUserUsage", "Current user usage");
+			? t("dashboard.currentCreatedTraffic")
+			: t("dashboard.currentUserUsage");
 	const usageHelper =
 		data.traffic_basis === "created_traffic"
-			? t(
-					"dashboard.currentCreatedTrafficHint",
-					"Traffic counted against your created-traffic limit.",
-				)
-			: t(
-					"dashboard.currentUserUsageHint",
-					"Traffic currently counted against your user data limit.",
-				);
+			? t("dashboard.currentCreatedTrafficHint")
+			: t("dashboard.currentUserUsageHint");
 	return (
 		<ChartBox title={t("yourUsage")}>
 			<Stack spacing={4}>
 				<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
 					<MetricBadge
-						label={t("totalUsersLabel")}
+						label={t("total")}
 						value={formatNumberValue(data.total_users)}
 						colorScheme="blue"
 					/>
@@ -980,15 +1186,25 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
 	const { t } = useTranslation();
-	const { data: systemData } = useQuery<SystemStats>({
-		queryKey: "statistics-query-key",
+	const { data: rawSystemData } = useQuery<SystemStats>({
+		queryKey: StatisticsQueryKey,
 		queryFn: () => fetch("/system"),
-		refetchInterval: 3_000,
-		onSuccess: ({ version: currentVersion }) => {
-			if (version !== currentVersion)
+		onSuccess: (stats) => {
+			const currentVersion = stats?.version;
+			if (currentVersion && version !== currentVersion)
 				useDashboard.setState({ version: currentVersion });
 		},
 	});
+	const systemData = useMemo(
+		() => sanitizeSystemStats(rawSystemData),
+		[rawSystemData],
+	);
+	useSystemMetricsStream(true);
+	useEffect(() => {
+		if (systemData?.version && version !== systemData.version) {
+			useDashboard.setState({ version: systemData.version });
+		}
+	}, [systemData?.version, version]);
 	const [historyPayload, setHistoryPayload] =
 		useState<HistoryModalPayload | null>(null);
 	const [historyInterval, setHistoryInterval] = useState(

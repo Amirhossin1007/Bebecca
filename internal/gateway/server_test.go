@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGatewayForwardsAPIDirectlyToInProcessHandler(t *testing.T) {
@@ -115,7 +116,6 @@ func TestRemovedAndDeprecatedRoutes(t *testing.T) {
 		want   int
 	}{
 		{method: http.MethodPost, path: "/api/core/xray/update", want: http.StatusGone},
-		{method: http.MethodGet, path: "/api/core/access/insights", want: http.StatusGone},
 		{method: http.MethodGet, path: "/api/node/master", want: http.StatusGone},
 		{method: http.MethodPost, path: "/api/node/master/usage/reset", want: http.StatusGone},
 	}
@@ -128,6 +128,23 @@ func TestRemovedAndDeprecatedRoutes(t *testing.T) {
 				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestAccessInsightsRouteReachesAPI(t *testing.T) {
+	server, err := NewServer(Config{APIHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/core/access/insights" {
+			t.Fatalf("path=%s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	server.server.Handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/core/access/insights", nil))
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -151,5 +168,35 @@ func TestGatewayHealthChecks(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s status=%d body=%s", path, rec.Code, rec.Body.String())
 		}
+	}
+}
+
+func TestExtraListenAddrsUsePrimaryHostAndSkipDuplicates(t *testing.T) {
+	got := extraListenAddrs(":443", []int{443, 2053, 0, 70000, 8443, 2053})
+	want := []string{":2053", ":8443"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("extraListenAddrs(:443)=%v want %v", got, want)
+	}
+
+	got = extraListenAddrs("127.0.0.1:443", []int{2053})
+	want = []string{"127.0.0.1:2053"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("extraListenAddrs(127.0.0.1:443)=%v want %v", got, want)
+	}
+}
+
+func TestNewHTTPServerSetsReadAndIdleTimeouts(t *testing.T) {
+	server := newHTTPServer(":8000", http.NotFoundHandler())
+	if server.ReadHeaderTimeout != 15*time.Second {
+		t.Fatalf("ReadHeaderTimeout = %s", server.ReadHeaderTimeout)
+	}
+	if server.ReadTimeout != 30*time.Second {
+		t.Fatalf("ReadTimeout = %s", server.ReadTimeout)
+	}
+	if server.IdleTimeout != 2*time.Minute {
+		t.Fatalf("IdleTimeout = %s", server.IdleTimeout)
+	}
+	if server.WriteTimeout != 0 {
+		t.Fatalf("WriteTimeout = %s, want 0 for WebSocket streams", server.WriteTimeout)
 	}
 }

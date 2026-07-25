@@ -12,8 +12,6 @@ func flattenNodeItem(node nodecontroller.NodeListItem) map[string]any {
 		"api_port":                 node.APIPort,
 		"usage_coefficient":        node.UsageCoefficient,
 		"data_limit":               node.DataLimit,
-		"use_nobetci":              node.UseNobetci,
-		"nobetci_port":             node.NobetciPort,
 		"proxy_enabled":            node.ProxyEnabled,
 		"proxy_type":               node.ProxyType,
 		"proxy_host":               node.ProxyHost,
@@ -46,6 +44,53 @@ func flattenNodeItem(node nodecontroller.NodeListItem) map[string]any {
 		"node_certificate":         node.NodeCertificate,
 		"node_certificate_key":     node.NodeCertificateKey,
 	}
+}
+
+func flattenNodeStaticItem(node nodecontroller.NodeListItem) map[string]any {
+	item := flattenNodeItem(node)
+	for _, key := range []string{
+		"node_service_version",
+		"node_install_mode",
+		"node_binary_tag",
+		"node_update_channel",
+		"cpu_cores",
+		"cpu_frequency_hz",
+		"cpu_usage_percent",
+		"memory_used",
+		"memory_total",
+		"memory_usage_percent",
+		"uptime_seconds",
+		"upload_speed",
+		"download_speed",
+	} {
+		delete(item, key)
+	}
+	return item
+}
+
+func flattenNodeLiveItem(node nodecontroller.NodeListItem) map[string]any {
+	item := flattenNodeItem(node)
+	delete(item, "node_binary_tag")
+	if node.NodeServiceVersion != nil {
+		return item
+	}
+	for _, key := range []string{
+		"node_service_version",
+		"node_install_mode",
+		"node_update_channel",
+		"cpu_cores",
+		"cpu_frequency_hz",
+		"cpu_usage_percent",
+		"memory_used",
+		"memory_total",
+		"memory_usage_percent",
+		"uptime_seconds",
+		"upload_speed",
+		"download_speed",
+	} {
+		delete(item, key)
+	}
+	return item
 }
 
 func flattenRuntimeResult(result nodecontroller.RuntimeResult) map[string]any {

@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"sort"
 	"strconv"
@@ -23,6 +25,24 @@ var proxyProtocols = map[string]struct{}{
 	"vless":       {},
 	"trojan":      {},
 	"shadowsocks": {},
+	"hysteria":    {},
+}
+
+var subscriptionDownloadProtocols = map[string]struct{}{
+	"openvpn":    {},
+	"wireguard":  {},
+	"l2tp":       {},
+	"pptp":       {},
+	"ikev2":      {},
+	"anyconnect": {},
+}
+
+func isResolvableInboundProtocol(protocol string) bool {
+	if _, ok := proxyProtocols[protocol]; ok {
+		return true
+	}
+	_, ok := subscriptionDownloadProtocols[protocol]
+	return ok
 }
 
 type configHost struct {
@@ -74,12 +94,19 @@ func BuildConfigLinks(
 	}
 
 	formatVariables := configFormatVariables(item)
-	proxies := item.Proxies
-	if len(proxies) == 0 {
-		proxies = virtualServiceProxies(item.ServiceID, inbounds, inboundOrder, hostsByTag)
-	}
+	proxies := mergeServiceProxies(
+		item.Proxies,
+		virtualServiceProxies(item.ServiceID, inbounds, inboundOrder, hostsByTag),
+	)
 
 	links := make([]string, 0)
+	type tagBinding struct {
+		settings map[string]any
+		protocol string
+	}
+	// Resolve, per inbound tag, which proxy (protocol) and runtime settings it
+	// belongs to. A tag maps to a single protocol, so first match wins.
+	bindings := make(map[string]tagBinding)
 	for _, proxy := range proxies {
 		protocol := normalizeProxyProtocol(proxy.Type)
 		if _, ok := proxyProtocols[protocol]; !ok {
@@ -89,8 +116,7 @@ func BuildConfigLinks(
 		if err != nil {
 			return ConfigLinksResponse{}, err
 		}
-		tags := selectProxyInboundTags(item, proxy, protocol, inbounds, inboundOrder, hostsByTag)
-		for _, tag := range tags {
+		for _, tag := range selectProxyInboundTags(item, proxy, protocol, inbounds, inboundOrder, hostsByTag) {
 			inbound, ok := inbounds[tag]
 			if !ok {
 				continue
@@ -98,24 +124,60 @@ func BuildConfigLinks(
 			if normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol {
 				continue
 			}
-			for _, host := range hostsByTag[tag] {
-				inboundVariables := cloneFormatVariables(formatVariables)
-				inboundVariables["PROTOCOL"] = strings.ToUpper(protocol)
-				inboundVariables["protocol"] = protocol
-				inboundVariables["TRANSPORT"] = configTransportName(inbound)
-				inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
-				remark, address, effective, ok := effectiveInboundForHost(username, inboundVariables, inbound, host.host)
-				if !ok {
-					continue
-				}
-				link, err := buildShareLink(remark, address, effective, settings)
-				if err != nil {
-					return ConfigLinksResponse{}, err
-				}
-				if link != "" {
-					links = append(links, link)
-				}
+			if _, exists := bindings[tag]; !exists {
+				bindings[tag] = tagBinding{settings: settings, protocol: protocol}
 			}
+		}
+	}
+
+	// Emit links following the service's configured host order (host-major).
+	// Iterating per protocol instead would group configs by protocol and, for
+	// virtual proxies whose protocols are sorted alphabetically, pull some
+	// protocols (e.g. shadowsocks) to the top regardless of the service order.
+	for _, selected := range selectedHosts {
+		host := selected.host
+		inbound, ok := inbounds[host.InboundTag]
+		if !ok {
+			continue
+		}
+		if normalizeProxyProtocol(stringValue(inbound["protocol"])) == "wireguard" {
+			inboundVariables := cloneFormatVariables(formatVariables)
+			inboundVariables["PROTOCOL"] = "wireguard"
+			inboundVariables["protocol"] = "wireguard"
+			inboundVariables["TRANSPORT"] = configTransportName(inbound)
+			inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
+			remark, address, effective, ok := effectiveInboundForHost(username, inboundVariables, inbound, host)
+			if !ok {
+				continue
+			}
+			link, err := buildWGShareLink(item, remark, address, effective, host)
+			if err != nil {
+				return ConfigLinksResponse{}, err
+			}
+			if link != "" {
+				links = append(links, link)
+			}
+			continue
+		}
+		binding, ok := bindings[host.InboundTag]
+		if !ok {
+			continue
+		}
+		inboundVariables := cloneFormatVariables(formatVariables)
+		inboundVariables["PROTOCOL"] = strings.ToUpper(binding.protocol)
+		inboundVariables["protocol"] = binding.protocol
+		inboundVariables["TRANSPORT"] = configTransportName(inbound)
+		inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
+		remark, address, effective, ok := effectiveInboundForHost(username, inboundVariables, inbound, host)
+		if !ok {
+			continue
+		}
+		link, err := buildShareLink(remark, address, effective, binding.settings)
+		if err != nil {
+			return ConfigLinksResponse{}, err
+		}
+		if link != "" {
+			links = append(links, link)
 		}
 	}
 
@@ -182,6 +244,23 @@ func virtualServiceProxies(serviceID *int64, inbounds map[string]ResolvedInbound
 	result := make([]StoredProxy, 0, len(protocols))
 	for _, protocol := range protocols {
 		result = append(result, StoredProxy{Type: protocol, Settings: map[string]any{}})
+	}
+	return result
+}
+
+func mergeServiceProxies(stored []StoredProxy, service []StoredProxy) []StoredProxy {
+	result := append([]StoredProxy(nil), stored...)
+	seen := make(map[string]struct{}, len(stored))
+	for _, proxy := range stored {
+		seen[normalizeProxyProtocol(proxy.Type)] = struct{}{}
+	}
+	for _, proxy := range service {
+		protocol := normalizeProxyProtocol(proxy.Type)
+		if _, exists := seen[protocol]; exists {
+			continue
+		}
+		result = append(result, proxy)
+		seen[protocol] = struct{}{}
 	}
 	return result
 }
@@ -268,7 +347,8 @@ func selectProxyInboundTags(
 }
 
 func effectiveInboundForHost(username string, variables map[string]string, inbound ResolvedInbound, host Host) (string, string, ResolvedInbound, bool) {
-	address := applyWildcard(applyFormat(firstCSV(host.Address), variables), username)
+	addressRaw := selectHostRotationValue(host.ID, "address", host.Address, host.AddressOptions, host.AddressMode, host.AddressTTL)
+	address := applyWildcard(applyFormat(addressRaw, variables), username)
 	if address == "" {
 		return "", "", nil, false
 	}
@@ -278,32 +358,34 @@ func effectiveInboundForHost(username string, variables map[string]string, inbou
 		remark = address
 	}
 
-	sni := applyWildcard(applyFormat(firstHostOverride(host.SNI, firstStringList(inbound["sni"])), variables), username)
-	requestHost := applyWildcard(applyFormat(firstHostOverride(host.Host, firstStringList(inbound["host"])), variables), username)
+	sniRaw := selectHostRotationValue(host.ID, "sni", hostOverrideList(host.SNI, joinStringList(inbound["sni"])), host.SNIOptions, host.SNIMode, host.SNITTL)
+	hostRaw := selectHostRotationValue(host.ID, "host", hostOverrideList(host.Host, joinStringList(inbound["host"])), host.HostOptions, host.HostMode, host.HostTTL)
+	sni := applyWildcard(applyFormat(sniRaw, variables), username)
+	requestHost := applyWildcard(applyFormat(hostRaw, variables), username)
 	if host.UseSNIAsHost && sni != "" {
 		requestHost = sni
 	}
 
 	path := stringValue(inbound["path"])
-	if host.Path != nil {
+	if host.Path != nil && strings.TrimSpace(*host.Path) != "" {
 		path = *host.Path
 	}
 	path = applyFormat(path, variables)
 
 	effective := copyInbound(inbound)
-	if host.Port != nil {
+	if host.Port != nil && normalizeProxyProtocol(stringValue(inbound["protocol"])) != "openvpn" && normalizeProxyProtocol(stringValue(inbound["protocol"])) != "ikev2" {
 		effective["port"] = *host.Port
 	}
 	if tls := normalizedHostSecurity(host.Security); tls != "" {
 		effective["tls"] = tls
 	}
-	if host.ALPN != "" {
-		effective["alpn"] = host.ALPN
+	if alpn := nonDefaultHostText(host.ALPN); alpn != "" {
+		effective["alpn"] = alpn
 	}
-	if host.Fingerprint != "" {
-		effective["fp"] = host.Fingerprint
+	if fp := nonDefaultHostFingerprint(host.Fingerprint); fp != "" {
+		effective["fp"] = fp
 	}
-	if host.AllowInsecure != nil {
+	if host.AllowInsecure != nil && *host.AllowInsecure {
 		effective["ais"] = *host.AllowInsecure
 	}
 	if host.FragmentSetting != nil {
@@ -330,10 +412,12 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 	}
 	for _, key := range []string{
 		"tls", "sni", "host", "path", "header_type", "fp", "alpn", "ais", "allowinsecure",
+		"ech", "echConfigList", "vcn", "verifyPeerCertByName", "pinSHA256", "pinnedPeerCertSha256",
 		"pbk", "publicKey", "public_key", "sids", "sid", "shortIds", "shortId", "spx",
 		"fragment_setting", "noise_setting",
 		"scMaxBufferedPosts", "scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
 		"scStreamUpServerSecs", "xPaddingBytes", "noSSEHeader", "noGRPCHeader", "keepAlivePeriod", "xmux", "mode",
+		"hysteria_version", "hysteria_auth", "hysteria_udp_idle_timeout", "obfs", "obfs-password", "obfsPassword", "mport",
 	} {
 		if !inboundValueEmpty(target[key]) {
 			continue
@@ -374,10 +458,24 @@ func copyInbound(inbound ResolvedInbound) ResolvedInbound {
 
 func normalizedHostSecurity(value string) string {
 	cleaned := strings.TrimSpace(strings.ToLower(value))
-	if cleaned == "" || cleaned == "default" || cleaned == "inbound_default" || cleaned == "inbound-default" {
+	if cleaned == "" || cleaned == "none" || cleaned == "default" || cleaned == "inbound_default" || cleaned == "inbound-default" {
 		return ""
 	}
 	return cleaned
+}
+
+func nonDefaultHostFingerprint(value string) string {
+	return nonDefaultHostText(value)
+}
+
+func nonDefaultHostText(value string) string {
+	cleaned := strings.TrimSpace(value)
+	switch strings.ToLower(cleaned) {
+	case "", "none", "default", "inbound_default", "inbound-default":
+		return ""
+	default:
+		return cleaned
+	}
 }
 
 func firstHostOverride(value *string, fallback string) string {
@@ -389,6 +487,17 @@ func firstHostOverride(value *string, fallback string) string {
 		return fallback
 	}
 	return first
+}
+
+func hostOverrideList(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+	cleaned := strings.TrimSpace(*value)
+	if cleaned == "" {
+		return fallback
+	}
+	return cleaned
 }
 
 func configFormatVariables(item ConfigLinkUser) map[string]string {
@@ -629,7 +738,7 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 		} else {
 			return nil, fmt.Errorf("UUID is required for proxy type %s", protocol)
 		}
-	case "trojan", "shadowsocks":
+	case "trojan", "shadowsocks", "hysteria":
 		if stringValue(data["password"]) == "" {
 			if normalizedKey != "" {
 				data["password"] = keyToPassword(normalizedKey, protocol)
@@ -640,6 +749,15 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 				}
 				data["password"] = password
 			}
+		}
+		if protocol == "hysteria" {
+			if stringValue(data["auth"]) == "" {
+				data["auth"] = stringValue(data["password"])
+			}
+			delete(data, "password")
+			delete(data, "method")
+			delete(data, "iv_check")
+			break
 		}
 		if protocol == "shadowsocks" {
 			if stringValue(data["method"]) == "" {
@@ -659,6 +777,34 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 
 func RuntimeProxySettings(settings map[string]any, protocol string, credentialKey string, flow string, masks map[string][]byte) (map[string]any, error) {
 	return runtimeProxySettings(settings, protocol, credentialKey, flow, masks)
+}
+
+func RuntimeShadowsocksSettings(settings map[string]any, inboundSettings map[string]any) map[string]any {
+	data := make(map[string]any, len(settings))
+	for key, value := range settings {
+		data[key] = value
+	}
+	method := firstNonEmptyString(inboundSettings["method"], data["method"], defaultShadowsocksMethod)
+	if strings.HasPrefix(method, "2022-") {
+		data["password"] = shadowsocks2022Password(stringValue(data["password"]), method)
+		delete(data, "method")
+		delete(data, "iv_check")
+		return data
+	}
+	data["method"] = method
+	return data
+}
+
+func shadowsocks2022Password(password string, method string) string {
+	keyLength := 16
+	if strings.Contains(method, "aes-256") {
+		keyLength = 32
+	}
+	if decoded, err := base64.StdEncoding.DecodeString(password); err == nil && len(decoded) == keyLength {
+		return password
+	}
+	sum := sha256.Sum256([]byte(password))
+	return base64.StdEncoding.EncodeToString(sum[:keyLength])
 }
 
 func normalizeCredentialKey(value string) (string, error) {
@@ -767,6 +913,8 @@ func buildShareLink(remark string, address string, inbound ResolvedInbound, sett
 		return trojanShareLink(remark, formatIPForURL(address), path, inbound, settings), nil
 	case "shadowsocks":
 		return shadowsocksShareLink(remark, formatIPForURL(address), inbound, settings), nil
+	case "hysteria":
+		return hysteriaShareLink(remark, formatIPForURL(address), inbound, settings), nil
 	default:
 		return "", nil
 	}
@@ -789,6 +937,9 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 	}
 	if fs := stringValue(inbound["fragment_setting"]); fs != "" {
 		payload["fragment"] = fs
+	}
+	if ns := stringValue(inbound["noise_setting"]); ns != "" {
+		payload["noise"] = ns
 	}
 	tls := stringValue(inbound["tls"])
 	if tls == "tls" {
@@ -851,7 +1002,7 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	params := []queryParam{
 		{"security", stringValue(inbound["tls"])},
 		{"type", stringValue(inbound["network"])},
-		{"headerType", stringValue(inbound["header_type"])},
+		{"headerType", firstNonEmptyString(inbound["header_type"], "none")},
 	}
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
@@ -866,6 +1017,7 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	}
 	params = appendNetworkParams(params, netValue, path, inbound)
 	params = appendTLSParams(params, tls, inbound)
+	params = appendMaskParams(params, inbound)
 	return "vless://" + stringValue(settings["id"]) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
 }
 
@@ -873,7 +1025,7 @@ func trojanShareLink(remark string, address string, path string, inbound Resolve
 	params := []queryParam{
 		{"security", stringValue(inbound["tls"])},
 		{"type", stringValue(inbound["network"])},
-		{"headerType", stringValue(inbound["header_type"])},
+		{"headerType", firstNonEmptyString(inbound["header_type"], "none")},
 	}
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
@@ -883,43 +1035,116 @@ func trojanShareLink(remark string, address string, path string, inbound Resolve
 	}
 	params = appendNetworkParams(params, netValue, path, inbound)
 	params = appendTLSParams(params, tls, inbound)
+	params = appendMaskParams(params, inbound)
 	return "trojan://" + percentEncode(stringValue(settings["password"]), ":", false) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
 }
 
 func shadowsocksShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) string {
-	userInfo := stringValue(settings["method"]) + ":" + stringValue(settings["password"])
+	inboundSettings := mapValue(inbound["settings"])
+	method := firstNonEmptyString(inboundSettings["method"], settings["method"], defaultShadowsocksMethod)
+	settings = RuntimeShadowsocksSettings(settings, inboundSettings)
+	var userInfo string
+	if strings.HasPrefix(method, "2022-") {
+		userInfo = queryEscape(method) + ":" + queryEscape(stringValue(inboundSettings["password"])) + ":" + queryEscape(stringValue(settings["password"]))
+	} else {
+		userInfo = base64.RawURLEncoding.EncodeToString([]byte(method + ":" + stringValue(settings["password"])))
+	}
 	params := []queryParam{}
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
 	if tls != "" && tls != "none" {
 		params = append(params, queryParam{"security", tls})
 	}
-	if netValue != "" && netValue != "tcp" {
+	httpObfs := netValue == "tcp" && stringValue(inbound["header_type"]) == "http"
+	if netValue != "" && !httpObfs {
 		params = append(params, queryParam{"type", netValue})
+	}
+	if httpObfs {
+		params = append(params, queryParam{"plugin", "obfs-local;obfs=http;obfs-host=" + stringValue(inbound["host"])})
+	} else if netValue != "" && netValue != "tcp" {
 		params = appendNetworkParams(params, netValue, stringValue(inbound["path"]), inbound)
 	}
 	params = appendTLSParams(params, tls, inbound)
+	params = appendMaskParams(params, inbound)
 	query := ""
 	if len(params) > 0 {
 		query = "?" + urlencodeOrdered(params)
 	}
-	return "ss://" + base64.StdEncoding.EncodeToString([]byte(userInfo)) + "@" + address + ":" + portString(inbound["port"]) + query + "#" + percentEncode(remark, "/", false)
+	path := ""
+	if httpObfs {
+		// SIP002 requires a trailing slash before the plugin query. Some clients
+		// tolerate the missing slash, but strict parsers drop the plugin entirely.
+		path = "/"
+	}
+	return "ss://" + userInfo + "@" + address + ":" + portString(inbound["port"]) + path + query + "#" + percentEncode(remark, "/", false)
+}
+
+func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) string {
+	auth := firstNonEmptyString(settings["auth"], settings["password"])
+	if auth == "" {
+		return ""
+	}
+	scheme := "hysteria2"
+	if intValue(inbound["hysteria_version"]) == 1 || intValue(settings["version"]) == 1 {
+		scheme = "hysteria"
+	}
+	params := []queryParam{{"security", "tls"}}
+	if fp := stringValue(inbound["fp"]); fp != "" {
+		params = append(params, queryParam{"fp", fp})
+	}
+	if alpn := stringValue(inbound["alpn"]); alpn != "" {
+		params = append(params, queryParam{"alpn", alpn})
+	}
+	if ech := firstNonEmptyString(inbound["ech"], inbound["echConfigList"]); ech != "" {
+		params = append(params, queryParam{"ech", ech})
+	}
+	if sni := firstNonEmptyString(inbound["sni"], inbound["serverName"]); sni != "" {
+		params = append(params, queryParam{"sni", sni})
+	}
+	if vcn := firstNonEmptyString(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
+		params = append(params, queryParam{"vcn", vcn})
+	}
+	if pin := firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
+		pins := splitCommaLines(pin)
+		for i, value := range pins {
+			pins[i] = hysteriaPinHex(value)
+		}
+		if len(pins) > 0 {
+			params = append(params, queryParam{"pinSHA256", strings.Join(pins, ",")})
+		}
+	}
+	if truthy(firstNonEmptyValue(inbound["ais"], inbound["allowinsecure"])) {
+		params = append(params, queryParam{"insecure", 1})
+	}
+	if obfs := firstNonEmptyString(inbound["obfs"], inbound["hysteria_obfs"]); obfs != "" {
+		params = append(params, queryParam{"obfs", obfs})
+	}
+	if obfsPassword := firstNonEmptyString(inbound["obfs-password"], inbound["obfsPassword"], inbound["hysteria_obfs_password"]); obfsPassword != "" {
+		params = append(params, queryParam{"obfs-password", obfsPassword})
+	}
+	if mport := firstNonEmptyString(inbound["mport"], inbound["hysteria_mport"]); mport != "" {
+		params = append(params, queryParam{"mport", mport})
+	}
+	return scheme + "://" + percentEncode(auth, "", false) + "@" + address + ":" + portString(inbound["port"]) + "/?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
 }
 
 func appendNetworkParams(params []queryParam, netValue string, path string, inbound ResolvedInbound) []queryParam {
 	host := stringValue(inbound["host"])
 	switch netValue {
 	case "grpc":
-		params = append(params, queryParam{"serviceName", path}, queryParam{"authority", host})
+		params = append(params, queryParam{"serviceName", path})
+		params = appendQueryParamIfNotEmpty(params, "authority", host)
 		if boolValue(inbound["multiMode"]) {
 			params = append(params, queryParam{"mode", "multi"})
 		} else {
 			params = append(params, queryParam{"mode", "gun"})
 		}
 	case "quic":
-		params = append(params, queryParam{"key", path}, queryParam{"quicSecurity", host})
+		params = append(params, queryParam{"key", path})
+		params = appendQueryParamIfNotEmpty(params, "quicSecurity", host)
 	case "splithttp", "xhttp":
-		params = append(params, queryParam{"path", path}, queryParam{"host", host})
+		params = append(params, queryParam{"path", path})
+		params = appendQueryParamIfNotEmpty(params, "host", host)
 		if mode, ok := inbound["mode"]; ok {
 			params = append(params, queryParam{"mode", mode})
 		}
@@ -940,16 +1165,26 @@ func appendNetworkParams(params []queryParam, netValue string, path string, inbo
 			params = append(params, queryParam{"extra", pythonJSONDumpsOrdered(extra)})
 		}
 	case "kcp":
-		params = append(params, queryParam{"seed", path}, queryParam{"host", host})
+		params = append(params, queryParam{"seed", path})
+		params = appendQueryParamIfNotEmpty(params, "host", host)
 	case "ws":
-		params = append(params, queryParam{"path", path}, queryParam{"host", host})
+		params = append(params, queryParam{"path", path})
+		params = appendQueryParamIfNotEmpty(params, "host", host)
 		if heartbeat, ok := inbound["heartbeatPeriod"]; ok && truthy(heartbeat) {
 			params = append(params, queryParam{"heartbeatPeriod", heartbeat})
 		}
 	default:
-		params = append(params, queryParam{"path", path}, queryParam{"host", host})
+		params = append(params, queryParam{"path", path})
+		params = appendQueryParamIfNotEmpty(params, "host", host)
 	}
 	return params
+}
+
+func appendQueryParamIfNotEmpty(params []queryParam, key string, value any) []queryParam {
+	if stringValue(value) == "" {
+		return params
+	}
+	return append(params, queryParam{key, value})
 }
 
 func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) []queryParam {
@@ -959,8 +1194,14 @@ func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) [
 		if alpn := stringValue(inbound["alpn"]); alpn != "" {
 			params = append(params, queryParam{"alpn", alpn})
 		}
-		if fs := stringValue(inbound["fragment_setting"]); fs != "" {
-			params = append(params, queryParam{"fragment", fs})
+		if ech := firstNonEmptyString(inbound["ech"], inbound["echConfigList"]); ech != "" {
+			params = append(params, queryParam{"ech", ech})
+		}
+		if vcn := firstNonEmptyString(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
+			params = append(params, queryParam{"vcn", vcn})
+		}
+		if pin := firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
+			params = append(params, queryParam{"pcs", pin})
 		}
 		if truthy(inbound["ais"]) {
 			params = append(params, queryParam{"allowInsecure", 1})
@@ -975,6 +1216,16 @@ func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) [
 		if spx := stringValue(inbound["spx"]); spx != "" {
 			params = append(params, queryParam{"spx", spx})
 		}
+	}
+	return params
+}
+
+func appendMaskParams(params []queryParam, inbound ResolvedInbound) []queryParam {
+	if fs := stringValue(inbound["fragment_setting"]); fs != "" {
+		params = append(params, queryParam{"fragment", fs})
+	}
+	if ns := stringValue(inbound["noise_setting"]); ns != "" {
+		params = append(params, queryParam{"noise", ns})
 	}
 	return params
 }
@@ -995,10 +1246,25 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	}
 
 	settings := mapValue(inbound["settings"])
+	if protocol == "shadowsocks" {
+		resolved["settings"] = settings
+	}
 	if protocol == "vless" {
 		if encryption := firstNonEmptyString(settings["encryption"], settings["decryption"]); encryption != "" {
 			resolved["encryption"] = encryption
 		}
+	}
+	if protocol == "openvpn" {
+		applyOVResolvedSettings(resolved, inbound)
+		return resolved, nil
+	}
+	if protocol == "wireguard" {
+		resolved["settings"] = settings
+		return resolved, nil
+	}
+	if protocol == "l2tp" || protocol == "pptp" || protocol == "ikev2" || protocol == "anyconnect" {
+		resolved["settings"] = settings
+		return resolved, nil
 	}
 
 	stream := mapValue(inbound["streamSettings"])
@@ -1019,6 +1285,18 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		}
 		if alpn := firstNonEmptyString(joinStringList(tlsSettings["alpn"]), joinStringList(tlsMeta["alpn"])); alpn != "" {
 			resolved["alpn"] = alpn
+		}
+		if ech := firstNonEmptyString(tlsMeta["echConfigList"], tlsSettings["echConfigList"]); ech != "" {
+			resolved["ech"] = ech
+			resolved["echConfigList"] = ech
+		}
+		if vcn := firstNonEmptyString(tlsMeta["verifyPeerCertByName"], tlsSettings["verifyPeerCertByName"]); vcn != "" {
+			resolved["vcn"] = vcn
+			resolved["verifyPeerCertByName"] = vcn
+		}
+		if pin := firstNonEmptyString(joinStringList(tlsMeta["pinnedPeerCertSha256"]), joinStringList(tlsSettings["pinnedPeerCertSha256"]), tlsMeta["pinnedPeerCertSha256"], tlsSettings["pinnedPeerCertSha256"]); pin != "" {
+			resolved["pinSHA256"] = pin
+			resolved["pinnedPeerCertSha256"] = pin
 		}
 		if value, ok := firstPresent(tlsMeta, tlsSettings, "allowInsecure"); ok {
 			resolved["ais"] = value
@@ -1061,6 +1339,37 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	network := stringValue(resolved["network"])
 	networkSettings := mapValue(stream[networkSettingsKey(network)])
 	switch network {
+	case "hysteria":
+		hysteriaSettings := mapValue(stream["hysteriaSettings"])
+		if version := intValue(firstNonEmptyValue(settings["version"], hysteriaSettings["version"])); version > 0 {
+			resolved["hysteria_version"] = version
+		}
+		if auth := stringValue(hysteriaSettings["auth"]); auth != "" {
+			resolved["hysteria_auth"] = auth
+		}
+		if timeout := intValue(hysteriaSettings["udpIdleTimeout"]); timeout > 0 {
+			resolved["hysteria_udp_idle_timeout"] = timeout
+		}
+		finalmask := mapValue(stream["finalmask"])
+		if udpMasks, ok := finalmask["udp"].([]any); ok {
+			for _, item := range udpMasks {
+				mask := mapValue(item)
+				if stringValue(mask["type"]) != "salamander" {
+					continue
+				}
+				maskSettings := mapValue(mask["settings"])
+				if password := stringValue(maskSettings["password"]); password != "" {
+					resolved["obfs"] = "salamander"
+					resolved["obfs-password"] = password
+				}
+				break
+			}
+		}
+		quicParams := mapValue(finalmask["quicParams"])
+		udpHop := mapValue(quicParams["udpHop"])
+		if ports := stringValue(udpHop["ports"]); ports != "" {
+			resolved["mport"] = ports
+		}
 	case "tcp", "raw":
 		header := mapValue(networkSettings["header"])
 		resolved["header_type"] = stringValue(header["type"])
@@ -1115,10 +1424,6 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	return resolved, nil
 }
 
-func excludedInboundTags() map[string]struct{} {
-	return map[string]struct{}{}
-}
-
 func normalizeProxyProtocol(value string) string {
 	cleaned := strings.ToLower(strings.TrimSpace(value))
 	switch cleaned {
@@ -1126,6 +1431,16 @@ func normalizeProxyProtocol(value string) string {
 		return "shadowsocks"
 	case "vmess", "vless", "trojan":
 		return cleaned
+	case "l2tp", "l2tp-ipsec", "l2tp/ipsec":
+		return "l2tp"
+	case "openvpn", "ov":
+		return "openvpn"
+	case "wireguard", "wg":
+		return "wireguard"
+	case "ikev2", "ike-v2":
+		return "ikev2"
+	case "anyconnect", "cisco", "ocserv", "openconnect":
+		return "anyconnect"
 	default:
 		return cleaned
 	}
@@ -1278,12 +1593,51 @@ func firstStringList(value any) string {
 	return values[0]
 }
 
+func splitCommaLines(value string) []string {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == '\n' || r == '\r'
+	})
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if cleaned := strings.TrimSpace(part); cleaned != "" {
+			result = append(result, cleaned)
+		}
+	}
+	return result
+}
+
 func joinStringList(value any) string {
 	values := stringList(value)
 	if len(values) == 0 {
 		return ""
 	}
 	return strings.Join(values, ",")
+}
+
+func firstNonEmptyValue(values ...any) any {
+	for _, value := range values {
+		if !inboundValueEmpty(value) {
+			return value
+		}
+	}
+	return nil
+}
+
+func hysteriaPinHex(pin string) string {
+	stripped := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(pin), ":", ""))
+	if len(stripped) == 64 {
+		if _, err := hex.DecodeString(stripped); err == nil {
+			return stripped
+		}
+	}
+	decoded, err := base64.RawStdEncoding.DecodeString(strings.TrimSpace(pin))
+	if err != nil {
+		decoded, err = base64.StdEncoding.DecodeString(strings.TrimSpace(pin))
+	}
+	if err != nil || len(decoded) != 32 {
+		return pin
+	}
+	return hex.EncodeToString(decoded)
 }
 
 func firstCSV(value string) string {
@@ -1294,6 +1648,74 @@ func firstCSV(value string) string {
 		}
 	}
 	return ""
+}
+
+func normalizeHostSelectionMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "ttl":
+		return "ttl"
+	default:
+		return "random"
+	}
+}
+
+func normalizeHostOptionList(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		for _, part := range splitHostOptionValue(value) {
+			cleaned := strings.TrimSpace(part)
+			if cleaned == "" {
+				continue
+			}
+			key := strings.ToLower(cleaned)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			result = append(result, cleaned)
+		}
+	}
+	return result
+}
+
+func splitHostOptionValue(value string) []string {
+	return strings.FieldsFunc(value, func(r rune) bool {
+		return r == '\n' || r == '\r' || r == ','
+	})
+}
+
+func selectHostRotationValue(hostID int64, field string, value string, options []string, mode string, ttl *int64) string {
+	choices := normalizeHostOptionList(append([]string{value}, options...))
+	if len(choices) == 0 {
+		return ""
+	}
+	if len(choices) == 1 {
+		return choices[0]
+	}
+	if normalizeHostSelectionMode(mode) == "ttl" {
+		ttlSeconds := int64(60)
+		if ttl != nil && *ttl > 0 {
+			ttlSeconds = *ttl
+		}
+		bucket := time.Now().UTC().Unix() / ttlSeconds
+		hash := fnv.New64a()
+		_, _ = fmt.Fprintf(hash, "%d:%s", hostID, field)
+		offset := int64(hash.Sum64() % uint64(len(choices)))
+		return choices[int((bucket+offset)%int64(len(choices)))]
+	}
+	return choices[randomHostOptionIndex(len(choices))]
+}
+
+func randomHostOptionIndex(length int) int {
+	if length <= 1 {
+		return 0
+	}
+	var buf [8]byte
+	if _, err := rand.Read(buf[:]); err == nil {
+		return int(binary.BigEndian.Uint64(buf[:]) % uint64(length))
+	}
+	return int(time.Now().UnixNano() % int64(length))
 }
 
 func firstNonEmptyString(values ...any) string {

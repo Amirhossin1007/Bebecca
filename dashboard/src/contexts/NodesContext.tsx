@@ -1,8 +1,10 @@
-import { useQuery } from "react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
+import { getAPIWebSocketURL } from "utils/websocket";
 import { z } from "zod";
 import { create } from "zustand";
-import { type FilterUsageType, useDashboard } from "./DashboardContext";
+import { type FilterUsageType } from "./DashboardContext";
 
 const configSchema = z
 	.union([
@@ -97,8 +99,6 @@ export const NodeSchema = z
 			),
 		uplink: z.number().nullable().optional(),
 		downlink: z.number().nullable().optional(),
-		use_nobetci: z.boolean().optional(),
-		nobetci_port: z.number().nullable().optional(),
 		proxy_enabled: z.boolean().optional(),
 		proxy_type: z.enum(["http", "socks5"]).nullable().optional(),
 		proxy_host: z.string().nullable().optional(),
@@ -185,8 +185,6 @@ export const getNodeDefaultValues = (): NodeType => ({
 	data_limit: null,
 	uplink: 0,
 	downlink: 0,
-	use_nobetci: false,
-	nobetci_port: null,
 	proxy_enabled: false,
 	proxy_type: null,
 	proxy_host: null,
@@ -200,6 +198,28 @@ export const getNodeDefaultValues = (): NodeType => ({
 
 export const FetchNodesQueryKey = "fetch-nodes-query-key";
 
+const liveMetricKeys: Array<keyof NodeType> = [
+	"cpu_usage_percent",
+	"memory_used",
+	"memory_total",
+	"memory_usage_percent",
+	"uptime_seconds",
+	"upload_speed",
+	"download_speed",
+];
+
+const liveNodeKeys: Array<keyof NodeType> = [
+	"status",
+	"message",
+	"xray_version",
+	"node_service_version",
+	"node_install_mode",
+	"node_update_channel",
+	"cpu_cores",
+	"cpu_frequency_hz",
+	...liveMetricKeys,
+];
+
 export type NodeStore = {
 	nodes: NodeType[];
 	addNode: (node: NodeType) => Promise<NodeType>;
@@ -209,6 +229,7 @@ export type NodeStore = {
 	regenerateNodeCertificate: (node: NodeType) => Promise<NodeType>;
 	reconnectNode: (node: NodeType) => Promise<unknown>;
 	restartNodeService: (node: NodeType) => Promise<unknown>;
+	rebootNodeHost: (node: NodeType) => Promise<unknown>;
 	updateNodeService: (node: NodeServiceUpdateRequest) => Promise<unknown>;
 	resetNodeUsage: (node: NodeType) => Promise<unknown>;
 	deletingNode?: NodeType | null;
@@ -217,14 +238,146 @@ export type NodeStore = {
 };
 
 export const useNodesQuery = (options?: { enabled?: boolean }) => {
-	const { isEditingNodes } = useDashboard();
+	const queryClient = useQueryClient();
 	return useQuery({
 		queryKey: FetchNodesQueryKey,
-		queryFn: useNodes.getState().fetchNodes,
-		refetchInterval: isEditingNodes ? 3000 : undefined,
+		queryFn: async () => {
+			const nextNodes = await useNodes.getState().fetchNodes();
+			const currentNodes =
+				queryClient.getQueryData<NodeType[]>(FetchNodesQueryKey);
+			if (!currentNodes?.length) return nextNodes;
+
+			const currentByID = new Map(
+				currentNodes
+					.filter((node) => node.id !== null && node.id !== undefined)
+					.map((node) => [node.id, node]),
+			);
+
+			return nextNodes.map((node) => {
+				const current =
+					node.id !== null && node.id !== undefined
+						? currentByID.get(node.id)
+						: undefined;
+				if (!current) return node;
+
+				const stableNode = { ...node };
+				liveMetricKeys.forEach((key) => {
+					const nextValue = stableNode[key];
+					const currentValue = current[key];
+					if (
+						(nextValue === null || nextValue === undefined) &&
+						currentValue !== null &&
+						currentValue !== undefined
+					) {
+						(stableNode as Record<keyof NodeType, unknown>)[key] = currentValue;
+					}
+				});
+				return stableNode;
+			});
+		},
 		refetchOnWindowFocus: false,
+		keepPreviousData: true,
 		enabled: options?.enabled ?? true,
 	});
+};
+
+const mergeLiveNodes = (
+	current: NodeType[] | undefined,
+	liveNodes: NodeType[],
+) => {
+	if (!current?.length) {
+		return liveNodes;
+	}
+	const liveByID = new Map(
+		liveNodes
+			.filter((node) => node.id !== null && node.id !== undefined)
+			.map((node) => [node.id, node]),
+	);
+	const currentIDs = new Set(
+		current
+			.filter((node) => node.id !== null && node.id !== undefined)
+			.map((node) => node.id),
+	);
+	let changed = false;
+	const merged = current.map((node) => {
+		const live =
+			node.id !== null && node.id !== undefined ? liveByID.get(node.id) : null;
+		if (!live) return node;
+
+		let mergedNode: NodeType | null = null;
+		for (const key of liveNodeKeys) {
+			const liveValue = live[key];
+			if (liveValue === undefined || Object.is(node[key], liveValue)) {
+				continue;
+			}
+			if (!mergedNode) {
+				mergedNode = { ...node };
+			}
+			(mergedNode as Record<keyof NodeType, unknown>)[key] = liveValue;
+		}
+		if (!mergedNode) return node;
+		changed = true;
+		return mergedNode;
+	});
+	for (const node of liveNodes) {
+		if (node.id === null || node.id === undefined || currentIDs.has(node.id)) {
+			continue;
+		}
+		merged.push(node);
+		changed = true;
+	}
+	return changed ? merged : current;
+};
+
+export const useNodeMetricsStream = (enabled = true) => {
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		if (!enabled || typeof window === "undefined") {
+			return;
+		}
+		const url = getAPIWebSocketURL("/nodes/metrics", { interval: 3 });
+		if (!url) {
+			return;
+		}
+		let closed = false;
+		let ws: WebSocket | null = null;
+		let reconnectTimer: number | undefined;
+
+		const connect = () => {
+			ws = new WebSocket(url);
+			ws.onmessage = (event) => {
+				try {
+					const payload = JSON.parse(event.data);
+					const liveNodes = Array.isArray(payload) ? payload : payload?.nodes;
+					if (!Array.isArray(liveNodes)) {
+						return;
+					}
+					queryClient.setQueryData<NodeType[]>(FetchNodesQueryKey, (current) =>
+						mergeLiveNodes(current, liveNodes),
+					);
+				} catch (error) {
+					console.error("Unable to parse node metrics stream payload", error);
+				}
+			};
+			ws.onerror = () => {
+				ws?.close();
+			};
+			ws.onclose = () => {
+				if (!closed) {
+					reconnectTimer = window.setTimeout(connect, 3000);
+				}
+			};
+		};
+
+		connect();
+		return () => {
+			closed = true;
+			if (reconnectTimer) {
+				window.clearTimeout(reconnectTimer);
+			}
+			ws?.close();
+		};
+	}, [enabled, queryClient]);
 };
 
 export const useNodes = create<NodeStore>((set, get) => ({
@@ -259,6 +412,11 @@ export const useNodes = create<NodeStore>((set, get) => ({
 	},
 	restartNodeService(body) {
 		return fetch(`/node/${body.id}/service/restart`, {
+			method: "POST",
+		});
+	},
+	rebootNodeHost(body) {
+		return fetch(`/node/${body.id}/host/reboot`, {
 			method: "POST",
 		});
 	},

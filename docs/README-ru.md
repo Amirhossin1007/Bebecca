@@ -288,8 +288,6 @@ server {
 
 | Переменная                               | Описание                                                                                                      |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| SUDO_USERNAME                            | Имя bootstrap-администратора.                                                                                 |
-| SUDO_PASSWORD                            | Пароль bootstrap-администратора.                                                                              |
 | SQLALCHEMY_DATABASE_URL                  | URL базы данных; legacy-имя сохранено для совместимости с Go runtime.                                         |
 | UVICORN_HOST                             | Хост публичного Go gateway (по умолчанию: `0.0.0.0`).                                                        |
 | UVICORN_PORT                             | Порт публичного Go gateway (по умолчанию: `8000`).                                                           |
@@ -304,15 +302,8 @@ server {
 | USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS | Включать limited пользователей в auto-delete.                                                                 |
 | JWT_ACCESS_TOKEN_EXPIRE_MINUTES          | Время жизни JWT access token в минутах.                                                                       |
 | USERS_LIST_TIMEOUT_SECONDS               | Таймаут больших user list запросов; `0` отключает таймаут.                                                    |
-| SUBSCRIPTION_READ_ONLY                   | Не обновлять metadata при чтении subscription.                                                                |
-| XRAY_SUBSCRIPTION_URL_PREFIX             | Prefix для CLI subscription-link helpers.                                                                     |
-| XRAY_FALLBACKS_INBOUND_TAG               | Inbound tag, содержащий fallbacks.                                                                            |
-| XRAY_EXCLUDE_INBOUND_TAGS                | Inbound tags, исключённые из генерации ссылок/config.                                                         |
-| REBECCA_APP_TEMPLATE_BASE                | Базовый путь встроенных templates.                                                                            |
 | REBECCA_CERT_BASE                        | Базовый путь управляемых сертификатов.                                                                        |
 | REBECCA_CONFIG_DIR                       | Корень конфигурации, включаемый в full backup.                                                                |
-| GEO_TEMPLATES_INDEX_URL                  | Опциональный URL разрешённого Geo template index.                                                             |
-| REBECCA_WARP_API_BASE                    | Override для Cloudflare WARP API base URL.                                                                    |
 
 # Telegram Bot
 
@@ -323,7 +314,7 @@ Rebecca поставляется с встроенным ботом Telegram, к
 1. установите `TELEGRAM_API_TOKEN` в качестве API-токена вашего бота.
 2. установите `TELEGRAM_ADMIN_ID` в качестве цифрового ID вашего Telegram-аккаунта, который вы можете получить от [@userinfobot](https://t.me/userinfobot)
 
-Telegram bot commands, reports, and backup delivery are temporarily disabled while Rebecca is migrated to native Go services. The rebuild plan is tracked in `docs/TODO_GO_TELEGRAM.md`.
+Команды Telegram-бота, отчёты и доставка резервных копий поддерживаются Go-сервисами и настраиваются в панели.
 
 # Webhook уведомления
 

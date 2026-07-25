@@ -2,10 +2,10 @@ package api
 
 import (
 	"context"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 )
 
@@ -49,16 +49,20 @@ func (s *Server) reviewUserLifecycle(ctx context.Context) {
 		BatchSize: s.cfg.UserLifecycleBatchSize,
 	})
 	if err != nil {
-		log.Printf("Go user lifecycle review failed: %v", err)
+		logging.Warnf(logging.ComponentUser, "lifecycle review failed: %v", err)
 		return
 	}
-	if result.Limited > 0 || result.Expired > 0 || result.AppliedNextPlan > 0 || result.ActivatedOnHold > 0 {
-		log.Printf(
-			"Go user lifecycle checked_active=%d checked_on_hold=%d limited=%d expired=%d next_plan=%d activated_on_hold=%d",
+	if result.Limited > 0 || result.Expired > 0 || result.Reactivated > 0 || result.Corrected > 0 || result.AppliedNextPlan > 0 || result.ActivatedOnHold > 0 {
+		logging.Debugf(
+			logging.ComponentUser,
+			"lifecycle checked_active=%d checked_inactive=%d checked_on_hold=%d limited=%d expired=%d reactivated=%d corrected=%d next_plan=%d activated_on_hold=%d",
 			result.CheckedActive,
+			result.CheckedInactive,
 			result.CheckedOnHold,
 			result.Limited,
 			result.Expired,
+			result.Reactivated,
+			result.Corrected,
 			result.AppliedNextPlan,
 			result.ActivatedOnHold,
 		)
@@ -93,12 +97,13 @@ func (s *Server) resetPeriodicUserUsage(ctx context.Context) {
 		BatchSize: s.cfg.UserUsageResetBatchSize,
 	})
 	if err != nil {
-		log.Printf("Go periodic user usage reset failed: %v", err)
+		logging.Warnf(logging.ComponentUser, "periodic usage reset failed: %v", err)
 		return
 	}
 	if result.Reset > 0 {
-		log.Printf(
-			"Go periodic user usage reset checked=%d reset=%d reactivated=%d",
+		logging.Infof(
+			logging.ComponentUser,
+			"periodic usage reset checked=%d reset=%d reactivated=%d",
 			result.Checked,
 			result.Reset,
 			result.Reactivated,
@@ -136,12 +141,13 @@ func (s *Server) autodeleteExpiredUsers(ctx context.Context) {
 		IncludeLimited: s.cfg.UserAutodeleteIncludeLimited,
 	})
 	if err != nil {
-		log.Printf("Go expired user autodelete failed: %v", err)
+		logging.Warnf(logging.ComponentUser, "expired user autodelete failed: %v", err)
 		return
 	}
 	if result.Deleted > 0 {
-		log.Printf(
-			"Go expired user autodelete checked=%d deleted=%d include_limited=%t global_days=%d",
+		logging.Infof(
+			logging.ComponentUser,
+			"expired user autodelete checked=%d deleted=%d include_limited=%t global_days=%d",
 			result.Checked,
 			result.Deleted,
 			s.cfg.UserAutodeleteIncludeLimited,

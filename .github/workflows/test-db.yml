@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mysql:
-        image: mysql:latest
+        image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: testdb
@@ -96,4 +96,3 @@ jobs:
       - name: Verify database schema
         run: |
           go test ./internal/app/migrations -run TestRunMigrationsExternalDatabase
-

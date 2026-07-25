@@ -10,6 +10,7 @@ import (
 )
 
 func (s *Server) handleSubscriptionPath(w http.ResponseWriter, r *http.Request) {
+	setSubscriptionNoCacheHeaders(w)
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -27,12 +28,16 @@ func (s *Server) handleSubscriptionPath(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleResolvedSubscription(w http.ResponseWriter, r *http.Request, req userapp.SubscriptionRenderRequest) {
+	setSubscriptionNoCacheHeaders(w)
 	req.UserAgent = r.Header.Get("User-Agent")
 	req.Accept = r.Header.Get("Accept")
 	req.URL = requestAbsoluteURL(r)
 	req.Start = r.URL.Query().Get("start")
 	req.End = r.URL.Query().Get("end")
 	req.ReadOnly = s.cfg.SubscriptionReadOnly
+	if runtimeSettings, err := s.settingsRepo.RuntimeSettings(r.Context()); err == nil {
+		req.ReadOnly = runtimeSettings.SubscriptionReadOnly
+	}
 	req.Usage = s.usageService
 
 	switch req.ClientType {
@@ -73,6 +78,14 @@ func (s *Server) handleResolvedSubscription(w http.ResponseWriter, r *http.Reque
 		}
 		_, _ = w.Write(response.Body)
 	}
+}
+
+func setSubscriptionNoCacheHeaders(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, private")
+	w.Header().Set("CDN-Cache-Control", "no-store")
+	w.Header().Set("Cloudflare-CDN-Cache-Control", "no-store")
+	w.Header().Set("Expires", "0")
+	w.Header().Set("Pragma", "no-cache")
 }
 
 func writeSubscriptionError(w http.ResponseWriter, err error) {

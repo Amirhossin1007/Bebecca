@@ -1,18 +1,36 @@
 package nodecontroller
 
 type Request struct {
-	NodeID           int64  `json:"node_id"`
-	ConfigJSON       string `json:"config_json,omitempty"`
-	Force            bool   `json:"force,omitempty"`
-	MaxLines         int    `json:"max_lines,omitempty"`
-	Version          string `json:"version,omitempty"`
-	Channel          string `json:"channel,omitempty"`
-	Files            []File `json:"files,omitempty"`
-	OutboundTag      string `json:"outbound_tag,omitempty"`
-	OutboundProtocol string `json:"outbound_protocol,omitempty"`
-	AllOutboundsJSON string `json:"all_outbounds_json,omitempty"`
-	OutboundTestURL  string `json:"test_url,omitempty"`
-	OutboundTestType string `json:"test_type,omitempty"`
+	NodeID                  int64  `json:"node_id"`
+	ConfigJSON              string `json:"config_json,omitempty"`
+	Force                   bool   `json:"force,omitempty"`
+	IncludeMetrics          bool   `json:"include_metrics,omitempty"`
+	MaxLines                int    `json:"max_lines,omitempty"`
+	Version                 string `json:"version,omitempty"`
+	Channel                 string `json:"channel,omitempty"`
+	Files                   []File `json:"files,omitempty"`
+	OutboundTag             string `json:"outbound_tag,omitempty"`
+	OutboundProtocol        string `json:"outbound_protocol,omitempty"`
+	AllOutboundsJSON        string `json:"all_outbounds_json,omitempty"`
+	OutboundTestURL         string `json:"test_url,omitempty"`
+	OutboundTestType        string `json:"test_type,omitempty"`
+	RouteInboundTag         string `json:"route_inbound_tag,omitempty"`
+	RouteDomain             string `json:"route_domain,omitempty"`
+	RouteIP                 string `json:"route_ip,omitempty"`
+	RoutePort               uint32 `json:"route_port,omitempty"`
+	RouteNetwork            string `json:"route_network,omitempty"`
+	RouteProtocol           string `json:"route_protocol,omitempty"`
+	RouteEmail              string `json:"route_email,omitempty"`
+	TorSocksPort            uint32 `json:"tor_socks_port,omitempty"`
+	TorExitCountry          string `json:"tor_exit_country,omitempty"`
+	TorStrictExit           bool   `json:"tor_strict_exit,omitempty"`
+	WindscribeAction        string `json:"windscribe_action,omitempty"`
+	WindscribeUsername      string `json:"windscribe_username,omitempty"`
+	WindscribePassword      string `json:"windscribe_password,omitempty"`
+	WindscribeLocation      string `json:"windscribe_location,omitempty"`
+	WindscribeSocksPort     uint32 `json:"windscribe_socks_port,omitempty"`
+	WindscribeProxyUsername string `json:"windscribe_proxy_username,omitempty"`
+	WindscribeProxyPassword string `json:"windscribe_proxy_password,omitempty"`
 }
 
 type File struct {
@@ -25,6 +43,11 @@ type ProcessOperationsRequest struct {
 	Limit  int   `json:"limit,omitempty"`
 }
 
+type ProcessUserOperationsRequest struct {
+	UserID int64 `json:"user_id,omitempty"`
+	Limit  int   `json:"limit,omitempty"`
+}
+
 type ProcessOperationsResult struct {
 	Processed int `json:"processed"`
 	Done      int `json:"done"`
@@ -32,13 +55,25 @@ type ProcessOperationsResult struct {
 	Failed    int `json:"failed"`
 }
 
+type RecoverNodesRequest struct {
+	Limit int `json:"limit,omitempty"`
+}
+
+type RecoverNodesResult struct {
+	Checked   int      `json:"checked"`
+	Recovered int      `json:"recovered"`
+	Errors    []string `json:"errors,omitempty"`
+}
+
 type CollectUsageRequest struct {
-	NodeID   int64 `json:"node_id,omitempty"`
-	Limit    int   `json:"limit,omitempty"`
-	Users    bool  `json:"users,omitempty"`
-	Outbound bool  `json:"outbound,omitempty"`
-	Reset    bool  `json:"reset,omitempty"`
-	NoReset  bool  `json:"no_reset,omitempty"`
+	NodeID                   int64 `json:"node_id,omitempty"`
+	Limit                    int   `json:"limit,omitempty"`
+	Users                    bool  `json:"users,omitempty"`
+	Outbound                 bool  `json:"outbound,omitempty"`
+	Reset                    bool  `json:"reset,omitempty"`
+	NoReset                  bool  `json:"no_reset,omitempty"`
+	SkipNodeUsageHistory     bool  `json:"skip_node_usage_history,omitempty"`
+	SkipNodeUserUsageHistory bool  `json:"skip_node_user_usage_history,omitempty"`
 }
 
 type CollectUsageResult struct {
@@ -70,6 +105,16 @@ type RuntimeResult struct {
 	Logs               []string `json:"logs,omitempty"`
 }
 
+type WindscribeLocation struct {
+	Name      string `json:"name"`
+	Available bool   `json:"available"`
+}
+
+type WindscribeResult struct {
+	Runtime   RuntimeResult        `json:"runtime"`
+	Locations []WindscribeLocation `json:"locations,omitempty"`
+}
+
 type StreamLogsRequest struct {
 	NodeID   int64 `json:"node_id,omitempty"`
 	MaxLines int   `json:"max_lines,omitempty"`
@@ -91,6 +136,13 @@ type OutboundTestResult struct {
 	Output     string `json:"output,omitempty"`
 }
 
+type RouteTestResult struct {
+	Matched     bool     `json:"matched"`
+	OutboundTag string   `json:"outboundTag,omitempty"`
+	GroupTags   []string `json:"groupTags,omitempty"`
+	Error       string   `json:"error,omitempty"`
+}
+
 type NodeListResult struct {
 	Nodes []NodeListItem `json:"nodes"`
 }
@@ -104,8 +156,6 @@ type NodeListItem struct {
 	APIPort                int     `json:"api_port"`
 	UsageCoefficient       float64 `json:"usage_coefficient"`
 	DataLimit              *int64  `json:"data_limit"`
-	UseNobetci             bool    `json:"use_nobetci"`
-	NobetciPort            *int64  `json:"nobetci_port"`
 	ProxyEnabled           bool    `json:"proxy_enabled"`
 	ProxyType              *string `json:"proxy_type"`
 	ProxyHost              *string `json:"proxy_host"`

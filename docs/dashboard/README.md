@@ -7,13 +7,13 @@ For development, you will only need Node.js installed on your environement.
 ### Node
 
 [Node](http://nodejs.org/) is really easy to install & now include [NPM](https://npmjs.org/).
-This project has been developed on the Nodejs v16.17.0 so if you faced any issue during installation that may related to the node version, install Node with version >= v16.17.0.
+Use Node.js 20 LTS, which is also used in CI.
 
 ## Install
 
     git clone https://github.com/rebeccapanel/Rebecca.git
     cd Rebecca/dashboard
-    npm install
+    npm ci
 
 ### Configure app
 
@@ -34,6 +34,10 @@ Copy `example.env` to `.env` then set the backend api address:
 ## Simple build for production
 
     npm run build
+
+## Tests
+
+    npm test
 
 ## Contribution
 

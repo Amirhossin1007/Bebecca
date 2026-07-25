@@ -16,6 +16,7 @@ import (
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 	"github.com/rebeccapanel/rebecca/internal/app/usage"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
+	webhookapp "github.com/rebeccapanel/rebecca/internal/app/webhook"
 )
 
 func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +76,14 @@ func (s *Server) handleUserPath(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			s.handleUserUsage(w, r, username)
+			return
+		}
+		if suffix == "ips" {
+			if r.Method != http.MethodGet {
+				writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+				return
+			}
+			s.handleUserIPs(w, r, username)
 			return
 		}
 		s.handleUserMutationAction(w, r, username, suffix)
@@ -197,6 +206,36 @@ func (s *Server) handleUserUsage(w http.ResponseWriter, r *http.Request, usernam
 	})
 }
 
+func (s *Server) handleUserIPs(w http.ResponseWriter, r *http.Request, username string) {
+	principal, ok := r.Context().Value(adminContextKey).(adminPrincipal)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing admin context")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	result, err := s.userService.UserGet(ctx, userapp.UserGetRequest{
+		Username:      username,
+		RequestOrigin: requestOrigin(r),
+		Admin:         s.userAdminContext(principal, nil),
+	})
+	if err != nil {
+		writeUserReadError(w, err)
+		return
+	}
+	records, err := s.nodeController.UserOnlineIPs(ctx, result.ID)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	records = s.enrichOnlineIPRecords(ctx, records)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"username": result.Username,
+		"ips":      records,
+	})
+}
+
 func (s *Server) handleUsersUsage(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/users/usage" {
 		writeError(w, http.StatusNotFound, "not found")
@@ -252,8 +291,11 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 		writeUserMutationError(w, err)
 		return
 	}
-	s.telegramReports.UserCreated(r.Context(), userReportForTelegram(result, principal.Context.Admin.Username, principal.Context.Admin.Username, raw))
-	s.writeUserMutationDetail(w, r, principal, result.Username, http.StatusCreated)
+	s.kickUserNodeOperationsSoon(result.UserID)
+	createdReport := userReportForTelegram(result, principal.Context.Admin.Username, principal.Context.Admin.Username, raw)
+	s.telegramReports.UserCreated(r.Context(), createdReport)
+	s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionUserCreated, createdReport))
+	s.writeUserMutationDetail(w, r, principal, result, http.StatusCreated)
 }
 
 func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request, username string) {
@@ -272,12 +314,15 @@ func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request, userna
 		writeUserMutationError(w, err)
 		return
 	}
+	s.kickUserNodeOperationsSoon(result.UserID)
 	report := userReportForTelegram(result, principal.Context.Admin.Username, principal.Context.Admin.Username, raw)
 	s.telegramReports.UserUpdated(r.Context(), report)
+	s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionUserUpdated, report))
 	if rawJSONHasField(raw, "status") && strings.TrimSpace(result.Status) != "" {
 		s.telegramReports.UserStatusChanged(r.Context(), report)
+		s.enqueueWebhook(r.Context(), webhookUserEvent(webhookUserStatusAction(result.Status), report))
 	}
-	s.writeUserMutationDetail(w, r, principal, result.Username, http.StatusOK)
+	s.writeUserMutationDetail(w, r, principal, result, http.StatusOK)
 }
 
 func (s *Server) handleUserDelete(w http.ResponseWriter, r *http.Request, username string) {
@@ -291,12 +336,15 @@ func (s *Server) handleUserDelete(w http.ResponseWriter, r *http.Request, userna
 		writeUserMutationError(w, err)
 		return
 	}
-	s.telegramReports.UserDeleted(r.Context(), telegramapp.UserReport{
+	s.kickUserNodeOperationsSoon(result.UserID)
+	deletedReport := telegramapp.UserReport{
 		Username: result.Username,
 		Owner:    principal.Context.Admin.Username,
 		Actor:    principal.Context.Admin.Username,
 		Status:   result.Status,
-	})
+	}
+	s.telegramReports.UserDeleted(r.Context(), deletedReport)
+	s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionUserDeleted, deletedReport))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"username": result.Username,
 		"status":   result.Status,
@@ -332,6 +380,7 @@ func (s *Server) handleUserMutationAction(w http.ResponseWriter, r *http.Request
 		writeUserMutationError(w, err)
 		return
 	}
+	s.kickUserNodeOperationsSoon(result.UserID)
 	report := telegramapp.UserReport{
 		Username: result.Username,
 		Owner:    principal.Context.Admin.Username,
@@ -341,12 +390,15 @@ func (s *Server) handleUserMutationAction(w http.ResponseWriter, r *http.Request
 	switch suffix {
 	case "reset":
 		s.telegramReports.UserUsageReset(r.Context(), report)
+		s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionDataUsageReset, report))
 	case "revoke_sub":
 		s.telegramReports.UserSubscriptionRevoked(r.Context(), report)
+		s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionSubscriptionRevoked, report))
 	case "active-next":
 		s.telegramReports.UserNextPlanApplied(r.Context(), report)
+		s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionAutoRenewApplied, report))
 	}
-	s.writeUserMutationDetail(w, r, principal, result.Username, http.StatusOK)
+	s.writeUserMutationDetail(w, r, principal, result, http.StatusOK)
 }
 
 func (s *Server) handleUsersBulkAction(w http.ResponseWriter, r *http.Request) {
@@ -408,6 +460,7 @@ func (s *Server) handleBulkUsersAction(w http.ResponseWriter, r *http.Request, s
 		writeUserMutationError(w, err)
 		return
 	}
+	s.kickUserNodeOperationsSoon(result.UserIDs...)
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -434,16 +487,21 @@ func (s *Server) bulkTargetAdmin(ctx context.Context, requester adminapp.Admin, 
 	return &target, nil
 }
 
-func (s *Server) writeUserMutationDetail(w http.ResponseWriter, r *http.Request, principal adminPrincipal, username string, statusCode int) {
+func (s *Server) writeUserMutationDetail(w http.ResponseWriter, r *http.Request, principal adminPrincipal, mutation userapp.MutationResult, statusCode int) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	result, err := s.userService.UserGet(ctx, userapp.UserGetRequest{
-		Username:      username,
+		Username:      mutation.Username,
 		RequestOrigin: requestOrigin(r),
 		Admin:         s.userAdminContext(principal, nil),
 	})
 	if err != nil {
-		writeUserReadError(w, err)
+		writeJSON(w, statusCode, map[string]any{
+			"id":       mutation.UserID,
+			"username": mutation.Username,
+			"status":   mutation.Status,
+			"detail":   "User mutation completed, but the full user detail response could not be generated.",
+		})
 		return
 	}
 	if !canViewUserTraffic(principal.Context.Admin, result.ServiceID) {

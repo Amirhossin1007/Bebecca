@@ -6,6 +6,22 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+const maxAPIRequestBodyBytes int64 = 8 << 20
+
+func withAPIRequestBodyLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Backup import accepts uploads up to 128 MiB in saveBackupUpload.
+		if r.URL.Path != "/api/settings/backup/import" {
+			if r.ContentLength > maxAPIRequestBodyBytes {
+				writeError(w, http.StatusRequestEntityTooLarge, "request body is too large")
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, maxAPIRequestBodyBytes)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 
@@ -27,6 +43,7 @@ func (s *Server) Handler() http.Handler {
 	}
 	r.HandleFunc("/admin/token", s.handleAdminToken)
 	r.HandleFunc("/internal/admin/validate", s.handleInternalAdminValidate)
+	r.HandleFunc("/internal/node/session-event", s.handleNodeSessionEvent)
 	r.HandleFunc("/xray/*", s.requireSudo(s.handleXrayHelperPath))
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
@@ -51,10 +68,19 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	r.NotFound(s.handleHomeOrSubscriptionPath)
-	return r
+	return withAPIRequestBodyLimit(r)
 }
 
 func (s *Server) registerAdminRoutes(r chi.Router) {
+	r.HandleFunc("/auth/login", s.requireSameOrigin(s.handleAuthLogin))
+	r.HandleFunc("/auth/session", s.handleAuthSession)
+	r.HandleFunc("/auth/logout", s.requireSameOrigin(s.handleAuthLogout))
+	r.HandleFunc("/auth/2fa/verify", s.requireSameOrigin(s.handleAuthVerify2FA))
+	r.HandleFunc("/auth/2fa/setup", s.requireSameOrigin(s.handleAuth2FA))
+	r.HandleFunc("/auth/2fa/confirm", s.requireSameOrigin(s.handleAuth2FA))
+	r.HandleFunc("/auth/2fa", s.requireSameOrigin(s.handleAuth2FA))
+	r.HandleFunc("/auth/sessions/*", s.requireSameOrigin(s.handleAuthSessions))
+	r.HandleFunc("/auth/sessions", s.requireSameOrigin(s.handleAuthSessions))
 	r.HandleFunc("/admin/token", s.handleAdminToken)
 	r.HandleFunc("/admin/permissions/standard/bulk", s.requireAdmin(s.handleBulkStandardPermissions))
 	r.HandleFunc("/admin/usage/reset/*", s.requireAdmin(s.handleAdminUsageResetPath))
@@ -73,6 +99,9 @@ func (s *Server) registerMyAccountRoutes(r chi.Router) {
 }
 
 func (s *Server) registerCoreRoutes(r chi.Router) {
+	r.HandleFunc("/core/recent-actions/*", s.requireSudo(s.handleRecentActionsPath))
+	r.HandleFunc("/core/recent-actions", s.requireSudo(s.handleRecentActionsRoot))
+	r.HandleFunc("/core/access/*", s.requireAdmin(s.handleCoreAccessPath))
 	r.HandleFunc("/core/logs", s.requireSudo(s.handleRuntimeLogsWebSocket))
 	r.HandleFunc("/core/restart", s.requireSudo(s.handleCoreRestart))
 	r.HandleFunc("/core/ips", s.requireAdmin(s.handleCoreIPs))
@@ -96,6 +125,7 @@ func (s *Server) registerConfigRoutes(r chi.Router) {
 
 func (s *Server) registerInboundHostRoutes(r chi.Router) {
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
+	r.HandleFunc("/inbounds/openvpn/runtime", s.requireSudo(s.handleOVRuntime))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
 	r.HandleFunc("/hosts/*", s.requireAdmin(s.handleHostStatusPath))
@@ -103,17 +133,23 @@ func (s *Server) registerInboundHostRoutes(r chi.Router) {
 }
 
 func (s *Server) registerSystemRoutes(r chi.Router) {
+	r.HandleFunc("/system/metrics", s.requireAdmin(s.handleSystemMetricsWebSocket))
 	r.HandleFunc("/system", s.requireAdmin(s.handleSystemStats))
 	r.HandleFunc("/maintenance/info", s.requireSudo(s.handleMaintenanceInfo))
+	r.HandleFunc("/maintenance/status", s.requireSudo(s.handleMaintenanceStatus))
 	r.HandleFunc("/maintenance/update", s.requireSudo(s.handleMaintenanceUpdate))
 	r.HandleFunc("/maintenance/restart", s.requireSudo(s.handleMaintenanceRestart))
 	r.HandleFunc("/maintenance/soft-reload", s.requireSudo(s.handleMaintenanceSoftReload))
 }
 
 func (s *Server) registerSettingsRoutes(r chi.Router) {
+	r.HandleFunc("/settings", s.requireAdmin(s.handleRuntimeSettings))
 	r.HandleFunc("/settings/backup/export", s.requireSudo(s.handleBackupExport))
 	r.HandleFunc("/settings/backup/import", s.requireSudo(s.handleBackupImport))
 	r.HandleFunc("/settings/panel", s.requireAdmin(s.handlePanelSettings))
+	r.HandleFunc("/settings/phpmyadmin/embed/*", s.handlePHPMyAdmin)
+	r.HandleFunc("/settings/phpmyadmin/*", s.requireSudo(s.handlePHPMyAdmin))
+	r.HandleFunc("/settings/phpmyadmin", s.requireSudo(s.handlePHPMyAdmin))
 	r.HandleFunc("/settings/telegram/backup/send", s.requireSudo(s.handleTelegramBackupSend))
 	r.HandleFunc("/settings/telegram/test", s.requireSudo(s.handleTelegramSettingsTest))
 	r.HandleFunc("/settings/telegram", s.requireSudo(s.handleTelegramSettings))
@@ -122,7 +158,6 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/subscriptions/admins/*", s.requireSudo(s.handleAdminSubscriptionSettingsPath))
 	r.HandleFunc("/settings/subscriptions/templates/*", s.requireSudo(s.handleSubscriptionTemplatePath))
 	r.HandleFunc("/settings/subscriptions", s.requireSudo(s.handleSubscriptionSettings))
-	r.HandleFunc("/settings/database/3xui/*", s.requireSudo(s.handleThreeXUISettingsPath))
 }
 
 func (s *Server) registerServiceRoutes(r chi.Router) {
@@ -141,7 +176,15 @@ func (s *Server) registerUserRoutes(r chi.Router) {
 }
 
 func (s *Server) registerPanelXrayRoutes(r chi.Router) {
+	r.HandleFunc("/panel/xray/nord/*", s.requireSudo(s.handleNordPath))
+	r.HandleFunc("/panel/xray/outbound-subs/*", s.requireSudo(s.handleOutboundSubscriptionPath))
+	r.HandleFunc("/panel/xray/outbound-subs", s.requireSudo(s.handleOutboundSubscriptions))
+	r.HandleFunc("/panel/xray/tor/setup", s.requireSudo(s.handleTorProxySetup))
+	r.HandleFunc("/panel/xray/windscribe/locations", s.requireSudo(s.handleWindscribeLocations))
+	r.HandleFunc("/panel/xray/windscribe/setup", s.requireSudo(s.handleWindscribeSetup))
 	r.HandleFunc("/panel/xray/testOutbound", s.requireSudo(s.handleOutboundTest))
+	r.HandleFunc("/panel/xray/testOutbounds", s.requireSudo(s.handleOutboundTests))
+	r.HandleFunc("/panel/xray/routeTest", s.requireSudo(s.handleRouteTest))
 	r.HandleFunc("/panel/xray/getOutboundsTraffic", s.requireSudo(s.handleOutboundsTraffic))
 	r.HandleFunc("/panel/xray/resetOutboundsTraffic", s.requireSudo(s.handleResetOutboundsTraffic))
 }
@@ -153,6 +196,7 @@ func (s *Server) registerSubscriptionRoutes(r chi.Router) {
 
 func (s *Server) registerNodeRoutes(r chi.Router) {
 	r.HandleFunc("/nodes/usage", s.requireSudo(s.handleNodesUsage))
+	r.HandleFunc("/nodes/metrics", s.requireSudo(s.handleNodesMetricsWebSocket))
 	r.HandleFunc("/nodes", s.requireSudo(s.handleNodes))
 	r.HandleFunc("/node/*", s.requireSudo(s.handleNodePath))
 	r.HandleFunc("/node", s.requireSudo(s.handleNodeRoot))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -103,6 +104,9 @@ func (s Service) ConfigLinks(ctx context.Context, req ConfigLinksRequest) (Confi
 	if strings.TrimSpace(item.ServerIP) == "" {
 		item.ServerIP = s.repo.configServerIP(ctx)
 	}
+	if err := s.repo.populateWGAddresses(ctx, &item, item.XrayInboundsByTag); err != nil {
+		return ConfigLinksResponse{}, err
+	}
 	return BuildConfigLinks(item, item.XrayInboundsByTag, inboundOrder, item.Hosts, masks, req.Reverse)
 }
 
@@ -122,6 +126,10 @@ func (s Service) CreateUser(ctx context.Context, admin adminapp.Admin, raw []byt
 	if err != nil {
 		return MutationResult{}, clientError(400, "invalid request body")
 	}
+	raw, err = normalizeUserNumericStringFields(raw, fields)
+	if err != nil {
+		return MutationResult{}, clientError(400, err.Error())
+	}
 	var serviceID *int64
 	if rawFieldPresent(fields, "service_id") && !rawIsNull(fields["service_id"]) {
 		var parsed int64
@@ -137,9 +145,7 @@ func (s Service) CreateUser(ctx context.Context, admin adminapp.Admin, raw []byt
 	if rawFieldPresent(fields, "next_plan") {
 		return MutationResult{}, clientError(400, NextPlanRemovedMessage)
 	}
-	if rawFieldPresent(fields, "proxies") {
-		return MutationResult{}, clientError(400, ProxiesPayloadRemovedMessage)
-	}
+	applyCredentialKeyFromLegacyProxies(&payload.UserPayloadBase)
 	if auto, err := DetectAutoServiceFromInbounds(payload.Inbounds); err != nil {
 		return MutationResult{}, clientError(400, err.Error())
 	} else if serviceID == nil && auto.Detected {
@@ -166,6 +172,10 @@ func (s Service) UpdateUser(ctx context.Context, admin adminapp.Admin, username 
 	if err != nil {
 		return MutationResult{}, clientError(400, "invalid request body")
 	}
+	raw, err = normalizeUserNumericStringFields(raw, fields)
+	if err != nil {
+		return MutationResult{}, clientError(400, err.Error())
+	}
 	var payload UserModify
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return MutationResult{}, clientError(400, "invalid request body")
@@ -173,9 +183,7 @@ func (s Service) UpdateUser(ctx context.Context, admin adminapp.Admin, username 
 	if rawFieldPresent(fields, "next_plan") {
 		return MutationResult{}, clientError(400, NextPlanRemovedMessage)
 	}
-	if rawFieldPresent(fields, "proxies") {
-		return MutationResult{}, clientError(400, ProxiesPayloadRemovedMessage)
-	}
+	applyCredentialKeyFromLegacyProxies(&payload.UserPayloadBase)
 	if rawFieldPresent(fields, "service_id") && rawIsNull(fields["service_id"]) {
 		return MutationResult{}, clientError(400, "service_id is required. Users must be assigned to a service.")
 	}
@@ -305,6 +313,41 @@ func decodeRawFields(raw []byte) (map[string]json.RawMessage, error) {
 		return nil, err
 	}
 	return fields, nil
+}
+
+func normalizeUserNumericStringFields(raw []byte, fields map[string]json.RawMessage) ([]byte, error) {
+	changed := false
+	for _, key := range []string{
+		"service_id",
+		"expire",
+		"data_limit",
+		"on_hold_expire_duration",
+		"ip_limit",
+		"auto_delete_in_days",
+	} {
+		value, ok := fields[key]
+		if !ok || rawIsNull(value) {
+			continue
+		}
+		var text string
+		if err := json.Unmarshal(value, &text); err != nil {
+			continue
+		}
+		parsed, err := strconv.ParseInt(strings.TrimSpace(text), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s", key)
+		}
+		fields[key] = json.RawMessage(strconv.FormatInt(parsed, 10))
+		changed = true
+	}
+	if !changed {
+		return raw, nil
+	}
+	normalized, err := json.Marshal(fields)
+	if err != nil {
+		return nil, err
+	}
+	return normalized, nil
 }
 
 func rawIsNull(raw json.RawMessage) bool {

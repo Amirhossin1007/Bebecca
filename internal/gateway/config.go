@@ -10,11 +10,12 @@ import (
 )
 
 type Config struct {
-	Addr          string
-	TLSCertFile   string
-	TLSKeyFile    string
-	DashboardPath string
-	APIHandler    http.Handler
+	Addr             string
+	ExtraListenPorts []int
+	TLSCertFile      string
+	TLSKeyFile       string
+	DashboardPath    string
+	APIHandler       http.Handler
 }
 
 func LoadConfig() Config {
@@ -23,7 +24,7 @@ func LoadConfig() Config {
 		Addr:          gatewayListenAddr(env),
 		TLSCertFile:   lookupEnv(env, "UVICORN_SSL_CERTFILE", ""),
 		TLSKeyFile:    lookupEnv(env, "UVICORN_SSL_KEYFILE", ""),
-		DashboardPath: lookupEnv(env, "DASHBOARD_PATH", "/dashboard/"),
+		DashboardPath: "/dashboard/",
 	}
 }
 

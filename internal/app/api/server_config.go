@@ -14,6 +14,10 @@ type Config struct {
 	NodeOperationsPollInterval   string
 	NodeUsageCollectionInterval  string
 	NodeUsageCollectionLimit     int
+	NodeUsageFlushInterval       string
+	NodeUsageFlushBatchSize      int
+	RecordNodeUsage              bool
+	RecordNodeUserUsages         bool
 	AdminLifecycleInterval       string
 	UserLifecycleInterval        string
 	UserLifecycleBatchSize       int
@@ -26,13 +30,13 @@ type Config struct {
 	JWTAccessTokenExpireMinutes  int
 	UsersListTimeoutSeconds      float64
 	SubscriptionReadOnly         bool
-	SudoUsername                 string
-	SudoPassword                 string
-	WarpAPIBase                  string
 	TelegramAPIBase              string
-	XrayFallbackInboundTag       string
-	XrayExcludeInboundTags       []string
 	APIDocsEnabled               bool
+	WebhookAddresses             []string
+	WebhookSecret                string
+	WebhookSendInterval          string
+	WebhookMaxRetries            int
+	WebhookRetryInterval         string
 }
 
 func LoadConfig() (Config, error) {
@@ -54,6 +58,10 @@ func LoadConfig() (Config, error) {
 		NodeOperationsPollInterval:   lookup("REBECCA_NODE_OPERATIONS_POLL_INTERVAL"),
 		NodeUsageCollectionInterval:  lookup("REBECCA_NODE_USAGE_COLLECTION_INTERVAL"),
 		NodeUsageCollectionLimit:     parseIntDefault(lookup("REBECCA_NODE_USAGE_COLLECTION_LIMIT"), 0),
+		NodeUsageFlushInterval:       lookup("REBECCA_NODE_USAGE_FLUSH_INTERVAL"),
+		NodeUsageFlushBatchSize:      parseIntDefault(lookup("REBECCA_NODE_USAGE_FLUSH_BATCH_SIZE"), 2000),
+		RecordNodeUsage:              true,
+		RecordNodeUserUsages:         true,
 		AdminLifecycleInterval:       lookup("REBECCA_ADMIN_LIFECYCLE_INTERVAL"),
 		UserLifecycleInterval:        firstNonEmpty(lookup("REBECCA_USER_LIFECYCLE_INTERVAL"), secondsEnv(lookup("JOB_REVIEW_USERS_INTERVAL"))),
 		UserLifecycleBatchSize:       parseIntDefault(lookup("REBECCA_USER_LIFECYCLE_BATCH_SIZE", "JOB_REVIEW_USERS_BATCH_SIZE"), 500),
@@ -65,14 +73,12 @@ func LoadConfig() (Config, error) {
 		UserAutodeleteIncludeLimited: parseBoolDefault(lookup("USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS"), false),
 		JWTAccessTokenExpireMinutes:  parseIntDefault(lookup("JWT_ACCESS_TOKEN_EXPIRE_MINUTES"), 1440),
 		UsersListTimeoutSeconds:      parseFloatDefault(lookup("USERS_LIST_TIMEOUT_SECONDS"), 0),
-		SubscriptionReadOnly:         parseBoolDefault(lookup("SUBSCRIPTION_READ_ONLY"), false),
-		SudoUsername:                 lookup("SUDO_USERNAME"),
-		SudoPassword:                 lookup("SUDO_PASSWORD"),
-		WarpAPIBase:                  lookup("REBECCA_WARP_API_BASE"),
 		TelegramAPIBase:              lookup("REBECCA_TELEGRAM_API_BASE"),
-		XrayFallbackInboundTag:       firstNonEmpty(lookup("XRAY_FALLBACKS_INBOUND_TAG"), lookup("XRAY_FALLBACK_INBOUND_TAG")),
-		XrayExcludeInboundTags:       splitWhitespace(lookup("XRAY_EXCLUDE_INBOUND_TAGS")),
-		APIDocsEnabled:               parseBoolDefault(lookup("REBECCA_API_DOCS_ENABLED"), false),
+		WebhookAddresses:             splitWebhookAddresses(lookup("WEBHOOK_ADDRESS")),
+		WebhookSecret:                lookup("WEBHOOK_SECRET"),
+		WebhookSendInterval:          firstNonEmpty(lookup("REBECCA_WEBHOOK_SEND_INTERVAL"), secondsEnv(lookup("JOB_SEND_NOTIFICATIONS_INTERVAL"))),
+		WebhookMaxRetries:            parseIntDefault(lookup("NUMBER_OF_RECURRENT_NOTIFICATIONS"), 3),
+		WebhookRetryInterval:         firstNonEmpty(lookup("REBECCA_WEBHOOK_RETRY_INTERVAL"), secondsEnv(lookup("RECURRENT_NOTIFICATIONS_TIMEOUT"))),
 	}
 	if cfg.Database == "" {
 		return Config{}, fmt.Errorf("SQLALCHEMY_DATABASE_URL is required")
@@ -80,12 +86,22 @@ func LoadConfig() (Config, error) {
 	return cfg, nil
 }
 
-func splitWhitespace(value string) []string {
-	parts := strings.Fields(value)
-	if len(parts) == 0 {
+// splitWebhookAddresses parses WEBHOOK_ADDRESS, which may list several endpoints
+// separated by commas or whitespace.
+func splitWebhookAddresses(value string) []string {
+	fields := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+	result := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if trimmed := strings.TrimSpace(field); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
 		return nil
 	}
-	return parts
+	return result
 }
 
 func firstNonEmpty(values ...string) string {

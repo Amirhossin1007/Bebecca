@@ -71,6 +71,7 @@ func TestExportImportFullBackupFileRoots(t *testing.T) {
 
 	configRoot := filepath.Join(t.TempDir(), "etc")
 	dataRoot := filepath.Join(t.TempDir(), "var")
+	envFile := filepath.Join(t.TempDir(), ".env")
 	if err := os.MkdirAll(filepath.Join(configRoot, "nested"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -83,10 +84,14 @@ func TestExportImportFullBackupFileRoots(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dataRoot, "state.txt"), []byte("state"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(envFile, []byte("SQLALCHEMY_DATABASE_URL=sqlite:///db.sqlite3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	service := NewService(db, "sqlite", sqliteURL(dbPath), WithFileRoots([]FileRoot{
 		{ArchiveName: "etc_rebecca", Path: configRoot},
 		{ArchiveName: "var_lib_rebecca", Path: dataRoot},
+		{ArchiveName: "rebecca_env", Path: envFile},
 	}))
 	exported, err := service.Export(ctx, ScopeFull)
 	if err != nil {
@@ -102,16 +107,22 @@ func TestExportImportFullBackupFileRoots(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(configRoot, "stale.txt"), []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Remove(envFile); err != nil {
+		t.Fatal(err)
+	}
 
 	result, err := service.Import(ctx, exported.Path, ScopeFull)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.FilesRestored) != 2 {
-		t.Fatalf("expected two restored roots, got %#v", result)
+	if len(result.FilesRestored) != 3 {
+		t.Fatalf("expected three restored roots, got %#v", result)
 	}
 	if _, err := os.Stat(filepath.Join(configRoot, "nested", "config.yml")); err != nil {
 		t.Fatalf("restored config missing: %v", err)
+	}
+	if content, err := os.ReadFile(envFile); err != nil || !strings.Contains(string(content), "SQLALCHEMY_DATABASE_URL") {
+		t.Fatalf("restored env missing or invalid: %q err=%v", content, err)
 	}
 	if _, err := os.Stat(filepath.Join(configRoot, "stale.txt")); !os.IsNotExist(err) {
 		t.Fatalf("stale file should be removed, stat err=%v", err)
@@ -119,7 +130,7 @@ func TestExportImportFullBackupFileRoots(t *testing.T) {
 }
 
 func TestMySQLBackupURLParsing(t *testing.T) {
-	service := NewService(nil, "mysql", "mysql+pymysql://rebecca:p%40ss%21@127.0.0.1:3306/rebecca")
+	service := NewService(nil, "mysql", "mysql+pymysql://rebecca:p%40ss%21%23frag%3Deq%5Cslash@127.0.0.1:3306/rebecca")
 	name, err := service.mysqlDatabaseName()
 	if err != nil {
 		t.Fatal(err)
@@ -138,15 +149,48 @@ func TestMySQLBackupURLParsing(t *testing.T) {
 	}
 	text := string(content)
 	for _, expected := range []string{
-		"user=rebecca",
-		"password=p@ss!",
-		"host=127.0.0.1",
-		"port=3306",
+		`user="rebecca"`,
+		`password="p@ss!#frag=eq\\slash"`,
+		`host="127.0.0.1"`,
+		`port="3306"`,
 		"protocol=tcp",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("defaults file missing %q in %q", expected, text)
 		}
+	}
+}
+
+func TestFilterMySQLDumpForDatabase(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "in.sql")
+	output := filepath.Join(dir, "out.sql")
+	content := strings.Join([]string{
+		"-- Current Database: `rebecca`",
+		"/*!40000 DROP DATABASE IF EXISTS `rebecca`*/;",
+		"CREATE DATABASE /*!32312 IF NOT EXISTS*/ `rebecca` /*!40100 DEFAULT CHARACTER SET utf8mb4 */;",
+		"USE `rebecca`;",
+		"CREATE TABLE `users` (`id` int);",
+		"INSERT INTO `users` VALUES (1);",
+	}, "\n")
+	if err := os.WriteFile(input, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := filterMySQLDumpForDatabase(input, output); err != nil {
+		t.Fatal(err)
+	}
+	filteredBytes, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filtered := string(filteredBytes)
+	for _, forbidden := range []string{"DROP DATABASE", "CREATE DATABASE", "USE `rebecca`"} {
+		if strings.Contains(filtered, forbidden) {
+			t.Fatalf("filtered dump still contains %q: %s", forbidden, filtered)
+		}
+	}
+	if !strings.Contains(filtered, "CREATE TABLE `users`") || !strings.Contains(filtered, "INSERT INTO `users`") {
+		t.Fatalf("filtered dump lost table/data statements: %s", filtered)
 	}
 }
 

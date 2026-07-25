@@ -147,6 +147,10 @@ func (r Repository) UsersList(ctx context.Context, req UsersListRequest) (UsersR
 			if item.ServiceID != nil {
 				configUser.ServiceHostOrders = serviceOrders[*item.ServiceID]
 			}
+			configUser.Hosts = hosts
+			if err := r.populateWGAddresses(ctx, &configUser, inbounds); err != nil {
+				return UsersResponse{}, err
+			}
 			links, err := BuildConfigLinks(configUser, inbounds, inboundOrder, hosts, masks, false)
 			if err != nil {
 				return UsersResponse{}, err
@@ -233,7 +237,13 @@ LEFT JOIN (
 	SELECT user_id, SUM(used_traffic_at_reset) AS reseted_usage
 	FROM user_usage_logs
 	GROUP BY user_id
-) rul ON rul.user_id = u.id`
+) rul ON rul.user_id = u.id
+LEFT JOIN (
+	SELECT user_id
+	FROM vpn_user_sessions
+	WHERE ended_at IS NULL
+	GROUP BY user_id
+) live_session ON live_session.user_id = u.id`
 }
 
 func (r Repository) usersCount(ctx context.Context, filter usersFilter) (int64, error) {
@@ -256,7 +266,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.expire,
 	u.data_limit,
 	u.data_limit_reset_strategy,
-	u.online_at,
+	CASE WHEN live_session.user_id IS NOT NULL THEN CURRENT_TIMESTAMP ELSE u.online_at END,
 	u.service_id,
 	s.name,
 	u.admin_id,
@@ -413,7 +423,7 @@ func (r Repository) usersUsageTotal(ctx context.Context, filter usersFilter) (in
 func (r Repository) usersOnlineTotal(ctx context.Context, filter usersFilter) (int64, error) {
 	args := append([]any{}, filter.args...)
 	clauses := append([]string{}, filter.where...)
-	clauses = append(clauses, "u.online_at IS NOT NULL", "u.online_at >= ?")
+	clauses = append(clauses, "(live_session.user_id IS NOT NULL OR u.online_at >= ?)")
 	args = append(args, time.Now().UTC().Add(-5*time.Minute))
 	queryFilter := usersFilter{where: clauses, args: args}
 	query := "SELECT COUNT(u.id)" + usersFromSQL() + queryFilter.whereSQL()
@@ -437,10 +447,10 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 	}
 	now := time.Now().UTC()
 	if _, ok := normalized["online"]; ok {
-		filter.add("u.online_at IS NOT NULL")
-		filter.add("u.online_at >= ?", now.Add(-5*time.Minute))
+		filter.add("(live_session.user_id IS NOT NULL OR u.online_at >= ?)", now.Add(-5*time.Minute))
 	}
 	if _, ok := normalized["offline"]; ok {
+		filter.add("live_session.user_id IS NULL")
 		filter.add("(u.online_at IS NULL OR u.online_at < ?)", now.Add(-24*time.Hour))
 	}
 	if _, ok := normalized["finished"]; ok {
@@ -686,8 +696,7 @@ func (r Repository) subscriptionUsernameFromToken(token string) string {
 	}
 	body := token[:len(token)-10]
 	signature := token[len(token)-10:]
-	sum := createSubscriptionTokenSignature(body, secret)
-	if signature != sum {
+	if !subscriptionTokenSignatureMatches(body, signature, secret) {
 		return ""
 	}
 	decoded, err := base64.RawURLEncoding.DecodeString(body)

@@ -9,7 +9,6 @@ import type {
 	UserListItem,
 	UsersListResponse,
 } from "types/User";
-import { getAuthToken } from "utils/authStorage";
 import { queryClient } from "utils/react-query";
 import { getUsersPerPageLimitSize } from "utils/userPreferenceStorage";
 import { create } from "zustand";
@@ -27,7 +26,12 @@ export type FilterType = {
 	owner?: string;
 	serviceId?: number;
 };
-export type ProtocolType = "vmess" | "vless" | "trojan" | "shadowsocks";
+export type ProtocolType =
+	| "vmess"
+	| "vless"
+	| "trojan"
+	| "shadowsocks"
+	| "hysteria";
 
 export type FilterUsageType = {
 	start?: string;
@@ -172,7 +176,11 @@ export type Inbounds = Map<ProtocolType, InboundType[]>;
 type DashboardStateType = {
 	isCreatingNewUser: boolean;
 	editingUser: User | null | undefined;
-	deletingUser: UserListItem | null;
+	// Optional tab index to open the edit dialog on (e.g. usage history); the
+	// dialog reads it once on open and resets to the default tab afterwards.
+	editingUserInitialTab: number | null;
+	// Drives the lightweight quick-edit modal for a single user field.
+	quickEditUser: { user: UserListItem; field: "expire" | "data_limit" } | null;
 	version: string | null;
 	users: UsersListResponse;
 	linkTemplates?: Record<string, string[]>; // Link templates for generating user links
@@ -192,8 +200,10 @@ type DashboardStateType = {
 	revokeSubscriptionUser: UserListItem | null;
 	isEditingCore: boolean;
 	onCreateUser: (isOpen: boolean) => void;
-	onEditingUser: (user: User | UserListItem | null) => void;
-	onDeletingUser: (user: UserListItem | null) => void;
+	onEditingUser: (
+		user: User | UserListItem | null,
+		initialTab?: number,
+	) => void;
 	onResetAllUsage: (isResetingAllUsage: boolean) => void;
 	refetchUsers: (force?: boolean) => void;
 	resetAllUsage: () => Promise<void>;
@@ -218,6 +228,7 @@ let usersFetchSequence = 0;
 let usersAbortController: AbortController | null = null;
 let inboundsFetchSequence = 0;
 let inboundsAbortController: AbortController | null = null;
+let editingUserFetchSequence = 0;
 
 const fetchUsers = (
 	query: FilterType,
@@ -225,7 +236,7 @@ const fetchUsers = (
 ): Promise<UsersListResponse> => {
 	const sanitizedQuery = sanitizeFilterQuery(query);
 	const cacheKey = buildUsersCacheKey(sanitizedQuery);
-	const currentAuthToken = getAuthToken();
+	const currentAuthToken = "session";
 	const { lastUsersFetchAt, usersCacheKey, usersCacheAuthToken, users } =
 		useDashboard.getState();
 	const now = Date.now();
@@ -364,6 +375,7 @@ export const fetchInbounds = () => {
 export const clearDashboardCache = () => {
 	usersFetchSequence += 1;
 	inboundsFetchSequence += 1;
+	editingUserFetchSequence += 1;
 	usersAbortController?.abort();
 	inboundsAbortController?.abort();
 	usersAbortController = null;
@@ -378,7 +390,8 @@ export const clearDashboardCache = () => {
 		usersCacheKey: null,
 		usersCacheAuthToken: null,
 		editingUser: null,
-		deletingUser: null,
+		editingUserInitialTab: null,
+		quickEditUser: null,
 		resetUsageUser: null,
 		revokeSubscriptionUser: null,
 		subscribeUrl: null,
@@ -392,7 +405,8 @@ export const useDashboard = create(
 	subscribeWithSelector<DashboardStateType>((set, get) => ({
 		version: null,
 		editingUser: null,
-		deletingUser: null,
+		editingUserInitialTab: null,
+		quickEditUser: null,
 		isCreatingNewUser: false,
 		QRcodeLinks: null,
 		qrCodeUsername: null,
@@ -421,20 +435,28 @@ export const useDashboard = create(
 		},
 		onResetAllUsage: (isResetingAllUsage) => set({ isResetingAllUsage }),
 		onCreateUser: (isCreatingNewUser) => set({ isCreatingNewUser }),
-		onEditingUser: (editingUser) => {
+		onEditingUser: (editingUser, initialTab) => {
 			if (!editingUser) {
-				set({ editingUser: null });
+				editingUserFetchSequence += 1;
+				set({ editingUser: null, editingUserInitialTab: null });
 				return;
 			}
+			const requestId = ++editingUserFetchSequence;
+			set({
+				editingUser: editingUser as User,
+				editingUserInitialTab: initialTab ?? null,
+			});
 			// Fetch full user detail before opening editor to keep list payload lightweight
 			fetch(`/user/${editingUser.username}`)
 				.then((fullUser: User) => {
+					if (requestId !== editingUserFetchSequence) return;
 					set({ editingUser: fullUser });
 				})
-				.catch(() => set({ editingUser: null }));
-		},
-		onDeletingUser: (deletingUser) => {
-			set({ deletingUser });
+				.catch(() => {
+					if (requestId === editingUserFetchSequence) {
+						set({ editingUser: null, editingUserInitialTab: null });
+					}
+				});
 		},
 		onFilterChange: (filters) => {
 			set({
@@ -454,7 +476,6 @@ export const useDashboard = create(
 		deleteUser: (user: UserListItem) => {
 			set({ editingUser: null });
 			return fetch(`/user/${user.username}`, { method: "DELETE" }).then(() => {
-				set({ deletingUser: null });
 				get().refetchUsers(true);
 				queryClient.invalidateQueries(StatisticsQueryKey);
 			});
@@ -482,11 +503,13 @@ export const useDashboard = create(
 			);
 		},
 		fetchUserUsage: (body: UserListItem, query: FilterUsageType) => {
-			for (const key in query) {
-				if (!query[key as keyof FilterUsageType])
-					delete query[key as keyof FilterUsageType];
-			}
-			return fetch(`/user/${body.username}/usage`, { method: "GET", query });
+			const sanitizedQuery = Object.fromEntries(
+				Object.entries(query).filter(([, value]) => Boolean(value)),
+			);
+			return fetch(`/user/${body.username}/usage`, {
+				method: "GET",
+				query: sanitizedQuery,
+			});
 		},
 		onEditingNodes: (isEditingNodes: boolean) => {
 			set({ isEditingNodes });

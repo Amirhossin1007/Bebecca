@@ -2,6 +2,7 @@ package backup
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -28,6 +29,11 @@ type Service struct {
 	databaseURL string
 	fileRoots   []FileRoot
 }
+
+const (
+	maxBackupExtractBytes   int64 = 1 << 30
+	maxBackupArchiveEntries       = 10_000
+)
 
 type Option func(*Service)
 
@@ -158,6 +164,11 @@ func (s *Service) Import(ctx context.Context, archivePath string, scope string) 
 	}
 	if scope == ScopeFull && m.Scope != ScopeFull {
 		return ImportResult{}, Error{Message: "Selected full restore, but the uploaded backup is database-only"}
+	}
+	if scope == ScopeFull && (s.dialect == "mysql" || s.dialect == "mariadb") {
+		if err := s.preserveLocalDatabaseEnv(filepath.Join(extractDir, FilesPrefix)); err != nil {
+			return ImportResult{}, err
+		}
 	}
 
 	tables, rows, warnings, err := s.restoreDatabasePayload(ctx, extractDir, m)
@@ -325,7 +336,7 @@ func (s *Service) exportMySQL(ctx context.Context, outputPath string) error {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return Error{Message: "Failed to dump MySQL/MariaDB database: " + strings.TrimSpace(stderr.String())}
+		return mysqlBackupCommandError("dump", stderr.String())
 	}
 	return nil
 }
@@ -348,20 +359,98 @@ func (s *Service) restoreMySQL(ctx context.Context, payloadPath string) error {
 	if err != nil {
 		return err
 	}
-	dropCmd := exec.CommandContext(ctx, command, "--defaults-extra-file="+defaultsFile, "-e", "DROP DATABASE IF EXISTS "+quoteMySQLIdentifier(databaseName))
-	if stderr, err := dropCmd.CombinedOutput(); err != nil {
-		return Error{Message: "Failed to restore MySQL/MariaDB database: " + strings.TrimSpace(string(stderr))}
+	filteredPath := filepath.Join(tempDir, "database.sql")
+	if err := filterMySQLDumpForDatabase(payloadPath, filteredPath); err != nil {
+		return err
 	}
-	input, err := os.Open(payloadPath)
+	rollbackRawPath := filepath.Join(tempDir, "rollback.sql")
+	if err := s.exportMySQL(ctx, rollbackRawPath); err != nil {
+		return Error{Message: "Failed to create a rollback backup before restoring MySQL/MariaDB: " + err.Error()}
+	}
+	rollbackPath := filepath.Join(tempDir, "rollback-filtered.sql")
+	if err := filterMySQLDumpForDatabase(rollbackRawPath, rollbackPath); err != nil {
+		return err
+	}
+	if err := s.dropMySQLTables(ctx); err != nil {
+		return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
+	}
+	if err := restoreMySQLDump(ctx, command, defaultsFile, databaseName, filteredPath); err != nil {
+		return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
+	}
+	return nil
+}
+
+func (s *Service) restoreMySQLRollback(command string, defaultsFile string, databaseName string, rollbackPath string, restoreErr error) error {
+	rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if err := s.dropMySQLTables(rollbackCtx); err != nil {
+		return Error{Message: restoreErr.Error() + "; automatic rollback failed: " + err.Error()}
+	}
+	if err := restoreMySQLDump(rollbackCtx, command, defaultsFile, databaseName, rollbackPath); err != nil {
+		return Error{Message: restoreErr.Error() + "; automatic rollback failed: " + err.Error()}
+	}
+	return restoreErr
+}
+
+func restoreMySQLDump(ctx context.Context, command string, defaultsFile string, databaseName string, inputPath string) error {
+	input, err := os.Open(inputPath)
 	if err != nil {
 		return err
 	}
 	defer input.Close()
-	restoreCmd := exec.CommandContext(ctx, command, "--defaults-extra-file="+defaultsFile)
+	restoreCmd := exec.CommandContext(ctx, command, "--defaults-extra-file="+defaultsFile, "--database="+databaseName)
 	restoreCmd.Stdin = input
 	if stderr, err := restoreCmd.CombinedOutput(); err != nil {
-		return Error{Message: "Failed to restore MySQL/MariaDB database: " + strings.TrimSpace(string(stderr))}
+		return mysqlBackupCommandError("restore", string(stderr))
 	}
+	return nil
+}
+
+func mysqlBackupCommandError(action string, stderr string) error {
+	detail := strings.TrimSpace(stderr)
+	lower := strings.ToLower(detail)
+	if strings.Contains(lower, "error 1045") || strings.Contains(lower, "access denied for user") {
+		return Error{Message: "MySQL/MariaDB rejected Rebecca's configured database credentials (error 1045). Check MYSQL_PASSWORD and SQLALCHEMY_DATABASE_URL."}
+	}
+	if detail == "" {
+		detail = "database command failed"
+	}
+	return Error{Message: "Failed to " + action + " MySQL/MariaDB database: " + detail}
+}
+
+func (s *Service) dropMySQLTables(ctx context.Context) error {
+	if s.db == nil {
+		return Error{Message: "MySQL/MariaDB database connection is not available"}
+	}
+	tables, err := s.tableNames(ctx)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+	if _, err := tx.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS=0"); err != nil {
+		return err
+	}
+	for _, table := range tables {
+		if _, err := tx.ExecContext(ctx, "DROP TABLE IF EXISTS "+quoteMySQLIdentifier(table)); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS=1"); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
 	return nil
 }
 
@@ -481,12 +570,118 @@ func (s *Service) restoreFileRoots(filesDir string) ([]string, []string, error) 
 		if allowed[target] != root.ArchiveName {
 			return nil, nil, Error{Message: "Refusing to restore outside Rebecca paths: " + root.Path}
 		}
-		if err := replaceDirectoryContents(source, target, skips); err != nil {
+		sourceInfo, err := os.Stat(source)
+		if err != nil {
+			return nil, nil, err
+		}
+		if sourceInfo.IsDir() {
+			err = replaceDirectoryContents(source, target, skips)
+		} else {
+			err = copyFile(source, target, sourceInfo.Mode().Perm())
+		}
+		if err != nil {
 			return nil, nil, err
 		}
 		restored = append(restored, root.Path)
 	}
 	return restored, warnings, nil
+}
+
+func (s *Service) preserveLocalDatabaseEnv(filesDir string) error {
+	var targetPath, archiveName string
+	for _, root := range s.fileRoots {
+		if root.ArchiveName == "rebecca_env" {
+			targetPath, archiveName = root.Path, root.ArchiveName
+			break
+		}
+	}
+	if targetPath == "" {
+		return nil
+	}
+	sourcePath := filepath.Join(filesDir, archiveName)
+	if !isRegularFile(sourcePath) {
+		return nil
+	}
+
+	assignments := []string{}
+	if content, err := os.ReadFile(targetPath); err == nil {
+		for _, line := range strings.Split(strings.ReplaceAll(string(content), "\r\n", "\n"), "\n") {
+			if isDatabaseEnvKey(envAssignmentKey(line)) {
+				assignments = upsertEnvAssignment(assignments, line)
+			}
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	parsed, err := url.Parse(s.databaseURL)
+	if err != nil {
+		return err
+	}
+	assignments = upsertEnvAssignment(assignments, dotenvAssignment("REBECCA_DATABASE_FLAVOR", s.dialect))
+	assignments = upsertEnvAssignment(assignments, dotenvAssignment("SQLALCHEMY_DATABASE_URL", s.databaseURL))
+	if parsed.User != nil {
+		if username := parsed.User.Username(); username != "" {
+			assignments = upsertEnvAssignment(assignments, dotenvAssignment("MYSQL_USER", username))
+		}
+		if password, ok := parsed.User.Password(); ok {
+			assignments = upsertEnvAssignment(assignments, dotenvAssignment("MYSQL_PASSWORD", password))
+		}
+	}
+	if databaseName := strings.TrimPrefix(parsed.Path, "/"); databaseName != "" {
+		assignments = upsertEnvAssignment(assignments, dotenvAssignment("MYSQL_DATABASE", databaseName))
+	}
+
+	content, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.ReplaceAll(string(content), "\r\n", "\n"), "\n")
+	filtered := lines[:0]
+	for _, line := range lines {
+		if !isDatabaseEnvKey(envAssignmentKey(line)) {
+			filtered = append(filtered, line)
+		}
+	}
+	for len(filtered) > 0 && filtered[len(filtered)-1] == "" {
+		filtered = filtered[:len(filtered)-1]
+	}
+	filtered = append(filtered, assignments...)
+	return os.WriteFile(sourcePath, []byte(strings.Join(filtered, "\n")+"\n"), 0o600)
+}
+
+func envAssignmentKey(line string) string {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return ""
+	}
+	line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+	key, _, ok := strings.Cut(line, "=")
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(key)
+}
+
+func isDatabaseEnvKey(key string) bool {
+	return key == "REBECCA_DATABASE_FLAVOR" || key == "SQLALCHEMY_DATABASE_URL" || key == "DATABASE_URL" ||
+		strings.HasPrefix(key, "MYSQL_") || strings.HasPrefix(key, "MARIADB_")
+}
+
+func upsertEnvAssignment(assignments []string, assignment string) []string {
+	key := envAssignmentKey(assignment)
+	for index, existing := range assignments {
+		if envAssignmentKey(existing) == key {
+			assignments[index] = assignment
+			return assignments
+		}
+	}
+	return append(assignments, assignment)
+}
+
+func dotenvAssignment(key string, value string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, `"`, `\"`, `$`, `\$`, "\n", `\n`, "\r", `\r`)
+	return key + `="` + replacer.Replace(value) + `"`
 }
 
 func (s *Service) restoreLegacyJSON(ctx context.Context, dumpPath string) (int, int, []string, error) {
@@ -659,30 +854,70 @@ func (s *Service) writeMySQLDefaultsFile(dir string) (string, error) {
 	lines := []string{"[client]"}
 	if parsed.User != nil {
 		if user := parsed.User.Username(); user != "" {
-			lines = append(lines, "user="+user)
+			lines = append(lines, "user="+mysqlOptionValue(user))
 		}
 		if password, ok := parsed.User.Password(); ok {
-			lines = append(lines, "password="+password)
+			lines = append(lines, "password="+mysqlOptionValue(password))
 		}
 	}
 	host := parsed.Host
 	if host != "" {
 		if h, p, err := net.SplitHostPort(host); err == nil {
-			lines = append(lines, "host="+h, "protocol=tcp", "port="+p)
+			lines = append(lines, "host="+mysqlOptionValue(h), "protocol=tcp", "port="+mysqlOptionValue(p))
 		} else {
-			lines = append(lines, "host="+host, "protocol=tcp")
+			lines = append(lines, "host="+mysqlOptionValue(host), "protocol=tcp")
 		}
 	}
 	query := parsed.Query()
 	socketPath := firstNonEmpty(query.Get("unix_socket"), query.Get("socket"))
 	if socketPath != "" {
-		lines = append(lines, "socket="+socketPath)
+		lines = append(lines, "socket="+mysqlOptionValue(socketPath))
 	}
 	path := filepath.Join(dir, "mysql-client.cnf")
 	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
 		return "", err
 	}
 	return path, nil
+}
+
+func mysqlOptionValue(value string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`)
+	return `"` + replacer.Replace(value) + `"`
+}
+
+func filterMySQLDumpForDatabase(inputPath string, outputPath string) error {
+	input, err := os.Open(inputPath)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	output, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer output.Close()
+	scanner := bufio.NewScanner(input)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 64*1024*1024)
+	writer := bufio.NewWriter(output)
+	defer writer.Flush()
+	for scanner.Scan() {
+		line := scanner.Text()
+		normalized := strings.TrimSpace(line)
+		upper := strings.ToUpper(normalized)
+		if strings.HasPrefix(upper, "USE ") ||
+			strings.Contains(upper, "DROP DATABASE") ||
+			strings.Contains(upper, "CREATE DATABASE") ||
+			strings.HasPrefix(upper, "-- CURRENT DATABASE:") {
+			continue
+		}
+		if _, err := writer.WriteString(line + "\n"); err != nil {
+			return err
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) quoteIdentifier(name string) string {
@@ -847,6 +1082,8 @@ func safeExtract(archivePath string, destination string) error {
 	if err != nil {
 		return err
 	}
+	entries := 0
+	var extracted int64
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -854,6 +1091,10 @@ func safeExtract(archivePath string, destination string) error {
 		}
 		if err != nil {
 			return err
+		}
+		entries++
+		if entries > maxBackupArchiveEntries {
+			return Error{Message: "Backup archive contains too many entries"}
 		}
 		entryName, err := safeArchiveName(header.Name)
 		if err != nil {
@@ -866,6 +1107,9 @@ func safeExtract(archivePath string, destination string) error {
 				return err
 			}
 		case tar.TypeReg, tar.TypeRegA:
+			if header.Size < 0 || header.Size > maxBackupExtractBytes-extracted {
+				return Error{Message: "Backup archive is too large to extract"}
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
@@ -873,13 +1117,15 @@ func safeExtract(archivePath string, destination string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(out, tarReader); err != nil {
+			written, copyErr := io.Copy(out, tarReader)
+			if copyErr != nil {
 				_ = out.Close()
-				return err
+				return copyErr
 			}
 			if err := out.Close(); err != nil {
 				return err
 			}
+			extracted += written
 		default:
 			return Error{Message: "Backup archive contains unsupported linked or device entries"}
 		}
@@ -1098,10 +1344,29 @@ func defaultFileRoots() []FileRoot {
 	if dataDir == "" {
 		dataDir = "/var/lib/rebecca"
 	}
-	return []FileRoot{
+	roots := []FileRoot{
 		{ArchiveName: "etc_rebecca", Path: configDir},
 		{ArchiveName: "var_lib_rebecca", Path: dataDir},
 	}
+	if envFile := defaultEnvFileRoot(); envFile != "" {
+		roots = append(roots, FileRoot{ArchiveName: "rebecca_env", Path: envFile})
+	}
+	return roots
+}
+
+func defaultEnvFileRoot() string {
+	for _, candidate := range []string{
+		strings.TrimSpace(os.Getenv("REBECCA_ENV_FILE")),
+		"/opt/rebecca/.env",
+	} {
+		if candidate == "" {
+			continue
+		}
+		if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() {
+			return candidate
+		}
+	}
+	return ""
 }
 
 func normalizeDialect(dialect string) string {

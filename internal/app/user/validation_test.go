@@ -76,12 +76,11 @@ func TestUserPayloadValidation(t *testing.T) {
 			wantErr: "Unsupported flow",
 		},
 		{
-			name: "proxies payload removed",
+			name: "legacy proxies payload accepted",
 			payload: UserCreate{
 				Username:        "valid-user",
 				UserPayloadBase: UserPayloadBase{Proxies: map[string]map[string]any{"vless": {}}},
 			},
-			wantErr: ProxiesPayloadRemovedMessage,
 		},
 		{
 			name: "on hold needs duration",
@@ -162,8 +161,43 @@ func TestUserPayloadValidation(t *testing.T) {
 	}
 }
 
+func TestLegacyProxiesCredentialKeyCompatibility(t *testing.T) {
+	payload := UserPayloadBase{
+		Proxies: ProxyPayload{
+			"vless": {"id": "11111111-1111-4111-8111-111111111111"},
+		},
+	}
+	applyCredentialKeyFromLegacyProxies(&payload)
+	if payload.CredentialKey == nil || *payload.CredentialKey != "11111111111141118111111111111111" {
+		t.Fatalf("credential_key from proxies = %v", payload.CredentialKey)
+	}
+
+	explicit := "22222222222242228222222222222222"
+	payload = UserPayloadBase{
+		CredentialKey: &explicit,
+		Proxies: ProxyPayload{
+			"vless": {"id": "11111111-1111-4111-8111-111111111111"},
+		},
+	}
+	applyCredentialKeyFromLegacyProxies(&payload)
+	if payload.CredentialKey == nil || *payload.CredentialKey != explicit {
+		t.Fatalf("explicit credential_key was not preserved: %v", payload.CredentialKey)
+	}
+
+	payload = UserPayloadBase{
+		Proxies: ProxyPayload{
+			"trojan": {"password": "legacy-password"},
+		},
+	}
+	applyCredentialKeyFromLegacyProxies(&payload)
+	if payload.CredentialKey != nil {
+		t.Fatalf("password-only legacy proxies must be ignored, got %v", *payload.CredentialKey)
+	}
+}
+
 func TestBulkUsersActionValidation(t *testing.T) {
 	days := int64(3)
+	conditionDays := int64(14)
 	gb := 2.5
 	serviceID := int64(9)
 	nullService := true
@@ -177,6 +211,9 @@ func TestBulkUsersActionValidation(t *testing.T) {
 		{name: "cleanup rejects active", payload: BulkUsersActionRequest{Action: AdvancedUserActionCleanupStatus, Days: &days, Statuses: []UserStatus{UserStatusActive}}, wantErr: "cleanup_status"},
 		{name: "scope strips deleted", payload: BulkUsersActionRequest{Action: AdvancedUserActionDisableUsers, Scope: []UserStatus{UserStatusDeleted}}, wantErr: "scope"},
 		{name: "service null conflicts service id", payload: BulkUsersActionRequest{Action: AdvancedUserActionDisableUsers, ServiceID: &serviceID, ServiceIDIsNull: &nullService}, wantErr: "cannot both"},
+		{name: "delete needs target", payload: BulkUsersActionRequest{Action: AdvancedUserActionDeleteUsers}, wantErr: "requires usernames"},
+		{name: "status age needs scope", payload: BulkUsersActionRequest{Action: AdvancedUserActionDeleteUsers, StatusAgeDays: &conditionDays}, wantErr: "requires at least one status"},
+		{name: "valid conditional delete", payload: BulkUsersActionRequest{Action: AdvancedUserActionDeleteUsers, Scope: []UserStatus{UserStatusExpired}, StatusAgeDays: &conditionDays}},
 		{name: "valid traffic", payload: BulkUsersActionRequest{Action: AdvancedUserActionIncreaseTraffic, Gigabytes: &gb}},
 	}
 	for _, tt := range tests {

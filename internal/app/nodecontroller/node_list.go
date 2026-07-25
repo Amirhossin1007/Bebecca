@@ -9,7 +9,6 @@ import (
 	"time"
 
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
 func (c Controller) List(ctx context.Context, req Request) (NodeListResult, error) {
@@ -28,6 +27,12 @@ func (c Controller) List(ctx context.Context, req Request) (NodeListResult, erro
 
 	for idx := range rows {
 		enrichCertificateFields(&rows[idx], defaultCert, defaultKey)
+	}
+	if !req.IncludeMetrics {
+		return NodeListResult{Nodes: rows}, nil
+	}
+
+	for idx := range rows {
 		if rows[idx].Status == "disabled" || rows[idx].Status == "limited" {
 			continue
 		}
@@ -103,10 +108,12 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
 	}
 	defer client.Close()
-	res, err := client.Runtime().SyncConfig(ctx, &nodev1.RuntimeConfigRequest{
-		OperationId: "sync-" + strconv.FormatInt(node.ID, 10),
-		ConfigJson:  configJSON,
-	})
+	runtimeReq, err := c.runtimeConfigRequest(ctx, node, "sync-"+strconv.FormatInt(node.ID, 10), configJSON)
+	if err != nil {
+		_ = c.repo.SetError(ctx, node.ID, err.Error())
+		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
+	}
+	res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
 	if err != nil {
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)

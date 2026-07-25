@@ -95,6 +95,7 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 		UseCustomJSONForV2rayNG:    base.UseCustomJSONForV2rayNG,
 		UseCustomJSONForStreisand:  base.UseCustomJSONForStreisand,
 		UseCustomJSONForHapp:       base.UseCustomJSONForHapp,
+		UseCustomJSONForIncy:       base.UseCustomJSONForIncy,
 		RawPanelSettings:           base.RawPanelSettings,
 		RawSubscriptionSettings:    base.RawSubscriptionSettings,
 	}
@@ -142,6 +143,8 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 			effective.UseCustomJSONForStreisand = truthy(value)
 		case "use_custom_json_for_happ":
 			effective.UseCustomJSONForHapp = truthy(value)
+		case "use_custom_json_for_incy":
+			effective.UseCustomJSONForIncy = truthy(value)
 		}
 	}
 
@@ -228,6 +231,24 @@ func createSubscriptionToken(username string, secret string, now time.Time) stri
 }
 
 func createSubscriptionTokenSignature(body string, secret string) string {
+	sum := sha256.Sum256([]byte(body + secret))
+	signature := base64.URLEncoding.EncodeToString(sum[:])
+	if len(signature) > 10 {
+		return signature[:10]
+	}
+	return signature
+}
+
+func subscriptionTokenSignatureMatches(body string, signature string, secret string) bool {
+	legacy := createSubscriptionTokenSignature(body, secret)
+	if hmac.Equal([]byte(signature), []byte(legacy)) {
+		return true
+	}
+	recentGo := createSubscriptionTokenHMACSignature(body, secret)
+	return hmac.Equal([]byte(signature), []byte(recentGo))
+}
+
+func createSubscriptionTokenHMACSignature(body string, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(body))
 	signature := base64.URLEncoding.EncodeToString(mac.Sum(nil))

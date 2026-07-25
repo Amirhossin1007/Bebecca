@@ -16,6 +16,7 @@ import {
 	AdminManagementPermission,
 	type AdminPermissions,
 	AdminSection,
+	AdminSudoScope,
 	SelfPermissionToggle,
 	UserPermissionToggle,
 } from "types/Admin";
@@ -95,6 +96,8 @@ const adminManagementKeys: Array<{
 		key: AdminManagementPermission.ManageSudo,
 		label: "admins.permissions.manageSudo",
 	},
+	{ key: AdminManagementPermission.ManageSessions, label: "admins.permissions.manageSessions" },
+	{ key: AdminManagementPermission.Manage2FA, label: "admins.permissions.manage2FA" },
 ];
 
 const sectionPermissionKeys: Array<{ key: AdminSection; label: string }> = [
@@ -115,13 +118,26 @@ const selfPermissionKeys: Array<{ key: SelfPermissionToggle; label: string }> =
 			label: "admins.self.changePassword",
 		},
 		{ key: SelfPermissionToggle.SelfApiKeys, label: "admins.self.apiKeys" },
+		{ key: SelfPermissionToggle.SelfSessions, label: "admins.self.sessions" },
+		{ key: SelfPermissionToggle.Self2FA, label: "admins.self.twoFactor" },
 	];
+
+const sudoPermissionKeys: Array<{ key: AdminSudoScope; label: string }> = [
+	{ key: AdminSudoScope.Nodes, label: "admins.sudo.nodes" },
+	{ key: AdminSudoScope.Xray, label: "admins.sudo.xray" },
+	{ key: AdminSudoScope.Settings, label: "admins.sudo.settings" },
+	{ key: AdminSudoScope.Subscriptions, label: "admins.sudo.subscriptions" },
+	{ key: AdminSudoScope.Backups, label: "admins.sudo.backups" },
+	{ key: AdminSudoScope.Maintenance, label: "admins.sudo.maintenance" },
+	{ key: AdminSudoScope.PHPMyAdmin, label: "admins.sudo.phpmyadmin" },
+];
 
 type PermissionKeyMap = {
 	users: UserPermissionToggle;
 	admin_management: AdminManagementPermission;
 	sections: AdminSection;
 	self_permissions: SelfPermissionToggle;
+	sudo: AdminSudoScope;
 };
 
 export const AdminPermissionsEditor = ({
@@ -175,7 +191,7 @@ export const AdminPermissionsEditor = ({
 		<Stack spacing={6}>
 			<HStack justify="space-between" align="center">
 				<Text fontWeight="semibold">
-					{t("admins.permissions.userCapabilities", "User capabilities")}
+					{t("admins.permissions.userCapabilities")}
 				</Text>
 				{showReset && onReset && (
 					<Button
@@ -184,7 +200,7 @@ export const AdminPermissionsEditor = ({
 						onClick={onReset}
 						isDisabled={isReadOnly}
 					>
-						{t("admins.permissions.resetToDefaults", "Reset to defaults")}
+						{t("admins.permissions.resetToDefaults")}
 					</Button>
 				)}
 			</HStack>
@@ -216,13 +232,10 @@ export const AdminPermissionsEditor = ({
 			</SimpleGrid>
 			<FormControl isInvalid={Boolean(maxDataLimitError)}>
 				<FormLabel>
-					{t("admins.permissions.maxDataPerUser", "Max per user data (GB)")}
+					{t("admins.permissions.maxDataPerUser")}
 				</FormLabel>
 				<Tooltip
-					label={t(
-						"admins.permissions.disableUnlimitedFirst",
-						"Disable unlimited data to set a maximum limit.",
-					)}
+					label={t("admins.permissions.unlimitedEnabledHint")}
 					isDisabled={!value.users.allow_unlimited_data}
 					hasArrow
 					openDelay={200}
@@ -233,10 +246,7 @@ export const AdminPermissionsEditor = ({
 					<NumericInput
 						min={0}
 						step={1}
-						placeholder={t(
-							"admins.permissions.maxDataHint",
-							"Leave empty for unlimited",
-						)}
+						placeholder={t("admins.permissions.maxDataHint")}
 						value={maxDataLimitValue}
 						onChange={handleMaxDataLimitChange}
 						isDisabled={value.users.allow_unlimited_data || isReadOnly}
@@ -247,21 +257,28 @@ export const AdminPermissionsEditor = ({
 				) : (
 					<FormHelperText>
 						{value.users.allow_unlimited_data
-							? t(
-									"admins.permissions.unlimitedEnabledHint",
-									"Disable unlimited data to set a maximum limit.",
-								)
-							: t(
-									"admins.permissions.maxDataDescription",
-									"Applies when this admin creates or edits users.",
-								)}
+							? t("admins.permissions.unlimitedEnabledHint")
+							: t("admins.permissions.maxDataDescription")}
 					</FormHelperText>
 				)}
 			</FormControl>
 			{!hideExtendedSections && (
 				<Stack spacing={3}>
+					<Text fontWeight="semibold">{t("admins.sudo.title")}</Text>
+					<SimpleGrid columns={gridColumns} spacing={3}>
+						{sudoPermissionKeys.map(({ key, label }) => (
+							<HStack key={key} justify="space-between" align="center" borderWidth="1px" borderRadius="md" px={3} py={2} minW={0}>
+								<Text fontSize="sm" flex="1" minW={0}>{t(label)}</Text>
+								<Switch isChecked={Boolean(value.sudo?.[key])} isDisabled={isReadOnly} onChange={(event) => updatePermissions("sudo", key, event.target.checked)} />
+							</HStack>
+						))}
+					</SimpleGrid>
+				</Stack>
+			)}
+			{!hideExtendedSections && (
+				<Stack spacing={3}>
 					<Text fontWeight="semibold">
-						{t("admins.permissions.manageAdminsTitle", "Admin management")}
+						{t("admins.permissions.manageAdminsTitle")}
 					</Text>
 					<SimpleGrid columns={gridColumns} spacing={3}>
 						{adminManagementKeys.map(({ key, label }) => (
@@ -298,7 +315,7 @@ export const AdminPermissionsEditor = ({
 			{!hideExtendedSections && (
 				<Stack spacing={3}>
 					<Text fontWeight="semibold">
-						{t("admins.permissions.sectionAccess", "Section access")}
+						{t("admins.permissions.sectionAccess")}
 					</Text>
 					<SimpleGrid columns={gridColumns} spacing={3}>
 						{sectionPermissionKeys.map(({ key, label }) => (

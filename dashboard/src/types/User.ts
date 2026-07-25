@@ -162,6 +162,8 @@ export type UserApi = {
 	service_limits?: import("./Admin").AdminServiceTrafficLimit[];
 	status?: AdminStatus;
 	disabled_reason?: string | null;
+	require_2fa?: boolean;
+	totp_enabled?: boolean;
 };
 
 export type UseGetUserReturn = {
@@ -200,7 +202,8 @@ export type AdvancedUserActionType =
 	| "cleanup_status"
 	| "activate_users"
 	| "disable_users"
-	| "change_service";
+	| "change_service"
+	| "delete_users";
 
 export type AdvancedUserActionPayload = {
 	action: AdvancedUserActionType;
@@ -212,6 +215,11 @@ export type AdvancedUserActionPayload = {
 	service_id?: number;
 	service_id_is_null?: boolean;
 	target_service_id?: number | null;
+	usernames?: string[];
+	last_online_days?: number;
+	status_age_days?: number;
+	created_before_days?: number;
+	dry_run?: boolean;
 };
 
 export type AdvancedUserActionResponse = {

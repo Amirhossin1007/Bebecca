@@ -115,9 +115,8 @@ CREATE TABLE users (
 		columns []string
 		unique  bool
 	}{
-		// Legacy Alembic databases can contain duplicate usernames until the
-		// soft-delete repair runs in 000008. Keep this early index non-unique;
-		// 000008 drops/recreates it as unique after repairing duplicate rows.
+		// Legacy databases can contain duplicate usernames; keep the database
+		// compatible and let application validation reject new active duplicates.
 		{"ix_users_username", []string{"username"}, false},
 		{"ix_users_subadress", []string{"subadress"}, false},
 		{"ix_users_service_id", []string{"service_id"}, false},
@@ -171,11 +170,20 @@ CREATE TABLE hosts (
 	id INTEGER PRIMARY KEY,
 	remark VARCHAR(256) NOT NULL,
 	address VARCHAR(256) NOT NULL,
+	address_options TEXT NULL,
+	address_selection_mode VARCHAR(16) NOT NULL DEFAULT 'random',
+	address_ttl_seconds INTEGER NULL,
 	port INTEGER NULL,
 	sort INTEGER NOT NULL DEFAULT 0,
 	path VARCHAR(256) NULL,
 	sni VARCHAR(1000) NULL,
+	sni_options TEXT NULL,
+	sni_selection_mode VARCHAR(16) NOT NULL DEFAULT 'random',
+	sni_ttl_seconds INTEGER NULL,
 	host VARCHAR(1000) NULL,
+	host_options TEXT NULL,
+	host_selection_mode VARCHAR(16) NOT NULL DEFAULT 'random',
+	host_ttl_seconds INTEGER NULL,
 	security VARCHAR(32) NOT NULL DEFAULT 'inbound_default',
 	alpn VARCHAR(32) NOT NULL DEFAULT 'none',
 	fingerprint VARCHAR(32) NOT NULL DEFAULT 'none',
@@ -193,11 +201,20 @@ CREATE TABLE hosts (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	remark VARCHAR(256) NOT NULL,
 	address VARCHAR(256) NOT NULL,
+	address_options JSON NULL,
+	address_selection_mode VARCHAR(16) NOT NULL DEFAULT 'random',
+	address_ttl_seconds INTEGER NULL,
 	port INTEGER NULL,
 	sort INTEGER NOT NULL DEFAULT 0,
 	path VARCHAR(256) NULL,
 	sni VARCHAR(1000) NULL,
+	sni_options JSON NULL,
+	sni_selection_mode VARCHAR(16) NOT NULL DEFAULT 'random',
+	sni_ttl_seconds INTEGER NULL,
 	host VARCHAR(1000) NULL,
+	host_options JSON NULL,
+	host_selection_mode VARCHAR(16) NOT NULL DEFAULT 'random',
+	host_ttl_seconds INTEGER NULL,
 	security VARCHAR(32) NOT NULL DEFAULT 'inbound_default',
 	alpn VARCHAR(32) NOT NULL DEFAULT 'none',
 	fingerprint VARCHAR(32) NOT NULL DEFAULT 'none',
@@ -220,9 +237,18 @@ CREATE TABLE hosts (
 		mysql  string
 	}{
 		{"sort", "INTEGER NOT NULL DEFAULT 0", ""},
+		{"address_options", "TEXT NULL", "JSON NULL"},
+		{"address_selection_mode", "VARCHAR(16) NOT NULL DEFAULT 'random'", ""},
+		{"address_ttl_seconds", "INTEGER NULL", ""},
 		{"path", "VARCHAR(256) NULL", ""},
 		{"sni", "VARCHAR(1000) NULL", ""},
+		{"sni_options", "TEXT NULL", "JSON NULL"},
+		{"sni_selection_mode", "VARCHAR(16) NOT NULL DEFAULT 'random'", ""},
+		{"sni_ttl_seconds", "INTEGER NULL", ""},
 		{"host", "VARCHAR(1000) NULL", ""},
+		{"host_options", "TEXT NULL", "JSON NULL"},
+		{"host_selection_mode", "VARCHAR(16) NOT NULL DEFAULT 'random'", ""},
+		{"host_ttl_seconds", "INTEGER NULL", ""},
 		{"security", "VARCHAR(32) NOT NULL DEFAULT 'inbound_default'", ""},
 		{"alpn", "VARCHAR(32) NOT NULL DEFAULT 'none'", ""},
 		{"fingerprint", "VARCHAR(32) NOT NULL DEFAULT 'none'", ""},

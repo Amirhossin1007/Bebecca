@@ -13,6 +13,8 @@ import (
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
 )
 
+const maxBackupUploadBytes int64 = 128 << 20
+
 func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/settings/backup/export" {
 		writeError(w, http.StatusNotFound, "not found")
@@ -51,8 +53,13 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, backupapp.DisabledDetail)
 		return
 	}
-	uploadPath, cleanup, err := saveBackupUpload(r)
+	uploadPath, cleanup, err := saveBackupUpload(w, r)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) || errors.Is(err, errBackupUploadTooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, "backup upload is too large")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -83,9 +90,18 @@ func (s *Server) isBinaryRuntime() bool {
 	return strings.EqualFold(strings.TrimSpace(info.Mode), "binary")
 }
 
-func saveBackupUpload(r *http.Request) (string, func(), error) {
+var errBackupUploadTooLarge = errors.New("backup upload is too large")
+
+func saveBackupUpload(w http.ResponseWriter, r *http.Request) (string, func(), error) {
+	if r.ContentLength > maxBackupUploadBytes {
+		return "", func() {}, errBackupUploadTooLarge
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxBackupUploadBytes)
 	if err := r.ParseMultipartForm(128 << 20); err != nil {
 		return "", func() {}, err
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {

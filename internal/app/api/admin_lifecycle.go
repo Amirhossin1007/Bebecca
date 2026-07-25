@@ -3,10 +3,10 @@ package api
 import (
 	"context"
 	"database/sql"
-	"log"
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
 )
 
 const defaultAdminLifecycleInterval = 30 * time.Second
@@ -43,12 +43,13 @@ func (s *Server) reviewAdminLifecycle(ctx context.Context) {
 
 	result, err := s.reconcileAdminLifecycle(workerCtx)
 	if err != nil {
-		log.Printf("Go admin lifecycle review failed: %v", err)
+		logging.Warnf(logging.ComponentAdmin, "lifecycle review failed: %v", err)
 		return
 	}
 	if result.Disabled > 0 || result.Reenabled > 0 {
-		log.Printf(
-			"Go admin lifecycle checked=%d disabled=%d reenabled=%d",
+		logging.Infof(
+			logging.ComponentAdmin,
+			"lifecycle checked=%d disabled=%d reenabled=%d",
 			result.Checked,
 			result.Disabled,
 			result.Reenabled,
@@ -126,11 +127,6 @@ func reconcileAdminLimitStateTx(ctx context.Context, tx *sql.Tx, target adminapp
 				return adminLimitTransition{}, err
 			}
 		}
-		if len(userIDs) > 0 {
-			if err := enqueueNodeOperationTx(ctx, tx, "sync_config", nil, nil, map[string]any{}); err != nil {
-				return adminLimitTransition{}, err
-			}
-		}
 		return adminLimitTransition{Disabled: true, Reason: reason}, nil
 	}
 
@@ -144,6 +140,9 @@ func reconcileAdminLimitStateTx(ctx context.Context, tx *sql.Tx, target adminapp
 		}
 		now := dbTimestamp(nowTime)
 		if _, err := tx.ExecContext(ctx, `UPDATE admins SET status = ?, disabled_reason = NULL WHERE id = ?`, string(adminapp.StatusActive), target.ID); err != nil {
+			return adminLimitTransition{}, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE admin_sessions SET revoked_at = ? WHERE admin_id = ? AND state = ? AND revoked_at IS NULL`, now, target.ID, string(adminapp.SessionDisabled)); err != nil {
 			return adminLimitTransition{}, err
 		}
 		if _, err := tx.ExecContext(
@@ -160,11 +159,6 @@ func reconcileAdminLimitStateTx(ctx context.Context, tx *sql.Tx, target adminapp
 		}
 		for _, userID := range userIDs {
 			if err := enqueueNodeOperationTx(ctx, tx, "enable_user", nil, &userID, map[string]any{}); err != nil {
-				return adminLimitTransition{}, err
-			}
-		}
-		if len(userIDs) > 0 {
-			if err := enqueueNodeOperationTx(ctx, tx, "sync_config", nil, nil, map[string]any{}); err != nil {
 				return adminLimitTransition{}, err
 			}
 		}

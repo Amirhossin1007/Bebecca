@@ -284,7 +284,7 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 
 	sets := []string{"edit_at = ?", "last_status_change = CASE WHEN status != ? THEN ? ELSE last_status_change END"}
 	args := []any{dbTime(time.Now().UTC()), newStatus, dbTime(time.Now().UTC())}
-	if payload.Status != "" {
+	if payload.Status != "" || UserStatus(newStatus) != existing.Status {
 		sets = append(sets, "status = ?", "admin_disabled_at = NULL")
 		args = append(args, newStatus)
 	}
@@ -375,7 +375,7 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 
 	operationType := operationForStatusChange(existing.Status, UserStatus(newStatus))
 	if operationType != "" {
-		if err := r.enqueueUserOperationForNodesTx(ctx, tx, operationType, existing.ID, time.Now().UTC()); err != nil {
+		if err := r.enqueueUserOperationForNodesTx(ctx, tx, operationType, existing.ID, time.Now().UTC(), existing.ServiceID, targetServiceID); err != nil {
 			return MutationResult{}, err
 		}
 	}
@@ -453,9 +453,9 @@ func (r Repository) resetUserMutation(ctx context.Context, admin adminapp.Admin,
 	if _, err := tx.ExecContext(ctx, `UPDATE users SET used_traffic = 0, status = ?, last_status_change = ? WHERE id = ?`, newStatus, dbTime(now), existing.ID); err != nil {
 		return MutationResult{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM node_user_usages WHERE user_id = ?`, existing.ID); err != nil {
-		return MutationResult{}, err
-	}
+	// Keep node_user_usages history so the usage report/charts survive a reset.
+	// Zeroing the live used_traffic counter (above) plus the reset snapshot logged
+	// in user_usage_logs are enough to begin a fresh accounting period.
 	if op := operationForStatusChange(existing.Status, UserStatus(newStatus)); op != "" {
 		if err := r.enqueueUserOperationForNodesTx(ctx, tx, op, existing.ID, now); err != nil {
 			return MutationResult{}, err

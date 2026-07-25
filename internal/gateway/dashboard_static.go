@@ -57,17 +57,18 @@ func (d *dashboardFiles) serve(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if strings.TrimRight(r.URL.Path, "/") == d.root {
+	if r.URL.Path == d.root {
 		http.Redirect(w, r, d.root+"/login", http.StatusTemporaryRedirect)
 		return
 	}
-
 	name := ""
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/statics/"):
 		name = strings.TrimPrefix(r.URL.Path, "/")
 	case strings.HasPrefix(r.URL.Path, "/assets/"):
 		name = strings.TrimPrefix(r.URL.Path, "/")
+	case strings.TrimRight(r.URL.Path, "/") == d.root:
+		name = "index.html"
 	case strings.HasPrefix(r.URL.Path, d.root+"/"):
 		name = strings.TrimPrefix(r.URL.Path, d.root+"/")
 	default:
@@ -78,12 +79,20 @@ func (d *dashboardFiles) serve(w http.ResponseWriter, r *http.Request) {
 	if name == "." || name == "" {
 		name = "index.html"
 	}
+	tutorialAsset := name == "tutorial-content" || strings.HasPrefix(name, "tutorial-content/")
 	staticAsset := strings.HasPrefix(name, "assets/") || strings.HasPrefix(name, "statics/")
-	if staticAsset && (!fileExists(d.fs, name) || path.Ext(name) == "") {
+	if staticAsset && path.Ext(name) == "" {
 		http.NotFound(w, r)
 		return
 	}
-	if !fileExists(d.fs, name) || path.Ext(name) == "" {
+	resolved, found := resolveDashboardFile(d.fs, name)
+	if !found && (tutorialAsset || staticAsset) {
+		http.NotFound(w, r)
+		return
+	}
+	if found {
+		name = resolved
+	} else {
 		name = "index.html"
 	}
 	content, err := fs.ReadFile(d.fs, name)
@@ -91,10 +100,23 @@ func (d *dashboardFiles) serve(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if name == "index.html" {
+	if path.Base(name) == "index.html" {
 		w.Header().Set("Cache-Control", "no-store")
 	}
 	http.ServeContent(w, r, path.Base(name), time.Time{}, bytes.NewReader(content))
+}
+
+func resolveDashboardFile(source fs.FS, name string) (string, bool) {
+	if fileExists(source, name) {
+		return name, true
+	}
+	if path.Ext(name) == "" {
+		index := path.Join(name, "index.html")
+		if fileExists(source, index) {
+			return index, true
+		}
+	}
+	return "", false
 }
 
 func fileExists(source fs.FS, name string) bool {

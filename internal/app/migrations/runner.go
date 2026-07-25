@@ -20,7 +20,7 @@ var gooseMu sync.Mutex
 var migrationDialect string
 
 const (
-	latestGooseVersion         int64 = 23
+	latestGooseVersion         int64 = 42
 	legacyAlembicFinalRevision       = "23_drop_access_insights"
 	legacyAlembicFinalBaseline int64 = 16
 )
@@ -164,7 +164,7 @@ func runPreGooseLegacyRepairs(ctx context.Context, db *sql.DB, dialect string) e
 	if err := dropUserUsernameIndexIfPossible(ctx, tx, dialect, "username"); err != nil {
 		return err
 	}
-	if err := createIndex(ctx, tx, dialect, "users", "ix_users_username", []string{"username"}, true); err != nil {
+	if err := createIndex(ctx, tx, dialect, "users", "ix_users_username", []string{"username"}, false); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -198,6 +198,10 @@ func schemaLooksGoLatest(ctx context.Context, db *sql.DB, dialect string) (bool,
 		{"node_operations", "idempotency_key"},
 		{"telegram_settings", "backup_chat_id"},
 		{"telegram_settings", "last_sent_at"},
+		{"settings", "dashboard_path"},
+		{"hosts", "dns_primary"},
+		{"hosts", "dns_secondary"},
+		{"admins", "require_2fa"},
 	}
 	for _, check := range checks {
 		ok, err := HasColumn(ctx, db, dialect, check.table, check.column)
@@ -217,7 +221,38 @@ func schemaLooksGoLatest(ctx context.Context, db *sql.DB, dialect string) (bool,
 	if err != nil {
 		return false, err
 	}
-	return !hasJWTMasks && !hasExcludedInbounds && !hasHostSort, nil
+	hasPanelNobetci, err := HasColumn(ctx, db, dialect, "panel_settings", "use_nobetci")
+	if err != nil {
+		return false, err
+	}
+	hasNodeNobetci, err := HasColumn(ctx, db, dialect, "nodes", "use_nobetci")
+	if err != nil {
+		return false, err
+	}
+	hasNodeNobetciPort, err := HasColumn(ctx, db, dialect, "nodes", "nobetci_port")
+	if err != nil {
+		return false, err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		for _, item := range []struct {
+			table  string
+			column string
+		}{
+			{"admins", "expire"},
+			{"users", "expire"},
+			{"next_plans", "expire"},
+		} {
+			ok, err := mysqlColumnIsBigInt(ctx, db, item.table, item.column)
+			if err != nil || !ok {
+				return false, err
+			}
+		}
+	}
+	hasAdminSessions, err := HasTable(ctx, db, dialect, "admin_sessions")
+	if err != nil {
+		return false, err
+	}
+	return hasAdminSessions && !hasJWTMasks && !hasExcludedInbounds && !hasHostSort && !hasPanelNobetci && !hasNodeNobetci && !hasNodeNobetciPort, nil
 }
 
 func schemaLooksLegacyAlembicFinal(ctx context.Context, db *sql.DB, dialect string) (bool, error) {

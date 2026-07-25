@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -297,7 +298,6 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request, ser
 		writeServiceError(w, err)
 		return
 	}
-	_, hostsChanged := fields["hosts"]
 
 	err = s.withTx(r.Context(), func(tx *sql.Tx) error {
 		if err := ensureServiceExistsTx(r.Context(), tx, serviceID); err != nil {
@@ -329,27 +329,25 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request, ser
 			}
 		}
 		if _, ok := fields["hosts"]; ok {
+			beforeRuntimeTags, err := serviceRuntimeInboundTagsTx(r.Context(), tx, serviceID)
+			if err != nil {
+				return err
+			}
 			if err := syncServiceHostsTx(r.Context(), tx, serviceID, payload.Hosts); err != nil {
 				return err
+			}
+			afterRuntimeTags, err := serviceRuntimeInboundTagsTx(r.Context(), tx, serviceID)
+			if err != nil {
+				return err
+			}
+			if !stringBoolMapsEqual(beforeRuntimeTags, afterRuntimeTags) {
+				if err := enqueueAffectedServicesUsersTx(r.Context(), tx, map[int64]bool{serviceID: true}); err != nil {
+					return err
+				}
 			}
 		}
 		if _, ok := fields["admin_ids"]; ok {
 			if err := syncServiceAdminsTx(r.Context(), tx, serviceID, payload.AdminIDs); err != nil {
-				return err
-			}
-		}
-		if hostsChanged {
-			ids, err := serviceUserIDsTx(r.Context(), tx, serviceID)
-			if err != nil {
-				return err
-			}
-			for _, id := range ids {
-				userID := id
-				if err := enqueueNodeOperationTx(r.Context(), tx, "update_user", nil, &userID, map[string]any{}); err != nil {
-					return err
-				}
-			}
-			if err := enqueueNodeOperationTx(r.Context(), tx, "sync_config", nil, nil, map[string]any{"service_id": serviceID}); err != nil {
 				return err
 			}
 		}
@@ -388,6 +386,7 @@ func (s *Server) handleServiceDelete(w http.ResponseWriter, r *http.Request, ser
 		if adminLinks > 0 && !payload.UnlinkAdmins {
 			return statusError{status: http.StatusBadRequest, detail: "Service has admins assigned. Unlink them before deleting."}
 		}
+		refreshUserIDs := []int64{}
 		switch payload.Mode {
 		case "transfer_users":
 			ids, err := serviceUserIDsTx(r.Context(), tx, serviceID)
@@ -411,12 +410,7 @@ func (s *Server) handleServiceDelete(w http.ResponseWriter, r *http.Request, ser
 			if _, err := tx.ExecContext(r.Context(), `UPDATE users SET service_id = ? WHERE service_id = ?`, nullableInt64(payload.TargetServiceID), serviceID); err != nil {
 				return err
 			}
-			for _, id := range ids {
-				userID := id
-				if err := enqueueNodeOperationTx(r.Context(), tx, "update_user", nil, &userID, map[string]any{}); err != nil {
-					return err
-				}
-			}
+			refreshUserIDs = ids
 		case "delete_users":
 			ids, err := serviceUserIDsTx(r.Context(), tx, serviceID)
 			if err != nil {
@@ -425,12 +419,7 @@ func (s *Server) handleServiceDelete(w http.ResponseWriter, r *http.Request, ser
 			if _, err := tx.ExecContext(r.Context(), `UPDATE users SET status = 'deleted', service_id = NULL WHERE service_id = ?`, serviceID); err != nil {
 				return err
 			}
-			for _, id := range ids {
-				userID := id
-				if err := enqueueNodeOperationTx(r.Context(), tx, "remove_user", nil, &userID, map[string]any{}); err != nil {
-					return err
-				}
-			}
+			refreshUserIDs = ids
 		default:
 			return statusError{status: http.StatusBadRequest, detail: "Invalid delete mode"}
 		}
@@ -443,7 +432,13 @@ func (s *Server) handleServiceDelete(w http.ResponseWriter, r *http.Request, ser
 		if _, err := tx.ExecContext(r.Context(), `DELETE FROM services WHERE id = ?`, serviceID); err != nil {
 			return err
 		}
-		return enqueueNodeOperationTx(r.Context(), tx, "sync_config", nil, nil, map[string]any{"service_id": serviceID, "deleted": true})
+		for _, userID := range refreshUserIDs {
+			id := userID
+			if err := enqueueNodeOperationTx(r.Context(), tx, "update_user", nil, &id, map[string]any{"service_id": serviceID, "deleted": true}); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		writeServiceError(w, err)
@@ -802,12 +797,70 @@ func decodeServiceAdminLimitUpdate(w http.ResponseWriter, r *http.Request) (serv
 	}
 	var payload serviceAdminLimitUpdatePayload
 	if len(raw) > 0 {
+		raw, err = normalizeServiceAdminLimitNumericFields(raw, fields)
+		if err != nil {
+			return serviceAdminLimitUpdatePayload{}, statusError{status: http.StatusBadRequest, detail: err.Error()}
+		}
 		if err := json.Unmarshal(raw, &payload); err != nil {
 			return serviceAdminLimitUpdatePayload{}, statusError{status: http.StatusBadRequest, detail: "invalid request body"}
 		}
 	}
 	payload.fields = fields
 	return payload, nil
+}
+
+func normalizeServiceAdminLimitNumericFields(raw []byte, fields map[string]json.RawMessage) ([]byte, error) {
+	if len(fields) == 0 {
+		return raw, nil
+	}
+	for _, key := range []string{"data_limit", "users_limit", "delete_user_usage_limit"} {
+		value, ok := fields[key]
+		if !ok || rawIsNullAPI(value) {
+			continue
+		}
+		normalized, err := normalizeInt64JSONField(value)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s", key)
+		}
+		fields[key] = normalized
+	}
+	return json.Marshal(fields)
+}
+
+func normalizeInt64JSONField(raw json.RawMessage) (json.RawMessage, error) {
+	decoder := json.NewDecoder(strings.NewReader(string(raw)))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+	switch typed := value.(type) {
+	case string:
+		text := strings.TrimSpace(typed)
+		if text == "" {
+			return json.RawMessage("null"), nil
+		}
+		parsed, err := strconv.ParseFloat(text, 64)
+		if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+			return nil, fmt.Errorf("invalid integer")
+		}
+		return json.RawMessage(strconv.FormatInt(int64(math.Round(parsed)), 10)), nil
+	case json.Number:
+		if parsed, err := typed.Int64(); err == nil {
+			return json.RawMessage(strconv.FormatInt(parsed, 10)), nil
+		}
+		parsed, err := typed.Float64()
+		if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+			return nil, fmt.Errorf("invalid integer")
+		}
+		return json.RawMessage(strconv.FormatInt(int64(math.Round(parsed)), 10)), nil
+	default:
+		return nil, fmt.Errorf("invalid integer")
+	}
+}
+
+func rawIsNullAPI(raw json.RawMessage) bool {
+	return strings.EqualFold(strings.TrimSpace(string(raw)), "null")
 }
 
 func validateServiceWriteTx(ctx context.Context, tx *sql.Tx, payload serviceWritePayload, create bool) error {
@@ -1282,6 +1335,44 @@ func serviceUserIDsTx(ctx context.Context, tx *sql.Tx, serviceID int64) ([]int64
 		return nil, err
 	}
 	return scanInt64Rows(rows)
+}
+
+func serviceRuntimeInboundTagsTx(ctx context.Context, tx *sql.Tx, serviceID int64) (map[string]bool, error) {
+	rows, err := tx.QueryContext(ctx, `
+SELECT DISTINCT h.inbound_tag
+FROM service_hosts sh
+JOIN hosts h ON h.id = sh.host_id
+WHERE sh.service_id = ?
+  AND COALESCE(h.is_disabled, 0) = 0
+  AND COALESCE(h.inbound_tag, '') <> ''`, serviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[string]bool{}
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		tag = strings.TrimSpace(tag)
+		if tag != "" {
+			result[tag] = true
+		}
+	}
+	return result, rows.Err()
+}
+
+func stringBoolMapsEqual(left map[string]bool, right map[string]bool) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, value := range left {
+		if right[key] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func sqlInClauseInt64(ids []int64) (string, []any) {

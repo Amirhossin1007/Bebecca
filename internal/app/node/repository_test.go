@@ -106,6 +106,10 @@ func TestNodeRepositoryCreateUpdateResetDeleteAndRegenerate(t *testing.T) {
 	}
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1`, 0)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1`, 0)
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_usage_user_queue WHERE node_id = 1`, 0)
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_usage_outbound_queue WHERE node_id = 1`, 0)
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM vpn_user_sessions WHERE node_id = 1`, 0)
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM user_online_ips WHERE node_id = 1`, 0)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM outbound_traffic WHERE node_id = 1`, 0)
 }
 
@@ -137,6 +141,29 @@ func TestNodeRepositoryDoesNotSyncForNonConnectionEdits(t *testing.T) {
 		t.Fatalf("unexpected non-connection update: %#v", updated)
 	}
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+
+	if _, err := db.Exec(`UPDATE nodes SET status = ? WHERE id = ?`, StatusConnected, created.ID); err != nil {
+		t.Fatalf("mark node connected: %v", err)
+	}
+	name = "quiet-node-live-rename"
+	status := StatusConnected
+	mode := XrayConfigModeDefault
+	limit = int64(4096)
+	updated, err = repo.UpdateNode(ctx, created.ID, NodeModify{
+		Name:           &name,
+		Status:         &status,
+		XrayConfigMode: &mode,
+		DataLimit:      &limit,
+	})
+	if err != nil {
+		t.Fatalf("UpdateNode same-status edit error: %v", err)
+	}
+	if updated.Status != StatusConnected || updated.Name != name || updated.DataLimit == nil || *updated.DataLimit != limit {
+		t.Fatalf("unexpected same-status update: %#v", updated)
+	}
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+	assertNodeRepositoryString(t, db, `SELECT xray_config_mode FROM nodes WHERE id = 1`, XrayConfigModeCustom)
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1 AND xray_config IS NOT NULL`, 1)
 
 	address := "198.51.100.10"
 	if _, err := repo.UpdateNode(ctx, created.ID, NodeModify{Address: &address}); err != nil {
@@ -205,8 +232,6 @@ func newNodeTestDB(t *testing.T) *sql.DB {
 			usage_coefficient REAL NOT NULL DEFAULT 1,
 			geo_mode TEXT NOT NULL DEFAULT 'default',
 			data_limit INTEGER NULL,
-			use_nobetci INTEGER NOT NULL DEFAULT 0,
-			nobetci_port INTEGER NULL,
 			proxy_enabled INTEGER NOT NULL DEFAULT 0,
 			proxy_type TEXT NULL,
 			proxy_host TEXT NULL,
@@ -241,10 +266,18 @@ func newNodeTestDB(t *testing.T) *sql.DB {
 		)`,
 		`CREATE TABLE node_usages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME NOT NULL, node_id INTEGER NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE TABLE node_user_usages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME NOT NULL, user_id INTEGER NOT NULL, node_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0)`,
+		`CREATE TABLE node_usage_user_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, user_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, online INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL)`,
+		`CREATE TABLE node_usage_outbound_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, tag TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL)`,
+		`CREATE TABLE vpn_user_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, user_id INTEGER NOT NULL, protocol TEXT NOT NULL, inbound_tag TEXT NULL, session_id TEXT NOT NULL, assigned_ip TEXT NULL, client_ip TEXT NULL, started_at DATETIME NOT NULL, last_seen_at DATETIME NOT NULL, ended_at DATETIME NULL)`,
+		`CREATE TABLE user_online_ips (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, user_id INTEGER NOT NULL, protocol TEXT NOT NULL, ip TEXT NOT NULL, last_seen_at DATETIME NOT NULL)`,
 		`CREATE TABLE outbound_traffic (id INTEGER PRIMARY KEY AUTOINCREMENT, target_id TEXT NOT NULL, node_id INTEGER NULL, outbound_id TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
 		`INSERT INTO tls (id, key, certificate) VALUES (1, 'legacy-key', 'legacy-cert')`,
 		`INSERT INTO node_usages (created_at, node_id, uplink, downlink) VALUES ('2026-06-09 00:00:00', 1, 10, 20)`,
 		`INSERT INTO node_user_usages (created_at, user_id, node_id, used_traffic) VALUES ('2026-06-09 00:00:00', 1, 1, 30)`,
+		`INSERT INTO node_usage_user_queue (node_id, batch_id, user_id, used_traffic, online, created_at) VALUES (1, 'users-batch', 1, 30, 1, '2026-06-09 00:00:00')`,
+		`INSERT INTO node_usage_outbound_queue (node_id, batch_id, tag, uplink, downlink, created_at) VALUES (1, 'out-batch', 'direct', 5, 6, '2026-06-09 00:00:00')`,
+		`INSERT INTO vpn_user_sessions (node_id, user_id, protocol, inbound_tag, session_id, assigned_ip, client_ip, started_at, last_seen_at, ended_at) VALUES (1, 1, 'ov', 'ov-main', 'ov-session', '10.66.0.2', '198.51.100.10', '2026-06-09 00:00:00', '2026-06-09 00:00:00', NULL)`,
+		`INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at) VALUES (1, 1, 'xray', '198.51.100.11', '2026-06-09 00:00:00')`,
 		`INSERT INTO outbound_traffic (target_id, node_id, outbound_id, uplink, downlink) VALUES ('node:1', 1, 'direct', 5, 6)`,
 	}
 	for _, stmt := range stmts {
@@ -263,5 +296,16 @@ func assertNodeTestCount(t *testing.T, db *sql.DB, query string, want int64, arg
 	}
 	if got != want {
 		t.Fatalf("count query %q got %d want %d", query, got, want)
+	}
+}
+
+func assertNodeRepositoryString(t *testing.T, db *sql.DB, query string, want string, args ...any) {
+	t.Helper()
+	var got string
+	if err := db.QueryRow(query, args...).Scan(&got); err != nil {
+		t.Fatalf("string query %q: %v", query, err)
+	}
+	if got != want {
+		t.Fatalf("string query %q got %q want %q", query, got, want)
 	}
 }

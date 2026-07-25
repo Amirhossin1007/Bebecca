@@ -30,19 +30,23 @@ import {
 	ArrowUpOnSquareIcon,
 	Bars3Icon,
 	BookOpenIcon,
+	BriefcaseIcon,
 	CheckIcon,
+	CircleStackIcon,
+	CodeBracketSquareIcon,
 	Cog6ToothIcon,
-	GlobeAltIcon,
+	Cog8ToothIcon,
+	EyeIcon,
+	HomeIcon as HeroHomeIcon,
 	LanguageIcon,
-	ServerIcon,
-	ShieldCheckIcon,
-	Square3Stack3DIcon,
+	LinkIcon,
+	ServerStackIcon,
 	Squares2X2Icon,
 	UserCircleIcon,
 	UserGroupIcon,
+	WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
-import { useAppleEmoji } from "hooks/useAppleEmoji";
 import useGetUser from "hooks/useGetUser";
 import {
 	type ElementType,
@@ -57,6 +61,7 @@ import {
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { logout as logoutSession } from "service/auth";
 import { AdminRole, AdminSection } from "types/Admin";
 import { clearClientSession } from "utils/session";
 import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
@@ -75,24 +80,27 @@ const iconProps = {
 const LogoutIcon = chakra(ArrowLeftOnRectangleIcon, iconProps);
 const MenuIcon = chakra(Bars3Icon, iconProps);
 const LanguageIconStyled = chakra(LanguageIcon, iconProps);
-const DocsIcon = chakra(BookOpenIcon, iconProps);
+const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
+const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
 const UserIcon = chakra(UserCircleIcon, iconProps);
-const HomeIcon = chakra(Squares2X2Icon, iconProps);
+const HomeIcon = chakra(HeroHomeIcon, iconProps);
 const UsersIcon = chakra(UserGroupIcon, iconProps);
-const AdminsIcon = chakra(ShieldCheckIcon, iconProps);
+const AdminsIcon = chakra(BriefcaseIcon, iconProps);
 const SettingsIcon = chakra(Cog6ToothIcon, iconProps);
+const MasterSettingsIcon = chakra(Cog8ToothIcon, iconProps);
+const XraySettingsIcon = chakra(WrenchScrewdriverIcon, iconProps);
 const ServicesIcon = chakra(Squares2X2Icon, iconProps);
-const HostsIcon = chakra(ServerIcon, iconProps);
-const NodesIcon = chakra(Square3Stack3DIcon, iconProps);
-const InsightsIcon = chakra(GlobeAltIcon, iconProps);
+const HostsIcon = chakra(LinkIcon, iconProps);
+const NodesIcon = chakra(ServerStackIcon, iconProps);
+const InsightsIcon = chakra(EyeIcon, iconProps);
 const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
+const TutorialIcon = chakra(BookOpenIcon, iconProps);
 
 type SettingsMenuItem = {
 	key: string;
 	label: string;
 	to: string;
 	icon?: ElementType;
-	external?: boolean;
 };
 
 type BottomNavItem = {
@@ -114,19 +122,17 @@ export function AppLayout() {
 	const { userData, getUserIsSuccess } = useGetUser();
 	const navigate = useNavigate();
 	const location = useLocation();
-	useAppleEmoji();
-	const isRTL = i18n.language === "fa";
+	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
 	const userMenuContentRef = useRef<HTMLDivElement | null>(null);
 	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
-	const accountHoldTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const accountHoldTimeout = useRef<number | null>(null);
 	const accountHoldOpened = useRef(false);
 	const accountHoldStartPoint = useRef<{ x: number; y: number } | null>(null);
-	const settingsHoldTimeout = useRef<ReturnType<typeof setTimeout> | null>(
-		null,
-	);
+	const settingsHoldTimeout = useRef<number | null>(null);
 	const settingsHoldOpened = useRef(false);
 	const settingsHoldStartPoint = useRef<{ x: number; y: number } | null>(null);
 	const tabContentRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -155,34 +161,13 @@ export function AppLayout() {
 			md: isRTL ? "left-start" : "right-start",
 		}) ?? "bottom-start";
 
-	const menuBg = useColorModeValue("white", "gray.800");
-	const menuBorder = useColorModeValue("gray.200", "gray.700");
-	const menuHover = useColorModeValue("gray.100", "gray.700");
-	const textColor = useColorModeValue("gray.800", "gray.100");
-	const secondaryTextColor = useColorModeValue("gray.600", "gray.400");
-	const glassPanelBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.45)",
-		"rgba(18, 18, 22, 0.35)",
-	);
-	const glassPanelFallbackBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.85)",
-		"rgba(24, 24, 28, 0.75)",
-	);
-	const glassPanelBorder = useColorModeValue(
-		"rgba(255, 255, 255, 0.35)",
-		"rgba(255, 255, 255, 0.14)",
-	);
-	const glassPanelShadow = useColorModeValue(
-		"0 12px 32px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.45)",
-		"0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
-	);
-	const glassPanelRefraction = useColorModeValue(
-		"radial-gradient(closest-side at 28% 20%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.2) 55%, transparent 70%), radial-gradient(closest-side at 78% 70%, rgba(255, 255, 255, 0.35), transparent 60%), radial-gradient(closest-side at 52% 58%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.05) 60%, transparent 78%), conic-gradient(from 180deg at 50% 50%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.18) 55%, rgba(255, 255, 255, 0) 78%, rgba(255, 255, 255, 0.12))",
-		"radial-gradient(closest-side at 28% 20%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.12) 55%, transparent 70%), radial-gradient(closest-side at 78% 70%, rgba(255, 255, 255, 0.2), transparent 60%), radial-gradient(closest-side at 52% 58%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06) 60%, transparent 78%), conic-gradient(from 180deg at 50% 50%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.12) 55%, rgba(255, 255, 255, 0) 78%, rgba(255, 255, 255, 0.08))",
-	);
-	const glassPanelInnerShadow = useColorModeValue(
-		"inset 0 0 0 1px rgba(255, 255, 255, 0.28), inset 0 -14px 28px rgba(255, 255, 255, 0.14), inset 0 12px 28px rgba(0, 0, 0, 0.06)",
-		"inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 -14px 28px rgba(255, 255, 255, 0.07), inset 0 12px 28px rgba(0, 0, 0, 0.28)",
+	const menuBg = useColorModeValue("panel.surface", "panel.surface");
+	const menuBorder = useColorModeValue("panel.border", "panel.border");
+	const menuHover = useColorModeValue("panel.elevated", "panel.elevated");
+	const textColor = useColorModeValue("panel.text", "panel.text");
+	const secondaryTextColor = useColorModeValue(
+		"panel.textSecondary",
+		"panel.textSecondary",
 	);
 	const activePillBg = useColorModeValue(
 		"rgba(255, 255, 255, 0.18)",
@@ -192,20 +177,14 @@ export function AppLayout() {
 		"0 6px 14px rgba(15, 23, 42, 0.1)",
 		"0 6px 14px rgba(0, 0, 0, 0.24)",
 	);
-	const shellBorder = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const shellHeaderBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.92)",
-		"rgba(15, 23, 42, 0.86)",
-	);
-	const shellHeaderShadow = useColorModeValue(
-		"0 10px 24px rgba(15, 23, 42, 0.06)",
-		"0 10px 24px rgba(0, 0, 0, 0.24)",
-	);
-	const shellMainBg = useColorModeValue("gray.50", "blackAlpha.300");
-	const headerButtonBg = useColorModeValue("white", "whiteAlpha.50");
+	const shellBorder = useColorModeValue("panel.border", "panel.border");
+	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
+	const shellHeaderShadow = "none";
+	const shellMainBg = useColorModeValue("panel.main", "panel.main");
+	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const headerButtonHoverBg = useColorModeValue(
-		"blackAlpha.50",
-		"whiteAlpha.100",
+		"panel.borderStrong",
+		"panel.borderStrong",
 	);
 
 	const setPreviewTabKeySafe = (value: string | null) => {
@@ -216,13 +195,13 @@ export function AppLayout() {
 	const roleLabel = useMemo(() => {
 		switch (userData.role) {
 			case AdminRole.FullAccess:
-				return t("admins.roles.fullAccess", "Full access");
+				return t("admins.roles.fullAccess");
 			case AdminRole.Sudo:
-				return t("admins.roles.sudo", "Sudo");
+				return t("admins.roles.sudo");
 			case AdminRole.Reseller:
-				return t("admins.roles.reseller", "Reseller");
+				return t("admins.roles.reseller");
 			default:
-				return t("admins.roles.standard", "Standard");
+				return t("admins.roles.standard");
 		}
 	}, [t, userData.role]);
 
@@ -237,61 +216,76 @@ export function AppLayout() {
 		userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo;
 
 	const settingsMenuItems = useMemo(() => {
-		if (!isPrivilegedAdmin) return [];
 		const items: Array<SettingsMenuItem | null> = [
-			sectionAccess?.[AdminSection.Services]
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
 				? {
 						key: "services",
-						label: t("services.menu", "Services"),
+						label: t("services.title"),
 						to: "/services",
 						icon: ServicesIcon,
 					}
 				: null,
-			sectionAccess?.[AdminSection.Hosts]
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Hosts]
 				? {
 						key: "hosts",
-						label: t("header.hostSettings", "Host settings"),
+						label: t("header.hostSettings"),
 						to: "/hosts",
 						icon: HostsIcon,
 					}
 				: null,
-			sectionAccess?.[AdminSection.Nodes]
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Nodes]
 				? {
 						key: "node-settings",
-						label: t("header.nodeSettings", "Node settings"),
+						label: t("header.nodeSettings"),
 						to: "/node-settings",
 						icon: NodesIcon,
 					}
 				: null,
-			sectionAccess?.[AdminSection.Integrations]
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Integrations]
 				? {
-						key: "integrations",
-						label: t("header.integrationSettings", "Master settings"),
-						to: "/integrations",
-						icon: SettingsIcon,
+						key: "settings",
+						label: t("header.integrationSettings"),
+						to: "/settings",
+						icon: MasterSettingsIcon,
 					}
 				: null,
-			sectionAccess?.[AdminSection.Xray]
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
 				? {
 						key: "xray-settings",
-						label: t("header.xraySettings", "Xray settings"),
+						label: t("header.xraySettings"),
 						to: "/xray-settings",
-						icon: SettingsIcon,
+						icon: XraySettingsIcon,
 					}
 				: null,
-			sectionAccess?.[AdminSection.Xray]
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
 				? {
 						key: "access-insights",
-						label: t("header.accessInsights", "Access insights"),
+						label: t("header.accessInsights"),
 						to: "/access-insights",
 						icon: InsightsIcon,
 					}
 				: null,
+			isPrivilegedAdmin
+				? {
+						key: "api-docs",
+						label: t("apiDocs.menu"),
+						to: "/api-docs",
+						icon: DocsIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "phpmyadmin",
+						label: t("phpmyadmin.menu"),
+						to: "/phpmyadmin",
+						icon: PHPMyAdminIcon,
+					}
+				: null,
 			{
-				key: "api-docs",
-				label: t("apiDocs.menu", "API Docs"),
-				to: "/api-docs",
-				icon: DocsIcon,
+				key: "tutorials",
+				label: t("tutorials.menu"),
+				to: tutorialsUrl,
+				icon: TutorialIcon,
 			},
 		];
 		return items.filter(Boolean) as SettingsMenuItem[];
@@ -399,28 +393,28 @@ export function AppLayout() {
 	const bottomNavItems = useMemo<BottomNavItem[]>(() => {
 		const items: BottomNavItem[] = [];
 		const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
+		items.push({ key: "users", label: t("nav.users"), to: "/users" });
 		if (canSeeAdmins) {
 			items.push({
 				key: "admins",
-				label: t("nav.admins", "Admins"),
+				label: t("nav.admins"),
 				to: "/admins",
 			});
 		}
-		items.push({ key: "users", label: t("nav.users", "Users"), to: "/users" });
 		items.push({
 			key: "dashboard",
-			label: t("nav.dashboard", "Dashboard"),
+			label: t("dashboard"),
 			to: "/",
 		});
 		items.push({
 			key: "myaccount",
-			label: t("nav.myaccount", "My account"),
+			label: t("nav.myaccount"),
 			to: "/myaccount",
 		});
 		if (hasSettingsMenu) {
 			items.push({
 				key: "settings",
-				label: t("header.settings", "Settings"),
+				label: t("header.settings"),
 				kind: "menu",
 			});
 		}
@@ -430,7 +424,6 @@ export function AppLayout() {
 	const activeSettingsItem = useMemo(
 		() =>
 			settingsMenuItems.find((item) => {
-				if (item.external) return false;
 				if (item.to === "/") return location.pathname === "/";
 				return location.pathname.startsWith(item.to);
 			}),
@@ -687,18 +680,13 @@ export function AppLayout() {
 	};
 
 	const settingsDefaultTabByPath: Record<string, string> = {
-		"/integrations": "panel",
+		"/settings": "panel",
 		"/hosts": "inbounds",
 		"/usage": "services",
 		"/xray-settings": "basic",
 	};
 
 	const navigateToSettingsItem = (target: string) => {
-		const item = settingsMenuItems.find((entry) => entry.to === target);
-		if (item?.external) {
-			window.location.assign(target);
-			return;
-		}
 		const defaultTab = settingsDefaultTabByPath[target];
 		if (defaultTab) {
 			navigate(`${target}#${defaultTab}`);
@@ -718,6 +706,14 @@ export function AppLayout() {
 				overflow="hidden"
 				direction={isRTL ? "row-reverse" : "row"}
 				dir={isRTL ? "rtl" : "ltr"}
+				bg="panel.app"
+				sx={{
+					"--rb-sidebar-offset": isMobile
+						? "0px"
+						: sidebarCollapsed
+							? "64px"
+							: "240px",
+				}}
 			>
 				{/* persistent sidebar on md+; drawer on mobile */}
 				{!isMobile ? (
@@ -739,12 +735,11 @@ export function AppLayout() {
 				>
 					<Box
 						as="header"
-						h="16"
-						minH="16"
+						h="12"
+						minH="12"
 						borderBottom="1px"
 						borderColor={shellBorder}
 						bg={shellHeaderBg}
-						backdropFilter="blur(16px)"
 						boxShadow={shellHeaderShadow}
 						display="flex"
 						alignItems="center"
@@ -761,7 +756,7 @@ export function AppLayout() {
 							<IconButton
 								size="sm"
 								variant="outline"
-								aria-label="toggle sidebar"
+								aria-label={t("a11y.toggleSidebar")}
 								onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
 									else setSidebarCollapsed(!sidebarCollapsed);
@@ -782,6 +777,7 @@ export function AppLayout() {
 								<Menu
 									placement="bottom-end"
 									isLazy
+									autoSelect={false}
 									closeOnSelect={false}
 									isOpen={userMenu.isOpen}
 									onOpen={userMenu.onOpen}
@@ -792,7 +788,7 @@ export function AppLayout() {
 										size="sm"
 										variant="outline"
 										leftIcon={<UserIcon />}
-										aria-label="user menu"
+										aria-label={t("a11y.userMenu")}
 										fontSize="sm"
 										fontWeight="medium"
 										bg={headerButtonBg}
@@ -829,10 +825,17 @@ export function AppLayout() {
 												"&:hover": {
 													bg: `${menuHover} !important`,
 												},
-												"&:active, &:focus": {
+												"&:active, &:focus-visible": {
 													bg: `${menuHover} !important`,
 												},
+												"&:focus:not(:focus-visible)": {
+													bg: "transparent !important",
+												},
 											},
+											".rb-logout-menu-item[data-focus]:not(:hover):not(:focus-visible)":
+												{
+													bg: "transparent !important",
+												},
 										}}
 									>
 										{/* User Info */}
@@ -864,10 +867,22 @@ export function AppLayout() {
 											onClose={languageMenu.onClose}
 											closeOnSelect={false}
 											isLazy
+											autoSelect={false}
 										>
 											<MenuButton
-												as={MenuItem}
-												icon={<LanguageIconStyled />}
+												as={Button}
+												leftIcon={<LanguageIconStyled />}
+												variant="ghost"
+												w="full"
+												h="40px"
+												justifyContent="flex-start"
+												fontWeight="500"
+												borderRadius="md"
+												px={3}
+												bg="transparent"
+												_hover={{ bg: menuHover }}
+												_active={{ bg: menuHover }}
+												_focusVisible={{ bg: menuHover }}
 												onClick={(e: ReactMouseEvent) => {
 													e.stopPropagation();
 													languageMenu.isOpen
@@ -875,8 +890,8 @@ export function AppLayout() {
 														: languageMenu.onOpen();
 												}}
 											>
-												<HStack justify="space-between" w="full">
-													<Text>{t("header.language", "Language")}</Text>
+												<HStack justify="space-between" w="full" minW={0}>
+													<Text>{t("header.language")}</Text>
 													<Text fontSize="xs" color={secondaryTextColor}>
 														{languageItems.find(
 															(item) => item.code === i18n.language,
@@ -899,8 +914,11 @@ export function AppLayout() {
 															"&:hover": {
 																bg: `${menuHover} !important`,
 															},
-															"&:active, &:focus": {
+															"&:active, &:focus-visible": {
 																bg: `${menuHover} !important`,
+															},
+															"&:focus:not(:focus-visible)": {
+																bg: "transparent !important",
 															},
 														},
 													}}
@@ -948,7 +966,7 @@ export function AppLayout() {
 										{/* Theme Selector */}
 										<ThemeSelector
 											trigger="menuItem"
-											triggerLabel={t("header.theme", "Theme")}
+											triggerLabel={t("header.theme")}
 											portalContainer={userMenuContentRef}
 											onModalOpen={handleThemeModalOpen}
 											onModalClose={handleThemeModalClose}
@@ -956,18 +974,29 @@ export function AppLayout() {
 
 										{/* Logout */}
 										<MenuItem
+											className="rb-logout-menu-item"
 											icon={<LogoutIcon />}
 											color="red.500"
 											bg="transparent"
 											_hover={{ bg: menuHover }}
-											_active={{ bg: menuHover }}
-											_focus={{ bg: menuHover }}
-											onClick={() => {
+											_active={{ bg: "transparent" }}
+											_focus={{ bg: "transparent" }}
+											_focusVisible={{ bg: menuHover }}
+											sx={{
+												"&[data-focus]:not(:hover):not(:focus-visible)": {
+													bg: "transparent !important",
+												},
+											}}
+										onClick={async () => {
+											try {
+												await logoutSession();
+											} finally {
 												clearClientSession();
 												navigate("/login");
+											}
 											}}
 										>
-											{t("header.logout", "Log out")}
+											{t("header.logout")}
 										</MenuItem>
 									</MenuList>
 								</Menu>
@@ -996,7 +1025,7 @@ export function AppLayout() {
 						size="xs"
 					>
 						<DrawerOverlay />
-						<DrawerContent bg={shellHeaderBg}>
+						<DrawerContent bg="panel.sidebar">
 							<DrawerBody p={0}>
 								<AppSidebar
 									collapsed={false}
@@ -1019,12 +1048,10 @@ export function AppLayout() {
 								zIndex={2000}
 							>
 								<Box
-									bg="whiteAlpha.800"
-									_dark={{ bg: "whiteAlpha.200" }}
-									backdropFilter="blur(16px)"
+									bg={menuBg}
 									borderRadius="20px"
 									borderWidth="1px"
-									borderColor="whiteAlpha.300"
+									borderColor={menuBorder}
 									px="4"
 									py="3"
 									display="flex"
@@ -1046,17 +1073,14 @@ export function AppLayout() {
 									</Box>
 									<Box flex="1">
 										<Text fontWeight="semibold" fontSize="sm">
-											{t("pwa.ios.title", "Add to Home Screen")}
+											{t("pwa.ios.title")}
 										</Text>
 										<Text
 											fontSize="xs"
 											color="gray.600"
 											_dark={{ color: "gray.300" }}
 										>
-											{t(
-												"pwa.ios.body",
-												"Tap Share and then Add to Home Screen for a faster app-like experience.",
-											)}
+											{t("pwa.ios.body")}
 										</Text>
 									</Box>
 									<Button
@@ -1067,7 +1091,7 @@ export function AppLayout() {
 											localStorage.setItem("ios-pwa-tip-shown", "1");
 										}}
 									>
-										{t("pwa.ios.dismiss", "Got it")}
+										{t("pwa.ios.dismiss")}
 									</Button>
 								</Box>
 							</Box>
@@ -1083,56 +1107,25 @@ export function AppLayout() {
 							pt="1"
 						>
 							<Box
-								bg={glassPanelBg}
-								borderColor={glassPanelBorder}
-								boxShadow={glassPanelShadow}
+								bg={menuBg}
+								borderColor={menuBorder}
+								boxShadow="xl"
 								borderWidth="1px"
-								backdropFilter="blur(20px) saturate(1.35)"
 								borderRadius="26px"
-								clipPath="inset(0 round 26px)"
 								px="3"
 								pt="2"
 								pb="calc(env(safe-area-inset-bottom) + 6px)"
 								maxW="min(520px, 100%)"
 								mx="auto"
-								sx={{
-									WebkitBackdropFilter: "blur(20px) saturate(1.35)",
-									position: "relative",
-									overflow: "hidden",
-									isolation: "isolate",
-									transform: "translateZ(0)",
-									willChange: "transform",
-									"@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px)))":
-										{
-											backgroundColor: glassPanelFallbackBg,
-										},
-									"&::before": {
-										content: '""',
-										position: "absolute",
-										inset: "-40%",
-										borderRadius: "inherit",
-										background: glassPanelRefraction,
-										filter: "blur(0.2px) contrast(1.15) saturate(1.1)",
-										mixBlendMode: "screen",
-										opacity: 0.7,
-										pointerEvents: "none",
-									},
-									"&::after": {
-										content: '""',
-										position: "absolute",
-										inset: "0",
-										borderRadius: "inherit",
-										boxShadow: glassPanelInnerShadow,
-										pointerEvents: "none",
-									},
-								}}
+								position="relative"
+								overflow="hidden"
 							>
 								<HStack
 									justify="space-between"
 									position="relative"
 									align="center"
 									spacing={1}
-									dir="ltr"
+									dir={isRTL ? "rtl" : "ltr"}
 									onPointerDown={handleNavPointerDown}
 									onPointerMove={handleNavPointerMove}
 									onPointerUp={handleNavPointerUp}
@@ -1311,40 +1304,10 @@ export function AppLayout() {
 															maxH="calc(100vh - 160px)"
 															overflowY="auto"
 															borderRadius="18px"
-															bg={glassPanelBg}
-															borderColor={glassPanelBorder}
+															bg={menuBg}
+															borderColor={menuBorder}
 															borderWidth="1px"
-															boxShadow={glassPanelShadow}
-															backdropFilter="blur(18px) saturate(1.3)"
-															sx={{
-																WebkitBackdropFilter:
-																	"blur(18px) saturate(1.3)",
-																position: "relative",
-																overflow: "hidden",
-																"@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px)))":
-																	{
-																		backgroundColor: glassPanelFallbackBg,
-																	},
-																"&::before": {
-																	content: '""',
-																	position: "absolute",
-																	inset: "-40%",
-																	background: glassPanelRefraction,
-																	filter:
-																		"blur(0.2px) contrast(1.15) saturate(1.1)",
-																	mixBlendMode: "screen",
-																	opacity: 0.7,
-																	pointerEvents: "none",
-																},
-																"&::after": {
-																	content: '""',
-																	position: "absolute",
-																	inset: "0",
-																	borderRadius: "inherit",
-																	boxShadow: glassPanelInnerShadow,
-																	pointerEvents: "none",
-																},
-															}}
+															boxShadow="xl"
 														>
 															<PopoverBody position="relative" zIndex={1} p="2">
 																<VStack align="stretch" spacing={1}>
@@ -1402,6 +1365,7 @@ export function AppLayout() {
 													key={item.key}
 													isOpen={accountMenu.isOpen}
 													onClose={handleAccountMenuClose}
+													autoFocus={false}
 													placement="top"
 													gutter={12}
 													closeOnBlur
@@ -1468,40 +1432,10 @@ export function AppLayout() {
 															maxH="calc(100vh - 160px)"
 															overflowY="auto"
 															borderRadius="18px"
-															bg={glassPanelBg}
-															borderColor={glassPanelBorder}
+															bg={menuBg}
+															borderColor={menuBorder}
 															borderWidth="1px"
-															boxShadow={glassPanelShadow}
-															backdropFilter="blur(18px) saturate(1.3)"
-															sx={{
-																WebkitBackdropFilter:
-																	"blur(18px) saturate(1.3)",
-																position: "relative",
-																overflow: "hidden",
-																"@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px)))":
-																	{
-																		backgroundColor: glassPanelFallbackBg,
-																	},
-																"&::before": {
-																	content: '""',
-																	position: "absolute",
-																	inset: "-40%",
-																	background: glassPanelRefraction,
-																	filter:
-																		"blur(0.2px) contrast(1.15) saturate(1.1)",
-																	mixBlendMode: "screen",
-																	opacity: 0.7,
-																	pointerEvents: "none",
-																},
-																"&::after": {
-																	content: '""',
-																	position: "absolute",
-																	inset: "0",
-																	borderRadius: "inherit",
-																	boxShadow: glassPanelInnerShadow,
-																	pointerEvents: "none",
-																},
-															}}
+															boxShadow="xl"
 														>
 															<PopoverBody position="relative" zIndex={1} p="2">
 																<Button
@@ -1513,14 +1447,19 @@ export function AppLayout() {
 																	color="red.500"
 																	_hover={{ bg: menuHover }}
 																	_active={{ bg: menuHover }}
-																	_focus={{ bg: menuHover }}
-																	onClick={() => {
+																	_focus={{ bg: "transparent" }}
+																	_focusVisible={{ bg: menuHover }}
+																onClick={async () => {
+																	try {
+																		await logoutSession();
+																	} finally {
 																		clearClientSession();
 																		handleAccountMenuClose();
 																		navigate("/login");
+																	}
 																	}}
 																>
-																	{t("header.logout", "Log out")}
+																	{t("header.logout")}
 																</Button>
 															</PopoverBody>
 														</PopoverContent>
