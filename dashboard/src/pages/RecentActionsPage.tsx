@@ -20,6 +20,9 @@ import {
 	ArrowUturnLeftIcon,
 	EyeIcon,
 	MagnifyingGlassIcon,
+	PencilSquareIcon,
+	PlusCircleIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { JsonEditor } from "components/JsonEditor";
@@ -40,9 +43,11 @@ import { AdminRole, AdminSudoScope } from "types/Admin";
 import { buildJsonDiff } from "utils/jsonDiff";
 
 type RecentActionPreview = {
-	field: string;
-	before: string;
-	after: string;
+	field?: string;
+	before?: string;
+	after?: string;
+	operation?: "created" | "deleted";
+	resource?: string;
 };
 
 type RecentAction = {
@@ -102,6 +107,33 @@ const statusTone = (status: RecentAction["rollback_status"]) => {
 	}
 };
 
+const actionOperation = (actionType: string) => {
+	if (actionType.includes(".create")) return "created" as const;
+	if (actionType.includes(".delete")) return "deleted" as const;
+	return undefined;
+};
+
+const actionLifecycle = (action: RecentAction) => {
+	const operation =
+		action.preview?.operation ?? actionOperation(action.action_type);
+	return operation
+		? { operation, resource: action.preview?.resource ?? action.resource_type }
+		: undefined;
+};
+
+const actionOperationVisual = (
+	operation: "created" | "deleted" | "updated",
+) => {
+	switch (operation) {
+		case "created":
+			return { color: "green.400", icon: <PlusCircleIcon width={18} /> };
+		case "deleted":
+			return { color: "red.400", icon: <TrashIcon width={18} /> };
+		default:
+			return { color: "blue.400", icon: <PencilSquareIcon width={18} /> };
+	}
+};
+
 const changedPaths = (
 	before: unknown,
 	after: unknown,
@@ -154,40 +186,44 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 
 	return (
 		<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} dir="ltr">
-			<Box>
+			<Box minW={0}>
 				<Text fontWeight="medium" mb={2}>
 					{t("recentActions.before")}
 				</Text>
-				<JsonEditor
-					json={before}
-					onChange={() => undefined}
-					readOnly
-					showToolbar={false}
-					minHeight="440px"
-					highlightLines={beforeChangedLines}
-					highlightVariant="removed"
-				/>
+				<Box h={{ base: "360px", xl: "440px" }}>
+					<JsonEditor
+						json={before}
+						onChange={() => undefined}
+						readOnly
+						showToolbar={false}
+						minHeight={0}
+						highlightLines={beforeChangedLines}
+						highlightVariant="removed"
+					/>
+				</Box>
 			</Box>
-			<Box>
+			<Box minW={0}>
 				<Text fontWeight="medium" mb={2}>
 					{t("recentActions.after")}
 				</Text>
-				<JsonEditor
-					json={after}
-					onChange={() => undefined}
-					readOnly
-					showToolbar={false}
-					minHeight="440px"
-					highlightLines={afterChangedLines}
-					highlightVariant="added"
-				/>
+				<Box h={{ base: "360px", xl: "440px" }}>
+					<JsonEditor
+						json={after}
+						onChange={() => undefined}
+						readOnly
+						showToolbar={false}
+						minHeight={0}
+						highlightLines={afterChangedLines}
+						highlightVariant="added"
+					/>
+				</Box>
 			</Box>
 		</SimpleGrid>
 	);
 };
 
 const ActionPreview: FC<{ preview?: RecentActionPreview }> = ({ preview }) => {
-	if (!preview) {
+	if (!preview || preview.operation) {
 		return <Text color="panel.textMuted">—</Text>;
 	}
 	return (
@@ -279,6 +315,8 @@ export const RecentActionsPage: FC = () => {
 				action.preview?.field,
 				action.preview?.before,
 				action.preview?.after,
+				action.preview?.operation,
+				action.preview?.resource,
 			]
 				.filter(Boolean)
 				.join(" ")
@@ -298,28 +336,58 @@ export const RecentActionsPage: FC = () => {
 				header: t("recentActions.columns.action"),
 				isPrimary: true,
 				priority: "primary",
-				minWidth: "220px",
-				cell: (action) => (
-					<VStack align="start" spacing={1} minW={0}>
-						<HStack spacing={2} flexWrap="wrap">
-							<Badge colorScheme={statusTone(action.rollback_status)}>
-								{t(`recentActions.status.${action.rollback_status}`)}
-							</Badge>
-							<Badge variant="subtle">{action.resource_type}</Badge>
+				minWidth: "190px",
+				cell: (action) => {
+					const lifecycle = actionLifecycle(action);
+					const operation = lifecycle?.operation ?? "updated";
+					const resourceType = lifecycle?.resource ?? action.resource_type;
+					const resource = t(`recentActions.resources.${resourceType}`, {
+						defaultValue: resourceType.replaceAll("_", " "),
+					});
+					const visual = actionOperationVisual(operation);
+					return (
+						<HStack align="start" spacing={2.5} minW={0}>
+							<Box color={visual.color} mt={0.5} flexShrink={0}>
+								{visual.icon}
+							</Box>
+							<VStack align="start" spacing={0} minW={0}>
+								<Text fontWeight="semibold" noOfLines={1} maxW="full">
+									{t(`recentActions.operations.${operation}`, { resource })}
+								</Text>
+								<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+									{action.summary}
+								</Text>
+							</VStack>
 						</HStack>
-						<Text fontWeight="semibold" noOfLines={1} maxW="full">
-							{action.summary}
-						</Text>
-						<Text
-							fontFamily="mono"
-							fontSize="xs"
-							color="panel.textMuted"
-							noOfLines={1}
-						>
-							{action.resource_key}
-						</Text>
-					</VStack>
-				),
+					);
+				},
+			},
+			{
+				id: "resource",
+				header: t("recentActions.columns.resource"),
+				priority: "high",
+				minWidth: "180px",
+				cell: (action) => {
+					const resourceType =
+						actionLifecycle(action)?.resource ?? action.resource_type;
+					return (
+						<VStack align="start" spacing={1} minW={0}>
+							<Badge variant="subtle">
+								{t(`recentActions.resources.${resourceType}`, {
+									defaultValue: resourceType.replaceAll("_", " "),
+								})}
+							</Badge>
+							<Text
+								fontFamily="mono"
+								fontSize="xs"
+								color="panel.textMuted"
+								noOfLines={1}
+							>
+								{action.resource_key}
+							</Text>
+						</VStack>
+					);
+				},
 			},
 			{
 				id: "preview",
@@ -328,6 +396,17 @@ export const RecentActionsPage: FC = () => {
 				minWidth: "220px",
 				mobileSummary: true,
 				cell: (action) => <ActionPreview preview={action.preview} />,
+			},
+			{
+				id: "status",
+				header: t("recentActions.columns.status"),
+				priority: "medium",
+				minWidth: "140px",
+				cell: (action) => (
+					<Badge colorScheme={statusTone(action.rollback_status)}>
+						{t(`recentActions.status.${action.rollback_status}`)}
+					</Badge>
+				),
 			},
 			{
 				id: "actor",
@@ -346,8 +425,8 @@ export const RecentActionsPage: FC = () => {
 			{
 				id: "created",
 				header: t("recentActions.columns.time"),
-				priority: "medium",
-				hideBelow: "lg",
+				priority: "low",
+				hideBelow: "xl",
 				minWidth: "160px",
 				accessor: "created_at",
 				sortable: true,
@@ -410,7 +489,12 @@ export const RecentActionsPage: FC = () => {
 	const rollbackConflictPaths = rollbackError?.data?.conflict_paths ?? [];
 
 	return (
-		<VStack spacing={4} align="stretch" dir={i18n.dir(i18n.language)}>
+		<VStack
+			spacing={4}
+			align="stretch"
+			dir={i18n.dir(i18n.language)}
+			pb={{ base: 8, md: 16 }}
+		>
 			<PageHeader
 				title={t("recentActions.title")}
 				description={t("recentActions.description")}
@@ -516,8 +600,35 @@ export const RecentActionsPage: FC = () => {
 					</Text>
 				}
 				rowActions={rowActions}
-				actionsDisplay="menu"
-				actionsColumnWidth="52px"
+				renderRowActions={(action) => (
+					<HStack spacing={2} justify="flex-end">
+						<Button
+							size="sm"
+							variant="outline"
+							leftIcon={<EyeIcon width={16} />}
+							onClick={() => setSelectedID(action.id)}
+						>
+							{t("recentActions.details")}
+						</Button>
+						{action.rollback_status === "available" && (
+							<Button
+								size="sm"
+								colorScheme="orange"
+								leftIcon={<ArrowUturnLeftIcon width={16} />}
+								onClick={() => rollback(action)}
+								isLoading={
+									rollbackMutation.isLoading &&
+									rollbackMutation.variables === action.id
+								}
+							>
+								{t("recentActions.rollback")}
+							</Button>
+						)}
+					</HStack>
+				)}
+				actionsDisplay="inline"
+				actionsColumnWidth="210px"
+				actionsAlwaysVisible
 				onRowClick={(action) => setSelectedID(action.id)}
 				mobileBreakpoint="lg"
 				pagination={

@@ -49,9 +49,11 @@ type recentActionItem struct {
 }
 
 type recentActionPreview struct {
-	Field  string `json:"field"`
-	Before string `json:"before"`
-	After  string `json:"after"`
+	Field     string `json:"field,omitempty"`
+	Before    string `json:"before,omitempty"`
+	After     string `json:"after,omitempty"`
+	Operation string `json:"operation,omitempty"`
+	Resource  string `json:"resource,omitempty"`
 }
 
 type recentActionStored struct {
@@ -312,7 +314,7 @@ func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit in
 		if err != nil {
 			return nil, err
 		}
-		item.Preview = recentActionPreviewFromSnapshot(snapshot)
+		item.Preview = recentActionPreviewFromSnapshot(snapshot, item.ActionType, item.ResourceType)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -342,7 +344,7 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 			writeError(w, http.StatusInternalServerError, "could not read recent action snapshot")
 			return
 		}
-		action.Preview = recentActionSnapshotPreview(snapshot)
+		action.Preview = recentActionSnapshotPreview(snapshot, action.ActionType, action.ResourceType)
 		response["before"] = redactRecentActionSnapshot(snapshot.Before)
 		response["after"] = redactRecentActionSnapshot(snapshot.After)
 		if len(snapshot.ConfigPatches) > 0 {
@@ -445,7 +447,7 @@ func scanRecentActionListItem(scanner rowScanner) (recentActionItem, []byte, err
 	return item, snapshot, nil
 }
 
-func recentActionPreviewFromSnapshot(raw []byte) *recentActionPreview {
+func recentActionPreviewFromSnapshot(raw []byte, actionType, resourceType string) *recentActionPreview {
 	if len(raw) == 0 || len(raw) > recentActionPreviewMaxSize {
 		return nil
 	}
@@ -453,10 +455,13 @@ func recentActionPreviewFromSnapshot(raw []byte) *recentActionPreview {
 	if err != nil {
 		return nil
 	}
-	return recentActionSnapshotPreview(snapshot)
+	return recentActionSnapshotPreview(snapshot, actionType, resourceType)
 }
 
-func recentActionSnapshotPreview(snapshot recentActionSnapshot) *recentActionPreview {
+func recentActionSnapshotPreview(snapshot recentActionSnapshot, actionType, resourceType string) *recentActionPreview {
+	if operation := recentActionOperation(actionType); operation != "" {
+		return &recentActionPreview{Operation: operation, Resource: resourceType}
+	}
 	if preview := recentActionHostPreview(snapshot.Before.Hosts, snapshot.After.Hosts); preview != nil {
 		return preview
 	}
@@ -469,14 +474,62 @@ func recentActionSnapshotPreview(snapshot recentActionSnapshot) *recentActionPre
 			if field == "" {
 				field = "configuration"
 			}
-			return &recentActionPreview{
+			preview := &recentActionPreview{
 				Field:  field,
 				Before: recentActionPreviewValue(change.Before, change.BeforeExists),
 				After:  recentActionPreviewValue(change.After, change.AfterExists),
 			}
+			if operation, resource := recentActionConfigOperation(change); operation != "" {
+				preview.Operation = operation
+				preview.Resource = resource
+			}
+			return preview
 		}
 	}
 	return nil
+}
+
+func recentActionOperation(actionType string) string {
+	if strings.Contains(actionType, ".create") {
+		return "created"
+	}
+	if strings.Contains(actionType, ".delete") {
+		return "deleted"
+	}
+	return ""
+}
+
+func recentActionConfigOperation(change xrayconfig.ConfigPatchChange) (string, string) {
+	parts := strings.Split(strings.Trim(change.Path, "/"), "/")
+	if len(parts) != 2 || !strings.HasPrefix(parts[1], "@tag=") || change.BeforeExists == change.AfterExists {
+		return "", ""
+	}
+	resource := recentActionResourceName(parts[0])
+	if resource == "" {
+		return "", ""
+	}
+	if change.AfterExists {
+		return "created", resource
+	}
+	return "deleted", resource
+}
+
+func recentActionResourceName(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	switch value {
+	case "inbounds":
+		return "inbound"
+	case "outbounds":
+		return "outbound"
+	case "hosts":
+		return "host"
+	case "services":
+		return "service"
+	}
+	if len(value) > 1 && strings.HasSuffix(value, "s") {
+		return strings.TrimSuffix(value, "s")
+	}
+	return ""
 }
 
 func recentActionHostPreview(before, after []xrayconfig.HostSnapshot) *recentActionPreview {
@@ -507,12 +560,12 @@ func recentActionHostPreview(before, after []xrayconfig.HostSnapshot) *recentAct
 	}
 	for _, host := range after {
 		if _, ok := beforeByID[host.ID]; !ok {
-			return &recentActionPreview{Field: "name", Before: "—", After: recentActionPreviewValue(host.Remark, true)}
+			return &recentActionPreview{Operation: "created", Resource: "host"}
 		}
 	}
 	for _, host := range before {
 		if _, ok := afterByID[host.ID]; !ok {
-			return &recentActionPreview{Field: "name", Before: recentActionPreviewValue(host.Remark, true), After: "—"}
+			return &recentActionPreview{Operation: "deleted", Resource: "host"}
 		}
 	}
 	return nil
