@@ -852,7 +852,7 @@ const SystemOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("memoryUsage")}
 						percent={data.memory.percent}
-						detail={`${formatBytes(data.memory.current)} / ${formatBytes(data.memory.total)}`}
+						detail={`${formatBytes(data.memory.current)}`}
 						history={memoryHistoryValues}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
@@ -867,7 +867,7 @@ const SystemOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("diskUsage")}
 						percent={data.disk.percent}
-						detail={`${formatBytes(data.disk.current)} / ${formatBytes(data.disk.total)}`}
+						detail={`${formatBytes(data.disk.current)}`}
 					/>
 				</SimpleGrid>
 				<NetworkSpeedCard
@@ -886,7 +886,7 @@ const SystemOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("swapUsage")}
 						percent={data.swap.percent}
-						detail={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
+						detail={`${formatBytes(data.swap.current)}`}
 					/>
 				)}
 				<Stack
