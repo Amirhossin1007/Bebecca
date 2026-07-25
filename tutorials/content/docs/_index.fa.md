@@ -16,7 +16,7 @@ cascade:
 - حساب من: کلید API، تغییر رمز، گزارش مصرف روزانه و مصرف هر نود.
 - کد منبع باز است؛ اگر مفید بود در گیت‌هاب ستاره بدهید.
 
-- [گیت‌هاب](https://github.com/rebeccapanel/rebecca)
+- [گیت‌هاب پنل ربکا](https://github.com/rebeccapanel/rebecca)
 - [پشتیبانی مجموعه ونتو](https://t.me/V2raySam)
 
 ## شروع از یک کار مشخص
