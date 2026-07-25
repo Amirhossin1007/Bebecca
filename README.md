@@ -178,8 +178,8 @@ Then run the following command to run the Go database migrations:
 ./dist/rebecca-cli migrate up
 ```
 
-Downgrade migrations are not supported. For troubleshooting legacy databases,
-see `docs/MIGRATION_GO_ONLY.md`.
+Downgrade migrations are not supported. Check the migration status with
+`./dist/rebecca-cli migrate status` before upgrading a legacy database.
 
 If you want to use the CLI globally, install the built Go CLI:
 
@@ -319,11 +319,11 @@ By default the app will be run on `http://localhost:8000/dashboard`. You can con
 
 # Telegram integration
 
-Telegram bot commands, Telegram reports, Telegram settings, and Telegram backup delivery are temporarily disabled while Rebecca is migrated to native Go services. The rebuild plan and legacy behavior notes are documented in `docs/TODO_GO_TELEGRAM.md`.
+Telegram bot commands, reports, settings, and backup delivery are handled by the Go services and can be configured from the panel.
 
 # Webhook notifications
 
-Webhook notifications are temporarily disabled with Telegram/report delivery. The future Go event outbox and retry behavior are tracked in `docs/TODO_GO_TELEGRAM.md`.
+Webhook notifications are handled by the Go event worker and can be configured from the panel.
 
 # Donation
 

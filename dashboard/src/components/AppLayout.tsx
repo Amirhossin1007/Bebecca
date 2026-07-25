@@ -129,12 +129,10 @@ export function AppLayout() {
 	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
-	const accountHoldTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const accountHoldTimeout = useRef<number | null>(null);
 	const accountHoldOpened = useRef(false);
 	const accountHoldStartPoint = useRef<{ x: number; y: number } | null>(null);
-	const settingsHoldTimeout = useRef<ReturnType<typeof setTimeout> | null>(
-		null,
-	);
+	const settingsHoldTimeout = useRef<number | null>(null);
 	const settingsHoldOpened = useRef(false);
 	const settingsHoldStartPoint = useRef<{ x: number; y: number } | null>(null);
 	const tabContentRefs = useRef<Record<string, HTMLButtonElement | null>>({});

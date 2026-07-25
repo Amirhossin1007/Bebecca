@@ -314,7 +314,7 @@ Rebecca поставляется с встроенным ботом Telegram, к
 1. установите `TELEGRAM_API_TOKEN` в качестве API-токена вашего бота.
 2. установите `TELEGRAM_ADMIN_ID` в качестве цифрового ID вашего Telegram-аккаунта, который вы можете получить от [@userinfobot](https://t.me/userinfobot)
 
-Telegram bot commands, reports, and backup delivery are temporarily disabled while Rebecca is migrated to native Go services. The rebuild plan is tracked in `docs/TODO_GO_TELEGRAM.md`.
+Команды Telegram-бота, отчёты и доставка резервных копий поддерживаются Go-сервисами и настраиваются в панели.
 
 # Webhook уведомления
 

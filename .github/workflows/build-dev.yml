@@ -27,6 +27,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ env.DASH_DIR }}/package-lock.json
 
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
@@ -36,6 +41,13 @@ jobs:
       - name: Install dependencies
         working-directory: ${{ env.DASH_DIR }}
         run: npm ci
+
+      - name: Test dashboard
+        working-directory: ${{ env.DASH_DIR }}
+        run: npm test
+
+      - name: Test Go
+        run: go test ./...
 
       - name: Build project
         run: bash scripts/build_dashboard.sh

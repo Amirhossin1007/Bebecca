@@ -266,6 +266,7 @@ const LOG_CLEANUP_INTERVAL_OPTIONS = [
 ];
 
 type OutboundJson = Record<string, any>;
+type EditableCoreConfig = Record<string, any>;
 type OutboundTestType = "latency" | "tcp" | "icmp";
 type OutboundTestResult = {
 	success: boolean;
@@ -611,12 +612,13 @@ export const CoreSettingsPage: FC = () => {
 	const {
 		fetchCoreSettings,
 		updateConfig,
-		config,
+		config: loadedConfig,
 		configTargets,
 		isPostLoading,
 		restartCore,
 		updateConfigTargetMode,
 	} = useCoreSettings();
+	const config = loadedConfig as EditableCoreConfig | null;
 	const { userData, getUserIsSuccess } = useGetUser();
 	const { onEditingCore } = useDashboard();
 	const canManageXraySettings =
@@ -1111,11 +1113,10 @@ export const CoreSettingsPage: FC = () => {
 			})
 			.catch((e) => {
 				let message = t("core.generalErrorMessage");
-				if (typeof e.response._data.detail === "object")
-					message =
-						e.response._data.detail[Object.keys(e.response._data.detail)[0]];
-				if (typeof e.response._data.detail === "string")
-					message = e.response._data.detail;
+				const detail = e?.response?._data?.detail;
+				if (typeof detail === "object" && detail !== null)
+					message = detail[Object.keys(detail)[0]];
+				if (typeof detail === "string") message = detail;
 				toast({
 					title: message,
 					status: "error",
@@ -1137,6 +1138,14 @@ export const CoreSettingsPage: FC = () => {
 				checked ? "custom" : "default",
 			);
 			await fetchCoreSettings(selectedTarget);
+		} catch {
+			toast({
+				title: t("core.generalErrorMessage"),
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 3000,
+			});
 		} finally {
 			setIsChangingTargetMode(false);
 		}
@@ -2885,9 +2894,13 @@ export const CoreSettingsPage: FC = () => {
 					return;
 				}
 			}
-			form.setValue("config", canonicalizeRebeccaJson(cfg, "config"), {
-				shouldDirty: true,
-			});
+			form.setValue(
+				"config",
+				canonicalizeRebeccaJson(cfg, "config") as EditableCoreConfig,
+				{
+					shouldDirty: true,
+				},
+			);
 		} catch (_e) {
 			// ignore invalid JSON until it becomes valid
 		}

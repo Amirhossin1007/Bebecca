@@ -1,5 +1,9 @@
 import { fetch } from "service/http";
+import { type CoreConfig, parseCoreConfig } from "utils/coreConfig";
 import { create } from "zustand";
+
+let coreFetchSequence = 0;
+let coreFetchAbortController: AbortController | null = null;
 
 export type CoreConfigTarget = {
 	id: string;
@@ -15,7 +19,7 @@ type CoreSettingsStore = {
 	isPostLoading: boolean;
 	fetchCoreSettings: (target?: string) => Promise<void>;
 	fetchConfigTargets: () => Promise<CoreConfigTarget[]>;
-	updateConfig: (json: any, target?: string) => Promise<void>;
+	updateConfig: (json: CoreConfig, target?: string) => Promise<void>;
 	updateConfigTargetMode: (
 		nodeId: number,
 		mode: "default" | "custom",
@@ -25,7 +29,7 @@ type CoreSettingsStore = {
 	started: boolean | null;
 	logs_websocket: string | null;
 	configTargets: CoreConfigTarget[];
-	config: any;
+	config: CoreConfig | null;
 };
 
 export const useCoreSettings = create<CoreSettingsStore>((set) => ({
@@ -45,42 +49,59 @@ export const useCoreSettings = create<CoreSettingsStore>((set) => ({
 		return targets;
 	},
 	fetchCoreSettings: async (target = "master") => {
+		const requestId = ++coreFetchSequence;
+		coreFetchAbortController?.abort();
+		const abortController = new AbortController();
+		coreFetchAbortController = abortController;
 		set({ isLoading: true });
 		try {
-			await Promise.all([
-				fetch("/core")
-					.then(({ version, started, logs_websocket }) => {
-						set({ version, started, logs_websocket });
-					})
-					.catch((error) => {
-						console.error("Error fetching /core:", error);
-						throw error;
-					}),
-				fetch("/core/config", { query: { target } })
-					.then((config) => {
-						set({ config });
-					})
-					.catch((error) => {
-						console.error("Error fetching /core/config:", error);
-						throw error;
-					}),
-				fetch<{ targets: CoreConfigTarget[] }>("/core/config/targets").then(
-					(response) => set({ configTargets: response?.targets || [] }),
-				),
+			const [core, config, targets] = await Promise.all([
+				fetch<{
+					version: string | null;
+					started: boolean | null;
+					logs_websocket: string | null;
+				}>("/core", { signal: abortController.signal }),
+				fetch<unknown>("/core/config", {
+					query: { target },
+					signal: abortController.signal,
+				}),
+				fetch<{ targets: CoreConfigTarget[] }>("/core/config/targets", {
+					signal: abortController.signal,
+				}),
 			]);
+			if (requestId !== coreFetchSequence || abortController.signal.aborted)
+				return;
+			set({
+				version: core.version,
+				started: core.started,
+				logs_websocket: core.logs_websocket,
+				config: parseCoreConfig(config),
+				configTargets: targets?.targets || [],
+			});
+		} catch (error) {
+			if (requestId !== coreFetchSequence || abortController.signal.aborted)
+				return;
+			console.error("Error fetching core settings:", error);
+			throw error;
 		} finally {
-			set({ isLoading: false });
+			if (requestId === coreFetchSequence) {
+				if (coreFetchAbortController === abortController) {
+					coreFetchAbortController = null;
+				}
+				set({ isLoading: false });
+			}
 		}
 	},
 	updateConfig: (body, target = "master") => {
 		set({ isPostLoading: true });
-		return fetch("/core/config", {
+		return fetch<unknown>("/core/config", {
 			method: "PUT",
 			query: { target },
 			body: JSON.stringify(body),
 			headers: { "Content-Type": "application/json" },
 		})
-			.then((response) => response)
+			.then(parseCoreConfig)
+			.then(() => undefined)
 			.catch((error) => {
 				console.error("Update error:", error);
 				throw error;

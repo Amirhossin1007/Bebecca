@@ -41,6 +41,30 @@ func TestImportRejectsUnsafeArchivePath(t *testing.T) {
 	}
 }
 
+func TestSafeExtractRejectsOversizedEntry(t *testing.T) {
+	archivePath := filepath.Join(t.TempDir(), "oversized.rbbackup")
+	file, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gzipWriter := gzip.NewWriter(file)
+	tarWriter := tar.NewWriter(gzipWriter)
+	if err := tarWriter.WriteHeader(&tar.Header{Name: "large", Mode: 0o600, Size: maxBackupExtractBytes + 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	err = safeExtract(archivePath, t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "too large") {
+		t.Fatalf("expected extraction size limit error, got %v", err)
+	}
+}
+
 func TestImportRejectsInvalidManifest(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "invalid.rbbackup")
 	writeBackupArchiveForTest(t, archivePath, map[string][]byte{

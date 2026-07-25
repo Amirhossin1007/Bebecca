@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGatewayForwardsAPIDirectlyToInProcessHandler(t *testing.T) {
@@ -181,5 +182,21 @@ func TestExtraListenAddrsUsePrimaryHostAndSkipDuplicates(t *testing.T) {
 	want = []string{"127.0.0.1:2053"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("extraListenAddrs(127.0.0.1:443)=%v want %v", got, want)
+	}
+}
+
+func TestNewHTTPServerSetsReadAndIdleTimeouts(t *testing.T) {
+	server := newHTTPServer(":8000", http.NotFoundHandler())
+	if server.ReadHeaderTimeout != 15*time.Second {
+		t.Fatalf("ReadHeaderTimeout = %s", server.ReadHeaderTimeout)
+	}
+	if server.ReadTimeout != 30*time.Second {
+		t.Fatalf("ReadTimeout = %s", server.ReadTimeout)
+	}
+	if server.IdleTimeout != 2*time.Minute {
+		t.Fatalf("IdleTimeout = %s", server.IdleTimeout)
+	}
+	if server.WriteTimeout != 0 {
+		t.Fatalf("WriteTimeout = %s, want 0 for WebSocket streams", server.WriteTimeout)
 	}
 }

@@ -38,7 +38,13 @@ func (s *Server) handleAdminToken(w http.ResponseWriter, r *http.Request) {
 	}
 	username := strings.TrimSpace(credentials.Username)
 	password := credentials.Password
+	limitKey := loginRateLimitKey(r, username)
+	if !s.loginLimiter.allowed(limitKey) {
+		writeLoginRateLimited(w)
+		return
+	}
 	if username == "" || password == "" {
+		s.loginLimiter.recordFailure(limitKey)
 		logging.Warnf(logging.ComponentAdmin, "login failed username=%q remote=%s reason=missing_credentials", username, requestRemote(r))
 		s.telegramReports.Login(r.Context(), telegramapp.LoginReport{
 			Username: username,
@@ -56,6 +62,7 @@ func (s *Server) handleAdminToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
+		s.loginLimiter.recordFailure(limitKey)
 		logging.Warnf(logging.ComponentAdmin, "login failed username=%q remote=%s reason=%s", username, requestRemote(r), reason)
 		s.telegramReports.Login(r.Context(), telegramapp.LoginReport{
 			Username: username,
@@ -65,6 +72,7 @@ func (s *Server) handleAdminToken(w http.ResponseWriter, r *http.Request) {
 		writeAdminLoginFailed(w)
 		return
 	}
+	s.loginLimiter.reset(limitKey)
 
 	secret, err := s.adminRepo.AdminSecret(r.Context())
 	if err != nil {
@@ -218,6 +226,17 @@ func requestRemote(r *http.Request) string {
 			return strings.TrimSpace(first)
 		}
 		return forwarded
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && host != "" {
+		return host
+	}
+	return r.RemoteAddr
+}
+
+func requestPeer(r *http.Request) string {
+	if r == nil {
+		return ""
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {

@@ -120,6 +120,21 @@ func TestRunMigrationsExternalDatabase(t *testing.T) {
 		t.Fatalf("open external database: %v", err)
 	}
 	t.Cleanup(func() { _ = pool.DB.Close() })
+	initial, err := Version(ctx, pool.DB, pool.Dialect)
+	if err != nil {
+		t.Fatalf("read external version: %v", err)
+	}
+	if !initial.HasGoose {
+		if err := RunMigrationsTo(ctx, pool.DB, pool.Dialect, 3); err != nil {
+			t.Fatalf("migrate external database to legacy checkpoint: %v", err)
+		}
+		if _, err := pool.DB.ExecContext(ctx, `INSERT INTO admins (id, username, hashed_password, role, status) VALUES (?, ?, ?, ?, ?)`, 9001, "legacy_external_admin", "hash", "standard", "active"); err != nil {
+			t.Fatalf("seed external legacy admin: %v", err)
+		}
+		if _, err := pool.DB.ExecContext(ctx, `INSERT INTO users (id, username, admin_id, status, data_limit) VALUES (?, ?, ?, ?, ?)`, 9001, "legacy_external_user", 9001, "active", 123); err != nil {
+			t.Fatalf("seed external legacy user: %v", err)
+		}
+	}
 	if err := RunMigrations(ctx, pool.DB, pool.Dialect); err != nil {
 		t.Fatalf("run external migrations: %v", err)
 	}
@@ -137,6 +152,15 @@ func TestRunMigrationsExternalDatabase(t *testing.T) {
 		}
 		if !hasTable {
 			t.Fatalf("missing external table %s", table)
+		}
+	}
+	if !initial.HasGoose {
+		var dataLimit int64
+		if err := pool.DB.QueryRowContext(ctx, `SELECT data_limit FROM users WHERE id = ?`, 9001).Scan(&dataLimit); err != nil {
+			t.Fatalf("read migrated external legacy user: %v", err)
+		}
+		if dataLimit != 123 {
+			t.Fatalf("legacy data limit = %d, want 123", dataLimit)
 		}
 	}
 }

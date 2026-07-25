@@ -30,6 +30,11 @@ type Service struct {
 	fileRoots   []FileRoot
 }
 
+const (
+	maxBackupExtractBytes   int64 = 1 << 30
+	maxBackupArchiveEntries       = 10_000
+)
+
 type Option func(*Service)
 
 func WithFileRoots(roots []FileRoot) Option {
@@ -1050,6 +1055,8 @@ func safeExtract(archivePath string, destination string) error {
 	if err != nil {
 		return err
 	}
+	entries := 0
+	var extracted int64
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -1057,6 +1064,10 @@ func safeExtract(archivePath string, destination string) error {
 		}
 		if err != nil {
 			return err
+		}
+		entries++
+		if entries > maxBackupArchiveEntries {
+			return Error{Message: "Backup archive contains too many entries"}
 		}
 		entryName, err := safeArchiveName(header.Name)
 		if err != nil {
@@ -1069,6 +1080,9 @@ func safeExtract(archivePath string, destination string) error {
 				return err
 			}
 		case tar.TypeReg, tar.TypeRegA:
+			if header.Size < 0 || header.Size > maxBackupExtractBytes-extracted {
+				return Error{Message: "Backup archive is too large to extract"}
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
@@ -1076,13 +1090,15 @@ func safeExtract(archivePath string, destination string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(out, tarReader); err != nil {
+			written, copyErr := io.Copy(out, tarReader)
+			if copyErr != nil {
 				_ = out.Close()
-				return err
+				return copyErr
 			}
 			if err := out.Close(); err != nil {
 				return err
 			}
+			extracted += written
 		default:
 			return Error{Message: "Backup archive contains unsupported linked or device entries"}
 		}

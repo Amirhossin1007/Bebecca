@@ -73,6 +73,9 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+		// WriteTimeout stays unset because dashboard WebSocket streams can be long-lived.
 	}
 }
 

@@ -100,6 +100,23 @@ func TestBackupImportRoute(t *testing.T) {
 	}
 }
 
+func TestBackupImportRejectsOversizedUpload(t *testing.T) {
+	t.Setenv("REBECCA_INSTALL_MODE", "binary")
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	token := adminBearerToken(t, server, "pouria", "pass123")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import?scope=database", strings.NewReader("x"))
+	req.Header.Set("Authorization", token)
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=test")
+	req.ContentLength = maxBackupUploadBytes + 1
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestTelegramManualBackupSendRoute(t *testing.T) {
 	t.Setenv("REBECCA_INSTALL_MODE", "binary")
 	server, db := testAdminServer(t)

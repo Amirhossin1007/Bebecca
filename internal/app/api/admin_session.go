@@ -41,7 +41,13 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := strings.TrimSpace(credentials.Username)
+	limitKey := loginRateLimitKey(r, username)
+	if !s.loginLimiter.allowed(limitKey) {
+		writeLoginRateLimited(w)
+		return
+	}
 	if username == "" || credentials.Password == "" {
+		s.loginLimiter.recordFailure(limitKey)
 		writeAdminLoginFailed(w)
 		return
 	}
@@ -51,11 +57,13 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
+		s.loginLimiter.recordFailure(limitKey)
 		logging.Warnf(logging.ComponentAdmin, "session login failed username=%q remote=%s reason=%s", username, requestRemote(r), reason)
 		s.telegramReports.Login(r.Context(), telegramapp.LoginReport{Username: username, ClientIP: requestRemote(r), Success: false})
 		writeAdminLoginFailed(w)
 		return
 	}
+	s.loginLimiter.reset(limitKey)
 
 	state := adminapp.SessionActive
 	lifetime := activeSessionLife
