@@ -26,25 +26,36 @@ const (
 )
 
 type recentActionSnapshot struct {
-	Before        xrayconfig.MutationSnapshot `json:"before"`
-	After         xrayconfig.MutationSnapshot `json:"after"`
-	ConfigPatches []xrayconfig.ConfigPatch    `json:"config_patches,omitempty"`
+	Before         xrayconfig.MutationSnapshot `json:"before"`
+	After          xrayconfig.MutationSnapshot `json:"after"`
+	ConfigPatches  []xrayconfig.ConfigPatch    `json:"config_patches,omitempty"`
+	ConfigPreviews []recentActionConfigPreview `json:"config_previews,omitempty"`
+}
+
+type recentActionConfigPreview struct {
+	TargetID     string   `json:"target_id"`
+	Path         string   `json:"path"`
+	ChangedPaths []string `json:"changed_paths"`
+	Before       any      `json:"before,omitempty"`
+	After        any      `json:"after,omitempty"`
+	BeforeExists bool     `json:"before_exists"`
+	AfterExists  bool     `json:"after_exists"`
 }
 
 type recentActionItem struct {
-	ID                int64   `json:"id"`
-	ActionType        string  `json:"action_type"`
-	ResourceType      string  `json:"resource_type"`
-	ResourceKey       string  `json:"resource_key"`
-	ActorAdminID      *int64  `json:"actor_admin_id,omitempty"`
-	ActorUsername     string  `json:"actor_username"`
-	AuthSource        string  `json:"auth_source"`
-	Summary           string  `json:"summary"`
-	RollbackStatus    string  `json:"rollback_status"`
-	CreatedAt         string  `json:"created_at"`
-	SnapshotExpiresAt *string `json:"snapshot_expires_at,omitempty"`
-	UndoneAt          *string `json:"undone_at,omitempty"`
-	UndoneByAdminID   *int64  `json:"undone_by_admin_id,omitempty"`
+	ID                int64                `json:"id"`
+	ActionType        string               `json:"action_type"`
+	ResourceType      string               `json:"resource_type"`
+	ResourceKey       string               `json:"resource_key"`
+	ActorAdminID      *int64               `json:"actor_admin_id,omitempty"`
+	ActorUsername     string               `json:"actor_username"`
+	AuthSource        string               `json:"auth_source"`
+	Summary           string               `json:"summary"`
+	RollbackStatus    string               `json:"rollback_status"`
+	CreatedAt         string               `json:"created_at"`
+	SnapshotExpiresAt *string              `json:"snapshot_expires_at,omitempty"`
+	UndoneAt          *string              `json:"undone_at,omitempty"`
+	UndoneByAdminID   *int64               `json:"undone_by_admin_id,omitempty"`
 	Preview           *recentActionPreview `json:"preview,omitempty"`
 }
 
@@ -88,9 +99,22 @@ func (s *Server) recordRecentActionTx(ctx context.Context, tx *sql.Tx, mutation 
 	if beforeHash == afterHash && len(configPatches) == 0 {
 		return nil
 	}
-	payload, err := encodeRecentActionSnapshot(recentActionSnapshot{Before: before, After: after, ConfigPatches: configPatches})
+	snapshot := recentActionSnapshot{
+		Before:         before,
+		After:          after,
+		ConfigPatches:  configPatches,
+		ConfigPreviews: recentActionConfigPreviews(configPatches, mutation.Before.TargetStates, mutation.After.TargetStates),
+	}
+	payload, err := encodeRecentActionSnapshot(snapshot)
 	if err != nil {
 		return err
+	}
+	if len(payload) > recentActionSnapshotMaxSize && len(snapshot.ConfigPreviews) > 0 {
+		snapshot.ConfigPreviews = nil
+		payload, err = encodeRecentActionSnapshot(snapshot)
+		if err != nil {
+			return err
+		}
 	}
 	if len(payload) > recentActionSnapshotMaxSize {
 		return fmt.Errorf("recent action snapshot exceeds the 1 MiB safety limit")
@@ -240,6 +264,75 @@ func withoutConfigTargetStates(snapshot xrayconfig.MutationSnapshot) xrayconfig.
 	return result
 }
 
+func recentActionConfigPreviews(patches []xrayconfig.ConfigPatch, before, after []xrayconfig.TargetState) []recentActionConfigPreview {
+	beforeByTarget := recentActionTargetStates(before)
+	afterByTarget := recentActionTargetStates(after)
+	previews := []recentActionConfigPreview{}
+	for _, patch := range patches {
+		for _, change := range patch.Changes {
+			scope := recentActionConfigPreviewScope(change.Path)
+			if scope == "" || scope == change.Path {
+				continue
+			}
+			found := false
+			for index := range previews {
+				if previews[index].TargetID == patch.TargetID && previews[index].Path == scope {
+					previews[index].ChangedPaths = append(previews[index].ChangedPaths, change.Path)
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+			beforeValue, beforeExists := recentActionConfigPreviewValue(beforeByTarget[patch.TargetID], scope)
+			afterValue, afterExists := recentActionConfigPreviewValue(afterByTarget[patch.TargetID], scope)
+			previews = append(previews, recentActionConfigPreview{
+				TargetID: patch.TargetID, Path: scope, ChangedPaths: []string{change.Path},
+				Before: beforeValue, After: afterValue, BeforeExists: beforeExists, AfterExists: afterExists,
+			})
+		}
+	}
+	return previews
+}
+
+func recentActionTargetStates(states []xrayconfig.TargetState) map[string]xrayconfig.TargetState {
+	result := make(map[string]xrayconfig.TargetState, len(states))
+	for _, state := range states {
+		result[state.TargetID] = state
+	}
+	return result
+}
+
+func recentActionConfigPreviewValue(state xrayconfig.TargetState, path string) (any, bool) {
+	if !state.HasStoredConfig {
+		return nil, false
+	}
+	value, exists, err := xrayconfig.ConfigPathValue(state.StoredConfig, path)
+	if err != nil {
+		return nil, false
+	}
+	return value, exists
+}
+
+func recentActionConfigPreviewScope(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) < 2 || parts[0] == "" {
+		return ""
+	}
+	scope := []string{parts[0]}
+	for _, part := range parts[1:] {
+		scope = append(scope, part)
+		if strings.HasPrefix(part, "@tag=") {
+			return "/" + strings.Join(scope, "/")
+		}
+		if _, err := strconv.Atoi(part); err == nil {
+			return "/" + strings.Join(scope, "/")
+		}
+	}
+	return "/" + parts[0]
+}
+
 func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -350,6 +443,9 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 		if len(snapshot.ConfigPatches) > 0 {
 			response["config_changes"] = redactRecentActionConfigChanges(snapshot.ConfigPatches)
 		}
+		if len(snapshot.ConfigPreviews) > 0 {
+			response["config_previews"] = redactRecentActionConfigPreviews(snapshot.ConfigPreviews)
+		}
 	}
 	response["action"] = action.recentActionItem
 	writeJSON(w, http.StatusOK, response)
@@ -416,6 +512,15 @@ func redactRecentActionConfigChanges(patches []xrayconfig.ConfigPatch) []map[str
 	return changes
 }
 
+func redactRecentActionConfigPreviews(previews []recentActionConfigPreview) []recentActionConfigPreview {
+	result := append([]recentActionConfigPreview(nil), previews...)
+	for index := range result {
+		result[index].Before = redactRecentActionSnapshot(result[index].Before)
+		result[index].After = redactRecentActionSnapshot(result[index].After)
+	}
+	return result
+}
+
 type rowScanner interface{ Scan(...any) error }
 
 func scanRecentActionListItem(scanner rowScanner) (recentActionItem, []byte, error) {
@@ -479,6 +584,9 @@ func recentActionSnapshotPreview(snapshot recentActionSnapshot, actionType, reso
 				Before: recentActionPreviewValue(change.Before, change.BeforeExists),
 				After:  recentActionPreviewValue(change.After, change.AfterExists),
 			}
+			if resource := recentActionConfigResource(change.Path); resource != "" {
+				preview.Resource = resource
+			}
 			if operation, resource := recentActionConfigOperation(change); operation != "" {
 				preview.Operation = operation
 				preview.Resource = resource
@@ -504,7 +612,7 @@ func recentActionConfigOperation(change xrayconfig.ConfigPatchChange) (string, s
 	if len(parts) != 2 || !strings.HasPrefix(parts[1], "@tag=") || change.BeforeExists == change.AfterExists {
 		return "", ""
 	}
-	resource := recentActionResourceName(parts[0])
+	resource := recentActionConfigResource(change.Path)
 	if resource == "" {
 		return "", ""
 	}
@@ -514,20 +622,33 @@ func recentActionConfigOperation(change xrayconfig.ConfigPatchChange) (string, s
 	return "deleted", resource
 }
 
-func recentActionResourceName(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	switch value {
+func recentActionConfigResource(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	switch parts[0] {
 	case "inbounds":
 		return "inbound"
 	case "outbounds":
 		return "outbound"
-	case "hosts":
-		return "host"
-	case "services":
-		return "service"
-	}
-	if len(value) > 1 && strings.HasSuffix(value, "s") {
-		return strings.TrimSuffix(value, "s")
+	case "routing":
+		if len(parts) > 1 && parts[1] == "rules" {
+			return "routing_rule"
+		}
+		return "routing"
+	case "dns":
+		if len(parts) > 1 && parts[1] == "servers" {
+			return "dns_server"
+		}
+		if len(parts) > 1 && parts[1] == "hosts" {
+			return "dns_host"
+		}
+		return "dns"
+	case "log", "api", "policy", "stats", "transport", "reverse", "metrics", "observatory", "fakedns":
+		return parts[0]
+	case "burstObservatory":
+		return "burst_observatory"
 	}
 	return ""
 }

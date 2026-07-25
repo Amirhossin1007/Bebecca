@@ -42,11 +42,13 @@ import { fetch } from "service/http";
 import { AdminRole, AdminSudoScope } from "types/Admin";
 import { buildJsonDiff } from "utils/jsonDiff";
 
+type RecentActionOperation = "created" | "deleted" | "updated";
+
 type RecentActionPreview = {
 	field?: string;
 	before?: string;
 	after?: string;
-	operation?: "created" | "deleted";
+	operation?: RecentActionOperation;
 	resource?: string;
 };
 
@@ -80,6 +82,7 @@ type RecentActionDetail = {
 	before?: unknown;
 	after?: unknown;
 	config_changes?: RecentActionConfigChange[];
+	config_previews?: RecentActionConfigPreview[];
 };
 
 type RecentActionConfigChange = {
@@ -90,6 +93,10 @@ type RecentActionConfigChange = {
 	after?: unknown;
 	before_exists: boolean;
 	after_exists: boolean;
+};
+
+type RecentActionConfigPreview = RecentActionConfigChange & {
+	changed_paths: string[];
 };
 
 const statusTone = (status: RecentAction["rollback_status"]) => {
@@ -110,20 +117,17 @@ const statusTone = (status: RecentAction["rollback_status"]) => {
 const actionOperation = (actionType: string) => {
 	if (actionType.includes(".create")) return "created" as const;
 	if (actionType.includes(".delete")) return "deleted" as const;
-	return undefined;
+	return "updated" as const;
 };
 
 const actionLifecycle = (action: RecentAction) => {
-	const operation =
-		action.preview?.operation ?? actionOperation(action.action_type);
-	return operation
-		? { operation, resource: action.preview?.resource ?? action.resource_type }
-		: undefined;
+	return {
+		operation: action.preview?.operation ?? actionOperation(action.action_type),
+		resource: action.preview?.resource ?? action.resource_type,
+	};
 };
 
-const actionOperationVisual = (
-	operation: "created" | "deleted" | "updated",
-) => {
+const actionOperationVisual = (operation: RecentActionOperation) => {
 	switch (operation) {
 		case "created":
 			return { color: "green.400", icon: <PlusCircleIcon width={18} /> };
@@ -131,6 +135,96 @@ const actionOperationVisual = (
 			return { color: "red.400", icon: <TrashIcon width={18} /> };
 		default:
 			return { color: "blue.400", icon: <PencilSquareIcon width={18} /> };
+	}
+};
+
+const recentActionResourceKeys = new Set([
+	"host",
+	"inbound",
+	"outbound",
+	"service",
+	"xray_config",
+	"routing",
+	"routing_rule",
+	"dns",
+	"dns_server",
+	"dns_host",
+	"log",
+	"api",
+	"policy",
+	"stats",
+	"transport",
+	"reverse",
+	"metrics",
+	"observatory",
+	"burst_observatory",
+	"fakedns",
+]);
+
+const recentActionFieldKeys = new Set([
+	"name",
+	"tag",
+	"protocol",
+	"address",
+	"port",
+	"settings",
+	"servers",
+	"rules",
+	"domains",
+	"domain",
+	"network",
+	"security",
+	"host",
+	"path",
+	"sni",
+	"alpn",
+	"fingerprint",
+	"flow",
+	"loglevel",
+	"access",
+	"error",
+	"listen",
+	"services",
+	"strategy",
+	"outboundTag",
+	"inboundTag",
+	"balancerTag",
+	"domainStrategy",
+	"queryStrategy",
+	"clientIp",
+	"expectIPs",
+	"subjectSelector",
+	"probeUrl",
+	"probeInterval",
+	"type",
+	"request",
+	"response",
+	"header",
+]);
+
+const resourceTranslationKey = (resource: string) =>
+	recentActionResourceKeys.has(resource)
+		? `recentActions.resources.${resource}`
+		: "recentActions.resources.configuration";
+
+const changedFieldTranslationKey = (path?: string) => {
+	const field = path?.split("/").filter(Boolean).at(-1);
+	return field && recentActionFieldKeys.has(field)
+		? `recentActions.fields.${field}`
+		: undefined;
+};
+
+const actionTypeResource = (actionType: string) => {
+	switch (actionType.split(".")[0]) {
+		case "host":
+		case "inbound":
+		case "outbound":
+		case "service":
+			return actionType.split(".")[0];
+		case "xray":
+			return "xray_config";
+		default:
+			return "configuration";
 	}
 };
 
@@ -223,14 +317,18 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 };
 
 const ActionPreview: FC<{ preview?: RecentActionPreview }> = ({ preview }) => {
+	const { t } = useTranslation();
 	if (!preview || preview.operation) {
 		return <Text color="panel.textMuted">—</Text>;
 	}
+	const field = changedFieldTranslationKey(preview.field);
 	return (
 		<VStack align="start" spacing={0.5} minW={0}>
-			<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
-				{preview.field}
-			</Text>
+			{field && (
+				<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+					{t(field)}
+				</Text>
+			)}
 			<HStack spacing={1.5} minW={0} maxW="full">
 				<Text color="red.300" textDecoration="line-through" noOfLines={1}>
 					{preview.before}
@@ -294,6 +392,10 @@ export const RecentActionsPage: FC = () => {
 			Array.from(new Set(actions.map((action) => action.action_type))).sort(),
 		[actions],
 	);
+	const actionTypeLabel = (type: string) => {
+		const resource = t(resourceTranslationKey(actionTypeResource(type)));
+		return t(`recentActions.operations.${actionOperation(type)}`, { resource });
+	};
 	const resourceTypes = useMemo(
 		() =>
 			Array.from(new Set(actions.map((action) => action.resource_type))).sort(),
@@ -339,11 +441,8 @@ export const RecentActionsPage: FC = () => {
 				minWidth: "190px",
 				cell: (action) => {
 					const lifecycle = actionLifecycle(action);
-					const operation = lifecycle?.operation ?? "updated";
-					const resourceType = lifecycle?.resource ?? action.resource_type;
-					const resource = t(`recentActions.resources.${resourceType}`, {
-						defaultValue: resourceType.replaceAll("_", " "),
-					});
+					const operation = lifecycle.operation;
+					const resource = t(resourceTranslationKey(lifecycle.resource));
 					const visual = actionOperationVisual(operation);
 					return (
 						<HStack align="start" spacing={2.5} minW={0}>
@@ -353,9 +452,6 @@ export const RecentActionsPage: FC = () => {
 							<VStack align="start" spacing={0} minW={0}>
 								<Text fontWeight="semibold" noOfLines={1} maxW="full">
 									{t(`recentActions.operations.${operation}`, { resource })}
-								</Text>
-								<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
-									{action.summary}
 								</Text>
 							</VStack>
 						</HStack>
@@ -368,14 +464,11 @@ export const RecentActionsPage: FC = () => {
 				priority: "high",
 				minWidth: "180px",
 				cell: (action) => {
-					const resourceType =
-						actionLifecycle(action)?.resource ?? action.resource_type;
+					const resourceType = actionLifecycle(action).resource;
 					return (
 						<VStack align="start" spacing={1} minW={0}>
 							<Badge variant="subtle">
-								{t(`recentActions.resources.${resourceType}`, {
-									defaultValue: resourceType.replaceAll("_", " "),
-								})}
+								{t(resourceTranslationKey(resourceType))}
 							</Badge>
 							<Text
 								fontFamily="mono"
@@ -472,14 +565,24 @@ export const RecentActionsPage: FC = () => {
 
 	const detail = detailQuery.data;
 	const configChanges = detail?.config_changes ?? [];
+	const configPreviews = detail?.config_previews ?? [];
+	const displayConfigChanges =
+		configPreviews.length > 0 ? configPreviews : configChanges;
 	const diffPaths =
-		configChanges.length > 0
-			? configChanges.map(
-					(change) => `${change.target_id}:${change.path || "/"}`,
+		displayConfigChanges.length > 0
+			? displayConfigChanges.flatMap((change) =>
+					"changed_paths" in change ? change.changed_paths : [change.path],
 				)
 			: detail?.snapshot_available
 				? changedPaths(detail.before, detail.after)
 				: [];
+	const diffPathLabels = Array.from(
+		new Set(
+			diffPaths
+				.map(changedFieldTranslationKey)
+				.filter((key): key is string => Boolean(key)),
+		),
+	);
 	const rollbackError = rollbackMutation.error as {
 		data?: { detail?: string; conflict_paths?: string[] };
 		message?: string;
@@ -547,7 +650,7 @@ export const RecentActionsPage: FC = () => {
 						<option value="">{t("recentActions.filters.allActions")}</option>
 						{actionTypes.map((type) => (
 							<option key={type} value={type}>
-								{type}
+								{actionTypeLabel(type)}
 							</option>
 						))}
 					</Select>
@@ -561,7 +664,7 @@ export const RecentActionsPage: FC = () => {
 						<option value="">{t("recentActions.filters.allResources")}</option>
 						{resourceTypes.map((type) => (
 							<option key={type} value={type}>
-								{type}
+								{t(resourceTranslationKey(type))}
 							</option>
 						))}
 					</Select>
@@ -676,41 +779,60 @@ export const RecentActionsPage: FC = () => {
 						</Alert>
 					) : detail?.snapshot_available ? (
 						<Stack spacing={4}>
-							{diffPaths.length > 0 && (
+							{diffPathLabels.length > 0 && (
 								<Box>
 									<Text fontSize="sm" color="panel.textSecondary" mb={2}>
 										{t("recentActions.changedPaths")}
 									</Text>
 									<HStack spacing={2} flexWrap="wrap">
-										{diffPaths.map((path) => (
-											<Badge key={path} colorScheme="orange">
-												{path}
+										{diffPathLabels.map((label) => (
+											<Badge key={label} colorScheme="orange">
+												{t(label)}
 											</Badge>
 										))}
 									</HStack>
 								</Box>
 							)}
-							{configChanges.length > 0 ? (
+							{displayConfigChanges.length > 0 ? (
 								<Stack spacing={4}>
-									{configChanges.map((change, index) => (
-										<Box
-											key={`${change.target_id}-${change.path}-${index}`}
-											borderWidth="1px"
-											borderColor="panel.border"
-											borderRadius="md"
-											p={3}
-										>
-											<Text fontSize="sm" color="panel.textSecondary" mb={3}>
-												{change.target_id}:{change.path || "/"}
-											</Text>
-											<JsonDiffEditors
-												before={
-													change.before_exists ? change.before : undefined
-												}
-												after={change.after_exists ? change.after : undefined}
-											/>
-										</Box>
-									))}
+									{displayConfigChanges.map((change, index) => {
+										const paths =
+											"changed_paths" in change
+												? change.changed_paths
+												: [change.path];
+										const labels = Array.from(
+											new Set(
+												paths
+													.map(changedFieldTranslationKey)
+													.filter((key): key is string => Boolean(key)),
+											),
+										);
+										return (
+											<Box
+												key={`${change.target_id}-${change.path}-${index}`}
+												borderWidth="1px"
+												borderColor="panel.border"
+												borderRadius="md"
+												p={3}
+											>
+												{labels.length > 0 && (
+													<Text
+														fontSize="sm"
+														color="panel.textSecondary"
+														mb={3}
+													>
+														{labels.map((label) => t(label)).join(" · ")}
+													</Text>
+												)}
+												<JsonDiffEditors
+													before={
+														change.before_exists ? change.before : undefined
+													}
+													after={change.after_exists ? change.after : undefined}
+												/>
+											</Box>
+										);
+									})}
 								</Stack>
 							) : (
 								<JsonDiffEditors before={detail.before} after={detail.after} />

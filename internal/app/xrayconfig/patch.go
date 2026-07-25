@@ -369,6 +369,12 @@ func configPathValue(root map[string]any, path string) (any, bool, error) {
 	return current, true, nil
 }
 
+// ConfigPathValue returns a value from a config patch path without exposing
+// the patch implementation to callers that only need to render it.
+func ConfigPathValue(root map[string]any, path string) (any, bool, error) {
+	return configPathValue(root, path)
+}
+
 func setConfigPathValue(root map[string]any, path string, value any, exists bool) error {
 	parts := configPathParts(path)
 	if len(parts) == 0 {
