@@ -21,7 +21,7 @@ func TestGitHubUpdateCheckerCachesSuccessfulStatus(t *testing.T) {
 				"name":         "v0.2.0",
 				"published_at": "2026-06-24T00:00:00Z",
 			})
-		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
+		case "/Amirhossin1007/Rebecca/dev-build-manifest/dev-builds.json":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"latest": map[string]any{
 					"build_tag":    "dev-abcdef0",
@@ -71,7 +71,7 @@ func TestGitHubUpdateCheckerFindsDevBuildThroughWorkflowEndpoint(t *testing.T) {
 		switch r.URL.Path {
 		case "/repos/rebeccapanel/Rebecca/releases/latest":
 			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v0.2.0"})
-		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
+		case "/Amirhossin1007/Rebecca/dev-build-manifest/dev-builds.json":
 			http.NotFound(w, r)
 		case "/repos/rebeccapanel/Rebecca/actions/workflows/binary-build.yml/runs":
 			query := r.URL.Query()
