@@ -58,6 +58,8 @@ type Options struct {
 	APIHost                 string
 	APIPort                 int
 	UseVerifyPeerCertByName *bool
+	MutationRecorder        MutationRecorder
+	RollbackMarker          RollbackMarker
 }
 
 type Config struct {

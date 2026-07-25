@@ -32,36 +32,37 @@ import (
 )
 
 type Server struct {
-	cfg                Config
-	db                 *sql.DB
-	dialect            string
-	adminRepo          adminapp.Repository
-	adminAuth          adminapp.Authenticator
-	nodeController     nodecontroller.Controller
-	nodeMutations      nodeapp.Repository
-	systemService      *systemapp.Service
-	maintenance        *systemapp.MaintenanceService
-	usageService       usage.Service
-	userService        userapp.Service
-	warpService        warpapp.Service
-	nordService        nordvpnapp.Service
-	outboundSubs       outboundsubapp.Service
-	configRepo         xrayconfig.Repository
-	settingsRepo       settingsapp.Repository
-	telegramRepo       telegramapp.Repository
-	telegramSender     telegramapp.Sender
-	telegramReports    telegramapp.Reporter
-	telegramBackup     telegramapp.BackupDelivery
-	webhookRepo        webhookapp.Repository
-	webhookDispatch    webhookapp.Dispatcher
-	backupService      *backupapp.Service
-	backgroundOnce     sync.Once
-	userOpsKickMu      sync.Mutex
-	userOpsKicking     bool
-	userOpsKickUserIDs map[int64]struct{}
-	sessionAdmissionMu sync.Mutex
-	loginLimiter       loginRateLimiter
-	operators          *operatorResolver
+	cfg                  Config
+	db                   *sql.DB
+	dialect              string
+	adminRepo            adminapp.Repository
+	adminAuth            adminapp.Authenticator
+	nodeController       nodecontroller.Controller
+	nodeMutations        nodeapp.Repository
+	systemService        *systemapp.Service
+	maintenance          *systemapp.MaintenanceService
+	usageService         usage.Service
+	userService          userapp.Service
+	warpService          warpapp.Service
+	nordService          nordvpnapp.Service
+	outboundSubs         outboundsubapp.Service
+	configRepo           xrayconfig.Repository
+	settingsRepo         settingsapp.Repository
+	telegramRepo         telegramapp.Repository
+	telegramSender       telegramapp.Sender
+	telegramReports      telegramapp.Reporter
+	telegramBackup       telegramapp.BackupDelivery
+	webhookRepo          webhookapp.Repository
+	webhookDispatch      webhookapp.Dispatcher
+	backupService        *backupapp.Service
+	backgroundOnce       sync.Once
+	userOpsKickMu        sync.Mutex
+	userOpsKicking       bool
+	userOpsKickUserIDs   map[int64]struct{}
+	sessionAdmissionMu   sync.Mutex
+	loginLimiter         loginRateLimiter
+	operators            *operatorResolver
+	recentActionsEnabled bool
 }
 
 func New(cfg Config) (*Server, error) {
@@ -101,8 +102,7 @@ func New(cfg Config) (*Server, error) {
 	})
 	backupService := backupapp.NewService(pool.DB, pool.Dialect, cfg.Database)
 	outboundSubs := outboundsubapp.NewService(pool.DB, pool.Dialect)
-	configRepo := xrayconfig.NewRepository(pool.DB, pool.Dialect, xrayconfig.Options{})
-	return &Server{
+	server := &Server{
 		cfg:            cfg,
 		db:             pool.DB,
 		dialect:        pool.Dialect,
@@ -117,7 +117,6 @@ func New(cfg Config) (*Server, error) {
 		warpService:    warpapp.NewService(warpRepo, warpapp.NewClient("")),
 		nordService:    nordvpnapp.NewService(nordRepo, nordvpnapp.NewClient("")),
 		outboundSubs:   outboundSubs,
-		configRepo:     configRepo,
 		operators:      newOperatorResolver(),
 		settingsRepo:   settingsRepo,
 		telegramRepo:   telegramRepo,
@@ -126,11 +125,17 @@ func New(cfg Config) (*Server, error) {
 			telegramRepo,
 			telegramSender,
 		),
-		telegramBackup:  telegramapp.NewBackupDelivery(telegramRepo, telegramSender),
-		webhookRepo:     webhookRepo,
-		webhookDispatch: webhookDispatch,
-		backupService:   backupService,
-	}, nil
+		telegramBackup:       telegramapp.NewBackupDelivery(telegramRepo, telegramSender),
+		webhookRepo:          webhookRepo,
+		webhookDispatch:      webhookDispatch,
+		backupService:        backupService,
+		recentActionsEnabled: true,
+	}
+	server.configRepo = xrayconfig.NewRepository(pool.DB, pool.Dialect, xrayconfig.Options{
+		MutationRecorder: server.recordXrayMutationTx,
+		RollbackMarker:   server.markRecentActionUndoneTx,
+	})
+	return server, nil
 }
 
 func applyRuntimeSettingsToConfig(cfg *Config, settings settingsapp.RuntimeSettings) {

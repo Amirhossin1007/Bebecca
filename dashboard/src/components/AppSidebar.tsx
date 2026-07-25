@@ -43,6 +43,8 @@ import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
 import {
 	AdminRole,
 	AdminSection,
+	AdminSudoScope,
+	UserPermissionToggle,
 } from "types/Admin";
 import {
 	getTutorialManifestUrl,
@@ -151,6 +153,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const canViewServicesSection = Boolean(
 		sectionAccess?.[AdminSection.Services],
 	);
+	const canViewRecentActions =
+		isFullAccess ||
+		(userData.role === AdminRole.Sudo &&
+			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
 	const [hasNewTutorials, setHasNewTutorials] = useState(false);
 
 	const checkTutorialUpdates = useCallback(async () => {
@@ -227,6 +233,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					title: t("header.accessInsights"),
 					url: "/access-insights",
 					icon: InsightsIconStyled,
+				}
+			: null,
+		canViewRecentActions
+			? {
+					title: t("recentActions.title"),
+					url: "/recent-actions",
+					icon: BulkActionsIconStyled,
 				}
 			: null,
 		isPrivilegedAdmin

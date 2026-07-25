@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
 var (
@@ -224,15 +225,22 @@ func (s *Server) modifyHosts(r *http.Request, payload map[string][]hostPayload) 
 		}
 	}
 
+	inboundTags := sortedMapKeys(payload)
 	tx, err := s.db.BeginTx(r.Context(), nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
+	var before xrayconfig.MutationSnapshot
+	if s.recentActionsEnabled {
+		before, err = s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: inboundTags})
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	affectedServices := make(map[int64]bool)
 	beforeServiceTags := map[int64]map[string]bool{}
-	inboundTags := sortedMapKeys(payload)
 	for _, inboundTag := range inboundTags {
 		if err := ensureHostInboundRecordTx(r.Context(), tx, inboundTag); err != nil {
 			return nil, err
@@ -251,6 +259,18 @@ func (s *Server) modifyHosts(r *http.Request, payload map[string][]hostPayload) 
 	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, changedServices); err != nil {
 		return nil, err
 	}
+	if s.recentActionsEnabled {
+		after, err := s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: inboundTags})
+		if err != nil {
+			return nil, err
+		}
+		if err := s.recordRecentActionTx(r.Context(), tx, xrayconfig.Mutation{
+			ActionType: "host.bulk_update", ResourceType: "host", ResourceKey: strings.Join(inboundTags, ","),
+			Summary: "Updated inbound hosts", Before: before, After: after,
+		}); err != nil {
+			return nil, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -265,6 +285,20 @@ func (s *Server) updateHostStatus(r *http.Request, hostID int64, disabled bool) 
 	}
 	defer tx.Rollback()
 
+	var inboundTag string
+	if err := tx.QueryRowContext(r.Context(), `SELECT inbound_tag FROM hosts WHERE id = ? LIMIT 1`, hostID).Scan(&inboundTag); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return hostResponse{}, statusError{status: http.StatusNotFound, detail: "Host not found"}
+		}
+		return hostResponse{}, err
+	}
+	var before xrayconfig.MutationSnapshot
+	if s.recentActionsEnabled {
+		before, err = s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: []string{inboundTag}})
+		if err != nil {
+			return hostResponse{}, err
+		}
+	}
 	if exists, err := hostExistsTx(r.Context(), tx, hostID); err != nil {
 		return hostResponse{}, err
 	} else if !exists {
@@ -296,6 +330,18 @@ func (s *Server) updateHostStatus(r *http.Request, hostID int64, disabled bool) 
 	}
 	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, changedServices); err != nil {
 		return hostResponse{}, err
+	}
+	if s.recentActionsEnabled {
+		after, err := s.configRepo.CaptureMutationSnapshotTx(r.Context(), tx, xrayconfig.SnapshotScope{HostTags: []string{inboundTag}})
+		if err != nil {
+			return hostResponse{}, err
+		}
+		if err := s.recordRecentActionTx(r.Context(), tx, xrayconfig.Mutation{
+			ActionType: "host.status.update", ResourceType: "host", ResourceKey: strconv.FormatInt(hostID, 10),
+			Summary: "Updated host status", Before: before, After: after,
+		}); err != nil {
+			return hostResponse{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return hostResponse{}, err

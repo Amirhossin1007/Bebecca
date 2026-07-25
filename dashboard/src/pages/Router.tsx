@@ -28,6 +28,9 @@ const HostsPage = lazy(() => import("./HostsPage"));
 const IntegrationSettingsPage = lazy(async () => ({
 	default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
 }));
+const RecentActionsPage = lazy(async () => ({
+	default: (await import("./RecentActionsPage")).RecentActionsPage,
+}));
 const MyAccountPage = lazy(() => import("./MyAccountPage"));
 const NodesPage = lazy(() => import("./NodesPage"));
 const PhpMyAdminPage = lazy(async () => ({
@@ -108,6 +111,7 @@ const routeSegments = new Set([
 	"access-insights",
 	"api-docs",
 	"phpmyadmin",
+	"recent-actions",
 ]);
 
 const trimTrailingSlash = (value: string) => {
@@ -238,6 +242,10 @@ export const router = createBrowserRouter(
 				{
 					path: "access-insights",
 					element: <LazyPage Page={AccessInsightsPage} />,
+				},
+				{
+					path: "recent-actions",
+					element: <LazyPage Page={RecentActionsPage} />,
 				},
 				{
 					path: "api-docs",

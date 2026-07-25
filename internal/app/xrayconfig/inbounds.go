@@ -114,6 +114,11 @@ func (r Repository) CreateInbound(ctx context.Context, payload map[string]any) (
 	if err := r.ensureSingleL2TPInboundTx(ctx, tx, inbound, ""); err != nil {
 		return InboundMutationResult{}, err
 	}
+	scope := SnapshotScope{TargetIDs: targetIDs, InboundTag: tag, HostTags: []string{tag}}
+	before, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
 
 	configs, err := r.ensureTargetConfigsForMutationTx(ctx, tx, targetIDs)
 	if err != nil {
@@ -132,6 +137,16 @@ func (r Repository) CreateInbound(ctx context.Context, payload map[string]any) (
 		return InboundMutationResult{}, err
 	}
 	if err := r.enqueueSyncForTargetsTx(ctx, tx, sortedTargetIDs(configs)); err != nil {
+		return InboundMutationResult{}, err
+	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "inbound.create", ResourceType: "inbound", ResourceKey: tag,
+		Summary: "Created inbound", Before: before, After: after,
+	}); err != nil {
 		return InboundMutationResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -187,6 +202,11 @@ func (r Repository) UpdateInbound(ctx context.Context, tag string, payload map[s
 		changedTargets = append(changedTargets, targetID)
 	}
 	sort.Strings(changedTargets)
+	scope := SnapshotScope{TargetIDs: changedTargets, InboundTag: tag, HostTags: []string{tag}}
+	before, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
 
 	configs, err := r.ensureTargetConfigsForMutationTx(ctx, tx, changedTargets)
 	if err != nil {
@@ -223,6 +243,16 @@ func (r Repository) UpdateInbound(ctx context.Context, tag string, payload map[s
 	if err := r.enqueueSyncForTargetsTx(ctx, tx, changedTargets); err != nil {
 		return InboundMutationResult{}, err
 	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "inbound.update", ResourceType: "inbound", ResourceKey: tag,
+		Summary: "Updated inbound", Before: before, After: after,
+	}); err != nil {
+		return InboundMutationResult{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return InboundMutationResult{}, err
 	}
@@ -256,6 +286,11 @@ func (r Repository) DeleteInbound(ctx context.Context, tag string) (InboundMutat
 	if !r.isManageableInbound(inbound) {
 		return InboundMutationResult{}, ErrInboundNotFound
 	}
+	scope := SnapshotScope{TargetIDs: currentTargets, InboundTag: tag, HostTags: []string{tag}}
+	before, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
 
 	affectedServiceIDs, err := r.removeHostsForInboundTx(ctx, tx, tag)
 	if err != nil {
@@ -279,6 +314,16 @@ func (r Repository) DeleteInbound(ctx context.Context, tag string) (InboundMutat
 		return InboundMutationResult{}, err
 	}
 	if err := r.enqueueAffectedServiceUsersTx(ctx, tx, affectedServiceIDs); err != nil {
+		return InboundMutationResult{}, err
+	}
+	after, err := r.captureMutationForRecordTx(ctx, tx, scope)
+	if err != nil {
+		return InboundMutationResult{}, err
+	}
+	if err := r.recordMutationTx(ctx, tx, Mutation{
+		ActionType: "inbound.delete", ResourceType: "inbound", ResourceKey: tag,
+		Summary: "Deleted inbound", Before: before, After: after,
+	}); err != nil {
 		return InboundMutationResult{}, err
 	}
 
