@@ -175,15 +175,21 @@ export const UsagePage: FC = () => {
 						: []),
 				]}
 			/>
-			<Box mt={3} display={activeTab === 0 ? "block" : "none"}>
-				<ServiceUsageAnalytics services={services} />
-			</Box>
-			<Box mt={3} display={activeTab === 1 ? "block" : "none"}>
-				<AdminsUsage />
-			</Box>
-			<Box mt={3} display={activeTab === 2 ? "block" : "none"}>
-				<NodesUsageAnalytics />
-			</Box>
+			{activeTab === 0 && (
+				<Box mt={3}>
+					<ServiceUsageAnalytics services={services} />
+				</Box>
+			)}
+			{activeTab === 1 && (
+				<Box mt={3}>
+					<AdminsUsage />
+				</Box>
+			)}
+			{activeTab === 2 && (
+				<Box mt={3}>
+					<NodesUsageAnalytics />
+				</Box>
+			)}
 		</VStack>
 	);
 };

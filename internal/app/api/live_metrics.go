@@ -112,26 +112,40 @@ func (s *Server) sendNodesMetricsSnapshot(parent context.Context, conn *websocke
 		node  map[string]any
 		error string
 	}
-	updates := make(chan nodeUpdate, len(base.Nodes))
+	updates := make(chan nodeUpdate)
+	jobs := make(chan int64)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 8)
-	for _, node := range base.Nodes {
-		if node.ID <= 0 || node.Status == "disabled" || node.Status == "limited" {
-			continue
-		}
+	for range 8 {
 		wg.Add(1)
-		go func(nodeID int64) {
+		go func() {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			item, err := s.nodeController.Get(ctx, nodecontroller.Request{NodeID: nodeID})
-			if err != nil {
-				updates <- nodeUpdate{error: err.Error()}
+			for nodeID := range jobs {
+				item, err := s.nodeController.Get(ctx, nodecontroller.Request{NodeID: nodeID})
+				update := nodeUpdate{node: flattenNodeLiveItem(item)}
+				if err != nil {
+					update = nodeUpdate{error: err.Error()}
+				}
+				select {
+				case updates <- update:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, node := range base.Nodes {
+			if node.ID <= 0 || node.Status == "disabled" || node.Status == "limited" {
+				continue
+			}
+			select {
+			case jobs <- node.ID:
+			case <-ctx.Done():
 				return
 			}
-			updates <- nodeUpdate{node: flattenNodeLiveItem(item)}
-		}(node.ID)
-	}
+		}
+	}()
 	go func() {
 		wg.Wait()
 		close(updates)

@@ -825,14 +825,20 @@ const ServicesPage: FC = () => {
 			}));
 	}, [adminStore.adminOptions]);
 
+	const inboundProtocols = useMemo(
+		() =>
+			new Map(
+				Array.from(inbounds.values())
+					.flat()
+					.map((inbound) => [inbound.tag, inbound.protocol]),
+			),
+		[inbounds],
+	);
+
 	const hostOptions: HostOption[] = useMemo(() => {
 		const options: HostOption[] = [];
 		for (const [tag, hosts] of Object.entries(hostsStore.hosts)) {
-			const inbound =
-				Array.from(inbounds.values())
-					.flat()
-					.find((inbound) => inbound.tag === tag) ?? null;
-			const protocol = inbound?.protocol ?? "unknown";
+			const protocol = inboundProtocols.get(tag) ?? "unknown";
 			hosts.forEach((host) => {
 				if (host.id == null) {
 					return;
@@ -847,7 +853,7 @@ const ServicesPage: FC = () => {
 			});
 		}
 		return options;
-	}, [hostsStore.hosts, inbounds]);
+	}, [hostsStore.hosts, inboundProtocols]);
 
 	const openCreateDialog = () => {
 		setEditingService(null);
@@ -857,6 +863,7 @@ const ServicesPage: FC = () => {
 	const openEditDialog = async (serviceId: number) => {
 		try {
 			const detail = await servicesStore.fetchServiceDetail(serviceId);
+			if (!detail) return;
 			setEditingService(detail);
 			dialogDisclosure.onOpen();
 		} catch (_error) {
@@ -908,6 +915,7 @@ const ServicesPage: FC = () => {
 	const beginDeleteService = async (serviceId: number) => {
 		try {
 			const detail = await servicesStore.fetchServiceDetail(serviceId);
+			if (!detail) return;
 			setServicePendingDelete(detail);
 			openDeleteDialog();
 		} catch (error: any) {

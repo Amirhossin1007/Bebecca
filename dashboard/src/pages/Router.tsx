@@ -8,25 +8,43 @@ import {
 	useNavigate,
 	useRouteError,
 } from "react-router-dom";
+import { lazy, Suspense, type ComponentType } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { fetch } from "../service/http";
-import AccessInsightsPage from "./AccessInsightsPage";
-import { AdminsPage } from "./AdminsPage";
-import { ApiDocsPage } from "./ApiDocsPage";
-import { BulkActionsPage } from "./BulkActionsPage";
-import { CoreSettingsPage } from "./CoreSettingsPage";
 import { DashboardPage } from "./DashboardPage";
-import { HostsPage } from "./HostsPage";
-import { IntegrationSettingsPage } from "./IntegrationSettingsPage";
 import { Login } from "./Login";
-import MyAccountPage from "./MyAccountPage";
-import { NodesPage } from "./NodesPage";
-import { PhpMyAdminPage } from "./PhpMyAdminPage";
-import ServicesPage from "./ServicesPage";
-import { TutorialsPage } from "./TutorialsPage";
-import UsagePage from "./UsagePage";
 import { UsersPage } from "./UsersPage";
-import { XrayLogsPage } from "./XrayLogsPage";
+
+const AccessInsightsPage = lazy(() => import("./AccessInsightsPage"));
+const AdminsPage = lazy(async () => ({
+	default: (await import("./AdminsPage")).AdminsPage,
+}));
+const ApiDocsPage = lazy(async () => ({
+	default: (await import("./ApiDocsPage")).ApiDocsPage,
+}));
+const BulkActionsPage = lazy(() => import("./BulkActionsPage"));
+const CoreSettingsPage = lazy(() => import("./CoreSettingsPage"));
+const HostsPage = lazy(() => import("./HostsPage"));
+const IntegrationSettingsPage = lazy(async () => ({
+	default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
+}));
+const MyAccountPage = lazy(() => import("./MyAccountPage"));
+const NodesPage = lazy(() => import("./NodesPage"));
+const PhpMyAdminPage = lazy(async () => ({
+	default: (await import("./PhpMyAdminPage")).PhpMyAdminPage,
+}));
+const ServicesPage = lazy(() => import("./ServicesPage"));
+const TutorialsPage = lazy(async () => ({
+	default: (await import("./TutorialsPage")).TutorialsPage,
+}));
+const UsagePage = lazy(() => import("./UsagePage"));
+const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
+
+const LazyPage = ({ Page }: { Page: ComponentType }) => (
+	<Suspense fallback={<Box minH="160px" />}>
+		<Page />
+	</Suspense>
+);
 
 const routeErrorMessage = (error: unknown) => {
 	if (isRouteErrorResponse(error)) {
@@ -171,39 +189,39 @@ export const router = createBrowserRouter(
 				},
 				{
 					path: "bulk-actions",
-					element: <BulkActionsPage />,
+					element: <LazyPage Page={BulkActionsPage} />,
 				},
 				{
 					path: "admins",
-					element: <AdminsPage />,
+					element: <LazyPage Page={AdminsPage} />,
 				},
 				{
 					path: "myaccount",
-					element: <MyAccountPage />,
+					element: <LazyPage Page={MyAccountPage} />,
 				},
 				{
 					path: "usage",
-					element: <UsagePage />,
+					element: <LazyPage Page={UsagePage} />,
 				},
 				{
 					path: "tutorials",
-					element: <TutorialsPage />,
+					element: <LazyPage Page={TutorialsPage} />,
 				},
 				{
 					path: "services",
-					element: <ServicesPage />,
+					element: <LazyPage Page={ServicesPage} />,
 				},
 				{
 					path: "hosts",
-					element: <HostsPage />,
+					element: <LazyPage Page={HostsPage} />,
 				},
 				{
 					path: "node-settings",
-					element: <NodesPage />,
+					element: <LazyPage Page={NodesPage} />,
 				},
 				{
 					path: "settings",
-					element: <IntegrationSettingsPage />,
+					element: <LazyPage Page={IntegrationSettingsPage} />,
 				},
 				{
 					path: "integrations",
@@ -211,23 +229,23 @@ export const router = createBrowserRouter(
 				},
 				{
 					path: "xray-settings",
-					element: <CoreSettingsPage />,
+					element: <LazyPage Page={CoreSettingsPage} />,
 				},
 				{
 					path: "xray-logs",
-					element: <XrayLogsPage />,
+					element: <LazyPage Page={XrayLogsPage} />,
 				},
 				{
 					path: "access-insights",
-					element: <AccessInsightsPage />,
+					element: <LazyPage Page={AccessInsightsPage} />,
 				},
 				{
 					path: "api-docs",
-					element: <ApiDocsPage />,
+					element: <LazyPage Page={ApiDocsPage} />,
 				},
 				{
 					path: "phpmyadmin",
-					element: <PhpMyAdminPage />,
+					element: <LazyPage Page={PhpMyAdminPage} />,
 				},
 			],
 		},

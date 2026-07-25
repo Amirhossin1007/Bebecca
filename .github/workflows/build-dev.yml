@@ -46,6 +46,10 @@ jobs:
         working-directory: ${{ env.DASH_DIR }}
         run: npm test
 
+      - name: Lint dashboard
+        working-directory: ${{ env.DASH_DIR }}
+        run: npm run lint
+
       - name: Test Go
         run: go test ./...
 

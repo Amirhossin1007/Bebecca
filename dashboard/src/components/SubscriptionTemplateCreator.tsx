@@ -3842,7 +3842,7 @@ export const SubscriptionTemplateCreator = ({ onSaved }: CreatorProps) => {
 				return [...prev, widget];
 			});
 		},
-		[options.canvas.width, resolveAutoCanvasHeight],
+		[options.canvas.width, options.canvas.height, resolveAutoCanvasHeight],
 	);
 
 	const removeWidget = useCallback((widgetId: string) => {
@@ -4511,7 +4511,7 @@ export const SubscriptionTemplateCreator = ({ onSaved }: CreatorProps) => {
 				<Stack spacing={1}>
 					{options.appImports.osOrder.map((os, index) => (
 						<Flex
-							key={`${os}-${index}`}
+							key={os}
 							align="center"
 							justify="space-between"
 							gap={2}
@@ -6420,7 +6420,7 @@ export const SubscriptionTemplateCreator = ({ onSaved }: CreatorProps) => {
 											display="block"
 											border="0"
 											bg="transparent"
-											sandbox="allow-scripts allow-same-origin"
+											sandbox="allow-scripts"
 											srcDoc={previewHtml}
 											style={{
 												touchAction: isTouchPreview ? "pan-y pinch-zoom" : "auto",
@@ -6436,4 +6436,3 @@ export const SubscriptionTemplateCreator = ({ onSaved }: CreatorProps) => {
 		</VStack>
 	);
 };
-

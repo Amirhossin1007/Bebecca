@@ -228,6 +228,7 @@ let usersFetchSequence = 0;
 let usersAbortController: AbortController | null = null;
 let inboundsFetchSequence = 0;
 let inboundsAbortController: AbortController | null = null;
+let editingUserFetchSequence = 0;
 
 const fetchUsers = (
 	query: FilterType,
@@ -374,6 +375,7 @@ export const fetchInbounds = () => {
 export const clearDashboardCache = () => {
 	usersFetchSequence += 1;
 	inboundsFetchSequence += 1;
+	editingUserFetchSequence += 1;
 	usersAbortController?.abort();
 	inboundsAbortController?.abort();
 	usersAbortController = null;
@@ -435,9 +437,11 @@ export const useDashboard = create(
 		onCreateUser: (isCreatingNewUser) => set({ isCreatingNewUser }),
 		onEditingUser: (editingUser, initialTab) => {
 			if (!editingUser) {
+				editingUserFetchSequence += 1;
 				set({ editingUser: null, editingUserInitialTab: null });
 				return;
 			}
+			const requestId = ++editingUserFetchSequence;
 			set({
 				editingUser: editingUser as User,
 				editingUserInitialTab: initialTab ?? null,
@@ -445,9 +449,14 @@ export const useDashboard = create(
 			// Fetch full user detail before opening editor to keep list payload lightweight
 			fetch(`/user/${editingUser.username}`)
 				.then((fullUser: User) => {
+					if (requestId !== editingUserFetchSequence) return;
 					set({ editingUser: fullUser });
 				})
-				.catch(() => set({ editingUser: null, editingUserInitialTab: null }));
+				.catch(() => {
+					if (requestId === editingUserFetchSequence) {
+						set({ editingUser: null, editingUserInitialTab: null });
+					}
+				});
 		},
 		onFilterChange: (filters) => {
 			set({
@@ -494,11 +503,13 @@ export const useDashboard = create(
 			);
 		},
 		fetchUserUsage: (body: UserListItem, query: FilterUsageType) => {
-			for (const key in query) {
-				if (!query[key as keyof FilterUsageType])
-					delete query[key as keyof FilterUsageType];
-			}
-			return fetch(`/user/${body.username}/usage`, { method: "GET", query });
+			const sanitizedQuery = Object.fromEntries(
+				Object.entries(query).filter(([, value]) => Boolean(value)),
+			);
+			return fetch(`/user/${body.username}/usage`, {
+				method: "GET",
+				query: sanitizedQuery,
+			});
 		},
 		onEditingNodes: (isEditingNodes: boolean) => {
 			set({ isEditingNodes });

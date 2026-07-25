@@ -69,7 +69,7 @@ export default defineConfig(({ mode }) => {
 				include: "**/*.tsx",
 			}),
 			svgr(),
-			visualizer(),
+			...(env.ANALYZE === "true" ? [visualizer()] : []),
 			splitVendorChunkPlugin(),
 		],
 		server: apiProxy

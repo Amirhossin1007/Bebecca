@@ -69,7 +69,7 @@ import { type HostsSchema, useHosts } from "contexts/HostsContext";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useEffect, useMemo, useState } from "react";
+import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { useNavigate } from "react-router-dom";
@@ -986,17 +986,23 @@ export const NodesPage: FC = () => {
 		setServiceActionConfirm({ type: "restart", node, label });
 	};
 
-	const handleUpdateNodeService = (node: NodeType) => {
-		if (!node?.id) return;
-		const label = node.name || node.address || t("nodes.thisNode");
-		setServiceActionConfirm({ type: "update", node, label });
-	};
+	const handleUpdateNodeService = useCallback(
+		(node: NodeType) => {
+			if (!node?.id) return;
+			const label = node.name || node.address || t("nodes.thisNode");
+			setServiceActionConfirm({ type: "update", node, label });
+		},
+		[t],
+	);
 
-	const handleRebootNodeHost = (node: NodeType) => {
-		if (!node?.id) return;
-		const label = node.name || node.address || t("nodes.thisNode");
-		setServiceActionConfirm({ type: "reboot", node, label });
-	};
+	const handleRebootNodeHost = useCallback(
+		(node: NodeType) => {
+			if (!node?.id) return;
+			const label = node.name || node.address || t("nodes.thisNode");
+			setServiceActionConfirm({ type: "reboot", node, label });
+		},
+		[t],
+	);
 
 	const copyToClipboard = async (
 		value: string | null | undefined,
@@ -1599,6 +1605,7 @@ export const NodesPage: FC = () => {
 	const sortLabel = (key: NodeSortKey, label: string) =>
 		sortKey === key ? `${label} ${sortDirection === "asc" ? "↑" : "↓"}` : label;
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Changing filters must reset pagination.
 	useEffect(() => {
 		setPage(1);
 	}, [searchTerm, statusFilter, installModeFilter, sortKey, sortDirection, pageSize]);
@@ -1894,6 +1901,7 @@ export const NodesPage: FC = () => {
 		);
 	};
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Column handlers intentionally use current render state.
 	const nodeColumns = useMemo<DataTableColumn<NodeType>[]>(
 		() => [
 			{

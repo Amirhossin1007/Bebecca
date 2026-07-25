@@ -1,5 +1,3 @@
-import { joinPaths } from "@remix-run/router";
-
 import fa from "date-fns/locale/fa-IR";
 import ru from "date-fns/locale/ru";
 import zh from "date-fns/locale/zh-CN";
@@ -9,6 +7,9 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import HttpApi from "i18next-http-backend";
 import { registerLocale } from "react-datepicker";
 import { initReactI18next } from "react-i18next";
+
+const joinPaths = (paths: string[]) =>
+	paths.join("/").replace(/\/{2,}/g, "/");
 
 declare module "i18next" {
 	interface CustomTypeOptions {

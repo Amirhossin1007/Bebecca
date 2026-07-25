@@ -27,7 +27,7 @@ type ServicesStore = {
 	serviceDetail: ServiceDetail | null;
 	fetchServices: (params?: QueryParams) => Promise<void>;
 	fetchServiceOptions: (params?: QueryParams) => Promise<ServiceSummary[]>;
-	fetchServiceDetail: (id: number) => Promise<ServiceDetail>;
+	fetchServiceDetail: (id: number) => Promise<ServiceDetail | null>;
 	createService: (payload: ServiceCreatePayload) => Promise<ServiceDetail>;
 	updateService: (
 		id: number,
@@ -49,6 +49,7 @@ type ServicesStore = {
 
 let servicesFetchSequence = 0;
 let serviceOptionsFetchSequence = 0;
+let serviceDetailFetchSequence = 0;
 
 export const useServicesStore = create<ServicesStore>((set, get) => ({
 	services: [],
@@ -97,13 +98,24 @@ export const useServicesStore = create<ServicesStore>((set, get) => ({
 	},
 
 	async fetchServiceDetail(id) {
+		const requestId = ++serviceDetailFetchSequence;
 		set({ isLoading: true });
 		try {
 			const detail = await fetch<ServiceDetail>(`/v2/services/${id}`);
+			if (requestId !== serviceDetailFetchSequence) {
+				return null;
+			}
 			set({ serviceDetail: detail });
 			return detail;
+		} catch (error) {
+			if (requestId !== serviceDetailFetchSequence) {
+				return null;
+			}
+			throw error;
 		} finally {
-			set({ isLoading: false });
+			if (requestId === serviceDetailFetchSequence) {
+				set({ isLoading: false });
+			}
 		}
 	},
 

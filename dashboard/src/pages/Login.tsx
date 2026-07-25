@@ -342,10 +342,9 @@ export const Login: FC = () => {
 		!isSubmitting;
 
 	useEffect(() => {
-		if (error) {
-			setError("");
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		void usernameValue;
+		void passwordValue;
+		setError((current) => (current ? "" : current));
 	}, [usernameValue, passwordValue]);
 
 	useEffect(() => {

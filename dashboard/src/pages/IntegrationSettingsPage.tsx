@@ -736,6 +736,7 @@ const parseAdminChatIds = (value: string): number[] =>
 		.filter((token) => Number.isFinite(token));
 
 const ansiEscapePattern =
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: This removes ANSI terminal control sequences from node logs.
 	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
 const cleanTerminalOutput = (logs?: string[]) => {
@@ -743,6 +744,7 @@ const cleanTerminalOutput = (logs?: string[]) => {
 	return output
 		.replace(ansiEscapePattern, "")
 		.replace(/\r(?!\n)/g, "\n")
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: Backspace is removed from node log output.
 		.replace(/\u0008/g, "")
 		.trimEnd();
 };

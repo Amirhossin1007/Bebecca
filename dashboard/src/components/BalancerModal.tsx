@@ -10,7 +10,7 @@ import {
 	ModalOverlay,
 	VStack,
 } from "@chakra-ui/react";
-import { type FC, useEffect, useMemo } from "react";
+import { type FC, useCallback, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
@@ -84,13 +84,16 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 			),
 		[excludedOutboundTags],
 	);
-	const isExcludedBalancerOutbound = (tag: string) => {
-		const normalized = normalizeBalancerOutboundTag(tag);
-		return normalized === "blocked" || excludedOutboundTagKeys.has(normalized);
-	};
+	const isExcludedBalancerOutbound = useCallback(
+		(tag: string) => {
+			const normalized = normalizeBalancerOutboundTag(tag);
+			return normalized === "blocked" || excludedOutboundTagKeys.has(normalized);
+		},
+		[excludedOutboundTagKeys],
+	);
 	const selectableOutboundTags = useMemo(
 		() => outboundTags.filter((tag) => !isExcludedBalancerOutbound(tag)),
-		[excludedOutboundTagKeys, outboundTags],
+		[outboundTags, isExcludedBalancerOutbound],
 	);
 	const selectorValue = rawSelectorValue.filter(
 		(tag) => !isExcludedBalancerOutbound(tag),
@@ -121,7 +124,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 					}
 				: DEFAULT_BALANCER,
 		);
-	}, [excludedOutboundTagKeys, initialBalancer, isOpen, modalForm]);
+	}, [initialBalancer, isOpen, modalForm, isExcludedBalancerOutbound]);
 
 	const onSubmitInternal = modalForm.handleSubmit((data) => {
 		if (!isValid) return;

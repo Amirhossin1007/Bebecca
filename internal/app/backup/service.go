@@ -359,14 +359,41 @@ func (s *Service) restoreMySQL(ctx context.Context, payloadPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := s.dropMySQLTables(ctx); err != nil {
-		return err
-	}
 	filteredPath := filepath.Join(tempDir, "database.sql")
 	if err := filterMySQLDumpForDatabase(payloadPath, filteredPath); err != nil {
 		return err
 	}
-	input, err := os.Open(filteredPath)
+	rollbackRawPath := filepath.Join(tempDir, "rollback.sql")
+	if err := s.exportMySQL(ctx, rollbackRawPath); err != nil {
+		return Error{Message: "Failed to create a rollback backup before restoring MySQL/MariaDB: " + err.Error()}
+	}
+	rollbackPath := filepath.Join(tempDir, "rollback-filtered.sql")
+	if err := filterMySQLDumpForDatabase(rollbackRawPath, rollbackPath); err != nil {
+		return err
+	}
+	if err := s.dropMySQLTables(ctx); err != nil {
+		return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
+	}
+	if err := restoreMySQLDump(ctx, command, defaultsFile, databaseName, filteredPath); err != nil {
+		return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
+	}
+	return nil
+}
+
+func (s *Service) restoreMySQLRollback(command string, defaultsFile string, databaseName string, rollbackPath string, restoreErr error) error {
+	rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if err := s.dropMySQLTables(rollbackCtx); err != nil {
+		return Error{Message: restoreErr.Error() + "; automatic rollback failed: " + err.Error()}
+	}
+	if err := restoreMySQLDump(rollbackCtx, command, defaultsFile, databaseName, rollbackPath); err != nil {
+		return Error{Message: restoreErr.Error() + "; automatic rollback failed: " + err.Error()}
+	}
+	return restoreErr
+}
+
+func restoreMySQLDump(ctx context.Context, command string, defaultsFile string, databaseName string, inputPath string) error {
+	input, err := os.Open(inputPath)
 	if err != nil {
 		return err
 	}

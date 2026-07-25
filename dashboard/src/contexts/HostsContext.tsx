@@ -39,26 +39,33 @@ type HostsStore = {
 	isLoading: boolean;
 	isPostLoading: boolean;
 	hosts: HostsSchema;
-	fetchHosts: () => void;
+	fetchHosts: () => Promise<void>;
 	setHosts: (hosts: Partial<HostsSchema>) => Promise<void>;
 	setHostStatus: (hostId: number, isDisabled: boolean) => Promise<void>;
 };
+let hostsFetchSequence = 0;
+
 export const useHosts = create<HostsStore>((set) => ({
 	isLoading: false,
 	isPostLoading: false,
 	hosts: {},
-	fetchHosts: () => {
+	async fetchHosts() {
+		const requestId = ++hostsFetchSequence;
 		set({ isLoading: true });
-		fetch("/hosts")
-			.then((hosts) => {
-				// Ensure hosts is always an object, even if API returns null/undefined
-				set({ hosts: hosts || {} });
-			})
-			.catch((error) => {
-				console.error("Failed to fetch hosts:", error);
-				set({ hosts: {} });
-			})
-			.finally(() => set({ isLoading: false }));
+		try {
+			const hosts = await fetch<HostsSchema>("/hosts");
+			if (requestId !== hostsFetchSequence) return;
+			// Ensure hosts is always an object, even if API returns null/undefined
+			set({ hosts: hosts || {} });
+		} catch (error) {
+			if (requestId !== hostsFetchSequence) return;
+			console.error("Failed to fetch hosts:", error);
+			set({ hosts: {} });
+		} finally {
+			if (requestId === hostsFetchSequence) {
+				set({ isLoading: false });
+			}
+		}
 	},
 	setHosts: (body) => {
 		set({ isPostLoading: true });
@@ -78,6 +85,7 @@ export const useHosts = create<HostsStore>((set) => ({
 }));
 
 export const clearHostsCache = () => {
+	hostsFetchSequence += 1;
 	useHosts.setState({
 		isLoading: false,
 		isPostLoading: false,

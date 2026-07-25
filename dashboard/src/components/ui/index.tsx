@@ -191,6 +191,7 @@ export const StatsStrip: FC<StatsStripProps> = ({
 	>
 		{items.map((item, index) => (
 			<Box
+				// biome-ignore lint/suspicious/noArrayIndexKey: StatsStrip accepts display-only items without stable IDs.
 				key={`stats-strip-${index}`}
 				position="relative"
 				overflow="hidden"
@@ -302,6 +303,7 @@ export const TableSkeleton: FC<{ rows?: number; columns?: number }> = ({
 		<Thead>
 			<Tr>
 				{Array.from({ length: columns }, (_, index) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: Skeleton cells have a fixed order.
 					<Th key={`table-skeleton-head-${index}`}>
 						<Skeleton h="3" />
 					</Th>
@@ -310,8 +312,10 @@ export const TableSkeleton: FC<{ rows?: number; columns?: number }> = ({
 		</Thead>
 		<Tbody>
 			{Array.from({ length: rows }, (_, rowIndex) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: Skeleton rows have a fixed order.
 				<Tr key={`table-skeleton-row-${rowIndex}`}>
 					{Array.from({ length: columns }, (_, columnIndex) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: Skeleton cells have a fixed order.
 						<Td key={`table-skeleton-cell-${rowIndex}-${columnIndex}`}>
 							<Skeleton h="4" />
 						</Td>

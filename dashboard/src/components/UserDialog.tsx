@@ -1359,12 +1359,15 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const [usage, setUsage] = useState(createUsageConfig(colorMode, usageTitle));
 
 	const [usageFilter, setUsageFilter] = useState("1m");
+	const usageFetchSequence = useRef(0);
 
 	const fetchUsageWithFilter = useCallback(
 		(query: FilterUsageType) => {
 			if (!editingUser) return;
-			fetchUserUsage(editingUser as unknown as UserListItem, query).then(
-				(data: any) => {
+			const requestId = ++usageFetchSequence.current;
+			fetchUserUsage(editingUser as unknown as UserListItem, query)
+				.then((data: any) => {
+					if (requestId !== usageFetchSequence.current) return;
 					const labels = [];
 
 					const series = [];
@@ -1376,13 +1379,18 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					}
 
 					setUsage(createUsageConfig(colorMode, usageTitle, series, labels));
-				},
-			);
+				})
+				.catch((error) => {
+					if (requestId === usageFetchSequence.current) {
+						console.error("Failed to fetch user usage:", error);
+					}
+				});
 		},
 		[editingUser, colorMode, usageTitle, fetchUserUsage],
 	);
 
 	useEffect(() => {
+		usageFetchSequence.current += 1;
 		if (editingUser) {
 			const formatted = formatUser(editingUser);
 			form.reset(formatted);
