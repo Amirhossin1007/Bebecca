@@ -11,12 +11,8 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
-func TestRecordRecentActionStoresCompressedBeforeAndAfter(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
+func createRecentActionsTable(t *testing.T, db *sql.DB) {
+	t.Helper()
 	if _, err := db.Exec(`CREATE TABLE recent_actions (
 		id INTEGER PRIMARY KEY, action_type TEXT NOT NULL, resource_type TEXT NOT NULL, resource_key TEXT NOT NULL,
 		actor_admin_id INTEGER NULL, actor_username TEXT NOT NULL, auth_source TEXT NOT NULL, summary TEXT NOT NULL,
@@ -25,6 +21,15 @@ func TestRecordRecentActionStoresCompressedBeforeAndAfter(t *testing.T) {
 	)`); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestRecordRecentActionStoresCompressedBeforeAndAfter(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createRecentActionsTable(t, db)
 	server := &Server{db: db}
 	principal := adminPrincipal{ID: 9, Username: "operator"}
 	ctx := context.WithValue(context.Background(), adminContextKey, principal)
@@ -56,6 +61,42 @@ func TestRecordRecentActionStoresCompressedBeforeAndAfter(t *testing.T) {
 	}
 	if snapshot.Before.Version != 1 || snapshot.After.InboundTag != "cdn" {
 		t.Fatalf("unexpected snapshot: %#v", snapshot)
+	}
+}
+
+func TestRecordRecentActionEventStoresHistoryOnly(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createRecentActionsTable(t, db)
+	server := &Server{db: db}
+	ctx := context.WithValue(context.Background(), adminContextKey, adminPrincipal{ID: 9, Username: "operator"})
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.recordRecentActionEventTx(ctx, tx, "admin.disable", "admin", "seller", "Disabled admin"); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	action, err := server.loadRecentAction(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.ResourceType != "admin" || action.RollbackStatus != "unsupported" || len(action.Snapshot) != 0 {
+		t.Fatalf("unexpected action: %#v", action)
+	}
+	items, err := server.listRecentActions(ctx, 0, 10, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("non-full-access list exposed admin activity: %#v", items)
 	}
 }
 

@@ -78,6 +78,31 @@ func (s *Server) recordXrayMutationTx(ctx context.Context, tx *sql.Tx, mutation 
 	return s.recordRecentActionTx(ctx, tx, mutation)
 }
 
+func (s *Server) recordRecentActionEventTx(ctx context.Context, tx *sql.Tx, actionType, resourceType, resourceKey, summary string) error {
+	principal, ok := ctx.Value(adminContextKey).(adminPrincipal)
+	if !ok || principal.ID <= 0 || strings.TrimSpace(actionType) == "" {
+		return nil
+	}
+	now := time.Now().UTC()
+	_, err := tx.ExecContext(ctx, `INSERT INTO recent_actions (
+		action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
+		summary, snapshot, after_hash, rollback_status, created_at, snapshot_expires_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, '', 'unsupported', ?, NULL)`,
+		strings.TrimSpace(actionType),
+		strings.TrimSpace(resourceType),
+		strings.TrimSpace(resourceKey),
+		principal.ID,
+		strings.TrimSpace(principal.Username),
+		fmt.Sprint(principal.Context.Source),
+		strings.TrimSpace(summary),
+		dbTimestamp(now),
+	)
+	if err != nil {
+		return err
+	}
+	return s.pruneRecentActionsTx(ctx, tx, now)
+}
+
 func (s *Server) recordRecentActionTx(ctx context.Context, tx *sql.Tx, mutation xrayconfig.Mutation) error {
 	principal, ok := ctx.Value(adminContextKey).(adminPrincipal)
 	if !ok || principal.ID <= 0 || strings.TrimSpace(mutation.ActionType) == "" {
@@ -358,7 +383,8 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 		}
 		beforeID = parsed
 	}
-	items, err := s.listRecentActions(r.Context(), beforeID, limit+1)
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	items, err := s.listRecentActions(r.Context(), beforeID, limit+1, principal.Context.Admin.HasFullAccess())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -395,10 +421,10 @@ func (s *Server) handleRecentActionsPath(w http.ResponseWriter, r *http.Request)
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
-func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int) ([]recentActionItem, error) {
+func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int, includeAdmin bool) ([]recentActionItem, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
 		summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id, snapshot
-		FROM recent_actions WHERE (? = 0 OR id < ?) ORDER BY id DESC LIMIT ?`, beforeID, beforeID, limit)
+		FROM recent_actions WHERE (? = 0 OR id < ?) AND (? = 1 OR resource_type <> 'admin') ORDER BY id DESC LIMIT ?`, beforeID, beforeID, includeAdmin, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -430,6 +456,11 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	if action.ResourceType == "admin" && !principal.Context.Admin.HasFullAccess() {
+		writeError(w, http.StatusForbidden, "You're not allowed")
 		return
 	}
 	response := map[string]any{"snapshot_available": len(action.Snapshot) > 0}

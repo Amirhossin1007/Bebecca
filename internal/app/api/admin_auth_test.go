@@ -219,6 +219,12 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,
+		`CREATE TABLE recent_actions (
+			id INTEGER PRIMARY KEY, action_type TEXT NOT NULL, resource_type TEXT NOT NULL, resource_key TEXT NOT NULL,
+			actor_admin_id INTEGER NULL, actor_username TEXT NOT NULL, auth_source TEXT NOT NULL, summary TEXT NOT NULL,
+			snapshot BLOB NULL, after_hash TEXT NOT NULL, rollback_status TEXT NOT NULL, created_at DATETIME NOT NULL,
+			snapshot_expires_at DATETIME NULL, undone_at DATETIME NULL, undone_by_admin_id INTEGER NULL
+		)`,
 		`CREATE TABLE node_user_usages (
 			id INTEGER PRIMARY KEY,
 			created_at DATETIME NOT NULL,

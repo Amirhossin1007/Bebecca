@@ -222,7 +222,10 @@ func (s *Server) handleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		created, err = adminByUsernameTx(r.Context(), tx, payload.Username)
-		return err
+		if err != nil {
+			return err
+		}
+		return s.recordRecentActionEventTx(r.Context(), tx, "admin.create", "admin", created.Username, "Created admin")
 	})
 	if err != nil {
 		writeStatusError(w, err)
@@ -475,7 +478,13 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
-		return err
+		if err != nil {
+			return err
+		}
+		if limitTransition.Disabled {
+			return s.recordRecentActionEventTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin")
+		}
+		return s.recordRecentActionEventTx(r.Context(), tx, "admin.update", "admin", updated.Username, "Updated admin")
 	})
 	if err != nil {
 		writeStatusError(w, err)
@@ -541,7 +550,7 @@ func (s *Server) handleDeleteAdmin(w http.ResponseWriter, r *http.Request, usern
 		if _, err := tx.ExecContext(r.Context(), `UPDATE admins SET status = ? WHERE id = ?`, string(adminapp.StatusDeleted), target.ID); err != nil {
 			return err
 		}
-		return nil
+		return s.recordRecentActionEventTx(r.Context(), tx, "admin.delete", "admin", deletedUsername, "Deleted admin")
 	})
 	if err != nil {
 		writeStatusError(w, err)
@@ -596,7 +605,10 @@ func (s *Server) handleDisableAdmin(w http.ResponseWriter, r *http.Request, user
 			}
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
-		return err
+		if err != nil {
+			return err
+		}
+		return s.recordRecentActionEventTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin")
 	})
 	if err != nil {
 		writeStatusError(w, err)
@@ -669,7 +681,13 @@ func (s *Server) handleEnableAdmin(w http.ResponseWriter, r *http.Request, usern
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
-		return err
+		if err != nil {
+			return err
+		}
+		if updated.Status != adminapp.StatusActive {
+			return s.recordRecentActionEventTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin")
+		}
+		return s.recordRecentActionEventTx(r.Context(), tx, "admin.enable", "admin", updated.Username, "Enabled admin")
 	})
 	if err != nil {
 		writeStatusError(w, err)
