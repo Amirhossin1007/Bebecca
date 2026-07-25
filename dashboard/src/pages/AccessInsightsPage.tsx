@@ -154,7 +154,7 @@ const AccessInsightsPage: FC = () => {
 					totals.set(
 						platform.platform,
 						(totals.get(platform.platform) || 0) + platform.connections,
-					),
+					);
 				});
 			});
 			return Array.from(totals.entries()).sort(
