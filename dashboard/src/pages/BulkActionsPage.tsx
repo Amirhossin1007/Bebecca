@@ -308,7 +308,7 @@ const BulkCreatePanel = () => {
 					</Box>
 					<PageTabs
 						px={0}
-						justifyContent={{ base: "flex-start", md: "center" }}
+						justifyContent="flex-start"
 						tabs={[
 							{
 								value: "sequence",
@@ -731,7 +731,7 @@ const BulkDeletePanel = () => {
 				<Stack spacing={4}>
 					<PageTabs
 						px={0}
-						justifyContent={{ base: "flex-start", md: "center" }}
+						justifyContent="flex-start"
 						tabs={[
 							{
 								value: "list",
@@ -1102,7 +1102,7 @@ export const BulkActionsPage = () => {
 			/>
 			{allowedTabs.length > 0 && (
 				<PageTabs
-					justifyContent={{ base: "flex-start", md: "center" }}
+					justifyContent="flex-start"
 					tabs={allowedTabs.map((tab) => ({
 							value: tab,
 							label: t(

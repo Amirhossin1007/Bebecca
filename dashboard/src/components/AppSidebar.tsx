@@ -376,6 +376,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				pickSetting("/xray-settings"),
 				pickSetting("/xray-logs"),
 				pickSetting("/access-insights"),
+				pickSetting("/recent-actions"),
 				pickSetting("/api-docs"),
 				pickSetting("/phpmyadmin"),
 				pickSetting(tutorialsUrl),
