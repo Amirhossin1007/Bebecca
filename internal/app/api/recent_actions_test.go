@@ -63,8 +63,39 @@ func TestRecentActionSnapshotPreviewShowsHostRename(t *testing.T) {
 	preview := recentActionSnapshotPreview(recentActionSnapshot{
 		Before: xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "name"}}},
 		After:  xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "newname"}}},
-	})
+	}, "host.bulk_update", "host")
 	if preview == nil || preview.Field != "name" || preview.Before != "name" || preview.After != "newname" {
 		t.Fatalf("unexpected preview: %#v", preview)
+	}
+}
+
+func TestRecentActionSnapshotPreviewUsesLifecycleTemplate(t *testing.T) {
+	preview := recentActionSnapshotPreview(recentActionSnapshot{
+		Before: xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "Turkey"}}},
+		After:  xrayconfig.MutationSnapshot{},
+	}, "host.bulk_update", "host")
+	if preview == nil || preview.Operation != "deleted" || preview.Resource != "host" {
+		t.Fatalf("unexpected host preview: %#v", preview)
+	}
+	preview = recentActionSnapshotPreview(recentActionSnapshot{
+		After: xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 2, Remark: "Netherlands"}}},
+	}, "host.bulk_update", "host")
+	if preview == nil || preview.Operation != "created" || preview.Resource != "host" {
+		t.Fatalf("unexpected created host preview: %#v", preview)
+	}
+	preview = recentActionSnapshotPreview(recentActionSnapshot{
+		Before: xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "Turkey"}}},
+	}, "inbound.delete", "inbound")
+	if preview == nil || preview.Operation != "deleted" || preview.Resource != "inbound" {
+		t.Fatalf("unexpected inbound preview: %#v", preview)
+	}
+
+	preview = recentActionSnapshotPreview(recentActionSnapshot{ConfigPatches: []xrayconfig.ConfigPatch{{
+		Changes: []xrayconfig.ConfigPatchChange{{
+			Path: "/outbounds/@tag=proxy", Before: map[string]any{"tag": "proxy"}, BeforeExists: true,
+		}},
+	}}}, "xray.config.update", "xray_config")
+	if preview == nil || preview.Operation != "deleted" || preview.Resource != "outbound" {
+		t.Fatalf("unexpected outbound preview: %#v", preview)
 	}
 }

@@ -40,9 +40,11 @@ import { AdminRole, AdminSudoScope } from "types/Admin";
 import { buildJsonDiff } from "utils/jsonDiff";
 
 type RecentActionPreview = {
-	field: string;
-	before: string;
-	after: string;
+	field?: string;
+	before?: string;
+	after?: string;
+	operation?: "created" | "deleted";
+	resource?: string;
 };
 
 type RecentAction = {
@@ -102,6 +104,20 @@ const statusTone = (status: RecentAction["rollback_status"]) => {
 	}
 };
 
+const actionOperation = (actionType: string) => {
+	if (actionType.includes(".create")) return "created" as const;
+	if (actionType.includes(".delete")) return "deleted" as const;
+	return undefined;
+};
+
+const actionLifecycle = (action: RecentAction) => {
+	const operation =
+		action.preview?.operation ?? actionOperation(action.action_type);
+	return operation
+		? { operation, resource: action.preview?.resource ?? action.resource_type }
+		: undefined;
+};
+
 const changedPaths = (
 	before: unknown,
 	after: unknown,
@@ -154,40 +170,44 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 
 	return (
 		<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} dir="ltr">
-			<Box>
+			<Box minW={0}>
 				<Text fontWeight="medium" mb={2}>
 					{t("recentActions.before")}
 				</Text>
-				<JsonEditor
-					json={before}
-					onChange={() => undefined}
-					readOnly
-					showToolbar={false}
-					minHeight="440px"
-					highlightLines={beforeChangedLines}
-					highlightVariant="removed"
-				/>
+				<Box h={{ base: "360px", xl: "440px" }}>
+					<JsonEditor
+						json={before}
+						onChange={() => undefined}
+						readOnly
+						showToolbar={false}
+						minHeight={0}
+						highlightLines={beforeChangedLines}
+						highlightVariant="removed"
+					/>
+				</Box>
 			</Box>
-			<Box>
+			<Box minW={0}>
 				<Text fontWeight="medium" mb={2}>
 					{t("recentActions.after")}
 				</Text>
-				<JsonEditor
-					json={after}
-					onChange={() => undefined}
-					readOnly
-					showToolbar={false}
-					minHeight="440px"
-					highlightLines={afterChangedLines}
-					highlightVariant="added"
-				/>
+				<Box h={{ base: "360px", xl: "440px" }}>
+					<JsonEditor
+						json={after}
+						onChange={() => undefined}
+						readOnly
+						showToolbar={false}
+						minHeight={0}
+						highlightLines={afterChangedLines}
+						highlightVariant="added"
+					/>
+				</Box>
 			</Box>
 		</SimpleGrid>
 	);
 };
 
 const ActionPreview: FC<{ preview?: RecentActionPreview }> = ({ preview }) => {
-	if (!preview) {
+	if (!preview || preview.operation) {
 		return <Text color="panel.textMuted">—</Text>;
 	}
 	return (
@@ -279,6 +299,8 @@ export const RecentActionsPage: FC = () => {
 				action.preview?.field,
 				action.preview?.before,
 				action.preview?.after,
+				action.preview?.operation,
+				action.preview?.resource,
 			]
 				.filter(Boolean)
 				.join(" ")
@@ -299,27 +321,39 @@ export const RecentActionsPage: FC = () => {
 				isPrimary: true,
 				priority: "primary",
 				minWidth: "220px",
-				cell: (action) => (
-					<VStack align="start" spacing={1} minW={0}>
-						<HStack spacing={2} flexWrap="wrap">
-							<Badge colorScheme={statusTone(action.rollback_status)}>
-								{t(`recentActions.status.${action.rollback_status}`)}
-							</Badge>
-							<Badge variant="subtle">{action.resource_type}</Badge>
-						</HStack>
-						<Text fontWeight="semibold" noOfLines={1} maxW="full">
-							{action.summary}
-						</Text>
-						<Text
-							fontFamily="mono"
-							fontSize="xs"
-							color="panel.textMuted"
-							noOfLines={1}
-						>
-							{action.resource_key}
-						</Text>
-					</VStack>
-				),
+				cell: (action) => {
+					const lifecycle = actionLifecycle(action);
+					const resource = lifecycle
+						? t(`recentActions.resources.${lifecycle.resource}`, {
+								defaultValue: lifecycle.resource.replaceAll("_", " "),
+							})
+						: undefined;
+					return (
+						<VStack align="start" spacing={1} minW={0}>
+							<HStack spacing={2} flexWrap="wrap">
+								<Badge colorScheme={statusTone(action.rollback_status)}>
+									{t(`recentActions.status.${action.rollback_status}`)}
+								</Badge>
+								<Badge variant="subtle">{action.resource_type}</Badge>
+							</HStack>
+							<Text fontWeight="semibold" noOfLines={1} maxW="full">
+								{lifecycle
+									? t(`recentActions.operations.${lifecycle.operation}`, {
+											resource,
+										})
+									: action.summary}
+							</Text>
+							<Text
+								fontFamily="mono"
+								fontSize="xs"
+								color="panel.textMuted"
+								noOfLines={1}
+							>
+								{action.resource_key}
+							</Text>
+						</VStack>
+					);
+				},
 			},
 			{
 				id: "preview",
@@ -410,7 +444,12 @@ export const RecentActionsPage: FC = () => {
 	const rollbackConflictPaths = rollbackError?.data?.conflict_paths ?? [];
 
 	return (
-		<VStack spacing={4} align="stretch" dir={i18n.dir(i18n.language)}>
+		<VStack
+			spacing={4}
+			align="stretch"
+			dir={i18n.dir(i18n.language)}
+			pb={{ base: 8, md: 16 }}
+		>
 			<PageHeader
 				title={t("recentActions.title")}
 				description={t("recentActions.description")}

@@ -2952,5 +2952,11 @@
 	"recentActions.filters.status": "فیلتر وضعیت",
 	"recentActions.filters.allActions": "همه عملیات‌ها",
 	"recentActions.filters.allResources": "همه منابع",
-	"recentActions.filters.allStatuses": "همه وضعیت‌ها"
+	"recentActions.filters.allStatuses": "همه وضعیت‌ها",
+	"recentActions.operations.created": "{{resource}} ایجاد شد",
+	"recentActions.operations.deleted": "{{resource}} حذف شد",
+	"recentActions.resources.host": "هاست",
+	"recentActions.resources.inbound": "اینباند",
+	"recentActions.resources.outbound": "اوت‌باند",
+	"recentActions.resources.service": "سرویس"
 }

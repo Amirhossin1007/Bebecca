@@ -2952,5 +2952,11 @@
 	"recentActions.filters.status": "Status filter",
 	"recentActions.filters.allActions": "All actions",
 	"recentActions.filters.allResources": "All resources",
-	"recentActions.filters.allStatuses": "All statuses"
+	"recentActions.filters.allStatuses": "All statuses",
+	"recentActions.operations.created": "Created {{resource}}",
+	"recentActions.operations.deleted": "Deleted {{resource}}",
+	"recentActions.resources.host": "host",
+	"recentActions.resources.inbound": "inbound",
+	"recentActions.resources.outbound": "outbound",
+	"recentActions.resources.service": "service"
 }
