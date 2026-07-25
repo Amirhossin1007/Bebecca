@@ -18,8 +18,10 @@ import {
 import {
 	ArrowPathIcon,
 	ArrowUturnLeftIcon,
+	CheckCircleIcon,
 	EyeIcon,
 	MagnifyingGlassIcon,
+	NoSymbolIcon,
 	PencilSquareIcon,
 	PlusCircleIcon,
 	TrashIcon,
@@ -42,7 +44,12 @@ import { fetch } from "service/http";
 import { AdminRole, AdminSudoScope } from "types/Admin";
 import { buildJsonDiff } from "utils/jsonDiff";
 
-type RecentActionOperation = "created" | "deleted" | "updated";
+type RecentActionOperation =
+	| "created"
+	| "deleted"
+	| "updated"
+	| "disabled"
+	| "enabled";
 
 type RecentActionPreview = {
 	field?: string;
@@ -117,6 +124,8 @@ const statusTone = (status: RecentAction["rollback_status"]) => {
 const actionOperation = (actionType: string) => {
 	if (actionType.includes(".create")) return "created" as const;
 	if (actionType.includes(".delete")) return "deleted" as const;
+	if (actionType.includes(".disable")) return "disabled" as const;
+	if (actionType.includes(".enable")) return "enabled" as const;
 	return "updated" as const;
 };
 
@@ -133,6 +142,10 @@ const actionOperationVisual = (operation: RecentActionOperation) => {
 			return { color: "green.400", icon: <PlusCircleIcon width={18} /> };
 		case "deleted":
 			return { color: "red.400", icon: <TrashIcon width={18} /> };
+		case "disabled":
+			return { color: "orange.400", icon: <NoSymbolIcon width={18} /> };
+		case "enabled":
+			return { color: "green.400", icon: <CheckCircleIcon width={18} /> };
 		default:
 			return { color: "blue.400", icon: <PencilSquareIcon width={18} /> };
 	}
@@ -140,12 +153,14 @@ const actionOperationVisual = (operation: RecentActionOperation) => {
 
 const recentActionResourceKeys = new Set([
 	"host",
+	"admin",
 	"inbound",
 	"outbound",
 	"service",
 	"xray_config",
 	"routing",
 	"routing_rule",
+	"balancer",
 	"dns",
 	"dns_server",
 	"dns_host",
@@ -154,11 +169,12 @@ const recentActionResourceKeys = new Set([
 	"policy",
 	"stats",
 	"transport",
-	"reverse",
+	"reverse_proxy",
 	"metrics",
 	"observatory",
 	"burst_observatory",
-	"fakedns",
+	"fake_dns",
+	"services",
 ]);
 
 const recentActionFieldKeys = new Set([
@@ -223,6 +239,7 @@ const actionTypeResource = (actionType: string) => {
 		case "inbound":
 		case "outbound":
 		case "service":
+		case "admin":
 			return actionType.split(".")[0];
 		case "xray":
 			return "xray_config";
@@ -280,6 +297,42 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 			),
 		[lines],
 	);
+	const beforeHighlightRanges = useMemo(
+		() =>
+			lines.flatMap((line) =>
+				line.type === "remove" &&
+				line.beforeLine &&
+				line.highlightStart !== undefined &&
+				line.highlightEnd !== undefined
+					? [
+							{
+								line: line.beforeLine,
+								start: line.highlightStart,
+								end: line.highlightEnd,
+							},
+						]
+					: [],
+			),
+		[lines],
+	);
+	const afterHighlightRanges = useMemo(
+		() =>
+			lines.flatMap((line) =>
+				line.type === "add" &&
+				line.afterLine &&
+				line.highlightStart !== undefined &&
+				line.highlightEnd !== undefined
+					? [
+							{
+								line: line.afterLine,
+								start: line.highlightStart,
+								end: line.highlightEnd,
+							},
+						]
+					: [],
+			),
+		[lines],
+	);
 
 	return (
 		<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} dir="ltr">
@@ -296,6 +349,7 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 						minHeight={0}
 						highlightLines={beforeChangedLines}
 						highlightVariant="removed"
+						highlightRanges={beforeHighlightRanges}
 					/>
 				</Box>
 			</Box>
@@ -312,6 +366,7 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 						minHeight={0}
 						highlightLines={afterChangedLines}
 						highlightVariant="added"
+						highlightRanges={afterHighlightRanges}
 					/>
 				</Box>
 			</Box>
@@ -357,9 +412,9 @@ export const RecentActionsPage: FC = () => {
 	const [beforeID, setBeforeID] = useState<number | null>(null);
 	const [selectedID, setSelectedID] = useState<number | null>(null);
 	const [search, setSearch] = useState("");
-	const [actionType, setActionType] = useState("");
-	const [resourceType, setResourceType] = useState("");
-	const [status, setStatus] = useState("");
+	const [actionTypesFilter, setActionTypesFilter] = useState<string[]>([]);
+	const [resourceTypesFilter, setResourceTypesFilter] = useState<string[]>([]);
+	const [statusesFilter, setStatusesFilter] = useState<string[]>([]);
 
 	const actionsQuery = useQuery(
 		["recent-actions", beforeID],
@@ -407,9 +462,21 @@ export const RecentActionsPage: FC = () => {
 	const filteredActions = useMemo(() => {
 		const term = search.trim().toLowerCase();
 		return actions.filter((action) => {
-			if (actionType && action.action_type !== actionType) return false;
-			if (resourceType && action.resource_type !== resourceType) return false;
-			if (status && action.rollback_status !== status) return false;
+			if (
+				actionTypesFilter.length > 0 &&
+				!actionTypesFilter.includes(action.action_type)
+			)
+				return false;
+			if (
+				resourceTypesFilter.length > 0 &&
+				!resourceTypesFilter.includes(action.resource_type)
+			)
+				return false;
+			if (
+				statusesFilter.length > 0 &&
+				!statusesFilter.includes(action.rollback_status)
+			)
+				return false;
 			if (!term) return true;
 			return [
 				action.summary,
@@ -428,7 +495,7 @@ export const RecentActionsPage: FC = () => {
 				.toLowerCase()
 				.includes(term);
 		});
-	}, [actionType, actions, resourceType, search, status]);
+	}, [actionTypesFilter, actions, resourceTypesFilter, search, statusesFilter]);
 
 	const rollback = (action: RecentAction) => {
 		if (!window.confirm(t("recentActions.rollbackConfirm"))) return;
@@ -642,49 +709,56 @@ export const RecentActionsPage: FC = () => {
 						/>
 					</InputGroup>
 					<Select
+						mode="multiple"
 						size="sm"
-						value={actionType}
-						onChange={(event) => setActionType(event.target.value)}
+						value={actionTypesFilter}
+						onValueChange={(value) =>
+							setActionTypesFilter(Array.isArray(value) ? value : [value])
+						}
+						options={actionTypes.map((type) => ({
+							label: actionTypeLabel(type),
+							value: type,
+						}))}
+						placeholder={t("recentActions.filters.allActions")}
 						aria-label={t("recentActions.filters.action")}
-						w={{ base: "full", md: "190px" }}
-					>
-						<option value="">{t("recentActions.filters.allActions")}</option>
-						{actionTypes.map((type) => (
-							<option key={type} value={type}>
-								{actionTypeLabel(type)}
-							</option>
-						))}
-					</Select>
+						w={{ base: "full", xl: "240px" }}
+					/>
 					<Select
+						mode="multiple"
 						size="sm"
-						value={resourceType}
-						onChange={(event) => setResourceType(event.target.value)}
+						value={resourceTypesFilter}
+						onValueChange={(value) =>
+							setResourceTypesFilter(Array.isArray(value) ? value : [value])
+						}
+						options={resourceTypes.map((type) => ({
+							label: t(resourceTranslationKey(type)),
+							value: type,
+						}))}
+						placeholder={t("recentActions.filters.allResources")}
 						aria-label={t("recentActions.filters.resource")}
-						w={{ base: "full", md: "160px" }}
-					>
-						<option value="">{t("recentActions.filters.allResources")}</option>
-						{resourceTypes.map((type) => (
-							<option key={type} value={type}>
-								{t(resourceTranslationKey(type))}
-							</option>
-						))}
-					</Select>
+						w={{ base: "full", xl: "220px" }}
+					/>
 					<Select
+						mode="multiple"
 						size="sm"
-						value={status}
-						onChange={(event) => setStatus(event.target.value)}
+						value={statusesFilter}
+						onValueChange={(value) =>
+							setStatusesFilter(Array.isArray(value) ? value : [value])
+						}
+						options={[
+							"available",
+							"undone",
+							"expired",
+							"conflict",
+							"unsupported",
+						].map((value) => ({
+							label: t(`recentActions.status.${value}`),
+							value,
+						}))}
+						placeholder={t("recentActions.filters.allStatuses")}
 						aria-label={t("recentActions.filters.status")}
-						w={{ base: "full", md: "170px" }}
-					>
-						<option value="">{t("recentActions.filters.allStatuses")}</option>
-						{["available", "undone", "expired", "conflict", "unsupported"].map(
-							(value) => (
-								<option key={value} value={value}>
-									{t(`recentActions.status.${value}`)}
-								</option>
-							),
-						)}
-					</Select>
+						w={{ base: "full", xl: "190px" }}
+					/>
 				</Stack>
 			</ResourceListCard>
 
@@ -839,7 +913,11 @@ export const RecentActionsPage: FC = () => {
 					) : (
 						<Alert status="info">
 							<AlertIcon />
-							{t("recentActions.snapshotExpired")}
+							{t(
+								detail?.action.rollback_status === "unsupported"
+									? "recentActions.historyOnly"
+									: "recentActions.snapshotExpired",
+							)}
 						</Alert>
 					)}
 					{rollbackMutation.isError && (

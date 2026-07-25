@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -75,6 +76,31 @@ type recentActionStored struct {
 
 func (s *Server) recordXrayMutationTx(ctx context.Context, tx *sql.Tx, mutation xrayconfig.Mutation) error {
 	return s.recordRecentActionTx(ctx, tx, mutation)
+}
+
+func (s *Server) recordRecentActionEventTx(ctx context.Context, tx *sql.Tx, actionType, resourceType, resourceKey, summary string) error {
+	principal, ok := ctx.Value(adminContextKey).(adminPrincipal)
+	if !ok || principal.ID <= 0 || strings.TrimSpace(actionType) == "" {
+		return nil
+	}
+	now := time.Now().UTC()
+	_, err := tx.ExecContext(ctx, `INSERT INTO recent_actions (
+		action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
+		summary, snapshot, after_hash, rollback_status, created_at, snapshot_expires_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, '', 'unsupported', ?, NULL)`,
+		strings.TrimSpace(actionType),
+		strings.TrimSpace(resourceType),
+		strings.TrimSpace(resourceKey),
+		principal.ID,
+		strings.TrimSpace(principal.Username),
+		fmt.Sprint(principal.Context.Source),
+		strings.TrimSpace(summary),
+		dbTimestamp(now),
+	)
+	if err != nil {
+		return err
+	}
+	return s.pruneRecentActionsTx(ctx, tx, now)
 }
 
 func (s *Server) recordRecentActionTx(ctx context.Context, tx *sql.Tx, mutation xrayconfig.Mutation) error {
@@ -357,7 +383,8 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 		}
 		beforeID = parsed
 	}
-	items, err := s.listRecentActions(r.Context(), beforeID, limit+1)
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	items, err := s.listRecentActions(r.Context(), beforeID, limit+1, principal.Context.Admin.HasFullAccess())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -394,10 +421,10 @@ func (s *Server) handleRecentActionsPath(w http.ResponseWriter, r *http.Request)
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
-func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int) ([]recentActionItem, error) {
+func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int, includeAdmin bool) ([]recentActionItem, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
 		summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id, snapshot
-		FROM recent_actions WHERE (? = 0 OR id < ?) ORDER BY id DESC LIMIT ?`, beforeID, beforeID, limit)
+		FROM recent_actions WHERE (? = 0 OR id < ?) AND (? = 1 OR resource_type <> 'admin') ORDER BY id DESC LIMIT ?`, beforeID, beforeID, includeAdmin, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -431,6 +458,11 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	if action.ResourceType == "admin" && !principal.Context.Admin.HasFullAccess() {
+		writeError(w, http.StatusForbidden, "You're not allowed")
+		return
+	}
 	response := map[string]any{"snapshot_available": len(action.Snapshot) > 0}
 	if len(action.Snapshot) > 0 {
 		snapshot, err := decodeRecentActionSnapshot(action.Snapshot)
@@ -448,6 +480,7 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 		if len(previews) == 0 {
 			previews = s.recoverRecentActionConfigPreviews(r.Context(), snapshot.ConfigPatches)
 		}
+		previews = append(previews, recentActionHostPreviews(snapshot.Before.Hosts, snapshot.After.Hosts)...)
 		if len(previews) > 0 {
 			response["config_previews"] = redactRecentActionConfigPreviews(previews)
 		}
@@ -544,6 +577,37 @@ func (s *Server) recoverRecentActionConfigPreviews(ctx context.Context, patches 
 	return recentActionConfigPreviews(patches, before, after)
 }
 
+func recentActionHostPreviews(before, after []xrayconfig.HostSnapshot) []recentActionConfigPreview {
+	afterByID := make(map[int64]xrayconfig.HostSnapshot, len(after))
+	for _, host := range after {
+		afterByID[host.ID] = host
+	}
+	previews := make([]recentActionConfigPreview, 0, len(before)+len(after))
+	seen := make(map[int64]bool, len(before))
+	for _, host := range before {
+		next, exists := afterByID[host.ID]
+		if exists && reflect.DeepEqual(host, next) {
+			seen[host.ID] = true
+			continue
+		}
+		previews = append(previews, recentActionConfigPreview{
+			TargetID: "host", Path: fmt.Sprintf("/hosts/@id=%d", host.ID),
+			Before: host, After: next, BeforeExists: true, AfterExists: exists,
+		})
+		seen[host.ID] = true
+	}
+	for _, host := range after {
+		if seen[host.ID] {
+			continue
+		}
+		previews = append(previews, recentActionConfigPreview{
+			TargetID: "host", Path: fmt.Sprintf("/hosts/@id=%d", host.ID),
+			After: host, AfterExists: true,
+		})
+	}
+	return previews
+}
+
 type rowScanner interface{ Scan(...any) error }
 
 func scanRecentActionListItem(scanner rowScanner) (recentActionItem, []byte, error) {
@@ -632,11 +696,11 @@ func recentActionOperation(actionType string) string {
 
 func recentActionConfigOperation(change xrayconfig.ConfigPatchChange) (string, string) {
 	parts := strings.Split(strings.Trim(change.Path, "/"), "/")
-	if len(parts) != 2 || !strings.HasPrefix(parts[1], "@tag=") || change.BeforeExists == change.AfterExists {
+	if len(parts) == 0 || change.BeforeExists == change.AfterExists {
 		return "", ""
 	}
 	resource := recentActionConfigResource(change.Path)
-	if resource == "" {
+	if resource == "" || (len(parts) > 1 && !strings.HasPrefix(parts[len(parts)-1], "@tag=")) {
 		return "", ""
 	}
 	if change.AfterExists {
@@ -659,6 +723,9 @@ func recentActionConfigResource(path string) string {
 		if len(parts) > 1 && parts[1] == "rules" {
 			return "routing_rule"
 		}
+		if len(parts) > 1 && parts[1] == "balancers" {
+			return "balancer"
+		}
 		return "routing"
 	case "dns":
 		if len(parts) > 1 && parts[1] == "servers" {
@@ -668,10 +735,14 @@ func recentActionConfigResource(path string) string {
 			return "dns_host"
 		}
 		return "dns"
-	case "log", "api", "policy", "stats", "transport", "reverse", "metrics", "observatory", "fakedns":
+	case "log", "api", "policy", "stats", "transport", "metrics", "observatory", "services":
 		return parts[0]
+	case "reverse":
+		return "reverse_proxy"
 	case "burstObservatory":
 		return "burst_observatory"
+	case "fakedns":
+		return "fake_dns"
 	}
 	return ""
 }

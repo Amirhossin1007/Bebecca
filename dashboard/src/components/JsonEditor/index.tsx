@@ -48,6 +48,7 @@ export type JSONEditorProps = {
 	onValidityChange?: (isValid: boolean, error?: string) => void;
 	highlightLines?: number[];
 	highlightVariant?: "added" | "removed";
+	highlightRanges?: Array<{ line: number; start: number; end: number }>;
 };
 
 type JsonValidation = {
@@ -132,6 +133,7 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 			onValidityChange,
 			highlightLines,
 			highlightVariant,
+			highlightRanges,
 		},
 		ref,
 	) => {
@@ -492,14 +494,18 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 				session.removeMarker?.(marker);
 			}
 			highlightMarkerRefs.current = [];
-			if (!highlightVariant || !highlightLines?.length || !session.addMarker) {
+			if (
+				!highlightVariant ||
+				(!highlightLines?.length && !highlightRanges?.length) ||
+				!session.addMarker
+			) {
 				return;
 			}
 			const Range = ace?.getSelectionRange?.()?.constructor;
 			if (!Range) {
 				return;
 			}
-			for (const line of highlightLines) {
+			for (const line of highlightLines ?? []) {
 				const row = Math.max(0, line - 1);
 				highlightMarkerRefs.current.push(
 					session.addMarker(
@@ -510,7 +516,20 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 					),
 				);
 			}
-		}, [highlightLines, highlightVariant]);
+			for (const range of highlightRanges ?? []) {
+				const row = Math.max(0, range.line - 1);
+				const start = Math.max(0, range.start);
+				const end = Math.max(start + 1, range.end);
+				highlightMarkerRefs.current.push(
+					session.addMarker(
+						new Range(row, start, row, end),
+						`rebecca-json-diff-${highlightVariant}-text`,
+						"text",
+						false,
+					),
+				);
+			}
+		}, [highlightLines, highlightRanges, highlightVariant]);
 
 		useEffect(() => {
 			const ace = jsonEditorRef.current?.aceEditor as any;

@@ -35,4 +35,18 @@ describe("buildJsonDiff", () => {
 			diff.filter((line) => line.type === "context").map((line) => line.text),
 		).toContain('  "unchanged": true,');
 	});
+
+	it("highlights the exact changed character", () => {
+		const diff = buildJsonDiff({ port: 9050 }, { port: 9051 });
+		const removed = diff.find((line) => line.type === "remove");
+		const added = diff.find((line) => line.type === "add");
+		if (!removed || !added) throw new Error("expected paired diff lines");
+
+		expect(
+			removed.text.slice(removed.highlightStart, removed.highlightEnd),
+		).toBe("0");
+		expect(added.text.slice(added.highlightStart, added.highlightEnd)).toBe(
+			"1",
+		);
+	});
 });
