@@ -10,10 +10,12 @@ import {
 } from "@chakra-ui/react";
 import {
 	BellAlertIcon,
+	BoltIcon,
 	BookOpenIcon,
 	BriefcaseIcon,
 	ChartBarIcon,
 	CircleStackIcon,
+	ClockIcon,
 	CodeBracketSquareIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
@@ -21,7 +23,6 @@ import {
 	EyeIcon,
 	HomeIcon,
 	LinkIcon,
-	QueueListIcon,
 	ServerStackIcon,
 	Squares2X2Icon,
 	UserCircleIcon,
@@ -44,7 +45,6 @@ import {
 	AdminRole,
 	AdminSection,
 	AdminSudoScope,
-	UserPermissionToggle,
 } from "types/Admin";
 import {
 	getTutorialManifestUrl,
@@ -61,7 +61,8 @@ const iconProps = {
 
 const HomeIconStyled = chakra(HomeIcon, iconProps);
 const UsersIconStyled = chakra(UserGroupIcon, iconProps);
-const BulkActionsIconStyled = chakra(QueueListIcon, iconProps);
+const BulkActionsIconStyled = chakra(BoltIcon, iconProps);
+const RecentActionsIconStyled = chakra(ClockIcon, iconProps);
 const SettingsIconStyled = chakra(Cog6ToothIcon, iconProps);
 const MasterSettingsIconStyled = chakra(Cog8ToothIcon, iconProps);
 const NodeIconStyled = chakra(ServerStackIcon, iconProps);
@@ -239,7 +240,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			? {
 					title: t("recentActions.title"),
 					url: "/recent-actions",
-					icon: BulkActionsIconStyled,
+					icon: RecentActionsIconStyled,
 				}
 			: null,
 		isPrivilegedAdmin

@@ -20,6 +20,9 @@ import {
 	ArrowUturnLeftIcon,
 	EyeIcon,
 	MagnifyingGlassIcon,
+	PencilSquareIcon,
+	PlusCircleIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { JsonEditor } from "components/JsonEditor";
@@ -116,6 +119,19 @@ const actionLifecycle = (action: RecentAction) => {
 	return operation
 		? { operation, resource: action.preview?.resource ?? action.resource_type }
 		: undefined;
+};
+
+const actionOperationVisual = (
+	operation: "created" | "deleted" | "updated",
+) => {
+	switch (operation) {
+		case "created":
+			return { color: "green.400", icon: <PlusCircleIcon width={18} /> };
+		case "deleted":
+			return { color: "red.400", icon: <TrashIcon width={18} /> };
+		default:
+			return { color: "blue.400", icon: <PencilSquareIcon width={18} /> };
+	}
 };
 
 const changedPaths = (
@@ -320,29 +336,47 @@ export const RecentActionsPage: FC = () => {
 				header: t("recentActions.columns.action"),
 				isPrimary: true,
 				priority: "primary",
-				minWidth: "220px",
+				minWidth: "190px",
 				cell: (action) => {
 					const lifecycle = actionLifecycle(action);
-					const resource = lifecycle
-						? t(`recentActions.resources.${lifecycle.resource}`, {
-								defaultValue: lifecycle.resource.replaceAll("_", " "),
-							})
-						: undefined;
+					const operation = lifecycle?.operation ?? "updated";
+					const resourceType = lifecycle?.resource ?? action.resource_type;
+					const resource = t(`recentActions.resources.${resourceType}`, {
+						defaultValue: resourceType.replaceAll("_", " "),
+					});
+					const visual = actionOperationVisual(operation);
+					return (
+						<HStack align="start" spacing={2.5} minW={0}>
+							<Box color={visual.color} mt={0.5} flexShrink={0}>
+								{visual.icon}
+							</Box>
+							<VStack align="start" spacing={0} minW={0}>
+								<Text fontWeight="semibold" noOfLines={1} maxW="full">
+									{t(`recentActions.operations.${operation}`, { resource })}
+								</Text>
+								<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+									{action.summary}
+								</Text>
+							</VStack>
+						</HStack>
+					);
+				},
+			},
+			{
+				id: "resource",
+				header: t("recentActions.columns.resource"),
+				priority: "high",
+				minWidth: "180px",
+				cell: (action) => {
+					const resourceType =
+						actionLifecycle(action)?.resource ?? action.resource_type;
 					return (
 						<VStack align="start" spacing={1} minW={0}>
-							<HStack spacing={2} flexWrap="wrap">
-								<Badge colorScheme={statusTone(action.rollback_status)}>
-									{t(`recentActions.status.${action.rollback_status}`)}
-								</Badge>
-								<Badge variant="subtle">{action.resource_type}</Badge>
-							</HStack>
-							<Text fontWeight="semibold" noOfLines={1} maxW="full">
-								{lifecycle
-									? t(`recentActions.operations.${lifecycle.operation}`, {
-											resource,
-										})
-									: action.summary}
-							</Text>
+							<Badge variant="subtle">
+								{t(`recentActions.resources.${resourceType}`, {
+									defaultValue: resourceType.replaceAll("_", " "),
+								})}
+							</Badge>
 							<Text
 								fontFamily="mono"
 								fontSize="xs"
@@ -364,6 +398,17 @@ export const RecentActionsPage: FC = () => {
 				cell: (action) => <ActionPreview preview={action.preview} />,
 			},
 			{
+				id: "status",
+				header: t("recentActions.columns.status"),
+				priority: "medium",
+				minWidth: "140px",
+				cell: (action) => (
+					<Badge colorScheme={statusTone(action.rollback_status)}>
+						{t(`recentActions.status.${action.rollback_status}`)}
+					</Badge>
+				),
+			},
+			{
 				id: "actor",
 				header: t("recentActions.columns.actor"),
 				priority: "medium",
@@ -380,8 +425,8 @@ export const RecentActionsPage: FC = () => {
 			{
 				id: "created",
 				header: t("recentActions.columns.time"),
-				priority: "medium",
-				hideBelow: "lg",
+				priority: "low",
+				hideBelow: "xl",
 				minWidth: "160px",
 				accessor: "created_at",
 				sortable: true,
@@ -555,8 +600,35 @@ export const RecentActionsPage: FC = () => {
 					</Text>
 				}
 				rowActions={rowActions}
-				actionsDisplay="menu"
-				actionsColumnWidth="52px"
+				renderRowActions={(action) => (
+					<HStack spacing={2} justify="flex-end">
+						<Button
+							size="sm"
+							variant="outline"
+							leftIcon={<EyeIcon width={16} />}
+							onClick={() => setSelectedID(action.id)}
+						>
+							{t("recentActions.details")}
+						</Button>
+						{action.rollback_status === "available" && (
+							<Button
+								size="sm"
+								colorScheme="orange"
+								leftIcon={<ArrowUturnLeftIcon width={16} />}
+								onClick={() => rollback(action)}
+								isLoading={
+									rollbackMutation.isLoading &&
+									rollbackMutation.variables === action.id
+								}
+							>
+								{t("recentActions.rollback")}
+							</Button>
+						)}
+					</HStack>
+				)}
+				actionsDisplay="inline"
+				actionsColumnWidth="210px"
+				actionsAlwaysVisible
 				onRowClick={(action) => setSelectedID(action.id)}
 				mobileBreakpoint="lg"
 				pagination={
