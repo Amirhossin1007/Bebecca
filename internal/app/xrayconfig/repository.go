@@ -85,6 +85,15 @@ func (r Repository) GetTargetRawConfig(ctx context.Context, targetID string) (ma
 	return r.NodeEffectiveRawConfig(ctx, *nodeID, master)
 }
 
+func (r Repository) GetTargetState(ctx context.Context, targetID string) (TargetState, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return TargetState{}, err
+	}
+	defer rollbackQuietly(tx)
+	return r.targetStateTx(ctx, tx, targetID)
+}
+
 func (r Repository) SaveTargetRawConfig(ctx context.Context, targetID string, payload map[string]any) (map[string]any, error) {
 	kind, nodeID, err := ParseTargetID(targetID)
 	if err != nil {
