@@ -9,6 +9,7 @@ import {
 	Input,
 	InputGroup,
 	InputLeftElement,
+	Select,
 	Spinner,
 	Stack,
 	Switch,
@@ -36,6 +37,7 @@ import type {
 	AccessInsightClient,
 	AccessInsightsResponse,
 } from "types/AccessInsights";
+import { filterAccessInsightItems } from "utils/accessInsights";
 
 const PAGE_SIZE = 30;
 const REFRESH_INTERVAL = 15_000;
@@ -69,6 +71,8 @@ const AccessInsightsPage: FC = () => {
 	const [data, setData] = useState<AccessInsightsResponse | null>(null);
 	const [search, setSearch] = useState("");
 	const [appliedSearch, setAppliedSearch] = useState("");
+	const [protocolFilter, setProtocolFilter] = useState("");
+	const [nodeFilter, setNodeFilter] = useState("");
 	const [page, setPage] = useState(0);
 	const [loading, setLoading] = useState(false);
 	const [autoRefresh, setAutoRefresh] = useState(false);
@@ -111,24 +115,59 @@ const AccessInsightsPage: FC = () => {
 	}, [autoRefresh, canView, load]);
 
 	const items = data?.items || [];
+	const protocolOptions = useMemo(
+		() =>
+			uniqueStrings(
+				items.flatMap((item) =>
+					item.platforms.map((platform) => platform.platform),
+				),
+			).sort(),
+		[items],
+	);
+	const nodeOptions = useMemo(
+		() => uniqueStrings(items.flatMap((item) => item.nodes || [])).sort(),
+		[items],
+	);
+	const filteredItems = useMemo(
+		() =>
+			filterAccessInsightItems(items, {
+				node: nodeFilter,
+				protocol: protocolFilter,
+			}),
+		[items, nodeFilter, protocolFilter],
+	);
 	const totalIPs = useMemo(
 		() =>
-			new Set(items.flatMap((item) => uniqueStrings(item.sources || []))).size,
-		[items],
+			new Set(filteredItems.flatMap((item) => uniqueStrings(item.sources || [])))
+				.size,
+		[filteredItems],
 	);
 	const totalNodes = useMemo(
-		() => new Set(items.flatMap((item) => item.nodes || [])).size,
-		[items],
+		() => new Set(filteredItems.flatMap((item) => item.nodes || [])).size,
+		[filteredItems],
 	);
 	const protocolTotals = useMemo(
-		() =>
-			Object.entries(data?.platform_counts || {}).sort(
+		() => {
+			const totals = new Map<string, number>();
+			filteredItems.forEach((item) =>
+				item.platforms.forEach((platform) =>
+					totals.set(
+						platform.platform,
+						(totals.get(platform.platform) || 0) + platform.connections,
+					),
+				),
+			);
+			return Array.from(totals.entries()).sort(
 				(left, right) => right[1] - left[1],
-			),
-		[data?.platform_counts],
+			);
+		},
+		[filteredItems],
 	);
-	const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-	const visibleItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+	const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+	const visibleItems = filteredItems.slice(
+		page * PAGE_SIZE,
+		(page + 1) * PAGE_SIZE,
+	);
 
 	useEffect(() => {
 		setPage((current) => Math.min(current, totalPages - 1));
@@ -317,7 +356,7 @@ const AccessInsightsPage: FC = () => {
 					summaryItems={[
 						{
 							label: t("pages.accessInsights.onlineUsers"),
-							value: items.length,
+							value: filteredItems.length,
 							colorScheme: "green",
 						},
 						{
@@ -374,12 +413,12 @@ const AccessInsightsPage: FC = () => {
 							event.preventDefault();
 							applySearch();
 						}}
-						direction={{ base: "column", sm: "row" }}
+						direction={{ base: "column", lg: "row" }}
 						spacing={2}
 						w="full"
-						maxW="520px"
+						maxW="760px"
 					>
-						<InputGroup>
+						<InputGroup flex="1">
 							<InputLeftElement pointerEvents="none">
 								<MagnifyingGlassIcon width={18} />
 							</InputLeftElement>
@@ -389,6 +428,40 @@ const AccessInsightsPage: FC = () => {
 								placeholder={t("pages.accessInsights.liveSearch")}
 							/>
 						</InputGroup>
+						<Select
+							value={protocolFilter}
+							onChange={(event) => {
+								setProtocolFilter(event.target.value);
+								setPage(0);
+							}}
+							aria-label={t("pages.accessInsights.allProtocols")}
+							w={{ base: "full", md: "180px" }}
+						>
+							<option value="">
+								{t("pages.accessInsights.allProtocols")}
+							</option>
+							{protocolOptions.map((protocol) => (
+								<option key={protocol} value={protocol}>
+									{protocol}
+								</option>
+							))}
+						</Select>
+						<Select
+							value={nodeFilter}
+							onChange={(event) => {
+								setNodeFilter(event.target.value);
+								setPage(0);
+							}}
+							aria-label={t("pages.accessInsights.allNodes")}
+							w={{ base: "full", md: "180px" }}
+						>
+							<option value="">{t("pages.accessInsights.allNodes")}</option>
+							{nodeOptions.map((node) => (
+								<option key={node} value={node}>
+									{node}
+								</option>
+							))}
+						</Select>
 						<Button type="submit" flexShrink={0}>
 							{t("search")}
 						</Button>
