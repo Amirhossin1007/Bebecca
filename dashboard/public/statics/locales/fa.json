@@ -2940,5 +2940,17 @@
 	"recentActions.status.undone": "بازگردانی شد",
 	"recentActions.status.expired": "منقضی‌شده",
 	"recentActions.status.conflict": "تداخل",
-	"recentActions.status.unsupported": "فقط تاریخچه"
+	"recentActions.status.unsupported": "فقط تاریخچه",
+	"recentActions.searchPlaceholder": "جست‌وجوی عملیات، منابع یا ادمین‌ها",
+	"recentActions.noMatching": "عملیاتی با فیلترهای فعلی پیدا نشد.",
+	"recentActions.columns.action": "عملیات",
+	"recentActions.columns.preview": "تغییر",
+	"recentActions.columns.actor": "اجراکننده",
+	"recentActions.columns.time": "زمان",
+	"recentActions.filters.action": "فیلتر عملیات",
+	"recentActions.filters.resource": "فیلتر منبع",
+	"recentActions.filters.status": "فیلتر وضعیت",
+	"recentActions.filters.allActions": "همه عملیات‌ها",
+	"recentActions.filters.allResources": "همه منابع",
+	"recentActions.filters.allStatuses": "همه وضعیت‌ها"
 }

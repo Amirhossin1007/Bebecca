@@ -21,6 +21,7 @@ const (
 	recentActionSnapshotLifetime = 30 * 24 * time.Hour
 	recentActionHistoryLifetime  = 90 * 24 * time.Hour
 	recentActionSnapshotMaxSize  = 1 << 20
+	recentActionPreviewMaxSize   = 128 << 10
 	recentActionHistoryMaxRows   = 1000
 )
 
@@ -44,6 +45,13 @@ type recentActionItem struct {
 	SnapshotExpiresAt *string `json:"snapshot_expires_at,omitempty"`
 	UndoneAt          *string `json:"undone_at,omitempty"`
 	UndoneByAdminID   *int64  `json:"undone_by_admin_id,omitempty"`
+	Preview           *recentActionPreview `json:"preview,omitempty"`
+}
+
+type recentActionPreview struct {
+	Field  string `json:"field"`
+	Before string `json:"before"`
+	After  string `json:"after"`
 }
 
 type recentActionStored struct {
@@ -292,7 +300,7 @@ func (s *Server) handleRecentActionsPath(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int) ([]recentActionItem, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
-		summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id
+		summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id, snapshot
 		FROM recent_actions WHERE (? = 0 OR id < ?) ORDER BY id DESC LIMIT ?`, beforeID, beforeID, limit)
 	if err != nil {
 		return nil, err
@@ -300,10 +308,11 @@ func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit in
 	defer rows.Close()
 	items := []recentActionItem{}
 	for rows.Next() {
-		item, err := scanRecentActionItem(rows)
+		item, snapshot, err := scanRecentActionListItem(rows)
 		if err != nil {
 			return nil, err
 		}
+		item.Preview = recentActionPreviewFromSnapshot(snapshot)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -326,19 +335,21 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	response := map[string]any{"action": action.recentActionItem, "snapshot_available": len(action.Snapshot) > 0}
+	response := map[string]any{"snapshot_available": len(action.Snapshot) > 0}
 	if len(action.Snapshot) > 0 {
 		snapshot, err := decodeRecentActionSnapshot(action.Snapshot)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "could not read recent action snapshot")
 			return
 		}
+		action.Preview = recentActionSnapshotPreview(snapshot)
 		response["before"] = redactRecentActionSnapshot(snapshot.Before)
 		response["after"] = redactRecentActionSnapshot(snapshot.After)
 		if len(snapshot.ConfigPatches) > 0 {
 			response["config_changes"] = redactRecentActionConfigChanges(snapshot.ConfigPatches)
 		}
 	}
+	response["action"] = action.recentActionItem
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -405,14 +416,15 @@ func redactRecentActionConfigChanges(patches []xrayconfig.ConfigPatch) []map[str
 
 type rowScanner interface{ Scan(...any) error }
 
-func scanRecentActionItem(scanner rowScanner) (recentActionItem, error) {
+func scanRecentActionListItem(scanner rowScanner) (recentActionItem, []byte, error) {
 	var item recentActionItem
 	var actorID, undoneBy sql.NullInt64
 	var expiresAt, undoneAt sql.NullString
+	var snapshot []byte
 	err := scanner.Scan(&item.ID, &item.ActionType, &item.ResourceType, &item.ResourceKey, &actorID, &item.ActorUsername, &item.AuthSource,
-		&item.Summary, &item.RollbackStatus, &item.CreatedAt, &expiresAt, &undoneAt, &undoneBy)
+		&item.Summary, &item.RollbackStatus, &item.CreatedAt, &expiresAt, &undoneAt, &undoneBy, &snapshot)
 	if err != nil {
-		return recentActionItem{}, err
+		return recentActionItem{}, nil, err
 	}
 	if actorID.Valid {
 		value := actorID.Int64
@@ -430,7 +442,111 @@ func scanRecentActionItem(scanner rowScanner) (recentActionItem, error) {
 		value := undoneBy.Int64
 		item.UndoneByAdminID = &value
 	}
-	return item, nil
+	return item, snapshot, nil
+}
+
+func recentActionPreviewFromSnapshot(raw []byte) *recentActionPreview {
+	if len(raw) == 0 || len(raw) > recentActionPreviewMaxSize {
+		return nil
+	}
+	snapshot, err := decodeRecentActionSnapshot(raw)
+	if err != nil {
+		return nil
+	}
+	return recentActionSnapshotPreview(snapshot)
+}
+
+func recentActionSnapshotPreview(snapshot recentActionSnapshot) *recentActionPreview {
+	if preview := recentActionHostPreview(snapshot.Before.Hosts, snapshot.After.Hosts); preview != nil {
+		return preview
+	}
+	for _, patch := range snapshot.ConfigPatches {
+		for _, change := range patch.Changes {
+			if change.Kind == "keyed_order" {
+				continue
+			}
+			field := strings.TrimPrefix(change.Path, "/")
+			if field == "" {
+				field = "configuration"
+			}
+			return &recentActionPreview{
+				Field:  field,
+				Before: recentActionPreviewValue(change.Before, change.BeforeExists),
+				After:  recentActionPreviewValue(change.After, change.AfterExists),
+			}
+		}
+	}
+	return nil
+}
+
+func recentActionHostPreview(before, after []xrayconfig.HostSnapshot) *recentActionPreview {
+	beforeByID := make(map[int64]xrayconfig.HostSnapshot, len(before))
+	afterByID := make(map[int64]xrayconfig.HostSnapshot, len(after))
+	for _, host := range before {
+		beforeByID[host.ID] = host
+	}
+	for _, host := range after {
+		afterByID[host.ID] = host
+		if previous, ok := beforeByID[host.ID]; ok {
+			for _, change := range []struct {
+				field  string
+				before string
+				after  string
+			}{
+				{"name", previous.Remark, host.Remark},
+				{"address", previous.Address, host.Address},
+				{"host", stringValue(previous.Host), stringValue(host.Host)},
+				{"sni", stringValue(previous.SNI), stringValue(host.SNI)},
+				{"path", stringValue(previous.Path), stringValue(host.Path)},
+			} {
+				if change.before != change.after {
+					return &recentActionPreview{Field: change.field, Before: recentActionPreviewValue(change.before, true), After: recentActionPreviewValue(change.after, true)}
+				}
+			}
+		}
+	}
+	for _, host := range after {
+		if _, ok := beforeByID[host.ID]; !ok {
+			return &recentActionPreview{Field: "name", Before: "—", After: recentActionPreviewValue(host.Remark, true)}
+		}
+	}
+	for _, host := range before {
+		if _, ok := afterByID[host.ID]; !ok {
+			return &recentActionPreview{Field: "name", Before: recentActionPreviewValue(host.Remark, true), After: "—"}
+		}
+	}
+	return nil
+}
+
+func recentActionPreviewValue(value any, exists bool) string {
+	if !exists {
+		return "—"
+	}
+	value = redactRecentActionSnapshot(value)
+	if text, ok := value.(string); ok {
+		return truncateRecentActionPreview(text)
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "—"
+	}
+	return truncateRecentActionPreview(string(raw))
+}
+
+func truncateRecentActionPreview(value string) string {
+	const limit = 96
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit-1]) + "…"
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func scanRecentActionStored(scanner rowScanner) (recentActionStored, error) {

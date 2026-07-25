@@ -2940,5 +2940,17 @@
 	"recentActions.status.undone": "Rolled back",
 	"recentActions.status.expired": "Expired",
 	"recentActions.status.conflict": "Conflict",
-	"recentActions.status.unsupported": "History only"
+	"recentActions.status.unsupported": "History only",
+	"recentActions.searchPlaceholder": "Search actions, resources, or admins",
+	"recentActions.noMatching": "No actions match the current filters.",
+	"recentActions.columns.action": "Action",
+	"recentActions.columns.preview": "Change",
+	"recentActions.columns.actor": "Actor",
+	"recentActions.columns.time": "Time",
+	"recentActions.filters.action": "Action filter",
+	"recentActions.filters.resource": "Resource filter",
+	"recentActions.filters.status": "Status filter",
+	"recentActions.filters.allActions": "All actions",
+	"recentActions.filters.allResources": "All resources",
+	"recentActions.filters.allStatuses": "All statuses"
 }

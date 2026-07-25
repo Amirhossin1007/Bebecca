@@ -58,3 +58,13 @@ func TestRecordRecentActionStoresCompressedBeforeAndAfter(t *testing.T) {
 		t.Fatalf("unexpected snapshot: %#v", snapshot)
 	}
 }
+
+func TestRecentActionSnapshotPreviewShowsHostRename(t *testing.T) {
+	preview := recentActionSnapshotPreview(recentActionSnapshot{
+		Before: xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "name"}}},
+		After:  xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "newname"}}},
+	})
+	if preview == nil || preview.Field != "name" || preview.Before != "name" || preview.After != "newname" {
+		t.Fatalf("unexpected preview: %#v", preview)
+	}
+}
