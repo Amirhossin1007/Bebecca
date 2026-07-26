@@ -15,13 +15,13 @@ func TestGitHubUpdateCheckerCachesSuccessfulStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&requests, 1)
 		switch r.URL.Path {
-		case "/repos/Amirhossin1007/Rebecca/releases/latest":
+		case "/repos/rebeccapanel/Rebecca/releases/latest":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"tag_name":     "v0.2.0",
 				"name":         "v0.2.0",
 				"published_at": "2026-06-24T00:00:00Z",
 			})
-		case "/Amirhossin1007/Rebecca/dev-build-manifest/dev-builds.json":
+		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"latest": map[string]any{
 					"build_tag":    "dev-abcdef0",
@@ -52,8 +52,8 @@ func TestGitHubUpdateCheckerCachesSuccessfulStatus(t *testing.T) {
 	}
 	current := "dev-0000000"
 
-	first := checker.Status(context.Background(), "Amirhossin1007/Rebecca", &current, "dev")
-	second := checker.Status(context.Background(), "Amirhossin1007/Rebecca", &current, "dev")
+	first := checker.Status(context.Background(), "rebeccapanel/Rebecca", &current, "dev")
+	second := checker.Status(context.Background(), "rebeccapanel/Rebecca", &current, "dev")
 
 	if first.Error != "" || second.Error != "" {
 		t.Fatalf("unexpected errors: first=%q second=%q", first.Error, second.Error)
@@ -69,11 +69,11 @@ func TestGitHubUpdateCheckerCachesSuccessfulStatus(t *testing.T) {
 func TestGitHubUpdateCheckerFindsDevBuildThroughWorkflowEndpoint(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/repos/Amirhossin1007/Rebecca/releases/latest":
+		case "/repos/rebeccapanel/Rebecca/releases/latest":
 			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v0.2.0"})
-		case "/Amirhossin1007/Rebecca/dev-build-manifest/dev-builds.json":
+		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
 			http.NotFound(w, r)
-		case "/repos/Amirhossin1007/Rebecca/actions/workflows/binary-build.yml/runs":
+		case "/repos/rebeccapanel/Rebecca/actions/workflows/binary-build.yml/runs":
 			query := r.URL.Query()
 			if query.Get("branch") != "dev" || query.Get("event") != "push" || query.Get("status") != "success" {
 				t.Fatalf("unexpected workflow query: %s", r.URL.RawQuery)
@@ -103,7 +103,7 @@ func TestGitHubUpdateCheckerFindsDevBuildThroughWorkflowEndpoint(t *testing.T) {
 		ManifestPath:   "dev-builds.json",
 	}
 	current := "dev-0000000"
-	status := checker.Status(context.Background(), "Amirhossin1007/Rebecca", &current, "dev")
+	status := checker.Status(context.Background(), "rebeccapanel/Rebecca", &current, "dev")
 
 	if status.Error != "" {
 		t.Fatalf("unexpected update error: %q", status.Error)
@@ -146,8 +146,8 @@ func TestGitHubUpdateCheckerCachesErrors(t *testing.T) {
 		ErrorTTL:   time.Hour,
 	}
 
-	first := checker.Status(context.Background(), "Amirhossin1007/Rebecca", nil, "latest")
-	second := checker.Status(context.Background(), "Amirhossin1007/Rebecca", nil, "latest")
+	first := checker.Status(context.Background(), "rebeccapanel/Rebecca", nil, "latest")
+	second := checker.Status(context.Background(), "rebeccapanel/Rebecca", nil, "latest")
 
 	if first.Error == "" || second.Error == "" {
 		t.Fatalf("expected cached error, got first=%q second=%q", first.Error, second.Error)
