@@ -1992,11 +1992,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					my={{ base: 0, md: "3.75rem" }}
 					position="relative"
 					overflow="hidden"
-					h={{ base: "var(--rb-dialog-viewport-height, 100dvh)", md: "auto" }}
-					maxH={{
-						base: "var(--rb-dialog-viewport-height, 100dvh)",
-						md: "calc(100vh - 48px)",
-					}}
 					borderRadius={{ base: 0, md: "md" }}
 					display="flex"
 					flexDirection="column"
