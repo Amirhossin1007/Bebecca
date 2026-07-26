@@ -3,6 +3,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -73,6 +74,12 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = ?`, 1, created.ID)
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM pending_node_certificates`, 0)
+	server.recordNodeRuntimeAction(
+		context.WithValue(context.Background(), adminContextKey, adminPrincipal{ID: 1, Username: "pouria"}),
+		created.ID,
+		"node.reconnect",
+		"Reconnected node",
+	)
 
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/node", token, `{
 		"name":"de-1",
@@ -121,6 +128,15 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 	}
 	assertDBInt64(t, db, `SELECT data_limit FROM nodes WHERE id = 1`, 4096)
 	assertDBInt64(t, db, `SELECT proxy_enabled FROM nodes WHERE id = 1`, 1)
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/node/1", token, `{"status":"connected"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enable node status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/node/1", token, `{"note":"final note"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update node status=%d body=%s", rec.Code, rec.Body.String())
+	}
 
 	if _, err := db.Exec(`INSERT INTO node_usages (created_at, node_id, uplink, downlink) VALUES ('2026-06-09 00:00:00', 1, 100, 200)`); err != nil {
 		t.Fatal(err)
@@ -173,6 +189,18 @@ func TestNodeMutationHandlersCreateUpdateResetRegenerateDelete(t *testing.T) {
 		t.Fatalf("delete node status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1`, 0)
+	for _, actionType := range []string{
+		"node.create",
+		"node.reconnect",
+		"node.disable",
+		"node.enable",
+		"node.update",
+		"node.usage_reset",
+		"node.certificate_regenerate",
+		"node.delete",
+	} {
+		assertDBInt64(t, db, `SELECT COUNT(*) FROM recent_actions WHERE action_type = ? AND resource_type = 'node'`, 1, actionType)
+	}
 }
 
 func prefixForTest(value string) string {
@@ -269,6 +297,7 @@ func TestNodeMutationHandlersPermissionsAndRollback(t *testing.T) {
 		t.Fatalf("rollback create status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM nodes WHERE name = 'rollback'`, 0)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM recent_actions WHERE resource_type = 'node' AND resource_key = 'rollback'`, 0)
 }
 
 func TestMasterNodeRoutesAreGone(t *testing.T) {
