@@ -306,6 +306,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 	server.telegramSender = telegramSender
 	server.telegramReports = telegramapp.NewReporter(telegramRepo, telegramSender)
 	server.telegramBackup = telegramapp.NewBackupDelivery(telegramRepo, telegramSender)
+	server.nodeMutations = server.nodeMutations.WithRecentActionRecorder(server.recordRecentActionEventTx)
 	return server, db
 }
 

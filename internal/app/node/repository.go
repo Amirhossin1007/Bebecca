@@ -19,10 +19,13 @@ const (
 )
 
 type Repository struct {
-	db      *sql.DB
-	dialect string
-	now     func() time.Time
+	db                   *sql.DB
+	dialect              string
+	now                  func() time.Time
+	recentActionRecorder RecentActionRecorder
 }
+
+type RecentActionRecorder func(context.Context, *sql.Tx, string, string, string, string) error
 
 func NewRepository(db *sql.DB, dialect string) Repository {
 	return Repository{db: db, dialect: dialect, now: func() time.Time { return time.Now().UTC() }}
@@ -30,6 +33,11 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 
 func (r Repository) WithNow(now func() time.Time) Repository {
 	r.now = now
+	return r
+}
+
+func (r Repository) WithRecentActionRecorder(recorder RecentActionRecorder) Repository {
+	r.recentActionRecorder = recorder
 	return r
 }
 
@@ -134,6 +142,9 @@ INSERT INTO nodes (
 		return NodeResponse{}, err
 	}
 	if err := r.enqueueNodeOperationTx(ctx, tx, NodeOperationSyncConfig, &nodeID, nil, map[string]any{"node_id": nodeID}, now); err != nil {
+		return NodeResponse{}, err
+	}
+	if err := r.recordRecentActionTx(ctx, tx, "node.create", strings.TrimSpace(payload.Name), "Created node"); err != nil {
 		return NodeResponse{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -358,6 +369,16 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 			return NodeResponse{}, err
 		}
 	}
+	if len(updates) > 0 {
+		resourceKey := current.Name
+		if payload.Name != nil {
+			resourceKey = strings.TrimSpace(*payload.Name)
+		}
+		actionType, summary := nodeUpdateRecentAction(current.Status, finalStatus)
+		if err := r.recordRecentActionTx(ctx, tx, actionType, resourceKey, summary); err != nil {
+			return NodeResponse{}, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return NodeResponse{}, err
 	}
@@ -374,7 +395,8 @@ func (r Repository) DeleteNode(ctx context.Context, nodeID int64) error {
 		return err
 	}
 	defer rollbackQuiet(tx)
-	if _, err := r.getNode(ctx, tx, nodeID, ""); err != nil {
+	node, err := r.getNode(ctx, tx, nodeID, "")
+	if err != nil {
 		return err
 	}
 	for _, stmt := range []string{
@@ -392,6 +414,9 @@ func (r Repository) DeleteNode(ctx context.Context, nodeID int64) error {
 			return err
 		}
 	}
+	if err := r.recordRecentActionTx(ctx, tx, "node.delete", node.Name, "Deleted node"); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -401,7 +426,8 @@ func (r Repository) ResetNodeUsage(ctx context.Context, nodeID int64) (NodeRespo
 		return NodeResponse{}, err
 	}
 	defer rollbackQuiet(tx)
-	if _, err := r.getNode(ctx, tx, nodeID, ""); err != nil {
+	node, err := r.getNode(ctx, tx, nodeID, "")
+	if err != nil {
 		return NodeResponse{}, err
 	}
 	for _, stmt := range []string{
@@ -418,10 +444,13 @@ func (r Repository) ResetNodeUsage(ctx context.Context, nodeID int64) (NodeRespo
 	if err := r.enqueueNodeOperationTx(ctx, tx, NodeOperationSyncConfig, &nodeID, nil, map[string]any{"node_id": nodeID, "usage_reset": true}, r.now().UTC()); err != nil {
 		return NodeResponse{}, err
 	}
+	if err := r.recordRecentActionTx(ctx, tx, "node.usage_reset", node.Name, "Reset node usage"); err != nil {
+		return NodeResponse{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return NodeResponse{}, err
 	}
-	node, err := r.GetNode(ctx, nodeID)
+	node, err = r.GetNode(ctx, nodeID)
 	if err != nil {
 		return NodeResponse{}, err
 	}
@@ -434,7 +463,8 @@ func (r Repository) RegenerateNodeCertificate(ctx context.Context, nodeID int64)
 		return NodeResponse{}, err
 	}
 	defer rollbackQuiet(tx)
-	if _, err := r.getNode(ctx, tx, nodeID, ""); err != nil {
+	node, err := r.getNode(ctx, tx, nodeID, "")
+	if err != nil {
 		return NodeResponse{}, err
 	}
 	cn, err := GenerateUniqueCN()
@@ -448,15 +478,35 @@ func (r Repository) RegenerateNodeCertificate(ctx context.Context, nodeID int64)
 	if _, err := tx.ExecContext(ctx, `UPDATE nodes SET certificate = ?, certificate_key = ? WHERE id = ?`, cert, key, nodeID); err != nil {
 		return NodeResponse{}, err
 	}
+	if err := r.recordRecentActionTx(ctx, tx, "node.certificate_regenerate", node.Name, "Regenerated node certificate"); err != nil {
+		return NodeResponse{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return NodeResponse{}, err
 	}
-	node, err := r.GetNode(ctx, nodeID)
+	node, err = r.GetNode(ctx, nodeID)
 	if err != nil {
 		return NodeResponse{}, err
 	}
 	node.NodeCertificateKey = &key
 	return node, nil
+}
+
+func (r Repository) recordRecentActionTx(ctx context.Context, tx *sql.Tx, actionType, resourceKey, summary string) error {
+	if r.recentActionRecorder == nil {
+		return nil
+	}
+	return r.recentActionRecorder(ctx, tx, actionType, "node", resourceKey, summary)
+}
+
+func nodeUpdateRecentAction(before, after string) (string, string) {
+	if before != StatusDisabled && after == StatusDisabled {
+		return "node.disable", "Disabled node"
+	}
+	if before == StatusDisabled && after != StatusDisabled {
+		return "node.enable", "Enabled node"
+	}
+	return "node.update", "Updated node"
 }
 
 func (r Repository) DeleteExpiredPendingCertificates(ctx context.Context) error {

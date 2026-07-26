@@ -44,7 +44,7 @@ export const XrayModalContent: FC<ModalContentProps> = ({
 			overflow="hidden"
 			maxH={{
 				base: "var(--rb-dialog-viewport-height, 100dvh)",
-				md: "calc(100vh - 48px)",
+				md: "calc(var(--rb-dialog-viewport-height, 100dvh) - 7.5rem)",
 			}}
 			h={{ base: "var(--rb-dialog-viewport-height, 100dvh)", md: "auto" }}
 			display="flex"

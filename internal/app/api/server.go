@@ -15,6 +15,7 @@ import (
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	"github.com/rebeccapanel/rebecca/internal/app/migrations"
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
@@ -135,6 +136,7 @@ func New(cfg Config) (*Server, error) {
 		MutationRecorder: server.recordXrayMutationTx,
 		RollbackMarker:   server.markRecentActionUndoneTx,
 	})
+	server.nodeMutations = nodeMutationRepo.WithRecentActionRecorder(server.recordRecentActionEventTx)
 	return server, nil
 }
 
@@ -379,6 +381,7 @@ func (s *Server) handleNodeReconnect(w http.ResponseWriter, r *http.Request, nod
 		writeControllerError(w, err)
 		return
 	}
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.reconnect", "Reconnected node")
 	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
 }
 
@@ -390,6 +393,7 @@ func (s *Server) handleNodeRestart(w http.ResponseWriter, r *http.Request, nodeI
 		writeControllerError(w, err)
 		return
 	}
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.restart", "Restarted node core")
 	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
 }
 
@@ -401,6 +405,7 @@ func (s *Server) handleNodeSync(w http.ResponseWriter, r *http.Request, nodeID i
 		writeControllerError(w, err)
 		return
 	}
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.sync", "Synced node configuration")
 	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
 }
 
@@ -484,6 +489,7 @@ func (s *Server) handleNodeRuntimeUpdate(w http.ResponseWriter, r *http.Request,
 			Version: version,
 		})
 	}()
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.runtime_update", "Started node core update")
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"status":  "accepted",
 		"node_id": nodeID,
@@ -512,6 +518,7 @@ func (s *Server) handleNodeGeoUpdate(w http.ResponseWriter, r *http.Request, nod
 		writeControllerError(w, err)
 		return
 	}
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.geo_update", "Updated node geo files")
 	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
 }
 
@@ -523,6 +530,7 @@ func (s *Server) handleNodeServiceRestart(w http.ResponseWriter, r *http.Request
 		writeControllerError(w, err)
 		return
 	}
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.service_restart", "Restarted node service")
 	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
 }
 
@@ -546,6 +554,7 @@ func (s *Server) handleNodeServiceUpdate(w http.ResponseWriter, r *http.Request,
 		writeControllerError(w, err)
 		return
 	}
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.service_update", "Updated node service")
 	writeJSON(w, http.StatusOK, flattenRuntimeResult(result))
 }
 
@@ -557,7 +566,20 @@ func (s *Server) handleNodeHostReboot(w http.ResponseWriter, r *http.Request, no
 		writeControllerError(w, err)
 		return
 	}
+	s.recordNodeRuntimeAction(r.Context(), nodeID, "node.host_reboot", "Rebooted node host")
 	writeJSON(w, http.StatusAccepted, flattenRuntimeResult(result))
+}
+
+func (s *Server) recordNodeRuntimeAction(ctx context.Context, nodeID int64, actionType, summary string) {
+	name, err := s.nodeName(ctx, nodeID)
+	if err != nil {
+		return
+	}
+	if err := s.withTx(ctx, func(tx *sql.Tx) error {
+		return s.recordRecentActionEventTx(ctx, tx, actionType, "node", name, summary)
+	}); err != nil {
+		logging.Warnf(logging.ComponentNode, "record recent action for node %d: %v", nodeID, err)
+	}
 }
 
 func parseNodePath(path string) (int64, string, bool) {

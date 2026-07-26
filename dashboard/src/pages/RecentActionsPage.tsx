@@ -20,6 +20,7 @@ import {
 	ArrowUturnLeftIcon,
 	CheckCircleIcon,
 	EyeIcon,
+	KeyIcon,
 	MagnifyingGlassIcon,
 	NoSymbolIcon,
 	PencilSquareIcon,
@@ -37,7 +38,7 @@ import {
 } from "components/ui";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useMemo, useState } from "react";
+import { type FC, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
@@ -49,7 +50,9 @@ type RecentActionOperation =
 	| "deleted"
 	| "updated"
 	| "disabled"
-	| "enabled";
+	| "enabled"
+	| "reset"
+	| "regenerated";
 
 type RecentActionPreview = {
 	field?: string;
@@ -126,6 +129,9 @@ const actionOperation = (actionType: string) => {
 	if (actionType.includes(".delete")) return "deleted" as const;
 	if (actionType.includes(".disable")) return "disabled" as const;
 	if (actionType.includes(".enable")) return "enabled" as const;
+	if (actionType === "node.usage_reset") return "reset" as const;
+	if (actionType === "node.certificate_regenerate")
+		return "regenerated" as const;
 	return "updated" as const;
 };
 
@@ -136,7 +142,23 @@ const actionLifecycle = (action: RecentAction) => {
 	};
 };
 
-const actionOperationVisual = (operation: RecentActionOperation) => {
+const nodeRuntimeActionTypes = new Set([
+	"node.reconnect",
+	"node.restart",
+	"node.sync",
+	"node.runtime_update",
+	"node.geo_update",
+	"node.service_restart",
+	"node.service_update",
+	"node.host_reboot",
+]);
+
+const actionOperationVisual = (
+	operation: RecentActionOperation,
+	actionType: string,
+) => {
+	if (nodeRuntimeActionTypes.has(actionType))
+		return { color: "blue.400", icon: <ArrowPathIcon width={18} /> };
 	switch (operation) {
 		case "created":
 			return { color: "green.400", icon: <PlusCircleIcon width={18} /> };
@@ -146,14 +168,33 @@ const actionOperationVisual = (operation: RecentActionOperation) => {
 			return { color: "orange.400", icon: <NoSymbolIcon width={18} /> };
 		case "enabled":
 			return { color: "green.400", icon: <CheckCircleIcon width={18} /> };
+		case "reset":
+			return { color: "orange.400", icon: <ArrowPathIcon width={18} /> };
+		case "regenerated":
+			return { color: "blue.400", icon: <KeyIcon width={18} /> };
 		default:
 			return { color: "blue.400", icon: <PencilSquareIcon width={18} /> };
 	}
 };
 
+const recentActionLabelKeys: Record<string, string> = {
+	"node.usage_reset": "recentActions.actions.nodeUsageReset",
+	"node.certificate_regenerate":
+		"recentActions.actions.nodeCertificateRegenerated",
+	"node.reconnect": "recentActions.actions.nodeReconnected",
+	"node.restart": "recentActions.actions.nodeCoreRestarted",
+	"node.sync": "recentActions.actions.nodeConfigurationSynced",
+	"node.runtime_update": "recentActions.actions.nodeCoreUpdateStarted",
+	"node.geo_update": "recentActions.actions.nodeGeoUpdated",
+	"node.service_restart": "recentActions.actions.nodeServiceRestarted",
+	"node.service_update": "recentActions.actions.nodeServiceUpdated",
+	"node.host_reboot": "recentActions.actions.nodeHostRebooted",
+};
+
 const recentActionResourceKeys = new Set([
 	"host",
 	"admin",
+	"node",
 	"inbound",
 	"outbound",
 	"service",
@@ -240,6 +281,7 @@ const actionTypeResource = (actionType: string) => {
 		case "outbound":
 		case "service":
 		case "admin":
+		case "node":
 			return actionType.split(".")[0];
 		case "xray":
 			return "xray_config";
@@ -450,10 +492,12 @@ export const RecentActionsPage: FC = () => {
 			Array.from(new Set(actions.map((action) => action.action_type))).sort(),
 		[actions],
 	);
-	const actionTypeLabel = (type: string) => {
+	const actionTypeLabel = useCallback((type: string) => {
+		const labelKey = recentActionLabelKeys[type];
+		if (labelKey) return t(labelKey);
 		const resource = t(resourceTranslationKey(actionTypeResource(type)));
 		return t(`recentActions.operations.${actionOperation(type)}`, { resource });
-	};
+	}, [t]);
 	const resourceTypes = useMemo(
 		() =>
 			Array.from(new Set(actions.map((action) => action.resource_type))).sort(),
@@ -512,8 +556,7 @@ export const RecentActionsPage: FC = () => {
 				cell: (action) => {
 					const lifecycle = actionLifecycle(action);
 					const operation = lifecycle.operation;
-					const resource = t(resourceTranslationKey(lifecycle.resource));
-					const visual = actionOperationVisual(operation);
+					const visual = actionOperationVisual(operation, action.action_type);
 					return (
 						<HStack align="start" spacing={2.5} minW={0}>
 							<Box color={visual.color} mt={0.5} flexShrink={0}>
@@ -521,7 +564,7 @@ export const RecentActionsPage: FC = () => {
 							</Box>
 							<VStack align="start" spacing={0} minW={0}>
 								<Text fontWeight="semibold" noOfLines={1} maxW="full">
-									{t(`recentActions.operations.${operation}`, { resource })}
+									{actionTypeLabel(action.action_type)}
 								</Text>
 							</VStack>
 						</HStack>
@@ -600,7 +643,7 @@ export const RecentActionsPage: FC = () => {
 				),
 			},
 		],
-		[t],
+		[actionTypeLabel, t],
 	);
 	const rowActions = (
 		action: RecentAction,
