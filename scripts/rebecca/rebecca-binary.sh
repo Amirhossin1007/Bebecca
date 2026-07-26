@@ -1484,8 +1484,8 @@ install_phpmyadmin_blueberry_theme() {
 
 configure_phpmyadmin_upload_limits() {
     local ini_content
-    ini_content="upload_max_filesize=4096M
-post_max_size=4096M
+    ini_content="upload_max_filesize=1024M
+post_max_size=1024M
 memory_limit=4096M
 max_execution_time=0
 max_input_time=0"
@@ -4375,6 +4375,9 @@ update_command() {
 
     colorized_echo blue "Updating requested version: $rebecca_version"
     update_rebecca "$rebecca_version"
+    if is_binary_install && [ -d /usr/share/phpmyadmin ]; then
+        configure_phpmyadmin_upload_limits
+    fi
     write_rebecca_channel "$rebecca_version"
     
     colorized_echo blue "Restarting Rebecca's services"

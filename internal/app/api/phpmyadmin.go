@@ -418,8 +418,8 @@ func ensurePHPMyAdminRuntimeConfig(credentials phpMyAdminCredentials, theme stri
 	}
 	config := "<?php\n" +
 		"declare(strict_types=1);\n" +
-		"ini_set('upload_max_filesize', '4096M');\n" +
-		"ini_set('post_max_size', '4096M');\n" +
+		"ini_set('upload_max_filesize', '1024M');\n" +
+		"ini_set('post_max_size', '1024M');\n" +
 		"ini_set('memory_limit', '4096M');\n" +
 		"ini_set('max_execution_time', '0');\n" +
 		"ini_set('max_input_time', '0');\n" +

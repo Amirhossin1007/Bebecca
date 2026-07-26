@@ -66,3 +66,12 @@ func TestPHPMyAdminRecoverySessionCarriesProxyState(t *testing.T) {
 		t.Fatal("expected expired recovery session to be rejected")
 	}
 }
+
+func TestPHPMyAdminUploadPHPDirectivesUseOneGiBLimit(t *testing.T) {
+	directives := strings.Join(phpMyAdminUploadPHPDirectives(), "\n")
+	for _, directive := range []string{"upload_max_filesize=1024M", "post_max_size=1024M"} {
+		if !strings.Contains(directives, directive) {
+			t.Fatalf("missing directive %q in %q", directive, directives)
+		}
+	}
+}
