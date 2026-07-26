@@ -51,3 +51,31 @@ func TestAPIRequestBodyLimitKeepsBackupImportException(t *testing.T) {
 		t.Fatal("backup import should use its dedicated 128 MiB limit")
 	}
 }
+
+func TestAPIRequestBodyLimitAllowsPHPMyAdminGigabyteUploads(t *testing.T) {
+	called := false
+	handler := withAPIRequestBodyLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	req := httptest.NewRequest(http.MethodPost, phpMyAdminEmbedPath+"import.php", strings.NewReader("x"))
+	req.ContentLength = maxPHPMyAdminRequestBodyBytes
+
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if !called {
+		t.Fatal("phpMyAdmin upload at the 1 GiB limit should reach the proxy")
+	}
+}
+
+func TestAPIRequestBodyLimitRejectsOversizedPHPMyAdminUpload(t *testing.T) {
+	handler := withAPIRequestBodyLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not receive an oversized phpMyAdmin upload")
+	}))
+	req := httptest.NewRequest(http.MethodPost, phpMyAdminEmbedPath+"import.php", strings.NewReader("x"))
+	req.ContentLength = maxPHPMyAdminRequestBodyBytes + 1
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, req)
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusRequestEntityTooLarge)
+	}
+}

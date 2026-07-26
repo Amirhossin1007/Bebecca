@@ -2,21 +2,35 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
 
-const maxAPIRequestBodyBytes int64 = 8 << 20
+const (
+	maxAPIRequestBodyBytes        int64 = 8 << 20
+	maxPHPMyAdminRequestBodyBytes int64 = 1024 << 20
+)
+
+func apiRequestBodyLimit(path string) int64 {
+	if path == "/api/settings/backup/import" {
+		return 0
+	}
+	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
+		return maxPHPMyAdminRequestBodyBytes
+	}
+	return maxAPIRequestBodyBytes
+}
 
 func withAPIRequestBodyLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Backup import accepts uploads up to 128 MiB in saveBackupUpload.
-		if r.URL.Path != "/api/settings/backup/import" {
-			if r.ContentLength > maxAPIRequestBodyBytes {
+		limit := apiRequestBodyLimit(r.URL.Path)
+		if limit > 0 {
+			if r.ContentLength > limit {
 				writeError(w, http.StatusRequestEntityTooLarge, "request body is too large")
 				return
 			}
-			r.Body = http.MaxBytesReader(w, r.Body, maxAPIRequestBodyBytes)
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 		next.ServeHTTP(w, r)
 	})
