@@ -567,15 +567,17 @@ const UsageMetricCard: FC<{
 			<Stack spacing={2}>
 				<Flex justifyContent="space-between" alignItems="center" gap={2} wrap="wrap">
 					<Text
-						fontSize="xs"
-						fontWeight="semibold"
-						color={labelColor}
-						whiteSpace="nowrap"
-						overflow="hidden"
-						textOverflow="ellipsis"
-					>
-						{label}
-					</Text>
+				fontSize="clamp(9px, 3.5vw, 12px)"
+				fontWeight="semibold"
+				color={labelColor}
+				whiteSpace="nowrap"
+				wordBreak="keep-all"
+				overflow="hidden"
+				textOverflow="ellipsis"
+				letterSpacing="tight"
+			>
+				{label}
+			</Text>
 					{onOpen && actionLabel && (
 						<Button size="xs" variant="outline" onClick={onOpen} flexShrink={0} ms="auto">
 							{actionLabel}
