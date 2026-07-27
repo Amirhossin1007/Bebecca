@@ -156,3 +156,31 @@ func (c Controller) ConfigureWindscribe(ctx context.Context, req Request) (Winds
 		Locations: locations,
 	}, nil
 }
+
+func (c Controller) ConfigurePsiphon(ctx context.Context, req Request) (PsiphonResult, error) {
+	client, node, err := c.dial(ctx, req.NodeID)
+	if err != nil {
+		return PsiphonResult{}, friendlyNodeError("configure Psiphon", req.NodeID, err)
+	}
+	defer client.Close()
+	res, err := client.Runtime().ConfigurePsiphon(ctx, &nodev1.PsiphonProxyRequest{
+		OperationId: "psiphon-" + strconv.FormatInt(req.NodeID, 10),
+		ConfigJson:  req.PsiphonConfigJSON,
+		Locations:   req.PsiphonLocations,
+		SocksPort:   req.PsiphonSocksPort,
+	})
+	if err != nil {
+		return PsiphonResult{}, friendlyNodeError("configure Psiphon", req.NodeID, err)
+	}
+	instances := make([]PsiphonInstance, 0, len(res.GetInstances()))
+	for _, instance := range res.GetInstances() {
+		instances = append(instances, PsiphonInstance{
+			Location:  instance.GetLocation(),
+			SocksPort: instance.GetSocksPort(),
+		})
+	}
+	return PsiphonResult{
+		Runtime:   runtimeResult(node, res.GetRuntime(), nil),
+		Instances: instances,
+	}, nil
+}

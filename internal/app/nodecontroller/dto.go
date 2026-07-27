@@ -1,36 +1,39 @@
 package nodecontroller
 
 type Request struct {
-	NodeID                  int64  `json:"node_id"`
-	ConfigJSON              string `json:"config_json,omitempty"`
-	Force                   bool   `json:"force,omitempty"`
-	IncludeMetrics          bool   `json:"include_metrics,omitempty"`
-	MaxLines                int    `json:"max_lines,omitempty"`
-	Version                 string `json:"version,omitempty"`
-	Channel                 string `json:"channel,omitempty"`
-	Files                   []File `json:"files,omitempty"`
-	OutboundTag             string `json:"outbound_tag,omitempty"`
-	OutboundProtocol        string `json:"outbound_protocol,omitempty"`
-	AllOutboundsJSON        string `json:"all_outbounds_json,omitempty"`
-	OutboundTestURL         string `json:"test_url,omitempty"`
-	OutboundTestType        string `json:"test_type,omitempty"`
-	RouteInboundTag         string `json:"route_inbound_tag,omitempty"`
-	RouteDomain             string `json:"route_domain,omitempty"`
-	RouteIP                 string `json:"route_ip,omitempty"`
-	RoutePort               uint32 `json:"route_port,omitempty"`
-	RouteNetwork            string `json:"route_network,omitempty"`
-	RouteProtocol           string `json:"route_protocol,omitempty"`
-	RouteEmail              string `json:"route_email,omitempty"`
-	TorSocksPort            uint32 `json:"tor_socks_port,omitempty"`
-	TorExitCountry          string `json:"tor_exit_country,omitempty"`
-	TorStrictExit           bool   `json:"tor_strict_exit,omitempty"`
-	WindscribeAction        string `json:"windscribe_action,omitempty"`
-	WindscribeUsername      string `json:"windscribe_username,omitempty"`
-	WindscribePassword      string `json:"windscribe_password,omitempty"`
-	WindscribeLocation      string `json:"windscribe_location,omitempty"`
-	WindscribeSocksPort     uint32 `json:"windscribe_socks_port,omitempty"`
-	WindscribeProxyUsername string `json:"windscribe_proxy_username,omitempty"`
-	WindscribeProxyPassword string `json:"windscribe_proxy_password,omitempty"`
+	NodeID                  int64    `json:"node_id"`
+	ConfigJSON              string   `json:"config_json,omitempty"`
+	Force                   bool     `json:"force,omitempty"`
+	IncludeMetrics          bool     `json:"include_metrics,omitempty"`
+	MaxLines                int      `json:"max_lines,omitempty"`
+	Version                 string   `json:"version,omitempty"`
+	Channel                 string   `json:"channel,omitempty"`
+	Files                   []File   `json:"files,omitempty"`
+	OutboundTag             string   `json:"outbound_tag,omitempty"`
+	OutboundProtocol        string   `json:"outbound_protocol,omitempty"`
+	AllOutboundsJSON        string   `json:"all_outbounds_json,omitempty"`
+	OutboundTestURL         string   `json:"test_url,omitempty"`
+	OutboundTestType        string   `json:"test_type,omitempty"`
+	RouteInboundTag         string   `json:"route_inbound_tag,omitempty"`
+	RouteDomain             string   `json:"route_domain,omitempty"`
+	RouteIP                 string   `json:"route_ip,omitempty"`
+	RoutePort               uint32   `json:"route_port,omitempty"`
+	RouteNetwork            string   `json:"route_network,omitempty"`
+	RouteProtocol           string   `json:"route_protocol,omitempty"`
+	RouteEmail              string   `json:"route_email,omitempty"`
+	TorSocksPort            uint32   `json:"tor_socks_port,omitempty"`
+	TorExitCountry          string   `json:"tor_exit_country,omitempty"`
+	TorStrictExit           bool     `json:"tor_strict_exit,omitempty"`
+	WindscribeAction        string   `json:"windscribe_action,omitempty"`
+	WindscribeUsername      string   `json:"windscribe_username,omitempty"`
+	WindscribePassword      string   `json:"windscribe_password,omitempty"`
+	WindscribeLocation      string   `json:"windscribe_location,omitempty"`
+	WindscribeSocksPort     uint32   `json:"windscribe_socks_port,omitempty"`
+	WindscribeProxyUsername string   `json:"windscribe_proxy_username,omitempty"`
+	WindscribeProxyPassword string   `json:"windscribe_proxy_password,omitempty"`
+	PsiphonConfigJSON       string   `json:"psiphon_config_json,omitempty"`
+	PsiphonLocations        []string `json:"psiphon_locations,omitempty"`
+	PsiphonSocksPort        uint32   `json:"psiphon_socks_port,omitempty"`
 }
 
 type File struct {
@@ -113,6 +116,16 @@ type WindscribeLocation struct {
 type WindscribeResult struct {
 	Runtime   RuntimeResult        `json:"runtime"`
 	Locations []WindscribeLocation `json:"locations,omitempty"`
+}
+
+type PsiphonInstance struct {
+	Location  string `json:"location"`
+	SocksPort uint32 `json:"socks_port"`
+}
+
+type PsiphonResult struct {
+	Runtime   RuntimeResult     `json:"runtime"`
+	Instances []PsiphonInstance `json:"instances,omitempty"`
 }
 
 type StreamLogsRequest struct {

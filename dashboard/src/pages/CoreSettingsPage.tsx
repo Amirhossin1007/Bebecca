@@ -112,6 +112,10 @@ import {
 	type WindscribeProxyFormValues,
 	WindscribeProxyModal,
 } from "../components/WindscribeProxyModal";
+import {
+	type PsiphonProxyFormValues,
+	PsiphonProxyModal,
+} from "../components/PsiphonProxyModal";
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
 import {
@@ -179,6 +183,7 @@ const WindscribeIconStyled = () => (
 		objectFit="contain"
 	/>
 );
+const PsiphonIconStyled = chakra(GlobeAltIcon, { baseStyle: { w: 4, h: 4 } });
 const compactActionButtonProps = {
 	colorScheme: "primary",
 	size: "xs" as const,
@@ -701,6 +706,11 @@ export const CoreSettingsPage: FC = () => {
 		onOpen: onWindscribeProxyOpen,
 		onClose: onWindscribeProxyClose,
 	} = useDisclosure();
+	const {
+		isOpen: isPsiphonProxyOpen,
+		onOpen: onPsiphonProxyOpen,
+		onClose: onPsiphonProxyClose,
+	} = useDisclosure();
 
 	const form = useForm({
 		defaultValues: {
@@ -731,6 +741,7 @@ export const CoreSettingsPage: FC = () => {
 	const [isApplyingTorProxy, setIsApplyingTorProxy] = useState(false);
 	const [isApplyingWindscribeProxy, setIsApplyingWindscribeProxy] =
 		useState(false);
+	const [isApplyingPsiphonProxy, setIsApplyingPsiphonProxy] = useState(false);
 	const [routingRuleData, setRoutingRuleData] = useState<any[]>([]);
 	const [routingRuleSearch, setRoutingRuleSearch] = useState("");
 	const [routeTestDestination, setRouteTestDestination] = useState("");
@@ -1516,6 +1527,66 @@ export const CoreSettingsPage: FC = () => {
 			});
 		} finally {
 			setIsApplyingWindscribeProxy(false);
+		}
+	};
+
+	const addPsiphonOutbounds = async (values: PsiphonProxyFormValues) => {
+		setIsApplyingPsiphonProxy(true);
+		try {
+			const locations = values.locations
+				.split(",")
+				.map((location) => location.trim().toLowerCase())
+				.filter(Boolean);
+			const response = await apiFetch<{
+				success: boolean;
+				obj?: { outbounds?: any[]; message?: string };
+				msg?: string;
+			}>("/panel/xray/psiphon/setup", {
+				method: "POST",
+				body: {
+					target_id: selectedTarget,
+					config: values.config,
+					locations,
+					port: values.port,
+					tag: values.tag.trim(),
+				},
+			});
+			const generatedOutbounds = response?.obj?.outbounds ?? [];
+			if (!response?.success || generatedOutbounds.length === 0) {
+				throw new Error(response?.msg || t("pages.xray.psiphon.failed"));
+			}
+			const outbounds = getOutbounds();
+			for (const outbound of generatedOutbounds) {
+				const existingIndex = outbounds.findIndex(
+					(item: any) => String(item?.tag ?? "") === String(outbound?.tag ?? ""),
+				);
+				if (existingIndex >= 0) outbounds[existingIndex] = outbound;
+				else outbounds.push(outbound);
+			}
+			commitOutbounds(outbounds);
+			onPsiphonProxyClose();
+			toast({
+				title: response.obj?.message || t("pages.xray.psiphon.added"),
+				status: "success",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+		} catch (error: any) {
+			const detail =
+				error?.response?._data?.detail ??
+				error?.data?.detail ??
+				error?.message ??
+				t("pages.xray.psiphon.failed");
+			toast({
+				title: typeof detail === "string" ? detail : JSON.stringify(detail),
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 5000,
+			});
+		} finally {
+			setIsApplyingPsiphonProxy(false);
 		}
 	};
 
@@ -4782,6 +4853,13 @@ export const CoreSettingsPage: FC = () => {
 													>
 														Windscribe
 													</MenuItem>
+													<MenuItem
+														icon={<PsiphonIconStyled />}
+														isDisabled={isApplyingPsiphonProxy}
+														onClick={onPsiphonProxyOpen}
+													>
+														Psiphon
+													</MenuItem>
 												</MenuList>
 											</Portal>
 										</Menu>
@@ -5524,6 +5602,16 @@ export const CoreSettingsPage: FC = () => {
 					existingTags={availableOutboundTags}
 					onClose={onWindscribeProxyClose}
 					onSubmit={addWindscribeOutbound}
+				/>
+			)}
+			{isPsiphonProxyOpen && (
+				<PsiphonProxyModal
+					isOpen={isPsiphonProxyOpen}
+					isLoading={isApplyingPsiphonProxy}
+					isMasterTarget={isMasterTarget}
+					existingTags={availableOutboundTags}
+					onClose={onPsiphonProxyClose}
+					onSubmit={addPsiphonOutbounds}
 				/>
 			)}
 			{isBalancerOpen && (

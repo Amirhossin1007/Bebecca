@@ -2207,6 +2207,24 @@
         "operationId": "postPanelXrayWindscribeSetup"
       }
     },
+    "/api/panel/xray/psiphon/setup": {
+      "post": {
+        "tags": [
+          "Core"
+        ],
+        "summary": "Setup Psiphon SOCKS outbounds",
+        "description": "Install the official Psiphon Linux amd64 client on a selected node, then run one isolated localhost-only SOCKS proxy per requested country and return matching Xray `socks` outbounds. Psiphon requires a distribution configuration issued by Psiphon; it is forwarded only to the selected node and saved there for the managed proxy services.\n\nAuthentication: send `Authorization: Bearer <api_key>`.\n\nPermissions: Requires sudo/full_access for config/runtime/outbound helper mutations.\n\nRequest body: JSON with a node `target_id`, Psiphon `config` JSON, one or more two-letter `locations`, starting `port` between 1024 and 65535, and optional `tag`.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JSON"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JSON"
+          }
+        },
+        "operationId": "postPanelXrayPsiphonSetup"
+      }
+    },
     "/api/panel/xray/routeTest": {
       "post": {
         "tags": [

@@ -30,6 +30,7 @@ service NodeRuntimeService {
   rpc ApplyIPBlocks(IPBlockRequest) returns (RuntimeActionResponse);
   rpc ApplyTorProxy(TorProxyRequest) returns (RuntimeActionResponse);
   rpc ConfigureWindscribe(WindscribeProxyRequest) returns (WindscribeProxyResponse);
+  rpc ConfigurePsiphon(PsiphonProxyRequest) returns (PsiphonProxyResponse);
 }
 
 service NodeUsageService {
@@ -254,6 +255,26 @@ message WindscribeProxyResponse {
   RuntimeState runtime = 3;
   string message = 4;
   repeated WindscribeLocation locations = 5;
+}
+
+message PsiphonProxyRequest {
+  string operation_id = 1;
+  string config_json = 2;
+  repeated string locations = 3;
+  uint32 socks_port = 4;
+}
+
+message PsiphonProxyInstance {
+  string location = 1;
+  uint32 socks_port = 2;
+}
+
+message PsiphonProxyResponse {
+  string operation_id = 1;
+  bool accepted = 2;
+  RuntimeState runtime = 3;
+  string message = 4;
+  repeated PsiphonProxyInstance instances = 5;
 }
 
 message SystemMetrics {
