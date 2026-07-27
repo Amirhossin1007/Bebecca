@@ -2713,6 +2713,7 @@
 	"pages.xray.outboundSub.sourceBadge": "subscription",
 	"xraySettings.noPermission": "You do not have permission to manage Xray settings.",
 	"core.customNodeConfig": "Custom config",
+	"core.defaultConfig": "تنظیمات پیش‌فرض",
 	"core.select": "Select...",
 	"optional": "Optional",
 	"listed": "Listed",

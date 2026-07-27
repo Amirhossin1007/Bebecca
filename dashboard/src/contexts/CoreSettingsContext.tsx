@@ -28,16 +28,18 @@ type CoreSettingsStore = {
 	version: string | null;
 	started: boolean | null;
 	logs_websocket: string | null;
+	runtimeLoaded: boolean;
 	configTargets: CoreConfigTarget[];
 	config: CoreConfig | null;
 };
 
-export const useCoreSettings = create<CoreSettingsStore>((set) => ({
+export const useCoreSettings = create<CoreSettingsStore>((set, get) => ({
 	isLoading: true,
 	isPostLoading: false,
 	version: null,
 	started: false,
 	logs_websocket: null,
+	runtimeLoaded: false,
 	configTargets: [],
 	config: null,
 	fetchConfigTargets: async () => {
@@ -55,28 +57,31 @@ export const useCoreSettings = create<CoreSettingsStore>((set) => ({
 		coreFetchAbortController = abortController;
 		set({ isLoading: true });
 		try {
-			const [core, config, targets] = await Promise.all([
-				fetch<{
-					version: string | null;
-					started: boolean | null;
-					logs_websocket: string | null;
-				}>("/core", { signal: abortController.signal }),
+			const [core, config] = await Promise.all([
+				get().runtimeLoaded
+					? Promise.resolve(null)
+					: fetch<{
+							version: string | null;
+							started: boolean | null;
+							logs_websocket: string | null;
+						}>("/core", { signal: abortController.signal }),
 				fetch<unknown>("/core/config", {
 					query: { target },
-					signal: abortController.signal,
-				}),
-				fetch<{ targets: CoreConfigTarget[] }>("/core/config/targets", {
 					signal: abortController.signal,
 				}),
 			]);
 			if (requestId !== coreFetchSequence || abortController.signal.aborted)
 				return;
 			set({
-				version: core.version,
-				started: core.started,
-				logs_websocket: core.logs_websocket,
+				...(core
+					? {
+							version: core.version,
+							started: core.started,
+							logs_websocket: core.logs_websocket,
+							runtimeLoaded: true,
+						}
+					: {}),
 				config: parseCoreConfig(config),
-				configTargets: targets?.targets || [],
 			});
 		} catch (error) {
 			if (requestId !== coreFetchSequence || abortController.signal.aborted)

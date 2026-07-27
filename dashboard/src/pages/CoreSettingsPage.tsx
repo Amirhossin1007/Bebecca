@@ -626,6 +626,7 @@ export const CoreSettingsPage: FC = () => {
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const {
 		fetchCoreSettings,
+		fetchConfigTargets,
 		updateConfig,
 		config: loadedConfig,
 		configTargets,
@@ -639,17 +640,6 @@ export const CoreSettingsPage: FC = () => {
 	const canManageXraySettings =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const [selectedTarget, setSelectedTarget] = useState("master");
-	const { data: serverIPs } = useQuery(
-		["server-ips", selectedTarget],
-		() =>
-			apiFetch<{ ipv4: string; ipv6: string }>("/core/ips", {
-				query: { target: selectedTarget },
-			}),
-		{
-			staleTime: 5 * 60 * 1000, // 5 minutes
-			enabled: canManageXraySettings,
-		},
-	);
 	const toast = useToast();
 	const {
 		isOpen: isOutboundOpen,
@@ -792,6 +782,17 @@ export const CoreSettingsPage: FC = () => {
 	const [warpOptionValue, setWarpOptionValue] = useState<string>("");
 	const [warpCustomDomain, setWarpCustomDomain] = useState<string>("");
 	const [activeTab, setActiveTab] = useState<number>(0);
+	const { data: serverIPs } = useQuery(
+		["server-ips", selectedTarget],
+		() =>
+			apiFetch<{ ipv4: string; ipv6: string }>("/core/ips", {
+				query: { target: selectedTarget },
+			}),
+		{
+			staleTime: 5 * 60 * 1000, // 5 minutes
+			enabled: canManageXraySettings && activeTab === 0,
+		},
+	);
 	const [isChangingTargetMode, setIsChangingTargetMode] = useState(false);
 	const selectedTargetInfo = useMemo(
 		() => configTargets.find((target) => target.id === selectedTarget),
@@ -984,16 +985,25 @@ export const CoreSettingsPage: FC = () => {
 	}, []);
 
 	useEffect(() => {
-		if (!configTargets.length) {
-			if (selectedTarget !== "master") {
-				setSelectedTarget("master");
-			}
-			return;
-		}
+		if (!configTargets.length) return;
 		if (!configTargets.some((target) => target.id === selectedTarget)) {
 			setSelectedTarget("master");
 		}
 	}, [configTargets, selectedTarget]);
+
+	useEffect(() => {
+		if (!canManageXraySettings) return;
+		fetchConfigTargets().catch((error) => {
+			toast({
+				title: t("core.errorFetchingConfig"),
+				description: error.message,
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 3000,
+			});
+		});
+	}, [canManageXraySettings, fetchConfigTargets, toast, t]);
 
 	useEffect(() => {
 		if (!canManageXraySettings) {
@@ -1150,6 +1160,7 @@ export const CoreSettingsPage: FC = () => {
 				selectedTargetInfo.node_id,
 				checked ? "custom" : "default",
 			);
+			await fetchConfigTargets();
 			await fetchCoreSettings(selectedTarget);
 		} catch {
 			toast({
@@ -3904,13 +3915,14 @@ export const CoreSettingsPage: FC = () => {
 								value={selectedTarget}
 								onChange={(event) => setSelectedTarget(event.target.value)}
 							>
-								{configTargets.map((target) => (
-									<option key={target.id} value={target.id}>
-										{target.type === "master"
-											? target.name
-											: `${target.name} (${target.mode})`}
-									</option>
-								))}
+								<option value="master">{t("core.defaultConfig")}</option>
+								{configTargets
+									.filter((target) => target.type === "node")
+									.map((target) => (
+										<option key={target.id} value={target.id}>
+											{target.name}
+										</option>
+									))}
 							</Select>
 						</FormControl>
 						{selectedTargetInfo?.type === "node" && (

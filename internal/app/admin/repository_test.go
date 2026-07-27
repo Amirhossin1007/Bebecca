@@ -244,3 +244,46 @@ func TestAuthenticatorWithJWTAndAPIKey(t *testing.T) {
 		t.Fatal("expected last_used_at to be updated")
 	}
 }
+
+func TestAuthenticatorSessionTouchInterval(t *testing.T) {
+	ctx := context.Background()
+	repo, db := testAdminRepository(t)
+	insertAdmin(t, db, "pouria", RoleFullAccess, StatusActive)
+	now := time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
+	recent := now.Add(-time.Minute)
+	_, err := repo.CreateSession(ctx, AdminSession{
+		AdminID:    1,
+		State:      SessionActive,
+		CreatedAt:  now.Add(-time.Hour),
+		LastSeenAt: recent,
+		ExpiresAt:  now.Add(time.Hour),
+	}, "session-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth := NewAuthenticator(repo, WithClock(func() time.Time { return now }))
+	if _, err := auth.AuthenticateSession(ctx, "session-token"); err != nil {
+		t.Fatal(err)
+	}
+	var lastSeen any
+	if err := db.QueryRow(`SELECT last_seen_at FROM admin_sessions WHERE id = 1`).Scan(&lastSeen); err != nil {
+		t.Fatal(err)
+	}
+	if got := timeValue(lastSeen); !got.Equal(recent) {
+		t.Fatalf("recent session was touched: got %s want %s", got, recent)
+	}
+
+	stale := now.Add(-sessionTouchInterval - time.Minute)
+	if _, err := db.Exec(`UPDATE admin_sessions SET last_seen_at = ? WHERE id = 1`, dbTime(stale)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := auth.AuthenticateSession(ctx, "session-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT last_seen_at FROM admin_sessions WHERE id = 1`).Scan(&lastSeen); err != nil {
+		t.Fatal(err)
+	}
+	if got := timeValue(lastSeen); !got.Equal(now) {
+		t.Fatalf("stale session was not touched: got %s want %s", got, now)
+	}
+}
