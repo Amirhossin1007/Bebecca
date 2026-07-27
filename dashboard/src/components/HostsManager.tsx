@@ -1075,14 +1075,11 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 					(host.data.address.trim() ||
 						rotationTextToOptions(host.data.address_options).length > 0) &&
 					(!isWireGuardInbound ||
-						(host.data.dns_primary.trim() &&
-							host.data.dns_secondary.trim())),
+						(host.data.dns_primary.trim() && host.data.dns_secondary.trim())),
 			)
 		: false;
 	const primaryDisabled = isCloneMode ? !canSubmit : !dirty || !canSubmit;
-	const primaryLabel = isCloneMode
-		? t("hostsPage.clone.submit")
-		: t("save");
+	const primaryLabel = isCloneMode ? t("hostsPage.clone.submit") : t("save");
 	const hostPayload = useMemo(() => {
 		if (!host) {
 			return null;
@@ -1198,7 +1195,10 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 										</CardHeader>
 										<CardBody pt={0}>
 											<VStack align="stretch" spacing={4}>
-												<FormControl isRequired isInvalid={Boolean(remarkError)}>
+												<FormControl
+													isRequired
+													isInvalid={Boolean(remarkError)}
+												>
 													<FormLabel>{t("hostsDialog.remark")}</FormLabel>
 													<InputGroup>
 														<Input
@@ -1213,11 +1213,15 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 															pr={2}
 															pointerEvents="auto"
 														>
-															{!isProfileHostInbound && <DynamicTokensPopover />}
+															{!isProfileHostInbound && (
+																<DynamicTokensPopover />
+															)}
 														</InputRightElement>
 													</InputGroup>
 													{remarkError && (
-														<FormErrorMessage>{t(remarkError)}</FormErrorMessage>
+														<FormErrorMessage>
+															{t(remarkError)}
+														</FormErrorMessage>
 													)}
 												</FormControl>
 												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
@@ -1284,12 +1288,11 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 													/>
 												)}
 												{isWireGuardInbound && (
-													<SimpleGrid
-														columns={{ base: 1, md: 2 }}
-														spacing={4}
-													>
+													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 														<FormControl isRequired>
-															<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
+															<FormLabel>
+																{t("hostsDialog.dnsPrimary")}
+															</FormLabel>
 															<Input
 																value={host.data.dns_primary}
 																placeholder="1.1.1.1"
@@ -1303,7 +1306,9 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 															/>
 														</FormControl>
 														<FormControl isRequired>
-															<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
+															<FormLabel>
+																{t("hostsDialog.dnsSecondary")}
+															</FormLabel>
 															<Input
 																value={host.data.dns_secondary}
 																placeholder="8.8.8.8"
@@ -1335,199 +1340,210 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 									</Card>
 
 									{!isVirtualTunnelInbound && (
-									<Card className="xray-dialog-section" variant="outline">
-										<CardHeader pb={2}>
-											<Text fontWeight="semibold">
-												{t("hostsPage.section.security")}
-											</Text>
-										</CardHeader>
-										<CardBody pt={0}>
-											<VStack align="stretch" spacing={4}>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl>
-														<FormLabel>{t("hostsDialog.sni")}</FormLabel>
-														<MultiValueAutocomplete
-															value={host.data.sni}
-															placeholder={t("hostsDialog.sniPlaceholder")}
-															onChange={(value) =>
-																onChange(host.uid, "sni", value)
-															}
-														/>
-													</FormControl>
-													<FormControl>
-														<FormLabel>{t("hostsDialog.host")}</FormLabel>
-														<MultiValueAutocomplete
-															value={host.data.host}
-															placeholder={t("hostsDialog.hostPlaceholder")}
-															onChange={(value) =>
-																onChange(host.uid, "host", value)
-															}
-															rightElement={<DynamicTokensPopover />}
-														/>
-													</FormControl>
-												</SimpleGrid>
-												{(hasMultipleRotationValues(host.data.sni) ||
-													hasMultipleRotationValues(host.data.host)) && (
+										<Card className="xray-dialog-section" variant="outline">
+											<CardHeader pb={2}>
+												<Text fontWeight="semibold">
+													{t("hostsPage.section.security")}
+												</Text>
+											</CardHeader>
+											<CardBody pt={0}>
+												<VStack align="stretch" spacing={4}>
 													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-														{hasMultipleRotationValues(host.data.sni) && (
-															<RotationControls
-																mode={host.data.sni_selection_mode}
-																ttl={host.data.sni_ttl_seconds}
-																onModeChange={(value) =>
-																	onChange(
-																		host.uid,
-																		"sni_selection_mode",
-																		value,
-																	)
-																}
-																onTTLChange={(value) =>
-																	onChange(host.uid, "sni_ttl_seconds", value)
+														<FormControl>
+															<FormLabel>{t("hostsDialog.sni")}</FormLabel>
+															<MultiValueAutocomplete
+																value={host.data.sni}
+																placeholder={t("hostsDialog.sniPlaceholder")}
+																onChange={(value) =>
+																	onChange(host.uid, "sni", value)
 																}
 															/>
-														)}
-														{hasMultipleRotationValues(host.data.host) && (
-															<RotationControls
-																mode={host.data.host_selection_mode}
-																ttl={host.data.host_ttl_seconds}
-																onModeChange={(value) =>
-																	onChange(
-																		host.uid,
-																		"host_selection_mode",
-																		value,
-																	)
+														</FormControl>
+														<FormControl>
+															<FormLabel>{t("hostsDialog.host")}</FormLabel>
+															<MultiValueAutocomplete
+																value={host.data.host}
+																placeholder={t("hostsDialog.hostPlaceholder")}
+																onChange={(value) =>
+																	onChange(host.uid, "host", value)
 																}
-																onTTLChange={(value) =>
-																	onChange(host.uid, "host_ttl_seconds", value)
-																}
+																rightElement={<DynamicTokensPopover />}
 															/>
-														)}
+														</FormControl>
 													</SimpleGrid>
-												)}
-												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-													<FormControl>
-														<FormLabel>{t("hostsDialog.security")}</FormLabel>
-														<SearchableTagSelect
-															value={host.data.security}
-															options={proxyHostSecurity.map((option) => ({
-																value: option.value,
-																label: option.title,
-															}))}
-															placeholder={t("hostsDialog.security")}
-															onChange={(value) =>
-																onChange(host.uid, "security", String(value))
-															}
-														/>
-													</FormControl>
-													<FormControl>
-														<FormLabel>{t("hostsDialog.alpn")}</FormLabel>
-														<MultiValueAutocomplete
-															value={host.data.alpn}
-															options={alpnAutocompleteOptions}
-															placeholder={t("hostsDialog.alpnPlaceholder")}
-															onChange={(value) =>
-																onChange(host.uid, "alpn", value)
-															}
-														/>
-													</FormControl>
-													<FormControl>
-														<FormLabel>
-															{t("hostsDialog.fingerprint")}
-														</FormLabel>
-														<SearchableTagSelect
-															value={host.data.fingerprint}
-															options={proxyFingerprint.map((option) => ({
-																value: option.value,
-																label: option.title,
-															}))}
-															placeholder={t("hostsDialog.fingerprint")}
-															onChange={(value) =>
-																onChange(host.uid, "fingerprint", String(value))
-															}
-														/>
-													</FormControl>
-												</SimpleGrid>
-											</VStack>
-										</CardBody>
-									</Card>
+													{(hasMultipleRotationValues(host.data.sni) ||
+														hasMultipleRotationValues(host.data.host)) && (
+														<SimpleGrid
+															columns={{ base: 1, md: 2 }}
+															spacing={4}
+														>
+															{hasMultipleRotationValues(host.data.sni) && (
+																<RotationControls
+																	mode={host.data.sni_selection_mode}
+																	ttl={host.data.sni_ttl_seconds}
+																	onModeChange={(value) =>
+																		onChange(
+																			host.uid,
+																			"sni_selection_mode",
+																			value,
+																		)
+																	}
+																	onTTLChange={(value) =>
+																		onChange(host.uid, "sni_ttl_seconds", value)
+																	}
+																/>
+															)}
+															{hasMultipleRotationValues(host.data.host) && (
+																<RotationControls
+																	mode={host.data.host_selection_mode}
+																	ttl={host.data.host_ttl_seconds}
+																	onModeChange={(value) =>
+																		onChange(
+																			host.uid,
+																			"host_selection_mode",
+																			value,
+																		)
+																	}
+																	onTTLChange={(value) =>
+																		onChange(
+																			host.uid,
+																			"host_ttl_seconds",
+																			value,
+																		)
+																	}
+																/>
+															)}
+														</SimpleGrid>
+													)}
+													<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+														<FormControl>
+															<FormLabel>{t("hostsDialog.security")}</FormLabel>
+															<SearchableTagSelect
+																value={host.data.security}
+																options={proxyHostSecurity.map((option) => ({
+																	value: option.value,
+																	label: option.title,
+																}))}
+																placeholder={t("hostsDialog.security")}
+																onChange={(value) =>
+																	onChange(host.uid, "security", String(value))
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>{t("hostsDialog.alpn")}</FormLabel>
+															<MultiValueAutocomplete
+																value={host.data.alpn}
+																options={alpnAutocompleteOptions}
+																placeholder={t("hostsDialog.alpnPlaceholder")}
+																onChange={(value) =>
+																	onChange(host.uid, "alpn", value)
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>
+																{t("hostsDialog.fingerprint")}
+															</FormLabel>
+															<SearchableTagSelect
+																value={host.data.fingerprint}
+																options={proxyFingerprint.map((option) => ({
+																	value: option.value,
+																	label: option.title,
+																}))}
+																placeholder={t("hostsDialog.fingerprint")}
+																onChange={(value) =>
+																	onChange(
+																		host.uid,
+																		"fingerprint",
+																		String(value),
+																	)
+																}
+															/>
+														</FormControl>
+													</SimpleGrid>
+												</VStack>
+											</CardBody>
+										</Card>
 									)}
 
 									{!isVirtualTunnelInbound && (
-									<Card className="xray-dialog-section" variant="outline">
-										<CardHeader pb={2}>
-											<Text fontWeight="semibold">
-												{t("hostsPage.section.advanced")}
-											</Text>
-										</CardHeader>
-										<CardBody pt={0}>
-											<VStack align="stretch" spacing={4}>
-												<FragmentSettingFields
-													value={host.data.fragment_setting}
-													onChange={(value) =>
-														onChange(host.uid, "fragment_setting", value)
-													}
-												/>
-												<NoisePatternFields
-													value={host.data.noise_setting}
-													onChange={(value) =>
-														onChange(host.uid, "noise_setting", value)
-													}
-												/>
-												<Stack
-													direction={{ base: "column", md: "row" }}
-													spacing={4}
-												>
-													<Checkbox
-														isChecked={host.data.allowinsecure}
-														onChange={(event) =>
-															onChange(
-																host.uid,
-																"allowinsecure",
-																event.target.checked,
-															)
+										<Card className="xray-dialog-section" variant="outline">
+											<CardHeader pb={2}>
+												<Text fontWeight="semibold">
+													{t("hostsPage.section.advanced")}
+												</Text>
+											</CardHeader>
+											<CardBody pt={0}>
+												<VStack align="stretch" spacing={4}>
+													<FragmentSettingFields
+														value={host.data.fragment_setting}
+														onChange={(value) =>
+															onChange(host.uid, "fragment_setting", value)
 														}
-													>
-														{t("hostsDialog.allowinsecure")}
-													</Checkbox>
-													<Checkbox
-														isChecked={host.data.mux_enable}
-														onChange={(event) =>
-															onChange(
-																host.uid,
-																"mux_enable",
-																event.target.checked,
-															)
+													/>
+													<NoisePatternFields
+														value={host.data.noise_setting}
+														onChange={(value) =>
+															onChange(host.uid, "noise_setting", value)
 														}
+													/>
+													<Stack
+														direction={{ base: "column", md: "row" }}
+														spacing={4}
 													>
-														{t("hostsDialog.muxEnable")}
-													</Checkbox>
-													<Checkbox
-														isChecked={host.data.random_user_agent}
-														onChange={(event) =>
-															onChange(
-																host.uid,
-																"random_user_agent",
-																event.target.checked,
-															)
-														}
-													>
-														{t("hostsDialog.randomUserAgent")}
-													</Checkbox>
-													<Checkbox
-														isChecked={host.data.use_sni_as_host}
-														onChange={(event) =>
-															onChange(
-																host.uid,
-																"use_sni_as_host",
-																event.target.checked,
-															)
-														}
-													>
-														{t("hostsDialog.useSniAsHost")}
-													</Checkbox>
-												</Stack>
-											</VStack>
-										</CardBody>
-									</Card>
+														<Checkbox
+															isChecked={host.data.allowinsecure}
+															onChange={(event) =>
+																onChange(
+																	host.uid,
+																	"allowinsecure",
+																	event.target.checked,
+																)
+															}
+														>
+															{t("hostsDialog.allowinsecure")}
+														</Checkbox>
+														<Checkbox
+															isChecked={host.data.mux_enable}
+															onChange={(event) =>
+																onChange(
+																	host.uid,
+																	"mux_enable",
+																	event.target.checked,
+																)
+															}
+														>
+															{t("hostsDialog.muxEnable")}
+														</Checkbox>
+														<Checkbox
+															isChecked={host.data.random_user_agent}
+															onChange={(event) =>
+																onChange(
+																	host.uid,
+																	"random_user_agent",
+																	event.target.checked,
+																)
+															}
+														>
+															{t("hostsDialog.randomUserAgent")}
+														</Checkbox>
+														<Checkbox
+															isChecked={host.data.use_sni_as_host}
+															onChange={(event) =>
+																onChange(
+																	host.uid,
+																	"use_sni_as_host",
+																	event.target.checked,
+																)
+															}
+														>
+															{t("hostsDialog.useSniAsHost")}
+														</Checkbox>
+													</Stack>
+												</VStack>
+											</CardBody>
+										</Card>
 									)}
 								</VStack>
 							</TabPanel>
@@ -1885,47 +1901,48 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 								/>
 							</FormControl>
 						)}
-						{!isVirtualTunnelInbound && (hasMultipleRotationValues(formState.sni) ||
-							hasMultipleRotationValues(formState.host)) && (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-								{hasMultipleRotationValues(formState.sni) && (
-									<RotationControls
-										mode={formState.sni_selection_mode}
-										ttl={formState.sni_ttl_seconds}
-										onModeChange={(value) =>
-											setFormState((prev) => ({
-												...prev,
-												sni_selection_mode: value,
-											}))
-										}
-										onTTLChange={(value) =>
-											setFormState((prev) => ({
-												...prev,
-												sni_ttl_seconds: value,
-											}))
-										}
-									/>
-								)}
-								{hasMultipleRotationValues(formState.host) && (
-									<RotationControls
-										mode={formState.host_selection_mode}
-										ttl={formState.host_ttl_seconds}
-										onModeChange={(value) =>
-											setFormState((prev) => ({
-												...prev,
-												host_selection_mode: value,
-											}))
-										}
-										onTTLChange={(value) =>
-											setFormState((prev) => ({
-												...prev,
-												host_ttl_seconds: value,
-											}))
-										}
-									/>
-								)}
-							</SimpleGrid>
-						)}
+						{!isVirtualTunnelInbound &&
+							(hasMultipleRotationValues(formState.sni) ||
+								hasMultipleRotationValues(formState.host)) && (
+								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+									{hasMultipleRotationValues(formState.sni) && (
+										<RotationControls
+											mode={formState.sni_selection_mode}
+											ttl={formState.sni_ttl_seconds}
+											onModeChange={(value) =>
+												setFormState((prev) => ({
+													...prev,
+													sni_selection_mode: value,
+												}))
+											}
+											onTTLChange={(value) =>
+												setFormState((prev) => ({
+													...prev,
+													sni_ttl_seconds: value,
+												}))
+											}
+										/>
+									)}
+									{hasMultipleRotationValues(formState.host) && (
+										<RotationControls
+											mode={formState.host_selection_mode}
+											ttl={formState.host_ttl_seconds}
+											onModeChange={(value) =>
+												setFormState((prev) => ({
+													...prev,
+													host_selection_mode: value,
+												}))
+											}
+											onTTLChange={(value) =>
+												setFormState((prev) => ({
+													...prev,
+													host_ttl_seconds: value,
+												}))
+											}
+										/>
+									)}
+								</SimpleGrid>
+							)}
 					</VStack>
 				</XrayModalBody>
 				<XrayModalFooter justifyContent="flex-end">
@@ -2253,9 +2270,8 @@ export const HostsManager: FC = () => {
 				validateHostState(
 					cloneHost.inboundTag,
 					cloneHost.data,
-					inboundOptions.find(
-						(option) => option.value === cloneHost.inboundTag,
-					)?.protocol,
+					inboundOptions.find((option) => option.value === cloneHost.inboundTag)
+						?.protocol,
 				),
 			)
 		) {
@@ -2713,7 +2729,11 @@ export const HostsManager: FC = () => {
 				mobileMetaLabel: t("port"),
 				cell: (host) =>
 					host.data.port != null ? (
-						<Text fontWeight="semibold" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+						<Text
+							fontWeight="semibold"
+							dir="ltr"
+							sx={{ unicodeBidi: "isolate" }}
+						>
 							{host.data.port}
 						</Text>
 					) : (
@@ -2790,56 +2810,52 @@ export const HostsManager: FC = () => {
 		[inboundOptions, renderRotationValues, t],
 	);
 
-	const hostRowActions = (
-		host: HostState,
-	): DataTableRowAction<HostState>[] => {
-			const isActive = !host.data.is_disabled;
-			return [
-				{
-					id: "edit",
-					label: t("edit"),
-					icon: <EditIcon />,
-					onClick: () => setSelectedHostUid(host.uid),
-				},
-				{
-					id: "toggle",
-					label: isActive
-						? t("phpmyadmin.disableAction")
-						: t("hostsPage.enable"),
-					icon: isActive ? (
-						<XCircleIcon width={16} />
-					) : (
-						<CheckCircleIcon width={16} />
-					),
-					onClick: () => toggleActive(host.uid, !isActive),
-					isDisabled: isPostLoading,
-				},
-				{
-					id: "delete",
-					label: t("delete"),
-					icon: <TrashIcon width={16} />,
-					isDanger: true,
-					render: (_row, onMenuClose) => (
-						<DeleteConfirmDialog
-							description={t("hostsPage.deleteConfirmation")}
-							isLoading={deletingUid === host.uid && isPostLoading}
-							onConfirm={async () => {
-								await handleDeleteHost(host.uid);
-								onMenuClose();
-							}}
+	const hostRowActions = (host: HostState): DataTableRowAction<HostState>[] => {
+		const isActive = !host.data.is_disabled;
+		return [
+			{
+				id: "edit",
+				label: t("edit"),
+				icon: <EditIcon />,
+				onClick: () => setSelectedHostUid(host.uid),
+			},
+			{
+				id: "toggle",
+				label: isActive ? t("phpmyadmin.disableAction") : t("hostsPage.enable"),
+				icon: isActive ? (
+					<XCircleIcon width={16} />
+				) : (
+					<CheckCircleIcon width={16} />
+				),
+				onClick: () => toggleActive(host.uid, !isActive),
+				isDisabled: isPostLoading,
+			},
+			{
+				id: "delete",
+				label: t("delete"),
+				icon: <TrashIcon width={16} />,
+				isDanger: true,
+				render: (_row, onMenuClose) => (
+					<DeleteConfirmDialog
+						description={t("hostsPage.deleteConfirmation")}
+						isLoading={deletingUid === host.uid && isPostLoading}
+						onConfirm={async () => {
+							await handleDeleteHost(host.uid);
+							onMenuClose();
+						}}
+					>
+						<MenuItem
+							icon={<TrashIcon width={16} />}
+							color="red.400"
+							isDisabled={isPostLoading}
+							onClick={(event) => event.stopPropagation()}
 						>
-							<MenuItem
-								icon={<TrashIcon width={16} />}
-								color="red.400"
-								isDisabled={isPostLoading}
-								onClick={(event) => event.stopPropagation()}
-							>
-								{t("delete")}
-							</MenuItem>
-						</DeleteConfirmDialog>
-					),
-				},
-			];
+							{t("delete")}
+						</MenuItem>
+					</DeleteConfirmDialog>
+				),
+			},
+		];
 	};
 
 	return (
@@ -2916,7 +2932,9 @@ export const HostsManager: FC = () => {
 				selectedRowIds={selectedHostUids}
 				selectedCount={selectedHostUids.length}
 				onSelectionChange={(rowIds) => setSelectedHostUids(rowIds)}
-				selectedLabel={t("hostsPage.selectedCount", { count: selectedHostUids.length })}
+				selectedLabel={t("hostsPage.selectedCount", {
+					count: selectedHostUids.length,
+				})}
 				renderBulkActions={(selectedRows) => {
 					const enableTargets = selectedRows.filter(
 						(host) => host.data.is_disabled,
@@ -2955,7 +2973,9 @@ export const HostsManager: FC = () => {
 								{t("phpmyadmin.disableAction")}
 							</Button>
 							<DeleteConfirmDialog
-								description={t("hostsPage.confirmBulkDelete", { count: selectedRows.length })}
+								description={t("hostsPage.confirmBulkDelete", {
+									count: selectedRows.length,
+								})}
 								isLoading={bulkAction === "delete"}
 								isDisabled={selectedRows.length === 0}
 								onConfirm={() => handleBulkDeleteHosts(selectedRows)}
@@ -2992,50 +3012,60 @@ export const HostsManager: FC = () => {
 				}}
 			/>
 
-			<CreateHostModal
-				isOpen={createOpen}
-				onClose={() => setCreateOpen(false)}
-				inboundOptions={inboundOptions}
-				onSubmit={handleCreateHost}
-				isSubmitting={savingHostUid === "create" && isPostLoading}
-				nodes={nodes}
-			/>
+			{createOpen && (
+				<CreateHostModal
+					isOpen={createOpen}
+					onClose={() => setCreateOpen(false)}
+					inboundOptions={inboundOptions}
+					onSubmit={handleCreateHost}
+					isSubmitting={savingHostUid === "create" && isPostLoading}
+					nodes={nodes}
+				/>
+			)}
 
-			<HostDetailModal
-				host={selectedHost}
-				inboundOptions={inboundOptions}
-				isOpen={Boolean(selectedHost)}
-				onClose={() => setSelectedHostUid(null)}
-				onChange={updateHost}
-				onChangeInbound={updateHostInbound}
-				onSave={saveHost}
-				onReset={resetHost}
-				onDelete={handleDeleteHost}
-				onClone={openCloneModal}
-				saving={
-					!!selectedHost && savingHostUid === selectedHost.uid && isPostLoading
-				}
-				deleting={
-					!!selectedHost && deletingUid === selectedHost.uid && isPostLoading
-				}
-				nodes={nodes}
-			/>
+			{selectedHost && (
+				<HostDetailModal
+					host={selectedHost}
+					inboundOptions={inboundOptions}
+					isOpen={Boolean(selectedHost)}
+					onClose={() => setSelectedHostUid(null)}
+					onChange={updateHost}
+					onChangeInbound={updateHostInbound}
+					onSave={saveHost}
+					onReset={resetHost}
+					onDelete={handleDeleteHost}
+					onClone={openCloneModal}
+					saving={
+						!!selectedHost &&
+						savingHostUid === selectedHost.uid &&
+						isPostLoading
+					}
+					deleting={
+						!!selectedHost && deletingUid === selectedHost.uid && isPostLoading
+					}
+					nodes={nodes}
+				/>
+			)}
 
-			<HostDetailModal
-				host={cloneHost}
-				inboundOptions={inboundOptions}
-				isOpen={Boolean(cloneHost)}
-				onClose={() => setCloneHost(null)}
-				onChange={updateCloneHost}
-				onChangeInbound={updateCloneInbound}
-				onSave={addCloneHost}
-				onReset={resetCloneHost}
-				onDelete={() => {}}
-				mode="clone"
-				saving={!!cloneHost && savingHostUid === cloneHost.uid && isPostLoading}
-				deleting={false}
-				nodes={nodes}
-			/>
+			{cloneHost && (
+				<HostDetailModal
+					host={cloneHost}
+					inboundOptions={inboundOptions}
+					isOpen={Boolean(cloneHost)}
+					onClose={() => setCloneHost(null)}
+					onChange={updateCloneHost}
+					onChangeInbound={updateCloneInbound}
+					onSave={addCloneHost}
+					onReset={resetCloneHost}
+					onDelete={() => {}}
+					mode="clone"
+					saving={
+						!!cloneHost && savingHostUid === cloneHost.uid && isPostLoading
+					}
+					deleting={false}
+					nodes={nodes}
+				/>
+			)}
 		</VStack>
 	);
 };

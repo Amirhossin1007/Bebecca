@@ -17,6 +17,7 @@ const (
 	SessionPending2FA    SessionState = "pending_2fa"
 	SessionSetupRequired SessionState = "setup_required"
 	SessionDisabled      SessionState = "disabled"
+	sessionTouchInterval              = 5 * time.Minute
 )
 
 type AdminSession struct {
@@ -135,7 +136,7 @@ ORDER BY last_seen_at DESC`, adminID, dbTime(time.Now().UTC()), dbTime(time.Now(
 func (r Repository) TouchSession(ctx context.Context, id int64, now time.Time) error {
 	_, err := r.db.ExecContext(ctx, `
 UPDATE admin_sessions SET last_seen_at = ?
-WHERE id = ? AND last_seen_at < ?`, dbTime(now), id, dbTime(now.Add(-5*time.Minute)))
+WHERE id = ? AND last_seen_at < ?`, dbTime(now), id, dbTime(now.Add(-sessionTouchInterval)))
 	return err
 }
 
@@ -201,10 +202,12 @@ func (a Authenticator) SessionContext(ctx context.Context, token string) (Effect
 	} else if err := dbadmin.ValidateAuthAllowed(now); err != nil {
 		return EffectiveAdminContext{}, err
 	}
-	if err := a.repo.TouchSession(ctx, session.ID, now); err != nil {
-		return EffectiveAdminContext{}, err
+	if session.LastSeenAt.Before(now.Add(-sessionTouchInterval)) {
+		if err := a.repo.TouchSession(ctx, session.ID, now); err != nil {
+			return EffectiveAdminContext{}, err
+		}
+		session.LastSeenAt = now
 	}
-	session.LastSeenAt = now
 	return EffectiveAdminContext{Admin: dbadmin, Source: AuthSourceSession, Session: &session}, nil
 }
 

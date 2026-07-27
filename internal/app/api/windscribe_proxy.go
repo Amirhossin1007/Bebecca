@@ -20,7 +20,7 @@ func (s *Server) handleWindscribeLocations(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	payload, nodeID, ok := windscribeNodePayload(w, r)
+	payload, nodeID, ok := proxyNodePayload(w, r, "Windscribe")
 	if !ok {
 		return
 	}
@@ -55,7 +55,7 @@ func (s *Server) handleWindscribeSetup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	payload, nodeID, ok := windscribeNodePayload(w, r)
+	payload, nodeID, ok := proxyNodePayload(w, r, "Windscribe")
 	if !ok {
 		return
 	}
@@ -123,7 +123,7 @@ func (s *Server) handleWindscribeSetup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func windscribeNodePayload(w http.ResponseWriter, r *http.Request) (map[string]any, int64, bool) {
+func proxyNodePayload(w http.ResponseWriter, r *http.Request, provider string) (map[string]any, int64, bool) {
 	var payload map[string]any
 	if err := decodeOptionalJSON(r, &payload); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -136,7 +136,7 @@ func windscribeNodePayload(w http.ResponseWriter, r *http.Request) (map[string]a
 		return nil, 0, false
 	}
 	if !isNode {
-		writeError(w, http.StatusBadRequest, "Windscribe setup requires a specific node target")
+		writeError(w, http.StatusBadRequest, provider+" setup requires a specific node target")
 		return nil, 0, false
 	}
 	return payload, nodeID, true

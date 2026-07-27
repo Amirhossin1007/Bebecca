@@ -11,7 +11,11 @@ type PendingRequest = { resolve: (value: unknown) => void };
 describe("fetchCoreSettings", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
-		useCoreSettings.setState({ config: null, configTargets: [] });
+		useCoreSettings.setState({
+			config: null,
+			configTargets: [],
+			runtimeLoaded: false,
+		});
 	});
 
 	it("keeps a newer target response when an older request finishes last", async () => {
@@ -26,19 +30,8 @@ describe("fetchCoreSettings", () => {
 		const first = useCoreSettings.getState().fetchCoreSettings("master");
 		const second = useCoreSettings.getState().fetchCoreSettings("node-1");
 
-		pending[3].resolve({ version: "new", started: true, logs_websocket: null });
-		pending[4].resolve({ tag: "node-1" });
-		pending[5].resolve({
-			targets: [
-				{
-					id: "node-1",
-					type: "node",
-					name: "Node",
-					node_id: 1,
-					mode: "custom",
-				},
-			],
-		});
+		pending[2].resolve({ version: "new", started: true, logs_websocket: null });
+		pending[3].resolve({ tag: "node-1" });
 		await second;
 
 		pending[0].resolve({
@@ -47,7 +40,6 @@ describe("fetchCoreSettings", () => {
 			logs_websocket: null,
 		});
 		pending[1].resolve({ tag: "master" });
-		pending[2].resolve({ targets: [] });
 		await first;
 
 		expect(useCoreSettings.getState().config).toEqual({ tag: "node-1" });

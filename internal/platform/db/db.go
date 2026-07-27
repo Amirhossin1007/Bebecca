@@ -48,8 +48,11 @@ func Open(databaseURL string) (Pool, error) {
 	}
 
 	if dialect == "sqlite" {
-		sqlDB.SetMaxOpenConns(1)
-		sqlDB.SetMaxIdleConns(1)
+		// WAL permits readers while another connection is writing. A single
+		// connection turns any slow write into a queue for the whole panel.
+		sqlDB.SetMaxOpenConns(8)
+		sqlDB.SetMaxIdleConns(4)
+		sqlDB.SetConnMaxIdleTime(30 * time.Second)
 	} else {
 		sqlDB.SetMaxOpenConns(64)
 		sqlDB.SetMaxIdleConns(16)

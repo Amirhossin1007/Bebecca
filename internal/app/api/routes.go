@@ -196,6 +196,7 @@ func (s *Server) registerPanelXrayRoutes(r chi.Router) {
 	r.HandleFunc("/panel/xray/tor/setup", s.requireSudo(s.handleTorProxySetup))
 	r.HandleFunc("/panel/xray/windscribe/locations", s.requireSudo(s.handleWindscribeLocations))
 	r.HandleFunc("/panel/xray/windscribe/setup", s.requireSudo(s.handleWindscribeSetup))
+	r.HandleFunc("/panel/xray/psiphon/setup", s.requireSudo(s.handlePsiphonSetup))
 	r.HandleFunc("/panel/xray/testOutbound", s.requireSudo(s.handleOutboundTest))
 	r.HandleFunc("/panel/xray/testOutbounds", s.requireSudo(s.handleOutboundTests))
 	r.HandleFunc("/panel/xray/routeTest", s.requireSudo(s.handleRouteTest))
