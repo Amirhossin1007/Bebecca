@@ -354,9 +354,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 		} catch (error: any) {
 			toast({
 				status: "error",
-				title:
-					error?.data?.detail ??
-					t("services.autoInbound.createFailed"),
+				title: error?.data?.detail ?? t("services.autoInbound.createFailed"),
 			});
 		} finally {
 			setAutoInboundBusy(false);
@@ -381,9 +379,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 		} catch (error: any) {
 			toast({
 				status: "error",
-				title:
-					error?.data?.detail ??
-					t("services.autoInbound.deleteFailed"),
+				title: error?.data?.detail ?? t("services.autoInbound.deleteFailed"),
 			});
 		} finally {
 			setAutoInboundBusy(false);
@@ -407,9 +403,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 				}}
 			>
 				<XrayModalHeader>
-					{initialService
-						? t("services.editTitle")
-						: t("services.createTitle")}
+					{initialService ? t("services.editTitle") : t("services.createTitle")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
@@ -546,8 +540,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 										color={labelColor}
 										mt={1}
 									>
-										{autoInboundTag ??
-											t("services.autoInbound.pendingTag")}
+										{autoInboundTag ?? t("services.autoInbound.pendingTag")}
 									</Text>
 								</Box>
 								<Badge
@@ -718,9 +711,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 																isDisabled={index === 0}
 															/>
 														</Tooltip>
-														<Tooltip
-															label={t("services.moveDown")}
-														>
+														<Tooltip label={t("services.moveDown")}>
 															<IconButton
 																aria-label="Move down"
 																size="sm"
@@ -730,9 +721,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 																isDisabled={index === selectedHosts.length - 1}
 															/>
 														</Tooltip>
-														<Tooltip
-															label={t("services.removeHost")}
-														>
+														<Tooltip label={t("services.removeHost")}>
 															<IconButton
 																aria-label="Remove"
 																size="sm"
@@ -905,9 +894,7 @@ const ServicesPage: FC = () => {
 		} catch (error: any) {
 			toast({
 				status: "error",
-				title:
-					error?.data?.detail ??
-					t("services.saveFailed"),
+				title: error?.data?.detail ?? t("services.saveFailed"),
 			});
 		}
 	};
@@ -921,9 +908,7 @@ const ServicesPage: FC = () => {
 		} catch (error: any) {
 			toast({
 				status: "error",
-				title:
-					error?.data?.detail ??
-					t("services.deleteFailed"),
+				title: error?.data?.detail ?? t("services.deleteFailed"),
 			});
 		}
 	};
@@ -938,9 +923,7 @@ const ServicesPage: FC = () => {
 		} catch (error: any) {
 			toast({
 				status: "error",
-				title:
-					error?.data?.detail ??
-					t("services.resetFailed"),
+				title: error?.data?.detail ?? t("services.resetFailed"),
 			});
 		}
 	};
@@ -1013,9 +996,7 @@ const ServicesPage: FC = () => {
 		} catch (error: any) {
 			toast({
 				status: "error",
-				title:
-					error?.data?.detail ??
-					t("services.deleteFailed"),
+				title: error?.data?.detail ?? t("services.deleteFailed"),
 			});
 		} finally {
 			setIsDeleting(false);
@@ -1429,15 +1410,16 @@ const ServicesPage: FC = () => {
 				mobileSummary: true,
 				mobileMetaLabel: t("services.columns.usage"),
 				cell: (link) => (
-					<Text fontSize="sm" dir="ltr" sx={{ unicodeBidi: "isolate" }} whiteSpace="nowrap">
+					<Text
+						fontSize="sm"
+						dir="ltr"
+						sx={{ unicodeBidi: "isolate" }}
+						whiteSpace="nowrap"
+					>
 						{link.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic
 							? formatBytes(link.created_traffic)
 							: formatBytes(link.used_traffic)}{" "}
-						/{" "}
-						{formatGigabytes(
-							link.data_limit,
-							t("nodes.unlimited"),
-						)}
+						/ {formatGigabytes(link.data_limit, t("nodes.unlimited"))}
 					</Text>
 				),
 			},
@@ -1912,7 +1894,7 @@ const ServicesPage: FC = () => {
 				isCentered
 				title={`${t("services.editAdminLimits")}${
 					editingServiceAdminLimit
-							? ` - ${editingServiceAdminLimit.username}`
+						? ` - ${editingServiceAdminLimit.username}`
 						: ""
 				}`}
 				overlayProps={{ bg: "blackAlpha.300", backdropFilter: "blur(6px)" }}
@@ -1936,124 +1918,112 @@ const ServicesPage: FC = () => {
 					</>
 				}
 			>
-						<Stack spacing={4}>
-							<FormControl>
-								<FormLabel>
-									{t("admins.trafficMode")}
-								</FormLabel>
-								<Select
-									value={serviceAdminLimitForm.traffic_limit_mode}
-									onChange={(event) =>
-										setServiceAdminLimitForm((current) => ({
-											...current,
-											traffic_limit_mode: event.target
-												.value as AdminTrafficLimitMode,
-										}))
-									}
-								>
-									<option value={AdminTrafficLimitMode.UsedTraffic}>
-										{t("nodes.usedTrafficSeries")}
-									</option>
-									<option value={AdminTrafficLimitMode.CreatedTraffic}>
-										{t("myaccount.createdTraffic")}
-									</option>
-								</Select>
-							</FormControl>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-								<FormControl>
-									<FormLabel>{t("admins.dataLimit")}</FormLabel>
-									<Input
-										type="number"
-										inputMode="decimal"
-										min={0}
-										step={0.01}
-										value={serviceAdminLimitForm.data_limit_gb}
-										placeholder={t("admins.dataLimitPlaceholder")}
-										onChange={(event) =>
-											setServiceAdminLimitForm((current) => ({
-												...current,
-												data_limit_gb: sanitizeDecimalInput(event.target.value),
-											}))
-										}
-									/>
-									<FormHelperText>
-										{t("admins.dataLimitHint")}
-									</FormHelperText>
-								</FormControl>
-								<FormControl>
-									<FormLabel>
-										{t("admins.usersLimit")}
-									</FormLabel>
-									<Input
-										type="number"
-										inputMode="numeric"
-										min={0}
-										step={1}
-										value={serviceAdminLimitForm.users_limit}
-										placeholder={t("admins.usersLimitPlaceholder")}
-										onChange={(event) =>
-											setServiceAdminLimitForm((current) => ({
-												...current,
-												users_limit: sanitizeIntegerInput(event.target.value),
-											}))
-										}
-									/>
-									<FormHelperText>
-										{t("admins.usersLimitHint")}
-									</FormHelperText>
-								</FormControl>
-							</SimpleGrid>
-							<Stack spacing={3}>
-								<Checkbox
-									isChecked={serviceAdminLimitForm.show_user_traffic}
-									onChange={(event) =>
-										setServiceAdminLimitForm((current) => ({
-											...current,
-											show_user_traffic: event.target.checked,
-										}))
-									}
-								>
-									{t("admins.showUserTraffic")}
-								</Checkbox>
-								<Checkbox
-									isChecked={
-										serviceAdminLimitForm.delete_user_usage_limit_enabled
-									}
-									onChange={(event) =>
-										setServiceAdminLimitForm((current) => ({
-											...current,
-											delete_user_usage_limit_enabled: event.target.checked,
-										}))
-									}
-								>
-									{t("admins.deleteUserUsageCap")}
-								</Checkbox>
-								<FormControl
-									isDisabled={
-										!serviceAdminLimitForm.delete_user_usage_limit_enabled
-									}
-								>
-									<FormLabel>
-										{t("admins.deleteUserUsageLimit")}
-									</FormLabel>
-									<Input
-										type="number"
-										inputMode="decimal"
-										min={0}
-										step={0.01}
-										value={serviceAdminLimitForm.delete_user_usage_limit_mb}
-										onChange={(event) =>
-											setServiceAdminLimitForm((current) => ({
-												...current,
-												delete_user_usage_limit_mb: sanitizeDecimalInput(
-													event.target.value,
-												),
-											}))
-										}
-									/>
-								</FormControl>
-							</Stack>
-						</Stack>
+				<Stack spacing={4}>
+					<FormControl>
+						<FormLabel>{t("admins.trafficMode")}</FormLabel>
+						<Select
+							value={serviceAdminLimitForm.traffic_limit_mode}
+							onChange={(event) =>
+								setServiceAdminLimitForm((current) => ({
+									...current,
+									traffic_limit_mode: event.target
+										.value as AdminTrafficLimitMode,
+								}))
+							}
+						>
+							<option value={AdminTrafficLimitMode.UsedTraffic}>
+								{t("nodes.usedTrafficSeries")}
+							</option>
+							<option value={AdminTrafficLimitMode.CreatedTraffic}>
+								{t("myaccount.createdTraffic")}
+							</option>
+						</Select>
+					</FormControl>
+					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+						<FormControl>
+							<FormLabel>{t("admins.dataLimit")}</FormLabel>
+							<Input
+								type="number"
+								inputMode="decimal"
+								min={0}
+								step={0.01}
+								value={serviceAdminLimitForm.data_limit_gb}
+								placeholder={t("admins.dataLimitPlaceholder")}
+								onChange={(event) =>
+									setServiceAdminLimitForm((current) => ({
+										...current,
+										data_limit_gb: sanitizeDecimalInput(event.target.value),
+									}))
+								}
+							/>
+							<FormHelperText>{t("admins.dataLimitHint")}</FormHelperText>
+						</FormControl>
+						<FormControl>
+							<FormLabel>{t("admins.usersLimit")}</FormLabel>
+							<Input
+								type="number"
+								inputMode="numeric"
+								min={0}
+								step={1}
+								value={serviceAdminLimitForm.users_limit}
+								placeholder={t("admins.usersLimitPlaceholder")}
+								onChange={(event) =>
+									setServiceAdminLimitForm((current) => ({
+										...current,
+										users_limit: sanitizeIntegerInput(event.target.value),
+									}))
+								}
+							/>
+							<FormHelperText>{t("admins.usersLimitHint")}</FormHelperText>
+						</FormControl>
+					</SimpleGrid>
+					<Stack spacing={3}>
+						<Checkbox
+							isChecked={serviceAdminLimitForm.show_user_traffic}
+							onChange={(event) =>
+								setServiceAdminLimitForm((current) => ({
+									...current,
+									show_user_traffic: event.target.checked,
+								}))
+							}
+						>
+							{t("admins.showUserTraffic")}
+						</Checkbox>
+						<Checkbox
+							isChecked={serviceAdminLimitForm.delete_user_usage_limit_enabled}
+							onChange={(event) =>
+								setServiceAdminLimitForm((current) => ({
+									...current,
+									delete_user_usage_limit_enabled: event.target.checked,
+								}))
+							}
+						>
+							{t("admins.deleteUserUsageCap")}
+						</Checkbox>
+						<FormControl
+							isDisabled={
+								!serviceAdminLimitForm.delete_user_usage_limit_enabled
+							}
+						>
+							<FormLabel>{t("admins.deleteUserUsageLimit")}</FormLabel>
+							<Input
+								type="number"
+								inputMode="decimal"
+								min={0}
+								step={0.01}
+								value={serviceAdminLimitForm.delete_user_usage_limit_mb}
+								onChange={(event) =>
+									setServiceAdminLimitForm((current) => ({
+										...current,
+										delete_user_usage_limit_mb: sanitizeDecimalInput(
+											event.target.value,
+										),
+									}))
+								}
+							/>
+						</FormControl>
+					</Stack>
+				</Stack>
 			</AppDialog>
 
 			<ConfirmDialog
@@ -2100,106 +2070,104 @@ const ServicesPage: FC = () => {
 					</>
 				}
 			>
-						{servicePendingDelete ? (
-							<VStack align="stretch" spacing={4}>
-								<Text>
-									{t("services.deleteDialogDescription", {
-										name: servicePendingDelete.name,
+				{servicePendingDelete ? (
+					<VStack align="stretch" spacing={4}>
+						<Text>
+							{t("services.deleteDialogDescription", {
+								name: servicePendingDelete.name,
+							})}
+						</Text>
+						{servicePendingDelete.admin_ids.length > 0 ? (
+							<Checkbox
+								isChecked={unlinkAdmins}
+								onChange={(event) => setUnlinkAdmins(event.target.checked)}
+							>
+								{t("services.unlinkAdminsOption")}
+							</Checkbox>
+						) : (
+							<Text fontSize="sm" color="gray.500">
+								{t("services.noAdminsLinked")}
+							</Text>
+						)}
+						{servicePendingDelete.user_count > 0 ? (
+							<VStack align="stretch" spacing={3}>
+								<Text fontWeight="semibold">
+									{t("services.userDeletePrompt", {
+										count: servicePendingDelete.user_count,
 									})}
 								</Text>
-								{servicePendingDelete.admin_ids.length > 0 ? (
-									<Checkbox
-										isChecked={unlinkAdmins}
-										onChange={(event) => setUnlinkAdmins(event.target.checked)}
-									>
-										{t("services.unlinkAdminsOption")}
-									</Checkbox>
-								) : (
-									<Text fontSize="sm" color="gray.500">
-										{t("services.noAdminsLinked")}
-									</Text>
-								)}
-								{servicePendingDelete.user_count > 0 ? (
-									<VStack align="stretch" spacing={3}>
-										<Text fontWeight="semibold">
-											{t("services.userDeletePrompt", {
-												count: servicePendingDelete.user_count,
-											})}
-										</Text>
-										<RadioGroup
-											value={deleteMode}
-											onChange={(value) =>
-												setDeleteMode(
-													value as "delete_users" | "transfer_users",
-												)
-											}
+								<RadioGroup
+									value={deleteMode}
+									onChange={(value) =>
+										setDeleteMode(value as "delete_users" | "transfer_users")
+									}
+								>
+									<Stack align="flex-start" spacing={2}>
+										<Radio value="delete_users">
+											{t("services.deleteUsersOption")}
+										</Radio>
+										<Radio value="transfer_users">
+											{t("services.transferUsersOption")}
+										</Radio>
+									</Stack>
+								</RadioGroup>
+								{deleteMode === "transfer_users" && (
+									<FormControl>
+										<FormLabel>{t("services.selectTargetService")}</FormLabel>
+										<Select
+											placeholder={t("services.selectServicePlaceholder")}
+											value={targetServiceId?.toString() ?? ""}
+											onChange={(
+												event: React.ChangeEvent<HTMLSelectElement>,
+											) => {
+												const value = event.target.value;
+												if (!value) {
+													setTargetServiceId(null);
+													return;
+												}
+												setTargetServiceId(Number(value));
+											}}
 										>
-											<Stack align="flex-start" spacing={2}>
-												<Radio value="delete_users">
-													{t("services.deleteUsersOption")}
-												</Radio>
-												<Radio value="transfer_users">
-													{t("services.transferUsersOption")}
-												</Radio>
-											</Stack>
-										</RadioGroup>
-										{deleteMode === "transfer_users" && (
-											<FormControl>
-												<FormLabel>
-													{t("services.selectTargetService")}
-												</FormLabel>
-												<Select
-													placeholder={t("services.selectServicePlaceholder")}
-													value={targetServiceId?.toString() ?? ""}
-													onChange={(
-														event: React.ChangeEvent<HTMLSelectElement>,
-													) => {
-														const value = event.target.value;
-														if (!value) {
-															setTargetServiceId(null);
-															return;
-														}
-														setTargetServiceId(Number(value));
-													}}
-												>
-													{otherServices.map((service) => (
-														<option key={service.id} value={service.id}>
-															{service.name}
-														</option>
-													))}
-												</Select>
-												<FormHelperText>
-													{t("services.transferUsersHint")}
-												</FormHelperText>
-											</FormControl>
-										)}
-									</VStack>
-								) : (
-									<Alert status="info" borderRadius="md">
-										<AlertIcon />
-										<AlertDescription>
-											{t("services.noUsersLinked")}
-										</AlertDescription>
-									</Alert>
+											{otherServices.map((service) => (
+												<option key={service.id} value={service.id}>
+													{service.name}
+												</option>
+											))}
+										</Select>
+										<FormHelperText>
+											{t("services.transferUsersHint")}
+										</FormHelperText>
+									</FormControl>
 								)}
 							</VStack>
 						) : (
-							<Text>{t("services.loading")}</Text>
+							<Alert status="info" borderRadius="md">
+								<AlertIcon />
+								<AlertDescription>
+									{t("services.noUsersLinked")}
+								</AlertDescription>
+							</Alert>
 						)}
+					</VStack>
+				) : (
+					<Text>{t("services.loading")}</Text>
+				)}
 			</AppDialog>
 
-			<ServiceDialog
-				isOpen={dialogDisclosure.isOpen}
-				onClose={dialogDisclosure.onClose}
-				onSubmit={handleSubmit}
-				isSaving={servicesStore.isSaving}
-				allHosts={hostOptions}
-				allAdmins={adminOptions}
-				initialService={editingService ?? undefined}
-				inbounds={inbounds}
-				refreshInbounds={fetchInbounds}
-				refreshHosts={hostsStore.fetchHosts}
-			/>
+			{dialogDisclosure.isOpen && (
+				<ServiceDialog
+					isOpen={dialogDisclosure.isOpen}
+					onClose={dialogDisclosure.onClose}
+					onSubmit={handleSubmit}
+					isSaving={servicesStore.isSaving}
+					allHosts={hostOptions}
+					allAdmins={adminOptions}
+					initialService={editingService ?? undefined}
+					inbounds={inbounds}
+					refreshInbounds={fetchInbounds}
+					refreshHosts={hostsStore.fetchHosts}
+				/>
+			)}
 		</VStack>
 	);
 };

@@ -185,14 +185,10 @@ export const InboundsManager: FC = () => {
 				);
 			});
 			if (tagExists) {
-				throw new Error(
-					t("inbounds.error.tagExists"),
-				);
+				throw new Error(t("inbounds.error.tagExists"));
 			}
 			if (portExists) {
-				throw new Error(
-					t("inbounds.error.portExists"),
-				);
+				throw new Error(t("inbounds.error.portExists"));
 			}
 
 			const payload = {
@@ -333,7 +329,9 @@ export const InboundsManager: FC = () => {
 			toast({
 				status: "success",
 				title: t("inbounds.success.bulkDeleted"),
-				description: t("inbounds.success.bulkDeletedDescription", { count: items.length }),
+				description: t("inbounds.success.bulkDeletedDescription", {
+					count: items.length,
+				}),
 			});
 			refreshInboundsStore();
 			await loadInbounds();
@@ -577,7 +575,10 @@ export const InboundsManager: FC = () => {
 						(targetId) => targetNameById[targetId] || targetId,
 					);
 					const visibleTargets = targetIds.slice(0, 3);
-					const hiddenCount = Math.max(0, targetIds.length - visibleTargets.length);
+					const hiddenCount = Math.max(
+						0,
+						targetIds.length - visibleTargets.length,
+					);
 
 					return (
 						<Tooltip
@@ -739,10 +740,14 @@ export const InboundsManager: FC = () => {
 				selectedRowIds={selectedInboundTags}
 				selectedCount={selectedInboundTags.length}
 				onSelectionChange={(rowIds) => setSelectedInboundTags(rowIds)}
-				selectedLabel={t("inbounds.selectedCount", { count: selectedInboundTags.length })}
+				selectedLabel={t("inbounds.selectedCount", {
+					count: selectedInboundTags.length,
+				})}
 				renderBulkActions={(selectedRows) => (
 					<DeleteConfirmDialog
-						description={t("inbounds.confirmBulkDelete", { count: selectedRows.length })}
+						description={t("inbounds.confirmBulkDelete", {
+							count: selectedRows.length,
+						})}
 						isLoading={isMutating}
 						isDisabled={selectedRows.length === 0}
 						onConfirm={() => handleBulkDelete(selectedRows)}
@@ -773,32 +778,36 @@ export const InboundsManager: FC = () => {
 				}}
 			/>
 
-			<InboundFormModal
-				isOpen={isOpen}
-				mode={drawerMode}
-				initialValue={selected}
-				isSubmitting={isMutating}
-				existingInbounds={inbounds}
-				configTargets={configTargets}
-				onClose={onClose}
-				onSubmit={handleSubmit}
-				onDelete={selected ? () => handleDelete(selected) : undefined}
-				onClone={selected ? () => openClone(selected) : undefined}
-				isDeleting={isMutating}
-			/>
-			<InboundFormModal
-				isOpen={cloneDrawer.isOpen}
-				mode="clone"
-				initialValue={cloneTarget}
-				isSubmitting={isMutating}
-				existingInbounds={inbounds}
-				configTargets={configTargets}
-				onClose={() => {
-					cloneDrawer.onClose();
-					setCloneTarget(null);
-				}}
-				onSubmit={handleCloneSubmit}
-			/>
+			{isOpen && (
+				<InboundFormModal
+					isOpen={isOpen}
+					mode={drawerMode}
+					initialValue={selected}
+					isSubmitting={isMutating}
+					existingInbounds={inbounds}
+					configTargets={configTargets}
+					onClose={onClose}
+					onSubmit={handleSubmit}
+					onDelete={selected ? () => handleDelete(selected) : undefined}
+					onClone={selected ? () => openClone(selected) : undefined}
+					isDeleting={isMutating}
+				/>
+			)}
+			{cloneDrawer.isOpen && (
+				<InboundFormModal
+					isOpen={cloneDrawer.isOpen}
+					mode="clone"
+					initialValue={cloneTarget}
+					isSubmitting={isMutating}
+					existingInbounds={inbounds}
+					configTargets={configTargets}
+					onClose={() => {
+						cloneDrawer.onClose();
+						setCloneTarget(null);
+					}}
+					onSubmit={handleCloneSubmit}
+				/>
+			)}
 		</Stack>
 	);
 };

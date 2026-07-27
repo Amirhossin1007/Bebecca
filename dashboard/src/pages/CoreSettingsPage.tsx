@@ -150,9 +150,15 @@ const AdvancedTabIcon = chakra(WrenchScrewdriverIcon, {
 const LogsTabIcon = chakra(DocumentTextIcon, { baseStyle: { w: 4, h: 4 } });
 const WarpIconStyled = chakra(CloudArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
 const BoltIconStyled = chakra(BoltIcon, { baseStyle: { w: 4, h: 4 } });
-const CheckCircleIconStyled = chakra(CheckCircleIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const XCircleIconStyled = chakra(XCircleIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const MoreIconStyled = chakra(EllipsisHorizontalIcon, { baseStyle: { w: 4, h: 4 } });
+const CheckCircleIconStyled = chakra(CheckCircleIcon, {
+	baseStyle: { w: 3.5, h: 3.5 },
+});
+const XCircleIconStyled = chakra(XCircleIcon, {
+	baseStyle: { w: 3.5, h: 3.5 },
+});
+const MoreIconStyled = chakra(EllipsisHorizontalIcon, {
+	baseStyle: { w: 4, h: 4 },
+});
 const NordVPNIconStyled = () => (
 	<Box as="span" display="inline-flex" color="#4687ff">
 		{SiNordvpn({ size: 16, "aria-hidden": true })}
@@ -195,14 +201,22 @@ const formatOutboundEndpoint = (address: unknown, port?: unknown) => {
 	return portValue ? `${host}:${portValue}` : host;
 };
 const DNS_STRATEGY_OPTIONS = ["UseSystem", "UseIP", "UseIPv4", "UseIPv6"];
-const isNonEmptyArray = (value: unknown) => Array.isArray(value) && value.length > 0;
+const isNonEmptyArray = (value: unknown) =>
+	Array.isArray(value) && value.length > 0;
 const isNonEmptyRecord = (value: unknown) =>
-	Boolean(value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length > 0);
+	Boolean(
+		value &&
+			typeof value === "object" &&
+			!Array.isArray(value) &&
+			Object.keys(value).length > 0,
+	);
 const isDnsConfigEnabled = (dns: unknown, fakeDnsValue: unknown) => {
 	if (isNonEmptyArray(fakeDnsValue)) return true;
 	if (!dns || typeof dns !== "object" || Array.isArray(dns)) return false;
 	const dnsConfig = dns as Record<string, unknown>;
-	return isNonEmptyArray(dnsConfig.servers) || isNonEmptyRecord(dnsConfig.hosts);
+	return (
+		isNonEmptyArray(dnsConfig.servers) || isNonEmptyRecord(dnsConfig.hosts)
+	);
 };
 const createDefaultDnsConfig = () => ({
 	servers: [] as any[],
@@ -337,10 +351,7 @@ const stringArray = (value: unknown): string[] =>
 
 const readVlessOutboundAccount = (outbound: any): VlessOutboundAccount => {
 	const settings = outbound?.settings ?? {};
-	if (
-		Object.hasOwn(settings, "address") ||
-		settings?.reverse
-	) {
+	if (Object.hasOwn(settings, "address") || settings?.reverse) {
 		return {
 			address: settings.address ?? "",
 			port: Number(settings.port) || 0,
@@ -379,7 +390,9 @@ const isPrivateXrayAddress = (value: unknown) => {
 	const octets = host.split(".").map(Number);
 	if (
 		octets.length === 4 &&
-		octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)
+		octets.every(
+			(octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255,
+		)
 	) {
 		const [a, b, c] = octets;
 		return (
@@ -428,7 +441,9 @@ const isSecureVlessConnection = (
 	outbound: any,
 	account = readVlessOutboundAccount(outbound),
 ) => {
-	const security = String(outbound?.streamSettings?.security ?? "none").toLowerCase();
+	const security = String(
+		outbound?.streamSettings?.security ?? "none",
+	).toLowerCase();
 	return (
 		(security !== "" && security !== "none") ||
 		(account.encryption !== "" && account.encryption !== "none") ||
@@ -525,16 +540,16 @@ const SettingsSection: FC<{
 	title: string;
 	children: ReactNode;
 	defaultOpen?: boolean;
-}> = ({
-	title,
-	children,
-	defaultOpen = false,
-}) => {
+}> = ({ title, children, defaultOpen = false }) => {
 	const headerBg = useColorModeValue("gray.50", "whiteAlpha.100");
 	const panelBg = useColorModeValue("white", "surface.dark");
 	const borderColor = useColorModeValue("gray.200", "whiteAlpha.300");
 	return (
-		<Accordion allowToggle defaultIndex={defaultOpen ? 0 : undefined} reduceMotion>
+		<Accordion
+			allowToggle
+			defaultIndex={defaultOpen ? 0 : undefined}
+			reduceMotion
+		>
 			<AccordionItem
 				borderWidth="1px"
 				borderColor={borderColor}
@@ -724,7 +739,8 @@ export const CoreSettingsPage: FC = () => {
 		useState<OutboundTestType>("latency");
 	const [testingAllOutbounds, setTestingAllOutbounds] = useState(false);
 	const [isApplyingTorProxy, setIsApplyingTorProxy] = useState(false);
-	const [isApplyingWindscribeProxy, setIsApplyingWindscribeProxy] = useState(false);
+	const [isApplyingWindscribeProxy, setIsApplyingWindscribeProxy] =
+		useState(false);
 	const [routingRuleData, setRoutingRuleData] = useState<any[]>([]);
 	const [routingRuleSearch, setRoutingRuleSearch] = useState("");
 	const [routeTestDestination, setRouteTestDestination] = useState("");
@@ -733,9 +749,8 @@ export const CoreSettingsPage: FC = () => {
 	const [routeTestInbound, setRouteTestInbound] = useState("");
 	const [routeTestProtocol, setRouteTestProtocol] = useState("");
 	const [routeTestEmail, setRouteTestEmail] = useState("");
-	const [routeTestResult, setRouteTestResult] = useState<RouteTestResult | null>(
-		null,
-	);
+	const [routeTestResult, setRouteTestResult] =
+		useState<RouteTestResult | null>(null);
 	const [isRouteTesting, setIsRouteTesting] = useState(false);
 	const [balancersData, setBalancersData] = useState<BalancerRow[]>([]);
 	const [dnsServers, setDnsServers] = useState<any[]>([]);
@@ -784,8 +799,12 @@ export const CoreSettingsPage: FC = () => {
 	);
 	const isMasterTarget =
 		selectedTarget === "master" || selectedTargetInfo?.type === "master";
-	const outboundNodeTargetRequiredMessage = t("pages.xray.outbound.testNodeTargetRequired");
-	const outboundAddressRequiredMessage = t("pages.xray.outbound.testAddressRequired");
+	const outboundNodeTargetRequiredMessage = t(
+		"pages.xray.outbound.testNodeTargetRequired",
+	);
+	const outboundAddressRequiredMessage = t(
+		"pages.xray.outbound.testAddressRequired",
+	);
 	const outboundTestTypeLabels: Record<OutboundTestType, string> = {
 		latency: t("pages.xray.outbound.testTypeLatency"),
 		tcp: t("pages.xray.outbound.testTypeTcp"),
@@ -799,28 +818,23 @@ export const CoreSettingsPage: FC = () => {
 			.map((inbound: any) => String(inbound?.tag ?? "").trim())
 			.filter(Boolean);
 	}, [watchedConfig]);
-	const outboundTestResultLabel = useCallback(
-		(result: OutboundTestResult) => {
-			const delayLabel =
-				typeof result.delay === "number" && Number.isFinite(result.delay)
-					? result.delay < 1
-						? "<1 ms"
-						: `${result.delay} ms`
-					: "-";
-			const targetLabel = result.address
-				? result.port
-					? `${result.address}:${result.port}`
-					: result.address
-				: "";
-			const statusCodeLabel = result.statusCode
-				? ` (${result.statusCode})`
-				: "";
-			return [delayLabel + statusCodeLabel, targetLabel]
-				.filter(Boolean)
-				.join(" · ");
-		},
-		[],
-	);
+	const outboundTestResultLabel = useCallback((result: OutboundTestResult) => {
+		const delayLabel =
+			typeof result.delay === "number" && Number.isFinite(result.delay)
+				? result.delay < 1
+					? "<1 ms"
+					: `${result.delay} ms`
+				: "-";
+		const targetLabel = result.address
+			? result.port
+				? `${result.address}:${result.port}`
+				: result.address
+			: "";
+		const statusCodeLabel = result.statusCode ? ` (${result.statusCode})` : "";
+		return [delayLabel + statusCodeLabel, targetLabel]
+			.filter(Boolean)
+			.join(" · ");
+	}, []);
 	const hasNodeTargets = useMemo(
 		() => configTargets.some((target) => target.type === "node"),
 		[configTargets],
@@ -988,17 +1002,16 @@ export const CoreSettingsPage: FC = () => {
 		}
 
 		onEditingCore(true);
-		fetchCoreSettings(selectedTarget)
-			.catch((error) => {
-				toast({
-					title: t("core.errorFetchingConfig"),
-					description: error.message,
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+		fetchCoreSettings(selectedTarget).catch((error) => {
+			toast({
+				title: t("core.errorFetchingConfig"),
+				description: error.message,
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 3000,
 			});
+		});
 		return () => onEditingCore(false);
 	}, [
 		canManageXraySettings,
@@ -1299,8 +1312,7 @@ export const CoreSettingsPage: FC = () => {
 					});
 				} else {
 					const errorMessage =
-						result.error ||
-						t("pages.xray.outbound.testFailed");
+						result.error || t("pages.xray.outbound.testFailed");
 					toast({
 						title: `${t("pages.xray.outbound.testFailed")}: ${errorMessage}`,
 						status: "error",
@@ -1312,9 +1324,7 @@ export const CoreSettingsPage: FC = () => {
 				return;
 			}
 
-			const message =
-				response?.msg ||
-				t("pages.xray.outbound.testError");
+			const message = response?.msg || t("pages.xray.outbound.testError");
 			const failureResult: OutboundTestResult = {
 				success: false,
 				error: message,
@@ -1406,7 +1416,9 @@ export const CoreSettingsPage: FC = () => {
 			);
 			if (duplicate) {
 				throw new Error(
-					t("pages.xray.outbound.tagExistsNamed", { tag: String(duplicate.tag ?? "") }),
+					t("pages.xray.outbound.tagExistsNamed", {
+						tag: String(duplicate.tag ?? ""),
+					}),
 				);
 			}
 			for (const outbound of generatedOutbounds) {
@@ -1458,10 +1470,7 @@ export const CoreSettingsPage: FC = () => {
 			});
 			const outbound = response?.obj?.outbound;
 			if (!response?.success || !outbound) {
-				throw new Error(
-					response?.msg ||
-						t("pages.xray.windscribe.failed"),
-				);
+				throw new Error(response?.msg || t("pages.xray.windscribe.failed"));
 			}
 			const outbounds = getOutbounds();
 			const existingIndex = outbounds.findIndex(
@@ -1475,9 +1484,7 @@ export const CoreSettingsPage: FC = () => {
 			commitOutbounds(outbounds);
 			onWindscribeProxyClose();
 			toast({
-				title:
-					response.obj?.message ||
-					t("pages.xray.windscribe.added"),
+				title: response.obj?.message || t("pages.xray.windscribe.added"),
 				status: "success",
 				isClosable: true,
 				position: "top",
@@ -2036,11 +2043,11 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const findOutboundAddress = (outbound: any) => {
-			switch (outbound.protocol) {
+		switch (outbound.protocol) {
 			case "vmess":
 				return (
-					outbound.settings.vnext?.map(
-						(obj: any) => formatOutboundEndpoint(obj.address, obj.port),
+					outbound.settings.vnext?.map((obj: any) =>
+						formatOutboundEndpoint(obj.address, obj.port),
 					) || []
 				).filter(Boolean);
 			case "vless":
@@ -2053,8 +2060,8 @@ export const CoreSettingsPage: FC = () => {
 					].filter(Boolean);
 				}
 				return (
-					outbound.settings.vnext?.map(
-						(obj: any) => formatOutboundEndpoint(obj.address, obj.port),
+					outbound.settings.vnext?.map((obj: any) =>
+						formatOutboundEndpoint(obj.address, obj.port),
 					) || []
 				).filter(Boolean);
 			case "http":
@@ -2062,8 +2069,8 @@ export const CoreSettingsPage: FC = () => {
 			case "shadowsocks":
 			case "trojan":
 				return (
-					outbound.settings.servers?.map(
-						(obj: any) => formatOutboundEndpoint(obj.address, obj.port),
+					outbound.settings.servers?.map((obj: any) =>
+						formatOutboundEndpoint(obj.address, obj.port),
 					) || []
 				).filter(Boolean);
 			case "dns":
@@ -2084,7 +2091,10 @@ export const CoreSettingsPage: FC = () => {
 		}
 	};
 
-	const testSubscriptionOutbound = async (outbound: OutboundJson, index: number) => {
+	const testSubscriptionOutbound = async (
+		outbound: OutboundJson,
+		index: number,
+	) => {
 		const stateKey = String(outbound.tag ?? `subscription-${index}`);
 		if (!outbound) return;
 		if (isMasterTarget) {
@@ -2157,9 +2167,7 @@ export const CoreSettingsPage: FC = () => {
 					testing: false,
 					result: {
 						success: false,
-						error:
-							response?.msg ||
-							t("pages.xray.outbound.testError"),
+						error: response?.msg || t("pages.xray.outbound.testError"),
 					},
 				},
 			}));
@@ -2199,7 +2207,12 @@ export const CoreSettingsPage: FC = () => {
 		}
 		type TestItem =
 			| { kind: "template"; index: number; outbound: OutboundJson }
-			| { kind: "subscription"; index: number; stateKey: string; outbound: OutboundJson };
+			| {
+					kind: "subscription";
+					index: number;
+					stateKey: string;
+					outbound: OutboundJson;
+			  };
 		const templateItems = getOutbounds().map((outbound, index) => ({
 			kind: "template" as const,
 			index,
@@ -2213,8 +2226,12 @@ export const CoreSettingsPage: FC = () => {
 		}));
 		const items: TestItem[] = [...templateItems, ...subscriptionItems].filter(
 			(item) => {
-				const tag = String(item.outbound.tag ?? "").trim().toLowerCase();
-				const protocol = String(item.outbound.protocol ?? "").trim().toLowerCase();
+				const tag = String(item.outbound.tag ?? "")
+					.trim()
+					.toLowerCase();
+				const protocol = String(item.outbound.protocol ?? "")
+					.trim()
+					.toLowerCase();
 				if (protocol === "blackhole" || tag === "blocked") return false;
 				if (
 					(outboundTestType === "tcp" || outboundTestType === "icmp") &&
@@ -2356,9 +2373,18 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const renderOutboundTraffic = (traffic?: { up?: number; down?: number }) => (
-		<HStack spacing={3} whiteSpace="nowrap" fontSize="xs" sx={{ fontVariantNumeric: "tabular-nums" }}>
-			<Text color="teal.400">↑ {SizeFormatter.sizeFormat(Number(traffic?.up) || 0)}</Text>
-			<Text color="blue.400">↓ {SizeFormatter.sizeFormat(Number(traffic?.down) || 0)}</Text>
+		<HStack
+			spacing={3}
+			whiteSpace="nowrap"
+			fontSize="xs"
+			sx={{ fontVariantNumeric: "tabular-nums" }}
+		>
+			<Text color="teal.400">
+				↑ {SizeFormatter.sizeFormat(Number(traffic?.up) || 0)}
+			</Text>
+			<Text color="blue.400">
+				↓ {SizeFormatter.sizeFormat(Number(traffic?.down) || 0)}
+			</Text>
 		</HStack>
 	);
 
@@ -2433,14 +2459,23 @@ export const CoreSettingsPage: FC = () => {
 								.toLowerCase()
 								.trim();
 							if (
-								!["openvpn", "wireguard", "l2tp", "pptp", "ikev2", "anyconnect"].includes(protocol)
+								![
+									"openvpn",
+									"wireguard",
+									"l2tp",
+									"pptp",
+									"ikev2",
+									"anyconnect",
+								].includes(protocol)
 							) {
 								return true;
 							}
 							const rawTproxy = inbound?.settings?.tproxy_enabled;
 							return !(
 								rawTproxy === false ||
-								String(rawTproxy ?? "").toLowerCase().trim() === "false"
+								String(rawTproxy ?? "")
+									.toLowerCase()
+									.trim() === "false"
 							);
 						})
 						.map((inbound: any) => inbound?.tag)
@@ -2472,7 +2507,9 @@ export const CoreSettingsPage: FC = () => {
 							const protocol = String(outbound?.protocol ?? "")
 								.toLowerCase()
 								.trim();
-							const tag = String(outbound?.tag ?? "").toLowerCase().trim();
+							const tag = String(outbound?.tag ?? "")
+								.toLowerCase()
+								.trim();
 							return protocol === "blackhole" || tag === "blocked";
 						})
 						.map((outbound: any) => outbound?.tag)
@@ -2537,11 +2574,14 @@ export const CoreSettingsPage: FC = () => {
 		() =>
 			canonicalOutbounds
 				.filter((outbound: any) => {
-					if (String(outbound?.protocol).toLowerCase() !== "vless") return false;
+					if (String(outbound?.protocol).toLowerCase() !== "vless")
+						return false;
 					const account = readVlessOutboundAccount(outbound);
 					const reverseTag = String(outbound?.settings?.reverse?.tag ?? "");
 					return (
-						Boolean(outbound?.tag && account.address && account.port && account.id) &&
+						Boolean(
+							outbound?.tag && account.address && account.port && account.id,
+						) &&
 						isSecureVlessConnection(outbound, account) &&
 						(!reverseTag || outbound?.tag === editingReverseRow?.connectionTag)
 					);
@@ -2571,13 +2611,11 @@ export const CoreSettingsPage: FC = () => {
 					...availableOutboundTags,
 					...reverseData.map((reverse) => reverse.tag),
 				]),
-			)
-				.filter(
-					(tag) =>
-						tag &&
-						tag !==
-							(editingReverseIndex !== null ? editingReverseRow?.tag : ""),
-				),
+			).filter(
+				(tag) =>
+					tag &&
+					tag !== (editingReverseIndex !== null ? editingReverseRow?.tag : ""),
+			),
 		[
 			availableInboundTags,
 			availableOutboundTags,
@@ -2788,9 +2826,7 @@ export const CoreSettingsPage: FC = () => {
 			(item, index) => item?.tag === tag && index !== editingOutboundIndex,
 		);
 		if (duplicateIndex >= 0) {
-			throw new Error(
-				t("pages.xray.outbound.tagExistsNamed", { tag }),
-			);
+			throw new Error(t("pages.xray.outbound.tagExistsNamed", { tag }));
 		}
 		if (
 			editingOutboundIndex !== null &&
@@ -3046,18 +3082,31 @@ export const CoreSettingsPage: FC = () => {
 
 	const renderOutboundTestResult = (state: OutboundTestState | undefined) => {
 		if (state?.testing) return <Spinner size="xs" />;
-		if (!state?.result) return <Text fontSize="xs" color="gray.500">-</Text>;
+		if (!state?.result)
+			return (
+				<Text fontSize="xs" color="gray.500">
+					-
+				</Text>
+			);
 
 		const result = state.result;
 		return (
 			<Tooltip
 				hasArrow
-				label={result.success
-					? result.output || outboundTestResultLabel(result)
-					: result.error || t("pages.xray.outbound.testFailed")}
+				label={
+					result.success
+						? result.output || outboundTestResultLabel(result)
+						: result.error || t("pages.xray.outbound.testFailed")
+				}
 				whiteSpace="pre-wrap"
 			>
-				<Tag colorScheme={result.success ? "green" : "red"} size="sm" borderRadius="full" gap={1} sx={{ fontVariantNumeric: "tabular-nums" }}>
+				<Tag
+					colorScheme={result.success ? "green" : "red"}
+					size="sm"
+					borderRadius="full"
+					gap={1}
+					sx={{ fontVariantNumeric: "tabular-nums" }}
+				>
 					{result.success ? <CheckCircleIconStyled /> : <XCircleIconStyled />}
 					{result.success
 						? typeof result.delay === "number" && result.delay < 1
@@ -3084,8 +3133,12 @@ export const CoreSettingsPage: FC = () => {
 				? outboundAddressRequiredMessage
 				: "";
 		const isBlocked =
-			String(outbound.protocol ?? "").toLowerCase().trim() === "blackhole" ||
-			String(outbound.tag ?? "").toLowerCase().trim() === "blocked";
+			String(outbound.protocol ?? "")
+				.toLowerCase()
+				.trim() === "blackhole" ||
+			String(outbound.tag ?? "")
+				.toLowerCase()
+				.trim() === "blocked";
 
 		const testLabel = `${t("pages.xray.routeTester.test")} · ${outboundTestTypeLabels[outboundTestType]}`;
 		return (
@@ -3118,11 +3171,16 @@ export const CoreSettingsPage: FC = () => {
 			cell: ({ rule, originalIndex }) => (
 				<VStack align="start" spacing={1}>
 					<HStack spacing={2} minW={0}>
-						<Tag size="sm" colorScheme={rule.enabled === false ? "gray" : "green"}>
+						<Tag
+							size="sm"
+							colorScheme={rule.enabled === false ? "gray" : "green"}
+						>
 							#{originalIndex + 1}
 						</Tag>
 						<Text fontWeight="semibold" noOfLines={1}>
-							{rule.outboundTag || rule.balancerTag || t("pages.xray.rules.any")}
+							{rule.outboundTag ||
+								rule.balancerTag ||
+								t("pages.xray.rules.any")}
 						</Text>
 					</HStack>
 					<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
@@ -3221,7 +3279,8 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-up",
 			label: t("pages.xray.rules.up"),
 			icon: <ArrowUpIconStyled />,
-			isDisabled: routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
+			isDisabled:
+				routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
 			onClick: () => replaceRule(row.originalIndex, row.originalIndex - 1),
 		},
 		{
@@ -3278,7 +3337,8 @@ export const CoreSettingsPage: FC = () => {
 			id: "latency",
 			header: t("pages.xray.outbound.testTypeLatency"),
 			priority: "high",
-			cell: ({ originalIndex }) => renderOutboundTestResult(outboundTestStates[originalIndex]),
+			cell: ({ originalIndex }) =>
+				renderOutboundTestResult(outboundTestStates[originalIndex]),
 			mobileMetaLabel: t("pages.xray.outbound.testTypeLatency"),
 		},
 		{
@@ -3357,71 +3417,74 @@ export const CoreSettingsPage: FC = () => {
 		[subscriptionOutbounds],
 	);
 
-	const subscriptionOutboundColumns: DataTableColumn<SubscriptionOutboundDisplayRow>[] = [
-		{
-			id: "tag",
-			header: t("pages.xray.outbound.tag"),
-			isPrimary: true,
-			priority: "primary",
-			cell: ({ outbound }) => (
-				<VStack align="start" spacing={1}>
-					<Text fontWeight="semibold" noOfLines={1}>
-						{String(outbound.tag ?? "-")}
-					</Text>
-					<Tag size="sm" colorScheme="green">
-						{t("pages.xray.outboundSub.sourceBadge")}
-					</Tag>
-				</VStack>
-			),
-		},
-		{
-			id: "protocol",
-			header: t("protocol"),
-			priority: "high",
-			cell: ({ outbound }) => renderOutboundBadges(outbound),
-			mobileMetaLabel: t("protocol"),
-		},
-		{
-			id: "address",
-			header: t("pages.xray.outbound.address"),
-			priority: "medium",
-			hideBelow: "lg",
-			cell: ({ outbound }) => renderAddressList(findOutboundAddress(outbound)),
-			mobileMetaLabel: t("pages.xray.outbound.address"),
-		},
-		{
-			id: "traffic",
-			header: t("pages.inbounds.traffic"),
-			priority: "high",
-			mobileSummary: true,
-			cell: ({ outbound }) => {
-				const traffic = outboundsTraffic
-					.filter((item) => (item.target_id || "master") === selectedTarget)
-					.find((item) => item.tag === outbound.tag);
-				return renderOutboundTraffic(traffic);
-			},
-		},
-		{
-			id: "latency",
-			header: t("pages.xray.outbound.testTypeLatency"),
-			priority: "high",
-			cell: ({ stateKey }) => renderOutboundTestResult(subscriptionOutboundTestStates[stateKey]),
-			mobileMetaLabel: t("pages.xray.outbound.testTypeLatency"),
-		},
-		{
-			id: "test",
-			header: t("pages.xray.routeTester.test"),
-			priority: "medium",
-			hideBelow: "lg",
-			cell: ({ outbound, index, stateKey }) =>
-				renderOutboundTestButton(
-					outbound,
-					subscriptionOutboundTestStates[stateKey],
-					() => testSubscriptionOutbound(outbound, index),
+	const subscriptionOutboundColumns: DataTableColumn<SubscriptionOutboundDisplayRow>[] =
+		[
+			{
+				id: "tag",
+				header: t("pages.xray.outbound.tag"),
+				isPrimary: true,
+				priority: "primary",
+				cell: ({ outbound }) => (
+					<VStack align="start" spacing={1}>
+						<Text fontWeight="semibold" noOfLines={1}>
+							{String(outbound.tag ?? "-")}
+						</Text>
+						<Tag size="sm" colorScheme="green">
+							{t("pages.xray.outboundSub.sourceBadge")}
+						</Tag>
+					</VStack>
 				),
-			mobileMetaLabel: t("pages.xray.routeTester.test"),
-		},
-	];
+			},
+			{
+				id: "protocol",
+				header: t("protocol"),
+				priority: "high",
+				cell: ({ outbound }) => renderOutboundBadges(outbound),
+				mobileMetaLabel: t("protocol"),
+			},
+			{
+				id: "address",
+				header: t("pages.xray.outbound.address"),
+				priority: "medium",
+				hideBelow: "lg",
+				cell: ({ outbound }) =>
+					renderAddressList(findOutboundAddress(outbound)),
+				mobileMetaLabel: t("pages.xray.outbound.address"),
+			},
+			{
+				id: "traffic",
+				header: t("pages.inbounds.traffic"),
+				priority: "high",
+				mobileSummary: true,
+				cell: ({ outbound }) => {
+					const traffic = outboundsTraffic
+						.filter((item) => (item.target_id || "master") === selectedTarget)
+						.find((item) => item.tag === outbound.tag);
+					return renderOutboundTraffic(traffic);
+				},
+			},
+			{
+				id: "latency",
+				header: t("pages.xray.outbound.testTypeLatency"),
+				priority: "high",
+				cell: ({ stateKey }) =>
+					renderOutboundTestResult(subscriptionOutboundTestStates[stateKey]),
+				mobileMetaLabel: t("pages.xray.outbound.testTypeLatency"),
+			},
+			{
+				id: "test",
+				header: t("pages.xray.routeTester.test"),
+				priority: "medium",
+				hideBelow: "lg",
+				cell: ({ outbound, index, stateKey }) =>
+					renderOutboundTestButton(
+						outbound,
+						subscriptionOutboundTestStates[stateKey],
+						() => testSubscriptionOutbound(outbound, index),
+					),
+				mobileMetaLabel: t("pages.xray.routeTester.test"),
+			},
+		];
 
 	const reverseColumns: DataTableColumn<ReverseRow>[] = [
 		{
@@ -3430,7 +3493,10 @@ export const CoreSettingsPage: FC = () => {
 			isPrimary: true,
 			priority: "primary",
 			cell: (reverse) => (
-				<Tag colorScheme={reverse.type === "internal" ? "blue" : "purple"} size="sm">
+				<Tag
+					colorScheme={reverse.type === "internal" ? "blue" : "purple"}
+					size="sm"
+				>
 					{reverse.type === "internal"
 						? t("pages.xray.reverse.internal")
 						: t("pages.xray.reverse.public")}
@@ -3462,7 +3528,9 @@ export const CoreSettingsPage: FC = () => {
 		},
 	];
 
-	const reverseActions = (row: ReverseRow): DataTableRowAction<ReverseRow>[] => [
+	const reverseActions = (
+		row: ReverseRow,
+	): DataTableRowAction<ReverseRow>[] => [
 		{
 			id: "edit",
 			label: t("edit"),
@@ -3514,7 +3582,9 @@ export const CoreSettingsPage: FC = () => {
 		},
 	];
 
-	const balancerActions = (row: BalancerRow): DataTableRowAction<BalancerRow>[] => [
+	const balancerActions = (
+		row: BalancerRow,
+	): DataTableRowAction<BalancerRow>[] => [
 		{
 			id: "edit",
 			label: t("edit"),
@@ -3540,7 +3610,8 @@ export const CoreSettingsPage: FC = () => {
 			header: t("pages.xray.outbound.address"),
 			isPrimary: true,
 			priority: "primary",
-			cell: ({ dns }) => renderTextValue(typeof dns === "object" ? dns.address : dns),
+			cell: ({ dns }) =>
+				renderTextValue(typeof dns === "object" ? dns.address : dns),
 		},
 		{
 			id: "domains",
@@ -3559,7 +3630,9 @@ export const CoreSettingsPage: FC = () => {
 				typeof dns === "object" ? renderChipList(dns.expectIPs, "green") : "",
 		},
 	];
-	const dnsActions = (row: DnsDisplayRow): DataTableRowAction<DnsDisplayRow>[] => [
+	const dnsActions = (
+		row: DnsDisplayRow,
+	): DataTableRowAction<DnsDisplayRow>[] => [
 		{
 			id: "edit",
 			label: t("edit"),
@@ -3634,8 +3707,8 @@ export const CoreSettingsPage: FC = () => {
 		);
 	}
 
-	const observatoryJsonValue = getObsJson();
-	const advancedJsonValue = getAdvancedJson();
+	const observatoryJsonValue = activeTab === 4 ? getObsJson() : "";
+	const advancedJsonValue = activeTab === 6 ? getAdvancedJson() : "";
 	const advancedJsonModes = [
 		{
 			value: "xraySetting",
@@ -3711,8 +3784,7 @@ export const CoreSettingsPage: FC = () => {
 		}
 
 		const isIP =
-			/^(\d{1,3}\.){3}\d{1,3}$/.test(destination) ||
-			destination.includes(":");
+			/^(\d{1,3}\.){3}\d{1,3}$/.test(destination) || destination.includes(":");
 		setIsRouteTesting(true);
 		setRouteTestResult(null);
 		try {
@@ -3737,10 +3809,7 @@ export const CoreSettingsPage: FC = () => {
 				setRouteTestResult(response.obj);
 				return;
 			}
-			throw new Error(
-				response?.msg ||
-					t("pages.xray.routeTester.failed"),
-			);
+			throw new Error(response?.msg || t("pages.xray.routeTester.failed"));
 		} catch (error: any) {
 			const detail =
 				error?.response?._data?.detail ??
@@ -3969,13 +4038,11 @@ export const CoreSettingsPage: FC = () => {
 				]}
 			/>
 			<Box mt={{ base: 2, md: 3 }}>
-				<Box p={0} mt={3} display={activeTab === 0 ? "block" : "none"}>
+				{activeTab === 0 && (
+					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
 							<VStack spacing={3} align="stretch">
-								<SettingsSection
-									title={t("pages.xray.serverIPs")}
-									defaultOpen
-								>
+								<SettingsSection title={t("pages.xray.serverIPs")} defaultOpen>
 									<SettingRow label="IPv4" controlId="server-ipv4">
 										{(_controlId) => (
 											<CompactTextWithCopy
@@ -4378,21 +4445,30 @@ export const CoreSettingsPage: FC = () => {
 								</SettingsSection>
 							</VStack>
 						</VStack>
-				</Box>
-				<Box p={0} mt={3} display={activeTab === 1 ? "block" : "none"}>
+					</Box>
+				)}
+				{activeTab === 1 && (
+					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
 							<ResourceListCard
 								title={t("pages.xray.routeTester.title")}
 								summaryItems={[
 									{
 										label: t("pages.xray.routeTester.target"),
-										value: selectedTargetInfo?.name || selectedTarget || "master",
+										value:
+											selectedTargetInfo?.name || selectedTarget || "master",
 										colorScheme: isMasterTarget ? "orange" : "green",
 									},
 								]}
 								actions={
 									<Button
-										leftIcon={isRouteTesting ? <Spinner size="xs" /> : <BoltIconStyled />}
+										leftIcon={
+											isRouteTesting ? (
+												<Spinner size="xs" />
+											) : (
+												<BoltIconStyled />
+											)
+										}
 										{...compactActionButtonProps}
 										isDisabled={isRouteTesting || isMasterTarget}
 										onClick={runRouteTest}
@@ -4420,16 +4496,16 @@ export const CoreSettingsPage: FC = () => {
 												size="sm"
 												value={routeTestDestination}
 												placeholder="example.com"
-												onChange={(e) => setRouteTestDestination(e.target.value)}
+												onChange={(e) =>
+													setRouteTestDestination(e.target.value)
+												}
 												onKeyDown={(e) => {
 													if (e.key === "Enter") void runRouteTest();
 												}}
 											/>
 										</FormControl>
 										<FormControl maxW={{ base: "full", lg: "100px" }}>
-											<FormLabel fontSize="xs">
-												{t("port")}
-											</FormLabel>
+											<FormLabel fontSize="xs">{t("port")}</FormLabel>
 											<Input
 												size="sm"
 												value={routeTestPort}
@@ -4451,9 +4527,7 @@ export const CoreSettingsPage: FC = () => {
 											</Select>
 										</FormControl>
 										<FormControl maxW={{ base: "full", lg: "180px" }}>
-											<FormLabel fontSize="xs">
-												{t("inbound")}
-											</FormLabel>
+											<FormLabel fontSize="xs">{t("inbound")}</FormLabel>
 											<Select
 												size="sm"
 												value={routeTestInbound}
@@ -4470,9 +4544,7 @@ export const CoreSettingsPage: FC = () => {
 											</Select>
 										</FormControl>
 										<FormControl maxW={{ base: "full", lg: "160px" }}>
-											<FormLabel fontSize="xs">
-												{t("protocol")}
-											</FormLabel>
+											<FormLabel fontSize="xs">{t("protocol")}</FormLabel>
 											<Select
 												size="sm"
 												value={routeTestProtocol}
@@ -4481,11 +4553,13 @@ export const CoreSettingsPage: FC = () => {
 												<option value="">
 													{t("pages.xray.routeTester.anyProtocol")}
 												</option>
-												{["http", "tls", "quic", "bittorrent"].map((protocol) => (
-													<option key={protocol} value={protocol}>
-														{protocol}
-													</option>
-												))}
+												{["http", "tls", "quic", "bittorrent"].map(
+													(protocol) => (
+														<option key={protocol} value={protocol}>
+															{protocol}
+														</option>
+													),
+												)}
 											</Select>
 										</FormControl>
 										<FormControl maxW={{ base: "full", lg: "180px" }}>
@@ -4503,7 +4577,9 @@ export const CoreSettingsPage: FC = () => {
 									{routeTestResult && (
 										<Box
 											borderWidth="1px"
-											borderColor={routeTestResult.error ? "red.300" : "panel.border"}
+											borderColor={
+												routeTestResult.error ? "red.300" : "panel.border"
+											}
 											borderRadius="md"
 											px={3}
 											py={2}
@@ -4615,8 +4691,10 @@ export const CoreSettingsPage: FC = () => {
 								</VStack>
 							)}
 						</VStack>
-				</Box>
-				<Box p={0} mt={3} display={activeTab === 2 ? "block" : "none"}>
+					</Box>
+				)}
+				{activeTab === 2 && (
+					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
 							<ResourceListCard
 								title={t("pages.xray.Outbounds")}
@@ -4664,12 +4742,18 @@ export const CoreSettingsPage: FC = () => {
 											</MenuButton>
 											<Portal>
 												<MenuList zIndex="popover" minW="210px">
-													<MenuItem icon={<WarpIconStyled />} onClick={onWarpOpen}>
+													<MenuItem
+														icon={<WarpIconStyled />}
+														onClick={onWarpOpen}
+													>
 														{warpExists
 															? t("pages.xray.warp.manage")
 															: t("pages.xray.warp.create")}
 													</MenuItem>
-													<MenuItem icon={<NordVPNIconStyled />} onClick={onNordOpen}>
+													<MenuItem
+														icon={<NordVPNIconStyled />}
+														onClick={onNordOpen}
+													>
 														NordVPN
 													</MenuItem>
 													<MenuItem
@@ -4785,8 +4869,10 @@ export const CoreSettingsPage: FC = () => {
 								ariaLabel={t("pages.xray.Outbounds")}
 							/>
 						</VStack>
-				</Box>
-				<Box p={0} mt={3} display={activeTab === 3 ? "block" : "none"}>
+					</Box>
+				)}
+				{activeTab === 3 && (
+					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
 							<ResourceListCard
 								title={t("pages.xray.reverse.title")}
@@ -4797,14 +4883,16 @@ export const CoreSettingsPage: FC = () => {
 									},
 									{
 										label: t("pages.xray.reverse.internal"),
-										value: reverseData.filter((reverse) => reverse.type === "internal")
-											.length,
+										value: reverseData.filter(
+											(reverse) => reverse.type === "internal",
+										).length,
 										colorScheme: "blue",
 									},
 									{
 										label: t("pages.xray.reverse.public"),
-										value: reverseData.filter((reverse) => reverse.type === "public")
-											.length,
+										value: reverseData.filter(
+											(reverse) => reverse.type === "public",
+										).length,
 										colorScheme: "purple",
 									},
 								]}
@@ -4829,8 +4917,10 @@ export const CoreSettingsPage: FC = () => {
 								ariaLabel={t("pages.xray.reverse.title")}
 							/>
 						</VStack>
-				</Box>
-				<Box p={0} mt={3} display={activeTab === 4 ? "block" : "none"}>
+					</Box>
+				)}
+				{activeTab === 4 && (
+					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
 							<ResourceListCard
 								title={t("pages.xray.Balancers")}
@@ -4900,8 +4990,10 @@ export const CoreSettingsPage: FC = () => {
 								</VStack>
 							)}
 						</VStack>
-				</Box>
-				<Box p={0} mt={3} display={activeTab === 5 ? "block" : "none"}>
+					</Box>
+				)}
+				{activeTab === 5 && (
+					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
 							<SettingsSection title={t("pages.xray.generalConfigs")}>
 								<SettingRow
@@ -4919,7 +5011,8 @@ export const CoreSettingsPage: FC = () => {
 													...form.getValues("config"),
 												};
 												if (checked) {
-													newConfig.dns = newConfig.dns || createDefaultDnsConfig();
+													newConfig.dns =
+														newConfig.dns || createDefaultDnsConfig();
 													newConfig.fakedns = Array.isArray(newConfig.fakedns)
 														? newConfig.fakedns
 														: [];
@@ -5159,7 +5252,11 @@ export const CoreSettingsPage: FC = () => {
 												>
 													{t("pages.xray.dns.add")}
 												</Button>
-												<Button size="xs" variant="outline" onClick={onDnsPresetsOpen}>
+												<Button
+													size="xs"
+													variant="outline"
+													onClick={onDnsPresetsOpen}
+												>
 													{t("pages.xray.dns.presets")}
 												</Button>
 											</HStack>
@@ -5210,8 +5307,10 @@ export const CoreSettingsPage: FC = () => {
 								</VStack>
 							)}
 						</VStack>
-				</Box>
-				<Box p={0} mt={3} display={activeTab === 6 ? "block" : "none"}>
+					</Box>
+				)}
+				{activeTab === 6 && (
+					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
 							<ResourceListCard
 								title={t("pages.xray.advancedJsonEditor")}
@@ -5310,147 +5409,174 @@ export const CoreSettingsPage: FC = () => {
 								)}
 							</Box>
 						</VStack>
-				</Box>
-				<Box p={0} mt={3} display={activeTab === 7 ? "block" : "none"}>
+					</Box>
+				)}
+				{activeTab === 7 && (
+					<Box p={0} mt={3}>
 						<Box>
 							<XrayLogsPage showTitle={false} />
 						</Box>
-				</Box>
+					</Box>
+				)}
 			</Box>
-			<OutboundModal
-				isOpen={isOutboundOpen}
-				onClose={handleOutboundModalClose}
-				mode={editingOutboundIndex !== null ? "edit" : "create"}
-				initialOutbound={
-					editingOutboundIndex !== null
-						? canonicalOutbounds[editingOutboundIndex]
-						: null
-				}
-				existingTags={availableOutboundTags}
-				onSubmitOutbound={handleOutboundSave}
-			/>
-			<RuleModal
-				isOpen={isRuleOpen}
-				mode={editingRuleIndex !== null ? "edit" : "create"}
-				initialRule={
-					editingRuleIndex !== null
-						? canonicalRoutingRules[editingRuleIndex] || null
-						: null
-				}
-				availableInboundTags={availableInboundTags}
-				availableOutboundTags={availableOutboundTags}
-				availableBalancerTags={availableBalancerTags}
-				onSubmit={handleRuleModalSubmit}
-				onClose={handleRuleModalClose}
-			/>
-			<ReverseModal
-				isOpen={isReverseOpen}
-				onClose={handleReverseModalClose}
-				mode={editingReverseIndex !== null ? "edit" : "create"}
-				initialReverse={editingReverseInitial}
-				inboundTags={availableInboundTags}
-				outboundTags={availableOutboundTags}
-				vlessInboundTags={vlessInboundTags}
-				vlessOutboundTags={vlessOutboundTags}
-				vlessOutboundDetails={vlessOutboundDetails}
-				existingTags={existingReverseTags}
-				reverseCount={reverseData.length}
-				onSubmit={handleReverseSubmit}
-			/>
-			<WarpModal
-				isOpen={isWarpOpen}
-				onClose={handleWarpModalClose}
-				initialOutbound={warpOutbound}
-				onSave={handleWarpSave}
-				onDelete={handleWarpDelete}
-			/>
-			<NordVPNModal
-				isOpen={isNordOpen}
-				onClose={handleNordModalClose}
-				initialOutbounds={getOutbounds()}
-				onSave={handleNordSave}
-				onDelete={handleNordDelete}
-			/>
-			<OutboundSubscriptionsModal
-				isOpen={isOutboundSubsOpen}
-				onClose={onOutboundSubsClose}
-				onChanged={async () => {
-					await fetchActiveSubscriptionOutbounds();
-					await fetchOutboundsTraffic();
-				}}
-			/>
-			<TorProxyModal
-				isOpen={isTorProxyOpen}
-				isLoading={isApplyingTorProxy}
-				isMasterTarget={isMasterTarget}
-				existingTags={availableOutboundTags}
-				onClose={onTorProxyClose}
-				onSubmit={addTorOutbound}
-			/>
-			<WindscribeProxyModal
-				isOpen={isWindscribeProxyOpen}
-				isLoading={isApplyingWindscribeProxy}
-				isMasterTarget={isMasterTarget}
-				targetID={selectedTarget}
-				existingTags={availableOutboundTags}
-				onClose={onWindscribeProxyClose}
-				onSubmit={addWindscribeOutbound}
-			/>
-			<BalancerModal
-				isOpen={isBalancerOpen}
-				onClose={handleBalancerModalClose}
-				mode={editingBalancerIndex !== null ? "edit" : "create"}
-				initialBalancer={
-					editingBalancerIndex !== null
-						? {
-								tag: balancersData[editingBalancerIndex]?.tag ?? "",
-								strategy:
-									balancersData[editingBalancerIndex]?.strategy ?? "random",
-								selector: balancersData[editingBalancerIndex]?.selector ?? [],
-								fallbackTag:
-									balancersData[editingBalancerIndex]?.fallbackTag ?? "",
-							}
-						: null
-				}
-				outboundTags={availableOutboundTags}
-				excludedOutboundTags={excludedBalancerOutboundTags}
-				existingTags={availableBalancerTags
-					.map((tag) => tag.trim())
-					.filter(
-						(tag) =>
-							tag &&
-							tag !==
-								(editingBalancerIndex !== null
-									? balancersData[editingBalancerIndex]?.tag
-									: ""),
-					)}
-				onSubmit={handleBalancerSubmit}
-			/>
-			<DnsModal
-				isOpen={isDnsOpen}
-				onClose={handleDnsModalClose}
-				form={form}
-				setDnsServers={setDnsServers}
-				dnsIndex={editingDnsIndex}
-				currentDnsData={
-					editingDnsIndex !== null ? dnsServers[editingDnsIndex] : null
-				}
-			/>
-			<DnsPresetsModal
-				isOpen={isDnsPresetsOpen}
-				onClose={onDnsPresetsClose}
-				onSelectPreset={applyDnsPreset}
-			/>
-			<FakeDnsModal
-				isOpen={isFakeDnsOpen}
-				onClose={handleFakeDnsModalClose}
-				form={form}
-				setFakeDns={setFakeDns}
-				fakeDnsIndex={editingFakeDnsIndex}
-				currentFakeDnsData={
-					editingFakeDnsIndex !== null ? fakeDns[editingFakeDnsIndex] : null
-				}
-			/>
+			{isOutboundOpen && (
+				<OutboundModal
+					isOpen={isOutboundOpen}
+					onClose={handleOutboundModalClose}
+					mode={editingOutboundIndex !== null ? "edit" : "create"}
+					initialOutbound={
+						editingOutboundIndex !== null
+							? canonicalOutbounds[editingOutboundIndex]
+							: null
+					}
+					existingTags={availableOutboundTags}
+					onSubmitOutbound={handleOutboundSave}
+				/>
+			)}
+			{isRuleOpen && (
+				<RuleModal
+					isOpen={isRuleOpen}
+					mode={editingRuleIndex !== null ? "edit" : "create"}
+					initialRule={
+						editingRuleIndex !== null
+							? canonicalRoutingRules[editingRuleIndex] || null
+							: null
+					}
+					availableInboundTags={availableInboundTags}
+					availableOutboundTags={availableOutboundTags}
+					availableBalancerTags={availableBalancerTags}
+					onSubmit={handleRuleModalSubmit}
+					onClose={handleRuleModalClose}
+				/>
+			)}
+			{isReverseOpen && (
+				<ReverseModal
+					isOpen={isReverseOpen}
+					onClose={handleReverseModalClose}
+					mode={editingReverseIndex !== null ? "edit" : "create"}
+					initialReverse={editingReverseInitial}
+					inboundTags={availableInboundTags}
+					outboundTags={availableOutboundTags}
+					vlessInboundTags={vlessInboundTags}
+					vlessOutboundTags={vlessOutboundTags}
+					vlessOutboundDetails={vlessOutboundDetails}
+					existingTags={existingReverseTags}
+					reverseCount={reverseData.length}
+					onSubmit={handleReverseSubmit}
+				/>
+			)}
+			{isWarpOpen && (
+				<WarpModal
+					isOpen={isWarpOpen}
+					onClose={handleWarpModalClose}
+					initialOutbound={warpOutbound}
+					onSave={handleWarpSave}
+					onDelete={handleWarpDelete}
+				/>
+			)}
+			{isNordOpen && (
+				<NordVPNModal
+					isOpen={isNordOpen}
+					onClose={handleNordModalClose}
+					initialOutbounds={getOutbounds()}
+					onSave={handleNordSave}
+					onDelete={handleNordDelete}
+				/>
+			)}
+			{isOutboundSubsOpen && (
+				<OutboundSubscriptionsModal
+					isOpen={isOutboundSubsOpen}
+					onClose={onOutboundSubsClose}
+					onChanged={async () => {
+						await fetchActiveSubscriptionOutbounds();
+						await fetchOutboundsTraffic();
+					}}
+				/>
+			)}
+			{isTorProxyOpen && (
+				<TorProxyModal
+					isOpen={isTorProxyOpen}
+					isLoading={isApplyingTorProxy}
+					isMasterTarget={isMasterTarget}
+					existingTags={availableOutboundTags}
+					onClose={onTorProxyClose}
+					onSubmit={addTorOutbound}
+				/>
+			)}
+			{isWindscribeProxyOpen && (
+				<WindscribeProxyModal
+					isOpen={isWindscribeProxyOpen}
+					isLoading={isApplyingWindscribeProxy}
+					isMasterTarget={isMasterTarget}
+					targetID={selectedTarget}
+					existingTags={availableOutboundTags}
+					onClose={onWindscribeProxyClose}
+					onSubmit={addWindscribeOutbound}
+				/>
+			)}
+			{isBalancerOpen && (
+				<BalancerModal
+					isOpen={isBalancerOpen}
+					onClose={handleBalancerModalClose}
+					mode={editingBalancerIndex !== null ? "edit" : "create"}
+					initialBalancer={
+						editingBalancerIndex !== null
+							? {
+									tag: balancersData[editingBalancerIndex]?.tag ?? "",
+									strategy:
+										balancersData[editingBalancerIndex]?.strategy ?? "random",
+									selector: balancersData[editingBalancerIndex]?.selector ?? [],
+									fallbackTag:
+										balancersData[editingBalancerIndex]?.fallbackTag ?? "",
+								}
+							: null
+					}
+					outboundTags={availableOutboundTags}
+					excludedOutboundTags={excludedBalancerOutboundTags}
+					existingTags={availableBalancerTags
+						.map((tag) => tag.trim())
+						.filter(
+							(tag) =>
+								tag &&
+								tag !==
+									(editingBalancerIndex !== null
+										? balancersData[editingBalancerIndex]?.tag
+										: ""),
+						)}
+					onSubmit={handleBalancerSubmit}
+				/>
+			)}
+			{isDnsOpen && (
+				<DnsModal
+					isOpen={isDnsOpen}
+					onClose={handleDnsModalClose}
+					form={form}
+					setDnsServers={setDnsServers}
+					dnsIndex={editingDnsIndex}
+					currentDnsData={
+						editingDnsIndex !== null ? dnsServers[editingDnsIndex] : null
+					}
+				/>
+			)}
+			{isDnsPresetsOpen && (
+				<DnsPresetsModal
+					isOpen={isDnsPresetsOpen}
+					onClose={onDnsPresetsClose}
+					onSelectPreset={applyDnsPreset}
+				/>
+			)}
+			{isFakeDnsOpen && (
+				<FakeDnsModal
+					isOpen={isFakeDnsOpen}
+					onClose={handleFakeDnsModalClose}
+					form={form}
+					setFakeDns={setFakeDns}
+					fakeDnsIndex={editingFakeDnsIndex}
+					currentFakeDnsData={
+						editingFakeDnsIndex !== null ? fakeDns[editingFakeDnsIndex] : null
+					}
+				/>
+			)}
 			<ConfirmDialog
 				isOpen={Boolean(outboundReset)}
 				onClose={() => setOutboundReset(null)}
@@ -5459,7 +5585,9 @@ export const CoreSettingsPage: FC = () => {
 				description={
 					outboundReset?.index === -1
 						? t("pages.xray.outbound.resetTrafficScopeConfirm")
-						: t("pages.xray.outbound.resetTrafficConfirm", { tag: outboundData[outboundReset?.index ?? -1]?.tag ?? "" })
+						: t("pages.xray.outbound.resetTrafficConfirm", {
+								tag: outboundData[outboundReset?.index ?? -1]?.tag ?? "",
+							})
 				}
 				confirmLabel={t("reset")}
 			/>
