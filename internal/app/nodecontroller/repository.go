@@ -630,47 +630,68 @@ func (r Repository) QueueRuntimeBacklogSyncs(ctx context.Context, nodeID int64, 
 	if limit > 500 {
 		limit = 500
 	}
-	query := `SELECT no.node_id, COUNT(*) AS backlog_count
-FROM node_operations no
-JOIN nodes n ON n.id = no.node_id
-WHERE no.status IN ('pending', 'retrying')
-  AND no.operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
-  AND LOWER(COALESCE(n.status, '')) = 'connected'
-  AND NOT EXISTS (
-    SELECT 1
-    FROM node_operations sync_ops
-    WHERE sync_ops.node_id = no.node_id
-      AND sync_ops.operation_type = 'sync_config'
-      AND sync_ops.status IN ('pending', 'retrying', 'running')
-      AND sync_ops.id >= no.id
-      AND LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"runtime_backlog"%'
-  )`
+	query := `SELECT id FROM nodes WHERE LOWER(COALESCE(status, '')) = 'connected'`
 	args := []any{}
 	if nodeID > 0 {
-		query += ` AND no.node_id = ?`
+		query += ` AND id = ?`
 		args = append(args, nodeID)
 	}
-	query += ` GROUP BY no.node_id HAVING COUNT(*) >= ? ORDER BY backlog_count DESC, no.node_id LIMIT ?`
-	args = append(args, threshold, limit)
+	query += ` ORDER BY id`
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 
-	nodeIDs := []int64{}
+	connectedNodeIDs := []int64{}
 	for rows.Next() {
-		var backlogCount int64
-		var queuedNodeID int64
-		if err := rows.Scan(&queuedNodeID, &backlogCount); err != nil {
+		var connectedNodeID int64
+		if err := rows.Scan(&connectedNodeID); err != nil {
 			return 0, err
 		}
-		nodeIDs = append(nodeIDs, queuedNodeID)
+		connectedNodeIDs = append(connectedNodeIDs, connectedNodeID)
 	}
 	if err := rows.Err(); err != nil {
 		return 0, err
 	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+
+	nodeIDs := []int64{}
+	for _, connectedNodeID := range connectedNodeIDs {
+		if len(nodeIDs) >= limit {
+			break
+		}
+		var latestRuntimeSyncID sql.NullInt64
+		if err := r.db.QueryRowContext(ctx, `
+SELECT MAX(id)
+FROM node_operations
+WHERE node_id = ?
+  AND operation_type = 'sync_config'
+  AND status IN ('pending', 'retrying', 'running')
+  AND LOWER(COALESCE(payload, '')) LIKE '%"source":"runtime_backlog"%'`, connectedNodeID).Scan(&latestRuntimeSyncID); err != nil {
+			return 0, err
+		}
+		afterID := int64(0)
+		if latestRuntimeSyncID.Valid {
+			afterID = latestRuntimeSyncID.Int64
+		}
+		var backlogCount int
+		if err := r.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM node_operations
+WHERE node_id = ?
+  AND id > ?
+  AND status IN ('pending', 'retrying')
+  AND operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')`, connectedNodeID, afterID).Scan(&backlogCount); err != nil {
+			return 0, err
+		}
+		if backlogCount >= threshold {
+			nodeIDs = append(nodeIDs, connectedNodeID)
+		}
+	}
+
 	queued := 0
 	for _, queuedNodeID := range nodeIDs {
 		payload := map[string]any{
