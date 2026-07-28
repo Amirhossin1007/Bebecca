@@ -135,7 +135,6 @@ func (c Controller) Metrics(ctx context.Context, req Request) (RuntimeResult, er
 
 	res, err := client.Runtime().Metrics(ctx, &nodev1.MetricsRequest{IncludeRuntime: true})
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("metrics", req.NodeID, err)
 	}
 	result := runtimeResult(node, res.GetRuntime(), res)
