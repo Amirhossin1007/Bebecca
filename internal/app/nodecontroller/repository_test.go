@@ -1229,6 +1229,7 @@ INSERT INTO nodes (id, status) VALUES
 	(3, 'connected');
 INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
 VALUES
+	('sync_config', 1, NULL, '{"source":"runtime_backlog"}', 'retrying', 'node1-stale-sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('add_user', 1, 10, '{}', 'pending', 'node1-add-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('update_user', 1, 11, '{}', 'pending', 'node1-update-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('disable_user', 1, 12, '{}', 'retrying', 'node1-disable-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -1252,10 +1253,11 @@ VALUES
 	if queued != 2 {
 		t.Fatalf("expected two backlog syncs to be covered, got %d", queued)
 	}
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'pending' AND payload LIKE '%runtime_backlog%'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'done' AND payload LIKE '%runtime_backlog%'`, 1)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 2`, 0)
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3`, 1)
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3 AND payload LIKE '%runtime_backlog%'`, 0)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3`, 2)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3 AND status = 'pending' AND payload LIKE '%runtime_backlog%'`, 1)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id IN (1, 3) AND operation_type IN ('add_user', 'update_user', 'disable_user') AND status IN ('pending', 'retrying')`, 0)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 2 AND operation_type = 'add_user' AND status = 'pending'`, 3)
 }
@@ -1419,6 +1421,50 @@ VALUES
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 4`, "pending")
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 6`, "pending")
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 7`, "pending")
+}
+
+func TestRepositoryDefersRuntimeDeltasForInactiveNodes(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "inactive-node-deltas.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (id INTEGER PRIMARY KEY, status TEXT NOT NULL);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO nodes (id, status) VALUES (7, 'error'), (8, 'connected');
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES
+	('enable_user', 7, 100, '{}', 'pending', 'inactive-enable', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('enable_user', 8, 101, '{}', 'pending', 'connected-enable', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deferred, err := NewRepository(db, "sqlite").DeferRuntimeUserOperationsForInactiveNodes(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deferred != 1 {
+		t.Fatalf("expected one inactive-node operation deferred, got %d", deferred)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE node_id = 7`, "done")
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE node_id = 8`, "pending")
 }
 
 func TestRepositoryRuntimeUsersExcludesUsersAtSessionLimit(t *testing.T) {
