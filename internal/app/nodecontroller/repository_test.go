@@ -1229,6 +1229,7 @@ INSERT INTO nodes (id, status) VALUES
 	(3, 'connected');
 INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
 VALUES
+	('sync_config', 1, NULL, '{"source":"runtime_backlog"}', 'retrying', 'node1-stale-sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('add_user', 1, 10, '{}', 'pending', 'node1-add-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('update_user', 1, 11, '{}', 'pending', 'node1-update-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('disable_user', 1, 12, '{}', 'retrying', 'node1-disable-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -1252,10 +1253,11 @@ VALUES
 	if queued != 2 {
 		t.Fatalf("expected two backlog syncs to be covered, got %d", queued)
 	}
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'pending' AND payload LIKE '%runtime_backlog%'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'done' AND payload LIKE '%runtime_backlog%'`, 1)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 2`, 0)
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3`, 1)
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3 AND payload LIKE '%runtime_backlog%'`, 0)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3`, 2)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 3 AND status = 'pending' AND payload LIKE '%runtime_backlog%'`, 1)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id IN (1, 3) AND operation_type IN ('add_user', 'update_user', 'disable_user') AND status IN ('pending', 'retrying')`, 0)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 2 AND operation_type = 'add_user' AND status = 'pending'`, 3)
 }

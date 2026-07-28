@@ -642,6 +642,7 @@ WHERE no.status IN ('pending', 'retrying')
     WHERE sync_ops.node_id = no.node_id
       AND sync_ops.operation_type = 'sync_config'
       AND sync_ops.status IN ('pending', 'retrying', 'running')
+      AND sync_ops.id >= no.id
       AND LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"runtime_backlog"%'
   )`
 	args := []any{}
@@ -677,7 +678,7 @@ WHERE no.status IN ('pending', 'retrying')
 			"queued_at": time.Now().UTC().Format(time.RFC3339Nano),
 		}
 		id := queuedNodeID
-		if err := r.QueueSyncConfig(ctx, &id, payload); err != nil {
+		if err := r.queueRuntimeBacklogSync(ctx, id, payload); err != nil {
 			return queued, err
 		}
 		if _, err := r.DeferRuntimeUserOperationsForNode(ctx, queuedNodeID); err != nil {
@@ -1145,6 +1146,31 @@ func (r Repository) QueueSyncConfig(ctx context.Context, nodeID *int64, payload 
 			return err
 		}
 	}
+	return r.enqueueSyncConfig(ctx, nodeID, payloadJSON, now)
+}
+
+func (r Repository) queueRuntimeBacklogSync(ctx context.Context, nodeID int64, payload any) error {
+	now := time.Now().UTC()
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if _, err := r.db.ExecContext(ctx, `
+UPDATE node_operations
+SET status = 'done', last_error = NULL, updated_at = ?
+WHERE node_id = ?
+  AND operation_type = 'sync_config'
+  AND status IN ('pending', 'retrying')
+  AND LOWER(COALESCE(payload, '')) NOT LIKE '%"config_json"%'`,
+		r.timeArg(now),
+		nodeID,
+	); err != nil {
+		return err
+	}
+	return r.enqueueSyncConfig(ctx, &nodeID, payloadJSON, now)
+}
+
+func (r Repository) enqueueSyncConfig(ctx context.Context, nodeID *int64, payloadJSON []byte, now time.Time) error {
 	idempotencySource := fmt.Sprintf("sync_config:%s:%d", string(payloadJSON), now.UnixNano())
 	if nodeID != nil {
 		idempotencySource = fmt.Sprintf("sync_config:%d:%s:%d", *nodeID, string(payloadJSON), now.UnixNano())
