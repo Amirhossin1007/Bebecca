@@ -835,28 +835,43 @@ WHERE status IN ('pending', 'retrying')
 }
 
 func (r Repository) DeferRuntimeUserOperationsForInactiveNodes(ctx context.Context, nodeID int64) (int, error) {
-	query := `
-UPDATE node_operations
-SET status = 'done', last_error = NULL, updated_at = ?
-WHERE status IN ('pending', 'retrying', 'running')
-  AND node_id IS NOT NULL
-  AND operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
-  AND EXISTS (
-    SELECT 1
-    FROM nodes n
-    WHERE n.id = node_operations.node_id
-      AND LOWER(COALESCE(n.status, '')) <> 'connected'
-  )`
-	args := []any{r.timeArg(time.Now().UTC())}
+	query := `SELECT id FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'connected'`
+	args := []any{}
 	if nodeID > 0 {
-		query += ` AND node_id = ?`
+		query += ` AND id = ?`
 		args = append(args, nodeID)
 	}
-	res, err := r.db.ExecContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
-	return rowsAffectedOrDefault(res, 0), nil
+
+	inactiveNodeIDs := []int64{}
+	for rows.Next() {
+		var inactiveNodeID int64
+		if err := rows.Scan(&inactiveNodeID); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		inactiveNodeIDs = append(inactiveNodeIDs, inactiveNodeID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+
+	deferred := 0
+	for _, inactiveNodeID := range inactiveNodeIDs {
+		affected, err := r.DeferRuntimeUserOperationsForNode(ctx, inactiveNodeID)
+		if err != nil {
+			return deferred, err
+		}
+		deferred += affected
+	}
+	return deferred, nil
 }
 
 func (r Repository) DeferRuntimeUserOperationsForNode(ctx context.Context, nodeID int64) (int, error) {
@@ -879,64 +894,70 @@ WHERE node_id = ?
 }
 
 func (r Repository) DeferRuntimeUserOperationsCoveredByFullSyncs(ctx context.Context, nodeID int64) (int, error) {
-	if r.dialect == "mysql" || r.dialect == "mariadb" {
-		query := `
-UPDATE node_operations no
-JOIN node_operations sync_ops ON sync_ops.node_id = no.node_id
-SET no.status = 'done', no.last_error = NULL, no.updated_at = ?
-WHERE no.status IN ('pending', 'retrying', 'running')
-  AND no.node_id IS NOT NULL
-  AND no.operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
-  AND sync_ops.operation_type = 'sync_config'
-  AND no.id <= sync_ops.id
-  AND sync_ops.status IN ('pending', 'retrying', 'running')
-  AND LOWER(COALESCE(sync_ops.payload, '')) NOT LIKE '%"config_json"%'
-  AND (
-    LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"runtime_backlog"%'
-    OR LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"node_reconnected"%'
-    OR LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"runtime_hot_apply_failed"%'
-  )`
-		args := []any{r.timeArg(time.Now().UTC())}
-		if nodeID > 0 {
-			query += ` AND no.node_id = ?`
-			args = append(args, nodeID)
-		}
-		res, err := r.db.ExecContext(ctx, query, args...)
-		if err != nil {
-			return 0, err
-		}
-		return rowsAffectedOrDefault(res, 0), nil
-	}
 	query := `
-UPDATE node_operations
-SET status = 'done', last_error = NULL, updated_at = ?
-WHERE status IN ('pending', 'retrying', 'running')
-  AND node_id IS NOT NULL
-  AND operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
-  AND EXISTS (
-    SELECT 1
-    FROM node_operations sync_ops
-    WHERE sync_ops.node_id = node_operations.node_id
-      AND sync_ops.operation_type = 'sync_config'
-      AND node_operations.id <= sync_ops.id
-      AND sync_ops.status IN ('pending', 'retrying', 'running')
-      AND LOWER(COALESCE(sync_ops.payload, '')) NOT LIKE '%"config_json"%'
-      AND (
-        LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"runtime_backlog"%'
-        OR LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"node_reconnected"%'
-        OR LOWER(COALESCE(sync_ops.payload, '')) LIKE '%"source":"runtime_hot_apply_failed"%'
-      )
+SELECT node_id, MAX(id)
+FROM node_operations
+WHERE node_id IS NOT NULL
+  AND operation_type = 'sync_config'
+  AND status IN ('pending', 'retrying', 'running')
+  AND LOWER(COALESCE(payload, '')) NOT LIKE '%"config_json"%'
+  AND (
+    LOWER(COALESCE(payload, '')) LIKE '%"source":"runtime_backlog"%'
+    OR LOWER(COALESCE(payload, '')) LIKE '%"source":"node_reconnected"%'
+    OR LOWER(COALESCE(payload, '')) LIKE '%"source":"runtime_hot_apply_failed"%'
   )`
-	args := []any{r.timeArg(time.Now().UTC())}
+	args := []any{}
 	if nodeID > 0 {
 		query += ` AND node_id = ?`
 		args = append(args, nodeID)
 	}
-	res, err := r.db.ExecContext(ctx, query, args...)
+	query += ` GROUP BY node_id`
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
-	return rowsAffectedOrDefault(res, 0), nil
+
+	type fullSyncCoverage struct {
+		nodeID int64
+		opID   int64
+	}
+	coverages := []fullSyncCoverage{}
+	for rows.Next() {
+		var coveredNodeID, syncOperationID int64
+		if err := rows.Scan(&coveredNodeID, &syncOperationID); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		coverages = append(coverages, fullSyncCoverage{nodeID: coveredNodeID, opID: syncOperationID})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+
+	now := r.timeArg(time.Now().UTC())
+	deferred := 0
+	for _, coverage := range coverages {
+		res, err := r.db.ExecContext(ctx, `
+UPDATE node_operations
+SET status = 'done', last_error = NULL, updated_at = ?
+WHERE node_id = ?
+  AND id <= ?
+  AND status IN ('pending', 'retrying', 'running')
+  AND operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')`,
+			now,
+			coverage.nodeID,
+			coverage.opID,
+		)
+		if err != nil {
+			return deferred, err
+		}
+		deferred += rowsAffectedOrDefault(res, 0)
+	}
+	return deferred, nil
 }
 
 func (r Repository) RecoverStaleOperations(ctx context.Context, olderThan time.Duration) error {

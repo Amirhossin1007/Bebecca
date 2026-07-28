@@ -1421,6 +1421,50 @@ VALUES
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 7`, "pending")
 }
 
+func TestRepositoryDefersRuntimeDeltasForInactiveNodes(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "inactive-node-deltas.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (id INTEGER PRIMARY KEY, status TEXT NOT NULL);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO nodes (id, status) VALUES (7, 'error'), (8, 'connected');
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES
+	('enable_user', 7, 100, '{}', 'pending', 'inactive-enable', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('enable_user', 8, 101, '{}', 'pending', 'connected-enable', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deferred, err := NewRepository(db, "sqlite").DeferRuntimeUserOperationsForInactiveNodes(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deferred != 1 {
+		t.Fatalf("expected one inactive-node operation deferred, got %d", deferred)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE node_id = 7`, "done")
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE node_id = 8`, "pending")
+}
+
 func TestRepositoryRuntimeUsersExcludesUsersAtSessionLimit(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "runtime-users-limit.db")+"?_pragma=busy_timeout(30000)")
