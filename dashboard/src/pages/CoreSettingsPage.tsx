@@ -4292,7 +4292,6 @@ export const CoreSettingsPage: FC = () => {
 													<Switch
 														id={id}
 														isChecked={!!field.value}
-														dir={isRTL ? "ltr" : undefined}
 														onChange={(e) => field.onChange(e.target.checked)}
 													/>
 												)}
@@ -4311,7 +4310,6 @@ export const CoreSettingsPage: FC = () => {
 													<Switch
 														id={id}
 														isChecked={!!field.value}
-														dir={isRTL ? "ltr" : undefined}
 														onChange={(e) => field.onChange(e.target.checked)}
 													/>
 												)}
@@ -4330,7 +4328,24 @@ export const CoreSettingsPage: FC = () => {
 													<Switch
 														id={id}
 														isChecked={!!field.value}
-														dir={isRTL ? "ltr" : undefined}
+														onChange={(e) => field.onChange(e.target.checked)}
+													/>
+												)}
+											/>
+										)}
+									</SettingRow>
+									<SettingRow
+										label={t("pages.xray.statsOutboundDownlink")}
+										controlId="stats-outbound-downlink"
+									>
+										{(id) => (
+											<Controller
+												name="config.policy.system.statsOutboundDownlink"
+												control={form.control}
+												render={({ field }) => (
+													<Switch
+														id={id}
+														isChecked={!!field.value}
 														onChange={(e) => field.onChange(e.target.checked)}
 													/>
 												)}
