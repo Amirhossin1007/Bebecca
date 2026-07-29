@@ -4352,25 +4352,6 @@ export const CoreSettingsPage: FC = () => {
 											/>
 										)}
 									</SettingRow>
-									<SettingRow
-										label={t("pages.xray.statsOutboundDownlink")}
-										controlId="stats-outbound-downlink"
-									>
-										{(id) => (
-											<Controller
-												name="config.policy.system.statsOutboundDownlink"
-												control={form.control}
-												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														dir={isRTL ? "ltr" : undefined}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
-												)}
-											/>
-										)}
-									</SettingRow>
 								</SettingsSection>
 								<SettingsSection title={t("pages.xray.logConfigs")}>
 									<SettingRow
