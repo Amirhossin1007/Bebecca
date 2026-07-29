@@ -278,20 +278,6 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 	if compacted > 0 {
 		logging.Debugf(logging.ComponentNode, "operation queue compacted stale user deltas count=%d", compacted)
 	}
-	queuedSyncs, err := c.repo.QueueRuntimeBacklogSyncs(ctx, req.NodeID, 0, 0)
-	if err != nil {
-		return ProcessOperationsResult{}, err
-	}
-	if queuedSyncs > 0 {
-		logging.Infof(logging.ComponentNode, "operation queue scheduled full sync for runtime backlogs nodes=%d", queuedSyncs)
-	}
-	deferredCovered, err := c.repo.DeferRuntimeUserOperationsCoveredByFullSyncs(ctx, req.NodeID)
-	if err != nil {
-		return ProcessOperationsResult{}, err
-	}
-	if deferredCovered > 0 {
-		logging.Infof(logging.ComponentNode, "operation queue deferred user deltas covered by full sync count=%d", deferredCovered)
-	}
 	operations, err := c.repo.PendingOperations(ctx, req.NodeID, req.Limit)
 	if err != nil {
 		return ProcessOperationsResult{}, err
@@ -470,6 +456,12 @@ func (c Controller) processSingleOperation(ctx context.Context, operation Operat
 			return nil
 		}
 		if operation.NodeID.Valid && isRuntimeUserOperation(operation.OperationType) {
+			if isNodeUnavailableOperationError(err) && operation.Attempts < 2 {
+				_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
+				result.Retrying++
+				blockedNodes[operation.NodeID.Int64] = true
+				return nil
+			}
 			if deferErr := c.deferRuntimeUserOperationAfterFailure(ctx, operation, err); deferErr != nil {
 				return deferErr
 			}
@@ -533,6 +525,14 @@ func (c Controller) processCoalescedOperations(ctx context.Context, operations [
 			return nil
 		}
 		if representative.NodeID.Valid && isRuntimeUserOperation(representative.OperationType) {
+			if isNodeUnavailableOperationError(err) && representative.Attempts < 2 {
+				for _, operation := range claimed {
+					_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
+				}
+				result.Retrying += len(claimed)
+				blockedNodes[representative.NodeID.Int64] = true
+				return nil
+			}
 			if deferErr := c.deferRuntimeUserOperationAfterFailure(ctx, representative, err); deferErr != nil {
 				return deferErr
 			}
@@ -610,13 +610,6 @@ func (c Controller) deferRuntimeUserOperationAfterFailure(ctx context.Context, o
 	}
 	nodeID := operation.NodeID.Int64
 	reason := applyErr.Error()
-	if isNodeUnavailableOperationError(applyErr) {
-		if err := c.repo.SetError(ctx, nodeID, reason); err != nil {
-			return err
-		}
-		logging.Warnf(logging.ComponentNode, "user delta failed for node=%d; node marked error and deltas deferred to reconnect full sync: %v", nodeID, applyErr)
-		return nil
-	}
 	payload := map[string]any{
 		"source":    "runtime_hot_apply_failed",
 		"reason":    truncateOperationReason(reason, 512),
@@ -723,7 +716,9 @@ func (c Controller) applyOperationWithConfigData(ctx context.Context, operation 
 	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user":
 		client, node, err := c.dial(ctx, operation.NodeID.Int64)
 		if err != nil {
-			_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+			if !isRuntimeUserOperation(operation.OperationType) {
+				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+			}
 			return err
 		}
 		defer client.Close()
@@ -745,12 +740,16 @@ func (c Controller) applyOperationWithConfigData(ctx context.Context, operation 
 		}
 		runtimeReq, err := c.runtimeConfigRequest(ctx, node, fmt.Sprintf("%s-%d", operation.OperationType, operation.ID), configJSON)
 		if err != nil {
-			_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+			if !isRuntimeUserOperation(operation.OperationType) {
+				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+			}
 			return err
 		}
 		res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
 		if err != nil {
-			_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+			if !isRuntimeUserOperation(operation.OperationType) {
+				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+			}
 			return err
 		}
 		_, err = c.finishRuntime(ctx, node, res.GetRuntime(), res.GetMessage())
