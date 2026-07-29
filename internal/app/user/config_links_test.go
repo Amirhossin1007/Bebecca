@@ -411,11 +411,12 @@ func TestBuildConfigLinksKeepsRealityMetadataForTCPAndJSON(t *testing.T) {
 			"security": "reality",
 			"realitySettings": map[string]any{
 				"settings": map[string]any{
-					"serverName":  "origin.example.com",
-					"publicKey":   "public-key-from-settings",
-					"fingerprint": "firefox",
-					"shortId":     "abcd",
-					"spiderX":     "/spider",
+					"serverName":    "origin.example.com",
+					"publicKey":     "public-key-from-settings",
+					"fingerprint":   "firefox",
+					"shortId":       "abcd",
+					"spiderX":       "/spider",
+					"mldsa65Verify": "post-quantum-verify",
 				},
 			},
 		},
@@ -468,6 +469,7 @@ func TestBuildConfigLinksKeepsRealityMetadataForTCPAndJSON(t *testing.T) {
 		"pbk":        "public-key-from-settings",
 		"sid":        "abcd",
 		"spx":        "/spider",
+		"pqv":        "post-quantum-verify",
 	} {
 		if got := query.Get(key); got != expected {
 			t.Fatalf("expected query %s=%q, got %q link=%s", key, expected, got, links.Links[0])
@@ -488,11 +490,12 @@ func TestBuildConfigLinksKeepsRealityMetadataForTCPAndJSON(t *testing.T) {
 	}
 	reality := stream["realitySettings"].(map[string]any)
 	for key, expected := range map[string]string{
-		"serverName":  "origin.example.com",
-		"fingerprint": "firefox",
-		"publicKey":   "public-key-from-settings",
-		"shortId":     "abcd",
-		"spiderX":     "/spider",
+		"serverName":    "origin.example.com",
+		"fingerprint":   "firefox",
+		"publicKey":     "public-key-from-settings",
+		"shortId":       "abcd",
+		"spiderX":       "/spider",
+		"mldsa65Verify": "post-quantum-verify",
 	} {
 		if got := stringValue(reality[key]); got != expected {
 			t.Fatalf("expected realitySettings %s=%q, got %q settings=%#v", key, expected, got, reality)
@@ -519,6 +522,7 @@ func TestMergeResolvedInboundMetadataFillsDuplicateRealityTag(t *testing.T) {
 		"sids":     []string{"abcd"},
 		"sid":      "abcd",
 		"fp":       "chrome",
+		"pqv":      "post-quantum-verify",
 	}
 	mergeResolvedInboundMetadata(target, source)
 	if got := stringValue(target["pbk"]); got != "public-key-from-node-custom" {
@@ -529,6 +533,9 @@ func TestMergeResolvedInboundMetadataFillsDuplicateRealityTag(t *testing.T) {
 	}
 	if got := firstStringList(target["sni"]); got != "origin.example.com" {
 		t.Fatalf("expected merged sni, got %#v", target)
+	}
+	if got := stringValue(target["pqv"]); got != "post-quantum-verify" {
+		t.Fatalf("expected merged pqv, got %#v", target)
 	}
 }
 

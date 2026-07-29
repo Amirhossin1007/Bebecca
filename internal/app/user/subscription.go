@@ -1561,6 +1561,7 @@ func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
 	query.Set("pbk", stringValue(payload["pbk"]))
 	query.Set("sid", stringValue(payload["sid"]))
 	query.Set("spx", stringValue(payload["spx"]))
+	query.Set("pqv", stringValue(payload["pqv"]))
 	query.Set("mode", stringValue(payload["mode"]))
 	query.Set("fragment", stringValue(payload["fragment"]))
 	query.Set("noise", stringValue(payload["noise"]))
@@ -1734,6 +1735,9 @@ func v2rayRealitySettings(query url.Values) map[string]any {
 	}
 	if spx := query.Get("spx"); spx != "" {
 		settings["spiderX"] = spx
+	}
+	if pqv := query.Get("pqv"); pqv != "" {
+		settings["mldsa65Verify"] = pqv
 	}
 	return settings
 }

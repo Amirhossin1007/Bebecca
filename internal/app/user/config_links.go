@@ -413,7 +413,7 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 	for _, key := range []string{
 		"tls", "sni", "host", "path", "header_type", "fp", "alpn", "ais", "allowinsecure",
 		"ech", "echConfigList", "vcn", "verifyPeerCertByName", "pinSHA256", "pinnedPeerCertSha256",
-		"pbk", "publicKey", "public_key", "sids", "sid", "shortIds", "shortId", "spx",
+		"pbk", "publicKey", "public_key", "sids", "sid", "shortIds", "shortId", "spx", "pqv",
 		"fragment_setting", "noise_setting",
 		"scMaxBufferedPosts", "scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
 		"scStreamUpServerSecs", "xPaddingBytes", "noSSEHeader", "noGRPCHeader", "keepAlivePeriod", "xmux", "mode",
@@ -959,6 +959,9 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 		if spx := stringValue(inbound["spx"]); spx != "" {
 			payload["spx"] = spx
 		}
+		if pqv := stringValue(inbound["pqv"]); pqv != "" {
+			payload["pqv"] = pqv
+		}
 	}
 
 	netValue := stringValue(inbound["network"])
@@ -1216,6 +1219,9 @@ func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) [
 		if spx := stringValue(inbound["spx"]); spx != "" {
 			params = append(params, queryParam{"spx", spx})
 		}
+		if pqv := stringValue(inbound["pqv"]); pqv != "" {
+			params = append(params, queryParam{"pqv", pqv})
+		}
 	}
 	return params
 }
@@ -1334,6 +1340,7 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 			resolved["sid"] = sids[0]
 		}
 		resolved["spx"] = firstNonEmptyString(realityMeta["spiderX"], realitySettings["SpiderX"], realitySettings["spiderX"])
+		resolved["pqv"] = firstNonEmptyString(realityMeta["mldsa65Verify"], realitySettings["mldsa65Verify"])
 	}
 
 	network := stringValue(resolved["network"])
