@@ -450,7 +450,8 @@ WHERE COALESCE(h.is_disabled, 0) = 0`)
 }
 
 func (r Repository) SetConnecting(ctx context.Context, nodeID int64) error {
-	return r.updateStatus(ctx, nodeID, "connecting", "", "")
+	_, err := r.updateStatus(ctx, nodeID, "connecting", "", "")
+	return err
 }
 
 func (r Repository) SetConnected(ctx context.Context, nodeID int64, version string, message string) error {
@@ -459,10 +460,11 @@ func (r Repository) SetConnected(ctx context.Context, nodeID int64, version stri
 	}
 	previousStatus := ""
 	_ = r.db.QueryRowContext(ctx, `SELECT LOWER(COALESCE(status, '')) FROM nodes WHERE id = ? LIMIT 1`, nodeID).Scan(&previousStatus)
-	if err := r.updateStatus(ctx, nodeID, "connected", message, version); err != nil {
+	updated, err := r.updateStatus(ctx, nodeID, "connected", message, version)
+	if err != nil {
 		return err
 	}
-	if previousStatus != "" && previousStatus != "connected" {
+	if updated && previousStatus != "" && previousStatus != "connected" {
 		payload := map[string]any{
 			"source":         "node_reconnected",
 			"reason":         "node_reconnected",
@@ -480,8 +482,12 @@ func (r Repository) SetError(ctx context.Context, nodeID int64, message string) 
 	if len(message) > 1024 {
 		message = message[:1024]
 	}
-	if err := r.updateStatus(ctx, nodeID, "error", message, ""); err != nil {
+	updated, err := r.updateStatus(ctx, nodeID, "error", message, "")
+	if err != nil {
 		return err
+	}
+	if !updated {
+		return nil
 	}
 	if _, err := r.DeferRuntimeUserOperationsForNode(ctx, nodeID); err != nil && !isMissingTableError(err) {
 		return err
@@ -1322,8 +1328,8 @@ func isNodeOperationUniqueConstraint(err error) bool {
 		strings.Contains(message, "constraint failed")
 }
 
-func (r Repository) updateStatus(ctx context.Context, nodeID int64, status string, message string, version string) error {
-	_, err := r.db.ExecContext(
+func (r Repository) updateStatus(ctx context.Context, nodeID int64, status string, message string, version string) (bool, error) {
+	result, err := r.db.ExecContext(
 		ctx,
 		`UPDATE nodes
 SET last_status_change = CASE WHEN COALESCE(status, '') <> ? THEN ? ELSE last_status_change END,
@@ -1331,6 +1337,7 @@ SET last_status_change = CASE WHEN COALESCE(status, '') <> ? THEN ? ELSE last_st
     message = ?,
     xray_version = COALESCE(NULLIF(?, ''), xray_version)
 WHERE id = ?
+  AND LOWER(COALESCE(status, '')) NOT IN ('disabled', 'limited')
   AND (
     COALESCE(status, '') <> ?
     OR COALESCE(message, '') <> ?
@@ -1347,7 +1354,11 @@ WHERE id = ?
 		version,
 		version,
 	)
-	return err
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	return affected > 0, err
 }
 
 func (r Repository) timeArg(value time.Time) any {

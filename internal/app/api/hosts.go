@@ -471,21 +471,22 @@ func (s *Server) manageableInboundTags(r *http.Request) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(tags) > 0 {
-		return tags, nil
-	}
 	inbounds, err := s.configRepo.FullInbounds(r.Context())
 	if err != nil {
 		return nil, err
 	}
-	tags = make([]string, 0, len(inbounds))
+	tagSet := make(map[string]bool, len(tags)+len(inbounds))
+	for _, tag := range tags {
+		tagSet[tag] = true
+	}
 	for _, inbound := range inbounds {
-		if tag, ok := inbound["tag"].(string); ok && tag != "" {
-			tags = append(tags, tag)
+		if tag, ok := inbound["tag"].(string); ok {
+			if tag = strings.TrimSpace(tag); tag != "" {
+				tagSet[tag] = true
+			}
 		}
 	}
-	sort.Strings(tags)
-	return tags, nil
+	return sortedMapKeys(tagSet), nil
 }
 
 func queryRegisteredInboundTags(ctx context.Context, db queryer) ([]string, error) {

@@ -68,6 +68,46 @@ func TestHostsCRUDOnMigratedSQLite(t *testing.T) {
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 2)
 }
 
+func TestHostsMoveUsesConfigInboundMissingFromRegistry(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "hosts-move.sqlite3")
+	server, err := New(Config{
+		Database:                    "sqlite:///" + filepath.ToSlash(dbPath),
+		JWTAccessTokenExpireMinutes: 1440,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = server.db.Close() })
+	hash, err := adminapp.HashPassword("pass123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.db.Exec(`INSERT INTO admins (username, hashed_password, role, permissions, status) VALUES (?, ?, ?, ?, ?)`, "root", hash, "full_access", "{}", "active"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.db.Exec(`INSERT INTO xray_config (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
+		`{"inbounds":[
+			{"tag":"old-in","protocol":"vless","port":443,"settings":{"clients":[],"decryption":"none"}},
+			{"tag":"fresh-in","protocol":"vless","port":8443,"settings":{"clients":[],"decryption":"none"}}
+		],"outbounds":[{"tag":"DIRECT","protocol":"freedom"}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.db.Exec(`INSERT INTO inbounds (tag) VALUES ('old-in')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.db.Exec(`INSERT INTO hosts (id, inbound_tag, remark, address) VALUES (100, 'old-in', 'edge', 'edge.example.com')`); err != nil {
+		t.Fatal(err)
+	}
+
+	token := sqliteAdminToken(t, server)
+	rec := sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token,
+		`{"old-in":[],"fresh-in":[{"id":100,"remark":"edge","address":"edge.example.com","security":"inbound_default","is_disabled":false}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("move host status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM hosts WHERE id = 100 AND inbound_tag = 'fresh-in'`, 1)
+}
+
 func sqliteAdminToken(t *testing.T, server *Server) string {
 	t.Helper()
 	rec := sqliteJSONRequest(server, http.MethodPost, "/api/admin/token", "", `{"username":"root","password":"pass123"}`)

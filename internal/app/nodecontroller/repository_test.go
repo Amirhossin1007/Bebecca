@@ -1101,6 +1101,57 @@ VALUES (1, 'connected', 'ok', '1.0.0', '2026-06-26 00:00:00');
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1`, 1)
 }
 
+func TestRepositoryStatusUpdatesDoNotReenableDisabledNode(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "disabled-node-status.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	status TEXT,
+	message TEXT,
+	xray_version TEXT,
+	last_status_change DATETIME
+);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO nodes (id, status, message, xray_version, last_status_change)
+VALUES (1, 'disabled', NULL, '1.0.0', '2026-06-26 00:00:00');
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository(db, "sqlite")
+	if err := repo.SetConnecting(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SetConnected(ctx, 1, "1.0.1", "ok"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SetError(ctx, 1, "dial failed"); err != nil {
+		t.Fatal(err)
+	}
+
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "disabled")
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
+}
+
 func TestRepositoryQueueSyncConfigCoalescesPendingFullSyncs(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "sync-config-coalesce.db")+"?_pragma=busy_timeout(30000)")
