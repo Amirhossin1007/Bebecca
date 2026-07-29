@@ -264,20 +264,6 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 	if err := c.repo.RecoverStaleOperations(ctx, 2*time.Minute); err != nil {
 		return ProcessOperationsResult{}, err
 	}
-	deferredInactive, err := c.repo.DeferRuntimeUserOperationsForInactiveNodes(ctx, req.NodeID)
-	if err != nil {
-		return ProcessOperationsResult{}, err
-	}
-	if deferredInactive > 0 {
-		logging.Infof(logging.ComponentNode, "operation queue deferred user deltas for inactive nodes count=%d", deferredInactive)
-	}
-	compacted, err := c.repo.CompactRuntimeUserOperationBacklog(ctx, 0)
-	if err != nil {
-		return ProcessOperationsResult{}, err
-	}
-	if compacted > 0 {
-		logging.Debugf(logging.ComponentNode, "operation queue compacted stale user deltas count=%d", compacted)
-	}
 	operations, err := c.repo.PendingOperations(ctx, req.NodeID, req.Limit)
 	if err != nil {
 		return ProcessOperationsResult{}, err
@@ -455,19 +441,6 @@ func (c Controller) processSingleOperation(ctx context.Context, operation Operat
 			result.Failed++
 			return nil
 		}
-		if operation.NodeID.Valid && isRuntimeUserOperation(operation.OperationType) {
-			if isNodeUnavailableOperationError(err) && operation.Attempts < 2 {
-				_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
-				result.Retrying++
-				blockedNodes[operation.NodeID.Int64] = true
-				return nil
-			}
-			if deferErr := c.deferRuntimeUserOperationAfterFailure(ctx, operation, err); deferErr != nil {
-				return deferErr
-			}
-			result.Done++
-			return nil
-		}
 		_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
 		result.Retrying++
 		if operation.NodeID.Valid {
@@ -522,21 +495,6 @@ func (c Controller) processCoalescedOperations(ctx context.Context, operations [
 				_ = c.repo.MarkOperationFailed(ctx, operation.ID, err.Error())
 			}
 			result.Failed += len(claimed)
-			return nil
-		}
-		if representative.NodeID.Valid && isRuntimeUserOperation(representative.OperationType) {
-			if isNodeUnavailableOperationError(err) && representative.Attempts < 2 {
-				for _, operation := range claimed {
-					_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
-				}
-				result.Retrying += len(claimed)
-				blockedNodes[representative.NodeID.Int64] = true
-				return nil
-			}
-			if deferErr := c.deferRuntimeUserOperationAfterFailure(ctx, representative, err); deferErr != nil {
-				return deferErr
-			}
-			result.Done += len(claimed)
 			return nil
 		}
 		for _, operation := range claimed {
@@ -602,65 +560,6 @@ func operationCoalesceKey(operation OperationRow) string {
 		return fmt.Sprintf("node:%d", operation.NodeID.Int64)
 	}
 	return "all"
-}
-
-func (c Controller) deferRuntimeUserOperationAfterFailure(ctx context.Context, operation OperationRow, applyErr error) error {
-	if !operation.NodeID.Valid {
-		return nil
-	}
-	nodeID := operation.NodeID.Int64
-	reason := applyErr.Error()
-	payload := map[string]any{
-		"source":    "runtime_hot_apply_failed",
-		"reason":    truncateOperationReason(reason, 512),
-		"queued_at": time.Now().UTC().Format(time.RFC3339Nano),
-	}
-	if err := c.repo.QueueSyncConfig(ctx, &nodeID, payload); err != nil {
-		return err
-	}
-	deferred, err := c.repo.DeferRuntimeUserOperationsForNode(ctx, nodeID)
-	if err != nil {
-		return err
-	}
-	logging.Warnf(logging.ComponentNode, "user delta failed for node=%d; queued full sync and deferred user deltas count=%d: %v", nodeID, deferred, applyErr)
-	return nil
-}
-
-func isNodeUnavailableOperationError(err error) bool {
-	if err == nil {
-		return false
-	}
-	message := strings.ToLower(err.Error())
-	for _, marker := range []string{
-		"context deadline exceeded",
-		"connection refused",
-		"connection reset",
-		"connect: connection",
-		"connectex:",
-		"deadline exceeded",
-		"decode server certificate",
-		"eof",
-		"failedprecondition",
-		"i/o timeout",
-		"no route to host",
-		"node grpc dial failed",
-		"transport:",
-		"unavailable",
-		"xray is not started",
-	} {
-		if strings.Contains(message, marker) {
-			return true
-		}
-	}
-	return false
-}
-
-func truncateOperationReason(value string, limit int) string {
-	value = strings.TrimSpace(value)
-	if limit <= 0 || len(value) <= limit {
-		return value
-	}
-	return value[:limit]
 }
 
 func (c Controller) applyOperation(ctx context.Context, operation OperationRow) error {

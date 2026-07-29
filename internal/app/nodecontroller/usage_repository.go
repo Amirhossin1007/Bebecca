@@ -1220,22 +1220,6 @@ func (r Repository) enqueueUsageOperations(ctx context.Context, tx *sql.Tx, oper
 	if len(nodeIDs) == 0 {
 		return nil
 	}
-	if len(operations) >= runtimeBacklogSyncThreshold {
-		payload := map[string]any{
-			"source":          "usage_lifecycle_batch",
-			"operation_count": len(operations),
-			"queued_at":       now.Format(time.RFC3339Nano),
-		}
-		for _, nodeID := range nodeIDs {
-			if err := r.deferRuntimeUserOperationsForNodeTx(ctx, tx, nodeID, now); err != nil {
-				return err
-			}
-			if err := r.queueSyncConfigTx(ctx, tx, nodeID, payload, now); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	payload, err := json.Marshal(map[string]string{"queued_at": now.Format(time.RFC3339Nano)})
 	if err != nil {
 		return err
@@ -1274,19 +1258,6 @@ VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?)`,
 		}
 	}
 	return nil
-}
-
-func (r Repository) deferRuntimeUserOperationsForNodeTx(ctx context.Context, tx *sql.Tx, nodeID int64, now time.Time) error {
-	_, err := tx.ExecContext(ctx, `
-UPDATE node_operations
-SET status = 'done', last_error = NULL, updated_at = ?
-WHERE node_id = ?
-  AND status IN ('pending', 'retrying', 'running')
-  AND operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')`,
-		r.timeArg(now),
-		nodeID,
-	)
-	return err
 }
 
 func (r Repository) queueSyncConfigTx(ctx context.Context, tx *sql.Tx, nodeID int64, payload any, now time.Time) error {
