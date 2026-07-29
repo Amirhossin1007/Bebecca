@@ -3,6 +3,7 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -463,7 +464,7 @@ VALUES
 	}
 }
 
-func TestControllerProcessQueueDoesNotStarveConnectedNodeBehindBrokenNodes(t *testing.T) {
+func TestControllerProcessQueueRetriesUnavailableUserDeltaWithoutFullSync(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue-starvation.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -519,20 +520,28 @@ VALUES
 	if err != nil {
 		t.Fatal(err)
 	}
+	for userID := 201; userID <= 225; userID++ {
+		if _, err := db.ExecContext(ctx, `
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('add_user', 50, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, userID, fmt.Sprintf("good-node-op-%d", userID)); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	controller := NewController(NewRepository(db, "sqlite"))
 	result, err := controller.ProcessQueue(ctx, ProcessOperationsRequest{Limit: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Processed != 1 || result.Done != 1 || result.Retrying != 0 {
-		t.Fatalf("expected connected operation to be deferred to full-sync recovery, got %#v", result)
+	if result.Processed != 1 || result.Done != 0 || result.Retrying != 1 {
+		t.Fatalf("expected unavailable user delta to be retried, got %#v", result)
 	}
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE node_id = 24`, "done")
-	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE node_id = 50`, "done")
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND status = 'retrying'`, 1)
 	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE node_id = 24`, 0)
-	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE node_id = 50`, 0)
-	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 50`, "error")
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND attempts = 1`, 1)
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 50`, "connected")
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'sync_config'`, 0)
 }
 
 func TestControllerProcessQueueMarksDisabledNodeOperationPermanent(t *testing.T) {
