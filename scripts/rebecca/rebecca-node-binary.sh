@@ -674,12 +674,12 @@ select_node_version() {
     local install_mode="${2:-docker}"
 
     if [ -n "$requested_version" ]; then
-        echo "$requested_version"
+        SELECTED_NODE_VERSION="$requested_version"
         return
     fi
 
     if [ ! -t 0 ]; then
-        echo "latest"
+        SELECTED_NODE_VERSION="latest"
         return
     fi
 
@@ -694,10 +694,10 @@ select_node_version() {
 
     case "$node_version_answer" in
         2|dev|Dev)
-            echo "dev"
+            SELECTED_NODE_VERSION="dev"
         ;;
         ""|1|latest|Latest|stable|Stable)
-            echo "latest"
+            SELECTED_NODE_VERSION="latest"
         ;;
         *)
             colorized_echo red "Invalid release channel selection."
@@ -1124,11 +1124,13 @@ read_node_certificate_bundle() {
     local bundle_file
     local bundle_started=0
     local bundle_completed=0
+    local line=""
     bundle_file=$(mktemp)
     : > "$bundle_file"
 
     echo -e "Paste the Node install bundle from the panel, press ENTER on a new line when finished: "
-    while IFS= read -r line; do
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
         if [[ -z $line ]]; then
             if [ "$bundle_started" -eq 0 ]; then
                 break
@@ -1381,27 +1383,8 @@ install_rebecca_node() {
     mkdir -p "$DATA_MAIN_DIR"
     echo "$BRANCH" > "$BRANCH_FILE"
     
-    # Проверка на существование файла перед его очисткой
-    if [ -f "$CERT_FILE" ]; then
-        >"$CERT_FILE"
-    fi
-    
-    # Function to print information to the user
-    print_info() {
-        echo -e "\033[1;34m$1\033[0m"
-    }
-    
-    # Prompt the user to input the certificate
-    echo -e "Please paste the content of the Client Certificate, press ENTER on a new line when finished: "
-    
-    while IFS= read -r line; do
-        if [[ -z $line ]]; then
-            break
-        fi
-        echo "$line" >>"$CERT_FILE"
-    done
-
-    print_info "Certificate saved to $CERT_FILE"
+    rm -f "$CERT_FILE" "$CERT_KEY_FILE"
+    read_node_certificate_bundle
 
     SERVICE_PROTOCOL_VALUE="rest"
     echo
@@ -1647,7 +1630,8 @@ install_command() {
     if [ "$NODE_VERSION_SET" -eq 1 ]; then
         node_version="$NODE_VERSION_REQUESTED"
     else
-        node_version=$(select_node_version "" "$install_mode")
+        select_node_version "" "$install_mode"
+        node_version="$SELECTED_NODE_VERSION"
     fi
     case "$node_version" in
         dev)
