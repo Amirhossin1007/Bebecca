@@ -59,7 +59,7 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'disable_user' AND user_id = 10`, 1)
 }
 
-func TestRepositoryUsageLifecycleBatchQueuesFullSyncInsteadOfUserDeltas(t *testing.T) {
+func TestRepositoryUsageLifecycleBatchQueuesUserDeltas(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-batch-sync.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -76,14 +76,15 @@ INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) 
 INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`); err != nil {
 		t.Fatal(err)
 	}
-	for i := int64(1); i <= runtimeBacklogSyncThreshold; i++ {
+	const users = 25
+	for i := int64(1); i <= users; i++ {
 		if _, err := db.ExecContext(ctx, `INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (?, 'active', 0, 1, 1, 2)`, i); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	deltas := make([]UserUsageDelta, 0, runtimeBacklogSyncThreshold)
-	for i := int64(1); i <= runtimeBacklogSyncThreshold; i++ {
+	deltas := make([]UserUsageDelta, 0, users)
+	for i := int64(1); i <= users; i++ {
 		deltas = append(deltas, UserUsageDelta{UserID: i, Value: 1})
 	}
 	repo := NewRepository(db, "sqlite")
@@ -91,9 +92,8 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`); err != nil {
 		t.Fatal(err)
 	}
 
-	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'disable_user'`, 0)
-	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 7 AND status = 'pending'`, 1)
-	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND payload LIKE '%usage_lifecycle_batch%'`, 1)
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'disable_user' AND node_id = 7 AND status = 'pending'`, users)
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 7`, 0)
 }
 
 func TestRepositoryUsageNodesOnlyReturnsConnectedNodes(t *testing.T) {
