@@ -53,7 +53,7 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 			bg="panel.surface"
 			p={{ base: 4, md: 5 }}
 			transition="all 0.25s ease"
-			_hover={{ boxShadow: "sm" }}
+			_hover={{ "@media (min-width: 768px)": { boxShadow: "sm" } }}
 			{...props}
 		>
 			<Stack
