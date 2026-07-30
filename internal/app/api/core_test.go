@@ -113,12 +113,11 @@ func TestRouteTestRejectsMasterTarget(t *testing.T) {
 	}
 }
 
-func TestRouteTestRejectsMissingDestination(t *testing.T) {
+func TestRouteTestRejectsMissingURL(t *testing.T) {
 	server := &Server{}
 	payload := []byte(`{
 		"target_id": "node:7",
-		"port": 443,
-		"network": "tcp"
+		"config": "{}"
 	}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/panel/xray/routeTest", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
@@ -129,8 +128,18 @@ func TestRouteTestRejectsMissingDestination(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "domain or ip is required") {
+	if !strings.Contains(rec.Body.String(), "test URL") {
 		t.Fatalf("unexpected body=%s", rec.Body.String())
+	}
+}
+
+func TestRouteTestTargetUsesURLDestination(t *testing.T) {
+	domain, ip, port, protocol, err := routeTestTarget("HTTPS://example.com:8443/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if domain != "example.com" || ip != "" || port != 8443 || protocol != "tls" {
+		t.Fatalf("unexpected parsed target: domain=%q ip=%q port=%d protocol=%q", domain, ip, port, protocol)
 	}
 }
 

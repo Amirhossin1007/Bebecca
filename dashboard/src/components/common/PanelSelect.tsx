@@ -1,5 +1,6 @@
 import {
 	Box,
+	type BoxProps,
 	Button,
 	chakra,
 	HStack,
@@ -16,7 +17,6 @@ import {
 	useColorModeValue,
 	Wrap,
 	WrapItem,
-	type BoxProps,
 } from "@chakra-ui/react";
 import {
 	CheckIcon,
@@ -24,10 +24,10 @@ import {
 	XMarkIcon,
 } from "@heroicons/react/24/outline";
 import {
-	forwardRef,
-	Fragment,
-	isValidElement,
 	type ChangeEvent,
+	Fragment,
+	forwardRef,
+	isValidElement,
 	type KeyboardEvent,
 	type MouseEvent,
 	type ReactNode,
@@ -77,7 +77,10 @@ export type PanelSelectProps = Omit<
 	isInvalid?: boolean;
 	mode?: "single" | "multiple";
 	name?: string;
-	onBlur?: (event: { target: { name?: string; value?: string }; type?: string }) => void;
+	onBlur?: (event: {
+		target: { name?: string; value?: string };
+		type?: string;
+	}) => void;
 	onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
 	onValueChange?: (value: string | string[]) => void;
 	options?: PanelSelectOption[];
@@ -123,7 +126,8 @@ const normalizeOption = (option: PanelSelectOption): NormalizedOption => {
 };
 
 const optionText = (node: ReactNode): string => {
-	if (node === null || node === undefined || typeof node === "boolean") return "";
+	if (node === null || node === undefined || typeof node === "boolean")
+		return "";
 	if (typeof node === "string" || typeof node === "number") return String(node);
 	if (Array.isArray(node)) return node.map(optionText).join("");
 	if (isValidElement<{ children?: ReactNode }>(node)) {
@@ -298,8 +302,9 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			() =>
 				dedupeOptions([
 					...normalizedOptions,
-					...selectedValues.map((item) =>
-						optionByValue.get(item.toLowerCase()) ?? normalizeOption(item),
+					...selectedValues.map(
+						(item) =>
+							optionByValue.get(item.toLowerCase()) ?? normalizeOption(item),
 					),
 				]),
 			[normalizedOptions, optionByValue, selectedValues],
@@ -368,7 +373,9 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			emitSelectChange(
 				onChange,
 				name,
-				Array.isArray(nextValue) ? dedupeValues(nextValue).join(", ") : nextValue,
+				Array.isArray(nextValue)
+					? dedupeValues(nextValue).join(", ")
+					: nextValue,
 			);
 		};
 		const emitBlur = () => {
@@ -511,9 +518,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					renderOptionRow(
 						`custom-${customTerm}`,
 						<Text as="span" noOfLines={1}>
-							<AppleEmojiText>
-								{`${t("add")} "${customTerm}"`}
-							</AppleEmojiText>
+							<AppleEmojiText>{`${t("add")} "${customTerm}"`}</AppleEmojiText>
 						</Text>,
 						() => commitCustomInput(customTerm),
 					)}
@@ -676,7 +681,9 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 									data-1p-ignore="true"
 									data-form-type="other"
 									onFocus={() => setMultiOpen(true)}
-									onChange={(event) => handleCustomInputChange(event.target.value)}
+									onChange={(event) =>
+										handleCustomInputChange(event.target.value)
+									}
 									onKeyDown={handleCustomKeyDown}
 									isDisabled={disabledState}
 								/>
@@ -736,7 +743,13 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		}
 
 		return (
-			<Box w={w ?? width} maxW={maxW} minW={minW} {...boxProps}>
+			<Box
+				position="relative"
+				w={w ?? width}
+				maxW={maxW}
+				minW={minW}
+				{...boxProps}
+			>
 				<input
 					ref={ref}
 					type="hidden"
@@ -765,6 +778,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 						isDisabled={disabledState}
 						variant="outline"
 						w="full"
+						pr={rightElement ? 16 : undefined}
 						minH={controlHeight}
 						bg={controlBg}
 						borderColor={resolvedBorderColor}
@@ -837,6 +851,18 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 						</MenuList>
 					</Portal>
 				</Menu>
+				{rightElement && (
+					<Box
+						position="absolute"
+						top="50%"
+						transform="translateY(-50%)"
+						left={isRTL ? "8px" : undefined}
+						right={isRTL ? undefined : "36px"}
+						zIndex={1}
+					>
+						{rightElement}
+					</Box>
+				)}
 			</Box>
 		);
 	},

@@ -97,6 +97,8 @@ export type DataTableProps<TData> = {
 	renderBulkActions?: (selectedRows: TData[], rowIds: string[]) => ReactNode;
 	selectedLabel?: ReactNode | ((count: number) => ReactNode);
 	onRowClick?: (row: TData) => void;
+	isRowExpanded?: (row: TData) => boolean;
+	renderExpandedRow?: (row: TData) => ReactNode;
 	sorting?: SortingState;
 	onSortingChange?: (sorting: SortingState) => void;
 	manualSorting?: boolean;

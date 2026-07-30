@@ -100,6 +100,49 @@ func TestRecordRecentActionEventStoresHistoryOnly(t *testing.T) {
 	}
 }
 
+func TestRecordRecentActionEventDetailsStoresPreviewAndResources(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createRecentActionsTable(t, db)
+	server := &Server{db: db}
+	ctx := context.WithValue(context.Background(), adminContextKey, adminPrincipal{ID: 9, Username: "operator"})
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = server.recordRecentActionEventDetailsTx(ctx, tx, "admin.update", "admin", "seller", "Updated admin", []recentActionValueChange{{
+		Field: "data_limit", Before: "100 GB", After: "200 GB", Delta: "+100 GB",
+	}}, []string{"de-2", "de-1", "de-2"})
+	if err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	items, err := server.listRecentActions(ctx, 0, 10, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Preview == nil || items[0].Preview.Delta != "+100 GB" {
+		t.Fatalf("unexpected preview: %#v", items)
+	}
+	action, err := server.loadRecentAction(ctx, items[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := decodeRecentActionSnapshot(action.Snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Changes) != 1 || len(snapshot.AffectedResources) != 2 || snapshot.AffectedResources[0] != "de-1" {
+		t.Fatalf("unexpected snapshot: %#v", snapshot)
+	}
+}
+
 func TestRecentActionSnapshotPreviewShowsHostRename(t *testing.T) {
 	preview := recentActionSnapshotPreview(recentActionSnapshot{
 		Before: xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "name"}}},

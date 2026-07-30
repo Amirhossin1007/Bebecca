@@ -17,7 +17,9 @@ import {
 	MultiValueAutocomplete,
 	splitMultiValueText,
 } from "./common/MultiValueAutocomplete";
+import type { SearchableTagSelectOption } from "./common/SearchableTagSelect";
 import { SearchableTagSelect } from "./common/SearchableTagSelect";
+import { OutboundTestButton } from "./xray/OutboundTestButton";
 import {
 	XrayDialogSection,
 	XrayModalBody,
@@ -39,8 +41,11 @@ interface BalancerModalProps {
 	mode: "create" | "edit";
 	initialBalancer?: BalancerFormValues | null;
 	outboundTags: string[];
+	outboundOptions?: SearchableTagSelectOption[];
 	excludedOutboundTags?: string[];
 	existingTags: string[];
+	onTestOutbound?: (tag: string) => void;
+	outboundTestingByTag?: Record<string, boolean>;
 	onSubmit: (values: BalancerFormValues) => void;
 }
 
@@ -60,8 +65,11 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 	mode,
 	initialBalancer,
 	outboundTags,
+	outboundOptions,
 	excludedOutboundTags = [],
 	existingTags,
+	onTestOutbound,
+	outboundTestingByTag = {},
 	onSubmit,
 }) => {
 	const { t } = useTranslation();
@@ -87,13 +95,25 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 	const isExcludedBalancerOutbound = useCallback(
 		(tag: string) => {
 			const normalized = normalizeBalancerOutboundTag(tag);
-			return normalized === "blocked" || excludedOutboundTagKeys.has(normalized);
+			return (
+				normalized === "blocked" || excludedOutboundTagKeys.has(normalized)
+			);
 		},
 		[excludedOutboundTagKeys],
 	);
 	const selectableOutboundTags = useMemo(
 		() => outboundTags.filter((tag) => !isExcludedBalancerOutbound(tag)),
 		[outboundTags, isExcludedBalancerOutbound],
+	);
+	const selectableOutboundOptions = useMemo(
+		() =>
+			(outboundOptions ?? selectableOutboundTags).filter(
+				(option) =>
+					!isExcludedBalancerOutbound(
+						typeof option === "string" ? option : option.value,
+					),
+			),
+		[outboundOptions, selectableOutboundTags, isExcludedBalancerOutbound],
 	);
 	const selectorValue = rawSelectorValue.filter(
 		(tag) => !isExcludedBalancerOutbound(tag),
@@ -120,7 +140,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 							initialBalancer.fallbackTag ?? "",
 						)
 							? ""
-							: initialBalancer.fallbackTag ?? "",
+							: (initialBalancer.fallbackTag ?? ""),
 					}
 				: DEFAULT_BALANCER,
 		);
@@ -138,7 +158,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 			),
 			fallbackTag: isExcludedBalancerOutbound(data.fallbackTag ?? "")
 				? ""
-				: data.fallbackTag ?? "",
+				: (data.fallbackTag ?? ""),
 		};
 		onSubmit(payload);
 	});
@@ -186,7 +206,12 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 										</FormLabel>
 										<SearchableTagSelect
 											mode="single"
-											options={["random", "roundRobin", "leastLoad", "leastPing"]}
+											options={[
+												"random",
+												"roundRobin",
+												"leastLoad",
+												"leastPing",
+											]}
 											value={modalForm.watch("strategy") ?? ""}
 											onChange={(value) =>
 												modalForm.setValue("strategy", value as string, {
@@ -202,7 +227,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 											{t("pages.xray.balancer.balancerSelectors")}
 										</FormLabel>
 										<MultiValueAutocomplete
-											options={selectableOutboundTags}
+											options={selectableOutboundOptions}
 											value={selectorValue.join(", ")}
 											onChange={(value) =>
 												modalForm.setValue(
@@ -217,6 +242,22 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 											}
 											placeholder={t("pages.xray.balancer.selectorPlaceholder")}
 											emptyText={t("pages.xray.outbound.empty")}
+											rightElement={
+												selectorValue.length > 0 ? (
+													<OutboundTestButton
+														label={t("pages.xray.routeTester.test")}
+														tag={selectorValue[0]}
+														isTesting={selectorValue.some(
+															(tag) => outboundTestingByTag[tag],
+														)}
+														onTest={() => {
+															selectorValue.forEach((tag) => {
+																onTestOutbound?.(tag);
+															});
+														}}
+													/>
+												) : undefined
+											}
 										/>
 										{emptySelector && (
 											<FormErrorMessage>
@@ -230,7 +271,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 										</FormLabel>
 										<SearchableTagSelect
 											mode="single"
-											options={selectableOutboundTags}
+											options={selectableOutboundOptions}
 											value={fallbackTagValue}
 											onChange={(value) =>
 												modalForm.setValue("fallbackTag", value as string, {
@@ -240,6 +281,14 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 											placeholder={t("userDialog.flow.none")}
 											searchPlaceholder={t("search")}
 											emptyText={t("pages.xray.outbound.empty")}
+											rightElement={
+												<OutboundTestButton
+													label={t("pages.xray.routeTester.test")}
+													tag={fallbackTagValue}
+													isTesting={outboundTestingByTag[fallbackTagValue]}
+													onTest={onTestOutbound}
+												/>
+											}
 										/>
 									</FormControl>
 								</VStack>

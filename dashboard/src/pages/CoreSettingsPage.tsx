@@ -35,7 +35,6 @@ import {
 	Wrap,
 	WrapItem,
 } from "@chakra-ui/react";
-import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	PlusIcon as AddIcon,
 	AdjustmentsHorizontalIcon,
@@ -51,22 +50,23 @@ import {
 	TrashIcon as DeleteIcon,
 	DocumentTextIcon,
 	PencilIcon as EditIcon,
-	GlobeAltIcon,
 	EllipsisHorizontalIcon,
+	GlobeAltIcon,
 	ArrowPathIcon as ReloadIcon,
 	ScaleIcon,
 	WrenchScrewdriverIcon,
 	XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { CompactChips, CompactTextWithCopy } from "components/CompactPopover";
+import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
-	ResourceListCard,
-	TabSystem,
 	type DataTableBulkAction,
 	type DataTableColumn,
 	type DataTableRowAction,
+	ResourceListCard,
+	TabSystem,
 } from "components/ui";
 import { useCoreSettings } from "contexts/CoreSettingsContext";
 import { useDashboard } from "contexts/DashboardContext";
@@ -82,14 +82,15 @@ import {
 } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "react-query";
 import { SiNordvpn, SiTorproject } from "react-icons/si";
+import { useMutation, useQuery } from "react-query";
 import { fetch as apiFetch } from "service/http";
 import windscribeIconUrl from "../assets/brands/windscribe.png";
 import {
 	type BalancerFormValues,
 	BalancerModal,
 } from "../components/BalancerModal";
+import { splitMultiValueText } from "../components/common/MultiValueAutocomplete";
 import { DnsModal } from "../components/DnsModal";
 import { DnsPresetsModal } from "../components/DnsPresetsModal";
 import { FakeDnsModal } from "../components/FakeDnsModal";
@@ -98,32 +99,32 @@ import { NordVPNModal } from "../components/NordVPNModal";
 import { OutboundModal } from "../components/OutboundModal";
 import { OutboundSubscriptionsModal } from "../components/OutboundSubscriptionsModal";
 import {
-	type TorProxyFormValues,
-	TorProxyModal,
-} from "../components/TorProxyModal";
+	type PsiphonProxyFormValues,
+	PsiphonProxyModal,
+} from "../components/PsiphonProxyModal";
 import {
 	type ReverseFormValues,
 	ReverseModal,
 	type ReverseType,
 } from "../components/ReverseModal";
 import { type RoutingRule, RuleModal } from "../components/RuleModal";
+import { RouteTestModal } from "../components/xray/RouteTestModal";
+import {
+	type TorProxyFormValues,
+	TorProxyModal,
+} from "../components/TorProxyModal";
 import { WarpModal } from "../components/WarpModal";
 import {
 	type WindscribeProxyFormValues,
 	WindscribeProxyModal,
 } from "../components/WindscribeProxyModal";
 import {
-	type PsiphonProxyFormValues,
-	PsiphonProxyModal,
-} from "../components/PsiphonProxyModal";
-import { splitMultiValueText } from "../components/common/MultiValueAutocomplete";
+	canonicalizeRebeccaJson,
+	type RebeccaJsonContext,
+	stringifyRebeccaJson,
+} from "../utils/jsonFormatting";
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
-import {
-	canonicalizeRebeccaJson,
-	stringifyRebeccaJson,
-	type RebeccaJsonContext,
-} from "../utils/jsonFormatting";
 import XrayLogsPage from "./XrayLogsPage";
 
 const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
@@ -302,13 +303,10 @@ type OutboundTestState = {
 	testing: boolean;
 	result: OutboundTestResult | null;
 };
-type RouteTestResult = {
-	matched: boolean;
-	outboundTag?: string;
-	outbound_tag?: string;
-	groupTags?: string[];
-	group_tags?: string[];
-	error?: string;
+
+const formatOutboundDelay = (delay?: number) => {
+	if (typeof delay !== "number" || !Number.isFinite(delay)) return null;
+	return delay >= 0 && delay < 1 ? "<1 ms" : `${delay} ms`;
 };
 type BalancerConfig = {
 	tag: string;
@@ -628,8 +626,7 @@ const SettingRow: FC<{
 };
 
 export const CoreSettingsPage: FC = () => {
-	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const { t } = useTranslation();
 	const {
 		fetchCoreSettings,
 		fetchConfigTargets,
@@ -656,6 +653,11 @@ export const CoreSettingsPage: FC = () => {
 		isOpen: isRuleOpen,
 		onOpen: onRuleOpen,
 		onClose: onRuleClose,
+	} = useDisclosure();
+	const {
+		isOpen: isRouteTestOpen,
+		onOpen: onRouteTestOpen,
+		onClose: onRouteTestClose,
 	} = useDisclosure();
 	const {
 		isOpen: isBalancerOpen,
@@ -745,15 +747,7 @@ export const CoreSettingsPage: FC = () => {
 	const [isApplyingPsiphonProxy, setIsApplyingPsiphonProxy] = useState(false);
 	const [routingRuleData, setRoutingRuleData] = useState<any[]>([]);
 	const [routingRuleSearch, setRoutingRuleSearch] = useState("");
-	const [routeTestDestination, setRouteTestDestination] = useState("");
-	const [routeTestPort, setRouteTestPort] = useState("443");
-	const [routeTestNetwork, setRouteTestNetwork] = useState("tcp");
-	const [routeTestInbound, setRouteTestInbound] = useState("");
-	const [routeTestProtocol, setRouteTestProtocol] = useState("");
-	const [routeTestEmail, setRouteTestEmail] = useState("");
-	const [routeTestResult, setRouteTestResult] =
-		useState<RouteTestResult | null>(null);
-	const [isRouteTesting, setIsRouteTesting] = useState(false);
+	const [routeTestRule, setRouteTestRule] = useState<RoutingRule | null>(null);
 	const [balancersData, setBalancersData] = useState<BalancerRow[]>([]);
 	const [dnsServers, setDnsServers] = useState<any[]>([]);
 	const [fakeDns, setFakeDns] = useState<any[]>([]);
@@ -823,21 +817,8 @@ export const CoreSettingsPage: FC = () => {
 		tcp: t("pages.xray.outbound.testTypeTcp"),
 		icmp: t("pages.xray.outbound.testTypeIcmp"),
 	};
-	const routeInboundTags = useMemo(() => {
-		const inbounds = Array.isArray(watchedConfig?.inbounds)
-			? watchedConfig.inbounds
-			: [];
-		return inbounds
-			.map((inbound: any) => String(inbound?.tag ?? "").trim())
-			.filter(Boolean);
-	}, [watchedConfig]);
 	const outboundTestResultLabel = useCallback((result: OutboundTestResult) => {
-		const delayLabel =
-			typeof result.delay === "number" && Number.isFinite(result.delay)
-				? result.delay < 1
-					? "<1 ms"
-					: `${result.delay} ms`
-				: "-";
+		const delayLabel = formatOutboundDelay(result.delay) ?? "-";
 		const targetLabel = result.address
 			? result.port
 				? `${result.address}:${result.port}`
@@ -1558,7 +1539,8 @@ export const CoreSettingsPage: FC = () => {
 			const outbounds = getOutbounds();
 			for (const outbound of generatedOutbounds) {
 				const existingIndex = outbounds.findIndex(
-					(item: any) => String(item?.tag ?? "") === String(outbound?.tag ?? ""),
+					(item: any) =>
+						String(item?.tag ?? "") === String(outbound?.tag ?? ""),
 				);
 				if (existingIndex >= 0) outbounds[existingIndex] = outbound;
 				else outbounds.push(outbound);
@@ -2684,6 +2666,73 @@ export const CoreSettingsPage: FC = () => {
 			),
 		[canonicalOutbounds],
 	);
+	const outboundTestStateByTag = useMemo(() => {
+		const next: Record<string, OutboundTestState> = {};
+		canonicalOutbounds.forEach((outbound, index) => {
+			const tag = String(outbound?.tag ?? "").trim();
+			const state = outboundTestStates[index];
+			if (tag && state) next[tag] = state;
+		});
+		subscriptionOutbounds.forEach((outbound, index) => {
+			const tag = String(outbound?.tag ?? "").trim();
+			const state =
+				subscriptionOutboundTestStates[tag || `subscription-${index}`];
+			if (tag && state) next[tag] = state;
+		});
+		return next;
+	}, [
+		canonicalOutbounds,
+		outboundTestStates,
+		subscriptionOutbounds,
+		subscriptionOutboundTestStates,
+	]);
+	const outboundTestingByTag = useMemo(
+		() =>
+			Object.fromEntries(
+				Object.entries(outboundTestStateByTag).map(([tag, state]) => [
+					tag,
+					state.testing,
+				]),
+			),
+		[outboundTestStateByTag],
+	);
+	const withCachedOutboundLatency = useCallback(
+		(tags: string[]) =>
+			tags.map((tag) => {
+				const delay = formatOutboundDelay(
+					outboundTestStateByTag[tag]?.result?.delay,
+				);
+				const label = delay ? `${tag} · ${delay}` : tag;
+				return { value: tag, label, title: label };
+			}),
+		[outboundTestStateByTag],
+	);
+	const outboundTagOptions = useMemo(
+		() => withCachedOutboundLatency(availableOutboundTags),
+		[availableOutboundTags, withCachedOutboundLatency],
+	);
+	const vlessOutboundTagOptions = useMemo(
+		() => withCachedOutboundLatency(vlessOutboundTags),
+		[vlessOutboundTags, withCachedOutboundLatency],
+	);
+	const testOutboundByTag = (tag: string) => {
+		const templateIndex = canonicalOutbounds.findIndex(
+			(outbound) => String(outbound?.tag ?? "").trim() === tag,
+		);
+		if (templateIndex >= 0) {
+			void testOutbound(templateIndex);
+			return;
+		}
+		const subscriptionIndex = subscriptionOutbounds.findIndex(
+			(outbound) => String(outbound?.tag ?? "").trim() === tag,
+		);
+		if (subscriptionIndex >= 0) {
+			void testSubscriptionOutbound(
+				subscriptionOutbounds[subscriptionIndex],
+				subscriptionIndex,
+			);
+		}
+	};
 
 	const existingReverseTags = useMemo(
 		() =>
@@ -3191,9 +3240,7 @@ export const CoreSettingsPage: FC = () => {
 				>
 					{result.success ? <CheckCircleIconStyled /> : <XCircleIconStyled />}
 					{result.success
-						? typeof result.delay === "number" && result.delay < 1
-							? "<1 ms"
-							: `${result.delay ?? "-"} ms`
+						? (formatOutboundDelay(result.delay) ?? "-")
 						: t("pages.xray.outbound.testFailedBadge")}
 				</Tag>
 			</Tooltip>
@@ -3356,6 +3403,12 @@ export const CoreSettingsPage: FC = () => {
 			label: t("edit"),
 			icon: <EditIconStyled />,
 			onClick: () => editRule(row.originalIndex),
+		},
+		{
+			id: "test",
+			label: t("pages.xray.routeTester.test"),
+			icon: <BoltIconStyled />,
+			onClick: () => openRouteTest(row.originalIndex),
 		},
 		{
 			id: "move-up",
@@ -3831,88 +3884,11 @@ export const CoreSettingsPage: FC = () => {
 		if (readHashTab() !== key) window.location.hash = key;
 	};
 
-	const runRouteTest = async () => {
-		const destination = routeTestDestination.trim();
-		if (!destination) {
-			toast({
-				title: t("pages.xray.routeTester.destRequired"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
-			return;
-		}
-		if (isMasterTarget) {
-			toast({
-				title: t("pages.xray.routeTester.nodeTargetRequired"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
-			return;
-		}
-		const port = Number.parseInt(routeTestPort || "0", 10);
-		if (!Number.isFinite(port) || port < 0 || port > 65535) {
-			toast({
-				title: t("pages.xray.routeTester.portInvalid"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
-			return;
-		}
-
-		const isIP =
-			/^(\d{1,3}\.){3}\d{1,3}$/.test(destination) || destination.includes(":");
-		setIsRouteTesting(true);
-		setRouteTestResult(null);
-		try {
-			const response = await apiFetch<{
-				success: boolean;
-				obj?: RouteTestResult;
-				msg?: string;
-			}>("/panel/xray/routeTest", {
-				method: "POST",
-				body: {
-					target_id: selectedTarget,
-					domain: isIP ? "" : destination,
-					ip: isIP ? destination : "",
-					port,
-					network: routeTestNetwork,
-					inboundTag: routeTestInbound,
-					protocol: routeTestProtocol,
-					email: routeTestEmail,
-				},
-			});
-			if (response?.success && response.obj) {
-				setRouteTestResult(response.obj);
-				return;
-			}
-			throw new Error(response?.msg || t("pages.xray.routeTester.failed"));
-		} catch (error: any) {
-			const detail =
-				error?.response?._data?.detail ??
-				error?.data?.detail ??
-				error?.message ??
-				t("pages.xray.routeTester.failed");
-			const detailText =
-				typeof detail === "string"
-					? detail
-					: JSON.stringify(detail ?? "Unknown error");
-			setRouteTestResult({ matched: false, error: detailText });
-			toast({
-				title: `${t("pages.xray.routeTester.failed")}: ${detailText}`,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
-		} finally {
-			setIsRouteTesting(false);
-		}
+	const openRouteTest = (index: number) => {
+		const rule = getRoutingRules()[index];
+		if (!rule) return;
+		setRouteTestRule(rule);
+		onRouteTestOpen();
 	};
 
 	return (
@@ -4529,176 +4505,6 @@ export const CoreSettingsPage: FC = () => {
 				{activeTab === 1 && (
 					<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
-							<ResourceListCard
-								title={t("pages.xray.routeTester.title")}
-								summaryItems={[
-									{
-										label: t("pages.xray.routeTester.target"),
-										value:
-											selectedTargetInfo?.name || selectedTarget || "master",
-										colorScheme: isMasterTarget ? "orange" : "green",
-									},
-								]}
-								actions={
-									<Button
-										leftIcon={
-											isRouteTesting ? (
-												<Spinner size="xs" />
-											) : (
-												<BoltIconStyled />
-											)
-										}
-										{...compactActionButtonProps}
-										isDisabled={isRouteTesting || isMasterTarget}
-										onClick={runRouteTest}
-									>
-										{t("pages.xray.routeTester.test")}
-									</Button>
-								}
-							>
-								<VStack align="stretch" spacing={3}>
-									<Text color="panel.textMuted" fontSize="xs">
-										{isMasterTarget
-											? t("pages.xray.routeTester.nodeTargetRequired")
-											: t("pages.xray.routeTester.desc")}
-									</Text>
-									<Stack
-										direction={{ base: "column", lg: "row" }}
-										spacing={2}
-										align={{ base: "stretch", lg: "end" }}
-									>
-										<FormControl maxW={{ base: "full", lg: "280px" }}>
-											<FormLabel fontSize="xs">
-												{t("pages.xray.routeTester.destination")}
-											</FormLabel>
-											<Input
-												size="sm"
-												value={routeTestDestination}
-												placeholder="example.com"
-												onChange={(e) =>
-													setRouteTestDestination(e.target.value)
-												}
-												onKeyDown={(e) => {
-													if (e.key === "Enter") void runRouteTest();
-												}}
-											/>
-										</FormControl>
-										<FormControl maxW={{ base: "full", lg: "100px" }}>
-											<FormLabel fontSize="xs">{t("port")}</FormLabel>
-											<Input
-												size="sm"
-												value={routeTestPort}
-												inputMode="numeric"
-												onChange={(e) => setRouteTestPort(e.target.value)}
-											/>
-										</FormControl>
-										<FormControl maxW={{ base: "full", lg: "120px" }}>
-											<FormLabel fontSize="xs">
-												{t("pages.xray.routeTester.network")}
-											</FormLabel>
-											<Select
-												size="sm"
-												value={routeTestNetwork}
-												onChange={(e) => setRouteTestNetwork(e.target.value)}
-											>
-												<option value="tcp">TCP</option>
-												<option value="udp">UDP</option>
-											</Select>
-										</FormControl>
-										<FormControl maxW={{ base: "full", lg: "180px" }}>
-											<FormLabel fontSize="xs">{t("inbound")}</FormLabel>
-											<Select
-												size="sm"
-												value={routeTestInbound}
-												onChange={(e) => setRouteTestInbound(e.target.value)}
-											>
-												<option value="">
-													{t("pages.xray.routeTester.anyInbound")}
-												</option>
-												{routeInboundTags.map((tag: string) => (
-													<option key={tag} value={tag}>
-														{tag}
-													</option>
-												))}
-											</Select>
-										</FormControl>
-										<FormControl maxW={{ base: "full", lg: "160px" }}>
-											<FormLabel fontSize="xs">{t("protocol")}</FormLabel>
-											<Select
-												size="sm"
-												value={routeTestProtocol}
-												onChange={(e) => setRouteTestProtocol(e.target.value)}
-											>
-												<option value="">
-													{t("pages.xray.routeTester.anyProtocol")}
-												</option>
-												{["http", "tls", "quic", "bittorrent"].map(
-													(protocol) => (
-														<option key={protocol} value={protocol}>
-															{protocol}
-														</option>
-													),
-												)}
-											</Select>
-										</FormControl>
-										<FormControl maxW={{ base: "full", lg: "180px" }}>
-											<FormLabel fontSize="xs">
-												{t("pages.xray.routeTester.email")}
-											</FormLabel>
-											<Input
-												size="sm"
-												value={routeTestEmail}
-												placeholder={t("optional")}
-												onChange={(e) => setRouteTestEmail(e.target.value)}
-											/>
-										</FormControl>
-									</Stack>
-									{routeTestResult && (
-										<Box
-											borderWidth="1px"
-											borderColor={
-												routeTestResult.error ? "red.300" : "panel.border"
-											}
-											borderRadius="md"
-											px={3}
-											py={2}
-											bg="panel.card"
-										>
-											<HStack spacing={2} flexWrap="wrap">
-												{routeTestResult.error ? (
-													<Text color="red.300" fontSize="sm">
-														{routeTestResult.error}
-													</Text>
-												) : routeTestResult.matched ? (
-													<>
-														<Text fontSize="sm">
-															{t("pages.xray.routeTester.matchedOutbound")}
-														</Text>
-														<Tag size="sm" colorScheme="blue">
-															{routeTestResult.outboundTag ||
-																routeTestResult.outbound_tag ||
-																"-"}
-														</Tag>
-														{(
-															routeTestResult.groupTags ||
-															routeTestResult.group_tags ||
-															[]
-														).map((tag) => (
-															<Tag key={tag} size="sm" colorScheme="orange">
-																{tag}
-															</Tag>
-														))}
-													</>
-												) : (
-													<Text fontSize="sm" color="panel.textMuted">
-														{t("pages.xray.routeTester.defaultOutbound")}
-													</Text>
-												)}
-											</HStack>
-										</Box>
-									)}
-								</VStack>
-							</ResourceListCard>
 							<ResourceListCard
 								title={t("pages.xray.Routings")}
 								summaryItems={[
@@ -5529,10 +5335,23 @@ export const CoreSettingsPage: FC = () => {
 							: null
 					}
 					availableInboundTags={availableInboundTags}
-					availableOutboundTags={availableOutboundTags}
+					availableOutboundTags={outboundTagOptions}
 					availableBalancerTags={availableBalancerTags}
+					onTestOutbound={testOutboundByTag}
+					outboundTestingByTag={outboundTestingByTag}
 					onSubmit={handleRuleModalSubmit}
 					onClose={handleRuleModalClose}
+				/>
+			)}
+			{isRouteTestOpen && (
+				<RouteTestModal
+					isOpen={isRouteTestOpen}
+					onClose={onRouteTestClose}
+					rule={routeTestRule}
+					target={selectedTarget}
+					targetName={selectedTargetInfo?.name || selectedTarget || "master"}
+					isMasterTarget={isMasterTarget}
+					config={form.getValues("config")}
 				/>
 			)}
 			{isReverseOpen && (
@@ -5543,11 +5362,15 @@ export const CoreSettingsPage: FC = () => {
 					initialReverse={editingReverseInitial}
 					inboundTags={availableInboundTags}
 					outboundTags={availableOutboundTags}
+					outboundOptions={outboundTagOptions}
 					vlessInboundTags={vlessInboundTags}
 					vlessOutboundTags={vlessOutboundTags}
+					vlessOutboundOptions={vlessOutboundTagOptions}
 					vlessOutboundDetails={vlessOutboundDetails}
 					existingTags={existingReverseTags}
 					reverseCount={reverseData.length}
+					onTestOutbound={testOutboundByTag}
+					outboundTestingByTag={outboundTestingByTag}
 					onSubmit={handleReverseSubmit}
 				/>
 			)}
@@ -5628,7 +5451,10 @@ export const CoreSettingsPage: FC = () => {
 							: null
 					}
 					outboundTags={availableOutboundTags}
+					outboundOptions={outboundTagOptions}
 					excludedOutboundTags={excludedBalancerOutboundTags}
+					onTestOutbound={testOutboundByTag}
+					outboundTestingByTag={outboundTestingByTag}
 					existingTags={availableBalancerTags
 						.map((tag) => tag.trim())
 						.filter(

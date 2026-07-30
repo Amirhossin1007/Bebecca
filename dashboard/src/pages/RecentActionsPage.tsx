@@ -58,8 +58,15 @@ type RecentActionPreview = {
 	field?: string;
 	before?: string;
 	after?: string;
+	delta?: string;
 	operation?: RecentActionOperation;
 	resource?: string;
+};
+
+type RecentActionValueChange = Required<
+	Pick<RecentActionPreview, "field" | "before" | "after">
+> & {
+	delta?: string;
 };
 
 type RecentAction = {
@@ -93,6 +100,8 @@ type RecentActionDetail = {
 	after?: unknown;
 	config_changes?: RecentActionConfigChange[];
 	config_previews?: RecentActionConfigDisplay[];
+	changes?: RecentActionValueChange[];
+	affected_resources?: string[];
 };
 
 type RecentActionConfigChange = {
@@ -220,6 +229,14 @@ const recentActionResourceKeys = new Set([
 
 const recentActionFieldKeys = new Set([
 	"name",
+	"role",
+	"status",
+	"data_limit",
+	"users_limit",
+	"expire",
+	"traffic_limit_mode",
+	"service_limits",
+	"show_user_traffic",
 	"tag",
 	"protocol",
 	"address",
@@ -437,6 +454,11 @@ const ActionPreview: FC<{ preview?: RecentActionPreview }> = ({ preview }) => {
 				<Text color="green.300" noOfLines={1}>
 					{preview.after}
 				</Text>
+				{preview.delta && (
+					<Text color="panel.textMuted" noOfLines={1}>
+						({preview.delta})
+					</Text>
+				)}
 			</HStack>
 		</VStack>
 	);
@@ -451,20 +473,23 @@ export const RecentActionsPage: FC = () => {
 		(userData.role === AdminRole.FullAccess ||
 			(userData.role === AdminRole.Sudo &&
 				Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray])));
-	const [beforeID, setBeforeID] = useState<number | null>(null);
+	const [pageCursors, setPageCursors] = useState<Array<number | null>>([null]);
+	const [pageIndex, setPageIndex] = useState(0);
+	const [pageSize, setPageSize] = useState(20);
 	const [selectedID, setSelectedID] = useState<number | null>(null);
 	const [search, setSearch] = useState("");
 	const [actionTypesFilter, setActionTypesFilter] = useState<string[]>([]);
 	const [resourceTypesFilter, setResourceTypesFilter] = useState<string[]>([]);
 	const [statusesFilter, setStatusesFilter] = useState<string[]>([]);
 
+	const beforeID = pageCursors[pageIndex] ?? null;
 	const actionsQuery = useQuery(
-		["recent-actions", beforeID],
+		["recent-actions", beforeID, pageSize],
 		() =>
 			fetch<RecentActionsResponse>(
 				beforeID
-					? `/core/recent-actions?limit=50&before_id=${beforeID}`
-					: "/core/recent-actions?limit=50",
+					? `/core/recent-actions?limit=${pageSize}&before_id=${beforeID}`
+					: `/core/recent-actions?limit=${pageSize}`,
 			),
 		{ enabled: canView, staleTime: 15_000, refetchOnWindowFocus: false },
 	);
@@ -545,6 +570,24 @@ export const RecentActionsPage: FC = () => {
 		if (!window.confirm(t("recentActions.rollbackConfirm"))) return;
 		rollbackMutation.mutate(action.id);
 	};
+	const toggleDetails = useCallback((actionID: number) => {
+		setSelectedID((current) => (current === actionID ? null : actionID));
+	}, []);
+	const changePageSize = (value: string | string[]) => {
+		const next = Number(Array.isArray(value) ? value[0] : value);
+		if (![10, 20, 50].includes(next)) return;
+		setPageSize(next);
+		setPageCursors([null]);
+		setPageIndex(0);
+		setSelectedID(null);
+	};
+	const showNextPage = () => {
+		const next = actionsQuery.data?.next_before_id;
+		if (!next) return;
+		setPageCursors((current) => [...current.slice(0, pageIndex + 1), next]);
+		setPageIndex((current) => current + 1);
+		setSelectedID(null);
+	};
 	const columns = useMemo<DataTableColumn<RecentAction>[]>(
 		() => [
 			{
@@ -557,6 +600,11 @@ export const RecentActionsPage: FC = () => {
 					const lifecycle = actionLifecycle(action);
 					const operation = lifecycle.operation;
 					const visual = actionOperationVisual(operation, action.action_type);
+					const label =
+						action.action_type === "node.service_update" &&
+						action.resource_key.endsWith(" nodes")
+							? action.summary
+							: actionTypeLabel(action.action_type);
 					return (
 						<HStack align="start" spacing={2.5} minW={0}>
 							<Box color={visual.color} mt={0.5} flexShrink={0}>
@@ -564,7 +612,7 @@ export const RecentActionsPage: FC = () => {
 							</Box>
 							<VStack align="start" spacing={0} minW={0}>
 								<Text fontWeight="semibold" noOfLines={1} maxW="full">
-									{actionTypeLabel(action.action_type)}
+									{label}
 								</Text>
 							</VStack>
 						</HStack>
@@ -652,7 +700,7 @@ export const RecentActionsPage: FC = () => {
 			id: "details",
 			label: t("recentActions.details"),
 			icon: <EyeIcon width={16} />,
-			onClick: () => setSelectedID(action.id),
+			onClick: () => toggleDetails(action.id),
 		},
 		...(action.rollback_status === "available"
 			? [
@@ -677,6 +725,8 @@ export const RecentActionsPage: FC = () => {
 	}
 
 	const detail = detailQuery.data;
+	const eventChanges = detail?.changes ?? [];
+	const affectedResources = detail?.affected_resources ?? [];
 	const configChanges = detail?.config_changes ?? [];
 	const configPreviews = detail?.config_previews ?? [];
 	const displayConfigChanges: RecentActionConfigDisplay[] =
@@ -701,6 +751,146 @@ export const RecentActionsPage: FC = () => {
 	const rollbackErrorDetail =
 		rollbackError?.data?.detail || rollbackError?.message;
 	const rollbackConflictPaths = rollbackError?.data?.conflict_paths ?? [];
+	const renderDetailPanel = () => (
+		<Box borderTopWidth="1px" borderColor="panel.border" pt={4}>
+			<HStack justify="space-between" mb={4}>
+				<Text fontWeight="semibold">{t("recentActions.changePreview")}</Text>
+				<Button size="sm" variant="ghost" onClick={() => setSelectedID(null)}>
+					{t("close")}
+				</Button>
+			</HStack>
+			{detailQuery.isLoading ? (
+				<HStack justify="center" py={10}>
+					<Spinner />
+				</HStack>
+			) : detailQuery.isError ? (
+				<Alert status="error">
+					<AlertIcon />
+					{t("recentActions.loadFailed")}
+				</Alert>
+			) : detail?.snapshot_available ? (
+				<Stack spacing={4}>
+					{eventChanges.length > 0 && (
+						<Stack spacing={2}>
+							<Text fontSize="sm" color="panel.textSecondary">
+								{t("recentActions.changedValues")}
+							</Text>
+							{eventChanges.map((change) => {
+								const labelKey = changedFieldTranslationKey(change.field);
+								return (
+									<HStack key={change.field} spacing={2} flexWrap="wrap">
+										<Text fontSize="sm" minW="140px" color="panel.textMuted">
+											{labelKey ? t(labelKey) : change.field.replaceAll("_", " ")}
+										</Text>
+										<Text color="red.300" textDecoration="line-through">
+											{change.before}
+										</Text>
+										<Text color="panel.textMuted">→</Text>
+										<Text color="green.300">{change.after}</Text>
+										{change.delta && (
+											<Text color="panel.textMuted">({change.delta})</Text>
+										)}
+									</HStack>
+								);
+							})}
+						</Stack>
+					)}
+					{affectedResources.length > 0 && (
+						<Box>
+							<Text fontSize="sm" color="panel.textSecondary" mb={2}>
+								{t("recentActions.affectedResources")}
+							</Text>
+							<HStack spacing={2} flexWrap="wrap">
+								{affectedResources.map((resource) => (
+									<Badge key={resource} variant="subtle">
+										{resource}
+									</Badge>
+								))}
+							</HStack>
+						</Box>
+					)}
+					{diffPathLabels.length > 0 && (
+						<Box>
+							<Text fontSize="sm" color="panel.textSecondary" mb={2}>
+								{t("recentActions.changedPaths")}
+							</Text>
+							<HStack spacing={2} flexWrap="wrap">
+								{diffPathLabels.map((label) => (
+									<Badge key={label} colorScheme="orange">
+										{t(label)}
+									</Badge>
+								))}
+							</HStack>
+						</Box>
+					)}
+					{displayConfigChanges.length > 0 ? (
+						<Stack spacing={4}>
+							{displayConfigChanges.map((change, index) => {
+								const paths = configChangePaths(change);
+								const labels = Array.from(
+									new Set(
+										paths
+											.map(changedFieldTranslationKey)
+											.filter((key): key is string => Boolean(key)),
+									),
+								);
+								return (
+									<Box
+										key={`${change.target_id}-${change.path}-${index}`}
+										borderWidth="1px"
+										borderColor="panel.border"
+										borderRadius="md"
+										p={3}
+									>
+										{labels.length > 0 && (
+											<Text fontSize="sm" color="panel.textSecondary" mb={3}>
+												{labels.map((label) => t(label)).join(" · ")}
+											</Text>
+										)}
+										<JsonDiffEditors
+											before={change.before_exists ? change.before : undefined}
+											after={change.after_exists ? change.after : undefined}
+										/>
+									</Box>
+								);
+							})}
+						</Stack>
+					) : eventChanges.length === 0 && affectedResources.length === 0 ? (
+						<JsonDiffEditors before={detail.before} after={detail.after} />
+					) : null}
+				</Stack>
+			) : (
+				<Alert status="info">
+					<AlertIcon />
+					{t(
+						detail?.action.rollback_status === "unsupported"
+							? "recentActions.historyOnly"
+							: "recentActions.snapshotExpired",
+					)}
+				</Alert>
+			)}
+			{rollbackMutation.isError && (
+				<>
+					<Divider my={4} />
+					<Alert status="error">
+						<AlertIcon />
+						<Stack spacing={2}>
+							<Text>{rollbackErrorDetail || t("recentActions.rollbackFailed")}</Text>
+							{rollbackConflictPaths.length > 0 && (
+								<HStack spacing={2} flexWrap="wrap">
+									{rollbackConflictPaths.map((path) => (
+										<Badge key={path} colorScheme="red">
+											{path}
+										</Badge>
+									))}
+								</HStack>
+							)}
+						</Stack>
+					</Alert>
+				</>
+			)}
+		</Box>
+	);
 
 	return (
 		<VStack
@@ -827,7 +1017,7 @@ export const RecentActionsPage: FC = () => {
 							size="sm"
 							variant="outline"
 							leftIcon={<EyeIcon width={16} />}
-							onClick={() => setSelectedID(action.id)}
+							onClick={() => toggleDetails(action.id)}
 						>
 							{t("recentActions.details")}
 						</Button>
@@ -850,143 +1040,55 @@ export const RecentActionsPage: FC = () => {
 				actionsDisplay="inline"
 				actionsColumnWidth="210px"
 				actionsAlwaysVisible
-				onRowClick={(action) => setSelectedID(action.id)}
+				onRowClick={(action) => toggleDetails(action.id)}
+				isRowExpanded={(action) => action.id === selectedID}
+				renderExpandedRow={renderDetailPanel}
 				mobileBreakpoint="lg"
 				pagination={
-					actionsQuery.data?.next_before_id ? (
-						<Button
-							variant="outline"
-							onClick={() =>
-								setBeforeID(actionsQuery.data?.next_before_id ?? null)
-							}
-						>
-							{t("recentActions.loadMore")}
-						</Button>
-					) : undefined
+					<HStack justify="space-between" flexWrap="wrap" spacing={3}>
+						<HStack spacing={2}>
+							<Text fontSize="sm" color="panel.textMuted">
+								{t("itemsPerPage")}
+							</Text>
+							<Select
+								size="sm"
+								value={String(pageSize)}
+								onValueChange={changePageSize}
+								options={[10, 20, 50].map((value) => ({
+									label: String(value),
+									value: String(value),
+								}))}
+								aria-label={t("itemsPerPage")}
+								w="88px"
+							/>
+						</HStack>
+						<HStack spacing={2}>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() => {
+									setPageIndex((current) => Math.max(0, current - 1));
+									setSelectedID(null);
+								}}
+								isDisabled={pageIndex === 0}
+							>
+								{t("previous")}
+							</Button>
+							<Text fontSize="sm" minW="28px" textAlign="center">
+								{pageIndex + 1}
+							</Text>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={showNextPage}
+								isDisabled={!actionsQuery.data?.next_before_id}
+							>
+								{t("next")}
+							</Button>
+						</HStack>
+					</HStack>
 				}
 			/>
-
-			{selectedID !== null && (
-				<Box
-					bg="panel.surface"
-					borderWidth="1px"
-					borderColor="panel.border"
-					borderRadius="md"
-					p={4}
-				>
-					<HStack justify="space-between" mb={4}>
-						<Text fontWeight="semibold">
-							{t("recentActions.changePreview")}
-						</Text>
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={() => setSelectedID(null)}
-						>
-							{t("close")}
-						</Button>
-					</HStack>
-					{detailQuery.isLoading ? (
-						<HStack justify="center" py={10}>
-							<Spinner />
-						</HStack>
-					) : detailQuery.isError ? (
-						<Alert status="error">
-							<AlertIcon />
-							{t("recentActions.loadFailed")}
-						</Alert>
-					) : detail?.snapshot_available ? (
-						<Stack spacing={4}>
-							{diffPathLabels.length > 0 && (
-								<Box>
-									<Text fontSize="sm" color="panel.textSecondary" mb={2}>
-										{t("recentActions.changedPaths")}
-									</Text>
-									<HStack spacing={2} flexWrap="wrap">
-										{diffPathLabels.map((label) => (
-											<Badge key={label} colorScheme="orange">
-												{t(label)}
-											</Badge>
-										))}
-									</HStack>
-								</Box>
-							)}
-							{displayConfigChanges.length > 0 ? (
-								<Stack spacing={4}>
-									{displayConfigChanges.map((change, index) => {
-										const paths = configChangePaths(change);
-										const labels = Array.from(
-											new Set(
-												paths
-													.map(changedFieldTranslationKey)
-													.filter((key): key is string => Boolean(key)),
-											),
-										);
-										return (
-											<Box
-												key={`${change.target_id}-${change.path}-${index}`}
-												borderWidth="1px"
-												borderColor="panel.border"
-												borderRadius="md"
-												p={3}
-											>
-												{labels.length > 0 && (
-													<Text
-														fontSize="sm"
-														color="panel.textSecondary"
-														mb={3}
-													>
-														{labels.map((label) => t(label)).join(" · ")}
-													</Text>
-												)}
-												<JsonDiffEditors
-													before={
-														change.before_exists ? change.before : undefined
-													}
-													after={change.after_exists ? change.after : undefined}
-												/>
-											</Box>
-										);
-									})}
-								</Stack>
-							) : (
-								<JsonDiffEditors before={detail.before} after={detail.after} />
-							)}
-						</Stack>
-					) : (
-						<Alert status="info">
-							<AlertIcon />
-							{t(
-								detail?.action.rollback_status === "unsupported"
-									? "recentActions.historyOnly"
-									: "recentActions.snapshotExpired",
-							)}
-						</Alert>
-					)}
-					{rollbackMutation.isError && (
-						<>
-							<Divider my={4} />
-							<Alert status="error">
-								<AlertIcon />
-								<Stack spacing={2}>
-									<Text>
-										{rollbackErrorDetail || t("recentActions.rollbackFailed")}
-									</Text>
-									{rollbackConflictPaths.length > 0 && (
-										<HStack spacing={2} flexWrap="wrap">
-											{rollbackConflictPaths.map((path) => (
-												<Badge key={path} colorScheme="red">
-													{path}
-												</Badge>
-											))}
-										</HStack>
-									)}
-								</Stack>
-							</Alert>
-						</>
-					)}
-				</Box>
-			)}
 		</VStack>
 	);
 };

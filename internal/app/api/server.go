@@ -211,6 +211,98 @@ func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, nodes)
 }
 
+type nodeServiceUpdateTarget struct {
+	ID      int64  `json:"id"`
+	Channel string `json:"channel"`
+	Version string `json:"version"`
+}
+
+type nodesServiceUpdatePayload struct {
+	Nodes []nodeServiceUpdateTarget `json:"nodes"`
+}
+
+func (s *Server) handleNodesServiceUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var payload nodesServiceUpdatePayload
+	if err := decodeOptionalJSON(r, &payload); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	targets := make([]nodeServiceUpdateTarget, 0, len(payload.Nodes))
+	names := make([]string, 0, len(payload.Nodes))
+	seen := make(map[int64]struct{}, len(payload.Nodes))
+	for _, target := range payload.Nodes {
+		if target.ID <= 0 {
+			writeError(w, http.StatusUnprocessableEntity, "every node id must be positive")
+			return
+		}
+		if _, exists := seen[target.ID]; exists {
+			continue
+		}
+		seen[target.ID] = struct{}{}
+		name, err := s.nodeName(r.Context(), target.ID)
+		if err != nil {
+			writeControllerError(w, err)
+			return
+		}
+		targets = append(targets, target)
+		names = append(names, name)
+	}
+	if len(targets) == 0 {
+		writeError(w, http.StatusUnprocessableEntity, "at least one node is required")
+		return
+	}
+	if err := s.withTx(r.Context(), func(tx *sql.Tx) error {
+		return s.recordRecentActionEventDetailsTx(
+			r.Context(), tx, "node.service_update", "node",
+			fmt.Sprintf("%d nodes", len(names)),
+			fmt.Sprintf("Updated %d nodes", len(names)),
+			nil, names,
+		)
+	}); err != nil {
+		logging.Warnf(logging.ComponentNode, "record bulk node service update: %v", err)
+	}
+	go s.updateNodeServices(targets)
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"status": "accepted",
+		"count":  len(targets),
+		"detail": "Node service update started.",
+	})
+}
+
+func (s *Server) updateNodeServices(targets []nodeServiceUpdateTarget) {
+	workers := 4
+	if len(targets) < workers {
+		workers = len(targets)
+	}
+	jobs := make(chan nodeServiceUpdateTarget)
+	var group sync.WaitGroup
+	for range workers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			for target := range jobs {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				_, err := s.nodeController.UpdateService(ctx, nodecontroller.Request{
+					NodeID: target.ID, Channel: target.Channel, Version: target.Version,
+				})
+				cancel()
+				if err != nil {
+					logging.Warnf(logging.ComponentNode, "update service on node %d: %v", target.ID, err)
+				}
+			}
+		}()
+	}
+	for _, target := range targets {
+		jobs <- target
+	}
+	close(jobs)
+	group.Wait()
+}
+
 func (s *Server) handleNodesUsage(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/nodes/usage" {
 		writeError(w, http.StatusNotFound, "not found")

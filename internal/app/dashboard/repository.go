@@ -223,13 +223,17 @@ func (r Repository) countUsers(ctx context.Context, adminID *int64, status strin
 }
 
 func (r Repository) onlineUsers(ctx context.Context, adminID *int64) (int64, error) {
-	clauses := []string{"status != ?", "online_at IS NOT NULL", "online_at >= ?"}
-	args := []any{"deleted", r.timeArg(time.Now().UTC().Add(-5 * time.Minute))}
+	cutoff := r.timeArg(time.Now().UTC().Add(-5 * time.Minute))
+	clauses := []string{
+		"u.status != ?",
+		"(EXISTS (SELECT 1 FROM user_online_ips uoi WHERE uoi.user_id = u.id AND uoi.last_seen_at >= ?) OR EXISTS (SELECT 1 FROM vpn_user_sessions vus WHERE vus.user_id = u.id AND vus.ended_at IS NULL AND vus.last_seen_at >= ?))",
+	}
+	args := []any{"deleted", cutoff, cutoff}
 	if adminID != nil {
-		clauses = append(clauses, "admin_id = ?")
+		clauses = append(clauses, "u.admin_id = ?")
 		args = append(args, *adminID)
 	}
-	query := `SELECT COUNT(id) FROM users WHERE ` + strings.Join(clauses, " AND ")
+	query := `SELECT COUNT(u.id) FROM users u WHERE ` + strings.Join(clauses, " AND ")
 	var count int64
 	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
 		return 0, err

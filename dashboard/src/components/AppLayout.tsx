@@ -33,6 +33,7 @@ import {
 	BriefcaseIcon,
 	CheckIcon,
 	CircleStackIcon,
+	ClockIcon,
 	CodeBracketSquareIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
@@ -62,7 +63,7 @@ import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { logout as logoutSession } from "service/auth";
-import { AdminRole, AdminSection } from "types/Admin";
+import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
 import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
 import { AppSidebar } from "./AppSidebar";
@@ -92,6 +93,7 @@ const ServicesIcon = chakra(Squares2X2Icon, iconProps);
 const HostsIcon = chakra(LinkIcon, iconProps);
 const NodesIcon = chakra(ServerStackIcon, iconProps);
 const InsightsIcon = chakra(EyeIcon, iconProps);
+const RecentActionsIcon = chakra(ClockIcon, iconProps);
 const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
 const TutorialIcon = chakra(BookOpenIcon, iconProps);
 
@@ -213,6 +215,10 @@ export function AppLayout() {
 
 	const isPrivilegedAdmin =
 		userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo;
+	const canViewRecentActions =
+		userData.role === AdminRole.FullAccess ||
+		(userData.role === AdminRole.Sudo &&
+			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
@@ -264,6 +270,14 @@ export function AppLayout() {
 						icon: InsightsIcon,
 					}
 				: null,
+			canViewRecentActions
+				? {
+						key: "recent-actions",
+						label: t("recentActions.title"),
+						to: "/recent-actions",
+						icon: RecentActionsIcon,
+					}
+				: null,
 			isPrivilegedAdmin
 				? {
 						key: "api-docs",
@@ -288,7 +302,7 @@ export function AppLayout() {
 			},
 		];
 		return items.filter(Boolean) as SettingsMenuItem[];
-	}, [isPrivilegedAdmin, sectionAccess, t]);
+	}, [canViewRecentActions, isPrivilegedAdmin, sectionAccess, t]);
 
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 

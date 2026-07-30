@@ -488,6 +488,8 @@ export function DataTable<TData>({
 	renderBulkActions,
 	selectedLabel,
 	onRowClick,
+	isRowExpanded,
+	renderExpandedRow,
 	sorting,
 	onSortingChange,
 	manualSorting = false,
@@ -994,6 +996,9 @@ export function DataTable<TData>({
 								const detailColumns = mobileVisibleColumns.rest;
 								const resolvedRowActions = getResolvedRowActions(original);
 								const isExpanded = Boolean(expandedMobileRows[row.id]);
+								const hasExpandedRow = Boolean(
+									renderExpandedRow && isRowExpanded?.(original),
+								);
 								const compactDetails = detailColumns.length > 4;
 								const canExpand = detailColumns.length > 0 || hasActions;
 								const toggleExpanded = () => {
@@ -1064,7 +1069,7 @@ export function DataTable<TData>({
 												</Flex>
 											</Box>
 										</HStack>
-										{isExpanded && (
+										{(isExpanded || hasExpandedRow) && (
 											<Box className="rb-resource-expanded">
 												<Box
 													className="rb-resource-details"
@@ -1109,6 +1114,14 @@ export function DataTable<TData>({
 														</Box>
 													</Flex>
 												)}
+											</Box>
+										)}
+										{hasExpandedRow && (
+											<Box
+												className="rb-resource-expanded"
+												onClick={(event) => event.stopPropagation()}
+											>
+												{renderExpandedRow?.(original)}
 											</Box>
 										)}
 									</Box>
@@ -1258,8 +1271,8 @@ export function DataTable<TData>({
 										</Tr>
 									))
 								: rows.map((row) => (
-										<Tr
-											key={row.id}
+										<Fragment key={row.id}>
+											<Tr
 											className="rb-data-table-row"
 											data-selected={row.getIsSelected() ? "true" : undefined}
 											onClick={() => onRowClick?.(row.original)}
@@ -1352,7 +1365,15 @@ export function DataTable<TData>({
 													</Td>
 												);
 											})}
-										</Tr>
+											</Tr>
+											{renderExpandedRow && isRowExpanded?.(row.original) && (
+												<Tr className="rb-data-table-row-detail">
+													<Td colSpan={visibleColumnCount} p={0}>
+														<Box p={4}>{renderExpandedRow(row.original)}</Box>
+													</Td>
+												</Tr>
+											)}
+										</Fragment>
 									))}
 							{state && !showLoadingState && (
 								<Tr>

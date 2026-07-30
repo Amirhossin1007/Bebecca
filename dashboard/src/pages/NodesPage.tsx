@@ -1140,7 +1140,26 @@ export const NodesPage: FC = () => {
 				generateErrorMessage(err, toast);
 				return;
 			}
-			for (const node of targetNodes) {
+			if (actionType === "bulk-update") {
+				try {
+					await apiFetch("/nodes/service/update", {
+						method: "POST",
+						body: {
+							nodes: targetNodes.map((node) => ({
+								id: node.id,
+								channel: getNodeUpdateChannel(node, nodeUpdateChannel),
+							})),
+						},
+					});
+					successCount = targetNodes.length;
+					completedIDs.push(
+						...targetNodes.flatMap((node) => (node.id == null ? [] : [node.id])),
+					);
+				} catch (err) {
+					failedCount = targetNodes.length;
+					generateErrorMessage(err, toast);
+				}
+			} else for (const node of targetNodes) {
 				if (node.id == null) {
 					continue;
 				}
@@ -1169,14 +1188,6 @@ export const NodesPage: FC = () => {
 						case "bulk-restart":
 							await apiFetch(`/node/${node.id}/service/restart`, {
 								method: "POST",
-							});
-							break;
-						case "bulk-update":
-							await apiFetch(`/node/${node.id}/service/update`, {
-								method: "POST",
-								body: {
-									channel: getNodeUpdateChannel(node, nodeUpdateChannel),
-								},
 							});
 							break;
 						case "bulk-reboot":
@@ -1231,19 +1242,20 @@ export const NodesPage: FC = () => {
 		setServiceActionConfirm(null);
 		let successCount = 0;
 		let failedCount = 0;
-		for (const node of targetNodes) {
-			try {
-				await apiFetch(`/node/${node.id}/service/update`, {
-					method: "POST",
-					body: {
+		try {
+			await apiFetch("/nodes/service/update", {
+				method: "POST",
+				body: {
+					nodes: targetNodes.map((node) => ({
+						id: node.id,
 						channel: getNodeUpdateChannel(node, nodeUpdateChannel),
-					},
-				});
-				successCount += 1;
-			} catch (err) {
-				failedCount += 1;
-				generateErrorMessage(err, toast);
-			}
+					})),
+				},
+			});
+			successCount = targetNodes.length;
+		} catch (err) {
+			failedCount = targetNodes.length;
+			generateErrorMessage(err, toast);
 		}
 		setUpdatingBulkService(false);
 		queryClient.invalidateQueries(FetchNodesQueryKey);

@@ -21,6 +21,8 @@ type Request struct {
 	RouteNetwork            string   `json:"route_network,omitempty"`
 	RouteProtocol           string   `json:"route_protocol,omitempty"`
 	RouteEmail              string   `json:"route_email,omitempty"`
+	RouteConfigJSON         string   `json:"route_config_json,omitempty"`
+	RouteTestURL            string   `json:"route_test_url,omitempty"`
 	TorSocksPort            uint32   `json:"tor_socks_port,omitempty"`
 	TorExitCountry          string   `json:"tor_exit_country,omitempty"`
 	TorStrictExit           bool     `json:"tor_strict_exit,omitempty"`
@@ -150,10 +152,20 @@ type OutboundTestResult struct {
 }
 
 type RouteTestResult struct {
-	Matched     bool     `json:"matched"`
-	OutboundTag string   `json:"outboundTag,omitempty"`
-	GroupTags   []string `json:"groupTags,omitempty"`
-	Error       string   `json:"error,omitempty"`
+	Matched         bool              `json:"matched"`
+	OutboundTag     string            `json:"outboundTag,omitempty"`
+	GroupTags       []string          `json:"groupTags,omitempty"`
+	Success         bool              `json:"success"`
+	Delay           int64             `json:"delay,omitempty"`
+	StatusCode      int32             `json:"statusCode,omitempty"`
+	OutboundTraffic []OutboundTraffic `json:"outboundTraffic,omitempty"`
+	Error           string            `json:"error,omitempty"`
+}
+
+type OutboundTraffic struct {
+	Tag  string `json:"tag"`
+	Up   int64  `json:"up"`
+	Down int64  `json:"down"`
 }
 
 type NodeListResult struct {

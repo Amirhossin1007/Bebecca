@@ -33,6 +33,7 @@ type operatorMetadata struct {
 type operatorRange struct {
 	From      string `json:"from"`
 	To        string `json:"to"`
+	CIDR      string `json:"cidr"`
 	ShortName string `json:"short_name"`
 	Owner     string `json:"owner"`
 	start     netip.Addr
@@ -44,6 +45,7 @@ type operatorResolver struct {
 	client     *http.Client
 	url        string
 	ranges     []operatorRange
+	maxEnds    []netip.Addr
 	loadedAt   time.Time
 	retryAfter time.Time
 }
@@ -60,16 +62,17 @@ func (r *operatorResolver) Lookup(ctx context.Context, ips []string) map[string]
 	r.mu.Lock()
 	r.refreshLocked(ctx)
 	ranges := r.ranges
+	maxEnds := r.maxEnds
 	r.mu.Unlock()
 	for _, value := range ips {
 		ip := strings.TrimSpace(value)
 		addr, err := netip.ParseAddr(ip)
-		if err != nil || !addr.Unmap().Is4() {
+		if err != nil {
 			continue
 		}
 		addr = addr.Unmap()
-		index := sort.Search(len(ranges), func(i int) bool { return ranges[i].start.Compare(addr) > 0 }) - 1
-		if index >= 0 && addr.Compare(ranges[index].end) <= 0 {
+		index := lookupOperatorRange(ranges, maxEnds, addr)
+		if index >= 0 {
 			result[ip] = operatorMetadata{IP: ip, ShortName: ranges[index].ShortName, Owner: ranges[index].Owner}
 		}
 	}
@@ -103,18 +106,73 @@ func (r *operatorResolver) refreshLocked(ctx context.Context) {
 	}
 	ranges := make([]operatorRange, 0, len(raw))
 	for _, item := range raw {
-		start, startErr := netip.ParseAddr(strings.TrimSpace(item.From))
-		end, endErr := netip.ParseAddr(strings.TrimSpace(item.To))
-		if startErr != nil || endErr != nil || !start.Is4() || !end.Is4() || start.Compare(end) > 0 {
+		start, end, ok := parseOperatorRange(item)
+		if !ok {
 			continue
 		}
 		item.start, item.end = start, end
 		ranges = append(ranges, item)
 	}
-	sort.Slice(ranges, func(i, j int) bool { return ranges[i].start.Compare(ranges[j].start) < 0 })
+	maxEnds := prepareOperatorRanges(ranges)
 	if len(ranges) > 0 {
-		r.ranges, r.loadedAt, r.retryAfter = ranges, now, time.Time{}
+		r.ranges, r.maxEnds, r.loadedAt, r.retryAfter = ranges, maxEnds, now, time.Time{}
 	}
+}
+
+func prepareOperatorRanges(ranges []operatorRange) []netip.Addr {
+	sort.Slice(ranges, func(i, j int) bool {
+		if compare := ranges[i].start.Compare(ranges[j].start); compare != 0 {
+			return compare < 0
+		}
+		return ranges[i].end.Compare(ranges[j].end) > 0
+	})
+	maxEnds := make([]netip.Addr, len(ranges))
+	for index := range ranges {
+		if index == 0 || ranges[index-1].start.BitLen() != ranges[index].start.BitLen() {
+			maxEnds[index] = ranges[index].end
+			continue
+		}
+		maxEnds[index] = maxEnds[index-1]
+		if maxEnds[index].Compare(ranges[index].end) < 0 {
+			maxEnds[index] = ranges[index].end
+		}
+	}
+	return maxEnds
+}
+
+func lookupOperatorRange(ranges []operatorRange, maxEnds []netip.Addr, addr netip.Addr) int {
+	index := sort.Search(len(ranges), func(i int) bool { return ranges[i].start.Compare(addr) > 0 }) - 1
+	for ; index >= 0 && ranges[index].start.BitLen() == addr.BitLen(); index-- {
+		if len(maxEnds) == len(ranges) && maxEnds[index].Compare(addr) < 0 {
+			break
+		}
+		if addr.Compare(ranges[index].end) <= 0 {
+			return index
+		}
+	}
+	return -1
+}
+
+func parseOperatorRange(item operatorRange) (netip.Addr, netip.Addr, bool) {
+	if cidr := strings.TrimSpace(item.CIDR); cidr != "" {
+		prefix, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return netip.Addr{}, netip.Addr{}, false
+		}
+		start := prefix.Masked().Addr()
+		bytes := start.AsSlice()
+		for bit := prefix.Bits(); bit < len(bytes)*8; bit++ {
+			bytes[bit/8] |= 1 << (7 - bit%8)
+		}
+		end, ok := netip.AddrFromSlice(bytes)
+		return start, end, ok
+	}
+	start, startErr := netip.ParseAddr(strings.TrimSpace(item.From))
+	end, endErr := netip.ParseAddr(strings.TrimSpace(item.To))
+	if startErr != nil || endErr != nil || start.BitLen() != end.BitLen() || start.Compare(end) > 0 {
+		return netip.Addr{}, netip.Addr{}, false
+	}
+	return start, end, true
 }
 
 type accessInsightPlatform struct {
@@ -126,6 +184,11 @@ type accessInsightPlatform struct {
 type accessInsightClient struct {
 	UserKey        string                  `json:"user_key"`
 	UserLabel      string                  `json:"user_label"`
+	UserStatus     string                  `json:"user_status"`
+	UsedTraffic    int64                   `json:"used_traffic"`
+	DataLimit      int64                   `json:"data_limit"`
+	Expire         int64                   `json:"expire"`
+	ServiceName    string                  `json:"service_name"`
 	LastSeen       time.Time               `json:"last_seen"`
 	Route          string                  `json:"route"`
 	Connections    int                     `json:"connections"`
@@ -232,7 +295,7 @@ func (s *Server) buildAccessInsights(ctx context.Context, records []nodecontroll
 				label = strconv.FormatInt(record.UserID, 10)
 			}
 			group = &accessInsightGroup{
-				item:      accessInsightClient{UserKey: strconv.FormatInt(record.UserID, 10), UserLabel: label, SourceNodes: map[string][]string{}, OperatorCounts: map[string]int{}},
+				item:      accessInsightClient{UserKey: strconv.FormatInt(record.UserID, 10), UserLabel: label, UserStatus: record.UserStatus, UsedTraffic: record.UsedTraffic, DataLimit: record.DataLimit, Expire: record.Expire, ServiceName: record.ServiceName, SourceNodes: map[string][]string{}, OperatorCounts: map[string]int{}},
 				protocols: map[string]map[string]struct{}{}, protocolCounts: map[string]int{}, sources: map[string]struct{}{}, nodes: map[string]struct{}{},
 			}
 			groups[record.UserID] = group

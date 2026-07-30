@@ -7,6 +7,11 @@ export type AccessInsightPlatform = {
 export type AccessInsightClient = {
 	user_key: string;
 	user_label: string;
+	user_status?: string;
+	used_traffic?: number;
+	data_limit?: number;
+	expire?: number;
+	service_name?: string;
 	last_seen: string;
 	route: string;
 	connections: number;

@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -183,23 +184,26 @@ func (s *Server) handleRouteTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	domain := strings.TrimSpace(stringFromAny(payload["domain"]))
-	ip := strings.TrimSpace(stringFromAny(payload["ip"]))
-	if domain == "" && ip == "" {
-		writeError(w, http.StatusBadRequest, "domain or ip is required")
+	testURL := firstNonEmpty(stringFromAny(payload["test_url"]), stringFromAny(payload["testUrl"]))
+	domain, ip, port, protocol, err := routeTestTarget(testURL)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if ip != "" && net.ParseIP(ip) == nil {
-		writeError(w, http.StatusBadRequest, "invalid ip address")
+	configJSON := strings.TrimSpace(stringFromAny(payload["config"]))
+	if configJSON == "" || !json.Valid([]byte(configJSON)) {
+		writeError(w, http.StatusBadRequest, "valid Xray config is required")
 		return
 	}
-	port, err := uint32FromAny(payload["port"])
-	if err != nil || port > 65535 {
-		writeError(w, http.StatusBadRequest, "port must be between 0 and 65535")
+	if !outboundTestLock.TryLock() {
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "obj": routeTestObject(nodecontroller.RouteTestResult{
+			Error: "Another Xray test is already running, please wait",
+		})})
 		return
 	}
+	defer outboundTestLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 35*time.Second)
 	defer cancel()
 	result, err := s.nodeController.TestRoute(ctx, nodecontroller.Request{
 		NodeID:          nodeID,
@@ -207,9 +211,10 @@ func (s *Server) handleRouteTest(w http.ResponseWriter, r *http.Request) {
 		RouteDomain:     domain,
 		RouteIP:         ip,
 		RoutePort:       port,
-		RouteNetwork:    strings.ToLower(strings.TrimSpace(stringFromAny(payload["network"]))),
-		RouteProtocol:   strings.TrimSpace(stringFromAny(payload["protocol"])),
-		RouteEmail:      firstNonEmpty(stringFromAny(payload["email"]), stringFromAny(payload["user"])),
+		RouteNetwork:    "tcp",
+		RouteProtocol:   protocol,
+		RouteConfigJSON: configJSON,
+		RouteTestURL:    testURL,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "Selected node is not available for route test")
@@ -260,6 +265,7 @@ func (s *Server) runOutboundTest(ctx context.Context, nodeID int64, outbound map
 func routeTestObject(result nodecontroller.RouteTestResult) map[string]any {
 	obj := map[string]any{
 		"matched": result.Matched,
+		"success": result.Success,
 	}
 	if strings.TrimSpace(result.OutboundTag) != "" {
 		obj["outboundTag"] = result.OutboundTag
@@ -269,10 +275,48 @@ func routeTestObject(result nodecontroller.RouteTestResult) map[string]any {
 		obj["groupTags"] = result.GroupTags
 		obj["group_tags"] = result.GroupTags
 	}
+	if result.Delay != 0 {
+		obj["delay"] = result.Delay
+	}
+	if result.StatusCode != 0 {
+		obj["statusCode"] = result.StatusCode
+	}
+	if len(result.OutboundTraffic) > 0 {
+		obj["outboundTraffic"] = result.OutboundTraffic
+	}
 	if strings.TrimSpace(result.Error) != "" {
 		obj["error"] = result.Error
 	}
 	return obj
+}
+
+func routeTestTarget(rawURL string) (domain, ip string, port uint32, protocol string, err error) {
+	parsed, err := url.ParseRequestURI(strings.TrimSpace(rawURL))
+	scheme := ""
+	if parsed != nil {
+		scheme = strings.ToLower(parsed.Scheme)
+	}
+	if err != nil || parsed == nil || (scheme != "http" && scheme != "https") || parsed.Hostname() == "" {
+		return "", "", 0, "", fmt.Errorf("test URL must be a valid HTTP or HTTPS URL")
+	}
+	portValue := uint32(80)
+	protocol = "http"
+	if scheme == "https" {
+		portValue = 443
+		protocol = "tls"
+	}
+	if rawPort := parsed.Port(); rawPort != "" {
+		parsedPort, parseErr := strconv.ParseUint(rawPort, 10, 16)
+		if parseErr != nil || parsedPort == 0 {
+			return "", "", 0, "", fmt.Errorf("test URL contains an invalid port")
+		}
+		portValue = uint32(parsedPort)
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if net.ParseIP(host) != nil {
+		return "", host, portValue, protocol, nil
+	}
+	return host, "", portValue, protocol, nil
 }
 
 func uint32FromAny(value any) (uint32, error) {

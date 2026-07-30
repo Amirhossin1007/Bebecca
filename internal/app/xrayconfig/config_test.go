@@ -172,6 +172,37 @@ func TestParseAcceptsStreamMethod(t *testing.T) {
 	}
 }
 
+func TestNormalizePayloadForXrayVersionUsesMatchingTransportField(t *testing.T) {
+	payload := map[string]any{
+		"inbounds": []any{map[string]any{
+			"streamSettings": map[string]any{"network": "xhttp"},
+		}},
+		"outbounds": []any{map[string]any{
+			"streamSettings": map[string]any{"method": "raw"},
+		}},
+	}
+
+	legacy := NormalizePayloadForXrayVersion(payload, "Xray 26.6.27")
+	legacyInbound := mapValue(listOfMaps(legacy["inbounds"])[0]["streamSettings"])
+	legacyOutbound := mapValue(listOfMaps(legacy["outbounds"])[0]["streamSettings"])
+	if legacyInbound["network"] != "xhttp" || legacyOutbound["network"] != "raw" {
+		t.Fatalf("legacy transport mapping = %#v", legacy)
+	}
+	if _, exists := legacyOutbound["method"]; exists {
+		t.Fatalf("legacy transport retained method: %#v", legacyOutbound)
+	}
+
+	modern := NormalizePayloadForXrayVersion(payload, "Xray 26.7.11")
+	modernInbound := mapValue(listOfMaps(modern["inbounds"])[0]["streamSettings"])
+	modernOutbound := mapValue(listOfMaps(modern["outbounds"])[0]["streamSettings"])
+	if modernInbound["method"] != "xhttp" || modernOutbound["method"] != "raw" {
+		t.Fatalf("modern transport mapping = %#v", modern)
+	}
+	if _, exists := modernInbound["network"]; exists {
+		t.Fatalf("modern transport retained network: %#v", modernInbound)
+	}
+}
+
 func TestReverseClientsKeepsOnlyStaticReverseAccounts(t *testing.T) {
 	clients := []any{
 		map[string]any{"id": "regular"},
