@@ -492,12 +492,12 @@ const HistoryModal: FC<{
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
 			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(4px)" />
 			<XrayModalContent>
-				<XrayModalHeader borderBottomWidth="0" pb={0}>
+				<XrayModalHeader py={5}>
 					{t("historyModalTitle", { metric: payload?.title ?? "" })}
 				</XrayModalHeader>
-				<ModalCloseButton top={4} right={4} />
-				<XrayModalBody pt={2}>
-					<Stack spacing={4}>
+				<ModalCloseButton top={5} right={5} />
+				<XrayModalBody py={2}>
+					<Stack spacing={6}>
 						<Flex wrap="wrap" gap={2}>
 							{HISTORY_INTERVALS.map((interval) => (
 								<Button
@@ -516,6 +516,7 @@ const HistoryModal: FC<{
 						</Flex>
 						<Box mx="-10px">
 							<Chart
+								key={`chart-interval-${intervalSeconds}`}
 								options={options}
 								series={chartSeries}
 								type="area"
@@ -524,7 +525,7 @@ const HistoryModal: FC<{
 						</Box>
 					</Stack>
 				</XrayModalBody>
-				<XrayModalFooter borderTopWidth="0" pt={0}>
+				<XrayModalFooter py={5}>
 					<Button onClick={onClose} borderRadius="full" variant="ghost">{t("close")}</Button>
 				</XrayModalFooter>
 			</XrayModalContent>
