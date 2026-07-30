@@ -96,6 +96,7 @@ import {
 	generateErrorMessage,
 	generateSuccessMessage,
 } from "utils/toastHandler";
+import { getAPIWebSocketURL } from "utils/websocket";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import { JsonEditor } from "../components/JsonEditor";
 import { RebeccaBackupPanel } from "../components/RebeccaBackupPanel";
@@ -229,6 +230,13 @@ type MaintenanceOperation = {
 	updated_at?: number;
 	finished_at?: number | null;
 };
+
+const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
+	Boolean(
+		operation?.restarting ||
+		operation?.needs_reload ||
+		operation?.phase === "restarting",
+	);
 
 type MaintenanceActionResponse = {
 	status?: string;
@@ -982,9 +990,6 @@ export const IntegrationSettingsPage = () => {
 		return () => clearPanelReturnPolling();
 	}, [clearPanelReturnPolling]);
 
-	const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
-		Boolean(operation?.restarting || operation?.needs_reload || operation?.phase === "restarting");
-
 	const triggerMaintenanceAction = async (
 		path:
 			| "/maintenance/update"
@@ -1046,50 +1051,56 @@ export const IntegrationSettingsPage = () => {
 		window.setTimeout(() => maintenanceInfoQuery.refetch(), 6000);
 	};
 
-	const maintenanceStatusQuery = useQuery<MaintenanceOperation>(
-		["maintenance-status", maintenanceOperation?.id],
-		() =>
-			apiFetch<MaintenanceOperation>("/maintenance/status", {
-				timeout: 2500,
-			}),
-		{
-			enabled:
-				isMaintenanceProgressOpen &&
-				Boolean(maintenanceOperation?.id) &&
-				!maintenanceIsWaitingForAPI,
-			refetchInterval: (data) => {
-				if (!data?.id || data.error || data.phase === "failed") {
-					return false;
+	useEffect(() => {
+		const operationID = maintenanceOperation?.id;
+		if (
+			!isMaintenanceProgressOpen ||
+			!operationID ||
+			maintenanceIsWaitingForAPI
+		) {
+			return;
+		}
+		const url = getAPIWebSocketURL("/maintenance/status", { id: operationID });
+		if (!url) {
+			return;
+		}
+		let socket: WebSocket | null = null;
+		let reconnectTimer: number | null = null;
+		let disposed = false;
+		let receivedStatus = false;
+		let latestStatus: MaintenanceOperation | null = null;
+		const connect = () => {
+			socket = new WebSocket(url);
+			socket.onmessage = (event) => {
+				try {
+					const status = JSON.parse(event.data) as MaintenanceOperation;
+					if (status.id !== operationID) return;
+					receivedStatus = true;
+					latestStatus = status;
+					setMaintenanceOperation(status);
+					if (shouldWaitForPanelReturn(status)) {
+						startPanelReturnPolling();
+					}
+				} catch {}
+			};
+			socket.onclose = () => {
+				if (!disposed && (!receivedStatus || latestStatus?.running)) {
+					reconnectTimer = window.setTimeout(connect, 1000);
 				}
-				if (shouldWaitForPanelReturn(data)) {
-					return false;
-				}
-				return 1000;
-			},
-			retry: false,
-			onSuccess: (data) => {
-				if (!data?.id) {
-					return;
-				}
-				setMaintenanceOperation(data);
-				if (shouldWaitForPanelReturn(data)) {
-					startPanelReturnPolling();
-				}
-			},
-			onError: () => {
-				if (maintenanceOperation?.action) {
-					setMaintenanceOperation((current) => ({
-						...(current || {}),
-						phase: "restarting",
-						message: t("settings.panel.maintenanceWaitingForAPI"),
-						restarting: true,
-						needs_reload: true,
-					}));
-					startPanelReturnPolling();
-				}
-			},
-		},
-	);
+			};
+		};
+		connect();
+		return () => {
+			disposed = true;
+			if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+			socket?.close();
+		};
+	}, [
+		isMaintenanceProgressOpen,
+		maintenanceIsWaitingForAPI,
+		maintenanceOperation?.id,
+		startPanelReturnPolling,
+	]);
 
 	const updateMutation = useMutation(
 		() =>
@@ -4859,9 +4870,7 @@ export const IntegrationSettingsPage = () => {
 									<Text fontSize="sm" color="gray.500">
 										{typeof maintenanceOperation?.progress === "number"
 											? `${maintenanceOperation.progress}%`
-											: maintenanceStatusQuery.isFetching
-												? t("settings.panel.checkingStatus")
-												: t("settings.panel.waitingForOutput")}
+											: t("settings.panel.waitingForOutput")}
 									</Text>
 								</Flex>
 								<Progress
@@ -4870,10 +4879,10 @@ export const IntegrationSettingsPage = () => {
 											? maintenanceOperation.progress
 											: undefined
 									}
-									isIndeterminate={
-										typeof maintenanceOperation?.progress !== "number" &&
-										!maintenanceOperation?.error
-									}
+										isIndeterminate={
+											typeof maintenanceOperation?.progress !== "number" &&
+											!maintenanceOperation?.error
+										}
 									colorScheme={
 										maintenanceOperation?.error
 											? "red"
@@ -4881,9 +4890,14 @@ export const IntegrationSettingsPage = () => {
 												? "blue"
 												: "yellow"
 									}
-									borderRadius="full"
-									size="sm"
-								/>
+										borderRadius="full"
+										size="sm"
+										sx={{
+											".chakra-progress__filled-track": {
+												transition: "width 420ms ease-out",
+											},
+										}}
+									/>
 							</Box>
 							{maintenanceIsWaitingForAPI && (
 								<Alert status="info" variant="left-accent" borderRadius="md">

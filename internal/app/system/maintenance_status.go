@@ -13,7 +13,7 @@ const maxMaintenanceLogLines = 80
 
 var (
 	percentagePattern = regexp.MustCompile(`(?i)(?:^|\s)(100|[1-9]?\d)(?:\.\d+)?%`)
-	curlProgressRow   = regexp.MustCompile(`\s(100|[1-9]?\d)\s+[\d.]+[kKmMgG]?\s+`)
+	curlProgressRow   = regexp.MustCompile(`^(100|[1-9]?\d)\s+[\d.]+[kKmMgG]?\s+`)
 )
 
 type MaintenanceOperationSnapshot struct {
@@ -33,8 +33,9 @@ type MaintenanceOperationSnapshot struct {
 }
 
 type MaintenanceOperationStore struct {
-	mu     sync.Mutex
-	latest MaintenanceOperationSnapshot
+	mu          sync.Mutex
+	latest      MaintenanceOperationSnapshot
+	subscribers map[chan MaintenanceOperationSnapshot]struct{}
 }
 
 func NewMaintenanceOperationStore() *MaintenanceOperationStore {
@@ -56,8 +57,11 @@ func (s *MaintenanceOperationStore) Start(action string, args []string, message 
 		StartedAt:  now,
 		UpdatedAt:  now,
 	}
+	progress := 0
+	op.Progress = &progress
 	s.latest = op
-	return op
+	s.publishLocked()
+	return cloneMaintenanceOperation(op)
 }
 
 func (s *MaintenanceOperationStore) Latest() MaintenanceOperationSnapshot {
@@ -73,6 +77,27 @@ func (s *MaintenanceOperationStore) Get(id string) MaintenanceOperationSnapshot 
 		return MaintenanceOperationSnapshot{}
 	}
 	return cloneMaintenanceOperation(s.latest)
+}
+
+func (s *MaintenanceOperationStore) Subscribe() (<-chan MaintenanceOperationSnapshot, func()) {
+	updates := make(chan MaintenanceOperationSnapshot, 1)
+	s.mu.Lock()
+	if s.subscribers == nil {
+		s.subscribers = make(map[chan MaintenanceOperationSnapshot]struct{})
+	}
+	s.subscribers[updates] = struct{}{}
+	if s.latest.ID != "" {
+		updates <- cloneMaintenanceOperation(s.latest)
+	}
+	s.mu.Unlock()
+	return updates, func() {
+		s.mu.Lock()
+		if _, ok := s.subscribers[updates]; ok {
+			delete(s.subscribers, updates)
+			close(updates)
+		}
+		s.mu.Unlock()
+	}
 }
 
 func (s *MaintenanceOperationStore) AppendOutput(id string, line string) {
@@ -93,12 +118,13 @@ func (s *MaintenanceOperationStore) AppendOutput(id string, line string) {
 	phase, message := classifyMaintenanceLine(cleaned, s.latest.Action)
 	if phase != "" {
 		s.latest.Phase = phase
+		s.setProgressAtLeastLocked(maintenancePhaseProgress(phase))
 	}
 	if message != "" {
 		s.latest.Message = message
 	}
 	if progress, ok := extractMaintenanceProgress(cleaned); ok {
-		s.latest.Progress = &progress
+		s.setProgressAtLeastLocked(downloadProgress(progress))
 		if s.latest.Phase == "queued" {
 			s.latest.Phase = "downloading"
 		}
@@ -106,7 +132,9 @@ func (s *MaintenanceOperationStore) AppendOutput(id string, line string) {
 	if strings.Contains(strings.ToLower(cleaned), "restart") {
 		s.latest.Restarting = true
 		s.latest.NeedsReload = true
+		s.setProgressAtLeastLocked(100)
 	}
+	s.publishLocked()
 }
 
 func (s *MaintenanceOperationStore) MarkRestarting(id string, message string) {
@@ -121,6 +149,8 @@ func (s *MaintenanceOperationStore) MarkRestarting(id string, message string) {
 	s.latest.Restarting = true
 	s.latest.NeedsReload = true
 	s.latest.Running = true
+	s.setProgressAtLeastLocked(100)
+	s.publishLocked()
 }
 
 func (s *MaintenanceOperationStore) Finish(id string, err error) {
@@ -137,6 +167,7 @@ func (s *MaintenanceOperationStore) Finish(id string, err error) {
 		s.latest.Phase = "failed"
 		s.latest.Message = "Command failed"
 		s.latest.Error = err.Error()
+		s.publishLocked()
 		return
 	}
 	if s.latest.Action == "update" || s.latest.Action == "restart" || s.latest.Action == "soft-reload" {
@@ -144,10 +175,39 @@ func (s *MaintenanceOperationStore) Finish(id string, err error) {
 		s.latest.Message = "Rebecca is restarting. Waiting for the API to come back."
 		s.latest.Restarting = true
 		s.latest.NeedsReload = true
+		s.setProgressAtLeastLocked(100)
+		s.publishLocked()
 		return
 	}
 	s.latest.Phase = "completed"
 	s.latest.Message = "Operation completed"
+	s.setProgressAtLeastLocked(100)
+	s.publishLocked()
+}
+
+func (s *MaintenanceOperationStore) setProgressAtLeastLocked(progress int) {
+	progress = clampPercent(progress)
+	if s.latest.Progress != nil && *s.latest.Progress >= progress {
+		return
+	}
+	s.latest.Progress = &progress
+}
+
+func (s *MaintenanceOperationStore) publishLocked() {
+	if len(s.subscribers) == 0 {
+		return
+	}
+	snapshot := cloneMaintenanceOperation(s.latest)
+	for updates := range s.subscribers {
+		select {
+		case <-updates:
+		default:
+		}
+		select {
+		case updates <- snapshot:
+		default:
+		}
+	}
 }
 
 func cloneMaintenanceOperation(op MaintenanceOperationSnapshot) MaintenanceOperationSnapshot {
@@ -203,6 +263,27 @@ func extractMaintenanceProgress(line string) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func maintenancePhaseProgress(phase string) int {
+	switch phase {
+	case "updating":
+		return 5
+	case "downloading":
+		return 10
+	case "installing":
+		return 88
+	case "migrating":
+		return 95
+	case "restarting", "completed":
+		return 100
+	default:
+		return 0
+	}
+}
+
+func downloadProgress(value int) int {
+	return 10 + clampPercent(value)*75/100
 }
 
 func clampPercent(value int) int {

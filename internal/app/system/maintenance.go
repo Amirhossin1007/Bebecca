@@ -159,6 +159,13 @@ func (s *MaintenanceService) Status() MaintenanceOperationSnapshot {
 	return s.ops.Latest()
 }
 
+func (s *MaintenanceService) Subscribe() (<-chan MaintenanceOperationSnapshot, func()) {
+	if s.ops == nil {
+		s.ops = NewMaintenanceOperationStore()
+	}
+	return s.ops.Subscribe()
+}
+
 func (s *MaintenanceService) startOperation(action string, args []string, message string) (MaintenanceOperationSnapshot, error) {
 	if s.ops == nil {
 		s.ops = NewMaintenanceOperationStore()
@@ -372,6 +379,7 @@ func (DefaultCommandScheduler) ScheduleWithProgress(args []string, onOutput func
 	readPipe := func(reader io.Reader) {
 		scanner := bufio.NewScanner(reader)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		scanner.Split(splitMaintenanceOutput)
 		for scanner.Scan() {
 			if onOutput != nil {
 				onOutput(scanner.Text())
@@ -387,6 +395,18 @@ func (DefaultCommandScheduler) ScheduleWithProgress(args []string, onOutput func
 		}
 	}()
 	return nil
+}
+
+func splitMaintenanceOutput(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	for index, value := range data {
+		if value == '\n' || value == '\r' {
+			return index + 1, data[:index], nil
+		}
+	}
+	if atEOF && len(data) > 0 {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
 }
 
 func resolveRebeccaCLI() (string, error) {

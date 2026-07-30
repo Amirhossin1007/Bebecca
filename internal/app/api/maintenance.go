@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
+	"golang.org/x/net/websocket"
 )
 
 func (s *Server) handleMaintenanceInfo(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +98,36 @@ func (s *Server) handleMaintenanceStatus(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		s.handleMaintenanceStatusWebSocket(w, r)
+		return
+	}
 	writeJSON(w, http.StatusOK, s.maintenanceService().Status())
+}
+
+func (s *Server) handleMaintenanceStatusWebSocket(w http.ResponseWriter, r *http.Request) {
+	operationID := strings.TrimSpace(r.URL.Query().Get("id"))
+	websocket.Handler(func(conn *websocket.Conn) {
+		defer conn.Close()
+		updates, unsubscribe := s.maintenanceService().Subscribe()
+		defer unsubscribe()
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case status, ok := <-updates:
+				if !ok {
+					return
+				}
+				if operationID != "" && status.ID != operationID {
+					continue
+				}
+				if err := websocket.JSON.Send(conn, status); err != nil {
+					return
+				}
+			}
+		}
+	}).ServeHTTP(w, r)
 }
 
 func (s *Server) maintenanceService() *systemapp.MaintenanceService {
