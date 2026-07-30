@@ -522,7 +522,23 @@ const HistoryModal: FC<{
 								</Button>
 							))}
 						</Flex>
-						<Box mx="-10px">
+						<Box
+							mx="-10px"
+							sx={{
+								".apexcharts-legend-series": {
+									display: "inline-flex !important",
+									alignItems: "center",
+									gap: "6px",
+								},
+								".apexcharts-legend-marker": {
+									margin: "0 !important",
+								},
+								".apexcharts-legend-text": {
+									padding: "0 !important",
+									margin: "0 !important",
+								},
+							}}
+						>
 							<Chart
 								key={`chart-interval-${intervalSeconds}`}
 								options={options}
