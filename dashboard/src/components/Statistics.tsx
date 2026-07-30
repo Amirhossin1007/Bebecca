@@ -426,7 +426,15 @@ const HistoryModal: FC<{
 		() => ({
 			chart: {
 				type: "area" as const,
-				animations: { enabled: false },
+				animations: { 
+					enabled: true,
+					easing: "easeinout" as const,
+					speed: 600,
+					dynamicAnimation: {
+						enabled: true,
+						speed: 350
+					}
+				},
 				toolbar: { show: false },
 				zoom: { enabled: false },
 				background: "transparent",
