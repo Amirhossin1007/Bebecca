@@ -610,7 +610,7 @@ const UsageMetricCard: FC<{
 			p={4}
 			minH={history ? "136px" : "106px"}
 			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
-			_hover={{ transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" }}
+			_hover={{ "@media (min-width: 768px)": { transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" } }}
 		>
 			<Stack spacing={3}>
 				<Flex justifyContent="space-between" alignItems="center" gap={2} wrap="wrap">
