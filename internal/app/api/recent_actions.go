@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,10 +28,19 @@ const (
 )
 
 type recentActionSnapshot struct {
-	Before         xrayconfig.MutationSnapshot `json:"before"`
-	After          xrayconfig.MutationSnapshot `json:"after"`
-	ConfigPatches  []xrayconfig.ConfigPatch    `json:"config_patches,omitempty"`
-	ConfigPreviews []recentActionConfigPreview `json:"config_previews,omitempty"`
+	Before            xrayconfig.MutationSnapshot `json:"before"`
+	After             xrayconfig.MutationSnapshot `json:"after"`
+	ConfigPatches     []xrayconfig.ConfigPatch    `json:"config_patches,omitempty"`
+	ConfigPreviews    []recentActionConfigPreview `json:"config_previews,omitempty"`
+	Changes           []recentActionValueChange   `json:"changes,omitempty"`
+	AffectedResources []string                    `json:"affected_resources,omitempty"`
+}
+
+type recentActionValueChange struct {
+	Field  string `json:"field"`
+	Before string `json:"before"`
+	After  string `json:"after"`
+	Delta  string `json:"delta,omitempty"`
 }
 
 type recentActionConfigPreview struct {
@@ -64,6 +74,7 @@ type recentActionPreview struct {
 	Field     string `json:"field,omitempty"`
 	Before    string `json:"before,omitempty"`
 	After     string `json:"after,omitempty"`
+	Delta     string `json:"delta,omitempty"`
 	Operation string `json:"operation,omitempty"`
 	Resource  string `json:"resource,omitempty"`
 }
@@ -79,15 +90,31 @@ func (s *Server) recordXrayMutationTx(ctx context.Context, tx *sql.Tx, mutation 
 }
 
 func (s *Server) recordRecentActionEventTx(ctx context.Context, tx *sql.Tx, actionType, resourceType, resourceKey, summary string) error {
+	return s.recordRecentActionEventDetailsTx(ctx, tx, actionType, resourceType, resourceKey, summary, nil, nil)
+}
+
+func (s *Server) recordRecentActionEventDetailsTx(ctx context.Context, tx *sql.Tx, actionType, resourceType, resourceKey, summary string, changes []recentActionValueChange, resources []string) error {
 	principal, ok := ctx.Value(adminContextKey).(adminPrincipal)
 	if !ok || principal.ID <= 0 || strings.TrimSpace(actionType) == "" {
 		return nil
+	}
+	resources = uniqueRecentActionResources(resources)
+	var snapshot any
+	if len(changes) > 0 || len(resources) > 0 {
+		payload, err := encodeRecentActionSnapshot(recentActionSnapshot{
+			Changes:           changes,
+			AffectedResources: resources,
+		})
+		if err != nil {
+			return err
+		}
+		snapshot = payload
 	}
 	now := time.Now().UTC()
 	_, err := tx.ExecContext(ctx, `INSERT INTO recent_actions (
 		action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
 		summary, snapshot, after_hash, rollback_status, created_at, snapshot_expires_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, '', 'unsupported', ?, NULL)`,
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', 'unsupported', ?, NULL)`,
 		strings.TrimSpace(actionType),
 		strings.TrimSpace(resourceType),
 		strings.TrimSpace(resourceKey),
@@ -95,12 +122,31 @@ func (s *Server) recordRecentActionEventTx(ctx context.Context, tx *sql.Tx, acti
 		strings.TrimSpace(principal.Username),
 		fmt.Sprint(principal.Context.Source),
 		strings.TrimSpace(summary),
+		snapshot,
 		dbTimestamp(now),
 	)
 	if err != nil {
 		return err
 	}
 	return s.pruneRecentActionsTx(ctx, tx, now)
+}
+
+func uniqueRecentActionResources(resources []string) []string {
+	seen := make(map[string]struct{}, len(resources))
+	result := make([]string, 0, len(resources))
+	for _, resource := range resources {
+		resource = strings.TrimSpace(resource)
+		if resource == "" {
+			continue
+		}
+		if _, exists := seen[resource]; exists {
+			continue
+		}
+		seen[resource] = struct{}{}
+		result = append(result, resource)
+	}
+	sort.Strings(result)
+	return result
 }
 
 func (s *Server) recordRecentActionTx(ctx context.Context, tx *sql.Tx, mutation xrayconfig.Mutation) error {
@@ -273,7 +319,8 @@ func decodeRecentActionSnapshot(raw []byte) (recentActionSnapshot, error) {
 	if err := json.Unmarshal(decoded, &snapshot); err != nil {
 		return recentActionSnapshot{}, err
 	}
-	if snapshot.Before.Version != 1 || snapshot.After.Version != 1 {
+	hasEventDetails := len(snapshot.Changes) > 0 || len(snapshot.AffectedResources) > 0
+	if !hasEventDetails && (snapshot.Before.Version != 1 || snapshot.After.Version != 1) {
 		return recentActionSnapshot{}, errors.New("unsupported recent action snapshot")
 	}
 	for _, patch := range snapshot.ConfigPatches {
@@ -471,18 +518,26 @@ func (s *Server) handleRecentActionDetail(w http.ResponseWriter, r *http.Request
 			return
 		}
 		action.Preview = recentActionSnapshotPreview(snapshot, action.ActionType, action.ResourceType)
-		response["before"] = redactRecentActionSnapshot(snapshot.Before)
-		response["after"] = redactRecentActionSnapshot(snapshot.After)
-		if len(snapshot.ConfigPatches) > 0 {
-			response["config_changes"] = redactRecentActionConfigChanges(snapshot.ConfigPatches)
+		if len(snapshot.Changes) > 0 {
+			response["changes"] = snapshot.Changes
 		}
-		previews := snapshot.ConfigPreviews
-		if len(previews) == 0 {
-			previews = s.recoverRecentActionConfigPreviews(r.Context(), snapshot.ConfigPatches)
+		if len(snapshot.AffectedResources) > 0 {
+			response["affected_resources"] = snapshot.AffectedResources
 		}
-		previews = append(previews, recentActionHostPreviews(snapshot.Before.Hosts, snapshot.After.Hosts)...)
-		if len(previews) > 0 {
-			response["config_previews"] = redactRecentActionConfigPreviews(previews)
+		if snapshot.Before.Version == 1 && snapshot.After.Version == 1 {
+			response["before"] = redactRecentActionSnapshot(snapshot.Before)
+			response["after"] = redactRecentActionSnapshot(snapshot.After)
+			if len(snapshot.ConfigPatches) > 0 {
+				response["config_changes"] = redactRecentActionConfigChanges(snapshot.ConfigPatches)
+			}
+			previews := snapshot.ConfigPreviews
+			if len(previews) == 0 {
+				previews = s.recoverRecentActionConfigPreviews(r.Context(), snapshot.ConfigPatches)
+			}
+			previews = append(previews, recentActionHostPreviews(snapshot.Before.Hosts, snapshot.After.Hosts)...)
+			if len(previews) > 0 {
+				response["config_previews"] = redactRecentActionConfigPreviews(previews)
+			}
 		}
 	}
 	response["action"] = action.recentActionItem
@@ -651,6 +706,10 @@ func recentActionPreviewFromSnapshot(raw []byte, actionType, resourceType string
 }
 
 func recentActionSnapshotPreview(snapshot recentActionSnapshot, actionType, resourceType string) *recentActionPreview {
+	if len(snapshot.Changes) > 0 {
+		change := snapshot.Changes[0]
+		return &recentActionPreview{Field: change.Field, Before: change.Before, After: change.After, Delta: change.Delta}
+	}
 	if operation := recentActionOperation(actionType); operation != "" {
 		return &recentActionPreview{Operation: operation, Resource: resourceType}
 	}

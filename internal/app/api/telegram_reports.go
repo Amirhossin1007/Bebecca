@@ -50,6 +50,29 @@ func adminTelegramChanges(before adminapp.Admin, after adminapp.Admin) []string 
 	return changes
 }
 
+func adminRecentActionChanges(before adminapp.Admin, after adminapp.Admin) []recentActionValueChange {
+	changes := []recentActionValueChange{}
+	add := func(field, beforeValue, afterValue string) {
+		if beforeValue != afterValue {
+			changes = append(changes, recentActionValueChange{Field: field, Before: beforeValue, After: afterValue})
+		}
+	}
+	add("role", string(before.Role), string(after.Role))
+	add("status", string(before.Status), string(after.Status))
+	add("traffic_limit_mode", string(before.TrafficLimitMode), string(after.TrafficLimitMode))
+	if beforeValue, afterValue := telegramapp.FormatOptionalBytes(before.DataLimit), telegramapp.FormatOptionalBytes(after.DataLimit); beforeValue != afterValue {
+		changes = append(changes, recentActionValueChange{
+			Field: "data_limit", Before: beforeValue, After: afterValue,
+			Delta: telegramapp.FormatOptionalBytesDelta(before.DataLimit, after.DataLimit),
+		})
+	}
+	add("users_limit", ptrIntText(before.UsersLimit), ptrIntText(after.UsersLimit))
+	add("expire", ptrIntText(before.Expire), ptrIntText(after.Expire))
+	add("service_limits", fmt.Sprint(before.UseServiceTrafficLimits), fmt.Sprint(after.UseServiceTrafficLimits))
+	add("show_user_traffic", fmt.Sprint(before.ShowUserTraffic), fmt.Sprint(after.ShowUserTraffic))
+	return changes
+}
+
 func ptrIntText(value *int64) string {
 	if value == nil {
 		return "∞"

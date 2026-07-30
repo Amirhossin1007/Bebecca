@@ -482,9 +482,9 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 			return err
 		}
 		if limitTransition.Disabled {
-			return s.recordRecentActionEventTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin")
+			return s.recordRecentActionEventDetailsTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin", adminRecentActionChanges(previous, updated), nil)
 		}
-		return s.recordRecentActionEventTx(r.Context(), tx, "admin.update", "admin", updated.Username, "Updated admin")
+		return s.recordRecentActionEventDetailsTx(r.Context(), tx, "admin.update", "admin", updated.Username, "Updated admin", adminRecentActionChanges(previous, updated), nil)
 	})
 	if err != nil {
 		writeStatusError(w, err)
@@ -573,6 +573,7 @@ func (s *Server) handleDisableAdmin(w http.ResponseWriter, r *http.Request, user
 	if reason == "" {
 		reason = "manual"
 	}
+	var previous adminapp.Admin
 	var updated adminapp.Admin
 	err := s.withTx(r.Context(), func(tx *sql.Tx) error {
 		target, err := adminByUsernameTx(r.Context(), tx, username)
@@ -585,6 +586,7 @@ func (s *Server) handleDisableAdmin(w http.ResponseWriter, r *http.Request, user
 		if target.Status == adminapp.StatusDisabled {
 			return statusError{status: http.StatusBadRequest, detail: "Admin is already disabled"}
 		}
+		previous = target
 		now := dbTimestamp(time.Now().UTC())
 		if _, err := tx.ExecContext(r.Context(), `UPDATE admins SET status = ?, disabled_reason = ? WHERE id = ?`, string(adminapp.StatusDisabled), reason, target.ID); err != nil {
 			return err
@@ -608,7 +610,7 @@ func (s *Server) handleDisableAdmin(w http.ResponseWriter, r *http.Request, user
 		if err != nil {
 			return err
 		}
-		return s.recordRecentActionEventTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin")
+		return s.recordRecentActionEventDetailsTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin", adminRecentActionChanges(previous, updated), nil)
 	})
 	if err != nil {
 		writeStatusError(w, err)
@@ -626,6 +628,7 @@ func (s *Server) handleDisableAdmin(w http.ResponseWriter, r *http.Request, user
 
 func (s *Server) handleEnableAdmin(w http.ResponseWriter, r *http.Request, username string) {
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	var previous adminapp.Admin
 	var updated adminapp.Admin
 	err := s.withTx(r.Context(), func(tx *sql.Tx) error {
 		target, err := adminByUsernameTx(r.Context(), tx, username)
@@ -638,6 +641,7 @@ func (s *Server) handleEnableAdmin(w http.ResponseWriter, r *http.Request, usern
 		if target.Status != adminapp.StatusDisabled {
 			return statusError{status: http.StatusBadRequest, detail: "Admin is not disabled"}
 		}
+		previous = target
 		if target.DisabledReason != nil && (*target.DisabledReason == adminDataLimitExhaustedReason || *target.DisabledReason == adminTimeLimitExhaustedReason) {
 			return statusError{status: http.StatusBadRequest, detail: "Admin was disabled by a limit and cannot be manually enabled"}
 		}
@@ -685,9 +689,9 @@ func (s *Server) handleEnableAdmin(w http.ResponseWriter, r *http.Request, usern
 			return err
 		}
 		if updated.Status != adminapp.StatusActive {
-			return s.recordRecentActionEventTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin")
+			return s.recordRecentActionEventDetailsTx(r.Context(), tx, "admin.disable", "admin", updated.Username, "Disabled admin", adminRecentActionChanges(previous, updated), nil)
 		}
-		return s.recordRecentActionEventTx(r.Context(), tx, "admin.enable", "admin", updated.Username, "Enabled admin")
+		return s.recordRecentActionEventDetailsTx(r.Context(), tx, "admin.enable", "admin", updated.Username, "Enabled admin", adminRecentActionChanges(previous, updated), nil)
 	})
 	if err != nil {
 		writeStatusError(w, err)
