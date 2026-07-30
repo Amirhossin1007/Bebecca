@@ -31,7 +31,7 @@ export const ChartBox: FC<ChartBoxProps> = ({
 			bg={bg}
 			overflow="hidden"
 			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
-			_hover={{ boxShadow: "sm", borderColor: "panel.borderStrong" }}
+			_hover={{ "@media (min-width: 768px)": { boxShadow: "sm", borderColor: "panel.borderStrong" } }}
 			{...props}
 		>
 			{(title || headerActions) && (
