@@ -909,15 +909,15 @@ const SystemOverviewCard: FC<{
 		<ChartBox
 			title={t("systemOverview")}
 			headerActions={
-				<Flex gap={2} justify={{ base: "flex-start", md: "flex-end" }} wrap="wrap">
-					<Tag colorScheme="gray" borderRadius="full" px={{ base: 2, md: 3 }}>
-						<Text fontSize="clamp(10px, 2.5vw, 12px)" fontWeight="medium">
+				<Wrap spacing={2} justify={{ base: "flex-start", md: "flex-end" }}>
+					<WrapItem>
+						<Tag colorScheme="gray" borderRadius="full" px={3}>
 							{isDevPanel ? currentPanelVersion : `v${currentPanelVersion}`}
-						</Text>
-					</Tag>
+						</Tag>
+					</WrapItem>
 					{latestPanelVersion && (
-						<Tag colorScheme={isPanelUpdateAvailable ? "green" : "blue"} borderRadius="full" px={{ base: 2, md: 3 }}>
-							<Text fontSize="clamp(10px, 2.5vw, 12px)" fontWeight="medium">
+						<WrapItem>
+							<Tag colorScheme={isPanelUpdateAvailable ? "green" : "blue"} borderRadius="full" px={3}>
 								{isPanelUpdateAvailable
 									? t("system.updateAvailable", {
 											version: latestPanelVersion,
@@ -925,18 +925,18 @@ const SystemOverviewCard: FC<{
 									: t("system.latestRelease", {
 											version: latestPanelVersion,
 										})}
-							</Text>
-						</Tag>
+							</Tag>
+						</WrapItem>
 					)}
-					<Tag colorScheme="gray" borderRadius="full" px={{ base: 2, md: 3 }}>
-						<Text fontSize="clamp(10px, 2.5vw, 12px)" fontWeight="medium" sx={{ fontVariantNumeric: "tabular-nums" }}>
+					<WrapItem>
+						<Tag colorScheme="gray" borderRadius="full" px={3}>
 							{t("loadAverage")}:{" "}
 							{data.load_avg.length
 								? data.load_avg.map((value) => value.toFixed(2)).join(" | ")
 								: "-"}
-						</Text>
-					</Tag>
-				</Flex>
+						</Tag>
+					</WrapItem>
+				</Wrap>
 			}
 		>
 			<Stack spacing={5}>
@@ -995,24 +995,19 @@ const SystemOverviewCard: FC<{
 						detail={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
 					/>
 				)}
-				<Flex
-					direction="row"
-					gap={3}
-					wrap="wrap"
+				<Stack
+					direction={{ base: "column", md: "row" }}
+					spacing={3}
+					flexWrap="wrap"
 					alignItems="flex-start"
-					w="full"
 				>
-					<Tag colorScheme="green" borderRadius="full" px={{ base: 3, md: 4 }} py={1.5}>
-						<Text fontSize="clamp(11px, 2.5vw, 13px)" fontWeight="medium">
-							{t("systemUptime")}: <Text as="span" fontWeight="bold" ms={1} sx={{ fontVariantNumeric: "tabular-nums" }}>{formatDuration(data.uptime_seconds)}</Text>
-						</Text>
+					<Tag colorScheme="green" borderRadius="full" px={3} py={1}>
+						{t("systemUptime")}: <Text as="span" fontWeight="bold" ms={1}>{formatDuration(data.uptime_seconds)}</Text>
 					</Tag>
-					<Tag colorScheme="blue" borderRadius="full" px={{ base: 3, md: 4 }} py={1.5}>
-						<Text fontSize="clamp(11px, 2.5vw, 13px)" fontWeight="medium">
-							{t("panelUptime")}: <Text as="span" fontWeight="bold" ms={1} sx={{ fontVariantNumeric: "tabular-nums" }}>{formatDuration(data.panel_uptime_seconds)}</Text>
-						</Text>
+					<Tag colorScheme="blue" borderRadius="full" px={3} py={1}>
+						{t("panelUptime")}: <Text as="span" fontWeight="bold" ms={1}>{formatDuration(data.panel_uptime_seconds)}</Text>
 					</Tag>
-				</Flex>
+				</Stack>
 				{data.last_xray_error && (
 					<Box
 						mt={4}
