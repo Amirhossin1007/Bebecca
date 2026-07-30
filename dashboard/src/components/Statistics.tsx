@@ -586,7 +586,7 @@ const UsageMetricCard: FC<{
 					)}
 				</Flex>
 				<Flex justifyContent="space-between" alignItems="baseline" gap={2} wrap="wrap">
-					<Text fontSize="3xl" lineHeight="1" fontWeight="bold" color={valueColor} whiteSpace="nowrap">
+					<Text fontSize="3xl" lineHeight="1" fontWeight="bold" color={valueColor} whiteSpace="nowrap" sx={{ fontVariantNumeric: "tabular-nums" }}>
 						{Math.max(0, percent).toFixed(1)}%
 					</Text>
 					{detail && (
@@ -657,7 +657,7 @@ const SpeedItem: FC<{
 				>
 					{label}
 				</Text>
-				<Text fontSize={{ base: "lg", md: "xl" }} fontWeight="bold" mt={0.5}>
+				<Text fontSize={{ base: "lg", md: "xl" }} fontWeight="bold" mt={0.5} sx={{ fontVariantNumeric: "tabular-nums" }}>
 					{value}
 				</Text>
 			</Box>
@@ -769,7 +769,7 @@ const MetricBadge: FC<{
 					{label}
 				</Text>
 			</HStack>
-			<Text fontWeight="bold" fontSize="2xl" color={valueColor} lineHeight="1">
+			<Text fontWeight="bold" fontSize="2xl" color={valueColor} lineHeight="1" sx={{ fontVariantNumeric: "tabular-nums" }}>
 				{valueClassName ? (
 					<chakra.span className={valueClassName}>{value}</chakra.span>
 				) : (
