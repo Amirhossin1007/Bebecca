@@ -50,8 +50,9 @@ var (
 		"xhttp":       {},
 		"hysteria":    {},
 	}
-	realityShortIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{2,16}$`)
-	xPaddingBytesPattern  = regexp.MustCompile(`^\d+(-\d+)?$`)
+	realityShortIDPattern  = regexp.MustCompile(`^[0-9a-fA-F]{2,16}$`)
+	xPaddingBytesPattern   = regexp.MustCompile(`^\d+(-\d+)?$`)
+	xrayCoreVersionPattern = regexp.MustCompile(`(?:^|[^0-9])(\d+)\.(\d+)\.(\d+)(?:$|[^0-9])`)
 )
 
 type Options struct {
@@ -118,6 +119,47 @@ func NormalizePayload(payload map[string]any) map[string]any {
 	logCfg["errorCleanupInterval"] = normalizeLogCleanupInterval(logCfg["errorCleanupInterval"])
 	cfg["log"] = logCfg
 	return cfg
+}
+
+// NormalizePayloadForXrayVersion prepares transport settings for the core
+// running on a particular node without changing the persisted panel config.
+func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) map[string]any {
+	cfg := deepCopyMap(payload)
+	useMethod := xrayUsesTransportMethod(coreVersion)
+	for _, inbound := range listOfMaps(cfg["inbounds"]) {
+		normalizeStreamTransportMethod(mapValue(inbound["streamSettings"]), useMethod)
+	}
+	for _, outbound := range listOfMaps(cfg["outbounds"]) {
+		normalizeStreamTransportMethod(mapValue(outbound["streamSettings"]), useMethod)
+	}
+	return cfg
+}
+
+func normalizeStreamTransportMethod(stream map[string]any, useMethod bool) {
+	if len(stream) == 0 {
+		return
+	}
+	transport := firstNonEmptyString(stream["method"], stream["network"])
+	if transport == "" {
+		return
+	}
+	if useMethod {
+		stream["method"] = transport
+		delete(stream, "network")
+		return
+	}
+	stream["network"] = transport
+	delete(stream, "method")
+}
+
+func xrayUsesTransportMethod(coreVersion string) bool {
+	match := xrayCoreVersionPattern.FindStringSubmatch(coreVersion)
+	if len(match) != 4 {
+		return false
+	}
+	major, _ := strconv.Atoi(match[1])
+	minor, _ := strconv.Atoi(match[2])
+	return major > 26 || (major == 26 && minor >= 7)
 }
 
 func (c *Config) Raw() map[string]any {

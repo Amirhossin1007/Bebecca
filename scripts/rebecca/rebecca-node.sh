@@ -159,7 +159,7 @@ REBECCA_NODE_BINARY_DEV_BRANCH="${REBECCA_NODE_BINARY_DEV_BRANCH:-dev}"
 REBECCA_NODE_BINARY_DEV_RELEASE_TAG="${REBECCA_NODE_BINARY_DEV_RELEASE_TAG:-dev-binaries}"
 REBECCA_NODE_BINARY_WORKFLOW_NAME="${REBECCA_NODE_BINARY_WORKFLOW_NAME:-binary-build}"
 REBECCA_NODE_BINARY_ARTIFACT_PREFIX="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX:-rebecca-node-binaries}"
-DEFAULT_XRAY_CORE_VERSION="${DEFAULT_XRAY_CORE_VERSION:-v26.6.27}"
+DEFAULT_XRAY_CORE_VERSION="${DEFAULT_XRAY_CORE_VERSION:-v26.7.11}"
 
 # Default node channel values
 BRANCH="master"
@@ -1103,10 +1103,6 @@ install_latest_xray_for_binary_node() {
     REBECCA_DATA_DIR="$DATA_DIR" XRAY_INSTALL_DIR="$DATA_DIR/xray-core" XRAY_ASSETS_DIR="$DATA_DIR/xray-core" XRAY_CORE_VERSION="${XRAY_CORE_VERSION:-$DEFAULT_XRAY_CORE_VERSION}" bash "$APP_DIR/scripts/install_latest_xray.sh"
 }
 
-needs_xray_compatibility_restore() {
-    [ ! -x "$DATA_DIR/xray-core/xray" ] || "$DATA_DIR/xray-core/xray" version 2>/dev/null | grep -q '^Xray 26\.7\.11'
-}
-
 read_node_certificate_bundle() {
     local bundle_file
     local bundle_started=0
@@ -1277,7 +1273,7 @@ install_binary_rebecca_node() {
     if [ "$configure" = "1" ]; then
         configure_binary_node_env
         install_latest_xray_for_binary_node
-    elif needs_xray_compatibility_restore; then
+    elif [ ! -x "$DATA_DIR/xray-core/xray" ]; then
         install_latest_xray_for_binary_node
     fi
 
