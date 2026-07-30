@@ -304,6 +304,9 @@ const HistoryModal: FC<{
 	t: TFunction;
 }> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t }) => {
 	const { colorMode } = useColorMode();
+	const gridColor = useColorModeValue("#e2e8f0", "#262626"); // هماهنگ با panel.border
+	const mutedTextColor = useColorModeValue("#64748b", "#737373"); // هماهنگ با panel.textMuted
+
 	const latestTimestamp = useMemo(() => {
 		if (!payload) return Math.floor(Date.now() / 1000);
 		const extractLatest = (entries: Array<{ timestamp: number }>) =>
@@ -422,39 +425,78 @@ const HistoryModal: FC<{
 	const options = useMemo(
 		() => ({
 			chart: {
-				type: "line" as const,
+				type: "area" as const,
 				animations: { enabled: false },
 				toolbar: { show: false },
 				zoom: { enabled: false },
 				background: "transparent",
+				fontFamily: "inherit",
 			},
+			colors: ["#0ea5e9", "#10b981", "#8b5cf6", "#f43f5e"],
+			fill: {
+				type: "gradient",
+				gradient: {
+					shadeIntensity: 1,
+					opacityFrom: 0.35,
+					opacityTo: 0.0,
+					stops: [0, 100],
+				},
+			},
+			dataLabels: { enabled: false },
 			theme: { mode: colorMode },
-			stroke: { curve: "smooth" as const },
+			stroke: { 
+				curve: "smooth" as const,
+				width: 2,
+			},
+			grid: {
+				borderColor: gridColor,
+				strokeDashArray: 4,
+				xaxis: { lines: { show: false } },
+				yaxis: { lines: { show: true } },
+				padding: { top: 0, right: 0, bottom: 0, left: 10 },
+			},
 			xaxis: {
 				type: "datetime" as const,
+				axisBorder: { show: false },
+				axisTicks: { show: false },
 				labels: {
+					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					datetimeFormatter: { hour: "HH:mm" },
 				},
+				tooltip: { enabled: false },
 			},
 			yaxis: {
 				decimalsInFloat: 0,
+				labels: {
+					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit", fontWeight: 500 },
+				},
+			},
+			legend: {
+				position: "top" as const,
+				horizontalAlign: "right" as const,
+				offsetY: -10,
+				markers: { radius: 12 },
+				labels: { colors: mutedTextColor },
+				itemMargin: { horizontal: 10, vertical: 0 },
 			},
 			tooltip: {
+				theme: colorMode,
 				x: { format: "HH:mm:ss" },
+				style: { fontSize: "12px", fontFamily: "inherit" },
 			},
 		}),
-		[colorMode],
+		[colorMode, gridColor, mutedTextColor],
 	);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
-			<ModalOverlay />
+		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
+			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(4px)" />
 			<XrayModalContent>
-				<XrayModalHeader>
+				<XrayModalHeader borderBottomWidth="0" pb={0}>
 					{t("historyModalTitle", { metric: payload?.title ?? "" })}
 				</XrayModalHeader>
-				<ModalCloseButton />
-				<XrayModalBody>
+				<ModalCloseButton top={4} right={4} />
+				<XrayModalBody pt={2}>
 					<Stack spacing={4}>
 						<Flex wrap="wrap" gap={2}>
 							{HISTORY_INTERVALS.map((interval) => (
@@ -465,22 +507,25 @@ const HistoryModal: FC<{
 									variant={
 										intervalSeconds === interval.seconds ? "solid" : "outline"
 									}
+									colorScheme={intervalSeconds === interval.seconds ? "primary" : "gray"}
 									onClick={() => onIntervalChange(interval.seconds)}
 								>
 									{t(interval.labelKey)}
 								</Button>
 							))}
 						</Flex>
-						<Chart
-							options={options}
-							series={chartSeries}
-							type="line"
-							height={300}
-						/>
+						<Box mx="-10px">
+							<Chart
+								options={options}
+								series={chartSeries}
+								type="area"
+								height={320}
+							/>
+						</Box>
 					</Stack>
 				</XrayModalBody>
-				<XrayModalFooter>
-					<Button onClick={onClose} borderRadius="full">{t("close")}</Button>
+				<XrayModalFooter borderTopWidth="0" pt={0}>
+					<Button onClick={onClose} borderRadius="full" variant="ghost">{t("close")}</Button>
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>
