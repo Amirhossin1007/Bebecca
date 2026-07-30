@@ -51,10 +51,13 @@ func (r Repository) queryXrayAccessRecords(ctx context.Context, query OnlineAcce
 	where, args := accessRecordFilter(query, []any{r.timeArg(accessRecordCutoff(query))}, "uoi.ip", "uoi.protocol")
 	args = append(args, limit)
 	rows, err := r.db.QueryContext(ctx, `
-SELECT uoi.node_id, COALESCE(n.name, ''), uoi.user_id, COALESCE(u.username, ''), uoi.protocol, uoi.ip, uoi.last_seen_at
+SELECT uoi.node_id, COALESCE(n.name, ''), uoi.user_id, COALESCE(u.username, ''), COALESCE(u.status, ''),
+       COALESCE(u.used_traffic, 0), COALESCE(u.data_limit, 0), COALESCE(u.expire, 0), COALESCE(s.name, ''),
+       uoi.protocol, uoi.ip, uoi.last_seen_at
 FROM user_online_ips uoi
 JOIN users u ON u.id = uoi.user_id
 LEFT JOIN nodes n ON n.id = uoi.node_id
+LEFT JOIN services s ON s.id = u.service_id
 WHERE uoi.last_seen_at >= ? AND u.status != 'deleted'`+where+`
 ORDER BY uoi.last_seen_at DESC
 LIMIT ?`, args...)
@@ -66,7 +69,7 @@ LIMIT ?`, args...)
 	for rows.Next() {
 		var item UserOnlineIPRecord
 		var seen any
-		if err := rows.Scan(&item.NodeID, &item.NodeName, &item.UserID, &item.Username, &item.Protocol, &item.IP, &seen); err != nil {
+		if err := rows.Scan(&item.NodeID, &item.NodeName, &item.UserID, &item.Username, &item.UserStatus, &item.UsedTraffic, &item.DataLimit, &item.Expire, &item.ServiceName, &item.Protocol, &item.IP, &seen); err != nil {
 			return nil, err
 		}
 		if parsed := usageDBTime(seen); parsed != nil {
@@ -83,15 +86,17 @@ func (r Repository) queryRemoteAccessRecords(ctx context.Context, query OnlineAc
 	if hasClientIP {
 		clientExpr = "COALESCE(vus.client_ip, '')"
 	}
-	where, args := accessRecordFilter(query, nil, clientExpr, "vus.protocol")
+	where, args := accessRecordFilter(query, []any{r.timeArg(accessRecordCutoff(query))}, clientExpr, "vus.protocol")
 	args = append(args, limit)
 	rows, err := r.db.QueryContext(ctx, `
-SELECT vus.node_id, COALESCE(n.name, ''), vus.user_id, COALESCE(u.username, ''), vus.protocol,
+SELECT vus.node_id, COALESCE(n.name, ''), vus.user_id, COALESCE(u.username, ''), COALESCE(u.status, ''),
+       COALESCE(u.used_traffic, 0), COALESCE(u.data_limit, 0), COALESCE(u.expire, 0), COALESCE(s.name, ''), vus.protocol,
        COALESCE(vus.inbound_tag, ''), vus.session_id, COALESCE(vus.assigned_ip, ''), `+clientExpr+`, vus.last_seen_at
 FROM vpn_user_sessions vus
 JOIN users u ON u.id = vus.user_id
 LEFT JOIN nodes n ON n.id = vus.node_id
-WHERE vus.ended_at IS NULL AND u.status != 'deleted'`+where+`
+LEFT JOIN services s ON s.id = u.service_id
+WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ? AND u.status != 'deleted'`+where+`
 ORDER BY vus.last_seen_at DESC
 LIMIT ?`, args...)
 	if err != nil {
@@ -102,7 +107,7 @@ LIMIT ?`, args...)
 	for rows.Next() {
 		var item UserOnlineIPRecord
 		var seen any
-		if err := rows.Scan(&item.NodeID, &item.NodeName, &item.UserID, &item.Username, &item.Protocol, &item.InboundTag, &item.SessionID, &item.AssignedIP, &item.IP, &seen); err != nil {
+		if err := rows.Scan(&item.NodeID, &item.NodeName, &item.UserID, &item.Username, &item.UserStatus, &item.UsedTraffic, &item.DataLimit, &item.Expire, &item.ServiceName, &item.Protocol, &item.InboundTag, &item.SessionID, &item.AssignedIP, &item.IP, &seen); err != nil {
 			return nil, err
 		}
 		if item.IP == "" {

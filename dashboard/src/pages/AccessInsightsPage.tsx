@@ -5,11 +5,14 @@ import {
 	Box,
 	Button,
 	ButtonGroup,
+	Divider,
 	HStack,
 	Input,
 	InputGroup,
 	InputLeftElement,
 	Spinner,
+	Progress,
+	SimpleGrid,
 	Stack,
 	Switch,
 	Text,
@@ -17,10 +20,12 @@ import {
 } from "@chakra-ui/react";
 import {
 	ArrowPathIcon,
+	EyeIcon,
 	MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import { OperatorIdentity } from "components/OperatorIdentity";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { AppDialog } from "components/dialogs/AppDialog";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -38,6 +43,7 @@ import type {
 	AccessInsightsResponse,
 } from "types/AccessInsights";
 import { filterAccessInsightItems } from "utils/accessInsights";
+import { formatBytes } from "utils/formatByte";
 
 const PAGE_SIZE = 30;
 const REFRESH_INTERVAL = 15_000;
@@ -77,6 +83,8 @@ const AccessInsightsPage: FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [autoRefresh, setAutoRefresh] = useState(false);
 	const [error, setError] = useState("");
+	const [selectedClient, setSelectedClient] =
+		useState<AccessInsightClient | null>(null);
 
 	const load = useCallback(async () => {
 		if (!canView) return;
@@ -213,7 +221,7 @@ const AccessInsightsPage: FC = () => {
 					const sources = uniqueStrings(client.sources || []);
 					return (
 						<VStack align="stretch" spacing={2} minW={0}>
-							{sources.map((ip) => {
+						{sources.slice(0, 3).map((ip) => {
 								const operator = operatorByIP.get(ip);
 								const nodes = uniqueStrings(client.source_nodes?.[ip] || []);
 								return (
@@ -244,9 +252,14 @@ const AccessInsightsPage: FC = () => {
 										/>
 									</HStack>
 								);
-							})}
-						</VStack>
-					);
+						})}
+						{sources.length > 3 ? (
+							<Text fontSize="xs" color="panel.textMuted">
+								+{sources.length - 3}
+							</Text>
+						) : null}
+					</VStack>
+				);
 				},
 			},
 			{
@@ -284,6 +297,24 @@ const AccessInsightsPage: FC = () => {
 					<Text dir="ltr" fontSize="xs" whiteSpace="nowrap">
 						{dayjs(client.last_seen).format("YYYY-MM-DD HH:mm:ss")}
 					</Text>
+				),
+			},
+			{
+				id: "details",
+				header: t("details"),
+				priority: "medium",
+				width: "92px",
+				minWidth: "86px",
+				mobilePriority: 4,
+				cell: (client) => (
+					<Button
+						size="xs"
+						variant="ghost"
+						leftIcon={<EyeIcon width={15} />}
+						onClick={() => setSelectedClient(client)}
+					>
+						{t("details")}
+					</Button>
 				),
 			},
 		],
@@ -337,6 +368,18 @@ const AccessInsightsPage: FC = () => {
 				</ButtonGroup>
 			</HStack>
 		) : null;
+	const selectedSources = uniqueStrings(selectedClient?.sources || []);
+	const selectedOperatorByIP = new Map(
+		(selectedClient?.operators || []).map((operator) => [operator.ip, operator]),
+	);
+	const selectedLimit = Number(selectedClient?.data_limit || 0);
+	const selectedUsage = Number(selectedClient?.used_traffic || 0);
+	const selectedRemaining =
+		selectedLimit > 0 ? Math.max(selectedLimit - selectedUsage, 0) : null;
+	const selectedUsagePercent =
+		selectedLimit > 0
+			? Math.min((selectedUsage / selectedLimit) * 100, 100)
+			: 0;
 
 	return (
 		<VStack
@@ -498,6 +541,122 @@ const AccessInsightsPage: FC = () => {
 					}}
 				/>
 			</Stack>
+
+			<AppDialog
+				isOpen={selectedClient !== null}
+				onClose={() => setSelectedClient(null)}
+				isCentered
+				size="xl"
+				title={`${t("details")}: ${selectedClient?.user_label || ""}`}
+				contentProps={{ maxH: "min(760px, calc(100dvh - 2rem))" }}
+				bodyProps={{ pb: 6 }}
+			>
+				{selectedClient ? (
+					<Stack spacing={5}>
+						<SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
+							<Box>
+								<Text fontSize="xs" color="panel.textMuted">
+									{t("status")}
+								</Text>
+								<Badge
+									mt={1}
+									colorScheme={
+										selectedClient.user_status === "active" ? "green" : "gray"
+									}
+								>
+									{t(`status.${selectedClient.user_status || "active"}`, {
+										defaultValue: selectedClient.user_status || "-",
+									})}
+								</Badge>
+							</Box>
+							<Box>
+								<Text fontSize="xs" color="panel.textMuted">
+									{t("service")}
+								</Text>
+								<Text mt={1} fontSize="sm" fontWeight="semibold" noOfLines={1}>
+									{selectedClient.service_name || "-"}
+								</Text>
+							</Box>
+							<Box>
+								<Text fontSize="xs" color="panel.textMuted">
+									{t("pages.accessInsights.connections")}
+								</Text>
+								<Text mt={1} fontSize="sm" fontWeight="semibold">
+									{selectedClient.connections}
+								</Text>
+							</Box>
+							<Box>
+								<Text fontSize="xs" color="panel.textMuted">
+									{t("expire")}
+								</Text>
+								<Text mt={1} fontSize="sm" fontWeight="semibold" dir="ltr">
+									{selectedClient.expire
+										? dayjs.unix(selectedClient.expire).format("YYYY-MM-DD HH:mm")
+										: t("admins.expireNotSet")}
+								</Text>
+							</Box>
+						</SimpleGrid>
+
+						<Box>
+							<HStack justify="space-between" mb={2}>
+								<Text fontSize="sm" fontWeight="semibold">
+									{t("dataUsage")}
+								</Text>
+								<Text fontSize="xs" color="panel.textMuted" dir="ltr">
+									{formatBytes(selectedUsage)} / {selectedLimit > 0 ? formatBytes(selectedLimit) : t("unlimited")}
+								</Text>
+							</HStack>
+							<Progress
+								value={selectedUsagePercent}
+								isAnimated={false}
+								size="sm"
+								borderRadius="full"
+								colorScheme={selectedUsagePercent >= 90 ? "red" : "green"}
+							/>
+							<Text mt={2} fontSize="xs" color="panel.textMuted" dir="ltr">
+								{t("remaining")}: {selectedRemaining === null ? t("unlimited") : formatBytes(selectedRemaining)}
+							</Text>
+						</Box>
+
+						<Divider />
+						<Box>
+							<HStack justify="space-between" mb={2}>
+								<Text fontSize="sm" fontWeight="semibold">
+									{t("pages.accessInsights.ips")}
+								</Text>
+								<Badge variant="subtle">{selectedSources.length}</Badge>
+							</HStack>
+							<VStack align="stretch" spacing={0} maxH="320px" overflowY="auto">
+								{selectedSources.map((ip) => {
+									const operator = selectedOperatorByIP.get(ip);
+									const nodes = uniqueStrings(selectedClient.source_nodes?.[ip] || []);
+									return (
+										<HStack
+											key={ip}
+											py={2}
+											borderBottomWidth="1px"
+											borderColor="panel.border"
+											align="center"
+										>
+											<Box minW={{ base: "132px", md: "180px" }}>
+												<Text dir="ltr" fontFamily="mono" fontSize="xs" fontWeight="semibold">
+													{ip}
+												</Text>
+												{nodes.length ? (
+													<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+														{nodes.join(", ")}
+													</Text>
+												) : null}
+											</Box>
+											<OperatorIdentity shortName={operator?.short_name} owner={operator?.owner} compact />
+										</HStack>
+									);
+								})}
+							</VStack>
+						</Box>
+					</Stack>
+				) : null}
+			</AppDialog>
 		</VStack>
 	);
 };

@@ -32,6 +32,11 @@ type UserOnlineIPRecord struct {
 	NodeNames         []string  `json:"node_names,omitempty"`
 	UserID            int64     `json:"user_id"`
 	Username          string    `json:"username,omitempty"`
+	UserStatus        string    `json:"user_status,omitempty"`
+	UsedTraffic       int64     `json:"used_traffic"`
+	DataLimit         int64     `json:"data_limit"`
+	Expire            int64     `json:"expire"`
+	ServiceName       string    `json:"service_name,omitempty"`
 	Protocol          string    `json:"protocol"`
 	Protocols         []string  `json:"protocols,omitempty"`
 	InboundTag        string    `json:"inbound_tag,omitempty"`
