@@ -77,6 +77,7 @@ func (s *Server) handleWindscribeSetup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Windscribe tag may only contain letters, numbers, dots, underscores, and hyphens")
 		return
 	}
+	tag = windscribeOutboundTag(tag, location)
 	proxyUsername, err := randomWindscribeCredential()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -121,6 +122,15 @@ func (s *Server) handleWindscribeSetup(w http.ResponseWriter, r *http.Request) {
 			"outbound": outbound,
 		},
 	})
+}
+
+func windscribeOutboundTag(prefix, location string) string {
+	prefix = strings.TrimSpace(prefix)
+	locationSuffix := "-" + strings.ToLower(strings.TrimSpace(location))
+	if strings.HasSuffix(strings.ToLower(prefix), locationSuffix) {
+		prefix = prefix[:len(prefix)-len(locationSuffix)]
+	}
+	return prefix + locationSuffix
 }
 
 func proxyNodePayload(w http.ResponseWriter, r *http.Request, provider string) (map[string]any, int64, bool) {

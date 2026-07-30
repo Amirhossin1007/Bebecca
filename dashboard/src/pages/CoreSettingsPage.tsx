@@ -85,6 +85,7 @@ import { useTranslation } from "react-i18next";
 import { SiNordvpn, SiTorproject } from "react-icons/si";
 import { useMutation, useQuery } from "react-query";
 import { fetch as apiFetch } from "service/http";
+import psiphonIconUrl from "../assets/brands/psiphon.png";
 import windscribeIconUrl from "../assets/brands/windscribe.png";
 import {
 	type BalancerFormValues,
@@ -123,6 +124,7 @@ import {
 	type RebeccaJsonContext,
 	stringifyRebeccaJson,
 } from "../utils/jsonFormatting";
+import { countryFlag } from "../utils/countries";
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
 import XrayLogsPage from "./XrayLogsPage";
@@ -185,7 +187,55 @@ const WindscribeIconStyled = () => (
 		objectFit="contain"
 	/>
 );
-const PsiphonIconStyled = chakra(GlobeAltIcon, { baseStyle: { w: 4, h: 4 } });
+const PsiphonIconStyled = () => (
+	<Box
+		as="img"
+		src={psiphonIconUrl}
+		alt=""
+		aria-hidden="true"
+		boxSize={4}
+		objectFit="contain"
+	/>
+);
+const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
+	const meta = managedOutboundMeta(outbound);
+	if (!meta) return null;
+	const providerName =
+		meta.provider === "tor"
+			? "Tor"
+			: meta.provider === "windscribe"
+				? "Windscribe"
+				: "Psiphon";
+	const icon =
+		meta.provider === "tor" ? (
+			<TorIconStyled />
+		) : meta.provider === "windscribe" ? (
+			<WindscribeIconStyled />
+		) : (
+			<PsiphonIconStyled />
+		);
+	return (
+		<Tooltip
+			label={
+				meta.country
+					? `${providerName} - ${meta.country.toUpperCase()}`
+					: providerName
+			}
+		>
+			<HStack
+				spacing={1}
+				px={1.5}
+				py={0.5}
+				borderRadius="sm"
+				bg="whiteAlpha.100"
+				flexShrink={0}
+			>
+				{icon}
+				{meta.country && <Text fontSize="sm">{countryFlag(meta.country)}</Text>}
+			</HStack>
+		</Tooltip>
+	);
+};
 const compactActionButtonProps = {
 	colorScheme: "primary",
 	size: "xs" as const,
@@ -344,6 +394,23 @@ type VlessOutboundAccount = {
 	seed?: string;
 	testpre?: number;
 	testseed?: number[];
+};
+
+type ManagedOutboundProvider = "tor" | "windscribe" | "psiphon";
+
+type ManagedOutboundMeta = {
+	provider: ManagedOutboundProvider;
+	country?: string;
+};
+
+const managedOutboundMeta = (outbound: any): ManagedOutboundMeta | null => {
+	const tag = String(outbound?.tag ?? "").trim();
+	const match = tag.match(/(?:^|[-_.])(tor|windscribe|psiphon)(?:-([a-z]{2}))?$/i);
+	if (!match) return null;
+	return {
+		provider: match[1].toLowerCase() as ManagedOutboundProvider,
+		country: match[2]?.toLowerCase(),
+	};
 };
 
 const stringArray = (value: unknown): string[] =>
@@ -1666,6 +1733,18 @@ export const CoreSettingsPage: FC = () => {
 			JSON.stringify(outbound).toLowerCase().includes(term),
 		);
 	}, [outboundData, outboundSearch]);
+	const managedOutboundData = useMemo(
+		() => filteredOutboundData.filter(({ outbound }) => managedOutboundMeta(outbound)),
+		[filteredOutboundData],
+	);
+	const standardOutboundData = useMemo(
+		() => filteredOutboundData.filter(({ outbound }) => !managedOutboundMeta(outbound)),
+		[filteredOutboundData],
+	);
+	const managedOutboundTotal = useMemo(
+		() => outboundData.filter((outbound) => managedOutboundMeta(outbound)).length,
+		[outboundData],
+	);
 
 	const addRule = () => {
 		setEditingRuleIndex(null);
@@ -3445,9 +3524,12 @@ export const CoreSettingsPage: FC = () => {
 			minSize: { base: "170px", lg: "210px" },
 			cell: ({ outbound }) => (
 				<VStack align="start" spacing={1}>
-					<Text fontWeight="semibold" noOfLines={1}>
-						{String(outbound.tag ?? "-")}
-					</Text>
+					<HStack spacing={1.5} maxW="full" minW={0}>
+						<Text fontWeight="semibold" noOfLines={1}>
+							{String(outbound.tag ?? "-")}
+						</Text>
+						<ManagedOutboundBadge outbound={outbound} />
+					</HStack>
 					{renderOutboundBadges(outbound)}
 				</VStack>
 			),
@@ -4586,11 +4668,11 @@ export const CoreSettingsPage: FC = () => {
 								summaryItems={[
 									{
 										label: t("total"),
-										value: outboundData.length,
+										value: outboundData.length - managedOutboundTotal,
 									},
 									{
 										label: t("listed"),
-										value: filteredOutboundData.length,
+										value: standardOutboundData.length,
 										colorScheme: "green",
 									},
 									{
@@ -4747,7 +4829,7 @@ export const CoreSettingsPage: FC = () => {
 								</Stack>
 							</ResourceListCard>
 							<DataTable
-								data={filteredOutboundData}
+								data={standardOutboundData}
 								columns={outboundColumns}
 								getRowId={(row) => String(row.originalIndex)}
 								enableSelection
@@ -4760,6 +4842,39 @@ export const CoreSettingsPage: FC = () => {
 								emptyState={t("pages.xray.outbound.empty")}
 								ariaLabel={t("pages.xray.Outbounds")}
 							/>
+							{managedOutboundTotal > 0 && (
+								<VStack align="stretch" spacing={3}>
+									<ResourceListCard
+										title={t("pages.xray.outboundManaged.title")}
+										summaryItems={[
+											{
+												label: t("total"),
+												value: managedOutboundTotal,
+												colorScheme: "green",
+											},
+											{
+												label: t("listed"),
+												value: managedOutboundData.length,
+												colorScheme: "blue",
+											},
+										]}
+									>
+										<Text color="panel.textMuted" fontSize="xs">
+											{t("pages.xray.outboundManaged.description")}
+										</Text>
+									</ResourceListCard>
+									<DataTable
+										data={managedOutboundData}
+										columns={outboundColumns}
+										getRowId={(row) => String(row.originalIndex)}
+										rowActions={outboundActions}
+										actionsDisplay="menu"
+										actionsColumnWidth="52px"
+										emptyState={t("pages.xray.outbound.empty")}
+										ariaLabel={t("pages.xray.outboundManaged.title")}
+									/>
+								</VStack>
+							)}
 						</VStack>
 					</Box>
 				)}
@@ -5428,6 +5543,7 @@ export const CoreSettingsPage: FC = () => {
 					isOpen={isPsiphonProxyOpen}
 					isLoading={isApplyingPsiphonProxy}
 					isMasterTarget={isMasterTarget}
+					targetID={selectedTarget}
 					existingTags={availableOutboundTags}
 					onClose={onPsiphonProxyClose}
 					onSubmit={addPsiphonOutbounds}

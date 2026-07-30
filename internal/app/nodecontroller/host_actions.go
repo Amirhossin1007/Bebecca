@@ -166,6 +166,7 @@ func (c Controller) ConfigurePsiphon(ctx context.Context, req Request) (PsiphonR
 	res, err := client.Runtime().ConfigurePsiphon(ctx, &nodev1.PsiphonProxyRequest{
 		OperationId: "psiphon-" + strconv.FormatInt(req.NodeID, 10),
 		ConfigJson:  req.PsiphonConfigJSON,
+		Action:      req.PsiphonAction,
 		Locations:   req.PsiphonLocations,
 		SocksPort:   req.PsiphonSocksPort,
 	})
@@ -182,5 +183,6 @@ func (c Controller) ConfigurePsiphon(ctx context.Context, req Request) (PsiphonR
 	return PsiphonResult{
 		Runtime:   runtimeResult(node, res.GetRuntime(), nil),
 		Instances: instances,
+		Locations: res.GetLocations(),
 	}, nil
 }

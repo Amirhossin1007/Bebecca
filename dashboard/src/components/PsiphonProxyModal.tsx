@@ -18,9 +18,10 @@ import {
 	useColorModeValue,
 	VStack,
 } from "@chakra-ui/react";
-import { type FC, useEffect, useMemo } from "react";
+import { type FC, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { fetch as apiFetch } from "service/http";
 import { countrySelectOptions } from "../utils/countries";
 import {
 	MultiValueAutocomplete,
@@ -46,6 +47,7 @@ type Props = {
 	isOpen: boolean;
 	isLoading: boolean;
 	isMasterTarget: boolean;
+	targetID: string;
 	existingTags: string[];
 	onClose: () => void;
 	onSubmit: (values: PsiphonProxyFormValues) => Promise<void>;
@@ -62,6 +64,7 @@ export const PsiphonProxyModal: FC<Props> = ({
 	isOpen,
 	isLoading,
 	isMasterTarget,
+	targetID,
 	existingTags,
 	onClose,
 	onSubmit,
@@ -69,10 +72,17 @@ export const PsiphonProxyModal: FC<Props> = ({
 	const { t, i18n } = useTranslation();
 	const form = useForm<PsiphonProxyFormValues>({ defaultValues: defaults });
 	const borderColor = useColorModeValue("gray.200", "whiteAlpha.200");
+	const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+	const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+	const [loadedConfig, setLoadedConfig] = useState("");
+	const [loadError, setLoadError] = useState("");
 	const locationOptions = useMemo(
-		() => countrySelectOptions(i18n.language),
-		[i18n.language],
+		() => countrySelectOptions(i18n.language, availableLocations),
+		[availableLocations, i18n.language],
 	);
+	const config = form.watch("config").trim();
+	const locationsReady =
+		availableLocations.length > 0 && loadedConfig === config;
 	const locations = splitMultiValueText(form.watch("locations")).map((value) =>
 		value.toLowerCase(),
 	);
@@ -81,13 +91,57 @@ export const PsiphonProxyModal: FC<Props> = ({
 	const preview = locations.map((location, index) => ({
 		location,
 		port: startPort + index,
-		tag: locations.length > 1 ? `${tag}-${location}` : tag,
+		tag: `${tag}-${location}`,
 	}));
 	const duplicateTag = preview.find((item) => existingTags.includes(item.tag))?.tag;
 
 	useEffect(() => {
-		if (isOpen) form.reset(defaults);
+		if (!isOpen) return;
+		form.reset(defaults);
+		setAvailableLocations([]);
+		setLoadedConfig("");
+		setLoadError("");
 	}, [form, isOpen]);
+
+	const loadLocations = async () => {
+		if (!(await form.trigger("config"))) return;
+		setIsLoadingLocations(true);
+		setLoadError("");
+		const configValue = form.getValues("config").trim();
+		try {
+			const response = await apiFetch<{
+				success: boolean;
+				obj?: { locations?: string[] };
+				msg?: string;
+			}>("/panel/xray/psiphon/locations", {
+				method: "POST",
+				body: { target_id: targetID, config: configValue },
+			});
+			if (!response?.success) {
+				throw new Error(response?.msg || t("pages.xray.psiphon.locationsFailed"));
+			}
+			const locations = (response.obj?.locations ?? []).filter((value) =>
+				/^[a-z]{2}$/i.test(value),
+			);
+			if (locations.length === 0) {
+				throw new Error(t("pages.xray.psiphon.noLocations"));
+			}
+			setAvailableLocations(locations.map((value) => value.toLowerCase()));
+			setLoadedConfig(configValue);
+			form.setValue("locations", "", { shouldValidate: true });
+		} catch (error: any) {
+			setAvailableLocations([]);
+			setLoadedConfig("");
+			const detail =
+				error?.response?._data?.detail ??
+				error?.data?.detail ??
+				error?.message ??
+				t("pages.xray.psiphon.locationsFailed");
+			setLoadError(typeof detail === "string" ? detail : JSON.stringify(detail));
+		} finally {
+			setIsLoadingLocations(false);
+		}
+	};
 
 	return (
 		<Modal
@@ -95,8 +149,8 @@ export const PsiphonProxyModal: FC<Props> = ({
 			onClose={onClose}
 			size="xl"
 			isCentered
-			closeOnEsc={!isLoading}
-			closeOnOverlayClick={!isLoading}
+			closeOnEsc={!isLoading && !isLoadingLocations}
+			closeOnOverlayClick={!isLoading && !isLoadingLocations}
 		>
 			<ModalOverlay />
 			<XrayModalContent>
@@ -112,7 +166,7 @@ export const PsiphonProxyModal: FC<Props> = ({
 					<XrayModalHeader subtitle={t("pages.xray.psiphon.description")}>
 						{t("pages.xray.psiphon.title")}
 					</XrayModalHeader>
-					<ModalCloseButton isDisabled={isLoading} />
+					<ModalCloseButton isDisabled={isLoading || isLoadingLocations} />
 					<XrayModalBody flex="1" minH={0} overflowY="auto">
 						<VStack spacing={3} align="stretch">
 							{isMasterTarget && (
@@ -153,6 +207,23 @@ export const PsiphonProxyModal: FC<Props> = ({
 									<FormErrorMessage>
 										{form.formState.errors.config?.message}
 									</FormErrorMessage>
+									<Button
+										mt={3}
+										size="sm"
+										type="button"
+										variant="outline"
+										isLoading={isLoadingLocations}
+										isDisabled={isMasterTarget || isLoading}
+										onClick={loadLocations}
+									>
+										{t("pages.xray.psiphon.loadLocations")}
+									</Button>
+									{loadError && (
+										<Alert mt={3} status="error" borderRadius="sm" fontSize="sm">
+											<AlertIcon />
+											{loadError}
+										</Alert>
+									)}
 								</FormControl>
 							</XrayDialogSection>
 							<XrayDialogSection title={t("pages.xray.psiphon.proxy")}>
@@ -162,14 +233,24 @@ export const PsiphonProxyModal: FC<Props> = ({
 										name="locations"
 										control={form.control}
 										rules={{
-											validate: (value) => {
-												const selected = splitMultiValueText(value);
+										validate: (value) => {
+											if (!locationsReady) {
+												return t("pages.xray.psiphon.locationsRequired");
+											}
+											const selected = splitMultiValueText(value);
 												if (selected.length === 0) {
 													return t("pages.xray.psiphon.locationsRequired");
 												}
-												if (selected.length > 20) {
+											if (selected.length > 20) {
 													return t("pages.xray.psiphon.locationsLimit");
-												}
+											}
+											if (
+												selected.some(
+													(item) => !availableLocations.includes(item.toLowerCase()),
+												)
+											) {
+												return t("pages.xray.psiphon.locationsRequired");
+											}
 												return (
 													new Set(selected.map((item) => item.toLowerCase())).size ===
 														selected.length || t("pages.xray.psiphon.locationsDuplicate")
@@ -179,6 +260,7 @@ export const PsiphonProxyModal: FC<Props> = ({
 										render={({ field }) => (
 											<MultiValueAutocomplete
 												allowCustom={false}
+												isDisabled={!locationsReady || isLoadingLocations}
 												options={locationOptions}
 												placeholder={t("pages.xray.psiphon.selectLocations")}
 												value={field.value}
@@ -260,14 +342,23 @@ export const PsiphonProxyModal: FC<Props> = ({
 						</VStack>
 					</XrayModalBody>
 					<XrayModalFooter justifyContent="flex-end">
-						<Button variant="outline" onClick={onClose} isDisabled={isLoading}>
+						<Button
+							variant="outline"
+							onClick={onClose}
+							isDisabled={isLoading || isLoadingLocations}
+						>
 							{t("cancel")}
 						</Button>
 						<Button
 							type="submit"
 							colorScheme="primary"
 							isLoading={isLoading}
-							isDisabled={isMasterTarget || Boolean(duplicateTag)}
+							isDisabled={
+								isMasterTarget ||
+								!locationsReady ||
+								isLoadingLocations ||
+								Boolean(duplicateTag)
+							}
 						>
 							{t("pages.xray.psiphon.start")}
 						</Button>

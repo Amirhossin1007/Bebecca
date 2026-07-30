@@ -34,6 +34,7 @@ type Request struct {
 	WindscribeProxyUsername string   `json:"windscribe_proxy_username,omitempty"`
 	WindscribeProxyPassword string   `json:"windscribe_proxy_password,omitempty"`
 	PsiphonConfigJSON       string   `json:"psiphon_config_json,omitempty"`
+	PsiphonAction           string   `json:"psiphon_action,omitempty"`
 	PsiphonLocations        []string `json:"psiphon_locations,omitempty"`
 	PsiphonSocksPort        uint32   `json:"psiphon_socks_port,omitempty"`
 }
@@ -128,6 +129,7 @@ type PsiphonInstance struct {
 type PsiphonResult struct {
 	Runtime   RuntimeResult     `json:"runtime"`
 	Instances []PsiphonInstance `json:"instances,omitempty"`
+	Locations []string          `json:"locations,omitempty"`
 }
 
 type StreamLogsRequest struct {
