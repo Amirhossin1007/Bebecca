@@ -461,7 +461,7 @@ const HistoryModal: FC<{
 				strokeDashArray: 4,
 				xaxis: { lines: { show: false } },
 				yaxis: { lines: { show: true } },
-				padding: { top: 0, right: 0, bottom: 0, left: 10 },
+				padding: { top: 10, right: 0, bottom: 0, left: 10 },
 			},
 			xaxis: {
 				type: "datetime" as const,
@@ -481,11 +481,11 @@ const HistoryModal: FC<{
 			},
 			legend: {
 				position: "top" as const,
-				horizontalAlign: "right" as const,
-				offsetY: -10,
+				horizontalAlign: "center" as const,
+				offsetY: 0,
 				markers: { radius: 12 },
 				labels: { colors: mutedTextColor },
-				itemMargin: { horizontal: 10, vertical: 0 },
+				itemMargin: { horizontal: 15, vertical: 5 },
 			},
 			tooltip: {
 				theme: colorMode,
@@ -500,10 +500,10 @@ const HistoryModal: FC<{
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
 			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(4px)" />
 			<XrayModalContent>
-				<XrayModalHeader py={5}>
+				<XrayModalHeader pt={6} pb={4} display="flex" alignItems="center" lineHeight="1">
 					{t("historyModalTitle", { metric: payload?.title ?? "" })}
 				</XrayModalHeader>
-				<ModalCloseButton top={5} right={5} />
+				<ModalCloseButton top={4} insetEnd={5} />
 				<XrayModalBody py={2}>
 					<Stack spacing={6}>
 						<Flex wrap="wrap" gap={2}>
@@ -1308,6 +1308,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 
 	const openHistory = (payload: HistoryModalPayload) => {
+		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
 		setHistoryPayload(payload);
 	};
 
