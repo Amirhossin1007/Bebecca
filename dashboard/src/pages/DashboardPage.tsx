@@ -19,23 +19,21 @@ export const DashboardPage = () => {
 						</Text>
 					</Box>
 					<Flex
-						direction={{ base: "column", sm: "row" }}
 						gap={2}
-						w={{ base: "full", xl: "auto" }}
-						wrap="nowrap"
-						minW={0}
+						wrap="wrap"
+						justify={{ base: "flex-start", xl: "flex-end" }}
 					>
-						<Tag size={{ base: "sm", md: "md" }} variant="subtle" colorScheme="green" borderRadius="full" px={{ base: 2, md: 4 }} py={2} flex="1" justifyContent="center" minW={0}>
+						<Tag size={{ base: "sm", md: "md" }} variant="subtle" colorScheme="green" borderRadius="full" px={{ base: 3, md: 4 }} py={2}>
 							<TagLeftIcon boxSize={{ base: "12px", md: "14px" }} as={BoltIcon} m={0} me={1.5} />
-							<TagLabel fontWeight="bold" fontSize="clamp(10px, 2.5vw, 14px)" isTruncated>{t("systemOverview")}: {t("live")}</TagLabel>
+							<TagLabel fontWeight="bold" fontSize="clamp(10px, 2.5vw, 13px)">{t("systemOverview")}: {t("live")}</TagLabel>
 						</Tag>
-						<Tag size={{ base: "sm", md: "md" }} variant="subtle" colorScheme="green" borderRadius="full" px={{ base: 2, md: 4 }} py={2} flex="1" justifyContent="center" minW={0}>
+						<Tag size={{ base: "sm", md: "md" }} variant="subtle" colorScheme="green" borderRadius="full" px={{ base: 3, md: 4 }} py={2}>
 							<TagLeftIcon boxSize={{ base: "12px", md: "14px" }} as={UserGroupIcon} m={0} me={1.5} />
-							<TagLabel fontWeight="bold" fontSize="clamp(10px, 2.5vw, 14px)" isTruncated>{t("usersOverview")}: {t("live")}</TagLabel>
+							<TagLabel fontWeight="bold" fontSize="clamp(10px, 2.5vw, 13px)">{t("usersOverview")}: {t("live")}</TagLabel>
 						</Tag>
-						<Tag size={{ base: "sm", md: "md" }} variant="subtle" colorScheme="blue" borderRadius="full" px={{ base: 2, md: 4 }} py={2} flex="1" justifyContent="center" minW={0}>
+						<Tag size={{ base: "sm", md: "md" }} variant="subtle" colorScheme="blue" borderRadius="full" px={{ base: 3, md: 4 }} py={2}>
 							<TagLeftIcon boxSize={{ base: "12px", md: "14px" }} as={ClockIcon} m={0} me={1.5} />
-							<TagLabel fontWeight="bold" fontSize="clamp(10px, 2.5vw, 14px)" isTruncated>{t("dashboard.updateInterval")}: {t("dashboard.every3Seconds")}</TagLabel>
+							<TagLabel fontWeight="bold" fontSize="clamp(10px, 2.5vw, 13px)">{t("dashboard.updateInterval")}: {t("dashboard.every3Seconds")}</TagLabel>
 						</Tag>
 					</Flex>
 				</Flex>
