@@ -686,7 +686,7 @@ const SpeedItem: FC<{
 			py={3}
 			minH="80px"
 			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
-			_hover={{ transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" }}
+			_hover={{ "@media (min-width: 768px)": { transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" } }}
 		>
 			<Flex w={10} h={10} align="center" justify="center" bg={accentBg} color={iconColor} borderRadius="lg" flexShrink={0}>
 				{icon}
@@ -728,7 +728,7 @@ const NetworkSpeedCard: FC<{
 			bg={bg}
 			p={4}
 			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
-			_hover={{ shadow: "sm", borderColor: "panel.borderStrong" }}
+			_hover={{ "@media (min-width: 768px)": { shadow: "sm", borderColor: "panel.borderStrong" } }}
 		>
 			<Stack spacing={4}>
 				<Flex justifyContent="space-between" alignItems="center" gap={2} wrap="wrap">
@@ -797,7 +797,7 @@ const MetricBadge: FC<{
 			overflow="hidden"
 			minH="80px"
 			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
-			_hover={{ transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" }}
+			_hover={{ "@media (min-width: 768px)": { transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" } }}
 		>
 			<HStack spacing={2} mb={2}>
 				<Box w="8px" h="8px" borderRadius="full" bg={accent} flexShrink={0} />
