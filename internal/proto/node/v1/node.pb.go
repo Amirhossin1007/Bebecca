@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: internal/proto/schema/rebecca/node/v1/node.proto
+// source: rebecca/node/v1/node.proto
 
 package nodev1
 
@@ -29,7 +29,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[0]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -41,7 +41,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[0]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -54,7 +54,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{0}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{0}
 }
 
 type HelloRequest struct {
@@ -67,7 +67,7 @@ type HelloRequest struct {
 
 func (x *HelloRequest) Reset() {
 	*x = HelloRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[1]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -79,7 +79,7 @@ func (x *HelloRequest) String() string {
 func (*HelloRequest) ProtoMessage() {}
 
 func (x *HelloRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[1]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -92,7 +92,7 @@ func (x *HelloRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloRequest.ProtoReflect.Descriptor instead.
 func (*HelloRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{1}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *HelloRequest) GetMasterId() string {
@@ -123,7 +123,7 @@ type HelloResponse struct {
 
 func (x *HelloResponse) Reset() {
 	*x = HelloResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[2]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -135,7 +135,7 @@ func (x *HelloResponse) String() string {
 func (*HelloResponse) ProtoMessage() {}
 
 func (x *HelloResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[2]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -148,7 +148,7 @@ func (x *HelloResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloResponse.ProtoReflect.Descriptor instead.
 func (*HelloResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{2}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *HelloResponse) GetNodeId() string {
@@ -204,7 +204,7 @@ type ConnectRequest struct {
 
 func (x *ConnectRequest) Reset() {
 	*x = ConnectRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[3]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -216,7 +216,7 @@ func (x *ConnectRequest) String() string {
 func (*ConnectRequest) ProtoMessage() {}
 
 func (x *ConnectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[3]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -229,7 +229,7 @@ func (x *ConnectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectRequest.ProtoReflect.Descriptor instead.
 func (*ConnectRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{3}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ConnectRequest) GetMasterId() string {
@@ -263,7 +263,7 @@ type ConnectResponse struct {
 
 func (x *ConnectResponse) Reset() {
 	*x = ConnectResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[4]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -275,7 +275,7 @@ func (x *ConnectResponse) String() string {
 func (*ConnectResponse) ProtoMessage() {}
 
 func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[4]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -288,7 +288,7 @@ func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectResponse.ProtoReflect.Descriptor instead.
 func (*ConnectResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{4}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ConnectResponse) GetConnectionId() string {
@@ -314,7 +314,7 @@ type HealthRequest struct {
 
 func (x *HealthRequest) Reset() {
 	*x = HealthRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[5]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -326,7 +326,7 @@ func (x *HealthRequest) String() string {
 func (*HealthRequest) ProtoMessage() {}
 
 func (x *HealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[5]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -339,7 +339,7 @@ func (x *HealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthRequest.ProtoReflect.Descriptor instead.
 func (*HealthRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{5}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HealthRequest) GetIncludeMetrics() bool {
@@ -359,7 +359,7 @@ type HealthResponse struct {
 
 func (x *HealthResponse) Reset() {
 	*x = HealthResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[6]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -371,7 +371,7 @@ func (x *HealthResponse) String() string {
 func (*HealthResponse) ProtoMessage() {}
 
 func (x *HealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[6]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -384,7 +384,7 @@ func (x *HealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthResponse.ProtoReflect.Descriptor instead.
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{6}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *HealthResponse) GetRuntime() *RuntimeState {
@@ -416,7 +416,7 @@ type RuntimeState struct {
 
 func (x *RuntimeState) Reset() {
 	*x = RuntimeState{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[7]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -428,7 +428,7 @@ func (x *RuntimeState) String() string {
 func (*RuntimeState) ProtoMessage() {}
 
 func (x *RuntimeState) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[7]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -441,7 +441,7 @@ func (x *RuntimeState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeState.ProtoReflect.Descriptor instead.
 func (*RuntimeState) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{7}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RuntimeState) GetConnected() bool {
@@ -505,7 +505,7 @@ type RuntimeConfigRequest struct {
 
 func (x *RuntimeConfigRequest) Reset() {
 	*x = RuntimeConfigRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[8]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -517,7 +517,7 @@ func (x *RuntimeConfigRequest) String() string {
 func (*RuntimeConfigRequest) ProtoMessage() {}
 
 func (x *RuntimeConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[8]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -530,7 +530,7 @@ func (x *RuntimeConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeConfigRequest.ProtoReflect.Descriptor instead.
 func (*RuntimeConfigRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{8}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RuntimeConfigRequest) GetOperationId() string {
@@ -571,7 +571,7 @@ type StopRuntimeRequest struct {
 
 func (x *StopRuntimeRequest) Reset() {
 	*x = StopRuntimeRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[9]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -583,7 +583,7 @@ func (x *StopRuntimeRequest) String() string {
 func (*StopRuntimeRequest) ProtoMessage() {}
 
 func (x *StopRuntimeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[9]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -596,7 +596,7 @@ func (x *StopRuntimeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopRuntimeRequest.ProtoReflect.Descriptor instead.
 func (*StopRuntimeRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{9}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StopRuntimeRequest) GetOperationId() string {
@@ -625,7 +625,7 @@ type RuntimeActionResponse struct {
 
 func (x *RuntimeActionResponse) Reset() {
 	*x = RuntimeActionResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[10]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +637,7 @@ func (x *RuntimeActionResponse) String() string {
 func (*RuntimeActionResponse) ProtoMessage() {}
 
 func (x *RuntimeActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[10]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +650,7 @@ func (x *RuntimeActionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeActionResponse.ProtoReflect.Descriptor instead.
 func (*RuntimeActionResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{10}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RuntimeActionResponse) GetOperationId() string {
@@ -692,7 +692,7 @@ type InboundUserRequest struct {
 
 func (x *InboundUserRequest) Reset() {
 	*x = InboundUserRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[11]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -704,7 +704,7 @@ func (x *InboundUserRequest) String() string {
 func (*InboundUserRequest) ProtoMessage() {}
 
 func (x *InboundUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[11]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -717,7 +717,7 @@ func (x *InboundUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InboundUserRequest.ProtoReflect.Descriptor instead.
 func (*InboundUserRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{11}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *InboundUserRequest) GetOperationId() string {
@@ -752,7 +752,7 @@ type RemoveInboundUserRequest struct {
 
 func (x *RemoveInboundUserRequest) Reset() {
 	*x = RemoveInboundUserRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[12]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -764,7 +764,7 @@ func (x *RemoveInboundUserRequest) String() string {
 func (*RemoveInboundUserRequest) ProtoMessage() {}
 
 func (x *RemoveInboundUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[12]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -777,7 +777,7 @@ func (x *RemoveInboundUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveInboundUserRequest.ProtoReflect.Descriptor instead.
 func (*RemoveInboundUserRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{12}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RemoveInboundUserRequest) GetOperationId() string {
@@ -812,7 +812,7 @@ type InboundUser struct {
 
 func (x *InboundUser) Reset() {
 	*x = InboundUser{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[13]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -824,7 +824,7 @@ func (x *InboundUser) String() string {
 func (*InboundUser) ProtoMessage() {}
 
 func (x *InboundUser) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[13]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -837,7 +837,7 @@ func (x *InboundUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InboundUser.ProtoReflect.Descriptor instead.
 func (*InboundUser) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{13}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *InboundUser) GetEmail() string {
@@ -870,7 +870,7 @@ type MetricsRequest struct {
 
 func (x *MetricsRequest) Reset() {
 	*x = MetricsRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[14]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -882,7 +882,7 @@ func (x *MetricsRequest) String() string {
 func (*MetricsRequest) ProtoMessage() {}
 
 func (x *MetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[14]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -895,7 +895,7 @@ func (x *MetricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetricsRequest.ProtoReflect.Descriptor instead.
 func (*MetricsRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{14}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *MetricsRequest) GetIncludeRuntime() bool {
@@ -917,7 +917,7 @@ type MetricsResponse struct {
 
 func (x *MetricsResponse) Reset() {
 	*x = MetricsResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[15]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -929,7 +929,7 @@ func (x *MetricsResponse) String() string {
 func (*MetricsResponse) ProtoMessage() {}
 
 func (x *MetricsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[15]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -942,7 +942,7 @@ func (x *MetricsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetricsResponse.ProtoReflect.Descriptor instead.
 func (*MetricsResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{15}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *MetricsResponse) GetRuntime() *RuntimeState {
@@ -981,7 +981,7 @@ type PublicIPsRequest struct {
 
 func (x *PublicIPsRequest) Reset() {
 	*x = PublicIPsRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[16]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -993,7 +993,7 @@ func (x *PublicIPsRequest) String() string {
 func (*PublicIPsRequest) ProtoMessage() {}
 
 func (x *PublicIPsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[16]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1006,7 +1006,7 @@ func (x *PublicIPsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicIPsRequest.ProtoReflect.Descriptor instead.
 func (*PublicIPsRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{16}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{16}
 }
 
 type PublicIPsResponse struct {
@@ -1019,7 +1019,7 @@ type PublicIPsResponse struct {
 
 func (x *PublicIPsResponse) Reset() {
 	*x = PublicIPsResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[17]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1031,7 +1031,7 @@ func (x *PublicIPsResponse) String() string {
 func (*PublicIPsResponse) ProtoMessage() {}
 
 func (x *PublicIPsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[17]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1044,7 +1044,7 @@ func (x *PublicIPsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicIPsResponse.ProtoReflect.Descriptor instead.
 func (*PublicIPsResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{17}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PublicIPsResponse) GetIpv4() string {
@@ -1075,7 +1075,7 @@ type OutboundTestRequest struct {
 
 func (x *OutboundTestRequest) Reset() {
 	*x = OutboundTestRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[18]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1087,7 +1087,7 @@ func (x *OutboundTestRequest) String() string {
 func (*OutboundTestRequest) ProtoMessage() {}
 
 func (x *OutboundTestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[18]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1100,7 +1100,7 @@ func (x *OutboundTestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutboundTestRequest.ProtoReflect.Descriptor instead.
 func (*OutboundTestRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{18}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *OutboundTestRequest) GetOperationId() string {
@@ -1161,7 +1161,7 @@ type OutboundTestResponse struct {
 
 func (x *OutboundTestResponse) Reset() {
 	*x = OutboundTestResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[19]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1173,7 +1173,7 @@ func (x *OutboundTestResponse) String() string {
 func (*OutboundTestResponse) ProtoMessage() {}
 
 func (x *OutboundTestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[19]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1186,7 +1186,7 @@ func (x *OutboundTestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutboundTestResponse.ProtoReflect.Descriptor instead.
 func (*OutboundTestResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{19}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *OutboundTestResponse) GetSuccess() bool {
@@ -1263,7 +1263,7 @@ type RouteTestRequest struct {
 
 func (x *RouteTestRequest) Reset() {
 	*x = RouteTestRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[20]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1275,7 +1275,7 @@ func (x *RouteTestRequest) String() string {
 func (*RouteTestRequest) ProtoMessage() {}
 
 func (x *RouteTestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[20]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1288,7 +1288,7 @@ func (x *RouteTestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteTestRequest.ProtoReflect.Descriptor instead.
 func (*RouteTestRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{20}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RouteTestRequest) GetOperationId() string {
@@ -1377,7 +1377,7 @@ type RouteTestResponse struct {
 
 func (x *RouteTestResponse) Reset() {
 	*x = RouteTestResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[21]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1389,7 +1389,7 @@ func (x *RouteTestResponse) String() string {
 func (*RouteTestResponse) ProtoMessage() {}
 
 func (x *RouteTestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[21]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1402,7 +1402,7 @@ func (x *RouteTestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteTestResponse.ProtoReflect.Descriptor instead.
 func (*RouteTestResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{21}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *RouteTestResponse) GetMatched() bool {
@@ -1472,7 +1472,7 @@ type RouteTestTraffic struct {
 
 func (x *RouteTestTraffic) Reset() {
 	*x = RouteTestTraffic{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[22]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1484,7 +1484,7 @@ func (x *RouteTestTraffic) String() string {
 func (*RouteTestTraffic) ProtoMessage() {}
 
 func (x *RouteTestTraffic) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[22]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1497,7 +1497,7 @@ func (x *RouteTestTraffic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteTestTraffic.ProtoReflect.Descriptor instead.
 func (*RouteTestTraffic) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{22}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RouteTestTraffic) GetTag() string {
@@ -1531,7 +1531,7 @@ type RuntimeUpdateRequest struct {
 
 func (x *RuntimeUpdateRequest) Reset() {
 	*x = RuntimeUpdateRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[23]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1543,7 +1543,7 @@ func (x *RuntimeUpdateRequest) String() string {
 func (*RuntimeUpdateRequest) ProtoMessage() {}
 
 func (x *RuntimeUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[23]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1556,7 +1556,7 @@ func (x *RuntimeUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeUpdateRequest.ProtoReflect.Descriptor instead.
 func (*RuntimeUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{23}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RuntimeUpdateRequest) GetOperationId() string {
@@ -1583,7 +1583,7 @@ type GeoUpdateRequest struct {
 
 func (x *GeoUpdateRequest) Reset() {
 	*x = GeoUpdateRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[24]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1595,7 +1595,7 @@ func (x *GeoUpdateRequest) String() string {
 func (*GeoUpdateRequest) ProtoMessage() {}
 
 func (x *GeoUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[24]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1608,7 +1608,7 @@ func (x *GeoUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeoUpdateRequest.ProtoReflect.Descriptor instead.
 func (*GeoUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{24}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GeoUpdateRequest) GetOperationId() string {
@@ -1635,7 +1635,7 @@ type GeoFile struct {
 
 func (x *GeoFile) Reset() {
 	*x = GeoFile{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[25]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1647,7 +1647,7 @@ func (x *GeoFile) String() string {
 func (*GeoFile) ProtoMessage() {}
 
 func (x *GeoFile) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[25]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1660,7 +1660,7 @@ func (x *GeoFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeoFile.ProtoReflect.Descriptor instead.
 func (*GeoFile) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{25}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GeoFile) GetName() string {
@@ -1686,7 +1686,7 @@ type ServiceRestartRequest struct {
 
 func (x *ServiceRestartRequest) Reset() {
 	*x = ServiceRestartRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[26]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1698,7 @@ func (x *ServiceRestartRequest) String() string {
 func (*ServiceRestartRequest) ProtoMessage() {}
 
 func (x *ServiceRestartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[26]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1711,7 @@ func (x *ServiceRestartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceRestartRequest.ProtoReflect.Descriptor instead.
 func (*ServiceRestartRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{26}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ServiceRestartRequest) GetOperationId() string {
@@ -1732,7 +1732,7 @@ type ServiceUpdateRequest struct {
 
 func (x *ServiceUpdateRequest) Reset() {
 	*x = ServiceUpdateRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[27]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1744,7 +1744,7 @@ func (x *ServiceUpdateRequest) String() string {
 func (*ServiceUpdateRequest) ProtoMessage() {}
 
 func (x *ServiceUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[27]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1757,7 +1757,7 @@ func (x *ServiceUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceUpdateRequest.ProtoReflect.Descriptor instead.
 func (*ServiceUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{27}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ServiceUpdateRequest) GetOperationId() string {
@@ -1790,7 +1790,7 @@ type HostRebootRequest struct {
 
 func (x *HostRebootRequest) Reset() {
 	*x = HostRebootRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[28]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1802,7 +1802,7 @@ func (x *HostRebootRequest) String() string {
 func (*HostRebootRequest) ProtoMessage() {}
 
 func (x *HostRebootRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[28]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1815,7 +1815,7 @@ func (x *HostRebootRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HostRebootRequest.ProtoReflect.Descriptor instead.
 func (*HostRebootRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{28}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *HostRebootRequest) GetOperationId() string {
@@ -1837,7 +1837,7 @@ type IPBlockRequest struct {
 
 func (x *IPBlockRequest) Reset() {
 	*x = IPBlockRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[29]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1849,7 +1849,7 @@ func (x *IPBlockRequest) String() string {
 func (*IPBlockRequest) ProtoMessage() {}
 
 func (x *IPBlockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[29]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1862,7 +1862,7 @@ func (x *IPBlockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IPBlockRequest.ProtoReflect.Descriptor instead.
 func (*IPBlockRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{29}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *IPBlockRequest) GetOperationId() string {
@@ -1905,7 +1905,7 @@ type IPBlockEntry struct {
 
 func (x *IPBlockEntry) Reset() {
 	*x = IPBlockEntry{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[30]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1917,7 +1917,7 @@ func (x *IPBlockEntry) String() string {
 func (*IPBlockEntry) ProtoMessage() {}
 
 func (x *IPBlockEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[30]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1930,7 +1930,7 @@ func (x *IPBlockEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IPBlockEntry.ProtoReflect.Descriptor instead.
 func (*IPBlockEntry) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{30}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *IPBlockEntry) GetIp() string {
@@ -1973,7 +1973,7 @@ type TorProxyRequest struct {
 
 func (x *TorProxyRequest) Reset() {
 	*x = TorProxyRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[31]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1985,7 +1985,7 @@ func (x *TorProxyRequest) String() string {
 func (*TorProxyRequest) ProtoMessage() {}
 
 func (x *TorProxyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[31]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1998,7 +1998,7 @@ func (x *TorProxyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TorProxyRequest.ProtoReflect.Descriptor instead.
 func (*TorProxyRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{31}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *TorProxyRequest) GetOperationId() string {
@@ -2045,7 +2045,7 @@ type WindscribeProxyRequest struct {
 
 func (x *WindscribeProxyRequest) Reset() {
 	*x = WindscribeProxyRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[32]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2057,7 +2057,7 @@ func (x *WindscribeProxyRequest) String() string {
 func (*WindscribeProxyRequest) ProtoMessage() {}
 
 func (x *WindscribeProxyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[32]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2070,7 +2070,7 @@ func (x *WindscribeProxyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WindscribeProxyRequest.ProtoReflect.Descriptor instead.
 func (*WindscribeProxyRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{32}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *WindscribeProxyRequest) GetOperationId() string {
@@ -2139,7 +2139,7 @@ type WindscribeLocation struct {
 
 func (x *WindscribeLocation) Reset() {
 	*x = WindscribeLocation{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[33]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2151,7 +2151,7 @@ func (x *WindscribeLocation) String() string {
 func (*WindscribeLocation) ProtoMessage() {}
 
 func (x *WindscribeLocation) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[33]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2164,7 +2164,7 @@ func (x *WindscribeLocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WindscribeLocation.ProtoReflect.Descriptor instead.
 func (*WindscribeLocation) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{33}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *WindscribeLocation) GetName() string {
@@ -2194,7 +2194,7 @@ type WindscribeProxyResponse struct {
 
 func (x *WindscribeProxyResponse) Reset() {
 	*x = WindscribeProxyResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[34]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2206,7 +2206,7 @@ func (x *WindscribeProxyResponse) String() string {
 func (*WindscribeProxyResponse) ProtoMessage() {}
 
 func (x *WindscribeProxyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[34]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2219,7 +2219,7 @@ func (x *WindscribeProxyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WindscribeProxyResponse.ProtoReflect.Descriptor instead.
 func (*WindscribeProxyResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{34}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *WindscribeProxyResponse) GetOperationId() string {
@@ -2263,13 +2263,14 @@ type PsiphonProxyRequest struct {
 	ConfigJson    string                 `protobuf:"bytes,2,opt,name=config_json,json=configJson,proto3" json:"config_json,omitempty"`
 	Locations     []string               `protobuf:"bytes,3,rep,name=locations,proto3" json:"locations,omitempty"`
 	SocksPort     uint32                 `protobuf:"varint,4,opt,name=socks_port,json=socksPort,proto3" json:"socks_port,omitempty"`
+	Action        string                 `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PsiphonProxyRequest) Reset() {
 	*x = PsiphonProxyRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[35]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2281,7 +2282,7 @@ func (x *PsiphonProxyRequest) String() string {
 func (*PsiphonProxyRequest) ProtoMessage() {}
 
 func (x *PsiphonProxyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[35]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2294,7 +2295,7 @@ func (x *PsiphonProxyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PsiphonProxyRequest.ProtoReflect.Descriptor instead.
 func (*PsiphonProxyRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{35}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *PsiphonProxyRequest) GetOperationId() string {
@@ -2325,6 +2326,13 @@ func (x *PsiphonProxyRequest) GetSocksPort() uint32 {
 	return 0
 }
 
+func (x *PsiphonProxyRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
 type PsiphonProxyInstance struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Location      string                 `protobuf:"bytes,1,opt,name=location,proto3" json:"location,omitempty"`
@@ -2335,7 +2343,7 @@ type PsiphonProxyInstance struct {
 
 func (x *PsiphonProxyInstance) Reset() {
 	*x = PsiphonProxyInstance{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[36]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2347,7 +2355,7 @@ func (x *PsiphonProxyInstance) String() string {
 func (*PsiphonProxyInstance) ProtoMessage() {}
 
 func (x *PsiphonProxyInstance) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[36]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2360,7 +2368,7 @@ func (x *PsiphonProxyInstance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PsiphonProxyInstance.ProtoReflect.Descriptor instead.
 func (*PsiphonProxyInstance) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{36}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *PsiphonProxyInstance) GetLocation() string {
@@ -2384,13 +2392,14 @@ type PsiphonProxyResponse struct {
 	Runtime       *RuntimeState           `protobuf:"bytes,3,opt,name=runtime,proto3" json:"runtime,omitempty"`
 	Message       string                  `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	Instances     []*PsiphonProxyInstance `protobuf:"bytes,5,rep,name=instances,proto3" json:"instances,omitempty"`
+	Locations     []string                `protobuf:"bytes,6,rep,name=locations,proto3" json:"locations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PsiphonProxyResponse) Reset() {
 	*x = PsiphonProxyResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[37]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2402,7 +2411,7 @@ func (x *PsiphonProxyResponse) String() string {
 func (*PsiphonProxyResponse) ProtoMessage() {}
 
 func (x *PsiphonProxyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[37]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2415,7 +2424,7 @@ func (x *PsiphonProxyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PsiphonProxyResponse.ProtoReflect.Descriptor instead.
 func (*PsiphonProxyResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{37}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *PsiphonProxyResponse) GetOperationId() string {
@@ -2453,6 +2462,13 @@ func (x *PsiphonProxyResponse) GetInstances() []*PsiphonProxyInstance {
 	return nil
 }
 
+func (x *PsiphonProxyResponse) GetLocations() []string {
+	if x != nil {
+		return x.Locations
+	}
+	return nil
+}
+
 type SystemMetrics struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	CpuCores           int32                  `protobuf:"varint,1,opt,name=cpu_cores,json=cpuCores,proto3" json:"cpu_cores,omitempty"`
@@ -2468,7 +2484,7 @@ type SystemMetrics struct {
 
 func (x *SystemMetrics) Reset() {
 	*x = SystemMetrics{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[38]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2480,7 +2496,7 @@ func (x *SystemMetrics) String() string {
 func (*SystemMetrics) ProtoMessage() {}
 
 func (x *SystemMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[38]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2493,7 +2509,7 @@ func (x *SystemMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemMetrics.ProtoReflect.Descriptor instead.
 func (*SystemMetrics) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{38}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *SystemMetrics) GetCpuCores() int32 {
@@ -2557,7 +2573,7 @@ type TransferMetrics struct {
 
 func (x *TransferMetrics) Reset() {
 	*x = TransferMetrics{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[39]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2569,7 +2585,7 @@ func (x *TransferMetrics) String() string {
 func (*TransferMetrics) ProtoMessage() {}
 
 func (x *TransferMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[39]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2582,7 +2598,7 @@ func (x *TransferMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferMetrics.ProtoReflect.Descriptor instead.
 func (*TransferMetrics) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{39}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *TransferMetrics) GetUplinkTotal() uint64 {
@@ -2623,7 +2639,7 @@ type CollectUsageRequest struct {
 
 func (x *CollectUsageRequest) Reset() {
 	*x = CollectUsageRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[40]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2635,7 +2651,7 @@ func (x *CollectUsageRequest) String() string {
 func (*CollectUsageRequest) ProtoMessage() {}
 
 func (x *CollectUsageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[40]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2648,7 +2664,7 @@ func (x *CollectUsageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectUsageRequest.ProtoReflect.Descriptor instead.
 func (*CollectUsageRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{40}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *CollectUsageRequest) GetCollectorId() string {
@@ -2676,7 +2692,7 @@ type UserUsageBatch struct {
 
 func (x *UserUsageBatch) Reset() {
 	*x = UserUsageBatch{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[41]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2688,7 +2704,7 @@ func (x *UserUsageBatch) String() string {
 func (*UserUsageBatch) ProtoMessage() {}
 
 func (x *UserUsageBatch) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[41]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2701,7 +2717,7 @@ func (x *UserUsageBatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserUsageBatch.ProtoReflect.Descriptor instead.
 func (*UserUsageBatch) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{41}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UserUsageBatch) GetBatchId() string {
@@ -2735,7 +2751,7 @@ type UserUsageSample struct {
 
 func (x *UserUsageSample) Reset() {
 	*x = UserUsageSample{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[42]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2747,7 +2763,7 @@ func (x *UserUsageSample) String() string {
 func (*UserUsageSample) ProtoMessage() {}
 
 func (x *UserUsageSample) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[42]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2760,7 +2776,7 @@ func (x *UserUsageSample) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserUsageSample.ProtoReflect.Descriptor instead.
 func (*UserUsageSample) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{42}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *UserUsageSample) GetUid() string {
@@ -2788,7 +2804,7 @@ type OnlineUserIP struct {
 
 func (x *OnlineUserIP) Reset() {
 	*x = OnlineUserIP{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[43]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2800,7 +2816,7 @@ func (x *OnlineUserIP) String() string {
 func (*OnlineUserIP) ProtoMessage() {}
 
 func (x *OnlineUserIP) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[43]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2813,7 +2829,7 @@ func (x *OnlineUserIP) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OnlineUserIP.ProtoReflect.Descriptor instead.
 func (*OnlineUserIP) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{43}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *OnlineUserIP) GetUid() string {
@@ -2847,7 +2863,7 @@ type OnlineIP struct {
 
 func (x *OnlineIP) Reset() {
 	*x = OnlineIP{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[44]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2859,7 +2875,7 @@ func (x *OnlineIP) String() string {
 func (*OnlineIP) ProtoMessage() {}
 
 func (x *OnlineIP) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[44]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2872,7 +2888,7 @@ func (x *OnlineIP) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OnlineIP.ProtoReflect.Descriptor instead.
 func (*OnlineIP) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{44}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *OnlineIP) GetIp() string {
@@ -2899,7 +2915,7 @@ type OutboundUsageBatch struct {
 
 func (x *OutboundUsageBatch) Reset() {
 	*x = OutboundUsageBatch{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[45]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2911,7 +2927,7 @@ func (x *OutboundUsageBatch) String() string {
 func (*OutboundUsageBatch) ProtoMessage() {}
 
 func (x *OutboundUsageBatch) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[45]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2924,7 +2940,7 @@ func (x *OutboundUsageBatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutboundUsageBatch.ProtoReflect.Descriptor instead.
 func (*OutboundUsageBatch) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{45}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *OutboundUsageBatch) GetBatchId() string {
@@ -2952,7 +2968,7 @@ type OutboundUsageSample struct {
 
 func (x *OutboundUsageSample) Reset() {
 	*x = OutboundUsageSample{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[46]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2964,7 +2980,7 @@ func (x *OutboundUsageSample) String() string {
 func (*OutboundUsageSample) ProtoMessage() {}
 
 func (x *OutboundUsageSample) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[46]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2977,7 +2993,7 @@ func (x *OutboundUsageSample) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutboundUsageSample.ProtoReflect.Descriptor instead.
 func (*OutboundUsageSample) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{46}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *OutboundUsageSample) GetTag() string {
@@ -3010,7 +3026,7 @@ type AckUsageRequest struct {
 
 func (x *AckUsageRequest) Reset() {
 	*x = AckUsageRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[47]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3022,7 +3038,7 @@ func (x *AckUsageRequest) String() string {
 func (*AckUsageRequest) ProtoMessage() {}
 
 func (x *AckUsageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[47]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3035,7 +3051,7 @@ func (x *AckUsageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AckUsageRequest.ProtoReflect.Descriptor instead.
 func (*AckUsageRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{47}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *AckUsageRequest) GetBatchId() string {
@@ -3055,7 +3071,7 @@ type AckUsageResponse struct {
 
 func (x *AckUsageResponse) Reset() {
 	*x = AckUsageResponse{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[48]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3067,7 +3083,7 @@ func (x *AckUsageResponse) String() string {
 func (*AckUsageResponse) ProtoMessage() {}
 
 func (x *AckUsageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[48]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3080,7 +3096,7 @@ func (x *AckUsageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AckUsageResponse.ProtoReflect.Descriptor instead.
 func (*AckUsageResponse) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{48}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *AckUsageResponse) GetBatchId() string {
@@ -3108,7 +3124,7 @@ type StreamLogsRequest struct {
 
 func (x *StreamLogsRequest) Reset() {
 	*x = StreamLogsRequest{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[49]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3120,7 +3136,7 @@ func (x *StreamLogsRequest) String() string {
 func (*StreamLogsRequest) ProtoMessage() {}
 
 func (x *StreamLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[49]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3133,7 +3149,7 @@ func (x *StreamLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamLogsRequest.ProtoReflect.Descriptor instead.
 func (*StreamLogsRequest) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{49}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *StreamLogsRequest) GetStreamId() string {
@@ -3168,7 +3184,7 @@ type LogLine struct {
 
 func (x *LogLine) Reset() {
 	*x = LogLine{}
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[50]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3180,7 +3196,7 @@ func (x *LogLine) String() string {
 func (*LogLine) ProtoMessage() {}
 
 func (x *LogLine) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes[50]
+	mi := &file_rebecca_node_v1_node_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3193,7 +3209,7 @@ func (x *LogLine) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogLine.ProtoReflect.Descriptor instead.
 func (*LogLine) Descriptor() ([]byte, []int) {
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP(), []int{50}
+	return file_rebecca_node_v1_node_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *LogLine) GetStreamId() string {
@@ -3217,11 +3233,11 @@ func (x *LogLine) GetEmittedAtUnix() int64 {
 	return 0
 }
 
-var File_internal_proto_schema_rebecca_node_v1_node_proto protoreflect.FileDescriptor
+var File_rebecca_node_v1_node_proto protoreflect.FileDescriptor
 
-const file_internal_proto_schema_rebecca_node_v1_node_proto_rawDesc = "" +
+const file_rebecca_node_v1_node_proto_rawDesc = "" +
 	"\n" +
-	"0internal/proto/schema/rebecca/node/v1/node.proto\x12\x0frebecca.node.v1\"\a\n" +
+	"\x1arebecca/node/v1/node.proto\x12\x0frebecca.node.v1\"\a\n" +
 	"\x05Empty\"R\n" +
 	"\fHelloRequest\x12\x1b\n" +
 	"\tmaster_id\x18\x01 \x01(\tR\bmasterId\x12%\n" +
@@ -3394,24 +3410,26 @@ const file_internal_proto_schema_rebecca_node_v1_node_proto_rawDesc = "" +
 	"\baccepted\x18\x02 \x01(\bR\baccepted\x127\n" +
 	"\aruntime\x18\x03 \x01(\v2\x1d.rebecca.node.v1.RuntimeStateR\aruntime\x12\x18\n" +
 	"\amessage\x18\x04 \x01(\tR\amessage\x12A\n" +
-	"\tlocations\x18\x05 \x03(\v2#.rebecca.node.v1.WindscribeLocationR\tlocations\"\x96\x01\n" +
+	"\tlocations\x18\x05 \x03(\v2#.rebecca.node.v1.WindscribeLocationR\tlocations\"\xae\x01\n" +
 	"\x13PsiphonProxyRequest\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1f\n" +
 	"\vconfig_json\x18\x02 \x01(\tR\n" +
 	"configJson\x12\x1c\n" +
 	"\tlocations\x18\x03 \x03(\tR\tlocations\x12\x1d\n" +
 	"\n" +
-	"socks_port\x18\x04 \x01(\rR\tsocksPort\"Q\n" +
+	"socks_port\x18\x04 \x01(\rR\tsocksPort\x12\x16\n" +
+	"\x06action\x18\x05 \x01(\tR\x06action\"Q\n" +
 	"\x14PsiphonProxyInstance\x12\x1a\n" +
 	"\blocation\x18\x01 \x01(\tR\blocation\x12\x1d\n" +
 	"\n" +
-	"socks_port\x18\x02 \x01(\rR\tsocksPort\"\xed\x01\n" +
+	"socks_port\x18\x02 \x01(\rR\tsocksPort\"\x8b\x02\n" +
 	"\x14PsiphonProxyResponse\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1a\n" +
 	"\baccepted\x18\x02 \x01(\bR\baccepted\x127\n" +
 	"\aruntime\x18\x03 \x01(\v2\x1d.rebecca.node.v1.RuntimeStateR\aruntime\x12\x18\n" +
 	"\amessage\x18\x04 \x01(\tR\amessage\x12C\n" +
-	"\tinstances\x18\x05 \x03(\v2%.rebecca.node.v1.PsiphonProxyInstanceR\tinstances\"\x9f\x02\n" +
+	"\tinstances\x18\x05 \x03(\v2%.rebecca.node.v1.PsiphonProxyInstanceR\tinstances\x12\x1c\n" +
+	"\tlocations\x18\x06 \x03(\tR\tlocations\"\x9f\x02\n" +
 	"\rSystemMetrics\x12\x1b\n" +
 	"\tcpu_cores\x18\x01 \x01(\x05R\bcpuCores\x12(\n" +
 	"\x10cpu_frequency_hz\x18\x02 \x01(\x01R\x0ecpuFrequencyHz\x12*\n" +
@@ -3503,19 +3521,19 @@ const file_internal_proto_schema_rebecca_node_v1_node_proto_rawDesc = "" +
 	"StreamLogs\x12\".rebecca.node.v1.StreamLogsRequest\x1a\x18.rebecca.node.v1.LogLine0\x01B?Z=github.com/rebeccapanel/rebecca/internal/proto/node/v1;nodev1b\x06proto3"
 
 var (
-	file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescOnce sync.Once
-	file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescData []byte
+	file_rebecca_node_v1_node_proto_rawDescOnce sync.Once
+	file_rebecca_node_v1_node_proto_rawDescData []byte
 )
 
-func file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescGZIP() []byte {
-	file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescOnce.Do(func() {
-		file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_internal_proto_schema_rebecca_node_v1_node_proto_rawDesc), len(file_internal_proto_schema_rebecca_node_v1_node_proto_rawDesc)))
+func file_rebecca_node_v1_node_proto_rawDescGZIP() []byte {
+	file_rebecca_node_v1_node_proto_rawDescOnce.Do(func() {
+		file_rebecca_node_v1_node_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_rebecca_node_v1_node_proto_rawDesc), len(file_rebecca_node_v1_node_proto_rawDesc)))
 	})
-	return file_internal_proto_schema_rebecca_node_v1_node_proto_rawDescData
+	return file_rebecca_node_v1_node_proto_rawDescData
 }
 
-var file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
-var file_internal_proto_schema_rebecca_node_v1_node_proto_goTypes = []any{
+var file_rebecca_node_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
+var file_rebecca_node_v1_node_proto_goTypes = []any{
 	(*Empty)(nil),                    // 0: rebecca.node.v1.Empty
 	(*HelloRequest)(nil),             // 1: rebecca.node.v1.HelloRequest
 	(*HelloResponse)(nil),            // 2: rebecca.node.v1.HelloResponse
@@ -3569,7 +3587,7 @@ var file_internal_proto_schema_rebecca_node_v1_node_proto_goTypes = []any{
 	(*LogLine)(nil),                  // 50: rebecca.node.v1.LogLine
 	nil,                              // 51: rebecca.node.v1.InboundUser.FieldsEntry
 }
-var file_internal_proto_schema_rebecca_node_v1_node_proto_depIdxs = []int32{
+var file_rebecca_node_v1_node_proto_depIdxs = []int32{
 	7,  // 0: rebecca.node.v1.HelloResponse.runtime:type_name -> rebecca.node.v1.RuntimeState
 	7,  // 1: rebecca.node.v1.ConnectResponse.runtime:type_name -> rebecca.node.v1.RuntimeState
 	7,  // 2: rebecca.node.v1.HealthResponse.runtime:type_name -> rebecca.node.v1.RuntimeState
@@ -3654,26 +3672,26 @@ var file_internal_proto_schema_rebecca_node_v1_node_proto_depIdxs = []int32{
 	0,  // [0:21] is the sub-list for field type_name
 }
 
-func init() { file_internal_proto_schema_rebecca_node_v1_node_proto_init() }
-func file_internal_proto_schema_rebecca_node_v1_node_proto_init() {
-	if File_internal_proto_schema_rebecca_node_v1_node_proto != nil {
+func init() { file_rebecca_node_v1_node_proto_init() }
+func file_rebecca_node_v1_node_proto_init() {
+	if File_rebecca_node_v1_node_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_proto_schema_rebecca_node_v1_node_proto_rawDesc), len(file_internal_proto_schema_rebecca_node_v1_node_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rebecca_node_v1_node_proto_rawDesc), len(file_rebecca_node_v1_node_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   4,
 		},
-		GoTypes:           file_internal_proto_schema_rebecca_node_v1_node_proto_goTypes,
-		DependencyIndexes: file_internal_proto_schema_rebecca_node_v1_node_proto_depIdxs,
-		MessageInfos:      file_internal_proto_schema_rebecca_node_v1_node_proto_msgTypes,
+		GoTypes:           file_rebecca_node_v1_node_proto_goTypes,
+		DependencyIndexes: file_rebecca_node_v1_node_proto_depIdxs,
+		MessageInfos:      file_rebecca_node_v1_node_proto_msgTypes,
 	}.Build()
-	File_internal_proto_schema_rebecca_node_v1_node_proto = out.File
-	file_internal_proto_schema_rebecca_node_v1_node_proto_goTypes = nil
-	file_internal_proto_schema_rebecca_node_v1_node_proto_depIdxs = nil
+	File_rebecca_node_v1_node_proto = out.File
+	file_rebecca_node_v1_node_proto_goTypes = nil
+	file_rebecca_node_v1_node_proto_depIdxs = nil
 }

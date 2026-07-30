@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: internal/proto/schema/rebecca/node/v1/node.proto
+// source: rebecca/node/v1/node.proto
 
 package nodev1
 
@@ -193,7 +193,7 @@ var NodeControlService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/proto/schema/rebecca/node/v1/node.proto",
+	Metadata: "rebecca/node/v1/node.proto",
 }
 
 const (
@@ -1017,7 +1017,7 @@ var NodeRuntimeService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/proto/schema/rebecca/node/v1/node.proto",
+	Metadata: "rebecca/node/v1/node.proto",
 }
 
 const (
@@ -1233,7 +1233,7 @@ var NodeUsageService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/proto/schema/rebecca/node/v1/node.proto",
+	Metadata: "rebecca/node/v1/node.proto",
 }
 
 const (
@@ -1338,5 +1338,5 @@ var NodeLogsService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "internal/proto/schema/rebecca/node/v1/node.proto",
+	Metadata: "rebecca/node/v1/node.proto",
 }

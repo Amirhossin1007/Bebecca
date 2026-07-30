@@ -72,6 +72,16 @@ const errorDetail = (error: any, fallback: string) => {
 	return typeof detail === "string" ? detail : JSON.stringify(detail);
 };
 
+const outboundTag = (prefix: string, location: string) => {
+	const normalizedPrefix = prefix.trim();
+	const normalizedLocation = location.trim().toLowerCase();
+	if (!normalizedLocation) return normalizedPrefix;
+	const suffix = `-${normalizedLocation}`;
+	return normalizedPrefix.toLowerCase().endsWith(suffix)
+		? `${normalizedPrefix.slice(0, -suffix.length)}${suffix}`
+		: `${normalizedPrefix}${suffix}`;
+};
+
 export const WindscribeProxyModal: FC<Props> = ({
 	isOpen,
 	isLoading,
@@ -88,7 +98,9 @@ export const WindscribeProxyModal: FC<Props> = ({
 		MultiValueAutocompleteOption[]
 	>([]);
 	const [loadError, setLoadError] = useState("");
-	const duplicateTag = existingTags.includes(form.watch("tag").trim());
+	const duplicateTag = existingTags.includes(
+		outboundTag(form.watch("tag"), form.watch("location")),
+	);
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -309,7 +321,7 @@ export const WindscribeProxyModal: FC<Props> = ({
 										isInvalid={Boolean(form.formState.errors.tag || duplicateTag)}
 									>
 										<FormLabel>
-											{t("pages.xray.windscribe.tag")}
+											{t("pages.xray.windscribe.tagPrefix")}
 										</FormLabel>
 										<Input
 											{...form.register("tag", {
@@ -323,6 +335,9 @@ export const WindscribeProxyModal: FC<Props> = ({
 													t("pages.xray.outbound.tagExists"),
 											})}
 										/>
+										<FormHelperText>
+											{t("pages.xray.windscribe.tagPrefixHint")}
+										</FormHelperText>
 										<FormErrorMessage>
 											{form.formState.errors.tag?.message ||
 												(duplicateTag

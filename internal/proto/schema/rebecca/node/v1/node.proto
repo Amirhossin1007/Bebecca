@@ -274,6 +274,7 @@ message PsiphonProxyRequest {
   string config_json = 2;
   repeated string locations = 3;
   uint32 socks_port = 4;
+  string action = 5;
 }
 
 message PsiphonProxyInstance {
@@ -287,6 +288,7 @@ message PsiphonProxyResponse {
   RuntimeState runtime = 3;
   string message = 4;
   repeated PsiphonProxyInstance instances = 5;
+  repeated string locations = 6;
 }
 
 message SystemMetrics {

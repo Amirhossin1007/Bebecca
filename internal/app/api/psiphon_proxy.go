@@ -20,6 +20,37 @@ type psiphonProxyProfile struct {
 	Tag      string
 }
 
+func (s *Server) handlePsiphonLocations(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	payload, nodeID, ok := proxyNodePayload(w, r, "Psiphon")
+	if !ok {
+		return
+	}
+	config := strings.TrimSpace(stringFromAny(payload["config"]))
+	if !validPsiphonConfig(config) {
+		writeError(w, http.StatusBadRequest, "Psiphon config must be a JSON object")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	result, err := s.nodeController.ConfigurePsiphon(ctx, nodecontroller.Request{
+		NodeID:            nodeID,
+		PsiphonAction:     "locations",
+		PsiphonConfigJSON: config,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"obj":     map[string]any{"locations": result.Locations},
+	})
+}
+
 func (s *Server) handlePsiphonSetup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -112,14 +143,10 @@ func psiphonProfilesFromPayload(payload map[string]any) ([]psiphonProxyProfile, 
 	}
 	profiles := make([]psiphonProxyProfile, 0, len(locations))
 	for index, location := range locations {
-		tag := tagPrefix
-		if len(locations) > 1 {
-			tag += "-" + location
-		}
 		profiles = append(profiles, psiphonProxyProfile{
 			Location: location,
 			Port:     startPort + uint32(index),
-			Tag:      tag,
+			Tag:      tagPrefix + "-" + location,
 		})
 	}
 	return profiles, nil

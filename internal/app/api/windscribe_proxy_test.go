@@ -61,3 +61,15 @@ func TestValidWindscribeLoginValue(t *testing.T) {
 		t.Fatal("rejected a valid login value")
 	}
 }
+
+func TestWindscribeOutboundTagIncludesLocation(t *testing.T) {
+	if tag := windscribeOutboundTag("windscribe", "de"); tag != "windscribe-de" {
+		t.Fatalf("tag=%q", tag)
+	}
+	if tag := windscribeOutboundTag("custom-de", "de"); tag != "custom-de" {
+		t.Fatalf("tag=%q", tag)
+	}
+	if tag := windscribeOutboundTag("custom-DE", "de"); tag != "custom-de" {
+		t.Fatalf("tag=%q", tag)
+	}
+}
