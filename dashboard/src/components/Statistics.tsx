@@ -455,12 +455,13 @@ const HistoryModal: FC<{
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<Stack spacing={3}>
+					<Stack spacing={4}>
 						<Flex wrap="wrap" gap={2}>
 							{HISTORY_INTERVALS.map((interval) => (
 								<Button
 									key={interval.seconds}
 									size="sm"
+									borderRadius="full"
 									variant={
 										intervalSeconds === interval.seconds ? "solid" : "outline"
 									}
@@ -479,7 +480,7 @@ const HistoryModal: FC<{
 					</Stack>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<Button onClick={onClose}>{t("close")}</Button>
+					<Button onClick={onClose} borderRadius="full">{t("close")}</Button>
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>
@@ -501,8 +502,8 @@ const HistorySparkline: FC<{ values: number[]; accent?: string }> = ({
 	return (
 		<HStack
 			alignItems="flex-end"
-			spacing="2px"
-			mt={2}
+			spacing="3px"
+			mt={3}
 			minH="42px"
 			w="full"
 			overflow="hidden"
@@ -513,13 +514,13 @@ const HistorySparkline: FC<{ values: number[]; accent?: string }> = ({
 				return (
 					<Box
 						key={id}
-						flex="0 1 4px"
+						flex="1 1 0"
 						minW="2px"
-						maxW="4px"
+						maxW="6px"
 						h={`${height}px`}
 						bg={accent ?? defaultColor}
-						borderRadius="1px"
-						transition="all 0.2s"
+						borderRadius="full"
+						transition="all 0.2s ease"
 					/>
 				);
 			})}
@@ -539,15 +540,15 @@ const UsageMetricCard: FC<{
 	const safePercent = clampPercent(percent);
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const bg = useColorModeValue("panel.input", "panel.input");
-	const labelColor = useColorModeValue("panel.textMuted", "panel.textMuted");
-	const mutedColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
+	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
+	const mutedColor = useColorModeValue("panel.textMuted", "panel.textMuted");
 	const valueColor = useColorModeValue(
 		`${colorScheme}.600`,
 		`${colorScheme}.300`,
 	);
 	const accentBg = useColorModeValue(
 		`${colorScheme}.50`,
-		"rgba(255, 255, 255, 0.04)",
+		"rgba(255, 255, 255, 0.06)",
 	);
 	const accent = useColorModeValue(
 		`${colorScheme}.400`,
@@ -558,17 +559,19 @@ const UsageMetricCard: FC<{
 		<Box
 			borderWidth="1px"
 			borderColor={borderColor}
-			borderRadius="6px"
+			borderRadius="xl"
 			bg={bg}
 			overflow="hidden"
-			p={3}
-			minH={history ? "126px" : "96px"}
+			p={4}
+			minH={history ? "136px" : "106px"}
+			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+			_hover={{ transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" }}
 		>
-			<Stack spacing={2}>
+			<Stack spacing={3}>
 				<Flex justifyContent="space-between" alignItems="center" gap={2} wrap="wrap">
 					<Text
-						fontSize="xs"
-						fontWeight="semibold"
+						fontSize="sm"
+						fontWeight="medium"
 						color={labelColor}
 						whiteSpace="nowrap"
 						overflow="hidden"
@@ -577,18 +580,19 @@ const UsageMetricCard: FC<{
 						{label}
 					</Text>
 					{onOpen && actionLabel && (
-						<Button size="xs" variant="outline" onClick={onOpen} flexShrink={0} ms="auto">
+						<Button size="xs" variant="ghost" borderRadius="full" onClick={onOpen} flexShrink={0} ms="auto">
 							{actionLabel}
 						</Button>
 					)}
 				</Flex>
 				<Flex justifyContent="space-between" alignItems="baseline" gap={2} wrap="wrap">
-					<Text fontSize="2xl" lineHeight="1" fontWeight="800" color={valueColor} whiteSpace="nowrap">
+					<Text fontSize="3xl" lineHeight="1" fontWeight="bold" color={valueColor} whiteSpace="nowrap">
 						{Math.max(0, percent).toFixed(1)}%
 					</Text>
 					{detail && (
 						<Text
 							fontSize="xs"
+							fontWeight="medium"
 							color={mutedColor}
 							className="rb-usage-pair"
 							textAlign="center"
@@ -603,7 +607,7 @@ const UsageMetricCard: FC<{
 					colorScheme={colorScheme}
 					bg={accentBg}
 					borderRadius="full"
-					h="7px"
+					h="4px"
 				/>
 				{history && <HistorySparkline values={history} accent={accent} />}
 			</Stack>
@@ -617,8 +621,9 @@ const SpeedItem: FC<{
 	value: string;
 	colorScheme: "blue" | "green";
 }> = ({ icon, label, value, colorScheme }) => {
-	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
 	const iconBg = useColorModeValue("panel.input", "panel.input");
+	const accentBg = useColorModeValue(`${colorScheme}.50`, "rgba(255, 255, 255, 0.06)");
 	const iconColor = useColorModeValue(
 		`${colorScheme}.600`,
 		`${colorScheme}.300`,
@@ -627,30 +632,32 @@ const SpeedItem: FC<{
 	return (
 		<HStack
 			alignItems="center"
-			spacing={3}
-			borderRadius="6px"
+			spacing={4}
+			borderRadius="xl"
 			bg={iconBg}
 			borderWidth="1px"
 			borderColor="panel.border"
-			px={3}
-			py={2.5}
-			minH="76px"
+			px={4}
+			py={3}
+			minH="80px"
+			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+			_hover={{ transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" }}
 		>
-			<Box color={iconColor} flexShrink={0}>
+			<Flex w={10} h={10} align="center" justify="center" bg={accentBg} color={iconColor} borderRadius="lg" flexShrink={0}>
 				{icon}
-			</Box>
+			</Flex>
 			<Box minW={0}>
 				<Text
-				fontSize="xs"
-				fontWeight="semibold"
-				color={labelColor}
-				whiteSpace="nowrap"
-				overflow="hidden"
-				textOverflow="ellipsis"
-			>
-				{label}
-			</Text>
-				<Text fontSize={{ base: "lg", md: "xl" }} fontWeight="800" mt={1}>
+					fontSize="sm"
+					fontWeight="medium"
+					color={labelColor}
+					whiteSpace="nowrap"
+					overflow="hidden"
+					textOverflow="ellipsis"
+				>
+					{label}
+				</Text>
+				<Text fontSize={{ base: "lg", md: "xl" }} fontWeight="bold" mt={0.5}>
 					{value}
 				</Text>
 			</Box>
@@ -666,21 +673,23 @@ const NetworkSpeedCard: FC<{
 }> = ({ incoming, outgoing, t, onOpen }) => {
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const bg = useColorModeValue("panel.input", "panel.input");
-	const labelColor = useColorModeValue("panel.textMuted", "panel.textMuted");
+	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
 
 	return (
 		<Box
 			borderWidth="1px"
 			borderColor={borderColor}
-			borderRadius="6px"
+			borderRadius="xl"
 			bg={bg}
-			p={3}
+			p={4}
+			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+			_hover={{ shadow: "sm", borderColor: "panel.borderStrong" }}
 		>
-			<Stack spacing={3}>
+			<Stack spacing={4}>
 				<Flex justifyContent="space-between" alignItems="center" gap={2} wrap="wrap">
 					<Text
-						fontSize="xs"
-						fontWeight="semibold"
+						fontSize="sm"
+						fontWeight="medium"
 						color={labelColor}
 						whiteSpace="nowrap"
 						overflow="hidden"
@@ -688,11 +697,11 @@ const NetworkSpeedCard: FC<{
 					>
 						{t("networkHistory")}
 					</Text>
-					<Button size="xs" variant="outline" onClick={onOpen} flexShrink={0} ms="auto">
+					<Button size="xs" variant="ghost" borderRadius="full" onClick={onOpen} flexShrink={0} ms="auto">
 						{t("viewHistory")}
 					</Button>
 				</Flex>
-				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={4}>
 					<SpeedItem
 						icon={<DownloadIcon />}
 						label={t("incomingSpeed")}
@@ -720,42 +729,47 @@ const MetricBadge: FC<{
 }> = ({ label, value, colorScheme = "gray", valueClassName, helper }) => {
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const bg = useColorModeValue("panel.input", "panel.input");
-	const labelColor = useColorModeValue("panel.textMuted", "panel.textMuted");
+	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
 	const helperColor = useColorModeValue("panel.textMuted", "panel.textMuted");
 	const valueColor = useColorModeValue(
 		colorScheme === "gray" ? "gray.800" : `${colorScheme}.600`,
 		colorScheme === "gray" ? "gray.100" : `${colorScheme}.300`,
 	);
 	const accent = useColorModeValue(
-		colorScheme === "gray" ? "gray.300" : `${colorScheme}.400`,
-		colorScheme === "gray" ? "whiteAlpha.400" : `${colorScheme}.300`,
+		colorScheme === "gray" ? "gray.400" : `${colorScheme}.400`,
+		colorScheme === "gray" ? "whiteAlpha.500" : `${colorScheme}.300`,
 	);
 
 	return (
 		<Box
-			px={3}
-			py={2}
-			borderRadius="6px"
+			px={4}
+			py={3}
+			borderRadius="xl"
 			borderWidth="1px"
 			borderColor={borderColor}
 			bg={bg}
 			position="relative"
 			overflow="hidden"
-			minH="76px"
-			_before={{
-				content: '""',
-				position: "absolute",
-				insetInlineStart: 0,
-				insetBlockStart: 0,
-				w: "3px",
-				h: "full",
-				bg: accent,
-			}}
+			minH="80px"
+			transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+			_hover={{ transform: "translateY(-2px)", shadow: "sm", borderColor: "panel.borderStrong" }}
 		>
-			<Text fontSize="xs" fontWeight="semibold" color={labelColor}>
-				{label}
-			</Text>
-			<Text mt={1} fontWeight="semibold" color={valueColor}>
+			<HStack spacing={2} mb={2}>
+				<Box w="8px" h="8px" borderRadius="full" bg={accent} flexShrink={0} />
+				<Text
+					fontSize="clamp(10px, 3.5vw, 13px)"
+					fontWeight="medium"
+					color={labelColor}
+					whiteSpace="nowrap"
+					wordBreak="keep-all"
+					overflow="hidden"
+					textOverflow="ellipsis"
+					letterSpacing="tight"
+				>
+					{label}
+				</Text>
+			</HStack>
+			<Text fontWeight="bold" fontSize="2xl" color={valueColor} lineHeight="1">
 				{valueClassName ? (
 					<chakra.span className={valueClassName}>{value}</chakra.span>
 				) : (
@@ -763,7 +777,7 @@ const MetricBadge: FC<{
 				)}
 			</Text>
 			{helper ? (
-				<Text mt={1} fontSize="xs" color={helperColor}>
+				<Text mt={2} fontSize="xs" color={helperColor} fontWeight="medium">
 					{helper}
 				</Text>
 			) : null}
@@ -827,13 +841,13 @@ const SystemOverviewCard: FC<{
 			headerActions={
 				<Wrap spacing={2} justify={{ base: "flex-start", md: "flex-end" }}>
 					<WrapItem>
-						<Tag colorScheme="gray">
+						<Tag colorScheme="gray" borderRadius="full" px={3}>
 							{isDevPanel ? currentPanelVersion : `v${currentPanelVersion}`}
 						</Tag>
 					</WrapItem>
 					{latestPanelVersion && (
 						<WrapItem>
-							<Tag colorScheme={isPanelUpdateAvailable ? "green" : "blue"}>
+							<Tag colorScheme={isPanelUpdateAvailable ? "green" : "blue"} borderRadius="full" px={3}>
 								{isPanelUpdateAvailable
 									? t("system.updateAvailable", {
 											version: latestPanelVersion,
@@ -845,7 +859,7 @@ const SystemOverviewCard: FC<{
 						</WrapItem>
 					)}
 					<WrapItem>
-						<Tag colorScheme="gray">
+						<Tag colorScheme="gray" borderRadius="full" px={3}>
 							{t("loadAverage")}:{" "}
 							{data.load_avg.length
 								? data.load_avg.map((value) => value.toFixed(2)).join(" | ")
@@ -855,8 +869,8 @@ const SystemOverviewCard: FC<{
 				</Wrap>
 			}
 		>
-			<Stack spacing={4}>
-				<SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+			<Stack spacing={5}>
+				<SimpleGrid columns={{ base: 1, md: 3 }} gap={5}>
 					<UsageMetricCard
 						label={t("cpuUsage")}
 						percent={data.cpu_usage}
@@ -874,7 +888,7 @@ const SystemOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("memoryUsage")}
 						percent={data.memory.percent}
-						detail={`${formatBytes(data.memory.current)}`}
+						detail={`${formatBytes(data.memory.current)} / ${formatBytes(data.memory.total)}`}
 						history={memoryHistoryValues}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
@@ -889,7 +903,7 @@ const SystemOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("diskUsage")}
 						percent={data.disk.percent}
-						detail={`${formatBytes(data.disk.current)}`}
+						detail={`${formatBytes(data.disk.current)} / ${formatBytes(data.disk.total)}`}
 					/>
 				</SimpleGrid>
 				<NetworkSpeedCard
@@ -908,27 +922,27 @@ const SystemOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("swapUsage")}
 						percent={data.swap.percent}
-						detail={`${formatBytes(data.swap.current)}`}
+						detail={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
 					/>
 				)}
 				<Stack
 					direction={{ base: "column", md: "row" }}
-					spacing={2}
+					spacing={3}
 					flexWrap="wrap"
 					alignItems="flex-start"
 				>
-					<Tag colorScheme="green">
-						{t("systemUptime")}: {formatDuration(data.uptime_seconds)}
+					<Tag colorScheme="green" borderRadius="full" px={3} py={1}>
+						{t("systemUptime")}: <Text as="span" fontWeight="bold" ms={1}>{formatDuration(data.uptime_seconds)}</Text>
 					</Tag>
-					<Tag colorScheme="blue">
-						{t("panelUptime")}: {formatDuration(data.panel_uptime_seconds)}
+					<Tag colorScheme="blue" borderRadius="full" px={3} py={1}>
+						{t("panelUptime")}: <Text as="span" fontWeight="bold" ms={1}>{formatDuration(data.panel_uptime_seconds)}</Text>
 					</Tag>
 				</Stack>
 				{data.last_xray_error && (
 					<Box
 						mt={4}
 						p={4}
-						borderRadius="md"
+						borderRadius="xl"
 						bg="red.50"
 						borderWidth="1px"
 						borderColor="red.200"
@@ -940,7 +954,7 @@ const SystemOverviewCard: FC<{
 						<HStack spacing={2} mb={2} alignItems="center">
 							<Text
 								fontSize="sm"
-								fontWeight="semibold"
+								fontWeight="bold"
 								color="red.600"
 								_dark={{ color: "red.400" }}
 							>
@@ -963,7 +977,7 @@ const SystemOverviewCard: FC<{
 					<Box
 						mt={4}
 						p={4}
-						borderRadius="md"
+						borderRadius="xl"
 						bg="orange.50"
 						borderWidth="1px"
 						borderColor="orange.200"
@@ -980,7 +994,7 @@ const SystemOverviewCard: FC<{
 						>
 							<Text
 								fontSize="sm"
-								fontWeight="semibold"
+								fontWeight="bold"
 								color="orange.600"
 								_dark={{ color: "orange.400" }}
 							>
@@ -990,6 +1004,7 @@ const SystemOverviewCard: FC<{
 								size="xs"
 								colorScheme="orange"
 								variant="outline"
+								borderRadius="full"
 								onClick={() => {
 									window.location.href = "/settings";
 								}}
@@ -1027,13 +1042,13 @@ const PanelOverviewCard: FC<{
 		<ChartBox
 			title={t("panelUsage")}
 			headerActions={
-				<Badge colorScheme={data.xray_running ? "green" : "red"}>
+				<Badge colorScheme={data.xray_running ? "green" : "red"} borderRadius="full" px={3} py={1}>
 					{data.xray_running ? t("status.running") : t("status.stopped")}
 				</Badge>
 			}
 		>
-			<Stack spacing={4}>
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+			<Stack spacing={5}>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
 					<UsageMetricCard
 						label={t("cpuUsage")}
 						percent={data.panel_cpu_percent}
@@ -1063,7 +1078,7 @@ const PanelOverviewCard: FC<{
 						}
 					/>
 				</SimpleGrid>
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
 					<MetricBadge
 						label={t("threads")}
 						value={formatNumberValue(data.app_threads)}
@@ -1085,13 +1100,13 @@ const UsersOverviewCard: FC<{
 	t: TFunction;
 }> = ({ data, t }) => (
 	<ChartBox title={t("usersOverview")}>
-		<Stack spacing={4}>
+		<Stack spacing={5}>
 			<MetricBadge
 				label={t("total")}
 				value={formatNumberValue(data.total_user)}
 				colorScheme="blue"
 			/>
-			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={5}>
 				<MetricBadge
 					label={t("status.active")}
 					value={formatNumberValue(data.users_active)}
@@ -1139,8 +1154,8 @@ const YourUsageCard: FC<{
 			: t("dashboard.currentUserUsageHint");
 	return (
 		<ChartBox title={t("yourUsage")}>
-			<Stack spacing={4}>
-				<SimpleGrid columns={1} gap={4}>
+			<Stack spacing={5}>
+				<SimpleGrid columns={1} gap={5}>
 					<MetricBadge
 						label={t("total")}
 						value={formatNumberValue(data.total_users)}
@@ -1165,8 +1180,8 @@ const AdminOverviewCard: FC<{
 	if (!data) return null;
 	return (
 		<ChartBox title={t("adminOverview")}>
-			<Stack spacing={4}>
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
+			<Stack spacing={5}>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
 					<MetricBadge
 						label={t("totalAdmins")}
 						value={formatNumberValue(data.total_admins)}
@@ -1189,15 +1204,15 @@ const AdminOverviewCard: FC<{
 					/>
 				</SimpleGrid>
 				{data.top_admin_username && (
-					<Flex wrap="wrap" gap={4} alignItems="center">
-						<Text fontSize="sm" color="gray.500">
+					<Flex wrap="wrap" gap={4} alignItems="center" bg="panel.input" p={4} borderRadius="xl" borderWidth="1px" borderColor="panel.border">
+						<Text fontSize="sm" fontWeight="medium" color="panel.textSecondary">
 							{t("topAdmin")}:{" "}
-							<Text as="span" fontWeight="semibold">
+							<Text as="span" fontWeight="bold" color="panel.text">
 								{data.top_admin_username}
 							</Text>
 						</Text>
-						<Text fontSize="sm" color="gray.500">
-							{t("topAdminUsage")}: {formatBytes(data.top_admin_usage)}
+						<Text fontSize="sm" fontWeight="medium" color="panel.textSecondary">
+							{t("topAdminUsage")}: <Text as="span" fontWeight="bold" color="panel.text">{formatBytes(data.top_admin_usage)}</Text>
 						</Text>
 					</Flex>
 				)}
@@ -1257,7 +1272,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const userGridColumns = userCards.length > 1 ? 2 : 1;
 
 	return (
-		<Stack spacing={4} width="full" {...props}>
+		<Stack spacing={5} width="full" {...props}>
 			{systemData && (
 				<>
 					<SystemOverviewCard
@@ -1273,7 +1288,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</>
 			)}
 			{userCards.length > 0 && (
-				<SimpleGrid columns={{ base: 1, md: userGridColumns }} gap={4}>
+				<SimpleGrid columns={{ base: 1, md: userGridColumns }} gap={5}>
 					{userCards}
 				</SimpleGrid>
 			)}
