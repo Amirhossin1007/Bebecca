@@ -70,15 +70,32 @@ func (c Controller) TestRoute(ctx context.Context, req Request) (RouteTestResult
 		Network:     strings.TrimSpace(req.RouteNetwork),
 		Protocol:    strings.TrimSpace(req.RouteProtocol),
 		Email:       strings.TrimSpace(req.RouteEmail),
+		ConfigJson:  req.RouteConfigJSON,
+		TestUrl:     strings.TrimSpace(req.RouteTestURL),
 	})
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RouteTestResult{}, friendlyNodeError("test route", req.NodeID, err)
 	}
+	if !res.GetSuccess() && strings.TrimSpace(res.GetError()) == "" {
+		return RouteTestResult{Error: "Node update is required for practical route tests"}, nil
+	}
+	traffic := make([]OutboundTraffic, 0, len(res.GetOutboundTraffic()))
+	for _, item := range res.GetOutboundTraffic() {
+		traffic = append(traffic, OutboundTraffic{
+			Tag:  item.GetTag(),
+			Up:   item.GetUp(),
+			Down: item.GetDown(),
+		})
+	}
 	return RouteTestResult{
-		Matched:     res.GetMatched(),
-		OutboundTag: res.GetOutboundTag(),
-		GroupTags:   res.GetGroupTags(),
-		Error:       res.GetError(),
+		Matched:         res.GetMatched(),
+		OutboundTag:     res.GetOutboundTag(),
+		GroupTags:       res.GetGroupTags(),
+		Success:         res.GetSuccess(),
+		Delay:           res.GetDelay(),
+		StatusCode:      res.GetStatusCode(),
+		OutboundTraffic: traffic,
+		Error:           res.GetError(),
 	}, nil
 }

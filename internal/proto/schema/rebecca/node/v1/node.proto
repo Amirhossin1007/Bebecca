@@ -174,6 +174,8 @@ message RouteTestRequest {
   string network = 6;
   string protocol = 7;
   string email = 8;
+  string config_json = 9;
+  string test_url = 10;
 }
 
 message RouteTestResponse {
@@ -181,6 +183,16 @@ message RouteTestResponse {
   string outbound_tag = 2;
   repeated string group_tags = 3;
   string error = 4;
+  bool success = 5;
+  int64 delay = 6;
+  int32 status_code = 7;
+  repeated RouteTestTraffic outbound_traffic = 8;
+}
+
+message RouteTestTraffic {
+  string tag = 1;
+  int64 up = 2;
+  int64 down = 3;
 }
 
 message RuntimeUpdateRequest {

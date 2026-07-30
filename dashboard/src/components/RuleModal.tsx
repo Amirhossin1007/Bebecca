@@ -21,7 +21,11 @@ import { type FC, useEffect, useMemo } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { MultiValueAutocomplete } from "./common/MultiValueAutocomplete";
-import { SearchableTagSelect } from "./common/SearchableTagSelect";
+import {
+	SearchableTagSelect,
+	type SearchableTagSelectOption,
+} from "./common/SearchableTagSelect";
+import { OutboundTestButton } from "./xray/OutboundTestButton";
 import {
 	XrayDialogSection,
 	XrayFieldGrid,
@@ -75,8 +79,10 @@ export interface RuleModalProps {
 	mode: "create" | "edit";
 	initialRule?: RoutingRule | null;
 	availableInboundTags: string[];
-	availableOutboundTags: string[];
+	availableOutboundTags: SearchableTagSelectOption[];
 	availableBalancerTags: string[];
+	onTestOutbound?: (tag: string) => void;
+	outboundTestingByTag?: Record<string, boolean>;
 	onSubmit: (rule: RoutingRule) => void;
 	onClose: () => void;
 }
@@ -121,7 +127,9 @@ const splitStringList = (value: string) =>
 
 const toSingleTag = (value: unknown) => {
 	if (Array.isArray(value)) {
-		const firstValue = value.find((item) => item != null && String(item).trim());
+		const firstValue = value.find(
+			(item) => item != null && String(item).trim(),
+		);
 		return firstValue == null ? "" : String(firstValue).trim();
 	}
 	return value == null ? "" : String(value).trim();
@@ -215,6 +223,8 @@ export const RuleModal: FC<RuleModalProps> = ({
 	availableInboundTags,
 	availableOutboundTags,
 	availableBalancerTags,
+	onTestOutbound,
+	outboundTestingByTag = {},
 	onSubmit,
 	onClose,
 }) => {
@@ -256,9 +266,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 
 	const title = useMemo(
 		() =>
-			mode === "edit"
-				? t("pages.xray.rules.edit")
-				: t("pages.xray.rules.add"),
+			mode === "edit" ? t("pages.xray.rules.edit") : t("pages.xray.rules.add"),
 		[mode, t],
 	);
 
@@ -275,14 +283,10 @@ export const RuleModal: FC<RuleModalProps> = ({
 				<ModalCloseButton />
 				<XrayModalBody>
 					<Stack spacing={3}>
-						<XrayDialogSection
-							title={t("pages.outbound.basicSettings")}
-						>
+						<XrayDialogSection title={t("pages.outbound.basicSettings")}>
 							<Stack spacing={3}>
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.type")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.type")}</FormLabel>
 									<Controller
 										control={control}
 										name="type"
@@ -300,9 +304,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 								</FormControl>
 
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.outboundTag")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.outboundTag")}</FormLabel>
 									<Controller
 										control={control}
 										name="outboundTag"
@@ -317,12 +319,24 @@ export const RuleModal: FC<RuleModalProps> = ({
 															const nextValue = value as string;
 															field.onChange(nextValue);
 															if (nextValue) {
-																setValue("balancerTag", "", { shouldDirty: true });
+																setValue("balancerTag", "", {
+																	shouldDirty: true,
+																});
 															}
 														}}
 														placeholder={t("userDialog.flow.none")}
 														searchPlaceholder={t("search")}
 														emptyText={t("pages.xray.outbound.empty")}
+														rightElement={
+															<OutboundTestButton
+																label={t("pages.xray.routeTester.test")}
+																tag={field.value ?? ""}
+																isTesting={
+																	outboundTestingByTag[field.value ?? ""]
+																}
+																onTest={onTestOutbound}
+															/>
+														}
 													/>
 												</Box>
 												<IconButton
@@ -339,9 +353,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 								</FormControl>
 
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.balancer")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.balancer")}</FormLabel>
 									<Controller
 										control={control}
 										name="balancerTag"
@@ -356,7 +368,9 @@ export const RuleModal: FC<RuleModalProps> = ({
 															const nextValue = value as string;
 															field.onChange(nextValue);
 															if (nextValue) {
-																setValue("outboundTag", "", { shouldDirty: true });
+																setValue("outboundTag", "", {
+																	shouldDirty: true,
+																});
 															}
 														}}
 														placeholder={t("userDialog.flow.none")}
@@ -378,9 +392,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 								</FormControl>
 
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.inboundTag")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.inboundTag")}</FormLabel>
 									<Controller
 										control={control}
 										name="inboundTags"
@@ -403,9 +415,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 						<XrayDialogSection title={t("pages.xray.Routings")}>
 							<Stack spacing={3}>
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.domainMatcher")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.domainMatcher")}</FormLabel>
 									<Controller
 										control={control}
 										name="domainMatcher"
@@ -426,9 +436,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 								</FormControl>
 
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.network")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.network")}</FormLabel>
 									<Controller
 										control={control}
 										name="networks"
@@ -447,9 +455,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 								</FormControl>
 
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.protocol")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.protocol")}</FormLabel>
 									<Controller
 										control={control}
 										name="protocols"
@@ -469,14 +475,10 @@ export const RuleModal: FC<RuleModalProps> = ({
 							</Stack>
 						</XrayDialogSection>
 
-						<XrayDialogSection
-							title={t("pages.xray.rules.sourceGroup")}
-						>
+						<XrayDialogSection title={t("pages.xray.rules.sourceGroup")}>
 							<XrayFieldGrid>
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.source")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.source")}</FormLabel>
 									<Controller
 										control={control}
 										name="sourceIps"
@@ -491,9 +493,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 								</FormControl>
 
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.sourcePort")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.sourcePort")}</FormLabel>
 									<Controller
 										control={control}
 										name="sourcePort"
@@ -509,14 +509,10 @@ export const RuleModal: FC<RuleModalProps> = ({
 							</XrayFieldGrid>
 						</XrayDialogSection>
 
-						<XrayDialogSection
-							title={t("pages.xray.rules.destinationGroup")}
-						>
+						<XrayDialogSection title={t("pages.xray.rules.destinationGroup")}>
 							<XrayFieldGrid>
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.ip")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.ip")}</FormLabel>
 									<Controller
 										control={control}
 										name="ip"
@@ -531,9 +527,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 								</FormControl>
 
 								<FormControl>
-									<FormLabel>
-										{t("pages.xray.rules.domain")}
-									</FormLabel>
+									<FormLabel>{t("pages.xray.rules.domain")}</FormLabel>
 									<Controller
 										control={control}
 										name="domain"
@@ -579,13 +573,9 @@ export const RuleModal: FC<RuleModalProps> = ({
 							</XrayFieldGrid>
 						</XrayDialogSection>
 
-						<XrayDialogSection
-							title={t("pages.xray.rules.attrs")}
-						>
+						<XrayDialogSection title={t("pages.xray.rules.attrs")}>
 							<FormControl>
-								<FormLabel>
-									{t("pages.xray.rules.attrs")}
-								</FormLabel>
+								<FormLabel>{t("pages.xray.rules.attrs")}</FormLabel>
 								<Button
 									onClick={onAddAttribute}
 									size="xs"

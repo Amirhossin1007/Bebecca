@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { PanelSelect, type PanelSelectOption } from "./PanelSelect";
 
 export type SearchableTagSelectOption =
@@ -16,13 +17,16 @@ type SearchableTagSelectProps = {
 	onChange: (value: string | string[]) => void;
 	options: SearchableTagSelectOption[];
 	placeholder: string;
+	rightElement?: ReactNode;
 	searchPlaceholder?: string;
 	size?: "sm" | "md";
 	value: string | string[];
 	width?: string;
 };
 
-const normalizeOption = (option: SearchableTagSelectOption): PanelSelectOption => {
+const normalizeOption = (
+	option: SearchableTagSelectOption,
+): PanelSelectOption => {
 	if (typeof option === "string") {
 		return {
 			label: option,
@@ -45,6 +49,7 @@ export const SearchableTagSelect = ({
 	onChange,
 	options,
 	placeholder,
+	rightElement,
 	searchPlaceholder = "Search",
 	size = "sm",
 	value,
@@ -55,6 +60,7 @@ export const SearchableTagSelect = ({
 		value={value}
 		options={options.map(normalizeOption)}
 		placeholder={placeholder}
+		rightElement={rightElement}
 		searchPlaceholder={searchPlaceholder}
 		emptyText={emptyText}
 		isDisabled={isDisabled}
