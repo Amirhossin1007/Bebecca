@@ -126,6 +126,7 @@ import {
 } from "../utils/jsonFormatting";
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
+import { sumOutboundTraffic } from "../utils/outboundTraffic";
 import XrayLogsPage from "./XrayLogsPage";
 
 const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
@@ -2497,14 +2498,28 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const findOutboundTraffic = (outbound: any, index: number) => {
-		const outboundId = outboundIds[index];
-		const targetTraffic = outboundsTraffic.filter(
-			(t) => (t.target_id || "master") === selectedTarget,
+		return sumOutboundTraffic(
+			outboundsTraffic,
+			selectedTarget,
+			outboundIds[index],
+			outbound.tag,
+			isMasterTarget,
 		);
-		const traffic = outboundId
-			? targetTraffic.find((t) => t.outbound_id === outboundId)
-			: targetTraffic.find((t) => t.tag === outbound.tag);
-		return { up: Number(traffic?.up) || 0, down: Number(traffic?.down) || 0 };
+	};
+
+	const findSubscriptionOutboundTraffic = (outbound: any) => {
+		const outboundId = outboundsTraffic.find(
+			(item) =>
+				(item.target_id || "master") === selectedTarget &&
+				item.tag === outbound.tag,
+		)?.outbound_id;
+		return sumOutboundTraffic(
+			outboundsTraffic,
+			selectedTarget,
+			outboundId,
+			outbound.tag,
+			isMasterTarget,
+		);
 	};
 
 	const renderOutboundTraffic = (traffic?: { up?: number; down?: number }) => (
@@ -3672,12 +3687,8 @@ export const CoreSettingsPage: FC = () => {
 				header: t("pages.inbounds.traffic"),
 				priority: "high",
 				mobileSummary: true,
-				cell: ({ outbound }) => {
-					const traffic = outboundsTraffic
-						.filter((item) => (item.target_id || "master") === selectedTarget)
-						.find((item) => item.tag === outbound.tag);
-					return renderOutboundTraffic(traffic);
-				},
+				cell: ({ outbound }) =>
+					renderOutboundTraffic(findSubscriptionOutboundTraffic(outbound)),
 			},
 			{
 				id: "latency",
