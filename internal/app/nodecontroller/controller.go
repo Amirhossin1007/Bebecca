@@ -25,7 +25,8 @@ type Controller struct {
 }
 
 const (
-	maxConcurrentSingleNodeOperations = 2
+	maxConcurrentSingleNodeOperations  = 2
+	maxConcurrentRuntimeUserOperations = 32
 )
 
 func NewController(repo Repository) Controller {
@@ -293,7 +294,7 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 		}
 		groups[idx].operations = append(groups[idx].operations, operation)
 	}
-	if err := c.processOrderedOperationGroups(ctx, groups, blockedNodes, &result); err != nil {
+	if err := c.processOrderedOperationGroups(ctx, groups, blockedNodes, &result, maxConcurrentSingleNodeOperations); err != nil {
 		return result, err
 	}
 	if len(globalCoalesced) > 0 {
@@ -329,7 +330,7 @@ func (c Controller) ProcessRuntimeUserOperations(ctx context.Context, req Proces
 		}
 		groups[idx].operations = append(groups[idx].operations, operation)
 	}
-	if err := c.processOrderedOperationGroups(ctx, groups, blockedNodes, &result); err != nil {
+	if err := c.processOrderedOperationGroups(ctx, groups, blockedNodes, &result, maxConcurrentRuntimeUserOperations); err != nil {
 		return result, err
 	}
 	return result, nil
@@ -340,7 +341,7 @@ type operationGroup struct {
 	operations []OperationRow
 }
 
-func (c Controller) processOrderedOperationGroups(ctx context.Context, groups []operationGroup, blockedNodes map[int64]bool, result *ProcessOperationsResult) error {
+func (c Controller) processOrderedOperationGroups(ctx context.Context, groups []operationGroup, blockedNodes map[int64]bool, result *ProcessOperationsResult, workers int) error {
 	type groupResult struct {
 		result       ProcessOperationsResult
 		blockedNodes map[int64]bool
@@ -349,7 +350,9 @@ func (c Controller) processOrderedOperationGroups(ctx context.Context, groups []
 	if len(groups) == 0 {
 		return nil
 	}
-	workers := maxConcurrentSingleNodeOperations
+	if workers <= 0 {
+		workers = 1
+	}
 	if workers > len(groups) {
 		workers = len(groups)
 	}
