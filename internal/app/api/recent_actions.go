@@ -87,6 +87,13 @@ type recentActionPreview struct {
 	Resource  string `json:"resource,omitempty"`
 }
 
+type recentActionListFilter struct {
+	Search        string
+	ActionTypes   []string
+	ResourceTypes []string
+	Statuses      []string
+}
+
 type recentActionStored struct {
 	recentActionItem
 	Snapshot  []byte
@@ -440,8 +447,19 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 		}
 		beforeID = parsed
 	}
+	filter, err := recentActionListFilterFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
-	items, err := s.listRecentActions(r.Context(), beforeID, limit+1, principal.Context.Admin.HasFullAccess())
+	includeAdmin := principal.Context.Admin.HasFullAccess()
+	items, err := s.listRecentActions(r.Context(), beforeID, limit+1, includeAdmin, filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	actionTypes, resourceTypes, err := s.recentActionFilterOptions(r.Context(), includeAdmin)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -452,7 +470,49 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 		cursor := items[len(items)-1].cursorID
 		nextBeforeID = &cursor
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"actions": items, "next_before_id": nextBeforeID})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"actions": items, "next_before_id": nextBeforeID,
+		"action_types": actionTypes, "resource_types": resourceTypes,
+	})
+}
+
+func recentActionListFilterFromRequest(r *http.Request) (recentActionListFilter, error) {
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+	if len(search) > 256 {
+		return recentActionListFilter{}, fmt.Errorf("search must not exceed 256 characters")
+	}
+	parse := func(key string) ([]string, error) {
+		values := make([]string, 0)
+		for _, raw := range r.URL.Query()[key] {
+			for _, value := range strings.Split(raw, ",") {
+				value = strings.TrimSpace(value)
+				if value == "" {
+					continue
+				}
+				if len(value) > 96 || len(values) >= 50 {
+					return nil, fmt.Errorf("invalid %s filter", key)
+				}
+				values = append(values, value)
+			}
+		}
+		return uniqueRecentActionResources(values), nil
+	}
+	actionTypes, err := parse("action_type")
+	if err != nil {
+		return recentActionListFilter{}, err
+	}
+	resourceTypes, err := parse("resource_type")
+	if err != nil {
+		return recentActionListFilter{}, err
+	}
+	statuses, err := parse("status")
+	if err != nil {
+		return recentActionListFilter{}, err
+	}
+	return recentActionListFilter{
+		Search: search, ActionTypes: actionTypes,
+		ResourceTypes: resourceTypes, Statuses: statuses,
+	}, nil
 }
 
 func (s *Server) handleRecentActionsPath(w http.ResponseWriter, r *http.Request) {
@@ -478,13 +538,26 @@ func (s *Server) handleRecentActionsPath(w http.ResponseWriter, r *http.Request)
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
-func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int, includeAdmin bool) ([]recentActionItem, error) {
+func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int, includeAdmin bool, filter recentActionListFilter) ([]recentActionItem, error) {
 	items := []recentActionItem{}
 	cursor := beforeID
 	for {
+		clauses := []string{"(? = 0 OR id < ?)", "(? = 1 OR resource_type <> 'admin')"}
+		args := []any{cursor, cursor, includeAdmin}
+		if filter.Search != "" {
+			term := "%" + strings.ToLower(filter.Search) + "%"
+			clauses = append(clauses, `(LOWER(summary) LIKE ? OR LOWER(action_type) LIKE ? OR LOWER(resource_type) LIKE ? OR LOWER(resource_key) LIKE ? OR LOWER(actor_username) LIKE ?)`)
+			for range 5 {
+				args = append(args, term)
+			}
+		}
+		addRecentActionListFilter(&clauses, &args, "action_type", filter.ActionTypes)
+		addRecentActionListFilter(&clauses, &args, "resource_type", filter.ResourceTypes)
+		addRecentActionListFilter(&clauses, &args, "rollback_status", filter.Statuses)
+		args = append(args, recentActionListChunkSize)
 		rows, err := s.db.QueryContext(ctx, `SELECT id, action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
 			summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id, after_hash, snapshot
-			FROM recent_actions WHERE (? = 0 OR id < ?) AND (? = 1 OR resource_type <> 'admin') ORDER BY id DESC LIMIT ?`, cursor, cursor, includeAdmin, recentActionListChunkSize)
+			FROM recent_actions WHERE `+strings.Join(clauses, " AND ")+` ORDER BY id DESC LIMIT ?`, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -523,6 +596,50 @@ func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit in
 	}
 }
 
+func addRecentActionListFilter(clauses *[]string, args *[]any, column string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+	markers := make([]string, len(values))
+	for index, value := range values {
+		markers[index] = "?"
+		*args = append(*args, value)
+	}
+	*clauses = append(*clauses, column+" IN ("+strings.Join(markers, ",")+")")
+}
+
+func (s *Server) recentActionFilterOptions(ctx context.Context, includeAdmin bool) ([]string, []string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT action_type, resource_type FROM recent_actions WHERE (? = 1 OR resource_type <> 'admin')`, includeAdmin)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	actionSet := map[string]struct{}{}
+	resourceSet := map[string]struct{}{}
+	for rows.Next() {
+		var actionType, resourceType string
+		if err := rows.Scan(&actionType, &resourceType); err != nil {
+			return nil, nil, err
+		}
+		actionSet[actionType] = struct{}{}
+		resourceSet[resourceType] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	actionTypes := make([]string, 0, len(actionSet))
+	for value := range actionSet {
+		actionTypes = append(actionTypes, value)
+	}
+	resourceTypes := make([]string, 0, len(resourceSet))
+	for value := range resourceSet {
+		resourceTypes = append(resourceTypes, value)
+	}
+	sort.Strings(actionTypes)
+	sort.Strings(resourceTypes)
+	return actionTypes, resourceTypes, nil
+}
+
 func prepareRecentActionGroup(item *recentActionItem) {
 	item.cursorID = item.ID
 	item.groupSummary = item.Summary
@@ -545,9 +662,9 @@ func mergeRecentNodeAction(group *recentActionItem, item recentActionItem) bool 
 			return false
 		}
 	} else {
-		newer, newerErr := time.Parse("2006-01-02 15:04:05.999999", group.groupTailAt)
-		older, olderErr := time.Parse("2006-01-02 15:04:05.999999", item.CreatedAt)
-		if newerErr != nil || olderErr != nil || newer.Sub(older) < 0 || newer.Sub(older) > recentActionLegacyBatchGap {
+		newer := parseDBTime(group.groupTailAt)
+		older := parseDBTime(item.CreatedAt)
+		if newer == nil || older == nil || newer.Sub(*older) < 0 || newer.Sub(*older) > recentActionLegacyBatchGap {
 			return false
 		}
 		if _, duplicate := group.groupResources[item.ResourceKey]; duplicate {

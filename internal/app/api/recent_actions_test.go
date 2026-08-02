@@ -91,7 +91,7 @@ func TestRecordRecentActionEventStoresHistoryOnly(t *testing.T) {
 	if action.ResourceType != "admin" || action.RollbackStatus != "unsupported" || len(action.Snapshot) != 0 {
 		t.Fatalf("unexpected action: %#v", action)
 	}
-	items, err := server.listRecentActions(ctx, 0, 10, false)
+	items, err := server.listRecentActions(ctx, 0, 10, false, recentActionListFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestRecordRecentActionEventDetailsStoresPreviewAndResources(t *testing.T) {
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	items, err := server.listRecentActions(ctx, 0, 10, true)
+	items, err := server.listRecentActions(ctx, 0, 10, true, recentActionListFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestListRecentActionsGroupsNodeBatches(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	items, err := server.listRecentActions(ctx, 0, 3, true)
+	items, err := server.listRecentActions(ctx, 0, 3, true, recentActionListFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,6 +188,61 @@ func TestListRecentActionsGroupsNodeBatches(t *testing.T) {
 	}
 	if items[0].ResourceKey != "2 nodes" || items[1].ResourceKey != "3 nodes" {
 		t.Fatalf("unexpected grouped resource keys: %#v", items)
+	}
+}
+
+func TestMergeRecentNodeActionAcceptsMySQLTimestamp(t *testing.T) {
+	group := recentActionItem{
+		ID: 2, ActionType: "node.host_reboot", ResourceType: "node", ResourceKey: "de-2",
+		ActorUsername: "operator", AuthSource: "session", Summary: "Rebooted node host",
+		RollbackStatus: "unsupported", CreatedAt: "2026-08-02T12:00:02Z",
+	}
+	item := recentActionItem{
+		ID: 1, ActionType: "node.host_reboot", ResourceType: "node", ResourceKey: "de-1",
+		ActorUsername: "operator", AuthSource: "session", Summary: "Rebooted node host",
+		RollbackStatus: "unsupported", CreatedAt: "2026-08-02T12:00:01Z",
+	}
+	prepareRecentActionGroup(&group)
+	prepareRecentActionGroup(&item)
+	if !mergeRecentNodeAction(&group, item) || len(group.AffectedResources) != 2 {
+		t.Fatalf("MySQL timestamps were not grouped: %#v", group)
+	}
+}
+
+func TestListRecentActionsAppliesServerFilters(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createRecentActionsTable(t, db)
+	server := &Server{db: db}
+	ctx := context.WithValue(context.Background(), adminContextKey, adminPrincipal{ID: 9, Username: "operator"})
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []struct{ actionType, resourceType, resourceKey, summary string }{
+		{"node.host_reboot", "node", "de-1", "Rebooted node host"},
+		{"node.service_restart", "node", "fr-1", "Restarted node service"},
+		{"admin.update", "admin", "seller", "Updated admin"},
+	} {
+		if err := server.recordRecentActionEventTx(ctx, tx, action.actionType, action.resourceType, action.resourceKey, action.summary); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	items, err := server.listRecentActions(ctx, 0, 10, true, recentActionListFilter{
+		Search: "fr-1", ActionTypes: []string{"node.service_restart"},
+		ResourceTypes: []string{"node"}, Statuses: []string{"unsupported"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ResourceKey != "fr-1" {
+		t.Fatalf("unexpected filtered actions: %#v", items)
 	}
 }
 
