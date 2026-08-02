@@ -108,6 +108,7 @@ SELECT DISTINCT sh.service_id
 FROM service_hosts sh
 JOIN hosts h ON h.id = sh.host_id
 WHERE h.inbound_tag = ?
+  AND COALESCE(h.is_disabled, 0) = 0
 ORDER BY sh.service_id`, tag)
 	if err != nil {
 		return nil, err

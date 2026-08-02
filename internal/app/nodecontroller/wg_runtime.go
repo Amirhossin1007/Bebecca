@@ -79,9 +79,15 @@ func (r Repository) WGRuntime(ctx context.Context, nodeID int64) (WGRuntime, err
 		if err != nil {
 			return WGRuntime{}, err
 		}
+		if len(serviceIDs) == 0 {
+			continue
+		}
 		peers, err := r.WGUsersForServices(ctx, tag, serviceIDs, OVStringValue(settings["address_pool"]), OVStringValue(settings["server_address"]))
 		if err != nil {
 			return WGRuntime{}, err
+		}
+		if len(peers) == 0 {
+			continue
 		}
 		tunnelPort := xrayconfig.RuntimeTunnelPortForInbound(inbound, usedPorts)
 		if tunnelPort > 0 {

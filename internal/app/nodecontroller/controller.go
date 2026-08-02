@@ -52,19 +52,25 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 		return RuntimeResult{}, friendlyNodeError("connect", req.NodeID, err)
 	}
 	state := connect.GetRuntime()
-	if strings.TrimSpace(req.ConfigJSON) != "" {
-		syncReq, err := c.runtimeConfigRequest(ctx, node, "sync-"+strconv.FormatInt(req.NodeID, 10), req.ConfigJSON)
+	configJSON := strings.TrimSpace(req.ConfigJSON)
+	if configJSON == "" {
+		configJSON, err = c.buildRuntimeConfig(ctx, node)
 		if err != nil {
 			_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 			return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
 		}
-		syncRes, err := client.Runtime().SyncConfig(ctx, syncReq)
-		if err != nil {
-			_ = c.repo.SetError(ctx, req.NodeID, err.Error())
-			return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
-		}
-		state = syncRes.GetRuntime()
 	}
+	syncReq, err := c.runtimeConfigRequest(ctx, node, "sync-"+strconv.FormatInt(req.NodeID, 10), configJSON)
+	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
+	}
+	syncRes, err := client.Runtime().SyncConfig(ctx, syncReq)
+	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
+	}
+	state = syncRes.GetRuntime()
 	result, err := c.finishRuntime(ctx, node, state, "connected")
 	if err != nil {
 		return RuntimeResult{}, err
