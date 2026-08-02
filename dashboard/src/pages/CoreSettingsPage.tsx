@@ -124,7 +124,6 @@ import {
 	type RebeccaJsonContext,
 	stringifyRebeccaJson,
 } from "../utils/jsonFormatting";
-import { countryFlag } from "../utils/countries";
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
 import XrayLogsPage from "./XrayLogsPage";
@@ -172,9 +171,9 @@ const NordVPNIconStyled = () => (
 		{SiNordvpn({ size: 16, "aria-hidden": true })}
 	</Box>
 );
-const TorIconStyled = () => (
+const TorIconStyled: FC<{ size?: number }> = ({ size = 16 }) => (
 	<Box as="span" display="inline-flex" color="#7d4698">
-		{SiTorproject({ size: 16, "aria-hidden": true })}
+		{SiTorproject({ size, "aria-hidden": true })}
 	</Box>
 );
 const WindscribeIconStyled = () => (
@@ -199,17 +198,11 @@ const PsiphonIconStyled = () => (
 );
 const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 	const meta = managedOutboundMeta(outbound);
-	if (!meta) return null;
+	if (!meta || meta.provider === "tor") return null;
 	const providerName =
-		meta.provider === "tor"
-			? "Tor"
-			: meta.provider === "windscribe"
-				? "Windscribe"
-				: "Psiphon";
+		meta.provider === "windscribe" ? "Windscribe" : "Psiphon";
 	const icon =
-		meta.provider === "tor" ? (
-			<TorIconStyled />
-		) : meta.provider === "windscribe" ? (
+		meta.provider === "windscribe" ? (
 			<WindscribeIconStyled />
 		) : (
 			<PsiphonIconStyled />
@@ -231,7 +224,6 @@ const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 				flexShrink={0}
 			>
 				{icon}
-				{meta.country && <Text fontSize="sm">{countryFlag(meta.country)}</Text>}
 			</HStack>
 		</Tooltip>
 	);
@@ -3525,6 +3517,13 @@ export const CoreSettingsPage: FC = () => {
 			cell: ({ outbound }) => (
 				<VStack align="start" spacing={1}>
 					<HStack spacing={1.5} maxW="full" minW={0}>
+						{managedOutboundMeta(outbound)?.provider === "tor" && (
+							<Tooltip label="Tor">
+								<Box display="inline-flex" flexShrink={0}>
+									<TorIconStyled size={20} />
+								</Box>
+							</Tooltip>
+						)}
 						<Text fontWeight="semibold" noOfLines={1}>
 							{String(outbound.tag ?? "-")}
 						</Text>
