@@ -998,7 +998,8 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 		}
 	}
 
-	return "vmess://" + base64.StdEncoding.EncodeToString([]byte(pythonJSONDumpsSorted(payload)))
+	encoded, _ := json.Marshal(payload)
+	return "vmess://" + base64.StdEncoding.EncodeToString(encoded)
 }
 
 func vlessShareLink(remark string, address string, path string, inbound ResolvedInbound, settings map[string]any) string {

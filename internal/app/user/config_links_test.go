@@ -74,6 +74,28 @@ func TestShadowsocks2022LinkUsesSIP022UserInfo(t *testing.T) {
 	}
 }
 
+func TestVMessShareLinkKeepsUnicodeRemark(t *testing.T) {
+	const remark = "\U0001F1E9\U0001F1EA | DE DIRECT 2"
+	link := vmessShareLink(remark, "vpn.example.com", "/ws", ResolvedInbound{
+		"port": int64(443), "network": "ws", "tls": "tls",
+	}, map[string]any{"id": "05bfddf8-1eb4-18fa-1edb-ce7cd286eee1"})
+
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(link, "vmess://"))
+	if err != nil {
+		t.Fatalf("decode VMess payload: %v", err)
+	}
+	if !strings.Contains(string(decoded), remark) {
+		t.Fatalf("VMess remark was escaped instead of encoded as UTF-8: %s", decoded)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		t.Fatalf("invalid VMess JSON: %v", err)
+	}
+	if payload["ps"] != remark {
+		t.Fatalf("unexpected VMess remark: %#v", payload["ps"])
+	}
+}
+
 func TestHostRotationSelectionModes(t *testing.T) {
 	value := "one.example.com,two.example.com,one.example.com"
 	selected := selectHostRotationValue(10, "address", value, nil, "random", nil)
