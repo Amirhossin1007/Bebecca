@@ -613,27 +613,27 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 		no.payload,
 		no.attempts,
 		CASE
-			WHEN no.operation_type = 'add_user' THEN 0
-			WHEN no.operation_type IN ('update_user', 'enable_user') THEN 1
-			WHEN no.operation_type IN ('remove_user', 'disable_user') THEN 2
-			WHEN no.operation_type = 'sync_config' THEN 3
+			WHEN no.operation_type = 'sync_config' THEN 0
+			WHEN no.operation_type = 'add_user' THEN 1
+			WHEN no.operation_type IN ('update_user', 'enable_user') THEN 2
+			WHEN no.operation_type IN ('remove_user', 'disable_user') THEN 3
 			ELSE 3
 		END AS operation_priority,
 		ROW_NUMBER() OVER (
 			PARTITION BY COALESCE(no.node_id, -1)
 			ORDER BY
 				CASE
-					WHEN no.operation_type = 'add_user' THEN 0
-					WHEN no.operation_type IN ('update_user', 'enable_user') THEN 1
-					WHEN no.operation_type IN ('remove_user', 'disable_user') THEN 2
-				WHEN no.operation_type = 'sync_config' THEN 3
+					WHEN no.operation_type = 'sync_config' THEN 0
+					WHEN no.operation_type = 'add_user' THEN 1
+					WHEN no.operation_type IN ('update_user', 'enable_user') THEN 2
+					WHEN no.operation_type IN ('remove_user', 'disable_user') THEN 3
 				ELSE 3
 				END,
 				CASE WHEN no.operation_type = 'add_user' THEN -no.id ELSE no.id END
 		) AS node_rank,
 		CASE
-			WHEN no.node_id IS NOT NULL AND LOWER(COALESCE(n.status, '')) = 'connected' THEN 0
-			WHEN no.node_id IS NULL THEN 1
+			WHEN no.node_id IS NULL THEN 0
+			WHEN LOWER(COALESCE(n.status, '')) = 'connected' THEN 1
 			WHEN LOWER(COALESCE(n.status, '')) IN ('disabled', 'limited') THEN 3
 			ELSE 2
 		END AS priority
@@ -787,6 +787,34 @@ WHERE status IN ('pending', 'retrying', 'running') AND id IN (`+placeholders(len
 		affectedTotal += int(affected)
 	}
 	return affectedTotal, nil
+}
+
+func (r Repository) ReplaceOpenQueueWithFullSync(ctx context.Context) (int, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC()
+	timeArg := r.timeArg(now)
+	res, err := tx.ExecContext(ctx, `UPDATE node_operations
+SET status = 'done', last_error = NULL, updated_at = ?
+WHERE status IN ('pending', 'retrying', 'running')`, timeArg)
+	if err != nil {
+		return 0, err
+	}
+	cleared := rowsAffectedOrDefault(res, 0)
+	sum := sha256.Sum256([]byte(fmt.Sprintf("startup-sync:%d", now.UnixNano())))
+	if _, err := tx.ExecContext(ctx, `INSERT INTO node_operations
+(operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
+VALUES ('sync_config', NULL, NULL, '{}', 'pending', 0, ?, ?, ?)`, hex.EncodeToString(sum[:]), timeArg, timeArg); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return cleared, nil
 }
 
 func rowsAffectedOrDefault(res sql.Result, fallback int) int {

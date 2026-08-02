@@ -57,6 +57,7 @@ type Server struct {
 	webhookDispatch      webhookapp.Dispatcher
 	backupService        *backupapp.Service
 	backgroundOnce       sync.Once
+	nodeOperationsKick   chan struct{}
 	userOpsKickMu        sync.Mutex
 	userOpsKicking       bool
 	userOpsKickUserIDs   map[int64]struct{}
@@ -130,6 +131,7 @@ func New(cfg Config) (*Server, error) {
 		webhookRepo:          webhookRepo,
 		webhookDispatch:      webhookDispatch,
 		backupService:        backupService,
+		nodeOperationsKick:   make(chan struct{}, 1),
 		recentActionsEnabled: true,
 	}
 	server.configRepo = xrayconfig.NewRepository(pool.DB, pool.Dialect, xrayconfig.Options{
@@ -161,6 +163,12 @@ func (s *Server) SubscriptionSettings(ctx context.Context) (settingsapp.Subscrip
 
 func (s *Server) StartBackground(ctx context.Context) {
 	s.backgroundOnce.Do(func() {
+		cleared, err := s.nodeController.PrepareStartupFullSync(ctx)
+		if err != nil {
+			logging.Warnf(logging.ComponentNode, "failed to replace startup operation queue: %v", err)
+		} else if cleared > 0 {
+			logging.Infof(logging.ComponentNode, "startup operation queue replaced with full sync cleared=%d", cleared)
+		}
 		go s.runNodeOperationsWorker(ctx)
 		go s.runNodeRecoveryWorker(ctx)
 		go s.runNodeUsageCollector(ctx)
