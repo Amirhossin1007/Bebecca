@@ -143,6 +143,54 @@ func TestRecordRecentActionEventDetailsStoresPreviewAndResources(t *testing.T) {
 	}
 }
 
+func TestListRecentActionsGroupsNodeBatches(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createRecentActionsTable(t, db)
+	server := &Server{db: db}
+	ctx := context.WithValue(context.Background(), adminContextKey, adminPrincipal{ID: 9, Username: "operator"})
+	batchCtx := context.WithValue(ctx, recentActionBatchContextKey, "batch-1")
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"de-1", "de-2", "de-3"} {
+		if err := server.recordRecentActionEventTx(batchCtx, tx, "node.host_reboot", "node", name, "Rebooted node host"); err != nil {
+			_ = tx.Rollback()
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"fr-1", "fr-2"} {
+		if err := server.recordRecentActionEventTx(ctx, tx, "node.host_reboot", "node", name, "Rebooted node host"); err != nil {
+			_ = tx.Rollback()
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE recent_actions SET created_at = ? WHERE resource_key = 'fr-1'`, "2026-08-02 12:01:00.000000"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE recent_actions SET created_at = ? WHERE resource_key = 'fr-2'`, "2026-08-02 12:00:00.000000"); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := server.listRecentActions(ctx, 0, 3, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 || len(items[0].AffectedResources) != 2 || len(items[1].AffectedResources) != 3 {
+		t.Fatalf("unexpected grouped node actions: %#v", items)
+	}
+	if items[0].ResourceKey != "2 nodes" || items[1].ResourceKey != "3 nodes" {
+		t.Fatalf("unexpected grouped resource keys: %#v", items)
+	}
+}
+
 func TestRecentActionSnapshotPreviewShowsHostRename(t *testing.T) {
 	preview := recentActionSnapshotPreview(recentActionSnapshot{
 		Before: xrayconfig.MutationSnapshot{Hosts: []xrayconfig.HostSnapshot{{ID: 1, Remark: "name"}}},

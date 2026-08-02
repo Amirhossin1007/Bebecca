@@ -25,6 +25,8 @@ const (
 	recentActionSnapshotMaxSize  = 1 << 20
 	recentActionPreviewMaxSize   = 128 << 10
 	recentActionHistoryMaxRows   = 1000
+	recentActionListChunkSize    = 100
+	recentActionLegacyBatchGap   = 10 * time.Minute
 )
 
 type recentActionSnapshot struct {
@@ -68,6 +70,12 @@ type recentActionItem struct {
 	UndoneAt          *string              `json:"undone_at,omitempty"`
 	UndoneByAdminID   *int64               `json:"undone_by_admin_id,omitempty"`
 	Preview           *recentActionPreview `json:"preview,omitempty"`
+	AffectedResources []string             `json:"affected_resources,omitempty"`
+	cursorID          int64
+	batchID           string
+	groupSummary      string
+	groupTailAt       string
+	groupResources    map[string]struct{}
 }
 
 type recentActionPreview struct {
@@ -111,10 +119,11 @@ func (s *Server) recordRecentActionEventDetailsTx(ctx context.Context, tx *sql.T
 		snapshot = payload
 	}
 	now := time.Now().UTC()
+	batchID, _ := ctx.Value(recentActionBatchContextKey).(string)
 	_, err := tx.ExecContext(ctx, `INSERT INTO recent_actions (
 		action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
 		summary, snapshot, after_hash, rollback_status, created_at, snapshot_expires_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', 'unsupported', ?, NULL)`,
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unsupported', ?, NULL)`,
 		strings.TrimSpace(actionType),
 		strings.TrimSpace(resourceType),
 		strings.TrimSpace(resourceKey),
@@ -123,6 +132,7 @@ func (s *Server) recordRecentActionEventDetailsTx(ctx context.Context, tx *sql.T
 		fmt.Sprint(principal.Context.Source),
 		strings.TrimSpace(summary),
 		snapshot,
+		batchID,
 		dbTimestamp(now),
 	)
 	if err != nil {
@@ -439,7 +449,7 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 	var nextBeforeID *int64
 	if len(items) > limit {
 		items = items[:limit]
-		cursor := items[len(items)-1].ID
+		cursor := items[len(items)-1].cursorID
 		nextBeforeID = &cursor
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"actions": items, "next_before_id": nextBeforeID})
@@ -469,23 +479,90 @@ func (s *Server) handleRecentActionsPath(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit int, includeAdmin bool) ([]recentActionItem, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
-		summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id, snapshot
-		FROM recent_actions WHERE (? = 0 OR id < ?) AND (? = 1 OR resource_type <> 'admin') ORDER BY id DESC LIMIT ?`, beforeID, beforeID, includeAdmin, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	items := []recentActionItem{}
-	for rows.Next() {
-		item, snapshot, err := scanRecentActionListItem(rows)
+	cursor := beforeID
+	for {
+		rows, err := s.db.QueryContext(ctx, `SELECT id, action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
+			summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id, after_hash, snapshot
+			FROM recent_actions WHERE (? = 0 OR id < ?) AND (? = 1 OR resource_type <> 'admin') ORDER BY id DESC LIMIT ?`, cursor, cursor, includeAdmin, recentActionListChunkSize)
 		if err != nil {
 			return nil, err
 		}
-		item.Preview = recentActionPreviewFromSnapshot(snapshot, item.ActionType, item.ResourceType)
-		items = append(items, item)
+		read := 0
+		lastID := cursor
+		for rows.Next() {
+			item, snapshot, err := scanRecentActionListItem(rows)
+			if err != nil {
+				rows.Close()
+				return nil, err
+			}
+			read++
+			lastID = item.ID
+			item.Preview = recentActionPreviewFromSnapshot(snapshot, item.ActionType, item.ResourceType)
+			prepareRecentActionGroup(&item)
+			if len(items) > 0 && mergeRecentNodeAction(&items[len(items)-1], item) {
+				continue
+			}
+			if len(items) >= limit {
+				rows.Close()
+				return items, nil
+			}
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if err := rows.Close(); err != nil {
+			return nil, err
+		}
+		if read < recentActionListChunkSize {
+			return items, nil
+		}
+		cursor = lastID
 	}
-	return items, rows.Err()
+}
+
+func prepareRecentActionGroup(item *recentActionItem) {
+	item.cursorID = item.ID
+	item.groupSummary = item.Summary
+	item.groupTailAt = item.CreatedAt
+	if item.ResourceType == "node" && item.RollbackStatus == "unsupported" {
+		item.AffectedResources = []string{item.ResourceKey}
+		item.groupResources = map[string]struct{}{item.ResourceKey: {}}
+	}
+}
+
+func mergeRecentNodeAction(group *recentActionItem, item recentActionItem) bool {
+	if group.ResourceType != "node" || item.ResourceType != "node" ||
+		group.RollbackStatus != "unsupported" || item.RollbackStatus != "unsupported" ||
+		group.ActionType != item.ActionType || group.ActorUsername != item.ActorUsername ||
+		group.AuthSource != item.AuthSource || group.groupSummary != item.Summary {
+		return false
+	}
+	if group.batchID != "" || item.batchID != "" {
+		if group.batchID == "" || group.batchID != item.batchID {
+			return false
+		}
+	} else {
+		newer, newerErr := time.Parse("2006-01-02 15:04:05.999999", group.groupTailAt)
+		older, olderErr := time.Parse("2006-01-02 15:04:05.999999", item.CreatedAt)
+		if newerErr != nil || olderErr != nil || newer.Sub(older) < 0 || newer.Sub(older) > recentActionLegacyBatchGap {
+			return false
+		}
+		if _, duplicate := group.groupResources[item.ResourceKey]; duplicate {
+			return false
+		}
+	}
+	group.cursorID = item.ID
+	group.groupTailAt = item.CreatedAt
+	if _, duplicate := group.groupResources[item.ResourceKey]; !duplicate {
+		group.groupResources[item.ResourceKey] = struct{}{}
+		group.AffectedResources = append(group.AffectedResources, item.ResourceKey)
+	}
+	group.ResourceKey = fmt.Sprintf("%d nodes", len(group.AffectedResources))
+	group.Summary = fmt.Sprintf("%s · %d nodes", group.groupSummary, len(group.AffectedResources))
+	return true
 }
 
 func (s *Server) loadRecentAction(ctx context.Context, actionID int64) (recentActionStored, error) {
@@ -671,7 +748,7 @@ func scanRecentActionListItem(scanner rowScanner) (recentActionItem, []byte, err
 	var expiresAt, undoneAt sql.NullString
 	var snapshot []byte
 	err := scanner.Scan(&item.ID, &item.ActionType, &item.ResourceType, &item.ResourceKey, &actorID, &item.ActorUsername, &item.AuthSource,
-		&item.Summary, &item.RollbackStatus, &item.CreatedAt, &expiresAt, &undoneAt, &undoneBy, &snapshot)
+		&item.Summary, &item.RollbackStatus, &item.CreatedAt, &expiresAt, &undoneAt, &undoneBy, &item.batchID, &snapshot)
 	if err != nil {
 		return recentActionItem{}, nil, err
 	}

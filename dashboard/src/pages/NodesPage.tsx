@@ -469,6 +469,12 @@ type ServiceActionConfirm =
 			hostImpact?: NodeHostImpact;
 		};
 
+const createNodeActionBatchHeaders = () => ({
+	"X-Rebecca-Action-Batch":
+		globalThis.crypto?.randomUUID?.() ??
+		`${Date.now()}-${Math.random().toString(36).slice(2)}`,
+});
+
 type NodeHostImpact = {
 	cleanupHostNames: string[];
 	cleanupPayload: Partial<HostsSchema>;
@@ -1133,6 +1139,7 @@ export const NodesPage: FC = () => {
 			let successCount = 0;
 			let failedCount = 0;
 			const completedIDs: number[] = [];
+			const recentActionHeaders = createNodeActionBatchHeaders();
 			try {
 				await applyNodeHostCleanup(hostImpact);
 			} catch (err) {
@@ -1144,6 +1151,7 @@ export const NodesPage: FC = () => {
 				try {
 					await apiFetch("/nodes/service/update", {
 						method: "POST",
+						headers: recentActionHeaders,
 						body: {
 							nodes: targetNodes.map((node) => ({
 								id: node.id,
@@ -1168,31 +1176,39 @@ export const NodesPage: FC = () => {
 						case "bulk-enable":
 							await apiFetch(`/node/${node.id}`, {
 								method: "PUT",
+								headers: recentActionHeaders,
 								body: { status: "connecting" },
 							});
 							break;
 						case "bulk-disable":
 							await apiFetch(`/node/${node.id}`, {
 								method: "PUT",
+								headers: recentActionHeaders,
 								body: { status: "disabled" },
 							});
 							break;
 						case "bulk-delete":
-							await apiFetch(`/node/${node.id}`, { method: "DELETE" });
+							await apiFetch(`/node/${node.id}`, {
+								method: "DELETE",
+								headers: recentActionHeaders,
+							});
 							break;
 						case "bulk-reset":
 							await apiFetch(`/node/${node.id}/usage/reset`, {
 								method: "POST",
+								headers: recentActionHeaders,
 							});
 							break;
 						case "bulk-restart":
 							await apiFetch(`/node/${node.id}/service/restart`, {
 								method: "POST",
+								headers: recentActionHeaders,
 							});
 							break;
 						case "bulk-reboot":
 							await apiFetch(`/node/${node.id}/host/reboot`, {
 								method: "POST",
+								headers: recentActionHeaders,
 							});
 							break;
 						default:
@@ -1310,6 +1326,7 @@ export const NodesPage: FC = () => {
 
 			setUpdatingBulkCore(true);
 			try {
+				const recentActionHeaders = createNodeActionBatchHeaders();
 				const results: Array<{
 					status: "fulfilled" | "rejected";
 					node: NodeType;
@@ -1318,6 +1335,7 @@ export const NodesPage: FC = () => {
 					try {
 						await apiFetch(`/node/${node.id}/xray/update`, {
 							method: "POST",
+							headers: recentActionHeaders,
 							body: { version },
 						});
 						results.push({ status: "fulfilled", node });
@@ -1452,11 +1470,13 @@ export const NodesPage: FC = () => {
 			let success = 0;
 			let failed = 0;
 			try {
+				const recentActionHeaders = createNodeActionBatchHeaders();
 				for (const node of targetNodes) {
 					if (!node.id) continue;
 					try {
 						await apiFetch(`/node/${node.id}/geo/update`, {
 							method: "POST",
+							headers: recentActionHeaders,
 							body,
 						});
 						success += 1;

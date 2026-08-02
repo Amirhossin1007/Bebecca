@@ -86,6 +86,7 @@ type RecentAction = {
 	created_at: string;
 	snapshot_expires_at?: string | null;
 	preview?: RecentActionPreview;
+	affected_resources?: string[];
 };
 
 type RecentActionsResponse = {
@@ -512,6 +513,10 @@ export const RecentActionsPage: FC = () => {
 	);
 
 	const actions = actionsQuery.data?.actions ?? [];
+	const selectedAction =
+		selectedID === null
+			? undefined
+			: actions.find((action) => action.id === selectedID);
 	const actionTypes = useMemo(
 		() =>
 			Array.from(new Set(actions.map((action) => action.action_type))).sort(),
@@ -558,6 +563,7 @@ export const RecentActionsPage: FC = () => {
 				action.preview?.after,
 				action.preview?.operation,
 				action.preview?.resource,
+				action.affected_resources?.join(" "),
 			]
 				.filter(Boolean)
 				.join(" ")
@@ -601,8 +607,9 @@ export const RecentActionsPage: FC = () => {
 					const operation = lifecycle.operation;
 					const visual = actionOperationVisual(operation, action.action_type);
 					const label =
-						action.action_type === "node.service_update" &&
-						action.resource_key.endsWith(" nodes")
+						(action.affected_resources?.length ?? 0) > 1 ||
+						(action.action_type === "node.service_update" &&
+							action.resource_key.endsWith(" nodes"))
 							? action.summary
 							: actionTypeLabel(action.action_type);
 					return (
@@ -726,7 +733,10 @@ export const RecentActionsPage: FC = () => {
 
 	const detail = detailQuery.data;
 	const eventChanges = detail?.changes ?? [];
-	const affectedResources = detail?.affected_resources ?? [];
+	const affectedResources =
+		detail?.affected_resources?.length
+			? detail.affected_resources
+			: (selectedAction?.affected_resources ?? []);
 	const configChanges = detail?.config_changes ?? [];
 	const configPreviews = detail?.config_previews ?? [];
 	const displayConfigChanges: RecentActionConfigDisplay[] =
@@ -768,7 +778,7 @@ export const RecentActionsPage: FC = () => {
 					<AlertIcon />
 					{t("recentActions.loadFailed")}
 				</Alert>
-			) : detail?.snapshot_available ? (
+			) : detail?.snapshot_available || affectedResources.length > 0 ? (
 				<Stack spacing={4}>
 					{eventChanges.length > 0 && (
 						<Stack spacing={2}>
@@ -856,7 +866,7 @@ export const RecentActionsPage: FC = () => {
 							})}
 						</Stack>
 					) : eventChanges.length === 0 && affectedResources.length === 0 ? (
-						<JsonDiffEditors before={detail.before} after={detail.after} />
+						<JsonDiffEditors before={detail?.before} after={detail?.after} />
 					) : null}
 				</Stack>
 			) : (
