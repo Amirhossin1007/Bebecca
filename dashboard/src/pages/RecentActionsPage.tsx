@@ -768,12 +768,9 @@ export const RecentActionsPage: FC = () => {
 	const rollbackConflictPaths = rollbackError?.data?.conflict_paths ?? [];
 	const renderDetailPanel = () => (
 		<Box borderTopWidth="1px" borderColor="panel.border" pt={4}>
-			<HStack justify="space-between" mb={4}>
-				<Text fontWeight="semibold">{t("recentActions.changePreview")}</Text>
-				<Button size="sm" variant="ghost" onClick={() => setSelectedID(null)}>
-					{t("close")}
-				</Button>
-			</HStack>
+			<Text fontWeight="semibold" mb={4}>
+				{t("recentActions.changePreview")}
+			</Text>
 			{detailQuery.isLoading ? (
 				<HStack justify="center" py={10}>
 					<Spinner />
