@@ -253,9 +253,6 @@ func (s *Server) modifyHosts(r *http.Request, payload map[string][]hostPayload) 
 	if err != nil {
 		return nil, err
 	}
-	for serviceID := range affectedServices {
-		changedServices[serviceID] = true
-	}
 	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, changedServices); err != nil {
 		return nil, err
 	}
@@ -324,9 +321,6 @@ func (s *Server) updateHostStatus(r *http.Request, hostID int64, disabled bool) 
 	changedServices, err := changedServiceRuntimeInboundSetsTx(r.Context(), tx, beforeServiceTags, serviceSet)
 	if err != nil {
 		return hostResponse{}, err
-	}
-	for serviceID := range serviceSet {
-		changedServices[serviceID] = true
 	}
 	if err := enqueueAffectedServicesUsersTx(r.Context(), tx, changedServices); err != nil {
 		return hostResponse{}, err
