@@ -875,7 +875,9 @@ func applyNetworkSettings(resolved ResolvedInbound, network string, settings map
 		for _, key := range []string{
 			"scMaxBufferedPosts", "scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
 			"scStreamUpServerSecs", "xPaddingBytes", "noSSEHeader", "xmux", "mode", "noGRPCHeader",
-			"keepAlivePeriod",
+			"keepAlivePeriod", "xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement",
+			"xPaddingMethod", "uplinkHTTPMethod", "sessionPlacement", "sessionKey", "seqPlacement",
+			"seqKey", "uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize", "serverMaxHeaderBytes",
 		} {
 			copyOptional(resolved, key, settings)
 		}

@@ -185,6 +185,31 @@ const XHTTP_MODE_OPTIONS: Array<InboundFormValues["xhttpMode"]> = [
 	"stream-up",
 	"stream-one",
 ];
+const XHTTP_PADDING_PLACEMENT_OPTIONS = [
+	"queryInHeader",
+	"query",
+	"header",
+	"cookie",
+];
+const XHTTP_PADDING_METHOD_OPTIONS = ["repeat-x", "tokenish"];
+const XHTTP_SESSION_PLACEMENT_OPTIONS = [
+	"path",
+	"query",
+	"header",
+	"cookie",
+];
+const XHTTP_SEQ_PLACEMENT_OPTIONS = [
+	"path",
+	"query",
+	"header",
+	"cookie"
+];
+const XHTTP_UPLINK_DATA_PLACEMENT_OPTIONS = [
+	"auto",
+	"body",
+	"header",
+	"cookie",
+];
 const HYSTERIA_QUIC_INPUT_FIELDS = [
 	{
 		name: "maxIdleTimeout",
@@ -455,6 +480,10 @@ export const InboundFormModal: FC<Props> = ({
 		false;
 	const xhttpMode =
 		useWatch({ control, name: "xhttpMode" }) || watch("xhttpMode") || "auto";
+	const xhttpPaddingObfsMode =
+		useWatch({ control, name: "xhttpPaddingObfsMode" }) ??
+		watch("xhttpPaddingObfsMode") ??
+		false;
 	const hysteriaMasqueradeEnabled =
 		useWatch({ control, name: "hysteriaMasqueradeEnabled" }) ??
 		watch("hysteriaMasqueradeEnabled") ??
@@ -4248,6 +4277,390 @@ export const InboundFormModal: FC<Props> = ({
 														</FormLabel>
 														<Switch {...register("xhttpNoSSEHeader")} />
 													</FormControl>
+													<FormControl display="flex" alignItems="center">
+														<FormLabel mb={0}>
+															{t("inbounds.xhttp.paddingObfsMode")}
+														</FormLabel>
+														<Switch {...register("xhttpPaddingObfsMode")} />
+													</FormControl>
+													<Collapse in={Boolean(xhttpPaddingObfsMode)}animateOpacity>
+														<Stack
+															className="xray-dialog-section"
+															spacing={3}
+															mt={2}
+														>
+															<Text fontSize="sm" fontWeight="semibold">
+																{t("inbounds.xhttp.obfsOptions")}
+															</Text>
+															<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpPaddingKey
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.paddingKey")}
+																	</FormLabel>
+																	<Input 
+																		{...register("xhttpPaddingKey")}
+																		placeholder="_dc"
+																	/>
+																	{fieldValidationErrors.xhttpPaddingKey && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpPaddingKey}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpPaddingHeader
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.paddingHeader")}
+																	</FormLabel>
+																	<Input
+																		{...register("xhttpPaddingHeader")}
+																		placeholder="Referer"
+																	/>
+																	{fieldValidationErrors.xhttpPaddingHeader && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpPaddingHeader}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpPaddingPlacement
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.paddingPlacement")}
+																	</FormLabel>
+																	<Controller
+																		control={control}
+																		name="xhttpPaddingPlacement"
+																		render={({ field }) => (
+																			<SearchableTagSelect
+																				value={field.value || ""}
+																				options={[
+																					{
+																						value: "",
+																						label: t("common.default"),
+																					},
+																					...XHTTP_PADDING_PLACEMENT_OPTIONS,
+																				]}
+																				placeholder={t("inbounds.xhttp.paddingPlacement")}
+																				onChange={(value) =>
+																					form.setValue(
+																						"xhttpPaddingPlacement",
+																						String(
+																							value,
+																						) as InboundFormValues["xhttpPaddingPlacement"],
+																						{
+																							shouldDirty: true,
+																							shouldValidate: true,
+																						},
+																					)
+																				}
+																			/>
+																		)}
+																	/>
+																	{fieldValidationErrors.xhttpPaddingPlacement && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpPaddingPlacement}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpPaddingMethod
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.paddingMethod")}
+																	</FormLabel>
+																	<Controller
+																		control={control}
+																		name="xhttpPaddingMethod"
+																		render={({ field }) => (
+																			<SearchableTagSelect
+																				value={field.value || ""}
+																				options={[
+																					{
+																						value: "",
+																						label: t("common.default"),
+																					},
+																					...XHTTP_PADDING_METHOD_OPTIONS,
+																				]}
+																				placeholder={t("inbounds.xhttp.paddingMethod")}
+																				onChange={(value) =>
+																					form.setValue(
+																						"xhttpPaddingMethod",
+																						String(
+																							value,
+																						) as InboundFormValues["xhttpPaddingMethod"],
+																						{
+																							shouldDirty: true,
+																							shouldValidate: true,
+																						},
+																					)
+																				}
+																			/>
+																		)}
+																	/>
+																	{fieldValidationErrors.xhttpPaddingMethod && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpPaddingMethod}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpUplinkHTTPMethod
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.uplinkHTTPMethod")}
+																	</FormLabel>
+																	<Input
+																		{...register("xhttpUplinkHTTPMethod")}
+																		placeholder="POST"
+																	/>
+																	{fieldValidationErrors.xhttpUplinkHTTPMethod && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpUplinkHTTPMethod}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpSessionPlacement
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.sessionPlacement")}
+																	</FormLabel>
+																	<Controller
+																		control={control}
+																		name="xhttpSessionPlacement"
+																		render={({ field }) => (
+																			<SearchableTagSelect
+																				value={field.value || ""}
+																				options={[
+																					{
+																						value: "",
+																						label: t("common.default"),
+																					},
+																					...XHTTP_SESSION_PLACEMENT_OPTIONS,
+																				]}
+																				placeholder={t("inbounds.xhttp.sessionPlacement")}
+																				onChange={(value) =>
+																					form.setValue(
+																						"xhttpSessionPlacement",
+																						String(
+																							value,
+																						) as InboundFormValues["xhttpSessionPlacement"],
+																						{
+																							shouldDirty: true,
+																							shouldValidate: true,
+																						},
+																					)
+																				}
+																			/>
+																		)}
+																	/>
+																	{fieldValidationErrors.xhttpSessionPlacement && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpSessionPlacement}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpSessionKey
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.sessionKey")}
+																	</FormLabel>
+																	<Input {...register("xhttpSessionKey")} />
+																	{fieldValidationErrors.xhttpSessionKey && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpSessionKey}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpSeqPlacement
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.seqPlacement")}
+																	</FormLabel>
+																	<Controller
+																		control={control}
+																		name="xhttpSeqPlacement"
+																		render={({ field }) => (
+																			<SearchableTagSelect
+																				value={field.value || ""}
+																				options={[
+																					{
+																						value: "",
+																						label: t("common.default"),
+																					},
+																					...XHTTP_SEQ_PLACEMENT_OPTIONS,
+																				]}
+																				placeholder={t("inbounds.xhttp.seqPlacement")}
+																				onChange={(value) =>
+																					form.setValue(
+																						"xhttpSeqPlacement",
+																						String(
+																							value,
+																						) as InboundFormValues["xhttpSeqPlacement"],
+																						{
+																							shouldDirty: true,
+																							shouldValidate: true,
+																						},
+																					)
+																				}
+																			/>
+																		)}
+																	/>
+																	{fieldValidationErrors.xhttpSeqPlacement && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpSeqPlacement}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpSeqKey
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.seqKey")}
+																	</FormLabel>
+																	<Input {...register("xhttpSeqKey")} />
+																	{fieldValidationErrors.xhttpSeqKey && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpSeqKey}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpUplinkDataPlacement
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.uplinkDataPlacement")}
+																	</FormLabel>
+																	<Controller
+																		control={control}
+																		name="xhttpUplinkDataPlacement"
+																		render={({ field }) => (
+																			<SearchableTagSelect
+																				value={field.value || ""}
+																				options={[
+																					{
+																						value: "",
+																						label: t("common.default"),
+																					},
+																					...XHTTP_UPLINK_DATA_PLACEMENT_OPTIONS,
+																				]}
+																				placeholder={t("inbounds.xhttp.uplinkDataPlacement")}
+																				onChange={(value) =>
+																					form.setValue(
+																						"xhttpUplinkDataPlacement",
+																						String(
+																							value,
+																						) as InboundFormValues["xhttpUplinkDataPlacement"],
+																						{
+																							shouldDirty: true,
+																							shouldValidate: true,
+																						},
+																					)
+																				}
+																			/>
+																		)}
+																	/>
+																	{fieldValidationErrors.xhttpUplinkDataPlacement && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpUplinkDataPlacement}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpUplinkDataKey
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.uplinkDataKey")}
+																	</FormLabel>
+																	<Input
+																		{...register("xhttpUplinkDataKey")}
+																		placeholder="X-Data"
+																	/>
+																	{fieldValidationErrors.xhttpUplinkDataKey && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpUplinkDataKey}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpUplinkChunkSize
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.uplinkChunkSize")}
+																	</FormLabel>
+																	<Input
+																		{...register("xhttpUplinkChunkSize")}
+																		placeholder="3000-4000"
+																	/>
+																	{fieldValidationErrors.xhttpUplinkChunkSize && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpUplinkChunkSize}
+																		</Text>
+																	)}
+																</FormControl>
+
+																<FormControl
+																	isInvalid={
+																		!!fieldValidationErrors.xhttpServerMaxHeaderBytes
+																	}
+																>
+																	<FormLabel>
+																		{t("inbounds.xhttp.serverMaxHeaderBytes")}
+																	</FormLabel>
+																	<Input
+																		{...register("xhttpServerMaxHeaderBytes")}
+																		placeholder="0"
+																	/>
+																	{fieldValidationErrors.xhttpServerMaxHeaderBytes && (
+																		<Text fontSize="xs" color="red.500" mt={1}>
+																			{fieldValidationErrors.xhttpServerMaxHeaderBytes}
+																		</Text>
+																	)}
+																</FormControl>
+															</SimpleGrid>
+														</Stack>
+													</Collapse>
 												</Stack>
 											)}
 
