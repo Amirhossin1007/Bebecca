@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
@@ -108,7 +109,9 @@ func (s *Server) handleHostsRoot(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		hosts, err := s.modifyHosts(r, payload)
+		hosts, err := retryHostModification(r.Context(), func() (map[string][]hostResponse, error) {
+			return s.modifyHosts(r, payload)
+		})
 		if err != nil {
 			writeServiceError(w, err)
 			return
@@ -117,6 +120,30 @@ func (s *Server) handleHostsRoot(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func retryHostModification(ctx context.Context, fn func() (map[string][]hostResponse, error)) (map[string][]hostResponse, error) {
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		hosts, err := fn()
+		if err == nil || !isTransientHostModificationError(err) {
+			return hosts, err
+		}
+		lastErr = err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(attempt+1) * 100 * time.Millisecond):
+		}
+	}
+	return nil, lastErr
+}
+
+func isTransientHostModificationError(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "deadlock found") ||
+		strings.Contains(message, "try restarting transaction") ||
+		strings.Contains(message, "lock wait timeout")
 }
 
 func (s *Server) handleHostStatusPath(w http.ResponseWriter, r *http.Request) {

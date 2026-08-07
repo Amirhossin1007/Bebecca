@@ -5,12 +5,27 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 )
+
+func TestRetryHostModificationAfterDeadlock(t *testing.T) {
+	attempts := 0
+	hosts, err := retryHostModification(context.Background(), func() (map[string][]hostResponse, error) {
+		attempts++
+		if attempts < 3 {
+			return nil, errors.New("Error 1213 (40001): Deadlock found when trying to get lock; try restarting transaction")
+		}
+		return map[string][]hostResponse{"in": nil}, nil
+	})
+	if err != nil || attempts != 3 || hosts == nil {
+		t.Fatalf("attempts=%d hosts=%v err=%v", attempts, hosts, err)
+	}
+}
 
 func TestHostsListCreatesDefaultHosts(t *testing.T) {
 	server, db := testAdminServer(t)
