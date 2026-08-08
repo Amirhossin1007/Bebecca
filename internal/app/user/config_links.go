@@ -412,7 +412,7 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 		return
 	}
 	for _, key := range []string{
-		"tls", "sni", "host", "path", "header_type", "fp", "alpn", "ais", "allowinsecure",
+		"tls", "sni", "host", "path", "header_type", "fp", "alpn", "ais", "allowinsecure", "flow",
 		"ech", "echConfigList", "vcn", "verifyPeerCertByName", "pinSHA256", "pinnedPeerCertSha256",
 		"pbk", "publicKey", "public_key", "sids", "sid", "shortIds", "shortId", "spx", "pqv",
 		"fragment_setting", "noise_setting",
@@ -1025,7 +1025,8 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
 	headerType := stringValue(inbound["header_type"])
-	if flow := stringValue(settings["flow"]); vlessFlowAllowed(flow, stringValue(inbound["encryption"]), netValue, tls, headerType) {
+	flow := firstNonEmptyString(inbound["flow"], settings["flow"])
+	if vlessFlowAllowed(flow, stringValue(inbound["encryption"]), netValue, tls, headerType) {
 		params = append(params, queryParam{"flow", flow})
 	}
 	if encryption := stringValue(inbound["encryption"]); encryption != "" {
@@ -1429,6 +1430,7 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		"host":        []string{},
 		"path":        "",
 		"header_type": "",
+		"flow":	       "",
 		"is_fallback": false,
 	}
 
@@ -1439,6 +1441,9 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	if protocol == "vless" {
 		if encryption := stringValue(settings["encryption"]); encryption != "" {
 			resolved["encryption"] = encryption
+		}
+		if flow := firstNonEmptyString(settings["flow"]); flow != "" {
+			resolved["flow"] = flow
 		}
 	}
 	if protocol == "openvpn" {
