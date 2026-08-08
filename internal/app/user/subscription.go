@@ -1675,13 +1675,15 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 					"scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
 					"xPaddingBytes", "noGRPCHeader", "keepAlivePeriod", "xmux",
 					"xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement", "xPaddingMethod",
-					"uplinkHTTPMethod", "sessionPlacement", "sessionKey", "seqPlacement", "seqKey",
+					"uplinkHTTPMethod", "seqPlacement", "seqKey",
 					"uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize",
 				} {
 					if value, ok := extraSettings[key]; ok {
 						settings[key] = value
 					}
 				}
+				copyOptionalAlias(settings, "sessionIDPlacement", extraSettings, "sessionPlacement")
+				copyOptionalAlias(settings, "sessionIDKey", extraSettings, "sessionKey")
 			}
 		}
 		if len(settings) > 0 {

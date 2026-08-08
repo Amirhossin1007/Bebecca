@@ -480,10 +480,6 @@ export const InboundFormModal: FC<Props> = ({
 		false;
 	const xhttpMode =
 		useWatch({ control, name: "xhttpMode" }) || watch("xhttpMode") || "auto";
-	const xhttpPaddingObfsMode =
-		useWatch({ control, name: "xhttpPaddingObfsMode" }) ??
-		watch("xhttpPaddingObfsMode") ??
-		false;
 	const hysteriaMasqueradeEnabled =
 		useWatch({ control, name: "hysteriaMasqueradeEnabled" }) ??
 		watch("hysteriaMasqueradeEnabled") ??
@@ -4283,7 +4279,6 @@ export const InboundFormModal: FC<Props> = ({
 														</FormLabel>
 														<Switch {...register("xhttpPaddingObfsMode")} />
 													</FormControl>
-													<Collapse in={Boolean(xhttpPaddingObfsMode)}animateOpacity>
 														<Stack
 															className="xray-dialog-section"
 															spacing={3}
@@ -4301,7 +4296,7 @@ export const InboundFormModal: FC<Props> = ({
 																	<FormLabel>
 																		{t("inbounds.xhttp.paddingKey")}
 																	</FormLabel>
-																	<Input 
+																	<Input
 																		{...register("xhttpPaddingKey")}
 																		placeholder="_dc"
 																	/>
@@ -4660,7 +4655,6 @@ export const InboundFormModal: FC<Props> = ({
 																</FormControl>
 															</SimpleGrid>
 														</Stack>
-													</Collapse>
 												</Stack>
 											)}
 

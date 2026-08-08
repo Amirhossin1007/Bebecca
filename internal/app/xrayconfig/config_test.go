@@ -427,6 +427,56 @@ func TestParseRejectsInvalidExecutableInbound(t *testing.T) {
 			},
 			want: "xPaddingBytes",
 		},
+		{
+			name: "bad xhttp mode",
+			edit: func(cfg map[string]any) {
+				inbound := cfg["inbounds"].([]any)[0].(map[string]any)
+				stream := inbound["streamSettings"].(map[string]any)
+				stream["network"] = "xhttp"
+				stream["xhttpSettings"] = map[string]any{"path": "/x", "mode": "invalid"}
+			},
+			want: "unsupported XHTTP mode",
+		},
+		{
+			name: "GET outside packet-up",
+			edit: func(cfg map[string]any) {
+				inbound := cfg["inbounds"].([]any)[0].(map[string]any)
+				stream := inbound["streamSettings"].(map[string]any)
+				stream["network"] = "xhttp"
+				stream["xhttpSettings"] = map[string]any{"path": "/x", "mode": "auto", "uplinkHTTPMethod": "GET"}
+			},
+			want: "GET requires packet-up",
+		},
+		{
+			name: "unsafe session token",
+			edit: func(cfg map[string]any) {
+				inbound := cfg["inbounds"].([]any)[0].(map[string]any)
+				stream := inbound["streamSettings"].(map[string]any)
+				stream["network"] = "xhttp"
+				stream["xhttpSettings"] = map[string]any{"path": "/x", "sessionIDKey": "X-Session\r\nInjected"}
+			},
+			want: "valid HTTP token",
+		},
+		{
+			name: "bad uplink range",
+			edit: func(cfg map[string]any) {
+				inbound := cfg["inbounds"].([]any)[0].(map[string]any)
+				stream := inbound["streamSettings"].(map[string]any)
+				stream["network"] = "xhttp"
+				stream["xhttpSettings"] = map[string]any{"path": "/x", "uplinkChunkSize": "4000-3000"}
+			},
+			want: "range start",
+		},
+		{
+			name: "negative server header bytes",
+			edit: func(cfg map[string]any) {
+				inbound := cfg["inbounds"].([]any)[0].(map[string]any)
+				stream := inbound["streamSettings"].(map[string]any)
+				stream["network"] = "xhttp"
+				stream["xhttpSettings"] = map[string]any{"path": "/x", "serverMaxHeaderBytes": -1}
+			},
+			want: "non-negative 32-bit integer",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -438,6 +488,41 @@ func TestParseRejectsInvalidExecutableInbound(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected error containing %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestParseNormalizesXHTTPSessionAliases(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		placement string
+		key       string
+	}{
+		{name: "current", placement: "sessionIDPlacement", key: "sessionIDKey"},
+		{name: "legacy", placement: "sessionPlacement", key: "sessionKey"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig()
+			inbound := cfg["inbounds"].([]any)[0].(map[string]any)
+			stream := inbound["streamSettings"].(map[string]any)
+			stream["network"] = "xhttp"
+			stream["xhttpSettings"] = map[string]any{
+				"path":       "/x",
+				tc.placement: "header",
+				tc.key:       "X-Session",
+			}
+
+			parsed, err := Parse(cfg, Options{})
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+			resolved := parsed.InboundsByTag()["vless-tcp"]
+			if got := stringValue(resolved["sessionIDPlacement"]); got != "header" {
+				t.Fatalf("sessionIDPlacement = %q, want header: %#v", got, resolved)
+			}
+			if got := stringValue(resolved["sessionIDKey"]); got != "X-Session" {
+				t.Fatalf("sessionIDKey = %q, want X-Session: %#v", got, resolved)
 			}
 		})
 	}

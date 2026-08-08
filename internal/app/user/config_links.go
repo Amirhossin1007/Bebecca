@@ -418,7 +418,7 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 		"scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
 		"xPaddingBytes", "noGRPCHeader", "keepAlivePeriod", "xmux", "mode",
 		"xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement",
-		"xPaddingMethod", "uplinkHTTPMethod", "sessionPlacement", "sessionKey", "seqPlacement",
+		"xPaddingMethod", "uplinkHTTPMethod", "sessionIDPlacement", "sessionIDKey", "seqPlacement",
 		"seqKey", "uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize",
 		"hysteria_version", "hysteria_auth", "hysteria_udp_idle_timeout", "obfs", "obfs-password", "obfsPassword", "mport",
 	} {
@@ -988,8 +988,8 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 		copyOptional(extra, "xPaddingPlacement", inbound)
 		copyOptional(extra, "xPaddingMethod", inbound)
 		copyOptional(extra, "uplinkHTTPMethod", inbound)
-		copyOptional(extra, "sessionPlacement", inbound)
-		copyOptional(extra, "sessionKey", inbound)
+		copyOptional(extra, "sessionIDPlacement", inbound)
+		copyOptional(extra, "sessionIDKey", inbound)
 		copyOptional(extra, "seqPlacement", inbound)
 		copyOptional(extra, "seqKey", inbound)
 		copyOptional(extra, "uplinkDataPlacement", inbound)
@@ -1177,8 +1177,8 @@ func appendNetworkParams(params []queryParam, netValue string, path string, inbo
 		extra = appendOptionalParam(extra, "xPaddingPlacement", inbound)
 		extra = appendOptionalParam(extra, "xPaddingMethod", inbound)
 		extra = appendOptionalParam(extra, "uplinkHTTPMethod", inbound)
-		extra = appendOptionalParam(extra, "sessionPlacement", inbound)
-		extra = appendOptionalParam(extra, "sessionKey", inbound)
+		extra = appendOptionalParam(extra, "sessionIDPlacement", inbound)
+		extra = appendOptionalParam(extra, "sessionIDKey", inbound)
 		extra = appendOptionalParam(extra, "seqPlacement", inbound)
 		extra = appendOptionalParam(extra, "seqKey", inbound)
 		extra = appendOptionalParam(extra, "uplinkDataPlacement", inbound)
@@ -1442,8 +1442,8 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		copyOptional(resolved, "xPaddingPlacement", networkSettings)
 		copyOptional(resolved, "xPaddingMethod", networkSettings)
 		copyOptional(resolved, "uplinkHTTPMethod", networkSettings)
-		copyOptional(resolved, "sessionPlacement", networkSettings)
-		copyOptional(resolved, "sessionKey", networkSettings)
+		copyOptionalAlias(resolved, "sessionIDPlacement", networkSettings, "sessionPlacement")
+		copyOptionalAlias(resolved, "sessionIDKey", networkSettings, "sessionKey")
 		copyOptional(resolved, "seqPlacement", networkSettings)
 		copyOptional(resolved, "seqKey", networkSettings)
 		copyOptional(resolved, "uplinkDataPlacement", networkSettings)
@@ -1875,6 +1875,19 @@ func portString(value any) string {
 func copyOptional(target map[string]any, key string, source map[string]any) {
 	if value, ok := source[key]; ok {
 		target[key] = value
+	}
+}
+
+func copyOptionalAlias(target map[string]any, key string, source map[string]any, aliases ...string) {
+	if value, ok := source[key]; ok {
+		target[key] = value
+		return
+	}
+	for _, alias := range aliases {
+		if value, ok := source[alias]; ok {
+			target[key] = value
+			return
+		}
 	}
 }
 
