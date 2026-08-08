@@ -263,8 +263,11 @@ func TestBuildConfigLinksKeepsXHTTPPaddingJSONCompact(t *testing.T) {
 	}
 	stream := v2rayStreamSettings(parsed.Query())
 	settings := mapValue(stream["xhttpSettings"])
-	if settings["sessionIDPlacement"] != "header" || settings["sessionIDKey"] != "X-Session" {
-		t.Fatalf("current session ID fields did not survive client link round-trip: %#v", settings)
+	if settings["sessionPlacement"] != "header" || settings["sessionKey"] != "X-Session" {
+		t.Fatalf("stable Xray session aliases did not survive client link round-trip: %#v", settings)
+	}
+	if settings["sessionIDPlacement"] != nil || settings["sessionIDKey"] != nil {
+		t.Fatalf("post-v26.6.22 session aliases leaked into generic stable Xray JSON: %#v", settings)
 	}
 }
 
@@ -632,6 +635,7 @@ func TestResolveInboundDerivesRealityPublicKeyForSubscriptionLinks(t *testing.T)
 }
 
 func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	serviceID := int64(1)
 	links, err := BuildConfigLinks(
 		ConfigLinkUser{
@@ -656,7 +660,7 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 				"fp":        "chrome",
 				"alpn":      "h2,http/1.1",
 				"ech":       "ECH",
-				"pinSHA256": "PCS",
+				"pinSHA256": pin,
 			},
 			"SS TLS": {
 				"tag":       "SS TLS",
@@ -668,7 +672,7 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 				"fp":        "chrome",
 				"alpn":      "h2,http/1.1",
 				"ech":       "ECH",
-				"pinSHA256": "PCS",
+				"pinSHA256": pin,
 			},
 		},
 		[]string{"Trojan TLS", "SS TLS"},
@@ -737,7 +741,7 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 		if got := strings.Join(stringList(tls["alpn"]), ","); got != "h2,http/1.1" {
 			t.Fatalf("%s ALPN not preserved: %#v", item.name, tls)
 		}
-		if got := strings.Join(stringList(tls["pinnedPeerCertSha256"]), ","); got != "PCS" {
+		if got, ok := tls["pinnedPeerCertSha256"].(string); !ok || got != pin {
 			t.Fatalf("%s pinned cert not preserved: %#v", item.name, tls)
 		}
 	}
@@ -815,6 +819,12 @@ func TestV2RayJSONSubscriptionAppliesHostFragmentAndNoiseFinalMask(t *testing.T)
 	fragmentSettings := tcp["settings"].(map[string]any)
 	if fragmentSettings["length"] != "10-100" || fragmentSettings["delay"] != "100-200" || fragmentSettings["packets"] != "tlshello" || fragmentSettings["maxSplit"] != "3" {
 		t.Fatalf("fragment finalmask mismatch: %#v", fragmentSettings)
+	}
+	if _, exists := fragmentSettings["lengths"]; exists {
+		t.Fatalf("post-v26.6.22 plural fragment lengths leaked into stable Xray JSON: %#v", fragmentSettings)
+	}
+	if _, exists := fragmentSettings["delays"]; exists {
+		t.Fatalf("post-v26.6.22 plural fragment delays leaked into stable Xray JSON: %#v", fragmentSettings)
 	}
 	udp := finalmask["udp"].([]any)[0].(map[string]any)
 	if udp["type"] != "noise" {
@@ -959,6 +969,7 @@ func TestBuildConfigLinksBuildsHysteriaShareLink(t *testing.T) {
 				"serverName":    "hy.example.com",
 				"fingerprint":   "chrome",
 				"alpn":          []any{"h3"},
+				"echConfigList": "ECH-CONFIG",
 				"allowInsecure": true,
 			},
 			"hysteriaSettings": map[string]any{
@@ -1023,12 +1034,62 @@ func TestBuildConfigLinksBuildsHysteriaShareLink(t *testing.T) {
 	if !strings.HasPrefix(link, "hysteria2://") {
 		t.Fatalf("expected hysteria2 link, got %q", link)
 	}
-	if !strings.Contains(link, ":443/?") {
-		t.Fatalf("expected strict Hysteria URI path before query: %s", link)
+	if !strings.Contains(link, "hy.example.com:443,20000-50000/?") {
+		t.Fatalf("expected official Hysteria multi-port authority and path: %s", link)
 	}
-	for _, expected := range []string{"security=tls", "sni=hy.example.com", "fp=chrome", "alpn=h3", "insecure=1", "obfs=salamander", "obfs-password=mask-secret", "mport=20000-50000"} {
+	for _, expected := range []string{"sni=hy.example.com", "fp=chrome", "alpn=h3", "ech=ECH-CONFIG", "insecure=1", "obfs=salamander", "obfs-password=mask-secret"} {
 		if !strings.Contains(link, expected) {
 			t.Fatalf("expected %q in link: %s", expected, link)
+		}
+	}
+	for _, forbidden := range []string{"security=", "mport=", "up=", "down="} {
+		if strings.Contains(link, forbidden) {
+			t.Fatalf("Hysteria URI must not contain %q: %s", forbidden, link)
+		}
+	}
+}
+
+func TestHysteriaShareLinkSupportsOfficialOptionalAuthAndRejectsMultiplePins(t *testing.T) {
+	link, err := hysteriaShareLink("no auth ✓", "[2001:db8::5]", ResolvedInbound{
+		"port": 443, "hysteria_version": 2, "ech": "ECH+CONFIG/==",
+	}, map[string]any{"version": 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := parseHysteria2ShareURL(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.User != nil || parsed.Hostname() != "2001:db8::5" || parsed.Query().Get("ech") != "ECH+CONFIG/==" {
+		t.Fatalf("official no-auth/ECH Hysteria URI mismatch: %s parsed=%#v", link, parsed)
+	}
+	if parsed.Query().Get("security") != "" || strings.Contains(link, "@") {
+		t.Fatalf("generated native Hysteria URI retained redundant security/auth syntax: %s", link)
+	}
+
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	_, err = hysteriaShareLink("pins", "example.com", ResolvedInbound{
+		"port": 443, "hysteria_version": 2, "pinnedPeerCertSha256": pin + "," + pin,
+	}, map[string]any{"version": 2})
+	if err == nil || !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("multiple Xray pins were silently truncated in native Hysteria URI: %v", err)
+	}
+}
+
+func TestHysteriaShareLinkDoesNotDuplicatePrimaryPort(t *testing.T) {
+	for _, mport := range []string{"443,20000-30000", "400-500,20000"} {
+		link, err := hysteriaShareLink("ports", "example.com", ResolvedInbound{
+			"port": 443, "hysteria_version": 2, "mport": mport,
+		}, map[string]any{"version": 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(link, ":443,443,") {
+			t.Fatalf("primary Hysteria port was duplicated: %s", link)
+		}
+		parsed, err := parseHysteria2ShareURL(link)
+		if err != nil || parsed.Query().Get("mport") != mport {
+			t.Fatalf("official port union was not preserved: link=%s parsed=%#v err=%v", link, parsed, err)
 		}
 	}
 }
@@ -1055,5 +1116,176 @@ func TestResolveInboundKeepsL2TPSettings(t *testing.T) {
 	}
 	if got := intValue(settings["tunnel_port"]); got != 1702 {
 		t.Fatalf("tunnel_port = %d, want 1702", got)
+	}
+}
+
+func TestResolveInboundDoesNotUseServerDecryptionAsVLESSClientEncryption(t *testing.T) {
+	resolved, err := resolveInbound(map[string]any{
+		"protocol": "vless",
+		"port":     443,
+		"settings": map[string]any{"decryption": "mlkem768x25519plus.native.1rtt.server-only"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stringValue(resolved["encryption"]); got != "" {
+		t.Fatalf("server decryption leaked into client encryption: %q", got)
+	}
+}
+
+func TestVLESSShareLinkFlowMatchesOfficialTransportRules(t *testing.T) {
+	const flow = "xtls-rprx-vision"
+	tests := []struct {
+		name       string
+		network    string
+		security   string
+		encryption string
+		header     string
+		wantFlow   bool
+	}{
+		{name: "tcp tls", network: "tcp", security: "tls", encryption: "none", wantFlow: true},
+		{name: "raw reality", network: "raw", security: "reality", encryption: "none", wantFlow: true},
+		{name: "kcp without encryption", network: "kcp", security: "tls", encryption: "none"},
+		{name: "http header without encryption", network: "tcp", security: "tls", encryption: "none", header: "http"},
+		{name: "encryption with xhttp", network: "xhttp", security: "none", encryption: "mlkem768x25519plus.native.0rtt.100-111-1111.75-0-111.50-0-3333.ptjHQxBQxTJ9MWr2cd5qWIflBSACHOevTauCQwa_71U", wantFlow: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			link := vlessShareLink("flow", "example.com", "/x", ResolvedInbound{
+				"port": 443, "network": tc.network, "tls": tc.security,
+				"header_type": tc.header, "encryption": tc.encryption,
+			}, map[string]any{"id": "11111111-1111-4111-8111-111111111111", "flow": flow})
+			parsed, err := url.Parse(link)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := parsed.Query().Get("flow"); (got == flow) != tc.wantFlow {
+				t.Fatalf("flow=%q wantFlow=%v link=%s", got, tc.wantFlow, link)
+			}
+		})
+	}
+}
+
+func TestTrojanDoesNotCarryRemovedFlow(t *testing.T) {
+	settings, err := RuntimeProxySettings(map[string]any{"password": "secret", "flow": "xtls-rprx-vision"}, "trojan", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := settings["flow"]; exists {
+		t.Fatalf("runtime Trojan settings retained removed flow: %#v", settings)
+	}
+	link := trojanShareLink("trojan", "example.com", "/", ResolvedInbound{
+		"port": 443, "network": "tcp", "tls": "tls", "header_type": "none",
+	}, map[string]any{"password": "secret", "flow": "xtls-rprx-vision"})
+	parsed, err := url.Parse(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := parsed.Query().Get("flow"); got != "" {
+		t.Fatalf("Trojan link retained removed flow %q: %s", got, link)
+	}
+}
+
+func TestXHTTPShareLinksKeepDownloadSettingsAndFilterHostHeader(t *testing.T) {
+	download := map[string]any{
+		"address": "down.example.com", "port": 8443, "network": "xhttp", "security": "tls",
+		"tlsSettings": map[string]any{"serverName": "down-sni.example.com", "fingerprint": "chrome", "alpn": []any{"h2"}},
+		"xhttpSettings": map[string]any{
+			"path": "/down", "host": "down-host.example.com",
+			"headers": map[string]any{"HOST": "must-not-survive", "X-Download": "value"},
+		},
+	}
+	inbound := ResolvedInbound{
+		"port": 443, "network": "xhttp", "tls": "none", "path": "/up", "host": []string{"up.example.com"},
+		"mode": "stream-up", "headers": map[string]any{"hOsT": "duplicate.example.com", "X-Client": "value"},
+		"downloadSettings": download, "scMaxConcurrentPosts": 7,
+	}
+	settings := map[string]any{"id": "11111111-1111-4111-8111-111111111111"}
+	for name, link := range map[string]string{
+		"VLESS": vlessShareLink("xhttp", "example.com", "/up", inbound, settings),
+		"VMess": vmessShareLink("xhttp", "example.com", "/up", inbound, settings),
+	} {
+		var extra map[string]any
+		if name == "VLESS" {
+			parsed, err := url.Parse(link)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal([]byte(parsed.Query().Get("extra")), &extra); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(link, "vmess://"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			payload := map[string]any{}
+			if err := json.Unmarshal(decoded, &payload); err != nil {
+				t.Fatal(err)
+			}
+			extra = mapValue(payload["extra"])
+		}
+		headers := mapValue(extra["headers"])
+		if headers["X-Client"] != "value" || headers["hOsT"] != nil || extra["scMaxConcurrentPosts"] != nil {
+			t.Fatalf("%s XHTTP extra leaked Host/removed fields: %#v", name, extra)
+		}
+		downloadExtra := mapValue(extra["downloadSettings"])
+		if downloadExtra["address"] != "down.example.com" {
+			t.Fatalf("%s XHTTP extra lost downloadSettings: %#v", name, extra)
+		}
+		downloadHeaders := mapValue(mapValue(downloadExtra["xhttpSettings"])["headers"])
+		if downloadHeaders["X-Download"] != "value" || downloadHeaders["HOST"] != nil {
+			t.Fatalf("%s XHTTP downloadSettings leaked Host/lost custom header: %#v", name, downloadExtra)
+		}
+	}
+}
+
+func TestResolveInboundPreservesExistingMKCPAndFinalMaskSettings(t *testing.T) {
+	finalMask := map[string]any{
+		"tcp": []any{map[string]any{"type": "fragment", "settings": map[string]any{"lengths": []any{"3-5"}, "delays": []any{"10-20"}}}},
+	}
+	resolved, err := resolveInbound(map[string]any{
+		"tag": "kcp", "protocol": "vless", "port": 443,
+		"settings": map[string]any{"decryption": "none"},
+		"streamSettings": map[string]any{
+			"network": "kcp", "security": "none", "finalmask": finalMask,
+			"kcpSettings": map[string]any{
+				"seed": "seed+value", "mtu": 1350, "tti": 20,
+				"header": map[string]any{"type": "srtp"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved["mtu"] != 1350 || resolved["tti"] != 20 || resolved["path"] != "seed+value" || resolved["header_type"] != "srtp" {
+		t.Fatalf("resolved inbound lost mKCP settings: %#v", resolved)
+	}
+	if _, ok := resolved["finalmask"].(map[string]any); !ok {
+		t.Fatalf("resolved inbound lost existing FinalMask: %#v", resolved)
+	}
+}
+
+func TestHysteriaShareLinkRejectsLegacyVersionWithoutSilentDrop(t *testing.T) {
+	_, err := hysteriaShareLink("legacy", "example.com", ResolvedInbound{
+		"port": 443, "hysteria_version": 1,
+	}, map[string]any{"auth": "secret", "version": 1})
+	if err == nil || !strings.Contains(err.Error(), "cannot be converted safely") {
+		t.Fatalf("expected visible legacy Hysteria error, got %v", err)
+	}
+}
+
+func TestHysteriaShareLinkUsesNativeGeckoDefaultsButRejectsCustomPacketSize(t *testing.T) {
+	link, err := hysteriaShareLink("gecko", "example.com", ResolvedInbound{
+		"port": 443, "hysteria_version": 2, "hysteria_gecko_packet_size": "512-1200",
+	}, map[string]any{"auth": "secret", "version": 2})
+	if err != nil || !strings.Contains(link, "obfs=gecko") || strings.Contains(link, "512-1200") {
+		t.Fatalf("default Gecko URI mapping mismatch: link=%s err=%v", link, err)
+	}
+	_, err = hysteriaShareLink("gecko", "example.com", ResolvedInbound{
+		"port": 443, "hysteria_version": 2, "hysteria_gecko_packet_size": "600-1000",
+	}, map[string]any{"auth": "secret", "version": 2})
+	if err == nil || !strings.Contains(err.Error(), "cannot be represented safely") {
+		t.Fatalf("expected visible custom Gecko representation error, got %v", err)
 	}
 }

@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 )
 
 func readTestTemplateFile(t *testing.T, relativePath string) string {
@@ -32,8 +35,17 @@ func readTestTemplateFile(t *testing.T, relativePath string) string {
 	return ""
 }
 
+func mustRenderClashLikeYAML(t *testing.T, username string, links []string, meta bool) string {
+	t.Helper()
+	body, err := renderClashLikeYAML(username, links, meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return body
+}
+
 func TestRenderClashLikeYAMLBuildsRealProxies(t *testing.T) {
-	body := renderClashLikeYAML(
+	body := mustRenderClashLikeYAML(t,
 		"alice",
 		[]string{
 			"vless://7819215e-9bc0-7cdc-845b-16a174a7b6c6@example.com:443?security=tls&type=ws&path=%2Fws&host=edge.example.com&sni=edge.example.com&fp=chrome#edge",
@@ -73,7 +85,7 @@ func TestShadowsocksHTTPHeaderSurvivesEveryStructuredSubscription(t *testing.T) 
 		t.Fatalf("Shadowsocks link is not strict SIP002: %s", link)
 	}
 
-	clash := renderClashLikeYAML("alice", []string{link}, true)
+	clash := mustRenderClashLikeYAML(t, "alice", []string{link}, true)
 	for _, expected := range []string{`plugin: "obfs"`, `plugin-opts:`, `mode: "http"`, `host: "header.example.com"`} {
 		if !strings.Contains(clash, expected) {
 			t.Fatalf("Clash output lost %q:\n%s", expected, clash)
@@ -132,7 +144,7 @@ func TestStructuredSubscriptionsCoverSupportedShareProtocols(t *testing.T) {
 		"hysteria2://secret@hy.example.com:443?security=tls&sni=hy.example.com&obfs=salamander&obfs-password=mask&mport=20000-30000#hy2",
 	}
 
-	clash := renderClashLikeYAML("alice", links, true)
+	clash := mustRenderClashLikeYAML(t, "alice", links, true)
 	for _, protocol := range []string{`type: "vless"`, `type: "vmess"`, `type: "trojan"`, `type: "ss"`, `type: "hysteria2"`} {
 		if !strings.Contains(clash, protocol) {
 			t.Fatalf("Clash output missing %s:\n%s", protocol, clash)
@@ -270,6 +282,906 @@ func TestRenderV2RayJSONSubscriptionUsesConfiguredTemplate(t *testing.T) {
 	}
 	if outbounds[0].(map[string]any)["protocol"] != "vless" || outbounds[1].(map[string]any)["tag"] != "DIRECT" {
 		t.Fatalf("unexpected outbound order/content: %#v", outbounds)
+	}
+}
+
+func TestVLESSEncryptionRoundTripsRawAndMihomoWhileStableXrayRejects(t *testing.T) {
+	const encryption = "mlkem768x25519plus.native.0rtt.100-111-1111.75-0-111.50-0-3333.ptjHQxBQxTJ9MWr2cd5qWIflBSACHOevTauCQwa_71U"
+	link := vlessShareLink("PQ + ✓", "[2001:db8::10]", "/x http", ResolvedInbound{
+		"port": 443, "network": "xhttp", "tls": "none", "encryption": encryption,
+		"host": "edge.example.com", "mode": "packet-up",
+	}, map[string]any{"id": "11111111-1111-4111-8111-111111111111", "flow": "xtls-rprx-vision"})
+	parsed, err := outboundsub.ParseLink(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := parsed.Outbound["settings"].(map[string]any)
+	user := settings["vnext"].([]any)[0].(map[string]any)["users"].([]any)[0].(map[string]any)
+	if user["encryption"] != encryption || user["flow"] != "xtls-rprx-vision" || parsed.Outbound["tag"] != "PQ + ✓" {
+		t.Fatalf("raw/outboundsub round-trip corrupted VLESS fields: user=%#v tag=%#v link=%s", user, parsed.Outbound["tag"], link)
+	}
+
+	v2rayBody, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err == nil || v2rayBody != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "introduced in 26.5.9") {
+		t.Fatalf("generic stable Xray JSON silently emitted unsupported VLESS Encryption: body=%q err=%v", v2rayBody, err)
+	}
+	clash := mustRenderClashLikeYAML(t, "alice", []string{link}, true)
+	if !strings.Contains(clash, `encryption: "`+encryption+`"`) || !strings.Contains(clash, `xhttp-opts:`) {
+		t.Fatalf("Mihomo output lost VLESS encryption or XHTTP: %s", clash)
+	}
+	singBoxBody, err := renderSingBoxJSON([]string{link})
+	if err == nil || singBoxBody != "" || !strings.Contains(err.Error(), "does not support VLESS encryption") {
+		t.Fatalf("sing-box must visibly reject unsupported VLESS encryption, body=%q err=%v", singBoxBody, err)
+	}
+}
+
+func TestVMessECHRoundTripsRawOutboundsubAndXrayJSON(t *testing.T) {
+	const (
+		ech = "AAECAwQFBgcICQ=="
+		pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	)
+	link := vmessShareLink("vmess-ech", "example.com", "/ws", ResolvedInbound{
+		"port": 443, "network": "ws", "tls": "tls", "sni": "tls.example.com", "ech": ech,
+	}, map[string]any{"id": "11111111-1111-4111-8111-111111111111"})
+	decoded, err := decodeFlexibleBase64(strings.TrimPrefix(link, "vmess://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(decoded, &payload); err != nil || payload["ech"] != ech {
+		t.Fatalf("VMess raw link lost ECH: payload=%#v err=%v", payload, err)
+	}
+	payload["pinnedPeerCertSha256"] = pin
+	external, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	externalLink := "vmess://" + base64.RawStdEncoding.EncodeToString(external)
+	parsed, err := outboundsub.ParseLink(externalLink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tls := mapValue(mapValue(parsed.Outbound["streamSettings"])["tlsSettings"])
+	if tls["echConfigList"] != ech || tls["pinnedPeerCertSha256"] != pin {
+		t.Fatalf("outboundsub lost VMess ECH: %#v", tls)
+	}
+	body, err := renderV2RayJSONSubscription([]string{externalLink}, false)
+	if err != nil || !strings.Contains(body, `"echConfigList": "`+ech+`"`) || !strings.Contains(body, `"pinnedPeerCertSha256": "`+pin+`"`) {
+		t.Fatalf("Xray JSON lost VMess ECH: body=%q err=%v", body, err)
+	}
+}
+
+func TestMihomoTLSMetadataAcrossProtocols(t *testing.T) {
+	const (
+		pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		ech = "AAECAwQFBgcICQ=="
+	)
+	vmessPayload, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "ws", "tls": "tls", "sni": "cert.example.com", "fp": "chrome", "alpn": "h2",
+		"pinSHA256": pin, "verifyPeerCertByName": "cert.example.com", "ech": ech,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]string{
+		"VLESS":  "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&type=ws&encryption=none&sni=cert.example.com&fp=chrome&alpn=h2&pcs=" + pin + "&vcn=cert.example.com&ech=" + url.QueryEscape(ech),
+		"Trojan": "trojan://secret@example.com:443?security=tls&type=ws&sni=cert.example.com&fp=chrome&alpn=h2&pcs=" + pin + "&vcn=cert.example.com&ech=" + url.QueryEscape(ech),
+		"VMess":  "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPayload),
+	} {
+		body, err := renderClashLikeYAML("alice", []string{link}, true)
+		for _, expected := range []string{
+			`fingerprint: "` + pin + `"`, `name-cert-verify: "cert.example.com"`,
+			`client-fingerprint: "chrome"`, `alpn: ["h2"]`, `ech-opts:`, `config: "` + ech + `"`,
+		} {
+			if err != nil || !strings.Contains(body, expected) {
+				t.Fatalf("Mihomo %s TLS metadata lost %q: body=%s err=%v", name, expected, body, err)
+			}
+		}
+	}
+}
+
+func TestRealityCompatibilityIsExplicitAcrossStructuredFormats(t *testing.T) {
+	vmessPayload, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "tcp", "tls": "reality", "sni": "reality.example.com", "fp": "chrome", "alpn": "h2", "pbk": "public-key", "sid": "01",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := map[string]string{
+		"VLESS":  "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=reality&type=tcp&encryption=none&sni=reality.example.com&fp=chrome&alpn=h2&pbk=public-key&sid=01",
+		"Trojan": "trojan://secret@example.com:443?security=reality&type=tcp&sni=reality.example.com&fp=chrome&alpn=h2&pbk=public-key&sid=01",
+		"VMess":  "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPayload),
+	}
+	for name, link := range valid {
+		body, err := renderClashLikeYAML("alice", []string{link}, true)
+		for _, expected := range []string{`client-fingerprint: "chrome"`, `alpn:`, `reality-opts:`, `public-key: "public-key"`, `short-id: "01"`} {
+			if err != nil || !strings.Contains(body, expected) {
+				t.Fatalf("Mihomo %s Reality mapping lost %q: body=%s err=%v", name, expected, body, err)
+			}
+		}
+	}
+	for name, link := range valid {
+		separator := "&"
+		if strings.HasPrefix(link, "vmess://") {
+			payload := map[string]any{}
+			decoded, _ := decodeFlexibleBase64(strings.TrimPrefix(link, "vmess://"))
+			_ = json.Unmarshal(decoded, &payload)
+			payload["spx"] = "/unsupported"
+			raw, _ := json.Marshal(payload)
+			link = "vmess://" + base64.RawStdEncoding.EncodeToString(raw)
+		} else {
+			link += separator + "spx=%2Funsupported&pqv=verifier"
+		}
+		if body, err := renderClashLikeYAML("alice", []string{link}, true); err == nil || body != "" || !strings.Contains(err.Error(), "spider-x or ML-DSA") {
+			t.Fatalf("Mihomo silently dropped %s unsupported Reality fields: body=%q err=%v", name, body, err)
+		}
+		if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "spider-x or ML-DSA") {
+			t.Fatalf("sing-box silently dropped %s unsupported Reality fields: body=%q err=%v", name, body, err)
+		}
+	}
+}
+
+func TestMihomoXHTTPOptionsUseOnlyOfficialClientFields(t *testing.T) {
+	const (
+		pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		ech = "AAECAwQFBgcICQ=="
+	)
+	extra := map[string]any{
+		"headers":      map[string]any{"Host": "must-not-survive", "X-Test": "client"},
+		"noGRPCHeader": true, "xPaddingBytes": "100-500", "xPaddingObfsMode": "base64",
+		"uplinkHTTPMethod": "POST", "sessionIDPlacement": "header", "sessionIDKey": "X-Session",
+		"seqPlacement": "query", "seqKey": "seq", "uplinkDataPlacement": "body",
+		"uplinkChunkSize": "1024-2048", "scMaxEachPostBytes": 1000000, "scMinPostsIntervalMs": 20,
+		"xmux": map[string]any{"maxConcurrency": "16-32", "hKeepAlivePeriod": 30},
+		"downloadSettings": map[string]any{
+			"address": "down.example.com", "port": 8443, "network": "xhttp", "security": "reality",
+			"realitySettings": map[string]any{"serverName": "down-sni.example.com", "fingerprint": "chrome", "publicKey": "public-key", "shortId": "abcd"},
+			"tlsSettings": map[string]any{
+				"pinnedPeerCertSha256": pin, "verifyPeerCertByName": "down-sni.example.com", "echConfigList": ech,
+			},
+			"xhttpSettings": map[string]any{"path": "/down", "host": "down-host.example.com", "headers": map[string]any{"Host": "drop", "X-Down": "value"}, "xmux": map[string]any{"maxConnections": "2-4"}},
+		},
+		"serverMaxHeaderBytes": 8192, "noSSEHeader": true, "scMaxConcurrentPosts": 4,
+	}
+	rawExtra, err := json.Marshal(extra)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := url.Values{
+		"type": {"xhttp"}, "path": {"/x"}, "host": {"edge.example.com"}, "mode": {"packet-up"},
+		"extra": {string(rawExtra)}, "encryption": {"none"},
+	}
+	parsed, err := url.Parse("vless://11111111-1111-4111-8111-111111111111@example.com:443?" + query.Encode())
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy, ok := clashVLESSProxy("xhttp", parsed)
+	if !ok {
+		t.Fatal("expected Mihomo VLESS proxy")
+	}
+	opts := proxy["xhttp-opts"].(map[string]any)
+	for key, want := range map[string]any{
+		"path": "/x", "host": "edge.example.com", "mode": "packet-up",
+		"no-grpc-header": true, "x-padding-bytes": "100-500", "x-padding-obfs-mode": "base64",
+		"uplink-http-method": "POST", "session-placement": "header", "session-key": "X-Session",
+		"seq-placement": "query", "seq-key": "seq", "uplink-data-placement": "body",
+		"uplink-chunk-size": "1024-2048", "sc-max-each-post-bytes": float64(1000000), "sc-min-posts-interval-ms": float64(20),
+	} {
+		if got := opts[key]; got != want {
+			t.Fatalf("xhttp-opts %s=%#v want %#v; all=%#v", key, got, want, opts)
+		}
+	}
+	reuse := opts["reuse-settings"].(map[string]any)
+	if reuse["max-concurrency"] != "16-32" || reuse["h-keep-alive-period"] != float64(30) {
+		t.Fatalf("xmux/reuse settings were not mapped: %#v", reuse)
+	}
+	headers := opts["headers"].(map[string]any)
+	if headers["X-Test"] != "client" || headers["Host"] != nil {
+		t.Fatalf("Mihomo XHTTP headers leaked Host or lost custom header: %#v", headers)
+	}
+	download := opts["download-settings"].(map[string]any)
+	if download["server"] != "down.example.com" || download["port"] != 8443 || download["path"] != "/down" || download["servername"] != "down-sni.example.com" {
+		t.Fatalf("Mihomo download-settings mapping mismatch: %#v", download)
+	}
+	if mapValue(download["headers"])["Host"] != nil || mapValue(download["headers"])["X-Down"] != "value" || mapValue(download["reuse-settings"])["max-connections"] != "2-4" {
+		t.Fatalf("Mihomo nested download XHTTP mapping mismatch: %#v", download)
+	}
+	if download["fingerprint"] != pin || download["name-cert-verify"] != "down-sni.example.com" || mapValue(download["ech-opts"])["config"] != ech {
+		t.Fatalf("Mihomo download-settings TLS metadata mismatch: %#v", download)
+	}
+	for _, serverOnly := range []string{"server-max-header-bytes", "no-sse-header", "sc-max-concurrent-posts"} {
+		if _, exists := opts[serverOnly]; exists {
+			t.Fatalf("server-only XHTTP option %q leaked into Mihomo output: %#v", serverOnly, opts)
+		}
+	}
+}
+
+func TestVMessXHTTPStructuredOutputsPreserveModeAndClientExtra(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"v": "2", "ps": "vmess+xhttp", "add": "example.com", "port": "443",
+		"id": "11111111-1111-4111-8111-111111111111", "aid": "0", "scy": "auto",
+		"net": "xhttp", "type": "stream-up", "path": "/x", "host": "edge.example.com", "tls": "tls",
+		"extra": map[string]any{
+			"sessionIDPlacement": "query", "sessionIDKey": "sid", "sessionTable": "0123456789abcdef", "sessionLength": 12,
+			"headers": map[string]any{"Host": "must-not-survive", "X-Client": "value"}, "xPaddingBytes": "100-1000",
+			"downloadSettings": map[string]any{"address": "down.example.com", "port": 8443, "network": "xhttp", "xhttpSettings": map[string]any{"path": "/down"}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := "vmess://" + base64.RawStdEncoding.EncodeToString(payload)
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"mode": "stream-up"`, `"sessionPlacement": "query"`, `"sessionKey": "sid"`, `"sessionTable": "0123456789abcdef"`, `"sessionLength": 12`, `"X-Client": "value"`, `"xPaddingBytes": "100-1000"`, `"downloadSettings"`, `"down.example.com"`} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("Xray VMess output lost %s: %s", expected, body)
+		}
+	}
+	for _, currentOnly := range []string{`"sessionIDPlacement"`, `"sessionIDKey"`, `"sessionIDTable"`, `"sessionIDLength"`} {
+		if strings.Contains(body, currentOnly) {
+			t.Fatalf("generic stable Xray JSON leaked post-v26.6.22 alias %s: %s", currentOnly, body)
+		}
+	}
+	if strings.Contains(body, "must-not-survive") {
+		t.Fatalf("Xray VMess output retained forbidden XHTTP Host header: %s", body)
+	}
+	if clash, err := renderClashLikeYAML("alice", []string{link}, true); err == nil || clash != "" || !strings.Contains(err.Error(), "supports XHTTP only for VLESS") {
+		t.Fatalf("Mihomo silently emitted unsupported VMess XHTTP: body=%q err=%v", clash, err)
+	}
+}
+
+func TestMihomoXHTTPAcceptsOnlyVLESS(t *testing.T) {
+	vless := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=xhttp&security=none&encryption=none&path=%2Fx"
+	if body, err := renderClashLikeYAML("alice", []string{vless}, true); err != nil || !strings.Contains(body, `type: "vless"`) || !strings.Contains(body, `xhttp-opts:`) {
+		t.Fatalf("Mihomo rejected supported VLESS XHTTP: body=%q err=%v", body, err)
+	}
+	trojan := "trojan://secret@example.com:443?type=xhttp&security=tls&path=%2Fx"
+	if body, err := renderClashLikeYAML("alice", []string{trojan}, true); err == nil || body != "" || !strings.Contains(err.Error(), "supports XHTTP only for VLESS") {
+		t.Fatalf("Mihomo silently emitted unsupported Trojan XHTTP: body=%q err=%v", body, err)
+	}
+}
+
+func TestXHTTPStructuredOutputsRejectUnsupportedDownloadSemanticsVisibly(t *testing.T) {
+	extra, err := json.Marshal(map[string]any{
+		"downloadSettings": map[string]any{
+			"network": "xhttp", "finalmask": map[string]any{"tcp": []any{map[string]any{"type": "fragment"}}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=xhttp&security=none&encryption=none&extra=" + url.QueryEscape(string(extra))
+	if body, err := renderClashLikeYAML("alice", []string{link}, true); err == nil || body != "" || !strings.Contains(err.Error(), "downloadSettings.finalmask") {
+		t.Fatalf("Mihomo silently lost unsupported download semantics: body=%q err=%v", body, err)
+	}
+	if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "does not support XHTTP") {
+		t.Fatalf("sing-box silently dropped XHTTP: body=%q err=%v", body, err)
+	}
+}
+
+func TestHysteria2StructuredOutputsPreserveEssentialClientFields(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	link := "hysteria2://p%40ss%2Bword@[2001:db8::7]:443,20000-30000/?sni=hy.example.com&insecure=1&alpn=h3&obfs=salamander&obfs-password=mask%2Bkey&pinSHA256=" + pin + "#Hy%2B%E2%9C%93"
+	v2rayBody, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"protocol": "hysteria"`, `"version": 2`, `"pinnedPeerCertSha256"`, pin, `"password": "mask+key"`, `"ports": "443,20000-30000"`} {
+		if !strings.Contains(v2rayBody, expected) {
+			t.Fatalf("Xray Hysteria2 output lost %s: %s", expected, v2rayBody)
+		}
+	}
+	if strings.Contains(v2rayBody, `"allowInsecure"`) {
+		t.Fatalf("Xray JSON retained removed allowInsecure: %s", v2rayBody)
+	}
+	singBoxLink := strings.Replace(link, "&pinSHA256="+pin, "", 1)
+	singBoxBody, err := renderSingBoxJSON([]string{singBoxLink})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"type": "hysteria2"`, `"password": "p@ss+word"`, `"server": "2001:db8::7"`, `"server_ports"`, `"443"`, `"20000:30000"`, `"salamander"`, `"mask+key"`, `"insecure": true`} {
+		if !strings.Contains(singBoxBody, expected) {
+			t.Fatalf("sing-box Hysteria2 output lost %s: %s", expected, singBoxBody)
+		}
+	}
+	clash := mustRenderClashLikeYAML(t, "alice", []string{link}, true)
+	for _, expected := range []string{`type: "hysteria2"`, `server: "2001:db8::7"`, `password: "p@ss+word"`, `ports: "443,20000-30000"`, `obfs: "salamander"`, `obfs-password: "mask+key"`, `fingerprint: "` + pin + `"`} {
+		if !strings.Contains(clash, expected) {
+			t.Fatalf("Mihomo Hysteria2 output lost %s: %s", expected, clash)
+		}
+	}
+}
+
+func TestXrayJSONRequiresValidCertificatePinsForInsecureTLS(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	colonPin := strings.Join([]string{
+		"01", "23", "45", "67", "89", "ab", "cd", "ef",
+		"01", "23", "45", "67", "89", "ab", "cd", "ef",
+		"01", "23", "45", "67", "89", "ab", "cd", "ef",
+		"01", "23", "45", "67", "89", "ab", "cd", "ef",
+	}, ":")
+	base := "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&type=ws&insecure=1"
+	if body, err := renderV2RayJSONSubscription([]string{base}, false); err == nil || body != "" || !strings.Contains(err.Error(), "requires certificate pinning") {
+		t.Fatalf("Xray JSON accepted insecure TLS without a pin: body=%q err=%v", body, err)
+	}
+	vmessInsecure, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "ws", "tls": "tls", "allowInsecure": 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]string{
+		"VLESS":    base,
+		"Trojan":   "trojan://secret@example.com:443?security=tls&insecure=1",
+		"Hysteria": "hysteria2://secret@example.com:443/?insecure=1",
+		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessInsecure),
+	} {
+		if body, err := renderV2RayJSONSubscription([]string{link}, false); err == nil || body != "" || !strings.Contains(err.Error(), "peer-name verification") {
+			t.Fatalf("Xray JSON accepted insecure %s without pin/vcn: body=%q err=%v", name, body, err)
+		}
+	}
+	vmessVCN, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "ws", "tls": "tls", "allowInsecure": 1, "verifyPeerCertByName": "cert.example.com",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]string{
+		"VLESS":    base + "&vcn=cert.example.com",
+		"Trojan":   "trojan://secret@example.com:443?security=tls&insecure=1&verifyPeerCertByName=cert.example.com",
+		"Hysteria": "hysteria2://secret@example.com:443/?insecure=1&vcn=cert.example.com",
+		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessVCN),
+	} {
+		body, err := renderV2RayJSONSubscription([]string{link}, false)
+		if err != nil || !strings.Contains(body, `"verifyPeerCertByName": "cert.example.com"`) || strings.Contains(body, `"allowInsecure"`) {
+			t.Fatalf("Xray JSON did not preserve %s vcn safely: body=%q err=%v", name, body, err)
+		}
+	}
+	vmessPayload, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "ws", "tls": "tls", "pinSHA256": "abcd",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]string{
+		"VLESS":    strings.Replace(base, "&insecure=1", "&pcs=abcd", 1),
+		"Trojan":   "trojan://secret@example.com:443?security=tls&pcs=abcd",
+		"Hysteria": "hysteria2://secret@example.com:443/?pinSHA256=abcd",
+		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPayload),
+	} {
+		if body, err := renderV2RayJSONSubscription([]string{link}, false); err == nil || body != "" || !strings.Contains(err.Error(), "64 hexadecimal") {
+			t.Fatalf("Xray JSON accepted malformed %s pin without insecure: body=%q err=%v", name, body, err)
+		}
+	}
+	reality := "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=reality&type=tcp&insecure=1&pbk=public-key&sid=01"
+	if body, err := renderV2RayJSONSubscription([]string{reality}, false); err != nil || body == "" {
+		t.Fatalf("non-TLS Reality link was incorrectly subjected to TLS pin enforcement: body=%q err=%v", body, err)
+	}
+	link := base + "&pcs=" + url.QueryEscape(pin+","+colonPin) + "&vcn=cert.example.com"
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{pin, colonPin, `"verifyPeerCertByName": "cert.example.com"`} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("Xray JSON lost pin/peer-name %q: %s", expected, body)
+		}
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	tls := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)["tlsSettings"].(map[string]any)
+	if got, ok := tls["pinnedPeerCertSha256"].(string); !ok || got != pin+","+colonPin {
+		t.Fatalf("Xray pinnedPeerCertSha256 must remain one CSV string, got %#v", tls["pinnedPeerCertSha256"])
+	}
+	if strings.Contains(body, `"allowInsecure"`) {
+		t.Fatalf("Xray JSON emitted removed allowInsecure: %s", body)
+	}
+	validWithoutInsecure := strings.Replace(link, "&insecure=1", "", 1)
+	if body, err := renderV2RayJSONSubscription([]string{validWithoutInsecure}, false); err != nil || !strings.Contains(body, pin) {
+		t.Fatalf("valid Xray certificate pin without insecure was not preserved: body=%q err=%v", body, err)
+	}
+}
+
+func TestSingBoxRejectsHysteriaCertificatePinWithoutMisMapping(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	link := "hysteria2://secret@example.com:443/?pinSHA256=" + pin
+	if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "full-certificate SHA-256 pin") {
+		t.Fatalf("sing-box silently dropped or mis-mapped Hysteria certificate pin: body=%q err=%v", body, err)
+	}
+}
+
+func TestMKCPAndFinalMaskRoundTripThroughRawAndXrayJSON(t *testing.T) {
+	finalMask := map[string]any{
+		"tcp": []any{map[string]any{"type": "fragment", "settings": map[string]any{
+			"packets": "tlshello", "lengths": []any{"3-5"}, "delays": []any{"10-20"}, "maxSplit": "3-6",
+		}}},
+	}
+	inbound := ResolvedInbound{
+		"port": 443, "network": "kcp", "tls": "none", "header_type": "srtp", "path": "seed+value",
+		"mtu": 1350, "tti": 20, "finalmask": finalMask,
+	}
+	settings := map[string]any{"id": "11111111-1111-4111-8111-111111111111"}
+	vless := vlessShareLink("kcp ✓", "example.com", "seed+value", inbound, settings)
+	parsedURL, err := url.Parse(vless)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsedURL.Query().Get("mtu") != "1350" || parsedURL.Query().Get("tti") != "20" || parsedURL.Query().Get("fm") == "" {
+		t.Fatalf("VLESS raw link lost KCP/FinalMask parameters: %s", vless)
+	}
+	parsed, err := outboundsub.ParseLink(vless)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := parsed.Outbound["streamSettings"].(map[string]any)
+	kcp := stream["kcpSettings"].(map[string]any)
+	if kcp["mtu"] != 1350 || kcp["tti"] != 20 || kcp["seed"] != "seed+value" || kcp["header"].(map[string]any)["type"] != "srtp" {
+		t.Fatalf("outboundsub lost KCP fields: %#v", kcp)
+	}
+	if _, ok := stream["finalmask"].(map[string]any); !ok {
+		t.Fatalf("outboundsub lost FinalMask: %#v", stream)
+	}
+
+	vmess := vmessShareLink("vmess kcp", "example.com", "seed+value", inbound, settings)
+	parsedVMess, err := outboundsub.ParseLink(vmess)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vmessStream := parsedVMess.Outbound["streamSettings"].(map[string]any)
+	vmessKCP := vmessStream["kcpSettings"].(map[string]any)
+	if vmessKCP["mtu"] != 1350 || vmessKCP["tti"] != 20 || vmessStream["finalmask"] == nil {
+		t.Fatalf("VMess raw/outboundsub round-trip lost KCP or FinalMask: %#v", vmessStream)
+	}
+
+	trojan := trojanShareLink("trojan fm", "example.com", "/", inbound, map[string]any{"password": "secret"})
+	parsedTrojan, err := outboundsub.ParseLink(trojan)
+	if err != nil || parsedTrojan.Outbound["streamSettings"].(map[string]any)["finalmask"] == nil {
+		t.Fatalf("Trojan FinalMask round-trip failed: outbound=%#v err=%v", parsedTrojan, err)
+	}
+
+	body, err := renderV2RayJSONSubscription([]string{vless, vmess}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"mtu": 1350`, `"tti": 20`, `"length": "3-5"`, `"delay": "10-20"`} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("Xray JSON lost KCP/FinalMask %s: %s", expected, body)
+		}
+	}
+
+	hysteria, err := hysteriaShareLink("hy", "example.com", ResolvedInbound{"port": 443, "finalmask": finalMask}, map[string]any{"auth": "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedHysteria, err := parseHysteria2ShareURL(hysteria)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsedHysteria.Query().Get("fm") != "" {
+		t.Fatalf("standard Hysteria 2 URI must not carry Xray fm: %s", hysteria)
+	}
+}
+
+func TestHysteria2GeckoUsesNativeDefaultsAcrossOutputs(t *testing.T) {
+	link := "hysteria2://secret@example.com:443/?sni=example.com&obfs=gecko&obfs-password=mask#gecko"
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "Gecko") {
+		t.Fatalf("generic stable Xray JSON did not reject newer Gecko semantics, body=%q err=%v", body, err)
+	}
+	singBox, err := renderSingBoxJSON([]string{link})
+	if err != nil || !strings.Contains(singBox, `"type": "gecko"`) || !strings.Contains(singBox, `"min_packet_size": 512`) || !strings.Contains(singBox, `"max_packet_size": 1200`) {
+		t.Fatalf("sing-box did not preserve Gecko defaults: body=%s err=%v", singBox, err)
+	}
+	clash := mustRenderClashLikeYAML(t, "alice", []string{link}, true)
+	if !strings.Contains(clash, `obfs: "gecko"`) || !strings.Contains(clash, `obfs-min-packet-size: 512`) || !strings.Contains(clash, `obfs-max-packet-size: 1200`) {
+		t.Fatalf("Mihomo should preserve native Gecko: %s", clash)
+	}
+}
+
+func TestHysteria2OptionalAuthAndECHAcrossStructuredFormats(t *testing.T) {
+	const ech = "AAECAwQFBgcICQ=="
+	noAuth := "hysteria2://example.com/?sni=hy.example.com#no-auth"
+	v2rayBody, err := renderV2RayJSONSubscription([]string{noAuth}, false)
+	if err != nil || !strings.Contains(v2rayBody, `"protocol": "hysteria"`) {
+		t.Fatalf("Xray JSON did not preserve official no-auth Hysteria2 semantics: body=%s err=%v", v2rayBody, err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(v2rayBody), &configs); err != nil {
+		t.Fatal(err)
+	}
+	hysteriaSettings := mapValue(mapValue(configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"])["hysteriaSettings"])
+	if _, exists := hysteriaSettings["auth"]; exists {
+		t.Fatalf("Xray JSON emitted empty Hysteria auth: %#v", hysteriaSettings)
+	}
+	singBoxBody, err := renderSingBoxJSON([]string{noAuth})
+	if err != nil || !strings.Contains(singBoxBody, `"type": "hysteria2"`) || strings.Contains(singBoxBody, `"password"`) {
+		t.Fatalf("sing-box did not preserve official no-auth Hysteria2 semantics: body=%s err=%v", singBoxBody, err)
+	}
+	clashBody, err := renderClashLikeYAML("alice", []string{noAuth}, true)
+	if err != nil || !strings.Contains(clashBody, `type: "hysteria2"`) || strings.Contains(clashBody, `password:`) || strings.Contains(clashBody, `auth-str:`) {
+		t.Fatalf("Mihomo did not preserve official no-auth Hysteria2 semantics: body=%s err=%v", clashBody, err)
+	}
+
+	echLink := "hysteria2://secret@example.com:443/?sni=hy.example.com&ech=" + url.QueryEscape(ech)
+	v2rayBody, err = renderV2RayJSONSubscription([]string{echLink}, false)
+	if err != nil || !strings.Contains(v2rayBody, `"echConfigList": "`+ech+`"`) {
+		t.Fatalf("Xray JSON lost native Hysteria ECH: body=%s err=%v", v2rayBody, err)
+	}
+	clashBody, err = renderClashLikeYAML("alice", []string{echLink}, true)
+	for _, expected := range []string{`ech-opts:`, `enable: true`, `config: "` + ech + `"`} {
+		if err != nil || !strings.Contains(clashBody, expected) {
+			t.Fatalf("Mihomo lost Hysteria ECH %q: body=%s err=%v", expected, clashBody, err)
+		}
+	}
+	singBoxBody, err = renderSingBoxJSON([]string{echLink})
+	if err != nil || !strings.Contains(singBoxBody, `"ech"`) || !strings.Contains(singBoxBody, `-----BEGIN ECH CONFIGS-----\n`+ech+`\n-----END ECH CONFIGS-----`) {
+		t.Fatalf("sing-box did not wrap Hysteria ECHConfigList as PEM: body=%s err=%v", singBoxBody, err)
+	}
+}
+
+func TestHysteria2UserPasswordAuthRoundTripsEveryOutput(t *testing.T) {
+	generated, err := hysteriaShareLink("auth ✓", "example.com", ResolvedInbound{"port": 443}, map[string]any{"auth": "alice:sec+ret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(generated, "alice%3Asec%2Bret@example.com") {
+		t.Fatalf("raw Hysteria link did not encode auth as one URI userinfo value: %s", generated)
+	}
+
+	for _, tc := range []struct {
+		name string
+		link string
+		auth string
+	}{
+		{name: "native userpass", link: "hysteria2://alice:secret@example.com:443/#userpass", auth: "alice:secret"},
+		{name: "percent encoded", link: generated, auth: "alice:sec+ret"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := outboundsub.ParseLink(tc.link)
+			if err != nil {
+				t.Fatal(err)
+			}
+			hysteriaSettings := parsed.Outbound["streamSettings"].(map[string]any)["hysteriaSettings"].(map[string]any)
+			if hysteriaSettings["auth"] != tc.auth {
+				t.Fatalf("raw/outboundsub auth mismatch: %#v", hysteriaSettings)
+			}
+
+			xrayBody, err := renderV2RayJSONSubscription([]string{tc.link}, false)
+			if err != nil || !strings.Contains(xrayBody, `"auth": "`+tc.auth+`"`) {
+				t.Fatalf("Xray JSON auth mismatch: body=%s err=%v", xrayBody, err)
+			}
+			mihomoBody, err := renderClashLikeYAML("alice", []string{tc.link}, true)
+			if err != nil || !strings.Contains(mihomoBody, `password: "`+tc.auth+`"`) {
+				t.Fatalf("Mihomo auth mismatch: body=%s err=%v", mihomoBody, err)
+			}
+			singBoxBody, err := renderSingBoxJSON([]string{tc.link})
+			if err != nil || !strings.Contains(singBoxBody, `"password": "`+tc.auth+`"`) {
+				t.Fatalf("sing-box auth mismatch: body=%s err=%v", singBoxBody, err)
+			}
+		})
+	}
+}
+
+func TestTrojanPasswordWithColonRoundTripsEveryOutput(t *testing.T) {
+	const password = "pa:ss@word"
+	generated := trojanShareLink("trojan auth", "example.com", "/", ResolvedInbound{
+		"port": 443, "network": "tcp", "tls": "tls",
+	}, map[string]any{"password": password})
+	if !strings.Contains(generated, "trojan://pa%3Ass%40word@example.com:443?") {
+		t.Fatalf("generated Trojan link did not percent-encode the complete password: %s", generated)
+	}
+
+	for _, tc := range []struct {
+		name string
+		link string
+	}{
+		{name: "generated encoded userinfo", link: generated},
+		{name: "legacy userpass authority", link: "trojan://pa:ss%40word@example.com:443?security=tls&type=tcp#legacy"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := outboundsub.ParseLink(tc.link)
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := parsed.Outbound["settings"].(map[string]any)["servers"].([]any)[0].(map[string]any)
+			if server["password"] != password {
+				t.Fatalf("outboundsub truncated Trojan password: %#v", server)
+			}
+
+			xrayBody, err := renderV2RayJSONSubscription([]string{tc.link}, false)
+			if err != nil || !strings.Contains(xrayBody, `"password": "`+password+`"`) {
+				t.Fatalf("Xray JSON Trojan password mismatch: body=%s err=%v", xrayBody, err)
+			}
+			mihomoBody, err := renderClashLikeYAML("alice", []string{tc.link}, true)
+			if err != nil || !strings.Contains(mihomoBody, `password: "`+password+`"`) {
+				t.Fatalf("Mihomo Trojan password mismatch: body=%s err=%v", mihomoBody, err)
+			}
+			singBoxBody, err := renderSingBoxJSON([]string{tc.link})
+			if err != nil || !strings.Contains(singBoxBody, `"password": "`+password+`"`) {
+				t.Fatalf("sing-box Trojan password mismatch: body=%s err=%v", singBoxBody, err)
+			}
+			_, passwords := extractConfigIdentifiers(tc.link)
+			if _, ok := passwords[password]; !ok {
+				t.Fatalf("users-list credential extraction truncated Trojan password: %#v", passwords)
+			}
+		})
+	}
+}
+
+func TestSingBoxECHConfigAcrossTLSProtocols(t *testing.T) {
+	const ech = "AAECAwQFBgcICQ=="
+	vmessPayload, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "ws", "tls": "tls", "echConfigList": ech,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]string{
+		"VLESS":    "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&type=ws&encryption=none&ech=" + url.QueryEscape(ech),
+		"Trojan":   "trojan://secret@example.com:443?ech=" + url.QueryEscape(ech),
+		"Hysteria": "hysteria2://secret@example.com:443/?ech=" + url.QueryEscape(ech),
+		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPayload),
+	} {
+		body, err := renderSingBoxJSON([]string{link})
+		if err != nil || !strings.Contains(body, `"enabled": true`) || !strings.Contains(body, `-----BEGIN ECH CONFIGS-----\n`+ech+`\n-----END ECH CONFIGS-----`) {
+			t.Fatalf("sing-box %s ECH mapping mismatch: body=%q err=%v", name, body, err)
+		}
+	}
+	dynamic := "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&type=ws&encryption=none&ech=" + url.QueryEscape("example.com+https://resolver.example/dns-query")
+	if body, err := renderSingBoxJSON([]string{dynamic}); err == nil || body != "" || !strings.Contains(err.Error(), "dynamic Xray ECH") {
+		t.Fatalf("sing-box silently accepted dynamic ECH: body=%q err=%v", body, err)
+	}
+}
+
+func TestSingBoxPinAndPeerNameCompatibilityAcrossTLSProtocols(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	vmessPin, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "ws", "tls": "tls", "pinSHA256": pin,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]string{
+		"VLESS":    "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&type=ws&encryption=none&pcs=" + pin,
+		"Trojan":   "trojan://secret@example.com:443?pcs=" + pin,
+		"Hysteria": "hysteria2://secret@example.com:443/?pinSHA256=" + pin,
+		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPin),
+	} {
+		if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "full-certificate SHA-256 pin") {
+			t.Fatalf("sing-box silently lost %s certificate pin: body=%q err=%v", name, body, err)
+		}
+	}
+	vmessVCN, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "ws", "tls": "tls", "sni": "cert.example.com", "verifyPeerCertByName": "cert.example.com",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]string{
+		"VLESS":    "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&type=ws&encryption=none&sni=cert.example.com&vcn=cert.example.com",
+		"Trojan":   "trojan://secret@example.com:443?sni=cert.example.com&vcn=cert.example.com",
+		"Hysteria": "hysteria2://secret@example.com:443/?sni=cert.example.com&vcn=cert.example.com",
+		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessVCN),
+	} {
+		body, err := renderSingBoxJSON([]string{link})
+		if err != nil || !strings.Contains(body, `"server_name": "cert.example.com"`) {
+			t.Fatalf("sing-box did not fold %s vcn into server_name: body=%q err=%v", name, body, err)
+		}
+	}
+	for name, link := range map[string]string{
+		"VLESS":    "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=tls&type=ws&encryption=none&sni=sni.example.com&vcn=cert.example.com",
+		"Hysteria": "hysteria2://secret@example.com:443/?sni=sni.example.com&vcn=cert.example.com",
+	} {
+		if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "distinct SNI") {
+			t.Fatalf("sing-box silently changed %s SNI/vcn semantics: body=%q err=%v", name, body, err)
+		}
+	}
+	if body, err := renderSingBoxJSON([]string{"hysteria2://secret@example.com:443/?fp=chrome"}); err == nil || body != "" || !strings.Contains(err.Error(), "does not support the Xray uTLS fingerprint") {
+		t.Fatalf("sing-box silently accepted Hysteria uTLS fingerprint: body=%q err=%v", body, err)
+	}
+}
+
+func TestHysteria2VendorFingerprintAndMultiplePinsFailVisibly(t *testing.T) {
+	if body, err := renderClashLikeYAML("alice", []string{"hysteria2://secret@example.com/?fp=chrome"}, true); err == nil || body != "" || !strings.Contains(err.Error(), "does not support the Xray fp extension") || strings.Contains(err.Error(), "sing-box") {
+		t.Fatalf("Mihomo incorrectly mapped Hysteria Xray fp extension: body=%q err=%v", body, err)
+	}
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	link := "hysteria2://secret@example.com/?pcs=" + url.QueryEscape(pin+","+pin)
+	if body, err := renderClashLikeYAML("alice", []string{link}, true); err == nil || body != "" || !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("Mihomo silently truncated multiple Xray pins: body=%q err=%v", body, err)
+	}
+	if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "multiple full-certificate") || strings.Contains(err.Error(), "Mihomo") {
+		t.Fatalf("sing-box multi-pin guidance recommended an incompatible target: body=%q err=%v", body, err)
+	}
+}
+
+func TestStructuredFormatsRejectUnsupportedFinalMaskWithoutSilentLoss(t *testing.T) {
+	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["1-2"],"delays":["0"]}}]}`)
+	vless := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=tls&encryption=none&fm=" + fm
+	if body, err := renderClashLikeYAML("alice", []string{vless}, true); err == nil || body != "" || !strings.Contains(err.Error(), "cannot safely represent Xray FinalMask") {
+		t.Fatalf("Mihomo silently dropped FinalMask: body=%q err=%v", body, err)
+	}
+	vmessPayload, err := json.Marshal(map[string]any{
+		"v": "2", "add": "example.com", "port": "443", "id": "11111111-1111-4111-8111-111111111111",
+		"net": "tcp", "tls": "tls", "fm": map[string]any{"tcp": []any{map[string]any{"type": "fragment"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	vmess := "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPayload)
+	if body, err := renderSingBoxJSON([]string{vmess}); err == nil || body != "" || !strings.Contains(err.Error(), "cannot safely represent Xray FinalMask") {
+		t.Fatalf("sing-box silently dropped VMess FinalMask: body=%q err=%v", body, err)
+	}
+}
+
+func TestGenericXrayJSONRejectsNonRepresentableCurrentFinalMaskRanges(t *testing.T) {
+	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["1-2","3-4"],"delays":["0"]}}]}`)
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=none&encryption=none&fm=" + fm
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "cannot losslessly represent") {
+		t.Fatalf("generic stable Xray JSON silently emitted plural FinalMask ranges: body=%q err=%v", body, err)
+	}
+}
+
+func TestGenericXrayJSONStableDialectAcceptedByOfficialXray(t *testing.T) {
+	binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_STABLE_TEST_BINARY"))
+	if binary == "" {
+		t.Skip("set REBECCA_XRAY_STABLE_TEST_BINARY to the official stable Xray binary")
+	}
+	unsupportedEncryption := "vless://33333333-3333-4333-8333-333333333333@example.com:443?type=tcp&security=none&encryption=mlkem768x25519plus.native.0rtt.client-key"
+	if body, err := renderV2RayJSONSubscription([]string{unsupportedEncryption}, false); err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") {
+		t.Fatalf("generic renderer emitted VLESS Encryption that its stable binary target rejects: body=%q err=%v", body, err)
+	}
+	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["3-5"],"delays":["10-20"],"maxSplit":"3"}}]}`)
+	kcp := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value&headerType=dns&host=dns.example&mtu=1350&tti=20&fm=" + fm
+	extra, err := json.Marshal(map[string]any{
+		"sessionIDPlacement": "query", "sessionIDKey": "sid", "sessionIDTable": "Base62", "sessionIDLength": "16-32",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	xhttp := "vless://22222222-2222-4222-8222-222222222222@example.com:443?type=xhttp&security=none&encryption=none&path=%2Fx&mode=packet-up&extra=" + url.QueryEscape(string(extra))
+	body, err := renderV2RayJSONSubscription([]string{kcp, xhttp}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, `"mkcp-aes128gcm"`) || !strings.Contains(body, `"length": "3-5"`) || strings.Contains(body, `"lengths"`) {
+		t.Fatalf("generic renderer mixed stable/current FinalMask dialects: %s", body)
+	}
+	for _, legacy := range []string{`"sessionPlacement": "query"`, `"sessionKey": "sid"`, `"sessionTable": "Base62"`, `"sessionLength": "16-32"`} {
+		if !strings.Contains(body, legacy) {
+			t.Fatalf("generic renderer lost stable XHTTP alias %s: %s", legacy, body)
+		}
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	if len(configs) != 2 {
+		t.Fatalf("generic renderer returned %d configs, want 2", len(configs))
+	}
+	for index, config := range configs {
+		data, err := json.Marshal(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		output, err := exec.Command(binary, "run", "-test", "-config", path).CombinedOutput()
+		if err != nil {
+			t.Fatalf("official stable Xray rejected generated renderer config %d: %v\n%s", index+1, err, output)
+		}
+	}
+}
+
+func TestStructuredFormatsRejectKnownSchemeConversionFailuresWithoutSilentDrop(t *testing.T) {
+	malformedVLESS := "vless://@example.com:443?type=ws&security=tls&encryption=none"
+	malformedTrojan := "trojan://@example.com:443?type=ws&security=tls"
+	malformedVMess := "vmess://" + base64.RawStdEncoding.EncodeToString([]byte(`{}`))
+	formats := map[string]func([]string) (string, error){
+		"Mihomo": func(links []string) (string, error) {
+			return renderClashLikeYAML("alice", links, true)
+		},
+		"sing-box": renderSingBoxJSON,
+		"Xray JSON": func(links []string) (string, error) {
+			return renderV2RayJSONSubscription(links, false)
+		},
+	}
+	for name, render := range formats {
+		for scheme, link := range map[string]string{"vless": malformedVLESS, "trojan": malformedTrojan, "vmess": malformedVMess} {
+			t.Run(name+" malformed "+scheme, func(t *testing.T) {
+				body, err := render([]string{"unknown://intentionally-skipped", link})
+				if err == nil || body != "" || !strings.Contains(err.Error(), name+" subscription link 2 ("+scheme+")") {
+					t.Fatalf("known malformed %s was silently dropped: body=%q err=%v", scheme, body, err)
+				}
+			})
+		}
+	}
+
+	credentials := base64.RawURLEncoding.EncodeToString([]byte("aes-256-gcm:secret"))
+	unsupportedSSTransport := "ss://" + credentials + "@example.com:8388?type=ws"
+	body, err := renderSingBoxJSON([]string{unsupportedSSTransport})
+	if err == nil || body != "" || !strings.Contains(err.Error(), "sing-box subscription link 1 (ss)") {
+		t.Fatalf("unsupported Shadowsocks transport was silently dropped: body=%q err=%v", body, err)
+	}
+}
+
+func TestXrayJSONValidatesMKCPRangesAndUsesFinalMask(t *testing.T) {
+	base := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value&headerType=dns&host=dns.example"
+	for _, tc := range []struct {
+		query string
+		ok    bool
+	}{
+		{query: "&mtu=21&tti=10", ok: true},
+		{query: "&mtu=575&tti=20", ok: true},
+		{query: "&mtu=576&tti=10", ok: true},
+		{query: "&mtu=1460&tti=100", ok: true},
+		{query: "&mtu=1500&tti=20", ok: true},
+		{query: "&mtu=4294967295&tti=20", ok: true},
+		{query: "&mtu=1350&tti=101", ok: true},
+		{query: "&mtu=1350&tti=5000", ok: true},
+		{query: "&mtu=20&tti=20"},
+		{query: "&mtu=4294967296&tti=20"},
+		{query: "&mtu=1350&tti=5001"},
+	} {
+		body, err := renderV2RayJSONSubscription([]string{base + tc.query}, false)
+		if (err == nil) != tc.ok {
+			t.Fatalf("mKCP query %q body=%s err=%v", tc.query, body, err)
+		}
+		if tc.ok {
+			for _, expected := range []string{`"mkcp-aes128gcm"`, `"password": "seed-value"`, `"header-dns"`, `"domain": "dns.example"`} {
+				if !strings.Contains(body, expected) {
+					t.Fatalf("latest-stable Xray JSON lost mKCP FinalMask %s: %s", expected, body)
+				}
+			}
+			if strings.Contains(body, `"seed"`) || strings.Contains(body, `"header":`) {
+				t.Fatalf("latest-stable Xray JSON retained removed mKCP fields: %s", body)
+			}
+		}
+	}
+}
+
+func TestHysteria2MalformedAuthorityIsVisibleInEveryStructuredFormat(t *testing.T) {
+	link := "hysteria2://secret@[2001:db8::7]:443,/?sni=example.com"
+	if body, err := renderV2RayJSONSubscription([]string{link}, false); err == nil || body != "" {
+		t.Fatalf("Xray JSON silently accepted malformed authority: body=%q err=%v", body, err)
+	}
+	if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" {
+		t.Fatalf("sing-box silently accepted malformed authority: body=%q err=%v", body, err)
+	}
+	if body, err := renderClashLikeYAML("alice", []string{link}, true); err == nil || body != "" {
+		t.Fatalf("Mihomo silently accepted malformed authority: body=%q err=%v", body, err)
+	}
+}
+
+func TestHysteria2MissingPortDefaultsTo443AcrossStructuredFormats(t *testing.T) {
+	link := "hy2://secret@[2001:db8::9]/?sni=hy.example.com#default-port"
+	v2rayBody, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(v2rayBody, `"port": 443`) {
+		t.Fatalf("Xray JSON did not default Hysteria2 port: body=%s err=%v", v2rayBody, err)
+	}
+	singBoxBody, err := renderSingBoxJSON([]string{link})
+	if err != nil || !strings.Contains(singBoxBody, `"server_port": 443`) {
+		t.Fatalf("sing-box did not default Hysteria2 port: body=%s err=%v", singBoxBody, err)
+	}
+	clashBody, err := renderClashLikeYAML("alice", []string{link}, true)
+	if err != nil || !strings.Contains(clashBody, `port: 443`) {
+		t.Fatalf("Mihomo did not default Hysteria2 port: body=%s err=%v", clashBody, err)
 	}
 }
 

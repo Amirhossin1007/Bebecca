@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"net"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -415,6 +416,8 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 		"ech", "echConfigList", "vcn", "verifyPeerCertByName", "pinSHA256", "pinnedPeerCertSha256",
 		"pbk", "publicKey", "public_key", "sids", "sid", "shortIds", "shortId", "spx", "pqv",
 		"fragment_setting", "noise_setting",
+		"mtu", "tti", "finalmask",
+		"headers", "sessionIDTable", "sessionIDLength", "downloadSettings",
 		"scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
 		"xPaddingBytes", "noGRPCHeader", "keepAlivePeriod", "xmux", "mode",
 		"xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement",
@@ -772,8 +775,10 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 		}
 	}
 
-	if normalized := normalizeFlowForServer(flowValue); normalized != "" {
-		data["flow"] = normalized
+	if protocol == "vless" {
+		if normalized := normalizeFlowForServer(flowValue); normalized != "" {
+			data["flow"] = normalized
+		}
 	}
 	return data, nil
 }
@@ -917,7 +922,7 @@ func buildShareLink(remark string, address string, inbound ResolvedInbound, sett
 	case "shadowsocks":
 		return shadowsocksShareLink(remark, formatIPForURL(address), inbound, settings), nil
 	case "hysteria":
-		return hysteriaShareLink(remark, formatIPForURL(address), inbound, settings), nil
+		return hysteriaShareLink(remark, formatIPForURL(address), inbound, settings)
 	default:
 		return "", nil
 	}
@@ -944,12 +949,24 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 	if ns := stringValue(inbound["noise_setting"]); ns != "" {
 		payload["noise"] = ns
 	}
+	if finalMask := mapValue(inbound["finalmask"]); len(finalMask) > 0 {
+		payload["fm"] = finalMask
+	}
 	tls := stringValue(inbound["tls"])
 	if tls == "tls" {
 		payload["sni"] = stringValue(inbound["sni"])
 		payload["fp"] = stringValue(inbound["fp"])
 		if alpn := stringValue(inbound["alpn"]); alpn != "" {
 			payload["alpn"] = alpn
+		}
+		if ech := firstNonEmptyString(inbound["ech"], inbound["echConfigList"]); ech != "" {
+			payload["ech"] = ech
+		}
+		if vcn := firstNonEmptyString(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
+			payload["vcn"] = vcn
+		}
+		if pin := firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
+			payload["pinSHA256"] = pin
 		}
 		if truthy(inbound["ais"]) {
 			payload["allowInsecure"] = 1
@@ -969,6 +986,9 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 
 	netValue := stringValue(inbound["network"])
 	switch netValue {
+	case "kcp":
+		copyOptional(payload, "mtu", inbound)
+		copyOptional(payload, "tti", inbound)
 	case "grpc":
 		if boolValue(inbound["multiMode"]) {
 			payload["mode"] = "multi"
@@ -976,26 +996,7 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 			payload["mode"] = "gun"
 		}
 	case "splithttp", "xhttp":
-		extra := map[string]any{}
-		copyOptional(extra, "scMaxEachPostBytes", inbound)
-		copyOptional(extra, "scMaxConcurrentPosts", inbound)
-		copyOptional(extra, "scMinPostsIntervalMs", inbound)
-		copyOptional(extra, "xPaddingBytes", inbound)
-		copyOptional(extra, "noGRPCHeader", inbound)
-		copyOptional(extra, "xPaddingObfsMode", inbound)
-		copyOptional(extra, "xPaddingKey", inbound)
-		copyOptional(extra, "xPaddingHeader", inbound)
-		copyOptional(extra, "xPaddingPlacement", inbound)
-		copyOptional(extra, "xPaddingMethod", inbound)
-		copyOptional(extra, "uplinkHTTPMethod", inbound)
-		copyOptional(extra, "sessionIDPlacement", inbound)
-		copyOptional(extra, "sessionIDKey", inbound)
-		copyOptional(extra, "seqPlacement", inbound)
-		copyOptional(extra, "seqKey", inbound)
-		copyOptional(extra, "uplinkDataPlacement", inbound)
-		copyOptional(extra, "uplinkDataKey", inbound)
-		copyOptional(extra, "uplinkChunkSize", inbound)
-		copyOptional(extra, "xmux", inbound)
+		extra := xhttpShareExtraMap(inbound)
 		if mode, ok := inbound["mode"]; ok {
 			payload["type"] = mode
 		}
@@ -1024,7 +1025,7 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
 	headerType := stringValue(inbound["header_type"])
-	if flow := stringValue(settings["flow"]); flow != "" && (tls == "tls" || tls == "reality") && (netValue == "tcp" || netValue == "raw" || netValue == "kcp") && headerType != "http" {
+	if flow := stringValue(settings["flow"]); vlessFlowAllowed(flow, stringValue(inbound["encryption"]), netValue, tls, headerType) {
 		params = append(params, queryParam{"flow", flow})
 	}
 	if encryption := stringValue(inbound["encryption"]); encryption != "" {
@@ -1035,6 +1036,7 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	params = appendNetworkParams(params, netValue, path, inbound)
 	params = appendTLSParams(params, tls, inbound)
 	params = appendMaskParams(params, inbound)
+	params = appendFinalMaskParam(params, inbound)
 	return "vless://" + stringValue(settings["id"]) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
 }
 
@@ -1046,14 +1048,11 @@ func trojanShareLink(remark string, address string, path string, inbound Resolve
 	}
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
-	headerType := stringValue(inbound["header_type"])
-	if flow := stringValue(settings["flow"]); flow != "" && (tls == "tls" || tls == "reality") && (netValue == "tcp" || netValue == "raw" || netValue == "kcp") && headerType != "http" {
-		params = append(params, queryParam{"flow", flow})
-	}
 	params = appendNetworkParams(params, netValue, path, inbound)
 	params = appendTLSParams(params, tls, inbound)
 	params = appendMaskParams(params, inbound)
-	return "trojan://" + percentEncode(stringValue(settings["password"]), ":", false) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
+	params = appendFinalMaskParam(params, inbound)
+	return "trojan://" + percentEncode(stringValue(settings["password"]), "", false) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
 }
 
 func shadowsocksShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) string {
@@ -1096,16 +1095,18 @@ func shadowsocksShareLink(remark string, address string, inbound ResolvedInbound
 	return "ss://" + userInfo + "@" + address + ":" + portString(inbound["port"]) + path + query + "#" + percentEncode(remark, "/", false)
 }
 
-func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) string {
+func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) (string, error) {
 	auth := firstNonEmptyString(settings["auth"], settings["password"])
-	if auth == "" {
-		return ""
+	if version := intValue(firstNonEmptyValue(inbound["hysteria_version"], settings["version"])); version != 0 && version != 2 {
+		return "", fmt.Errorf("Hysteria share links require version 2; persisted version %d cannot be converted safely", version)
 	}
-	scheme := "hysteria2"
-	if intValue(inbound["hysteria_version"]) == 1 || intValue(settings["version"]) == 1 {
-		scheme = "hysteria"
+	geckoPacketSize := stringValue(inbound["hysteria_gecko_packet_size"])
+	if geckoPacketSize != "" && geckoPacketSize != "512-1200" {
+		return "", fmt.Errorf("Hysteria Gecko packet size %q cannot be represented safely in the standard Hysteria 2 URI", geckoPacketSize)
 	}
-	params := []queryParam{{"security", "tls"}}
+	params := make([]queryParam, 0, 12)
+	// fp, alpn, vcn and pcs are Rebecca/Xray TLS extensions, not native
+	// Hysteria 2 URI parameters. Keep them for Xray-aware consumers only.
 	if fp := stringValue(inbound["fp"]); fp != "" {
 		params = append(params, queryParam{"fp", fp})
 	}
@@ -1123,26 +1124,187 @@ func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, s
 	}
 	if pin := firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
 		pins := splitCommaLines(pin)
-		for i, value := range pins {
-			pins[i] = hysteriaPinHex(value)
+		if len(pins) != 1 {
+			return "", fmt.Errorf("standard Hysteria 2 links support exactly one pinSHA256 certificate pin; Xray CSV pins cannot be represented safely")
 		}
-		if len(pins) > 0 {
-			params = append(params, queryParam{"pinSHA256", strings.Join(pins, ",")})
-		}
+		params = append(params, queryParam{"pinSHA256", hysteriaPinHex(pins[0])})
 	}
 	if truthy(firstNonEmptyValue(inbound["ais"], inbound["allowinsecure"])) {
 		params = append(params, queryParam{"insecure", 1})
 	}
-	if obfs := firstNonEmptyString(inbound["obfs"], inbound["hysteria_obfs"]); obfs != "" {
+	obfs := firstNonEmptyString(inbound["obfs"], inbound["hysteria_obfs"])
+	if geckoPacketSize != "" {
+		obfs = "gecko"
+	}
+	if obfs != "" {
 		params = append(params, queryParam{"obfs", obfs})
 	}
 	if obfsPassword := firstNonEmptyString(inbound["obfs-password"], inbound["obfsPassword"], inbound["hysteria_obfs_password"]); obfsPassword != "" {
 		params = append(params, queryParam{"obfs-password", obfsPassword})
 	}
+	authorityPort := portString(inbound["port"])
 	if mport := firstNonEmptyString(inbound["mport"], inbound["hysteria_mport"]); mport != "" {
-		params = append(params, queryParam{"mport", mport})
+		primaryPort, err := strconv.Atoi(authorityPort)
+		if err != nil || primaryPort < 1 || primaryPort > 65535 {
+			return "", fmt.Errorf("invalid Hysteria 2 primary port %q", authorityPort)
+		}
+		combined := mport
+		if !hysteriaPortExpressionContains(mport, primaryPort) {
+			combined = authorityPort + "," + mport
+		}
+		_, expression, err := parseHysteriaPortExpression(combined)
+		if err != nil {
+			return "", err
+		}
+		authorityPort = expression
 	}
-	return scheme + "://" + percentEncode(auth, "", false) + "@" + address + ":" + portString(inbound["port"]) + "/?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
+	authority := address + ":" + authorityPort
+	if auth != "" {
+		authority = percentEncode(auth, "", false) + "@" + authority
+	}
+	link := "hysteria2://" + authority + "/"
+	if query := urlencodeOrdered(params); query != "" {
+		link += "?" + query
+	}
+	return link + "#" + percentEncode(remark, "/", false), nil
+}
+
+func parseHysteriaPortExpression(raw string) (int, string, error) {
+	expression := strings.TrimSpace(raw)
+	if expression == "" || strings.ContainsAny(expression, " \t\r\n") {
+		return 0, "", fmt.Errorf("invalid Hysteria 2 port expression %q", raw)
+	}
+	firstPort := 0
+	for _, item := range strings.Split(expression, ",") {
+		if item == "" {
+			return 0, "", fmt.Errorf("invalid Hysteria 2 port expression %q", raw)
+		}
+		fromText, toText, ranged := strings.Cut(item, "-")
+		if ranged && strings.Contains(toText, "-") {
+			return 0, "", fmt.Errorf("invalid Hysteria 2 port range %q", item)
+		}
+		from, fromErr := strconv.Atoi(fromText)
+		to := from
+		toErr := fromErr
+		if ranged {
+			to, toErr = strconv.Atoi(toText)
+		}
+		if fromErr != nil || toErr != nil || from < 1 || from > 65535 || to < from || to > 65535 {
+			return 0, "", fmt.Errorf("invalid Hysteria 2 port item %q", item)
+		}
+		if firstPort == 0 {
+			firstPort = from
+		}
+	}
+	return firstPort, expression, nil
+}
+
+func hysteriaPortExpressionContains(raw string, port int) bool {
+	for _, item := range strings.Split(strings.TrimSpace(raw), ",") {
+		fromText, toText, ranged := strings.Cut(item, "-")
+		from, fromErr := strconv.Atoi(fromText)
+		to := from
+		toErr := fromErr
+		if ranged {
+			to, toErr = strconv.Atoi(toText)
+		}
+		if fromErr == nil && toErr == nil && port >= from && port <= to {
+			return true
+		}
+	}
+	return false
+}
+
+func parseHysteria2ShareURL(link string) (*url.URL, error) {
+	schemeEnd := strings.Index(link, "://")
+	if schemeEnd < 0 {
+		return nil, fmt.Errorf("invalid Hysteria 2 URI")
+	}
+	scheme := strings.ToLower(link[:schemeEnd])
+	if scheme != "hysteria2" && scheme != "hy2" {
+		return nil, fmt.Errorf("not a Hysteria 2 URI")
+	}
+	authorityStart := schemeEnd + 3
+	rest := link[authorityStart:]
+	authorityLength := len(rest)
+	if index := strings.IndexAny(rest, "/?#"); index >= 0 {
+		authorityLength = index
+	}
+	authority := rest[:authorityLength]
+	at := strings.LastIndex(authority, "@")
+	hostPort := authority
+	userinfoPrefix := ""
+	if at >= 0 {
+		hostPort = authority[at+1:]
+		userinfoPrefix = authority[:at+1]
+	}
+	hostOnly := hostPort
+	portExpression := "443"
+	if strings.HasPrefix(hostPort, "[") {
+		closeBracket := strings.Index(hostPort, "]")
+		if closeBracket < 0 {
+			return nil, fmt.Errorf("invalid bracketed Hysteria 2 address")
+		}
+		hostOnly = hostPort[:closeBracket+1]
+		if closeBracket+1 < len(hostPort) {
+			if hostPort[closeBracket+1] != ':' || closeBracket+2 >= len(hostPort) {
+				return nil, fmt.Errorf("invalid bracketed Hysteria 2 address")
+			}
+			portExpression = hostPort[closeBracket+2:]
+		}
+	} else if colon := strings.LastIndex(hostPort, ":"); colon >= 0 {
+		if strings.Contains(hostPort[:colon], ":") || colon+1 >= len(hostPort) {
+			return nil, fmt.Errorf("Hysteria 2 URI requires brackets around IPv6 addresses")
+		}
+		hostOnly = hostPort[:colon]
+		portExpression = hostPort[colon+1:]
+	}
+	if hostOnly == "" {
+		return nil, fmt.Errorf("Hysteria 2 URI host is required")
+	}
+	firstPort, expression, err := parseHysteriaPortExpression(portExpression)
+	if err != nil {
+		return nil, err
+	}
+	normalizedAuthority := userinfoPrefix + hostOnly + ":" + strconv.Itoa(firstPort)
+	normalized := link[:authorityStart] + normalizedAuthority + rest[authorityLength:]
+	parsed, err := url.Parse(normalized)
+	if err != nil {
+		return nil, err
+	}
+	query := parsed.Query()
+	hopExpression := ""
+	if strings.ContainsAny(expression, ",-") {
+		hopExpression = expression
+	}
+	if legacy := query.Get("mport"); legacy != "" {
+		_, legacyExpression, legacyErr := parseHysteriaPortExpression(legacy)
+		if legacyErr != nil {
+			return nil, legacyErr
+		}
+		if hopExpression == "" {
+			hopExpression = legacyExpression
+		}
+	}
+	if strings.Contains(query.Get("pinSHA256"), ",") {
+		return nil, fmt.Errorf("standard Hysteria 2 pinSHA256 accepts exactly one certificate pin")
+	}
+	if hopExpression != "" {
+		query.Set("mport", hopExpression)
+		parsed.RawQuery = query.Encode()
+	}
+	return parsed, nil
+}
+
+func vlessFlowAllowed(flow string, encryption string, network string, security string, headerType string) bool {
+	if strings.TrimSpace(flow) == "" {
+		return false
+	}
+	if encryption = strings.TrimSpace(encryption); encryption != "" && encryption != "none" {
+		return true
+	}
+	return (security == "tls" || security == "reality") &&
+		(network == "tcp" || network == "raw") && headerType != "http"
 }
 
 func appendNetworkParams(params []queryParam, netValue string, path string, inbound ResolvedInbound) []queryParam {
@@ -1165,35 +1327,18 @@ func appendNetworkParams(params []queryParam, netValue string, path string, inbo
 		if mode, ok := inbound["mode"]; ok {
 			params = append(params, queryParam{"mode", mode})
 		}
-		extra := make([]queryParam, 0, 24)
-		extra = appendOptionalParam(extra, "scMaxEachPostBytes", inbound)
-		extra = appendOptionalParam(extra, "scMaxConcurrentPosts", inbound)
-		extra = appendOptionalParam(extra, "scMinPostsIntervalMs", inbound)
-		extra = appendOptionalParam(extra, "xPaddingBytes", inbound)
-		extra = appendOptionalParam(extra, "noGRPCHeader", inbound)
-		extra = appendOptionalParam(extra, "xPaddingObfsMode", inbound)
-		extra = appendOptionalParam(extra, "xPaddingKey", inbound)
-		extra = appendOptionalParam(extra, "xPaddingHeader", inbound)
-		extra = appendOptionalParam(extra, "xPaddingPlacement", inbound)
-		extra = appendOptionalParam(extra, "xPaddingMethod", inbound)
-		extra = appendOptionalParam(extra, "uplinkHTTPMethod", inbound)
-		extra = appendOptionalParam(extra, "sessionIDPlacement", inbound)
-		extra = appendOptionalParam(extra, "sessionIDKey", inbound)
-		extra = appendOptionalParam(extra, "seqPlacement", inbound)
-		extra = appendOptionalParam(extra, "seqKey", inbound)
-		extra = appendOptionalParam(extra, "uplinkDataPlacement", inbound)
-		extra = appendOptionalParam(extra, "uplinkDataKey", inbound)
-		extra = appendOptionalParam(extra, "uplinkChunkSize", inbound)
+		extra := xhttpShareExtraParams(inbound)
 		if keepAlive, ok := inbound["keepAlivePeriod"]; ok && intValue(keepAlive) > 0 {
 			extra = append(extra, queryParam{"keepAlivePeriod", keepAlive})
 		}
-		extra = appendOptionalParam(extra, "xmux", inbound)
 		if len(extra) > 0 {
 			params = append(params, queryParam{"extra", pythonJSONDumpsOrdered(extra)})
 		}
 	case "kcp":
 		params = append(params, queryParam{"seed", path})
 		params = appendQueryParamIfNotEmpty(params, "host", host)
+		params = appendOptionalParam(params, "mtu", inbound)
+		params = appendOptionalParam(params, "tti", inbound)
 	case "ws":
 		params = append(params, queryParam{"path", path})
 		params = appendQueryParamIfNotEmpty(params, "host", host)
@@ -1260,6 +1405,18 @@ func appendMaskParams(params []queryParam, inbound ResolvedInbound) []queryParam
 	return params
 }
 
+func appendFinalMaskParam(params []queryParam, inbound ResolvedInbound) []queryParam {
+	finalMask := mapValue(inbound["finalmask"])
+	if len(finalMask) == 0 {
+		return params
+	}
+	encoded, err := json.Marshal(finalMask)
+	if err != nil {
+		return params
+	}
+	return append(params, queryParam{"fm", string(encoded)})
+}
+
 func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
 	resolved := ResolvedInbound{
@@ -1280,7 +1437,7 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		resolved["settings"] = settings
 	}
 	if protocol == "vless" {
-		if encryption := firstNonEmptyString(settings["encryption"], settings["decryption"]); encryption != "" {
+		if encryption := stringValue(settings["encryption"]); encryption != "" {
 			resolved["encryption"] = encryption
 		}
 	}
@@ -1298,6 +1455,9 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	}
 
 	stream := mapValue(inbound["streamSettings"])
+	if finalMask := mapValue(stream["finalmask"]); len(finalMask) > 0 {
+		resolved["finalmask"] = finalMask
+	}
 	if network := normalizeNetwork(stringValue(stream["network"])); network != "" {
 		resolved["network"] = network
 	}
@@ -1392,6 +1552,10 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 				if password := stringValue(maskSettings["password"]); password != "" {
 					resolved["obfs"] = "salamander"
 					resolved["obfs-password"] = password
+					if packetSize := stringValue(maskSettings["packetSize"]); packetSize != "" {
+						resolved["obfs"] = "gecko"
+						resolved["hysteria_gecko_packet_size"] = packetSize
+					}
 				}
 				break
 			}
@@ -1431,7 +1595,11 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		resolved["host"] = stringList(networkSettings["host"])
 	case "splithttp", "xhttp":
 		resolved["path"] = stringValue(networkSettings["path"])
-		resolved["host"] = stringList(networkSettings["host"])
+		host := firstNonEmptyString(networkSettings["host"])
+		if host == "" {
+			host = xhttpHostHeader(networkSettings["headers"])
+		}
+		resolved["host"] = nonEmptyStrings(host)
 		copyOptional(resolved, "scMaxEachPostBytes", networkSettings)
 		copyOptional(resolved, "scMaxConcurrentPosts", networkSettings)
 		copyOptional(resolved, "scMinPostsIntervalMs", networkSettings)
@@ -1444,6 +1612,10 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		copyOptional(resolved, "uplinkHTTPMethod", networkSettings)
 		copyOptionalAlias(resolved, "sessionIDPlacement", networkSettings, "sessionPlacement")
 		copyOptionalAlias(resolved, "sessionIDKey", networkSettings, "sessionKey")
+		copyOptionalAlias(resolved, "sessionIDTable", networkSettings, "sessionTable")
+		copyOptionalAlias(resolved, "sessionIDLength", networkSettings, "sessionLength")
+		copyOptional(resolved, "headers", networkSettings)
+		copyOptional(resolved, "downloadSettings", networkSettings)
 		copyOptional(resolved, "seqPlacement", networkSettings)
 		copyOptional(resolved, "seqKey", networkSettings)
 		copyOptional(resolved, "uplinkDataPlacement", networkSettings)
@@ -1458,6 +1630,8 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		resolved["header_type"] = stringValue(header["type"])
 		resolved["path"] = stringValue(networkSettings["seed"])
 		resolved["host"] = nonEmptyStrings(stringValue(header["domain"]))
+		copyOptional(resolved, "mtu", networkSettings)
+		copyOptional(resolved, "tti", networkSettings)
 	case "http", "h2", "h3":
 		resolved["path"] = stringValue(networkSettings["path"])
 		resolved["host"] = stringList(networkSettings["host"])
@@ -1896,6 +2070,98 @@ func appendOptionalParam(params []queryParam, key string, source map[string]any)
 		return append(params, queryParam{key, value})
 	}
 	return params
+}
+
+func xhttpShareExtraParams(inbound map[string]any) []queryParam {
+	params := make([]queryParam, 0, 24)
+	for _, key := range []string{
+		"scMaxEachPostBytes", "scMinPostsIntervalMs", "xPaddingBytes", "noGRPCHeader",
+		"xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement", "xPaddingMethod",
+		"uplinkHTTPMethod", "sessionIDPlacement", "sessionIDKey", "sessionIDTable", "sessionIDLength",
+		"seqPlacement", "seqKey", "uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize", "xmux",
+	} {
+		params = appendOptionalParam(params, key, inbound)
+	}
+	if headers := xhttpShareHeaders(inbound["headers"]); len(headers) > 0 {
+		params = append(params, queryParam{"headers", headers})
+	}
+	if download := xhttpShareDownloadSettings(inbound["downloadSettings"]); len(download) > 0 {
+		params = append(params, queryParam{"downloadSettings", download})
+	}
+	return params
+}
+
+func xhttpShareExtraMap(inbound map[string]any) map[string]any {
+	result := map[string]any{}
+	for _, item := range xhttpShareExtraParams(inbound) {
+		result[item.key] = item.value
+	}
+	return result
+}
+
+func xhttpShareHeaders(value any) map[string]any {
+	result := map[string]any{}
+	switch headers := value.(type) {
+	case map[string]any:
+		for name, headerValue := range headers {
+			if !strings.EqualFold(strings.TrimSpace(name), "Host") {
+				result[name] = headerValue
+			}
+		}
+	case map[string]string:
+		for name, headerValue := range headers {
+			if !strings.EqualFold(strings.TrimSpace(name), "Host") {
+				result[name] = headerValue
+			}
+		}
+	}
+	return result
+}
+
+func xhttpShareDownloadSettings(value any) map[string]any {
+	download := mapValue(value)
+	if len(download) == 0 {
+		return nil
+	}
+	result := make(map[string]any, len(download))
+	for key, setting := range download {
+		result[key] = setting
+	}
+	for _, key := range []string{"xhttpSettings", "splithttpSettings"} {
+		nested := mapValue(download[key])
+		if len(nested) == 0 {
+			continue
+		}
+		filtered := make(map[string]any, len(nested))
+		for nestedKey, setting := range nested {
+			filtered[nestedKey] = setting
+		}
+		if headers := xhttpShareHeaders(nested["headers"]); len(headers) > 0 {
+			filtered["headers"] = headers
+		} else {
+			delete(filtered, "headers")
+		}
+		result[key] = filtered
+	}
+	return result
+}
+
+func xhttpHostHeader(value any) string {
+	switch headers := value.(type) {
+	case map[string]any:
+		for name, headerValue := range headers {
+			if strings.EqualFold(strings.TrimSpace(name), "Host") {
+				return firstStringList(headerValue)
+			}
+		}
+	case map[string]string:
+		for name, headerValue := range headers {
+			if strings.EqualFold(strings.TrimSpace(name), "Host") {
+				return headerValue
+			}
+		}
+	}
+	return ""
 }
 
 func formatIPForURL(value string) string {

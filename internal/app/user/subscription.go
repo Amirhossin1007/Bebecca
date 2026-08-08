@@ -6,10 +6,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +28,8 @@ type SubscriptionClientConfig struct {
 	Reverse     bool
 	TemplateKey string
 }
+
+const maxMKCPMTU int64 = 1<<32 - 1
 
 type SubscriptionRenderRequest struct {
 	Identifier string
@@ -430,7 +434,7 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 	case "sing-box":
 		return renderSingBoxJSON(raw)
 	case "clash", "clash-meta":
-		return renderClashLikeYAML(user.Username, raw, config.Format == "clash-meta"), nil
+		return renderClashLikeYAML(user.Username, raw, config.Format == "clash-meta")
 	default:
 		return "", clientError(404, "Unsupported client type")
 	}
@@ -883,14 +887,46 @@ func (s Service) renderSubscriptionHTML(ctx context.Context, user UserDetail, re
 	return renderSubscriptionPageTemplate(content, user, rawLinks, path+"/usage", strings.TrimSpace(settings.SubscriptionSupportURL), req.Identifier, vpnInfo)
 }
 
-func renderClashLikeYAML(username string, links []string, meta bool) string {
+func renderClashLikeYAML(username string, links []string, meta bool) (string, error) {
 	var b strings.Builder
 	proxyNames := make([]string, 0, len(links))
 	b.WriteString("proxies:\n")
 	for i, link := range links {
+		parsed, parseErr := parseSubscriptionShareURL(link)
+		scheme, knownScheme := supportedSubscriptionScheme(link, parsed)
+		if parseErr != nil && knownScheme {
+			return "", subscriptionLinkConversionError("Mihomo", i, scheme, parseErr)
+		}
+		if parseErr == nil && (parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2") {
+			query := parsed.Query()
+			if query.Get("fp") != "" {
+				return "", fmt.Errorf("Mihomo Hysteria 2 does not support the Xray fp extension; omit fp or use raw or Xray JSON output")
+			}
+		}
+		if err := mihomoTLSCompatibilityError(link, parsed); err != nil {
+			return "", err
+		}
+		if parseErr == nil && shareLinkHasFinalMask(link, parsed) {
+			return "", fmt.Errorf("Mihomo cannot safely represent Xray FinalMask; use raw or Xray JSON output")
+		}
+		if extra, isXHTTP := shareLinkXHTTPExtra(link, parsed); isXHTTP {
+			if parsed == nil || !strings.EqualFold(parsed.Scheme, "vless") {
+				protocol := "unknown"
+				if parsed != nil && parsed.Scheme != "" {
+					protocol = parsed.Scheme
+				}
+				return "", fmt.Errorf("Mihomo supports XHTTP only for VLESS; %s XHTTP cannot be represented safely", protocol)
+			}
+			if _, err := mihomoXHTTPDownloadSettings(extra["downloadSettings"]); err != nil {
+				return "", err
+			}
+		}
 		name := fmt.Sprintf("%s-%d", username, i+1)
 		proxy, ok := clashProxyFromShareLink(name, link)
 		if !ok {
+			if knownScheme {
+				return "", subscriptionLinkConversionError("Mihomo", i, scheme, nil)
+			}
 			continue
 		}
 		proxyNames = append(proxyNames, name)
@@ -923,7 +959,7 @@ func renderClashLikeYAML(username string, links []string, meta bool) string {
 	b.WriteString("rules:\n  - MATCH,")
 	b.WriteString(yamlQuote(username))
 	b.WriteString("\n")
-	return b.String()
+	return b.String(), nil
 }
 
 func renderSingBoxJSON(links []string) (string, error) {
@@ -931,8 +967,31 @@ func renderSingBoxJSON(links []string) (string, error) {
 	tags := make([]string, 0, len(links))
 	for i, link := range links {
 		tag := fmt.Sprintf("proxy-%d", i+1)
+		parsed, parseErr := parseSubscriptionShareURL(link)
+		scheme, knownScheme := supportedSubscriptionScheme(link, parsed)
+		if parseErr != nil && knownScheme {
+			return "", subscriptionLinkConversionError("sing-box", i, scheme, parseErr)
+		}
+		if parseErr == nil && parsed.Scheme == "vless" {
+			encryption := strings.TrimSpace(parsed.Query().Get("encryption"))
+			if encryption != "" && encryption != "none" {
+				return "", fmt.Errorf("sing-box does not support VLESS encryption values other than none; use raw, Xray JSON, or Mihomo output")
+			}
+		}
+		if err := singBoxTLSCompatibilityError(link, parsed); err != nil {
+			return "", err
+		}
+		if parseErr == nil && shareLinkHasFinalMask(link, parsed) {
+			return "", fmt.Errorf("sing-box cannot safely represent Xray FinalMask; use raw or Xray JSON output")
+		}
+		if _, isXHTTP := shareLinkXHTTPExtra(link, parsed); isXHTTP {
+			return "", fmt.Errorf("sing-box does not support XHTTP transport; use raw, Xray JSON, or Mihomo output")
+		}
 		outbound, ok := singBoxOutboundFromShareLink(link, tag)
 		if !ok {
+			if knownScheme {
+				return "", subscriptionLinkConversionError("sing-box", i, scheme, nil)
+			}
 			continue
 		}
 		proxies = append(proxies, outbound)
@@ -951,7 +1010,7 @@ func renderSingBoxJSON(links []string) (string, error) {
 }
 
 func singBoxOutboundFromShareLink(link string, tag string) (map[string]any, bool) {
-	parsed, err := url.Parse(link)
+	parsed, err := parseSubscriptionShareURL(link)
 	if err != nil {
 		return nil, false
 	}
@@ -975,7 +1034,8 @@ func singBoxOutboundFromShareLink(link string, tag string) (map[string]any, bool
 		return outbound, applySingBoxStream(outbound, query)
 	case "trojan":
 		port, ok := parseURLPort(parsed)
-		if !ok || parsed.User == nil || parsed.User.Username() == "" {
+		password := decodedURLUserInfo(parsed.User)
+		if !ok || password == "" {
 			return nil, false
 		}
 		outbound := map[string]any{
@@ -983,9 +1043,13 @@ func singBoxOutboundFromShareLink(link string, tag string) (map[string]any, bool
 			"tag":         tag,
 			"server":      parsed.Hostname(),
 			"server_port": port,
-			"password":    parsed.User.Username(),
+			"password":    password,
 		}
-		return outbound, applySingBoxStream(outbound, parsed.Query())
+		query := parsed.Query()
+		if query.Get("security") == "" {
+			query.Set("security", "tls")
+		}
+		return outbound, applySingBoxStream(outbound, query)
 	case "ss":
 		return singBoxShadowsocksOutbound(parsed, tag)
 	case "vmess":
@@ -1060,17 +1124,26 @@ func singBoxVMessOutbound(link string, tag string) (map[string]any, bool) {
 	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
 	query.Set("fp", stringValue(payload["fp"]))
 	query.Set("alpn", stringValue(payload["alpn"]))
+	query.Set("ech", firstNonEmptyString(payload["ech"], payload["echConfigList"]))
+	query.Set("pcs", firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"]))
+	query.Set("vcn", firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"]))
 	query.Set("pbk", stringValue(payload["pbk"]))
 	query.Set("sid", stringValue(payload["sid"]))
+	query.Set("spx", stringValue(payload["spx"]))
+	query.Set("pqv", firstNonEmptyString(payload["pqv"], payload["mldsa65Verify"]))
+	if truthy(payload["allowInsecure"]) {
+		query.Set("insecure", "1")
+	}
 	return outbound, applySingBoxStream(outbound, query)
 }
 
 func singBoxHysteriaOutbound(parsed *url.URL, tag string) (map[string]any, bool) {
 	port, ok := parseURLPort(parsed)
-	if !ok || parsed.User == nil || parsed.User.Username() == "" {
+	if !ok {
 		return nil, false
 	}
 	query := parsed.Query()
+	query.Set("security", "tls")
 	version2 := parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2"
 	typeName := "hysteria"
 	if version2 {
@@ -1081,26 +1154,56 @@ func singBoxHysteriaOutbound(parsed *url.URL, tag string) (map[string]any, bool)
 		"tag":    tag,
 		"server": parsed.Hostname(),
 	}
-	if ports := splitCommaLines(query.Get("mport")); len(ports) > 0 {
+	if ports := singBoxHysteriaPorts(query.Get("mport")); len(ports) > 0 {
 		outbound["server_ports"] = ports
 	} else {
 		outbound["server_port"] = port
 	}
 	if version2 {
-		outbound["password"] = parsed.User.Username()
+		if auth := decodedURLUserInfo(parsed.User); auth != "" {
+			outbound["password"] = auth
+		}
 		if obfs := query.Get("obfs"); obfs != "" {
-			outbound["obfs"] = map[string]any{"type": obfs, "password": query.Get("obfs-password")}
+			settings := map[string]any{"type": obfs, "password": query.Get("obfs-password")}
+			if strings.EqualFold(obfs, "gecko") {
+				settings["min_packet_size"] = 512
+				settings["max_packet_size"] = 1200
+			}
+			outbound["obfs"] = settings
 		}
 	} else {
-		outbound["auth_str"] = parsed.User.Username()
+		auth := decodedURLUserInfo(parsed.User)
+		if auth == "" {
+			return nil, false
+		}
+		outbound["auth_str"] = auth
 		outbound["up_mbps"] = firstPositiveInt(query.Get("upmbps"), 100)
 		outbound["down_mbps"] = firstPositiveInt(query.Get("downmbps"), 100)
 		if obfs := query.Get("obfs"); obfs != "" {
 			outbound["obfs"] = firstNonEmptyString(query.Get("obfs-password"), obfs)
 		}
 	}
+	if version2 {
+		query.Del("fp")
+	}
 	outbound["tls"] = singBoxTLS(query)
 	return outbound, true
+}
+
+func singBoxHysteriaPorts(raw string) []string {
+	ports := splitCommaLines(raw)
+	for index, value := range ports {
+		from, to, ok := strings.Cut(value, "-")
+		if !ok {
+			continue
+		}
+		fromPort, fromErr := strconv.Atoi(strings.TrimSpace(from))
+		toPort, toErr := strconv.Atoi(strings.TrimSpace(to))
+		if fromErr == nil && toErr == nil && fromPort > 0 && fromPort <= 65535 && toPort >= fromPort && toPort <= 65535 {
+			ports[index] = strconv.Itoa(fromPort) + ":" + strconv.Itoa(toPort)
+		}
+	}
+	return ports
 }
 
 func firstPositiveInt(value string, fallback int) int {
@@ -1186,6 +1289,11 @@ func singBoxTLS(query url.Values) map[string]any {
 	if serverName := query.Get("sni"); serverName != "" {
 		tls["server_name"] = serverName
 	}
+	if peerName, err := singlePeerVerifyName(firstNonEmptyString(query.Get("vcn"), query.Get("verifyPeerCertByName"))); err == nil && peerName != "" {
+		if current := stringValue(tls["server_name"]); current == "" || strings.EqualFold(current, peerName) {
+			tls["server_name"] = peerName
+		}
+	}
 	if queryFlag(query, "allowInsecure", "insecure") {
 		tls["insecure"] = true
 	}
@@ -1194,6 +1302,9 @@ func singBoxTLS(query url.Values) map[string]any {
 	}
 	if fingerprint := query.Get("fp"); fingerprint != "" && fingerprint != "none" {
 		tls["utls"] = map[string]any{"enabled": true, "fingerprint": fingerprint}
+	}
+	if ech, ok := singBoxECHConfig(firstNonEmptyString(query.Get("ech"), query.Get("echConfigList"))); ok {
+		tls["ech"] = ech
 	}
 	if query.Get("security") == "reality" {
 		reality := map[string]any{"enabled": true}
@@ -1208,6 +1319,202 @@ func singBoxTLS(query url.Values) map[string]any {
 	return tls
 }
 
+func shareLinkTLSQuery(link string, parsed *url.URL) (url.Values, bool) {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "vmess://") {
+		decoded, err := decodeFlexibleBase64(strings.TrimPrefix(strings.TrimSpace(link), "vmess://"))
+		if err != nil {
+			return nil, false
+		}
+		payload := map[string]any{}
+		if json.Unmarshal(decoded, &payload) != nil {
+			return nil, false
+		}
+		security := strings.ToLower(strings.TrimSpace(stringValue(payload["tls"])))
+		if security != "tls" && security != "reality" {
+			return nil, false
+		}
+		query := url.Values{}
+		for key, value := range map[string]string{
+			"security": security,
+			"sni":      firstNonEmptyString(payload["sni"], payload["host"]),
+			"fp":       stringValue(payload["fp"]),
+			"alpn":     stringValue(payload["alpn"]),
+			"pcs":      firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"]),
+			"vcn":      firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"]),
+			"ech":      firstNonEmptyString(payload["ech"], payload["echConfigList"]),
+			"pbk":      stringValue(payload["pbk"]),
+			"sid":      stringValue(payload["sid"]),
+			"spx":      stringValue(payload["spx"]),
+			"pqv":      firstNonEmptyString(payload["pqv"], payload["mldsa65Verify"]),
+		} {
+			if value != "" {
+				query.Set(key, value)
+			}
+		}
+		if truthy(payload["allowInsecure"]) {
+			query.Set("insecure", "1")
+		}
+		return query, true
+	}
+	if parsed == nil {
+		return nil, false
+	}
+	query := parsed.Query()
+	security := strings.ToLower(strings.TrimSpace(query.Get("security")))
+	switch parsed.Scheme {
+	case "hysteria2", "hy2":
+		security = "tls"
+	case "vless":
+		if security != "tls" && security != "reality" {
+			return nil, false
+		}
+	case "trojan":
+		if security == "" {
+			security = "tls"
+		}
+		if security != "tls" && security != "reality" {
+			return nil, false
+		}
+	default:
+		return nil, false
+	}
+	query.Set("security", security)
+	query.Set("pcs", firstNonEmptyString(query.Get("pcs"), query.Get("pinSHA256"), query.Get("pinnedPeerCertSha256")))
+	query.Set("vcn", firstNonEmptyString(query.Get("vcn"), query.Get("verifyPeerCertByName")))
+	query.Set("ech", firstNonEmptyString(query.Get("ech"), query.Get("echConfigList")))
+	query.Set("pqv", firstNonEmptyString(query.Get("pqv"), query.Get("mldsa65Verify")))
+	return query, true
+}
+
+func mihomoTLSCompatibilityError(link string, parsed *url.URL) error {
+	query, ok := shareLinkTLSQuery(link, parsed)
+	if !ok {
+		return nil
+	}
+	if _, err := mihomoCertificatePin(query.Get("pcs")); err != nil {
+		return err
+	}
+	if _, err := singlePeerVerifyName(query.Get("vcn")); err != nil {
+		return fmt.Errorf("Mihomo supports exactly one certificate verification name: %w", err)
+	}
+	if ech := query.Get("ech"); ech != "" {
+		if _, ok := canonicalECHBase64(ech); !ok {
+			return fmt.Errorf("Mihomo requires ECHConfigList as valid base64; dynamic Xray ECH forms cannot be represented safely")
+		}
+	}
+	if query.Get("security") == "reality" && (query.Get("spx") != "" || query.Get("pqv") != "") {
+		return fmt.Errorf("Mihomo Reality cannot represent Xray spider-x or ML-DSA verifier fields safely")
+	}
+	return nil
+}
+
+func singBoxTLSCompatibilityError(link string, parsed *url.URL) error {
+	query, ok := shareLinkTLSQuery(link, parsed)
+	if !ok {
+		return nil
+	}
+	if pin := query.Get("pcs"); pin != "" {
+		if len(strings.Split(pin, ",")) > 1 {
+			return fmt.Errorf("sing-box cannot convert multiple full-certificate SHA-256 pins to public-key pins; use raw or Xray JSON output")
+		}
+		return fmt.Errorf("sing-box cannot convert a full-certificate SHA-256 pin to its public-key pin; use raw, Xray JSON, or Mihomo output")
+	}
+	peerName, err := singlePeerVerifyName(query.Get("vcn"))
+	if err != nil {
+		return fmt.Errorf("sing-box can fold only one peer verification name into tls.server_name: %w", err)
+	}
+	if sni := strings.TrimSpace(query.Get("sni")); peerName != "" && sni != "" && !strings.EqualFold(peerName, sni) {
+		return fmt.Errorf("sing-box cannot preserve distinct SNI %q and peer verification name %q", sni, peerName)
+	}
+	if parsed != nil && (parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2") && query.Get("fp") != "" {
+		return fmt.Errorf("sing-box Hysteria 2 QUIC does not support the Xray uTLS fingerprint extension")
+	}
+	if ech := query.Get("ech"); ech != "" {
+		if _, ok := canonicalECHBase64(ech); !ok {
+			return fmt.Errorf("sing-box requires ECHConfigList as valid base64; dynamic Xray ECH forms such as domain+https://... cannot be represented safely")
+		}
+	}
+	if query.Get("security") == "reality" && (query.Get("spx") != "" || query.Get("pqv") != "") {
+		return fmt.Errorf("sing-box Reality cannot represent Xray spider-x or ML-DSA verifier fields safely")
+	}
+	return nil
+}
+
+func mihomoCertificatePin(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	if !validXrayCertificatePins(raw) {
+		return "", fmt.Errorf("Mihomo certificate fingerprint must be a 32-byte SHA-256 value encoded as 64 hexadecimal characters")
+	}
+	if len(strings.Split(raw, ",")) != 1 {
+		return "", fmt.Errorf("Mihomo supports exactly one certificate fingerprint; Xray CSV pins cannot be represented safely")
+	}
+	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(raw), ":", "")), nil
+}
+
+func singlePeerVerifyName(raw string) (string, error) {
+	names := stringList(raw)
+	if len(names) == 0 {
+		return "", nil
+	}
+	if len(names) != 1 {
+		return "", fmt.Errorf("multiple verification names cannot be represented without changing semantics")
+	}
+	return strings.TrimSpace(names[0]), nil
+}
+
+func canonicalECHBase64(raw string) (string, bool) {
+	decoded, err := decodeFlexibleBase64(strings.TrimSpace(raw))
+	if err != nil || len(decoded) == 0 {
+		return "", false
+	}
+	return base64.StdEncoding.EncodeToString(decoded), true
+}
+
+func singBoxECHConfig(raw string) (map[string]any, bool) {
+	encoded, ok := canonicalECHBase64(raw)
+	if !ok {
+		return nil, false
+	}
+	pem := "-----BEGIN ECH CONFIGS-----\n" + encoded + "\n-----END ECH CONFIGS-----"
+	return map[string]any{"enabled": true, "config": []string{pem}}, true
+}
+
+func applyMihomoTLSOptions(proxy map[string]any, query url.Values) {
+	if alpn := stringList(query.Get("alpn")); len(alpn) > 0 {
+		proxy["alpn"] = alpn
+	}
+	if fingerprint := query.Get("fp"); fingerprint != "" && fingerprint != "none" {
+		proxy["client-fingerprint"] = fingerprint
+	}
+	if query.Get("security") == "tls" {
+		pinValue := firstNonEmptyString(query.Get("pcs"), query.Get("pinSHA256"), query.Get("pinnedPeerCertSha256"))
+		if pin, err := mihomoCertificatePin(pinValue); err == nil && pin != "" {
+			proxy["fingerprint"] = pin
+		}
+		peerNameValue := firstNonEmptyString(query.Get("vcn"), query.Get("verifyPeerCertByName"))
+		if peerName, err := singlePeerVerifyName(peerNameValue); err == nil && peerName != "" {
+			proxy["name-cert-verify"] = peerName
+		}
+		if ech, ok := canonicalECHBase64(firstNonEmptyString(query.Get("ech"), query.Get("echConfigList"))); ok {
+			proxy["ech-opts"] = map[string]any{"enable": true, "config": ech}
+		}
+	}
+	if query.Get("security") == "reality" {
+		reality := map[string]any{}
+		if publicKey := query.Get("pbk"); publicKey != "" {
+			reality["public-key"] = publicKey
+		}
+		if shortID := query.Get("sid"); shortID != "" {
+			reality["short-id"] = shortID
+		}
+		if len(reality) > 0 {
+			proxy["reality-opts"] = reality
+		}
+	}
+}
+
 func renderV2RayJSONSubscription(links []string, reverse bool) (string, error) {
 	return renderV2RayJSONSubscriptionWithTemplate(links, reverse, "")
 }
@@ -1220,9 +1527,39 @@ func renderV2RayJSONSubscriptionWithTemplate(links []string, reverse bool, templ
 			return "", fmt.Errorf("invalid v2ray subscription template: %w", err)
 		}
 	}
-	for _, link := range links {
+	for i, link := range links {
+		parsed, parseErr := parseSubscriptionShareURL(link)
+		scheme, knownScheme := supportedSubscriptionScheme(link, parsed)
+		if parseErr != nil && knownScheme {
+			return "", subscriptionLinkConversionError("Xray JSON", i, scheme, parseErr)
+		}
+		if parseErr == nil && (parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2") {
+			if obfs := parsed.Query().Get("obfs"); strings.EqualFold(obfs, "gecko") {
+				return "", fmt.Errorf("generic Xray JSON targets stable v26.3.27 and cannot represent Hysteria 2 Gecko introduced in 26.6.1; use raw, Mihomo, sing-box, or a version-aware runtime config")
+			} else if obfs != "" && obfs != "salamander" {
+				return "", fmt.Errorf("Xray JSON cannot safely represent Hysteria 2 obfs %q from a standard URI", obfs)
+			}
+		}
+		if parseErr == nil && parsed.Scheme == "vless" {
+			encryption := strings.TrimSpace(parsed.Query().Get("encryption"))
+			if encryption != "" && !strings.EqualFold(encryption, "none") {
+				return "", fmt.Errorf("generic Xray JSON targets stable v26.3.27 and does not support VLESS Encryption introduced in 26.5.9; use raw, Mihomo, or a version-aware newer runtime config")
+			}
+		}
+		if err := xrayJSONMKCPCompatibilityError(link, parsed); err != nil {
+			return "", err
+		}
+		if err := xrayJSONStableFinalMaskCompatibilityError(link, parsed); err != nil {
+			return "", err
+		}
+		if err := xrayJSONTLSCompatibilityError(link, parsed); err != nil {
+			return "", err
+		}
 		remark, outbound, ok := v2rayOutboundFromShareLink(link)
 		if !ok {
+			if knownScheme {
+				return "", subscriptionLinkConversionError("Xray JSON", i, scheme, nil)
+			}
 			continue
 		}
 		config := cloneJSONMap(templateConfig)
@@ -1237,6 +1574,71 @@ func renderV2RayJSONSubscriptionWithTemplate(links []string, reverse bool, templ
 		}
 	}
 	return marshalPretty(configs)
+}
+
+func xrayJSONTLSCompatibilityError(link string, parsed *url.URL) error {
+	insecure := false
+	pin := ""
+	peerName := ""
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "vmess://") {
+		decoded, err := decodeFlexibleBase64(strings.TrimPrefix(strings.TrimSpace(link), "vmess://"))
+		if err != nil {
+			return nil
+		}
+		var payload map[string]any
+		if json.Unmarshal(decoded, &payload) != nil {
+			return nil
+		}
+		if !strings.EqualFold(stringValue(payload["tls"]), "tls") {
+			return nil
+		}
+		insecure = truthy(payload["allowInsecure"])
+		pin = firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"])
+		peerName = firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"])
+	} else if parsed != nil {
+		query := parsed.Query()
+		effectiveTLS := false
+		switch parsed.Scheme {
+		case "hysteria2", "hy2":
+			effectiveTLS = true
+		case "vless":
+			effectiveTLS = strings.EqualFold(query.Get("security"), "tls")
+		case "trojan":
+			security := strings.TrimSpace(query.Get("security"))
+			effectiveTLS = security == "" || strings.EqualFold(security, "tls")
+		}
+		if !effectiveTLS {
+			return nil
+		}
+		insecure = queryFlag(query, "allowInsecure", "insecure")
+		pin = firstNonEmptyString(query.Get("pcs"), query.Get("pinSHA256"), query.Get("pinnedPeerCertSha256"))
+		peerName = firstNonEmptyString(query.Get("vcn"), query.Get("verifyPeerCertByName"))
+	}
+	if pin != "" && !validXrayCertificatePins(pin) {
+		return fmt.Errorf("Xray certificate pins must be comma-separated 32-byte SHA-256 values encoded as 64 hexadecimal characters")
+	}
+	if insecure && pin == "" && peerName == "" {
+		return fmt.Errorf("Xray 26.1.31+ requires certificate pinning or peer-name verification when insecure TLS verification is requested")
+	}
+	return nil
+}
+
+func validXrayCertificatePins(raw string) bool {
+	parts := strings.Split(raw, ",")
+	if len(parts) == 0 || strings.TrimSpace(raw) == "" {
+		return false
+	}
+	for _, part := range parts {
+		compact := strings.ReplaceAll(strings.TrimSpace(part), ":", "")
+		if len(compact) != sha256.Size*2 {
+			return false
+		}
+		decoded, err := hex.DecodeString(compact)
+		if err != nil || len(decoded) != sha256.Size {
+			return false
+		}
+	}
+	return true
 }
 
 func cloneJSONMap(source map[string]any) map[string]any {
@@ -1305,7 +1707,7 @@ func defaultV2RayClientConfig() map[string]any {
 }
 
 func v2rayOutboundFromShareLink(link string) (string, map[string]any, bool) {
-	parsed, err := url.Parse(link)
+	parsed, err := parseSubscriptionShareURL(link)
 	if err != nil {
 		return "", nil, false
 	}
@@ -1359,7 +1761,7 @@ func v2rayVLESSOutbound(parsed *url.URL) (string, map[string]any, bool) {
 
 func v2rayTrojanOutbound(parsed *url.URL) (string, map[string]any, bool) {
 	port, ok := parseURLPort(parsed)
-	password := strings.TrimSpace(parsed.User.Username())
+	password := decodedURLUserInfo(parsed.User)
 	if !ok || password == "" {
 		return "", nil, false
 	}
@@ -1463,15 +1865,15 @@ func queryFlag(query url.Values, keys ...string) bool {
 }
 
 func v2rayHysteriaOutbound(parsed *url.URL) (string, map[string]any, bool) {
+	if parsed.Scheme != "hysteria2" && parsed.Scheme != "hy2" {
+		return "", nil, false
+	}
 	port, ok := parseURLPort(parsed)
-	if !ok || parsed.User == nil || parsed.User.Username() == "" {
+	if !ok {
 		return "", nil, false
 	}
 	query := parsed.Query()
-	version := 1
-	if parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2" {
-		version = 2
-	}
+	const version = 2
 	tlsQuery := url.Values{}
 	for key, values := range query {
 		tlsQuery[key] = append([]string(nil), values...)
@@ -1480,23 +1882,30 @@ func v2rayHysteriaOutbound(parsed *url.URL) (string, map[string]any, bool) {
 	if pin := query.Get("pinSHA256"); pin != "" {
 		tlsQuery.Set("pcs", pin)
 	}
+	hysteriaSettings := map[string]any{
+		"version":        version,
+		"udpIdleTimeout": 60,
+	}
+	if auth := decodedURLUserInfo(parsed.User); auth != "" {
+		hysteriaSettings["auth"] = auth
+	}
 	stream := map[string]any{
-		"network":  "hysteria",
-		"security": "tls",
-		"hysteriaSettings": map[string]any{
-			"version":        version,
-			"auth":           parsed.User.Username(),
-			"udpIdleTimeout": 60,
-		},
-		"tlsSettings": v2rayTLSSettings(tlsQuery),
+		"network":          "hysteria",
+		"security":         "tls",
+		"hysteriaSettings": hysteriaSettings,
+		"tlsSettings":      v2rayTLSSettings(tlsQuery),
 	}
 	finalMask := map[string]any{}
 	if obfs := query.Get("obfs"); obfs != "" {
+		settings := map[string]any{"password": query.Get("obfs-password")}
+		maskType := obfs
+		if obfs == "gecko" {
+			maskType = "salamander"
+			settings["packetSize"] = "512-1200"
+		}
 		finalMask["udp"] = []any{map[string]any{
-			"type": obfs,
-			"settings": map[string]any{
-				"password": query.Get("obfs-password"),
-			},
+			"type":     maskType,
+			"settings": settings,
 		}}
 	}
 	if ports := query.Get("mport"); ports != "" {
@@ -1550,21 +1959,39 @@ func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
 		},
 	}
 	query := url.Values{}
-	query.Set("type", firstNonEmptyString(payload["net"], "tcp"))
+	network := firstNonEmptyString(payload["net"], "tcp")
+	query.Set("type", network)
 	query.Set("security", stringValue(payload["tls"]))
-	query.Set("headerType", stringValue(payload["type"]))
+	if network == "xhttp" || network == "splithttp" {
+		query.Set("mode", firstNonEmptyString(payload["mode"], payload["type"]))
+		if raw := vmessXHTTPExtra(payload["extra"]); raw != "" {
+			query.Set("extra", raw)
+		}
+	} else {
+		query.Set("headerType", stringValue(payload["type"]))
+	}
 	query.Set("path", stringValue(payload["path"]))
 	query.Set("host", stringValue(payload["host"]))
 	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
 	query.Set("fp", stringValue(payload["fp"]))
 	query.Set("alpn", stringValue(payload["alpn"]))
+	query.Set("ech", firstNonEmptyString(payload["ech"], payload["echConfigList"]))
+	query.Set("vcn", firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"]))
+	query.Set("pcs", firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"]))
+	if truthy(payload["allowInsecure"]) {
+		query.Set("allowInsecure", "1")
+	}
 	query.Set("pbk", stringValue(payload["pbk"]))
 	query.Set("sid", stringValue(payload["sid"]))
 	query.Set("spx", stringValue(payload["spx"]))
 	query.Set("pqv", stringValue(payload["pqv"]))
-	query.Set("mode", stringValue(payload["mode"]))
 	query.Set("fragment", stringValue(payload["fragment"]))
 	query.Set("noise", stringValue(payload["noise"]))
+	query.Set("mtu", stringValue(payload["mtu"]))
+	query.Set("tti", stringValue(payload["tti"]))
+	if raw := vmessXHTTPExtra(payload["fm"]); raw != "" {
+		query.Set("fm", raw)
+	}
 	if stream := v2rayStreamSettings(query); len(stream) > 0 {
 		outbound["streamSettings"] = stream
 	}
@@ -1636,11 +2063,15 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 		}
 		stream["httpupgradeSettings"] = settings
 	case "kcp":
-		settings := map[string]any{"header": map[string]any{"type": firstNonEmptyString(query.Get("headerType"), "none")}}
-		if seed := query.Get("seed"); seed != "" {
-			settings["seed"] = seed
+		settings := map[string]any{}
+		if mtu := intValue(query.Get("mtu")); mtu > 0 {
+			settings["mtu"] = mtu
+		}
+		if tti := intValue(query.Get("tti")); tti > 0 {
+			settings["tti"] = tti
 		}
 		stream["kcpSettings"] = settings
+		stream["finalmask"] = legacyMKCPFinalMask(query)
 	case "http", "h2", "h3":
 		settings := map[string]any{}
 		if path := query.Get("path"); path != "" {
@@ -1672,18 +2103,23 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 			extraSettings := map[string]any{}
 			if err := json.Unmarshal([]byte(extra), &extraSettings); err == nil {
 				for _, key := range []string{
-					"scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
+					"scMaxEachPostBytes", "scMinPostsIntervalMs",
 					"xPaddingBytes", "noGRPCHeader", "keepAlivePeriod", "xmux",
 					"xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement", "xPaddingMethod",
 					"uplinkHTTPMethod", "seqPlacement", "seqKey",
-					"uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize",
+					"uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize", "downloadSettings",
 				} {
 					if value, ok := extraSettings[key]; ok {
 						settings[key] = value
 					}
 				}
-				copyOptionalAlias(settings, "sessionIDPlacement", extraSettings, "sessionPlacement")
-				copyOptionalAlias(settings, "sessionIDKey", extraSettings, "sessionKey")
+				if headers := xhttpShareHeaders(extraSettings["headers"]); len(headers) > 0 {
+					settings["headers"] = headers
+				}
+				copyOptionalAlias(settings, "sessionPlacement", extraSettings, "sessionIDPlacement")
+				copyOptionalAlias(settings, "sessionKey", extraSettings, "sessionIDKey")
+				copyOptionalAlias(settings, "sessionTable", extraSettings, "sessionIDTable")
+				copyOptionalAlias(settings, "sessionLength", extraSettings, "sessionIDLength")
 			}
 		}
 		if len(settings) > 0 {
@@ -1698,8 +2134,221 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 	return stream
 }
 
+func xrayJSONMKCPCompatibilityError(link string, parsed *url.URL) error {
+	network := ""
+	values := url.Values{}
+	if strings.HasPrefix(link, "vmess://") {
+		decoded, err := decodeFlexibleBase64(strings.TrimPrefix(link, "vmess://"))
+		if err != nil {
+			return nil
+		}
+		var payload map[string]any
+		if json.Unmarshal(decoded, &payload) != nil {
+			return nil
+		}
+		network = stringValue(payload["net"])
+		for _, key := range []string{"mtu", "tti", "type", "host", "path"} {
+			if value := stringValue(payload[key]); value != "" {
+				values.Set(key, value)
+			}
+		}
+		values.Set("seed", stringValue(payload["path"]))
+		values.Set("headerType", stringValue(payload["type"]))
+	} else if parsed != nil {
+		values = parsed.Query()
+		network = values.Get("type")
+	}
+	if network != "kcp" {
+		return nil
+	}
+	if err := validateMKCPShareNumber("mtu", values.Get("mtu"), 21, maxMKCPMTU); err != nil {
+		return err
+	}
+	if err := validateMKCPShareNumber("tti", values.Get("tti"), 10, 5000); err != nil {
+		return err
+	}
+	if header := normalizeShareMKCPHeader(values.Get("headerType")); header == "invalid" {
+		return fmt.Errorf("Xray JSON cannot safely translate unsupported mKCP header %q to FinalMask", values.Get("headerType"))
+	}
+	return nil
+}
+
+func validateMKCPShareNumber(field, raw string, minimum, maximum int64) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	value, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || value < minimum || value > maximum {
+		return fmt.Errorf("Xray mKCP %s must be an integer between %d and %d", field, minimum, maximum)
+	}
+	return nil
+}
+
+func legacyMKCPFinalMask(query url.Values) map[string]any {
+	udp := make([]any, 0, 2)
+	if seed := query.Get("seed"); seed != "" {
+		udp = append(udp, map[string]any{"type": "mkcp-aes128gcm", "settings": map[string]any{"password": seed}})
+	} else {
+		udp = append(udp, map[string]any{"type": "mkcp-original", "settings": map[string]any{}})
+	}
+	header := normalizeShareMKCPHeader(query.Get("headerType"))
+	if header != "none" && header != "invalid" {
+		settings := map[string]any{}
+		if header == "dns" && query.Get("host") != "" {
+			settings["domain"] = query.Get("host")
+		}
+		udp = append(udp, map[string]any{"type": "header-" + header, "settings": settings})
+	}
+	return map[string]any{"udp": udp}
+}
+
+func normalizeShareMKCPHeader(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "none":
+		return "none"
+	case "dns", "dtls", "srtp", "utp", "wireguard":
+		return strings.ToLower(strings.TrimSpace(value))
+	case "wechat", "wechat-video":
+		return "wechat"
+	default:
+		return "invalid"
+	}
+}
+
+func shareLinkHasFinalMask(link string, parsed *url.URL) bool {
+	if parsed != nil && (parsed.Scheme == "vless" || parsed.Scheme == "trojan") {
+		return strings.TrimSpace(parsed.Query().Get("fm")) != ""
+	}
+	if !strings.HasPrefix(link, "vmess://") {
+		return false
+	}
+	decoded, err := decodeFlexibleBase64(strings.TrimPrefix(link, "vmess://"))
+	if err != nil {
+		return false
+	}
+	var payload map[string]any
+	if json.Unmarshal(decoded, &payload) != nil {
+		return false
+	}
+	switch value := payload["fm"].(type) {
+	case map[string]any:
+		return len(value) > 0
+	case string:
+		return strings.TrimSpace(value) != ""
+	default:
+		return value != nil
+	}
+}
+
+func xrayJSONStableFinalMaskCompatibilityError(link string, parsed *url.URL) error {
+	finalMask, err := shareLinkFinalMask(link, parsed)
+	if err != nil {
+		return fmt.Errorf("generic Xray JSON cannot parse FinalMask for stable v26.3.27: %w", err)
+	}
+	for _, mask := range listOfMaps(finalMask["tcp"]) {
+		if !strings.EqualFold(stringValue(mask["type"]), "fragment") {
+			continue
+		}
+		settings := mapValue(mask["settings"])
+		for _, pair := range [][2]string{{"lengths", "length"}, {"delays", "delay"}} {
+			values, exists := settings[pair[0]]
+			if !exists {
+				continue
+			}
+			items := listAny(values)
+			if len(items) != 1 || (settings[pair[1]] != nil && stringValue(settings[pair[1]]) != stringValue(items[0])) {
+				return fmt.Errorf("generic Xray JSON targets stable v26.3.27 and cannot losslessly represent FinalMask fragment %s with multiple or conflicting ranges", pair[0])
+			}
+		}
+	}
+	for _, mask := range listOfMaps(finalMask["udp"]) {
+		typeName := strings.ToLower(stringValue(mask["type"]))
+		settings := mapValue(mask["settings"])
+		if typeName == "salamander" && strings.TrimSpace(stringValue(settings["packetSize"])) != "" {
+			return fmt.Errorf("generic Xray JSON targets stable v26.3.27 and cannot represent Hysteria Gecko packetSize introduced in 26.6.1")
+		}
+		if typeName == "mkcp-legacy" {
+			return fmt.Errorf("generic Xray JSON targets stable v26.3.27 and cannot represent the newer mkcp-legacy FinalMask dialect")
+		}
+	}
+	return nil
+}
+
+func shareLinkFinalMask(link string, parsed *url.URL) (map[string]any, error) {
+	var raw any
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "vmess://") {
+		decoded, err := decodeFlexibleBase64(strings.TrimPrefix(strings.TrimSpace(link), "vmess://"))
+		if err != nil {
+			return nil, err
+		}
+		payload := map[string]any{}
+		if err := json.Unmarshal(decoded, &payload); err != nil {
+			return nil, err
+		}
+		raw = payload["fm"]
+	} else if parsed != nil {
+		raw = parsed.Query().Get("fm")
+	}
+	switch value := raw.(type) {
+	case nil:
+		return nil, nil
+	case map[string]any:
+		return value, nil
+	case string:
+		if strings.TrimSpace(value) == "" {
+			return nil, nil
+		}
+		result := map[string]any{}
+		if err := json.Unmarshal([]byte(value), &result); err != nil {
+			return nil, err
+		}
+		return result, nil
+	default:
+		return nil, fmt.Errorf("unsupported FinalMask value type %T", raw)
+	}
+}
+
+func shareLinkXHTTPExtra(link string, parsed *url.URL) (map[string]any, bool) {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "vmess://") {
+		decoded, err := decodeFlexibleBase64(strings.TrimPrefix(strings.TrimSpace(link), "vmess://"))
+		if err != nil {
+			return nil, false
+		}
+		payload := map[string]any{}
+		if json.Unmarshal(decoded, &payload) != nil {
+			return nil, false
+		}
+		network := strings.ToLower(firstNonEmptyString(payload["net"], "tcp"))
+		if network != "xhttp" && network != "splithttp" {
+			return nil, false
+		}
+		return xhttpExtraMap(payload["extra"]), true
+	}
+	if parsed == nil {
+		return nil, false
+	}
+	network := strings.ToLower(firstNonEmptyString(parsed.Query().Get("type"), "tcp"))
+	if network != "xhttp" && network != "splithttp" {
+		return nil, false
+	}
+	return xhttpExtraMap(parsed.Query().Get("extra")), true
+}
+
+func xhttpExtraMap(value any) map[string]any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return typed
+	case string:
+		result := map[string]any{}
+		if json.Unmarshal([]byte(typed), &result) == nil {
+			return result
+		}
+	}
+	return map[string]any{}
+}
+
 func v2rayTLSSettings(query url.Values) map[string]any {
-	settings := map[string]any{"allowInsecure": false, "show": false}
+	settings := map[string]any{"show": false}
 	if sni := query.Get("sni"); sni != "" {
 		settings["serverName"] = sni
 	}
@@ -1712,14 +2361,11 @@ func v2rayTLSSettings(query url.Values) map[string]any {
 	if ech := query.Get("ech"); ech != "" {
 		settings["echConfigList"] = ech
 	}
-	if vcn := query.Get("vcn"); vcn != "" {
+	if vcn := firstNonEmptyString(query.Get("vcn"), query.Get("verifyPeerCertByName")); vcn != "" {
 		settings["verifyPeerCertByName"] = vcn
 	}
-	if pcs := query.Get("pcs"); pcs != "" {
-		settings["pinnedPeerCertSha256"] = stringList(pcs)
-	}
-	if queryFlag(query, "allowInsecure", "insecure") {
-		settings["allowInsecure"] = true
+	if pcs := firstNonEmptyString(query.Get("pcs"), query.Get("pinSHA256")); pcs != "" {
+		settings["pinnedPeerCertSha256"] = pcs
 	}
 	return settings
 }
@@ -1759,7 +2405,23 @@ func applyV2RayFinalMask(stream map[string]any, query url.Values) {
 		merged = mergeV2RayFinalMask(merged, generated)
 	}
 	if len(merged) > 0 {
+		normalizeV2RayFinalMaskForStable(merged)
 		stream["finalmask"] = merged
+	}
+}
+
+func normalizeV2RayFinalMaskForStable(finalMask map[string]any) {
+	for _, mask := range listOfMaps(finalMask["tcp"]) {
+		if !strings.EqualFold(stringValue(mask["type"]), "fragment") {
+			continue
+		}
+		settings := mapValue(mask["settings"])
+		for _, pair := range [][2]string{{"lengths", "length"}, {"delays", "delay"}} {
+			if values := listAny(settings[pair[0]]); len(values) == 1 {
+				settings[pair[1]] = values[0]
+				delete(settings, pair[0])
+			}
+		}
 	}
 }
 
@@ -1873,11 +2535,7 @@ func v2rayLinkRemark(parsed *url.URL) string {
 	if parsed.Fragment == "" {
 		return "proxy"
 	}
-	remark, err := url.QueryUnescape(parsed.Fragment)
-	if err != nil {
-		return parsed.Fragment
-	}
-	return remark
+	return parsed.Fragment
 }
 
 func listAny(value any) []any {
@@ -2152,7 +2810,7 @@ func formatBytes(value int64) string {
 }
 
 func clashProxyFromShareLink(name string, link string) (map[string]any, bool) {
-	parsed, err := url.Parse(link)
+	parsed, err := parseSubscriptionShareURL(link)
 	if err != nil {
 		return nil, false
 	}
@@ -2170,6 +2828,49 @@ func clashProxyFromShareLink(name string, link string) (map[string]any, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func parseSubscriptionShareURL(link string) (*url.URL, error) {
+	if strings.HasPrefix(link, "hysteria2://") || strings.HasPrefix(link, "hy2://") {
+		return parseHysteria2ShareURL(link)
+	}
+	return url.Parse(link)
+}
+
+func decodedURLUserInfo(user *url.Userinfo) string {
+	if user == nil {
+		return ""
+	}
+	value := user.Username()
+	if password, ok := user.Password(); ok {
+		value += ":" + password
+	}
+	return value
+}
+
+func supportedSubscriptionScheme(link string, parsed *url.URL) (string, bool) {
+	scheme := ""
+	if parsed != nil {
+		scheme = strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	}
+	if scheme == "" {
+		if rawScheme, _, ok := strings.Cut(strings.TrimSpace(link), ":"); ok {
+			scheme = strings.ToLower(strings.TrimSpace(rawScheme))
+		}
+	}
+	switch scheme {
+	case "vless", "vmess", "trojan", "ss", "hysteria", "hysteria2", "hy2":
+		return scheme, true
+	default:
+		return scheme, false
+	}
+}
+
+func subscriptionLinkConversionError(format string, index int, scheme string, cause error) error {
+	if cause != nil {
+		return fmt.Errorf("%s subscription link %d (%s) is invalid: %w", format, index+1, scheme, cause)
+	}
+	return fmt.Errorf("%s subscription link %d (%s) cannot be converted safely", format, index+1, scheme)
 }
 
 func clashShadowsocksProxy(name string, parsed *url.URL) (map[string]any, bool) {
@@ -2213,13 +2914,10 @@ func clashShadowsocksProxy(name string, parsed *url.URL) (map[string]any, bool) 
 
 func clashHysteriaProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	port, ok := parseURLPort(parsed)
-	if !ok || parsed.User == nil {
+	if !ok {
 		return nil, false
 	}
-	password := strings.TrimSpace(parsed.User.Username())
-	if password == "" {
-		return nil, false
-	}
+	password := decodedURLUserInfo(parsed.User)
 	query := parsed.Query()
 	version2 := parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2"
 	typeName := "hysteria"
@@ -2234,8 +2932,13 @@ func clashHysteriaProxy(name string, parsed *url.URL) (map[string]any, bool) {
 		"udp":    true,
 	}
 	if version2 {
-		proxy["password"] = password
+		if password != "" {
+			proxy["password"] = password
+		}
 	} else {
+		if password == "" {
+			return nil, false
+		}
 		proxy["auth-str"] = password
 		proxy["up"] = firstNonEmptyString(query.Get("up"), "100 Mbps")
 		proxy["down"] = firstNonEmptyString(query.Get("down"), "100 Mbps")
@@ -2245,6 +2948,10 @@ func clashHysteriaProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	}
 	if obfs := query.Get("obfs"); obfs != "" {
 		proxy["obfs"] = obfs
+		if version2 && strings.EqualFold(obfs, "gecko") {
+			proxy["obfs-min-packet-size"] = 512
+			proxy["obfs-max-packet-size"] = 1200
+		}
 	}
 	if password := query.Get("obfs-password"); password != "" {
 		proxy["obfs-password"] = password
@@ -2252,11 +2959,19 @@ func clashHysteriaProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	if sni := query.Get("sni"); sni != "" {
 		proxy["sni"] = sni
 	}
-	if fp := query.Get("fp"); fp != "" {
-		proxy["client-fingerprint"] = fp
+	if pin := firstNonEmptyString(query.Get("pinSHA256"), query.Get("pcs")); pin != "" {
+		if normalized, err := mihomoCertificatePin(pin); err == nil {
+			proxy["fingerprint"] = normalized
+		}
+	}
+	if peerName, err := singlePeerVerifyName(firstNonEmptyString(query.Get("vcn"), query.Get("verifyPeerCertByName"))); err == nil && peerName != "" {
+		proxy["name-cert-verify"] = peerName
 	}
 	if alpn := stringList(query.Get("alpn")); len(alpn) > 0 {
 		proxy["alpn"] = alpn
+	}
+	if ech, ok := canonicalECHBase64(firstNonEmptyString(query.Get("ech"), query.Get("echConfigList"))); ok {
+		proxy["ech-opts"] = map[string]any{"enable": true, "config": ech}
 	}
 	if queryFlag(query, "allowInsecure", "insecure") {
 		proxy["skip-cert-verify"] = true
@@ -2287,47 +3002,37 @@ func clashVLESSProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	if sni := query.Get("sni"); sni != "" {
 		proxy["servername"] = sni
 	}
-	if fp := query.Get("fp"); fp != "" {
-		proxy["client-fingerprint"] = fp
-	}
 	if flow := query.Get("flow"); flow != "" {
 		proxy["flow"] = flow
+	}
+	if encryption := strings.TrimSpace(query.Get("encryption")); encryption != "" && encryption != "none" {
+		proxy["encryption"] = encryption
 	}
 	if queryFlag(query, "allowInsecure", "insecure") {
 		proxy["skip-cert-verify"] = true
 	}
-	if security == "reality" {
-		reality := map[string]any{}
-		if value := query.Get("pbk"); value != "" {
-			reality["public-key"] = value
-		}
-		if value := query.Get("sid"); value != "" {
-			reality["short-id"] = value
-		}
-		if value := query.Get("spx"); value != "" {
-			reality["spider-x"] = value
-		}
-		if len(reality) > 0 {
-			proxy["reality-opts"] = reality
-		}
-	}
+	applyMihomoTLSOptions(proxy, query)
 	appendClashNetworkOptions(proxy, network, query)
 	return proxy, true
 }
 
 func clashTrojanProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	port, ok := parseURLPort(parsed)
-	if !ok || strings.TrimSpace(parsed.User.Username()) == "" {
+	password := decodedURLUserInfo(parsed.User)
+	if !ok || password == "" {
 		return nil, false
 	}
 	query := parsed.Query()
+	if query.Get("security") == "" {
+		query.Set("security", "tls")
+	}
 	network := firstNonEmptyString(query.Get("type"), "tcp")
 	proxy := map[string]any{
 		"name":     name,
 		"type":     "trojan",
 		"server":   parsed.Hostname(),
 		"port":     port,
-		"password": parsed.User.Username(),
+		"password": password,
 		"network":  network,
 		"udp":      true,
 	}
@@ -2340,6 +3045,7 @@ func clashTrojanProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	if queryFlag(query, "allowInsecure", "insecure") {
 		proxy["skip-cert-verify"] = true
 	}
+	applyMihomoTLSOptions(proxy, query)
 	appendClashNetworkOptions(proxy, network, query)
 	return proxy, true
 }
@@ -2370,20 +3076,47 @@ func clashVMessProxy(name string, parsed *url.URL) (map[string]any, bool) {
 		"network": network,
 		"udp":     true,
 	}
-	if stringValue(payload["tls"]) == "tls" {
+	security := strings.ToLower(stringValue(payload["tls"]))
+	if security == "tls" || security == "reality" {
 		proxy["tls"] = true
 	}
 	if sni := firstNonEmptyString(payload["sni"], payload["host"]); sni != "" {
 		proxy["servername"] = sni
 	}
-	if fp := stringValue(payload["fp"]); fp != "" {
-		proxy["client-fingerprint"] = fp
-	}
 	query := url.Values{}
+	query.Set("security", security)
 	query.Set("path", stringValue(payload["path"]))
 	query.Set("host", stringValue(payload["host"]))
+	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
+	query.Set("fp", stringValue(payload["fp"]))
+	query.Set("alpn", stringValue(payload["alpn"]))
+	query.Set("pcs", firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"]))
+	query.Set("vcn", firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"]))
+	query.Set("ech", firstNonEmptyString(payload["ech"], payload["echConfigList"]))
+	query.Set("pbk", stringValue(payload["pbk"]))
+	query.Set("sid", stringValue(payload["sid"]))
+	query.Set("spx", stringValue(payload["spx"]))
+	query.Set("pqv", firstNonEmptyString(payload["pqv"], payload["mldsa65Verify"]))
+	if network == "xhttp" || network == "splithttp" {
+		query.Set("mode", firstNonEmptyString(payload["mode"], payload["type"]))
+		if raw := vmessXHTTPExtra(payload["extra"]); raw != "" {
+			query.Set("extra", raw)
+		}
+	}
+	applyMihomoTLSOptions(proxy, query)
 	appendClashNetworkOptions(proxy, network, query)
 	return proxy, true
+}
+
+func vmessXHTTPExtra(value any) string {
+	if raw, ok := value.(string); ok {
+		return raw
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil || string(encoded) == "null" {
+		return ""
+	}
+	return string(encoded)
 }
 
 func appendClashNetworkOptions(proxy map[string]any, network string, query url.Values) {
@@ -2418,15 +3151,295 @@ func appendClashNetworkOptions(proxy map[string]any, network string, query url.V
 		if len(opts) > 0 {
 			proxy["http-opts"] = opts
 		}
+	case "xhttp", "splithttp":
+		if opts := clashXHTTPOptions(query); len(opts) > 0 {
+			proxy["xhttp-opts"] = opts
+		}
+	}
+}
+
+func clashXHTTPOptions(query url.Values) map[string]any {
+	source := map[string]any{}
+	if raw := query.Get("extra"); raw != "" {
+		_ = json.Unmarshal([]byte(raw), &source)
+	}
+	opts := map[string]any{}
+	for _, key := range []string{"path", "host", "mode"} {
+		if value := query.Get(key); value != "" {
+			opts[key] = value
+		}
+	}
+	fields := map[string]string{
+		"noGRPCHeader":         "no-grpc-header",
+		"xPaddingBytes":        "x-padding-bytes",
+		"xPaddingObfsMode":     "x-padding-obfs-mode",
+		"xPaddingKey":          "x-padding-key",
+		"xPaddingHeader":       "x-padding-header",
+		"xPaddingPlacement":    "x-padding-placement",
+		"xPaddingMethod":       "x-padding-method",
+		"uplinkHTTPMethod":     "uplink-http-method",
+		"sessionIDTable":       "session-table",
+		"sessionIDLength":      "session-length",
+		"seqPlacement":         "seq-placement",
+		"seqKey":               "seq-key",
+		"uplinkDataPlacement":  "uplink-data-placement",
+		"uplinkDataKey":        "uplink-data-key",
+		"uplinkChunkSize":      "uplink-chunk-size",
+		"scMaxEachPostBytes":   "sc-max-each-post-bytes",
+		"scMinPostsIntervalMs": "sc-min-posts-interval-ms",
+	}
+	if headers := xhttpShareHeaders(source["headers"]); len(headers) > 0 {
+		opts["headers"] = headers
+	}
+	for sourceKey, targetKey := range fields {
+		if value, ok := source[sourceKey]; ok {
+			opts[targetKey] = value
+		}
+		if value := query.Get(sourceKey); value != "" {
+			opts[targetKey] = value
+		}
+	}
+	copyMihomoXHTTPAlias(opts, source, query, "sessionIDPlacement", "sessionPlacement", "session-placement")
+	copyMihomoXHTTPAlias(opts, source, query, "sessionIDKey", "sessionKey", "session-key")
+	copyMihomoXHTTPAlias(opts, source, query, "sessionIDTable", "sessionTable", "session-table")
+	copyMihomoXHTTPAlias(opts, source, query, "sessionIDLength", "sessionLength", "session-length")
+	if xmux, ok := source["xmux"].(map[string]any); ok {
+		reuse := mihomoXHTTPReuseSettings(xmux)
+		if len(reuse) > 0 {
+			opts["reuse-settings"] = reuse
+		}
+	}
+	if download, err := mihomoXHTTPDownloadSettings(source["downloadSettings"]); err == nil && len(download) > 0 {
+		opts["download-settings"] = download
+	}
+	return opts
+}
+
+func mihomoXHTTPDownloadSettings(value any) (map[string]any, error) {
+	source := mapValue(value)
+	if len(source) == 0 {
+		return nil, nil
+	}
+	if unsupported := firstUnsupportedConfigKey(source, "address", "port", "method", "network", "security", "tlsSettings", "realitySettings", "xhttpSettings", "splithttpSettings"); unsupported != "" {
+		return nil, fmt.Errorf("Mihomo download-settings cannot safely represent Xray downloadSettings.%s", unsupported)
+	}
+	network := strings.ToLower(firstNonEmptyString(source["method"], source["network"], "xhttp"))
+	if network != "xhttp" && network != "splithttp" {
+		return nil, fmt.Errorf("Mihomo download-settings requires nested XHTTP transport, got %q", network)
+	}
+	result := map[string]any{}
+	if address := stringValue(source["address"]); address != "" {
+		result["server"] = address
+	}
+	if port := intValue(source["port"]); port > 0 {
+		result["port"] = port
+	}
+	security := strings.ToLower(stringValue(source["security"]))
+	if security != "" && security != "none" && security != "tls" && security != "reality" {
+		return nil, fmt.Errorf("Mihomo download-settings cannot safely represent Xray security %q", security)
+	}
+	if security == "tls" || security == "reality" {
+		result["tls"] = true
+	}
+	if err := mapMihomoDownloadTLS(result, mapValue(source["tlsSettings"])); err != nil {
+		return nil, err
+	}
+	if security == "reality" {
+		if err := mapMihomoDownloadReality(result, mapValue(source["realitySettings"])); err != nil {
+			return nil, err
+		}
+	}
+	xhttp := mapValue(firstNonEmptyValue(source["xhttpSettings"], source["splithttpSettings"]))
+	if unsupported := firstUnsupportedConfigKey(xhttp, "path", "host", "headers", "xmux", "extra"); unsupported != "" {
+		return nil, fmt.Errorf("Mihomo download-settings cannot safely represent nested XHTTP field %q", unsupported)
+	}
+	if path := stringValue(xhttp["path"]); path != "" {
+		result["path"] = path
+	}
+	if host := stringValue(xhttp["host"]); host != "" {
+		result["host"] = host
+	}
+	if headers := xhttpShareHeaders(xhttp["headers"]); len(headers) > 0 {
+		result["headers"] = headers
+	}
+	xmux := mapValue(xhttp["xmux"])
+	if extra := mapValue(xhttp["extra"]); len(extra) > 0 {
+		if unsupported := firstUnsupportedConfigKey(extra, "xmux"); unsupported != "" {
+			return nil, fmt.Errorf("Mihomo download-settings cannot safely represent nested XHTTP extra field %q", unsupported)
+		}
+		if len(xmux) == 0 {
+			xmux = mapValue(extra["xmux"])
+		}
+	}
+	if reuse := mihomoXHTTPReuseSettings(xmux); len(reuse) > 0 {
+		result["reuse-settings"] = reuse
+	}
+	return result, nil
+}
+
+func mapMihomoDownloadTLS(result map[string]any, tls map[string]any) error {
+	if len(tls) == 0 {
+		return nil
+	}
+	metadata := mapValue(tls["settings"])
+	if unsupported := firstUnsupportedConfigKey(tls,
+		"show", "serverName", "sni", "fingerprint", "alpn", "allowInsecure", "settings",
+		"pinnedPeerCertSha256", "pinSHA256", "pcs", "verifyPeerCertByName", "vcn", "echConfigList", "ech",
+	); unsupported != "" {
+		return fmt.Errorf("Mihomo download-settings cannot safely represent Xray tlsSettings.%s", unsupported)
+	}
+	if unsupported := firstUnsupportedConfigKey(metadata,
+		"serverName", "sni", "fingerprint", "alpn", "allowInsecure",
+		"pinnedPeerCertSha256", "pinSHA256", "pcs", "verifyPeerCertByName", "vcn", "echConfigList", "ech",
+	); unsupported != "" {
+		return fmt.Errorf("Mihomo download-settings cannot safely represent Xray tlsSettings.settings.%s", unsupported)
+	}
+	if serverName := firstNonEmptyString(tls["serverName"], tls["sni"], metadata["serverName"], metadata["sni"]); serverName != "" {
+		result["servername"] = serverName
+	}
+	if fingerprint := firstNonEmptyString(tls["fingerprint"], metadata["fingerprint"]); fingerprint != "" {
+		result["client-fingerprint"] = fingerprint
+	}
+	if alpn := stringList(firstNonEmptyValue(tls["alpn"], metadata["alpn"])); len(alpn) > 0 {
+		result["alpn"] = alpn
+	}
+	if boolValue(firstNonEmptyValue(tls["allowInsecure"], metadata["allowInsecure"])) {
+		result["skip-cert-verify"] = true
+	}
+	pin := firstNonEmptyString(
+		tls["pinnedPeerCertSha256"], tls["pinSHA256"], tls["pcs"],
+		metadata["pinnedPeerCertSha256"], metadata["pinSHA256"], metadata["pcs"],
+	)
+	if pin != "" {
+		normalized, err := mihomoCertificatePin(pin)
+		if err != nil {
+			return fmt.Errorf("Mihomo download-settings: %w", err)
+		}
+		result["fingerprint"] = normalized
+	}
+	peerName := firstNonEmptyString(tls["verifyPeerCertByName"], tls["vcn"], metadata["verifyPeerCertByName"], metadata["vcn"])
+	if peerName != "" {
+		normalized, err := singlePeerVerifyName(peerName)
+		if err != nil {
+			return fmt.Errorf("Mihomo download-settings supports exactly one certificate verification name: %w", err)
+		}
+		result["name-cert-verify"] = normalized
+	}
+	ech := firstNonEmptyString(tls["echConfigList"], tls["ech"], metadata["echConfigList"], metadata["ech"])
+	if ech != "" {
+		encoded, ok := canonicalECHBase64(ech)
+		if !ok {
+			return fmt.Errorf("Mihomo download-settings requires ECHConfigList as valid base64")
+		}
+		result["ech-opts"] = map[string]any{"enable": true, "config": encoded}
+	}
+	return nil
+}
+
+func mapMihomoDownloadReality(result map[string]any, reality map[string]any) error {
+	if len(reality) == 0 {
+		return nil
+	}
+	metadata := mapValue(reality["settings"])
+	if unsupported := firstUnsupportedConfigKey(reality, "show", "serverName", "sni", "fingerprint", "publicKey", "shortId", "settings"); unsupported != "" {
+		return fmt.Errorf("Mihomo download-settings cannot safely represent Xray realitySettings.%s", unsupported)
+	}
+	if unsupported := firstUnsupportedConfigKey(metadata, "serverName", "sni", "fingerprint", "publicKey", "shortId"); unsupported != "" {
+		return fmt.Errorf("Mihomo download-settings cannot safely represent Xray realitySettings.settings.%s", unsupported)
+	}
+	if serverName := firstNonEmptyString(reality["serverName"], reality["sni"], metadata["serverName"], metadata["sni"]); serverName != "" {
+		result["servername"] = serverName
+	}
+	if fingerprint := firstNonEmptyString(reality["fingerprint"], metadata["fingerprint"]); fingerprint != "" {
+		result["client-fingerprint"] = fingerprint
+	}
+	options := map[string]any{}
+	if publicKey := firstNonEmptyString(reality["publicKey"], metadata["publicKey"]); publicKey != "" {
+		options["public-key"] = publicKey
+	}
+	if shortID := firstNonEmptyString(reality["shortId"], metadata["shortId"]); shortID != "" {
+		options["short-id"] = shortID
+	}
+	if len(options) > 0 {
+		result["reality-opts"] = options
+	}
+	return nil
+}
+
+func mihomoXHTTPReuseSettings(xmux map[string]any) map[string]any {
+	result := map[string]any{}
+	for sourceKey, targetKey := range map[string]string{
+		"maxConcurrency":   "max-concurrency",
+		"maxConnections":   "max-connections",
+		"cMaxReuseTimes":   "c-max-reuse-times",
+		"hMaxRequestTimes": "h-max-request-times",
+		"hMaxReusableSecs": "h-max-reusable-secs",
+		"hKeepAlivePeriod": "h-keep-alive-period",
+		"keepAlivePeriod":  "h-keep-alive-period",
+	} {
+		if value, exists := xmux[sourceKey]; exists {
+			result[targetKey] = value
+		}
+	}
+	return result
+}
+
+func firstUnsupportedConfigKey(values map[string]any, allowed ...string) string {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, key := range allowed {
+		allowedSet[key] = struct{}{}
+	}
+	for key, value := range values {
+		if _, ok := allowedSet[key]; !ok && configValuePresent(value) {
+			return key
+		}
+	}
+	return ""
+}
+
+func configValuePresent(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case bool:
+		return typed
+	case int:
+		return typed != 0
+	case int64:
+		return typed != 0
+	case float64:
+		return typed != 0
+	case []any:
+		return len(typed) > 0
+	case []string:
+		return len(typed) > 0
+	case map[string]any:
+		return len(typed) > 0
+	default:
+		return true
+	}
+}
+
+func copyMihomoXHTTPAlias(opts map[string]any, source map[string]any, query url.Values, current string, legacy string, target string) {
+	if value, ok := source[current]; ok {
+		opts[target] = value
+	} else if value, ok := source[legacy]; ok {
+		opts[target] = value
+	}
+	if value := firstNonEmptyString(query.Get(current), query.Get(legacy)); value != "" {
+		opts[target] = value
 	}
 }
 
 func writeClashProxy(b *strings.Builder, proxy map[string]any) {
 	order := []string{
 		"name", "type", "server", "port", "cipher", "password", "uuid", "alterId",
-		"tls", "servername", "sni", "skip-cert-verify", "client-fingerprint",
-		"flow", "network", "udp", "plugin", "plugin-opts", "auth-str", "up", "down",
-		"ports", "obfs", "obfs-password", "alpn", "ws-opts", "grpc-opts", "http-opts", "reality-opts",
+		"tls", "servername", "sni", "skip-cert-verify", "client-fingerprint", "fingerprint", "name-cert-verify",
+		"flow", "encryption", "network", "udp", "plugin", "plugin-opts", "auth-str", "up", "down",
+		"ports", "obfs", "obfs-password", "obfs-min-packet-size", "obfs-max-packet-size", "alpn", "ech-opts",
+		"ws-opts", "grpc-opts", "http-opts", "xhttp-opts", "reality-opts",
 	}
 	b.WriteString("  - ")
 	first := true
@@ -2478,10 +3491,16 @@ func writeYAMLMap(b *strings.Builder, values map[string]any, indent int) {
 			seen[key] = true
 		}
 	}
+	remaining := make([]string, 0, len(values)-len(seen))
 	for key, value := range values {
 		if seen[key] || isEmptyYAMLValue(value) {
 			continue
 		}
+		remaining = append(remaining, key)
+	}
+	sort.Strings(remaining)
+	for _, key := range remaining {
+		value := values[key]
 		writeYAMLMapItem(b, key, value, indent)
 	}
 }
@@ -2505,6 +3524,8 @@ func writeYAMLInlineValue(b *strings.Builder, value any) {
 		b.WriteString(strconv.Itoa(typed))
 	case int64:
 		b.WriteString(strconv.FormatInt(typed, 10))
+	case float64:
+		b.WriteString(strconv.FormatFloat(typed, 'f', -1, 64))
 	case []string:
 		b.WriteString("[")
 		for index, item := range typed {
