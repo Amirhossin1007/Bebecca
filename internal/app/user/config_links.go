@@ -415,8 +415,11 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 		"ech", "echConfigList", "vcn", "verifyPeerCertByName", "pinSHA256", "pinnedPeerCertSha256",
 		"pbk", "publicKey", "public_key", "sids", "sid", "shortIds", "shortId", "spx", "pqv",
 		"fragment_setting", "noise_setting",
-		"scMaxBufferedPosts", "scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
-		"scStreamUpServerSecs", "xPaddingBytes", "noSSEHeader", "noGRPCHeader", "keepAlivePeriod", "xmux", "mode",
+		"scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
+		"xPaddingBytes", "noGRPCHeader", "keepAlivePeriod", "xmux", "mode",
+		"xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement",
+		"xPaddingMethod", "uplinkHTTPMethod", "sessionIDPlacement", "sessionIDKey", "seqPlacement",
+		"seqKey", "uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize",
 		"hysteria_version", "hysteria_auth", "hysteria_udp_idle_timeout", "obfs", "obfs-password", "obfsPassword", "mport",
 	} {
 		if !inboundValueEmpty(target[key]) {
@@ -974,14 +977,24 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 		}
 	case "splithttp", "xhttp":
 		extra := map[string]any{}
-		copyOptional(extra, "scMaxBufferedPosts", inbound)
 		copyOptional(extra, "scMaxEachPostBytes", inbound)
 		copyOptional(extra, "scMaxConcurrentPosts", inbound)
 		copyOptional(extra, "scMinPostsIntervalMs", inbound)
-		copyOptional(extra, "scStreamUpServerSecs", inbound)
 		copyOptional(extra, "xPaddingBytes", inbound)
-		copyOptional(extra, "noSSEHeader", inbound)
 		copyOptional(extra, "noGRPCHeader", inbound)
+		copyOptional(extra, "xPaddingObfsMode", inbound)
+		copyOptional(extra, "xPaddingKey", inbound)
+		copyOptional(extra, "xPaddingHeader", inbound)
+		copyOptional(extra, "xPaddingPlacement", inbound)
+		copyOptional(extra, "xPaddingMethod", inbound)
+		copyOptional(extra, "uplinkHTTPMethod", inbound)
+		copyOptional(extra, "sessionIDPlacement", inbound)
+		copyOptional(extra, "sessionIDKey", inbound)
+		copyOptional(extra, "seqPlacement", inbound)
+		copyOptional(extra, "seqKey", inbound)
+		copyOptional(extra, "uplinkDataPlacement", inbound)
+		copyOptional(extra, "uplinkDataKey", inbound)
+		copyOptional(extra, "uplinkChunkSize", inbound)
 		copyOptional(extra, "xmux", inbound)
 		if mode, ok := inbound["mode"]; ok {
 			payload["type"] = mode
@@ -1152,15 +1165,25 @@ func appendNetworkParams(params []queryParam, netValue string, path string, inbo
 		if mode, ok := inbound["mode"]; ok {
 			params = append(params, queryParam{"mode", mode})
 		}
-		extra := make([]queryParam, 0, 10)
-		extra = appendOptionalParam(extra, "scMaxBufferedPosts", inbound)
+		extra := make([]queryParam, 0, 24)
 		extra = appendOptionalParam(extra, "scMaxEachPostBytes", inbound)
 		extra = appendOptionalParam(extra, "scMaxConcurrentPosts", inbound)
 		extra = appendOptionalParam(extra, "scMinPostsIntervalMs", inbound)
-		extra = appendOptionalParam(extra, "scStreamUpServerSecs", inbound)
 		extra = appendOptionalParam(extra, "xPaddingBytes", inbound)
-		extra = appendOptionalParam(extra, "noSSEHeader", inbound)
 		extra = appendOptionalParam(extra, "noGRPCHeader", inbound)
+		extra = appendOptionalParam(extra, "xPaddingObfsMode", inbound)
+		extra = appendOptionalParam(extra, "xPaddingKey", inbound)
+		extra = appendOptionalParam(extra, "xPaddingHeader", inbound)
+		extra = appendOptionalParam(extra, "xPaddingPlacement", inbound)
+		extra = appendOptionalParam(extra, "xPaddingMethod", inbound)
+		extra = appendOptionalParam(extra, "uplinkHTTPMethod", inbound)
+		extra = appendOptionalParam(extra, "sessionIDPlacement", inbound)
+		extra = appendOptionalParam(extra, "sessionIDKey", inbound)
+		extra = appendOptionalParam(extra, "seqPlacement", inbound)
+		extra = appendOptionalParam(extra, "seqKey", inbound)
+		extra = appendOptionalParam(extra, "uplinkDataPlacement", inbound)
+		extra = appendOptionalParam(extra, "uplinkDataKey", inbound)
+		extra = appendOptionalParam(extra, "uplinkChunkSize", inbound)
 		if keepAlive, ok := inbound["keepAlivePeriod"]; ok && intValue(keepAlive) > 0 {
 			extra = append(extra, queryParam{"keepAlivePeriod", keepAlive})
 		}
@@ -1409,15 +1432,25 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	case "splithttp", "xhttp":
 		resolved["path"] = stringValue(networkSettings["path"])
 		resolved["host"] = stringList(networkSettings["host"])
-		copyOptional(resolved, "scMaxBufferedPosts", networkSettings)
 		copyOptional(resolved, "scMaxEachPostBytes", networkSettings)
 		copyOptional(resolved, "scMaxConcurrentPosts", networkSettings)
 		copyOptional(resolved, "scMinPostsIntervalMs", networkSettings)
-		copyOptional(resolved, "scStreamUpServerSecs", networkSettings)
 		copyOptional(resolved, "xPaddingBytes", networkSettings)
+		copyOptional(resolved, "xPaddingObfsMode", networkSettings)
+		copyOptional(resolved, "xPaddingKey", networkSettings)
+		copyOptional(resolved, "xPaddingHeader", networkSettings)
+		copyOptional(resolved, "xPaddingPlacement", networkSettings)
+		copyOptional(resolved, "xPaddingMethod", networkSettings)
+		copyOptional(resolved, "uplinkHTTPMethod", networkSettings)
+		copyOptionalAlias(resolved, "sessionIDPlacement", networkSettings, "sessionPlacement")
+		copyOptionalAlias(resolved, "sessionIDKey", networkSettings, "sessionKey")
+		copyOptional(resolved, "seqPlacement", networkSettings)
+		copyOptional(resolved, "seqKey", networkSettings)
+		copyOptional(resolved, "uplinkDataPlacement", networkSettings)
+		copyOptional(resolved, "uplinkDataKey", networkSettings)
+		copyOptional(resolved, "uplinkChunkSize", networkSettings)
 		copyOptional(resolved, "xmux", networkSettings)
 		copyOptional(resolved, "mode", networkSettings)
-		copyOptional(resolved, "noSSEHeader", networkSettings)
 		copyOptional(resolved, "noGRPCHeader", networkSettings)
 		copyOptional(resolved, "keepAlivePeriod", networkSettings)
 	case "kcp":
@@ -1842,6 +1875,19 @@ func portString(value any) string {
 func copyOptional(target map[string]any, key string, source map[string]any) {
 	if value, ok := source[key]; ok {
 		target[key] = value
+	}
+}
+
+func copyOptionalAlias(target map[string]any, key string, source map[string]any, aliases ...string) {
+	if value, ok := source[key]; ok {
+		target[key] = value
+		return
+	}
+	for _, alias := range aliases {
+		if value, ok := source[alias]; ok {
+			target[key] = value
+			return
+		}
 	}
 }
 

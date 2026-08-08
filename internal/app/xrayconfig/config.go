@@ -52,6 +52,7 @@ var (
 	}
 	realityShortIDPattern  = regexp.MustCompile(`^[0-9a-fA-F]{2,16}$`)
 	xPaddingBytesPattern   = regexp.MustCompile(`^\d+(-\d+)?$`)
+	httpTokenPattern       = regexp.MustCompile("^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$")
 	xrayCoreVersionPattern = regexp.MustCompile(`(?:^|[^0-9])(\d+)\.(\d+)\.(\d+)(?:$|[^0-9])`)
 )
 
@@ -345,17 +346,67 @@ func validateNetworkSettings(tag string, network string, settings map[string]any
 		if path := strings.TrimSpace(stringValue(settings["path"])); path != "" && !strings.HasPrefix(path, "/") {
 			return fmt.Errorf("invalid inbound %q: %s path must start with /", tag, network)
 		}
-		if padding := strings.TrimSpace(stringValue(settings["xPaddingBytes"])); padding != "" {
-			if !xPaddingBytesPattern.MatchString(padding) {
-				return fmt.Errorf("invalid inbound %q: xPaddingBytes must look like 100 or 100-1000", tag)
+		if err := validateInt32RangeSetting(tag, "xPaddingBytes", settings["xPaddingBytes"], true); err != nil {
+			return err
+		}
+		if err := validateInt32RangeSetting(tag, "uplinkChunkSize", settings["uplinkChunkSize"], false); err != nil {
+			return err
+		}
+		mode := strings.TrimSpace(stringValue(settings["mode"]))
+		if mode == "" {
+			mode = "auto"
+		}
+		if !oneOf(mode, "auto", "packet-up", "stream-up", "stream-one") {
+			return fmt.Errorf("invalid inbound %q: unsupported XHTTP mode %q", tag, mode)
+		}
+		paddingPlacement := strings.TrimSpace(stringValue(settings["xPaddingPlacement"]))
+		if paddingPlacement != "" && !oneOf(paddingPlacement, "queryInHeader", "query", "header", "cookie") {
+			return fmt.Errorf("invalid inbound %q: unsupported xPaddingPlacement %q", tag, paddingPlacement)
+		}
+		paddingMethod := strings.TrimSpace(stringValue(settings["xPaddingMethod"]))
+		if paddingMethod != "" && !oneOf(paddingMethod, "repeat-x", "tokenish") {
+			return fmt.Errorf("invalid inbound %q: unsupported xPaddingMethod %q", tag, paddingMethod)
+		}
+		sessionPlacement := firstNonEmptyString(settings["sessionIDPlacement"], settings["sessionPlacement"])
+		if sessionPlacement != "" && !oneOf(sessionPlacement, "path", "query", "header", "cookie") {
+			return fmt.Errorf("invalid inbound %q: unsupported sessionIDPlacement %q", tag, sessionPlacement)
+		}
+		seqPlacement := strings.TrimSpace(stringValue(settings["seqPlacement"]))
+		if seqPlacement != "" && !oneOf(seqPlacement, "path", "query", "header", "cookie") {
+			return fmt.Errorf("invalid inbound %q: unsupported seqPlacement %q", tag, seqPlacement)
+		}
+		uplinkDataPlacement := strings.TrimSpace(stringValue(settings["uplinkDataPlacement"]))
+		if uplinkDataPlacement != "" && !oneOf(uplinkDataPlacement, "auto", "body", "header", "cookie") {
+			return fmt.Errorf("invalid inbound %q: unsupported uplinkDataPlacement %q", tag, uplinkDataPlacement)
+		}
+		if oneOf(uplinkDataPlacement, "header", "cookie") && mode != "packet-up" {
+			return fmt.Errorf("invalid inbound %q: uplinkDataPlacement %q requires packet-up mode", tag, uplinkDataPlacement)
+		}
+		method := strings.TrimSpace(stringValue(settings["uplinkHTTPMethod"]))
+		if err := validateHTTPTokenSetting(tag, "uplinkHTTPMethod", method); err != nil {
+			return err
+		}
+		if strings.EqualFold(method, "GET") && mode != "packet-up" {
+			return fmt.Errorf("invalid inbound %q: uplinkHTTPMethod GET requires packet-up mode", tag)
+		}
+		for _, field := range []struct {
+			name  string
+			value any
+		}{
+			{"xPaddingKey", settings["xPaddingKey"]},
+			{"xPaddingHeader", settings["xPaddingHeader"]},
+			{"sessionIDKey", firstNonEmptyString(settings["sessionIDKey"], settings["sessionKey"])},
+			{"seqKey", settings["seqKey"]},
+			{"uplinkDataKey", settings["uplinkDataKey"]},
+		} {
+			if err := validateHTTPTokenSetting(tag, field.name, stringValue(field.value)); err != nil {
+				return err
 			}
-			parts := strings.Split(padding, "-")
-			if len(parts) == 2 {
-				left, _ := strconv.Atoi(parts[0])
-				right, _ := strconv.Atoi(parts[1])
-				if left > right {
-					return fmt.Errorf("invalid inbound %q: xPaddingBytes range start must be less than or equal to end", tag)
-				}
+		}
+		if value, ok := settings["serverMaxHeaderBytes"]; ok && value != nil && stringValue(value) != "" {
+			parsed, err := parseConfigInt32(value)
+			if err != nil || parsed < 0 {
+				return fmt.Errorf("invalid inbound %q: serverMaxHeaderBytes must be a non-negative 32-bit integer", tag)
 			}
 		}
 	case "grpc", "gun":
@@ -364,6 +415,56 @@ func validateNetworkSettings(tag string, network string, settings map[string]any
 		}
 	}
 	return nil
+}
+
+func validateInt32RangeSetting(tag string, key string, value any, requirePositive bool) error {
+	text := strings.TrimSpace(stringValue(value))
+	if text == "" {
+		return nil
+	}
+	if !xPaddingBytesPattern.MatchString(text) {
+		return fmt.Errorf("invalid inbound %q: %s must look like 100 or 100-1000", tag, key)
+	}
+	parts := strings.Split(text, "-")
+	bounds := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		parsed, err := strconv.ParseInt(part, 10, 32)
+		if err != nil || (requirePositive && parsed <= 0) {
+			return fmt.Errorf("invalid inbound %q: %s must use valid 32-bit integer values", tag, key)
+		}
+		bounds = append(bounds, parsed)
+	}
+	if len(bounds) == 2 && bounds[0] > bounds[1] {
+		return fmt.Errorf("invalid inbound %q: %s range start must be less than or equal to end", tag, key)
+	}
+	return nil
+}
+
+func validateHTTPTokenSetting(tag string, key string, value string) error {
+	if value == "" {
+		return nil
+	}
+	if !httpTokenPattern.MatchString(value) {
+		return fmt.Errorf("invalid inbound %q: %s must be a valid HTTP token without spaces or line breaks", tag, key)
+	}
+	return nil
+}
+
+func parseConfigInt32(value any) (int64, error) {
+	text := strings.TrimSpace(stringValue(value))
+	if text == "" {
+		return 0, fmt.Errorf("value is required")
+	}
+	return strconv.ParseInt(text, 10, 32)
+}
+
+func oneOf(value string, allowed ...string) bool {
+	for _, candidate := range allowed {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func validateRealitySettings(tag string, protocol string, network string, reality map[string]any) error {
@@ -875,10 +976,14 @@ func applyNetworkSettings(resolved ResolvedInbound, network string, settings map
 		for _, key := range []string{
 			"scMaxBufferedPosts", "scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
 			"scStreamUpServerSecs", "xPaddingBytes", "noSSEHeader", "xmux", "mode", "noGRPCHeader",
-			"keepAlivePeriod",
+			"keepAlivePeriod", "xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement",
+			"xPaddingMethod", "uplinkHTTPMethod", "seqPlacement",
+			"seqKey", "uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize", "serverMaxHeaderBytes",
 		} {
 			copyOptional(resolved, key, settings)
 		}
+		copyOptionalAlias(resolved, "sessionIDPlacement", settings, "sessionPlacement")
+		copyOptionalAlias(resolved, "sessionIDKey", settings, "sessionKey")
 	case "kcp":
 		header := mapValue(settings["header"])
 		resolved["header_type"] = stringValue(header["type"])
@@ -1036,6 +1141,19 @@ func normalizeProxyProtocol(value string) string {
 func copyOptional(target map[string]any, key string, source map[string]any) {
 	if value, ok := source[key]; ok {
 		target[key] = value
+	}
+}
+
+func copyOptionalAlias(target map[string]any, key string, source map[string]any, aliases ...string) {
+	if value, ok := source[key]; ok {
+		target[key] = value
+		return
+	}
+	for _, alias := range aliases {
+		if value, ok := source[alias]; ok {
+			target[key] = value
+			return
+		}
 	}
 }
 

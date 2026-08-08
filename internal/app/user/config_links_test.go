@@ -176,15 +176,33 @@ func TestBuildConfigLinksKeepsXHTTPPaddingJSONCompact(t *testing.T) {
 		},
 		map[string]ResolvedInbound{
 			"VLESS XHTTP": {
-				"tag":           "VLESS XHTTP",
-				"protocol":      "vless",
-				"port":          int64(443),
-				"network":       "xhttp",
-				"tls":           "tls",
-				"encryption":    "none",
-				"path":          "/x",
-				"host":          "edge.example.com",
-				"xPaddingBytes": "100-1000",
+				"tag":                  "VLESS XHTTP",
+				"protocol":             "vless",
+				"port":                 int64(443),
+				"network":              "xhttp",
+				"tls":                  "tls",
+				"encryption":           "none",
+				"path":                 "/x",
+				"host":                 "edge.example.com",
+				"mode":                 "packet-up",
+				"xPaddingBytes":        "100-1000",
+				"xPaddingObfsMode":     true,
+				"xPaddingKey":          "_dc",
+				"xPaddingHeader":       "Referer",
+				"xPaddingPlacement":    "query",
+				"xPaddingMethod":       "tokenish",
+				"uplinkHTTPMethod":     "GET",
+				"sessionIDPlacement":   "header",
+				"sessionIDKey":         "X-Session",
+				"seqPlacement":         "query",
+				"seqKey":               "x_seq",
+				"uplinkDataPlacement":  "header",
+				"uplinkDataKey":        "X-Data",
+				"uplinkChunkSize":      "3000-4000",
+				"serverMaxHeaderBytes": int64(8192),
+				"scMaxBufferedPosts":   int64(30),
+				"scStreamUpServerSecs": "20-80",
+				"noSSEHeader":          true,
 			},
 		},
 		[]string{"VLESS XHTTP"},
@@ -218,6 +236,35 @@ func TestBuildConfigLinksKeepsXHTTPPaddingJSONCompact(t *testing.T) {
 	}
 	if extra["xPaddingBytes"] != "100-1000" {
 		t.Fatalf("unexpected xPaddingBytes: %#v", extra)
+	}
+	for key, want := range map[string]any{
+		"xPaddingObfsMode":    true,
+		"xPaddingKey":         "_dc",
+		"xPaddingHeader":      "Referer",
+		"xPaddingPlacement":   "query",
+		"xPaddingMethod":      "tokenish",
+		"uplinkHTTPMethod":    "GET",
+		"sessionIDPlacement":  "header",
+		"sessionIDKey":        "X-Session",
+		"seqPlacement":        "query",
+		"seqKey":              "x_seq",
+		"uplinkDataPlacement": "header",
+		"uplinkDataKey":       "X-Data",
+		"uplinkChunkSize":     "3000-4000",
+	} {
+		if got := extra[key]; got != want {
+			t.Fatalf("unexpected %s: got %#v want %#v extra=%#v", key, got, want, extra)
+		}
+	}
+	for _, serverOnly := range []string{"serverMaxHeaderBytes", "scMaxBufferedPosts", "scStreamUpServerSecs", "noSSEHeader"} {
+		if _, ok := extra[serverOnly]; ok {
+			t.Fatalf("server-only %s leaked into client link: %#v", serverOnly, extra)
+		}
+	}
+	stream := v2rayStreamSettings(parsed.Query())
+	settings := mapValue(stream["xhttpSettings"])
+	if settings["sessionIDPlacement"] != "header" || settings["sessionIDKey"] != "X-Session" {
+		t.Fatalf("current session ID fields did not survive client link round-trip: %#v", settings)
 	}
 }
 
