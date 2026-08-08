@@ -124,16 +124,30 @@ func NormalizePayload(payload map[string]any) map[string]any {
 
 // NormalizePayloadForXrayVersion prepares transport settings for the core
 // running on a particular node without changing the persisted panel config.
-func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) map[string]any {
+func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) (map[string]any, string) {
 	cfg := deepCopyMap(payload)
-	useMethod := xrayUsesTransportMethod(coreVersion)
+	useMethod, knownVersion := xrayVersionAtLeast(coreVersion, 26, 7, 11)
+	useSessionIDFields, _ := xrayVersionAtLeast(coreVersion, 26, 6, 22)
 	for _, inbound := range listOfMaps(cfg["inbounds"]) {
-		normalizeStreamTransportMethod(mapValue(inbound["streamSettings"]), useMethod)
+		normalizeStreamForXrayVersion(mapValue(inbound["streamSettings"]), useMethod, useSessionIDFields, knownVersion)
 	}
 	for _, outbound := range listOfMaps(cfg["outbounds"]) {
-		normalizeStreamTransportMethod(mapValue(outbound["streamSettings"]), useMethod)
+		normalizeStreamForXrayVersion(mapValue(outbound["streamSettings"]), useMethod, useSessionIDFields, knownVersion)
 	}
-	return cfg
+	if !knownVersion {
+		return cfg, "Xray core version is unknown or invalid; using legacy transport naming and preserving both XHTTP session aliases"
+	}
+	return cfg, ""
+}
+
+func normalizeStreamForXrayVersion(stream map[string]any, useMethod, useSessionIDFields, knownVersion bool) {
+	normalizeStreamTransportMethod(stream, useMethod)
+	for _, key := range []string{"xhttpSettings", "splithttpSettings"} {
+		settings := mapValue(stream[key])
+		if len(settings) > 0 {
+			normalizeXHTTPSessionFields(settings, useSessionIDFields, knownVersion)
+		}
+	}
 }
 
 func normalizeStreamTransportMethod(stream map[string]any, useMethod bool) {
@@ -153,14 +167,56 @@ func normalizeStreamTransportMethod(stream map[string]any, useMethod bool) {
 	delete(stream, "method")
 }
 
-func xrayUsesTransportMethod(coreVersion string) bool {
+func normalizeXHTTPSessionFields(settings map[string]any, useSessionIDFields, knownVersion bool) {
+	placement := firstNonEmptyString(settings["sessionIDPlacement"], settings["sessionPlacement"])
+	key := firstNonEmptyString(settings["sessionIDKey"], settings["sessionKey"])
+	if !knownVersion {
+		if placement != "" {
+			settings["sessionIDPlacement"] = placement
+			settings["sessionPlacement"] = placement
+		}
+		if key != "" {
+			settings["sessionIDKey"] = key
+			settings["sessionKey"] = key
+		}
+		return
+	}
+	if useSessionIDFields {
+		if placement != "" {
+			settings["sessionIDPlacement"] = placement
+		}
+		if key != "" {
+			settings["sessionIDKey"] = key
+		}
+		delete(settings, "sessionPlacement")
+		delete(settings, "sessionKey")
+		return
+	}
+	if placement != "" {
+		settings["sessionPlacement"] = placement
+	}
+	if key != "" {
+		settings["sessionKey"] = key
+	}
+	delete(settings, "sessionIDPlacement")
+	delete(settings, "sessionIDKey")
+}
+
+func xrayVersionAtLeast(coreVersion string, wantMajor, wantMinor, wantPatch int) (bool, bool) {
 	match := xrayCoreVersionPattern.FindStringSubmatch(coreVersion)
 	if len(match) != 4 {
-		return false
+		return false, false
 	}
 	major, _ := strconv.Atoi(match[1])
 	minor, _ := strconv.Atoi(match[2])
-	return major > 26 || (major == 26 && minor >= 7)
+	patch, _ := strconv.Atoi(match[3])
+	if major != wantMajor {
+		return major > wantMajor, true
+	}
+	if minor != wantMinor {
+		return minor > wantMinor, true
+	}
+	return patch >= wantPatch, true
 }
 
 func (c *Config) Raw() map[string]any {

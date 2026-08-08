@@ -182,7 +182,10 @@ func TestNormalizePayloadForXrayVersionUsesMatchingTransportField(t *testing.T) 
 		}},
 	}
 
-	legacy := NormalizePayloadForXrayVersion(payload, "Xray 26.6.27")
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.7.10")
+	if warning != "" {
+		t.Fatalf("legacy version warning = %q", warning)
+	}
 	legacyInbound := mapValue(listOfMaps(legacy["inbounds"])[0]["streamSettings"])
 	legacyOutbound := mapValue(listOfMaps(legacy["outbounds"])[0]["streamSettings"])
 	if legacyInbound["network"] != "xhttp" || legacyOutbound["network"] != "raw" {
@@ -192,7 +195,10 @@ func TestNormalizePayloadForXrayVersionUsesMatchingTransportField(t *testing.T) 
 		t.Fatalf("legacy transport retained method: %#v", legacyOutbound)
 	}
 
-	modern := NormalizePayloadForXrayVersion(payload, "Xray 26.7.11")
+	modern, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.7.11")
+	if warning != "" {
+		t.Fatalf("modern version warning = %q", warning)
+	}
 	modernInbound := mapValue(listOfMaps(modern["inbounds"])[0]["streamSettings"])
 	modernOutbound := mapValue(listOfMaps(modern["outbounds"])[0]["streamSettings"])
 	if modernInbound["method"] != "xhttp" || modernOutbound["method"] != "raw" {
@@ -200,6 +206,90 @@ func TestNormalizePayloadForXrayVersionUsesMatchingTransportField(t *testing.T) 
 	}
 	if _, exists := modernInbound["network"]; exists {
 		t.Fatalf("modern transport retained network: %#v", modernInbound)
+	}
+
+	unknown, warning := NormalizePayloadForXrayVersion(payload, "custom build")
+	if !strings.Contains(warning, "unknown or invalid") {
+		t.Fatalf("unknown version warning = %q", warning)
+	}
+	unknownInbound := mapValue(listOfMaps(unknown["inbounds"])[0]["streamSettings"])
+	if unknownInbound["network"] != "xhttp" {
+		t.Fatalf("unknown version did not preserve legacy transport behavior: %#v", unknownInbound)
+	}
+}
+
+func TestNormalizePayloadForXrayVersionUsesMatchingXHTTPSessionFields(t *testing.T) {
+	payload := map[string]any{
+		"inbounds": []any{map[string]any{
+			"streamSettings": map[string]any{
+				"network": "xhttp",
+				"xhttpSettings": map[string]any{
+					"sessionIDPlacement": "header",
+					"sessionIDKey":       "X-Session",
+					"futureOption":       "preserve-me",
+				},
+			},
+		}},
+		"outbounds": []any{map[string]any{
+			"streamSettings": map[string]any{
+				"network": "splithttp",
+				"splithttpSettings": map[string]any{
+					"sessionPlacement": "query",
+					"sessionKey":       "x_session",
+				},
+			},
+		}},
+	}
+
+	for _, tc := range []struct {
+		name        string
+		version     string
+		currentKeys bool
+		bothAliases bool
+		wantWarning bool
+	}{
+		{name: "below threshold", version: "26.6.21"},
+		{name: "at threshold", version: "26.6.22", currentKeys: true},
+		{name: "above threshold", version: "26.6.23", currentKeys: true},
+		{name: "unknown", bothAliases: true, wantWarning: true},
+		{name: "invalid", version: "not-a-version", bothAliases: true, wantWarning: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
+			if (warning != "") != tc.wantWarning {
+				t.Fatalf("warning = %q", warning)
+			}
+			inbound := mapValue(mapValue(listOfMaps(normalized["inbounds"])[0]["streamSettings"])["xhttpSettings"])
+			outbound := mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["splithttpSettings"])
+			assertXHTTPSessionAliases(t, inbound, "header", "X-Session", tc.currentKeys, tc.bothAliases)
+			assertXHTTPSessionAliases(t, outbound, "query", "x_session", tc.currentKeys, tc.bothAliases)
+			if inbound["futureOption"] != "preserve-me" {
+				t.Fatalf("unknown XHTTP field was lost: %#v", inbound)
+			}
+		})
+	}
+
+	originalInbound := mapValue(mapValue(listOfMaps(payload["inbounds"])[0]["streamSettings"])["xhttpSettings"])
+	if _, exists := originalInbound["sessionPlacement"]; exists {
+		t.Fatalf("normalization mutated persisted payload: %#v", originalInbound)
+	}
+}
+
+func assertXHTTPSessionAliases(t *testing.T, settings map[string]any, wantPlacement, wantKey string, currentKeys, bothAliases bool) {
+	t.Helper()
+	wantCurrent := currentKeys || bothAliases
+	wantLegacy := !currentKeys || bothAliases
+	if got, exists := settings["sessionIDPlacement"]; exists != wantCurrent || (exists && got != wantPlacement) {
+		t.Fatalf("current placement = %#v, exists=%t, settings=%#v", got, exists, settings)
+	}
+	if got, exists := settings["sessionIDKey"]; exists != wantCurrent || (exists && got != wantKey) {
+		t.Fatalf("current key = %#v, exists=%t, settings=%#v", got, exists, settings)
+	}
+	if got, exists := settings["sessionPlacement"]; exists != wantLegacy || (exists && got != wantPlacement) {
+		t.Fatalf("legacy placement = %#v, exists=%t, settings=%#v", got, exists, settings)
+	}
+	if got, exists := settings["sessionKey"]; exists != wantLegacy || (exists && got != wantKey) {
+		t.Fatalf("legacy key = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
 }
 
@@ -508,9 +598,10 @@ func TestParseNormalizesXHTTPSessionAliases(t *testing.T) {
 			stream := inbound["streamSettings"].(map[string]any)
 			stream["network"] = "xhttp"
 			stream["xhttpSettings"] = map[string]any{
-				"path":       "/x",
-				tc.placement: "header",
-				tc.key:       "X-Session",
+				"path":         "/x",
+				tc.placement:   "header",
+				tc.key:         "X-Session",
+				"futureOption": "preserve-me",
 			}
 
 			parsed, err := Parse(cfg, Options{})
@@ -523,6 +614,10 @@ func TestParseNormalizesXHTTPSessionAliases(t *testing.T) {
 			}
 			if got := stringValue(resolved["sessionIDKey"]); got != "X-Session" {
 				t.Fatalf("sessionIDKey = %q, want X-Session: %#v", got, resolved)
+			}
+			rawSettings := mapValue(mapValue(listOfMaps(parsed.Raw()["inbounds"])[0]["streamSettings"])["xhttpSettings"])
+			if rawSettings[tc.placement] != "header" || rawSettings[tc.key] != "X-Session" || rawSettings["futureOption"] != "preserve-me" {
+				t.Fatalf("raw XHTTP settings did not round-trip: %#v", rawSettings)
 			}
 		})
 	}

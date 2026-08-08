@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	userread "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -56,7 +57,10 @@ func (c Controller) buildRuntimeConfigWithData(ctx context.Context, node NodeRow
 	raw = xrayconfig.NormalizePayload(raw)
 	raw = mergeNodeVirtualTunnelConfig(raw, node.XrayConfig)
 	raw = xrayconfig.TranslateVirtualTunnelInboundsForRuntime(raw)
-	raw = xrayconfig.NormalizePayloadForXrayVersion(raw, node.XrayVersion)
+	raw, compatibilityWarning := xrayconfig.NormalizePayloadForXrayVersion(raw, node.XrayVersion)
+	if compatibilityWarning != "" {
+		logging.Warnf(logging.ComponentNode, "node=%d %s", node.ID, compatibilityWarning)
+	}
 	if err := inlineTLSCertificateFiles(raw); err != nil {
 		return "", err
 	}
