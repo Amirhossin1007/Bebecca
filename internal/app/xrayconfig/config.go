@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -54,6 +55,37 @@ var (
 	xPaddingBytesPattern   = regexp.MustCompile(`^\d+(-\d+)?$`)
 	httpTokenPattern       = regexp.MustCompile("^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$")
 	xrayCoreVersionPattern = regexp.MustCompile(`(?:^|[^0-9])(\d+)\.(\d+)\.(\d+)(?:$|[^0-9])`)
+	xrayPrivateNetworks    = []netip.Prefix{
+		netip.MustParsePrefix("0.0.0.0/8"),
+		netip.MustParsePrefix("10.0.0.0/8"),
+		netip.MustParsePrefix("100.64.0.0/10"),
+		netip.MustParsePrefix("127.0.0.0/8"),
+		netip.MustParsePrefix("169.254.0.0/16"),
+		netip.MustParsePrefix("172.16.0.0/12"),
+		netip.MustParsePrefix("192.0.0.0/24"),
+		netip.MustParsePrefix("192.0.2.0/24"),
+		netip.MustParsePrefix("192.88.99.0/24"),
+		netip.MustParsePrefix("192.168.0.0/16"),
+		netip.MustParsePrefix("198.18.0.0/15"),
+		netip.MustParsePrefix("198.51.100.0/24"),
+		netip.MustParsePrefix("203.0.113.0/24"),
+		netip.MustParsePrefix("224.0.0.0/3"),
+		netip.MustParsePrefix("::/127"),
+		netip.MustParsePrefix("fc00::/7"),
+		netip.MustParsePrefix("fe80::/10"),
+		netip.MustParsePrefix("ff00::/8"),
+	}
+	xrayPrivateDomains = []string{
+		"lan",
+		"localdomain",
+		"example",
+		"invalid",
+		"localhost",
+		"test",
+		"local",
+		"home.arpa",
+		"internal",
+	}
 )
 
 type Options struct {
@@ -126,18 +158,114 @@ func NormalizePayload(payload map[string]any) map[string]any {
 // running on a particular node without changing the persisted panel config.
 func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) (map[string]any, string) {
 	cfg := deepCopyMap(payload)
-	useMethod, knownVersion := xrayVersionAtLeast(coreVersion, 26, 7, 11)
+	atLeast26711, knownVersion := xrayVersionAtLeast(coreVersion, 26, 7, 11)
 	useSessionIDFields, _ := xrayVersionAtLeast(coreVersion, 26, 6, 22)
 	for _, inbound := range listOfMaps(cfg["inbounds"]) {
-		normalizeStreamForXrayVersion(mapValue(inbound["streamSettings"]), useMethod, useSessionIDFields, knownVersion)
+		normalizeStreamForXrayVersion(mapValue(inbound["streamSettings"]), atLeast26711, useSessionIDFields, knownVersion)
 	}
 	for _, outbound := range listOfMaps(cfg["outbounds"]) {
-		normalizeStreamForXrayVersion(mapValue(outbound["streamSettings"]), useMethod, useSessionIDFields, knownVersion)
+		normalizeStreamForXrayVersion(mapValue(outbound["streamSettings"]), atLeast26711, useSessionIDFields, knownVersion)
 	}
 	if !knownVersion {
 		return cfg, "Xray core version is unknown or invalid; using legacy transport naming and preserving both XHTTP session aliases"
 	}
+	if atLeast26711 {
+		if tags := insecurePublicOutboundTags(listOfMaps(cfg["outbounds"])); len(tags) > 0 {
+			return cfg, fmt.Sprintf("Xray 26.7.11+ rejects unencrypted VLESS/Trojan outbounds for public destinations; add TLS, REALITY, or VLESS encryption to: %s", strings.Join(tags, ", "))
+		}
+	}
 	return cfg, ""
+}
+
+func insecurePublicOutboundTags(outbounds []map[string]any) []string {
+	tags := make([]string, 0)
+	for index, outbound := range outbounds {
+		protocol := strings.ToLower(stringValue(outbound["protocol"]))
+		if protocol != "vless" && protocol != "trojan" {
+			continue
+		}
+		security := strings.ToLower(stringValue(mapValue(outbound["streamSettings"])["security"]))
+		if security != "" && security != "none" {
+			continue
+		}
+		settings := mapValue(outbound["settings"])
+		if !hasUnencryptedPublicDestination(protocol, settings) {
+			continue
+		}
+		tag := stringValue(outbound["tag"])
+		if tag == "" {
+			tag = fmt.Sprintf("outbound #%d", index+1)
+		}
+		tags = append(tags, tag)
+	}
+	return tags
+}
+
+func hasUnencryptedPublicDestination(protocol string, settings map[string]any) bool {
+	if protocol == "trojan" {
+		if isXrayPublicDestination(stringValue(settings["address"])) {
+			return true
+		}
+		for _, server := range listOfMaps(settings["servers"]) {
+			if isXrayPublicDestination(stringValue(server["address"])) {
+				return true
+			}
+		}
+		return false
+	}
+
+	if isXrayPublicDestination(stringValue(settings["address"])) && !vlessEncryptionEnabled(settings["encryption"]) {
+		return true
+	}
+	for _, server := range listOfMaps(settings["vnext"]) {
+		if !isXrayPublicDestination(stringValue(server["address"])) {
+			continue
+		}
+		users := listOfMaps(server["users"])
+		if len(users) == 0 {
+			return true
+		}
+		for _, user := range users {
+			if !vlessEncryptionEnabled(user["encryption"]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func vlessEncryptionEnabled(value any) bool {
+	encryption := strings.ToLower(stringValue(value))
+	return encryption != "" && encryption != "none"
+}
+
+func isXrayPublicDestination(value string) bool {
+	return strings.TrimSpace(value) != "" && !isXrayPrivateDestination(value)
+}
+
+func isXrayPrivateDestination(value string) bool {
+	host := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(value), "."))
+	if host == "" {
+		return true
+	}
+	if address, err := netip.ParseAddr(strings.Trim(host, "[]")); err == nil {
+		address = address.Unmap()
+		for _, network := range xrayPrivateNetworks {
+			if network.Contains(address) {
+				return true
+			}
+		}
+		return false
+	}
+	if !strings.Contains(host, ".") {
+		return true
+	}
+	for _, domain := range xrayPrivateDomains {
+		if host == domain || strings.HasSuffix(host, "."+domain) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeStreamForXrayVersion(stream map[string]any, useMethod, useSessionIDFields, knownVersion bool) {

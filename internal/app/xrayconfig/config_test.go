@@ -218,6 +218,89 @@ func TestNormalizePayloadForXrayVersionUsesMatchingTransportField(t *testing.T) 
 	}
 }
 
+func TestNormalizePayloadForXrayVersionWarnsForUnencryptedPublicOutbounds(t *testing.T) {
+	payload := map[string]any{
+		"outbounds": []any{
+			map[string]any{
+				"tag":      "public-vless-flat",
+				"protocol": "vless",
+				"settings": map[string]any{"address": "edge.public.net", "encryption": "none"},
+			},
+			map[string]any{
+				"tag":      "public-vless-nested",
+				"protocol": "vless",
+				"settings": map[string]any{"vnext": []any{map[string]any{
+					"address": "nested.public.net",
+					"users":   []any{map[string]any{"encryption": "none"}},
+				}}},
+			},
+			map[string]any{
+				"tag":      "public-trojan-nested",
+				"protocol": "trojan",
+				"settings": map[string]any{"servers": []any{map[string]any{"address": "8.8.8.8"}}},
+			},
+			map[string]any{
+				"tag":      "tls-vless",
+				"protocol": "vless",
+				"settings": map[string]any{"vnext": []any{map[string]any{
+					"address": "tls.public.net",
+					"users":   []any{map[string]any{"encryption": "none"}},
+				}}},
+				"streamSettings": map[string]any{"security": "tls"},
+			},
+			map[string]any{
+				"tag":            "reality-trojan",
+				"protocol":       "trojan",
+				"settings":       map[string]any{"servers": []any{map[string]any{"address": "reality.public.net"}}},
+				"streamSettings": map[string]any{"security": "reality"},
+			},
+			map[string]any{
+				"tag":      "encrypted-vless",
+				"protocol": "vless",
+				"settings": map[string]any{"vnext": []any{map[string]any{
+					"address": "encrypted.public.net",
+					"users":   []any{map[string]any{"encryption": "mlkem768x25519plus"}},
+				}}},
+			},
+			map[string]any{
+				"tag":      "private-ip",
+				"protocol": "vless",
+				"settings": map[string]any{"vnext": []any{map[string]any{
+					"address": "10.0.0.1",
+					"users":   []any{map[string]any{"encryption": "none"}},
+				}}},
+			},
+			map[string]any{
+				"tag":      "private-domain",
+				"protocol": "trojan",
+				"settings": map[string]any{"address": "proxy.internal"},
+			},
+		},
+	}
+
+	_, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.7.10")
+	if warning != "" {
+		t.Fatalf("below-threshold warning = %q", warning)
+	}
+
+	_, warning = NormalizePayloadForXrayVersion(payload, "Xray 26.7.11")
+	for _, tag := range []string{"public-vless-flat", "public-vless-nested", "public-trojan-nested"} {
+		if !strings.Contains(warning, tag) {
+			t.Fatalf("threshold warning does not include %q: %q", tag, warning)
+		}
+	}
+	for _, tag := range []string{"tls-vless", "reality-trojan", "encrypted-vless", "private-ip", "private-domain"} {
+		if strings.Contains(warning, tag) {
+			t.Fatalf("threshold warning includes exempt outbound %q: %q", tag, warning)
+		}
+	}
+
+	_, warning = NormalizePayloadForXrayVersion(payload, "custom build")
+	if !strings.Contains(warning, "unknown or invalid") || strings.Contains(warning, "public-vless-nested") {
+		t.Fatalf("unknown-version warning = %q", warning)
+	}
+}
+
 func TestNormalizePayloadForXrayVersionUsesMatchingXHTTPSessionFields(t *testing.T) {
 	payload := map[string]any{
 		"inbounds": []any{map[string]any{
