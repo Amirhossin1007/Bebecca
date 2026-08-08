@@ -3007,6 +3007,7 @@
 	"recentActions.filters.action": "Action filter",
 	"recentActions.filters.resource": "Resource filter",
 	"recentActions.filters.status": "Status filter",
+	"recentActions.filters.day": "Day filter",
 	"recentActions.filters.allActions": "All actions",
 	"recentActions.filters.allResources": "All resources",
 	"recentActions.filters.allStatuses": "All statuses",

@@ -29,6 +29,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { JsonEditor } from "components/JsonEditor";
+import { Pagination } from "components/Pagination";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -96,6 +97,7 @@ type RecentAction = {
 
 type RecentActionsResponse = {
 	actions: RecentAction[];
+	total?: number;
 	next_before_id?: number | null;
 	action_types?: string[];
 	resource_types?: string[];
@@ -481,7 +483,6 @@ export const RecentActionsPage: FC = () => {
 		(userData.role === AdminRole.FullAccess ||
 			(userData.role === AdminRole.Sudo &&
 				Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray])));
-	const [pageCursors, setPageCursors] = useState<Array<number | null>>([null]);
 	const [pageIndex, setPageIndex] = useState(0);
 	const [pageSize, setPageSize] = useState(() =>
 		getRecentActionsPerPageLimitSize(),
@@ -492,8 +493,8 @@ export const RecentActionsPage: FC = () => {
 	const [actionTypesFilter, setActionTypesFilter] = useState<string[]>([]);
 	const [resourceTypesFilter, setResourceTypesFilter] = useState<string[]>([]);
 	const [statusesFilter, setStatusesFilter] = useState<string[]>([]);
+	const [dayFilter, setDayFilter] = useState("");
 	const resetPagination = useCallback(() => {
-		setPageCursors([null]);
 		setPageIndex(0);
 		setSelectedID(null);
 	}, []);
@@ -510,11 +511,13 @@ export const RecentActionsPage: FC = () => {
 		[debouncedSearchChange],
 	);
 
-	const beforeID = pageCursors[pageIndex] ?? null;
 	const actionsQueryString = useMemo(() => {
-		const params = new URLSearchParams({ limit: String(pageSize) });
-		if (beforeID) params.set("before_id", String(beforeID));
+		const params = new URLSearchParams({
+			limit: String(pageSize),
+			offset: String(pageIndex * pageSize),
+		});
 		if (searchQuery) params.set("search", searchQuery);
+		if (dayFilter) params.set("day", dayFilter);
 		for (const value of actionTypesFilter) params.append("action_type", value);
 		for (const value of resourceTypesFilter)
 			params.append("resource_type", value);
@@ -522,7 +525,8 @@ export const RecentActionsPage: FC = () => {
 		return params.toString();
 	}, [
 		actionTypesFilter,
-		beforeID,
+		dayFilter,
+		pageIndex,
 		pageSize,
 		resourceTypesFilter,
 		searchQuery,
@@ -534,7 +538,12 @@ export const RecentActionsPage: FC = () => {
 			fetch<RecentActionsResponse>(
 				`/core/recent-actions?${actionsQueryString}`,
 			),
-		{ enabled: canView, staleTime: 15_000, refetchOnWindowFocus: false },
+		{
+			enabled: canView,
+			staleTime: 15_000,
+			refetchOnWindowFocus: false,
+			keepPreviousData: true,
+		},
 	);
 	const detailQuery = useQuery(
 		["recent-action", selectedID],
@@ -555,6 +564,11 @@ export const RecentActionsPage: FC = () => {
 	);
 
 	const actions = actionsQuery.data?.actions ?? [];
+	const totalActions = actionsQuery.data?.total ?? actions.length;
+	useEffect(() => {
+		const lastPage = Math.max(0, Math.ceil(totalActions / pageSize) - 1);
+		if (pageIndex > lastPage) setPageIndex(lastPage);
+	}, [pageIndex, pageSize, totalActions]);
 	const selectedAction =
 		selectedID === null
 			? undefined
@@ -587,17 +601,10 @@ export const RecentActionsPage: FC = () => {
 	}, []);
 	const changePageSize = (value: string | string[]) => {
 		const next = Number(Array.isArray(value) ? value[0] : value);
-		if (![10, 20, 50].includes(next)) return;
+		if (![10, 20, 30, 50, 100].includes(next)) return;
 		setPageSize(next);
 		setRecentActionsPerPageLimitSize(String(next));
 		resetPagination();
-	};
-	const showNextPage = () => {
-		const next = actionsQuery.data?.next_before_id;
-		if (!next) return;
-		setPageCursors((current) => [...current.slice(0, pageIndex + 1), next]);
-		setPageIndex((current) => current + 1);
-		setSelectedID(null);
 	};
 	const columns = useMemo<DataTableColumn<RecentAction>[]>(
 		() => [
@@ -929,10 +936,10 @@ export const RecentActionsPage: FC = () => {
 			<ResourceListCard
 				title={t("recentActions.title")}
 				summaryItems={[
-					{ label: t("total"), value: actions.length },
+					{ label: t("total"), value: totalActions },
 					{
 						label: t("usersPage.filtered"),
-						value: actions.length,
+						value: totalActions,
 						colorScheme: "green",
 					},
 				]}
@@ -1010,6 +1017,17 @@ export const RecentActionsPage: FC = () => {
 						aria-label={t("recentActions.filters.status")}
 						w={{ base: "full", xl: "190px" }}
 					/>
+					<Input
+						type="date"
+						size="sm"
+						value={dayFilter}
+						onChange={(event) => {
+							setDayFilter(event.target.value);
+							resetPagination();
+						}}
+						aria-label={t("recentActions.filters.day")}
+						w={{ base: "full", xl: "170px" }}
+					/>
 				</Stack>
 			</ResourceListCard>
 
@@ -1063,48 +1081,16 @@ export const RecentActionsPage: FC = () => {
 				renderExpandedRow={renderDetailPanel}
 				mobileBreakpoint="lg"
 				pagination={
-					<HStack justify="space-between" flexWrap="wrap" spacing={3}>
-						<HStack spacing={2}>
-							<Text fontSize="sm" color="panel.textMuted">
-								{t("itemsPerPage")}
-							</Text>
-							<Select
-								size="sm"
-								value={String(pageSize)}
-								onValueChange={changePageSize}
-								options={[10, 20, 50].map((value) => ({
-									label: String(value),
-									value: String(value),
-								}))}
-								aria-label={t("itemsPerPage")}
-								w="88px"
-							/>
-						</HStack>
-						<HStack spacing={2}>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => {
-									setPageIndex((current) => Math.max(0, current - 1));
-									setSelectedID(null);
-								}}
-								isDisabled={pageIndex === 0}
-							>
-								{t("previous")}
-							</Button>
-							<Text fontSize="sm" minW="28px" textAlign="center">
-								{pageIndex + 1}
-							</Text>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={showNextPage}
-								isDisabled={!actionsQuery.data?.next_before_id}
-							>
-								{t("next")}
-							</Button>
-						</HStack>
-					</HStack>
+					<Pagination
+						total={totalActions}
+						limit={pageSize}
+						offset={pageIndex * pageSize}
+						onPageChange={(page) => {
+							setPageIndex(page);
+							setSelectedID(null);
+						}}
+						onPageSizeChange={(next) => changePageSize(String(next))}
+					/>
 				}
 			/>
 		</VStack>

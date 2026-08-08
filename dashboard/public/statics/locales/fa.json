@@ -3007,6 +3007,7 @@
 	"recentActions.filters.action": "فیلتر عملیات",
 	"recentActions.filters.resource": "فیلتر منبع",
 	"recentActions.filters.status": "فیلتر وضعیت",
+	"recentActions.filters.day": "فیلتر روز",
 	"recentActions.filters.allActions": "همه عملیات‌ها",
 	"recentActions.filters.allResources": "همه منابع",
 	"recentActions.filters.allStatuses": "همه وضعیت‌ها",

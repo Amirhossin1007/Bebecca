@@ -49,7 +49,7 @@ export const setAdminsPerPageLimitSize = (value: string) =>
 
 export const getRecentActionsPerPageLimitSize = () => {
 	const value = readPerPage(NUM_RECENT_ACTIONS_PER_PAGE_LOCAL_STORAGE_KEY);
-	return [10, 20, 50].includes(value) ? value : 20;
+	return [10, 20, 30, 50, 100].includes(value) ? value : 20;
 };
 export const setRecentActionsPerPageLimitSize = (value: string) =>
 	writePerPage(NUM_RECENT_ACTIONS_PER_PAGE_LOCAL_STORAGE_KEY, value);

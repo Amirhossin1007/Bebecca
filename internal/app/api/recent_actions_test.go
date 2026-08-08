@@ -5,6 +5,9 @@ package api
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -243,6 +246,83 @@ func TestListRecentActionsAppliesServerFilters(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].ResourceKey != "fr-1" {
 		t.Fatalf("unexpected filtered actions: %#v", items)
+	}
+}
+
+func TestListRecentActionsPagesAndFiltersByDay(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createRecentActionsTable(t, db)
+	for id, action := range []struct {
+		actionType, resourceType, resourceKey, summary, createdAt string
+	}{
+		{"host.update", "host", "previous-day", "Updated host", "2026-08-01 23:59:59.000000"},
+		{"host.update", "host", "day-host", "Updated host", "2026-08-02 08:00:00.000000"},
+		{"node.host_reboot", "node", "de-1", "Rebooted node host", "2026-08-02 09:00:00.000000"},
+		{"node.host_reboot", "node", "de-2", "Rebooted node host", "2026-08-02 09:01:00.000000"},
+		{"host.update", "host", "latest-host", "Updated host", "2026-08-02 10:00:00.000000"},
+	} {
+		_, err := db.Exec(`INSERT INTO recent_actions (
+			id, action_type, resource_type, resource_key, actor_username, auth_source, summary,
+			after_hash, rollback_status, created_at
+		) VALUES (?, ?, ?, ?, 'operator', 'session', ?, '', 'unsupported', ?)`,
+			id+1, action.actionType, action.resourceType, action.resourceKey, action.summary, action.createdAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	filterRequest := httptest.NewRequest("GET", "/api/core/recent-actions?day=2026-08-02", nil)
+	filter, err := recentActionListFilterFromRequest(filterRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &Server{db: db}
+	items, total, err := server.listRecentActionsPage(context.Background(), 1, 2, true, filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 || len(items) != 2 || items[0].ID != 4 || items[1].ID != 2 || len(items[0].AffectedResources) != 2 {
+		t.Fatalf("unexpected filtered page: total=%d items=%#v", total, items)
+	}
+
+	type listResponse struct {
+		Actions      []recentActionItem `json:"actions"`
+		Total        *int               `json:"total"`
+		NextBeforeID *int64             `json:"next_before_id"`
+	}
+	performRequest := func(path string) (*httptest.ResponseRecorder, listResponse) {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		server.handleRecentActionsRoot(recorder, req)
+		var response listResponse
+		if recorder.Code == http.StatusOK {
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return recorder, response
+	}
+
+	legacy, legacyResponse := performRequest("/api/core/recent-actions?limit=2")
+	if legacy.Code != http.StatusOK || legacyResponse.Total != nil || len(legacyResponse.Actions) != 2 || legacyResponse.NextBeforeID == nil {
+		t.Fatalf("legacy cursor response changed: code=%d response=%#v", legacy.Code, legacyResponse)
+	}
+	numbered, numberedResponse := performRequest("/api/core/recent-actions?day=2026-08-02&limit=100&offset=0")
+	if numbered.Code != http.StatusOK || numberedResponse.Total == nil || *numberedResponse.Total != 3 || len(numberedResponse.Actions) != 3 || numberedResponse.NextBeforeID != nil {
+		t.Fatalf("numbered response mismatch: code=%d response=%#v", numbered.Code, numberedResponse)
+	}
+	for _, path := range []string{
+		"/api/core/recent-actions?before_id=4&offset=0",
+		"/api/core/recent-actions?day=2026-02-30&offset=0",
+		"/api/core/recent-actions?limit=101&offset=0",
+	} {
+		if recorder, _ := performRequest(path); recorder.Code != http.StatusBadRequest {
+			t.Fatalf("invalid recent-actions query %q returned %d", path, recorder.Code)
+		}
 	}
 }
 

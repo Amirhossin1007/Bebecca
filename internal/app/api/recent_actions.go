@@ -92,6 +92,8 @@ type recentActionListFilter struct {
 	ActionTypes   []string
 	ResourceTypes []string
 	Statuses      []string
+	CreatedFrom   string
+	CreatedBefore string
 }
 
 type recentActionStored struct {
@@ -432,11 +434,22 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 	limit := 30
 	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
 		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 1 || parsed > 50 {
-			writeError(w, http.StatusBadRequest, "limit must be between 1 and 50")
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeError(w, http.StatusBadRequest, "limit must be between 1 and 100")
 			return
 		}
 		limit = parsed
+	}
+	offset := 0
+	offsetProvided := false
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			writeError(w, http.StatusBadRequest, "offset must be zero or greater")
+			return
+		}
+		offset = parsed
+		offsetProvided = true
 	}
 	var beforeID int64
 	if raw := strings.TrimSpace(r.URL.Query().Get("before_id")); raw != "" {
@@ -447,6 +460,10 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 		}
 		beforeID = parsed
 	}
+	if beforeID > 0 && offsetProvided {
+		writeError(w, http.StatusBadRequest, "before_id and offset cannot be used together")
+		return
+	}
 	filter, err := recentActionListFilterFromRequest(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -454,7 +471,20 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 	}
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
 	includeAdmin := principal.Context.Admin.HasFullAccess()
-	items, err := s.listRecentActions(r.Context(), beforeID, limit+1, includeAdmin, filter)
+	var items []recentActionItem
+	var total int
+	var nextBeforeID *int64
+	useCursor := beforeID > 0 || !offsetProvided
+	if useCursor {
+		items, err = s.listRecentActions(r.Context(), beforeID, limit+1, includeAdmin, filter)
+		if len(items) > limit {
+			items = items[:limit]
+			cursor := items[len(items)-1].cursorID
+			nextBeforeID = &cursor
+		}
+	} else {
+		items, total, err = s.listRecentActionsPage(r.Context(), offset, limit, includeAdmin, filter)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -464,16 +494,14 @@ func (s *Server) handleRecentActionsRoot(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	var nextBeforeID *int64
-	if len(items) > limit {
-		items = items[:limit]
-		cursor := items[len(items)-1].cursorID
-		nextBeforeID = &cursor
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"actions": items, "next_before_id": nextBeforeID,
 		"action_types": actionTypes, "resource_types": resourceTypes,
-	})
+	}
+	if !useCursor {
+		response["total"] = total
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func recentActionListFilterFromRequest(r *http.Request) (recentActionListFilter, error) {
@@ -509,9 +537,19 @@ func recentActionListFilterFromRequest(r *http.Request) (recentActionListFilter,
 	if err != nil {
 		return recentActionListFilter{}, err
 	}
+	var createdFrom, createdBefore string
+	if raw := strings.TrimSpace(r.URL.Query().Get("day")); raw != "" {
+		day, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return recentActionListFilter{}, fmt.Errorf("day must use YYYY-MM-DD format")
+		}
+		createdFrom = dbTimestamp(day)
+		createdBefore = dbTimestamp(day.AddDate(0, 0, 1))
+	}
 	return recentActionListFilter{
 		Search: search, ActionTypes: actionTypes,
 		ResourceTypes: resourceTypes, Statuses: statuses,
+		CreatedFrom: createdFrom, CreatedBefore: createdBefore,
 	}, nil
 }
 
@@ -554,6 +592,10 @@ func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit in
 		addRecentActionListFilter(&clauses, &args, "action_type", filter.ActionTypes)
 		addRecentActionListFilter(&clauses, &args, "resource_type", filter.ResourceTypes)
 		addRecentActionListFilter(&clauses, &args, "rollback_status", filter.Statuses)
+		if filter.CreatedFrom != "" && filter.CreatedBefore != "" {
+			clauses = append(clauses, "created_at >= ? AND created_at < ?")
+			args = append(args, filter.CreatedFrom, filter.CreatedBefore)
+		}
 		args = append(args, recentActionListChunkSize)
 		rows, err := s.db.QueryContext(ctx, `SELECT id, action_type, resource_type, resource_key, actor_admin_id, actor_username, auth_source,
 			summary, rollback_status, created_at, snapshot_expires_at, undone_at, undone_by_admin_id, after_hash, snapshot
@@ -594,6 +636,19 @@ func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit in
 		}
 		cursor = lastID
 	}
+}
+
+func (s *Server) listRecentActionsPage(ctx context.Context, offset, limit int, includeAdmin bool, filter recentActionListFilter) ([]recentActionItem, int, error) {
+	all, err := s.listRecentActions(ctx, 0, recentActionHistoryMaxRows+1, includeAdmin, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := len(all)
+	if offset >= total {
+		return []recentActionItem{}, total, nil
+	}
+	end := min(offset+limit, total)
+	return all[offset:end], total, nil
 }
 
 func addRecentActionListFilter(clauses *[]string, args *[]any, column string, values []string) {
