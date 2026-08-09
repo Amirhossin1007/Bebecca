@@ -1540,12 +1540,6 @@ func renderV2RayJSONSubscriptionWithTemplate(links []string, reverse bool, templ
 				return "", fmt.Errorf("Xray JSON cannot safely represent Hysteria 2 obfs %q from a standard URI", obfs)
 			}
 		}
-		if parseErr == nil && parsed.Scheme == "vless" {
-			encryption := strings.TrimSpace(parsed.Query().Get("encryption"))
-			if encryption != "" && !strings.EqualFold(encryption, "none") {
-				return "", fmt.Errorf("generic Xray JSON targets stable v26.3.27 and does not support VLESS Encryption introduced in 26.5.9; use raw, Mihomo, or a version-aware newer runtime config")
-			}
-		}
 		if err := xrayJSONMKCPCompatibilityError(link, parsed); err != nil {
 			return "", err
 		}

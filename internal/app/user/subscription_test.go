@@ -285,7 +285,7 @@ func TestRenderV2RayJSONSubscriptionUsesConfiguredTemplate(t *testing.T) {
 	}
 }
 
-func TestVLESSEncryptionRoundTripsRawAndMihomoWhileStableXrayRejects(t *testing.T) {
+func TestVLESSEncryptionRoundTripsXrayJSONTemplates(t *testing.T) {
 	const encryption = "mlkem768x25519plus.native.0rtt.100-111-1111.75-0-111.50-0-3333.ptjHQxBQxTJ9MWr2cd5qWIflBSACHOevTauCQwa_71U"
 	link := vlessShareLink("PQ + ✓", "[2001:db8::10]", "/x http", ResolvedInbound{
 		"port": 443, "network": "xhttp", "tls": "none", "encryption": encryption,
@@ -301,9 +301,66 @@ func TestVLESSEncryptionRoundTripsRawAndMihomoWhileStableXrayRejects(t *testing.
 		t.Fatalf("raw/outboundsub round-trip corrupted VLESS fields: user=%#v tag=%#v link=%s", user, parsed.Outbound["tag"], link)
 	}
 
-	v2rayBody, err := renderV2RayJSONSubscription([]string{link}, false)
-	if err == nil || v2rayBody != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "introduced in 26.5.9") {
-		t.Fatalf("generic stable Xray JSON silently emitted unsupported VLESS Encryption: body=%q err=%v", v2rayBody, err)
+	legacyLink := vlessShareLink("legacy", "legacy.example.com", "", ResolvedInbound{
+		"port": 443, "network": "tcp", "tls": "tls", "encryption": "none", "sni": "legacy.example.com",
+	}, map[string]any{"id": "22222222-2222-4222-8222-222222222222"})
+	customTemplate := `{
+		"log": {"loglevel": "debug"},
+		"inbounds": [],
+		"outbounds": [{"tag": "DIRECT", "protocol": "freedom"}]
+	}`
+	for _, service := range []struct {
+		name       string
+		link       string
+		encryption string
+	}{
+		{name: "encrypted service", link: link, encryption: encryption},
+		{name: "legacy service", link: legacyLink, encryption: "none"},
+	} {
+		for _, template := range []struct {
+			name    string
+			content string
+		}{
+			{name: "default"},
+			{name: "custom", content: customTemplate},
+		} {
+			t.Run(service.name+"/"+template.name, func(t *testing.T) {
+				body, err := renderV2RayJSONSubscriptionWithTemplate([]string{service.link}, false, template.content)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var configs []map[string]any
+				if err := json.Unmarshal([]byte(body), &configs); err != nil || len(configs) != 1 {
+					t.Fatalf("invalid Xray JSON: err=%v body=%s", err, body)
+				}
+				outbounds := configs[0]["outbounds"].([]any)
+				generated := outbounds[0].(map[string]any)
+				settings := generated["settings"].(map[string]any)
+				client := settings["vnext"].([]any)[0].(map[string]any)["users"].([]any)[0].(map[string]any)
+				if client["encryption"] != service.encryption {
+					t.Fatalf("client encryption = %v, want %q: %s", client["encryption"], service.encryption, body)
+				}
+				if _, leaked := client["decryption"]; leaked {
+					t.Fatalf("server decryption leaked into client outbound: %s", body)
+				}
+				if template.content != "" && (len(outbounds) != 2 || outbounds[1].(map[string]any)["tag"] != "DIRECT") {
+					t.Fatalf("custom template outbound was not preserved: %#v", outbounds)
+				}
+				if binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_VLESS_ENCRYPTION_TEST_BINARY")); binary != "" {
+					data, err := json.Marshal(configs[0])
+					if err != nil {
+						t.Fatal(err)
+					}
+					path := filepath.Join(t.TempDir(), "config.json")
+					if err := os.WriteFile(path, data, 0o600); err != nil {
+						t.Fatal(err)
+					}
+					if output, err := exec.Command(binary, "run", "-test", "-config", path).CombinedOutput(); err != nil {
+						t.Fatalf("official Xray rejected generated config: %v\n%s", err, output)
+					}
+				}
+			})
+		}
 	}
 	clash := mustRenderClashLikeYAML(t, "alice", []string{link}, true)
 	if !strings.Contains(clash, `encryption: "`+encryption+`"`) || !strings.Contains(clash, `xhttp-opts:`) {
@@ -1040,10 +1097,6 @@ func TestGenericXrayJSONStableDialectAcceptedByOfficialXray(t *testing.T) {
 	binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_STABLE_TEST_BINARY"))
 	if binary == "" {
 		t.Skip("set REBECCA_XRAY_STABLE_TEST_BINARY to the official stable Xray binary")
-	}
-	unsupportedEncryption := "vless://33333333-3333-4333-8333-333333333333@example.com:443?type=tcp&security=none&encryption=mlkem768x25519plus.native.0rtt.client-key"
-	if body, err := renderV2RayJSONSubscription([]string{unsupportedEncryption}, false); err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") {
-		t.Fatalf("generic renderer emitted VLESS Encryption that its stable binary target rejects: body=%q err=%v", body, err)
 	}
 	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["3-5"],"delays":["10-20"],"maxSplit":"3"}}]}`)
 	kcp := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value&headerType=dns&host=dns.example&mtu=1350&tti=20&fm=" + fm
