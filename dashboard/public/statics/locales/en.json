@@ -797,6 +797,7 @@
 	"inbounds.vless.getKeys": "Get new keys",
 	"inbounds.vless.getKeysError": "Unable to fetch VLESS keys",
 	"inbounds.vless.selectAuthFirst": "Select an authentication option first",
+	"inbounds.vless.flow": "Flow",
 	"inbounds.vmess.disableInsecure": "Disable insecure encryption",
 	"inbounds.ws.host": "WebSocket host header",
 	"inbounds.ws.path": "WebSocket path",

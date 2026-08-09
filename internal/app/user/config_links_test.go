@@ -1166,6 +1166,34 @@ func TestVLESSShareLinkFlowMatchesOfficialTransportRules(t *testing.T) {
 	}
 }
 
+func TestVLESSShareLinkUsesInboundFlowAsUserDefault(t *testing.T) {
+	inbound := ResolvedInbound{
+		"port": 443, "network": "tcp", "tls": "tls", "header_type": "none",
+		"encryption": "none", "flow": "xtls-rprx-vision",
+	}
+	const id = "11111111-1111-4111-8111-111111111111"
+
+	defaultLink := vlessShareLink("default", "example.com", "/", inbound, map[string]any{"id": id})
+	parsed, err := url.Parse(defaultLink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := parsed.Query().Get("flow"); got != "xtls-rprx-vision" {
+		t.Fatalf("default flow = %q, want xtls-rprx-vision", got)
+	}
+
+	userLink := vlessShareLink("user", "example.com", "/", inbound, map[string]any{
+		"id": id, "flow": "xtls-rprx-vision-udp443",
+	})
+	parsed, err = url.Parse(userLink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := parsed.Query().Get("flow"); got != "xtls-rprx-vision-udp443" {
+		t.Fatalf("user flow = %q, want xtls-rprx-vision-udp443", got)
+	}
+}
+
 func TestTrojanDoesNotCarryRemovedFlow(t *testing.T) {
 	settings, err := RuntimeProxySettings(map[string]any{"password": "secret", "flow": "xtls-rprx-vision"}, "trojan", "", "", nil)
 	if err != nil {

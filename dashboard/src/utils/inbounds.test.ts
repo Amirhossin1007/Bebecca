@@ -25,6 +25,36 @@ describe("inbound traffic", () => {
 	});
 });
 
+describe("VLESS inbound default flow", () => {
+	it("round-trips the supported inbound value and drops outbound-only values", () => {
+		const raw: RawInbound = {
+			tag: "vless-flow",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none", flow: "xtls-rprx-vision" },
+			streamSettings: {
+				network: "raw",
+				security: "tls",
+			},
+		};
+
+		const values = rawInboundToFormValues(raw);
+		expect(values.vlessFlow).toBe("xtls-rprx-vision");
+		expect(buildInboundPayload(values, { initial: raw }).settings).toMatchObject({
+			flow: "xtls-rprx-vision",
+		});
+
+		const invalid = rawInboundToFormValues({
+			...raw,
+			settings: {
+				...raw.settings,
+				flow: "xtls-rprx-vision-udp443",
+			},
+		});
+		expect(invalid.vlessFlow).toBe("");
+	});
+});
+
 describe("XHTTP inbound settings", () => {
 	it.each([
 		["current", { sessionIDPlacement: "header", sessionIDKey: "X-Session" }],

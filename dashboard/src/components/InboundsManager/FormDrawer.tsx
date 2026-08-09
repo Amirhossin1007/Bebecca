@@ -146,7 +146,7 @@ const DOMAIN_STRATEGY_OPTIONS = [
 	"ForceIPv4v6",
 	"ForceIPv4",
 ];
-
+const VLESS_FLOW_OPTIONS = ["xtls-rprx-vision"];
 const TCP_CONGESTION_OPTIONS = ["bbr", "cubic", "reno"];
 const TPROXY_OPTIONS: Array<"" | "off" | "redirect" | "tproxy"> = [
 	"off",
@@ -1762,6 +1762,36 @@ export const InboundFormModal: FC<Props> = ({
 													{t("inbounds.vmess.disableInsecure")}
 												</FormLabel>
 												<Switch {...register("disableInsecureEncryption")} />
+											</FormControl>
+										)}
+										{currentProtocol === "vless" && (
+											<FormControl>
+												<FormLabel>
+													{t("inbounds.vless.flow")}
+												</FormLabel>
+												<SearchableTagSelect
+													value={formValues.vlessFlow || ""}
+													options={[
+														{
+															value: "",
+															label: t("common.default"),
+														},
+														...VLESS_FLOW_OPTIONS,
+													]}
+													placeholder={t("inbounds.vless.flow")}
+													onChange={(value) =>
+														form.setValue(
+															"vlessFlow",
+															String(
+																value,
+															) as InboundFormValues["vlessFlow"],
+															{
+																shouldDirty: true,
+																shouldValidate: true,
+															},
+														)
+													}
+												/>
 											</FormControl>
 										)}
 										{currentProtocol === "shadowsocks" && (
