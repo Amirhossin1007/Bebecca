@@ -8,9 +8,10 @@ import {
 	useNavigate,
 	useRouteError,
 } from "react-router-dom";
-import { lazy, Suspense, type ComponentType } from "react";
+import { lazy, Suspense, type ComponentType, useEffect } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { fetch } from "../service/http";
+import { recoverFromStaleChunk } from "../utils/chunkRecovery";
 import { DashboardPage } from "./DashboardPage";
 import { Login } from "./Login";
 import { UsersPage } from "./UsersPage";
@@ -63,6 +64,10 @@ const RouteErrorPage = () => {
 	const error = useRouteError();
 	const navigate = useNavigate();
 	const { t } = useTranslation();
+
+	useEffect(() => {
+		recoverFromStaleChunk(error);
+	}, [error]);
 
 	return (
 		<Box minH="100vh" bg="gray.950" color="white" px={6} py={10}>
