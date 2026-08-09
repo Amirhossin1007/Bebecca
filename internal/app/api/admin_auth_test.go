@@ -141,7 +141,9 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 		)`,
 		`CREATE TABLE inbounds (
 			id INTEGER PRIMARY KEY,
-			tag TEXT NOT NULL UNIQUE
+			tag TEXT NOT NULL UNIQUE,
+			uplink INTEGER NOT NULL DEFAULT 0,
+			downlink INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE TABLE hosts (
 			id INTEGER PRIMARY KEY,

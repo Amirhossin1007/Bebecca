@@ -26,10 +26,12 @@ import { useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import {
 	buildInboundPayload,
+	getInboundTraffic,
 	type InboundFormValues,
 	protocolOptions,
 	type RawInbound,
 } from "utils/inbounds";
+import { formatBytes } from "utils/formatByte";
 import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
 import {
@@ -541,13 +543,47 @@ export const InboundsManager: FC = () => {
 				},
 			},
 			{
+				id: "traffic",
+				header: t("inbounds.traffic"),
+				priority: "medium",
+				width: "175px",
+				maxWidth: "195px",
+				mobilePriority: 5,
+				mobileMetaLabel: t("inbounds.traffic"),
+				cell: (inbound) => {
+					const traffic = getInboundTraffic(inbound);
+					return (
+						<Stack spacing={0} fontSize="xs">
+							{[
+								[t("inbounds.upload"), traffic.upload],
+								[t("inbounds.download"), traffic.download],
+								[t("inbounds.totalTraffic"), traffic.total],
+							].map(([label, value], index) => (
+								<HStack key={String(label)} justify="space-between" spacing={2}>
+									<Text fontWeight={index === 2 ? "semibold" : undefined}>
+										{label}
+									</Text>
+									<Text
+										dir="ltr"
+										fontWeight={index === 2 ? "semibold" : undefined}
+										sx={{ unicodeBidi: "isolate" }}
+									>
+										{formatBytes(Number(value))}
+									</Text>
+								</HStack>
+							))}
+						</Stack>
+					);
+				},
+			},
+			{
 				id: "sniffing",
 				header: t("inbounds.sniffing"),
 				priority: "low",
 				hideBelow: "xl",
 				width: "150px",
 				maxWidth: "170px",
-				mobilePriority: 5,
+				mobilePriority: 6,
 				mobileMetaLabel: t("inbounds.sniffing"),
 				cell: (inbound) =>
 					inbound.sniffing?.enabled ? (
@@ -567,7 +603,7 @@ export const InboundsManager: FC = () => {
 				hideBelow: "lg",
 				width: "210px",
 				maxWidth: "260px",
-				mobilePriority: 6,
+				mobilePriority: 7,
 				mobileMetaLabel: t("inbounds.targets"),
 				cell: (inbound) => {
 					const targetIds = getInboundTargetIds(inbound);

@@ -1966,8 +1966,6 @@ func mergePolicy(runtime map[string]any) {
 			"statsUserOnline":   true,
 		}},
 		"system": map[string]any{
-			"statsInboundDownlink":  false,
-			"statsInboundUplink":    false,
 			"statsOutboundDownlink": true,
 			"statsOutboundUplink":   true,
 		},

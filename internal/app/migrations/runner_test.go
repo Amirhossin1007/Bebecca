@@ -75,6 +75,8 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertTableColumns(t, ctx, db, "sqlite", "pending_node_certificates", []string{"token", "certificate", "certificate_key", "expires_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "xray_config", []string{"id", "data", "created_at", "updated_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "outbound_traffic", []string{"outbound_id", "tag", "target_id", "node_id", "uplink", "downlink"})
+	assertTableColumns(t, ctx, db, "sqlite", "inbounds", []string{"id", "tag", "uplink", "downlink"})
+	assertTableColumns(t, ctx, db, "sqlite", "node_usage_outbound_queue", []string{"uplink", "downlink", "inbound_uplink", "inbound_downlink"})
 	assertTableColumns(t, ctx, db, "sqlite", "services", []string{"id", "name", "description", "flow", "used_traffic", "lifetime_used_traffic", "users_usage"})
 	assertTableColumns(t, ctx, db, "sqlite", "admins_services", []string{"admin_id", "service_id", "used_traffic", "lifetime_used_traffic", "created_traffic", "data_limit", "users_limit", "traffic_limit_mode", "show_user_traffic", "delete_user_usage_limit", "deleted_users_usage"})
 	assertTableColumns(t, ctx, db, "sqlite", "service_hosts", []string{"service_id", "host_id", "sort", "created_at"})
