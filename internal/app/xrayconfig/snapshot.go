@@ -48,8 +48,10 @@ type TargetState struct {
 }
 
 type InboundRecordSnapshot struct {
-	ID  int64  `json:"id"`
-	Tag string `json:"tag"`
+	ID       int64  `json:"id"`
+	Tag      string `json:"tag"`
+	Uplink   int64  `json:"uplink,omitempty"`
+	Downlink int64  `json:"downlink,omitempty"`
 }
 
 type HostSnapshot struct {
@@ -99,7 +101,14 @@ type SnapshotScope struct {
 var ErrRollbackConflict = errors.New("recent action is no longer the current state")
 
 func SnapshotHash(snapshot MutationSnapshot) (string, error) {
-	raw, err := json.Marshal(snapshot)
+	hashable := snapshot
+	if snapshot.Inbound != nil {
+		inbound := *snapshot.Inbound
+		inbound.Uplink = 0
+		inbound.Downlink = 0
+		hashable.Inbound = &inbound
+	}
+	raw, err := json.Marshal(hashable)
 	if err != nil {
 		return "", err
 	}
@@ -123,7 +132,7 @@ func (r Repository) CaptureMutationSnapshotTx(ctx context.Context, tx *sql.Tx, s
 	}
 	if scope.InboundTag != "" {
 		var record InboundRecordSnapshot
-		err := tx.QueryRowContext(ctx, `SELECT id, tag FROM inbounds WHERE tag = ? LIMIT 1`, scope.InboundTag).Scan(&record.ID, &record.Tag)
+		err := tx.QueryRowContext(ctx, `SELECT id, tag, uplink, downlink FROM inbounds WHERE tag = ? LIMIT 1`, scope.InboundTag).Scan(&record.ID, &record.Tag, &record.Uplink, &record.Downlink)
 		switch {
 		case err == nil:
 			snapshot.Inbound = &record
@@ -372,7 +381,7 @@ func (r Repository) restoreConfigPatchesTx(ctx context.Context, tx *sql.Tx, patc
 }
 
 func (r Repository) restoreMutationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot MutationSnapshot, current MutationSnapshot, targetIDs []string) error {
-	if err := restoreInboundHostsTx(ctx, tx, snapshot); err != nil {
+	if err := restoreInboundHostsTx(ctx, tx, snapshot, current); err != nil {
 		return err
 	}
 	if len(targetIDs) > 0 {
@@ -389,7 +398,7 @@ func (r Repository) restoreMutationSnapshotTx(ctx context.Context, tx *sql.Tx, s
 	return nil
 }
 
-func restoreInboundHostsTx(ctx context.Context, tx *sql.Tx, snapshot MutationSnapshot) error {
+func restoreInboundHostsTx(ctx context.Context, tx *sql.Tx, snapshot MutationSnapshot, current MutationSnapshot) error {
 	if len(snapshot.HostTags) == 0 && snapshot.InboundTag == "" {
 		return nil
 	}
@@ -411,7 +420,11 @@ func restoreInboundHostsTx(ctx context.Context, tx *sql.Tx, snapshot MutationSna
 			return err
 		}
 		if snapshot.Inbound != nil {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO inbounds (id, tag) VALUES (?, ?)`, snapshot.Inbound.ID, snapshot.Inbound.Tag); err != nil {
+			uplink, downlink := snapshot.Inbound.Uplink, snapshot.Inbound.Downlink
+			if current.Inbound != nil {
+				uplink, downlink = current.Inbound.Uplink, current.Inbound.Downlink
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO inbounds (id, tag, uplink, downlink) VALUES (?, ?, ?, ?)`, snapshot.Inbound.ID, snapshot.Inbound.Tag, uplink, downlink); err != nil {
 				return err
 			}
 		}

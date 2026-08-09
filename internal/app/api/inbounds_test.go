@@ -39,6 +39,9 @@ func TestInboundRoutesListFullAndDetail(t *testing.T) {
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	insertCoreConfigNode(t, db, 7, "de-7", xrayconfig.ConfigModeDefault, nil)
 	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("master-vless", "vless", 443)))
+	if _, err := db.Exec(`INSERT INTO inbounds (tag, uplink, downlink) VALUES ('master-vless', 1024, 2048)`); err != nil {
+		t.Fatal(err)
+	}
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
 	rec := adminJSONRequest(t, server, http.MethodGet, "/inbounds", token, "")
@@ -64,6 +67,9 @@ func TestInboundRoutesListFullAndDetail(t *testing.T) {
 	if len(full) != 1 || full[0]["tag"] != "master-vless" {
 		t.Fatalf("unexpected full inbounds: %#v", full)
 	}
+	if full[0]["uplink"] != float64(1024) || full[0]["downlink"] != float64(2048) {
+		t.Fatalf("unexpected inbound traffic: %#v", full[0])
+	}
 	settings := full[0]["settings"].(map[string]any)
 	if clients := settings["clients"].([]any); len(clients) != 0 {
 		t.Fatalf("settings.clients was not sanitized: %#v", clients)
@@ -82,6 +88,9 @@ func TestInboundRoutesListFullAndDetail(t *testing.T) {
 	}
 	if detail["tag"] != "master-vless" {
 		t.Fatalf("unexpected detail: %#v", detail)
+	}
+	if detail["uplink"] != float64(1024) || detail["downlink"] != float64(2048) {
+		t.Fatalf("unexpected detail traffic: %#v", detail)
 	}
 }
 

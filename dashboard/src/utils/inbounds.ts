@@ -37,6 +37,18 @@ export type RawInbound = {
 	sniffing?: Record<string, any>;
 	targets?: string[];
 	effective_targets?: string[];
+	uplink?: number;
+	downlink?: number;
+};
+
+export const getInboundTraffic = (inbound: RawInbound) => {
+	const normalize = (value: unknown) => {
+		const number = Number(value);
+		return Number.isFinite(number) && number > 0 ? number : 0;
+	};
+	const upload = normalize(inbound.uplink);
+	const download = normalize(inbound.downlink);
+	return { upload, download, total: upload + download };
 };
 
 type BuildInboundOptions = {

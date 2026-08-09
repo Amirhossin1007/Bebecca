@@ -95,6 +95,7 @@ func (c Controller) collectUsageForNode(
 	var outboundBatch *nodev1.OutboundUsageBatch
 	var userDeltas []UserUsageDelta
 	var outboundDeltas []OutboundUsageDelta
+	var inboundDeltas []InboundUsageDelta
 
 	if collectUsers {
 		userBatch, err = client.Usage().CollectUserUsage(nodeCtx, &nodev1.CollectUsageRequest{
@@ -143,13 +144,26 @@ func (c Controller) collectUsageForNode(
 		}
 		for _, sample := range outboundBatch.GetStats() {
 			tag := strings.TrimSpace(sample.GetTag())
-			up := int64(sample.GetUp())
-			down := int64(sample.GetDown())
+			up, upOK := usageUint64ToInt64(sample.GetUp())
+			down, downOK := usageUint64ToInt64(sample.GetDown())
+			if !upOK || !downOK {
+				continue
+			}
 			if tag == "" || (up <= 0 && down <= 0) {
 				continue
 			}
 			outboundDeltas = append(outboundDeltas, OutboundUsageDelta{Tag: tag, Up: up, Down: down})
 			result.OutboundSamples++
+		}
+		for _, sample := range outboundBatch.GetInboundStats() {
+			tag := strings.TrimSpace(sample.GetTag())
+			up, upOK := usageUint64ToInt64(sample.GetUp())
+			down, downOK := usageUint64ToInt64(sample.GetDown())
+			if tag == "" || !upOK || !downOK || (up <= 0 && down <= 0) {
+				continue
+			}
+			inboundDeltas = append(inboundDeltas, InboundUsageDelta{Tag: tag, Up: up, Down: down})
+			result.InboundSamples++
 		}
 	}
 
@@ -161,7 +175,7 @@ func (c Controller) collectUsageForNode(
 	if outboundBatch != nil {
 		outboundBatchID = outboundBatch.GetBatchId()
 	}
-	if err := c.storeCollectedUsageWithRetry(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, persistOptions); err != nil {
+	if err := c.storeCollectedUsageWithRetry(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, inboundDeltas, persistOptions); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d DB write: %s", node.ID, err.Error()))
 		return result
 	}
@@ -194,6 +208,7 @@ func mergeCollectUsageResult(result *CollectUsageResult, next CollectUsageResult
 	result.OutboundBatches += next.OutboundBatches
 	result.UserSamples += next.UserSamples
 	result.OutboundSamples += next.OutboundSamples
+	result.InboundSamples += next.InboundSamples
 	result.UserAcked += next.UserAcked
 	result.OutboundAcked += next.OutboundAcked
 	result.Errors = append(result.Errors, next.Errors...)
@@ -204,6 +219,13 @@ func usageCollectionShouldReset(req CollectUsageRequest) bool {
 		return false
 	}
 	return true
+}
+
+func usageUint64ToInt64(value uint64) (int64, bool) {
+	if value > uint64(^uint64(0)>>1) {
+		return 0, false
+	}
+	return int64(value), true
 }
 
 const onlineUsageSamplePrefix = "online:"
@@ -259,10 +281,10 @@ func (c Controller) persistCollectedUsageWithRetry(ctx context.Context, node Nod
 	return err
 }
 
-func (c Controller) storeCollectedUsageWithRetry(ctx context.Context, node NodeRow, userBatchID string, userDeltas []UserUsageDelta, outboundBatchID string, outboundDeltas []OutboundUsageDelta, options UsagePersistOptions) error {
+func (c Controller) storeCollectedUsageWithRetry(ctx context.Context, node NodeRow, userBatchID string, userDeltas []UserUsageDelta, outboundBatchID string, outboundDeltas []OutboundUsageDelta, inboundDeltas []InboundUsageDelta, options UsagePersistOptions) error {
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
-		err = c.repo.StoreCollectedUsage(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, options)
+		err = c.repo.StoreCollectedUsageWithInbounds(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, inboundDeltas, options)
 		if err == nil || !isTransientUsagePersistError(err) {
 			return err
 		}

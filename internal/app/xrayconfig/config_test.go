@@ -1608,6 +1608,44 @@ func TestPPTPRejectsPoolLargerThan24(t *testing.T) {
 	}
 }
 
+func TestMergePolicyPreservesIndependentInboundStatsToggles(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		uplink   bool
+		downlink bool
+	}{
+		{name: "both disabled"},
+		{name: "uplink only", uplink: true},
+		{name: "downlink only", downlink: true},
+		{name: "both enabled", uplink: true, downlink: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime := map[string]any{"policy": map[string]any{"system": map[string]any{
+				"statsInboundUplink":   test.uplink,
+				"statsInboundDownlink": test.downlink,
+			}}}
+			mergePolicy(runtime)
+			system := mapValue(mapValue(runtime["policy"])["system"])
+			if system["statsInboundUplink"] != test.uplink || system["statsInboundDownlink"] != test.downlink {
+				t.Fatalf("inbound stats toggles changed: %#v", system)
+			}
+			if system["statsOutboundUplink"] != true || system["statsOutboundDownlink"] != true {
+				t.Fatalf("outbound stats were not enabled: %#v", system)
+			}
+		})
+	}
+
+	runtime := map[string]any{}
+	mergePolicy(runtime)
+	system := mapValue(mapValue(runtime["policy"])["system"])
+	if _, exists := system["statsInboundUplink"]; exists {
+		t.Fatalf("missing inbound toggle should retain Xray's false default: %#v", system)
+	}
+	if _, exists := system["statsInboundDownlink"]; exists {
+		t.Fatalf("missing inbound toggle should retain Xray's false default: %#v", system)
+	}
+}
+
 func hasAPIInbound(payload map[string]any) bool {
 	for _, inbound := range payload["inbounds"].([]any) {
 		if inbound.(map[string]any)["tag"] == "API_INBOUND" {

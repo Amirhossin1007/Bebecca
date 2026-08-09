@@ -40,7 +40,7 @@ func testRepository(t *testing.T) (Repository, *sql.DB) {
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
 		)`,
-		`CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE)`,
+		`CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE TABLE hosts (id INTEGER PRIMARY KEY AUTOINCREMENT, remark TEXT NULL, address TEXT NULL, inbound_tag TEXT NULL)`,
 		`INSERT INTO nodes (id, name, status, xray_config_mode) VALUES (7, 'de-1', 'connected', 'default')`,
 		`INSERT INTO nodes (id, name, status, xray_config_mode, xray_config) VALUES (8, 'custom-1', 'error', 'custom', '{"inbounds":[{"tag":"custom-ss","protocol":"shadowsocks","port":8080,"settings":{"clients":[],"network":"tcp,udp"}}],"outbounds":[{"tag":"DIRECT","protocol":"freedom"}]}')`,

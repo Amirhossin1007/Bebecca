@@ -3,10 +3,27 @@ import { describe, expect, it } from "vitest";
 import {
 	buildInboundPayload,
 	createDefaultInboundForm,
+	getInboundTraffic,
 	rawInboundToFormValues,
 	type RawInbound,
 	validateInboundFormFields,
 } from "./inbounds";
+
+describe("inbound traffic", () => {
+	it("maps uplink to upload, downlink to download, and tolerates old responses", () => {
+		const base = { tag: "in", port: 443, protocol: "vless", settings: {} };
+		expect(getInboundTraffic({ ...base, uplink: 1024, downlink: 2048 })).toEqual({
+			upload: 1024,
+			download: 2048,
+			total: 3072,
+		});
+		expect(getInboundTraffic(base)).toEqual({
+			upload: 0,
+			download: 0,
+			total: 0,
+		});
+	});
+});
 
 describe("XHTTP inbound settings", () => {
 	it.each([

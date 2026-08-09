@@ -346,6 +346,10 @@ func (r Repository) manageableInboundsWithTargets(ctx context.Context) ([]map[st
 	if err != nil {
 		return nil, err
 	}
+	traffic, err := r.inboundTrafficByTag(ctx)
+	if err != nil {
+		return nil, err
+	}
 	byTag := make(map[string]map[string]any)
 	order := make([]string, 0)
 	for _, item := range stored {
@@ -369,7 +373,10 @@ func (r Repository) manageableInboundsWithTargets(ctx context.Context) ([]map[st
 			if err != nil {
 				return nil, err
 			}
-			byTag[tag] = sanitizeInbound(inbound, direct, effective)
+			sanitized := sanitizeInbound(inbound, direct, effective)
+			sanitized["uplink"] = traffic[tag][0]
+			sanitized["downlink"] = traffic[tag][1]
+			byTag[tag] = sanitized
 			order = append(order, tag)
 		}
 	}
@@ -379,6 +386,24 @@ func (r Repository) manageableInboundsWithTargets(ctx context.Context) ([]map[st
 		out = append(out, byTag[tag])
 	}
 	return out, nil
+}
+
+func (r Repository) inboundTrafficByTag(ctx context.Context) (map[string][2]int64, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT tag, COALESCE(uplink, 0), COALESCE(downlink, 0) FROM inbounds`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	traffic := make(map[string][2]int64)
+	for rows.Next() {
+		var tag string
+		var uplink, downlink int64
+		if err := rows.Scan(&tag, &uplink, &downlink); err != nil {
+			return nil, err
+		}
+		traffic[tag] = [2]int64{uplink, downlink}
+	}
+	return traffic, rows.Err()
 }
 
 func (r Repository) extractTargetIDs(payload map[string]any, defaults []string) ([]string, map[string]any, error) {
