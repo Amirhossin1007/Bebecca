@@ -125,7 +125,7 @@ func (c Controller) collectUsageForNode(
 				result.UserSamples++
 			}
 		}
-		if err := c.repo.StoreNodeOnlineIPs(ctx, node.ID, onlineIPSamplesFromBatch(userBatch.GetOnlineIps())); err != nil {
+		if err := c.storeNodeOnlineIPsWithRetry(ctx, node.ID, onlineIPSamplesFromBatch(userBatch.GetOnlineIps())); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d online IPs: %s", node.ID, err.Error()))
 		}
 	}
@@ -266,25 +266,27 @@ func isUserUsageProtocolPrefix(value string) bool {
 }
 
 func (c Controller) persistCollectedUsageWithRetry(ctx context.Context, node NodeRow, userDeltas []UserUsageDelta, outboundDeltas []OutboundUsageDelta, options UsagePersistOptions) error {
-	var err error
-	for attempt := 0; attempt < 3; attempt++ {
-		err = c.repo.PersistCollectedUsage(ctx, node, userDeltas, outboundDeltas, options)
-		if err == nil || !isTransientUsagePersistError(err) {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 100 * time.Millisecond):
-		}
-	}
-	return err
+	return retryTransientUsageWrite(ctx, func() error {
+		return c.repo.PersistCollectedUsage(ctx, node, userDeltas, outboundDeltas, options)
+	})
 }
 
 func (c Controller) storeCollectedUsageWithRetry(ctx context.Context, node NodeRow, userBatchID string, userDeltas []UserUsageDelta, outboundBatchID string, outboundDeltas []OutboundUsageDelta, inboundDeltas []InboundUsageDelta, options UsagePersistOptions) error {
+	return retryTransientUsageWrite(ctx, func() error {
+		return c.repo.StoreCollectedUsageWithInbounds(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, inboundDeltas, options)
+	})
+}
+
+func (c Controller) storeNodeOnlineIPsWithRetry(ctx context.Context, nodeID int64, samples []OnlineIPSample) error {
+	return retryTransientUsageWrite(ctx, func() error {
+		return c.repo.StoreNodeOnlineIPs(ctx, nodeID, samples)
+	})
+}
+
+func retryTransientUsageWrite(ctx context.Context, write func() error) error {
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
-		err = c.repo.StoreCollectedUsageWithInbounds(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, inboundDeltas, options)
+		err = write()
 		if err == nil || !isTransientUsagePersistError(err) {
 			return err
 		}

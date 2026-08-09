@@ -3,11 +3,29 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 
 	_ "modernc.org/sqlite"
 )
+
+func TestRetryTransientUsageWriteRetriesDeadlock(t *testing.T) {
+	attempts := 0
+	err := retryTransientUsageWrite(context.Background(), func() error {
+		attempts++
+		if attempts < 3 {
+			return errors.New("Error 1213 (40001): Deadlock found when trying to get lock; try restarting transaction")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 3 {
+		t.Fatalf("attempts = %d, want 3", attempts)
+	}
+}
 
 func TestUsageCollectionResetsXrayCountersByDefault(t *testing.T) {
 	cases := []struct {

@@ -31,7 +31,7 @@ import {
 	protocolOptions,
 	type RawInbound,
 } from "utils/inbounds";
-import { formatBytes } from "utils/formatByte";
+import { SizeFormatter } from "utils/outbound";
 import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
 import {
@@ -553,26 +553,20 @@ export const InboundsManager: FC = () => {
 				cell: (inbound) => {
 					const traffic = getInboundTraffic(inbound);
 					return (
-						<Stack spacing={0} fontSize="xs">
-							{[
-								[t("inbounds.upload"), traffic.upload],
-								[t("inbounds.download"), traffic.download],
-								[t("inbounds.totalTraffic"), traffic.total],
-							].map(([label, value], index) => (
-								<HStack key={String(label)} justify="space-between" spacing={2}>
-									<Text fontWeight={index === 2 ? "semibold" : undefined}>
-										{label}
-									</Text>
-									<Text
-										dir="ltr"
-										fontWeight={index === 2 ? "semibold" : undefined}
-										sx={{ unicodeBidi: "isolate" }}
-									>
-										{formatBytes(Number(value))}
-									</Text>
-								</HStack>
-							))}
-						</Stack>
+						<HStack
+							spacing={3}
+							whiteSpace="nowrap"
+							fontSize="xs"
+							dir="ltr"
+							sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+						>
+							<Text color="teal.400">
+								↑ {SizeFormatter.sizeFormat(traffic.upload)}
+							</Text>
+							<Text color="blue.400">
+								↓ {SizeFormatter.sizeFormat(traffic.download)}
+							</Text>
+						</HStack>
 					);
 				},
 			},
