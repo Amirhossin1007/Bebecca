@@ -127,6 +127,10 @@ import {
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
 import { sumOutboundTraffic } from "../utils/outboundTraffic";
+import {
+	sortByTraffic,
+	type TrafficSortOrder,
+} from "../utils/trafficSort";
 import XrayLogsPage from "./XrayLogsPage";
 
 const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
@@ -797,6 +801,8 @@ export const CoreSettingsPage: FC = () => {
 
 	const [outboundData, setOutboundData] = useState<any[]>([]);
 	const [outboundSearch, setOutboundSearch] = useState("");
+	const [outboundTrafficSort, setOutboundTrafficSort] =
+		useState<TrafficSortOrder>("default");
 	const [selectedOutboundIds, setSelectedOutboundIds] = useState<string[]>([]);
 	const [outboundTestType, setOutboundTestType] =
 		useState<OutboundTestType>("latency");
@@ -1721,11 +1727,34 @@ export const CoreSettingsPage: FC = () => {
 			outbound,
 			originalIndex,
 		}));
-		if (!term) return rows;
-		return rows.filter(({ outbound }) =>
-			JSON.stringify(outbound).toLowerCase().includes(term),
+		const matches = term
+			? rows.filter(({ outbound }) =>
+					JSON.stringify(outbound).toLowerCase().includes(term),
+				)
+			: rows;
+		return sortByTraffic(
+			matches,
+			outboundTrafficSort,
+			({ outbound, originalIndex }) => {
+				const traffic = sumOutboundTraffic(
+					outboundsTraffic,
+					selectedTarget,
+					outboundIds[originalIndex],
+					outbound.tag,
+					isMasterTarget,
+				);
+				return traffic.up + traffic.down;
+			},
 		);
-	}, [outboundData, outboundSearch]);
+	}, [
+		outboundData,
+		outboundIds,
+		outboundSearch,
+		outboundTrafficSort,
+		outboundsTraffic,
+		selectedTarget,
+		isMasterTarget,
+	]);
 	const managedOutboundData = useMemo(
 		() => filteredOutboundData.filter(({ outbound }) => managedOutboundMeta(outbound)),
 		[filteredOutboundData],
@@ -3600,7 +3629,10 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-up",
 			label: t("pages.xray.outbound.moveUp"),
 			icon: <ArrowUpIconStyled />,
-			isDisabled: outboundSearch.trim().length > 0 || row.originalIndex === 0,
+			isDisabled:
+				outboundSearch.trim().length > 0 ||
+				outboundTrafficSort !== "default" ||
+				row.originalIndex === 0,
 			onClick: () => moveOutboundUp(row.originalIndex),
 		},
 		{
@@ -3609,6 +3641,7 @@ export const CoreSettingsPage: FC = () => {
 			icon: <ArrowDownIconStyled />,
 			isDisabled:
 				outboundSearch.trim().length > 0 ||
+				outboundTrafficSort !== "default" ||
 				row.originalIndex === outboundData.length - 1,
 			onClick: () => moveOutboundDown(row.originalIndex),
 		},
@@ -4811,6 +4844,23 @@ export const CoreSettingsPage: FC = () => {
 										placeholder={t("search")}
 										value={outboundSearch}
 										onChange={(e) => setOutboundSearch(e.target.value)}
+									/>
+									<Select
+										size="sm"
+										w={{ base: "full", md: "210px" }}
+										value={outboundTrafficSort}
+										showSearch={false}
+										options={[
+											{ value: "default", label: t("trafficSort.default") },
+											{ value: "highest", label: t("trafficSort.highest") },
+											{ value: "lowest", label: t("trafficSort.lowest") },
+										]}
+										placeholder={t("trafficSort.label")}
+										onChange={(event) =>
+											setOutboundTrafficSort(
+												event.target.value as TrafficSortOrder,
+											)
+										}
 									/>
 									<RadioGroup
 										size="sm"

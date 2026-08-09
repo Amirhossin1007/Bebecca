@@ -32,6 +32,10 @@ import {
 	type RawInbound,
 } from "utils/inbounds";
 import { SizeFormatter } from "utils/outbound";
+import {
+	sortByTraffic,
+	type TrafficSortOrder,
+} from "utils/trafficSort";
 import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
 import {
@@ -47,6 +51,7 @@ import { InboundFormModal } from "./FormDrawer";
 type FilterState = {
 	protocol: string;
 	search: string;
+	traffic: TrafficSortOrder;
 };
 
 const normalizeTargetRefs = (value: unknown): string[] => {
@@ -89,6 +94,7 @@ export const InboundsManager: FC = () => {
 	const [filter, setFilter] = useState<FilterState>({
 		protocol: "all",
 		search: "",
+		traffic: "default",
 	});
 	const [selectedInboundTags, setSelectedInboundTags] = useState<string[]>([]);
 	const [selected, setSelected] = useState<RawInbound | null>(null);
@@ -120,7 +126,7 @@ export const InboundsManager: FC = () => {
 
 	const filtered = useMemo(() => {
 		const term = filter.search.trim().toLowerCase();
-		return inbounds.filter((inbound) => {
+		const matches = inbounds.filter((inbound) => {
 			if (filter.protocol !== "all" && inbound.protocol !== filter.protocol) {
 				return false;
 			}
@@ -130,6 +136,11 @@ export const InboundsManager: FC = () => {
 				inbound.port?.toString().includes(term)
 			);
 		});
+		return sortByTraffic(
+			matches,
+			filter.traffic,
+			(inbound) => getInboundTraffic(inbound).total,
+		);
 	}, [inbounds, filter]);
 	const targetNameById = useMemo(
 		() =>
@@ -737,6 +748,23 @@ export const InboundsManager: FC = () => {
 						placeholder={t("inbounds.filterProtocol")}
 						onChange={(value) =>
 							setFilter((prev) => ({ ...prev, protocol: String(value) }))
+						}
+					/>
+					<SearchableTagSelect
+						size="sm"
+						width="190px"
+						value={filter.traffic}
+						options={[
+							{ value: "default", label: t("trafficSort.default") },
+							{ value: "highest", label: t("trafficSort.highest") },
+							{ value: "lowest", label: t("trafficSort.lowest") },
+						]}
+						placeholder={t("trafficSort.label")}
+						onChange={(value) =>
+							setFilter((prev) => ({
+								...prev,
+								traffic: String(value) as TrafficSortOrder,
+							}))
 						}
 					/>
 				</Stack>
