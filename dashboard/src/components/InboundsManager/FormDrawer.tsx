@@ -146,7 +146,7 @@ const DOMAIN_STRATEGY_OPTIONS = [
 	"ForceIPv4v6",
 	"ForceIPv4",
 ];
-const VLESS_FLOW_OPTIONS = ["xtls-rprx-vision"  , "xtls-rprx-vision-udp443"]
+const VLESS_FLOW_OPTIONS = ["xtls-rprx-vision"];
 const TCP_CONGESTION_OPTIONS = ["bbr", "cubic", "reno"];
 const TPROXY_OPTIONS: Array<"" | "off" | "redirect" | "tproxy"> = [
 	"off",

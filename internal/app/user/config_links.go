@@ -1025,7 +1025,7 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
 	headerType := stringValue(inbound["header_type"])
-	flow := firstNonEmptyString(inbound["flow"], settings["flow"])
+	flow := firstNonEmptyString(settings["flow"], inbound["flow"])
 	if vlessFlowAllowed(flow, stringValue(inbound["encryption"]), netValue, tls, headerType) {
 		params = append(params, queryParam{"flow", flow})
 	}
@@ -1298,7 +1298,8 @@ func parseHysteria2ShareURL(link string) (*url.URL, error) {
 }
 
 func vlessFlowAllowed(flow string, encryption string, network string, security string, headerType string) bool {
-	if strings.TrimSpace(flow) == "" {
+	flow = strings.ToLower(strings.TrimSpace(flow))
+	if flow != "xtls-rprx-vision" && flow != "xtls-rprx-vision-udp443" {
 		return false
 	}
 	if encryption = strings.TrimSpace(encryption); encryption != "" && encryption != "none" {
@@ -1430,7 +1431,7 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		"host":        []string{},
 		"path":        "",
 		"header_type": "",
-		"flow":	       "",
+		"flow":        "",
 		"is_fallback": false,
 	}
 

@@ -145,7 +145,7 @@ export type InboundFormValues = {
 	disableInsecureEncryption: boolean;
 	vlessDecryption: string;
 	vlessEncryption: string;
-	vlessFlow: "" | "xtls-rprx-vision" | "xtls-rprx-vision-udp443"
+	vlessFlow: "" | "xtls-rprx-vision";
 	fallbacks: FallbackForm[];
 
 	// shadowsocks
@@ -1830,7 +1830,10 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 					fallbackToForm(item),
 				)
 			: base.fallbacks,
-		vlessFlow: settings.flow ?? base.vlessFlow,
+		vlessFlow:
+			settings.flow === "xtls-rprx-vision"
+				? settings.flow
+				: base.vlessFlow,
 		shadowsocksNetwork:
 			settings.network && ["tcp", "udp", "tcp,udp"].includes(settings.network)
 				? (settings.network as InboundFormValues["shadowsocksNetwork"])
@@ -3430,7 +3433,7 @@ const buildSettings = (values: InboundFormValues): Record<string, any> => {
 				base.selectedAuth = values.vlessSelectedAuth;
 			}
 			if (values.vlessFlow) {
-				base.flow = values.vlessFlow
+				base.flow = values.vlessFlow;
 			}
 			if (values.fallbacks.length) {
 				base.fallbacks = values.fallbacks

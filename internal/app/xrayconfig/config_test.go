@@ -426,6 +426,87 @@ func TestNormalizePayloadForXrayVersionGatesVLESSEncryptionWithoutMutation(t *te
 	}
 }
 
+func TestNormalizePayloadForXrayVersionGatesVLESSInboundDefaultFlow(t *testing.T) {
+	payload := map[string]any{
+		"inbounds": []any{map[string]any{
+			"tag": "default-flow", "protocol": "vless",
+			"settings": map[string]any{"flow": "xtls-rprx-vision"},
+		}},
+		"outbounds": []any{map[string]any{
+			"tag": "client-flow", "protocol": "vless",
+			"settings": map[string]any{"flow": "xtls-rprx-vision"},
+		}},
+	}
+
+	for _, tc := range []struct {
+		version     string
+		wantWarning string
+	}{
+		{version: "Xray 25.8.28", wantWarning: "before 25.8.29"},
+		{version: "Xray 25.8.29"},
+		{version: "custom build", wantWarning: "support starts at 25.8.29"},
+	} {
+		normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
+		settings := mapValue(listOfMaps(normalized["inbounds"])[0]["settings"])
+		if settings["flow"] != "xtls-rprx-vision" {
+			t.Fatalf("default flow was mutated for %s: %#v", tc.version, settings)
+		}
+		if tc.wantWarning == "" {
+			if strings.Contains(warning, "default flow") {
+				t.Fatalf("supported default-flow boundary warned: %s", warning)
+			}
+		} else if !strings.Contains(warning, tc.wantWarning) || !strings.Contains(warning, "default-flow") {
+			t.Fatalf("default-flow warning mismatch for %s: %s", tc.version, warning)
+		}
+		if strings.Contains(warning, "client-flow") {
+			t.Fatalf("outbound flow was incorrectly version-gated: %s", warning)
+		}
+	}
+}
+
+func TestValidateVLESSInboundDefaultFlow(t *testing.T) {
+	const encryption = "mlkem768x25519plus.native.600s.server-key"
+	for _, tc := range []struct {
+		name       string
+		flow       string
+		decryption string
+		encryption string
+		network    string
+		security   string
+		wantErr    string
+	}{
+		{name: "TLS vision", flow: "xtls-rprx-vision", decryption: "none", network: "tcp", security: "tls"},
+		{name: "server encryption", flow: "xtls-rprx-vision", decryption: encryption, network: "xhttp", security: "none"},
+		{name: "outbound-only enum", flow: "xtls-rprx-vision-udp443", decryption: "none", network: "tcp", security: "tls", wantErr: "must be xtls-rprx-vision"},
+		{name: "client encryption is not server encryption", flow: "xtls-rprx-vision", decryption: "none", encryption: encryption, network: "xhttp", security: "none", wantErr: "requires TCP with TLS/REALITY"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig()
+			inbound := cfg["inbounds"].([]any)[0].(map[string]any)
+			inbound["settings"] = map[string]any{
+				"flow": tc.flow, "decryption": tc.decryption, "encryption": tc.encryption,
+			}
+			inbound["streamSettings"] = map[string]any{
+				"network": tc.network, "security": tc.security,
+			}
+			if tc.network == "tcp" {
+				inbound["streamSettings"].(map[string]any)["tcpSettings"] = map[string]any{
+					"header": map[string]any{"type": "none"},
+				}
+			}
+
+			_, err := Parse(cfg, Options{})
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Parse() error = %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("Parse() error = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestNormalizePayloadForXrayVersionUsesMatchingXHTTPSessionFields(t *testing.T) {
 	payload := map[string]any{
 		"inbounds": []any{map[string]any{
