@@ -1487,12 +1487,18 @@ VALUES
 	}
 
 	repo := NewRepository(db, "sqlite")
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO nodes (id, status, last_status_change)
+VALUES (6, 'error', ?), (7, 'connecting', ?)`,
+		repo.timeArg(time.Now().UTC()), repo.timeArg(time.Now().UTC())); err != nil {
+		t.Fatal(err)
+	}
 	nodeIDs, err := repo.RecoverableNodeIDs(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(nodeIDs) != 2 || nodeIDs[0] != 3 || nodeIDs[1] != 2 {
-		t.Fatalf("expected connecting/error nodes ordered by last status change, got %#v", nodeIDs)
+		t.Fatalf("expected only stale connecting/error nodes ordered by last status change, got %#v", nodeIDs)
 	}
 }
 

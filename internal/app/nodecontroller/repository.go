@@ -472,6 +472,8 @@ func (r Repository) SetError(ctx context.Context, nodeID int64, message string) 
 	return err
 }
 
+const nodeRecoveryMinAge = 45 * time.Second
+
 func (r Repository) RecoverableNodeIDs(ctx context.Context, limit int) ([]int64, error) {
 	if limit <= 0 {
 		limit = 25
@@ -483,11 +485,12 @@ func (r Repository) RecoverableNodeIDs(ctx context.Context, limit int) ([]int64,
 SELECT id
 FROM nodes
 WHERE LOWER(COALESCE(status, '')) IN ('error', 'connecting')
+  AND (last_status_change IS NULL OR last_status_change <= ?)
 ORDER BY
 	CASE WHEN last_status_change IS NULL THEN 1 ELSE 0 END,
 	last_status_change,
 	id
-LIMIT ?`, limit)
+LIMIT ?`, r.timeArg(time.Now().UTC().Add(-nodeRecoveryMinAge)), limit)
 	if err != nil {
 		return nil, err
 	}
