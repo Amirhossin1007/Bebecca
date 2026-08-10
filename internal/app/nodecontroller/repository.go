@@ -463,6 +463,9 @@ func (r Repository) SetError(ctx context.Context, nodeID int64, message string) 
 	if len(message) > 1024 {
 		message = message[:1024]
 	}
+	if ctx.Err() == context.Canceled {
+		return nil
+	}
 	statusCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	_, err := r.updateStatus(statusCtx, nodeID, "error", message, "")
@@ -502,6 +505,27 @@ LIMIT ?`, limit)
 		return nil, err
 	}
 	return result, nil
+}
+
+func (r Repository) ConnectedNodeIDs(ctx context.Context) ([]int64, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT id
+FROM nodes
+WHERE LOWER(COALESCE(status, '')) = 'connected'
+ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	nodeIDs := make([]int64, 0)
+	for rows.Next() {
+		var nodeID int64
+		if err := rows.Scan(&nodeID); err != nil {
+			return nil, err
+		}
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	return nodeIDs, rows.Err()
 }
 
 func (r Repository) PendingOperations(ctx context.Context, nodeID int64, limit int) ([]OperationRow, error) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -1216,13 +1217,22 @@ VALUES (1, 'connecting', NULL, NULL, '2026-06-26 00:00:00');
 		t.Fatal(err)
 	}
 
-	callerCtx, cancel := context.WithCancel(context.Background())
-	cancel()
+	callerCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
 	if err := NewRepository(db, "sqlite").SetError(callerCtx, 1, "dial timeout"); err != nil {
 		t.Fatal(err)
 	}
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
 	assertRepositoryString(t, db, `SELECT message FROM nodes WHERE id = 1`, "dial timeout")
+	if _, err := db.Exec(`UPDATE nodes SET status = 'connecting', message = NULL WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	canceledCtx, cancelCanceled := context.WithCancel(context.Background())
+	cancelCanceled()
+	if err := NewRepository(db, "sqlite").SetError(canceledCtx, 1, "server shutdown"); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "connecting")
 }
 
 func TestRepositoryQueueSyncConfigCoalescesPendingFullSyncs(t *testing.T) {
@@ -1530,6 +1540,54 @@ INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
 	}
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1 AND message <> 'stable'`, 1)
+}
+
+func TestControllerHealthSweepChecksOnlyConnectedNodes(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "health-sweep.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	name TEXT,
+	address TEXT,
+	port INTEGER,
+	api_port INTEGER,
+	status TEXT,
+	xray_version TEXT,
+	message TEXT,
+	last_status_change DATETIME,
+	certificate TEXT,
+	certificate_key TEXT,
+	xray_config_mode TEXT,
+	xray_config TEXT,
+	usage_coefficient REAL DEFAULT 1
+);
+CREATE TABLE tls (id INTEGER PRIMARY KEY, certificate TEXT, "key" TEXT);
+INSERT INTO nodes (id, name, address, port, api_port, status, message, usage_coefficient) VALUES
+	(1, 'connected', '127.0.0.1', 62050, 62051, 'connected', 'stable', 1),
+	(2, 'disabled', '127.0.0.1', 62050, 62051, 'disabled', 'disabled', 1),
+	(3, 'deleted', '127.0.0.1', 62050, 62051, 'deleted', 'deleted', 1);
+INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := NewController(NewRepository(db, "sqlite")).CheckConnectedNodes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Checked != 1 || len(result.Errors) != 1 {
+		t.Fatalf("unexpected health sweep result: %#v", result)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 2`, "disabled")
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 3`, "deleted")
 }
 
 func assertRepositoryString(t *testing.T, db *sql.DB, query string, expected string) {

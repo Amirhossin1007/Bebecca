@@ -32,9 +32,18 @@ func (s *Server) runNodeRecoveryWorker(ctx context.Context) {
 }
 
 func (s *Server) recoverStaleNodes(ctx context.Context) {
+	health, err := s.nodeController.CheckConnectedNodes(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return
+		}
+		logging.Warnf(logging.ComponentNode, "node health sweep failed: %v", err)
+	} else if len(health.Errors) > 0 {
+		logging.Infof(logging.ComponentNode, "node health sweep checked=%d unavailable=%d", health.Checked, len(health.Errors))
+	}
+
 	workerCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-
 	result, err := s.nodeController.RecoverNodes(workerCtx, nodecontroller.RecoverNodesRequest{Limit: defaultNodeRecoveryBatchSize})
 	if err != nil {
 		if ctx.Err() != nil {
