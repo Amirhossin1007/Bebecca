@@ -228,7 +228,7 @@ func (c Controller) CheckConnectedNodes(ctx context.Context) (HealthCheckNodesRe
 	result := HealthCheckNodesResult{Checked: len(nodeIDs)}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	sem := make(chan struct{}, 8)
+	sem := make(chan struct{}, 32)
 	for _, nodeID := range nodeIDs {
 		wg.Add(1)
 		go func(nodeID int64) {
