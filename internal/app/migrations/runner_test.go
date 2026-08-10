@@ -130,6 +130,14 @@ func TestRunMigrationsExternalDatabase(t *testing.T) {
 		if err := RunMigrationsTo(ctx, pool.DB, pool.Dialect, 3); err != nil {
 			t.Fatalf("migrate external database to legacy checkpoint: %v", err)
 		}
+		if NormalizeDialect(pool.Dialect) == "mysql" {
+			if _, err := pool.DB.ExecContext(ctx, `ALTER TABLE nodes MODIFY COLUMN status ENUM('connecting', 'connected', 'error', 'disabled', 'limited') NOT NULL DEFAULT 'connecting'`); err != nil {
+				t.Fatalf("simulate legacy node status enum: %v", err)
+			}
+			if _, err := pool.DB.ExecContext(ctx, `INSERT INTO nodes (id, name, address, port, api_port, status) VALUES (?, ?, ?, ?, ?, ?)`, 9001, "legacy_external_node", "192.0.2.1", 62050, 62051, "connected"); err != nil {
+				t.Fatalf("seed external legacy node: %v", err)
+			}
+		}
 		if _, err := pool.DB.ExecContext(ctx, `INSERT INTO admins (id, username, hashed_password, role, status) VALUES (?, ?, ?, ?, ?)`, 9001, "legacy_external_admin", "hash", "standard", "active"); err != nil {
 			t.Fatalf("seed external legacy admin: %v", err)
 		}
@@ -157,6 +165,18 @@ func TestRunMigrationsExternalDatabase(t *testing.T) {
 		}
 	}
 	if !initial.HasGoose {
+		if NormalizeDialect(pool.Dialect) == "mysql" {
+			var dataType string
+			if err := pool.DB.QueryRowContext(ctx, `SELECT DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'nodes' AND column_name = 'status'`).Scan(&dataType); err != nil {
+				t.Fatalf("read migrated node status type: %v", err)
+			}
+			if !strings.EqualFold(dataType, "varchar") {
+				t.Fatalf("migrated node status type = %q, want varchar", dataType)
+			}
+			if _, err := pool.DB.ExecContext(ctx, `UPDATE nodes SET status = 'deleted' WHERE id = ?`, 9001); err != nil {
+				t.Fatalf("write deleted node status after migration: %v", err)
+			}
+		}
 		var dataLimit int64
 		if err := pool.DB.QueryRowContext(ctx, `SELECT data_limit FROM users WHERE id = ?`, 9001).Scan(&dataLimit); err != nil {
 			t.Fatalf("read migrated external legacy user: %v", err)

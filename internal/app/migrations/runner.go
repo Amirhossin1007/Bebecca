@@ -20,7 +20,7 @@ var gooseMu sync.Mutex
 var migrationDialect string
 
 const (
-	latestGooseVersion         int64 = 43
+	latestGooseVersion         int64 = 44
 	legacyAlembicFinalRevision       = "23_drop_access_insights"
 	legacyAlembicFinalBaseline int64 = 16
 )
