@@ -463,7 +463,9 @@ func (r Repository) SetError(ctx context.Context, nodeID int64, message string) 
 	if len(message) > 1024 {
 		message = message[:1024]
 	}
-	_, err := r.updateStatus(ctx, nodeID, "error", message, "")
+	statusCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	_, err := r.updateStatus(statusCtx, nodeID, "error", message, "")
 	return err
 }
 

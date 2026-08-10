@@ -1195,6 +1195,36 @@ VALUES
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
 }
 
+func TestRepositorySetErrorPersistsAfterCallerTimeout(t *testing.T) {
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "node-error-timeout.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	status TEXT,
+	message TEXT,
+	xray_version TEXT,
+	last_status_change DATETIME
+);
+INSERT INTO nodes (id, status, message, xray_version, last_status_change)
+VALUES (1, 'connecting', NULL, NULL, '2026-06-26 00:00:00');
+`); err != nil {
+		t.Fatal(err)
+	}
+
+	callerCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := NewRepository(db, "sqlite").SetError(callerCtx, 1, "dial timeout"); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
+	assertRepositoryString(t, db, `SELECT message FROM nodes WHERE id = 1`, "dial timeout")
+}
+
 func TestRepositoryQueueSyncConfigCoalescesPendingFullSyncs(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "sync-config-coalesce.db")+"?_pragma=busy_timeout(30000)")
