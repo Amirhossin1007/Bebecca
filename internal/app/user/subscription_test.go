@@ -372,6 +372,52 @@ func TestVLESSEncryptionRoundTripsXrayJSONTemplates(t *testing.T) {
 	}
 }
 
+func TestVLESSXHTTPStructuredOutputsPreserveExtraBlock(t *testing.T) {
+	extra := map[string]any{
+		"scMaxEachPostBytes": 1000000,
+		"scMinPostsIntervalMs": 20,
+		"xPaddingBytes": "32-256",
+		"seqPlacement": "header",
+		"seqKey": "Upload-Offset",
+	}
+	rawExtra, err := json.Marshal(extra)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=xhttp&mode=packet-up&path=%2F&extra=" + url.QueryEscape(string(rawExtra))
+
+	v2rayBody, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatalf("renderV2RayJSONSubscription failed: %v", err)
+	}
+
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(v2rayBody), &configs); err != nil {
+		t.Fatalf("invalid json generated: %v\n%s", err, v2rayBody)
+	}
+
+	outbounds := configs[0]["outbounds"].([]any)
+	stream := outbounds[0].(map[string]any)["streamSettings"].(map[string]any)
+	xhttpSettings, ok := stream["xhttpSettings"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing xhttpSettings in stream: %#v", stream)
+	}
+
+	if xhttpSettings["path"] != "/" || xhttpSettings["mode"] != "packet-up" {
+		t.Fatalf("xhttpSettings root fields mismatch: %#v", xhttpSettings)
+	}
+
+	extraBlock, ok := xhttpSettings["extra"].(map[string]any)
+	if !ok {
+		t.Fatalf("xhttpSettings lost the 'extra' block: %#v", xhttpSettings)
+	}
+
+	if extraBlock["xPaddingBytes"] != "32-256" || extraBlock["seqKey"] != "Upload-Offset" {
+		t.Fatalf("extra block fields mismatch: %#v", extraBlock)
+	}
+}
+
 func TestVMessECHRoundTripsRawOutboundsubAndXrayJSON(t *testing.T) {
 	const (
 		ech = "AAECAwQFBgcICQ=="
