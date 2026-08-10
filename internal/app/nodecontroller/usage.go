@@ -84,6 +84,7 @@ func (c Controller) collectUsageForNode(
 	nodeCtx, cancel := WithDefaultTimeout(ctx)
 	client, _, err := c.dial(nodeCtx, node.ID)
 	if err != nil {
+		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		cancel()
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
 		return result
@@ -103,6 +104,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
+			_ = c.repo.SetError(ctx, node.ID, err.Error())
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -136,6 +138,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
+			_ = c.repo.SetError(ctx, node.ID, err.Error())
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -189,6 +192,7 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckUserUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: userBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.UserAcked++
 		} else if err != nil {
+			_ = c.repo.SetError(ctx, node.ID, err.Error())
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, err.Error()))
 		}
 	}
@@ -196,6 +200,7 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckOutboundUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.OutboundAcked++
 		} else if err != nil {
+			_ = c.repo.SetError(ctx, node.ID, err.Error())
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, err.Error()))
 		}
 	}

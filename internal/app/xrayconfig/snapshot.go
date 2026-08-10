@@ -269,7 +269,7 @@ func (r Repository) targetStateTx(ctx context.Context, tx *sql.Tx, targetID stri
 	}
 	var raw any
 	var mode string
-	if err := tx.QueryRowContext(ctx, `SELECT xray_config, COALESCE(xray_config_mode, 'default') FROM nodes WHERE id = ? LIMIT 1`, *nodeID).Scan(&raw, &mode); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT xray_config, COALESCE(xray_config_mode, 'default') FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted' LIMIT 1`, *nodeID).Scan(&raw, &mode); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return TargetState{}, fmt.Errorf("node not found")
 		}
@@ -310,7 +310,7 @@ func (r Repository) restoreLegacyTargetStatesTx(ctx context.Context, tx *sql.Tx,
 			}
 			raw = string(encoded)
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE nodes SET xray_config_mode = ?, xray_config = ? WHERE id = ?`, normalizeConfigMode(target.Mode), raw, *nodeID); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE nodes SET xray_config_mode = ?, xray_config = ? WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted'`, normalizeConfigMode(target.Mode), raw, *nodeID); err != nil {
 			return nil, err
 		}
 		targetIDs = append(targetIDs, target.TargetID)
@@ -372,7 +372,7 @@ func (r Repository) restoreConfigPatchesTx(ctx context.Context, tx *sql.Tx, patc
 			}
 			raw = string(encoded)
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE nodes SET xray_config_mode = ?, xray_config = ? WHERE id = ?`, normalizeConfigMode(target.Mode), raw, *nodeID); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE nodes SET xray_config_mode = ?, xray_config = ? WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted'`, normalizeConfigMode(target.Mode), raw, *nodeID); err != nil {
 			return nil, err
 		}
 		targetIDs = append(targetIDs, target.TargetID)

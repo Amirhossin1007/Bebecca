@@ -697,7 +697,7 @@ func parseNodePath(path string) (int64, string, bool) {
 
 func (s *Server) nodeName(ctx context.Context, nodeID int64) (string, error) {
 	var name string
-	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(name, '') FROM nodes WHERE id = ? LIMIT 1`, nodeID).Scan(&name)
+	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(name, '') FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted' LIMIT 1`, nodeID).Scan(&name)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("node not found")
 	}

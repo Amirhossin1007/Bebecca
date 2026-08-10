@@ -984,7 +984,8 @@ func (r Repository) persistOutboundUsage(ctx context.Context, tx *sql.Tx, node N
 			`UPDATE nodes
 SET uplink = COALESCE(uplink, 0) + ?,
     downlink = COALESCE(downlink, 0) + ?
-WHERE id = ?`,
+WHERE id = ?
+  AND LOWER(COALESCE(status, '')) <> 'deleted'`,
 			totalUp,
 			totalDown,
 			node.ID,
@@ -998,6 +999,7 @@ SET status = 'limited',
     message = 'Data limit reached',
     last_status_change = ?
 WHERE id = ?
+  AND LOWER(COALESCE(status, '')) <> 'deleted'
   AND data_limit IS NOT NULL
   AND data_limit > 0
   AND (COALESCE(uplink, 0) + COALESCE(downlink, 0)) >= data_limit`,

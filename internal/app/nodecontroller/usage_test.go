@@ -48,7 +48,7 @@ func TestUsageCollectionResetsXrayCountersByDefault(t *testing.T) {
 	}
 }
 
-func TestCollectUsageFailureDoesNotMarkNodeError(t *testing.T) {
+func TestCollectUsageDialFailureMarksNodeError(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-status.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -112,6 +112,6 @@ INSERT INTO nodes (
 	if len(result.Errors) == 0 {
 		t.Fatal("expected usage collection error")
 	}
-	assertString(t, db, `SELECT status FROM nodes WHERE id = 7`, "connected")
+	assertString(t, db, `SELECT status FROM nodes WHERE id = 7`, "error")
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
 }

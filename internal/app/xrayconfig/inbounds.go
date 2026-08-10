@@ -819,7 +819,7 @@ func (r Repository) directTargetsForInboundTx(ctx context.Context, tx *sql.Tx, t
 		out = append(out, MasterTargetID)
 	}
 
-	rows, err := tx.QueryContext(ctx, `SELECT id, xray_config FROM nodes WHERE COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
+	rows, err := tx.QueryContext(ctx, `SELECT id, xray_config FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' AND COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
 	if err != nil {
 		return nil, err
 	}
@@ -848,7 +848,7 @@ func (r Repository) effectiveTargetsForInboundTx(ctx context.Context, tx *sql.Tx
 		seen[targetID] = true
 	}
 	if seen[MasterTargetID] {
-		rows, err := tx.QueryContext(ctx, `SELECT id FROM nodes WHERE COALESCE(xray_config_mode, ?) != ?`, ConfigModeDefault, ConfigModeCustom)
+		rows, err := tx.QueryContext(ctx, `SELECT id FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' AND COALESCE(xray_config_mode, ?) != ?`, ConfigModeDefault, ConfigModeCustom)
 		if err != nil {
 			return nil, err
 		}
@@ -889,7 +889,7 @@ func (r Repository) findManageableInboundTx(ctx context.Context, tx *sql.Tx, tag
 	if inbound := findInboundInConfig(master, tag); inbound != nil && r.isManageableInbound(inbound) {
 		return inbound, nil
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
+	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' AND COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
 	if err != nil {
 		return nil, err
 	}
@@ -936,7 +936,7 @@ func (r Repository) findSingleIPSecInboundTagTx(ctx context.Context, tx *sql.Tx,
 	if tag := r.findProtocolInboundTagInConfig(master, allowedTag, protocol); tag != "" {
 		return tag, nil
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
+	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' AND COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
 	if err != nil {
 		return "", err
 	}
@@ -973,7 +973,7 @@ func (r Repository) findL2TPInboundTagTx(ctx context.Context, tx *sql.Tx, allowe
 			return tag, nil
 		}
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
+	rows, err := tx.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' AND COALESCE(xray_config_mode, ?) = ? AND xray_config IS NOT NULL`, ConfigModeDefault, ConfigModeCustom)
 	if err != nil {
 		return "", err
 	}

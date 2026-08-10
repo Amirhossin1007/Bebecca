@@ -214,6 +214,7 @@ SELECT uoi.node_id, COALESCE(n.name, ''), uoi.user_id, uoi.protocol, uoi.ip, uoi
 FROM user_online_ips uoi
 LEFT JOIN nodes n ON n.id = uoi.node_id
 WHERE uoi.user_id = ? AND uoi.last_seen_at >= ?
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 ORDER BY uoi.last_seen_at DESC, uoi.node_id, uoi.protocol, uoi.ip`,
 			userID,
 			r.timeArg(cutoff.UTC()),
@@ -248,6 +249,7 @@ SELECT vus.node_id, COALESCE(n.name, ''), vus.user_id, vus.protocol, COALESCE(vu
 FROM vpn_user_sessions vus
 LEFT JOIN nodes n ON n.id = vus.node_id
 WHERE vus.user_id = ? AND vus.ended_at IS NULL
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 ORDER BY vus.last_seen_at DESC, vus.node_id, vus.protocol, vus.session_id`,
 			userID,
 		)

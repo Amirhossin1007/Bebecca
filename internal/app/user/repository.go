@@ -24,7 +24,7 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 func (r Repository) configServerIP(ctx context.Context) string {
 	for _, query := range []string{
 		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' AND LOWER(COALESCE(status, '')) = 'connected' ORDER BY id LIMIT 1`,
-		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' ORDER BY id LIMIT 1`,
+		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' AND LOWER(COALESCE(status, '')) <> 'deleted' ORDER BY id LIMIT 1`,
 	} {
 		var address sql.NullString
 		if err := r.db.QueryRowContext(ctx, query).Scan(&address); err == nil && address.Valid {
@@ -302,7 +302,7 @@ func (r Repository) rawXrayConfigs(ctx context.Context) ([]map[string]any, error
 		}
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE xray_config_mode = 'custom' AND xray_config IS NOT NULL ORDER BY id`)
+	rows, err := r.db.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' AND xray_config_mode = 'custom' AND xray_config IS NOT NULL ORDER BY id`)
 	if err != nil {
 		return result, nil
 	}

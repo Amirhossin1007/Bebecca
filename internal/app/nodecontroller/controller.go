@@ -183,12 +183,14 @@ func (c Controller) Health(ctx context.Context, req Request) (RuntimeResult, err
 func (c Controller) Metrics(ctx context.Context, req Request) (RuntimeResult, error) {
 	client, node, err := c.dial(ctx, req.NodeID)
 	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("metrics", req.NodeID, err)
 	}
 	defer client.Close()
 
 	res, err := client.Runtime().Metrics(ctx, &nodev1.MetricsRequest{IncludeRuntime: true})
 	if err != nil {
+		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("metrics", req.NodeID, err)
 	}
 	result := runtimeResult(node, res.GetRuntime(), res)

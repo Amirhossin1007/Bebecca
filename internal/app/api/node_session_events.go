@@ -86,7 +86,7 @@ func (s *Server) validateNodeSessionEvent(ctx context.Context, payload nodeSessi
 		return statusError{status: http.StatusBadRequest, detail: "unsupported event"}
 	}
 	var cert string
-	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(certificate, '') FROM nodes WHERE id = ? LIMIT 1`, payload.NodeID).Scan(&cert)
+	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(certificate, '') FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted' LIMIT 1`, payload.NodeID).Scan(&cert)
 	if err == sql.ErrNoRows {
 		return statusError{status: http.StatusForbidden, detail: "node not found"}
 	}

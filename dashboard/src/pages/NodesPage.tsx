@@ -607,8 +607,6 @@ export const NodesPage: FC = () => {
 		onClose: closeResetConfirm,
 	} = useDisclosure();
 	const [deleteCandidate, setDeleteCandidate] = useState<NodeType | null>(null);
-	const [deleteHostImpact, setDeleteHostImpact] =
-		useState<NodeHostImpact | null>(null);
 	const {
 		isOpen: isDeleteConfirmOpen,
 		onOpen: openDeleteConfirm,
@@ -709,7 +707,6 @@ export const NodesPage: FC = () => {
 				refetchNodes();
 				closeDeleteConfirm();
 				setDeleteCandidate(null);
-				setDeleteHostImpact(null);
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
@@ -960,35 +957,21 @@ export const NodesPage: FC = () => {
 		openResetConfirm();
 	};
 
-	const handleDeleteNodeRequest = async (node: NodeType) => {
+	const handleDeleteNodeRequest = (node: NodeType) => {
 		if (!node?.id) return;
-		try {
-			setDeleteHostImpact(await loadNodeHostImpact([node]));
-			setDeleteCandidate(node);
-			openDeleteConfirm();
-		} catch (err) {
-			generateErrorMessage(err, toast);
-		}
+		setDeleteCandidate(node);
+		openDeleteConfirm();
 	};
 
 	const handleCloseDeleteConfirm = () => {
-		if (isDeletingNode || hostCleanupLoading) return;
+		if (isDeletingNode) return;
 		closeDeleteConfirm();
 		setDeleteCandidate(null);
-		setDeleteHostImpact(null);
 	};
 
-	const confirmDeleteNode = async () => {
+	const confirmDeleteNode = () => {
 		if (!deleteCandidate) return;
-		try {
-			setHostCleanupLoading(true);
-			await applyNodeHostCleanup(deleteHostImpact);
-			deleteNodeMutate(deleteCandidate);
-		} catch (err) {
-			generateErrorMessage(err, toast);
-		} finally {
-			setHostCleanupLoading(false);
-		}
+		deleteNodeMutate(deleteCandidate);
 	};
 
 	const handleRestartNodeService = (node: NodeType) => {
@@ -1140,12 +1123,14 @@ export const NodesPage: FC = () => {
 			let failedCount = 0;
 			const completedIDs: number[] = [];
 			const recentActionHeaders = createNodeActionBatchHeaders();
-			try {
-				await applyNodeHostCleanup(hostImpact);
-			} catch (err) {
-				setBulkNodeActionLoading(null);
-				generateErrorMessage(err, toast);
-				return;
+			if (actionType === "bulk-disable") {
+				try {
+					await applyNodeHostCleanup(hostImpact);
+				} catch (err) {
+					setBulkNodeActionLoading(null);
+					generateErrorMessage(err, toast);
+					return;
+				}
 			}
 			if (actionType === "bulk-update") {
 				try {
@@ -1707,7 +1692,7 @@ export const NodesPage: FC = () => {
 			return;
 		}
 		let hostImpact: NodeHostImpact | undefined;
-		if (type === "bulk-disable" || type === "bulk-delete") {
+		if (type === "bulk-disable") {
 			try {
 				hostImpact = await loadNodeHostImpact(nodesForAction);
 			} catch (err) {
@@ -1827,10 +1812,7 @@ export const NodesPage: FC = () => {
 									serviceActionConfirm.hostImpact,
 								)
 							: serviceActionConfirm?.type === "bulk-delete"
-								? renderHostImpactMessage(
-										t("nodes.bulkDeleteConfirm", { count: serviceActionConfirm.count }),
-										serviceActionConfirm.hostImpact,
-									)
+								? t("nodes.bulkDeleteConfirm", { count: serviceActionConfirm.count })
 								: serviceActionConfirm?.type === "bulk-reset"
 									? t("nodes.bulkResetTrafficConfirm", { count: serviceActionConfirm.count })
 									: serviceActionConfirm?.type === "bulk-restart"
@@ -3042,18 +3024,15 @@ export const NodesPage: FC = () => {
 				onClose={handleCloseDeleteConfirm}
 				onConfirm={confirmDeleteNode}
 				title={t("delete")}
-				description={renderHostImpactMessage(
-					t("deleteNode.prompt", {
+				description={t("deleteNode.prompt", {
 						name:
 							deleteCandidate?.name ??
 							deleteCandidate?.address ??
 							t("nodes.thisNode"),
-					}),
-					deleteHostImpact,
-				)}
+					})}
 				confirmLabel={t("delete")}
 				colorScheme="red"
-				isLoading={isDeletingNode || hostCleanupLoading}
+				isLoading={isDeletingNode}
 				isConfirmDisabled={!deleteCandidate}
 			/>
 
