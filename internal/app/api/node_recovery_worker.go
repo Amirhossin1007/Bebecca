@@ -10,6 +10,7 @@ import (
 
 const defaultNodeRecoveryPollInterval = 45 * time.Second
 const defaultNodeRecoveryBatchSize = 25
+const defaultNodeHealthSweepTimeout = 40 * time.Second
 
 func (s *Server) runNodeRecoveryWorker(ctx context.Context) {
 	logging.Infof(logging.ComponentNode, "recovery worker started interval=%s batch=%d", defaultNodeRecoveryPollInterval, defaultNodeRecoveryBatchSize)
@@ -44,15 +45,19 @@ func (s *Server) runNodeRecoveryWorker(ctx context.Context) {
 }
 
 func (s *Server) checkConnectedNodeHealth(ctx context.Context) {
-	health, err := s.nodeController.CheckConnectedNodes(ctx)
+	started := time.Now()
+	sweepCtx, cancel := context.WithTimeout(ctx, defaultNodeHealthSweepTimeout)
+	defer cancel()
+	health, err := s.nodeController.CheckConnectedNodes(sweepCtx)
+	duration := time.Since(started).Round(time.Millisecond)
 	if err != nil {
 		if ctx.Err() != nil {
 			return
 		}
-		logging.Warnf(logging.ComponentNode, "node health sweep failed: %v", err)
-	} else if len(health.Errors) > 0 {
-		logging.Infof(logging.ComponentNode, "node health sweep checked=%d unavailable=%d", health.Checked, len(health.Errors))
+		logging.Warnf(logging.ComponentNode, "node health sweep incomplete checked=%d unavailable=%d duration=%s: %v", health.Checked, len(health.Errors), duration, err)
+		return
 	}
+	logging.Infof(logging.ComponentNode, "node health sweep checked=%d unavailable=%d duration=%s", health.Checked, len(health.Errors), duration)
 }
 
 func (s *Server) recoverStaleNodes(ctx context.Context) {

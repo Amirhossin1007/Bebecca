@@ -225,10 +225,10 @@ func (c Controller) CheckConnectedNodes(ctx context.Context) (HealthCheckNodesRe
 	if err != nil {
 		return HealthCheckNodesResult{}, err
 	}
-	result := HealthCheckNodesResult{Checked: len(nodeIDs)}
+	result := HealthCheckNodesResult{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	sem := make(chan struct{}, 32)
+	sem := make(chan struct{}, maxConcurrentSingleNodeOperations)
 	for _, nodeID := range nodeIDs {
 		wg.Add(1)
 		go func(nodeID int64) {
@@ -239,6 +239,9 @@ func (c Controller) CheckConnectedNodes(ctx context.Context) (HealthCheckNodesRe
 				return
 			}
 			defer func() { <-sem }()
+			mu.Lock()
+			result.Checked++
+			mu.Unlock()
 			metricsCtx, cancel := withListMetricsTimeout(ctx)
 			_, err := c.Metrics(metricsCtx, Request{NodeID: nodeID})
 			cancel()
@@ -251,6 +254,9 @@ func (c Controller) CheckConnectedNodes(ctx context.Context) (HealthCheckNodesRe
 		}(nodeID)
 	}
 	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		return result, err
+	}
 	return result, nil
 }
 
