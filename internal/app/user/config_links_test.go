@@ -56,6 +56,40 @@ func TestBuildConfigLinksAddsMissingServiceProtocolForLegacyUser(t *testing.T) {
 	}
 }
 
+func TestBuildConfigLinksOmitsInformationalInboundHosts(t *testing.T) {
+	serviceID := int64(1)
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID:            22,
+			Username:      "alice",
+			Status:        "active",
+			ServiceID:     &serviceID,
+			CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1",
+			Proxies: []StoredProxy{{
+				Type:     "vless",
+				Settings: map[string]any{"id": "05bfddf8-1eb4-18fa-1edb-ce7cd286eee1"},
+			}},
+		},
+		map[string]ResolvedInbound{
+			"info": {"tag": "info", "protocol": "vless", "port": int64(2085), "network": "ws", "tls": "none"},
+			"real": {"tag": "real", "protocol": "vless", "port": int64(443), "network": "tcp", "tls": "tls"},
+		},
+		[]string{"info", "real"},
+		[]Host{
+			{ID: 1, InboundTag: "info", Remark: "{STATUS_EMOJI} {USERNAME}", Address: "status.example.com", ServiceIDs: []int64{1}},
+			{ID: 2, InboundTag: "real", Remark: "server", Address: "vpn.example.com", ServiceIDs: []int64{1}},
+		},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links.Links) != 1 || !strings.Contains(links.Links[0], "vpn.example.com") || strings.Contains(links.Links[0], "status.example.com") {
+		t.Fatalf("informational host leaked into connectable links: %#v", links.Links)
+	}
+}
+
 func TestShadowsocks2022LinkUsesSIP022UserInfo(t *testing.T) {
 	settings := map[string]any{"method": defaultShadowsocksMethod, "password": "client-password"}
 	inbound := ResolvedInbound{

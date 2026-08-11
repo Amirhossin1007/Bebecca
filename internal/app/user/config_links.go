@@ -193,7 +193,7 @@ func BuildConfigLinks(
 func selectConfigHosts(hosts []Host, serviceID *int64) []configHost {
 	result := make([]configHost, 0, len(hosts))
 	for i, host := range hosts {
-		if host.IsDisabled {
+		if host.IsDisabled || strings.EqualFold(strings.TrimSpace(host.InboundTag), "info") {
 			continue
 		}
 		if serviceID != nil && !hostHasService(host, *serviceID) {
