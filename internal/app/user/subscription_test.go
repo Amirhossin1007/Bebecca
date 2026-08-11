@@ -293,6 +293,70 @@ func TestSingBoxSubscriptionRejectsInvalidTemplates(t *testing.T) {
 	}
 }
 
+func TestSingBoxSubscriptionMigratesLegacyCustomTemplate(t *testing.T) {
+	template := `{
+		"dns": {
+			"servers": [
+				{"tag":"dns-remote","address":"1.1.1.2","detour":"proxy"},
+				{"tag":"dns-local","address":"local","detour":"direct"}
+			],
+			"rules":[{"outbound":"any","server":"dns-local"}],
+			"final":"dns-remote"
+		},
+		"inbounds": [{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"sniff":true,"domain_strategy":"prefer_ipv4"}],
+		"outbounds": [
+			{"type":"selector","tag":"proxy","outbounds":[]},
+			{"type":"direct","tag":"direct"},
+			{"type":"dns","tag":"dns-out"}
+		],
+		"route": {"rules":[
+			{"protocol":"dns","outbound":"dns-out"},
+			{"ip_is_private":true,"outbound":"direct"}
+		]}
+	}`
+	body, err := renderSingBoxJSONWithTemplate([]string{
+		"vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none&type=tcp&encryption=none#server",
+	}, template, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err := json.Unmarshal([]byte(body), &config); err != nil {
+		t.Fatal(err)
+	}
+	servers := config["dns"].(map[string]any)["servers"].([]any)
+	if servers[0].(map[string]any)["type"] != "udp" || servers[1].(map[string]any)["type"] != "local" {
+		t.Fatalf("legacy DNS servers were not migrated: %#v", servers)
+	}
+	for _, raw := range config["outbounds"].([]any) {
+		if raw.(map[string]any)["type"] == "dns" {
+			t.Fatalf("removed DNS outbound survived migration: %s", body)
+		}
+	}
+	inbound := config["inbounds"].([]any)[0].(map[string]any)
+	if inbound["sniff"] != nil || inbound["domain_strategy"] != nil {
+		t.Fatalf("deprecated inbound fields survived migration: %#v", inbound)
+	}
+	actions := map[string]bool{}
+	for _, raw := range config["route"].(map[string]any)["rules"].([]any) {
+		actions[stringValue(raw.(map[string]any)["action"])] = true
+	}
+	for _, action := range []string{"resolve", "sniff", "hijack-dns", "route"} {
+		if !actions[action] {
+			t.Fatalf("missing migrated %s action: %s", action, body)
+		}
+	}
+	if binary := strings.TrimSpace(os.Getenv("REBECCA_SING_BOX_TEST_BINARY")); binary != "" {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command(binary, "check", "-c", path).CombinedOutput(); err != nil {
+			t.Fatalf("official sing-box rejected migrated custom template: %v\n%s", err, output)
+		}
+	}
+}
+
 func TestSingBoxFallbackTemplateMatchesPackagedDefault(t *testing.T) {
 	fallback, err := singBoxSubscriptionTemplate("")
 	if err != nil {

@@ -996,6 +996,11 @@ func renderSingBoxJSONWithTemplate(links []string, templateContent string, setti
 	if err != nil {
 		return "", err
 	}
+	migrateLegacySingBoxTemplate(config)
+	templateOutbounds, err = singBoxTemplateOutbounds(config)
+	if err != nil {
+		return "", err
+	}
 	usedTags := make(map[string]struct{}, len(templateOutbounds)+len(links))
 	for _, raw := range templateOutbounds {
 		if outbound, ok := raw.(map[string]any); ok {
@@ -1060,6 +1065,162 @@ func singBoxSubscriptionTemplate(content string) (map[string]any, error) {
 		return nil, fmt.Errorf("invalid sing-box subscription template: %w", err)
 	}
 	return config, nil
+}
+
+func migrateLegacySingBoxTemplate(config map[string]any) {
+	dns, _ := config["dns"].(map[string]any)
+	defaultDomainResolver := ""
+	if dns != nil {
+		servers := listAny(dns["servers"])
+		for _, raw := range servers {
+			server, ok := raw.(map[string]any)
+			if !ok || strings.TrimSpace(stringValue(server["type"])) != "" {
+				continue
+			}
+			migrateLegacySingBoxDNSServer(server)
+			if defaultDomainResolver == "" && strings.EqualFold(stringValue(server["type"]), "local") {
+				defaultDomainResolver = strings.TrimSpace(stringValue(server["tag"]))
+			}
+		}
+		dnsRules := make([]any, 0, len(listAny(dns["rules"])))
+		for _, raw := range listAny(dns["rules"]) {
+			rule, ok := raw.(map[string]any)
+			if ok && strings.EqualFold(stringValue(rule["outbound"]), "any") {
+				if resolver := strings.TrimSpace(stringValue(rule["server"])); resolver != "" {
+					defaultDomainResolver = resolver
+					continue
+				}
+			}
+			dnsRules = append(dnsRules, raw)
+		}
+		dns["rules"] = dnsRules
+	}
+
+	dnsOutbounds := map[string]struct{}{}
+	outbounds := make([]any, 0, len(listAny(config["outbounds"])))
+	for _, raw := range listAny(config["outbounds"]) {
+		outbound, ok := raw.(map[string]any)
+		if ok && strings.EqualFold(stringValue(outbound["type"]), "dns") {
+			if tag := strings.TrimSpace(stringValue(outbound["tag"])); tag != "" {
+				dnsOutbounds[tag] = struct{}{}
+			}
+			continue
+		}
+		outbounds = append(outbounds, raw)
+	}
+	config["outbounds"] = outbounds
+
+	route, _ := config["route"].(map[string]any)
+	if route == nil {
+		route = map[string]any{}
+		config["route"] = route
+	}
+	if strings.TrimSpace(stringValue(route["default_domain_resolver"])) == "" && defaultDomainResolver != "" {
+		route["default_domain_resolver"] = defaultDomainResolver
+	}
+	actions := make([]any, 0)
+	for _, raw := range listAny(config["inbounds"]) {
+		inbound, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		match := map[string]any{}
+		if tag := strings.TrimSpace(stringValue(inbound["tag"])); tag != "" {
+			match["inbound"] = tag
+		}
+		if strategy := strings.TrimSpace(stringValue(inbound["domain_strategy"])); strategy != "" {
+			action := cloneJSONMap(match)
+			action["action"] = "resolve"
+			action["strategy"] = strategy
+			actions = append(actions, action)
+		}
+		delete(inbound, "domain_strategy")
+		if truthy(inbound["sniff"]) {
+			action := cloneJSONMap(match)
+			action["action"] = "sniff"
+			if truthy(inbound["sniff_override_destination"]) {
+				action["override_destination"] = true
+			}
+			if timeout := strings.TrimSpace(stringValue(inbound["sniff_timeout"])); timeout != "" {
+				action["timeout"] = timeout
+			}
+			actions = append(actions, action)
+		}
+		delete(inbound, "sniff")
+		delete(inbound, "sniff_override_destination")
+		delete(inbound, "sniff_timeout")
+	}
+
+	rules := listAny(route["rules"])
+	for _, raw := range rules {
+		rule, ok := raw.(map[string]any)
+		if !ok || strings.TrimSpace(stringValue(rule["action"])) != "" {
+			continue
+		}
+		outbound := strings.TrimSpace(stringValue(rule["outbound"]))
+		_, targetsLegacyDNS := dnsOutbounds[outbound]
+		if targetsLegacyDNS || (strings.EqualFold(stringValue(rule["protocol"]), "dns") && outbound == "") {
+			delete(rule, "outbound")
+			rule["action"] = "hijack-dns"
+			continue
+		}
+		if outbound != "" {
+			rule["action"] = "route"
+		}
+	}
+	route["rules"] = append(actions, rules...)
+}
+
+func migrateLegacySingBoxDNSServer(server map[string]any) {
+	address := strings.TrimSpace(stringValue(server["address"]))
+	if address == "" {
+		return
+	}
+	if resolver := server["address_resolver"]; resolver != nil {
+		server["domain_resolver"] = resolver
+		delete(server, "address_resolver")
+	}
+	if strategy := server["address_strategy"]; strategy != nil {
+		server["domain_strategy"] = strategy
+		delete(server, "address_strategy")
+	}
+	delete(server, "address")
+	if strings.EqualFold(address, "local") {
+		server["type"] = "local"
+		return
+	}
+	if !strings.Contains(address, "://") {
+		server["type"] = "udp"
+		server["server"] = address
+		return
+	}
+	parsed, err := url.Parse(address)
+	if err != nil {
+		server["address"] = address
+		return
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme == "dhcp" {
+		server["type"] = "dhcp"
+		if name := strings.TrimSpace(parsed.Host); name != "" && !strings.EqualFold(name, "auto") {
+			server["interface"] = name
+		}
+		return
+	}
+	supported := map[string]string{"tcp": "tcp", "udp": "udp", "tls": "tls", "https": "https", "quic": "quic", "h3": "h3"}
+	serverType, ok := supported[scheme]
+	if !ok || parsed.Hostname() == "" {
+		server["address"] = address
+		return
+	}
+	server["type"] = serverType
+	server["server"] = parsed.Hostname()
+	if port, err := strconv.Atoi(parsed.Port()); err == nil && port > 0 {
+		server["server_port"] = port
+	}
+	if (serverType == "https" || serverType == "h3") && parsed.EscapedPath() != "" && parsed.EscapedPath() != "/" {
+		server["path"] = parsed.EscapedPath()
+	}
 }
 
 func singBoxSettingsTemplate(content string) (map[string]any, error) {
