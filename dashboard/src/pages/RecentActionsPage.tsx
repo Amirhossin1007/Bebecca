@@ -1079,7 +1079,7 @@ export const RecentActionsPage: FC = () => {
 				onRowClick={(action) => toggleDetails(action.id)}
 				isRowExpanded={(action) => action.id === selectedID}
 				renderExpandedRow={renderDetailPanel}
-				mobileBreakpoint="lg"
+				mobileBreakpoint="md"
 				pagination={
 					<Pagination
 						total={totalActions}

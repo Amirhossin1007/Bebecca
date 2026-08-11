@@ -2990,7 +2990,7 @@ export const HostsManager: FC = () => {
 						</>
 					);
 				}}
-				mobileBreakpoint="lg"
+				mobileBreakpoint="md"
 				tableProps={{
 					w: "full",
 					sx: {

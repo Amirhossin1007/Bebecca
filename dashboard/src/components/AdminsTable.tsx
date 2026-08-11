@@ -1310,7 +1310,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					onSortingChange={handleAdminTableSorting}
 					manualSorting
 					dir={isRTL ? "rtl" : "ltr"}
-					mobileBreakpoint="lg"
+					mobileBreakpoint="md"
 					tableProps={tableProps}
 				/>
 			</Stack>

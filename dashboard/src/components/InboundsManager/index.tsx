@@ -822,7 +822,7 @@ export const InboundsManager: FC = () => {
 						</Button>
 					</DeleteConfirmDialog>
 				)}
-				mobileBreakpoint="lg"
+				mobileBreakpoint="md"
 				tableProps={{
 					w: "full",
 					sx: {

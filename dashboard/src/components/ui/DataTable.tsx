@@ -497,7 +497,7 @@ export function DataTable<TData>({
 	dir,
 	tableProps,
 	containerProps,
-	mobileBreakpoint = "lg",
+	mobileBreakpoint = "md",
 	ariaLabel,
 }: DataTableProps<TData>) {
 	const { t } = useTranslation();
