@@ -412,7 +412,7 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 	if err != nil {
 		return "", err
 	}
-	raw := links.Links
+	raw := connectableSubscriptionLinks(links.Links)
 	switch config.Format {
 	case "v2ray":
 		content := strings.Join(raw, "\n")
@@ -443,6 +443,18 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 	default:
 		return "", clientError(404, "Unsupported client type")
 	}
+}
+
+func connectableSubscriptionLinks(links []string) []string {
+	filtered := make([]string, 0, len(links))
+	for _, link := range links {
+		parsed, err := parseSubscriptionShareURL(link)
+		if err == nil && strings.EqualFold(parsed.Hostname(), "x") {
+			continue
+		}
+		filtered = append(filtered, link)
+	}
+	return filtered
 }
 
 func (s Service) subscriptionTemplateContent(ctx context.Context, templateKey string, adminID *int64) string {
@@ -1638,8 +1650,8 @@ func singBoxTLSCompatibilityError(link string, parsed *url.URL) error {
 			return fmt.Errorf("sing-box requires ECHConfigList as valid base64; dynamic Xray ECH forms such as domain+https://... cannot be represented safely")
 		}
 	}
-	if query.Get("security") == "reality" && (query.Get("spx") != "" || query.Get("pqv") != "") {
-		return fmt.Errorf("sing-box Reality cannot represent Xray spider-x or ML-DSA verifier fields safely")
+	if query.Get("security") == "reality" && query.Get("pqv") != "" {
+		return fmt.Errorf("sing-box Reality cannot represent Xray ML-DSA verifier fields safely")
 	}
 	return nil
 }
@@ -1932,24 +1944,20 @@ func v2rayVLESSOutbound(parsed *url.URL) (string, map[string]any, bool) {
 		return "", nil, false
 	}
 	query := parsed.Query()
-	user := map[string]any{
+	settings := map[string]any{
+		"address":    parsed.Hostname(),
+		"port":       port,
 		"id":         id,
 		"encryption": firstNonEmptyString(query.Get("encryption"), "none"),
 		"level":      0,
 	}
 	if flow := query.Get("flow"); flow != "" {
-		user["flow"] = flow
+		settings["flow"] = flow
 	}
 	outbound := map[string]any{
 		"tag":      "proxy",
 		"protocol": "vless",
-		"settings": map[string]any{
-			"vnext": []any{map[string]any{
-				"address": parsed.Hostname(),
-				"port":    port,
-				"users":   []any{user},
-			}},
-		},
+		"settings": settings,
 	}
 	if stream := v2rayStreamSettings(query); len(stream) > 0 {
 		outbound["streamSettings"] = stream
@@ -1967,12 +1975,10 @@ func v2rayTrojanOutbound(parsed *url.URL) (string, map[string]any, bool) {
 		"tag":      "proxy",
 		"protocol": "trojan",
 		"settings": map[string]any{
-			"servers": []any{map[string]any{
-				"address":  parsed.Hostname(),
-				"port":     port,
-				"password": password,
-				"level":    0,
-			}},
+			"address":  parsed.Hostname(),
+			"port":     port,
+			"password": password,
+			"level":    0,
 		},
 	}
 	if stream := v2rayStreamSettings(parsed.Query()); len(stream) > 0 {
@@ -1990,12 +1996,10 @@ func v2rayShadowsocksOutbound(parsed *url.URL) (string, map[string]any, bool) {
 		"tag":      "proxy",
 		"protocol": "shadowsocks",
 		"settings": map[string]any{
-			"servers": []any{map[string]any{
-				"address":  parsed.Hostname(),
-				"port":     port,
-				"method":   method,
-				"password": password,
-			}},
+			"address":  parsed.Hostname(),
+			"port":     port,
+			"method":   method,
+			"password": password,
 		},
 	}
 	query := parsed.Query()
@@ -2139,22 +2143,17 @@ func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
 	if err != nil || port <= 0 || stringValue(payload["add"]) == "" || stringValue(payload["id"]) == "" {
 		return "", nil, false
 	}
-	user := map[string]any{
+	settings := map[string]any{
+		"address":  stringValue(payload["add"]),
+		"port":     port,
 		"id":       stringValue(payload["id"]),
-		"alterId":  intValue(payload["aid"]),
 		"security": firstNonEmptyString(payload["scy"], "auto"),
 		"level":    0,
 	}
 	outbound := map[string]any{
 		"tag":      "proxy",
 		"protocol": "vmess",
-		"settings": map[string]any{
-			"vnext": []any{map[string]any{
-				"address": stringValue(payload["add"]),
-				"port":    port,
-				"users":   []any{user},
-			}},
-		},
+		"settings": settings,
 	}
 	query := url.Values{}
 	network := firstNonEmptyString(payload["net"], "tcp")

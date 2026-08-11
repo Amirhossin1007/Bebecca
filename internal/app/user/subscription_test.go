@@ -202,6 +202,21 @@ func TestStructuredSubscriptionsCoverSupportedShareProtocols(t *testing.T) {
 			t.Fatalf("Xray JSON output missing %s: %s", protocol, v2rayBody)
 		}
 	}
+	if binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_TEST_BINARY")); binary != "" {
+		for index, config := range configs {
+			data, err := json.Marshal(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "config.json")
+			if err := os.WriteFile(path, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if output, err := exec.Command(binary, "run", "-test", "-config", path).CombinedOutput(); err != nil {
+				t.Fatalf("official Xray rejected generated config %d: %v\n%s", index+1, err, output)
+			}
+		}
+	}
 }
 
 func TestSingBoxSubscriptionUsesFullTemplateAndRealNames(t *testing.T) {
@@ -438,11 +453,10 @@ func TestVLESSEncryptionRoundTripsXrayJSONTemplates(t *testing.T) {
 				outbounds := configs[0]["outbounds"].([]any)
 				generated := outbounds[0].(map[string]any)
 				settings := generated["settings"].(map[string]any)
-				client := settings["vnext"].([]any)[0].(map[string]any)["users"].([]any)[0].(map[string]any)
-				if client["encryption"] != service.encryption {
-					t.Fatalf("client encryption = %v, want %q: %s", client["encryption"], service.encryption, body)
+				if settings["encryption"] != service.encryption {
+					t.Fatalf("client encryption = %v, want %q: %s", settings["encryption"], service.encryption, body)
 				}
-				if _, leaked := client["decryption"]; leaked {
+				if _, leaked := settings["decryption"]; leaked {
 					t.Fatalf("server decryption leaked into client outbound: %s", body)
 				}
 				if template.content != "" && (len(outbounds) != 2 || outbounds[1].(map[string]any)["tag"] != "DIRECT") {
@@ -476,11 +490,11 @@ func TestVLESSEncryptionRoundTripsXrayJSONTemplates(t *testing.T) {
 
 func TestVLESSXHTTPStructuredOutputsPreserveExtraBlock(t *testing.T) {
 	extra := map[string]any{
-		"scMaxEachPostBytes": 1000000,
+		"scMaxEachPostBytes":   1000000,
 		"scMinPostsIntervalMs": 20,
-		"xPaddingBytes": "32-256",
-		"seqPlacement": "header",
-		"seqKey": "Upload-Offset",
+		"xPaddingBytes":        "32-256",
+		"seqPlacement":         "header",
+		"seqKey":               "Upload-Offset",
 	}
 	rawExtra, err := json.Marshal(extra)
 	if err != nil {
@@ -614,6 +628,7 @@ func TestRealityCompatibilityIsExplicitAcrossStructuredFormats(t *testing.T) {
 			decoded, _ := decodeFlexibleBase64(strings.TrimPrefix(link, "vmess://"))
 			_ = json.Unmarshal(decoded, &payload)
 			payload["spx"] = "/unsupported"
+			payload["pqv"] = "verifier"
 			raw, _ := json.Marshal(payload)
 			link = "vmess://" + base64.RawStdEncoding.EncodeToString(raw)
 		} else {
@@ -622,9 +637,78 @@ func TestRealityCompatibilityIsExplicitAcrossStructuredFormats(t *testing.T) {
 		if body, err := renderClashLikeYAML("alice", []string{link}, true); err == nil || body != "" || !strings.Contains(err.Error(), "spider-x or ML-DSA") {
 			t.Fatalf("Mihomo silently dropped %s unsupported Reality fields: body=%q err=%v", name, body, err)
 		}
-		if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "spider-x or ML-DSA") {
+		if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "ML-DSA") {
 			t.Fatalf("sing-box silently dropped %s unsupported Reality fields: body=%q err=%v", name, body, err)
 		}
+	}
+}
+
+func TestSingBoxRealityAllowsOptionalSpiderXButRejectsMLDSA(t *testing.T) {
+	base := "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=reality&type=tcp&encryption=none&sni=reality.example.com&fp=chrome&pbk=public-key&sid=01"
+	if body, err := renderSingBoxJSON([]string{base + "&spx=%2Foptional"}); err != nil || !strings.Contains(body, `"type": "vless"`) {
+		t.Fatalf("optional Reality spider-x made the sing-box subscription unusable: body=%s err=%v", body, err)
+	}
+	if body, err := renderSingBoxJSON([]string{base + "&pqv=verifier"}); err == nil || body != "" || !strings.Contains(err.Error(), "ML-DSA") {
+		t.Fatalf("unsupported ML-DSA verifier was silently dropped: body=%q err=%v", body, err)
+	}
+}
+
+func TestConnectableSubscriptionLinksDropsInformationPlaceholders(t *testing.T) {
+	links := []string{
+		"vless://11111111-1111-4111-8111-111111111111@x:443?encryption=none#status",
+		"vless://11111111-1111-4111-8111-111111111111@example.com:443?encryption=none#server",
+		"not-a-share-link",
+	}
+	got := connectableSubscriptionLinks(links)
+	if !reflect.DeepEqual(got, links[1:]) {
+		t.Fatalf("connectable links = %#v, want %#v", got, links[1:])
+	}
+}
+
+func TestXrayJSONUsesCurrentFlatOutboundSettings(t *testing.T) {
+	vmessPayload, err := json.Marshal(map[string]any{
+		"v": "2", "ps": "vmess", "add": "vmess.example.com", "port": "443",
+		"id": "11111111-1111-4111-8111-111111111111", "aid": "0", "scy": "auto", "net": "tcp",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		link     string
+		protocol string
+		address  string
+	}{
+		{name: "vless", protocol: "vless", address: "vless.example.com", link: "vless://11111111-1111-4111-8111-111111111111@vless.example.com:443?encryption=none&type=tcp#vless"},
+		{name: "trojan", protocol: "trojan", address: "trojan.example.com", link: "trojan://secret@trojan.example.com:443?type=tcp#trojan"},
+		{name: "shadowsocks", protocol: "shadowsocks", address: "ss.example.com", link: "ss://YWVzLTI1Ni1nY206c2VjcmV0@ss.example.com:8388#ss"},
+		{name: "vmess", protocol: "vmess", address: "vmess.example.com", link: "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPayload)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body, err := renderV2RayJSONSubscription([]string{tc.link}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var configs []map[string]any
+			if err := json.Unmarshal([]byte(body), &configs); err != nil || len(configs) != 1 {
+				t.Fatalf("invalid Xray JSON: err=%v body=%s", err, body)
+			}
+			outbound := configs[0]["outbounds"].([]any)[0].(map[string]any)
+			if outbound["protocol"] != tc.protocol {
+				t.Fatalf("protocol = %v, want %s", outbound["protocol"], tc.protocol)
+			}
+			settings := outbound["settings"].(map[string]any)
+			if settings["address"] != tc.address || int(settings["port"].(float64)) <= 0 {
+				t.Fatalf("flat settings were not generated: %#v", settings)
+			}
+			if _, legacy := settings["vnext"]; legacy {
+				t.Fatalf("legacy vnext shape was generated: %#v", settings)
+			}
+			if _, legacy := settings["servers"]; legacy {
+				t.Fatalf("legacy servers shape was generated: %#v", settings)
+			}
+		})
 	}
 }
 
