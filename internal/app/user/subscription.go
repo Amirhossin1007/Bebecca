@@ -2096,6 +2096,7 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 		if extra := query.Get("extra"); extra != "" {
 			extraSettings := map[string]any{}
 			if err := json.Unmarshal([]byte(extra), &extraSettings); err == nil {
+				extraMap := map[string]any{}
 				for _, key := range []string{
 					"scMaxEachPostBytes", "scMinPostsIntervalMs",
 					"xPaddingBytes", "noGRPCHeader", "keepAlivePeriod", "xmux",
@@ -2104,16 +2105,20 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 					"uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize", "downloadSettings",
 				} {
 					if value, ok := extraSettings[key]; ok {
-						settings[key] = value
+						extraMap[key] = value
 					}
 				}
 				if headers := xhttpShareHeaders(extraSettings["headers"]); len(headers) > 0 {
-					settings["headers"] = headers
+					extraMap["headers"] = headers
 				}
-				copyOptionalAlias(settings, "sessionPlacement", extraSettings, "sessionIDPlacement")
-				copyOptionalAlias(settings, "sessionKey", extraSettings, "sessionIDKey")
-				copyOptionalAlias(settings, "sessionTable", extraSettings, "sessionIDTable")
-				copyOptionalAlias(settings, "sessionLength", extraSettings, "sessionIDLength")
+				copyOptionalAlias(extraMap, "sessionPlacement", extraSettings, "sessionIDPlacement")
+				copyOptionalAlias(extraMap, "sessionKey", extraSettings, "sessionIDKey")
+				copyOptionalAlias(extraMap, "sessionTable", extraSettings, "sessionIDTable")
+				copyOptionalAlias(extraMap, "sessionLength", extraSettings, "sessionIDLength")
+
+				if len(extraMap) > 0 {
+					settings["extra"] = extraMap
+				}
 			}
 		}
 		if len(settings) > 0 {
