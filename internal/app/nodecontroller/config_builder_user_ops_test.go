@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+
+	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
 func TestUpdateUserOperationUsesRuntimeConfigReconciliation(t *testing.T) {
@@ -21,5 +23,15 @@ func TestUpdateUserOperationUsesRuntimeConfigReconciliation(t *testing.T) {
 	}
 	if !requiresSync {
 		t.Fatal("update_user must use runtime config reconciliation")
+	}
+}
+
+func TestRuntimeHasCapability(t *testing.T) {
+	state := &nodev1.RuntimeState{Capabilities: []string{"safe_user_reconciliation"}}
+	if !runtimeHasCapability(state, "safe_user_reconciliation") {
+		t.Fatal("expected advertised capability")
+	}
+	if runtimeHasCapability(&nodev1.RuntimeState{}, "safe_user_reconciliation") {
+		t.Fatal("legacy nodes must not advertise safe reconciliation")
 	}
 }

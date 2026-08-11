@@ -88,6 +88,7 @@ message RuntimeState {
   string install_mode = 5;
   string update_channel = 6;
   string message = 7;
+  repeated string capabilities = 8;
 }
 
 message RuntimeConfigRequest {

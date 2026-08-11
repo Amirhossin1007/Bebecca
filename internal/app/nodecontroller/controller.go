@@ -726,6 +726,15 @@ func (c Controller) applyOperationWithConfigData(ctx context.Context, operation 
 			if err != nil {
 				return err
 			}
+			if syncConfig && operation.OperationType == "update_user" {
+				health, err := client.Control().Health(ctx, &nodev1.HealthRequest{})
+				if err != nil {
+					return err
+				}
+				if !runtimeHasCapability(health.GetRuntime(), "safe_user_reconciliation") {
+					return fmt.Errorf("node update required for safe user reconciliation")
+				}
+			}
 			if !syncConfig {
 				return c.grpcApplyUserOperation(ctx, client, node, operation)
 			}
@@ -793,6 +802,16 @@ func isRuntimeUserOperation(operationType string) bool {
 	}
 }
 
+func runtimeHasCapability(state *nodev1.RuntimeState, capability string) bool {
+	capability = strings.TrimSpace(capability)
+	for _, value := range state.GetCapabilities() {
+		if strings.TrimSpace(value) == capability {
+			return true
+		}
+	}
+	return false
+}
+
 func (c Controller) fanOutGlobalRuntimeSyncOperation(ctx context.Context, operation OperationRow) error {
 	nodes, err := c.repo.UsageNodes(ctx, 0, 0)
 	if err != nil {
@@ -850,6 +869,7 @@ func isPermanentOperationError(err error) bool {
 		strings.Contains(message, "invalid character") ||
 		strings.Contains(message, "node is disabled") ||
 		strings.Contains(message, "node is limited") ||
+		strings.Contains(message, "node update required for safe user reconciliation") ||
 		strings.Contains(message, "node not found")
 }
 
