@@ -281,6 +281,42 @@ func TestSingBoxSubscriptionUsesFullTemplateAndRealNames(t *testing.T) {
 	}
 }
 
+func TestSingBoxOmitsUnsupportedRawHTTPHeaderObfuscation(t *testing.T) {
+	links := []string{
+		"vless://11111111-1111-4111-8111-111111111111@unsupported.example.com:443?security=tls&type=tcp&headerType=http&encryption=none&sni=unsupported.example.com#unsupported-raw-http",
+		"vless://22222222-2222-4222-8222-222222222222@supported.example.com:443?security=tls&type=tcp&headerType=none&encryption=none&sni=supported.example.com#supported-raw",
+	}
+	body, err := renderSingBoxJSON(links)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(body, "unsupported-raw-http") || !strings.Contains(body, "supported-raw") {
+		t.Fatalf("sing-box retained an incompatible RAW HTTP-obfuscated link or lost the supported link: %s", body)
+	}
+	var config map[string]any
+	if err := json.Unmarshal([]byte(body), &config); err != nil {
+		t.Fatal(err)
+	}
+	proxyCount := 0
+	for _, raw := range config["outbounds"].([]any) {
+		if outbound, ok := raw.(map[string]any); ok && stringValue(outbound["type"]) == "vless" {
+			proxyCount++
+		}
+	}
+	if proxyCount != 1 {
+		t.Fatalf("sing-box proxy count = %d, want 1: %s", proxyCount, body)
+	}
+	if binary := strings.TrimSpace(os.Getenv("REBECCA_SING_BOX_TEST_BINARY")); binary != "" {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command(binary, "check", "-c", path).CombinedOutput(); err != nil {
+			t.Fatalf("official sing-box rejected filtered config: %v\n%s", err, output)
+		}
+	}
+}
+
 func TestSingBoxSubscriptionRejectsInvalidTemplates(t *testing.T) {
 	if body, err := renderSingBoxJSONWithTemplate(nil, `{`, ""); err == nil || body != "" || !strings.Contains(err.Error(), "subscription template") {
 		t.Fatalf("invalid subscription template was accepted: body=%q err=%v", body, err)

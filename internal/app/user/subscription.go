@@ -1033,6 +1033,12 @@ func renderSingBoxJSONWithTemplate(links []string, templateContent string, setti
 		if _, isXHTTP := shareLinkXHTTPExtra(link, parsed); isXHTTP {
 			return "", fmt.Errorf("sing-box does not support XHTTP transport; use raw, Xray JSON, or Mihomo output")
 		}
+		// sing-box has no equivalent for Xray RAW/TCP HTTP header
+		// obfuscation. Mapping it to the V2Ray HTTP transport produces a valid
+		// looking configuration that cannot connect, so omit only those links.
+		if parseErr == nil && singBoxUsesRawHTTPHeaderObfuscation(link, parsed) {
+			continue
+		}
 		if !knownScheme {
 			continue
 		}
@@ -1617,17 +1623,7 @@ func singBoxTransport(query url.Values) (map[string]any, bool) {
 	}
 	switch network {
 	case "tcp":
-		if query.Get("headerType") != "http" {
-			return nil, true
-		}
-		transport := map[string]any{"type": "http"}
-		if hosts := stringList(query.Get("host")); len(hosts) > 0 {
-			transport["host"] = hosts
-		}
-		if path := query.Get("path"); path != "" {
-			transport["path"] = path
-		}
-		return transport, true
+		return nil, query.Get("headerType") != "http"
 	case "ws":
 		transport := map[string]any{"type": "ws"}
 		if path := query.Get("path"); path != "" {
@@ -1659,6 +1655,26 @@ func singBoxTransport(query url.Values) (map[string]any, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func singBoxUsesRawHTTPHeaderObfuscation(link string, parsed *url.URL) bool {
+	query := parsed.Query()
+	if parsed.Scheme == "vmess" {
+		decoded, err := decodeFlexibleBase64(strings.TrimPrefix(strings.TrimSpace(link), "vmess://"))
+		if err != nil {
+			return false
+		}
+		payload := map[string]any{}
+		if json.Unmarshal(decoded, &payload) != nil {
+			return false
+		}
+		query = url.Values{
+			"type":       []string{firstNonEmptyString(payload["net"], "tcp")},
+			"headerType": []string{stringValue(payload["type"])},
+		}
+	}
+	network := firstNonEmptyString(query.Get("type"), "tcp")
+	return (network == "tcp" || network == "raw") && query.Get("headerType") == "http"
 }
 
 func singBoxTLS(query url.Values) map[string]any {
