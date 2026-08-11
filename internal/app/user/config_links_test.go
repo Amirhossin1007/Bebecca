@@ -263,10 +263,13 @@ func TestBuildConfigLinksKeepsXHTTPPaddingJSONCompact(t *testing.T) {
 	}
 	stream := v2rayStreamSettings(parsed.Query())
 	settings := mapValue(stream["xhttpSettings"])
-	if settings["sessionPlacement"] != "header" || settings["sessionKey"] != "X-Session" {
-		t.Fatalf("stable Xray session aliases did not survive client link round-trip: %#v", settings)
+	extraSettings := mapValue(settings["extra"])
+
+	if extraSettings["sessionPlacement"] != "header" || extraSettings["sessionKey"] != "X-Session" {
+		t.Fatalf("stable Xray session aliases did not survive client link round-trip in extra block: %#v", settings)
 	}
-	if settings["sessionIDPlacement"] != nil || settings["sessionIDKey"] != nil {
+
+	if settings["sessionIDPlacement"] != nil || settings["sessionIDKey"] != nil || extraSettings["sessionIDPlacement"] != nil || extraSettings["sessionIDKey"] != nil {
 		t.Fatalf("post-v26.6.22 session aliases leaked into generic stable Xray JSON: %#v", settings)
 	}
 }
