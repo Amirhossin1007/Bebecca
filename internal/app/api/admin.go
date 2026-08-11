@@ -249,6 +249,9 @@ func (s *Server) handleAdminMutationPath(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
+	if s.handleAdminAPIKeyPath(w, r, username, suffix) {
+		return
+	}
 	if s.handleAdminSecurityPath(w, r, username, suffix) {
 		return
 	}

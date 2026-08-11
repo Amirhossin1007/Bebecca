@@ -4094,6 +4094,93 @@
         "operationId": "deleteAuthSession"
       }
     },
+    "/api/admin/{username}/api-keys": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List admin API keys",
+        "description": "List masked API keys for a target sudo, reseller, or standard admin. The key secret is never returned by this operation. Requires a full_access or sudo actor; full_access targets cannot be managed through this route.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Username"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JSON"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "getAdminApiKeys"
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Create admin API key",
+        "description": "Create an API key that authenticates as the target sudo, reseller, or standard admin. The plaintext secret is returned only in this response. Requires a full_access or sudo actor; full_access targets cannot be managed through this route. The request lifetime must be 1m, 3m, 6m, 12m, or forever.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Username"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JSON"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JSON"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "postAdminApiKeys"
+      }
+    },
+    "/api/admin/{username}/api-keys/{key_id}": {
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete admin API key",
+        "description": "Permanently revoke one API key owned by the target sudo, reseller, or standard admin. Requires a full_access or sudo actor. The key ID is owner-scoped and returns 404 when it belongs to another admin.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Username"
+          },
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "API key revoked."
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "deleteAdminApiKey"
+      }
+    },
     "/api/admin/{username}/sessions": {
       "get": {
         "tags": [
