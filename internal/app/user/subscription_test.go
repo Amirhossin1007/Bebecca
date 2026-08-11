@@ -553,10 +553,11 @@ func TestVLESSEncryptionRoundTripsXrayJSONTemplates(t *testing.T) {
 				outbounds := configs[0]["outbounds"].([]any)
 				generated := outbounds[0].(map[string]any)
 				settings := generated["settings"].(map[string]any)
-				if settings["encryption"] != service.encryption {
-					t.Fatalf("client encryption = %v, want %q: %s", settings["encryption"], service.encryption, body)
+				client := settings["vnext"].([]any)[0].(map[string]any)["users"].([]any)[0].(map[string]any)
+				if client["encryption"] != service.encryption {
+					t.Fatalf("client encryption = %v, want %q: %s", client["encryption"], service.encryption, body)
 				}
-				if _, leaked := settings["decryption"]; leaked {
+				if _, leaked := client["decryption"]; leaked {
 					t.Fatalf("server decryption leaked into client outbound: %s", body)
 				}
 				if template.content != "" && (len(outbounds) != 2 || outbounds[1].(map[string]any)["tag"] != "DIRECT") {
@@ -765,7 +766,7 @@ func TestConnectableSubscriptionLinksDropsInformationPlaceholders(t *testing.T) 
 	}
 }
 
-func TestXrayJSONUsesCurrentFlatOutboundSettings(t *testing.T) {
+func TestXrayJSONUsesImporterCompatibleOutboundSettings(t *testing.T) {
 	vmessPayload, err := json.Marshal(map[string]any{
 		"v": "2", "ps": "vmess", "add": "vmess.example.com", "port": "443",
 		"id": "11111111-1111-4111-8111-111111111111", "aid": "0", "scy": "auto", "net": "tcp",
@@ -799,14 +800,19 @@ func TestXrayJSONUsesCurrentFlatOutboundSettings(t *testing.T) {
 				t.Fatalf("protocol = %v, want %s", outbound["protocol"], tc.protocol)
 			}
 			settings := outbound["settings"].(map[string]any)
-			if settings["address"] != tc.address || int(settings["port"].(float64)) <= 0 {
-				t.Fatalf("flat settings were not generated: %#v", settings)
+			var server map[string]any
+			switch tc.protocol {
+			case "vless", "vmess":
+				server = settings["vnext"].([]any)[0].(map[string]any)
+				users := server["users"].([]any)
+				if len(users) != 1 {
+					t.Fatalf("missing importer-compatible users: %#v", settings)
+				}
+			case "trojan", "shadowsocks":
+				server = settings["servers"].([]any)[0].(map[string]any)
 			}
-			if _, legacy := settings["vnext"]; legacy {
-				t.Fatalf("legacy vnext shape was generated: %#v", settings)
-			}
-			if _, legacy := settings["servers"]; legacy {
-				t.Fatalf("legacy servers shape was generated: %#v", settings)
+			if server["address"] != tc.address || int(server["port"].(float64)) <= 0 {
+				t.Fatalf("importer-compatible address/port missing: %#v", settings)
 			}
 		})
 	}

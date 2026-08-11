@@ -226,6 +226,52 @@ func TestSubscriptionClientOutputsCoverExplicitFormatsAndAutoDetect(t *testing.T
 	}
 }
 
+func TestV2rayNGSubscriptionsKeepAddressAndPort(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	raw, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, UserAgent: "v2rayNG/1.10.28"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, link := range strings.Fields(decodeSubscriptionTestBody(string(raw.Body))) {
+		parsed, err := parseSubscriptionShareURL(link)
+		if err != nil {
+			t.Fatalf("v2rayNG raw subscription contains an invalid link: %v", err)
+		}
+		if parsed.Hostname() == "" || parsed.Port() == "" {
+			t.Fatalf("v2rayNG raw subscription lost address or port: %s", link)
+		}
+	}
+
+	if _, err := service.repo.db.Exec(`ALTER TABLE subscription_settings ADD COLUMN use_custom_json_for_v2rayng INTEGER DEFAULT 0`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET use_custom_json_for_v2rayng = 1`); err != nil {
+		t.Fatal(err)
+	}
+	structured, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, UserAgent: "v2rayNG/1.10.28"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal(structured.Body, &configs); err != nil {
+		t.Fatal(err)
+	}
+	for _, config := range configs {
+		outbound := config["outbounds"].([]any)[0].(map[string]any)
+		settings := outbound["settings"].(map[string]any)
+		serverKey := "servers"
+		if protocol := stringValue(outbound["protocol"]); protocol == "vless" || protocol == "vmess" {
+			serverKey = "vnext"
+		}
+		server := settings[serverKey].([]any)[0].(map[string]any)
+		if stringValue(server["address"]) == "" || intValue(server["port"]) <= 0 {
+			t.Fatalf("v2rayNG JSON subscription lost address or port: %#v", outbound)
+		}
+	}
+}
+
 func TestSubscriptionClientsKeepShadowsocksHTTPHeader(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()

@@ -2121,20 +2121,24 @@ func v2rayVLESSOutbound(parsed *url.URL) (string, map[string]any, bool) {
 		return "", nil, false
 	}
 	query := parsed.Query()
-	settings := map[string]any{
-		"address":    parsed.Hostname(),
-		"port":       port,
+	user := map[string]any{
 		"id":         id,
 		"encryption": firstNonEmptyString(query.Get("encryption"), "none"),
 		"level":      0,
 	}
 	if flow := query.Get("flow"); flow != "" {
-		settings["flow"] = flow
+		user["flow"] = flow
 	}
 	outbound := map[string]any{
 		"tag":      "proxy",
 		"protocol": "vless",
-		"settings": settings,
+		"settings": map[string]any{
+			"vnext": []any{map[string]any{
+				"address": parsed.Hostname(),
+				"port":    port,
+				"users":   []any{user},
+			}},
+		},
 	}
 	if stream := v2rayStreamSettings(query); len(stream) > 0 {
 		outbound["streamSettings"] = stream
@@ -2152,10 +2156,12 @@ func v2rayTrojanOutbound(parsed *url.URL) (string, map[string]any, bool) {
 		"tag":      "proxy",
 		"protocol": "trojan",
 		"settings": map[string]any{
-			"address":  parsed.Hostname(),
-			"port":     port,
-			"password": password,
-			"level":    0,
+			"servers": []any{map[string]any{
+				"address":  parsed.Hostname(),
+				"port":     port,
+				"password": password,
+				"level":    0,
+			}},
 		},
 	}
 	if stream := v2rayStreamSettings(parsed.Query()); len(stream) > 0 {
@@ -2173,10 +2179,12 @@ func v2rayShadowsocksOutbound(parsed *url.URL) (string, map[string]any, bool) {
 		"tag":      "proxy",
 		"protocol": "shadowsocks",
 		"settings": map[string]any{
-			"address":  parsed.Hostname(),
-			"port":     port,
-			"method":   method,
-			"password": password,
+			"servers": []any{map[string]any{
+				"address":  parsed.Hostname(),
+				"port":     port,
+				"method":   method,
+				"password": password,
+			}},
 		},
 	}
 	query := parsed.Query()
@@ -2320,17 +2328,22 @@ func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
 	if err != nil || port <= 0 || stringValue(payload["add"]) == "" || stringValue(payload["id"]) == "" {
 		return "", nil, false
 	}
-	settings := map[string]any{
-		"address":  stringValue(payload["add"]),
-		"port":     port,
+	user := map[string]any{
 		"id":       stringValue(payload["id"]),
+		"alterId":  intValue(payload["aid"]),
 		"security": firstNonEmptyString(payload["scy"], "auto"),
 		"level":    0,
 	}
 	outbound := map[string]any{
 		"tag":      "proxy",
 		"protocol": "vmess",
-		"settings": settings,
+		"settings": map[string]any{
+			"vnext": []any{map[string]any{
+				"address": stringValue(payload["add"]),
+				"port":    port,
+				"users":   []any{user},
+			}},
+		},
 	}
 	query := url.Values{}
 	network := firstNonEmptyString(payload["net"], "tcp")
