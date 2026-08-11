@@ -78,6 +78,11 @@ CREATE TABLE nodes (
 	usage_coefficient REAL DEFAULT 1,
 	last_status_change DATETIME
 );
+CREATE TABLE inbounds (
+	id INTEGER PRIMARY KEY,
+	tag TEXT NOT NULL UNIQUE,
+	usage_coefficient REAL NOT NULL DEFAULT 1
+);
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	operation_type TEXT NOT NULL,

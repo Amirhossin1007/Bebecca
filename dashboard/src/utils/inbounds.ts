@@ -39,6 +39,7 @@ export type RawInbound = {
 	effective_targets?: string[];
 	uplink?: number;
 	downlink?: number;
+	usage_coefficient?: number;
 };
 
 export const getInboundTraffic = (inbound: RawInbound) => {
@@ -135,6 +136,7 @@ export type InboundFormValues = {
 	listen: string;
 	port: string;
 	protocol: Protocol;
+	usageCoefficient: string;
 
 	// proxy protocol
 	tcpAcceptProxyProtocol: boolean;
@@ -742,6 +744,14 @@ export const validateInboundFormFields = (
 	}
 	if (!isValidPortText(values.port ?? "")) {
 		errors.port = "Port must be a number between 1 and 65535.";
+	}
+	const usageCoefficient = Number(values.usageCoefficient);
+	if (
+		!Number.isFinite(usageCoefficient) ||
+		usageCoefficient < 0.01 ||
+		usageCoefficient > 100
+	) {
+		errors.usageCoefficient = "Usage coefficient must be between 0.01 and 100.";
 	}
 	if (values.protocol === "pptp" && values.port.trim() !== "1723") {
 		errors.port = "PPTP port must be 1723.";
@@ -1436,6 +1446,7 @@ export const createDefaultInboundForm = (
 	listen: "",
 	port: defaultPortText(protocol),
 	protocol,
+	usageCoefficient: "1",
 	tcpAcceptProxyProtocol: false,
 	wsAcceptProxyProtocol: false,
 	httpupgradeAcceptProxyProtocol: false,
@@ -1831,9 +1842,7 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 				)
 			: base.fallbacks,
 		vlessFlow:
-			settings.flow === "xtls-rprx-vision"
-				? settings.flow
-				: base.vlessFlow,
+			settings.flow === "xtls-rprx-vision" ? settings.flow : base.vlessFlow,
 		shadowsocksNetwork:
 			settings.network && ["tcp", "udp", "tcp,udp"].includes(settings.network)
 				? (settings.network as InboundFormValues["shadowsocksNetwork"])
@@ -2719,6 +2728,9 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 				? (settings.cert_user_oid ?? "2.5.4.3")
 				: base.acCertUserOID,
 		targetIds: raw.targets?.length ? raw.targets : base.targetIds,
+		usageCoefficient: Number.isFinite(Number(raw.usage_coefficient))
+			? String(raw.usage_coefficient)
+			: base.usageCoefficient,
 	};
 };
 
@@ -3673,6 +3685,9 @@ export const buildInboundPayload = (
 		listen: values.listen.trim() || undefined,
 		port: parsePort(values.port),
 		protocol: values.protocol,
+		usage_coefficient: Number.isFinite(Number(values.usageCoefficient))
+			? Number(values.usageCoefficient)
+			: 1,
 		settings: buildSettings(values),
 	};
 

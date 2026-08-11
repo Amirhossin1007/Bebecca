@@ -322,6 +322,7 @@ message UserUsageBatch {
 message UserUsageSample {
   string uid = 1;
   uint64 value = 2;
+  string inbound_tag = 3;
 }
 
 message OnlineUserIP {

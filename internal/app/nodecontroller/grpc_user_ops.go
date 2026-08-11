@@ -46,29 +46,31 @@ func (c Controller) grpcApplyUserOperation(ctx context.Context, client *nodeclie
 	}
 }
 
-func (c Controller) grpcRemoveUserFromNode(ctx context.Context, client *nodeclient.Client, node NodeRow, operation OperationRow, email string) error {
+func (c Controller) grpcRemoveUserFromNode(ctx context.Context, client *nodeclient.Client, node NodeRow, operation OperationRow, legacyEmail string) error {
 	tags, err := c.legacyRuntimeInboundTags(ctx, node)
 	if err != nil {
 		return err
 	}
 	var lastErr error
 	for _, tag := range tags {
-		_, err := client.Runtime().RemoveUser(ctx, &nodev1.RemoveInboundUserRequest{
-			OperationId: fmt.Sprintf("%s-%d-%s", operation.OperationType, operation.ID, tag),
-			InboundTag:  tag,
-			Email:       email,
-		})
-		if err != nil {
-			if isIgnorableLegacyRemoveError(err) {
-				continue
+		for index, email := range []string{taggedRuntimeUserEmail(legacyEmail, tag), legacyEmail} {
+			_, err := client.Runtime().RemoveUser(ctx, &nodev1.RemoveInboundUserRequest{
+				OperationId: fmt.Sprintf("%s-%d-%s-%d", operation.OperationType, operation.ID, tag, index),
+				InboundTag:  tag,
+				Email:       email,
+			})
+			if err != nil {
+				if isIgnorableLegacyRemoveError(err) {
+					continue
+				}
+				lastErr = err
 			}
-			lastErr = err
 		}
 	}
 	return lastErr
 }
 
-func (c Controller) grpcAddUserToNode(ctx context.Context, client *nodeclient.Client, node NodeRow, operation OperationRow, email string, refreshExisting bool) error {
+func (c Controller) grpcAddUserToNode(ctx context.Context, client *nodeclient.Client, node NodeRow, operation OperationRow, legacyEmail string, refreshExisting bool) error {
 	raw, err := c.repo.NodeRawConfig(ctx, node)
 	if err != nil {
 		return err
@@ -119,14 +121,17 @@ func (c Controller) grpcAddUserToNode(ctx context.Context, client *nodeclient.Cl
 			if flow := stringValue(settings["flow"]); flow != "" && !flowSupportedForInbound(inbound) {
 				delete(settings, "flow")
 			}
+			email := taggedRuntimeUserEmail(legacyEmail, tag)
 			settings["email"] = email
 			settings["protocol"] = protocol
 			if refreshExisting {
-				_, _ = client.Runtime().RemoveUser(ctx, &nodev1.RemoveInboundUserRequest{
-					OperationId: fmt.Sprintf("%s-remove-%d-%s", operation.OperationType, operation.ID, tag),
-					InboundTag:  tag,
-					Email:       email,
-				})
+				for index, existingEmail := range []string{email, legacyEmail} {
+					_, _ = client.Runtime().RemoveUser(ctx, &nodev1.RemoveInboundUserRequest{
+						OperationId: fmt.Sprintf("%s-remove-%d-%s-%d", operation.OperationType, operation.ID, tag, index),
+						InboundTag:  tag,
+						Email:       existingEmail,
+					})
+				}
 			}
 			_, err = client.Runtime().AddUser(ctx, &nodev1.InboundUserRequest{
 				OperationId: fmt.Sprintf("%s-%d-%s", operation.OperationType, operation.ID, tag),

@@ -205,7 +205,7 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 			if flow := stringValue(settings["flow"]); flow != "" && !flowSupportedForInbound(inbound) {
 				delete(settings, "flow")
 			}
-			settings["email"] = fmt.Sprintf("%d.%s", user.ID, user.Username)
+			settings["email"] = inboundRuntimeUserEmail(user.ID, user.Username, tag)
 			clients := ensureMap(inbound, "settings")["clients"].([]any)
 			ensureMap(inbound, "settings")["clients"] = append(clients, settings)
 		}

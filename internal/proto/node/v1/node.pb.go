@@ -2745,6 +2745,7 @@ type UserUsageSample struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Uid           string                 `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
 	Value         uint64                 `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
+	InboundTag    string                 `protobuf:"bytes,3,opt,name=inbound_tag,json=inboundTag,proto3" json:"inbound_tag,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2791,6 +2792,13 @@ func (x *UserUsageSample) GetValue() uint64 {
 		return x.Value
 	}
 	return 0
+}
+
+func (x *UserUsageSample) GetInboundTag() string {
+	if x != nil {
+		return x.InboundTag
+	}
+	return ""
 }
 
 type OnlineUserIP struct {
@@ -3519,10 +3527,12 @@ const file_rebecca_node_v1_node_proto_rawDesc = "" +
 	"\bbatch_id\x18\x01 \x01(\tR\abatchId\x126\n" +
 	"\x05stats\x18\x02 \x03(\v2 .rebecca.node.v1.UserUsageSampleR\x05stats\x12<\n" +
 	"\n" +
-	"online_ips\x18\x03 \x03(\v2\x1d.rebecca.node.v1.OnlineUserIPR\tonlineIps\"9\n" +
+	"online_ips\x18\x03 \x03(\v2\x1d.rebecca.node.v1.OnlineUserIPR\tonlineIps\"Z\n" +
 	"\x0fUserUsageSample\x12\x10\n" +
 	"\x03uid\x18\x01 \x01(\tR\x03uid\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value\"c\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value\x12\x1f\n" +
+	"\vinbound_tag\x18\x03 \x01(\tR\n" +
+	"inboundTag\"c\n" +
 	"\fOnlineUserIP\x12\x10\n" +
 	"\x03uid\x18\x01 \x01(\tR\x03uid\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12+\n" +

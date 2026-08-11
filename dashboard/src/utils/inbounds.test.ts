@@ -12,7 +12,9 @@ import {
 describe("inbound traffic", () => {
 	it("maps uplink to upload, downlink to download, and tolerates old responses", () => {
 		const base = { tag: "in", port: 443, protocol: "vless", settings: {} };
-		expect(getInboundTraffic({ ...base, uplink: 1024, downlink: 2048 })).toEqual({
+		expect(
+			getInboundTraffic({ ...base, uplink: 1024, downlink: 2048 }),
+		).toEqual({
 			upload: 1024,
 			download: 2048,
 			total: 3072,
@@ -22,6 +24,30 @@ describe("inbound traffic", () => {
 			download: 0,
 			total: 0,
 		});
+	});
+});
+
+describe("inbound usage coefficient", () => {
+	it("round-trips as panel metadata and defaults to one", () => {
+		const raw: RawInbound = {
+			tag: "weighted",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			usage_coefficient: 1.5,
+		};
+		const values = rawInboundToFormValues(raw);
+		expect(values.usageCoefficient).toBe("1.5");
+		expect(buildInboundPayload(values).usage_coefficient).toBe(1.5);
+		expect(createDefaultInboundForm().usageCoefficient).toBe("1");
+	});
+
+	it("rejects coefficients outside the supported range", () => {
+		const values = createDefaultInboundForm();
+		values.usageCoefficient = "0";
+		expect(validateInboundFormFields(values).usageCoefficient).toBeTruthy();
+		values.usageCoefficient = "101";
+		expect(validateInboundFormFields(values).usageCoefficient).toBeTruthy();
 	});
 });
 
@@ -40,7 +66,9 @@ describe("VLESS inbound default flow", () => {
 
 		const values = rawInboundToFormValues(raw);
 		expect(values.vlessFlow).toBe("xtls-rprx-vision");
-		expect(buildInboundPayload(values, { initial: raw }).settings).toMatchObject({
+		expect(
+			buildInboundPayload(values, { initial: raw }).settings,
+		).toMatchObject({
 			flow: "xtls-rprx-vision",
 		});
 

@@ -26,7 +26,7 @@ func TestRestoreInboundSnapshotPreservesTrafficCounters(t *testing.T) {
 			}
 			defer db.Close()
 			if _, err := db.Exec(`
-CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, usage_coefficient REAL NOT NULL DEFAULT 1);
 CREATE TABLE hosts (id INTEGER PRIMARY KEY AUTOINCREMENT, inbound_tag TEXT NOT NULL);
 CREATE TABLE service_hosts (service_id INTEGER NOT NULL, host_id INTEGER NOT NULL);
 INSERT INTO inbounds (tag, uplink, downlink) VALUES ('tracked', 10, 20);`); err != nil {
@@ -83,5 +83,58 @@ INSERT INTO inbounds (tag, uplink, downlink) VALUES ('tracked', 10, 20);`); err 
 				t.Fatalf("restored traffic = (%d, %d), want (%d, %d)", up, down, test.wantUp, test.wantDown)
 			}
 		})
+	}
+}
+
+func TestRestoreInboundSnapshotRestoresUsageCoefficient(t *testing.T) {
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "coefficient.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`
+CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, usage_coefficient REAL NOT NULL DEFAULT 1);
+CREATE TABLE hosts (id INTEGER PRIMARY KEY AUTOINCREMENT, inbound_tag TEXT NOT NULL);
+CREATE TABLE service_hosts (service_id INTEGER NOT NULL, host_id INTEGER NOT NULL);
+INSERT INTO inbounds (tag, usage_coefficient) VALUES ('tracked', 1.5);`); err != nil {
+		t.Fatal(err)
+	}
+	repo := NewRepository(db, "sqlite", Options{})
+	ctx := context.Background()
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := repo.CaptureMutationSnapshotTx(ctx, tx, SnapshotScope{InboundTag: "tracked"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE inbounds SET usage_coefficient = 3 WHERE tag = 'tracked'`); err != nil {
+		t.Fatal(err)
+	}
+	current, err := repo.CaptureMutationSnapshotTx(ctx, tx, SnapshotScope{InboundTag: "tracked"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeHash, err := SnapshotHash(before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentHash, err := SnapshotHash(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if beforeHash == currentHash {
+		t.Fatal("coefficient changes must participate in rollback concurrency checks")
+	}
+	if err := restoreInboundHostsTx(ctx, tx, before, current); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	var coefficient float64
+	if err := db.QueryRowContext(ctx, `SELECT usage_coefficient FROM inbounds WHERE tag = 'tracked'`).Scan(&coefficient); err != nil || coefficient != 1.5 {
+		t.Fatalf("coefficient=%v err=%v", coefficient, err)
 	}
 }

@@ -1544,6 +1544,43 @@ export const InboundFormModal: FC<Props> = ({
 												</FormLabel>
 												<Input placeholder="::" {...register("listen")} />
 											</FormControl>
+											<FormControl
+												isRequired
+												isInvalid={Boolean(
+													fieldValidationErrors.usageCoefficient,
+												)}
+											>
+												<FormLabel>{t("inbounds.usageCoefficient")}</FormLabel>
+												<Controller
+													control={control}
+													name="usageCoefficient"
+													render={({ field }) => (
+														<NumericInput
+															value={field.value ?? "1"}
+															onChange={(value) => field.onChange(value)}
+															min={0.01}
+															max={100}
+															step={0.01}
+														/>
+													)}
+												/>
+												<Text fontSize="xs" color="gray.500" mt={1}>
+													{t("inbounds.usageCoefficientHelp")}
+												</Text>
+												{Number(formValues.usageCoefficient) !== 1 && (
+													<Alert status="warning" mt={2} borderRadius="md">
+														<AlertIcon />
+														<AlertDescription fontSize="xs">
+															{t("inbounds.usageCoefficientNodeWarning")}
+														</AlertDescription>
+													</Alert>
+												)}
+												{fieldValidationErrors.usageCoefficient && (
+													<Text fontSize="xs" color="red.500" mt={1}>
+														{fieldValidationErrors.usageCoefficient}
+													</Text>
+												)}
+											</FormControl>
 										</SimpleGrid>
 										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 											<FormControl

@@ -34,23 +34,23 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	err = repo.PersistCollectedUsage(
 		ctx,
 		NodeRow{ID: 7, UsageCoefficient: 1.5},
-		[]UserUsageDelta{{UserID: 10, Value: 100}},
+		[]UserUsageDelta{{UserID: 10, Value: 100, InboundCoefficient: 2}},
 		[]OutboundUsageDelta{{Tag: "direct", Up: 11, Down: 22}},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 10`, 150)
+	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 10`, 300)
 	assertString(t, db, `SELECT status FROM users WHERE id = 10`, "limited")
-	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, 150)
-	assertInt64(t, db, `SELECT lifetime_usage FROM admins WHERE id = 1`, 150)
-	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 2`, 150)
-	assertInt64(t, db, `SELECT lifetime_used_traffic FROM services WHERE id = 2`, 150)
-	assertInt64(t, db, `SELECT users_usage FROM services WHERE id = 2`, 150)
-	assertInt64(t, db, `SELECT used_traffic FROM admins_services WHERE admin_id = 1 AND service_id = 2`, 150)
-	assertInt64(t, db, `SELECT lifetime_used_traffic FROM admins_services WHERE admin_id = 1 AND service_id = 2`, 150)
-	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE user_id = 10 AND node_id = 7`, 150)
+	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, 300)
+	assertInt64(t, db, `SELECT lifetime_usage FROM admins WHERE id = 1`, 300)
+	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 2`, 300)
+	assertInt64(t, db, `SELECT lifetime_used_traffic FROM services WHERE id = 2`, 300)
+	assertInt64(t, db, `SELECT users_usage FROM services WHERE id = 2`, 300)
+	assertInt64(t, db, `SELECT used_traffic FROM admins_services WHERE admin_id = 1 AND service_id = 2`, 300)
+	assertInt64(t, db, `SELECT lifetime_used_traffic FROM admins_services WHERE admin_id = 1 AND service_id = 2`, 300)
+	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE user_id = 10 AND node_id = 7`, 300)
 	assertInt64(t, db, `SELECT uplink FROM node_usages WHERE node_id = 7`, 11)
 	assertInt64(t, db, `SELECT downlink FROM node_usages WHERE node_id = 7`, 22)
 	assertInt64(t, db, `SELECT uplink FROM system WHERE id = 1`, 11)
@@ -595,6 +595,18 @@ func TestUsageUint64ToInt64RejectsOverflow(t *testing.T) {
 	}
 	if value, ok := usageUint64ToInt64(uint64(math.MaxInt64) + 1); ok || value != 0 {
 		t.Fatalf("overflowing delta should be rejected: value=%d ok=%v", value, ok)
+	}
+}
+
+func TestScaleUserUsageCombinesFactorsAndSaturates(t *testing.T) {
+	if got := scaleUserUsage(100, 1.5, 2); got != 300 {
+		t.Fatalf("combined usage=%d want=300", got)
+	}
+	if got := scaleUserUsage(math.MaxInt64, 100, 100); got != math.MaxInt64 {
+		t.Fatalf("overflow wrapped: %d", got)
+	}
+	if got := scaleUserUsage(100, 0, 2); got != 200 {
+		t.Fatalf("invalid factor should fall back to one: %d", got)
 	}
 }
 

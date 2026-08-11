@@ -32,6 +32,13 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 	if err != nil {
 		return CollectUsageResult{}, err
 	}
+	inboundCoefficients := map[string]float64{}
+	if collectUsers {
+		inboundCoefficients, err = c.repo.InboundUsageCoefficients(ctx)
+		if err != nil {
+			return CollectUsageResult{}, err
+		}
+	}
 
 	result := CollectUsageResult{}
 	collectorID := "master-" + strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
@@ -61,7 +68,7 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 				return
 			}
 
-			nodeResult := c.collectUsageForNode(ctx, node, collectUsers, collectOutbound, reset, collectorID, persistOptions)
+			nodeResult := c.collectUsageForNode(ctx, node, collectUsers, collectOutbound, reset, collectorID, inboundCoefficients, persistOptions)
 			mu.Lock()
 			mergeCollectUsageResult(&result, nodeResult)
 			mu.Unlock()
@@ -78,6 +85,7 @@ func (c Controller) collectUsageForNode(
 	collectOutbound bool,
 	reset bool,
 	collectorID string,
+	inboundCoefficients map[string]float64,
 	persistOptions UsagePersistOptions,
 ) CollectUsageResult {
 	result := CollectUsageResult{Nodes: 1}
@@ -123,7 +131,11 @@ func (c Controller) collectUsageForNode(
 				continue
 			}
 			if value > 0 {
-				userDeltas = append(userDeltas, UserUsageDelta{UserID: userID, Value: value, Online: true})
+				coefficient := 1.0
+				if tag := strings.TrimSpace(sample.GetInboundTag()); tag != "" {
+					coefficient = normalizeUsageFactor(inboundCoefficients[tag])
+				}
+				userDeltas = append(userDeltas, UserUsageDelta{UserID: userID, Value: value, Online: true, InboundCoefficient: coefficient})
 				result.UserSamples++
 			}
 		}

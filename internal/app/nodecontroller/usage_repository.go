@@ -21,9 +21,10 @@ const usageOnlineTouchInterval = 90 * time.Second
 var usageFlushMu sync.Mutex
 
 type UserUsageDelta struct {
-	UserID int64
-	Value  int64
-	Online bool
+	UserID             int64
+	Value              int64
+	Online             bool
+	InboundCoefficient float64
 }
 
 type OutboundUsageDelta struct {
@@ -144,6 +145,27 @@ WHERE LOWER(COALESCE(status, '')) = 'connected'`
 			return nil, err
 		}
 		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func (r Repository) InboundUsageCoefficients(ctx context.Context) (map[string]float64, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT tag, COALESCE(usage_coefficient, 1) FROM inbounds`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[string]float64{}
+	for rows.Next() {
+		var tag string
+		var coefficient float64
+		if err := rows.Scan(&tag, &coefficient); err != nil {
+			return nil, err
+		}
+		tag = strings.TrimSpace(tag)
+		if tag != "" {
+			result[tag] = normalizeUsageFactor(coefficient)
+		}
 	}
 	return result, rows.Err()
 }
@@ -383,10 +405,6 @@ func mergeUsagePersistOptions(optionValues []UsagePersistOptions) UsagePersistOp
 func aggregateUserUsageForStage(node NodeRow, deltas []UserUsageDelta) (map[int64]int64, map[int64]struct{}) {
 	aggregated := map[int64]int64{}
 	onlineUsers := map[int64]struct{}{}
-	coefficient := node.UsageCoefficient
-	if coefficient <= 0 {
-		coefficient = 1
-	}
 	for _, delta := range deltas {
 		if delta.UserID <= 0 {
 			continue
@@ -397,14 +415,42 @@ func aggregateUserUsageForStage(node NodeRow, deltas []UserUsageDelta) (map[int6
 		if delta.Value <= 0 {
 			continue
 		}
-		value := int64(math.Round(float64(delta.Value) * coefficient))
+		value := scaleUserUsage(delta.Value, node.UsageCoefficient, delta.InboundCoefficient)
 		if value <= 0 {
 			continue
 		}
-		aggregated[delta.UserID] += value
+		aggregated[delta.UserID] = addUsageDelta(aggregated[delta.UserID], value)
 		onlineUsers[delta.UserID] = struct{}{}
 	}
 	return aggregated, onlineUsers
+}
+
+func normalizeUsageFactor(value float64) float64 {
+	if value <= 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+		return 1
+	}
+	return value
+}
+
+func scaleUserUsage(value int64, factors ...float64) int64 {
+	if value <= 0 {
+		return 0
+	}
+	factor := 1.0
+	for _, item := range factors {
+		factor *= normalizeUsageFactor(item)
+		if math.IsInf(factor, 0) || factor >= float64(math.MaxInt64) {
+			return math.MaxInt64
+		}
+	}
+	scaled := math.Round(float64(value) * factor)
+	if math.IsInf(scaled, 0) || scaled >= float64(math.MaxInt64) {
+		return math.MaxInt64
+	}
+	if scaled <= 0 {
+		return 0
+	}
+	return int64(scaled)
 }
 
 func aggregateOutboundUsageForStage(deltas []OutboundUsageDelta) map[string]OutboundUsageDelta {
@@ -510,11 +556,11 @@ func (r Repository) persistUserUsage(ctx context.Context, tx *sql.Tx, node NodeR
 		if delta.Value <= 0 {
 			continue
 		}
-		value := int64(math.Round(float64(delta.Value) * node.UsageCoefficient))
+		value := scaleUserUsage(delta.Value, node.UsageCoefficient, delta.InboundCoefficient)
 		if value <= 0 {
 			continue
 		}
-		aggregated[delta.UserID] += value
+		aggregated[delta.UserID] = addUsageDelta(aggregated[delta.UserID], value)
 		onlineUsers[delta.UserID] = struct{}{}
 	}
 	if len(aggregated) == 0 && len(onlineUsers) == 0 {

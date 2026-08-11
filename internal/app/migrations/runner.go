@@ -20,7 +20,7 @@ var gooseMu sync.Mutex
 var migrationDialect string
 
 const (
-	latestGooseVersion         int64 = 44
+	latestGooseVersion         int64 = 45
 	legacyAlembicFinalRevision       = "23_drop_access_insights"
 	legacyAlembicFinalBaseline int64 = 16
 )
@@ -202,6 +202,7 @@ func schemaLooksGoLatest(ctx context.Context, db *sql.DB, dialect string) (bool,
 		{"hosts", "dns_primary"},
 		{"hosts", "dns_secondary"},
 		{"admins", "require_2fa"},
+		{"inbounds", "usage_coefficient"},
 	}
 	for _, check := range checks {
 		ok, err := HasColumn(ctx, db, dialect, check.table, check.column)
