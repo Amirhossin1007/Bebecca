@@ -217,6 +217,12 @@ func (c Controller) userOperationRequiresConfigSync(ctx context.Context, node No
 	if !isRuntimeUserOperation(operation.OperationType) || !operation.UserID.Valid {
 		return false, nil
 	}
+	// Reconcile updates from the node's cached runtime config. The previous
+	// remove-then-add loop touched every inbound and could time out after
+	// removing a user from only part of the node.
+	if operation.OperationType == "update_user" {
+		return true, nil
+	}
 	var serviceID sql.NullInt64
 	if err := c.repo.db.QueryRowContext(ctx, `SELECT service_id FROM users WHERE id = ?`, operation.UserID.Int64).Scan(&serviceID); err != nil {
 		if err == sql.ErrNoRows {
