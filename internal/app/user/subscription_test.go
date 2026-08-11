@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -151,7 +152,11 @@ func TestStructuredSubscriptionsCoverSupportedShareProtocols(t *testing.T) {
 		}
 	}
 
-	singBoxBody, err := renderSingBoxJSON(links)
+	singBoxBody, err := renderSingBoxJSONWithTemplate(
+		links,
+		readTestTemplateFile(t, filepath.Join("templates", "singbox", "default.json")),
+		readTestTemplateFile(t, filepath.Join("templates", "singbox", "settings.json")),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,6 +172,15 @@ func TestStructuredSubscriptionsCoverSupportedShareProtocols(t *testing.T) {
 	for _, protocol := range []string{"selector", "vless", "vmess", "trojan", "shadowsocks", "hysteria2"} {
 		if !seen[protocol] {
 			t.Fatalf("sing-box output missing %s: %s", protocol, singBoxBody)
+		}
+	}
+	if binary := strings.TrimSpace(os.Getenv("REBECCA_SING_BOX_TEST_BINARY")); binary != "" {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(singBoxBody), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command(binary, "check", "-c", path).CombinedOutput(); err != nil {
+			t.Fatalf("official sing-box rejected the supported protocol set: %v\n%s", err, output)
 		}
 	}
 
@@ -187,6 +201,94 @@ func TestStructuredSubscriptionsCoverSupportedShareProtocols(t *testing.T) {
 		if !v2rayProtocols[protocol] {
 			t.Fatalf("Xray JSON output missing %s: %s", protocol, v2rayBody)
 		}
+	}
+}
+
+func TestSingBoxSubscriptionUsesFullTemplateAndRealNames(t *testing.T) {
+	template := readTestTemplateFile(t, filepath.Join("templates", "singbox", "default.json"))
+	settings := `{"wsSettings":{"headers":{"User-Agent":"Rebecca"}}}`
+	remark := url.PathEscape("تهران ویژه")
+	links := []string{
+		"vless://11111111-1111-4111-8111-111111111111@one.example.com:443?security=tls&type=ws&path=%2Fws&host=one.example.com&sni=one.example.com&encryption=none#" + remark,
+		"vless://22222222-2222-4222-8222-222222222222@two.example.com:443?security=tls&type=ws&path=%2Fws&host=two.example.com&sni=two.example.com&encryption=none#" + remark,
+	}
+	body, err := renderSingBoxJSONWithTemplate(links, template, settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err := json.Unmarshal([]byte(body), &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, section := range []string{"dns", "inbounds", "outbounds", "route"} {
+		if config[section] == nil {
+			t.Fatalf("sing-box output lost %s: %s", section, body)
+		}
+	}
+
+	wantTags := []any{"Best Latency", "تهران ویژه", "تهران ویژه (2)"}
+	var selector map[string]any
+	proxyCount := 0
+	for _, raw := range config["outbounds"].([]any) {
+		outbound := raw.(map[string]any)
+		switch stringValue(outbound["type"]) {
+		case "selector":
+			if outbound["tag"] == "proxy" {
+				selector = outbound
+			}
+		case "vless":
+			proxyCount++
+			transport := outbound["transport"].(map[string]any)
+			headers := transport["headers"].(map[string]any)
+			if headers["User-Agent"] != "Rebecca" || headers["Host"] == "" {
+				t.Fatalf("sing-box settings/link transport merge failed: %#v", transport)
+			}
+			if strings.HasPrefix(stringValue(outbound["tag"]), "proxy-") {
+				t.Fatalf("sing-box replaced the link name: %#v", outbound["tag"])
+			}
+		}
+	}
+	if selector == nil || proxyCount != 2 {
+		t.Fatalf("missing selector or proxies: %s", body)
+	}
+	if got := selector["outbounds"].([]any); !reflect.DeepEqual(got, wantTags) {
+		t.Fatalf("selector tags = %#v, want %#v", got, wantTags)
+	}
+
+	if binary := strings.TrimSpace(os.Getenv("REBECCA_SING_BOX_TEST_BINARY")); binary != "" {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command(binary, "check", "-c", path).CombinedOutput(); err != nil {
+			t.Fatalf("official sing-box rejected generated config: %v\n%s", err, output)
+		}
+	}
+}
+
+func TestSingBoxSubscriptionRejectsInvalidTemplates(t *testing.T) {
+	if body, err := renderSingBoxJSONWithTemplate(nil, `{`, ""); err == nil || body != "" || !strings.Contains(err.Error(), "subscription template") {
+		t.Fatalf("invalid subscription template was accepted: body=%q err=%v", body, err)
+	}
+	if body, err := renderSingBoxJSONWithTemplate(nil, `{"outbounds":{}}`, ""); err == nil || body != "" || !strings.Contains(err.Error(), "outbounds must be an array") {
+		t.Fatalf("invalid outbounds were accepted: body=%q err=%v", body, err)
+	}
+	if body, err := renderSingBoxJSONWithTemplate(nil, `{"outbounds":[]}`, `{`); err == nil || body != "" || !strings.Contains(err.Error(), "settings template") {
+		t.Fatalf("invalid settings template was accepted: body=%q err=%v", body, err)
+	}
+}
+
+func TestSingBoxFallbackTemplateMatchesPackagedDefault(t *testing.T) {
+	fallback, err := singBoxSubscriptionTemplate("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	packaged := map[string]any{}
+	if err := json.Unmarshal([]byte(readTestTemplateFile(t, filepath.Join("templates", "singbox", "default.json"))), &packaged); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(fallback, packaged) {
+		t.Fatal("fallback sing-box template differs from templates/singbox/default.json")
 	}
 }
 

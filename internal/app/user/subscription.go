@@ -62,7 +62,7 @@ type subscriptionTokenPayload struct {
 
 var subscriptionClientConfigs = map[string]SubscriptionClientConfig{
 	"clash-meta":   {Format: "clash-meta", Media: "text/yaml"},
-	"sing-box":     {Format: "sing-box", Media: "application/json"},
+	"sing-box":     {Format: "sing-box", Media: "application/json", TemplateKey: "singbox_subscription_template"},
 	"clash":        {Format: "clash", Media: "text/yaml"},
 	"v2ray":        {Format: "v2ray", Media: "text/plain", Base64: true},
 	"outline":      {Format: "outline", Media: "application/json"},
@@ -432,7 +432,12 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 		templateKey := firstNonEmptyString(config.TemplateKey, "v2ray_subscription_template")
 		return renderV2RayJSONSubscriptionWithTemplate(raw, false, s.subscriptionTemplateContent(ctx, templateKey, user.AdminID))
 	case "sing-box":
-		return renderSingBoxJSON(raw)
+		templateKey := firstNonEmptyString(config.TemplateKey, "singbox_subscription_template")
+		return renderSingBoxJSONWithTemplate(
+			raw,
+			s.subscriptionTemplateContent(ctx, templateKey, user.AdminID),
+			s.subscriptionTemplateContent(ctx, "singbox_settings_template", user.AdminID),
+		)
 	case "clash", "clash-meta":
 		return renderClashLikeYAML(user.Username, raw, config.Format == "clash-meta")
 	default:
@@ -963,10 +968,34 @@ func renderClashLikeYAML(username string, links []string, meta bool) (string, er
 }
 
 func renderSingBoxJSON(links []string) (string, error) {
+	return renderSingBoxJSONWithTemplate(links, `{"outbounds":[]}`, "")
+}
+
+func renderSingBoxJSONWithTemplate(links []string, templateContent string, settingsContent string) (string, error) {
+	config, err := singBoxSubscriptionTemplate(templateContent)
+	if err != nil {
+		return "", err
+	}
+	settings, err := singBoxSettingsTemplate(settingsContent)
+	if err != nil {
+		return "", err
+	}
+	templateOutbounds, err := singBoxTemplateOutbounds(config)
+	if err != nil {
+		return "", err
+	}
+	usedTags := make(map[string]struct{}, len(templateOutbounds)+len(links))
+	for _, raw := range templateOutbounds {
+		if outbound, ok := raw.(map[string]any); ok {
+			if tag := strings.TrimSpace(stringValue(outbound["tag"])); tag != "" {
+				usedTags[tag] = struct{}{}
+			}
+		}
+	}
+
 	proxies := make([]map[string]any, 0, len(links))
 	tags := make([]string, 0, len(links))
 	for i, link := range links {
-		tag := fmt.Sprintf("proxy-%d", i+1)
 		parsed, parseErr := parseSubscriptionShareURL(link)
 		scheme, knownScheme := supportedSubscriptionScheme(link, parsed)
 		if parseErr != nil && knownScheme {
@@ -987,6 +1016,10 @@ func renderSingBoxJSON(links []string) (string, error) {
 		if _, isXHTTP := shareLinkXHTTPExtra(link, parsed); isXHTTP {
 			return "", fmt.Errorf("sing-box does not support XHTTP transport; use raw, Xray JSON, or Mihomo output")
 		}
+		if !knownScheme {
+			continue
+		}
+		tag := uniqueSingBoxTag(singBoxShareLinkName(link, parsed), i+1, usedTags)
 		outbound, ok := singBoxOutboundFromShareLink(link, tag)
 		if !ok {
 			if knownScheme {
@@ -994,20 +1027,191 @@ func renderSingBoxJSON(links []string) (string, error) {
 			}
 			continue
 		}
+		applySingBoxTransportSettings(outbound, settings)
 		proxies = append(proxies, outbound)
 		tags = append(tags, tag)
 	}
-	outbounds := make([]map[string]any, 0, len(proxies)+1)
-	if len(tags) > 0 {
-		outbounds = append(outbounds, map[string]any{
-			"type":      "selector",
-			"tag":       "proxy",
-			"outbounds": tags,
-		})
+	templateOutbounds = configureSingBoxGroups(templateOutbounds, tags)
+	for _, proxy := range proxies {
+		templateOutbounds = append(templateOutbounds, proxy)
 	}
-	outbounds = append(outbounds, proxies...)
-	return marshalPretty(map[string]any{"outbounds": outbounds})
+	config["outbounds"] = templateOutbounds
+	return marshalPretty(config)
 }
+
+func singBoxSubscriptionTemplate(content string) (map[string]any, error) {
+	if strings.TrimSpace(content) == "" {
+		content = fallbackSingBoxSubscriptionTemplate
+	}
+	config := map[string]any{}
+	if err := json.Unmarshal([]byte(content), &config); err != nil {
+		return nil, fmt.Errorf("invalid sing-box subscription template: %w", err)
+	}
+	return config, nil
+}
+
+func singBoxSettingsTemplate(content string) (map[string]any, error) {
+	if strings.TrimSpace(content) == "" {
+		return map[string]any{}, nil
+	}
+	settings := map[string]any{}
+	if err := json.Unmarshal([]byte(content), &settings); err != nil {
+		return nil, fmt.Errorf("invalid sing-box settings template: %w", err)
+	}
+	return settings, nil
+}
+
+func singBoxTemplateOutbounds(config map[string]any) ([]any, error) {
+	raw, exists := config["outbounds"]
+	if !exists || raw == nil {
+		return []any{}, nil
+	}
+	outbounds, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("invalid sing-box subscription template: outbounds must be an array")
+	}
+	return outbounds, nil
+}
+
+func singBoxShareLinkName(link string, parsed *url.URL) string {
+	if parsed != nil && parsed.Scheme != "vmess" {
+		return strings.TrimSpace(parsed.Fragment)
+	}
+	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "vmess://") {
+		return ""
+	}
+	decoded, err := decodeFlexibleBase64(strings.TrimPrefix(strings.TrimSpace(link), "vmess://"))
+	if err != nil {
+		return ""
+	}
+	payload := map[string]any{}
+	if json.Unmarshal(decoded, &payload) != nil {
+		return ""
+	}
+	return strings.TrimSpace(stringValue(payload["ps"]))
+}
+
+func uniqueSingBoxTag(name string, index int, used map[string]struct{}) string {
+	base := strings.TrimSpace(name)
+	if base == "" {
+		base = fmt.Sprintf("proxy-%d", index)
+	}
+	if _, exists := used[base]; !exists {
+		used[base] = struct{}{}
+		return base
+	}
+	for suffix := 2; ; suffix++ {
+		candidate := fmt.Sprintf("%s (%d)", base, suffix)
+		if _, exists := used[candidate]; !exists {
+			used[candidate] = struct{}{}
+			return candidate
+		}
+	}
+}
+
+func configureSingBoxGroups(outbounds []any, proxyTags []string) []any {
+	urlTestTags := make([]string, 0, len(outbounds))
+	hasSelector := false
+	for _, raw := range outbounds {
+		outbound, ok := raw.(map[string]any)
+		if !ok || stringValue(outbound["type"]) != "urltest" {
+			continue
+		}
+		outbound["outbounds"] = append([]string(nil), proxyTags...)
+		if tag := strings.TrimSpace(stringValue(outbound["tag"])); tag != "" {
+			urlTestTags = append(urlTestTags, tag)
+		}
+	}
+	selectorTags := append(urlTestTags, proxyTags...)
+	for _, raw := range outbounds {
+		outbound, ok := raw.(map[string]any)
+		if !ok || stringValue(outbound["type"]) != "selector" || stringValue(outbound["tag"]) != "proxy" {
+			continue
+		}
+		outbound["outbounds"] = append([]string(nil), selectorTags...)
+		hasSelector = true
+	}
+	if !hasSelector && len(proxyTags) > 0 {
+		selector := map[string]any{"type": "selector", "tag": "proxy", "outbounds": selectorTags}
+		outbounds = append([]any{selector}, outbounds...)
+	}
+	return outbounds
+}
+
+func applySingBoxTransportSettings(outbound map[string]any, settings map[string]any) {
+	transport, ok := outbound["transport"].(map[string]any)
+	if !ok {
+		return
+	}
+	settingsKey := map[string]string{
+		"grpc":        "grpcSettings",
+		"http":        "httpSettings",
+		"ws":          "wsSettings",
+		"httpupgrade": "httpupgradeSettings",
+	}[stringValue(transport["type"])]
+	defaults, ok := settings[settingsKey].(map[string]any)
+	if !ok {
+		return
+	}
+	outbound["transport"] = mergeSingBoxObjects(defaults, transport)
+}
+
+func mergeSingBoxObjects(base map[string]any, override map[string]any) map[string]any {
+	merged := make(map[string]any, len(base)+len(override))
+	for key, value := range base {
+		if nested, ok := value.(map[string]any); ok {
+			merged[key] = mergeSingBoxObjects(nested, map[string]any{})
+		} else {
+			merged[key] = value
+		}
+	}
+	for key, value := range override {
+		baseNested, baseOK := merged[key].(map[string]any)
+		overrideNested, overrideOK := value.(map[string]any)
+		if baseOK && overrideOK {
+			merged[key] = mergeSingBoxObjects(baseNested, overrideNested)
+		} else {
+			merged[key] = value
+		}
+	}
+	return merged
+}
+
+const fallbackSingBoxSubscriptionTemplate = `{
+  "log": {"level": "warn"},
+  "dns": {
+    "servers": [
+      {"type": "udp", "tag": "dns-remote", "server": "1.1.1.2", "server_port": 53, "detour": "proxy"},
+      {"type": "local", "tag": "dns-local"}
+    ],
+    "final": "dns-remote",
+    "strategy": "prefer_ipv4"
+  },
+  "inbounds": [{
+    "type": "tun",
+    "tag": "tun-in",
+    "interface_name": "sing-tun",
+    "address": ["172.19.0.1/30", "fdfe:dcba:9876::1/126"],
+    "auto_route": true,
+    "route_exclude_address": ["192.168.0.0/16", "fc00::/7"]
+  }],
+  "outbounds": [
+    {"type": "selector", "tag": "proxy", "outbounds": null, "interrupt_exist_connections": true},
+    {"type": "urltest", "tag": "Best Latency", "outbounds": null},
+    {"type": "direct", "tag": "direct"}
+  ],
+  "route": {
+    "rules": [
+      {"action": "sniff"},
+      {"protocol": "dns", "action": "hijack-dns"},
+      {"ip_is_private": true, "action": "route", "outbound": "direct"}
+    ],
+    "final": "proxy",
+    "auto_detect_interface": true,
+    "default_domain_resolver": "dns-local"
+  },
+  "experimental": {"cache_file": {"enabled": true}}
+}`
 
 func singBoxOutboundFromShareLink(link string, tag string) (map[string]any, bool) {
 	parsed, err := parseSubscriptionShareURL(link)

@@ -275,7 +275,9 @@ func TestSubscriptionClientsKeepShadowsocksHTTPHeader(t *testing.T) {
 			t.Fatal(err)
 		}
 		body := string(response.Body)
-		if !strings.Contains(body, `"type": "shadowsocks"`) || !strings.Contains(body, `"plugin": "obfs-local"`) || !strings.Contains(body, `"plugin_opts": "obfs=http;obfs-host=header.example.com"`) {
+		if !strings.Contains(body, `"dns"`) || !strings.Contains(body, `"inbounds"`) || !strings.Contains(body, `"route"`) ||
+			!strings.Contains(body, `"tag": "xray-edge"`) || !strings.Contains(body, `"tag": "ss-edge"`) ||
+			!strings.Contains(body, `"type": "shadowsocks"`) || !strings.Contains(body, `"plugin": "obfs-local"`) || !strings.Contains(body, `"plugin_opts": "obfs=http;obfs-host=header.example.com"`) {
 			t.Fatalf("sing-box lost the Shadowsocks HTTP plugin: %s", body)
 		}
 	})
