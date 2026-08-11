@@ -655,7 +655,7 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 						</HStack>
 					</HStack>
 				)}
-				<Box flex="1" minH={0} ref={jsonEditorContainer} />
+				<Box flex="1" minH={0} position="relative" ref={jsonEditorContainer} />
 			</VStack>
 		);
 	},

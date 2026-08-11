@@ -241,26 +241,14 @@ const profileHostNameError = (protocol: string | undefined, value: string) => {
 	return null;
 };
 
-type CreateHostValues = {
+type CreateHostValues = HostData & {
 	inboundTag: string;
-	remark: string;
-	address: string;
-	dns_primary: string;
-	dns_secondary: string;
-	address_options: string;
-	address_selection_mode: string;
-	address_ttl_seconds: number | null;
-	port: number | null;
-	path: string;
-	sni: string;
-	sni_options: string;
-	sni_selection_mode: string;
-	sni_ttl_seconds: number | null;
-	host: string;
-	host_options: string;
-	host_selection_mode: string;
-	host_ttl_seconds: number | null;
 };
+
+const emptyCreateHostValues = (inboundTag: string): CreateHostValues => ({
+	...EMPTY_HOST_DATA,
+	inboundTag,
+});
 
 const EditIcon = chakra(PencilIcon, {
 	baseStyle: {
@@ -1078,7 +1066,8 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 						(host.data.dns_primary.trim() && host.data.dns_secondary.trim())),
 			)
 		: false;
-	const primaryDisabled = isCloneMode ? !canSubmit : !dirty || !canSubmit;
+	const primaryDisabled =
+		Boolean(jsonError) || (isCloneMode ? !canSubmit : !dirty || !canSubmit);
 	const primaryLabel = isCloneMode ? t("hostsPage.clone.submit") : t("save");
 	const hostPayload = useMemo(() => {
 		if (!host) {
@@ -1179,7 +1168,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 					</AppleEmojiText>
 				</XrayModalHeader>
 				<XrayModalBody>
-					<Tabs className="xray-dialog-auto-sections" variant="unstyled">
+					<Tabs isLazy className="xray-dialog-auto-sections" variant="unstyled">
 						<TabList>
 							<Tab>{t("form")}</Tab>
 							<Tab>{t("json")}</Tab>
@@ -1638,26 +1627,12 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 }) => {
 	const { t } = useTranslation();
 	const initialRef = useRef<HTMLInputElement | null>(null);
-	const [formState, setFormState] = useState<CreateHostValues>({
-		inboundTag: inboundOptions[0]?.value ?? "",
-		remark: "",
-		address: "",
-		dns_primary: "1.1.1.1",
-		dns_secondary: "8.8.8.8",
-		address_options: "",
-		address_selection_mode: "random",
-		address_ttl_seconds: null,
-		port: null,
-		path: "",
-		sni: "",
-		sni_options: "",
-		sni_selection_mode: "random",
-		sni_ttl_seconds: null,
-		host: "",
-		host_options: "",
-		host_selection_mode: "random",
-		host_ttl_seconds: null,
-	});
+	const [formState, setFormState] = useState<CreateHostValues>(() =>
+		emptyCreateHostValues(inboundOptions[0]?.value ?? ""),
+	);
+	const [jsonText, setJsonText] = useState("");
+	const [jsonError, setJsonError] = useState<string | null>(null);
+	const updatingFromJsonRef = useRef(false);
 	const nodeAddressOptions = useMemo(
 		() => getNodeAddressOptions(nodes),
 		[nodes],
@@ -1682,32 +1657,72 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 
 	useEffect(() => {
 		if (isOpen) {
-			setFormState({
-				inboundTag: inboundOptions[0]?.value ?? "",
-				remark: "",
-				address: "",
-				dns_primary: "1.1.1.1",
-				dns_secondary: "8.8.8.8",
-				address_options: "",
-				address_selection_mode: "random",
-				address_ttl_seconds: null,
-				port: null,
-				path: "",
-				sni: "",
-				sni_options: "",
-				sni_selection_mode: "random",
-				sni_ttl_seconds: null,
-				host: "",
-				host_options: "",
-				host_selection_mode: "random",
-				host_ttl_seconds: null,
-			});
+			updatingFromJsonRef.current = false;
+			setFormState(emptyCreateHostValues(inboundOptions[0]?.value ?? ""));
+			setJsonError(null);
 			setTimeout(() => initialRef.current?.focus(), 150);
 		}
 	}, [inboundOptions, isOpen]);
 
+	const jsonPayload = useMemo(
+		() => ({
+			inboundTag: formState.inboundTag,
+			...formatHostForApi(formState),
+		}),
+		[formState],
+	);
+
+	useEffect(() => {
+		if (!isOpen) {
+			return;
+		}
+		if (updatingFromJsonRef.current) {
+			updatingFromJsonRef.current = false;
+			return;
+		}
+		const formatted = JSON.stringify(jsonPayload, null, 2);
+		setJsonText((current) => (current === formatted ? current : formatted));
+		setJsonError(null);
+	}, [isOpen, jsonPayload]);
+
+	const handleJsonEditorChange = useCallback((value: string) => {
+		setJsonText(value);
+		try {
+			const parsed = JSON.parse(value);
+			if (!parsed || typeof parsed !== "object") {
+				throw new Error("Invalid JSON payload");
+			}
+			const payload = parsed as Record<string, unknown>;
+			updatingFromJsonRef.current = true;
+			setFormState((current) => {
+				let next = {
+					...current,
+					inboundTag:
+						typeof payload.inboundTag === "string"
+							? payload.inboundTag
+							: current.inboundTag,
+				};
+				for (const key of Object.keys(EMPTY_HOST_DATA) as Array<
+					keyof HostData
+				>) {
+					if (Object.hasOwn(payload, key)) {
+						next = {
+							...next,
+							[key]: coerceHostValue(key, payload[key], current),
+						};
+					}
+				}
+				return next;
+			});
+			setJsonError(null);
+		} catch (error) {
+			setJsonError(error instanceof Error ? error.message : "Invalid JSON");
+		}
+	}, []);
+
 	const handleSubmit = () => {
 		if (
+			jsonError ||
 			!formState.inboundTag ||
 			!formState.remark.trim() ||
 			Boolean(remarkError) ||
@@ -1725,7 +1740,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 		<Modal
 			isOpen={isOpen}
 			onClose={onClose}
-			size="2xl"
+			size="4xl"
 			initialFocusRef={initialRef}
 			returnFocusOnClose={false}
 		>
@@ -1736,214 +1751,246 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<VStack className="xray-dialog-section" align="stretch" spacing={4}>
-						<Text fontSize="sm" fontWeight="semibold">
-							{t("hostsPage.section.general")}
-						</Text>
-						<FormControl isRequired>
-							<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
-							<SearchableTagSelect
-								value={formState.inboundTag}
-								options={inboundOptions}
-								placeholder={t("hostsPage.inboundLabel")}
-								onChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										inboundTag: String(value),
-									}))
-								}
-							/>
-						</FormControl>
-						<FormControl isRequired isInvalid={Boolean(remarkError)}>
-							<FormLabel>{t("hostsDialog.remark")}</FormLabel>
-							<InputGroup>
-								<Input
-									ref={initialRef}
-									value={formState.remark}
-									maxLength={isWireGuardInbound ? 15 : undefined}
-									onChange={(event) =>
-										setFormState((prev) => ({
-											...prev,
-											remark: event.target.value,
-										}))
-									}
-								/>
-								<InputRightElement width="auto" pr={2} pointerEvents="auto">
-									{!isProfileHostInbound && <DynamicTokensPopover />}
-								</InputRightElement>
-							</InputGroup>
-							{remarkError && (
-								<FormErrorMessage>{t(remarkError)}</FormErrorMessage>
-							)}
-						</FormControl>
-						<FormControl isRequired>
-							<FormLabel>{t("hostsDialog.address")}</FormLabel>
-							<MultiValueAutocomplete
-								value={formState.address}
-								options={nodeAddressOptions}
-								placeholder={t("hostsDialog.addressPlaceholder")}
-								onChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										address: value,
-									}))
-								}
-								rightElement={<DynamicTokensPopover />}
-							/>
-						</FormControl>
-						{hasMultipleRotationValues(formState.address) && (
-							<RotationControls
-								mode={formState.address_selection_mode}
-								ttl={formState.address_ttl_seconds}
-								onModeChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										address_selection_mode: value,
-									}))
-								}
-								onTTLChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										address_ttl_seconds: value,
-									}))
-								}
-							/>
-						)}
-						{isWireGuardInbound && (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-								<FormControl isRequired>
-									<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
-									<Input
-										value={formState.dns_primary}
-										placeholder="1.1.1.1"
-										onChange={(event) =>
-											setFormState((prev) => ({
-												...prev,
-												dns_primary: event.target.value,
-											}))
-										}
-									/>
-								</FormControl>
-								<FormControl isRequired>
-									<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
-									<Input
-										value={formState.dns_secondary}
-										placeholder="8.8.8.8"
-										onChange={(event) =>
-											setFormState((prev) => ({
-												...prev,
-												dns_secondary: event.target.value,
-											}))
-										}
-									/>
-								</FormControl>
-							</SimpleGrid>
-						)}
-						{!isVirtualTunnelInbound && (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-								<FormControl>
-									<FormLabel>{t("port")}</FormLabel>
-									<NumericInput
-										value={formState.port ?? ""}
-										fieldProps={{
-											placeholder: inboundPortPlaceholder(selectedInbound),
-										}}
-										onChange={(_, num) =>
-											setFormState((prev) => ({
-												...prev,
-												port: Number.isNaN(num) ? null : num,
-											}))
-										}
-									/>
-								</FormControl>
-								<FormControl>
-									<FormLabel>{t("hostsDialog.sni")}</FormLabel>
-									<MultiValueAutocomplete
-										value={formState.sni}
-										placeholder={t("hostsDialog.sniPlaceholder")}
-										onChange={(value) =>
-											setFormState((prev) => ({
-												...prev,
-												sni: value,
-											}))
-										}
-									/>
-								</FormControl>
-							</SimpleGrid>
-						)}
-						{!isVirtualTunnelInbound && (
-							<FormControl>
-								<FormLabel>{t("hostsDialog.path")}</FormLabel>
-								<Input
-									value={formState.path}
-									onChange={(event) =>
-										setFormState((prev) => ({
-											...prev,
-											path: event.target.value,
-										}))
-									}
-								/>
-							</FormControl>
-						)}
-						{!isVirtualTunnelInbound && (
-							<FormControl>
-								<FormLabel>{t("hostsDialog.host")}</FormLabel>
-								<MultiValueAutocomplete
-									value={formState.host}
-									placeholder={t("hostsDialog.hostPlaceholder")}
-									onChange={(value) =>
-										setFormState((prev) => ({
-											...prev,
-											host: value,
-										}))
-									}
-									rightElement={<DynamicTokensPopover />}
-								/>
-							</FormControl>
-						)}
-						{!isVirtualTunnelInbound &&
-							(hasMultipleRotationValues(formState.sni) ||
-								hasMultipleRotationValues(formState.host)) && (
-								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-									{hasMultipleRotationValues(formState.sni) && (
+					<Tabs isLazy className="xray-dialog-auto-sections" variant="unstyled">
+						<TabList>
+							<Tab>{t("form")}</Tab>
+							<Tab>{t("json")}</Tab>
+						</TabList>
+						<TabPanels>
+							<TabPanel px={0}>
+								<VStack
+									className="xray-dialog-section"
+									align="stretch"
+									spacing={4}
+								>
+									<Text fontSize="sm" fontWeight="semibold">
+										{t("hostsPage.section.general")}
+									</Text>
+									<FormControl isRequired>
+										<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
+										<SearchableTagSelect
+											value={formState.inboundTag}
+											options={inboundOptions}
+											placeholder={t("hostsPage.inboundLabel")}
+											onChange={(value) =>
+												setFormState((prev) => ({
+													...prev,
+													inboundTag: String(value),
+												}))
+											}
+										/>
+									</FormControl>
+									<FormControl isRequired isInvalid={Boolean(remarkError)}>
+										<FormLabel>{t("hostsDialog.remark")}</FormLabel>
+										<InputGroup>
+											<Input
+												ref={initialRef}
+												value={formState.remark}
+												maxLength={isWireGuardInbound ? 15 : undefined}
+												onChange={(event) =>
+													setFormState((prev) => ({
+														...prev,
+														remark: event.target.value,
+													}))
+												}
+											/>
+											<InputRightElement
+												width="auto"
+												pr={2}
+												pointerEvents="auto"
+											>
+												{!isProfileHostInbound && <DynamicTokensPopover />}
+											</InputRightElement>
+										</InputGroup>
+										{remarkError && (
+											<FormErrorMessage>{t(remarkError)}</FormErrorMessage>
+										)}
+									</FormControl>
+									<FormControl isRequired>
+										<FormLabel>{t("hostsDialog.address")}</FormLabel>
+										<MultiValueAutocomplete
+											value={formState.address}
+											options={nodeAddressOptions}
+											placeholder={t("hostsDialog.addressPlaceholder")}
+											onChange={(value) =>
+												setFormState((prev) => ({
+													...prev,
+													address: value,
+												}))
+											}
+											rightElement={<DynamicTokensPopover />}
+										/>
+									</FormControl>
+									{hasMultipleRotationValues(formState.address) && (
 										<RotationControls
-											mode={formState.sni_selection_mode}
-											ttl={formState.sni_ttl_seconds}
+											mode={formState.address_selection_mode}
+											ttl={formState.address_ttl_seconds}
 											onModeChange={(value) =>
 												setFormState((prev) => ({
 													...prev,
-													sni_selection_mode: value,
+													address_selection_mode: value,
 												}))
 											}
 											onTTLChange={(value) =>
 												setFormState((prev) => ({
 													...prev,
-													sni_ttl_seconds: value,
+													address_ttl_seconds: value,
 												}))
 											}
 										/>
 									)}
-									{hasMultipleRotationValues(formState.host) && (
-										<RotationControls
-											mode={formState.host_selection_mode}
-											ttl={formState.host_ttl_seconds}
-											onModeChange={(value) =>
-												setFormState((prev) => ({
-													...prev,
-													host_selection_mode: value,
-												}))
-											}
-											onTTLChange={(value) =>
-												setFormState((prev) => ({
-													...prev,
-													host_ttl_seconds: value,
-												}))
-											}
-										/>
+									{isWireGuardInbound && (
+										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+											<FormControl isRequired>
+												<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
+												<Input
+													value={formState.dns_primary}
+													placeholder="1.1.1.1"
+													onChange={(event) =>
+														setFormState((prev) => ({
+															...prev,
+															dns_primary: event.target.value,
+														}))
+													}
+												/>
+											</FormControl>
+											<FormControl isRequired>
+												<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
+												<Input
+													value={formState.dns_secondary}
+													placeholder="8.8.8.8"
+													onChange={(event) =>
+														setFormState((prev) => ({
+															...prev,
+															dns_secondary: event.target.value,
+														}))
+													}
+												/>
+											</FormControl>
+										</SimpleGrid>
 									)}
-								</SimpleGrid>
-							)}
-					</VStack>
+									{!isVirtualTunnelInbound && (
+										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+											<FormControl>
+												<FormLabel>{t("port")}</FormLabel>
+												<NumericInput
+													value={formState.port ?? ""}
+													fieldProps={{
+														placeholder:
+															inboundPortPlaceholder(selectedInbound),
+													}}
+													onChange={(_, num) =>
+														setFormState((prev) => ({
+															...prev,
+															port: Number.isNaN(num) ? null : num,
+														}))
+													}
+												/>
+											</FormControl>
+											<FormControl>
+												<FormLabel>{t("hostsDialog.sni")}</FormLabel>
+												<MultiValueAutocomplete
+													value={formState.sni}
+													placeholder={t("hostsDialog.sniPlaceholder")}
+													onChange={(value) =>
+														setFormState((prev) => ({
+															...prev,
+															sni: value,
+														}))
+													}
+												/>
+											</FormControl>
+										</SimpleGrid>
+									)}
+									{!isVirtualTunnelInbound && (
+										<FormControl>
+											<FormLabel>{t("hostsDialog.path")}</FormLabel>
+											<Input
+												value={formState.path}
+												onChange={(event) =>
+													setFormState((prev) => ({
+														...prev,
+														path: event.target.value,
+													}))
+												}
+											/>
+										</FormControl>
+									)}
+									{!isVirtualTunnelInbound && (
+										<FormControl>
+											<FormLabel>{t("hostsDialog.host")}</FormLabel>
+											<MultiValueAutocomplete
+												value={formState.host}
+												placeholder={t("hostsDialog.hostPlaceholder")}
+												onChange={(value) =>
+													setFormState((prev) => ({
+														...prev,
+														host: value,
+													}))
+												}
+												rightElement={<DynamicTokensPopover />}
+											/>
+										</FormControl>
+									)}
+									{!isVirtualTunnelInbound &&
+										(hasMultipleRotationValues(formState.sni) ||
+											hasMultipleRotationValues(formState.host)) && (
+											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+												{hasMultipleRotationValues(formState.sni) && (
+													<RotationControls
+														mode={formState.sni_selection_mode}
+														ttl={formState.sni_ttl_seconds}
+														onModeChange={(value) =>
+															setFormState((prev) => ({
+																...prev,
+																sni_selection_mode: value,
+															}))
+														}
+														onTTLChange={(value) =>
+															setFormState((prev) => ({
+																...prev,
+																sni_ttl_seconds: value,
+															}))
+														}
+													/>
+												)}
+												{hasMultipleRotationValues(formState.host) && (
+													<RotationControls
+														mode={formState.host_selection_mode}
+														ttl={formState.host_ttl_seconds}
+														onModeChange={(value) =>
+															setFormState((prev) => ({
+																...prev,
+																host_selection_mode: value,
+															}))
+														}
+														onTTLChange={(value) =>
+															setFormState((prev) => ({
+																...prev,
+																host_ttl_seconds: value,
+															}))
+														}
+													/>
+												)}
+											</SimpleGrid>
+										)}
+								</VStack>
+							</TabPanel>
+							<TabPanel px={0}>
+								<VStack align="stretch" spacing={3}>
+									<JsonEditor
+										json={jsonText}
+										onChange={handleJsonEditorChange}
+									/>
+									{jsonError && (
+										<Text fontSize="sm" color="red.500">
+											{jsonError}
+										</Text>
+									)}
+								</VStack>
+							</TabPanel>
+						</TabPanels>
+					</Tabs>
 				</XrayModalBody>
 				<XrayModalFooter justifyContent="flex-end">
 					<Button variant="ghost" onClick={onClose}>
@@ -1954,6 +2001,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 						onClick={handleSubmit}
 						isLoading={isSubmitting}
 						isDisabled={
+							Boolean(jsonError) ||
 							!formState.inboundTag ||
 							!formState.remark.trim() ||
 							Boolean(remarkError) ||
@@ -2505,76 +2553,20 @@ export const HostsManager: FC = () => {
 		}
 		setSavingHostUid("create");
 		try {
+			const { inboundTag, ...hostData } = values;
+			const newData = cloneHostData({ ...hostData, id: null });
 			const newHost: HostState = {
 				uid: createUid(),
-				inboundTag: values.inboundTag,
-				initialInboundTag: values.inboundTag,
-				data: {
-					id: null,
-					remark: values.remark,
-					address: values.address,
-					dns_primary: values.dns_primary,
-					dns_secondary: values.dns_secondary,
-					address_options: values.address_options,
-					address_selection_mode: values.address_selection_mode,
-					address_ttl_seconds: values.address_ttl_seconds,
-					port: values.port,
-					path: values.path,
-					sni: values.sni,
-					sni_options: values.sni_options,
-					sni_selection_mode: values.sni_selection_mode,
-					sni_ttl_seconds: values.sni_ttl_seconds,
-					host: values.host,
-					host_options: values.host_options,
-					host_selection_mode: values.host_selection_mode,
-					host_ttl_seconds: values.host_ttl_seconds,
-					mux_enable: false,
-					allowinsecure: false,
-					is_disabled: false,
-					fragment_setting: "",
-					noise_setting: "",
-					random_user_agent: false,
-					security: "inbound_default",
-					alpn: "",
-					fingerprint: "",
-					use_sni_as_host: false,
-				},
-				original: {
-					id: null,
-					remark: values.remark,
-					address: values.address,
-					dns_primary: values.dns_primary,
-					dns_secondary: values.dns_secondary,
-					address_options: values.address_options,
-					address_selection_mode: values.address_selection_mode,
-					address_ttl_seconds: values.address_ttl_seconds,
-					port: values.port,
-					path: values.path,
-					sni: values.sni,
-					sni_options: values.sni_options,
-					sni_selection_mode: values.sni_selection_mode,
-					sni_ttl_seconds: values.sni_ttl_seconds,
-					host: values.host,
-					host_options: values.host_options,
-					host_selection_mode: values.host_selection_mode,
-					host_ttl_seconds: values.host_ttl_seconds,
-					mux_enable: false,
-					allowinsecure: false,
-					is_disabled: false,
-					fragment_setting: "",
-					noise_setting: "",
-					random_user_agent: false,
-					security: "inbound_default",
-					alpn: "",
-					fingerprint: "",
-					use_sni_as_host: false,
-				},
+				inboundTag,
+				initialInboundTag: inboundTag,
+				data: newData,
+				original: cloneHostData(newData),
 			};
 
 			const nextHosts = sortHosts([...hostItemsRef.current, newHost]);
 			applyHostItems(nextHosts);
 
-			const payload = buildInboundPayload(nextHosts, [values.inboundTag]);
+			const payload = buildInboundPayload(nextHosts, [inboundTag]);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
