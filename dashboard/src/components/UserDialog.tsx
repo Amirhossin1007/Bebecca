@@ -1231,10 +1231,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			return [];
 		}
 		const urls = editingUser.subscription_urls ?? {};
-		const order = ["username-key", "key", "token"] as const;
+		const order = ["username-key", "key", "key-username", "token"] as const;
 		const labels: Record<(typeof order)[number], string> = {
 			"username-key": t("userDialog.links.subscriptionUsernameKey"),
 			key: t("userDialog.links.subscriptionKey"),
+			"key-username": t("userDialog.links.subscriptionKeyUsername"),
 			token: t("userDialog.links.subscriptionToken"),
 		};
 		const orderIndex = new Map(order.map((key, index) => [key, index]));
