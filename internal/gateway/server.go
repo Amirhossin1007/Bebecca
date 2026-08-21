@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -10,17 +11,31 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
 )
 
 type Server struct {
 	cfg     Config
 	server  *http.Server
 	servers []*http.Server
+	tls     *tls.Config
 }
 
 func NewServer(cfg Config) (*Server, error) {
 	if (strings.TrimSpace(cfg.TLSCertFile) == "") != (strings.TrimSpace(cfg.TLSKeyFile) == "") {
 		return nil, fmt.Errorf("incomplete TLS configuration: set both UVICORN_SSL_CERTFILE and UVICORN_SSL_KEYFILE, or leave both empty for plain HTTP")
+	}
+	resolver, err := certificateapp.NewResolver(cfg.CertificateBase, cfg.TLSCertFile, cfg.TLSKeyFile)
+	if err != nil {
+		return nil, err
+	}
+	var tlsConfig *tls.Config
+	if resolver.Ready() {
+		tlsConfig = &tls.Config{
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: resolver.GetCertificate,
+		}
 	}
 
 	dashboard := newDashboardFiles(cfg)
@@ -65,7 +80,7 @@ func NewServer(cfg Config) (*Server, error) {
 		servers = append(servers, newHTTPServer(addr, mux))
 	}
 
-	return &Server{cfg: cfg, server: mainServer, servers: servers}, nil
+	return &Server{cfg: cfg, server: mainServer, servers: servers, tls: tlsConfig}, nil
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {
@@ -122,8 +137,9 @@ func (s *Server) Run() error {
 		server := server
 		go func() {
 			var err error
-			if s.cfg.TLSCertFile != "" && s.cfg.TLSKeyFile != "" {
-				err = server.ListenAndServeTLS(s.cfg.TLSCertFile, s.cfg.TLSKeyFile)
+			if s.tls != nil {
+				server.TLSConfig = s.tls
+				err = server.ListenAndServeTLS("", "")
 			} else {
 				err = server.ListenAndServe()
 			}

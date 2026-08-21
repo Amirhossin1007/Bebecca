@@ -22,6 +22,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
+	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
@@ -301,6 +302,9 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 		configRepo:     xrayconfig.NewRepository(db, "sqlite", xrayconfig.Options{}),
 		settingsRepo:   settingsapp.NewRepository(db, "sqlite"),
 		backupService:  backupapp.NewService(db, "sqlite", "sqlite:///"+filepath.ToSlash(path)),
+		certificateManager: certificateapp.NewManager(db, certificateapp.Config{
+			BaseDir: filepath.Join(t.TempDir(), "certificates"),
+		}),
 	}
 	telegramRepo := telegramapp.NewRepository(db, "sqlite")
 	telegramSender := telegramapp.NewSender(telegramRepo, "")

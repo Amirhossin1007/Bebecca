@@ -197,6 +197,20 @@ export interface SubscriptionCertificate {
 	last_issued_at: string | null;
 	last_renewed_at: string | null;
 	path: string;
+	status:
+		| "active"
+		| "expiring"
+		| "expired"
+		| "not_yet_valid"
+		| "missing"
+		| "invalid"
+		| "revoking"
+		| "revoked";
+	not_before: string | null;
+	not_after: string | null;
+	issuer: string | null;
+	fingerprint_sha256: string | null;
+	auto_renew: boolean;
 }
 
 export interface SubscriptionSettingsBundle {
@@ -218,10 +232,19 @@ export interface CertificateIssuePayload {
 	email: string;
 	domains: string[];
 	admin_id?: number | null;
+	provider: "letsencrypt" | "zerossl";
+	zerossl_access_key?: string;
 }
 
 export interface CertificateRenewPayload {
-	domain?: string | null;
+	domain: string;
+}
+
+export interface CertificateImportPayload {
+	domain: string;
+	admin_id?: number | null;
+	fullchain: string;
+	private_key: string;
 }
 
 export interface RuntimeSettingsResponse {
@@ -413,4 +436,31 @@ export const renewSubscriptionCertificate = async (
 		method: "POST",
 		body: JSON.stringify(payload),
 	});
+};
+
+export const importSubscriptionCertificate = async (
+	payload: CertificateImportPayload,
+): Promise<SubscriptionCertificate> => {
+	return apiFetch("/settings/subscriptions/certificates/import", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+};
+
+export const revokeSubscriptionCertificate = async (
+	domain: string,
+): Promise<SubscriptionCertificate> => {
+	return apiFetch(
+		`/settings/subscriptions/certificates/${encodeURIComponent(domain)}/revoke`,
+		{ method: "POST", body: JSON.stringify({}) },
+	);
+};
+
+export const deleteSubscriptionCertificate = async (
+	domain: string,
+): Promise<void> => {
+	return apiFetch(
+		`/settings/subscriptions/certificates/${encodeURIComponent(domain)}`,
+		{ method: "DELETE" },
+	);
 };

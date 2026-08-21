@@ -15,6 +15,7 @@ import (
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
+	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	"github.com/rebeccapanel/rebecca/internal/app/migrations"
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
@@ -56,6 +57,7 @@ type Server struct {
 	webhookRepo          webhookapp.Repository
 	webhookDispatch      webhookapp.Dispatcher
 	backupService        *backupapp.Service
+	certificateManager   *certificateapp.Manager
 	backgroundOnce       sync.Once
 	nodeOperationsKick   chan struct{}
 	userOpsKickMu        sync.Mutex
@@ -103,6 +105,10 @@ func New(cfg Config) (*Server, error) {
 		RetryInterval: parseWorkerInterval(cfg.WebhookRetryInterval, 30*time.Second),
 	})
 	backupService := backupapp.NewService(pool.DB, pool.Dialect, cfg.Database)
+	certificateManager := certificateapp.NewManager(pool.DB, certificateapp.Config{
+		BaseDir:       cfg.CertificateBase,
+		CertbotBinary: cfg.CertbotBinary,
+	})
 	outboundSubs := outboundsubapp.NewService(pool.DB, pool.Dialect)
 	server := &Server{
 		cfg:            cfg,
@@ -131,6 +137,7 @@ func New(cfg Config) (*Server, error) {
 		webhookRepo:          webhookRepo,
 		webhookDispatch:      webhookDispatch,
 		backupService:        backupService,
+		certificateManager:   certificateManager,
 		nodeOperationsKick:   make(chan struct{}, 1),
 		recentActionsEnabled: true,
 	}
@@ -176,6 +183,7 @@ func (s *Server) StartBackground(ctx context.Context) {
 		go s.runAdminLifecycleWorker(ctx)
 		s.runUserLifecycleWorkers(ctx)
 		go s.runTelegramBackupScheduler(ctx)
+		go s.runCertificateRenewalWorker(ctx)
 		go s.runWebhookWorker(ctx)
 		go s.runTelegramBot(ctx)
 		go s.runOutboundSubscriptionRefresher(ctx)

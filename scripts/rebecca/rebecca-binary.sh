@@ -3385,7 +3385,7 @@ install_binary_rebecca() {
     set_rebecca_source_for_version "$rebecca_version"
 
     detect_os
-    for package in curl jq tar gzip unzip; do
+    for package in curl jq tar gzip unzip certbot; do
         if ! command -v "$package" >/dev/null 2>&1; then
             install_package "$package"
         fi

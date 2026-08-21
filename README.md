@@ -315,6 +315,7 @@ By default the app will be run on `http://localhost:8000/dashboard`. You can con
 | USER_AUTODELETE_INCLUDE_LIMITED_ACCOUNTS | Whether auto-delete includes limited accounts.                                                                            |
 | USERS_LIST_TIMEOUT_SECONDS               | Optional timeout for large user list queries. `0` disables the timeout.                                                  |
 | REBECCA_CERT_BASE                        | Base directory for managed certificates.                                                                                  |
+| REBECCA_CERTBOT_BIN                      | Optional Certbot executable override used by the SSL manager.                                                              |
 | REBECCA_CONFIG_DIR                       | Configuration root included in full backup export/import.                                                                |
 
 # Telegram integration
