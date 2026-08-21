@@ -1,12 +1,18 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rebeccapanel/rebecca/internal/app/migrations"
+	_ "modernc.org/sqlite"
 )
 
 func TestRunRejectsUnknownCommands(t *testing.T) {
@@ -15,6 +21,36 @@ func TestRunRejectsUnknownCommands(t *testing.T) {
 		err := app.run(args)
 		if err == nil || !strings.Contains(err.Error(), "unknown") {
 			t.Fatalf("run(%q) error = %v", args, err)
+		}
+	}
+}
+
+func TestAdminCreateUsesRootForTerminalAndInteractiveTUI(t *testing.T) {
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "admins.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := migrations.RunMigrations(context.Background(), db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+
+	app := &cli{db: db, dialect: "sqlite", stdin: bufio.NewReader(strings.NewReader("tui-created\n1\n"))}
+	if err := app.adminCreate([]string{"--username", "terminal-created", "--role", "standard", "--password", "secret1", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(envAdminPassword, "secret2")
+	if err := app.adminCreate(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, username := range []string{"terminal-created", "tui-created"} {
+		var createdBy string
+		if err := db.QueryRow(`SELECT created_by FROM admins WHERE username = ?`, username).Scan(&createdBy); err != nil {
+			t.Fatal(err)
+		}
+		if createdBy != "root" {
+			t.Fatalf("%s created_by = %q, want root", username, createdBy)
 		}
 	}
 }

@@ -44,6 +44,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 		`CREATE TABLE admins (
 			id INTEGER PRIMARY KEY,
 			username TEXT NOT NULL,
+			created_by TEXT NOT NULL DEFAULT 'root',
 			hashed_password TEXT,
 			role TEXT NOT NULL,
 			permissions TEXT,
@@ -767,6 +768,7 @@ func TestAdminManagementCreateUpdateAndBulkPermissions(t *testing.T) {
 
 	rec := adminJSONRequest(t, server, http.MethodPost, "/api/admin", token, `{
 		"username":"seller",
+		"created_by":"spoofed",
 		"password":"secret1",
 		"role":"standard",
 		"permissions":{"admin_management":{"can_view":true}},
@@ -779,12 +781,16 @@ func TestAdminManagementCreateUpdateAndBulkPermissions(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
-	if created["username"] != "seller" || created["role"] != "standard" {
+	if created["username"] != "seller" || created["created_by"] != "pouria" || created["role"] != "standard" {
 		t.Fatalf("unexpected created admin: %#v", created)
 	}
 	var usersUsage, lifetimeUsage, createdTraffic, deletedUsersUsage int64
-	if err := db.QueryRow(`SELECT users_usage, lifetime_usage, created_traffic, deleted_users_usage FROM admins WHERE username = 'seller'`).Scan(&usersUsage, &lifetimeUsage, &createdTraffic, &deletedUsersUsage); err != nil {
+	var createdBy string
+	if err := db.QueryRow(`SELECT created_by, users_usage, lifetime_usage, created_traffic, deleted_users_usage FROM admins WHERE username = 'seller'`).Scan(&createdBy, &usersUsage, &lifetimeUsage, &createdTraffic, &deletedUsersUsage); err != nil {
 		t.Fatal(err)
+	}
+	if createdBy != "pouria" {
+		t.Fatalf("created_by = %q, want pouria", createdBy)
 	}
 	if usersUsage != 0 || lifetimeUsage != 0 || createdTraffic != 0 || deletedUsersUsage != 0 {
 		t.Fatalf("unexpected admin counters users=%d lifetime=%d created=%d deleted=%d", usersUsage, lifetimeUsage, createdTraffic, deletedUsersUsage)
