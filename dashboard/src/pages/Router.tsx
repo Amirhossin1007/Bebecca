@@ -37,6 +37,9 @@ const NodesPage = lazy(() => import("./NodesPage"));
 const PhpMyAdminPage = lazy(async () => ({
 	default: (await import("./PhpMyAdminPage")).PhpMyAdminPage,
 }));
+const PHPAppsPage = lazy(async () => ({
+	default: (await import("./PHPAppsPage")).PHPAppsPage,
+}));
 const ServicesPage = lazy(() => import("./ServicesPage"));
 const TutorialsPage = lazy(async () => ({
 	default: (await import("./TutorialsPage")).TutorialsPage,
@@ -116,6 +119,7 @@ const routeSegments = new Set([
 	"access-insights",
 	"api-docs",
 	"phpmyadmin",
+	"php-apps",
 	"recent-actions",
 ]);
 
@@ -259,6 +263,10 @@ export const router = createBrowserRouter(
 				{
 					path: "phpmyadmin",
 					element: <LazyPage Page={PhpMyAdminPage} />,
+				},
+				{
+					path: "php-apps",
+					element: <LazyPage Page={PHPAppsPage} />,
 				},
 			],
 		},

@@ -319,6 +319,85 @@ export const disablePHPMyAdmin =
 		});
 	};
 
+export interface PHPAppRecord {
+	template: "archive" | "mirzabot";
+	name: string;
+	domain: string;
+	enabled: boolean;
+	runtime: "static" | "php";
+	version?: string;
+	source_sha?: string;
+	installed_at: string;
+	php_version?: string;
+	bot_username?: string;
+	public_url: string;
+}
+
+export interface PHPAppTemplate {
+	id: "archive" | "mirzabot";
+	name: string;
+	supported: boolean;
+	detail?: string;
+	version?: string;
+	source_sha?: string;
+}
+
+export interface PHPAppsResponse {
+	supported: boolean;
+	detail: string;
+	templates: PHPAppTemplate[];
+	apps: PHPAppRecord[];
+}
+
+export const getPHPApps = async (): Promise<PHPAppsResponse> => {
+	return apiFetch("/settings/php-apps");
+};
+
+export const installPHPArchive = async (payload: {
+	domain: string;
+	name: string;
+	archive: File;
+}): Promise<PHPAppRecord> => {
+	const body = new FormData();
+	body.set("domain", payload.domain);
+	body.set("name", payload.name);
+	body.set("archive", payload.archive);
+	return $fetch("/settings/php-apps/archive", {
+		method: "POST",
+		body,
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const installMirzaBot = async (payload: {
+	domain: string;
+	bot_token: string;
+	admin_id: string;
+}): Promise<PHPAppRecord> => {
+	return apiFetch("/settings/php-apps/mirzabot", {
+		method: "POST",
+		body: JSON.stringify(payload),
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const setPHPAppEnabled = async (payload: {
+	domain: string;
+	enabled: boolean;
+}): Promise<PHPAppRecord> => {
+	return apiFetch(
+		`/settings/php-apps/${encodeURIComponent(payload.domain)}/${payload.enabled ? "enable" : "disable"}`,
+		{ method: "POST", body: JSON.stringify({}), timeout: 120000 },
+	);
+};
+
+export const deletePHPApp = async (domain: string): Promise<void> => {
+	await apiFetch(`/settings/php-apps/${encodeURIComponent(domain)}`, {
+		method: "DELETE",
+		timeout: 10 * 60 * 1000,
+	});
+};
+
 export const getPHPMyAdminEmbedHTML = async (
 	theme?: string,
 ): Promise<string> => {

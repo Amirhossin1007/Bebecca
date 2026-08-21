@@ -58,6 +58,7 @@ type Server struct {
 	webhookDispatch      webhookapp.Dispatcher
 	backupService        *backupapp.Service
 	certificateManager   *certificateapp.Manager
+	phpApps              *phpAppManager
 	backgroundOnce       sync.Once
 	nodeOperationsKick   chan struct{}
 	userOpsKickMu        sync.Mutex
@@ -138,6 +139,7 @@ func New(cfg Config) (*Server, error) {
 		webhookDispatch:      webhookDispatch,
 		backupService:        backupService,
 		certificateManager:   certificateManager,
+		phpApps:              newPHPAppManager(cfg, certificateManager),
 		nodeOperationsKick:   make(chan struct{}, 1),
 		recentActionsEnabled: true,
 	}

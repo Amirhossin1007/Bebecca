@@ -16,6 +16,7 @@ import {
 	ChartBarIcon,
 	CircleStackIcon,
 	ClockIcon,
+	CommandLineIcon,
 	CodeBracketSquareIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
@@ -77,6 +78,7 @@ const XraySettingsIconStyled = chakra(WrenchScrewdriverIcon, iconProps);
 const XrayLogsIconStyled = chakra(DocumentTextIcon, iconProps);
 const ApiDocsIconStyled = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIconStyled = chakra(CircleStackIcon, iconProps);
+const PHPAppsIconStyled = chakra(CommandLineIcon, iconProps);
 const TutorialUpdateIconStyled = chakra(BellAlertIcon, {
 	baseStyle: {
 		w: 3,
@@ -257,6 +259,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					icon: PHPMyAdminIconStyled,
 				}
 			: null,
+		isPrivilegedAdmin
+			? {
+					title: t("phpApps.menu"),
+					url: "/php-apps",
+					icon: PHPAppsIconStyled,
+				}
+			: null,
 		{
 			title: t("tutorials.menu"),
 			url: tutorialsUrl,
@@ -380,6 +389,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				pickSetting("/recent-actions"),
 				pickSetting("/api-docs"),
 				pickSetting("/phpmyadmin"),
+				pickSetting("/php-apps"),
 				pickSetting(tutorialsUrl),
 			],
 		},

@@ -35,6 +35,7 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
+	CommandLineIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
 	EyeIcon,
@@ -83,6 +84,7 @@ const MenuIcon = chakra(Bars3Icon, iconProps);
 const LanguageIconStyled = chakra(LanguageIcon, iconProps);
 const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
+const PHPAppsIcon = chakra(CommandLineIcon, iconProps);
 const UserIcon = chakra(UserCircleIcon, iconProps);
 const HomeIcon = chakra(HeroHomeIcon, iconProps);
 const UsersIcon = chakra(UserGroupIcon, iconProps);
@@ -293,6 +295,14 @@ export function AppLayout() {
 						label: t("phpmyadmin.menu"),
 						to: "/phpmyadmin",
 						icon: PHPMyAdminIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "php-apps",
+						label: t("phpApps.menu"),
+						to: "/php-apps",
+						icon: PHPAppsIcon,
 					}
 				: null,
 			{

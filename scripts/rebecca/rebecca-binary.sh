@@ -1539,6 +1539,43 @@ max_input_time=0"
     fi
 }
 
+prepare_php_app_hosting() {
+    if ! is_binary_install; then
+        colorized_echo red "PHP application hosting is available only in binary installations."
+        return 1
+    fi
+
+    local package php_version
+    if command -v php >/dev/null 2>&1 && command -v composer >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+        php_version=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+        if php -r 'foreach (["curl","zip","mbstring","dom","gd","intl","bcmath","pdo_mysql"] as $ext) { if (!extension_loaded($ext)) exit(1); }' \
+            && { systemctl is-active --quiet "php${php_version}-fpm" || systemctl is-active --quiet php-fpm; } \
+            && { systemctl is-active --quiet cron || systemctl is-active --quiet crond; }; then
+            colorized_echo green "PHP application hosting prerequisites are ready."
+            return 0
+        fi
+    fi
+
+    detect_os
+    for package in php-cli php-fpm php-mysql php-curl php-zip php-mbstring php-xml php-gd php-intl php-bcmath composer unzip curl cron; do
+        install_package "$package"
+    done
+    command -v php >/dev/null 2>&1 && command -v composer >/dev/null 2>&1 && command -v curl >/dev/null 2>&1 || {
+        colorized_echo red "PHP hosting prerequisites are incomplete."
+        return 1
+    }
+    php_version=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+    systemctl enable --now "php${php_version}-fpm" >/dev/null 2>&1 || systemctl enable --now php-fpm >/dev/null 2>&1 || {
+        colorized_echo red "Could not start PHP-FPM."
+        return 1
+    }
+    systemctl enable --now cron >/dev/null 2>&1 || systemctl enable --now crond >/dev/null 2>&1 || {
+        colorized_echo red "Could not start the cron service."
+        return 1
+    }
+    colorized_echo green "PHP application hosting prerequisites are ready (Apache was not installed)."
+}
+
 phpmyadmin_nginx_config_path() {
     printf "/etc/nginx/sites-available/%s-phpmyadmin" "$APP_NAME"
 }
@@ -5063,6 +5100,7 @@ usage() {
     colorized_echo yellow "  core-update     - Deprecated; Xray is managed by nodes"
     colorized_echo yellow "  enable-phpmyadmin - Enable phpMyAdmin for local MySQL/MariaDB"
     colorized_echo yellow "  disable-phpmyadmin - Disable phpMyAdmin"
+    colorized_echo yellow "  prepare-php-app-hosting - Install PHP-FPM hosting prerequisites without Apache"
     colorized_echo yellow "  edit            - Edit docker-compose.yml (via nano or vi editor)"
     colorized_echo yellow "  edit-env        - Edit environment file (via nano or vi editor)"
     colorized_echo yellow "  ssl             - Issue or renew SSL certificates"
@@ -5122,6 +5160,7 @@ dispatch_command() {
         core-update) update_core_command "$@" ;;
         enable-phpmyadmin) enable_phpmyadmin "$@" ;;
         disable-phpmyadmin) disable_phpmyadmin "$@" ;;
+        prepare-php-app-hosting) prepare_php_app_hosting "$@" ;;
         ssl) ssl_command "$@" ;;
         edit) edit_command "$@" ;;
         edit-env) edit_env_command "$@" ;;

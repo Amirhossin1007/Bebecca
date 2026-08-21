@@ -79,3 +79,25 @@ func TestAPIRequestBodyLimitRejectsOversizedPHPMyAdminUpload(t *testing.T) {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusRequestEntityTooLarge)
 	}
 }
+
+func TestAPIRequestBodyLimitUsesPHPAppArchiveLimit(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		size   int64
+		status int
+	}{
+		{name: "allowed", size: maxPHPAppRequestBodyBytes, status: http.StatusOK},
+		{name: "rejected", size: maxPHPAppRequestBodyBytes + 1, status: http.StatusRequestEntityTooLarge},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			handler := withAPIRequestBodyLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+			req := httptest.NewRequest(http.MethodPost, "/api/settings/php-apps/archive", strings.NewReader("x"))
+			req.ContentLength = test.size
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, req)
+			if response.Code != test.status {
+				t.Fatalf("status = %d, want %d", response.Code, test.status)
+			}
+		})
+	}
+}
