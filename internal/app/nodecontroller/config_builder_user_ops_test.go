@@ -12,7 +12,7 @@ import (
 
 func TestAddUserWithoutMatchingServiceInboundIsNoOp(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "no-matching-inbound.db")+"?_pragma=busy_timeout(30000)")
+	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "no-matching-inbound.db")+"?_busy_timeout=30000")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,5 +83,15 @@ func TestRuntimeHasCapability(t *testing.T) {
 	}
 	if runtimeHasCapability(&nodev1.RuntimeState{}, "safe_user_reconciliation") {
 		t.Fatal("legacy nodes must not advertise safe reconciliation")
+	}
+}
+
+func TestPreparedRuntimeConfigKeepsUserSyncDecisionPerNode(t *testing.T) {
+	prepared := &preparedRuntimeConfig{nodeID: 7, userSyncDecided: true, userSyncRequired: false}
+	if required, decided := prepared.userSyncDecision(7); !decided || required {
+		t.Fatalf("decision = (%v, %v), want (false, true)", required, decided)
+	}
+	if _, decided := prepared.userSyncDecision(8); decided {
+		t.Fatal("decision must not be reused for another node")
 	}
 }

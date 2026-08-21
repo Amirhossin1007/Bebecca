@@ -737,9 +737,12 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		}
 		defer client.Close()
 		if isRuntimeUserOperation(operation.OperationType) && operation.UserID.Valid {
-			syncConfig, err := c.userOperationRequiresConfigSync(ctx, node, operation)
-			if err != nil {
-				return err
+			syncConfig, decided := prepared.userSyncDecision(node.ID)
+			if !decided {
+				syncConfig, err = c.userOperationRequiresConfigSync(ctx, node, operation)
+				if err != nil {
+					return err
+				}
 			}
 			if syncConfig && operation.OperationType == "update_user" {
 				health, err := client.Control().Health(ctx, &nodev1.HealthRequest{})

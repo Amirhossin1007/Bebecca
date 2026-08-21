@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 
@@ -43,9 +44,18 @@ type runtimeConfigData struct {
 }
 
 type preparedRuntimeConfig struct {
-	nodeID        int64
-	configJSON    string
-	ovRuntimeJSON string
+	nodeID           int64
+	userSyncDecided  bool
+	userSyncRequired bool
+	configJSON       string
+	ovRuntimeJSON    string
+}
+
+func (p *preparedRuntimeConfig) userSyncDecision(nodeID int64) (bool, bool) {
+	if p == nil || p.nodeID != nodeID || !p.userSyncDecided {
+		return false, false
+	}
+	return p.userSyncRequired, true
 }
 
 func (c Controller) runtimeInbounds(ctx context.Context) ([]map[string]any, error) {
@@ -79,17 +89,28 @@ func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation
 		return nil, err
 	}
 	defer unlock()
+	prepared := &preparedRuntimeConfig{nodeID: node.ID}
+	var inbounds []map[string]any
 	if isRuntimeUserOperation(operation.OperationType) {
-		required, err := c.userOperationRequiresConfigSync(ctx, node, operation)
+		required, loadedInbounds, err := c.userOperationConfigSyncDecision(ctx, node, operation)
 		if err != nil {
 			return nil, err
 		}
+		inbounds = loadedInbounds
 		if !required && (operation.OperationType == "remove_user" || operation.OperationType == "disable_user") {
 			_, err = c.legacyOperationEmail(ctx, operation)
 			required = err != nil
 		}
+		prepared.userSyncDecided = true
+		prepared.userSyncRequired = required
 		if !required {
-			return nil, nil
+			return prepared, nil
+		}
+	}
+	if inbounds == nil {
+		inbounds, err = c.runtimeInbounds(ctx)
+		if err != nil {
+			return nil, err
 		}
 	}
 	configJSON := strings.TrimSpace(payload.ConfigJSON)
@@ -99,11 +120,13 @@ func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation
 			return nil, err
 		}
 	}
-	runtimeReq, err := c.runtimeConfigRequest(ctx, node, "prepare", configJSON)
+	runtimeReq, err := c.runtimeConfigRequestFromInbounds(ctx, node, "prepare", configJSON, inbounds)
 	if err != nil {
 		return nil, err
 	}
-	return &preparedRuntimeConfig{nodeID: node.ID, configJSON: configJSON, ovRuntimeJSON: runtimeReq.GetOvRuntimeJson()}, nil
+	prepared.configJSON = configJSON
+	prepared.ovRuntimeJSON = runtimeReq.GetOvRuntimeJson()
+	return prepared, nil
 }
 
 func (c Controller) buildRuntimeConfig(ctx context.Context, node NodeRow) (string, error) {
@@ -254,17 +277,21 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 			continue
 		}
 		targets := inboundsByProtocol[user.Protocol]
+		if len(targets) == 0 {
+			continue
+		}
+		baseSettings, err := userread.RuntimeProxySettings(user.Settings, user.Protocol, user.CredentialKey, user.Flow, data.masks)
+		if err != nil {
+			continue
+		}
 		for _, inbound := range targets {
 			tag := stringValue(inbound["tag"])
 			if !data.serviceTags[user.ServiceID.Int64][tag] {
 				continue
 			}
-			settings, err := userread.RuntimeProxySettings(user.Settings, user.Protocol, user.CredentialKey, user.Flow, data.masks)
-			if err != nil {
-				continue
-			}
+			settings := maps.Clone(baseSettings)
 			if user.Protocol == "shadowsocks" {
-				settings = userread.RuntimeShadowsocksSettings(settings, ensureMap(inbound, "settings"))
+				settings = userread.RuntimeShadowsocksSettings(baseSettings, ensureMap(inbound, "settings"))
 			}
 			if flow := stringValue(settings["flow"]); flow != "" && !flowSupportedForInbound(inbound) {
 				delete(settings, "flow")
@@ -278,32 +305,37 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 }
 
 func (c Controller) userOperationRequiresConfigSync(ctx context.Context, node NodeRow, operation OperationRow) (bool, error) {
+	required, _, err := c.userOperationConfigSyncDecision(ctx, node, operation)
+	return required, err
+}
+
+func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node NodeRow, operation OperationRow) (bool, []map[string]any, error) {
 	if !isRuntimeUserOperation(operation.OperationType) || !operation.UserID.Valid {
-		return false, nil
+		return false, nil, nil
 	}
 	// Reconcile updates from the node's cached runtime config. The previous
 	// remove-then-add loop touched every inbound and could time out after
 	// removing a user from only part of the node.
 	if operation.OperationType == "update_user" {
-		return true, nil
+		return true, nil, nil
 	}
 	var serviceID sql.NullInt64
 	if err := c.repo.db.QueryRowContext(ctx, `SELECT service_id FROM users WHERE id = ?`, operation.UserID.Int64).Scan(&serviceID); err != nil {
 		if err == sql.ErrNoRows {
-			return false, nil
+			return false, nil, nil
 		}
-		return false, err
+		return false, nil, err
 	}
 	if !serviceID.Valid || serviceID.Int64 <= 0 {
-		return false, nil
+		return false, nil, nil
 	}
 	serviceTags, err := c.repo.ServiceAllowedTags(ctx)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	inbounds, err := xrayconfig.NewRepository(c.repo.db, c.repo.dialect, xrayconfig.Options{}).FullInbounds(ctx)
+	inbounds, err := c.runtimeInbounds(ctx)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	target := xrayconfig.NodeTargetID(node.ID)
 	for _, inbound := range inbounds {
@@ -312,10 +344,10 @@ func (c Controller) userOperationRequiresConfigSync(ctx context.Context, node No
 		}
 		tag := stringValue(inbound["tag"])
 		if tag != "" && serviceTags[serviceID.Int64][tag] && OVInboundMatchesTarget(inbound, target) {
-			return true, nil
+			return true, inbounds, nil
 		}
 	}
-	return false, nil
+	return false, inbounds, nil
 }
 
 func protocolRequiresFullUserSync(protocol string) bool {
