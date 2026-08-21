@@ -391,6 +391,10 @@ func (m *Manager) Revoke(ctx context.Context, domain string) (Record, error) {
 	}
 	dir := filepath.Join(m.baseDir, record.Domain)
 	metadata := readMetadata(filepath.Join(dir, ".metadata"))
+	certName := strings.TrimSpace(metadata["certbot_cert_name"])
+	if certName == "" {
+		return Record{}, fmt.Errorf("%w: reissue or delete this legacy certificate", ErrUnsupported)
+	}
 	previousStatus := metadata["status"]
 	metadata["status"] = "revoking"
 	if err := writeMetadata(dir, metadata); err != nil {
@@ -411,8 +415,7 @@ func (m *Manager) Revoke(ctx context.Context, domain string) (Record, error) {
 	}
 	args := []string{
 		"revoke", "--non-interactive", "--reason", "cessationofoperation",
-		"--cert-path", filepath.Join(dir, "fullchain.pem"),
-		"--key-path", filepath.Join(dir, "privkey.pem"),
+		"--cert-name", certName, "--delete-after-revoke",
 		"--server", serverURL,
 		"--config-dir", configDir, "--work-dir", workDir, "--logs-dir", logsDir,
 	}

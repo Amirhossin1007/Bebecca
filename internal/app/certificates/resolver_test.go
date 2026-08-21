@@ -284,6 +284,10 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 		if name != "certbot-test" || len(args) == 0 || args[0] != "revoke" {
 			t.Fatalf("unexpected revoke command: %s %v", name, args)
 		}
+		command := " " + strings.Join(args, " ") + " "
+		if !strings.Contains(command, " --cert-name rebecca-bot.example.com ") || !strings.Contains(command, " --delete-after-revoke ") || strings.Contains(command, " --cert-path ") {
+			t.Fatalf("revoke must use the managed Certbot lineage: %v", args)
+		}
 		return nil, nil
 	}
 	record, err = manager.Revoke(context.Background(), record.Domain)
