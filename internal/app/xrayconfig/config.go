@@ -553,7 +553,14 @@ func normalizeLegacyMKCPForXrayVersion(stream map[string]any, atLeast26131, atLe
 	}
 	finalMask := mapValue(stream["finalmask"])
 	if existing, ok := finalMask["udp"].([]any); ok {
-		masks = append(masks, existing...)
+		if len(existing) > 0 {
+			outerType := strings.ToLower(strings.TrimSpace(stringValue(mapValue(existing[0])["type"])))
+			if outerType == "realm" || outerType == "xicmp" {
+				masks = append(append([]any{existing[0]}, masks...), existing[1:]...)
+			} else {
+				masks = append(masks, existing...)
+			}
+		}
 	}
 	finalMask["udp"] = masks
 	stream["finalmask"] = finalMask

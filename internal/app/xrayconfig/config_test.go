@@ -749,6 +749,50 @@ func TestNormalizePayloadForXrayVersionMigratesLegacyMKCPWithoutLoss(t *testing.
 	}
 }
 
+func TestNormalizePayloadForXrayVersionKeepsRequiredUDPOuterMaskFirst(t *testing.T) {
+	for _, outerType := range []string{"realm", "xicmp"} {
+		t.Run(outerType, func(t *testing.T) {
+			payload := map[string]any{"outbounds": []any{map[string]any{
+				"tag": "kcp-out", "protocol": "vless",
+				"streamSettings": map[string]any{
+					"network": "kcp",
+					"kcpSettings": map[string]any{
+						"seed": "seed-value", "header": map[string]any{"type": "dns", "domain": "dns.example"},
+					},
+					"finalmask": map[string]any{"udp": []any{
+						map[string]any{"type": outerType},
+						map[string]any{"type": "noise"},
+						map[string]any{"type": "sudoku"},
+					}},
+				},
+			}}}
+
+			normalized, _ := NormalizePayloadForXrayVersion(payload, "Xray 26.6.22")
+			stream := mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])
+			udp := listOfMaps(mapValue(stream["finalmask"])["udp"])
+			want := []string{outerType, "mkcp-legacy", "mkcp-legacy", "noise", "sudoku"}
+			if len(udp) != len(want) {
+				t.Fatalf("UDP masks = %#v, want %#v", udp, want)
+			}
+			for index, maskType := range want {
+				if stringValue(udp[index]["type"]) != maskType {
+					t.Fatalf("UDP order = %#v, want %#v", udp, want)
+				}
+			}
+			kcpSettings := mapValue(stream["kcpSettings"])
+			_, hasHeader := kcpSettings["header"]
+			_, hasSeed := kcpSettings["seed"]
+			if hasHeader || hasSeed {
+				t.Fatalf("legacy KCP fields were retained: %#v", stream["kcpSettings"])
+			}
+			originalStream := mapValue(listOfMaps(payload["outbounds"])[0]["streamSettings"])
+			if mapValue(originalStream["kcpSettings"])["seed"] != "seed-value" {
+				t.Fatalf("input payload was mutated: %#v", originalStream)
+			}
+		})
+	}
+}
+
 func TestNormalizePayloadForXrayVersionWarnsForRemovedHTTPAndQUICTransports(t *testing.T) {
 	payload := map[string]any{"inbounds": []any{
 		map[string]any{"tag": "legacy-h2", "streamSettings": map[string]any{"network": "h2"}},

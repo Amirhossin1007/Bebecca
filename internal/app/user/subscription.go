@@ -67,6 +67,7 @@ var subscriptionClientConfigs = map[string]SubscriptionClientConfig{
 	"v2ray":        {Format: "v2ray", Media: "text/plain", Base64: true},
 	"outline":      {Format: "outline", Media: "application/json"},
 	"v2ray-json":   {Format: "v2ray-json", Media: "application/json", TemplateKey: "v2ray_subscription_template"},
+	"xray-json":    {Format: "xray-json", Media: "application/json", TemplateKey: "v2ray_subscription_template"},
 	"happ":         {Format: "v2ray-json", Media: "application/json", TemplateKey: "happ_subscription_template"},
 	"v2raytun":     {Format: "v2ray", Media: "text/plain", Base64: true},
 	"throne":       {Format: "v2ray", Media: "text/plain", Base64: true},
@@ -423,7 +424,7 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 		return content, nil
 	case "outline":
 		if configLinksHaveUnrepresentedFinalMask(connectable, "ss") {
-			return "", fmt.Errorf("Outline cannot represent Xray FinalMask; use Xray JSON output")
+			return "", fmt.Errorf("Outline cannot represent Xray FinalMask; use xray-json output")
 		}
 		servers := make([]string, 0, len(raw))
 		for _, link := range raw {
@@ -432,18 +433,19 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 			}
 		}
 		return marshalPretty(map[string]any{"servers": servers})
-	case "v2ray-json":
+	case "v2ray-json", "xray-json":
 		templateKey := firstNonEmptyString(config.TemplateKey, "v2ray_subscription_template")
-		return renderV2RayJSONSubscriptionWithMetadata(
+		return renderXrayJSONSubscriptionWithMetadata(
 			raw,
 			connectable.Metadata,
 			false,
 			s.subscriptionTemplateContent(ctx, templateKey, user.AdminID),
 			s.subscriptionTemplateContent(ctx, "mux_template", user.AdminID),
+			config.Format == "xray-json",
 		)
 	case "sing-box":
 		if configLinksHaveUnrepresentedFinalMask(connectable, "") {
-			return "", fmt.Errorf("sing-box cannot safely represent Xray FinalMask; use Xray JSON output")
+			return "", fmt.Errorf("sing-box cannot safely represent Xray FinalMask; use xray-json output")
 		}
 		templateKey := firstNonEmptyString(config.TemplateKey, "singbox_subscription_template")
 		return renderSingBoxJSONWithTemplate(
@@ -453,7 +455,7 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 		)
 	case "clash", "clash-meta":
 		if configLinksHaveUnrepresentedFinalMask(connectable, "") {
-			return "", fmt.Errorf("Mihomo cannot safely represent Xray FinalMask; use Xray JSON output")
+			return "", fmt.Errorf("Mihomo cannot safely represent Xray FinalMask; use xray-json output")
 		}
 		return renderClashLikeYAML(user.Username, raw, config.Format == "clash-meta")
 	default:
@@ -1033,14 +1035,14 @@ func renderClashLikeYAML(username string, links []string, meta bool) (string, er
 		if parseErr == nil && (parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2") {
 			query := parsed.Query()
 			if query.Get("fp") != "" {
-				return "", fmt.Errorf("Mihomo Hysteria 2 does not support the Xray fp extension; omit fp or use raw or Xray JSON output")
+				return "", fmt.Errorf("Mihomo Hysteria 2 does not support the Xray fp extension; omit fp or use raw or xray-json output")
 			}
 		}
 		if err := mihomoTLSCompatibilityError(link, parsed); err != nil {
 			return "", err
 		}
 		if parseErr == nil && shareLinkHasFinalMask(link, parsed) {
-			return "", fmt.Errorf("Mihomo cannot safely represent Xray FinalMask; use raw or Xray JSON output")
+			return "", fmt.Errorf("Mihomo cannot safely represent Xray FinalMask; use raw or xray-json output")
 		}
 		if extra, isXHTTP := shareLinkXHTTPExtra(link, parsed); isXHTTP {
 			if parsed == nil || !strings.EqualFold(parsed.Scheme, "vless") {
@@ -1144,7 +1146,7 @@ func renderSingBoxJSONWithTemplate(links []string, templateContent string, setti
 			return "", err
 		}
 		if parseErr == nil && shareLinkHasFinalMask(link, parsed) {
-			return "", fmt.Errorf("sing-box cannot safely represent Xray FinalMask; use raw or Xray JSON output")
+			return "", fmt.Errorf("sing-box cannot safely represent Xray FinalMask; use raw or xray-json output")
 		}
 		if _, isXHTTP := shareLinkXHTTPExtra(link, parsed); isXHTTP {
 			return "", fmt.Errorf("sing-box does not support XHTTP transport; use raw, Xray JSON, or Mihomo output")
@@ -1924,7 +1926,7 @@ func singBoxTLSCompatibilityError(link string, parsed *url.URL) error {
 	}
 	if pin := query.Get("pcs"); pin != "" {
 		if len(strings.Split(pin, ",")) > 1 {
-			return fmt.Errorf("sing-box cannot convert multiple full-certificate SHA-256 pins to public-key pins; use raw or Xray JSON output")
+			return fmt.Errorf("sing-box cannot convert multiple full-certificate SHA-256 pins to public-key pins; use raw or xray-json output")
 		}
 		return fmt.Errorf("sing-box cannot convert a full-certificate SHA-256 pin to its public-key pin; use raw, Xray JSON, or Mihomo output")
 	}
@@ -2033,6 +2035,14 @@ func renderV2RayJSONSubscriptionWithTemplate(links []string, reverse bool, templ
 }
 
 func renderV2RayJSONSubscriptionWithMetadata(links []string, metadata []ConfigLinkMetadata, reverse bool, templateContent, muxTemplateContent string) (string, error) {
+	return renderXrayJSONSubscriptionWithMetadata(links, metadata, reverse, templateContent, muxTemplateContent, false)
+}
+
+func renderXrayJSONSubscription(links []string, reverse bool) (string, error) {
+	return renderXrayJSONSubscriptionWithMetadata(links, nil, reverse, "", "", true)
+}
+
+func renderXrayJSONSubscriptionWithMetadata(links []string, metadata []ConfigLinkMetadata, reverse bool, templateContent, muxTemplateContent string, current bool) (string, error) {
 	configs := make([]map[string]any, 0, len(links))
 	templateConfig := defaultV2RayClientConfig()
 	if strings.TrimSpace(templateContent) != "" {
@@ -2047,22 +2057,22 @@ func renderV2RayJSONSubscriptionWithMetadata(links []string, metadata []ConfigLi
 			return "", subscriptionLinkConversionError("Xray JSON", i, scheme, parseErr)
 		}
 		if parseErr == nil && (parsed.Scheme == "hysteria2" || parsed.Scheme == "hy2") {
-			if obfs := parsed.Query().Get("obfs"); strings.EqualFold(obfs, "gecko") {
-				return "", fmt.Errorf("generic Xray JSON targets stable v26.3.27 and cannot represent Hysteria 2 Gecko introduced in 26.6.1; use raw, Mihomo, sing-box, or a version-aware runtime config")
-			} else if obfs != "" && obfs != "salamander" {
+			if obfs := parsed.Query().Get("obfs"); !current && strings.EqualFold(obfs, "gecko") {
+				return "", fmt.Errorf("generic Xray JSON targets stable v26.3.27 and cannot represent Hysteria 2 Gecko introduced in 26.6.1; use raw, Mihomo, sing-box, or xray-json output")
+			} else if obfs != "" && ((!current && obfs != "salamander") || (current && !strings.EqualFold(obfs, "salamander") && !strings.EqualFold(obfs, "gecko"))) {
 				return "", fmt.Errorf("Xray JSON cannot safely represent Hysteria 2 obfs %q from a standard URI", obfs)
 			}
 		}
-		if err := xrayJSONMKCPCompatibilityError(link, parsed); err != nil {
+		if err := xrayJSONMKCPCompatibilityError(link, parsed, current); err != nil {
 			return "", err
 		}
-		if err := xrayJSONStableFinalMaskCompatibilityError(link, parsed); err != nil {
+		if err := xrayJSONFinalMaskCompatibilityError(link, parsed, current); err != nil {
 			return "", err
 		}
 		if err := xrayJSONTLSCompatibilityError(link, parsed); err != nil {
 			return "", err
 		}
-		remark, outbound, ok := v2rayOutboundFromShareLink(link)
+		remark, outbound, ok := v2rayOutboundFromShareLinkForDialect(link, current)
 		if !ok {
 			if knownScheme {
 				return "", subscriptionLinkConversionError("Xray JSON", i, scheme, nil)
@@ -2070,9 +2080,12 @@ func renderV2RayJSONSubscriptionWithMetadata(links []string, metadata []ConfigLi
 			continue
 		}
 		if i < len(metadata) {
-			if err := applyV2RayConfigLinkMetadata(outbound, metadata[i], muxTemplateContent, parseErr == nil && shareLinkHasFinalMask(link, parsed)); err != nil {
+			if err := applyV2RayConfigLinkMetadata(outbound, metadata[i], muxTemplateContent, parseErr == nil && shareLinkHasFinalMask(link, parsed), current); err != nil {
 				return "", err
 			}
+		}
+		if err := prepareV2RayOutboundFinalMask(outbound, current); err != nil {
+			return "", err
 		}
 		config := cloneJSONMap(templateConfig)
 		config["remarks"] = remark
@@ -2088,13 +2101,12 @@ func renderV2RayJSONSubscriptionWithMetadata(links []string, metadata []ConfigLi
 	return marshalPretty(configs)
 }
 
-func applyV2RayConfigLinkMetadata(outbound map[string]any, metadata ConfigLinkMetadata, muxTemplateContent string, finalMaskInLink bool) error {
+func applyV2RayConfigLinkMetadata(outbound map[string]any, metadata ConfigLinkMetadata, muxTemplateContent string, finalMaskInLink, current bool) error {
 	if len(metadata.FinalMask) > 0 && !finalMaskInLink {
 		finalMask := cloneJSONMap(metadata.FinalMask)
-		if err := xrayJSONStableFinalMaskValueCompatibilityError(finalMask); err != nil {
+		if err := prepareV2RayFinalMask(finalMask, current); err != nil {
 			return err
 		}
-		normalizeV2RayFinalMaskForStable(finalMask)
 		stream, _ := outbound["streamSettings"].(map[string]any)
 		if stream == nil {
 			stream = map[string]any{}
@@ -2104,21 +2116,25 @@ func applyV2RayConfigLinkMetadata(outbound map[string]any, metadata ConfigLinkMe
 			metadataTransport := false
 			metadataHeaders := map[string]bool{}
 			for _, mask := range listOfMaps(finalMask["udp"]) {
-				typeName := strings.ToLower(strings.TrimSpace(stringValue(mask["type"])))
-				metadataTransport = metadataTransport || strings.HasPrefix(typeName, "mkcp-")
-				if strings.HasPrefix(typeName, "header-") {
-					metadataHeaders[typeName] = true
+				transport, header := v2rayMKCPMaskRole(mask, current)
+				metadataTransport = metadataTransport || transport
+				if header != "" {
+					metadataHeaders[header] = true
 				}
 			}
 			preserved := make([]any, 0, 2)
 			for _, mask := range listOfMaps(mapValue(stream["finalmask"])["udp"]) {
-				typeName := strings.ToLower(strings.TrimSpace(stringValue(mask["type"])))
-				if (!metadataTransport && strings.HasPrefix(typeName, "mkcp-")) || (!metadataTransport && strings.HasPrefix(typeName, "header-") && !metadataHeaders[typeName]) {
+				transport, header := v2rayMKCPMaskRole(mask, current)
+				if !metadataTransport && (transport || (header != "" && !metadataHeaders[header])) {
 					preserved = append(preserved, mask)
 				}
 			}
 			if len(preserved) > 0 {
-				finalMask = mergeV2RayFinalMask(map[string]any{"udp": preserved}, finalMask)
+				if current {
+					finalMask = mergeCurrentGeneratedFinalMask(finalMask, map[string]any{"udp": preserved}, true)
+				} else {
+					finalMask = mergeV2RayFinalMask(map[string]any{"udp": preserved}, finalMask)
+				}
 			}
 		}
 		stream["finalmask"] = finalMask
@@ -2299,19 +2315,23 @@ func defaultV2RayClientConfig() map[string]any {
 }
 
 func v2rayOutboundFromShareLink(link string) (string, map[string]any, bool) {
+	return v2rayOutboundFromShareLinkForDialect(link, false)
+}
+
+func v2rayOutboundFromShareLinkForDialect(link string, current bool) (string, map[string]any, bool) {
 	parsed, err := parseSubscriptionShareURL(link)
 	if err != nil {
 		return "", nil, false
 	}
 	switch parsed.Scheme {
 	case "vless":
-		return v2rayVLESSOutbound(parsed)
+		return v2rayVLESSOutbound(parsed, current)
 	case "trojan":
-		return v2rayTrojanOutbound(parsed)
+		return v2rayTrojanOutbound(parsed, current)
 	case "ss":
-		return v2rayShadowsocksOutbound(parsed)
+		return v2rayShadowsocksOutbound(parsed, current)
 	case "vmess":
-		return v2rayVMessOutbound(link)
+		return v2rayVMessOutbound(link, current)
 	case "hysteria", "hysteria2", "hy2":
 		return v2rayHysteriaOutbound(parsed)
 	default:
@@ -2319,7 +2339,7 @@ func v2rayOutboundFromShareLink(link string) (string, map[string]any, bool) {
 	}
 }
 
-func v2rayVLESSOutbound(parsed *url.URL) (string, map[string]any, bool) {
+func v2rayVLESSOutbound(parsed *url.URL, current bool) (string, map[string]any, bool) {
 	port, ok := parseURLPort(parsed)
 	id := strings.TrimSpace(parsed.User.Username())
 	if !ok || id == "" {
@@ -2345,13 +2365,13 @@ func v2rayVLESSOutbound(parsed *url.URL) (string, map[string]any, bool) {
 			}},
 		},
 	}
-	if stream := v2rayStreamSettings(query); len(stream) > 0 {
+	if stream := v2rayStreamSettingsForDialect(query, current); len(stream) > 0 {
 		outbound["streamSettings"] = stream
 	}
 	return v2rayLinkRemark(parsed), outbound, true
 }
 
-func v2rayTrojanOutbound(parsed *url.URL) (string, map[string]any, bool) {
+func v2rayTrojanOutbound(parsed *url.URL, current bool) (string, map[string]any, bool) {
 	port, ok := parseURLPort(parsed)
 	password := decodedURLUserInfo(parsed.User)
 	if !ok || password == "" {
@@ -2369,13 +2389,13 @@ func v2rayTrojanOutbound(parsed *url.URL) (string, map[string]any, bool) {
 			}},
 		},
 	}
-	if stream := v2rayStreamSettings(parsed.Query()); len(stream) > 0 {
+	if stream := v2rayStreamSettingsForDialect(parsed.Query(), current); len(stream) > 0 {
 		outbound["streamSettings"] = stream
 	}
 	return v2rayLinkRemark(parsed), outbound, true
 }
 
-func v2rayShadowsocksOutbound(parsed *url.URL) (string, map[string]any, bool) {
+func v2rayShadowsocksOutbound(parsed *url.URL, current bool) (string, map[string]any, bool) {
 	method, password, port, ok := parseShadowsocksURL(parsed)
 	if !ok {
 		return "", nil, false
@@ -2400,7 +2420,7 @@ func v2rayShadowsocksOutbound(parsed *url.URL) (string, map[string]any, bool) {
 			query.Set("host", options["obfs-host"])
 		}
 	}
-	if stream := v2rayStreamSettings(query); len(stream) > 0 {
+	if stream := v2rayStreamSettingsForDialect(query, current); len(stream) > 0 {
 		outbound["streamSettings"] = stream
 	}
 	return v2rayLinkRemark(parsed), outbound, true
@@ -2519,7 +2539,7 @@ func v2rayHysteriaOutbound(parsed *url.URL) (string, map[string]any, bool) {
 	return v2rayLinkRemark(parsed), outbound, true
 }
 
-func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
+func v2rayVMessOutbound(link string, current bool) (string, map[string]any, bool) {
 	raw := strings.TrimPrefix(link, "vmess://")
 	decoded, err := decodeFlexibleBase64(raw)
 	if err != nil {
@@ -2584,13 +2604,17 @@ func v2rayVMessOutbound(link string) (string, map[string]any, bool) {
 	if raw := vmessXHTTPExtra(payload["fm"]); raw != "" {
 		query.Set("fm", raw)
 	}
-	if stream := v2rayStreamSettings(query); len(stream) > 0 {
+	if stream := v2rayStreamSettingsForDialect(query, current); len(stream) > 0 {
 		outbound["streamSettings"] = stream
 	}
 	return firstNonEmptyString(payload["ps"], "proxy"), outbound, true
 }
 
 func v2rayStreamSettings(query url.Values) map[string]any {
+	return v2rayStreamSettingsForDialect(query, false)
+}
+
+func v2rayStreamSettingsForDialect(query url.Values, current bool) map[string]any {
 	network := firstNonEmptyString(query.Get("type"), "tcp")
 	if network == "raw" {
 		network = "tcp"
@@ -2663,7 +2687,7 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 			settings["tti"] = tti
 		}
 		stream["kcpSettings"] = settings
-		if finalMask := legacyMKCPFinalMask(query); len(finalMask) > 0 {
+		if finalMask := legacyMKCPFinalMask(query, current); len(finalMask) > 0 {
 			stream["finalmask"] = finalMask
 		}
 	case "http", "h2", "h3":
@@ -2711,10 +2735,17 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 				if headers := xhttpShareHeaders(extraSettings["headers"]); len(headers) > 0 {
 					extraMap["headers"] = headers
 				}
-				copyOptionalAlias(extraMap, "sessionPlacement", extraSettings, "sessionIDPlacement")
-				copyOptionalAlias(extraMap, "sessionKey", extraSettings, "sessionIDKey")
-				copyOptionalAlias(extraMap, "sessionTable", extraSettings, "sessionIDTable")
-				copyOptionalAlias(extraMap, "sessionLength", extraSettings, "sessionIDLength")
+				if current {
+					copyOptionalAlias(extraMap, "sessionIDPlacement", extraSettings, "sessionPlacement")
+					copyOptionalAlias(extraMap, "sessionIDKey", extraSettings, "sessionKey")
+					copyOptionalAlias(extraMap, "sessionIDTable", extraSettings, "sessionTable")
+					copyOptionalAlias(extraMap, "sessionIDLength", extraSettings, "sessionLength")
+				} else {
+					copyOptionalAlias(extraMap, "sessionPlacement", extraSettings, "sessionIDPlacement")
+					copyOptionalAlias(extraMap, "sessionKey", extraSettings, "sessionIDKey")
+					copyOptionalAlias(extraMap, "sessionTable", extraSettings, "sessionIDTable")
+					copyOptionalAlias(extraMap, "sessionLength", extraSettings, "sessionIDLength")
+				}
 
 				if len(extraMap) > 0 {
 					settings["extra"] = extraMap
@@ -2729,11 +2760,11 @@ func v2rayStreamSettings(query url.Values) map[string]any {
 			}
 		}
 	}
-	applyV2RayFinalMask(stream, query)
+	applyV2RayFinalMask(stream, query, current)
 	return stream
 }
 
-func xrayJSONMKCPCompatibilityError(link string, parsed *url.URL) error {
+func xrayJSONMKCPCompatibilityError(link string, parsed *url.URL, current bool) error {
 	network := ""
 	values := url.Values{}
 	if strings.HasPrefix(link, "vmess://") {
@@ -2763,7 +2794,11 @@ func xrayJSONMKCPCompatibilityError(link string, parsed *url.URL) error {
 	if err := validateMKCPShareNumber("mtu", values.Get("mtu"), 21, maxMKCPMTU); err != nil {
 		return err
 	}
-	if err := validateMKCPShareNumber("tti", values.Get("tti"), 10, 5000); err != nil {
+	ttiMaximum := int64(5000)
+	if current {
+		ttiMaximum = 1000
+	}
+	if err := validateMKCPShareNumber("tti", values.Get("tti"), 10, ttiMaximum); err != nil {
 		return err
 	}
 	if header := normalizeShareMKCPHeader(values.Get("headerType")); header == "invalid" {
@@ -2783,20 +2818,31 @@ func validateMKCPShareNumber(field, raw string, minimum, maximum int64) error {
 	return nil
 }
 
-func legacyMKCPFinalMask(query url.Values) map[string]any {
+func legacyMKCPFinalMask(query url.Values, current bool) map[string]any {
 	udp := make([]any, 0, 2)
-	if seed := query.Get("seed"); seed != "" {
+	if seed := query.Get("seed"); current && seed != "" {
+		udp = append(udp, map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": "", "value": seed}})
+	} else if current && !finalMaskHasMKCPTransport(query.Get("fm"), true) {
+		udp = append(udp, map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": "", "value": ""}})
+	} else if seed != "" {
 		udp = append(udp, map[string]any{"type": "mkcp-aes128gcm", "settings": map[string]any{"password": seed}})
-	} else if !finalMaskHasMKCPTransport(query.Get("fm")) {
+	} else if !finalMaskHasMKCPTransport(query.Get("fm"), false) {
 		udp = append(udp, map[string]any{"type": "mkcp-original", "settings": map[string]any{}})
 	}
 	header := normalizeShareMKCPHeader(query.Get("headerType"))
 	if header != "none" && header != "invalid" {
-		settings := map[string]any{}
-		if header == "dns" && query.Get("host") != "" {
-			settings["domain"] = query.Get("host")
+		settings := map[string]any{"header": header, "value": ""}
+		maskType := "mkcp-legacy"
+		if !current {
+			settings = map[string]any{}
+			maskType = "header-" + header
+			if header == "dns" && query.Get("host") != "" {
+				settings["domain"] = query.Get("host")
+			}
+		} else if header == "dns" {
+			settings["value"] = query.Get("host")
 		}
-		udp = append(udp, map[string]any{"type": "header-" + header, "settings": settings})
+		udp = append(udp, map[string]any{"type": maskType, "settings": settings})
 	}
 	if len(udp) == 0 {
 		return nil
@@ -2804,17 +2850,34 @@ func legacyMKCPFinalMask(query url.Values) map[string]any {
 	return map[string]any{"udp": udp}
 }
 
-func finalMaskHasMKCPTransport(raw string) bool {
+func finalMaskHasMKCPTransport(raw string, current bool) bool {
 	finalMask := map[string]any{}
 	if json.Unmarshal([]byte(raw), &finalMask) != nil {
 		return false
 	}
 	for _, mask := range listOfMaps(finalMask["udp"]) {
-		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(stringValue(mask["type"]))), "mkcp-") {
+		if transport, _ := v2rayMKCPMaskRole(mask, current); transport {
 			return true
 		}
 	}
 	return false
+}
+
+func v2rayMKCPMaskRole(mask map[string]any, current bool) (bool, string) {
+	typeName := strings.ToLower(strings.TrimSpace(stringValue(mask["type"])))
+	if current && typeName == "mkcp-legacy" {
+		if header := strings.ToLower(strings.TrimSpace(stringValue(mapValue(mask["settings"])["header"]))); header != "" {
+			return false, "header-" + header
+		}
+		return true, ""
+	}
+	if strings.HasPrefix(typeName, "mkcp-") {
+		return true, ""
+	}
+	if strings.HasPrefix(typeName, "header-") {
+		return false, typeName
+	}
+	return false, ""
 }
 
 func normalizeShareMKCPHeader(value string) string {
@@ -2853,6 +2916,13 @@ func shareLinkHasFinalMask(link string, parsed *url.URL) bool {
 	default:
 		return value != nil
 	}
+}
+
+func xrayJSONFinalMaskCompatibilityError(link string, parsed *url.URL, current bool) error {
+	if current {
+		return xrayJSONCurrentFinalMaskCompatibilityError(link, parsed)
+	}
+	return xrayJSONStableFinalMaskCompatibilityError(link, parsed)
 }
 
 func xrayJSONStableFinalMaskCompatibilityError(link string, parsed *url.URL) error {
@@ -2911,6 +2981,40 @@ func xrayJSONStableFinalMaskValueCompatibilityError(finalMask map[string]any) er
 	}
 	if _, exists := mapValue(finalMask["quicParams"])["bbrProfile"]; exists {
 		return fmt.Errorf("generic Xray JSON targets stable v26.3.27 and cannot represent FinalMask quicParams.bbrProfile introduced after that release")
+	}
+	return nil
+}
+
+func xrayJSONCurrentFinalMaskCompatibilityError(link string, parsed *url.URL) error {
+	finalMask, err := shareLinkFinalMask(link, parsed)
+	if err != nil {
+		return fmt.Errorf("xray-json cannot parse FinalMask: %w", err)
+	}
+	return prepareV2RayFinalMask(finalMask, true)
+}
+
+func xrayJSONCurrentFinalMaskValueCompatibilityError(finalMask map[string]any) error {
+	currentTypes := map[string]map[string]bool{
+		"tcp": {"header-custom": true, "fragment": true, "sudoku": true},
+		"udp": {
+			"header-custom": true, "mkcp-legacy": true, "noise": true, "salamander": true,
+			"sudoku": true, "xdns": true, "xicmp": true, "realm": true,
+		},
+	}
+	for family, supported := range currentTypes {
+		masks := listOfMaps(finalMask[family])
+		for index, mask := range masks {
+			typeName := strings.ToLower(strings.TrimSpace(stringValue(mask["type"])))
+			if !supported[typeName] {
+				return fmt.Errorf("xray-json cannot represent unsupported FinalMask %s type %q", strings.ToUpper(family), typeName)
+			}
+			if family == "udp" && (typeName == "realm" || typeName == "xicmp") && index != 0 {
+				return fmt.Errorf("xray-json requires FinalMask UDP %s at index 0", typeName)
+			}
+			if family == "udp" && typeName == "sudoku" && index != len(masks)-1 {
+				return fmt.Errorf("xray-json requires FinalMask UDP sudoku as the last layer")
+			}
+		}
 	}
 	return nil
 }
@@ -3034,21 +3138,56 @@ func v2rayRealitySettings(query url.Values) map[string]any {
 	return settings
 }
 
-func applyV2RayFinalMask(stream map[string]any, query url.Values) {
+func applyV2RayFinalMask(stream map[string]any, query url.Values, current bool) {
 	merged := mergeV2RayFinalMask(stream["finalmask"], nil)
 	if raw := query.Get("fm"); raw != "" {
 		var parsed map[string]any
 		if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
-			merged = mergeV2RayFinalMask(merged, parsed)
+			if current {
+				merged = mergeCurrentGeneratedFinalMask(parsed, merged, true)
+			} else {
+				merged = mergeV2RayFinalMask(merged, parsed)
+			}
 		}
 	}
 	if generated := finalMaskFromLinkParams(query); len(generated) > 0 {
-		merged = mergeV2RayFinalMask(merged, generated)
+		if current {
+			merged = mergeCurrentGeneratedFinalMask(merged, generated, false)
+		} else {
+			merged = mergeV2RayFinalMask(merged, generated)
+		}
 	}
 	if len(merged) > 0 {
-		normalizeV2RayFinalMaskForStable(merged)
+		if current {
+			_ = normalizeV2RayFinalMaskForCurrent(merged)
+		} else {
+			normalizeV2RayFinalMaskForStable(merged)
+		}
 		stream["finalmask"] = merged
 	}
+}
+
+func prepareV2RayOutboundFinalMask(outbound map[string]any, current bool) error {
+	stream := mapValue(outbound["streamSettings"])
+	finalMask, ok := stream["finalmask"].(map[string]any)
+	if !ok || len(finalMask) == 0 {
+		return nil
+	}
+	return prepareV2RayFinalMask(finalMask, current)
+}
+
+func prepareV2RayFinalMask(finalMask map[string]any, current bool) error {
+	if !current {
+		if err := xrayJSONStableFinalMaskValueCompatibilityError(finalMask); err != nil {
+			return err
+		}
+		normalizeV2RayFinalMaskForStable(finalMask)
+		return nil
+	}
+	if err := normalizeV2RayFinalMaskForCurrent(finalMask); err != nil {
+		return err
+	}
+	return xrayJSONCurrentFinalMaskValueCompatibilityError(finalMask)
 }
 
 func normalizeV2RayFinalMaskForStable(finalMask map[string]any) {
@@ -3064,6 +3203,100 @@ func normalizeV2RayFinalMaskForStable(finalMask map[string]any) {
 			}
 		}
 	}
+}
+
+func normalizeV2RayFinalMaskForCurrent(finalMask map[string]any) error {
+	for _, mask := range listOfMaps(finalMask["tcp"]) {
+		if !strings.EqualFold(stringValue(mask["type"]), "fragment") {
+			continue
+		}
+		settings := mapValue(mask["settings"])
+		for _, pair := range [][2]string{{"length", "lengths"}, {"delay", "delays"}} {
+			singular, hasSingular := settings[pair[0]]
+			plural, hasPlural := settings[pair[1]]
+			if hasPlural {
+				values := listAny(plural)
+				if hasSingular && (len(values) != 1 || stringValue(values[0]) != stringValue(singular)) {
+					return fmt.Errorf("xray-json cannot losslessly represent conflicting FinalMask fragment %s/%s", pair[0], pair[1])
+				}
+				delete(settings, pair[0])
+			} else if hasSingular {
+				settings[pair[1]] = []any{singular}
+				delete(settings, pair[0])
+			}
+		}
+	}
+
+	udp := listAny(finalMask["udp"])
+	for _, raw := range udp {
+		mask, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		typeName := strings.ToLower(strings.TrimSpace(stringValue(mask["type"])))
+		settings := mapValue(mask["settings"])
+		header, value := "", ""
+		switch typeName {
+		case "mkcp-original":
+			if unsupported := firstUnsupportedConfigKey(settings); unsupported != "" {
+				return fmt.Errorf("xray-json cannot losslessly convert mkcp-original setting %q", unsupported)
+			}
+		case "mkcp-aes128gcm":
+			if unsupported := firstUnsupportedConfigKey(settings, "password"); unsupported != "" {
+				return fmt.Errorf("xray-json cannot losslessly convert mkcp-aes128gcm setting %q", unsupported)
+			}
+			value = stringValue(settings["password"])
+		case "header-dns", "header-dtls", "header-srtp", "header-utp", "header-wechat", "header-wireguard":
+			header = strings.TrimPrefix(typeName, "header-")
+			allowed := []string{}
+			if header == "dns" {
+				allowed = []string{"domain"}
+				value = stringValue(settings["domain"])
+			}
+			if unsupported := firstUnsupportedConfigKey(settings, allowed...); unsupported != "" {
+				return fmt.Errorf("xray-json cannot losslessly convert %s setting %q", typeName, unsupported)
+			}
+		default:
+			continue
+		}
+		mask["type"] = "mkcp-legacy"
+		mask["settings"] = map[string]any{"header": header, "value": value}
+	}
+
+	return nil
+}
+
+func mergeCurrentGeneratedFinalMask(base, generated map[string]any, afterLeading bool) map[string]any {
+	merged := mergeV2RayFinalMask(base, nil)
+	for key, value := range generated {
+		if key != "udp" {
+			merged = mergeV2RayFinalMask(merged, map[string]any{key: value})
+			continue
+		}
+		insert := listAny(generated["udp"])
+		if len(insert) == 0 {
+			continue
+		}
+		existing := listAny(merged["udp"])
+		index := len(existing)
+		if afterLeading {
+			index = 0
+			if len(existing) > 0 {
+				typeName := strings.ToLower(strings.TrimSpace(stringValue(mapValue(existing[0])["type"])))
+				if typeName == "realm" || typeName == "xicmp" {
+					index = 1
+				}
+			}
+		} else if index > 0 && strings.EqualFold(stringValue(mapValue(existing[index-1])["type"]), "sudoku") {
+			index--
+		}
+		items := make([]any, 0, len(existing)+len(insert))
+		items = append(items, existing[:index]...)
+		items = append(items, insert...)
+		items = append(items, existing[index:]...)
+		merged["udp"] = items
+	}
+	return merged
 }
 
 func finalMaskFromLinkParams(query url.Values) map[string]any {

@@ -675,6 +675,82 @@ func TestV2RayJSONMetadataUsesStableFinalMaskCompatibilityGate(t *testing.T) {
 	}
 }
 
+func TestXrayJSONPreservesCompleteCurrentFinalMaskAndMux(t *testing.T) {
+	commonUDP := []any{
+		map[string]any{"type": "header-custom", "settings": map[string]any{}},
+		map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": "dns", "value": "example.com"}},
+		map[string]any{"type": "noise", "settings": map[string]any{"noise": []any{map[string]any{"type": "str", "packet": "ping", "delay": "0"}}}},
+		map[string]any{"type": "salamander", "settings": map[string]any{"password": "secret", "packetSize": "1200-1400"}},
+		map[string]any{"type": "sudoku", "settings": map[string]any{}},
+	}
+	quic := map[string]any{
+		"congestion": "bbr", "bbrProfile": "standard", "debug": false,
+		"brutalUp": "1 mbps", "brutalDown": "2 mbps",
+		"initStreamReceiveWindow": 16384, "maxStreamReceiveWindow": 32768,
+		"initConnectionReceiveWindow": 65536, "maxConnectionReceiveWindow": 131072,
+		"maxIdleTimeout": 30, "keepAlivePeriod": 10, "disablePathMTUDiscovery": true,
+		"maxIncomingStreams": 8, "udpHop": map[string]any{"ports": "443,8443", "interval": "30"},
+	}
+	full := map[string]any{
+		"tcp": []any{
+			map[string]any{"type": "header-custom", "settings": map[string]any{}},
+			map[string]any{"type": "fragment", "settings": map[string]any{"packets": "tlshello", "lengths": []any{"3-5", "6-8"}, "delays": []any{"10-20"}}},
+			map[string]any{"type": "sudoku", "settings": map[string]any{}},
+		},
+		"udp": commonUDP, "quicParams": quic,
+	}
+	fixtures := []struct {
+		name string
+		mask map[string]any
+		want []string
+		mux  bool
+	}{
+		{name: "five UDP plus all QUIC", mask: full, want: []string{"header-custom", "mkcp-legacy", "noise", "salamander", "sudoku"}, mux: true},
+		{name: "XDNS", mask: map[string]any{"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{"domains": []any{"t.example.com:txt"}, "resolvers": []any{"t.example.com:txt+udp://8.8.8.8:53"}}}}}, want: []string{"xdns"}},
+		{name: "Realm", mask: map[string]any{"udp": []any{map[string]any{"type": "realm", "settings": map[string]any{"url": "realm://token@example.com/id", "stunServers": []any{"stun.example.com:3478"}}}}}, want: []string{"realm"}},
+		{name: "XICMP", mask: map[string]any{"udp": []any{map[string]any{"type": "xicmp", "settings": map[string]any{"dgram": true, "ips": []any{"1.1.1.1"}}}}}, want: []string{"xicmp"}},
+	}
+	link := "ss://YWVzLTI1Ni1nY206c2VjcmV0@ss.example.com:8388#ss"
+	for _, fixture := range fixtures {
+		t.Run(fixture.name, func(t *testing.T) {
+			body, err := renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{FinalMask: fixture.mask, MuxEnabled: fixture.mux}}, false, "", "", true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var configs []map[string]any
+			if err := json.Unmarshal([]byte(body), &configs); err != nil {
+				t.Fatal(err)
+			}
+			outbound := configs[0]["outbounds"].([]any)[0].(map[string]any)
+			finalMask := mapValue(mapValue(outbound["streamSettings"])["finalmask"])
+			got := []string{}
+			for _, mask := range listOfMaps(finalMask["udp"]) {
+				got = append(got, stringValue(mask["type"]))
+			}
+			if !reflect.DeepEqual(got, fixture.want) {
+				t.Fatalf("UDP masks changed: got=%v want=%v", got, fixture.want)
+			}
+			if fixture.mux {
+				if list := listOfMaps(finalMask["tcp"]); len(list) != 3 || stringValue(list[0]["type"]) != "header-custom" || stringValue(list[1]["type"]) != "fragment" || stringValue(list[2]["type"]) != "sudoku" {
+					t.Fatalf("TCP masks changed: %#v", finalMask["tcp"])
+				}
+				gotQUIC := mapValue(finalMask["quicParams"])
+				if len(gotQUIC) != 14 {
+					t.Fatalf("QUIC fields changed: %#v", gotQUIC)
+				}
+				for key := range quic {
+					if _, ok := gotQUIC[key]; !ok {
+						t.Fatalf("QUIC field %q was dropped: %#v", key, gotQUIC)
+					}
+				}
+				if mapValue(outbound["mux"])["enabled"] != true {
+					t.Fatalf("mux was not emitted as an outbound sibling: %#v", outbound)
+				}
+			}
+		})
+	}
+}
+
 func TestVLESSEncryptionRoundTripsXrayJSONTemplates(t *testing.T) {
 	const encryption = "mlkem768x25519plus.native.0rtt.100-111-1111.75-0-111.50-0-3333.ptjHQxBQxTJ9MWr2cd5qWIflBSACHOevTauCQwa_71U"
 	link := vlessShareLink("PQ + ✓", "[2001:db8::10]", "/x http", ResolvedInbound{
@@ -1136,6 +1212,20 @@ func TestVMessXHTTPStructuredOutputsPreserveModeAndClientExtra(t *testing.T) {
 			t.Fatalf("generic stable Xray JSON leaked post-v26.6.22 alias %s: %s", currentOnly, body)
 		}
 	}
+	currentBody, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"sessionIDPlacement": "query"`, `"sessionIDKey": "sid"`, `"sessionIDTable": "0123456789abcdef"`, `"sessionIDLength": 12`} {
+		if !strings.Contains(currentBody, expected) {
+			t.Fatalf("current xray-json lost %s: %s", expected, currentBody)
+		}
+	}
+	for _, stableOnly := range []string{`"sessionPlacement"`, `"sessionKey"`, `"sessionTable"`, `"sessionLength"`} {
+		if strings.Contains(currentBody, stableOnly) {
+			t.Fatalf("current xray-json leaked stable alias %s: %s", stableOnly, currentBody)
+		}
+	}
 	if strings.Contains(body, "must-not-survive") {
 		t.Fatalf("Xray VMess output retained forbidden XHTTP Host header: %s", body)
 	}
@@ -1386,6 +1476,10 @@ func TestHysteria2GeckoUsesNativeDefaultsAcrossOutputs(t *testing.T) {
 	body, err := renderV2RayJSONSubscription([]string{link}, false)
 	if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "Gecko") {
 		t.Fatalf("generic stable Xray JSON did not reject newer Gecko semantics, body=%q err=%v", body, err)
+	}
+	body, err = renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(body, `"type": "salamander"`) || !strings.Contains(body, `"packetSize": "512-1200"`) {
+		t.Fatalf("current xray-json did not preserve Gecko defaults: body=%q err=%v", body, err)
 	}
 	singBox, err := renderSingBoxJSON([]string{link})
 	if err != nil || !strings.Contains(singBox, `"type": "gecko"`) || !strings.Contains(singBox, `"min_packet_size": 512`) || !strings.Contains(singBox, `"max_packet_size": 1200`) {
@@ -1645,6 +1739,26 @@ func TestGenericXrayJSONRejectsNonRepresentableCurrentFinalMaskRanges(t *testing
 	}
 }
 
+func TestXrayJSONPreservesCurrentFinalMaskRangesAndFields(t *testing.T) {
+	for name, item := range map[string]struct {
+		raw  string
+		want string
+	}{
+		"fragment":   {raw: `{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["1-2","3-4"],"delays":["0"]}}]}`, want: `"lengths": [`},
+		"realm":      {raw: `{"udp":[{"type":"realm","settings":{"url":"realm://token@example.com/id","stunServers":["stun.example.com:3478"]}}]}`, want: `"type": "realm"`},
+		"xdns":       {raw: `{"udp":[{"type":"xdns","settings":{"domains":["t.example.com:txt"],"resolvers":["t.example.com:txt+udp://8.8.8.8:53"]}}]}`, want: `"resolvers": [`},
+		"xicmp":      {raw: `{"udp":[{"type":"xicmp","settings":{"dgram":true}}]}`, want: `"dgram": true`},
+		"bbrProfile": {raw: `{"quicParams":{"congestion":"bbr","bbrProfile":"standard"}}`, want: `"bbrProfile": "standard"`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=none&encryption=none&fm=" + url.QueryEscape(item.raw)
+			if body, err := renderXrayJSONSubscription([]string{link}, false); err != nil || !strings.Contains(body, item.want) {
+				t.Fatalf("current renderer lost %s: body=%q err=%v", name, body, err)
+			}
+		})
+	}
+}
+
 func TestGenericXrayJSONRejectsPostStableFinalMaskFields(t *testing.T) {
 	for name, raw := range map[string]string{
 		"realm":      `{"udp":[{"type":"realm","settings":{"url":"realm://token@example.com/id","stunServers":["stun.example.com:3478"]}}]}`,
@@ -1668,6 +1782,23 @@ func TestGenericXrayJSONStableDialectAcceptedByOfficialXray(t *testing.T) {
 		t.Skip("set REBECCA_XRAY_STABLE_TEST_BINARY to the official stable Xray binary")
 	}
 	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["3-5"],"delays":["10-20"],"maxSplit":"3"}}]}`)
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value&headerType=dns&host=dns.example&mtu=1350&tti=20&fm=" + fm
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, `"mkcp-aes128gcm"`) || !strings.Contains(body, `"header-dns"`) || !strings.Contains(body, `"length": "3-5"`) || strings.Contains(body, `"lengths"`) || strings.Contains(body, `"mkcp-legacy"`) {
+		t.Fatalf("generic renderer mixed stable/current FinalMask dialects: %s", body)
+	}
+	assertOfficialXraySubscription(t, binary, body)
+}
+
+func TestGenericXrayJSONCurrentDialectAcceptedByOfficialXray(t *testing.T) {
+	binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_CURRENT_TEST_BINARY"))
+	if binary == "" {
+		t.Skip("set REBECCA_XRAY_CURRENT_TEST_BINARY to the official current Xray binary")
+	}
+	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["3-5"],"delays":["10-20"],"maxSplit":"3"}}]}`)
 	kcp := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value&headerType=dns&host=dns.example&mtu=1350&tti=20&fm=" + fm
 	extra, err := json.Marshal(map[string]any{
 		"sessionIDPlacement": "query", "sessionIDKey": "sid", "sessionIDTable": "Base62", "sessionIDLength": "16-32",
@@ -1676,24 +1807,26 @@ func TestGenericXrayJSONStableDialectAcceptedByOfficialXray(t *testing.T) {
 		t.Fatal(err)
 	}
 	xhttp := "vless://22222222-2222-4222-8222-222222222222@example.com:443?type=xhttp&security=none&encryption=none&path=%2Fx&mode=packet-up&extra=" + url.QueryEscape(string(extra))
-	body, err := renderV2RayJSONSubscription([]string{kcp, xhttp}, false)
+	body, err := renderXrayJSONSubscription([]string{kcp, xhttp}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(body, `"mkcp-aes128gcm"`) || !strings.Contains(body, `"length": "3-5"`) || strings.Contains(body, `"lengths"`) {
-		t.Fatalf("generic renderer mixed stable/current FinalMask dialects: %s", body)
+	if !strings.Contains(body, `"mkcp-legacy"`) || strings.Contains(body, `"mkcp-aes128gcm"`) || strings.Contains(body, `"header-dns"`) || !strings.Contains(body, `"lengths": [`) || strings.Contains(body, `"length": "3-5"`) {
+		t.Fatalf("generic renderer lost current FinalMask dialect: %s", body)
 	}
-	for _, legacy := range []string{`"sessionPlacement": "query"`, `"sessionKey": "sid"`, `"sessionTable": "Base62"`, `"sessionLength": "16-32"`} {
-		if !strings.Contains(body, legacy) {
-			t.Fatalf("generic renderer lost stable XHTTP alias %s: %s", legacy, body)
+	for _, current := range []string{`"sessionIDPlacement": "query"`, `"sessionIDKey": "sid"`, `"sessionIDTable": "Base62"`, `"sessionIDLength": "16-32"`} {
+		if !strings.Contains(body, current) {
+			t.Fatalf("current renderer lost XHTTP key %s: %s", current, body)
 		}
 	}
+	assertOfficialXraySubscription(t, binary, body)
+}
+
+func assertOfficialXraySubscription(t *testing.T, binary, body string) {
+	t.Helper()
 	var configs []map[string]any
 	if err := json.Unmarshal([]byte(body), &configs); err != nil {
 		t.Fatal(err)
-	}
-	if len(configs) != 2 {
-		t.Fatalf("generic renderer returned %d configs, want 2", len(configs))
 	}
 	for index, config := range configs {
 		data, err := json.Marshal(config)
@@ -1704,9 +1837,8 @@ func TestGenericXrayJSONStableDialectAcceptedByOfficialXray(t *testing.T) {
 		if err := os.WriteFile(path, data, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		output, err := exec.Command(binary, "run", "-test", "-config", path).CombinedOutput()
-		if err != nil {
-			t.Fatalf("official stable Xray rejected generated renderer config %d: %v\n%s", index+1, err, output)
+		if output, err := exec.Command(binary, "run", "-test", "-config", path).CombinedOutput(); err != nil {
+			t.Fatalf("official Xray rejected generated renderer config %d: %v\n%s", index+1, err, output)
 		}
 	}
 }
@@ -1774,6 +1906,81 @@ func TestXrayJSONValidatesMKCPRangesAndUsesFinalMask(t *testing.T) {
 			if strings.Contains(body, `"seed"`) || strings.Contains(body, `"header":`) {
 				t.Fatalf("latest-stable Xray JSON retained removed mKCP fields: %s", body)
 			}
+		}
+	}
+}
+
+func TestXrayJSONCurrentKCPDialectAndLayerAnchors(t *testing.T) {
+	fm := url.QueryEscape(`{"udp":[{"type":"xicmp","settings":{"ips":["1.1.1.1"]}},{"type":"sudoku","settings":{}}]}`)
+	base := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value&headerType=dns&host=dns.example&fragment=3-5%2C10-20%2Ctlshello&noise=rand%3A10-20%2C0&fm=" + fm
+	body, err := renderXrayJSONSubscription([]string{base + "&tti=1000"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	finalMask := mapValue(mapValue(configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"])["finalmask"])
+	types := []string{}
+	for _, mask := range listOfMaps(finalMask["udp"]) {
+		types = append(types, stringValue(mask["type"]))
+	}
+	if got := strings.Join(types, ","); got != "xicmp,mkcp-legacy,mkcp-legacy,noise,sudoku" || strings.Contains(body, "mkcp-aes128gcm") || strings.Contains(body, "header-dns") {
+		t.Fatalf("current KCP masks/order mismatch: types=%q body=%s", got, body)
+	}
+	fragment := listOfMaps(finalMask["tcp"])[0]["settings"].(map[string]any)
+	if strings.Join(stringList(fragment["lengths"]), ",") != "3-5" || strings.Join(stringList(fragment["delays"]), ",") != "10-20" || fragment["length"] != nil || fragment["delay"] != nil {
+		t.Fatalf("current fragment aliases mismatch: %#v", fragment)
+	}
+	if body, err := renderXrayJSONSubscription([]string{base + "&tti=1001"}, false); err == nil || body != "" || !strings.Contains(err.Error(), "between 10 and 1000") {
+		t.Fatalf("current renderer accepted tti > 1000: body=%q err=%v", body, err)
+	}
+	for name, raw := range map[string]string{
+		"realm not first": `{"udp":[{"type":"noise","settings":{"noise":[]}},{"type":"realm","settings":{"url":"realm://token@example.com/id"}}]}`,
+		"sudoku not last": `{"udp":[{"type":"sudoku","settings":{}},{"type":"noise","settings":{"noise":[]}}]}`,
+	} {
+		link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=none&encryption=none&fm=" + url.QueryEscape(raw)
+		if body, err := renderXrayJSONSubscription([]string{link}, false); err == nil || body != "" {
+			t.Fatalf("current renderer reordered invalid %s: body=%q err=%v", name, body, err)
+		}
+	}
+	headerOnly := map[string]any{"udp": []any{map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": "dns", "value": "dns.example"}}}}
+	headerRaw, err := json.Marshal(headerOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headerLink := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&fm=" + url.QueryEscape(string(headerRaw))
+	for name, item := range map[string]struct {
+		render         func() (string, error)
+		transportValue string
+	}{
+		"URI": {render: func() (string, error) { return renderXrayJSONSubscription([]string{headerLink}, false) }},
+		"metadata": {render: func() (string, error) {
+			link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value"
+			return renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{FinalMask: headerOnly}}, false, "", "", true)
+		}, transportValue: "seed-value"},
+	} {
+		body, err := item.render()
+		if err != nil {
+			t.Fatalf("%s header-only mKCP failed: %v", name, err)
+		}
+		if strings.Count(body, `"type": "mkcp-legacy"`) != 2 || !strings.Contains(body, `"header": ""`) || !strings.Contains(body, `"value": "`+item.transportValue+`"`) || !strings.Contains(body, `"header": "dns"`) {
+			t.Fatalf("%s header-only mKCP lost transport/header: %s", name, body)
+		}
+	}
+}
+
+func TestXrayJSONClientIsExplicitAndLegacyJSONClientsStayStable(t *testing.T) {
+	if got, ok := NormalizeSubscriptionClientType("xray-json"); !ok || got != "xray-json" {
+		t.Fatalf("xray-json client was not registered: got=%q ok=%v", got, ok)
+	}
+	if got, ok := NormalizeSubscriptionClientType("json"); !ok || got != "v2ray-json" {
+		t.Fatalf("json alias no longer targets stable v2ray-json: got=%q ok=%v", got, ok)
+	}
+	for _, client := range []string{"v2ray-json", "happ", "incy"} {
+		if subscriptionClientConfigs[client].Format != "v2ray-json" {
+			t.Fatalf("legacy client %q no longer uses the stable renderer", client)
 		}
 	}
 }
