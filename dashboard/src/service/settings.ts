@@ -234,7 +234,6 @@ export interface CertificateIssuePayload {
 	domains: string[];
 	admin_id?: number | null;
 	provider: "letsencrypt" | "zerossl";
-	zerossl_access_key?: string;
 }
 
 export interface CertificateRenewPayload {

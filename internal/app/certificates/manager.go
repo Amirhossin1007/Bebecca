@@ -31,7 +31,7 @@ const (
 	DefaultBaseDir          = "/var/lib/rebecca/certificates"
 	zeroSSLDirectoryURL     = "https://acme.zerossl.com/v2/DV90"
 	letsEncryptDirectoryURL = "https://acme-v02.api.letsencrypt.org/directory"
-	defaultZeroSSLEABURL    = "https://api.zerossl.com/acme/eab-credentials"
+	defaultZeroSSLEABURL    = "https://api.zerossl.com/acme/eab-credentials-email"
 )
 
 var (
@@ -60,11 +60,10 @@ type Record struct {
 }
 
 type IssueRequest struct {
-	Email            string
-	Domains          []string
-	AdminID          *int64
-	Provider         string
-	ZeroSSLAccessKey string
+	Email    string
+	Domains  []string
+	AdminID  *int64
+	Provider string
 }
 
 type ImportRequest struct {
@@ -205,7 +204,7 @@ func (m *Manager) Issue(ctx context.Context, request IssueRequest) (Record, erro
 	serverURL := letsEncryptDirectoryURL
 	var secretConfigPath string
 	if provider == "zerossl" {
-		kid, hmacKey, err := m.zeroSSLEAB(ctx, request.ZeroSSLAccessKey)
+		kid, hmacKey, err := m.zeroSSLEAB(ctx, email)
 		if err != nil {
 			return Record{}, err
 		}
@@ -755,28 +754,25 @@ func (m *Manager) certbotDirs(provider string) (string, string, string) {
 	return filepath.Join(root, "config"), filepath.Join(root, "work"), filepath.Join(root, "logs")
 }
 
-func (m *Manager) zeroSSLEAB(ctx context.Context, accessKey string) (string, string, error) {
-	accessKey = strings.TrimSpace(accessKey)
-	if accessKey == "" {
-		return "", "", fmt.Errorf("ZeroSSL access key is required")
+func (m *Manager) zeroSSLEAB(ctx context.Context, email string) (string, string, error) {
+	email, err := normalizeEmail(email)
+	if err != nil {
+		return "", "", err
 	}
 	endpoint, err := url.Parse(m.zeroSSLEABURL)
 	if err != nil {
 		return "", "", fmt.Errorf("invalid ZeroSSL EAB endpoint")
 	}
-	query := endpoint.Query()
-	query.Set("access_key", accessKey)
-	endpoint.RawQuery = query.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), nil)
+	form := url.Values{"email": {email}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", "", err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response, err := m.httpClient.Do(req)
 	if err != nil {
-		message := strings.ReplaceAll(err.Error(), accessKey, "[redacted]")
-		message = strings.ReplaceAll(message, url.QueryEscape(accessKey), "[redacted]")
-		return "", "", fmt.Errorf("request ZeroSSL EAB credentials: %s", message)
+		return "", "", fmt.Errorf("request ZeroSSL EAB credentials: %w", err)
 	}
 	defer response.Body.Close()
 	var payload struct {

@@ -3277,7 +3277,7 @@
           "Settings"
         ],
         "summary": "Issue subscription certificate",
-        "description": "Issue a multi-domain certificate through Certbot using Let's Encrypt or ZeroSSL. ZeroSSL access keys are used only to obtain EAB credentials and are not stored. HTTP-01 requires public port 80. Requires sudo/full_access.",
+        "description": "Issue a multi-domain certificate through Certbot using Let's Encrypt or ZeroSSL. ZeroSSL obtains free EAB credentials through email-based ACME registration; no access key is required or stored. HTTP-01 requires public port 80. Requires sudo/full_access.",
         "requestBody": {
           "$ref": "#/components/requestBodies/JSON"
         },

@@ -19,11 +19,10 @@ func (s *Server) handleCertificateIssue(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var payload struct {
-		Email            string   `json:"email"`
-		Domains          []string `json:"domains"`
-		AdminID          *int64   `json:"admin_id"`
-		Provider         string   `json:"provider"`
-		ZeroSSLAccessKey string   `json:"zerossl_access_key"`
+		Email    string   `json:"email"`
+		Domains  []string `json:"domains"`
+		AdminID  *int64   `json:"admin_id"`
+		Provider string   `json:"provider"`
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, certificateRequestLimit)
 	if err := decodeOptionalJSON(r, &payload); err != nil {
@@ -31,11 +30,10 @@ func (s *Server) handleCertificateIssue(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	record, err := s.certificateManager.Issue(r.Context(), certificateapp.IssueRequest{
-		Email:            payload.Email,
-		Domains:          payload.Domains,
-		AdminID:          payload.AdminID,
-		Provider:         payload.Provider,
-		ZeroSSLAccessKey: payload.ZeroSSLAccessKey,
+		Email:    payload.Email,
+		Domains:  payload.Domains,
+		AdminID:  payload.AdminID,
+		Provider: payload.Provider,
 	})
 	writeCertificateResponse(w, record, err)
 }

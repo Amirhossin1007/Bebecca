@@ -139,10 +139,13 @@ func TestResolverStopsServingDeletedConfiguredFallback(t *testing.T) {
 	}
 }
 
-func TestZeroSSLEABAndSecretConfig(t *testing.T) {
+func TestZeroSSLEABEmailRegistrationAndSecretConfig(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		if r.Method != http.MethodPost || r.URL.Query().Get("access_key") != "secret-access" {
+		if r.Method != http.MethodPost || r.URL.RawQuery != "" || r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
 			t.Fatalf("unexpected EAB request: %s %s", r.Method, r.URL.String())
+		}
+		if err := r.ParseForm(); err != nil || r.Form.Get("email") != "owner@example.com" || r.Form.Has("access_key") {
+			t.Fatalf("unexpected EAB form: %v err=%v", r.Form, err)
 		}
 		return &http.Response{
 			StatusCode: http.StatusOK,
@@ -152,7 +155,7 @@ func TestZeroSSLEABAndSecretConfig(t *testing.T) {
 	})}
 
 	manager := NewManager(nil, Config{ZeroSSLEABEndpoint: "https://zerossl.example/eab", HTTPClient: client})
-	kid, hmacKey, err := manager.zeroSSLEAB(context.Background(), "secret-access")
+	kid, hmacKey, err := manager.zeroSSLEAB(context.Background(), "owner@example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,10 +182,10 @@ func TestZeroSSLEABAndSecretConfig(t *testing.T) {
 	}
 
 	manager.httpClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return nil, errors.New("secret-access must not leak")
+		return nil, errors.New("network unavailable")
 	})}
-	if _, _, err := manager.zeroSSLEAB(context.Background(), "secret-access"); err == nil || strings.Contains(err.Error(), "secret-access") {
-		t.Fatalf("ZeroSSL access key leaked in error: %v", err)
+	if _, _, err := manager.zeroSSLEAB(context.Background(), "owner@example.com"); err == nil {
+		t.Fatal("expected ZeroSSL EAB network error")
 	}
 }
 

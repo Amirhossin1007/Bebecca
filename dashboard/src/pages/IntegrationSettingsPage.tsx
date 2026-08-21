@@ -920,14 +920,12 @@ export const IntegrationSettingsPage = () => {
 		provider: "letsencrypt" | "zerossl" | "manual";
 		email: string;
 		domains: string;
-		zeroSSLAccessKey: string;
 		fullchain: string;
 		privateKey: string;
 	}>({
 		provider: "letsencrypt",
 		email: "",
 		domains: "",
-		zeroSSLAccessKey: "",
 		fullchain: "",
 		privateKey: "",
 	});
@@ -1549,7 +1547,6 @@ export const IntegrationSettingsPage = () => {
 			setCertificateForm((prev) => ({
 				...prev,
 				domains: "",
-				zeroSSLAccessKey: "",
 			}));
 			toast({
 				title: t("settings.subscriptions.certificateIssued"),
@@ -1895,12 +1892,7 @@ export const IntegrationSettingsPage = () => {
 			});
 			return;
 		}
-		if (
-			!certificateForm.email.trim() ||
-			domains.length === 0 ||
-			(certificateForm.provider === "zerossl" &&
-				!certificateForm.zeroSSLAccessKey.trim())
-		) {
+		if (!certificateForm.email.trim() || domains.length === 0) {
 			toast({
 				title: t("settings.subscriptions.certificateMissingInput"),
 				status: "warning",
@@ -1912,10 +1904,6 @@ export const IntegrationSettingsPage = () => {
 			email: certificateForm.email.trim(),
 			domains,
 			provider: certificateForm.provider,
-			zerossl_access_key:
-				certificateForm.provider === "zerossl"
-					? certificateForm.zeroSSLAccessKey.trim()
-					: undefined,
 		});
 	};
 
@@ -4758,6 +4746,11 @@ export const IntegrationSettingsPage = () => {
 															{t("settings.subscriptions.manualCertificate")}
 														</option>
 													</Select>
+													{certificateForm.provider === "zerossl" ? (
+														<FormHelperText>
+															{t("settings.subscriptions.zeroSSLNoKeyHint")}
+														</FormHelperText>
+													) : null}
 												</FormControl>
 												{certificateForm.provider !== "manual" ? (
 												<FormControl>
@@ -4803,27 +4796,6 @@ export const IntegrationSettingsPage = () => {
 														</FormHelperText>
 													) : null}
 												</FormControl>
-												{certificateForm.provider === "zerossl" ? (
-													<FormControl>
-														<FormLabel>
-															{t("settings.subscriptions.zeroSSLAccessKey")}
-														</FormLabel>
-														<Input
-															type="password"
-															autoComplete="off"
-															value={certificateForm.zeroSSLAccessKey}
-															onChange={(event) =>
-																setCertificateForm((prev) => ({
-																	...prev,
-																	zeroSSLAccessKey: event.target.value,
-																}))
-															}
-														/>
-														<FormHelperText>
-															{t("settings.subscriptions.zeroSSLAccessKeyHint")}
-														</FormHelperText>
-													</FormControl>
-												) : null}
 											</SimpleGrid>
 											{certificateForm.provider === "manual" ? (
 												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
