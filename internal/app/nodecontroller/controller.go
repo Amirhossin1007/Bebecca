@@ -20,9 +20,10 @@ import (
 )
 
 type Controller struct {
-	repo         Repository
-	outboundSubs outboundsubapp.Service
-	nodeLocks    *sync.Map
+	repo              Repository
+	outboundSubs      outboundsubapp.Service
+	nodeLocks         *sync.Map
+	runtimeConfigPrep chan struct{}
 }
 
 const (
@@ -33,9 +34,24 @@ const (
 
 func NewController(repo Repository) Controller {
 	return Controller{
-		repo:         repo,
-		outboundSubs: outboundsubapp.NewService(repo.db, repo.dialect),
-		nodeLocks:    &sync.Map{},
+		repo:              repo,
+		outboundSubs:      outboundsubapp.NewService(repo.db, repo.dialect),
+		nodeLocks:         &sync.Map{},
+		runtimeConfigPrep: make(chan struct{}, 1),
+	}
+}
+
+func (c Controller) lockRuntimeConfigPreparation(ctx context.Context) (func(), error) {
+	if c.runtimeConfigPrep == nil {
+		return func() {}, nil
+	}
+	// ponytail: one CPU-heavy build at a time keeps small masters responsive;
+	// use a wider bounded semaphore only if queue latency becomes measurable.
+	select {
+	case c.runtimeConfigPrep <- struct{}{}:
+		return func() { <-c.runtimeConfigPrep }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
@@ -530,9 +546,7 @@ func (c Controller) processSingleOperation(ctx context.Context, operation Operat
 		return nil
 	}
 	result.Processed++
-	opCtx, cancel := operationContext(ctx, operation)
-	err = c.applyOperation(opCtx, operation)
-	cancel()
+	err = c.runOperation(ctx, operation)
 	if err != nil {
 		if isPermanentOperationError(err) {
 			_ = c.repo.MarkOperationFailed(ctx, operation.ID, err.Error())
@@ -584,9 +598,7 @@ func (c Controller) processCoalescedOperations(ctx context.Context, operations [
 	if err != nil {
 		return err
 	}
-	opCtx, cancel := operationContext(ctx, representative)
-	err = c.applyOperation(opCtx, representative)
-	cancel()
+	err = c.runOperation(ctx, representative)
 	if err != nil {
 		if isPermanentOperationError(err) {
 			for _, operation := range claimed {
@@ -660,11 +672,25 @@ func operationCoalesceKey(operation OperationRow) string {
 	return "all"
 }
 
-func (c Controller) applyOperation(ctx context.Context, operation OperationRow) error {
-	return c.applyOperationWithConfigData(ctx, operation, nil)
+func (c Controller) runOperation(ctx context.Context, operation OperationRow) error {
+	unlock := func() {}
+	if operation.NodeID.Valid && (isRuntimeSyncOperation(operation.OperationType) || isRuntimeUserOperation(operation.OperationType)) {
+		unlock = c.lockNode(operation.NodeID.Int64)
+	}
+	defer unlock()
+	prepared, err := c.prepareRuntimeConfigOperation(ctx, operation)
+	if err != nil {
+		if operation.NodeID.Valid && !isRuntimeUserOperation(operation.OperationType) {
+			_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+		}
+		return err
+	}
+	opCtx, cancel := operationContext(ctx, operation)
+	defer cancel()
+	return c.applyOperation(opCtx, operation, prepared)
 }
 
-func (c Controller) applyOperationWithConfigData(ctx context.Context, operation OperationRow, configData *runtimeConfigData) error {
+func (c Controller) applyOperation(ctx context.Context, operation OperationRow, prepared *preparedRuntimeConfig) error {
 	var payload operationPayload
 	if len(operation.Payload) > 0 {
 		if err := json.Unmarshal(operation.Payload, &payload); err != nil {
@@ -687,19 +713,10 @@ func (c Controller) applyOperationWithConfigData(ctx context.Context, operation 
 		if len(nodes) == 0 && operation.OperationType != "sync_config" {
 			return nil
 		}
-		if len(nodes) > 0 && strings.TrimSpace(payload.ConfigJSON) == "" && operationNeedsRuntimeConfig(operation.OperationType) {
-			loaded, err := c.loadRuntimeConfigData(ctx)
-			if err != nil {
-				return err
-			}
-			configData = loaded
-		}
 		for _, node := range nodes {
 			nodeOperation := operation
 			nodeOperation.NodeID = sql.NullInt64{Int64: node.ID, Valid: true}
-			nodeCtx, cancel := WithDefaultTimeout(ctx)
-			err := c.applyOperationWithConfigData(nodeCtx, nodeOperation, configData)
-			cancel()
+			err := c.runOperation(ctx, nodeOperation)
 			if err != nil {
 				if queueErr := c.queueNodeSpecificRetry(ctx, node.ID, operation); queueErr != nil {
 					return queueErr
@@ -711,8 +728,6 @@ func (c Controller) applyOperationWithConfigData(ctx context.Context, operation 
 	}
 	switch operation.OperationType {
 	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user":
-		unlock := c.lockNode(operation.NodeID.Int64)
-		defer unlock()
 		client, node, err := c.dial(ctx, operation.NodeID.Int64)
 		if err != nil {
 			if !isRuntimeUserOperation(operation.OperationType) {
@@ -736,22 +751,35 @@ func (c Controller) applyOperationWithConfigData(ctx context.Context, operation 
 				}
 			}
 			if !syncConfig {
-				return c.grpcApplyUserOperation(ctx, client, node, operation)
+				return c.grpcApplyUserOperation(ctx, client, node, operation, prepared)
 			}
 		}
 		configJSON := strings.TrimSpace(payload.ConfigJSON)
 		if configJSON == "" {
-			configJSON, err = c.buildRuntimeConfigWithData(ctx, node, configData)
-			if err != nil {
-				return err
+			if prepared != nil && prepared.nodeID == node.ID {
+				configJSON = prepared.configJSON
+			} else {
+				configJSON, err = c.buildRuntimeConfig(ctx, node)
+				if err != nil {
+					return err
+				}
 			}
 		}
-		runtimeReq, err := c.runtimeConfigRequest(ctx, node, fmt.Sprintf("%s-%d", operation.OperationType, operation.ID), configJSON)
-		if err != nil {
-			if !isRuntimeUserOperation(operation.OperationType) {
-				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+		var runtimeReq *nodev1.RuntimeConfigRequest
+		if prepared != nil && prepared.nodeID == node.ID && prepared.configJSON == configJSON {
+			runtimeReq = &nodev1.RuntimeConfigRequest{
+				OperationId:   fmt.Sprintf("%s-%d", operation.OperationType, operation.ID),
+				ConfigJson:    configJSON,
+				OvRuntimeJson: prepared.ovRuntimeJSON,
 			}
-			return err
+		} else {
+			runtimeReq, err = c.runtimeConfigRequest(ctx, node, fmt.Sprintf("%s-%d", operation.OperationType, operation.ID), configJSON)
+			if err != nil {
+				if !isRuntimeUserOperation(operation.OperationType) {
+					_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
+				}
+				return err
+			}
 		}
 		res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
 		if err != nil {
@@ -769,7 +797,7 @@ func (c Controller) applyOperationWithConfigData(ctx context.Context, operation 
 			if err != nil {
 				return err
 			}
-			configJSON, err = c.buildRuntimeConfigWithData(ctx, node, configData)
+			configJSON, err = c.buildRuntimeConfig(ctx, node)
 			if err != nil {
 				return err
 			}
@@ -851,15 +879,6 @@ func operationContext(parent context.Context, operation OperationRow) (context.C
 		return context.WithCancel(parent)
 	}
 	return WithDefaultTimeout(parent)
-}
-
-func operationNeedsRuntimeConfig(operationType string) bool {
-	switch operationType {
-	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user", "restart_node":
-		return true
-	default:
-		return false
-	}
 }
 
 func isPermanentOperationError(err error) bool {

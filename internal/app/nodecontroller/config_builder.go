@@ -42,6 +42,70 @@ type runtimeConfigData struct {
 	masks       map[string][]byte
 }
 
+type preparedRuntimeConfig struct {
+	nodeID        int64
+	configJSON    string
+	ovRuntimeJSON string
+}
+
+func (c Controller) runtimeInbounds(ctx context.Context) ([]map[string]any, error) {
+	return xrayconfig.NewRepository(c.repo.db, c.repo.dialect, xrayconfig.Options{}).FullInbounds(ctx)
+}
+
+func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation OperationRow) (*preparedRuntimeConfig, error) {
+	if !operation.NodeID.Valid {
+		return nil, nil
+	}
+	switch operation.OperationType {
+	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user":
+	default:
+		return nil, nil
+	}
+	var payload operationPayload
+	if len(operation.Payload) > 0 {
+		if err := json.Unmarshal(operation.Payload, &payload); err != nil {
+			return nil, err
+		}
+	}
+	node, err := c.repo.Node(ctx, operation.NodeID.Int64)
+	if err != nil {
+		return nil, err
+	}
+	if node.Status == "disabled" || node.Status == "limited" {
+		return nil, nil
+	}
+	unlock, err := c.lockRuntimeConfigPreparation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	if isRuntimeUserOperation(operation.OperationType) {
+		required, err := c.userOperationRequiresConfigSync(ctx, node, operation)
+		if err != nil {
+			return nil, err
+		}
+		if !required && (operation.OperationType == "remove_user" || operation.OperationType == "disable_user") {
+			_, err = c.legacyOperationEmail(ctx, operation)
+			required = err != nil
+		}
+		if !required {
+			return nil, nil
+		}
+	}
+	configJSON := strings.TrimSpace(payload.ConfigJSON)
+	if configJSON == "" {
+		configJSON, err = c.buildRuntimeConfig(ctx, node)
+		if err != nil {
+			return nil, err
+		}
+	}
+	runtimeReq, err := c.runtimeConfigRequest(ctx, node, "prepare", configJSON)
+	if err != nil {
+		return nil, err
+	}
+	return &preparedRuntimeConfig{nodeID: node.ID, configJSON: configJSON, ovRuntimeJSON: runtimeReq.GetOvRuntimeJson()}, nil
+}
+
 func (c Controller) buildRuntimeConfig(ctx context.Context, node NodeRow) (string, error) {
 	return c.buildRuntimeConfigWithData(ctx, node, nil)
 }

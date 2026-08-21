@@ -5,11 +5,55 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
 )
+
+func TestRuntimeConfigPreparationHonorsOccupiedSlot(t *testing.T) {
+	controller := Controller{runtimeConfigPrep: make(chan struct{}, 1)}
+	release, err := controller.lockRuntimeConfigPreparation(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := controller.lockRuntimeConfigPreparation(canceled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("occupied slot error = %v, want context canceled", err)
+	}
+	release()
+	release, err = controller.lockRuntimeConfigPreparation(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+}
+
+func TestRuntimeConfigRequestUsesProvidedInbounds(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	controller := NewController(NewRepository(db, "sqlite"))
+	req, err := controller.runtimeConfigRequestFromInbounds(context.Background(), NodeRow{}, "test", `{}`, []map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var runtime map[string]any
+	if err := json.Unmarshal([]byte(req.GetOvRuntimeJson()), &runtime); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"inbounds", "l2tp_inbounds", "pptp_inbounds", "wg_inbounds", "ikev2_inbounds", "anyconnect_inbounds"} {
+		if got := interfaceSlice(runtime[key]); len(got) != 0 {
+			t.Fatalf("%s = %#v, want empty", key, got)
+		}
+	}
+}
 
 func TestIncludeDBUsersPreservesReverseClient(t *testing.T) {
 	raw := map[string]any{

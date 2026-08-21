@@ -43,12 +43,16 @@ type OVRuntimeUser struct {
 }
 
 func (r Repository) OVRuntime(ctx context.Context, nodeID int64) (OVRuntime, error) {
-	target := xrayconfig.NodeTargetID(nodeID)
 	configRepo := xrayconfig.NewRepository(r.db, r.dialect, xrayconfig.Options{})
 	inbounds, err := configRepo.FullInbounds(ctx)
 	if err != nil {
 		return OVRuntime{}, err
 	}
+	return r.ovRuntime(ctx, nodeID, inbounds)
+}
+
+func (r Repository) ovRuntime(ctx context.Context, nodeID int64, inbounds []map[string]any) (OVRuntime, error) {
+	target := xrayconfig.NodeTargetID(nodeID)
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
 		if port := OVIntValue(inbound["port"]); port > 0 {
