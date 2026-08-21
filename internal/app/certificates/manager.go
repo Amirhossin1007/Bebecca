@@ -56,6 +56,7 @@ type Record struct {
 	Issuer            *string  `json:"issuer"`
 	FingerprintSHA256 *string  `json:"fingerprint_sha256"`
 	AutoRenew         bool     `json:"auto_renew"`
+	ServeTLS          bool     `json:"serve_tls"`
 }
 
 type IssueRequest struct {
@@ -243,6 +244,7 @@ func (m *Manager) Issue(ctx context.Context, request IssueRequest) (Record, erro
 		"domains":              strings.Join(domains, " "),
 		"certbot_cert_name":    certName,
 		"certbot_config_group": provider,
+		"serve_tls":            strconv.FormatBool(metadataServesTLS(readMetadata(filepath.Join(m.baseDir, domains[0], ".metadata")))),
 		"issued_at":            strconv.FormatInt(now.Unix(), 10),
 		"renewed_at":           strconv.FormatInt(now.Unix(), 10),
 		"status":               "active",
@@ -283,11 +285,34 @@ func (m *Manager) Import(ctx context.Context, request ImportRequest) (Record, er
 	metadata := map[string]string{
 		"provider":   "manual",
 		"domains":    strings.Join(append([]string{domain}, altNames...), " "),
+		"serve_tls":  strconv.FormatBool(metadataServesTLS(readMetadata(filepath.Join(m.baseDir, domain, ".metadata")))),
 		"issued_at":  strconv.FormatInt(now.Unix(), 10),
 		"renewed_at": strconv.FormatInt(now.Unix(), 10),
 		"status":     "active",
 	}
 	return m.store(ctx, domain, request.AdminID, nil, "manual", altNames, pair.CertificatePEM, pair.PrivateKeyPEM, metadata, now, now)
+}
+
+func (m *Manager) SetServeTLS(ctx context.Context, domain string, enabled bool) (Record, error) {
+	if !m.operationMutex.TryLock() {
+		return Record{}, ErrBusy
+	}
+	defer m.operationMutex.Unlock()
+
+	record, err := m.Get(ctx, domain)
+	if err != nil {
+		return Record{}, err
+	}
+	if enabled && record.Status != "active" && record.Status != "expiring" {
+		return Record{}, fmt.Errorf("%w: only a valid certificate can be served", ErrUnsupported)
+	}
+	dir := filepath.Join(m.baseDir, record.Domain)
+	metadata := readMetadata(filepath.Join(dir, ".metadata"))
+	metadata["serve_tls"] = strconv.FormatBool(enabled)
+	if err := writeMetadata(dir, metadata); err != nil {
+		return Record{}, err
+	}
+	return m.Get(ctx, record.Domain)
 }
 
 func (m *Manager) Renew(ctx context.Context, domain string) (Record, error) {
@@ -443,6 +468,7 @@ func (m *Manager) Revoke(ctx context.Context, domain string) (Record, error) {
 		}
 	}
 	metadata["status"] = "revoked"
+	metadata["serve_tls"] = "false"
 	metadata["revoked_at"] = strconv.FormatInt(time.Now().UTC().Unix(), 10)
 	if err := writeMetadata(dir, metadata); err != nil {
 		return Record{}, err
@@ -600,6 +626,7 @@ func parsePair(fullchain, privateKey []byte) (parsedPair, *x509.Certificate, err
 func (m *Manager) enrich(record *Record) {
 	record.Path = filepath.Join(m.baseDir, record.Domain) + string(os.PathSeparator)
 	metadata := readMetadata(filepath.Join(m.baseDir, record.Domain, ".metadata"))
+	record.ServeTLS = metadataServesTLS(metadata)
 	metadataStatus := strings.ToLower(strings.TrimSpace(metadata["status"]))
 	if metadataStatus == "revoked" || metadataStatus == "revoking" {
 		record.Status = metadataStatus
@@ -945,6 +972,10 @@ func readMetadata(path string) map[string]string {
 		}
 	}
 	return result
+}
+
+func metadataServesTLS(metadata map[string]string) bool {
+	return !strings.EqualFold(strings.TrimSpace(metadata["serve_tls"]), "false")
 }
 
 func writeMetadata(dir string, metadata map[string]string) error {

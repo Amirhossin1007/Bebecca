@@ -88,13 +88,31 @@ func (s *Server) handleCertificateRenew(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleCertificatePath(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/settings/subscriptions/certificates/"), "/")
 	parts := strings.Split(path, "/")
-	if len(parts) == 1 && r.Method == http.MethodDelete {
-		if err := s.certificateManager.Delete(r.Context(), parts[0]); err != nil {
-			writeCertificateError(w, err)
+	if len(parts) == 1 {
+		switch r.Method {
+		case http.MethodDelete:
+			if err := s.certificateManager.Delete(r.Context(), parts[0]); err != nil {
+				writeCertificateError(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		case http.MethodPut:
+			var payload struct {
+				ServeTLS *bool `json:"serve_tls"`
+			}
+			if err := decodeOptionalJSON(r, &payload); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			if payload.ServeTLS == nil {
+				writeError(w, http.StatusBadRequest, "serve_tls is required")
+				return
+			}
+			record, err := s.certificateManager.SetServeTLS(r.Context(), parts[0], *payload.ServeTLS)
+			writeCertificateResponse(w, record, err)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
-		return
 	}
 	if len(parts) != 2 || parts[1] != "revoke" || r.Method != http.MethodPost {
 		writeError(w, http.StatusNotFound, "not found")

@@ -48,6 +48,28 @@ func TestResolverSelectsManagedCertificateBySNI(t *testing.T) {
 	}
 }
 
+func TestResolverSkipsCertificateDisabledForTLS(t *testing.T) {
+	base := t.TempDir()
+	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "fallback"), "panel.example.com")
+	disabledDir := filepath.Join(base, "bot.example.com")
+	writeCertificate(t, disabledDir, "bot.example.com")
+	if err := os.WriteFile(filepath.Join(disabledDir, ".metadata"), []byte("serve_tls=false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	resolver, err := NewResolver(base, fallbackCert, fallbackKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := resolver.GetCertificate(clientHello("bot.example.com"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := selected.Leaf.VerifyHostname("panel.example.com"); err != nil {
+		t.Fatalf("disabled certificate remained in SNI: %v", err)
+	}
+}
+
 func TestResolverSkipsRevokedCertificate(t *testing.T) {
 	base := t.TempDir()
 	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "panel.example.com"), "panel.example.com")
@@ -226,6 +248,17 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	if record.Status == "invalid" || record.Status == "missing" || record.Provider == nil || *record.Provider != "manual" || record.AutoRenew {
 		t.Fatalf("unexpected imported record: %#v", record)
 	}
+	if !record.ServeTLS {
+		t.Fatal("new certificate was not enabled for TLS")
+	}
+	record, err = manager.SetServeTLS(context.Background(), record.Domain, false)
+	if err != nil || record.ServeTLS {
+		t.Fatalf("disable TLS serving: record=%#v err=%v", record, err)
+	}
+	record, err = manager.SetServeTLS(context.Background(), record.Domain, true)
+	if err != nil || !record.ServeTLS {
+		t.Fatalf("enable TLS serving: record=%#v err=%v", record, err)
+	}
 	originalFullchain, err := os.ReadFile(filepath.Join(base, record.Domain, "fullchain.pem"))
 	if err != nil {
 		t.Fatal(err)
@@ -306,8 +339,11 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.Status != "revoked" {
+	if record.Status != "revoked" || record.ServeTLS {
 		t.Fatalf("revoked record status=%q", record.Status)
+	}
+	if _, err := manager.SetServeTLS(context.Background(), record.Domain, true); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("revoked certificate enabled for TLS: %v", err)
 	}
 	if !revoked || !deleted {
 		t.Fatalf("already-revoked certificate was not cleaned up: revoke=%v delete=%v", revoked, deleted)

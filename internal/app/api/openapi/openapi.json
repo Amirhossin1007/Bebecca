@@ -3347,6 +3347,38 @@
       }
     },
     "/api/settings/subscriptions/certificates/{domain}": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Configure certificate serving",
+        "description": "Enable or disable this managed certificate for panel and subscription TLS. Enabled certificates are selected by SNI; the certificate paths configured through ENV remain the fallback. Requires sudo/full_access.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JSON"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JSON"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "putSettingsSubscriptionsCertificatesDomain"
+      },
       "delete": {
         "tags": [
           "Settings"

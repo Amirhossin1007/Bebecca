@@ -522,4 +522,8 @@ func TestCertificateRoutesValidateRequests(t *testing.T) {
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("certificate GET status = %d body=%s", rec.Code, rec.Body.String())
 	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions/certificates/example.com", token, `{}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("certificate serve TLS validation status = %d body=%s", rec.Code, rec.Body.String())
+	}
 }

@@ -91,6 +91,7 @@ import {
 	updateAdminSubscriptionSettings,
 	updatePanelSettings,
 	updateRuntimeSettings,
+	updateSubscriptionCertificateServing,
 	updateSubscriptionSettings,
 	updateSubscriptionTemplateContent,
 	updateTelegramSettings,
@@ -1636,6 +1637,23 @@ export const IntegrationSettingsPage = () => {
 			generateErrorMessage(error, toast);
 		},
 	});
+	const certificateServingMutation = useMutation(
+		({ domain, enabled }: { domain: string; enabled: boolean }) =>
+			updateSubscriptionCertificateServing(domain, enabled),
+		{
+			onSuccess: (cert) => {
+				updateCertificateCache(cert);
+				toast({
+					title: t("settings.subscriptions.certificateServingUpdated"),
+					status: "success",
+					duration: 3000,
+				});
+			},
+			onError: (error) => {
+				generateErrorMessage(error, toast);
+			},
+		},
+	);
 
 	const onSubmit = (values: FormValues) => {
 		const flattenedEventToggles = flattenEventToggleValues(
@@ -4908,9 +4926,30 @@ export const IntegrationSettingsPage = () => {
 																				).toLocaleString()
 																			: t("settings.subscriptions.never")}
 																	</Text>
-																</Box>
-																<HStack flexWrap="wrap" justify="flex-end">
-																	<Badge
+																	</Box>
+																	<HStack flexWrap="wrap" justify="flex-end">
+																		<HStack>
+																			<Text fontSize="sm">
+																				{t("settings.subscriptions.serveTLS")}
+																			</Text>
+																			<Switch
+																				aria-label={t("settings.subscriptions.serveTLS")}
+																				isChecked={cert.serve_tls !== false}
+																				isDisabled={
+																					certificateServingMutation.isLoading ||
+																					(cert.serve_tls === false &&
+																						cert.status !== "active" &&
+																						cert.status !== "expiring")
+																				}
+																				onChange={(event) =>
+																					certificateServingMutation.mutate({
+																						domain: cert.domain,
+																						enabled: event.target.checked,
+																					})
+																				}
+																			/>
+																		</HStack>
+																		<Badge
 																		colorScheme={
 																			cert.status === "active"
 																				? "green"

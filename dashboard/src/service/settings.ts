@@ -211,6 +211,7 @@ export interface SubscriptionCertificate {
 	issuer: string | null;
 	fingerprint_sha256: string | null;
 	auto_renew: boolean;
+	serve_tls: boolean;
 }
 
 export interface SubscriptionSettingsBundle {
@@ -462,5 +463,18 @@ export const deleteSubscriptionCertificate = async (
 	return apiFetch(
 		`/settings/subscriptions/certificates/${encodeURIComponent(domain)}`,
 		{ method: "DELETE" },
+	);
+};
+
+export const updateSubscriptionCertificateServing = async (
+	domain: string,
+	serveTLS: boolean,
+): Promise<SubscriptionCertificate> => {
+	return apiFetch(
+		`/settings/subscriptions/certificates/${encodeURIComponent(domain)}`,
+		{
+			method: "PUT",
+			body: JSON.stringify({ serve_tls: serveTLS }),
+		},
 	);
 };

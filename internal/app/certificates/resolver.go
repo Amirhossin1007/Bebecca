@@ -104,8 +104,9 @@ func (r *Resolver) reload() error {
 			continue
 		}
 		dir := filepath.Join(r.baseDir, entry.Name())
-		status := strings.ToLower(strings.TrimSpace(readMetadata(filepath.Join(dir, ".metadata"))["status"]))
-		if status == "revoked" || status == "revoking" {
+		metadata := readMetadata(filepath.Join(dir, ".metadata"))
+		status := strings.ToLower(strings.TrimSpace(metadata["status"]))
+		if status == "revoked" || status == "revoking" || !metadataServesTLS(metadata) {
 			continue
 		}
 		certificate, err := loadCertificate(filepath.Join(dir, "fullchain.pem"), filepath.Join(dir, "privkey.pem"))
