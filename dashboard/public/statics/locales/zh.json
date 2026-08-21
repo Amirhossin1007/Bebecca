@@ -193,7 +193,7 @@
 	"hostsDialog.expireDate": "用户的有效期",
 	"hostsDialog.fingerprint": "指纹",
 	"hostsDialog.finalMask": "FinalMask",
-	"hostsDialog.finalMaskHint": "仅输入 streamSettings.finalmask 的 JSON 对象。留空则继承入站设置；旧的 Fragment 和 Noise 值会自动转换，Mux 仍在下方单独配置。",
+	"hostsDialog.finalMaskHint": "使用表单字段配置 Xray FinalMask。全部选项需要 Xray 26.6.22 或更高版本；Mux 仍单独配置。",
 	"hostsDialog.fragment": "碎片图案",
 	"hostsDialog.fragment.info": "length,interval,packet (e.g. 10-100,100-200,tlshello)",
 	"hostsDialog.fragment.info.attention": "请注意： 当前特性仅支持 streisand >= 1.6.12 and v2rayNG >= 1.8.16 (自定义配置)",

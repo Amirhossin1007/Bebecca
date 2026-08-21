@@ -495,7 +495,7 @@
 	"hostsDialog.expireDate": "Expiry date of the user",
 	"hostsDialog.fingerprint": "Fingerprint",
 	"hostsDialog.finalMask": "FinalMask",
-	"hostsDialog.finalMaskHint": "Enter only the streamSettings.finalmask JSON object. Leave it empty to inherit the inbound setting. Existing Fragment and Noise values are converted automatically; Mux stays separate below.",
+	"hostsDialog.finalMaskHint": "Configure Xray FinalMask with guided fields. Every option requires Xray 26.6.22 or newer; Mux remains separate.",
 	"hostsDialog.fragment": "Fragment pattern",
 	"hostsDialog.fragment.method": "Fragment method",
 	"hostsDialog.fragment.length": "Length",

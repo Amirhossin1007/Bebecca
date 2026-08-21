@@ -64,6 +64,15 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	cloneFinalMask,
+	type FinalMaskObject,
+	finalMaskValidationError,
+	getFinalMaskCapabilities,
+	hostFinalMaskValue,
+	isFinalMaskObject,
+	sanitizeFinalMask,
+} from "utils/finalmask";
 import { AppleEmojiText } from "./common/AppleEmojiText";
 import { DeleteIcon } from "./common/DeleteIcon";
 import {
@@ -73,6 +82,7 @@ import {
 import { NumericInput } from "./common/NumericInput";
 import { SearchableTagSelect } from "./common/SearchableTagSelect";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
+import { FinalMaskEditor } from "./FinalMaskEditor";
 import { JsonEditor } from "./JsonEditor";
 import {
 	DataTable,
@@ -113,7 +123,7 @@ type HostData = {
 	is_disabled: boolean;
 	fragment_setting: string;
 	noise_setting: string;
-	finalmask: string;
+	finalmask: FinalMaskObject | null;
 	random_user_agent: boolean;
 	security: string;
 	alpn: string;
@@ -178,17 +188,13 @@ const coerceHostValue = <Key extends keyof HostData>(
 		return normalizeRotationMode(String(value ?? "")) as HostData[Key];
 	}
 	if (key === "finalmask") {
-		if (value === null || value === undefined || value === "") {
-			return "" as HostData[Key];
-		}
-		if (typeof value === "string") {
-			return value as HostData[Key];
-		}
-		try {
-			return JSON.stringify(value, null, 2) as HostData[Key];
-		} catch {
-			return currentData.finalmask as HostData[Key];
-		}
+		return (
+			isFinalMaskObject(value)
+				? cloneFinalMask(value)
+				: value === null
+					? null
+					: currentData.finalmask
+		) as HostData[Key];
 	}
 	return (value ?? "") as HostData[Key];
 };
@@ -217,7 +223,7 @@ const EMPTY_HOST_DATA: HostData = {
 	is_disabled: false,
 	fragment_setting: "",
 	noise_setting: "",
-	finalmask: "",
+	finalmask: null,
 	random_user_agent: false,
 	security: "inbound_default",
 	alpn: "",
@@ -238,6 +244,10 @@ type InboundOption = {
 	value: string;
 	protocol: string;
 	network: string;
+	alpn?: string;
+	tls?: string;
+	flow?: string;
+	proxyNetwork?: string;
 	port?: number;
 };
 
@@ -399,122 +409,36 @@ const alpnAutocompleteOptions = proxyALPN
 const inboundPortPlaceholder = (inbound?: InboundOption) =>
 	inbound?.port ? `Inbound default: ${inbound.port}` : "Inherited from inbound";
 
-type FinalMaskObject = Record<string, unknown>;
+const inheritedHostValue = (value: string, fallback?: string) =>
+	["", "none", "default", "inbound_default", "inbound-default"].includes(
+		value.trim().toLowerCase(),
+	)
+		? fallback
+		: value;
 
-const isFinalMaskObject = (value: unknown): value is FinalMaskObject =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+const finalMaskCapabilitiesForHost = (
+	data: HostData,
+	inbound?: InboundOption,
+) =>
+	getFinalMaskCapabilities({
+		protocol: inbound?.protocol,
+		network: inbound?.network,
+		alpn: inheritedHostValue(data.alpn, inbound?.alpn),
+		security: inheritedHostValue(data.security, inbound?.tls),
+		flow: inbound?.flow,
+		proxyNetwork: inbound?.proxyNetwork,
+	});
 
-const parseFinalMaskText = (
-	value: string,
-): FinalMaskObject | null | undefined => {
-	if (!value.trim()) return null;
-	try {
-		const parsed: unknown = JSON.parse(value);
-		return isFinalMaskObject(parsed) ? parsed : undefined;
-	} catch {
-		return undefined;
-	}
-};
-
-const legacyFragmentMask = (value: string): FinalMaskObject | null => {
-	const [length = "", delay = "", packets = "", maxSplit = ""] = value
-		.split(",")
-		.map((item) => item.trim());
-	if (!length || !delay || !packets) return null;
-	const settings: FinalMaskObject = {
-		packets,
-		lengths: [length],
-		delays: [delay],
+const fitHostToInbound = (
+	data: HostData,
+	inbound?: InboundOption,
+): HostData => {
+	const capabilities = finalMaskCapabilitiesForHost(data, inbound);
+	return {
+		...data,
+		finalmask: sanitizeFinalMask(data.finalmask, capabilities),
+		mux_enable: capabilities.mux && data.mux_enable,
 	};
-	if (maxSplit) settings.maxSplit = maxSplit;
-	return { type: "fragment", settings };
-};
-
-const legacyNoiseMask = (value: string): FinalMaskObject | null => {
-	const noise = value
-		.split("&")
-		.map((raw) => raw.trim())
-		.filter(Boolean)
-		.flatMap((raw) => {
-			const separator = raw.indexOf(":");
-			const type = separator > 0 ? raw.slice(0, separator).trim() : "rand";
-			const body = separator > 0 ? raw.slice(separator + 1) : raw;
-			const [packet = "", delay = ""] = body
-				.split(",")
-				.map((item) => item.trim());
-			if (!packet || !["rand", "str", "hex", "base64"].includes(type)) {
-				return [];
-			}
-			const item: FinalMaskObject =
-				type === "rand" ? { rand: packet } : { type, packet };
-			if (delay) item.delay = delay;
-			return [item];
-		});
-	return noise.length ? { type: "noise", settings: { noise } } : null;
-};
-
-const mergeLegacyFinalMask = (
-	base: FinalMaskObject | null,
-	fragment: string,
-	noise: string,
-): FinalMaskObject | null => {
-	const result: FinalMaskObject = base
-		? (JSON.parse(JSON.stringify(base)) as FinalMaskObject)
-		: {};
-	for (const [key, mask] of [
-		["tcp", legacyFragmentMask(fragment)],
-		["udp", legacyNoiseMask(noise)],
-	] as const) {
-		if (!mask) continue;
-		const existing = result[key];
-		const current = Array.isArray(existing) ? [...existing] : [];
-		result[key] = [...current, mask];
-	}
-	return Object.keys(result).length ? result : null;
-};
-
-const hostFinalMaskText = (value: unknown, fragment = "", noise = "") => {
-	if (value !== null && value !== undefined && !isFinalMaskObject(value)) {
-		try {
-			return JSON.stringify(value, null, 2) ?? "";
-		} catch {
-			return "";
-		}
-	}
-	if (isFinalMaskObject(value) && Object.keys(value).length) {
-		return JSON.stringify(value, null, 2);
-	}
-	const merged = mergeLegacyFinalMask(null, fragment, noise);
-	return merged ? JSON.stringify(merged, null, 2) : "";
-};
-
-const finalMaskForAPI = (data: HostData): FinalMaskObject | null => {
-	const parsed = parseFinalMaskText(data.finalmask);
-	if (parsed === undefined) return null;
-	if (parsed && Object.keys(parsed).length) return parsed;
-	return mergeLegacyFinalMask(null, data.fragment_setting, data.noise_setting);
-};
-
-const FinalMaskFields: FC<{
-	value: string;
-	onChange: (value: string) => void;
-}> = ({ value, onChange }) => {
-	const { t } = useTranslation();
-	const isInvalid = parseFinalMaskText(value) === undefined;
-	return (
-		<FormControl isInvalid={isInvalid}>
-			<FormLabel>{t("hostsDialog.finalMask")}</FormLabel>
-			<JsonEditor json={value} onChange={onChange} minHeight="260px" />
-			{isInvalid && (
-				<FormErrorMessage>
-					{t("hostsPage.error.finalMaskObject")}
-				</FormErrorMessage>
-			)}
-			<Text mt={2} fontSize="xs" color="gray.500">
-				{t("hostsDialog.finalMaskHint")}
-			</Text>
-		</FormControl>
-	);
 };
 
 const DynamicTokensPopover: FC = () => {
@@ -607,7 +531,7 @@ const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	is_disabled: normalizeBoolean(host.is_disabled, false),
 	fragment_setting: "",
 	noise_setting: "",
-	finalmask: hostFinalMaskText(
+	finalmask: hostFinalMaskValue(
 		host.finalmask,
 		normalizeString(host.fragment_setting),
 		normalizeString(host.noise_setting),
@@ -643,7 +567,7 @@ const cloneHostData = (data: HostData): HostData => ({
 	is_disabled: data.is_disabled,
 	fragment_setting: data.fragment_setting,
 	noise_setting: data.noise_setting,
-	finalmask: data.finalmask,
+	finalmask: cloneFinalMask(data.finalmask),
 	random_user_agent: data.random_user_agent,
 	security: data.security,
 	alpn: data.alpn,
@@ -669,21 +593,13 @@ const serializeHostData = (data: HostData) => ({
 	host_ttl_seconds: data.host_ttl_seconds ?? null,
 	fragment_setting: "",
 	noise_setting: "",
-	finalmask: (() => {
-		const parsed = parseFinalMaskText(data.finalmask);
-		if (parsed === undefined) return data.finalmask.trim();
-		const canonical =
-			parsed && Object.keys(parsed).length
-				? parsed
-				: mergeLegacyFinalMask(null, data.fragment_setting, data.noise_setting);
-		return canonical ? JSON.stringify(canonical) : "";
-	})(),
+	finalmask: data.finalmask,
 });
 
 const validateHostState = (
 	inboundTag: string,
 	data: HostData | CreateHostValues,
-	protocol?: string,
+	inbound?: InboundOption,
 ): string[] => {
 	const errors: string[] = [];
 	if (!inboundTag.trim()) {
@@ -692,7 +608,7 @@ const validateHostState = (
 	if (!data.remark.trim()) {
 		errors.push("Remark is required.");
 	}
-	const profileNameError = profileHostNameError(protocol, data.remark);
+	const profileNameError = profileHostNameError(inbound?.protocol, data.remark);
 	if (profileNameError) {
 		errors.push(profileNameError);
 	}
@@ -732,8 +648,11 @@ const validateHostState = (
 			errors.push(`${label} is required.`);
 		}
 	}
-	if (parseFinalMaskText(data.finalmask) === undefined) {
-		errors.push("hostsPage.error.finalMaskObject");
+	const finalMaskError = finalMaskValidationError(
+		fitHostToInbound(data, inbound).finalmask,
+	);
+	if (finalMaskError) {
+		errors.push(finalMaskError);
 	}
 	return errors;
 };
@@ -747,7 +666,12 @@ const isHostDirty = (host: HostState) => {
 	return JSON.stringify(current) !== JSON.stringify(original);
 };
 
-const formatHostForApi = (data: HostData): HostsSchema[string][number] => {
+const formatHostForApi = (
+	rawData: HostData,
+	inbound?: InboundOption,
+	fitToInbound = true,
+): HostsSchema[string][number] => {
+	const data = fitToInbound ? fitHostToInbound(rawData, inbound) : rawData;
 	return {
 		id: data.id ?? null,
 		remark: data.remark.trim(),
@@ -772,7 +696,7 @@ const formatHostForApi = (data: HostData): HostsSchema[string][number] => {
 		is_disabled: data.is_disabled,
 		fragment_setting: null,
 		noise_setting: null,
-		finalmask: finalMaskForAPI(data),
+		finalmask: cloneFinalMask(data.finalmask),
 		random_user_agent: data.random_user_agent,
 		security: data.security || "inbound_default",
 		alpn: data.alpn || "",
@@ -825,7 +749,11 @@ const mapHostsToState = (hosts: HostsSchema): HostState[] => {
 	return sortHosts(result);
 };
 
-const groupHostsByInbound = (items: HostState[]): HostsSchema => {
+const groupHostsByInbound = (
+	items: HostState[],
+	inboundOptions: InboundOption[],
+	fitHostUid?: string,
+): HostsSchema => {
 	const grouped = new Map<string, HostState[]>();
 	items.forEach((host) => {
 		const list = grouped.get(host.inboundTag) ?? [];
@@ -836,9 +764,9 @@ const groupHostsByInbound = (items: HostState[]): HostsSchema => {
 	grouped.forEach((value, key) => {
 		result[key] = value.map((host) =>
 			formatHostForApi(
-				parseFinalMaskText(host.data.finalmask) === undefined
-					? { ...host.data, finalmask: host.original.finalmask }
-					: host.data,
+				host.data,
+				inboundOptions.find((option) => option.value === host.inboundTag),
+				host.uid === fitHostUid,
 			),
 		);
 	});
@@ -848,8 +776,10 @@ const groupHostsByInbound = (items: HostState[]): HostsSchema => {
 const buildInboundPayload = (
 	items: HostState[],
 	inboundTags: Iterable<string>,
+	inboundOptions: InboundOption[],
+	fitHostUid?: string,
 ): Partial<HostsSchema> => {
-	const grouped = groupHostsByInbound(items);
+	const grouped = groupHostsByInbound(items, inboundOptions, fitHostUid);
 	const uniqueTags = Array.from(new Set(inboundTags));
 	const payload: Partial<HostsSchema> = {};
 	uniqueTags.forEach((tag) => {
@@ -922,9 +852,16 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 		selectedInbound?.protocol,
 		host?.data.remark ?? "",
 	);
-	const finalMaskValid = host
-		? parseFinalMaskText(host.data.finalmask) !== undefined
-		: false;
+	const finalMaskCapabilities = finalMaskCapabilitiesForHost(
+		host?.data ?? EMPTY_HOST_DATA,
+		selectedInbound,
+	);
+	const finalMaskError = host
+		? finalMaskValidationError(
+				fitHostToInbound(host.data, selectedInbound).finalmask,
+			)
+		: null;
+	const finalMaskValid = host ? finalMaskError === null : false;
 	const canSubmit = host
 		? Boolean(
 				host.inboundTag &&
@@ -946,9 +883,9 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 		}
 		return {
 			inboundTag: host.inboundTag,
-			...formatHostForApi(host.data),
+			...formatHostForApi(host.data, selectedInbound),
 		};
-	}, [host]);
+	}, [host, selectedInbound]);
 	const nodeAddressOptions = useMemo(
 		() => getNodeAddressOptions(nodes),
 		[nodes],
@@ -1343,12 +1280,25 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 											</CardHeader>
 											<CardBody pt={0}>
 												<VStack align="stretch" spacing={4}>
-													<FinalMaskFields
-														value={host.data.finalmask}
-														onChange={(value) =>
-															onChange(host.uid, "finalmask", value)
-														}
-													/>
+													{finalMaskCapabilities.supported && (
+														<>
+															<FinalMaskEditor
+																value={sanitizeFinalMask(
+																	host.data.finalmask,
+																	finalMaskCapabilities,
+																)}
+																onChange={(value) =>
+																	onChange(host.uid, "finalmask", value)
+																}
+																capabilities={finalMaskCapabilities}
+															/>
+															{finalMaskError && (
+																<Text fontSize="sm" color="red.500">
+																	{finalMaskError}
+																</Text>
+															)}
+														</>
+													)}
 													<Stack
 														direction={{ base: "column", md: "row" }}
 														spacing={4}
@@ -1365,18 +1315,20 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 														>
 															{t("hostsDialog.allowinsecure")}
 														</Checkbox>
-														<Checkbox
-															isChecked={host.data.mux_enable}
-															onChange={(event) =>
-																onChange(
-																	host.uid,
-																	"mux_enable",
-																	event.target.checked,
-																)
-															}
-														>
-															{t("hostsDialog.muxEnable")}
-														</Checkbox>
+														{finalMaskCapabilities.mux && (
+															<Checkbox
+																isChecked={host.data.mux_enable}
+																onChange={(event) =>
+																	onChange(
+																		host.uid,
+																		"mux_enable",
+																		event.target.checked,
+																	)
+																}
+															>
+																{t("hostsDialog.muxEnable")}
+															</Checkbox>
+														)}
 														<Checkbox
 															isChecked={host.data.random_user_agent}
 															onChange={(event) =>
@@ -1526,7 +1478,14 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 		selectedInbound?.protocol,
 		formState.remark,
 	);
-	const finalMaskValid = parseFinalMaskText(formState.finalmask) !== undefined;
+	const finalMaskCapabilities = finalMaskCapabilitiesForHost(
+		formState,
+		selectedInbound,
+	);
+	const finalMaskError = finalMaskValidationError(
+		fitHostToInbound(formState, selectedInbound).finalmask,
+	);
+	const finalMaskValid = finalMaskError === null;
 
 	useEffect(() => {
 		if (isOpen) {
@@ -1540,9 +1499,9 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 	const jsonPayload = useMemo(
 		() => ({
 			inboundTag: formState.inboundTag,
-			...formatHostForApi(formState),
+			...formatHostForApi(formState, selectedInbound),
 		}),
-		[formState],
+		[formState, selectedInbound],
 	);
 
 	useEffect(() => {
@@ -1656,12 +1615,13 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 											value={formState.inboundTag}
 											options={inboundOptions}
 											placeholder={t("hostsPage.inboundLabel")}
-											onChange={(value) =>
+											onChange={(value) => {
+												const inboundTag = String(value);
 												setFormState((prev) => ({
 													...prev,
-													inboundTag: String(value),
-												}))
-											}
+													inboundTag,
+												}));
+											}}
 										/>
 									</FormControl>
 									<FormControl isRequired isInvalid={Boolean(remarkError)}>
@@ -1858,7 +1818,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 												)}
 											</SimpleGrid>
 										)}
-									{!isVirtualTunnelInbound && (
+									{finalMaskCapabilities.supported && (
 										<Card className="xray-dialog-section" variant="outline">
 											<CardHeader pb={2}>
 												<Text fontWeight="semibold">
@@ -1866,15 +1826,39 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 												</Text>
 											</CardHeader>
 											<CardBody pt={0}>
-												<FinalMaskFields
-													value={formState.finalmask}
-													onChange={(value) =>
-														setFormState((prev) => ({
-															...prev,
-															finalmask: value,
-														}))
-													}
-												/>
+												<VStack align="stretch" spacing={4}>
+													<FinalMaskEditor
+														value={sanitizeFinalMask(
+															formState.finalmask,
+															finalMaskCapabilities,
+														)}
+														onChange={(value) =>
+															setFormState((prev) => ({
+																...prev,
+																finalmask: value,
+															}))
+														}
+														capabilities={finalMaskCapabilities}
+													/>
+													{finalMaskError && (
+														<Text fontSize="sm" color="red.500">
+															{finalMaskError}
+														</Text>
+													)}
+													{finalMaskCapabilities.mux && (
+														<Checkbox
+															isChecked={formState.mux_enable}
+															onChange={(event) =>
+																setFormState((prev) => ({
+																	...prev,
+																	mux_enable: event.target.checked,
+																}))
+															}
+														>
+															{t("hostsDialog.muxEnable")}
+														</Checkbox>
+													)}
+												</VStack>
 											</CardBody>
 										</Card>
 									)}
@@ -2024,6 +2008,13 @@ export const HostsManager: FC = () => {
 					value: inbound.tag,
 					protocol: inbound.protocol,
 					network: inbound.network,
+					alpn: inbound.alpn,
+					tls: inbound.tls,
+					flow: inbound.flow,
+					proxyNetwork:
+						typeof inbound.settings?.network === "string"
+							? inbound.settings.network
+							: undefined,
 					port: inbound.port,
 				});
 			});
@@ -2101,14 +2092,7 @@ export const HostsManager: FC = () => {
 	const updateHostInbound = (uid: string, inboundTag: string) => {
 		applyHostItems((prev) =>
 			sortHosts(
-				prev.map((host) =>
-					host.uid === uid
-						? {
-								...host,
-								inboundTag,
-							}
-						: host,
-				),
+				prev.map((host) => (host.uid === uid ? { ...host, inboundTag } : host)),
 			),
 		);
 	};
@@ -2121,8 +2105,7 @@ export const HostsManager: FC = () => {
 				validateHostState(
 					host.inboundTag,
 					host.data,
-					inboundOptions.find((option) => option.value === host.inboundTag)
-						?.protocol,
+					inboundOptions.find((option) => option.value === host.inboundTag),
 				),
 			)
 		) {
@@ -2130,10 +2113,12 @@ export const HostsManager: FC = () => {
 		}
 		setSavingHostUid(uid);
 		try {
-			const payload = buildInboundPayload(hostItemsRef.current, [
-				host.inboundTag,
-				host.initialInboundTag,
-			]);
+			const payload = buildInboundPayload(
+				hostItemsRef.current,
+				[host.inboundTag, host.initialInboundTag],
+				inboundOptions,
+				uid,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
@@ -2191,17 +2176,23 @@ export const HostsManager: FC = () => {
 		key: Key,
 		value: HostData[Key],
 	) => {
-		setCloneHost((prev) =>
-			prev && prev.uid === uid
-				? { ...prev, data: { ...prev.data, [key]: value } }
-				: prev,
-		);
+		setCloneHost((prev) => {
+			if (!prev || prev.uid !== uid) return prev;
+			return {
+				...prev,
+				data: { ...prev.data, [key]: value },
+			};
+		});
 	};
 
 	const updateCloneInbound = (uid: string, inboundTag: string) => {
-		setCloneHost((prev) =>
-			prev && prev.uid === uid ? { ...prev, inboundTag } : prev,
-		);
+		setCloneHost((prev) => {
+			if (!prev || prev.uid !== uid) return prev;
+			return {
+				...prev,
+				inboundTag,
+			};
+		});
 	};
 
 	const resetCloneHost = (uid: string) => {
@@ -2223,8 +2214,9 @@ export const HostsManager: FC = () => {
 				validateHostState(
 					cloneHost.inboundTag,
 					cloneHost.data,
-					inboundOptions.find((option) => option.value === cloneHost.inboundTag)
-						?.protocol,
+					inboundOptions.find(
+						(option) => option.value === cloneHost.inboundTag,
+					),
 				),
 			)
 		) {
@@ -2264,7 +2256,12 @@ export const HostsManager: FC = () => {
 		try {
 			const nextHosts = sortHosts([...previousHosts, newHost]);
 			applyHostItems(nextHosts);
-			const payload = buildInboundPayload(nextHosts, [cloneHost.inboundTag]);
+			const payload = buildInboundPayload(
+				nextHosts,
+				[cloneHost.inboundTag],
+				inboundOptions,
+				newHost.uid,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
@@ -2306,7 +2303,7 @@ export const HostsManager: FC = () => {
 			if (!updatedHost) {
 				throw new Error("Host not found");
 			}
-			const payload = groupHostsByInbound(nextHosts);
+			const payload = groupHostsByInbound(nextHosts, inboundOptions);
 			await setHosts(payload);
 			await fetchHosts();
 		} catch (_error) {
@@ -2329,10 +2326,11 @@ export const HostsManager: FC = () => {
 		try {
 			const nextHosts = hostItemsRef.current.filter((item) => item.uid !== uid);
 			applyHostItems(nextHosts);
-			const payload = buildInboundPayload(nextHosts, [
-				host.inboundTag,
-				host.initialInboundTag,
-			]);
+			const payload = buildInboundPayload(
+				nextHosts,
+				[host.inboundTag, host.initialInboundTag],
+				inboundOptions,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
@@ -2380,7 +2378,11 @@ export const HostsManager: FC = () => {
 		applyHostItems(nextHosts);
 		setBulkAction(isActive ? "enable" : "disable");
 		try {
-			const payload = buildInboundPayload(nextHosts, affectedTags);
+			const payload = buildInboundPayload(
+				nextHosts,
+				affectedTags,
+				inboundOptions,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			setSelectedHostUids([]);
@@ -2420,7 +2422,11 @@ export const HostsManager: FC = () => {
 		applyHostItems(nextHosts);
 		setBulkAction("delete");
 		try {
-			const payload = buildInboundPayload(nextHosts, affectedTags);
+			const payload = buildInboundPayload(
+				nextHosts,
+				affectedTags,
+				inboundOptions,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			setSelectedHostUids([]);
@@ -2449,8 +2455,7 @@ export const HostsManager: FC = () => {
 				validateHostState(
 					values.inboundTag,
 					values,
-					inboundOptions.find((option) => option.value === values.inboundTag)
-						?.protocol,
+					inboundOptions.find((option) => option.value === values.inboundTag),
 				),
 			)
 		) {
@@ -2471,7 +2476,12 @@ export const HostsManager: FC = () => {
 			const nextHosts = sortHosts([...hostItemsRef.current, newHost]);
 			applyHostItems(nextHosts);
 
-			const payload = buildInboundPayload(nextHosts, [inboundTag]);
+			const payload = buildInboundPayload(
+				nextHosts,
+				[inboundTag],
+				inboundOptions,
+				newHost.uid,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({

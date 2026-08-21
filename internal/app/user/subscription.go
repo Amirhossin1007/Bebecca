@@ -2123,7 +2123,7 @@ func applyV2RayConfigLinkMetadata(outbound map[string]any, metadata ConfigLinkMe
 		}
 		stream["finalmask"] = finalMask
 	}
-	if metadata.MuxEnabled {
+	if metadata.MuxEnabled && !v2rayOutboundUsesVision(outbound) {
 		mux, err := v2rayMuxTemplate(muxTemplateContent)
 		if err != nil {
 			return err
@@ -2132,6 +2132,20 @@ func applyV2RayConfigLinkMetadata(outbound map[string]any, metadata ConfigLinkMe
 		outbound["mux"] = mux
 	}
 	return nil
+}
+
+func v2rayOutboundUsesVision(outbound map[string]any) bool {
+	if !strings.EqualFold(stringValue(outbound["protocol"]), "vless") {
+		return false
+	}
+	for _, server := range listOfMaps(mapValue(outbound["settings"])["vnext"]) {
+		for _, user := range listOfMaps(server["users"]) {
+			if strings.EqualFold(stringValue(user["flow"]), "xtls-rprx-vision") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func v2rayMuxTemplate(content string) (map[string]any, error) {

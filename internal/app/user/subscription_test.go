@@ -561,6 +561,26 @@ func TestV2RayJSONMetadataAppliesFinalMaskAndMuxWithoutChangingRawLinks(t *testi
 	}
 }
 
+func TestV2RayJSONMetadataSkipsMuxForVLESSVision(t *testing.T) {
+	link := vlessShareLink("vision", "example.com", "", ResolvedInbound{
+		"port": 443, "network": "tcp", "tls": "reality",
+	}, map[string]any{"id": "11111111-1111-4111-8111-111111111111", "flow": "xtls-rprx-vision"})
+	body, err := renderV2RayJSONSubscriptionWithMetadata(
+		[]string{link}, []ConfigLinkMetadata{{MuxEnabled: true}}, false, "", "",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	outbound := configs[0]["outbounds"].([]any)[0].(map[string]any)
+	if _, exists := outbound["mux"]; exists {
+		t.Fatalf("mux must not be enabled for VLESS Vision: %#v", outbound["mux"])
+	}
+}
+
 func TestV2RayJSONMetadataPreservesMKCPMasksDerivedFromShareLink(t *testing.T) {
 	finalMask := map[string]any{"tcp": []any{map[string]any{
 		"type": "fragment", "settings": map[string]any{"length": "3-5", "delay": "10-20"},
