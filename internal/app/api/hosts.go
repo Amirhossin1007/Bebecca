@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -22,68 +23,76 @@ var (
 	hostFragmentPattern = regexp.MustCompile(`^((\d{1,4}-\d{1,4})|(\d{1,4})),((\d{1,3}-\d{1,3})|(\d{1,3})),(tlshello|\d|\d-\d)(,(\d{1,4}-\d{1,4}|\d{1,4}))?$`)
 	hostNoisePattern    = regexp.MustCompile(`^(rand:(\d{1,4}-\d{1,4}|\d{1,4})|str:.+|hex:.+|base64:.+)(,(\d{1,4}-\d{1,4}|\d{1,4}))?(&(rand:(\d{1,4}-\d{1,4}|\d{1,4})|str:.+|hex:.+|base64:.+)(,(\d{1,4}-\d{1,4}|\d{1,4}))?)*$`)
 	autoServiceHostTag  = regexp.MustCompile(`^setservice-\d+$`)
+	hostFinalMaskTypes  = map[string]map[string]bool{
+		"tcp": {"header-custom": true, "fragment": true, "sudoku": true},
+		"udp": {"header-custom": true, "mkcp-legacy": true, "noise": true, "salamander": true, "sudoku": true, "xdns": true, "xicmp": true, "realm": true},
+	}
 )
 
+const maxHostFinalMaskBytes = 64 << 10
+
 type hostPayload struct {
-	ID              *int64   `json:"id"`
-	Remark          string   `json:"remark"`
-	Address         string   `json:"address"`
-	AddressOptions  []string `json:"address_options"`
-	AddressMode     string   `json:"address_selection_mode"`
-	AddressTTL      *int64   `json:"address_ttl_seconds"`
-	Port            *int64   `json:"port"`
-	SNI             *string  `json:"sni"`
-	SNIOptions      []string `json:"sni_options"`
-	SNIMode         string   `json:"sni_selection_mode"`
-	SNITTL          *int64   `json:"sni_ttl_seconds"`
-	Host            *string  `json:"host"`
-	HostOptions     []string `json:"host_options"`
-	HostMode        string   `json:"host_selection_mode"`
-	HostTTL         *int64   `json:"host_ttl_seconds"`
-	Path            *string  `json:"path"`
-	Security        string   `json:"security"`
-	ALPN            string   `json:"alpn"`
-	Fingerprint     string   `json:"fingerprint"`
-	AllowInsecure   *bool    `json:"allowinsecure"`
-	IsDisabled      *bool    `json:"is_disabled"`
-	MuxEnable       *bool    `json:"mux_enable"`
-	FragmentSetting *string  `json:"fragment_setting"`
-	NoiseSetting    *string  `json:"noise_setting"`
-	RandomUserAgent *bool    `json:"random_user_agent"`
-	UseSNIAsHost    *bool    `json:"use_sni_as_host"`
-	DNSPrimary      string   `json:"dns_primary"`
-	DNSSecondary    string   `json:"dns_secondary"`
+	ID              *int64         `json:"id"`
+	Remark          string         `json:"remark"`
+	Address         string         `json:"address"`
+	AddressOptions  []string       `json:"address_options"`
+	AddressMode     string         `json:"address_selection_mode"`
+	AddressTTL      *int64         `json:"address_ttl_seconds"`
+	Port            *int64         `json:"port"`
+	SNI             *string        `json:"sni"`
+	SNIOptions      []string       `json:"sni_options"`
+	SNIMode         string         `json:"sni_selection_mode"`
+	SNITTL          *int64         `json:"sni_ttl_seconds"`
+	Host            *string        `json:"host"`
+	HostOptions     []string       `json:"host_options"`
+	HostMode        string         `json:"host_selection_mode"`
+	HostTTL         *int64         `json:"host_ttl_seconds"`
+	Path            *string        `json:"path"`
+	Security        string         `json:"security"`
+	ALPN            string         `json:"alpn"`
+	Fingerprint     string         `json:"fingerprint"`
+	AllowInsecure   *bool          `json:"allowinsecure"`
+	IsDisabled      *bool          `json:"is_disabled"`
+	MuxEnable       *bool          `json:"mux_enable"`
+	FragmentSetting *string        `json:"fragment_setting"`
+	NoiseSetting    *string        `json:"noise_setting"`
+	FinalMask       map[string]any `json:"finalmask"`
+	RandomUserAgent *bool          `json:"random_user_agent"`
+	UseSNIAsHost    *bool          `json:"use_sni_as_host"`
+	DNSPrimary      string         `json:"dns_primary"`
+	DNSSecondary    string         `json:"dns_secondary"`
 }
 
 type hostResponse struct {
-	ID              int64    `json:"id"`
-	Remark          string   `json:"remark"`
-	Address         string   `json:"address"`
-	AddressOptions  []string `json:"address_options"`
-	AddressMode     string   `json:"address_selection_mode"`
-	AddressTTL      *int64   `json:"address_ttl_seconds"`
-	Port            *int64   `json:"port"`
-	SNI             *string  `json:"sni"`
-	SNIOptions      []string `json:"sni_options"`
-	SNIMode         string   `json:"sni_selection_mode"`
-	SNITTL          *int64   `json:"sni_ttl_seconds"`
-	Host            *string  `json:"host"`
-	HostOptions     []string `json:"host_options"`
-	HostMode        string   `json:"host_selection_mode"`
-	HostTTL         *int64   `json:"host_ttl_seconds"`
-	Path            *string  `json:"path"`
-	Security        string   `json:"security"`
-	ALPN            string   `json:"alpn"`
-	Fingerprint     string   `json:"fingerprint"`
-	AllowInsecure   *bool    `json:"allowinsecure"`
-	IsDisabled      bool     `json:"is_disabled"`
-	MuxEnable       *bool    `json:"mux_enable"`
-	FragmentSetting *string  `json:"fragment_setting"`
-	NoiseSetting    *string  `json:"noise_setting"`
-	RandomUserAgent *bool    `json:"random_user_agent"`
-	UseSNIAsHost    *bool    `json:"use_sni_as_host"`
-	DNSPrimary      string   `json:"dns_primary"`
-	DNSSecondary    string   `json:"dns_secondary"`
+	ID              int64          `json:"id"`
+	Remark          string         `json:"remark"`
+	Address         string         `json:"address"`
+	AddressOptions  []string       `json:"address_options"`
+	AddressMode     string         `json:"address_selection_mode"`
+	AddressTTL      *int64         `json:"address_ttl_seconds"`
+	Port            *int64         `json:"port"`
+	SNI             *string        `json:"sni"`
+	SNIOptions      []string       `json:"sni_options"`
+	SNIMode         string         `json:"sni_selection_mode"`
+	SNITTL          *int64         `json:"sni_ttl_seconds"`
+	Host            *string        `json:"host"`
+	HostOptions     []string       `json:"host_options"`
+	HostMode        string         `json:"host_selection_mode"`
+	HostTTL         *int64         `json:"host_ttl_seconds"`
+	Path            *string        `json:"path"`
+	Security        string         `json:"security"`
+	ALPN            string         `json:"alpn"`
+	Fingerprint     string         `json:"fingerprint"`
+	AllowInsecure   *bool          `json:"allowinsecure"`
+	IsDisabled      bool           `json:"is_disabled"`
+	MuxEnable       *bool          `json:"mux_enable"`
+	FragmentSetting *string        `json:"fragment_setting"`
+	NoiseSetting    *string        `json:"noise_setting"`
+	FinalMask       map[string]any `json:"finalmask"`
+	RandomUserAgent *bool          `json:"random_user_agent"`
+	UseSNIAsHost    *bool          `json:"use_sni_as_host"`
+	DNSPrimary      string         `json:"dns_primary"`
+	DNSSecondary    string         `json:"dns_secondary"`
 }
 
 func (s *Server) handleHostsRoot(w http.ResponseWriter, r *http.Request) {
@@ -482,6 +491,7 @@ func sanitizeHostPayloadForInboundProtocol(payload hostPayload, protocol string)
 	payload.MuxEnable = boolPtr(false)
 	payload.FragmentSetting = nil
 	payload.NoiseSetting = nil
+	payload.FinalMask = nil
 	payload.RandomUserAgent = boolPtr(false)
 	payload.UseSNIAsHost = boolPtr(false)
 	return payload
@@ -634,7 +644,7 @@ func hostSelectSQL() string {
 		host, host_options, COALESCE(host_selection_mode, 'random'), host_ttl_seconds,
 		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
-		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting,
+		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting, finalmask,
 		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
 		FROM hosts`
 }
@@ -647,7 +657,7 @@ func hostSelectSQLWithInbound() string {
 		host, host_options, COALESCE(host_selection_mode, 'random'), host_ttl_seconds,
 		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
-		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting,
+		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting, finalmask,
 		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
 		FROM hosts`
 }
@@ -674,7 +684,7 @@ func scanHostResponseWithInbound(scanner hostScanner, inboundTag *string) (hostR
 	}
 	var item hostResponse
 	var port, addressTTL, sniTTL, hostTTL sql.NullInt64
-	var path, sni, hostValue, fragment, noise sql.NullString
+	var path, sni, hostValue, fragment, noise, finalMask sql.NullString
 	var addressOptions, sniOptions, hostOptions sql.NullString
 	var allowInsecure sql.NullInt64
 	var disabled, muxEnable, randomUA, useSNI int64
@@ -706,18 +716,19 @@ func scanHostResponseWithInbound(scanner hostScanner, inboundTag *string) (hostR
 		&muxEnable,
 		&fragment,
 		&noise,
+		&finalMask,
 		&randomUA,
 		&useSNI,
 	); err != nil {
 		return hostResponse{}, err
 	}
-	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
+	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, finalMask, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
 }
 
 func scanHostResponse(scanner hostScanner) (hostResponse, error) {
 	var item hostResponse
 	var port, addressTTL, sniTTL, hostTTL sql.NullInt64
-	var path, sni, hostValue, fragment, noise sql.NullString
+	var path, sni, hostValue, fragment, noise, finalMask sql.NullString
 	var addressOptions, sniOptions, hostOptions sql.NullString
 	var allowInsecure sql.NullInt64
 	var disabled, muxEnable, randomUA, useSNI int64
@@ -748,12 +759,13 @@ func scanHostResponse(scanner hostScanner) (hostResponse, error) {
 		&muxEnable,
 		&fragment,
 		&noise,
+		&finalMask,
 		&randomUA,
 		&useSNI,
 	); err != nil {
 		return hostResponse{}, err
 	}
-	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
+	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, finalMask, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
 }
 
 func normalizeScannedHostResponse(
@@ -770,6 +782,7 @@ func normalizeScannedHostResponse(
 	hostTTL sql.NullInt64,
 	fragment sql.NullString,
 	noise sql.NullString,
+	finalMask sql.NullString,
 	allowInsecure sql.NullInt64,
 	disabled int64,
 	muxEnable int64,
@@ -794,6 +807,7 @@ func normalizeScannedHostResponse(
 	item.HostTTL = nullableInt64Response(hostTTL)
 	item.FragmentSetting = nullableStringResponse(fragment)
 	item.NoiseSetting = nullableStringResponse(noise)
+	item.FinalMask = decodeHostFinalMask(finalMask)
 	item.AllowInsecure = nullableBoolResponse(allowInsecure)
 	item.IsDisabled = disabled != 0
 	item.MuxEnable = boolPtr(muxEnable != 0)
@@ -860,7 +874,113 @@ func validateHostPayload(host hostPayload) error {
 			return statusError{status: http.StatusBadRequest, detail: "Noise setting must be like this: packet,delay (rand:10-20,100-200)."}
 		}
 	}
+	if err := validateHostFinalMask(host.FinalMask); err != nil {
+		return err
+	}
 	return nil
+}
+
+func validateHostFinalMask(finalMask map[string]any) error {
+	if len(finalMask) == 0 {
+		return nil
+	}
+	encoded, err := json.Marshal(finalMask)
+	if err != nil || len(encoded) > maxHostFinalMaskBytes {
+		return statusError{status: http.StatusBadRequest, detail: "FinalMask must be valid JSON no larger than 64 KiB"}
+	}
+	for key, value := range finalMask {
+		switch key {
+		case "tcp", "udp":
+			masks, ok := value.([]any)
+			if !ok {
+				return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("FinalMask %s must be an array", key)}
+			}
+			for i, raw := range masks {
+				mask, ok := raw.(map[string]any)
+				if !ok {
+					return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("FinalMask %s[%d] must be an object", key, i)}
+				}
+				typeName, ok := mask["type"].(string)
+				if !ok || !hostFinalMaskTypes[key][strings.ToLower(strings.TrimSpace(typeName))] {
+					return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("Unsupported FinalMask %s[%d] type", key, i)}
+				}
+				settingsMap := map[string]any{}
+				if settings, exists := mask["settings"]; exists {
+					var ok bool
+					settingsMap, ok = settings.(map[string]any)
+					if !ok {
+						return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("FinalMask %s[%d].settings must be an object", key, i)}
+					}
+				}
+				if err := validateHostFinalMaskSettings(key, strings.ToLower(strings.TrimSpace(typeName)), settingsMap); err != nil {
+					return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("FinalMask %s[%d]: %v", key, i, err)}
+				}
+			}
+		case "quicParams":
+			if _, ok := value.(map[string]any); !ok {
+				return statusError{status: http.StatusBadRequest, detail: "FinalMask quicParams must be an object"}
+			}
+		default:
+			return statusError{status: http.StatusBadRequest, detail: fmt.Sprintf("Unsupported FinalMask field %q", key)}
+		}
+	}
+	return nil
+}
+
+func validateHostFinalMaskSettings(network, typeName string, settings map[string]any) error {
+	switch network + "/" + typeName {
+	case "tcp/fragment":
+		length, hasLength := settings["length"]
+		if (!hasLength || strings.TrimSpace(fmt.Sprint(length)) == "") && !nonEmptyFinalMaskStringList(settings["lengths"]) {
+			return fmt.Errorf("fragment requires length or lengths")
+		}
+	case "udp/xdns":
+		if !nonEmptyFinalMaskStringList(settings["domains"]) && !nonEmptyFinalMaskStringList(settings["resolvers"]) {
+			return fmt.Errorf("xdns requires domains or resolvers")
+		}
+	case "udp/realm":
+		rawURL := strings.TrimSpace(fmt.Sprint(settings["url"]))
+		parsed, err := url.Parse(rawURL)
+		if err != nil || (parsed.Scheme != "realm" && parsed.Scheme != "realm+http") || parsed.User == nil || parsed.User.String() == "" || parsed.Hostname() == "" || strings.Trim(parsed.Path, "/") == "" {
+			return fmt.Errorf("realm requires a valid realm[+http]://token@host/id URL")
+		}
+		if !nonEmptyFinalMaskStringList(settings["stunServers"]) {
+			return fmt.Errorf("realm requires stunServers")
+		}
+	}
+	return nil
+}
+
+func nonEmptyFinalMaskStringList(value any) bool {
+	items, ok := value.([]any)
+	if !ok || len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		if strings.TrimSpace(fmt.Sprint(item)) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeHostFinalMask(value sql.NullString) map[string]any {
+	if !value.Valid || strings.TrimSpace(value.String) == "" {
+		return nil
+	}
+	var finalMask map[string]any
+	if json.Unmarshal([]byte(value.String), &finalMask) != nil || len(finalMask) == 0 {
+		return nil
+	}
+	return finalMask
+}
+
+func hostFinalMaskValue(finalMask map[string]any) any {
+	if len(finalMask) == 0 {
+		return nil
+	}
+	encoded, _ := json.Marshal(finalMask)
+	return string(encoded)
 }
 
 func normalizeHostPayload(payload hostPayload) hostPayload {
@@ -989,9 +1109,9 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 			remark, address, dns_primary, dns_secondary, address_options, address_selection_mode, address_ttl_seconds,
 			port, path, sni, sni_options, sni_selection_mode, sni_ttl_seconds,
 			host, host_options, host_selection_mode, host_ttl_seconds, security, alpn, fingerprint,
-			inbound_tag, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting,
+			inbound_tag, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting, finalmask,
 			random_user_agent, use_sni_as_host
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		payload.Remark,
 		payload.Address,
 		payload.DNSPrimary,
@@ -1018,6 +1138,7 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 		boolToInt(boolPtrValue(payload.MuxEnable)),
 		nullableStringValue(payload.FragmentSetting),
 		nullableStringValue(payload.NoiseSetting),
+		hostFinalMaskValue(payload.FinalMask),
 		boolToInt(boolPtrValue(payload.RandomUserAgent)),
 		boolToInt(boolPtrValue(payload.UseSNIAsHost)),
 	)
@@ -1035,7 +1156,7 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 			port = ?, path = ?, sni = ?, sni_options = ?, sni_selection_mode = ?, sni_ttl_seconds = ?,
 			host = ?, host_options = ?, host_selection_mode = ?, host_ttl_seconds = ?,
 			security = ?, alpn = ?, fingerprint = ?, inbound_tag = ?, allowinsecure = ?,
-			is_disabled = ?, mux_enable = ?, fragment_setting = ?, noise_setting = ?,
+			is_disabled = ?, mux_enable = ?, fragment_setting = ?, noise_setting = ?, finalmask = ?,
 			random_user_agent = ?, use_sni_as_host = ?
 		WHERE id = ?`,
 		payload.Remark,
@@ -1064,6 +1185,7 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 		boolToInt(boolPtrValue(payload.MuxEnable)),
 		nullableStringValue(payload.FragmentSetting),
 		nullableStringValue(payload.NoiseSetting),
+		hostFinalMaskValue(payload.FinalMask),
 		boolToInt(boolPtrValue(payload.RandomUserAgent)),
 		boolToInt(boolPtrValue(payload.UseSNIAsHost)),
 		*payload.ID,

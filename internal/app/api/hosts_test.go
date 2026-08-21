@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -310,5 +311,102 @@ func TestHostsRejectUnknownInbound(t *testing.T) {
 	rec := adminJSONRequest(t, server, http.MethodPut, "/api/hosts", token, `{"missing":[]}`)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Inbound missing") {
 		t.Fatalf("unknown inbound status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHostFinalMaskRoundTripAndValidation(t *testing.T) {
+	var payload hostPayload
+	if err := json.Unmarshal([]byte(`{"remark":"finalmask","address":"edge.example.com","finalmask":{
+		"tcp":[
+			{"type":"header-custom","settings":{}},
+			{"type":"fragment","settings":{"packets":"tlshello","lengths":["3-5","6-8"],"delays":["10-20"],"maxSplit":"3-6"}},
+			{"type":"SUDOKU","settings":{"ascii":"prefer_entropy"}}
+		],
+		"udp":[
+			{"type":"header-custom","settings":{}},
+			{"type":"mkcp-legacy","settings":{"header":"dns","value":"example.com"}},
+			{"type":"noise","settings":{"noise":[]}},
+			{"type":"salamander","settings":{"password":"secret","packetSize":"1200-1400"}},
+			{"type":"sudoku","settings":{}},
+			{"type":"xdns","settings":{"domains":["t.example.com:txt"]}},
+			{"type":"xicmp","settings":{"dgram":true}},
+			{"type":"realm","settings":{"url":"realm://token@example.com/id","stunServers":["stun.example.com:3478"]}}
+		],
+		"quicParams":{"congestion":"bbr","bbrProfile":"standard","debug":false,"brutalUp":"1 mbps","brutalDown":"2 mbps","udpHop":{"ports":"20000-50000","interval":"5-10"},"maxIdleTimeout":30,"keepAlivePeriod":10,"disablePathMTUDiscovery":true,"maxIncomingStreams":8}
+	}}`), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateHostPayload(payload); err != nil {
+		t.Fatalf("documented FinalMask was rejected: %v", err)
+	}
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.Exec(`CREATE TABLE hosts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT, remark TEXT, address TEXT, dns_primary TEXT, dns_secondary TEXT,
+		address_options TEXT, address_selection_mode TEXT, address_ttl_seconds INTEGER, port INTEGER, path TEXT,
+		sni TEXT, sni_options TEXT, sni_selection_mode TEXT, sni_ttl_seconds INTEGER, host TEXT, host_options TEXT,
+		host_selection_mode TEXT, host_ttl_seconds INTEGER, security TEXT, alpn TEXT, fingerprint TEXT, inbound_tag TEXT,
+		allowinsecure INTEGER, is_disabled INTEGER, mux_enable INTEGER, fragment_setting TEXT, noise_setting TEXT,
+		finalmask TEXT, random_user_agent INTEGER, use_sni_as_host INTEGER
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := insertHostTx(context.Background(), tx, "cdn", normalizeHostPayload(payload))
+	if err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	storedHost, err := scanHostResponse(db.QueryRow(hostSelectSQL()+" WHERE id = ?", id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(storedHost.FinalMask) == 0 {
+		t.Fatal("FinalMask was not persisted by the Host SQL path")
+	}
+	stored, ok := hostFinalMaskValue(payload.FinalMask).(string)
+	if !ok || !strings.Contains(stored, `"realm"`) {
+		t.Fatalf("FinalMask was not encoded: %q", stored)
+	}
+	mask := decodeHostFinalMask(sql.NullString{String: stored, Valid: true})
+	if len(mask["tcp"].([]any)) != 3 || len(mask["udp"].([]any)) != 8 || mask["quicParams"].(map[string]any)["bbrProfile"] != "standard" {
+		t.Fatalf("FinalMask did not round-trip: %#v", mask)
+	}
+	payload.ID = &id
+	payload.Remark = "updated"
+	tx, err = db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := updateHostTx(context.Background(), tx, "cdn", payload); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT remark FROM hosts WHERE id = ?`, id).Scan(&stored); err != nil || stored != "updated" {
+		t.Fatalf("Host update did not preserve FinalMask-capable SQL: remark=%q err=%v", stored, err)
+	}
+	if err := validateHostFinalMask(map[string]any{"tcp": []any{map[string]any{"type": "noise"}}}); err == nil || !strings.Contains(err.Error(), "Unsupported FinalMask") {
+		t.Fatalf("invalid FinalMask was accepted: %v", err)
+	}
+	for name, invalid := range map[string]map[string]any{
+		"fragment": {"tcp": []any{map[string]any{"type": "fragment", "settings": map[string]any{}}}},
+		"xdns":     {"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{}}}},
+		"realm":    {"udp": []any{map[string]any{"type": "realm", "settings": map[string]any{}}}},
+	} {
+		if err := validateHostFinalMask(invalid); err == nil {
+			t.Fatalf("invalid %s FinalMask settings were accepted", name)
+		}
 	}
 }

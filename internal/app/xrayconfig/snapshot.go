@@ -83,6 +83,7 @@ type HostSnapshot struct {
 	MuxEnable       bool    `json:"mux_enable"`
 	FragmentSetting *string `json:"fragment_setting,omitempty"`
 	NoiseSetting    *string `json:"noise_setting,omitempty"`
+	FinalMask       *string `json:"finalmask,omitempty"`
 	RandomUserAgent bool    `json:"random_user_agent"`
 	UseSNIAsHost    bool    `json:"use_sni_as_host"`
 }
@@ -152,7 +153,7 @@ func (r Repository) CaptureMutationSnapshotTx(ctx context.Context, tx *sql.Tx, s
 		path, sni, sni_options, COALESCE(sni_selection_mode, 'random'), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, 'random'), host_ttl_seconds,
 		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
-		allowinsecure, COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting,
+		allowinsecure, COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting, finalmask,
 		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
 		FROM hosts WHERE inbound_tag IN (`+placeholders+`) ORDER BY inbound_tag ASC, id ASC`, args...)
 	if err != nil {
@@ -435,10 +436,10 @@ func restoreInboundHostsTx(ctx context.Context, tx *sql.Tx, snapshot MutationSna
 		if _, err := tx.ExecContext(ctx, `INSERT INTO hosts (
 			id, inbound_tag, remark, address, dns_primary, dns_secondary, address_options, address_selection_mode, address_ttl_seconds,
 			port, path, sni, sni_options, sni_selection_mode, sni_ttl_seconds, host, host_options, host_selection_mode,
-			host_ttl_seconds, security, alpn, fingerprint, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting,
+			host_ttl_seconds, security, alpn, fingerprint, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting, finalmask,
 			random_user_agent, use_sni_as_host
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			host.ID, host.InboundTag, host.Remark, host.Address, host.DNSPrimary, host.DNSSecondary, nullableString(host.AddressOptions), host.AddressMode, nullableInt64(host.AddressTTL), nullableInt64(host.Port), nullableString(host.Path), nullableString(host.SNI), nullableString(host.SNIOptions), host.SNIMode, nullableInt64(host.SNITTL), nullableString(host.Host), nullableString(host.HostOptions), host.HostMode, nullableInt64(host.HostTTL), host.Security, host.ALPN, host.Fingerprint, nullableBool(host.AllowInsecure), boolToDB(host.IsDisabled), boolToDB(host.MuxEnable), nullableString(host.FragmentSetting), nullableString(host.NoiseSetting), boolToDB(host.RandomUserAgent), boolToDB(host.UseSNIAsHost)); err != nil {
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			host.ID, host.InboundTag, host.Remark, host.Address, host.DNSPrimary, host.DNSSecondary, nullableString(host.AddressOptions), host.AddressMode, nullableInt64(host.AddressTTL), nullableInt64(host.Port), nullableString(host.Path), nullableString(host.SNI), nullableString(host.SNIOptions), host.SNIMode, nullableInt64(host.SNITTL), nullableString(host.Host), nullableString(host.HostOptions), host.HostMode, nullableInt64(host.HostTTL), host.Security, host.ALPN, host.Fingerprint, nullableBool(host.AllowInsecure), boolToDB(host.IsDisabled), boolToDB(host.MuxEnable), nullableString(host.FragmentSetting), nullableString(host.NoiseSetting), nullableString(host.FinalMask), boolToDB(host.RandomUserAgent), boolToDB(host.UseSNIAsHost)); err != nil {
 			return err
 		}
 	}
@@ -498,7 +499,7 @@ func snapshotServiceIDs(links []ServiceHostSnapshot) []int64 {
 
 func scanHostSnapshot(scanner interface{ Scan(...any) error }) (HostSnapshot, error) {
 	var host HostSnapshot
-	var addressOptions, path, sni, sniOptions, hostValue, hostOptions, fragment, noise sql.NullString
+	var addressOptions, path, sni, sniOptions, hostValue, hostOptions, fragment, noise, finalMask sql.NullString
 	var addressTTL, port, ignoredSort, sniTTL, hostTTL sql.NullInt64
 	var allowInsecure sql.NullInt64
 	var disabled, muxEnable, randomUA, useSNI int64
@@ -507,7 +508,7 @@ func scanHostSnapshot(scanner interface{ Scan(...any) error }) (HostSnapshot, er
 		&path, &sni, &sniOptions, &host.SNIMode, &sniTTL,
 		&hostValue, &hostOptions, &host.HostMode, &hostTTL,
 		&host.Security, &host.ALPN, &host.Fingerprint, &allowInsecure,
-		&disabled, &muxEnable, &fragment, &noise, &randomUA, &useSNI)
+		&disabled, &muxEnable, &fragment, &noise, &finalMask, &randomUA, &useSNI)
 	if err != nil {
 		return HostSnapshot{}, err
 	}
@@ -523,6 +524,7 @@ func scanHostSnapshot(scanner interface{ Scan(...any) error }) (HostSnapshot, er
 	host.HostTTL = nullInt64Ptr(hostTTL)
 	host.FragmentSetting = nullStringPtr(fragment)
 	host.NoiseSetting = nullStringPtr(noise)
+	host.FinalMask = nullStringPtr(finalMask)
 	if allowInsecure.Valid {
 		value := allowInsecure.Int64 != 0
 		host.AllowInsecure = &value

@@ -517,6 +517,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			mux_enable INTEGER NOT NULL DEFAULT 0,
 			fragment_setting TEXT NULL,
 			noise_setting TEXT NULL,
+			finalmask TEXT NULL,
 			random_user_agent INTEGER NOT NULL DEFAULT 0,
 			use_sni_as_host INTEGER NOT NULL DEFAULT 0
 		)`,

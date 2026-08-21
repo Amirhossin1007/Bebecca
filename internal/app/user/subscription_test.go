@@ -502,6 +502,159 @@ func TestRenderV2RayJSONSubscriptionUsesConfiguredTemplate(t *testing.T) {
 	}
 }
 
+func TestV2RayJSONMetadataAppliesFinalMaskAndMuxWithoutChangingRawLinks(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	links := []string{
+		"ss://YWVzLTI1Ni1nY206c2VjcmV0@ss.example.com:8388#ss",
+		"hysteria2://secret@hy.example.com:443/?pinSHA256=" + pin + "#hy",
+	}
+	original := append([]string(nil), links...)
+	metadata := []ConfigLinkMetadata{
+		{
+			FinalMask: map[string]any{"tcp": []any{map[string]any{
+				"type": "fragment",
+				"settings": map[string]any{
+					"lengths": []any{"3-5"},
+					"delays":  []any{"10-20"},
+				},
+			}}},
+			MuxEnabled: true,
+		},
+		{FinalMask: map[string]any{"udp": []any{map[string]any{
+			"type": "salamander", "settings": map[string]any{"password": "hy-mask"},
+		}}}},
+	}
+	body, err := renderV2RayJSONSubscriptionWithMetadata(
+		links,
+		metadata,
+		false,
+		"",
+		`{"v2ray":{"enabled":false,"concurrency":23,"xudpProxyUDP443":"allow"},"sing-box":{"enabled":true}}`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(links, original) {
+		t.Fatalf("raw links changed: got %#v want %#v", links, original)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil || len(configs) != 2 {
+		t.Fatalf("invalid metadata-rendered configs: count=%d err=%v body=%s", len(configs), err, body)
+	}
+	ssOutbound := configs[0]["outbounds"].([]any)[0].(map[string]any)
+	ssFinalMask := ssOutbound["streamSettings"].(map[string]any)["finalmask"].(map[string]any)
+	fragment := ssFinalMask["tcp"].([]any)[0].(map[string]any)["settings"].(map[string]any)
+	if fragment["length"] != "3-5" || fragment["delay"] != "10-20" || fragment["lengths"] != nil || fragment["delays"] != nil {
+		t.Fatalf("legacy single fragment ranges were not normalized: %#v", fragment)
+	}
+	mux := ssOutbound["mux"].(map[string]any)
+	if mux["enabled"] != true || mux["concurrency"] != float64(23) || mux["xudpProxyUDP443"] != "allow" {
+		t.Fatalf("v2ray mux template was not applied at outbound level: %#v", mux)
+	}
+	hyOutbound := configs[1]["outbounds"].([]any)[0].(map[string]any)
+	hyMask := hyOutbound["streamSettings"].(map[string]any)["finalmask"].(map[string]any)
+	if got := hyMask["udp"].([]any)[0].(map[string]any)["settings"].(map[string]any)["password"]; got != "hy-mask" {
+		t.Fatalf("Hysteria metadata FinalMask was not injected: %#v", hyMask)
+	}
+	if _, exists := hyOutbound["mux"]; exists {
+		t.Fatalf("mux leaked to a host where it is disabled: %#v", hyOutbound["mux"])
+	}
+}
+
+func TestV2RayJSONMetadataPreservesMKCPMasksDerivedFromShareLink(t *testing.T) {
+	finalMask := map[string]any{"tcp": []any{map[string]any{
+		"type": "fragment", "settings": map[string]any{"length": "3-5", "delay": "10-20"},
+	}}}
+	raw, err := json.Marshal(finalMask)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?encryption=none&type=kcp&seed=secret&headerType=dns&host=dns.example.com&fm=" + url.QueryEscape(string(raw)) + "#kcp"
+	body, err := renderV2RayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{FinalMask: finalMask}}, false, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
+	udp := stream["finalmask"].(map[string]any)["udp"].([]any)
+	if len(udp) != 2 || udp[0].(map[string]any)["type"] != "mkcp-aes128gcm" || udp[1].(map[string]any)["type"] != "header-dns" {
+		t.Fatalf("metadata replaced mKCP-derived masks: %#v", stream["finalmask"])
+	}
+}
+
+func TestV2RayJSONMKCPFinalMaskDoesNotAddLegacyTransport(t *testing.T) {
+	raw := url.QueryEscape(`{"udp":[{"type":"mkcp-aes128gcm","settings":{"password":"secret"}}]}`)
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?encryption=none&type=kcp&fm=" + raw + "#kcp"
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
+	udp := stream["finalmask"].(map[string]any)["udp"].([]any)
+	if len(udp) != 1 || udp[0].(map[string]any)["type"] != "mkcp-aes128gcm" {
+		t.Fatalf("modern mKCP FinalMask gained a legacy transport layer: %#v", udp)
+	}
+}
+
+func TestV2RayJSONMetadataPreservesLegacyMKCPTransport(t *testing.T) {
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?encryption=none&type=kcp&seed=secret&headerType=dns&host=dns.example.com&fragment=10-20%2C30-40%2Ctlshello&noise=rand%3A10-20%2C30-40#kcp"
+	metadata := configLinkMetadata(ResolvedInbound{
+		"protocol":         "vless",
+		"fragment_setting": "10-20,30-40,tlshello",
+		"noise_setting":    "rand:10-20,30-40",
+	})
+	body, err := renderV2RayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{metadata}, false, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	finalMask := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)["finalmask"].(map[string]any)
+	udp := finalMask["udp"].([]any)
+	if len(udp) != 3 || udp[0].(map[string]any)["type"] != "mkcp-aes128gcm" || udp[1].(map[string]any)["type"] != "header-dns" || udp[2].(map[string]any)["type"] != "noise" || len(finalMask["tcp"].([]any)) != 1 {
+		t.Fatalf("metadata replaced legacy mKCP transport masks: %#v", finalMask)
+	}
+}
+
+func TestV2RayJSONMetadataUsesStableFinalMaskCompatibilityGate(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	for name, item := range map[string]struct {
+		link string
+		mask map[string]any
+	}{
+		"shadowsocks realm": {
+			link: "ss://YWVzLTI1Ni1nY206c2VjcmV0@ss.example.com:8388#ss",
+			mask: map[string]any{"udp": []any{map[string]any{"type": "realm", "settings": map[string]any{"url": "realm://token@example.com/id"}}}},
+		},
+		"hysteria bbrProfile": {
+			link: "hysteria2://secret@hy.example.com:443/?pinSHA256=" + pin + "#hy",
+			mask: map[string]any{"quicParams": map[string]any{"bbrProfile": "standard"}},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body, err := renderV2RayJSONSubscriptionWithMetadata(
+				[]string{item.link},
+				[]ConfigLinkMetadata{{FinalMask: item.mask}},
+				false,
+				"",
+				"",
+			)
+			if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") {
+				t.Fatalf("metadata bypassed stable compatibility: body=%q err=%v", body, err)
+			}
+		})
+	}
+}
+
 func TestVLESSEncryptionRoundTripsXrayJSONTemplates(t *testing.T) {
 	const encryption = "mlkem768x25519plus.native.0rtt.100-111-1111.75-0-111.50-0-3333.ptjHQxBQxTJ9MWr2cd5qWIflBSACHOevTauCQwa_71U"
 	link := vlessShareLink("PQ + ✓", "[2001:db8::10]", "/x http", ResolvedInbound{
@@ -763,6 +916,47 @@ func TestConnectableSubscriptionLinksDropsInformationPlaceholders(t *testing.T) 
 	got := connectableSubscriptionLinks(links)
 	if !reflect.DeepEqual(got, links[1:]) {
 		t.Fatalf("connectable links = %#v, want %#v", got, links[1:])
+	}
+	response := connectableConfigLinks(ConfigLinksResponse{
+		Links: links,
+		Metadata: []ConfigLinkMetadata{
+			{MuxEnabled: true},
+			{FinalMask: map[string]any{"quicParams": map[string]any{"congestion": "bbr"}}},
+			{FinalMask: map[string]any{"quicParams": map[string]any{"congestion": "cubic"}}},
+		},
+	})
+	if !reflect.DeepEqual(response.Links, links[1:]) || len(response.Metadata) != 2 || response.Metadata[0].MuxEnabled {
+		t.Fatalf("filter lost link/metadata alignment: %#v", response)
+	}
+	if got := mapValue(response.Metadata[1].FinalMask["quicParams"])["congestion"]; got != "cubic" {
+		t.Fatalf("filter paired the wrong metadata with the last link: %#v", response.Metadata)
+	}
+}
+
+func TestMetadataFinalMaskCompatibilityGuardMatchesOutputProtocols(t *testing.T) {
+	response := ConfigLinksResponse{
+		Links: []string{"vless://id@example.com:443", "ss://YWVzLTI1Ni1nY206c2VjcmV0@example.com:8388"},
+		Metadata: []ConfigLinkMetadata{
+			{},
+			{FinalMask: map[string]any{"udp": []any{map[string]any{"type": "noise"}}}},
+		},
+	}
+	if !configLinksHaveUnrepresentedFinalMask(response, "") || !configLinksHaveUnrepresentedFinalMask(response, "ss") || configLinksHaveUnrepresentedFinalMask(response, "vless") {
+		t.Fatalf("FinalMask metadata guard did not stay aligned with link protocols: %#v", response)
+	}
+	nativeHysteria := ConfigLinksResponse{
+		Links: []string{"hysteria2://secret@hy.example.com:443,3000-4000/?obfs=salamander&obfs-password=mask#hy"},
+		Metadata: []ConfigLinkMetadata{{FinalMask: map[string]any{
+			"udp":        []any{map[string]any{"type": "salamander", "settings": map[string]any{"password": "mask"}}},
+			"quicParams": map[string]any{"debug": false, "udpHop": map[string]any{"ports": "3000-4000", "interval": 30}},
+		}}},
+	}
+	if configLinksHaveUnrepresentedFinalMask(nativeHysteria, "") {
+		t.Fatalf("native Hysteria FinalMask was rejected: %#v", nativeHysteria)
+	}
+	nativeHysteria.Metadata[0].FinalMask["tcp"] = []any{map[string]any{"type": "fragment", "settings": map[string]any{"length": "3-5"}}}
+	if !configLinksHaveUnrepresentedFinalMask(nativeHysteria, "") {
+		t.Fatalf("unrepresented Hysteria FinalMask was accepted: %#v", nativeHysteria)
 	}
 }
 
@@ -1428,6 +1622,23 @@ func TestGenericXrayJSONRejectsNonRepresentableCurrentFinalMaskRanges(t *testing
 	body, err := renderV2RayJSONSubscription([]string{link}, false)
 	if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "cannot losslessly represent") {
 		t.Fatalf("generic stable Xray JSON silently emitted plural FinalMask ranges: body=%q err=%v", body, err)
+	}
+}
+
+func TestGenericXrayJSONRejectsPostStableFinalMaskFields(t *testing.T) {
+	for name, raw := range map[string]string{
+		"realm":      `{"udp":[{"type":"realm","settings":{"url":"realm://token@example.com/id","stunServers":["stun.example.com:3478"]}}]}`,
+		"xdns":       `{"udp":[{"type":"xdns","settings":{"domains":["t.example.com:txt"]}}]}`,
+		"xicmp":      `{"udp":[{"type":"xicmp","settings":{"dgram":true}}]}`,
+		"bbrProfile": `{"quicParams":{"congestion":"bbr","bbrProfile":"standard"}}`,
+		"unknown":    `{"tcp":[{"type":"future-mask","settings":{}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=none&encryption=none&fm=" + url.QueryEscape(raw)
+			if body, err := renderV2RayJSONSubscription([]string{link}, false); err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") {
+				t.Fatalf("stable renderer accepted %s: body=%q err=%v", name, body, err)
+			}
+		})
 	}
 }
 

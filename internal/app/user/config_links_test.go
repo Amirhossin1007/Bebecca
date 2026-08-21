@@ -872,12 +872,170 @@ func TestV2RayJSONSubscriptionAppliesHostFragmentAndNoiseFinalMask(t *testing.T)
 		t.Fatalf("expected two noise items, got %#v", noiseItems)
 	}
 	first := noiseItems[0].(map[string]any)
-	if first["type"] != "rand" || first["rand"] != "10-20" || first["delay"] != "100-200" {
+	if _, hasType := first["type"]; hasType || first["rand"] != "10-20" || first["delay"] != "100-200" {
 		t.Fatalf("rand noise mismatch: %#v", first)
 	}
 	second := noiseItems[1].(map[string]any)
 	if second["type"] != "str" || second["packet"] != "hello" || second["delay"] != "50" {
 		t.Fatalf("str noise mismatch: %#v", second)
+	}
+}
+
+func TestHostFinalMaskIsAuthoritativeAndPreservesLayerOrder(t *testing.T) {
+	serviceID := int64(1)
+	legacyFragment := "10-20,30-40,tlshello"
+	legacyNoise := "rand:10-20,30-40"
+	hostMask := map[string]any{
+		"tcp": []any{
+			map[string]any{"type": "header-custom", "settings": map[string]any{}},
+			map[string]any{"type": "fragment", "settings": map[string]any{"lengths": []any{"3-5"}, "delays": []any{"10-20"}}},
+		},
+		"quicParams": map[string]any{"debug": true},
+	}
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID: 20, Username: "mask", Status: "active", ServiceID: &serviceID,
+			CredentialKey:     "05bfddf81eb418fa1edbce7cd286eee1",
+			ServiceHostOrders: map[int64]int64{1: 0},
+		},
+		map[string]ResolvedInbound{
+			"VLESS": {
+				"tag": "VLESS", "protocol": "vless", "port": int64(443), "network": "tcp", "tls": "none", "encryption": "none",
+				"fragment_setting": legacyFragment,
+				"noise_setting":    legacyNoise,
+				"finalmask": map[string]any{
+					"udp":        []any{map[string]any{"type": "salamander", "settings": map[string]any{"password": "secret"}}},
+					"quicParams": map[string]any{"congestion": "bbr"},
+				},
+			},
+		},
+		[]string{"VLESS"},
+		[]Host{{
+			ID: 1, InboundTag: "VLESS", Remark: "mask", Address: "mask.example.com", ServiceIDs: []int64{1},
+			FinalMask: hostMask, FragmentSetting: &legacyFragment, NoiseSetting: &legacyNoise,
+		}},
+		map[string][]byte{},
+		false,
+	)
+	if err != nil || len(links.Links) != 1 {
+		t.Fatalf("BuildConfigLinks() links=%#v err=%v", links.Links, err)
+	}
+	parsed, err := url.Parse(links.Links[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := parsed.Query()
+	if query.Get("fragment") != "" || query.Get("noise") != "" {
+		t.Fatalf("legacy masks leaked beside canonical fm: %s", links.Links[0])
+	}
+	var finalMask map[string]any
+	if err := json.Unmarshal([]byte(query.Get("fm")), &finalMask); err != nil {
+		t.Fatalf("invalid fm query: %v", err)
+	}
+	tcp := finalMask["tcp"].([]any)
+	quic := finalMask["quicParams"].(map[string]any)
+	if tcp[0].(map[string]any)["type"] != "header-custom" || tcp[1].(map[string]any)["type"] != "fragment" {
+		t.Fatalf("FinalMask layer order changed: %#v", tcp)
+	}
+	if len(finalMask["udp"].([]any)) != 1 || quic["congestion"] != "bbr" || quic["debug"] != true {
+		t.Fatalf("FinalMask host merge is incomplete: %#v", finalMask)
+	}
+}
+
+func TestHysteriaHostFinalMaskRebuildsNativeShareFieldsAndLegacyMetadata(t *testing.T) {
+	legacyFragment := "10-20,30-40,tlshello"
+	legacyNoise := "rand:10-20,30-40"
+	inbound := ResolvedInbound{
+		"protocol": "hysteria", "network": "hysteria", "port": int64(443), "tls": "tls",
+		"obfs": "gecko", "obfs-password": "old", "hysteria_gecko_packet_size": "512-1200", "mport": "1000-2000",
+		"finalmask": map[string]any{
+			"udp":        []any{map[string]any{"type": "salamander", "settings": map[string]any{"password": "old", "packetSize": "512-1200"}}},
+			"quicParams": map[string]any{"udpHop": map[string]any{"ports": "1000-2000"}},
+		},
+	}
+	host := Host{
+		Remark: "hy", Address: "hy.example.com", FragmentSetting: &legacyFragment, NoiseSetting: &legacyNoise,
+		FinalMask: map[string]any{
+			"udp":        []any{map[string]any{"type": "salamander", "settings": map[string]any{"password": "new"}}},
+			"quicParams": map[string]any{"udpHop": map[string]any{"ports": "3000-4000"}},
+		},
+	}
+	_, address, effective, ok := effectiveInboundForHost("user", map[string]string{}, inbound, host)
+	if !ok || effective["obfs"] != "salamander" || effective["obfs-password"] != "new" || effective["hysteria_gecko_packet_size"] != nil || effective["mport"] != "3000-4000" {
+		t.Fatalf("host FinalMask left stale Hysteria share fields: %#v", effective)
+	}
+	link, err := hysteriaShareLink("hy", address, effective, map[string]any{"auth": "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := parseHysteria2ShareURL(link)
+	if err != nil || parsed.Query().Get("obfs") != "salamander" || !strings.Contains(parsed.Query().Get("mport"), "3000-4000") {
+		t.Fatalf("host FinalMask was not represented in native Hysteria fields: %s err=%v", link, err)
+	}
+
+	legacyEffective := copyInbound(inbound)
+	delete(legacyEffective, "finalmask")
+	legacyEffective["fragment_setting"] = legacyFragment
+	legacyEffective["noise_setting"] = legacyNoise
+	metadata := configLinkMetadata(legacyEffective)
+	if len(listAny(metadata.FinalMask["tcp"])) != 1 || len(listAny(metadata.FinalMask["udp"])) != 1 {
+		t.Fatalf("legacy Hysteria masks were not carried by Xray JSON metadata: %#v", metadata.FinalMask)
+	}
+}
+
+func TestShadowsocksMetadataKeepsLegacyMasksBesideCanonicalFinalMask(t *testing.T) {
+	metadata := configLinkMetadata(ResolvedInbound{
+		"protocol":         "shadowsocks",
+		"fragment_setting": "10-20,30-40,tlshello",
+		"noise_setting":    "rand:10-20,30-40",
+		"finalmask": map[string]any{
+			"quicParams": map[string]any{"congestion": "bbr"},
+		},
+	})
+	if len(listAny(metadata.FinalMask["tcp"])) != 1 || len(listAny(metadata.FinalMask["udp"])) != 1 || mapValue(metadata.FinalMask["quicParams"])["congestion"] != "bbr" {
+		t.Fatalf("Shadowsocks metadata lost canonical or legacy FinalMask: %#v", metadata.FinalMask)
+	}
+}
+
+func TestBuildConfigLinksKeepsMetadataAlignedWhenReversed(t *testing.T) {
+	serviceID := int64(1)
+	links, err := BuildConfigLinks(
+		ConfigLinkUser{
+			ID: 21, Username: "reverse", Status: "active", ServiceID: &serviceID,
+			CredentialKey:     "05bfddf81eb418fa1edbce7cd286eee1",
+			ServiceHostOrders: map[int64]int64{1: 0, 2: 1},
+		},
+		map[string]ResolvedInbound{
+			"VLESS": {
+				"tag": "VLESS", "protocol": "vless", "port": int64(443), "network": "tcp", "tls": "none", "encryption": "none",
+			},
+		},
+		[]string{"VLESS"},
+		[]Host{
+			{
+				ID: 1, InboundTag: "VLESS", Remark: "first", Address: "first.example.com", ServiceIDs: []int64{1}, MuxEnable: true,
+				FinalMask: map[string]any{"quicParams": map[string]any{"congestion": "bbr"}},
+			},
+			{
+				ID: 2, InboundTag: "VLESS", Remark: "second", Address: "second.example.com", ServiceIDs: []int64{1},
+				FinalMask: map[string]any{"quicParams": map[string]any{"congestion": "cubic"}},
+			},
+		},
+		map[string][]byte{},
+		true,
+	)
+	if err != nil || len(links.Links) != 2 || len(links.Metadata) != 2 {
+		t.Fatalf("BuildConfigLinks() response=%#v err=%v", links, err)
+	}
+	first, err := url.Parse(links.Links[0])
+	if err != nil || first.Fragment != "second" {
+		t.Fatalf("links were not reversed as expected: %#v err=%v", links.Links, err)
+	}
+	if links.Metadata[0].MuxEnabled || !links.Metadata[1].MuxEnabled {
+		t.Fatalf("mux metadata lost reverse alignment: %#v", links.Metadata)
+	}
+	if got := mapValue(links.Metadata[0].FinalMask["quicParams"])["congestion"]; got != "cubic" {
+		t.Fatalf("FinalMask metadata lost reverse alignment: %#v", links.Metadata)
 	}
 }
 

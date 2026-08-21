@@ -76,10 +76,10 @@ import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { JsonEditor } from "./JsonEditor";
 import {
 	DataTable,
-	ResourceListCard,
-	ResourceRefreshButton,
 	type DataTableColumn,
 	type DataTableRowAction,
+	ResourceListCard,
+	ResourceRefreshButton,
 	type ResourceSummaryItem,
 } from "./ui";
 import {
@@ -113,6 +113,7 @@ type HostData = {
 	is_disabled: boolean;
 	fragment_setting: string;
 	noise_setting: string;
+	finalmask: string;
 	random_user_agent: boolean;
 	security: string;
 	alpn: string;
@@ -176,6 +177,19 @@ const coerceHostValue = <Key extends keyof HostData>(
 	) {
 		return normalizeRotationMode(String(value ?? "")) as HostData[Key];
 	}
+	if (key === "finalmask") {
+		if (value === null || value === undefined || value === "") {
+			return "" as HostData[Key];
+		}
+		if (typeof value === "string") {
+			return value as HostData[Key];
+		}
+		try {
+			return JSON.stringify(value, null, 2) as HostData[Key];
+		} catch {
+			return currentData.finalmask as HostData[Key];
+		}
+	}
 	return (value ?? "") as HostData[Key];
 };
 
@@ -203,6 +217,7 @@ const EMPTY_HOST_DATA: HostData = {
 	is_disabled: false,
 	fragment_setting: "",
 	noise_setting: "",
+	finalmask: "",
 	random_user_agent: false,
 	security: "inbound_default",
 	alpn: "",
@@ -384,292 +399,121 @@ const alpnAutocompleteOptions = proxyALPN
 const inboundPortPlaceholder = (inbound?: InboundOption) =>
 	inbound?.port ? `Inbound default: ${inbound.port}` : "Inherited from inbound";
 
-type FragmentFields = {
-	length: string;
-	interval: string;
-	packet: string;
-	maxSplit: string;
+type FinalMaskObject = Record<string, unknown>;
+
+const isFinalMaskObject = (value: unknown): value is FinalMaskObject =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseFinalMaskText = (
+	value: string,
+): FinalMaskObject | null | undefined => {
+	if (!value.trim()) return null;
+	try {
+		const parsed: unknown = JSON.parse(value);
+		return isFinalMaskObject(parsed) ? parsed : undefined;
+	} catch {
+		return undefined;
+	}
 };
 
-const parseFragmentSetting = (value: string): FragmentFields => {
-	const [length = "", interval = "", packet = "", maxSplit = ""] = value
+const legacyFragmentMask = (value: string): FinalMaskObject | null => {
+	const [length = "", delay = "", packets = "", maxSplit = ""] = value
 		.split(",")
 		.map((item) => item.trim());
-	return { length, interval, packet, maxSplit };
+	if (!length || !delay || !packets) return null;
+	const settings: FinalMaskObject = {
+		packets,
+		lengths: [length],
+		delays: [delay],
+	};
+	if (maxSplit) settings.maxSplit = maxSplit;
+	return { type: "fragment", settings };
 };
 
-const formatFragmentSetting = (fields: FragmentFields) => {
-	const length = fields.length.trim();
-	const interval = fields.interval.trim();
-	const packet = fields.packet.trim();
-	const maxSplit = fields.maxSplit.trim();
-	if (!length && !interval && !packet && !maxSplit) return "";
-	const parts = [
-		length || "10-100",
-		interval || "100-200",
-		packet || "tlshello",
-	];
-	if (maxSplit) parts.push(maxSplit);
-	return parts.join(",");
-};
-
-type NoisePattern = {
-	type: string;
-	packet: string;
-	delay: string;
-};
-
-const defaultNoisePattern = (): NoisePattern => ({
-	type: "rand",
-	packet: "10-20",
-	delay: "100-200",
-});
-
-const parseNoiseSetting = (value: string): NoisePattern[] => {
-	const patterns = value
+const legacyNoiseMask = (value: string): FinalMaskObject | null => {
+	const noise = value
 		.split("&")
 		.map((raw) => raw.trim())
 		.filter(Boolean)
-		.map((raw) => {
-			const colonIndex = raw.indexOf(":");
-			const type = colonIndex > 0 ? raw.slice(0, colonIndex).trim() : "rand";
-			const rest = colonIndex > 0 ? raw.slice(colonIndex + 1) : raw;
-			const [packet = "", delay = ""] = rest
+		.flatMap((raw) => {
+			const separator = raw.indexOf(":");
+			const type = separator > 0 ? raw.slice(0, separator).trim() : "rand";
+			const body = separator > 0 ? raw.slice(separator + 1) : raw;
+			const [packet = "", delay = ""] = body
 				.split(",")
 				.map((item) => item.trim());
-			return {
-				type: ["rand", "str", "hex", "base64"].includes(type) ? type : "rand",
-				packet: packet || "10-20",
-				delay: delay || "100-200",
-			};
+			if (!packet || !["rand", "str", "hex", "base64"].includes(type)) {
+				return [];
+			}
+			const item: FinalMaskObject =
+				type === "rand" ? { rand: packet } : { type, packet };
+			if (delay) item.delay = delay;
+			return [item];
 		});
-	return patterns.length ? patterns : [defaultNoisePattern()];
+	return noise.length ? { type: "noise", settings: { noise } } : null;
 };
 
-const formatNoiseSetting = (patterns: NoisePattern[]) =>
-	patterns
-		.map((pattern) => ({
-			type: pattern.type || "rand",
-			packet: pattern.packet.trim(),
-			delay: pattern.delay.trim(),
-		}))
-		.filter((pattern) => pattern.packet)
-		.map((pattern) =>
-			pattern.delay
-				? `${pattern.type}:${pattern.packet},${pattern.delay}`
-				: `${pattern.type}:${pattern.packet}`,
-		)
-		.join("&");
+const mergeLegacyFinalMask = (
+	base: FinalMaskObject | null,
+	fragment: string,
+	noise: string,
+): FinalMaskObject | null => {
+	const result: FinalMaskObject = base
+		? (JSON.parse(JSON.stringify(base)) as FinalMaskObject)
+		: {};
+	for (const [key, mask] of [
+		["tcp", legacyFragmentMask(fragment)],
+		["udp", legacyNoiseMask(noise)],
+	] as const) {
+		if (!mask) continue;
+		const existing = result[key];
+		const current = Array.isArray(existing) ? [...existing] : [];
+		result[key] = [...current, mask];
+	}
+	return Object.keys(result).length ? result : null;
+};
 
-const FragmentSettingFields: FC<{
+const hostFinalMaskText = (value: unknown, fragment = "", noise = "") => {
+	if (value !== null && value !== undefined && !isFinalMaskObject(value)) {
+		try {
+			return JSON.stringify(value, null, 2) ?? "";
+		} catch {
+			return "";
+		}
+	}
+	if (isFinalMaskObject(value) && Object.keys(value).length) {
+		return JSON.stringify(value, null, 2);
+	}
+	const merged = mergeLegacyFinalMask(null, fragment, noise);
+	return merged ? JSON.stringify(merged, null, 2) : "";
+};
+
+const finalMaskForAPI = (data: HostData): FinalMaskObject | null => {
+	const parsed = parseFinalMaskText(data.finalmask);
+	if (parsed === undefined) return null;
+	if (parsed && Object.keys(parsed).length) return parsed;
+	return mergeLegacyFinalMask(null, data.fragment_setting, data.noise_setting);
+};
+
+const FinalMaskFields: FC<{
 	value: string;
 	onChange: (value: string) => void;
 }> = ({ value, onChange }) => {
 	const { t } = useTranslation();
-	const fields = parseFragmentSetting(value);
-	const isEnabled = value.trim() !== "";
-	const update = (patch: Partial<FragmentFields>) => {
-		onChange(formatFragmentSetting({ ...fields, ...patch }));
-	};
+	const isInvalid = parseFinalMaskText(value) === undefined;
 	return (
-		<Box>
-			<Checkbox
-				isChecked={isEnabled}
-				onChange={(event) =>
-					onChange(
-						event.target.checked
-							? formatFragmentSetting(
-									parseFragmentSetting("10-100,100-200,tlshello"),
-								)
-							: "",
-					)
-				}
-			>
-				{t("hostsDialog.fragment")}
-			</Checkbox>
-			{isEnabled && (
-				<Box mt={2} pl={{ base: 0, md: 6 }}>
-					<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={2}>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragment.length")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.length}
-								placeholder={t("hostsDialog.fragmentLength")}
-								onChange={(event) => update({ length: event.target.value })}
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragmentIntervalLabel")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.interval}
-								placeholder={t("hostsDialog.fragmentInterval")}
-								onChange={(event) => update({ interval: event.target.value })}
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragmentPacketLabel")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.packet}
-								placeholder={t("hostsDialog.fragmentPacket")}
-								onChange={(event) => update({ packet: event.target.value })}
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragmentMaxSplitLabel")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.maxSplit}
-								placeholder={t("hostsDialog.fragmentMaxSplit")}
-								onChange={(event) => update({ maxSplit: event.target.value })}
-							/>
-						</FormControl>
-					</SimpleGrid>
-					<Text mt={1.5} fontSize="xs" color="gray.500">
-						{t("hostsDialog.fragmentHint")}
-					</Text>
-				</Box>
+		<FormControl isInvalid={isInvalid}>
+			<FormLabel>{t("hostsDialog.finalMask")}</FormLabel>
+			<JsonEditor json={value} onChange={onChange} minHeight="260px" />
+			{isInvalid && (
+				<FormErrorMessage>
+					{t("hostsPage.error.finalMaskObject")}
+				</FormErrorMessage>
 			)}
-		</Box>
-	);
-};
-
-const NoisePatternFields: FC<{
-	value: string;
-	onChange: (value: string) => void;
-}> = ({ value, onChange }) => {
-	const { t } = useTranslation();
-	const patterns = parseNoiseSetting(value);
-	const isEnabled = value.trim() !== "";
-	const updatePatterns = (next: NoisePattern[]) =>
-		onChange(formatNoiseSetting(next));
-	const updatePattern = (index: number, patch: Partial<NoisePattern>) => {
-		updatePatterns(
-			patterns.map((pattern, patternIndex) =>
-				patternIndex === index ? { ...pattern, ...patch } : pattern,
-			),
-		);
-	};
-	return (
-		<Box>
-			<Stack
-				direction={{ base: "column", sm: "row" }}
-				spacing={2}
-				align={{ base: "stretch", sm: "center" }}
-				justify="space-between"
-			>
-				<Checkbox
-					isChecked={isEnabled}
-					onChange={(event) =>
-						onChange(
-							event.target.checked
-								? formatNoiseSetting([defaultNoisePattern()])
-								: "",
-						)
-					}
-				>
-					{t("hostsDialog.noise")}
-				</Checkbox>
-				{isEnabled && (
-					<Button
-						size="xs"
-						variant="outline"
-						alignSelf={{ base: "flex-start", sm: "center" }}
-						onClick={() => updatePatterns([...patterns, defaultNoisePattern()])}
-					>
-						{t("hostsDialog.addNoisePattern")}
-					</Button>
-				)}
-			</Stack>
-			{isEnabled && (
-				<Box mt={2} pl={{ base: 0, md: 6 }}>
-					<VStack align="stretch" spacing={2}>
-						{patterns.map((pattern, index) => (
-							<SimpleGrid
-								key={`${index}-${pattern.type}`}
-								columns={{ base: 1, md: 12 }}
-								spacing={2}
-								alignItems="end"
-							>
-								<FormControl gridColumn={{ md: "span 3" }}>
-									<FormLabel fontSize="xs" color="gray.500" mb={1}>
-										{t("inbounds.fallbacks.type")}
-									</FormLabel>
-									<SearchableTagSelect
-										size="sm"
-										value={pattern.type}
-										options={["rand", "str", "hex", "base64"]}
-										placeholder={t("inbounds.fallbacks.type")}
-										onChange={(value) =>
-											updatePattern(index, { type: String(value) })
-										}
-									/>
-								</FormControl>
-								<FormControl gridColumn={{ md: "span 4" }}>
-									<FormLabel fontSize="xs" color="gray.500" mb={1}>
-										{t("hostsDialog.noisePacket")}
-									</FormLabel>
-									<Input
-										size="sm"
-										value={pattern.packet}
-										placeholder={
-											pattern.type === "rand"
-												? "10-20"
-												: t("hostsDialog.noisePacket")
-										}
-										onChange={(event) =>
-											updatePattern(index, { packet: event.target.value })
-										}
-									/>
-								</FormControl>
-								<FormControl gridColumn={{ md: "span 4" }}>
-									<FormLabel fontSize="xs" color="gray.500" mb={1}>
-										{t("hostsDialog.noiseDelay")}
-									</FormLabel>
-									<Input
-										size="sm"
-										value={pattern.delay}
-										placeholder="100-200"
-										onChange={(event) =>
-											updatePattern(index, { delay: event.target.value })
-										}
-									/>
-								</FormControl>
-								<Button
-									size="sm"
-									variant="ghost"
-									colorScheme="red"
-									isDisabled={patterns.length === 1}
-									onClick={() =>
-										updatePatterns(
-											patterns.filter(
-												(_, patternIndex) => patternIndex !== index,
-											),
-										)
-									}
-									gridColumn={{ md: "span 1" }}
-								>
-									×
-								</Button>
-							</SimpleGrid>
-						))}
-					</VStack>
-					<Text mt={1.5} fontSize="xs" color="gray.500">
-						{t("hostsDialog.noiseHint")}
-					</Text>
-				</Box>
-			)}
-		</Box>
+			<Text mt={2} fontSize="xs" color="gray.500">
+				{t("hostsDialog.finalMaskHint")}
+			</Text>
+		</FormControl>
 	);
 };
 
@@ -761,8 +605,13 @@ const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	mux_enable: normalizeBoolean(host.mux_enable),
 	allowinsecure: normalizeBoolean(host.allowinsecure),
 	is_disabled: normalizeBoolean(host.is_disabled, false),
-	fragment_setting: normalizeString(host.fragment_setting),
-	noise_setting: normalizeString(host.noise_setting),
+	fragment_setting: "",
+	noise_setting: "",
+	finalmask: hostFinalMaskText(
+		host.finalmask,
+		normalizeString(host.fragment_setting),
+		normalizeString(host.noise_setting),
+	),
 	random_user_agent: normalizeBoolean(host.random_user_agent),
 	security: host.security ?? "inbound_default",
 	alpn: host.alpn ?? "",
@@ -794,6 +643,7 @@ const cloneHostData = (data: HostData): HostData => ({
 	is_disabled: data.is_disabled,
 	fragment_setting: data.fragment_setting,
 	noise_setting: data.noise_setting,
+	finalmask: data.finalmask,
 	random_user_agent: data.random_user_agent,
 	security: data.security,
 	alpn: data.alpn,
@@ -817,8 +667,17 @@ const serializeHostData = (data: HostData) => ({
 	host_options: rotationTextToOptions(data.host_options),
 	host_selection_mode: normalizeRotationMode(data.host_selection_mode),
 	host_ttl_seconds: data.host_ttl_seconds ?? null,
-	fragment_setting: normalizeString(data.fragment_setting),
-	noise_setting: normalizeString(data.noise_setting),
+	fragment_setting: "",
+	noise_setting: "",
+	finalmask: (() => {
+		const parsed = parseFinalMaskText(data.finalmask);
+		if (parsed === undefined) return data.finalmask.trim();
+		const canonical =
+			parsed && Object.keys(parsed).length
+				? parsed
+				: mergeLegacyFinalMask(null, data.fragment_setting, data.noise_setting);
+		return canonical ? JSON.stringify(canonical) : "";
+	})(),
 });
 
 const validateHostState = (
@@ -873,6 +732,9 @@ const validateHostState = (
 			errors.push(`${label} is required.`);
 		}
 	}
+	if (parseFinalMaskText(data.finalmask) === undefined) {
+		errors.push("hostsPage.error.finalMaskObject");
+	}
 	return errors;
 };
 
@@ -908,10 +770,9 @@ const formatHostForApi = (data: HostData): HostsSchema[string][number] => {
 		mux_enable: data.mux_enable,
 		allowinsecure: data.allowinsecure,
 		is_disabled: data.is_disabled,
-		fragment_setting: data.fragment_setting.trim()
-			? data.fragment_setting.trim()
-			: null,
-		noise_setting: data.noise_setting.trim() ? data.noise_setting.trim() : null,
+		fragment_setting: null,
+		noise_setting: null,
+		finalmask: finalMaskForAPI(data),
 		random_user_agent: data.random_user_agent,
 		security: data.security || "inbound_default",
 		alpn: data.alpn || "",
@@ -965,15 +826,21 @@ const mapHostsToState = (hosts: HostsSchema): HostState[] => {
 };
 
 const groupHostsByInbound = (items: HostState[]): HostsSchema => {
-	const grouped = new Map<string, HostData[]>();
+	const grouped = new Map<string, HostState[]>();
 	items.forEach((host) => {
 		const list = grouped.get(host.inboundTag) ?? [];
-		list.push(host.data);
+		list.push(host);
 		grouped.set(host.inboundTag, list);
 	});
 	const result: HostsSchema = {};
 	grouped.forEach((value, key) => {
-		result[key] = value.map((host) => formatHostForApi(host));
+		result[key] = value.map((host) =>
+			formatHostForApi(
+				parseFinalMaskText(host.data.finalmask) === undefined
+					? { ...host.data, finalmask: host.original.finalmask }
+					: host.data,
+			),
+		);
 	});
 	return result;
 };
@@ -1055,11 +922,15 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 		selectedInbound?.protocol,
 		host?.data.remark ?? "",
 	);
+	const finalMaskValid = host
+		? parseFinalMaskText(host.data.finalmask) !== undefined
+		: false;
 	const canSubmit = host
 		? Boolean(
 				host.inboundTag &&
 					host.data.remark.trim() &&
 					!remarkError &&
+					finalMaskValid &&
 					(host.data.address.trim() ||
 						rotationTextToOptions(host.data.address_options).length > 0) &&
 					(!isWireGuardInbound ||
@@ -1109,11 +980,18 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 			}
 			setJsonText(value);
 			try {
-				const parsed = JSON.parse(value);
-				if (!parsed || typeof parsed !== "object") {
+				const parsed: unknown = JSON.parse(value);
+				if (!isFinalMaskObject(parsed)) {
 					throw new Error("Invalid JSON payload");
 				}
-				const payload = parsed as Record<string, unknown>;
+				const payload = parsed;
+				if (
+					Object.hasOwn(payload, "finalmask") &&
+					payload.finalmask !== null &&
+					!isFinalMaskObject(payload.finalmask)
+				) {
+					throw new Error(t("hostsPage.error.finalMaskObject"));
+				}
 				const nextInboundTag =
 					typeof payload.inboundTag === "string"
 						? payload.inboundTag
@@ -1139,7 +1017,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 				setJsonError(error instanceof Error ? error.message : "Invalid JSON");
 			}
 		},
-		[host, onChange, onChangeInbound],
+		[host, onChange, onChangeInbound, t],
 	);
 
 	if (!host) {
@@ -1465,16 +1343,10 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 											</CardHeader>
 											<CardBody pt={0}>
 												<VStack align="stretch" spacing={4}>
-													<FragmentSettingFields
-														value={host.data.fragment_setting}
+													<FinalMaskFields
+														value={host.data.finalmask}
 														onChange={(value) =>
-															onChange(host.uid, "fragment_setting", value)
-														}
-													/>
-													<NoisePatternFields
-														value={host.data.noise_setting}
-														onChange={(value) =>
-															onChange(host.uid, "noise_setting", value)
+															onChange(host.uid, "finalmask", value)
 														}
 													/>
 													<Stack
@@ -1654,6 +1526,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 		selectedInbound?.protocol,
 		formState.remark,
 	);
+	const finalMaskValid = parseFinalMaskText(formState.finalmask) !== undefined;
 
 	useEffect(() => {
 		if (isOpen) {
@@ -1685,44 +1558,55 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 		setJsonError(null);
 	}, [isOpen, jsonPayload]);
 
-	const handleJsonEditorChange = useCallback((value: string) => {
-		setJsonText(value);
-		try {
-			const parsed = JSON.parse(value);
-			if (!parsed || typeof parsed !== "object") {
-				throw new Error("Invalid JSON payload");
-			}
-			const payload = parsed as Record<string, unknown>;
-			updatingFromJsonRef.current = true;
-			setFormState((current) => {
-				let next = {
-					...current,
-					inboundTag:
-						typeof payload.inboundTag === "string"
-							? payload.inboundTag
-							: current.inboundTag,
-				};
-				for (const key of Object.keys(EMPTY_HOST_DATA) as Array<
-					keyof HostData
-				>) {
-					if (Object.hasOwn(payload, key)) {
-						next = {
-							...next,
-							[key]: coerceHostValue(key, payload[key], current),
-						};
-					}
+	const handleJsonEditorChange = useCallback(
+		(value: string) => {
+			setJsonText(value);
+			try {
+				const parsed: unknown = JSON.parse(value);
+				if (!isFinalMaskObject(parsed)) {
+					throw new Error("Invalid JSON payload");
 				}
-				return next;
-			});
-			setJsonError(null);
-		} catch (error) {
-			setJsonError(error instanceof Error ? error.message : "Invalid JSON");
-		}
-	}, []);
+				const payload = parsed;
+				if (
+					Object.hasOwn(payload, "finalmask") &&
+					payload.finalmask !== null &&
+					!isFinalMaskObject(payload.finalmask)
+				) {
+					throw new Error(t("hostsPage.error.finalMaskObject"));
+				}
+				updatingFromJsonRef.current = true;
+				setFormState((current) => {
+					let next = {
+						...current,
+						inboundTag:
+							typeof payload.inboundTag === "string"
+								? payload.inboundTag
+								: current.inboundTag,
+					};
+					for (const key of Object.keys(EMPTY_HOST_DATA) as Array<
+						keyof HostData
+					>) {
+						if (Object.hasOwn(payload, key)) {
+							next = {
+								...next,
+								[key]: coerceHostValue(key, payload[key], current),
+							};
+						}
+					}
+					return next;
+				});
+				setJsonError(null);
+			} catch (error) {
+				setJsonError(error instanceof Error ? error.message : "Invalid JSON");
+			}
+		},
+		[t],
+	);
 
 	const handleSubmit = () => {
 		if (
 			jsonError ||
+			!finalMaskValid ||
 			!formState.inboundTag ||
 			!formState.remark.trim() ||
 			Boolean(remarkError) ||
@@ -1974,6 +1858,26 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 												)}
 											</SimpleGrid>
 										)}
+									{!isVirtualTunnelInbound && (
+										<Card className="xray-dialog-section" variant="outline">
+											<CardHeader pb={2}>
+												<Text fontWeight="semibold">
+													{t("hostsPage.section.advanced")}
+												</Text>
+											</CardHeader>
+											<CardBody pt={0}>
+												<FinalMaskFields
+													value={formState.finalmask}
+													onChange={(value) =>
+														setFormState((prev) => ({
+															...prev,
+															finalmask: value,
+														}))
+													}
+												/>
+											</CardBody>
+										</Card>
+									)}
 								</VStack>
 							</TabPanel>
 							<TabPanel px={0}>
@@ -2002,6 +1906,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 						isLoading={isSubmitting}
 						isDisabled={
 							Boolean(jsonError) ||
+							!finalMaskValid ||
 							!formState.inboundTag ||
 							!formState.remark.trim() ||
 							Boolean(remarkError) ||
