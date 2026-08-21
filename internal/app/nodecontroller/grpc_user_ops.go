@@ -150,14 +150,11 @@ func (c Controller) grpcAddUserToNode(ctx context.Context, client *nodeclient.Cl
 		}
 	}
 	if applied == 0 {
-		if !eligibleServiceUser {
+		if !eligibleServiceUser || matched == 0 {
 			return nil
 		}
 		if lastErr != nil {
 			return lastErr
-		}
-		if matched == 0 {
-			return fmt.Errorf("no matching service inbounds found for user %d on node %d", operation.UserID.Int64, node.ID)
 		}
 		return fmt.Errorf("no service inbound user was applied for user %d on node %d", operation.UserID.Int64, node.ID)
 	}

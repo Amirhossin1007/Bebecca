@@ -11,7 +11,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func TestRepositoryProcessesOperationState(t *testing.T) {
+func TestRepositoryProcessesOperationStateWithRetryBackoff(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -42,7 +42,7 @@ CREATE TABLE node_operations (
 	}
 	_, err = db.ExecContext(ctx, `
 INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
-VALUES ('sync_config', 7, 42, '{"config_json":"{}"}', 'pending', 'op-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`)
+VALUES ('add_user', 7, 42, '{"config_json":"{}"}', 'pending', 'op-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ VALUES ('sync_config', 7, 42, '{"config_json":"{}"}', 'pending', 'op-1', CURRENT
 		t.Fatal(err)
 	}
 	if len(rows) != 0 {
-		t.Fatalf("expected fresh sync_config retry to wait for backoff, got %#v", rows)
+		t.Fatalf("expected fresh retry to wait for backoff, got %#v", rows)
 	}
 	if _, err := db.ExecContext(ctx, `UPDATE node_operations SET updated_at = '2000-01-01 00:00:00' WHERE id = 1`); err != nil {
 		t.Fatal(err)
@@ -232,7 +232,8 @@ VALUES
 	('add_user', 1, 10, '{}', 'pending', 'add-connected', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('add_user', 2, 10, '{}', 'pending', 'add-error', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('update_user', 3, 11, '{}', 'pending', 'update-other-user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-	('remove_user', 3, 10, '{}', 'retrying', 'remove-connected', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('remove_user', 3, 10, '{}', 'retrying', 'remove-connected', CURRENT_TIMESTAMP, '2000-01-01 00:00:00'),
+	('disable_user', 1, 10, '{}', 'retrying', 'fresh-disable-connected', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('enable_user', 4, 10, '{}', 'pending', 'enable-connecting', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 `)
 	if err != nil {

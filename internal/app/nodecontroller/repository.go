@@ -57,7 +57,7 @@ type OperationRow struct {
 const (
 	pendingOperationsPerNodeCap = 200
 	maxPendingOperationsLimit   = 10000
-	syncConfigRetryBackoff      = 5 * time.Minute
+	operationRetryBackoff       = 5 * time.Minute
 )
 
 var runtimeProxyProtocolList = []string{"vmess", "vless", "trojan", "shadowsocks", "hysteria"}
@@ -541,12 +541,12 @@ func (r Repository) PendingOperations(ctx context.Context, nodeID int64, limit i
 	if nodeID <= 0 {
 		return r.pendingOperationsFair(ctx, limit)
 	}
-	retryCutoff := r.timeArg(time.Now().UTC().Add(-syncConfigRetryBackoff))
+	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
 	query := `SELECT id, operation_type, node_id, user_id, payload, attempts
 FROM node_operations no
 WHERE (
 	status = 'pending'
-	OR (status = 'retrying' AND (operation_type != 'sync_config' OR updated_at <= ?))
+	OR (status = 'retrying' AND updated_at <= ?)
 )
 AND NOT EXISTS (
 	SELECT 1 FROM nodes n
@@ -590,11 +590,15 @@ func (r Repository) PendingRuntimeUserOperations(ctx context.Context, userID int
 	if limit > maxPendingOperationsLimit {
 		limit = maxPendingOperationsLimit
 	}
+	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
 	query := `
 SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts
 FROM node_operations no
 JOIN nodes n ON n.id = no.node_id
-WHERE no.status IN ('pending', 'retrying')
+WHERE (
+    no.status = 'pending'
+    OR (no.status = 'retrying' AND no.updated_at <= ?)
+  )
   AND no.user_id = ?
   AND no.node_id IS NOT NULL
   AND no.operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
@@ -609,7 +613,7 @@ ORDER BY
   no.node_id,
   no.id
 LIMIT ?`
-	rows, err := r.db.QueryContext(ctx, query, userID, limit)
+	rows, err := r.db.QueryContext(ctx, query, retryCutoff, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -636,7 +640,7 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 	if limit < perNodeCap {
 		perNodeCap = limit
 	}
-	retryCutoff := r.timeArg(time.Now().UTC().Add(-syncConfigRetryBackoff))
+	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
 	query := `WITH ranked_operations AS (
 	SELECT
 		no.id,
@@ -674,7 +678,7 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 	LEFT JOIN nodes n ON n.id = no.node_id
 	WHERE (
 		no.status = 'pending'
-		OR (no.status = 'retrying' AND (no.operation_type != 'sync_config' OR no.updated_at <= ?))
+		OR (no.status = 'retrying' AND no.updated_at <= ?)
 	)
 	AND (no.node_id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 )

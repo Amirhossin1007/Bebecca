@@ -3,10 +3,60 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"path/filepath"
 	"testing"
 
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
+
+func TestAddUserWithoutMatchingServiceInboundIsNoOp(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "no-matching-inbound.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE users (
+	id INTEGER PRIMARY KEY,
+	username TEXT,
+	credential_key TEXT,
+	flow TEXT,
+	service_id INTEGER,
+	status TEXT
+);
+CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT);
+CREATE TABLE service_hosts (service_id INTEGER, host_id INTEGER);
+CREATE TABLE hosts (id INTEGER PRIMARY KEY, inbound_tag TEXT, is_disabled BOOLEAN DEFAULT 0);
+INSERT INTO users (id, username, credential_key, service_id, status)
+VALUES (42, 'user-42', 'key-42', 10, 'active');
+INSERT INTO proxies (id, user_id, type, settings) VALUES (1, 42, 'vless', '{}');
+INSERT INTO hosts (id, inbound_tag, is_disabled) VALUES (1, 'service-vless', 0);
+INSERT INTO service_hosts (service_id, host_id) VALUES (10, 1);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	controller := NewController(NewRepository(db, "sqlite"))
+	err = controller.grpcAddUserToNode(
+		ctx,
+		nil,
+		NodeRow{
+			ID:             7,
+			XrayConfigMode: "custom",
+			XrayConfig:     json.RawMessage(`{"inbounds":[{"tag":"other-vless","protocol":"vless","settings":{"clients":[]}}]}`),
+		},
+		OperationRow{OperationType: "add_user", UserID: sql.NullInt64{Int64: 42, Valid: true}},
+		"42.user",
+		true,
+	)
+	if err != nil {
+		t.Fatalf("missing service inbound must be a no-op: %v", err)
+	}
+}
 
 func TestUpdateUserOperationUsesRuntimeConfigReconciliation(t *testing.T) {
 	controller := Controller{}
