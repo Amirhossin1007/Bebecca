@@ -235,7 +235,13 @@ func parseVmess(link string) (*ParseResult, error) {
 		}
 		tls := stream["tlsSettings"].(map[string]any)
 		tls["serverName"] = getString(j, "sni", "")
-		tls["fingerprint"] = getString(j, "fp", "")
+		cipherSuites := firstNonEmpty(getString(j, "cs", ""), getString(j, "cipherSuites", ""))
+		tls["cipherSuites"] = cipherSuites
+		if cipherSuites != "" {
+			tls["fingerprint"] = "unsafe"
+		} else {
+			tls["fingerprint"] = getString(j, "fp", "")
+		}
 		tls["echConfigList"] = firstNonEmpty(getString(j, "ech", ""), getString(j, "echConfigList", ""))
 		tls["verifyPeerCertByName"] = peerName
 		tls["pinnedPeerCertSha256"] = pin
@@ -920,7 +926,13 @@ func applySecurity(stream map[string]any, p url.Values) {
 	case "tls":
 		tls := stream["tlsSettings"].(map[string]any)
 		tls["serverName"] = p.Get("sni")
-		tls["fingerprint"] = p.Get("fp")
+		cipherSuites := firstNonEmpty(p.Get("cs"), p.Get("cipherSuites"))
+		tls["cipherSuites"] = cipherSuites
+		if cipherSuites != "" {
+			tls["fingerprint"] = "unsafe"
+		} else {
+			tls["fingerprint"] = p.Get("fp")
+		}
 		if alpn := p.Get("alpn"); alpn != "" {
 			tls["alpn"] = splitComma(alpn)
 		}

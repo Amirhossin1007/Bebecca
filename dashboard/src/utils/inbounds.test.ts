@@ -83,6 +83,29 @@ describe("VLESS inbound default flow", () => {
 	});
 });
 
+describe("TLS cipher suites", () => {
+	it("preserves TLS 1.2 suites and requires native Go TLS", () => {
+		const values = createDefaultInboundForm("vless");
+		values.streamSecurity = "tls";
+		values.tlsCipherSuites =
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256";
+		expect(validateInboundFormFields(values).tlsFingerprint).toBeTruthy();
+		values.tlsFingerprint = "unsafe";
+		expect(validateInboundFormFields(values).tlsFingerprint).toBeUndefined();
+		expect(
+			buildInboundPayload(values).streamSettings?.tlsSettings?.cipherSuites,
+		).toBe(values.tlsCipherSuites);
+	});
+
+	it("omits cipher suites for Hysteria QUIC", () => {
+		const values = createDefaultInboundForm("hysteria");
+		values.tlsCipherSuites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
+		expect(
+			buildInboundPayload(values).streamSettings?.tlsSettings,
+		).not.toHaveProperty("cipherSuites");
+	});
+});
+
 describe("XHTTP inbound settings", () => {
 	it.each([
 		["current", { sessionIDPlacement: "header", sessionIDKey: "X-Session" }],

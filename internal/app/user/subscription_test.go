@@ -561,6 +561,74 @@ func TestV2RayJSONMetadataAppliesFinalMaskAndMuxWithoutChangingRawLinks(t *testi
 	}
 }
 
+func TestXrayJSONPreservesTLSCipherSuites(t *testing.T) {
+	const suites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+	inbound := ResolvedInbound{
+		"port": 443, "network": "tcp", "tls": "tls", "sni": "example.com", "cipherSuites": suites,
+	}
+	links := []string{
+		vlessShareLink("vless", "example.com", "", inbound, map[string]any{"id": "11111111-1111-4111-8111-111111111111"}),
+		trojanShareLink("trojan", "example.com", "", inbound, map[string]any{"password": "secret"}),
+		shadowsocksShareLink("ss", "example.com", inbound, map[string]any{"method": "aes-256-gcm", "password": "secret"}),
+		vmessShareLink("vmess", "example.com", "", inbound, map[string]any{"id": "11111111-1111-4111-8111-111111111111"}),
+	}
+	for _, current := range []bool{false, true} {
+		body, err := renderXrayJSONSubscriptionWithMetadata(links, nil, false, "", "", current)
+		if err != nil {
+			t.Fatal(err)
+		}
+		configs := []map[string]any{}
+		if err := json.Unmarshal([]byte(body), &configs); err != nil {
+			t.Fatal(err)
+		}
+		for _, config := range configs {
+			outbound := config["outbounds"].([]any)[0].(map[string]any)
+			tls := mapValue(mapValue(outbound["streamSettings"])["tlsSettings"])
+			if tls["cipherSuites"] != suites || tls["fingerprint"] != "unsafe" {
+				t.Fatalf("current=%t lost cipherSuites: %#v", current, tls)
+			}
+		}
+	}
+
+	singBox, err := renderSingBoxJSONWithTemplate(links[:1], `{"outbounds":[]}`, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	singBoxConfig := map[string]any{}
+	if err := json.Unmarshal([]byte(singBox), &singBoxConfig); err != nil {
+		t.Fatal(err)
+	}
+	var singBoxVLESS map[string]any
+	for _, outbound := range listOfMaps(singBoxConfig["outbounds"]) {
+		if stringValue(outbound["type"]) == "vless" {
+			singBoxVLESS = outbound
+			break
+		}
+	}
+	tls := mapValue(singBoxVLESS["tls"])
+	if got := strings.Join(stringList(tls["cipher_suites"]), ":"); got != suites {
+		t.Fatalf("sing-box lost cipher suites: %#v", tls)
+	}
+	if _, ok := tls["utls"]; ok {
+		t.Fatalf("sing-box kept uTLS enabled with custom cipher suites: %#v", tls)
+	}
+}
+
+func TestAutomaticCustomJSONUpgradesOnlyCurrentFinalMask(t *testing.T) {
+	stable := ConfigLinksResponse{Metadata: []ConfigLinkMetadata{{FinalMask: map[string]any{
+		"tcp": []any{map[string]any{"type": "fragment", "settings": map[string]any{"length": "3-5", "delay": "10-20"}}},
+	}}}}
+	if configLinksRequireCurrentFinalMask(stable) {
+		t.Fatal("stable FinalMask unexpectedly selected the current dialect")
+	}
+	current := ConfigLinksResponse{Metadata: []ConfigLinkMetadata{{FinalMask: map[string]any{
+		"tcp": []any{map[string]any{"type": "fragment", "settings": map[string]any{"lengths": []any{"3-5", "6-8"}, "delays": []any{"10-20"}}}},
+	}}}}
+	if !configLinksRequireCurrentFinalMask(current) {
+		t.Fatal("current-only FinalMask did not select the current dialect")
+	}
+}
+
 func TestV2RayJSONMetadataSkipsMuxForVLESSVision(t *testing.T) {
 	link := vlessShareLink("vision", "example.com", "", ResolvedInbound{
 		"port": 443, "network": "tcp", "tls": "reality",
