@@ -280,15 +280,27 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager.certbotBinary = "certbot-test"
+	revoked := false
+	deleted := false
 	manager.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		if name != "certbot-test" || len(args) == 0 || args[0] != "revoke" {
+		if name != "certbot-test" || len(args) == 0 {
 			t.Fatalf("unexpected revoke command: %s %v", name, args)
 		}
 		command := " " + strings.Join(args, " ") + " "
-		if !strings.Contains(command, " --cert-name rebecca-bot.example.com ") || !strings.Contains(command, " --delete-after-revoke ") || strings.Contains(command, " --cert-path ") {
+		if !strings.Contains(command, " --cert-name rebecca-bot.example.com ") {
 			t.Fatalf("revoke must use the managed Certbot lineage: %v", args)
 		}
-		return nil, nil
+		switch args[0] {
+		case "revoke":
+			revoked = strings.Contains(command, " --delete-after-revoke ") && !strings.Contains(command, " --cert-path ")
+			return []byte("no certificate with status other than revoked"), errors.New("exit status 1")
+		case "delete":
+			deleted = true
+			return nil, nil
+		default:
+			t.Fatalf("unexpected certbot command: %v", args)
+			return nil, nil
+		}
 	}
 	record, err = manager.Revoke(context.Background(), record.Domain)
 	if err != nil {
@@ -296,6 +308,9 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	}
 	if record.Status != "revoked" {
 		t.Fatalf("revoked record status=%q", record.Status)
+	}
+	if !revoked || !deleted {
+		t.Fatalf("already-revoked certificate was not cleaned up: revoke=%v delete=%v", revoked, deleted)
 	}
 	if _, err := manager.Renew(context.Background(), record.Domain); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("revoked renew error=%v", err)

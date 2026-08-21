@@ -421,12 +421,26 @@ func (m *Manager) Revoke(ctx context.Context, domain string) (Record, error) {
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	if output, err := m.run(commandCtx, certbot, args...); err != nil {
+	output, revokeErr := m.run(commandCtx, certbot, args...)
+	if revokeErr != nil && !certificateAlreadyRevoked(output) {
 		metadata["status"] = previousStatus
 		if restoreErr := writeMetadata(dir, metadata); restoreErr != nil {
-			return Record{}, fmt.Errorf("%w; restore certificate status: %v", certbotError(err, output), restoreErr)
+			return Record{}, fmt.Errorf("%w; restore certificate status: %v", certbotError(revokeErr, output), restoreErr)
 		}
-		return Record{}, certbotError(err, output)
+		return Record{}, certbotError(revokeErr, output)
+	}
+	if revokeErr != nil {
+		deleteArgs := []string{
+			"delete", "--non-interactive", "--cert-name", certName,
+			"--config-dir", configDir, "--work-dir", workDir, "--logs-dir", logsDir,
+		}
+		if cleanupOutput, cleanupErr := m.run(commandCtx, certbot, deleteArgs...); cleanupErr != nil {
+			metadata["status"] = previousStatus
+			if restoreErr := writeMetadata(dir, metadata); restoreErr != nil {
+				return Record{}, fmt.Errorf("%w; restore certificate status: %v", certbotError(cleanupErr, cleanupOutput), restoreErr)
+			}
+			return Record{}, certbotError(cleanupErr, cleanupOutput)
+		}
 	}
 	metadata["status"] = "revoked"
 	metadata["revoked_at"] = strconv.FormatInt(time.Now().UTC().Unix(), 10)
@@ -434,6 +448,11 @@ func (m *Manager) Revoke(ctx context.Context, domain string) (Record, error) {
 		return Record{}, err
 	}
 	return m.Get(ctx, record.Domain)
+}
+
+func certificateAlreadyRevoked(output []byte) bool {
+	message := strings.ToLower(string(output))
+	return strings.Contains(message, "already revoked") || strings.Contains(message, "status other than revoked")
 }
 
 func (m *Manager) Delete(ctx context.Context, domain string) error {
