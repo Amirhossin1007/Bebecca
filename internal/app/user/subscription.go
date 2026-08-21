@@ -27,6 +27,7 @@ type SubscriptionClientConfig struct {
 	Base64      bool
 	Reverse     bool
 	TemplateKey string
+	AutoCurrent bool
 }
 
 const maxMKCPMTU int64 = 1<<32 - 1
@@ -145,6 +146,7 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	if !ok {
 		return SubscriptionHTTPResponse{}, clientError(404, "Unsupported client type")
 	}
+	config.AutoCurrent = req.ClientType == "" && config.Format == "v2ray-json"
 	body, err := s.generateSubscriptionConfig(ctx, user, config)
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
@@ -435,13 +437,14 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 		return marshalPretty(map[string]any{"servers": servers})
 	case "v2ray-json", "xray-json":
 		templateKey := firstNonEmptyString(config.TemplateKey, "v2ray_subscription_template")
+		current := config.Format == "xray-json" || (config.AutoCurrent && configLinksRequireCurrentFinalMask(connectable))
 		return renderXrayJSONSubscriptionWithMetadata(
 			raw,
 			connectable.Metadata,
 			false,
 			s.subscriptionTemplateContent(ctx, templateKey, user.AdminID),
 			s.subscriptionTemplateContent(ctx, "mux_template", user.AdminID),
-			config.Format == "xray-json",
+			current,
 		)
 	case "sing-box":
 		if configLinksHaveUnrepresentedFinalMask(connectable, "") {
@@ -485,6 +488,15 @@ func connectableConfigLinks(response ConfigLinksResponse) ConfigLinksResponse {
 		}
 	}
 	return filtered
+}
+
+func configLinksRequireCurrentFinalMask(response ConfigLinksResponse) bool {
+	for _, metadata := range response.Metadata {
+		if len(metadata.FinalMask) > 0 && xrayJSONStableFinalMaskValueCompatibilityError(metadata.FinalMask) != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func configLinksHaveUnrepresentedFinalMask(response ConfigLinksResponse, scheme string) bool {
@@ -1624,6 +1636,7 @@ func singBoxVMessOutbound(link string, tag string) (map[string]any, bool) {
 	query.Set("host", stringValue(payload["host"]))
 	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
 	query.Set("fp", stringValue(payload["fp"]))
+	query.Set("cs", firstNonEmptyString(payload["cs"], payload["cipherSuites"]))
 	query.Set("alpn", stringValue(payload["alpn"]))
 	query.Set("ech", firstNonEmptyString(payload["ech"], payload["echConfigList"]))
 	query.Set("pcs", firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"]))
@@ -1797,6 +1810,7 @@ func singBoxUsesRawHTTPHeaderObfuscation(link string, parsed *url.URL) bool {
 
 func singBoxTLS(query url.Values) map[string]any {
 	tls := map[string]any{"enabled": true}
+	cipherSuites := strings.TrimSpace(firstNonEmptyString(query.Get("cs"), query.Get("cipherSuites")))
 	if serverName := query.Get("sni"); serverName != "" {
 		tls["server_name"] = serverName
 	}
@@ -1811,7 +1825,10 @@ func singBoxTLS(query url.Values) map[string]any {
 	if alpn := stringList(query.Get("alpn")); len(alpn) > 0 {
 		tls["alpn"] = alpn
 	}
-	if fingerprint := query.Get("fp"); fingerprint != "" && fingerprint != "none" {
+	if cipherSuites != "" {
+		tls["cipher_suites"] = nonEmptyStrings(strings.Split(cipherSuites, ":")...)
+	}
+	if fingerprint := query.Get("fp"); cipherSuites == "" && fingerprint != "" && fingerprint != "none" && fingerprint != "unsafe" {
 		tls["utls"] = map[string]any{"enabled": true, "fingerprint": fingerprint}
 	}
 	if ech, ok := singBoxECHConfig(firstNonEmptyString(query.Get("ech"), query.Get("echConfigList"))); ok {
@@ -1849,6 +1866,7 @@ func shareLinkTLSQuery(link string, parsed *url.URL) (url.Values, bool) {
 			"security": security,
 			"sni":      firstNonEmptyString(payload["sni"], payload["host"]),
 			"fp":       stringValue(payload["fp"]),
+			"cs":       firstNonEmptyString(payload["cs"], payload["cipherSuites"]),
 			"alpn":     stringValue(payload["alpn"]),
 			"pcs":      firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"]),
 			"vcn":      firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"]),
@@ -1901,6 +1919,9 @@ func mihomoTLSCompatibilityError(link string, parsed *url.URL) error {
 	query, ok := shareLinkTLSQuery(link, parsed)
 	if !ok {
 		return nil
+	}
+	if cipherSuites := firstNonEmptyString(query.Get("cs"), query.Get("cipherSuites")); cipherSuites != "" {
+		return fmt.Errorf("Mihomo cannot represent Xray TLS cipherSuites; use raw, sing-box, or xray-json output")
 	}
 	if _, err := mihomoCertificatePin(query.Get("pcs")); err != nil {
 		return err
@@ -2586,6 +2607,7 @@ func v2rayVMessOutbound(link string, current bool) (string, map[string]any, bool
 	query.Set("host", stringValue(payload["host"]))
 	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
 	query.Set("fp", stringValue(payload["fp"]))
+	query.Set("cs", firstNonEmptyString(payload["cs"], payload["cipherSuites"]))
 	query.Set("alpn", stringValue(payload["alpn"]))
 	query.Set("ech", firstNonEmptyString(payload["ech"], payload["echConfigList"]))
 	query.Set("vcn", firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"]))
@@ -3097,7 +3119,10 @@ func v2rayTLSSettings(query url.Values) map[string]any {
 	if sni := query.Get("sni"); sni != "" {
 		settings["serverName"] = sni
 	}
-	if fp := query.Get("fp"); fp != "" {
+	if cipherSuites := firstNonEmptyString(query.Get("cs"), query.Get("cipherSuites")); cipherSuites != "" {
+		settings["cipherSuites"] = cipherSuites
+		settings["fingerprint"] = "unsafe"
+	} else if fp := query.Get("fp"); fp != "" {
 		settings["fingerprint"] = fp
 	}
 	if alpn := query.Get("alpn"); alpn != "" {
@@ -3964,6 +3989,7 @@ func clashVMessProxy(name string, parsed *url.URL) (map[string]any, bool) {
 	query.Set("host", stringValue(payload["host"]))
 	query.Set("sni", firstNonEmptyString(payload["sni"], payload["host"]))
 	query.Set("fp", stringValue(payload["fp"]))
+	query.Set("cs", firstNonEmptyString(payload["cs"], payload["cipherSuites"]))
 	query.Set("alpn", stringValue(payload["alpn"]))
 	query.Set("pcs", firstNonEmptyString(payload["pcs"], payload["pinSHA256"], payload["pinnedPeerCertSha256"]))
 	query.Set("vcn", firstNonEmptyString(payload["vcn"], payload["verifyPeerCertByName"]))

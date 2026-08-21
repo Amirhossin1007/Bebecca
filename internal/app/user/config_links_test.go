@@ -1512,3 +1512,50 @@ func TestHysteriaShareLinkUsesNativeGeckoDefaultsButRejectsCustomPacketSize(t *t
 		t.Fatalf("expected visible custom Gecko representation error, got %v", err)
 	}
 }
+
+func TestTLSCipherSuitesSurviveResolutionAndShareLinks(t *testing.T) {
+	const suites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+	resolved, err := resolveInbound(map[string]any{
+		"tag": "tls", "protocol": "vless", "port": 443,
+		"streamSettings": map[string]any{
+			"network": "tcp", "security": "tls",
+			"tlsSettings": map[string]any{
+				"cipherSuites": suites,
+				"settings":     map[string]any{"cipherSuites": "legacy"},
+			},
+		},
+	})
+	if err != nil || resolved["cipherSuites"] != suites {
+		t.Fatalf("resolveInbound cipherSuites=%#v err=%v", resolved["cipherSuites"], err)
+	}
+	target := ResolvedInbound{}
+	mergeResolvedInboundMetadata(target, resolved)
+	if target["cipherSuites"] != suites {
+		t.Fatalf("duplicate-tag merge lost cipherSuites: %#v", target)
+	}
+
+	inbound := ResolvedInbound{
+		"port": 443, "network": "tcp", "tls": "tls", "sni": "example.com", "cipherSuites": suites,
+	}
+	settings := map[string]any{"id": "11111111-1111-4111-8111-111111111111", "password": "secret", "method": "aes-256-gcm"}
+	links := []string{
+		vlessShareLink("vless", "example.com", "", inbound, settings),
+		trojanShareLink("trojan", "example.com", "", inbound, settings),
+		shadowsocksShareLink("ss", "example.com", inbound, settings),
+		vmessShareLink("vmess", "example.com", "", inbound, settings),
+	}
+	for _, link := range links[:3] {
+		parsed, parseErr := url.Parse(link)
+		if parseErr != nil || parsed.Query().Get("cs") != suites || parsed.Query().Get("fp") != "unsafe" {
+			t.Fatalf("share link lost cipherSuites: link=%s err=%v", link, parseErr)
+		}
+	}
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(links[3], "vmess://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(decoded, &payload); err != nil || payload["cs"] != suites || payload["fp"] != "unsafe" {
+		t.Fatalf("VMess payload lost cipherSuites: payload=%#v err=%v", payload, err)
+	}
+}

@@ -18,6 +18,7 @@ import {
 	Divider,
 	Flex,
 	FormControl,
+	FormErrorMessage,
 	FormLabel,
 	HStack,
 	IconButton,
@@ -5556,25 +5557,42 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder="example.com"
 													/>
 												</FormControl>
-												<FormControl>
-													<FormLabel>
-														{t("inbounds.tls.cipherSuites")}
-													</FormLabel>
-													<SearchableTagSelect
-														value={formValues.tlsCipherSuites || ""}
-														options={[
-															{ value: "", label: t("common.auto") },
-															...tlsCipherOptions,
-														]}
-														placeholder={t("inbounds.tls.cipherSuites")}
-														onChange={(value) =>
-															form.setValue("tlsCipherSuites", String(value), {
-																shouldDirty: true,
-																shouldValidate: true,
-															})
-														}
-													/>
-												</FormControl>
+												{currentProtocol !== "hysteria" && (
+													<FormControl>
+														<FormLabel>
+															{t("inbounds.tls.cipherSuites")}
+														</FormLabel>
+														<SearchableTagSelect
+															mode="multiple"
+															value={
+																formValues.tlsCipherSuites
+																	?.split(":")
+																	.filter(Boolean) ?? []
+															}
+															options={tlsCipherOptions}
+															placeholder={t("inbounds.tls.cipherSuites")}
+															onChange={(value) => {
+																const suites = (
+																	Array.isArray(value) ? value : [value]
+																).filter(Boolean);
+																form.setValue(
+																	"tlsCipherSuites",
+																	suites.join(":"),
+																	{
+																		shouldDirty: true,
+																		shouldValidate: true,
+																	},
+																);
+																if (suites.length) {
+																	form.setValue("tlsFingerprint", "unsafe", {
+																		shouldDirty: true,
+																		shouldValidate: true,
+																	});
+																}
+															}}
+														/>
+													</FormControl>
+												)}
 											</SimpleGrid>
 											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 												<FormControl>
@@ -5610,7 +5628,9 @@ export const InboundFormModal: FC<Props> = ({
 													/>
 												</FormControl>
 											</SimpleGrid>
-											<FormControl>
+											<FormControl
+												isInvalid={Boolean(fieldValidationErrors.tlsFingerprint)}
+											>
 												<FormLabel>
 													{t("inbounds.tls.fingerprint")}
 												</FormLabel>
@@ -5628,6 +5648,11 @@ export const InboundFormModal: FC<Props> = ({
 														})
 													}
 												/>
+												{fieldValidationErrors.tlsFingerprint && (
+													<FormErrorMessage>
+														{fieldValidationErrors.tlsFingerprint}
+													</FormErrorMessage>
+												)}
 											</FormControl>
 											<FormControl>
 												<FormLabel>{t("inbounds.tls.alpn")}</FormLabel>

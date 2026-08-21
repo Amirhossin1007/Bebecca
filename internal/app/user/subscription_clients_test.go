@@ -272,6 +272,65 @@ func TestV2rayNGSubscriptionsKeepAddressAndPort(t *testing.T) {
 	}
 }
 
+func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+	if _, err := service.repo.db.Exec(`ALTER TABLE subscription_settings ADD COLUMN use_custom_json_for_v2rayng INTEGER DEFAULT 0`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET use_custom_json_for_v2rayng = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE nodes SET xray_config_mode = 'custom', xray_config = (SELECT data FROM xray_config WHERE id = 1) WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE xray_config SET data = '{"inbounds":[]}' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	render := func() map[string]any {
+		t.Helper()
+		response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, UserAgent: "v2rayNG/1.10.28", ReadOnly: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		configs := []map[string]any{}
+		if err := json.Unmarshal(response.Body, &configs); err != nil {
+			t.Fatal(err)
+		}
+		for _, config := range configs {
+			outbound := config["outbounds"].([]any)[0].(map[string]any)
+			if stringValue(outbound["protocol"]) == "vless" {
+				return outbound
+			}
+		}
+		t.Fatal("VLESS outbound not found")
+		return nil
+	}
+
+	before := render()
+	if len(mapValue(mapValue(before["streamSettings"])["finalmask"])) != 0 {
+		t.Fatalf("fixture unexpectedly started with FinalMask: %#v", before)
+	}
+	mask := `{"tcp":[{"type":"fragment","settings":{"lengths":["3-5","6-8"],"delays":["10-20"]}}]}`
+	if _, err := service.repo.db.Exec(`UPDATE hosts SET finalmask = ? WHERE id = 1`, mask); err != nil {
+		t.Fatal(err)
+	}
+	after := render()
+	finalMask := mapValue(mapValue(after["streamSettings"])["finalmask"])
+	tcp := listOfMaps(finalMask["tcp"])
+	if len(tcp) != 1 {
+		t.Fatalf("updated FinalMask was not rendered: %#v", finalMask)
+	}
+	lengths := listAny(mapValue(tcp[0]["settings"])["lengths"])
+	if len(lengths) != 2 || lengths[0] != "3-5" || lengths[1] != "6-8" {
+		t.Fatalf("current fragment ranges were not refreshed: %#v", finalMask)
+	}
+	if _, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray-json", ReadOnly: true}); err == nil {
+		t.Fatal("explicit stable v2ray-json unexpectedly accepted current-only FinalMask")
+	}
+}
+
 func TestSubscriptionClientsKeepShadowsocksHTTPHeader(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()

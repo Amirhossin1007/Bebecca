@@ -10,7 +10,8 @@ import (
 
 func TestParseSubscriptionBodyVLESS(t *testing.T) {
 	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	body := []byte("vless://11111111-1111-4111-8111-111111111111@example.com:443?type=ws&security=tls&host=edge.example.com&path=%2Fws&sni=sni.example.com&fp=chrome&pcs=" + pin + "&vcn=cert.example.com#Edge")
+	const suites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+	body := []byte("vless://11111111-1111-4111-8111-111111111111@example.com:443?type=ws&security=tls&host=edge.example.com&path=%2Fws&sni=sni.example.com&fp=chrome&cs=" + url.QueryEscape(suites) + "&pcs=" + pin + "&vcn=cert.example.com#Edge")
 	outbounds, identities, err := ParseSubscriptionBody(body)
 	if err != nil {
 		t.Fatalf("ParseSubscriptionBody() error = %v", err)
@@ -33,7 +34,7 @@ func TestParseSubscriptionBodyVLESS(t *testing.T) {
 		t.Fatalf("unexpected stream: %#v", stream)
 	}
 	tls := stream["tlsSettings"].(map[string]any)
-	if tls["serverName"] != "sni.example.com" || tls["fingerprint"] != "chrome" {
+	if tls["serverName"] != "sni.example.com" || tls["fingerprint"] != "unsafe" || tls["cipherSuites"] != suites {
 		t.Fatalf("unexpected tls settings: %#v", tls)
 	}
 	if tls["pinnedPeerCertSha256"] != pin || tls["verifyPeerCertByName"] != "cert.example.com" {
@@ -213,6 +214,25 @@ func TestParseVMessXHTTPUsesTypeAsModeAndExtra(t *testing.T) {
 	xhttp := result.Outbound["streamSettings"].(map[string]any)["xhttpSettings"].(map[string]any)
 	if xhttp["mode"] != "stream-up" || xhttp["sessionIDPlacement"] != "query" || xhttp["sessionIDKey"] != "sid" || xhttp["uplinkChunkSize"] != "1024-2048" {
 		t.Fatalf("VMess XHTTP options were not preserved: %#v", xhttp)
+	}
+}
+
+func TestParseVMessTLSCipherSuites(t *testing.T) {
+	const suites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+	payload, err := json.Marshal(map[string]any{
+		"v": "2", "ps": "vmess", "add": "example.com", "port": "443",
+		"id": "11111111-1111-4111-8111-111111111111", "net": "tcp", "tls": "tls", "cs": suites,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := ParseLink("vmess://" + base64.StdEncoding.EncodeToString(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tls := result.Outbound["streamSettings"].(map[string]any)["tlsSettings"].(map[string]any)
+	if tls["cipherSuites"] != suites || tls["fingerprint"] != "unsafe" {
+		t.Fatalf("VMess cipherSuites were not preserved: %#v", tls)
 	}
 }
 

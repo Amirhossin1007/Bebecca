@@ -463,7 +463,7 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 		return
 	}
 	for _, key := range []string{
-		"tls", "sni", "host", "path", "header_type", "fp", "alpn", "ais", "allowinsecure", "flow",
+		"tls", "sni", "host", "path", "header_type", "fp", "alpn", "ais", "allowinsecure", "flow", "cipherSuites",
 		"ech", "echConfigList", "vcn", "verifyPeerCertByName", "pinSHA256", "pinnedPeerCertSha256",
 		"pbk", "publicKey", "public_key", "sids", "sid", "shortIds", "shortId", "spx", "pqv",
 		"fragment_setting", "noise_setting",
@@ -1006,7 +1006,10 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 	tls := stringValue(inbound["tls"])
 	if tls == "tls" {
 		payload["sni"] = stringValue(inbound["sni"])
-		payload["fp"] = stringValue(inbound["fp"])
+		payload["fp"] = clientTLSFingerprint(inbound)
+		if cipherSuites := stringValue(inbound["cipherSuites"]); cipherSuites != "" {
+			payload["cs"] = cipherSuites
+		}
 		if alpn := stringValue(inbound["alpn"]); alpn != "" {
 			payload["alpn"] = alpn
 		}
@@ -1415,7 +1418,10 @@ func appendQueryParamIfNotEmpty(params []queryParam, key string, value any) []qu
 func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) []queryParam {
 	switch tls {
 	case "tls":
-		params = append(params, queryParam{"sni", stringValue(inbound["sni"])}, queryParam{"fp", stringValue(inbound["fp"])})
+		params = append(params, queryParam{"sni", stringValue(inbound["sni"])}, queryParam{"fp", clientTLSFingerprint(inbound)})
+		if cipherSuites := stringValue(inbound["cipherSuites"]); cipherSuites != "" {
+			params = append(params, queryParam{"cs", cipherSuites})
+		}
 		if alpn := stringValue(inbound["alpn"]); alpn != "" {
 			params = append(params, queryParam{"alpn", alpn})
 		}
@@ -1446,6 +1452,13 @@ func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) [
 		}
 	}
 	return params
+}
+
+func clientTLSFingerprint(inbound ResolvedInbound) string {
+	if stringValue(inbound["cipherSuites"]) != "" {
+		return "unsafe"
+	}
+	return stringValue(inbound["fp"])
 }
 
 func appendMaskParams(params []queryParam, inbound ResolvedInbound) []queryParam {
@@ -1527,6 +1540,9 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		tlsSettings := mapValue(stream["tlsSettings"])
 		tlsMeta := mapValue(tlsSettings["settings"])
 		resolved["sni"] = nonEmptyStrings(firstNonEmptyString(tlsSettings["serverName"], tlsSettings["sni"], tlsMeta["serverName"], tlsMeta["sni"]))
+		if cipherSuites := firstNonEmptyString(tlsSettings["cipherSuites"], tlsMeta["cipherSuites"]); cipherSuites != "" {
+			resolved["cipherSuites"] = cipherSuites
+		}
 		if fp := firstNonEmptyString(tlsMeta["fingerprint"], tlsSettings["fingerprint"]); fp != "" {
 			resolved["fp"] = fp
 		}
