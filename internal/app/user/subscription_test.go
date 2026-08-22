@@ -76,7 +76,7 @@ func TestRenderClashLikeYAMLBuildsRealProxies(t *testing.T) {
 func TestShadowsocksHTTPHeaderSurvivesEveryStructuredSubscription(t *testing.T) {
 	link := shadowsocksShareLink("ss-http", "ss.example.com", ResolvedInbound{
 		"port":        int64(8388),
-		"network":     "tcp",
+		"network":     "raw",
 		"tls":         "none",
 		"header_type": "http",
 		"host":        "header.example.com",
@@ -125,6 +125,101 @@ func TestShadowsocksHTTPHeaderSurvivesEveryStructuredSubscription(t *testing.T) 
 	ss := outbounds[1].(map[string]any)
 	if ss["type"] != "shadowsocks" || ss["plugin"] != "obfs-local" || ss["plugin_opts"] != "obfs=http;obfs-host=header.example.com" {
 		t.Fatalf("sing-box output lost the Shadowsocks plugin: %#v", ss)
+	}
+}
+
+func TestShadowsocksTLSUsesClientNativeLinkWithoutLossyConversion(t *testing.T) {
+	link := shadowsocksShareLink("ss-tls", "ss.example.com", ResolvedInbound{
+		"port": 443, "network": "ws", "tls": "tls", "sni": "sni.example.com",
+		"host": "edge.example.com", "path": "/ss", "fp": "chrome",
+		"finalmask": map[string]any{"tcp": []any{map[string]any{
+			"type": "fragment", "settings": map[string]any{"length": "3-5", "delay": "1-2"},
+		}}},
+		"settings": map[string]any{"method": "aes-256-gcm"},
+	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
+	if !strings.HasPrefix(link, "v2rayn://shadowsocks/") {
+		t.Fatalf("native Shadowsocks TLS must not use a lossy ss:// query: %s", link)
+	}
+	body, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal([]byte(body), &configs); err != nil {
+		t.Fatal(err)
+	}
+	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
+	if stream["network"] != "ws" || stream["security"] != "tls" || stream["tlsSettings"].(map[string]any)["serverName"] != "sni.example.com" {
+		t.Fatalf("Xray JSON lost Shadowsocks TLS: %#v", stream)
+	}
+	if masks := listOfMaps(mapValue(stream["finalmask"])["tcp"]); len(masks) != 1 || stringValue(masks[0]["type"]) != "fragment" {
+		t.Fatalf("Xray JSON lost Shadowsocks FinalMask: %#v", stream)
+	}
+	if binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_TEST_BINARY")); binary != "" {
+		config, err := json.Marshal(configs[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, config, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command(binary, "run", "-test", "-config", path).CombinedOutput(); err != nil {
+			t.Fatalf("official Xray rejected Shadowsocks TLS: %v\n%s", err, output)
+		}
+	}
+	if _, err := renderClashLikeYAML("alice", []string{link}, true); err == nil {
+		t.Fatal("Mihomo conversion must reject native Shadowsocks TLS instead of silently emitting plain SS")
+	}
+	if _, err := renderSingBoxJSON([]string{link}); err == nil {
+		t.Fatal("sing-box conversion must reject native Shadowsocks TLS instead of silently emitting plain SS")
+	}
+}
+
+func TestShadowsocksWebSocketHeartbeatSurvivesXrayJSON(t *testing.T) {
+	link, err := buildShareLink("ss", "ss.example.com", ResolvedInbound{
+		"protocol": "shadowsocks", "port": 443, "network": "ws", "tls": "tls",
+		"sni": "ss.example.com", "path": "/ss", "heartbeatPeriod": 30,
+	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(body, `"heartbeatPeriod": 30`) {
+		t.Fatalf("xray-json lost Shadowsocks WebSocket heartbeatPeriod: body=%s err=%v", body, err)
+	}
+}
+
+func TestShadowsocksMuxOnlyIsNotSilentlyDowngraded(t *testing.T) {
+	link := shadowsocksShareLink("ss-mux", "ss.example.com", ResolvedInbound{
+		"port": 443, "network": "tcp", "mux_enable": true,
+	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
+	profile, err := outboundsub.DecodeV2rayNShadowsocks(link)
+	if err != nil || !profile.MuxEnabled {
+		t.Fatalf("Shadowsocks mux was not represented in the client link: profile=%#v err=%v", profile, err)
+	}
+	parsed, err := parseSubscriptionShareURL(link)
+	if err != nil || !shadowsocksHasNativeStreamSettings(parsed) {
+		t.Fatalf("Shadowsocks mux-only link was treated as plain SIP002: parsed=%#v err=%v", parsed, err)
+	}
+	if _, ok := singBoxShadowsocksOutbound(parsed, "ss-mux"); ok {
+		t.Fatal("sing-box conversion silently dropped Shadowsocks mux")
+	}
+	if _, ok := clashShadowsocksProxy("ss-mux", parsed); ok {
+		t.Fatal("Mihomo conversion silently dropped Shadowsocks mux")
+	}
+	body, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(body, `"mux"`) || !strings.Contains(body, `"enabled": true`) {
+		t.Fatalf("xray-json lost standalone Shadowsocks mux: body=%s err=%v", body, err)
+	}
+	headerLink := outboundsub.EncodeV2rayNShadowsocks(outboundsub.V2rayNShadowsocksProfile{
+		ConfigType: 3, ConfigVersion: 4, Address: "ss.example.com", Port: 443,
+		Password: "secret", Network: "raw", ProtocolExtra: outboundsub.V2rayNShadowsocksProtocolExtra{Method: "aes-256-gcm"},
+		TransportExtra: outboundsub.V2rayNShadowsocksTransportExtra{RawHeaderType: "srtp"},
+	})
+	headerParsed, err := parseSubscriptionShareURL(headerLink)
+	if err != nil || !shadowsocksHasNativeStreamSettings(headerParsed) {
+		t.Fatalf("native Shadowsocks raw header was treated as plain SIP002: parsed=%#v err=%v", headerParsed, err)
 	}
 }
 
@@ -1383,9 +1478,15 @@ func TestXrayJSONRequiresValidCertificatePinsForInsecureTLS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ssInsecure := outboundsub.EncodeV2rayNShadowsocks(outboundsub.V2rayNShadowsocksProfile{
+		ConfigType: 3, ConfigVersion: 4, Address: "example.com", Port: 443,
+		Password: "secret", Network: "ws", StreamSecurity: "tls", AllowInsecure: "true",
+		ProtocolExtra: outboundsub.V2rayNShadowsocksProtocolExtra{Method: "aes-256-gcm"},
+	})
 	for name, link := range map[string]string{
 		"VLESS":    base,
 		"Trojan":   "trojan://secret@example.com:443?security=tls&insecure=1",
+		"SS":       ssInsecure,
 		"Hysteria": "hysteria2://secret@example.com:443/?insecure=1",
 		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessInsecure),
 	} {
@@ -1418,9 +1519,15 @@ func TestXrayJSONRequiresValidCertificatePinsForInsecureTLS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ssInvalidPin := outboundsub.EncodeV2rayNShadowsocks(outboundsub.V2rayNShadowsocksProfile{
+		ConfigType: 3, ConfigVersion: 4, Address: "example.com", Port: 443,
+		Password: "secret", Network: "ws", StreamSecurity: "tls", CertSHA: "abcd",
+		ProtocolExtra: outboundsub.V2rayNShadowsocksProtocolExtra{Method: "aes-256-gcm"},
+	})
 	for name, link := range map[string]string{
 		"VLESS":    strings.Replace(base, "&insecure=1", "&pcs=abcd", 1),
 		"Trojan":   "trojan://secret@example.com:443?security=tls&pcs=abcd",
+		"SS":       ssInvalidPin,
 		"Hysteria": "hysteria2://secret@example.com:443/?pinSHA256=abcd",
 		"VMess":    "vmess://" + base64.RawStdEncoding.EncodeToString(vmessPayload),
 	} {

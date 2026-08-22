@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/flosch/pongo2/v6"
+	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	"github.com/rebeccapanel/rebecca/internal/app/usage"
 )
 
@@ -429,8 +430,16 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 			return "", fmt.Errorf("Outline cannot represent Xray FinalMask; use xray-json output")
 		}
 		servers := make([]string, 0, len(raw))
-		for _, link := range raw {
-			if strings.HasPrefix(strings.TrimSpace(link), "ss://") {
+		for i, link := range raw {
+			parsed, parseErr := parseSubscriptionShareURL(link)
+			scheme, knownScheme := supportedSubscriptionScheme(link, parsed)
+			if parseErr != nil && knownScheme {
+				return "", subscriptionLinkConversionError("Outline", i, scheme, parseErr)
+			}
+			if parseErr == nil && parsed.Scheme == "ss" && shadowsocksHasNativeStreamSettings(parsed) {
+				return "", fmt.Errorf("Outline cannot represent Shadowsocks Xray transport or TLS; use raw or xray-json output")
+			}
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "ss://") {
 				servers = append(servers, link)
 			}
 		}
@@ -505,7 +514,9 @@ func configLinksHaveUnrepresentedFinalMask(response ConfigLinksResponse, scheme 
 			continue
 		}
 		link := response.Links[i]
-		if (scheme == "" || strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), scheme+"://")) && !hysteriaFinalMaskIsNative(link, metadata.FinalMask) {
+		parsed, _ := parseSubscriptionShareURL(link)
+		matchesScheme := scheme == "" || (parsed != nil && strings.EqualFold(parsed.Scheme, scheme))
+		if matchesScheme && !hysteriaFinalMaskIsNative(link, metadata.FinalMask) {
 			return true
 		}
 	}
@@ -1596,11 +1607,7 @@ func singBoxShadowsocksOutbound(parsed *url.URL, tag string) (map[string]any, bo
 		}
 		return outbound, true
 	}
-	network := firstNonEmptyString(query.Get("type"), "tcp")
-	if network != "tcp" && network != "raw" {
-		return nil, false
-	}
-	if security := query.Get("security"); security != "" && security != "none" {
+	if shadowsocksHasNativeStreamSettings(parsed) {
 		return nil, false
 	}
 	return outbound, true
@@ -1893,7 +1900,7 @@ func shareLinkTLSQuery(link string, parsed *url.URL) (url.Values, bool) {
 	switch parsed.Scheme {
 	case "hysteria2", "hy2":
 		security = "tls"
-	case "vless":
+	case "vless", "ss":
 		if security != "tls" && security != "reality" {
 			return nil, false
 		}
@@ -2230,7 +2237,7 @@ func xrayJSONTLSCompatibilityError(link string, parsed *url.URL) error {
 		switch parsed.Scheme {
 		case "hysteria2", "hy2":
 			effectiveTLS = true
-		case "vless":
+		case "vless", "ss":
 			effectiveTLS = strings.EqualFold(query.Get("security"), "tls")
 		case "trojan":
 			security := strings.TrimSpace(query.Get("security"))
@@ -2443,6 +2450,9 @@ func v2rayShadowsocksOutbound(parsed *url.URL, current bool) (string, map[string
 	}
 	if stream := v2rayStreamSettingsForDialect(query, current); len(stream) > 0 {
 		outbound["streamSettings"] = stream
+	}
+	if queryFlag(query, "mux") {
+		outbound["mux"] = map[string]any{"enabled": true}
 	}
 	return v2rayLinkRemark(parsed), outbound, true
 }
@@ -2916,8 +2926,8 @@ func normalizeShareMKCPHeader(value string) string {
 }
 
 func shareLinkHasFinalMask(link string, parsed *url.URL) bool {
-	if parsed != nil && (parsed.Scheme == "vless" || parsed.Scheme == "trojan") {
-		return strings.TrimSpace(parsed.Query().Get("fm")) != ""
+	if parsed != nil && strings.TrimSpace(parsed.Query().Get("fm")) != "" {
+		return true
 	}
 	if !strings.HasPrefix(link, "vmess://") {
 		return false
@@ -3734,6 +3744,13 @@ func parseSubscriptionShareURL(link string) (*url.URL, error) {
 	if strings.HasPrefix(link, "hysteria2://") || strings.HasPrefix(link, "hy2://") {
 		return parseHysteria2ShareURL(link)
 	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "v2rayn://shadowsocks/") {
+		normalized, err := outboundsubapp.NormalizeV2rayNShadowsocks(link)
+		if err != nil {
+			return nil, err
+		}
+		return url.Parse(normalized)
+	}
 	return url.Parse(link)
 }
 
@@ -3749,6 +3766,9 @@ func decodedURLUserInfo(user *url.Userinfo) string {
 }
 
 func supportedSubscriptionScheme(link string, parsed *url.URL) (string, bool) {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), "v2rayn://shadowsocks/") {
+		return "ss", true
+	}
 	scheme := ""
 	if parsed != nil {
 		scheme = strings.ToLower(strings.TrimSpace(parsed.Scheme))
@@ -3789,6 +3809,9 @@ func clashShadowsocksProxy(name string, parsed *url.URL) (map[string]any, bool) 
 	}
 	query := parsed.Query()
 	plugin, options := parseSIP003Plugin(query.Get("plugin"))
+	if plugin == "" && shadowsocksHasNativeStreamSettings(parsed) {
+		return nil, false
+	}
 	switch plugin {
 	case "obfs-local", "simple-obfs":
 		proxy["plugin"] = "obfs"
@@ -3810,6 +3833,17 @@ func clashShadowsocksProxy(name string, parsed *url.URL) (map[string]any, bool) 
 		proxy["plugin-opts"] = pluginOpts
 	}
 	return proxy, true
+}
+
+func shadowsocksHasNativeStreamSettings(parsed *url.URL) bool {
+	if parsed == nil || parsed.Scheme != "ss" {
+		return false
+	}
+	query := parsed.Query()
+	security := strings.ToLower(strings.TrimSpace(query.Get("security")))
+	network := strings.ToLower(firstNonEmptyString(query.Get("type"), "tcp"))
+	header := strings.ToLower(strings.TrimSpace(query.Get("headerType")))
+	return (security != "" && security != "none") || (network != "tcp" && network != "raw") || (header != "" && header != "none") || strings.TrimSpace(query.Get("fm")) != "" || queryFlag(query, "mux")
 }
 
 func clashHysteriaProxy(name string, parsed *url.URL) (map[string]any, bool) {
