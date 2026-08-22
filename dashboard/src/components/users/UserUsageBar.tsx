@@ -118,53 +118,56 @@ export const UserUsageBar: FC<UserUsageBarProps> = ({
 			maxW="full"
 			overflow="hidden"
 		>
-			<Flex align="center" gap={2} w="full" minW={0}>
+			<Flex align="center" gap={0} w="full" minW={0}>
 				{track}
 				<Text
 					className="rb-user-usage-percent"
 					flex={`0 0 ${PERCENT_SLOT_WIDTH}`}
-					textAlign="end"
+					textAlign="start"
 					dir="ltr"
 				>
 					{percentLabel}
 				</Text>
 			</Flex>
-			<Flex
-				align="center"
-				flexWrap="wrap"
-				columnGap={3}
-				rowGap={0.5}
-				w="full"
-				minW={0}
-				fontSize="xs"
-				dir="ltr"
-			>
-				<Text
-					className="rb-user-usage-pair"
-					noOfLines={1}
+			<Flex align="center" w="full" minW={0} gap={2}>
+				<Flex
+					align="center"
+					flex="1 1 auto"
 					minW={0}
-					flex="0 1 auto"
-					textAlign="start"
-					sx={{ unicodeBidi: "isolate" }}
+					flexWrap="wrap"
+					columnGap={3}
+					rowGap={0.5}
+					fontSize="xs"
+					dir="ltr"
 				>
-					{formatUsagePair(used, total)}
-					{resetLabel ? ` · ${resetLabel}` : ""}
-				</Text>
-				{lifetimeUsed !== undefined && (
 					<Text
-						color="panel.textMuted"
+						className="rb-user-usage-pair"
 						noOfLines={1}
-						flexShrink={0}
-						ms="auto"
-						textAlign="end"
+						minW={0}
+						flex="0 1 auto"
+						textAlign="start"
 						sx={{ unicodeBidi: "isolate" }}
 					>
-						{lifetimeLabel ? `${lifetimeLabel}: ` : ""}
-						<chakra.span fontWeight="semibold" color="panel.textSecondary">
-							{formatBytes(lifetimeUsed)}
-						</chakra.span>
+						{formatUsagePair(used, total)}
+						{resetLabel ? ` · ${resetLabel}` : ""}
 					</Text>
-				)}
+					{lifetimeUsed !== undefined && (
+						<Text
+							color="panel.textMuted"
+							noOfLines={1}
+							flexShrink={0}
+							ms="auto"
+							textAlign="end"
+							sx={{ unicodeBidi: "isolate" }}
+						>
+							{lifetimeLabel ? `${lifetimeLabel}: ` : ""}
+							<chakra.span fontWeight="semibold" color="panel.textSecondary">
+								{formatBytes(lifetimeUsed)}
+							</chakra.span>
+						</Text>
+					)}
+				</Flex>
+				<Box flex={`0 0 ${PERCENT_SLOT_WIDTH}`} aria-hidden />
 			</Flex>
 		</Stack>
 	);

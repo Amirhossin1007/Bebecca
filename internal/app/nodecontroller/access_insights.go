@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rebeccapanel/rebecca/internal/app/online"
 )
 
 const maxAccessInsightRecords = 5000
@@ -15,6 +17,36 @@ type OnlineAccessQuery struct {
 	Search  string
 	Limit   int
 	Cutoff  time.Time
+}
+
+func (r Repository) OnlineAccessUserTotal(ctx context.Context, query OnlineAccessQuery) (int64, error) {
+	predicates := make([]string, 0, 2)
+	if ok, err := r.tableExists(ctx, "user_online_ips"); err != nil {
+		return 0, err
+	} else if ok {
+		predicates = append(predicates, online.XrayUserPredicate)
+	}
+	if ok, err := r.tableExists(ctx, "vpn_user_sessions"); err != nil {
+		return 0, err
+	} else if ok {
+		predicates = append(predicates, online.SessionUserPredicate)
+	}
+	if len(predicates) == 0 {
+		return 0, nil
+	}
+	cutoff := r.timeArg(accessRecordCutoff(query))
+	args := []any{"deleted"}
+	for range predicates {
+		args = append(args, cutoff)
+	}
+	clauses := []string{"u.status != ?", "(" + strings.Join(predicates, " OR ") + ")"}
+	if query.AdminID != nil && *query.AdminID > 0 {
+		clauses = append(clauses, "u.admin_id = ?")
+		args = append(args, *query.AdminID)
+	}
+	var total int64
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(u.id) FROM users u WHERE "+strings.Join(clauses, " AND "), args...).Scan(&total)
+	return total, err
 }
 
 func (r Repository) OnlineAccessRecords(ctx context.Context, query OnlineAccessQuery) ([]UserOnlineIPRecord, error) {
@@ -58,7 +90,8 @@ FROM user_online_ips uoi
 JOIN users u ON u.id = uoi.user_id
 LEFT JOIN nodes n ON n.id = uoi.node_id
 LEFT JOIN services s ON s.id = u.service_id
-WHERE uoi.last_seen_at >= ? AND u.status != 'deleted'`+where+`
+WHERE uoi.last_seen_at >= ? AND u.status != 'deleted'
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')`+where+`
 ORDER BY uoi.last_seen_at DESC
 LIMIT ?`, args...)
 	if err != nil {
@@ -96,7 +129,8 @@ FROM vpn_user_sessions vus
 JOIN users u ON u.id = vus.user_id
 LEFT JOIN nodes n ON n.id = vus.node_id
 LEFT JOIN services s ON s.id = u.service_id
-WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ? AND u.status != 'deleted'`+where+`
+WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ? AND u.status != 'deleted'
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')`+where+`
 ORDER BY vus.last_seen_at DESC
 LIMIT ?`, args...)
 	if err != nil {
