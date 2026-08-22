@@ -35,6 +35,7 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
+	CommandLineIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
 	EyeIcon,
@@ -82,6 +83,7 @@ const MenuIcon = chakra(Bars3Icon, iconProps);
 const LanguageIconStyled = chakra(LanguageIcon, iconProps);
 const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
+const ExternalAppsIcon = chakra(CommandLineIcon, iconProps);
 const UserIcon = chakra(UserCircleIcon, iconProps);
 const HomeIcon = chakra(HeroHomeIcon, iconProps);
 const UsersIcon = chakra(UserGroupIcon, iconProps);
@@ -292,6 +294,14 @@ export function AppLayout() {
 						label: t("phpmyadmin.menu"),
 						to: "/phpmyadmin",
 						icon: PHPMyAdminIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "external-apps",
+						label: t("externalApps.menu"),
+						to: "/external-apps",
+						icon: ExternalAppsIcon,
 					}
 				: null,
 			{
@@ -999,13 +1009,13 @@ export function AppLayout() {
 													bg: "transparent !important",
 												},
 											}}
-										onClick={async () => {
-											try {
-												await logoutSession();
-											} finally {
-												clearClientSession();
-												navigate("/login");
-											}
+											onClick={async () => {
+												try {
+													await logoutSession();
+												} finally {
+													clearClientSession();
+													navigate("/login");
+												}
 											}}
 										>
 											{t("header.logout")}
@@ -1461,14 +1471,14 @@ export function AppLayout() {
 																	_active={{ bg: menuHover }}
 																	_focus={{ bg: "transparent" }}
 																	_focusVisible={{ bg: menuHover }}
-																onClick={async () => {
-																	try {
-																		await logoutSession();
-																	} finally {
-																		clearClientSession();
-																		handleAccountMenuClose();
-																		navigate("/login");
-																	}
+																	onClick={async () => {
+																		try {
+																			await logoutSession();
+																		} finally {
+																			clearClientSession();
+																			handleAccountMenuClose();
+																			navigate("/login");
+																		}
 																	}}
 																>
 																	{t("header.logout")}

@@ -399,7 +399,7 @@ const AccessInsightsPage: FC = () => {
 					summaryItems={[
 						{
 							label: t("pages.accessInsights.onlineUsers"),
-							value: filteredItems.length,
+							value: data?.online_total ?? 0,
 							colorScheme: "green",
 						},
 						{
@@ -525,7 +525,7 @@ const AccessInsightsPage: FC = () => {
 						</Text>
 					}
 					pagination={pagination}
-					mobileBreakpoint="lg"
+					mobileBreakpoint="md"
 					dir={isRTL ? "rtl" : "ltr"}
 					tableProps={{
 						className: isRTL ? "rb-rtl-table" : undefined,

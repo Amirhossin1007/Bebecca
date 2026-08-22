@@ -12,11 +12,12 @@ import (
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/rebeccapanel/rebecca/internal/app/online"
 )
 
 const (
-	onlineIPActiveWindow = 5 * time.Minute
-	ipBlockTTLSeconds    = uint32(2 * 60)
+	ipBlockTTLSeconds = uint32(2 * 60)
 )
 
 type OnlineIPSample struct {
@@ -24,6 +25,12 @@ type OnlineIPSample struct {
 	Protocol   string
 	IP         string
 	LastSeenAt time.Time
+}
+
+type onlineIPSampleKey struct {
+	userID   int64
+	protocol string
+	ip       string
 }
 
 type UserOnlineIPRecord struct {
@@ -63,7 +70,7 @@ type limiterEndpoint struct {
 }
 
 func onlineIPActiveCutoff() time.Time {
-	return time.Now().UTC().Add(-onlineIPActiveWindow)
+	return online.Cutoff(time.Now())
 }
 
 func onlineIPSamplesFromBatch(items []*nodev1.OnlineUserIP) []OnlineIPSample {
@@ -107,6 +114,44 @@ func usableOnlineIP(value string) bool {
 	return !addr.IsLoopback() && !addr.IsUnspecified() && !addr.IsMulticast()
 }
 
+func normalizedOnlineIPSamples(samples []OnlineIPSample) []OnlineIPSample {
+	latest := make(map[onlineIPSampleKey]OnlineIPSample, len(samples))
+	for _, sample := range samples {
+		addr, ok := normalizedUsableIP(sample.IP)
+		if sample.UserID <= 0 || !ok {
+			continue
+		}
+		protocol := normalizedOnlineProtocol(sample.Protocol)
+		if protocol == "" {
+			protocol = "xray"
+		}
+		if sample.LastSeenAt.IsZero() {
+			sample.LastSeenAt = time.Now().UTC()
+		}
+		sample.Protocol = protocol
+		sample.IP = addr
+		key := onlineIPSampleKey{userID: sample.UserID, protocol: protocol, ip: addr}
+		if current, exists := latest[key]; !exists || sample.LastSeenAt.After(current.LastSeenAt) {
+			latest[key] = sample
+		}
+	}
+
+	result := make([]OnlineIPSample, 0, len(latest))
+	for _, sample := range latest {
+		result = append(result, sample)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].UserID != result[j].UserID {
+			return result[i].UserID < result[j].UserID
+		}
+		if result[i].Protocol != result[j].Protocol {
+			return result[i].Protocol < result[j].Protocol
+		}
+		return result[i].IP < result[j].IP
+	})
+	return result
+}
+
 func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, samples []OnlineIPSample) error {
 	if nodeID <= 0 {
 		return nil
@@ -120,18 +165,7 @@ func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, sample
 	}
 	defer tx.Rollback()
 
-	for _, sample := range samples {
-		if sample.UserID <= 0 || !usableOnlineIP(sample.IP) {
-			continue
-		}
-		protocol := normalizedOnlineProtocol(sample.Protocol)
-		if protocol == "" {
-			protocol = "xray"
-		}
-		lastSeen := sample.LastSeenAt
-		if lastSeen.IsZero() {
-			lastSeen = time.Now().UTC()
-		}
+	for _, sample := range normalizedOnlineIPSamples(samples) {
 		if r.dialect == "mysql" || r.dialect == "mariadb" {
 			_, err = tx.ExecContext(ctx, `
 INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at)
@@ -139,9 +173,9 @@ VALUES (?, ?, ?, ?, ?)
 ON DUPLICATE KEY UPDATE last_seen_at = VALUES(last_seen_at)`,
 				nodeID,
 				sample.UserID,
-				protocol,
-				strings.TrimSpace(sample.IP),
-				r.timeArg(lastSeen.UTC()),
+				sample.Protocol,
+				sample.IP,
+				r.timeArg(sample.LastSeenAt.UTC()),
 			)
 		} else {
 			_, err = tx.ExecContext(ctx, `
@@ -150,22 +184,23 @@ VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(node_id, user_id, protocol, ip) DO UPDATE SET last_seen_at = excluded.last_seen_at`,
 				nodeID,
 				sample.UserID,
-				protocol,
-				strings.TrimSpace(sample.IP),
-				r.timeArg(lastSeen.UTC()),
+				sample.Protocol,
+				sample.IP,
+				r.timeArg(sample.LastSeenAt.UTC()),
 			)
 		}
 		if err != nil {
 			return err
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM user_online_ips WHERE node_id = ? AND last_seen_at < ?`,
-		nodeID,
-		r.timeArg(time.Now().UTC().Add(-onlineIPActiveWindow*2)),
-	); err != nil {
+	if err := tx.Commit(); err != nil {
 		return err
 	}
-	return tx.Commit()
+	_, err = r.db.ExecContext(ctx, `DELETE FROM user_online_ips WHERE node_id = ? AND last_seen_at < ?`,
+		nodeID,
+		r.timeArg(time.Now().UTC().Add(-online.ActiveWindow*2)),
+	)
+	return err
 }
 
 func (r Repository) UserOnlineIPs(ctx context.Context, userID int64, cutoff time.Time) ([]UserOnlineIPRecord, error) {
@@ -179,6 +214,7 @@ SELECT uoi.node_id, COALESCE(n.name, ''), uoi.user_id, uoi.protocol, uoi.ip, uoi
 FROM user_online_ips uoi
 LEFT JOIN nodes n ON n.id = uoi.node_id
 WHERE uoi.user_id = ? AND uoi.last_seen_at >= ?
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 ORDER BY uoi.last_seen_at DESC, uoi.node_id, uoi.protocol, uoi.ip`,
 			userID,
 			r.timeArg(cutoff.UTC()),
@@ -213,6 +249,7 @@ SELECT vus.node_id, COALESCE(n.name, ''), vus.user_id, vus.protocol, COALESCE(vu
 FROM vpn_user_sessions vus
 LEFT JOIN nodes n ON n.id = vus.node_id
 WHERE vus.user_id = ? AND vus.ended_at IS NULL
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 ORDER BY vus.last_seen_at DESC, vus.node_id, vus.protocol, vus.session_id`,
 			userID,
 		)
@@ -254,6 +291,10 @@ func (c Controller) UserOnlineIPs(ctx context.Context, userID int64) ([]UserOnli
 
 func (c Controller) OnlineAccessRecords(ctx context.Context, query OnlineAccessQuery) ([]UserOnlineIPRecord, error) {
 	return c.repo.OnlineAccessRecords(ctx, query)
+}
+
+func (c Controller) OnlineAccessUserTotal(ctx context.Context, query OnlineAccessQuery) (int64, error) {
+	return c.repo.OnlineAccessUserTotal(ctx, query)
 }
 
 func (c Controller) applyIPLimitBlocksForNode(ctx context.Context, client *nodeclient.Client, node NodeRow) error {
