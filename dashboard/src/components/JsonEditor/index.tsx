@@ -12,6 +12,7 @@ import {
 } from "@chakra-ui/react";
 import JSONEditor, { type JSONEditorMode } from "jsoneditor";
 import "jsoneditor/dist/jsoneditor.css";
+import "ace-builds/src-noconflict/ace";
 import "ace-builds/src-noconflict/mode-json";
 import "ace-builds/src-noconflict/ext-searchbox";
 import "ace-builds/src-noconflict/ext-language_tools";
