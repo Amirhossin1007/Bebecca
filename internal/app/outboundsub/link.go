@@ -31,6 +31,177 @@ type ParseResult struct {
 	Identity string
 }
 
+// V2rayNShadowsocksProfile is the v2rayN/v2rayNG internal share format used
+// when native Xray stream settings cannot be represented by SIP002.
+type V2rayNShadowsocksProfile struct {
+	ConfigType           int                             `json:"ConfigType"`
+	ConfigVersion        int                             `json:"ConfigVersion"`
+	Remarks              string                          `json:"Remarks,omitempty"`
+	Address              string                          `json:"Address"`
+	Port                 int                             `json:"Port"`
+	Password             string                          `json:"Password"`
+	Network              string                          `json:"Network,omitempty"`
+	StreamSecurity       string                          `json:"StreamSecurity,omitempty"`
+	AllowInsecure        string                          `json:"AllowInsecure,omitempty"`
+	SNI                  string                          `json:"Sni,omitempty"`
+	ALPN                 string                          `json:"Alpn,omitempty"`
+	Fingerprint          string                          `json:"Fingerprint,omitempty"`
+	PublicKey            string                          `json:"PublicKey,omitempty"`
+	ShortID              string                          `json:"ShortId,omitempty"`
+	SpiderX              string                          `json:"SpiderX,omitempty"`
+	MLDSA65Verify        string                          `json:"Mldsa65Verify,omitempty"`
+	CipherSuites         string                          `json:"CipherSuites,omitempty"` // Rebecca/xray-json extension.
+	MuxEnabled           bool                            `json:"MuxEnabled,omitempty"`   // Supported by v2rayN; ignored by v2rayNG.
+	CertSHA              string                          `json:"CertSha,omitempty"`
+	ECHConfigList        string                          `json:"EchConfigList,omitempty"`
+	VerifyPeerCertByName string                          `json:"VerifyPeerCertByName,omitempty"`
+	FinalMask            string                          `json:"Finalmask,omitempty"`
+	ProtocolExtra        V2rayNShadowsocksProtocolExtra  `json:"ProtoExtraObj"`
+	TransportExtra       V2rayNShadowsocksTransportExtra `json:"TransportExtraObj"`
+}
+
+type V2rayNShadowsocksProtocolExtra struct {
+	Method string `json:"SsMethod"`
+}
+
+type V2rayNShadowsocksTransportExtra struct {
+	RawHeaderType string `json:"RawHeaderType,omitempty"`
+	Host          string `json:"Host,omitempty"`
+	Path          string `json:"Path,omitempty"`
+	XHTTPMode     string `json:"XhttpMode,omitempty"`
+	XHTTPExtra    string `json:"XhttpExtra,omitempty"`
+	GRPCAuthority string `json:"GrpcAuthority,omitempty"`
+	GRPCService   string `json:"GrpcServiceName,omitempty"`
+	GRPCMode      string `json:"GrpcMode,omitempty"`
+	KCPHeaderType string `json:"KcpHeaderType,omitempty"`
+	KCPSeed       string `json:"KcpSeed,omitempty"`
+	KCPMTU        int    `json:"KcpMtu,omitempty"`
+	KCPTTI        int    `json:"KcpTti,omitempty"`          // Rebecca/xray-json extension.
+	Heartbeat     int    `json:"HeartbeatPeriod,omitempty"` // Rebecca/xray-json extension.
+}
+
+func EncodeV2rayNShadowsocks(profile V2rayNShadowsocksProfile) string {
+	payload, _ := json.Marshal(profile)
+	return "v2rayn://shadowsocks/" + base64.RawURLEncoding.EncodeToString(payload)
+}
+
+func DecodeV2rayNShadowsocks(link string) (V2rayNShadowsocksProfile, error) {
+	const prefix = "v2rayn://shadowsocks/"
+	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(link)), prefix) {
+		return V2rayNShadowsocksProfile{}, fmt.Errorf("not a v2rayN Shadowsocks link")
+	}
+	payload := strings.TrimSpace(link)[len(prefix):]
+	decoded, err := base64DecodeFlexible(payload)
+	if err != nil {
+		return V2rayNShadowsocksProfile{}, fmt.Errorf("v2rayN Shadowsocks decode: %w", err)
+	}
+	var profile V2rayNShadowsocksProfile
+	if err := json.Unmarshal([]byte(decoded), &profile); err != nil {
+		return V2rayNShadowsocksProfile{}, fmt.Errorf("v2rayN Shadowsocks JSON: %w", err)
+	}
+	if profile.ConfigType != 3 || profile.ConfigVersion != 4 || strings.TrimSpace(profile.Address) == "" || profile.Port < 1 || profile.Port > 65535 || strings.TrimSpace(profile.ProtocolExtra.Method) == "" || strings.TrimSpace(profile.Password) == "" {
+		return V2rayNShadowsocksProfile{}, fmt.Errorf("invalid v2rayN Shadowsocks profile")
+	}
+	network := strings.ToLower(strings.TrimSpace(profile.Network))
+	switch network {
+	case "", "raw", "tcp", "kcp", "ws", "httpupgrade", "xhttp", "grpc":
+	default:
+		return V2rayNShadowsocksProfile{}, fmt.Errorf("unsupported v2rayN Shadowsocks network %q", profile.Network)
+	}
+	security := strings.ToLower(strings.TrimSpace(profile.StreamSecurity))
+	if security != "" && security != "none" && security != "tls" && security != "reality" {
+		return V2rayNShadowsocksProfile{}, fmt.Errorf("unsupported v2rayN Shadowsocks security %q", profile.StreamSecurity)
+	}
+	if profile.FinalMask != "" {
+		var finalMask map[string]any
+		if json.Unmarshal([]byte(profile.FinalMask), &finalMask) != nil || len(finalMask) == 0 {
+			return V2rayNShadowsocksProfile{}, fmt.Errorf("invalid v2rayN Shadowsocks FinalMask")
+		}
+	}
+	if profile.TransportExtra.XHTTPExtra != "" {
+		var extra map[string]any
+		if json.Unmarshal([]byte(profile.TransportExtra.XHTTPExtra), &extra) != nil {
+			return V2rayNShadowsocksProfile{}, fmt.Errorf("invalid v2rayN Shadowsocks XHTTP extra")
+		}
+	}
+	return profile, nil
+}
+
+// NormalizeV2rayNShadowsocks converts the client-internal envelope into the
+// existing Xray-aware SS URL representation used only inside Rebecca.
+func NormalizeV2rayNShadowsocks(link string) (string, error) {
+	profile, err := DecodeV2rayNShadowsocks(link)
+	if err != nil {
+		return "", err
+	}
+	method := strings.TrimSpace(profile.ProtocolExtra.Method)
+	userInfo := base64.RawURLEncoding.EncodeToString([]byte(method + ":" + profile.Password))
+	if strings.HasPrefix(method, "2022-") {
+		userInfo = url.UserPassword(method, profile.Password).String()
+	}
+	params := url.Values{}
+	network := strings.ToLower(strings.TrimSpace(profile.Network))
+	if network == "" {
+		network = "raw"
+	}
+	params.Set("type", network)
+	if security := strings.ToLower(strings.TrimSpace(profile.StreamSecurity)); security != "" && security != "none" {
+		params.Set("security", security)
+	}
+	for key, value := range map[string]string{
+		"sni": profile.SNI, "alpn": profile.ALPN, "fp": profile.Fingerprint,
+		"pbk": profile.PublicKey, "sid": profile.ShortID, "spx": profile.SpiderX, "pqv": profile.MLDSA65Verify,
+		"cs": profile.CipherSuites, "pcs": profile.CertSHA, "ech": profile.ECHConfigList,
+		"vcn": profile.VerifyPeerCertByName, "fm": profile.FinalMask,
+	} {
+		if strings.TrimSpace(value) != "" {
+			params.Set(key, value)
+		}
+	}
+	if value := strings.TrimSpace(profile.AllowInsecure); value != "" && !strings.EqualFold(value, "false") && value != "0" {
+		params.Set("allowInsecure", "1")
+	}
+	if profile.MuxEnabled {
+		params.Set("mux", "1")
+	}
+	extra := profile.TransportExtra
+	params.Set("host", extra.Host)
+	params.Set("path", extra.Path)
+	switch network {
+	case "raw", "tcp":
+		params.Set("headerType", extra.RawHeaderType)
+	case "grpc", "gun":
+		params.Set("authority", extra.GRPCAuthority)
+		params.Set("serviceName", extra.GRPCService)
+		params.Set("mode", extra.GRPCMode)
+	case "kcp":
+		if profile.FinalMask == "" {
+			params.Set("headerType", extra.KCPHeaderType)
+			params.Set("seed", extra.KCPSeed)
+		}
+		if extra.KCPMTU > 0 {
+			params.Set("mtu", strconv.Itoa(extra.KCPMTU))
+		}
+		if extra.KCPTTI > 0 {
+			params.Set("tti", strconv.Itoa(extra.KCPTTI))
+		}
+	case "ws":
+		if extra.Heartbeat > 0 {
+			params.Set("heartbeatPeriod", strconv.Itoa(extra.Heartbeat))
+		}
+	case "xhttp", "splithttp":
+		params.Set("mode", extra.XHTTPMode)
+		params.Set("extra", extra.XHTTPExtra)
+	}
+	for key, values := range params {
+		if len(values) == 0 || strings.TrimSpace(values[0]) == "" {
+			params.Del(key)
+		}
+	}
+	host := strings.Trim(strings.TrimSpace(profile.Address), "[]")
+	return "ss://" + userInfo + "@" + net.JoinHostPort(host, strconv.Itoa(profile.Port)) + "?" + params.Encode() + "#" + url.PathEscape(profile.Remarks), nil
+}
+
 // ParseSubscriptionBody accepts the raw body returned by a subscription URL.
 // It handles the common case where the body is a base64-encoded blob of
 // newline-separated links, and also tolerates an already-decoded text body.
@@ -108,6 +279,7 @@ func splitLines(s string) []string {
 //   - vless://
 //   - trojan://
 //   - ss:// (modern and legacy)
+//   - v2rayn://shadowsocks/ (native Xray stream settings)
 //   - hysteria2:// (also hy2://); legacy hysteria:// v1 is rejected
 //   - wireguard:// (also wg://)
 func ParseLink(link string) (*ParseResult, error) {
@@ -121,6 +293,12 @@ func ParseLink(link string) (*ParseResult, error) {
 		return parseTrojan(link)
 	case strings.HasPrefix(link, "ss://"):
 		return parseShadowsocks(link)
+	case strings.HasPrefix(strings.ToLower(link), "v2rayn://shadowsocks/"):
+		normalized, err := NormalizeV2rayNShadowsocks(link)
+		if err != nil {
+			return nil, err
+		}
+		return parseShadowsocks(normalized)
 	case strings.HasPrefix(link, "hysteria://"), strings.HasPrefix(link, "hysteria2://"), strings.HasPrefix(link, "hy2://"):
 		return parseHysteria2(link)
 	case strings.HasPrefix(link, "wireguard://"), strings.HasPrefix(link, "wg://"):
@@ -462,6 +640,25 @@ func parseShadowsocks(link string) (*ParseResult, error) {
 				applyTransport(stream, params)
 				ob["streamSettings"] = stream
 			}
+		} else if params.Get("type") != "" || params.Get("security") != "" || params.Get("fm") != "" {
+			network := firstNonEmpty(params.Get("type"), "tcp")
+			if network == "raw" {
+				network = "tcp"
+			}
+			security := firstNonEmpty(params.Get("security"), "none")
+			if security == "tls" {
+				if err := requireXrayCertificatePin(params); err != nil {
+					return nil, err
+				}
+			}
+			stream := buildStream(network, security)
+			applyTransport(stream, params)
+			applySecurity(stream, params)
+			applyFinalMask(stream, params)
+			ob["streamSettings"] = stream
+		}
+		if queryBool(params, "mux") {
+			ob["mux"] = map[string]any{"enabled": true}
 		}
 		return &ParseResult{Outbound: ob, Identity: identity}, nil
 	}
@@ -873,6 +1070,9 @@ func applyTransport(stream map[string]any, p url.Values) {
 	switch net {
 	case "ws":
 		setWS(stream, host, path)
+		if heartbeat := num(p.Get("heartbeatPeriod")); heartbeat > 0 {
+			stream["wsSettings"].(map[string]any)["heartbeatPeriod"] = heartbeat
+		}
 	case "grpc":
 		gs := stream["grpcSettings"].(map[string]any)
 		gs["serviceName"] = firstNonEmpty(p.Get("serviceName"), p.Get("path"))

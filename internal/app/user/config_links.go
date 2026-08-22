@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
@@ -195,6 +196,13 @@ func BuildConfigLinks(
 }
 
 func configLinkMetadata(inbound ResolvedInbound) ConfigLinkMetadata {
+	return ConfigLinkMetadata{
+		FinalMask:  configLinkFinalMask(inbound),
+		MuxEnabled: boolValue(inbound["mux_enable"]),
+	}
+}
+
+func configLinkFinalMask(inbound ResolvedInbound) map[string]any {
 	finalMask := cloneJSONMap(mapValue(inbound["finalmask"]))
 	legacy := map[string]any{}
 	if fragment := fragmentFinalMask(stringValue(inbound["fragment_setting"])); len(fragment) > 0 {
@@ -203,11 +211,7 @@ func configLinkMetadata(inbound ResolvedInbound) ConfigLinkMetadata {
 	if noise := noiseFinalMask(stringValue(inbound["noise_setting"])); len(noise) > 0 {
 		legacy["udp"] = []any{map[string]any{"type": "noise", "settings": map[string]any{"noise": noise}}}
 	}
-	finalMask = mergeV2RayFinalMask(finalMask, legacy)
-	return ConfigLinkMetadata{
-		FinalMask:  finalMask,
-		MuxEnabled: boolValue(inbound["mux_enable"]),
-	}
+	return mergeV2RayFinalMask(finalMask, legacy)
 }
 
 func selectConfigHosts(hosts []Host, serviceID *int64) []configHost {
@@ -971,6 +975,10 @@ func buildShareLink(remark string, address string, inbound ResolvedInbound, sett
 	case "trojan":
 		return trojanShareLink(remark, formatIPForURL(address), path, inbound, settings), nil
 	case "shadowsocks":
+		clientNetwork := strings.ToLower(strings.TrimSpace(netValue))
+		if !shadowsocksClientNetworkSupported(clientNetwork) {
+			return "", fmt.Errorf("Shadowsocks transport %q cannot be represented safely by current v2rayN/v2rayNG clients; migrate the inbound to raw, WebSocket, gRPC, HTTPUpgrade, XHTTP, or mKCP", netValue)
+		}
 		return shadowsocksShareLink(remark, formatIPForURL(address), inbound, settings), nil
 	case "hysteria":
 		return hysteriaShareLink(remark, formatIPForURL(address), inbound, settings)
@@ -1114,40 +1122,182 @@ func shadowsocksShareLink(remark string, address string, inbound ResolvedInbound
 	inboundSettings := mapValue(inbound["settings"])
 	method := firstNonEmptyString(inboundSettings["method"], settings["method"], defaultShadowsocksMethod)
 	settings = RuntimeShadowsocksSettings(settings, inboundSettings)
+	if shadowsocksNeedsV2rayNLink(inbound) {
+		return shadowsocksV2rayNShareLink(remark, address, method, inbound, inboundSettings, settings)
+	}
 	var userInfo string
 	if strings.HasPrefix(method, "2022-") {
 		userInfo = queryEscape(method) + ":" + queryEscape(stringValue(inboundSettings["password"])) + ":" + queryEscape(stringValue(settings["password"]))
 	} else {
 		userInfo = base64.RawURLEncoding.EncodeToString([]byte(method + ":" + stringValue(settings["password"])))
 	}
-	params := []queryParam{}
-	tls := stringValue(inbound["tls"])
-	netValue := stringValue(inbound["network"])
-	if tls != "" && tls != "none" {
-		params = append(params, queryParam{"security", tls})
+	base := "ss://" + userInfo + "@" + address + ":" + portString(inbound["port"])
+	network := strings.ToLower(firstNonEmptyString(inbound["network"], "tcp"))
+	if (network == "tcp" || network == "raw") && strings.EqualFold(stringValue(inbound["header_type"]), "http") {
+		plugin := "obfs-local;obfs=http;obfs-host=" + joinStringList(inbound["host"])
+		// SIP002 requires the slash before a plugin query.
+		base += "/?" + urlencodeOrdered([]queryParam{{"plugin", plugin}})
 	}
-	httpObfs := netValue == "tcp" && stringValue(inbound["header_type"]) == "http"
-	if netValue != "" && !httpObfs {
-		params = append(params, queryParam{"type", netValue})
+	return base + "#" + percentEncode(remark, "/", false)
+}
+
+func shadowsocksNeedsV2rayNLink(inbound ResolvedInbound) bool {
+	security := strings.ToLower(stringValue(inbound["tls"]))
+	if security != "" && security != "none" {
+		return true
 	}
-	if httpObfs {
-		params = append(params, queryParam{"plugin", "obfs-local;obfs=http;obfs-host=" + stringValue(inbound["host"])})
-	} else if netValue != "" && netValue != "tcp" {
-		params = appendNetworkParams(params, netValue, stringValue(inbound["path"]), inbound)
+	if len(configLinkFinalMask(inbound)) > 0 {
+		return true
 	}
-	params = appendTLSParams(params, tls, inbound)
-	params = appendMaskParams(params, inbound)
-	query := ""
-	if len(params) > 0 {
-		query = "?" + urlencodeOrdered(params)
+	if boolValue(inbound["mux_enable"]) {
+		return true
 	}
-	path := ""
-	if httpObfs {
-		// SIP002 requires a trailing slash before the plugin query. Some clients
-		// tolerate the missing slash, but strict parsers drop the plugin entirely.
-		path = "/"
+	network := strings.ToLower(firstNonEmptyString(inbound["network"], "tcp"))
+	if network != "tcp" && network != "raw" {
+		return true
 	}
-	return "ss://" + userInfo + "@" + address + ":" + portString(inbound["port"]) + path + query + "#" + percentEncode(remark, "/", false)
+	header := strings.ToLower(stringValue(inbound["header_type"]))
+	return header != "" && header != "none" && header != "http"
+}
+
+func shadowsocksClientNetworkSupported(network string) bool {
+	switch strings.ToLower(strings.TrimSpace(network)) {
+	case "", "tcp", "raw", "ws", "grpc", "gun", "httpupgrade", "xhttp", "splithttp", "kcp":
+		return true
+	default:
+		return false
+	}
+}
+
+func shadowsocksV2rayNShareLink(remark, address, method string, inbound ResolvedInbound, inboundSettings, settings map[string]any) string {
+	password := stringValue(settings["password"])
+	if strings.HasPrefix(method, "2022-") {
+		password = stringValue(inboundSettings["password"]) + ":" + password
+	}
+	network := strings.ToLower(firstNonEmptyString(inbound["network"], "tcp"))
+	switch network {
+	case "tcp":
+		network = "raw"
+	case "gun":
+		network = "grpc"
+	case "splithttp":
+		network = "xhttp"
+	}
+	path := stringValue(inbound["path"])
+	if network == "grpc" {
+		if boolValue(inbound["multiMode"]) {
+			path = grpcMultiPath(path)
+		} else {
+			path = grpcGunPath(path)
+		}
+	}
+	finalMask, _ := json.Marshal(shadowsocksClientFinalMask(inbound))
+	profile := outboundsubapp.V2rayNShadowsocksProfile{
+		ConfigType:     3,
+		ConfigVersion:  4,
+		Remarks:        remark,
+		Address:        strings.Trim(address, "[]"),
+		Port:           intValue(inbound["port"]),
+		Password:       password,
+		Network:        network,
+		StreamSecurity: stringValue(inbound["tls"]),
+		SNI:            firstStringList(inbound["sni"]),
+		ALPN:           joinStringList(inbound["alpn"]),
+		Fingerprint:    clientTLSFingerprint(inbound),
+		PublicKey:      firstNonEmptyString(inbound["pbk"], inbound["publicKey"]),
+		ShortID:        firstNonEmptyString(inbound["sid"], firstStringList(inbound["sids"])),
+		SpiderX:        stringValue(inbound["spx"]),
+		MLDSA65Verify:  stringValue(inbound["pqv"]),
+		CipherSuites:   stringValue(inbound["cipherSuites"]),
+		MuxEnabled:     boolValue(inbound["mux_enable"]),
+		CertSHA:        firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]),
+		ECHConfigList:  firstNonEmptyString(inbound["ech"], inbound["echConfigList"]),
+		VerifyPeerCertByName: firstNonEmptyString(
+			inbound["vcn"], inbound["verifyPeerCertByName"],
+		),
+		ProtocolExtra: outboundsubapp.V2rayNShadowsocksProtocolExtra{Method: method},
+		TransportExtra: outboundsubapp.V2rayNShadowsocksTransportExtra{
+			Host: joinStringList(inbound["host"]), Path: path,
+		},
+	}
+	if truthy(inbound["ais"]) {
+		profile.AllowInsecure = "true"
+	}
+	if len(finalMask) > 2 {
+		profile.FinalMask = string(finalMask)
+	}
+	switch network {
+	case "raw":
+		profile.TransportExtra.RawHeaderType = stringValue(inbound["header_type"])
+	case "grpc":
+		profile.TransportExtra.GRPCAuthority = joinStringList(inbound["host"])
+		profile.TransportExtra.GRPCService = path
+		if boolValue(inbound["multiMode"]) {
+			profile.TransportExtra.GRPCMode = "multi"
+		}
+	case "kcp":
+		profile.TransportExtra.KCPHeaderType = stringValue(inbound["header_type"])
+		profile.TransportExtra.KCPSeed = stringValue(inbound["path"])
+		profile.TransportExtra.KCPMTU = intValue(inbound["mtu"])
+		profile.TransportExtra.KCPTTI = intValue(inbound["tti"])
+	case "ws":
+		profile.TransportExtra.Heartbeat = intValue(inbound["heartbeatPeriod"])
+	case "xhttp":
+		profile.TransportExtra.XHTTPMode = stringValue(inbound["mode"])
+		if extra := xhttpShareExtraMap(inbound); len(extra) > 0 {
+			encoded, _ := json.Marshal(extra)
+			profile.TransportExtra.XHTTPExtra = string(encoded)
+		}
+	}
+	return outboundsubapp.EncodeV2rayNShadowsocks(profile)
+}
+
+func shadowsocksClientFinalMask(inbound ResolvedInbound) map[string]any {
+	finalMask := configLinkFinalMask(inbound)
+	if len(finalMask) == 0 || !strings.EqualFold(stringValue(inbound["network"]), "kcp") {
+		return finalMask
+	}
+	udp := listAny(finalMask["udp"])
+	transportIndex := -1
+	header := normalizeShareMKCPHeader(stringValue(inbound["header_type"]))
+	headerFound := header == "none" || header == "invalid"
+	for index, item := range udp {
+		transport, role := v2rayMKCPMaskRole(mapValue(item), true)
+		if transport && transportIndex < 0 {
+			transportIndex = index
+		}
+		if role == "header-"+header {
+			headerFound = true
+		}
+	}
+	insert := func(index int, item any) {
+		items := make([]any, 0, len(udp)+1)
+		items = append(items, udp[:index]...)
+		items = append(items, item)
+		items = append(items, udp[index:]...)
+		udp = items
+	}
+	if transportIndex < 0 {
+		transportIndex = 0
+		if len(udp) > 0 {
+			typeName := strings.ToLower(stringValue(mapValue(udp[0])["type"]))
+			if typeName == "realm" || typeName == "xicmp" {
+				transportIndex = 1
+			}
+		}
+		insert(transportIndex, map[string]any{"type": "mkcp-legacy", "settings": map[string]any{
+			"header": "", "value": stringValue(inbound["path"]),
+		}})
+	}
+	if !headerFound {
+		value := ""
+		if header == "dns" {
+			value = joinStringList(inbound["host"])
+		}
+		insert(transportIndex+1, map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": header, "value": value}})
+	}
+	finalMask["udp"] = udp
+	return finalMask
 }
 
 func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) (string, error) {
@@ -1384,9 +1534,6 @@ func appendNetworkParams(params []queryParam, netValue string, path string, inbo
 			params = append(params, queryParam{"mode", mode})
 		}
 		extra := xhttpShareExtraParams(inbound)
-		if keepAlive, ok := inbound["keepAlivePeriod"]; ok && intValue(keepAlive) > 0 {
-			extra = append(extra, queryParam{"keepAlivePeriod", keepAlive})
-		}
 		if len(extra) > 0 {
 			params = append(params, queryParam{"extra", pythonJSONDumpsOrdered(extra)})
 		}
@@ -2151,7 +2298,7 @@ func appendOptionalParam(params []queryParam, key string, source map[string]any)
 func xhttpShareExtraParams(inbound map[string]any) []queryParam {
 	params := make([]queryParam, 0, 24)
 	for _, key := range []string{
-		"scMaxEachPostBytes", "scMinPostsIntervalMs", "xPaddingBytes", "noGRPCHeader",
+		"scMaxEachPostBytes", "scMinPostsIntervalMs", "xPaddingBytes", "noGRPCHeader", "keepAlivePeriod",
 		"xPaddingObfsMode", "xPaddingKey", "xPaddingHeader", "xPaddingPlacement", "xPaddingMethod",
 		"uplinkHTTPMethod", "sessionIDPlacement", "sessionIDKey", "sessionIDTable", "sessionIDLength",
 		"seqPlacement", "seqKey", "uplinkDataPlacement", "uplinkDataKey", "uplinkChunkSize", "xmux",

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 )
 
 func TestBuildConfigLinksAddsMissingServiceProtocolForLegacyUser(t *testing.T) {
@@ -105,6 +107,15 @@ func TestShadowsocks2022LinkUsesSIP022UserInfo(t *testing.T) {
 	}
 	if strings.Contains(strings.SplitN(strings.TrimPrefix(link, "ss://"), "@", 2)[0], "method") {
 		t.Fatalf("SIP022 user info must not be base64 encoded: %s", link)
+	}
+	inbound["tls"] = "tls"
+	inbound["sni"] = "vpn.example.com"
+	profile, err := outboundsubapp.DecodeV2rayNShadowsocks(shadowsocksShareLink("ss2022", "vpn.example.com", inbound, settings))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.ProtocolExtra.Method != "2022-blake3-aes-128-gcm" || !strings.HasPrefix(profile.Password, "c2VydmVyLXBhc3N3ZA==:") {
+		t.Fatalf("extended SS2022 link lost server:user key pair: %#v", profile)
 	}
 }
 
@@ -729,7 +740,7 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 	// Links must follow the service-configured host order (Trojan host order 0,
 	// SS host order 1), not alphabetical protocol order which would pull
 	// shadowsocks to the top for virtual-proxy users.
-	if !strings.HasPrefix(links.Links[0], "trojan://") || !strings.HasPrefix(links.Links[1], "ss://") {
+	if !strings.HasPrefix(links.Links[0], "trojan://") || !strings.HasPrefix(links.Links[1], "v2rayn://shadowsocks/") {
 		t.Fatalf("links not in service host order: %#v", links.Links)
 	}
 	trojanLink := ""
@@ -738,18 +749,19 @@ func TestBuildConfigLinksSupportsTrojanAndShadowsocksTLS(t *testing.T) {
 		if strings.HasPrefix(link, "trojan://") {
 			trojanLink = link
 		}
-		if strings.HasPrefix(link, "ss://") {
+		if strings.HasPrefix(link, "v2rayn://shadowsocks/") {
 			shadowsocksLink = link
 		}
 	}
 	if trojanLink == "" || !strings.Contains(trojanLink, "security=tls") {
 		t.Fatalf("trojan TLS link missing TLS params: %#v", links.Links)
 	}
-	if shadowsocksLink == "" || !strings.Contains(shadowsocksLink, "security=tls") {
-		t.Fatalf("shadowsocks TLS link missing TLS params: %#v", links.Links)
+	profile, err := outboundsubapp.DecodeV2rayNShadowsocks(shadowsocksLink)
+	if err != nil {
+		t.Fatalf("decode Shadowsocks client link: %v", err)
 	}
-	if !strings.Contains(shadowsocksLink, "type=tcp") {
-		t.Fatalf("shadowsocks TLS link should carry explicit tcp type: %s", shadowsocksLink)
+	if profile.StreamSecurity != "tls" || profile.Network != "raw" || profile.SNI != "ss.example.com" || profile.Fingerprint != "chrome" || profile.ALPN != "h2,http/1.1" || profile.ECHConfigList != "ECH" || profile.CertSHA != pin {
+		t.Fatalf("Shadowsocks TLS client profile incomplete: %#v", profile)
 	}
 	for _, item := range []struct {
 		name string
@@ -1513,6 +1525,73 @@ func TestHysteriaShareLinkUsesNativeGeckoDefaultsButRejectsCustomPacketSize(t *t
 	}
 }
 
+func TestShadowsocksClientLinkRejectsUnsupportedTransport(t *testing.T) {
+	_, err := buildShareLink("ss", "example.com", ResolvedInbound{
+		"protocol": "shadowsocks", "port": 443, "network": "quic",
+	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
+	if err == nil || !strings.Contains(err.Error(), "cannot be represented safely") {
+		t.Fatalf("unsupported Shadowsocks client transport was accepted: %v", err)
+	}
+}
+
+func TestShadowsocksClientLinkPreservesXHTTPKeepAlive(t *testing.T) {
+	link, err := buildShareLink("ss", "example.com", ResolvedInbound{
+		"protocol": "shadowsocks", "port": 443, "network": "xhttp", "tls": "tls",
+		"sni": "example.com", "path": "/ss", "keepAlivePeriod": 30,
+	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := outboundsubapp.DecodeV2rayNShadowsocks(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra := map[string]any{}
+	if err := json.Unmarshal([]byte(profile.TransportExtra.XHTTPExtra), &extra); err != nil || extra["keepAlivePeriod"] != float64(30) {
+		t.Fatalf("XHTTP keepAlivePeriod was lost: extra=%#v err=%v", extra, err)
+	}
+}
+
+func TestShadowsocksClientLinkPreservesKCPMaskAndStructuredSettings(t *testing.T) {
+	link, err := buildShareLink("ss", "example.com", ResolvedInbound{
+		"protocol": "shadowsocks", "port": 443, "network": "kcp", "path": "seed",
+		"header_type": "dns", "host": []string{"dns.example.com"}, "tti": 30,
+		"finalmask": map[string]any{"udp": []any{map[string]any{
+			"type": "sudoku", "settings": map[string]any{},
+		}}},
+	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := outboundsubapp.DecodeV2rayNShadowsocks(link)
+	if err != nil || profile.TransportExtra.KCPTTI != 30 {
+		t.Fatalf("mKCP structured settings were lost: profile=%#v err=%v", profile, err)
+	}
+	finalMask := map[string]any{}
+	if err := json.Unmarshal([]byte(profile.FinalMask), &finalMask); err != nil {
+		t.Fatal(err)
+	}
+	udp := listOfMaps(finalMask["udp"])
+	if len(udp) != 3 || stringValue(udp[0]["type"]) != "mkcp-legacy" || stringValue(mapValue(udp[0]["settings"])["value"]) != "seed" || stringValue(mapValue(udp[1]["settings"])["header"]) != "dns" || stringValue(udp[2]["type"]) != "sudoku" {
+		t.Fatalf("mKCP transport layers were lost when FinalMask was applied: %#v", udp)
+	}
+	body, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(body, `"tti": 30`) || strings.Count(body, `"type": "mkcp-legacy"`) != 2 {
+		t.Fatalf("xray-json lost or duplicated mKCP settings: body=%s err=%v", body, err)
+	}
+	existing := shadowsocksClientFinalMask(ResolvedInbound{
+		"network": "kcp", "path": "seed", "header_type": "dns", "host": []string{"dns.example.com"},
+		"finalmask": map[string]any{"udp": []any{
+			map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": "", "value": "seed"}},
+			map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": "dns", "value": "dns.example.com"}},
+			map[string]any{"type": "sudoku", "settings": map[string]any{}},
+		}},
+	})
+	if got := listOfMaps(existing["udp"]); len(got) != 3 {
+		t.Fatalf("existing mKCP layers were duplicated: %#v", got)
+	}
+}
+
 func TestTLSCipherSuitesSurviveResolutionAndShareLinks(t *testing.T) {
 	const suites = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
 	resolved, err := resolveInbound(map[string]any{
@@ -1544,11 +1623,15 @@ func TestTLSCipherSuitesSurviveResolutionAndShareLinks(t *testing.T) {
 		shadowsocksShareLink("ss", "example.com", inbound, settings),
 		vmessShareLink("vmess", "example.com", "", inbound, settings),
 	}
-	for _, link := range links[:3] {
+	for _, link := range links[:2] {
 		parsed, parseErr := url.Parse(link)
 		if parseErr != nil || parsed.Query().Get("cs") != suites || parsed.Query().Get("fp") != "unsafe" {
 			t.Fatalf("share link lost cipherSuites: link=%s err=%v", link, parseErr)
 		}
+	}
+	ssProfile, err := outboundsubapp.DecodeV2rayNShadowsocks(links[2])
+	if err != nil || ssProfile.CipherSuites != suites || ssProfile.Fingerprint != "unsafe" {
+		t.Fatalf("Shadowsocks client profile lost cipherSuites: profile=%#v err=%v", ssProfile, err)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(links[3], "vmess://"))
 	if err != nil {

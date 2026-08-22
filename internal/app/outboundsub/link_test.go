@@ -264,6 +264,86 @@ func TestParseShadowsocksSIP002IPv6PluginAndFragments(t *testing.T) {
 	}
 }
 
+func TestV2rayNShadowsocksPreservesNativeTLSAndFinalMask(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	link := EncodeV2rayNShadowsocks(V2rayNShadowsocksProfile{
+		ConfigType: 3, ConfigVersion: 4, Remarks: "SS TLS", Address: "ss.example.com", Port: 443,
+		Password: "secret", Network: "ws", StreamSecurity: "tls", SNI: "sni.example.com",
+		ALPN: "h2,http/1.1", Fingerprint: "chrome", CertSHA: pin, MuxEnabled: true,
+		FinalMask:      `{"tcp":[{"type":"fragment","settings":{"length":"3-5"}}]}`,
+		ProtocolExtra:  V2rayNShadowsocksProtocolExtra{Method: "aes-256-gcm"},
+		TransportExtra: V2rayNShadowsocksTransportExtra{Host: "edge.example.com", Path: "/ss", Heartbeat: 30},
+	})
+	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(link, "v2rayn://shadowsocks/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(payload, &wire); err != nil || wire["ConfigType"] != float64(3) || wire["ConfigVersion"] != float64(4) || wire["StreamSecurity"] != "tls" || wire["ProtoExtraObj"].(map[string]any)["SsMethod"] != "aes-256-gcm" {
+		t.Fatalf("v2rayN wire payload mismatch: payload=%#v err=%v", wire, err)
+	}
+	result, err := ParseLink(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := result.Outbound["settings"].(map[string]any)["servers"].([]any)[0].(map[string]any)
+	stream := result.Outbound["streamSettings"].(map[string]any)
+	tls := stream["tlsSettings"].(map[string]any)
+	ws := stream["wsSettings"].(map[string]any)
+	finalMask := stream["finalmask"].(map[string]any)
+	mux := result.Outbound["mux"].(map[string]any)
+	if server["method"] != "aes-256-gcm" || server["password"] != "secret" || stream["network"] != "ws" || stream["security"] != "tls" {
+		t.Fatalf("native Shadowsocks profile was downgraded: %#v", result.Outbound)
+	}
+	if tls["serverName"] != "sni.example.com" || tls["fingerprint"] != "chrome" || tls["pinnedPeerCertSha256"] != pin || ws["path"] != "/ss" || ws["host"] != "edge.example.com" || ws["heartbeatPeriod"] != 30 || len(finalMask) == 0 || mux["enabled"] != true {
+		t.Fatalf("native Shadowsocks stream settings were lost: %#v", stream)
+	}
+}
+
+func TestV2rayNShadowsocksPreservesReality(t *testing.T) {
+	link := EncodeV2rayNShadowsocks(V2rayNShadowsocksProfile{
+		ConfigType: 3, ConfigVersion: 4, Address: "ss.example.com", Port: 443,
+		Password: "secret", Network: "raw", StreamSecurity: "reality", SNI: "sni.example.com",
+		Fingerprint: "chrome", PublicKey: "public-key", ShortID: "abcd", SpiderX: "/", MLDSA65Verify: "verify-key",
+		ProtocolExtra: V2rayNShadowsocksProtocolExtra{Method: "aes-256-gcm"},
+	})
+	result, err := ParseLink(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reality := result.Outbound["streamSettings"].(map[string]any)["realitySettings"].(map[string]any)
+	if reality["publicKey"] != "public-key" || reality["shortId"] != "abcd" || reality["spiderX"] != "/" || reality["mldsa65Verify"] != "verify-key" {
+		t.Fatalf("Shadowsocks Reality settings were lost: %#v", reality)
+	}
+}
+
+func TestV2rayNShadowsocks2022KeepsCombinedPassword(t *testing.T) {
+	link := EncodeV2rayNShadowsocks(V2rayNShadowsocksProfile{
+		ConfigType: 3, ConfigVersion: 4, Address: "ss.example.com", Port: 443,
+		Password: "server-key:client-key", Network: "raw", StreamSecurity: "tls",
+		ProtocolExtra: V2rayNShadowsocksProtocolExtra{Method: "2022-blake3-aes-128-gcm"},
+	})
+	result, err := ParseLink(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := result.Outbound["settings"].(map[string]any)["servers"].([]any)[0].(map[string]any)
+	if server["method"] != "2022-blake3-aes-128-gcm" || server["password"] != "server-key:client-key" {
+		t.Fatalf("SS2022 credentials were corrupted: %#v", server)
+	}
+}
+
+func TestV2rayNShadowsocksRejectsClientTransportDowngrade(t *testing.T) {
+	link := EncodeV2rayNShadowsocks(V2rayNShadowsocksProfile{
+		ConfigType: 3, ConfigVersion: 4, Address: "ss.example.com", Port: 443,
+		Password: "secret", Network: "hysteria",
+		ProtocolExtra: V2rayNShadowsocksProtocolExtra{Method: "aes-256-gcm"},
+	})
+	if _, err := DecodeV2rayNShadowsocks(link); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("lossy client transport was accepted: %v", err)
+	}
+}
+
 func TestParseHysteria2PreservesTLSObfsPortsAndIPv6(t *testing.T) {
 	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	result, err := ParseLink("hysteria2://p%40ss%2Bword@[2001:db8::7]:443,20000-30000/?sni=hy.example.com&insecure=1&obfs=salamander&obfs-password=mask%2Bkey&pinSHA256=" + pin + "#Hy%2B%E2%9C%93")

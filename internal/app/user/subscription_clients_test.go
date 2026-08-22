@@ -399,6 +399,60 @@ func TestSubscriptionClientsKeepShadowsocksHTTPHeader(t *testing.T) {
 	})
 }
 
+func TestSubscriptionClientsPreserveShadowsocksTLS(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+	var rawConfig string
+	if err := service.repo.db.QueryRow(`SELECT data FROM xray_config WHERE id = 1`).Scan(&rawConfig); err != nil {
+		t.Fatal(err)
+	}
+	config := map[string]any{}
+	if err := json.Unmarshal([]byte(rawConfig), &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range listOfMaps(config["inbounds"]) {
+		if stringValue(raw["tag"]) != "ss-http" {
+			continue
+		}
+		raw["streamSettings"] = map[string]any{
+			"network": "ws", "security": "tls",
+			"tlsSettings": map[string]any{"serverName": "sni.example.com", "fingerprint": "chrome", "alpn": []any{"h2", "http/1.1"}},
+			"wsSettings":  map[string]any{"path": "/ss", "host": "edge.example.com"},
+		}
+	}
+	updated, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE xray_config SET data = ? WHERE id = 1`, string(updated)); err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var clientLink string
+	for _, link := range strings.Fields(decodeSubscriptionTestBody(string(response.Body))) {
+		if strings.HasPrefix(link, "v2rayn://shadowsocks/") {
+			clientLink = link
+			break
+		}
+	}
+	parsed, err := parseSubscriptionShareURL(clientLink)
+	if err != nil || parsed.Query().Get("security") != "tls" || parsed.Query().Get("type") != "ws" || parsed.Query().Get("sni") != "sni.example.com" || parsed.Query().Get("host") != "edge.example.com" || parsed.Query().Get("path") != "/ss" {
+		t.Fatalf("raw subscription lost Shadowsocks TLS: link=%s parsed=%#v err=%v", clientLink, parsed, err)
+	}
+
+	response, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "xray-json"})
+	if err != nil || !strings.Contains(string(response.Body), `"protocol": "shadowsocks"`) || !strings.Contains(string(response.Body), `"security": "tls"`) || !strings.Contains(string(response.Body), `"serverName": "sni.example.com"`) {
+		t.Fatalf("xray-json lost Shadowsocks TLS: err=%v body=%s", err, response.Body)
+	}
+	if _, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "outline"}); err == nil {
+		t.Fatal("Outline must reject native Shadowsocks TLS instead of silently returning plain SS")
+	}
+}
+
 func TestSubscriptionInfoIncludesVPNDownloadMaterialAndProtocolEntries(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()
