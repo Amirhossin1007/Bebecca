@@ -5,12 +5,12 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	externalapps "github.com/rebeccapanel/rebecca/internal/app/externalapps"
 )
 
 const (
 	maxAPIRequestBodyBytes        int64 = 8 << 20
 	maxPHPMyAdminRequestBodyBytes int64 = 1024 << 20
-	maxPHPAppRequestBodyBytes     int64 = 34 << 20
 )
 
 func apiRequestBodyLimit(path string) int64 {
@@ -20,9 +20,9 @@ func apiRequestBodyLimit(path string) int64 {
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
 	}
-	if path == "/api/settings/php-apps/archive" || path == "/api/settings/external-apps/archive" ||
-		((strings.HasPrefix(path, "/api/settings/php-apps/") || strings.HasPrefix(path, "/api/settings/external-apps/")) && strings.HasSuffix(path, "/files/upload")) {
-		return maxPHPAppRequestBodyBytes
+	if path == "/api/settings/external-apps/archive" ||
+		(strings.HasPrefix(path, "/api/settings/external-apps/") && strings.HasSuffix(path, "/files/upload")) {
+		return externalapps.MaxRequestBodyBytes
 	}
 	return maxAPIRequestBodyBytes
 }
@@ -87,7 +87,7 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	r.NotFound(s.handleHomeOrSubscriptionPath)
-	return &phpAppAwareHandler{apps: s.phpApps, next: withAPIRequestBodyLimit(r)}
+	return &externalAppAwareHandler{apps: s.externalApps, next: withAPIRequestBodyLimit(r)}
 }
 
 func (s *Server) registerAdminRoutes(r chi.Router) {
@@ -169,10 +169,8 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/phpmyadmin/embed/*", s.handlePHPMyAdmin)
 	r.HandleFunc("/settings/phpmyadmin/*", s.requireSudo(s.handlePHPMyAdmin))
 	r.HandleFunc("/settings/phpmyadmin", s.requireSudo(s.handlePHPMyAdmin))
-	r.HandleFunc("/settings/php-apps/*", s.requireSudo(s.handlePHPApps))
-	r.HandleFunc("/settings/php-apps", s.requireSudo(s.handlePHPApps))
-	r.HandleFunc("/settings/external-apps/*", s.requireSudo(s.handlePHPApps))
-	r.HandleFunc("/settings/external-apps", s.requireSudo(s.handlePHPApps))
+	r.Handle("/settings/external-apps/*", s.requireSudo(s.externalApps.ServeHTTP))
+	r.Handle("/settings/external-apps", s.requireSudo(s.externalApps.ServeHTTP))
 	r.HandleFunc("/settings/telegram/backup/send", s.requireSudo(s.handleTelegramBackupSend))
 	r.HandleFunc("/settings/telegram/test", s.requireSudo(s.handleTelegramSettingsTest))
 	r.HandleFunc("/settings/telegram", s.requireSudo(s.handleTelegramSettings))

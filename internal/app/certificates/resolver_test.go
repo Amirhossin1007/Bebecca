@@ -1,6 +1,7 @@
 package certificates
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -23,10 +24,10 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func TestResolverSelectsManagedCertificateBySNI(t *testing.T) {
+func TestResolverSelectsManagedCertificateBySNIAndFallsBackToEnv(t *testing.T) {
 	base := t.TempDir()
-	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "fallback"), "panel.example.com")
-	writeCertificate(t, filepath.Join(base, "bot.example.com"), "bot.example.com")
+	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "env"), "panel.example.com")
+	writeManagedCertificate(t, base, "bot.example.com", "serve_tls=true\nstatus=active\n")
 
 	resolver, err := NewResolver(base, fallbackCert, fallbackKey)
 	if err != nil {
@@ -46,16 +47,16 @@ func TestResolverSelectsManagedCertificateBySNI(t *testing.T) {
 	if err := fallback.Leaf.VerifyHostname("panel.example.com"); err != nil {
 		t.Fatalf("configured fallback was not selected: %v", err)
 	}
+	withoutSNI, err := resolver.GetCertificate(clientHello(""))
+	if err != nil || withoutSNI.Leaf.VerifyHostname("panel.example.com") != nil {
+		t.Fatalf("empty SNI did not use ENV fallback: %v", err)
+	}
 }
 
 func TestResolverSkipsCertificateDisabledForTLS(t *testing.T) {
 	base := t.TempDir()
-	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "fallback"), "panel.example.com")
-	disabledDir := filepath.Join(base, "bot.example.com")
-	writeCertificate(t, disabledDir, "bot.example.com")
-	if err := os.WriteFile(filepath.Join(disabledDir, ".metadata"), []byte("serve_tls=false\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "env"), "panel.example.com")
+	writeManagedCertificate(t, base, "bot.example.com", "serve_tls=false\nstatus=active\n")
 
 	resolver, err := NewResolver(base, fallbackCert, fallbackKey)
 	if err != nil {
@@ -72,12 +73,8 @@ func TestResolverSkipsCertificateDisabledForTLS(t *testing.T) {
 
 func TestResolverSkipsRevokedCertificate(t *testing.T) {
 	base := t.TempDir()
-	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "panel.example.com"), "panel.example.com")
-	revokedDir := filepath.Join(base, "revoked.example.com")
-	writeCertificate(t, revokedDir, "revoked.example.com")
-	if err := os.WriteFile(filepath.Join(revokedDir, ".metadata"), []byte("status=revoked\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "env"), "panel.example.com")
+	writeManagedCertificate(t, base, "revoked.example.com", "serve_tls=true\nstatus=revoked\n")
 
 	resolver, err := NewResolver(base, fallbackCert, fallbackKey)
 	if err != nil {
@@ -92,50 +89,63 @@ func TestResolverSkipsRevokedCertificate(t *testing.T) {
 	}
 }
 
-func TestResolverStopsServingRevokedConfiguredFallback(t *testing.T) {
-	for _, status := range []string{"revoking", "revoked"} {
-		t.Run(status, func(t *testing.T) {
-			base := t.TempDir()
-			revokedDir := filepath.Join(base, "panel.example.com")
-			fallbackCert, fallbackKey := writeCertificate(t, revokedDir, "panel.example.com")
-			writeCertificate(t, filepath.Join(base, "active.example.com"), "active.example.com")
-			if err := os.WriteFile(filepath.Join(revokedDir, ".metadata"), []byte("status="+status+"\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-
-			resolver, err := NewResolver(base, fallbackCert, fallbackKey)
-			if err != nil {
-				t.Fatal(err)
-			}
-			selected, err := resolver.GetCertificate(clientHello("panel.example.com"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if selected.Leaf.VerifyHostname("panel.example.com") == nil {
-				t.Fatalf("%s configured fallback remained active", status)
-			}
-		})
+func TestResolverDoesNotUseManagedCertificateAsFallback(t *testing.T) {
+	base := t.TempDir()
+	writeManagedCertificate(t, base, "bot.example.com", "serve_tls=true\nstatus=active\n")
+	resolver, err := NewResolver(base, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resolver.Ready() {
+		t.Fatal("managed SNI certificate did not enable TLS")
+	}
+	if _, err := resolver.GetCertificate(clientHello("unknown.example.com")); err == nil {
+		t.Fatal("managed certificate was used for an unknown SNI")
 	}
 }
 
-func TestResolverStopsServingDeletedConfiguredFallback(t *testing.T) {
+func TestResolverKeepsENVFallbackOutsideManagerControl(t *testing.T) {
 	base := t.TempDir()
-	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "panel.example.com"), "panel.example.com")
-	writeCertificate(t, filepath.Join(base, "active.example.com"), "active.example.com")
+	fallbackDir := filepath.Join(base, "panel.example.com")
+	fallbackCert, fallbackKey := writeCertificate(t, fallbackDir, "panel.example.com")
+	if err := os.WriteFile(filepath.Join(fallbackDir, ".metadata"), []byte("serve_tls=false\nstatus=revoked\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	resolver, err := NewResolver(base, fallbackCert, fallbackKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.RemoveAll(filepath.Dir(fallbackCert)); err != nil {
-		t.Fatal(err)
+	selected, err := resolver.GetCertificate(clientHello("unknown.example.com"))
+	if err != nil || selected.Leaf.VerifyHostname("panel.example.com") != nil {
+		t.Fatalf("ENV fallback was controlled by SSL Manager metadata: %v", err)
 	}
-	resolver.refreshEvery = 0
-	selected, err := resolver.GetCertificate(clientHello("panel.example.com"))
+}
+
+func TestResolverRefreshNeverBlocksHandshake(t *testing.T) {
+	base := t.TempDir()
+	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, "env"), "panel.example.com")
+	resolver, err := NewResolver(base, fallbackCert, fallbackKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if selected.Leaf.VerifyHostname("panel.example.com") == nil {
-		t.Fatal("deleted configured fallback remained active")
+	resolver.refreshEvery = 0
+	resolver.refreshMu.Lock()
+	defer resolver.refreshMu.Unlock()
+	done := make(chan error, 1)
+	go func() {
+		selected, err := resolver.GetCertificate(clientHello("unknown.example.com"))
+		if err == nil {
+			err = selected.Leaf.VerifyHostname("panel.example.com")
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("TLS handshake blocked on certificate refresh")
 	}
 }
 
@@ -208,6 +218,75 @@ func TestNormalizeDomainsRejectsWildcardAndDeduplicates(t *testing.T) {
 	}
 }
 
+func TestManagerKeepsLegacyENVCertificateSeparate(t *testing.T) {
+	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "certificates.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.Exec(`CREATE TABLE subscription_domains (
+		id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT NOT NULL UNIQUE,
+		admin_id INTEGER NULL, email TEXT NULL, provider TEXT NULL, alt_names TEXT NULL,
+		last_issued_at DATETIME NULL, last_renewed_at DATETIME NULL,
+		created_at DATETIME NULL, updated_at DATETIME NULL
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	const domain = "panel.example.com"
+	if _, err := db.Exec(`INSERT INTO subscription_domains (domain, provider) VALUES (?, 'manual')`, domain); err != nil {
+		t.Fatal(err)
+	}
+	base := t.TempDir()
+	fallbackCert, fallbackKey := writeCertificate(t, filepath.Join(base, domain), domain)
+	originalFallback, err := os.ReadFile(fallbackCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewManager(db, Config{BaseDir: base})
+	if err := manager.Prepare(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if record, err := manager.Get(context.Background(), domain); err != nil || record.ServeTLS {
+		t.Fatalf("migrated certificate = %#v, err = %v", record, err)
+	}
+
+	replacementCert, replacementKey := writeCertificate(t, filepath.Join(t.TempDir(), "replacement"), domain)
+	replacementFullchain, err := os.ReadFile(replacementCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementPrivateKey, err := os.ReadFile(replacementKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Import(context.Background(), ImportRequest{Domain: domain, Fullchain: string(replacementFullchain), PrivateKey: string(replacementPrivateKey)}); err != nil {
+		t.Fatal(err)
+	}
+	if current, err := os.ReadFile(fallbackCert); err != nil || !bytes.Equal(current, originalFallback) {
+		t.Fatalf("ENV certificate changed: err=%v", err)
+	}
+
+	resolver, err := NewResolver(base, fallbackCert, fallbackKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := resolver.GetCertificate(clientHello(domain))
+	if err != nil || !bytes.Equal(selected.Certificate[0], mustLoadCertificate(t, fallbackCert, fallbackKey).Certificate[0]) {
+		t.Fatalf("disabled managed certificate replaced ENV fallback: %v", err)
+	}
+	if _, err := manager.SetServeTLS(context.Background(), domain, true); err != nil {
+		t.Fatal(err)
+	}
+	resolver, err = NewResolver(base, fallbackCert, fallbackKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err = resolver.GetCertificate(clientHello(domain))
+	if err != nil || !bytes.Equal(selected.Certificate[0], mustLoadCertificate(t, replacementCert, replacementKey).Certificate[0]) {
+		t.Fatalf("enabled managed certificate was not selected: %v", err)
+	}
+}
+
 func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "certificates.db"))
 	if err != nil {
@@ -251,18 +330,14 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	if record.Status == "invalid" || record.Status == "missing" || record.Provider == nil || *record.Provider != "manual" || record.AutoRenew {
 		t.Fatalf("unexpected imported record: %#v", record)
 	}
-	if !record.ServeTLS {
-		t.Fatal("new certificate was not enabled for TLS")
-	}
-	record, err = manager.SetServeTLS(context.Background(), record.Domain, false)
-	if err != nil || record.ServeTLS {
-		t.Fatalf("disable TLS serving: record=%#v err=%v", record, err)
+	if record.ServeTLS {
+		t.Fatal("new certificate unexpectedly replaced the ENV fallback")
 	}
 	record, err = manager.SetServeTLS(context.Background(), record.Domain, true)
 	if err != nil || !record.ServeTLS {
 		t.Fatalf("enable TLS serving: record=%#v err=%v", record, err)
 	}
-	originalFullchain, err := os.ReadFile(filepath.Join(base, record.Domain, "fullchain.pem"))
+	originalFullchain, err := os.ReadFile(filepath.Join(ManagedBaseDir(base), record.Domain, "fullchain.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +362,7 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	if _, err := db.Exec(`DROP TRIGGER fail_certificate_update`); err != nil {
 		t.Fatal(err)
 	}
-	currentFullchain, err := os.ReadFile(filepath.Join(base, record.Domain, "fullchain.pem"))
+	currentFullchain, err := os.ReadFile(filepath.Join(ManagedBaseDir(base), record.Domain, "fullchain.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +370,7 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 		t.Fatal("database failure did not restore the previous certificate")
 	}
 	for _, name := range []string{"fullchain.pem", "privkey.pem", ".metadata"} {
-		info, err := os.Stat(filepath.Join(base, "bot.example.com", name))
+		info, err := os.Stat(filepath.Join(ManagedBaseDir(base), "bot.example.com", name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -309,10 +384,10 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	if _, err := db.Exec(`UPDATE subscription_domains SET provider = 'letsencrypt' WHERE domain = ?`, record.Domain); err != nil {
 		t.Fatal(err)
 	}
-	metadata := readMetadata(filepath.Join(base, record.Domain, ".metadata"))
+	metadata := readMetadata(filepath.Join(ManagedBaseDir(base), record.Domain, ".metadata"))
 	metadata["provider"] = "letsencrypt"
 	metadata["certbot_cert_name"] = "rebecca-bot.example.com"
-	if err := writeMetadata(filepath.Join(base, record.Domain), metadata); err != nil {
+	if err := writeMetadata(filepath.Join(ManagedBaseDir(base), record.Domain), metadata); err != nil {
 		t.Fatal(err)
 	}
 	manager.certbotBinary = "certbot-test"
@@ -360,13 +435,32 @@ func TestManagerImportsListsAndDeletesManualCertificate(t *testing.T) {
 	if _, err := manager.Get(context.Background(), record.Domain); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted record lookup error=%v", err)
 	}
-	if _, err := os.Stat(filepath.Join(base, record.Domain)); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(ManagedBaseDir(base), record.Domain)); !os.IsNotExist(err) {
 		t.Fatalf("deleted certificate directory remains: %v", err)
 	}
 }
 
 func clientHello(serverName string) *tls.ClientHelloInfo {
 	return &tls.ClientHelloInfo{ServerName: serverName}
+}
+
+func mustLoadCertificate(t *testing.T, cert, key string) *tls.Certificate {
+	t.Helper()
+	pair, err := loadCertificate(cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pair
+}
+
+func writeManagedCertificate(t *testing.T, base, domain, metadata string) (string, string) {
+	t.Helper()
+	dir := filepath.Join(ManagedBaseDir(base), domain)
+	cert, key := writeCertificate(t, dir, domain)
+	if err := os.WriteFile(filepath.Join(dir, ".metadata"), []byte(metadata), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return cert, key
 }
 
 func writeCertificate(t *testing.T, dir, domain string) (string, string) {

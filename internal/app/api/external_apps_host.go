@@ -10,51 +10,53 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	externalapps "github.com/rebeccapanel/rebecca/internal/app/externalapps"
 )
 
-const maxPHPAppResponseBytes = 64 << 20
+const maxExternalAppResponseBytes = 64 << 20
 
-type phpAppAwareHandler struct {
-	apps *phpAppManager
+type externalAppAwareHandler struct {
+	apps *externalapps.Manager
 	next http.Handler
 }
 
-func (h *phpAppAwareHandler) HandlesHost(host string) bool {
+func (h *externalAppAwareHandler) HandlesHost(host string) bool {
 	if h == nil || h.apps == nil {
 		return false
 	}
-	_, ok := h.apps.lookup(host)
+	_, ok := h.apps.Lookup(host)
 	return ok
 }
 
-func (h *phpAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *externalAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.apps == nil {
 		h.next.ServeHTTP(w, r)
 		return
 	}
-	record, ok := h.apps.lookup(r.Host)
+	record, ok := h.apps.Lookup(r.Host)
 	if !ok {
 		h.next.ServeHTTP(w, r)
 		return
 	}
-	setPHPAppSecurityHeaders(w.Header())
+	setExternalAppSecurityHeaders(w.Header())
 	if !record.Enabled {
 		w.Header().Set("Cache-Control", "no-store")
 		http.Error(w, "Application is disabled", http.StatusServiceUnavailable)
 		return
 	}
-	if r.ContentLength > maxPHPAppRequestBodyBytes {
+	if r.ContentLength > externalapps.MaxRequestBodyBytes {
 		http.Error(w, "Request body is too large", http.StatusRequestEntityTooLarge)
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxPHPAppRequestBodyBytes)
-	if err := h.apps.serve(w, r, record); err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, externalapps.MaxRequestBodyBytes)
+	if err := serveExternalApp(h.apps, w, r, record); err != nil {
 		http.Error(w, "Application is unavailable", http.StatusBadGateway)
 	}
 }
 
-func (m *phpAppManager) serve(w http.ResponseWriter, r *http.Request, record phpAppRecord) error {
-	rel, fullPath, info, err := resolvePHPAppPath(record, r.URL.Path)
+func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *http.Request, record externalapps.Record) error {
+	rel, fullPath, info, err := resolveExternalAppPath(record, r.URL.Path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			http.NotFound(w, r)
@@ -72,22 +74,22 @@ func (m *phpAppManager) serve(w http.ResponseWriter, r *http.Request, record php
 			return nil
 		}
 		if record.Template == "mirzabot" {
-			if err := m.authorizeMirzaRequest(r, record, rel); err != nil {
+			if err := manager.AuthorizeMirzaRequest(r, record, rel); err != nil {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return nil
 			}
 		}
-		return servePHPAppFastCGI(w, r, record, rel, fullPath)
+		return serveExternalAppFastCGI(w, r, record, rel, fullPath)
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return nil
 	}
-	servePHPAppStatic(w, r, record, rel)
+	serveExternalAppStatic(w, r, record, rel)
 	return nil
 }
 
-func resolvePHPAppPath(record phpAppRecord, requestPath string) (string, string, os.FileInfo, error) {
+func resolveExternalAppPath(record externalapps.Record, requestPath string) (string, string, os.FileInfo, error) {
 	if strings.ContainsRune(requestPath, '\x00') || strings.Contains(requestPath, "\\") {
 		return "", "", nil, os.ErrNotExist
 	}
@@ -96,7 +98,7 @@ func resolvePHPAppPath(record phpAppRecord, requestPath string) (string, string,
 	if rel == "." {
 		rel = ""
 	}
-	if phpAppPathDenied(rel) {
+	if externalAppPathDenied(rel) {
 		return "", "", nil, os.ErrNotExist
 	}
 	root, err := os.OpenRoot(record.Root)
@@ -123,13 +125,13 @@ func resolvePHPAppPath(record phpAppRecord, requestPath string) (string, string,
 	if err != nil {
 		return "", "", nil, os.ErrNotExist
 	}
-	if phpAppPathDenied(rel) {
+	if externalAppPathDenied(rel) {
 		return "", "", nil, os.ErrNotExist
 	}
 	return filepath.ToSlash(rel), filepath.Join(record.Root, filepath.FromSlash(rel)), info, nil
 }
 
-func phpAppPathDenied(rel string) bool {
+func externalAppPathDenied(rel string) bool {
 	if rel == "" {
 		return false
 	}
@@ -151,7 +153,7 @@ func phpAppPathDenied(rel string) bool {
 	}
 }
 
-func phpScriptAllowed(record phpAppRecord, rel string) bool {
+func phpScriptAllowed(record externalapps.Record, rel string) bool {
 	if record.Template != "mirzabot" {
 		return true
 	}
@@ -167,32 +169,7 @@ func phpScriptAllowed(record phpAppRecord, rel string) bool {
 	return false
 }
 
-func (m *phpAppManager) authorizeMirzaRequest(r *http.Request, record phpAppRecord, rel string) error {
-	rel = strings.ToLower(filepath.ToSlash(rel))
-	if rel != "index.php" && !strings.HasPrefix(rel, "cronbot/") {
-		return nil
-	}
-	secrets, err := m.readSecrets(record.Domain)
-	if err != nil {
-		return err
-	}
-	var actual, expected string
-	if rel == "index.php" && r.Method == http.MethodPost {
-		actual = strings.TrimSpace(r.Header.Get("X-Telegram-Bot-Api-Secret-Token"))
-		expected = secrets.WebhookSecret
-	} else if strings.HasPrefix(rel, "cronbot/") {
-		actual = strings.TrimSpace(r.Header.Get("X-Rebecca-Cron-Secret"))
-		expected = secrets.CronSecret
-	} else {
-		return nil
-	}
-	if expected == "" || !subtleConstantStringEqual(actual, expected) {
-		return errors.New("invalid application secret")
-	}
-	return nil
-}
-
-func servePHPAppStatic(w http.ResponseWriter, r *http.Request, record phpAppRecord, rel string) {
+func serveExternalAppStatic(w http.ResponseWriter, r *http.Request, record externalapps.Record, rel string) {
 	if contentType := mime.TypeByExtension(strings.ToLower(filepath.Ext(rel))); contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
@@ -215,9 +192,9 @@ func servePHPAppStatic(w http.ResponseWriter, r *http.Request, record phpAppReco
 	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 }
 
-func servePHPAppFastCGI(w http.ResponseWriter, r *http.Request, record phpAppRecord, scriptRel, scriptPath string) error {
-	params := phpAppFastCGIParams(r, record, scriptRel, scriptPath)
-	stdout, stderr, err := fastCGIRequestLimited("unix", record.Socket, params, r.Body, maxPHPAppResponseBytes)
+func serveExternalAppFastCGI(w http.ResponseWriter, r *http.Request, record externalapps.Record, scriptRel, scriptPath string) error {
+	params := externalAppFastCGIParams(r, record, scriptRel, scriptPath)
+	stdout, stderr, err := fastCGIRequestLimited("unix", record.Socket, params, r.Body, maxExternalAppResponseBytes)
 	if err != nil {
 		var maxBytesError *http.MaxBytesError
 		if errors.As(err, &maxBytesError) {
@@ -229,11 +206,11 @@ func servePHPAppFastCGI(w http.ResponseWriter, r *http.Request, record phpAppRec
 	if len(stderr) > 0 && len(stdout) == 0 {
 		return errors.New("PHP-FPM returned an error")
 	}
-	return writePHPAppFastCGIResponse(w, stdout)
+	return writeExternalAppFastCGIResponse(w, stdout)
 }
 
-func phpAppFastCGIParams(r *http.Request, record phpAppRecord, scriptRel, scriptPath string) map[string]string {
-	serverName := canonicalPHPAppHost(r.Host)
+func externalAppFastCGIParams(r *http.Request, record externalapps.Record, scriptRel, scriptPath string) map[string]string {
+	serverName := externalapps.CanonicalHost(r.Host)
 	serverPort := "80"
 	if _, port, err := net.SplitHostPort(r.Host); err == nil {
 		serverPort = port
@@ -281,7 +258,7 @@ func phpAppFastCGIParams(r *http.Request, record phpAppRecord, scriptRel, script
 	return params
 }
 
-func writePHPAppFastCGIResponse(w http.ResponseWriter, stdout []byte) error {
+func writeExternalAppFastCGIResponse(w http.ResponseWriter, stdout []byte) error {
 	headers, body, err := splitFastCGIHeaders(stdout)
 	if err != nil {
 		return err
@@ -299,7 +276,7 @@ func writePHPAppFastCGIResponse(w http.ResponseWriter, stdout []byte) error {
 			}
 			continue
 		}
-		if phpAppHopByHopHeader(key) || strings.EqualFold(key, "X-Powered-By") || strings.EqualFold(key, "Content-Length") {
+		if externalAppHopByHopHeader(key) || strings.EqualFold(key, "X-Powered-By") || strings.EqualFold(key, "Content-Length") {
 			continue
 		}
 		if strings.EqualFold(key, "Location") {
@@ -318,7 +295,7 @@ func writePHPAppFastCGIResponse(w http.ResponseWriter, stdout []byte) error {
 	return err
 }
 
-func phpAppHopByHopHeader(key string) bool {
+func externalAppHopByHopHeader(key string) bool {
 	switch strings.ToLower(strings.TrimSpace(key)) {
 	case "connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade":
 		return true
@@ -327,7 +304,7 @@ func phpAppHopByHopHeader(key string) bool {
 	}
 }
 
-func setPHPAppSecurityHeaders(header http.Header) {
+func setExternalAppSecurityHeaders(header http.Header) {
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin")
 	header.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")

@@ -1,4 +1,4 @@
-package api
+package externalapps
 
 import (
 	"context"
@@ -19,21 +19,21 @@ import (
 )
 
 const (
-	maxPHPAppTextBytes   = 2 << 20
-	maxPHPAppConfigBytes = 64 << 10
-	maxPHPAppListedFiles = 10_000
+	maxExternalAppTextBytes   = 2 << 20
+	maxExternalAppConfigBytes = 64 << 10
+	maxExternalAppListedFiles = 10_000
 )
 
 var (
-	errPHPAppInvalidPath   = errors.New("invalid application file path")
-	errPHPAppProtectedPath = errors.New("this application path is managed by Rebecca")
-	errPHPAppInvalidFile   = errors.New("unsupported application file")
-	errPHPAppTextTooLarge  = errors.New("text files are limited to 2 MiB")
-	errPHPAppBinaryFile    = errors.New("binary files cannot be opened in the editor")
-	errPHPAppInvalidConfig = errors.New("invalid PHP-FPM configuration")
+	errExternalAppInvalidPath   = errors.New("invalid application file path")
+	errExternalAppProtectedPath = errors.New("this application path is managed by Rebecca")
+	errExternalAppInvalidFile   = errors.New("unsupported application file")
+	errExternalAppTextTooLarge  = errors.New("text files are limited to 2 MiB")
+	errExternalAppBinaryFile    = errors.New("binary files cannot be opened in the editor")
+	errExternalAppInvalidConfig = errors.New("invalid PHP-FPM configuration")
 )
 
-type phpAppFile struct {
+type File struct {
 	Name        string `json:"name"`
 	IsDirectory bool   `json:"isDirectory"`
 	Path        string `json:"path"`
@@ -41,51 +41,51 @@ type phpAppFile struct {
 	Size        int64  `json:"size,omitempty"`
 }
 
-type phpAppFileContent struct {
+type FileContent struct {
 	Path      string `json:"path"`
 	Content   string `json:"content"`
 	UpdatedAt string `json:"updated_at"`
 }
 
-type phpAppFileRequest struct {
+type FileRequest struct {
 	Path    string   `json:"path"`
 	NewPath string   `json:"new_path,omitempty"`
 	Paths   []string `json:"paths,omitempty"`
 	Content string   `json:"content,omitempty"`
 }
 
-func (m *phpAppManager) openFileRoot(domain string) (*os.Root, phpAppRecord, error) {
-	record, ok := m.lookup(domain)
+func (m *Manager) openFileRoot(domain string) (*os.Root, Record, error) {
+	record, ok := m.Lookup(domain)
 	if !ok {
-		return nil, phpAppRecord{}, errPHPAppNotFound
+		return nil, Record{}, errExternalAppNotFound
 	}
 	base, err := filepath.EvalSymlinks(m.appsDir())
 	if err != nil {
-		return nil, phpAppRecord{}, err
+		return nil, Record{}, err
 	}
 	rootPath, err := filepath.EvalSymlinks(record.Root)
 	if err != nil {
-		return nil, phpAppRecord{}, err
+		return nil, Record{}, err
 	}
 	fileAccess := m.fileAccess
 	if fileAccess == "" {
-		fileAccess = phpAppFileAccessRoot
+		fileAccess = externalAppFileAccessRoot
 	}
 	boundary, err := filepath.EvalSymlinks(fileAccess)
 	if err != nil {
-		return nil, phpAppRecord{}, err
+		return nil, Record{}, err
 	}
 	if !pathWithin(boundary, base) || !pathWithin(base, rootPath) {
-		return nil, phpAppRecord{}, errPHPAppInvalidPath
+		return nil, Record{}, errExternalAppInvalidPath
 	}
-	if err := rejectPHPAppMounts(rootPath); err != nil {
-		return nil, phpAppRecord{}, err
+	if err := rejectExternalAppMounts(rootPath); err != nil {
+		return nil, Record{}, err
 	}
 	root, err := os.OpenRoot(rootPath)
 	return root, record, err
 }
 
-func rejectPHPAppMounts(root string) error {
+func rejectExternalAppMounts(root string) error {
 	data, err := os.ReadFile("/proc/self/mountinfo")
 	if err != nil {
 		return fmt.Errorf("inspect application mount points: %w", err)
@@ -104,36 +104,36 @@ func rejectPHPAppMounts(root string) error {
 	return nil
 }
 
-func normalizePHPAppPath(raw string, allowRoot bool) (string, error) {
+func normalizeExternalAppPath(raw string, allowRoot bool) (string, error) {
 	if strings.ContainsRune(raw, '\x00') || strings.Contains(raw, `\`) || len(raw) > 4096 {
-		return "", errPHPAppInvalidPath
+		return "", errExternalAppInvalidPath
 	}
 	if raw == "" || raw == "/" {
 		if allowRoot {
 			return ".", nil
 		}
-		return "", errPHPAppInvalidPath
+		return "", errExternalAppInvalidPath
 	}
 	if strings.HasPrefix(raw, "//") {
-		return "", errPHPAppInvalidPath
+		return "", errExternalAppInvalidPath
 	}
 	raw = strings.TrimPrefix(raw, "/")
 	clean := path.Clean(raw)
 	if clean == "." || clean != raw || strings.HasPrefix(clean, "../") {
-		return "", errPHPAppInvalidPath
+		return "", errExternalAppInvalidPath
 	}
 	for _, segment := range strings.Split(clean, "/") {
 		if segment == "" || len(segment) > 255 {
-			return "", errPHPAppInvalidPath
+			return "", errExternalAppInvalidPath
 		}
-		if protectedPHPAppSegment(segment) {
-			return "", errPHPAppProtectedPath
+		if protectedExternalAppSegment(segment) {
+			return "", errExternalAppProtectedPath
 		}
 	}
 	return clean, nil
 }
 
-func protectedPHPAppSegment(segment string) bool {
+func protectedExternalAppSegment(segment string) bool {
 	switch segment {
 	case ".composer", ".git", ".locks", ".logs", ".sessions", ".tmp", "node_modules", "vendor":
 		return true
@@ -142,13 +142,13 @@ func protectedPHPAppSegment(segment string) bool {
 	}
 }
 
-func (m *phpAppManager) listFiles(domain string) ([]phpAppFile, error) {
+func (m *Manager) listFiles(domain string) ([]File, error) {
 	root, _, err := m.openFileRoot(domain)
 	if err != nil {
 		return nil, err
 	}
 	defer root.Close()
-	files := make([]phpAppFile, 0, 128)
+	files := make([]File, 0, 128)
 	err = fs.WalkDir(root.FS(), ".", func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -157,7 +157,7 @@ func (m *phpAppManager) listFiles(domain string) ([]phpAppFile, error) {
 			return nil
 		}
 		for _, segment := range strings.Split(name, "/") {
-			if protectedPHPAppSegment(segment) {
+			if protectedExternalAppSegment(segment) {
 				if entry.IsDir() {
 					return fs.SkipDir
 				}
@@ -171,13 +171,13 @@ func (m *phpAppManager) listFiles(domain string) ([]phpAppFile, error) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && (!info.Mode().IsRegular() || phpAppFileHasMultipleLinks(info)) {
+		if !info.IsDir() && (!info.Mode().IsRegular() || FileHasMultipleLinks(info)) {
 			return nil
 		}
-		if len(files) >= maxPHPAppListedFiles {
+		if len(files) >= maxExternalAppListedFiles {
 			return errors.New("application has too many files to display")
 		}
-		item := phpAppFile{
+		item := File{
 			Name:        entry.Name(),
 			IsDirectory: info.IsDir(),
 			Path:        "/" + filepath.ToSlash(name),
@@ -196,58 +196,58 @@ func (m *phpAppManager) listFiles(domain string) ([]phpAppFile, error) {
 	return files, nil
 }
 
-func (m *phpAppManager) readFile(domain, rawPath string) (phpAppFileContent, error) {
-	name, err := normalizePHPAppPath(rawPath, false)
+func (m *Manager) readFile(domain, rawPath string) (FileContent, error) {
+	name, err := normalizeExternalAppPath(rawPath, false)
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
 	root, _, err := m.openFileRoot(domain)
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
 	defer root.Close()
 	info, err := root.Lstat(name)
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
-	if !info.Mode().IsRegular() || phpAppFileHasMultipleLinks(info) {
-		return phpAppFileContent{}, errPHPAppInvalidFile
+	if !info.Mode().IsRegular() || FileHasMultipleLinks(info) {
+		return FileContent{}, errExternalAppInvalidFile
 	}
 	file, err := root.Open(name)
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
 	defer file.Close()
 	openedInfo, err := file.Stat()
-	if err != nil || !openedInfo.Mode().IsRegular() || phpAppFileHasMultipleLinks(openedInfo) {
-		return phpAppFileContent{}, errPHPAppInvalidFile
+	if err != nil || !openedInfo.Mode().IsRegular() || FileHasMultipleLinks(openedInfo) {
+		return FileContent{}, errExternalAppInvalidFile
 	}
-	data, err := io.ReadAll(io.LimitReader(file, maxPHPAppTextBytes+1))
+	data, err := io.ReadAll(io.LimitReader(file, maxExternalAppTextBytes+1))
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
-	if len(data) > maxPHPAppTextBytes {
-		return phpAppFileContent{}, errPHPAppTextTooLarge
+	if len(data) > maxExternalAppTextBytes {
+		return FileContent{}, errExternalAppTextTooLarge
 	}
 	if !utf8.Valid(data) || strings.IndexByte(string(data), 0) >= 0 {
-		return phpAppFileContent{}, errPHPAppBinaryFile
+		return FileContent{}, errExternalAppBinaryFile
 	}
-	return phpAppFileContent{Path: "/" + name, Content: string(data), UpdatedAt: openedInfo.ModTime().UTC().Format(time.RFC3339)}, nil
+	return FileContent{Path: "/" + name, Content: string(data), UpdatedAt: openedInfo.ModTime().UTC().Format(time.RFC3339)}, nil
 }
 
-func (m *phpAppManager) saveFile(ctx context.Context, domain, rawPath string, data []byte) error {
-	if len(data) > maxPHPAppTextBytes {
-		return errPHPAppTextTooLarge
+func (m *Manager) saveFile(ctx context.Context, domain, rawPath string, data []byte) error {
+	if len(data) > maxExternalAppTextBytes {
+		return errExternalAppTextTooLarge
 	}
 	if !utf8.Valid(data) || strings.IndexByte(string(data), 0) >= 0 {
-		return errPHPAppBinaryFile
+		return errExternalAppBinaryFile
 	}
-	name, err := normalizePHPAppPath(rawPath, false)
+	name, err := normalizeExternalAppPath(rawPath, false)
 	if err != nil {
 		return err
 	}
 	if !m.operationMu.TryLock() {
-		return errPHPAppBusy
+		return errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
 	root, record, err := m.openFileRoot(domain)
@@ -255,16 +255,16 @@ func (m *phpAppManager) saveFile(ctx context.Context, domain, rawPath string, da
 		return err
 	}
 	defer root.Close()
-	return writePHPAppFile(ctx, root, record, name, data, true)
+	return writeExternalAppFile(ctx, root, record, name, data, true)
 }
 
-func (m *phpAppManager) createFolder(ctx context.Context, domain, rawPath string) error {
-	name, err := normalizePHPAppPath(rawPath, false)
+func (m *Manager) createFolder(ctx context.Context, domain, rawPath string) error {
+	name, err := normalizeExternalAppPath(rawPath, false)
 	if err != nil {
 		return err
 	}
 	if !m.operationMu.TryLock() {
-		return errPHPAppBusy
+		return errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
 	root, record, err := m.openFileRoot(domain)
@@ -272,7 +272,7 @@ func (m *phpAppManager) createFolder(ctx context.Context, domain, rawPath string
 		return err
 	}
 	defer root.Close()
-	if err := requirePHPAppDirectory(root, path.Dir(name)); err != nil {
+	if err := requireExternalAppDirectory(root, path.Dir(name)); err != nil {
 		return err
 	}
 	if err := root.Mkdir(name, 0o755); err != nil {
@@ -283,51 +283,51 @@ func (m *phpAppManager) createFolder(ctx context.Context, domain, rawPath string
 		return err
 	}
 	defer directory.Close()
-	return chownPHPAppFile(ctx, directory, record)
+	return chownExternalAppFile(ctx, directory, record)
 }
 
-func (m *phpAppManager) uploadFile(ctx context.Context, domain, parent, filename string, data []byte) (phpAppFile, error) {
-	parent, err := normalizePHPAppPath(parent, true)
+func (m *Manager) uploadFile(ctx context.Context, domain, parent, filename string, data []byte) (File, error) {
+	parent, err := normalizeExternalAppPath(parent, true)
 	if err != nil {
-		return phpAppFile{}, err
+		return File{}, err
 	}
 	if filename == "" || filename != path.Base(filename) || strings.Contains(filename, `\`) {
-		return phpAppFile{}, errPHPAppInvalidPath
+		return File{}, errExternalAppInvalidPath
 	}
-	name, err := normalizePHPAppPath(path.Join(parent, filename), false)
+	name, err := normalizeExternalAppPath(path.Join(parent, filename), false)
 	if err != nil {
-		return phpAppFile{}, err
+		return File{}, err
 	}
-	if len(data) == 0 || len(data) > maxPHPAppArchiveBytes {
-		return phpAppFile{}, errors.New("uploaded files are limited to 32 MiB")
+	if len(data) == 0 || len(data) > maxExternalAppArchiveBytes {
+		return File{}, errors.New("uploaded files are limited to 32 MiB")
 	}
 	if !m.operationMu.TryLock() {
-		return phpAppFile{}, errPHPAppBusy
+		return File{}, errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
 	root, record, err := m.openFileRoot(domain)
 	if err != nil {
-		return phpAppFile{}, err
+		return File{}, err
 	}
 	defer root.Close()
-	if err := writePHPAppFile(ctx, root, record, name, data, false); err != nil {
-		return phpAppFile{}, err
+	if err := writeExternalAppFile(ctx, root, record, name, data, false); err != nil {
+		return File{}, err
 	}
 	info, err := root.Stat(name)
 	if err != nil {
-		return phpAppFile{}, err
+		return File{}, err
 	}
-	return phpAppFile{Name: path.Base(name), Path: "/" + name, Size: info.Size(), UpdatedAt: info.ModTime().UTC().Format(time.RFC3339)}, nil
+	return File{Name: path.Base(name), Path: "/" + name, Size: info.Size(), UpdatedAt: info.ModTime().UTC().Format(time.RFC3339)}, nil
 }
 
-func writePHPAppFile(ctx context.Context, root *os.Root, record phpAppRecord, name string, data []byte, overwrite bool) error {
-	if err := requirePHPAppDirectory(root, path.Dir(name)); err != nil {
+func writeExternalAppFile(ctx context.Context, root *os.Root, record Record, name string, data []byte, overwrite bool) error {
+	if err := requireExternalAppDirectory(root, path.Dir(name)); err != nil {
 		return err
 	}
 	mode := os.FileMode(0o644)
 	if info, err := root.Lstat(name); err == nil {
-		if !info.Mode().IsRegular() || phpAppFileHasMultipleLinks(info) {
-			return errPHPAppInvalidFile
+		if !info.Mode().IsRegular() || FileHasMultipleLinks(info) {
+			return errExternalAppInvalidFile
 		}
 		if !overwrite {
 			return fs.ErrExist
@@ -353,7 +353,7 @@ func writePHPAppFile(ctx context.Context, root *os.Root, record phpAppRecord, na
 		err = file.Chmod(mode)
 	}
 	if err == nil {
-		err = chownPHPAppFile(ctx, file, record)
+		err = chownExternalAppFile(ctx, file, record)
 	}
 	closeErr := file.Close()
 	if err != nil {
@@ -371,18 +371,18 @@ func writePHPAppFile(ctx context.Context, root *os.Root, record phpAppRecord, na
 	return root.Remove(tempName)
 }
 
-func requirePHPAppDirectory(root *os.Root, name string) error {
+func requireExternalAppDirectory(root *os.Root, name string) error {
 	info, err := root.Lstat(name)
 	if err != nil {
 		return err
 	}
 	if !info.IsDir() {
-		return errPHPAppInvalidPath
+		return errExternalAppInvalidPath
 	}
 	return nil
 }
 
-func chownPHPAppFile(ctx context.Context, file *os.File, record phpAppRecord) error {
+func chownExternalAppFile(ctx context.Context, file *os.File, record Record) error {
 	if record.Runtime != "php" {
 		return nil
 	}
@@ -393,12 +393,12 @@ func chownPHPAppFile(ctx context.Context, file *os.File, record phpAppRecord) er
 	return file.Chown(uid, gid)
 }
 
-func (m *phpAppManager) moveFile(domain, oldPath, newPath string) error {
-	oldName, err := normalizePHPAppPath(oldPath, false)
+func (m *Manager) moveFile(domain, oldPath, newPath string) error {
+	oldName, err := normalizeExternalAppPath(oldPath, false)
 	if err != nil {
 		return err
 	}
-	newName, err := normalizePHPAppPath(newPath, false)
+	newName, err := normalizeExternalAppPath(newPath, false)
 	if err != nil {
 		return err
 	}
@@ -406,10 +406,10 @@ func (m *phpAppManager) moveFile(domain, oldPath, newPath string) error {
 		return nil
 	}
 	if strings.HasPrefix(newName, oldName+"/") {
-		return errPHPAppInvalidPath
+		return errExternalAppInvalidPath
 	}
 	if !m.operationMu.TryLock() {
-		return errPHPAppBusy
+		return errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
 	root, _, err := m.openFileRoot(domain)
@@ -421,28 +421,28 @@ func (m *phpAppManager) moveFile(domain, oldPath, newPath string) error {
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() && (!info.Mode().IsRegular() || phpAppFileHasMultipleLinks(info)) {
-		return errPHPAppInvalidFile
+	if !info.IsDir() && (!info.Mode().IsRegular() || FileHasMultipleLinks(info)) {
+		return errExternalAppInvalidFile
 	}
 	if _, err := root.Lstat(newName); err == nil {
 		return fs.ErrExist
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
-	if err := requirePHPAppDirectory(root, path.Dir(newName)); err != nil {
+	if err := requireExternalAppDirectory(root, path.Dir(newName)); err != nil {
 		return err
 	}
 	return root.Rename(oldName, newName)
 }
 
-func (m *phpAppManager) deleteFiles(domain string, rawPaths []string) error {
+func (m *Manager) deleteFiles(domain string, rawPaths []string) error {
 	if len(rawPaths) == 0 || len(rawPaths) > 100 {
-		return errPHPAppInvalidPath
+		return errExternalAppInvalidPath
 	}
 	names := make([]string, 0, len(rawPaths))
 	seen := map[string]bool{}
 	for _, rawPath := range rawPaths {
-		name, err := normalizePHPAppPath(rawPath, false)
+		name, err := normalizeExternalAppPath(rawPath, false)
 		if err != nil {
 			return err
 		}
@@ -453,7 +453,7 @@ func (m *phpAppManager) deleteFiles(domain string, rawPaths []string) error {
 	}
 	sort.Slice(names, func(i, j int) bool { return strings.Count(names[i], "/") > strings.Count(names[j], "/") })
 	if !m.operationMu.TryLock() {
-		return errPHPAppBusy
+		return errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
 	root, _, err := m.openFileRoot(domain)
@@ -466,8 +466,8 @@ func (m *phpAppManager) deleteFiles(domain string, rawPaths []string) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && (!info.Mode().IsRegular() || phpAppFileHasMultipleLinks(info)) {
-			return errPHPAppInvalidFile
+		if !info.IsDir() && (!info.Mode().IsRegular() || FileHasMultipleLinks(info)) {
+			return errExternalAppInvalidFile
 		}
 		if err := root.RemoveAll(name); err != nil {
 			return err
@@ -476,8 +476,8 @@ func (m *phpAppManager) deleteFiles(domain string, rawPaths []string) error {
 	return nil
 }
 
-func (m *phpAppManager) openDownload(domain, rawPath string) (*os.File, os.FileInfo, error) {
-	name, err := normalizePHPAppPath(rawPath, false)
+func (m *Manager) openDownload(domain, rawPath string) (*os.File, os.FileInfo, error) {
+	name, err := normalizeExternalAppPath(rawPath, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -487,9 +487,9 @@ func (m *phpAppManager) openDownload(domain, rawPath string) (*os.File, os.FileI
 	}
 	defer root.Close()
 	info, err := root.Lstat(name)
-	if err != nil || !info.Mode().IsRegular() || phpAppFileHasMultipleLinks(info) {
+	if err != nil || !info.Mode().IsRegular() || FileHasMultipleLinks(info) {
 		if err == nil {
-			err = errPHPAppInvalidFile
+			err = errExternalAppInvalidFile
 		}
 		return nil, nil, err
 	}
@@ -498,45 +498,45 @@ func (m *phpAppManager) openDownload(domain, rawPath string) (*os.File, os.FileI
 		return nil, nil, err
 	}
 	openedInfo, err := file.Stat()
-	if err != nil || !openedInfo.Mode().IsRegular() || phpAppFileHasMultipleLinks(openedInfo) {
+	if err != nil || !openedInfo.Mode().IsRegular() || FileHasMultipleLinks(openedInfo) {
 		file.Close()
-		return nil, nil, errPHPAppInvalidFile
+		return nil, nil, errExternalAppInvalidFile
 	}
 	return file, openedInfo, nil
 }
 
-func (m *phpAppManager) readPHPConfig(domain string) (phpAppFileContent, error) {
+func (m *Manager) readPHPConfig(domain string) (FileContent, error) {
 	record, err := m.safePHPConfigRecord(domain)
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
 	data, err := os.ReadFile(record.PoolConfig)
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
-	if len(data) > maxPHPAppConfigBytes || !utf8.Valid(data) {
-		return phpAppFileContent{}, errPHPAppInvalidConfig
+	if len(data) > maxExternalAppConfigBytes || !utf8.Valid(data) {
+		return FileContent{}, errExternalAppInvalidConfig
 	}
 	info, err := os.Stat(record.PoolConfig)
 	if err != nil {
-		return phpAppFileContent{}, err
+		return FileContent{}, err
 	}
-	return phpAppFileContent{Path: record.PoolConfig, Content: string(data), UpdatedAt: info.ModTime().UTC().Format(time.RFC3339)}, nil
+	return FileContent{Path: record.PoolConfig, Content: string(data), UpdatedAt: info.ModTime().UTC().Format(time.RFC3339)}, nil
 }
 
-func (m *phpAppManager) savePHPConfig(ctx context.Context, domain, content string) error {
-	if len(content) == 0 || len(content) > maxPHPAppConfigBytes || !utf8.ValidString(content) {
-		return errPHPAppInvalidConfig
+func (m *Manager) savePHPConfig(ctx context.Context, domain, content string) error {
+	if len(content) == 0 || len(content) > maxExternalAppConfigBytes || !utf8.ValidString(content) {
+		return errExternalAppInvalidConfig
 	}
 	if !m.operationMu.TryLock() {
-		return errPHPAppBusy
+		return errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
 	record, err := m.safePHPConfigRecord(domain)
 	if err != nil {
 		return err
 	}
-	if err := validatePHPAppPoolConfig(record, content); err != nil {
+	if err := validateExternalAppPoolConfig(record, content); err != nil {
 		return err
 	}
 	previous, err := os.ReadFile(record.PoolConfig)
@@ -559,33 +559,33 @@ func (m *phpAppManager) savePHPConfig(ctx context.Context, domain, content strin
 		if restoreErr := reloadPHPFPM(ctx, record); restoreErr != nil {
 			return fmt.Errorf("restore PHP-FPM service after validation failure: %w", restoreErr)
 		}
-		return fmt.Errorf("%w: %v; previous configuration restored", errPHPAppInvalidConfig, failure)
+		return fmt.Errorf("%w: %v; previous configuration restored", errExternalAppInvalidConfig, failure)
 	}
 }
 
-func (m *phpAppManager) safePHPConfigRecord(domain string) (phpAppRecord, error) {
-	record, ok := m.lookup(domain)
+func (m *Manager) safePHPConfigRecord(domain string) (Record, error) {
+	record, ok := m.Lookup(domain)
 	if !ok {
-		return phpAppRecord{}, errPHPAppNotFound
+		return Record{}, errExternalAppNotFound
 	}
 	if record.Runtime != "php" || record.PHPVersion == "" {
-		return phpAppRecord{}, errPHPAppUnsupported
+		return Record{}, errExternalAppUnsupported
 	}
 	expected := filepath.Join("/etc/php", record.PHPVersion, "fpm", "pool.d", "rebecca-"+domainHash(record.Domain)+".conf")
 	if filepath.Clean(record.PoolConfig) != expected || record.Service != "php"+record.PHPVersion+"-fpm" {
-		return phpAppRecord{}, errPHPAppInvalidPath
+		return Record{}, errExternalAppInvalidPath
 	}
 	return record, nil
 }
 
-func validatePHPAppPoolConfig(record phpAppRecord, content string) error {
-	expectedSection, expected, err := parsePHPAppPoolConfig(phpAppPoolConfig(record, record.Template == "mirzabot"))
+func validateExternalAppPoolConfig(record Record, content string) error {
+	expectedSection, expected, err := parseExternalAppPoolConfig(externalAppPoolConfig(record, record.Template == "mirzabot"))
 	if err != nil {
 		return err
 	}
-	section, values, err := parsePHPAppPoolConfig(content)
+	section, values, err := parseExternalAppPoolConfig(content)
 	if err != nil || section != expectedSection || len(values) != len(expected) {
-		return errPHPAppInvalidConfig
+		return errExternalAppInvalidConfig
 	}
 	editable := map[string]func(string) bool{
 		"pm.max_children":                      func(value string) bool { return integerBetween(value, 1, 10) },
@@ -599,23 +599,23 @@ func validatePHPAppPoolConfig(record phpAppRecord, content string) error {
 	for key, expectedValue := range expected {
 		value, ok := values[key]
 		if !ok {
-			return errPHPAppInvalidConfig
+			return errExternalAppInvalidConfig
 		}
 		if validate, editableKey := editable[key]; editableKey {
 			if !validate(value) {
-				return fmt.Errorf("%w: unsafe value for %s", errPHPAppInvalidConfig, key)
+				return fmt.Errorf("%w: unsafe value for %s", errExternalAppInvalidConfig, key)
 			}
 		} else if value != expectedValue {
-			return fmt.Errorf("%w: %s is managed by Rebecca", errPHPAppInvalidConfig, key)
+			return fmt.Errorf("%w: %s is managed by Rebecca", errExternalAppInvalidConfig, key)
 		}
 	}
 	if phpSizeBytes(values["php_admin_value[post_max_size]"]) < phpSizeBytes(values["php_admin_value[upload_max_filesize]"]) {
-		return fmt.Errorf("%w: post_max_size must not be smaller than upload_max_filesize", errPHPAppInvalidConfig)
+		return fmt.Errorf("%w: post_max_size must not be smaller than upload_max_filesize", errExternalAppInvalidConfig)
 	}
 	return nil
 }
 
-func parsePHPAppPoolConfig(content string) (string, map[string]string, error) {
+func parseExternalAppPoolConfig(content string) (string, map[string]string, error) {
 	section := ""
 	values := map[string]string{}
 	for line := range strings.Lines(content) {
@@ -625,7 +625,7 @@ func parsePHPAppPoolConfig(content string) (string, map[string]string, error) {
 		}
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			if section != "" {
-				return "", nil, errPHPAppInvalidConfig
+				return "", nil, errExternalAppInvalidConfig
 			}
 			section = line
 			continue
@@ -633,15 +633,15 @@ func parsePHPAppPoolConfig(content string) (string, map[string]string, error) {
 		key, value, ok := strings.Cut(line, "=")
 		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
 		if !ok || section == "" || key == "" {
-			return "", nil, errPHPAppInvalidConfig
+			return "", nil, errExternalAppInvalidConfig
 		}
 		if _, duplicate := values[key]; duplicate {
-			return "", nil, fmt.Errorf("%w: duplicate %s", errPHPAppInvalidConfig, key)
+			return "", nil, fmt.Errorf("%w: duplicate %s", errExternalAppInvalidConfig, key)
 		}
 		values[key] = value
 	}
 	if section == "" {
-		return "", nil, errPHPAppInvalidConfig
+		return "", nil, errExternalAppInvalidConfig
 	}
 	return section, values, nil
 }
@@ -684,15 +684,15 @@ func phpSizeBytes(value string) int64 {
 	return number * multiplier
 }
 
-func (s *Server) handlePHPAppFiles(w http.ResponseWriter, r *http.Request, domain string, action []string) {
+func (m *Manager) handleExternalAppFiles(w http.ResponseWriter, r *http.Request, domain string, action []string) {
 	if len(action) == 0 {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
-		files, err := s.phpApps.listFiles(domain)
+		files, err := m.listFiles(domain)
 		if err != nil {
-			writePHPAppFileError(w, err)
+			writeExternalAppFileError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"files": files})
@@ -701,22 +701,22 @@ func (s *Server) handlePHPAppFiles(w http.ResponseWriter, r *http.Request, domai
 	switch action[0] {
 	case "content":
 		if r.Method == http.MethodGet {
-			content, err := s.phpApps.readFile(domain, r.URL.Query().Get("path"))
+			content, err := m.readFile(domain, r.URL.Query().Get("path"))
 			if err != nil {
-				writePHPAppFileError(w, err)
+				writeExternalAppFileError(w, err)
 				return
 			}
 			writeJSON(w, http.StatusOK, content)
 			return
 		}
 		if r.Method == http.MethodPut {
-			var request phpAppFileRequest
+			var request FileRequest
 			if err := decodeOptionalJSON(r, &request); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := s.phpApps.saveFile(r.Context(), domain, request.Path, []byte(request.Content)); err != nil {
-				writePHPAppFileError(w, err)
+			if err := m.saveFile(r.Context(), domain, request.Path, []byte(request.Content)); err != nil {
+				writeExternalAppFileError(w, err)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -724,13 +724,13 @@ func (s *Server) handlePHPAppFiles(w http.ResponseWriter, r *http.Request, domai
 		}
 	case "folder":
 		if r.Method == http.MethodPost {
-			var request phpAppFileRequest
+			var request FileRequest
 			if err := decodeOptionalJSON(r, &request); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := s.phpApps.createFolder(r.Context(), domain, request.Path); err != nil {
-				writePHPAppFileError(w, err)
+			if err := m.createFolder(r.Context(), domain, request.Path); err != nil {
+				writeExternalAppFileError(w, err)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -738,18 +738,18 @@ func (s *Server) handlePHPAppFiles(w http.ResponseWriter, r *http.Request, domai
 		}
 	case "upload":
 		if r.Method == http.MethodPost {
-			s.handlePHPAppFileUpload(w, r, domain)
+			m.handleExternalAppFileUpload(w, r, domain)
 			return
 		}
 	case "move":
 		if r.Method == http.MethodPost {
-			var request phpAppFileRequest
+			var request FileRequest
 			if err := decodeOptionalJSON(r, &request); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := s.phpApps.moveFile(domain, request.Path, request.NewPath); err != nil {
-				writePHPAppFileError(w, err)
+			if err := m.moveFile(domain, request.Path, request.NewPath); err != nil {
+				writeExternalAppFileError(w, err)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -757,13 +757,13 @@ func (s *Server) handlePHPAppFiles(w http.ResponseWriter, r *http.Request, domai
 		}
 	case "delete":
 		if r.Method == http.MethodPost {
-			var request phpAppFileRequest
+			var request FileRequest
 			if err := decodeOptionalJSON(r, &request); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := s.phpApps.deleteFiles(domain, request.Paths); err != nil {
-				writePHPAppFileError(w, err)
+			if err := m.deleteFiles(domain, request.Paths); err != nil {
+				writeExternalAppFileError(w, err)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -771,9 +771,9 @@ func (s *Server) handlePHPAppFiles(w http.ResponseWriter, r *http.Request, domai
 		}
 	case "download":
 		if r.Method == http.MethodGet {
-			file, info, err := s.phpApps.openDownload(domain, r.URL.Query().Get("path"))
+			file, info, err := m.openDownload(domain, r.URL.Query().Get("path"))
 			if err != nil {
-				writePHPAppFileError(w, err)
+				writeExternalAppFileError(w, err)
 				return
 			}
 			defer file.Close()
@@ -785,8 +785,8 @@ func (s *Server) handlePHPAppFiles(w http.ResponseWriter, r *http.Request, domai
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
-func (s *Server) handlePHPAppFileUpload(w http.ResponseWriter, r *http.Request, domain string) {
-	if err := r.ParseMultipartForm(maxPHPAppRequestBodyBytes); err != nil {
+func (m *Manager) handleExternalAppFileUpload(w http.ResponseWriter, r *http.Request, domain string) {
+	if err := r.ParseMultipartForm(MaxRequestBodyBytes); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid multipart upload")
 		return
 	}
@@ -799,37 +799,37 @@ func (s *Server) handlePHPAppFileUpload(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, maxPHPAppArchiveBytes+1))
-	if err != nil || len(data) > maxPHPAppArchiveBytes {
+	data, err := io.ReadAll(io.LimitReader(file, maxExternalAppArchiveBytes+1))
+	if err != nil || len(data) > maxExternalAppArchiveBytes {
 		writeError(w, http.StatusRequestEntityTooLarge, "uploaded files are limited to 32 MiB")
 		return
 	}
-	item, err := s.phpApps.uploadFile(r.Context(), domain, r.FormValue("parent"), header.Filename, data)
+	item, err := m.uploadFile(r.Context(), domain, r.FormValue("parent"), header.Filename, data)
 	if err != nil {
-		writePHPAppFileError(w, err)
+		writeExternalAppFileError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, item)
 }
 
-func (s *Server) handlePHPAppConfig(w http.ResponseWriter, r *http.Request, domain string) {
+func (m *Manager) handleExternalAppConfig(w http.ResponseWriter, r *http.Request, domain string) {
 	if r.Method == http.MethodGet {
-		content, err := s.phpApps.readPHPConfig(domain)
+		content, err := m.readPHPConfig(domain)
 		if err != nil {
-			writePHPAppFileError(w, err)
+			writeExternalAppFileError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, content)
 		return
 	}
 	if r.Method == http.MethodPut {
-		var request phpAppFileRequest
+		var request FileRequest
 		if err := decodeOptionalJSON(r, &request); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := s.phpApps.savePHPConfig(r.Context(), domain, request.Content); err != nil {
-			writePHPAppFileError(w, err)
+		if err := m.savePHPConfig(r.Context(), domain, request.Content); err != nil {
+			writeExternalAppFileError(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -838,16 +838,16 @@ func (s *Server) handlePHPAppConfig(w http.ResponseWriter, r *http.Request, doma
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
-func writePHPAppFileError(w http.ResponseWriter, err error) {
+func writeExternalAppFileError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, errPHPAppNotFound), errors.Is(err, fs.ErrNotExist):
+	case errors.Is(err, errExternalAppNotFound), errors.Is(err, fs.ErrNotExist):
 		writeError(w, http.StatusNotFound, "application file not found")
-	case errors.Is(err, fs.ErrExist), errors.Is(err, errPHPAppBusy):
+	case errors.Is(err, fs.ErrExist), errors.Is(err, errExternalAppBusy):
 		writeError(w, http.StatusConflict, err.Error())
-	case errors.Is(err, errPHPAppInvalidPath), errors.Is(err, errPHPAppProtectedPath),
-		errors.Is(err, errPHPAppInvalidFile), errors.Is(err, errPHPAppTextTooLarge),
-		errors.Is(err, errPHPAppBinaryFile), errors.Is(err, errPHPAppInvalidConfig),
-		errors.Is(err, errPHPAppUnsupported):
+	case errors.Is(err, errExternalAppInvalidPath), errors.Is(err, errExternalAppProtectedPath),
+		errors.Is(err, errExternalAppInvalidFile), errors.Is(err, errExternalAppTextTooLarge),
+		errors.Is(err, errExternalAppBinaryFile), errors.Is(err, errExternalAppInvalidConfig),
+		errors.Is(err, errExternalAppUnsupported):
 		writeError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeError(w, http.StatusInternalServerError, "application file operation failed")

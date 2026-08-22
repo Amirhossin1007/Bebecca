@@ -42,11 +42,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
-import {
-	AdminRole,
-	AdminSection,
-	AdminSudoScope,
-} from "types/Admin";
+import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import {
 	getTutorialManifestUrl,
 	getTutorialSeenKey,
@@ -78,7 +74,7 @@ const XraySettingsIconStyled = chakra(WrenchScrewdriverIcon, iconProps);
 const XrayLogsIconStyled = chakra(DocumentTextIcon, iconProps);
 const ApiDocsIconStyled = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIconStyled = chakra(CircleStackIcon, iconProps);
-const PHPAppsIconStyled = chakra(CommandLineIcon, iconProps);
+const ExternalAppsIconStyled = chakra(CommandLineIcon, iconProps);
 const TutorialUpdateIconStyled = chakra(BellAlertIcon, {
 	baseStyle: {
 		w: 3,
@@ -261,9 +257,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			: null,
 		isPrivilegedAdmin
 			? {
-					title: t("phpApps.menu"),
+					title: t("externalApps.menu"),
 					url: "/external-apps",
-					icon: PHPAppsIconStyled,
+					icon: ExternalAppsIconStyled,
 				}
 			: null,
 		{

@@ -1539,7 +1539,7 @@ max_input_time=0"
     fi
 }
 
-prepare_php_app_hosting() {
+prepare_external_app_hosting() {
     if ! is_binary_install; then
         colorized_echo red "PHP application hosting is available only in binary installations."
         return 1
@@ -5100,7 +5100,7 @@ usage() {
     colorized_echo yellow "  core-update     - Deprecated; Xray is managed by nodes"
     colorized_echo yellow "  enable-phpmyadmin - Enable phpMyAdmin for local MySQL/MariaDB"
     colorized_echo yellow "  disable-phpmyadmin - Disable phpMyAdmin"
-    colorized_echo yellow "  prepare-php-app-hosting - Install PHP-FPM hosting prerequisites without Apache"
+    colorized_echo yellow "  prepare-external-app-hosting - Install PHP-FPM hosting prerequisites without Apache"
     colorized_echo yellow "  edit            - Edit docker-compose.yml (via nano or vi editor)"
     colorized_echo yellow "  edit-env        - Edit environment file (via nano or vi editor)"
     colorized_echo yellow "  ssl             - Issue or renew SSL certificates"
@@ -5160,7 +5160,7 @@ dispatch_command() {
         core-update) update_core_command "$@" ;;
         enable-phpmyadmin) enable_phpmyadmin "$@" ;;
         disable-phpmyadmin) disable_phpmyadmin "$@" ;;
-        prepare-php-app-hosting) prepare_php_app_hosting "$@" ;;
+        prepare-external-app-hosting) prepare_external_app_hosting "$@" ;;
         ssl) ssl_command "$@" ;;
         edit) edit_command "$@" ;;
         edit-env) edit_env_command "$@" ;;

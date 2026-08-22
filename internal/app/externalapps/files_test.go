@@ -1,4 +1,4 @@
-package api
+package externalapps
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestPHPAppFileManagerConfinesMutationsToApplicationRoot(t *testing.T) {
+func TestExternalAppFileManagerConfinesMutationsToApplicationRoot(t *testing.T) {
 	base := t.TempDir()
 	appRoot := filepath.Join(base, "apps", "abcdef")
 	if err := os.MkdirAll(filepath.Join(appRoot, ".logs"), 0o755); err != nil {
@@ -31,7 +31,7 @@ func TestPHPAppFileManagerConfinesMutationsToApplicationRoot(t *testing.T) {
 	if err := os.Link(outside, filepath.Join(appRoot, "hardlink.txt")); err != nil {
 		t.Fatal(err)
 	}
-	manager := &phpAppManager{baseDir: base, fileAccess: base, apps: map[string]phpAppRecord{
+	manager := &Manager{baseDir: base, fileAccess: base, apps: map[string]Record{
 		"app.example.com": {Domain: "app.example.com", Root: appRoot, Runtime: "static"},
 	}}
 
@@ -75,7 +75,7 @@ func TestPHPAppFileManagerConfinesMutationsToApplicationRoot(t *testing.T) {
 	}
 }
 
-func TestPHPAppFileManagerRejectsEscapedRoot(t *testing.T) {
+func TestExternalAppFileManagerRejectsEscapedRoot(t *testing.T) {
 	base := t.TempDir()
 	outside := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(base, "apps"), 0o755); err != nil {
@@ -85,23 +85,23 @@ func TestPHPAppFileManagerRejectsEscapedRoot(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Fatal(err)
 	}
-	manager := &phpAppManager{baseDir: base, fileAccess: base, apps: map[string]phpAppRecord{
+	manager := &Manager{baseDir: base, fileAccess: base, apps: map[string]Record{
 		"app.example.com": {Domain: "app.example.com", Root: link, Runtime: "static"},
 	}}
-	if _, err := manager.listFiles("app.example.com"); !errors.Is(err, errPHPAppInvalidPath) {
+	if _, err := manager.listFiles("app.example.com"); !errors.Is(err, errExternalAppInvalidPath) {
 		t.Fatalf("escaped root error=%v", err)
 	}
 }
 
-func TestValidatePHPAppPoolConfigLocksSecurityDirectives(t *testing.T) {
-	record := phpAppRecord{
+func TestValidateExternalAppPoolConfigLocksSecurityDirectives(t *testing.T) {
+	record := Record{
 		Template: "mirzabot", Domain: "bot.example.com", Runtime: "php", PHPVersion: "8.4",
-		Root: "/var/lib/rebecca/php-apps/apps/abcdef", SystemUser: "rbphp_abcdef",
+		Root: "/var/lib/rebecca/external-apps/apps/abcdef", SystemUser: "rbphp_abcdef",
 		Socket: "/run/php/rebecca-abcdef.sock",
 	}
-	config := phpAppPoolConfig(record, true)
+	config := externalAppPoolConfig(record, true)
 	valid := strings.Replace(config, "pm.max_children = 2", "pm.max_children = 4", 1)
-	if err := validatePHPAppPoolConfig(record, valid); err != nil {
+	if err := validateExternalAppPoolConfig(record, valid); err != nil {
 		t.Fatalf("safe resource change rejected: %v", err)
 	}
 	for name, change := range map[string]string{
@@ -113,17 +113,15 @@ func TestValidatePHPAppPoolConfigLocksSecurityDirectives(t *testing.T) {
 		"duplicate directive": config + "user = rbphp_abcdef\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := validatePHPAppPoolConfig(record, change); !errors.Is(err, errPHPAppInvalidConfig) {
+			if err := validateExternalAppPoolConfig(record, change); !errors.Is(err, errExternalAppInvalidConfig) {
 				t.Fatalf("unsafe config error=%v", err)
 			}
 		})
 	}
 }
 
-func TestPHPAppAPIPathSupportsExternalAndLegacyNames(t *testing.T) {
-	for _, prefix := range []string{"/api/settings/external-apps", "/api/settings/php-apps"} {
-		if got := phpAppAPIPath(prefix + "/app.example.com/files"); got != "app.example.com/files" {
-			t.Fatalf("path=%q", got)
-		}
+func TestExternalAppAPIPath(t *testing.T) {
+	if got := externalAppAPIPath("/api/settings/external-apps/app.example.com/files"); got != "app.example.com/files" {
+		t.Fatalf("path=%q", got)
 	}
 }

@@ -110,13 +110,16 @@ export const updateTelegramSettings = async (
 	});
 };
 
-export const testTelegramSettings =
-	async (): Promise<{ ok: boolean; chat_id: number; detail: string }> => {
-		return apiFetch("/settings/telegram/test", {
-			method: "POST",
-			body: JSON.stringify({}),
-		});
-	};
+export const testTelegramSettings = async (): Promise<{
+	ok: boolean;
+	chat_id: number;
+	detail: string;
+}> => {
+	return apiFetch("/settings/telegram/test", {
+		method: "POST",
+		body: JSON.stringify({}),
+	});
+};
 
 export const sendTelegramBackup = async (
 	scope: RebeccaBackupScope,
@@ -173,7 +176,8 @@ export interface SubscriptionTemplateSettings {
 	subscription_ports: number[];
 }
 
-export type SubscriptionTemplateSettingsUpdatePayload = Partial<SubscriptionTemplateSettings>;
+export type SubscriptionTemplateSettingsUpdatePayload =
+	Partial<SubscriptionTemplateSettings>;
 
 export interface AdminSubscriptionSettings {
 	id: number;
@@ -264,9 +268,10 @@ export interface RuntimeSettingsResponse {
 
 export type RuntimeSettingsUpdatePayload = Partial<RuntimeSettingsResponse>;
 
-export const getRuntimeSettings = async (): Promise<RuntimeSettingsResponse> => {
-	return apiFetch("/settings");
-};
+export const getRuntimeSettings =
+	async (): Promise<RuntimeSettingsResponse> => {
+		return apiFetch("/settings");
+	};
 
 export const updateRuntimeSettings = async (
 	payload: RuntimeSettingsUpdatePayload,
@@ -319,7 +324,7 @@ export const disablePHPMyAdmin =
 		});
 	};
 
-export interface PHPAppRecord {
+export interface ExternalAppRecord {
 	template: "archive" | "mirzabot";
 	name: string;
 	domain: string;
@@ -333,7 +338,7 @@ export interface PHPAppRecord {
 	public_url: string;
 }
 
-export interface PHPAppTemplate {
+export interface ExternalAppTemplate {
 	id: "archive" | "mirzabot";
 	name: string;
 	supported: boolean;
@@ -343,22 +348,22 @@ export interface PHPAppTemplate {
 	source_url?: string;
 }
 
-export interface PHPAppsResponse {
+export interface ExternalAppsResponse {
 	supported: boolean;
 	detail: string;
-	templates: PHPAppTemplate[];
-	apps: PHPAppRecord[];
+	templates: ExternalAppTemplate[];
+	apps: ExternalAppRecord[];
 }
 
-export const getPHPApps = async (): Promise<PHPAppsResponse> => {
+export const getExternalApps = async (): Promise<ExternalAppsResponse> => {
 	return apiFetch("/settings/external-apps");
 };
 
-export const installPHPArchive = async (payload: {
+export const installExternalArchive = async (payload: {
 	domain: string;
 	name: string;
 	archive: File;
-}): Promise<PHPAppRecord> => {
+}): Promise<ExternalAppRecord> => {
 	const body = new FormData();
 	body.set("domain", payload.domain);
 	body.set("name", payload.name);
@@ -374,7 +379,7 @@ export const installMirzaBot = async (payload: {
 	domain: string;
 	bot_token: string;
 	admin_id: string;
-}): Promise<PHPAppRecord> => {
+}): Promise<ExternalAppRecord> => {
 	return apiFetch("/settings/external-apps/mirzabot", {
 		method: "POST",
 		body: JSON.stringify(payload),
@@ -382,24 +387,24 @@ export const installMirzaBot = async (payload: {
 	});
 };
 
-export const setPHPAppEnabled = async (payload: {
+export const setExternalAppEnabled = async (payload: {
 	domain: string;
 	enabled: boolean;
-}): Promise<PHPAppRecord> => {
+}): Promise<ExternalAppRecord> => {
 	return apiFetch(
 		`/settings/external-apps/${encodeURIComponent(payload.domain)}/${payload.enabled ? "enable" : "disable"}`,
 		{ method: "POST", body: JSON.stringify({}), timeout: 120000 },
 	);
 };
 
-export const deletePHPApp = async (domain: string): Promise<void> => {
+export const deleteExternalApp = async (domain: string): Promise<void> => {
 	await apiFetch(`/settings/external-apps/${encodeURIComponent(domain)}`, {
 		method: "DELETE",
 		timeout: 10 * 60 * 1000,
 	});
 };
 
-export interface PHPAppFile {
+export interface ExternalAppFile {
 	name: string;
 	isDirectory: boolean;
 	path: string;
@@ -407,7 +412,7 @@ export interface PHPAppFile {
 	size?: number;
 }
 
-export interface PHPAppFileContent {
+export interface ExternalAppFileContent {
 	path: string;
 	content: string;
 	updated_at: string;
@@ -416,22 +421,22 @@ export interface PHPAppFileContent {
 const externalAppPath = (domain: string, suffix = "") =>
 	`/settings/external-apps/${encodeURIComponent(domain)}${suffix}`;
 
-export const getPHPAppFiles = async (
+export const getExternalAppFiles = async (
 	domain: string,
-): Promise<{ files: PHPAppFile[] }> => {
+): Promise<{ files: ExternalAppFile[] }> => {
 	return apiFetch(externalAppPath(domain, "/files"));
 };
 
-export const getPHPAppFile = async (
+export const getExternalAppFile = async (
 	domain: string,
 	path: string,
-): Promise<PHPAppFileContent> => {
+): Promise<ExternalAppFileContent> => {
 	return apiFetch(
 		`${externalAppPath(domain, "/files/content")}?path=${encodeURIComponent(path)}`,
 	);
 };
 
-export const savePHPAppFile = async (payload: {
+export const saveExternalAppFile = async (payload: {
 	domain: string;
 	path: string;
 	content: string;
@@ -442,7 +447,7 @@ export const savePHPAppFile = async (payload: {
 	});
 };
 
-export const createPHPAppFolder = async (payload: {
+export const createExternalAppFolder = async (payload: {
 	domain: string;
 	path: string;
 }): Promise<void> => {
@@ -452,7 +457,7 @@ export const createPHPAppFolder = async (payload: {
 	});
 };
 
-export const movePHPAppFile = async (payload: {
+export const moveExternalAppFile = async (payload: {
 	domain: string;
 	path: string;
 	new_path: string;
@@ -463,7 +468,7 @@ export const movePHPAppFile = async (payload: {
 	});
 };
 
-export const deletePHPAppFiles = async (payload: {
+export const deleteExternalAppFiles = async (payload: {
 	domain: string;
 	paths: string[];
 }): Promise<void> => {
@@ -475,19 +480,19 @@ export const deletePHPAppFiles = async (payload: {
 
 const externalAppAPIBase = (apiBaseURL || "/api").replace(/\/$/, "");
 
-export const phpAppFileUploadURL = (domain: string) =>
+export const externalAppFileUploadURL = (domain: string) =>
 	`${externalAppAPIBase}${externalAppPath(domain, "/files/upload")}`;
 
-export const phpAppFileDownloadURL = (domain: string, path: string) =>
+export const externalAppFileDownloadURL = (domain: string, path: string) =>
 	`${externalAppAPIBase}${externalAppPath(domain, "/files/download")}?path=${encodeURIComponent(path)}`;
 
-export const getPHPAppConfig = async (
+export const getExternalAppPHPConfig = async (
 	domain: string,
-): Promise<PHPAppFileContent> => {
+): Promise<ExternalAppFileContent> => {
 	return apiFetch(externalAppPath(domain, "/php-config"));
 };
 
-export const savePHPAppConfig = async (payload: {
+export const saveExternalAppPHPConfig = async (payload: {
 	domain: string;
 	content: string;
 }): Promise<void> => {

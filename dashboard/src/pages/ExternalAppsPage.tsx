@@ -35,13 +35,13 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Link as RouterLink } from "react-router-dom";
 import {
-	deletePHPApp,
-	getPHPApps,
+	deleteExternalApp,
+	getExternalApps,
 	getSubscriptionSettings,
 	installMirzaBot,
-	installPHPArchive,
-	setPHPAppEnabled,
-	type PHPAppRecord,
+	installExternalArchive,
+	setExternalAppEnabled,
+	type ExternalAppRecord,
 } from "service/settings";
 
 type TemplateID = "archive" | "mirzabot";
@@ -60,7 +60,7 @@ const errorDetail = (error: unknown) => {
 	);
 };
 
-export const PHPAppsPage = () => {
+export const ExternalAppsPage = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const queryClient = useQueryClient();
@@ -76,10 +76,10 @@ export const PHPAppsPage = () => {
 	const [archive, setArchive] = useState<File | null>(null);
 	const [botToken, setBotToken] = useState("");
 	const [adminID, setAdminID] = useState("");
-	const [managedApp, setManagedApp] = useState<PHPAppRecord | null>(null);
+	const [managedApp, setManagedApp] = useState<ExternalAppRecord | null>(null);
 	const [managerView, setManagerView] = useState<"file" | "php-config">("file");
 
-	const appsQuery = useQuery("php-apps", getPHPApps, {
+	const appsQuery = useQuery("external-apps", getExternalApps, {
 		refetchOnWindowFocus: false,
 	});
 	const certificatesQuery = useQuery(
@@ -121,13 +121,13 @@ export const PHPAppsPage = () => {
 
 	const installMutation = useMutation(
 		async () => {
-			if (!domain) throw new Error(t("phpApps.errors.domainRequired"));
+			if (!domain) throw new Error(t("externalApps.errors.domainRequired"));
 			if (template === "archive") {
-				if (!archive) throw new Error(t("phpApps.errors.archiveRequired"));
-				return installPHPArchive({ domain, name, archive });
+				if (!archive) throw new Error(t("externalApps.errors.archiveRequired"));
+				return installExternalArchive({ domain, name, archive });
 			}
 			if (!botToken.trim() || !adminID.trim()) {
-				throw new Error(t("phpApps.errors.mirzaFieldsRequired"));
+				throw new Error(t("externalApps.errors.mirzaFieldsRequired"));
 			}
 			return installMirzaBot({
 				domain,
@@ -138,7 +138,7 @@ export const PHPAppsPage = () => {
 		{
 			onSuccess: async () => {
 				toast({
-					title: t("phpApps.installSuccess"),
+					title: t("externalApps.installSuccess"),
 					status: "success",
 					isClosable: true,
 				});
@@ -147,11 +147,11 @@ export const PHPAppsPage = () => {
 				setArchive(null);
 				setBotToken("");
 				setAdminID("");
-				await queryClient.invalidateQueries("php-apps");
+				await queryClient.invalidateQueries("external-apps");
 			},
 			onError: (error) => {
 				toast({
-					title: t("phpApps.installFailed"),
+					title: t("externalApps.installFailed"),
 					description: errorDetail(error),
 					status: "error",
 					isClosable: true,
@@ -160,11 +160,11 @@ export const PHPAppsPage = () => {
 		},
 	);
 
-	const toggleMutation = useMutation(setPHPAppEnabled, {
-		onSuccess: () => queryClient.invalidateQueries("php-apps"),
+	const toggleMutation = useMutation(setExternalAppEnabled, {
+		onSuccess: () => queryClient.invalidateQueries("external-apps"),
 		onError: (error) => {
 			toast({
-				title: t("phpApps.actionFailed"),
+				title: t("externalApps.actionFailed"),
 				description: errorDetail(error),
 				status: "error",
 				isClosable: true,
@@ -172,14 +172,14 @@ export const PHPAppsPage = () => {
 		},
 	});
 
-	const deleteMutation = useMutation(deletePHPApp, {
+	const deleteMutation = useMutation(deleteExternalApp, {
 		onSuccess: () => {
-			toast({ title: t("phpApps.deleteSuccess"), status: "success" });
-			queryClient.invalidateQueries("php-apps");
+			toast({ title: t("externalApps.deleteSuccess"), status: "success" });
+			queryClient.invalidateQueries("external-apps");
 		},
 		onError: (error) => {
 			toast({
-				title: t("phpApps.actionFailed"),
+				title: t("externalApps.actionFailed"),
 				description: errorDetail(error),
 				status: "error",
 				isClosable: true,
@@ -187,12 +187,14 @@ export const PHPAppsPage = () => {
 		},
 	});
 
-	const confirmDelete = (app: PHPAppRecord) => {
-		if (!window.confirm(t("phpApps.deleteConfirm", { domain: app.domain })))
+	const confirmDelete = (app: ExternalAppRecord) => {
+		if (
+			!window.confirm(t("externalApps.deleteConfirm", { domain: app.domain }))
+		)
 			return;
 		deleteMutation.mutate(app.domain);
 	};
-	const openManager = (app: PHPAppRecord, view: "file" | "php-config") => {
+	const openManager = (app: ExternalAppRecord, view: "file" | "php-config") => {
 		setManagerView(view);
 		setManagedApp(app);
 	};
@@ -213,15 +215,15 @@ export const PHPAppsPage = () => {
 				onClose={() => setManagedApp(null)}
 			/>
 			<Box>
-				<Heading size="lg">{t("phpApps.title")}</Heading>
+				<Heading size="lg">{t("externalApps.title")}</Heading>
 				<Text color={mutedColor} mt={2}>
-					{t("phpApps.description")}
+					{t("externalApps.description")}
 				</Text>
 			</Box>
 
 			<Alert status="info" borderRadius="md">
 				<AlertIcon />
-				<Text fontSize="sm">{t("phpApps.resourceHint")}</Text>
+				<Text fontSize="sm">{t("externalApps.resourceHint")}</Text>
 			</Alert>
 
 			<Box
@@ -232,44 +234,44 @@ export const PHPAppsPage = () => {
 				p={{ base: 4, md: 5 }}
 			>
 				<Heading size="md" mb={4}>
-					{t("phpApps.newApp")}
+					{t("externalApps.newApp")}
 				</Heading>
 				{!appsQuery.data?.supported ? (
 					<Alert status="warning" mb={4} borderRadius="md">
 						<AlertIcon />
-						{appsQuery.data?.detail || t("phpApps.unsupported")}
+						{appsQuery.data?.detail || t("externalApps.unsupported")}
 					</Alert>
 				) : null}
 				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 					<FormControl>
-						<FormLabel>{t("phpApps.template")}</FormLabel>
+						<FormLabel>{t("externalApps.template")}</FormLabel>
 						<Select
 							value={template}
 							onValueChange={(value) => setTemplate(value as TemplateID)}
 							options={[
-								{ value: "mirzabot", label: t("phpApps.mirzaTemplate") },
-								{ value: "archive", label: t("phpApps.archiveTemplate") },
+								{ value: "mirzabot", label: t("externalApps.mirzaTemplate") },
+								{ value: "archive", label: t("externalApps.archiveTemplate") },
 							]}
 						/>
 					</FormControl>
 					<FormControl isRequired>
-						<FormLabel>{t("phpApps.domainCertificate")}</FormLabel>
+						<FormLabel>{t("externalApps.domainCertificate")}</FormLabel>
 						<Select
 							value={domain}
 							onValueChange={(value) => setDomain(String(value))}
 							options={certificateOptions}
-							placeholder={t("phpApps.selectDomain")}
+							placeholder={t("externalApps.selectDomain")}
 							showSearch
-							emptyText={t("phpApps.noCertificates")}
+							emptyText={t("externalApps.noCertificates")}
 						/>
 						<FormHelperText>
-							{t("phpApps.certificateHint")}{" "}
+							{t("externalApps.certificateHint")}{" "}
 							<Link
 								as={RouterLink}
 								to="/settings#subscriptions"
 								color="blue.300"
 							>
-								{t("phpApps.openSSLManager")}
+								{t("externalApps.openSSLManager")}
 							</Link>
 						</FormHelperText>
 					</FormControl>
@@ -278,7 +280,7 @@ export const PHPAppsPage = () => {
 				{template === "mirzabot" ? (
 					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
 						<FormControl isRequired>
-							<FormLabel>{t("phpApps.botToken")}</FormLabel>
+							<FormLabel>{t("externalApps.botToken")}</FormLabel>
 							<Input
 								type="password"
 								value={botToken}
@@ -287,7 +289,7 @@ export const PHPAppsPage = () => {
 							/>
 						</FormControl>
 						<FormControl isRequired>
-							<FormLabel>{t("phpApps.telegramAdminID")}</FormLabel>
+							<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
 							<Input
 								value={adminID}
 								onChange={(event) => setAdminID(event.target.value)}
@@ -298,14 +300,14 @@ export const PHPAppsPage = () => {
 				) : (
 					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
 						<FormControl>
-							<FormLabel>{t("phpApps.name")}</FormLabel>
+							<FormLabel>{t("externalApps.name")}</FormLabel>
 							<Input
 								value={name}
 								onChange={(event) => setName(event.target.value)}
 							/>
 						</FormControl>
 						<FormControl isRequired>
-							<FormLabel>{t("phpApps.zipArchive")}</FormLabel>
+							<FormLabel>{t("externalApps.zipArchive")}</FormLabel>
 							<Input
 								type="file"
 								accept=".zip,application/zip"
@@ -314,7 +316,7 @@ export const PHPAppsPage = () => {
 									setArchive(event.target.files?.[0] ?? null)
 								}
 							/>
-							<FormHelperText>{t("phpApps.archiveHint")}</FormHelperText>
+							<FormHelperText>{t("externalApps.archiveHint")}</FormHelperText>
 						</FormControl>
 					</SimpleGrid>
 				)}
@@ -331,7 +333,7 @@ export const PHPAppsPage = () => {
 					}
 					onClick={() => installMutation.mutate()}
 				>
-					{t("phpApps.install")}
+					{t("externalApps.install")}
 				</Button>
 				{selectedTemplate?.detail ? (
 					<Text color="orange.300" fontSize="sm" mt={2}>
@@ -349,7 +351,7 @@ export const PHPAppsPage = () => {
 						fontSize="sm"
 						color="blue.300"
 					>
-						{t("phpApps.latestRelease")}
+						{t("externalApps.latestRelease")}
 						<ArrowTopRightOnSquareIcon width={14} />
 					</Link>
 				) : null}
@@ -363,10 +365,10 @@ export const PHPAppsPage = () => {
 				p={{ base: 4, md: 5 }}
 			>
 				<Heading size="md" mb={4}>
-					{t("phpApps.installedApps")}
+					{t("externalApps.installedApps")}
 				</Heading>
 				{apps.length === 0 ? (
-					<Text color={mutedColor}>{t("phpApps.empty")}</Text>
+					<Text color={mutedColor}>{t("externalApps.empty")}</Text>
 				) : (
 					<Stack spacing={3} divider={<Divider />}>
 						{apps.map((app) => (
@@ -382,8 +384,8 @@ export const PHPAppsPage = () => {
 											<Text fontWeight="semibold">{app.name}</Text>
 											<Badge colorScheme={app.enabled ? "green" : "gray"}>
 												{app.enabled
-													? t("phpApps.enabled")
-													: t("phpApps.disabled")}
+													? t("externalApps.enabled")
+													: t("externalApps.disabled")}
 											</Badge>
 											<Badge>
 												{app.template === "mirzabot"
@@ -405,7 +407,7 @@ export const PHPAppsPage = () => {
 											leftIcon={<FolderOpenIcon width={16} />}
 											onClick={() => openManager(app, "file")}
 										>
-											{t("phpApps.files.button")}
+											{t("externalApps.files.button")}
 										</Button>
 										{app.runtime === "php" ? (
 											<Button
@@ -414,7 +416,7 @@ export const PHPAppsPage = () => {
 												leftIcon={<CodeBracketIcon width={16} />}
 												onClick={() => openManager(app, "php-config")}
 											>
-												{t("phpApps.files.phpConfig")}
+												{t("externalApps.files.phpConfig")}
 											</Button>
 										) : null}
 										<Link href={app.public_url} isExternal>
@@ -423,7 +425,7 @@ export const PHPAppsPage = () => {
 												variant="outline"
 												rightIcon={<ArrowTopRightOnSquareIcon width={16} />}
 											>
-												{t("phpApps.open")}
+												{t("externalApps.open")}
 											</Button>
 										</Link>
 										<Switch
@@ -444,7 +446,7 @@ export const PHPAppsPage = () => {
 											isLoading={deleteMutation.isLoading}
 											onClick={() => confirmDelete(app)}
 										>
-											{t("phpApps.delete")}
+											{t("externalApps.delete")}
 										</Button>
 									</HStack>
 								</Stack>
@@ -457,4 +459,4 @@ export const PHPAppsPage = () => {
 	);
 };
 
-export default PHPAppsPage;
+export default ExternalAppsPage;

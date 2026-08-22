@@ -28,14 +28,11 @@ type Resolver struct {
 
 func NewResolver(baseDir, fallbackCert, fallbackKey string) (*Resolver, error) {
 	resolver := &Resolver{
-		baseDir:      filepath.Clean(strings.TrimSpace(baseDir)),
+		baseDir:      ManagedBaseDir(baseDir),
 		fallbackCert: strings.TrimSpace(fallbackCert),
 		fallbackKey:  strings.TrimSpace(fallbackKey),
 		refreshEvery: 5 * time.Second,
 		byName:       map[string]*tls.Certificate{},
-	}
-	if resolver.baseDir == "." || resolver.baseDir == "" {
-		resolver.baseDir = DefaultBaseDir
 	}
 	if err := resolver.reload(); err != nil {
 		return nil, err
@@ -46,29 +43,31 @@ func NewResolver(baseDir, fallbackCert, fallbackKey string) (*Resolver, error) {
 func (r *Resolver) Ready() bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.fallback != nil
+	return r.fallback != nil || len(r.byName) > 0
 }
 
 func (r *Resolver) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	r.mu.RLock()
-	lastRefresh := r.lastRefresh
-	r.mu.RUnlock()
-	if time.Since(lastRefresh) >= r.refreshEvery {
-		_ = r.reload()
+	serverName := ""
+	if hello != nil {
+		serverName = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(hello.ServerName), "."))
 	}
-	serverName := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(hello.ServerName), "."))
 	r.mu.RLock()
-	defer r.mu.RUnlock()
-	if certificate := r.byName[serverName]; certificate != nil {
-		return certificate, nil
-	}
-	if labels := strings.Split(serverName, "."); len(labels) > 2 {
-		if certificate := r.byName["*."+strings.Join(labels[1:], ".")]; certificate != nil {
-			return certificate, nil
+	stale := time.Since(r.lastRefresh) >= r.refreshEvery
+	certificate := r.byName[serverName]
+	if certificate == nil {
+		if labels := strings.Split(serverName, "."); len(labels) > 2 {
+			certificate = r.byName["*."+strings.Join(labels[1:], ".")]
 		}
 	}
-	if r.fallback != nil {
-		return r.fallback, nil
+	if certificate == nil {
+		certificate = r.fallback
+	}
+	r.mu.RUnlock()
+	if stale {
+		r.reloadAsync()
+	}
+	if certificate != nil {
+		return certificate, nil
 	}
 	return nil, fmt.Errorf("no TLS certificate is available")
 }
@@ -76,12 +75,25 @@ func (r *Resolver) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate,
 func (r *Resolver) reload() error {
 	r.refreshMu.Lock()
 	defer r.refreshMu.Unlock()
+	return r.reloadLocked()
+}
 
+func (r *Resolver) reloadAsync() {
+	if !r.refreshMu.TryLock() {
+		return
+	}
+	go func() {
+		defer r.refreshMu.Unlock()
+		_ = r.reloadLocked()
+	}()
+}
+
+func (r *Resolver) reloadLocked() error {
 	byName := map[string]*tls.Certificate{}
 	var fallback *tls.Certificate
 	configuredFallbackMissing := false
 
-	if r.fallbackCert != "" && r.fallbackKey != "" && !r.configuredFallbackRevoked() {
+	if r.fallbackCert != "" && r.fallbackKey != "" {
 		certificate, err := loadCertificate(r.fallbackCert, r.fallbackKey)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
@@ -90,7 +102,6 @@ func (r *Resolver) reload() error {
 			configuredFallbackMissing = true
 		} else {
 			fallback = certificate
-			indexCertificate(byName, certificate)
 		}
 	}
 
@@ -113,9 +124,6 @@ func (r *Resolver) reload() error {
 		if err != nil {
 			continue
 		}
-		if fallback == nil {
-			fallback = certificate
-		}
 		indexCertificate(byName, certificate)
 	}
 
@@ -125,23 +133,13 @@ func (r *Resolver) reload() error {
 	r.fallback = fallback
 	r.lastRefresh = time.Now()
 	r.mu.Unlock()
-	if configuredFallbackMissing && fallback == nil {
+	if configuredFallbackMissing {
 		if initialLoad {
 			return fmt.Errorf("load configured TLS certificate: certificate files do not exist")
 		}
 		return fmt.Errorf("configured TLS certificate was removed")
 	}
 	return nil
-}
-
-func (r *Resolver) configuredFallbackRevoked() bool {
-	dir := filepath.Dir(filepath.Clean(r.fallbackCert))
-	relative, err := filepath.Rel(r.baseDir, dir)
-	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
-		return false
-	}
-	status := strings.ToLower(strings.TrimSpace(readMetadata(filepath.Join(dir, ".metadata"))["status"]))
-	return status == "revoked" || status == "revoking"
 }
 
 func loadCertificate(certPath, keyPath string) (*tls.Certificate, error) {

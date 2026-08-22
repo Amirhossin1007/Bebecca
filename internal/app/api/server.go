@@ -16,6 +16,7 @@ import (
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
 	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
+	externalapps "github.com/rebeccapanel/rebecca/internal/app/externalapps"
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	"github.com/rebeccapanel/rebecca/internal/app/migrations"
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
@@ -58,7 +59,7 @@ type Server struct {
 	webhookDispatch      webhookapp.Dispatcher
 	backupService        *backupapp.Service
 	certificateManager   *certificateapp.Manager
-	phpApps              *phpAppManager
+	externalApps         *externalapps.Manager
 	backgroundOnce       sync.Once
 	nodeOperationsKick   chan struct{}
 	userOpsKickMu        sync.Mutex
@@ -110,6 +111,9 @@ func New(cfg Config) (*Server, error) {
 		BaseDir:       cfg.CertificateBase,
 		CertbotBinary: cfg.CertbotBinary,
 	})
+	if err := certificateManager.Prepare(migrationCtx); err != nil {
+		return nil, fmt.Errorf("prepare managed certificates: %w", err)
+	}
 	outboundSubs := outboundsubapp.NewService(pool.DB, pool.Dialect)
 	server := &Server{
 		cfg:            cfg,
@@ -134,12 +138,16 @@ func New(cfg Config) (*Server, error) {
 			telegramRepo,
 			telegramSender,
 		),
-		telegramBackup:       telegramapp.NewBackupDelivery(telegramRepo, telegramSender),
-		webhookRepo:          webhookRepo,
-		webhookDispatch:      webhookDispatch,
-		backupService:        backupService,
-		certificateManager:   certificateManager,
-		phpApps:              newPHPAppManager(cfg, certificateManager),
+		telegramBackup:     telegramapp.NewBackupDelivery(telegramRepo, telegramSender),
+		webhookRepo:        webhookRepo,
+		webhookDispatch:    webhookDispatch,
+		backupService:      backupService,
+		certificateManager: certificateManager,
+		externalApps: externalapps.New(externalapps.Config{
+			BaseDir:           cfg.ExternalAppsBase,
+			DatabaseURL:       cfg.Database,
+			MySQLRootPassword: cfg.MySQLRootPassword,
+		}, certificateManager),
 		nodeOperationsKick:   make(chan struct{}, 1),
 		recentActionsEnabled: true,
 	}

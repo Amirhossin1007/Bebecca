@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/rebeccapanel/rebecca/internal/app/externalapps"
 )
 
 func TestAPIRequestBodyLimitRejectsLargeDeclaredBody(t *testing.T) {
@@ -80,11 +82,9 @@ func TestAPIRequestBodyLimitRejectsOversizedPHPMyAdminUpload(t *testing.T) {
 	}
 }
 
-func TestAPIRequestBodyLimitUsesPHPAppArchiveLimit(t *testing.T) {
+func TestAPIRequestBodyLimitUsesExternalAppArchiveLimit(t *testing.T) {
 	for _, requestPath := range []string{
-		"/api/settings/php-apps/archive",
 		"/api/settings/external-apps/archive",
-		"/api/settings/php-apps/app.example.com/files/upload",
 		"/api/settings/external-apps/app.example.com/files/upload",
 	} {
 		for _, test := range []struct {
@@ -92,8 +92,8 @@ func TestAPIRequestBodyLimitUsesPHPAppArchiveLimit(t *testing.T) {
 			size   int64
 			status int
 		}{
-			{name: "allowed", size: maxPHPAppRequestBodyBytes, status: http.StatusOK},
-			{name: "rejected", size: maxPHPAppRequestBodyBytes + 1, status: http.StatusRequestEntityTooLarge},
+			{name: "allowed", size: externalapps.MaxRequestBodyBytes, status: http.StatusOK},
+			{name: "rejected", size: externalapps.MaxRequestBodyBytes + 1, status: http.StatusRequestEntityTooLarge},
 		} {
 			t.Run(requestPath+"/"+test.name, func(t *testing.T) {
 				handler := withAPIRequestBodyLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))

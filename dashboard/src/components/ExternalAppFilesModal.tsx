@@ -50,17 +50,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "react-query";
 import {
-	createPHPAppFolder,
-	deletePHPAppFiles,
-	getPHPAppConfig,
-	getPHPAppFile,
-	getPHPAppFiles,
-	movePHPAppFile,
-	phpAppFileDownloadURL,
-	phpAppFileUploadURL,
-	savePHPAppConfig,
-	savePHPAppFile,
-	type PHPAppRecord,
+	createExternalAppFolder,
+	deleteExternalAppFiles,
+	getExternalAppPHPConfig,
+	getExternalAppFile,
+	getExternalAppFiles,
+	moveExternalAppFile,
+	externalAppFileDownloadURL,
+	externalAppFileUploadURL,
+	saveExternalAppPHPConfig,
+	saveExternalAppFile,
+	type ExternalAppRecord,
 } from "service/settings";
 import "./ExternalAppFilesModal.css";
 
@@ -73,7 +73,7 @@ interface EditorDocument {
 }
 
 interface Props {
-	app: PHPAppRecord | null;
+	app: ExternalAppRecord | null;
 	initialView?: EditorKind;
 	onClose: () => void;
 }
@@ -134,7 +134,7 @@ export const ExternalAppFilesModal = ({
 	const domain = app?.domain || "";
 	const filesQuery = useQuery(
 		["external-app-files", domain],
-		() => getPHPAppFiles(domain),
+		() => getExternalAppFiles(domain),
 		{ enabled: Boolean(app), refetchOnWindowFocus: false },
 	);
 	const isDirty = document !== null && draft !== document.content;
@@ -147,7 +147,7 @@ export const ExternalAppFilesModal = ({
 				message?: string;
 			};
 			toast({
-				title: t("phpApps.files.actionFailed"),
+				title: t("externalApps.files.actionFailed"),
 				description:
 					candidate?.data?.detail ||
 					candidate?.response?._data?.detail ||
@@ -175,12 +175,12 @@ export const ExternalAppFilesModal = ({
 			if (
 				isDirty &&
 				!discardConfirmed &&
-				!window.confirm(t("phpApps.files.discardConfirm"))
+				!window.confirm(t("externalApps.files.discardConfirm"))
 			)
 				return;
 			setLoadingDocument(true);
 			try {
-				const result = await getPHPAppFile(app.domain, path);
+				const result = await getExternalAppFile(app.domain, path);
 				setDocument({
 					kind: "file",
 					path: result.path,
@@ -198,10 +198,11 @@ export const ExternalAppFilesModal = ({
 
 	const openPHPConfig = useCallback(async () => {
 		if (!app || app.runtime !== "php") return;
-		if (isDirty && !window.confirm(t("phpApps.files.discardConfirm"))) return;
+		if (isDirty && !window.confirm(t("externalApps.files.discardConfirm")))
+			return;
 		setLoadingDocument(true);
 		try {
-			const result = await getPHPAppConfig(app.domain);
+			const result = await getExternalAppPHPConfig(app.domain);
 			setDocument({
 				kind: "php-config",
 				path: result.path,
@@ -225,7 +226,7 @@ export const ExternalAppFilesModal = ({
 			return;
 		}
 		setLoadingDocument(true);
-		getPHPAppConfig(domain)
+		getExternalAppPHPConfig(domain)
 			.then((result) => {
 				if (cancelled) return;
 				setDocument({
@@ -250,9 +251,9 @@ export const ExternalAppFilesModal = ({
 		async () => {
 			if (!app || !document) return;
 			if (document.kind === "php-config") {
-				await savePHPAppConfig({ domain: app.domain, content: draft });
+				await saveExternalAppPHPConfig({ domain: app.domain, content: draft });
 			} else {
-				await savePHPAppFile({
+				await saveExternalAppFile({
 					domain: app.domain,
 					path: document.path,
 					content: draft,
@@ -265,25 +266,27 @@ export const ExternalAppFilesModal = ({
 					current ? { ...current, content: draft } : current,
 				);
 				await refreshFiles();
-				toast({ title: t("phpApps.files.saved"), status: "success" });
+				toast({ title: t("externalApps.files.saved"), status: "success" });
 			},
 			onError: showError,
 		},
 	);
 
 	const close = () => {
-		if (isDirty && !window.confirm(t("phpApps.files.discardConfirm"))) return;
+		if (isDirty && !window.confirm(t("externalApps.files.discardConfirm")))
+			return;
 		onClose();
 	};
 
 	const createFile = () => {
 		if (!app) return;
-		if (isDirty && !window.confirm(t("phpApps.files.discardConfirm"))) return;
-		const name = window.prompt(t("phpApps.files.newFilePrompt"))?.trim();
+		if (isDirty && !window.confirm(t("externalApps.files.discardConfirm")))
+			return;
+		const name = window.prompt(t("externalApps.files.newFilePrompt"))?.trim();
 		if (!name) return;
 		const path = joinPath(folder, name);
 		fileMutation.mutate(async () => {
-			await savePHPAppFile({ domain: app.domain, path, content: "" });
+			await saveExternalAppFile({ domain: app.domain, path, content: "" });
 			await openFile(path, true);
 		});
 	};
@@ -292,11 +295,11 @@ export const ExternalAppFilesModal = ({
 		if (!app) return;
 		const file = files.find((item) => !item.isDirectory);
 		if (!file || files.length !== 1) {
-			showError(new Error(t("phpApps.files.downloadOne")));
+			showError(new Error(t("externalApps.files.downloadOne")));
 			return;
 		}
 		const anchor = window.document.createElement("a");
-		anchor.href = phpAppFileDownloadURL(app.domain, file.path);
+		anchor.href = externalAppFileDownloadURL(app.domain, file.path);
 		anchor.download = file.name;
 		anchor.click();
 	};
@@ -308,7 +311,7 @@ export const ExternalAppFilesModal = ({
 				<ModalHeader>
 					<Flex align="center" gap={3} wrap="wrap" pe={12}>
 						<FolderOpenIcon width={22} />
-						<Text>{t("phpApps.files.title", { domain })}</Text>
+						<Text>{t("externalApps.files.title", { domain })}</Text>
 						{document ? <Code fontSize="xs">{document.path}</Code> : null}
 					</Flex>
 				</ModalHeader>
@@ -325,14 +328,14 @@ export const ExternalAppFilesModal = ({
 									leftIcon={<DocumentPlusIcon width={16} />}
 									onClick={createFile}
 								>
-									{t("phpApps.files.newFile")}
+									{t("externalApps.files.newFile")}
 								</Button>
 								{app?.runtime === "php" ? (
 									<Button
 										leftIcon={<CodeBracketIcon width={16} />}
 										onClick={() => void openPHPConfig()}
 									>
-										{t("phpApps.files.phpConfig")}
+										{t("externalApps.files.phpConfig")}
 									</Button>
 								) : null}
 							</ButtonGroup>
@@ -344,7 +347,7 @@ export const ExternalAppFilesModal = ({
 								collapsibleNav
 								enableFilePreview={false}
 								fileUploadConfig={{
-									url: phpAppFileUploadURL(domain),
+									url: externalAppFileUploadURL(domain),
 									method: "POST",
 									withCredentials: true,
 								}}
@@ -355,7 +358,7 @@ export const ExternalAppFilesModal = ({
 								maxFileSize={32 << 20}
 								onCreateFolder={(name, parent) =>
 									fileMutation.mutate(() =>
-										createPHPAppFolder({
+										createExternalAppFolder({
 											domain,
 											path: joinPath(parent?.path || "/", name),
 										}),
@@ -363,7 +366,7 @@ export const ExternalAppFilesModal = ({
 								}
 								onDelete={(files) =>
 									fileMutation.mutate(() =>
-										deletePHPAppFiles({
+										deleteExternalAppFiles({
 											domain,
 											paths: files.map((file) => file.path),
 										}),
@@ -383,7 +386,7 @@ export const ExternalAppFilesModal = ({
 									if (operation !== "move") return;
 									fileMutation.mutate(async () => {
 										for (const file of files) {
-											await movePHPAppFile({
+											await moveExternalAppFile({
 												domain,
 												path: file.path,
 												new_path: joinPath(destination.path || "/", file.name),
@@ -394,7 +397,7 @@ export const ExternalAppFilesModal = ({
 								onRefresh={() => void refreshFiles()}
 								onRename={(file, newName) =>
 									fileMutation.mutate(() =>
-										movePHPAppFile({
+										moveExternalAppFile({
 											domain,
 											path: file.path,
 											new_path: joinPath(parentPath(file.path), newName),
@@ -415,12 +418,14 @@ export const ExternalAppFilesModal = ({
 							{document?.kind === "php-config" ? (
 								<Alert status="warning" mb={2} borderRadius="md" py={2}>
 									<AlertIcon />
-									<Text fontSize="sm">{t("phpApps.files.phpConfigHint")}</Text>
+									<Text fontSize="sm">
+										{t("externalApps.files.phpConfigHint")}
+									</Text>
 								</Alert>
 							) : null}
 							<Flex justify="space-between" align="center" mb={2} minH="32px">
 								<Text fontSize="sm" color="panel.textSecondary" noOfLines={1}>
-									{document?.path || t("phpApps.files.openHint")}
+									{document?.path || t("externalApps.files.openHint")}
 								</Text>
 								<Button
 									size="sm"
@@ -429,7 +434,7 @@ export const ExternalAppFilesModal = ({
 									isLoading={saveMutation.isLoading}
 									onClick={() => saveMutation.mutate()}
 								>
-									{t("phpApps.files.save")}
+									{t("externalApps.files.save")}
 								</Button>
 							</Flex>
 							<Box flex="1" minH={0} position="relative">
