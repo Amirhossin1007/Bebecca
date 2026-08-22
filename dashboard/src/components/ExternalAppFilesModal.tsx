@@ -24,6 +24,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { FileManager, type FileManagerFile } from "@cubone/react-file-manager";
 import "@cubone/react-file-manager/dist/style.css";
+import "ace-builds/src-noconflict/ace";
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/ext-language_tools";
 import "ace-builds/src-noconflict/mode-css";
