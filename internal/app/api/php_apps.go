@@ -27,10 +27,10 @@ import (
 
 const (
 	defaultPHPAppsBase     = "/var/lib/rebecca/php-apps"
-	mirzaBotVersion        = "0.3.2"
-	mirzaBotSourceSHA      = "55c82c686e0ca6b46fffa878e5a8c51e894e7516"
-	mirzaBotArchiveURL     = "https://codeload.github.com/mahdiMGF2/mirzabot/zip/55c82c686e0ca6b46fffa878e5a8c51e894e7516"
-	mirzaBotArchiveSHA256  = "24da8308c64745402d7e9347297cbd57c39fbf8290d39a5bc85ab199cf2a79fc"
+	phpAppFileAccessRoot   = "/var/lib/rebecca"
+	mirzaBotRepositoryURL  = "https://github.com/mahdiMGF2/mirzabot"
+	mirzaBotAPIBaseURL     = "https://api.github.com/repos/mahdiMGF2/mirzabot"
+	mirzaBotArchiveBaseURL = "https://codeload.github.com/mahdiMGF2/mirzabot"
 	maxPHPAppArchiveBytes  = 32 << 20
 	maxPHPAppExtractedSize = 256 << 20
 	maxPHPAppFiles         = 5000
@@ -42,6 +42,8 @@ var (
 	errPHPAppNotFound    = errors.New("PHP application not found")
 	errPHPAppUnsupported = errors.New("PHP application hosting is not supported by this installation")
 	mirzaBotTokenPattern = regexp.MustCompile(`^[0-9]{5,16}:[A-Za-z0-9_-]{20,100}$`)
+	mirzaReleasePattern  = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+$`)
+	mirzaCommitPattern   = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	telegramIDPattern    = regexp.MustCompile(`^-?[0-9]{5,20}$`)
 )
 
@@ -97,6 +99,9 @@ type phpAppManager struct {
 	databaseURL  string
 	certificates *certificateapp.Manager
 	httpClient   *http.Client
+	mirzaAPIBase string
+	mirzaArchive string
+	fileAccess   string
 
 	operationMu sync.Mutex
 	mu          sync.RWMutex
@@ -112,6 +117,9 @@ func newPHPAppManager(cfg Config, certificates *certificateapp.Manager) *phpAppM
 		baseDir:      filepath.Clean(baseDir),
 		databaseURL:  cfg.Database,
 		certificates: certificates,
+		mirzaAPIBase: mirzaBotAPIBaseURL,
+		mirzaArchive: mirzaBotArchiveBaseURL,
+		fileAccess:   phpAppFileAccessRoot,
 		httpClient: &http.Client{
 			Timeout: 2 * time.Minute,
 			CheckRedirect: func(request *http.Request, via []*http.Request) error {
@@ -119,7 +127,7 @@ func newPHPAppManager(cfg Config, certificates *certificateapp.Manager) *phpAppM
 					return errors.New("too many redirects")
 				}
 				switch strings.ToLower(request.URL.Hostname()) {
-				case "codeload.github.com", "github.com", "objects.githubusercontent.com", "api.telegram.org":
+				case "api.github.com", "codeload.github.com", "github.com", "objects.githubusercontent.com", "api.telegram.org":
 					return nil
 				default:
 					return errors.New("unexpected redirect host")
@@ -429,7 +437,7 @@ func (m *phpAppManager) installMirzaBot(ctx context.Context, request phpAppInsta
 	if err != nil {
 		return phpAppPublicRecord{}, err
 	}
-	archive, err := m.downloadMirzaBot(ctx)
+	source, err := m.downloadMirzaBot(ctx)
 	if err != nil {
 		return phpAppPublicRecord{}, err
 	}
@@ -441,7 +449,7 @@ func (m *phpAppManager) installMirzaBot(ctx context.Context, request phpAppInsta
 		return phpAppPublicRecord{}, err
 	}
 	defer os.RemoveAll(stage)
-	sourceRoot, err := extractMirzaBotArchive(archive, stage)
+	sourceRoot, err := extractMirzaBotArchive(source.Archive, stage)
 	if err != nil {
 		return phpAppPublicRecord{}, err
 	}
@@ -453,8 +461,8 @@ func (m *phpAppManager) installMirzaBot(ctx context.Context, request phpAppInsta
 		Domain:       domain,
 		Enabled:      false,
 		Runtime:      "php",
-		Version:      mirzaBotVersion,
-		SourceSHA:    mirzaBotSourceSHA,
+		Version:      source.Version,
+		SourceSHA:    source.SHA,
 		InstalledAt:  time.Now().UTC().Format(time.RFC3339),
 		PHPVersion:   phpVersion,
 		BotUsername:  botUsername,
@@ -796,7 +804,7 @@ func (s *Server) handlePHPApps(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "PHP application manager is unavailable")
 		return
 	}
-	requestPath := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/settings/php-apps"), "/")
+	requestPath := phpAppAPIPath(r.URL.Path)
 	if requestPath == "" {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -809,7 +817,7 @@ func (s *Server) handlePHPApps(w http.ResponseWriter, r *http.Request) {
 			"detail":    detail,
 			"templates": []map[string]any{
 				{"id": "archive", "name": "PHP / HTML ZIP", "supported": supported},
-				{"id": "mirzabot", "name": "MirzaBot", "version": mirzaBotVersion, "source_sha": mirzaBotSourceSHA, "supported": mirzaSupported, "detail": mirzaDetail},
+				{"id": "mirzabot", "name": "MirzaBot", "version": "latest", "source_url": mirzaBotRepositoryURL + "/releases/latest", "supported": mirzaSupported, "detail": mirzaDetail},
 			},
 			"apps": s.phpApps.publicRecords(),
 		})
@@ -851,6 +859,14 @@ func (s *Server) handlePHPApps(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid domain")
 		return
 	}
+	if len(parts) >= 2 && parts[1] == "files" {
+		s.handlePHPAppFiles(w, r, domain, parts[2:])
+		return
+	}
+	if len(parts) == 2 && parts[1] == "php-config" {
+		s.handlePHPAppConfig(w, r, domain)
+		return
+	}
 	if len(parts) == 1 && r.Method == http.MethodDelete {
 		if err := s.phpApps.delete(r.Context(), domain); err != nil {
 			writePHPAppError(w, err)
@@ -869,6 +885,15 @@ func (s *Server) handlePHPApps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, record)
+}
+
+func phpAppAPIPath(requestPath string) string {
+	for _, prefix := range []string{"/api/settings/external-apps", "/api/settings/php-apps"} {
+		if strings.HasPrefix(requestPath, prefix) {
+			return strings.Trim(strings.TrimPrefix(requestPath, prefix), "/")
+		}
+	}
+	return strings.Trim(requestPath, "/")
 }
 
 func (s *Server) handlePHPAppArchiveInstall(w http.ResponseWriter, r *http.Request) {

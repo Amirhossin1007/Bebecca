@@ -24,9 +24,12 @@ import {
 import {
 	ArrowTopRightOnSquareIcon,
 	ArrowUpTrayIcon,
+	CodeBracketIcon,
+	FolderOpenIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { ExternalAppFilesModal } from "components/ExternalAppFilesModal";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
@@ -73,6 +76,8 @@ export const PHPAppsPage = () => {
 	const [archive, setArchive] = useState<File | null>(null);
 	const [botToken, setBotToken] = useState("");
 	const [adminID, setAdminID] = useState("");
+	const [managedApp, setManagedApp] = useState<PHPAppRecord | null>(null);
+	const [managerView, setManagerView] = useState<"file" | "php-config">("file");
 
 	const appsQuery = useQuery("php-apps", getPHPApps, {
 		refetchOnWindowFocus: false,
@@ -187,6 +192,10 @@ export const PHPAppsPage = () => {
 			return;
 		deleteMutation.mutate(app.domain);
 	};
+	const openManager = (app: PHPAppRecord, view: "file" | "php-config") => {
+		setManagerView(view);
+		setManagedApp(app);
+	};
 
 	if (appsQuery.isLoading) {
 		return (
@@ -198,6 +207,11 @@ export const PHPAppsPage = () => {
 
 	return (
 		<Stack spacing={5}>
+			<ExternalAppFilesModal
+				app={managedApp}
+				initialView={managerView}
+				onClose={() => setManagedApp(null)}
+			/>
 			<Box>
 				<Heading size="lg">{t("phpApps.title")}</Heading>
 				<Text color={mutedColor} mt={2}>
@@ -324,6 +338,21 @@ export const PHPAppsPage = () => {
 						{selectedTemplate.detail}
 					</Text>
 				) : null}
+				{template === "mirzabot" && selectedTemplate?.source_url ? (
+					<Link
+						href={selectedTemplate.source_url}
+						isExternal
+						display="inline-flex"
+						alignItems="center"
+						gap={1}
+						mt={2}
+						fontSize="sm"
+						color="blue.300"
+					>
+						{t("phpApps.latestRelease")}
+						<ArrowTopRightOnSquareIcon width={14} />
+					</Link>
+				) : null}
 			</Box>
 
 			<Box
@@ -366,9 +395,28 @@ export const PHPAppsPage = () => {
 											{app.domain}
 											{app.bot_username ? ` · @${app.bot_username}` : ""}
 											{app.php_version ? ` · PHP ${app.php_version}` : ""}
+											{app.version ? ` · ${app.version}` : ""}
 										</Text>
 									</Box>
-									<HStack spacing={3}>
+									<HStack spacing={3} flexWrap="wrap">
+										<Button
+											size="sm"
+											variant="outline"
+											leftIcon={<FolderOpenIcon width={16} />}
+											onClick={() => openManager(app, "file")}
+										>
+											{t("phpApps.files.button")}
+										</Button>
+										{app.runtime === "php" ? (
+											<Button
+												size="sm"
+												variant="outline"
+												leftIcon={<CodeBracketIcon width={16} />}
+												onClick={() => openManager(app, "php-config")}
+											>
+												{t("phpApps.files.phpConfig")}
+											</Button>
+										) : null}
 										<Link href={app.public_url} isExternal>
 											<Button
 												size="sm"

@@ -143,12 +143,16 @@ func makeStaticTreeReadOnly(root string) error {
 }
 
 func writePHPAppPool(record phpAppRecord, mirza bool) error {
+	return writeAtomicFile(record.PoolConfig, []byte(phpAppPoolConfig(record, mirza)), 0o600)
+}
+
+func phpAppPoolConfig(record phpAppRecord, mirza bool) string {
 	disabledFunctions := "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec"
 	if mirza {
 		// MirzaBot's database backup uses exec; all other process-spawning APIs stay disabled.
 		disabledFunctions = "passthru,shell_exec,system,proc_open,popen,pcntl_exec"
 	}
-	config := fmt.Sprintf(`[%s]
+	return fmt.Sprintf(`[%s]
 user = %s
 group = %s
 listen = %s
@@ -179,7 +183,6 @@ php_admin_value[post_max_size] = 32M
 php_admin_value[memory_limit] = 256M
 `, "rebecca-"+filepath.Base(record.Root), record.SystemUser, record.SystemUser, record.Socket, record.Root,
 		disabledFunctions, record.Root, record.Root, record.Root, record.Root)
-	return writeAtomicFile(record.PoolConfig, []byte(config), 0o600)
 }
 
 func reloadPHPFPM(ctx context.Context, record phpAppRecord) error {
@@ -431,30 +434,97 @@ func mysqlOptionFileValue(value string) string {
 	return "\"" + value + "\""
 }
 
-func (m *phpAppManager) downloadMirzaBot(ctx context.Context) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mirzaBotArchiveURL, nil)
-	if err != nil {
-		return nil, err
+type mirzaBotSource struct {
+	Version string
+	SHA     string
+	Archive []byte
+}
+
+func (m *phpAppManager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) {
+	apiBase := strings.TrimSuffix(m.mirzaAPIBase, "/")
+	if apiBase == "" {
+		apiBase = mirzaBotAPIBaseURL
 	}
-	response, err := m.httpClient.Do(req)
+	archiveBase := strings.TrimSuffix(m.mirzaArchive, "/")
+	if archiveBase == "" {
+		archiveBase = mirzaBotArchiveBaseURL
+	}
+	var release struct {
+		TagName    string `json:"tag_name"`
+		Draft      bool   `json:"draft"`
+		Prerelease bool   `json:"prerelease"`
+	}
+	if err := m.getMirzaBotJSON(ctx, apiBase+"/releases/latest", &release); err != nil {
+		return mirzaBotSource{}, fmt.Errorf("find latest stable MirzaBot release: %w", err)
+	}
+	release.TagName = strings.TrimSpace(release.TagName)
+	if release.Draft || release.Prerelease || !mirzaReleasePattern.MatchString(release.TagName) {
+		return mirzaBotSource{}, errors.New("GitHub did not return a valid stable MirzaBot release")
+	}
+	var commit struct {
+		SHA string `json:"sha"`
+	}
+	if err := m.getMirzaBotJSON(ctx, apiBase+"/commits/"+url.PathEscape(release.TagName), &commit); err != nil {
+		return mirzaBotSource{}, fmt.Errorf("resolve MirzaBot release commit: %w", err)
+	}
+	commit.SHA = strings.ToLower(strings.TrimSpace(commit.SHA))
+	if !mirzaCommitPattern.MatchString(commit.SHA) {
+		return mirzaBotSource{}, errors.New("GitHub returned an invalid MirzaBot release commit")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, archiveBase+"/zip/"+commit.SHA, nil)
 	if err != nil {
-		return nil, errors.New("download pinned MirzaBot source failed")
+		return mirzaBotSource{}, err
+	}
+	setMirzaBotGitHubHeaders(req)
+	response, err := m.doPHPAppRequest(req)
+	if err != nil {
+		return mirzaBotSource{}, errors.New("download latest stable MirzaBot source failed")
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download pinned MirzaBot source returned HTTP %d", response.StatusCode)
+		return mirzaBotSource{}, fmt.Errorf("download latest stable MirzaBot source returned HTTP %d", response.StatusCode)
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxPHPAppArchiveBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("read MirzaBot archive: %w", err)
+		return mirzaBotSource{}, fmt.Errorf("read MirzaBot archive: %w", err)
 	}
-	if len(data) > maxPHPAppArchiveBytes {
-		return nil, errors.New("MirzaBot archive exceeds 32 MiB")
+	if len(data) == 0 || len(data) > maxPHPAppArchiveBytes {
+		return mirzaBotSource{}, errors.New("MirzaBot archive is empty or exceeds 32 MiB")
 	}
-	if sha256Hex(data) != mirzaBotArchiveSHA256 {
-		return nil, errors.New("MirzaBot archive checksum mismatch")
+	return mirzaBotSource{Version: release.TagName, SHA: commit.SHA, Archive: data}, nil
+}
+
+func (m *phpAppManager) getMirzaBotJSON(ctx context.Context, endpoint string, target any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
 	}
-	return data, nil
+	setMirzaBotGitHubHeaders(req)
+	response, err := m.doPHPAppRequest(req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("GitHub returned HTTP %d", response.StatusCode)
+	}
+	reader := io.LimitReader(response.Body, 1<<20)
+	if err := json.NewDecoder(reader).Decode(target); err != nil {
+		return errors.New("GitHub returned an invalid response")
+	}
+	return nil
+}
+
+func (m *phpAppManager) doPHPAppRequest(request *http.Request) (*http.Response, error) {
+	if m.httpClient != nil {
+		return m.httpClient.Do(request)
+	}
+	return http.DefaultClient.Do(request)
+}
+
+func setMirzaBotGitHubHeaders(request *http.Request) {
+	request.Header.Set("Accept", "application/vnd.github+json")
+	request.Header.Set("User-Agent", "Rebecca")
 }
 
 func (m *phpAppManager) telegramBotUsername(ctx context.Context, token string) (string, error) {

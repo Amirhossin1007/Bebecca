@@ -299,9 +299,9 @@ export function AppLayout() {
 				: null,
 			isPrivilegedAdmin
 				? {
-						key: "php-apps",
+						key: "external-apps",
 						label: t("phpApps.menu"),
-						to: "/php-apps",
+						to: "/external-apps",
 						icon: PHPAppsIcon,
 					}
 				: null,

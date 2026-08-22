@@ -120,6 +120,7 @@ const routeSegments = new Set([
 	"api-docs",
 	"phpmyadmin",
 	"php-apps",
+	"external-apps",
 	"recent-actions",
 ]);
 
@@ -265,8 +266,12 @@ export const router = createBrowserRouter(
 					element: <LazyPage Page={PhpMyAdminPage} />,
 				},
 				{
-					path: "php-apps",
+					path: "external-apps",
 					element: <LazyPage Page={PHPAppsPage} />,
+				},
+				{
+					path: "php-apps",
+					element: <Navigate to="/external-apps" replace />,
 				},
 			],
 		},

@@ -20,7 +20,8 @@ func apiRequestBodyLimit(path string) int64 {
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
 	}
-	if path == "/api/settings/php-apps/archive" {
+	if path == "/api/settings/php-apps/archive" || path == "/api/settings/external-apps/archive" ||
+		((strings.HasPrefix(path, "/api/settings/php-apps/") || strings.HasPrefix(path, "/api/settings/external-apps/")) && strings.HasSuffix(path, "/files/upload")) {
 		return maxPHPAppRequestBodyBytes
 	}
 	return maxAPIRequestBodyBytes
@@ -170,6 +171,8 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/phpmyadmin", s.requireSudo(s.handlePHPMyAdmin))
 	r.HandleFunc("/settings/php-apps/*", s.requireSudo(s.handlePHPApps))
 	r.HandleFunc("/settings/php-apps", s.requireSudo(s.handlePHPApps))
+	r.HandleFunc("/settings/external-apps/*", s.requireSudo(s.handlePHPApps))
+	r.HandleFunc("/settings/external-apps", s.requireSudo(s.handlePHPApps))
 	r.HandleFunc("/settings/telegram/backup/send", s.requireSudo(s.handleTelegramBackupSend))
 	r.HandleFunc("/settings/telegram/test", s.requireSudo(s.handleTelegramSettingsTest))
 	r.HandleFunc("/settings/telegram", s.requireSudo(s.handleTelegramSettings))

@@ -262,7 +262,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		isPrivilegedAdmin
 			? {
 					title: t("phpApps.menu"),
-					url: "/php-apps",
+					url: "/external-apps",
 					icon: PHPAppsIconStyled,
 				}
 			: null,
@@ -389,7 +389,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				pickSetting("/recent-actions"),
 				pickSetting("/api-docs"),
 				pickSetting("/phpmyadmin"),
-				pickSetting("/php-apps"),
+				pickSetting("/external-apps"),
 				pickSetting(tutorialsUrl),
 			],
 		},

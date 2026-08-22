@@ -3,6 +3,7 @@ package api
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -325,19 +326,66 @@ func TestPHPAppCannotReplaceCurrentPanelHost(t *testing.T) {
 	}
 }
 
-func TestPinnedMirzaBotArchive(t *testing.T) {
-	path := os.Getenv("REBECCA_MIRZABOT_TEST_ARCHIVE")
-	if path == "" {
-		t.Skip("set REBECCA_MIRZABOT_TEST_ARCHIVE to validate the pinned source archive")
-	}
-	data, err := os.ReadFile(path)
+func TestDownloadMirzaBotUsesLatestStableReleaseCommit(t *testing.T) {
+	const commit = "0123456789abcdef0123456789abcdef01234567"
+	archive := phpAppTestZIP(t, map[string]string{
+		"mirzabot/composer.json": "{}", "mirzabot/composer.lock": "{}",
+		"mirzabot/table.php": "<?php", "mirzabot/config.php": "<?php", "mirzabot/index.php": "<?php",
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("User-Agent") != "Rebecca" {
+			t.Errorf("user-agent=%q", r.Header.Get("User-Agent"))
+		}
+		switch r.URL.Path {
+		case "/releases/latest":
+			_, _ = w.Write([]byte(`{"tag_name":"0.3.1","draft":false,"prerelease":false}`))
+		case "/commits/0.3.1":
+			_, _ = w.Write([]byte(`{"sha":"` + commit + `"}`))
+		case "/zip/" + commit:
+			_, _ = w.Write(archive)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	manager := &phpAppManager{httpClient: server.Client(), mirzaAPIBase: server.URL, mirzaArchive: server.URL}
+	source, err := manager.downloadMirzaBot(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sha256Hex(data) != mirzaBotArchiveSHA256 {
-		t.Fatal("pinned MirzaBot archive checksum changed")
+	if source.Version != "0.3.1" || source.SHA != commit || !bytes.Equal(source.Archive, archive) {
+		t.Fatalf("source=%+v", source)
 	}
-	if _, err := extractMirzaBotArchive(data, t.TempDir()); err != nil {
+	if _, err := extractMirzaBotArchive(source.Archive, t.TempDir()); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestDownloadMirzaBotRejectsPrerelease(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"0.4.0","prerelease":true}`))
+	}))
+	defer server.Close()
+	manager := &phpAppManager{httpClient: server.Client(), mirzaAPIBase: server.URL, mirzaArchive: server.URL}
+	if _, err := manager.downloadMirzaBot(context.Background()); err == nil {
+		t.Fatal("prerelease was accepted as latest stable")
+	}
+}
+
+func TestLatestMirzaBotReleaseArchive(t *testing.T) {
+	if os.Getenv("REBECCA_TEST_LATEST_MIRZABOT") != "1" {
+		t.Skip("set REBECCA_TEST_LATEST_MIRZABOT=1 to verify the current stable GitHub release")
+	}
+	manager := newPHPAppManager(Config{PHPAppsBase: t.TempDir()}, nil)
+	source, err := manager.downloadMirzaBot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !mirzaReleasePattern.MatchString(source.Version) || !mirzaCommitPattern.MatchString(source.SHA) {
+		t.Fatalf("invalid release metadata: version=%q sha=%q", source.Version, source.SHA)
+	}
+	if _, err := extractMirzaBotArchive(source.Archive, t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("validated MirzaBot %s at %s", source.Version, source.SHA)
 }
