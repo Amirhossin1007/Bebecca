@@ -345,19 +345,29 @@ export const ExternalAppFilesModal = ({
 								display={{ base: document ? "none" : "flex", lg: "flex" }}
 								flexDirection="column"
 							>
-								<Flex mb={2} flex="0 0 auto">
+								<Box
+									className="external-app-files-shell"
+									flex="1"
+									minH={0}
+									minW={0}
+								>
 									<Button
+										className="external-app-files-new-file"
 										size="sm"
-										leftIcon={<DocumentPlusIcon width={16} />}
+										variant="ghost"
+										leftIcon={<DocumentPlusIcon width={18} />}
+										title={t("externalApps.files.newFile")}
+										aria-label={t("externalApps.files.newFile")}
+										isDisabled={fileMutation.isLoading}
 										onClick={createFile}
 									>
-										{t("externalApps.files.newFile")}
+										<span className="external-app-files-new-file-label">
+											{t("externalApps.files.newFile")}
+										</span>
 									</Button>
-								</Flex>
-								<Box flex="1" minH={0} minW={0}>
 									<FileManager
 										files={filesQuery.data?.files ?? []}
-										className={`external-app-files${
+										className={`external-app-files external-app-files--new-file-visible${
 											colorMode === "dark" ? " external-app-files--dark" : ""
 										}`}
 										collapsibleNav
