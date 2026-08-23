@@ -132,10 +132,11 @@ export const ExternalAppFilesModal = ({
 	const [draft, setDraft] = useState("");
 	const [loadingDocument, setLoadingDocument] = useState(false);
 	const domain = app?.domain || "";
+	const appID = app?.id || "";
 	const filesQuery = useQuery(
-		["external-app-files", domain],
-		() => getExternalAppFiles(domain),
-		{ enabled: Boolean(app), refetchOnWindowFocus: false },
+		["external-app-files", appID],
+		() => getExternalAppFiles(appID),
+		{ enabled: Boolean(appID), refetchOnWindowFocus: false },
 	);
 	const isDirty = document !== null && draft !== document.content;
 
@@ -180,7 +181,7 @@ export const ExternalAppFilesModal = ({
 				return;
 			setLoadingDocument(true);
 			try {
-				const result = await getExternalAppFile(app.domain, path);
+				const result = await getExternalAppFile(app.id, path);
 				setDocument({
 					kind: "file",
 					path: result.path,
@@ -202,7 +203,7 @@ export const ExternalAppFilesModal = ({
 			return;
 		setLoadingDocument(true);
 		try {
-			const result = await getExternalAppPHPConfig(app.domain);
+			const result = await getExternalAppPHPConfig(app.id);
 			setDocument({
 				kind: "php-config",
 				path: result.path,
@@ -222,11 +223,11 @@ export const ExternalAppFilesModal = ({
 		setDocument(null);
 		setDraft("");
 		setLoadingDocument(false);
-		if (!domain || app?.runtime !== "php" || initialView !== "php-config") {
+		if (!appID || app?.runtime !== "php" || initialView !== "php-config") {
 			return;
 		}
 		setLoadingDocument(true);
-		getExternalAppPHPConfig(domain)
+		getExternalAppPHPConfig(appID)
 			.then((result) => {
 				if (cancelled) return;
 				setDocument({
@@ -245,16 +246,16 @@ export const ExternalAppFilesModal = ({
 		return () => {
 			cancelled = true;
 		};
-	}, [app?.runtime, domain, initialView, showError]);
+	}, [app?.runtime, appID, initialView, showError]);
 
 	const saveMutation = useMutation(
 		async () => {
 			if (!app || !document) return;
 			if (document.kind === "php-config") {
-				await saveExternalAppPHPConfig({ domain: app.domain, content: draft });
+				await saveExternalAppPHPConfig({ domain: app.id, content: draft });
 			} else {
 				await saveExternalAppFile({
-					domain: app.domain,
+					domain: app.id,
 					path: document.path,
 					content: draft,
 				});
@@ -286,7 +287,7 @@ export const ExternalAppFilesModal = ({
 		if (!name) return;
 		const path = joinPath(folder, name);
 		fileMutation.mutate(async () => {
-			await saveExternalAppFile({ domain: app.domain, path, content: "" });
+			await saveExternalAppFile({ domain: app.id, path, content: "" });
 			await openFile(path, true);
 		});
 	};
@@ -299,7 +300,7 @@ export const ExternalAppFilesModal = ({
 			return;
 		}
 		const anchor = window.document.createElement("a");
-		anchor.href = externalAppFileDownloadURL(app.domain, file.path);
+		anchor.href = externalAppFileDownloadURL(app.id, file.path);
 		anchor.download = file.name;
 		anchor.click();
 	};
@@ -347,7 +348,7 @@ export const ExternalAppFilesModal = ({
 								collapsibleNav
 								enableFilePreview={false}
 								fileUploadConfig={{
-									url: externalAppFileUploadURL(domain),
+									url: externalAppFileUploadURL(appID),
 									method: "POST",
 									withCredentials: true,
 								}}
@@ -359,7 +360,7 @@ export const ExternalAppFilesModal = ({
 								onCreateFolder={(name, parent) =>
 									fileMutation.mutate(() =>
 										createExternalAppFolder({
-											domain,
+											domain: appID,
 											path: joinPath(parent?.path || "/", name),
 										}),
 									)
@@ -367,7 +368,7 @@ export const ExternalAppFilesModal = ({
 								onDelete={(files) =>
 									fileMutation.mutate(() =>
 										deleteExternalAppFiles({
-											domain,
+											domain: appID,
 											paths: files.map((file) => file.path),
 										}),
 									)
@@ -387,7 +388,7 @@ export const ExternalAppFilesModal = ({
 									fileMutation.mutate(async () => {
 										for (const file of files) {
 											await moveExternalAppFile({
-												domain,
+												domain: appID,
 												path: file.path,
 												new_path: joinPath(destination.path || "/", file.name),
 											});
@@ -398,7 +399,7 @@ export const ExternalAppFilesModal = ({
 								onRename={(file, newName) =>
 									fileMutation.mutate(() =>
 										moveExternalAppFile({
-											domain,
+											domain: appID,
 											path: file.path,
 											new_path: joinPath(parentPath(file.path), newName),
 										}),

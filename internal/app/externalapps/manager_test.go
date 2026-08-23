@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -56,14 +57,13 @@ func TestMirzaRequestSecretsAreIndependent(t *testing.T) {
 	base := t.TempDir()
 	manager := &Manager{baseDir: base, apps: map[string]Record{}}
 	domain := "bot.example.com"
-	if err := manager.writeSecrets(domain, secrets{
+	record := Record{ID: domainHash(domain), Domain: domain, Template: "mirzabot", storageBase: base}
+	if err := manager.writeSecrets(record, secrets{
 		WebhookSecret: "webhook-secret",
 		CronSecret:    "cron-secret",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	record := Record{Domain: domain, Template: "mirzabot"}
-
 	webhook := httptest.NewRequest(http.MethodPost, "https://bot.example.com/index.php", nil)
 	if err := manager.AuthorizeMirzaRequest(webhook, record, "index.php"); err == nil {
 		t.Fatal("webhook without secret was accepted")
@@ -85,10 +85,12 @@ func TestMirzaRequestSecretsAreIndependent(t *testing.T) {
 }
 
 func TestMirzaBotTokenCannotBeReused(t *testing.T) {
-	manager := &Manager{baseDir: t.TempDir(), apps: map[string]Record{
-		"one.example.com": {Domain: "one.example.com", Template: "mirzabot"},
+	base := t.TempDir()
+	record := Record{ID: "0123456789ab", Domain: "one.example.com", Template: "mirzabot", storageBase: base}
+	manager := &Manager{baseDir: base, apps: map[string]Record{
+		record.ID: record,
 	}}
-	if err := manager.writeSecrets("one.example.com", secrets{BotToken: "existing-token"}); err != nil {
+	if err := manager.writeSecrets(record, secrets{BotToken: "existing-token"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := manager.ensureBotTokenAvailable("existing-token"); err == nil {
@@ -103,6 +105,7 @@ func TestWriteMirzaCronUsesPerAppIdentityWithoutEmbeddingSecret(t *testing.T) {
 	root := t.TempDir()
 	record := Record{
 		Domain:     "bot.example.com",
+		Path:       "bot0123456789ab",
 		Root:       root,
 		SystemUser: "rbphp_abcdef",
 		CronConfig: filepath.Join(t.TempDir(), "rebecca-php-abcdef"),
@@ -115,7 +118,7 @@ func TestWriteMirzaCronUsesPerAppIdentityWithoutEmbeddingSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(content)
-	if strings.Count(text, "https://bot.example.com/cronbot/") != len(mirzaCronTasks) {
+	if strings.Count(text, "https://bot.example.com/bot0123456789ab/cronbot/") != len(mirzaCronTasks) {
 		t.Fatalf("cron task count mismatch:\n%s", text)
 	}
 	if !strings.Contains(text, "rbphp_abcdef") || !strings.Contains(text, ".rebecca-cron-secret") {
@@ -123,6 +126,16 @@ func TestWriteMirzaCronUsesPerAppIdentityWithoutEmbeddingSecret(t *testing.T) {
 	}
 	if strings.Contains(text, "super-secret-value") {
 		t.Fatal("cron secret was embedded in the world-readable cron definition")
+	}
+}
+
+func TestMirzaWebhookUsesDedicatedPath(t *testing.T) {
+	record := Record{Domain: "bot.example.com", Path: "bot0123456789ab"}
+	if got := externalAppWebhookURL(record); got != "https://bot.example.com/bot0123456789ab" {
+		t.Fatalf("webhook URL=%q", got)
+	}
+	if got := externalAppWebhookURL(Record{Domain: "legacy.example.com"}); got != "https://legacy.example.com/index.php" {
+		t.Fatalf("legacy webhook URL=%q", got)
 	}
 }
 
@@ -198,21 +211,120 @@ func TestExternalAppManagerReloadRejectsEscapedRoots(t *testing.T) {
 	}
 }
 
-func TestMigrateLegacyBaseDir(t *testing.T) {
+func TestMigrateLegacyBaseDirPreservesAndRecoversLegacyStorage(t *testing.T) {
+	t.Run("existing legacy tree stays in place", func(t *testing.T) {
+		parent := t.TempDir()
+		oldBase := filepath.Join(parent, "php-apps")
+		base := filepath.Join(parent, "external-apps")
+		if err := os.MkdirAll(oldBase, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := migrateLegacyBaseDir(base, oldBase); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(oldBase); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("already renamed tree gets legacy alias", func(t *testing.T) {
+		parent := t.TempDir()
+		oldBase := filepath.Join(parent, "php-apps")
+		base := filepath.Join(parent, "external-apps")
+		if err := os.MkdirAll(base, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(base, "marker"), []byte("ok"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := migrateLegacyBaseDir(base, oldBase); err != nil {
+			t.Fatal(err)
+		}
+		if data, err := os.ReadFile(filepath.Join(oldBase, "marker")); err != nil || string(data) != "ok" {
+			t.Fatalf("legacy alias marker = %q, err = %v", data, err)
+		}
+	})
+}
+
+func TestExternalAppManagerLoadsLegacyAndMatchesMultipleBotsPerDomain(t *testing.T) {
 	parent := t.TempDir()
-	oldBase := filepath.Join(parent, "old")
 	base := filepath.Join(parent, "external-apps")
-	if err := os.MkdirAll(oldBase, 0o700); err != nil {
+	legacy := filepath.Join(parent, "php-apps")
+	for _, record := range []Record{
+		{ID: "0123456789ab", Template: "mirzabot", Domain: "bot.example.com", Runtime: "static", Path: "", Root: filepath.Join(legacy, "apps", "0123456789ab")},
+		{ID: "abcdef012345", Template: "mirzabot", Domain: "bot.example.com", Runtime: "static", Path: "botabcdef012345", Root: filepath.Join(base, "apps", "abcdef012345")},
+	} {
+		storage := base
+		if record.Path == "" {
+			storage = legacy
+		}
+		if err := os.MkdirAll(record.Root, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := writePrivateJSON(filepath.Join(storage, ".metadata", record.ID+".json"), record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manager := &Manager{baseDir: base, legacyBase: legacy, apps: map[string]Record{}}
+	manager.reload()
+	if len(manager.publicRecords()) != 2 {
+		t.Fatalf("loaded apps=%+v", manager.publicRecords())
+	}
+	matched, rel, ok := manager.Match("bot.example.com", "/botabcdef012345/cronbot/statusday.php")
+	if !ok || matched.ID != "abcdef012345" || rel != "cronbot/statusday.php" {
+		t.Fatalf("matched=%+v rel=%q ok=%v", matched, rel, ok)
+	}
+	matched, rel, ok = manager.Match("bot.example.com", "/index.php")
+	if !ok || matched.ID != "0123456789ab" || rel != "index.php" {
+		t.Fatalf("legacy match=%+v rel=%q ok=%v", matched, rel, ok)
+	}
+}
+
+func TestExternalAppManagerRecoversPreviouslyRenamedLegacyRecord(t *testing.T) {
+	parent := t.TempDir()
+	base := filepath.Join(parent, "external-apps")
+	legacy := filepath.Join(parent, "php-apps")
+	id := "0123456789ab"
+	if err := os.MkdirAll(filepath.Join(base, "apps", id), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(oldBase, "marker"), []byte("ok"), 0o600); err != nil {
+	record := Record{Template: "mirzabot", Domain: "bot.example.com", Runtime: "static", Root: filepath.Join(legacy, "apps", id)}
+	if err := writePrivateJSON(filepath.Join(base, ".metadata", id+".json"), record); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateLegacyBaseDir(base, oldBase); err != nil {
+	if err := migrateLegacyBaseDir(base, legacy); err != nil {
 		t.Fatal(err)
 	}
-	if data, err := os.ReadFile(filepath.Join(base, "marker")); err != nil || string(data) != "ok" {
-		t.Fatalf("migrated marker = %q, err = %v", data, err)
+	manager := &Manager{baseDir: base, legacyBase: legacy, apps: map[string]Record{}}
+	manager.reload()
+	loaded, ok := manager.Lookup(id)
+	if !ok || loaded.Root != record.Root {
+		t.Fatalf("recovered=%+v ok=%v", loaded, ok)
+	}
+}
+
+func TestDecodeMirzaInstallRequestAcceptsOptionalSQLBackup(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, value := range map[string]string{"domain": "bot.example.com", "bot_token": "12345:abcdefghijklmnopqrstuvwxyz", "admin_id": "12345"} {
+		if err := writer.WriteField(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	file, err := writer.CreateFormFile("database_backup", "backup.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write([]byte("CREATE TABLE test (id INT);")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/settings/external-apps/mirzabot", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	payload, err := decodeMirzaInstallRequest(request)
+	if err != nil || string(payload.DatabaseBackup) != "CREATE TABLE test (id INT);" {
+		t.Fatalf("payload=%+v err=%v", payload, err)
 	}
 }
 

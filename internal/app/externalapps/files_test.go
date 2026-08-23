@@ -120,6 +120,21 @@ func TestValidateExternalAppPoolConfigLocksSecurityDirectives(t *testing.T) {
 	}
 }
 
+func TestSafePHPConfigRecordUsesApplicationID(t *testing.T) {
+	record := Record{
+		ID:         "0123456789ab",
+		Domain:     "bot.example.com",
+		Runtime:    "php",
+		PHPVersion: "8.4",
+		PoolConfig: "/etc/php/8.4/fpm/pool.d/rebecca-0123456789ab.conf",
+		Service:    "php8.4-fpm",
+	}
+	manager := &Manager{apps: map[string]Record{record.ID: record}}
+	if _, err := manager.safePHPConfigRecord(record.ID); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestExternalAppAPIPath(t *testing.T) {
 	if got := externalAppAPIPath("/api/settings/external-apps/app.example.com/files"); got != "app.example.com/files" {
 		t.Fatalf("path=%q", got)

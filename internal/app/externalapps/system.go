@@ -76,8 +76,8 @@ func (m *Manager) ensureMirzaInstallTargetsFree(ctx context.Context, record Reco
 		record.Root,
 		record.PoolConfig,
 		record.CronConfig,
-		m.recordPath(domainHash(record.Domain)),
-		m.secretPath(domainHash(record.Domain)),
+		m.recordPathFor(record),
+		m.secretPathFor(record),
 	} {
 		if _, err := os.Stat(path); err == nil {
 			return errExternalAppExists
@@ -284,8 +284,8 @@ func writeMirzaCron(record Record) error {
 	for _, task := range mirzaCronTasks {
 		lockPath := filepath.Join(record.Root, ".locks", strings.TrimSuffix(task.path, ".php")+".lock")
 		fmt.Fprintf(&content,
-			"%s %s /usr/bin/flock -n %s /usr/bin/curl -fsS --max-time 50 --resolve %s:443:127.0.0.1 -H \"X-Rebecca-Cron-Secret: $(/bin/cat %s)\" https://%s/cronbot/%s >/dev/null 2>&1\n",
-			task.schedule, record.SystemUser, shellQuote(lockPath), record.Domain, shellQuote(secretPath), record.Domain, task.path,
+			"%s %s /usr/bin/flock -n %s /usr/bin/curl -fsS --max-time 50 --resolve %s:443:127.0.0.1 -H \"X-Rebecca-Cron-Secret: $(/bin/cat %s)\" %s/cronbot/%s >/dev/null 2>&1\n",
+			task.schedule, record.SystemUser, shellQuote(lockPath), record.Domain, shellQuote(secretPath), externalAppPublicURL(record), task.path,
 		)
 	}
 	return writeAtomicFile(record.CronConfig, []byte(content.String()), 0o644)
@@ -394,6 +394,42 @@ func (m *Manager) verifyExternalAppDatabase(ctx context.Context, database string
 	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
 	if err != nil || count < 10 {
 		return errors.New("MirzaBot database initialization did not create the expected tables")
+	}
+	return nil
+}
+
+func (m *Manager) importExternalAppDatabase(ctx context.Context, database, username, password string, data []byte) error {
+	if len(data) == 0 || len(data) > maxExternalAppArchiveBytes {
+		return errors.New("SQL backup is empty or exceeds 32 MiB")
+	}
+	file, err := os.CreateTemp("", "rebecca-mysql-app-*.cnf")
+	if err != nil {
+		return err
+	}
+	name := file.Name()
+	defer os.Remove(name)
+	if err := file.Chmod(0o600); err != nil {
+		file.Close()
+		return err
+	}
+	_, writeErr := fmt.Fprintf(file, "[client]\nuser=%s\npassword=%s\nhost=127.0.0.1\nport=3306\n", mysqlOptionFileValue(username), mysqlOptionFileValue(password))
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		return errors.New("write temporary database credentials")
+	}
+	binary := "mysql"
+	if _, err := exec.LookPath(binary); err != nil {
+		binary = "mariadb"
+		if _, err := exec.LookPath(binary); err != nil {
+			return errors.New("MySQL or MariaDB client is not installed")
+		}
+	}
+	commandCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	command := exec.CommandContext(commandCtx, binary, "--defaults-extra-file="+name, "--protocol=tcp", "--database="+database)
+	command.Stdin = bytes.NewReader(data)
+	if output, err := command.CombinedOutput(); err != nil {
+		return fmt.Errorf("import MirzaBot database backup: %s", limitedExternalAppCommandOutput(output, err))
 	}
 	return nil
 }
@@ -574,9 +610,9 @@ func (m *Manager) telegramBotUsername(ctx context.Context, token string) (string
 	return username, nil
 }
 
-func (m *Manager) setTelegramWebhook(ctx context.Context, token, domain, secret string) error {
+func (m *Manager) setTelegramWebhook(ctx context.Context, token string, record Record, secret string) error {
 	payload := url.Values{
-		"url":                  {"https://" + domain + "/index.php"},
+		"url":                  {externalAppWebhookURL(record)},
 		"secret_token":         {secret},
 		"drop_pending_updates": {"false"},
 	}
@@ -590,6 +626,13 @@ func (m *Manager) setTelegramWebhook(ctx context.Context, token, domain, secret 
 		return errors.New("Telegram rejected the webhook")
 	}
 	return nil
+}
+
+func externalAppWebhookURL(record Record) string {
+	if record.Path != "" {
+		return externalAppPublicURL(record)
+	}
+	return externalAppPublicURL(record) + "/index.php"
 }
 
 func (m *Manager) deleteTelegramWebhook(ctx context.Context, token string) error {
@@ -647,6 +690,13 @@ func mirzaBotConfig(database, username, password, botToken, adminID, domain, bot
 		"$domainhosts = '" + phpSingleQuoted(domain) + "';\n" +
 		"$usernamebot = '" + phpSingleQuoted(botUsername) + "';\n" +
 		"?>\n"
+}
+
+func externalAppHostPath(record Record) string {
+	if record.Path == "" {
+		return record.Domain
+	}
+	return record.Domain + "/" + record.Path
 }
 
 func phpSingleQuoted(value string) string {

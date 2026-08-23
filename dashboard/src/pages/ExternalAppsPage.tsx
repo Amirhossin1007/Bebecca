@@ -4,6 +4,7 @@ import {
 	Badge,
 	Box,
 	Button,
+	Checkbox,
 	Divider,
 	FormControl,
 	FormHelperText,
@@ -29,6 +30,7 @@ import {
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import { ExternalAppFilesModal } from "components/ExternalAppFilesModal";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -76,6 +78,10 @@ export const ExternalAppsPage = () => {
 	const [archive, setArchive] = useState<File | null>(null);
 	const [botToken, setBotToken] = useState("");
 	const [adminID, setAdminID] = useState("");
+	const [hasDatabaseBackup, setHasDatabaseBackup] = useState(false);
+	const [databaseBackup, setDatabaseBackup] = useState<File | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<ExternalAppRecord | null>(null);
+	const [keepDatabase, setKeepDatabase] = useState(true);
 	const [managedApp, setManagedApp] = useState<ExternalAppRecord | null>(null);
 	const [managerView, setManagerView] = useState<"file" | "php-config">("file");
 
@@ -88,8 +94,8 @@ export const ExternalAppsPage = () => {
 		{ refetchOnWindowFocus: false },
 	);
 	const apps = appsQuery.data?.apps ?? [];
-	const usedDomains = useMemo(
-		() => new Set(apps.map((app) => app.domain)),
+	const usedRootDomains = useMemo(
+		() => new Set(apps.filter((app) => !app.path).map((app) => app.domain)),
 		[apps],
 	);
 	const certificateOptions = useMemo(() => {
@@ -107,14 +113,14 @@ export const ExternalAppsPage = () => {
 				if (
 					key === window.location.hostname.toLowerCase() ||
 					seen.has(key) ||
-					usedDomains.has(key)
+					(template === "archive" && usedRootDomains.has(key))
 				)
 					return false;
 				seen.add(key);
 				return true;
 			})
 			.map((name) => ({ value: name, label: name, searchLabel: name }));
-	}, [certificatesQuery.data?.certificates, usedDomains]);
+	}, [certificatesQuery.data?.certificates, template, usedRootDomains]);
 	const selectedTemplate = appsQuery.data?.templates.find(
 		(item) => item.id === template,
 	);
@@ -129,10 +135,16 @@ export const ExternalAppsPage = () => {
 			if (!botToken.trim() || !adminID.trim()) {
 				throw new Error(t("externalApps.errors.mirzaFieldsRequired"));
 			}
+			if (hasDatabaseBackup && !databaseBackup) {
+				throw new Error(t("externalApps.errors.databaseBackupRequired"));
+			}
 			return installMirzaBot({
 				domain,
 				bot_token: botToken.trim(),
 				admin_id: adminID.trim(),
+				database_backup: hasDatabaseBackup
+					? (databaseBackup ?? undefined)
+					: undefined,
 			});
 		},
 		{
@@ -147,6 +159,8 @@ export const ExternalAppsPage = () => {
 				setArchive(null);
 				setBotToken("");
 				setAdminID("");
+				setHasDatabaseBackup(false);
+				setDatabaseBackup(null);
 				await queryClient.invalidateQueries("external-apps");
 			},
 			onError: (error) => {
@@ -175,6 +189,7 @@ export const ExternalAppsPage = () => {
 	const deleteMutation = useMutation(deleteExternalApp, {
 		onSuccess: () => {
 			toast({ title: t("externalApps.deleteSuccess"), status: "success" });
+			setDeleteTarget(null);
 			queryClient.invalidateQueries("external-apps");
 		},
 		onError: (error) => {
@@ -188,11 +203,8 @@ export const ExternalAppsPage = () => {
 	});
 
 	const confirmDelete = (app: ExternalAppRecord) => {
-		if (
-			!window.confirm(t("externalApps.deleteConfirm", { domain: app.domain }))
-		)
-			return;
-		deleteMutation.mutate(app.domain);
+		setKeepDatabase(app.has_database);
+		setDeleteTarget(app);
 	};
 	const openManager = (app: ExternalAppRecord, view: "file" | "php-config") => {
 		setManagerView(view);
@@ -209,6 +221,38 @@ export const ExternalAppsPage = () => {
 
 	return (
 		<Stack spacing={5}>
+			<ConfirmDialog
+				isOpen={Boolean(deleteTarget)}
+				title={t("externalApps.delete")}
+				description={
+					<Stack spacing={3}>
+						<Text>
+							{t("externalApps.deleteConfirm", {
+								name: deleteTarget?.name,
+							})}
+						</Text>
+						{deleteTarget?.has_database ? (
+							<Checkbox
+								isChecked={keepDatabase}
+								onChange={(event) => setKeepDatabase(event.target.checked)}
+							>
+								{t("externalApps.keepDatabase")}
+							</Checkbox>
+						) : null}
+					</Stack>
+				}
+				confirmLabel={t("externalApps.delete")}
+				colorScheme="red"
+				isLoading={deleteMutation.isLoading}
+				onClose={() => setDeleteTarget(null)}
+				onConfirm={async () => {
+					if (!deleteTarget) return;
+					await deleteMutation.mutateAsync({
+						id: deleteTarget.id,
+						keep_database: deleteTarget.has_database && keepDatabase,
+					});
+				}}
+			/>
 			<ExternalAppFilesModal
 				app={managedApp}
 				initialView={managerView}
@@ -278,25 +322,52 @@ export const ExternalAppsPage = () => {
 				</SimpleGrid>
 
 				{template === "mirzabot" ? (
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
-						<FormControl isRequired>
-							<FormLabel>{t("externalApps.botToken")}</FormLabel>
-							<Input
-								type="password"
-								value={botToken}
-								onChange={(event) => setBotToken(event.target.value)}
-								autoComplete="off"
-							/>
-						</FormControl>
-						<FormControl isRequired>
-							<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
-							<Input
-								value={adminID}
-								onChange={(event) => setAdminID(event.target.value)}
-								inputMode="numeric"
-							/>
-						</FormControl>
-					</SimpleGrid>
+					<Stack mt={4} spacing={3}>
+						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.botToken")}</FormLabel>
+								<Input
+									type="password"
+									value={botToken}
+									onChange={(event) => setBotToken(event.target.value)}
+									autoComplete="off"
+								/>
+							</FormControl>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
+								<Input
+									value={adminID}
+									onChange={(event) => setAdminID(event.target.value)}
+									inputMode="numeric"
+								/>
+							</FormControl>
+						</SimpleGrid>
+						<Checkbox
+							isChecked={hasDatabaseBackup}
+							onChange={(event) => {
+								setHasDatabaseBackup(event.target.checked);
+								if (!event.target.checked) setDatabaseBackup(null);
+							}}
+						>
+							{t("externalApps.databaseBackupToggle")}
+						</Checkbox>
+						{hasDatabaseBackup ? (
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.databaseBackup")}</FormLabel>
+								<Input
+									type="file"
+									accept=".sql,application/sql,text/sql,text/plain"
+									pt={1}
+									onChange={(event) =>
+										setDatabaseBackup(event.target.files?.[0] ?? null)
+									}
+								/>
+								<FormHelperText>
+									{t("externalApps.databaseBackupHint")}
+								</FormHelperText>
+							</FormControl>
+						) : null}
+					</Stack>
 				) : (
 					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
 						<FormControl>
@@ -372,7 +443,7 @@ export const ExternalAppsPage = () => {
 				) : (
 					<Stack spacing={3} divider={<Divider />}>
 						{apps.map((app) => (
-							<Box key={app.domain} py={2}>
+							<Box key={app.id} py={2}>
 								<Stack
 									direction={{ base: "column", lg: "row" }}
 									justify="space-between"
@@ -394,7 +465,7 @@ export const ExternalAppsPage = () => {
 											</Badge>
 										</HStack>
 										<Text color={mutedColor} fontSize="sm" mt={1}>
-											{app.domain}
+											{app.public_url}
 											{app.bot_username ? ` · @${app.bot_username}` : ""}
 											{app.php_version ? ` · PHP ${app.php_version}` : ""}
 											{app.version ? ` · ${app.version}` : ""}
@@ -433,7 +504,7 @@ export const ExternalAppsPage = () => {
 											isDisabled={toggleMutation.isLoading}
 											onChange={(event) =>
 												toggleMutation.mutate({
-													domain: app.domain,
+													id: app.id,
 													enabled: event.target.checked,
 												})
 											}

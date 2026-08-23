@@ -27,11 +27,11 @@ func TestExternalAppAwareHandlerServesOnlyMatchingSafeHost(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "config.php"), []byte("secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	record, err := json.Marshal(externalapps.Record{Template: "archive", Domain: "app.example.com", Enabled: true, Runtime: "static", Root: root})
+	record, err := json.Marshal(externalapps.Record{ID: "0123456789ab", Template: "archive", Domain: "app.example.com", Enabled: true, Runtime: "static", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(base, ".metadata", "app.json"), record, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(base, ".metadata", "0123456789ab.json"), record, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	handler := &externalAppAwareHandler{
@@ -61,6 +61,44 @@ func TestExternalAppAwareHandlerServesOnlyMatchingSafeHost(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusTeapot {
 		t.Fatalf("unknown host status = %d", response.Code)
+	}
+}
+
+func TestExternalAppAwareHandlerRoutesMultipleAppsByPath(t *testing.T) {
+	base := t.TempDir()
+	for _, record := range []externalapps.Record{
+		{ID: "0123456789ab", Template: "mirzabot", Domain: "bots.example.com", Path: "bot0123456789ab", Enabled: true, Runtime: "static", Root: filepath.Join(base, "apps", "0123456789ab")},
+		{ID: "abcdef012345", Template: "mirzabot", Domain: "bots.example.com", Path: "botabcdef012345", Enabled: true, Runtime: "static", Root: filepath.Join(base, "apps", "abcdef012345")},
+	} {
+		if err := os.MkdirAll(record.Root, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(record.Root, "index.html"), []byte(record.ID), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(record)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(base, ".metadata"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(base, ".metadata", record.ID+".json"), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := &externalAppAwareHandler{apps: externalapps.New(externalapps.Config{BaseDir: base}, nil), next: http.NotFoundHandler()}
+	for path, want := range map[string]string{
+		"/bot0123456789ab":  "0123456789ab",
+		"/botabcdef012345/": "abcdef012345",
+	} {
+		request := httptest.NewRequest(http.MethodGet, "https://bots.example.com"+path, nil)
+		request.Host = "bots.example.com"
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != want {
+			t.Fatalf("path %s response=%d %q", path, response.Code, response.Body.String())
+		}
 	}
 }
 

@@ -325,9 +325,11 @@ export const disablePHPMyAdmin =
 	};
 
 export interface ExternalAppRecord {
+	id: string;
 	template: "archive" | "mirzabot";
 	name: string;
 	domain: string;
+	path?: string;
 	enabled: boolean;
 	runtime: "static" | "php";
 	version?: string;
@@ -335,6 +337,7 @@ export interface ExternalAppRecord {
 	installed_at: string;
 	php_version?: string;
 	bot_username?: string;
+	has_database: boolean;
 	public_url: string;
 }
 
@@ -379,27 +382,39 @@ export const installMirzaBot = async (payload: {
 	domain: string;
 	bot_token: string;
 	admin_id: string;
+	database_backup?: File;
 }): Promise<ExternalAppRecord> => {
-	return apiFetch("/settings/external-apps/mirzabot", {
+	const body = new FormData();
+	body.set("domain", payload.domain);
+	body.set("bot_token", payload.bot_token);
+	body.set("admin_id", payload.admin_id);
+	if (payload.database_backup) {
+		body.set("database_backup", payload.database_backup);
+	}
+	return $fetch("/settings/external-apps/mirzabot", {
 		method: "POST",
-		body: JSON.stringify(payload),
+		body,
 		timeout: 20 * 60 * 1000,
 	});
 };
 
 export const setExternalAppEnabled = async (payload: {
-	domain: string;
+	id: string;
 	enabled: boolean;
 }): Promise<ExternalAppRecord> => {
 	return apiFetch(
-		`/settings/external-apps/${encodeURIComponent(payload.domain)}/${payload.enabled ? "enable" : "disable"}`,
+		`/settings/external-apps/${encodeURIComponent(payload.id)}/${payload.enabled ? "enable" : "disable"}`,
 		{ method: "POST", body: JSON.stringify({}), timeout: 120000 },
 	);
 };
 
-export const deleteExternalApp = async (domain: string): Promise<void> => {
-	await apiFetch(`/settings/external-apps/${encodeURIComponent(domain)}`, {
+export const deleteExternalApp = async (payload: {
+	id: string;
+	keep_database: boolean;
+}): Promise<void> => {
+	await apiFetch(`/settings/external-apps/${encodeURIComponent(payload.id)}`, {
 		method: "DELETE",
+		body: JSON.stringify({ keep_database: payload.keep_database }),
 		timeout: 10 * 60 * 1000,
 	});
 };
@@ -418,8 +433,8 @@ export interface ExternalAppFileContent {
 	updated_at: string;
 }
 
-const externalAppPath = (domain: string, suffix = "") =>
-	`/settings/external-apps/${encodeURIComponent(domain)}${suffix}`;
+const externalAppPath = (id: string, suffix = "") =>
+	`/settings/external-apps/${encodeURIComponent(id)}${suffix}`;
 
 export const getExternalAppFiles = async (
 	domain: string,
