@@ -1,3 +1,29 @@
+.external-app-files-shell {
+	position: relative;
+}
+
+.external-app-files-new-file {
+	position: absolute;
+	inset-block-start: 1px;
+	inset-inline-start: 6px;
+	z-index: 3;
+	height: 33px;
+	font-size: 14px;
+	font-weight: 400;
+}
+
+.external-app-files-shell:has(.toolbar.file-selected)
+	> .external-app-files-new-file {
+	display: none;
+}
+
+.external-app-files--new-file-visible
+	.toolbar:not(.file-selected)
+	.fm-toolbar
+	> div:first-child {
+	padding-inline-start: 104px;
+}
+
 .external-app-files.file-explorer {
 	min-height: 0;
 	height: 100%;
@@ -73,6 +99,33 @@
 }
 
 @media (max-width: 600px) {
+	.external-app-files-new-file {
+		width: 34px;
+		min-width: 34px;
+		padding: 0;
+	}
+
+	.external-app-files-new-file .chakra-button__icon {
+		margin-inline: 0;
+	}
+
+	.external-app-files-new-file-label,
+	.external-app-files .toolbar .fm-toolbar > div:first-child .item-action span {
+		display: none;
+	}
+
+	.external-app-files--new-file-visible
+		.toolbar:not(.file-selected)
+		.fm-toolbar
+		> div:first-child {
+		padding-inline-start: 38px;
+	}
+
+	.external-app-files .toolbar .fm-toolbar > div:first-child .item-action {
+		gap: 0;
+		padding-inline: 7px;
+	}
+
 	.external-app-files .toolbar {
 		padding-inline: 4px;
 	}
