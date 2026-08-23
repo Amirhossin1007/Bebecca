@@ -1,5 +1,34 @@
+.external-app-files.file-explorer {
+	min-height: 0;
+	height: 100%;
+	overflow: hidden;
+}
+
+.external-app-files .toolbar {
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: thin;
+}
+
+.external-app-files .toolbar .file-action-container {
+	min-width: max-content;
+}
+
+.external-app-files .files-container,
+.external-app-files .folders-preview,
+.external-app-files .files {
+	min-width: 0;
+}
+
+.external-app-files .files.list .file-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .external-app-files--dark.file-explorer,
-.external-app-files--dark .folders-preview,
+.external-app-files--dark .toolbar,
+.external-app-files--dark.file-explorer .files-container .folders-preview,
 .external-app-files--dark .item-action,
 .external-app-files--dark .fm-context-menu,
 .external-app-files--dark .fm-context-menu .sub-menu,
@@ -23,4 +52,59 @@
 .external-app-files--dark input,
 .external-app-files--dark textarea {
 	color: #edf2f7;
+}
+
+@media (max-width: 991px) {
+	.external-app-files.file-explorer .files-container .navigation-pane {
+		/* biome-ignore lint/complexity/noImportantStyles: the library controls this pane inline. */
+		display: none !important;
+	}
+
+	.external-app-files.file-explorer .files-container .folders-preview {
+		/* biome-ignore lint/complexity/noImportantStyles: the library controls responsive widths inline. */
+		width: 100% !important;
+		/* biome-ignore lint/complexity/noImportantStyles: the library controls responsive widths inline. */
+		flex: 1 1 auto !important;
+	}
+
+	.external-app-files .bread-crumb-container .breadcrumb {
+		overflow-x: auto;
+	}
+}
+
+@media (max-width: 600px) {
+	.external-app-files .toolbar {
+		padding-inline: 4px;
+	}
+
+	.external-app-files .files.list .files-header .file-date,
+	.external-app-files .files.list .files-header .file-size,
+	.external-app-files .files.list .modified-date,
+	.external-app-files .files.list .size {
+		display: none;
+	}
+
+	.external-app-files .files.list .files-header .file-name {
+		width: calc(95% - 35px);
+	}
+
+	.external-app-files .files.list .file-item {
+		width: calc(100% - 30px);
+	}
+
+	.external-app-files .files.list .file-item .file-name {
+		max-width: calc(100vw - 120px);
+	}
+
+	.external-app-files .fm-modal {
+		max-width: calc(100vw - 24px);
+	}
+
+	.external-app-files .fm-upload-file {
+		flex-direction: column;
+	}
+
+	.external-app-files .fm-upload-file .files-progress {
+		width: 100%;
+	}
 }

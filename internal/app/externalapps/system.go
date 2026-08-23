@@ -76,8 +76,8 @@ func (m *Manager) ensureMirzaInstallTargetsFree(ctx context.Context, record Reco
 		record.Root,
 		record.PoolConfig,
 		record.CronConfig,
-		m.recordPath(domainHash(record.Domain)),
-		m.secretPath(domainHash(record.Domain)),
+		m.recordPathFor(record),
+		m.secretPathFor(record),
 	} {
 		if _, err := os.Stat(path); err == nil {
 			return errExternalAppExists
@@ -220,11 +220,10 @@ func initializeMirzaBotDatabase(ctx context.Context, appRoot, systemUser string,
 	if err != nil {
 		return err
 	}
-	needle := []byte("telegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);")
-	if bytes.Count(table, needle) != 1 {
-		return errors.New("pinned MirzaBot table initializer changed unexpectedly")
+	initializer, err := mirzaBotTableInitializer(table)
+	if err != nil {
+		return err
 	}
-	initializer := bytes.Replace(table, needle, []byte("// Webhook is configured by Rebecca with a secret token."), 1)
 	path := filepath.Join(appRoot, ".rebecca-init.php")
 	if err := os.WriteFile(path, initializer, 0o600); err != nil {
 		return err
@@ -242,6 +241,14 @@ func initializeMirzaBotDatabase(ctx context.Context, appRoot, systemUser string,
 		return fmt.Errorf("initialize MirzaBot database: %s", limitedExternalAppCommandOutput(output, err))
 	}
 	return nil
+}
+
+func mirzaBotTableInitializer(table []byte) ([]byte, error) {
+	needle := []byte("telegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);")
+	if bytes.Count(table, needle) != 1 {
+		return nil, errors.New("pinned MirzaBot table initializer changed unexpectedly")
+	}
+	return bytes.Replace(table, needle, []byte("// Webhook is configured by Rebecca with a secret token."), 1), nil
 }
 
 func writeExternalAppSecretFile(root, name, value string, uid, gid int) error {
@@ -284,8 +291,8 @@ func writeMirzaCron(record Record) error {
 	for _, task := range mirzaCronTasks {
 		lockPath := filepath.Join(record.Root, ".locks", strings.TrimSuffix(task.path, ".php")+".lock")
 		fmt.Fprintf(&content,
-			"%s %s /usr/bin/flock -n %s /usr/bin/curl -fsS --max-time 50 --resolve %s:443:127.0.0.1 -H \"X-Rebecca-Cron-Secret: $(/bin/cat %s)\" https://%s/cronbot/%s >/dev/null 2>&1\n",
-			task.schedule, record.SystemUser, shellQuote(lockPath), record.Domain, shellQuote(secretPath), record.Domain, task.path,
+			"%s %s /usr/bin/flock -n %s /usr/bin/curl -fsS --max-time 50 --resolve %s:443:127.0.0.1 -H \"X-Rebecca-Cron-Secret: $(/bin/cat %s)\" %s/cronbot/%s >/dev/null 2>&1\n",
+			task.schedule, record.SystemUser, shellQuote(lockPath), record.Domain, shellQuote(secretPath), externalAppPublicURL(record), task.path,
 		)
 	}
 	return writeAtomicFile(record.CronConfig, []byte(content.String()), 0o644)
@@ -398,6 +405,42 @@ func (m *Manager) verifyExternalAppDatabase(ctx context.Context, database string
 	return nil
 }
 
+func (m *Manager) importExternalAppDatabase(ctx context.Context, database, username, password string, data []byte) error {
+	if len(data) == 0 || len(data) > maxExternalAppArchiveBytes {
+		return errors.New("SQL backup is empty or exceeds 32 MiB")
+	}
+	file, err := os.CreateTemp("", "rebecca-mysql-app-*.cnf")
+	if err != nil {
+		return err
+	}
+	name := file.Name()
+	defer os.Remove(name)
+	if err := file.Chmod(0o600); err != nil {
+		file.Close()
+		return err
+	}
+	_, writeErr := fmt.Fprintf(file, "[client]\nuser=%s\npassword=%s\nhost=127.0.0.1\nport=3306\n", mysqlOptionFileValue(username), mysqlOptionFileValue(password))
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		return errors.New("write temporary database credentials")
+	}
+	binary := "mysql"
+	if _, err := exec.LookPath(binary); err != nil {
+		binary = "mariadb"
+		if _, err := exec.LookPath(binary); err != nil {
+			return errors.New("MySQL or MariaDB client is not installed")
+		}
+	}
+	commandCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	command := exec.CommandContext(commandCtx, binary, "--defaults-extra-file="+name, "--protocol=tcp", "--database="+database)
+	command.Stdin = bytes.NewReader(data)
+	if output, err := command.CombinedOutput(); err != nil {
+		return fmt.Errorf("import MirzaBot database backup: %s", limitedExternalAppCommandOutput(output, err))
+	}
+	return nil
+}
+
 func (m *Manager) dropExternalAppDatabase(ctx context.Context, database, username string) error {
 	query := fmt.Sprintf("DROP DATABASE IF EXISTS %s;\nDROP USER IF EXISTS %s@'127.0.0.1';\nDROP USER IF EXISTS %s@'localhost';\n",
 		sqlIdentifier(database), sqlString(username), sqlString(username))
@@ -470,14 +513,15 @@ type mirzaBotSource struct {
 	Archive []byte
 }
 
-func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) {
+type mirzaBotRelease struct {
+	Version string
+	SHA     string
+}
+
+func (m *Manager) latestMirzaBotRelease(ctx context.Context) (mirzaBotRelease, error) {
 	apiBase := strings.TrimSuffix(m.mirzaAPIBase, "/")
 	if apiBase == "" {
 		apiBase = mirzaBotAPIBaseURL
-	}
-	archiveBase := strings.TrimSuffix(m.mirzaArchive, "/")
-	if archiveBase == "" {
-		archiveBase = mirzaBotArchiveBaseURL
 	}
 	var release struct {
 		TagName    string `json:"tag_name"`
@@ -485,23 +529,53 @@ func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) 
 		Prerelease bool   `json:"prerelease"`
 	}
 	if err := m.getMirzaBotJSON(ctx, apiBase+"/releases/latest", &release); err != nil {
-		return mirzaBotSource{}, fmt.Errorf("find latest stable MirzaBot release: %w", err)
+		return mirzaBotRelease{}, fmt.Errorf("find latest stable MirzaBot release: %w", err)
 	}
 	release.TagName = strings.TrimSpace(release.TagName)
 	if release.Draft || release.Prerelease || !mirzaReleasePattern.MatchString(release.TagName) {
-		return mirzaBotSource{}, errors.New("GitHub did not return a valid stable MirzaBot release")
+		return mirzaBotRelease{}, errors.New("GitHub did not return a valid stable MirzaBot release")
 	}
 	var commit struct {
 		SHA string `json:"sha"`
 	}
 	if err := m.getMirzaBotJSON(ctx, apiBase+"/commits/"+url.PathEscape(release.TagName), &commit); err != nil {
-		return mirzaBotSource{}, fmt.Errorf("resolve MirzaBot release commit: %w", err)
+		return mirzaBotRelease{}, fmt.Errorf("resolve MirzaBot release commit: %w", err)
 	}
 	commit.SHA = strings.ToLower(strings.TrimSpace(commit.SHA))
 	if !mirzaCommitPattern.MatchString(commit.SHA) {
-		return mirzaBotSource{}, errors.New("GitHub returned an invalid MirzaBot release commit")
+		return mirzaBotRelease{}, errors.New("GitHub returned an invalid MirzaBot release commit")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, archiveBase+"/zip/"+commit.SHA, nil)
+	return mirzaBotRelease{Version: release.TagName, SHA: commit.SHA}, nil
+}
+
+func (m *Manager) cachedMirzaBotRelease(ctx context.Context) (mirzaBotRelease, error) {
+	m.releaseMu.Lock()
+	defer m.releaseMu.Unlock()
+	if m.release.SHA != "" && time.Now().Before(m.releaseUntil) {
+		return m.release, nil
+	}
+	release, err := m.latestMirzaBotRelease(ctx)
+	if err != nil {
+		if m.release.SHA != "" {
+			return m.release, nil
+		}
+		return mirzaBotRelease{}, err
+	}
+	m.release = release
+	m.releaseUntil = time.Now().Add(10 * time.Minute)
+	return release, nil
+}
+
+func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) {
+	release, err := m.latestMirzaBotRelease(ctx)
+	if err != nil {
+		return mirzaBotSource{}, err
+	}
+	archiveBase := strings.TrimSuffix(m.mirzaArchive, "/")
+	if archiveBase == "" {
+		archiveBase = mirzaBotArchiveBaseURL
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, archiveBase+"/zip/"+release.SHA, nil)
 	if err != nil {
 		return mirzaBotSource{}, err
 	}
@@ -521,7 +595,7 @@ func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) 
 	if len(data) == 0 || len(data) > maxExternalAppArchiveBytes {
 		return mirzaBotSource{}, errors.New("MirzaBot archive is empty or exceeds 32 MiB")
 	}
-	return mirzaBotSource{Version: release.TagName, SHA: commit.SHA, Archive: data}, nil
+	return mirzaBotSource{Version: release.Version, SHA: release.SHA, Archive: data}, nil
 }
 
 func (m *Manager) getMirzaBotJSON(ctx context.Context, endpoint string, target any) error {
@@ -574,9 +648,9 @@ func (m *Manager) telegramBotUsername(ctx context.Context, token string) (string
 	return username, nil
 }
 
-func (m *Manager) setTelegramWebhook(ctx context.Context, token, domain, secret string) error {
+func (m *Manager) setTelegramWebhook(ctx context.Context, token string, record Record, secret string) error {
 	payload := url.Values{
-		"url":                  {"https://" + domain + "/index.php"},
+		"url":                  {externalAppWebhookURL(record)},
 		"secret_token":         {secret},
 		"drop_pending_updates": {"false"},
 	}
@@ -590,6 +664,13 @@ func (m *Manager) setTelegramWebhook(ctx context.Context, token, domain, secret 
 		return errors.New("Telegram rejected the webhook")
 	}
 	return nil
+}
+
+func externalAppWebhookURL(record Record) string {
+	if record.Path != "" {
+		return externalAppPublicURL(record)
+	}
+	return externalAppPublicURL(record) + "/index.php"
 }
 
 func (m *Manager) deleteTelegramWebhook(ctx context.Context, token string) error {
@@ -647,6 +728,13 @@ func mirzaBotConfig(database, username, password, botToken, adminID, domain, bot
 		"$domainhosts = '" + phpSingleQuoted(domain) + "';\n" +
 		"$usernamebot = '" + phpSingleQuoted(botUsername) + "';\n" +
 		"?>\n"
+}
+
+func externalAppHostPath(record Record) string {
+	if record.Path == "" {
+		return record.Domain
+	}
+	return record.Domain + "/" + record.Path
 }
 
 func phpSingleQuoted(value string) string {

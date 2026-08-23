@@ -59,7 +59,11 @@ func (m *Manager) openFileRoot(domain string) (*os.Root, Record, error) {
 	if !ok {
 		return nil, Record{}, errExternalAppNotFound
 	}
-	base, err := filepath.EvalSymlinks(m.appsDir())
+	baseDir := record.storageBase
+	if baseDir == "" {
+		baseDir = m.baseDir
+	}
+	base, err := filepath.EvalSymlinks(filepath.Join(baseDir, "apps"))
 	if err != nil {
 		return nil, Record{}, err
 	}
@@ -571,7 +575,7 @@ func (m *Manager) safePHPConfigRecord(domain string) (Record, error) {
 	if record.Runtime != "php" || record.PHPVersion == "" {
 		return Record{}, errExternalAppUnsupported
 	}
-	expected := filepath.Join("/etc/php", record.PHPVersion, "fpm", "pool.d", "rebecca-"+domainHash(record.Domain)+".conf")
+	expected := filepath.Join("/etc/php", record.PHPVersion, "fpm", "pool.d", "rebecca-"+record.ID+".conf")
 	if filepath.Clean(record.PoolConfig) != expected || record.Service != "php"+record.PHPVersion+"-fpm" {
 		return Record{}, errExternalAppInvalidPath
 	}

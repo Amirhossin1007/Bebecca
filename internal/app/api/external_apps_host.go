@@ -25,8 +25,7 @@ func (h *externalAppAwareHandler) HandlesHost(host string) bool {
 	if h == nil || h.apps == nil {
 		return false
 	}
-	_, ok := h.apps.Lookup(host)
-	return ok
+	return h.apps.HasHost(host)
 }
 
 func (h *externalAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -34,9 +33,13 @@ func (h *externalAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		h.next.ServeHTTP(w, r)
 		return
 	}
-	record, ok := h.apps.Lookup(r.Host)
+	record, relativePath, ok := h.apps.Match(r.Host, r.URL.Path)
 	if !ok {
-		h.next.ServeHTTP(w, r)
+		if !h.apps.HasHost(r.Host) {
+			h.next.ServeHTTP(w, r)
+			return
+		}
+		http.NotFound(w, r)
 		return
 	}
 	setExternalAppSecurityHeaders(w.Header())
@@ -50,13 +53,13 @@ func (h *externalAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, externalapps.MaxRequestBodyBytes)
-	if err := serveExternalApp(h.apps, w, r, record); err != nil {
+	if err := serveExternalApp(h.apps, w, r, record, relativePath); err != nil {
 		http.Error(w, "Application is unavailable", http.StatusBadGateway)
 	}
 }
 
-func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *http.Request, record externalapps.Record) error {
-	rel, fullPath, info, err := resolveExternalAppPath(record, r.URL.Path)
+func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *http.Request, record externalapps.Record, requestPath string) error {
+	rel, fullPath, info, err := resolveExternalAppPath(record, requestPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			http.NotFound(w, r)
@@ -111,8 +114,20 @@ func resolveExternalAppPath(record externalapps.Record, requestPath string) (str
 		rootPath = "."
 	}
 	info, err := root.Stat(rootPath)
+	if err != nil && record.FallbackToIndex && record.IndexFile != "" {
+		candidate := filepath.FromSlash(record.IndexFile)
+		if candidateInfo, candidateErr := root.Stat(candidate); candidateErr == nil && !candidateInfo.IsDir() {
+			rel = filepath.ToSlash(record.IndexFile)
+			info = candidateInfo
+			err = nil
+		}
+	}
 	if err == nil && info.IsDir() {
-		for _, index := range []string{"index.php", "index.html"} {
+		indexes := []string{"index.php", "index.html"}
+		if rootPath == "." && record.IndexFile != "" {
+			indexes = []string{record.IndexFile}
+		}
+		for _, index := range indexes {
 			candidate := filepath.Join(rootPath, index)
 			candidateInfo, candidateErr := root.Stat(candidate)
 			if candidateErr == nil && !candidateInfo.IsDir() {
@@ -158,7 +173,7 @@ func phpScriptAllowed(record externalapps.Record, rel string) bool {
 		return true
 	}
 	rel = strings.ToLower(filepath.ToSlash(rel))
-	if rel == "index.php" {
+	if rel == strings.ToLower(filepath.ToSlash(record.IndexFile)) || (record.IndexFile == "" && rel == "index.php") {
 		return true
 	}
 	for _, prefix := range []string{"api/", "app/", "cronbot/", "panel/", "payment/", "sub/", "vpnbot/"} {
@@ -217,7 +232,7 @@ func externalAppFastCGIParams(r *http.Request, record externalapps.Record, scrip
 	} else if requestScheme(r) == "https" {
 		serverPort = "443"
 	}
-	scriptName := "/" + strings.TrimLeft(filepath.ToSlash(scriptRel), "/")
+	scriptName := "/" + path.Join(record.Path, strings.TrimLeft(filepath.ToSlash(scriptRel), "/"))
 	params := map[string]string{
 		"GATEWAY_INTERFACE": "CGI/1.1",
 		"SERVER_SOFTWARE":   "Rebecca",

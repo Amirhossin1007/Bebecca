@@ -4,6 +4,7 @@ import {
 	Badge,
 	Box,
 	Button,
+	Checkbox,
 	Divider,
 	FormControl,
 	FormHelperText,
@@ -12,6 +13,13 @@ import {
 	HStack,
 	Input,
 	Link,
+	Modal,
+	ModalBody,
+	ModalCloseButton,
+	ModalContent,
+	ModalFooter,
+	ModalHeader,
+	ModalOverlay,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -23,12 +31,15 @@ import {
 } from "@chakra-ui/react";
 import {
 	ArrowTopRightOnSquareIcon,
+	ArrowPathIcon,
 	ArrowUpTrayIcon,
 	CodeBracketIcon,
+	Cog6ToothIcon,
 	FolderOpenIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import { ExternalAppFilesModal } from "components/ExternalAppFilesModal";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,6 +52,8 @@ import {
 	installMirzaBot,
 	installExternalArchive,
 	setExternalAppEnabled,
+	updateExternalAppSettings,
+	updateExternalMirzaBot,
 	type ExternalAppRecord,
 } from "service/settings";
 
@@ -76,6 +89,19 @@ export const ExternalAppsPage = () => {
 	const [archive, setArchive] = useState<File | null>(null);
 	const [botToken, setBotToken] = useState("");
 	const [adminID, setAdminID] = useState("");
+	const [hasDatabaseBackup, setHasDatabaseBackup] = useState(false);
+	const [databaseBackup, setDatabaseBackup] = useState<File | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<ExternalAppRecord | null>(
+		null,
+	);
+	const [updateTarget, setUpdateTarget] = useState<ExternalAppRecord | null>(
+		null,
+	);
+	const [settingsTarget, setSettingsTarget] =
+		useState<ExternalAppRecord | null>(null);
+	const [indexFile, setIndexFile] = useState("");
+	const [fallbackToIndex, setFallbackToIndex] = useState(false);
+	const [keepDatabase, setKeepDatabase] = useState(true);
 	const [managedApp, setManagedApp] = useState<ExternalAppRecord | null>(null);
 	const [managerView, setManagerView] = useState<"file" | "php-config">("file");
 
@@ -88,8 +114,8 @@ export const ExternalAppsPage = () => {
 		{ refetchOnWindowFocus: false },
 	);
 	const apps = appsQuery.data?.apps ?? [];
-	const usedDomains = useMemo(
-		() => new Set(apps.map((app) => app.domain)),
+	const usedRootDomains = useMemo(
+		() => new Set(apps.filter((app) => !app.path).map((app) => app.domain)),
 		[apps],
 	);
 	const certificateOptions = useMemo(() => {
@@ -107,14 +133,14 @@ export const ExternalAppsPage = () => {
 				if (
 					key === window.location.hostname.toLowerCase() ||
 					seen.has(key) ||
-					usedDomains.has(key)
+					(template === "archive" && usedRootDomains.has(key))
 				)
 					return false;
 				seen.add(key);
 				return true;
 			})
 			.map((name) => ({ value: name, label: name, searchLabel: name }));
-	}, [certificatesQuery.data?.certificates, usedDomains]);
+	}, [certificatesQuery.data?.certificates, template, usedRootDomains]);
 	const selectedTemplate = appsQuery.data?.templates.find(
 		(item) => item.id === template,
 	);
@@ -129,10 +155,16 @@ export const ExternalAppsPage = () => {
 			if (!botToken.trim() || !adminID.trim()) {
 				throw new Error(t("externalApps.errors.mirzaFieldsRequired"));
 			}
+			if (hasDatabaseBackup && !databaseBackup) {
+				throw new Error(t("externalApps.errors.databaseBackupRequired"));
+			}
 			return installMirzaBot({
 				domain,
 				bot_token: botToken.trim(),
 				admin_id: adminID.trim(),
+				database_backup: hasDatabaseBackup
+					? (databaseBackup ?? undefined)
+					: undefined,
 			});
 		},
 		{
@@ -147,6 +179,8 @@ export const ExternalAppsPage = () => {
 				setArchive(null);
 				setBotToken("");
 				setAdminID("");
+				setHasDatabaseBackup(false);
+				setDatabaseBackup(null);
 				await queryClient.invalidateQueries("external-apps");
 			},
 			onError: (error) => {
@@ -175,6 +209,42 @@ export const ExternalAppsPage = () => {
 	const deleteMutation = useMutation(deleteExternalApp, {
 		onSuccess: () => {
 			toast({ title: t("externalApps.deleteSuccess"), status: "success" });
+			setDeleteTarget(null);
+			queryClient.invalidateQueries("external-apps");
+		},
+		onError: (error) => {
+			toast({
+				title: t("externalApps.actionFailed"),
+				description: errorDetail(error),
+				status: "error",
+				isClosable: true,
+			});
+		},
+	});
+
+	const updateMutation = useMutation(updateExternalMirzaBot, {
+		onSuccess: (app) => {
+			toast({
+				title: t("externalApps.updateSuccess", { version: app.version }),
+				status: "success",
+			});
+			setUpdateTarget(null);
+			queryClient.invalidateQueries("external-apps");
+		},
+		onError: (error) => {
+			toast({
+				title: t("externalApps.updateFailed"),
+				description: errorDetail(error),
+				status: "error",
+				isClosable: true,
+			});
+		},
+	});
+
+	const settingsMutation = useMutation(updateExternalAppSettings, {
+		onSuccess: () => {
+			toast({ title: t("externalApps.settingsSaved"), status: "success" });
+			setSettingsTarget(null);
 			queryClient.invalidateQueries("external-apps");
 		},
 		onError: (error) => {
@@ -188,15 +258,17 @@ export const ExternalAppsPage = () => {
 	});
 
 	const confirmDelete = (app: ExternalAppRecord) => {
-		if (
-			!window.confirm(t("externalApps.deleteConfirm", { domain: app.domain }))
-		)
-			return;
-		deleteMutation.mutate(app.domain);
+		setKeepDatabase(app.has_database);
+		setDeleteTarget(app);
 	};
 	const openManager = (app: ExternalAppRecord, view: "file" | "php-config") => {
 		setManagerView(view);
 		setManagedApp(app);
+	};
+	const openSettings = (app: ExternalAppRecord) => {
+		setIndexFile(app.index_file);
+		setFallbackToIndex(app.fallback_to_index);
+		setSettingsTarget(app);
 	};
 
 	if (appsQuery.isLoading) {
@@ -209,11 +281,114 @@ export const ExternalAppsPage = () => {
 
 	return (
 		<Stack spacing={5}>
+			<ConfirmDialog
+				isOpen={Boolean(updateTarget)}
+				title={t("externalApps.update")}
+				description={t("externalApps.updateConfirm", {
+					version: updateTarget?.latest_version,
+				})}
+				confirmLabel={t("externalApps.update")}
+				isLoading={updateMutation.isLoading}
+				onClose={() => setUpdateTarget(null)}
+				onConfirm={async () => {
+					if (updateTarget) await updateMutation.mutateAsync(updateTarget.id);
+				}}
+			/>
+			<ConfirmDialog
+				isOpen={Boolean(deleteTarget)}
+				title={t("externalApps.delete")}
+				description={
+					<Stack spacing={3}>
+						<Text>
+							{t("externalApps.deleteConfirm", {
+								name: deleteTarget?.name,
+							})}
+						</Text>
+						{deleteTarget?.has_database ? (
+							<Checkbox
+								isChecked={keepDatabase}
+								onChange={(event) => setKeepDatabase(event.target.checked)}
+							>
+								{t("externalApps.keepDatabase")}
+							</Checkbox>
+						) : null}
+					</Stack>
+				}
+				confirmLabel={t("externalApps.delete")}
+				colorScheme="red"
+				isLoading={deleteMutation.isLoading}
+				onClose={() => setDeleteTarget(null)}
+				onConfirm={async () => {
+					if (!deleteTarget) return;
+					await deleteMutation.mutateAsync({
+						id: deleteTarget.id,
+						keep_database: deleteTarget.has_database && keepDatabase,
+					});
+				}}
+			/>
 			<ExternalAppFilesModal
 				app={managedApp}
 				initialView={managerView}
 				onClose={() => setManagedApp(null)}
 			/>
+			<Modal
+				isOpen={Boolean(settingsTarget)}
+				onClose={() => setSettingsTarget(null)}
+				size="md"
+			>
+				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(8px)" />
+				<ModalContent bg={panelBg}>
+					<ModalHeader>{t("externalApps.settingsTitle")}</ModalHeader>
+					<ModalCloseButton />
+					<ModalBody>
+						<Stack spacing={4}>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.indexFile")}</FormLabel>
+								<Input
+									value={indexFile}
+									onChange={(event) => setIndexFile(event.target.value)}
+									placeholder="index.php"
+									autoComplete="off"
+								/>
+								<FormHelperText>
+									{t("externalApps.indexFileHint")}
+								</FormHelperText>
+							</FormControl>
+							<Checkbox
+								isChecked={fallbackToIndex}
+								onChange={(event) => setFallbackToIndex(event.target.checked)}
+							>
+								<Stack spacing={0}>
+									<Text>{t("externalApps.fallbackToIndex")}</Text>
+									<Text color={mutedColor} fontSize="sm">
+										{t("externalApps.fallbackToIndexHint")}
+									</Text>
+								</Stack>
+							</Checkbox>
+						</Stack>
+					</ModalBody>
+					<ModalFooter gap={3}>
+						<Button variant="ghost" onClick={() => setSettingsTarget(null)}>
+							{t("close")}
+						</Button>
+						<Button
+							colorScheme="blue"
+							isLoading={settingsMutation.isLoading}
+							isDisabled={!indexFile.trim()}
+							onClick={() => {
+								if (!settingsTarget) return;
+								settingsMutation.mutate({
+									id: settingsTarget.id,
+									index_file: indexFile.trim(),
+									fallback_to_index: fallbackToIndex,
+								});
+							}}
+						>
+							{t("save")}
+						</Button>
+					</ModalFooter>
+				</ModalContent>
+			</Modal>
 			<Box>
 				<Heading size="lg">{t("externalApps.title")}</Heading>
 				<Text color={mutedColor} mt={2}>
@@ -253,6 +428,21 @@ export const ExternalAppsPage = () => {
 								{ value: "archive", label: t("externalApps.archiveTemplate") },
 							]}
 						/>
+						{template === "mirzabot" && selectedTemplate?.source_url ? (
+							<Link
+								href={selectedTemplate.source_url}
+								isExternal
+								display="inline-flex"
+								alignItems="center"
+								gap={1}
+								mt={2}
+								fontSize="sm"
+								color="blue.300"
+							>
+								{t("externalApps.latestRelease")}
+								<ArrowTopRightOnSquareIcon width={14} />
+							</Link>
+						) : null}
 					</FormControl>
 					<FormControl isRequired>
 						<FormLabel>{t("externalApps.domainCertificate")}</FormLabel>
@@ -278,25 +468,52 @@ export const ExternalAppsPage = () => {
 				</SimpleGrid>
 
 				{template === "mirzabot" ? (
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
-						<FormControl isRequired>
-							<FormLabel>{t("externalApps.botToken")}</FormLabel>
-							<Input
-								type="password"
-								value={botToken}
-								onChange={(event) => setBotToken(event.target.value)}
-								autoComplete="off"
-							/>
-						</FormControl>
-						<FormControl isRequired>
-							<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
-							<Input
-								value={adminID}
-								onChange={(event) => setAdminID(event.target.value)}
-								inputMode="numeric"
-							/>
-						</FormControl>
-					</SimpleGrid>
+					<Stack mt={4} spacing={3}>
+						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.botToken")}</FormLabel>
+								<Input
+									type="password"
+									value={botToken}
+									onChange={(event) => setBotToken(event.target.value)}
+									autoComplete="off"
+								/>
+							</FormControl>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
+								<Input
+									value={adminID}
+									onChange={(event) => setAdminID(event.target.value)}
+									inputMode="numeric"
+								/>
+							</FormControl>
+						</SimpleGrid>
+						<Checkbox
+							isChecked={hasDatabaseBackup}
+							onChange={(event) => {
+								setHasDatabaseBackup(event.target.checked);
+								if (!event.target.checked) setDatabaseBackup(null);
+							}}
+						>
+							{t("externalApps.databaseBackupToggle")}
+						</Checkbox>
+						{hasDatabaseBackup ? (
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.databaseBackup")}</FormLabel>
+								<Input
+									type="file"
+									accept=".sql,application/sql,text/sql,text/plain"
+									pt={1}
+									onChange={(event) =>
+										setDatabaseBackup(event.target.files?.[0] ?? null)
+									}
+								/>
+								<FormHelperText>
+									{t("externalApps.databaseBackupHint")}
+								</FormHelperText>
+							</FormControl>
+						) : null}
+					</Stack>
 				) : (
 					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
 						<FormControl>
@@ -340,21 +557,6 @@ export const ExternalAppsPage = () => {
 						{selectedTemplate.detail}
 					</Text>
 				) : null}
-				{template === "mirzabot" && selectedTemplate?.source_url ? (
-					<Link
-						href={selectedTemplate.source_url}
-						isExternal
-						display="inline-flex"
-						alignItems="center"
-						gap={1}
-						mt={2}
-						fontSize="sm"
-						color="blue.300"
-					>
-						{t("externalApps.latestRelease")}
-						<ArrowTopRightOnSquareIcon width={14} />
-					</Link>
-				) : null}
 			</Box>
 
 			<Box
@@ -372,7 +574,7 @@ export const ExternalAppsPage = () => {
 				) : (
 					<Stack spacing={3} divider={<Divider />}>
 						{apps.map((app) => (
-							<Box key={app.domain} py={2}>
+							<Box key={app.id} py={2}>
 								<Stack
 									direction={{ base: "column", lg: "row" }}
 									justify="space-between"
@@ -394,13 +596,23 @@ export const ExternalAppsPage = () => {
 											</Badge>
 										</HStack>
 										<Text color={mutedColor} fontSize="sm" mt={1}>
-											{app.domain}
+											{app.public_url}
 											{app.bot_username ? ` · @${app.bot_username}` : ""}
 											{app.php_version ? ` · PHP ${app.php_version}` : ""}
 											{app.version ? ` · ${app.version}` : ""}
 										</Text>
 									</Box>
 									<HStack spacing={3} flexWrap="wrap">
+										{app.update_available ? (
+											<Button
+												size="sm"
+												colorScheme="blue"
+												leftIcon={<ArrowPathIcon width={16} />}
+												onClick={() => setUpdateTarget(app)}
+											>
+												{t("externalApps.update")}
+											</Button>
+										) : null}
 										<Button
 											size="sm"
 											variant="outline"
@@ -419,6 +631,14 @@ export const ExternalAppsPage = () => {
 												{t("externalApps.files.phpConfig")}
 											</Button>
 										) : null}
+										<Button
+											size="sm"
+											variant="outline"
+											leftIcon={<Cog6ToothIcon width={16} />}
+											onClick={() => openSettings(app)}
+										>
+											{t("externalApps.settings")}
+										</Button>
 										<Link href={app.public_url} isExternal>
 											<Button
 												size="sm"
@@ -433,7 +653,7 @@ export const ExternalAppsPage = () => {
 											isDisabled={toggleMutation.isLoading}
 											onChange={(event) =>
 												toggleMutation.mutate({
-													domain: app.domain,
+													id: app.id,
 													enabled: event.target.checked,
 												})
 											}

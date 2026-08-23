@@ -85,6 +85,7 @@ func TestAPIRequestBodyLimitRejectsOversizedPHPMyAdminUpload(t *testing.T) {
 func TestAPIRequestBodyLimitUsesExternalAppArchiveLimit(t *testing.T) {
 	for _, requestPath := range []string{
 		"/api/settings/external-apps/archive",
+		"/api/settings/external-apps/mirzabot",
 		"/api/settings/external-apps/app.example.com/files/upload",
 	} {
 		for _, test := range []struct {

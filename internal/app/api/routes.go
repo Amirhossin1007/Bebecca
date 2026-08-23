@@ -20,7 +20,7 @@ func apiRequestBodyLimit(path string) int64 {
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
 	}
-	if path == "/api/settings/external-apps/archive" ||
+	if path == "/api/settings/external-apps/archive" || path == "/api/settings/external-apps/mirzabot" ||
 		(strings.HasPrefix(path, "/api/settings/external-apps/") && strings.HasSuffix(path, "/files/upload")) {
 		return externalapps.MaxRequestBodyBytes
 	}

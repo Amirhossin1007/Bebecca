@@ -15,9 +15,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -46,54 +48,70 @@ type Config struct {
 
 var (
 	errExternalAppBusy        = errors.New("another external application operation is already running")
-	errExternalAppExists      = errors.New("an application already uses this domain")
+	errExternalAppExists      = errors.New("an application already uses this domain and path")
 	errExternalAppNotFound    = errors.New("external application not found")
+	errExternalAppUpToDate    = errors.New("MirzaBot is already up to date")
 	errExternalAppUnsupported = errors.New("external application hosting is not supported by this installation")
+	externalAppIDPattern      = regexp.MustCompile(`^[0-9a-f]{12}$`)
+	externalAppPathPattern    = regexp.MustCompile(`^bot[0-9a-f]{12}$`)
 	mirzaBotTokenPattern      = regexp.MustCompile(`^[0-9]{5,16}:[A-Za-z0-9_-]{20,100}$`)
-	mirzaReleasePattern       = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+$`)
+	mirzaReleasePattern       = regexp.MustCompile(`^v?[0-9]+(?:\.[0-9]+){1,3}$`)
 	mirzaCommitPattern        = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	telegramIDPattern         = regexp.MustCompile(`^-?[0-9]{5,20}$`)
 )
 
 type InstallRequest struct {
-	Domain   string `json:"domain"`
-	BotToken string `json:"bot_token"`
-	AdminID  string `json:"admin_id"`
+	Domain         string `json:"domain"`
+	BotToken       string `json:"bot_token"`
+	AdminID        string `json:"admin_id"`
+	DatabaseBackup []byte `json:"-"`
 }
 
 type Record struct {
-	Template     string `json:"template"`
-	Name         string `json:"name"`
-	Domain       string `json:"domain"`
-	Enabled      bool   `json:"enabled"`
-	Runtime      string `json:"runtime"`
-	Version      string `json:"version,omitempty"`
-	SourceSHA    string `json:"source_sha,omitempty"`
-	InstalledAt  string `json:"installed_at"`
-	PHPVersion   string `json:"php_version,omitempty"`
-	BotUsername  string `json:"bot_username,omitempty"`
-	Root         string `json:"root"`
-	Socket       string `json:"socket,omitempty"`
-	PoolConfig   string `json:"pool_config,omitempty"`
-	CronConfig   string `json:"cron_config,omitempty"`
-	Service      string `json:"service,omitempty"`
-	SystemUser   string `json:"system_user,omitempty"`
-	Database     string `json:"database,omitempty"`
-	DatabaseUser string `json:"database_user,omitempty"`
+	ID              string `json:"id,omitempty"`
+	Template        string `json:"template"`
+	Name            string `json:"name"`
+	Domain          string `json:"domain"`
+	Path            string `json:"path,omitempty"`
+	Enabled         bool   `json:"enabled"`
+	Runtime         string `json:"runtime"`
+	Version         string `json:"version,omitempty"`
+	SourceSHA       string `json:"source_sha,omitempty"`
+	InstalledAt     string `json:"installed_at"`
+	PHPVersion      string `json:"php_version,omitempty"`
+	BotUsername     string `json:"bot_username,omitempty"`
+	IndexFile       string `json:"index_file,omitempty"`
+	FallbackToIndex bool   `json:"fallback_to_index,omitempty"`
+	Root            string `json:"root"`
+	Socket          string `json:"socket,omitempty"`
+	PoolConfig      string `json:"pool_config,omitempty"`
+	CronConfig      string `json:"cron_config,omitempty"`
+	Service         string `json:"service,omitempty"`
+	SystemUser      string `json:"system_user,omitempty"`
+	Database        string `json:"database,omitempty"`
+	DatabaseUser    string `json:"database_user,omitempty"`
+	storageBase     string
 }
 
 type PublicRecord struct {
-	Template    string `json:"template"`
-	Name        string `json:"name"`
-	Domain      string `json:"domain"`
-	Enabled     bool   `json:"enabled"`
-	Runtime     string `json:"runtime"`
-	Version     string `json:"version,omitempty"`
-	SourceSHA   string `json:"source_sha,omitempty"`
-	InstalledAt string `json:"installed_at"`
-	PHPVersion  string `json:"php_version,omitempty"`
-	BotUsername string `json:"bot_username,omitempty"`
-	PublicURL   string `json:"public_url"`
+	ID              string `json:"id"`
+	Template        string `json:"template"`
+	Name            string `json:"name"`
+	Domain          string `json:"domain"`
+	Path            string `json:"path,omitempty"`
+	Enabled         bool   `json:"enabled"`
+	Runtime         string `json:"runtime"`
+	Version         string `json:"version,omitempty"`
+	SourceSHA       string `json:"source_sha,omitempty"`
+	InstalledAt     string `json:"installed_at"`
+	PHPVersion      string `json:"php_version,omitempty"`
+	BotUsername     string `json:"bot_username,omitempty"`
+	IndexFile       string `json:"index_file"`
+	FallbackToIndex bool   `json:"fallback_to_index"`
+	HasDatabase     bool   `json:"has_database"`
+	PublicURL       string `json:"public_url"`
+	UpdateAvailable bool   `json:"update_available,omitempty"`
+	LatestVersion   string `json:"latest_version,omitempty"`
 }
 
 type secrets struct {
@@ -104,6 +122,7 @@ type secrets struct {
 
 type Manager struct {
 	baseDir      string
+	legacyBase   string
 	databaseURL  string
 	rootPassword string
 	certificates *certificateapp.Manager
@@ -112,19 +131,25 @@ type Manager struct {
 	mirzaArchive string
 	fileAccess   string
 
-	operationMu sync.Mutex
-	mu          sync.RWMutex
-	apps        map[string]Record
+	operationMu  sync.Mutex
+	releaseMu    sync.Mutex
+	release      mirzaBotRelease
+	releaseUntil time.Time
+	mu           sync.RWMutex
+	apps         map[string]Record
 }
 
 func New(cfg Config, certificates *certificateapp.Manager) *Manager {
 	baseDir := strings.TrimSpace(cfg.BaseDir)
+	legacyBase := ""
 	if baseDir == "" {
 		baseDir = defaultBaseDir
+		legacyBase = legacyBaseDir
 		_ = migrateLegacyBaseDir(baseDir, legacyBaseDir)
 	}
 	manager := &Manager{
 		baseDir:      filepath.Clean(baseDir),
+		legacyBase:   legacyBase,
 		databaseURL:  cfg.DatabaseURL,
 		rootPassword: cfg.MySQLRootPassword,
 		certificates: certificates,
@@ -152,74 +177,168 @@ func New(cfg Config, certificates *certificateapp.Manager) *Manager {
 }
 
 func migrateLegacyBaseDir(baseDir, oldBaseDir string) error {
-	if _, err := os.Stat(baseDir); err == nil || !os.IsNotExist(err) {
+	if _, err := os.Lstat(oldBaseDir); err == nil || !os.IsNotExist(err) {
 		return nil
 	}
-	if _, err := os.Stat(oldBaseDir); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
+	if _, err := os.Stat(baseDir); err != nil {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(oldBaseDir), 0o700); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(baseDir), 0o700); err != nil {
-		return err
-	}
-	return os.Rename(oldBaseDir, baseDir)
+	return os.Symlink(baseDir, oldBaseDir)
 }
 
 func (m *Manager) reload() {
-	entries, err := os.ReadDir(m.metadataDir())
-	if err != nil {
-		return
-	}
 	loaded := map[string]Record{}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+	mounts := map[string]bool{}
+	bases := []string{m.baseDir}
+	if m.legacyBase != "" {
+		bases = append(bases, m.legacyBase)
+	}
+	seenBases := map[string]bool{}
+	for _, base := range bases {
+		resolved, err := filepath.EvalSymlinks(base)
+		if err == nil && seenBases[resolved] {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(m.metadataDir(), entry.Name()))
+		if err == nil {
+			seenBases[resolved] = true
+		}
+		entries, err := os.ReadDir(filepath.Join(base, ".metadata"))
 		if err != nil {
 			continue
 		}
-		var record Record
-		if json.Unmarshal(data, &record) != nil || (record.Template != "archive" && record.Template != "mirzabot") {
-			continue
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(base, ".metadata", entry.Name()))
+			if err != nil {
+				continue
+			}
+			var record Record
+			if json.Unmarshal(data, &record) != nil || (record.Template != "archive" && record.Template != "mirzabot") {
+				continue
+			}
+			id := strings.TrimSuffix(entry.Name(), ".json")
+			if record.ID != "" {
+				id = strings.ToLower(strings.TrimSpace(record.ID))
+			}
+			domain := CanonicalHost(record.Domain)
+			mountPath := strings.Trim(strings.ToLower(strings.TrimSpace(record.Path)), "/")
+			if !externalAppIDPattern.MatchString(id) || domain == "" || (mountPath != "" && !externalAppPathPattern.MatchString(mountPath)) || !pathWithinResolved(filepath.Join(base, "apps"), record.Root) {
+				continue
+			}
+			if record.Runtime == "php" && (!pathWithin("/run/php", record.Socket) || !pathWithin("/etc/php", record.PoolConfig)) {
+				continue
+			}
+			if record.CronConfig != "" && !pathWithin("/etc/cron.d", record.CronConfig) {
+				continue
+			}
+			mountKey := domain + "\x00" + mountPath
+			if mounts[mountKey] {
+				continue
+			}
+			record.ID = id
+			record.Domain = domain
+			record.Path = mountPath
+			record.storageBase = base
+			loaded[id] = record
+			mounts[mountKey] = true
 		}
-		domain := CanonicalHost(record.Domain)
-		if domain == "" || !pathWithin(m.appsDir(), record.Root) {
-			continue
-		}
-		if record.Runtime == "php" && (!pathWithin("/run/php", record.Socket) || !pathWithin("/etc/php", record.PoolConfig)) {
-			continue
-		}
-		if record.CronConfig != "" && !pathWithin("/etc/cron.d", record.CronConfig) {
-			continue
-		}
-		record.Domain = domain
-		loaded[domain] = record
 	}
 	m.mu.Lock()
 	m.apps = loaded
 	m.mu.Unlock()
 }
 
-func (m *Manager) Lookup(host string) (Record, bool) {
-	host = CanonicalHost(host)
+func (m *Manager) Lookup(identifier string) (Record, bool) {
+	identifier = strings.ToLower(strings.TrimSpace(identifier))
 	m.mu.RLock()
-	record, ok := m.apps[host]
+	record, ok := m.apps[identifier]
+	if !ok {
+		host := CanonicalHost(identifier)
+		for _, candidate := range m.apps {
+			if candidate.Domain != host {
+				continue
+			}
+			if ok {
+				m.mu.RUnlock()
+				return Record{}, false
+			}
+			record, ok = candidate, true
+		}
+	}
 	m.mu.RUnlock()
 	return record, ok
 }
 
+func (m *Manager) HasHost(host string) bool {
+	host = CanonicalHost(host)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, record := range m.apps {
+		if record.Domain == host {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Manager) Match(host, requestPath string) (Record, string, bool) {
+	host = CanonicalHost(host)
+	cleanPath := strings.TrimPrefix(path.Clean("/"+requestPath), "/")
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var matched Record
+	matchedPath := ""
+	best := -1
+	for _, record := range m.apps {
+		if record.Domain != host {
+			continue
+		}
+		mount := strings.Trim(record.Path, "/")
+		if mount == "" {
+			if best < 0 {
+				matched, matchedPath, best = record, cleanPath, 0
+			}
+			continue
+		}
+		if cleanPath != mount && !strings.HasPrefix(cleanPath, mount+"/") {
+			continue
+		}
+		if len(mount) > best {
+			matched = record
+			matchedPath = strings.TrimPrefix(strings.TrimPrefix(cleanPath, mount), "/")
+			best = len(mount)
+		}
+	}
+	return matched, matchedPath, best >= 0
+}
+
+func (m *Manager) mountExists(domain, mountPath string) bool {
+	domain = CanonicalHost(domain)
+	mountPath = strings.Trim(mountPath, "/")
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, record := range m.apps {
+		if record.Domain == domain && record.Path == mountPath {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) setRecord(record Record) {
 	m.mu.Lock()
-	m.apps[record.Domain] = record
+	m.apps[record.ID] = record
 	m.mu.Unlock()
 }
 
-func (m *Manager) removeRecord(domain string) {
+func (m *Manager) removeRecord(id string) {
 	m.mu.Lock()
-	delete(m.apps, domain)
+	delete(m.apps, id)
 	m.mu.Unlock()
 }
 
@@ -230,24 +349,112 @@ func (m *Manager) publicRecords() []PublicRecord {
 		records = append(records, publicExternalAppRecord(record))
 	}
 	m.mu.RUnlock()
-	sort.Slice(records, func(i, j int) bool { return records[i].Domain < records[j].Domain })
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].Domain == records[j].Domain {
+			return records[i].Path < records[j].Path
+		}
+		return records[i].Domain < records[j].Domain
+	})
 	return records
 }
 
 func publicExternalAppRecord(record Record) PublicRecord {
 	return PublicRecord{
-		Template:    record.Template,
-		Name:        record.Name,
-		Domain:      record.Domain,
-		Enabled:     record.Enabled,
-		Runtime:     record.Runtime,
-		Version:     record.Version,
-		SourceSHA:   record.SourceSHA,
-		InstalledAt: record.InstalledAt,
-		PHPVersion:  record.PHPVersion,
-		BotUsername: record.BotUsername,
-		PublicURL:   "https://" + record.Domain + "/",
+		ID:              record.ID,
+		Template:        record.Template,
+		Name:            record.Name,
+		Domain:          record.Domain,
+		Path:            record.Path,
+		Enabled:         record.Enabled,
+		Runtime:         record.Runtime,
+		Version:         record.Version,
+		SourceSHA:       record.SourceSHA,
+		InstalledAt:     record.InstalledAt,
+		PHPVersion:      record.PHPVersion,
+		BotUsername:     record.BotUsername,
+		IndexFile:       externalAppIndexFile(record),
+		FallbackToIndex: record.FallbackToIndex,
+		HasDatabase:     record.Database != "",
+		PublicURL:       externalAppPublicURL(record) + "/",
 	}
+}
+
+func externalAppDefaultIndex(root, runtime string) string {
+	if runtime == "php" {
+		if info, err := os.Stat(filepath.Join(root, "index.php")); err == nil && !info.IsDir() {
+			return "index.php"
+		}
+	}
+	return "index.html"
+}
+
+func externalAppIndexFile(record Record) string {
+	if index := strings.TrimSpace(record.IndexFile); index != "" {
+		return filepath.ToSlash(index)
+	}
+	if record.Template == "mirzabot" {
+		return "index.php"
+	}
+	return externalAppDefaultIndex(record.Root, record.Runtime)
+}
+
+func mirzaBotUpdateAvailable(record Record, release mirzaBotRelease) bool {
+	if record.Template != "mirzabot" || release.SHA == "" {
+		return false
+	}
+	if strings.EqualFold(record.SourceSHA, release.SHA) {
+		return false
+	}
+	comparison, ok := compareMirzaBotVersions(record.Version, release.Version)
+	return !ok || comparison < 0
+}
+
+func compareMirzaBotVersions(left, right string) (int, bool) {
+	parse := func(value string) ([]int, bool) {
+		value = strings.TrimPrefix(strings.TrimSpace(value), "v")
+		if !mirzaReleasePattern.MatchString(value) {
+			return nil, false
+		}
+		parts := strings.Split(value, ".")
+		numbers := make([]int, len(parts))
+		for index, part := range parts {
+			number, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, false
+			}
+			numbers[index] = number
+		}
+		return numbers, true
+	}
+	leftParts, leftOK := parse(left)
+	rightParts, rightOK := parse(right)
+	if !leftOK || !rightOK {
+		return 0, false
+	}
+	for index := 0; index < max(len(leftParts), len(rightParts)); index++ {
+		var leftPart, rightPart int
+		if index < len(leftParts) {
+			leftPart = leftParts[index]
+		}
+		if index < len(rightParts) {
+			rightPart = rightParts[index]
+		}
+		if leftPart < rightPart {
+			return -1, true
+		}
+		if leftPart > rightPart {
+			return 1, true
+		}
+	}
+	return 0, true
+}
+
+func externalAppPublicURL(record Record) string {
+	value := "https://" + record.Domain
+	if record.Path != "" {
+		value += "/" + record.Path
+	}
+	return value
 }
 
 func (m *Manager) hostingSupported() (bool, string) {
@@ -318,7 +525,7 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 	if err != nil {
 		return PublicRecord{}, err
 	}
-	if _, exists := m.Lookup(domain); exists {
+	if m.mountExists(domain, "") {
 		return PublicRecord{}, errExternalAppExists
 	}
 	if len(archive) == 0 || len(archive) > maxExternalAppArchiveBytes {
@@ -349,14 +556,17 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		return PublicRecord{}, err
 	}
 	record := Record{
+		ID:          suffix,
 		Template:    "archive",
 		Name:        normalizeExternalAppName(name, domain),
 		Domain:      domain,
 		Enabled:     true,
 		Runtime:     runtime,
+		IndexFile:   externalAppDefaultIndex(root, runtime),
 		SourceSHA:   sha256Hex(archive),
 		InstalledAt: time.Now().UTC().Format(time.RFC3339),
 		Root:        appRoot,
+		storageBase: m.baseDir,
 	}
 
 	var userCreated, appCreated, poolCreated bool
@@ -365,7 +575,7 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		if completed {
 			return
 		}
-		_ = os.Remove(m.recordPath(suffix))
+		_ = os.Remove(m.recordPathFor(record))
 		if poolCreated {
 			_ = os.Remove(record.PoolConfig)
 			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "reload", record.Service)
@@ -447,9 +657,6 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 	if err != nil {
 		return PublicRecord{}, err
 	}
-	if _, exists := m.Lookup(domain); exists {
-		return PublicRecord{}, errExternalAppExists
-	}
 	if err := m.ensureBotTokenAvailable(request.BotToken); err != nil {
 		return PublicRecord{}, err
 	}
@@ -481,11 +688,20 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		return PublicRecord{}, err
 	}
 
-	suffix := domainHash(domain)
+	suffix, err := randomHex(6)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	mountPath := "bot" + suffix
+	if m.mountExists(domain, mountPath) {
+		return PublicRecord{}, errExternalAppExists
+	}
 	record := Record{
+		ID:           suffix,
 		Template:     "mirzabot",
 		Name:         "MirzaBot @" + botUsername,
 		Domain:       domain,
+		Path:         mountPath,
 		Enabled:      false,
 		Runtime:      "php",
 		Version:      source.Version,
@@ -493,6 +709,7 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		InstalledAt:  time.Now().UTC().Format(time.RFC3339),
 		PHPVersion:   phpVersion,
 		BotUsername:  botUsername,
+		IndexFile:    "index.php",
 		Root:         filepath.Join(m.appsDir(), suffix),
 		Socket:       filepath.Join("/run/php", "rebecca-"+suffix+".sock"),
 		PoolConfig:   filepath.Join("/etc/php", phpVersion, "fpm", "pool.d", "rebecca-"+suffix+".conf"),
@@ -501,6 +718,7 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		SystemUser:   "rbphp_" + suffix,
 		Database:     "rb_mirza_" + suffix,
 		DatabaseUser: "rbm_" + suffix,
+		storageBase:  m.baseDir,
 	}
 	if err := m.ensureMirzaInstallTargetsFree(ctx, record); err != nil {
 		return PublicRecord{}, err
@@ -512,8 +730,8 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		if completed {
 			return
 		}
-		_ = os.Remove(m.recordPath(suffix))
-		_ = os.Remove(m.secretPath(suffix))
+		_ = os.Remove(m.recordPathFor(record))
+		_ = os.Remove(m.secretPathFor(record))
 		if cronCreated {
 			_ = os.Remove(record.CronConfig)
 		}
@@ -560,12 +778,17 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		return PublicRecord{}, err
 	}
 	configPath := filepath.Join(record.Root, "config.php")
-	config := mirzaBotConfig(record.Database, record.DatabaseUser, databasePassword, request.BotToken, request.AdminID, domain, botUsername)
+	config := mirzaBotConfig(record.Database, record.DatabaseUser, databasePassword, request.BotToken, request.AdminID, externalAppHostPath(record), botUsername)
 	if err := os.WriteFile(configPath, []byte(config), 0o600); err != nil {
 		return PublicRecord{}, fmt.Errorf("write MirzaBot configuration: %w", err)
 	}
 	if err := os.Chown(configPath, uid, gid); err != nil {
 		return PublicRecord{}, err
+	}
+	if len(request.DatabaseBackup) > 0 {
+		if err := m.importExternalAppDatabase(ctx, record.Database, record.DatabaseUser, databasePassword, request.DatabaseBackup); err != nil {
+			return PublicRecord{}, err
+		}
 	}
 	if err := initializeMirzaBotDatabase(ctx, record.Root, record.SystemUser, uid, gid); err != nil {
 		return PublicRecord{}, err
@@ -596,13 +819,13 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		return PublicRecord{}, err
 	}
 	secrets := secrets{BotToken: request.BotToken, WebhookSecret: webhookSecret, CronSecret: cronSecret}
-	if err := m.writeSecrets(domain, secrets); err != nil {
+	if err := m.writeSecrets(record, secrets); err != nil {
 		return PublicRecord{}, err
 	}
 	if err := m.writeRecord(record); err != nil {
 		return PublicRecord{}, err
 	}
-	if err := m.setTelegramWebhook(ctx, request.BotToken, domain, webhookSecret); err != nil {
+	if err := m.setTelegramWebhook(ctx, request.BotToken, record, webhookSecret); err != nil {
 		return PublicRecord{}, err
 	}
 	record.Enabled = true
@@ -617,15 +840,15 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 
 func (m *Manager) ensureBotTokenAvailable(token string) error {
 	m.mu.RLock()
-	domains := make([]string, 0, len(m.apps))
+	records := make([]Record, 0, len(m.apps))
 	for _, record := range m.apps {
 		if record.Template == "mirzabot" {
-			domains = append(domains, record.Domain)
+			records = append(records, record)
 		}
 	}
 	m.mu.RUnlock()
-	for _, domain := range domains {
-		secrets, err := m.readSecrets(domain)
+	for _, record := range records {
+		secrets, err := m.readSecrets(record)
 		if err != nil {
 			return err
 		}
@@ -642,15 +865,16 @@ func subtleConstantStringEqual(left, right string) bool {
 
 func (m *Manager) AuthorizeMirzaRequest(r *http.Request, record Record, rel string) error {
 	rel = strings.ToLower(filepath.ToSlash(rel))
-	if rel != "index.php" && !strings.HasPrefix(rel, "cronbot/") {
+	indexFile := strings.ToLower(externalAppIndexFile(record))
+	if rel != indexFile && !strings.HasPrefix(rel, "cronbot/") {
 		return nil
 	}
-	secrets, err := m.readSecrets(record.Domain)
+	secrets, err := m.readSecrets(record)
 	if err != nil {
 		return err
 	}
 	var actual, expected string
-	if rel == "index.php" && r.Method == http.MethodPost {
+	if rel == indexFile && r.Method == http.MethodPost {
 		actual = strings.TrimSpace(r.Header.Get("X-Telegram-Bot-Api-Secret-Token"))
 		expected = secrets.WebhookSecret
 	} else if strings.HasPrefix(rel, "cronbot/") {
@@ -665,12 +889,179 @@ func (m *Manager) AuthorizeMirzaRequest(r *http.Request, record Record, rel stri
 	return nil
 }
 
-func (m *Manager) setEnabled(ctx context.Context, domain string, enabled bool) (PublicRecord, error) {
+func validateExternalAppIndexFile(record Record, rootPath, raw string) (string, error) {
+	name, err := normalizeExternalAppPath(strings.TrimSpace(raw), false)
+	if err != nil {
+		return "", errors.New("default document must be a safe relative path")
+	}
+	switch strings.ToLower(path.Base(name)) {
+	case "config.php", "table.php", "composer.json", "composer.lock", "install.sh":
+		return "", errors.New("this file cannot be used as the default document")
+	}
+	extension := strings.ToLower(path.Ext(name))
+	if extension != ".php" && extension != ".html" && extension != ".htm" {
+		return "", errors.New("default document must be a PHP or HTML file")
+	}
+	if record.Runtime == "static" && extension == ".php" {
+		return "", errors.New("static applications cannot use a PHP default document")
+	}
+	if record.Template == "mirzabot" && extension != ".php" {
+		return "", errors.New("MirzaBot requires a PHP default document")
+	}
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	info, err := root.Lstat(filepath.FromSlash(name))
+	if err != nil || !info.Mode().IsRegular() || FileHasMultipleLinks(info) {
+		return "", errors.New("default document does not exist or is not a regular file")
+	}
+	return filepath.ToSlash(name), nil
+}
+
+func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex bool) (PublicRecord, error) {
 	if !m.operationMu.TryLock() {
 		return PublicRecord{}, errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
-	record, ok := m.Lookup(domain)
+	record, ok := m.Lookup(identifier)
+	if !ok {
+		return PublicRecord{}, errExternalAppNotFound
+	}
+	indexFile, err := validateExternalAppIndexFile(record, record.Root, indexFile)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	record.IndexFile = indexFile
+	record.FallbackToIndex = fallbackToIndex
+	if err := m.writeRecord(record); err != nil {
+		return PublicRecord{}, err
+	}
+	m.setRecord(record)
+	return publicExternalAppRecord(record), nil
+}
+
+func (m *Manager) updateMirzaBot(ctx context.Context, identifier string) (PublicRecord, error) {
+	if !m.operationMu.TryLock() {
+		return PublicRecord{}, errExternalAppBusy
+	}
+	defer m.operationMu.Unlock()
+	record, ok := m.Lookup(identifier)
+	if !ok {
+		return PublicRecord{}, errExternalAppNotFound
+	}
+	if record.Template != "mirzabot" {
+		return PublicRecord{}, errors.New("only MirzaBot applications support automatic updates")
+	}
+	source, err := m.downloadMirzaBot(ctx)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	m.releaseMu.Lock()
+	m.release = mirzaBotRelease{Version: source.Version, SHA: source.SHA}
+	m.releaseUntil = time.Now().Add(10 * time.Minute)
+	m.releaseMu.Unlock()
+	if !mirzaBotUpdateAvailable(record, mirzaBotRelease{Version: source.Version, SHA: source.SHA}) {
+		return PublicRecord{}, errExternalAppUpToDate
+	}
+	config, err := os.ReadFile(filepath.Join(record.Root, "config.php"))
+	if err != nil {
+		return PublicRecord{}, fmt.Errorf("preserve MirzaBot configuration: %w", err)
+	}
+	storedSecrets, err := m.readSecrets(record)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	uid, gid, err := unixUserIDs(ctx, record.SystemUser)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	stage, err := os.MkdirTemp(m.baseDir, ".mirzabot-update-")
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	defer os.RemoveAll(stage)
+	nextRoot, err := extractMirzaBotArchive(source.Archive, stage)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	_ = os.Remove(filepath.Join(nextRoot, "install.sh"))
+	if err := prepareOwnedExternalAppTree(nextRoot, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	configPath := filepath.Join(nextRoot, "config.php")
+	if err := os.Remove(configPath); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := os.WriteFile(configPath, config, 0o600); err != nil {
+		return PublicRecord{}, fmt.Errorf("restore MirzaBot configuration: %w", err)
+	}
+	if err := os.Chown(configPath, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := writeExternalAppSecretFile(nextRoot, ".rebecca-cron-secret", storedSecrets.CronSecret, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := installMirzaBotDependencies(ctx, nextRoot, record.SystemUser); err != nil {
+		return PublicRecord{}, err
+	}
+	if _, err := validateExternalAppIndexFile(record, nextRoot, externalAppIndexFile(record)); err != nil {
+		return PublicRecord{}, fmt.Errorf("preserve application settings: %w", err)
+	}
+	if err := initializeMirzaBotDatabase(ctx, nextRoot, record.SystemUser, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := m.verifyExternalAppDatabase(ctx, record.Database); err != nil {
+		return PublicRecord{}, err
+	}
+
+	previousRoot := filepath.Join(stage, ".previous")
+	if err := os.Rename(record.Root, previousRoot); err != nil {
+		return PublicRecord{}, fmt.Errorf("stage current MirzaBot files: %w", err)
+	}
+	if err := os.Rename(nextRoot, record.Root); err != nil {
+		_ = os.Rename(previousRoot, record.Root)
+		return PublicRecord{}, fmt.Errorf("activate MirzaBot update: %w", err)
+	}
+	rollback := func() error {
+		failedRoot := filepath.Join(stage, ".failed")
+		if err := os.Rename(record.Root, failedRoot); err != nil {
+			return err
+		}
+		if err := os.Rename(previousRoot, record.Root); err != nil {
+			_ = os.Rename(failedRoot, record.Root)
+			return err
+		}
+		return nil
+	}
+	if err := reloadPHPFPM(ctx, record); err != nil {
+		if rollbackErr := rollback(); rollbackErr != nil {
+			return PublicRecord{}, fmt.Errorf("reload PHP-FPM after update: %v; rollback failed: %w", err, rollbackErr)
+		}
+		_ = reloadPHPFPM(context.Background(), record)
+		return PublicRecord{}, err
+	}
+	updated := record
+	updated.Version = source.Version
+	updated.SourceSHA = source.SHA
+	if err := m.writeRecord(updated); err != nil {
+		if rollbackErr := rollback(); rollbackErr != nil {
+			return PublicRecord{}, fmt.Errorf("save MirzaBot version: %v; rollback failed: %w", err, rollbackErr)
+		}
+		_ = reloadPHPFPM(context.Background(), record)
+		return PublicRecord{}, err
+	}
+	m.setRecord(updated)
+	return publicExternalAppRecord(updated), nil
+}
+
+func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled bool) (PublicRecord, error) {
+	if !m.operationMu.TryLock() {
+		return PublicRecord{}, errExternalAppBusy
+	}
+	defer m.operationMu.Unlock()
+	record, ok := m.Lookup(identifier)
 	if !ok {
 		return PublicRecord{}, errExternalAppNotFound
 	}
@@ -679,11 +1070,11 @@ func (m *Manager) setEnabled(ctx context.Context, domain string, enabled bool) (
 			return PublicRecord{}, err
 		}
 		if record.Template == "mirzabot" {
-			secrets, err := m.readSecrets(record.Domain)
+			secrets, err := m.readSecrets(record)
 			if err != nil {
 				return PublicRecord{}, err
 			}
-			if err := m.setTelegramWebhook(ctx, secrets.BotToken, record.Domain, secrets.WebhookSecret); err != nil {
+			if err := m.setTelegramWebhook(ctx, secrets.BotToken, record, secrets.WebhookSecret); err != nil {
 				return PublicRecord{}, err
 			}
 			if err := writeMirzaCron(record); err != nil {
@@ -698,7 +1089,7 @@ func (m *Manager) setEnabled(ctx context.Context, domain string, enabled bool) (
 	if err := m.writeRecord(record); err != nil {
 		if enabled && record.Template == "mirzabot" {
 			_ = os.Remove(record.CronConfig)
-			if secrets, secretErr := m.readSecrets(record.Domain); secretErr == nil {
+			if secrets, secretErr := m.readSecrets(record); secretErr == nil {
 				_ = m.deleteTelegramWebhook(context.Background(), secrets.BotToken)
 			}
 		}
@@ -709,7 +1100,7 @@ func (m *Manager) setEnabled(ctx context.Context, domain string, enabled bool) (
 		if err := os.Remove(record.CronConfig); err != nil && !os.IsNotExist(err) {
 			return publicExternalAppRecord(record), err
 		}
-		secrets, err := m.readSecrets(record.Domain)
+		secrets, err := m.readSecrets(record)
 		if err != nil {
 			return publicExternalAppRecord(record), err
 		}
@@ -720,12 +1111,12 @@ func (m *Manager) setEnabled(ctx context.Context, domain string, enabled bool) (
 	return publicExternalAppRecord(record), nil
 }
 
-func (m *Manager) delete(ctx context.Context, domain string) error {
+func (m *Manager) delete(ctx context.Context, identifier string, keepDatabase bool) error {
 	if !m.operationMu.TryLock() {
 		return errExternalAppBusy
 	}
 	defer m.operationMu.Unlock()
-	record, ok := m.Lookup(domain)
+	record, ok := m.Lookup(identifier)
 	if !ok {
 		return errExternalAppNotFound
 	}
@@ -735,7 +1126,7 @@ func (m *Manager) delete(ctx context.Context, domain string) error {
 	}
 	m.setRecord(record)
 	if record.Template == "mirzabot" {
-		if secrets, err := m.readSecrets(record.Domain); err == nil {
+		if secrets, err := m.readSecrets(record); err == nil {
 			_ = m.deleteTelegramWebhook(ctx, secrets.BotToken)
 		}
 	}
@@ -752,7 +1143,7 @@ func (m *Manager) delete(ctx context.Context, domain string) error {
 			return fmt.Errorf("reload PHP-FPM: %w", err)
 		}
 	}
-	if record.Database != "" {
+	if record.Database != "" && !keepDatabase {
 		if err := m.dropExternalAppDatabase(ctx, record.Database, record.DatabaseUser); err != nil {
 			return err
 		}
@@ -765,14 +1156,13 @@ func (m *Manager) delete(ctx context.Context, domain string) error {
 			return fmt.Errorf("remove isolated PHP user: %w", err)
 		}
 	}
-	suffix := domainHash(record.Domain)
-	if err := os.Remove(m.recordPath(suffix)); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(m.recordPathFor(record)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if err := os.Remove(m.secretPath(suffix)); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(m.secretPathFor(record)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	m.removeRecord(record.Domain)
+	m.removeRecord(record.ID)
 	return nil
 }
 
@@ -789,15 +1179,15 @@ func (m *Manager) prepareStorage() error {
 }
 
 func (m *Manager) writeRecord(record Record) error {
-	return writePrivateJSON(m.recordPath(domainHash(record.Domain)), record)
+	return writePrivateJSON(m.recordPathFor(record), record)
 }
 
-func (m *Manager) writeSecrets(domain string, secrets secrets) error {
-	return writePrivateJSON(m.secretPath(domainHash(domain)), secrets)
+func (m *Manager) writeSecrets(record Record, secrets secrets) error {
+	return writePrivateJSON(m.secretPathFor(record), secrets)
 }
 
-func (m *Manager) readSecrets(domain string) (secrets, error) {
-	data, err := os.ReadFile(m.secretPath(domainHash(domain)))
+func (m *Manager) readSecrets(record Record) (secrets, error) {
+	data, err := os.ReadFile(m.secretPathFor(record))
 	if err != nil {
 		return secrets{}, fmt.Errorf("read external application secrets: %w", err)
 	}
@@ -816,6 +1206,22 @@ func (m *Manager) recordPath(suffix string) string {
 }
 func (m *Manager) secretPath(suffix string) string {
 	return filepath.Join(m.secretsDir(), suffix+".json")
+}
+
+func (m *Manager) recordPathFor(record Record) string {
+	base := record.storageBase
+	if base == "" {
+		base = m.baseDir
+	}
+	return filepath.Join(base, ".metadata", record.ID+".json")
+}
+
+func (m *Manager) secretPathFor(record Record) string {
+	base := record.storageBase
+	if base == "" {
+		base = m.baseDir
+	}
+	return filepath.Join(base, ".secrets", record.ID+".json")
 }
 
 func writePrivateJSON(path string, value any) error {
@@ -864,14 +1270,29 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		supported, detail := m.hostingSupported()
 		mirzaSupported, mirzaDetail := m.mirzaSupported()
+		releaseCtx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		release, _ := m.cachedMirzaBotRelease(releaseCtx)
+		cancel()
+		apps := m.publicRecords()
+		for index := range apps {
+			record := Record{Template: apps[index].Template, Version: apps[index].Version, SourceSHA: apps[index].SourceSHA}
+			if mirzaBotUpdateAvailable(record, release) {
+				apps[index].UpdateAvailable = true
+				apps[index].LatestVersion = release.Version
+			}
+		}
+		mirzaVersion := "latest"
+		if release.Version != "" {
+			mirzaVersion = release.Version
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"supported": supported,
 			"detail":    detail,
 			"templates": []map[string]any{
 				{"id": "archive", "name": "PHP / HTML ZIP", "supported": supported},
-				{"id": "mirzabot", "name": "MirzaBot", "version": "latest", "source_url": mirzaBotRepositoryURL + "/releases/latest", "supported": mirzaSupported, "detail": mirzaDetail},
+				{"id": "mirzabot", "name": "MirzaBot", "version": mirzaVersion, "source_sha": release.SHA, "source_url": mirzaBotRepositoryURL + "/releases/latest", "supported": mirzaSupported, "detail": mirzaDetail},
 			},
-			"apps": m.publicRecords(),
+			"apps": apps,
 		})
 		return
 	}
@@ -888,8 +1309,8 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
-		var payload InstallRequest
-		if err := decodeOptionalJSON(r, &payload); err != nil {
+		payload, err := decodeMirzaInstallRequest(r)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -906,21 +1327,62 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := strings.Split(requestPath, "/")
-	domain, err := url.PathUnescape(parts[0])
-	if err != nil || domain == "" {
-		writeError(w, http.StatusBadRequest, "invalid domain")
+	identifier, err := url.PathUnescape(parts[0])
+	if err != nil || identifier == "" {
+		writeError(w, http.StatusBadRequest, "invalid application ID")
 		return
 	}
 	if len(parts) >= 2 && parts[1] == "files" {
-		m.handleExternalAppFiles(w, r, domain, parts[2:])
+		m.handleExternalAppFiles(w, r, identifier, parts[2:])
 		return
 	}
 	if len(parts) == 2 && parts[1] == "php-config" {
-		m.handleExternalAppConfig(w, r, domain)
+		m.handleExternalAppConfig(w, r, identifier)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "settings" {
+		if r.Method != http.MethodPut {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		var payload struct {
+			IndexFile       string `json:"index_file"`
+			FallbackToIndex bool   `json:"fallback_to_index"`
+		}
+		if err := decodeOptionalJSON(r, &payload); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		record, err := m.updateSettings(identifier, payload.IndexFile, payload.FallbackToIndex)
+		if err != nil {
+			writeExternalAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, record)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "update" {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		record, err := m.updateMirzaBot(r.Context(), identifier)
+		if err != nil {
+			writeExternalAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, record)
 		return
 	}
 	if len(parts) == 1 && r.Method == http.MethodDelete {
-		if err := m.delete(r.Context(), domain); err != nil {
+		var payload struct {
+			KeepDatabase bool `json:"keep_database"`
+		}
+		if err := decodeOptionalJSON(r, &payload); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := m.delete(r.Context(), identifier, payload.KeepDatabase); err != nil {
 			writeExternalAppError(w, err)
 			return
 		}
@@ -931,12 +1393,49 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
-	record, err := m.setEnabled(r.Context(), domain, parts[1] == "enable")
+	record, err := m.setEnabled(r.Context(), identifier, parts[1] == "enable")
 	if err != nil {
 		writeExternalAppError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, record)
+}
+
+func decodeMirzaInstallRequest(r *http.Request) (InstallRequest, error) {
+	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
+		var payload InstallRequest
+		if err := decodeOptionalJSON(r, &payload); err != nil {
+			return InstallRequest{}, err
+		}
+		return payload, nil
+	}
+	if err := r.ParseMultipartForm(MaxRequestBodyBytes); err != nil {
+		return InstallRequest{}, errors.New("invalid multipart upload")
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+	}
+	payload := InstallRequest{
+		Domain:   r.FormValue("domain"),
+		BotToken: r.FormValue("bot_token"),
+		AdminID:  r.FormValue("admin_id"),
+	}
+	file, _, err := r.FormFile("database_backup")
+	if errors.Is(err, http.ErrMissingFile) {
+		return payload, nil
+	}
+	if err != nil {
+		return InstallRequest{}, errors.New("invalid SQL backup upload")
+	}
+	defer file.Close()
+	payload.DatabaseBackup, err = io.ReadAll(io.LimitReader(file, maxExternalAppArchiveBytes+1))
+	if err != nil {
+		return InstallRequest{}, errors.New("read SQL backup")
+	}
+	if len(payload.DatabaseBackup) == 0 || len(payload.DatabaseBackup) > maxExternalAppArchiveBytes {
+		return InstallRequest{}, errors.New("SQL backup is empty or exceeds 32 MiB")
+	}
+	return payload, nil
 }
 
 func externalAppAPIPath(requestPath string) string {
@@ -983,7 +1482,7 @@ func writeExternalAppError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errExternalAppNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, errExternalAppBusy), errors.Is(err, errExternalAppExists):
+	case errors.Is(err, errExternalAppBusy), errors.Is(err, errExternalAppExists), errors.Is(err, errExternalAppUpToDate):
 		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, errExternalAppUnsupported):
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
@@ -1182,6 +1681,15 @@ func pathWithin(root, candidate string) bool {
 		return false
 	}
 	return candidate == root || strings.HasPrefix(candidate, root+string(os.PathSeparator))
+}
+
+func pathWithinResolved(root, candidate string) bool {
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return false
+	}
+	resolvedCandidate, err := filepath.EvalSymlinks(candidate)
+	return err == nil && pathWithin(resolvedRoot, resolvedCandidate)
 }
 
 func isLocalDatabaseHost(host string) bool {
