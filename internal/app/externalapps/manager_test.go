@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
 )
@@ -51,6 +53,188 @@ func TestExtractExternalAppArchiveRejectsUnsafeContent(t *testing.T) {
 			t.Fatal("archive without an index was accepted")
 		}
 	})
+}
+
+func TestExternalAppDefaultDocumentSettings(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "apps", "0123456789ab")
+	if err := os.MkdirAll(filepath.Join(root, "public"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "public", "home.php"), []byte("<?php"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	record := Record{
+		ID: "0123456789ab", Template: "archive", Domain: "app.example.com", Runtime: "php", Root: root, storageBase: base,
+	}
+	manager := &Manager{baseDir: base, apps: map[string]Record{record.ID: record}}
+	updated, err := manager.updateSettings(record.ID, "public/home.php", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.IndexFile != "public/home.php" || !updated.FallbackToIndex {
+		t.Fatalf("index_file=%q", updated.IndexFile)
+	}
+	for _, invalid := range []string{"../home.php", "config.php", "missing.php", "public/home.txt"} {
+		if _, err := manager.updateSettings(record.ID, invalid, false); err == nil {
+			t.Fatalf("invalid default document %q was accepted", invalid)
+		}
+	}
+}
+
+func TestMirzaBotUpdateAvailabilityUsesPinnedCommit(t *testing.T) {
+	release := mirzaBotRelease{Version: "0.3.2", SHA: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+	current := Record{Template: "mirzabot", Version: "0.3.1", SourceSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	if !mirzaBotUpdateAvailable(current, release) {
+		t.Fatal("new release commit was not detected")
+	}
+	current.Version, current.SourceSHA = release.Version, release.SHA
+	if mirzaBotUpdateAvailable(current, release) {
+		t.Fatal("current release was marked as outdated")
+	}
+	current.Version, current.SourceSHA = "0.3.2", "cccccccccccccccccccccccccccccccccccccccc"
+	if mirzaBotUpdateAvailable(current, release) {
+		t.Fatal("newer installation was offered a downgrade")
+	}
+	current.Version, current.SourceSHA = "0.3.2", "dddddddddddddddddddddddddddddddddddddddd"
+	release.Version, release.SHA = "0.3.2", "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	if mirzaBotUpdateAvailable(current, release) {
+		t.Fatal("same version with a different commit was offered automatically")
+	}
+}
+
+func TestExternalAppsResponseMarksMirzaBotUpdate(t *testing.T) {
+	record := Record{
+		ID: "0123456789ab", Template: "mirzabot", Domain: "bot.example.com", Runtime: "php",
+		Version: "0.3.1", SourceSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}
+	manager := &Manager{
+		baseDir: t.TempDir(), apps: map[string]Record{record.ID: record},
+		release:      mirzaBotRelease{Version: "0.3.2", SHA: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+		releaseUntil: time.Now().Add(time.Minute),
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/settings/external-apps", nil)
+	response := httptest.NewRecorder()
+	manager.ServeHTTP(response, request)
+	var payload struct {
+		Apps []PublicRecord `json:"apps"`
+	}
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &payload) != nil {
+		t.Fatalf("response=%d %q", response.Code, response.Body.String())
+	}
+	if len(payload.Apps) != 1 || !payload.Apps[0].UpdateAvailable || payload.Apps[0].LatestVersion != "0.3.2" {
+		t.Fatalf("apps=%+v", payload.Apps)
+	}
+}
+
+func TestMirzaBotUpdatePreservesConfigurationAndRunsMigration(t *testing.T) {
+	const oldSHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	const newSHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	archive := externalAppTestZIP(t, map[string]string{
+		"mirzabot/composer.json": "{}", "mirzabot/composer.lock": "{}",
+		"mirzabot/config.php": "upstream config", "mirzabot/index.php": "<?php echo 'new';",
+		"mirzabot/new.php": "<?php", "mirzabot/install.sh": "#!/bin/bash",
+		"mirzabot/table.php": "<?php\ntelegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);\n",
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			_, _ = w.Write([]byte(`{"tag_name":"0.3.2","draft":false,"prerelease":false}`))
+		case "/commits/0.3.2":
+			_, _ = w.Write([]byte(`{"sha":"` + newSHA + `"}`))
+		case "/zip/" + newSHA:
+			_, _ = w.Write(archive)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	bin := t.TempDir()
+	writeCommand := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"+body+"\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeCommand("id", "if [ \"$1\" = -u ]; then echo "+strconv.Itoa(os.Getuid())+"; else echo "+strconv.Itoa(os.Getgid())+"; fi")
+	writeCommand("runuser", `
+echo "$*" >> "$REBECCA_FAKE_RUNUSER_LOG"
+for arg in "$@"; do
+  case "$arg" in --working-dir=*) root="${arg#--working-dir=}";; esac
+done
+if [ -n "$root" ]; then mkdir -p "$root/vendor"; : > "$root/vendor/autoload.php"; fi
+exit 0`)
+	writeCommand("mysql", "echo 12")
+	writeCommand("php-fpm8.4", "exit 0")
+	writeCommand("systemctl", "exit 0")
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	runuserLog := filepath.Join(t.TempDir(), "runuser.log")
+	t.Setenv("REBECCA_FAKE_RUNUSER_LOG", runuserLog)
+
+	base := t.TempDir()
+	root := filepath.Join(base, "apps", "0123456789ab")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	const config = "<?php // keep this exact configuration\n"
+	if err := os.WriteFile(filepath.Join(root, "config.php"), []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "index.php"), []byte("<?php echo 'old';"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "old.php"), []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	socket := filepath.Join(t.TempDir(), "app.sock")
+	if err := os.WriteFile(socket, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	record := Record{
+		ID: "0123456789ab", Template: "mirzabot", Domain: "bot.example.com", Path: "bot0123456789ab",
+		Runtime: "php", Version: "0.3.1", SourceSHA: oldSHA, IndexFile: "index.php", Root: root,
+		Socket: socket, Service: "php8.4-fpm", PHPVersion: "8.4", SystemUser: "rbphp_0123456789ab",
+		Database: "rb_mirza_0123456789ab", storageBase: base,
+	}
+	manager := &Manager{
+		baseDir: base, apps: map[string]Record{record.ID: record}, httpClient: server.Client(),
+		mirzaAPIBase: server.URL, mirzaArchive: server.URL,
+	}
+	if err := manager.writeRecord(record); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.writeSecrets(record, secrets{CronSecret: "preserved-cron-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := manager.updateMirzaBot(context.Background(), record.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Version != "0.3.2" || updated.SourceSHA != newSHA {
+		t.Fatalf("updated=%+v", updated)
+	}
+	gotConfig, err := os.ReadFile(filepath.Join(root, "config.php"))
+	if err != nil || string(gotConfig) != config {
+		t.Fatalf("config=%q err=%v", gotConfig, err)
+	}
+	cronSecret, err := os.ReadFile(filepath.Join(root, ".rebecca-cron-secret"))
+	if err != nil || strings.TrimSpace(string(cronSecret)) != "preserved-cron-secret" {
+		t.Fatalf("cron secret=%q err=%v", cronSecret, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "new.php")); err != nil {
+		t.Fatal("new release files were not activated")
+	}
+	if _, err := os.Stat(filepath.Join(root, "old.php")); !os.IsNotExist(err) {
+		t.Fatal("old release files were retained")
+	}
+	if _, err := os.Stat(filepath.Join(root, "install.sh")); !os.IsNotExist(err) {
+		t.Fatal("upstream installer was retained")
+	}
+	commands, err := os.ReadFile(runuserLog)
+	if err != nil || !strings.Contains(string(commands), "php .rebecca-init.php") {
+		t.Fatalf("table initializer was not run: %q err=%v", commands, err)
+	}
 }
 
 func TestMirzaRequestSecretsAreIndependent(t *testing.T) {
@@ -406,7 +590,15 @@ func TestLatestMirzaBotReleaseArchive(t *testing.T) {
 	if !mirzaReleasePattern.MatchString(source.Version) || !mirzaCommitPattern.MatchString(source.SHA) {
 		t.Fatalf("invalid release metadata: version=%q sha=%q", source.Version, source.SHA)
 	}
-	if _, err := extractMirzaBotArchive(source.Archive, t.TempDir()); err != nil {
+	root, err := extractMirzaBotArchive(source.Archive, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := os.ReadFile(filepath.Join(root, "table.php"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mirzaBotTableInitializer(table); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("validated MirzaBot %s at %s", source.Version, source.SHA)

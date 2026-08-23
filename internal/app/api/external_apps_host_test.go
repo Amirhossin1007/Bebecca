@@ -102,6 +102,46 @@ func TestExternalAppAwareHandlerRoutesMultipleAppsByPath(t *testing.T) {
 	}
 }
 
+func TestExternalAppAwareHandlerUsesConfiguredDefaultDocument(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "apps", "site")
+	if err := os.MkdirAll(filepath.Join(root, "public"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "public", "home.html"), []byte("configured home"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	record := externalapps.Record{
+		ID: "0123456789ab", Template: "archive", Domain: "app.example.com", Enabled: true,
+		Runtime: "static", IndexFile: "public/home.html", FallbackToIndex: true, Root: root,
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(base, ".metadata"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, ".metadata", record.ID+".json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	handler := &externalAppAwareHandler{apps: externalapps.New(externalapps.Config{BaseDir: base}, nil), next: http.NotFoundHandler()}
+	request := httptest.NewRequest(http.MethodGet, "https://app.example.com/", nil)
+	request.Host = "app.example.com"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != "configured home" {
+		t.Fatalf("response=%d %q", response.Code, response.Body.String())
+	}
+	request = httptest.NewRequest(http.MethodGet, "https://app.example.com/client/route", nil)
+	request.Host = "app.example.com"
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != "configured home" {
+		t.Fatalf("fallback response=%d %q", response.Code, response.Body.String())
+	}
+}
+
 func TestExternalAppFastCGILocationDefaultsTo302(t *testing.T) {
 	response := httptest.NewRecorder()
 	if err := writeExternalAppFastCGIResponse(response, []byte("Location: /login\r\n\r\n")); err != nil {

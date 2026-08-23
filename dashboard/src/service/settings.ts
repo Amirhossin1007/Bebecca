@@ -337,8 +337,12 @@ export interface ExternalAppRecord {
 	installed_at: string;
 	php_version?: string;
 	bot_username?: string;
+	index_file: string;
+	fallback_to_index: boolean;
 	has_database: boolean;
 	public_url: string;
+	update_available?: boolean;
+	latest_version?: string;
 }
 
 export interface ExternalAppTemplate {
@@ -406,6 +410,30 @@ export const setExternalAppEnabled = async (payload: {
 		`/settings/external-apps/${encodeURIComponent(payload.id)}/${payload.enabled ? "enable" : "disable"}`,
 		{ method: "POST", body: JSON.stringify({}), timeout: 120000 },
 	);
+};
+
+export const updateExternalMirzaBot = async (
+	id: string,
+): Promise<ExternalAppRecord> => {
+	return apiFetch(externalAppPath(id, "/update"), {
+		method: "POST",
+		body: JSON.stringify({}),
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const updateExternalAppSettings = async (payload: {
+	id: string;
+	index_file: string;
+	fallback_to_index: boolean;
+}): Promise<ExternalAppRecord> => {
+	return apiFetch(externalAppPath(payload.id, "/settings"), {
+		method: "PUT",
+		body: JSON.stringify({
+			index_file: payload.index_file,
+			fallback_to_index: payload.fallback_to_index,
+		}),
+	});
 };
 
 export const deleteExternalApp = async (payload: {

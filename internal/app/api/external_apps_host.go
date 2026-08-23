@@ -114,8 +114,20 @@ func resolveExternalAppPath(record externalapps.Record, requestPath string) (str
 		rootPath = "."
 	}
 	info, err := root.Stat(rootPath)
+	if err != nil && record.FallbackToIndex && record.IndexFile != "" {
+		candidate := filepath.FromSlash(record.IndexFile)
+		if candidateInfo, candidateErr := root.Stat(candidate); candidateErr == nil && !candidateInfo.IsDir() {
+			rel = filepath.ToSlash(record.IndexFile)
+			info = candidateInfo
+			err = nil
+		}
+	}
 	if err == nil && info.IsDir() {
-		for _, index := range []string{"index.php", "index.html"} {
+		indexes := []string{"index.php", "index.html"}
+		if rootPath == "." && record.IndexFile != "" {
+			indexes = []string{record.IndexFile}
+		}
+		for _, index := range indexes {
 			candidate := filepath.Join(rootPath, index)
 			candidateInfo, candidateErr := root.Stat(candidate)
 			if candidateErr == nil && !candidateInfo.IsDir() {
@@ -161,7 +173,7 @@ func phpScriptAllowed(record externalapps.Record, rel string) bool {
 		return true
 	}
 	rel = strings.ToLower(filepath.ToSlash(rel))
-	if rel == "index.php" {
+	if rel == strings.ToLower(filepath.ToSlash(record.IndexFile)) || (record.IndexFile == "" && rel == "index.php") {
 		return true
 	}
 	for _, prefix := range []string{"api/", "app/", "cronbot/", "panel/", "payment/", "sub/", "vpnbot/"} {

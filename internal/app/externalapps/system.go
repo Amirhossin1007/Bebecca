@@ -220,11 +220,10 @@ func initializeMirzaBotDatabase(ctx context.Context, appRoot, systemUser string,
 	if err != nil {
 		return err
 	}
-	needle := []byte("telegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);")
-	if bytes.Count(table, needle) != 1 {
-		return errors.New("pinned MirzaBot table initializer changed unexpectedly")
+	initializer, err := mirzaBotTableInitializer(table)
+	if err != nil {
+		return err
 	}
-	initializer := bytes.Replace(table, needle, []byte("// Webhook is configured by Rebecca with a secret token."), 1)
 	path := filepath.Join(appRoot, ".rebecca-init.php")
 	if err := os.WriteFile(path, initializer, 0o600); err != nil {
 		return err
@@ -242,6 +241,14 @@ func initializeMirzaBotDatabase(ctx context.Context, appRoot, systemUser string,
 		return fmt.Errorf("initialize MirzaBot database: %s", limitedExternalAppCommandOutput(output, err))
 	}
 	return nil
+}
+
+func mirzaBotTableInitializer(table []byte) ([]byte, error) {
+	needle := []byte("telegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);")
+	if bytes.Count(table, needle) != 1 {
+		return nil, errors.New("pinned MirzaBot table initializer changed unexpectedly")
+	}
+	return bytes.Replace(table, needle, []byte("// Webhook is configured by Rebecca with a secret token."), 1), nil
 }
 
 func writeExternalAppSecretFile(root, name, value string, uid, gid int) error {
@@ -506,14 +513,15 @@ type mirzaBotSource struct {
 	Archive []byte
 }
 
-func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) {
+type mirzaBotRelease struct {
+	Version string
+	SHA     string
+}
+
+func (m *Manager) latestMirzaBotRelease(ctx context.Context) (mirzaBotRelease, error) {
 	apiBase := strings.TrimSuffix(m.mirzaAPIBase, "/")
 	if apiBase == "" {
 		apiBase = mirzaBotAPIBaseURL
-	}
-	archiveBase := strings.TrimSuffix(m.mirzaArchive, "/")
-	if archiveBase == "" {
-		archiveBase = mirzaBotArchiveBaseURL
 	}
 	var release struct {
 		TagName    string `json:"tag_name"`
@@ -521,23 +529,53 @@ func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) 
 		Prerelease bool   `json:"prerelease"`
 	}
 	if err := m.getMirzaBotJSON(ctx, apiBase+"/releases/latest", &release); err != nil {
-		return mirzaBotSource{}, fmt.Errorf("find latest stable MirzaBot release: %w", err)
+		return mirzaBotRelease{}, fmt.Errorf("find latest stable MirzaBot release: %w", err)
 	}
 	release.TagName = strings.TrimSpace(release.TagName)
 	if release.Draft || release.Prerelease || !mirzaReleasePattern.MatchString(release.TagName) {
-		return mirzaBotSource{}, errors.New("GitHub did not return a valid stable MirzaBot release")
+		return mirzaBotRelease{}, errors.New("GitHub did not return a valid stable MirzaBot release")
 	}
 	var commit struct {
 		SHA string `json:"sha"`
 	}
 	if err := m.getMirzaBotJSON(ctx, apiBase+"/commits/"+url.PathEscape(release.TagName), &commit); err != nil {
-		return mirzaBotSource{}, fmt.Errorf("resolve MirzaBot release commit: %w", err)
+		return mirzaBotRelease{}, fmt.Errorf("resolve MirzaBot release commit: %w", err)
 	}
 	commit.SHA = strings.ToLower(strings.TrimSpace(commit.SHA))
 	if !mirzaCommitPattern.MatchString(commit.SHA) {
-		return mirzaBotSource{}, errors.New("GitHub returned an invalid MirzaBot release commit")
+		return mirzaBotRelease{}, errors.New("GitHub returned an invalid MirzaBot release commit")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, archiveBase+"/zip/"+commit.SHA, nil)
+	return mirzaBotRelease{Version: release.TagName, SHA: commit.SHA}, nil
+}
+
+func (m *Manager) cachedMirzaBotRelease(ctx context.Context) (mirzaBotRelease, error) {
+	m.releaseMu.Lock()
+	defer m.releaseMu.Unlock()
+	if m.release.SHA != "" && time.Now().Before(m.releaseUntil) {
+		return m.release, nil
+	}
+	release, err := m.latestMirzaBotRelease(ctx)
+	if err != nil {
+		if m.release.SHA != "" {
+			return m.release, nil
+		}
+		return mirzaBotRelease{}, err
+	}
+	m.release = release
+	m.releaseUntil = time.Now().Add(10 * time.Minute)
+	return release, nil
+}
+
+func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) {
+	release, err := m.latestMirzaBotRelease(ctx)
+	if err != nil {
+		return mirzaBotSource{}, err
+	}
+	archiveBase := strings.TrimSuffix(m.mirzaArchive, "/")
+	if archiveBase == "" {
+		archiveBase = mirzaBotArchiveBaseURL
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, archiveBase+"/zip/"+release.SHA, nil)
 	if err != nil {
 		return mirzaBotSource{}, err
 	}
@@ -557,7 +595,7 @@ func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) 
 	if len(data) == 0 || len(data) > maxExternalAppArchiveBytes {
 		return mirzaBotSource{}, errors.New("MirzaBot archive is empty or exceeds 32 MiB")
 	}
-	return mirzaBotSource{Version: release.TagName, SHA: commit.SHA, Archive: data}, nil
+	return mirzaBotSource{Version: release.Version, SHA: release.SHA, Archive: data}, nil
 }
 
 func (m *Manager) getMirzaBotJSON(ctx context.Context, endpoint string, target any) error {

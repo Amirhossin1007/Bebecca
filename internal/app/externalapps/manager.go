@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,11 +50,12 @@ var (
 	errExternalAppBusy        = errors.New("another external application operation is already running")
 	errExternalAppExists      = errors.New("an application already uses this domain and path")
 	errExternalAppNotFound    = errors.New("external application not found")
+	errExternalAppUpToDate    = errors.New("MirzaBot is already up to date")
 	errExternalAppUnsupported = errors.New("external application hosting is not supported by this installation")
 	externalAppIDPattern      = regexp.MustCompile(`^[0-9a-f]{12}$`)
 	externalAppPathPattern    = regexp.MustCompile(`^bot[0-9a-f]{12}$`)
 	mirzaBotTokenPattern      = regexp.MustCompile(`^[0-9]{5,16}:[A-Za-z0-9_-]{20,100}$`)
-	mirzaReleasePattern       = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+$`)
+	mirzaReleasePattern       = regexp.MustCompile(`^v?[0-9]+(?:\.[0-9]+){1,3}$`)
 	mirzaCommitPattern        = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	telegramIDPattern         = regexp.MustCompile(`^-?[0-9]{5,20}$`)
 )
@@ -66,44 +68,50 @@ type InstallRequest struct {
 }
 
 type Record struct {
-	ID           string `json:"id,omitempty"`
-	Template     string `json:"template"`
-	Name         string `json:"name"`
-	Domain       string `json:"domain"`
-	Path         string `json:"path,omitempty"`
-	Enabled      bool   `json:"enabled"`
-	Runtime      string `json:"runtime"`
-	Version      string `json:"version,omitempty"`
-	SourceSHA    string `json:"source_sha,omitempty"`
-	InstalledAt  string `json:"installed_at"`
-	PHPVersion   string `json:"php_version,omitempty"`
-	BotUsername  string `json:"bot_username,omitempty"`
-	Root         string `json:"root"`
-	Socket       string `json:"socket,omitempty"`
-	PoolConfig   string `json:"pool_config,omitempty"`
-	CronConfig   string `json:"cron_config,omitempty"`
-	Service      string `json:"service,omitempty"`
-	SystemUser   string `json:"system_user,omitempty"`
-	Database     string `json:"database,omitempty"`
-	DatabaseUser string `json:"database_user,omitempty"`
-	storageBase  string
+	ID              string `json:"id,omitempty"`
+	Template        string `json:"template"`
+	Name            string `json:"name"`
+	Domain          string `json:"domain"`
+	Path            string `json:"path,omitempty"`
+	Enabled         bool   `json:"enabled"`
+	Runtime         string `json:"runtime"`
+	Version         string `json:"version,omitempty"`
+	SourceSHA       string `json:"source_sha,omitempty"`
+	InstalledAt     string `json:"installed_at"`
+	PHPVersion      string `json:"php_version,omitempty"`
+	BotUsername     string `json:"bot_username,omitempty"`
+	IndexFile       string `json:"index_file,omitempty"`
+	FallbackToIndex bool   `json:"fallback_to_index,omitempty"`
+	Root            string `json:"root"`
+	Socket          string `json:"socket,omitempty"`
+	PoolConfig      string `json:"pool_config,omitempty"`
+	CronConfig      string `json:"cron_config,omitempty"`
+	Service         string `json:"service,omitempty"`
+	SystemUser      string `json:"system_user,omitempty"`
+	Database        string `json:"database,omitempty"`
+	DatabaseUser    string `json:"database_user,omitempty"`
+	storageBase     string
 }
 
 type PublicRecord struct {
-	ID          string `json:"id"`
-	Template    string `json:"template"`
-	Name        string `json:"name"`
-	Domain      string `json:"domain"`
-	Path        string `json:"path,omitempty"`
-	Enabled     bool   `json:"enabled"`
-	Runtime     string `json:"runtime"`
-	Version     string `json:"version,omitempty"`
-	SourceSHA   string `json:"source_sha,omitempty"`
-	InstalledAt string `json:"installed_at"`
-	PHPVersion  string `json:"php_version,omitempty"`
-	BotUsername string `json:"bot_username,omitempty"`
-	HasDatabase bool   `json:"has_database"`
-	PublicURL   string `json:"public_url"`
+	ID              string `json:"id"`
+	Template        string `json:"template"`
+	Name            string `json:"name"`
+	Domain          string `json:"domain"`
+	Path            string `json:"path,omitempty"`
+	Enabled         bool   `json:"enabled"`
+	Runtime         string `json:"runtime"`
+	Version         string `json:"version,omitempty"`
+	SourceSHA       string `json:"source_sha,omitempty"`
+	InstalledAt     string `json:"installed_at"`
+	PHPVersion      string `json:"php_version,omitempty"`
+	BotUsername     string `json:"bot_username,omitempty"`
+	IndexFile       string `json:"index_file"`
+	FallbackToIndex bool   `json:"fallback_to_index"`
+	HasDatabase     bool   `json:"has_database"`
+	PublicURL       string `json:"public_url"`
+	UpdateAvailable bool   `json:"update_available,omitempty"`
+	LatestVersion   string `json:"latest_version,omitempty"`
 }
 
 type secrets struct {
@@ -123,9 +131,12 @@ type Manager struct {
 	mirzaArchive string
 	fileAccess   string
 
-	operationMu sync.Mutex
-	mu          sync.RWMutex
-	apps        map[string]Record
+	operationMu  sync.Mutex
+	releaseMu    sync.Mutex
+	release      mirzaBotRelease
+	releaseUntil time.Time
+	mu           sync.RWMutex
+	apps         map[string]Record
 }
 
 func New(cfg Config, certificates *certificateapp.Manager) *Manager {
@@ -349,21 +360,93 @@ func (m *Manager) publicRecords() []PublicRecord {
 
 func publicExternalAppRecord(record Record) PublicRecord {
 	return PublicRecord{
-		ID:          record.ID,
-		Template:    record.Template,
-		Name:        record.Name,
-		Domain:      record.Domain,
-		Path:        record.Path,
-		Enabled:     record.Enabled,
-		Runtime:     record.Runtime,
-		Version:     record.Version,
-		SourceSHA:   record.SourceSHA,
-		InstalledAt: record.InstalledAt,
-		PHPVersion:  record.PHPVersion,
-		BotUsername: record.BotUsername,
-		HasDatabase: record.Database != "",
-		PublicURL:   externalAppPublicURL(record) + "/",
+		ID:              record.ID,
+		Template:        record.Template,
+		Name:            record.Name,
+		Domain:          record.Domain,
+		Path:            record.Path,
+		Enabled:         record.Enabled,
+		Runtime:         record.Runtime,
+		Version:         record.Version,
+		SourceSHA:       record.SourceSHA,
+		InstalledAt:     record.InstalledAt,
+		PHPVersion:      record.PHPVersion,
+		BotUsername:     record.BotUsername,
+		IndexFile:       externalAppIndexFile(record),
+		FallbackToIndex: record.FallbackToIndex,
+		HasDatabase:     record.Database != "",
+		PublicURL:       externalAppPublicURL(record) + "/",
 	}
+}
+
+func externalAppDefaultIndex(root, runtime string) string {
+	if runtime == "php" {
+		if info, err := os.Stat(filepath.Join(root, "index.php")); err == nil && !info.IsDir() {
+			return "index.php"
+		}
+	}
+	return "index.html"
+}
+
+func externalAppIndexFile(record Record) string {
+	if index := strings.TrimSpace(record.IndexFile); index != "" {
+		return filepath.ToSlash(index)
+	}
+	if record.Template == "mirzabot" {
+		return "index.php"
+	}
+	return externalAppDefaultIndex(record.Root, record.Runtime)
+}
+
+func mirzaBotUpdateAvailable(record Record, release mirzaBotRelease) bool {
+	if record.Template != "mirzabot" || release.SHA == "" {
+		return false
+	}
+	if strings.EqualFold(record.SourceSHA, release.SHA) {
+		return false
+	}
+	comparison, ok := compareMirzaBotVersions(record.Version, release.Version)
+	return !ok || comparison < 0
+}
+
+func compareMirzaBotVersions(left, right string) (int, bool) {
+	parse := func(value string) ([]int, bool) {
+		value = strings.TrimPrefix(strings.TrimSpace(value), "v")
+		if !mirzaReleasePattern.MatchString(value) {
+			return nil, false
+		}
+		parts := strings.Split(value, ".")
+		numbers := make([]int, len(parts))
+		for index, part := range parts {
+			number, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, false
+			}
+			numbers[index] = number
+		}
+		return numbers, true
+	}
+	leftParts, leftOK := parse(left)
+	rightParts, rightOK := parse(right)
+	if !leftOK || !rightOK {
+		return 0, false
+	}
+	for index := 0; index < max(len(leftParts), len(rightParts)); index++ {
+		var leftPart, rightPart int
+		if index < len(leftParts) {
+			leftPart = leftParts[index]
+		}
+		if index < len(rightParts) {
+			rightPart = rightParts[index]
+		}
+		if leftPart < rightPart {
+			return -1, true
+		}
+		if leftPart > rightPart {
+			return 1, true
+		}
+	}
+	return 0, true
 }
 
 func externalAppPublicURL(record Record) string {
@@ -479,6 +562,7 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		Domain:      domain,
 		Enabled:     true,
 		Runtime:     runtime,
+		IndexFile:   externalAppDefaultIndex(root, runtime),
 		SourceSHA:   sha256Hex(archive),
 		InstalledAt: time.Now().UTC().Format(time.RFC3339),
 		Root:        appRoot,
@@ -625,6 +709,7 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		InstalledAt:  time.Now().UTC().Format(time.RFC3339),
 		PHPVersion:   phpVersion,
 		BotUsername:  botUsername,
+		IndexFile:    "index.php",
 		Root:         filepath.Join(m.appsDir(), suffix),
 		Socket:       filepath.Join("/run/php", "rebecca-"+suffix+".sock"),
 		PoolConfig:   filepath.Join("/etc/php", phpVersion, "fpm", "pool.d", "rebecca-"+suffix+".conf"),
@@ -780,7 +865,8 @@ func subtleConstantStringEqual(left, right string) bool {
 
 func (m *Manager) AuthorizeMirzaRequest(r *http.Request, record Record, rel string) error {
 	rel = strings.ToLower(filepath.ToSlash(rel))
-	if rel != "index.php" && !strings.HasPrefix(rel, "cronbot/") {
+	indexFile := strings.ToLower(externalAppIndexFile(record))
+	if rel != indexFile && !strings.HasPrefix(rel, "cronbot/") {
 		return nil
 	}
 	secrets, err := m.readSecrets(record)
@@ -788,7 +874,7 @@ func (m *Manager) AuthorizeMirzaRequest(r *http.Request, record Record, rel stri
 		return err
 	}
 	var actual, expected string
-	if rel == "index.php" && r.Method == http.MethodPost {
+	if rel == indexFile && r.Method == http.MethodPost {
 		actual = strings.TrimSpace(r.Header.Get("X-Telegram-Bot-Api-Secret-Token"))
 		expected = secrets.WebhookSecret
 	} else if strings.HasPrefix(rel, "cronbot/") {
@@ -801,6 +887,173 @@ func (m *Manager) AuthorizeMirzaRequest(r *http.Request, record Record, rel stri
 		return errors.New("invalid application secret")
 	}
 	return nil
+}
+
+func validateExternalAppIndexFile(record Record, rootPath, raw string) (string, error) {
+	name, err := normalizeExternalAppPath(strings.TrimSpace(raw), false)
+	if err != nil {
+		return "", errors.New("default document must be a safe relative path")
+	}
+	switch strings.ToLower(path.Base(name)) {
+	case "config.php", "table.php", "composer.json", "composer.lock", "install.sh":
+		return "", errors.New("this file cannot be used as the default document")
+	}
+	extension := strings.ToLower(path.Ext(name))
+	if extension != ".php" && extension != ".html" && extension != ".htm" {
+		return "", errors.New("default document must be a PHP or HTML file")
+	}
+	if record.Runtime == "static" && extension == ".php" {
+		return "", errors.New("static applications cannot use a PHP default document")
+	}
+	if record.Template == "mirzabot" && extension != ".php" {
+		return "", errors.New("MirzaBot requires a PHP default document")
+	}
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	info, err := root.Lstat(filepath.FromSlash(name))
+	if err != nil || !info.Mode().IsRegular() || FileHasMultipleLinks(info) {
+		return "", errors.New("default document does not exist or is not a regular file")
+	}
+	return filepath.ToSlash(name), nil
+}
+
+func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex bool) (PublicRecord, error) {
+	if !m.operationMu.TryLock() {
+		return PublicRecord{}, errExternalAppBusy
+	}
+	defer m.operationMu.Unlock()
+	record, ok := m.Lookup(identifier)
+	if !ok {
+		return PublicRecord{}, errExternalAppNotFound
+	}
+	indexFile, err := validateExternalAppIndexFile(record, record.Root, indexFile)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	record.IndexFile = indexFile
+	record.FallbackToIndex = fallbackToIndex
+	if err := m.writeRecord(record); err != nil {
+		return PublicRecord{}, err
+	}
+	m.setRecord(record)
+	return publicExternalAppRecord(record), nil
+}
+
+func (m *Manager) updateMirzaBot(ctx context.Context, identifier string) (PublicRecord, error) {
+	if !m.operationMu.TryLock() {
+		return PublicRecord{}, errExternalAppBusy
+	}
+	defer m.operationMu.Unlock()
+	record, ok := m.Lookup(identifier)
+	if !ok {
+		return PublicRecord{}, errExternalAppNotFound
+	}
+	if record.Template != "mirzabot" {
+		return PublicRecord{}, errors.New("only MirzaBot applications support automatic updates")
+	}
+	source, err := m.downloadMirzaBot(ctx)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	m.releaseMu.Lock()
+	m.release = mirzaBotRelease{Version: source.Version, SHA: source.SHA}
+	m.releaseUntil = time.Now().Add(10 * time.Minute)
+	m.releaseMu.Unlock()
+	if !mirzaBotUpdateAvailable(record, mirzaBotRelease{Version: source.Version, SHA: source.SHA}) {
+		return PublicRecord{}, errExternalAppUpToDate
+	}
+	config, err := os.ReadFile(filepath.Join(record.Root, "config.php"))
+	if err != nil {
+		return PublicRecord{}, fmt.Errorf("preserve MirzaBot configuration: %w", err)
+	}
+	storedSecrets, err := m.readSecrets(record)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	uid, gid, err := unixUserIDs(ctx, record.SystemUser)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	stage, err := os.MkdirTemp(m.baseDir, ".mirzabot-update-")
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	defer os.RemoveAll(stage)
+	nextRoot, err := extractMirzaBotArchive(source.Archive, stage)
+	if err != nil {
+		return PublicRecord{}, err
+	}
+	_ = os.Remove(filepath.Join(nextRoot, "install.sh"))
+	if err := prepareOwnedExternalAppTree(nextRoot, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	configPath := filepath.Join(nextRoot, "config.php")
+	if err := os.Remove(configPath); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := os.WriteFile(configPath, config, 0o600); err != nil {
+		return PublicRecord{}, fmt.Errorf("restore MirzaBot configuration: %w", err)
+	}
+	if err := os.Chown(configPath, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := writeExternalAppSecretFile(nextRoot, ".rebecca-cron-secret", storedSecrets.CronSecret, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := installMirzaBotDependencies(ctx, nextRoot, record.SystemUser); err != nil {
+		return PublicRecord{}, err
+	}
+	if _, err := validateExternalAppIndexFile(record, nextRoot, externalAppIndexFile(record)); err != nil {
+		return PublicRecord{}, fmt.Errorf("preserve application settings: %w", err)
+	}
+	if err := initializeMirzaBotDatabase(ctx, nextRoot, record.SystemUser, uid, gid); err != nil {
+		return PublicRecord{}, err
+	}
+	if err := m.verifyExternalAppDatabase(ctx, record.Database); err != nil {
+		return PublicRecord{}, err
+	}
+
+	previousRoot := filepath.Join(stage, ".previous")
+	if err := os.Rename(record.Root, previousRoot); err != nil {
+		return PublicRecord{}, fmt.Errorf("stage current MirzaBot files: %w", err)
+	}
+	if err := os.Rename(nextRoot, record.Root); err != nil {
+		_ = os.Rename(previousRoot, record.Root)
+		return PublicRecord{}, fmt.Errorf("activate MirzaBot update: %w", err)
+	}
+	rollback := func() error {
+		failedRoot := filepath.Join(stage, ".failed")
+		if err := os.Rename(record.Root, failedRoot); err != nil {
+			return err
+		}
+		if err := os.Rename(previousRoot, record.Root); err != nil {
+			_ = os.Rename(failedRoot, record.Root)
+			return err
+		}
+		return nil
+	}
+	if err := reloadPHPFPM(ctx, record); err != nil {
+		if rollbackErr := rollback(); rollbackErr != nil {
+			return PublicRecord{}, fmt.Errorf("reload PHP-FPM after update: %v; rollback failed: %w", err, rollbackErr)
+		}
+		_ = reloadPHPFPM(context.Background(), record)
+		return PublicRecord{}, err
+	}
+	updated := record
+	updated.Version = source.Version
+	updated.SourceSHA = source.SHA
+	if err := m.writeRecord(updated); err != nil {
+		if rollbackErr := rollback(); rollbackErr != nil {
+			return PublicRecord{}, fmt.Errorf("save MirzaBot version: %v; rollback failed: %w", err, rollbackErr)
+		}
+		_ = reloadPHPFPM(context.Background(), record)
+		return PublicRecord{}, err
+	}
+	m.setRecord(updated)
+	return publicExternalAppRecord(updated), nil
 }
 
 func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled bool) (PublicRecord, error) {
@@ -1017,14 +1270,29 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		supported, detail := m.hostingSupported()
 		mirzaSupported, mirzaDetail := m.mirzaSupported()
+		releaseCtx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		release, _ := m.cachedMirzaBotRelease(releaseCtx)
+		cancel()
+		apps := m.publicRecords()
+		for index := range apps {
+			record := Record{Template: apps[index].Template, Version: apps[index].Version, SourceSHA: apps[index].SourceSHA}
+			if mirzaBotUpdateAvailable(record, release) {
+				apps[index].UpdateAvailable = true
+				apps[index].LatestVersion = release.Version
+			}
+		}
+		mirzaVersion := "latest"
+		if release.Version != "" {
+			mirzaVersion = release.Version
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"supported": supported,
 			"detail":    detail,
 			"templates": []map[string]any{
 				{"id": "archive", "name": "PHP / HTML ZIP", "supported": supported},
-				{"id": "mirzabot", "name": "MirzaBot", "version": "latest", "source_url": mirzaBotRepositoryURL + "/releases/latest", "supported": mirzaSupported, "detail": mirzaDetail},
+				{"id": "mirzabot", "name": "MirzaBot", "version": mirzaVersion, "source_sha": release.SHA, "source_url": mirzaBotRepositoryURL + "/releases/latest", "supported": mirzaSupported, "detail": mirzaDetail},
 			},
-			"apps": m.publicRecords(),
+			"apps": apps,
 		})
 		return
 	}
@@ -1070,6 +1338,40 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(parts) == 2 && parts[1] == "php-config" {
 		m.handleExternalAppConfig(w, r, identifier)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "settings" {
+		if r.Method != http.MethodPut {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		var payload struct {
+			IndexFile       string `json:"index_file"`
+			FallbackToIndex bool   `json:"fallback_to_index"`
+		}
+		if err := decodeOptionalJSON(r, &payload); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		record, err := m.updateSettings(identifier, payload.IndexFile, payload.FallbackToIndex)
+		if err != nil {
+			writeExternalAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, record)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "update" {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		record, err := m.updateMirzaBot(r.Context(), identifier)
+		if err != nil {
+			writeExternalAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, record)
 		return
 	}
 	if len(parts) == 1 && r.Method == http.MethodDelete {
@@ -1180,7 +1482,7 @@ func writeExternalAppError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errExternalAppNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, errExternalAppBusy), errors.Is(err, errExternalAppExists):
+	case errors.Is(err, errExternalAppBusy), errors.Is(err, errExternalAppExists), errors.Is(err, errExternalAppUpToDate):
 		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, errExternalAppUnsupported):
 		writeError(w, http.StatusUnprocessableEntity, err.Error())

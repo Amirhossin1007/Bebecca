@@ -13,6 +13,13 @@ import {
 	HStack,
 	Input,
 	Link,
+	Modal,
+	ModalBody,
+	ModalCloseButton,
+	ModalContent,
+	ModalFooter,
+	ModalHeader,
+	ModalOverlay,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -24,8 +31,10 @@ import {
 } from "@chakra-ui/react";
 import {
 	ArrowTopRightOnSquareIcon,
+	ArrowPathIcon,
 	ArrowUpTrayIcon,
 	CodeBracketIcon,
+	Cog6ToothIcon,
 	FolderOpenIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -43,6 +52,8 @@ import {
 	installMirzaBot,
 	installExternalArchive,
 	setExternalAppEnabled,
+	updateExternalAppSettings,
+	updateExternalMirzaBot,
 	type ExternalAppRecord,
 } from "service/settings";
 
@@ -80,7 +91,16 @@ export const ExternalAppsPage = () => {
 	const [adminID, setAdminID] = useState("");
 	const [hasDatabaseBackup, setHasDatabaseBackup] = useState(false);
 	const [databaseBackup, setDatabaseBackup] = useState<File | null>(null);
-	const [deleteTarget, setDeleteTarget] = useState<ExternalAppRecord | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<ExternalAppRecord | null>(
+		null,
+	);
+	const [updateTarget, setUpdateTarget] = useState<ExternalAppRecord | null>(
+		null,
+	);
+	const [settingsTarget, setSettingsTarget] =
+		useState<ExternalAppRecord | null>(null);
+	const [indexFile, setIndexFile] = useState("");
+	const [fallbackToIndex, setFallbackToIndex] = useState(false);
 	const [keepDatabase, setKeepDatabase] = useState(true);
 	const [managedApp, setManagedApp] = useState<ExternalAppRecord | null>(null);
 	const [managerView, setManagerView] = useState<"file" | "php-config">("file");
@@ -202,6 +222,41 @@ export const ExternalAppsPage = () => {
 		},
 	});
 
+	const updateMutation = useMutation(updateExternalMirzaBot, {
+		onSuccess: (app) => {
+			toast({
+				title: t("externalApps.updateSuccess", { version: app.version }),
+				status: "success",
+			});
+			setUpdateTarget(null);
+			queryClient.invalidateQueries("external-apps");
+		},
+		onError: (error) => {
+			toast({
+				title: t("externalApps.updateFailed"),
+				description: errorDetail(error),
+				status: "error",
+				isClosable: true,
+			});
+		},
+	});
+
+	const settingsMutation = useMutation(updateExternalAppSettings, {
+		onSuccess: () => {
+			toast({ title: t("externalApps.settingsSaved"), status: "success" });
+			setSettingsTarget(null);
+			queryClient.invalidateQueries("external-apps");
+		},
+		onError: (error) => {
+			toast({
+				title: t("externalApps.actionFailed"),
+				description: errorDetail(error),
+				status: "error",
+				isClosable: true,
+			});
+		},
+	});
+
 	const confirmDelete = (app: ExternalAppRecord) => {
 		setKeepDatabase(app.has_database);
 		setDeleteTarget(app);
@@ -209,6 +264,11 @@ export const ExternalAppsPage = () => {
 	const openManager = (app: ExternalAppRecord, view: "file" | "php-config") => {
 		setManagerView(view);
 		setManagedApp(app);
+	};
+	const openSettings = (app: ExternalAppRecord) => {
+		setIndexFile(app.index_file);
+		setFallbackToIndex(app.fallback_to_index);
+		setSettingsTarget(app);
 	};
 
 	if (appsQuery.isLoading) {
@@ -221,6 +281,19 @@ export const ExternalAppsPage = () => {
 
 	return (
 		<Stack spacing={5}>
+			<ConfirmDialog
+				isOpen={Boolean(updateTarget)}
+				title={t("externalApps.update")}
+				description={t("externalApps.updateConfirm", {
+					version: updateTarget?.latest_version,
+				})}
+				confirmLabel={t("externalApps.update")}
+				isLoading={updateMutation.isLoading}
+				onClose={() => setUpdateTarget(null)}
+				onConfirm={async () => {
+					if (updateTarget) await updateMutation.mutateAsync(updateTarget.id);
+				}}
+			/>
 			<ConfirmDialog
 				isOpen={Boolean(deleteTarget)}
 				title={t("externalApps.delete")}
@@ -258,6 +331,64 @@ export const ExternalAppsPage = () => {
 				initialView={managerView}
 				onClose={() => setManagedApp(null)}
 			/>
+			<Modal
+				isOpen={Boolean(settingsTarget)}
+				onClose={() => setSettingsTarget(null)}
+				size="md"
+			>
+				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(8px)" />
+				<ModalContent bg={panelBg}>
+					<ModalHeader>{t("externalApps.settingsTitle")}</ModalHeader>
+					<ModalCloseButton />
+					<ModalBody>
+						<Stack spacing={4}>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.indexFile")}</FormLabel>
+								<Input
+									value={indexFile}
+									onChange={(event) => setIndexFile(event.target.value)}
+									placeholder="index.php"
+									autoComplete="off"
+								/>
+								<FormHelperText>
+									{t("externalApps.indexFileHint")}
+								</FormHelperText>
+							</FormControl>
+							<Checkbox
+								isChecked={fallbackToIndex}
+								onChange={(event) => setFallbackToIndex(event.target.checked)}
+							>
+								<Stack spacing={0}>
+									<Text>{t("externalApps.fallbackToIndex")}</Text>
+									<Text color={mutedColor} fontSize="sm">
+										{t("externalApps.fallbackToIndexHint")}
+									</Text>
+								</Stack>
+							</Checkbox>
+						</Stack>
+					</ModalBody>
+					<ModalFooter gap={3}>
+						<Button variant="ghost" onClick={() => setSettingsTarget(null)}>
+							{t("close")}
+						</Button>
+						<Button
+							colorScheme="blue"
+							isLoading={settingsMutation.isLoading}
+							isDisabled={!indexFile.trim()}
+							onClick={() => {
+								if (!settingsTarget) return;
+								settingsMutation.mutate({
+									id: settingsTarget.id,
+									index_file: indexFile.trim(),
+									fallback_to_index: fallbackToIndex,
+								});
+							}}
+						>
+							{t("save")}
+						</Button>
+					</ModalFooter>
+				</ModalContent>
+			</Modal>
 			<Box>
 				<Heading size="lg">{t("externalApps.title")}</Heading>
 				<Text color={mutedColor} mt={2}>
@@ -297,6 +428,21 @@ export const ExternalAppsPage = () => {
 								{ value: "archive", label: t("externalApps.archiveTemplate") },
 							]}
 						/>
+						{template === "mirzabot" && selectedTemplate?.source_url ? (
+							<Link
+								href={selectedTemplate.source_url}
+								isExternal
+								display="inline-flex"
+								alignItems="center"
+								gap={1}
+								mt={2}
+								fontSize="sm"
+								color="blue.300"
+							>
+								{t("externalApps.latestRelease")}
+								<ArrowTopRightOnSquareIcon width={14} />
+							</Link>
+						) : null}
 					</FormControl>
 					<FormControl isRequired>
 						<FormLabel>{t("externalApps.domainCertificate")}</FormLabel>
@@ -411,21 +557,6 @@ export const ExternalAppsPage = () => {
 						{selectedTemplate.detail}
 					</Text>
 				) : null}
-				{template === "mirzabot" && selectedTemplate?.source_url ? (
-					<Link
-						href={selectedTemplate.source_url}
-						isExternal
-						display="inline-flex"
-						alignItems="center"
-						gap={1}
-						mt={2}
-						fontSize="sm"
-						color="blue.300"
-					>
-						{t("externalApps.latestRelease")}
-						<ArrowTopRightOnSquareIcon width={14} />
-					</Link>
-				) : null}
 			</Box>
 
 			<Box
@@ -472,6 +603,16 @@ export const ExternalAppsPage = () => {
 										</Text>
 									</Box>
 									<HStack spacing={3} flexWrap="wrap">
+										{app.update_available ? (
+											<Button
+												size="sm"
+												colorScheme="blue"
+												leftIcon={<ArrowPathIcon width={16} />}
+												onClick={() => setUpdateTarget(app)}
+											>
+												{t("externalApps.update")}
+											</Button>
+										) : null}
 										<Button
 											size="sm"
 											variant="outline"
@@ -490,6 +631,14 @@ export const ExternalAppsPage = () => {
 												{t("externalApps.files.phpConfig")}
 											</Button>
 										) : null}
+										<Button
+											size="sm"
+											variant="outline"
+											leftIcon={<Cog6ToothIcon width={16} />}
+											onClick={() => openSettings(app)}
+										>
+											{t("externalApps.settings")}
+										</Button>
 										<Link href={app.public_url} isExternal>
 											<Button
 												size="sm"
