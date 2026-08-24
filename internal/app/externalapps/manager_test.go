@@ -153,6 +153,38 @@ func TestExternalAppsResponseMarksMirzaBotUpdate(t *testing.T) {
 	}
 }
 
+func TestExternalAppsAreDisabledForSQLite(t *testing.T) {
+	manager := New(Config{BaseDir: t.TempDir(), DatabaseDialect: "sqlite"}, nil)
+	manager.apps["0123456789ab"] = Record{
+		ID: "0123456789ab", Domain: "app.example.com", Path: "", Enabled: true,
+	}
+	if manager.HasHost("app.example.com") {
+		t.Fatal("SQLite installation exposed an external application host")
+	}
+	if _, _, ok := manager.Match("app.example.com", "/"); ok {
+		t.Fatal("SQLite installation routed an external application request")
+	}
+
+	response := httptest.NewRecorder()
+	manager.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/settings/external-apps", nil))
+	var status struct {
+		Supported bool           `json:"supported"`
+		Apps      []PublicRecord `json:"apps"`
+	}
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &status) != nil {
+		t.Fatalf("status response=%d %q", response.Code, response.Body.String())
+	}
+	if status.Supported || len(status.Apps) != 0 {
+		t.Fatalf("SQLite status=%+v", status)
+	}
+
+	response = httptest.NewRecorder()
+	manager.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/settings/external-apps/archive", nil))
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "SQLite") {
+		t.Fatalf("mutation response=%d %q", response.Code, response.Body.String())
+	}
+}
+
 func TestMirzaBotUpdatePreservesConfigurationAndRunsMigration(t *testing.T) {
 	const oldSHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	const newSHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

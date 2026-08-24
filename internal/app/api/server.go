@@ -146,6 +146,7 @@ func New(cfg Config) (*Server, error) {
 		externalApps: externalapps.New(externalapps.Config{
 			BaseDir:           cfg.ExternalAppsBase,
 			DatabaseURL:       cfg.Database,
+			DatabaseDialect:   pool.Dialect,
 			MySQLRootPassword: cfg.MySQLRootPassword,
 		}, certificateManager),
 		nodeOperationsKick:   make(chan struct{}, 1),

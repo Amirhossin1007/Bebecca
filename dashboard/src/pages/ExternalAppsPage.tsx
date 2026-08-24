@@ -131,7 +131,10 @@ export const ExternalAppsPage = () => {
 	const certificatesQuery = useQuery(
 		"subscription-settings",
 		getSubscriptionSettings,
-		{ refetchOnWindowFocus: false },
+		{
+			refetchOnWindowFocus: false,
+			enabled: appsQuery.data?.supported === true,
+		},
 	);
 	const apps = appsQuery.data?.apps ?? [];
 	const usedRootDomains = useMemo(
@@ -546,6 +549,22 @@ export const ExternalAppsPage = () => {
 			<VStack minH="50vh" justify="center">
 				<Spinner />
 			</VStack>
+		);
+	}
+	if (appsQuery.data?.supported === false) {
+		return (
+			<Stack spacing={5}>
+				<Box>
+					<Heading size="lg">{t("externalApps.title")}</Heading>
+					<Text color={mutedColor} mt={2}>
+						{t("externalApps.description")}
+					</Text>
+				</Box>
+				<Alert status="warning" borderRadius="md">
+					<AlertIcon />
+					<Text>{t("externalApps.unsupported")}</Text>
+				</Alert>
+			</Stack>
 		);
 	}
 

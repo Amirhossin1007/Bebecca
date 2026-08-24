@@ -3188,7 +3188,7 @@
 	"externalApps.databaseBackupReady": "بکاپ دیتابیس آماده دانلود است",
 	"externalApps.databaseBackupFailed": "گرفتن بکاپ دیتابیس ناموفق بود",
 	"externalApps.delete": "حذف",
-	"externalApps.unsupported": "میزبانی PHP روی این نوع نصب در دسترس نیست.",
+	"externalApps.unsupported": "External Apps فقط در نصب باینری همراه MySQL یا MariaDB در دسترس است و هنگام استفاده Rebecca از SQLite کاملاً غیرفعال می‌شود.",
 	"externalApps.errors.domainRequired": "گواهی دامنه را انتخاب کنید.",
 	"externalApps.errors.archiveRequired": "فایل ZIP را انتخاب کنید.",
 	"externalApps.errors.nameRequired": "نام اپلیکیشن را وارد کنید.",

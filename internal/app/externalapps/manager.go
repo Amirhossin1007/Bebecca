@@ -41,11 +41,13 @@ const (
 	defaultRequestBodyLimitMB   = 32
 	defaultStaticCacheSeconds   = 3600
 	maxStaticCacheSeconds       = 365 * 24 * 60 * 60
+	externalAppsSQLiteDetail    = "External application hosting requires MySQL or MariaDB and is disabled when Rebecca uses SQLite."
 )
 
 type Config struct {
 	BaseDir           string
 	DatabaseURL       string
+	DatabaseDialect   string
 	MySQLRootPassword string
 }
 
@@ -147,6 +149,7 @@ type Manager struct {
 	baseDir      string
 	legacyBase   string
 	databaseURL  string
+	dialect      string
 	rootPassword string
 	certificates *certificateapp.Manager
 	httpClient   *http.Client
@@ -163,17 +166,21 @@ type Manager struct {
 }
 
 func New(cfg Config, certificates *certificateapp.Manager) *Manager {
+	dialect := strings.ToLower(strings.TrimSpace(cfg.DatabaseDialect))
 	baseDir := strings.TrimSpace(cfg.BaseDir)
 	legacyBase := ""
 	if baseDir == "" {
 		baseDir = defaultBaseDir
-		legacyBase = legacyBaseDir
-		_ = migrateLegacyBaseDir(baseDir, legacyBaseDir)
+		if dialect != "sqlite" && dialect != "sqlite3" {
+			legacyBase = legacyBaseDir
+			_ = migrateLegacyBaseDir(baseDir, legacyBaseDir)
+		}
 	}
 	manager := &Manager{
 		baseDir:      filepath.Clean(baseDir),
 		legacyBase:   legacyBase,
 		databaseURL:  cfg.DatabaseURL,
+		dialect:      dialect,
 		rootPassword: cfg.MySQLRootPassword,
 		certificates: certificates,
 		mirzaAPIBase: mirzaBotAPIBaseURL,
@@ -195,8 +202,15 @@ func New(cfg Config, certificates *certificateapp.Manager) *Manager {
 		},
 		apps: map[string]Record{},
 	}
+	if manager.sqliteDisabled() {
+		return manager
+	}
 	manager.reload()
 	return manager
+}
+
+func (m *Manager) sqliteDisabled() bool {
+	return m != nil && (m.dialect == "sqlite" || m.dialect == "sqlite3")
 }
 
 func migrateLegacyBaseDir(baseDir, oldBaseDir string) error {
@@ -277,6 +291,9 @@ func (m *Manager) reload() {
 }
 
 func (m *Manager) Lookup(identifier string) (Record, bool) {
+	if m.sqliteDisabled() {
+		return Record{}, false
+	}
 	identifier = strings.ToLower(strings.TrimSpace(identifier))
 	m.mu.RLock()
 	record, ok := m.apps[identifier]
@@ -298,6 +315,9 @@ func (m *Manager) Lookup(identifier string) (Record, bool) {
 }
 
 func (m *Manager) HasHost(host string) bool {
+	if m.sqliteDisabled() {
+		return false
+	}
 	host = CanonicalHost(host)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -310,6 +330,9 @@ func (m *Manager) HasHost(host string) bool {
 }
 
 func (m *Manager) Match(host, requestPath string) (Record, string, bool) {
+	if m.sqliteDisabled() {
+		return Record{}, "", false
+	}
 	host = CanonicalHost(host)
 	cleanPath := strings.TrimPrefix(path.Clean("/"+requestPath), "/")
 	m.mu.RLock()
@@ -506,6 +529,9 @@ func externalAppPublicURL(record Record) string {
 }
 
 func (m *Manager) hostingSupported() (bool, string) {
+	if m.sqliteDisabled() {
+		return false, externalAppsSQLiteDetail
+	}
 	mode, err := os.ReadFile("/opt/rebecca/.install-mode")
 	if err != nil || strings.TrimSpace(string(mode)) != "binary" {
 		return false, "External application hosting is available only in binary installations."
@@ -1410,6 +1436,22 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	requestPath := externalAppAPIPath(r.URL.Path)
+	if m.sqliteDisabled() {
+		if requestPath == "" && r.Method == http.MethodGet {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"supported": false,
+				"detail":    externalAppsSQLiteDetail,
+				"templates": []map[string]any{
+					{"id": "archive", "name": "PHP / HTML ZIP", "supported": false, "detail": externalAppsSQLiteDetail},
+					{"id": "mirzabot", "name": "MirzaBot", "supported": false, "detail": externalAppsSQLiteDetail},
+				},
+				"apps": []PublicRecord{},
+			})
+			return
+		}
+		writeError(w, http.StatusConflict, externalAppsSQLiteDetail)
+		return
+	}
 	if requestPath == "" {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")

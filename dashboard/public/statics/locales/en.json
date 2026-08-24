@@ -3188,7 +3188,7 @@
 	"externalApps.databaseBackupReady": "Database backup is ready",
 	"externalApps.databaseBackupFailed": "Database backup failed",
 	"externalApps.delete": "Delete",
-	"externalApps.unsupported": "PHP hosting is not available on this installation.",
+	"externalApps.unsupported": "External Apps requires a binary installation with MySQL or MariaDB and is disabled when Rebecca uses SQLite.",
 	"externalApps.errors.domainRequired": "Select a domain certificate.",
 	"externalApps.errors.archiveRequired": "Select a ZIP archive.",
 	"externalApps.errors.nameRequired": "Enter an application name.",
