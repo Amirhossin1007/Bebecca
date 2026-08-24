@@ -5,7 +5,6 @@ import {
 	Box,
 	Button,
 	Checkbox,
-	Divider,
 	FormControl,
 	FormHelperText,
 	FormLabel,
@@ -23,7 +22,6 @@ import {
 	SimpleGrid,
 	Spinner,
 	Stack,
-	Switch,
 	Text,
 	useColorModeValue,
 	useToast,
@@ -41,6 +39,12 @@ import {
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import { ExternalAppFilesModal } from "components/ExternalAppFilesModal";
+import {
+	DataTable,
+	ResourceListCard,
+	type DataTableColumn,
+	type DataTableRowAction,
+} from "components/ui";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
@@ -101,6 +105,9 @@ export const ExternalAppsPage = () => {
 		useState<ExternalAppRecord | null>(null);
 	const [indexFile, setIndexFile] = useState("");
 	const [fallbackToIndex, setFallbackToIndex] = useState(false);
+	const [maxRequestBodyMB, setMaxRequestBodyMB] = useState(32);
+	const [staticCacheSeconds, setStaticCacheSeconds] = useState(3600);
+	const [notFoundFile, setNotFoundFile] = useState("");
 	const [keepDatabase, setKeepDatabase] = useState(true);
 	const [managedApp, setManagedApp] = useState<ExternalAppRecord | null>(null);
 	const [managerView, setManagerView] = useState<"file" | "php-config">("file");
@@ -268,7 +275,159 @@ export const ExternalAppsPage = () => {
 	const openSettings = (app: ExternalAppRecord) => {
 		setIndexFile(app.index_file);
 		setFallbackToIndex(app.fallback_to_index);
+		setMaxRequestBodyMB(app.max_request_body_mb || 32);
+		setStaticCacheSeconds(app.static_cache_seconds ?? 3600);
+		setNotFoundFile(app.not_found_file || "");
 		setSettingsTarget(app);
+	};
+
+	const appColumns = useMemo<DataTableColumn<ExternalAppRecord>[]>(
+		() => [
+			{
+				id: "name",
+				header: t("externalApps.name"),
+				isPrimary: true,
+				priority: "primary",
+				mobilePriority: 0,
+				cell: (app) => (
+					<Stack spacing={0} minW={0} align="start">
+						<Text fontWeight="semibold" noOfLines={1}>
+							{app.name}
+						</Text>
+						<Text color={mutedColor} fontSize="xs" noOfLines={1}>
+							{app.bot_username ? `@${app.bot_username}` : app.id}
+						</Text>
+					</Stack>
+				),
+			},
+			{
+				id: "url",
+				header: t("externalApps.domainCertificate"),
+				priority: "high",
+				mobilePriority: 1,
+				mobileMetaLabel: t("externalApps.domainCertificate"),
+				cell: (app) => (
+					<Text dir="ltr" noOfLines={1} title={app.public_url}>
+						{app.domain}
+						{app.path ? `/${app.path}` : ""}
+					</Text>
+				),
+			},
+			{
+				id: "runtime",
+				header: t("externalApps.runtime"),
+				priority: "medium",
+				mobilePriority: 2,
+				mobileMetaLabel: t("externalApps.runtime"),
+				cell: (app) => (
+					<HStack spacing={1.5} flexWrap="wrap">
+						<Badge>
+							{app.template === "mirzabot"
+								? "MirzaBot"
+								: app.runtime.toUpperCase()}
+						</Badge>
+						{app.php_version ? (
+							<Badge colorScheme="purple">PHP {app.php_version}</Badge>
+						) : null}
+						{app.version ? (
+							<Badge colorScheme="blue">{app.version}</Badge>
+						) : null}
+					</HStack>
+				),
+			},
+			{
+				id: "status",
+				header: t("status"),
+				priority: "high",
+				mobilePriority: 3,
+				mobileMetaLabel: t("status"),
+				cell: (app) => (
+					<Badge colorScheme={app.enabled ? "green" : "gray"}>
+						{app.enabled
+							? t("externalApps.enabled")
+							: t("externalApps.disabled")}
+					</Badge>
+				),
+			},
+			{
+				id: "installed_at",
+				header: t("externalApps.installedAt"),
+				priority: "low",
+				hideBelow: "xl",
+				mobileMetaLabel: t("externalApps.installedAt"),
+				cell: (app) => (
+					<Text fontSize="sm">
+						{app.installed_at
+							? new Date(app.installed_at).toLocaleString()
+							: "—"}
+					</Text>
+				),
+			},
+		],
+		[mutedColor, t],
+	);
+
+	const appRowActions = (
+		app: ExternalAppRecord,
+	): DataTableRowAction<ExternalAppRecord>[] => {
+		const actions: DataTableRowAction<ExternalAppRecord>[] = [];
+		if (app.update_available) {
+			actions.push({
+				id: "update",
+				label: t("externalApps.update"),
+				icon: <ArrowPathIcon width={16} />,
+				onClick: () => setUpdateTarget(app),
+			});
+		}
+		actions.push(
+			{
+				id: "files",
+				label: t("externalApps.files.button"),
+				icon: <FolderOpenIcon width={16} />,
+				onClick: () => openManager(app, "file"),
+			},
+			...(app.runtime === "php"
+				? [
+						{
+							id: "php-settings",
+							label: t("externalApps.files.phpConfig"),
+							icon: <CodeBracketIcon width={16} />,
+							onClick: () => openManager(app, "php-config"),
+						},
+					]
+				: []),
+			{
+				id: "settings",
+				label: t("externalApps.settings"),
+				icon: <Cog6ToothIcon width={16} />,
+				onClick: () => openSettings(app),
+			},
+			{
+				id: "open",
+				label: t("externalApps.open"),
+				icon: <ArrowTopRightOnSquareIcon width={16} />,
+				onClick: () =>
+					window.open(app.public_url, "_blank", "noopener,noreferrer"),
+			},
+			{
+				id: "toggle",
+				label: app.enabled
+					? t("externalApps.disable")
+					: t("externalApps.enable"),
+				onClick: () =>
+					toggleMutation.mutate({ id: app.id, enabled: !app.enabled }),
+				isDisabled: toggleMutation.isLoading,
+			},
+			{
+				id: "delete",
+				label: t("externalApps.delete"),
+				icon: <TrashIcon width={16} />,
+				onClick: () => confirmDelete(app),
+				isDisabled: deleteMutation.isLoading,
+				isDanger: true,
+			},
+		);
+		return actions;
 	};
 
 	if (appsQuery.isLoading) {
@@ -334,7 +493,7 @@ export const ExternalAppsPage = () => {
 			<Modal
 				isOpen={Boolean(settingsTarget)}
 				onClose={() => setSettingsTarget(null)}
-				size="md"
+				size="xl"
 			>
 				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(8px)" />
 				<ModalContent bg={panelBg}>
@@ -342,6 +501,7 @@ export const ExternalAppsPage = () => {
 					<ModalCloseButton />
 					<ModalBody>
 						<Stack spacing={4}>
+							<Heading size="xs">{t("externalApps.routingSettings")}</Heading>
 							<FormControl isRequired>
 								<FormLabel>{t("externalApps.indexFile")}</FormLabel>
 								<Input
@@ -365,6 +525,53 @@ export const ExternalAppsPage = () => {
 									</Text>
 								</Stack>
 							</Checkbox>
+							<FormControl>
+								<FormLabel>{t("externalApps.notFoundFile")}</FormLabel>
+								<Input
+									value={notFoundFile}
+									onChange={(event) => setNotFoundFile(event.target.value)}
+									placeholder="404.html"
+									autoComplete="off"
+								/>
+								<FormHelperText>
+									{t("externalApps.notFoundFileHint")}
+								</FormHelperText>
+							</FormControl>
+							<Heading size="xs" pt={2}>
+								{t("externalApps.performanceSettings")}
+							</Heading>
+							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<FormControl isRequired>
+									<FormLabel>{t("externalApps.maxRequestBody")}</FormLabel>
+									<Input
+										type="number"
+										min={1}
+										max={32}
+										value={maxRequestBodyMB}
+										onChange={(event) =>
+											setMaxRequestBodyMB(Number(event.target.value))
+										}
+									/>
+									<FormHelperText>
+										{t("externalApps.maxRequestBodyHint")}
+									</FormHelperText>
+								</FormControl>
+								<FormControl isRequired>
+									<FormLabel>{t("externalApps.staticCache")}</FormLabel>
+									<Input
+										type="number"
+										min={0}
+										max={31536000}
+										value={staticCacheSeconds}
+										onChange={(event) =>
+											setStaticCacheSeconds(Number(event.target.value))
+										}
+									/>
+									<FormHelperText>
+										{t("externalApps.staticCacheHint")}
+									</FormHelperText>
+								</FormControl>
+							</SimpleGrid>
 						</Stack>
 					</ModalBody>
 					<ModalFooter gap={3}>
@@ -374,13 +581,22 @@ export const ExternalAppsPage = () => {
 						<Button
 							colorScheme="blue"
 							isLoading={settingsMutation.isLoading}
-							isDisabled={!indexFile.trim()}
+							isDisabled={
+								!indexFile.trim() ||
+								maxRequestBodyMB < 1 ||
+								maxRequestBodyMB > 32 ||
+								staticCacheSeconds < 0 ||
+								staticCacheSeconds > 31536000
+							}
 							onClick={() => {
 								if (!settingsTarget) return;
 								settingsMutation.mutate({
 									id: settingsTarget.id,
 									index_file: indexFile.trim(),
 									fallback_to_index: fallbackToIndex,
+									max_request_body_mb: maxRequestBodyMB,
+									static_cache_seconds: staticCacheSeconds,
+									not_found_file: notFoundFile.trim(),
 								});
 							}}
 						>
@@ -456,11 +672,7 @@ export const ExternalAppsPage = () => {
 						/>
 						<FormHelperText>
 							{t("externalApps.certificateHint")}{" "}
-							<Link
-								as={RouterLink}
-								to="/settings#subscriptions"
-								color="blue.300"
-							>
+							<Link as={RouterLink} to="/settings#ssl" color="blue.300">
 								{t("externalApps.openSSLManager")}
 							</Link>
 						</FormHelperText>
@@ -559,122 +771,37 @@ export const ExternalAppsPage = () => {
 				) : null}
 			</Box>
 
-			<Box
-				bg={panelBg}
-				borderWidth="1px"
-				borderColor={borderColor}
-				borderRadius="md"
-				p={{ base: 4, md: 5 }}
-			>
-				<Heading size="md" mb={4}>
-					{t("externalApps.installedApps")}
-				</Heading>
-				{apps.length === 0 ? (
-					<Text color={mutedColor}>{t("externalApps.empty")}</Text>
-				) : (
-					<Stack spacing={3} divider={<Divider />}>
-						{apps.map((app) => (
-							<Box key={app.id} py={2}>
-								<Stack
-									direction={{ base: "column", lg: "row" }}
-									justify="space-between"
-									align={{ base: "stretch", lg: "center" }}
-									spacing={3}
-								>
-									<Box>
-										<HStack spacing={2} flexWrap="wrap">
-											<Text fontWeight="semibold">{app.name}</Text>
-											<Badge colorScheme={app.enabled ? "green" : "gray"}>
-												{app.enabled
-													? t("externalApps.enabled")
-													: t("externalApps.disabled")}
-											</Badge>
-											<Badge>
-												{app.template === "mirzabot"
-													? "MirzaBot"
-													: app.runtime.toUpperCase()}
-											</Badge>
-										</HStack>
-										<Text color={mutedColor} fontSize="sm" mt={1}>
-											{app.public_url}
-											{app.bot_username ? ` · @${app.bot_username}` : ""}
-											{app.php_version ? ` · PHP ${app.php_version}` : ""}
-											{app.version ? ` · ${app.version}` : ""}
-										</Text>
-									</Box>
-									<HStack spacing={3} flexWrap="wrap">
-										{app.update_available ? (
-											<Button
-												size="sm"
-												colorScheme="blue"
-												leftIcon={<ArrowPathIcon width={16} />}
-												onClick={() => setUpdateTarget(app)}
-											>
-												{t("externalApps.update")}
-											</Button>
-										) : null}
-										<Button
-											size="sm"
-											variant="outline"
-											leftIcon={<FolderOpenIcon width={16} />}
-											onClick={() => openManager(app, "file")}
-										>
-											{t("externalApps.files.button")}
-										</Button>
-										{app.runtime === "php" ? (
-											<Button
-												size="sm"
-												variant="outline"
-												leftIcon={<CodeBracketIcon width={16} />}
-												onClick={() => openManager(app, "php-config")}
-											>
-												{t("externalApps.files.phpConfig")}
-											</Button>
-										) : null}
-										<Button
-											size="sm"
-											variant="outline"
-											leftIcon={<Cog6ToothIcon width={16} />}
-											onClick={() => openSettings(app)}
-										>
-											{t("externalApps.settings")}
-										</Button>
-										<Link href={app.public_url} isExternal>
-											<Button
-												size="sm"
-												variant="outline"
-												rightIcon={<ArrowTopRightOnSquareIcon width={16} />}
-											>
-												{t("externalApps.open")}
-											</Button>
-										</Link>
-										<Switch
-											isChecked={app.enabled}
-											isDisabled={toggleMutation.isLoading}
-											onChange={(event) =>
-												toggleMutation.mutate({
-													id: app.id,
-													enabled: event.target.checked,
-												})
-											}
-										/>
-										<Button
-											size="sm"
-											variant="ghost"
-											colorScheme="red"
-											leftIcon={<TrashIcon width={16} />}
-											isLoading={deleteMutation.isLoading}
-											onClick={() => confirmDelete(app)}
-										>
-											{t("externalApps.delete")}
-										</Button>
-									</HStack>
-								</Stack>
-							</Box>
-						))}
-					</Stack>
-				)}
-			</Box>
+			<Stack spacing={3}>
+				<ResourceListCard
+					title={t("externalApps.installedApps")}
+					summaryItems={[
+						{ label: t("total"), value: apps.length },
+						{
+							label: t("externalApps.enabled"),
+							value: apps.filter((app) => app.enabled).length,
+							colorScheme: "green",
+						},
+						{
+							label: t("externalApps.disabled"),
+							value: apps.filter((app) => !app.enabled).length,
+						},
+					]}
+				/>
+				<DataTable
+					ariaLabel={t("externalApps.installedApps")}
+					data={apps}
+					columns={appColumns}
+					getRowId={(app) => app.id}
+					isLoading={appsQuery.isLoading}
+					emptyState={<Text color={mutedColor}>{t("externalApps.empty")}</Text>}
+					rowActions={appRowActions}
+					actionsDisplay="menu"
+					actionsPlacement="end"
+					actionsColumnWidth="60px"
+					showActionsOnHover
+					mobileBreakpoint="md"
+				/>
+			</Stack>
 		</Stack>
 	);
 };

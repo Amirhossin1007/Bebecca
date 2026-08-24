@@ -38,6 +38,9 @@ const (
 	maxExternalAppArchiveBytes  = 32 << 20
 	maxExternalAppExtractedSize = 256 << 20
 	maxExternalAppFiles         = 5000
+	defaultRequestBodyLimitMB   = 32
+	defaultStaticCacheSeconds   = 3600
+	maxStaticCacheSeconds       = 365 * 24 * 60 * 60
 )
 
 type Config struct {
@@ -68,50 +71,56 @@ type InstallRequest struct {
 }
 
 type Record struct {
-	ID              string `json:"id,omitempty"`
-	Template        string `json:"template"`
-	Name            string `json:"name"`
-	Domain          string `json:"domain"`
-	Path            string `json:"path,omitempty"`
-	Enabled         bool   `json:"enabled"`
-	Runtime         string `json:"runtime"`
-	Version         string `json:"version,omitempty"`
-	SourceSHA       string `json:"source_sha,omitempty"`
-	InstalledAt     string `json:"installed_at"`
-	PHPVersion      string `json:"php_version,omitempty"`
-	BotUsername     string `json:"bot_username,omitempty"`
-	IndexFile       string `json:"index_file,omitempty"`
-	FallbackToIndex bool   `json:"fallback_to_index,omitempty"`
-	Root            string `json:"root"`
-	Socket          string `json:"socket,omitempty"`
-	PoolConfig      string `json:"pool_config,omitempty"`
-	CronConfig      string `json:"cron_config,omitempty"`
-	Service         string `json:"service,omitempty"`
-	SystemUser      string `json:"system_user,omitempty"`
-	Database        string `json:"database,omitempty"`
-	DatabaseUser    string `json:"database_user,omitempty"`
-	storageBase     string
+	ID                 string `json:"id,omitempty"`
+	Template           string `json:"template"`
+	Name               string `json:"name"`
+	Domain             string `json:"domain"`
+	Path               string `json:"path,omitempty"`
+	Enabled            bool   `json:"enabled"`
+	Runtime            string `json:"runtime"`
+	Version            string `json:"version,omitempty"`
+	SourceSHA          string `json:"source_sha,omitempty"`
+	InstalledAt        string `json:"installed_at"`
+	PHPVersion         string `json:"php_version,omitempty"`
+	BotUsername        string `json:"bot_username,omitempty"`
+	IndexFile          string `json:"index_file,omitempty"`
+	FallbackToIndex    bool   `json:"fallback_to_index,omitempty"`
+	MaxRequestBodyMB   int    `json:"max_request_body_mb,omitempty"`
+	StaticCacheSeconds *int   `json:"static_cache_seconds,omitempty"`
+	NotFoundFile       string `json:"not_found_file,omitempty"`
+	Root               string `json:"root"`
+	Socket             string `json:"socket,omitempty"`
+	PoolConfig         string `json:"pool_config,omitempty"`
+	CronConfig         string `json:"cron_config,omitempty"`
+	Service            string `json:"service,omitempty"`
+	SystemUser         string `json:"system_user,omitempty"`
+	Database           string `json:"database,omitempty"`
+	DatabaseUser       string `json:"database_user,omitempty"`
+	storageBase        string
 }
 
 type PublicRecord struct {
-	ID              string `json:"id"`
-	Template        string `json:"template"`
-	Name            string `json:"name"`
-	Domain          string `json:"domain"`
-	Path            string `json:"path,omitempty"`
-	Enabled         bool   `json:"enabled"`
-	Runtime         string `json:"runtime"`
-	Version         string `json:"version,omitempty"`
-	SourceSHA       string `json:"source_sha,omitempty"`
-	InstalledAt     string `json:"installed_at"`
-	PHPVersion      string `json:"php_version,omitempty"`
-	BotUsername     string `json:"bot_username,omitempty"`
-	IndexFile       string `json:"index_file"`
-	FallbackToIndex bool   `json:"fallback_to_index"`
-	HasDatabase     bool   `json:"has_database"`
-	PublicURL       string `json:"public_url"`
-	UpdateAvailable bool   `json:"update_available,omitempty"`
-	LatestVersion   string `json:"latest_version,omitempty"`
+	ID                 string `json:"id"`
+	Template           string `json:"template"`
+	Name               string `json:"name"`
+	Domain             string `json:"domain"`
+	Path               string `json:"path,omitempty"`
+	Enabled            bool   `json:"enabled"`
+	Runtime            string `json:"runtime"`
+	Version            string `json:"version,omitempty"`
+	SourceSHA          string `json:"source_sha,omitempty"`
+	InstalledAt        string `json:"installed_at"`
+	PHPVersion         string `json:"php_version,omitempty"`
+	BotUsername        string `json:"bot_username,omitempty"`
+	IndexFile          string `json:"index_file"`
+	FallbackToIndex    bool   `json:"fallback_to_index"`
+	MaxRequestBodyMB   int    `json:"max_request_body_mb"`
+	StaticCacheSeconds int    `json:"static_cache_seconds"`
+	NotFoundFile       string `json:"not_found_file"`
+	HasDatabase        bool   `json:"has_database"`
+	PublicURL          string `json:"public_url"`
+	UpdateAvailable    bool   `json:"update_available,omitempty"`
+	LatestVersion      string `json:"latest_version,omitempty"`
 }
 
 type secrets struct {
@@ -360,22 +369,25 @@ func (m *Manager) publicRecords() []PublicRecord {
 
 func publicExternalAppRecord(record Record) PublicRecord {
 	return PublicRecord{
-		ID:              record.ID,
-		Template:        record.Template,
-		Name:            record.Name,
-		Domain:          record.Domain,
-		Path:            record.Path,
-		Enabled:         record.Enabled,
-		Runtime:         record.Runtime,
-		Version:         record.Version,
-		SourceSHA:       record.SourceSHA,
-		InstalledAt:     record.InstalledAt,
-		PHPVersion:      record.PHPVersion,
-		BotUsername:     record.BotUsername,
-		IndexFile:       externalAppIndexFile(record),
-		FallbackToIndex: record.FallbackToIndex,
-		HasDatabase:     record.Database != "",
-		PublicURL:       externalAppPublicURL(record) + "/",
+		ID:                 record.ID,
+		Template:           record.Template,
+		Name:               record.Name,
+		Domain:             record.Domain,
+		Path:               record.Path,
+		Enabled:            record.Enabled,
+		Runtime:            record.Runtime,
+		Version:            record.Version,
+		SourceSHA:          record.SourceSHA,
+		InstalledAt:        record.InstalledAt,
+		PHPVersion:         record.PHPVersion,
+		BotUsername:        record.BotUsername,
+		IndexFile:          externalAppIndexFile(record),
+		FallbackToIndex:    record.FallbackToIndex,
+		MaxRequestBodyMB:   externalAppMaxRequestBodyMB(record),
+		StaticCacheSeconds: ExternalAppStaticCacheSeconds(record),
+		NotFoundFile:       record.NotFoundFile,
+		HasDatabase:        record.Database != "",
+		PublicURL:          externalAppPublicURL(record) + "/",
 	}
 }
 
@@ -396,6 +408,28 @@ func externalAppIndexFile(record Record) string {
 		return "index.php"
 	}
 	return externalAppDefaultIndex(record.Root, record.Runtime)
+}
+
+func externalAppMaxRequestBodyMB(record Record) int {
+	if record.MaxRequestBodyMB < 1 || record.MaxRequestBodyMB > defaultRequestBodyLimitMB {
+		return defaultRequestBodyLimitMB
+	}
+	return record.MaxRequestBodyMB
+}
+
+func ExternalAppRequestBodyLimitBytes(record Record) int64 {
+	return int64(externalAppMaxRequestBodyMB(record)) << 20
+}
+
+func ExternalAppStaticCacheSeconds(record Record) int {
+	if record.StaticCacheSeconds == nil {
+		return defaultStaticCacheSeconds
+	}
+	seconds := *record.StaticCacheSeconds
+	if seconds < 0 || seconds > maxStaticCacheSeconds {
+		return defaultStaticCacheSeconds
+	}
+	return seconds
 }
 
 func mirzaBotUpdateAvailable(record Record, release mirzaBotRelease) bool {
@@ -920,7 +954,36 @@ func validateExternalAppIndexFile(record Record, rootPath, raw string) (string, 
 	return filepath.ToSlash(name), nil
 }
 
-func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex bool) (PublicRecord, error) {
+func validateExternalAppNotFoundFile(rootPath, raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	name, err := normalizeExternalAppPath(raw, false)
+	if err != nil {
+		return "", errors.New("404 document must be a safe relative path")
+	}
+	switch strings.ToLower(path.Base(name)) {
+	case "config.php", "table.php", "composer.json", "composer.lock", "install.sh":
+		return "", errors.New("this file cannot be used as the 404 document")
+	}
+	extension := strings.ToLower(path.Ext(name))
+	if extension != ".html" && extension != ".htm" {
+		return "", errors.New("404 document must be an HTML file")
+	}
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	info, err := root.Lstat(filepath.FromSlash(name))
+	if err != nil || !info.Mode().IsRegular() || FileHasMultipleLinks(info) {
+		return "", errors.New("404 document does not exist or is not a regular file")
+	}
+	return filepath.ToSlash(name), nil
+}
+
+func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex bool, maxRequestBodyMB, staticCacheSeconds int, notFoundFile string) (PublicRecord, error) {
 	if !m.operationMu.TryLock() {
 		return PublicRecord{}, errExternalAppBusy
 	}
@@ -933,8 +996,21 @@ func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex b
 	if err != nil {
 		return PublicRecord{}, err
 	}
+	if maxRequestBodyMB < 1 || maxRequestBodyMB > defaultRequestBodyLimitMB {
+		return PublicRecord{}, errors.New("request body limit must be between 1 and 32 MiB")
+	}
+	if staticCacheSeconds < 0 || staticCacheSeconds > maxStaticCacheSeconds {
+		return PublicRecord{}, errors.New("static cache lifetime must be between 0 and 31536000 seconds")
+	}
+	notFoundFile, err = validateExternalAppNotFoundFile(record.Root, notFoundFile)
+	if err != nil {
+		return PublicRecord{}, err
+	}
 	record.IndexFile = indexFile
 	record.FallbackToIndex = fallbackToIndex
+	record.MaxRequestBodyMB = maxRequestBodyMB
+	record.StaticCacheSeconds = &staticCacheSeconds
+	record.NotFoundFile = notFoundFile
 	if err := m.writeRecord(record); err != nil {
 		return PublicRecord{}, err
 	}
@@ -1346,14 +1422,34 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var payload struct {
-			IndexFile       string `json:"index_file"`
-			FallbackToIndex bool   `json:"fallback_to_index"`
+			IndexFile          string  `json:"index_file"`
+			FallbackToIndex    bool    `json:"fallback_to_index"`
+			MaxRequestBodyMB   *int    `json:"max_request_body_mb"`
+			StaticCacheSeconds *int    `json:"static_cache_seconds"`
+			NotFoundFile       *string `json:"not_found_file"`
 		}
 		if err := decodeOptionalJSON(r, &payload); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		record, err := m.updateSettings(identifier, payload.IndexFile, payload.FallbackToIndex)
+		current, ok := m.Lookup(identifier)
+		if !ok {
+			writeExternalAppError(w, errExternalAppNotFound)
+			return
+		}
+		maxRequestBodyMB := externalAppMaxRequestBodyMB(current)
+		if payload.MaxRequestBodyMB != nil {
+			maxRequestBodyMB = *payload.MaxRequestBodyMB
+		}
+		staticCacheSeconds := ExternalAppStaticCacheSeconds(current)
+		if payload.StaticCacheSeconds != nil {
+			staticCacheSeconds = *payload.StaticCacheSeconds
+		}
+		notFoundFile := current.NotFoundFile
+		if payload.NotFoundFile != nil {
+			notFoundFile = *payload.NotFoundFile
+		}
+		record, err := m.updateSettings(identifier, payload.IndexFile, payload.FallbackToIndex, maxRequestBodyMB, staticCacheSeconds, notFoundFile)
 		if err != nil {
 			writeExternalAppError(w, err)
 			return

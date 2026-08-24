@@ -68,17 +68,43 @@ func TestExternalAppDefaultDocumentSettings(t *testing.T) {
 		ID: "0123456789ab", Template: "archive", Domain: "app.example.com", Runtime: "php", Root: root, storageBase: base,
 	}
 	manager := &Manager{baseDir: base, apps: map[string]Record{record.ID: record}}
-	updated, err := manager.updateSettings(record.ID, "public/home.php", true)
+	if err := os.WriteFile(filepath.Join(root, "404.html"), []byte("missing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := manager.updateSettings(record.ID, "public/home.php", true, 8, 0, "404.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.IndexFile != "public/home.php" || !updated.FallbackToIndex {
-		t.Fatalf("index_file=%q", updated.IndexFile)
+	if updated.IndexFile != "public/home.php" || !updated.FallbackToIndex || updated.MaxRequestBodyMB != 8 || updated.StaticCacheSeconds != 0 || updated.NotFoundFile != "404.html" {
+		t.Fatalf("settings=%+v", updated)
 	}
 	for _, invalid := range []string{"../home.php", "config.php", "missing.php", "public/home.txt"} {
-		if _, err := manager.updateSettings(record.ID, invalid, false); err == nil {
+		if _, err := manager.updateSettings(record.ID, invalid, false, 8, 0, ""); err == nil {
 			t.Fatalf("invalid default document %q was accepted", invalid)
 		}
+	}
+	if _, err := manager.updateSettings(record.ID, "public/home.php", false, 0, 0, ""); err == nil {
+		t.Fatal("zero request body limit was accepted")
+	}
+	if _, err := manager.updateSettings(record.ID, "public/home.php", false, 8, -1, ""); err == nil {
+		t.Fatal("negative cache lifetime was accepted")
+	}
+	if _, err := manager.updateSettings(record.ID, "public/home.php", false, 8, 0, "public/home.php"); err == nil {
+		t.Fatal("PHP 404 document was accepted")
+	}
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/api/settings/external-apps/"+record.ID+"/settings",
+		strings.NewReader(`{"index_file":"public/home.php","fallback_to_index":false}`),
+	)
+	response := httptest.NewRecorder()
+	manager.ServeHTTP(response, request)
+	var compatible PublicRecord
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &compatible) != nil {
+		t.Fatalf("legacy settings response=%d %q", response.Code, response.Body.String())
+	}
+	if compatible.MaxRequestBodyMB != 8 || compatible.StaticCacheSeconds != 0 || compatible.NotFoundFile != "404.html" {
+		t.Fatalf("legacy settings lost new values: %+v", compatible)
 	}
 }
 

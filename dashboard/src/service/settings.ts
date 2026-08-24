@@ -339,6 +339,9 @@ export interface ExternalAppRecord {
 	bot_username?: string;
 	index_file: string;
 	fallback_to_index: boolean;
+	max_request_body_mb: number;
+	static_cache_seconds: number;
+	not_found_file: string;
 	has_database: boolean;
 	public_url: string;
 	update_available?: boolean;
@@ -426,12 +429,18 @@ export const updateExternalAppSettings = async (payload: {
 	id: string;
 	index_file: string;
 	fallback_to_index: boolean;
+	max_request_body_mb: number;
+	static_cache_seconds: number;
+	not_found_file: string;
 }): Promise<ExternalAppRecord> => {
 	return apiFetch(externalAppPath(payload.id, "/settings"), {
 		method: "PUT",
 		body: JSON.stringify({
 			index_file: payload.index_file,
 			fallback_to_index: payload.fallback_to_index,
+			max_request_body_mb: payload.max_request_body_mb,
+			static_cache_seconds: payload.static_cache_seconds,
+			not_found_file: payload.not_found_file,
 		}),
 	});
 };

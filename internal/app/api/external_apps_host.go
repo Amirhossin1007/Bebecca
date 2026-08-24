@@ -2,6 +2,8 @@ package api
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"mime"
 	"net"
 	"net/http"
@@ -48,11 +50,12 @@ func (h *externalAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Application is disabled", http.StatusServiceUnavailable)
 		return
 	}
-	if r.ContentLength > externalapps.MaxRequestBodyBytes {
+	requestBodyLimit := externalapps.ExternalAppRequestBodyLimitBytes(record)
+	if r.ContentLength > requestBodyLimit {
 		http.Error(w, "Request body is too large", http.StatusRequestEntityTooLarge)
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, externalapps.MaxRequestBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, requestBodyLimit)
 	if err := serveExternalApp(h.apps, w, r, record, relativePath); err != nil {
 		http.Error(w, "Application is unavailable", http.StatusBadGateway)
 	}
@@ -62,13 +65,17 @@ func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *h
 	rel, fullPath, info, err := resolveExternalAppPath(record, requestPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			http.NotFound(w, r)
+			if !serveExternalAppNotFound(w, r, record) {
+				http.NotFound(w, r)
+			}
 			return nil
 		}
 		return err
 	}
 	if info.IsDir() {
-		http.NotFound(w, r)
+		if !serveExternalAppNotFound(w, r, record) {
+			http.NotFound(w, r)
+		}
 		return nil
 	}
 	if strings.EqualFold(filepath.Ext(rel), ".php") {
@@ -191,7 +198,12 @@ func serveExternalAppStatic(w http.ResponseWriter, r *http.Request, record exter
 	if strings.EqualFold(filepath.Ext(rel), ".html") {
 		w.Header().Set("Cache-Control", "no-cache")
 	} else {
-		w.Header().Set("Cache-Control", "public, max-age=3600")
+		seconds := externalapps.ExternalAppStaticCacheSeconds(record)
+		if seconds == 0 {
+			w.Header().Set("Cache-Control", "no-cache")
+		} else {
+			w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", seconds))
+		}
 	}
 	file, err := os.OpenInRoot(record.Root, filepath.FromSlash(rel))
 	if err != nil {
@@ -205,6 +217,32 @@ func serveExternalAppStatic(w http.ResponseWriter, r *http.Request, record exter
 		return
 	}
 	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
+}
+
+func serveExternalAppNotFound(w http.ResponseWriter, r *http.Request, record externalapps.Record) bool {
+	rel := strings.TrimSpace(record.NotFoundFile)
+	if rel == "" {
+		return false
+	}
+	file, err := os.OpenInRoot(record.Root, filepath.FromSlash(rel))
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	if contentType := mime.TypeByExtension(strings.ToLower(filepath.Ext(rel))); contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	w.WriteHeader(http.StatusNotFound)
+	if r.Method != http.MethodHead {
+		_, _ = io.Copy(w, file)
+	}
+	return true
 }
 
 func serveExternalAppFastCGI(w http.ResponseWriter, r *http.Request, record externalapps.Record, scriptRel, scriptPath string) error {

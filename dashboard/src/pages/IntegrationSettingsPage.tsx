@@ -45,6 +45,7 @@ import {
 	ChevronDownIcon as HeroChevronDownIcon,
 	MagnifyingGlassIcon,
 	PaperAirplaneIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { NumericInput } from "components/common/NumericInput";
 import { PanelInput as Input } from "components/common/PanelInput";
@@ -112,7 +113,14 @@ import {
 	XrayModalFooter,
 	XrayModalHeader,
 } from "../components/xray/XrayDialog";
-import { PageHeader, TabSystem } from "../components/ui";
+import {
+	DataTable,
+	PageHeader,
+	ResourceListCard,
+	TabSystem,
+	type DataTableColumn,
+	type DataTableRowAction,
+} from "../components/ui";
 
 type EventToggleItem = {
 	key: string;
@@ -1235,6 +1243,7 @@ export const IntegrationSettingsPage = () => {
 			"backup",
 			"telegram",
 			"subscriptions",
+			"ssl",
 			"template-creator",
 		],
 		[],
@@ -1920,6 +1929,347 @@ export const IntegrationSettingsPage = () => {
 	const telegramBackupScope = watchTelegram("backup_scope");
 	const telegramDisabledMessage = t("settings.telegram.disabledOverlay");
 	const telegramBackupDisabledMessage = t("settings.telegram.backupBinaryOnly");
+	const certificates = subscriptionBundle?.certificates ?? [];
+	const certificateColumns = useMemo<
+		DataTableColumn<SubscriptionCertificate>[]
+	>(
+		() => [
+			{
+				id: "domain",
+				header: t("settings.subscriptions.domain"),
+				isPrimary: true,
+				priority: "primary",
+				mobilePriority: 0,
+				cell: (certificate) => (
+					<Stack spacing={0} minW={0} align="start">
+						<Text fontWeight="semibold" dir="ltr" noOfLines={1}>
+							{certificate.domain}
+						</Text>
+						{certificate.alt_names?.length ? (
+							<Text
+								fontSize="xs"
+								color="panel.textMuted"
+								dir="ltr"
+								noOfLines={1}
+							>
+								SAN: {certificate.alt_names.join(", ")}
+							</Text>
+						) : null}
+					</Stack>
+				),
+			},
+			{
+				id: "status",
+				header: t("status"),
+				priority: "high",
+				mobilePriority: 1,
+				mobileMetaLabel: t("status"),
+				cell: (certificate) => (
+					<HStack spacing={1.5} flexWrap="wrap">
+						<Badge
+							colorScheme={
+								certificate.status === "active"
+									? "green"
+									: certificate.status === "expiring"
+										? "orange"
+										: "red"
+							}
+						>
+							{certificate.status}
+						</Badge>
+						<Badge colorScheme="blue">
+							{certificate.provider || "unknown"}
+						</Badge>
+					</HStack>
+				),
+			},
+			{
+				id: "expires",
+				header: t("settings.subscriptions.expiresAt"),
+				priority: "high",
+				mobilePriority: 2,
+				mobileMetaLabel: t("settings.subscriptions.expiresAt"),
+				cell: (certificate) => (
+					<Text fontSize="sm">
+						{certificate.not_after
+							? new Date(certificate.not_after).toLocaleString()
+							: t("settings.subscriptions.never")}
+					</Text>
+				),
+			},
+			{
+				id: "updated",
+				header: t("settings.subscriptions.lastRenewed"),
+				priority: "low",
+				hideBelow: "xl",
+				mobileMetaLabel: t("settings.subscriptions.lastRenewed"),
+				cell: (certificate) => (
+					<Stack spacing={0}>
+						<Text fontSize="sm">
+							{certificate.last_renewed_at
+								? new Date(certificate.last_renewed_at).toLocaleString()
+								: t("settings.subscriptions.never")}
+						</Text>
+						<Text fontSize="xs" color="panel.textMuted">
+							{t("settings.subscriptions.lastIssued")}:{" "}
+							{certificate.last_issued_at
+								? new Date(certificate.last_issued_at).toLocaleString()
+								: t("settings.subscriptions.never")}
+						</Text>
+					</Stack>
+				),
+			},
+			{
+				id: "serving",
+				header: t("settings.subscriptions.serveTLS"),
+				priority: "high",
+				mobilePriority: 3,
+				mobileMetaLabel: t("settings.subscriptions.serveTLS"),
+				cell: (certificate) => (
+					<HStack spacing={2}>
+						<Switch
+							aria-label={t("settings.subscriptions.serveTLS")}
+							isChecked={certificate.serve_tls !== false}
+							isDisabled={
+								certificateServingMutation.isLoading ||
+								(certificate.serve_tls === false &&
+									certificate.status !== "active" &&
+									certificate.status !== "expiring")
+							}
+							onChange={(event) =>
+								certificateServingMutation.mutate({
+									domain: certificate.domain,
+									enabled: event.target.checked,
+								})
+							}
+						/>
+						{certificate.auto_renew ? (
+							<Badge colorScheme="teal">
+								{t("settings.subscriptions.autoRenew")}
+							</Badge>
+						) : null}
+					</HStack>
+				),
+			},
+		],
+		[certificateServingMutation, t],
+	);
+	const certificateRowActions = (
+		certificate: SubscriptionCertificate,
+	): DataTableRowAction<SubscriptionCertificate>[] => {
+		const actions: DataTableRowAction<SubscriptionCertificate>[] = [];
+		if (certificate.auto_renew && certificate.status !== "revoked") {
+			actions.push({
+				id: "renew",
+				label: t("settings.subscriptions.renewAction"),
+				icon: <ArrowPathIcon width={16} height={16} />,
+				onClick: () => handleRenewCertificate(certificate.domain),
+				isDisabled:
+					renewCertificateMutation.isLoading &&
+					renewingDomain === certificate.domain,
+			});
+		}
+		if (certificate.provider !== "manual" && certificate.status !== "revoked") {
+			actions.push({
+				id: "revoke",
+				label: t("settings.subscriptions.revokeAction"),
+				onClick: () =>
+					setCertificateAction({ type: "revoke", domain: certificate.domain }),
+				isDanger: true,
+			});
+		}
+		actions.push({
+			id: "delete",
+			label: t("delete"),
+			icon: <TrashIcon width={16} height={16} />,
+			onClick: () =>
+				setCertificateAction({ type: "delete", domain: certificate.domain }),
+			isDanger: true,
+		});
+		return actions;
+	};
+	const certificateManager = (
+		<VStack align="stretch" spacing={6}>
+			<Box className="master-settings-card">
+				<Heading size="sm" mb={1}>
+					{t("settings.subscriptions.certificateTitle")}
+				</Heading>
+				<Text fontSize="sm" color="gray.500" mb={4}>
+					{t("settings.subscriptions.certificateDescription")}
+				</Text>
+				<Alert status="info" variant="left-accent" borderRadius="md" mb={4}>
+					<AlertIcon />
+					<Text fontSize="sm">
+						{t("settings.subscriptions.certificateSNIHint")}
+					</Text>
+				</Alert>
+				<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+					<FormControl>
+						<FormLabel>
+							{t("settings.subscriptions.certificateProvider")}
+						</FormLabel>
+						<Select
+							value={certificateForm.provider}
+							showSearch={false}
+							onChange={(event) =>
+								setCertificateForm((previous) => ({
+									...previous,
+									provider: event.target.value as
+										| "letsencrypt"
+										| "zerossl"
+										| "manual",
+								}))
+							}
+						>
+							<option value="letsencrypt">Certbot / Let's Encrypt</option>
+							<option value="zerossl">ZeroSSL</option>
+							<option value="manual">
+								{t("settings.subscriptions.manualCertificate")}
+							</option>
+						</Select>
+						{certificateForm.provider === "zerossl" ? (
+							<FormHelperText>
+								{t("settings.subscriptions.zeroSSLNoKeyHint")}
+							</FormHelperText>
+						) : null}
+					</FormControl>
+					{certificateForm.provider !== "manual" ? (
+						<FormControl>
+							<FormLabel>{t("settings.subscriptions.email")}</FormLabel>
+							<Input
+								type="email"
+								placeholder="admin@example.com"
+								value={certificateForm.email}
+								onChange={(event) =>
+									setCertificateForm((previous) => ({
+										...previous,
+										email: event.target.value,
+									}))
+								}
+							/>
+						</FormControl>
+					) : null}
+					<FormControl>
+						<FormLabel>
+							{certificateForm.provider === "manual"
+								? t("settings.subscriptions.domain")
+								: t("settings.subscriptions.domains")}
+						</FormLabel>
+						<Input
+							placeholder={
+								certificateForm.provider === "manual"
+									? "example.com"
+									: "example.com,sub.example.com"
+							}
+							value={certificateForm.domains}
+							onChange={(event) =>
+								setCertificateForm((previous) => ({
+									...previous,
+									domains: event.target.value,
+								}))
+							}
+						/>
+						{certificateForm.provider !== "manual" ? (
+							<FormHelperText>
+								{t("settings.subscriptions.domainsHint")}
+							</FormHelperText>
+						) : null}
+					</FormControl>
+				</SimpleGrid>
+				{certificateForm.provider === "manual" ? (
+					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
+						<FormControl>
+							<FormLabel>fullchain.pem</FormLabel>
+							<Textarea
+								dir="ltr"
+								fontFamily="mono"
+								minH="180px"
+								value={certificateForm.fullchain}
+								onChange={(event) =>
+									setCertificateForm((previous) => ({
+										...previous,
+										fullchain: event.target.value,
+									}))
+								}
+							/>
+						</FormControl>
+						<FormControl>
+							<FormLabel>privkey.pem</FormLabel>
+							<Textarea
+								dir="ltr"
+								fontFamily="mono"
+								minH="180px"
+								value={certificateForm.privateKey}
+								onChange={(event) =>
+									setCertificateForm((previous) => ({
+										...previous,
+										privateKey: event.target.value,
+									}))
+								}
+							/>
+						</FormControl>
+					</SimpleGrid>
+				) : null}
+				<Flex className="master-settings-action-row" mt={3}>
+					<Button
+						type="button"
+						colorScheme="primary"
+						leftIcon={<SaveIcon />}
+						onClick={handleIssueCertificate}
+						isLoading={
+							issueCertificateMutation.isLoading ||
+							importCertificateMutation.isLoading
+						}
+					>
+						{certificateForm.provider === "manual"
+							? t("settings.subscriptions.importAction")
+							: t("settings.subscriptions.issueAction")}
+					</Button>
+				</Flex>
+			</Box>
+			<Stack spacing={3}>
+				<ResourceListCard
+					title={t("settings.subscriptions.certificateList")}
+					summaryItems={[
+						{ label: t("total"), value: certificates.length },
+						{
+							label: t("active"),
+							value: certificates.filter(
+								(certificate) => certificate.status === "active",
+							).length,
+							colorScheme: "green",
+						},
+						{
+							label: t("settings.subscriptions.serveTLS"),
+							value: certificates.filter(
+								(certificate) => certificate.serve_tls !== false,
+							).length,
+							colorScheme: "blue",
+						},
+					]}
+				/>
+				<DataTable
+					ariaLabel={t("settings.subscriptions.certificateList")}
+					data={certificates}
+					columns={certificateColumns}
+					getRowId={(certificate) => certificate.domain}
+					isLoading={isSubscriptionLoading}
+					emptyState={
+						<Text color="panel.textMuted">
+							{t("settings.subscriptions.noCertificates")}
+						</Text>
+					}
+					rowActions={certificateRowActions}
+					actionsDisplay="menu"
+					actionsPlacement="end"
+					actionsColumnWidth="60px"
+					showActionsOnHover
+					mobileBreakpoint="md"
+				/>
+			</Stack>
+		</VStack>
+	);
+
 
 	if (!getUserIsSuccess) {
 		return (
@@ -2072,9 +2422,15 @@ export const IntegrationSettingsPage = () => {
 						label: t("settings.subscriptions.tabTitle"),
 					},
 					{
-						value: "template-creator",
+						value: "ssl",
 						isActive: activeIntegrationTab === 4,
 						onClick: () => handleIntegrationTabChange(4),
+						label: t("settings.ssl.tabTitle"),
+					},
+					{
+						value: "template-creator",
+						isActive: activeIntegrationTab === 5,
+						onClick: () => handleIntegrationTabChange(5),
 						label: t("settings.templates.tabTitle"),
 					},
 				]}
@@ -2671,6 +3027,19 @@ export const IntegrationSettingsPage = () => {
 								</Flex>
 							</Stack>
 						)}
+			</Box>
+			<Box
+				px={{ base: 0, md: 2 }}
+				mt={3}
+				display={activeIntegrationTab === 4 ? "block" : "none"}
+			>
+				{isSubscriptionLoading && !subscriptionBundle ? (
+					<Flex align="center" justify="center" py={12}>
+						<Spinner size="lg" />
+					</Flex>
+				) : (
+					certificateManager
+				)}
 			</Box>
 			<Box
 				px={{ base: 0, md: 2 }}
@@ -4707,297 +5076,6 @@ export const IntegrationSettingsPage = () => {
 											</Stack>
 										)}
 									</Box>
-									<Box
-										className="master-settings-card"
-									>
-											<Heading size="sm" mb={1}>
-												{t("settings.subscriptions.certificateTitle")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500" mb={4}>
-												{t("settings.subscriptions.certificateDescription")}
-											</Text>
-											<Alert status="info" variant="left-accent" borderRadius="md" mb={4}>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.subscriptions.certificateSNIHint")}
-												</Text>
-											</Alert>
-											<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-												<FormControl>
-													<FormLabel>
-														{t("settings.subscriptions.certificateProvider")}
-													</FormLabel>
-													<Select
-														value={certificateForm.provider}
-														showSearch={false}
-														onChange={(event) =>
-															setCertificateForm((prev) => ({
-																...prev,
-																provider: event.target.value as
-																	| "letsencrypt"
-																	| "zerossl"
-																	| "manual",
-															}))
-														}
-													>
-														<option value="letsencrypt">Certbot / Let's Encrypt</option>
-														<option value="zerossl">ZeroSSL</option>
-														<option value="manual">
-															{t("settings.subscriptions.manualCertificate")}
-														</option>
-													</Select>
-													{certificateForm.provider === "zerossl" ? (
-														<FormHelperText>
-															{t("settings.subscriptions.zeroSSLNoKeyHint")}
-														</FormHelperText>
-													) : null}
-												</FormControl>
-												{certificateForm.provider !== "manual" ? (
-												<FormControl>
-													<FormLabel>
-														{t("settings.subscriptions.email")}
-													</FormLabel>
-													<Input
-														type="email"
-														placeholder="admin@example.com"
-														value={certificateForm.email}
-														onChange={(event) =>
-															setCertificateForm((prev) => ({
-																...prev,
-																email: event.target.value,
-															}))
-														}
-													/>
-												</FormControl>
-												) : null}
-												<FormControl>
-													<FormLabel>
-														{certificateForm.provider === "manual"
-															? t("settings.subscriptions.domain")
-															: t("settings.subscriptions.domains")}
-													</FormLabel>
-													<Input
-														placeholder={
-															certificateForm.provider === "manual"
-																? "example.com"
-																: "example.com,sub.example.com"
-														}
-														value={certificateForm.domains}
-														onChange={(event) =>
-															setCertificateForm((prev) => ({
-																...prev,
-																domains: event.target.value,
-															}))
-														}
-													/>
-													{certificateForm.provider !== "manual" ? (
-														<FormHelperText>
-															{t("settings.subscriptions.domainsHint")}
-														</FormHelperText>
-													) : null}
-												</FormControl>
-											</SimpleGrid>
-											{certificateForm.provider === "manual" ? (
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
-													<FormControl>
-														<FormLabel>fullchain.pem</FormLabel>
-														<Textarea
-															dir="ltr"
-															fontFamily="mono"
-															minH="180px"
-															value={certificateForm.fullchain}
-															onChange={(event) =>
-																setCertificateForm((prev) => ({
-																	...prev,
-																	fullchain: event.target.value,
-																}))
-															}
-														/>
-													</FormControl>
-													<FormControl>
-														<FormLabel>privkey.pem</FormLabel>
-														<Textarea
-															dir="ltr"
-															fontFamily="mono"
-															minH="180px"
-															value={certificateForm.privateKey}
-															onChange={(event) =>
-																setCertificateForm((prev) => ({
-																	...prev,
-																	privateKey: event.target.value,
-																}))
-															}
-														/>
-													</FormControl>
-												</SimpleGrid>
-											) : null}
-											<Flex className="master-settings-action-row" mt={3}>
-												<Button
-													colorScheme="primary"
-													leftIcon={<SaveIcon />}
-													onClick={handleIssueCertificate}
-													isLoading={
-														issueCertificateMutation.isLoading ||
-														importCertificateMutation.isLoading
-													}
-												>
-													{certificateForm.provider === "manual"
-														? t("settings.subscriptions.importAction")
-														: t("settings.subscriptions.issueAction")}
-												</Button>
-											</Flex>
-											<Divider my={4} />
-											<Heading size="sm" mb={2}>
-												{t("settings.subscriptions.certificateList")}
-											</Heading>
-											{!subscriptionBundle?.certificates?.length ? (
-												<Text color="gray.500">
-													{t("settings.subscriptions.noCertificates")}
-												</Text>
-											) : (
-												<Stack spacing={3}>
-													{subscriptionBundle.certificates.map((cert) => (
-														<Box
-															className="master-settings-subcard"
-															key={cert.domain}
-														>
-															<Flex
-																justify="space-between"
-																align={{ base: "flex-start", md: "center" }}
-																gap={3}
-																flexDirection={{ base: "column", md: "row" }}
-															>
-																<Box minW={0}>
-																	<Text fontWeight="semibold">
-																		{cert.domain}
-																	</Text>
-																	{cert.alt_names?.length ? (
-																		<Text fontSize="sm" color="gray.500">
-																			SAN: {cert.alt_names.join(", ")}
-																		</Text>
-																	) : null}
-																	<Text fontSize="sm" color="gray.500">
-																		{t("settings.subscriptions.expiresAt")}:{" "}
-																		{cert.not_after
-																			? new Date(cert.not_after).toLocaleString()
-																			: t("settings.subscriptions.never")}
-																	</Text>
-																	<Text fontSize="sm" color="gray.500">
-																		{t("settings.subscriptions.lastIssued")}:{" "}
-																		{cert.last_issued_at
-																			? new Date(
-																					cert.last_issued_at,
-																				).toLocaleString()
-																			: t("settings.subscriptions.never")}
-																	</Text>
-																	<Text fontSize="sm" color="gray.500">
-																		{t("settings.subscriptions.lastRenewed")}:{" "}
-																		{cert.last_renewed_at
-																			? new Date(
-																					cert.last_renewed_at,
-																				).toLocaleString()
-																			: t("settings.subscriptions.never")}
-																	</Text>
-																	</Box>
-																	<HStack flexWrap="wrap" justify="flex-end">
-																		<HStack>
-																			<Text fontSize="sm">
-																				{t("settings.subscriptions.serveTLS")}
-																			</Text>
-																			<Switch
-																				aria-label={t("settings.subscriptions.serveTLS")}
-																				isChecked={cert.serve_tls !== false}
-																				isDisabled={
-																					certificateServingMutation.isLoading ||
-																					(cert.serve_tls === false &&
-																						cert.status !== "active" &&
-																						cert.status !== "expiring")
-																				}
-																				onChange={(event) =>
-																					certificateServingMutation.mutate({
-																						domain: cert.domain,
-																						enabled: event.target.checked,
-																					})
-																				}
-																			/>
-																		</HStack>
-																		<Badge
-																		colorScheme={
-																			cert.status === "active"
-																				? "green"
-																				: cert.status === "expiring"
-																					? "orange"
-																					: "red"
-																		}
-																	>
-																		{cert.status}
-																	</Badge>
-																	<Badge colorScheme="blue">
-																		{cert.provider || "unknown"}
-																	</Badge>
-																	{cert.auto_renew ? (
-																		<Badge colorScheme="teal">
-																			{t("settings.subscriptions.autoRenew")}
-																		</Badge>
-																	) : null}
-																	{cert.email ? (
-																		<Badge colorScheme="purple">
-																			{cert.email}
-																		</Badge>
-																	) : null}
-																	{cert.auto_renew && cert.status !== "revoked" ? (
-																	<Button
-																		size="sm"
-																		variant="outline"
-																		leftIcon={
-																			<ArrowPathIcon width={16} height={16} />
-																		}
-																		onClick={() =>
-																			handleRenewCertificate(cert.domain)
-																		}
-																		isLoading={
-																			renewCertificateMutation.isLoading &&
-																			renewingDomain === cert.domain
-																		}
-																	>
-																		{t("settings.subscriptions.renewAction")}
-																	</Button>
-																	) : null}
-																	{cert.provider !== "manual" && cert.status !== "revoked" ? (
-																		<Button
-																			size="sm"
-																			variant="outline"
-																			colorScheme="orange"
-																			onClick={() =>
-																				setCertificateAction({
-																					type: "revoke",
-																					domain: cert.domain,
-																				})
-																			}
-																		>
-																			{t("settings.subscriptions.revokeAction")}
-																		</Button>
-																	) : null}
-																	<Button
-																		size="sm"
-																		variant="outline"
-																		colorScheme="red"
-																		onClick={() =>
-																			setCertificateAction({
-																				type: "delete",
-																				domain: cert.domain,
-																			})
-																		}
-																	>
-																		{t("delete")}
-																	</Button>
-																</HStack>
-															</Flex>
-														</Box>
-													))}
-												</Stack>
-											)}
-										</Box>
 								</VStack>
 							</form>
 						)}
@@ -5017,7 +5095,7 @@ export const IntegrationSettingsPage = () => {
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
-				display={activeIntegrationTab === 4 ? "block" : "none"}
+				display={activeIntegrationTab === 5 ? "block" : "none"}
 			>
 						<VStack align="stretch" spacing={6}>
 							<Alert status="warning" variant="left-accent" borderRadius="md">
