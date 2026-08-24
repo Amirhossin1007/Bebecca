@@ -4086,16 +4086,33 @@ export const CoreSettingsPage: FC = () => {
 								h="32px"
 								value={selectedTarget}
 								onChange={(event) => setSelectedTarget(event.target.value)}
-							>
-								<option value="master">{t("core.defaultConfig")}</option>
-								{configTargets
-									.filter((target) => target.type === "node")
-									.map((target) => (
-										<option key={target.id} value={target.id}>
-											{target.name}
-										</option>
-									))}
-							</Select>
+								options={[
+									{ label: t("core.defaultConfig"), value: "master" },
+									...configTargets
+										.filter((target) => target.type === "node")
+										.map((target) => ({
+											label: (
+												<HStack as="span" minW={0} spacing={1}>
+													<Text as="span" noOfLines={1}>
+														{target.name}
+													</Text>
+													{target.mode === "custom" && (
+														<Text
+															as="span"
+															flexShrink={0}
+															fontSize="10px"
+															opacity={0.7}
+														>
+															(custom)
+														</Text>
+													)}
+												</HStack>
+											),
+											searchLabel: target.name,
+											value: target.id,
+										})),
+								]}
+							/>
 						</FormControl>
 						{selectedTargetInfo?.type === "node" && (
 							<FormControl
