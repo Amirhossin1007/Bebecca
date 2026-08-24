@@ -372,12 +372,24 @@ export const getExternalApps = async (): Promise<ExternalAppsResponse> => {
 export const installExternalArchive = async (payload: {
 	domain: string;
 	name: string;
-	archive: File;
+	runtime: "php" | "static";
+	archive?: File;
+	create_database: boolean;
+	database?: string;
+	database_user?: string;
+	database_password?: string;
 }): Promise<ExternalAppRecord> => {
 	const body = new FormData();
 	body.set("domain", payload.domain);
 	body.set("name", payload.name);
-	body.set("archive", payload.archive);
+	body.set("runtime", payload.runtime);
+	body.set("create_database", String(payload.create_database));
+	if (payload.archive) body.set("archive", payload.archive);
+	if (payload.create_database) {
+		body.set("database", payload.database ?? "");
+		body.set("database_user", payload.database_user ?? "");
+		body.set("database_password", payload.database_password ?? "");
+	}
 	return $fetch("/settings/external-apps/archive", {
 		method: "POST",
 		body,
@@ -423,6 +435,14 @@ export const updateExternalMirzaBot = async (
 		body: JSON.stringify({}),
 		timeout: 20 * 60 * 1000,
 	});
+};
+
+export const exportExternalAppDatabase = async (id: string): Promise<Blob> => {
+	return $fetch<Blob>(externalAppPath(id, "/database-backup"), {
+		responseType: "blob",
+		credentials: "include",
+		timeout: 10 * 60 * 1000,
+	} as any);
 };
 
 export const updateExternalAppSettings = async (payload: {

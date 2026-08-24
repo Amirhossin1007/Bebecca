@@ -61,6 +61,9 @@ var (
 	mirzaReleasePattern       = regexp.MustCompile(`^v?[0-9]+(?:\.[0-9]+){1,3}$`)
 	mirzaCommitPattern        = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	telegramIDPattern         = regexp.MustCompile(`^-?[0-9]{5,20}$`)
+	databaseNamePattern       = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,63}$`)
+	databaseUserPattern       = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,31}$`)
+	databasePasswordPattern   = regexp.MustCompile(`^[A-Za-z0-9!@#$%^&*_.+=:-]{12,128}$`)
 )
 
 type InstallRequest struct {
@@ -68,6 +71,17 @@ type InstallRequest struct {
 	BotToken       string `json:"bot_token"`
 	AdminID        string `json:"admin_id"`
 	DatabaseBackup []byte `json:"-"`
+}
+
+type ArchiveInstallRequest struct {
+	Domain           string
+	Name             string
+	Runtime          string
+	Archive          []byte
+	CreateDatabase   bool
+	Database         string
+	DatabaseUser     string
+	DatabasePassword string
 }
 
 type Record struct {
@@ -547,7 +561,7 @@ func externalAppCertificateContains(record certificateapp.Record, domain string)
 	return false
 }
 
-func (m *Manager) installArchive(ctx context.Context, domain, name string, archive []byte) (PublicRecord, error) {
+func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequest) (PublicRecord, error) {
 	if !m.operationMu.TryLock() {
 		return PublicRecord{}, errExternalAppBusy
 	}
@@ -555,15 +569,35 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 	if ok, detail := m.hostingSupported(); !ok {
 		return PublicRecord{}, fmt.Errorf("%w: %s", errExternalAppUnsupported, detail)
 	}
-	domain, err := m.certificateDomain(ctx, domain)
+	domain, err := m.certificateDomain(ctx, request.Domain)
 	if err != nil {
 		return PublicRecord{}, err
 	}
 	if m.mountExists(domain, "") {
 		return PublicRecord{}, errExternalAppExists
 	}
-	if len(archive) == 0 || len(archive) > maxExternalAppArchiveBytes {
-		return PublicRecord{}, errors.New("ZIP archive is empty or exceeds 32 MiB")
+	if len(request.Archive) > maxExternalAppArchiveBytes {
+		return PublicRecord{}, errors.New("ZIP archive exceeds 32 MiB")
+	}
+	if request.CreateDatabase {
+		request.Database = strings.TrimSpace(request.Database)
+		request.DatabaseUser = strings.TrimSpace(request.DatabaseUser)
+		if !databaseNamePattern.MatchString(request.Database) {
+			return PublicRecord{}, errors.New("database name must start with a letter and contain only letters, numbers, or underscores (maximum 64 characters)")
+		}
+		if !databaseUserPattern.MatchString(request.DatabaseUser) {
+			return PublicRecord{}, errors.New("database username must start with a letter and contain only letters, numbers, or underscores (maximum 32 characters)")
+		}
+		if !databasePasswordPattern.MatchString(request.DatabasePassword) {
+			return PublicRecord{}, errors.New("database password must be 12-128 characters and use letters, numbers, or !@#$%^&*_.+=:-")
+		}
+		credentials, err := parseDatabaseCredentials(m.databaseURL)
+		if err != nil || !isLocalDatabaseHost(credentials.Host) || credentials.Port != "3306" {
+			return PublicRecord{}, errors.New("managed application databases require Rebecca to use the local MySQL or MariaDB service on port 3306")
+		}
+		if err := m.ensureExternalAppDatabaseFree(ctx, request.Database, request.DatabaseUser); err != nil {
+			return PublicRecord{}, err
+		}
 	}
 	if err := m.prepareStorage(); err != nil {
 		return PublicRecord{}, err
@@ -573,13 +607,28 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		return PublicRecord{}, err
 	}
 	defer os.RemoveAll(stage)
-	root, err := extractExternalAppArchive(archive, stage)
-	if err != nil {
-		return PublicRecord{}, err
-	}
-	runtime, err := detectExternalAppRuntime(root)
-	if err != nil {
-		return PublicRecord{}, err
+	var root, runtime string
+	if len(request.Archive) > 0 {
+		root, err = extractExternalAppArchive(request.Archive, stage)
+		if err != nil {
+			return PublicRecord{}, err
+		}
+		runtime, err = detectExternalAppRuntime(root)
+		if err != nil {
+			return PublicRecord{}, err
+		}
+	} else {
+		runtime = strings.ToLower(strings.TrimSpace(request.Runtime))
+		if runtime == "" {
+			runtime = "php"
+		}
+		if runtime != "php" && runtime != "static" {
+			return PublicRecord{}, errors.New("runtime must be php or static")
+		}
+		root = filepath.Join(stage, "app")
+		if err := os.Mkdir(root, 0o700); err != nil {
+			return PublicRecord{}, err
+		}
 	}
 
 	suffix := domainHash(domain)
@@ -592,18 +641,28 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 	record := Record{
 		ID:          suffix,
 		Template:    "archive",
-		Name:        normalizeExternalAppName(name, domain),
+		Name:        normalizeExternalAppName(request.Name, domain),
 		Domain:      domain,
 		Enabled:     true,
 		Runtime:     runtime,
-		IndexFile:   externalAppDefaultIndex(root, runtime),
-		SourceSHA:   sha256Hex(archive),
+		IndexFile:   "index.html",
 		InstalledAt: time.Now().UTC().Format(time.RFC3339),
 		Root:        appRoot,
 		storageBase: m.baseDir,
 	}
+	if runtime == "php" {
+		record.IndexFile = "index.php"
+	}
+	if len(request.Archive) > 0 {
+		record.IndexFile = externalAppDefaultIndex(root, runtime)
+		record.SourceSHA = sha256Hex(request.Archive)
+	}
+	if request.CreateDatabase {
+		record.Database = request.Database
+		record.DatabaseUser = request.DatabaseUser
+	}
 
-	var userCreated, appCreated, poolCreated bool
+	var userCreated, appCreated, poolCreated, databaseCreated bool
 	completed := false
 	defer func() {
 		if completed {
@@ -613,6 +672,9 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		if poolCreated {
 			_ = os.Remove(record.PoolConfig)
 			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "reload", record.Service)
+		}
+		if databaseCreated {
+			_ = m.dropExternalAppDatabase(context.Background(), record.Database, record.DatabaseUser)
 		}
 		if appCreated {
 			_ = os.RemoveAll(appRoot)
@@ -664,6 +726,12 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		}
 	} else if err := makeStaticTreeReadOnly(appRoot); err != nil {
 		return PublicRecord{}, err
+	}
+	if request.CreateDatabase {
+		if err := m.createExternalAppDatabase(ctx, record.Database, record.DatabaseUser, request.DatabasePassword); err != nil {
+			return PublicRecord{}, err
+		}
+		databaseCreated = true
 	}
 	if err := m.writeRecord(record); err != nil {
 		return PublicRecord{}, err
@@ -805,6 +873,9 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 	}
 	databasePassword, err := randomHex(24)
 	if err != nil {
+		return PublicRecord{}, err
+	}
+	if err := m.ensureExternalAppDatabaseFree(ctx, record.Database, record.DatabaseUser); err != nil {
 		return PublicRecord{}, err
 	}
 	databaseCreated = true
@@ -1412,6 +1483,10 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.handleExternalAppFiles(w, r, identifier, parts[2:])
 		return
 	}
+	if len(parts) == 2 && parts[1] == "database-backup" {
+		m.handleExternalAppDatabaseBackup(w, r, identifier)
+		return
+	}
 	if len(parts) == 2 && parts[1] == "php-config" {
 		m.handleExternalAppConfig(w, r, identifier)
 		return
@@ -1497,6 +1572,50 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, record)
 }
 
+func (m *Manager) handleExternalAppDatabaseBackup(w http.ResponseWriter, r *http.Request, identifier string) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if !m.operationMu.TryLock() {
+		writeExternalAppError(w, errExternalAppBusy)
+		return
+	}
+	record, ok := m.Lookup(identifier)
+	if !ok {
+		m.operationMu.Unlock()
+		writeExternalAppError(w, errExternalAppNotFound)
+		return
+	}
+	if record.Template != "mirzabot" || record.Database == "" {
+		m.operationMu.Unlock()
+		writeError(w, http.StatusBadRequest, "database backup is available only for MirzaBot applications")
+		return
+	}
+	dump, err := m.dumpExternalAppDatabase(r.Context(), record.Database)
+	m.operationMu.Unlock()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	name := dump.Name()
+	defer func() {
+		_ = dump.Close()
+		_ = os.Remove(name)
+	}()
+	info, err := dump.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "read database backup")
+		return
+	}
+	filename := fmt.Sprintf("mirzabot-%s-%s.sql", record.ID, time.Now().UTC().Format("20060102-150405"))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Header().Set("Content-Type", "application/sql")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, filename, info.ModTime(), dump)
+}
+
 func decodeMirzaInstallRequest(r *http.Request) (InstallRequest, error) {
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
 		var payload InstallRequest
@@ -1538,30 +1657,60 @@ func externalAppAPIPath(requestPath string) string {
 	return strings.Trim(strings.TrimPrefix(requestPath, "/api/settings/external-apps"), "/")
 }
 
-func (m *Manager) handleExternalAppArchiveInstall(w http.ResponseWriter, r *http.Request) {
+func decodeArchiveInstallRequest(r *http.Request) (ArchiveInstallRequest, error) {
 	if err := r.ParseMultipartForm(MaxRequestBodyBytes); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid multipart upload")
-		return
+		return ArchiveInstallRequest{}, errors.New("invalid multipart upload")
 	}
 	if r.MultipartForm != nil {
 		defer r.MultipartForm.RemoveAll()
 	}
+	request := ArchiveInstallRequest{
+		Domain:           r.FormValue("domain"),
+		Name:             r.FormValue("name"),
+		Runtime:          r.FormValue("runtime"),
+		Database:         r.FormValue("database"),
+		DatabaseUser:     r.FormValue("database_user"),
+		DatabasePassword: r.FormValue("database_password"),
+	}
+	if value := strings.TrimSpace(r.FormValue("create_database")); value != "" {
+		createDatabase, err := strconv.ParseBool(value)
+		if err != nil {
+			return ArchiveInstallRequest{}, errors.New("invalid database option")
+		}
+		request.CreateDatabase = createDatabase
+	}
 	file, _, err := r.FormFile("archive")
+	if errors.Is(err, http.ErrMissingFile) {
+		return request, nil
+	}
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "ZIP archive is required")
-		return
+		return ArchiveInstallRequest{}, errors.New("invalid ZIP archive upload")
 	}
 	defer file.Close()
-	if externalAppUsesCurrentPanelHost(r, r.FormValue("domain")) {
+	request.Archive, err = io.ReadAll(io.LimitReader(file, maxExternalAppArchiveBytes+1))
+	if err != nil {
+		return ArchiveInstallRequest{}, errors.New("read ZIP archive")
+	}
+	if len(request.Archive) == 0 {
+		return ArchiveInstallRequest{}, errors.New("ZIP archive is empty")
+	}
+	if len(request.Archive) > maxExternalAppArchiveBytes {
+		return ArchiveInstallRequest{}, errors.New("ZIP archive exceeds 32 MiB")
+	}
+	return request, nil
+}
+
+func (m *Manager) handleExternalAppArchiveInstall(w http.ResponseWriter, r *http.Request) {
+	request, err := decodeArchiveInstallRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if externalAppUsesCurrentPanelHost(r, request.Domain) {
 		writeError(w, http.StatusBadRequest, "the current panel hostname cannot be replaced by an application")
 		return
 	}
-	data, err := io.ReadAll(io.LimitReader(file, maxExternalAppArchiveBytes+1))
-	if err != nil || len(data) > maxExternalAppArchiveBytes {
-		writeError(w, http.StatusRequestEntityTooLarge, "ZIP archive exceeds 32 MiB")
-		return
-	}
-	record, err := m.installArchive(r.Context(), r.FormValue("domain"), r.FormValue("name"), data)
+	record, err := m.installArchive(r.Context(), request)
 	if err != nil {
 		writeExternalAppError(w, err)
 		return

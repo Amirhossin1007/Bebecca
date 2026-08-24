@@ -360,6 +360,20 @@ func parseDatabaseCredentials(databaseURL string) (databaseCredentials, error) {
 	return databaseCredentials{Username: username, Host: host, Port: port}, nil
 }
 
+func (m *Manager) ensureExternalAppDatabaseFree(ctx context.Context, database, username string) error {
+	query := "SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name=" + sqlString(database) + "), " +
+		"EXISTS(SELECT 1 FROM mysql.user WHERE User=" + sqlString(username) + ");\n"
+	output, err := m.mysqlRoot(ctx, query)
+	if err != nil {
+		return fmt.Errorf("check application database availability: %w", err)
+	}
+	values := strings.Fields(string(output))
+	if len(values) != 2 || values[0] != "0" || values[1] != "0" {
+		return errors.New("database name or database username already exists")
+	}
+	return nil
+}
+
 func (m *Manager) createExternalAppDatabase(ctx context.Context, database, username, password string) error {
 	credentials, err := parseDatabaseCredentials(m.databaseURL)
 	if err != nil {
@@ -388,7 +402,7 @@ func (m *Manager) createExternalAppDatabase(ctx context.Context, database, usern
 		fmt.Fprintf(&query, "GRANT ALL PRIVILEGES ON %s.* TO %s@%s;\n", sqlIdentifier(database), sqlString(credentials.Username), sqlString(host))
 	}
 	if _, err := m.mysqlRoot(ctx, query.String()); err != nil {
-		return fmt.Errorf("create isolated MirzaBot database: %w", err)
+		return fmt.Errorf("create isolated application database: %w", err)
 	}
 	return nil
 }
@@ -439,6 +453,87 @@ func (m *Manager) importExternalAppDatabase(ctx context.Context, database, usern
 		return fmt.Errorf("import MirzaBot database backup: %s", limitedExternalAppCommandOutput(output, err))
 	}
 	return nil
+}
+
+func (m *Manager) dumpExternalAppDatabase(parent context.Context, database string) (*os.File, error) {
+	if !databaseNamePattern.MatchString(database) {
+		return nil, errors.New("application database is invalid")
+	}
+	binary := "mariadb-dump"
+	if _, err := exec.LookPath(binary); err != nil {
+		binary = "mysqldump"
+		if _, err := exec.LookPath(binary); err != nil {
+			return nil, errors.New("mariadb-dump or mysqldump is not installed")
+		}
+	}
+	dump, err := os.CreateTemp("", "rebecca-external-app-*.sql")
+	if err != nil {
+		return nil, err
+	}
+	cleanup := func(err error) (*os.File, error) {
+		name := dump.Name()
+		_ = dump.Close()
+		_ = os.Remove(name)
+		return nil, err
+	}
+	var stderr bytes.Buffer
+	run := func(extraFile string, connection ...string) error {
+		if err := dump.Truncate(0); err != nil {
+			return err
+		}
+		if _, err := dump.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		stderr.Reset()
+		args := append([]string(nil), connection...)
+		args = append(args, "--user=root", "--single-transaction", "--quick", "--skip-lock-tables", "--routines", "--events", "--triggers", "--hex-blob", "--default-character-set=utf8mb4", database)
+		if extraFile != "" {
+			args = append([]string{"--defaults-extra-file=" + extraFile}, args...)
+		}
+		ctx, cancel := context.WithTimeout(parent, 10*time.Minute)
+		defer cancel()
+		command := exec.CommandContext(ctx, binary, args...)
+		command.Stdout = dump
+		command.Stderr = &stderr
+		return command.Run()
+	}
+	if err := run("", "--protocol=socket"); err != nil {
+		password := strings.TrimSpace(m.rootPassword)
+		if password == "" {
+			return cleanup(fmt.Errorf("export application database: %s", limitedExternalAppCommandOutput(stderr.Bytes(), err)))
+		}
+		credentialsFile, fileErr := os.CreateTemp("", "rebecca-mysql-root-*.cnf")
+		if fileErr != nil {
+			return cleanup(fileErr)
+		}
+		credentialsPath := credentialsFile.Name()
+		defer os.Remove(credentialsPath)
+		if fileErr = credentialsFile.Chmod(0o600); fileErr == nil {
+			_, fileErr = fmt.Fprintf(credentialsFile, "[client]\nuser=root\npassword=%s\n", mysqlOptionFileValue(password))
+		}
+		if closeErr := credentialsFile.Close(); fileErr == nil {
+			fileErr = closeErr
+		}
+		if fileErr != nil {
+			return cleanup(errors.New("write temporary database credentials"))
+		}
+		if err = run(credentialsPath, "--protocol=socket"); err != nil {
+			credentials, parseErr := parseDatabaseCredentials(m.databaseURL)
+			if parseErr != nil {
+				return cleanup(fmt.Errorf("export application database: %s", limitedExternalAppCommandOutput(stderr.Bytes(), err)))
+			}
+			if err = run(credentialsPath, "--protocol=tcp", "--host="+credentials.Host, "--port="+credentials.Port); err != nil {
+				return cleanup(fmt.Errorf("export application database: %s", limitedExternalAppCommandOutput(stderr.Bytes(), err)))
+			}
+		}
+	}
+	if err := dump.Sync(); err != nil {
+		return cleanup(err)
+	}
+	if _, err := dump.Seek(0, io.SeekStart); err != nil {
+		return cleanup(err)
+	}
+	return dump, nil
 }
 
 func (m *Manager) dropExternalAppDatabase(ctx context.Context, database, username string) error {

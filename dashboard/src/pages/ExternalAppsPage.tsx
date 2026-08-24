@@ -28,15 +28,18 @@ import {
 	VStack,
 } from "@chakra-ui/react";
 import {
+	ArrowDownTrayIcon,
 	ArrowTopRightOnSquareIcon,
 	ArrowPathIcon,
 	ArrowUpTrayIcon,
+	CircleStackIcon,
 	CodeBracketIcon,
 	Cog6ToothIcon,
 	FolderOpenIcon,
 	NoSymbolIcon,
 	PaperAirplaneIcon,
 	PlayIcon,
+	SparklesIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
@@ -54,6 +57,7 @@ import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Link as RouterLink } from "react-router-dom";
 import {
 	deleteExternalApp,
+	exportExternalAppDatabase,
 	getExternalApps,
 	getSubscriptionSettings,
 	installMirzaBot,
@@ -65,6 +69,7 @@ import {
 } from "service/settings";
 
 type TemplateID = "archive" | "mirzabot";
+type ArchiveRuntime = "php" | "static";
 
 const errorDetail = (error: unknown) => {
 	const candidate = error as {
@@ -93,7 +98,12 @@ export const ExternalAppsPage = () => {
 	const [template, setTemplate] = useState<TemplateID>("mirzabot");
 	const [domain, setDomain] = useState("");
 	const [name, setName] = useState("");
+	const [archiveRuntime, setArchiveRuntime] = useState<ArchiveRuntime>("php");
 	const [archive, setArchive] = useState<File | null>(null);
+	const [createDatabase, setCreateDatabase] = useState(false);
+	const [database, setDatabase] = useState("");
+	const [databaseUser, setDatabaseUser] = useState("");
+	const [databasePassword, setDatabasePassword] = useState("");
 	const [botToken, setBotToken] = useState("");
 	const [adminID, setAdminID] = useState("");
 	const [hasDatabaseBackup, setHasDatabaseBackup] = useState(false);
@@ -154,13 +164,40 @@ export const ExternalAppsPage = () => {
 	const selectedTemplate = appsQuery.data?.templates.find(
 		(item) => item.id === template,
 	);
+	const generateDatabaseCredentials = () => {
+		const values = new Uint8Array(20);
+		globalThis.crypto.getRandomValues(values);
+		const password = Array.from(values, (value) =>
+			value.toString(16).padStart(2, "0"),
+		).join("");
+		const suffix = password.slice(0, 10);
+		setDatabase(`app_${suffix}`);
+		setDatabaseUser(`app_${suffix}`);
+		setDatabasePassword(password);
+	};
 
 	const installMutation = useMutation(
 		async () => {
 			if (!domain) throw new Error(t("externalApps.errors.domainRequired"));
 			if (template === "archive") {
-				if (!archive) throw new Error(t("externalApps.errors.archiveRequired"));
-				return installExternalArchive({ domain, name, archive });
+				if (!name.trim())
+					throw new Error(t("externalApps.errors.nameRequired"));
+				if (
+					createDatabase &&
+					(!database.trim() || !databaseUser.trim() || !databasePassword)
+				) {
+					throw new Error(t("externalApps.errors.databaseFieldsRequired"));
+				}
+				return installExternalArchive({
+					domain,
+					name: name.trim(),
+					runtime: archiveRuntime,
+					archive: archive ?? undefined,
+					create_database: createDatabase,
+					database: database.trim(),
+					database_user: databaseUser.trim(),
+					database_password: databasePassword,
+				});
 			}
 			if (!botToken.trim() || !adminID.trim()) {
 				throw new Error(t("externalApps.errors.mirzaFieldsRequired"));
@@ -186,7 +223,14 @@ export const ExternalAppsPage = () => {
 				});
 				setDomain("");
 				setName("");
+				setArchiveRuntime("php");
 				setArchive(null);
+				if (template !== "archive" || !createDatabase) {
+					setCreateDatabase(false);
+					setDatabase("");
+					setDatabaseUser("");
+					setDatabasePassword("");
+				}
 				setBotToken("");
 				setAdminID("");
 				setHasDatabaseBackup(false);
@@ -250,6 +294,38 @@ export const ExternalAppsPage = () => {
 			});
 		},
 	});
+
+	const databaseBackupMutation = useMutation(
+		(app: ExternalAppRecord) => exportExternalAppDatabase(app.id),
+		{
+			onSuccess: (blob, app) => {
+				const url = URL.createObjectURL(blob);
+				const anchor = document.createElement("a");
+				const label = (app.bot_username || app.id).replace(
+					/[^A-Za-z0-9_-]/g,
+					"_",
+				);
+				anchor.href = url;
+				anchor.download = `mirzabot-${label}.sql`;
+				document.body.appendChild(anchor);
+				anchor.click();
+				anchor.remove();
+				URL.revokeObjectURL(url);
+				toast({
+					title: t("externalApps.databaseBackupReady"),
+					status: "success",
+				});
+			},
+			onError: (error) => {
+				toast({
+					title: t("externalApps.databaseBackupFailed"),
+					description: errorDetail(error),
+					status: "error",
+					isClosable: true,
+				});
+			},
+		},
+	);
 
 	const settingsMutation = useMutation(updateExternalAppSettings, {
 		onSuccess: () => {
@@ -383,6 +459,15 @@ export const ExternalAppsPage = () => {
 				label: t("externalApps.update"),
 				icon: <ArrowPathIcon width={16} />,
 				onClick: () => setUpdateTarget(app),
+			});
+		}
+		if (app.template === "mirzabot" && app.has_database) {
+			actions.push({
+				id: "database-backup",
+				label: t("externalApps.downloadDatabaseBackup"),
+				icon: <ArrowDownTrayIcon width={16} />,
+				onClick: () => databaseBackupMutation.mutate(app),
+				isDisabled: databaseBackupMutation.isLoading,
 			});
 		}
 		actions.push(
@@ -753,15 +838,40 @@ export const ExternalAppsPage = () => {
 						) : null}
 					</Stack>
 				) : (
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
+					<Stack mt={4} spacing={4}>
+						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.name")}</FormLabel>
+								<Input
+									value={name}
+									maxLength={80}
+									onChange={(event) => setName(event.target.value)}
+								/>
+							</FormControl>
+							<FormControl isDisabled={Boolean(archive)}>
+								<FormLabel>{t("externalApps.runtime")}</FormLabel>
+								<Select
+									value={archiveRuntime}
+									isDisabled={Boolean(archive)}
+									onValueChange={(value) =>
+										setArchiveRuntime(value as ArchiveRuntime)
+									}
+									options={[
+										{ value: "php", label: "PHP" },
+										{
+											value: "static",
+											label: t("externalApps.staticRuntime"),
+										},
+									]}
+								/>
+								<FormHelperText>
+									{archive
+										? t("externalApps.runtimeDetectedHint")
+										: t("externalApps.emptyRuntimeHint")}
+								</FormHelperText>
+							</FormControl>
+						</SimpleGrid>
 						<FormControl>
-							<FormLabel>{t("externalApps.name")}</FormLabel>
-							<Input
-								value={name}
-								onChange={(event) => setName(event.target.value)}
-							/>
-						</FormControl>
-						<FormControl isRequired>
 							<FormLabel>{t("externalApps.zipArchive")}</FormLabel>
 							<Input
 								type="file"
@@ -773,7 +883,73 @@ export const ExternalAppsPage = () => {
 							/>
 							<FormHelperText>{t("externalApps.archiveHint")}</FormHelperText>
 						</FormControl>
-					</SimpleGrid>
+						<Checkbox
+							isChecked={createDatabase}
+							onChange={(event) => setCreateDatabase(event.target.checked)}
+						>
+							{t("externalApps.createDatabase")}
+						</Checkbox>
+						{createDatabase ? (
+							<Box
+								borderWidth="1px"
+								borderColor={borderColor}
+								borderRadius="md"
+								p={4}
+							>
+								<HStack justify="space-between" mb={4} flexWrap="wrap" gap={2}>
+									<HStack>
+										<CircleStackIcon width={18} />
+										<Text fontWeight="semibold">
+											{t("externalApps.databaseSettings")}
+										</Text>
+									</HStack>
+									<Button
+										size="sm"
+										variant="outline"
+										leftIcon={<SparklesIcon width={16} />}
+										onClick={generateDatabaseCredentials}
+									>
+										{t("externalApps.generateDatabaseCredentials")}
+									</Button>
+								</HStack>
+								<SimpleGrid columns={{ base: 1, lg: 3 }} spacing={4}>
+									<FormControl isRequired>
+										<FormLabel>{t("externalApps.databaseName")}</FormLabel>
+										<Input
+											value={database}
+											maxLength={64}
+											autoComplete="off"
+											onChange={(event) => setDatabase(event.target.value)}
+										/>
+									</FormControl>
+									<FormControl isRequired>
+										<FormLabel>{t("externalApps.databaseUser")}</FormLabel>
+										<Input
+											value={databaseUser}
+											maxLength={32}
+											autoComplete="off"
+											onChange={(event) => setDatabaseUser(event.target.value)}
+										/>
+									</FormControl>
+									<FormControl isRequired>
+										<FormLabel>{t("externalApps.databasePassword")}</FormLabel>
+										<Input
+											type="text"
+											value={databasePassword}
+											maxLength={128}
+											autoComplete="new-password"
+											onChange={(event) =>
+												setDatabasePassword(event.target.value)
+											}
+										/>
+									</FormControl>
+								</SimpleGrid>
+								<Text color={mutedColor} fontSize="sm" mt={3}>
+									{t("externalApps.databaseCredentialsHint")}
+								</Text>
+							</Box>
+						) : null}
+					</Stack>
 				)}
 
 				<Button
@@ -784,7 +960,8 @@ export const ExternalAppsPage = () => {
 					isDisabled={
 						!appsQuery.data?.supported ||
 						selectedTemplate?.supported === false ||
-						!domain
+						!domain ||
+						(template === "archive" && !name.trim())
 					}
 					onClick={() => installMutation.mutate()}
 				>
