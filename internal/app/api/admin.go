@@ -1507,6 +1507,8 @@ func setUserPermission(perms *adminapp.AdminPermissions, key string, mode string
 		perms.Users.Delete = !value || defaults.Users.Delete
 	case "reset_usage":
 		perms.Users.ResetUsage = !value || defaults.Users.ResetUsage
+	case "periodic_usage_reset":
+		perms.Users.PeriodicUsageReset = !value || defaults.Users.PeriodicUsageReset
 	case "revoke":
 		perms.Users.Revoke = !value || defaults.Users.Revoke
 	case "create_on_hold":
@@ -1532,6 +1534,8 @@ func setUserPermission(perms *adminapp.AdminPermissions, key string, mode string
 			perms.Users.Delete = false
 		case "reset_usage":
 			perms.Users.ResetUsage = false
+		case "periodic_usage_reset":
+			perms.Users.PeriodicUsageReset = false
 		case "revoke":
 			perms.Users.Revoke = false
 		case "create_on_hold":

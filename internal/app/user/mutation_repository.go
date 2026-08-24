@@ -315,7 +315,7 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 		sets = append(sets, "contact_number = ?")
 		args = append(args, nullableStringPtr(payload.ContactNumber))
 	}
-	if payload.DataLimitResetStrategy != "" {
+	if rawFieldPresent(rawFields, "data_limit_reset_strategy") {
 		sets = append(sets, "data_limit_reset_strategy = ?")
 		args = append(args, resetStrategyOrDefault(payload.DataLimitResetStrategy))
 	}

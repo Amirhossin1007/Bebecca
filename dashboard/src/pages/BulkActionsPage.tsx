@@ -195,7 +195,11 @@ const Results = ({ results }: { results: BatchResult[] }) => {
 	);
 };
 
-const BulkCreatePanel = () => {
+const BulkCreatePanel = ({
+	canConfigurePeriodicUsageReset,
+}: {
+	canConfigurePeriodicUsageReset: boolean;
+}) => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const { refetchUsers } = useDashboard();
@@ -270,7 +274,10 @@ const BulkCreatePanel = () => {
 				expire: status === "active" && days > 0 ? now + days * 86400 : 0,
 				data_limit: Math.round(limitBytes),
 				ip_limit: normalizedIPLimit,
-				data_limit_reset_strategy: limitBytes > 0 ? resetStrategy : "no_reset",
+				data_limit_reset_strategy:
+					limitBytes > 0 && canConfigurePeriodicUsageReset
+						? resetStrategy
+						: "no_reset",
 				on_hold_expire_duration:
 					status === "on_hold" ? Math.round(days * 86400) : null,
 				note: note.replaceAll("{username}", username),
@@ -513,7 +520,9 @@ const BulkCreatePanel = () => {
 								onChange={(event) =>
 									setResetStrategy(event.target.value as DataLimitResetStrategy)
 								}
-								isDisabled={Number(dataLimit) <= 0}
+								isDisabled={
+									Number(dataLimit) <= 0 || !canConfigurePeriodicUsageReset
+								}
 							>
 								<option value="no_reset">{t("noReset")}</option>
 								<option value="day">{t("userDialog.resetStrategyDaily")}</option>
@@ -957,6 +966,7 @@ const BulkPermissionsPanel = () => {
 		UserPermissionToggle.Create,
 		UserPermissionToggle.Delete,
 		UserPermissionToggle.ResetUsage,
+		UserPermissionToggle.PeriodicUsageReset,
 		UserPermissionToggle.Revoke,
 	]);
 	const [isRunning, setIsRunning] = useState(false);
@@ -965,6 +975,7 @@ const BulkPermissionsPanel = () => {
 			{ key: UserPermissionToggle.Create, label: t("admins.bulkPermissions.create") },
 			{ key: UserPermissionToggle.Delete, label: t("admins.bulkPermissions.delete") },
 			{ key: UserPermissionToggle.ResetUsage, label: t("admins.bulkPermissions.resetUsage") },
+			{ key: UserPermissionToggle.PeriodicUsageReset, label: t("admins.bulkPermissions.periodicUsageReset") },
 			{ key: UserPermissionToggle.Revoke, label: t("admins.bulkPermissions.revoke") },
 			{ key: UserPermissionToggle.CreateOnHold, label: t("admins.bulkPermissions.createOnHold") },
 			{ key: UserPermissionToggle.AllowUnlimitedData, label: t("admins.bulkPermissions.allowUnlimitedData") },
@@ -1117,7 +1128,12 @@ export const BulkActionsPage = () => {
 					{t("bulkActions.locked")}
 				</Alert>
 			) : activeTab === "create" ? (
-				<BulkCreatePanel />
+				<BulkCreatePanel
+					canConfigurePeriodicUsageReset={
+						privileged ||
+						Boolean(permissions?.[UserPermissionToggle.PeriodicUsageReset])
+					}
+				/>
 			) : activeTab === "edit" ? (
 				<Box w="full">
 					<AdvancedUserActions embedded />

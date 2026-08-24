@@ -956,6 +956,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const canResetUsage =
 		hasFullAccess ||
 		Boolean(userData.permissions?.users?.[UserPermissionToggle.ResetUsage]);
+	const canConfigurePeriodicUsageReset =
+		hasFullAccess ||
+		Boolean(
+			userData.permissions?.users?.[UserPermissionToggle.PeriodicUsageReset],
+		);
 	const canRevokeSubscription =
 		hasFullAccess ||
 		Boolean(userData.permissions?.users?.[UserPermissionToggle.Revoke]);
@@ -1780,9 +1785,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 			ip_limit: normalizedIpLimit,
 
-			data_limit_reset_strategy:
-				data_limit && data_limit > 0 ? data_limit_reset_strategy : "no_reset",
-
 			status:
 				status === "active" || status === "disabled" || status === "on_hold"
 					? status
@@ -1793,6 +1795,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 			flow: canSetFlow ? flow || null : null,
 		};
+		if (canConfigurePeriodicUsageReset) {
+			body.data_limit_reset_strategy =
+				data_limit && data_limit > 0 ? data_limit_reset_strategy : "no_reset";
+		}
 
 		if (canSetCustomKey && manual_key_entry && credential_key) {
 			body.credential_key = credential_key;
@@ -2556,16 +2562,22 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				<Select
 																					size="sm"
 																					{...field}
-																					disabled={disabled}
+																					disabled={
+																						disabled ||
+																						!canConfigurePeriodicUsageReset
+																					}
 																					bg={
-																						disabled
+																						disabled ||
+																						!canConfigurePeriodicUsageReset
 																							? "gray.100"
 																							: "transparent"
 																					}
 																					_dark={{
-																						bg: disabled
-																							? "gray.600"
-																							: "transparent",
+																						bg:
+																							disabled ||
+																							!canConfigurePeriodicUsageReset
+																								? "gray.600"
+																								: "transparent",
 																					}}
 																					sx={{
 																						option: {

@@ -545,6 +545,48 @@ func TestServiceAdminTrafficCapsBlockUserManagement(t *testing.T) {
 	}
 }
 
+func TestPeriodicUsageResetPermissionControlsUserConfiguration(t *testing.T) {
+	server, db, _ := testUserMutationServer(t)
+	enableServiceTrafficAdmin(t, db, 2)
+	setAdminUserPermissions(t, db, 2, func(perms *adminapp.AdminPermissions) {
+		perms.Users.PeriodicUsageReset = false
+	})
+	seedServiceForAdmin(t, db, 1, "periodic", 2, `traffic_limit_mode`, `'used_traffic'`)
+	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, status, service_id, used_traffic, data_limit, data_limit_reset_strategy, credential_key, created_at) VALUES
+		(92, 'existing_periodic', 2, 'active', 1, 0, 100, 'day', 'periodic-key', '2026-06-05 00:00:00')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE nodes SET status = 'disconnected'`); err != nil {
+		t.Fatal(err)
+	}
+	sellerToken := adminBearerToken(t, server, "seller", "pass123")
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/v2/users", sellerToken, `{"username":"blocked_periodic","service_id":1,"data_limit":100,"data_limit_reset_strategy":"day"}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("periodic create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/existing_periodic", sellerToken, `{"note":"allowed"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unrelated edit status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT data_limit_reset_strategy FROM users WHERE id = 92`, "day")
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/existing_periodic", sellerToken, `{"data_limit_reset_strategy":"week"}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("periodic update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/existing_periodic", sellerToken, `{"data_limit_reset_strategy":"no_reset"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("disable periodic reset status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT data_limit_reset_strategy FROM users WHERE id = 92`, "no_reset")
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/users", sellerToken, `{"username":"allowed_without_periodic","service_id":1,"data_limit":100,"data_limit_reset_strategy":"no_reset"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("no-reset create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestServiceAdminLimitsEnforcedForUserServiceTransfer(t *testing.T) {
 	server, db, _ := testUserMutationServer(t)
 	enableServiceTrafficAdmin(t, db, 2)
