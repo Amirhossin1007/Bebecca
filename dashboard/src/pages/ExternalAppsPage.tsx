@@ -34,6 +34,9 @@ import {
 	CodeBracketIcon,
 	Cog6ToothIcon,
 	FolderOpenIcon,
+	NoSymbolIcon,
+	PaperAirplaneIcon,
+	PlayIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
@@ -292,10 +295,12 @@ export const ExternalAppsPage = () => {
 				cell: (app) => (
 					<Stack spacing={0} minW={0} align="start">
 						<Text fontWeight="semibold" noOfLines={1}>
-							{app.name}
+							{app.template === "mirzabot" ? "MirzaBot" : app.name}
 						</Text>
 						<Text color={mutedColor} fontSize="xs" noOfLines={1}>
-							{app.bot_username ? `@${app.bot_username}` : app.id}
+							{app.bot_username
+								? `@${app.bot_username.replace(/^@/, "")}`
+								: app.id}
 						</Text>
 					</Stack>
 				),
@@ -371,6 +376,7 @@ export const ExternalAppsPage = () => {
 		app: ExternalAppRecord,
 	): DataTableRowAction<ExternalAppRecord>[] => {
 		const actions: DataTableRowAction<ExternalAppRecord>[] = [];
+		const botUsername = app.bot_username?.replace(/^@/, "");
 		if (app.update_available) {
 			actions.push({
 				id: "update",
@@ -409,11 +415,31 @@ export const ExternalAppsPage = () => {
 				onClick: () =>
 					window.open(app.public_url, "_blank", "noopener,noreferrer"),
 			},
+			...(botUsername
+				? [
+						{
+							id: "open-bot",
+							label: t("externalApps.openBot"),
+							icon: <PaperAirplaneIcon width={16} />,
+							onClick: () =>
+								window.open(
+									`https://t.me/${encodeURIComponent(botUsername)}`,
+									"_blank",
+									"noopener,noreferrer",
+								),
+						},
+					]
+				: []),
 			{
 				id: "toggle",
 				label: app.enabled
 					? t("externalApps.disable")
 					: t("externalApps.enable"),
+				icon: app.enabled ? (
+					<NoSymbolIcon width={16} />
+				) : (
+					<PlayIcon width={16} />
+				),
 				onClick: () =>
 					toggleMutation.mutate({ id: app.id, enabled: !app.enabled }),
 				isDisabled: toggleMutation.isLoading,

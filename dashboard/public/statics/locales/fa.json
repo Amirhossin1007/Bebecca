@@ -3173,6 +3173,7 @@
 	"externalApps.enabled": "فعال",
 	"externalApps.disabled": "غیرفعال",
 	"externalApps.open": "باز کردن",
+	"externalApps.openBot": "باز کردن بات",
 	"externalApps.delete": "حذف",
 	"externalApps.unsupported": "میزبانی PHP روی این نوع نصب در دسترس نیست.",
 	"externalApps.errors.domainRequired": "گواهی دامنه را انتخاب کنید.",

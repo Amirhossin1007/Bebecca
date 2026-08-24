@@ -44,6 +44,7 @@ import {
 	ArrowUpTrayIcon,
 	ChevronDownIcon as HeroChevronDownIcon,
 	MagnifyingGlassIcon,
+	NoSymbolIcon,
 	PaperAirplaneIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -2073,6 +2074,7 @@ export const IntegrationSettingsPage = () => {
 			actions.push({
 				id: "revoke",
 				label: t("settings.subscriptions.revokeAction"),
+				icon: <NoSymbolIcon width={16} height={16} />,
 				onClick: () =>
 					setCertificateAction({ type: "revoke", domain: certificate.domain }),
 				isDanger: true,

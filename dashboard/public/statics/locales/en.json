@@ -3173,6 +3173,7 @@
 	"externalApps.enabled": "Enabled",
 	"externalApps.disabled": "Disabled",
 	"externalApps.open": "Open",
+	"externalApps.openBot": "Open bot",
 	"externalApps.delete": "Delete",
 	"externalApps.unsupported": "PHP hosting is not available on this installation.",
 	"externalApps.errors.domainRequired": "Select a domain certificate.",
