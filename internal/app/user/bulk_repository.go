@@ -308,6 +308,35 @@ func (r Repository) ensureBulkActionAllowedTx(ctx context.Context, tx *sql.Tx, r
 			return permissionHTTPError(err)
 		}
 	}
+	if payload.Action != AdvancedUserActionDeleteUsers && requester.UseServiceTrafficLimits && requester.Role != adminapp.RoleFullAccess {
+		filter := r.bulkFilter(targetAdmin, payload)
+		whereSQL, args := filter.sql()
+		rows, err := tx.QueryContext(ctx, `SELECT DISTINCT service_id FROM users WHERE `+whereSQL+` AND service_id IS NOT NULL`, args...)
+		if err != nil {
+			return err
+		}
+		serviceIDs := []int64{}
+		for rows.Next() {
+			var serviceID int64
+			if err := rows.Scan(&serviceID); err != nil {
+				rows.Close()
+				return err
+			}
+			serviceIDs = append(serviceIDs, serviceID)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		for _, serviceID := range serviceIDs {
+			if err := EnsureAdminServiceScopeAvailable(requester, serviceID, "run this bulk action"); err != nil {
+				return permissionHTTPError(err)
+			}
+		}
+	}
 	if payload.Action == AdvancedUserActionChangeService {
 		if payload.TargetServiceID == nil {
 			return clientError(400, "target_service_id is required. Users must be assigned to a service.")
@@ -317,15 +346,6 @@ func (r Repository) ensureBulkActionAllowedTx(ctx context.Context, tx *sql.Tx, r
 		}
 		if targetAdmin.UseServiceTrafficLimits || targetAdmin.TrafficLimitMode == adminapp.TrafficLimitCreatedTraffic {
 			return clientError(403, "Service transfer is disabled for created-traffic and per-service traffic admins.")
-		}
-	}
-	if payload.Action == AdvancedUserActionActivateUsers && targetAdmin != nil && targetAdmin.UseServiceTrafficLimits {
-		if payload.ServiceID == nil {
-			return clientError(403, "Select one service before activating users for a per-service traffic admin.")
-		}
-		limit := AdminServiceLimit(*targetAdmin, payload.ServiceID)
-		if limit != nil && TrafficScopeUsedLimitReached(*limit) {
-			return clientError(403, "This service traffic limit has been reached. You can't activate users in this service.")
 		}
 	}
 	if payload.Action == AdvancedUserActionIncreaseTraffic && payload.Gigabytes != nil && *payload.Gigabytes > 0 {
@@ -457,7 +477,7 @@ func (r Repository) updateBulkStatusTx(ctx context.Context, tx *sql.Tx, targetAd
 	filter.args = append(filter.args, string(status))
 	whereSQL, args := filter.sql()
 	now := time.Now().UTC()
-	res, err := tx.ExecContext(ctx, "UPDATE users SET status = ?, last_status_change = ?, admin_disabled_at = NULL WHERE "+whereSQL, append([]any{string(status), dbTime(now)}, args...)...)
+	res, err := tx.ExecContext(ctx, "UPDATE users SET status = ?, last_status_change = ?, admin_disabled_at = NULL, service_limit_disabled_at = NULL WHERE "+whereSQL, append([]any{string(status), dbTime(now)}, args...)...)
 	if err != nil {
 		return 0, err
 	}

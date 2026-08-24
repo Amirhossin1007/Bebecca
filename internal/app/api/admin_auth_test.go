@@ -131,8 +131,10 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			service_id INTEGER NULL,
 			status TEXT NOT NULL,
 			on_hold_timeout DATETIME NULL,
+			on_hold_expire_duration BIGINT NULL,
 			last_status_change DATETIME NULL,
 			admin_disabled_at DATETIME NULL,
+			service_limit_disabled_at DATETIME NULL,
 			online_at DATETIME NULL
 		)`,
 		`CREATE TABLE services (

@@ -117,6 +117,9 @@ func ValidateUserServiceCreatePermissions(admin adminapp.Admin, payload UserServ
 }
 
 func ValidateUserModifyPermissions(admin adminapp.Admin, payload UserModify, ctx MutationContext) error {
+	if err := EnsureUserManagementAvailable(admin, "modify users"); err != nil {
+		return err
+	}
 	if err := EnsureFlowPermission(admin, payload.Flow != nil && *payload.Flow != ""); err != nil {
 		return err
 	}
@@ -279,6 +282,16 @@ func EnsureAdminServiceScopeAvailable(admin adminapp.Admin, serviceID int64, act
 		return PermissionError{Detail: fmt.Sprintf("This service traffic limit has been reached. You can't %s.", action)}
 	}
 	return nil
+}
+
+func EnsureAdminUserServiceScopeAvailable(admin adminapp.Admin, serviceID *int64, action string) error {
+	if !admin.UseServiceTrafficLimits || admin.Role == adminapp.RoleFullAccess {
+		return nil
+	}
+	if serviceID == nil {
+		return PermissionError{Detail: "This admin must manage users inside an assigned service."}
+	}
+	return EnsureAdminServiceScopeAvailable(admin, *serviceID, action)
 }
 
 func ValidateCreatedTrafficDataLimitChange(

@@ -585,9 +585,6 @@ func TestServiceHostChangeKeepsSubscriptionLinkAndChangesConfigOutput(t *testing
 	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN expire BIGINT NULL`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN on_hold_expire_duration BIGINT NULL`); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN ip_limit INTEGER DEFAULT 0`); err != nil {
 		t.Fatal(err)
 	}

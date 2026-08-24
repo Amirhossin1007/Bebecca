@@ -41,6 +41,7 @@ CREATE TABLE users (
 	edit_at DATETIME NULL,
 	last_status_change DATETIME NULL,
 	admin_disabled_at DATETIME NULL,
+	service_limit_disabled_at DATETIME NULL,
 	FOREIGN KEY(admin_id) REFERENCES admins(id)
 )`, `
 CREATE TABLE users (
@@ -70,6 +71,7 @@ CREATE TABLE users (
 	edit_at DATETIME NULL,
 	last_status_change DATETIME NULL,
 	admin_disabled_at DATETIME NULL,
+	service_limit_disabled_at DATETIME NULL,
 	PRIMARY KEY (id),
 	CONSTRAINT fk_users_admin_id_admins FOREIGN KEY(admin_id) REFERENCES admins(id)
 )`); err != nil {
@@ -99,6 +101,7 @@ CREATE TABLE users (
 		{"auto_delete_in_days", "INTEGER NULL", ""},
 		{"edit_at", "DATETIME NULL", ""},
 		{"admin_disabled_at", "DATETIME NULL", ""},
+		{"service_limit_disabled_at", "DATETIME NULL", ""},
 	} {
 		if err := addColumn(ctx, tx, dialect, "users", item.column, item.sqlite, item.mysql); err != nil {
 			return err

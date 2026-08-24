@@ -181,6 +181,9 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 	if err := ensureCanAccessUser(admin, existing); err != nil {
 		return MutationResult{}, err
 	}
+	if err := EnsureAdminUserServiceScopeAvailable(admin, existing.ServiceID, "modify users"); err != nil {
+		return MutationResult{}, permissionHTTPError(err)
+	}
 	catalog, err := r.mutationContextTx(ctx, tx, admin, &existing.ID)
 	if err != nil {
 		return MutationResult{}, err
@@ -285,7 +288,7 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 	sets := []string{"edit_at = ?", "last_status_change = CASE WHEN status != ? THEN ? ELSE last_status_change END"}
 	args := []any{dbTime(time.Now().UTC()), newStatus, dbTime(time.Now().UTC())}
 	if payload.Status != "" || UserStatus(newStatus) != existing.Status {
-		sets = append(sets, "status = ?", "admin_disabled_at = NULL")
+		sets = append(sets, "status = ?", "admin_disabled_at = NULL", "service_limit_disabled_at = NULL")
 		args = append(args, newStatus)
 	}
 	if rawFieldPresent(rawFields, "flow") {
@@ -442,6 +445,9 @@ func (r Repository) resetUserMutation(ctx context.Context, admin adminapp.Admin,
 	if err := EnsureUserManagementAvailable(admin, "reset usage"); err != nil {
 		return MutationResult{}, permissionHTTPError(err)
 	}
+	if err := EnsureAdminUserServiceScopeAvailable(admin, existing.ServiceID, "reset usage"); err != nil {
+		return MutationResult{}, permissionHTTPError(err)
+	}
 	now := time.Now().UTC()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO user_usage_logs (user_id, used_traffic_at_reset, reset_at) VALUES (?, ?, ?)`, existing.ID, existing.UsedTraffic, dbTime(now)); err != nil {
 		return MutationResult{}, err
@@ -490,6 +496,9 @@ func (r Repository) revokeUserMutation(ctx context.Context, admin adminapp.Admin
 	if err := EnsureUserManagementAvailable(admin, "revoke subscription"); err != nil {
 		return MutationResult{}, permissionHTTPError(err)
 	}
+	if err := EnsureAdminUserServiceScopeAvailable(admin, existing.ServiceID, "revoke subscriptions"); err != nil {
+		return MutationResult{}, permissionHTTPError(err)
+	}
 	key, err := generateCredentialKey()
 	if err != nil {
 		return MutationResult{}, err
@@ -529,6 +538,9 @@ func (r Repository) activeNextMutation(ctx context.Context, admin adminapp.Admin
 		return MutationResult{}, permissionHTTPError(err)
 	}
 	if err := EnsureUserManagementAvailable(admin, "activate the next plan"); err != nil {
+		return MutationResult{}, permissionHTTPError(err)
+	}
+	if err := EnsureAdminUserServiceScopeAvailable(admin, existing.ServiceID, "activate next plans"); err != nil {
 		return MutationResult{}, permissionHTTPError(err)
 	}
 	plan, err := r.nextPlanTx(ctx, tx, existing.ID)

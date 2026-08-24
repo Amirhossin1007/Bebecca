@@ -477,7 +477,7 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 		if err != nil {
 			return err
 		}
-		limitTransition, err = reconcileAdminLimitStateTx(r.Context(), tx, updated, time.Now().UTC())
+		limitTransition, err = reconcileAdminTrafficLimitStateTx(r.Context(), tx, updated, time.Now().UTC())
 		if err != nil {
 			return err
 		}
@@ -685,7 +685,7 @@ func (s *Server) handleEnableAdmin(w http.ResponseWriter, r *http.Request, usern
 		if err != nil {
 			return err
 		}
-		if _, err := reconcileAdminLimitStateTx(r.Context(), tx, updated, nowTime); err != nil {
+		if _, err := reconcileAdminTrafficLimitStateTx(r.Context(), tx, updated, nowTime); err != nil {
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
@@ -823,7 +823,7 @@ func (s *Server) handleAdminUsageResetPath(w http.ResponseWriter, r *http.Reques
 		if err != nil {
 			return err
 		}
-		if _, err := reconcileAdminLimitStateTx(r.Context(), tx, updated, time.Now().UTC()); err != nil {
+		if _, err := reconcileAdminTrafficLimitStateTx(r.Context(), tx, updated, time.Now().UTC()); err != nil {
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
