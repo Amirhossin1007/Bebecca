@@ -4,12 +4,14 @@
 
 .external-app-files-new-file {
 	position: absolute;
-	inset-block-start: 1px;
+	inset-block-start: 6px;
 	inset-inline-start: 6px;
 	z-index: 3;
-	height: 33px;
+	height: 37px;
+	font-family: "Nunito Sans", sans-serif;
 	font-size: 14px;
 	font-weight: 400;
+	line-height: 21px;
 }
 
 .external-app-files-shell:has(.toolbar.file-selected)
