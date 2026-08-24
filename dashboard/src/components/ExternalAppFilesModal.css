@@ -2,7 +2,7 @@
 	position: relative;
 }
 
-.external-app-files-new-file {
+.external-app-files-shell > .external-app-files-new-file {
 	position: absolute;
 	inset-block-start: 6px;
 	inset-inline-start: 6px;
@@ -101,7 +101,8 @@
 }
 
 @media (max-width: 600px) {
-	.external-app-files-new-file {
+	.external-app-files-shell > .external-app-files-new-file {
+		height: 36px;
 		width: 34px;
 		min-width: 34px;
 		padding: 0;
