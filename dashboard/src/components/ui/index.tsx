@@ -135,6 +135,7 @@ export const TabSystem: FC<TabSystemProps> = ({ tabs, ...props }) => {
 	const activeValue = tabs.find((tab) => tab.isActive)?.value;
 
 	useEffect(() => {
+		if (!activeValue) return;
 		activeTabRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
 	}, [activeValue]);
 
