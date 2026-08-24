@@ -40,6 +40,8 @@ type repositoryCache struct {
 	fastCreateContextExpires time.Time
 	activeNodeIDs            []int64
 	activeNodeIDsExpires     time.Time
+	usersSummaryMu           sync.Mutex
+	usersSummaries           map[string]usersSummaryCacheEntry
 }
 
 func (r Repository) LinkPrerequisites(ctx context.Context, req LinkPrerequisitesRequest) (LinkPrerequisites, error) {

@@ -89,6 +89,7 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vmess_mask")
 	assertNoColumn(t, ctx, db, "sqlite", "jwt", "vless_mask")
 	assertIndex(t, ctx, db, "sqlite", "users", "ix_users_admin_status_created_id")
+	assertIndex(t, ctx, db, "sqlite", "users", "ix_users_created_id")
 	assertIndex(t, ctx, db, "sqlite", "users", "ix_users_credential_key")
 	assertIndex(t, ctx, db, "sqlite", "proxies", "ix_proxies_user_type")
 	assertIndex(t, ctx, db, "sqlite", "node_user_usages", "ix_node_user_usages_user_created_node")
@@ -495,6 +496,27 @@ func TestPreGooseVersion46SchemaStillRunsAdminCreatedByMigration(t *testing.T) {
 	if _, err := db.ExecContext(ctx, `INSERT INTO admins (id, username, hashed_password, role, status, created_by) VALUES (9104, 'invalid_admin', 'x', 'standard', 'active', NULL)`); err == nil {
 		t.Fatal("expected created_by NOT NULL constraint")
 	}
+}
+
+func TestPreGooseVersion47SchemaStillRunsUsersCreatedIndexMigration(t *testing.T) {
+	ctx := context.Background()
+	db := openSQLiteTestDB(t)
+	if err := RunMigrationsTo(ctx, db, "sqlite", 47); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `DROP TABLE goose_db_version`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE TABLE alembic_version (version_num TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO alembic_version (version_num) VALUES (?)`, legacyAlembicFinalRevision); err != nil {
+		t.Fatal(err)
+	}
+	if err := RunMigrations(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	assertIndex(t, ctx, db, "sqlite", "users", "ix_users_created_id")
 }
 
 func TestRunMigrationsToSQLite(t *testing.T) {

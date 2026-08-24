@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	defaultUsersOrder = "u.created_at DESC"
+	defaultUsersOrder    = "u.created_at DESC, u.id DESC"
+	usersSummaryCacheTTL = 5 * time.Second
 )
 
 type usersListRow struct {
@@ -32,13 +33,25 @@ type usersFilter struct {
 	args  []any
 }
 
+type usersSummary struct {
+	total           int64
+	statusBreakdown map[string]int64
+	usageTotal      int64
+	onlineTotal     int64
+}
+
+type usersSummaryCacheEntry struct {
+	value     usersSummary
+	expiresAt time.Time
+}
+
 func (r Repository) UsersList(ctx context.Context, req UsersListRequest) (UsersResponse, error) {
 	filter, err := r.usersFilter(req)
 	if err != nil {
 		return UsersResponse{}, err
 	}
 
-	total, err := r.usersCount(ctx, filter)
+	summary, err := r.usersSummary(ctx, filter)
 	if err != nil {
 		return UsersResponse{}, err
 	}
@@ -166,27 +179,14 @@ func (r Repository) UsersList(ctx context.Context, req UsersListRequest) (UsersR
 	if err != nil {
 		return UsersResponse{}, err
 	}
-	statusBreakdown, err := r.usersStatusBreakdown(ctx, filter)
-	if err != nil {
-		return UsersResponse{}, err
-	}
-	usageTotal, err := r.usersUsageTotal(ctx, filter)
-	if err != nil {
-		return UsersResponse{}, err
-	}
-	onlineTotal, err := r.usersOnlineTotal(ctx, filter)
-	if err != nil {
-		return UsersResponse{}, err
-	}
-
 	return UsersResponse{
 		Users:           items,
 		LinkTemplates:   map[string][]string{},
-		Total:           total,
+		Total:           summary.total,
 		ActiveTotal:     activeTotal,
-		StatusBreakdown: statusBreakdown,
-		UsageTotal:      &usageTotal,
-		OnlineTotal:     &onlineTotal,
+		StatusBreakdown: summary.statusBreakdown,
+		UsageTotal:      &summary.usageTotal,
+		OnlineTotal:     &summary.onlineTotal,
 	}, nil
 }
 
@@ -208,7 +208,7 @@ func (r Repository) usersFilter(req UsersListRequest) (usersFilter, error) {
 	if req.Admin.ID != nil && *req.Admin.ID > 0 {
 		filter.add("u.admin_id = ?", *req.Admin.ID)
 	} else if len(req.Owners) > 0 {
-		filter.add("a.username IN ("+placeholders(len(req.Owners))+")", stringArgs(req.Owners)...)
+		filter.add("u.admin_id IN (SELECT id FROM admins WHERE username IN ("+placeholders(len(req.Owners))+"))", stringArgs(req.Owners)...)
 	}
 	if strings.TrimSpace(req.Search) != "" {
 		if err := r.addUsersSearchFilter(&filter, req.Search); err != nil {
@@ -231,30 +231,98 @@ func (filter usersFilter) whereSQL() string {
 	return " WHERE " + strings.Join(filter.where, " AND ")
 }
 
-func usersFromSQL() string {
+func usersBaseFromSQL() string {
 	return ` FROM users u
-LEFT JOIN admins a ON u.admin_id = a.id
-LEFT JOIN services s ON u.service_id = s.id
+LEFT JOIN admins a ON u.admin_id = a.id`
+}
+
+func usersRowsFromSQL() string {
+	return usersBaseFromSQL() + `
+LEFT JOIN services s ON u.service_id = s.id`
+}
+
+func usersSummaryFromSQL() string {
+	return ` FROM users u
 LEFT JOIN (
 	SELECT user_id, SUM(used_traffic_at_reset) AS reseted_usage
 	FROM user_usage_logs
 	GROUP BY user_id
 ) rul ON rul.user_id = u.id
 LEFT JOIN (
-	SELECT user_id
-	FROM vpn_user_sessions
-	WHERE ended_at IS NULL
-	GROUP BY user_id
-) live_session ON live_session.user_id = u.id`
+	SELECT uoi.user_id
+	FROM user_online_ips uoi
+	WHERE uoi.last_seen_at >= ?
+		AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = uoi.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
+	UNION
+	SELECT vus.user_id
+	FROM vpn_user_sessions vus
+	WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ?
+		AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = vus.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
+) online_user ON online_user.user_id = u.id`
 }
 
-func (r Repository) usersCount(ctx context.Context, filter usersFilter) (int64, error) {
-	query := "SELECT COUNT(u.id)" + usersFromSQL() + filter.whereSQL()
-	var count int64
-	if err := r.db.QueryRowContext(ctx, query, filter.args...).Scan(&count); err != nil {
-		return 0, err
+func (r Repository) usersSummary(ctx context.Context, filter usersFilter) (usersSummary, error) {
+	keyJSON, err := json.Marshal(struct {
+		Where []string
+		Args  []any
+	}{filter.where, filter.args})
+	if err != nil || r.cache == nil {
+		return r.queryUsersSummary(ctx, filter)
 	}
-	return count, nil
+
+	// ponytail: one lock bounds expensive summary work; split it per key only if summary throughput becomes measurable.
+	r.cache.usersSummaryMu.Lock()
+	defer r.cache.usersSummaryMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return usersSummary{}, err
+	}
+	now := time.Now()
+	if cached, ok := r.cache.usersSummaries[string(keyJSON)]; ok && now.Before(cached.expiresAt) {
+		return cached.value, nil
+	}
+	result, err := r.queryUsersSummary(ctx, filter)
+	if err != nil {
+		return usersSummary{}, err
+	}
+	if r.cache.usersSummaries == nil {
+		r.cache.usersSummaries = map[string]usersSummaryCacheEntry{}
+	}
+	for key, cached := range r.cache.usersSummaries {
+		if !now.Before(cached.expiresAt) {
+			delete(r.cache.usersSummaries, key)
+		}
+	}
+	r.cache.usersSummaries[string(keyJSON)] = usersSummaryCacheEntry{value: result, expiresAt: time.Now().Add(usersSummaryCacheTTL)}
+	return result, nil
+}
+
+func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (usersSummary, error) {
+	cutoff := online.Cutoff(time.Now())
+	query := `SELECT
+	u.status,
+	COUNT(u.id),
+	COALESCE(SUM(COALESCE(u.used_traffic, 0) + COALESCE(rul.reseted_usage, 0)), 0),
+	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
+	args := append([]any{cutoff, cutoff}, filter.args...)
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return usersSummary{}, err
+	}
+	defer rows.Close()
+
+	result := usersSummary{statusBreakdown: map[string]int64{}}
+	for rows.Next() {
+		var status string
+		var count, usage, onlineCount int64
+		if err := rows.Scan(&status, &count, &usage, &onlineCount); err != nil {
+			return usersSummary{}, err
+		}
+		result.statusBreakdown[status] = count
+		result.total += count
+		result.usageTotal += usage
+		result.onlineTotal += onlineCount
+	}
+	return result, rows.Err()
 }
 
 func (r Repository) usersRows(ctx context.Context, filter usersFilter, req UsersListRequest) ([]usersListRow, error) {
@@ -263,12 +331,20 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.username,
 	u.status,
 	COALESCE(u.used_traffic, 0),
-	COALESCE(u.used_traffic, 0) + COALESCE(rul.reseted_usage, 0),
+	COALESCE(u.used_traffic, 0) + COALESCE((
+		SELECT SUM(uul.used_traffic_at_reset)
+		FROM user_usage_logs uul
+		WHERE uul.user_id = u.id
+	), 0),
 	u.created_at,
 	u.expire,
 	u.data_limit,
 	u.data_limit_reset_strategy,
-	CASE WHEN live_session.user_id IS NOT NULL THEN CURRENT_TIMESTAMP ELSE u.online_at END,
+	CASE WHEN EXISTS (
+		SELECT 1
+		FROM vpn_user_sessions vus
+		WHERE vus.user_id = u.id AND vus.ended_at IS NULL
+	) THEN CURRENT_TIMESTAMP ELSE u.online_at END,
 	u.service_id,
 	s.name,
 	u.admin_id,
@@ -276,7 +352,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.credential_key,
 	u.subadress,
 	u.flow,
-	u.on_hold_expire_duration` + usersFromSQL() + filter.whereSQL() + " ORDER BY " + usersOrderSQL(req.Sort)
+	u.on_hold_expire_duration` + usersRowsFromSQL() + filter.whereSQL() + " ORDER BY " + usersOrderSQL(req.Sort)
 	args := append([]any{}, filter.args...)
 	if req.Offset != nil {
 		limit := int64(9223372036854775807)
@@ -392,49 +468,6 @@ func (r Repository) usersActiveTotal(ctx context.Context, req UsersListRequest) 
 		return nil, err
 	}
 	return &total, nil
-}
-
-func (r Repository) usersStatusBreakdown(ctx context.Context, filter usersFilter) (map[string]int64, error) {
-	query := "SELECT u.status, COUNT(u.id)" + usersFromSQL() + filter.whereSQL() + " GROUP BY u.status"
-	rows, err := r.db.QueryContext(ctx, query, filter.args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	result := map[string]int64{}
-	for rows.Next() {
-		var status string
-		var count int64
-		if err := rows.Scan(&status, &count); err != nil {
-			return nil, err
-		}
-		result[status] = count
-	}
-	return result, rows.Err()
-}
-
-func (r Repository) usersUsageTotal(ctx context.Context, filter usersFilter) (int64, error) {
-	query := "SELECT COALESCE(SUM(COALESCE(u.used_traffic, 0) + COALESCE(rul.reseted_usage, 0)), 0)" + usersFromSQL() + filter.whereSQL()
-	var total int64
-	if err := r.db.QueryRowContext(ctx, query, filter.args...).Scan(&total); err != nil {
-		return 0, err
-	}
-	return total, nil
-}
-
-func (r Repository) usersOnlineTotal(ctx context.Context, filter usersFilter) (int64, error) {
-	args := append([]any{}, filter.args...)
-	clauses := append([]string{}, filter.where...)
-	clauses = append(clauses, online.UserPredicate)
-	cutoff := online.Cutoff(time.Now())
-	args = append(args, cutoff, cutoff)
-	queryFilter := usersFilter{where: clauses, args: args}
-	query := "SELECT COUNT(u.id)" + usersFromSQL() + queryFilter.whereSQL()
-	var total int64
-	if err := r.db.QueryRowContext(ctx, query, queryFilter.args...).Scan(&total); err != nil {
-		return 0, err
-	}
-	return total, nil
 }
 
 func addAdvancedUsersFilters(filter *usersFilter, filters []string) {

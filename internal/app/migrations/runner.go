@@ -20,7 +20,7 @@ var gooseMu sync.Mutex
 var migrationDialect string
 
 const (
-	latestGooseVersion         int64 = 47
+	latestGooseVersion         int64 = 48
 	legacyAlembicFinalRevision       = "23_drop_access_insights"
 	legacyAlembicFinalBaseline int64 = 16
 )
@@ -186,6 +186,13 @@ func legacyGooseBaseline(ctx context.Context, db *sql.DB, dialect string, revisi
 			}
 			if !hasAdminCreatedBy {
 				return 46, nil
+			}
+			hasUsersCreatedIndex, err := HasIndex(ctx, db, dialect, "users", "ix_users_created_id")
+			if err != nil {
+				return 0, err
+			}
+			if !hasUsersCreatedIndex {
+				return 47, nil
 			}
 			return latestGooseVersion, nil
 		}
