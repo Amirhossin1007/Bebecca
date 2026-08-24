@@ -4,10 +4,10 @@
 
 .external-app-files-shell > .external-app-files-new-file {
 	position: absolute;
-	inset-block-start: 6px;
+	inset-block-start: 1px;
 	inset-inline-start: 6px;
 	z-index: 3;
-	height: 37px;
+	height: 34px;
 	font-family: "Nunito Sans", sans-serif;
 	font-size: 14px;
 	font-weight: 400;
@@ -36,6 +36,24 @@
 	overflow-x: auto;
 	overflow-y: hidden;
 	scrollbar-width: thin;
+}
+
+.external-app-files .toolbar:not(.file-selected) {
+	padding-block: 0;
+}
+
+.external-app-files .toolbar .fm-toolbar,
+.external-app-files .toolbar .fm-toolbar > div,
+.external-app-files .toolbar .toolbar-left-items {
+	height: 100%;
+	align-items: center;
+}
+
+.external-app-files .toolbar .fm-toolbar .item-action,
+.external-app-files .toolbar .fm-toolbar .item-separator {
+	height: 100%;
+	margin-block: 0;
+	padding-block: 0;
 }
 
 .external-app-files .toolbar .file-action-container {
@@ -102,7 +120,6 @@
 
 @media (max-width: 600px) {
 	.external-app-files-shell > .external-app-files-new-file {
-		height: 36px;
 		width: 34px;
 		min-width: 34px;
 		padding: 0;
