@@ -887,7 +887,7 @@ export const IntegrationSettingsPage = () => {
 	}, [activeMaintenanceAction]);
 
 	const [panelDefaultSubType, setPanelDefaultSubType] = useState<
-		"username-key" | "key" | "token"
+		"username-key" | "key" | "token" | "key-username"
 	>(panelData?.default_subscription_type ?? "key");
 	const [runtimeSettingsForm, setRuntimeSettingsForm] =
 		useState<RuntimeSettingsResponse>(defaultRuntimeSettings);
@@ -2475,7 +2475,8 @@ export const IntegrationSettingsPage = () => {
 														event.target.value as
 															| "username-key"
 															| "key"
-															| "token",
+															| "token"
+															| "key-username",
 													)
 												}
 												isDisabled={panelMutation.isLoading || isPanelLoading}
@@ -2485,6 +2486,9 @@ export const IntegrationSettingsPage = () => {
 												</option>
 												<option value="key">
 													{t("settings.panel.link.keyOnly")}
+												</option>
+												<option value="key-username">
+													{t("settings.panel.link.keyUsername")}
 												</option>
 												<option value="token">
 													{t("settings.panel.link.token")}

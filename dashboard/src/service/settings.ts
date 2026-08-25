@@ -131,11 +131,11 @@ export const sendTelegramBackup = async (
 };
 
 export interface PanelSettingsResponse {
-	default_subscription_type: "username-key" | "key" | "token";
+	default_subscription_type: "username-key" | "key" | "token" | "key-username";
 }
 
 export interface PanelSettingsUpdatePayload {
-	default_subscription_type?: "username-key" | "key" | "token";
+	default_subscription_type?: "username-key" | "key" | "token" | "key-username";
 }
 
 export type RebeccaBackupScope = "database" | "full";
