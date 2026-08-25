@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -717,7 +718,7 @@ func cleanValues(values []string) []string {
 }
 
 func requestOrigin(r *http.Request) string {
-	proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto"))
+	proto := strings.ToLower(firstForwardedValue(r.Header.Get("X-Forwarded-Proto")))
 	if proto == "" {
 		if r.TLS != nil {
 			proto = "https"
@@ -725,14 +726,33 @@ func requestOrigin(r *http.Request) string {
 			proto = "http"
 		}
 	}
-	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	host := firstForwardedValue(r.Header.Get("X-Forwarded-Host"))
 	if host == "" {
 		host = strings.TrimSpace(r.Host)
 	}
 	if host == "" {
 		return ""
 	}
+	parsedHost := &url.URL{Host: host}
+	if parsedHost.Port() == "" && parsedHost.Hostname() != "" {
+		port := firstForwardedValue(r.Header.Get("X-Forwarded-Port"))
+		if port == "" {
+			requestHost := &url.URL{Host: strings.TrimSpace(r.Host)}
+			if strings.EqualFold(requestHost.Hostname(), parsedHost.Hostname()) {
+				port = requestHost.Port()
+			}
+		}
+		value, err := strconv.Atoi(port)
+		if err == nil && value > 0 && value <= 65535 && !((proto == "https" && value == 443) || (proto == "http" && value == 80)) {
+			host = net.JoinHostPort(parsedHost.Hostname(), port)
+		}
+	}
 	return proto + "://" + host
+}
+
+func firstForwardedValue(value string) string {
+	value, _, _ = strings.Cut(value, ",")
+	return strings.TrimSpace(value)
 }
 
 func (s *Server) sanitizeUsersResponse(admin adminapp.Admin, response *userapp.UsersResponse) {
