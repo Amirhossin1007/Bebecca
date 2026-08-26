@@ -1,4 +1,5 @@
 import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
+import { type ComponentType, lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	createBrowserRouter,
@@ -8,7 +9,6 @@ import {
 	useNavigate,
 	useRouteError,
 } from "react-router-dom";
-import { lazy, Suspense, type ComponentType, useEffect } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { fetch } from "../service/http";
 import { recoverFromStaleChunk } from "../utils/chunkRecovery";
@@ -26,6 +26,7 @@ const ApiDocsPage = lazy(async () => ({
 const BulkActionsPage = lazy(() => import("./BulkActionsPage"));
 const CoreSettingsPage = lazy(() => import("./CoreSettingsPage"));
 const HostsPage = lazy(() => import("./HostsPage"));
+const HAProxyPage = lazy(() => import("./HAProxyPage"));
 const IntegrationSettingsPage = lazy(async () => ({
 	default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
 }));
@@ -109,6 +110,7 @@ const routeSegments = new Set([
 	"tutorials",
 	"services",
 	"hosts",
+	"haproxy",
 	"node-settings",
 	"integrations",
 	"settings",
@@ -225,6 +227,10 @@ export const router = createBrowserRouter(
 				{
 					path: "hosts",
 					element: <LazyPage Page={HostsPage} />,
+				},
+				{
+					path: "haproxy",
+					element: <LazyPage Page={HAProxyPage} />,
 				},
 				{
 					path: "node-settings",

@@ -17,6 +17,9 @@ func apiRequestBodyLimit(path string) int64 {
 	if path == "/api/settings/backup/import" {
 		return 0
 	}
+	if path == "/api/haproxy/templates" {
+		return maxHAProxyTemplateUpload + (1 << 20)
+	}
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
 	}
@@ -63,6 +66,7 @@ func (s *Server) Handler() http.Handler {
 	r.HandleFunc("/admin/token", s.handleAdminToken)
 	r.HandleFunc("/internal/admin/validate", s.handleInternalAdminValidate)
 	r.HandleFunc("/internal/node/session-event", s.handleNodeSessionEvent)
+	r.HandleFunc("/internal/node/haproxy-template/*", s.handleNodeHAProxyTemplate)
 	r.HandleFunc("/xray/*", s.requireSudo(s.handleXrayHelperPath))
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
@@ -220,6 +224,8 @@ func (s *Server) registerSubscriptionRoutes(r chi.Router) {
 }
 
 func (s *Server) registerNodeRoutes(r chi.Router) {
+	r.HandleFunc("/haproxy/*", s.requireSudo(s.handleHAProxyPath))
+	r.HandleFunc("/haproxy", s.requireSudo(s.handleHAProxyRoot))
 	r.HandleFunc("/nodes/service/update", s.requireSudo(s.handleNodesServiceUpdate))
 	r.HandleFunc("/nodes/usage", s.requireSudo(s.handleNodesUsage))
 	r.HandleFunc("/nodes/metrics", s.requireSudo(s.handleNodesMetricsWebSocket))

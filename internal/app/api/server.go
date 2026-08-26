@@ -85,7 +85,7 @@ func New(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("database integrity check: %w", err)
 	}
 	adminRepo := adminapp.NewRepository(pool.DB, pool.Dialect)
-	nodeRepo := nodecontroller.NewRepository(pool.DB, pool.Dialect)
+	nodeRepo := nodecontroller.NewRepository(pool.DB, pool.Dialect, cfg.CertificateBase)
 	nodeMutationRepo := nodeapp.NewRepository(pool.DB, pool.Dialect)
 	usageRepo := usage.NewRepository(pool.DB, pool.Dialect)
 	userRepo := userapp.NewRepository(pool.DB, pool.Dialect)

@@ -911,6 +911,13 @@ ensure_ov_binary_prerequisites() {
     fi
 }
 
+ensure_haproxy_prerequisites() {
+    if ! command -v haproxy >/dev/null 2>&1; then
+        detect_os
+        install_package haproxy
+    fi
+}
+
 ensure_python3_venv() {
     detect_os
     if [[ "$OS" == "Ubuntu"* ]] || [[ "$OS" == "Debian"* ]]; then
@@ -1286,6 +1293,7 @@ install_binary_rebecca_node() {
         fi
     done
     ensure_ov_binary_prerequisites
+    ensure_haproxy_prerequisites
 
     binary_arch=$(detect_node_binary_arch)
     tmp_dir=$(mktemp -d)

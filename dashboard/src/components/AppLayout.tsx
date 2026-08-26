@@ -27,6 +27,7 @@ import {
 } from "@chakra-ui/react";
 import {
 	ArrowLeftOnRectangleIcon,
+	ArrowsRightLeftIcon,
 	ArrowUpOnSquareIcon,
 	Bars3Icon,
 	BookOpenIcon,
@@ -35,9 +36,9 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
-	CommandLineIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
+	CommandLineIcon,
 	EyeIcon,
 	HomeIcon as HeroHomeIcon,
 	LanguageIcon,
@@ -94,6 +95,7 @@ const MasterSettingsIcon = chakra(Cog8ToothIcon, iconProps);
 const XraySettingsIcon = chakra(WrenchScrewdriverIcon, iconProps);
 const ServicesIcon = chakra(Squares2X2Icon, iconProps);
 const HostsIcon = chakra(LinkIcon, iconProps);
+const HAProxyIcon = chakra(ArrowsRightLeftIcon, iconProps);
 const NodesIcon = chakra(ServerStackIcon, iconProps);
 const InsightsIcon = chakra(EyeIcon, iconProps);
 const RecentActionsIcon = chakra(ClockIcon, iconProps);
@@ -276,6 +278,14 @@ export function AppLayout() {
 						label: t("header.xraySettings"),
 						to: "/xray-settings",
 						icon: XraySettingsIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "haproxy",
+						label: t("haproxy.title"),
+						to: "/haproxy",
+						icon: HAProxyIcon,
 					}
 				: null,
 			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]

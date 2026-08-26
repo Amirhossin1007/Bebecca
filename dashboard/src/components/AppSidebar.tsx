@@ -9,6 +9,7 @@ import {
 	VStack,
 } from "@chakra-ui/react";
 import {
+	ArrowsRightLeftIcon,
 	BellAlertIcon,
 	BoltIcon,
 	BookOpenIcon,
@@ -16,10 +17,10 @@ import {
 	ChartBarIcon,
 	CircleStackIcon,
 	ClockIcon,
-	CommandLineIcon,
 	CodeBracketSquareIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
+	CommandLineIcon,
 	DocumentTextIcon,
 	EyeIcon,
 	HomeIcon,
@@ -66,6 +67,7 @@ const NodeIconStyled = chakra(ServerStackIcon, iconProps);
 const AdminIconStyled = chakra(BriefcaseIcon, iconProps);
 const ServicesIconStyled = chakra(Squares2X2Icon, iconProps);
 const HostsIconStyled = chakra(LinkIcon, iconProps);
+const HAProxyIconStyled = chakra(ArrowsRightLeftIcon, iconProps);
 const UsageIconStyled = chakra(ChartBarIcon, iconProps);
 const MyAccountIconStyled = chakra(UserCircleIcon, iconProps);
 const InsightsIconStyled = chakra(EyeIcon, iconProps);
@@ -222,6 +224,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					title: t("header.xraySettings"),
 					url: "/xray-settings",
 					icon: XraySettingsIconStyled,
+				}
+			: null,
+		isPrivilegedAdmin
+			? {
+					title: t("haproxy.title"),
+					url: "/haproxy",
+					icon: HAProxyIconStyled,
 				}
 			: null,
 		sectionAccess?.[AdminSection.Xray]
@@ -384,6 +393,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			items: [
 				pickSetting("/settings"),
 				pickSetting("/xray-settings"),
+				pickSetting("/haproxy"),
 				pickSetting("/xray-logs"),
 				pickSetting("/access-insights"),
 				pickSetting("/recent-actions"),

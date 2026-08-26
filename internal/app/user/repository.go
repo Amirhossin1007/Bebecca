@@ -288,7 +288,64 @@ func (r Repository) ResolvedInboundsByTag(ctx context.Context) (map[string]Resol
 			order = append(order, tag)
 		}
 	}
+	publicPorts, err := r.haproxyPublicPorts(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	for tag, port := range publicPorts {
+		if inbound, ok := result[tag]; ok {
+			inbound["port"] = port
+		}
+	}
 	return result, order, nil
+}
+
+func (r Repository) haproxyPublicPorts(ctx context.Context) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT ht.listeners
+FROM haproxy_targets ht
+JOIN haproxy_configs hc ON hc.id = ht.config_id
+WHERE hc.enabled = 1`)
+	if err != nil {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "no such table") || strings.Contains(message, "doesn't exist") {
+			return map[string]int{}, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	ports, conflicts := map[string]int{}, map[string]bool{}
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var listeners []struct {
+			ListenPort int `json:"listen_port"`
+			Routes     []struct {
+				Source     string `json:"source"`
+				InboundTag string `json:"inbound_tag"`
+			} `json:"routes"`
+		}
+		if err := json.Unmarshal([]byte(raw), &listeners); err != nil {
+			return nil, fmt.Errorf("decode HAProxy listeners: %w", err)
+		}
+		for _, listener := range listeners {
+			for _, route := range listener.Routes {
+				tag := strings.TrimSpace(route.InboundTag)
+				if route.Source != "xray" || tag == "" || conflicts[tag] {
+					continue
+				}
+				if current, exists := ports[tag]; exists && current != listener.ListenPort {
+					delete(ports, tag)
+					conflicts[tag] = true
+					continue
+				}
+				ports[tag] = listener.ListenPort
+			}
+		}
+	}
+	return ports, rows.Err()
 }
 
 func (r Repository) rawXrayConfigs(ctx context.Context) ([]map[string]any, error) {

@@ -14,8 +14,9 @@ import (
 )
 
 type Repository struct {
-	db      *sql.DB
-	dialect string
+	db              *sql.DB
+	dialect         string
+	certificateBase string
 }
 
 type NodeRow struct {
@@ -62,8 +63,12 @@ const (
 
 var runtimeProxyProtocolList = []string{"vmess", "vless", "trojan", "shadowsocks", "hysteria"}
 
-func NewRepository(db *sql.DB, dialect string) Repository {
-	return Repository{db: db, dialect: dialect}
+func NewRepository(db *sql.DB, dialect string, certificateBase ...string) Repository {
+	base := ""
+	if len(certificateBase) > 0 {
+		base = certificateBase[0]
+	}
+	return Repository{db: db, dialect: dialect, certificateBase: base}
 }
 
 func (r Repository) Node(ctx context.Context, nodeID int64) (NodeRow, error) {

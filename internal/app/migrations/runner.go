@@ -20,7 +20,7 @@ var gooseMu sync.Mutex
 var migrationDialect string
 
 const (
-	latestGooseVersion         int64 = 49
+	latestGooseVersion         int64 = 50
 	legacyAlembicFinalRevision       = "23_drop_access_insights"
 	legacyAlembicFinalBaseline int64 = 16
 )
@@ -193,6 +193,17 @@ func legacyGooseBaseline(ctx context.Context, db *sql.DB, dialect string, revisi
 			}
 			if !hasUsersCreatedIndex {
 				return 47, nil
+			}
+			hasHAProxy, err := HasTable(ctx, db, dialect, "haproxy_configs")
+			if err != nil {
+				return 0, err
+			}
+			hasHAProxyTargets, err := HasTable(ctx, db, dialect, "haproxy_targets")
+			if err != nil {
+				return 0, err
+			}
+			if !hasHAProxy || !hasHAProxyTargets {
+				return 49, nil
 			}
 			return latestGooseVersion, nil
 		}

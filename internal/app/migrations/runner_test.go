@@ -72,6 +72,18 @@ func TestRunMigrationsFreshSQLiteAndDoubleRun(t *testing.T) {
 	assertNoColumn(t, ctx, db, "sqlite", "nodes", "nobetci_port")
 	assertNoColumn(t, ctx, db, "sqlite", "panel_settings", "use_nobetci")
 	assertTableColumns(t, ctx, db, "sqlite", "node_operations", []string{"operation_type", "status", "idempotency_key"})
+	assertTableColumns(t, ctx, db, "sqlite", "haproxy_configs", []string{"id", "name", "enabled", "settings", "created_at", "updated_at"})
+	assertTableColumns(t, ctx, db, "sqlite", "haproxy_targets", []string{"config_id", "node_id", "listeners"})
+	assertTableColumns(t, ctx, db, "sqlite", "haproxy_templates", []string{"id", "name", "archive", "created_at"})
+	if _, err := db.ExecContext(ctx, `INSERT INTO haproxy_configs (id, name, enabled, settings, created_at, updated_at) VALUES (9101, 'first', 0, '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (9102, 'second', 0, '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatalf("seed HAProxy configs: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO haproxy_targets (config_id, node_id, listeners) VALUES (9101, 9901, '[]')`); err != nil {
+		t.Fatalf("seed HAProxy target: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO haproxy_targets (config_id, node_id, listeners) VALUES (9102, 9901, '[]')`); err == nil {
+		t.Fatal("one node was accepted by two HAProxy configs")
+	}
 	assertTableColumns(t, ctx, db, "sqlite", "pending_node_certificates", []string{"token", "certificate", "certificate_key", "expires_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "xray_config", []string{"id", "data", "created_at", "updated_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "outbound_traffic", []string{"outbound_id", "tag", "target_id", "node_id", "uplink", "downlink"})
