@@ -9,7 +9,7 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 )
 
-const defaultNodeUsageCollectionInterval = 30 * time.Second
+const defaultNodeUsageCollectionInterval = 5 * time.Second
 const defaultNodeUsageFlushInterval = 2 * time.Second
 
 func (s *Server) runNodeUsageCollector(ctx context.Context) {

@@ -887,6 +887,14 @@ FROM admins_services WHERE admin_id = (SELECT id FROM admins WHERE username = 's
 
 func TestAdminListAndUsageRoutes(t *testing.T) {
 	server, db := testAdminServer(t)
+	for _, statement := range []string{
+		`CREATE TABLE user_online_ips (node_id INTEGER, user_id INTEGER, protocol TEXT, ip TEXT, last_seen_at DATETIME)`,
+		`CREATE TABLE vpn_user_sessions (node_id INTEGER, user_id INTEGER, last_seen_at DATETIME, ended_at DATETIME)`,
+	} {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
 	_, err := db.Exec(`INSERT INTO nodes (id, name) VALUES (7, 'de-7')`)

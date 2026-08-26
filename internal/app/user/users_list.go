@@ -302,8 +302,8 @@ func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (
 	u.status,
 	COUNT(u.id),
 	COALESCE(SUM(COALESCE(u.used_traffic, 0) + COALESCE(rul.reseted_usage, 0)), 0),
-	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
-	args := append([]any{cutoff, cutoff}, filter.args...)
+	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL OR u.online_at >= ? THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
+	args := append([]any{cutoff, cutoff, cutoff}, filter.args...)
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return usersSummary{}, err
@@ -326,6 +326,7 @@ func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (
 }
 
 func (r Repository) usersRows(ctx context.Context, filter usersFilter, req UsersListRequest) ([]usersListRow, error) {
+	cutoff := online.Cutoff(time.Now())
 	query := `SELECT
 	u.id,
 	u.username,
@@ -345,6 +346,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		FROM vpn_user_sessions vus
 		WHERE vus.user_id = u.id AND vus.ended_at IS NULL
 	) THEN CURRENT_TIMESTAMP ELSE u.online_at END,
+	CASE WHEN ` + online.UserPredicate + ` THEN 1 ELSE 0 END,
 	u.service_id,
 	s.name,
 	u.admin_id,
@@ -353,7 +355,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.subadress,
 	u.flow,
 	u.on_hold_expire_duration` + usersRowsFromSQL() + filter.whereSQL() + " ORDER BY " + usersOrderSQL(req.Sort)
-	args := append([]any{}, filter.args...)
+	args := append([]any{cutoff, cutoff, cutoff}, filter.args...)
 	if req.Offset != nil {
 		limit := int64(9223372036854775807)
 		if req.Limit != nil {
@@ -377,6 +379,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		var row usersListRow
 		var createdAt any
 		var onlineAt any
+		var isOnline int
 		var expire, dataLimit, serviceID, adminID, holdDuration sql.NullInt64
 		var serviceName, adminUsername, credentialKey, subadress, flow, resetStrategy sql.NullString
 		if err := rows.Scan(
@@ -390,6 +393,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 			&dataLimit,
 			&resetStrategy,
 			&onlineAt,
+			&isOnline,
 			&serviceID,
 			&serviceName,
 			&adminID,
@@ -411,6 +415,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		if online := dbTimeString(onlineAt); online != "" {
 			row.item.OnlineAt = &online
 		}
+		row.item.IsOnline = isOnline != 0
 		row.item.ServiceID = int64Ptr(serviceID)
 		row.item.ServiceName = stringPtr(serviceName)
 		row.item.AdminID = int64Ptr(adminID)
@@ -420,6 +425,29 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		row.flow = nullStringValue(flow)
 		row.onHoldExpireDuration = int64Ptr(holdDuration)
 		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func (r Repository) OnlineUsernames(ctx context.Context, req UsersListRequest) ([]string, error) {
+	filter, err := r.usersFilter(req)
+	if err != nil {
+		return nil, err
+	}
+	cutoff := online.Cutoff(time.Now())
+	filter.add(online.UserPredicate, cutoff, cutoff, cutoff)
+	rows, err := r.db.QueryContext(ctx, `SELECT u.username`+usersBaseFromSQL()+filter.whereSQL()+` ORDER BY u.username`, filter.args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]string, 0)
+	for rows.Next() {
+		var username string
+		if err := rows.Scan(&username); err != nil {
+			return nil, err
+		}
+		result = append(result, username)
 	}
 	return result, rows.Err()
 }
@@ -484,11 +512,11 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 	now := time.Now().UTC()
 	if _, ok := normalized["online"]; ok {
 		cutoff := online.Cutoff(now)
-		filter.add(online.UserPredicate, cutoff, cutoff)
+		filter.add(online.UserPredicate, cutoff, cutoff, cutoff)
 	}
 	if _, ok := normalized["offline"]; ok {
 		cutoff := online.Cutoff(now)
-		filter.add("NOT "+online.UserPredicate, cutoff, cutoff)
+		filter.add("NOT "+online.UserPredicate, cutoff, cutoff, cutoff)
 	}
 	if _, ok := normalized["finished"]; ok {
 		filter.add("u.status IN (?, ?)", "limited", "expired")

@@ -197,6 +197,7 @@ func (s *Server) registerUserRoutes(r chi.Router) {
 	r.HandleFunc("/v2/users", s.requireAdmin(s.handleUserV2Root))
 	r.HandleFunc("/users/actions", s.requireAdmin(s.handleUsersBulkAction))
 	r.HandleFunc("/users/usage", s.requireAdmin(s.handleUsersUsage))
+	r.HandleFunc("/users/onlines", s.requireAdmin(s.handleOnlineUsers))
 	r.HandleFunc("/users", s.requireAdmin(s.handleUsers))
 	r.HandleFunc("/user/*", s.requireAdmin(s.handleUserPath))
 	r.HandleFunc("/user", s.requireAdmin(s.handleUserRoot))

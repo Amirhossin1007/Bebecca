@@ -64,6 +64,26 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+func (s *Server) handleOnlineUsers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	principal, ok := r.Context().Value(adminContextKey).(adminPrincipal)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing admin context")
+		return
+	}
+	users, err := s.userService.OnlineUsernames(r.Context(), userapp.UsersListRequest{
+		Admin: s.userAdminContext(principal, nil),
+	})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, users)
+}
+
 func (s *Server) handleUserPath(w http.ResponseWriter, r *http.Request) {
 	username, suffix, ok := parseUserActionPath(r.URL.Path, "/api/user/")
 	if !ok {

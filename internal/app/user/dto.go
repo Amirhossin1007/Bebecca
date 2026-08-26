@@ -91,6 +91,7 @@ type UserListItem struct {
 	DataLimit              *int64           `json:"data_limit"`
 	DataLimitResetStrategy string           `json:"data_limit_reset_strategy,omitempty"`
 	OnlineAt               *string          `json:"online_at"`
+	IsOnline               bool             `json:"is_online"`
 	ServiceID              *int64           `json:"service_id"`
 	ServiceName            *string          `json:"service_name"`
 	AdminID                *int64           `json:"admin_id"`

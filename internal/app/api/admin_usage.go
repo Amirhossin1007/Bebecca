@@ -11,6 +11,7 @@ import (
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/online"
 )
 
 func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
@@ -321,13 +322,15 @@ func addAdminCountsTx(ctx context.Context, tx *sql.Tx, adminID int64, response m
 	if err := rows.Close(); err != nil {
 		return err
 	}
-	onlineCutoff := dbTimestamp(time.Now().UTC().Add(-5 * time.Minute))
+	onlineCutoff := dbTimestamp(online.Cutoff(time.Now()))
 	onlineUsers := int64(0)
 	if err := tx.QueryRowContext(
 		ctx,
-		`SELECT COUNT(*) FROM users WHERE admin_id = ? AND status != ? AND online_at IS NOT NULL AND online_at >= ?`,
+		`SELECT COUNT(*) FROM users u WHERE u.admin_id = ? AND u.status != ? AND `+online.UserPredicate,
 		adminID,
 		"deleted",
+		onlineCutoff,
+		onlineCutoff,
 		onlineCutoff,
 	).Scan(&onlineUsers); err != nil {
 		return err

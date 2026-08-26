@@ -16,7 +16,7 @@ import (
 )
 
 const usagePersistBatchSize = 200
-const usageOnlineTouchInterval = 90 * time.Second
+const usageOnlineTouchInterval = 10 * time.Second
 
 var usageFlushMu sync.Mutex
 

@@ -875,7 +875,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobileVisible: true,
 				mobilePriority: 1,
 				mobileMetaLabel: t("usersTable.online"),
-				cell: (user) => <UserOnlineBadge lastOnline={user.online_at ?? null} />,
+				cell: (user) => <UserOnlineBadge isOnline={user.is_online} />,
 			},
 			{
 				id: "username",

@@ -21,7 +21,10 @@ import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import { fetch } from "service/http";
 import { AdminStatus } from "types/Admin";
+
+const ONLINE_REFRESH_INTERVAL_MS = 5_000;
 
 const ResetIcon = chakra(ArrowPathIcon, {
 	baseStyle: { w: 5, h: 5 },
@@ -145,6 +148,39 @@ export const UsersPage: FC = () => {
 		if (getUserIsPending || isAdminDisabled) return;
 		useDashboard.getState().refetchUsers(true);
 		fetchInbounds();
+	}, [getUserIsPending, isAdminDisabled]);
+
+	useEffect(() => {
+		if (getUserIsPending || isAdminDisabled) return;
+		let active = true;
+		const refresh = async () => {
+			try {
+				const usernames = await fetch<string[]>("/users/onlines");
+				if (!active) return;
+				const online = new Set(usernames);
+				useDashboard.setState((state) => ({
+					users: {
+						...state.users,
+						online_total: usernames.length,
+						users: state.users.users.map((user) => ({
+							...user,
+							is_online: online.has(user.username),
+						})),
+					},
+				}));
+			} catch {
+				// Keep the last successful snapshot during a transient poll failure.
+			}
+		};
+		void refresh();
+		const timer = window.setInterval(
+			() => void refresh(),
+			ONLINE_REFRESH_INTERVAL_MS,
+		);
+		return () => {
+			active = false;
+			window.clearInterval(timer);
+		};
 	}, [getUserIsPending, isAdminDisabled]);
 
 	useEffect(() => {

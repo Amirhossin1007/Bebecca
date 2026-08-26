@@ -230,7 +230,7 @@ func (r Repository) onlineUsers(ctx context.Context, adminID *int64) (int64, err
 		"u.status != ?",
 		online.UserPredicate,
 	}
-	args := []any{"deleted", cutoff, cutoff}
+	args := []any{"deleted", cutoff, cutoff, cutoff}
 	if adminID != nil {
 		clauses = append(clauses, "u.admin_id = ?")
 		args = append(args, *adminID)
