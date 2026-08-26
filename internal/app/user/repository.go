@@ -438,7 +438,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		address_options, COALESCE(address_selection_mode, ''), address_ttl_seconds,
 		port, path, sni, sni_options, COALESCE(sni_selection_mode, ''), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, ''), host_ttl_seconds,
-		security, alpn, fingerprint, allowinsecure, is_disabled, mux_enable,
+		security, alpn, fingerprint, COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''), allowinsecure, is_disabled, mux_enable,
 		fragment_setting, noise_setting, finalmask, random_user_agent, use_sni_as_host
 		FROM hosts ORDER BY inbound_tag, id`)
 	if err != nil {
@@ -478,6 +478,8 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 			&item.Security,
 			&item.ALPN,
 			&item.Fingerprint,
+			&item.VerifyPeerCertByName,
+			&item.PinnedPeerCertSHA256,
 			&allowInsecure,
 			&disabled,
 			&mux,

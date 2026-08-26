@@ -188,6 +188,7 @@ export type InboundFormValues = {
 	tlsCipherSuites: string;
 	tlsRejectUnknownSni: boolean;
 	tlsVerifyPeerCertByName: string;
+	tlsPinnedPeerCertSha256: string;
 	tlsDisableSystemRoot: boolean;
 	tlsEnableSessionResumption: boolean;
 	tlsCertificates: TlsCertificateForm[];
@@ -771,6 +772,15 @@ export const validateInboundFormFields = (
 			} catch {
 				errors.shadowsocksPassword = `Shadowsocks 2022 server password must be a base64-encoded ${keyBytes}-byte key.`;
 			}
+		}
+	}
+	if (values.tlsPinnedPeerCertSha256.trim()) {
+		const invalidPin = values.tlsPinnedPeerCertSha256
+			.split(",")
+			.some((pin) => !/^[0-9a-f]{64}$/i.test(pin.trim().replaceAll(":", "")));
+		if (invalidPin) {
+			errors.tlsPinnedPeerCertSha256 =
+				"Certificate pins must be comma-separated SHA-256 fingerprints.";
 		}
 	}
 	if (values.streamNetwork === "ws") {
@@ -1499,6 +1509,7 @@ export const createDefaultInboundForm = (
 	tlsCipherSuites: "",
 	tlsRejectUnknownSni: false,
 	tlsVerifyPeerCertByName: "",
+	tlsPinnedPeerCertSha256: "",
 	tlsDisableSystemRoot: false,
 	tlsEnableSessionResumption: false,
 	tlsCertificates: [createDefaultTlsCertificate()],
@@ -1983,6 +1994,14 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			}
 			return base.tlsVerifyPeerCertByName;
 		})(),
+		tlsPinnedPeerCertSha256:
+			(Array.isArray(tlsSettings.pinnedPeerCertSha256)
+				? tlsSettings.pinnedPeerCertSha256.join(",")
+				: tlsSettings.pinnedPeerCertSha256) ??
+			(Array.isArray(tlsSettingsMeta.pinnedPeerCertSha256)
+				? tlsSettingsMeta.pinnedPeerCertSha256.join(",")
+				: tlsSettingsMeta.pinnedPeerCertSha256) ??
+			base.tlsPinnedPeerCertSha256,
 		tlsDisableSystemRoot: Boolean(
 			tlsSettings.disableSystemRoot ?? base.tlsDisableSystemRoot,
 		),
@@ -3370,6 +3389,8 @@ const buildStreamSettings = (
 		tlsPayload.rejectUnknownSni = values.tlsRejectUnknownSni;
 		tlsPayload.verifyPeerCertByName =
 			values.tlsVerifyPeerCertByName || undefined;
+		tlsPayload.pinnedPeerCertSha256 =
+			values.tlsPinnedPeerCertSha256.trim() || undefined;
 		delete tlsPayload.verifyPeerCertInNames; // Remove old format
 		tlsPayload.disableSystemRoot = values.tlsDisableSystemRoot;
 		tlsPayload.enableSessionResumption = values.tlsEnableSessionResumption;

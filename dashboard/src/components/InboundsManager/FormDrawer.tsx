@@ -5711,6 +5711,26 @@ export const InboundFormModal: FC<Props> = ({
 												</FormLabel>
 												<Input {...register("tlsVerifyPeerCertByName")} />
 											</FormControl>
+											<FormControl
+												isInvalid={Boolean(
+													fieldValidationErrors.tlsPinnedPeerCertSha256,
+												)}
+											>
+												<FormLabel>
+													{t("inbounds.tls.pinnedPeerCertSha256")}
+												</FormLabel>
+												<Input
+													{...register("tlsPinnedPeerCertSha256")}
+													placeholder={t(
+														"inbounds.tls.pinnedPeerCertSha256Hint",
+													)}
+												/>
+												{fieldValidationErrors.tlsPinnedPeerCertSha256 && (
+													<FormErrorMessage>
+														{fieldValidationErrors.tlsPinnedPeerCertSha256}
+													</FormErrorMessage>
+												)}
+											</FormControl>
 											<Divider />
 											<Stack spacing={3}>
 												<Flex align="center" justify="space-between">

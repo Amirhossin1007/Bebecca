@@ -410,6 +410,14 @@ func effectiveInboundForHost(username string, variables map[string]string, inbou
 	if fp := nonDefaultHostFingerprint(host.Fingerprint); fp != "" {
 		effective["fp"] = fp
 	}
+	if value := strings.TrimSpace(host.VerifyPeerCertByName); value != "" {
+		effective["vcn"] = value
+		effective["verifyPeerCertByName"] = value
+	}
+	if value := strings.TrimSpace(host.PinnedPeerCertSHA256); value != "" {
+		effective["pinSHA256"] = value
+		effective["pinnedPeerCertSha256"] = value
+	}
 	if host.AllowInsecure != nil && *host.AllowInsecure {
 		effective["ais"] = *host.AllowInsecure
 	}
@@ -859,9 +867,9 @@ func RuntimeShadowsocksSettings(settings map[string]any, inboundSettings map[str
 }
 
 func shadowsocks2022Password(password string, method string) string {
-	keyLength := 16
-	if strings.Contains(method, "aes-256") {
-		keyLength = 32
+	keyLength := 32
+	if strings.Contains(method, "aes-128") {
+		keyLength = 16
 	}
 	if decoded, err := base64.StdEncoding.DecodeString(password); err == nil && len(decoded) == keyLength {
 		return password

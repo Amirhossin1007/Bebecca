@@ -625,6 +625,8 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			security TEXT NOT NULL DEFAULT 'inbound_default',
 			alpn TEXT NOT NULL DEFAULT 'none',
 			fingerprint TEXT NOT NULL DEFAULT 'none',
+			verify_peer_cert_by_name TEXT NULL,
+			pinned_peer_cert_sha256 TEXT NULL,
 			allowinsecure INTEGER NULL,
 			is_disabled INTEGER DEFAULT 0,
 			mux_enable INTEGER NOT NULL DEFAULT 0,

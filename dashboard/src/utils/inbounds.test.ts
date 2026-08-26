@@ -84,6 +84,36 @@ describe("VLESS inbound default flow", () => {
 });
 
 describe("TLS cipher suites", () => {
+	it("round-trips peer name verification and certificate pins", () => {
+		const pin = "ab".repeat(32);
+		const values = rawInboundToFormValues({
+			tag: "tls",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "raw",
+				security: "tls",
+				tlsSettings: {
+					verifyPeerCertByName: "cert.example.com",
+					pinnedPeerCertSha256: pin,
+				},
+			},
+		});
+		expect(values.tlsVerifyPeerCertByName).toBe("cert.example.com");
+		expect(values.tlsPinnedPeerCertSha256).toBe(pin);
+		expect(
+			buildInboundPayload(values).streamSettings?.tlsSettings,
+		).toMatchObject({
+			verifyPeerCertByName: "cert.example.com",
+			pinnedPeerCertSha256: pin,
+		});
+		values.tlsPinnedPeerCertSha256 = "bad";
+		expect(
+			validateInboundFormFields(values).tlsPinnedPeerCertSha256,
+		).toBeTruthy();
+	});
+
 	it("preserves TLS 1.2 suites and requires native Go TLS", () => {
 		const values = createDefaultInboundForm("vless");
 		values.streamSecurity = "tls";
