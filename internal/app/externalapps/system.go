@@ -127,6 +127,7 @@ Type=simple
 User=%s
 Group=%s
 WorkingDirectory=%s
+EnvironmentFile=-%s/.env
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=HOSTNAME=127.0.0.1
@@ -145,7 +146,7 @@ TasksMax=256
 
 [Install]
 WantedBy=multi-user.target
-`, record.Domain, record.SystemUser, record.SystemUser, record.Root, record.Port, externalAppNodeBin, externalAppNodeBin, record.Root)
+`, record.Domain, record.SystemUser, record.SystemUser, record.Root, record.Root, record.Port, externalAppNodeBin, externalAppNodeBin, record.Root)
 }
 
 func startExternalAppNode(ctx context.Context, record Record) error {

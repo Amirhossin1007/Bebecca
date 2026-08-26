@@ -47,7 +47,7 @@ func TestDetectNodeRuntimeAndLoopbackUnit(t *testing.T) {
 	}
 	record := Record{ID: "0123456789ab", Domain: "app.example.com", Root: root, SystemUser: "rbnode_0123456789ab", Port: externalAppNodePort("0123456789ab")}
 	unit := externalAppNodeUnit(record)
-	if !strings.Contains(unit, "Environment=HOST=127.0.0.1") || !strings.Contains(unit, "Environment=PORT="+strconv.Itoa(record.Port)) {
+	if !strings.Contains(unit, "EnvironmentFile=-"+root+"/.env") || !strings.Contains(unit, "Environment=HOST=127.0.0.1") || !strings.Contains(unit, "Environment=PORT="+strconv.Itoa(record.Port)) {
 		t.Fatalf("Node.js service is not bound to its assigned loopback address:\n%s", unit)
 	}
 }
