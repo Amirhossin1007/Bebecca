@@ -199,10 +199,10 @@ export function AppLayout() {
 
 	useEffect(() => {
 		const syncHash = () => setActiveLocationHash(window.location.hash);
-		syncHash();
+		setActiveLocationHash(location.hash);
 		window.addEventListener("hashchange", syncHash);
 		return () => window.removeEventListener("hashchange", syncHash);
-	}, [location.pathname]);
+	}, [location.hash]);
 
 	const setPreviewTabKeySafe = (value: string | null) => {
 		previewTabKeyRef.current = value;
