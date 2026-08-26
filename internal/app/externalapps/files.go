@@ -139,7 +139,7 @@ func normalizeExternalAppPath(raw string, allowRoot bool) (string, error) {
 
 func protectedExternalAppSegment(segment string) bool {
 	switch segment {
-	case ".composer", ".git", ".locks", ".logs", ".sessions", ".tmp", "node_modules", "vendor":
+	case ".composer", ".git", ".locks", ".logs", ".next", ".npm", ".sessions", ".tmp", "node_modules", "vendor":
 		return true
 	default:
 		return strings.HasPrefix(segment, ".rebecca-")

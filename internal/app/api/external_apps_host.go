@@ -7,6 +7,8 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -62,6 +64,15 @@ func (h *externalAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 }
 
 func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *http.Request, record externalapps.Record, requestPath string) error {
+	if record.Runtime == "node" {
+		target := &url.URL{Scheme: "http", Host: net.JoinHostPort("127.0.0.1", strconv.Itoa(record.Port))}
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, _ error) {
+			http.Error(w, "Application is unavailable", http.StatusBadGateway)
+		}
+		proxy.ServeHTTP(w, r)
+		return nil
+	}
 	rel, fullPath, info, err := resolveExternalAppPath(record, requestPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

@@ -36,6 +36,22 @@ func TestExtractExternalAppArchiveAndDetectRuntime(t *testing.T) {
 	}
 }
 
+func TestDetectNodeRuntimeAndLoopbackUnit(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte(`{"scripts":{"start":"next start"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := detectExternalAppRuntime(root)
+	if err != nil || runtime != "node" {
+		t.Fatalf("runtime=%q err=%v", runtime, err)
+	}
+	record := Record{ID: "0123456789ab", Domain: "app.example.com", Root: root, SystemUser: "rbnode_0123456789ab", Port: externalAppNodePort("0123456789ab")}
+	unit := externalAppNodeUnit(record)
+	if !strings.Contains(unit, "Environment=HOST=127.0.0.1") || !strings.Contains(unit, "Environment=PORT="+strconv.Itoa(record.Port)) {
+		t.Fatalf("Node.js service is not bound to its assigned loopback address:\n%s", unit)
+	}
+}
+
 func TestExtractExternalAppArchiveRejectsUnsafeContent(t *testing.T) {
 	t.Run("traversal", func(t *testing.T) {
 		archive := externalAppTestZIP(t, map[string]string{"../escape.php": "bad"})

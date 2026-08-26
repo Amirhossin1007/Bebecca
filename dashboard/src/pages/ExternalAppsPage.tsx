@@ -70,7 +70,7 @@ import {
 } from "service/settings";
 
 type TemplateID = "archive" | "mirzabot";
-type ArchiveRuntime = "php" | "static";
+type ArchiveRuntime = "php" | "static" | "node";
 
 const errorDetail = (error: unknown) => {
 	const candidate = error as {
@@ -493,12 +493,16 @@ export const ExternalAppsPage = () => {
 						},
 					]
 				: []),
-			{
-				id: "settings",
-				label: t("externalApps.settings"),
-				icon: <Cog6ToothIcon width={16} />,
-				onClick: () => openSettings(app),
-			},
+			...(app.runtime !== "node"
+				? [
+						{
+							id: "settings",
+							label: t("externalApps.settings"),
+							icon: <Cog6ToothIcon width={16} />,
+							onClick: () => openSettings(app),
+						},
+					]
+				: []),
 			{
 				id: "open",
 				label: t("externalApps.open"),
@@ -899,6 +903,7 @@ export const ExternalAppsPage = () => {
 											}
 											options={[
 												{ value: "php", label: "PHP" },
+												{ value: "node", label: "Node.js" },
 												{
 													value: "static",
 													label: t("externalApps.staticRuntime"),

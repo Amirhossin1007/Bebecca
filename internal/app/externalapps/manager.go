@@ -109,6 +109,8 @@ type Record struct {
 	PoolConfig         string `json:"pool_config,omitempty"`
 	CronConfig         string `json:"cron_config,omitempty"`
 	Service            string `json:"service,omitempty"`
+	UnitConfig         string `json:"unit_config,omitempty"`
+	Port               int    `json:"port,omitempty"`
 	SystemUser         string `json:"system_user,omitempty"`
 	Database           string `json:"database,omitempty"`
 	DatabaseUser       string `json:"database_user,omitempty"`
@@ -270,6 +272,9 @@ func (m *Manager) reload() {
 			if record.Runtime == "php" && (!pathWithin("/run/php", record.Socket) || !pathWithin("/etc/php", record.PoolConfig)) {
 				continue
 			}
+			if record.Runtime == "node" && (record.Port < 20000 || record.Port > 39999 || !pathWithin("/etc/systemd/system", record.UnitConfig) || !strings.HasPrefix(record.Service, "rebecca-node-")) {
+				continue
+			}
 			if record.CronConfig != "" && !pathWithin("/etc/cron.d", record.CronConfig) {
 				continue
 			}
@@ -429,6 +434,9 @@ func publicExternalAppRecord(record Record) PublicRecord {
 }
 
 func externalAppDefaultIndex(root, runtime string) string {
+	if runtime == "node" {
+		return ""
+	}
 	if runtime == "php" {
 		if info, err := os.Stat(filepath.Join(root, "index.php")); err == nil && !info.IsDir() {
 			return "index.php"
@@ -648,12 +656,17 @@ func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequ
 		if runtime == "" {
 			runtime = "php"
 		}
-		if runtime != "php" && runtime != "static" {
-			return PublicRecord{}, errors.New("runtime must be php or static")
+		if runtime != "php" && runtime != "static" && runtime != "node" {
+			return PublicRecord{}, errors.New("runtime must be php, node, or static")
 		}
 		root = filepath.Join(stage, "app")
 		if err := os.Mkdir(root, 0o700); err != nil {
 			return PublicRecord{}, err
+		}
+		if runtime == "node" {
+			if err := writeEmptyNodeApp(root); err != nil {
+				return PublicRecord{}, err
+			}
 		}
 	}
 
@@ -678,6 +691,8 @@ func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequ
 	}
 	if runtime == "php" {
 		record.IndexFile = "index.php"
+	} else if runtime == "node" {
+		record.IndexFile = ""
 	}
 	if len(request.Archive) > 0 {
 		record.IndexFile = externalAppDefaultIndex(root, runtime)
@@ -688,7 +703,7 @@ func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequ
 		record.DatabaseUser = request.DatabaseUser
 	}
 
-	var userCreated, appCreated, poolCreated, databaseCreated bool
+	var userCreated, appCreated, poolCreated, unitCreated, databaseCreated bool
 	completed := false
 	defer func() {
 		if completed {
@@ -698,6 +713,11 @@ func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequ
 		if poolCreated {
 			_ = os.Remove(record.PoolConfig)
 			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "reload", record.Service)
+		}
+		if unitCreated {
+			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "disable", "--now", record.Service)
+			_ = os.Remove(record.UnitConfig)
+			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "daemon-reload")
 		}
 		if databaseCreated {
 			_ = m.dropExternalAppDatabase(context.Background(), record.Database, record.DatabaseUser)
@@ -730,12 +750,27 @@ func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequ
 			return PublicRecord{}, fmt.Errorf("create isolated PHP user: %w", err)
 		}
 		userCreated = true
+	} else if runtime == "node" {
+		if err := prepareExternalAppNodeHost(ctx); err != nil {
+			return PublicRecord{}, err
+		}
+		record.SystemUser = "rbnode_" + suffix
+		record.Port = externalAppNodePort(suffix)
+		record.Service = "rebecca-node-" + suffix + ".service"
+		record.UnitConfig = filepath.Join("/etc/systemd/system", record.Service)
+		if err := ensureExternalAppRuntimeFree(ctx, record); err != nil {
+			return PublicRecord{}, err
+		}
+		if _, err := runExternalAppCommand(ctx, time.Minute, "useradd", "--system", "--user-group", "--home-dir", appRoot, "--shell", "/usr/sbin/nologin", "--no-create-home", record.SystemUser); err != nil {
+			return PublicRecord{}, fmt.Errorf("create isolated Node.js user: %w", err)
+		}
+		userCreated = true
 	}
 	if err := os.Rename(root, appRoot); err != nil {
 		return PublicRecord{}, fmt.Errorf("install application files: %w", err)
 	}
 	appCreated = true
-	if runtime == "php" {
+	if runtime == "php" || runtime == "node" {
 		uid, gid, err := unixUserIDs(ctx, record.SystemUser)
 		if err != nil {
 			return PublicRecord{}, err
@@ -743,12 +778,19 @@ func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequ
 		if err := prepareOwnedExternalAppTree(appRoot, uid, gid); err != nil {
 			return PublicRecord{}, err
 		}
-		if err := writeExternalAppPool(record, false); err != nil {
-			return PublicRecord{}, err
-		}
-		poolCreated = true
-		if err := reloadPHPFPM(ctx, record); err != nil {
-			return PublicRecord{}, err
+		if runtime == "php" {
+			if err := writeExternalAppPool(record, false); err != nil {
+				return PublicRecord{}, err
+			}
+			poolCreated = true
+			if err := reloadPHPFPM(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+		} else {
+			if err := installExternalAppNode(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+			unitCreated = true
 		}
 	} else if err := makeStaticTreeReadOnly(appRoot); err != nil {
 		return PublicRecord{}, err
@@ -1255,11 +1297,28 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 				return PublicRecord{}, err
 			}
 		}
+		if record.Runtime == "node" {
+			if err := startExternalAppNode(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+		}
 		record.Enabled = true
 	} else {
+		if record.Runtime == "node" {
+			if err := stopExternalAppNode(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+		}
 		record.Enabled = false
 	}
 	if err := m.writeRecord(record); err != nil {
+		if record.Runtime == "node" {
+			if enabled {
+				_ = stopExternalAppNode(context.Background(), record)
+			} else {
+				_ = startExternalAppNode(context.Background(), record)
+			}
+		}
 		if enabled && record.Template == "mirzabot" {
 			_ = os.Remove(record.CronConfig)
 			if secrets, secretErr := m.readSecrets(record); secretErr == nil {
@@ -1316,6 +1375,17 @@ func (m *Manager) delete(ctx context.Context, identifier string, keepDatabase bo
 			return fmt.Errorf("reload PHP-FPM: %w", err)
 		}
 	}
+	if record.UnitConfig != "" {
+		if err := stopExternalAppNode(ctx, record); err != nil {
+			return err
+		}
+		if err := os.Remove(record.UnitConfig); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if _, err := runExternalAppCommand(ctx, time.Minute, "systemctl", "daemon-reload"); err != nil {
+			return fmt.Errorf("reload systemd: %w", err)
+		}
+	}
 	if record.Database != "" && !keepDatabase {
 		if err := m.dropExternalAppDatabase(ctx, record.Database, record.DatabaseUser); err != nil {
 			return err
@@ -1326,7 +1396,7 @@ func (m *Manager) delete(ctx context.Context, identifier string, keepDatabase bo
 	}
 	if record.SystemUser != "" {
 		if _, err := runExternalAppCommand(ctx, time.Minute, "userdel", record.SystemUser); err != nil && externalAppSystemUserExists(ctx, record.SystemUser) {
-			return fmt.Errorf("remove isolated PHP user: %w", err)
+			return fmt.Errorf("remove isolated application user: %w", err)
 		}
 	}
 	if err := os.Remove(m.recordPathFor(record)); err != nil && !os.IsNotExist(err) {
@@ -1923,6 +1993,15 @@ func extractZIPArchive(data []byte, destination string, requireSingleRoot bool) 
 }
 
 func detectExternalAppRuntime(root string) (string, error) {
+	if data, err := os.ReadFile(filepath.Join(root, "package.json")); err == nil {
+		var manifest struct {
+			Scripts map[string]string `json:"scripts"`
+		}
+		if json.Unmarshal(data, &manifest) != nil || strings.TrimSpace(manifest.Scripts["start"]) == "" {
+			return "", errors.New("Node.js archive package.json must define a start script")
+		}
+		return "node", nil
+	}
 	runtime := "static"
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

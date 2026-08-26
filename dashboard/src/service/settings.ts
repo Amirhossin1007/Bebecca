@@ -350,7 +350,7 @@ export interface ExternalAppRecord {
 	domain: string;
 	path?: string;
 	enabled: boolean;
-	runtime: "static" | "php";
+	runtime: "static" | "php" | "node";
 	version?: string;
 	source_sha?: string;
 	installed_at: string;
@@ -391,7 +391,7 @@ export const getExternalApps = async (): Promise<ExternalAppsResponse> => {
 export const installExternalArchive = async (payload: {
 	domain: string;
 	name: string;
-	runtime: "php" | "static";
+	runtime: "php" | "static" | "node";
 	archive?: File;
 	create_database: boolean;
 	database?: string;
