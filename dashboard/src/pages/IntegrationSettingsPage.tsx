@@ -18,6 +18,13 @@ import {
 	MenuButton,
 	MenuItem,
 	MenuList,
+	Modal,
+	ModalBody,
+	ModalCloseButton,
+	ModalContent,
+	ModalFooter,
+	ModalHeader,
+	ModalOverlay,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -37,6 +44,7 @@ import {
 	MagnifyingGlassIcon,
 	NoSymbolIcon,
 	PaperAirplaneIcon,
+	PlusIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { NumericInput } from "components/common/NumericInput";
@@ -857,6 +865,11 @@ export const IntegrationSettingsPage = () => {
 		fullchain: "",
 		privateKey: "",
 	});
+	const [isCertificateDialogOpen, setCertificateDialogOpen] = useState(false);
+	const [certificateSearch, setCertificateSearch] = useState("");
+	const [certificateFilter, setCertificateFilter] = useState<
+		"all" | "expiring_7d"
+	>("all");
 	const [renewingDomain, setRenewingDomain] = useState<string | null>(null);
 	const [certificateAction, setCertificateAction] = useState<{
 		type: "revoke" | "delete";
@@ -1176,6 +1189,7 @@ export const IntegrationSettingsPage = () => {
 	const issueCertificateMutation = useMutation(issueSubscriptionCertificate, {
 		onSuccess: (cert) => {
 			updateCertificateCache(cert);
+			setCertificateDialogOpen(false);
 			setCertificateForm((prev) => ({
 				...prev,
 				domains: "",
@@ -1193,6 +1207,7 @@ export const IntegrationSettingsPage = () => {
 	const importCertificateMutation = useMutation(importSubscriptionCertificate, {
 		onSuccess: (cert) => {
 			updateCertificateCache(cert);
+			setCertificateDialogOpen(false);
 			setCertificateForm((prev) => ({
 				...prev,
 				domains: "",
@@ -1476,6 +1491,30 @@ export const IntegrationSettingsPage = () => {
 	const telegramDisabledMessage = t("settings.telegram.disabledOverlay");
 	const telegramBackupDisabledMessage = t("settings.telegram.backupBinaryOnly");
 	const certificates = subscriptionBundle?.certificates ?? [];
+	const filteredCertificates = useMemo(() => {
+		const query = certificateSearch.trim().toLowerCase();
+		const now = Date.now();
+		const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000;
+
+		return certificates.filter((certificate) => {
+			const matchesSearch =
+				!query ||
+				[
+					certificate.domain,
+					...(certificate.alt_names || []),
+					certificate.provider || "",
+					certificate.status || "",
+				].some((value) => value.toLowerCase().includes(query));
+			if (!matchesSearch || certificateFilter === "all") {
+				return matchesSearch;
+			}
+
+			const expiresAt = certificate.not_after
+				? new Date(certificate.not_after).getTime()
+				: Number.NaN;
+			return expiresAt >= now && expiresAt <= sevenDaysFromNow;
+		});
+	}, [certificateFilter, certificateSearch, certificates]);
 	const certificateColumns = useMemo<
 		DataTableColumn<SubscriptionCertificate>[]
 	>(
@@ -1635,175 +1674,91 @@ export const IntegrationSettingsPage = () => {
 		});
 		return actions;
 	};
+	const isCertificateMutationLoading =
+		issueCertificateMutation.isLoading || importCertificateMutation.isLoading;
 	const certificateManager = (
-		<VStack align="stretch" spacing={6}>
-			<Box className="master-settings-card">
-				<Heading size="sm" mb={1}>
-					{t("settings.subscriptions.certificateTitle")}
-				</Heading>
-				<Text fontSize="sm" color="gray.500" mb={4}>
-					{t("settings.subscriptions.certificateDescription")}
-				</Text>
-				<Alert status="info" variant="left-accent" borderRadius="md" mb={4}>
-					<AlertIcon />
-					<Text fontSize="sm">
-						{t("settings.subscriptions.certificateSNIHint")}
-					</Text>
-				</Alert>
-				<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-					<FormControl>
-						<FormLabel>
-							{t("settings.subscriptions.certificateProvider")}
-						</FormLabel>
-						<Select
-							value={certificateForm.provider}
-							showSearch={false}
-							onChange={(event) =>
-								setCertificateForm((previous) => ({
-									...previous,
-									provider: event.target.value as
-										| "letsencrypt"
-										| "zerossl"
-										| "manual",
-								}))
-							}
-						>
-							<option value="letsencrypt">Certbot / Let's Encrypt</option>
-							<option value="zerossl">ZeroSSL</option>
-							<option value="manual">
-								{t("settings.subscriptions.manualCertificate")}
-							</option>
-						</Select>
-						{certificateForm.provider === "zerossl" ? (
-							<FormHelperText>
-								{t("settings.subscriptions.zeroSSLNoKeyHint")}
-							</FormHelperText>
-						) : null}
-					</FormControl>
-					{certificateForm.provider !== "manual" ? (
-						<FormControl>
-							<FormLabel>{t("settings.subscriptions.email")}</FormLabel>
-							<Input
-								type="email"
-								placeholder="admin@example.com"
-								value={certificateForm.email}
-								onChange={(event) =>
-									setCertificateForm((previous) => ({
-										...previous,
-										email: event.target.value,
-									}))
-								}
-							/>
-						</FormControl>
-					) : null}
-					<FormControl>
-						<FormLabel>
-							{certificateForm.provider === "manual"
-								? t("settings.subscriptions.domain")
-								: t("settings.subscriptions.domains")}
-						</FormLabel>
-						<Input
-							placeholder={
-								certificateForm.provider === "manual"
-									? "example.com"
-									: "example.com,sub.example.com"
-							}
-							value={certificateForm.domains}
-							onChange={(event) =>
-								setCertificateForm((previous) => ({
-									...previous,
-									domains: event.target.value,
-								}))
-							}
-						/>
-						{certificateForm.provider !== "manual" ? (
-							<FormHelperText>
-								{t("settings.subscriptions.domainsHint")}
-							</FormHelperText>
-						) : null}
-					</FormControl>
-				</SimpleGrid>
-				{certificateForm.provider === "manual" ? (
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
-						<FormControl>
-							<FormLabel>fullchain.pem</FormLabel>
-							<Textarea
-								dir="ltr"
-								fontFamily="mono"
-								minH="180px"
-								value={certificateForm.fullchain}
-								onChange={(event) =>
-									setCertificateForm((previous) => ({
-										...previous,
-										fullchain: event.target.value,
-									}))
-								}
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel>privkey.pem</FormLabel>
-							<Textarea
-								dir="ltr"
-								fontFamily="mono"
-								minH="180px"
-								value={certificateForm.privateKey}
-								onChange={(event) =>
-									setCertificateForm((previous) => ({
-										...previous,
-										privateKey: event.target.value,
-									}))
-								}
-							/>
-						</FormControl>
-					</SimpleGrid>
-				) : null}
-				<Flex className="master-settings-action-row" mt={3}>
+		<Stack spacing={3}>
+			<ResourceListCard
+				title={
+					<Box>
+						<Heading size="sm" mb={1}>
+							{t("settings.subscriptions.certificateTitle")}
+						</Heading>
+						<Text fontSize="sm" color="panel.textMuted">
+							{t("settings.subscriptions.certificateDescription")}
+						</Text>
+					</Box>
+				}
+				summaryItems={[
+					{ label: t("total"), value: certificates.length },
+					{
+						label: t("active"),
+						value: certificates.filter(
+							(certificate) => certificate.status === "active",
+						).length,
+						colorScheme: "green",
+					},
+					{
+						label: t("settings.subscriptions.serveTLS"),
+						value: certificates.filter(
+							(certificate) => certificate.serve_tls !== false,
+						).length,
+						colorScheme: "blue",
+					},
+				]}
+				actions={
 					<Button
-						type="button"
 						colorScheme="primary"
-						leftIcon={<SaveIcon />}
-						onClick={handleIssueCertificate}
-						isLoading={
-							issueCertificateMutation.isLoading ||
-							importCertificateMutation.isLoading
+						leftIcon={<PlusIcon width={16} height={16} />}
+						onClick={() => setCertificateDialogOpen(true)}
+					>
+						{t("settings.subscriptions.getNewSSL")}
+					</Button>
+				}
+			>
+				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+					<InputGroup>
+						<InputLeftElement pointerEvents="none">
+							<SearchIcon />
+						</InputLeftElement>
+						<Input
+							ps={10}
+							value={certificateSearch}
+							onChange={(event) => setCertificateSearch(event.target.value)}
+							placeholder={t(
+								"settings.subscriptions.searchCertificates",
+							)}
+						/>
+					</InputGroup>
+					<Select
+						showSearch={false}
+						value={certificateFilter}
+						onChange={(event) =>
+							setCertificateFilter(
+								event.target.value as "all" | "expiring_7d",
+							)
 						}
 					>
-						{certificateForm.provider === "manual"
-							? t("settings.subscriptions.importAction")
-							: t("settings.subscriptions.issueAction")}
-					</Button>
-				</Flex>
-			</Box>
-			<Stack spacing={3}>
-				<ResourceListCard
-					title={t("settings.subscriptions.certificateList")}
-					summaryItems={[
-						{ label: t("total"), value: certificates.length },
-						{
-							label: t("active"),
-							value: certificates.filter(
-								(certificate) => certificate.status === "active",
-							).length,
-							colorScheme: "green",
-						},
-						{
-							label: t("settings.subscriptions.serveTLS"),
-							value: certificates.filter(
-								(certificate) => certificate.serve_tls !== false,
-							).length,
-							colorScheme: "blue",
-						},
-					]}
-				/>
-				<DataTable
+						<option value="all">
+							{t("settings.subscriptions.allCertificates")}
+						</option>
+						<option value="expiring_7d">
+							{t("settings.subscriptions.expiringInSevenDays")}
+						</option>
+					</Select>
+				</SimpleGrid>
+			</ResourceListCard>
+			<DataTable
 					ariaLabel={t("settings.subscriptions.certificateList")}
-					data={certificates}
+					data={filteredCertificates}
 					columns={certificateColumns}
 					getRowId={(certificate) => certificate.domain}
 					isLoading={isSubscriptionLoading}
 					emptyState={
 						<Text color="panel.textMuted">
-							{t("settings.subscriptions.noCertificates")}
+							{certificateSearch || certificateFilter !== "all"
+								? t("settings.subscriptions.noMatchingCertificates")
+								: t("settings.subscriptions.noCertificates")}
 						</Text>
 					}
 					rowActions={certificateRowActions}
@@ -1812,9 +1767,8 @@ export const IntegrationSettingsPage = () => {
 					actionsColumnWidth="60px"
 					showActionsOnHover
 					mobileBreakpoint="md"
-				/>
-			</Stack>
-		</VStack>
+			/>
+		</Stack>
 	);
 
 	if (!getUserIsSuccess) {
@@ -2088,27 +2042,22 @@ export const IntegrationSettingsPage = () => {
 										{t("settings.runtime.dashboardPathHint")}
 									</FormHelperText>
 								</FormControl>
-								<FormControl>
-									<FormLabel fontSize="sm">
-										{t("settings.runtime.subscriptionReadOnly")}
-									</FormLabel>
-									<TelegramSwitchRow
-										title={t("settings.runtime.subscriptionReadOnlyTitle")}
-										description={t("settings.runtime.subscriptionReadOnlyHint")}
-										control={
-											<Switch
-												isChecked={runtimeSettingsForm.subscription_read_only}
-												onChange={(event) =>
-													setRuntimeSettingsForm((prev) => ({
-														...prev,
-														subscription_read_only: event.target.checked,
-													}))
-												}
-												isDisabled={saveAllMutation.isLoading}
-											/>
-										}
-									/>
-								</FormControl>
+								<TelegramSwitchRow
+									title={t("settings.runtime.subscriptionReadOnlyTitle")}
+									description={t("settings.runtime.subscriptionReadOnlyHint")}
+									control={
+										<Switch
+											isChecked={runtimeSettingsForm.subscription_read_only}
+											onChange={(event) =>
+												setRuntimeSettingsForm((prev) => ({
+													...prev,
+													subscription_read_only: event.target.checked,
+												}))
+											}
+											isDisabled={saveAllMutation.isLoading}
+										/>
+									}
+								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.recordNodeUsage")}
 									description={t("settings.runtime.recordNodeUsageHint")}
@@ -3999,6 +3948,178 @@ export const IntegrationSettingsPage = () => {
 					/>
 				</VStack>
 			</Box>
+			<Modal
+				isOpen={isCertificateDialogOpen}
+				onClose={() => setCertificateDialogOpen(false)}
+				size={certificateForm.provider === "manual" ? "3xl" : "xl"}
+				isCentered
+				scrollBehavior="inside"
+				closeOnOverlayClick={!isCertificateMutationLoading}
+			>
+				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalContent
+					as="form"
+					onSubmit={(event) => {
+						event.preventDefault();
+						handleIssueCertificate();
+					}}
+					bg={cardBg}
+					borderWidth="1px"
+					borderColor={borderColor}
+					borderRadius="2xl"
+					boxShadow="2xl"
+					overflow="hidden"
+					mx={{ base: 4, sm: 0 }}
+				>
+					<ModalHeader px={6} pt={6} pb={2}>
+						{t("settings.subscriptions.getNewSSL")}
+					</ModalHeader>
+					<ModalCloseButton isDisabled={isCertificateMutationLoading} />
+					<ModalBody px={6} pb={6}>
+						<VStack align="stretch" spacing={4}>
+							<Alert status="info" variant="left-accent" borderRadius="lg">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.subscriptions.certificateSNIHint")}
+								</Text>
+							</Alert>
+							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<FormControl>
+									<FormLabel>
+										{t("settings.subscriptions.certificateProvider")}
+									</FormLabel>
+									<Select
+										value={certificateForm.provider}
+										showSearch={false}
+										onChange={(event) =>
+											setCertificateForm((previous) => ({
+												...previous,
+												provider: event.target.value as
+													| "letsencrypt"
+													| "zerossl"
+													| "manual",
+											}))
+										}
+									>
+										<option value="letsencrypt">
+											Certbot / Let's Encrypt
+										</option>
+										<option value="zerossl">ZeroSSL</option>
+										<option value="manual">
+											{t("settings.subscriptions.manualCertificate")}
+										</option>
+									</Select>
+									{certificateForm.provider === "zerossl" ? (
+										<FormHelperText>
+											{t("settings.subscriptions.zeroSSLNoKeyHint")}
+										</FormHelperText>
+									) : null}
+								</FormControl>
+								{certificateForm.provider !== "manual" ? (
+									<FormControl isRequired>
+										<FormLabel>
+											{t("settings.subscriptions.email")}
+										</FormLabel>
+										<Input
+											type="email"
+											placeholder="admin@example.com"
+											value={certificateForm.email}
+											onChange={(event) =>
+												setCertificateForm((previous) => ({
+													...previous,
+													email: event.target.value,
+												}))
+											}
+										/>
+									</FormControl>
+								) : null}
+								<FormControl isRequired>
+									<FormLabel>
+										{certificateForm.provider === "manual"
+											? t("settings.subscriptions.domain")
+											: t("settings.subscriptions.domains")}
+									</FormLabel>
+									<Input
+										placeholder={
+											certificateForm.provider === "manual"
+												? "example.com"
+												: "example.com,sub.example.com"
+										}
+										value={certificateForm.domains}
+										onChange={(event) =>
+											setCertificateForm((previous) => ({
+												...previous,
+												domains: event.target.value,
+											}))
+										}
+									/>
+									{certificateForm.provider !== "manual" ? (
+										<FormHelperText>
+											{t("settings.subscriptions.domainsHint")}
+										</FormHelperText>
+									) : null}
+								</FormControl>
+							</SimpleGrid>
+							{certificateForm.provider === "manual" ? (
+								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									<FormControl isRequired>
+										<FormLabel>fullchain.pem</FormLabel>
+										<Textarea
+											dir="ltr"
+											fontFamily="mono"
+											minH="180px"
+											value={certificateForm.fullchain}
+											onChange={(event) =>
+												setCertificateForm((previous) => ({
+													...previous,
+													fullchain: event.target.value,
+												}))
+											}
+										/>
+									</FormControl>
+									<FormControl isRequired>
+										<FormLabel>privkey.pem</FormLabel>
+										<Textarea
+											dir="ltr"
+											fontFamily="mono"
+											minH="180px"
+											value={certificateForm.privateKey}
+											onChange={(event) =>
+												setCertificateForm((previous) => ({
+													...previous,
+													privateKey: event.target.value,
+												}))
+											}
+										/>
+									</FormControl>
+								</SimpleGrid>
+							) : null}
+						</VStack>
+					</ModalBody>
+					<ModalFooter
+						gap={2}
+						borderTopWidth="1px"
+						borderColor={borderColor}
+					>
+						<Button
+							variant="ghost"
+							onClick={() => setCertificateDialogOpen(false)}
+							isDisabled={isCertificateMutationLoading}
+						>
+							{t("cancel")}
+						</Button>
+						<Button
+							type="submit"
+							colorScheme="primary"
+							isLoading={isCertificateMutationLoading}
+						>
+							{certificateForm.provider === "manual"
+								? t("settings.subscriptions.importAction")
+								: t("settings.subscriptions.issueAction")}
+						</Button>
+					</ModalFooter>
+				</ModalContent>
+			</Modal>
 			<ConfirmDialog
 				isOpen={Boolean(certificateAction)}
 				onClose={() => setCertificateAction(null)}
