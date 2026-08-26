@@ -104,16 +104,10 @@ Global subscription settings apply to every admin unless that admin has an overr
 
 Admin overrides should be the exception. Keep common values global, override only the admin that needs a different domain or template, and use **Reset overrides** to return it to global defaults.
 
-## Template Creator tab {#template-creator-tab}
-
-<p class="rb-panel-actions"><a class="rb-panel-button" href="#" data-panel-route="/settings#template-creator">Open Template Creator</a></p>
-
-Template Creator builds a subscription page visually with drag-and-drop widgets. Preview the result at desktop and mobile widths before saving. The panel currently marks this tab as under active development, so keep a copy of the working template and avoid making an untested draft the production default.
-
 ## Suggested order for a new panel
 
 1. Set the dashboard and default subscription behavior in **Panel**.
 2. Export a baseline backup from **Backup**.
 3. Configure and test Telegram before enabling event notifications.
 4. Set global subscription values, then add only necessary admin overrides.
-5. Treat Template Creator output as a draft until it has been checked on real client links.
+5. Verify the generated links with the clients you support.

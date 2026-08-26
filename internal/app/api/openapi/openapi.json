@@ -2984,6 +2984,30 @@
         "operationId": "postMaintenanceSoftReload"
       }
     },
+    "/api/settings/all": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Save all changed settings",
+        "description": "Persist panel, runtime, Telegram, global subscription, and per-admin subscription changes in one authenticated request. Requires sudo/full_access.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JSON"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JSON"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "putSettingsAll"
+      }
+    },
     "/api/settings/panel": {
       "get": {
         "tags": [
@@ -3204,71 +3228,6 @@
           }
         },
         "operationId": "putSettingsSubscriptionsAdminsAdminId"
-      }
-    },
-    "/api/settings/subscriptions/templates/{template_key}": {
-      "get": {
-        "tags": [
-          "Settings"
-        ],
-        "summary": "Read subscription template",
-        "description": "Read default, global custom, or admin-specific subscription template content.\n\nAuthentication: send `Authorization: Bearer <api_key>` for bots and third-party integrations. Create personal admin API keys from My Account -> API Keys; each key inherits the owner admin permissions and limits. The current dashboard JWT from `POST /api/admin/token` is also accepted for interactive dashboard sessions and for Swagger UI when opened from inside the panel.\n\nPermissions: Panel read requires an authenticated admin. Settings mutation, backup, templates, and TODO/410 settings routes require sudo/full_access.",
-        "parameters": [
-          {
-            "name": "template_key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "admin_id",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/components/responses/JSON"
-          }
-        },
-        "operationId": "getSettingsSubscriptionsTemplatesTemplateKey"
-      },
-      "put": {
-        "tags": [
-          "Settings"
-        ],
-        "summary": "Write subscription template",
-        "description": "Persist global or admin-specific subscription template content with path traversal protection.\n\nAuthentication: send `Authorization: Bearer <api_key>` for bots and third-party integrations. Create personal admin API keys from My Account -> API Keys; each key inherits the owner admin permissions and limits. The current dashboard JWT from `POST /api/admin/token` is also accepted for interactive dashboard sessions and for Swagger UI when opened from inside the panel.\n\nPermissions: Panel read requires an authenticated admin. Settings mutation, backup, templates, and TODO/410 settings routes require sudo/full_access.\n\nRequest body: send JSON unless this operation explicitly declares multipart/form-data. Unknown fields are generally ignored only when the underlying handler is compatibility-oriented; business-rule violations return 400/403/409.\n\nSide effects: this is a mutation. Database writes are transactional where applicable; runtime-affecting changes enqueue node operations or call the node controller as documented by the route.\n\nRoute details: Writes to the persistent template directory. Use `admin_id` query to write an admin-specific override. Path traversal is rejected.",
-        "parameters": [
-          {
-            "name": "template_key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "admin_id",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "$ref": "#/components/requestBodies/JSON"
-        },
-        "responses": {
-          "200": {
-            "$ref": "#/components/responses/JSON"
-          }
-        },
-        "operationId": "putSettingsSubscriptionsTemplatesTemplateKey"
       }
     },
     "/api/settings/subscriptions/certificates/issue": {

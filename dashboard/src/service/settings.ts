@@ -224,15 +224,6 @@ export interface SubscriptionSettingsBundle {
 	certificates: SubscriptionCertificate[];
 }
 
-export interface SubscriptionTemplateContentResponse {
-	template_key: string;
-	template_name: string;
-	custom_directory: string | null;
-	resolved_path: string | null;
-	admin_id: number | null;
-	content: string;
-}
-
 export interface CertificateIssuePayload {
 	email: string;
 	domains: string[];
@@ -267,6 +258,34 @@ export interface RuntimeSettingsResponse {
 }
 
 export type RuntimeSettingsUpdatePayload = Partial<RuntimeSettingsResponse>;
+
+export interface AllSettingsUpdatePayload {
+	panel?: PanelSettingsUpdatePayload;
+	runtime?: RuntimeSettingsUpdatePayload;
+	telegram?: TelegramSettingsUpdatePayload;
+	subscriptions?: SubscriptionTemplateSettingsUpdatePayload;
+	subscription_admins?: Array<{
+		id: number;
+		settings: AdminSubscriptionUpdatePayload;
+	}>;
+}
+
+export interface AllSettingsUpdateResponse {
+	panel?: PanelSettingsResponse;
+	runtime?: RuntimeSettingsResponse;
+	telegram?: TelegramSettingsResponse;
+	subscriptions?: SubscriptionTemplateSettings;
+	subscription_admins?: AdminSubscriptionSettings[];
+}
+
+export const updateAllSettings = async (
+	payload: AllSettingsUpdatePayload,
+): Promise<AllSettingsUpdateResponse> => {
+	return apiFetch("/settings/all", {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
+};
 
 export const getRuntimeSettings =
 	async (): Promise<RuntimeSettingsResponse> => {
@@ -653,25 +672,6 @@ export const updateAdminSubscriptionSettings = async (
 	return apiFetch(`/settings/subscriptions/admins/${adminId}`, {
 		method: "PUT",
 		body: JSON.stringify(payload),
-	});
-};
-
-export const getSubscriptionTemplateContent = async (
-	templateKey: string,
-	adminId?: number | null,
-): Promise<SubscriptionTemplateContentResponse> => {
-	const query = adminId != null ? `?admin_id=${adminId}` : "";
-	return apiFetch(`/settings/subscriptions/templates/${templateKey}${query}`);
-};
-
-export const updateSubscriptionTemplateContent = async (
-	templateKey: string,
-	payload: { content: string; admin_id?: number | null },
-): Promise<SubscriptionTemplateContentResponse> => {
-	const query = payload.admin_id != null ? `?admin_id=${payload.admin_id}` : "";
-	return apiFetch(`/settings/subscriptions/templates/${templateKey}${query}`, {
-		method: "PUT",
-		body: JSON.stringify({ content: payload.content }),
 	});
 };
 

@@ -753,61 +753,6 @@ func (r Repository) emptyTemplateContent(templateKey string, selection templateS
 	}
 }
 
-func (r Repository) WriteTemplateContent(ctx context.Context, templateKey string, adminID *int64, content string) (TemplateContent, error) {
-	if !templateKeys[templateKey] {
-		return TemplateContent{}, fmt.Errorf("%w: %s", ErrUnsupportedTemplateKey, templateKey)
-	}
-	if err := r.ensureSubscriptionRecord(ctx); err != nil {
-		return TemplateContent{}, err
-	}
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return TemplateContent{}, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	selection, err := r.templateSelectionTx(ctx, tx, templateKey, adminID)
-	if err != nil {
-		return TemplateContent{}, err
-	}
-	customDir := selection.CustomDirectory
-	if customDir == nil || strings.TrimSpace(*customDir) == "" {
-		dir := persistentTemplateDirectory(adminID)
-		customDir = &dir
-		now := dbTime(time.Now().UTC())
-		if adminID != nil {
-			overrides, err := r.adminSubscriptionSettingsMapTx(ctx, tx, *adminID)
-			if err != nil {
-				return TemplateContent{}, err
-			}
-			overrides["custom_templates_directory"] = dir
-			encoded, _ := json.Marshal(overrides)
-			if _, err := tx.ExecContext(ctx, `UPDATE admins SET subscription_settings = ? WHERE id = ?`, string(encoded), *adminID); err != nil {
-				return TemplateContent{}, err
-			}
-		} else {
-			if _, err := tx.ExecContext(ctx, `UPDATE subscription_settings SET custom_templates_directory = ?, updated_at = ? WHERE id = ?`, dir, now, r.subscriptionRecordIDTx(ctx, tx)); err != nil {
-				return TemplateContent{}, err
-			}
-		}
-	}
-
-	targetPath, err := resolveWritableTemplatePath(selection.TemplateName, *customDir)
-	if err != nil {
-		return TemplateContent{}, err
-	}
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return TemplateContent{}, fmt.Errorf("unable to write template %s: %w", selection.TemplateName, err)
-	}
-	if err := os.WriteFile(targetPath, []byte(content), 0o644); err != nil {
-		return TemplateContent{}, fmt.Errorf("unable to write template %s: %w", selection.TemplateName, err)
-	}
-	if err := tx.Commit(); err != nil {
-		return TemplateContent{}, err
-	}
-	return r.ReadTemplateContent(ctx, templateKey, adminID)
-}
-
 type templateSelection struct {
 	TemplateName    string
 	CustomDirectory *string
