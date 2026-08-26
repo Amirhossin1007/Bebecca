@@ -306,6 +306,7 @@ export const UsersFilterBar: FC = () => {
 								<Select
 									value={serviceId ? String(serviceId) : ""}
 									onChange={(event) => handleServiceChange(event.target.value)}
+									portalled={false}
 									size="sm"
 								>
 									<option value="">
@@ -326,6 +327,7 @@ export const UsersFilterBar: FC = () => {
 									<Select
 										value={ownerFilter ?? ""}
 										onChange={(event) => handleAdminChange(event.target.value)}
+										portalled={false}
 										size="sm"
 									>
 										<option value="">
