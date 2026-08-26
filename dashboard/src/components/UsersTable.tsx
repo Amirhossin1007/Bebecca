@@ -15,7 +15,6 @@ import {
 	Stack,
 	Text,
 	Tooltip,
-	useBreakpointValue,
 	useToast,
 	VStack,
 } from "@chakra-ui/react";
@@ -41,7 +40,6 @@ import {
 import { LockClosedIcon } from "@heroicons/react/24/solid";
 import type { SortingState } from "@tanstack/react-table";
 import { ReactComponent as AddFileIcon } from "assets/add_file.svg";
-import { resetStrategy } from "constants/UserSettings";
 import { useDashboard } from "contexts/DashboardContext";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
@@ -68,9 +66,7 @@ import { formatBytes } from "utils/formatByte";
 import { generateUserLinks } from "utils/userLinks";
 import { AppDialog } from "./dialogs/AppDialog";
 import { ConfirmDialog, DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
-import { OnlineStatus } from "./OnlineStatus";
 import { OperatorIdentity } from "./OperatorIdentity";
-import { StatusBadge } from "./StatusBadge";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -84,11 +80,19 @@ import {
 	formatUsagePair,
 	UserAdminChip,
 	UserExpiryCountdown,
-	UserStatusDot,
+	UserOnlineBadge,
 	UserUsageBar,
 } from "./users";
 
 const EmptySectionIcon = chakra(AddFileIcon);
+
+const USER_STATUS_TEXT_COLORS: Partial<Record<UserListItem["status"], string>> =
+	{
+		active: "green.400",
+		on_hold: "purple.400",
+		expired: "yellow.400",
+		limited: "red.400",
+	};
 
 const iconProps = {
 	baseStyle: {
@@ -349,11 +353,6 @@ const TrafficSubmenu: FC<{
 	);
 };
 
-const getResetStrategy = (strategy: string): string => {
-	const entry = resetStrategy.find((item) => item.value === strategy);
-	return entry?.title ?? "No";
-};
-
 const formatCount = (value: number | null | undefined, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value ?? 0);
 
@@ -417,23 +416,6 @@ const toMenuItems = (
 			? (onClose: () => void) => action.render?.(row, onClose)
 			: undefined,
 	}));
-
-const getUsageResetLabel = (
-	user: UserListItem,
-	t: (key: string) => string,
-): string | undefined => {
-	const isUnlimited = user.data_limit === 0 || user.data_limit === null;
-	if (
-		isUnlimited ||
-		!user.data_limit_reset_strategy ||
-		user.data_limit_reset_strategy === "no_reset"
-	) {
-		return undefined;
-	}
-	return t(
-		`userDialog.resetStrategy${getResetStrategy(user.data_limit_reset_strategy)}`,
-	);
-};
 
 type UsersTableProps = BoxProps & {
 	toolbar?: ReactNode;
@@ -526,12 +508,6 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 	const rowsToRender = filters.limit || 10;
 	const isFiltered = usersResponse.users.length !== usersResponse.total;
-	// Matches DataTable's own mobile/desktop threshold (mobileBreakpoint
-	// defaults to "lg") so the two-row detailed usage layout applies at
-	// every genuine desktop width, while the mobile card's collapsed-row
-	// summary (which reuses this same cell) keeps its original compact form.
-	const isDesktopUsageLayout =
-		useBreakpointValue({ base: false, lg: true }) ?? false;
 	const hasUsageScopeFilter = Boolean(
 		filters.search?.trim() ||
 			filters.status ||
@@ -888,6 +864,20 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const userColumns = useMemo<DataTableColumn<UserListItem>[]>(() => {
 		const columns: DataTableColumn<UserListItem>[] = [
 			{
+				id: "online",
+				header: t("usersTable.online"),
+				priority: "high",
+				width: "96px",
+				minWidth: "88px",
+				maxWidth: "104px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobileVisible: true,
+				mobilePriority: 1,
+				mobileMetaLabel: t("usersTable.online"),
+				cell: (user) => <UserOnlineBadge lastOnline={user.online_at ?? null} />,
+			},
+			{
 				id: "username",
 				header: t("username"),
 				accessor: "username",
@@ -901,99 +891,46 @@ export const UsersTable: FC<UsersTableProps> = ({
 				tooltip: true,
 				multiline: true,
 				cellAlign: "start",
-				headerInset: "20px",
 				mobilePriority: 0,
 				mobileMetaLabel: t("username"),
 				cell: (user) => (
-					<HStack
-						spacing={2.5}
-						align="center"
-						dir="ltr"
-						flexDirection="row"
-						justify="flex-start"
-						minW={0}
-						maxW="full"
-						w="full"
-					>
-						<UserStatusDot lastOnline={user.online_at ?? null} />
-						<Box
-							minW={0}
-							flex="1 1 auto"
+					<Stack spacing={0.5} minW={0} align="flex-start">
+						<Text
+							fontWeight="semibold"
+							noOfLines={1}
 							maxW="full"
-							py={0.5}
-							lineHeight="short"
-							textAlign="left"
-							overflow="hidden"
+							color="panel.text"
+							dir="ltr"
+							sx={{ unicodeBidi: "isolate" }}
+							_hover={canOpenUserDialog ? { color: "panel.accent" } : undefined}
 						>
-							<Text
-								fontWeight="semibold"
-								noOfLines={1}
-								maxW="full"
-								color="panel.text"
-								dir="ltr"
-								sx={{ unicodeBidi: "isolate" }}
-								_hover={
-									canOpenUserDialog ? { color: "panel.accent" } : undefined
-								}
-							>
-								{formatUsernamePreview(user.username)}
-							</Text>
-							<HStack
-								className="rb-user-username-meta"
-								spacing={1.5}
-								minW={0}
-								maxW="full"
-								overflow="hidden"
-							>
-								<UserAdminChip
-									show={hasPrivilegedRole}
-									adminUsername={user.admin_username}
-								/>
-								<OnlineStatus
-									lastOnline={user.online_at ?? null}
-									withMargin={false}
-									compact
-								/>
-							</HStack>
-						</Box>
-					</HStack>
+							{formatUsernamePreview(user.username)}
+						</Text>
+						<UserAdminChip adminUsername={user.admin_username} />
+					</Stack>
 				),
 			},
 			{
-				id: "expire",
+				id: "status",
 				header: t("usersTable.status"),
-				sortable: true,
 				priority: "high",
-				width: { lg: "128px", xl: "138px" },
-				minWidth: "112px",
-				maxWidth: "148px",
-				headerAlign: "center",
+				width: "112px",
+				minWidth: "96px",
+				maxWidth: "128px",
+				headerAlign: "start",
 				cellAlign: "start",
-				headerInset: "16px",
-				mobilePriority: 1,
-				mobileMetaLabel: t("usersTable.status"),
-				mobileDetailCell: (user) => (
-					<StatusBadge expiryDate={null} status={user.status} compact />
-				),
-				cell: (user) => (
-					<Flex align="center" justify="flex-start" dir="ltr" w="full">
-						<StatusBadge
-							expiryDate={user.expire}
-							status={user.status}
-							compact
-							detailPlacement="inline"
-						/>
-					</Flex>
-				),
-			},
-			{
-				id: "expiry",
-				header: t("usersTable.expire"),
-				desktopVisible: false,
-				mobileVisible: true,
 				mobilePriority: 2,
-				mobileMetaLabel: t("usersTable.expire"),
-				cell: (user) => <UserExpiryCountdown expire={user.expire} />,
+				mobileMetaLabel: t("usersTable.status"),
+				cell: (user) => (
+					<Text
+						fontSize="sm"
+						fontWeight="semibold"
+						color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"}
+						textTransform="capitalize"
+					>
+						{t(`status.${user.status}`)}
+					</Text>
+				),
 			},
 			{
 				id: "service",
@@ -1025,48 +962,87 @@ export const UsersTable: FC<UsersTableProps> = ({
 		if (canViewTraffic) {
 			columns.push({
 				id: "used_traffic",
-				header: t("usersTable.dataUsage"),
+				header: t("usersTable.traffic"),
 				sortable: true,
 				priority: "high",
 				hideBelow: "lg",
-				width: "clamp(104px, 16vw, 240px)",
-				minWidth: "104px",
-				maxWidth: "240px",
+				width: "clamp(240px, 22vw, 340px)",
+				minWidth: "240px",
+				maxWidth: "340px",
 				headerAlign: "center",
 				cellAlign: "start",
 				mobileVisible: true,
 				mobileSummary: true,
 				mobilePriority: 4,
-				mobileMetaLabel: t("usersTable.dataUsage"),
+				mobileMetaLabel: t("usersTable.traffic"),
 				mobileDetailCell: (user) => (
 					<MobileUsageDetail used={user.used_traffic} total={user.data_limit} />
 				),
-				cell: (user) =>
-					isDesktopUsageLayout ? (
-						<UserUsageBar
-							variant="detailed"
-							used={user.used_traffic}
-							total={user.data_limit}
-							lifetimeUsed={user.lifetime_used_traffic}
-							lifetimeLabel={t("usersTable.lifetimeUsage")}
-							resetLabel={getUsageResetLabel(user, t)}
-						/>
-					) : (
-						<UserUsageBar used={user.used_traffic} total={user.data_limit} />
-					),
+				cell: (user) => (
+					<UserUsageBar
+						variant="inline"
+						used={user.used_traffic}
+						total={user.data_limit}
+					/>
+				),
+			});
+			columns.push({
+				id: "remaining_traffic",
+				header: t("usersTable.remainingTraffic"),
+				priority: "medium",
+				width: "132px",
+				minWidth: "118px",
+				maxWidth: "148px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobileVisible: true,
+				mobilePriority: 5,
+				mobileMetaLabel: t("usersTable.remainingTraffic"),
+				cell: (user) => (
+					<Text
+						fontSize={!user.data_limit ? "xl" : "sm"}
+						fontWeight={!user.data_limit ? "semibold" : undefined}
+						lineHeight="1"
+						color={!user.data_limit ? "panel.textMuted" : "panel.text"}
+						dir="ltr"
+						aria-label={!user.data_limit ? t("unlimited") : undefined}
+					>
+						{!user.data_limit
+							? "∞"
+							: formatBytes(Math.max(user.data_limit - user.used_traffic, 0))}
+					</Text>
+				),
 			});
 			columns.push({
 				id: "lifetime_used_traffic",
 				header: t("usersTable.lifetimeUsage"),
 				desktopVisible: false,
 				mobileVisible: true,
-				mobilePriority: 5,
+				mobilePriority: 6,
 				mobileMetaLabel: t("usersTable.lifetimeUsage"),
 				cell: (user) => (
 					<MobileLifetimeDetail totalUsedTraffic={user.lifetime_used_traffic} />
 				),
 			});
 		}
+
+		columns.push({
+			id: "expire",
+			header: t("usersTable.expire"),
+			sortable: true,
+			priority: "medium",
+			width: "132px",
+			minWidth: "118px",
+			maxWidth: "148px",
+			headerAlign: "start",
+			cellAlign: "start",
+			mobileVisible: true,
+			mobilePriority: 7,
+			mobileMetaLabel: t("usersTable.expire"),
+			cell: (user) => (
+				<UserExpiryCountdown expire={user.expire} status={user.status} />
+			),
+		});
 
 		// The reseller tag is hidden in the collapsed mobile row (CSS) and
 		// surfaces here instead, inside the expanded details.
@@ -1076,20 +1052,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 				header: t("usersTable.admin"),
 				desktopVisible: false,
 				mobileVisible: true,
-				mobilePriority: 6,
+				mobilePriority: 8,
 				mobileMetaLabel: t("usersTable.admin"),
 				cell: (user) => <UserAdminChip adminUsername={user.admin_username} />,
 			});
 		}
 
 		return columns;
-	}, [
-		canOpenUserDialog,
-		canViewTraffic,
-		hasPrivilegedRole,
-		isDesktopUsageLayout,
-		t,
-	]);
+	}, [canOpenUserDialog, canViewTraffic, hasPrivilegedRole, t]);
 
 	const userSorting = useMemo<SortingState>(() => {
 		const currentSort = filters.sort || "";

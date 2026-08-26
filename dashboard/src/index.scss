@@ -1892,56 +1892,42 @@ img.apple-emoji {
    components render. Other pages are intentionally unaffected.
    ============================================================ */
 
-/* --- online dot ----------------------------------------------------- */
+/* --- online state --------------------------------------------------- */
 
-/* Online indicator only: green (pulsing) while the user is connected,
-   neutral gray otherwise. Subscription status lives in the badge column. */
+.rb-user-online-tag {
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--rb-panel-text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.rb-user-online-tag[data-online="true"] {
+  background: rgba(34, 197, 94, 0.14);
+  color: #22c55e;
+}
+
 .rb-user-status-dot {
   display: inline-block;
-  width: 10px;
-  height: 10px;
-  min-width: 10px;
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
   border-radius: 50%;
   flex: 0 0 auto;
-  background: var(--rb-panel-border-strong);
-}
-
-.rb-user-status-dot[data-online="true"] {
-  background: #22c55e;
-}
-
-/* --- username meta row (admin chip + last-seen) --------------------- */
-
-.rb-user-username-meta {
-  flex-wrap: nowrap;
-  min-width: 0;
-}
-
-/* both truncate/clip on their own single line instead of wrapping */
-.rb-user-username-meta > .rb-user-admin-chip {
-  flex: 0 1 auto;
-  min-width: 3.5em;
-}
-
-.rb-user-username-meta > span:not(.rb-user-admin-chip) {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  flex-wrap: nowrap !important;
-  white-space: nowrap;
+  background: currentColor;
 }
 
 /* --- "by admin" chip ---------------------------------------------- */
 
-/* inline-block (not flex) so text-overflow can ellipsize the admin name;
-   deliberately slim and uniformly muted (one neutral look for every
-   reseller) so it reads as quiet metadata, not a colored label */
+/* Quiet ownership metadata below the username. */
 .rb-user-admin-chip {
   display: inline-block;
   vertical-align: middle;
-  border: 1px solid var(--rb-panel-border);
-  border-radius: 999px;
-  padding: 0 6px;
   font-size: 0.62rem;
   font-weight: 500;
   line-height: 1.45;
@@ -1951,7 +1937,6 @@ img.apple-emoji {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: var(--rb-panel-elevated);
   color: var(--rb-panel-text-secondary);
 }
 
@@ -1973,6 +1958,10 @@ img.apple-emoji {
 
 .rb-user-usage[data-variant="compact"] .rb-user-usage-track {
   height: 5px;
+}
+
+.rb-user-usage[data-variant="inline"] .rb-user-usage-track {
+  height: 7px;
 }
 
 .rb-user-usage-fill {

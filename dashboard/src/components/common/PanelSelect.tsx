@@ -253,6 +253,9 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		const [customInput, setCustomInput] = useState("");
 		const [multiOpen, setMultiOpen] = useState(false);
 		const multiContainerRef = useRef<HTMLDivElement | null>(null);
+		const nestedMenuScrollRef = useRef<{ left: number; top: number } | null>(
+			null,
+		);
 		const [multiMenuRect, setMultiMenuRect] = useState<{
 			left: number;
 			top?: number;
@@ -828,9 +831,24 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					matchWidth
 					placement={isRTL ? "bottom-end" : "bottom-start"}
 					strategy="fixed"
+					onOpen={() => {
+						if (!portalled) {
+							nestedMenuScrollRef.current = {
+								left: window.scrollX,
+								top: window.scrollY,
+							};
+						}
+					}}
 					onClose={() => {
 						setSearch("");
 						emitBlur();
+						const scroll = nestedMenuScrollRef.current;
+						nestedMenuScrollRef.current = null;
+						if (scroll) {
+							requestAnimationFrame(() =>
+								window.scrollTo(scroll.left, scroll.top),
+							);
+						}
 					}}
 				>
 					<MenuButton

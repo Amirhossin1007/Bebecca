@@ -1,9 +1,10 @@
-import { Box } from "@chakra-ui/react";
+import { Box, HStack, Text } from "@chakra-ui/react";
 import { ONLINE_ACTIVE_WINDOW_SECONDS } from "constants/online";
 import type { FC } from "react";
+import { useTranslation } from "react-i18next";
 import { parseServerTimeToUnix } from "utils/dateFormatter";
 
-type UserStatusDotProps = {
+type UserOnlineBadgeProps = {
 	lastOnline?: string | null;
 };
 
@@ -14,16 +15,19 @@ const isOnline = (lastOnline?: string | null): boolean => {
 	return secondsAgo <= ONLINE_ACTIVE_WINDOW_SECONDS;
 };
 
-/**
- * Online indicator for the Users list: a small dot that lights up green
- * while the user is connected and stays a neutral, muted gray otherwise.
- * Subscription status is conveyed by the status badge column, not this dot.
- */
-export const UserStatusDot: FC<UserStatusDotProps> = ({ lastOnline }) => (
-	<Box
-		as="span"
-		className="rb-user-status-dot"
-		data-online={isOnline(lastOnline) ? "true" : undefined}
-		aria-hidden="true"
-	/>
-);
+export const UserOnlineBadge: FC<UserOnlineBadgeProps> = ({ lastOnline }) => {
+	const { t } = useTranslation();
+	const online = isOnline(lastOnline);
+
+	return (
+		<HStack
+			as="span"
+			className="rb-user-online-tag"
+			data-online={online ? "true" : "false"}
+			spacing={1}
+		>
+			<Box as="span" className="rb-user-status-dot" aria-hidden="true" />
+			<Text as="span">{t(online ? "usersTable.online" : "usersTable.offline")}</Text>
+		</HStack>
+	);
+};
