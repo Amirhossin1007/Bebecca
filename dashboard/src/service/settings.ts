@@ -640,12 +640,11 @@ export const exportRebeccaBackup = async (
 };
 
 export const importRebeccaBackup = async (
-	scope: RebeccaBackupScope,
 	file: File,
 ): Promise<RebeccaBackupImportResponse> => {
 	const body = new FormData();
 	body.append("file", file);
-	return apiFetch(`/settings/backup/import?scope=${scope}`, {
+	return apiFetch("/settings/backup/import", {
 		method: "POST",
 		body,
 	});

@@ -83,7 +83,7 @@ func TestBackupImportRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import?scope=database", body)
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", body)
 	req.Header.Set("Authorization", token)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	rec := httptest.NewRecorder()
@@ -106,7 +106,7 @@ func TestBackupImportRejectsOversizedUpload(t *testing.T) {
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
-	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import?scope=database", strings.NewReader("x"))
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader("x"))
 	req.Header.Set("Authorization", token)
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=test")
 	req.ContentLength = maxBackupUploadBytes + 1

@@ -140,11 +140,7 @@ func (s *Service) Export(ctx context.Context, scope string) (ExportResult, error
 	}, nil
 }
 
-func (s *Service) Import(ctx context.Context, archivePath string, scope string) (ImportResult, error) {
-	scope, err := validateScope(scope)
-	if err != nil {
-		return ImportResult{}, err
-	}
+func (s *Service) Import(ctx context.Context, archivePath string) (ImportResult, error) {
 	if stat, err := os.Stat(archivePath); err != nil || stat.IsDir() {
 		return ImportResult{}, Error{Message: "Backup file not found"}
 	}
@@ -162,8 +158,9 @@ func (s *Service) Import(ctx context.Context, archivePath string, scope string) 
 	if err != nil {
 		return ImportResult{}, err
 	}
-	if scope == ScopeFull && m.Scope != ScopeFull {
-		return ImportResult{}, Error{Message: "Selected full restore, but the uploaded backup is database-only"}
+	scope, err := validateScope(m.Scope)
+	if err != nil {
+		return ImportResult{}, err
 	}
 	if scope == ScopeFull && (s.dialect == "mysql" || s.dialect == "mariadb") {
 		if err := s.preserveLocalDatabaseEnv(filepath.Join(extractDir, FilesPrefix)); err != nil {

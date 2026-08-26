@@ -1,23 +1,32 @@
 import {
 	Alert,
 	AlertIcon,
-	Box,
 	Button,
 	FormControl,
 	FormLabel,
-	HStack,
-	SimpleGrid,
+	Modal,
+	ModalBody,
+	ModalCloseButton,
+	ModalContent,
+	ModalFooter,
+	ModalHeader,
+	ModalOverlay,
+	Popover,
+	PopoverBody,
+	PopoverContent,
+	PopoverHeader,
+	PopoverTrigger,
 	Stack,
 	Text,
 	useToast,
-	VStack,
 } from "@chakra-ui/react";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
+	ArchiveBoxIcon,
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
 } from "@heroicons/react/24/outline";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "react-query";
 import {
@@ -36,29 +45,24 @@ const buildBackupFilename = (scope: RebeccaBackupScope) => {
 	return `rebecca-${scope}-${timestamp}.rbbackup`;
 };
 
-type RebeccaBackupPanelProps = {
-	isBinaryRuntime?: boolean;
-	runtimeLoading?: boolean;
-};
+type BackupDialog = "import" | "export" | null;
 
-export const RebeccaBackupPanel = ({
-	isBinaryRuntime = true,
-	runtimeLoading = false,
-}: RebeccaBackupPanelProps) => {
+export const DashboardBackupControls = ({
+	isBinaryRuntime,
+	runtimeLoading,
+}: {
+	isBinaryRuntime: boolean;
+	runtimeLoading: boolean;
+}) => {
 	const { t } = useTranslation();
 	const toast = useToast();
+	const borderColor = "panel.border";
+	const [isMenuOpen, setMenuOpen] = useState(false);
+	const [dialog, setDialog] = useState<BackupDialog>(null);
 	const [exportScope, setExportScope] =
 		useState<RebeccaBackupScope>("database");
-	const [importScope, setImportScope] =
-		useState<RebeccaBackupScope>("database");
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-	const importWarning = useMemo(() => {
-		if (importScope === "full") {
-			return t("settings.backup.fullImportWarning");
-		}
-		return t("settings.backup.databaseImportWarning");
-	}, [importScope, t]);
+	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
 
 	const exportMutation = useMutation(exportRebeccaBackup, {
 		onSuccess: (blob, scope) => {
@@ -70,191 +74,227 @@ export const RebeccaBackupPanel = ({
 			anchor.click();
 			anchor.remove();
 			URL.revokeObjectURL(url);
-			generateSuccessMessage(
-				t("settings.backup.exportReady"),
-				toast,
-			);
+			setDialog(null);
+			generateSuccessMessage(t("settings.backup.exportReady"), toast);
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
 		},
 	});
 
-	const importMutation = useMutation(
-		({ scope, file }: { scope: RebeccaBackupScope; file: File }) =>
-			importRebeccaBackup(scope, file),
-		{
-			onSuccess: (result) => {
-				generateSuccessMessage(
-					t("settings.backup.importDone", {
-							tables: result.tables_restored,
-							rows: result.rows_restored,
-						}),
-					toast,
-				);
-				if (result.warnings.length) {
-					toast({
-						status: "warning",
-						title: t("settings.backup.importWarnings"),
-						description: result.warnings.join("\n"),
-						duration: 8000,
-						isClosable: true,
-					});
-				}
-				setSelectedFile(null);
-			},
-			onError: (error) => {
-				generateErrorMessage(error, toast);
-			},
+	const importMutation = useMutation(importRebeccaBackup, {
+		onSuccess: (result) => {
+			generateSuccessMessage(
+				t("settings.backup.importDone", {
+					tables: result.tables_restored,
+					rows: result.rows_restored,
+				}),
+				toast,
+			);
+			if (result.warnings.length) {
+				toast({
+					status: "warning",
+					title: t("settings.backup.importWarnings"),
+					description: result.warnings.join("\n"),
+					duration: 8000,
+					isClosable: true,
+				});
+			}
+			setSelectedFile(null);
+			setDialog(null);
 		},
-	);
+		onError: (error) => {
+			generateErrorMessage(error, toast);
+		},
+	});
+
+	const openDialog = (nextDialog: Exclude<BackupDialog, null>) => {
+		setMenuOpen(false);
+		setDialog(nextDialog);
+	};
 
 	const handleImport = () => {
 		if (!selectedFile) {
-			toast({
-				status: "warning",
-				title: t("settings.backup.fileRequired"),
-			});
+			toast({ status: "warning", title: t("settings.backup.fileRequired") });
 			return;
 		}
-		importMutation.mutate({ scope: importScope, file: selectedFile });
+		importMutation.mutate(selectedFile);
 	};
-	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
 
 	return (
-		<Stack spacing={5} align="stretch">
-			<Box>
-				<Text fontWeight="semibold">
-					{t("settings.backup.title")}
-				</Text>
-				<Text fontSize="sm" color="gray.500">
-					{t("settings.backup.description")}
-				</Text>
-			</Box>
-
-			{!runtimeLoading && !isBinaryRuntime ? (
-				<Alert status="warning" borderRadius="md">
-					<AlertIcon />
-					<Text fontSize="sm">
-						{t("settings.backup.binaryOnly")}
-					</Text>
-				</Alert>
-			) : null}
-
-			<SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
-				<Box
-					className="master-settings-card"
-					borderWidth="1px"
-					borderRadius="lg"
-					p={4}
+		<>
+			<Popover
+				isOpen={isMenuOpen}
+				onOpen={() => setMenuOpen(true)}
+				onClose={() => setMenuOpen(false)}
+				placement="bottom-end"
+			>
+				<PopoverTrigger>
+					<Button
+						size="sm"
+						variant="outline"
+						borderRadius="full"
+						leftIcon={<ArchiveBoxIcon width={16} height={16} />}
+						isDisabled={!backupActionsAvailable}
+						isLoading={runtimeLoading}
+						w="full"
+					>
+						{t("settings.backup.tabTitle")}
+					</Button>
+				</PopoverTrigger>
+				<PopoverContent
+					w="min(320px, calc(100vw - 24px))"
+					borderRadius="xl"
+					boxShadow="2xl"
 				>
-					<VStack align="stretch" spacing={4}>
-						<Box>
-							<Text fontWeight="semibold">
-								{t("settings.backup.exportTitle")}
-							</Text>
-							<Text fontSize="sm" color="gray.500">
-								{t("settings.backup.exportHint")}
-							</Text>
-						</Box>
-						<FormControl>
-							<FormLabel>
-								{t("settings.telegram.backupScope")}
-							</FormLabel>
-							<Select
-								value={exportScope}
-								isDisabled={!backupActionsAvailable}
-								onChange={(event) =>
-									setExportScope(event.target.value as RebeccaBackupScope)
-								}
-							>
-								<option value="database">
-									{t("settings.backup.databaseOnly")}
-								</option>
-								<option value="full">
-									{t("settings.backup.full")}
-								</option>
-							</Select>
-						</FormControl>
-						<HStack justify="flex-end">
+					<PopoverHeader fontWeight="bold" py={3}>
+						{t("settings.backup.title")}
+					</PopoverHeader>
+					<PopoverBody p={3}>
+						<Stack spacing={2}>
 							<Button
-								leftIcon={<ArrowDownTrayIcon width={16} height={16} />}
-								onClick={() => exportMutation.mutate(exportScope)}
-								isLoading={exportMutation.isLoading}
-								isDisabled={!backupActionsAvailable}
+								variant="ghost"
+								justifyContent="flex-start"
+								leftIcon={<ArrowUpTrayIcon width={18} height={18} />}
+								onClick={() => openDialog("import")}
 							>
-								{t("settings.backup.download")}
-							</Button>
-						</HStack>
-					</VStack>
-				</Box>
-
-				<Box
-					className="master-settings-card"
-					borderWidth="1px"
-					borderRadius="lg"
-					p={4}
-				>
-					<VStack align="stretch" spacing={4}>
-						<Box>
-							<Text fontWeight="semibold">
 								{t("settings.backup.import")}
-							</Text>
-							<Text fontSize="sm" color="gray.500">
+							</Button>
+							<Button
+								variant="ghost"
+								justifyContent="flex-start"
+								leftIcon={<ArrowDownTrayIcon width={18} height={18} />}
+								onClick={() => openDialog("export")}
+							>
+								{t("settings.backup.exportTitle")}
+							</Button>
+						</Stack>
+					</PopoverBody>
+				</PopoverContent>
+			</Popover>
+
+			<Modal
+				isOpen={dialog === "import"}
+				onClose={() => setDialog(null)}
+				isCentered
+				size="xl"
+				closeOnOverlayClick={!importMutation.isLoading}
+			>
+				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalContent
+					borderWidth="1px"
+					borderColor={borderColor}
+					borderRadius="2xl"
+					boxShadow="2xl"
+					mx={{ base: 4, sm: 0 }}
+				>
+					<ModalHeader>{t("settings.backup.import")}</ModalHeader>
+					<ModalCloseButton isDisabled={importMutation.isLoading} />
+					<ModalBody>
+						<Stack spacing={4}>
+							<Text fontSize="sm" color="panel.textMuted">
 								{t("settings.backup.importHint")}
 							</Text>
-						</Box>
-						<Alert status="warning" borderRadius="md">
-							<AlertIcon />
-							<Text fontSize="sm">{importWarning}</Text>
-						</Alert>
-						<FormControl>
-							<FormLabel>
-								{t("settings.backup.restoreScope")}
-							</FormLabel>
-							<Select
-								value={importScope}
-								isDisabled={!backupActionsAvailable}
-								onChange={(event) =>
-									setImportScope(event.target.value as RebeccaBackupScope)
-								}
-							>
-								<option value="database">
-									{t("settings.backup.databaseOnly")}
-								</option>
-								<option value="full">
-									{t("settings.backup.full")}
-								</option>
-							</Select>
-						</FormControl>
-						<FormControl>
-							<FormLabel>
-								{t("settings.backup.file")}
-							</FormLabel>
-							<FileDropzone
-								accept=".rbbackup,application/vnd.rebecca.backup,application/gzip"
-								isDisabled={!backupActionsAvailable}
-								selectedFile={selectedFile}
-								title={t("settings.backup.dropTitle")}
-								description={t("settings.backup.dropHint")}
-								emptyText={t("settings.backup.selectFile")}
-								onFileSelect={setSelectedFile}
-							/>
-						</FormControl>
-						<HStack justify="flex-end">
-							<Button
-								colorScheme="red"
-								leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
-								onClick={handleImport}
-								isLoading={importMutation.isLoading}
-								isDisabled={!backupActionsAvailable}
-							>
-								{t("settings.backup.import")}
-							</Button>
-						</HStack>
-					</VStack>
-				</Box>
-			</SimpleGrid>
-		</Stack>
+							<Alert status="warning" borderRadius="lg">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.backup.autoDetectImportWarning")}
+								</Text>
+							</Alert>
+							<FormControl isRequired>
+								<FormLabel>{t("settings.backup.file")}</FormLabel>
+								<FileDropzone
+									accept=".rbbackup,application/vnd.rebecca.backup,application/gzip"
+									isDisabled={
+										!backupActionsAvailable || importMutation.isLoading
+									}
+									selectedFile={selectedFile}
+									title={t("settings.backup.dropTitle")}
+									description={t("settings.backup.dropHint")}
+									emptyText={t("settings.backup.selectFile")}
+									onFileSelect={setSelectedFile}
+								/>
+							</FormControl>
+						</Stack>
+					</ModalBody>
+					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
+						<Button
+							variant="ghost"
+							onClick={() => setDialog(null)}
+							isDisabled={importMutation.isLoading}
+						>
+							{t("cancel")}
+						</Button>
+						<Button
+							colorScheme="red"
+							leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
+							onClick={handleImport}
+							isLoading={importMutation.isLoading}
+						>
+							{t("settings.backup.import")}
+						</Button>
+					</ModalFooter>
+				</ModalContent>
+			</Modal>
+
+			<Modal
+				isOpen={dialog === "export"}
+				onClose={() => setDialog(null)}
+				isCentered
+				size="md"
+				closeOnOverlayClick={!exportMutation.isLoading}
+			>
+				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalContent
+					borderWidth="1px"
+					borderColor={borderColor}
+					borderRadius="2xl"
+					boxShadow="2xl"
+					mx={{ base: 4, sm: 0 }}
+				>
+					<ModalHeader>{t("settings.backup.exportTitle")}</ModalHeader>
+					<ModalCloseButton isDisabled={exportMutation.isLoading} />
+					<ModalBody>
+						<Stack spacing={4}>
+							<Text fontSize="sm" color="panel.textMuted">
+								{t("settings.backup.exportHint")}
+							</Text>
+							<FormControl>
+								<FormLabel>{t("settings.telegram.backupScope")}</FormLabel>
+								<Select
+									value={exportScope}
+									showSearch={false}
+									onChange={(event) =>
+										setExportScope(event.target.value as RebeccaBackupScope)
+									}
+								>
+									<option value="database">
+										{t("settings.backup.databaseOnly")}
+									</option>
+									<option value="full">{t("settings.backup.full")}</option>
+								</Select>
+							</FormControl>
+						</Stack>
+					</ModalBody>
+					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
+						<Button
+							variant="ghost"
+							onClick={() => setDialog(null)}
+							isDisabled={exportMutation.isLoading}
+						>
+							{t("cancel")}
+						</Button>
+						<Button
+							colorScheme="primary"
+							leftIcon={<ArrowDownTrayIcon width={16} height={16} />}
+							onClick={() => exportMutation.mutate(exportScope)}
+							isLoading={exportMutation.isLoading}
+						>
+							{t("settings.backup.download")}
+						</Button>
+					</ModalFooter>
+				</ModalContent>
+			</Modal>
+		</>
 	);
 };

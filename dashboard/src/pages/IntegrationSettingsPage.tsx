@@ -97,7 +97,6 @@ import {
 	generateSuccessMessage,
 } from "utils/toastHandler";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
-import { RebeccaBackupPanel } from "../components/RebeccaBackupPanel";
 import {
 	DataTable,
 	ResourceListCard,
@@ -963,7 +962,7 @@ export const IntegrationSettingsPage = () => {
 	);
 
 	const integrationTabKeys = useMemo(
-		() => ["panel", "backup", "telegram", "subscriptions", "ssl"],
+		() => ["panel", "telegram", "subscriptions", "ssl"],
 		[],
 	);
 	const readSettingsHash = useCallback(() => {
@@ -1005,7 +1004,7 @@ export const IntegrationSettingsPage = () => {
 	useEffect(() => {
 		const { focus, tab } = getFocusFromHash();
 		if (
-			activeIntegrationTab !== 2 ||
+			activeIntegrationTab !== 1 ||
 			tab.toLowerCase() !== "telegram" ||
 			focus !== "periodic-backup" ||
 			(isLoading && !data)
@@ -1910,27 +1909,21 @@ export const IntegrationSettingsPage = () => {
 							label: t("settings.panel.tabTitle"),
 						},
 						{
-							value: "backup",
+							value: "telegram",
 							isActive: activeIntegrationTab === 1,
 							onClick: () => handleIntegrationTabChange(1),
-							label: t("settings.backup.tabTitle"),
-						},
-						{
-							value: "telegram",
-							isActive: activeIntegrationTab === 2,
-							onClick: () => handleIntegrationTabChange(2),
 							label: t("settings.telegram"),
 						},
 						{
 							value: "subscriptions",
-							isActive: activeIntegrationTab === 3,
-							onClick: () => handleIntegrationTabChange(3),
+							isActive: activeIntegrationTab === 2,
+							onClick: () => handleIntegrationTabChange(2),
 							label: t("settings.subscriptions.tabTitle"),
 						},
 						{
 							value: "ssl",
-							isActive: activeIntegrationTab === 4,
-							onClick: () => handleIntegrationTabChange(4),
+							isActive: activeIntegrationTab === 3,
+							onClick: () => handleIntegrationTabChange(3),
 							label: t("settings.ssl.tabTitle"),
 						},
 					]}
@@ -2293,7 +2286,7 @@ export const IntegrationSettingsPage = () => {
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
-				display={activeIntegrationTab === 4 ? "block" : "none"}
+				display={activeIntegrationTab === 3 ? "block" : "none"}
 			>
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<Flex align="center" justify="center" py={12}>
@@ -2306,7 +2299,7 @@ export const IntegrationSettingsPage = () => {
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
-				display={activeIntegrationTab === 2 ? "block" : "none"}
+				display={activeIntegrationTab === 1 ? "block" : "none"}
 			>
 				{isLoading && !data ? (
 					<Flex align="center" justify="center" py={12}>
@@ -2720,7 +2713,7 @@ export const IntegrationSettingsPage = () => {
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
-				display={activeIntegrationTab === 3 ? "block" : "none"}
+				display={activeIntegrationTab === 2 ? "block" : "none"}
 			>
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<Flex align="center" justify="center" py={12}>
@@ -3935,18 +3928,6 @@ export const IntegrationSettingsPage = () => {
 						</VStack>
 					</form>
 				)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 1 ? "block" : "none"}
-			>
-				<VStack align="stretch" spacing={6}>
-					<RebeccaBackupPanel
-						isBinaryRuntime={hostActionsAvailable}
-						runtimeLoading={maintenanceInfoQuery.isLoading}
-					/>
-				</VStack>
 			</Box>
 			<Modal
 				isOpen={isCertificateDialogOpen}
