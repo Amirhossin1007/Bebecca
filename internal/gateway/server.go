@@ -22,6 +22,11 @@ type Server struct {
 	tls     *tls.Config
 }
 
+type hostAwareHandler interface {
+	http.Handler
+	HandlesHost(string) bool
+}
+
 func NewServer(cfg Config) (*Server, error) {
 	if (strings.TrimSpace(cfg.TLSCertFile) == "") != (strings.TrimSpace(cfg.TLSKeyFile) == "") {
 		return nil, fmt.Errorf("incomplete TLS configuration: set both UVICORN_SSL_CERTFILE and UVICORN_SSL_KEYFILE, or leave both empty for plain HTTP")
@@ -54,6 +59,10 @@ func NewServer(cfg Config) (*Server, error) {
 		apiHandler.ServeHTTP(w, apiHealthRequest(r))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if handler, ok := apiHandler.(hostAwareHandler); ok && handler.HandlesHost(r.Host) {
+			handler.ServeHTTP(w, r)
+			return
+		}
 		if dashboard.matches(r) {
 			dashboard.serve(w, r)
 			return

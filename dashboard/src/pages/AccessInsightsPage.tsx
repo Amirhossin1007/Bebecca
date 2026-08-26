@@ -29,7 +29,6 @@ import { AppDialog } from "components/dialogs/AppDialog";
 import {
 	DataTable,
 	type DataTableColumn,
-	PageHeader,
 	ResourceListCard,
 	ResourceRefreshButton,
 } from "components/ui";
@@ -388,11 +387,6 @@ const AccessInsightsPage: FC = () => {
 			dir={isRTL ? "rtl" : "ltr"}
 			data-dir={isRTL ? "rtl" : "ltr"}
 		>
-			<PageHeader
-				title={t("pages.accessInsights.title")}
-				description={t("pages.accessInsights.liveSubtitle")}
-			/>
-
 			<Stack spacing={3}>
 				<ResourceListCard
 					title={t("pages.accessInsights.onlineSessions")}

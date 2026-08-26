@@ -85,6 +85,7 @@ const adminPermissionsSchema: z.ZodType<AdminPermissions> = z.object({
 		create: z.boolean(),
 		delete: z.boolean(),
 		reset_usage: z.boolean(),
+		periodic_usage_reset: z.boolean(),
 		revoke: z.boolean(),
 		create_on_hold: z.boolean(),
 		allow_unlimited_data: z.boolean(),

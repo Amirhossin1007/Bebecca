@@ -10,6 +10,7 @@ func RoleDefaultPermissions(role AdminRole) AdminPermissions {
 		Create:               true,
 		Delete:               false,
 		ResetUsage:           false,
+		PeriodicUsageReset:   true,
 		Revoke:               true,
 		CreateOnHold:         true,
 		AllowUnlimitedData:   true,

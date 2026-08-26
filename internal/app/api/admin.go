@@ -477,7 +477,7 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 		if err != nil {
 			return err
 		}
-		limitTransition, err = reconcileAdminLimitStateTx(r.Context(), tx, updated, time.Now().UTC())
+		limitTransition, err = reconcileAdminTrafficLimitStateTx(r.Context(), tx, updated, time.Now().UTC())
 		if err != nil {
 			return err
 		}
@@ -685,7 +685,7 @@ func (s *Server) handleEnableAdmin(w http.ResponseWriter, r *http.Request, usern
 		if err != nil {
 			return err
 		}
-		if _, err := reconcileAdminLimitStateTx(r.Context(), tx, updated, nowTime); err != nil {
+		if _, err := reconcileAdminTrafficLimitStateTx(r.Context(), tx, updated, nowTime); err != nil {
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
@@ -823,7 +823,7 @@ func (s *Server) handleAdminUsageResetPath(w http.ResponseWriter, r *http.Reques
 		if err != nil {
 			return err
 		}
-		if _, err := reconcileAdminLimitStateTx(r.Context(), tx, updated, time.Now().UTC()); err != nil {
+		if _, err := reconcileAdminTrafficLimitStateTx(r.Context(), tx, updated, time.Now().UTC()); err != nil {
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
@@ -1507,6 +1507,8 @@ func setUserPermission(perms *adminapp.AdminPermissions, key string, mode string
 		perms.Users.Delete = !value || defaults.Users.Delete
 	case "reset_usage":
 		perms.Users.ResetUsage = !value || defaults.Users.ResetUsage
+	case "periodic_usage_reset":
+		perms.Users.PeriodicUsageReset = !value || defaults.Users.PeriodicUsageReset
 	case "revoke":
 		perms.Users.Revoke = !value || defaults.Users.Revoke
 	case "create_on_hold":
@@ -1532,6 +1534,8 @@ func setUserPermission(perms *adminapp.AdminPermissions, key string, mode string
 			perms.Users.Delete = false
 		case "reset_usage":
 			perms.Users.ResetUsage = false
+		case "periodic_usage_reset":
+			perms.Users.PeriodicUsageReset = false
 		case "revoke":
 			perms.Users.Revoke = false
 		case "create_on_hold":

@@ -48,7 +48,6 @@ import {
 	CheckCircleIcon,
 	CloudArrowUpIcon,
 	TrashIcon as DeleteIcon,
-	DocumentTextIcon,
 	PencilIcon as EditIcon,
 	EllipsisHorizontalIcon,
 	GlobeAltIcon,
@@ -131,7 +130,6 @@ import {
 	sortByTraffic,
 	type TrafficSortOrder,
 } from "../utils/trafficSort";
-import XrayLogsPage from "./XrayLogsPage";
 
 const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
@@ -159,7 +157,6 @@ const DnsTabIcon = chakra(GlobeAltIcon, { baseStyle: { w: 4, h: 4 } });
 const AdvancedTabIcon = chakra(WrenchScrewdriverIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
-const LogsTabIcon = chakra(DocumentTextIcon, { baseStyle: { w: 4, h: 4 } });
 const WarpIconStyled = chakra(CloudArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
 const BoltIconStyled = chakra(BoltIcon, { baseStyle: { w: 4, h: 4 } });
 const CheckCircleIconStyled = chakra(CheckCircleIcon, {
@@ -908,7 +905,6 @@ export const CoreSettingsPage: FC = () => {
 			"balancers",
 			"dns",
 			"advanced",
-			"logs",
 		],
 		[],
 	);
@@ -4021,9 +4017,16 @@ export const CoreSettingsPage: FC = () => {
 			<Box
 				borderWidth="1px"
 				borderColor={pageShellBorder}
-				borderRadius="md"
+				borderRadius="2xl"
 				bg={pageShellBg}
-				p={{ base: 3, md: 4 }}
+				p={{ base: 4, md: 5 }}
+				transition="box-shadow 0.2s ease, border-color 0.2s ease"
+				_hover={{
+					"@media (min-width: 768px)": {
+						boxShadow: "sm",
+						borderColor: "panel.borderStrong",
+					},
+				}}
 			>
 				<Stack
 					direction={{ base: "column", lg: "row" }}
@@ -4086,16 +4089,33 @@ export const CoreSettingsPage: FC = () => {
 								h="32px"
 								value={selectedTarget}
 								onChange={(event) => setSelectedTarget(event.target.value)}
-							>
-								<option value="master">{t("core.defaultConfig")}</option>
-								{configTargets
-									.filter((target) => target.type === "node")
-									.map((target) => (
-										<option key={target.id} value={target.id}>
-											{target.name}
-										</option>
-									))}
-							</Select>
+								options={[
+									{ label: t("core.defaultConfig"), value: "master" },
+									...configTargets
+										.filter((target) => target.type === "node")
+										.map((target) => ({
+											label: (
+												<HStack as="span" minW={0} spacing={1}>
+													<Text as="span" noOfLines={1}>
+														{target.name}
+													</Text>
+													{target.mode === "custom" && (
+														<Text
+															as="span"
+															flexShrink={0}
+															fontSize="10px"
+															opacity={0.7}
+														>
+															(custom)
+														</Text>
+													)}
+												</HStack>
+											),
+											searchLabel: target.name,
+											value: target.id,
+										})),
+								]}
+							/>
 						</FormControl>
 						{selectedTargetInfo?.type === "node" && (
 							<FormControl
@@ -4205,17 +4225,6 @@ export const CoreSettingsPage: FC = () => {
 							<HStack spacing={2} align="center">
 								<AdvancedTabIcon />
 								<Text as="span">{t("pages.xray.advancedTemplate")}</Text>
-							</HStack>
-						),
-					},
-					{
-						value: "logs",
-						isActive: activeTab === 7,
-						onClick: () => handleTabChange(7),
-						label: (
-							<HStack spacing={2} align="center">
-								<LogsTabIcon />
-								<Text as="span">{t("pages.xray.logs")}</Text>
 							</HStack>
 						),
 					},
@@ -5476,13 +5485,6 @@ export const CoreSettingsPage: FC = () => {
 								)}
 							</Box>
 						</VStack>
-					</Box>
-				)}
-				{activeTab === 7 && (
-					<Box p={0} mt={3}>
-						<Box>
-							<XrayLogsPage showTitle={false} />
-						</Box>
 					</Box>
 				)}
 			</Box>

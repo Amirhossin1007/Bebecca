@@ -196,11 +196,10 @@ export const UsersPage: FC = () => {
 	return (
 		<VStack
 			className="rb-users-section"
-			spacing={5}
+			spacing={4}
 			align="stretch"
 			dir={isRTL ? "rtl" : "ltr"}
 		>
-			<PageHeader title={t("users")} />
 			<UsersTable
 				toolbar={<UsersFilterBar />}
 				headerActions={

@@ -2005,27 +2005,6 @@ img.apple-emoji {
   color: #ef4444;
 }
 
-/* --- page header accent --------------------------------------------- */
-
-.rb-users-section .rb-users-header {
-  position: relative;
-  overflow: hidden;
-}
-
-.rb-users-section .rb-users-header::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(
-    180deg,
-    var(--primary-400),
-    var(--primary-600)
-  );
-}
-
 /* --- shared-piece overrides, scoped to the Users page ---------------- */
 
 /* summary count tags read as colorful pills */

@@ -37,6 +37,9 @@ const NodesPage = lazy(() => import("./NodesPage"));
 const PhpMyAdminPage = lazy(async () => ({
 	default: (await import("./PhpMyAdminPage")).PhpMyAdminPage,
 }));
+const ExternalAppsPage = lazy(async () => ({
+	default: (await import("./ExternalAppsPage")).ExternalAppsPage,
+}));
 const ServicesPage = lazy(() => import("./ServicesPage"));
 const TutorialsPage = lazy(async () => ({
 	default: (await import("./TutorialsPage")).TutorialsPage,
@@ -73,9 +76,7 @@ const RouteErrorPage = () => {
 		<Box minH="100vh" bg="gray.950" color="white" px={6} py={10}>
 			<VStack align="start" spacing={4} maxW="720px" mx="auto">
 				<Heading size="lg">{t("router.errorTitle")}</Heading>
-				<Text color="gray.300">
-					{t("router.errorDescription")}
-				</Text>
+				<Text color="gray.300">{t("router.errorDescription")}</Text>
 				<Text
 					bg="whiteAlpha.100"
 					border="1px solid"
@@ -116,6 +117,7 @@ const routeSegments = new Set([
 	"access-insights",
 	"api-docs",
 	"phpmyadmin",
+	"external-apps",
 	"recent-actions",
 ]);
 
@@ -259,6 +261,10 @@ export const router = createBrowserRouter(
 				{
 					path: "phpmyadmin",
 					element: <LazyPage Page={PhpMyAdminPage} />,
+				},
+				{
+					path: "external-apps",
+					element: <LazyPage Page={ExternalAppsPage} />,
 				},
 			],
 		},

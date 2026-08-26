@@ -39,6 +39,7 @@ var allowedSubscriptionTypes = map[string]bool{
 	"username-key": true,
 	"key":          true,
 	"token":        true,
+	"key-username": true,
 }
 
 var templateKeys = map[string]bool{

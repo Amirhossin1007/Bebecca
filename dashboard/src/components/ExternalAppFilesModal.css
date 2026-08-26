@@ -1,0 +1,183 @@
+.external-app-files-shell {
+	position: relative;
+}
+
+.external-app-files-shell > .external-app-files-new-file {
+	position: absolute;
+	inset-block-start: 1px;
+	inset-inline-start: 6px;
+	z-index: 3;
+	height: 34px;
+	font-family: "Nunito Sans", sans-serif;
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 21px;
+}
+
+.external-app-files-shell:has(.toolbar.file-selected)
+	> .external-app-files-new-file {
+	display: none;
+}
+
+.external-app-files--new-file-visible
+	.toolbar:not(.file-selected)
+	.fm-toolbar
+	> div:first-child {
+	padding-inline-start: 104px;
+}
+
+.external-app-files.file-explorer {
+	min-height: 0;
+	height: 100%;
+	overflow: hidden;
+}
+
+.external-app-files .toolbar {
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: thin;
+}
+
+.external-app-files .toolbar:not(.file-selected) {
+	padding-block: 0;
+}
+
+.external-app-files .toolbar .fm-toolbar,
+.external-app-files .toolbar .fm-toolbar > div,
+.external-app-files .toolbar .toolbar-left-items {
+	height: 100%;
+	align-items: center;
+}
+
+.external-app-files .toolbar .fm-toolbar .item-action,
+.external-app-files .toolbar .fm-toolbar .item-separator {
+	height: 100%;
+	margin-block: 0;
+	padding-block: 0;
+}
+
+.external-app-files .toolbar .file-action-container {
+	min-width: max-content;
+}
+
+.external-app-files .files-container,
+.external-app-files .folders-preview,
+.external-app-files .files {
+	min-width: 0;
+}
+
+.external-app-files .files.list .file-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.external-app-files--dark.file-explorer,
+.external-app-files--dark .toolbar,
+.external-app-files--dark.file-explorer .files-container .folders-preview,
+.external-app-files--dark .item-action,
+.external-app-files--dark .fm-context-menu,
+.external-app-files--dark .fm-context-menu .sub-menu,
+.external-app-files--dark .toggle-view,
+.external-app-files--dark .files.list .files-header,
+.external-app-files--dark .fm-modal {
+	background: #1a202c;
+	border-color: #4a5568;
+	color: #edf2f7;
+}
+
+.external-app-files--dark .file-item-container:hover,
+.external-app-files--dark .file-item:hover,
+.external-app-files--dark .sb-folders-list-item:hover,
+.external-app-files--dark .item-action:hover,
+.external-app-files--dark .fm-context-menu li:hover {
+	background: #ffffff14;
+}
+
+.external-app-files--dark .fm-modal-heading,
+.external-app-files--dark input,
+.external-app-files--dark textarea {
+	color: #edf2f7;
+}
+
+@media (max-width: 991px) {
+	.external-app-files.file-explorer .files-container .navigation-pane {
+		/* biome-ignore lint/complexity/noImportantStyles: the library controls this pane inline. */
+		display: none !important;
+	}
+
+	.external-app-files.file-explorer .files-container .folders-preview {
+		/* biome-ignore lint/complexity/noImportantStyles: the library controls responsive widths inline. */
+		width: 100% !important;
+		/* biome-ignore lint/complexity/noImportantStyles: the library controls responsive widths inline. */
+		flex: 1 1 auto !important;
+	}
+
+	.external-app-files .bread-crumb-container .breadcrumb {
+		overflow-x: auto;
+	}
+}
+
+@media (max-width: 600px) {
+	.external-app-files-shell > .external-app-files-new-file {
+		width: 34px;
+		min-width: 34px;
+		padding: 0;
+	}
+
+	.external-app-files-new-file .chakra-button__icon {
+		margin-inline: 0;
+	}
+
+	.external-app-files-new-file-label,
+	.external-app-files .toolbar .fm-toolbar > div:first-child .item-action span {
+		display: none;
+	}
+
+	.external-app-files--new-file-visible
+		.toolbar:not(.file-selected)
+		.fm-toolbar
+		> div:first-child {
+		padding-inline-start: 38px;
+	}
+
+	.external-app-files .toolbar .fm-toolbar > div:first-child .item-action {
+		gap: 0;
+		padding-inline: 7px;
+	}
+
+	.external-app-files .toolbar {
+		padding-inline: 4px;
+	}
+
+	.external-app-files .files.list .files-header .file-date,
+	.external-app-files .files.list .files-header .file-size,
+	.external-app-files .files.list .modified-date,
+	.external-app-files .files.list .size {
+		display: none;
+	}
+
+	.external-app-files .files.list .files-header .file-name {
+		width: calc(95% - 35px);
+	}
+
+	.external-app-files .files.list .file-item {
+		width: calc(100% - 30px);
+	}
+
+	.external-app-files .files.list .file-item .file-name {
+		max-width: calc(100vw - 120px);
+	}
+
+	.external-app-files .fm-modal {
+		max-width: calc(100vw - 24px);
+	}
+
+	.external-app-files .fm-upload-file {
+		flex-direction: column;
+	}
+
+	.external-app-files .fm-upload-file .files-progress {
+		width: 100%;
+	}
+}

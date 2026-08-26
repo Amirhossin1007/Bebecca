@@ -487,7 +487,10 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const hasPrivilegedRole =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 	const hasFullAccess = userData.role === AdminRole.FullAccess;
-	const userManagementLocked = isUserManagementLocked(userData);
+	const userManagementLocked = isUserManagementLocked(
+		userData,
+		filters.serviceId,
+	);
 	const canViewTraffic = canViewUserTraffic(userData);
 	const isAdminDisabled = Boolean(
 		!hasPrivilegedRole && userData.status === AdminStatus.Disabled,
@@ -564,6 +567,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				selectedUsernameSet.has(user.username),
 			),
 		[usersResponse.users, selectedUsernameSet],
+	);
+	const selectedUsersManagementLocked = selectedUsers.some((user) =>
+		isUserManagementLocked(userData, user.service_id),
 	);
 
 	useEffect(() => {
@@ -656,10 +662,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				method: "PUT",
 				body: { expire: nextExpire },
 			});
-			notify(
-				t("usersTable.extendExpireSuccess"),
-				"success",
-			);
+			notify(t("usersTable.extendExpireSuccess"), "success");
 			refetchUsers(true);
 		} catch (error: any) {
 			notify(error?.data?.detail || error?.message || t("error"), "error");
@@ -752,9 +755,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			);
 		} catch (error: any) {
 			const message =
-				error?.data?.detail ||
-				error?.message ||
-				t("usersTable.getIpsFailed");
+				error?.data?.detail || error?.message || t("usersTable.getIpsFailed");
 			setIPDialog((current) =>
 				current?.username === user.username
 					? { ...current, error: message }
@@ -812,8 +813,8 @@ export const UsersTable: FC<UsersTableProps> = ({
 			await Promise.all(users.map((user) => handler(user)));
 			notify(successLabel, "success", {
 				description: t("usersTable.bulkActionCount", {
-						count: users.length,
-					}),
+					count: users.length,
+				}),
 			});
 			clearSelectedUsers();
 			refetchUsers(true);
@@ -997,8 +998,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			{
 				id: "service",
 				header: t("usersTable.service"),
-				accessor: (user) =>
-					user.service_name ?? t("usersTable.defaultService"),
+				accessor: (user) => user.service_name ?? t("usersTable.defaultService"),
 				priority: "medium",
 				hideBelow: "xl",
 				width: "118px",
@@ -1127,6 +1127,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const getUserRowActions = (
 		user: UserListItem,
 	): DataTableRowAction<UserListItem>[] => {
+		const rowManagementLocked = isUserManagementLocked(
+			userData,
+			user.service_id,
+		);
+		const canMutateRow = canMutateUsers && !rowManagementLocked;
 		const subscriptionLink = formatUserLink(user.subscription_url);
 		const configLinks = generateUserLinks(user, linkTemplates);
 		const configLinksText = configLinks.join("\n");
@@ -1136,16 +1141,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 				label: t("usersTable.copyLink"),
 				icon: <SubscriptionLinkIcon />,
 				isDisabled: !subscriptionLink,
-				onClick: () =>
-					copyUserText(subscriptionLink, t("copied")),
+				onClick: () => copyUserText(subscriptionLink, t("copied")),
 			},
 			{
 				id: "copy-configs",
 				label: t("usersTable.copyConfigs"),
 				icon: <CopyIcon />,
 				isDisabled: configLinks.length === 0,
-				onClick: () =>
-					copyUserText(configLinksText, t("copied")),
+				onClick: () => copyUserText(configLinksText, t("copied")),
 			},
 			{
 				id: "qr",
@@ -1165,7 +1168,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			},
 		];
 
-		if (canOpenUserDialog) {
+		if (canOpenUserDialog && !rowManagementLocked) {
 			actions.push({
 				id: "edit",
 				label: t("userDialog.editUser"),
@@ -1184,7 +1187,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canToggleUserStatus && user.status !== "disabled") {
+		if (
+			canToggleUserStatus &&
+			!rowManagementLocked &&
+			user.status !== "disabled"
+		) {
 			actions.push({
 				id: "disable",
 				label: t("usersTable.disableUser"),
@@ -1194,7 +1201,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canToggleUserStatus && user.status === "disabled") {
+		if (
+			canToggleUserStatus &&
+			!rowManagementLocked &&
+			user.status === "disabled"
+		) {
 			actions.push({
 				id: "enable",
 				label: t("usersTable.enableUser"),
@@ -1204,7 +1215,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canResetUsageActions) {
+		if (canResetUsageActions && !rowManagementLocked) {
 			actions.push({
 				id: "reset",
 				label: t("usersTable.resetUsage"),
@@ -1214,7 +1225,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canRevokeSubActions) {
+		if (canRevokeSubActions && !rowManagementLocked) {
 			actions.push({
 				id: "revoke",
 				label: t("usersTable.revokeSub"),
@@ -1224,7 +1235,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canMutateUsers && user.data_limit !== null && user.data_limit !== 0) {
+		if (canMutateRow && user.data_limit !== null && user.data_limit !== 0) {
 			actions.push({
 				id: "add-traffic",
 				label: t("services.userActions.traffic.add"),
@@ -1248,7 +1259,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 		// Absolute data-limit editor (PUT data_limit) — complements the
 		// relative "Add traffic" action above.
-		if (canMutateUsers) {
+		if (canMutateRow) {
 			actions.push({
 				id: "set-data-limit",
 				label: t("usersTable.setDataLimit"),
@@ -1261,7 +1272,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		}
 
 		if (
-			canMutateUsers &&
+			canMutateRow &&
 			user.expire !== null &&
 			user.expire !== 0 &&
 			user.expire !== undefined
@@ -1276,7 +1287,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		}
 
 		// Absolute expiry editor (PUT expire) — complements "Add 30 days".
-		if (canMutateUsers) {
+		if (canMutateRow) {
 			actions.push({
 				id: "set-expiry",
 				label: t("usersTable.setExpiry"),
@@ -1420,7 +1431,10 @@ export const UsersTable: FC<UsersTableProps> = ({
 								isRTL={isRTL}
 								menuActions={toMenuItems(getUserRowActions(user), user)}
 								onEdit={
-									canOpenUserDialog ? () => onEditingUser(user) : undefined
+									canOpenUserDialog &&
+									!isUserManagementLocked(userData, user.service_id)
+										? () => onEditingUser(user)
+										: undefined
 								}
 								onDelete={
 									canDeleteUserActions &&
@@ -1441,7 +1455,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 						onSortingChange={handleUserTableSorting}
 						manualSorting
 						dir={isRTL ? "rtl" : "ltr"}
-						selectedLabel={t("usersTable.selectedCount", { count: selectedUsers.length })}
+						selectedLabel={t("usersTable.selectedCount", {
+							count: selectedUsers.length,
+						})}
 						renderBulkActions={() => (
 							<>
 								{canToggleUserStatus && (
@@ -1452,7 +1468,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={handleBulkDisable}
 										isLoading={bulkAction === "disable"}
 										isDisabled={
-											Boolean(bulkAction) || bulkDisableTargets.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											bulkDisableTargets.length === 0
 										}
 									>
 										{t("usersTable.disableUser")}
@@ -1466,7 +1484,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={handleBulkEnable}
 										isLoading={bulkAction === "enable"}
 										isDisabled={
-											Boolean(bulkAction) || bulkEnableTargets.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											bulkEnableTargets.length === 0
 										}
 									>
 										{t("usersTable.enableUser")}
@@ -1480,7 +1500,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={() => setIsBulkResetOpen(true)}
 										isLoading={bulkAction === "reset"}
 										isDisabled={
-											Boolean(bulkAction) || selectedUsers.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											selectedUsers.length === 0
 										}
 									>
 										{t("usersTable.resetUsage")}
@@ -1494,7 +1516,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={handleBulkRevoke}
 										isLoading={bulkAction === "revoke"}
 										isDisabled={
-											Boolean(bulkAction) || selectedUsers.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											selectedUsers.length === 0
 										}
 									>
 										{t("usersTable.revokeSub")}
@@ -1552,8 +1576,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 							{t("usersTable.adminDisabledTitle")}
 						</Text>
 						<Text maxW="480px" color="gray.600" _dark={{ color: "gray.200" }}>
-							{disabledReason ||
-								t("usersTable.adminDisabledDescription")}
+							{disabledReason || t("usersTable.adminDisabledDescription")}
 						</Text>
 					</Flex>
 				)}
@@ -1715,7 +1738,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 												>
 													<SignalIcon width={14} aria-hidden="true" />
 													<Text>
-														{t("usersTable.ipConnections_other", { count: connections })}
+														{t("usersTable.ipConnections_other", {
+															count: connections,
+														})}
 													</Text>
 												</HStack>
 											</Box>
@@ -1782,7 +1807,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				onClose={() => setIsBulkResetOpen(false)}
 				onConfirm={handleBulkReset}
 				title={t("usersTable.resetUsage")}
-				description={t("usersTable.bulkResetPrompt", { count: selectedUsers.length })}
+				description={t("usersTable.bulkResetPrompt", {
+					count: selectedUsers.length,
+				})}
 				confirmLabel={t("reset")}
 				isLoading={bulkAction === "reset"}
 				isConfirmDisabled={selectedUsers.length === 0}
@@ -1849,9 +1876,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 				e.stopPropagation();
 			}}
 		>
-			<Tooltip
-				label={copied ? t("copied") : t("usersTable.copyLink")}
-			>
+			<Tooltip label={copied ? t("copied") : t("usersTable.copyLink")}>
 				<span>
 					<IconButton
 						aria-label={t("usersTable.copyLink")}
@@ -1872,9 +1897,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 				</span>
 			</Tooltip>
 			<Tooltip
-				label={
-					copiedConfigs ? t("copied") : t("usersTable.copyConfigs")
-				}
+				label={copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}
 			>
 				<span>
 					<IconButton

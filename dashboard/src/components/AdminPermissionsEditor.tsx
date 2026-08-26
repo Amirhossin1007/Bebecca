@@ -49,6 +49,10 @@ const userPermissionKeys: Array<{ key: UserPermissionToggle; label: string }> =
 			key: UserPermissionToggle.ResetUsage,
 			label: "admins.permissions.resetUsage",
 		},
+		{
+			key: UserPermissionToggle.PeriodicUsageReset,
+			label: "admins.permissions.periodicUsageReset",
+		},
 		{ key: UserPermissionToggle.Revoke, label: "admins.permissions.revoke" },
 		{
 			key: UserPermissionToggle.CreateOnHold,

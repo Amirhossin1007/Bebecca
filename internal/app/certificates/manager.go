@@ -29,6 +29,7 @@ import (
 
 const (
 	DefaultBaseDir          = "/var/lib/rebecca/certificates"
+	managedDirectoryName    = ".managed"
 	zeroSSLDirectoryURL     = "https://acme.zerossl.com/v2/DV90"
 	letsEncryptDirectoryURL = "https://acme-v02.api.letsencrypt.org/directory"
 	defaultZeroSSLEABURL    = "https://api.zerossl.com/acme/eab-credentials-email"
@@ -85,6 +86,7 @@ type Config struct {
 
 type Manager struct {
 	db             *sql.DB
+	rootDir        string
 	baseDir        string
 	certbotBinary  string
 	zeroSSLEABURL  string
@@ -94,10 +96,11 @@ type Manager struct {
 }
 
 func NewManager(db *sql.DB, cfg Config) *Manager {
-	baseDir := strings.TrimSpace(cfg.BaseDir)
-	if baseDir == "" {
-		baseDir = DefaultBaseDir
+	rootDir := strings.TrimSpace(cfg.BaseDir)
+	if rootDir == "" {
+		rootDir = DefaultBaseDir
 	}
+	rootDir = filepath.Clean(rootDir)
 	eabURL := strings.TrimSpace(cfg.ZeroSSLEABEndpoint)
 	if eabURL == "" {
 		eabURL = defaultZeroSSLEABURL
@@ -114,12 +117,87 @@ func NewManager(db *sql.DB, cfg Config) *Manager {
 	}
 	return &Manager{
 		db:            db,
-		baseDir:       filepath.Clean(baseDir),
+		rootDir:       rootDir,
+		baseDir:       ManagedBaseDir(rootDir),
 		certbotBinary: strings.TrimSpace(cfg.CertbotBinary),
 		zeroSSLEABURL: eabURL,
 		httpClient:    client,
 		run:           runner,
 	}
+}
+
+// ManagedBaseDir isolates panel-managed certificates from the certificate
+// files configured through UVICORN_SSL_CERTFILE and UVICORN_SSL_KEYFILE.
+func ManagedBaseDir(root string) string {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		root = DefaultBaseDir
+	}
+	return filepath.Join(filepath.Clean(root), managedDirectoryName)
+}
+
+// Prepare copies legacy managed certificates into isolated storage. Sources
+// remain untouched because an ENV fallback may still point to them.
+func (m *Manager) Prepare(ctx context.Context) error {
+	if m.db == nil {
+		return nil
+	}
+	rows, err := m.db.QueryContext(ctx, `SELECT domain FROM subscription_domains`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if err := os.MkdirAll(m.baseDir, 0o700); err != nil {
+		return fmt.Errorf("create managed certificate directory: %w", err)
+	}
+	for rows.Next() {
+		var domain string
+		if err := rows.Scan(&domain); err != nil {
+			return err
+		}
+		domain, err = normalizeDomain(domain)
+		if err != nil {
+			continue
+		}
+		destination := filepath.Join(m.baseDir, domain)
+		if _, err := os.Stat(destination); err == nil || !os.IsNotExist(err) {
+			continue
+		}
+		source := filepath.Join(m.rootDir, domain)
+		fullchain, certErr := os.ReadFile(filepath.Join(source, "fullchain.pem"))
+		privateKey, keyErr := os.ReadFile(filepath.Join(source, "privkey.pem"))
+		if os.IsNotExist(certErr) || os.IsNotExist(keyErr) {
+			continue
+		}
+		if certErr != nil || keyErr != nil {
+			return fmt.Errorf("read legacy certificate %s: %v %v", domain, certErr, keyErr)
+		}
+		if _, _, err := parsePair(fullchain, privateKey); err != nil {
+			return fmt.Errorf("validate legacy certificate %s: %w", domain, err)
+		}
+		metadata := readMetadata(filepath.Join(source, ".metadata"))
+		if _, exists := metadata["serve_tls"]; !exists {
+			metadata["serve_tls"] = "false"
+		}
+		stage, err := os.MkdirTemp(m.baseDir, ".migrate-*")
+		if err != nil {
+			return err
+		}
+		if err := atomicWrite(filepath.Join(stage, "fullchain.pem"), fullchain, 0o600); err == nil {
+			err = atomicWrite(filepath.Join(stage, "privkey.pem"), privateKey, 0o600)
+		}
+		if err == nil {
+			err = writeMetadata(stage, metadata)
+		}
+		if err == nil {
+			err = os.Rename(stage, destination)
+		}
+		if err != nil {
+			_ = os.RemoveAll(stage)
+			return fmt.Errorf("migrate certificate %s: %w", domain, err)
+		}
+	}
+	return rows.Err()
 }
 
 func (m *Manager) List(ctx context.Context) ([]Record, error) {
@@ -750,7 +828,7 @@ func (m *Manager) certbot() (string, error) {
 }
 
 func (m *Manager) certbotDirs(provider string) (string, string, string) {
-	root := filepath.Join(m.baseDir, ".certbot", provider)
+	root := filepath.Join(m.rootDir, ".certbot", provider)
 	return filepath.Join(root, "config"), filepath.Join(root, "work"), filepath.Join(root, "logs")
 }
 
@@ -971,7 +1049,7 @@ func readMetadata(path string) map[string]string {
 }
 
 func metadataServesTLS(metadata map[string]string) bool {
-	return !strings.EqualFold(strings.TrimSpace(metadata["serve_tls"]), "false")
+	return strings.EqualFold(strings.TrimSpace(metadata["serve_tls"]), "true")
 }
 
 func writeMetadata(dir string, metadata map[string]string) error {
