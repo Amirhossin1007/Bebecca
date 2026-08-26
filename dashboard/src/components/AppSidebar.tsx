@@ -247,13 +247,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			: null,
 		isPrivilegedAdmin
 			? {
-					title: t("apiDocs.menu"),
-					url: "/api-docs",
-					icon: ApiDocsIconStyled,
-				}
-			: null,
-		isPrivilegedAdmin
-			? {
 					title: t("phpmyadmin.menu"),
 					url: "/phpmyadmin",
 					icon: PHPMyAdminIconStyled,
@@ -264,6 +257,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					title: t("externalApps.menu"),
 					url: "/external-apps",
 					icon: ExternalAppsIconStyled,
+				}
+			: null,
+		isPrivilegedAdmin
+			? {
+					title: t("apiDocs.menu"),
+					url: "/api-docs",
+					icon: ApiDocsIconStyled,
 				}
 			: null,
 		{
@@ -387,9 +387,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				pickSetting("/xray-logs"),
 				pickSetting("/access-insights"),
 				pickSetting("/recent-actions"),
-				pickSetting("/api-docs"),
 				pickSetting("/phpmyadmin"),
 				pickSetting("/external-apps"),
+				pickSetting("/api-docs"),
 				pickSetting(tutorialsUrl),
 			],
 		},

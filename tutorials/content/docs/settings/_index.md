@@ -2,7 +2,7 @@
 title: "Settings"
 weight: 4
 adminOnly: true
-description: "Understand the Panel, Backup, Telegram, Subscriptions, and Template Creator tabs before changing shared behavior."
+description: "Understand the Panel, Telegram, Subscriptions, and SSL tabs, plus Dashboard backup and maintenance controls."
 ---
 
 Settings controls shared panel behavior and integrations. Available tabs and actions depend on your administrator permissions and installation mode.
@@ -12,8 +12,8 @@ Settings controls shared panel behavior and integrations. Available tabs and act
 ## Before you change anything
 
 - Settings are shared. A change can affect other admins, generated subscriptions, usage history, or node operations.
-- Each tab saves separately. Wait for the success message before leaving the tab.
-- Take a current backup before importing data, changing templates, or running maintenance actions.
+- The single **Save Settings** button applies every pending change across all Settings tabs. It stays disabled until something changes, and switching tabs does not discard edits.
+- Take a current backup from the Dashboard before importing data, changing subscription templates, or running maintenance actions.
 - Options marked as binary-only are unavailable on Docker installations.
 
 ## Panel tab {#panel-tab}
@@ -48,27 +48,30 @@ Leave both usage-recording options enabled when you need historical charts. If d
 
 The phpMyAdmin section is available for MySQL and MariaDB installations. It can install or enable phpMyAdmin, open it inside the panel, choose its route, and use either Rebecca's database account or custom credentials. Keep the route private and do not expose database credentials to other admins.
 
+## Dashboard maintenance and backup {#dashboard-maintenance}
+
+<p class="rb-panel-actions"><a class="rb-panel-button" href="#" data-panel-route="/">Open Dashboard</a></p>
+
+The panel version, **Restart panel**, **Backup**, and **Update panel** controls are now in the **System overview** header on the Dashboard. These host-level actions require the matching admin permission and a binary installation.
+
 ### Maintenance
 
-Maintenance shows the current panel version and update channel. Binary installations can update, soft reload, or restart from the panel. Docker installations show these actions as unavailable because host-level lifecycle operations must be run outside the dashboard.
-
-- **Latest** follows stable releases.
-- **Dev build** may contain unfinished changes or migrations; use it only when you accept that risk.
+- **Update panel** opens the maintenance menu and lets you choose the installed channel, latest release, or dev build. Dev updates require a second click because they may contain unfinished changes or migrations.
+- Keep the update progress dialog open. It shows the live process and refreshes the page automatically when the panel returns.
 - **Soft Reload** reloads panel configuration without intentionally interrupting connections.
-- **Restart** briefly makes the dashboard and API unavailable.
+- **Restart panel** briefly makes the dashboard and API unavailable.
+- Docker installations show host-level actions as unavailable; run lifecycle operations outside the dashboard.
 
-## Backup tab {#backup-tab}
-
-<p class="rb-panel-actions"><a class="rb-panel-button" href="#" data-panel-route="/settings#backup">Open Backup tab</a></p>
+### Backup
 
 Rebecca exports a portable `.rbbackup` file that can be restored across SQLite, MySQL, and MariaDB installations.
 
 | Scope | Included data |
 | --- | --- |
-| **Database only** | Rebecca database records. Server files are left untouched during restore. |
+| **Database only** | Rebecca database records. Server files are left untouched. |
 | **Database + Rebecca files** | Database plus Rebecca configuration and data directories, including `/etc/rebecca` and `/var/lib/rebecca`. |
 
-Import replaces the selected current data. Verify the scope and file before confirming, and keep a separate known-good backup. Export and import are host-level operations and are available only in binary mode.
+Open **Backup** beside **Restart panel**, then choose **Export backup** or **Import backup**. Export asks for the backup scope. Import does not ask for a scope: Rebecca inspects the uploaded archive, always restores its database, and restores Rebecca files only when the archive contains them. Import replaces current data, so verify the file and keep a separate known-good backup. Export and import are available only in binary mode.
 
 ## Telegram tab {#telegram-tab}
 
@@ -104,10 +107,20 @@ Global subscription settings apply to every admin unless that admin has an overr
 
 Admin overrides should be the exception. Keep common values global, override only the admin that needs a different domain or template, and use **Reset overrides** to return it to global defaults.
 
+## SSL tab {#ssl-tab}
+
+<p class="rb-panel-actions"><a class="rb-panel-button" href="#" data-panel-route="/settings#ssl">Open SSL tab</a></p>
+
+The SSL tab lists saved certificates and supports search by domain, provider, or status. Use the expiry filter to find certificates that expire in the next seven days.
+
+- **Get new SSL** opens one dialog for Let's Encrypt, ZeroSSL, or manual PEM import. Enter the email and one or more domains for ACME providers; manual import requires the domain, `fullchain.pem`, and `privkey.pem`.
+- ACME issuance requires public port 80. Enabled certificates are selected by SNI, while the certificate configured through ENV remains the fallback.
+- Row actions can renew eligible certificates, toggle TLS serving, revoke, or delete. Revoke and delete can interrupt TLS access for clients using that domain and do not change DNS.
+
 ## Suggested order for a new panel
 
 1. Set the dashboard and default subscription behavior in **Panel**.
-2. Export a baseline backup from **Backup**.
+2. Export a baseline backup from the Dashboard **Backup** menu.
 3. Configure and test Telegram before enabling event notifications.
 4. Set global subscription values, then add only necessary admin overrides.
-5. Verify the generated links with the clients you support.
+5. Issue or import certificates in **SSL**, then verify the generated links with the clients you support.

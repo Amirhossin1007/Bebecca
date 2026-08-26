@@ -59,8 +59,8 @@ BotFather is Telegram's official tool for creating and managing bots.
 
 1. Open the panel's Telegram/Bot settings and activate the bot with the BotFather token.
 2. Confirm the bot can send a test message to the backup group.
-3. Go to Master settings -> Telegram -> <a href="#" data-panel-route="/integrations?focus=periodic-backup#telegram">Periodic Backup</a> and enable Telegram backup.
-4. Save the settings, then run one manual backup to verify the QR/files arrive in the group.
+3. Go to Settings -> Telegram -> <a href="#" data-panel-route="/settings#telegram">Periodic backup</a> and enable Telegram backup.
+4. Click the shared **Save Settings** button, then run **Send backup now** to verify the file arrives in the group.
 5. After the test succeeds, leave scheduled backup enabled.
 
 {{< callout type="info" >}}

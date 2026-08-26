@@ -296,14 +296,6 @@ export function AppLayout() {
 				: null,
 			isPrivilegedAdmin
 				? {
-						key: "api-docs",
-						label: t("apiDocs.menu"),
-						to: "/api-docs",
-						icon: DocsIcon,
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
 						key: "phpmyadmin",
 						label: t("phpmyadmin.menu"),
 						to: "/phpmyadmin",
@@ -316,6 +308,14 @@ export function AppLayout() {
 						label: t("externalApps.menu"),
 						to: "/external-apps",
 						icon: ExternalAppsIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "api-docs",
+						label: t("apiDocs.menu"),
+						to: "/api-docs",
+						icon: DocsIcon,
 					}
 				: null,
 			{

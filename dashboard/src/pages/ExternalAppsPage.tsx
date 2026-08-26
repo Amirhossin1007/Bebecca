@@ -39,6 +39,7 @@ import {
 	NoSymbolIcon,
 	PaperAirplaneIcon,
 	PlayIcon,
+	PlusIcon,
 	SparklesIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -96,6 +97,7 @@ export const ExternalAppsPage = () => {
 		"panel.textSecondary",
 	);
 	const [template, setTemplate] = useState<TemplateID>("mirzabot");
+	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [domain, setDomain] = useState("");
 	const [name, setName] = useState("");
 	const [archiveRuntime, setArchiveRuntime] = useState<ArchiveRuntime>("php");
@@ -238,6 +240,7 @@ export const ExternalAppsPage = () => {
 				setAdminID("");
 				setHasDatabaseBackup(false);
 				setDatabaseBackup(null);
+				setCreateDialogOpen(false);
 				await queryClient.invalidateQueries("external-apps");
 			},
 			onError: (error) => {
@@ -747,251 +750,283 @@ export const ExternalAppsPage = () => {
 				<Text fontSize="sm">{t("externalApps.resourceHint")}</Text>
 			</Alert>
 
-			<Box
-				bg={panelBg}
-				borderWidth="1px"
-				borderColor={borderColor}
-				borderRadius="md"
-				p={{ base: 4, md: 5 }}
+			<Modal
+				isOpen={createDialogOpen}
+				onClose={() => setCreateDialogOpen(false)}
+				size="3xl"
+				isCentered
+				scrollBehavior="inside"
+				closeOnOverlayClick={!installMutation.isLoading}
 			>
-				<Heading size="md" mb={4}>
-					{t("externalApps.newApp")}
-				</Heading>
-				{!appsQuery.data?.supported ? (
-					<Alert status="warning" mb={4} borderRadius="md">
-						<AlertIcon />
-						{appsQuery.data?.detail || t("externalApps.unsupported")}
-					</Alert>
-				) : null}
-				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-					<FormControl>
-						<FormLabel>{t("externalApps.template")}</FormLabel>
-						<Select
-							value={template}
-							onValueChange={(value) => setTemplate(value as TemplateID)}
-							options={[
-								{ value: "mirzabot", label: t("externalApps.mirzaTemplate") },
-								{ value: "archive", label: t("externalApps.archiveTemplate") },
-							]}
-						/>
-						{template === "mirzabot" && selectedTemplate?.source_url ? (
-							<Link
-								href={selectedTemplate.source_url}
-								isExternal
-								display="inline-flex"
-								alignItems="center"
-								gap={1}
-								mt={2}
-								fontSize="sm"
-								color="blue.300"
-							>
-								{t("externalApps.latestRelease")}
-								<ArrowTopRightOnSquareIcon width={14} />
-							</Link>
+				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalContent
+					bg={panelBg}
+					borderWidth="1px"
+					borderColor={borderColor}
+					borderRadius="2xl"
+					boxShadow="2xl"
+					overflow="hidden"
+					mx={{ base: 4, sm: 0 }}
+				>
+					<ModalCloseButton isDisabled={installMutation.isLoading} />
+					<Box p={{ base: 5, md: 6 }}>
+						<Heading size="md" mb={4}>
+							{t("externalApps.newApp")}
+						</Heading>
+						{!appsQuery.data?.supported ? (
+							<Alert status="warning" mb={4} borderRadius="md">
+								<AlertIcon />
+								{appsQuery.data?.detail || t("externalApps.unsupported")}
+							</Alert>
 						) : null}
-					</FormControl>
-					<FormControl isRequired>
-						<FormLabel>{t("externalApps.domainCertificate")}</FormLabel>
-						<Select
-							value={domain}
-							onValueChange={(value) => setDomain(String(value))}
-							options={certificateOptions}
-							placeholder={t("externalApps.selectDomain")}
-							showSearch
-							emptyText={t("externalApps.noCertificates")}
-						/>
-						<FormHelperText>
-							{t("externalApps.certificateHint")}{" "}
-							<Link as={RouterLink} to="/settings#ssl" color="blue.300">
-								{t("externalApps.openSSLManager")}
-							</Link>
-						</FormHelperText>
-					</FormControl>
-				</SimpleGrid>
-
-				{template === "mirzabot" ? (
-					<Stack mt={4} spacing={3}>
 						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-							<FormControl isRequired>
-								<FormLabel>{t("externalApps.botToken")}</FormLabel>
-								<Input
-									type="password"
-									value={botToken}
-									onChange={(event) => setBotToken(event.target.value)}
-									autoComplete="off"
-								/>
-							</FormControl>
-							<FormControl isRequired>
-								<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
-								<Input
-									value={adminID}
-									onChange={(event) => setAdminID(event.target.value)}
-									inputMode="numeric"
-								/>
-							</FormControl>
-						</SimpleGrid>
-						<Checkbox
-							isChecked={hasDatabaseBackup}
-							onChange={(event) => {
-								setHasDatabaseBackup(event.target.checked);
-								if (!event.target.checked) setDatabaseBackup(null);
-							}}
-						>
-							{t("externalApps.databaseBackupToggle")}
-						</Checkbox>
-						{hasDatabaseBackup ? (
-							<FormControl isRequired>
-								<FormLabel>{t("externalApps.databaseBackup")}</FormLabel>
-								<Input
-									type="file"
-									accept=".sql,application/sql,text/sql,text/plain"
-									pt={1}
-									onChange={(event) =>
-										setDatabaseBackup(event.target.files?.[0] ?? null)
-									}
-								/>
-								<FormHelperText>
-									{t("externalApps.databaseBackupHint")}
-								</FormHelperText>
-							</FormControl>
-						) : null}
-					</Stack>
-				) : (
-					<Stack mt={4} spacing={4}>
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-							<FormControl isRequired>
-								<FormLabel>{t("externalApps.name")}</FormLabel>
-								<Input
-									value={name}
-									maxLength={80}
-									onChange={(event) => setName(event.target.value)}
-								/>
-							</FormControl>
-							<FormControl isDisabled={Boolean(archive)}>
-								<FormLabel>{t("externalApps.runtime")}</FormLabel>
+							<FormControl>
+								<FormLabel>{t("externalApps.template")}</FormLabel>
 								<Select
-									value={archiveRuntime}
-									isDisabled={Boolean(archive)}
-									onValueChange={(value) =>
-										setArchiveRuntime(value as ArchiveRuntime)
-									}
+									value={template}
+									onValueChange={(value) => setTemplate(value as TemplateID)}
 									options={[
-										{ value: "php", label: "PHP" },
 										{
-											value: "static",
-											label: t("externalApps.staticRuntime"),
+											value: "mirzabot",
+											label: t("externalApps.mirzaTemplate"),
+										},
+										{
+											value: "archive",
+											label: t("externalApps.archiveTemplate"),
 										},
 									]}
 								/>
+								{template === "mirzabot" && selectedTemplate?.source_url ? (
+									<Link
+										href={selectedTemplate.source_url}
+										isExternal
+										display="inline-flex"
+										alignItems="center"
+										gap={1}
+										mt={2}
+										fontSize="sm"
+										color="blue.300"
+									>
+										{t("externalApps.latestRelease")}
+										<ArrowTopRightOnSquareIcon width={14} />
+									</Link>
+								) : null}
+							</FormControl>
+							<FormControl isRequired>
+								<FormLabel>{t("externalApps.domainCertificate")}</FormLabel>
+								<Select
+									value={domain}
+									onValueChange={(value) => setDomain(String(value))}
+									options={certificateOptions}
+									placeholder={t("externalApps.selectDomain")}
+									showSearch
+									emptyText={t("externalApps.noCertificates")}
+								/>
 								<FormHelperText>
-									{archive
-										? t("externalApps.runtimeDetectedHint")
-										: t("externalApps.emptyRuntimeHint")}
+									{t("externalApps.certificateHint")}{" "}
+									<Link as={RouterLink} to="/settings#ssl" color="blue.300">
+										{t("externalApps.openSSLManager")}
+									</Link>
 								</FormHelperText>
 							</FormControl>
 						</SimpleGrid>
-						<FormControl>
-							<FormLabel>{t("externalApps.zipArchive")}</FormLabel>
-							<Input
-								type="file"
-								accept=".zip,application/zip"
-								pt={1}
-								onChange={(event) =>
-									setArchive(event.target.files?.[0] ?? null)
-								}
-							/>
-							<FormHelperText>{t("externalApps.archiveHint")}</FormHelperText>
-						</FormControl>
-						<Checkbox
-							isChecked={createDatabase}
-							onChange={(event) => setCreateDatabase(event.target.checked)}
-						>
-							{t("externalApps.createDatabase")}
-						</Checkbox>
-						{createDatabase ? (
-							<Box
-								borderWidth="1px"
-								borderColor={borderColor}
-								borderRadius="md"
-								p={4}
-							>
-								<HStack justify="space-between" mb={4} flexWrap="wrap" gap={2}>
-									<HStack>
-										<CircleStackIcon width={18} />
-										<Text fontWeight="semibold">
-											{t("externalApps.databaseSettings")}
-										</Text>
-									</HStack>
-									<Button
-										size="sm"
-										variant="outline"
-										leftIcon={<SparklesIcon width={16} />}
-										onClick={generateDatabaseCredentials}
-									>
-										{t("externalApps.generateDatabaseCredentials")}
-									</Button>
-								</HStack>
-								<SimpleGrid columns={{ base: 1, lg: 3 }} spacing={4}>
+
+						{template === "mirzabot" ? (
+							<Stack mt={4} spacing={3}>
+								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 									<FormControl isRequired>
-										<FormLabel>{t("externalApps.databaseName")}</FormLabel>
+										<FormLabel>{t("externalApps.botToken")}</FormLabel>
 										<Input
-											value={database}
-											maxLength={64}
+											type="password"
+											value={botToken}
+											onChange={(event) => setBotToken(event.target.value)}
 											autoComplete="off"
-											onChange={(event) => setDatabase(event.target.value)}
 										/>
 									</FormControl>
 									<FormControl isRequired>
-										<FormLabel>{t("externalApps.databaseUser")}</FormLabel>
+										<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
 										<Input
-											value={databaseUser}
-											maxLength={32}
-											autoComplete="off"
-											onChange={(event) => setDatabaseUser(event.target.value)}
-										/>
-									</FormControl>
-									<FormControl isRequired>
-										<FormLabel>{t("externalApps.databasePassword")}</FormLabel>
-										<Input
-											type="text"
-											value={databasePassword}
-											maxLength={128}
-											autoComplete="new-password"
-											onChange={(event) =>
-												setDatabasePassword(event.target.value)
-											}
+											value={adminID}
+											onChange={(event) => setAdminID(event.target.value)}
+											inputMode="numeric"
 										/>
 									</FormControl>
 								</SimpleGrid>
-								<Text color={mutedColor} fontSize="sm" mt={3}>
-									{t("externalApps.databaseCredentialsHint")}
-								</Text>
-							</Box>
-						) : null}
-					</Stack>
-				)}
+								<Checkbox
+									isChecked={hasDatabaseBackup}
+									onChange={(event) => {
+										setHasDatabaseBackup(event.target.checked);
+										if (!event.target.checked) setDatabaseBackup(null);
+									}}
+								>
+									{t("externalApps.databaseBackupToggle")}
+								</Checkbox>
+								{hasDatabaseBackup ? (
+									<FormControl isRequired>
+										<FormLabel>{t("externalApps.databaseBackup")}</FormLabel>
+										<Input
+											type="file"
+											accept=".sql,application/sql,text/sql,text/plain"
+											pt={1}
+											onChange={(event) =>
+												setDatabaseBackup(event.target.files?.[0] ?? null)
+											}
+										/>
+										<FormHelperText>
+											{t("externalApps.databaseBackupHint")}
+										</FormHelperText>
+									</FormControl>
+								) : null}
+							</Stack>
+						) : (
+							<Stack mt={4} spacing={4}>
+								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									<FormControl isRequired>
+										<FormLabel>{t("externalApps.name")}</FormLabel>
+										<Input
+											value={name}
+											maxLength={80}
+											onChange={(event) => setName(event.target.value)}
+										/>
+									</FormControl>
+									<FormControl isDisabled={Boolean(archive)}>
+										<FormLabel>{t("externalApps.runtime")}</FormLabel>
+										<Select
+											value={archiveRuntime}
+											isDisabled={Boolean(archive)}
+											onValueChange={(value) =>
+												setArchiveRuntime(value as ArchiveRuntime)
+											}
+											options={[
+												{ value: "php", label: "PHP" },
+												{
+													value: "static",
+													label: t("externalApps.staticRuntime"),
+												},
+											]}
+										/>
+										<FormHelperText>
+											{archive
+												? t("externalApps.runtimeDetectedHint")
+												: t("externalApps.emptyRuntimeHint")}
+										</FormHelperText>
+									</FormControl>
+								</SimpleGrid>
+								<FormControl>
+									<FormLabel>{t("externalApps.zipArchive")}</FormLabel>
+									<Input
+										type="file"
+										accept=".zip,application/zip"
+										pt={1}
+										onChange={(event) =>
+											setArchive(event.target.files?.[0] ?? null)
+										}
+									/>
+									<FormHelperText>
+										{t("externalApps.archiveHint")}
+									</FormHelperText>
+								</FormControl>
+								<Checkbox
+									isChecked={createDatabase}
+									onChange={(event) => setCreateDatabase(event.target.checked)}
+								>
+									{t("externalApps.createDatabase")}
+								</Checkbox>
+								{createDatabase ? (
+									<Box
+										borderWidth="1px"
+										borderColor={borderColor}
+										borderRadius="md"
+										p={4}
+									>
+										<HStack
+											justify="space-between"
+											mb={4}
+											flexWrap="wrap"
+											gap={2}
+										>
+											<HStack>
+												<CircleStackIcon width={18} />
+												<Text fontWeight="semibold">
+													{t("externalApps.databaseSettings")}
+												</Text>
+											</HStack>
+											<Button
+												size="sm"
+												variant="outline"
+												leftIcon={<SparklesIcon width={16} />}
+												onClick={generateDatabaseCredentials}
+											>
+												{t("externalApps.generateDatabaseCredentials")}
+											</Button>
+										</HStack>
+										<SimpleGrid columns={{ base: 1, lg: 3 }} spacing={4}>
+											<FormControl isRequired>
+												<FormLabel>{t("externalApps.databaseName")}</FormLabel>
+												<Input
+													value={database}
+													maxLength={64}
+													autoComplete="off"
+													onChange={(event) => setDatabase(event.target.value)}
+												/>
+											</FormControl>
+											<FormControl isRequired>
+												<FormLabel>{t("externalApps.databaseUser")}</FormLabel>
+												<Input
+													value={databaseUser}
+													maxLength={32}
+													autoComplete="off"
+													onChange={(event) =>
+														setDatabaseUser(event.target.value)
+													}
+												/>
+											</FormControl>
+											<FormControl isRequired>
+												<FormLabel>
+													{t("externalApps.databasePassword")}
+												</FormLabel>
+												<Input
+													type="text"
+													value={databasePassword}
+													maxLength={128}
+													autoComplete="new-password"
+													onChange={(event) =>
+														setDatabasePassword(event.target.value)
+													}
+												/>
+											</FormControl>
+										</SimpleGrid>
+										<Text color={mutedColor} fontSize="sm" mt={3}>
+											{t("externalApps.databaseCredentialsHint")}
+										</Text>
+									</Box>
+								) : null}
+							</Stack>
+						)}
 
-				<Button
-					mt={5}
-					colorScheme="blue"
-					leftIcon={<ArrowUpTrayIcon width={18} />}
-					isLoading={installMutation.isLoading}
-					isDisabled={
-						!appsQuery.data?.supported ||
-						selectedTemplate?.supported === false ||
-						!domain ||
-						(template === "archive" && !name.trim())
-					}
-					onClick={() => installMutation.mutate()}
-				>
-					{t("externalApps.install")}
-				</Button>
-				{selectedTemplate?.detail ? (
-					<Text color="orange.300" fontSize="sm" mt={2}>
-						{selectedTemplate.detail}
-					</Text>
-				) : null}
-			</Box>
+						<Button
+							mt={5}
+							colorScheme="blue"
+							leftIcon={<ArrowUpTrayIcon width={18} />}
+							isLoading={installMutation.isLoading}
+							isDisabled={
+								!appsQuery.data?.supported ||
+								selectedTemplate?.supported === false ||
+								!domain ||
+								(template === "archive" && !name.trim())
+							}
+							onClick={() => installMutation.mutate()}
+						>
+							{t("externalApps.install")}
+						</Button>
+						{selectedTemplate?.detail ? (
+							<Text color="orange.300" fontSize="sm" mt={2}>
+								{selectedTemplate.detail}
+							</Text>
+						) : null}
+					</Box>
+				</ModalContent>
+			</Modal>
 
 			<Stack spacing={3}>
 				<ResourceListCard
@@ -1008,6 +1043,15 @@ export const ExternalAppsPage = () => {
 							value: apps.filter((app) => !app.enabled).length,
 						},
 					]}
+					actions={
+						<Button
+							colorScheme="primary"
+							leftIcon={<PlusIcon width={16} height={16} />}
+							onClick={() => setCreateDialogOpen(true)}
+						>
+							{t("externalApps.create")}
+						</Button>
+					}
 				/>
 				<DataTable
 					ariaLabel={t("externalApps.installedApps")}

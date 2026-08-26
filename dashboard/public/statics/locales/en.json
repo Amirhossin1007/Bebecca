@@ -3159,6 +3159,7 @@
 	"externalApps.description": "Deploy and manage isolated PHP or static web applications directly through Rebecca, without Apache.",
 	"externalApps.resourceHint": "Static apps use no background process. PHP-FPM workers start on demand and stop after being idle; each app has its own Unix user and socket. Multiple MirzaBots can safely share one domain through separate webhook paths.",
 	"externalApps.newApp": "Deploy application",
+	"externalApps.create": "Create external app",
 	"externalApps.template": "Template",
 	"externalApps.mirzaTemplate": "MirzaBot (latest stable)",
 	"externalApps.archiveTemplate": "Custom PHP / HTML project",

@@ -14,7 +14,8 @@ Rebecca panel to create, manage, and troubleshoot users, admins, and nodes. Main
 - Create/renew users, statuses (active/on hold/limited/expired), links/QR, Auto Renew.
 - Admins with roles and permissions, data limit and user limit.
 - Nodes with a dedicated certificate bundle; monitor connectivity and metrics from Node settings.
-- Settings for runtime behavior, backups, Telegram, subscriptions, and templates.
+- Dashboard controls for panel update, restart, and portable backup import/export.
+- Settings for runtime behavior, Telegram, subscriptions, and SSL certificates with one shared save action.
 - My Account: API keys, password change, daily and per-node usage charts.
 - Open source—if it helps you, please star the GitHub repo.
 

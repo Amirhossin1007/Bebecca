@@ -3159,6 +3159,7 @@
 	"externalApps.description": "اپلیکیشن‌های PHP یا وب استاتیک را بدون Apache، به‌صورت ایزوله مستقیماً با Rebecca مستقر و مدیریت کنید.",
 	"externalApps.resourceHint": "اپ‌های استاتیک پردازش پس‌زمینه ندارند. پردازش‌های PHP-FPM فقط هنگام درخواست اجرا و پس از بیکار ماندن متوقف می‌شوند؛ هر اپ کاربر لینوکس و سوکت جدا دارد و چند MirzaBot می‌توانند با مسیرهای وبهوک جدا از یک دامنه استفاده کنند.",
 	"externalApps.newApp": "استقرار اپلیکیشن",
+	"externalApps.create": "ساخت اپلیکیشن خارجی",
 	"externalApps.template": "تمپلیت",
 	"externalApps.mirzaTemplate": "MirzaBot (آخرین نسخه پایدار)",
 	"externalApps.archiveTemplate": "پروژه سفارشی PHP / HTML",
