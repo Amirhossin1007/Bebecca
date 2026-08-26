@@ -38,6 +38,8 @@ type Service struct {
 	mu                 sync.Mutex
 	cpuHistory         []HistoryEntry
 	memoryHistory      []HistoryEntry
+	swapHistory        []HistoryEntry
+	diskHistory        []HistoryEntry
 	networkHistory     []NetworkHistoryEntry
 	panelCPUHistory    []HistoryEntry
 	panelMemoryHistory []HistoryEntry
@@ -85,6 +87,8 @@ func (s *Service) Stats(ctx context.Context, admin dashboardapp.AdminContext) (S
 		Version:               s.version,
 		Channel:               s.channel,
 		CPUCores:              snapshot.CPUCores,
+		CPUThreads:            snapshot.CPUThreads,
+		CPUFrequencyHz:        snapshot.CPUFrequencyHz,
 		CPUUsage:              snapshot.CPUUsage,
 		TotalUser:             summary.TotalUser,
 		OnlineUsers:           summary.OnlineUsers,
@@ -113,6 +117,8 @@ func (s *Service) Stats(ctx context.Context, admin dashboardapp.AdminContext) (S
 		PanelMemoryPercent:    snapshot.PanelMemoryPercent,
 		CPUHistory:            history.cpu,
 		MemoryHistory:         history.memory,
+		SwapHistory:           history.swap,
+		DiskHistory:           history.disk,
 		NetworkHistory:        history.network,
 		PanelCPUHistory:       history.panelCPU,
 		PanelMemoryHistory:    history.panelMemory,
@@ -228,6 +234,8 @@ func hasSystemColumn(ctx context.Context, db *sql.DB, dialect string, table stri
 type historySnapshot struct {
 	cpu         []HistoryEntry
 	memory      []HistoryEntry
+	swap        []HistoryEntry
+	disk        []HistoryEntry
 	network     []NetworkHistoryEntry
 	panelCPU    []HistoryEntry
 	panelMemory []HistoryEntry
@@ -243,6 +251,8 @@ func (s *Service) appendHistory(snapshot MetricsSnapshot) historySnapshot {
 	}
 	s.cpuHistory = appendBounded(s.cpuHistory, HistoryEntry{Timestamp: timestamp, Value: snapshot.CPUUsage})
 	s.memoryHistory = appendBounded(s.memoryHistory, HistoryEntry{Timestamp: timestamp, Value: snapshot.Memory.Percent})
+	s.swapHistory = appendBounded(s.swapHistory, HistoryEntry{Timestamp: timestamp, Value: snapshot.Swap.Percent})
+	s.diskHistory = appendBounded(s.diskHistory, HistoryEntry{Timestamp: timestamp, Value: snapshot.Disk.Percent})
 	s.networkHistory = appendBounded(
 		s.networkHistory,
 		NetworkHistoryEntry{
@@ -263,6 +273,8 @@ func (s *Service) appendHistory(snapshot MetricsSnapshot) historySnapshot {
 	return historySnapshot{
 		cpu:         append([]HistoryEntry(nil), s.cpuHistory...),
 		memory:      append([]HistoryEntry(nil), s.memoryHistory...),
+		swap:        append([]HistoryEntry(nil), s.swapHistory...),
+		disk:        append([]HistoryEntry(nil), s.diskHistory...),
 		network:     append([]NetworkHistoryEntry(nil), s.networkHistory...),
 		panelCPU:    append([]HistoryEntry(nil), s.panelCPUHistory...),
 		panelMemory: append([]HistoryEntry(nil), s.panelMemoryHistory...),
@@ -298,10 +310,14 @@ func (s *Service) connectedNodeRuntime(ctx context.Context) (bool, *string, erro
 }
 
 type GopsutilMetricsProvider struct {
-	mu        sync.Mutex
-	process   *process.Process
-	lastNet   *gonet.IOCountersStat
-	lastNetAt time.Time
+	mu             sync.Mutex
+	cpuInfoOnce    sync.Once
+	cpuCores       int
+	cpuThreads     int
+	cpuFrequencyHz float64
+	process        *process.Process
+	lastNet        *gonet.IOCountersStat
+	lastNetAt      time.Time
 }
 
 func NewGopsutilMetricsProvider() *GopsutilMetricsProvider {
@@ -316,9 +332,20 @@ func (p *GopsutilMetricsProvider) Snapshot(ctx context.Context) (MetricsSnapshot
 	now := time.Now()
 	result := MetricsSnapshot{Timestamp: now.Unix()}
 
-	if cores, err := cpu.CountsWithContext(ctx, true); err == nil {
-		result.CPUCores = cores
-	}
+	p.cpuInfoOnce.Do(func() {
+		p.cpuThreads = runtime.NumCPU()
+		if cores, err := cpu.CountsWithContext(ctx, false); err == nil && cores > 0 {
+			p.cpuCores = cores
+		} else {
+			p.cpuCores = p.cpuThreads
+		}
+		if info, err := cpu.InfoWithContext(ctx); err == nil && len(info) > 0 && info[0].Mhz > 0 {
+			p.cpuFrequencyHz = info[0].Mhz * 1_000_000
+		}
+	})
+	result.CPUCores = p.cpuCores
+	result.CPUThreads = p.cpuThreads
+	result.CPUFrequencyHz = p.cpuFrequencyHz
 	if percents, err := cpu.PercentWithContext(ctx, 0, false); err == nil && len(percents) > 0 {
 		result.CPUUsage = finitePercent(percents[0])
 	}

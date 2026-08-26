@@ -24,6 +24,8 @@ type NetworkHistoryEntry struct {
 type MetricsSnapshot struct {
 	Timestamp              int64
 	CPUCores               int
+	CPUThreads             int
+	CPUFrequencyHz         float64
 	CPUUsage               float64
 	Memory                 UsageStats
 	Swap                   UsageStats
@@ -46,6 +48,8 @@ type SystemStats struct {
 	Version               string                `json:"version"`
 	Channel               string                `json:"channel"`
 	CPUCores              int                   `json:"cpu_cores"`
+	CPUThreads            int                   `json:"cpu_threads"`
+	CPUFrequencyHz        float64               `json:"cpu_frequency_hz"`
 	CPUUsage              float64               `json:"cpu_usage"`
 	TotalUser             int64                 `json:"total_user"`
 	OnlineUsers           int64                 `json:"online_users"`
@@ -74,6 +78,8 @@ type SystemStats struct {
 	PanelMemoryPercent    float64               `json:"panel_memory_percent"`
 	CPUHistory            []HistoryEntry        `json:"cpu_history"`
 	MemoryHistory         []HistoryEntry        `json:"memory_history"`
+	SwapHistory           []HistoryEntry        `json:"swap_history"`
+	DiskHistory           []HistoryEntry        `json:"disk_history"`
 	NetworkHistory        []NetworkHistoryEntry `json:"network_history"`
 	PanelCPUHistory       []HistoryEntry        `json:"panel_cpu_history"`
 	PanelMemoryHistory    []HistoryEntry        `json:"panel_memory_history"`

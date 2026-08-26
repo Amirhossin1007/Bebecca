@@ -34,7 +34,6 @@ import {
 	DataTable,
 	type DataTableColumn,
 	type DataTableRowAction,
-	PageHeader,
 	ResourceListCard,
 } from "components/ui";
 import dayjs from "dayjs";
@@ -918,21 +917,6 @@ export const RecentActionsPage: FC = () => {
 			dir={i18n.dir(i18n.language)}
 			pb={{ base: 8, md: 16 }}
 		>
-			<PageHeader
-				title={t("recentActions.title")}
-				description={t("recentActions.description")}
-				actions={
-					<Button
-						leftIcon={<ArrowPathIcon width={16} />}
-						variant="outline"
-						onClick={() => void actionsQuery.refetch()}
-						isLoading={actionsQuery.isFetching}
-					>
-						{t("recentActions.refresh")}
-					</Button>
-				}
-			/>
-
 			<ResourceListCard
 				title={t("recentActions.title")}
 				summaryItems={[
@@ -943,6 +927,16 @@ export const RecentActionsPage: FC = () => {
 						colorScheme: "green",
 					},
 				]}
+				actions={
+					<Button
+						leftIcon={<ArrowPathIcon width={16} />}
+						variant="outline"
+						onClick={() => void actionsQuery.refetch()}
+						isLoading={actionsQuery.isFetching}
+					>
+						{t("recentActions.refresh")}
+					</Button>
+				}
 			>
 				<Stack
 					direction={{ base: "column", xl: "row" }}

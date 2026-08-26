@@ -1726,11 +1726,6 @@ const ServicesPage: FC = () => {
 
 	return (
 		<VStack spacing={4} align="stretch">
-			<PageHeader
-				title={t("services.title")}
-				description={t("services.subtitle")}
-			/>
-
 			<ResourceListCard
 				title={t("services.listHeader")}
 				summaryItems={serviceSummaryItems}

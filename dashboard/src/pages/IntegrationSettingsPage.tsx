@@ -19,13 +19,8 @@ import {
 	MenuItem,
 	MenuList,
 	Modal,
-	ModalBody,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
 	ModalCloseButton,
 	ModalOverlay,
-	Progress,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -40,7 +35,6 @@ import {
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	ArrowPathIcon,
-	ArrowsRightLeftIcon,
 	ArrowUpTrayIcon,
 	ChevronDownIcon as HeroChevronDownIcon,
 	MagnifyingGlassIcon,
@@ -56,7 +50,6 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -103,7 +96,6 @@ import {
 	generateErrorMessage,
 	generateSuccessMessage,
 } from "utils/toastHandler";
-import { getAPIWebSocketURL } from "utils/websocket";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import { JsonEditor } from "../components/JsonEditor";
 import { RebeccaBackupPanel } from "../components/RebeccaBackupPanel";
@@ -116,7 +108,6 @@ import {
 } from "../components/xray/XrayDialog";
 import {
 	DataTable,
-	PageHeader,
 	ResourceListCard,
 	TabSystem,
 	type DataTableColumn,
@@ -129,6 +120,10 @@ type EventToggleItem = {
 	defaultLabel: string;
 	hintKey: string;
 	defaultHint: string;
+};
+
+type RuntimeMaintenanceInfo = {
+	panel?: { mode?: string; install_mode?: string } | null;
 };
 
 type EventToggleGroup = {
@@ -202,61 +197,6 @@ const encodeToggleKey = (key: string) =>
 	key.replace(/\./g, TOGGLE_KEY_PLACEHOLDER);
 const decodeToggleKey = (key: string) =>
 	key.replace(new RegExp(TOGGLE_KEY_PLACEHOLDER, "g"), ".");
-
-type UpdateStatus = {
-	current?: string | null;
-	channel?: string;
-	available?: boolean;
-	target?: string | null;
-	latest_release?: { tag?: string | null } | null;
-	latest_dev?: { tag?: string | null } | null;
-	error?: string | null;
-};
-
-type MaintenanceInfo = {
-	panel?: {
-		image?: string;
-		tag?: string;
-		mode?: string;
-		install_mode?: string;
-		channel?: string;
-		update?: UpdateStatus;
-	} | null;
-	node?: { image?: string; tag?: string } | null;
-	node_update?: UpdateStatus | null;
-};
-
-type MaintenanceAction = "update" | "restart" | "soft-reload";
-type UpdateChannel = "current" | "latest" | "dev";
-
-type MaintenanceOperation = {
-	id?: string;
-	action?: MaintenanceAction | string;
-	phase?: string;
-	message?: string;
-	progress?: number | null;
-	running?: boolean;
-	restarting?: boolean;
-	needs_reload?: boolean;
-	error?: string;
-	logs?: string[];
-	started_at?: number;
-	updated_at?: number;
-	finished_at?: number | null;
-};
-
-const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
-	Boolean(
-		operation?.restarting ||
-		operation?.needs_reload ||
-		operation?.phase === "restarting",
-	);
-
-type MaintenanceActionResponse = {
-	status?: string;
-	message?: string;
-	operation?: MaintenanceOperation;
-};
 
 const defaultRuntimeSettings: RuntimeSettingsResponse = {
 	dashboard_path: "/dashboard/",
@@ -757,20 +697,6 @@ const parseAdminChatIds = (value: string): number[] =>
 		.map((token) => Number(token))
 		.filter((token) => Number.isFinite(token));
 
-const ansiEscapePattern =
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: This removes ANSI terminal control sequences from node logs.
-	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
-
-const cleanTerminalOutput = (logs?: string[]) => {
-	const output = (logs || []).join("\n");
-	return output
-		.replace(ansiEscapePattern, "")
-		.replace(/\r(?!\n)/g, "\n")
-		// biome-ignore lint/suspicious/noControlCharactersInRegex: Backspace is removed from node log output.
-		.replace(/\u0008/g, "")
-		.trimEnd();
-};
-
 export const IntegrationSettingsPage = () => {
 	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
@@ -779,17 +705,17 @@ export const IntegrationSettingsPage = () => {
 	const subCardBg = useColorModeValue("gray.50", "whiteAlpha.100");
 	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
 	const fieldBg = useColorModeValue("white", "blackAlpha.200");
-	const maintenanceOutputBg = useColorModeValue("gray.50", "blackAlpha.400");
-	const maintenanceOutputBorder = useColorModeValue(
-		"gray.200",
-		"whiteAlpha.200",
-	);
 	const { userData, getUserIsSuccess } = useGetUser();
 	const isSudoOrFull =
 		userData?.role === "sudo" || userData?.role === "full_access";
 	const canManageIntegrations =
 		getUserIsSuccess &&
 		(isSudoOrFull || Boolean(userData.permissions?.sections.integrations));
+	const canReadMaintenance =
+		getUserIsSuccess &&
+		(userData.role === "full_access" ||
+			(userData.role === "sudo" &&
+				Boolean(userData.permissions?.sudo.maintenance)));
 	const queryClient = useQueryClient();
 
 	const { data, isLoading, refetch } = useQuery(
@@ -845,46 +771,14 @@ export const IntegrationSettingsPage = () => {
 		},
 	);
 
-	const maintenanceInfoQuery = useQuery<MaintenanceInfo>(
+	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>(
 		"maintenance-info",
-		() => apiFetch<MaintenanceInfo>("/maintenance/info"),
-		{ refetchOnWindowFocus: false, enabled: canManageIntegrations },
+		() => apiFetch<RuntimeMaintenanceInfo>("/maintenance/info"),
+		{ refetchOnWindowFocus: false, enabled: canReadMaintenance },
 	);
-
-	const [activeMaintenanceAction, setActiveMaintenanceAction] =
-		useState<MaintenanceAction | null>(null);
-	const panelInstallMode =
-		maintenanceInfoQuery.data?.panel?.mode ||
-		maintenanceInfoQuery.data?.panel?.install_mode ||
-		"docker";
-	const hostActionsAvailable = panelInstallMode === "binary";
-	const [selectedUpdateChannel, setSelectedUpdateChannel] =
-		useState<UpdateChannel>("current");
-	const panelUpdateInfo = maintenanceInfoQuery.data?.panel?.update;
-	const selectedUpdateTarget =
-		selectedUpdateChannel === "dev"
-			? panelUpdateInfo?.latest_dev?.tag
-			: selectedUpdateChannel === "latest"
-				? panelUpdateInfo?.latest_release?.tag
-				: panelUpdateInfo?.target;
-
-	useEffect(() => {
-		const channel = maintenanceInfoQuery.data?.panel?.channel;
-		if (channel === "dev" || channel === "latest") {
-			setSelectedUpdateChannel(channel);
-		}
-	}, [maintenanceInfoQuery.data?.panel?.channel]);
-
-	useEffect(() => {
-		if (!activeMaintenanceAction) {
-			return;
-		}
-		const timer = window.setTimeout(
-			() => setActiveMaintenanceAction(null),
-			15000,
-		);
-		return () => window.clearTimeout(timer);
-	}, [activeMaintenanceAction]);
+	const hostActionsAvailable =
+		(maintenanceInfoQuery.data?.panel?.mode ||
+			maintenanceInfoQuery.data?.panel?.install_mode) === "binary";
 
 	const [panelDefaultSubType, setPanelDefaultSubType] = useState<
 		"username-key" | "key" | "token" | "key-username"
@@ -922,7 +816,6 @@ export const IntegrationSettingsPage = () => {
 		useState<SubscriptionTemplateContentResponse | null>(null);
 	const [templateIsJson, setTemplateIsJson] = useState<boolean>(true);
 	const [templateLoading, setTemplateLoading] = useState<boolean>(false);
-	const [isDevUpdateConfirmOpen, setDevUpdateConfirmOpen] = useState(false);
 	const [isOpeningPHPMyAdminExternal, setOpeningPHPMyAdminExternal] =
 		useState(false);
 	const [certificateForm, setCertificateForm] = useState<{
@@ -943,15 +836,6 @@ export const IntegrationSettingsPage = () => {
 		type: "revoke" | "delete";
 		domain: string;
 	} | null>(null);
-	const [maintenanceOperation, setMaintenanceOperation] =
-		useState<MaintenanceOperation | null>(null);
-	const [isMaintenanceProgressOpen, setMaintenanceProgressOpen] =
-		useState(false);
-	const [maintenanceIsWaitingForAPI, setMaintenanceIsWaitingForAPI] =
-		useState(false);
-	const panelReturnPollRef = useRef<number | null>(null);
-	const panelReturnSawOfflineRef = useRef(false);
-
 	useEffect(() => {
 		if (subscriptionBundle?.admins) {
 			const next: Record<number, AdminSubscriptionSettings> = {};
@@ -975,207 +859,6 @@ export const IntegrationSettingsPage = () => {
 			setSelectedAdminId(ids[0]);
 		}
 	}, [adminOverrides, selectedAdminId]);
-
-	const clearPanelReturnPolling = useCallback(() => {
-		if (panelReturnPollRef.current !== null) {
-			window.clearInterval(panelReturnPollRef.current);
-			panelReturnPollRef.current = null;
-		}
-	}, []);
-
-	const startPanelReturnPolling = useCallback(() => {
-		if (panelReturnPollRef.current !== null) {
-			return;
-		}
-		const startedAt = Date.now();
-		panelReturnSawOfflineRef.current = false;
-		setMaintenanceIsWaitingForAPI(true);
-		panelReturnPollRef.current = window.setInterval(async () => {
-			try {
-				await apiFetch<MaintenanceInfo>("/maintenance/info", {
-					timeout: 2500,
-				});
-				const waitedLongEnough = Date.now() - startedAt > 7000;
-				if (panelReturnSawOfflineRef.current || waitedLongEnough) {
-					clearPanelReturnPolling();
-					window.location.reload();
-				}
-			} catch {
-				panelReturnSawOfflineRef.current = true;
-			}
-		}, 2000);
-	}, [clearPanelReturnPolling]);
-
-	useEffect(() => {
-		return () => clearPanelReturnPolling();
-	}, [clearPanelReturnPolling]);
-
-	const triggerMaintenanceAction = async (
-		path:
-			| "/maintenance/update"
-			| "/maintenance/restart"
-			| "/maintenance/soft-reload",
-		body?: Record<string, unknown>,
-	): Promise<{ wentOffline: boolean; operation?: MaintenanceOperation }> => {
-		try {
-			const result = await apiFetch<MaintenanceActionResponse>(path, {
-				method: "POST",
-				body,
-				timeout: 3000,
-			});
-			return { wentOffline: false, operation: result.operation };
-		} catch (error: any) {
-			const isLikelyPanelOffline = !error?.response;
-			if (isLikelyPanelOffline) {
-				return { wentOffline: true };
-			}
-			throw error;
-		}
-	};
-
-	const handleMaintenanceSuccess = (
-		action: MaintenanceAction,
-		result: { wentOffline: boolean; operation?: MaintenanceOperation },
-	) => {
-		setActiveMaintenanceAction(action);
-		const operation = result.operation || {
-			action,
-			phase: result.wentOffline ? "restarting" : "queued",
-			message: result.wentOffline
-				? t("settings.panel.maintenanceWaitingForAPI")
-				: t("settings.panel.maintenanceQueued"),
-			restarting: result.wentOffline,
-			needs_reload: result.wentOffline,
-		};
-		setMaintenanceOperation(operation);
-		setMaintenanceProgressOpen(true);
-		let messageKey = "settings.panel.restartTriggered";
-		if (action === "update") {
-			messageKey = "settings.panel.updateTriggered";
-		} else if (action === "soft-reload") {
-			messageKey = "settings.panel.softReloadTriggered";
-		}
-		generateSuccessMessage(t(messageKey), toast);
-		if (result.wentOffline) {
-			toast({
-				title: t("settings.panel.maintenanceOfflineNotice"),
-				status: "info",
-				duration: 4000,
-				isClosable: true,
-				position: "top",
-			});
-		}
-		if (result.wentOffline || shouldWaitForPanelReturn(operation)) {
-			startPanelReturnPolling();
-		}
-		window.setTimeout(() => maintenanceInfoQuery.refetch(), 6000);
-	};
-
-	useEffect(() => {
-		const operationID = maintenanceOperation?.id;
-		if (
-			!isMaintenanceProgressOpen ||
-			!operationID ||
-			maintenanceIsWaitingForAPI
-		) {
-			return;
-		}
-		const url = getAPIWebSocketURL("/maintenance/status", { id: operationID });
-		if (!url) {
-			return;
-		}
-		let socket: WebSocket | null = null;
-		let reconnectTimer: number | null = null;
-		let disposed = false;
-		let receivedStatus = false;
-		let latestStatus: MaintenanceOperation | null = null;
-		const connect = () => {
-			socket = new WebSocket(url);
-			socket.onmessage = (event) => {
-				try {
-					const status = JSON.parse(event.data) as MaintenanceOperation;
-					if (status.id !== operationID) return;
-					receivedStatus = true;
-					latestStatus = status;
-					setMaintenanceOperation(status);
-					if (shouldWaitForPanelReturn(status)) {
-						startPanelReturnPolling();
-					}
-				} catch {}
-			};
-			socket.onclose = () => {
-				if (!disposed && (!receivedStatus || latestStatus?.running)) {
-					reconnectTimer = window.setTimeout(connect, 1000);
-				}
-			};
-		};
-		connect();
-		return () => {
-			disposed = true;
-			if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-			socket?.close();
-		};
-	}, [
-		isMaintenanceProgressOpen,
-		maintenanceIsWaitingForAPI,
-		maintenanceOperation?.id,
-		startPanelReturnPolling,
-	]);
-
-	const updateMutation = useMutation(
-		() =>
-			triggerMaintenanceAction("/maintenance/update", {
-				channel: selectedUpdateChannel,
-			}),
-		{
-			retry: false,
-			onMutate: () => setActiveMaintenanceAction("update"),
-			onSuccess: (result) => handleMaintenanceSuccess("update", result),
-			onError: (error) => {
-				setActiveMaintenanceAction(null);
-				generateErrorMessage(error, toast);
-			},
-		},
-	);
-
-	const handlePanelUpdateClick = () => {
-		if (selectedUpdateChannel === "dev") {
-			setDevUpdateConfirmOpen(true);
-			return;
-		}
-		updateMutation.mutate();
-	};
-
-	const confirmDevPanelUpdate = () => {
-		setDevUpdateConfirmOpen(false);
-		updateMutation.mutate();
-	};
-
-	const restartMutation = useMutation(
-		() => triggerMaintenanceAction("/maintenance/restart"),
-		{
-			retry: false,
-			onMutate: () => setActiveMaintenanceAction("restart"),
-			onSuccess: (result) => handleMaintenanceSuccess("restart", result),
-			onError: (error) => {
-				setActiveMaintenanceAction(null);
-				generateErrorMessage(error, toast);
-			},
-		},
-	);
-
-	const softReloadMutation = useMutation(
-		() => triggerMaintenanceAction("/maintenance/soft-reload"),
-		{
-			retry: false,
-			onMutate: () => setActiveMaintenanceAction("soft-reload"),
-			onSuccess: (result) => handleMaintenanceSuccess("soft-reload", result),
-			onError: (error) => {
-				setActiveMaintenanceAction(null);
-				generateErrorMessage(error, toast);
-			},
-		},
-	);
 
 	const {
 		register,
@@ -1352,38 +1035,33 @@ export const IntegrationSettingsPage = () => {
 		},
 	});
 
-	const panelMutation = useMutation(updatePanelSettings, {
-		onSuccess: (updated) => {
-			setPanelDefaultSubType(updated.default_subscription_type ?? "key");
-			queryClient.setQueryData("panel-settings", updated);
-			toast({
-				title: t("settings.panel.saved"),
-				status: "success",
-				duration: 3000,
-			});
+	const panelRuntimeMutation = useMutation(
+		async () => {
+			const [runtime, panel] = await Promise.all([
+				updateRuntimeSettings(runtimeSettingsForm),
+				updatePanelSettings({
+					default_subscription_type: panelDefaultSubType,
+				}),
+			]);
+			return { panel, runtime };
 		},
-		onError: () => {
-			toast({
-				title: t("errors.generic"),
-				status: "error",
-			});
+		{
+			onSuccess: ({ panel, runtime }) => {
+				setRuntimeSettingsForm(runtime);
+				setPanelDefaultSubType(panel.default_subscription_type ?? "key");
+				queryClient.setQueryData("runtime-settings", runtime);
+				queryClient.setQueryData("panel-settings", panel);
+				toast({
+					title: t("settings.runtime.saved"),
+					status: "success",
+					duration: 3000,
+				});
+			},
+			onError: (error) => {
+				generateErrorMessage(error, toast);
+			},
 		},
-	});
-
-	const runtimeSettingsMutation = useMutation(updateRuntimeSettings, {
-		onSuccess: (updated) => {
-			setRuntimeSettingsForm(updated);
-			queryClient.setQueryData("runtime-settings", updated);
-			toast({
-				title: t("settings.runtime.saved"),
-				status: "success",
-				duration: 3000,
-			});
-		},
-		onError: (error) => {
-			generateErrorMessage(error, toast);
-		},
-	});
+	);
 
 	const phpMyAdminEnableMutation = useMutation(
 		() =>
@@ -1850,6 +1528,7 @@ export const IntegrationSettingsPage = () => {
 			"",
 			`${window.location.pathname}${window.location.search}${key ? `#${key}` : ""}`,
 		);
+		window.dispatchEvent(new Event("hashchange"));
 	};
 
 	const adminOptions = Object.values(adminOverrides);
@@ -2386,7 +2065,6 @@ export const IntegrationSettingsPage = () => {
 				},
 			}}
 		>
-			<PageHeader title={t("settings.integrations")} mb={4} />
 			<TabSystem
 				className="master-settings-tabs"
 				overflowX="auto"
@@ -2448,56 +2126,7 @@ export const IntegrationSettingsPage = () => {
 							</Flex>
 						) : (
 							<Stack spacing={6} align="stretch">
-								<Box className="master-settings-card">
-									<Flex
-										justify="space-between"
-										align={{ base: "flex-start", md: "center" }}
-										gap={4}
-										flexDirection={{ base: "column", md: "row" }}
-									>
-										<Box>
-											<Heading size="sm" mb={1}>
-												{t("settings.panel.defaultSubscriptionType")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500">
-												{t("settings.panel.defaultSubscriptionTypeDescription")}
-											</Text>
-										</Box>
-										<FormControl maxW={{ base: "full", md: "240px" }}>
-											<FormLabel fontSize="sm" mb={1}>
-												{t("settings.panel.defaultSubscriptionTypeLabel")}
-											</FormLabel>
-											<Select
-												size="sm"
-												value={panelDefaultSubType}
-												onChange={(event) =>
-													setPanelDefaultSubType(
-														event.target.value as
-															| "username-key"
-															| "key"
-															| "token"
-															| "key-username",
-													)
-												}
-												isDisabled={panelMutation.isLoading || isPanelLoading}
-											>
-												<option value="username-key">
-													{t("settings.panel.link.usernameKey")}
-												</option>
-												<option value="key">
-													{t("settings.panel.link.keyOnly")}
-												</option>
-												<option value="key-username">
-													{t("settings.panel.link.keyUsername")}
-												</option>
-												<option value="token">
-													{t("settings.panel.link.token")}
-												</option>
-											</Select>
-										</FormControl>
-									</Flex>
-								</Box>
-								<Box className="master-settings-card">
+								<Box className="master-settings-card" borderRadius="2xl">
 									<Flex
 										justify="space-between"
 										align={{ base: "flex-start", md: "center" }}
@@ -2517,13 +2146,53 @@ export const IntegrationSettingsPage = () => {
 											variant="outline"
 											size="sm"
 											leftIcon={<ArrowPathIcon width={16} height={16} />}
-											onClick={() => refetchRuntimeSettings()}
-											isLoading={isRuntimeSettingsLoading}
+										onClick={() => {
+											void refetchRuntimeSettings();
+											void refetchPanelSettings();
+										}}
+										isLoading={
+											isRuntimeSettingsLoading || isPanelLoading
+										}
 										>
 											{t("refresh")}
 										</Button>
 									</Flex>
 									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+										<FormControl>
+											<FormLabel fontSize="sm">
+												{t("settings.panel.defaultSubscriptionType")}
+											</FormLabel>
+											<Select
+												size="sm"
+												value={panelDefaultSubType}
+												onChange={(event) =>
+													setPanelDefaultSubType(
+														event.target.value as
+															| "username-key"
+															| "key"
+															| "token"
+															| "key-username",
+													)
+												}
+												isDisabled={panelRuntimeMutation.isLoading || isPanelLoading}
+											>
+												<option value="username-key">
+													{t("settings.panel.link.usernameKey")}
+												</option>
+												<option value="key">
+													{t("settings.panel.link.keyOnly")}
+												</option>
+												<option value="key-username">
+													{t("settings.panel.link.keyUsername")}
+												</option>
+												<option value="token">
+													{t("settings.panel.link.token")}
+												</option>
+											</Select>
+											<FormHelperText>
+												{t("settings.panel.defaultSubscriptionTypeDescription")}
+											</FormHelperText>
+										</FormControl>
 										<FormControl>
 											<FormLabel fontSize="sm">
 												{t("settings.runtime.dashboardPath")}
@@ -2537,7 +2206,7 @@ export const IntegrationSettingsPage = () => {
 														dashboard_path: event.target.value,
 													}))
 												}
-												isDisabled={runtimeSettingsMutation.isLoading}
+											isDisabled={panelRuntimeMutation.isLoading}
 											/>
 											<FormHelperText>
 												{t("settings.runtime.dashboardPathHint")}
@@ -2559,7 +2228,7 @@ export const IntegrationSettingsPage = () => {
 																subscription_read_only: event.target.checked,
 															}))
 														}
-														isDisabled={runtimeSettingsMutation.isLoading}
+												isDisabled={panelRuntimeMutation.isLoading}
 													/>
 												}
 											/>
@@ -2576,7 +2245,7 @@ export const IntegrationSettingsPage = () => {
 															record_node_usage: event.target.checked,
 														}))
 													}
-													isDisabled={runtimeSettingsMutation.isLoading}
+											isDisabled={panelRuntimeMutation.isLoading}
 												/>
 											}
 										/>
@@ -2592,7 +2261,7 @@ export const IntegrationSettingsPage = () => {
 															record_node_user_usages: event.target.checked,
 														}))
 													}
-													isDisabled={runtimeSettingsMutation.isLoading}
+											isDisabled={panelRuntimeMutation.isLoading}
 												/>
 											}
 										/>
@@ -2608,7 +2277,7 @@ export const IntegrationSettingsPage = () => {
 															api_docs_enabled: event.target.checked,
 														}))
 													}
-													isDisabled={runtimeSettingsMutation.isLoading}
+											isDisabled={panelRuntimeMutation.isLoading}
 												/>
 											}
 										/>
@@ -2798,239 +2467,18 @@ export const IntegrationSettingsPage = () => {
 										<Button
 											colorScheme="primary"
 											leftIcon={<SaveIcon />}
-											onClick={() =>
-												runtimeSettingsMutation.mutate(runtimeSettingsForm)
-											}
-											isLoading={runtimeSettingsMutation.isLoading}
-											isDisabled={
-												runtimeSettingsMutation.isLoading ||
-												isRuntimeSettingsLoading
-											}
+										onClick={() => panelRuntimeMutation.mutate()}
+										isLoading={panelRuntimeMutation.isLoading}
+										isDisabled={
+											panelRuntimeMutation.isLoading ||
+											isRuntimeSettingsLoading ||
+											isPanelLoading
+										}
 										>
 											{t("settings.save")}
 										</Button>
 									</Flex>
 								</Box>
-								<Box className="master-settings-card">
-									<Flex
-										justify="space-between"
-										align={{ base: "flex-start", md: "center" }}
-										gap={4}
-										flexDirection={{ base: "column", md: "row" }}
-									>
-										<Box>
-											<Heading size="sm" mb={1}>
-												{t("settings.panel.maintenanceTitle")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500">
-												{t("settings.panel.maintenanceDescription")}
-											</Text>
-										</Box>
-										<Button
-											variant="outline"
-											size="sm"
-											leftIcon={<ArrowPathIcon width={16} height={16} />}
-											onClick={() => maintenanceInfoQuery.refetch()}
-											isLoading={maintenanceInfoQuery.isFetching}
-										>
-											{t("refresh")}
-										</Button>
-									</Flex>
-									<Stack spacing={2} mt={4}>
-										{maintenanceInfoQuery.isLoading &&
-										!maintenanceInfoQuery.data ? (
-											<Flex align="center" justify="center" py={4}>
-												<Spinner size="sm" />
-											</Flex>
-										) : (
-											<>
-												<Box>
-													<Text fontWeight="semibold">
-														{t("settings.panel.panelVersion")}
-													</Text>
-													<Text fontSize="sm" color="gray.500">
-														{maintenanceInfoQuery.data?.panel?.image
-															? `${maintenanceInfoQuery.data.panel.image}${
-																	maintenanceInfoQuery.data.panel.tag
-																		? ` (${maintenanceInfoQuery.data.panel.tag})`
-																		: ""
-																}`
-															: t("settings.panel.versionUnknown")}
-													</Text>
-												</Box>
-											</>
-										)}
-									</Stack>
-									<Stack spacing={2} mt={4}>
-										<Text fontSize="sm" color="gray.500">
-											{hostActionsAvailable
-												? t("settings.panel.maintenanceActionsDescription")
-												: t("settings.panel.binaryMigrationRequiredDescription")}
-										</Text>
-										{!hostActionsAvailable && (
-											<Alert
-												status="warning"
-												variant="subtle"
-												borderRadius="md"
-											>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.binaryMigrationRequired")}
-												</Text>
-											</Alert>
-										)}
-										{hostActionsAvailable && panelUpdateInfo?.available && (
-											<Alert
-												status="success"
-												variant="subtle"
-												borderRadius="md"
-											>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.updateAvailableNotice", {
-															current:
-																panelUpdateInfo.current ||
-																maintenanceInfoQuery.data?.panel?.tag ||
-																t("settings.panel.versionUnknown"),
-															target:
-																selectedUpdateTarget ||
-																panelUpdateInfo.target ||
-																t("settings.panel.versionUnknown"),
-														})}
-												</Text>
-											</Alert>
-										)}
-										{hostActionsAvailable && panelUpdateInfo?.error && (
-											<Alert
-												status="warning"
-												variant="subtle"
-												borderRadius="md"
-											>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.updateCheckFailed", { error: panelUpdateInfo.error })}
-												</Text>
-											</Alert>
-										)}
-										{hostActionsAvailable && (
-											<FormControl maxW={{ base: "full", md: "360px" }}>
-												<FormLabel fontSize="sm">
-													{t("settings.panel.updateChannel")}
-												</FormLabel>
-												<Select
-													size="sm"
-													value={selectedUpdateChannel}
-													onChange={(event) =>
-														setSelectedUpdateChannel(
-															event.target.value as UpdateChannel,
-														)
-													}
-												>
-													<option value="current">
-														{t("settings.panel.updateChannelCurrent")}
-													</option>
-													<option value="latest">
-														{t("settings.panel.updateChannelLatest")}
-													</option>
-													<option value="dev">
-														{t("settings.panel.updateChannelDev")}
-													</option>
-												</Select>
-												<FormHelperText>
-													{selectedUpdateTarget
-														? t("settings.panel.updateTargetHint", { version: selectedUpdateTarget })
-														: t("settings.panel.updateTargetUnknown")}
-												</FormHelperText>
-											</FormControl>
-										)}
-										{hostActionsAvailable &&
-											selectedUpdateChannel === "dev" && (
-												<Alert
-													status="warning"
-													variant="subtle"
-													borderRadius="md"
-												>
-													<AlertIcon />
-													<Text fontSize="sm">
-														{t("settings.panel.devChannelWarning")}
-													</Text>
-												</Alert>
-											)}
-										{activeMaintenanceAction && (
-											<Alert status="info" variant="subtle" borderRadius="md">
-												<AlertIcon />
-												<Text fontSize="sm">
-													{activeMaintenanceAction === "update"
-														? t("settings.panel.updateInProgressHint")
-														: activeMaintenanceAction === "restart"
-															? t("settings.panel.restartInProgressHint")
-															: t("settings.panel.softReloadInProgressHint")}
-												</Text>
-											</Alert>
-										)}
-										<HStack spacing={3} flexWrap="wrap" className="master-settings-action-row">
-											<Button
-												size="sm"
-												colorScheme="yellow"
-												leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
-												onClick={handlePanelUpdateClick}
-												isLoading={updateMutation.isLoading}
-												isDisabled={!hostActionsAvailable}
-											>
-												{t("settings.panel.updateAction")}
-											</Button>
-											<Button
-												size="sm"
-												colorScheme="blue"
-												leftIcon={<ArrowPathIcon width={16} height={16} />}
-												onClick={() => softReloadMutation.mutate()}
-												isLoading={softReloadMutation.isLoading}
-											>
-												{t("settings.panel.softReloadAction")}
-											</Button>
-											<Button
-												size="sm"
-												colorScheme="red"
-												leftIcon={
-													<ArrowsRightLeftIcon width={16} height={16} />
-												}
-												onClick={() => restartMutation.mutate()}
-												isLoading={restartMutation.isLoading}
-												isDisabled={!hostActionsAvailable}
-											>
-												{t("settings.panel.restartAction")}
-											</Button>
-										</HStack>
-									</Stack>
-								</Box>
-								<Flex className="master-settings-action-row">
-									<Button
-										variant="outline"
-										leftIcon={<RefreshIcon />}
-										onClick={() => refetchPanelSettings()}
-										isDisabled={panelMutation.isLoading}
-									>
-										{t("refresh")}
-									</Button>
-									<Button
-										colorScheme="primary"
-										leftIcon={<SaveIcon />}
-										onClick={() =>
-											panelMutation.mutate({
-												default_subscription_type: panelDefaultSubType,
-											})
-										}
-										isLoading={panelMutation.isLoading}
-										isDisabled={
-											panelMutation.isLoading ||
-											panelData === undefined ||
-											panelDefaultSubType ===
-												(panelData.default_subscription_type ?? "key")
-										}
-									>
-										{t("settings.save")}
-									</Button>
-								</Flex>
 							</Stack>
 						)}
 			</Box>
@@ -5123,16 +4571,6 @@ export const IntegrationSettingsPage = () => {
 						</VStack>
 			</Box>
 			<ConfirmDialog
-				isOpen={isDevUpdateConfirmOpen}
-				onClose={() => setDevUpdateConfirmOpen(false)}
-				onConfirm={confirmDevPanelUpdate}
-				title={t("settings.panel.devChannelConfirmTitle")}
-				description={t("settings.panel.devChannelConfirm")}
-				confirmLabel={t("settings.panel.updateAction")}
-				colorScheme="yellow"
-				isLoading={updateMutation.isLoading}
-			/>
-			<ConfirmDialog
 				isOpen={Boolean(certificateAction)}
 				onClose={() => setCertificateAction(null)}
 				onConfirm={() => {
@@ -5160,127 +4598,6 @@ export const IntegrationSettingsPage = () => {
 					deleteCertificateMutation.isLoading
 				}
 			/>
-			<Modal
-				isOpen={isMaintenanceProgressOpen}
-				onClose={() => setMaintenanceProgressOpen(false)}
-				size="xl"
-				closeOnOverlayClick={!maintenanceIsWaitingForAPI}
-			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(8px)" />
-				<ModalContent mx={3}>
-					<ModalHeader>
-						{maintenanceOperation?.action === "update"
-							? t("settings.panel.updateProgressTitle")
-							: maintenanceOperation?.action === "restart"
-								? t("settings.panel.restartProgressTitle")
-								: t("settings.panel.reloadProgressTitle")}
-					</ModalHeader>
-					<ModalCloseButton isDisabled={maintenanceIsWaitingForAPI} />
-					<ModalBody>
-						<VStack align="stretch" spacing={4}>
-							<Alert
-								status={
-									maintenanceOperation?.error
-										? "error"
-										: maintenanceIsWaitingForAPI ||
-											  shouldWaitForPanelReturn(maintenanceOperation)
-											? "info"
-											: "success"
-								}
-								variant="subtle"
-								borderRadius="md"
-							>
-								<AlertIcon />
-								<Box>
-									<Text fontWeight="semibold">
-										{maintenanceOperation?.phase ||
-											t("settings.panel.maintenanceQueued")}
-									</Text>
-									<Text fontSize="sm">
-										{maintenanceOperation?.error ||
-											maintenanceOperation?.message ||
-											t("settings.panel.maintenanceQueued")}
-									</Text>
-								</Box>
-							</Alert>
-							<Box>
-								<Flex justify="space-between" mb={2}>
-									<Text fontSize="sm" fontWeight="medium">
-										{t("settings.panel.downloadProgress")}
-									</Text>
-									<Text fontSize="sm" color="gray.500">
-										{typeof maintenanceOperation?.progress === "number"
-											? `${maintenanceOperation.progress}%`
-											: t("settings.panel.waitingForOutput")}
-									</Text>
-								</Flex>
-								<Progress
-									value={
-										typeof maintenanceOperation?.progress === "number"
-											? maintenanceOperation.progress
-											: undefined
-									}
-										isIndeterminate={
-											typeof maintenanceOperation?.progress !== "number" &&
-											!maintenanceOperation?.error
-										}
-									colorScheme={
-										maintenanceOperation?.error
-											? "red"
-											: shouldWaitForPanelReturn(maintenanceOperation)
-												? "blue"
-												: "yellow"
-									}
-										borderRadius="full"
-										size="sm"
-										sx={{
-											".chakra-progress__filled-track": {
-												transition: "width 420ms ease-out",
-											},
-										}}
-									/>
-							</Box>
-							{maintenanceIsWaitingForAPI && (
-								<Alert status="info" variant="left-accent" borderRadius="md">
-									<AlertIcon />
-									<Text fontSize="sm">
-										{t("settings.panel.autoRefreshAfterRestart")}
-									</Text>
-								</Alert>
-							)}
-							<Box>
-								<Text fontSize="sm" fontWeight="medium" mb={2}>
-									{t("settings.panel.maintenanceOutput")}
-								</Text>
-								<Box
-									as="pre"
-									maxH="260px"
-									overflowY="auto"
-									bg={maintenanceOutputBg}
-									border="1px solid"
-									borderColor={maintenanceOutputBorder}
-									borderRadius="md"
-									p={3}
-									fontSize="xs"
-									whiteSpace="pre-wrap"
-								>
-									{cleanTerminalOutput(maintenanceOperation?.logs) ||
-										t("settings.panel.waitingForOutput")}
-								</Box>
-							</Box>
-						</VStack>
-					</ModalBody>
-					<ModalFooter>
-						<Button
-							variant="outline"
-							onClick={() => setMaintenanceProgressOpen(false)}
-							isDisabled={maintenanceIsWaitingForAPI}
-						>
-							{t("close")}
-						</Button>
-					</ModalFooter>
-				</ModalContent>
-			</Modal>
 			<Modal
 				isOpen={Boolean(templateDialog)}
 				onClose={closeTemplateEditor}

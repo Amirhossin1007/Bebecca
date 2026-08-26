@@ -51,11 +51,16 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 			w="full"
 			borderWidth="1px"
 			borderColor="panel.border"
-			borderRadius="xl"
+			borderRadius="2xl"
 			bg="panel.surface"
 			p={{ base: 4, md: 5 }}
 			transition="all 0.25s ease"
-			_hover={{ "@media (min-width: 768px)": { boxShadow: "sm" } }}
+			_hover={{
+				"@media (min-width: 768px)": {
+					boxShadow: "sm",
+					borderColor: "panel.borderStrong",
+				},
+			}}
 			{...props}
 		>
 			<Stack
