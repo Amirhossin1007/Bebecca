@@ -297,7 +297,7 @@ func (r Repository) usersSummary(ctx context.Context, filter usersFilter) (users
 }
 
 func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (usersSummary, error) {
-	cutoff := online.Cutoff(time.Now())
+	cutoff := dbTime(online.Cutoff(time.Now()))
 	query := `SELECT
 	u.status,
 	COUNT(u.id),
@@ -326,7 +326,7 @@ func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (
 }
 
 func (r Repository) usersRows(ctx context.Context, filter usersFilter, req UsersListRequest) ([]usersListRow, error) {
-	cutoff := online.Cutoff(time.Now())
+	cutoff := dbTime(online.Cutoff(time.Now()))
 	query := `SELECT
 	u.id,
 	u.username,
@@ -434,7 +434,7 @@ func (r Repository) OnlineUsernames(ctx context.Context, req UsersListRequest) (
 	if err != nil {
 		return nil, err
 	}
-	cutoff := online.Cutoff(time.Now())
+	cutoff := dbTime(online.Cutoff(time.Now()))
 	filter.add(online.UserPredicate, cutoff, cutoff, cutoff)
 	rows, err := r.db.QueryContext(ctx, `SELECT u.username`+usersBaseFromSQL()+filter.whereSQL()+` ORDER BY u.username`, filter.args...)
 	if err != nil {
@@ -511,11 +511,11 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 	}
 	now := time.Now().UTC()
 	if _, ok := normalized["online"]; ok {
-		cutoff := online.Cutoff(now)
+		cutoff := dbTime(online.Cutoff(now))
 		filter.add(online.UserPredicate, cutoff, cutoff, cutoff)
 	}
 	if _, ok := normalized["offline"]; ok {
-		cutoff := online.Cutoff(now)
+		cutoff := dbTime(online.Cutoff(now))
 		filter.add("NOT "+online.UserPredicate, cutoff, cutoff, cutoff)
 	}
 	if _, ok := normalized["finished"]; ok {

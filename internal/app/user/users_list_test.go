@@ -10,6 +10,10 @@ import (
 )
 
 func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
+	local := time.Local
+	time.Local = time.FixedZone("UTC+03:30", 3*60*60+30*60)
+	defer func() { time.Local = local }()
+
 	db, err := sql.Open("sqlite", "file:users-list-online?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
