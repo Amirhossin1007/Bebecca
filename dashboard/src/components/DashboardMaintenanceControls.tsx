@@ -127,6 +127,7 @@ export const DashboardMaintenanceControls = ({
 	const [operation, setOperation] = useState<MaintenanceOperation | null>(null);
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
 	const [devUpdateArmed, setDevUpdateArmed] = useState(false);
+	const [isUpdateMenuOpen, setUpdateMenuOpen] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
 	const panelReturnPollRef = useRef<number | null>(null);
 	const panelReturnSawOfflineRef = useRef(false);
@@ -313,6 +314,7 @@ export const DashboardMaintenanceControls = ({
 			devUpdateTimerRef.current = null;
 		}
 		setDevUpdateArmed(false);
+		setUpdateMenuOpen(false);
 		setOperation(null);
 		setUpdateDialogOpen(true);
 		updateMutation.mutate();
@@ -340,7 +342,13 @@ export const DashboardMaintenanceControls = ({
 				</Tag>
 				{canMaintain && (
 					<Box gridColumn={{ base: "1 / -1", md: "auto" }}>
-						<Popover placement="bottom-end" closeOnBlur={!operation?.running}>
+						<Popover
+							isOpen={isUpdateMenuOpen}
+							onOpen={() => setUpdateMenuOpen(true)}
+							onClose={() => setUpdateMenuOpen(false)}
+							placement="bottom-end"
+							closeOnBlur={!operation?.running}
+						>
 							<PopoverTrigger>
 								<Button
 									size="sm"

@@ -202,7 +202,7 @@ export function AppLayout() {
 		syncHash();
 		window.addEventListener("hashchange", syncHash);
 		return () => window.removeEventListener("hashchange", syncHash);
-	}, []);
+	}, [location.pathname]);
 
 	const setPreviewTabKeySafe = (value: string | null) => {
 		previewTabKeyRef.current = value;
