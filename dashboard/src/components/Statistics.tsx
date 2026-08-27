@@ -15,6 +15,7 @@ import {
 	ModalOverlay,
 	Progress,
 	SimpleGrid,
+	Spinner,
 	Stack,
 	Text,
 	useColorMode,
@@ -24,7 +25,6 @@ import {
 import {
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
-	ChartBarIcon,
 	ClockIcon,
 	CpuChipIcon,
 	CircleStackIcon,
@@ -33,6 +33,7 @@ import {
 	UserGroupIcon,
 	SignalIcon,
 } from "@heroicons/react/24/outline";
+import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
@@ -893,7 +894,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							detail={`${formatBytes(systemData.disk.current)} / ${formatBytes(systemData.disk.total)}`}
 							history={diskHistoryValues}
 							footerLeft={`${t("free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current))}`}
-							footerRight={`${t("peak")}: ${peak(diskHistoryValues).toFixed(1)}%`}
+							footerRight={`${t("average")}: ${average(diskHistoryValues).toFixed(1)}%`}
 						/>
 					</SimpleGrid>
 
