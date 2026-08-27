@@ -2,16 +2,16 @@
   "schema_version": 1,
   "project": "Rebecca",
   "latest": "dev-d29e204",
-  "updated_at": "2026-08-23T22:42:23Z",
+  "updated_at": "2026-08-27T21:20:57Z",
   "builds": [
     {
       "tag": "dev-d29e204",
       "sha": "d29e2042eeb7829d0d23ef904c1d36918ddb200a",
       "branch": "dev",
       "workflow": "Binary Build",
-      "run_id": "32671208859",
-      "run_number": "172",
-      "created_at": "2026-08-23T22:42:23Z",
+      "run_id": "33117387195",
+      "run_number": "174",
+      "created_at": "2026-08-27T21:20:57Z",
       "release_tag": "dev-builds",
       "assets": {
         "windows-amd64": {
