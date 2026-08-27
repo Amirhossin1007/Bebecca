@@ -35,7 +35,7 @@ func TestImportRejectsUnsafeArchivePath(t *testing.T) {
 	}
 
 	service := NewService(nil, "sqlite", "sqlite:///tmp/rebecca.sqlite3")
-	_, err = service.Import(context.Background(), archivePath, ScopeDatabase)
+	_, err = service.Import(context.Background(), archivePath)
 	if err == nil || !strings.Contains(err.Error(), "unsafe paths") {
 		t.Fatalf("expected unsafe path error, got %v", err)
 	}
@@ -71,7 +71,7 @@ func TestImportRejectsInvalidManifest(t *testing.T) {
 		ManifestName: []byte(`{"format":"wrong","version":1}`),
 	})
 	service := NewService(nil, "sqlite", "sqlite:///tmp/rebecca.sqlite3")
-	_, err := service.Import(context.Background(), archivePath, ScopeDatabase)
+	_, err := service.Import(context.Background(), archivePath)
 	if err == nil || !strings.Contains(err.Error(), "Invalid backup manifest format") {
 		t.Fatalf("expected invalid manifest error, got %v", err)
 	}

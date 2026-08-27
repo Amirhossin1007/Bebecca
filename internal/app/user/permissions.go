@@ -20,6 +20,7 @@ const (
 	UserPermissionCreate               UserPermission = "create"
 	UserPermissionDelete               UserPermission = "delete"
 	UserPermissionResetUsage           UserPermission = "reset_usage"
+	UserPermissionPeriodicUsageReset   UserPermission = "periodic_usage_reset"
 	UserPermissionRevoke               UserPermission = "revoke"
 	UserPermissionCreateOnHold         UserPermission = "create_on_hold"
 	UserPermissionAllowUnlimitedData   UserPermission = "allow_unlimited_data"
@@ -55,6 +56,9 @@ func ValidateUserCreatePermissions(admin adminapp.Admin, payload UserCreate, ctx
 	if err := EnsureUserManagementAvailable(admin, "create users"); err != nil {
 		return err
 	}
+	if err := EnsurePeriodicUsageResetPermission(admin, payload.DataLimitResetStrategy); err != nil {
+		return err
+	}
 	if err := EnsureFlowPermission(admin, payload.Flow != nil && *payload.Flow != ""); err != nil {
 		return err
 	}
@@ -84,6 +88,9 @@ func ValidateUserServiceCreatePermissions(admin adminapp.Admin, payload UserServ
 		return err
 	}
 	if err := EnsureUserManagementAvailable(admin, "create users"); err != nil {
+		return err
+	}
+	if err := EnsurePeriodicUsageResetPermission(admin, payload.DataLimitResetStrategy); err != nil {
 		return err
 	}
 	if err := EnsureServiceVisible(admin, service); err != nil {
@@ -117,6 +124,12 @@ func ValidateUserServiceCreatePermissions(admin adminapp.Admin, payload UserServ
 }
 
 func ValidateUserModifyPermissions(admin adminapp.Admin, payload UserModify, ctx MutationContext) error {
+	if err := EnsureUserManagementAvailable(admin, "modify users"); err != nil {
+		return err
+	}
+	if err := EnsurePeriodicUsageResetPermission(admin, payload.DataLimitResetStrategy); err != nil {
+		return err
+	}
 	if err := EnsureFlowPermission(admin, payload.Flow != nil && *payload.Flow != ""); err != nil {
 		return err
 	}
@@ -225,6 +238,13 @@ func EnsureUserManagementAvailable(admin adminapp.Admin, action string) error {
 	return nil
 }
 
+func EnsurePeriodicUsageResetPermission(admin adminapp.Admin, strategy UserDataLimitResetStrategy) error {
+	if strategy == "" || strategy == UserDataLimitResetNoReset {
+		return nil
+	}
+	return EnsureUserPermission(admin, UserPermissionPeriodicUsageReset)
+}
+
 func EnsureUsersLimit(admin adminapp.Admin, serviceID *int64, ctx MutationContext) error {
 	if admin.Role == adminapp.RoleFullAccess {
 		return nil
@@ -279,6 +299,16 @@ func EnsureAdminServiceScopeAvailable(admin adminapp.Admin, serviceID int64, act
 		return PermissionError{Detail: fmt.Sprintf("This service traffic limit has been reached. You can't %s.", action)}
 	}
 	return nil
+}
+
+func EnsureAdminUserServiceScopeAvailable(admin adminapp.Admin, serviceID *int64, action string) error {
+	if !admin.UseServiceTrafficLimits || admin.Role == adminapp.RoleFullAccess {
+		return nil
+	}
+	if serviceID == nil {
+		return PermissionError{Detail: "This admin must manage users inside an assigned service."}
+	}
+	return EnsureAdminServiceScopeAvailable(admin, *serviceID, action)
 }
 
 func ValidateCreatedTrafficDataLimitChange(
@@ -463,6 +493,8 @@ func userPermissionAllowed(perms adminapp.UserPermissionSettings, permission Use
 		return perms.Delete
 	case UserPermissionResetUsage:
 		return perms.ResetUsage
+	case UserPermissionPeriodicUsageReset:
+		return perms.PeriodicUsageReset
 	case UserPermissionRevoke:
 		return perms.Revoke
 	case UserPermissionCreateOnHold:
@@ -492,6 +524,8 @@ func readableUserPermission(permission UserPermission) string {
 		return "delete users"
 	case UserPermissionResetUsage:
 		return "reset user usage"
+	case UserPermissionPeriodicUsageReset:
+		return "configure periodic usage resets"
 	case UserPermissionRevoke:
 		return "revoke user subscription"
 	case UserPermissionAdvancedActions:

@@ -85,7 +85,7 @@ func New(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("database integrity check: %w", err)
 	}
 	adminRepo := adminapp.NewRepository(pool.DB, pool.Dialect)
-	nodeRepo := nodecontroller.NewRepository(pool.DB, pool.Dialect)
+	nodeRepo := nodecontroller.NewRepository(pool.DB, pool.Dialect, cfg.CertificateBase)
 	nodeMutationRepo := nodeapp.NewRepository(pool.DB, pool.Dialect)
 	usageRepo := usage.NewRepository(pool.DB, pool.Dialect)
 	userRepo := userapp.NewRepository(pool.DB, pool.Dialect)
@@ -146,6 +146,7 @@ func New(cfg Config) (*Server, error) {
 		externalApps: externalapps.New(externalapps.Config{
 			BaseDir:           cfg.ExternalAppsBase,
 			DatabaseURL:       cfg.Database,
+			DatabaseDialect:   pool.Dialect,
 			MySQLRootPassword: cfg.MySQLRootPassword,
 		}, certificateManager),
 		nodeOperationsKick:   make(chan struct{}, 1),
@@ -188,6 +189,7 @@ func (s *Server) StartBackground(ctx context.Context) {
 		}
 		go s.runNodeOperationsWorker(ctx)
 		go s.runNodeRecoveryWorker(ctx)
+		go s.runOnlineUsersCollector(ctx)
 		go s.runNodeUsageCollector(ctx)
 		go s.runNodeUsageFlushWorker(ctx)
 		go s.runAdminLifecycleWorker(ctx)

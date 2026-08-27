@@ -56,6 +56,18 @@ const sharedThemeConfig = {
 	},
 	styles: {
 		global: {
+			".chakra-modal__overlay": {
+				bg: "blackAlpha.500 !important",
+				backdropFilter: "blur(12px) !important",
+				WebkitBackdropFilter: "blur(12px) !important",
+			},
+			".chakra-modal__content": {
+				backgroundColor: "var(--rb-panel-surface) !important",
+				color: "var(--rb-panel-text) !important",
+				borderColor: "var(--rb-panel-border) !important",
+				borderRadius: "16px !important",
+				boxShadow: "0 24px 72px rgba(0, 0, 0, 0.46) !important",
+			},
 			":root": {
 				"--primary-50": "#ffe6ed",
 				"--primary-100": "#ffb8c9",

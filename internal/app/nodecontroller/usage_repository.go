@@ -16,7 +16,7 @@ import (
 )
 
 const usagePersistBatchSize = 200
-const usageOnlineTouchInterval = 90 * time.Second
+const usageOnlineTouchInterval = 10 * time.Second
 
 var usageFlushMu sync.Mutex
 
@@ -751,6 +751,21 @@ WHERE status IN ('active', 'on_hold')
 		_, err := tx.ExecContext(ctx, query, args...)
 		return err
 	})
+}
+
+func (r Repository) TouchUsersOnline(ctx context.Context, userIDs []int64) error {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := r.batchTouchUsersOnline(ctx, tx, userIDs, time.Now().UTC()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r Repository) insertStagedUserUsage(ctx context.Context, tx *sql.Tx, nodeID int64, batchID string, usageByUser map[int64]int64, now time.Time) error {

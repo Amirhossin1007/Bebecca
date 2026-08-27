@@ -128,6 +128,8 @@ type HostData = {
 	security: string;
 	alpn: string;
 	fingerprint: string;
+	verify_peer_cert_by_name: string;
+	pinned_peer_cert_sha256: string;
 	use_sni_as_host: boolean;
 };
 
@@ -228,6 +230,8 @@ const EMPTY_HOST_DATA: HostData = {
 	security: "inbound_default",
 	alpn: "",
 	fingerprint: "",
+	verify_peer_cert_by_name: "",
+	pinned_peer_cert_sha256: "",
 	use_sni_as_host: false,
 };
 
@@ -507,6 +511,12 @@ const normalizeBoolean = (
 	fallback = false,
 ) => (typeof value === "boolean" ? value : fallback);
 
+const certificatePinsValid = (value: string) =>
+	!value.trim() ||
+	value
+		.split(",")
+		.every((pin) => /^[0-9a-f]{64}$/i.test(pin.trim().replaceAll(":", "")));
+
 const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	id: host.id ?? null,
 	remark: host.remark ?? "",
@@ -540,6 +550,8 @@ const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	security: host.security ?? "inbound_default",
 	alpn: host.alpn ?? "",
 	fingerprint: host.fingerprint ?? "",
+	verify_peer_cert_by_name: host.verify_peer_cert_by_name ?? "",
+	pinned_peer_cert_sha256: host.pinned_peer_cert_sha256 ?? "",
 	use_sni_as_host: normalizeBoolean(host.use_sni_as_host),
 });
 
@@ -572,6 +584,8 @@ const cloneHostData = (data: HostData): HostData => ({
 	security: data.security,
 	alpn: data.alpn,
 	fingerprint: data.fingerprint,
+	verify_peer_cert_by_name: data.verify_peer_cert_by_name,
+	pinned_peer_cert_sha256: data.pinned_peer_cert_sha256,
 	use_sni_as_host: data.use_sni_as_host,
 });
 
@@ -627,6 +641,11 @@ const validateHostState = (
 	const path = data.path.trim();
 	if (path && !path.startsWith("/")) {
 		errors.push("Path must start with /.");
+	}
+	if (!certificatePinsValid(data.pinned_peer_cert_sha256)) {
+		errors.push(
+			"Certificate pins must be comma-separated SHA-256 fingerprints.",
+		);
 	}
 	for (const [label, mode, ttl] of [
 		["Address", data.address_selection_mode, data.address_ttl_seconds],
@@ -701,6 +720,8 @@ const formatHostForApi = (
 		security: data.security || "inbound_default",
 		alpn: data.alpn || "",
 		fingerprint: data.fingerprint || "",
+		verify_peer_cert_by_name: data.verify_peer_cert_by_name.trim(),
+		pinned_peer_cert_sha256: data.pinned_peer_cert_sha256.trim(),
 		use_sni_as_host: data.use_sni_as_host,
 	};
 };
@@ -1266,6 +1287,47 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 															/>
 														</FormControl>
 													</SimpleGrid>
+													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+														<FormControl>
+															<FormLabel>
+																{t("hostsDialog.verifyPeerCertByName")}
+															</FormLabel>
+															<Input
+																value={host.data.verify_peer_cert_by_name}
+																onChange={(event) =>
+																	onChange(
+																		host.uid,
+																		"verify_peer_cert_by_name",
+																		event.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+														<FormControl
+															isInvalid={
+																!certificatePinsValid(
+																	host.data.pinned_peer_cert_sha256,
+																)
+															}
+														>
+															<FormLabel>
+																{t("hostsDialog.pinnedPeerCertSha256")}
+															</FormLabel>
+															<Input
+																value={host.data.pinned_peer_cert_sha256}
+																placeholder={t(
+																	"hostsDialog.pinnedPeerCertSha256Hint",
+																)}
+																onChange={(event) =>
+																	onChange(
+																		host.uid,
+																		"pinned_peer_cert_sha256",
+																		event.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+													</SimpleGrid>
 												</VStack>
 											</CardBody>
 										</Card>
@@ -1566,6 +1628,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 		if (
 			jsonError ||
 			!finalMaskValid ||
+			!certificatePinsValid(formState.pinned_peer_cert_sha256) ||
 			!formState.inboundTag ||
 			!formState.remark.trim() ||
 			Boolean(remarkError) ||
@@ -1818,6 +1881,121 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 												)}
 											</SimpleGrid>
 										)}
+									{!isVirtualTunnelInbound && (
+										<Card className="xray-dialog-section" variant="outline">
+											<CardHeader pb={2}>
+												<Text fontWeight="semibold">
+													{t("hostsDialog.security")}
+												</Text>
+											</CardHeader>
+											<CardBody pt={0}>
+												<VStack align="stretch" spacing={4}>
+													<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+														<FormControl>
+															<FormLabel>{t("hostsDialog.security")}</FormLabel>
+															<SearchableTagSelect
+																value={formState.security}
+																placeholder={t("hostsDialog.security")}
+																options={proxyHostSecurity.map((option) => ({
+																	value: option.value,
+																	label: option.title,
+																}))}
+																onChange={(value) =>
+																	setFormState((prev) => ({
+																		...prev,
+																		security: String(value),
+																	}))
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>{t("hostsDialog.alpn")}</FormLabel>
+															<MultiValueAutocomplete
+																value={formState.alpn}
+																options={alpnAutocompleteOptions}
+																onChange={(value) =>
+																	setFormState((prev) => ({
+																		...prev,
+																		alpn: value,
+																	}))
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>
+																{t("hostsDialog.fingerprint")}
+															</FormLabel>
+															<SearchableTagSelect
+																value={formState.fingerprint}
+																placeholder={t("hostsDialog.fingerprint")}
+																options={proxyFingerprint.map((option) => ({
+																	value: option.value,
+																	label: option.title,
+																}))}
+																onChange={(value) =>
+																	setFormState((prev) => ({
+																		...prev,
+																		fingerprint: String(value),
+																	}))
+																}
+															/>
+														</FormControl>
+													</SimpleGrid>
+													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+														<FormControl>
+															<FormLabel>
+																{t("hostsDialog.verifyPeerCertByName")}
+															</FormLabel>
+															<Input
+																value={formState.verify_peer_cert_by_name}
+																onChange={(event) =>
+																	setFormState((prev) => ({
+																		...prev,
+																		verify_peer_cert_by_name:
+																			event.target.value,
+																	}))
+																}
+															/>
+														</FormControl>
+														<FormControl
+															isInvalid={
+																!certificatePinsValid(
+																	formState.pinned_peer_cert_sha256,
+																)
+															}
+														>
+															<FormLabel>
+																{t("hostsDialog.pinnedPeerCertSha256")}
+															</FormLabel>
+															<Input
+																value={formState.pinned_peer_cert_sha256}
+																placeholder={t(
+																	"hostsDialog.pinnedPeerCertSha256Hint",
+																)}
+																onChange={(event) =>
+																	setFormState((prev) => ({
+																		...prev,
+																		pinned_peer_cert_sha256: event.target.value,
+																	}))
+																}
+															/>
+														</FormControl>
+													</SimpleGrid>
+													<Checkbox
+														isChecked={formState.allowinsecure}
+														onChange={(event) =>
+															setFormState((prev) => ({
+																...prev,
+																allowinsecure: event.target.checked,
+															}))
+														}
+													>
+														{t("hostsDialog.allowinsecure")}
+													</Checkbox>
+												</VStack>
+											</CardBody>
+										</Card>
+									)}
 									{finalMaskCapabilities.supported && (
 										<Card className="xray-dialog-section" variant="outline">
 											<CardHeader pb={2}>
@@ -1891,6 +2069,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 						isDisabled={
 							Boolean(jsonError) ||
 							!finalMaskValid ||
+							!certificatePinsValid(formState.pinned_peer_cert_sha256) ||
 							!formState.inboundTag ||
 							!formState.remark.trim() ||
 							Boolean(remarkError) ||

@@ -84,6 +84,84 @@ describe("VLESS inbound default flow", () => {
 });
 
 describe("TLS cipher suites", () => {
+	it("round-trips current TLS, sniffing, certificate, and sockopt fields", () => {
+		const raw: RawInbound = {
+			tag: "tls-current",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			sniffing: {
+				enabled: true,
+				destOverride: ["http", "tls"],
+				ipsExcluded: ["geoip:private"],
+				domainsExcluded: ["geosite:private"],
+			},
+			streamSettings: {
+				network: "raw",
+				security: "tls",
+				tlsSettings: {
+					curvePreferences: ["X25519MLKEM768", "X25519"],
+					certificates: [
+						{
+							certificateFile: "/cert.pem",
+							keyFile: "/key.pem",
+							ocspStapling: 3600,
+						},
+					],
+				},
+				sockopt: {
+					trustedXForwardedFor: ["X-Forwarded-For"],
+					customSockopt: [{ level: "SOL_SOCKET", opt: "SO_KEEPALIVE" }],
+				},
+			},
+		};
+
+		const values = rawInboundToFormValues(raw);
+		const payload = buildInboundPayload(values, { initial: raw });
+		expect(payload.sniffing).toMatchObject({
+			ipsExcluded: ["geoip:private"],
+			domainsExcluded: ["geosite:private"],
+		});
+		expect(payload.streamSettings?.tlsSettings).toMatchObject({
+			curvePreferences: ["X25519MLKEM768", "X25519"],
+			certificates: [{ ocspStapling: 3600 }],
+		});
+		expect(payload.streamSettings?.sockopt).toMatchObject({
+			trustedXForwardedFor: ["X-Forwarded-For"],
+			customSockopt: [{ level: "SOL_SOCKET", opt: "SO_KEEPALIVE" }],
+		});
+	});
+
+	it("round-trips peer name verification and certificate pins", () => {
+		const pin = "ab".repeat(32);
+		const values = rawInboundToFormValues({
+			tag: "tls",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "raw",
+				security: "tls",
+				tlsSettings: {
+					verifyPeerCertByName: "cert.example.com",
+					pinnedPeerCertSha256: pin,
+				},
+			},
+		});
+		expect(values.tlsVerifyPeerCertByName).toBe("cert.example.com");
+		expect(values.tlsPinnedPeerCertSha256).toBe(pin);
+		expect(
+			buildInboundPayload(values).streamSettings?.tlsSettings,
+		).toMatchObject({
+			verifyPeerCertByName: "cert.example.com",
+			pinnedPeerCertSha256: pin,
+		});
+		values.tlsPinnedPeerCertSha256 = "bad";
+		expect(
+			validateInboundFormFields(values).tlsPinnedPeerCertSha256,
+		).toBeTruthy();
+	});
+
 	it("preserves TLS 1.2 suites and requires native Go TLS", () => {
 		const values = createDefaultInboundForm("vless");
 		values.streamSecurity = "tls";
@@ -123,6 +201,13 @@ describe("XHTTP inbound settings", () => {
 					path: "/x",
 					mode: "packet-up",
 					...session,
+					sessionIDTable: "base64",
+					sessionIDLength: "16-16",
+					xmux: {
+						maxConcurrency: "16-32",
+						maxConnections: "0",
+						hKeepAlivePeriod: 30,
+					},
 					seqPlacement: "query",
 					seqKey: "x_seq",
 					uplinkHTTPMethod: "GET",
@@ -143,6 +228,13 @@ describe("XHTTP inbound settings", () => {
 		expect(settings).toMatchObject({
 			sessionIDPlacement: "header",
 			sessionIDKey: "X-Session",
+			sessionIDTable: "base64",
+			sessionIDLength: "16-16",
+			xmux: {
+				maxConcurrency: "16-32",
+				maxConnections: "0",
+				hKeepAlivePeriod: 30,
+			},
 			seqPlacement: "query",
 			seqKey: "x_seq",
 			uplinkHTTPMethod: "GET",
@@ -153,6 +245,158 @@ describe("XHTTP inbound settings", () => {
 		});
 		expect(settings).not.toHaveProperty("sessionPlacement");
 		expect(settings).not.toHaveProperty("sessionKey");
+	});
+
+	it("round-trips WebSocket heartbeat and current mKCP tuning", () => {
+		const ws = rawInboundToFormValues({
+			tag: "ws",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "ws",
+				security: "none",
+				wsSettings: {
+					path: "/ws",
+					heartbeatPeriod: 30,
+					acceptProxyProtocol: true,
+				},
+			},
+		});
+		expect(buildInboundPayload(ws).streamSettings?.wsSettings).toMatchObject({
+			heartbeatPeriod: 30,
+			acceptProxyProtocol: true,
+		});
+
+		const kcp = rawInboundToFormValues({
+			tag: "kcp",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "kcp",
+				security: "none",
+				kcpSettings: {
+					mtu: 1350,
+					tti: 50,
+					uplinkCapacity: 5,
+					downlinkCapacity: 20,
+					cwndMultiplier: 1,
+					maxSendingWindow: 2097152,
+					congestion: true,
+					readBufferSize: 2,
+					writeBufferSize: 2,
+				},
+			},
+		});
+		expect(buildInboundPayload(kcp).streamSettings?.kcpSettings).toMatchObject({
+			mtu: 1350,
+			tti: 50,
+			uplinkCapacity: 5,
+			downlinkCapacity: 20,
+			cwndMultiplier: 1,
+			maxSendingWindow: 2097152,
+			congestion: true,
+			readBufferSize: 2,
+			writeBufferSize: 2,
+		});
+	});
+
+	it("round-trips current gRPC and HTTPUpgrade transport fields", () => {
+		const grpc = rawInboundToFormValues({
+			tag: "grpc",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "grpc",
+				security: "none",
+				grpcSettings: {
+					serviceName: "service",
+					authority: "example.com",
+					multiMode: true,
+					idle_timeout: 60,
+					health_check_timeout: 20,
+					permit_without_stream: true,
+					initial_windows_size: 65535,
+					user_agent: "grpc-go/1.0",
+				},
+			},
+		});
+		expect(buildInboundPayload(grpc).streamSettings?.grpcSettings).toMatchObject({
+			idle_timeout: 60,
+			health_check_timeout: 20,
+			permit_without_stream: true,
+			initial_windows_size: 65535,
+			user_agent: "grpc-go/1.0",
+		});
+
+		const upgrade = rawInboundToFormValues({
+			tag: "upgrade",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "httpupgrade",
+				security: "none",
+				httpupgradeSettings: {
+					path: "/upgrade",
+					host: "example.com",
+					headers: { X_Test: "value" },
+					acceptProxyProtocol: true,
+				},
+			},
+		});
+		expect(
+			buildInboundPayload(upgrade).streamSettings?.httpupgradeSettings,
+		).toMatchObject({
+			headers: { X_Test: "value" },
+			acceptProxyProtocol: true,
+		});
+	});
+
+	it("round-trips REALITY fallback limits using the current field names", () => {
+		const raw: RawInbound = {
+			tag: "reality",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "raw",
+				security: "reality",
+				realitySettings: {
+					maxTimediff: 1000,
+					limitFallbackUpload: {
+						afterBytes: 1024,
+						bytesPerSec: 2048,
+						burstBytesPerSec: 4096,
+					},
+					limitFallbackDownload: {
+						afterBytes: 8192,
+						bytesPerSec: 16384,
+						burstBytesPerSec: 32768,
+					},
+				},
+			},
+		};
+
+		const settings = buildInboundPayload(rawInboundToFormValues(raw), {
+			initial: raw,
+		}).streamSettings?.realitySettings;
+		expect(settings).toMatchObject({
+			maxTimeDiff: 1000,
+			limitFallbackUpload: {
+				afterBytes: 1024,
+				bytesPerSec: 2048,
+				burstBytesPerSec: 4096,
+			},
+			limitFallbackDownload: {
+				afterBytes: 8192,
+				bytesPerSec: 16384,
+				burstBytesPerSec: 32768,
+			},
+		});
+		expect(settings).not.toHaveProperty("maxTimediff");
 	});
 
 	it("rejects unsafe tokens, invalid mode combinations, and invalid ranges", () => {
@@ -166,6 +410,9 @@ describe("XHTTP inbound settings", () => {
 			xhttpUplinkDataPlacement: "header",
 			xhttpUplinkChunkSize: "4000-3000",
 			xhttpServerMaxHeaderBytes: "-1",
+			xhttpXmuxMaxConcurrency: "16-32",
+			xhttpXmuxMaxConnections: "2",
+			xhttpXmuxHKeepAlivePeriod: "-2",
 		});
 
 		const errors = validateInboundFormFields(values);
@@ -174,5 +421,12 @@ describe("XHTTP inbound settings", () => {
 		expect(errors.xhttpUplinkDataPlacement).toContain("packet-up");
 		expect(errors.xhttpUplinkChunkSize).toContain("range start");
 		expect(errors.xhttpServerMaxHeaderBytes).toContain("non-negative");
+		expect(errors.xhttpXmuxMaxConnections).toContain("cannot be combined");
+		expect(errors.xhttpXmuxHKeepAlivePeriod).toContain("between -1");
+		values.xhttpXmuxMaxConnections = "0";
+		values.xhttpXmuxHKeepAlivePeriod = "-1";
+		const corrected = validateInboundFormFields(values);
+		expect(corrected.xhttpXmuxMaxConnections).toBeUndefined();
+		expect(corrected.xhttpXmuxHKeepAlivePeriod).toBeUndefined();
 	});
 });

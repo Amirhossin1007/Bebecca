@@ -13,7 +13,7 @@ type UserUsageBarProps = {
 	 * current usage (left) / lifetime usage (right) share a second row
 	 * below it.
 	 */
-	variant?: "compact" | "detailed";
+	variant?: "compact" | "detailed" | "inline";
 	lifetimeUsed?: number;
 	lifetimeLabel?: string;
 	resetLabel?: string;
@@ -22,6 +22,7 @@ type UserUsageBarProps = {
 // Fixed so the percent label never changes the bar's rendered width -
 // "5%", "100%" and "∞" all sit in the same reserved slot.
 const PERCENT_SLOT_WIDTH = "2.75em";
+const INLINE_VALUE_SLOT_WIDTH = "5rem";
 
 export const formatUsagePair = (used: number, total: number | null): string => {
 	const [usedValue, usedUnit] = formatBytes(used, 2, true);
@@ -53,7 +54,12 @@ export const UserUsageBar: FC<UserUsageBarProps> = ({
 	const percentLabel = isUnlimited ? "∞" : `${Math.round(percent)}%`;
 
 	const track = (
-		<Box className="rb-user-usage-track" flex="1 1 auto" minW={0}>
+		<Box
+			className="rb-user-usage-track"
+			flex={variant === "inline" ? "1 1 0" : "1 1 auto"}
+			w={variant === "inline" ? "auto" : undefined}
+			minW={0}
+		>
 			<Box
 				className="rb-user-usage-fill"
 				style={{
@@ -99,6 +105,42 @@ export const UserUsageBar: FC<UserUsageBarProps> = ({
 					</Text>
 				</HStack>
 			</Stack>
+		);
+	}
+
+	if (variant === "inline") {
+		return (
+			<Flex
+				className="rb-user-usage"
+				data-tone={tone}
+				data-variant={variant}
+				align="center"
+				gap={2}
+				w="full"
+				minW={0}
+				dir="ltr"
+			>
+				<Text
+					className="rb-user-usage-pair"
+					flex={`0 0 ${INLINE_VALUE_SLOT_WIDTH}`}
+					fontSize="xs"
+					textAlign="end"
+					noOfLines={1}
+				>
+					{formatBytes(used)}
+				</Text>
+				{track}
+				<Text
+					className="rb-user-usage-pair"
+					flex={`0 0 ${INLINE_VALUE_SLOT_WIDTH}`}
+					fontSize={isUnlimited ? "xl" : "xs"}
+					fontWeight={isUnlimited ? "semibold" : undefined}
+					lineHeight="1"
+					noOfLines={1}
+				>
+					{isUnlimited ? "∞" : formatBytes(total)}
+				</Text>
+			</Flex>
 		);
 	}
 

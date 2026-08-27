@@ -19,6 +19,7 @@ const (
 	subscriptionTypeUsernameKey = "username-key"
 	subscriptionTypeKey         = "key"
 	subscriptionTypeToken       = "token"
+	subscriptionTypeKeyUsername = "key-username"
 )
 
 func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettings, admin AdminLinkSettings, secret string) (SubscriptionLinks, error) {
@@ -54,6 +55,7 @@ func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettin
 	if credentialKey != "" {
 		links.Set(subscriptionTypeUsernameKey, urlPrefix+"/"+username+"/"+credentialKey)
 		links.Set(subscriptionTypeKey, urlPrefix+"/"+credentialKey)
+		links.Set(subscriptionTypeKeyUsername, urlPrefix+"/"+credentialKey+"#"+username)
 	}
 
 	token := createSubscriptionToken(username, secret, time.Now())
@@ -67,6 +69,7 @@ func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettin
 		if credentialKey != "" {
 			links.Set(subscriptionTypeUsernameKey+"@"+label, extraPrefix+"/"+username+"/"+credentialKey)
 			links.Set(subscriptionTypeKey+"@"+label, extraPrefix+"/"+credentialKey)
+			links.Set(subscriptionTypeKeyUsername+"@"+label, extraPrefix+"/"+credentialKey+"#"+username)
 		}
 		links.Set(subscriptionTypeToken+"@"+label, extraPrefix+"/"+token)
 	}
@@ -277,6 +280,10 @@ func selectPrimaryLink(links OrderedStringMap, hasKey bool, hasSubadress bool, p
 		}
 	case subscriptionTypeUsernameKey:
 		if value, ok := links.Get(subscriptionTypeUsernameKey); ok && value != "" {
+			return value
+		}
+	case subscriptionTypeKeyUsername:
+		if value, ok := links.Get(subscriptionTypeKeyUsername); ok && value != "" {
 			return value
 		}
 	case subscriptionTypeToken:

@@ -487,6 +487,20 @@ VALUES
 	}
 }
 
+func TestBulkRuntimeUserOperationNodesUsesFullSyncAboveThreshold(t *testing.T) {
+	operations := make([]OperationRow, bulkRuntimeUserOperationThreshold+2)
+	for index := range operations {
+		operations[index] = OperationRow{
+			OperationType: "update_user",
+			NodeID:        sql.NullInt64{Int64: 7, Valid: true},
+		}
+	}
+	operations[0].NodeID.Int64 = 8
+	if folded := bulkRuntimeUserOperationNodes(operations); !folded[7] || folded[8] {
+		t.Fatalf("folded nodes = %#v, want only node 7", folded)
+	}
+}
+
 func TestControllerProcessQueueRetriesUnavailableUserDeltaWithoutFullSync(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue-starvation.db")+"?_pragma=busy_timeout(30000)")
@@ -1049,6 +1063,11 @@ CREATE TABLE nodes (
 	status TEXT,
 	message TEXT,
 	xray_version TEXT,
+	agent_status TEXT DEFAULT 'unknown',
+	xray_status TEXT DEFAULT 'unknown',
+	desired_revision INTEGER DEFAULT 0,
+	applied_revision INTEGER DEFAULT 0,
+	node_capabilities TEXT,
 	geo_mode TEXT,
 	xray_config_mode TEXT,
 	uplink INTEGER DEFAULT 0,
@@ -1307,6 +1326,7 @@ VALUES
 	('add_user', 7, 100, '{}', 'pending', 'add', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('remove_user', 8, 101, '{}', 'retrying', 'remove', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('sync_config', 9, NULL, '{}', 'running', 'sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('reboot_host', 9, NULL, '{}', 'pending', 'reboot', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('update_user', 10, 102, '{}', 'failed', 'failed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 `)
 	if err != nil {
@@ -1317,12 +1337,132 @@ VALUES
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cleared != 3 {
-		t.Fatalf("expected 3 cleared operations, got %d", cleared)
+	if cleared != 0 {
+		t.Fatalf("startup must not clear operations before a successful sync, got %d", cleared)
 	}
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status IN ('pending', 'retrying', 'running')`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status IN ('pending', 'retrying', 'running')`, 5)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id IS NULL AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type IN ('add_user', 'remove_user') AND status IN ('pending', 'retrying')`, 2)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'reboot_host' AND status = 'pending'`, 1)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'failed'`, 1)
+}
+
+func TestRepositoryReconcilesLaggingRevisionAndPrunesDoneHistory(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "revision-retention.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	status TEXT,
+	desired_revision INTEGER NOT NULL DEFAULT 0,
+	applied_revision INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO nodes (id, status, desired_revision, applied_revision) VALUES
+	(1, 'connected', 3, 2),
+	(2, 'connected', 4, 4),
+	(3, 'deleted', 9, 1);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository(db, "sqlite")
+	if err := repo.QueueLaggingNodeSyncs(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.QueueLaggingNodeSyncs(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id IN (2, 3)`, 0)
+
+	revision, err := repo.AdvanceDesiredRevision(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revision != 4 {
+		t.Fatalf("desired revision = %d, want 4", revision)
+	}
+
+	for i := 0; i < 8; i++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_operations
+(operation_type, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('reboot_host', '{}', 'done', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, fmt.Sprintf("done-%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO node_operations
+(operation_type, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('reboot_host', '{}', 'failed', 'failed-retained', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+
+	pruned, err := repo.PruneFinishedOperations(ctx, 3, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pruned != 2 {
+		t.Fatalf("pruned operations = %d, want 2", pruned)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'done'`, 6)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'failed'`, 1)
+}
+
+func TestRepositoryQueueCommandPersistsBeforeExecution(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "command-queue.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+)`); err != nil {
+		t.Fatal(err)
+	}
+	operation, err := NewRepository(db, "sqlite").QueueCommand(ctx, "reboot_host", 9, Request{NodeID: 9})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if operation.ID <= 0 || operation.NodeID.Int64 != 9 {
+		t.Fatalf("invalid queued operation: %#v", operation)
+	}
+	var status string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM node_operations WHERE id = ?`, operation.ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "pending" {
+		t.Fatalf("queued command status=%q", status)
+	}
 }
 
 func TestRepositoryCoalescedSyncClearsRuntimeUserBacklogForNode(t *testing.T) {
@@ -1519,6 +1659,7 @@ CREATE TABLE nodes (
 	port INTEGER,
 	api_port INTEGER,
 	status TEXT,
+	agent_status TEXT,
 	xray_version TEXT,
 	message TEXT,
 	last_status_change DATETIME,
@@ -1545,7 +1686,8 @@ INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
 	if _, err := controller.Metrics(ctx, Request{NodeID: 1}); err == nil {
 		t.Fatal("expected metrics dial error")
 	}
-	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "connected")
+	assertRepositoryString(t, db, `SELECT agent_status FROM nodes WHERE id = 1`, "degraded")
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1 AND message <> 'stable'`, 1)
 }
 
@@ -1565,6 +1707,7 @@ CREATE TABLE nodes (
 	port INTEGER,
 	api_port INTEGER,
 	status TEXT,
+	agent_status TEXT,
 	xray_version TEXT,
 	message TEXT,
 	last_status_change DATETIME,
@@ -1585,12 +1728,19 @@ INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
 		t.Fatal(err)
 	}
 
-	result, err := NewController(NewRepository(db, "sqlite")).CheckConnectedNodes(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Checked != 1 || len(result.Errors) != 1 {
-		t.Fatalf("unexpected health sweep result: %#v", result)
+	controller := NewController(NewRepository(db, "sqlite"))
+	for attempt := 1; attempt <= nodeHealthFailureThreshold; attempt++ {
+		result, err := controller.CheckConnectedNodes(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantErrors := 0
+		if attempt == nodeHealthFailureThreshold {
+			wantErrors = 1
+		}
+		if result.Checked != 1 || len(result.Errors) != wantErrors {
+			t.Fatalf("health sweep %d result: %#v", attempt, result)
+		}
 	}
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 2`, "disabled")

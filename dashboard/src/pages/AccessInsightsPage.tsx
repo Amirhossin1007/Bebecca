@@ -29,7 +29,6 @@ import { AppDialog } from "components/dialogs/AppDialog";
 import {
 	DataTable,
 	type DataTableColumn,
-	PageHeader,
 	ResourceListCard,
 	ResourceRefreshButton,
 } from "components/ui";
@@ -76,7 +75,6 @@ const AccessInsightsPage: FC = () => {
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const [data, setData] = useState<AccessInsightsResponse | null>(null);
 	const [search, setSearch] = useState("");
-	const [appliedSearch, setAppliedSearch] = useState("");
 	const [protocolFilter, setProtocolFilter] = useState("");
 	const [nodeFilter, setNodeFilter] = useState("");
 	const [page, setPage] = useState(0);
@@ -95,7 +93,7 @@ const AccessInsightsPage: FC = () => {
 				limit: "500",
 				window_seconds: "300",
 			});
-			if (appliedSearch.trim()) query.set("search", appliedSearch.trim());
+			if (search.trim()) query.set("search", search.trim());
 			setData(
 				await fetch<AccessInsightsResponse>(
 					`/core/access/insights/multi-node?${query.toString()}`,
@@ -110,7 +108,7 @@ const AccessInsightsPage: FC = () => {
 		} finally {
 			setLoading(false);
 		}
-	}, [appliedSearch, canView, t]);
+	}, [canView, search, t]);
 
 	useEffect(() => {
 		void load();
@@ -146,31 +144,29 @@ const AccessInsightsPage: FC = () => {
 	);
 	const totalIPs = useMemo(
 		() =>
-			new Set(filteredItems.flatMap((item) => uniqueStrings(item.sources || [])))
-				.size,
+			new Set(
+				filteredItems.flatMap((item) => uniqueStrings(item.sources || [])),
+			).size,
 		[filteredItems],
 	);
 	const totalNodes = useMemo(
 		() => new Set(filteredItems.flatMap((item) => item.nodes || [])).size,
 		[filteredItems],
 	);
-	const protocolTotals = useMemo(
-		() => {
-			const totals = new Map<string, number>();
-			filteredItems.forEach((item) => {
-				item.platforms.forEach((platform) => {
-					totals.set(
-						platform.platform,
-						(totals.get(platform.platform) || 0) + platform.connections,
-					);
-				});
+	const protocolTotals = useMemo(() => {
+		const totals = new Map<string, number>();
+		filteredItems.forEach((item) => {
+			item.platforms.forEach((platform) => {
+				totals.set(
+					platform.platform,
+					(totals.get(platform.platform) || 0) + platform.connections,
+				);
 			});
-			return Array.from(totals.entries()).sort(
-				(left, right) => right[1] - left[1],
-			);
-		},
-		[filteredItems],
-	);
+		});
+		return Array.from(totals.entries()).sort(
+			(left, right) => right[1] - left[1],
+		);
+	}, [filteredItems]);
 	const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
 	const visibleItems = filteredItems.slice(
 		page * PAGE_SIZE,
@@ -198,8 +194,7 @@ const AccessInsightsPage: FC = () => {
 							{client.user_label}
 						</Text>
 						<Text fontSize="xs" color="panel.textMuted">
-							{t("pages.accessInsights.connections")}:{" "}
-							{client.connections}
+							{t("pages.accessInsights.connections")}: {client.connections}
 						</Text>
 					</VStack>
 				),
@@ -221,7 +216,7 @@ const AccessInsightsPage: FC = () => {
 					const sources = uniqueStrings(client.sources || []);
 					return (
 						<VStack align="stretch" spacing={2} minW={0}>
-						{sources.slice(0, 3).map((ip) => {
+							{sources.slice(0, 3).map((ip) => {
 								const operator = operatorByIP.get(ip);
 								const nodes = uniqueStrings(client.source_nodes?.[ip] || []);
 								return (
@@ -252,14 +247,14 @@ const AccessInsightsPage: FC = () => {
 										/>
 									</HStack>
 								);
-						})}
-						{sources.length > 3 ? (
-							<Text fontSize="xs" color="panel.textMuted">
-								+{sources.length - 3}
-							</Text>
-						) : null}
-					</VStack>
-				);
+							})}
+							{sources.length > 3 ? (
+								<Text fontSize="xs" color="panel.textMuted">
+									+{sources.length - 3}
+								</Text>
+							) : null}
+						</VStack>
+					);
 				},
 			},
 			{
@@ -340,10 +335,6 @@ const AccessInsightsPage: FC = () => {
 		);
 	}
 
-	const applySearch = () => {
-		setPage(0);
-		setAppliedSearch(search);
-	};
 	const pagination =
 		totalPages > 1 ? (
 			<HStack justify="space-between" w="full">
@@ -370,7 +361,10 @@ const AccessInsightsPage: FC = () => {
 		) : null;
 	const selectedSources = uniqueStrings(selectedClient?.sources || []);
 	const selectedOperatorByIP = new Map(
-		(selectedClient?.operators || []).map((operator) => [operator.ip, operator]),
+		(selectedClient?.operators || []).map((operator) => [
+			operator.ip,
+			operator,
+		]),
 	);
 	const selectedLimit = Number(selectedClient?.data_limit || 0);
 	const selectedUsage = Number(selectedClient?.used_traffic || 0);
@@ -388,11 +382,6 @@ const AccessInsightsPage: FC = () => {
 			dir={isRTL ? "rtl" : "ltr"}
 			data-dir={isRTL ? "rtl" : "ltr"}
 		>
-			<PageHeader
-				title={t("pages.accessInsights.title")}
-				description={t("pages.accessInsights.liveSubtitle")}
-			/>
-
 			<Stack spacing={3}>
 				<ResourceListCard
 					title={t("pages.accessInsights.onlineSessions")}
@@ -451,11 +440,6 @@ const AccessInsightsPage: FC = () => {
 					}
 				>
 					<Stack
-						as="form"
-						onSubmit={(event) => {
-							event.preventDefault();
-							applySearch();
-						}}
 						direction={{ base: "column", lg: "row" }}
 						spacing={2}
 						w="full"
@@ -467,7 +451,10 @@ const AccessInsightsPage: FC = () => {
 							</InputLeftElement>
 							<Input
 								value={search}
-								onChange={(event) => setSearch(event.target.value)}
+								onChange={(event) => {
+									setSearch(event.target.value);
+									setPage(0);
+								}}
 								placeholder={t("pages.accessInsights.liveSearch")}
 							/>
 						</InputGroup>
@@ -480,9 +467,7 @@ const AccessInsightsPage: FC = () => {
 							aria-label={t("pages.accessInsights.allProtocols")}
 							w={{ base: "full", md: "180px" }}
 						>
-							<option value="">
-								{t("pages.accessInsights.allProtocols")}
-							</option>
+							<option value="">{t("pages.accessInsights.allProtocols")}</option>
 							{protocolOptions.map((protocol) => (
 								<option key={protocol} value={protocol}>
 									{protocol}
@@ -505,9 +490,6 @@ const AccessInsightsPage: FC = () => {
 								</option>
 							))}
 						</Select>
-						<Button type="submit" flexShrink={0}>
-							{t("search")}
-						</Button>
 					</Stack>
 				</ResourceListCard>
 
@@ -591,7 +573,9 @@ const AccessInsightsPage: FC = () => {
 								</Text>
 								<Text mt={1} fontSize="sm" fontWeight="semibold" dir="ltr">
 									{selectedClient.expire
-										? dayjs.unix(selectedClient.expire).format("YYYY-MM-DD HH:mm")
+										? dayjs
+												.unix(selectedClient.expire)
+												.format("YYYY-MM-DD HH:mm")
 										: t("admins.expireNotSet")}
 								</Text>
 							</Box>
@@ -603,7 +587,10 @@ const AccessInsightsPage: FC = () => {
 									{t("dataUsage")}
 								</Text>
 								<Text fontSize="xs" color="panel.textMuted" dir="ltr">
-									{formatBytes(selectedUsage)} / {selectedLimit > 0 ? formatBytes(selectedLimit) : t("unlimited")}
+									{formatBytes(selectedUsage)} /{" "}
+									{selectedLimit > 0
+										? formatBytes(selectedLimit)
+										: t("unlimited")}
 								</Text>
 							</HStack>
 							<Progress
@@ -614,7 +601,10 @@ const AccessInsightsPage: FC = () => {
 								colorScheme={selectedUsagePercent >= 90 ? "red" : "green"}
 							/>
 							<Text mt={2} fontSize="xs" color="panel.textMuted" dir="ltr">
-								{t("remaining")}: {selectedRemaining === null ? t("unlimited") : formatBytes(selectedRemaining)}
+								{t("remaining")}:{" "}
+								{selectedRemaining === null
+									? t("unlimited")
+									: formatBytes(selectedRemaining)}
 							</Text>
 						</Box>
 
@@ -629,7 +619,9 @@ const AccessInsightsPage: FC = () => {
 							<VStack align="stretch" spacing={0} maxH="320px" overflowY="auto">
 								{selectedSources.map((ip) => {
 									const operator = selectedOperatorByIP.get(ip);
-									const nodes = uniqueStrings(selectedClient.source_nodes?.[ip] || []);
+									const nodes = uniqueStrings(
+										selectedClient.source_nodes?.[ip] || [],
+									);
 									return (
 										<HStack
 											key={ip}
@@ -639,16 +631,29 @@ const AccessInsightsPage: FC = () => {
 											align="center"
 										>
 											<Box minW={{ base: "132px", md: "180px" }}>
-												<Text dir="ltr" fontFamily="mono" fontSize="xs" fontWeight="semibold">
+												<Text
+													dir="ltr"
+													fontFamily="mono"
+													fontSize="xs"
+													fontWeight="semibold"
+												>
 													{ip}
 												</Text>
 												{nodes.length ? (
-													<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+													<Text
+														fontSize="xs"
+														color="panel.textMuted"
+														noOfLines={1}
+													>
 														{nodes.join(", ")}
 													</Text>
 												) : null}
 											</Box>
-											<OperatorIdentity shortName={operator?.short_name} owner={operator?.owner} compact />
+											<OperatorIdentity
+												shortName={operator?.short_name}
+												owner={operator?.owner}
+												compact
+											/>
 										</HStack>
 									);
 								})}

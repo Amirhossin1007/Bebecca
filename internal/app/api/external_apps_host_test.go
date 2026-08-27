@@ -142,6 +142,64 @@ func TestExternalAppAwareHandlerUsesConfiguredDefaultDocument(t *testing.T) {
 	}
 }
 
+func TestExternalAppAwareHandlerAppliesHostingSettings(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "apps", "site")
+	if err := os.MkdirAll(filepath.Join(root, "assets"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte("home"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "assets", "app.js"), []byte("asset"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "404.html"), []byte("custom missing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cacheSeconds := 120
+	record := externalapps.Record{
+		ID: "0123456789ab", Template: "archive", Domain: "app.example.com", Enabled: true,
+		Runtime: "static", Root: root, MaxRequestBodyMB: 1, StaticCacheSeconds: &cacheSeconds, NotFoundFile: "404.html",
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(base, ".metadata"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, ".metadata", record.ID+".json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	handler := &externalAppAwareHandler{apps: externalapps.New(externalapps.Config{BaseDir: base}, nil), next: http.NotFoundHandler()}
+
+	request := httptest.NewRequest(http.MethodGet, "https://app.example.com/assets/app.js", nil)
+	request.Host = "app.example.com"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != "public, max-age=120" {
+		t.Fatalf("asset response=%d cache=%q", response.Code, response.Header().Get("Cache-Control"))
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "https://app.example.com/missing", nil)
+	request.Host = "app.example.com"
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound || strings.TrimSpace(response.Body.String()) != "custom missing" {
+		t.Fatalf("404 response=%d %q", response.Code, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "https://app.example.com/", strings.NewReader("small"))
+	request.Host = "app.example.com"
+	request.ContentLength = (1 << 20) + 1
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized response=%d", response.Code)
+	}
+}
+
 func TestExternalAppFastCGILocationDefaultsTo302(t *testing.T) {
 	response := httptest.NewRecorder()
 	if err := writeExternalAppFastCGIResponse(response, []byte("Location: /login\r\n\r\n")); err != nil {

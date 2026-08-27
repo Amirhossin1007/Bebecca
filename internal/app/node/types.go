@@ -32,6 +32,7 @@ type NodeCreate struct {
 	Note             *string         `json:"note"`
 	Address          string          `json:"address"`
 	Port             int             `json:"port"`
+	ControlPort      int             `json:"control_port"`
 	APIPort          int             `json:"api_port"`
 	UsageCoefficient float64         `json:"usage_coefficient"`
 	DataLimit        *int64          `json:"data_limit"`
@@ -57,6 +58,7 @@ type NodeModify struct {
 	Note             *string         `json:"note"`
 	Address          *string         `json:"address"`
 	Port             *int64          `json:"port"`
+	ControlPort      *int64          `json:"control_port"`
 	APIPort          *int64          `json:"api_port"`
 	Status           *string         `json:"status"`
 	UsageCoefficient *float64        `json:"usage_coefficient"`
@@ -78,6 +80,7 @@ type NodeResponse struct {
 	Note                   *string  `json:"note"`
 	Address                string   `json:"address"`
 	Port                   int64    `json:"port"`
+	ControlPort            int64    `json:"control_port"`
 	APIPort                int64    `json:"api_port"`
 	UsageCoefficient       float64  `json:"usage_coefficient"`
 	DataLimit              *int64   `json:"data_limit"`

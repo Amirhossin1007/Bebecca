@@ -4,11 +4,11 @@ import {
 	HStack,
 	IconButton,
 	Stack,
+	type StackProps,
 	Tag,
 	Text,
 	Tooltip,
 	VStack,
-	type StackProps,
 } from "@chakra-ui/react";
 import type { FC, ReactElement, ReactNode } from "react";
 
@@ -38,7 +38,9 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 	const hasFooter = Boolean(children || footerActions);
 	const titleContent =
 		typeof title === "string" || typeof title === "number" ? (
-			<Text fontWeight="bold" fontSize="lg">{title}</Text>
+			<Text fontWeight="bold" fontSize="lg">
+				{title}
+			</Text>
 		) : (
 			<Box w="full">{title}</Box>
 		);
@@ -49,11 +51,16 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 			w="full"
 			borderWidth="1px"
 			borderColor="panel.border"
-			borderRadius="xl"
+			borderRadius="2xl"
 			bg="panel.surface"
 			p={{ base: 4, md: 5 }}
 			transition="all 0.25s ease"
-			_hover={{ "@media (min-width: 768px)": { boxShadow: "sm" } }}
+			_hover={{
+				"@media (min-width: 768px)": {
+					boxShadow: "sm",
+					borderColor: "panel.borderStrong",
+				},
+			}}
 			{...props}
 		>
 			<Stack
@@ -62,7 +69,11 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 				align={{ base: "stretch", xl: "flex-start" }}
 				justify="space-between"
 			>
-				<VStack align="flex-start" spacing={3} minW={{ base: "0", xl: "210px" }}>
+				<VStack
+					align="flex-start"
+					spacing={3}
+					minW={{ base: "0", xl: "210px" }}
+				>
 					{titleContent}
 					{summaryItems.length > 0 && (
 						<HStack spacing={2} flexWrap="wrap">
@@ -78,11 +89,19 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 										variant="subtle"
 										fontWeight="medium"
 									>
-										{item.label}: <Text as="span" fontWeight="bold" ms={1}>{item.value}</Text>
+										{item.label}:{" "}
+										<Text as="span" fontWeight="bold" ms={1}>
+											{item.value}
+										</Text>
 									</Tag>
 								);
 								return item.helper ? (
-									<Tooltip key={item.label} label={item.helper} hasArrow placement="top">
+									<Tooltip
+										key={item.label}
+										label={item.helper}
+										hasArrow
+										placement="top"
+									>
 										{tag}
 									</Tooltip>
 								) : (
@@ -131,7 +150,13 @@ export const ResourceRefreshButton: FC<{
 	onClick: () => void;
 }> = ({ icon, label, ...props }) => {
 	const button = (
-		<IconButton variant="ghost" size="sm" borderRadius="md" icon={icon} {...props} />
+		<IconButton
+			variant="ghost"
+			size="sm"
+			borderRadius="md"
+			icon={icon}
+			{...props}
+		/>
 	);
 
 	return label ? (

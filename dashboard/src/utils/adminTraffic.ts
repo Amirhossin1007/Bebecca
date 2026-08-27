@@ -1,8 +1,4 @@
-import {
-	AdminRole,
-	AdminTrafficLimitMode,
-	type Admin,
-} from "types/Admin";
+import { AdminRole, AdminTrafficLimitMode, type Admin } from "types/Admin";
 import type { UserApi } from "types/User";
 
 type AdminTrafficLike = Pick<
@@ -70,9 +66,22 @@ export const canViewUserTraffic = (
 
 export const isUserManagementLocked = (
 	admin?: AdminTrafficLike | null,
+	serviceId?: number | null,
 ): boolean => {
 	if (!admin) return false;
 	if (admin.role === AdminRole.FullAccess) return false;
+	if (admin.use_service_traffic_limits) {
+		const scope = getServiceLimit(admin, serviceId);
+		const limit = scope?.data_limit ?? null;
+		if (!scope || limit === null || limit === undefined || limit <= 0) {
+			return false;
+		}
+		const usage =
+			scope.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic
+				? scope.created_traffic
+				: scope.used_traffic;
+		return (usage ?? 0) >= limit;
+	}
 	if (!usesCreatedTrafficLimit(admin)) return false;
 	const limit = admin.data_limit ?? null;
 	if (limit === null || limit === undefined || limit <= 0) return false;

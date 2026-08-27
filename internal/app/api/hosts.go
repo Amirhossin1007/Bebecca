@@ -37,67 +37,71 @@ var (
 const maxHostFinalMaskBytes = 64 << 10
 
 type hostPayload struct {
-	ID              *int64         `json:"id"`
-	Remark          string         `json:"remark"`
-	Address         string         `json:"address"`
-	AddressOptions  []string       `json:"address_options"`
-	AddressMode     string         `json:"address_selection_mode"`
-	AddressTTL      *int64         `json:"address_ttl_seconds"`
-	Port            *int64         `json:"port"`
-	SNI             *string        `json:"sni"`
-	SNIOptions      []string       `json:"sni_options"`
-	SNIMode         string         `json:"sni_selection_mode"`
-	SNITTL          *int64         `json:"sni_ttl_seconds"`
-	Host            *string        `json:"host"`
-	HostOptions     []string       `json:"host_options"`
-	HostMode        string         `json:"host_selection_mode"`
-	HostTTL         *int64         `json:"host_ttl_seconds"`
-	Path            *string        `json:"path"`
-	Security        string         `json:"security"`
-	ALPN            string         `json:"alpn"`
-	Fingerprint     string         `json:"fingerprint"`
-	AllowInsecure   *bool          `json:"allowinsecure"`
-	IsDisabled      *bool          `json:"is_disabled"`
-	MuxEnable       *bool          `json:"mux_enable"`
-	FragmentSetting *string        `json:"fragment_setting"`
-	NoiseSetting    *string        `json:"noise_setting"`
-	FinalMask       map[string]any `json:"finalmask"`
-	RandomUserAgent *bool          `json:"random_user_agent"`
-	UseSNIAsHost    *bool          `json:"use_sni_as_host"`
-	DNSPrimary      string         `json:"dns_primary"`
-	DNSSecondary    string         `json:"dns_secondary"`
+	ID                   *int64         `json:"id"`
+	Remark               string         `json:"remark"`
+	Address              string         `json:"address"`
+	AddressOptions       []string       `json:"address_options"`
+	AddressMode          string         `json:"address_selection_mode"`
+	AddressTTL           *int64         `json:"address_ttl_seconds"`
+	Port                 *int64         `json:"port"`
+	SNI                  *string        `json:"sni"`
+	SNIOptions           []string       `json:"sni_options"`
+	SNIMode              string         `json:"sni_selection_mode"`
+	SNITTL               *int64         `json:"sni_ttl_seconds"`
+	Host                 *string        `json:"host"`
+	HostOptions          []string       `json:"host_options"`
+	HostMode             string         `json:"host_selection_mode"`
+	HostTTL              *int64         `json:"host_ttl_seconds"`
+	Path                 *string        `json:"path"`
+	Security             string         `json:"security"`
+	ALPN                 string         `json:"alpn"`
+	Fingerprint          string         `json:"fingerprint"`
+	VerifyPeerCertByName string         `json:"verify_peer_cert_by_name"`
+	PinnedPeerCertSHA256 string         `json:"pinned_peer_cert_sha256"`
+	AllowInsecure        *bool          `json:"allowinsecure"`
+	IsDisabled           *bool          `json:"is_disabled"`
+	MuxEnable            *bool          `json:"mux_enable"`
+	FragmentSetting      *string        `json:"fragment_setting"`
+	NoiseSetting         *string        `json:"noise_setting"`
+	FinalMask            map[string]any `json:"finalmask"`
+	RandomUserAgent      *bool          `json:"random_user_agent"`
+	UseSNIAsHost         *bool          `json:"use_sni_as_host"`
+	DNSPrimary           string         `json:"dns_primary"`
+	DNSSecondary         string         `json:"dns_secondary"`
 }
 
 type hostResponse struct {
-	ID              int64          `json:"id"`
-	Remark          string         `json:"remark"`
-	Address         string         `json:"address"`
-	AddressOptions  []string       `json:"address_options"`
-	AddressMode     string         `json:"address_selection_mode"`
-	AddressTTL      *int64         `json:"address_ttl_seconds"`
-	Port            *int64         `json:"port"`
-	SNI             *string        `json:"sni"`
-	SNIOptions      []string       `json:"sni_options"`
-	SNIMode         string         `json:"sni_selection_mode"`
-	SNITTL          *int64         `json:"sni_ttl_seconds"`
-	Host            *string        `json:"host"`
-	HostOptions     []string       `json:"host_options"`
-	HostMode        string         `json:"host_selection_mode"`
-	HostTTL         *int64         `json:"host_ttl_seconds"`
-	Path            *string        `json:"path"`
-	Security        string         `json:"security"`
-	ALPN            string         `json:"alpn"`
-	Fingerprint     string         `json:"fingerprint"`
-	AllowInsecure   *bool          `json:"allowinsecure"`
-	IsDisabled      bool           `json:"is_disabled"`
-	MuxEnable       *bool          `json:"mux_enable"`
-	FragmentSetting *string        `json:"fragment_setting"`
-	NoiseSetting    *string        `json:"noise_setting"`
-	FinalMask       map[string]any `json:"finalmask"`
-	RandomUserAgent *bool          `json:"random_user_agent"`
-	UseSNIAsHost    *bool          `json:"use_sni_as_host"`
-	DNSPrimary      string         `json:"dns_primary"`
-	DNSSecondary    string         `json:"dns_secondary"`
+	ID                   int64          `json:"id"`
+	Remark               string         `json:"remark"`
+	Address              string         `json:"address"`
+	AddressOptions       []string       `json:"address_options"`
+	AddressMode          string         `json:"address_selection_mode"`
+	AddressTTL           *int64         `json:"address_ttl_seconds"`
+	Port                 *int64         `json:"port"`
+	SNI                  *string        `json:"sni"`
+	SNIOptions           []string       `json:"sni_options"`
+	SNIMode              string         `json:"sni_selection_mode"`
+	SNITTL               *int64         `json:"sni_ttl_seconds"`
+	Host                 *string        `json:"host"`
+	HostOptions          []string       `json:"host_options"`
+	HostMode             string         `json:"host_selection_mode"`
+	HostTTL              *int64         `json:"host_ttl_seconds"`
+	Path                 *string        `json:"path"`
+	Security             string         `json:"security"`
+	ALPN                 string         `json:"alpn"`
+	Fingerprint          string         `json:"fingerprint"`
+	VerifyPeerCertByName string         `json:"verify_peer_cert_by_name"`
+	PinnedPeerCertSHA256 string         `json:"pinned_peer_cert_sha256"`
+	AllowInsecure        *bool          `json:"allowinsecure"`
+	IsDisabled           bool           `json:"is_disabled"`
+	MuxEnable            *bool          `json:"mux_enable"`
+	FragmentSetting      *string        `json:"fragment_setting"`
+	NoiseSetting         *string        `json:"noise_setting"`
+	FinalMask            map[string]any `json:"finalmask"`
+	RandomUserAgent      *bool          `json:"random_user_agent"`
+	UseSNIAsHost         *bool          `json:"use_sni_as_host"`
+	DNSPrimary           string         `json:"dns_primary"`
+	DNSSecondary         string         `json:"dns_secondary"`
 }
 
 func (s *Server) handleHostsRoot(w http.ResponseWriter, r *http.Request) {
@@ -492,6 +496,8 @@ func sanitizeHostPayloadForInboundProtocol(payload hostPayload, protocol string)
 	payload.Security = "inbound_default"
 	payload.ALPN = "none"
 	payload.Fingerprint = "none"
+	payload.VerifyPeerCertByName = ""
+	payload.PinnedPeerCertSHA256 = ""
 	payload.AllowInsecure = nil
 	payload.MuxEnable = boolPtr(false)
 	payload.FragmentSetting = nil
@@ -648,6 +654,7 @@ func hostSelectSQL() string {
 		port, path, sni, sni_options, COALESCE(sni_selection_mode, 'random'), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, 'random'), host_ttl_seconds,
 		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
+		COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
 		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting, finalmask,
 		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
@@ -661,6 +668,7 @@ func hostSelectSQLWithInbound() string {
 		port, path, sni, sni_options, COALESCE(sni_selection_mode, 'random'), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, 'random'), host_ttl_seconds,
 		COALESCE(security, 'inbound_default'), COALESCE(alpn, 'none'), COALESCE(fingerprint, 'none'),
+		COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
 		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting, finalmask,
 		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
@@ -716,6 +724,8 @@ func scanHostResponseWithInbound(scanner hostScanner, inboundTag *string) (hostR
 		&item.Security,
 		&item.ALPN,
 		&item.Fingerprint,
+		&item.VerifyPeerCertByName,
+		&item.PinnedPeerCertSHA256,
 		&allowInsecure,
 		&disabled,
 		&muxEnable,
@@ -759,6 +769,8 @@ func scanHostResponse(scanner hostScanner) (hostResponse, error) {
 		&item.Security,
 		&item.ALPN,
 		&item.Fingerprint,
+		&item.VerifyPeerCertByName,
+		&item.PinnedPeerCertSHA256,
 		&allowInsecure,
 		&disabled,
 		&muxEnable,
@@ -830,6 +842,9 @@ func validateHostPayload(host hostPayload) error {
 	}
 	if host.Port != nil && (*host.Port < 1 || *host.Port > 65535) {
 		return statusError{status: http.StatusBadRequest, detail: "Host port must be between 1 and 65535"}
+	}
+	if pin := strings.TrimSpace(host.PinnedPeerCertSHA256); pin != "" && !xrayconfig.ValidCertificatePins(pin) {
+		return statusError{status: http.StatusBadRequest, detail: "Certificate pins must be comma-separated SHA-256 fingerprints"}
 	}
 	for _, dns := range []struct {
 		name  string
@@ -2329,9 +2344,10 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 			remark, address, dns_primary, dns_secondary, address_options, address_selection_mode, address_ttl_seconds,
 			port, path, sni, sni_options, sni_selection_mode, sni_ttl_seconds,
 			host, host_options, host_selection_mode, host_ttl_seconds, security, alpn, fingerprint,
+			verify_peer_cert_by_name, pinned_peer_cert_sha256,
 			inbound_tag, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting, finalmask,
 			random_user_agent, use_sni_as_host
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		payload.Remark,
 		payload.Address,
 		payload.DNSPrimary,
@@ -2352,6 +2368,8 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 		normalizeHostSecurity(payload.Security),
 		normalizeHostALPN(payload.ALPN),
 		normalizeHostFingerprint(payload.Fingerprint),
+		strings.TrimSpace(payload.VerifyPeerCertByName),
+		strings.TrimSpace(payload.PinnedPeerCertSHA256),
 		inboundTag,
 		nullableBoolInt(payload.AllowInsecure),
 		boolToInt(boolPtrValue(payload.IsDisabled)),
@@ -2375,7 +2393,7 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 			remark = ?, address = ?, dns_primary = ?, dns_secondary = ?, address_options = ?, address_selection_mode = ?, address_ttl_seconds = ?,
 			port = ?, path = ?, sni = ?, sni_options = ?, sni_selection_mode = ?, sni_ttl_seconds = ?,
 			host = ?, host_options = ?, host_selection_mode = ?, host_ttl_seconds = ?,
-			security = ?, alpn = ?, fingerprint = ?, inbound_tag = ?, allowinsecure = ?,
+			security = ?, alpn = ?, fingerprint = ?, verify_peer_cert_by_name = ?, pinned_peer_cert_sha256 = ?, inbound_tag = ?, allowinsecure = ?,
 			is_disabled = ?, mux_enable = ?, fragment_setting = ?, noise_setting = ?, finalmask = ?,
 			random_user_agent = ?, use_sni_as_host = ?
 		WHERE id = ?`,
@@ -2399,6 +2417,8 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 		normalizeHostSecurity(payload.Security),
 		normalizeHostALPN(payload.ALPN),
 		normalizeHostFingerprint(payload.Fingerprint),
+		strings.TrimSpace(payload.VerifyPeerCertByName),
+		strings.TrimSpace(payload.PinnedPeerCertSHA256),
 		inboundTag,
 		nullableBoolInt(payload.AllowInsecure),
 		boolToInt(boolPtrValue(payload.IsDisabled)),

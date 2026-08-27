@@ -345,23 +345,6 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 
 	return (
 		<VStack spacing={4} align="stretch">
-			{showTitle && (
-				<Box
-					borderWidth="1px"
-					borderColor="panel.border"
-					borderRadius="6px"
-					bg="panel.surface"
-					px={{ base: 3, md: 4 }}
-					py={4}
-				>
-					<Text as="h1" fontWeight="semibold" fontSize="2xl">
-						{t("header.xrayLogs")}
-					</Text>
-					<Text color="panel.textSecondary" fontSize="sm" mt={1}>
-						{t("xrayLogs.subtitle")}
-					</Text>
-				</Box>
-			)}
 			<ResourceListCard
 				title={t("xrayLogs.stream")}
 				summaryItems={[

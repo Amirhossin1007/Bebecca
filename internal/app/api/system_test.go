@@ -27,6 +27,8 @@ func (p *fakeSystemMetricsProvider) Snapshot(context.Context) (systemapp.Metrics
 	return systemapp.MetricsSnapshot{
 		Timestamp:              1_780_000_000 + call,
 		CPUCores:               8,
+		CPUThreads:             16,
+		CPUFrequencyHz:         2_100_000_000,
 		CPUUsage:               float64(10 + call),
 		Memory:                 systemapp.UsageStats{Current: 300, Total: 1000, Percent: 30},
 		Swap:                   systemapp.UsageStats{Current: 20, Total: 100, Percent: 20},
@@ -47,8 +49,9 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 	server, db := testAdminServer(t)
 	statements := []string{
 		`CREATE TABLE system (id INTEGER PRIMARY KEY, uplink BIGINT DEFAULT 0, downlink BIGINT DEFAULT 0)`,
+		`CREATE TABLE user_online_ips (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME)`,
+		`CREATE TABLE vpn_user_sessions (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME, ended_at DATETIME)`,
 		`INSERT INTO system (id, uplink, downlink) VALUES (1, 111, 222)`,
-		`ALTER TABLE users ADD COLUMN online_at DATETIME NULL`,
 		`INSERT INTO nodes (id, name, status, xray_version) VALUES (1, 'node-a', 'connected', '25.1.0')`,
 	}
 	for _, statement := range statements {
@@ -69,6 +72,14 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Exec(
+		`INSERT INTO user_online_ips (node_id, user_id, last_seen_at) VALUES
+			(1, 1, ?), (1, 2, ?)`,
+		onlineAt,
+		onlineAt,
+	); err != nil {
+		t.Fatal(err)
+	}
 	server.systemService = systemapp.NewServiceWithProvider(
 		db,
 		"sqlite",
@@ -84,6 +95,8 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 	var first struct {
 		Version               string                          `json:"version"`
 		CPUCores              int                             `json:"cpu_cores"`
+		CPUThreads            int                             `json:"cpu_threads"`
+		CPUFrequencyHz        float64                         `json:"cpu_frequency_hz"`
 		CPUUsage              float64                         `json:"cpu_usage"`
 		TotalUser             int64                           `json:"total_user"`
 		OnlineUsers           int64                           `json:"online_users"`
@@ -96,6 +109,8 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 		XrayVersion           *string                         `json:"xray_version"`
 		LastTelegramError     *string                         `json:"last_telegram_error"`
 		CPUHistory            []systemapp.HistoryEntry        `json:"cpu_history"`
+		SwapHistory           []systemapp.HistoryEntry        `json:"swap_history"`
+		DiskHistory           []systemapp.HistoryEntry        `json:"disk_history"`
 		NetworkHistory        []systemapp.NetworkHistoryEntry `json:"network_history"`
 		PersonalUsage         systemapp.PersonalUsageStats    `json:"personal_usage"`
 	}
@@ -104,6 +119,8 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 	}
 	if first.Version != systemapp.DefaultVersion ||
 		first.CPUCores != 8 ||
+		first.CPUThreads != 16 ||
+		first.CPUFrequencyHz != 2_100_000_000 ||
 		first.CPUUsage != 11 ||
 		first.TotalUser != 3 ||
 		first.OnlineUsers != 2 ||
@@ -117,6 +134,8 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 		*first.XrayVersion != "25.1.0" ||
 		first.LastTelegramError != nil ||
 		len(first.CPUHistory) != 1 ||
+		len(first.SwapHistory) != 1 ||
+		len(first.DiskHistory) != 1 ||
 		len(first.NetworkHistory) != 1 ||
 		first.PersonalUsage.TotalUsers != 1 {
 		t.Fatalf("unexpected first system response: %#v", first)

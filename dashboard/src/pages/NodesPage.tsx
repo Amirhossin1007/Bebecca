@@ -85,7 +85,6 @@ import {
 } from "utils/toastHandler";
 import {
 	DataTable,
-	PageHeader,
 	type DataTableColumn,
 	type DataTableRowAction,
 } from "../components/ui";
@@ -2500,9 +2499,16 @@ export const NodesPage: FC = () => {
 				spacing={3}
 				borderWidth="1px"
 				borderColor={nodePanelBorder}
-				borderRadius="md"
+				borderRadius="2xl"
 				bg={nodePanelBg}
-				p={3}
+				p={{ base: 4, md: 5 }}
+				transition="box-shadow 0.2s ease, border-color 0.2s ease"
+				_hover={{
+					"@media (min-width: 768px)": {
+						boxShadow: "sm",
+						borderColor: "panel.borderStrong",
+					},
+				}}
 			>
 				<Text fontSize="sm" color="gray.500">
 					{t("nodes.paginationSummary", { start: paginationStart, end: paginationEnd, total: filteredNodes.length })}
@@ -2570,8 +2576,6 @@ export const NodesPage: FC = () => {
 			align="stretch"
 			pb={selectedNodeIds.length > 0 ? { base: 32, md: 24 } : 0}
 		>
-			<PageHeader title={t("header.nodes")} />
-
 			{hasError && (
 				<Alert status="error" borderRadius="md">
 					<AlertIcon />
@@ -2584,9 +2588,16 @@ export const NodesPage: FC = () => {
 				w="full"
 				borderWidth="1px"
 				borderColor={nodePanelBorder}
-				borderRadius="md"
+				borderRadius="2xl"
 				bg={nodePanelBg}
-				p={3}
+				p={{ base: 4, md: 5 }}
+				transition="box-shadow 0.2s ease, border-color 0.2s ease"
+				_hover={{
+					"@media (min-width: 768px)": {
+						boxShadow: "sm",
+						borderColor: "panel.borderStrong",
+					},
+				}}
 			>
 				<Stack
 					direction={{ base: "column", xl: "row" }}

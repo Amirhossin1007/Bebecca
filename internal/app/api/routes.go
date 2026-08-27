@@ -17,6 +17,9 @@ func apiRequestBodyLimit(path string) int64 {
 	if path == "/api/settings/backup/import" {
 		return 0
 	}
+	if path == "/api/haproxy/templates" {
+		return maxHAProxyTemplateUpload + (1 << 20)
+	}
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
 	}
@@ -63,6 +66,7 @@ func (s *Server) Handler() http.Handler {
 	r.HandleFunc("/admin/token", s.handleAdminToken)
 	r.HandleFunc("/internal/admin/validate", s.handleInternalAdminValidate)
 	r.HandleFunc("/internal/node/session-event", s.handleNodeSessionEvent)
+	r.HandleFunc("/internal/node/haproxy-template/*", s.handleNodeHAProxyTemplate)
 	r.HandleFunc("/xray/*", s.requireSudo(s.handleXrayHelperPath))
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
@@ -163,6 +167,7 @@ func (s *Server) registerSystemRoutes(r chi.Router) {
 
 func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings", s.requireAdmin(s.handleRuntimeSettings))
+	r.HandleFunc("/settings/all", s.requireSudo(s.handleAllSettings))
 	r.HandleFunc("/settings/backup/export", s.requireSudo(s.handleBackupExport))
 	r.HandleFunc("/settings/backup/import", s.requireSudo(s.handleBackupImport))
 	r.HandleFunc("/settings/panel", s.requireAdmin(s.handlePanelSettings))
@@ -179,7 +184,6 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/subscriptions/certificates/renew", s.requireSudo(s.handleCertificateRenew))
 	r.HandleFunc("/settings/subscriptions/certificates/*", s.requireSudo(s.handleCertificatePath))
 	r.HandleFunc("/settings/subscriptions/admins/*", s.requireSudo(s.handleAdminSubscriptionSettingsPath))
-	r.HandleFunc("/settings/subscriptions/templates/*", s.requireSudo(s.handleSubscriptionTemplatePath))
 	r.HandleFunc("/settings/subscriptions", s.requireSudo(s.handleSubscriptionSettings))
 }
 
@@ -193,6 +197,7 @@ func (s *Server) registerUserRoutes(r chi.Router) {
 	r.HandleFunc("/v2/users", s.requireAdmin(s.handleUserV2Root))
 	r.HandleFunc("/users/actions", s.requireAdmin(s.handleUsersBulkAction))
 	r.HandleFunc("/users/usage", s.requireAdmin(s.handleUsersUsage))
+	r.HandleFunc("/users/onlines", s.requireAdmin(s.handleOnlineUsers))
 	r.HandleFunc("/users", s.requireAdmin(s.handleUsers))
 	r.HandleFunc("/user/*", s.requireAdmin(s.handleUserPath))
 	r.HandleFunc("/user", s.requireAdmin(s.handleUserRoot))
@@ -220,6 +225,8 @@ func (s *Server) registerSubscriptionRoutes(r chi.Router) {
 }
 
 func (s *Server) registerNodeRoutes(r chi.Router) {
+	r.HandleFunc("/haproxy/*", s.requireSudo(s.handleHAProxyPath))
+	r.HandleFunc("/haproxy", s.requireSudo(s.handleHAProxyRoot))
 	r.HandleFunc("/nodes/service/update", s.requireSudo(s.handleNodesServiceUpdate))
 	r.HandleFunc("/nodes/usage", s.requireSudo(s.handleNodesUsage))
 	r.HandleFunc("/nodes/metrics", s.requireSudo(s.handleNodesMetricsWebSocket))

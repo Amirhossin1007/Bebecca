@@ -72,6 +72,9 @@ func (r Repository) CreatePendingCertificate(ctx context.Context, ttl time.Durat
 }
 
 func (r Repository) CreateNode(ctx context.Context, payload NodeCreate) (NodeResponse, error) {
+	if payload.ControlPort > 0 {
+		payload.Port = payload.ControlPort
+	}
 	if err := validateNodeCreate(payload); err != nil {
 		return NodeResponse{}, err
 	}
@@ -222,6 +225,12 @@ func (r Repository) UpdateNode(ctx context.Context, nodeID int64, payload NodeMo
 	if payload.Port != nil {
 		add("port", *payload.Port)
 		if *payload.Port != current.Port {
+			markConnectionChanged()
+		}
+	}
+	if payload.ControlPort != nil {
+		add("port", *payload.ControlPort)
+		if *payload.ControlPort != current.Port {
 			markConnectionChanged()
 		}
 	}
@@ -645,6 +654,7 @@ FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> ? LIMIT 1`, nodeID, S
 	if row.UsageCoefficient <= 0 {
 		row.UsageCoefficient = 1
 	}
+	row.ControlPort = row.Port
 	row.Note = stringPtrFromNull(note)
 	row.DataLimit = int64PtrFromNull(dataLimit)
 	row.ProxyEnabled = proxyEnabled

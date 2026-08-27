@@ -3,7 +3,6 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -55,7 +54,7 @@ func (c Controller) List(ctx context.Context, req Request) (NodeListResult, erro
 
 	for update := range updates {
 		if update.err != nil {
-			rows[update.idx].Status = "error"
+			rows[update.idx].AgentStatus = "degraded"
 			message := friendlyNodeError("metrics", rows[update.idx].ID, update.err).Error()
 			rows[update.idx].Message = &message
 			continue
@@ -80,7 +79,7 @@ func (c Controller) Get(ctx context.Context, req Request) (NodeListItem, error) 
 		runtime, err := c.Metrics(metricsCtx, Request{NodeID: item.ID})
 		cancel()
 		if err != nil {
-			item.Status = "error"
+			item.AgentStatus = "degraded"
 			message := friendlyNodeError("metrics", item.ID, err).Error()
 			item.Message = &message
 			return item, nil
@@ -95,6 +94,9 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 	defer unlock()
 	node, err := c.repo.Node(ctx, req.NodeID)
 	if err != nil {
+		return RuntimeResult{}, err
+	}
+	if err := c.repo.QueueSyncConfig(ctx, &node.ID, nil); err != nil {
 		return RuntimeResult{}, err
 	}
 	supersededIDs, err := c.fullSyncOperationIDs(ctx, node.ID)
@@ -113,11 +115,13 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
 	}
-	defer client.Close()
-	runtimeReq, err := c.runtimeConfigRequest(ctx, node, "sync-"+strconv.FormatInt(node.ID, 10), configJSON)
+	runtimeReq, err := c.runtimeConfigRequest(ctx, node, queuedOperationID("sync_config", supersededIDs, node.ID), configJSON)
 	if err != nil {
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
+	}
+	if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
+		return RuntimeResult{}, err
 	}
 	res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
 	if err != nil {
@@ -136,6 +140,11 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 
 func applyRuntimeToNodeItem(item *NodeListItem, runtime RuntimeResult) {
 	item.Status = runtime.Status
+	item.AgentStatus = runtime.AgentStatus
+	item.XrayStatus = runtime.XrayStatus
+	item.DesiredRevision = runtime.DesiredRevision
+	item.AppliedRevision = runtime.AppliedRevision
+	item.Capabilities = append([]string(nil), runtime.Capabilities...)
 	if strings.TrimSpace(runtime.Message) != "" {
 		item.Message = &runtime.Message
 	}

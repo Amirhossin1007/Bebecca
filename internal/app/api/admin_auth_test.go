@@ -131,8 +131,10 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			service_id INTEGER NULL,
 			status TEXT NOT NULL,
 			on_hold_timeout DATETIME NULL,
+			on_hold_expire_duration BIGINT NULL,
 			last_status_change DATETIME NULL,
 			admin_disabled_at DATETIME NULL,
+			service_limit_disabled_at DATETIME NULL,
 			online_at DATETIME NULL
 		)`,
 		`CREATE TABLE services (
@@ -861,7 +863,7 @@ FROM admins_services WHERE admin_id = (SELECT id FROM admins WHERE username = 's
 
 	insertMasterAPIAdmin(t, db, 3, "standard2", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/admin/permissions/standard/bulk", token, `{
-		"permissions":["create","allow_next_plan"],
+		"permissions":["create","allow_next_plan","periodic_usage_reset"],
 		"mode":"disable"
 	}`)
 	if rec.Code != http.StatusOK {
@@ -878,13 +880,21 @@ FROM admins_services WHERE admin_id = (SELECT id FROM admins WHERE username = 's
 	if err != nil || !found {
 		t.Fatalf("standard2 lookup found=%v err=%v", found, err)
 	}
-	if admin.Permissions.Users.Create || admin.Permissions.Users.AllowNextPlan {
+	if admin.Permissions.Users.Create || admin.Permissions.Users.AllowNextPlan || admin.Permissions.Users.PeriodicUsageReset {
 		t.Fatalf("expected bulk permission disable, got %#v", admin.Permissions.Users)
 	}
 }
 
 func TestAdminListAndUsageRoutes(t *testing.T) {
 	server, db := testAdminServer(t)
+	for _, statement := range []string{
+		`CREATE TABLE user_online_ips (node_id INTEGER, user_id INTEGER, protocol TEXT, ip TEXT, last_seen_at DATETIME)`,
+		`CREATE TABLE vpn_user_sessions (node_id INTEGER, user_id INTEGER, last_seen_at DATETIME, ended_at DATETIME)`,
+	} {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
 	_, err := db.Exec(`INSERT INTO nodes (id, name) VALUES (7, 'de-7')`)

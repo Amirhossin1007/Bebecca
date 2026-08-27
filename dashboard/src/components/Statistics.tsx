@@ -16,12 +16,9 @@ import {
 	Progress,
 	SimpleGrid,
 	Stack,
-	Tag,
 	Text,
 	useColorMode,
 	useColorModeValue,
-	Wrap,
-	WrapItem,
 } from "@chakra-ui/react";
 import {
 	ArrowDownTrayIcon,
@@ -40,6 +37,7 @@ import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { formatDuration } from "utils/formatDuration";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { ChartBox } from "./common/ChartBox";
+import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
@@ -119,9 +117,7 @@ const safeHistory = (value: unknown): SystemStats["cpu_history"] =>
 			}))
 		: [];
 
-const safeNetworkHistory = (
-	value: unknown,
-): SystemStats["network_history"] =>
+const safeNetworkHistory = (value: unknown): SystemStats["network_history"] =>
 	Array.isArray(value)
 		? value.map((entry) => ({
 				timestamp: toFiniteNumber((entry as any)?.timestamp),
@@ -139,13 +135,17 @@ const safeUsageStats = (value: unknown): SystemStats["memory"] => {
 	};
 };
 
-const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null => {
+const sanitizeSystemStats = (
+	value: SystemStats | undefined,
+): SystemStats | null => {
 	if (!value || typeof value !== "object") return null;
 	const raw = value as any;
 	return {
 		...value,
 		version: String(raw.version ?? ""),
 		cpu_cores: toFiniteNumber(raw.cpu_cores),
+		cpu_threads: toFiniteNumber(raw.cpu_threads),
+		cpu_frequency_hz: toFiniteNumber(raw.cpu_frequency_hz),
 		cpu_usage: toFiniteNumber(raw.cpu_usage),
 		total_user: toFiniteNumber(raw.total_user),
 		online_users: toFiniteNumber(raw.online_users),
@@ -176,6 +176,8 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 		panel_memory_percent: toFiniteNumber(raw.panel_memory_percent),
 		cpu_history: safeHistory(raw.cpu_history),
 		memory_history: safeHistory(raw.memory_history),
+		swap_history: safeHistory(raw.swap_history),
+		disk_history: safeHistory(raw.disk_history),
 		network_history: safeNetworkHistory(raw.network_history),
 		panel_cpu_history: safeHistory(raw.panel_cpu_history),
 		panel_memory_history: safeHistory(raw.panel_memory_history),
@@ -203,13 +205,9 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 						full_access_admins: toFiniteNumber(
 							raw.admin_overview.full_access_admins,
 						),
-						standard_admins: toFiniteNumber(
-							raw.admin_overview.standard_admins,
-						),
+						standard_admins: toFiniteNumber(raw.admin_overview.standard_admins),
 						top_admin_username: raw.admin_overview.top_admin_username ?? null,
-						top_admin_usage: toFiniteNumber(
-							raw.admin_overview.top_admin_usage,
-						),
+						top_admin_usage: toFiniteNumber(raw.admin_overview.top_admin_usage),
 					}
 				: {
 						total_admins: 0,
@@ -224,20 +222,18 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
+const average = (values: number[]) =>
+	values.length
+		? values.reduce((total, value) => total + value, 0) / values.length
+		: 0;
+const peak = (values: number[]) => (values.length ? Math.max(...values) : 0);
+const formatCPUFrequency = (value: number) =>
+	value > 0 ? `${(value / 1_000_000_000).toFixed(2)} GHz` : "";
 const getUsageColorScheme = (percent: number) => {
 	if (percent >= 80) return "red";
 	if (percent >= 60) return "yellow";
 	return "green";
 };
-const normalizeVersion = (value?: string | null) => {
-	if (!value) return "";
-	const trimmed = value.trim();
-	if (trimmed.toLowerCase().startsWith("dev-")) {
-		return trimmed.toLowerCase();
-	}
-	return trimmed.replace(/^v+/i, "").split(/[-_]/)[0].trim();
-};
-
 const HISTORY_INTERVALS = [
 	{ labelKey: "historyInterval.2m", seconds: 120 },
 	{ labelKey: "historyInterval.10m", seconds: 600 },
@@ -272,27 +268,6 @@ type HistoryModalPayload =
 	| NetworkHistoryPayload
 	| PanelHistoryPayload;
 
-type DashboardMaintenanceInfo = {
-	panel?: {
-		tag?: string | null;
-		channel?: string | null;
-		update?: {
-			available?: boolean;
-			target?: string | null;
-			error?: string;
-		} | null;
-	};
-};
-
-const isDevPanelVersion = (version?: string | null, channel?: string | null) => {
-	const normalizedVersion = (version || "").trim().toLowerCase();
-	const normalizedChannel = (channel || "").trim().toLowerCase();
-	return normalizedChannel === "dev" || normalizedVersion.startsWith("dev-");
-};
-
-const dashboardVersionLabel = (version?: string | null, channel?: string | null) =>
-	isDevPanelVersion(version, channel) ? "dev" : version || "-";
-
 const HistoryModal: FC<{
 	isOpen: boolean;
 	onClose: () => void;
@@ -302,7 +277,10 @@ const HistoryModal: FC<{
 	t: TFunction;
 }> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t }) => {
 	const { colorMode } = useColorMode();
-	const gridColor = useColorModeValue("rgba(0, 0, 0, 0.08)", "rgba(255, 255, 255, 0.08)");
+	const gridColor = useColorModeValue(
+		"rgba(0, 0, 0, 0.08)",
+		"rgba(255, 255, 255, 0.08)",
+	);
 	const mutedTextColor = useColorModeValue("#64748b", "#8a8a8a");
 
 	const latestTimestamp = useMemo(() => {
@@ -460,7 +438,11 @@ const HistoryModal: FC<{
 				axisBorder: { show: false },
 				axisTicks: { show: false },
 				labels: {
-					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
+					style: {
+						colors: mutedTextColor,
+						fontSize: "11px",
+						fontFamily: "inherit",
+					},
 					datetimeFormatter: { hour: "HH:mm" },
 				},
 				tooltip: { enabled: false },
@@ -468,7 +450,12 @@ const HistoryModal: FC<{
 			yaxis: {
 				decimalsInFloat: 0,
 				labels: {
-					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit", fontWeight: 500 },
+					style: {
+						colors: mutedTextColor,
+						fontSize: "11px",
+						fontFamily: "inherit",
+						fontWeight: 500,
+					},
 				},
 			},
 			legend: {
@@ -491,7 +478,12 @@ const HistoryModal: FC<{
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
 			<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(4px)" />
-			<ModalContent bg="panel.surface" borderWidth="1px" borderColor="panel.border" borderRadius="2xl">
+			<ModalContent
+				bg="panel.surface"
+				borderWidth="1px"
+				borderColor="panel.border"
+				borderRadius="2xl"
+			>
 				<ModalHeader
 					display="flex"
 					alignItems="center"
@@ -503,7 +495,9 @@ const HistoryModal: FC<{
 					fontSize="md"
 					fontWeight="bold"
 				>
-					<Text>{t("historyModalTitle", { metric: payload?.title ?? "" })}</Text>
+					<Text>
+						{t("historyModalTitle", { metric: payload?.title ?? "" })}
+					</Text>
 					<ModalCloseButton position="static" insetInlineEnd="auto" />
 				</ModalHeader>
 				<ModalBody px={6} py={5}>
@@ -517,7 +511,9 @@ const HistoryModal: FC<{
 									variant={
 										intervalSeconds === interval.seconds ? "solid" : "outline"
 									}
-									colorScheme={intervalSeconds === interval.seconds ? "primary" : "gray"}
+									colorScheme={
+										intervalSeconds === interval.seconds ? "primary" : "gray"
+									}
 									onClick={() => onIntervalChange(interval.seconds)}
 								>
 									{t(interval.labelKey)}
@@ -548,8 +544,18 @@ const HistoryModal: FC<{
 						</Box>
 					</Stack>
 				</ModalBody>
-				<ModalFooter px={6} py={4} borderTopWidth="1px" borderColor="panel.border">
-					<Button onClick={onClose} borderRadius="full" variant="ghost" size="sm">
+				<ModalFooter
+					px={6}
+					py={4}
+					borderTopWidth="1px"
+					borderColor="panel.border"
+				>
+					<Button
+						onClick={onClose}
+						borderRadius="full"
+						variant="ghost"
+						size="sm"
+					>
 						{t("close")}
 					</Button>
 				</ModalFooter>
@@ -603,14 +609,28 @@ const UsageMetricCard: FC<{
 	percent: number;
 	detail?: string;
 	history?: number[];
+	footerLeft?: string;
+	footerRight?: string;
 	onOpen?: () => void;
 	actionLabel?: string;
-}> = ({ label, percent, detail, history, onOpen, actionLabel }) => {
+}> = ({
+	label,
+	percent,
+	detail,
+	history,
+	footerLeft,
+	footerRight,
+	onOpen,
+	actionLabel,
+}) => {
 	const colorScheme = getUsageColorScheme(percent);
 	const safePercent = clampPercent(percent);
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const bg = useColorModeValue("panel.input", "panel.input");
-	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
+	const labelColor = useColorModeValue(
+		"panel.textSecondary",
+		"panel.textSecondary",
+	);
 	const mutedColor = useColorModeValue("panel.textMuted", "panel.textMuted");
 	const valueColor = useColorModeValue(
 		`${colorScheme}.600`,
@@ -620,10 +640,7 @@ const UsageMetricCard: FC<{
 		`${colorScheme}.50`,
 		"rgba(255, 255, 255, 0.06)",
 	);
-	const accent = useColorModeValue(
-		`${colorScheme}.400`,
-		`${colorScheme}.300`,
-	);
+	const accent = useColorModeValue(`${colorScheme}.400`, `${colorScheme}.300`);
 
 	return (
 		<Box
@@ -650,7 +667,12 @@ const UsageMetricCard: FC<{
 			}}
 		>
 			<Stack spacing={3}>
-				<Flex justifyContent="space-between" alignItems="center" gap={2} wrap="wrap">
+				<Flex
+					justifyContent="space-between"
+					alignItems="center"
+					gap={2}
+					wrap="wrap"
+				>
 					<Text
 						fontSize="sm"
 						fontWeight="medium"
@@ -662,35 +684,39 @@ const UsageMetricCard: FC<{
 						{label}
 					</Text>
 					{onOpen && actionLabel && (
-						<Button size="xs" variant="ghost" borderRadius="full" onClick={onOpen} flexShrink={0} ms="auto">
+						<Button
+							size="xs"
+							variant="ghost"
+							borderRadius="full"
+							onClick={onOpen}
+							flexShrink={0}
+							ms="auto"
+						>
 							{actionLabel}
 						</Button>
 					)}
 				</Flex>
-				<Flex justifyContent="space-between" alignItems="baseline" gap={2} wrap="wrap">
-					<Text
-						fontSize="3xl"
-						lineHeight="1"
-						fontWeight="bold"
-						color={valueColor}
-						whiteSpace="nowrap"
-						sx={{ fontVariantNumeric: "tabular-nums" }}
-					>
-						{Math.max(0, percent).toFixed(1)}%
-					</Text>
-					{detail && (
-						<Text
-							fontSize="xs"
-							fontWeight="medium"
-							color={mutedColor}
-							className="rb-usage-pair"
-							textAlign="center"
-							flex="1 1 auto"
-						>
-							{detail}
-						</Text>
-					)}
-				</Flex>
+				<Text
+					fontSize="3xl"
+					lineHeight="1"
+					fontWeight="bold"
+					color={valueColor}
+					whiteSpace="nowrap"
+					sx={{ fontVariantNumeric: "tabular-nums" }}
+				>
+					{Math.max(0, percent).toFixed(1)}%
+				</Text>
+				<Text
+					fontSize="xs"
+					fontWeight="medium"
+					color={mutedColor}
+					className="rb-usage-pair"
+					minH="16px"
+					noOfLines={1}
+					title={detail}
+				>
+					{detail || " "}
+				</Text>
 				<Progress
 					value={safePercent}
 					colorScheme={colorScheme}
@@ -698,6 +724,19 @@ const UsageMetricCard: FC<{
 					borderRadius="full"
 					h="4px"
 				/>
+				{(footerLeft || footerRight) && (
+					<Flex
+						justifyContent="space-between"
+						gap={3}
+						fontSize="xs"
+						fontWeight="medium"
+						color={mutedColor}
+						sx={{ fontVariantNumeric: "tabular-nums" }}
+					>
+						<Text>{footerLeft}</Text>
+						<Text textAlign="end">{footerRight}</Text>
+					</Flex>
+				)}
 				{history && <HistorySparkline values={history} accent={accent} />}
 			</Stack>
 		</Box>
@@ -710,9 +749,15 @@ const SpeedItem: FC<{
 	value: string;
 	colorScheme: "blue" | "green";
 }> = ({ icon, label, value, colorScheme }) => {
-	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
+	const labelColor = useColorModeValue(
+		"panel.textSecondary",
+		"panel.textSecondary",
+	);
 	const iconBg = useColorModeValue("panel.input", "panel.input");
-	const accentBg = useColorModeValue(`${colorScheme}.50`, "rgba(255, 255, 255, 0.06)");
+	const accentBg = useColorModeValue(
+		`${colorScheme}.50`,
+		"rgba(255, 255, 255, 0.06)",
+	);
 	const iconColor = useColorModeValue(
 		`${colorScheme}.600`,
 		`${colorScheme}.300`,
@@ -744,7 +789,16 @@ const SpeedItem: FC<{
 				},
 			}}
 		>
-			<Flex w={10} h={10} align="center" justify="center" bg={accentBg} color={iconColor} borderRadius="lg" flexShrink={0}>
+			<Flex
+				w={10}
+				h={10}
+				align="center"
+				justify="center"
+				bg={accentBg}
+				color={iconColor}
+				borderRadius="lg"
+				flexShrink={0}
+			>
 				{icon}
 			</Flex>
 			<Box minW={0}>
@@ -779,7 +833,10 @@ const NetworkSpeedCard: FC<{
 }> = ({ incoming, outgoing, t, onOpen }) => {
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const bg = useColorModeValue("panel.input", "panel.input");
-	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
+	const labelColor = useColorModeValue(
+		"panel.textSecondary",
+		"panel.textSecondary",
+	);
 
 	return (
 		<Box
@@ -802,7 +859,12 @@ const NetworkSpeedCard: FC<{
 			}}
 		>
 			<Stack spacing={4}>
-				<Flex justifyContent="space-between" alignItems="center" gap={2} wrap="wrap">
+				<Flex
+					justifyContent="space-between"
+					alignItems="center"
+					gap={2}
+					wrap="wrap"
+				>
 					<Text
 						fontSize="sm"
 						fontWeight="medium"
@@ -813,7 +875,14 @@ const NetworkSpeedCard: FC<{
 					>
 						{t("networkHistory")}
 					</Text>
-					<Button size="xs" variant="ghost" borderRadius="full" onClick={onOpen} flexShrink={0} ms="auto">
+					<Button
+						size="xs"
+						variant="ghost"
+						borderRadius="full"
+						onClick={onOpen}
+						flexShrink={0}
+						ms="auto"
+					>
 						{t("viewHistory")}
 					</Button>
 				</Flex>
@@ -845,7 +914,10 @@ const MetricBadge: FC<{
 }> = ({ label, value, colorScheme = "gray", valueClassName, helper }) => {
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const bg = useColorModeValue("panel.input", "panel.input");
-	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
+	const labelColor = useColorModeValue(
+		"panel.textSecondary",
+		"panel.textSecondary",
+	);
 	const helperColor = useColorModeValue("panel.textMuted", "panel.textMuted");
 	const valueColor = useColorModeValue(
 		colorScheme === "gray" ? "gray.800" : `${colorScheme}.600`,
@@ -926,89 +998,35 @@ const SystemOverviewCard: FC<{
 }> = ({ data, t, onOpenHistory }) => {
 	const cpuHistoryValues = data.cpu_history.map((entry) => entry.value);
 	const memoryHistoryValues = data.memory_history.map((entry) => entry.value);
-	const hasSwap = data.swap.current > 0 || data.swap.total > 0;
-	const maintenanceInfo = useQuery<DashboardMaintenanceInfo>({
-		queryKey: ["dashboard-maintenance-info"],
-		queryFn: () =>
-			fetch<DashboardMaintenanceInfo>("/maintenance/info", {
-				timeout: 8000,
-			}),
-		refetchOnWindowFocus: false,
-		staleTime: 5 * 60 * 1000,
-		retry: false,
-	});
-	const panelTag = maintenanceInfo.data?.panel?.tag || data.version;
-	const panelChannel = maintenanceInfo.data?.panel?.channel || data.channel || "";
-	const isDevPanel = isDevPanelVersion(panelTag, panelChannel);
-	const latestPanelRelease = useQuery({
-		queryKey: ["panel-latest-release"],
-		queryFn: async () => {
-			const response = await window.fetch(
-				"https://api.github.com/repos/rebeccapanel/Rebecca/releases/latest",
-				{ headers: { Accept: "application/vnd.github+json" } },
-			);
-			if (!response.ok) throw new Error("Failed to load latest panel release");
-			return response.json();
-		},
-		enabled: maintenanceInfo.isFetched && !isDevPanel,
-		refetchOnWindowFocus: false,
-		staleTime: 5 * 60 * 1000,
-		retry: 1,
-	});
-	const maintenanceUpdate = maintenanceInfo.data?.panel?.update;
-	const latestPanelVersion = isDevPanel
-		? maintenanceUpdate?.target
-			? dashboardVersionLabel(maintenanceUpdate.target, "dev")
-			: ""
-		: latestPanelRelease.data?.tag_name || latestPanelRelease.data?.name || "";
-	const isPanelUpdateAvailable = isDevPanel
-		? Boolean(maintenanceUpdate?.available)
-		: Boolean(
-				normalizeVersion(latestPanelVersion) &&
-					normalizeVersion(data.version) &&
-					normalizeVersion(latestPanelVersion) !== normalizeVersion(data.version),
-			);
-	const currentPanelVersion = dashboardVersionLabel(panelTag, panelChannel);
+	const swapHistoryValues = data.swap_history.map((entry) => entry.value);
+	const diskHistoryValues = data.disk_history.map((entry) => entry.value);
+	const cpuThreads = data.cpu_threads || data.cpu_cores;
+	const cpuDetail = [
+		`${formatNumberValue(data.cpu_cores)} ${t("cores")} / ${formatNumberValue(cpuThreads)} ${t("threads")}`,
+		formatCPUFrequency(data.cpu_frequency_hz),
+		`${t("systemUptime")}: ${formatDuration(data.uptime_seconds)}`,
+	]
+		.filter(Boolean)
+		.join(" · ");
 	return (
 		<ChartBox
 			title={t("systemOverview")}
 			headerActions={
-				<Wrap spacing={2} justify={{ base: "flex-start", md: "flex-end" }}>
-					<WrapItem>
-						<Tag colorScheme="gray" borderRadius="full" px={3}>
-							{isDevPanel ? currentPanelVersion : `v${currentPanelVersion}`}
-						</Tag>
-					</WrapItem>
-					{latestPanelVersion && (
-						<WrapItem>
-							<Tag colorScheme={isPanelUpdateAvailable ? "green" : "blue"} borderRadius="full" px={3}>
-								{isPanelUpdateAvailable
-									? t("system.updateAvailable", {
-											version: latestPanelVersion,
-										})
-									: t("system.latestRelease", {
-											version: latestPanelVersion,
-										})}
-							</Tag>
-						</WrapItem>
-					)}
-					<WrapItem>
-						<Tag colorScheme="gray" borderRadius="full" px={3}>
-							{t("loadAverage")}:{" "}
-							{data.load_avg.length
-								? data.load_avg.map((value) => value.toFixed(2)).join(" | ")
-								: "-"}
-						</Tag>
-					</WrapItem>
-				</Wrap>
+				<DashboardMaintenanceControls
+					channel={data.channel}
+					version={data.version}
+				/>
 			}
 		>
 			<Stack spacing={5}>
-				<SimpleGrid columns={{ base: 1, md: 3 }} gap={5}>
+				<SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap={5}>
 					<UsageMetricCard
 						label={t("cpuUsage")}
 						percent={data.cpu_usage}
+						detail={cpuDetail}
 						history={cpuHistoryValues}
+						footerLeft={`${t("average")}: ${average(cpuHistoryValues).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(cpuHistoryValues).toFixed(1)}%`}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
 							onOpenHistory({
@@ -1024,6 +1042,8 @@ const SystemOverviewCard: FC<{
 						percent={data.memory.percent}
 						detail={`${formatBytes(data.memory.current)} / ${formatBytes(data.memory.total)}`}
 						history={memoryHistoryValues}
+						footerLeft={`${t("average")}: ${average(memoryHistoryValues).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(memoryHistoryValues).toFixed(1)}%`}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
 							onOpenHistory({
@@ -1035,9 +1055,20 @@ const SystemOverviewCard: FC<{
 						}
 					/>
 					<UsageMetricCard
+						label={t("swapUsage")}
+						percent={data.swap.percent}
+						detail={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
+						history={swapHistoryValues}
+						footerLeft={`${t("average")}: ${average(swapHistoryValues).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(swapHistoryValues).toFixed(1)}%`}
+					/>
+					<UsageMetricCard
 						label={t("diskUsage")}
 						percent={data.disk.percent}
 						detail={`${formatBytes(data.disk.current)} / ${formatBytes(data.disk.total)}`}
+						history={diskHistoryValues}
+						footerLeft={`${t("free")}: ${formatBytes(Math.max(0, data.disk.total - data.disk.current))}`}
+						footerRight={`${t("average")}: ${average(diskHistoryValues).toFixed(1)}%`}
 					/>
 				</SimpleGrid>
 				<NetworkSpeedCard
@@ -1052,26 +1083,6 @@ const SystemOverviewCard: FC<{
 						})
 					}
 				/>
-				{hasSwap && (
-					<UsageMetricCard
-						label={t("swapUsage")}
-						percent={data.swap.percent}
-						detail={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
-					/>
-				)}
-				<Stack
-					direction={{ base: "column", md: "row" }}
-					spacing={3}
-					flexWrap="wrap"
-					alignItems="flex-start"
-				>
-					<Tag colorScheme="green" borderRadius="full" px={3} py={1}>
-						{t("systemUptime")}: <Text as="span" fontWeight="bold" ms={1}>{formatDuration(data.uptime_seconds)}</Text>
-					</Tag>
-					<Tag colorScheme="blue" borderRadius="full" px={3} py={1}>
-						{t("panelUptime")}: <Text as="span" fontWeight="bold" ms={1}>{formatDuration(data.panel_uptime_seconds)}</Text>
-					</Tag>
-				</Stack>
 				{data.last_xray_error && (
 					<Box
 						mt={4}
@@ -1172,11 +1183,17 @@ const PanelOverviewCard: FC<{
 	const panelMemoryHistory = data.panel_memory_history.map(
 		(entry) => entry.value,
 	);
+	const panelCpuDetail = `${formatNumberValue(data.app_threads)} ${t("threads")} · ${t("panelUptime")}: ${formatDuration(data.panel_uptime_seconds)}`;
 	return (
 		<ChartBox
 			title={t("panelUsage")}
 			headerActions={
-				<Badge colorScheme={data.xray_running ? "green" : "red"} borderRadius="full" px={3} py={1}>
+				<Badge
+					colorScheme={data.xray_running ? "green" : "red"}
+					borderRadius="full"
+					px={3}
+					py={1}
+				>
 					{data.xray_running ? t("status.running") : t("status.stopped")}
 				</Badge>
 			}
@@ -1186,7 +1203,10 @@ const PanelOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("cpuUsage")}
 						percent={data.panel_cpu_percent}
+						detail={panelCpuDetail}
 						history={panelCpuHistory}
+						footerLeft={`${t("average")}: ${average(panelCpuHistory).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(panelCpuHistory).toFixed(1)}%`}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
 							onOpenHistory({
@@ -1200,7 +1220,10 @@ const PanelOverviewCard: FC<{
 					<UsageMetricCard
 						label={t("memoryUsage")}
 						percent={data.panel_memory_percent}
+						detail={`${formatBytes(data.app_memory)} / ${formatBytes(data.memory.total)}`}
 						history={panelMemoryHistory}
+						footerLeft={`${t("average")}: ${average(panelMemoryHistory).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(panelMemoryHistory).toFixed(1)}%`}
 						actionLabel={t("viewHistory")}
 						onOpen={() =>
 							onOpenHistory({
@@ -1210,18 +1233,6 @@ const PanelOverviewCard: FC<{
 								memoryEntries: data.panel_memory_history,
 							})
 						}
-					/>
-				</SimpleGrid>
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
-					<MetricBadge
-						label={t("threads")}
-						value={formatNumberValue(data.app_threads)}
-						colorScheme="purple"
-					/>
-					<MetricBadge
-						label={t("appMemory")}
-						value={formatBytes(data.app_memory)}
-						colorScheme="blue"
 					/>
 				</SimpleGrid>
 			</Stack>
@@ -1355,7 +1366,10 @@ const AdminOverviewCard: FC<{
 							</Text>
 						</Text>
 						<Text fontSize="sm" fontWeight="medium" color="panel.textSecondary">
-							{t("topAdminUsage")}: <Text as="span" fontWeight="bold" color="panel.text">{formatBytes(data.top_admin_usage)}</Text>
+							{t("topAdminUsage")}:{" "}
+							<Text as="span" fontWeight="bold" color="panel.text">
+								{formatBytes(data.top_admin_usage)}
+							</Text>
 						</Text>
 					</Flex>
 				)}

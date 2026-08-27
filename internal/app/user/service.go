@@ -114,6 +114,10 @@ func (s Service) UsersList(ctx context.Context, req UsersListRequest) (UsersResp
 	return s.repo.UsersList(ctx, req)
 }
 
+func (s Service) OnlineUsernames(ctx context.Context, req UsersListRequest) ([]string, error) {
+	return s.repo.OnlineUsernames(ctx, req)
+}
+
 func (s Service) UserGet(ctx context.Context, req UserGetRequest) (UserDetail, error) {
 	if strings.TrimSpace(req.Username) == "" {
 		return UserDetail{}, fmt.Errorf("username is required")

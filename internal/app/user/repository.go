@@ -40,6 +40,8 @@ type repositoryCache struct {
 	fastCreateContextExpires time.Time
 	activeNodeIDs            []int64
 	activeNodeIDsExpires     time.Time
+	usersSummaryMu           sync.Mutex
+	usersSummaries           map[string]usersSummaryCacheEntry
 }
 
 func (r Repository) LinkPrerequisites(ctx context.Context, req LinkPrerequisitesRequest) (LinkPrerequisites, error) {
@@ -286,7 +288,64 @@ func (r Repository) ResolvedInboundsByTag(ctx context.Context) (map[string]Resol
 			order = append(order, tag)
 		}
 	}
+	publicPorts, err := r.haproxyPublicPorts(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	for tag, port := range publicPorts {
+		if inbound, ok := result[tag]; ok {
+			inbound["port"] = port
+		}
+	}
 	return result, order, nil
+}
+
+func (r Repository) haproxyPublicPorts(ctx context.Context) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT ht.listeners
+FROM haproxy_targets ht
+JOIN haproxy_configs hc ON hc.id = ht.config_id
+WHERE hc.enabled = 1`)
+	if err != nil {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "no such table") || strings.Contains(message, "doesn't exist") {
+			return map[string]int{}, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	ports, conflicts := map[string]int{}, map[string]bool{}
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var listeners []struct {
+			ListenPort int `json:"listen_port"`
+			Routes     []struct {
+				Source     string `json:"source"`
+				InboundTag string `json:"inbound_tag"`
+			} `json:"routes"`
+		}
+		if err := json.Unmarshal([]byte(raw), &listeners); err != nil {
+			return nil, fmt.Errorf("decode HAProxy listeners: %w", err)
+		}
+		for _, listener := range listeners {
+			for _, route := range listener.Routes {
+				tag := strings.TrimSpace(route.InboundTag)
+				if route.Source != "xray" || tag == "" || conflicts[tag] {
+					continue
+				}
+				if current, exists := ports[tag]; exists && current != listener.ListenPort {
+					delete(ports, tag)
+					conflicts[tag] = true
+					continue
+				}
+				ports[tag] = listener.ListenPort
+			}
+		}
+	}
+	return ports, rows.Err()
 }
 
 func (r Repository) rawXrayConfigs(ctx context.Context) ([]map[string]any, error) {
@@ -379,7 +438,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		address_options, COALESCE(address_selection_mode, ''), address_ttl_seconds,
 		port, path, sni, sni_options, COALESCE(sni_selection_mode, ''), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, ''), host_ttl_seconds,
-		security, alpn, fingerprint, allowinsecure, is_disabled, mux_enable,
+		security, alpn, fingerprint, COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''), allowinsecure, is_disabled, mux_enable,
 		fragment_setting, noise_setting, finalmask, random_user_agent, use_sni_as_host
 		FROM hosts ORDER BY inbound_tag, id`)
 	if err != nil {
@@ -419,6 +478,8 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 			&item.Security,
 			&item.ALPN,
 			&item.Fingerprint,
+			&item.VerifyPeerCertByName,
+			&item.PinnedPeerCertSHA256,
 			&allowInsecure,
 			&disabled,
 			&mux,

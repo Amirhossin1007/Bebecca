@@ -31,18 +31,18 @@ func testUserReadServer(t *testing.T) (*Server, *sql.DB) {
 		`ALTER TABLE users ADD COLUMN expire BIGINT NULL`,
 		`ALTER TABLE users ADD COLUMN data_limit BIGINT NULL`,
 		`ALTER TABLE users ADD COLUMN data_limit_reset_strategy TEXT NULL`,
-		`ALTER TABLE users ADD COLUMN online_at DATETIME NULL`,
 		`ALTER TABLE users ADD COLUMN note TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN telegram_id TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN contact_number TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN sub_updated_at DATETIME NULL`,
 		`ALTER TABLE users ADD COLUMN sub_last_user_agent TEXT NULL`,
-		`ALTER TABLE users ADD COLUMN on_hold_expire_duration BIGINT NULL`,
 		`ALTER TABLE users ADD COLUMN ip_limit BIGINT DEFAULT 0`,
 		`ALTER TABLE users ADD COLUMN auto_delete_in_days BIGINT NULL`,
 		`CREATE TABLE panel_settings (id INTEGER PRIMARY KEY, default_subscription_type TEXT)`,
 		`CREATE TABLE subscription_settings (id INTEGER PRIMARY KEY, subscription_url_prefix TEXT, subscription_path TEXT, subscription_ports TEXT)`,
 		`CREATE TABLE user_usage_logs (id INTEGER PRIMARY KEY, user_id INTEGER, used_traffic_at_reset BIGINT DEFAULT 0)`,
+		`CREATE TABLE user_online_ips (node_id INTEGER, user_id INTEGER, protocol TEXT, ip TEXT, last_seen_at DATETIME)`,
+		`CREATE TABLE vpn_user_sessions (node_id INTEGER, user_id INTEGER, last_seen_at DATETIME, ended_at DATETIME)`,
 		`CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`,
 		`CREATE TABLE next_plans (
 			id INTEGER PRIMARY KEY,
@@ -134,6 +134,36 @@ func TestUsersReadRoutesScopeAndSanitizeTraffic(t *testing.T) {
 	if detail["username"] != "alice" || int64(detail["used_traffic"].(float64)) != 0 {
 		t.Fatalf("unexpected sanitized detail: %#v", detail)
 	}
+}
+
+func TestOnlineUsersRouteUsesLiveSetAndAdminScope(t *testing.T) {
+	server, db := testUserReadServer(t)
+	insertMasterAPIAdmin(t, db, 1, "owner", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
+	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, status, online_at) VALUES
+		(10, 'alice', 2, 'active', CURRENT_TIMESTAMP),
+		(11, 'bob', 1, 'active', CURRENT_TIMESTAMP),
+		(12, 'stale', 2, 'active', datetime('now', '-10 minutes'))`); err != nil {
+		t.Fatal(err)
+	}
+
+	assertOnlineUsers := func(token string, want ...string) {
+		t.Helper()
+		rec := userReadRequest(t, server, http.MethodGet, "/api/users/onlines", token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("online users status = %d body=%s", rec.Code, rec.Body.String())
+		}
+		var got []string
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(got, ",") != strings.Join(want, ",") {
+			t.Fatalf("online users = %#v, want %#v", got, want)
+		}
+	}
+
+	assertOnlineUsers(adminBearerToken(t, server, "owner", "pass123"), "alice", "bob")
+	assertOnlineUsers(adminBearerToken(t, server, "seller", "pass123"), "alice")
 }
 
 func userReadRequest(t *testing.T, server *Server, method string, path string, token string) *httptest.ResponseRecorder {

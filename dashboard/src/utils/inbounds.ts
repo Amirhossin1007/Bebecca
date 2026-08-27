@@ -70,6 +70,7 @@ export type TlsCertificateForm = {
 	keyFile: string;
 	cert: string;
 	key: string;
+	ocspStapling: string;
 	oneTimeLoading: boolean;
 	usage: string;
 	buildChain: boolean;
@@ -129,6 +130,7 @@ export type SockoptFormValues = {
 	V6Only: boolean;
 	tcpWindowClamp: string;
 	interfaceName: string;
+	trustedXForwardedFor: string;
 };
 
 export type InboundFormValues = {
@@ -176,6 +178,8 @@ export type InboundFormValues = {
 	sniffingDestinations: string[];
 	sniffingRouteOnly: boolean;
 	sniffingMetadataOnly: boolean;
+	sniffingIpsExcluded: string;
+	sniffingDomainsExcluded: string;
 
 	// stream
 	streamNetwork: StreamNetwork;
@@ -188,6 +192,8 @@ export type InboundFormValues = {
 	tlsCipherSuites: string;
 	tlsRejectUnknownSni: boolean;
 	tlsVerifyPeerCertByName: string;
+	tlsPinnedPeerCertSha256: string;
+	tlsCurvePreferences: string;
 	tlsDisableSystemRoot: boolean;
 	tlsEnableSessionResumption: boolean;
 	tlsCertificates: TlsCertificateForm[];
@@ -214,12 +220,19 @@ export type InboundFormValues = {
 	realityPublicKey: string;
 	realityMldsa65Seed: string;
 	realityMldsa65Verify: string;
+	realityLimitFallbackUploadAfterBytes: string;
+	realityLimitFallbackUploadBytesPerSec: string;
+	realityLimitFallbackUploadBurstBytesPerSec: string;
+	realityLimitFallbackDownloadAfterBytes: string;
+	realityLimitFallbackDownloadBytesPerSec: string;
+	realityLimitFallbackDownloadBurstBytesPerSec: string;
 	realityRawSettings: Record<string, any>;
 
 	// WS
 	wsPath: string;
 	wsHost: string; // mapped to wsSettings.host
 	wsHeaders: HeaderForm[];
+	wsHeartbeatPeriod: string;
 
 	// TCP header
 	tcpHeaderType: "none" | "http";
@@ -230,10 +243,24 @@ export type InboundFormValues = {
 	grpcServiceName: string;
 	grpcAuthority: string;
 	grpcMultiMode: boolean;
+	grpcIdleTimeout: string;
+	grpcHealthCheckTimeout: string;
+	grpcPermitWithoutStream: boolean;
+	grpcInitialWindowsSize: string;
+	grpcUserAgent: string;
 
 	// KCP
 	kcpHeaderType: string;
 	kcpSeed: string;
+	kcpMtu: string;
+	kcpTti: string;
+	kcpUplinkCapacity: string;
+	kcpDownlinkCapacity: string;
+	kcpCwndMultiplier: string;
+	kcpMaxSendingWindow: string;
+	kcpCongestion: boolean;
+	kcpReadBufferSize: string;
+	kcpWriteBufferSize: string;
 
 	// QUIC
 	quicSecurity: string;
@@ -285,12 +312,20 @@ export type InboundFormValues = {
 	xhttpUplinkHTTPMethod: string;
 	xhttpSessionPlacement: "" | "path" | "query" | "header" | "cookie";
 	xhttpSessionKey: string;
+	xhttpSessionIDTable: string;
+	xhttpSessionIDLength: string;
 	xhttpSeqPlacement: "" | "path" | "query" | "header" | "cookie";
 	xhttpSeqKey: string;
 	xhttpUplinkDataPlacement: "" | "auto" | "body" | "header" | "cookie";
 	xhttpUplinkDataKey: string;
 	xhttpUplinkChunkSize: string;
 	xhttpServerMaxHeaderBytes: string;
+	xhttpXmuxMaxConcurrency: string;
+	xhttpXmuxMaxConnections: string;
+	xhttpXmuxCMaxReuseTimes: string;
+	xhttpXmuxHMaxRequestTimes: string;
+	xhttpXmuxHMaxReusableSecs: string;
+	xhttpXmuxHKeepAlivePeriod: string;
 
 	// vless extras
 	vlessSelectedAuth: string;
@@ -298,6 +333,7 @@ export type InboundFormValues = {
 	// sockopt
 	sockoptEnabled: boolean;
 	sockopt: SockoptFormValues;
+	sockoptRawSettings: Record<string, any>;
 
 	// HTTP inbound
 	httpAccounts: ProxyAccountForm[];
@@ -612,6 +648,7 @@ const createDefaultSockopt = (): SockoptFormValues => ({
 	V6Only: false,
 	tcpWindowClamp: "",
 	interfaceName: "",
+	trustedXForwardedFor: "",
 });
 
 const parsePort = (value: string): number | string => {
@@ -715,6 +752,42 @@ const validateNonNegativeInt32 = (
 	return null;
 };
 
+const validateIntegerRange = (
+	value: string,
+	label: string,
+	minimum: number,
+	maximum = Number.MAX_SAFE_INTEGER,
+): string | null => {
+	const cleaned = value.trim();
+	if (!cleaned) return null;
+	const parsed = Number(cleaned);
+	if (!/^\d+$/.test(cleaned) || !Number.isSafeInteger(parsed)) {
+		return `${label} must be an integer.`;
+	}
+	if (parsed < minimum || parsed > maximum) {
+		return `${label} must be between ${minimum} and ${maximum}.`;
+	}
+	return null;
+};
+
+const validateSignedIntegerRange = (
+	value: string,
+	label: string,
+	minimum: number,
+	maximum = Number.MAX_SAFE_INTEGER,
+): string | null => {
+	const cleaned = value.trim();
+	if (!cleaned) return null;
+	const parsed = Number(cleaned);
+	if (!/^-?\d+$/.test(cleaned) || !Number.isSafeInteger(parsed)) {
+		return `${label} must be an integer.`;
+	}
+	if (parsed < minimum || parsed > maximum) {
+		return `${label} must be between ${minimum} and ${maximum}.`;
+	}
+	return null;
+};
+
 const validatePacketSizeRange = (value: string): boolean => {
 	const cleaned = value.trim();
 	const match = cleaned.match(/^(\d+)-(\d+)$/);
@@ -773,9 +846,59 @@ export const validateInboundFormFields = (
 			}
 		}
 	}
+	if (values.tlsPinnedPeerCertSha256.trim()) {
+		const invalidPin = values.tlsPinnedPeerCertSha256
+			.split(",")
+			.some((pin) => !/^[0-9a-f]{64}$/i.test(pin.trim().replaceAll(":", "")));
+		if (invalidPin) {
+			errors.tlsPinnedPeerCertSha256 =
+				"Certificate pins must be comma-separated SHA-256 fingerprints.";
+		}
+	}
 	if (values.streamNetwork === "ws") {
 		const error = validatePath(values.wsPath ?? "", "WebSocket path");
 		if (error) errors.wsPath = error;
+		const heartbeatError = validateNonNegativeInt32(
+			values.wsHeartbeatPeriod,
+			"WebSocket heartbeat period",
+		);
+		if (heartbeatError) errors.wsHeartbeatPeriod = heartbeatError;
+	}
+	if (values.streamNetwork === "kcp") {
+		for (const [field, label, minimum, maximum] of [
+			["kcpMtu", "mKCP MTU", 21, 4294967295],
+			["kcpTti", "mKCP TTI", 10, 1000],
+			["kcpUplinkCapacity", "mKCP uplink capacity", 0, 4294967295],
+			["kcpDownlinkCapacity", "mKCP downlink capacity", 0, 4294967295],
+			["kcpCwndMultiplier", "mKCP congestion window multiplier", 1, 4294967295],
+			["kcpMaxSendingWindow", "mKCP maximum sending window", 21, 4294967295],
+			["kcpReadBufferSize", "mKCP read buffer size", 0, 4294967295],
+			["kcpWriteBufferSize", "mKCP write buffer size", 0, 4294967295],
+		] as const) {
+			const error = validateIntegerRange(
+				values[field],
+				label,
+				minimum,
+				maximum,
+			);
+			if (error) errors[field] = error;
+		}
+		const mtu = Number(values.kcpMtu.trim() || 1350);
+		const maxSendingWindow = Number(values.kcpMaxSendingWindow.trim());
+		if (maxSendingWindow && maxSendingWindow < mtu) {
+			errors.kcpMaxSendingWindow =
+				"mKCP maximum sending window must be at least the MTU.";
+		}
+	}
+	if (values.streamNetwork === "grpc") {
+		for (const [field, label] of [
+			["grpcIdleTimeout", "gRPC idle timeout"],
+			["grpcHealthCheckTimeout", "gRPC health-check timeout"],
+			["grpcInitialWindowsSize", "gRPC initial window size"],
+		] as const) {
+			const error = validateNonNegativeInt32(values[field], label);
+			if (error) errors[field] = error;
+		}
 	}
 	if (values.streamNetwork === "httpupgrade") {
 		const error = validatePath(
@@ -885,6 +1008,47 @@ export const validateInboundFormFields = (
 			"XHTTP serverMaxHeaderBytes",
 		);
 		if (maxHeaderError) errors.xhttpServerMaxHeaderBytes = maxHeaderError;
+		if (values.xhttpSessionIDTable.trim()) {
+			const table = values.xhttpSessionIDTable.trim();
+			if (!/^[\x20-\x7e]+$/.test(table)) {
+				errors.xhttpSessionIDTable =
+					"Session ID table must be a predefined name or printable ASCII.";
+			}
+			const lengthError = validateXPadding(
+				values.xhttpSessionIDLength,
+				"XHTTP session ID length",
+				true,
+			);
+			if (lengthError) errors.xhttpSessionIDLength = lengthError;
+		}
+		const keepAliveError = validateSignedIntegerRange(
+			values.xhttpXmuxHKeepAlivePeriod,
+			"XHTTP XMUX keep-alive period",
+			-1,
+		);
+		if (keepAliveError) errors.xhttpXmuxHKeepAlivePeriod = keepAliveError;
+		for (const [field, label] of [
+			["xhttpXmuxMaxConcurrency", "XHTTP XMUX max concurrency"],
+			["xhttpXmuxMaxConnections", "XHTTP XMUX max connections"],
+			["xhttpXmuxCMaxReuseTimes", "XHTTP XMUX connection reuse times"],
+			["xhttpXmuxHMaxRequestTimes", "XHTTP XMUX request times"],
+			["xhttpXmuxHMaxReusableSecs", "XHTTP XMUX reusable seconds"],
+		] as const) {
+			const error = validateXPadding(values[field], label);
+			if (error) errors[field] = error;
+		}
+		const rangeCanBePositive = (value: string) =>
+			value
+				.trim()
+				.split("-")
+				.some((part) => Number(part) > 0);
+		if (
+			rangeCanBePositive(values.xhttpXmuxMaxConcurrency) &&
+			rangeCanBePositive(values.xhttpXmuxMaxConnections)
+		) {
+			errors.xhttpXmuxMaxConnections =
+				"Max connections cannot be combined with max concurrency.";
+		}
 	}
 	if (values.protocol === "hysteria") {
 		if (values.streamNetwork !== "hysteria") {
@@ -1251,6 +1415,32 @@ export const validateInboundFormFields = (
 				break;
 			}
 		}
+		for (const [field, label] of [
+			["realityLimitFallbackUploadAfterBytes", "Upload fallback after bytes"],
+			[
+				"realityLimitFallbackUploadBytesPerSec",
+				"Upload fallback bytes per second",
+			],
+			[
+				"realityLimitFallbackUploadBurstBytesPerSec",
+				"Upload fallback burst bytes per second",
+			],
+			[
+				"realityLimitFallbackDownloadAfterBytes",
+				"Download fallback after bytes",
+			],
+			[
+				"realityLimitFallbackDownloadBytesPerSec",
+				"Download fallback bytes per second",
+			],
+			[
+				"realityLimitFallbackDownloadBurstBytesPerSec",
+				"Download fallback burst bytes per second",
+			],
+		] as const) {
+			const error = validateIntegerRange(values[field], label, 0);
+			if (error) errors[field] = error;
+		}
 	}
 	return errors;
 };
@@ -1272,6 +1462,11 @@ const cleanObject = (value: Record<string, any>) => {
 		}
 	});
 	return value;
+};
+
+const cleanOptionalObject = (value: Record<string, any>) => {
+	const cleaned = cleanObject(value);
+	return Object.keys(cleaned).length ? cleaned : undefined;
 };
 
 const hasInitialField = (
@@ -1343,6 +1538,7 @@ export const createDefaultTlsCertificate = (): TlsCertificateForm => ({
 	keyFile: "",
 	cert: "",
 	key: "",
+	ocspStapling: "",
 	oneTimeLoading: false,
 	usage: "encipherment",
 	buildChain: false,
@@ -1392,6 +1588,7 @@ const certificateToForm = (
 		keyFile: certificate?.keyFile ?? "",
 		cert: certContent ?? "",
 		key: keyContent ?? "",
+		ocspStapling: toInputValue(certificate?.ocspStapling),
 		oneTimeLoading: Boolean(certificate?.oneTimeLoading),
 		usage: certificate?.usage ?? "encipherment",
 		buildChain: Boolean(certificate?.buildChain),
@@ -1405,6 +1602,7 @@ const certificateFromForm = (
 		return cleanObject({
 			certificateFile: certificate.certFile?.trim(),
 			keyFile: certificate.keyFile?.trim(),
+			ocspStapling: parseOptionalNumber(certificate.ocspStapling),
 			oneTimeLoading: certificate.oneTimeLoading,
 			usage: certificate.usage || undefined,
 			buildChain:
@@ -1414,6 +1612,7 @@ const certificateFromForm = (
 	return cleanObject({
 		certificate: certificate.cert ? certificate.cert.split("\n") : [],
 		key: certificate.key ? certificate.key.split("\n") : [],
+		ocspStapling: parseOptionalNumber(certificate.ocspStapling),
 		oneTimeLoading: certificate.oneTimeLoading,
 		usage: certificate.usage || undefined,
 		buildChain:
@@ -1427,6 +1626,10 @@ const buildSockoptSettings = (values: InboundFormValues) => {
 	}
 	const sockopt = values.sockopt;
 	const payload = {
+		...(values.sockoptRawSettings &&
+		typeof values.sockoptRawSettings === "object"
+			? values.sockoptRawSettings
+			: {}),
 		acceptProxyProtocol: sockopt.acceptProxyProtocol,
 		tcpFastOpen: sockopt.tcpFastOpen,
 		mark: parseOptionalNumber(sockopt.mark),
@@ -1443,6 +1646,7 @@ const buildSockoptSettings = (values: InboundFormValues) => {
 		V6Only: sockopt.V6Only,
 		tcpWindowClamp: parseOptionalNumber(sockopt.tcpWindowClamp),
 		interface: sockopt.interfaceName || undefined,
+		trustedXForwardedFor: splitLines(sockopt.trustedXForwardedFor),
 	};
 	return cleanObject(payload);
 };
@@ -1491,6 +1695,8 @@ export const createDefaultInboundForm = (
 	sniffingDestinations: ["http", "tls"],
 	sniffingRouteOnly: false,
 	sniffingMetadataOnly: false,
+	sniffingIpsExcluded: "",
+	sniffingDomainsExcluded: "",
 	streamNetwork: protocol === "hysteria" ? "hysteria" : "tcp",
 	streamSecurity: protocol === "hysteria" ? "tls" : "none",
 	tlsServerName: "",
@@ -1499,6 +1705,8 @@ export const createDefaultInboundForm = (
 	tlsCipherSuites: "",
 	tlsRejectUnknownSni: false,
 	tlsVerifyPeerCertByName: "",
+	tlsPinnedPeerCertSha256: "",
+	tlsCurvePreferences: "",
 	tlsDisableSystemRoot: false,
 	tlsEnableSessionResumption: false,
 	tlsCertificates: [createDefaultTlsCertificate()],
@@ -1526,18 +1734,39 @@ export const createDefaultInboundForm = (
 	realityPublicKey: "",
 	realityMldsa65Seed: "",
 	realityMldsa65Verify: "",
+	realityLimitFallbackUploadAfterBytes: "",
+	realityLimitFallbackUploadBytesPerSec: "",
+	realityLimitFallbackUploadBurstBytesPerSec: "",
+	realityLimitFallbackDownloadAfterBytes: "",
+	realityLimitFallbackDownloadBytesPerSec: "",
+	realityLimitFallbackDownloadBurstBytesPerSec: "",
 	realityRawSettings: {},
 	wsPath: "/",
 	wsHost: "",
 	wsHeaders: [],
+	wsHeartbeatPeriod: "",
 	tcpHeaderType: "none",
 	tcpHttpHosts: "",
 	tcpHttpPath: "/",
 	grpcServiceName: "",
 	grpcAuthority: "",
 	grpcMultiMode: false,
+	grpcIdleTimeout: "",
+	grpcHealthCheckTimeout: "",
+	grpcPermitWithoutStream: false,
+	grpcInitialWindowsSize: "",
+	grpcUserAgent: "",
 	kcpHeaderType: "none",
 	kcpSeed: "",
+	kcpMtu: "",
+	kcpTti: "",
+	kcpUplinkCapacity: "",
+	kcpDownlinkCapacity: "",
+	kcpCwndMultiplier: "",
+	kcpMaxSendingWindow: "",
+	kcpCongestion: false,
+	kcpReadBufferSize: "",
+	kcpWriteBufferSize: "",
 	quicSecurity: "",
 	quicKey: "",
 	quicHeaderType: "none",
@@ -1579,15 +1808,24 @@ export const createDefaultInboundForm = (
 	xhttpUplinkHTTPMethod: "",
 	xhttpSessionPlacement: "",
 	xhttpSessionKey: "",
+	xhttpSessionIDTable: "",
+	xhttpSessionIDLength: "",
 	xhttpSeqPlacement: "",
 	xhttpSeqKey: "",
 	xhttpUplinkDataPlacement: "",
 	xhttpUplinkDataKey: "",
 	xhttpUplinkChunkSize: "",
 	xhttpServerMaxHeaderBytes: "",
+	xhttpXmuxMaxConcurrency: "",
+	xhttpXmuxMaxConnections: "",
+	xhttpXmuxCMaxReuseTimes: "",
+	xhttpXmuxHMaxRequestTimes: "",
+	xhttpXmuxHMaxReusableSecs: "",
+	xhttpXmuxHKeepAlivePeriod: "",
 	vlessSelectedAuth: "",
 	sockoptEnabled: false,
 	sockopt: createDefaultSockopt(),
+	sockoptRawSettings: {},
 	httpAccounts: [createDefaultProxyAccount()],
 	httpAllowTransparent: false,
 	socksAuth: "noauth",
@@ -1953,6 +2191,10 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 		sniffingMetadataOnly: Boolean(
 			sniffing.metadataOnly ?? base.sniffingMetadataOnly,
 		),
+		sniffingIpsExcluded: joinLines(parseStringList(sniffing.ipsExcluded)),
+		sniffingDomainsExcluded: joinLines(
+			parseStringList(sniffing.domainsExcluded),
+		),
 		streamNetwork: stream.method ?? stream.network ?? base.streamNetwork,
 		streamSecurity: stream.security ?? base.streamSecurity,
 		tcpAcceptProxyProtocol: Boolean(
@@ -1960,6 +2202,10 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 		),
 		wsAcceptProxyProtocol: Boolean(
 			stream?.wsSettings?.acceptProxyProtocol ?? base.wsAcceptProxyProtocol,
+		),
+		httpupgradeAcceptProxyProtocol: Boolean(
+			stream?.httpupgradeSettings?.acceptProxyProtocol ??
+				base.httpupgradeAcceptProxyProtocol,
 		),
 		tlsServerName:
 			tlsSettings.serverName ?? tlsSettings.sni ?? base.tlsServerName,
@@ -1983,6 +2229,17 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			}
 			return base.tlsVerifyPeerCertByName;
 		})(),
+		tlsPinnedPeerCertSha256:
+			(Array.isArray(tlsSettings.pinnedPeerCertSha256)
+				? tlsSettings.pinnedPeerCertSha256.join(",")
+				: tlsSettings.pinnedPeerCertSha256) ??
+			(Array.isArray(tlsSettingsMeta.pinnedPeerCertSha256)
+				? tlsSettingsMeta.pinnedPeerCertSha256.join(",")
+				: tlsSettingsMeta.pinnedPeerCertSha256) ??
+			base.tlsPinnedPeerCertSha256,
+		tlsCurvePreferences: joinLines(
+			parseStringList(tlsSettings.curvePreferences),
+		),
 		tlsDisableSystemRoot: Boolean(
 			tlsSettings.disableSystemRoot ?? base.tlsDisableSystemRoot,
 		),
@@ -2049,6 +2306,24 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			realitySettingsMeta.mldsa65Verify ??
 			realitySettings.mldsa65Verify ??
 			base.realityMldsa65Verify,
+		realityLimitFallbackUploadAfterBytes: toInputValue(
+			realitySettings.limitFallbackUpload?.afterBytes,
+		),
+		realityLimitFallbackUploadBytesPerSec: toInputValue(
+			realitySettings.limitFallbackUpload?.bytesPerSec,
+		),
+		realityLimitFallbackUploadBurstBytesPerSec: toInputValue(
+			realitySettings.limitFallbackUpload?.burstBytesPerSec,
+		),
+		realityLimitFallbackDownloadAfterBytes: toInputValue(
+			realitySettings.limitFallbackDownload?.afterBytes,
+		),
+		realityLimitFallbackDownloadBytesPerSec: toInputValue(
+			realitySettings.limitFallbackDownload?.bytesPerSec,
+		),
+		realityLimitFallbackDownloadBurstBytesPerSec: toInputValue(
+			realitySettings.limitFallbackDownload?.burstBytesPerSec,
+		),
 		realityRawSettings: rawRealitySettings,
 		wsPath: stream?.wsSettings?.path ?? base.wsPath,
 		wsHost:
@@ -2065,6 +2340,7 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 		wsHeaders: stream?.wsSettings?.headers
 			? headersToForm(omitHeader(stream.wsSettings.headers, "Host"))
 			: base.wsHeaders,
+		wsHeartbeatPeriod: toInputValue(stream?.wsSettings?.heartbeatPeriod),
 		tcpHeaderType: stream?.tcpSettings?.header?.type ?? base.tcpHeaderType,
 		tcpHttpHosts: joinLines(
 			stream?.tcpSettings?.header?.request?.headers?.Host,
@@ -2077,8 +2353,28 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 		grpcMultiMode: Boolean(
 			stream?.grpcSettings?.multiMode ?? base.grpcMultiMode,
 		),
+		grpcIdleTimeout: toInputValue(stream?.grpcSettings?.idle_timeout),
+		grpcHealthCheckTimeout: toInputValue(
+			stream?.grpcSettings?.health_check_timeout,
+		),
+		grpcPermitWithoutStream: Boolean(
+			stream?.grpcSettings?.permit_without_stream,
+		),
+		grpcInitialWindowsSize: toInputValue(
+			stream?.grpcSettings?.initial_windows_size,
+		),
+		grpcUserAgent: stream?.grpcSettings?.user_agent ?? base.grpcUserAgent,
 		kcpHeaderType: stream?.kcpSettings?.header?.type ?? base.kcpHeaderType,
 		kcpSeed: stream?.kcpSettings?.seed ?? base.kcpSeed,
+		kcpMtu: toInputValue(stream?.kcpSettings?.mtu),
+		kcpTti: toInputValue(stream?.kcpSettings?.tti),
+		kcpUplinkCapacity: toInputValue(stream?.kcpSettings?.uplinkCapacity),
+		kcpDownlinkCapacity: toInputValue(stream?.kcpSettings?.downlinkCapacity),
+		kcpCwndMultiplier: toInputValue(stream?.kcpSettings?.cwndMultiplier),
+		kcpMaxSendingWindow: toInputValue(stream?.kcpSettings?.maxSendingWindow),
+		kcpCongestion: Boolean(stream?.kcpSettings?.congestion),
+		kcpReadBufferSize: toInputValue(stream?.kcpSettings?.readBufferSize),
+		kcpWriteBufferSize: toInputValue(stream?.kcpSettings?.writeBufferSize),
 		quicSecurity: stream?.quicSettings?.security ?? base.quicSecurity,
 		quicKey: stream?.quicSettings?.key ?? base.quicKey,
 		quicHeaderType: stream?.quicSettings?.header?.type ?? base.quicHeaderType,
@@ -2171,6 +2467,14 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			stream?.xhttpSettings?.sessionIDKey ??
 			stream?.xhttpSettings?.sessionKey ??
 			base.xhttpSessionKey,
+		xhttpSessionIDTable:
+			stream?.xhttpSettings?.sessionIDTable ??
+			stream?.xhttpSettings?.sessionTable ??
+			base.xhttpSessionIDTable,
+		xhttpSessionIDLength: toInputValue(
+			stream?.xhttpSettings?.sessionIDLength ??
+				stream?.xhttpSettings?.sessionLength,
+		),
 		xhttpSeqPlacement:
 			stream?.xhttpSettings?.seqPlacement ?? base.xhttpSeqPlacement,
 		xhttpSeqKey: stream?.xhttpSettings?.seqKey ?? base.xhttpSeqKey,
@@ -2185,6 +2489,24 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 		xhttpServerMaxHeaderBytes:
 			stream?.xhttpSettings?.serverMaxHeaderBytes?.toString() ??
 			base.xhttpServerMaxHeaderBytes,
+		xhttpXmuxMaxConcurrency: toInputValue(
+			stream?.xhttpSettings?.xmux?.maxConcurrency,
+		),
+		xhttpXmuxMaxConnections: toInputValue(
+			stream?.xhttpSettings?.xmux?.maxConnections,
+		),
+		xhttpXmuxCMaxReuseTimes: toInputValue(
+			stream?.xhttpSettings?.xmux?.cMaxReuseTimes,
+		),
+		xhttpXmuxHMaxRequestTimes: toInputValue(
+			stream?.xhttpSettings?.xmux?.hMaxRequestTimes,
+		),
+		xhttpXmuxHMaxReusableSecs: toInputValue(
+			stream?.xhttpSettings?.xmux?.hMaxReusableSecs,
+		),
+		xhttpXmuxHKeepAlivePeriod: toInputValue(
+			stream?.xhttpSettings?.xmux?.hKeepAlivePeriod,
+		),
 		vlessSelectedAuth: settings.selectedAuth ?? base.vlessSelectedAuth,
 		sockoptEnabled: Boolean(stream?.sockopt),
 		sockopt: (() => {
@@ -2210,8 +2532,15 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			defaults.V6Only = Boolean(sockopt.V6Only);
 			defaults.tcpWindowClamp = toInputValue(sockopt.tcpWindowClamp);
 			defaults.interfaceName = sockopt.interface ?? defaults.interfaceName;
+			defaults.trustedXForwardedFor = joinLines(
+				parseStringList(sockopt.trustedXForwardedFor),
+			);
 			return defaults;
 		})(),
+		sockoptRawSettings:
+			stream.sockopt && typeof stream.sockopt === "object"
+				? JSON.parse(JSON.stringify(stream.sockopt))
+				: {},
 		httpAccounts:
 			protocol === "http" && Array.isArray(settings.accounts)
 				? settings.accounts.map((item: Record<string, any>) =>
@@ -2858,6 +3187,7 @@ const buildStreamSettings = (
 			path: values.wsPath || undefined,
 			host: wsHost || undefined,
 			headers,
+			heartbeatPeriod: parseOptionalNumber(values.wsHeartbeatPeriod),
 		});
 	}
 
@@ -2894,6 +3224,13 @@ const buildStreamSettings = (
 			serviceName: values.grpcServiceName,
 			authority: values.grpcAuthority,
 			multiMode: values.grpcMultiMode,
+			idle_timeout: parseOptionalNumber(values.grpcIdleTimeout),
+			health_check_timeout: parseOptionalNumber(
+				values.grpcHealthCheckTimeout,
+			),
+			permit_without_stream: values.grpcPermitWithoutStream || undefined,
+			initial_windows_size: parseOptionalNumber(values.grpcInitialWindowsSize),
+			user_agent: values.grpcUserAgent.trim() || undefined,
 		});
 	}
 
@@ -2901,6 +3238,15 @@ const buildStreamSettings = (
 		stream.kcpSettings = cleanObject({
 			header: { type: values.kcpHeaderType },
 			seed: values.kcpSeed,
+			mtu: parseOptionalNumber(values.kcpMtu),
+			tti: parseOptionalNumber(values.kcpTti),
+			uplinkCapacity: parseOptionalNumber(values.kcpUplinkCapacity),
+			downlinkCapacity: parseOptionalNumber(values.kcpDownlinkCapacity),
+			cwndMultiplier: parseOptionalNumber(values.kcpCwndMultiplier),
+			maxSendingWindow: parseOptionalNumber(values.kcpMaxSendingWindow),
+			congestion: values.kcpCongestion || undefined,
+			readBufferSize: parseOptionalNumber(values.kcpReadBufferSize),
+			writeBufferSize: parseOptionalNumber(values.kcpWriteBufferSize),
 		});
 	}
 
@@ -2988,7 +3334,7 @@ const buildStreamSettings = (
 			)
 				? values.splithttpXPaddingBytes?.trim() || undefined
 				: undefined,
-			xmux: cleanObject({
+			xmux: cleanOptionalObject({
 				maxConcurrency: shouldIncludeValue(
 					values.splithttpXmuxMaxConcurrency,
 					defaults.splithttpXmuxMaxConcurrency,
@@ -3198,6 +3544,22 @@ const buildStreamSettings = (
 			)
 				? values.xhttpSessionKey?.trim() || undefined
 				: undefined,
+			sessionIDTable: shouldIncludeValue(
+				values.xhttpSessionIDTable,
+				defaults.xhttpSessionIDTable,
+				initial,
+				["streamSettings", "xhttpSettings", "sessionIDTable"],
+			)
+				? values.xhttpSessionIDTable?.trim() || undefined
+				: undefined,
+			sessionIDLength: shouldIncludeValue(
+				values.xhttpSessionIDLength,
+				defaults.xhttpSessionIDLength,
+				initial,
+				["streamSettings", "xhttpSettings", "sessionIDLength"],
+			)
+				? values.xhttpSessionIDLength?.trim() || undefined
+				: undefined,
 			seqPlacement: shouldIncludeValue(
 				values.xhttpSeqPlacement,
 				defaults.xhttpSeqPlacement,
@@ -3246,6 +3608,14 @@ const buildStreamSettings = (
 			)
 				? parseOptionalNumber(values.xhttpServerMaxHeaderBytes)
 				: undefined,
+			xmux: cleanOptionalObject({
+				maxConcurrency: values.xhttpXmuxMaxConcurrency.trim() || undefined,
+				maxConnections: values.xhttpXmuxMaxConnections.trim() || undefined,
+				cMaxReuseTimes: values.xhttpXmuxCMaxReuseTimes.trim() || undefined,
+				hMaxRequestTimes: values.xhttpXmuxHMaxRequestTimes.trim() || undefined,
+				hMaxReusableSecs: values.xhttpXmuxHMaxReusableSecs.trim() || undefined,
+				hKeepAlivePeriod: parseOptionalNumber(values.xhttpXmuxHKeepAlivePeriod),
+			}),
 		});
 		if (Object.keys(xhttpSettings).length) {
 			stream.xhttpSettings = xhttpSettings;
@@ -3370,6 +3740,9 @@ const buildStreamSettings = (
 		tlsPayload.rejectUnknownSni = values.tlsRejectUnknownSni;
 		tlsPayload.verifyPeerCertByName =
 			values.tlsVerifyPeerCertByName || undefined;
+		tlsPayload.pinnedPeerCertSha256 =
+			values.tlsPinnedPeerCertSha256.trim() || undefined;
+		tlsPayload.curvePreferences = splitLines(values.tlsCurvePreferences);
 		delete tlsPayload.verifyPeerCertInNames; // Remove old format
 		tlsPayload.disableSystemRoot = values.tlsDisableSystemRoot;
 		tlsPayload.enableSessionResumption = values.tlsEnableSessionResumption;
@@ -3407,9 +3780,32 @@ const buildStreamSettings = (
 			values.realityMinClientVer?.trim() || undefined;
 		realityPayload.maxClientVer =
 			values.realityMaxClientVer?.trim() || undefined;
-		realityPayload.maxTimediff = parseOptionalNumber(values.realityMaxTimediff);
+		realityPayload.maxTimeDiff = parseOptionalNumber(values.realityMaxTimediff);
+		delete realityPayload.maxTimediff;
 		realityPayload.shortIds = shortIds.length ? shortIds : undefined;
 		realityPayload.mldsa65Seed = values.realityMldsa65Seed?.trim() || undefined;
+		realityPayload.limitFallbackUpload = cleanOptionalObject({
+			afterBytes: parseOptionalNumber(
+				values.realityLimitFallbackUploadAfterBytes,
+			),
+			bytesPerSec: parseOptionalNumber(
+				values.realityLimitFallbackUploadBytesPerSec,
+			),
+			burstBytesPerSec: parseOptionalNumber(
+				values.realityLimitFallbackUploadBurstBytesPerSec,
+			),
+		});
+		realityPayload.limitFallbackDownload = cleanOptionalObject({
+			afterBytes: parseOptionalNumber(
+				values.realityLimitFallbackDownloadAfterBytes,
+			),
+			bytesPerSec: parseOptionalNumber(
+				values.realityLimitFallbackDownloadBytesPerSec,
+			),
+			burstBytesPerSec: parseOptionalNumber(
+				values.realityLimitFallbackDownloadBurstBytesPerSec,
+			),
+		});
 		const realitySettings =
 			realityPayload.settings && typeof realityPayload.settings === "object"
 				? { ...realityPayload.settings }
@@ -3720,6 +4116,8 @@ export const buildInboundPayload = (
 		const sniffing = cleanObject({
 			enabled: true,
 			destOverride: values.sniffingDestinations,
+			ipsExcluded: splitLines(values.sniffingIpsExcluded),
+			domainsExcluded: splitLines(values.sniffingDomainsExcluded),
 			routeOnly:
 				values.sniffingRouteOnly ||
 				(hasInitialField(initial, ["sniffing", "routeOnly"])

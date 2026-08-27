@@ -26,7 +26,6 @@ import {
 import {
 	AdjustmentsHorizontalIcon,
 	ArrowPathIcon,
-	CheckCircleIcon,
 	ChevronRightIcon,
 	KeyIcon,
 	PencilIcon,
@@ -34,7 +33,6 @@ import {
 	PlusCircleIcon,
 	ShieldCheckIcon,
 	TrashIcon,
-	XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { NoSymbolIcon } from "@heroicons/react/24/solid";
 import type { SortingState } from "@tanstack/react-table";
@@ -56,9 +54,7 @@ import {
 	AdminRole,
 	AdminStatus,
 	AdminTrafficLimitMode,
-	UserPermissionToggle,
 } from "types/Admin";
-import { relativeExpiryDate } from "utils/dateFormatter";
 import { formatBytes } from "utils/formatByte";
 import {
 	generateErrorMessage,
@@ -69,6 +65,7 @@ import { AdminApiKeysDialog } from "./AdminApiKeysDialog";
 import AdminPermissionsModal from "./AdminPermissionsModal";
 import { AdminSecurityDialog } from "./AdminSecurityDialog";
 import { ConfirmDialog } from "./dialogs/ConfirmDialog";
+import { UserExpiryCountdown, UserUsageBar } from "./users";
 import {
 	DataTable,
 	ResourceListCard,
@@ -94,8 +91,6 @@ const iconProps = {
 	},
 };
 
-const ActiveAdminStatusIcon = chakra(CheckCircleIcon, iconProps);
-const DisabledAdminStatusIcon = chakra(XCircleIcon, iconProps);
 const ResetIcon = chakra(ArrowPathIcon, iconProps);
 const DisableIcon = chakra(NoSymbolIcon, iconProps);
 const EnableIcon = chakra(PlayIcon, iconProps);
@@ -105,42 +100,18 @@ const AddDataIcon = chakra(PlusCircleIcon, iconProps);
 
 const AdminStatusBadge: FC<{ status: AdminStatus }> = ({ status }) => {
 	const { t } = useTranslation();
-	const isActive = status === AdminStatus.Active;
-	const Icon = isActive ? ActiveAdminStatusIcon : DisabledAdminStatusIcon;
-
-	const badgeStyles = useColorModeValue(
-		{
-			bg: isActive ? "green.100" : "red.100",
-			color: isActive ? "green.800" : "red.800",
-		},
-		{
-			bg: isActive ? "green.900" : "red.900",
-			color: isActive ? "green.200" : "red.200",
-		},
-	);
 
 	return (
-		<Box
-			display="inline-flex"
-			alignItems="center"
-			columnGap={1}
-			px={2}
-			py={0.5}
-			borderRadius="md"
-			bg={badgeStyles.bg}
-			color={badgeStyles.color}
-			fontSize="xs"
-			fontWeight="medium"
-			lineHeight="1"
-			w="fit-content"
+		<Text
+			fontSize="sm"
+			fontWeight="semibold"
+			color={status === AdminStatus.Active ? "green.400" : "red.400"}
+			textTransform="capitalize"
 		>
-			<Icon w={3} h={3} />
-			<Text textTransform="capitalize">
-				{isActive
-					? t("status.active")
-					: t("admins.disabledLabel")}
-			</Text>
-		</Box>
+			{status === AdminStatus.Active
+				? t("status.active")
+				: t("admins.disabledLabel")}
+		</Text>
 	);
 };
 
@@ -148,30 +119,22 @@ const AdminRoleBadge: FC<{ role: AdminRole }> = ({ role }) => {
 	const { t } = useTranslation();
 	const roleStyles = {
 		[AdminRole.FullAccess]: {
-			bg: "yellow.100",
 			color: "yellow.800",
-			darkBg: "yellow.900",
 			darkColor: "yellow.200",
 			label: t("admins.roles.fullAccess"),
 		},
 		[AdminRole.Sudo]: {
-			bg: "purple.100",
 			color: "purple.800",
-			darkBg: "purple.900",
 			darkColor: "purple.200",
 			label: t("admins.roles.sudo"),
 		},
 		[AdminRole.Reseller]: {
-			bg: "blue.100",
 			color: "blue.800",
-			darkBg: "blue.900",
 			darkColor: "blue.200",
 			label: t("admins.roles.reseller"),
 		},
 		[AdminRole.Standard]: {
-			bg: "gray.100",
 			color: "gray.800",
-			darkBg: "gray.700",
 			darkColor: "gray.200",
 			label: t("admins.roles.standard"),
 		},
@@ -180,16 +143,10 @@ const AdminRoleBadge: FC<{ role: AdminRole }> = ({ role }) => {
 	return (
 		<Text
 			as="span"
-			display="inline-flex"
 			fontSize="xs"
-			px={2}
-			py={0.5}
-			borderRadius="full"
-			bg={roleStyles.bg}
 			color={roleStyles.color}
 			fontWeight="medium"
-			w="fit-content"
-			_dark={{ bg: roleStyles.darkBg, color: roleStyles.darkColor }}
+			_dark={{ color: roleStyles.darkColor }}
 		>
 			{roleStyles.label}
 		</Text>
@@ -201,14 +158,6 @@ const AdminRoleBadge: FC<{ role: AdminRole }> = ({ role }) => {
 
 const formatCount = (value: number | null | undefined, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value ?? 0);
-
-const formatByteLimit = (value?: number | null) =>
-	value && value > 0 ? formatBytes(value, 2) : "∞";
-
-const getEnabledUserPermissionsCount = (admin: Admin) =>
-	Object.values(UserPermissionToggle).filter(
-		(permission) => admin.permissions?.users?.[permission],
-	).length;
 
 const getAdminEffectiveUsage = (admin: Admin) =>
 	admin.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic
@@ -722,82 +671,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			</Box>
 		);
 	};
-	const renderRelativeText = useCallback(
-		(key: "expires" | "expired", time: string) => {
-			const raw = t(key);
-			const [before = "", after = ""] = raw.split("{{time}}");
-			const timeNode = time ? (
-				<Box as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }} key="time">
-					{time}
-				</Box>
-			) : null;
-
-			const nodes: JSX.Element[] = [];
-			if (!isRTL) {
-				if (before) {
-					nodes.push(
-						<Text as="span" key="before">
-							{before}
-						</Text>,
-					);
-				}
-				if (timeNode) {
-					nodes.push(timeNode);
-				}
-				if (after) {
-					nodes.push(
-						<Text as="span" key="after">
-							{after}
-						</Text>,
-					);
-				}
-			} else {
-				if (timeNode) {
-					nodes.push(timeNode);
-				}
-				if (after) {
-					nodes.push(
-						<Text as="span" key="after">
-							{after}
-						</Text>,
-					);
-				}
-				if (before) {
-					nodes.push(
-						<Text as="span" key="before">
-							{before}
-						</Text>,
-					);
-				}
-			}
-			return nodes;
-		},
-		[isRTL, t],
-	);
-	const renderAdminExpire = useCallback(
-		(expireAt?: number | null) => {
-			if (expireAt === null || expireAt === undefined) {
-				return (
-					<Text fontSize="xs" color="gray.400" _dark={{ color: "gray.500" }}>
-						{t("admins.expireNotSet")}
-					</Text>
-				);
-			}
-			const info = relativeExpiryDate(expireAt);
-			if (!info.time) {
-				return null;
-			}
-			return (
-				<Text fontSize="xs" color="gray.600" _dark={{ color: "gray.400" }}>
-					{info.status === "expires"
-						? renderRelativeText("expires", info.time)
-						: renderRelativeText("expired", info.time)}
-				</Text>
-			);
-		},
-		[renderRelativeText, t],
-	);
-
 	const { className, sx, ...restProps } = props;
 	const normalizedSx = Array.isArray(sx)
 		? Object.assign({}, ...sx)
@@ -954,40 +827,25 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				sortable: true,
 				isPrimary: true,
 				priority: "primary",
-				width: "210px",
-				minWidth: "190px",
-				maxWidth: "260px",
+				width: "168px",
+				minWidth: "148px",
+				maxWidth: "188px",
 				truncate: true,
 				tooltip: true,
 				cellAlign: "start",
 				mobilePriority: 0,
 				mobileMetaLabel: t("username"),
 				cell: (admin) => (
-					<Stack spacing={0} minW={0} align="start" textAlign="start">
-						<Text
-							fontWeight="semibold"
-							noOfLines={1}
-							dir="ltr"
-							sx={{ unicodeBidi: "isolate" }}
-							color="panel.text"
-						>
-							{admin.username}
-						</Text>
-						<Text fontSize="xs" color="panel.textMuted">
-							{t("admins.idLabel")}: {admin.id}
-						</Text>
-					</Stack>
+					<Text
+						fontWeight="semibold"
+						noOfLines={1}
+						dir="ltr"
+						sx={{ unicodeBidi: "isolate" }}
+						color="panel.text"
+					>
+						{admin.username}
+					</Text>
 				),
-			},
-			{
-				id: "role",
-				header: t("core.role"),
-				priority: "high",
-				width: "118px",
-				maxWidth: "130px",
-				mobilePriority: 1,
-				mobileMetaLabel: t("core.role"),
-				cell: (admin) => <AdminRoleBadge role={admin.role} />,
 			},
 			{
 				id: "status",
@@ -996,25 +854,19 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				width: "116px",
 				maxWidth: "130px",
 				headerAlign: "center",
-				mobilePriority: 2,
+				mobilePriority: 1,
 				mobileMetaLabel: t("status"),
 				cell: (admin) => <AdminStatusBadge status={admin.status} />,
 			},
 			{
-				id: "expire",
-				header: t("expire"),
-				priority: "medium",
-				hideBelow: "xl",
-				width: "126px",
-				maxWidth: "146px",
-				mobilePriority: 3,
-				mobileMetaLabel: t("expire"),
-				cell: (admin) =>
-					renderAdminExpire(
-						typeof admin.expire === "number" && admin.expire > 0
-							? admin.expire
-							: null,
-					),
+				id: "role",
+				header: t("core.role"),
+				priority: "high",
+				width: "118px",
+				maxWidth: "130px",
+				mobilePriority: 2,
+				mobileMetaLabel: t("core.role"),
+				cell: (admin) => <AdminRoleBadge role={admin.role} />,
 			},
 			{
 				id: "users_count",
@@ -1024,13 +876,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				width: "92px",
 				maxWidth: "104px",
 				headerAlign: "center",
-				mobilePriority: 4,
+				mobilePriority: 3,
 				mobileMetaLabel: t("admins.details.activeLabel"),
 				cell: (admin) => {
-					const usersLimitLabel =
-						admin.users_limit && admin.users_limit > 0
-							? String(admin.users_limit)
-							: "∞";
 					return (
 						<Text
 							fontSize="sm"
@@ -1038,7 +886,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 							dir="ltr"
 							sx={{ unicodeBidi: "isolate" }}
 						>
-							{admin.active_users ?? 0}/{usersLimitLabel}
+							{formatCount(admin.active_users ?? 0, locale)}
 						</Text>
 					);
 				},
@@ -1047,11 +895,10 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "online",
 				header: t("admins.details.onlineLabel"),
 				priority: "medium",
-				hideBelow: "xl",
 				width: "86px",
 				maxWidth: "96px",
 				headerAlign: "center",
-				mobilePriority: 5,
+				mobilePriority: 4,
 				mobileMetaLabel: t("admins.details.onlineLabel"),
 				cell: (admin) => (
 					<Text
@@ -1068,10 +915,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "services",
 				header: t("services.title"),
 				priority: "medium",
-				hideBelow: "xl",
 				width: "112px",
 				maxWidth: "130px",
-				mobilePriority: 6,
+				mobilePriority: 5,
 				mobileMetaLabel: t("services.title"),
 				cell: (admin) => (
 					<Text fontSize="sm" noOfLines={1}>
@@ -1082,69 +928,64 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				),
 			},
 			{
-				id: "permissions",
-				header: t("admins.permissionsTabLabel"),
-				priority: "low",
-				hideBelow: "xl",
-				width: "116px",
-				maxWidth: "130px",
-				headerAlign: "center",
-				mobilePriority: 7,
-				mobileMetaLabel: t("admins.permissionsTabLabel"),
-				cell: (admin) => (
-					<Text
-						fontSize="sm"
-						fontWeight="semibold"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate" }}
-					>
-						{getEnabledUserPermissionsCount(admin)}/
-						{Object.values(UserPermissionToggle).length}
-					</Text>
-				),
-			},
-			{
 				id: "data_usage",
-				header: t("admins.trafficUsedLimit"),
+				header: t("usersTable.traffic"),
 				sortable: true,
-				priority: "medium",
-				width: "152px",
-				maxWidth: "174px",
+				priority: "high",
+				width: "clamp(240px, 22vw, 340px)",
+				minWidth: "240px",
+				maxWidth: "340px",
 				headerAlign: "center",
-				mobilePriority: 8,
+				cellAlign: "start",
+				mobilePriority: 6,
 				mobileSummary: true,
-				mobileMetaLabel: t("admins.trafficUsedLimit"),
+				mobileMetaLabel: t("usersTable.traffic"),
+				cell: (admin) => (
+					<UserUsageBar
+						variant="inline"
+						used={getAdminEffectiveUsage(admin)}
+						total={admin.data_limit ?? null}
+					/>
+				),
+			},
+			{
+				id: "remaining_traffic",
+				header: t("usersTable.remainingTraffic"),
+				priority: "medium",
+				width: "132px",
+				minWidth: "118px",
+				maxWidth: "148px",
+				mobilePriority: 7,
+				mobileMetaLabel: t("usersTable.remainingTraffic"),
 				cell: (admin) => (
 					<Text
-						fontSize="sm"
+						fontSize={!admin.data_limit ? "xl" : "sm"}
+						fontWeight={!admin.data_limit ? "semibold" : undefined}
+						lineHeight="1"
+						color={!admin.data_limit ? "panel.textMuted" : "panel.text"}
 						dir="ltr"
-						sx={{ unicodeBidi: "isolate" }}
-						whiteSpace="nowrap"
+						aria-label={!admin.data_limit ? t("unlimited") : undefined}
 					>
-						{formatBytes(getAdminEffectiveUsage(admin), 2)} /{" "}
-						{formatByteLimit(admin.data_limit)}
+						{!admin.data_limit
+							? "∞"
+							: formatBytes(
+									Math.max(admin.data_limit - getAdminEffectiveUsage(admin), 0),
+								)}
 					</Text>
 				),
 			},
 			{
-				id: "traffic_mode",
-				header: t("admins.details.trafficMode"),
-				priority: "low",
-				hideBelow: "xl",
-				width: "132px",
-				maxWidth: "150px",
-				mobilePriority: 10,
-				mobileMetaLabel: t("admins.details.trafficMode"),
-				cell: (admin) => (
-					<Text fontSize="sm" noOfLines={1}>
-						{admin.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic
-							? t("myaccount.createdTraffic")
-							: t("nodes.usedTrafficSeries")}
-					</Text>
-				),
+				id: "expire",
+				header: t("expire"),
+				priority: "medium",
+				width: "126px",
+				maxWidth: "146px",
+				mobilePriority: 8,
+				mobileMetaLabel: t("expire"),
+				cell: (admin) => <UserExpiryCountdown expire={admin.expire} />,
 			},
 		],
-		[locale, renderAdminExpire, t],
+		[locale, t],
 	);
 
 	const adminRowActions = (admin: Admin): DataTableRowAction<Admin>[] => {

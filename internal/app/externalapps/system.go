@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,6 +26,149 @@ func prepareExternalAppHost(ctx context.Context) error {
 	output, err := runExternalAppCommand(ctx, 15*time.Minute, binary, "prepare-external-app-hosting")
 	if err != nil {
 		return fmt.Errorf("prepare PHP application host: %s", limitedExternalAppCommandOutput(output, err))
+	}
+	return nil
+}
+
+const externalAppNodeBin = "/opt/rebecca/node/current/bin"
+
+func prepareExternalAppNodeHost(ctx context.Context) error {
+	binary := "/usr/local/bin/rebecca"
+	if _, err := os.Stat(binary); err != nil {
+		binary = "rebecca"
+	}
+	output, err := runExternalAppCommand(ctx, 15*time.Minute, binary, "prepare-external-app-node-hosting")
+	if err != nil {
+		return fmt.Errorf("prepare Node.js application host: %s", limitedExternalAppCommandOutput(output, err))
+	}
+	return nil
+}
+
+func externalAppNodePort(id string) int {
+	value, _ := strconv.ParseUint(id[:4], 16, 16)
+	return 20000 + int(value)%20000
+}
+
+func writeEmptyNodeApp(root string) error {
+	manifest := []byte("{\n  \"private\": true,\n  \"scripts\": {\"start\": \"node server.js\"}\n}\n")
+	server := []byte("const http=require('node:http');const host=process.env.HOST||'127.0.0.1';const port=Number(process.env.PORT||3000);http.createServer((_,res)=>{res.setHeader('content-type','text/html; charset=utf-8');res.end('<h1>Node.js app is ready</h1>')}).listen(port,host);\n")
+	if err := os.WriteFile(filepath.Join(root, "package.json"), manifest, 0o600); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(root, "server.js"), server, 0o600)
+}
+
+func installExternalAppNode(ctx context.Context, record Record) error {
+	var manifest struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	data, err := os.ReadFile(filepath.Join(record.Root, "package.json"))
+	if err != nil || json.Unmarshal(data, &manifest) != nil || strings.TrimSpace(manifest.Scripts["start"]) == "" {
+		return errors.New("Node.js application package.json must define a start script")
+	}
+	npmArgs := []string{"install", "--no-audit", "--no-fund"}
+	if _, err := os.Stat(filepath.Join(record.Root, "package-lock.json")); err == nil {
+		npmArgs[0] = "ci"
+	}
+	if err := runExternalAppNodeCommand(ctx, record, 20*time.Minute, npmArgs...); err != nil {
+		return err
+	}
+	if strings.TrimSpace(manifest.Scripts["build"]) != "" {
+		if err := runExternalAppNodeCommand(ctx, record, 20*time.Minute, "run", "build"); err != nil {
+			return err
+		}
+	}
+	if err := runExternalAppNodeCommand(ctx, record, 10*time.Minute, "prune", "--omit=dev", "--no-audit", "--no-fund"); err != nil {
+		return err
+	}
+	if err := writeAtomicFile(record.UnitConfig, []byte(externalAppNodeUnit(record)), 0o644); err != nil {
+		return err
+	}
+	cleanUnit := true
+	defer func() {
+		if cleanUnit {
+			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "disable", "--now", record.Service)
+			_ = os.Remove(record.UnitConfig)
+			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "daemon-reload")
+		}
+	}()
+	if _, err := runExternalAppCommand(ctx, time.Minute, "systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("reload systemd: %w", err)
+	}
+	if err := startExternalAppNode(ctx, record); err != nil {
+		return err
+	}
+	cleanUnit = false
+	return nil
+}
+
+func runExternalAppNodeCommand(ctx context.Context, record Record, timeout time.Duration, args ...string) error {
+	commandCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	commandArgs := append([]string{"-u", record.SystemUser, "--", filepath.Join(externalAppNodeBin, "npm")}, args...)
+	command := exec.CommandContext(commandCtx, "runuser", commandArgs...)
+	command.Dir = record.Root
+	command.Env = append(os.Environ(), "HOME="+record.Root, "PATH="+externalAppNodeBin+":"+os.Getenv("PATH"), "npm_config_cache="+filepath.Join(record.Root, ".npm"))
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("npm %s: %s", strings.Join(args, " "), limitedExternalAppCommandOutput(output, err))
+	}
+	return nil
+}
+
+func externalAppNodeUnit(record Record) string {
+	return fmt.Sprintf(`[Unit]
+Description=Rebecca external Node.js application %s
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%s
+Group=%s
+WorkingDirectory=%s
+EnvironmentFile=-%s/.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=%d
+Environment=PATH=%s:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=%s/npm run start
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=%s
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target
+`, record.Domain, record.SystemUser, record.SystemUser, record.Root, record.Root, record.Port, externalAppNodeBin, externalAppNodeBin, record.Root)
+}
+
+func startExternalAppNode(ctx context.Context, record Record) error {
+	if _, err := runExternalAppCommand(ctx, time.Minute, "systemctl", "enable", "--now", record.Service); err != nil {
+		return fmt.Errorf("start Node.js application: %w", err)
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	address := net.JoinHostPort("127.0.0.1", strconv.Itoa(record.Port))
+	for time.Now().Before(deadline) {
+		connection, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
+		if err == nil {
+			connection.Close()
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return errors.New("Node.js application did not start on its assigned loopback port")
+}
+
+func stopExternalAppNode(ctx context.Context, record Record) error {
+	if _, err := runExternalAppCommand(ctx, time.Minute, "systemctl", "disable", "--now", record.Service); err != nil {
+		return fmt.Errorf("stop Node.js application: %w", err)
 	}
 	return nil
 }
@@ -58,7 +202,10 @@ func activePHPVersion(ctx context.Context, requireMirza bool) (string, error) {
 }
 
 func ensureExternalAppRuntimeFree(ctx context.Context, record Record) error {
-	for _, path := range []string{record.PoolConfig, record.Socket} {
+	for _, path := range []string{record.PoolConfig, record.Socket, record.UnitConfig} {
+		if path == "" {
+			continue
+		}
 		if _, err := os.Stat(path); err == nil {
 			return errExternalAppExists
 		} else if !os.IsNotExist(err) {
@@ -360,6 +507,20 @@ func parseDatabaseCredentials(databaseURL string) (databaseCredentials, error) {
 	return databaseCredentials{Username: username, Host: host, Port: port}, nil
 }
 
+func (m *Manager) ensureExternalAppDatabaseFree(ctx context.Context, database, username string) error {
+	query := "SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name=" + sqlString(database) + "), " +
+		"EXISTS(SELECT 1 FROM mysql.user WHERE User=" + sqlString(username) + ");\n"
+	output, err := m.mysqlRoot(ctx, query)
+	if err != nil {
+		return fmt.Errorf("check application database availability: %w", err)
+	}
+	values := strings.Fields(string(output))
+	if len(values) != 2 || values[0] != "0" || values[1] != "0" {
+		return errors.New("database name or database username already exists")
+	}
+	return nil
+}
+
 func (m *Manager) createExternalAppDatabase(ctx context.Context, database, username, password string) error {
 	credentials, err := parseDatabaseCredentials(m.databaseURL)
 	if err != nil {
@@ -388,7 +549,7 @@ func (m *Manager) createExternalAppDatabase(ctx context.Context, database, usern
 		fmt.Fprintf(&query, "GRANT ALL PRIVILEGES ON %s.* TO %s@%s;\n", sqlIdentifier(database), sqlString(credentials.Username), sqlString(host))
 	}
 	if _, err := m.mysqlRoot(ctx, query.String()); err != nil {
-		return fmt.Errorf("create isolated MirzaBot database: %w", err)
+		return fmt.Errorf("create isolated application database: %w", err)
 	}
 	return nil
 }
@@ -439,6 +600,87 @@ func (m *Manager) importExternalAppDatabase(ctx context.Context, database, usern
 		return fmt.Errorf("import MirzaBot database backup: %s", limitedExternalAppCommandOutput(output, err))
 	}
 	return nil
+}
+
+func (m *Manager) dumpExternalAppDatabase(parent context.Context, database string) (*os.File, error) {
+	if !databaseNamePattern.MatchString(database) {
+		return nil, errors.New("application database is invalid")
+	}
+	binary := "mariadb-dump"
+	if _, err := exec.LookPath(binary); err != nil {
+		binary = "mysqldump"
+		if _, err := exec.LookPath(binary); err != nil {
+			return nil, errors.New("mariadb-dump or mysqldump is not installed")
+		}
+	}
+	dump, err := os.CreateTemp("", "rebecca-external-app-*.sql")
+	if err != nil {
+		return nil, err
+	}
+	cleanup := func(err error) (*os.File, error) {
+		name := dump.Name()
+		_ = dump.Close()
+		_ = os.Remove(name)
+		return nil, err
+	}
+	var stderr bytes.Buffer
+	run := func(extraFile string, connection ...string) error {
+		if err := dump.Truncate(0); err != nil {
+			return err
+		}
+		if _, err := dump.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		stderr.Reset()
+		args := append([]string(nil), connection...)
+		args = append(args, "--user=root", "--single-transaction", "--quick", "--skip-lock-tables", "--routines", "--events", "--triggers", "--hex-blob", "--default-character-set=utf8mb4", database)
+		if extraFile != "" {
+			args = append([]string{"--defaults-extra-file=" + extraFile}, args...)
+		}
+		ctx, cancel := context.WithTimeout(parent, 10*time.Minute)
+		defer cancel()
+		command := exec.CommandContext(ctx, binary, args...)
+		command.Stdout = dump
+		command.Stderr = &stderr
+		return command.Run()
+	}
+	if err := run("", "--protocol=socket"); err != nil {
+		password := strings.TrimSpace(m.rootPassword)
+		if password == "" {
+			return cleanup(fmt.Errorf("export application database: %s", limitedExternalAppCommandOutput(stderr.Bytes(), err)))
+		}
+		credentialsFile, fileErr := os.CreateTemp("", "rebecca-mysql-root-*.cnf")
+		if fileErr != nil {
+			return cleanup(fileErr)
+		}
+		credentialsPath := credentialsFile.Name()
+		defer os.Remove(credentialsPath)
+		if fileErr = credentialsFile.Chmod(0o600); fileErr == nil {
+			_, fileErr = fmt.Fprintf(credentialsFile, "[client]\nuser=root\npassword=%s\n", mysqlOptionFileValue(password))
+		}
+		if closeErr := credentialsFile.Close(); fileErr == nil {
+			fileErr = closeErr
+		}
+		if fileErr != nil {
+			return cleanup(errors.New("write temporary database credentials"))
+		}
+		if err = run(credentialsPath, "--protocol=socket"); err != nil {
+			credentials, parseErr := parseDatabaseCredentials(m.databaseURL)
+			if parseErr != nil {
+				return cleanup(fmt.Errorf("export application database: %s", limitedExternalAppCommandOutput(stderr.Bytes(), err)))
+			}
+			if err = run(credentialsPath, "--protocol=tcp", "--host="+credentials.Host, "--port="+credentials.Port); err != nil {
+				return cleanup(fmt.Errorf("export application database: %s", limitedExternalAppCommandOutput(stderr.Bytes(), err)))
+			}
+		}
+	}
+	if err := dump.Sync(); err != nil {
+		return cleanup(err)
+	}
+	if _, err := dump.Seek(0, io.SeekStart); err != nil {
+		return cleanup(err)
+	}
+	return dump, nil
 }
 
 func (m *Manager) dropExternalAppDatabase(ctx context.Context, database, username string) error {

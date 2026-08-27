@@ -85,6 +85,7 @@ export type PanelSelectProps = Omit<
 	onValueChange?: (value: string | string[]) => void;
 	options?: PanelSelectOption[];
 	placeholder?: string;
+	portalled?: boolean;
 	rightElement?: ReactNode;
 	searchPlaceholder?: string;
 	showSearch?: boolean;
@@ -229,6 +230,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			onValueChange,
 			options = [],
 			placeholder,
+			portalled = true,
 			rightElement,
 			searchPlaceholder,
 			showSearch = true,
@@ -251,6 +253,9 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		const [customInput, setCustomInput] = useState("");
 		const [multiOpen, setMultiOpen] = useState(false);
 		const multiContainerRef = useRef<HTMLDivElement | null>(null);
+		const nestedMenuScrollRef = useRef<{ left: number; top: number } | null>(
+			null,
+		);
 		const [multiMenuRect, setMultiMenuRect] = useState<{
 			left: number;
 			top?: number;
@@ -752,6 +757,56 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			);
 		}
 
+		const singleMenuList = (
+			<MenuList
+				dir={direction}
+				minW="100%"
+				maxW="min(420px, calc(100vw - 24px))"
+				maxH="260px"
+				overflowY="auto"
+				p={1}
+				bg={menuBg}
+				borderColor={borderColor}
+				borderRadius="md"
+				boxShadow="xl"
+				zIndex={16050}
+				sx={{
+					scrollbarWidth: "none",
+					msOverflowStyle: "none",
+					"&::-webkit-scrollbar": { display: "none" },
+				}}
+			>
+				{showSearch && (
+					<Input
+						id={`${inputId}-search`}
+						name={`${inputId}-search-${mode}`}
+						size="sm"
+						h="30px"
+						mb={1}
+						fontSize="sm"
+						bg="transparent"
+						value={search}
+						onChange={(event) => setSearch(event.target.value)}
+						placeholder={searchPlaceholder ?? t("search")}
+						autoComplete="off"
+						autoCorrect="off"
+						autoCapitalize="none"
+						spellCheck={false}
+						role="combobox"
+						aria-autocomplete="list"
+						data-lpignore="true"
+						data-1p-ignore="true"
+						data-form-type="other"
+						inputMode="text"
+						list={`${inputId}-empty-list`}
+						autoFocus
+					/>
+				)}
+				<datalist id={`${inputId}-empty-list`} />
+				{optionList}
+			</MenuList>
+		);
+
 		return (
 			<Box
 				position="relative"
@@ -776,9 +831,24 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					matchWidth
 					placement={isRTL ? "bottom-end" : "bottom-start"}
 					strategy="fixed"
+					onOpen={() => {
+						if (!portalled) {
+							nestedMenuScrollRef.current = {
+								left: window.scrollX,
+								top: window.scrollY,
+							};
+						}
+					}}
 					onClose={() => {
 						setSearch("");
 						emitBlur();
+						const scroll = nestedMenuScrollRef.current;
+						nestedMenuScrollRef.current = null;
+						if (scroll) {
+							requestAnimationFrame(() =>
+								window.scrollTo(scroll.left, scroll.top),
+							);
+						}
 					}}
 				>
 					<MenuButton
@@ -811,55 +881,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 							{renderLabel(buttonText)}
 						</Text>
 					</MenuButton>
-					<Portal>
-						<MenuList
-							dir={direction}
-							minW="100%"
-							maxW="min(420px, calc(100vw - 24px))"
-							maxH="260px"
-							overflowY="auto"
-							p={1}
-							bg={menuBg}
-							borderColor={borderColor}
-							borderRadius="md"
-							boxShadow="xl"
-							zIndex={16050}
-							sx={{
-								scrollbarWidth: "none",
-								msOverflowStyle: "none",
-								"&::-webkit-scrollbar": { display: "none" },
-							}}
-						>
-							{showSearch && (
-								<Input
-									id={`${inputId}-search`}
-									name={`${inputId}-search-${mode}`}
-									size="sm"
-									h="30px"
-									mb={1}
-									fontSize="sm"
-									bg="transparent"
-									value={search}
-									onChange={(event) => setSearch(event.target.value)}
-									placeholder={searchPlaceholder ?? t("search")}
-									autoComplete="off"
-									autoCorrect="off"
-									autoCapitalize="none"
-									spellCheck={false}
-									role="combobox"
-									aria-autocomplete="list"
-									data-lpignore="true"
-									data-1p-ignore="true"
-									data-form-type="other"
-									inputMode="text"
-									list={`${inputId}-empty-list`}
-									autoFocus
-								/>
-							)}
-							<datalist id={`${inputId}-empty-list`} />
-							{optionList}
-						</MenuList>
-					</Portal>
+					{portalled ? <Portal>{singleMenuList}</Portal> : singleMenuList}
 				</Menu>
 				{rightElement && (
 					<Box

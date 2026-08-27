@@ -460,8 +460,23 @@ func (s *Server) handleServiceResetUsage(w http.ResponseWriter, r *http.Request,
 		if _, err := tx.ExecContext(r.Context(), `UPDATE services SET used_traffic = 0, users_usage = 0, updated_at = ? WHERE id = ?`, now, serviceID); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET used_traffic = 0, updated_at = ? WHERE service_id = ?`, now, serviceID)
-		return err
+		if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET used_traffic = 0, updated_at = ? WHERE service_id = ?`, now, serviceID); err != nil {
+			return err
+		}
+		rows, err := tx.QueryContext(r.Context(), `SELECT admin_id FROM admins_services WHERE service_id = ?`, serviceID)
+		if err != nil {
+			return err
+		}
+		adminIDs, err := scanInt64Rows(rows)
+		if err != nil {
+			return err
+		}
+		for _, adminID := range adminIDs {
+			if err := reconcileAdminTrafficLimitByIDTx(r.Context(), tx, adminID, time.Now().UTC()); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		writeServiceError(w, err)
@@ -565,8 +580,10 @@ func (s *Server) handleServiceAdminLimitUpdate(w http.ResponseWriter, r *http.Re
 		assignments = append(assignments, "updated_at = ?")
 		args = append(args, dbTimestamp(time.Now().UTC()))
 		args = append(args, adminID, serviceID)
-		_, execErr := tx.ExecContext(r.Context(), `UPDATE admins_services SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...)
-		return execErr
+		if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...); err != nil {
+			return err
+		}
+		return reconcileAdminTrafficLimitByIDTx(r.Context(), tx, adminID, time.Now().UTC())
 	})
 	if err != nil {
 		writeServiceError(w, err)

@@ -16,7 +16,14 @@ import {
 	type ButtonProps,
 	type IconButtonProps,
 } from "@chakra-ui/react";
-import type { ComponentProps, FC, PropsWithChildren, ReactNode } from "react";
+import {
+	useEffect,
+	useRef,
+	type ComponentProps,
+	type FC,
+	type PropsWithChildren,
+	type ReactNode,
+} from "react";
 
 export { BulkActionBar } from "./BulkActionBar";
 export { DataTable } from "./DataTable";
@@ -123,45 +130,59 @@ type TabSystemProps = BoxProps & {
 	tabs: PageTabItem[];
 };
 
-export const TabSystem: FC<TabSystemProps> = ({ tabs, ...props }) => (
-	<Box
-		className="rb-tab-system"
-		display="flex"
-		gap={6}
-		minH="10"
-		px={{ base: 2, md: 3 }}
-		overflowX="auto"
-		overflowY="hidden"
-		maxW="full"
-		whiteSpace="nowrap"
-		sx={{
-			WebkitOverflowScrolling: "touch",
-			scrollbarWidth: "none",
-			"&::-webkit-scrollbar": { display: "none" },
-			"& > button": { flex: "0 0 auto" },
-		}}
-		{...props}
-	>
-		{tabs.map((tab) => (
-			<Button
-				key={tab.value}
-				variant="ghost"
-				size="sm"
-				px={0}
-				h="10"
-				borderRadius="0"
-				borderBottomWidth="2px"
-				borderColor={tab.isActive ? "panel.accent" : "transparent"}
-				color={tab.isActive ? "panel.accent" : "panel.text"}
-				fontWeight="700"
-				_hover={{ bg: "transparent", color: "panel.accentHover" }}
-				onClick={tab.onClick}
-			>
-				{tab.label}
-			</Button>
-		))}
-	</Box>
-);
+export const TabSystem: FC<TabSystemProps> = ({ tabs, ...props }) => {
+	const activeTabRef = useRef<HTMLButtonElement>(null);
+	const activeValue = tabs.find((tab) => tab.isActive)?.value;
+
+	useEffect(() => {
+		if (!activeValue) return;
+		activeTabRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+	}, [activeValue]);
+
+	return (
+		<Box
+			className="rb-tab-system"
+			display="flex"
+			gap={6}
+			minH="10"
+			px={{ base: 2, md: 3 }}
+			overflowX="auto"
+			overflowY="hidden"
+			maxW="full"
+			whiteSpace="nowrap"
+			role="tablist"
+			sx={{
+				WebkitOverflowScrolling: "touch",
+				scrollbarWidth: "none",
+				"&::-webkit-scrollbar": { display: "none" },
+				"& > button": { flex: "0 0 auto" },
+			}}
+			{...props}
+		>
+			{tabs.map((tab) => (
+				<Button
+					key={tab.value}
+					ref={tab.isActive ? activeTabRef : undefined}
+					role="tab"
+					aria-selected={tab.isActive}
+					variant="ghost"
+					size="sm"
+					px={0}
+					h="10"
+					borderRadius="0"
+					borderBottomWidth="2px"
+					borderColor={tab.isActive ? "panel.accent" : "transparent"}
+					color={tab.isActive ? "panel.accent" : "panel.text"}
+					fontWeight="700"
+					_hover={{ bg: "transparent", color: "panel.accentHover" }}
+					onClick={tab.onClick}
+				>
+					{tab.label}
+				</Button>
+			))}
+		</Box>
+	);
+};
 
 export const PageTabs = TabSystem;
 

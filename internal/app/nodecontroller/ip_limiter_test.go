@@ -3,12 +3,72 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
+
+func TestStoreNodeOnlineIPsHandlesConcurrentThreeThousandSampleCycle(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "online-ip-load.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(8)
+
+	if _, err := db.ExecContext(ctx, `CREATE TABLE user_online_ips (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		node_id INTEGER NOT NULL,
+		user_id INTEGER NOT NULL,
+		protocol TEXT NOT NULL,
+		ip TEXT NOT NULL,
+		last_seen_at DATETIME NOT NULL,
+		UNIQUE(node_id, user_id, protocol, ip)
+	)`); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository(db, "sqlite")
+	now := time.Now().UTC()
+	errs := make(chan error, 8)
+	var wg sync.WaitGroup
+	for nodeID := int64(1); nodeID <= 8; nodeID++ {
+		wg.Add(1)
+		go func(nodeID int64) {
+			defer wg.Done()
+			samples := make([]OnlineIPSample, 375)
+			for i := range samples {
+				samples[i] = OnlineIPSample{
+					UserID:     nodeID*1000 + int64(i),
+					Protocol:   "xray",
+					IP:         fmt.Sprintf("203.0.%d.%d", nodeID, i%250+1),
+					LastSeenAt: now,
+				}
+			}
+			errs <- repo.StoreNodeOnlineIPs(ctx, nodeID, samples)
+		}(nodeID)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var count int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM user_online_ips`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3000 {
+		t.Fatalf("stored rows = %d, want 3000", count)
+	}
+}
 
 func TestXrayIPBlocksForLimiterEndpoints(t *testing.T) {
 	base := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)

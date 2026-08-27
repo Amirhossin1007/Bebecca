@@ -1575,6 +1575,55 @@ prepare_external_app_hosting() {
     colorized_echo green "PHP application hosting prerequisites are ready (Apache was not installed)."
 }
 
+prepare_external_app_node_hosting() {
+    if ! is_binary_install; then
+        colorized_echo red "Node.js application hosting is available only in binary installations."
+        return 1
+    fi
+
+    local install_root="/opt/rebecca/node"
+    local current="$install_root/current"
+    if [ -x "$current/bin/node" ] && [ "$($current/bin/node -p 'Number(process.versions.node.split(".")[0])')" -ge 20 ]; then
+        colorized_echo green "Node.js application hosting prerequisites are ready."
+        return 0
+    fi
+
+    detect_os
+    local package
+    for package in curl jq tar xz-utils; do
+        install_package "$package"
+    done
+
+    local node_arch
+    case "$(uname -m)" in
+        x86_64|amd64) node_arch="x64" ;;
+        aarch64|arm64) node_arch="arm64" ;;
+        *) colorized_echo red "Node.js hosting supports only x86_64 and arm64 hosts."; return 1 ;;
+    esac
+
+    local version archive tmp_dir target
+    version=$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | select(.lts != false) | select((.version | ltrimstr("v") | split(".")[0] | tonumber) >= 20)][0].version // empty')
+    if [ -z "$version" ]; then
+        colorized_echo red "Could not resolve the current Node.js LTS release."
+        return 1
+    fi
+    archive="node-${version}-linux-${node_arch}.tar.xz"
+    target="$install_root/$version"
+    tmp_dir=$(mktemp -d)
+    if ! curl -fsSL "https://nodejs.org/dist/${version}/${archive}" -o "$tmp_dir/$archive" \
+        || ! curl -fsSL "https://nodejs.org/dist/${version}/SHASUMS256.txt" -o "$tmp_dir/SHASUMS256.txt" \
+        || ! (cd "$tmp_dir" && grep " ${archive}$" SHASUMS256.txt | sha256sum -c -) \
+        || ! mkdir -p "$target" \
+        || ! tar -xJf "$tmp_dir/$archive" --strip-components=1 -C "$target"; then
+        rm -rf "$tmp_dir" "$target"
+        colorized_echo red "Could not install the verified Node.js LTS runtime."
+        return 1
+    fi
+    rm -rf "$tmp_dir"
+    ln -sfn "$target" "$current"
+    colorized_echo green "Node.js ${version} application hosting prerequisites are ready."
+}
+
 phpmyadmin_nginx_config_path() {
     printf "/etc/nginx/sites-available/%s-phpmyadmin" "$APP_NAME"
 }
@@ -4936,6 +4985,7 @@ usage() {
     colorized_echo yellow "  enable-phpmyadmin - Enable phpMyAdmin for local MySQL/MariaDB"
     colorized_echo yellow "  disable-phpmyadmin - Disable phpMyAdmin"
     colorized_echo yellow "  prepare-external-app-hosting - Install PHP-FPM hosting prerequisites without Apache"
+    colorized_echo yellow "  prepare-external-app-node-hosting - Install an isolated Node.js LTS runtime"
     colorized_echo yellow "  edit            - Edit docker-compose.yml (via nano or vi editor)"
     colorized_echo yellow "  edit-env        - Edit environment file (via nano or vi editor)"
     colorized_echo yellow "  ssl             - Issue or renew SSL certificates"
@@ -4995,6 +5045,7 @@ dispatch_command() {
         enable-phpmyadmin) enable_phpmyadmin "$@" ;;
         disable-phpmyadmin) disable_phpmyadmin "$@" ;;
         prepare-external-app-hosting) prepare_external_app_hosting "$@" ;;
+        prepare-external-app-node-hosting) prepare_external_app_node_hosting "$@" ;;
         ssl) ssl_command "$@" ;;
         edit) edit_command "$@" ;;
         edit-env) edit_env_command "$@" ;;

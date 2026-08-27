@@ -223,7 +223,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 		name: data.name,
 		note: data.note ?? "",
 		address: data.address,
-		port: Number(data.port),
+		control_port: Number(data.port),
 		api_port: Number(data.api_port),
 		usage_coefficient: Number(data.usage_coefficient),
 		data_limit: convertLimitToBytes(data.data_limit ?? null),
@@ -501,7 +501,33 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 											</Text>
 										)}
 									</VStack>
-									<NodeModalStatusBadge status={nodeStatus} compact />
+									<HStack spacing={2}>
+										<Tag
+											size="sm"
+											colorScheme={
+												node.agent_status === "connected"
+													? "green"
+													: node.agent_status === "error"
+														? "red"
+														: "gray"
+											}
+										>
+											{t("nodes.agentHealth")}: {node.agent_status ?? "unknown"}
+										</Tag>
+										<Tag
+											size="sm"
+											colorScheme={
+												node.xray_status === "running"
+													? "green"
+													: node.xray_status === "stopped"
+														? "orange"
+														: "gray"
+											}
+										>
+											{t("nodes.xrayHealth")}: {node.xray_status ?? "unknown"}
+										</Tag>
+										<NodeModalStatusBadge status={nodeStatus} compact />
+									</HStack>
 								</HStack>
 								{node.message && (
 									<Box
@@ -529,11 +555,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 												{node.address || "-"}
 											</Text>
 										}
-										detail={`${t("port")}: ${
-											node.port ?? "-"
-										} · ${t("nodes.nodeAPIPort")}: ${
-											node.api_port ?? "-"
-										}`}
+										detail={`${t("nodes.controlPort")}: ${node.port ?? "-"}`}
 									/>
 									<OverviewItem
 										label={t("nodes.trafficLimit")}
@@ -752,18 +774,11 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 							</FormControl>
 							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 								<Input
-									label={t("port")}
+									label={t("nodes.controlPort")}
 									size="sm"
 									placeholder="62050"
 									{...form.register("port")}
 									error={getInputError(form.formState?.errors?.port)}
-								/>
-								<Input
-									label={t("nodes.nodeAPIPort")}
-									size="sm"
-									placeholder="62051"
-									{...form.register("api_port")}
-									error={getInputError(form.formState?.errors?.api_port)}
 								/>
 							</SimpleGrid>
 							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>

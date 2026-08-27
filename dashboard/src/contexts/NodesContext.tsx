@@ -52,6 +52,7 @@ export const NodeSchema = z
 			.number()
 			.min(1)
 			.or(z.string().transform((v) => parseFloat(v))),
+		control_port: z.number().min(1).optional(),
 		api_port: z
 			.number()
 			.min(1)
@@ -75,6 +76,13 @@ export const NodeSchema = z
 			.enum(["connected", "connecting", "error", "disabled", "limited"])
 			.nullable()
 			.optional(),
+		agent_status: z
+			.enum(["connected", "connecting", "error", "unknown"])
+			.optional(),
+		xray_status: z.enum(["running", "stopped", "unknown"]).optional(),
+		desired_revision: z.number().optional(),
+		applied_revision: z.number().optional(),
+		capabilities: z.array(z.string()).optional(),
 		message: z.string().nullable().optional(),
 		usage_coefficient: z
 			.number()

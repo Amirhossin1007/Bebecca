@@ -406,6 +406,14 @@ export const InboundFormModal: FC<Props> = ({
 		name: "wsHeaders",
 	});
 	const {
+		fields: httpupgradeHeaderFields,
+		append: appendHttpupgradeHeader,
+		remove: removeHttpupgradeHeader,
+	} = useFieldArray({
+		control,
+		name: "httpupgradeHeaders",
+	});
+	const {
 		fields: xhttpHeaderFields,
 		append: appendXhttpHeader,
 		remove: removeXhttpHeader,
@@ -3964,6 +3972,27 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder="example.com"
 															/>
 														</FormControl>
+														<FormControl
+															isInvalid={
+																!!fieldValidationErrors.wsHeartbeatPeriod
+															}
+														>
+															<FormLabel>Heartbeat period (seconds)</FormLabel>
+															<Input
+																{...register("wsHeartbeatPeriod")}
+																inputMode="numeric"
+																placeholder="0"
+															/>
+															{fieldValidationErrors.wsHeartbeatPeriod && (
+																<FormErrorMessage>
+																	{fieldValidationErrors.wsHeartbeatPeriod}
+																</FormErrorMessage>
+															)}
+														</FormControl>
+														<FormControl display="flex" alignItems="center">
+															<FormLabel mb={0}>Accept PROXY protocol</FormLabel>
+															<Switch {...register("wsAcceptProxyProtocol")} />
+														</FormControl>
 													</SimpleGrid>
 													<Stack spacing={2}>
 														<Flex justify="space-between" align="center">
@@ -4064,9 +4093,10 @@ export const InboundFormModal: FC<Props> = ({
 												</Stack>
 											)}
 
-											{streamNetwork === "grpc" && (
+										{streamNetwork === "grpc" && (
+											<Stack spacing={3}>
 												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-													<FormControl>
+												<FormControl>
 														<FormLabel>
 															{t("serviceName")}
 														</FormLabel>
@@ -4082,27 +4112,93 @@ export const InboundFormModal: FC<Props> = ({
 														<FormLabel mb={0}>
 															{t("inbounds.grpc.multiMode")}
 														</FormLabel>
-														<Switch {...register("grpcMultiMode")} />
+													<Switch {...register("grpcMultiMode")} />
+												</FormControl>
+													<FormControl display="flex" alignItems="center">
+														<FormLabel mb={0}>Permit without stream</FormLabel>
+														<Switch {...register("grpcPermitWithoutStream")} />
 													</FormControl>
 												</SimpleGrid>
-											)}
+												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													{(
+														[
+															["grpcIdleTimeout", "Idle timeout (seconds)"],
+															["grpcHealthCheckTimeout", "Health-check timeout (seconds)"],
+															["grpcInitialWindowsSize", "Initial window size"],
+														] as const
+													).map(([name, label]) => (
+														<FormControl
+															key={name}
+															isInvalid={!!fieldValidationErrors[name]}
+														>
+															<FormLabel>{label}</FormLabel>
+															<Input {...register(name)} inputMode="numeric" />
+															{fieldValidationErrors[name] && (
+																<FormErrorMessage>{fieldValidationErrors[name]}</FormErrorMessage>
+															)}
+														</FormControl>
+													))}
+													<FormControl>
+														<FormLabel>User-Agent</FormLabel>
+														<Input {...register("grpcUserAgent")} />
+													</FormControl>
+												</SimpleGrid>
+											</Stack>
+										)}
 
-											{streamNetwork === "kcp" && (
+										{streamNetwork === "kcp" && (
+											<Stack spacing={3}>
 												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
 													<FormControl>
 														<FormLabel>
-															{t("inbounds.kcp.headerType")}
+															{t("inbounds.kcp.headerType")} (legacy)
 														</FormLabel>
 														<Input {...register("kcpHeaderType")} />
 													</FormControl>
 													<FormControl>
 														<FormLabel>
-															{t("inbounds.kcp.seed")}
+															{t("inbounds.kcp.seed")} (legacy)
 														</FormLabel>
 														<Input {...register("kcpSeed")} />
 													</FormControl>
 												</SimpleGrid>
-											)}
+												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+													{(
+														[
+															["kcpMtu", "MTU", "1350"],
+															["kcpTti", "TTI (ms)", "50"],
+															["kcpUplinkCapacity", "Uplink capacity (MB/s)", "5"],
+															["kcpDownlinkCapacity", "Downlink capacity (MB/s)", "20"],
+															["kcpCwndMultiplier", "Congestion window multiplier", "1"],
+															["kcpMaxSendingWindow", "Maximum sending window", "2097152"],
+															["kcpReadBufferSize", "Read buffer (MB, legacy)", "2"],
+															["kcpWriteBufferSize", "Write buffer (MB, legacy)", "2"],
+														] as const
+													).map(([name, label, placeholder]) => (
+														<FormControl
+															key={name}
+															isInvalid={!!fieldValidationErrors[name]}
+														>
+															<FormLabel>{label}</FormLabel>
+															<Input
+																{...register(name as keyof InboundFormValues)}
+																inputMode="numeric"
+																placeholder={placeholder}
+															/>
+															{fieldValidationErrors[name] && (
+																<FormErrorMessage>
+																	{fieldValidationErrors[name]}
+																</FormErrorMessage>
+															)}
+														</FormControl>
+													))}
+												</SimpleGrid>
+												<FormControl display="flex" alignItems="center">
+													<FormLabel mb={0}>Congestion control (legacy)</FormLabel>
+													<Switch {...register("kcpCongestion")} />
+												</FormControl>
+											</Stack>
+										)}
 
 											{streamNetwork === "quic" && (
 												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
@@ -4127,7 +4223,8 @@ export const InboundFormModal: FC<Props> = ({
 												</SimpleGrid>
 											)}
 
-											{streamNetwork === "httpupgrade" && (
+										{streamNetwork === "httpupgrade" && (
+											<Stack spacing={3}>
 												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
 													<FormControl
 														isInvalid={!!fieldValidationErrors.httpupgradePath}
@@ -4146,10 +4243,32 @@ export const InboundFormModal: FC<Props> = ({
 														<FormLabel>
 															{t("inbounds.httpUpgrade.host")}
 														</FormLabel>
-														<Input {...register("httpupgradeHost")} />
+													<Input {...register("httpupgradeHost")} />
+												</FormControl>
+													<FormControl display="flex" alignItems="center">
+														<FormLabel mb={0}>Accept PROXY protocol</FormLabel>
+														<Switch {...register("httpupgradeAcceptProxyProtocol")} />
 													</FormControl>
 												</SimpleGrid>
-											)}
+												<Stack spacing={2}>
+													<Flex justify="space-between" align="center">
+														<Text fontWeight="medium">Headers</Text>
+														<Button size="xs" onClick={() => appendHttpupgradeHeader({ name: "", value: "" })}>
+															{t("inbounds.accounts.add")}
+														</Button>
+													</Flex>
+													{httpupgradeHeaderFields.map((field, index) => (
+														<HStack key={field.id} spacing={2} align="flex-start">
+															<Input {...register(`httpupgradeHeaders.${index}.name` as const)} placeholder={t("inbounds.ws.headerName")} />
+															<Input {...register(`httpupgradeHeaders.${index}.value` as const)} placeholder={t("inbounds.ws.headerValue")} />
+															<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeHttpupgradeHeader(index)}>
+																{t("delete")}
+															</Button>
+														</HStack>
+													))}
+												</Stack>
+											</Stack>
+										)}
 
 											{streamNetwork === "splithttp" && (
 												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
@@ -4299,6 +4418,100 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														</FormControl>
 													</SimpleGrid>
+													<Stack className="xray-dialog-section" spacing={3}>
+														<Text fontSize="sm" fontWeight="semibold">
+															Session and XMUX
+														</Text>
+														<SimpleGrid
+															columns={{ base: 1, md: 2 }}
+															spacing={3}
+														>
+															<FormControl
+																isInvalid={
+																	!!fieldValidationErrors.xhttpSessionIDTable
+																}
+															>
+																<FormLabel>Session ID table</FormLabel>
+																<Input
+																	{...register("xhttpSessionIDTable")}
+																	placeholder="base64"
+																/>
+																{fieldValidationErrors.xhttpSessionIDTable && (
+																	<FormErrorMessage>
+																		{fieldValidationErrors.xhttpSessionIDTable}
+																	</FormErrorMessage>
+																)}
+															</FormControl>
+															<FormControl
+																isInvalid={
+																	!!fieldValidationErrors.xhttpSessionIDLength
+																}
+															>
+																<FormLabel>Session ID length</FormLabel>
+																<Input
+																	{...register("xhttpSessionIDLength")}
+																	placeholder="16-16"
+																/>
+																{fieldValidationErrors.xhttpSessionIDLength && (
+																	<FormErrorMessage>
+																		{fieldValidationErrors.xhttpSessionIDLength}
+																	</FormErrorMessage>
+																)}
+															</FormControl>
+															{(
+																[
+																	[
+																		"xhttpXmuxMaxConcurrency",
+																		"Max concurrency",
+																		"16-32",
+																	],
+																	[
+																		"xhttpXmuxMaxConnections",
+																		"Max connections",
+																		"0",
+																	],
+																	[
+																		"xhttpXmuxCMaxReuseTimes",
+																		"Connection reuse times",
+																		"0",
+																	],
+																	[
+																		"xhttpXmuxHMaxRequestTimes",
+																		"HTTP request times",
+																		"0",
+																	],
+																	[
+																		"xhttpXmuxHMaxReusableSecs",
+																		"HTTP reusable seconds",
+																		"0",
+																	],
+																	[
+																		"xhttpXmuxHKeepAlivePeriod",
+																		"HTTP keep-alive period",
+																		"0",
+																	],
+																] as const
+															).map(([name, label, placeholder]) => (
+																<FormControl
+																	key={name}
+																	isInvalid={!!fieldValidationErrors[name]}
+																>
+																	<FormLabel>{label}</FormLabel>
+																	<Input
+																		{...register(
+																			name as keyof InboundFormValues,
+																		)}
+																		placeholder={placeholder}
+																	/>
+																	{fieldValidationErrors[name] && (
+																		<FormErrorMessage>
+																			{fieldValidationErrors[name]}
+																		</FormErrorMessage>
+																	)}
+																</FormControl>
+															))}
+														</SimpleGrid>
+													</Stack>
 													{xhttpMode === "packet-up" && (
 														<SimpleGrid
 															columns={{ base: 1, md: 2 }}
@@ -5437,6 +5650,17 @@ export const InboundFormModal: FC<Props> = ({
 															t("inbounds.sockopt.interfaceName"),
 														)}
 													</SimpleGrid>
+													<FormControl>
+														<FormLabel>Trusted forwarded IP headers</FormLabel>
+														<Textarea
+															{...register("sockopt.trustedXForwardedFor")}
+															rows={2}
+															placeholder="X-Forwarded-For"
+														/>
+														<Text fontSize="xs" color="gray.500" mt={1}>
+															One header name per line.
+														</Text>
+													</FormControl>
 													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
 														<FormControl>
 															<FormLabel>
@@ -5711,6 +5935,37 @@ export const InboundFormModal: FC<Props> = ({
 												</FormLabel>
 												<Input {...register("tlsVerifyPeerCertByName")} />
 											</FormControl>
+											<FormControl>
+												<FormLabel>TLS curve preferences</FormLabel>
+												<Textarea
+													{...register("tlsCurvePreferences")}
+													rows={2}
+													placeholder="X25519MLKEM768&#10;X25519"
+												/>
+												<Text fontSize="xs" color="gray.500" mt={1}>
+													One curve per line, in preference order.
+												</Text>
+											</FormControl>
+											<FormControl
+												isInvalid={Boolean(
+													fieldValidationErrors.tlsPinnedPeerCertSha256,
+												)}
+											>
+												<FormLabel>
+													{t("inbounds.tls.pinnedPeerCertSha256")}
+												</FormLabel>
+												<Input
+													{...register("tlsPinnedPeerCertSha256")}
+													placeholder={t(
+														"inbounds.tls.pinnedPeerCertSha256Hint",
+													)}
+												/>
+												{fieldValidationErrors.tlsPinnedPeerCertSha256 && (
+													<FormErrorMessage>
+														{fieldValidationErrors.tlsPinnedPeerCertSha256}
+													</FormErrorMessage>
+												)}
+											</FormControl>
 											<Divider />
 											<Stack spacing={3}>
 												<Flex align="center" justify="space-between">
@@ -5870,6 +6125,18 @@ export const InboundFormModal: FC<Props> = ({
 																				},
 																			)
 																		}
+																	/>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		OCSP stapling interval (seconds)
+																	</FormLabel>
+																	<Input
+																		{...register(
+																			`tlsCertificates.${index}.ocspStapling` as const,
+																		)}
+																		inputMode="numeric"
+																		placeholder="0"
 																	/>
 																</FormControl>
 															</SimpleGrid>
@@ -6167,6 +6434,58 @@ export const InboundFormModal: FC<Props> = ({
 													{t("clear")}
 												</Button>
 											</HStack>
+											<Stack className="xray-dialog-section" spacing={3}>
+												<Text fontSize="sm" fontWeight="semibold">
+													Fallback bandwidth limits
+												</Text>
+												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+													{(
+														[
+															[
+																"realityLimitFallbackUploadAfterBytes",
+																"Upload after bytes",
+															],
+															[
+																"realityLimitFallbackUploadBytesPerSec",
+																"Upload bytes/sec",
+															],
+															[
+																"realityLimitFallbackUploadBurstBytesPerSec",
+																"Upload burst bytes/sec",
+															],
+															[
+																"realityLimitFallbackDownloadAfterBytes",
+																"Download after bytes",
+															],
+															[
+																"realityLimitFallbackDownloadBytesPerSec",
+																"Download bytes/sec",
+															],
+															[
+																"realityLimitFallbackDownloadBurstBytesPerSec",
+																"Download burst bytes/sec",
+															],
+														] as const
+													).map(([name, label]) => (
+														<FormControl
+															key={name}
+															isInvalid={!!fieldValidationErrors[name]}
+														>
+															<FormLabel>{label}</FormLabel>
+															<Input
+																{...register(name as keyof InboundFormValues)}
+																inputMode="numeric"
+																placeholder="0"
+															/>
+															{fieldValidationErrors[name] && (
+																<FormErrorMessage>
+																	{fieldValidationErrors[name]}
+																</FormErrorMessage>
+															)}
+														</FormControl>
+													))}
+												</SimpleGrid>
+											</Stack>
 											<FormControl>
 												<FormLabel>
 													{t("inbounds.reality.mldsa65Seed")}
@@ -6345,6 +6664,27 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 															/>
 														</FormControl>
+														<SimpleGrid
+															columns={{ base: 1, md: 2 }}
+															spacing={3}
+														>
+															<FormControl>
+																<FormLabel>Excluded IP rules</FormLabel>
+																<Textarea
+																	{...register("sniffingIpsExcluded")}
+																	rows={2}
+																	placeholder="geoip:private"
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel>Excluded domain rules</FormLabel>
+																<Textarea
+																	{...register("sniffingDomainsExcluded")}
+																	rows={2}
+																	placeholder="geosite:private"
+																/>
+															</FormControl>
+														</SimpleGrid>
 														<FormControl display="flex" alignItems="center">
 															<FormLabel mb={0}>
 																{t("inbounds.sniffingRouteOnly")}

@@ -11,11 +11,14 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
 type Repository struct {
-	db      *sql.DB
-	dialect string
+	db              *sql.DB
+	dialect         string
+	certificateBase string
 }
 
 type NodeRow struct {
@@ -57,13 +60,17 @@ type OperationRow struct {
 const (
 	pendingOperationsPerNodeCap = 200
 	maxPendingOperationsLimit   = 10000
-	operationRetryBackoff       = 5 * time.Minute
+	operationRetryBackoff       = 15 * time.Second
 )
 
 var runtimeProxyProtocolList = []string{"vmess", "vless", "trojan", "shadowsocks", "hysteria"}
 
-func NewRepository(db *sql.DB, dialect string) Repository {
-	return Repository{db: db, dialect: dialect}
+func NewRepository(db *sql.DB, dialect string, certificateBase ...string) Repository {
+	base := ""
+	if len(certificateBase) > 0 {
+		base = certificateBase[0]
+	}
+	return Repository{db: db, dialect: dialect, certificateBase: base}
 }
 
 func (r Repository) Node(ctx context.Context, nodeID int64) (NodeRow, error) {
@@ -123,6 +130,52 @@ func (r Repository) TLS(ctx context.Context) (TLSRow, error) {
 		return TLSRow{}, err
 	}
 	return row, nil
+}
+
+func (r Repository) SetDesiredRevision(ctx context.Context, nodeID int64, revision uint64) error {
+	if revision == 0 {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, `UPDATE nodes
+SET desired_revision = CASE WHEN desired_revision < ? THEN ? ELSE desired_revision END
+WHERE id = ?`, revision, revision, nodeID)
+	return err
+}
+
+func (r Repository) AdvanceDesiredRevision(ctx context.Context, nodeID int64) (uint64, error) {
+	if nodeID <= 0 {
+		return 0, fmt.Errorf("node_id is required")
+	}
+	if _, err := r.db.ExecContext(ctx, `UPDATE nodes
+SET desired_revision = COALESCE(desired_revision, 0) + 1
+WHERE id = ?`, nodeID); err != nil {
+		return 0, err
+	}
+	return r.DesiredRevision(ctx, nodeID)
+}
+
+func (r Repository) SetRuntimeState(ctx context.Context, nodeID int64, state *nodev1.RuntimeState) error {
+	if state == nil {
+		return nil
+	}
+	capabilities, err := json.Marshal(state.GetCapabilities())
+	if err != nil {
+		return err
+	}
+	xrayStatus := "stopped"
+	if state.GetStarted() {
+		xrayStatus = "running"
+	}
+	_, err = r.db.ExecContext(ctx, `UPDATE nodes SET
+agent_status = 'connected', xray_status = ?, applied_revision = ?, node_capabilities = ?, last_seen_at = ?
+WHERE id = ?`, xrayStatus, state.GetAppliedRevision(), string(capabilities), r.timeArg(time.Now().UTC()), nodeID)
+	return err
+}
+
+func (r Repository) DesiredRevision(ctx context.Context, nodeID int64) (uint64, error) {
+	var revision uint64
+	err := r.db.QueryRowContext(ctx, `SELECT desired_revision FROM nodes WHERE id = ?`, nodeID).Scan(&revision)
+	return revision, err
 }
 
 func (r Repository) NodeRawConfig(ctx context.Context, node NodeRow) (map[string]any, error) {
@@ -447,8 +500,10 @@ WHERE COALESCE(h.is_disabled, 0) = 0`)
 }
 
 func (r Repository) SetConnecting(ctx context.Context, nodeID int64) error {
-	_, err := r.updateStatus(ctx, nodeID, "connecting", "", "")
-	return err
+	if _, err := r.updateStatus(ctx, nodeID, "connecting", "", ""); err != nil {
+		return err
+	}
+	return r.setAgentStatus(ctx, nodeID, "connecting")
 }
 
 func (r Repository) SetConnected(ctx context.Context, nodeID int64, version string, message string) error {
@@ -469,6 +524,32 @@ func (r Repository) SetError(ctx context.Context, nodeID int64, message string) 
 	statusCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	_, err := r.updateStatus(statusCtx, nodeID, "error", message, "")
+	if err != nil {
+		return err
+	}
+	return r.setAgentStatus(statusCtx, nodeID, "error")
+}
+
+func (r Repository) SetDegraded(ctx context.Context, nodeID int64, message string) error {
+	if len(message) > 1024 {
+		message = message[:1024]
+	}
+	if ctx.Err() == context.Canceled {
+		return nil
+	}
+	statusCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	_, err := r.db.ExecContext(statusCtx, `UPDATE nodes
+SET agent_status = 'degraded', message = ?
+WHERE id = ? AND LOWER(COALESCE(status, '')) NOT IN ('disabled', 'limited', 'deleted')`, nullableString(message), nodeID)
+	return err
+}
+
+func (r Repository) setAgentStatus(ctx context.Context, nodeID int64, status string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE nodes SET agent_status = ? WHERE id = ?`, status, nodeID)
+	if isMissingColumnError(err) {
+		return nil
+	}
 	return err
 }
 
@@ -843,31 +924,9 @@ WHERE status IN ('pending', 'retrying', 'running') AND id IN (`+placeholders(len
 }
 
 func (r Repository) ReplaceOpenQueueWithFullSync(ctx context.Context) (int, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback()
-
-	now := time.Now().UTC()
-	timeArg := r.timeArg(now)
-	res, err := tx.ExecContext(ctx, `UPDATE node_operations
-SET status = 'done', last_error = NULL, updated_at = ?
-WHERE status IN ('pending', 'retrying', 'running')`, timeArg)
-	if err != nil {
-		return 0, err
-	}
-	cleared := rowsAffectedOrDefault(res, 0)
-	sum := sha256.Sum256([]byte(fmt.Sprintf("startup-sync:%d", now.UnixNano())))
-	if _, err := tx.ExecContext(ctx, `INSERT INTO node_operations
-(operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
-VALUES ('sync_config', NULL, NULL, '{}', 'pending', 0, ?, ?, ?)`, hex.EncodeToString(sum[:]), timeArg, timeArg); err != nil {
-		return 0, err
-	}
-	if err := tx.Commit(); err != nil {
-		return 0, err
-	}
-	return cleared, nil
+	// Keep imperative/user operations until a successful node-specific full sync
+	// supersedes them. Closing them at startup could lose work if every node is down.
+	return 0, r.QueueSyncConfig(ctx, nil, nil)
 }
 
 func rowsAffectedOrDefault(res sql.Result, fallback int) int {
@@ -909,6 +968,47 @@ func (r Repository) MarkOperationFailed(ctx context.Context, id int64, message s
 	return err
 }
 
+func (r Repository) PruneFinishedOperations(ctx context.Context, retain, limit int) (int, error) {
+	if retain <= 0 {
+		retain = 100000
+	}
+	if limit <= 0 || limit > 5000 {
+		limit = 1000
+	}
+	var cutoff int64
+	err := r.db.QueryRowContext(ctx, `SELECT id FROM node_operations
+WHERE status = 'done' ORDER BY id DESC LIMIT 1 OFFSET ?`, retain-1).Scan(&cutoff)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT id FROM node_operations
+WHERE status = 'done' AND id < ? ORDER BY id LIMIT ?`, cutoff, limit)
+	if err != nil {
+		return 0, err
+	}
+	ids := make([]int64, 0, limit)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Close(); err != nil || len(ids) == 0 {
+		return 0, err
+	}
+	args := int64Args(ids)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM node_operations WHERE status = 'done' AND id IN (`+placeholders(len(ids))+`)`, args...)
+	if err != nil {
+		return 0, err
+	}
+	return rowsAffectedOrDefault(res, len(ids)), nil
+}
+
 func (r Repository) FirstConnectedNode(ctx context.Context) (NodeRow, error) {
 	var id int64
 	err := r.db.QueryRowContext(ctx, `SELECT id FROM nodes WHERE LOWER(COALESCE(status, '')) = 'connected' ORDER BY id LIMIT 1`).Scan(&id)
@@ -938,6 +1038,44 @@ func (r Repository) QueueSyncConfig(ctx context.Context, nodeID *int64, payload 
 		}
 	}
 	return r.enqueueSyncConfig(ctx, nodeID, payloadJSON, now)
+}
+
+func (r Repository) QueueLaggingNodeSyncs(ctx context.Context) error {
+	rows, err := r.db.QueryContext(ctx, `SELECT n.id
+FROM nodes n
+WHERE LOWER(COALESCE(n.status, '')) = 'connected'
+  AND COALESCE(n.desired_revision, 0) > COALESCE(n.applied_revision, 0)
+  AND NOT EXISTS (
+    SELECT 1 FROM node_operations no
+    WHERE no.node_id = n.id
+      AND no.operation_type = 'sync_config'
+      AND no.status IN ('pending', 'retrying', 'running')
+	  )
+ORDER BY n.id`)
+	if err != nil {
+		if isMissingColumnError(err) {
+			return nil
+		}
+		return err
+	}
+	nodeIDs := []int64{}
+	for rows.Next() {
+		var nodeID int64
+		if err := rows.Scan(&nodeID); err != nil {
+			rows.Close()
+			return err
+		}
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, nodeID := range nodeIDs {
+		if err := r.QueueSyncConfig(ctx, &nodeID, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r Repository) enqueueSyncConfig(ctx context.Context, nodeID *int64, payloadJSON []byte, now time.Time) error {
@@ -1049,6 +1187,30 @@ VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?)`,
 	return err
 }
 
+func (r Repository) QueueCommand(ctx context.Context, operationType string, nodeID int64, payload any) (OperationRow, error) {
+	operationType = strings.TrimSpace(operationType)
+	if operationType == "" || nodeID <= 0 {
+		return OperationRow{}, fmt.Errorf("operation_type and node_id are required")
+	}
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return OperationRow{}, err
+	}
+	now := time.Now().UTC()
+	sum := sha256.Sum256([]byte(fmt.Sprintf("command:%s:%d:%d", operationType, nodeID, now.UnixNano())))
+	result, err := r.db.ExecContext(ctx, `INSERT INTO node_operations
+(operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
+VALUES (?, ?, NULL, ?, 'pending', 0, ?, ?, ?)`, operationType, nodeID, string(payloadJSON), hex.EncodeToString(sum[:]), r.timeArg(now), r.timeArg(now))
+	if err != nil {
+		return OperationRow{}, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return OperationRow{}, err
+	}
+	return OperationRow{ID: id, OperationType: operationType, NodeID: sql.NullInt64{Int64: nodeID, Valid: true}, Payload: payloadJSON}, nil
+}
+
 func isMissingTableError(err error) bool {
 	if err == nil {
 		return false
@@ -1057,6 +1219,14 @@ func isMissingTableError(err error) bool {
 	return strings.Contains(message, "no such table") ||
 		strings.Contains(message, "doesn't exist") ||
 		strings.Contains(message, "unknown table")
+}
+
+func isMissingColumnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such column") || strings.Contains(message, "unknown column")
 }
 
 func isNodeOperationUniqueConstraint(err error) bool {

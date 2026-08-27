@@ -1599,6 +1599,22 @@ func TestParseRejectsInvalidMultiUserShadowsocks2022(t *testing.T) {
 	}
 }
 
+func TestParseAcceptsShadowsocks2022Chacha20(t *testing.T) {
+	password := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	_, err := Parse(map[string]any{
+		"inbounds": []any{map[string]any{
+			"tag": "ss", "port": 8388, "protocol": "shadowsocks",
+			"settings": map[string]any{
+				"method": "2022-blake3-chacha20-poly1305", "password": password,
+			},
+		}},
+		"outbounds": []any{map[string]any{"tag": "direct", "protocol": "freedom"}},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("valid Shadowsocks 2022 chacha20 config was rejected: %v", err)
+	}
+}
+
 func TestTranslateDirectVirtualInboundSkipsRuntimeTunnelAndRouting(t *testing.T) {
 	raw := map[string]any{
 		"inbounds": []any{

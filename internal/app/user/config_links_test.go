@@ -11,6 +11,15 @@ import (
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 )
 
+func assertSIP002UserInfo(t *testing.T, link, want string) {
+	t.Helper()
+	encoded := strings.SplitN(strings.TrimPrefix(link, "ss://"), "@", 2)[0]
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil || string(decoded) != want {
+		t.Fatalf("unexpected SIP002 user info: got %q want %q err=%v", decoded, want, err)
+	}
+}
+
 func TestBuildConfigLinksAddsMissingServiceProtocolForLegacyUser(t *testing.T) {
 	serviceID := int64(1)
 	credentialKey := "05bfddf81eb418fa1edbce7cd286eee1"
@@ -116,6 +125,36 @@ func TestShadowsocks2022LinkUsesSIP022UserInfo(t *testing.T) {
 	}
 	if profile.ProtocolExtra.Method != "2022-blake3-aes-128-gcm" || !strings.HasPrefix(profile.Password, "c2VydmVyLXBhc3N3ZA==:") {
 		t.Fatalf("extended SS2022 link lost server:user key pair: %#v", profile)
+	}
+}
+
+func TestShadowsocks2022Chacha20Uses32ByteClientKey(t *testing.T) {
+	password := shadowsocks2022Password("client-password", "2022-blake3-chacha20-poly1305")
+	decoded, err := base64.StdEncoding.DecodeString(password)
+	if err != nil || len(decoded) != 32 {
+		t.Fatalf("unexpected Shadowsocks 2022 chacha20 client key: bytes=%d err=%v", len(decoded), err)
+	}
+	link := shadowsocksShareLink("ss2022", "vpn.example.com", ResolvedInbound{
+		"port": int64(8388), "network": "tcp", "tls": "none",
+		"settings": map[string]any{
+			"method": "2022-blake3-chacha20-poly1305", "password": base64.StdEncoding.EncodeToString(make([]byte, 32)),
+		},
+	}, map[string]any{"password": "client-password"})
+	if !strings.HasPrefix(link, "ss://2022-blake3-chacha20-poly1305:") {
+		t.Fatalf("unexpected Shadowsocks 2022 chacha20 link: %s", link)
+	}
+}
+
+func TestShadowsocksLinksKeepEverySupportedCipher(t *testing.T) {
+	for _, method := range []string{
+		"aes-128-gcm", "aes-256-gcm", "chacha20-poly1305",
+		"chacha20-ietf-poly1305", "xchacha20-poly1305", "xchacha20-ietf-poly1305",
+	} {
+		link := shadowsocksShareLink("ss", "vpn.example.com", ResolvedInbound{
+			"port": int64(8388), "network": "tcp", "tls": "none",
+			"settings": map[string]any{"method": method},
+		}, map[string]any{"password": "secret"})
+		assertSIP002UserInfo(t, link, method+":secret")
 	}
 }
 
@@ -391,6 +430,20 @@ func TestBuildConfigLinksFallsBackToInboundTransportSettingsWhenHostUsesDefaults
 		if got := query.Get(key); got != expected {
 			t.Fatalf("expected query %s=%q, got %q link=%s", key, expected, got, links.Links[0])
 		}
+	}
+}
+
+func TestHostOverridesTLSVerification(t *testing.T) {
+	pin := strings.Repeat("ab", 32)
+	_, _, effective, ok := effectiveInboundForHost("alice", nil, ResolvedInbound{
+		"protocol": "vless", "port": 443, "tls": "tls",
+	}, Host{
+		ID: 1, Address: "edge.example.com",
+		VerifyPeerCertByName: "cert.example.com",
+		PinnedPeerCertSHA256: pin,
+	})
+	if !ok || effective["verifyPeerCertByName"] != "cert.example.com" || effective["pinnedPeerCertSha256"] != pin {
+		t.Fatalf("host TLS verification overrides were lost: %#v", effective)
 	}
 }
 

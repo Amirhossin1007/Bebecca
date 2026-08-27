@@ -2,7 +2,7 @@ import { Box, Flex, Spinner, Text, VStack } from "@chakra-ui/react";
 import AdminsUsage from "components/AdminsUsage";
 import NodesUsageAnalytics from "components/NodesUsageAnalytics";
 import ServiceUsageAnalytics from "components/ServiceUsageAnalytics";
-import { PageHeader, ResourceListCard, TabSystem } from "components/ui";
+import { TabSystem } from "components/ui";
 import { useServicesStore } from "contexts/ServicesContext";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
@@ -127,15 +127,6 @@ export const UsagePage: FC = () => {
 
 	return (
 		<VStack spacing={4} align="stretch">
-			<ResourceListCard
-				title={
-					<PageHeader
-						title={t("usage.title")}
-						description={t("usage.description")}
-					/>
-				}
-			/>
-
 			<TabSystem
 				overflowX="auto"
 				overflowY="hidden"

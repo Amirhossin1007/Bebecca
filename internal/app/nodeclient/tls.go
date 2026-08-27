@@ -33,9 +33,10 @@ func LoadClientTLS(config TLSConfig) (*tls.Config, error) {
 	tlsConfig := pinnedServerTLSConfig(serverCert, config.ServerName)
 	if strings.TrimSpace(config.ClientCertFile) != "" && strings.TrimSpace(config.ClientKeyFile) != "" {
 		clientCert, err := tls.LoadX509KeyPair(config.ClientCertFile, config.ClientKeyFile)
-		if err == nil {
-			tlsConfig.Certificates = []tls.Certificate{clientCert}
+		if err != nil {
+			return nil, fmt.Errorf("load client certificate: %w", err)
 		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
 	}
 	return tlsConfig, nil
 }
@@ -60,9 +61,10 @@ func LoadClientTLSFromPEM(config PEMTLSConfig) (*tls.Config, error) {
 	tlsConfig := pinnedServerTLSConfig(serverCert, config.ServerName)
 	if strings.TrimSpace(config.ClientCertPEM) != "" && strings.TrimSpace(config.ClientKeyPEM) != "" {
 		clientCert, err := tls.X509KeyPair([]byte(config.ClientCertPEM), []byte(config.ClientKeyPEM))
-		if err == nil {
-			tlsConfig.Certificates = []tls.Certificate{clientCert}
+		if err != nil {
+			return nil, fmt.Errorf("load client certificate: %w", err)
 		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
 	}
 	return tlsConfig, nil
 }

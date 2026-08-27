@@ -335,6 +335,8 @@ func TestHostFinalMaskRoundTripAndValidation(t *testing.T) {
 	}}`), &payload); err != nil {
 		t.Fatal(err)
 	}
+	payload.VerifyPeerCertByName = "cert.example.com"
+	payload.PinnedPeerCertSHA256 = strings.Repeat("ab", 32)
 	if err := validateHostPayload(payload); err != nil {
 		t.Fatalf("documented FinalMask was rejected: %v", err)
 	}
@@ -347,7 +349,8 @@ func TestHostFinalMaskRoundTripAndValidation(t *testing.T) {
 		id INTEGER PRIMARY KEY AUTOINCREMENT, remark TEXT, address TEXT, dns_primary TEXT, dns_secondary TEXT,
 		address_options TEXT, address_selection_mode TEXT, address_ttl_seconds INTEGER, port INTEGER, path TEXT,
 		sni TEXT, sni_options TEXT, sni_selection_mode TEXT, sni_ttl_seconds INTEGER, host TEXT, host_options TEXT,
-		host_selection_mode TEXT, host_ttl_seconds INTEGER, security TEXT, alpn TEXT, fingerprint TEXT, inbound_tag TEXT,
+		host_selection_mode TEXT, host_ttl_seconds INTEGER, security TEXT, alpn TEXT, fingerprint TEXT,
+		verify_peer_cert_by_name TEXT, pinned_peer_cert_sha256 TEXT, inbound_tag TEXT,
 		allowinsecure INTEGER, is_disabled INTEGER, mux_enable INTEGER, fragment_setting TEXT, noise_setting TEXT,
 		finalmask TEXT, random_user_agent INTEGER, use_sni_as_host INTEGER
 	)`); err != nil {
@@ -371,6 +374,9 @@ func TestHostFinalMaskRoundTripAndValidation(t *testing.T) {
 	}
 	if len(storedHost.FinalMask) == 0 {
 		t.Fatal("FinalMask was not persisted by the Host SQL path")
+	}
+	if storedHost.VerifyPeerCertByName != payload.VerifyPeerCertByName || storedHost.PinnedPeerCertSHA256 != payload.PinnedPeerCertSHA256 {
+		t.Fatalf("TLS verification fields did not round-trip: %#v", storedHost)
 	}
 	stored, ok := hostFinalMaskValue(payload.FinalMask).(string)
 	if !ok || !strings.Contains(stored, `"realm"`) {

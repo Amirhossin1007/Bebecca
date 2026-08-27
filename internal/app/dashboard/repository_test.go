@@ -35,16 +35,16 @@ INSERT INTO vpn_user_sessions (node_id, user_id, last_seen_at, ended_at) VALUES
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 3 {
-		t.Fatalf("online users = %d, want 3", count)
+	if count != 4 {
+		t.Fatalf("online users = %d, want 4", count)
 	}
 	adminID := int64(7)
 	count, err = repo.onlineUsers(context.Background(), &adminID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 2 {
-		t.Fatalf("scoped online users = %d, want 2", count)
+	if count != 3 {
+		t.Fatalf("scoped online users = %d, want 3", count)
 	}
 
 }

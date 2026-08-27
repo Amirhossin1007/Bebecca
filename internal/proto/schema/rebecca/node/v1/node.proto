@@ -34,6 +34,7 @@ service NodeRuntimeService {
 }
 
 service NodeUsageService {
+  rpc CollectOnlineUsers(Empty) returns (OnlineUsersResponse);
   rpc CollectUserUsage(CollectUsageRequest) returns (UserUsageBatch);
   rpc AckUserUsage(AckUsageRequest) returns (AckUsageResponse);
   rpc CollectOutboundUsage(CollectUsageRequest) returns (OutboundUsageBatch);
@@ -89,6 +90,7 @@ message RuntimeState {
   string update_channel = 6;
   string message = 7;
   repeated string capabilities = 8;
+  uint64 applied_revision = 9;
 }
 
 message RuntimeConfigRequest {
@@ -96,6 +98,7 @@ message RuntimeConfigRequest {
   string config_json = 2;
   bool include_db_users = 3;
   string ov_runtime_json = 4;
+  uint64 desired_revision = 5;
 }
 
 message StopRuntimeRequest {
@@ -374,4 +377,8 @@ message LogLine {
   string stream_id = 1;
   string line = 2;
   int64 emitted_at_unix = 3;
+}
+
+message OnlineUsersResponse {
+  repeated string uids = 1;
 }

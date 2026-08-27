@@ -10,6 +10,10 @@ import (
 )
 
 func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
+	local := time.Local
+	time.Local = time.FixedZone("UTC+03:30", 3*60*60+30*60)
+	defer func() { time.Local = local }()
+
 	db, err := sql.Open("sqlite", "file:users-list-online?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatal(err)
@@ -25,7 +29,7 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 		`CREATE TABLE user_online_ips (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME)`,
 		`CREATE TABLE vpn_user_sessions (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME, ended_at DATETIME)`,
 		`INSERT INTO nodes (id, status) VALUES (1, 'connected')`,
-		`INSERT INTO users (id, username, status, used_traffic, created_at, online_at) VALUES (1, 'tunnel-user', 'active', 0, CURRENT_TIMESTAMP, NULL), (2, 'stale-user', 'active', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO users (id, username, status, used_traffic, created_at, online_at) VALUES (1, 'tunnel-user', 'active', 0, CURRENT_TIMESTAMP, NULL), (2, 'stale-user', 'active', 0, CURRENT_TIMESTAMP, datetime('now', '-10 minutes'))`,
 		`INSERT INTO vpn_user_sessions (node_id, user_id, last_seen_at, ended_at) VALUES (1, 1, CURRENT_TIMESTAMP, NULL)`,
 	} {
 		if _, err := db.Exec(statement); err != nil {
@@ -34,29 +38,60 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 	}
 
 	repo := NewRepository(db, "sqlite")
+	onlineAt := func(rows []usersListRow, username string) *string {
+		for _, row := range rows {
+			if row.item.Username == username {
+				return row.item.OnlineAt
+			}
+		}
+		t.Fatalf("missing user %q in %#v", username, rows)
+		return nil
+	}
+	isOnline := func(rows []usersListRow, username string) bool {
+		for _, row := range rows {
+			if row.item.Username == username {
+				return row.item.IsOnline
+			}
+		}
+		t.Fatalf("missing user %q in %#v", username, rows)
+		return false
+	}
 	rows, err := repo.usersRows(context.Background(), usersFilter{}, UsersListRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 2 || rows[0].item.OnlineAt == nil {
+	if len(rows) != 2 || onlineAt(rows, "tunnel-user") == nil {
 		t.Fatalf("expected open tunnel session to be online, got %#v", rows)
 	}
-	total, err := repo.usersOnlineTotal(context.Background(), usersFilter{})
+	if !isOnline(rows, "tunnel-user") || isOnline(rows, "stale-user") {
+		t.Fatalf("unexpected explicit online flags: %#v", rows)
+	}
+	summary, err := repo.usersSummary(context.Background(), usersFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 1 {
-		t.Fatalf("expected one online user, got %d", total)
+	if summary.onlineTotal != 1 {
+		t.Fatalf("expected one online user, got %d", summary.onlineTotal)
+	}
+	if summary.total != 2 || summary.statusBreakdown["active"] != 2 || summary.usageTotal != 0 {
+		t.Fatalf("unexpected combined summary: %#v", summary)
 	}
 	if _, err := db.Exec(`UPDATE nodes SET status = 'deleted' WHERE id = 1`); err != nil {
 		t.Fatal(err)
 	}
-	total, err = repo.usersOnlineTotal(context.Background(), usersFilter{})
+	cached, err := repo.usersSummary(context.Background(), usersFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 0 {
-		t.Fatalf("expected deleted node sessions to be offline, got %d", total)
+	if cached.onlineTotal != 1 {
+		t.Fatalf("expected the repeated summary to use its short cache, got %d", cached.onlineTotal)
+	}
+	summary, err = repo.queryUsersSummary(context.Background(), usersFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.onlineTotal != 0 {
+		t.Fatalf("expected deleted node sessions to be offline, got %d", summary.onlineTotal)
 	}
 	if _, err := db.Exec(`UPDATE nodes SET status = 'connected' WHERE id = 1`); err != nil {
 		t.Fatal(err)
@@ -69,24 +104,41 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rows[0].item.OnlineAt != nil {
-		t.Fatalf("expected ended tunnel session to be offline, got %q", *rows[0].item.OnlineAt)
+	if value := onlineAt(rows, "tunnel-user"); value != nil {
+		t.Fatalf("expected ended tunnel session to be offline, got %q", *value)
 	}
-	total, err = repo.usersOnlineTotal(context.Background(), usersFilter{})
+	summary, err = repo.queryUsersSummary(context.Background(), usersFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 0 {
-		t.Fatalf("expected stale online_at to be ignored, got %d", total)
+	if summary.onlineTotal != 0 {
+		t.Fatalf("expected stale online_at to be ignored, got %d", summary.onlineTotal)
 	}
 	if _, err := db.Exec(`INSERT INTO user_online_ips (node_id, user_id, last_seen_at) VALUES (1, 1, CURRENT_TIMESTAMP)`); err != nil {
 		t.Fatal(err)
 	}
-	total, err = repo.usersOnlineTotal(context.Background(), usersFilter{})
+	summary, err = repo.queryUsersSummary(context.Background(), usersFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 1 {
-		t.Fatalf("expected fresh Xray activity to be online, got %d", total)
+	if summary.onlineTotal != 1 {
+		t.Fatalf("expected fresh Xray activity to be online, got %d", summary.onlineTotal)
+	}
+	if _, err := db.Exec(`UPDATE users SET online_at = CURRENT_TIMESTAMP WHERE id = 2`); err != nil {
+		t.Fatal(err)
+	}
+	summary, err = repo.queryUsersSummary(context.Background(), usersFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.onlineTotal != 2 {
+		t.Fatalf("expected the connection marker to count without a usable client IP, got %d", summary.onlineTotal)
+	}
+	onlines, err := repo.OnlineUsernames(context.Background(), UsersListRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(onlines) != 2 || onlines[0] != "stale-user" || onlines[1] != "tunnel-user" {
+		t.Fatalf("online usernames = %#v", onlines)
 	}
 }

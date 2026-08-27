@@ -36,6 +36,8 @@ export interface SystemStats {
 	version: string;
 	channel?: string;
 	cpu_cores: number;
+	cpu_threads: number;
+	cpu_frequency_hz: number;
 	cpu_usage: number;
 	total_user: number;
 	online_users: number;
@@ -64,6 +66,8 @@ export interface SystemStats {
 	panel_memory_percent: number;
 	cpu_history: HistoryEntry[];
 	memory_history: HistoryEntry[];
+	swap_history: HistoryEntry[];
+	disk_history: HistoryEntry[];
 	network_history: NetworkHistoryEntry[];
 	panel_cpu_history: HistoryEntry[];
 	panel_memory_history: HistoryEntry[];

@@ -11,9 +11,68 @@ import (
 	"time"
 
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const usageCollectionConcurrency = 8
+
+func (c Controller) CollectOnlineUsers(ctx context.Context) (CollectOnlineUsersResult, error) {
+	nodes, err := c.repo.UsageNodes(ctx, 0, 0)
+	if err != nil {
+		return CollectOnlineUsersResult{}, err
+	}
+	result := CollectOnlineUsersResult{Nodes: len(nodes)}
+	if len(nodes) == 0 {
+		return result, nil
+	}
+
+	sem := make(chan struct{}, min(usageCollectionConcurrency, len(nodes)))
+	online := map[int64]struct{}{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for _, node := range nodes {
+		node := node
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+
+			nodeCtx, cancel := WithDefaultTimeout(ctx)
+			client, _, err := c.dial(nodeCtx, node.ID)
+			if err == nil {
+				var response *nodev1.OnlineUsersResponse
+				response, err = client.Usage().CollectOnlineUsers(nodeCtx, &nodev1.Empty{})
+				if err == nil {
+					mu.Lock()
+					for _, uid := range response.GetUids() {
+						if userID, _, ok := parseUserUsageSampleUID(uid); ok {
+							online[userID] = struct{}{}
+						}
+					}
+					mu.Unlock()
+				}
+			}
+			cancel()
+			if err != nil && status.Code(err) != codes.Unimplemented {
+				mu.Lock()
+				result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if err := c.repo.TouchUsersOnline(ctx, keysStructInt64(online)); err != nil {
+		return result, err
+	}
+	result.Users = len(online)
+	return result, nil
+}
 
 func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (CollectUsageResult, error) {
 	collectUsers := req.Users
@@ -89,16 +148,20 @@ func (c Controller) collectUsageForNode(
 	persistOptions UsagePersistOptions,
 ) CollectUsageResult {
 	result := CollectUsageResult{Nodes: 1}
+	communicationFailed := false
+	recordCommunicationFailure := func(err error) {
+		communicationFailed = true
+		c.recordHealthFailure(ctx, node.ID, err)
+	}
 	nodeCtx, cancel := WithDefaultTimeout(ctx)
 	client, _, err := c.dial(nodeCtx, node.ID)
 	if err != nil {
-		_ = c.repo.SetError(ctx, node.ID, err.Error())
+		recordCommunicationFailure(err)
 		cancel()
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
 		return result
 	}
 	defer cancel()
-	defer client.Close()
 
 	var userBatch *nodev1.UserUsageBatch
 	var outboundBatch *nodev1.OutboundUsageBatch
@@ -112,7 +175,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -150,7 +213,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -204,7 +267,7 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckUserUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: userBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.UserAcked++
 		} else if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, err.Error()))
 		}
 	}
@@ -212,9 +275,12 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckOutboundUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.OutboundAcked++
 		} else if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, err.Error()))
 		}
+	}
+	if !communicationFailed {
+		c.clearHealthFailures(node.ID)
 	}
 	return result
 }

@@ -71,7 +71,6 @@ export const HostsPage: FC = () => {
 
 	return (
 		<VStack spacing={4} align="stretch">
-			<PageHeader title={t("header.hostSettings")} />
 			<TabSystem
 				tabs={[
 					{

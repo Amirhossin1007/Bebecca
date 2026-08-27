@@ -38,11 +38,16 @@ const (
 	maxExternalAppArchiveBytes  = 32 << 20
 	maxExternalAppExtractedSize = 256 << 20
 	maxExternalAppFiles         = 5000
+	defaultRequestBodyLimitMB   = 32
+	defaultStaticCacheSeconds   = 3600
+	maxStaticCacheSeconds       = 365 * 24 * 60 * 60
+	externalAppsSQLiteDetail    = "External application hosting requires MySQL or MariaDB and is disabled when Rebecca uses SQLite."
 )
 
 type Config struct {
 	BaseDir           string
 	DatabaseURL       string
+	DatabaseDialect   string
 	MySQLRootPassword string
 }
 
@@ -58,6 +63,9 @@ var (
 	mirzaReleasePattern       = regexp.MustCompile(`^v?[0-9]+(?:\.[0-9]+){1,3}$`)
 	mirzaCommitPattern        = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	telegramIDPattern         = regexp.MustCompile(`^-?[0-9]{5,20}$`)
+	databaseNamePattern       = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,63}$`)
+	databaseUserPattern       = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,31}$`)
+	databasePasswordPattern   = regexp.MustCompile(`^[A-Za-z0-9!@#$%^&*_.+=:-]{12,128}$`)
 )
 
 type InstallRequest struct {
@@ -67,51 +75,70 @@ type InstallRequest struct {
 	DatabaseBackup []byte `json:"-"`
 }
 
+type ArchiveInstallRequest struct {
+	Domain           string
+	Name             string
+	Runtime          string
+	Archive          []byte
+	CreateDatabase   bool
+	Database         string
+	DatabaseUser     string
+	DatabasePassword string
+}
+
 type Record struct {
-	ID              string `json:"id,omitempty"`
-	Template        string `json:"template"`
-	Name            string `json:"name"`
-	Domain          string `json:"domain"`
-	Path            string `json:"path,omitempty"`
-	Enabled         bool   `json:"enabled"`
-	Runtime         string `json:"runtime"`
-	Version         string `json:"version,omitempty"`
-	SourceSHA       string `json:"source_sha,omitempty"`
-	InstalledAt     string `json:"installed_at"`
-	PHPVersion      string `json:"php_version,omitempty"`
-	BotUsername     string `json:"bot_username,omitempty"`
-	IndexFile       string `json:"index_file,omitempty"`
-	FallbackToIndex bool   `json:"fallback_to_index,omitempty"`
-	Root            string `json:"root"`
-	Socket          string `json:"socket,omitempty"`
-	PoolConfig      string `json:"pool_config,omitempty"`
-	CronConfig      string `json:"cron_config,omitempty"`
-	Service         string `json:"service,omitempty"`
-	SystemUser      string `json:"system_user,omitempty"`
-	Database        string `json:"database,omitempty"`
-	DatabaseUser    string `json:"database_user,omitempty"`
-	storageBase     string
+	ID                 string `json:"id,omitempty"`
+	Template           string `json:"template"`
+	Name               string `json:"name"`
+	Domain             string `json:"domain"`
+	Path               string `json:"path,omitempty"`
+	Enabled            bool   `json:"enabled"`
+	Runtime            string `json:"runtime"`
+	Version            string `json:"version,omitempty"`
+	SourceSHA          string `json:"source_sha,omitempty"`
+	InstalledAt        string `json:"installed_at"`
+	PHPVersion         string `json:"php_version,omitempty"`
+	BotUsername        string `json:"bot_username,omitempty"`
+	IndexFile          string `json:"index_file,omitempty"`
+	FallbackToIndex    bool   `json:"fallback_to_index,omitempty"`
+	MaxRequestBodyMB   int    `json:"max_request_body_mb,omitempty"`
+	StaticCacheSeconds *int   `json:"static_cache_seconds,omitempty"`
+	NotFoundFile       string `json:"not_found_file,omitempty"`
+	Root               string `json:"root"`
+	Socket             string `json:"socket,omitempty"`
+	PoolConfig         string `json:"pool_config,omitempty"`
+	CronConfig         string `json:"cron_config,omitempty"`
+	Service            string `json:"service,omitempty"`
+	UnitConfig         string `json:"unit_config,omitempty"`
+	Port               int    `json:"port,omitempty"`
+	SystemUser         string `json:"system_user,omitempty"`
+	Database           string `json:"database,omitempty"`
+	DatabaseUser       string `json:"database_user,omitempty"`
+	storageBase        string
 }
 
 type PublicRecord struct {
-	ID              string `json:"id"`
-	Template        string `json:"template"`
-	Name            string `json:"name"`
-	Domain          string `json:"domain"`
-	Path            string `json:"path,omitempty"`
-	Enabled         bool   `json:"enabled"`
-	Runtime         string `json:"runtime"`
-	Version         string `json:"version,omitempty"`
-	SourceSHA       string `json:"source_sha,omitempty"`
-	InstalledAt     string `json:"installed_at"`
-	PHPVersion      string `json:"php_version,omitempty"`
-	BotUsername     string `json:"bot_username,omitempty"`
-	IndexFile       string `json:"index_file"`
-	FallbackToIndex bool   `json:"fallback_to_index"`
-	HasDatabase     bool   `json:"has_database"`
-	PublicURL       string `json:"public_url"`
-	UpdateAvailable bool   `json:"update_available,omitempty"`
-	LatestVersion   string `json:"latest_version,omitempty"`
+	ID                 string `json:"id"`
+	Template           string `json:"template"`
+	Name               string `json:"name"`
+	Domain             string `json:"domain"`
+	Path               string `json:"path,omitempty"`
+	Enabled            bool   `json:"enabled"`
+	Runtime            string `json:"runtime"`
+	Version            string `json:"version,omitempty"`
+	SourceSHA          string `json:"source_sha,omitempty"`
+	InstalledAt        string `json:"installed_at"`
+	PHPVersion         string `json:"php_version,omitempty"`
+	BotUsername        string `json:"bot_username,omitempty"`
+	IndexFile          string `json:"index_file"`
+	FallbackToIndex    bool   `json:"fallback_to_index"`
+	MaxRequestBodyMB   int    `json:"max_request_body_mb"`
+	StaticCacheSeconds int    `json:"static_cache_seconds"`
+	NotFoundFile       string `json:"not_found_file"`
+	HasDatabase        bool   `json:"has_database"`
+	PublicURL          string `json:"public_url"`
+	UpdateAvailable    bool   `json:"update_available,omitempty"`
+	LatestVersion      string `json:"latest_version,omitempty"`
 }
 
 type secrets struct {
@@ -124,6 +151,7 @@ type Manager struct {
 	baseDir      string
 	legacyBase   string
 	databaseURL  string
+	dialect      string
 	rootPassword string
 	certificates *certificateapp.Manager
 	httpClient   *http.Client
@@ -140,17 +168,21 @@ type Manager struct {
 }
 
 func New(cfg Config, certificates *certificateapp.Manager) *Manager {
+	dialect := strings.ToLower(strings.TrimSpace(cfg.DatabaseDialect))
 	baseDir := strings.TrimSpace(cfg.BaseDir)
 	legacyBase := ""
 	if baseDir == "" {
 		baseDir = defaultBaseDir
-		legacyBase = legacyBaseDir
-		_ = migrateLegacyBaseDir(baseDir, legacyBaseDir)
+		if dialect != "sqlite" && dialect != "sqlite3" {
+			legacyBase = legacyBaseDir
+			_ = migrateLegacyBaseDir(baseDir, legacyBaseDir)
+		}
 	}
 	manager := &Manager{
 		baseDir:      filepath.Clean(baseDir),
 		legacyBase:   legacyBase,
 		databaseURL:  cfg.DatabaseURL,
+		dialect:      dialect,
 		rootPassword: cfg.MySQLRootPassword,
 		certificates: certificates,
 		mirzaAPIBase: mirzaBotAPIBaseURL,
@@ -172,8 +204,15 @@ func New(cfg Config, certificates *certificateapp.Manager) *Manager {
 		},
 		apps: map[string]Record{},
 	}
+	if manager.sqliteDisabled() {
+		return manager
+	}
 	manager.reload()
 	return manager
+}
+
+func (m *Manager) sqliteDisabled() bool {
+	return m != nil && (m.dialect == "sqlite" || m.dialect == "sqlite3")
 }
 
 func migrateLegacyBaseDir(baseDir, oldBaseDir string) error {
@@ -233,6 +272,9 @@ func (m *Manager) reload() {
 			if record.Runtime == "php" && (!pathWithin("/run/php", record.Socket) || !pathWithin("/etc/php", record.PoolConfig)) {
 				continue
 			}
+			if record.Runtime == "node" && (record.Port < 20000 || record.Port > 39999 || !pathWithin("/etc/systemd/system", record.UnitConfig) || !strings.HasPrefix(record.Service, "rebecca-node-")) {
+				continue
+			}
 			if record.CronConfig != "" && !pathWithin("/etc/cron.d", record.CronConfig) {
 				continue
 			}
@@ -254,6 +296,9 @@ func (m *Manager) reload() {
 }
 
 func (m *Manager) Lookup(identifier string) (Record, bool) {
+	if m.sqliteDisabled() {
+		return Record{}, false
+	}
 	identifier = strings.ToLower(strings.TrimSpace(identifier))
 	m.mu.RLock()
 	record, ok := m.apps[identifier]
@@ -275,6 +320,9 @@ func (m *Manager) Lookup(identifier string) (Record, bool) {
 }
 
 func (m *Manager) HasHost(host string) bool {
+	if m.sqliteDisabled() {
+		return false
+	}
 	host = CanonicalHost(host)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -287,6 +335,9 @@ func (m *Manager) HasHost(host string) bool {
 }
 
 func (m *Manager) Match(host, requestPath string) (Record, string, bool) {
+	if m.sqliteDisabled() {
+		return Record{}, "", false
+	}
 	host = CanonicalHost(host)
 	cleanPath := strings.TrimPrefix(path.Clean("/"+requestPath), "/")
 	m.mu.RLock()
@@ -360,26 +411,32 @@ func (m *Manager) publicRecords() []PublicRecord {
 
 func publicExternalAppRecord(record Record) PublicRecord {
 	return PublicRecord{
-		ID:              record.ID,
-		Template:        record.Template,
-		Name:            record.Name,
-		Domain:          record.Domain,
-		Path:            record.Path,
-		Enabled:         record.Enabled,
-		Runtime:         record.Runtime,
-		Version:         record.Version,
-		SourceSHA:       record.SourceSHA,
-		InstalledAt:     record.InstalledAt,
-		PHPVersion:      record.PHPVersion,
-		BotUsername:     record.BotUsername,
-		IndexFile:       externalAppIndexFile(record),
-		FallbackToIndex: record.FallbackToIndex,
-		HasDatabase:     record.Database != "",
-		PublicURL:       externalAppPublicURL(record) + "/",
+		ID:                 record.ID,
+		Template:           record.Template,
+		Name:               record.Name,
+		Domain:             record.Domain,
+		Path:               record.Path,
+		Enabled:            record.Enabled,
+		Runtime:            record.Runtime,
+		Version:            record.Version,
+		SourceSHA:          record.SourceSHA,
+		InstalledAt:        record.InstalledAt,
+		PHPVersion:         record.PHPVersion,
+		BotUsername:        record.BotUsername,
+		IndexFile:          externalAppIndexFile(record),
+		FallbackToIndex:    record.FallbackToIndex,
+		MaxRequestBodyMB:   externalAppMaxRequestBodyMB(record),
+		StaticCacheSeconds: ExternalAppStaticCacheSeconds(record),
+		NotFoundFile:       record.NotFoundFile,
+		HasDatabase:        record.Database != "",
+		PublicURL:          externalAppPublicURL(record) + "/",
 	}
 }
 
 func externalAppDefaultIndex(root, runtime string) string {
+	if runtime == "node" {
+		return ""
+	}
 	if runtime == "php" {
 		if info, err := os.Stat(filepath.Join(root, "index.php")); err == nil && !info.IsDir() {
 			return "index.php"
@@ -396,6 +453,28 @@ func externalAppIndexFile(record Record) string {
 		return "index.php"
 	}
 	return externalAppDefaultIndex(record.Root, record.Runtime)
+}
+
+func externalAppMaxRequestBodyMB(record Record) int {
+	if record.MaxRequestBodyMB < 1 || record.MaxRequestBodyMB > defaultRequestBodyLimitMB {
+		return defaultRequestBodyLimitMB
+	}
+	return record.MaxRequestBodyMB
+}
+
+func ExternalAppRequestBodyLimitBytes(record Record) int64 {
+	return int64(externalAppMaxRequestBodyMB(record)) << 20
+}
+
+func ExternalAppStaticCacheSeconds(record Record) int {
+	if record.StaticCacheSeconds == nil {
+		return defaultStaticCacheSeconds
+	}
+	seconds := *record.StaticCacheSeconds
+	if seconds < 0 || seconds > maxStaticCacheSeconds {
+		return defaultStaticCacheSeconds
+	}
+	return seconds
 }
 
 func mirzaBotUpdateAvailable(record Record, release mirzaBotRelease) bool {
@@ -458,6 +537,9 @@ func externalAppPublicURL(record Record) string {
 }
 
 func (m *Manager) hostingSupported() (bool, string) {
+	if m.sqliteDisabled() {
+		return false, externalAppsSQLiteDetail
+	}
 	mode, err := os.ReadFile("/opt/rebecca/.install-mode")
 	if err != nil || strings.TrimSpace(string(mode)) != "binary" {
 		return false, "External application hosting is available only in binary installations."
@@ -513,7 +595,7 @@ func externalAppCertificateContains(record certificateapp.Record, domain string)
 	return false
 }
 
-func (m *Manager) installArchive(ctx context.Context, domain, name string, archive []byte) (PublicRecord, error) {
+func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequest) (PublicRecord, error) {
 	if !m.operationMu.TryLock() {
 		return PublicRecord{}, errExternalAppBusy
 	}
@@ -521,15 +603,35 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 	if ok, detail := m.hostingSupported(); !ok {
 		return PublicRecord{}, fmt.Errorf("%w: %s", errExternalAppUnsupported, detail)
 	}
-	domain, err := m.certificateDomain(ctx, domain)
+	domain, err := m.certificateDomain(ctx, request.Domain)
 	if err != nil {
 		return PublicRecord{}, err
 	}
 	if m.mountExists(domain, "") {
 		return PublicRecord{}, errExternalAppExists
 	}
-	if len(archive) == 0 || len(archive) > maxExternalAppArchiveBytes {
-		return PublicRecord{}, errors.New("ZIP archive is empty or exceeds 32 MiB")
+	if len(request.Archive) > maxExternalAppArchiveBytes {
+		return PublicRecord{}, errors.New("ZIP archive exceeds 32 MiB")
+	}
+	if request.CreateDatabase {
+		request.Database = strings.TrimSpace(request.Database)
+		request.DatabaseUser = strings.TrimSpace(request.DatabaseUser)
+		if !databaseNamePattern.MatchString(request.Database) {
+			return PublicRecord{}, errors.New("database name must start with a letter and contain only letters, numbers, or underscores (maximum 64 characters)")
+		}
+		if !databaseUserPattern.MatchString(request.DatabaseUser) {
+			return PublicRecord{}, errors.New("database username must start with a letter and contain only letters, numbers, or underscores (maximum 32 characters)")
+		}
+		if !databasePasswordPattern.MatchString(request.DatabasePassword) {
+			return PublicRecord{}, errors.New("database password must be 12-128 characters and use letters, numbers, or !@#$%^&*_.+=:-")
+		}
+		credentials, err := parseDatabaseCredentials(m.databaseURL)
+		if err != nil || !isLocalDatabaseHost(credentials.Host) || credentials.Port != "3306" {
+			return PublicRecord{}, errors.New("managed application databases require Rebecca to use the local MySQL or MariaDB service on port 3306")
+		}
+		if err := m.ensureExternalAppDatabaseFree(ctx, request.Database, request.DatabaseUser); err != nil {
+			return PublicRecord{}, err
+		}
 	}
 	if err := m.prepareStorage(); err != nil {
 		return PublicRecord{}, err
@@ -539,13 +641,33 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		return PublicRecord{}, err
 	}
 	defer os.RemoveAll(stage)
-	root, err := extractExternalAppArchive(archive, stage)
-	if err != nil {
-		return PublicRecord{}, err
-	}
-	runtime, err := detectExternalAppRuntime(root)
-	if err != nil {
-		return PublicRecord{}, err
+	var root, runtime string
+	if len(request.Archive) > 0 {
+		root, err = extractExternalAppArchive(request.Archive, stage)
+		if err != nil {
+			return PublicRecord{}, err
+		}
+		runtime, err = detectExternalAppRuntime(root)
+		if err != nil {
+			return PublicRecord{}, err
+		}
+	} else {
+		runtime = strings.ToLower(strings.TrimSpace(request.Runtime))
+		if runtime == "" {
+			runtime = "php"
+		}
+		if runtime != "php" && runtime != "static" && runtime != "node" {
+			return PublicRecord{}, errors.New("runtime must be php, node, or static")
+		}
+		root = filepath.Join(stage, "app")
+		if err := os.Mkdir(root, 0o700); err != nil {
+			return PublicRecord{}, err
+		}
+		if runtime == "node" {
+			if err := writeEmptyNodeApp(root); err != nil {
+				return PublicRecord{}, err
+			}
+		}
 	}
 
 	suffix := domainHash(domain)
@@ -558,18 +680,30 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 	record := Record{
 		ID:          suffix,
 		Template:    "archive",
-		Name:        normalizeExternalAppName(name, domain),
+		Name:        normalizeExternalAppName(request.Name, domain),
 		Domain:      domain,
 		Enabled:     true,
 		Runtime:     runtime,
-		IndexFile:   externalAppDefaultIndex(root, runtime),
-		SourceSHA:   sha256Hex(archive),
+		IndexFile:   "index.html",
 		InstalledAt: time.Now().UTC().Format(time.RFC3339),
 		Root:        appRoot,
 		storageBase: m.baseDir,
 	}
+	if runtime == "php" {
+		record.IndexFile = "index.php"
+	} else if runtime == "node" {
+		record.IndexFile = ""
+	}
+	if len(request.Archive) > 0 {
+		record.IndexFile = externalAppDefaultIndex(root, runtime)
+		record.SourceSHA = sha256Hex(request.Archive)
+	}
+	if request.CreateDatabase {
+		record.Database = request.Database
+		record.DatabaseUser = request.DatabaseUser
+	}
 
-	var userCreated, appCreated, poolCreated bool
+	var userCreated, appCreated, poolCreated, unitCreated, databaseCreated bool
 	completed := false
 	defer func() {
 		if completed {
@@ -579,6 +713,14 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		if poolCreated {
 			_ = os.Remove(record.PoolConfig)
 			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "reload", record.Service)
+		}
+		if unitCreated {
+			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "disable", "--now", record.Service)
+			_ = os.Remove(record.UnitConfig)
+			_, _ = runExternalAppCommand(context.Background(), time.Minute, "systemctl", "daemon-reload")
+		}
+		if databaseCreated {
+			_ = m.dropExternalAppDatabase(context.Background(), record.Database, record.DatabaseUser)
 		}
 		if appCreated {
 			_ = os.RemoveAll(appRoot)
@@ -608,12 +750,27 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 			return PublicRecord{}, fmt.Errorf("create isolated PHP user: %w", err)
 		}
 		userCreated = true
+	} else if runtime == "node" {
+		if err := prepareExternalAppNodeHost(ctx); err != nil {
+			return PublicRecord{}, err
+		}
+		record.SystemUser = "rbnode_" + suffix
+		record.Port = externalAppNodePort(suffix)
+		record.Service = "rebecca-node-" + suffix + ".service"
+		record.UnitConfig = filepath.Join("/etc/systemd/system", record.Service)
+		if err := ensureExternalAppRuntimeFree(ctx, record); err != nil {
+			return PublicRecord{}, err
+		}
+		if _, err := runExternalAppCommand(ctx, time.Minute, "useradd", "--system", "--user-group", "--home-dir", appRoot, "--shell", "/usr/sbin/nologin", "--no-create-home", record.SystemUser); err != nil {
+			return PublicRecord{}, fmt.Errorf("create isolated Node.js user: %w", err)
+		}
+		userCreated = true
 	}
 	if err := os.Rename(root, appRoot); err != nil {
 		return PublicRecord{}, fmt.Errorf("install application files: %w", err)
 	}
 	appCreated = true
-	if runtime == "php" {
+	if runtime == "php" || runtime == "node" {
 		uid, gid, err := unixUserIDs(ctx, record.SystemUser)
 		if err != nil {
 			return PublicRecord{}, err
@@ -621,15 +778,28 @@ func (m *Manager) installArchive(ctx context.Context, domain, name string, archi
 		if err := prepareOwnedExternalAppTree(appRoot, uid, gid); err != nil {
 			return PublicRecord{}, err
 		}
-		if err := writeExternalAppPool(record, false); err != nil {
-			return PublicRecord{}, err
-		}
-		poolCreated = true
-		if err := reloadPHPFPM(ctx, record); err != nil {
-			return PublicRecord{}, err
+		if runtime == "php" {
+			if err := writeExternalAppPool(record, false); err != nil {
+				return PublicRecord{}, err
+			}
+			poolCreated = true
+			if err := reloadPHPFPM(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+		} else {
+			if err := installExternalAppNode(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+			unitCreated = true
 		}
 	} else if err := makeStaticTreeReadOnly(appRoot); err != nil {
 		return PublicRecord{}, err
+	}
+	if request.CreateDatabase {
+		if err := m.createExternalAppDatabase(ctx, record.Database, record.DatabaseUser, request.DatabasePassword); err != nil {
+			return PublicRecord{}, err
+		}
+		databaseCreated = true
 	}
 	if err := m.writeRecord(record); err != nil {
 		return PublicRecord{}, err
@@ -771,6 +941,9 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 	}
 	databasePassword, err := randomHex(24)
 	if err != nil {
+		return PublicRecord{}, err
+	}
+	if err := m.ensureExternalAppDatabaseFree(ctx, record.Database, record.DatabaseUser); err != nil {
 		return PublicRecord{}, err
 	}
 	databaseCreated = true
@@ -920,7 +1093,36 @@ func validateExternalAppIndexFile(record Record, rootPath, raw string) (string, 
 	return filepath.ToSlash(name), nil
 }
 
-func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex bool) (PublicRecord, error) {
+func validateExternalAppNotFoundFile(rootPath, raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	name, err := normalizeExternalAppPath(raw, false)
+	if err != nil {
+		return "", errors.New("404 document must be a safe relative path")
+	}
+	switch strings.ToLower(path.Base(name)) {
+	case "config.php", "table.php", "composer.json", "composer.lock", "install.sh":
+		return "", errors.New("this file cannot be used as the 404 document")
+	}
+	extension := strings.ToLower(path.Ext(name))
+	if extension != ".html" && extension != ".htm" {
+		return "", errors.New("404 document must be an HTML file")
+	}
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	info, err := root.Lstat(filepath.FromSlash(name))
+	if err != nil || !info.Mode().IsRegular() || FileHasMultipleLinks(info) {
+		return "", errors.New("404 document does not exist or is not a regular file")
+	}
+	return filepath.ToSlash(name), nil
+}
+
+func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex bool, maxRequestBodyMB, staticCacheSeconds int, notFoundFile string) (PublicRecord, error) {
 	if !m.operationMu.TryLock() {
 		return PublicRecord{}, errExternalAppBusy
 	}
@@ -933,8 +1135,21 @@ func (m *Manager) updateSettings(identifier, indexFile string, fallbackToIndex b
 	if err != nil {
 		return PublicRecord{}, err
 	}
+	if maxRequestBodyMB < 1 || maxRequestBodyMB > defaultRequestBodyLimitMB {
+		return PublicRecord{}, errors.New("request body limit must be between 1 and 32 MiB")
+	}
+	if staticCacheSeconds < 0 || staticCacheSeconds > maxStaticCacheSeconds {
+		return PublicRecord{}, errors.New("static cache lifetime must be between 0 and 31536000 seconds")
+	}
+	notFoundFile, err = validateExternalAppNotFoundFile(record.Root, notFoundFile)
+	if err != nil {
+		return PublicRecord{}, err
+	}
 	record.IndexFile = indexFile
 	record.FallbackToIndex = fallbackToIndex
+	record.MaxRequestBodyMB = maxRequestBodyMB
+	record.StaticCacheSeconds = &staticCacheSeconds
+	record.NotFoundFile = notFoundFile
 	if err := m.writeRecord(record); err != nil {
 		return PublicRecord{}, err
 	}
@@ -1082,11 +1297,28 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 				return PublicRecord{}, err
 			}
 		}
+		if record.Runtime == "node" {
+			if err := startExternalAppNode(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+		}
 		record.Enabled = true
 	} else {
+		if record.Runtime == "node" {
+			if err := stopExternalAppNode(ctx, record); err != nil {
+				return PublicRecord{}, err
+			}
+		}
 		record.Enabled = false
 	}
 	if err := m.writeRecord(record); err != nil {
+		if record.Runtime == "node" {
+			if enabled {
+				_ = stopExternalAppNode(context.Background(), record)
+			} else {
+				_ = startExternalAppNode(context.Background(), record)
+			}
+		}
 		if enabled && record.Template == "mirzabot" {
 			_ = os.Remove(record.CronConfig)
 			if secrets, secretErr := m.readSecrets(record); secretErr == nil {
@@ -1143,6 +1375,17 @@ func (m *Manager) delete(ctx context.Context, identifier string, keepDatabase bo
 			return fmt.Errorf("reload PHP-FPM: %w", err)
 		}
 	}
+	if record.UnitConfig != "" {
+		if err := stopExternalAppNode(ctx, record); err != nil {
+			return err
+		}
+		if err := os.Remove(record.UnitConfig); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if _, err := runExternalAppCommand(ctx, time.Minute, "systemctl", "daemon-reload"); err != nil {
+			return fmt.Errorf("reload systemd: %w", err)
+		}
+	}
 	if record.Database != "" && !keepDatabase {
 		if err := m.dropExternalAppDatabase(ctx, record.Database, record.DatabaseUser); err != nil {
 			return err
@@ -1153,7 +1396,7 @@ func (m *Manager) delete(ctx context.Context, identifier string, keepDatabase bo
 	}
 	if record.SystemUser != "" {
 		if _, err := runExternalAppCommand(ctx, time.Minute, "userdel", record.SystemUser); err != nil && externalAppSystemUserExists(ctx, record.SystemUser) {
-			return fmt.Errorf("remove isolated PHP user: %w", err)
+			return fmt.Errorf("remove isolated application user: %w", err)
 		}
 	}
 	if err := os.Remove(m.recordPathFor(record)); err != nil && !os.IsNotExist(err) {
@@ -1263,6 +1506,22 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	requestPath := externalAppAPIPath(r.URL.Path)
+	if m.sqliteDisabled() {
+		if requestPath == "" && r.Method == http.MethodGet {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"supported": false,
+				"detail":    externalAppsSQLiteDetail,
+				"templates": []map[string]any{
+					{"id": "archive", "name": "PHP / HTML ZIP", "supported": false, "detail": externalAppsSQLiteDetail},
+					{"id": "mirzabot", "name": "MirzaBot", "supported": false, "detail": externalAppsSQLiteDetail},
+				},
+				"apps": []PublicRecord{},
+			})
+			return
+		}
+		writeError(w, http.StatusConflict, externalAppsSQLiteDetail)
+		return
+	}
 	if requestPath == "" {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -1336,6 +1595,10 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.handleExternalAppFiles(w, r, identifier, parts[2:])
 		return
 	}
+	if len(parts) == 2 && parts[1] == "database-backup" {
+		m.handleExternalAppDatabaseBackup(w, r, identifier)
+		return
+	}
 	if len(parts) == 2 && parts[1] == "php-config" {
 		m.handleExternalAppConfig(w, r, identifier)
 		return
@@ -1346,14 +1609,34 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var payload struct {
-			IndexFile       string `json:"index_file"`
-			FallbackToIndex bool   `json:"fallback_to_index"`
+			IndexFile          string  `json:"index_file"`
+			FallbackToIndex    bool    `json:"fallback_to_index"`
+			MaxRequestBodyMB   *int    `json:"max_request_body_mb"`
+			StaticCacheSeconds *int    `json:"static_cache_seconds"`
+			NotFoundFile       *string `json:"not_found_file"`
 		}
 		if err := decodeOptionalJSON(r, &payload); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		record, err := m.updateSettings(identifier, payload.IndexFile, payload.FallbackToIndex)
+		current, ok := m.Lookup(identifier)
+		if !ok {
+			writeExternalAppError(w, errExternalAppNotFound)
+			return
+		}
+		maxRequestBodyMB := externalAppMaxRequestBodyMB(current)
+		if payload.MaxRequestBodyMB != nil {
+			maxRequestBodyMB = *payload.MaxRequestBodyMB
+		}
+		staticCacheSeconds := ExternalAppStaticCacheSeconds(current)
+		if payload.StaticCacheSeconds != nil {
+			staticCacheSeconds = *payload.StaticCacheSeconds
+		}
+		notFoundFile := current.NotFoundFile
+		if payload.NotFoundFile != nil {
+			notFoundFile = *payload.NotFoundFile
+		}
+		record, err := m.updateSettings(identifier, payload.IndexFile, payload.FallbackToIndex, maxRequestBodyMB, staticCacheSeconds, notFoundFile)
 		if err != nil {
 			writeExternalAppError(w, err)
 			return
@@ -1401,6 +1684,50 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, record)
 }
 
+func (m *Manager) handleExternalAppDatabaseBackup(w http.ResponseWriter, r *http.Request, identifier string) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if !m.operationMu.TryLock() {
+		writeExternalAppError(w, errExternalAppBusy)
+		return
+	}
+	record, ok := m.Lookup(identifier)
+	if !ok {
+		m.operationMu.Unlock()
+		writeExternalAppError(w, errExternalAppNotFound)
+		return
+	}
+	if record.Template != "mirzabot" || record.Database == "" {
+		m.operationMu.Unlock()
+		writeError(w, http.StatusBadRequest, "database backup is available only for MirzaBot applications")
+		return
+	}
+	dump, err := m.dumpExternalAppDatabase(r.Context(), record.Database)
+	m.operationMu.Unlock()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	name := dump.Name()
+	defer func() {
+		_ = dump.Close()
+		_ = os.Remove(name)
+	}()
+	info, err := dump.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "read database backup")
+		return
+	}
+	filename := fmt.Sprintf("mirzabot-%s-%s.sql", record.ID, time.Now().UTC().Format("20060102-150405"))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Header().Set("Content-Type", "application/sql")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, filename, info.ModTime(), dump)
+}
+
 func decodeMirzaInstallRequest(r *http.Request) (InstallRequest, error) {
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
 		var payload InstallRequest
@@ -1442,30 +1769,60 @@ func externalAppAPIPath(requestPath string) string {
 	return strings.Trim(strings.TrimPrefix(requestPath, "/api/settings/external-apps"), "/")
 }
 
-func (m *Manager) handleExternalAppArchiveInstall(w http.ResponseWriter, r *http.Request) {
+func decodeArchiveInstallRequest(r *http.Request) (ArchiveInstallRequest, error) {
 	if err := r.ParseMultipartForm(MaxRequestBodyBytes); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid multipart upload")
-		return
+		return ArchiveInstallRequest{}, errors.New("invalid multipart upload")
 	}
 	if r.MultipartForm != nil {
 		defer r.MultipartForm.RemoveAll()
 	}
+	request := ArchiveInstallRequest{
+		Domain:           r.FormValue("domain"),
+		Name:             r.FormValue("name"),
+		Runtime:          r.FormValue("runtime"),
+		Database:         r.FormValue("database"),
+		DatabaseUser:     r.FormValue("database_user"),
+		DatabasePassword: r.FormValue("database_password"),
+	}
+	if value := strings.TrimSpace(r.FormValue("create_database")); value != "" {
+		createDatabase, err := strconv.ParseBool(value)
+		if err != nil {
+			return ArchiveInstallRequest{}, errors.New("invalid database option")
+		}
+		request.CreateDatabase = createDatabase
+	}
 	file, _, err := r.FormFile("archive")
+	if errors.Is(err, http.ErrMissingFile) {
+		return request, nil
+	}
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "ZIP archive is required")
-		return
+		return ArchiveInstallRequest{}, errors.New("invalid ZIP archive upload")
 	}
 	defer file.Close()
-	if externalAppUsesCurrentPanelHost(r, r.FormValue("domain")) {
+	request.Archive, err = io.ReadAll(io.LimitReader(file, maxExternalAppArchiveBytes+1))
+	if err != nil {
+		return ArchiveInstallRequest{}, errors.New("read ZIP archive")
+	}
+	if len(request.Archive) == 0 {
+		return ArchiveInstallRequest{}, errors.New("ZIP archive is empty")
+	}
+	if len(request.Archive) > maxExternalAppArchiveBytes {
+		return ArchiveInstallRequest{}, errors.New("ZIP archive exceeds 32 MiB")
+	}
+	return request, nil
+}
+
+func (m *Manager) handleExternalAppArchiveInstall(w http.ResponseWriter, r *http.Request) {
+	request, err := decodeArchiveInstallRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if externalAppUsesCurrentPanelHost(r, request.Domain) {
 		writeError(w, http.StatusBadRequest, "the current panel hostname cannot be replaced by an application")
 		return
 	}
-	data, err := io.ReadAll(io.LimitReader(file, maxExternalAppArchiveBytes+1))
-	if err != nil || len(data) > maxExternalAppArchiveBytes {
-		writeError(w, http.StatusRequestEntityTooLarge, "ZIP archive exceeds 32 MiB")
-		return
-	}
-	record, err := m.installArchive(r.Context(), r.FormValue("domain"), r.FormValue("name"), data)
+	record, err := m.installArchive(r.Context(), request)
 	if err != nil {
 		writeExternalAppError(w, err)
 		return
@@ -1636,6 +1993,15 @@ func extractZIPArchive(data []byte, destination string, requireSingleRoot bool) 
 }
 
 func detectExternalAppRuntime(root string) (string, error) {
+	if data, err := os.ReadFile(filepath.Join(root, "package.json")); err == nil {
+		var manifest struct {
+			Scripts map[string]string `json:"scripts"`
+		}
+		if json.Unmarshal(data, &manifest) != nil || strings.TrimSpace(manifest.Scripts["start"]) == "" {
+			return "", errors.New("Node.js archive package.json must define a start script")
+		}
+		return "node", nil
+	}
 	runtime := "static"
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

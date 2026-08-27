@@ -20,12 +20,11 @@ import {
 	MenuList,
 	Modal,
 	ModalBody,
+	ModalCloseButton,
 	ModalContent,
 	ModalFooter,
 	ModalHeader,
-	ModalCloseButton,
 	ModalOverlay,
-	Progress,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -40,11 +39,13 @@ import {
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	ArrowPathIcon,
-	ArrowsRightLeftIcon,
 	ArrowUpTrayIcon,
 	ChevronDownIcon as HeroChevronDownIcon,
 	MagnifyingGlassIcon,
+	NoSymbolIcon,
 	PaperAirplaneIcon,
+	PlusIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { NumericInput } from "components/common/NumericInput";
 import { PanelInput as Input } from "components/common/PanelInput";
@@ -54,7 +55,6 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -63,6 +63,7 @@ import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { fetch as apiFetch } from "service/http";
 import {
+	type AdminSubscriptionUpdatePayload,
 	type AdminSubscriptionSettings,
 	deleteSubscriptionCertificate,
 	disablePHPMyAdmin,
@@ -72,7 +73,6 @@ import {
 	getPHPMyAdminStatus,
 	getRuntimeSettings,
 	getSubscriptionSettings,
-	getSubscriptionTemplateContent,
 	getTelegramSettings,
 	importSubscriptionCertificate,
 	issueSubscriptionCertificate,
@@ -83,36 +83,27 @@ import {
 	testTelegramSettings,
 	type SubscriptionCertificate,
 	type SubscriptionSettingsBundle,
-	type SubscriptionTemplateContentResponse,
 	type SubscriptionTemplateSettings,
 	type SubscriptionTemplateSettingsUpdatePayload,
 	type TelegramSettingsResponse,
 	type TelegramSettingsUpdatePayload,
-	updateAdminSubscriptionSettings,
-	updatePanelSettings,
-	updateRuntimeSettings,
+	type AllSettingsUpdatePayload,
+	updateAllSettings,
 	updateSubscriptionCertificateServing,
-	updateSubscriptionSettings,
-	updateSubscriptionTemplateContent,
-	updateTelegramSettings,
 	revokeSubscriptionCertificate,
 } from "service/settings";
 import {
 	generateErrorMessage,
 	generateSuccessMessage,
 } from "utils/toastHandler";
-import { getAPIWebSocketURL } from "utils/websocket";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
-import { JsonEditor } from "../components/JsonEditor";
-import { RebeccaBackupPanel } from "../components/RebeccaBackupPanel";
-import { SubscriptionTemplateCreator } from "../components/SubscriptionTemplateCreator";
 import {
-	XrayModalBody,
-	XrayModalContent,
-	XrayModalFooter,
-	XrayModalHeader,
-} from "../components/xray/XrayDialog";
-import { PageHeader, TabSystem } from "../components/ui";
+	DataTable,
+	ResourceListCard,
+	TabSystem,
+	type DataTableColumn,
+	type DataTableRowAction,
+} from "../components/ui";
 
 type EventToggleItem = {
 	key: string;
@@ -120,6 +111,10 @@ type EventToggleItem = {
 	defaultLabel: string;
 	hintKey: string;
 	defaultHint: string;
+};
+
+type RuntimeMaintenanceInfo = {
+	panel?: { mode?: string; install_mode?: string } | null;
 };
 
 type EventToggleGroup = {
@@ -163,91 +158,10 @@ const TelegramSwitchRow = ({
 );
 
 const TOGGLE_KEY_PLACEHOLDER = "__dot__";
-type TemplateKey =
-	| "clash_subscription_template"
-	| "clash_settings_template"
-	| "subscription_page_template"
-	| "home_page_template"
-	| "v2ray_subscription_template"
-	| "v2ray_settings_template"
-	| "happ_subscription_template"
-	| "incy_subscription_template"
-	| "singbox_subscription_template"
-	| "singbox_settings_template"
-	| "mux_template";
-
-const isLikelyJsonTemplate = (templateName: string, content: string) => {
-	const lower = templateName.toLowerCase();
-	if (lower.endsWith(".json") || lower.includes("json")) {
-		return true;
-	}
-	try {
-		JSON.parse(content);
-		return true;
-	} catch {
-		return false;
-	}
-};
-
 const encodeToggleKey = (key: string) =>
 	key.replace(/\./g, TOGGLE_KEY_PLACEHOLDER);
 const decodeToggleKey = (key: string) =>
 	key.replace(new RegExp(TOGGLE_KEY_PLACEHOLDER, "g"), ".");
-
-type UpdateStatus = {
-	current?: string | null;
-	channel?: string;
-	available?: boolean;
-	target?: string | null;
-	latest_release?: { tag?: string | null } | null;
-	latest_dev?: { tag?: string | null } | null;
-	error?: string | null;
-};
-
-type MaintenanceInfo = {
-	panel?: {
-		image?: string;
-		tag?: string;
-		mode?: string;
-		install_mode?: string;
-		channel?: string;
-		update?: UpdateStatus;
-	} | null;
-	node?: { image?: string; tag?: string } | null;
-	node_update?: UpdateStatus | null;
-};
-
-type MaintenanceAction = "update" | "restart" | "soft-reload";
-type UpdateChannel = "current" | "latest" | "dev";
-
-type MaintenanceOperation = {
-	id?: string;
-	action?: MaintenanceAction | string;
-	phase?: string;
-	message?: string;
-	progress?: number | null;
-	running?: boolean;
-	restarting?: boolean;
-	needs_reload?: boolean;
-	error?: string;
-	logs?: string[];
-	started_at?: number;
-	updated_at?: number;
-	finished_at?: number | null;
-};
-
-const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
-	Boolean(
-		operation?.restarting ||
-		operation?.needs_reload ||
-		operation?.phase === "restarting",
-	);
-
-type MaintenanceActionResponse = {
-	status?: string;
-	message?: string;
-	operation?: MaintenanceOperation;
-};
 
 const defaultRuntimeSettings: RuntimeSettingsResponse = {
 	dashboard_path: "/dashboard/",
@@ -748,19 +662,83 @@ const parseAdminChatIds = (value: string): number[] =>
 		.map((token) => Number(token))
 		.filter((token) => Number.isFinite(token));
 
-const ansiEscapePattern =
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: This removes ANSI terminal control sequences from node logs.
-	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
+const buildTelegramPayload = (
+	values: FormValues,
+): TelegramSettingsUpdatePayload => ({
+	api_token: values.api_token.trim() || null,
+	use_telegram: values.use_telegram,
+	proxy_url: values.proxy_url.trim() || null,
+	admin_chat_ids: parseAdminChatIds(values.admin_chat_ids),
+	logs_chat_id: values.logs_chat_id.trim()
+		? Number(values.logs_chat_id.trim())
+		: null,
+	logs_chat_is_forum: values.logs_chat_is_forum,
+	backup_chat_id: values.backup_chat_id.trim()
+		? Number(values.backup_chat_id.trim())
+		: null,
+	backup_chat_is_forum: values.backup_chat_is_forum,
+	default_vless_flow: values.default_vless_flow.trim() || null,
+	forum_topics: Object.fromEntries(
+		Object.entries(values.forum_topics || {}).map(([key, topic]) => [
+			key,
+			{
+				title: topic.title,
+				topic_id: topic.topic_id.trim()
+					? Number(topic.topic_id.trim())
+					: undefined,
+			},
+		]),
+	),
+	event_toggles: flattenEventToggleValues(values.event_toggles || {}),
+	backup_enabled: values.backup_enabled,
+	backup_scope: values.backup_scope,
+	backup_interval_value: Math.max(Number(values.backup_interval_value || 1), 1),
+	backup_interval_unit: values.backup_interval_unit,
+});
 
-const cleanTerminalOutput = (logs?: string[]) => {
-	const output = (logs || []).join("\n");
-	return output
-		.replace(ansiEscapePattern, "")
-		.replace(/\r(?!\n)/g, "\n")
-		// biome-ignore lint/suspicious/noControlCharactersInRegex: Backspace is removed from node log output.
-		.replace(/\u0008/g, "")
-		.trimEnd();
-};
+const buildSubscriptionPayload = (
+	values: SubscriptionFormValues,
+): SubscriptionTemplateSettingsUpdatePayload => ({
+	subscription_url_prefix: values.subscription_url_prefix ?? "",
+	subscription_profile_title: values.subscription_profile_title.trim(),
+	subscription_support_url: values.subscription_support_url.trim(),
+	subscription_update_interval: values.subscription_update_interval.trim(),
+	custom_templates_directory: values.custom_templates_directory?.trim() || null,
+	clash_subscription_template: values.clash_subscription_template.trim(),
+	clash_settings_template: values.clash_settings_template.trim(),
+	subscription_page_template: values.subscription_page_template.trim(),
+	home_page_template: values.home_page_template.trim(),
+	v2ray_subscription_template: values.v2ray_subscription_template.trim(),
+	v2ray_settings_template: values.v2ray_settings_template.trim(),
+	happ_subscription_template: values.happ_subscription_template.trim(),
+	incy_subscription_template: values.incy_subscription_template.trim(),
+	singbox_subscription_template: values.singbox_subscription_template.trim(),
+	singbox_settings_template: values.singbox_settings_template.trim(),
+	mux_template: values.mux_template.trim(),
+	use_custom_json_default: values.use_custom_json_default,
+	use_custom_json_for_v2rayn: values.use_custom_json_for_v2rayn,
+	use_custom_json_for_v2rayng: values.use_custom_json_for_v2rayng,
+	use_custom_json_for_streisand: values.use_custom_json_for_streisand,
+	use_custom_json_for_happ: values.use_custom_json_for_happ,
+	use_custom_json_for_incy: values.use_custom_json_for_incy,
+	subscription_path: values.subscription_path?.trim() || "sub",
+	subscription_aliases: (values.subscription_aliases_text || "")
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean),
+	subscription_ports: parseSubscriptionPortsInput(
+		values.subscription_ports_text || "",
+	),
+});
+
+const buildAdminSubscriptionPayload = (
+	admin: AdminSubscriptionSettings,
+): AdminSubscriptionUpdatePayload => ({
+	subscription_domain: admin.subscription_domain?.trim() || null,
+	subscription_settings: cleanOverridePayload(
+		admin.subscription_settings || {},
+	),
+});
 
 export const IntegrationSettingsPage = () => {
 	const { t } = useTranslation();
@@ -770,17 +748,17 @@ export const IntegrationSettingsPage = () => {
 	const subCardBg = useColorModeValue("gray.50", "whiteAlpha.100");
 	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
 	const fieldBg = useColorModeValue("white", "blackAlpha.200");
-	const maintenanceOutputBg = useColorModeValue("gray.50", "blackAlpha.400");
-	const maintenanceOutputBorder = useColorModeValue(
-		"gray.200",
-		"whiteAlpha.200",
-	);
 	const { userData, getUserIsSuccess } = useGetUser();
 	const isSudoOrFull =
 		userData?.role === "sudo" || userData?.role === "full_access";
 	const canManageIntegrations =
 		getUserIsSuccess &&
 		(isSudoOrFull || Boolean(userData.permissions?.sections.integrations));
+	const canReadMaintenance =
+		getUserIsSuccess &&
+		(userData.role === "full_access" ||
+			(userData.role === "sudo" &&
+				Boolean(userData.permissions?.sudo.maintenance)));
 	const queryClient = useQueryClient();
 
 	const { data, isLoading, refetch } = useQuery(
@@ -836,49 +814,17 @@ export const IntegrationSettingsPage = () => {
 		},
 	);
 
-	const maintenanceInfoQuery = useQuery<MaintenanceInfo>(
+	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>(
 		"maintenance-info",
-		() => apiFetch<MaintenanceInfo>("/maintenance/info"),
-		{ refetchOnWindowFocus: false, enabled: canManageIntegrations },
+		() => apiFetch<RuntimeMaintenanceInfo>("/maintenance/info"),
+		{ refetchOnWindowFocus: false, enabled: canReadMaintenance },
 	);
-
-	const [activeMaintenanceAction, setActiveMaintenanceAction] =
-		useState<MaintenanceAction | null>(null);
-	const panelInstallMode =
-		maintenanceInfoQuery.data?.panel?.mode ||
-		maintenanceInfoQuery.data?.panel?.install_mode ||
-		"docker";
-	const hostActionsAvailable = panelInstallMode === "binary";
-	const [selectedUpdateChannel, setSelectedUpdateChannel] =
-		useState<UpdateChannel>("current");
-	const panelUpdateInfo = maintenanceInfoQuery.data?.panel?.update;
-	const selectedUpdateTarget =
-		selectedUpdateChannel === "dev"
-			? panelUpdateInfo?.latest_dev?.tag
-			: selectedUpdateChannel === "latest"
-				? panelUpdateInfo?.latest_release?.tag
-				: panelUpdateInfo?.target;
-
-	useEffect(() => {
-		const channel = maintenanceInfoQuery.data?.panel?.channel;
-		if (channel === "dev" || channel === "latest") {
-			setSelectedUpdateChannel(channel);
-		}
-	}, [maintenanceInfoQuery.data?.panel?.channel]);
-
-	useEffect(() => {
-		if (!activeMaintenanceAction) {
-			return;
-		}
-		const timer = window.setTimeout(
-			() => setActiveMaintenanceAction(null),
-			15000,
-		);
-		return () => window.clearTimeout(timer);
-	}, [activeMaintenanceAction]);
+	const hostActionsAvailable =
+		(maintenanceInfoQuery.data?.panel?.mode ||
+			maintenanceInfoQuery.data?.panel?.install_mode) === "binary";
 
 	const [panelDefaultSubType, setPanelDefaultSubType] = useState<
-		"username-key" | "key" | "token"
+		"username-key" | "key" | "token" | "key-username"
 	>(panelData?.default_subscription_type ?? "key");
 	const [runtimeSettingsForm, setRuntimeSettingsForm] =
 		useState<RuntimeSettingsResponse>(defaultRuntimeSettings);
@@ -900,20 +846,9 @@ export const IntegrationSettingsPage = () => {
 	const [adminOverrides, setAdminOverrides] = useState<
 		Record<number, AdminSubscriptionSettings>
 	>({});
-	const [savingAdminId, setSavingAdminId] = useState<number | null>(null);
 	const [selectedAdminId, setSelectedAdminId] = useState<number | null>(null);
 	const [activeIntegrationTab, setActiveIntegrationTab] = useState<number>(0);
 	const [adminSearchTerm, setAdminSearchTerm] = useState<string>("");
-	const [templateDialog, setTemplateDialog] = useState<{
-		templateKey: TemplateKey;
-		adminId: number | null;
-	} | null>(null);
-	const [templateContent, setTemplateContent] = useState<string>("");
-	const [templateMeta, setTemplateMeta] =
-		useState<SubscriptionTemplateContentResponse | null>(null);
-	const [templateIsJson, setTemplateIsJson] = useState<boolean>(true);
-	const [templateLoading, setTemplateLoading] = useState<boolean>(false);
-	const [isDevUpdateConfirmOpen, setDevUpdateConfirmOpen] = useState(false);
 	const [isOpeningPHPMyAdminExternal, setOpeningPHPMyAdminExternal] =
 		useState(false);
 	const [certificateForm, setCertificateForm] = useState<{
@@ -929,20 +864,16 @@ export const IntegrationSettingsPage = () => {
 		fullchain: "",
 		privateKey: "",
 	});
+	const [isCertificateDialogOpen, setCertificateDialogOpen] = useState(false);
+	const [certificateSearch, setCertificateSearch] = useState("");
+	const [certificateFilter, setCertificateFilter] = useState<
+		"all" | "expiring_7d"
+	>("all");
 	const [renewingDomain, setRenewingDomain] = useState<string | null>(null);
 	const [certificateAction, setCertificateAction] = useState<{
 		type: "revoke" | "delete";
 		domain: string;
 	} | null>(null);
-	const [maintenanceOperation, setMaintenanceOperation] =
-		useState<MaintenanceOperation | null>(null);
-	const [isMaintenanceProgressOpen, setMaintenanceProgressOpen] =
-		useState(false);
-	const [maintenanceIsWaitingForAPI, setMaintenanceIsWaitingForAPI] =
-		useState(false);
-	const panelReturnPollRef = useRef<number | null>(null);
-	const panelReturnSawOfflineRef = useRef(false);
-
 	useEffect(() => {
 		if (subscriptionBundle?.admins) {
 			const next: Record<number, AdminSubscriptionSettings> = {};
@@ -967,212 +898,12 @@ export const IntegrationSettingsPage = () => {
 		}
 	}, [adminOverrides, selectedAdminId]);
 
-	const clearPanelReturnPolling = useCallback(() => {
-		if (panelReturnPollRef.current !== null) {
-			window.clearInterval(panelReturnPollRef.current);
-			panelReturnPollRef.current = null;
-		}
-	}, []);
-
-	const startPanelReturnPolling = useCallback(() => {
-		if (panelReturnPollRef.current !== null) {
-			return;
-		}
-		const startedAt = Date.now();
-		panelReturnSawOfflineRef.current = false;
-		setMaintenanceIsWaitingForAPI(true);
-		panelReturnPollRef.current = window.setInterval(async () => {
-			try {
-				await apiFetch<MaintenanceInfo>("/maintenance/info", {
-					timeout: 2500,
-				});
-				const waitedLongEnough = Date.now() - startedAt > 7000;
-				if (panelReturnSawOfflineRef.current || waitedLongEnough) {
-					clearPanelReturnPolling();
-					window.location.reload();
-				}
-			} catch {
-				panelReturnSawOfflineRef.current = true;
-			}
-		}, 2000);
-	}, [clearPanelReturnPolling]);
-
-	useEffect(() => {
-		return () => clearPanelReturnPolling();
-	}, [clearPanelReturnPolling]);
-
-	const triggerMaintenanceAction = async (
-		path:
-			| "/maintenance/update"
-			| "/maintenance/restart"
-			| "/maintenance/soft-reload",
-		body?: Record<string, unknown>,
-	): Promise<{ wentOffline: boolean; operation?: MaintenanceOperation }> => {
-		try {
-			const result = await apiFetch<MaintenanceActionResponse>(path, {
-				method: "POST",
-				body,
-				timeout: 3000,
-			});
-			return { wentOffline: false, operation: result.operation };
-		} catch (error: any) {
-			const isLikelyPanelOffline = !error?.response;
-			if (isLikelyPanelOffline) {
-				return { wentOffline: true };
-			}
-			throw error;
-		}
-	};
-
-	const handleMaintenanceSuccess = (
-		action: MaintenanceAction,
-		result: { wentOffline: boolean; operation?: MaintenanceOperation },
-	) => {
-		setActiveMaintenanceAction(action);
-		const operation = result.operation || {
-			action,
-			phase: result.wentOffline ? "restarting" : "queued",
-			message: result.wentOffline
-				? t("settings.panel.maintenanceWaitingForAPI")
-				: t("settings.panel.maintenanceQueued"),
-			restarting: result.wentOffline,
-			needs_reload: result.wentOffline,
-		};
-		setMaintenanceOperation(operation);
-		setMaintenanceProgressOpen(true);
-		let messageKey = "settings.panel.restartTriggered";
-		if (action === "update") {
-			messageKey = "settings.panel.updateTriggered";
-		} else if (action === "soft-reload") {
-			messageKey = "settings.panel.softReloadTriggered";
-		}
-		generateSuccessMessage(t(messageKey), toast);
-		if (result.wentOffline) {
-			toast({
-				title: t("settings.panel.maintenanceOfflineNotice"),
-				status: "info",
-				duration: 4000,
-				isClosable: true,
-				position: "top",
-			});
-		}
-		if (result.wentOffline || shouldWaitForPanelReturn(operation)) {
-			startPanelReturnPolling();
-		}
-		window.setTimeout(() => maintenanceInfoQuery.refetch(), 6000);
-	};
-
-	useEffect(() => {
-		const operationID = maintenanceOperation?.id;
-		if (
-			!isMaintenanceProgressOpen ||
-			!operationID ||
-			maintenanceIsWaitingForAPI
-		) {
-			return;
-		}
-		const url = getAPIWebSocketURL("/maintenance/status", { id: operationID });
-		if (!url) {
-			return;
-		}
-		let socket: WebSocket | null = null;
-		let reconnectTimer: number | null = null;
-		let disposed = false;
-		let receivedStatus = false;
-		let latestStatus: MaintenanceOperation | null = null;
-		const connect = () => {
-			socket = new WebSocket(url);
-			socket.onmessage = (event) => {
-				try {
-					const status = JSON.parse(event.data) as MaintenanceOperation;
-					if (status.id !== operationID) return;
-					receivedStatus = true;
-					latestStatus = status;
-					setMaintenanceOperation(status);
-					if (shouldWaitForPanelReturn(status)) {
-						startPanelReturnPolling();
-					}
-				} catch {}
-			};
-			socket.onclose = () => {
-				if (!disposed && (!receivedStatus || latestStatus?.running)) {
-					reconnectTimer = window.setTimeout(connect, 1000);
-				}
-			};
-		};
-		connect();
-		return () => {
-			disposed = true;
-			if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-			socket?.close();
-		};
-	}, [
-		isMaintenanceProgressOpen,
-		maintenanceIsWaitingForAPI,
-		maintenanceOperation?.id,
-		startPanelReturnPolling,
-	]);
-
-	const updateMutation = useMutation(
-		() =>
-			triggerMaintenanceAction("/maintenance/update", {
-				channel: selectedUpdateChannel,
-			}),
-		{
-			retry: false,
-			onMutate: () => setActiveMaintenanceAction("update"),
-			onSuccess: (result) => handleMaintenanceSuccess("update", result),
-			onError: (error) => {
-				setActiveMaintenanceAction(null);
-				generateErrorMessage(error, toast);
-			},
-		},
-	);
-
-	const handlePanelUpdateClick = () => {
-		if (selectedUpdateChannel === "dev") {
-			setDevUpdateConfirmOpen(true);
-			return;
-		}
-		updateMutation.mutate();
-	};
-
-	const confirmDevPanelUpdate = () => {
-		setDevUpdateConfirmOpen(false);
-		updateMutation.mutate();
-	};
-
-	const restartMutation = useMutation(
-		() => triggerMaintenanceAction("/maintenance/restart"),
-		{
-			retry: false,
-			onMutate: () => setActiveMaintenanceAction("restart"),
-			onSuccess: (result) => handleMaintenanceSuccess("restart", result),
-			onError: (error) => {
-				setActiveMaintenanceAction(null);
-				generateErrorMessage(error, toast);
-			},
-		},
-	);
-
-	const softReloadMutation = useMutation(
-		() => triggerMaintenanceAction("/maintenance/soft-reload"),
-		{
-			retry: false,
-			onMutate: () => setActiveMaintenanceAction("soft-reload"),
-			onSuccess: (result) => handleMaintenanceSuccess("soft-reload", result),
-			onError: (error) => {
-				setActiveMaintenanceAction(null);
-				generateErrorMessage(error, toast);
-			},
-		},
-	);
-
 	const {
 		register,
 		control,
-		handleSubmit,
+		getValues: getTelegramValues,
 		reset,
+		trigger: validateTelegram,
 		watch: watchTelegram,
 		formState: { isDirty },
 	} = useForm<FormValues>({
@@ -1208,9 +939,10 @@ export const IntegrationSettingsPage = () => {
 	const {
 		register: subscriptionRegister,
 		control: subscriptionControl,
-		handleSubmit: handleSubscriptionSubmit,
+		getValues: getSubscriptionValues,
 		reset: resetSubscription,
 		setValue: setSubscriptionValue,
+		trigger: validateSubscriptions,
 		watch: watchSubscription,
 		formState: { isDirty: isSubscriptionDirty },
 	} = useForm<SubscriptionFormValues>({
@@ -1230,13 +962,7 @@ export const IntegrationSettingsPage = () => {
 	);
 
 	const integrationTabKeys = useMemo(
-		() => [
-			"panel",
-			"backup",
-			"telegram",
-			"subscriptions",
-			"template-creator",
-		],
+		() => ["panel", "telegram", "subscriptions", "ssl"],
 		[],
 	);
 	const readSettingsHash = useCallback(() => {
@@ -1278,7 +1004,7 @@ export const IntegrationSettingsPage = () => {
 	useEffect(() => {
 		const { focus, tab } = getFocusFromHash();
 		if (
-			activeIntegrationTab !== 2 ||
+			activeIntegrationTab !== 1 ||
 			tab.toLowerCase() !== "telegram" ||
 			focus !== "periodic-backup" ||
 			(isLoading && !data)
@@ -1293,21 +1019,62 @@ export const IntegrationSettingsPage = () => {
 		return () => window.clearTimeout(timer);
 	}, [activeIntegrationTab, data, getFocusFromHash, isLoading]);
 
-	const mutation = useMutation(updateTelegramSettings, {
+	const saveAllMutation = useMutation(updateAllSettings, {
 		onSuccess: (updated) => {
-			reset(buildDefaultValues(updated));
-			queryClient.setQueryData("telegram-settings", updated);
+			if (updated.telegram) {
+				reset(buildDefaultValues(updated.telegram));
+				queryClient.setQueryData("telegram-settings", updated.telegram);
+			}
+			if (updated.panel) {
+				setPanelDefaultSubType(
+					updated.panel.default_subscription_type ?? "key",
+				);
+				queryClient.setQueryData("panel-settings", updated.panel);
+			}
+			if (updated.runtime) {
+				setRuntimeSettingsForm(updated.runtime);
+				queryClient.setQueryData("runtime-settings", updated.runtime);
+			}
+			if (updated.subscriptions) {
+				resetSubscription(buildSubscriptionDefaults(updated.subscriptions));
+				queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
+					"subscription-settings",
+					(prev) =>
+						prev ? { ...prev, settings: updated.subscriptions! } : prev,
+				);
+			}
+			if (updated.subscription_admins?.length) {
+				setAdminOverrides((prev) => {
+					const next = { ...prev };
+					updated.subscription_admins?.forEach((admin) => {
+						next[admin.id] = admin;
+					});
+					return next;
+				});
+				queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
+					"subscription-settings",
+					(prev) =>
+						prev
+							? {
+									...prev,
+									admins: prev.admins.map(
+										(admin) =>
+											updated.subscription_admins?.find(
+												(saved) => saved.id === admin.id,
+											) ?? admin,
+									),
+								}
+							: prev,
+				);
+			}
 			toast({
 				title: t("settings.savedSuccess"),
 				status: "success",
 				duration: 3000,
 			});
 		},
-		onError: () => {
-			toast({
-				title: t("errors.generic"),
-				status: "error",
-			});
+		onError: (error) => {
+			generateErrorMessage(error, toast);
 		},
 	});
 
@@ -1342,39 +1109,6 @@ export const IntegrationSettingsPage = () => {
 		},
 	});
 
-	const panelMutation = useMutation(updatePanelSettings, {
-		onSuccess: (updated) => {
-			setPanelDefaultSubType(updated.default_subscription_type ?? "key");
-			queryClient.setQueryData("panel-settings", updated);
-			toast({
-				title: t("settings.panel.saved"),
-				status: "success",
-				duration: 3000,
-			});
-		},
-		onError: () => {
-			toast({
-				title: t("errors.generic"),
-				status: "error",
-			});
-		},
-	});
-
-	const runtimeSettingsMutation = useMutation(updateRuntimeSettings, {
-		onSuccess: (updated) => {
-			setRuntimeSettingsForm(updated);
-			queryClient.setQueryData("runtime-settings", updated);
-			toast({
-				title: t("settings.runtime.saved"),
-				status: "success",
-				duration: 3000,
-			});
-		},
-		onError: (error) => {
-			generateErrorMessage(error, toast);
-		},
-	});
-
 	const phpMyAdminEnableMutation = useMutation(
 		() =>
 			enablePHPMyAdmin({
@@ -1392,10 +1126,7 @@ export const IntegrationSettingsPage = () => {
 				}));
 				void refetchRuntimeSettings();
 				void refetchPHPMyAdminStatus();
-				generateSuccessMessage(
-					t("phpmyadmin.enabled"),
-					toast,
-				);
+				generateSuccessMessage(t("phpmyadmin.enabled"), toast);
 			},
 			onError: (error) => {
 				generateErrorMessage(error, toast);
@@ -1411,10 +1142,7 @@ export const IntegrationSettingsPage = () => {
 			}));
 			void refetchRuntimeSettings();
 			void refetchPHPMyAdminStatus();
-			generateSuccessMessage(
-				t("phpmyadmin.disabled"),
-				toast,
-			);
+			generateSuccessMessage(t("phpmyadmin.disabled"), toast);
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1427,101 +1155,17 @@ export const IntegrationSettingsPage = () => {
 			await getPHPMyAdminEmbedHTML(
 				colorMode === "dark" ? "blueberry" : undefined,
 			);
-			window.open("/api/settings/phpmyadmin/embed/index.php", "_blank", "noopener");
+			window.open(
+				"/api/settings/phpmyadmin/embed/index.php",
+				"_blank",
+				"noopener",
+			);
 		} catch (error) {
 			generateErrorMessage(error, toast);
 		} finally {
 			setOpeningPHPMyAdminExternal(false);
 		}
 	};
-
-	const subscriptionSettingsMutation = useMutation(updateSubscriptionSettings, {
-		onSuccess: (updated) => {
-			resetSubscription(buildSubscriptionDefaults(updated));
-			queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
-				"subscription-settings",
-				(prev) =>
-					prev
-						? { ...prev, settings: updated }
-						: {
-								settings: updated,
-								admins: [],
-								certificates: [],
-							},
-			);
-			toast({
-				title: t("settings.subscriptions.saved"),
-				status: "success",
-				duration: 3000,
-			});
-		},
-		onError: (error) => {
-			generateErrorMessage(error, toast);
-		},
-	});
-
-	const adminSubscriptionMutation = useMutation(
-		(payload: { id: number; data: any }) =>
-			updateAdminSubscriptionSettings(payload.id, payload.data),
-		{
-			onMutate: ({ id }) => setSavingAdminId(id),
-			onSuccess: (updated) => {
-				setAdminOverrides((prev) => ({
-					...prev,
-					[updated.id]: {
-						...updated,
-						subscription_settings: updated.subscription_settings || {},
-					},
-				}));
-				queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
-					"subscription-settings",
-					(prev) =>
-						prev
-							? {
-									...prev,
-									admins: prev.admins.map((admin) =>
-										admin.id === updated.id ? updated : admin,
-									),
-								}
-							: prev,
-				);
-				toast({
-					title: t("settings.subscriptions.adminSaved"),
-					status: "success",
-					duration: 2500,
-				});
-			},
-			onError: (error) => {
-				generateErrorMessage(error, toast);
-			},
-			onSettled: () => setSavingAdminId(null),
-		},
-	);
-
-	const templateContentMutation = useMutation(
-		(payload: {
-			templateKey: TemplateKey;
-			content: string;
-			adminId: number | null;
-		}) =>
-			updateSubscriptionTemplateContent(payload.templateKey, {
-				content: payload.content,
-				admin_id: payload.adminId ?? undefined,
-			}),
-		{
-			onSuccess: (updated) => {
-				setTemplateMeta(updated);
-				setTemplateContent(updated.content || "");
-				generateSuccessMessage(
-					t("settings.subscriptions.templateSaved"),
-					toast,
-				);
-			},
-			onError: (error) => {
-				generateErrorMessage(error, toast);
-			},
-		},
-	);
 
 	const updateCertificateCache = (cert: SubscriptionCertificate) => {
 		queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
@@ -1544,6 +1188,7 @@ export const IntegrationSettingsPage = () => {
 	const issueCertificateMutation = useMutation(issueSubscriptionCertificate, {
 		onSuccess: (cert) => {
 			updateCertificateCache(cert);
+			setCertificateDialogOpen(false);
 			setCertificateForm((prev) => ({
 				...prev,
 				domains: "",
@@ -1561,6 +1206,7 @@ export const IntegrationSettingsPage = () => {
 	const importCertificateMutation = useMutation(importSubscriptionCertificate, {
 		onSuccess: (cert) => {
 			updateCertificateCache(cert);
+			setCertificateDialogOpen(false);
 			setCertificateForm((prev) => ({
 				...prev,
 				domains: "",
@@ -1652,88 +1298,6 @@ export const IntegrationSettingsPage = () => {
 		},
 	);
 
-	const onSubmit = (values: FormValues) => {
-		const flattenedEventToggles = flattenEventToggleValues(
-			values.event_toggles || {},
-		);
-
-		const payload: TelegramSettingsUpdatePayload = {
-			api_token: values.api_token.trim() || null,
-			use_telegram: values.use_telegram,
-			proxy_url: values.proxy_url.trim() || null,
-			admin_chat_ids: parseAdminChatIds(values.admin_chat_ids),
-			logs_chat_id: values.logs_chat_id.trim()
-				? Number(values.logs_chat_id.trim())
-				: null,
-			logs_chat_is_forum: values.logs_chat_is_forum,
-			backup_chat_id: values.backup_chat_id.trim()
-				? Number(values.backup_chat_id.trim())
-				: null,
-			backup_chat_is_forum: values.backup_chat_is_forum,
-			default_vless_flow: values.default_vless_flow.trim() || null,
-			forum_topics: Object.fromEntries(
-				Object.entries(values.forum_topics || {}).map(([key, topic]) => [
-					key,
-					{
-						title: topic.title,
-						topic_id: topic.topic_id.trim()
-							? Number(topic.topic_id.trim())
-							: undefined,
-					},
-				]),
-			),
-			event_toggles: flattenedEventToggles,
-			backup_enabled: values.backup_enabled,
-			backup_scope: values.backup_scope,
-			backup_interval_value: Math.max(
-				Number(values.backup_interval_value || 1),
-				1,
-			),
-			backup_interval_unit: values.backup_interval_unit,
-		};
-		mutation.mutate(payload);
-	};
-
-	const onSubmitSubscriptionSettings = (values: SubscriptionFormValues) => {
-		const aliases = (values.subscription_aliases_text || "")
-			.split(/\r?\n/)
-			.map((line) => line.trim())
-			.filter(Boolean);
-		const ports = parseSubscriptionPortsInput(
-			values.subscription_ports_text || "",
-		);
-		const payload: SubscriptionTemplateSettingsUpdatePayload = {
-			subscription_url_prefix: values.subscription_url_prefix ?? "",
-			subscription_profile_title: values.subscription_profile_title.trim(),
-			subscription_support_url: values.subscription_support_url.trim(),
-			subscription_update_interval: values.subscription_update_interval.trim(),
-			custom_templates_directory:
-				values.custom_templates_directory?.trim() || null,
-			clash_subscription_template: values.clash_subscription_template.trim(),
-			clash_settings_template: values.clash_settings_template.trim(),
-			subscription_page_template: values.subscription_page_template.trim(),
-			home_page_template: values.home_page_template.trim(),
-			v2ray_subscription_template: values.v2ray_subscription_template.trim(),
-			v2ray_settings_template: values.v2ray_settings_template.trim(),
-			happ_subscription_template: values.happ_subscription_template.trim(),
-			incy_subscription_template: values.incy_subscription_template.trim(),
-			singbox_subscription_template:
-				values.singbox_subscription_template.trim(),
-			singbox_settings_template: values.singbox_settings_template.trim(),
-			mux_template: values.mux_template.trim(),
-			use_custom_json_default: values.use_custom_json_default,
-			use_custom_json_for_v2rayn: values.use_custom_json_for_v2rayn,
-			use_custom_json_for_v2rayng: values.use_custom_json_for_v2rayng,
-			use_custom_json_for_streisand: values.use_custom_json_for_streisand,
-			use_custom_json_for_happ: values.use_custom_json_for_happ,
-			use_custom_json_for_incy: values.use_custom_json_for_incy,
-			subscription_path: values.subscription_path?.trim() || "sub",
-			subscription_aliases: aliases,
-			subscription_ports: ports,
-		};
-		subscriptionSettingsMutation.mutate(payload);
-	};
-
 	const handleAdminFieldChange = (
 		adminId: number,
 		field: keyof AdminSubscriptionSettings,
@@ -1787,51 +1351,6 @@ export const IntegrationSettingsPage = () => {
 		}));
 	};
 
-	const handleAdminSave = (adminId: number) => {
-		const admin = adminOverrides[adminId];
-		if (!admin) {
-			return;
-		}
-		const payload = {
-			subscription_domain: admin.subscription_domain?.trim() || null,
-			subscription_settings: cleanOverridePayload(
-				admin.subscription_settings || {},
-			),
-		};
-		adminSubscriptionMutation.mutate({ id: adminId, data: payload });
-	};
-
-	const openTemplateEditor = async (
-		templateKey: TemplateKey,
-		adminId: number | null,
-	) => {
-		setTemplateDialog({ templateKey, adminId });
-		setTemplateLoading(true);
-		try {
-			const data = await getSubscriptionTemplateContent(
-				templateKey,
-				adminId ?? undefined,
-			);
-			setTemplateMeta(data);
-			setTemplateContent(data.content || "");
-			setTemplateIsJson(
-				isLikelyJsonTemplate(data.template_name || "", data.content || ""),
-			);
-		} catch (error) {
-			setTemplateDialog(null);
-			generateErrorMessage(error, toast);
-		} finally {
-			setTemplateLoading(false);
-		}
-	};
-
-	const closeTemplateEditor = () => {
-		setTemplateDialog(null);
-		setTemplateMeta(null);
-		setTemplateContent("");
-		setTemplateIsJson(true);
-	};
-
 	const handleIntegrationTabChange = (index: number) => {
 		setActiveIntegrationTab(index);
 		const key = integrationTabKeys[index] || "";
@@ -1840,6 +1359,7 @@ export const IntegrationSettingsPage = () => {
 			"",
 			`${window.location.pathname}${window.location.search}${key ? `#${key}` : ""}`,
 		);
+		window.dispatchEvent(new Event("hashchange"));
 	};
 
 	const adminOptions = Object.values(adminOverrides);
@@ -1854,13 +1374,62 @@ export const IntegrationSettingsPage = () => {
 					);
 				});
 
-	const handleTemplateSave = () => {
-		if (!templateDialog) return;
-		templateContentMutation.mutate({
-			templateKey: templateDialog.templateKey,
-			content: templateContent,
-			adminId: templateDialog.adminId,
-		});
+	const runtimeDirty = Boolean(
+		runtimeSettings &&
+			JSON.stringify(runtimeSettingsForm) !== JSON.stringify(runtimeSettings),
+	);
+	const panelDirty = Boolean(
+		panelData && panelDefaultSubType !== panelData.default_subscription_type,
+	);
+	const dirtyAdminUpdates = useMemo(
+		() =>
+			Object.values(adminOverrides).flatMap((admin) => {
+				const original = subscriptionBundle?.admins.find(
+					(item) => item.id === admin.id,
+				);
+				if (
+					!original ||
+					JSON.stringify(buildAdminSubscriptionPayload(admin)) ===
+						JSON.stringify(buildAdminSubscriptionPayload(original))
+				) {
+					return [];
+				}
+				return [
+					{
+						id: admin.id,
+						settings: buildAdminSubscriptionPayload(admin),
+					},
+				];
+			}),
+		[adminOverrides, subscriptionBundle?.admins],
+	);
+	const hasUnsavedChanges =
+		runtimeDirty ||
+		panelDirty ||
+		isDirty ||
+		isSubscriptionDirty ||
+		dirtyAdminUpdates.length > 0;
+
+	const handleSaveAll = async () => {
+		const [telegramValid, subscriptionsValid] = await Promise.all([
+			isDirty ? validateTelegram() : true,
+			isSubscriptionDirty ? validateSubscriptions() : true,
+		]);
+		if (!telegramValid || !subscriptionsValid) return;
+
+		const payload: AllSettingsUpdatePayload = {};
+		if (panelDirty) {
+			payload.panel = { default_subscription_type: panelDefaultSubType };
+		}
+		if (runtimeDirty) payload.runtime = runtimeSettingsForm;
+		if (isDirty) payload.telegram = buildTelegramPayload(getTelegramValues());
+		if (isSubscriptionDirty) {
+			payload.subscriptions = buildSubscriptionPayload(getSubscriptionValues());
+		}
+		if (dirtyAdminUpdates.length) {
+			payload.subscription_admins = dirtyAdminUpdates;
+		}
+		saveAllMutation.mutate(payload);
 	};
 
 	const handleIssueCertificate = () => {
@@ -1920,6 +1489,286 @@ export const IntegrationSettingsPage = () => {
 	const telegramBackupScope = watchTelegram("backup_scope");
 	const telegramDisabledMessage = t("settings.telegram.disabledOverlay");
 	const telegramBackupDisabledMessage = t("settings.telegram.backupBinaryOnly");
+	const certificates = subscriptionBundle?.certificates ?? [];
+	const filteredCertificates = useMemo(() => {
+		const query = certificateSearch.trim().toLowerCase();
+		const now = Date.now();
+		const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000;
+
+		return certificates.filter((certificate) => {
+			const matchesSearch =
+				!query ||
+				[
+					certificate.domain,
+					...(certificate.alt_names || []),
+					certificate.provider || "",
+					certificate.status || "",
+				].some((value) => value.toLowerCase().includes(query));
+			if (!matchesSearch || certificateFilter === "all") {
+				return matchesSearch;
+			}
+
+			const expiresAt = certificate.not_after
+				? new Date(certificate.not_after).getTime()
+				: Number.NaN;
+			return expiresAt >= now && expiresAt <= sevenDaysFromNow;
+		});
+	}, [certificateFilter, certificateSearch, certificates]);
+	const certificateColumns = useMemo<
+		DataTableColumn<SubscriptionCertificate>[]
+	>(
+		() => [
+			{
+				id: "domain",
+				header: t("settings.subscriptions.domain"),
+				isPrimary: true,
+				priority: "primary",
+				mobilePriority: 0,
+				cell: (certificate) => (
+					<Stack spacing={0} minW={0} align="start">
+						<Text fontWeight="semibold" dir="ltr" noOfLines={1}>
+							{certificate.domain}
+						</Text>
+						{certificate.alt_names?.length ? (
+							<Text
+								fontSize="xs"
+								color="panel.textMuted"
+								dir="ltr"
+								noOfLines={1}
+							>
+								SAN: {certificate.alt_names.join(", ")}
+							</Text>
+						) : null}
+					</Stack>
+				),
+			},
+			{
+				id: "status",
+				header: t("status"),
+				priority: "high",
+				mobilePriority: 1,
+				mobileMetaLabel: t("status"),
+				cell: (certificate) => (
+					<HStack spacing={1.5} flexWrap="wrap">
+						<Badge
+							colorScheme={
+								certificate.status === "active"
+									? "green"
+									: certificate.status === "expiring"
+										? "orange"
+										: "red"
+							}
+						>
+							{certificate.status}
+						</Badge>
+						<Badge colorScheme="blue">
+							{certificate.provider || "unknown"}
+						</Badge>
+					</HStack>
+				),
+			},
+			{
+				id: "expires",
+				header: t("settings.subscriptions.expiresAt"),
+				priority: "high",
+				mobilePriority: 2,
+				mobileMetaLabel: t("settings.subscriptions.expiresAt"),
+				cell: (certificate) => (
+					<Text fontSize="sm">
+						{certificate.not_after
+							? new Date(certificate.not_after).toLocaleString()
+							: t("settings.subscriptions.never")}
+					</Text>
+				),
+			},
+			{
+				id: "updated",
+				header: t("settings.subscriptions.lastRenewed"),
+				priority: "low",
+				hideBelow: "xl",
+				mobileMetaLabel: t("settings.subscriptions.lastRenewed"),
+				cell: (certificate) => (
+					<Stack spacing={0}>
+						<Text fontSize="sm">
+							{certificate.last_renewed_at
+								? new Date(certificate.last_renewed_at).toLocaleString()
+								: t("settings.subscriptions.never")}
+						</Text>
+						<Text fontSize="xs" color="panel.textMuted">
+							{t("settings.subscriptions.lastIssued")}:{" "}
+							{certificate.last_issued_at
+								? new Date(certificate.last_issued_at).toLocaleString()
+								: t("settings.subscriptions.never")}
+						</Text>
+					</Stack>
+				),
+			},
+			{
+				id: "serving",
+				header: t("settings.subscriptions.serveTLS"),
+				priority: "high",
+				mobilePriority: 3,
+				mobileMetaLabel: t("settings.subscriptions.serveTLS"),
+				cell: (certificate) => (
+					<HStack spacing={2}>
+						<Switch
+							aria-label={t("settings.subscriptions.serveTLS")}
+							isChecked={certificate.serve_tls !== false}
+							isDisabled={
+								certificateServingMutation.isLoading ||
+								(certificate.serve_tls === false &&
+									certificate.status !== "active" &&
+									certificate.status !== "expiring")
+							}
+							onChange={(event) =>
+								certificateServingMutation.mutate({
+									domain: certificate.domain,
+									enabled: event.target.checked,
+								})
+							}
+						/>
+						{certificate.auto_renew ? (
+							<Badge colorScheme="teal">
+								{t("settings.subscriptions.autoRenew")}
+							</Badge>
+						) : null}
+					</HStack>
+				),
+			},
+		],
+		[certificateServingMutation, t],
+	);
+	const certificateRowActions = (
+		certificate: SubscriptionCertificate,
+	): DataTableRowAction<SubscriptionCertificate>[] => {
+		const actions: DataTableRowAction<SubscriptionCertificate>[] = [];
+		if (certificate.auto_renew && certificate.status !== "revoked") {
+			actions.push({
+				id: "renew",
+				label: t("settings.subscriptions.renewAction"),
+				icon: <ArrowPathIcon width={16} height={16} />,
+				onClick: () => handleRenewCertificate(certificate.domain),
+				isDisabled:
+					renewCertificateMutation.isLoading &&
+					renewingDomain === certificate.domain,
+			});
+		}
+		if (certificate.provider !== "manual" && certificate.status !== "revoked") {
+			actions.push({
+				id: "revoke",
+				label: t("settings.subscriptions.revokeAction"),
+				icon: <NoSymbolIcon width={16} height={16} />,
+				onClick: () =>
+					setCertificateAction({ type: "revoke", domain: certificate.domain }),
+				isDanger: true,
+			});
+		}
+		actions.push({
+			id: "delete",
+			label: t("delete"),
+			icon: <TrashIcon width={16} height={16} />,
+			onClick: () =>
+				setCertificateAction({ type: "delete", domain: certificate.domain }),
+			isDanger: true,
+		});
+		return actions;
+	};
+	const isCertificateMutationLoading =
+		issueCertificateMutation.isLoading || importCertificateMutation.isLoading;
+	const certificateManager = (
+		<Stack spacing={3}>
+			<ResourceListCard
+				title={
+					<Box>
+						<Heading size="sm" mb={1}>
+							{t("settings.subscriptions.certificateTitle")}
+						</Heading>
+						<Text fontSize="sm" color="panel.textMuted">
+							{t("settings.subscriptions.certificateDescription")}
+						</Text>
+					</Box>
+				}
+				summaryItems={[
+					{ label: t("total"), value: certificates.length },
+					{
+						label: t("active"),
+						value: certificates.filter(
+							(certificate) => certificate.status === "active",
+						).length,
+						colorScheme: "green",
+					},
+					{
+						label: t("settings.subscriptions.serveTLS"),
+						value: certificates.filter(
+							(certificate) => certificate.serve_tls !== false,
+						).length,
+						colorScheme: "blue",
+					},
+				]}
+				actions={
+					<Button
+						colorScheme="primary"
+						leftIcon={<PlusIcon width={16} height={16} />}
+						onClick={() => setCertificateDialogOpen(true)}
+					>
+						{t("settings.subscriptions.getNewSSL")}
+					</Button>
+				}
+			>
+				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+					<InputGroup>
+						<InputLeftElement pointerEvents="none">
+							<SearchIcon />
+						</InputLeftElement>
+						<Input
+							ps={10}
+							value={certificateSearch}
+							onChange={(event) => setCertificateSearch(event.target.value)}
+							placeholder={t(
+								"settings.subscriptions.searchCertificates",
+							)}
+						/>
+					</InputGroup>
+					<Select
+						showSearch={false}
+						value={certificateFilter}
+						onChange={(event) =>
+							setCertificateFilter(
+								event.target.value as "all" | "expiring_7d",
+							)
+						}
+					>
+						<option value="all">
+							{t("settings.subscriptions.allCertificates")}
+						</option>
+						<option value="expiring_7d">
+							{t("settings.subscriptions.expiringInSevenDays")}
+						</option>
+					</Select>
+				</SimpleGrid>
+			</ResourceListCard>
+			<DataTable
+					ariaLabel={t("settings.subscriptions.certificateList")}
+					data={filteredCertificates}
+					columns={certificateColumns}
+					getRowId={(certificate) => certificate.domain}
+					isLoading={isSubscriptionLoading}
+					emptyState={
+						<Text color="panel.textMuted">
+							{certificateSearch || certificateFilter !== "all"
+								? t("settings.subscriptions.noMatchingCertificates")
+								: t("settings.subscriptions.noCertificates")}
+						</Text>
+					}
+					rowActions={certificateRowActions}
+					actionsDisplay="menu"
+					actionsPlacement="end"
+					actionsColumnWidth="60px"
+					showActionsOnHover
+					mobileBreakpoint="md"
+			/>
+		</Stack>
+	);
 
 	if (!getUserIsSuccess) {
 		return (
@@ -1949,17 +1798,17 @@ export const IntegrationSettingsPage = () => {
 					bg: cardBg,
 					border: "1px solid",
 					borderColor,
-					borderRadius: "6px",
-					p: { base: 3, md: 4 },
-					boxShadow: "none",
+					borderRadius: "2xl",
+					p: { base: 4, md: 5 },
+					boxShadow: "sm",
 					overflow: "hidden",
 				},
 				".master-settings-subcard": {
 					bg: subCardBg,
 					border: "1px solid",
 					borderColor,
-					borderRadius: "6px",
-					p: { base: 3, md: 3 },
+					borderRadius: "xl",
+					p: { base: 3, md: 4 },
 				},
 				".master-settings-action-row": {
 					display: "flex",
@@ -1977,7 +1826,7 @@ export const IntegrationSettingsPage = () => {
 					bg: "var(--telegram-row-bg)",
 					border: "1px solid",
 					borderColor,
-					borderRadius: "6px",
+					borderRadius: "xl",
 					px: { base: 2.5, md: 3 },
 					py: { base: 2.5, md: 3 },
 					minH: "56px",
@@ -2003,7 +1852,7 @@ export const IntegrationSettingsPage = () => {
 				".master-settings-card input, .master-settings-card select, .master-settings-card textarea, .master-settings-subcard input, .master-settings-subcard select, .master-settings-subcard textarea":
 					{
 						bg: fieldBg,
-						borderRadius: "4px",
+						borderRadius: "lg",
 						fontSize: "13px",
 					},
 				".master-settings-card .chakra-form__label, .master-settings-subcard .chakra-form__label":
@@ -2034,3020 +1883,2224 @@ export const IntegrationSettingsPage = () => {
 				},
 			}}
 		>
-			<PageHeader title={t("settings.integrations")} mb={4} />
-			<TabSystem
-				className="master-settings-tabs"
-				overflowX="auto"
-				overflowY="hidden"
-				maxW="full"
-				sx={{
-					WebkitOverflowScrolling: "touch",
-					scrollbarWidth: "none",
-					"&::-webkit-scrollbar": { display: "none" },
-					button: { flexShrink: 0 },
-				}}
-				tabs={[
-					{
-						value: "panel",
-						isActive: activeIntegrationTab === 0,
-						onClick: () => handleIntegrationTabChange(0),
-						label: t("settings.panel.tabTitle"),
-					},
-					{
-						value: "backup",
-						isActive: activeIntegrationTab === 1,
-						onClick: () => handleIntegrationTabChange(1),
-						label: t("settings.backup.tabTitle"),
-					},
-					{
-						value: "telegram",
-						isActive: activeIntegrationTab === 2,
-						onClick: () => handleIntegrationTabChange(2),
-						label: t("settings.telegram"),
-					},
-					{
-						value: "subscriptions",
-						isActive: activeIntegrationTab === 3,
-						onClick: () => handleIntegrationTabChange(3),
-						label: t("settings.subscriptions.tabTitle"),
-					},
-					{
-						value: "template-creator",
-						isActive: activeIntegrationTab === 4,
-						onClick: () => handleIntegrationTabChange(4),
-						label: t("settings.templates.tabTitle"),
-					},
-				]}
-			/>
+			<Flex
+				align={{ base: "stretch", md: "center" }}
+				justify="space-between"
+				flexDirection={{ base: "column", md: "row" }}
+				gap={3}
+			>
+				<TabSystem
+					className="master-settings-tabs"
+					overflowX="auto"
+					overflowY="hidden"
+					maxW="full"
+					flex="1"
+					sx={{
+						WebkitOverflowScrolling: "touch",
+						scrollbarWidth: "none",
+						"&::-webkit-scrollbar": { display: "none" },
+						button: { flexShrink: 0 },
+					}}
+					tabs={[
+						{
+							value: "panel",
+							isActive: activeIntegrationTab === 0,
+							onClick: () => handleIntegrationTabChange(0),
+							label: t("settings.panel.tabTitle"),
+						},
+						{
+							value: "telegram",
+							isActive: activeIntegrationTab === 1,
+							onClick: () => handleIntegrationTabChange(1),
+							label: t("settings.telegram"),
+						},
+						{
+							value: "subscriptions",
+							isActive: activeIntegrationTab === 2,
+							onClick: () => handleIntegrationTabChange(2),
+							label: t("settings.subscriptions.tabTitle"),
+						},
+						{
+							value: "ssl",
+							isActive: activeIntegrationTab === 3,
+							onClick: () => handleIntegrationTabChange(3),
+							label: t("settings.ssl.tabTitle"),
+						},
+					]}
+				/>
+				<Button
+					flexShrink={0}
+					alignSelf={{ base: "flex-end", md: "center" }}
+					colorScheme="primary"
+					leftIcon={<SaveIcon />}
+					onClick={handleSaveAll}
+					isLoading={saveAllMutation.isLoading}
+					isDisabled={!hasUnsavedChanges || saveAllMutation.isLoading}
+				>
+					{t("settings.save")}
+				</Button>
+			</Flex>
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
 				display={activeIntegrationTab === 0 ? "block" : "none"}
 			>
-						{isPanelLoading && panelData === undefined ? (
-							<Flex align="center" justify="center" py={12}>
-								<Spinner size="lg" />
-							</Flex>
-						) : (
-							<Stack spacing={6} align="stretch">
-								<Box className="master-settings-card">
-									<Flex
-										justify="space-between"
-										align={{ base: "flex-start", md: "center" }}
-										gap={4}
-										flexDirection={{ base: "column", md: "row" }}
-									>
-										<Box>
-											<Heading size="sm" mb={1}>
-												{t("settings.panel.defaultSubscriptionType")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500">
-												{t("settings.panel.defaultSubscriptionTypeDescription")}
-											</Text>
-										</Box>
-										<FormControl maxW={{ base: "full", md: "240px" }}>
-											<FormLabel fontSize="sm" mb={1}>
-												{t("settings.panel.defaultSubscriptionTypeLabel")}
-											</FormLabel>
-											<Select
-												size="sm"
-												value={panelDefaultSubType}
-												onChange={(event) =>
-													setPanelDefaultSubType(
-														event.target.value as
-															| "username-key"
-															| "key"
-															| "token",
-													)
-												}
-												isDisabled={panelMutation.isLoading || isPanelLoading}
-											>
-												<option value="username-key">
-													{t("settings.panel.link.usernameKey")}
-												</option>
-												<option value="key">
-													{t("settings.panel.link.keyOnly")}
-												</option>
-												<option value="token">
-													{t("settings.panel.link.token")}
-												</option>
-											</Select>
-										</FormControl>
-									</Flex>
+				{isPanelLoading && panelData === undefined ? (
+					<Flex align="center" justify="center" py={12}>
+						<Spinner size="lg" />
+					</Flex>
+				) : (
+					<Stack spacing={6} align="stretch">
+						<Box className="master-settings-card" borderRadius="2xl">
+							<Flex
+								justify="space-between"
+								align={{ base: "flex-start", md: "center" }}
+								gap={4}
+								flexDirection={{ base: "column", md: "row" }}
+								mb={4}
+							>
+								<Box>
+									<Heading size="sm" mb={1}>
+										{t("settings.runtime.title")}
+									</Heading>
+									<Text fontSize="sm" color="gray.500">
+										{t("settings.runtime.description")}
+									</Text>
 								</Box>
-								<Box className="master-settings-card">
+								<Button
+									variant="outline"
+									size="sm"
+									leftIcon={<ArrowPathIcon width={16} height={16} />}
+									onClick={() => {
+										void refetchRuntimeSettings();
+										void refetchPanelSettings();
+									}}
+									isLoading={isRuntimeSettingsLoading || isPanelLoading}
+								>
+									{t("refresh")}
+								</Button>
+							</Flex>
+							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<FormControl>
+									<FormLabel fontSize="sm">
+										{t("settings.panel.defaultSubscriptionType")}
+									</FormLabel>
+									<Select
+										size="sm"
+										value={panelDefaultSubType}
+										onChange={(event) =>
+											setPanelDefaultSubType(
+												event.target.value as
+													| "username-key"
+													| "key"
+													| "token"
+													| "key-username",
+											)
+										}
+										isDisabled={saveAllMutation.isLoading || isPanelLoading}
+									>
+										<option value="username-key">
+											{t("settings.panel.link.usernameKey")}
+										</option>
+										<option value="key">
+											{t("settings.panel.link.keyOnly")}
+										</option>
+										<option value="key-username">
+											{t("settings.panel.link.keyUsername")}
+										</option>
+										<option value="token">
+											{t("settings.panel.link.token")}
+										</option>
+									</Select>
+									<FormHelperText>
+										{t("settings.panel.defaultSubscriptionTypeDescription")}
+									</FormHelperText>
+								</FormControl>
+								<FormControl>
+									<FormLabel fontSize="sm">
+										{t("settings.runtime.dashboardPath")}
+									</FormLabel>
+									<Input
+										value={runtimeSettingsForm.dashboard_path}
+										placeholder="/dashboard/"
+										onChange={(event) =>
+											setRuntimeSettingsForm((prev) => ({
+												...prev,
+												dashboard_path: event.target.value,
+											}))
+										}
+										isDisabled={saveAllMutation.isLoading}
+									/>
+									<FormHelperText>
+										{t("settings.runtime.dashboardPathHint")}
+									</FormHelperText>
+								</FormControl>
+								<TelegramSwitchRow
+									title={t("settings.runtime.subscriptionReadOnlyTitle")}
+									description={t("settings.runtime.subscriptionReadOnlyHint")}
+									control={
+										<Switch
+											isChecked={runtimeSettingsForm.subscription_read_only}
+											onChange={(event) =>
+												setRuntimeSettingsForm((prev) => ({
+													...prev,
+													subscription_read_only: event.target.checked,
+												}))
+											}
+											isDisabled={saveAllMutation.isLoading}
+										/>
+									}
+								/>
+								<TelegramSwitchRow
+									title={t("settings.runtime.recordNodeUsage")}
+									description={t("settings.runtime.recordNodeUsageHint")}
+									control={
+										<Switch
+											isChecked={runtimeSettingsForm.record_node_usage}
+											onChange={(event) =>
+												setRuntimeSettingsForm((prev) => ({
+													...prev,
+													record_node_usage: event.target.checked,
+												}))
+											}
+											isDisabled={saveAllMutation.isLoading}
+										/>
+									}
+								/>
+								<TelegramSwitchRow
+									title={t("settings.runtime.recordNodeUserUsages")}
+									description={t("settings.runtime.recordNodeUserUsagesHint")}
+									control={
+										<Switch
+											isChecked={runtimeSettingsForm.record_node_user_usages}
+											onChange={(event) =>
+												setRuntimeSettingsForm((prev) => ({
+													...prev,
+													record_node_user_usages: event.target.checked,
+												}))
+											}
+											isDisabled={saveAllMutation.isLoading}
+										/>
+									}
+								/>
+								<TelegramSwitchRow
+									title={t("settings.runtime.apiDocs")}
+									description={t("settings.runtime.apiDocsHint")}
+									control={
+										<Switch
+											isChecked={runtimeSettingsForm.api_docs_enabled}
+											onChange={(event) =>
+												setRuntimeSettingsForm((prev) => ({
+													...prev,
+													api_docs_enabled: event.target.checked,
+												}))
+											}
+											isDisabled={saveAllMutation.isLoading}
+										/>
+									}
+								/>
+								<Box
+									borderWidth="1px"
+									borderColor="whiteAlpha.200"
+									borderRadius="md"
+									p={4}
+									gridColumn={{ base: "auto", md: "1 / -1" }}
+								>
 									<Flex
-										justify="space-between"
 										align={{ base: "flex-start", md: "center" }}
+										justify="space-between"
 										gap={4}
 										flexDirection={{ base: "column", md: "row" }}
 										mb={4}
 									>
 										<Box>
-											<Heading size="sm" mb={1}>
-												{t("settings.runtime.title")}
+											<Heading size="xs" mb={1}>
+												{t("phpmyadmin.title")}
 											</Heading>
 											<Text fontSize="sm" color="gray.500">
-												{t("settings.runtime.description")}
+												{t("phpmyadmin.settingsHint")}
 											</Text>
 										</Box>
-										<Button
-											variant="outline"
-											size="sm"
-											leftIcon={<ArrowPathIcon width={16} height={16} />}
-											onClick={() => refetchRuntimeSettings()}
-											isLoading={isRuntimeSettingsLoading}
-										>
-											{t("refresh")}
-										</Button>
+										<HStack spacing={2} flexWrap="wrap">
+											<Button
+												as={RouterLink}
+												to="/phpmyadmin"
+												size="sm"
+												variant="outline"
+												isDisabled={
+													!runtimeSettingsForm.phpmyadmin_enabled ||
+													!phpMyAdminSupported
+												}
+											>
+												{t("phpmyadmin.openPanel")}
+											</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={openPHPMyAdminExternal}
+												isLoading={isOpeningPHPMyAdminExternal}
+												isDisabled={
+													!runtimeSettingsForm.phpmyadmin_enabled ||
+													!phpMyAdminSupported
+												}
+											>
+												{t("phpmyadmin.openExternal")}
+											</Button>
+											<Button
+												size="sm"
+												colorScheme={
+													runtimeSettingsForm.phpmyadmin_enabled
+														? "red"
+														: "primary"
+												}
+												onClick={() =>
+													runtimeSettingsForm.phpmyadmin_enabled
+														? phpMyAdminDisableMutation.mutate()
+														: phpMyAdminEnableMutation.mutate()
+												}
+												isLoading={
+													phpMyAdminEnableMutation.isLoading ||
+													phpMyAdminDisableMutation.isLoading
+												}
+												isDisabled={
+													isPHPMyAdminStatusLoading ||
+													(!runtimeSettingsForm.phpmyadmin_enabled &&
+														!phpMyAdminSupported)
+												}
+											>
+												{runtimeSettingsForm.phpmyadmin_enabled
+													? t("phpmyadmin.disableAction")
+													: t("phpmyadmin.enableAction")}
+											</Button>
+										</HStack>
 									</Flex>
+									{!phpMyAdminSupported ? (
+										<Alert status="warning" borderRadius="md" mb={4}>
+											<AlertIcon />
+											{t("phpmyadmin.sqliteDisabled")}
+										</Alert>
+									) : null}
 									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 										<FormControl>
-											<FormLabel fontSize="sm">
-												{t("settings.runtime.dashboardPath")}
-											</FormLabel>
+											<FormLabel fontSize="sm">{t("path")}</FormLabel>
 											<Input
-												value={runtimeSettingsForm.dashboard_path}
-												placeholder="/dashboard/"
+												value={runtimeSettingsForm.phpmyadmin_path}
+												placeholder="/phpmyadmin/"
 												onChange={(event) =>
 													setRuntimeSettingsForm((prev) => ({
 														...prev,
-														dashboard_path: event.target.value,
+														phpmyadmin_path: event.target.value,
 													}))
 												}
-												isDisabled={runtimeSettingsMutation.isLoading}
+												isDisabled={
+													phpMyAdminEnableMutation.isLoading ||
+													phpMyAdminDisableMutation.isLoading
+												}
 											/>
 											<FormHelperText>
-												{t("settings.runtime.dashboardPathHint")}
+												{t("phpmyadmin.panelOnlyHint")}
 											</FormHelperText>
 										</FormControl>
 										<FormControl>
 											<FormLabel fontSize="sm">
-												{t("settings.runtime.subscriptionReadOnly")}
+												{t("phpmyadmin.loginMode")}
 											</FormLabel>
-											<TelegramSwitchRow
-												title={t("settings.runtime.subscriptionReadOnlyTitle")}
-												description={t("settings.runtime.subscriptionReadOnlyHint")}
-												control={
-													<Switch
-														isChecked={runtimeSettingsForm.subscription_read_only}
-														onChange={(event) =>
-															setRuntimeSettingsForm((prev) => ({
-																...prev,
-																subscription_read_only: event.target.checked,
-															}))
-														}
-														isDisabled={runtimeSettingsMutation.isLoading}
-													/>
+											<Select
+												value={runtimeSettingsForm.phpmyadmin_login_mode}
+												onChange={(event) =>
+													setRuntimeSettingsForm((prev) => ({
+														...prev,
+														phpmyadmin_login_mode: event.target.value as
+															| "rebecca"
+															| "custom",
+													}))
+												}
+												isDisabled={
+													phpMyAdminEnableMutation.isLoading ||
+													phpMyAdminDisableMutation.isLoading
+												}
+											>
+												<option value="rebecca">
+													{t("phpmyadmin.loginModeRebecca")}
+												</option>
+												<option value="custom">
+													{t("phpmyadmin.loginModeCustom")}
+												</option>
+											</Select>
+											<FormHelperText>
+												{t("phpmyadmin.loginModeHint")}
+											</FormHelperText>
+										</FormControl>
+										<FormControl
+											isDisabled={
+												runtimeSettingsForm.phpmyadmin_login_mode !==
+													"custom" ||
+												phpMyAdminEnableMutation.isLoading ||
+												phpMyAdminDisableMutation.isLoading
+											}
+										>
+											<FormLabel fontSize="sm">
+												{t("phpmyadmin.username")}
+											</FormLabel>
+											<Input
+												value={runtimeSettingsForm.phpmyadmin_username}
+												placeholder="root"
+												onChange={(event) =>
+													setRuntimeSettingsForm((prev) => ({
+														...prev,
+														phpmyadmin_username: event.target.value,
+													}))
 												}
 											/>
 										</FormControl>
-										<TelegramSwitchRow
-											title={t("settings.runtime.recordNodeUsage")}
-											description={t("settings.runtime.recordNodeUsageHint")}
-											control={
-												<Switch
-													isChecked={runtimeSettingsForm.record_node_usage}
-													onChange={(event) =>
-														setRuntimeSettingsForm((prev) => ({
-															...prev,
-															record_node_usage: event.target.checked,
-														}))
-													}
-													isDisabled={runtimeSettingsMutation.isLoading}
-												/>
-											}
-										/>
-										<TelegramSwitchRow
-											title={t("settings.runtime.recordNodeUserUsages")}
-											description={t("settings.runtime.recordNodeUserUsagesHint")}
-											control={
-												<Switch
-													isChecked={runtimeSettingsForm.record_node_user_usages}
-													onChange={(event) =>
-														setRuntimeSettingsForm((prev) => ({
-															...prev,
-															record_node_user_usages: event.target.checked,
-														}))
-													}
-													isDisabled={runtimeSettingsMutation.isLoading}
-												/>
-											}
-										/>
-										<TelegramSwitchRow
-											title={t("settings.runtime.apiDocs")}
-											description={t("settings.runtime.apiDocsHint")}
-											control={
-												<Switch
-													isChecked={runtimeSettingsForm.api_docs_enabled}
-													onChange={(event) =>
-														setRuntimeSettingsForm((prev) => ({
-															...prev,
-															api_docs_enabled: event.target.checked,
-														}))
-													}
-													isDisabled={runtimeSettingsMutation.isLoading}
-												/>
-											}
-										/>
-										<Box
-											borderWidth="1px"
-											borderColor="whiteAlpha.200"
-											borderRadius="md"
-											p={4}
-											gridColumn={{ base: "auto", md: "1 / -1" }}
-										>
-											<Flex
-												align={{ base: "flex-start", md: "center" }}
-												justify="space-between"
-												gap={4}
-												flexDirection={{ base: "column", md: "row" }}
-												mb={4}
-											>
-												<Box>
-													<Heading size="xs" mb={1}>
-														{t("phpmyadmin.title")}
-													</Heading>
-													<Text fontSize="sm" color="gray.500">
-														{t("phpmyadmin.settingsHint")}
-													</Text>
-												</Box>
-												<HStack spacing={2} flexWrap="wrap">
-													<Button
-														as={RouterLink}
-														to="/phpmyadmin"
-														size="sm"
-														variant="outline"
-														isDisabled={
-															!runtimeSettingsForm.phpmyadmin_enabled ||
-															!phpMyAdminSupported
-														}
-													>
-														{t("phpmyadmin.openPanel")}
-													</Button>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={openPHPMyAdminExternal}
-														isLoading={isOpeningPHPMyAdminExternal}
-														isDisabled={
-															!runtimeSettingsForm.phpmyadmin_enabled ||
-															!phpMyAdminSupported
-														}
-													>
-														{t("phpmyadmin.openExternal")}
-													</Button>
-													<Button
-														size="sm"
-														colorScheme={
-															runtimeSettingsForm.phpmyadmin_enabled
-																? "red"
-																: "primary"
-														}
-														onClick={() =>
-															runtimeSettingsForm.phpmyadmin_enabled
-																? phpMyAdminDisableMutation.mutate()
-																: phpMyAdminEnableMutation.mutate()
-														}
-														isLoading={
-															phpMyAdminEnableMutation.isLoading ||
-															phpMyAdminDisableMutation.isLoading
-														}
-														isDisabled={
-															isPHPMyAdminStatusLoading ||
-															(!runtimeSettingsForm.phpmyadmin_enabled &&
-																!phpMyAdminSupported)
-														}
-													>
-														{runtimeSettingsForm.phpmyadmin_enabled
-															? t("phpmyadmin.disableAction")
-															: t("phpmyadmin.enableAction")}
-													</Button>
-												</HStack>
-											</Flex>
-											{!phpMyAdminSupported ? (
-												<Alert status="warning" borderRadius="md" mb={4}>
-													<AlertIcon />
-													{t("phpmyadmin.sqliteDisabled")}
-												</Alert>
-											) : null}
-											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-												<FormControl>
-													<FormLabel fontSize="sm">
-														{t("path")}
-													</FormLabel>
-													<Input
-														value={runtimeSettingsForm.phpmyadmin_path}
-														placeholder="/phpmyadmin/"
-														onChange={(event) =>
-															setRuntimeSettingsForm((prev) => ({
-																...prev,
-																phpmyadmin_path: event.target.value,
-															}))
-														}
-														isDisabled={
-															phpMyAdminEnableMutation.isLoading ||
-															phpMyAdminDisableMutation.isLoading
-														}
-													/>
-													<FormHelperText>
-														{t("phpmyadmin.panelOnlyHint")}
-													</FormHelperText>
-												</FormControl>
-												<FormControl>
-													<FormLabel fontSize="sm">
-														{t("phpmyadmin.loginMode")}
-													</FormLabel>
-													<Select
-														value={runtimeSettingsForm.phpmyadmin_login_mode}
-														onChange={(event) =>
-															setRuntimeSettingsForm((prev) => ({
-																...prev,
-																phpmyadmin_login_mode: event.target.value as
-																	| "rebecca"
-																	| "custom",
-															}))
-														}
-														isDisabled={
-															phpMyAdminEnableMutation.isLoading ||
-															phpMyAdminDisableMutation.isLoading
-														}
-													>
-														<option value="rebecca">
-															{t("phpmyadmin.loginModeRebecca")}
-														</option>
-														<option value="custom">
-															{t("phpmyadmin.loginModeCustom")}
-														</option>
-													</Select>
-													<FormHelperText>
-														{t("phpmyadmin.loginModeHint")}
-													</FormHelperText>
-												</FormControl>
-												<FormControl
-													isDisabled={
-														runtimeSettingsForm.phpmyadmin_login_mode !==
-															"custom" ||
-														phpMyAdminEnableMutation.isLoading ||
-														phpMyAdminDisableMutation.isLoading
-													}
-												>
-													<FormLabel fontSize="sm">
-														{t("phpmyadmin.username")}
-													</FormLabel>
-													<Input
-														value={runtimeSettingsForm.phpmyadmin_username}
-														placeholder="root"
-														onChange={(event) =>
-															setRuntimeSettingsForm((prev) => ({
-																...prev,
-																phpmyadmin_username: event.target.value,
-															}))
-														}
-													/>
-												</FormControl>
-												<FormControl
-													isDisabled={
-														runtimeSettingsForm.phpmyadmin_login_mode !==
-															"custom" ||
-														phpMyAdminEnableMutation.isLoading ||
-														phpMyAdminDisableMutation.isLoading
-													}
-												>
-													<FormLabel fontSize="sm">
-														{t("phpmyadmin.password")}
-													</FormLabel>
-													<Input
-														type="password"
-														value={runtimeSettingsForm.phpmyadmin_password}
-														placeholder={t("phpmyadmin.passwordPlaceholder")}
-														onChange={(event) =>
-															setRuntimeSettingsForm((prev) => ({
-																...prev,
-																phpmyadmin_password: event.target.value,
-															}))
-														}
-													/>
-												</FormControl>
-											</SimpleGrid>
-										</Box>
-									</SimpleGrid>
-									<Flex className="master-settings-action-row" mt={4}>
-										<Button
-											colorScheme="primary"
-											leftIcon={<SaveIcon />}
-											onClick={() =>
-												runtimeSettingsMutation.mutate(runtimeSettingsForm)
-											}
-											isLoading={runtimeSettingsMutation.isLoading}
+										<FormControl
 											isDisabled={
-												runtimeSettingsMutation.isLoading ||
-												isRuntimeSettingsLoading
+												runtimeSettingsForm.phpmyadmin_login_mode !==
+													"custom" ||
+												phpMyAdminEnableMutation.isLoading ||
+												phpMyAdminDisableMutation.isLoading
 											}
 										>
-											{t("settings.save")}
-										</Button>
-									</Flex>
-								</Box>
-								<Box className="master-settings-card">
-									<Flex
-										justify="space-between"
-										align={{ base: "flex-start", md: "center" }}
-										gap={4}
-										flexDirection={{ base: "column", md: "row" }}
-									>
-										<Box>
-											<Heading size="sm" mb={1}>
-												{t("settings.panel.maintenanceTitle")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500">
-												{t("settings.panel.maintenanceDescription")}
-											</Text>
-										</Box>
-										<Button
-											variant="outline"
-											size="sm"
-											leftIcon={<ArrowPathIcon width={16} height={16} />}
-											onClick={() => maintenanceInfoQuery.refetch()}
-											isLoading={maintenanceInfoQuery.isFetching}
-										>
-											{t("refresh")}
-										</Button>
-									</Flex>
-									<Stack spacing={2} mt={4}>
-										{maintenanceInfoQuery.isLoading &&
-										!maintenanceInfoQuery.data ? (
-											<Flex align="center" justify="center" py={4}>
-												<Spinner size="sm" />
-											</Flex>
-										) : (
-											<>
-												<Box>
-													<Text fontWeight="semibold">
-														{t("settings.panel.panelVersion")}
-													</Text>
-													<Text fontSize="sm" color="gray.500">
-														{maintenanceInfoQuery.data?.panel?.image
-															? `${maintenanceInfoQuery.data.panel.image}${
-																	maintenanceInfoQuery.data.panel.tag
-																		? ` (${maintenanceInfoQuery.data.panel.tag})`
-																		: ""
-																}`
-															: t("settings.panel.versionUnknown")}
-													</Text>
-												</Box>
-											</>
-										)}
-									</Stack>
-									<Stack spacing={2} mt={4}>
-										<Text fontSize="sm" color="gray.500">
-											{hostActionsAvailable
-												? t("settings.panel.maintenanceActionsDescription")
-												: t("settings.panel.binaryMigrationRequiredDescription")}
-										</Text>
-										{!hostActionsAvailable && (
-											<Alert
-												status="warning"
-												variant="subtle"
-												borderRadius="md"
-											>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.binaryMigrationRequired")}
-												</Text>
-											</Alert>
-										)}
-										{hostActionsAvailable && panelUpdateInfo?.available && (
-											<Alert
-												status="success"
-												variant="subtle"
-												borderRadius="md"
-											>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.updateAvailableNotice", {
-															current:
-																panelUpdateInfo.current ||
-																maintenanceInfoQuery.data?.panel?.tag ||
-																t("settings.panel.versionUnknown"),
-															target:
-																selectedUpdateTarget ||
-																panelUpdateInfo.target ||
-																t("settings.panel.versionUnknown"),
-														})}
-												</Text>
-											</Alert>
-										)}
-										{hostActionsAvailable && panelUpdateInfo?.error && (
-											<Alert
-												status="warning"
-												variant="subtle"
-												borderRadius="md"
-											>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.updateCheckFailed", { error: panelUpdateInfo.error })}
-												</Text>
-											</Alert>
-										)}
-										{hostActionsAvailable && (
-											<FormControl maxW={{ base: "full", md: "360px" }}>
-												<FormLabel fontSize="sm">
-													{t("settings.panel.updateChannel")}
-												</FormLabel>
-												<Select
-													size="sm"
-													value={selectedUpdateChannel}
-													onChange={(event) =>
-														setSelectedUpdateChannel(
-															event.target.value as UpdateChannel,
-														)
-													}
-												>
-													<option value="current">
-														{t("settings.panel.updateChannelCurrent")}
-													</option>
-													<option value="latest">
-														{t("settings.panel.updateChannelLatest")}
-													</option>
-													<option value="dev">
-														{t("settings.panel.updateChannelDev")}
-													</option>
-												</Select>
-												<FormHelperText>
-													{selectedUpdateTarget
-														? t("settings.panel.updateTargetHint", { version: selectedUpdateTarget })
-														: t("settings.panel.updateTargetUnknown")}
-												</FormHelperText>
-											</FormControl>
-										)}
-										{hostActionsAvailable &&
-											selectedUpdateChannel === "dev" && (
-												<Alert
-													status="warning"
-													variant="subtle"
-													borderRadius="md"
-												>
-													<AlertIcon />
-													<Text fontSize="sm">
-														{t("settings.panel.devChannelWarning")}
-													</Text>
-												</Alert>
-											)}
-										{activeMaintenanceAction && (
-											<Alert status="info" variant="subtle" borderRadius="md">
-												<AlertIcon />
-												<Text fontSize="sm">
-													{activeMaintenanceAction === "update"
-														? t("settings.panel.updateInProgressHint")
-														: activeMaintenanceAction === "restart"
-															? t("settings.panel.restartInProgressHint")
-															: t("settings.panel.softReloadInProgressHint")}
-												</Text>
-											</Alert>
-										)}
-										<HStack spacing={3} flexWrap="wrap" className="master-settings-action-row">
-											<Button
-												size="sm"
-												colorScheme="yellow"
-												leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
-												onClick={handlePanelUpdateClick}
-												isLoading={updateMutation.isLoading}
-												isDisabled={!hostActionsAvailable}
-											>
-												{t("settings.panel.updateAction")}
-											</Button>
-											<Button
-												size="sm"
-												colorScheme="blue"
-												leftIcon={<ArrowPathIcon width={16} height={16} />}
-												onClick={() => softReloadMutation.mutate()}
-												isLoading={softReloadMutation.isLoading}
-											>
-												{t("settings.panel.softReloadAction")}
-											</Button>
-											<Button
-												size="sm"
-												colorScheme="red"
-												leftIcon={
-													<ArrowsRightLeftIcon width={16} height={16} />
+											<FormLabel fontSize="sm">
+												{t("phpmyadmin.password")}
+											</FormLabel>
+											<Input
+												type="password"
+												value={runtimeSettingsForm.phpmyadmin_password}
+												placeholder={t("phpmyadmin.passwordPlaceholder")}
+												onChange={(event) =>
+													setRuntimeSettingsForm((prev) => ({
+														...prev,
+														phpmyadmin_password: event.target.value,
+													}))
 												}
-												onClick={() => restartMutation.mutate()}
-												isLoading={restartMutation.isLoading}
-												isDisabled={!hostActionsAvailable}
-											>
-												{t("settings.panel.restartAction")}
-											</Button>
-										</HStack>
-									</Stack>
-								</Box>
-								<Flex className="master-settings-action-row">
-									<Button
-										variant="outline"
-										leftIcon={<RefreshIcon />}
-										onClick={() => refetchPanelSettings()}
-										isDisabled={panelMutation.isLoading}
-									>
-										{t("refresh")}
-									</Button>
-									<Button
-										colorScheme="primary"
-										leftIcon={<SaveIcon />}
-										onClick={() =>
-											panelMutation.mutate({
-												default_subscription_type: panelDefaultSubType,
-											})
-										}
-										isLoading={panelMutation.isLoading}
-										isDisabled={
-											panelMutation.isLoading ||
-											panelData === undefined ||
-											panelDefaultSubType ===
-												(panelData.default_subscription_type ?? "key")
-										}
-									>
-										{t("settings.save")}
-									</Button>
-								</Flex>
-							</Stack>
-						)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 2 ? "block" : "none"}
-			>
-						{isLoading && !data ? (
-							<Flex align="center" justify="center" py={12}>
-								<Spinner size="lg" />
-							</Flex>
-						) : (
-							<form className="telegram-settings-form" onSubmit={handleSubmit(onSubmit)}>
-								<VStack align="stretch" spacing={4}>
-									<TelegramSwitchRow
-										title={t("settings.telegram.enableBot")}
-										description={t("settings.telegram.enableBotDescription")}
-										control={
-											<Controller
-												control={control}
-												name="use_telegram"
-												render={({ field }) => (
-													<Switch
-														isChecked={field.value}
-														onChange={(event) =>
-															field.onChange(event.target.checked)
-														}
-													/>
-												)}
 											/>
-										}
-									/>
-									<DisabledCard
-										disabled={!isTelegramEnabled}
-										message={telegramDisabledMessage}
-									>
-										<Box className="master-settings-card">
-											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.apiToken")}
-													</FormLabel>
-													<Input
-														placeholder="123456:ABC"
-														{...register("api_token")}
-													/>
-												</FormControl>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.proxyUrl")}
-													</FormLabel>
-													<Input
-														placeholder="socks5://user:pass@host:port"
-														{...register("proxy_url")}
-													/>
-												</FormControl>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.adminChatIds")}
-													</FormLabel>
-													<Input
-														placeholder="12345, 67890"
-														{...register("admin_chat_ids")}
-													/>
-													<FormHelperText>
-														{t("settings.telegram.adminChatIdsHint")}
-													</FormHelperText>
-												</FormControl>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.logsChatId")}
-													</FormLabel>
-													<Input
-														placeholder="-100123456789"
-														{...register("logs_chat_id")}
-													/>
-													<FormHelperText>
-														{t("settings.telegram.logsChatIdHint")}
-													</FormHelperText>
-												</FormControl>
-												<TelegramSwitchRow
-													title={t("settings.telegram.logsChatIsForum")}
-													description={t("settings.telegram.logsChatIsForumHint")}
-													control={
-														<Controller
-															control={control}
-															name="logs_chat_is_forum"
-															render={({ field }) => (
-																<Switch
-																	isChecked={field.value}
-																	onChange={(event) =>
-																		field.onChange(event.target.checked)
-																	}
-																/>
-															)}
-														/>
-													}
-												/>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.defaultVlessFlow")}
-													</FormLabel>
-													<Input
-														placeholder="xtls-rprx-vision"
-														{...register("default_vless_flow")}
-													/>
-												</FormControl>
-											</SimpleGrid>
-											<Flex className="master-settings-action-row" mt={4}>
-												<Button
-													size="sm"
-													variant="outline"
-													leftIcon={<SaveIcon />}
-													isLoading={telegramTestMutation.isLoading}
-													onClick={() => telegramTestMutation.mutate()}
-												>
-													{t("settings.telegram.testMessage")}
-												</Button>
-											</Flex>
-										</Box>
-									</DisabledCard>
-
-									<DisabledCard
-										disabled={!isTelegramEnabled || !hostActionsAvailable}
-										message={
-											!hostActionsAvailable
-												? telegramBackupDisabledMessage
-												: telegramDisabledMessage
-										}
-									>
-										<Box
-											id="telegram-periodic-backup"
-											className="master-settings-card"
-											scrollMarginTop="120px"
-										>
-											<Box mb={3}>
-												<TelegramSwitchRow
-													title={t("settings.telegram.backupTitle")}
-													description={t("settings.telegram.backupDescription")}
-													control={
-														<Controller
-															control={control}
-															name="backup_enabled"
-															render={({ field }) => (
-																<Switch
-																	isChecked={field.value}
-																	onChange={(event) =>
-																		field.onChange(event.target.checked)
-																	}
-																/>
-															)}
-														/>
-													}
-												/>
-											</Box>
-											<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.backupChatId")}
-													</FormLabel>
-													<Input
-														placeholder="-100123456789"
-														{...register("backup_chat_id")}
-													/>
-													<FormHelperText>
-														{t("settings.telegram.backupChatIdHint")}
-													</FormHelperText>
-												</FormControl>
-												<TelegramSwitchRow
-													title={t("settings.telegram.backupChatIsForum")}
-													description={t("settings.telegram.backupChatIsForumHint")}
-													control={
-														<Controller
-															control={control}
-															name="backup_chat_is_forum"
-															render={({ field }) => (
-																<Switch
-																	isChecked={field.value}
-																	onChange={(event) =>
-																		field.onChange(event.target.checked)
-																	}
-																/>
-															)}
-														/>
-													}
-												/>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.backupScope")}
-													</FormLabel>
-													<Controller
-														control={control}
-														name="backup_scope"
-														render={({ field }) => (
-															<Select
-																{...field}
-															>
-																<option value="database">
-																	{t("settings.telegram.backupScopeDatabase")}
-																</option>
-																<option value="full">
-																	{t("settings.telegram.backupScopeFull")}
-																</option>
-															</Select>
-														)}
-													/>
-												</FormControl>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.backupIntervalValue")}
-													</FormLabel>
-													<Controller
-														control={control}
-														name="backup_interval_value"
-														render={({ field }) => (
-															<NumericInput
-																min={1}
-																value={field.value}
-																onChange={(_value, valueAsNumber) =>
-																	field.onChange(
-																		Number.isFinite(valueAsNumber)
-																			? valueAsNumber
-																			: 1,
-																	)
-																}
-																isDisabled={!isTelegramBackupEnabled}
-															/>
-														)}
-													/>
-												</FormControl>
-												<FormControl>
-													<FormLabel>
-														{t("settings.telegram.backupIntervalUnit")}
-													</FormLabel>
-													<Controller
-														control={control}
-														name="backup_interval_unit"
-														render={({ field }) => (
-															<Select
-																{...field}
-																isDisabled={!isTelegramBackupEnabled}
-															>
-																<option value="minutes">
-																	{t("settings.telegram.backupIntervalMinutes")}
-																</option>
-																<option value="hours">
-																	{t("settings.telegram.backupIntervalHours")}
-																</option>
-																<option value="days">
-																	{t("settings.telegram.backupIntervalDays")}
-																</option>
-															</Select>
-														)}
-													/>
-												</FormControl>
-											</SimpleGrid>
-											<SimpleGrid
-												columns={{ base: 1, md: 2 }}
-												spacing={3}
-												mt={3}
-											>
-												<Text fontSize="xs" color="gray.500">
-													{t("settings.telegram.backupLastSent")}:{" "}
-													{data?.backup_last_sent_at || "-"}
-												</Text>
-												{data?.backup_last_error && (
-													<Text fontSize="xs" color="red.300">
-														{t("settings.telegram.backupLastError")}
-														: {data.backup_last_error}
-													</Text>
-												)}
-											</SimpleGrid>
-											<Flex className="master-settings-action-row" mt={4}>
-												<Button
-													size="sm"
-													variant="outline"
-													leftIcon={<ArrowUpTrayIcon width={16} />}
-													isLoading={telegramBackupMutation.isLoading}
-													onClick={() =>
-														telegramBackupMutation.mutate(telegramBackupScope)
-													}
-												>
-													{t("settings.telegram.backupSendNow")}
-												</Button>
-											</Flex>
-										</Box>
-									</DisabledCard>
-
-									<DisabledCard
-										disabled={!isTelegramEnabled}
-										message={telegramDisabledMessage}
-									>
-										<Box className="master-settings-card">
-											<Flex
-												justify="space-between"
-												align={{ base: "flex-start", md: "center" }}
-												gap={3}
-												flexDirection={{ base: "column", md: "row" }}
-											>
-												<Box>
-													<Heading size="sm">
-														{t("settings.telegram.botCommandsTitle")}
-													</Heading>
-												</Box>
-												<Badge colorScheme="yellow">
-													{t("settings.tabs.comingSoon")}
-												</Badge>
-											</Flex>
-										</Box>
-									</DisabledCard>
-
-									<DisabledCard
-										disabled={!isTelegramEnabled}
-										message={telegramDisabledMessage}
-									>
-										<Box>
-											<Heading size="sm" mb={3}>
-												{t("settings.telegram.forumTopics")}
-											</Heading>
-											{forumTopics && Object.keys(forumTopics).length > 0 ? (
-												<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={3}>
-													{Object.entries(forumTopics).map(([key]) => (
-														<Box className="master-settings-subcard" key={key}>
-															<Text fontSize="sm" fontWeight="medium" mb={2}>
-																{t("settings.telegram.topicKey")}: {key}
-															</Text>
-															<SimpleGrid
-																columns={{ base: 1, md: 2 }}
-																spacing={3}
-															>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.telegram.topicTitle")}
-																	</FormLabel>
-																	<Input
-																		{...register(
-																			`forum_topics.${key}.title` as const,
-																		)}
-																	/>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.telegram.topicId")}
-																	</FormLabel>
-																	<Input
-																		type="number"
-																		{...register(
-																			`forum_topics.${key}.topic_id` as const,
-																		)}
-																	/>
-																	<FormHelperText>
-																		{t("settings.telegram.topicIdHint")}
-																	</FormHelperText>
-																</FormControl>
-															</SimpleGrid>
-														</Box>
-													))}
-												</SimpleGrid>
-											) : (
-												<Text color="gray.500">
-													{t("settings.telegram.emptyTopics")}
-												</Text>
-											)}
-										</Box>
-									</DisabledCard>
-
-									<DisabledCard
-										disabled={!isTelegramEnabled}
-										message={telegramDisabledMessage}
-									>
-										<Box>
-											<Heading size="sm" mb={2}>
-												{t("settings.telegram.notificationsTitle")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500" mb={4}>
-												{t("settings.telegram.notificationsDescription")}
-											</Text>
-											<Stack spacing={4}>
-												{EVENT_TOGGLE_GROUPS.map((group) => (
-													<Box
-														className="master-settings-subcard"
-														key={group.key}
-													>
-														<Text fontWeight="semibold" mb={3}>
-															{t(group.titleKey, group.defaultTitle)}
-														</Text>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={4}
-														>
-															{group.events.map((event) => (
-																<TelegramSwitchRow
-																	key={event.key}
-																	title={t(event.labelKey, event.defaultLabel)}
-																	description={t(event.hintKey, event.defaultHint)}
-																	control={
-																		<Controller
-																			control={control}
-																			name={
-																				`event_toggles.${encodeToggleKey(event.key)}` as const
-																			}
-																			render={({ field }) => (
-																				<Switch
-																					isChecked={Boolean(field.value)}
-																					onChange={(e) =>
-																						field.onChange(e.target.checked)
-																					}
-																				/>
-																			)}
-																		/>
-																	}
-																/>
-															))}
-														</SimpleGrid>
-													</Box>
-												))}
-											</Stack>
-										</Box>
-									</DisabledCard>
-
-									<Flex className="master-settings-action-row">
-										<Button
-											variant="outline"
-											leftIcon={<RefreshIcon />}
-											onClick={() => refetch()}
-											isDisabled={mutation.isLoading}
-										>
-											{t("refresh")}
-										</Button>
-										<Button
-											colorScheme="primary"
-											leftIcon={<SaveIcon />}
-											type="submit"
-											isLoading={mutation.isLoading}
-											isDisabled={!isDirty && !mutation.isLoading}
-										>
-											{t("settings.save")}
-										</Button>
-									</Flex>
-								</VStack>
-							</form>
-						)}
+										</FormControl>
+									</SimpleGrid>
+								</Box>
+							</SimpleGrid>
+						</Box>
+					</Stack>
+				)}
 			</Box>
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
 				display={activeIntegrationTab === 3 ? "block" : "none"}
 			>
-						{isSubscriptionLoading && !subscriptionBundle ? (
-							<Flex align="center" justify="center" py={12}>
-								<Spinner size="lg" />
-							</Flex>
-						) : (
-							<form
-								onSubmit={handleSubscriptionSubmit(
-									onSubmitSubscriptionSettings,
-								)}
-							>
-								<VStack align="stretch" spacing={6}>
-									<Box className="master-settings-card">
-										<Flex
-											justify="space-between"
-											align={{ base: "flex-start", md: "center" }}
-											flexDirection={{ base: "column", md: "row" }}
-											gap={3}
-											mb={4}
-										>
-											<Box>
-												<Heading size="sm" mb={1}>
-													{t("settings.subscriptions.globalTitle")}
-												</Heading>
-												<Text fontSize="sm" color="gray.500">
-													{t("settings.subscriptions.globalDescription")}
-												</Text>
-											</Box>
-											<HStack spacing={2}>
-												<Button
-													variant="outline"
-													size="sm"
-													leftIcon={<RefreshIcon />}
-													type="button"
-													onClick={() => refetchSubscriptionSettings()}
-													isDisabled={subscriptionSettingsMutation.isLoading}
-												>
-													{t("refresh")}
-												</Button>
-												<Button
-													colorScheme="primary"
-													size="sm"
-													leftIcon={<SaveIcon />}
-													type="submit"
-													isLoading={subscriptionSettingsMutation.isLoading}
-													isDisabled={
-														!isSubscriptionDirty &&
-														!subscriptionSettingsMutation.isLoading
-													}
-												>
-													{t("settings.save")}
-												</Button>
-											</HStack>
-										</Flex>
-										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.urlPrefix")}
-												</FormLabel>
-												<Input
-													placeholder="https://sub.example.com"
-													{...subscriptionRegister("subscription_url_prefix")}
-												/>
-												<FormHelperText>
-													{t("settings.subscriptions.urlPrefixHint")}
-												</FormHelperText>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.customTemplatesDir")}
-												</FormLabel>
-												<Input
-													placeholder="/var/lib/rebecca/templates"
-													{...subscriptionRegister(
-														"custom_templates_directory",
-													)}
-												/>
-												<FormHelperText>
-													{t("settings.subscriptions.customTemplatesDirHint")}
-												</FormHelperText>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.profileTitle")}
-												</FormLabel>
-												<Input
-													placeholder="Subscription"
-													{...subscriptionRegister(
-														"subscription_profile_title",
-													)}
-												/>
-												<FormHelperText>
-													{t("settings.subscriptions.profileTitleHint")}
-												</FormHelperText>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.supportUrl")}
-												</FormLabel>
-												<Input
-													placeholder="https://t.me/support"
-													{...subscriptionRegister("subscription_support_url")}
-												/>
-												<FormHelperText>
-													{t("settings.subscriptions.supportUrlHint")}
-												</FormHelperText>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.updateInterval")}
-												</FormLabel>
-												<Input
-													type="number"
-													{...subscriptionRegister(
-														"subscription_update_interval",
-													)}
-												/>
-												<FormHelperText>
-													{t("settings.subscriptions.updateIntervalHint")}
-												</FormHelperText>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.subscriptionPageTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister(
-															"subscription_page_template",
-														)}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"subscription_page_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.homePageTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister("home_page_template")}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor("home_page_template", null)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.clashTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister(
-															"clash_subscription_template",
-														)}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"clash_subscription_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.clashSettingsTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister("clash_settings_template")}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"clash_settings_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.v2rayTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister(
-															"v2ray_subscription_template",
-														)}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"v2ray_subscription_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.v2raySettingsTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister("v2ray_settings_template")}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"v2ray_settings_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.happTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister(
-															"happ_subscription_template",
-														)}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"happ_subscription_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.incyTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister(
-															"incy_subscription_template",
-														)}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"incy_subscription_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.singboxTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister(
-															"singbox_subscription_template",
-														)}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"singbox_subscription_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.singboxSettingsTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister(
-															"singbox_settings_template",
-														)}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor(
-																"singbox_settings_template",
-																null,
-															)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.muxTemplate")}
-												</FormLabel>
-												<HStack spacing={2} align="stretch">
-													<Input
-														flex="1"
-														{...subscriptionRegister("mux_template")}
-													/>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() =>
-															openTemplateEditor("mux_template", null)
-														}
-													>
-														{t("edit")}
-													</Button>
-												</HStack>
-											</FormControl>
-											<Box gridColumn={{ base: "1 / -1", md: "1 / -1" }}>
-												<Divider mb={3} />
-												<Text fontSize="sm" fontWeight="semibold">
-													{t("settings.subscriptions.routingSection")}
-												</Text>
-											</Box>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.subscriptionAliases")}
-												</FormLabel>
-												<Textarea
-													placeholder="/mypath/\n/test/\n/api/v1/client/subscribe?token=\n/api/v1/client/subscribe?key="
-													rows={4}
-													{...subscriptionRegister("subscription_aliases_text")}
-												/>
-												<FormHelperText>
-													{t("settings.subscriptions.aliasesHint")}
-												</FormHelperText>
-											</FormControl>
-											<FormControl>
-												<FormLabel>
-													{t("settings.subscriptions.subscriptionPorts")}
-												</FormLabel>
-												<Input
-													placeholder="443, 8443"
-													{...subscriptionRegister("subscription_ports_text", {
-														onBlur: (event) => {
-															const normalized = formatSubscriptionPorts(
-																parseSubscriptionPortsInput(
-																	event.target.value || "",
-																),
-															);
-															setSubscriptionValue(
-																"subscription_ports_text",
-																normalized,
-																{
-																	shouldDirty: true,
-																},
-															);
-														},
-													})}
-												/>
-												<FormHelperText>
-													{t("settings.subscriptions.subscriptionPortsHint")}
-													{parsedSubscriptionPorts.length > 0
-														? ` ${t("settings.subscriptions.activePorts")}: ${parsedSubscriptionPorts.join(", ")}`
-														: ""}
-												</FormHelperText>
-											</FormControl>
-										</SimpleGrid>
-										<Divider my={4} />
-										<Text fontSize="sm" fontWeight="semibold" mb={3}>
-											{t("settings.subscriptions.clientJsonSection")}
-										</Text>
-										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-											<Controller
-												control={subscriptionControl}
-												name="use_custom_json_default"
-												render={({ field }) => (
-													<FormControl display="flex" alignItems="center">
-														<Box flex="1">
-															<Text fontWeight="medium">
-																{t("settings.subscriptions.customJsonDefault")}
-															</Text>
-															<Text fontSize="sm" color="gray.500">
-																{t(
-																	"settings.subscriptions.customJsonDefaultHint",
-																)}
-															</Text>
-														</Box>
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
-													</FormControl>
-												)}
-											/>
-											<Controller
-												control={subscriptionControl}
-												name="use_custom_json_for_v2rayn"
-												render={({ field }) => (
-													<FormControl display="flex" alignItems="center">
-														<Box flex="1">
-															<Text fontWeight="medium">
-																{t("settings.subscriptions.customJsonV2rayn")}
-															</Text>
-															<Text fontSize="sm" color="gray.500">
-																{t(
-																	"settings.subscriptions.customJsonV2raynHint",
-																)}
-															</Text>
-														</Box>
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
-													</FormControl>
-												)}
-											/>
-											<Controller
-												control={subscriptionControl}
-												name="use_custom_json_for_v2rayng"
-												render={({ field }) => (
-													<FormControl display="flex" alignItems="center">
-														<Box flex="1">
-															<Text fontWeight="medium">
-																{t("settings.subscriptions.customJsonV2rayng")}
-															</Text>
-															<Text fontSize="sm" color="gray.500">
-																{t(
-																	"settings.subscriptions.customJsonV2rayngHint",
-																)}
-															</Text>
-														</Box>
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
-													</FormControl>
-												)}
-											/>
-											<Controller
-												control={subscriptionControl}
-												name="use_custom_json_for_streisand"
-												render={({ field }) => (
-													<FormControl display="flex" alignItems="center">
-														<Box flex="1">
-															<Text fontWeight="medium">
-																{t(
-																	"settings.subscriptions.customJsonStreisand",
-																)}
-															</Text>
-															<Text fontSize="sm" color="gray.500">
-																{t(
-																	"settings.subscriptions.customJsonStreisandHint",
-																)}
-															</Text>
-														</Box>
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
-													</FormControl>
-												)}
-											/>
-											<Controller
-												control={subscriptionControl}
-												name="use_custom_json_for_happ"
-												render={({ field }) => (
-													<FormControl display="flex" alignItems="center">
-														<Box flex="1">
-															<Text fontWeight="medium">
-																{t("settings.subscriptions.customJsonHapp")}
-															</Text>
-															<Text fontSize="sm" color="gray.500">
-																{t("settings.subscriptions.customJsonHappHint")}
-															</Text>
-														</Box>
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
-													</FormControl>
-												)}
-											/>
-											<Controller
-												control={subscriptionControl}
-												name="use_custom_json_for_incy"
-												render={({ field }) => (
-													<FormControl display="flex" alignItems="center">
-														<Box flex="1">
-															<Text fontWeight="medium">
-																{t("settings.subscriptions.customJsonIncy")}
-															</Text>
-															<Text fontSize="sm" color="gray.500">
-																{t("settings.subscriptions.customJsonIncyHint")}
-															</Text>
-														</Box>
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
-													</FormControl>
-												)}
-											/>
-										</SimpleGrid>
-									</Box>
-									<Box className="master-settings-card">
-										<Heading size="sm" mb={1}>
-											{t("settings.subscriptions.adminsTitle")}
-										</Heading>
-										<Text fontSize="sm" color="gray.500" mb={4}>
-											{t("settings.subscriptions.adminsDescription")}
-										</Text>
-										{Object.values(adminOverrides).length === 0 ? (
-											<Text color="gray.500">
-												{t("settings.subscriptions.noAdmins")}
-											</Text>
-										) : (
-											<Stack spacing={4}>
-												<FormControl maxW={{ base: "full", md: "280px" }}>
-													<FormLabel>
-														{t("settings.subscriptions.selectAdmin")}
-													</FormLabel>
-													<Menu>
-														<MenuButton
-															as={Button}
-															variant="outline"
-															size="sm"
-															rightIcon={<ChevronDownIcon />}
-															w="full"
-															h="36px"
-															px={3}
-															fontSize="13px"
-															fontWeight="semibold"
-															justifyContent="space-between"
-															textAlign="start"
-															borderRadius="md"
-														>
-															<Text
-																as="span"
-																noOfLines={1}
-																flex="1"
-																minW={0}
-																textAlign="start"
-															>
-																{selectedAdminId &&
-																adminOverrides[selectedAdminId]
-																	? adminOverrides[selectedAdminId].username
-																	: t(
-																			"settings.subscriptions.selectAdminPlaceholder",
-																		)}
-															</Text>
-														</MenuButton>
-														<MenuList
-															minW={{ base: "calc(100vw - 48px)", md: "280px" }}
-															maxW={{ base: "calc(100vw - 48px)", md: "280px" }}
-															maxH="280px"
-															overflowY="auto"
-															borderColor={borderColor}
-															boxShadow="xl"
-															sx={{
-																scrollbarWidth: "none",
-																"&::-webkit-scrollbar": {
-																	display: "none",
-																},
-															}}
-														>
-															<Box
-																p={2}
-																borderBottom="1px solid"
-																borderColor="gray.200"
-															>
-																<InputGroup size="sm">
-																	<InputLeftElement
-																		pointerEvents="none"
-																		w="2.4rem"
-																		h="full"
-																		display="flex"
-																		alignItems="center"
-																		justifyContent="center"
-																	>
-																		<SearchIcon color="gray.400" w={4} h={4} />
-																	</InputLeftElement>
-																	<Input
-																		ps="2.4rem"
-																		textAlign="start"
-																		placeholder={t(
-																			"settings.subscriptions.searchAdmin",
-																		)}
-																		value={adminSearchTerm}
-																		onChange={(event) =>
-																			setAdminSearchTerm(event.target.value)
-																		}
-																	/>
-																</InputGroup>
-															</Box>
-															{filteredAdmins.length === 0 ? (
-																<Box px={3} py={2}>
-																	<Text color="gray.500">
-																		{t("settings.subscriptions.noResults")}
-																	</Text>
-																</Box>
-															) : (
-																filteredAdmins.map((admin) => (
-																	<MenuItem
-																		key={admin.id}
-																		onClick={() => setSelectedAdminId(admin.id)}
-																		minH="36px"
-																		py={1.5}
-																		px={3}
-																		bg={
-																			selectedAdminId === admin.id
-																				? "primary.50"
-																				: undefined
-																		}
-																		_dark={{
-																			bg:
-																				selectedAdminId === admin.id
-																					? "whiteAlpha.100"
-																					: undefined,
-																		}}
-																	>
-																		<Flex
-																			justify="space-between"
-																			align="center"
-																			w="full"
-																		>
-																			<Text>{admin.username}</Text>
-																			{admin.subscription_domain ? (
-																				<Text
-																					fontSize="xs"
-																					color="gray.500"
-																					maxW="160px"
-																					isTruncated
-																				>
-																					{admin.subscription_domain}
-																				</Text>
-																			) : null}
-																		</Flex>
-																	</MenuItem>
-																))
-															)}
-														</MenuList>
-													</Menu>
-													<FormHelperText>
-														{t("settings.subscriptions.inheritHint")}
-													</FormHelperText>
-												</FormControl>
-												{selectedAdminId == null ||
-												!adminOverrides[selectedAdminId] ? (
-													<Text color="gray.500">
-														{t("settings.subscriptions.selectAdminPlaceholder")}
-													</Text>
-												) : (
-													<Box
-														className="master-settings-subcard"
-														key={selectedAdminId}
-													>
-														{(() => {
-															const admin = adminOverrides[selectedAdminId];
-															if (!admin) return null;
-															const settings =
-																admin.subscription_settings || {};
-															return (
-																<>
-																	<Flex
-																		justify="space-between"
-																		align={{ base: "flex-start", md: "center" }}
-																		gap={3}
-																		flexDirection={{
-																			base: "column",
-																			md: "row",
-																		}}
-																	>
-																		<Box>
-																			<Text fontWeight="semibold">
-																				{admin.username}
-																			</Text>
-																			<Text fontSize="sm" color="gray.500">
-																				{t("settings.subscriptions.adminHint")}
-																			</Text>
-																		</Box>
-																		<HStack spacing={2}>
-																			{admin.subscription_domain ? (
-																				<Badge colorScheme="blue">
-																					{admin.subscription_domain}
-																				</Badge>
-																			) : null}
-																			<Button
-																				size="sm"
-																				variant="ghost"
-																				onClick={() =>
-																					handleAdminReset(admin.id)
-																				}
-																				isDisabled={savingAdminId === admin.id}
-																			>
-																				{t("reset")}
-																			</Button>
-																		</HStack>
-																	</Flex>
-																	<SimpleGrid
-																		columns={{ base: 1, md: 3 }}
-																		spacing={4}
-																		mt={3}
-																	>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.adminDomain",
-																				)}
-																			</FormLabel>
-																			<Input
-																				placeholder="sub.admin.example.com"
-																				value={admin.subscription_domain ?? ""}
-																				onChange={(event) =>
-																					handleAdminFieldChange(
-																						admin.id,
-																						"subscription_domain",
-																						event.target.value,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.customTemplatesDir",
-																				)}
-																			</FormLabel>
-																			<Input
-																				placeholder={
-																					subscriptionBundle?.settings
-																						.custom_templates_directory || ""
-																				}
-																				value={
-																					settings.custom_templates_directory ??
-																					""
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"custom_templates_directory",
-																						event.target.value,
-																					)
-																				}
-																			/>
-																			<FormHelperText>
-																				{t(
-																					"settings.subscriptions.inheritHint",
-																				)}
-																			</FormHelperText>
-																		</FormControl>
-																	</SimpleGrid>
-
-																	<SimpleGrid
-																		columns={{ base: 1, md: 3 }}
-																		spacing={4}
-																		mt={4}
-																	>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.profileTitle",
-																				)}
-																			</FormLabel>
-																			<Input
-																				placeholder={
-																					subscriptionBundle?.settings
-																						.subscription_profile_title || ""
-																				}
-																				value={
-																					settings.subscription_profile_title ??
-																					""
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"subscription_profile_title",
-																						event.target.value,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t("settings.subscriptions.supportUrl")}
-																			</FormLabel>
-																			<Input
-																				placeholder={
-																					subscriptionBundle?.settings
-																						.subscription_support_url || ""
-																				}
-																				value={
-																					settings.subscription_support_url ??
-																					""
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"subscription_support_url",
-																						event.target.value,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.updateInterval",
-																				)}
-																			</FormLabel>
-																			<Input
-																				type="number"
-																				placeholder={
-																					subscriptionBundle?.settings
-																						.subscription_update_interval || ""
-																				}
-																				value={
-																					settings.subscription_update_interval ??
-																					""
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"subscription_update_interval",
-																						event.target.value,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																	</SimpleGrid>
-
-																	<SimpleGrid
-																		columns={{ base: 1, md: 2 }}
-																		spacing={4}
-																		mt={4}
-																	>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.subscriptionPageTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.subscription_page_template || ""
-																					}
-																					value={
-																						settings.subscription_page_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"subscription_page_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"subscription_page_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.homePageTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.home_page_template || ""
-																					}
-																					value={
-																						settings.home_page_template ?? ""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"home_page_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"home_page_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.clashTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.clash_subscription_template || ""
-																					}
-																					value={
-																						settings.clash_subscription_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"clash_subscription_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"clash_subscription_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.clashSettingsTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.clash_settings_template || ""
-																					}
-																					value={
-																						settings.clash_settings_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"clash_settings_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"clash_settings_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.v2rayTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.v2ray_subscription_template || ""
-																					}
-																					value={
-																						settings.v2ray_subscription_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"v2ray_subscription_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"v2ray_subscription_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.v2raySettingsTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.v2ray_settings_template || ""
-																					}
-																					value={
-																						settings.v2ray_settings_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"v2ray_settings_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"v2ray_settings_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.happTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.happ_subscription_template || ""
-																					}
-																					value={
-																						settings.happ_subscription_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"happ_subscription_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"happ_subscription_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.incyTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.incy_subscription_template || ""
-																					}
-																					value={
-																						settings.incy_subscription_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"incy_subscription_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"incy_subscription_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.singboxTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.singbox_subscription_template ||
-																						""
-																					}
-																					value={
-																						settings.singbox_subscription_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"singbox_subscription_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"singbox_subscription_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.singboxSettingsTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.singbox_settings_template || ""
-																					}
-																					value={
-																						settings.singbox_settings_template ??
-																						""
-																					}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"singbox_settings_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"singbox_settings_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																		<FormControl>
-																			<FormLabel>
-																				{t(
-																					"settings.subscriptions.muxTemplate",
-																				)}
-																			</FormLabel>
-																			<HStack spacing={2} align="stretch">
-																				<Input
-																					flex="1"
-																					placeholder={
-																						subscriptionBundle?.settings
-																							.mux_template || ""
-																					}
-																					value={settings.mux_template ?? ""}
-																					onChange={(event) =>
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"mux_template",
-																							event.target.value,
-																						)
-																					}
-																				/>
-																				<Button
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
-																						openTemplateEditor(
-																							"mux_template",
-																							admin.id,
-																						)
-																					}
-																				>
-																					{t(
-																						"edit",
-																					)}
-																				</Button>
-																			</HStack>
-																		</FormControl>
-																	</SimpleGrid>
-
-																	<Divider my={4} />
-
-																	<SimpleGrid
-																		columns={{ base: 1, md: 2 }}
-																		spacing={4}
-																	>
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																		>
-																			<Box flex="1">
-																				<Text fontWeight="medium">
-																					{t(
-																						"settings.subscriptions.customJsonDefault",
-																					)}
-																				</Text>
-																				<Text fontSize="sm" color="gray.500">
-																					{t(
-																						"settings.subscriptions.customJsonDefaultHint",
-																					)}
-																				</Text>
-																			</Box>
-																			<Switch
-																				isChecked={
-																					settings.use_custom_json_default ??
-																					subscriptionBundle?.settings
-																						.use_custom_json_default ??
-																					false
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"use_custom_json_default",
-																						event.target.checked,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																		>
-																			<Box flex="1">
-																				<Text fontWeight="medium">
-																					{t(
-																						"settings.subscriptions.customJsonV2rayn",
-																					)}
-																				</Text>
-																				<Text fontSize="sm" color="gray.500">
-																					{t(
-																						"settings.subscriptions.customJsonV2raynHint",
-																					)}
-																				</Text>
-																			</Box>
-																			<Switch
-																				isChecked={
-																					settings.use_custom_json_for_v2rayn ??
-																					subscriptionBundle?.settings
-																						.use_custom_json_for_v2rayn ??
-																					false
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"use_custom_json_for_v2rayn",
-																						event.target.checked,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																		>
-																			<Box flex="1">
-																				<Text fontWeight="medium">
-																					{t(
-																						"settings.subscriptions.customJsonV2rayng",
-																					)}
-																				</Text>
-																				<Text fontSize="sm" color="gray.500">
-																					{t(
-																						"settings.subscriptions.customJsonV2rayngHint",
-																					)}
-																				</Text>
-																			</Box>
-																			<Switch
-																				isChecked={
-																					settings.use_custom_json_for_v2rayng ??
-																					subscriptionBundle?.settings
-																						.use_custom_json_for_v2rayng ??
-																					false
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"use_custom_json_for_v2rayng",
-																						event.target.checked,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																		>
-																			<Box flex="1">
-																				<Text fontWeight="medium">
-																					{t(
-																						"settings.subscriptions.customJsonStreisand",
-																					)}
-																				</Text>
-																				<Text fontSize="sm" color="gray.500">
-																					{t(
-																						"settings.subscriptions.customJsonStreisandHint",
-																					)}
-																				</Text>
-																			</Box>
-																			<Switch
-																				isChecked={
-																					settings.use_custom_json_for_streisand ??
-																					subscriptionBundle?.settings
-																						.use_custom_json_for_streisand ??
-																					false
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"use_custom_json_for_streisand",
-																						event.target.checked,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																		>
-																			<Box flex="1">
-																				<Text fontWeight="medium">
-																					{t(
-																						"settings.subscriptions.customJsonHapp",
-																					)}
-																				</Text>
-																				<Text fontSize="sm" color="gray.500">
-																					{t(
-																						"settings.subscriptions.customJsonHappHint",
-																					)}
-																				</Text>
-																			</Box>
-																			<Switch
-																				isChecked={
-																					settings.use_custom_json_for_happ ??
-																					subscriptionBundle?.settings
-																						.use_custom_json_for_happ ??
-																					false
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"use_custom_json_for_happ",
-																						event.target.checked,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																		>
-																			<Box flex="1">
-																				<Text fontWeight="medium">
-																					{t(
-																						"settings.subscriptions.customJsonIncy",
-																					)}
-																				</Text>
-																				<Text fontSize="sm" color="gray.500">
-																					{t(
-																						"settings.subscriptions.customJsonIncyHint",
-																					)}
-																				</Text>
-																			</Box>
-																			<Switch
-																				isChecked={
-																					settings.use_custom_json_for_incy ??
-																					subscriptionBundle?.settings
-																						.use_custom_json_for_incy ??
-																					false
-																				}
-																				onChange={(event) =>
-																					handleAdminTemplateChange(
-																						admin.id,
-																						"use_custom_json_for_incy",
-																						event.target.checked,
-																					)
-																				}
-																			/>
-																		</FormControl>
-																	</SimpleGrid>
-
-																	<Flex className="master-settings-action-row" mt={4}>
-																		<Button
-																			variant="outline"
-																			leftIcon={<RefreshIcon />}
-																			onClick={() => handleAdminReset(admin.id)}
-																			isDisabled={savingAdminId === admin.id}
-																		>
-																			{t(
-																				"settings.subscriptions.resetOverrides",
-																			)}
-																		</Button>
-																		<Button
-																			colorScheme="primary"
-																			leftIcon={<SaveIcon />}
-																			onClick={() => handleAdminSave(admin.id)}
-																			isLoading={savingAdminId === admin.id}
-																		>
-																			{t("settings.subscriptions.saveAdmin")}
-																		</Button>
-																	</Flex>
-																</>
-															);
-														})()}
-													</Box>
-												)}
-											</Stack>
-										)}
-									</Box>
-									<Box
-										className="master-settings-card"
-									>
-											<Heading size="sm" mb={1}>
-												{t("settings.subscriptions.certificateTitle")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500" mb={4}>
-												{t("settings.subscriptions.certificateDescription")}
-											</Text>
-											<Alert status="info" variant="left-accent" borderRadius="md" mb={4}>
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.subscriptions.certificateSNIHint")}
-												</Text>
-											</Alert>
-											<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-												<FormControl>
-													<FormLabel>
-														{t("settings.subscriptions.certificateProvider")}
-													</FormLabel>
-													<Select
-														value={certificateForm.provider}
-														showSearch={false}
-														onChange={(event) =>
-															setCertificateForm((prev) => ({
-																...prev,
-																provider: event.target.value as
-																	| "letsencrypt"
-																	| "zerossl"
-																	| "manual",
-															}))
-														}
-													>
-														<option value="letsencrypt">Certbot / Let's Encrypt</option>
-														<option value="zerossl">ZeroSSL</option>
-														<option value="manual">
-															{t("settings.subscriptions.manualCertificate")}
-														</option>
-													</Select>
-													{certificateForm.provider === "zerossl" ? (
-														<FormHelperText>
-															{t("settings.subscriptions.zeroSSLNoKeyHint")}
-														</FormHelperText>
-													) : null}
-												</FormControl>
-												{certificateForm.provider !== "manual" ? (
-												<FormControl>
-													<FormLabel>
-														{t("settings.subscriptions.email")}
-													</FormLabel>
-													<Input
-														type="email"
-														placeholder="admin@example.com"
-														value={certificateForm.email}
-														onChange={(event) =>
-															setCertificateForm((prev) => ({
-																...prev,
-																email: event.target.value,
-															}))
-														}
-													/>
-												</FormControl>
-												) : null}
-												<FormControl>
-													<FormLabel>
-														{certificateForm.provider === "manual"
-															? t("settings.subscriptions.domain")
-															: t("settings.subscriptions.domains")}
-													</FormLabel>
-													<Input
-														placeholder={
-															certificateForm.provider === "manual"
-																? "example.com"
-																: "example.com,sub.example.com"
-														}
-														value={certificateForm.domains}
-														onChange={(event) =>
-															setCertificateForm((prev) => ({
-																...prev,
-																domains: event.target.value,
-															}))
-														}
-													/>
-													{certificateForm.provider !== "manual" ? (
-														<FormHelperText>
-															{t("settings.subscriptions.domainsHint")}
-														</FormHelperText>
-													) : null}
-												</FormControl>
-											</SimpleGrid>
-											{certificateForm.provider === "manual" ? (
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mt={4}>
-													<FormControl>
-														<FormLabel>fullchain.pem</FormLabel>
-														<Textarea
-															dir="ltr"
-															fontFamily="mono"
-															minH="180px"
-															value={certificateForm.fullchain}
-															onChange={(event) =>
-																setCertificateForm((prev) => ({
-																	...prev,
-																	fullchain: event.target.value,
-																}))
-															}
-														/>
-													</FormControl>
-													<FormControl>
-														<FormLabel>privkey.pem</FormLabel>
-														<Textarea
-															dir="ltr"
-															fontFamily="mono"
-															minH="180px"
-															value={certificateForm.privateKey}
-															onChange={(event) =>
-																setCertificateForm((prev) => ({
-																	...prev,
-																	privateKey: event.target.value,
-																}))
-															}
-														/>
-													</FormControl>
-												</SimpleGrid>
-											) : null}
-											<Flex className="master-settings-action-row" mt={3}>
-												<Button
-													colorScheme="primary"
-													leftIcon={<SaveIcon />}
-													onClick={handleIssueCertificate}
-													isLoading={
-														issueCertificateMutation.isLoading ||
-														importCertificateMutation.isLoading
-													}
-												>
-													{certificateForm.provider === "manual"
-														? t("settings.subscriptions.importAction")
-														: t("settings.subscriptions.issueAction")}
-												</Button>
-											</Flex>
-											<Divider my={4} />
-											<Heading size="sm" mb={2}>
-												{t("settings.subscriptions.certificateList")}
-											</Heading>
-											{!subscriptionBundle?.certificates?.length ? (
-												<Text color="gray.500">
-													{t("settings.subscriptions.noCertificates")}
-												</Text>
-											) : (
-												<Stack spacing={3}>
-													{subscriptionBundle.certificates.map((cert) => (
-														<Box
-															className="master-settings-subcard"
-															key={cert.domain}
-														>
-															<Flex
-																justify="space-between"
-																align={{ base: "flex-start", md: "center" }}
-																gap={3}
-																flexDirection={{ base: "column", md: "row" }}
-															>
-																<Box minW={0}>
-																	<Text fontWeight="semibold">
-																		{cert.domain}
-																	</Text>
-																	{cert.alt_names?.length ? (
-																		<Text fontSize="sm" color="gray.500">
-																			SAN: {cert.alt_names.join(", ")}
-																		</Text>
-																	) : null}
-																	<Text fontSize="sm" color="gray.500">
-																		{t("settings.subscriptions.expiresAt")}:{" "}
-																		{cert.not_after
-																			? new Date(cert.not_after).toLocaleString()
-																			: t("settings.subscriptions.never")}
-																	</Text>
-																	<Text fontSize="sm" color="gray.500">
-																		{t("settings.subscriptions.lastIssued")}:{" "}
-																		{cert.last_issued_at
-																			? new Date(
-																					cert.last_issued_at,
-																				).toLocaleString()
-																			: t("settings.subscriptions.never")}
-																	</Text>
-																	<Text fontSize="sm" color="gray.500">
-																		{t("settings.subscriptions.lastRenewed")}:{" "}
-																		{cert.last_renewed_at
-																			? new Date(
-																					cert.last_renewed_at,
-																				).toLocaleString()
-																			: t("settings.subscriptions.never")}
-																	</Text>
-																	</Box>
-																	<HStack flexWrap="wrap" justify="flex-end">
-																		<HStack>
-																			<Text fontSize="sm">
-																				{t("settings.subscriptions.serveTLS")}
-																			</Text>
-																			<Switch
-																				aria-label={t("settings.subscriptions.serveTLS")}
-																				isChecked={cert.serve_tls !== false}
-																				isDisabled={
-																					certificateServingMutation.isLoading ||
-																					(cert.serve_tls === false &&
-																						cert.status !== "active" &&
-																						cert.status !== "expiring")
-																				}
-																				onChange={(event) =>
-																					certificateServingMutation.mutate({
-																						domain: cert.domain,
-																						enabled: event.target.checked,
-																					})
-																				}
-																			/>
-																		</HStack>
-																		<Badge
-																		colorScheme={
-																			cert.status === "active"
-																				? "green"
-																				: cert.status === "expiring"
-																					? "orange"
-																					: "red"
-																		}
-																	>
-																		{cert.status}
-																	</Badge>
-																	<Badge colorScheme="blue">
-																		{cert.provider || "unknown"}
-																	</Badge>
-																	{cert.auto_renew ? (
-																		<Badge colorScheme="teal">
-																			{t("settings.subscriptions.autoRenew")}
-																		</Badge>
-																	) : null}
-																	{cert.email ? (
-																		<Badge colorScheme="purple">
-																			{cert.email}
-																		</Badge>
-																	) : null}
-																	{cert.auto_renew && cert.status !== "revoked" ? (
-																	<Button
-																		size="sm"
-																		variant="outline"
-																		leftIcon={
-																			<ArrowPathIcon width={16} height={16} />
-																		}
-																		onClick={() =>
-																			handleRenewCertificate(cert.domain)
-																		}
-																		isLoading={
-																			renewCertificateMutation.isLoading &&
-																			renewingDomain === cert.domain
-																		}
-																	>
-																		{t("settings.subscriptions.renewAction")}
-																	</Button>
-																	) : null}
-																	{cert.provider !== "manual" && cert.status !== "revoked" ? (
-																		<Button
-																			size="sm"
-																			variant="outline"
-																			colorScheme="orange"
-																			onClick={() =>
-																				setCertificateAction({
-																					type: "revoke",
-																					domain: cert.domain,
-																				})
-																			}
-																		>
-																			{t("settings.subscriptions.revokeAction")}
-																		</Button>
-																	) : null}
-																	<Button
-																		size="sm"
-																		variant="outline"
-																		colorScheme="red"
-																		onClick={() =>
-																			setCertificateAction({
-																				type: "delete",
-																				domain: cert.domain,
-																			})
-																		}
-																	>
-																		{t("delete")}
-																	</Button>
-																</HStack>
-															</Flex>
-														</Box>
-													))}
-												</Stack>
-											)}
-										</Box>
-								</VStack>
-							</form>
-						)}
+				{isSubscriptionLoading && !subscriptionBundle ? (
+					<Flex align="center" justify="center" py={12}>
+						<Spinner size="lg" />
+					</Flex>
+				) : (
+					certificateManager
+				)}
 			</Box>
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
 				display={activeIntegrationTab === 1 ? "block" : "none"}
 			>
-						<VStack align="stretch" spacing={6}>
-							<RebeccaBackupPanel
-								isBinaryRuntime={hostActionsAvailable}
-								runtimeLoading={maintenanceInfoQuery.isLoading}
+				{isLoading && !data ? (
+					<Flex align="center" justify="center" py={12}>
+						<Spinner size="lg" />
+					</Flex>
+				) : (
+					<form
+						className="telegram-settings-form"
+						onSubmit={(event) => event.preventDefault()}
+					>
+						<VStack align="stretch" spacing={4}>
+							<TelegramSwitchRow
+								title={t("settings.telegram.enableBot")}
+								description={t("settings.telegram.enableBotDescription")}
+								control={
+									<Controller
+										control={control}
+										name="use_telegram"
+										render={({ field }) => (
+											<Switch
+												isChecked={field.value}
+												onChange={(event) =>
+													field.onChange(event.target.checked)
+												}
+											/>
+										)}
+									/>
+								}
 							/>
+							<DisabledCard
+								disabled={!isTelegramEnabled}
+								message={telegramDisabledMessage}
+							>
+								<Box className="master-settings-card">
+									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+										<FormControl>
+											<FormLabel>{t("settings.telegram.apiToken")}</FormLabel>
+											<Input
+												placeholder="123456:ABC"
+												{...register("api_token")}
+											/>
+										</FormControl>
+										<FormControl>
+											<FormLabel>{t("settings.telegram.proxyUrl")}</FormLabel>
+											<Input
+												placeholder="socks5://user:pass@host:port"
+												{...register("proxy_url")}
+											/>
+										</FormControl>
+										<FormControl>
+											<FormLabel>
+												{t("settings.telegram.adminChatIds")}
+											</FormLabel>
+											<Input
+												placeholder="12345, 67890"
+												{...register("admin_chat_ids")}
+											/>
+											<FormHelperText>
+												{t("settings.telegram.adminChatIdsHint")}
+											</FormHelperText>
+										</FormControl>
+										<FormControl>
+											<FormLabel>{t("settings.telegram.logsChatId")}</FormLabel>
+											<Input
+												placeholder="-100123456789"
+												{...register("logs_chat_id")}
+											/>
+											<FormHelperText>
+												{t("settings.telegram.logsChatIdHint")}
+											</FormHelperText>
+										</FormControl>
+										<TelegramSwitchRow
+											title={t("settings.telegram.logsChatIsForum")}
+											description={t("settings.telegram.logsChatIsForumHint")}
+											control={
+												<Controller
+													control={control}
+													name="logs_chat_is_forum"
+													render={({ field }) => (
+														<Switch
+															isChecked={field.value}
+															onChange={(event) =>
+																field.onChange(event.target.checked)
+															}
+														/>
+													)}
+												/>
+											}
+										/>
+										<FormControl>
+											<FormLabel>
+												{t("settings.telegram.defaultVlessFlow")}
+											</FormLabel>
+											<Input
+												placeholder="xtls-rprx-vision"
+												{...register("default_vless_flow")}
+											/>
+										</FormControl>
+									</SimpleGrid>
+									<Flex className="master-settings-action-row" mt={4}>
+										<Button
+											size="sm"
+											variant="outline"
+											leftIcon={<SaveIcon />}
+											isLoading={telegramTestMutation.isLoading}
+											onClick={() => telegramTestMutation.mutate()}
+										>
+											{t("settings.telegram.testMessage")}
+										</Button>
+									</Flex>
+								</Box>
+							</DisabledCard>
+
+							<DisabledCard
+								disabled={!isTelegramEnabled || !hostActionsAvailable}
+								message={
+									!hostActionsAvailable
+										? telegramBackupDisabledMessage
+										: telegramDisabledMessage
+								}
+							>
+								<Box
+									id="telegram-periodic-backup"
+									className="master-settings-card"
+									scrollMarginTop="120px"
+								>
+									<Box mb={3}>
+										<TelegramSwitchRow
+											title={t("settings.telegram.backupTitle")}
+											description={t("settings.telegram.backupDescription")}
+											control={
+												<Controller
+													control={control}
+													name="backup_enabled"
+													render={({ field }) => (
+														<Switch
+															isChecked={field.value}
+															onChange={(event) =>
+																field.onChange(event.target.checked)
+															}
+														/>
+													)}
+												/>
+											}
+										/>
+									</Box>
+									<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+										<FormControl>
+											<FormLabel>
+												{t("settings.telegram.backupChatId")}
+											</FormLabel>
+											<Input
+												placeholder="-100123456789"
+												{...register("backup_chat_id")}
+											/>
+											<FormHelperText>
+												{t("settings.telegram.backupChatIdHint")}
+											</FormHelperText>
+										</FormControl>
+										<TelegramSwitchRow
+											title={t("settings.telegram.backupChatIsForum")}
+											description={t("settings.telegram.backupChatIsForumHint")}
+											control={
+												<Controller
+													control={control}
+													name="backup_chat_is_forum"
+													render={({ field }) => (
+														<Switch
+															isChecked={field.value}
+															onChange={(event) =>
+																field.onChange(event.target.checked)
+															}
+														/>
+													)}
+												/>
+											}
+										/>
+										<FormControl>
+											<FormLabel>
+												{t("settings.telegram.backupScope")}
+											</FormLabel>
+											<Controller
+												control={control}
+												name="backup_scope"
+												render={({ field }) => (
+													<Select {...field}>
+														<option value="database">
+															{t("settings.telegram.backupScopeDatabase")}
+														</option>
+														<option value="full">
+															{t("settings.telegram.backupScopeFull")}
+														</option>
+													</Select>
+												)}
+											/>
+										</FormControl>
+										<FormControl>
+											<FormLabel>
+												{t("settings.telegram.backupIntervalValue")}
+											</FormLabel>
+											<Controller
+												control={control}
+												name="backup_interval_value"
+												render={({ field }) => (
+													<NumericInput
+														min={1}
+														value={field.value}
+														onChange={(_value, valueAsNumber) =>
+															field.onChange(
+																Number.isFinite(valueAsNumber)
+																	? valueAsNumber
+																	: 1,
+															)
+														}
+														isDisabled={!isTelegramBackupEnabled}
+													/>
+												)}
+											/>
+										</FormControl>
+										<FormControl>
+											<FormLabel>
+												{t("settings.telegram.backupIntervalUnit")}
+											</FormLabel>
+											<Controller
+												control={control}
+												name="backup_interval_unit"
+												render={({ field }) => (
+													<Select
+														{...field}
+														isDisabled={!isTelegramBackupEnabled}
+													>
+														<option value="minutes">
+															{t("settings.telegram.backupIntervalMinutes")}
+														</option>
+														<option value="hours">
+															{t("settings.telegram.backupIntervalHours")}
+														</option>
+														<option value="days">
+															{t("settings.telegram.backupIntervalDays")}
+														</option>
+													</Select>
+												)}
+											/>
+										</FormControl>
+									</SimpleGrid>
+									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} mt={3}>
+										<Text fontSize="xs" color="gray.500">
+											{t("settings.telegram.backupLastSent")}:{" "}
+											{data?.backup_last_sent_at || "-"}
+										</Text>
+										{data?.backup_last_error && (
+											<Text fontSize="xs" color="red.300">
+												{t("settings.telegram.backupLastError")}:{" "}
+												{data.backup_last_error}
+											</Text>
+										)}
+									</SimpleGrid>
+									<Flex className="master-settings-action-row" mt={4}>
+										<Button
+											size="sm"
+											variant="outline"
+											leftIcon={<ArrowUpTrayIcon width={16} />}
+											isLoading={telegramBackupMutation.isLoading}
+											onClick={() =>
+												telegramBackupMutation.mutate(telegramBackupScope)
+											}
+										>
+											{t("settings.telegram.backupSendNow")}
+										</Button>
+									</Flex>
+								</Box>
+							</DisabledCard>
+
+							<DisabledCard
+								disabled={!isTelegramEnabled}
+								message={telegramDisabledMessage}
+							>
+								<Box className="master-settings-card">
+									<Flex
+										justify="space-between"
+										align={{ base: "flex-start", md: "center" }}
+										gap={3}
+										flexDirection={{ base: "column", md: "row" }}
+									>
+										<Box>
+											<Heading size="sm">
+												{t("settings.telegram.botCommandsTitle")}
+											</Heading>
+										</Box>
+										<Badge colorScheme="yellow">
+											{t("settings.tabs.comingSoon")}
+										</Badge>
+									</Flex>
+								</Box>
+							</DisabledCard>
+
+							<DisabledCard
+								disabled={!isTelegramEnabled}
+								message={telegramDisabledMessage}
+							>
+								<Box>
+									<Heading size="sm" mb={3}>
+										{t("settings.telegram.forumTopics")}
+									</Heading>
+									{forumTopics && Object.keys(forumTopics).length > 0 ? (
+										<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={3}>
+											{Object.entries(forumTopics).map(([key]) => (
+												<Box className="master-settings-subcard" key={key}>
+													<Text fontSize="sm" fontWeight="medium" mb={2}>
+														{t("settings.telegram.topicKey")}: {key}
+													</Text>
+													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+														<FormControl>
+															<FormLabel>
+																{t("settings.telegram.topicTitle")}
+															</FormLabel>
+															<Input
+																{...register(
+																	`forum_topics.${key}.title` as const,
+																)}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>
+																{t("settings.telegram.topicId")}
+															</FormLabel>
+															<Input
+																type="number"
+																{...register(
+																	`forum_topics.${key}.topic_id` as const,
+																)}
+															/>
+															<FormHelperText>
+																{t("settings.telegram.topicIdHint")}
+															</FormHelperText>
+														</FormControl>
+													</SimpleGrid>
+												</Box>
+											))}
+										</SimpleGrid>
+									) : (
+										<Text color="gray.500">
+											{t("settings.telegram.emptyTopics")}
+										</Text>
+									)}
+								</Box>
+							</DisabledCard>
+
+							<DisabledCard
+								disabled={!isTelegramEnabled}
+								message={telegramDisabledMessage}
+							>
+								<Box>
+									<Heading size="sm" mb={2}>
+										{t("settings.telegram.notificationsTitle")}
+									</Heading>
+									<Text fontSize="sm" color="gray.500" mb={4}>
+										{t("settings.telegram.notificationsDescription")}
+									</Text>
+									<Stack spacing={4}>
+										{EVENT_TOGGLE_GROUPS.map((group) => (
+											<Box className="master-settings-subcard" key={group.key}>
+												<Text fontWeight="semibold" mb={3}>
+													{t(group.titleKey, group.defaultTitle)}
+												</Text>
+												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+													{group.events.map((event) => (
+														<TelegramSwitchRow
+															key={event.key}
+															title={t(event.labelKey, event.defaultLabel)}
+															description={t(event.hintKey, event.defaultHint)}
+															control={
+																<Controller
+																	control={control}
+																	name={
+																		`event_toggles.${encodeToggleKey(event.key)}` as const
+																	}
+																	render={({ field }) => (
+																		<Switch
+																			isChecked={Boolean(field.value)}
+																			onChange={(e) =>
+																				field.onChange(e.target.checked)
+																			}
+																		/>
+																	)}
+																/>
+															}
+														/>
+													))}
+												</SimpleGrid>
+											</Box>
+										))}
+									</Stack>
+								</Box>
+							</DisabledCard>
+
+							<Flex className="master-settings-action-row">
+								<Button
+									variant="outline"
+									leftIcon={<RefreshIcon />}
+									onClick={() => refetch()}
+									isDisabled={saveAllMutation.isLoading}
+								>
+									{t("refresh")}
+								</Button>
+							</Flex>
 						</VStack>
+					</form>
+				)}
 			</Box>
 			<Box
 				px={{ base: 0, md: 2 }}
 				mt={3}
-				display={activeIntegrationTab === 4 ? "block" : "none"}
+				display={activeIntegrationTab === 2 ? "block" : "none"}
 			>
+				{isSubscriptionLoading && !subscriptionBundle ? (
+					<Flex align="center" justify="center" py={12}>
+						<Spinner size="lg" />
+					</Flex>
+				) : (
+					<form onSubmit={(event) => event.preventDefault()}>
 						<VStack align="stretch" spacing={6}>
-							<Alert status="warning" variant="left-accent" borderRadius="md">
-								<AlertIcon />
-								<Box>
-									<Text fontWeight="semibold">
-										{t("settings.integrations.incompleteWarningTitle")}
+							<Box className="master-settings-card">
+								<Flex
+									justify="space-between"
+									align={{ base: "flex-start", md: "center" }}
+									flexDirection={{ base: "column", md: "row" }}
+									gap={3}
+									mb={4}
+								>
+									<Box>
+										<Heading size="sm" mb={1}>
+											{t("settings.subscriptions.globalTitle")}
+										</Heading>
+										<Text fontSize="sm" color="gray.500">
+											{t("settings.subscriptions.globalDescription")}
+										</Text>
+									</Box>
+									<HStack spacing={2}>
+										<Button
+											variant="outline"
+											size="sm"
+											leftIcon={<RefreshIcon />}
+											type="button"
+											onClick={() => refetchSubscriptionSettings()}
+											isDisabled={saveAllMutation.isLoading}
+										>
+											{t("refresh")}
+										</Button>
+									</HStack>
+								</Flex>
+								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.urlPrefix")}
+										</FormLabel>
+										<Input
+											placeholder="https://sub.example.com"
+											{...subscriptionRegister("subscription_url_prefix")}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.urlPrefixHint")}
+										</FormHelperText>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.customTemplatesDir")}
+										</FormLabel>
+										<Input
+											placeholder="/var/lib/rebecca/templates"
+											{...subscriptionRegister("custom_templates_directory")}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.customTemplatesDirHint")}
+										</FormHelperText>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.profileTitle")}
+										</FormLabel>
+										<Input
+											placeholder="Subscription"
+											{...subscriptionRegister("subscription_profile_title")}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.profileTitleHint")}
+										</FormHelperText>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.supportUrl")}
+										</FormLabel>
+										<Input
+											placeholder="https://t.me/support"
+											{...subscriptionRegister("subscription_support_url")}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.supportUrlHint")}
+										</FormHelperText>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.updateInterval")}
+										</FormLabel>
+										<Input
+											type="number"
+											{...subscriptionRegister("subscription_update_interval")}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.updateIntervalHint")}
+										</FormHelperText>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.subscriptionPageTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("subscription_page_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.homePageTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("home_page_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.clashTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("clash_subscription_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.clashSettingsTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("clash_settings_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.v2rayTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("v2ray_subscription_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.v2raySettingsTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("v2ray_settings_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.happTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("happ_subscription_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.incyTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("incy_subscription_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.singboxTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister(
+													"singbox_subscription_template",
+												)}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.singboxSettingsTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("singbox_settings_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.muxTemplate")}
+										</FormLabel>
+										<HStack spacing={2} align="stretch">
+											<Input
+												flex="1"
+												{...subscriptionRegister("mux_template")}
+											/>
+										</HStack>
+									</FormControl>
+									<Box gridColumn={{ base: "1 / -1", md: "1 / -1" }}>
+										<Divider mb={3} />
+										<Text fontSize="sm" fontWeight="semibold">
+											{t("settings.subscriptions.routingSection")}
+										</Text>
+									</Box>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.subscriptionAliases")}
+										</FormLabel>
+										<Textarea
+											placeholder="/mypath/\n/test/\n/api/v1/client/subscribe?token=\n/api/v1/client/subscribe?key="
+											rows={4}
+											{...subscriptionRegister("subscription_aliases_text")}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.aliasesHint")}
+										</FormHelperText>
+									</FormControl>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.subscriptionPorts")}
+										</FormLabel>
+										<Input
+											placeholder="443, 8443"
+											{...subscriptionRegister("subscription_ports_text", {
+												onBlur: (event) => {
+													const normalized = formatSubscriptionPorts(
+														parseSubscriptionPortsInput(
+															event.target.value || "",
+														),
+													);
+													setSubscriptionValue(
+														"subscription_ports_text",
+														normalized,
+														{
+															shouldDirty: true,
+														},
+													);
+												},
+											})}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.subscriptionPortsHint")}
+											{parsedSubscriptionPorts.length > 0
+												? ` ${t("settings.subscriptions.activePorts")}: ${parsedSubscriptionPorts.join(", ")}`
+												: ""}
+										</FormHelperText>
+									</FormControl>
+								</SimpleGrid>
+								<Divider my={4} />
+								<Text fontSize="sm" fontWeight="semibold" mb={3}>
+									{t("settings.subscriptions.clientJsonSection")}
+								</Text>
+								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									<Controller
+										control={subscriptionControl}
+										name="use_custom_json_default"
+										render={({ field }) => (
+											<FormControl display="flex" alignItems="center">
+												<Box flex="1">
+													<Text fontWeight="medium">
+														{t("settings.subscriptions.customJsonDefault")}
+													</Text>
+													<Text fontSize="sm" color="gray.500">
+														{t("settings.subscriptions.customJsonDefaultHint")}
+													</Text>
+												</Box>
+												<Switch
+													isChecked={field.value}
+													onChange={(event) =>
+														field.onChange(event.target.checked)
+													}
+												/>
+											</FormControl>
+										)}
+									/>
+									<Controller
+										control={subscriptionControl}
+										name="use_custom_json_for_v2rayn"
+										render={({ field }) => (
+											<FormControl display="flex" alignItems="center">
+												<Box flex="1">
+													<Text fontWeight="medium">
+														{t("settings.subscriptions.customJsonV2rayn")}
+													</Text>
+													<Text fontSize="sm" color="gray.500">
+														{t("settings.subscriptions.customJsonV2raynHint")}
+													</Text>
+												</Box>
+												<Switch
+													isChecked={field.value}
+													onChange={(event) =>
+														field.onChange(event.target.checked)
+													}
+												/>
+											</FormControl>
+										)}
+									/>
+									<Controller
+										control={subscriptionControl}
+										name="use_custom_json_for_v2rayng"
+										render={({ field }) => (
+											<FormControl display="flex" alignItems="center">
+												<Box flex="1">
+													<Text fontWeight="medium">
+														{t("settings.subscriptions.customJsonV2rayng")}
+													</Text>
+													<Text fontSize="sm" color="gray.500">
+														{t("settings.subscriptions.customJsonV2rayngHint")}
+													</Text>
+												</Box>
+												<Switch
+													isChecked={field.value}
+													onChange={(event) =>
+														field.onChange(event.target.checked)
+													}
+												/>
+											</FormControl>
+										)}
+									/>
+									<Controller
+										control={subscriptionControl}
+										name="use_custom_json_for_streisand"
+										render={({ field }) => (
+											<FormControl display="flex" alignItems="center">
+												<Box flex="1">
+													<Text fontWeight="medium">
+														{t("settings.subscriptions.customJsonStreisand")}
+													</Text>
+													<Text fontSize="sm" color="gray.500">
+														{t(
+															"settings.subscriptions.customJsonStreisandHint",
+														)}
+													</Text>
+												</Box>
+												<Switch
+													isChecked={field.value}
+													onChange={(event) =>
+														field.onChange(event.target.checked)
+													}
+												/>
+											</FormControl>
+										)}
+									/>
+									<Controller
+										control={subscriptionControl}
+										name="use_custom_json_for_happ"
+										render={({ field }) => (
+											<FormControl display="flex" alignItems="center">
+												<Box flex="1">
+													<Text fontWeight="medium">
+														{t("settings.subscriptions.customJsonHapp")}
+													</Text>
+													<Text fontSize="sm" color="gray.500">
+														{t("settings.subscriptions.customJsonHappHint")}
+													</Text>
+												</Box>
+												<Switch
+													isChecked={field.value}
+													onChange={(event) =>
+														field.onChange(event.target.checked)
+													}
+												/>
+											</FormControl>
+										)}
+									/>
+									<Controller
+										control={subscriptionControl}
+										name="use_custom_json_for_incy"
+										render={({ field }) => (
+											<FormControl display="flex" alignItems="center">
+												<Box flex="1">
+													<Text fontWeight="medium">
+														{t("settings.subscriptions.customJsonIncy")}
+													</Text>
+													<Text fontSize="sm" color="gray.500">
+														{t("settings.subscriptions.customJsonIncyHint")}
+													</Text>
+												</Box>
+												<Switch
+													isChecked={field.value}
+													onChange={(event) =>
+														field.onChange(event.target.checked)
+													}
+												/>
+											</FormControl>
+										)}
+									/>
+								</SimpleGrid>
+							</Box>
+							<Box className="master-settings-card">
+								<Heading size="sm" mb={1}>
+									{t("settings.subscriptions.adminsTitle")}
+								</Heading>
+								<Text fontSize="sm" color="gray.500" mb={4}>
+									{t("settings.subscriptions.adminsDescription")}
+								</Text>
+								{Object.values(adminOverrides).length === 0 ? (
+									<Text color="gray.500">
+										{t("settings.subscriptions.noAdmins")}
 									</Text>
-									<Text fontSize="sm">
-										{t("settings.integrations.incompleteWarningDescription")}
-									</Text>
-								</Box>
-							</Alert>
-							<SubscriptionTemplateCreator
-								onSaved={() => {
-									void refetchSubscriptionSettings();
-								}}
-							/>
+								) : (
+									<Stack spacing={4}>
+										<FormControl maxW={{ base: "full", md: "280px" }}>
+											<FormLabel>
+												{t("settings.subscriptions.selectAdmin")}
+											</FormLabel>
+											<Menu>
+												<MenuButton
+													as={Button}
+													variant="outline"
+													size="sm"
+													rightIcon={<ChevronDownIcon />}
+													w="full"
+													h="36px"
+													px={3}
+													fontSize="13px"
+													fontWeight="semibold"
+													justifyContent="space-between"
+													textAlign="start"
+													borderRadius="md"
+												>
+													<Text
+														as="span"
+														noOfLines={1}
+														flex="1"
+														minW={0}
+														textAlign="start"
+													>
+														{selectedAdminId && adminOverrides[selectedAdminId]
+															? adminOverrides[selectedAdminId].username
+															: t(
+																	"settings.subscriptions.selectAdminPlaceholder",
+																)}
+													</Text>
+												</MenuButton>
+												<MenuList
+													minW={{ base: "calc(100vw - 48px)", md: "280px" }}
+													maxW={{ base: "calc(100vw - 48px)", md: "280px" }}
+													maxH="280px"
+													overflowY="auto"
+													borderColor={borderColor}
+													boxShadow="xl"
+													sx={{
+														scrollbarWidth: "none",
+														"&::-webkit-scrollbar": {
+															display: "none",
+														},
+													}}
+												>
+													<Box
+														p={2}
+														borderBottom="1px solid"
+														borderColor="gray.200"
+													>
+														<InputGroup size="sm">
+															<InputLeftElement
+																pointerEvents="none"
+																w="2.4rem"
+																h="full"
+																display="flex"
+																alignItems="center"
+																justifyContent="center"
+															>
+																<SearchIcon color="gray.400" w={4} h={4} />
+															</InputLeftElement>
+															<Input
+																ps="2.4rem"
+																textAlign="start"
+																placeholder={t(
+																	"settings.subscriptions.searchAdmin",
+																)}
+																value={adminSearchTerm}
+																onChange={(event) =>
+																	setAdminSearchTerm(event.target.value)
+																}
+															/>
+														</InputGroup>
+													</Box>
+													{filteredAdmins.length === 0 ? (
+														<Box px={3} py={2}>
+															<Text color="gray.500">
+																{t("settings.subscriptions.noResults")}
+															</Text>
+														</Box>
+													) : (
+														filteredAdmins.map((admin) => (
+															<MenuItem
+																key={admin.id}
+																onClick={() => setSelectedAdminId(admin.id)}
+																minH="36px"
+																py={1.5}
+																px={3}
+																bg={
+																	selectedAdminId === admin.id
+																		? "primary.50"
+																		: undefined
+																}
+																_dark={{
+																	bg:
+																		selectedAdminId === admin.id
+																			? "whiteAlpha.100"
+																			: undefined,
+																}}
+															>
+																<Flex
+																	justify="space-between"
+																	align="center"
+																	w="full"
+																>
+																	<Text>{admin.username}</Text>
+																	{admin.subscription_domain ? (
+																		<Text
+																			fontSize="xs"
+																			color="gray.500"
+																			maxW="160px"
+																			isTruncated
+																		>
+																			{admin.subscription_domain}
+																		</Text>
+																	) : null}
+																</Flex>
+															</MenuItem>
+														))
+													)}
+												</MenuList>
+											</Menu>
+											<FormHelperText>
+												{t("settings.subscriptions.inheritHint")}
+											</FormHelperText>
+										</FormControl>
+										{selectedAdminId == null ||
+										!adminOverrides[selectedAdminId] ? (
+											<Text color="gray.500">
+												{t("settings.subscriptions.selectAdminPlaceholder")}
+											</Text>
+										) : (
+											<Box
+												className="master-settings-subcard"
+												key={selectedAdminId}
+											>
+												{(() => {
+													const admin = adminOverrides[selectedAdminId];
+													if (!admin) return null;
+													const settings = admin.subscription_settings || {};
+													return (
+														<>
+															<Flex
+																justify="space-between"
+																align={{ base: "flex-start", md: "center" }}
+																gap={3}
+																flexDirection={{
+																	base: "column",
+																	md: "row",
+																}}
+															>
+																<Box>
+																	<Text fontWeight="semibold">
+																		{admin.username}
+																	</Text>
+																	<Text fontSize="sm" color="gray.500">
+																		{t("settings.subscriptions.adminHint")}
+																	</Text>
+																</Box>
+																<HStack spacing={2}>
+																	{admin.subscription_domain ? (
+																		<Badge colorScheme="blue">
+																			{admin.subscription_domain}
+																		</Badge>
+																	) : null}
+																	<Button
+																		size="sm"
+																		variant="ghost"
+																		onClick={() => handleAdminReset(admin.id)}
+																		isDisabled={saveAllMutation.isLoading}
+																	>
+																		{t("reset")}
+																	</Button>
+																</HStack>
+															</Flex>
+															<SimpleGrid
+																columns={{ base: 1, md: 3 }}
+																spacing={4}
+																mt={3}
+															>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.adminDomain")}
+																	</FormLabel>
+																	<Input
+																		placeholder="sub.admin.example.com"
+																		value={admin.subscription_domain ?? ""}
+																		onChange={(event) =>
+																			handleAdminFieldChange(
+																				admin.id,
+																				"subscription_domain",
+																				event.target.value,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t(
+																			"settings.subscriptions.customTemplatesDir",
+																		)}
+																	</FormLabel>
+																	<Input
+																		placeholder={
+																			subscriptionBundle?.settings
+																				.custom_templates_directory || ""
+																		}
+																		value={
+																			settings.custom_templates_directory ?? ""
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"custom_templates_directory",
+																				event.target.value,
+																			)
+																		}
+																	/>
+																	<FormHelperText>
+																		{t("settings.subscriptions.inheritHint")}
+																	</FormHelperText>
+																</FormControl>
+															</SimpleGrid>
+
+															<SimpleGrid
+																columns={{ base: 1, md: 3 }}
+																spacing={4}
+																mt={4}
+															>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.profileTitle")}
+																	</FormLabel>
+																	<Input
+																		placeholder={
+																			subscriptionBundle?.settings
+																				.subscription_profile_title || ""
+																		}
+																		value={
+																			settings.subscription_profile_title ?? ""
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"subscription_profile_title",
+																				event.target.value,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.supportUrl")}
+																	</FormLabel>
+																	<Input
+																		placeholder={
+																			subscriptionBundle?.settings
+																				.subscription_support_url || ""
+																		}
+																		value={
+																			settings.subscription_support_url ?? ""
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"subscription_support_url",
+																				event.target.value,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.updateInterval")}
+																	</FormLabel>
+																	<Input
+																		type="number"
+																		placeholder={
+																			subscriptionBundle?.settings
+																				.subscription_update_interval || ""
+																		}
+																		value={
+																			settings.subscription_update_interval ??
+																			""
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"subscription_update_interval",
+																				event.target.value,
+																			)
+																		}
+																	/>
+																</FormControl>
+															</SimpleGrid>
+
+															<SimpleGrid
+																columns={{ base: 1, md: 2 }}
+																spacing={4}
+																mt={4}
+															>
+																<FormControl>
+																	<FormLabel>
+																		{t(
+																			"settings.subscriptions.subscriptionPageTemplate",
+																		)}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.subscription_page_template || ""
+																			}
+																			value={
+																				settings.subscription_page_template ??
+																				""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"subscription_page_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t(
+																			"settings.subscriptions.homePageTemplate",
+																		)}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.home_page_template || ""
+																			}
+																			value={settings.home_page_template ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"home_page_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.clashTemplate")}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.clash_subscription_template || ""
+																			}
+																			value={
+																				settings.clash_subscription_template ??
+																				""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"clash_subscription_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t(
+																			"settings.subscriptions.clashSettingsTemplate",
+																		)}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.clash_settings_template || ""
+																			}
+																			value={
+																				settings.clash_settings_template ?? ""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"clash_settings_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.v2rayTemplate")}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.v2ray_subscription_template || ""
+																			}
+																			value={
+																				settings.v2ray_subscription_template ??
+																				""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"v2ray_subscription_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t(
+																			"settings.subscriptions.v2raySettingsTemplate",
+																		)}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.v2ray_settings_template || ""
+																			}
+																			value={
+																				settings.v2ray_settings_template ?? ""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"v2ray_settings_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.happTemplate")}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.happ_subscription_template || ""
+																			}
+																			value={
+																				settings.happ_subscription_template ??
+																				""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"happ_subscription_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.incyTemplate")}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.incy_subscription_template || ""
+																			}
+																			value={
+																				settings.incy_subscription_template ??
+																				""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"incy_subscription_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t(
+																			"settings.subscriptions.singboxTemplate",
+																		)}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.singbox_subscription_template || ""
+																			}
+																			value={
+																				settings.singbox_subscription_template ??
+																				""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"singbox_subscription_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t(
+																			"settings.subscriptions.singboxSettingsTemplate",
+																		)}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.singbox_settings_template || ""
+																			}
+																			value={
+																				settings.singbox_settings_template ?? ""
+																			}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"singbox_settings_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+																<FormControl>
+																	<FormLabel>
+																		{t("settings.subscriptions.muxTemplate")}
+																	</FormLabel>
+																	<HStack spacing={2} align="stretch">
+																		<Input
+																			flex="1"
+																			placeholder={
+																				subscriptionBundle?.settings
+																					.mux_template || ""
+																			}
+																			value={settings.mux_template ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"mux_template",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																	</HStack>
+																</FormControl>
+															</SimpleGrid>
+
+															<Divider my={4} />
+
+															<SimpleGrid
+																columns={{ base: 1, md: 2 }}
+																spacing={4}
+															>
+																<FormControl display="flex" alignItems="center">
+																	<Box flex="1">
+																		<Text fontWeight="medium">
+																			{t(
+																				"settings.subscriptions.customJsonDefault",
+																			)}
+																		</Text>
+																		<Text fontSize="sm" color="gray.500">
+																			{t(
+																				"settings.subscriptions.customJsonDefaultHint",
+																			)}
+																		</Text>
+																	</Box>
+																	<Switch
+																		isChecked={
+																			settings.use_custom_json_default ??
+																			subscriptionBundle?.settings
+																				.use_custom_json_default ??
+																			false
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"use_custom_json_default",
+																				event.target.checked,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl display="flex" alignItems="center">
+																	<Box flex="1">
+																		<Text fontWeight="medium">
+																			{t(
+																				"settings.subscriptions.customJsonV2rayn",
+																			)}
+																		</Text>
+																		<Text fontSize="sm" color="gray.500">
+																			{t(
+																				"settings.subscriptions.customJsonV2raynHint",
+																			)}
+																		</Text>
+																	</Box>
+																	<Switch
+																		isChecked={
+																			settings.use_custom_json_for_v2rayn ??
+																			subscriptionBundle?.settings
+																				.use_custom_json_for_v2rayn ??
+																			false
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"use_custom_json_for_v2rayn",
+																				event.target.checked,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl display="flex" alignItems="center">
+																	<Box flex="1">
+																		<Text fontWeight="medium">
+																			{t(
+																				"settings.subscriptions.customJsonV2rayng",
+																			)}
+																		</Text>
+																		<Text fontSize="sm" color="gray.500">
+																			{t(
+																				"settings.subscriptions.customJsonV2rayngHint",
+																			)}
+																		</Text>
+																	</Box>
+																	<Switch
+																		isChecked={
+																			settings.use_custom_json_for_v2rayng ??
+																			subscriptionBundle?.settings
+																				.use_custom_json_for_v2rayng ??
+																			false
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"use_custom_json_for_v2rayng",
+																				event.target.checked,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl display="flex" alignItems="center">
+																	<Box flex="1">
+																		<Text fontWeight="medium">
+																			{t(
+																				"settings.subscriptions.customJsonStreisand",
+																			)}
+																		</Text>
+																		<Text fontSize="sm" color="gray.500">
+																			{t(
+																				"settings.subscriptions.customJsonStreisandHint",
+																			)}
+																		</Text>
+																	</Box>
+																	<Switch
+																		isChecked={
+																			settings.use_custom_json_for_streisand ??
+																			subscriptionBundle?.settings
+																				.use_custom_json_for_streisand ??
+																			false
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"use_custom_json_for_streisand",
+																				event.target.checked,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl display="flex" alignItems="center">
+																	<Box flex="1">
+																		<Text fontWeight="medium">
+																			{t(
+																				"settings.subscriptions.customJsonHapp",
+																			)}
+																		</Text>
+																		<Text fontSize="sm" color="gray.500">
+																			{t(
+																				"settings.subscriptions.customJsonHappHint",
+																			)}
+																		</Text>
+																	</Box>
+																	<Switch
+																		isChecked={
+																			settings.use_custom_json_for_happ ??
+																			subscriptionBundle?.settings
+																				.use_custom_json_for_happ ??
+																			false
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"use_custom_json_for_happ",
+																				event.target.checked,
+																			)
+																		}
+																	/>
+																</FormControl>
+																<FormControl display="flex" alignItems="center">
+																	<Box flex="1">
+																		<Text fontWeight="medium">
+																			{t(
+																				"settings.subscriptions.customJsonIncy",
+																			)}
+																		</Text>
+																		<Text fontSize="sm" color="gray.500">
+																			{t(
+																				"settings.subscriptions.customJsonIncyHint",
+																			)}
+																		</Text>
+																	</Box>
+																	<Switch
+																		isChecked={
+																			settings.use_custom_json_for_incy ??
+																			subscriptionBundle?.settings
+																				.use_custom_json_for_incy ??
+																			false
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"use_custom_json_for_incy",
+																				event.target.checked,
+																			)
+																		}
+																	/>
+																</FormControl>
+															</SimpleGrid>
+
+															<Flex
+																className="master-settings-action-row"
+																mt={4}
+															>
+																<Button
+																	variant="outline"
+																	leftIcon={<RefreshIcon />}
+																	onClick={() => handleAdminReset(admin.id)}
+																	isDisabled={saveAllMutation.isLoading}
+																>
+																	{t("settings.subscriptions.resetOverrides")}
+																</Button>
+															</Flex>
+														</>
+													);
+												})()}
+											</Box>
+										)}
+									</Stack>
+								)}
+							</Box>
 						</VStack>
+					</form>
+				)}
 			</Box>
-			<ConfirmDialog
-				isOpen={isDevUpdateConfirmOpen}
-				onClose={() => setDevUpdateConfirmOpen(false)}
-				onConfirm={confirmDevPanelUpdate}
-				title={t("settings.panel.devChannelConfirmTitle")}
-				description={t("settings.panel.devChannelConfirm")}
-				confirmLabel={t("settings.panel.updateAction")}
-				colorScheme="yellow"
-				isLoading={updateMutation.isLoading}
-			/>
+			<Modal
+				isOpen={isCertificateDialogOpen}
+				onClose={() => setCertificateDialogOpen(false)}
+				size={certificateForm.provider === "manual" ? "3xl" : "xl"}
+				isCentered
+				scrollBehavior="inside"
+				closeOnOverlayClick={!isCertificateMutationLoading}
+			>
+				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalContent
+					as="form"
+					onSubmit={(event) => {
+						event.preventDefault();
+						handleIssueCertificate();
+					}}
+					bg={cardBg}
+					borderWidth="1px"
+					borderColor={borderColor}
+					borderRadius="2xl"
+					boxShadow="2xl"
+					overflow="hidden"
+					mx={{ base: 4, sm: 0 }}
+				>
+					<ModalHeader px={6} pt={6} pb={2}>
+						{t("settings.subscriptions.getNewSSL")}
+					</ModalHeader>
+					<ModalCloseButton isDisabled={isCertificateMutationLoading} />
+					<ModalBody px={6} pb={6}>
+						<VStack align="stretch" spacing={4}>
+							<Alert status="info" variant="left-accent" borderRadius="lg">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.subscriptions.certificateSNIHint")}
+								</Text>
+							</Alert>
+							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<FormControl>
+									<FormLabel>
+										{t("settings.subscriptions.certificateProvider")}
+									</FormLabel>
+									<Select
+										value={certificateForm.provider}
+										showSearch={false}
+										onChange={(event) =>
+											setCertificateForm((previous) => ({
+												...previous,
+												provider: event.target.value as
+													| "letsencrypt"
+													| "zerossl"
+													| "manual",
+											}))
+										}
+									>
+										<option value="letsencrypt">
+											Certbot / Let's Encrypt
+										</option>
+										<option value="zerossl">ZeroSSL</option>
+										<option value="manual">
+											{t("settings.subscriptions.manualCertificate")}
+										</option>
+									</Select>
+									{certificateForm.provider === "zerossl" ? (
+										<FormHelperText>
+											{t("settings.subscriptions.zeroSSLNoKeyHint")}
+										</FormHelperText>
+									) : null}
+								</FormControl>
+								{certificateForm.provider !== "manual" ? (
+									<FormControl isRequired>
+										<FormLabel>
+											{t("settings.subscriptions.email")}
+										</FormLabel>
+										<Input
+											type="email"
+											placeholder="admin@example.com"
+											value={certificateForm.email}
+											onChange={(event) =>
+												setCertificateForm((previous) => ({
+													...previous,
+													email: event.target.value,
+												}))
+											}
+										/>
+									</FormControl>
+								) : null}
+								<FormControl isRequired>
+									<FormLabel>
+										{certificateForm.provider === "manual"
+											? t("settings.subscriptions.domain")
+											: t("settings.subscriptions.domains")}
+									</FormLabel>
+									<Input
+										placeholder={
+											certificateForm.provider === "manual"
+												? "example.com"
+												: "example.com,sub.example.com"
+										}
+										value={certificateForm.domains}
+										onChange={(event) =>
+											setCertificateForm((previous) => ({
+												...previous,
+												domains: event.target.value,
+											}))
+										}
+									/>
+									{certificateForm.provider !== "manual" ? (
+										<FormHelperText>
+											{t("settings.subscriptions.domainsHint")}
+										</FormHelperText>
+									) : null}
+								</FormControl>
+							</SimpleGrid>
+							{certificateForm.provider === "manual" ? (
+								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									<FormControl isRequired>
+										<FormLabel>fullchain.pem</FormLabel>
+										<Textarea
+											dir="ltr"
+											fontFamily="mono"
+											minH="180px"
+											value={certificateForm.fullchain}
+											onChange={(event) =>
+												setCertificateForm((previous) => ({
+													...previous,
+													fullchain: event.target.value,
+												}))
+											}
+										/>
+									</FormControl>
+									<FormControl isRequired>
+										<FormLabel>privkey.pem</FormLabel>
+										<Textarea
+											dir="ltr"
+											fontFamily="mono"
+											minH="180px"
+											value={certificateForm.privateKey}
+											onChange={(event) =>
+												setCertificateForm((previous) => ({
+													...previous,
+													privateKey: event.target.value,
+												}))
+											}
+										/>
+									</FormControl>
+								</SimpleGrid>
+							) : null}
+						</VStack>
+					</ModalBody>
+					<ModalFooter
+						gap={2}
+						borderTopWidth="1px"
+						borderColor={borderColor}
+					>
+						<Button
+							variant="ghost"
+							onClick={() => setCertificateDialogOpen(false)}
+							isDisabled={isCertificateMutationLoading}
+						>
+							{t("cancel")}
+						</Button>
+						<Button
+							type="submit"
+							colorScheme="primary"
+							isLoading={isCertificateMutationLoading}
+						>
+							{certificateForm.provider === "manual"
+								? t("settings.subscriptions.importAction")
+								: t("settings.subscriptions.issueAction")}
+						</Button>
+					</ModalFooter>
+				</ModalContent>
+			</Modal>
 			<ConfirmDialog
 				isOpen={Boolean(certificateAction)}
 				onClose={() => setCertificateAction(null)}
@@ -5076,215 +4129,6 @@ export const IntegrationSettingsPage = () => {
 					deleteCertificateMutation.isLoading
 				}
 			/>
-			<Modal
-				isOpen={isMaintenanceProgressOpen}
-				onClose={() => setMaintenanceProgressOpen(false)}
-				size="xl"
-				closeOnOverlayClick={!maintenanceIsWaitingForAPI}
-			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(8px)" />
-				<ModalContent mx={3}>
-					<ModalHeader>
-						{maintenanceOperation?.action === "update"
-							? t("settings.panel.updateProgressTitle")
-							: maintenanceOperation?.action === "restart"
-								? t("settings.panel.restartProgressTitle")
-								: t("settings.panel.reloadProgressTitle")}
-					</ModalHeader>
-					<ModalCloseButton isDisabled={maintenanceIsWaitingForAPI} />
-					<ModalBody>
-						<VStack align="stretch" spacing={4}>
-							<Alert
-								status={
-									maintenanceOperation?.error
-										? "error"
-										: maintenanceIsWaitingForAPI ||
-											  shouldWaitForPanelReturn(maintenanceOperation)
-											? "info"
-											: "success"
-								}
-								variant="subtle"
-								borderRadius="md"
-							>
-								<AlertIcon />
-								<Box>
-									<Text fontWeight="semibold">
-										{maintenanceOperation?.phase ||
-											t("settings.panel.maintenanceQueued")}
-									</Text>
-									<Text fontSize="sm">
-										{maintenanceOperation?.error ||
-											maintenanceOperation?.message ||
-											t("settings.panel.maintenanceQueued")}
-									</Text>
-								</Box>
-							</Alert>
-							<Box>
-								<Flex justify="space-between" mb={2}>
-									<Text fontSize="sm" fontWeight="medium">
-										{t("settings.panel.downloadProgress")}
-									</Text>
-									<Text fontSize="sm" color="gray.500">
-										{typeof maintenanceOperation?.progress === "number"
-											? `${maintenanceOperation.progress}%`
-											: t("settings.panel.waitingForOutput")}
-									</Text>
-								</Flex>
-								<Progress
-									value={
-										typeof maintenanceOperation?.progress === "number"
-											? maintenanceOperation.progress
-											: undefined
-									}
-										isIndeterminate={
-											typeof maintenanceOperation?.progress !== "number" &&
-											!maintenanceOperation?.error
-										}
-									colorScheme={
-										maintenanceOperation?.error
-											? "red"
-											: shouldWaitForPanelReturn(maintenanceOperation)
-												? "blue"
-												: "yellow"
-									}
-										borderRadius="full"
-										size="sm"
-										sx={{
-											".chakra-progress__filled-track": {
-												transition: "width 420ms ease-out",
-											},
-										}}
-									/>
-							</Box>
-							{maintenanceIsWaitingForAPI && (
-								<Alert status="info" variant="left-accent" borderRadius="md">
-									<AlertIcon />
-									<Text fontSize="sm">
-										{t("settings.panel.autoRefreshAfterRestart")}
-									</Text>
-								</Alert>
-							)}
-							<Box>
-								<Text fontSize="sm" fontWeight="medium" mb={2}>
-									{t("settings.panel.maintenanceOutput")}
-								</Text>
-								<Box
-									as="pre"
-									maxH="260px"
-									overflowY="auto"
-									bg={maintenanceOutputBg}
-									border="1px solid"
-									borderColor={maintenanceOutputBorder}
-									borderRadius="md"
-									p={3}
-									fontSize="xs"
-									whiteSpace="pre-wrap"
-								>
-									{cleanTerminalOutput(maintenanceOperation?.logs) ||
-										t("settings.panel.waitingForOutput")}
-								</Box>
-							</Box>
-						</VStack>
-					</ModalBody>
-					<ModalFooter>
-						<Button
-							variant="outline"
-							onClick={() => setMaintenanceProgressOpen(false)}
-							isDisabled={maintenanceIsWaitingForAPI}
-						>
-							{t("close")}
-						</Button>
-					</ModalFooter>
-				</ModalContent>
-			</Modal>
-			<Modal
-				isOpen={Boolean(templateDialog)}
-				onClose={closeTemplateEditor}
-				size="6xl"
-				scrollBehavior="inside"
-			>
-				<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
-				<XrayModalContent mx="3">
-					<XrayModalHeader>
-						{templateDialog
-							? t("settings.subscriptions.editTemplateTitle")
-							: ""}
-					</XrayModalHeader>
-					<ModalCloseButton />
-					<XrayModalBody>
-						{templateLoading ? (
-							<Flex align="center" justify="center" minH="200px">
-								<Spinner />
-							</Flex>
-						) : (
-							<VStack
-								className="xray-dialog-section"
-								align="stretch"
-								spacing={3}
-							>
-								{templateDialog?.adminId ? (
-									<Text fontWeight="medium">
-										{t("settings.subscriptions.adminTemplateFor")}:{" "}
-										{adminOverrides[templateDialog.adminId]?.username ||
-											t("settings.subscriptions.admin")}
-									</Text>
-								) : (
-									<Text fontWeight="medium">
-										{t("settings.subscriptions.globalTemplate")}
-									</Text>
-								)}
-								<Text fontSize="sm" color="gray.500">
-									{t("settings.subscriptions.templatePath")}:{" "}
-									{templateMeta?.template_name ||
-										templateDialog?.templateKey ||
-										""}
-									{templateMeta?.custom_directory
-										? ` (${templateMeta.custom_directory})`
-										: ""}
-								</Text>
-								{templateMeta?.resolved_path ? (
-									<Text fontSize="xs" color="gray.500">
-										{t("settings.subscriptions.resolvedPath")}:{" "}
-										{templateMeta.resolved_path}
-									</Text>
-								) : null}
-								<Box h="420px">
-									{templateIsJson ? (
-										<JsonEditor
-											json={templateContent}
-											onChange={(value) => setTemplateContent(value || "")}
-										/>
-									) : (
-										<Textarea
-											value={templateContent}
-											onChange={(event) =>
-												setTemplateContent(event.target.value)
-											}
-											h="400px"
-											fontFamily="mono"
-										/>
-									)}
-								</Box>
-							</VStack>
-						)}
-					</XrayModalBody>
-					<XrayModalFooter justifyContent="flex-end">
-						<Button mr={3} onClick={closeTemplateEditor} variant="ghost">
-							{t("close")}
-						</Button>
-						<Button
-							colorScheme="primary"
-							onClick={handleTemplateSave}
-							isLoading={
-								templateContentMutation.isLoading || templateLoading || false
-							}
-							isDisabled={!templateDialog || templateLoading}
-						>
-							{t("settings.save")}
-						</Button>
-					</XrayModalFooter>
-				</XrayModalContent>
-			</Modal>
 		</Box>
 	);
 };

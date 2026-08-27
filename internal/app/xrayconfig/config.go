@@ -485,6 +485,11 @@ func parseXrayCertificatePins(raw string) ([]string, bool) {
 	return result, len(result) > 0
 }
 
+func ValidCertificatePins(raw string) bool {
+	_, valid := parseXrayCertificatePins(raw)
+	return valid
+}
+
 type mkcpNormalization int
 
 const (
@@ -1199,8 +1204,9 @@ func validateExecutableInbound(inbound map[string]any) error {
 		method := stringValue(settings["method"])
 		if strings.HasPrefix(method, "2022-") {
 			keyLength := map[string]int{
-				"2022-blake3-aes-128-gcm": 16,
-				"2022-blake3-aes-256-gcm": 32,
+				"2022-blake3-aes-128-gcm":       16,
+				"2022-blake3-aes-256-gcm":       32,
+				"2022-blake3-chacha20-poly1305": 32,
 			}[method]
 			if keyLength == 0 {
 				return fmt.Errorf("invalid inbound %q: unsupported multi-user Shadowsocks 2022 method %q", tag, method)

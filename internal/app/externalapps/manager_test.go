@@ -36,6 +36,22 @@ func TestExtractExternalAppArchiveAndDetectRuntime(t *testing.T) {
 	}
 }
 
+func TestDetectNodeRuntimeAndLoopbackUnit(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte(`{"scripts":{"start":"next start"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := detectExternalAppRuntime(root)
+	if err != nil || runtime != "node" {
+		t.Fatalf("runtime=%q err=%v", runtime, err)
+	}
+	record := Record{ID: "0123456789ab", Domain: "app.example.com", Root: root, SystemUser: "rbnode_0123456789ab", Port: externalAppNodePort("0123456789ab")}
+	unit := externalAppNodeUnit(record)
+	if !strings.Contains(unit, "EnvironmentFile=-"+root+"/.env") || !strings.Contains(unit, "Environment=HOST=127.0.0.1") || !strings.Contains(unit, "Environment=PORT="+strconv.Itoa(record.Port)) {
+		t.Fatalf("Node.js service is not bound to its assigned loopback address:\n%s", unit)
+	}
+}
+
 func TestExtractExternalAppArchiveRejectsUnsafeContent(t *testing.T) {
 	t.Run("traversal", func(t *testing.T) {
 		archive := externalAppTestZIP(t, map[string]string{"../escape.php": "bad"})
@@ -68,17 +84,43 @@ func TestExternalAppDefaultDocumentSettings(t *testing.T) {
 		ID: "0123456789ab", Template: "archive", Domain: "app.example.com", Runtime: "php", Root: root, storageBase: base,
 	}
 	manager := &Manager{baseDir: base, apps: map[string]Record{record.ID: record}}
-	updated, err := manager.updateSettings(record.ID, "public/home.php", true)
+	if err := os.WriteFile(filepath.Join(root, "404.html"), []byte("missing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := manager.updateSettings(record.ID, "public/home.php", true, 8, 0, "404.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.IndexFile != "public/home.php" || !updated.FallbackToIndex {
-		t.Fatalf("index_file=%q", updated.IndexFile)
+	if updated.IndexFile != "public/home.php" || !updated.FallbackToIndex || updated.MaxRequestBodyMB != 8 || updated.StaticCacheSeconds != 0 || updated.NotFoundFile != "404.html" {
+		t.Fatalf("settings=%+v", updated)
 	}
 	for _, invalid := range []string{"../home.php", "config.php", "missing.php", "public/home.txt"} {
-		if _, err := manager.updateSettings(record.ID, invalid, false); err == nil {
+		if _, err := manager.updateSettings(record.ID, invalid, false, 8, 0, ""); err == nil {
 			t.Fatalf("invalid default document %q was accepted", invalid)
 		}
+	}
+	if _, err := manager.updateSettings(record.ID, "public/home.php", false, 0, 0, ""); err == nil {
+		t.Fatal("zero request body limit was accepted")
+	}
+	if _, err := manager.updateSettings(record.ID, "public/home.php", false, 8, -1, ""); err == nil {
+		t.Fatal("negative cache lifetime was accepted")
+	}
+	if _, err := manager.updateSettings(record.ID, "public/home.php", false, 8, 0, "public/home.php"); err == nil {
+		t.Fatal("PHP 404 document was accepted")
+	}
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/api/settings/external-apps/"+record.ID+"/settings",
+		strings.NewReader(`{"index_file":"public/home.php","fallback_to_index":false}`),
+	)
+	response := httptest.NewRecorder()
+	manager.ServeHTTP(response, request)
+	var compatible PublicRecord
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &compatible) != nil {
+		t.Fatalf("legacy settings response=%d %q", response.Code, response.Body.String())
+	}
+	if compatible.MaxRequestBodyMB != 8 || compatible.StaticCacheSeconds != 0 || compatible.NotFoundFile != "404.html" {
+		t.Fatalf("legacy settings lost new values: %+v", compatible)
 	}
 }
 
@@ -124,6 +166,38 @@ func TestExternalAppsResponseMarksMirzaBotUpdate(t *testing.T) {
 	}
 	if len(payload.Apps) != 1 || !payload.Apps[0].UpdateAvailable || payload.Apps[0].LatestVersion != "0.3.2" {
 		t.Fatalf("apps=%+v", payload.Apps)
+	}
+}
+
+func TestExternalAppsAreDisabledForSQLite(t *testing.T) {
+	manager := New(Config{BaseDir: t.TempDir(), DatabaseDialect: "sqlite"}, nil)
+	manager.apps["0123456789ab"] = Record{
+		ID: "0123456789ab", Domain: "app.example.com", Path: "", Enabled: true,
+	}
+	if manager.HasHost("app.example.com") {
+		t.Fatal("SQLite installation exposed an external application host")
+	}
+	if _, _, ok := manager.Match("app.example.com", "/"); ok {
+		t.Fatal("SQLite installation routed an external application request")
+	}
+
+	response := httptest.NewRecorder()
+	manager.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/settings/external-apps", nil))
+	var status struct {
+		Supported bool           `json:"supported"`
+		Apps      []PublicRecord `json:"apps"`
+	}
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &status) != nil {
+		t.Fatalf("status response=%d %q", response.Code, response.Body.String())
+	}
+	if status.Supported || len(status.Apps) != 0 {
+		t.Fatalf("SQLite status=%+v", status)
+	}
+
+	response = httptest.NewRecorder()
+	manager.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/settings/external-apps/archive", nil))
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "SQLite") {
+		t.Fatalf("mutation response=%d %q", response.Code, response.Body.String())
 	}
 }
 
@@ -509,6 +583,117 @@ func TestDecodeMirzaInstallRequestAcceptsOptionalSQLBackup(t *testing.T) {
 	payload, err := decodeMirzaInstallRequest(request)
 	if err != nil || string(payload.DatabaseBackup) != "CREATE TABLE test (id INT);" {
 		t.Fatalf("payload=%+v err=%v", payload, err)
+	}
+}
+
+func TestDecodeArchiveInstallRequestAcceptsEmptyProjectAndDatabase(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	fields := map[string]string{
+		"domain":            "app.example.com",
+		"name":              "My app",
+		"runtime":           "php",
+		"create_database":   "true",
+		"database":          "my_app",
+		"database_user":     "my_app_user",
+		"database_password": "SafePassword_1234",
+	}
+	for key, value := range fields {
+		if err := writer.WriteField(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/settings/external-apps/archive", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	payload, err := decodeArchiveInstallRequest(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload.Domain != fields["domain"] || payload.Name != fields["name"] || payload.Runtime != "php" || len(payload.Archive) != 0 || !payload.CreateDatabase || payload.Database != fields["database"] || payload.DatabaseUser != fields["database_user"] || payload.DatabasePassword != fields["database_password"] {
+		t.Fatalf("payload=%+v", payload)
+	}
+	if !databaseNamePattern.MatchString(payload.Database) || !databaseUserPattern.MatchString(payload.DatabaseUser) || !databasePasswordPattern.MatchString(payload.DatabasePassword) {
+		t.Fatal("valid database credentials were rejected")
+	}
+	for _, invalid := range []string{"bad-name", "1database", "name with spaces"} {
+		if databaseNamePattern.MatchString(invalid) {
+			t.Fatalf("invalid database name %q was accepted", invalid)
+		}
+	}
+	for _, invalid := range []string{"bad-user", "1user", "user with spaces"} {
+		if databaseUserPattern.MatchString(invalid) {
+			t.Fatalf("invalid database username %q was accepted", invalid)
+		}
+	}
+	for _, invalid := range []string{"short", "password with spaces", "password'quote"} {
+		if databasePasswordPattern.MatchString(invalid) {
+			t.Fatalf("invalid database password %q was accepted", invalid)
+		}
+	}
+}
+
+func TestCreateExternalAppDatabaseGrantsRebeccaAccess(t *testing.T) {
+	bin := t.TempDir()
+	logPath := filepath.Join(t.TempDir(), "mysql.log")
+	script := `#!/bin/sh
+query=$(cat)
+printf '%s\n' "$query" >> "$REBECCA_MYSQL_TEST_LOG"
+case "$query" in
+  *"SELECT EXISTS"*) printf '0\t0\n' ;;
+  *"SELECT Host"*) printf '127.0.0.1\nlocalhost\n' ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "mysql"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	t.Setenv("REBECCA_MYSQL_TEST_LOG", logPath)
+	manager := &Manager{databaseURL: "mysql://rebecca:secret@127.0.0.1:3306/rebecca"}
+	if err := manager.ensureExternalAppDatabaseFree(context.Background(), "project_db", "project_user"); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.createExternalAppDatabase(context.Background(), "project_db", "project_user", "SafePassword_1234"); err != nil {
+		t.Fatal(err)
+	}
+	queries, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(queries)
+	for _, expected := range []string{
+		"CREATE DATABASE `project_db`",
+		"GRANT ALL PRIVILEGES ON `project_db`.* TO 'project_user'@'localhost'",
+		"GRANT ALL PRIVILEGES ON `project_db`.* TO 'rebecca'@'127.0.0.1'",
+		"GRANT ALL PRIVILEGES ON `project_db`.* TO 'rebecca'@'localhost'",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("missing %q in queries:\n%s", expected, text)
+		}
+	}
+}
+
+func TestMirzaBotDatabaseBackupDownload(t *testing.T) {
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "mariadb-dump"), []byte("#!/bin/sh\nprintf '%s\\n' '-- MirzaBot backup' 'CREATE TABLE test (id INT);'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	record := Record{ID: "0123456789ab", Template: "mirzabot", Database: "rb_mirza_0123456789ab"}
+	manager := &Manager{apps: map[string]Record{record.ID: record}}
+	request := httptest.NewRequest(http.MethodGet, "/api/settings/external-apps/"+record.ID+"/database-backup", nil)
+	response := httptest.NewRecorder()
+	manager.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "CREATE TABLE test") {
+		t.Fatalf("response=%d %q", response.Code, response.Body.String())
+	}
+	if disposition := response.Header().Get("Content-Disposition"); !strings.Contains(disposition, "mirzabot-"+record.ID) || !strings.HasSuffix(disposition, `.sql"`) {
+		t.Fatalf("content-disposition=%q", disposition)
+	}
+	if response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("cache-control=%q", response.Header().Get("Cache-Control"))
 	}
 }
 

@@ -187,6 +187,30 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 10 AND online_at IS NOT NULL`, 1)
 }
 
+func TestRepositoryTouchesOnlyEligibleOnlineUsers(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "online-users.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createUsageTables(t, ctx, db)
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO users (id, status) VALUES
+	(1, 'active'),
+	(2, 'on_hold'),
+	(3, 'disabled');`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := NewRepository(db, "sqlite").TouchUsersOnline(ctx, []int64{1, 2, 3}); err != nil {
+		t.Fatal(err)
+	}
+	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id IN (1, 2) AND online_at IS NOT NULL`, 2)
+	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 3 AND online_at IS NOT NULL`, 0)
+}
+
 func TestRepositoryDoesNotFullSyncWhenNodeReportsDeletedRuntimeUser(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-stale-user.db")+"?_pragma=busy_timeout(30000)")

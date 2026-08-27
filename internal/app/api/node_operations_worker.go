@@ -11,6 +11,8 @@ import (
 
 const defaultNodeOperationsPollInterval = 15 * time.Second
 const defaultNodeOperationsBatchSize = 5000
+const retainedFinishedNodeOperations = 100000
+const nodeOperationsPruneBatchSize = 1000
 
 func (s *Server) runNodeOperationsWorker(ctx context.Context) {
 	interval := parseNodeOperationsPollInterval(s.cfg.NodeOperationsPollInterval)
@@ -43,6 +45,14 @@ func (s *Server) processNodeOperations(ctx context.Context) {
 	s.processNodeOperationsWithContext(workerCtx, defaultNodeOperationsBatchSize)
 	if workerCtx.Err() == nil {
 		s.processNodeOperationsWithContext(workerCtx, defaultNodeOperationsBatchSize)
+	}
+	if workerCtx.Err() == nil {
+		pruned, err := s.nodeController.PruneFinishedOperations(workerCtx, retainedFinishedNodeOperations, nodeOperationsPruneBatchSize)
+		if err != nil {
+			logging.Warnf(logging.ComponentNode, "operation history prune failed: %v", err)
+		} else if pruned > 0 {
+			logging.Debugf(logging.ComponentNode, "operation history pruned=%d", pruned)
+		}
 	}
 }
 
@@ -79,6 +89,10 @@ func (s *Server) processNodeOperationsWithContext(ctx context.Context, limit int
 }
 
 func (s *Server) kickUserNodeOperationsSoon(userIDs ...int64) {
+	if len(userIDs) > 32 {
+		s.kickNodeOperationsSoon()
+		return
+	}
 	queued := false
 	s.userOpsKickMu.Lock()
 	if s.userOpsKickUserIDs == nil {

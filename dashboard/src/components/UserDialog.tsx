@@ -548,7 +548,8 @@ const buildSchema = (isEditing: boolean) => {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					path: ["credential_key"],
-					message: "Credential key must be a 32-character hexadecimal string or UUID.",
+					message:
+						"Credential key must be a 32-character hexadecimal string or UUID.",
 				});
 			}
 		});
@@ -603,8 +604,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
-	const isMobileDialog =
-		useBreakpointValue({ base: true, md: false }) ?? false;
+	const isMobileDialog = useBreakpointValue({ base: true, md: false }) ?? false;
 	const DATA_UNIT = "GB";
 	const DAYS_UNIT = t("userDialog.days");
 	const basePad = "0.75rem";
@@ -922,7 +922,24 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const hasFullAccess = Boolean(
 		getUserIsSuccess && userData.role === AdminRole.FullAccess,
 	);
-	const userManagementLocked = isUserManagementLocked(userData);
+	const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
+		null,
+	);
+	const hasServices = services.length > 0;
+	const selectedService = selectedServiceId
+		? (services.find((service) => service.id === selectedServiceId) ?? null)
+		: null;
+	const nonSudoSingleService = !hasPrivilegedRole && services.length === 1;
+	const effectiveServiceId = isEditing
+		? (editingUser?.service_id ?? null)
+		: (selectedServiceId ??
+			(!hasPrivilegedRole && nonSudoSingleService
+				? (services[0]?.id ?? null)
+				: null));
+	const userManagementLocked = isUserManagementLocked(
+		userData,
+		effectiveServiceId,
+	);
 	const canViewTraffic = canViewUserTraffic(
 		userData,
 		editingUser?.service_id ?? null,
@@ -939,6 +956,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const canResetUsage =
 		hasFullAccess ||
 		Boolean(userData.permissions?.users?.[UserPermissionToggle.ResetUsage]);
+	const canConfigurePeriodicUsageReset =
+		hasFullAccess ||
+		Boolean(
+			userData.permissions?.users?.[UserPermissionToggle.PeriodicUsageReset],
+		);
 	const canRevokeSubscription =
 		hasFullAccess ||
 		Boolean(userData.permissions?.users?.[UserPermissionToggle.Revoke]);
@@ -951,37 +973,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		canResetUsage && canViewTraffic && !userManagementLocked;
 	const canRevokeSubscriptionVisible =
 		canRevokeSubscription && !userManagementLocked;
-	const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
-		null,
-	);
-
-	const hasServices = services.length > 0;
-	const selectedService = selectedServiceId
-		? (services.find((service) => service.id === selectedServiceId) ?? null)
-		: null;
-	const nonSudoSingleService = !hasPrivilegedRole && services.length === 1;
-	const getEffectiveServiceId = useCallback(() => {
-		if (isEditing) {
-			return editingUser?.service_id ?? null;
-		}
-		if (hasPrivilegedRole) {
-			return selectedServiceId;
-		}
-		return (
-			selectedServiceId ??
-			(nonSudoSingleService ? (services[0]?.id ?? null) : null)
-		);
-	}, [
-		editingUser?.service_id,
-		hasPrivilegedRole,
-		isEditing,
-		nonSudoSingleService,
-		selectedServiceId,
-		services,
-	]);
 	const currentTrafficScope = getAdminTrafficScope(
 		userData,
-		getEffectiveServiceId(),
+		effectiveServiceId,
 	);
 	const isCreatedTrafficScope = Boolean(
 		currentTrafficScope?.traffic_limit_mode ===
@@ -1237,10 +1231,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			return [];
 		}
 		const urls = editingUser.subscription_urls ?? {};
-		const order = ["username-key", "key", "token"] as const;
+		const order = ["username-key", "key", "key-username", "token"] as const;
 		const labels: Record<(typeof order)[number], string> = {
 			"username-key": t("userDialog.links.subscriptionUsernameKey"),
 			key: t("userDialog.links.subscriptionKey"),
+			"key-username": t("userDialog.links.subscriptionKeyUsername"),
 			token: t("userDialog.links.subscriptionToken"),
 		};
 		const orderIndex = new Map(order.map((key, index) => [key, index]));
@@ -1494,9 +1489,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		) {
 			if (activeUsersCount >= usersLimit) {
 				const errorMessage = t("userDialog.usersLimitReached", {
-						active: activeUsersCount,
-						limit: usersLimit,
-					});
+					active: activeUsersCount,
+					limit: usersLimit,
+				});
 				setError(errorMessage);
 				setLoading(false);
 				showSubmitError();
@@ -1569,9 +1564,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		};
 
 		if (isCreatedTrafficScope && dataLimitBytes <= 0) {
-			setDataLimitError(
-				t("userDialog.createdTrafficUnlimitedNotAllowed"),
-			);
+			setDataLimitError(t("userDialog.createdTrafficUnlimitedNotAllowed"));
 			return;
 		}
 
@@ -1579,7 +1572,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			const usedTraffic = Math.max(0, editingUser.used_traffic ?? 0);
 			if (dataLimitBytes > 0 && dataLimitBytes < usedTraffic) {
 				setDataLimitError(
-					t("userDialog.dataLimitBelowUsedTraffic", { used: formatBytes(usedTraffic, 2) }),
+					t("userDialog.dataLimitBelowUsedTraffic", {
+						used: formatBytes(usedTraffic, 2),
+					}),
 				);
 				return;
 			}
@@ -1791,9 +1786,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 			ip_limit: normalizedIpLimit,
 
-			data_limit_reset_strategy:
-				data_limit && data_limit > 0 ? data_limit_reset_strategy : "no_reset",
-
 			status:
 				status === "active" || status === "disabled" || status === "on_hold"
 					? status
@@ -1804,6 +1796,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 			flow: canSetFlow ? flow || null : null,
 		};
+		if (canConfigurePeriodicUsageReset) {
+			body.data_limit_reset_strategy =
+				data_limit && data_limit > 0 ? data_limit_reset_strategy : "no_reset";
+		}
 
 		if (canSetCustomKey && manual_key_entry && credential_key) {
 			body.credential_key = credential_key;
@@ -1811,7 +1807,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 		if (nextPlanPayload) {
 			body.next_plans = [nextPlanPayload];
-		} else if (!next_plan_enabled && (editingUser?.next_plans?.length ?? 0) > 0) {
+		} else if (
+			!next_plan_enabled &&
+			(editingUser?.next_plans?.length ?? 0) > 0
+		) {
 			body.next_plans = [];
 		}
 
@@ -2088,8 +2087,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											<Box flex="1" minW={0}>
 												<AlertDescription>
 													{t("userDialog.serviceManagedNotice", {
-															service: editingUser?.service_name ?? "",
-														})}
+														service: editingUser?.service_name ?? "",
+													})}
 												</AlertDescription>
 											</Box>
 											<Box
@@ -2203,14 +2202,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 									>
 										<Tab flexShrink={0}>{t("edit")}</Tab>
 										{isEditing && canViewTraffic && (
-											<Tab flexShrink={0}>
-												{t("userDialog.tabs.usage")}
-											</Tab>
+											<Tab flexShrink={0}>{t("userDialog.tabs.usage")}</Tab>
 										)}
 										{isEditing && (
-											<Tab flexShrink={0}>
-												{t("userDialog.tabs.links")}
-											</Tab>
+											<Tab flexShrink={0}>{t("userDialog.tabs.links")}</Tab>
 										)}
 									</TabList>
 									<TabPanels>
@@ -2298,7 +2293,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						left={endAdornmentProps.left}
 																					>
 																						<IconButton
-																							aria-label={t("userDialog.generateUsername")}
+																							aria-label={t(
+																								"userDialog.generateUsername",
+																							)}
 																							size="sm"
 																							variant="ghost"
 																							icon={<SparklesIcon width={18} />}
@@ -2385,8 +2382,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				mt={1}
 																				textAlign={isRTL ? "end" : "start"}
 																			>
-																				{t("userDialog.createdBy")}
-																				: {editingUser.admin_username}
+																				{t("userDialog.createdBy")}:{" "}
+																				{editingUser.admin_username}
 																			</FormHelperText>
 																		)}
 
@@ -2449,98 +2446,100 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	/>
 																</FormControl>
 																<FormControl flex="1">
-																		<FormLabel
-																			display="flex"
-																			alignItems="center"
-																			gap={2}
-																			justifyContent={
-																				isRTL ? "flex-end" : "flex-start"
-																			}
-																			flexDirection={
-																				isRTL ? "row-reverse" : "row"
-																			}
-																			textAlign={isRTL ? "right" : "left"}
+																	<FormLabel
+																		display="flex"
+																		alignItems="center"
+																		gap={2}
+																		justifyContent={
+																			isRTL ? "flex-end" : "flex-start"
+																		}
+																		flexDirection={
+																			isRTL ? "row-reverse" : "row"
+																		}
+																		textAlign={isRTL ? "right" : "left"}
+																	>
+																		{t("userDialog.ipLimitLabel")}
+																		<Tooltip
+																			hasArrow
+																			placement="top"
+																			label={t("userDialog.ipLimitHint")}
 																		>
-																			{t("userDialog.ipLimitLabel")}
-																			<Tooltip
-																				hasArrow
-																				placement="top"
-																				label={t("userDialog.ipLimitHint")}
+																			<chakra.span
+																				display="inline-flex"
+																				color="gray.400"
+																				cursor="help"
 																			>
-																				<chakra.span
-																					display="inline-flex"
-																					color="gray.400"
-																					cursor="help"
-																				>
-																					<QuestionMarkCircleIcon
-																						width={16}
-																						height={16}
-																					/>
-																				</chakra.span>
-																			</Tooltip>
-																		</FormLabel>
-																		<Controller
-																			control={form.control}
-																			name="ip_limit"
-																			rules={{
-																				validate: (value) => {
-																					if (
-																						value === null ||
-																						value === undefined
-																					) {
-																						return true;
-																					}
-																					if (
-																						typeof value !== "number" ||
-																						Number.isNaN(value)
-																					) {
-																						return t("userDialog.ipLimitValidation");
-																					}
-																					return value >= 0
-																						? true
-																						: t("userDialog.ipLimitValidation");
-																				},
-																			}}
-																			render={({ field }) => (
-																				<Input
-																					size="sm"
-																					borderRadius="6px"
-																					placeholder={t("userDialog.ipLimitPlaceholder")}
-																					value={
-																						typeof field.value === "number" &&
-																						field.value > 0
-																							? String(field.value)
-																							: ""
-																					}
-																					onChange={(event) => {
-																						const raw = event.target.value;
-																						if (
-																							!raw.trim() ||
-																							raw.trim() === "-"
-																						) {
-																							field.onChange(null);
-																							return;
-																						}
-																						const parsed = Number(raw);
-																						if (Number.isNaN(parsed)) {
-																							return;
-																						}
-																						field.onChange(
-																							parsed < 0
-																								? 0
-																								: Math.floor(parsed),
-																						);
-																					}}
-																					disabled={disabled}
-																					error={
-																						form.formState.errors.ip_limit
-																							?.message
-																					}
-																					dir="ltr"
-																					textAlign={isRTL ? "right" : "left"}
+																				<QuestionMarkCircleIcon
+																					width={16}
+																					height={16}
 																				/>
-																			)}
-																		/>
+																			</chakra.span>
+																		</Tooltip>
+																	</FormLabel>
+																	<Controller
+																		control={form.control}
+																		name="ip_limit"
+																		rules={{
+																			validate: (value) => {
+																				if (
+																					value === null ||
+																					value === undefined
+																				) {
+																					return true;
+																				}
+																				if (
+																					typeof value !== "number" ||
+																					Number.isNaN(value)
+																				) {
+																					return t(
+																						"userDialog.ipLimitValidation",
+																					);
+																				}
+																				return value >= 0
+																					? true
+																					: t("userDialog.ipLimitValidation");
+																			},
+																		}}
+																		render={({ field }) => (
+																			<Input
+																				size="sm"
+																				borderRadius="6px"
+																				placeholder={t(
+																					"userDialog.ipLimitPlaceholder",
+																				)}
+																				value={
+																					typeof field.value === "number" &&
+																					field.value > 0
+																						? String(field.value)
+																						: ""
+																				}
+																				onChange={(event) => {
+																					const raw = event.target.value;
+																					if (
+																						!raw.trim() ||
+																						raw.trim() === "-"
+																					) {
+																						field.onChange(null);
+																						return;
+																					}
+																					const parsed = Number(raw);
+																					if (Number.isNaN(parsed)) {
+																						return;
+																					}
+																					field.onChange(
+																						parsed < 0 ? 0 : Math.floor(parsed),
+																					);
+																				}}
+																				disabled={disabled}
+																				error={
+																					form.formState.errors.ip_limit
+																						?.message
+																				}
+																				dir="ltr"
+																				textAlign={isRTL ? "right" : "left"}
+																			/>
+																		)}
+																	/>
 																</FormControl>
 															</Stack>
 
@@ -2564,16 +2563,22 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				<Select
 																					size="sm"
 																					{...field}
-																					disabled={disabled}
+																					disabled={
+																						disabled ||
+																						!canConfigurePeriodicUsageReset
+																					}
 																					bg={
-																						disabled
+																						disabled ||
+																						!canConfigurePeriodicUsageReset
 																							? "gray.100"
 																							: "transparent"
 																					}
 																					_dark={{
-																						bg: disabled
-																							? "gray.600"
-																							: "transparent",
+																						bg:
+																							disabled ||
+																							!canConfigurePeriodicUsageReset
+																								? "gray.600"
+																								: "transparent",
 																					}}
 																					sx={{
 																						option: {
@@ -2725,7 +2730,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						<DateTimePicker
 																							value={selectedDate}
 																							onChange={handleDateChange}
-																							placeholder={t("expires.selectDate")}
+																							placeholder={t(
+																								"expires.selectDate",
+																							)}
 																							disabled={disabled}
 																							minDate={new Date()}
 																							quickSelects={quickExpiryOptions.map(
@@ -2832,10 +2839,14 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					{t("userDialog.flow.none")}
 																				</option>
 																				<option value="xtls-rprx-vision">
-																					{t("userDialog.flow.xtls_rprx_vision")}
+																					{t(
+																						"userDialog.flow.xtls_rprx_vision",
+																					)}
 																				</option>
 																				<option value="xtls-rprx-vision-udp443">
-																					{t("userDialog.flow.xtls_rprx_vision_udp443")}
+																					{t(
+																						"userDialog.flow.xtls_rprx_vision_udp443",
+																					)}
 																				</option>
 																			</Select>
 																		)}
@@ -2992,10 +3003,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						_dark={{ color: "gray.400" }}
 																					>
 																						{t("userDialog.serviceSummary", {
-																								hosts: service.host_count,
+																							hosts: service.host_count,
 
-																								users: service.user_count,
-																							})}
+																							users: service.user_count,
+																						})}
 																					</Text>
 																					{isBroken && (
 																						<Badge colorScheme="red" mt={1}>
@@ -3012,10 +3023,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															{selectedService && (
 																<FormHelperText mt={2}>
 																	{t("userDialog.serviceSummary", {
-																			hosts: selectedService.host_count,
+																		hosts: selectedService.host_count,
 
-																			users: selectedService.user_count,
-																		})}
+																		users: selectedService.user_count,
+																	})}
 
 																	{selectedService &&
 																		(selectedService.broken ||
@@ -3039,9 +3050,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 												>
 													{hasExistingKey && canSetCustomKey && (
 														<>
-															<FormControl
-																className="rb-dialog-switch-row"
-															>
+															<FormControl className="rb-dialog-switch-row">
 																<FormLabel mb={0}>
 																	{t("userDialog.allowManualKeyEntry")}
 																</FormLabel>
@@ -3712,7 +3721,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					placement="top"
 																				>
 																					<IconButton
-																		aria-label={t("a11y.copySubscriptionLink")}
+																						aria-label={t(
+																							"a11y.copySubscriptionLink",
+																						)}
 																						variant="ghost"
 																						size="sm"
 																						type="button"
@@ -3726,7 +3737,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																							);
 																						}}
 																					>
-																						{copiedSubscriptionKey === item.key ? (
+																						{copiedSubscriptionKey ===
+																						item.key ? (
 																							<CopiedActionIcon />
 																						) : (
 																							<CopyActionIcon />
@@ -3738,7 +3750,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					placement="top"
 																				>
 																					<IconButton
-																		aria-label={t("a11y.subscriptionQr")}
+																						aria-label={t(
+																							"a11y.subscriptionQr",
+																						)}
 																						variant="ghost"
 																						size="sm"
 																						type="button"
@@ -3792,9 +3806,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																}
 																onClick={() => {
 																	if (configItems.length === 0) return;
-																	void copyTextToClipboard(configLinksText).then(() =>
-																		setCopiedAllConfigs(true),
-																	);
+																	void copyTextToClipboard(
+																		configLinksText,
+																	).then(() => setCopiedAllConfigs(true));
 																}}
 															>
 																{copiedAllConfigs
@@ -3846,7 +3860,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					placement="top"
 																				>
 																					<IconButton
-																		aria-label={t("a11y.copyConfig")}
+																						aria-label={t("a11y.copyConfig")}
 																						variant="ghost"
 																						size="sm"
 																						type="button"
@@ -3870,7 +3884,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					placement="top"
 																				>
 																					<IconButton
-																		aria-label={t("a11y.configQr")}
+																						aria-label={t("a11y.configQr")}
 																						variant="ghost"
 																						size="sm"
 																						type="button"
@@ -3941,8 +3955,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 										{isEditing && (
 											<>
 												{canDeleteUsersVisible && (
-											<DeleteConfirmDialog
-												description={t("deleteUser.prompt", {
+													<DeleteConfirmDialog
+														description={t("deleteUser.prompt", {
 															username: editingUser?.username ?? "",
 														})}
 														isLoading={deleteLoading}
@@ -3956,7 +3970,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																<DeleteIcon />
 															</IconButton>
 														</Tooltip>
-											</DeleteConfirmDialog>
+													</DeleteConfirmDialog>
 												)}
 
 												{canResetUsageVisible && (

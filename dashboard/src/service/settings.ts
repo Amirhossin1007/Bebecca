@@ -131,11 +131,11 @@ export const sendTelegramBackup = async (
 };
 
 export interface PanelSettingsResponse {
-	default_subscription_type: "username-key" | "key" | "token";
+	default_subscription_type: "username-key" | "key" | "token" | "key-username";
 }
 
 export interface PanelSettingsUpdatePayload {
-	default_subscription_type?: "username-key" | "key" | "token";
+	default_subscription_type?: "username-key" | "key" | "token" | "key-username";
 }
 
 export type RebeccaBackupScope = "database" | "full";
@@ -224,15 +224,6 @@ export interface SubscriptionSettingsBundle {
 	certificates: SubscriptionCertificate[];
 }
 
-export interface SubscriptionTemplateContentResponse {
-	template_key: string;
-	template_name: string;
-	custom_directory: string | null;
-	resolved_path: string | null;
-	admin_id: number | null;
-	content: string;
-}
-
 export interface CertificateIssuePayload {
 	email: string;
 	domains: string[];
@@ -267,6 +258,34 @@ export interface RuntimeSettingsResponse {
 }
 
 export type RuntimeSettingsUpdatePayload = Partial<RuntimeSettingsResponse>;
+
+export interface AllSettingsUpdatePayload {
+	panel?: PanelSettingsUpdatePayload;
+	runtime?: RuntimeSettingsUpdatePayload;
+	telegram?: TelegramSettingsUpdatePayload;
+	subscriptions?: SubscriptionTemplateSettingsUpdatePayload;
+	subscription_admins?: Array<{
+		id: number;
+		settings: AdminSubscriptionUpdatePayload;
+	}>;
+}
+
+export interface AllSettingsUpdateResponse {
+	panel?: PanelSettingsResponse;
+	runtime?: RuntimeSettingsResponse;
+	telegram?: TelegramSettingsResponse;
+	subscriptions?: SubscriptionTemplateSettings;
+	subscription_admins?: AdminSubscriptionSettings[];
+}
+
+export const updateAllSettings = async (
+	payload: AllSettingsUpdatePayload,
+): Promise<AllSettingsUpdateResponse> => {
+	return apiFetch("/settings/all", {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
+};
 
 export const getRuntimeSettings =
 	async (): Promise<RuntimeSettingsResponse> => {
@@ -331,7 +350,7 @@ export interface ExternalAppRecord {
 	domain: string;
 	path?: string;
 	enabled: boolean;
-	runtime: "static" | "php";
+	runtime: "static" | "php" | "node";
 	version?: string;
 	source_sha?: string;
 	installed_at: string;
@@ -339,6 +358,9 @@ export interface ExternalAppRecord {
 	bot_username?: string;
 	index_file: string;
 	fallback_to_index: boolean;
+	max_request_body_mb: number;
+	static_cache_seconds: number;
+	not_found_file: string;
 	has_database: boolean;
 	public_url: string;
 	update_available?: boolean;
@@ -369,12 +391,24 @@ export const getExternalApps = async (): Promise<ExternalAppsResponse> => {
 export const installExternalArchive = async (payload: {
 	domain: string;
 	name: string;
-	archive: File;
+	runtime: "php" | "static" | "node";
+	archive?: File;
+	create_database: boolean;
+	database?: string;
+	database_user?: string;
+	database_password?: string;
 }): Promise<ExternalAppRecord> => {
 	const body = new FormData();
 	body.set("domain", payload.domain);
 	body.set("name", payload.name);
-	body.set("archive", payload.archive);
+	body.set("runtime", payload.runtime);
+	body.set("create_database", String(payload.create_database));
+	if (payload.archive) body.set("archive", payload.archive);
+	if (payload.create_database) {
+		body.set("database", payload.database ?? "");
+		body.set("database_user", payload.database_user ?? "");
+		body.set("database_password", payload.database_password ?? "");
+	}
 	return $fetch("/settings/external-apps/archive", {
 		method: "POST",
 		body,
@@ -422,16 +456,30 @@ export const updateExternalMirzaBot = async (
 	});
 };
 
+export const exportExternalAppDatabase = async (id: string): Promise<Blob> => {
+	return $fetch<Blob>(externalAppPath(id, "/database-backup"), {
+		responseType: "blob",
+		credentials: "include",
+		timeout: 10 * 60 * 1000,
+	} as any);
+};
+
 export const updateExternalAppSettings = async (payload: {
 	id: string;
 	index_file: string;
 	fallback_to_index: boolean;
+	max_request_body_mb: number;
+	static_cache_seconds: number;
+	not_found_file: string;
 }): Promise<ExternalAppRecord> => {
 	return apiFetch(externalAppPath(payload.id, "/settings"), {
 		method: "PUT",
 		body: JSON.stringify({
 			index_file: payload.index_file,
 			fallback_to_index: payload.fallback_to_index,
+			max_request_body_mb: payload.max_request_body_mb,
+			static_cache_seconds: payload.static_cache_seconds,
+			not_found_file: payload.not_found_file,
 		}),
 	});
 };
@@ -592,12 +640,11 @@ export const exportRebeccaBackup = async (
 };
 
 export const importRebeccaBackup = async (
-	scope: RebeccaBackupScope,
 	file: File,
 ): Promise<RebeccaBackupImportResponse> => {
 	const body = new FormData();
 	body.append("file", file);
-	return apiFetch(`/settings/backup/import?scope=${scope}`, {
+	return apiFetch("/settings/backup/import", {
 		method: "POST",
 		body,
 	});
@@ -624,25 +671,6 @@ export const updateAdminSubscriptionSettings = async (
 	return apiFetch(`/settings/subscriptions/admins/${adminId}`, {
 		method: "PUT",
 		body: JSON.stringify(payload),
-	});
-};
-
-export const getSubscriptionTemplateContent = async (
-	templateKey: string,
-	adminId?: number | null,
-): Promise<SubscriptionTemplateContentResponse> => {
-	const query = adminId != null ? `?admin_id=${adminId}` : "";
-	return apiFetch(`/settings/subscriptions/templates/${templateKey}${query}`);
-};
-
-export const updateSubscriptionTemplateContent = async (
-	templateKey: string,
-	payload: { content: string; admin_id?: number | null },
-): Promise<SubscriptionTemplateContentResponse> => {
-	const query = payload.admin_id != null ? `?admin_id=${payload.admin_id}` : "";
-	return apiFetch(`/settings/subscriptions/templates/${templateKey}${query}`, {
-		method: "PUT",
-		body: JSON.stringify({ content: payload.content }),
 	});
 };
 

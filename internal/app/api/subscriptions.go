@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 )
@@ -98,20 +97,9 @@ func writeSubscriptionError(w http.ResponseWriter, err error) {
 }
 
 func requestAbsoluteURL(r *http.Request) string {
-	scheme := r.Header.Get("X-Forwarded-Proto")
-	if scheme == "" {
-		if r.TLS != nil {
-			scheme = "https"
-		} else {
-			scheme = "http"
-		}
-	}
-	host := r.Header.Get("X-Forwarded-Host")
-	if host == "" {
-		host = r.Host
-	}
-	if strings.TrimSpace(host) == "" {
+	origin := requestOrigin(r)
+	if origin == "" {
 		return r.URL.String()
 	}
-	return scheme + "://" + host + r.URL.RequestURI()
+	return origin + r.URL.RequestURI()
 }

@@ -2,6 +2,7 @@ package nodecontroller
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
@@ -17,18 +19,23 @@ import (
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 )
 
 type Controller struct {
 	repo              Repository
 	outboundSubs      outboundsubapp.Service
 	nodeLocks         *sync.Map
+	nodeClients       *sync.Map
+	healthFailures    *sync.Map
 	runtimeConfigPrep chan struct{}
 }
 
 const (
 	maxConcurrentSingleNodeOperations  = 8
 	maxConcurrentRuntimeUserOperations = 32
+	bulkRuntimeUserOperationThreshold  = 32
+	nodeHealthFailureThreshold         = 3
 	maxNodeOperationID                 = int64(1<<63 - 1)
 )
 
@@ -37,8 +44,45 @@ func NewController(repo Repository) Controller {
 		repo:              repo,
 		outboundSubs:      outboundsubapp.NewService(repo.db, repo.dialect),
 		nodeLocks:         &sync.Map{},
+		nodeClients:       &sync.Map{},
+		healthFailures:    &sync.Map{},
 		runtimeConfigPrep: make(chan struct{}, 1),
 	}
+}
+
+func (c Controller) recordHealthFailure(ctx context.Context, nodeID int64, err error) int32 {
+	if err == nil || nodeID <= 0 {
+		return 0
+	}
+	if c.healthFailures == nil {
+		_ = c.repo.SetDegraded(ctx, nodeID, err.Error())
+		return 1
+	}
+	value, _ := c.healthFailures.LoadOrStore(nodeID, &atomic.Int32{})
+	failures := value.(*atomic.Int32).Add(1)
+	if failures >= nodeHealthFailureThreshold {
+		_ = c.repo.SetError(ctx, nodeID, err.Error())
+	} else {
+		_ = c.repo.SetDegraded(ctx, nodeID, err.Error())
+	}
+	return failures
+}
+
+func (c Controller) clearHealthFailures(nodeID int64) {
+	if c.healthFailures != nil {
+		c.healthFailures.Delete(nodeID)
+	}
+}
+
+func (c Controller) healthFailureCount(nodeID int64) int32 {
+	if c.healthFailures == nil {
+		return 0
+	}
+	value, ok := c.healthFailures.Load(nodeID)
+	if !ok {
+		return 0
+	}
+	return value.(*atomic.Int32).Load()
 }
 
 func (c Controller) lockRuntimeConfigPreparation(ctx context.Context) (func(), error) {
@@ -69,9 +113,16 @@ func (c Controller) PrepareStartupFullSync(ctx context.Context) (int, error) {
 	return c.repo.ReplaceOpenQueueWithFullSync(ctx)
 }
 
+func (c Controller) PruneFinishedOperations(ctx context.Context, retain, limit int) (int, error) {
+	return c.repo.PruneFinishedOperations(ctx, retain, limit)
+}
+
 func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, error) {
 	unlock := c.lockNode(req.NodeID)
 	defer unlock()
+	if err := c.repo.QueueSyncConfig(ctx, &req.NodeID, nil); err != nil {
+		return RuntimeResult{}, err
+	}
 	if err := c.repo.SetConnecting(ctx, req.NodeID); err != nil {
 		return RuntimeResult{}, err
 	}
@@ -80,7 +131,6 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("connect", req.NodeID, err)
 	}
-	defer client.Close()
 	supersededIDs, err := c.fullSyncOperationIDs(ctx, node.ID)
 	if err != nil {
 		return RuntimeResult{}, err
@@ -100,10 +150,13 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 			return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
 		}
 	}
-	syncReq, err := c.runtimeConfigRequest(ctx, node, "sync-"+strconv.FormatInt(req.NodeID, 10), configJSON)
+	syncReq, err := c.runtimeConfigRequest(ctx, node, queuedOperationID("sync_config", supersededIDs, req.NodeID), configJSON)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
+	}
+	if err := c.prepareRuntimeRevision(ctx, client, node.ID, syncReq); err != nil {
+		return RuntimeResult{}, err
 	}
 	syncRes, err := client.Runtime().SyncConfig(ctx, syncReq)
 	if err != nil {
@@ -125,7 +178,15 @@ func (c Controller) Reconnect(ctx context.Context, req Request) (RuntimeResult, 
 	return c.Connect(ctx, req)
 }
 
-func (c Controller) Restart(ctx context.Context, req Request) (RuntimeResult, error) {
+func (c Controller) Restart(ctx context.Context, req Request) (result RuntimeResult, err error) {
+	err = c.runDurableCommand(ctx, "restart_node", req, func(queued Request) error {
+		result, err = c.restartNow(ctx, queued)
+		return err
+	})
+	return
+}
+
+func (c Controller) restartNow(ctx context.Context, req Request) (RuntimeResult, error) {
 	unlock := c.lockNode(req.NodeID)
 	defer unlock()
 	client, node, err := c.dial(ctx, req.NodeID)
@@ -133,7 +194,6 @@ func (c Controller) Restart(ctx context.Context, req Request) (RuntimeResult, er
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("restart", req.NodeID, err)
 	}
-	defer client.Close()
 	supersededIDs, err := c.fullSyncOperationIDs(ctx, node.ID)
 	if err != nil {
 		return RuntimeResult{}, err
@@ -146,10 +206,17 @@ func (c Controller) Restart(ctx context.Context, req Request) (RuntimeResult, er
 			return RuntimeResult{}, err
 		}
 	}
-	runtimeReq, err := c.runtimeConfigRequest(ctx, node, "restart-"+strconv.FormatInt(req.NodeID, 10), configJSON)
+	operationID := req.OperationID
+	if operationID == "" {
+		operationID = newOperationID("restart", req.NodeID)
+	}
+	runtimeReq, err := c.runtimeConfigRequest(ctx, node, operationID, configJSON)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("restart", req.NodeID, err)
+	}
+	if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
+		return RuntimeResult{}, err
 	}
 	res, err := client.Runtime().RestartRuntime(ctx, runtimeReq)
 	if err != nil {
@@ -178,18 +245,21 @@ func (c Controller) fullSyncOperationIDs(ctx context.Context, nodeID int64) ([]i
 func (c Controller) Health(ctx context.Context, req Request) (RuntimeResult, error) {
 	client, node, err := c.dial(ctx, req.NodeID)
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("health", req.NodeID, err)
 	}
-	defer client.Close()
 
 	res, err := client.Control().Health(ctx, &nodev1.HealthRequest{IncludeMetrics: true})
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("health", req.NodeID, err)
 	}
+	c.clearHealthFailures(req.NodeID)
 	result := runtimeResult(node, res.GetRuntime(), res.GetMetrics())
 	if err := c.repo.SetConnected(ctx, node.ID, result.XrayVersion, result.Message); err != nil {
+		return RuntimeResult{}, err
+	}
+	if err := c.reconcileRuntimeState(ctx, client, node.ID, res.GetRuntime(), &result); err != nil {
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
@@ -199,18 +269,21 @@ func (c Controller) Health(ctx context.Context, req Request) (RuntimeResult, err
 func (c Controller) Metrics(ctx context.Context, req Request) (RuntimeResult, error) {
 	client, node, err := c.dial(ctx, req.NodeID)
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("metrics", req.NodeID, err)
 	}
-	defer client.Close()
 
 	res, err := client.Runtime().Metrics(ctx, &nodev1.MetricsRequest{IncludeRuntime: true})
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("metrics", req.NodeID, err)
 	}
+	c.clearHealthFailures(req.NodeID)
 	result := runtimeResult(node, res.GetRuntime(), res)
 	if err := c.repo.SetConnected(ctx, node.ID, result.XrayVersion, result.Message); err != nil {
+		return RuntimeResult{}, err
+	}
+	if err := c.reconcileRuntimeState(ctx, client, node.ID, res.GetRuntime(), &result); err != nil {
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
@@ -264,6 +337,9 @@ func (c Controller) CheckConnectedNodes(ctx context.Context) (HealthCheckNodesRe
 			if err == nil {
 				return
 			}
+			if c.healthFailureCount(nodeID) < nodeHealthFailureThreshold {
+				return
+			}
 			mu.Lock()
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d: %v", nodeID, err))
 			mu.Unlock()
@@ -282,7 +358,6 @@ func (c Controller) Logs(ctx context.Context, req Request) (RuntimeResult, error
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("logs", req.NodeID, err)
 	}
-	defer client.Close()
 
 	maxLines := req.MaxLines
 	if maxLines <= 0 {
@@ -332,7 +407,6 @@ func (c Controller) StreamLogs(ctx context.Context, req StreamLogsRequest, send 
 		_ = c.repo.SetError(ctx, nodeID, err.Error())
 		return friendlyNodeError("logs", nodeID, err)
 	}
-	defer client.Close()
 	if node.ID == 0 {
 		node = dialedNode
 	}
@@ -376,16 +450,28 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 	if err := c.repo.RecoverStaleOperations(ctx, 2*time.Minute); err != nil {
 		return ProcessOperationsResult{}, err
 	}
+	if err := c.repo.QueueLaggingNodeSyncs(ctx); err != nil {
+		return ProcessOperationsResult{}, err
+	}
 	operations, err := c.repo.PendingOperations(ctx, req.NodeID, req.Limit)
 	if err != nil {
 		return ProcessOperationsResult{}, err
 	}
 	result := ProcessOperationsResult{}
 	blockedNodes := map[int64]bool{}
+	foldedNodes := bulkRuntimeUserOperationNodes(operations)
+	for nodeID := range foldedNodes {
+		if err := c.repo.QueueSyncConfig(ctx, &nodeID, nil); err != nil {
+			return result, err
+		}
+	}
 	groups := []operationGroup{}
 	groupIndexes := map[string]int{}
 	globalCoalesced := []OperationRow{}
 	for _, operation := range operations {
+		if operation.NodeID.Valid && foldedNodes[operation.NodeID.Int64] && isRuntimeUserOperation(operation.OperationType) {
+			continue
+		}
 		if canCoalesceRuntimeSyncOperation(operation) && !operation.NodeID.Valid {
 			globalCoalesced = append(globalCoalesced, operation)
 			continue
@@ -408,6 +494,22 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 		}
 	}
 	return result, nil
+}
+
+func bulkRuntimeUserOperationNodes(operations []OperationRow) map[int64]bool {
+	counts := map[int64]int{}
+	for _, operation := range operations {
+		if operation.NodeID.Valid && isRuntimeUserOperation(operation.OperationType) {
+			counts[operation.NodeID.Int64]++
+		}
+	}
+	result := map[int64]bool{}
+	for nodeID, count := range counts {
+		if count > bulkRuntimeUserOperationThreshold {
+			result[nodeID] = true
+		}
+	}
+	return result
 }
 
 func (c Controller) ProcessRuntimeUserOperations(ctx context.Context, req ProcessUserOperationsRequest) (ProcessOperationsResult, error) {
@@ -735,7 +837,6 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 			}
 			return err
 		}
-		defer client.Close()
 		if isRuntimeUserOperation(operation.OperationType) && operation.UserID.Valid {
 			syncConfig, decided := prepared.userSyncDecision(node.ID)
 			if !decided {
@@ -744,14 +845,8 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 					return err
 				}
 			}
-			if syncConfig && operation.OperationType == "update_user" {
-				health, err := client.Control().Health(ctx, &nodev1.HealthRequest{})
-				if err != nil {
-					return err
-				}
-				if !runtimeHasCapability(health.GetRuntime(), "safe_user_reconciliation") {
-					return fmt.Errorf("node update required for safe user reconciliation")
-				}
+			if operation.OperationType == "update_user" && !client.Supports("targeted_user_update") {
+				syncConfig = true
 			}
 			if !syncConfig {
 				return c.grpcApplyUserOperation(ctx, client, node, operation, prepared)
@@ -771,9 +866,10 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		var runtimeReq *nodev1.RuntimeConfigRequest
 		if prepared != nil && prepared.nodeID == node.ID && prepared.configJSON == configJSON {
 			runtimeReq = &nodev1.RuntimeConfigRequest{
-				OperationId:   fmt.Sprintf("%s-%d", operation.OperationType, operation.ID),
-				ConfigJson:    configJSON,
-				OvRuntimeJson: prepared.ovRuntimeJSON,
+				OperationId:     fmt.Sprintf("%s-%d", operation.OperationType, operation.ID),
+				ConfigJson:      configJSON,
+				OvRuntimeJson:   prepared.ovRuntimeJSON,
+				DesiredRevision: uint64(operation.ID),
 			}
 		} else {
 			runtimeReq, err = c.runtimeConfigRequest(ctx, node, fmt.Sprintf("%s-%d", operation.OperationType, operation.ID), configJSON)
@@ -784,6 +880,9 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 				return err
 			}
 		}
+		if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
+			return err
+		}
 		res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
 		if err != nil {
 			if !isRuntimeUserOperation(operation.OperationType) {
@@ -793,6 +892,40 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		}
 		_, err = c.finishRuntime(ctx, node, res.GetRuntime(), res.GetMessage())
 		return err
+	case "update_runtime", "update_geo", "restart_service", "update_service", "reboot_host", "apply_tor_proxy", "configure_windscribe", "configure_psiphon":
+		var req Request
+		if err := json.Unmarshal(operation.Payload, &req); err != nil {
+			return err
+		}
+		req.NodeID = operation.NodeID.Int64
+		req.OperationID = fmt.Sprintf("%s-%d", operation.OperationType, operation.ID)
+		switch operation.OperationType {
+		case "update_runtime":
+			_, err := c.updateRuntimeNow(ctx, req)
+			return err
+		case "update_geo":
+			_, err := c.updateGeoNow(ctx, req)
+			return err
+		case "restart_service":
+			_, err := c.restartServiceNow(ctx, req)
+			return err
+		case "update_service":
+			_, err := c.updateServiceNow(ctx, req)
+			return err
+		case "reboot_host":
+			_, err := c.rebootHostNow(ctx, req)
+			return err
+		case "apply_tor_proxy":
+			_, err := c.applyTorProxyNow(ctx, req)
+			return err
+		case "configure_windscribe":
+			_, err := c.configureWindscribeNow(ctx, req)
+			return err
+		case "configure_psiphon":
+			_, err := c.configurePsiphonNow(ctx, req)
+			return err
+		}
+		return nil
 	case "restart_node":
 		configJSON := strings.TrimSpace(payload.ConfigJSON)
 		if configJSON == "" {
@@ -805,10 +938,10 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 				return err
 			}
 		}
-		_, err := c.Restart(ctx, Request{NodeID: operation.NodeID.Int64, ConfigJSON: configJSON})
+		_, err := c.restartNow(ctx, Request{NodeID: operation.NodeID.Int64, ConfigJSON: configJSON, OperationID: fmt.Sprintf("restart_node-%d", operation.ID)})
 		return err
 	case "reboot_node":
-		_, err := c.RebootHost(ctx, Request{NodeID: operation.NodeID.Int64})
+		_, err := c.rebootHostNow(ctx, Request{NodeID: operation.NodeID.Int64, OperationID: fmt.Sprintf("reboot_node-%d", operation.ID)})
 		return err
 	default:
 		return fmt.Errorf("unsupported node operation: %s", operation.OperationType)
@@ -918,17 +1051,50 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 		return nil, NodeRow{}, err
 	}
 	addresses := NodeGRPCAddressCandidates(node.Address, node.Port, node.APIPort)
+	cacheKey := fmt.Sprintf("%s:%x", strings.Join(addresses, ","), sha256.Sum256([]byte(cert+key)))
+	if c.nodeClients != nil {
+		if value, ok := c.nodeClients.Load(nodeID); ok {
+			cached := value.(cachedNodeClient)
+			state := cached.client.State()
+			if cached.key == cacheKey && state != connectivity.TransientFailure && state != connectivity.Shutdown {
+				return cached.client, node, nil
+			}
+			c.nodeClients.Delete(nodeID)
+			_ = cached.client.Close()
+		}
+	}
 	errors := make([]string, 0, len(addresses))
 	for _, address := range addresses {
 		attemptCtx, cancel := withNodeDialAttemptTimeout(ctx)
 		client, err := nodeclient.Dial(attemptCtx, address, tlsConfig, grpc.WithBlock())
+		if err == nil {
+			hello, helloErr := client.Control().Hello(attemptCtx, &nodev1.HelloRequest{MasterId: "rebecca-master"})
+			if helloErr != nil {
+				_ = client.Close()
+				err = helloErr
+			} else {
+				client.SetHandshake(hello.GetNodeVersion(), hello.GetRuntime().GetCapabilities())
+			}
+		}
 		cancel()
 		if err == nil {
+			if c.nodeClients != nil {
+				actual, loaded := c.nodeClients.LoadOrStore(nodeID, cachedNodeClient{key: cacheKey, client: client})
+				if loaded {
+					_ = client.Close()
+					client = actual.(cachedNodeClient).client
+				}
+			}
 			return client, node, nil
 		}
 		errors = append(errors, address+": "+err.Error())
 	}
 	return nil, node, fmt.Errorf("node gRPC dial failed: %s", strings.Join(errors, "; "))
+}
+
+type cachedNodeClient struct {
+	key    string
+	client *nodeclient.Client
 }
 
 func (c Controller) finishRuntime(ctx context.Context, node NodeRow, state *nodev1.RuntimeState, message string) (RuntimeResult, error) {
@@ -939,8 +1105,49 @@ func (c Controller) finishRuntime(ctx context.Context, node NodeRow, state *node
 	if err := c.repo.SetConnected(ctx, node.ID, result.XrayVersion, result.Message); err != nil {
 		return RuntimeResult{}, err
 	}
+	if err := c.reconcileRuntimeState(ctx, nil, node.ID, state, &result); err != nil {
+		return RuntimeResult{}, err
+	}
 	result.Status = "connected"
 	return result, nil
+}
+
+func (c Controller) reconcileRuntimeState(ctx context.Context, client *nodeclient.Client, nodeID int64, state *nodev1.RuntimeState, result *RuntimeResult) error {
+	if state == nil {
+		return nil
+	}
+	if err := c.repo.SetRuntimeState(ctx, nodeID, state); err != nil {
+		return err
+	}
+	desired, err := c.repo.DesiredRevision(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	applied := state.GetAppliedRevision()
+	if applied > desired {
+		desired = applied
+		if err := c.repo.SetDesiredRevision(ctx, nodeID, desired); err != nil {
+			return err
+		}
+	}
+	result.DesiredRevision = desired
+	return nil
+}
+
+func (c Controller) prepareRuntimeRevision(ctx context.Context, client *nodeclient.Client, nodeID int64, req *nodev1.RuntimeConfigRequest) error {
+	if req == nil {
+		return nil
+	}
+	if !client.Supports("config_revision") {
+		req.DesiredRevision = 0
+		return nil
+	}
+	revision, err := c.repo.AdvanceDesiredRevision(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	req.DesiredRevision = revision
+	return nil
 }
 
 func runtimeResult(node NodeRow, state *nodev1.RuntimeState, metrics *nodev1.MetricsResponse) RuntimeResult {
@@ -958,6 +1165,14 @@ func runtimeResult(node NodeRow, state *nodev1.RuntimeState, metrics *nodev1.Met
 		result.InstallMode = state.GetInstallMode()
 		result.UpdateChannel = state.GetUpdateChannel()
 		result.Message = state.GetMessage()
+		result.AgentStatus = "connected"
+		result.XrayStatus = "stopped"
+		if state.GetStarted() {
+			result.XrayStatus = "running"
+		}
+		result.AppliedRevision = state.GetAppliedRevision()
+		result.DesiredRevision = state.GetAppliedRevision()
+		result.Capabilities = append([]string(nil), state.GetCapabilities()...)
 	}
 	if metrics != nil {
 		system := metrics.GetSystem()
@@ -988,6 +1203,23 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func newOperationID(action string, nodeID int64) string {
+	return fmt.Sprintf("%s-%d-%d", action, nodeID, time.Now().UTC().UnixNano())
+}
+
+func queuedOperationID(action string, ids []int64, nodeID int64) string {
+	var latest int64
+	for _, id := range ids {
+		if id > latest {
+			latest = id
+		}
+	}
+	if latest > 0 {
+		return fmt.Sprintf("%s-%d", action, latest)
+	}
+	return newOperationID(action, nodeID)
 }
 
 func WithDefaultTimeout(parent context.Context) (context.Context, context.CancelFunc) {
@@ -1025,11 +1257,9 @@ func NodeGRPCPortCandidates(servicePort int, apiPort int) []int {
 		seen[port] = true
 		result = append(result, port)
 	}
+	add(servicePort)
 	if apiPort > 0 {
 		add(apiPort + 1)
-	}
-	if len(result) == 0 {
-		add(servicePort)
 	}
 	return result
 }
