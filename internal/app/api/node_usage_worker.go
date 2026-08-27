@@ -11,6 +11,31 @@ import (
 
 const defaultNodeUsageCollectionInterval = 5 * time.Second
 const defaultNodeUsageFlushInterval = 2 * time.Second
+const onlineUsersCollectionInterval = 5 * time.Second
+
+func (s *Server) runOnlineUsersCollector(ctx context.Context) {
+	for {
+		workerCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		result, err := s.nodeController.CollectOnlineUsers(workerCtx)
+		cancel()
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			logging.Warnf(logging.ComponentNode, "online user collection failed: %v", err)
+		} else if result.Users > 0 || len(result.Errors) > 0 {
+			logging.Debugf(logging.ComponentNode, "online user collection nodes=%d users=%d errors=%d", result.Nodes, result.Users, len(result.Errors))
+		}
+
+		timer := time.NewTimer(onlineUsersCollectionInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+	}
+}
 
 func (s *Server) runNodeUsageCollector(ctx context.Context) {
 	interval := parseNodeUsageCollectionInterval(s.cfg.NodeUsageCollectionInterval)

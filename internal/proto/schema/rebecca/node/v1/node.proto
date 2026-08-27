@@ -34,6 +34,7 @@ service NodeRuntimeService {
 }
 
 service NodeUsageService {
+  rpc CollectOnlineUsers(Empty) returns (OnlineUsersResponse);
   rpc CollectUserUsage(CollectUsageRequest) returns (UserUsageBatch);
   rpc AckUserUsage(AckUsageRequest) returns (AckUsageResponse);
   rpc CollectOutboundUsage(CollectUsageRequest) returns (OutboundUsageBatch);
@@ -374,4 +375,8 @@ message LogLine {
   string stream_id = 1;
   string line = 2;
   int64 emitted_at_unix = 3;
+}
+
+message OnlineUsersResponse {
+  repeated string uids = 1;
 }

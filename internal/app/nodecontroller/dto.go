@@ -99,6 +99,12 @@ type CollectUsageResult struct {
 	Errors          []string `json:"errors,omitempty"`
 }
 
+type CollectOnlineUsersResult struct {
+	Nodes  int      `json:"nodes"`
+	Users  int      `json:"users"`
+	Errors []string `json:"errors,omitempty"`
+}
+
 type RuntimeResult struct {
 	NodeID             int64    `json:"node_id"`
 	Name               string   `json:"name"`
