@@ -211,6 +211,15 @@ INSERT INTO users (id, status) VALUES
 	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 3 AND online_at IS NOT NULL`, 0)
 }
 
+func TestRepositoryOnlineTouchUsesPrimaryIndexOnMySQL(t *testing.T) {
+	if got := (Repository{dialect: "mysql"}).onlineUsersUpdateTarget(); got != "users FORCE INDEX (PRIMARY)" {
+		t.Fatalf("MySQL update target = %q", got)
+	}
+	if got := (Repository{dialect: "sqlite"}).onlineUsersUpdateTarget(); got != "users" {
+		t.Fatalf("SQLite update target = %q", got)
+	}
+}
+
 func TestRepositoryDoesNotFullSyncWhenNodeReportsDeletedRuntimeUser(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-stale-user.db")+"?_pragma=busy_timeout(30000)")
