@@ -4,8 +4,6 @@ import {
 	type BoxProps,
 	Button,
 	chakra,
-	CircularProgress,
-	CircularProgressLabel,
 	Flex,
 	HStack,
 	Modal,
@@ -15,6 +13,7 @@ import {
 	ModalFooter,
 	ModalHeader,
 	ModalOverlay,
+	Progress,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -29,7 +28,7 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
-	GlobeAltIcon,
+	ExclamationTriangleIcon,
 	ServerStackIcon,
 	ShieldCheckIcon,
 	SignalIcon,
@@ -201,6 +200,7 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 };
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 const formatCPUFrequency = (value: number) =>
 	value > 0 ? `${(value / 1_000_000_000).toFixed(2)} GHz` : "";
 
@@ -213,30 +213,15 @@ const HISTORY_INTERVALS = [
 	{ labelKey: "historyInterval.5h", seconds: 18000 },
 ];
 
-type CpuMemoryHistoryPayload = {
-	type: "cpu" | "memory";
+type HistoryModalPayload = {
+	type: "cpu" | "memory" | "network" | "panel";
 	title: string;
-	metricLabel: string;
-	entries: SystemStats["cpu_history"];
+	metricLabel?: string;
+	entries?: Array<{ timestamp: number; value: number }>;
+	networkEntries?: SystemStats["network_history"];
+	panelCpuEntries?: SystemStats["panel_cpu_history"];
+	panelMemoryEntries?: SystemStats["panel_memory_history"];
 };
-
-type NetworkHistoryPayload = {
-	type: "network";
-	title: string;
-	entries: SystemStats["network_history"];
-};
-
-type PanelHistoryPayload = {
-	type: "panel";
-	title: string;
-	cpuEntries: SystemStats["panel_cpu_history"];
-	memoryEntries: SystemStats["panel_memory_history"];
-};
-
-type HistoryModalPayload =
-	| CpuMemoryHistoryPayload
-	| NetworkHistoryPayload
-	| PanelHistoryPayload;
 
 const HistoryModal: FC<{
 	isOpen: boolean;
@@ -252,84 +237,60 @@ const HistoryModal: FC<{
 
 	const latestTimestamp = useMemo(() => {
 		if (!payload) return Math.floor(Date.now() / 1000);
-		const extractLatest = (entries: Array<{ timestamp: number }>) =>
-			entries.length ? entries[entries.length - 1].timestamp : null;
-		if (payload.type === "network") {
-			return extractLatest(payload.entries) ?? Math.floor(Date.now() / 1000);
+		if (payload.type === "network" && payload.networkEntries?.length) {
+			return payload.networkEntries[payload.networkEntries.length - 1].timestamp;
 		}
 		if (payload.type === "panel") {
 			return (
-				extractLatest(payload.cpuEntries) ??
-				extractLatest(payload.memoryEntries) ??
+				payload.panelCpuEntries?.[payload.panelCpuEntries.length - 1]?.timestamp ??
 				Math.floor(Date.now() / 1000)
 			);
 		}
-		return extractLatest(payload.entries) ?? Math.floor(Date.now() / 1000);
+		return payload.entries?.[payload.entries.length - 1]?.timestamp ?? Math.floor(Date.now() / 1000);
 	}, [payload]);
 
 	const cutoff = latestTimestamp - intervalSeconds;
 
-	const filteredStandardEntries = useMemo(() => {
-		if (!payload || payload.type === "network" || payload.type === "panel") return [];
-		const entries = payload.entries.slice().sort((a, b) => a.timestamp - b.timestamp);
-		const filtered = entries.filter((entry) => entry.timestamp >= cutoff);
-		return filtered.length ? filtered : entries;
-	}, [payload, cutoff]);
-
-	const filteredNetworkEntries = useMemo(() => {
-		if (!payload || payload.type !== "network") return [];
-		const entries = payload.entries.slice().sort((a, b) => a.timestamp - b.timestamp);
-		const filtered = entries.filter((entry) => entry.timestamp >= cutoff);
-		return filtered.length ? filtered : entries;
-	}, [payload, cutoff]);
-
-	const filteredPanelCpu = useMemo(() => {
-		if (!payload || payload.type !== "panel") return [];
-		const entries = payload.cpuEntries.slice().sort((a, b) => a.timestamp - b.timestamp);
-		const filtered = entries.filter((entry) => entry.timestamp >= cutoff);
-		return filtered.length ? filtered : entries;
-	}, [payload, cutoff]);
-
-	const filteredPanelMemory = useMemo(() => {
-		if (!payload || payload.type !== "panel") return [];
-		const entries = payload.memoryEntries.slice().sort((a, b) => a.timestamp - b.timestamp);
-		const filtered = entries.filter((entry) => entry.timestamp >= cutoff);
-		return filtered.length ? filtered : entries;
-	}, [payload, cutoff]);
-
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
-		if (payload.type === "network") {
+		if (payload.type === "network" && payload.networkEntries) {
+			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
 			return [
 				{
 					name: t("networkIncoming"),
-					data: filteredNetworkEntries.map((entry) => [entry.timestamp * 1000, entry.incoming]),
+					data: filtered.map((entry) => [entry.timestamp * 1000, entry.incoming]),
 				},
 				{
 					name: t("networkOutgoing"),
-					data: filteredNetworkEntries.map((entry) => [entry.timestamp * 1000, entry.outgoing]),
+					data: filtered.map((entry) => [entry.timestamp * 1000, entry.outgoing]),
 				},
 			];
 		}
-		if (payload.type === "panel") {
+		if (payload.type === "panel" && payload.panelCpuEntries && payload.panelMemoryEntries) {
+			const filteredCpu = payload.panelCpuEntries.filter((e) => e.timestamp >= cutoff);
+			const filteredMem = payload.panelMemoryEntries.filter((e) => e.timestamp >= cutoff);
 			return [
 				{
 					name: t("cpuUsage"),
-					data: filteredPanelCpu.map((entry) => [entry.timestamp * 1000, entry.value]),
+					data: filteredCpu.map((entry) => [entry.timestamp * 1000, entry.value]),
 				},
 				{
 					name: t("memoryUsage"),
-					data: filteredPanelMemory.map((entry) => [entry.timestamp * 1000, entry.value]),
+					data: filteredMem.map((entry) => [entry.timestamp * 1000, entry.value]),
 				},
 			];
 		}
-		return [
-			{
-				name: payload.metricLabel,
-				data: filteredStandardEntries.map((entry) => [entry.timestamp * 1000, entry.value]),
-			},
-		];
-	}, [filteredStandardEntries, filteredNetworkEntries, filteredPanelCpu, filteredPanelMemory, payload, t]);
+		if (payload.entries) {
+			const filtered = payload.entries.filter((e) => e.timestamp >= cutoff);
+			return [
+				{
+					name: payload.metricLabel ?? payload.title,
+					data: filtered.map((entry) => [entry.timestamp * 1000, entry.value]),
+				},
+			];
+		}
+		return [];
+	}, [payload, cutoff, t]);
 
 	const options: ApexOptions = useMemo(
 		() => ({
@@ -341,12 +302,12 @@ const HistoryModal: FC<{
 				background: "transparent",
 				fontFamily: "inherit",
 			},
-			colors: ["#3b82f6", "#10b981", "#8b5cf6", "#f43f5e"],
+			colors: ["#3b82f6", "#10b981", "#8b5cf6"],
 			fill: {
 				type: "gradient",
 				gradient: {
 					shadeIntensity: 1,
-					opacityFrom: 0.35,
+					opacityFrom: 0.3,
 					opacityTo: 0.02,
 					stops: [0, 100],
 				},
@@ -359,7 +320,6 @@ const HistoryModal: FC<{
 				strokeDashArray: 3,
 				xaxis: { lines: { show: false } },
 				yaxis: { lines: { show: true } },
-				padding: { top: 10, right: 10, bottom: 0, left: 10 },
 			},
 			xaxis: {
 				type: "datetime",
@@ -369,26 +329,20 @@ const HistoryModal: FC<{
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					datetimeFormatter: { hour: "HH:mm" },
 				},
-				tooltip: { enabled: false },
 			},
 			yaxis: {
 				decimalsInFloat: 0,
 				labels: {
-					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit", fontWeight: 500 },
+					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 				},
 			},
 			legend: {
 				position: "bottom",
-				horizontalAlign: "center",
-				offsetY: 6,
-				markers: { radius: 6 },
 				labels: { colors: mutedTextColor },
-				itemMargin: { horizontal: 8, vertical: 0 },
 			},
 			tooltip: {
 				theme: colorMode,
 				x: { format: "HH:mm:ss" },
-				style: { fontSize: "12px", fontFamily: "inherit" },
 			},
 		}),
 		[colorMode, gridColor, mutedTextColor],
@@ -403,7 +357,6 @@ const HistoryModal: FC<{
 				borderColor="panel.border"
 				borderRadius="2xl"
 				boxShadow="2xl"
-				overflow="hidden"
 			>
 				<ModalHeader
 					display="flex"
@@ -436,13 +389,13 @@ const HistoryModal: FC<{
 								</Button>
 							))}
 						</Flex>
-						<Box minH="300px">
+						<Box minH="280px">
 							<Chart
-								key={`chart-interval-${intervalSeconds}`}
+								key={`chart-${intervalSeconds}`}
 								options={options}
 								series={chartSeries}
 								type="area"
-								height={300}
+								height={280}
 							/>
 						</Box>
 					</Stack>
@@ -457,21 +410,19 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Modern Clean Bento Hardware Card (Pasargad/Apple inspired) */
-const HardwareBentoCard: FC<{
+/* Standard Clean Hardware Card */
+const HardwareCard: FC<{
 	label: string;
 	icon: ReactNode;
 	primaryValue: string;
 	percent: number;
 	subtitle?: string;
-	accentColor?: string;
-	onOpenHistory?: () => void;
-}> = ({ label, icon, primaryValue, percent, subtitle, accentColor = "var(--rb-panel-accent)", onOpenHistory }) => {
+	onViewHistory?: () => void;
+	actionLabel?: string;
+}> = ({ label, icon, primaryValue, percent, subtitle, onViewHistory, actionLabel }) => {
 	const cardBg = useColorModeValue("panel.surface", "panel.surface");
 	const borderColor = useColorModeValue("panel.border", "panel.border");
-	const labelColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
-	const mutedColor = useColorModeValue("panel.textMuted", "panel.textMuted");
-	const normalizedPercent = Math.min(100, Math.max(0, percent));
+	const safePercent = clampPercent(percent);
 
 	return (
 		<Box
@@ -479,29 +430,39 @@ const HardwareBentoCard: FC<{
 			borderColor={borderColor}
 			borderRadius="xl"
 			bg={cardBg}
-			p={{ base: 3.5, md: 4 }}
-			position="relative"
-			cursor={onOpenHistory ? "pointer" : "default"}
-			onClick={onOpenHistory}
-			transition="all 0.18s cubic-bezier(0.23, 1, 0.32, 1)"
-			_hover={{
-				borderColor: "panel.borderStrong",
-				transform: "translateY(-1.5px)",
-				boxShadow: "sm",
-			}}
+			p={{ base: 4, md: 4.5 }}
+			transition="all 0.2s ease"
+			_hover={{ borderColor: "panel.borderStrong" }}
 		>
-			<Flex justify="space-between" align="start">
-				<VStack align="start" spacing={1} minW={0} flex="1">
-					<HStack spacing={2} align="center">
+			<Stack spacing={3}>
+				<Flex justify="space-between" align="center">
+					<HStack spacing={2.5}>
 						<Box color="panel.textMuted">{icon}</Box>
-						<Text fontSize="xs" fontWeight="600" color={labelColor} noOfLines={1}>
+						<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 							{label}
 						</Text>
 					</HStack>
+					{onViewHistory && (
+						<Button
+							size="xs"
+							h="22px"
+							px={2}
+							fontSize="11px"
+							variant="ghost"
+							borderRadius="md"
+							color="panel.textMuted"
+							_hover={{ color: "panel.text", bg: "panel.elevated" }}
+							onClick={onViewHistory}
+						>
+							{actionLabel ?? "تاریخچه"}
+						</Button>
+					)}
+				</Flex>
+
+				<Flex justify="space-between" align="baseline">
 					<Text
 						fontSize={{ base: "xl", md: "2xl" }}
 						fontWeight="800"
-						lineHeight="1.2"
 						color="panel.text"
 						dir="ltr"
 						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
@@ -510,80 +471,37 @@ const HardwareBentoCard: FC<{
 					</Text>
 					{subtitle && (
 						<Text
-							fontSize="11px"
-							color={mutedColor}
+							fontSize="xs"
+							color="panel.textMuted"
 							dir="ltr"
-							noOfLines={1}
 							sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
 						>
 							{subtitle}
 						</Text>
 					)}
-				</VStack>
+				</Flex>
 
-				<Box flexShrink={0} ps={2}>
-					<CircularProgress
-						value={normalizedPercent}
-						size="44px"
-						thickness="8px"
-						color={accentColor}
-						trackColor="panel.elevated"
-						capIsRound
-					>
-						<CircularProgressLabel fontSize="9px" fontWeight="700" color={labelColor}>
-							{normalizedPercent.toFixed(0)}%
-						</CircularProgressLabel>
-					</CircularProgress>
-				</Box>
-			</Flex>
+				<Progress
+					value={safePercent}
+					size="xs"
+					colorScheme="primary"
+					bg="panel.elevated"
+					borderRadius="full"
+				/>
+			</Stack>
 		</Box>
 	);
 };
 
-/* Speed Metric Box */
-const MinimalSpeedBadge: FC<{
-	icon: ReactNode;
+/* Standard Clean Metric Cell */
+const MetricCell: FC<{
 	label: string;
-	speedBytes: number;
-	color: string;
-}> = ({ icon, label, speedBytes, color }) => (
-	<HStack
-		p={3}
-		borderRadius="xl"
-		bg="panel.surface"
-		borderWidth="1px"
-		borderColor="panel.border"
-		justify="space-between"
-		flex="1"
-		minW={{ base: "full", sm: "140px" }}
-	>
-		<HStack spacing={2.5}>
-			<Box color={color}>{icon}</Box>
-			<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
-				{label}
-			</Text>
-		</HStack>
-		<Text
-			fontSize="sm"
-			fontWeight="700"
-			color="panel.text"
-			dir="ltr"
-			sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-		>
-			{formatBytes(speedBytes)}/s
-		</Text>
-	</HStack>
-);
-
-/* Clean Nested Item for Users & Overview (Pasargad style) */
-const NestedStatItem: FC<{
-	label: string;
-	count: number | string;
+	value: number | string;
 	percentage?: string;
 	dotColor?: string;
-}> = ({ label, count, percentage, dotColor }) => (
+}> = ({ label, value, percentage, dotColor }) => (
 	<Flex
-		p={3}
+		p={3.5}
 		borderRadius="xl"
 		bg="panel.elevated"
 		borderWidth="1px"
@@ -591,8 +509,8 @@ const NestedStatItem: FC<{
 		justify="space-between"
 		align="center"
 	>
-		<HStack spacing={2} minW={0}>
-			{dotColor && <Box w="7px" h="7px" borderRadius="full" bg={dotColor} flexShrink={0} />}
+		<HStack spacing={2.5} minW={0}>
+			{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
 			<Text fontSize="xs" fontWeight="600" color="panel.textSecondary" noOfLines={1}>
 				{label}
 			</Text>
@@ -610,7 +528,7 @@ const NestedStatItem: FC<{
 				dir="ltr"
 				sx={{ fontVariantNumeric: "tabular-nums" }}
 			>
-				{typeof count === "number" ? formatNumberValue(count) : count}
+				{typeof value === "number" ? formatNumberValue(value) : value}
 			</Text>
 		</HStack>
 	</Flex>
@@ -663,7 +581,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 	}
 
 	const cpuThreads = systemData.cpu_threads || systemData.cpu_cores;
-	const cpuSub = [
+	const cpuSubtitle = [
 		`${formatNumberValue(systemData.cpu_cores)} ${t("cores")} / ${formatNumberValue(cpuThreads)} ${t("threads")}`,
 		formatCPUFrequency(systemData.cpu_frequency_hz),
 	]
@@ -682,13 +600,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	return (
 		<Stack spacing={4} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
-			{/* Top Panel Hero / Master Telemetry Bar */}
+			{/* 1. Header Bar: System Overview, Core Status & Maintenance */}
 			<Box
 				borderWidth="1px"
 				borderColor="panel.border"
 				borderRadius="2xl"
 				bg="panel.surface"
-				p={{ base: 3.5, md: 4 }}
+				p={{ base: 4, md: 4.5 }}
 			>
 				<Flex
 					justify="space-between"
@@ -696,13 +614,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 					direction={{ base: "column", sm: "row" }}
 					gap={3}
 				>
-					<HStack spacing={3} align="center">
+					<HStack spacing={3} align="center" flexWrap="wrap">
 						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
 							{t("systemOverview")}
 						</Text>
-						{/* Panel Process Status Glow Pill */}
 						<Badge
-							colorScheme="green"
+							colorScheme={systemData.xray_running ? "green" : "red"}
 							borderRadius="full"
 							px={2.5}
 							py={0.5}
@@ -715,16 +632,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 								w="6px"
 								h="6px"
 								borderRadius="full"
-								bg="green.400"
-								boxShadow="0 0 8px rgba(74, 222, 128, 0.8)"
+								bg={systemData.xray_running ? "green.400" : "red.400"}
+								boxShadow={
+									systemData.xray_running
+										? "0 0 8px rgba(74, 222, 128, 0.8)"
+										: "0 0 8px rgba(248, 113, 113, 0.8)"
+								}
 							/>
-							{t("status.active")}
+							{systemData.xray_running ? "Xray Core Active" : t("status.stopped")}
 						</Badge>
-						{systemData.version && (
-							<Badge variant="subtle" borderRadius="full" px={2} py={0.5} fontSize="11px">
-								v{systemData.version}
-							</Badge>
-						)}
 					</HStack>
 
 					<DashboardMaintenanceControls
@@ -734,16 +650,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</Flex>
 			</Box>
 
-			{/* Server Hardware Grid (CPU, RAM, Disk, Swap) */}
-			<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={3}>
-				<HardwareBentoCard
+			{/* 2. Hardware Metrics Grid */}
+			<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={3.5}>
+				<HardwareCard
 					label={t("cpuUsage")}
-					icon={<CpuChipIcon width={16} />}
+					icon={<CpuChipIcon width={17} />}
 					primaryValue={`${systemData.cpu_usage.toFixed(1)}%`}
 					percent={systemData.cpu_usage}
-					subtitle={cpuSub}
-					accentColor="#3b82f6"
-					onOpenHistory={() =>
+					subtitle={cpuSubtitle}
+					actionLabel={t("viewHistory")}
+					onViewHistory={() =>
 						openHistory({
 							type: "cpu",
 							title: t("cpuUsage"),
@@ -752,14 +668,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 						})
 					}
 				/>
-				<HardwareBentoCard
+				<HardwareCard
 					label={t("memoryUsage")}
-					icon={<ServerStackIcon width={16} />}
+					icon={<ServerStackIcon width={17} />}
 					primaryValue={`${formatBytes(systemData.memory.current, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
 					percent={systemData.memory.percent}
 					subtitle={`${systemData.memory.percent.toFixed(1)}%`}
-					accentColor="#10b981"
-					onOpenHistory={() =>
+					actionLabel={t("viewHistory")}
+					onViewHistory={() =>
 						openHistory({
 							type: "memory",
 							title: t("memoryUsage"),
@@ -768,71 +684,166 @@ export const Statistics: FC<BoxProps> = (props) => {
 						})
 					}
 				/>
-				<HardwareBentoCard
-					label={t("diskUsage")}
-					icon={<CircleStackIcon width={16} />}
-					primaryValue={`${formatBytes(systemData.disk.current, 1)} / ${formatBytes(systemData.disk.total, 1)}`}
-					percent={systemData.disk.percent}
-					subtitle={`${systemData.disk.percent.toFixed(1)}%`}
-					accentColor="#8b5cf6"
-				/>
-				<HardwareBentoCard
+				<HardwareCard
 					label={t("swapUsage")}
-					icon={<CircleStackIcon width={16} />}
+					icon={<CircleStackIcon width={17} />}
 					primaryValue={`${formatBytes(systemData.swap.current, 1)} / ${formatBytes(systemData.swap.total, 1)}`}
 					percent={systemData.swap.percent}
 					subtitle={`${systemData.swap.percent.toFixed(1)}%`}
-					accentColor="#f59e0b"
+				/>
+				<HardwareCard
+					label={t("diskUsage")}
+					icon={<CircleStackIcon width={17} />}
+					primaryValue={`${formatBytes(systemData.disk.current, 1)} / ${formatBytes(systemData.disk.total, 1)}`}
+					percent={systemData.disk.percent}
+					subtitle={`${systemData.disk.percent.toFixed(1)}%`}
 				/>
 			</SimpleGrid>
 
-			{/* Network Speeds & Uptime Row (Placed immediately below Hardware) */}
-			<SimpleGrid columns={{ base: 1, md: 3 }} gap={3}>
-				<MinimalSpeedBadge
-					icon={<ArrowDownTrayIcon width={16} />}
-					label={t("incomingSpeed")}
-					speedBytes={systemData.incoming_bandwidth_speed}
-					color="#10b981"
-				/>
-				<MinimalSpeedBadge
-					icon={<ArrowUpTrayIcon width={16} />}
-					label={t("outgoingSpeed")}
-					speedBytes={systemData.outgoing_bandwidth_speed}
-					color="#3b82f6"
-				/>
-				<HStack
-					p={3}
-					borderRadius="xl"
-					bg="panel.surface"
-					borderWidth="1px"
-					borderColor="panel.border"
-					justify="space-between"
-				>
-					<HStack spacing={2.5}>
-						<ClockIcon width={16} color="var(--rb-panel-accent)" />
-						<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
-							زمان روشن بودن
-						</Text>
-					</HStack>
-					<Text
-						fontSize="sm"
-						fontWeight="700"
-						color="panel.text"
-						dir="ltr"
-						sx={{ fontVariantNumeric: "tabular-nums" }}
-					>
-						{formatDuration(systemData.uptime_seconds)}
-					</Text>
-				</HStack>
-			</SimpleGrid>
-
-			{/* Users Section (Role-Aware: My Users vs All Users) */}
+			{/* 3. Live Speeds & Uptime Section */}
 			<Box
 				borderWidth="1px"
 				borderColor="panel.border"
 				borderRadius="2xl"
 				bg="panel.surface"
-				p={{ base: 3.5, md: 4 }}
+				p={{ base: 4, md: 4.5 }}
+			>
+				<Flex justify="space-between" align="center" mb={3.5}>
+					<HStack spacing={2}>
+						<SignalIcon width={18} color="var(--rb-panel-accent)" />
+						<Text fontSize="sm" fontWeight="700" color="panel.text">
+							{t("bandwidthSpeed")}
+						</Text>
+					</HStack>
+					<Button
+						size="xs"
+						variant="ghost"
+						borderRadius="md"
+						color="panel.textMuted"
+						_hover={{ color: "panel.text", bg: "panel.elevated" }}
+						onClick={() =>
+							openHistory({
+								type: "network",
+								title: t("networkHistory"),
+								networkEntries: systemData.network_history,
+							})
+						}
+					>
+						{t("viewHistory")}
+					</Button>
+				</Flex>
+
+				<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
+					<Flex
+						p={3.5}
+						borderRadius="xl"
+						bg="panel.elevated"
+						borderWidth="1px"
+						borderColor="panel.border"
+						justify="space-between"
+						align="center"
+					>
+						<HStack spacing={2.5}>
+							<ArrowDownTrayIcon width={17} color="#22c55e" />
+							<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
+								{t("incomingSpeed")}
+							</Text>
+						</HStack>
+						<Text
+							fontSize="sm"
+							fontWeight="700"
+							color="panel.text"
+							dir="ltr"
+							sx={{ fontVariantNumeric: "tabular-nums" }}
+						>
+							{formatBytes(systemData.incoming_bandwidth_speed)}/s
+						</Text>
+					</Flex>
+
+					<Flex
+						p={3.5}
+						borderRadius="xl"
+						bg="panel.elevated"
+						borderWidth="1px"
+						borderColor="panel.border"
+						justify="space-between"
+						align="center"
+					>
+						<HStack spacing={2.5}>
+							<ArrowUpTrayIcon width={17} color="#3b82f6" />
+							<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
+								{t("outgoingSpeed")}
+							</Text>
+						</HStack>
+						<Text
+							fontSize="sm"
+							fontWeight="700"
+							color="panel.text"
+							dir="ltr"
+							sx={{ fontVariantNumeric: "tabular-nums" }}
+						>
+							{formatBytes(systemData.outgoing_bandwidth_speed)}/s
+						</Text>
+					</Flex>
+
+					<Flex
+						p={3.5}
+						borderRadius="xl"
+						bg="panel.elevated"
+						borderWidth="1px"
+						borderColor="panel.border"
+						justify="space-between"
+						align="center"
+					>
+						<HStack spacing={2.5}>
+							<ClockIcon width={17} color="var(--rb-panel-accent)" />
+							<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
+								{t("uptime")}
+							</Text>
+						</HStack>
+						<Text
+							fontSize="sm"
+							fontWeight="700"
+							color="panel.text"
+							dir="ltr"
+							sx={{ fontVariantNumeric: "tabular-nums" }}
+						>
+							{formatDuration(systemData.uptime_seconds)}
+						</Text>
+					</Flex>
+				</SimpleGrid>
+			</Box>
+
+			{/* 4. Error Alert Banner (Positioned directly before Users) */}
+			{systemData.last_xray_error && (
+				<Box
+					p={4}
+					borderRadius="xl"
+					bg="red.950"
+					borderWidth="1px"
+					borderColor="red.600"
+					color="red.100"
+					boxShadow="0 0 16px rgba(220, 38, 38, 0.2)"
+				>
+					<HStack spacing={2} mb={1.5} color="red.300">
+						<ExclamationTriangleIcon width={18} />
+						<Text fontSize="xs" fontWeight="800">
+							{t("coreError")}
+						</Text>
+					</HStack>
+					<Text fontSize="xs" fontFamily="mono" wordBreak="break-word" lineHeight="tall">
+						{systemData.last_xray_error}
+					</Text>
+				</Box>
+			)}
+
+			{/* 5. Users Overview Section (Unified 6-card grid with data switcher) */}
+			<Box
+				borderWidth="1px"
+				borderColor="panel.border"
+				borderRadius="2xl"
+				bg="panel.surface"
+				p={{ base: 4, md: 4.5 }}
 			>
 				<Flex justify="space-between" align="center" mb={3.5} flexWrap="wrap" gap={2}>
 					<HStack spacing={2}>
@@ -870,80 +881,64 @@ export const Statistics: FC<BoxProps> = (props) => {
 					)}
 				</Flex>
 
-				{/* Tab 1: All System Users (Full Breakdown) */}
-				{(!canSeeGlobal || userTab === "all") && (
-					<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={2.5}>
-						<NestedStatItem
-							label={t("total")}
-							count={systemData.total_user}
-							dotColor="#3b82f6"
-						/>
-						<NestedStatItem
-							label={t("status.active")}
-							count={systemData.users_active}
-							percentage={activePercent}
-							dotColor="#22c55e"
-						/>
-						<NestedStatItem
-							label={t("onlineUsers")}
-							count={systemData.online_users}
-							percentage={onlinePercent}
-							dotColor="#06b6d4"
-						/>
-						<NestedStatItem
-							label={t("status.on_hold")}
-							count={systemData.users_on_hold}
-							dotColor="#a855f7"
-						/>
-						<NestedStatItem
-							label={t("status.limited")}
-							count={systemData.users_limited}
-							dotColor="#eab308"
-						/>
-						<NestedStatItem
-							label={t("status.expired")}
-							count={systemData.users_expired}
-							dotColor="#f97316"
-						/>
-					</SimpleGrid>
-				)}
-
-				{/* Tab 2: My Users Only (Personal Scope) */}
-				{canSeeGlobal && userTab === "mine" && (
-					<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={2.5}>
-						<NestedStatItem
-							label={t("total")}
-							count={systemData.personal_usage?.total_users ?? 0}
-							dotColor="#3b82f6"
-						/>
-						<NestedStatItem
-							label={
-								systemData.personal_usage?.traffic_basis === "created_traffic"
-									? t("myaccount.createdTraffic")
-									: t("myaccount.usedData")
-							}
-							count={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 2)}
-							dotColor="#10b981"
-						/>
-						<NestedStatItem
-							label={t("status.active")}
-							count={systemData.personal_usage?.total_users ?? 0}
-							dotColor="#22c55e"
-						/>
-					</SimpleGrid>
-				)}
+				{/* Unified Card Layout (Values adapt based on userTab) */}
+				<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3}>
+					<MetricCell
+						label={t("total")}
+						value={
+							userTab === "mine"
+								? (systemData.personal_usage?.total_users ?? 0)
+								: systemData.total_user
+						}
+					/>
+					<MetricCell
+						label={t("status.active")}
+						value={
+							userTab === "mine"
+								? (systemData.personal_usage?.total_users ?? 0)
+								: systemData.users_active
+						}
+						percentage={userTab === "all" ? activePercent : undefined}
+						dotColor="#22c55e"
+					/>
+					<MetricCell
+						label={userTab === "mine" ? "مصرف ترافیک" : t("onlineUsers")}
+						value={
+							userTab === "mine"
+								? formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)
+								: systemData.online_users
+						}
+						percentage={userTab === "all" ? onlinePercent : undefined}
+						dotColor={userTab === "all" ? "#06b6d4" : undefined}
+					/>
+					<MetricCell
+						label={t("status.on_hold")}
+						value={userTab === "mine" ? 0 : systemData.users_on_hold}
+						dotColor="#a855f7"
+					/>
+					<MetricCell
+						label={t("status.limited")}
+						value={userTab === "mine" ? 0 : systemData.users_limited}
+						dotColor="#eab308"
+					/>
+					<MetricCell
+						label={t("status.expired")}
+						value={userTab === "mine" ? 0 : systemData.users_expired}
+						dotColor="#f97316"
+					/>
+				</SimpleGrid>
 			</Box>
 
-			{/* Admins & Resellers Section (Sudo / FullAccess Only) */}
+			{/* 6. Admins & Roles Ecosystem Section (Sudo / FullAccess Only) */}
 			{canSeeGlobal && systemData.admin_overview && (
 				<Box
 					borderWidth="1px"
 					borderColor="panel.border"
 					borderRadius="2xl"
 					bg="panel.surface"
-					p={{ base: 3.5, md: 4 }}
+					p={{ base: 4, md: 4.5 }}
 				>
-					<Flex justify="space-between" align="center" mb={3}>
+					<Flex justify="space-between" align="center" mb={3.5}>
 						<HStack spacing={2}>
 							<ShieldCheckIcon width={18} color="var(--rb-panel-accent)" />
 							<Text fontWeight="700" fontSize="sm">
@@ -955,28 +950,25 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</Badge>
 					</Flex>
 
-					<SimpleGrid columns={{ base: 1, sm: 3 }} gap={2.5}>
-						<NestedStatItem
+					<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
+						<MetricCell
 							label={t("fullAccessAdmins")}
-							count={systemData.admin_overview.full_access_admins}
-							dotColor="#eab308"
+							value={systemData.admin_overview.full_access_admins}
 						/>
-						<NestedStatItem
+						<MetricCell
 							label={t("sudoAdmins")}
-							count={systemData.admin_overview.sudo_admins}
-							dotColor="#a855f7"
+							value={systemData.admin_overview.sudo_admins}
 						/>
-						<NestedStatItem
+						<MetricCell
 							label={t("standardAdmins")}
-							count={systemData.admin_overview.standard_admins}
-							dotColor="#3b82f6"
+							value={systemData.admin_overview.standard_admins}
 						/>
 					</SimpleGrid>
 
 					{systemData.admin_overview.top_admin_username && (
 						<HStack
-							mt={2.5}
-							p={2.5}
+							mt={3}
+							p={3}
 							borderRadius="xl"
 							bg="panel.elevated"
 							borderWidth="1px"
@@ -990,7 +982,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									{systemData.admin_overview.top_admin_username}
 								</chakra.span>
 							</Text>
-							<Text color="panel.textMuted" dir="ltr">
+							<Text color="panel.textSecondary" fontWeight="600" dir="ltr">
 								{formatBytes(systemData.admin_overview.top_admin_usage)}
 							</Text>
 						</HStack>
@@ -998,24 +990,61 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</Box>
 			)}
 
-			{/* Last Core / Telegram Error Notification */}
-			{systemData.last_xray_error && (
-				<Box
-					p={3}
-					borderRadius="xl"
-					bg="red.950"
-					borderWidth="1px"
-					borderColor="red.800"
-					color="red.200"
-				>
-					<Text fontSize="xs" fontWeight="bold" mb={1}>
-						{t("coreError")}:
+			{/* 7. Panel Heap & Internal Engine Status */}
+			<Box
+				borderWidth="1px"
+				borderColor="panel.border"
+				borderRadius="2xl"
+				bg="panel.surface"
+				p={{ base: 4, md: 4.5 }}
+			>
+				<Flex justify="space-between" align="center" mb={3.5}>
+					<HStack spacing={2}>
+						<ClockIcon width={18} color="var(--rb-panel-accent)" />
+						<Text fontWeight="700" fontSize="sm">
+							{t("panelUsage")}
+						</Text>
+					</HStack>
+					<Text fontSize="xs" color="panel.textMuted" dir="ltr">
+						{t("panelUptime")}: {formatDuration(systemData.panel_uptime_seconds)}
 					</Text>
-					<Text fontSize="xs" fontFamily="mono" wordBreak="break-word">
-						{systemData.last_xray_error}
-					</Text>
-				</Box>
-			)}
+				</Flex>
+
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={3.5}>
+					<HardwareCard
+						label={`${t("cpuUsage")} (Panel Process)`}
+						icon={<CpuChipIcon width={17} />}
+						primaryValue={`${systemData.panel_cpu_percent.toFixed(1)}%`}
+						percent={systemData.panel_cpu_percent}
+						subtitle={`${formatNumberValue(systemData.app_threads)} ${t("threads")}`}
+						actionLabel={t("viewHistory")}
+						onViewHistory={() =>
+							openHistory({
+								type: "panel",
+								title: t("panelUsage"),
+								panelCpuEntries: systemData.panel_cpu_history,
+								panelMemoryEntries: systemData.panel_memory_history,
+							})
+						}
+					/>
+					<HardwareCard
+						label={`${t("memoryUsage")} (Panel Heap)`}
+						icon={<ServerStackIcon width={17} />}
+						primaryValue={`${formatBytes(systemData.app_memory, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
+						percent={systemData.panel_memory_percent}
+						subtitle={`${systemData.panel_memory_percent.toFixed(1)}%`}
+						actionLabel={t("viewHistory")}
+						onViewHistory={() =>
+							openHistory({
+								type: "panel",
+								title: t("panelUsage"),
+								panelCpuEntries: systemData.panel_cpu_history,
+								panelMemoryEntries: systemData.panel_memory_history,
+							})
+						}
+					/>
+				</SimpleGrid>
+			</Box>
 
 			{/* History Modal */}
 			<HistoryModal
