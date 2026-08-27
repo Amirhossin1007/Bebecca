@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"sync"
 
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -18,6 +20,32 @@ type Client struct {
 	runtime nodev1.NodeRuntimeServiceClient
 	usage   nodev1.NodeUsageServiceClient
 	logs    nodev1.NodeLogsServiceClient
+	mu      sync.RWMutex
+	caps    map[string]struct{}
+	version string
+}
+
+func (c *Client) SetHandshake(version string, capabilities []string) {
+	c.mu.Lock()
+	c.version = version
+	c.caps = make(map[string]struct{}, len(capabilities))
+	for _, capability := range capabilities {
+		c.caps[capability] = struct{}{}
+	}
+	c.mu.Unlock()
+}
+
+func (c *Client) NodeVersion() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.version
+}
+
+func (c *Client) Supports(capability string) bool {
+	c.mu.RLock()
+	_, ok := c.caps[capability]
+	c.mu.RUnlock()
+	return ok
 }
 
 func Dial(ctx context.Context, address string, tlsConfig *tls.Config, options ...grpc.DialOption) (*Client, error) {
@@ -56,6 +84,13 @@ func (c *Client) Close() error {
 		return nil
 	}
 	return c.conn.Close()
+}
+
+func (c *Client) State() connectivity.State {
+	if c == nil || c.conn == nil {
+		return connectivity.Shutdown
+	}
+	return c.conn.GetState()
 }
 
 func (c *Client) Control() nodev1.NodeControlServiceClient {

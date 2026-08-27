@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
 type Repository struct {
@@ -58,7 +60,7 @@ type OperationRow struct {
 const (
 	pendingOperationsPerNodeCap = 200
 	maxPendingOperationsLimit   = 10000
-	operationRetryBackoff       = 5 * time.Minute
+	operationRetryBackoff       = 15 * time.Second
 )
 
 var runtimeProxyProtocolList = []string{"vmess", "vless", "trojan", "shadowsocks", "hysteria"}
@@ -128,6 +130,40 @@ func (r Repository) TLS(ctx context.Context) (TLSRow, error) {
 		return TLSRow{}, err
 	}
 	return row, nil
+}
+
+func (r Repository) SetDesiredRevision(ctx context.Context, nodeID int64, revision uint64) error {
+	if revision == 0 {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, `UPDATE nodes
+SET desired_revision = CASE WHEN desired_revision < ? THEN ? ELSE desired_revision END
+WHERE id = ?`, revision, revision, nodeID)
+	return err
+}
+
+func (r Repository) SetRuntimeState(ctx context.Context, nodeID int64, state *nodev1.RuntimeState) error {
+	if state == nil {
+		return nil
+	}
+	capabilities, err := json.Marshal(state.GetCapabilities())
+	if err != nil {
+		return err
+	}
+	xrayStatus := "stopped"
+	if state.GetStarted() {
+		xrayStatus = "running"
+	}
+	_, err = r.db.ExecContext(ctx, `UPDATE nodes SET
+agent_status = 'connected', xray_status = ?, applied_revision = ?, node_capabilities = ?, last_seen_at = ?
+WHERE id = ?`, xrayStatus, state.GetAppliedRevision(), string(capabilities), r.timeArg(time.Now().UTC()), nodeID)
+	return err
+}
+
+func (r Repository) DesiredRevision(ctx context.Context, nodeID int64) (uint64, error) {
+	var revision uint64
+	err := r.db.QueryRowContext(ctx, `SELECT desired_revision FROM nodes WHERE id = ?`, nodeID).Scan(&revision)
+	return revision, err
 }
 
 func (r Repository) NodeRawConfig(ctx context.Context, node NodeRow) (map[string]any, error) {
@@ -452,8 +488,10 @@ WHERE COALESCE(h.is_disabled, 0) = 0`)
 }
 
 func (r Repository) SetConnecting(ctx context.Context, nodeID int64) error {
-	_, err := r.updateStatus(ctx, nodeID, "connecting", "", "")
-	return err
+	if _, err := r.updateStatus(ctx, nodeID, "connecting", "", ""); err != nil {
+		return err
+	}
+	return r.setAgentStatus(ctx, nodeID, "connecting")
 }
 
 func (r Repository) SetConnected(ctx context.Context, nodeID int64, version string, message string) error {
@@ -474,6 +512,17 @@ func (r Repository) SetError(ctx context.Context, nodeID int64, message string) 
 	statusCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	_, err := r.updateStatus(statusCtx, nodeID, "error", message, "")
+	if err != nil {
+		return err
+	}
+	return r.setAgentStatus(statusCtx, nodeID, "error")
+}
+
+func (r Repository) setAgentStatus(ctx context.Context, nodeID int64, status string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE nodes SET agent_status = ? WHERE id = ?`, status, nodeID)
+	if isMissingColumnError(err) {
+		return nil
+	}
 	return err
 }
 
@@ -858,7 +907,8 @@ func (r Repository) ReplaceOpenQueueWithFullSync(ctx context.Context) (int, erro
 	timeArg := r.timeArg(now)
 	res, err := tx.ExecContext(ctx, `UPDATE node_operations
 SET status = 'done', last_error = NULL, updated_at = ?
-WHERE status IN ('pending', 'retrying', 'running')`, timeArg)
+WHERE status IN ('pending', 'retrying', 'running')
+  AND operation_type IN ('sync_config', 'add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')`, timeArg)
 	if err != nil {
 		return 0, err
 	}
@@ -1054,6 +1104,30 @@ VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?)`,
 	return err
 }
 
+func (r Repository) QueueCommand(ctx context.Context, operationType string, nodeID int64, payload any) (OperationRow, error) {
+	operationType = strings.TrimSpace(operationType)
+	if operationType == "" || nodeID <= 0 {
+		return OperationRow{}, fmt.Errorf("operation_type and node_id are required")
+	}
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return OperationRow{}, err
+	}
+	now := time.Now().UTC()
+	sum := sha256.Sum256([]byte(fmt.Sprintf("command:%s:%d:%d", operationType, nodeID, now.UnixNano())))
+	result, err := r.db.ExecContext(ctx, `INSERT INTO node_operations
+(operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
+VALUES (?, ?, NULL, ?, 'pending', 0, ?, ?, ?)`, operationType, nodeID, string(payloadJSON), hex.EncodeToString(sum[:]), r.timeArg(now), r.timeArg(now))
+	if err != nil {
+		return OperationRow{}, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return OperationRow{}, err
+	}
+	return OperationRow{ID: id, OperationType: operationType, NodeID: sql.NullInt64{Int64: nodeID, Valid: true}, Payload: payloadJSON}, nil
+}
+
 func isMissingTableError(err error) bool {
 	if err == nil {
 		return false
@@ -1062,6 +1136,14 @@ func isMissingTableError(err error) bool {
 	return strings.Contains(message, "no such table") ||
 		strings.Contains(message, "doesn't exist") ||
 		strings.Contains(message, "unknown table")
+}
+
+func isMissingColumnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such column") || strings.Contains(message, "unknown column")
 }
 
 func isNodeOperationUniqueConstraint(err error) bool {

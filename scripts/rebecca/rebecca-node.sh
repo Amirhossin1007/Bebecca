@@ -1205,9 +1205,11 @@ configure_binary_node_env() {
     get_occupied_ports
 
     SERVICE_PORT=$(prompt_node_port_setting "SERVICE_PORT" "SERVICE_PORT" "62050")
+    set_env_value "SERVICE_HOST" "0.0.0.0"
     set_env_value "SERVICE_PORT" "$SERVICE_PORT"
 
     XRAY_API_PORT=$(prompt_node_port_setting "XRAY_API_PORT" "XRAY_API_PORT" "62051" "$SERVICE_PORT")
+    set_env_value "XRAY_API_HOST" "127.0.0.1"
     set_env_value "XRAY_API_PORT" "$XRAY_API_PORT"
 
     set_env_value "REBECCA_DATA_DIR" "$DATA_DIR"
@@ -1216,7 +1218,6 @@ configure_binary_node_env() {
     set_env_value "SSL_KEY_FILE" "$CERT_KEY_FILE"
     set_env_value "XRAY_EXECUTABLE_PATH" "$DATA_DIR/xray-core/xray"
     set_env_value "XRAY_ASSETS_PATH" "$DATA_DIR/xray-core"
-    set_env_value "SERVICE_PROTOCOL" "rest"
 }
 
 normalize_node_dev_artifact() {
@@ -1404,10 +1405,6 @@ install_rebecca_node() {
     rm -f "$CERT_FILE" "$CERT_KEY_FILE"
     read_node_certificate_bundle
 
-    SERVICE_PROTOCOL_VALUE="rest"
-    echo
-    colorized_echo blue "Service protocol set to REST (auto-selected)"
-
     get_occupied_ports
 
     # Prompt the user to enter ports with occupation check
@@ -1458,9 +1455,12 @@ services:
     environment:
       REBECCA_DATA_DIR: "/var/lib/rebecca-node"
       SSL_CLIENT_CERT_FILE: "/var/lib/rebecca-node/cert.pem"
+      SSL_CERT_FILE: "/var/lib/rebecca-node/cert.pem"
+      SSL_KEY_FILE: "/var/lib/rebecca-node/cert.key"
+      SERVICE_HOST: "0.0.0.0"
       SERVICE_PORT: "$SERVICE_PORT"
+      XRAY_API_HOST: "127.0.0.1"
       XRAY_API_PORT: "$XRAY_API_PORT"
-      SERVICE_PROTOCOL: "$SERVICE_PROTOCOL_VALUE"
 
     volumes:
       - $DATA_DIR:/var/lib/marzban-node
@@ -1689,7 +1689,7 @@ install_command() {
     up_rebecca_node
     SERVICE_PORT="${SERVICE_PORT:-$(get_env_value "SERVICE_PORT")}"
     XRAY_API_PORT="${XRAY_API_PORT:-$(get_env_value "XRAY_API_PORT")}"
-    echo "Use your IP: $NODE_IP and selected ports: $SERVICE_PORT and $XRAY_API_PORT to setup your Rebecca Main Panel"
+    echo "Use your IP: $NODE_IP and control port: $SERVICE_PORT to setup your Rebecca Main Panel"
     colorized_echo yellow "Run '$APP_NAME logs' if you want to follow live node logs."
 }
 
@@ -2421,8 +2421,8 @@ usage() {
     XRAY_API_PORT=${XRAY_API_PORT:-$DEFAULT_XRAY_API_PORT}
 
     colorized_echo cyan "Ports:"
-    colorized_echo magenta "  Service port: $SERVICE_PORT"
-    colorized_echo magenta "  API port: $XRAY_API_PORT"
+    colorized_echo magenta "  Control port: $SERVICE_PORT"
+    colorized_echo magenta "  Local Xray API port: $XRAY_API_PORT"
     
     colorized_echo blue "================================="
     echo

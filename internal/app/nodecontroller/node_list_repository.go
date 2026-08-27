@@ -3,6 +3,7 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strings"
 
 	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
@@ -35,6 +36,11 @@ func (r Repository) ListNodeItems(ctx context.Context, nodeID int64) ([]NodeList
 	proxy_username,
 	proxy_password,
 	status,
+	COALESCE(agent_status, 'unknown'),
+	COALESCE(xray_status, 'unknown'),
+	COALESCE(desired_revision, 0),
+	COALESCE(applied_revision, 0),
+	node_capabilities,
 	message,
 	xray_version,
 	COALESCE(geo_mode, 'default'),
@@ -62,7 +68,7 @@ WHERE LOWER(COALESCE(status, '')) <> 'deleted'`
 	for rows.Next() {
 		var item NodeListItem
 		var dataLimit, proxyPort sql.NullInt64
-		var note, proxyType, proxyHost, proxyUsername, proxyPassword, message, xrayVersion, certificate, certificateKey sql.NullString
+		var note, proxyType, proxyHost, proxyUsername, proxyPassword, capabilities, message, xrayVersion, certificate, certificateKey sql.NullString
 		var proxyEnabled bool
 		if err := rows.Scan(
 			&item.ID,
@@ -80,6 +86,11 @@ WHERE LOWER(COALESCE(status, '')) <> 'deleted'`
 			&proxyUsername,
 			&proxyPassword,
 			&item.Status,
+			&item.AgentStatus,
+			&item.XrayStatus,
+			&item.DesiredRevision,
+			&item.AppliedRevision,
+			&capabilities,
 			&message,
 			&xrayVersion,
 			&item.GeoMode,
@@ -101,6 +112,9 @@ WHERE LOWER(COALESCE(status, '')) <> 'deleted'`
 		item.ProxyPassword = stringPtrFromNull(proxyPassword)
 		item.Message = stringPtrFromNull(message)
 		item.XrayVersion = stringPtrFromNull(xrayVersion)
+		if capabilities.Valid {
+			_ = json.Unmarshal([]byte(capabilities.String), &item.Capabilities)
+		}
 		item.Status = normalizeNodeListStatus(item.Status)
 		if certificate.Valid && strings.TrimSpace(certificate.String) != "" {
 			certValue := strings.TrimSpace(certificate.String)

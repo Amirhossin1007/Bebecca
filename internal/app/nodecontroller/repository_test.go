@@ -1049,6 +1049,11 @@ CREATE TABLE nodes (
 	status TEXT,
 	message TEXT,
 	xray_version TEXT,
+	agent_status TEXT DEFAULT 'unknown',
+	xray_status TEXT DEFAULT 'unknown',
+	desired_revision INTEGER DEFAULT 0,
+	applied_revision INTEGER DEFAULT 0,
+	node_capabilities TEXT,
 	geo_mode TEXT,
 	xray_config_mode TEXT,
 	uplink INTEGER DEFAULT 0,
@@ -1307,6 +1312,7 @@ VALUES
 	('add_user', 7, 100, '{}', 'pending', 'add', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('remove_user', 8, 101, '{}', 'retrying', 'remove', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('sync_config', 9, NULL, '{}', 'running', 'sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('reboot_host', 9, NULL, '{}', 'pending', 'reboot', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('update_user', 10, 102, '{}', 'failed', 'failed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 `)
 	if err != nil {
@@ -1320,9 +1326,49 @@ VALUES
 	if cleared != 3 {
 		t.Fatalf("expected 3 cleared operations, got %d", cleared)
 	}
-	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status IN ('pending', 'retrying', 'running')`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status IN ('pending', 'retrying', 'running')`, 2)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id IS NULL AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'reboot_host' AND status = 'pending'`, 1)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'failed'`, 1)
+}
+
+func TestRepositoryQueueCommandPersistsBeforeExecution(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "command-queue.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+)`); err != nil {
+		t.Fatal(err)
+	}
+	operation, err := NewRepository(db, "sqlite").QueueCommand(ctx, "reboot_host", 9, Request{NodeID: 9})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if operation.ID <= 0 || operation.NodeID.Int64 != 9 {
+		t.Fatalf("invalid queued operation: %#v", operation)
+	}
+	var status string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM node_operations WHERE id = ?`, operation.ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "pending" {
+		t.Fatalf("queued command status=%q", status)
+	}
 }
 
 func TestRepositoryCoalescedSyncClearsRuntimeUserBacklogForNode(t *testing.T) {

@@ -14,7 +14,6 @@ func (c Controller) PublicIPs(ctx context.Context, req Request) (PublicIPsResult
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return PublicIPsResult{}, friendlyNodeError("public ips", req.NodeID, err)
 	}
-	defer client.Close()
 	res, err := client.Runtime().PublicIPs(ctx, &nodev1.PublicIPsRequest{})
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
@@ -29,7 +28,6 @@ func (c Controller) TestOutbound(ctx context.Context, req Request) (OutboundTest
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return OutboundTestResult{}, friendlyNodeError("test outbound", req.NodeID, err)
 	}
-	defer client.Close()
 	res, err := client.Runtime().TestOutbound(ctx, &nodev1.OutboundTestRequest{
 		OperationId:      "test-outbound-" + strconv.FormatInt(req.NodeID, 10),
 		OutboundTag:      strings.TrimSpace(req.OutboundTag),
@@ -60,7 +58,6 @@ func (c Controller) TestRoute(ctx context.Context, req Request) (RouteTestResult
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RouteTestResult{}, friendlyNodeError("test route", req.NodeID, err)
 	}
-	defer client.Close()
 	res, err := client.Runtime().TestRoute(ctx, &nodev1.RouteTestRequest{
 		OperationId: "test-route-" + strconv.FormatInt(req.NodeID, 10),
 		InboundTag:  strings.TrimSpace(req.RouteInboundTag),

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
@@ -19,8 +21,9 @@ func (c Controller) runtimeConfigRequest(ctx context.Context, node NodeRow, oper
 
 func (c Controller) runtimeConfigRequestFromInbounds(ctx context.Context, node NodeRow, operationID string, configJSON string, inbounds []map[string]any) (*nodev1.RuntimeConfigRequest, error) {
 	req := &nodev1.RuntimeConfigRequest{
-		OperationId: operationID,
-		ConfigJson:  configJSON,
+		OperationId:     operationID,
+		ConfigJson:      configJSON,
+		DesiredRevision: operationRevision(operationID),
 	}
 	ovRuntime, err := c.repo.ovRuntime(ctx, node.ID, inbounds)
 	if err != nil {
@@ -72,4 +75,14 @@ func (c Controller) runtimeConfigRequestFromInbounds(ctx context.Context, node N
 	}
 	req.OvRuntimeJson = string(raw)
 	return req, nil
+}
+
+func operationRevision(operationID string) uint64 {
+	parts := strings.Split(operationID, "-")
+	for index := len(parts) - 1; index >= 0; index-- {
+		if revision, err := strconv.ParseUint(parts[index], 10, 64); err == nil {
+			return revision
+		}
+	}
+	return 0
 }

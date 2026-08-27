@@ -48,7 +48,6 @@ func (c Controller) CollectOnlineUsers(ctx context.Context) (CollectOnlineUsersR
 			if err == nil {
 				var response *nodev1.OnlineUsersResponse
 				response, err = client.Usage().CollectOnlineUsers(nodeCtx, &nodev1.Empty{})
-				client.Close()
 				if err == nil {
 					mu.Lock()
 					for _, uid := range response.GetUids() {
@@ -158,7 +157,6 @@ func (c Controller) collectUsageForNode(
 		return result
 	}
 	defer cancel()
-	defer client.Close()
 
 	var userBatch *nodev1.UserUsageBatch
 	var outboundBatch *nodev1.OutboundUsageBatch
