@@ -1016,7 +1016,12 @@ export const UsersTable: FC<UsersTableProps> = ({
 			columns.push({
 				id: "lifetime_used_traffic",
 				header: t("usersTable.lifetimeUsage"),
-				desktopVisible: false,
+				priority: "medium",
+				width: "132px",
+				minWidth: "118px",
+				maxWidth: "148px",
+				headerAlign: "start",
+				cellAlign: "start",
 				mobileVisible: true,
 				mobilePriority: 6,
 				mobileMetaLabel: t("usersTable.lifetimeUsage"),

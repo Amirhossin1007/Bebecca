@@ -22,7 +22,7 @@ type UserUsageBarProps = {
 // Fixed so the percent label never changes the bar's rendered width -
 // "5%", "100%" and "∞" all sit in the same reserved slot.
 const PERCENT_SLOT_WIDTH = "2.75em";
-const INLINE_VALUE_SLOT_WIDTH = "3.75rem";
+const INLINE_VALUE_SLOT_WIDTH = "5rem";
 
 export const formatUsagePair = (used: number, total: number | null): string => {
 	const [usedValue, usedUnit] = formatBytes(used, 2, true);
