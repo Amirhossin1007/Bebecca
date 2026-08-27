@@ -54,9 +54,7 @@ func (c Controller) List(ctx context.Context, req Request) (NodeListResult, erro
 
 	for update := range updates {
 		if update.err != nil {
-			rows[update.idx].Status = "error"
-			rows[update.idx].AgentStatus = "error"
-			rows[update.idx].XrayStatus = "unknown"
+			rows[update.idx].AgentStatus = "degraded"
 			message := friendlyNodeError("metrics", rows[update.idx].ID, update.err).Error()
 			rows[update.idx].Message = &message
 			continue
@@ -81,9 +79,7 @@ func (c Controller) Get(ctx context.Context, req Request) (NodeListItem, error) 
 		runtime, err := c.Metrics(metricsCtx, Request{NodeID: item.ID})
 		cancel()
 		if err != nil {
-			item.Status = "error"
-			item.AgentStatus = "error"
-			item.XrayStatus = "unknown"
+			item.AgentStatus = "degraded"
 			message := friendlyNodeError("metrics", item.ID, err).Error()
 			item.Message = &message
 			return item, nil

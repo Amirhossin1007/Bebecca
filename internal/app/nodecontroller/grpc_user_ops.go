@@ -46,10 +46,7 @@ func (c Controller) grpcApplyUserOperation(ctx context.Context, client *nodeclie
 	case "add_user", "enable_user":
 		return c.grpcAddUserToNode(ctx, client, node, operation, email, true)
 	case "update_user":
-		if err := c.grpcRemoveUserFromNode(ctx, client, node, operation, email); err != nil {
-			return err
-		}
-		return c.grpcAddUserToNode(ctx, client, node, operation, email, true)
+		return c.grpcAddUserToNode(ctx, client, node, operation, email, false)
 	default:
 		return fmt.Errorf("unsupported runtime user operation: %s", operation.OperationType)
 	}
@@ -142,11 +139,16 @@ func (c Controller) grpcAddUserToNode(ctx context.Context, client *nodeclient.Cl
 					})
 				}
 			}
-			_, err = client.Runtime().AddUser(ctx, &nodev1.InboundUserRequest{
+			request := &nodev1.InboundUserRequest{
 				OperationId: fmt.Sprintf("%s-%d-%s", operation.OperationType, operation.ID, tag),
 				InboundTag:  tag,
 				User:        grpcInboundUserPayload(settings),
-			})
+			}
+			if refreshExisting {
+				_, err = client.Runtime().AddUser(ctx, request)
+			} else {
+				_, err = client.Runtime().UpdateUser(ctx, request)
+			}
 			if err != nil {
 				if isIgnorableLegacyAddError(err) {
 					applied++

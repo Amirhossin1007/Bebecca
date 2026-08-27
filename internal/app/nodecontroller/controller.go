@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
@@ -26,12 +27,15 @@ type Controller struct {
 	outboundSubs      outboundsubapp.Service
 	nodeLocks         *sync.Map
 	nodeClients       *sync.Map
+	healthFailures    *sync.Map
 	runtimeConfigPrep chan struct{}
 }
 
 const (
 	maxConcurrentSingleNodeOperations  = 8
 	maxConcurrentRuntimeUserOperations = 32
+	bulkRuntimeUserOperationThreshold  = 32
+	nodeHealthFailureThreshold         = 3
 	maxNodeOperationID                 = int64(1<<63 - 1)
 )
 
@@ -41,8 +45,44 @@ func NewController(repo Repository) Controller {
 		outboundSubs:      outboundsubapp.NewService(repo.db, repo.dialect),
 		nodeLocks:         &sync.Map{},
 		nodeClients:       &sync.Map{},
+		healthFailures:    &sync.Map{},
 		runtimeConfigPrep: make(chan struct{}, 1),
 	}
+}
+
+func (c Controller) recordHealthFailure(ctx context.Context, nodeID int64, err error) int32 {
+	if err == nil || nodeID <= 0 {
+		return 0
+	}
+	if c.healthFailures == nil {
+		_ = c.repo.SetDegraded(ctx, nodeID, err.Error())
+		return 1
+	}
+	value, _ := c.healthFailures.LoadOrStore(nodeID, &atomic.Int32{})
+	failures := value.(*atomic.Int32).Add(1)
+	if failures >= nodeHealthFailureThreshold {
+		_ = c.repo.SetError(ctx, nodeID, err.Error())
+	} else {
+		_ = c.repo.SetDegraded(ctx, nodeID, err.Error())
+	}
+	return failures
+}
+
+func (c Controller) clearHealthFailures(nodeID int64) {
+	if c.healthFailures != nil {
+		c.healthFailures.Delete(nodeID)
+	}
+}
+
+func (c Controller) healthFailureCount(nodeID int64) int32 {
+	if c.healthFailures == nil {
+		return 0
+	}
+	value, ok := c.healthFailures.Load(nodeID)
+	if !ok {
+		return 0
+	}
+	return value.(*atomic.Int32).Load()
 }
 
 func (c Controller) lockRuntimeConfigPreparation(ctx context.Context) (func(), error) {
@@ -71,6 +111,10 @@ func (c Controller) lockNode(nodeID int64) func() {
 
 func (c Controller) PrepareStartupFullSync(ctx context.Context) (int, error) {
 	return c.repo.ReplaceOpenQueueWithFullSync(ctx)
+}
+
+func (c Controller) PruneFinishedOperations(ctx context.Context, retain, limit int) (int, error) {
+	return c.repo.PruneFinishedOperations(ctx, retain, limit)
 }
 
 func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, error) {
@@ -201,15 +245,16 @@ func (c Controller) fullSyncOperationIDs(ctx context.Context, nodeID int64) ([]i
 func (c Controller) Health(ctx context.Context, req Request) (RuntimeResult, error) {
 	client, node, err := c.dial(ctx, req.NodeID)
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("health", req.NodeID, err)
 	}
 
 	res, err := client.Control().Health(ctx, &nodev1.HealthRequest{IncludeMetrics: true})
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("health", req.NodeID, err)
 	}
+	c.clearHealthFailures(req.NodeID)
 	result := runtimeResult(node, res.GetRuntime(), res.GetMetrics())
 	if err := c.repo.SetConnected(ctx, node.ID, result.XrayVersion, result.Message); err != nil {
 		return RuntimeResult{}, err
@@ -224,15 +269,16 @@ func (c Controller) Health(ctx context.Context, req Request) (RuntimeResult, err
 func (c Controller) Metrics(ctx context.Context, req Request) (RuntimeResult, error) {
 	client, node, err := c.dial(ctx, req.NodeID)
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("metrics", req.NodeID, err)
 	}
 
 	res, err := client.Runtime().Metrics(ctx, &nodev1.MetricsRequest{IncludeRuntime: true})
 	if err != nil {
-		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
+		c.recordHealthFailure(ctx, req.NodeID, err)
 		return RuntimeResult{}, friendlyNodeError("metrics", req.NodeID, err)
 	}
+	c.clearHealthFailures(req.NodeID)
 	result := runtimeResult(node, res.GetRuntime(), res)
 	if err := c.repo.SetConnected(ctx, node.ID, result.XrayVersion, result.Message); err != nil {
 		return RuntimeResult{}, err
@@ -289,6 +335,9 @@ func (c Controller) CheckConnectedNodes(ctx context.Context) (HealthCheckNodesRe
 			_, err := c.Metrics(metricsCtx, Request{NodeID: nodeID})
 			cancel()
 			if err == nil {
+				return
+			}
+			if c.healthFailureCount(nodeID) < nodeHealthFailureThreshold {
 				return
 			}
 			mu.Lock()
@@ -401,16 +450,28 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 	if err := c.repo.RecoverStaleOperations(ctx, 2*time.Minute); err != nil {
 		return ProcessOperationsResult{}, err
 	}
+	if err := c.repo.QueueLaggingNodeSyncs(ctx); err != nil {
+		return ProcessOperationsResult{}, err
+	}
 	operations, err := c.repo.PendingOperations(ctx, req.NodeID, req.Limit)
 	if err != nil {
 		return ProcessOperationsResult{}, err
 	}
 	result := ProcessOperationsResult{}
 	blockedNodes := map[int64]bool{}
+	foldedNodes := bulkRuntimeUserOperationNodes(operations)
+	for nodeID := range foldedNodes {
+		if err := c.repo.QueueSyncConfig(ctx, &nodeID, nil); err != nil {
+			return result, err
+		}
+	}
 	groups := []operationGroup{}
 	groupIndexes := map[string]int{}
 	globalCoalesced := []OperationRow{}
 	for _, operation := range operations {
+		if operation.NodeID.Valid && foldedNodes[operation.NodeID.Int64] && isRuntimeUserOperation(operation.OperationType) {
+			continue
+		}
 		if canCoalesceRuntimeSyncOperation(operation) && !operation.NodeID.Valid {
 			globalCoalesced = append(globalCoalesced, operation)
 			continue
@@ -433,6 +494,22 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 		}
 	}
 	return result, nil
+}
+
+func bulkRuntimeUserOperationNodes(operations []OperationRow) map[int64]bool {
+	counts := map[int64]int{}
+	for _, operation := range operations {
+		if operation.NodeID.Valid && isRuntimeUserOperation(operation.OperationType) {
+			counts[operation.NodeID.Int64]++
+		}
+	}
+	result := map[int64]bool{}
+	for nodeID, count := range counts {
+		if count > bulkRuntimeUserOperationThreshold {
+			result[nodeID] = true
+		}
+	}
+	return result
 }
 
 func (c Controller) ProcessRuntimeUserOperations(ctx context.Context, req ProcessUserOperationsRequest) (ProcessOperationsResult, error) {
@@ -768,14 +845,8 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 					return err
 				}
 			}
-			if syncConfig && operation.OperationType == "update_user" {
-				health, err := client.Control().Health(ctx, &nodev1.HealthRequest{})
-				if err != nil {
-					return err
-				}
-				if !runtimeHasCapability(health.GetRuntime(), "safe_user_reconciliation") {
-					return fmt.Errorf("node update required for safe user reconciliation")
-				}
+			if operation.OperationType == "update_user" && !client.Supports("targeted_user_update") {
+				syncConfig = true
 			}
 			if !syncConfig {
 				return c.grpcApplyUserOperation(ctx, client, node, operation, prepared)
@@ -1060,9 +1131,6 @@ func (c Controller) reconcileRuntimeState(ctx context.Context, client *nodeclien
 		}
 	}
 	result.DesiredRevision = desired
-	if client != nil && client.Supports("config_revision") && desired > applied {
-		return c.repo.QueueSyncConfig(ctx, &nodeID, nil)
-	}
 	return nil
 }
 
@@ -1074,7 +1142,12 @@ func (c Controller) prepareRuntimeRevision(ctx context.Context, client *nodeclie
 		req.DesiredRevision = 0
 		return nil
 	}
-	return c.repo.SetDesiredRevision(ctx, nodeID, req.GetDesiredRevision())
+	revision, err := c.repo.AdvanceDesiredRevision(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	req.DesiredRevision = revision
+	return nil
 }
 
 func runtimeResult(node NodeRow, state *nodev1.RuntimeState, metrics *nodev1.MetricsResponse) RuntimeResult {

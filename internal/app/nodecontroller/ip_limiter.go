@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
@@ -17,8 +18,13 @@ import (
 )
 
 const (
-	ipBlockTTLSeconds = uint32(2 * 60)
+	ipBlockTTLSeconds      = uint32(2 * 60)
+	onlineIPWriteBatchSize = 500
 )
+
+// ponytail: Rebecca runs one master writer; split this into a dedicated DB
+// writer only if multiple master processes become supported.
+var onlineIPWriteMu sync.Mutex
 
 type OnlineIPSample struct {
 	UserID     int64
@@ -159,48 +165,48 @@ func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, sample
 	if ok, err := r.tableExists(ctx, "user_online_ips"); err != nil || !ok {
 		return err
 	}
+	normalized := normalizedOnlineIPSamples(samples)
+	batchSize := onlineIPWriteBatchSize
+	if r.dialect == "sqlite" {
+		batchSize = 100
+	}
+	onlineIPWriteMu.Lock()
+	defer onlineIPWriteMu.Unlock()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	for _, sample := range normalizedOnlineIPSamples(samples) {
-		if r.dialect == "mysql" || r.dialect == "mariadb" {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at)
-VALUES (?, ?, ?, ?, ?)
-ON DUPLICATE KEY UPDATE last_seen_at = VALUES(last_seen_at)`,
-				nodeID,
-				sample.UserID,
-				sample.Protocol,
-				sample.IP,
-				r.timeArg(sample.LastSeenAt.UTC()),
-			)
-		} else {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at)
-VALUES (?, ?, ?, ?, ?)
-ON CONFLICT(node_id, user_id, protocol, ip) DO UPDATE SET last_seen_at = excluded.last_seen_at`,
-				nodeID,
-				sample.UserID,
-				sample.Protocol,
-				sample.IP,
-				r.timeArg(sample.LastSeenAt.UTC()),
-			)
+	for start := 0; start < len(normalized); start += batchSize {
+		end := min(start+batchSize, len(normalized))
+		var query strings.Builder
+		query.WriteString("INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at) VALUES ")
+		args := make([]any, 0, (end-start)*5)
+		for index, sample := range normalized[start:end] {
+			if index > 0 {
+				query.WriteByte(',')
+			}
+			query.WriteString("(?, ?, ?, ?, ?)")
+			args = append(args, nodeID, sample.UserID, sample.Protocol, sample.IP, r.timeArg(sample.LastSeenAt.UTC()))
 		}
-		if err != nil {
+		if r.dialect == "mysql" || r.dialect == "mariadb" {
+			query.WriteString(" ON DUPLICATE KEY UPDATE last_seen_at = GREATEST(last_seen_at, VALUES(last_seen_at))")
+		} else {
+			query.WriteString(" ON CONFLICT(node_id, user_id, protocol, ip) DO UPDATE SET last_seen_at = CASE WHEN excluded.last_seen_at > user_online_ips.last_seen_at THEN excluded.last_seen_at ELSE user_online_ips.last_seen_at END")
+		}
+		if _, err := tx.ExecContext(ctx, query.String(), args...); err != nil {
 			return err
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	_, err = r.db.ExecContext(ctx, `DELETE FROM user_online_ips WHERE node_id = ? AND last_seen_at < ?`,
+	if _, err := tx.ExecContext(ctx, `DELETE FROM user_online_ips WHERE node_id = ? AND last_seen_at < ?`,
 		nodeID,
 		r.timeArg(time.Now().UTC().Add(-online.ActiveWindow*2)),
-	)
-	return err
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r Repository) UserOnlineIPs(ctx context.Context, userID int64, cutoff time.Time) ([]UserOnlineIPRecord, error) {

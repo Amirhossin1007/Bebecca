@@ -148,10 +148,15 @@ func (c Controller) collectUsageForNode(
 	persistOptions UsagePersistOptions,
 ) CollectUsageResult {
 	result := CollectUsageResult{Nodes: 1}
+	communicationFailed := false
+	recordCommunicationFailure := func(err error) {
+		communicationFailed = true
+		c.recordHealthFailure(ctx, node.ID, err)
+	}
 	nodeCtx, cancel := WithDefaultTimeout(ctx)
 	client, _, err := c.dial(nodeCtx, node.ID)
 	if err != nil {
-		_ = c.repo.SetError(ctx, node.ID, err.Error())
+		recordCommunicationFailure(err)
 		cancel()
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
 		return result
@@ -170,7 +175,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -208,7 +213,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -262,7 +267,7 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckUserUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: userBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.UserAcked++
 		} else if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, err.Error()))
 		}
 	}
@@ -270,9 +275,12 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckOutboundUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.OutboundAcked++
 		} else if err != nil {
-			_ = c.repo.SetError(ctx, node.ID, err.Error())
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, err.Error()))
 		}
+	}
+	if !communicationFailed {
+		c.clearHealthFailures(node.ID)
 	}
 	return result
 }

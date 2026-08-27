@@ -58,7 +58,7 @@ INSERT INTO service_hosts (service_id, host_id) VALUES (10, 1);
 	}
 }
 
-func TestUpdateUserOperationUsesRuntimeConfigReconciliation(t *testing.T) {
+func TestUpdateUserOperationCanUseTargetedRPC(t *testing.T) {
 	controller := Controller{}
 	requiresSync, err := controller.userOperationRequiresConfigSync(
 		context.Background(),
@@ -71,8 +71,8 @@ func TestUpdateUserOperationUsesRuntimeConfigReconciliation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !requiresSync {
-		t.Fatal("update_user must use runtime config reconciliation")
+	if requiresSync {
+		t.Fatal("update_user should use the targeted RPC when the node advertises support")
 	}
 }
 

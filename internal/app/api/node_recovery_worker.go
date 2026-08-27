@@ -54,10 +54,10 @@ func (s *Server) checkConnectedNodeHealth(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		logging.Warnf(logging.ComponentNode, "node health sweep incomplete checked=%d unavailable=%d duration=%s: %v", health.Checked, len(health.Errors), duration, err)
+		logging.Warnf(logging.ComponentNode, "node health sweep incomplete checked=%d failed=%d duration=%s: %v", health.Checked, len(health.Errors), duration, err)
 		return
 	}
-	logging.Infof(logging.ComponentNode, "node health sweep checked=%d unavailable=%d duration=%s", health.Checked, len(health.Errors), duration)
+	logging.Infof(logging.ComponentNode, "node health sweep checked=%d failed=%d duration=%s", health.Checked, len(health.Errors), duration)
 }
 
 func (s *Server) recoverStaleNodes(ctx context.Context) {
