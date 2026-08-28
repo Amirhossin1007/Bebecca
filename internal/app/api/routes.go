@@ -71,6 +71,7 @@ func (s *Server) Handler() http.Handler {
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
+	r.HandleFunc("/hosts/certificate-fingerprint", s.requireAdmin(s.handleHostCertificateFingerprint))
 	r.HandleFunc("/hosts/*", s.requireAdmin(s.handleHostStatusPath))
 	r.HandleFunc("/hosts", s.requireAdmin(s.handleHostsRoot))
 	r.HandleFunc("/sub/*", s.handleSubscriptionPath)
@@ -151,6 +152,7 @@ func (s *Server) registerInboundHostRoutes(r chi.Router) {
 	r.HandleFunc("/inbounds/openvpn/runtime", s.requireSudo(s.handleOVRuntime))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
+	r.HandleFunc("/hosts/certificate-fingerprint", s.requireAdmin(s.handleHostCertificateFingerprint))
 	r.HandleFunc("/hosts/*", s.requireAdmin(s.handleHostStatusPath))
 	r.HandleFunc("/hosts", s.requireAdmin(s.handleHostsRoot))
 }

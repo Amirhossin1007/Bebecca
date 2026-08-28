@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -102,6 +104,76 @@ type hostResponse struct {
 	UseSNIAsHost         *bool          `json:"use_sni_as_host"`
 	DNSPrimary           string         `json:"dns_primary"`
 	DNSSecondary         string         `json:"dns_secondary"`
+}
+
+type hostCertificateFingerprintRequest struct {
+	Address    string `json:"address"`
+	Port       int    `json:"port"`
+	ServerName string `json:"server_name"`
+}
+
+func (s *Server) handleHostCertificateFingerprint(w http.ResponseWriter, r *http.Request) {
+	if err := requireHostsPermission(r); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var request hostCertificateFingerprintRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	request.Address = strings.Trim(strings.TrimSpace(request.Address), "[]")
+	if request.Address == "" {
+		writeError(w, http.StatusBadRequest, "Host address is required")
+		return
+	}
+	if request.Port == 0 {
+		request.Port = 443
+	}
+	if request.Port < 1 || request.Port > 65535 {
+		writeError(w, http.StatusBadRequest, "Host port must be between 1 and 65535")
+		return
+	}
+
+	fingerprint, err := fetchCertificateFingerprint(r.Context(), request.Address, request.Port, strings.TrimSpace(request.ServerName))
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "Failed to read the host certificate: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"fingerprint": fingerprint})
+}
+
+func fetchCertificateFingerprint(ctx context.Context, address string, port int, serverName string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	connection, err := (&net.Dialer{}).DialContext(ctx, "tcp", net.JoinHostPort(address, strconv.Itoa(port)))
+	if err != nil {
+		return "", err
+	}
+	defer connection.Close()
+
+	if serverName == "" && net.ParseIP(address) == nil {
+		serverName = address
+	}
+	tlsConnection := tls.Client(connection, &tls.Config{
+		ServerName:         serverName,
+		InsecureSkipVerify: true, // #nosec G402 -- this probe reads the certificate that the user intends to pin.
+	})
+	if err := tlsConnection.HandshakeContext(ctx); err != nil {
+		return "", err
+	}
+	certificates := tlsConnection.ConnectionState().PeerCertificates
+	if len(certificates) == 0 {
+		return "", errors.New("the host did not provide a certificate")
+	}
+	digest := sha256.Sum256(certificates[0].Raw)
+	return strings.ToUpper(hex.EncodeToString(digest[:])), nil
 }
 
 func (s *Server) handleHostsRoot(w http.ResponseWriter, r *http.Request) {

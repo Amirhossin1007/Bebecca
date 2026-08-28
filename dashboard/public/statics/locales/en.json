@@ -500,6 +500,8 @@
 	"hostsDialog.verifyPeerCertByName": "Verify peer certificate by name",
 	"hostsDialog.pinnedPeerCertSha256": "Certificate fingerprint (SHA-256)",
 	"hostsDialog.pinnedPeerCertSha256Hint": "64 hexadecimal characters; separate multiple fingerprints with commas",
+	"hostsDialog.generateCertificateFingerprint": "Generate automatically",
+	"hostsDialog.certificateFingerprintGenerated": "Certificate fingerprint generated",
 	"hostsDialog.finalMask": "FinalMask",
 	"hostsDialog.finalMaskHint": "Configure Xray FinalMask with guided fields. Every option requires Xray 26.6.22 or newer; Mux remains separate.",
 	"hostsDialog.fragment": "Fragment pattern",

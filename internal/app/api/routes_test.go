@@ -18,6 +18,7 @@ func TestRoutesMatchProtectedGroups(t *testing.T) {
 		"/api/core/geo/apply",
 		"/api/inbounds/full",
 		"/api/inbounds/vless-in",
+		"/api/hosts/certificate-fingerprint",
 		"/api/hosts/1/status",
 		"/api/settings",
 		"/api/settings/telegram",

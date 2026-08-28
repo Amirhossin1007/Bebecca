@@ -64,6 +64,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { fetch as apiFetch } from "service/http";
 import {
 	cloneFinalMask,
 	type FinalMaskObject,
@@ -77,6 +78,7 @@ import {
 	DEFAULT_SEARCH_MATCH_OPTIONS,
 	matchesAnySearch,
 } from "utils/searchMatch";
+import { generateErrorMessage } from "utils/toastHandler";
 import { AppleEmojiText } from "./common/AppleEmojiText";
 import { DeleteIcon } from "./common/DeleteIcon";
 import {
@@ -521,6 +523,72 @@ const certificatePinsValid = (value: string) =>
 	value
 		.split(",")
 		.every((pin) => /^[0-9a-f]{64}$/i.test(pin.trim().replaceAll(":", "")));
+
+const CertificateFingerprintField: FC<{
+	data: Pick<HostData, "address" | "sni" | "host" | "verify_peer_cert_by_name">;
+	port: number;
+	value: string;
+	onChange: (value: string) => void;
+}> = ({ data, port, value, onChange }) => {
+	const { t } = useTranslation();
+	const toast = useToast();
+	const [isGenerating, setIsGenerating] = useState(false);
+	const address = rotationTextToOptions(data.address)[0] ?? "";
+	const serverName =
+		rotationTextToOptions(data.sni)[0] ??
+		rotationTextToOptions(data.host)[0] ??
+		rotationTextToOptions(data.verify_peer_cert_by_name)[0] ??
+		address;
+
+	const generate = async () => {
+		setIsGenerating(true);
+		try {
+			const result = await apiFetch<{ fingerprint: string }>(
+				"/hosts/certificate-fingerprint",
+				{
+					method: "POST",
+					body: { address, port, server_name: serverName },
+				},
+			);
+			onChange(result.fingerprint);
+			toast({
+				title: t("hostsDialog.certificateFingerprintGenerated"),
+				status: "success",
+				isClosable: true,
+				position: "top",
+			});
+		} catch (error) {
+			generateErrorMessage(error, toast);
+		} finally {
+			setIsGenerating(false);
+		}
+	};
+
+	return (
+		<FormControl isInvalid={!certificatePinsValid(value)}>
+			<FormLabel>{t("hostsDialog.pinnedPeerCertSha256")}</FormLabel>
+			<HStack align="stretch" spacing={2}>
+				<Input
+					minW={0}
+					dir="ltr"
+					value={value}
+					placeholder={t("hostsDialog.pinnedPeerCertSha256Hint")}
+					onChange={(event) => onChange(event.target.value)}
+				/>
+				<Button
+					flexShrink={0}
+					variant="outline"
+					leftIcon={<ArrowPathIcon width={16} />}
+					isDisabled={!address}
+					isLoading={isGenerating}
+					onClick={generate}
+				>
+					{t("hostsDialog.generateCertificateFingerprint")}
+				</Button>
+			</HStack>
+		</FormControl>
+	);
+};
 
 const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	id: host.id ?? null,
@@ -1308,30 +1376,20 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 																}
 															/>
 														</FormControl>
-														<FormControl
-															isInvalid={
-																!certificatePinsValid(
-																	host.data.pinned_peer_cert_sha256,
+														<CertificateFingerprintField
+															data={host.data}
+															port={
+																host.data.port ?? selectedInbound?.port ?? 443
+															}
+															value={host.data.pinned_peer_cert_sha256}
+															onChange={(value) =>
+																onChange(
+																	host.uid,
+																	"pinned_peer_cert_sha256",
+																	value,
 																)
 															}
-														>
-															<FormLabel>
-																{t("hostsDialog.pinnedPeerCertSha256")}
-															</FormLabel>
-															<Input
-																value={host.data.pinned_peer_cert_sha256}
-																placeholder={t(
-																	"hostsDialog.pinnedPeerCertSha256Hint",
-																)}
-																onChange={(event) =>
-																	onChange(
-																		host.uid,
-																		"pinned_peer_cert_sha256",
-																		event.target.value,
-																	)
-																}
-															/>
-														</FormControl>
+														/>
 													</SimpleGrid>
 												</VStack>
 											</CardBody>
@@ -1962,29 +2020,19 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 																}
 															/>
 														</FormControl>
-														<FormControl
-															isInvalid={
-																!certificatePinsValid(
-																	formState.pinned_peer_cert_sha256,
-																)
+														<CertificateFingerprintField
+															data={formState}
+															port={
+																formState.port ?? selectedInbound?.port ?? 443
 															}
-														>
-															<FormLabel>
-																{t("hostsDialog.pinnedPeerCertSha256")}
-															</FormLabel>
-															<Input
-																value={formState.pinned_peer_cert_sha256}
-																placeholder={t(
-																	"hostsDialog.pinnedPeerCertSha256Hint",
-																)}
-																onChange={(event) =>
-																	setFormState((prev) => ({
-																		...prev,
-																		pinned_peer_cert_sha256: event.target.value,
-																	}))
-																}
-															/>
-														</FormControl>
+															value={formState.pinned_peer_cert_sha256}
+															onChange={(value) =>
+																setFormState((prev) => ({
+																	...prev,
+																	pinned_peer_cert_sha256: value,
+																}))
+															}
+														/>
 													</SimpleGrid>
 													<Checkbox
 														isChecked={formState.allowinsecure}
@@ -2811,7 +2859,9 @@ export const HostsManager: FC = () => {
 						fontWeight="semibold"
 						color={host.data.is_disabled ? "red.400" : "green.400"}
 					>
-						{t(host.data.is_disabled ? "hostsPage.inactive" : "hostsPage.active")}
+						{t(
+							host.data.is_disabled ? "hostsPage.inactive" : "hostsPage.active",
+						)}
 					</Text>
 				),
 			},
