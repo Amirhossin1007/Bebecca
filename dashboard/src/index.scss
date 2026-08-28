@@ -2001,21 +2001,12 @@ img.apple-emoji {
   container: rb-users / inline-size;
 }
 
-.rb-user-traffic-compact {
-  display: none;
-}
-
 .rb-user-card-status {
   display: none;
 }
 
-.rb-users-section .rb-resource-card-main .rb-user-card-status,
-.rb-users-section .rb-resource-card .rb-user-traffic-compact {
+.rb-users-section .rb-resource-card-main .rb-user-card-status {
   display: block;
-}
-
-.rb-users-section .rb-resource-card .rb-user-traffic-inline {
-  display: none;
 }
 
 @container rb-users (max-width: 1280px) {
@@ -2093,13 +2084,6 @@ img.apple-emoji {
     width: auto;
   }
 
-  .rb-user-traffic-inline {
-    display: none;
-  }
-
-  .rb-user-traffic-compact {
-    display: block;
-  }
 }
 
 @container rb-users (max-width: 360px) {
@@ -2150,6 +2134,57 @@ img.apple-emoji {
 .rb-users-section .rb-data-table-row > td:last-child {
   border-start-end-radius: 10px;
   border-end-end-radius: 10px;
+}
+
+.rb-users-section .rb-data-table-row[data-expanded="true"] > td {
+  border-bottom-color: transparent !important;
+}
+
+.rb-users-section .rb-data-table-row[data-expanded="true"] > td:first-child {
+  border-end-start-radius: 0;
+}
+
+.rb-users-section .rb-data-table-row[data-expanded="true"] > td:last-child {
+  border-end-end-radius: 0;
+}
+
+.rb-users-section .rb-data-table-row-detail {
+  position: relative;
+  transform: translateY(-6px);
+}
+
+.rb-users-section .rb-data-table-row-detail > td {
+  height: auto;
+  padding: 0 !important;
+  background: var(--rb-panel-surface) !important;
+  border-top: 0 !important;
+  border-bottom: 1px solid var(--rb-panel-border) !important;
+  border-inline: 1px solid var(--rb-panel-border) !important;
+  border-end-start-radius: 10px;
+  border-end-end-radius: 10px;
+}
+
+.rb-users-section .rb-data-table-row-detail .rb-data-table-expanded-content {
+  padding: 0 !important;
+}
+
+.rb-users-section .rb-data-table-row-detail .rb-resource-expanded {
+  margin-top: 0;
+  padding: 0.35rem 0.75rem 0.45rem;
+  border-top: 1px solid var(--rb-panel-border);
+}
+
+.rb-users-section .rb-data-table-row-detail .rb-resource-expanded-actions {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+}
+
+.rb-users-section .rb-expanded-user-actions .chakra-button {
+  border-radius: 8px;
+}
+
+.rb-users-section .rb-data-table [data-col="speed"] {
+  padding-inline-start: 12px !important;
 }
 
 /* mobile cards: rounder, and glowing accent while expanded */

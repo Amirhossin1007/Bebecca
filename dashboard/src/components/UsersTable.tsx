@@ -79,7 +79,6 @@ import {
 } from "./ui";
 import {
 	formatUsagePair,
-	USER_USAGE_VALUE_SLOT_WIDTH,
 	UserAdminChip,
 	UserExpiryCountdown,
 	UserOnlineBadge,
@@ -993,11 +992,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		if (canViewTraffic) {
 			columns.push({
 				id: "used_traffic",
-				header: (
-					<Text w={USER_USAGE_VALUE_SLOT_WIDTH} textAlign="end">
-						{t("usersTable.traffic")}
-					</Text>
-				),
+				header: t("usersTable.traffic"),
 				sortable: true,
 				priority: "high",
 				width: "clamp(204px, 18vw, 280px)",
@@ -1013,22 +1008,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 					<MobileUsageDetail used={user.used_traffic} total={user.data_limit} />
 				),
 				cell: (user) => (
-					<>
-						<Box className="rb-user-traffic-inline" w="full">
-							<UserUsageBar
-								variant="inline"
-								used={user.used_traffic}
-								total={user.data_limit}
-							/>
-						</Box>
-						<Box className="rb-user-traffic-compact" w="full">
-							<UserUsageBar
-								variant="compact"
-								used={user.used_traffic}
-								total={user.data_limit}
-							/>
-						</Box>
-					</>
+					<UserUsageBar
+						variant="compact"
+						used={user.used_traffic}
+						total={user.data_limit}
+					/>
 				),
 			});
 			columns.push({
@@ -1417,6 +1401,16 @@ export const UsersTable: FC<UsersTableProps> = ({
 		const detailColumns = userColumns.filter(
 			(column) => column.id !== "username" && column.mobileVisible !== false,
 		);
+		const availableActions = toMenuItems(getUserRowActions(user), user);
+		const expandedActions = [
+			user.status === "disabled" ? "enable" : "disable",
+			"revoke",
+			"reset",
+			"get-ips",
+		].flatMap((id) => {
+			const action = availableActions.find((item) => item.id === id);
+			return action ? [action] : [];
+		});
 		return (
 			<Box className="rb-resource-expanded">
 				<Box className="rb-resource-details" data-density="compact">
@@ -1435,11 +1429,31 @@ export const UsersTable: FC<UsersTableProps> = ({
 					className="rb-resource-expanded-actions"
 					align="center"
 					justify="flex-end"
+					gap={1}
+					flexWrap="wrap"
+					onClick={(event) => event.stopPropagation()}
 				>
+					<HStack className="rb-expanded-user-actions" spacing={1}>
+						{expandedActions.map((action) => (
+							<Tooltip key={action.id} label={action.label}>
+								<span>
+									<IconButton
+										aria-label={String(action.label)}
+										icon={action.icon}
+										variant="ghost"
+										size="sm"
+										minW="30px"
+										h="30px"
+										isDisabled={action.isDisabled}
+										onClick={() => action.onClick?.()}
+									/>
+								</span>
+							</Tooltip>
+						))}
+					</HStack>
 					<ActionButtons
 						user={user}
 						isRTL={isRTL}
-						menuActions={toMenuItems(getUserRowActions(user), user)}
 						onEdit={
 							canOpenUserDialog &&
 							!isUserManagementLocked(userData, user.service_id)
