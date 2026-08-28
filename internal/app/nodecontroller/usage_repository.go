@@ -18,7 +18,10 @@ import (
 const usagePersistBatchSize = 200
 const usageOnlineTouchInterval = 10 * time.Second
 
-var usageFlushMu sync.Mutex
+var (
+	usageFlushMu       sync.Mutex
+	usageOnlineTouchMu sync.Mutex
+)
 
 type usageExecer interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
@@ -219,6 +222,11 @@ func (r Repository) PersistCollectedUsage(ctx context.Context, node NodeRow, use
 		return nil
 	}
 	options := mergeUsagePersistOptions(optionValues)
+	now := time.Now().UTC()
+	_, onlineUsers := aggregateUserUsageForStage(node, userDeltas)
+	if err := r.TouchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
+		return fmt.Errorf("update user online status: %w", err)
+	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -226,7 +234,6 @@ func (r Repository) PersistCollectedUsage(ctx context.Context, node NodeRow, use
 	}
 	defer tx.Rollback()
 
-	now := time.Now().UTC()
 	bucket := now.Truncate(time.Hour)
 
 	filteredUsers, operations, err := r.persistUserUsage(ctx, tx, node, userDeltas, bucket, now, options)
@@ -264,6 +271,10 @@ func (r Repository) StoreCollectedUsageWithInbounds(ctx context.Context, node No
 	if len(normalizedUsers) == 0 && len(onlineUsers) == 0 && len(normalizedOutbound) == 0 && len(normalizedInbound) == 0 {
 		return nil
 	}
+	now := time.Now().UTC()
+	if err := r.TouchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
+		return fmt.Errorf("stage online users: %w", err)
+	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -271,12 +282,6 @@ func (r Repository) StoreCollectedUsageWithInbounds(ctx context.Context, node No
 	}
 	defer tx.Rollback()
 
-	now := time.Now().UTC()
-	if len(onlineUsers) > 0 {
-		if err := r.batchTouchUsersOnline(ctx, tx, keysStructInt64(onlineUsers), now); err != nil {
-			return fmt.Errorf("stage online users: %w", err)
-		}
-	}
 	if _, err := r.queueRuntimeSyncForStaleUsersTx(ctx, tx, node.ID, unionInt64Keys(normalizedUsers, onlineUsers), now); err != nil {
 		return fmt.Errorf("stage stale runtime user cleanup: %w", err)
 	}
@@ -335,6 +340,15 @@ func (r Repository) FlushStagedUsage(ctx context.Context, limit int, optionValue
 	}
 	if len(userRows) == 0 && len(outboundRows) == 0 {
 		return UsageFlushResult{}, nil
+	}
+	onlineUsers := map[int64]struct{}{}
+	for _, row := range userRows {
+		if row.Online {
+			onlineUsers[row.UserID] = struct{}{}
+		}
+	}
+	if err := r.TouchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
+		return UsageFlushResult{}, fmt.Errorf("flush online users: %w", err)
 	}
 
 	options := mergeUsagePersistOptions(optionValues)
@@ -582,18 +596,6 @@ func (r Repository) persistUserUsage(ctx context.Context, tx *sql.Tx, node NodeR
 		return map[int64]int64{}, nil, nil
 	}
 
-	onlineUserIDs := make([]int64, 0, len(onlineUsers))
-	for userID := range onlineUsers {
-		if _, ok := mapping[userID]; !ok {
-			continue
-		}
-		onlineUserIDs = append(onlineUserIDs, userID)
-	}
-	sort.Slice(onlineUserIDs, func(i, j int) bool { return onlineUserIDs[i] < onlineUserIDs[j] })
-	if err := r.batchTouchUsersOnline(ctx, tx, onlineUserIDs, now); err != nil {
-		return nil, nil, fmt.Errorf("update user online status: %w", err)
-	}
-
 	adminUsage := map[int64]int64{}
 	serviceUsage := map[int64]int64{}
 	adminServiceUsage := map[[2]int64]int64{}
@@ -770,6 +772,10 @@ func (r Repository) TouchUsersOnline(ctx context.Context, userIDs []int64) error
 		return nil
 	}
 	sort.Slice(userIDs, func(i, j int) bool { return userIDs[i] < userIDs[j] })
+	// ponytail: one process-wide lock keeps these short writes deadlock-free;
+	// shard it only if online timestamp writes become a measured bottleneck.
+	usageOnlineTouchMu.Lock()
+	defer usageOnlineTouchMu.Unlock()
 	now := time.Now().UTC()
 	return retryTransientUsageWrite(ctx, func() error {
 		// Each chunk is an independent, idempotent update. This avoids retaining
