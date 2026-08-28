@@ -15,6 +15,7 @@ import {
 	Stack,
 	Text,
 	Tooltip,
+	useBreakpointValue,
 	useToast,
 	VStack,
 } from "@chakra-ui/react";
@@ -78,6 +79,7 @@ import {
 } from "./ui";
 import {
 	formatUsagePair,
+	USER_USAGE_VALUE_SLOT_WIDTH,
 	UserAdminChip,
 	UserExpiryCountdown,
 	UserOnlineBadge,
@@ -93,6 +95,25 @@ const USER_STATUS_TEXT_COLORS: Partial<Record<UserListItem["status"], string>> =
 		expired: "yellow.400",
 		limited: "red.400",
 	};
+
+const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
+	const { t } = useTranslation();
+	const upload = user.upload_speed ?? 0;
+	const download = user.download_speed ?? 0;
+	if (upload === 0 && download === 0) {
+		return <Text color="panel.textMuted">—</Text>;
+	}
+	return (
+		<Stack spacing={0} fontSize="xs" lineHeight="short" dir="ltr">
+			<Text aria-label={t("usersTable.uploadSpeed")}>
+				↑ {formatBytes(upload)}/s
+			</Text>
+			<Text aria-label={t("usersTable.downloadSpeed")}>
+				↓ {formatBytes(download)}/s
+			</Text>
+		</Stack>
+	);
+};
 
 const iconProps = {
 	baseStyle: {
@@ -445,6 +466,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 	} = useDashboard();
 
 	const { t, i18n } = useTranslation();
+	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const locale = i18n.language || "en";
 	const toast = useToast();
@@ -516,6 +538,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			filters.serviceId,
 	);
 	const [contextAction, setContextAction] = useState<string | null>(null);
+	const [expandedUsername, setExpandedUsername] = useState<string | null>(null);
 	const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);
 	const [bulkAction, setBulkAction] = useState<string | null>(null);
 	const [isBulkResetOpen, setIsBulkResetOpen] = useState(false);
@@ -867,9 +890,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "online",
 				header: t("usersTable.online"),
 				priority: "high",
-				width: "96px",
-				minWidth: "88px",
-				maxWidth: "104px",
+				width: "76px",
+				minWidth: "72px",
+				maxWidth: "84px",
 				headerAlign: "start",
 				cellAlign: "start",
 				mobileVisible: true,
@@ -907,6 +930,15 @@ export const UsersTable: FC<UsersTableProps> = ({
 							{formatUsernamePreview(user.username)}
 						</Text>
 						<UserAdminChip adminUsername={user.admin_username} />
+						<Text
+							className="rb-user-card-status"
+							fontSize="xs"
+							fontWeight="semibold"
+							color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"}
+							textTransform="capitalize"
+						>
+							{t(`status.${user.status}`)}
+						</Text>
 					</Stack>
 				),
 			},
@@ -936,8 +968,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "service",
 				header: t("usersTable.service"),
 				accessor: (user) => user.service_name ?? t("usersTable.defaultService"),
-				priority: "medium",
-				hideBelow: "xl",
+				priority: "high",
 				width: "118px",
 				minWidth: "96px",
 				maxWidth: "138px",
@@ -962,14 +993,17 @@ export const UsersTable: FC<UsersTableProps> = ({
 		if (canViewTraffic) {
 			columns.push({
 				id: "used_traffic",
-				header: t("usersTable.traffic"),
+				header: (
+					<Text w={USER_USAGE_VALUE_SLOT_WIDTH} textAlign="end">
+						{t("usersTable.traffic")}
+					</Text>
+				),
 				sortable: true,
 				priority: "high",
-				hideBelow: "lg",
-				width: "clamp(240px, 22vw, 340px)",
-				minWidth: "240px",
-				maxWidth: "340px",
-				headerAlign: "center",
+				width: "clamp(204px, 18vw, 280px)",
+				minWidth: "204px",
+				maxWidth: "280px",
+				headerAlign: "start",
 				cellAlign: "start",
 				mobileVisible: true,
 				mobileSummary: true,
@@ -979,24 +1013,49 @@ export const UsersTable: FC<UsersTableProps> = ({
 					<MobileUsageDetail used={user.used_traffic} total={user.data_limit} />
 				),
 				cell: (user) => (
-					<UserUsageBar
-						variant="inline"
-						used={user.used_traffic}
-						total={user.data_limit}
-					/>
+					<>
+						<Box className="rb-user-traffic-inline" w="full">
+							<UserUsageBar
+								variant="inline"
+								used={user.used_traffic}
+								total={user.data_limit}
+							/>
+						</Box>
+						<Box className="rb-user-traffic-compact" w="full">
+							<UserUsageBar
+								variant="compact"
+								used={user.used_traffic}
+								total={user.data_limit}
+							/>
+						</Box>
+					</>
 				),
 			});
 			columns.push({
-				id: "remaining_traffic",
-				header: t("usersTable.remainingTraffic"),
-				priority: "medium",
-				width: "132px",
-				minWidth: "118px",
-				maxWidth: "148px",
+				id: "speed",
+				header: t("usersTable.speed"),
+				priority: "high",
+				width: "120px",
+				minWidth: "112px",
+				maxWidth: "136px",
 				headerAlign: "start",
 				cellAlign: "start",
 				mobileVisible: true,
 				mobilePriority: 5,
+				mobileMetaLabel: t("usersTable.speed"),
+				cell: (user) => <UserSpeed user={user} />,
+			});
+			columns.push({
+				id: "remaining_traffic",
+				header: t("usersTable.remainingTraffic"),
+				priority: "high",
+				width: "132px",
+				minWidth: "114px",
+				maxWidth: "148px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobileVisible: true,
+				mobilePriority: 6,
 				mobileMetaLabel: t("usersTable.remainingTraffic"),
 				cell: (user) => (
 					<Text
@@ -1016,14 +1075,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 			columns.push({
 				id: "lifetime_used_traffic",
 				header: t("usersTable.lifetimeUsage"),
-				priority: "medium",
+				priority: "high",
 				width: "132px",
-				minWidth: "118px",
+				minWidth: "114px",
 				maxWidth: "148px",
 				headerAlign: "start",
 				cellAlign: "start",
 				mobileVisible: true,
-				mobilePriority: 6,
+				mobilePriority: 7,
 				mobileMetaLabel: t("usersTable.lifetimeUsage"),
 				cell: (user) => (
 					<MobileLifetimeDetail totalUsedTraffic={user.lifetime_used_traffic} />
@@ -1035,14 +1094,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 			id: "expire",
 			header: t("usersTable.expire"),
 			sortable: true,
-			priority: "medium",
+			priority: "high",
 			width: "132px",
-			minWidth: "118px",
+			minWidth: "114px",
 			maxWidth: "148px",
 			headerAlign: "start",
 			cellAlign: "start",
 			mobileVisible: true,
-			mobilePriority: 7,
+			mobilePriority: 8,
 			mobileMetaLabel: t("usersTable.expire"),
 			cell: (user) => (
 				<UserExpiryCountdown expire={user.expire} status={user.status} />
@@ -1057,7 +1116,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				header: t("usersTable.admin"),
 				desktopVisible: false,
 				mobileVisible: true,
-				mobilePriority: 8,
+				mobilePriority: 9,
 				mobileMetaLabel: t("usersTable.admin"),
 				cell: (user) => <UserAdminChip adminUsername={user.admin_username} />,
 			});
@@ -1354,6 +1413,50 @@ export const UsersTable: FC<UsersTableProps> = ({
 		});
 	}
 
+	const renderExpandedUser = (user: UserListItem) => {
+		const detailColumns = userColumns.filter(
+			(column) => column.id !== "username" && column.mobileVisible !== false,
+		);
+		return (
+			<Box className="rb-resource-expanded">
+				<Box className="rb-resource-details" data-density="compact">
+					{detailColumns.map((column) => (
+						<Box key={column.id} className="rb-resource-meta">
+							<Text as="span" color="panel.textMuted">
+								{column.mobileMetaLabel ?? column.mobileLabel ?? column.header}
+							</Text>
+							<Box color="panel.text" minW={0} className="rb-resource-meta-value">
+								{column.mobileDetailCell?.(user) ?? column.cell?.(user)}
+							</Box>
+						</Box>
+					))}
+				</Box>
+				<Flex
+					className="rb-resource-expanded-actions"
+					align="center"
+					justify="flex-end"
+				>
+					<ActionButtons
+						user={user}
+						isRTL={isRTL}
+						menuActions={toMenuItems(getUserRowActions(user), user)}
+						onEdit={
+							canOpenUserDialog &&
+							!isUserManagementLocked(userData, user.service_id)
+								? () => onEditingUser(user)
+								: undefined
+						}
+						onDelete={
+							canDeleteUserActions && canDeleteUserByTrafficCap(userData, user)
+								? () => handleDeleteUser(user)
+								: undefined
+						}
+					/>
+				</Flex>
+			</Box>
+		);
+	};
+
 	return (
 		<VStack
 			spacing={4}
@@ -1424,8 +1527,17 @@ export const UsersTable: FC<UsersTableProps> = ({
 						actionsColumnWidth="210px"
 						actionsAlwaysVisible
 						onRowClick={
-							canOpenUserDialog ? (user) => onEditingUser(user) : undefined
+							isDesktop
+								? (user) =>
+										setExpandedUsername((current) =>
+											current === user.username ? null : user.username,
+										)
+								: undefined
 						}
+						isRowExpanded={
+							isDesktop ? (user) => expandedUsername === user.username : undefined
+						}
+						renderExpandedRow={isDesktop ? renderExpandedUser : undefined}
 						sorting={userSorting}
 						onSortingChange={handleUserTableSorting}
 						manualSorting

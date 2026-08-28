@@ -134,6 +134,23 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 		}()
 	}
 	wg.Wait()
+	result.Speeds = mergeUserTrafficSpeeds(result.Speeds)
+	if len(result.Speeds) > 0 {
+		identities, identityErr := c.repo.UserSpeedIdentities(ctx, speedUserIDs(result.Speeds))
+		if identityErr != nil {
+			result.Errors = append(result.Errors, "user speed lookup: "+identityErr.Error())
+			result.Speeds = nil
+		} else {
+			for i := range result.Speeds {
+				identity, ok := identities[result.Speeds[i].UserID]
+				if !ok {
+					continue
+				}
+				result.Speeds[i].Username = identity.Username
+				result.Speeds[i].ServiceID = identity.ServiceID
+			}
+		}
+	}
 	return result, nil
 }
 
@@ -201,6 +218,17 @@ func (c Controller) collectUsageForNode(
 				userDeltas = append(userDeltas, UserUsageDelta{UserID: userID, Value: value, Online: true, InboundCoefficient: coefficient})
 				result.UserSamples++
 			}
+		}
+		for _, sample := range userBatch.GetSpeeds() {
+			userID, _, ok := parseUserUsageSampleUID(sample.GetUid())
+			if !ok {
+				continue
+			}
+			result.Speeds = append(result.Speeds, UserTrafficSpeed{
+				UserID:        userID,
+				UploadSpeed:   sample.GetUpload(),
+				DownloadSpeed: sample.GetDownload(),
+			})
 		}
 		if err := c.storeNodeOnlineIPsWithRetry(ctx, node.ID, onlineIPSamplesFromBatch(userBatch.GetOnlineIps())); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d online IPs: %s", node.ID, err.Error()))
@@ -295,6 +323,31 @@ func mergeCollectUsageResult(result *CollectUsageResult, next CollectUsageResult
 	result.UserAcked += next.UserAcked
 	result.OutboundAcked += next.OutboundAcked
 	result.Errors = append(result.Errors, next.Errors...)
+	result.Speeds = append(result.Speeds, next.Speeds...)
+}
+
+func mergeUserTrafficSpeeds(speeds []UserTrafficSpeed) []UserTrafficSpeed {
+	byUser := make(map[int64]UserTrafficSpeed, len(speeds))
+	for _, speed := range speeds {
+		item := byUser[speed.UserID]
+		item.UserID = speed.UserID
+		item.UploadSpeed += speed.UploadSpeed
+		item.DownloadSpeed += speed.DownloadSpeed
+		byUser[speed.UserID] = item
+	}
+	result := make([]UserTrafficSpeed, 0, len(byUser))
+	for _, speed := range byUser {
+		result = append(result, speed)
+	}
+	return result
+}
+
+func speedUserIDs(speeds []UserTrafficSpeed) []int64 {
+	ids := make([]int64, 0, len(speeds))
+	for _, speed := range speeds {
+		ids = append(ids, speed.UserID)
+	}
+	return ids
 }
 
 func usageCollectionShouldReset(req CollectUsageRequest) bool {

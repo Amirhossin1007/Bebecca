@@ -57,6 +57,11 @@ type usageUserMapping struct {
 	ServiceID sql.NullInt64
 }
 
+type userSpeedIdentity struct {
+	Username  string
+	ServiceID *int64
+}
+
 type usageQueuedOperation struct {
 	OperationType string
 	UserID        int64
@@ -175,6 +180,33 @@ func (r Repository) InboundUsageCoefficients(ctx context.Context) (map[string]fl
 		}
 	}
 	return result, rows.Err()
+}
+
+func (r Repository) UserSpeedIdentities(ctx context.Context, userIDs []int64) (map[int64]userSpeedIdentity, error) {
+	result := make(map[int64]userSpeedIdentity, len(userIDs))
+	err := forEachInt64Chunk(userIDs, usagePersistBatchSize, func(chunk []int64) error {
+		rows, err := r.db.QueryContext(ctx, `SELECT id, username, service_id FROM users WHERE id IN (`+placeholders(len(chunk))+`)`, int64Args(chunk)...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var username string
+			var serviceID sql.NullInt64
+			if err := rows.Scan(&id, &username, &serviceID); err != nil {
+				return err
+			}
+			identity := userSpeedIdentity{Username: username}
+			if serviceID.Valid {
+				value := serviceID.Int64
+				identity.ServiceID = &value
+			}
+			result[id] = identity
+		}
+		return rows.Err()
+	})
+	return result, err
 }
 
 type nodeRowScanner interface {

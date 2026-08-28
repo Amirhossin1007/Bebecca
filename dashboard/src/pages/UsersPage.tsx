@@ -26,6 +26,13 @@ import { AdminStatus } from "types/Admin";
 
 const ONLINE_REFRESH_INTERVAL_MS = 5_000;
 
+type OnlineUsersResponse =
+	| string[]
+	| {
+			users: string[];
+			speeds: Record<string, { upload_speed: number; download_speed: number }>;
+	  };
+
 const ResetIcon = chakra(ArrowPathIcon, {
 	baseStyle: { w: 5, h: 5 },
 });
@@ -155,17 +162,26 @@ export const UsersPage: FC = () => {
 		let active = true;
 		const refresh = async () => {
 			try {
-				const usernames = await fetch<string[]>("/users/onlines");
+				const response = await fetch<OnlineUsersResponse>("/users/onlines", {
+					query: { details: true },
+				});
 				if (!active) return;
+				const usernames = Array.isArray(response) ? response : response.users;
+				const speeds = Array.isArray(response) ? {} : response.speeds;
 				const online = new Set(usernames);
 				useDashboard.setState((state) => ({
 					users: {
 						...state.users,
 						online_total: usernames.length,
-						users: state.users.users.map((user) => ({
-							...user,
-							is_online: online.has(user.username),
-						})),
+						users: state.users.users.map((user) => {
+							const speed = speeds[user.username];
+							return {
+								...user,
+								is_online: online.has(user.username),
+								upload_speed: speed?.upload_speed ?? 0,
+								download_speed: speed?.download_speed ?? 0,
+							};
+						}),
 					},
 				}));
 			} catch {

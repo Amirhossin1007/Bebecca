@@ -81,7 +81,24 @@ func (s *Server) handleOnlineUsers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, users)
+	if !strings.EqualFold(r.URL.Query().Get("details"), "true") {
+		writeJSON(w, http.StatusOK, users)
+		return
+	}
+	online := make(map[string]struct{}, len(users))
+	for _, username := range users {
+		online[username] = struct{}{}
+	}
+	speeds := s.liveUserSpeedsSnapshot()
+	for username, speed := range speeds {
+		if _, ok := online[username]; !ok || !canViewUserTraffic(principal.Context.Admin, speed.ServiceID) {
+			delete(speeds, username)
+		}
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Users  []string                 `json:"users"`
+		Speeds map[string]liveUserSpeed `json:"speeds"`
+	}{Users: users, Speeds: speeds})
 }
 
 func (s *Server) handleUserPath(w http.ResponseWriter, r *http.Request) {

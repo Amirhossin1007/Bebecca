@@ -321,6 +321,13 @@ message UserUsageBatch {
   string batch_id = 1;
   repeated UserUsageSample stats = 2;
   repeated OnlineUserIP online_ips = 3;
+  repeated UserTrafficSpeed speeds = 4;
+}
+
+message UserTrafficSpeed {
+  string uid = 1;
+  uint64 upload = 2;
+  uint64 download = 3;
 }
 
 message UserUsageSample {

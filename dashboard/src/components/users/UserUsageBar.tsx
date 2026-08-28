@@ -22,15 +22,15 @@ type UserUsageBarProps = {
 // Fixed so the percent label never changes the bar's rendered width -
 // "5%", "100%" and "∞" all sit in the same reserved slot.
 const PERCENT_SLOT_WIDTH = "2.75em";
-const INLINE_VALUE_SLOT_WIDTH = "5rem";
+export const USER_USAGE_VALUE_SLOT_WIDTH = "5rem";
 
 export const formatUsagePair = (used: number, total: number | null): string => {
 	const [usedValue, usedUnit] = formatBytes(used, 2, true);
-	if (total === 0 || total === null) return `${usedValue}${usedUnit}/∞`;
+	if (total === 0 || total === null) return `${usedValue} ${usedUnit}/∞`;
 
 	const [totalValue, totalUnit] = formatBytes(total, 2, true);
-	if (usedUnit === totalUnit) return `${usedValue}/${totalValue}${totalUnit}`;
-	return `${usedValue}${usedUnit}/${totalValue}${totalUnit}`;
+	if (usedUnit === totalUnit) return `${usedValue}/${totalValue} ${totalUnit}`;
+	return `${usedValue} ${usedUnit}/${totalValue} ${totalUnit}`;
 };
 
 /**
@@ -122,7 +122,7 @@ export const UserUsageBar: FC<UserUsageBarProps> = ({
 			>
 				<Text
 					className="rb-user-usage-pair"
-					flex={`0 0 ${INLINE_VALUE_SLOT_WIDTH}`}
+					flex={`0 0 ${USER_USAGE_VALUE_SLOT_WIDTH}`}
 					fontSize="xs"
 					textAlign="end"
 					noOfLines={1}
@@ -132,7 +132,7 @@ export const UserUsageBar: FC<UserUsageBarProps> = ({
 				{track}
 				<Text
 					className="rb-user-usage-pair"
-					flex={`0 0 ${INLINE_VALUE_SLOT_WIDTH}`}
+					flex={`0 0 ${USER_USAGE_VALUE_SLOT_WIDTH}`}
 					fontSize={isUnlimited ? "xl" : "xs"}
 					fontWeight={isUnlimited ? "semibold" : undefined}
 					lineHeight="1"

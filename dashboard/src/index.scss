@@ -273,6 +273,7 @@ body {
 }
 
 .rb-select-cell + .rb-primary-cell,
+.rb-select-cell + th,
 .rb-select-cell + td {
   padding-inline-start: clamp(8px, 0.65vw, 12px) !important;
 }
@@ -1995,6 +1996,131 @@ img.apple-emoji {
 }
 
 /* --- shared-piece overrides, scoped to the Users page ---------------- */
+
+.rb-users-section {
+  container: rb-users / inline-size;
+}
+
+.rb-user-traffic-compact {
+  display: none;
+}
+
+.rb-user-card-status {
+  display: none;
+}
+
+.rb-users-section .rb-resource-card-main .rb-user-card-status,
+.rb-users-section .rb-resource-card .rb-user-traffic-compact {
+  display: block;
+}
+
+.rb-users-section .rb-resource-card .rb-user-traffic-inline {
+  display: none;
+}
+
+@container rb-users (max-width: 1280px) {
+  .rb-data-table [data-col="status"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 1180px) {
+  .rb-data-table [data-col="lifetime_used_traffic"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 1100px) {
+  .rb-data-table [data-col="remaining_traffic"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 980px) {
+  .rb-data-table [data-col="service"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 820px) {
+  .rb-data-table [data-col="speed"] {
+    display: none;
+  }
+
+  .rb-data-table-root {
+    --rb-actions-column-width: 44px !important;
+  }
+
+  .rb-actions-cell .rb-inline-actions > .chakra-stack > :not(:last-child) {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 650px) {
+  .rb-data-table [data-col="online"],
+  .rb-data-table [data-col="expire"] {
+    display: none;
+  }
+
+  .rb-data-table [data-col="status"],
+  .rb-data-table [data-col="used_traffic"] {
+    display: table-cell;
+  }
+
+  .rb-data-table [data-col="username"] {
+    width: 105px !important;
+    min-width: 105px !important;
+    max-width: 105px !important;
+  }
+
+  .rb-data-table [data-col="status"] {
+    width: 55px !important;
+    min-width: 55px !important;
+    max-width: 55px !important;
+  }
+
+  .rb-data-table [data-col="used_traffic"] {
+    width: 130px !important;
+    min-width: 130px !important;
+    max-width: 130px !important;
+  }
+
+  .rb-data-table th[data-col="used_traffic"] .chakra-stack {
+    justify-content: center;
+  }
+
+  .rb-data-table th[data-col="used_traffic"] .chakra-text {
+    width: auto;
+  }
+
+  .rb-user-traffic-inline {
+    display: none;
+  }
+
+  .rb-user-traffic-compact {
+    display: block;
+  }
+}
+
+@container rb-users (max-width: 360px) {
+  .rb-data-table [data-col="username"] {
+    width: 78px !important;
+    min-width: 78px !important;
+    max-width: 78px !important;
+  }
+
+  .rb-data-table [data-col="status"] {
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+  }
+
+  .rb-data-table [data-col="used_traffic"] {
+    width: 92px !important;
+    min-width: 92px !important;
+    max-width: 92px !important;
+  }
+}
 
 /* summary count tags read as colorful pills */
 .rb-users-section .chakra-tag {
