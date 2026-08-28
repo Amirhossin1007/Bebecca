@@ -932,13 +932,13 @@ func (r Repository) insertStagedUserUsage(ctx context.Context, tx *sql.Tx, nodeI
 	userIDs := keysInt64(usageByUser)
 	return forEachInt64Chunk(userIDs, usagePersistBatchSize, func(chunk []int64) error {
 		var builder strings.Builder
-		builder.WriteString(`INSERT INTO node_usage_user_queue (node_id, batch_id, user_id, used_traffic, online, created_at) VALUES `)
+		builder.WriteString(`INSERT INTO node_usage_user_queue (node_id, batch_id, user_id, used_traffic, online, created_at, history_processed_at) VALUES `)
 		args := make([]any, 0, len(chunk)*6)
 		for i, userID := range chunk {
 			if i > 0 {
 				builder.WriteString(",")
 			}
-			builder.WriteString("(?, ?, ?, ?, 1, ?)")
+			builder.WriteString("(?, ?, ?, ?, 1, ?, NULL)")
 			args = append(args, nodeID, batchID, userID, usageByUser[userID], r.timeArg(now))
 		}
 		if r.dialect == "sqlite" {
@@ -971,7 +971,7 @@ func (r Repository) insertStagedOutboundUsage(ctx context.Context, tx *sql.Tx, n
 		}
 		chunk := tags[start:end]
 		var builder strings.Builder
-		builder.WriteString(`INSERT INTO node_usage_outbound_queue (node_id, batch_id, tag, uplink, downlink, inbound_uplink, inbound_downlink, created_at) VALUES `)
+		builder.WriteString(`INSERT INTO node_usage_outbound_queue (node_id, batch_id, tag, uplink, downlink, inbound_uplink, inbound_downlink, created_at, history_processed_at) VALUES `)
 		args := make([]any, 0, len(chunk)*8)
 		for i, tag := range chunk {
 			if i > 0 {
@@ -979,7 +979,7 @@ func (r Repository) insertStagedOutboundUsage(ctx context.Context, tx *sql.Tx, n
 			}
 			outbound := outbounds[tag]
 			inbound := inbounds[tag]
-			builder.WriteString("(?, ?, ?, ?, ?, ?, ?, ?)")
+			builder.WriteString("(?, ?, ?, ?, ?, ?, ?, ?, NULL)")
 			args = append(args, nodeID, batchID, tag, outbound.Up, outbound.Down, inbound.Up, inbound.Down, r.timeArg(now))
 		}
 		if r.dialect == "sqlite" {

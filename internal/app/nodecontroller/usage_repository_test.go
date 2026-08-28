@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -31,10 +32,17 @@ func TestRepositoryTouchesOnlineUsersExternalMySQL(t *testing.T) {
 	defer db.Close()
 	ctx := context.Background()
 	const userID int64 = 2000000001
+	const nodeID int64 = 2000000001
+	const userBatchID = "external-mysql-user-stage"
+	const outboundBatchID = "external-mysql-outbound-stage"
 	defer func() {
+		_, _ = db.ExecContext(ctx, `DELETE FROM node_usage_user_queue WHERE node_id = ? AND batch_id = ?`, nodeID, userBatchID)
+		_, _ = db.ExecContext(ctx, `DELETE FROM node_usage_outbound_queue WHERE node_id = ? AND batch_id = ?`, nodeID, outboundBatchID)
 		_, _ = db.ExecContext(ctx, `DELETE FROM user_presence WHERE user_id = ?`, userID)
 		_, _ = db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
 	}()
+	_, _ = db.ExecContext(ctx, `DELETE FROM node_usage_user_queue WHERE node_id = ? AND batch_id = ?`, nodeID, userBatchID)
+	_, _ = db.ExecContext(ctx, `DELETE FROM node_usage_outbound_queue WHERE node_id = ? AND batch_id = ?`, nodeID, outboundBatchID)
 	_, _ = db.ExecContext(ctx, `DELETE FROM user_presence WHERE user_id = ?`, userID)
 	_, _ = db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
 	if _, err := db.ExecContext(ctx, `INSERT INTO users (id, username, status) VALUES (?, 'online-sql-check', 'active')`, userID); err != nil {
@@ -51,6 +59,24 @@ func TestRepositoryTouchesOnlineUsersExternalMySQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertInt64(t, db, `SELECT COUNT(*) FROM user_presence WHERE user_id = 2000000001 AND online_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 SECOND)`, 1)
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	now := time.Now().UTC()
+	if err := repo.insertStagedUserUsage(ctx, tx, nodeID, userBatchID, map[int64]int64{userID: 1}, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.insertStagedOutboundUsage(ctx, tx, nodeID, outboundBatchID, map[string]OutboundUsageDelta{"direct": {Up: 1}}, nil, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_usage_user_queue WHERE node_id = 2000000001 AND batch_id = 'external-mysql-user-stage' AND history_processed_at IS NULL`, 1)
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_usage_outbound_queue WHERE node_id = 2000000001 AND batch_id = 'external-mysql-outbound-stage' AND history_processed_at IS NULL`, 1)
 }
 
 func TestRepositoryPersistsCollectedUsageAccounting(t *testing.T) {
