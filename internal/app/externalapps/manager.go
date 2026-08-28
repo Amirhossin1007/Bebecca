@@ -393,6 +393,24 @@ func (m *Manager) removeRecord(id string) {
 	m.mu.Unlock()
 }
 
+func (m *Manager) withEnabledRecord(record Record, activate func() error) (func(), error) {
+	previous, existed := m.Lookup(record.ID)
+	record.Enabled = true
+	m.setRecord(record)
+	rollback := func() {
+		if existed {
+			m.setRecord(previous)
+		} else {
+			m.removeRecord(record.ID)
+		}
+	}
+	if err := activate(); err != nil {
+		rollback()
+		return nil, err
+	}
+	return rollback, nil
+}
+
 func (m *Manager) publicRecords() []PublicRecord {
 	m.mu.RLock()
 	records := make([]PublicRecord, 0, len(m.apps))
@@ -895,10 +913,14 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 	}
 
 	var userCreated, appCreated, databaseCreated, poolCreated, cronCreated bool
+	var rollbackRecord func()
 	completed := false
 	defer func() {
 		if completed {
 			return
+		}
+		if rollbackRecord != nil {
+			rollbackRecord()
 		}
 		_ = os.Remove(m.recordPathFor(record))
 		_ = os.Remove(m.secretPathFor(record))
@@ -998,7 +1020,10 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 	if err := m.writeRecord(record); err != nil {
 		return PublicRecord{}, err
 	}
-	if err := m.setTelegramWebhook(ctx, request.BotToken, record, webhookSecret); err != nil {
+	rollbackRecord, err = m.withEnabledRecord(record, func() error {
+		return m.setTelegramWebhook(ctx, request.BotToken, record, webhookSecret)
+	})
+	if err != nil {
 		return PublicRecord{}, err
 	}
 	record.Enabled = true
@@ -1280,6 +1305,7 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 	if !ok {
 		return PublicRecord{}, errExternalAppNotFound
 	}
+	var rollbackRecord func()
 	if enabled {
 		if _, err := m.certificateDomain(ctx, record.Domain); err != nil {
 			return PublicRecord{}, err
@@ -1289,11 +1315,17 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 			if err != nil {
 				return PublicRecord{}, err
 			}
-			if err := m.setTelegramWebhook(ctx, secrets.BotToken, record, secrets.WebhookSecret); err != nil {
-				return PublicRecord{}, err
-			}
-			if err := writeMirzaCron(record); err != nil {
-				_ = m.deleteTelegramWebhook(context.Background(), secrets.BotToken)
+			rollbackRecord, err = m.withEnabledRecord(record, func() error {
+				if err := m.setTelegramWebhook(ctx, secrets.BotToken, record, secrets.WebhookSecret); err != nil {
+					return err
+				}
+				if err := writeMirzaCron(record); err != nil {
+					_ = m.deleteTelegramWebhook(context.Background(), secrets.BotToken)
+					return err
+				}
+				return nil
+			})
+			if err != nil {
 				return PublicRecord{}, err
 			}
 		}
@@ -1312,6 +1344,9 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 		record.Enabled = false
 	}
 	if err := m.writeRecord(record); err != nil {
+		if rollbackRecord != nil {
+			rollbackRecord()
+		}
 		if record.Runtime == "node" {
 			if enabled {
 				_ = stopExternalAppNode(context.Background(), record)
