@@ -1025,6 +1025,7 @@ func isPermanentOperationError(err error) bool {
 		strings.Contains(message, "node is disabled") ||
 		strings.Contains(message, "node is limited") ||
 		strings.Contains(message, "node update required for safe user reconciliation") ||
+		strings.Contains(message, "unable to locate rebecca-node cli") ||
 		strings.Contains(message, "node not found")
 }
 
