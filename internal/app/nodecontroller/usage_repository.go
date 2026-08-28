@@ -19,8 +19,8 @@ const usagePersistBatchSize = 200
 const usageOnlineTouchInterval = 10 * time.Second
 
 var (
-	usageFlushMu       sync.Mutex
-	usageOnlineTouchMu sync.Mutex
+	usageFlushMu     sync.Mutex
+	usageUserWriteMu sync.Mutex
 )
 
 type usageExecer interface {
@@ -254,9 +254,13 @@ func (r Repository) PersistCollectedUsage(ctx context.Context, node NodeRow, use
 		return nil
 	}
 	options := mergeUsagePersistOptions(optionValues)
+	if len(userDeltas) > 0 {
+		usageUserWriteMu.Lock()
+		defer usageUserWriteMu.Unlock()
+	}
 	now := time.Now().UTC()
 	_, onlineUsers := aggregateUserUsageForStage(node, userDeltas)
-	if err := r.TouchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
+	if err := r.touchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
 		return fmt.Errorf("update user online status: %w", err)
 	}
 
@@ -304,7 +308,16 @@ func (r Repository) StoreCollectedUsageWithInbounds(ctx context.Context, node No
 		return nil
 	}
 	now := time.Now().UTC()
-	if err := r.TouchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
+	directUserWrite := userBatchID == "" && len(normalizedUsers) > 0
+	if directUserWrite {
+		usageUserWriteMu.Lock()
+		defer usageUserWriteMu.Unlock()
+	}
+	touchOnline := r.TouchUsersOnline
+	if directUserWrite {
+		touchOnline = r.touchUsersOnline
+	}
+	if err := touchOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
 		return fmt.Errorf("stage online users: %w", err)
 	}
 
@@ -373,13 +386,17 @@ func (r Repository) FlushStagedUsage(ctx context.Context, limit int, optionValue
 	if len(userRows) == 0 && len(outboundRows) == 0 {
 		return UsageFlushResult{}, nil
 	}
+	if len(userRows) > 0 {
+		usageUserWriteMu.Lock()
+		defer usageUserWriteMu.Unlock()
+	}
 	onlineUsers := map[int64]struct{}{}
 	for _, row := range userRows {
 		if row.Online {
 			onlineUsers[row.UserID] = struct{}{}
 		}
 	}
-	if err := r.TouchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
+	if err := r.touchUsersOnline(ctx, keysStructInt64(onlineUsers)); err != nil {
 		return UsageFlushResult{}, fmt.Errorf("flush online users: %w", err)
 	}
 
@@ -799,15 +816,19 @@ func (r Repository) onlineUsersUpdateTarget() string {
 }
 
 func (r Repository) TouchUsersOnline(ctx context.Context, userIDs []int64) error {
+	// ponytail: one process-wide lock coordinates the two batched writers of
+	// users rows; shard it only if usage persistence becomes CPU-bound.
+	usageUserWriteMu.Lock()
+	defer usageUserWriteMu.Unlock()
+	return r.touchUsersOnline(ctx, userIDs)
+}
+
+func (r Repository) touchUsersOnline(ctx context.Context, userIDs []int64) error {
 	userIDs = uniquePositiveInt64(userIDs)
 	if len(userIDs) == 0 {
 		return nil
 	}
 	sort.Slice(userIDs, func(i, j int) bool { return userIDs[i] < userIDs[j] })
-	// ponytail: one process-wide lock keeps these short writes deadlock-free;
-	// shard it only if online timestamp writes become a measured bottleneck.
-	usageOnlineTouchMu.Lock()
-	defer usageOnlineTouchMu.Unlock()
 	now := time.Now().UTC()
 	return retryTransientUsageWrite(ctx, func() error {
 		// Each chunk is an independent, idempotent update. This avoids retaining
