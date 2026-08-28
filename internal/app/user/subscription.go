@@ -730,8 +730,46 @@ func (r Repository) subscriptionRevokedAt(ctx context.Context, userID int64) (ti
 }
 
 func (r Repository) updateSubscriptionAccess(ctx context.Context, userID int64, userAgent string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE users SET sub_updated_at = ?, sub_last_user_agent = ? WHERE id = ?`, dbTime(time.Now().UTC()), strings.TrimSpace(userAgent), userID)
+	now := time.Now().UTC()
+	userAgent = strings.TrimSpace(userAgent)
+	if value := []rune(userAgent); len(value) > 512 {
+		userAgent = string(value[:512])
+	}
+	r.cache.mu.Lock()
+	if cached, ok := r.cache.subscriptionAccess[userID]; ok && cached.userAgent == userAgent && now.Before(cached.expiresAt) {
+		r.cache.mu.Unlock()
+		return nil
+	}
+	r.cache.mu.Unlock()
+	result, err := r.db.ExecContext(ctx, `UPDATE user_subscription_access
+SET updated_at = ?, user_agent = ?
+WHERE user_id = ? AND (updated_at < ? OR COALESCE(user_agent, '') <> ?)`,
+		dbTime(now), userAgent, userID, dbTime(now.Add(-time.Minute)), userAgent)
+	if err != nil {
+		return err
+	}
+	if affected, err := result.RowsAffected(); err == nil && affected > 0 {
+		r.rememberSubscriptionAccess(userID, userAgent, now)
+		return nil
+	}
+	query := `INSERT IGNORE INTO user_subscription_access (user_id, updated_at, user_agent) VALUES (?, ?, ?)`
+	if r.dialect == "sqlite" {
+		query = `INSERT INTO user_subscription_access (user_id, updated_at, user_agent) VALUES (?, ?, ?) ON CONFLICT(user_id) DO NOTHING`
+	}
+	_, err = r.db.ExecContext(ctx, query, userID, dbTime(now), userAgent)
+	if err == nil {
+		r.rememberSubscriptionAccess(userID, userAgent, now)
+	}
 	return err
+}
+
+func (r Repository) rememberSubscriptionAccess(userID int64, userAgent string, now time.Time) {
+	r.cache.mu.Lock()
+	defer r.cache.mu.Unlock()
+	if r.cache.subscriptionAccess == nil {
+		r.cache.subscriptionAccess = map[int64]subscriptionAccessCacheEntry{}
+	}
+	r.cache.subscriptionAccess[userID] = subscriptionAccessCacheEntry{userAgent: userAgent, expiresAt: now.Add(time.Minute)}
 }
 
 func parseSubscriptionToken(token string, secret string) (subscriptionTokenPayload, bool) {

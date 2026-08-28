@@ -17,6 +17,7 @@ func TestOnlineUsersUsesActiveProtocolSessions(t *testing.T) {
 	defer db.Close()
 	if _, err := db.Exec(`
 CREATE TABLE users (id INTEGER PRIMARY KEY, admin_id INTEGER, status TEXT, online_at DATETIME);
+CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL);
 CREATE TABLE nodes (id INTEGER PRIMARY KEY, status TEXT);
 CREATE TABLE user_online_ips (node_id INTEGER, user_id INTEGER, last_seen_at DATETIME);
 CREATE TABLE vpn_user_sessions (node_id INTEGER, user_id INTEGER, last_seen_at DATETIME, ended_at DATETIME);

@@ -226,6 +226,44 @@ func TestSubscriptionClientOutputsCoverExplicitFormatsAndAutoDetect(t *testing.T
 	}
 }
 
+func TestSubscriptionAccessUsesNarrowCoalescedRow(t *testing.T) {
+	service, _ := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+	if err := service.repo.updateSubscriptionAccess(ctx, 1, "test-agent"); err != nil {
+		t.Fatal(err)
+	}
+	var firstUpdated, secondUpdated string
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT updated_at FROM user_subscription_access WHERE user_id = 1`).Scan(&firstUpdated); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.repo.updateSubscriptionAccess(ctx, 1, "test-agent"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT updated_at FROM user_subscription_access WHERE user_id = 1`).Scan(&secondUpdated); err != nil {
+		t.Fatal(err)
+	}
+	if firstUpdated != secondUpdated {
+		t.Fatalf("same subscription access was not coalesced: %q != %q", firstUpdated, secondUpdated)
+	}
+	if err := service.repo.updateSubscriptionAccess(ctx, 1, "changed-agent"); err != nil {
+		t.Fatal(err)
+	}
+	var userAgent string
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT user_agent FROM user_subscription_access WHERE user_id = 1`).Scan(&userAgent); err != nil {
+		t.Fatal(err)
+	}
+	if userAgent != "changed-agent" {
+		t.Fatalf("unexpected user agent: %q", userAgent)
+	}
+	var legacyCount int
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE id = 1 AND sub_updated_at IS NOT NULL`).Scan(&legacyCount); err != nil {
+		t.Fatal(err)
+	}
+	if legacyCount != 0 {
+		t.Fatal("subscription access still writes the hot users row")
+	}
+}
+
 func TestV2rayNGSubscriptionsKeepAddressAndPort(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()
@@ -579,6 +617,8 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			admin_id INTEGER NULL,
 			sub_revoked_at DATETIME NULL
 		)`,
+		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
+		`CREATE TABLE user_subscription_access (user_id INTEGER PRIMARY KEY, updated_at DATETIME NOT NULL, user_agent TEXT NULL)`,
 		`CREATE TABLE user_usage_logs (
 			id INTEGER PRIMARY KEY,
 			user_id INTEGER,

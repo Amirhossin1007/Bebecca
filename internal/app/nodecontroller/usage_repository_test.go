@@ -184,7 +184,7 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, 0)
 	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 2`, 0)
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_user_usages WHERE user_id = 10 AND node_id = 7`, 0)
-	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 10 AND online_at IS NOT NULL`, 1)
+	assertInt64(t, db, `SELECT COUNT(*) FROM user_presence WHERE user_id = 10 AND online_at IS NOT NULL`, 1)
 }
 
 func TestRepositoryTouchesOnlyEligibleOnlineUsers(t *testing.T) {
@@ -207,17 +207,9 @@ INSERT INTO users (id, status) VALUES
 	if err := NewRepository(db, "sqlite").TouchUsersOnline(ctx, []int64{1, 2, 3}); err != nil {
 		t.Fatal(err)
 	}
-	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id IN (1, 2) AND online_at IS NOT NULL`, 2)
-	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 3 AND online_at IS NOT NULL`, 0)
-}
-
-func TestRepositoryOnlineTouchUsesPrimaryIndexOnMySQL(t *testing.T) {
-	if got := (Repository{dialect: "mysql"}).onlineUsersUpdateTarget(); got != "users FORCE INDEX (PRIMARY)" {
-		t.Fatalf("MySQL update target = %q", got)
-	}
-	if got := (Repository{dialect: "sqlite"}).onlineUsersUpdateTarget(); got != "users" {
-		t.Fatalf("SQLite update target = %q", got)
-	}
+	assertInt64(t, db, `SELECT COUNT(*) FROM user_presence WHERE user_id IN (1, 2) AND online_at IS NOT NULL`, 2)
+	assertInt64(t, db, `SELECT COUNT(*) FROM user_presence WHERE user_id = 3`, 0)
+	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE online_at IS NOT NULL`, 0)
 }
 
 func TestRepositoryDoesNotFullSyncWhenNodeReportsDeletedRuntimeUser(t *testing.T) {
@@ -318,7 +310,7 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 
 	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 10`, 200)
 	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, 200)
-	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 10 AND online_at IS NOT NULL`, 1)
+	assertInt64(t, db, `SELECT COUNT(*) FROM user_presence WHERE user_id = 10 AND online_at IS NOT NULL`, 1)
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_user_usages WHERE node_id = 7`, 0)
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_usages WHERE node_id = 7`, 0)
 	assertInt64(t, db, `SELECT uplink FROM nodes WHERE id = 7`, 11)
@@ -365,7 +357,7 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 
 	expected := int64(count * 10)
 	assertInt64(t, db, `SELECT COALESCE(SUM(used_traffic), 0) FROM users`, expected)
-	assertInt64(t, db, `SELECT COUNT(*) FROM users WHERE online_at IS NOT NULL`, int64(count))
+	assertInt64(t, db, `SELECT COUNT(*) FROM user_presence WHERE online_at IS NOT NULL`, int64(count))
 	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, expected)
 	assertInt64(t, db, `SELECT lifetime_usage FROM admins WHERE id = 1`, expected)
 	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 2`, expected)
@@ -425,7 +417,17 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	}
 	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 10`, 200)
 	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, 200)
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_user_usages WHERE user_id = 10 AND node_id = 7`, 0)
+	historyResult, err := repo.FlushStagedUsageHistory(ctx, 100, UsagePersistOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if historyResult.UserRows != 1 || historyResult.OutboundRows != 1 {
+		t.Fatalf("unexpected history flush result: %#v", historyResult)
+	}
 	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE user_id = 10 AND node_id = 7`, 200)
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_usage_user_queue WHERE history_processed_at IS NULL`, 0)
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_usage_outbound_queue WHERE history_processed_at IS NULL`, 0)
 	assertInt64(t, db, `SELECT uplink FROM nodes WHERE id = 7`, 11)
 	assertInt64(t, db, `SELECT downlink FROM nodes WHERE id = 7`, 22)
 	assertInt64(t, db, `SELECT uplink FROM inbounds WHERE tag = 'direct'`, 5)
@@ -553,6 +555,7 @@ INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, upda
 INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO users (id, status, used_traffic, data_limit, expire, on_hold_expire_duration, admin_id, service_id)
 VALUES (10, 'on_hold', 0, 100000, NULL, 864000000, 1, 2);
+INSERT INTO user_presence (user_id, online_at) VALUES (10, CURRENT_TIMESTAMP);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
 INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
@@ -650,6 +653,7 @@ func createUsageTables(t *testing.T, ctx context.Context, db *sql.DB) {
 		`CREATE TABLE services (id INTEGER PRIMARY KEY, used_traffic INTEGER NOT NULL DEFAULT 0, lifetime_used_traffic INTEGER NOT NULL DEFAULT 0, users_usage INTEGER NOT NULL DEFAULT 0, updated_at DATETIME NULL)`,
 		`CREATE TABLE admins_services (admin_id INTEGER NOT NULL, service_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, lifetime_used_traffic INTEGER NOT NULL DEFAULT 0, updated_at DATETIME NULL, PRIMARY KEY (admin_id, service_id))`,
 		`CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, data_limit INTEGER NULL, expire INTEGER NULL, online_at DATETIME NULL, on_hold_expire_duration INTEGER NULL, on_hold_timeout DATETIME NULL, edit_at DATETIME NULL, created_at DATETIME NULL, last_status_change DATETIME NULL, admin_id INTEGER NULL, service_id INTEGER NULL)`,
+		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
 		`CREATE TABLE nodes (id INTEGER PRIMARY KEY, status TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, data_limit INTEGER NULL, message TEXT NULL, last_status_change DATETIME NULL, usage_coefficient REAL NOT NULL DEFAULT 1)`,
 		`CREATE TABLE node_user_usages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME NOT NULL, user_id INTEGER NOT NULL, node_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, UNIQUE(created_at, user_id, node_id))`,
 		`CREATE TABLE node_usages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME NOT NULL, node_id INTEGER NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, UNIQUE(created_at, node_id))`,
@@ -657,8 +661,8 @@ func createUsageTables(t *testing.T, ctx context.Context, db *sql.DB) {
 		`CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE TABLE system (id INTEGER PRIMARY KEY, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE TABLE node_operations (id INTEGER PRIMARY KEY AUTOINCREMENT, operation_type TEXT NOT NULL, node_id INTEGER NULL, user_id INTEGER NULL, payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT NULL, idempotency_key TEXT NOT NULL UNIQUE, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)`,
-		`CREATE TABLE node_usage_user_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, user_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, online INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL, UNIQUE(node_id, batch_id, user_id))`,
-		`CREATE TABLE node_usage_outbound_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, tag TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, inbound_uplink INTEGER NOT NULL DEFAULT 0, inbound_downlink INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL, UNIQUE(node_id, batch_id, tag))`,
+		`CREATE TABLE node_usage_user_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, user_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, online INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL, history_processed_at DATETIME NULL, UNIQUE(node_id, batch_id, user_id))`,
+		`CREATE TABLE node_usage_outbound_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, tag TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, inbound_uplink INTEGER NOT NULL DEFAULT 0, inbound_downlink INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL, history_processed_at DATETIME NULL, UNIQUE(node_id, batch_id, tag))`,
 	}
 	for _, stmt := range statements {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {

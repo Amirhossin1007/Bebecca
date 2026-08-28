@@ -302,7 +302,7 @@ func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (
 	u.status,
 	COUNT(u.id),
 	COALESCE(SUM(COALESCE(u.used_traffic, 0) + COALESCE(rul.reseted_usage, 0)), 0),
-	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL OR u.online_at >= ? THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
+	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL OR ` + online.LastSeenExpression + ` >= ? THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
 	args := append([]any{cutoff, cutoff, cutoff}, filter.args...)
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -345,7 +345,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		SELECT 1
 		FROM vpn_user_sessions vus
 		WHERE vus.user_id = u.id AND vus.ended_at IS NULL
-	) THEN CURRENT_TIMESTAMP ELSE u.online_at END,
+	) THEN CURRENT_TIMESTAMP ELSE ` + online.LastSeenExpression + ` END,
 	CASE WHEN ` + online.UserPredicate + ` THEN 1 ELSE 0 END,
 	u.service_id,
 	s.name,
@@ -529,10 +529,10 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 		filter.add("(u.data_limit IS NULL OR u.data_limit = 0)")
 	}
 	if _, ok := normalized["sub_not_updated"]; ok {
-		filter.add("(u.sub_updated_at IS NULL OR u.sub_updated_at < ?)", now.Add(-24*time.Hour))
+		filter.add("(COALESCE((SELECT usa.updated_at FROM user_subscription_access usa WHERE usa.user_id = u.id), u.sub_updated_at) IS NULL OR COALESCE((SELECT usa.updated_at FROM user_subscription_access usa WHERE usa.user_id = u.id), u.sub_updated_at) < ?)", now.Add(-24*time.Hour))
 	}
 	if _, ok := normalized["sub_never_updated"]; ok {
-		filter.add("u.sub_updated_at IS NULL")
+		filter.add("COALESCE((SELECT usa.updated_at FROM user_subscription_access usa WHERE usa.user_id = u.id), u.sub_updated_at) IS NULL")
 	}
 	statuses := make([]string, 0, 4)
 	for key, status := range map[string]string{"expired": "expired", "limited": "limited", "disabled": "disabled", "on_hold": "on_hold"} {

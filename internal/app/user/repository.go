@@ -42,6 +42,12 @@ type repositoryCache struct {
 	activeNodeIDsExpires     time.Time
 	usersSummaryMu           sync.Mutex
 	usersSummaries           map[string]usersSummaryCacheEntry
+	subscriptionAccess       map[int64]subscriptionAccessCacheEntry
+}
+
+type subscriptionAccessCacheEntry struct {
+	userAgent string
+	expiresAt time.Time
 }
 
 func (r Repository) LinkPrerequisites(ctx context.Context, req LinkPrerequisitesRequest) (LinkPrerequisites, error) {

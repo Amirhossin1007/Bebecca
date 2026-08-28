@@ -191,7 +191,6 @@ func (s *Server) StartBackground(ctx context.Context) {
 		}
 		go s.runNodeOperationsWorker(ctx)
 		go s.runNodeRecoveryWorker(ctx)
-		go s.runOnlineUsersCollector(ctx)
 		go s.runNodeUsageCollector(ctx)
 		go s.runNodeUsageFlushWorker(ctx)
 		go s.runAdminLifecycleWorker(ctx)
