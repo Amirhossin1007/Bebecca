@@ -24,6 +24,7 @@ import {
 import {
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
+	CheckCircleIcon,
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
@@ -31,7 +32,6 @@ import {
 	ServerStackIcon,
 	ShieldCheckIcon,
 	SignalIcon,
-	UserCheckIcon,
 	UserGroupIcon,
 	UserIcon,
 	WifiIcon,
@@ -1130,7 +1130,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								label={t("status.active")}
 								value={systemData.users_active}
 								percentage={activePercent}
-								icon={<UserCheckIcon width={16} />}
+								icon={<CheckCircleIcon width={16} />}
 								colorScheme="green"
 							/>
 							<MetricCell
@@ -1172,7 +1172,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<MetricCell
 								label={t("status.active")}
 								value={systemData.personal_usage?.total_users ?? 0}
-								icon={<UserCheckIcon width={16} />}
+								icon={<CheckCircleIcon width={16} />}
 								colorScheme="green"
 							/>
 							{/* Row 2: Online & Consumed Traffic */}
