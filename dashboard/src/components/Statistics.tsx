@@ -587,42 +587,47 @@ const MetricCell: FC<{
 	percentage?: string;
 	icon?: ReactNode;
 	colorScheme?: "accent" | "green" | "blue" | "cyan" | "purple" | "orange";
-}> = ({ label, value, percentage, icon, colorScheme = "blue" }) => (
-	<Flex
-		p={4}
-		borderRadius="xl"
-		bg="panel.input"
-		borderWidth="1px"
-		borderColor="panel.border"
-		justify="space-between"
-		align="center"
-		transition="all 0.2s ease"
-		_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
-	>
-		<HStack spacing={3} minW={0}>
-			{icon && <ThemedIconBadge icon={icon} colorScheme={colorScheme} size={8} />}
-			<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
-				{label}
-			</Text>
-		</HStack>
-		<HStack spacing={2}>
-			{percentage && (
-				<Text fontSize="11px" color="panel.textMuted" dir="ltr">
-					{percentage}
+}> = ({ label, value, percentage, icon, colorScheme = "blue" }) => {
+	const cardBg = useColorModeValue("panel.input", "panel.input");
+	const borderColor = useColorModeValue("panel.border", "panel.border");
+
+	return (
+		<Flex
+			p={4}
+			borderRadius="xl"
+			bg={cardBg}
+			borderWidth="1px"
+			borderColor={borderColor}
+			justify="space-between"
+			align="center"
+			transition="all 0.2s ease"
+			_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
+		>
+			<HStack spacing={3} minW={0}>
+				{icon && <ThemedIconBadge icon={icon} colorScheme={colorScheme} size={8} />}
+				<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
+					{label}
 				</Text>
-			)}
-			<Text
-				fontSize="md"
-				fontWeight="800"
-				color="panel.text"
-				dir="ltr"
-				sx={{ fontVariantNumeric: "tabular-nums" }}
-			>
-				{typeof value === "number" ? formatNumberValue(value) : value}
-			</Text>
-		</HStack>
-	</Flex>
-);
+			</HStack>
+			<HStack spacing={2}>
+				{percentage && (
+					<Text fontSize="11px" color="panel.textMuted" dir="ltr">
+						{percentage}
+					</Text>
+				)}
+				<Text
+					fontSize="md"
+					fontWeight="800"
+					color="panel.text"
+					dir="ltr"
+					sx={{ fontVariantNumeric: "tabular-nums" }}
+				>
+					{typeof value === "number" ? formatNumberValue(value) : value}
+				</Text>
+			</HStack>
+		</Flex>
+	);
+};
 
 export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
@@ -1059,7 +1064,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</SimpleGrid>
 			</ChartBox>
 
-			{/* 3. Users Overview ChartBox with Smooth Fade Transition */}
+			{/* 3. Users Overview ChartBox */}
 			<ChartBox
 				title={
 					<HStack spacing={2.5}>

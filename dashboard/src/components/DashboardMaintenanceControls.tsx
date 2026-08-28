@@ -22,7 +22,6 @@ import {
 	Progress,
 	Spinner,
 	Stack,
-	Tag,
 	Text,
 	useColorModeValue,
 	useToast,
@@ -518,22 +517,21 @@ export const DashboardMaintenanceControls = ({
 				align="center"
 				justify="flex-end"
 			>
-				<Tag
-					colorScheme="gray"
-					borderRadius="full"
-					px={3.5}
+				<Flex
 					h="32px"
+					px={3.5}
+					align="center"
+					justify="center"
+					borderRadius="full"
 					fontSize="11px"
 					fontWeight="700"
 					bg="panel.elevated"
 					color="panel.textSecondary"
 					borderWidth="1px"
 					borderColor="panel.border"
-					display="inline-flex"
-					alignItems="center"
 				>
 					{currentVersion}
-				</Tag>
+				</Flex>
 
 				{canMaintain && <Box minW="140px">{renderUpdatePopover()}</Box>}
 
@@ -572,10 +570,11 @@ export const DashboardMaintenanceControls = ({
 			>
 				{/* Row 1: Version (25%) + Update Action (75%) */}
 				<Flex gap={2} w="full" align="center">
-					<Tag
+					<Flex
 						flex="1 1 25%"
 						h="32px"
-						justifyContent="center"
+						align="center"
+						justify="center"
 						borderRadius="full"
 						fontSize="11px"
 						fontWeight="700"
@@ -585,7 +584,7 @@ export const DashboardMaintenanceControls = ({
 						borderColor="panel.border"
 					>
 						{currentVersion}
-					</Tag>
+					</Flex>
 					{canMaintain && (
 						<Box flex="3 3 75%">
 							{renderUpdatePopover()}
