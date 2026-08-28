@@ -2842,7 +2842,8 @@
     "minute": "minute",
     "second": "second",
     "allUsers": "All Users",
-    "myUsers": "My Users"
+    "myUsers": "My Users",
+	"core": "Core",
 	"live": "Live",
 	"hostsPage.noPermission": "You do not have permission to manage host or inbound settings.",
 	"settings.panel.maintenanceWaitingForAPI": "Rebecca is restarting. Waiting for the API to come back.",

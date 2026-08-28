@@ -52,7 +52,14 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-/* فرمت هوشمند و دقیق زمان (فقط ثانیه / دقیقه و ثانیه / ساعت و دقیقه / روز، ساعت و دقیقه) */
+/* محاسبه رنگ بر اساس درصد مصرف */
+const getUsageColorScheme = (percent: number) => {
+	if (percent >= 80) return "red";
+	if (percent >= 60) return "orange";
+	return "green";
+};
+
+/* فرمت هوشمند و دقیق زمان */
 const formatLocalizedDuration = (
 	totalSeconds: number,
 	t: TFunction,
@@ -431,7 +438,7 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Modern Hardware Bento Card */
+/* Modern Hardware Bento Card with Dynamic Progress Bar Color */
 const HardwareBentoCard: FC<{
 	label: string;
 	icon: ReactNode;
@@ -440,10 +447,12 @@ const HardwareBentoCard: FC<{
 	subtitle?: string;
 	onViewHistory?: () => void;
 	actionLabel?: string;
-}> = ({ label, icon, primaryValue, percent, subtitle, onViewHistory, actionLabel }) => {
+	isRTL?: boolean;
+}> = ({ label, icon, primaryValue, percent, subtitle, onViewHistory, actionLabel, isRTL }) => {
 	const cardBg = useColorModeValue("panel.input", "panel.input");
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const safePercent = clampPercent(percent);
+	const colorScheme = getUsageColorScheme(percent);
 
 	return (
 		<Box
@@ -502,8 +511,7 @@ const HardwareBentoCard: FC<{
 							fontSize="xs"
 							fontWeight="600"
 							color="panel.textMuted"
-							dir="ltr"
-							sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+							dir={isRTL ? "rtl" : "ltr"}
 						>
 							{subtitle}
 						</Text>
@@ -513,7 +521,7 @@ const HardwareBentoCard: FC<{
 				<Progress
 					value={safePercent}
 					size="xs"
-					colorScheme="primary"
+					colorScheme={colorScheme}
 					bg="panel.elevated"
 					borderRadius="full"
 					h="4px"
@@ -612,8 +620,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 		);
 	}
 
-	const cpuSubtitle = `${formatNumberValue(systemData.cpu_cores)} ${t("cores")}`;
-	const panelCpuSubtitle = `${formatNumberValue(systemData.app_threads)} ${t("threads")}`;
+	const cpuSubtitle = `${formatNumberValue(systemData.cpu_cores)} ${t("core", "هسته")}`;
+	const panelCpuSubtitle = `${formatNumberValue(systemData.app_threads)} ${t("threads", "تردها")}`;
 
 	const activePercent =
 		systemData.total_user > 0
@@ -651,6 +659,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							percent={systemData.cpu_usage}
 							subtitle={cpuSubtitle}
 							actionLabel={t("viewHistory")}
+							isRTL={isRTL}
 							onViewHistory={() =>
 								openHistory({
 									type: "cpu",
@@ -667,6 +676,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							percent={systemData.memory.percent}
 							subtitle={`${systemData.memory.percent.toFixed(1)}%`}
 							actionLabel={t("viewHistory")}
+							isRTL={isRTL}
 							onViewHistory={() =>
 								openHistory({
 									type: "memory",
@@ -682,6 +692,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							primaryValue={`${formatBytes(systemData.swap.current, 1)} / ${formatBytes(systemData.swap.total, 1)}`}
 							percent={systemData.swap.percent}
 							subtitle={`${systemData.swap.percent.toFixed(1)}%`}
+							isRTL={isRTL}
 						/>
 						<HardwareBentoCard
 							label={t("diskUsage")}
@@ -689,123 +700,143 @@ export const Statistics: FC<BoxProps> = (props) => {
 							primaryValue={`${formatBytes(systemData.disk.current, 1)} / ${formatBytes(systemData.disk.total, 1)}`}
 							percent={systemData.disk.percent}
 							subtitle={`${systemData.disk.percent.toFixed(1)}%`}
+							isRTL={isRTL}
 						/>
 					</SimpleGrid>
 
-					{/* Unified Network Speeds & System Uptime Box */}
-					<Box
-						p={{ base: 4, md: 5 }}
-						borderRadius="2xl"
-						bg="panel.input"
-						borderWidth="1px"
-						borderColor="panel.border"
-					>
-						<Flex justify="space-between" align="center" mb={4} flexWrap="wrap" gap={2}>
-							<HStack spacing={2.5}>
-								<SignalIcon width={18} color="var(--rb-panel-accent)" />
+					{/* Row: Network Speeds Card (Separate) & System Uptime Card (Separate) */}
+					<SimpleGrid columns={{ base: 1, lg: 3 }} gap={4}>
+						{/* Separate Speeds Card */}
+						<Box
+							gridColumn={{ base: "span 1", lg: "span 2" }}
+							p={{ base: 4, md: 5 }}
+							borderRadius="2xl"
+							bg="panel.input"
+							borderWidth="1px"
+							borderColor="panel.border"
+						>
+							<Flex justify="space-between" align="center" mb={4} flexWrap="wrap" gap={2}>
+								<HStack spacing={2.5}>
+									<SignalIcon width={18} color="var(--rb-panel-accent)" />
+									<Text fontSize="sm" fontWeight="700" color="panel.text">
+										{t("bandwidthSpeed")}
+									</Text>
+								</HStack>
+								<Button
+									size="xs"
+									h="24px"
+									px={2.5}
+									variant="ghost"
+									borderRadius="full"
+									color="panel.textMuted"
+									_hover={{ color: "panel.text", bg: "panel.elevated" }}
+									onClick={() =>
+										openHistory({
+											type: "network",
+											title: t("networkHistory"),
+											networkEntries: systemData.network_history,
+										})
+									}
+								>
+									{t("viewHistory")}
+								</Button>
+							</Flex>
+
+							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
+								<Flex
+									p={3.5}
+									borderRadius="xl"
+									bg="panel.elevated"
+									borderWidth="1px"
+									borderColor="panel.border"
+									justify="space-between"
+									align="center"
+								>
+									<HStack spacing={2.5}>
+										<ArrowDownTrayIcon width={18} color="#22c55e" />
+										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+											{t("incomingSpeed")}
+										</Text>
+									</HStack>
+									<Text
+										fontSize="sm"
+										fontWeight="800"
+										color="panel.text"
+										dir="ltr"
+										sx={{ fontVariantNumeric: "tabular-nums" }}
+									>
+										{formatBytes(systemData.incoming_bandwidth_speed)}/s
+									</Text>
+								</Flex>
+
+								<Flex
+									p={3.5}
+									borderRadius="xl"
+									bg="panel.elevated"
+									borderWidth="1px"
+									borderColor="panel.border"
+									justify="space-between"
+									align="center"
+								>
+									<HStack spacing={2.5}>
+										<ArrowUpTrayIcon width={18} color="#3b82f6" />
+										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+											{t("outgoingSpeed")}
+										</Text>
+									</HStack>
+									<Text
+										fontSize="sm"
+										fontWeight="800"
+										color="panel.text"
+										dir="ltr"
+										sx={{ fontVariantNumeric: "tabular-nums" }}
+									>
+										{formatBytes(systemData.outgoing_bandwidth_speed)}/s
+									</Text>
+								</Flex>
+							</SimpleGrid>
+						</Box>
+
+						{/* Separate System Uptime Card */}
+						<Box
+							p={{ base: 4, md: 5 }}
+							borderRadius="2xl"
+							bg="panel.input"
+							borderWidth="1px"
+							borderColor="panel.border"
+							display="flex"
+							flexDirection="column"
+							justifyContent="space-between"
+						>
+							<HStack spacing={2.5} mb={3}>
+								<ClockIcon width={18} color="var(--rb-panel-accent)" />
 								<Text fontSize="sm" fontWeight="700" color="panel.text">
-									{t("bandwidthSpeed")}
+									{t("systemUptime")}
 								</Text>
 							</HStack>
-							<Button
-								size="xs"
-								h="24px"
-								px={2.5}
-								variant="ghost"
-								borderRadius="full"
-								color="panel.textMuted"
-								_hover={{ color: "panel.text", bg: "panel.elevated" }}
-								onClick={() =>
-									openHistory({
-										type: "network",
-										title: t("networkHistory"),
-										networkEntries: systemData.network_history,
-									})
-								}
-							>
-								{t("viewHistory")}
-							</Button>
-						</Flex>
-
-						<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3.5}>
 							<Flex
 								p={3.5}
 								borderRadius="xl"
 								bg="panel.elevated"
 								borderWidth="1px"
 								borderColor="panel.border"
-								justify="space-between"
+								justify="center"
 								align="center"
+								h="full"
+								minH="56px"
 							>
-								<HStack spacing={2.5}>
-									<ArrowDownTrayIcon width={18} color="#22c55e" />
-									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
-										{t("incomingSpeed")}
-									</Text>
-								</HStack>
 								<Text
 									fontSize="sm"
 									fontWeight="800"
 									color="panel.text"
-									dir="ltr"
-									sx={{ fontVariantNumeric: "tabular-nums" }}
-								>
-									{formatBytes(systemData.incoming_bandwidth_speed)}/s
-								</Text>
-							</Flex>
-
-							<Flex
-								p={3.5}
-								borderRadius="xl"
-								bg="panel.elevated"
-								borderWidth="1px"
-								borderColor="panel.border"
-								justify="space-between"
-								align="center"
-							>
-								<HStack spacing={2.5}>
-									<ArrowUpTrayIcon width={18} color="#3b82f6" />
-									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
-										{t("outgoingSpeed")}
-									</Text>
-								</HStack>
-								<Text
-									fontSize="sm"
-									fontWeight="800"
-									color="panel.text"
-									dir="ltr"
-									sx={{ fontVariantNumeric: "tabular-nums" }}
-								>
-									{formatBytes(systemData.outgoing_bandwidth_speed)}/s
-								</Text>
-							</Flex>
-
-							<Flex
-								p={3.5}
-								borderRadius="xl"
-								bg="panel.elevated"
-								borderWidth="1px"
-								borderColor="panel.border"
-								justify="space-between"
-								align="center"
-							>
-								<HStack spacing={2.5}>
-									<ClockIcon width={18} color="var(--rb-panel-accent)" />
-									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
-										{t("systemUptime")}
-									</Text>
-								</HStack>
-								<Text
-									fontSize="xs"
-									fontWeight="800"
-									color="panel.text"
+									textAlign="center"
 									dir={isRTL ? "rtl" : "ltr"}
 								>
 									{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
 								</Text>
 							</Flex>
-						</SimpleGrid>
-					</Box>
+						</Box>
+					</SimpleGrid>
 
 					{/* Errors inside System Overview Card (At the Bottom) */}
 					{systemData.last_xray_error && (
@@ -917,6 +948,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						percent={systemData.panel_cpu_percent}
 						subtitle={panelCpuSubtitle}
 						actionLabel={t("viewHistory")}
+						isRTL={isRTL}
 						onViewHistory={() =>
 							openHistory({
 								type: "panelCpu",
@@ -933,6 +965,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						percent={systemData.panel_memory_percent}
 						subtitle={`${systemData.panel_memory_percent.toFixed(1)}%`}
 						actionLabel={t("viewHistory")}
+						isRTL={isRTL}
 						onViewHistory={() =>
 							openHistory({
 								type: "panelMemory",
