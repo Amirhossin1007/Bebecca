@@ -338,9 +338,10 @@ export const DashboardMaintenanceControls = ({
 					leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
 					fontSize="11px"
 					fontWeight="700"
+					whiteSpace="nowrap"
 				>
 					{update?.available
-						? `${t("nodes.nodeUpdateAvailable", "به‌روزرسانی موجود")} ↑`
+						? t("nodes.nodeUpdateAvailable", "به‌روزرسانی موجود")
 						: t("settings.panel.updateAction")}
 				</Button>
 			</PopoverTrigger>
@@ -491,7 +492,7 @@ export const DashboardMaintenanceControls = ({
 										: update?.available
 											? "green"
 											: "primary"
-								}
+										}
 								borderRadius="full"
 								onClick={startUpdate}
 								isLoading={updateMutation.isLoading}
@@ -509,13 +510,14 @@ export const DashboardMaintenanceControls = ({
 	);
 
 	return (
-		<Flex align="center" justify="flex-end" w={{ base: "full", md: "auto" }}>
-			{/* Desktop Layout: Single Horizontal Row */}
+		<Flex align="center" justify="flex-end" w={{ base: "full", sm: "auto" }}>
+			{/* Desktop / Tablet Layout: Single Horizontal Row locked to the left in RTL */}
 			<HStack
-				display={{ base: "none", md: "flex" }}
+				display={{ base: "none", sm: "flex" }}
 				spacing={2}
 				align="center"
 				justify="flex-end"
+				flexShrink={0}
 			>
 				<Flex
 					h="32px"
@@ -529,17 +531,20 @@ export const DashboardMaintenanceControls = ({
 					color="panel.textSecondary"
 					borderWidth="1px"
 					borderColor="panel.border"
+					whiteSpace="nowrap"
 				>
 					{currentVersion}
 				</Flex>
 
-				{canMaintain && <Box minW="140px">{renderUpdatePopover()}</Box>}
+				{canMaintain && <Box minW="130px">{renderUpdatePopover()}</Box>}
 
 				{canBackUp && (
-					<DashboardBackupControls
-						isBinaryRuntime={hostActionsAvailable}
-						runtimeLoading={info.isLoading}
-					/>
+					<Box minW="80px">
+						<DashboardBackupControls
+							isBinaryRuntime={hostActionsAvailable}
+							runtimeLoading={info.isLoading}
+						/>
+					</Box>
 				)}
 
 				{canMaintain && (
@@ -556,22 +561,29 @@ export const DashboardMaintenanceControls = ({
 						isDisabled={info.isLoading || !hostActionsAvailable}
 						fontSize="11px"
 						fontWeight="700"
+						whiteSpace="nowrap"
 					>
 						{t("settings.panel.restartAction")}
 					</Button>
 				)}
 			</HStack>
 
-			{/* Mobile Layout: 2 Perfectly Balanced Rows */}
+			{/* Mobile Layout: 2 Perfectly Balanced Edge-to-Edge Rows (مطابق عکس ۴) */}
 			<Stack
-				display={{ base: "flex", md: "none" }}
+				display={{ base: "flex", sm: "none" }}
 				spacing={2}
 				w="full"
 			>
-				{/* Row 1: Version (25%) + Update Action (75%) */}
+				{/* Row 1: Update Action (75%) + Version (25%) */}
 				<Flex gap={2} w="full" align="center">
+					{canMaintain && (
+						<Box flex="3 3 75%" minW={0}>
+							{renderUpdatePopover()}
+						</Box>
+					)}
 					<Flex
-						w="25%"
+						flex={canMaintain ? "1 1 25%" : "1 1 100%"}
+						minW="70px"
 						h="32px"
 						align="center"
 						justify="center"
@@ -582,32 +594,18 @@ export const DashboardMaintenanceControls = ({
 						color="panel.textSecondary"
 						borderWidth="1px"
 						borderColor="panel.border"
+						whiteSpace="nowrap"
 						flexShrink={0}
 					>
 						{currentVersion}
 					</Flex>
-					{canMaintain ? (
-						<Box w="75%">
-							{renderUpdatePopover()}
-						</Box>
-					) : (
-						<Box w="75%" />
-					)}
 				</Flex>
 
-				{/* Row 2: Backup (50%) + Restart (50%) */}
+				{/* Row 2: Restart Action (50%) + Backup Action (50%) */}
 				<Flex gap={2} w="full" align="center">
-					{canBackUp && (
-						<Box w="50%">
-							<DashboardBackupControls
-								isBinaryRuntime={hostActionsAvailable}
-								runtimeLoading={info.isLoading}
-							/>
-						</Box>
-					)}
 					{canMaintain && (
 						<Button
-							w="50%"
+							flex="1 1 50%"
 							h="32px"
 							size="xs"
 							colorScheme="red"
@@ -619,9 +617,30 @@ export const DashboardMaintenanceControls = ({
 							isDisabled={info.isLoading || !hostActionsAvailable}
 							fontSize="11px"
 							fontWeight="700"
+							whiteSpace="nowrap"
 						>
 							{t("settings.panel.restartAction")}
 						</Button>
+					)}
+					{canBackUp && (
+						<Box
+							flex="1 1 50%"
+							minW={0}
+							sx={{
+								"& > button": {
+									w: "full",
+									h: "32px !important",
+									borderRadius: "full !important",
+									fontSize: "11px !important",
+									fontWeight: "700 !important",
+								},
+							}}
+						>
+							<DashboardBackupControls
+								isBinaryRuntime={hostActionsAvailable}
+								runtimeLoading={info.isLoading}
+							/>
+						</Box>
 					)}
 				</Flex>
 			</Stack>

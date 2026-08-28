@@ -75,13 +75,6 @@ export const ThemedIconBadge: FC<{
 	);
 };
 
-/* محاسبه رنگ خط پیشرفت بر اساس درصد مصرف */
-const getUsageColorScheme = (percent: number) => {
-	if (percent >= 80) return "red";
-	if (percent >= 60) return "orange";
-	return "green";
-};
-
 /* فرمت هوشمند و خوانای زمان */
 const formatLocalizedDuration = (
 	totalSeconds: number,
@@ -258,7 +251,9 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 				? {
 						total_admins: toFiniteNumber(raw.admin_overview.total_admins),
 						sudo_admins: toFiniteNumber(raw.admin_overview.sudo_admins),
-						full_access_admins: toFiniteNumber(raw.admin_overview.full_access_admins),
+						full_access_admins: toFiniteNumber(
+							raw.admin_overview.full_access_admins,
+						),
 						standard_admins: toFiniteNumber(raw.admin_overview.standard_admins),
 						top_admin_username: raw.admin_overview.top_admin_username ?? null,
 						top_admin_usage: toFiniteNumber(raw.admin_overview.top_admin_usage),
@@ -461,7 +456,7 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Bento Card with Subtle Color Shift on Hover */
+/* Bento Card with Theme-Matched Progress Bar & Color-Mix Icon Background */
 const HardwareBentoCard: FC<{
 	label: string;
 	icon: ReactNode;
@@ -475,7 +470,6 @@ const HardwareBentoCard: FC<{
 	const cardBg = useColorModeValue("panel.input", "panel.input");
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const safePercent = clampPercent(percent);
-	const colorScheme = getUsageColorScheme(percent);
 
 	return (
 		<Box
@@ -540,20 +534,26 @@ const HardwareBentoCard: FC<{
 					)}
 				</Flex>
 
+				{/* Progress Bar هماهنگ کامل با رنگ تم */}
 				<Progress
 					value={safePercent}
 					size="xs"
-					colorScheme={colorScheme}
+					colorScheme="primary"
 					bg="panel.elevated"
 					borderRadius="full"
 					h="4px"
+					sx={{
+						"& > div": {
+							backgroundColor: "var(--rb-panel-accent)",
+						},
+					}}
 				/>
 			</Stack>
 		</Box>
 	);
 };
 
-/* Metric Cell با دایره رنگی ساده و استاندارد */
+/* Metric Cell با نقطه دایره‌ای ساده و استاندارد */
 const MetricCell: FC<{
 	label: string;
 	value: number | string;
@@ -828,7 +828,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							</SimpleGrid>
 						</Box>
 
-						{/* Symmetrical Uptime Card with System & Panel Uptime */}
+						{/* Symmetrical Uptime Card (آیکون سرور برای سیستم و دیتابیس برای پنل) */}
 						<Box
 							p={{ base: 4, md: 5 }}
 							borderRadius="2xl"
@@ -861,7 +861,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ClockIcon width={16} />} size={7} />
+										<ThemedIconBadge icon={<ServerStackIcon width={16} />} size={7} />
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
 											{t("systemUptime")}
 										</Text>
@@ -886,7 +886,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ServerStackIcon width={16} />} size={7} />
+										<ThemedIconBadge icon={<CircleStackIcon width={16} />} size={7} />
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
 											{t("panelUptime")}
 										</Text>
