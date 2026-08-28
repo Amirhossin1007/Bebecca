@@ -234,7 +234,6 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 			raw.personal_usage && typeof raw.personal_usage === "object"
 				? {
 						total_users: toFiniteNumber(raw.personal_usage.total_users),
-						online_users: toFiniteNumber((raw.personal_usage as any)?.online_users, 0),
 						consumed_bytes: toFiniteNumber(raw.personal_usage.consumed_bytes),
 						built_bytes: toFiniteNumber(raw.personal_usage.built_bytes),
 						reset_bytes: toFiniteNumber(raw.personal_usage.reset_bytes),
@@ -242,7 +241,6 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 					}
 				: {
 						total_users: 0,
-						online_users: 0,
 						consumed_bytes: 0,
 						built_bytes: 0,
 						reset_bytes: 0,
@@ -1150,14 +1148,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 								value={systemData.personal_usage?.total_users ?? 0}
 								dotColor="#22c55e"
 							/>
-							{/* Row 2: Personal Online & Consumed Traffic */}
+							{/* Row 2: Online & Consumed Traffic */}
 							<MetricCell
 								label={t("onlineUsers")}
-								value={
-									userTab === "mine" && canSeeGlobal
-										? (systemData.personal_usage?.online_users ?? 0)
-										: systemData.online_users
-								}
+								value={systemData.online_users}
 								dotColor="#06b6d4"
 							/>
 							<MetricCell
