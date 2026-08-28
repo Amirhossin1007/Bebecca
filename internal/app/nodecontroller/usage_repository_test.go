@@ -4,11 +4,54 @@ import (
 	"context"
 	"database/sql"
 	"math"
+	"net/url"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
 )
+
+func TestRepositoryTouchesOnlineUsersExternalMySQL(t *testing.T) {
+	rawURL := strings.TrimSpace(os.Getenv("REBECCA_TEST_DATABASE_URL"))
+	if !strings.HasPrefix(rawURL, "mysql+") {
+		t.Skip("external MySQL or MariaDB is not configured")
+	}
+	parsed, err := url.Parse(strings.Replace(rawURL, "mysql+pymysql://", "mysql://", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	password, _ := parsed.User.Password()
+	dsn := parsed.User.Username() + ":" + password + "@tcp(" + parsed.Host + ")" + parsed.Path + "?parseTime=true"
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx := context.Background()
+	const userID int64 = 2000000001
+	defer func() {
+		_, _ = db.ExecContext(ctx, `DELETE FROM user_presence WHERE user_id = ?`, userID)
+		_, _ = db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
+	}()
+	_, _ = db.ExecContext(ctx, `DELETE FROM user_presence WHERE user_id = ?`, userID)
+	_, _ = db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
+	if _, err := db.ExecContext(ctx, `INSERT INTO users (id, username, status) VALUES (?, 'online-sql-check', 'active')`, userID); err != nil {
+		t.Fatal(err)
+	}
+	repo := NewRepository(db, "mysql")
+	if err := repo.TouchUsersOnline(ctx, []int64{userID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE user_presence SET online_at = DATE_SUB(online_at, INTERVAL 1 MINUTE) WHERE user_id = ?`, userID); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.TouchUsersOnline(ctx, []int64{userID}); err != nil {
+		t.Fatal(err)
+	}
+	assertInt64(t, db, `SELECT COUNT(*) FROM user_presence WHERE user_id = 2000000001 AND online_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 SECOND)`, 1)
+}
 
 func TestRepositoryPersistsCollectedUsageAccounting(t *testing.T) {
 	ctx := context.Background()

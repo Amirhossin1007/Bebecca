@@ -894,7 +894,7 @@ WHERE status IN ('active', 'on_hold') AND id IN (` + placeholders(len(chunk)) + 
 			query += ` ON CONFLICT(user_id) DO UPDATE SET online_at = excluded.online_at
 WHERE user_presence.online_at < ?`
 		} else {
-			query += ` ON DUPLICATE KEY UPDATE online_at = IF(online_at < ?, VALUES(online_at), online_at)`
+			query += ` ON DUPLICATE KEY UPDATE online_at = IF(user_presence.online_at < ?, VALUES(online_at), user_presence.online_at)`
 		}
 		_, err := exec.ExecContext(ctx, query, args...)
 		return err
