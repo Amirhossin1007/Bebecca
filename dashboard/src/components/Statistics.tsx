@@ -52,14 +52,14 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-/* Smart Humanized Duration Formatter */
+/* فرمت هوشمند و دقیق زمان (فقط ثانیه / دقیقه و ثانیه / ساعت و دقیقه / روز، ساعت و دقیقه) */
 const formatLocalizedDuration = (
 	totalSeconds: number,
 	t: TFunction,
 	isRTL: boolean,
 ): string => {
 	if (!totalSeconds || totalSeconds <= 0) {
-		return t("time.seconds_other", { count: 0, defaultValue: "0 ثانیه" });
+		return `0 ${t("second", "ثانیه")}`;
 	}
 
 	const days = Math.floor(totalSeconds / 86400);
@@ -67,34 +67,34 @@ const formatLocalizedDuration = (
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
 	const seconds = Math.floor(totalSeconds % 60);
 
-	const secStr = t("time.seconds_other", { count: seconds, defaultValue: `${seconds} ثانیه` });
-	const minStr = t("time.minutes_other", { count: minutes, defaultValue: `${minutes} دقیقه` });
-	const hrStr = t("time.hours_other", { count: hours, defaultValue: `${hours} ساعت` });
-	const dayStr = t("time.days_other", { count: days, defaultValue: `${days} روز` });
+	const dText = `${days} ${t("day", "روز")}`;
+	const hText = `${hours} ${t("hour", "ساعت")}`;
+	const mText = `${minutes} ${t("minute", "دقیقه")}`;
+	const sText = `${seconds} ${t("second", "ثانیه")}`;
 
 	const andWord = isRTL ? " و " : " and ";
 	const commaWord = isRTL ? "، " : ", ";
 
 	if (days > 0) {
-		const parts: string[] = [dayStr];
-		if (hours > 0) parts.push(hrStr);
-		if (minutes > 0) parts.push(minStr);
+		const parts: string[] = [dText];
+		if (hours > 0) parts.push(hText);
+		if (minutes > 0) parts.push(mText);
 		if (parts.length === 1) return parts[0];
 		if (parts.length === 2) return parts.join(andWord);
 		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
 	}
 
 	if (hours > 0) {
-		if (minutes > 0) return `${hrStr}${andWord}${minStr}`;
-		return hrStr;
+		if (minutes > 0) return `${hText}${andWord}${mText}`;
+		return hText;
 	}
 
 	if (minutes > 0) {
-		if (seconds > 0) return `${minStr}${andWord}${secStr}`;
-		return minStr;
+		if (seconds > 0) return `${mText}${andWord}${sText}`;
+		return mText;
 	}
 
-	return secStr;
+	return sText;
 };
 
 const useSystemMetricsStream = (enabled = true) => {
@@ -613,6 +613,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 	}
 
 	const cpuSubtitle = `${formatNumberValue(systemData.cpu_cores)} ${t("cores")}`;
+	const panelCpuSubtitle = `${formatNumberValue(systemData.app_threads)} ${t("threads")}`;
 
 	const activePercent =
 		systemData.total_user > 0
@@ -623,8 +624,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 		systemData.total_user > 0
 			? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
 			: "0.0%";
-
-	const panelCpuSubtitle = `${formatNumberValue(systemData.app_threads)} ${t("threads")}`;
 
 	return (
 		<Stack spacing={5} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
@@ -868,12 +867,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</Stack>
 			</ChartBox>
 
-			{/* 2. Panel Usage Stats Card */}
+			{/* 2. Panel Usage Card */}
 			<ChartBox
 				title={
 					<HStack spacing={3} align="center" flexWrap="wrap">
 						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
-							{t("dashboard.panelUsageStats", { defaultValue: "آمار مصرف پنل" })}
+							{t("panelUsage")}
 						</Text>
 						{/* Running Status Badge */}
 						<Badge
@@ -968,7 +967,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								colorScheme={userTab === "all" ? "primary" : "gray"}
 								onClick={() => setUserTab("all")}
 							>
-								{t("dashboard.allUsers", { defaultValue: "همه کاربران" })}
+								{t("allUsers", "همه کاربران")}
 							</Button>
 							<Button
 								size="xs"
@@ -979,7 +978,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								colorScheme={userTab === "mine" ? "primary" : "gray"}
 								onClick={() => setUserTab("mine")}
 							>
-								{t("dashboard.myUsers", { defaultValue: "کاربران من" })}
+								{t("myUsers", "کاربران من")}
 							</Button>
 						</HStack>
 					) : (
@@ -1009,7 +1008,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						dotColor="#22c55e"
 					/>
 					<MetricCell
-						label={userTab === "mine" ? t("dashboard.trafficUsage", { defaultValue: "مصرف ترافیک" }) : t("onlineUsers")}
+						label={userTab === "mine" ? t("consumedData") : t("onlineUsers")}
 						value={
 							userTab === "mine"
 								? formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)
