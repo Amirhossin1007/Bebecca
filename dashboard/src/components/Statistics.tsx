@@ -472,7 +472,17 @@ const HardwareBentoCard: FC<{
 			<Stack spacing={3.5}>
 				<Flex justify="space-between" align="center">
 					<HStack spacing={2.5}>
-						<Box color="panel.textMuted">{icon}</Box>
+						<Flex
+							w={8}
+							h={8}
+							align="center"
+							justify="center"
+							borderRadius="lg"
+							bg="panel.elevated"
+							color="panel.textSecondary"
+						>
+							{icon}
+						</Flex>
 						<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 							{label}
 						</Text>
@@ -530,23 +540,25 @@ const HardwareBentoCard: FC<{
 	);
 };
 
-/* Metric Cell with Smooth Hover */
+/* Metric Cell with Smooth Hover & Optional Tint */
 const MetricCell: FC<{
 	label: string;
 	value: number | string;
 	percentage?: string;
 	dotColor?: string;
-}> = ({ label, value, percentage, dotColor }) => (
+	customBg?: string;
+	customBorderColor?: string;
+}> = ({ label, value, percentage, dotColor, customBg, customBorderColor }) => (
 	<Flex
 		p={4}
 		borderRadius="xl"
-		bg="panel.input"
+		bg={customBg ?? "panel.input"}
 		borderWidth="1px"
-		borderColor="panel.border"
+		borderColor={customBorderColor ?? "panel.border"}
 		justify="space-between"
 		align="center"
 		transition="all 0.2s ease"
-		_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
+		_hover={{ borderColor: "panel.borderStrong", opacity: 0.95 }}
 	>
 		<HStack spacing={2.5} minW={0}>
 			{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
@@ -720,7 +732,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 						>
 							<Flex justify="space-between" align="center" mb={3.5} flexWrap="wrap" gap={2}>
 								<HStack spacing={2.5}>
-									<SignalIcon width={18} color="var(--rb-panel-accent)" />
+									<Flex
+										w={8}
+										h={8}
+										align="center"
+										justify="center"
+										borderRadius="lg"
+										bg="panel.elevated"
+										color="var(--rb-panel-accent)"
+									>
+										<SignalIcon width={18} />
+									</Flex>
 									<Text fontSize="sm" fontWeight="700" color="panel.text">
 										{t("bandwidthSpeed")}
 									</Text>
@@ -756,7 +778,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ArrowDownTrayIcon width={18} color="#22c55e" />
+										<Flex
+											w={7}
+											h={7}
+											align="center"
+											justify="center"
+											borderRadius="md"
+											bg="panel.surface"
+											color="green.400"
+										>
+											<ArrowDownTrayIcon width={16} />
+										</Flex>
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 											{t("incomingSpeed")}
 										</Text>
@@ -782,7 +814,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ArrowUpTrayIcon width={18} color="#3b82f6" />
+										<Flex
+											w={7}
+											h={7}
+											align="center"
+											justify="center"
+											borderRadius="md"
+											bg="panel.surface"
+											color="blue.400"
+										>
+											<ArrowUpTrayIcon width={16} />
+										</Flex>
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 											{t("outgoingSpeed")}
 										</Text>
@@ -815,14 +857,21 @@ export const Statistics: FC<BoxProps> = (props) => {
 						>
 							<Flex justify="space-between" align="center" mb={3.5}>
 								<HStack spacing={2.5}>
-									<ClockIcon width={18} color="var(--rb-panel-accent)" />
+									<Flex
+										w={8}
+										h={8}
+										align="center"
+										justify="center"
+										borderRadius="lg"
+										bg="panel.elevated"
+										color="var(--rb-panel-accent)"
+									>
+										<ClockIcon width={18} />
+									</Flex>
 									<Text fontSize="sm" fontWeight="700" color="panel.text">
 										{t("uptime", "آپتایم")}
 									</Text>
 								</HStack>
-								<Badge colorScheme="green" variant="subtle" borderRadius="full" px={2.5} py={0.5} fontSize="11px">
-									{t("status.active")}
-								</Badge>
 							</Flex>
 
 							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
@@ -835,9 +884,22 @@ export const Statistics: FC<BoxProps> = (props) => {
 									justify="space-between"
 									align="center"
 								>
-									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
-										{t("systemUptime")}
-									</Text>
+									<HStack spacing={2.5}>
+										<Flex
+											w={7}
+											h={7}
+											align="center"
+											justify="center"
+											borderRadius="md"
+											bg="panel.surface"
+											color="var(--rb-panel-accent)"
+										>
+											<ClockIcon width={16} />
+										</Flex>
+										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
+											{t("systemUptime")}
+										</Text>
+									</HStack>
 									<Text
 										fontSize="xs"
 										fontWeight="800"
@@ -857,9 +919,22 @@ export const Statistics: FC<BoxProps> = (props) => {
 									justify="space-between"
 									align="center"
 								>
-									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
-										{t("panelUptime")}
-									</Text>
+									<HStack spacing={2.5}>
+										<Flex
+											w={7}
+											h={7}
+											align="center"
+											justify="center"
+											borderRadius="md"
+											bg="panel.surface"
+											color="purple.400"
+										>
+											<ServerStackIcon width={16} />
+										</Flex>
+										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
+											{t("panelUptime")}
+										</Text>
+									</HStack>
 									<Text
 										fontSize="xs"
 										fontWeight="800"
@@ -1005,11 +1080,21 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</SimpleGrid>
 			</ChartBox>
 
-			{/* 3. Users Overview ChartBox with Smooth Tab Fade Animation */}
+			{/* 3. Users Overview ChartBox */}
 			<ChartBox
 				title={
 					<HStack spacing={2}>
-						<UserGroupIcon width={18} color="var(--rb-panel-accent)" />
+						<Flex
+							w={8}
+							h={8}
+							align="center"
+							justify="center"
+							borderRadius="lg"
+							bg="panel.input"
+							color="var(--rb-panel-accent)"
+						>
+							<UserGroupIcon width={18} />
+						</Flex>
 						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
 							{t("usersOverview")}
 						</Text>
@@ -1043,7 +1128,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</HStack>
 					) : (
 						<Badge colorScheme="blue" borderRadius="full" px={3} py={0.5} fontSize="11px">
-							{t("total")}: {formatNumberValue(systemData.total_user)}
+							{t("total")}: {formatNumberValue(systemData.personal_usage?.total_users ?? 0)}
 						</Badge>
 					)
 				}
@@ -1051,58 +1136,84 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<Box
 					key={userTab}
 					sx={{
-						"@keyframes tabFade": {
-							from: { opacity: 0, transform: "scale(0.99)" },
+						"@keyframes softTabFade": {
+							from: { opacity: 0.4, transform: "scale(0.995)" },
 							to: { opacity: 1, transform: "scale(1)" },
 						},
-						animation: "tabFade 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+						animation: "softTabFade 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
-					<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3.5}>
-						<MetricCell
-							label={t("total")}
-							value={
-								userTab === "mine"
-									? (systemData.personal_usage?.total_users ?? 0)
-									: systemData.total_user
-							}
-						/>
-						<MetricCell
-							label={t("status.active")}
-							value={
-								userTab === "mine"
-									? (systemData.personal_usage?.total_users ?? 0)
-									: systemData.users_active
-							}
-							percentage={userTab === "all" ? activePercent : undefined}
-							dotColor="#22c55e"
-						/>
-						<MetricCell
-							label={userTab === "mine" ? t("consumedData") : t("onlineUsers")}
-							value={
-								userTab === "mine"
-									? formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)
-									: systemData.online_users
-							}
-							percentage={userTab === "all" ? onlinePercent : undefined}
-							dotColor={userTab === "all" ? "#06b6d4" : undefined}
-						/>
-						<MetricCell
-							label={t("status.on_hold")}
-							value={userTab === "mine" ? 0 : systemData.users_on_hold}
-							dotColor="#a855f7"
-						/>
-						<MetricCell
-							label={t("status.limited")}
-							value={userTab === "mine" ? 0 : systemData.users_limited}
-							dotColor="#eab308"
-						/>
-						<MetricCell
-							label={t("status.expired")}
-							value={userTab === "mine" ? 0 : systemData.users_expired}
-							dotColor="#f97316"
-						/>
-					</SimpleGrid>
+					{canSeeGlobal && userTab === "all" ? (
+						/* All Users: 6 Cards in 3 Columns */
+						<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3.5}>
+							<MetricCell
+								label={t("total")}
+								value={systemData.total_user}
+								dotColor="#3b82f6"
+							/>
+							<MetricCell
+								label={t("status.active")}
+								value={systemData.users_active}
+								percentage={activePercent}
+								dotColor="#22c55e"
+							/>
+							<MetricCell
+								label={t("onlineUsers")}
+								value={systemData.online_users}
+								percentage={onlinePercent}
+								dotColor="#06b6d4"
+							/>
+							<MetricCell
+								label={t("status.on_hold")}
+								value={systemData.users_on_hold}
+								dotColor="#a855f7"
+							/>
+							<MetricCell
+								label={t("status.limited")}
+								value={systemData.users_limited}
+								dotColor="#eab308"
+							/>
+							<MetricCell
+								label={t("status.expired")}
+								value={systemData.users_expired}
+								dotColor="#f97316"
+							/>
+						</SimpleGrid>
+					) : (
+						/* My Users: 2 Rows × 2 Cards (4 Cards) with Status Tints */
+						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
+							{/* Row 1: Total & Active */}
+							<MetricCell
+								label={t("total")}
+								value={systemData.personal_usage?.total_users ?? 0}
+								dotColor="#3b82f6"
+								customBg={useColorModeValue("blue.50", "rgba(59, 130, 246, 0.08)")}
+								customBorderColor={useColorModeValue("blue.200", "rgba(59, 130, 246, 0.25)")}
+							/>
+							<MetricCell
+								label={t("status.active")}
+								value={systemData.personal_usage?.total_users ?? 0}
+								dotColor="#22c55e"
+								customBg={useColorModeValue("green.50", "rgba(34, 197, 94, 0.08)")}
+								customBorderColor={useColorModeValue("green.200", "rgba(34, 197, 94, 0.25)")}
+							/>
+							{/* Row 2: Online & Consumed Traffic */}
+							<MetricCell
+								label={t("onlineUsers")}
+								value={systemData.online_users}
+								dotColor="#06b6d4"
+								customBg={useColorModeValue("cyan.50", "rgba(6, 182, 212, 0.08)")}
+								customBorderColor={useColorModeValue("cyan.200", "rgba(6, 182, 212, 0.25)")}
+							/>
+							<MetricCell
+								label={t("consumedData")}
+								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
+								dotColor="#a855f7"
+								customBg={useColorModeValue("purple.50", "rgba(168, 85, 247, 0.08)")}
+								customBorderColor={useColorModeValue("purple.200", "rgba(168, 85, 247, 0.25)")}
+							/>
+						</SimpleGrid>
+					)}
 				</Box>
 			</ChartBox>
 
@@ -1111,20 +1222,31 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<ChartBox
 					title={
 						<HStack spacing={2}>
-							<ShieldCheckIcon width={18} color="var(--rb-panel-accent)" />
+							<Flex
+								w={8}
+								h={8}
+								align="center"
+								justify="center"
+								borderRadius="lg"
+								bg="panel.input"
+								color="var(--rb-panel-accent)"
+							>
+								<ShieldCheckIcon width={18} />
+							</Flex>
 							<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
 								{t("adminOverview")}
 							</Text>
 						</HStack>
 					}
-					headerActions={
-						<Badge colorScheme="purple" borderRadius="full" px={3} py={0.5} fontSize="11px">
-							{t("totalAdmins")}: {formatNumberValue(systemData.admin_overview.total_admins)}
-						</Badge>
-					}
 				>
 					<Stack spacing={4}>
-						<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3.5}>
+						{/* 4 Equal Cards: Total Admins + Roles */}
+						<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={3.5}>
+							<MetricCell
+								label={t("totalAdmins")}
+								value={systemData.admin_overview.total_admins}
+								dotColor="#3b82f6"
+							/>
 							<MetricCell
 								label={t("fullAccessAdmins")}
 								value={systemData.admin_overview.full_access_admins}
@@ -1138,7 +1260,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<MetricCell
 								label={t("standardAdmins")}
 								value={systemData.admin_overview.standard_admins}
-								dotColor="#3b82f6"
+								dotColor="#10b981"
 							/>
 						</SimpleGrid>
 

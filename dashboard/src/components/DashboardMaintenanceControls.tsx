@@ -7,7 +7,6 @@ import {
 	FormControl,
 	FormHelperText,
 	FormLabel,
-	Grid,
 	Modal,
 	ModalBody,
 	ModalCloseButton,
@@ -322,26 +321,32 @@ export const DashboardMaintenanceControls = ({
 
 	return (
 		<>
-			<Grid
-				templateColumns={{
-					base: "repeat(2, minmax(0, 1fr))",
-					md: "auto auto auto auto",
-				}}
+			<Flex
+				wrap="wrap"
+				align="center"
+				justify={{ base: "flex-start", sm: "flex-end" }}
 				gap={2}
-				alignItems="center"
-				w={{ base: "full", md: "auto" }}
+				w={{ base: "full", sm: "auto" }}
 			>
+				{/* Version Tag */}
 				<Tag
 					colorScheme="gray"
 					borderRadius="full"
 					px={3}
-					gridColumn={{ base: "1 / -1", md: "auto" }}
-					justifySelf="start"
+					py={1}
+					fontSize="11px"
+					fontWeight="700"
+					bg="panel.elevated"
+					color="panel.textSecondary"
+					borderWidth="1px"
+					borderColor="panel.border"
 				>
 					{currentVersion}
 				</Tag>
+
+				{/* Update Button & Popover */}
 				{canMaintain && (
-					<Box gridColumn={{ base: "1 / -1", md: "auto" }}>
+					<Box>
 						<Popover
 							isOpen={isUpdateMenuOpen}
 							onOpen={() => setUpdateMenuOpen(true)}
@@ -351,30 +356,36 @@ export const DashboardMaintenanceControls = ({
 						>
 							<PopoverTrigger>
 								<Button
-									size="sm"
+									size="xs"
+									h="28px"
+									px={3}
 									colorScheme={update?.available ? "green" : "primary"}
 									variant={update?.available ? "solid" : "outline"}
 									borderRadius="full"
-									leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
-									w="full"
+									leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
+									fontSize="11px"
+									fontWeight="700"
 								>
 									{update?.available
-										? "update avable!"
+										? `${t("nodes.nodeUpdateAvailable", "به‌روزرسانی موجود")} ↑`
 										: t("settings.panel.updateAction")}
 								</Button>
 							</PopoverTrigger>
 							<PopoverContent
 								w="min(480px, calc(100vw - 24px))"
 								maxW="480px"
-								borderRadius="xl"
+								borderRadius="2xl"
 								boxShadow="2xl"
+								bg="panel.surface"
+								borderColor="panel.border"
 							>
-								<PopoverHeader fontWeight="bold" py={3}>
+								<PopoverHeader fontWeight="bold" py={3} borderColor="panel.border">
 									<Flex justify="space-between" align="center" gap={3}>
 										<Text>{t("settings.panel.maintenanceTitle")}</Text>
 										<Button
 											size="xs"
 											variant="ghost"
+											borderRadius="full"
 											leftIcon={<ArrowPathIcon width={14} height={14} />}
 											onClick={() => info.refetch()}
 											isLoading={info.isFetching}
@@ -486,7 +497,9 @@ export const DashboardMaintenanceControls = ({
 										)}
 										<Flex gap={2} flexWrap="wrap" justify="flex-end">
 											<Button
-												size="sm"
+												size="xs"
+												h="28px"
+												px={3}
 												variant="outline"
 												borderRadius="full"
 												onClick={() => reloadMutation.mutate()}
@@ -496,7 +509,9 @@ export const DashboardMaintenanceControls = ({
 												{t("settings.panel.softReloadAction")}
 											</Button>
 											<Button
-												size="sm"
+												size="xs"
+												h="28px"
+												px={3}
 												colorScheme={
 													devUpdateArmed
 														? "orange"
@@ -520,28 +535,37 @@ export const DashboardMaintenanceControls = ({
 						</Popover>
 					</Box>
 				)}
+
+				{/* Backup Controls */}
 				{canBackUp && (
 					<DashboardBackupControls
 						isBinaryRuntime={hostActionsAvailable}
 						runtimeLoading={info.isLoading}
 					/>
 				)}
+
+				{/* Restart Action */}
 				{canMaintain && (
 					<Button
-						size="sm"
+						size="xs"
+						h="28px"
+						px={3}
 						colorScheme="red"
 						variant="outline"
 						borderRadius="full"
-						leftIcon={<ArrowsRightLeftIcon width={16} height={16} />}
+						leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
 						onClick={() => restartMutation.mutate()}
 						isLoading={restartMutation.isLoading}
 						isDisabled={info.isLoading || !hostActionsAvailable}
-						w="full"
+						fontSize="11px"
+						fontWeight="700"
 					>
 						{t("settings.panel.restartAction")}
 					</Button>
 				)}
-			</Grid>
+			</Flex>
+
+			{/* Update Progress Dialog Modal */}
 			<Modal
 				isOpen={isUpdateDialogOpen}
 				onClose={() => {
@@ -552,8 +576,8 @@ export const DashboardMaintenanceControls = ({
 				isCentered
 				size="xl"
 			>
-				<ModalOverlay />
-				<ModalContent borderRadius="2xl" overflow="hidden">
+				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(8px)" />
+				<ModalContent borderRadius="2xl" overflow="hidden" bg="panel.surface" borderColor="panel.border" borderWidth="1px">
 					<ModalHeader>{t("settings.panel.updateProgressTitle")}</ModalHeader>
 					{operation?.error ? <ModalCloseButton /> : null}
 					<ModalBody pb={6}>
@@ -585,6 +609,7 @@ export const DashboardMaintenanceControls = ({
 								}
 								colorScheme={operation?.error ? "red" : "green"}
 								borderRadius="full"
+								h="6px"
 							/>
 							{waitingForAPI ? (
 								<Text fontSize="sm" color="panel.textMuted">
