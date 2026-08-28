@@ -234,6 +234,7 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 			raw.personal_usage && typeof raw.personal_usage === "object"
 				? {
 						total_users: toFiniteNumber(raw.personal_usage.total_users),
+						online_users: toFiniteNumber((raw.personal_usage as any)?.online_users, 0),
 						consumed_bytes: toFiniteNumber(raw.personal_usage.consumed_bytes),
 						built_bytes: toFiniteNumber(raw.personal_usage.built_bytes),
 						reset_bytes: toFiniteNumber(raw.personal_usage.reset_bytes),
@@ -241,6 +242,7 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 					}
 				: {
 						total_users: 0,
+						online_users: 0,
 						consumed_bytes: 0,
 						built_bytes: 0,
 						reset_bytes: 0,
@@ -456,7 +458,7 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Bento Card with Theme-Matched Progress Bar & Color-Mix Icon Background */
+/* Bento Card with Refined 22px Numbers & Themed Progress Bar */
 const HardwareBentoCard: FC<{
 	label: string;
 	icon: ReactNode;
@@ -513,9 +515,9 @@ const HardwareBentoCard: FC<{
 
 				<Flex justify="space-between" align="baseline">
 					<Text
-						fontSize={{ base: "2xl", md: "3xl" }}
+						fontSize={{ base: "xl", md: "22px" }}
 						fontWeight="800"
-						lineHeight="1"
+						lineHeight="1.2"
 						color="panel.text"
 						dir="ltr"
 						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
@@ -534,7 +536,6 @@ const HardwareBentoCard: FC<{
 					)}
 				</Flex>
 
-				{/* Progress Bar هماهنگ کامل با رنگ تم */}
 				<Progress
 					value={safePercent}
 					size="xs"
@@ -588,7 +589,7 @@ const MetricCell: FC<{
 					</Text>
 				)}
 				<Text
-					fontSize="md"
+					fontSize={{ base: "sm", sm: "md" }}
 					fontWeight="800"
 					color="panel.text"
 					dir="ltr"
@@ -606,6 +607,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { userData } = useGetUser();
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
+
+	const redErrorBg = useColorModeValue("red.50", "rgba(220, 38, 38, 0.15)");
+	const redErrorBorder = useColorModeValue("red.300", "rgba(220, 38, 38, 0.4)");
+	const redErrorColor = useColorModeValue("red.900", "red.100");
+	const redErrorHeader = useColorModeValue("red.600", "red.300");
+
+	const orangeErrorBg = useColorModeValue("orange.50", "rgba(234, 88, 12, 0.15)");
+	const orangeErrorBorder = useColorModeValue("orange.300", "rgba(234, 88, 12, 0.4)");
+	const orangeErrorColor = useColorModeValue("orange.900", "orange.100");
+	const orangeErrorHeader = useColorModeValue("orange.600", "orange.300");
 
 	const { data: rawSystemData } = useQuery<SystemStats>({
 		queryKey: StatisticsQueryKey,
@@ -828,7 +839,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							</SimpleGrid>
 						</Box>
 
-						{/* Symmetrical Uptime Card (آیکون سرور برای سیستم و دیتابیس برای پنل) */}
+						{/* Symmetrical Uptime Card */}
 						<Box
 							p={{ base: 4, md: 5 }}
 							borderRadius="2xl"
@@ -904,18 +915,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</Box>
 					</SimpleGrid>
 
-					{/* Errors inside System Overview Card (At the Bottom) */}
+					{/* Tinted Error Alerts inside System Overview Card (At the Bottom) */}
 					{systemData.last_xray_error && (
 						<Box
 							p={4}
 							borderRadius="xl"
-							bg="red.950"
+							bg={redErrorBg}
 							borderWidth="1px"
-							borderColor="red.600"
-							color="red.100"
-							boxShadow="0 0 16px rgba(220, 38, 38, 0.15)"
+							borderColor={redErrorBorder}
+							color={redErrorColor}
+							boxShadow="sm"
 						>
-							<HStack spacing={2} mb={1.5} color="red.300">
+							<HStack spacing={2} mb={1.5} color={redErrorHeader}>
 								<ExclamationTriangleIcon width={18} />
 								<Text fontSize="xs" fontWeight="800">
 									{t("coreError")}
@@ -931,14 +942,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Box
 							p={4}
 							borderRadius="xl"
-							bg="orange.950"
+							bg={orangeErrorBg}
 							borderWidth="1px"
-							borderColor="orange.600"
-							color="orange.100"
-							boxShadow="0 0 16px rgba(234, 88, 12, 0.15)"
+							borderColor={orangeErrorBorder}
+							color={orangeErrorColor}
+							boxShadow="sm"
 						>
 							<HStack spacing={2} mb={2} align="center" justify="space-between">
-								<HStack spacing={2} color="orange.300">
+								<HStack spacing={2} color={orangeErrorHeader}>
 									<ExclamationTriangleIcon width={18} />
 									<Text fontSize="xs" fontWeight="800">
 										{t("telegramError")}
@@ -1090,7 +1101,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					}}
 				>
 					{canSeeGlobal && userTab === "all" ? (
-						/* All Users: 6 Cards in 3 Columns with Standard Colored Dots */
+						/* All Users: 6 Cards in 3 Columns */
 						<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3.5}>
 							<MetricCell
 								label={t("total")}
@@ -1126,7 +1137,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							/>
 						</SimpleGrid>
 					) : (
-						/* My Users: 2 Rows × 2 Cards (4 Cards) with Standard Colored Dots */
+						/* My Users: 2 Rows × 2 Cards (4 Cards) with Personal Data */
 						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
 							{/* Row 1: Total & Active */}
 							<MetricCell
@@ -1139,10 +1150,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 								value={systemData.personal_usage?.total_users ?? 0}
 								dotColor="#22c55e"
 							/>
-							{/* Row 2: Online & Consumed Traffic */}
+							{/* Row 2: Personal Online & Consumed Traffic */}
 							<MetricCell
 								label={t("onlineUsers")}
-								value={systemData.online_users}
+								value={
+									userTab === "mine" && canSeeGlobal
+										? (systemData.personal_usage?.online_users ?? 0)
+										: systemData.online_users
+								}
 								dotColor="#06b6d4"
 							/>
 							<MetricCell
@@ -1168,7 +1183,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					}
 				>
 					<Stack spacing={4}>
-						{/* 4 Equal Cards: Total Admins + Roles with Standard Colored Dots */}
+						{/* 4 Equal Cards: Total Admins + Roles */}
 						<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={3.5}>
 							<MetricCell
 								label={t("totalAdmins")}

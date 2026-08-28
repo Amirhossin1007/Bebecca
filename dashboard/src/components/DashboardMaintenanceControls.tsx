@@ -30,6 +30,7 @@ import {
 	ArrowPathIcon,
 	ArrowsRightLeftIcon,
 	ArrowUpTrayIcon,
+	TagIcon,
 } from "@heroicons/react/24/outline";
 import useGetUser from "hooks/useGetUser";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -126,7 +127,6 @@ export const DashboardMaintenanceControls = ({
 	const [operation, setOperation] = useState<MaintenanceOperation | null>(null);
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
 	const [devUpdateArmed, setDevUpdateArmed] = useState(false);
-	const [isUpdateMenuOpen, setUpdateMenuOpen] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
 	const panelReturnPollRef = useRef<number | null>(null);
 	const panelReturnSawOfflineRef = useRef(false);
@@ -313,7 +313,6 @@ export const DashboardMaintenanceControls = ({
 			devUpdateTimerRef.current = null;
 		}
 		setDevUpdateArmed(false);
-		setUpdateMenuOpen(false);
 		setOperation(null);
 		setUpdateDialogOpen(true);
 		updateMutation.mutate();
@@ -321,23 +320,25 @@ export const DashboardMaintenanceControls = ({
 
 	const renderUpdatePopover = () => (
 		<Popover
-			isOpen={isUpdateMenuOpen}
-			onOpen={() => setUpdateMenuOpen(true)}
-			onClose={() => setUpdateMenuOpen(false)}
 			placement="bottom-end"
-			closeOnBlur={!operation?.running}
+			closeOnBlur={true}
+			closeOnEsc={true}
+			isLazy
 		>
 			<PopoverTrigger>
 				<Button
 					size="xs"
 					h="32px"
 					w="full"
-					colorScheme={update?.available ? "green" : "primary"}
+					colorScheme={update?.available ? "primary" : "gray"}
 					variant={update?.available ? "solid" : "outline"}
+					bg={update?.available ? "var(--rb-panel-accent)" : "transparent"}
+					color={update?.available ? "white" : "panel.text"}
+					borderColor="panel.border"
 					borderRadius="full"
 					leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
-					fontSize="11px"
-					fontWeight="700"
+					fontSize="12px"
+					fontWeight="600"
 					whiteSpace="nowrap"
 				>
 					{update?.available
@@ -352,10 +353,11 @@ export const DashboardMaintenanceControls = ({
 				boxShadow="2xl"
 				bg="panel.surface"
 				borderColor="panel.border"
+				onClick={(e) => e.stopPropagation()}
 			>
 				<PopoverHeader fontWeight="bold" py={3} borderColor="panel.border">
 					<Flex justify="space-between" align="center" gap={3}>
-						<Text>{t("settings.panel.maintenanceTitle")}</Text>
+						<Text fontSize="sm">{t("settings.panel.maintenanceTitle")}</Text>
 						<Button
 							size="xs"
 							variant="ghost"
@@ -479,6 +481,8 @@ export const DashboardMaintenanceControls = ({
 								onClick={() => reloadMutation.mutate()}
 								isLoading={reloadMutation.isLoading}
 								isDisabled={!hostActionsAvailable}
+								fontSize="12px"
+								fontWeight="600"
 							>
 								{t("settings.panel.softReloadAction")}
 							</Button>
@@ -490,13 +494,15 @@ export const DashboardMaintenanceControls = ({
 									devUpdateArmed
 										? "orange"
 										: update?.available
-											? "green"
-											: "primary"
-										}
+											? "primary"
+											: "gray"
+								}
 								borderRadius="full"
 								onClick={startUpdate}
 								isLoading={updateMutation.isLoading}
 								isDisabled={!hostActionsAvailable}
+								fontSize="12px"
+								fontWeight="600"
 							>
 								{devUpdateArmed
 									? t("settings.panel.confirmDevUpdateAction")
@@ -509,14 +515,22 @@ export const DashboardMaintenanceControls = ({
 		</Popover>
 	);
 
+	const isStandardAdminOnly = !canMaintain && !canBackUp;
+
 	return (
-		<Flex align="center" justify="flex-end" w={{ base: "full", sm: "auto" }}>
-			{/* Desktop / Tablet Layout: Single Horizontal Row locked to the left in RTL */}
+		<Flex
+			align="center"
+			justify={{ base: "center", sm: "flex-end" }}
+			w={{ base: "full", sm: "auto" }}
+			flexShrink={0}
+		>
+			{/* Desktop & Tablet Layout: Single Line locked horizontally with title */}
 			<HStack
 				display={{ base: "none", sm: "flex" }}
 				spacing={2}
 				align="center"
 				justify="flex-end"
+				flexWrap="nowrap"
 				flexShrink={0}
 			>
 				<Flex
@@ -524,22 +538,37 @@ export const DashboardMaintenanceControls = ({
 					px={3.5}
 					align="center"
 					justify="center"
+					gap={1.5}
 					borderRadius="full"
-					fontSize="11px"
-					fontWeight="700"
+					fontSize="12px"
+					fontWeight="600"
 					bg="panel.elevated"
 					color="panel.textSecondary"
 					borderWidth="1px"
 					borderColor="panel.border"
 					whiteSpace="nowrap"
 				>
+					<TagIcon width={13} />
 					{currentVersion}
 				</Flex>
 
 				{canMaintain && <Box minW="130px">{renderUpdatePopover()}</Box>}
 
 				{canBackUp && (
-					<Box minW="80px">
+					<Box
+						minW="90px"
+						sx={{
+							"& > button": {
+								h: "32px !important",
+								borderRadius: "full !important",
+								fontSize: "12px !important",
+								fontWeight: "600 !important",
+								borderColor: "panel.border !important",
+								color: "panel.text !important",
+								whiteSpace: "nowrap !important",
+							},
+						}}
+					>
 						<DashboardBackupControls
 							isBinaryRuntime={hostActionsAvailable}
 							runtimeLoading={info.isLoading}
@@ -554,13 +583,16 @@ export const DashboardMaintenanceControls = ({
 						px={3.5}
 						colorScheme="red"
 						variant="outline"
+						borderColor="panel.border"
+						color="red.400"
+						_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 						borderRadius="full"
 						leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
 						onClick={() => restartMutation.mutate()}
 						isLoading={restartMutation.isLoading}
 						isDisabled={info.isLoading || !hostActionsAvailable}
-						fontSize="11px"
-						fontWeight="700"
+						fontSize="12px"
+						fontWeight="600"
 						whiteSpace="nowrap"
 					>
 						{t("settings.panel.restartAction")}
@@ -568,82 +600,108 @@ export const DashboardMaintenanceControls = ({
 				)}
 			</HStack>
 
-			{/* Mobile Layout: 2 Perfectly Balanced Edge-to-Edge Rows (مطابق عکس ۴) */}
-			<Stack
-				display={{ base: "flex", sm: "none" }}
-				spacing={2}
-				w="full"
-			>
-				{/* Row 1: Update Action (75%) + Version (25%) */}
-				<Flex gap={2} w="full" align="center">
-					{canMaintain && (
+			{/* Mobile Layout: Full-Width 100% (or Single-Line if Standard Admin) */}
+			{isStandardAdminOnly ? (
+				<Flex
+					h="32px"
+					px={3.5}
+					align="center"
+					justify="center"
+					gap={1.5}
+					borderRadius="full"
+					fontSize="12px"
+					fontWeight="600"
+					bg="panel.elevated"
+					color="panel.textSecondary"
+					borderWidth="1px"
+					borderColor="panel.border"
+					whiteSpace="nowrap"
+				>
+					<TagIcon width={13} />
+					{currentVersion}
+				</Flex>
+			) : (
+				<Stack
+					display={{ base: "flex", sm: "none" }}
+					spacing={2}
+					w="full"
+				>
+					{/* Row 1: Update (75%) + Version (25%) */}
+					<Flex gap={2} w="full" align="center">
 						<Box flex="3 3 75%" minW={0}>
 							{renderUpdatePopover()}
 						</Box>
-					)}
-					<Flex
-						flex={canMaintain ? "1 1 25%" : "1 1 100%"}
-						minW="70px"
-						h="32px"
-						align="center"
-						justify="center"
-						borderRadius="full"
-						fontSize="11px"
-						fontWeight="700"
-						bg="panel.elevated"
-						color="panel.textSecondary"
-						borderWidth="1px"
-						borderColor="panel.border"
-						whiteSpace="nowrap"
-						flexShrink={0}
-					>
-						{currentVersion}
+						<Flex
+							flex="1 1 25%"
+							minW="75px"
+							h="32px"
+							align="center"
+							justify="center"
+							gap={1}
+							borderRadius="full"
+							fontSize="12px"
+							fontWeight="600"
+							bg="panel.elevated"
+							color="panel.textSecondary"
+							borderWidth="1px"
+							borderColor="panel.border"
+							whiteSpace="nowrap"
+							flexShrink={0}
+						>
+							<TagIcon width={12} />
+							{currentVersion}
+						</Flex>
 					</Flex>
-				</Flex>
 
-				{/* Row 2: Restart Action (50%) + Backup Action (50%) */}
-				<Flex gap={2} w="full" align="center">
-					{canMaintain && (
+					{/* Row 2: Restart (50%) + Backup (50%) */}
+					<Flex gap={2} w="full" align="center">
 						<Button
 							flex="1 1 50%"
 							h="32px"
 							size="xs"
 							colorScheme="red"
 							variant="outline"
+							borderColor="panel.border"
+							color="red.400"
+							_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 							borderRadius="full"
 							leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
 							onClick={() => restartMutation.mutate()}
 							isLoading={restartMutation.isLoading}
 							isDisabled={info.isLoading || !hostActionsAvailable}
-							fontSize="11px"
-							fontWeight="700"
+							fontSize="12px"
+							fontWeight="600"
 							whiteSpace="nowrap"
 						>
 							{t("settings.panel.restartAction")}
 						</Button>
-					)}
-					{canBackUp && (
-						<Box
-							flex="1 1 50%"
-							minW={0}
-							sx={{
-								"& > button": {
-									w: "full",
-									h: "32px !important",
-									borderRadius: "full !important",
-									fontSize: "11px !important",
-									fontWeight: "700 !important",
-								},
-							}}
-						>
-							<DashboardBackupControls
-								isBinaryRuntime={hostActionsAvailable}
-								runtimeLoading={info.isLoading}
-							/>
-						</Box>
-					)}
-				</Flex>
-			</Stack>
+
+						{canBackUp && (
+							<Box
+								flex="1 1 50%"
+								minW={0}
+								sx={{
+									"& > button": {
+										w: "full",
+										h: "32px !important",
+										borderRadius: "full !important",
+										fontSize: "12px !important",
+										fontWeight: "600 !important",
+										borderColor: "panel.border !important",
+										color: "panel.text !important",
+										whiteSpace: "nowrap !important",
+									},
+								}}
+							>
+								<DashboardBackupControls
+									isBinaryRuntime={hostActionsAvailable}
+									runtimeLoading={info.isLoading}
+								/>
+							</Box>
+						)}
+					</Flex>
+				</Stack>
+			)}
 
 			{/* Update Progress Dialog Modal */}
 			<Modal
