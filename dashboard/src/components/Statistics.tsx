@@ -48,6 +48,7 @@ import type { SystemStats } from "types/System";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { formatDuration } from "utils/formatDuration";
 import { getAPIWebSocketURL } from "utils/websocket";
+import { ChartBox } from "./common/ChartBox";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
@@ -201,8 +202,6 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
-const formatCPUFrequency = (value: number) =>
-	value > 0 ? `${(value / 1_000_000_000).toFixed(2)} GHz` : "";
 
 const HISTORY_INTERVALS = [
 	{ labelKey: "historyInterval.2m", seconds: 120 },
@@ -214,13 +213,11 @@ const HISTORY_INTERVALS = [
 ];
 
 type HistoryModalPayload = {
-	type: "cpu" | "memory" | "network" | "panel";
+	type: "cpu" | "memory" | "network";
 	title: string;
 	metricLabel?: string;
 	entries?: Array<{ timestamp: number; value: number }>;
 	networkEntries?: SystemStats["network_history"];
-	panelCpuEntries?: SystemStats["panel_cpu_history"];
-	panelMemoryEntries?: SystemStats["panel_memory_history"];
 };
 
 const HistoryModal: FC<{
@@ -240,12 +237,6 @@ const HistoryModal: FC<{
 		if (payload.type === "network" && payload.networkEntries?.length) {
 			return payload.networkEntries[payload.networkEntries.length - 1].timestamp;
 		}
-		if (payload.type === "panel") {
-			return (
-				payload.panelCpuEntries?.[payload.panelCpuEntries.length - 1]?.timestamp ??
-				Math.floor(Date.now() / 1000)
-			);
-		}
 		return payload.entries?.[payload.entries.length - 1]?.timestamp ?? Math.floor(Date.now() / 1000);
 	}, [payload]);
 
@@ -263,20 +254,6 @@ const HistoryModal: FC<{
 				{
 					name: t("networkOutgoing"),
 					data: filtered.map((entry) => [entry.timestamp * 1000, entry.outgoing]),
-				},
-			];
-		}
-		if (payload.type === "panel" && payload.panelCpuEntries && payload.panelMemoryEntries) {
-			const filteredCpu = payload.panelCpuEntries.filter((e) => e.timestamp >= cutoff);
-			const filteredMem = payload.panelMemoryEntries.filter((e) => e.timestamp >= cutoff);
-			return [
-				{
-					name: t("cpuUsage"),
-					data: filteredCpu.map((entry) => [entry.timestamp * 1000, entry.value]),
-				},
-				{
-					name: t("memoryUsage"),
-					data: filteredMem.map((entry) => [entry.timestamp * 1000, entry.value]),
 				},
 			];
 		}
@@ -302,12 +279,12 @@ const HistoryModal: FC<{
 				background: "transparent",
 				fontFamily: "inherit",
 			},
-			colors: ["#3b82f6", "#10b981", "#8b5cf6"],
+			colors: ["#3b82f6", "#10b981"],
 			fill: {
 				type: "gradient",
 				gradient: {
 					shadeIntensity: 1,
-					opacityFrom: 0.3,
+					opacityFrom: 0.35,
 					opacityTo: 0.02,
 					stops: [0, 100],
 				},
@@ -410,8 +387,8 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Standard Clean Hardware Card */
-const HardwareCard: FC<{
+/* Modern Hardware Bento Card */
+const HardwareBentoCard: FC<{
 	label: string;
 	icon: ReactNode;
 	primaryValue: string;
@@ -420,7 +397,7 @@ const HardwareCard: FC<{
 	onViewHistory?: () => void;
 	actionLabel?: string;
 }> = ({ label, icon, primaryValue, percent, subtitle, onViewHistory, actionLabel }) => {
-	const cardBg = useColorModeValue("panel.surface", "panel.surface");
+	const cardBg = useColorModeValue("panel.input", "panel.input");
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const safePercent = clampPercent(percent);
 
@@ -428,13 +405,19 @@ const HardwareCard: FC<{
 		<Box
 			borderWidth="1px"
 			borderColor={borderColor}
-			borderRadius="xl"
+			borderRadius="2xl"
 			bg={cardBg}
-			p={{ base: 4, md: 4.5 }}
-			transition="all 0.2s ease"
-			_hover={{ borderColor: "panel.borderStrong" }}
+			p={{ base: 4, md: 5 }}
+			position="relative"
+			overflow="hidden"
+			transition="transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease"
+			_hover={{
+				borderColor: "panel.borderStrong",
+				transform: "translateY(-2px)",
+				boxShadow: "sm",
+			}}
 		>
-			<Stack spacing={3}>
+			<Stack spacing={3.5}>
 				<Flex justify="space-between" align="center">
 					<HStack spacing={2.5}>
 						<Box color="panel.textMuted">{icon}</Box>
@@ -445,24 +428,25 @@ const HardwareCard: FC<{
 					{onViewHistory && (
 						<Button
 							size="xs"
-							h="22px"
-							px={2}
+							h="24px"
+							px={2.5}
 							fontSize="11px"
 							variant="ghost"
-							borderRadius="md"
+							borderRadius="full"
 							color="panel.textMuted"
 							_hover={{ color: "panel.text", bg: "panel.elevated" }}
 							onClick={onViewHistory}
 						>
-							{actionLabel ?? "تاریخچه"}
+							{actionLabel ?? "نمایش تاریخچه"}
 						</Button>
 					)}
 				</Flex>
 
 				<Flex justify="space-between" align="baseline">
 					<Text
-						fontSize={{ base: "xl", md: "2xl" }}
+						fontSize={{ base: "2xl", md: "3xl" }}
 						fontWeight="800"
+						lineHeight="1"
 						color="panel.text"
 						dir="ltr"
 						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
@@ -472,6 +456,7 @@ const HardwareCard: FC<{
 					{subtitle && (
 						<Text
 							fontSize="xs"
+							fontWeight="600"
 							color="panel.textMuted"
 							dir="ltr"
 							sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
@@ -487,13 +472,14 @@ const HardwareCard: FC<{
 					colorScheme="primary"
 					bg="panel.elevated"
 					borderRadius="full"
+					h="4px"
 				/>
 			</Stack>
 		</Box>
 	);
 };
 
-/* Standard Clean Metric Cell */
+/* Modern Metric Cell */
 const MetricCell: FC<{
 	label: string;
 	value: number | string;
@@ -501,17 +487,19 @@ const MetricCell: FC<{
 	dotColor?: string;
 }> = ({ label, value, percentage, dotColor }) => (
 	<Flex
-		p={3.5}
+		p={4}
 		borderRadius="xl"
-		bg="panel.elevated"
+		bg="panel.input"
 		borderWidth="1px"
 		borderColor="panel.border"
 		justify="space-between"
 		align="center"
+		transition="transform 0.15s ease, border-color 0.15s ease"
+		_hover={{ borderColor: "panel.borderStrong" }}
 	>
 		<HStack spacing={2.5} minW={0}>
 			{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
-			<Text fontSize="xs" fontWeight="600" color="panel.textSecondary" noOfLines={1}>
+			<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
 				{label}
 			</Text>
 		</HStack>
@@ -522,8 +510,8 @@ const MetricCell: FC<{
 				</Text>
 			)}
 			<Text
-				fontSize="sm"
-				fontWeight="700"
+				fontSize="md"
+				fontWeight="800"
 				color="panel.text"
 				dir="ltr"
 				sx={{ fontVariantNumeric: "tabular-nums" }}
@@ -580,13 +568,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 		);
 	}
 
-	const cpuThreads = systemData.cpu_threads || systemData.cpu_cores;
-	const cpuSubtitle = [
-		`${formatNumberValue(systemData.cpu_cores)} ${t("cores")} / ${formatNumberValue(cpuThreads)} ${t("threads")}`,
-		formatCPUFrequency(systemData.cpu_frequency_hz),
-	]
-		.filter(Boolean)
-		.join(" · ");
+	const cpuSubtitle = `${formatNumberValue(systemData.cpu_cores)} ${t("cores")}`;
 
 	const activePercent =
 		systemData.total_user > 0
@@ -599,29 +581,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 			: "0.0%";
 
 	return (
-		<Stack spacing={4} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
-			{/* 1. Header Bar: System Overview, Core Status & Maintenance */}
-			<Box
-				borderWidth="1px"
-				borderColor="panel.border"
-				borderRadius="2xl"
-				bg="panel.surface"
-				p={{ base: 4, md: 4.5 }}
-			>
-				<Flex
-					justify="space-between"
-					align={{ base: "stretch", sm: "center" }}
-					direction={{ base: "column", sm: "row" }}
-					gap={3}
-				>
+		<Stack spacing={5} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
+			{/* 1. Main System & Hardware ChartBox */}
+			<ChartBox
+				title={
 					<HStack spacing={3} align="center" flexWrap="wrap">
 						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
 							{t("systemOverview")}
 						</Text>
+						{/* Running Status Badge */}
 						<Badge
 							colorScheme={systemData.xray_running ? "green" : "red"}
 							borderRadius="full"
-							px={2.5}
+							px={3}
 							py={0.5}
 							fontSize="11px"
 							display="inline-flex"
@@ -639,186 +611,210 @@ export const Statistics: FC<BoxProps> = (props) => {
 										: "0 0 8px rgba(248, 113, 113, 0.8)"
 								}
 							/>
-							{systemData.xray_running ? "Xray Core Active" : t("status.stopped")}
+							{systemData.xray_running ? t("status.running") : t("status.stopped")}
 						</Badge>
 					</HStack>
-
+				}
+				headerActions={
 					<DashboardMaintenanceControls
 						channel={systemData.channel}
 						version={systemData.version}
 					/>
-				</Flex>
-			</Box>
-
-			{/* 2. Hardware Metrics Grid */}
-			<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={3.5}>
-				<HardwareCard
-					label={t("cpuUsage")}
-					icon={<CpuChipIcon width={17} />}
-					primaryValue={`${systemData.cpu_usage.toFixed(1)}%`}
-					percent={systemData.cpu_usage}
-					subtitle={cpuSubtitle}
-					actionLabel={t("viewHistory")}
-					onViewHistory={() =>
-						openHistory({
-							type: "cpu",
-							title: t("cpuUsage"),
-							metricLabel: t("cpuUsage"),
-							entries: systemData.cpu_history,
-						})
-					}
-				/>
-				<HardwareCard
-					label={t("memoryUsage")}
-					icon={<ServerStackIcon width={17} />}
-					primaryValue={`${formatBytes(systemData.memory.current, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
-					percent={systemData.memory.percent}
-					subtitle={`${systemData.memory.percent.toFixed(1)}%`}
-					actionLabel={t("viewHistory")}
-					onViewHistory={() =>
-						openHistory({
-							type: "memory",
-							title: t("memoryUsage"),
-							metricLabel: t("memoryUsage"),
-							entries: systemData.memory_history,
-						})
-					}
-				/>
-				<HardwareCard
-					label={t("swapUsage")}
-					icon={<CircleStackIcon width={17} />}
-					primaryValue={`${formatBytes(systemData.swap.current, 1)} / ${formatBytes(systemData.swap.total, 1)}`}
-					percent={systemData.swap.percent}
-					subtitle={`${systemData.swap.percent.toFixed(1)}%`}
-				/>
-				<HardwareCard
-					label={t("diskUsage")}
-					icon={<CircleStackIcon width={17} />}
-					primaryValue={`${formatBytes(systemData.disk.current, 1)} / ${formatBytes(systemData.disk.total, 1)}`}
-					percent={systemData.disk.percent}
-					subtitle={`${systemData.disk.percent.toFixed(1)}%`}
-				/>
-			</SimpleGrid>
-
-			{/* 3. Live Speeds & Uptime Section */}
-			<Box
-				borderWidth="1px"
-				borderColor="panel.border"
-				borderRadius="2xl"
-				bg="panel.surface"
-				p={{ base: 4, md: 4.5 }}
+				}
 			>
-				<Flex justify="space-between" align="center" mb={3.5}>
-					<HStack spacing={2}>
-						<SignalIcon width={18} color="var(--rb-panel-accent)" />
-						<Text fontSize="sm" fontWeight="700" color="panel.text">
-							{t("bandwidthSpeed")}
-						</Text>
-					</HStack>
-					<Button
-						size="xs"
-						variant="ghost"
-						borderRadius="md"
-						color="panel.textMuted"
-						_hover={{ color: "panel.text", bg: "panel.elevated" }}
-						onClick={() =>
-							openHistory({
-								type: "network",
-								title: t("networkHistory"),
-								networkEntries: systemData.network_history,
-							})
-						}
-					>
-						{t("viewHistory")}
-					</Button>
-				</Flex>
+				<Stack spacing={5}>
+					{/* Hardware Metrics 4-Card Grid */}
+					<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={4}>
+						<HardwareBentoCard
+							label={t("cpuUsage")}
+							icon={<CpuChipIcon width={18} />}
+							primaryValue={`${systemData.cpu_usage.toFixed(1)}%`}
+							percent={systemData.cpu_usage}
+							subtitle={cpuSubtitle}
+							actionLabel={t("viewHistory")}
+							onViewHistory={() =>
+								openHistory({
+									type: "cpu",
+									title: t("cpuUsage"),
+									metricLabel: t("cpuUsage"),
+									entries: systemData.cpu_history,
+								})
+							}
+						/>
+						<HardwareBentoCard
+							label={t("memoryUsage")}
+							icon={<ServerStackIcon width={18} />}
+							primaryValue={`${formatBytes(systemData.memory.current, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
+							percent={systemData.memory.percent}
+							subtitle={`${systemData.memory.percent.toFixed(1)}%`}
+							actionLabel={t("viewHistory")}
+							onViewHistory={() =>
+								openHistory({
+									type: "memory",
+									title: t("memoryUsage"),
+									metricLabel: t("memoryUsage"),
+									entries: systemData.memory_history,
+								})
+							}
+						/>
+						<HardwareBentoCard
+							label={t("swapUsage")}
+							icon={<CircleStackIcon width={18} />}
+							primaryValue={`${formatBytes(systemData.swap.current, 1)} / ${formatBytes(systemData.swap.total, 1)}`}
+							percent={systemData.swap.percent}
+							subtitle={`${systemData.swap.percent.toFixed(1)}%`}
+						/>
+						<HardwareBentoCard
+							label={t("diskUsage")}
+							icon={<CircleStackIcon width={18} />}
+							primaryValue={`${formatBytes(systemData.disk.current, 1)} / ${formatBytes(systemData.disk.total, 1)}`}
+							percent={systemData.disk.percent}
+							subtitle={`${systemData.disk.percent.toFixed(1)}%`}
+						/>
+					</SimpleGrid>
 
-				<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
-					<Flex
-						p={3.5}
-						borderRadius="xl"
-						bg="panel.elevated"
-						borderWidth="1px"
-						borderColor="panel.border"
-						justify="space-between"
-						align="center"
-					>
-						<HStack spacing={2.5}>
-							<ArrowDownTrayIcon width={17} color="#22c55e" />
-							<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
-								{t("incomingSpeed")}
-							</Text>
-						</HStack>
-						<Text
-							fontSize="sm"
-							fontWeight="700"
-							color="panel.text"
-							dir="ltr"
-							sx={{ fontVariantNumeric: "tabular-nums" }}
+					{/* Network Speeds & Uptime Grid */}
+					<SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+						<Flex
+							p={4}
+							borderRadius="2xl"
+							bg="panel.input"
+							borderWidth="1px"
+							borderColor="panel.border"
+							justify="space-between"
+							align="center"
 						>
-							{formatBytes(systemData.incoming_bandwidth_speed)}/s
-						</Text>
-					</Flex>
+							<HStack spacing={3}>
+								<Flex
+									w={9}
+									h={9}
+									align="center"
+									justify="center"
+									borderRadius="lg"
+									bg="panel.elevated"
+									color="green.400"
+								>
+									<ArrowDownTrayIcon width={18} />
+								</Flex>
+								<Box>
+									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+										{t("incomingSpeed")}
+									</Text>
+									<Text
+										fontSize="lg"
+										fontWeight="800"
+										color="panel.text"
+										dir="ltr"
+										sx={{ fontVariantNumeric: "tabular-nums" }}
+									>
+										{formatBytes(systemData.incoming_bandwidth_speed)}/s
+									</Text>
+								</Box>
+							</HStack>
+						</Flex>
 
-					<Flex
-						p={3.5}
-						borderRadius="xl"
-						bg="panel.elevated"
-						borderWidth="1px"
-						borderColor="panel.border"
-						justify="space-between"
-						align="center"
-					>
-						<HStack spacing={2.5}>
-							<ArrowUpTrayIcon width={17} color="#3b82f6" />
-							<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
-								{t("outgoingSpeed")}
-							</Text>
-						</HStack>
-						<Text
-							fontSize="sm"
-							fontWeight="700"
-							color="panel.text"
-							dir="ltr"
-							sx={{ fontVariantNumeric: "tabular-nums" }}
+						<Flex
+							p={4}
+							borderRadius="2xl"
+							bg="panel.input"
+							borderWidth="1px"
+							borderColor="panel.border"
+							justify="space-between"
+							align="center"
 						>
-							{formatBytes(systemData.outgoing_bandwidth_speed)}/s
-						</Text>
-					</Flex>
+							<HStack spacing={3}>
+								<Flex
+									w={9}
+									h={9}
+									align="center"
+									justify="center"
+									borderRadius="lg"
+									bg="panel.elevated"
+									color="blue.400"
+								>
+									<ArrowUpTrayIcon width={18} />
+								</Flex>
+								<Box>
+									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+										{t("outgoingSpeed")}
+									</Text>
+									<Text
+										fontSize="lg"
+										fontWeight="800"
+										color="panel.text"
+										dir="ltr"
+										sx={{ fontVariantNumeric: "tabular-nums" }}
+									>
+										{formatBytes(systemData.outgoing_bandwidth_speed)}/s
+									</Text>
+								</Box>
+							</HStack>
+							<Button
+								size="xs"
+								h="24px"
+								px={2.5}
+								variant="ghost"
+								borderRadius="full"
+								color="panel.textMuted"
+								_hover={{ color: "panel.text", bg: "panel.elevated" }}
+								onClick={() =>
+									openHistory({
+										type: "network",
+										title: t("networkHistory"),
+										networkEntries: systemData.network_history,
+									})
+								}
+							>
+								{t("viewHistory")}
+							</Button>
+						</Flex>
 
-					<Flex
-						p={3.5}
-						borderRadius="xl"
-						bg="panel.elevated"
-						borderWidth="1px"
-						borderColor="panel.border"
-						justify="space-between"
-						align="center"
-					>
-						<HStack spacing={2.5}>
-							<ClockIcon width={17} color="var(--rb-panel-accent)" />
-							<Text fontSize="xs" fontWeight="600" color="panel.textSecondary">
-								{t("uptime")}
-							</Text>
-						</HStack>
-						<Text
-							fontSize="sm"
-							fontWeight="700"
-							color="panel.text"
-							dir="ltr"
-							sx={{ fontVariantNumeric: "tabular-nums" }}
+						<Flex
+							p={4}
+							borderRadius="2xl"
+							bg="panel.input"
+							borderWidth="1px"
+							borderColor="panel.border"
+							justify="space-between"
+							align="center"
 						>
-							{formatDuration(systemData.uptime_seconds)}
-						</Text>
-					</Flex>
-				</SimpleGrid>
-			</Box>
+							<HStack spacing={3}>
+								<Flex
+									w={9}
+									h={9}
+									align="center"
+									justify="center"
+									borderRadius="lg"
+									bg="panel.elevated"
+									color="var(--rb-panel-accent)"
+								>
+									<ClockIcon width={18} />
+								</Flex>
+								<Box>
+									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+										{t("systemUptime")}
+									</Text>
+									<Text
+										fontSize="md"
+										fontWeight="800"
+										color="panel.text"
+										dir="ltr"
+										sx={{ fontVariantNumeric: "tabular-nums" }}
+									>
+										{formatDuration(systemData.uptime_seconds)}
+									</Text>
+								</Box>
+							</HStack>
+						</Flex>
+					</SimpleGrid>
+				</Stack>
+			</ChartBox>
 
-			{/* 4. Error Alert Banner (Positioned directly before Users) */}
+			{/* 2. Error Alert Banner (Positioned above Users) */}
 			{systemData.last_xray_error && (
 				<Box
 					p={4}
-					borderRadius="xl"
+					borderRadius="2xl"
 					bg="red.950"
 					borderWidth="1px"
 					borderColor="red.600"
@@ -837,24 +833,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</Box>
 			)}
 
-			{/* 5. Users Overview Section (Unified 6-card grid with data switcher) */}
-			<Box
-				borderWidth="1px"
-				borderColor="panel.border"
-				borderRadius="2xl"
-				bg="panel.surface"
-				p={{ base: 4, md: 4.5 }}
-			>
-				<Flex justify="space-between" align="center" mb={3.5} flexWrap="wrap" gap={2}>
+			{/* 3. Users Overview ChartBox */}
+			<ChartBox
+				title={
 					<HStack spacing={2}>
 						<UserGroupIcon width={18} color="var(--rb-panel-accent)" />
-						<Text fontWeight="700" fontSize="sm">
+						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
 							{t("usersOverview")}
 						</Text>
 					</HStack>
-
-					{canSeeGlobal && (
-						<HStack spacing={1} bg="panel.elevated" p={0.5} borderRadius="lg">
+				}
+				headerActions={
+					canSeeGlobal ? (
+						<HStack spacing={1} bg="panel.input" p={0.5} borderRadius="lg">
 							<Button
 								size="xs"
 								h="24px"
@@ -878,11 +869,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 								کاربران من
 							</Button>
 						</HStack>
-					)}
-				</Flex>
-
-				{/* Unified Card Layout (Values adapt based on userTab) */}
-				<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3}>
+					) : (
+						<Badge colorScheme="blue" borderRadius="full" px={3} py={0.5} fontSize="11px">
+							{t("total")}: {formatNumberValue(systemData.total_user)}
+						</Badge>
+					)
+				}
+			>
+				<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3.5}>
 					<MetricCell
 						label={t("total")}
 						value={
@@ -902,7 +896,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						dotColor="#22c55e"
 					/>
 					<MetricCell
-						label={userTab === "mine" ? "مصرف ترافیک" : t("onlineUsers")}
+						label={userTab === "mine" ? t("myaccount.usedData") : t("onlineUsers")}
 						value={
 							userTab === "mine"
 								? formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)
@@ -927,124 +921,69 @@ export const Statistics: FC<BoxProps> = (props) => {
 						dotColor="#f97316"
 					/>
 				</SimpleGrid>
-			</Box>
+			</ChartBox>
 
-			{/* 6. Admins & Roles Ecosystem Section (Sudo / FullAccess Only) */}
+			{/* 4. Admins Overview ChartBox (Sudo / FullAccess Only) */}
 			{canSeeGlobal && systemData.admin_overview && (
-				<Box
-					borderWidth="1px"
-					borderColor="panel.border"
-					borderRadius="2xl"
-					bg="panel.surface"
-					p={{ base: 4, md: 4.5 }}
-				>
-					<Flex justify="space-between" align="center" mb={3.5}>
+				<ChartBox
+					title={
 						<HStack spacing={2}>
 							<ShieldCheckIcon width={18} color="var(--rb-panel-accent)" />
-							<Text fontWeight="700" fontSize="sm">
+							<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
 								{t("adminOverview")}
 							</Text>
 						</HStack>
-						<Badge colorScheme="purple" borderRadius="full" px={2.5} py={0.5} fontSize="11px">
-							{t("total")}: {formatNumberValue(systemData.admin_overview.total_admins)}
+					}
+					headerActions={
+						<Badge colorScheme="purple" borderRadius="full" px={3} py={0.5} fontSize="11px">
+							{t("totalAdmins")}: {formatNumberValue(systemData.admin_overview.total_admins)}
 						</Badge>
-					</Flex>
+					}
+				>
+					<Stack spacing={4}>
+						<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3.5}>
+							<MetricCell
+								label={t("fullAccessAdmins")}
+								value={systemData.admin_overview.full_access_admins}
+								dotColor="#eab308"
+							/>
+							<MetricCell
+								label={t("sudoAdmins")}
+								value={systemData.admin_overview.sudo_admins}
+								dotColor="#a855f7"
+							/>
+							<MetricCell
+								label={t("standardAdmins")}
+								value={systemData.admin_overview.standard_admins}
+								dotColor="#3b82f6"
+							/>
+						</SimpleGrid>
 
-					<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
-						<MetricCell
-							label={t("fullAccessAdmins")}
-							value={systemData.admin_overview.full_access_admins}
-						/>
-						<MetricCell
-							label={t("sudoAdmins")}
-							value={systemData.admin_overview.sudo_admins}
-						/>
-						<MetricCell
-							label={t("standardAdmins")}
-							value={systemData.admin_overview.standard_admins}
-						/>
-					</SimpleGrid>
-
-					{systemData.admin_overview.top_admin_username && (
-						<HStack
-							mt={3}
-							p={3}
-							borderRadius="xl"
-							bg="panel.elevated"
-							borderWidth="1px"
-							borderColor="panel.border"
-							justify="space-between"
-							fontSize="xs"
-						>
-							<Text color="panel.textMuted">
-								{t("topAdmin")}:{" "}
-								<chakra.span fontWeight="700" color="panel.text">
-									{systemData.admin_overview.top_admin_username}
-								</chakra.span>
-							</Text>
-							<Text color="panel.textSecondary" fontWeight="600" dir="ltr">
-								{formatBytes(systemData.admin_overview.top_admin_usage)}
-							</Text>
-						</HStack>
-					)}
-				</Box>
+						{systemData.admin_overview.top_admin_username && (
+							<Flex
+								p={3.5}
+								borderRadius="xl"
+								bg="panel.input"
+								borderWidth="1px"
+								borderColor="panel.border"
+								justify="space-between"
+								align="center"
+								fontSize="xs"
+							>
+								<Text color="panel.textMuted">
+									{t("topAdmin")}:{" "}
+									<chakra.span fontWeight="800" color="panel.text">
+										{systemData.admin_overview.top_admin_username}
+									</chakra.span>
+								</Text>
+								<Text color="panel.text" fontWeight="700" dir="ltr">
+									{formatBytes(systemData.admin_overview.top_admin_usage)}
+								</Text>
+							</Flex>
+						)}
+					</Stack>
+				</ChartBox>
 			)}
-
-			{/* 7. Panel Heap & Internal Engine Status */}
-			<Box
-				borderWidth="1px"
-				borderColor="panel.border"
-				borderRadius="2xl"
-				bg="panel.surface"
-				p={{ base: 4, md: 4.5 }}
-			>
-				<Flex justify="space-between" align="center" mb={3.5}>
-					<HStack spacing={2}>
-						<ClockIcon width={18} color="var(--rb-panel-accent)" />
-						<Text fontWeight="700" fontSize="sm">
-							{t("panelUsage")}
-						</Text>
-					</HStack>
-					<Text fontSize="xs" color="panel.textMuted" dir="ltr">
-						{t("panelUptime")}: {formatDuration(systemData.panel_uptime_seconds)}
-					</Text>
-				</Flex>
-
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={3.5}>
-					<HardwareCard
-						label={`${t("cpuUsage")} (Panel Process)`}
-						icon={<CpuChipIcon width={17} />}
-						primaryValue={`${systemData.panel_cpu_percent.toFixed(1)}%`}
-						percent={systemData.panel_cpu_percent}
-						subtitle={`${formatNumberValue(systemData.app_threads)} ${t("threads")}`}
-						actionLabel={t("viewHistory")}
-						onViewHistory={() =>
-							openHistory({
-								type: "panel",
-								title: t("panelUsage"),
-								panelCpuEntries: systemData.panel_cpu_history,
-								panelMemoryEntries: systemData.panel_memory_history,
-							})
-						}
-					/>
-					<HardwareCard
-						label={`${t("memoryUsage")} (Panel Heap)`}
-						icon={<ServerStackIcon width={17} />}
-						primaryValue={`${formatBytes(systemData.app_memory, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
-						percent={systemData.panel_memory_percent}
-						subtitle={`${systemData.panel_memory_percent.toFixed(1)}%`}
-						actionLabel={t("viewHistory")}
-						onViewHistory={() =>
-							openHistory({
-								type: "panel",
-								title: t("panelUsage"),
-								panelCpuEntries: systemData.panel_cpu_history,
-								panelMemoryEntries: systemData.panel_memory_history,
-							})
-						}
-					/>
-				</SimpleGrid>
-			</Box>
 
 			{/* History Modal */}
 			<HistoryModal
