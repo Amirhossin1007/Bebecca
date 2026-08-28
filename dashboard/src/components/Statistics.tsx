@@ -24,7 +24,6 @@ import {
 import {
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
-	CheckCircleIcon,
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
@@ -33,8 +32,6 @@ import {
 	ShieldCheckIcon,
 	SignalIcon,
 	UserGroupIcon,
-	UserIcon,
-	WifiIcon,
 } from "@heroicons/react/24/outline";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
@@ -54,37 +51,11 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-/* آیکون با باکس گوشه‌گرد ملایم پشت آن (مطابق تصویر ۳ و هماهنگ با تم) */
+/* آیکون با کادر گوشه‌گرد ملایم پشت آن، کاملاً هماهنگ با رنگ تم */
 export const ThemedIconBadge: FC<{
 	icon: ReactNode;
-	colorScheme?: "accent" | "green" | "blue" | "cyan" | "purple" | "orange";
 	size?: number;
-}> = ({ icon, colorScheme = "accent", size = 9 }) => {
-	const accentBg = useColorModeValue("rgba(224, 0, 60, 0.08)", "rgba(224, 0, 60, 0.16)");
-	const greenBg = useColorModeValue("rgba(34, 197, 94, 0.08)", "rgba(34, 197, 94, 0.16)");
-	const blueBg = useColorModeValue("rgba(59, 130, 246, 0.08)", "rgba(59, 130, 246, 0.16)");
-	const cyanBg = useColorModeValue("rgba(6, 182, 212, 0.08)", "rgba(6, 182, 212, 0.16)");
-	const purpleBg = useColorModeValue("rgba(168, 85, 247, 0.08)", "rgba(168, 85, 247, 0.16)");
-	const orangeBg = useColorModeValue("rgba(249, 115, 22, 0.08)", "rgba(249, 115, 22, 0.16)");
-
-	const bgMap = {
-		accent: accentBg,
-		green: greenBg,
-		blue: blueBg,
-		cyan: cyanBg,
-		purple: purpleBg,
-		orange: orangeBg,
-	};
-
-	const colorMap = {
-		accent: "var(--rb-panel-accent)",
-		green: "#22c55e",
-		blue: "#3b82f6",
-		cyan: "#06b6d4",
-		purple: "#a855f7",
-		orange: "#f97316",
-	};
-
+}> = ({ icon, size = 9 }) => {
 	return (
 		<Flex
 			w={`${size * 4}px`}
@@ -92,8 +63,10 @@ export const ThemedIconBadge: FC<{
 			align="center"
 			justify="center"
 			borderRadius="xl"
-			bg={bgMap[colorScheme]}
-			color={colorMap[colorScheme]}
+			color="var(--rb-panel-accent)"
+			sx={{
+				backgroundColor: "color-mix(in srgb, var(--rb-panel-accent) 10%, transparent)",
+			}}
 			flexShrink={0}
 			transition="all 0.2s ease"
 		>
@@ -522,7 +495,7 @@ const HardwareBentoCard: FC<{
 			<Stack spacing={3.5}>
 				<Flex justify="space-between" align="center">
 					<HStack spacing={2.5}>
-						<ThemedIconBadge icon={icon} colorScheme="accent" />
+						<ThemedIconBadge icon={icon} />
 						<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 							{label}
 						</Text>
@@ -580,14 +553,13 @@ const HardwareBentoCard: FC<{
 	);
 };
 
-/* Metric Cell with Top-Level Unconditional Hooks and Themed Icon Badge */
+/* Metric Cell با دایره رنگی ساده و استاندارد */
 const MetricCell: FC<{
 	label: string;
 	value: number | string;
 	percentage?: string;
-	icon?: ReactNode;
-	colorScheme?: "accent" | "green" | "blue" | "cyan" | "purple" | "orange";
-}> = ({ label, value, percentage, icon, colorScheme = "blue" }) => {
+	dotColor?: string;
+}> = ({ label, value, percentage, dotColor }) => {
 	const cardBg = useColorModeValue("panel.input", "panel.input");
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 
@@ -603,8 +575,8 @@ const MetricCell: FC<{
 			transition="all 0.2s ease"
 			_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
 		>
-			<HStack spacing={3} minW={0}>
-				{icon && <ThemedIconBadge icon={icon} colorScheme={colorScheme} size={8} />}
+			<HStack spacing={2.5} minW={0}>
+				{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
 				<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
 					{label}
 				</Text>
@@ -776,7 +748,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						>
 							<Flex justify="space-between" align="center" mb={3.5} flexWrap="wrap" gap={2}>
 								<HStack spacing={2.5}>
-									<ThemedIconBadge icon={<SignalIcon width={18} />} colorScheme="accent" />
+									<ThemedIconBadge icon={<SignalIcon width={18} />} />
 									<Text fontSize="sm" fontWeight="700" color="panel.text">
 										{t("bandwidthSpeed")}
 									</Text>
@@ -812,7 +784,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ArrowDownTrayIcon width={16} />} colorScheme="green" size={7} />
+										<ThemedIconBadge icon={<ArrowDownTrayIcon width={16} />} size={7} />
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 											{t("incomingSpeed")}
 										</Text>
@@ -838,7 +810,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ArrowUpTrayIcon width={16} />} colorScheme="blue" size={7} />
+										<ThemedIconBadge icon={<ArrowUpTrayIcon width={16} />} size={7} />
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 											{t("outgoingSpeed")}
 										</Text>
@@ -871,7 +843,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						>
 							<Flex justify="space-between" align="center" mb={3.5}>
 								<HStack spacing={2.5}>
-									<ThemedIconBadge icon={<ClockIcon width={18} />} colorScheme="accent" />
+									<ThemedIconBadge icon={<ClockIcon width={18} />} />
 									<Text fontSize="sm" fontWeight="700" color="panel.text">
 										{t("uptime", "آپتایم")}
 									</Text>
@@ -889,7 +861,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ClockIcon width={16} />} colorScheme="accent" size={7} />
+										<ThemedIconBadge icon={<ClockIcon width={16} />} size={7} />
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
 											{t("systemUptime")}
 										</Text>
@@ -914,7 +886,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									align="center"
 								>
 									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ServerStackIcon width={16} />} colorScheme="purple" size={7} />
+										<ThemedIconBadge icon={<ServerStackIcon width={16} />} size={7} />
 										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
 											{t("panelUptime")}
 										</Text>
@@ -1068,7 +1040,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			<ChartBox
 				title={
 					<HStack spacing={2.5}>
-						<ThemedIconBadge icon={<UserGroupIcon width={18} />} colorScheme="accent" />
+						<ThemedIconBadge icon={<UserGroupIcon width={18} />} />
 						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
 							{t("usersOverview")}
 						</Text>
@@ -1118,75 +1090,65 @@ export const Statistics: FC<BoxProps> = (props) => {
 					}}
 				>
 					{canSeeGlobal && userTab === "all" ? (
-						/* All Users: 6 Cards in 3 Columns */
+						/* All Users: 6 Cards in 3 Columns with Standard Colored Dots */
 						<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3.5}>
 							<MetricCell
 								label={t("total")}
 								value={systemData.total_user}
-								icon={<UserIcon width={16} />}
-								colorScheme="blue"
+								dotColor="#3b82f6"
 							/>
 							<MetricCell
 								label={t("status.active")}
 								value={systemData.users_active}
 								percentage={activePercent}
-								icon={<CheckCircleIcon width={16} />}
-								colorScheme="green"
+								dotColor="#22c55e"
 							/>
 							<MetricCell
 								label={t("onlineUsers")}
 								value={systemData.online_users}
 								percentage={onlinePercent}
-								icon={<WifiIcon width={16} />}
-								colorScheme="cyan"
+								dotColor="#06b6d4"
 							/>
 							<MetricCell
 								label={t("status.on_hold")}
 								value={systemData.users_on_hold}
-								icon={<ClockIcon width={16} />}
-								colorScheme="purple"
+								dotColor="#a855f7"
 							/>
 							<MetricCell
 								label={t("status.limited")}
 								value={systemData.users_limited}
-								icon={<CircleStackIcon width={16} />}
-								colorScheme="orange"
+								dotColor="#eab308"
 							/>
 							<MetricCell
 								label={t("status.expired")}
 								value={systemData.users_expired}
-								icon={<ExclamationTriangleIcon width={16} />}
-								colorScheme="accent"
+								dotColor="#f97316"
 							/>
 						</SimpleGrid>
 					) : (
-						/* My Users: 2 Rows × 2 Cards (4 Cards) with Themed Squircle Icons */
+						/* My Users: 2 Rows × 2 Cards (4 Cards) with Standard Colored Dots */
 						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
 							{/* Row 1: Total & Active */}
 							<MetricCell
 								label={t("total")}
 								value={systemData.personal_usage?.total_users ?? 0}
-								icon={<UserIcon width={16} />}
-								colorScheme="blue"
+								dotColor="#3b82f6"
 							/>
 							<MetricCell
 								label={t("status.active")}
 								value={systemData.personal_usage?.total_users ?? 0}
-								icon={<CheckCircleIcon width={16} />}
-								colorScheme="green"
+								dotColor="#22c55e"
 							/>
 							{/* Row 2: Online & Consumed Traffic */}
 							<MetricCell
 								label={t("onlineUsers")}
 								value={systemData.online_users}
-								icon={<WifiIcon width={16} />}
-								colorScheme="cyan"
+								dotColor="#06b6d4"
 							/>
 							<MetricCell
 								label={t("consumedData")}
 								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
-								icon={<CircleStackIcon width={16} />}
-								colorScheme="purple"
+								dotColor="#a855f7"
 							/>
 						</SimpleGrid>
 					)}
@@ -1198,7 +1160,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<ChartBox
 					title={
 						<HStack spacing={2.5}>
-							<ThemedIconBadge icon={<ShieldCheckIcon width={18} />} colorScheme="accent" />
+							<ThemedIconBadge icon={<ShieldCheckIcon width={18} />} />
 							<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
 								{t("adminOverview")}
 							</Text>
@@ -1206,31 +1168,27 @@ export const Statistics: FC<BoxProps> = (props) => {
 					}
 				>
 					<Stack spacing={4}>
-						{/* 4 Equal Cards: Total Admins + Roles */}
+						{/* 4 Equal Cards: Total Admins + Roles with Standard Colored Dots */}
 						<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={3.5}>
 							<MetricCell
 								label={t("totalAdmins")}
 								value={systemData.admin_overview.total_admins}
-								icon={<ShieldCheckIcon width={16} />}
-								colorScheme="blue"
+								dotColor="#3b82f6"
 							/>
 							<MetricCell
 								label={t("fullAccessAdmins")}
 								value={systemData.admin_overview.full_access_admins}
-								icon={<ShieldCheckIcon width={16} />}
-								colorScheme="orange"
+								dotColor="#eab308"
 							/>
 							<MetricCell
 								label={t("sudoAdmins")}
 								value={systemData.admin_overview.sudo_admins}
-								icon={<ShieldCheckIcon width={16} />}
-								colorScheme="purple"
+								dotColor="#a855f7"
 							/>
 							<MetricCell
 								label={t("standardAdmins")}
 								value={systemData.admin_overview.standard_admins}
-								icon={<ShieldCheckIcon width={16} />}
-								colorScheme="green"
+								dotColor="#10b981"
 							/>
 						</SimpleGrid>
 

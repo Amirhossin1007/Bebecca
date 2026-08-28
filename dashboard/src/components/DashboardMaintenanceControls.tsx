@@ -509,8 +509,8 @@ export const DashboardMaintenanceControls = ({
 	);
 
 	return (
-		<>
-			{/* Desktop Layout: 1 Single Horizontal Row */}
+		<Flex align="center" justify="flex-end" w={{ base: "full", md: "auto" }}>
+			{/* Desktop Layout: Single Horizontal Row */}
 			<HStack
 				display={{ base: "none", md: "flex" }}
 				spacing={2}
@@ -571,7 +571,7 @@ export const DashboardMaintenanceControls = ({
 				{/* Row 1: Version (25%) + Update Action (75%) */}
 				<Flex gap={2} w="full" align="center">
 					<Flex
-						flex="1 1 25%"
+						w="25%"
 						h="32px"
 						align="center"
 						justify="center"
@@ -582,20 +582,23 @@ export const DashboardMaintenanceControls = ({
 						color="panel.textSecondary"
 						borderWidth="1px"
 						borderColor="panel.border"
+						flexShrink={0}
 					>
 						{currentVersion}
 					</Flex>
-					{canMaintain && (
-						<Box flex="3 3 75%">
+					{canMaintain ? (
+						<Box w="75%">
 							{renderUpdatePopover()}
 						</Box>
+					) : (
+						<Box w="75%" />
 					)}
 				</Flex>
 
 				{/* Row 2: Backup (50%) + Restart (50%) */}
 				<Flex gap={2} w="full" align="center">
 					{canBackUp && (
-						<Box flex="1 1 50%">
+						<Box w="50%">
 							<DashboardBackupControls
 								isBinaryRuntime={hostActionsAvailable}
 								runtimeLoading={info.isLoading}
@@ -604,7 +607,7 @@ export const DashboardMaintenanceControls = ({
 					)}
 					{canMaintain && (
 						<Button
-							flex="1 1 50%"
+							w="50%"
 							h="32px"
 							size="xs"
 							colorScheme="red"
@@ -693,6 +696,6 @@ export const DashboardMaintenanceControls = ({
 					</ModalBody>
 				</ModalContent>
 			</Modal>
-		</>
+		</Flex>
 	);
 };
