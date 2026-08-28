@@ -437,7 +437,7 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Bento Card with Subtle Color Shift on Hover */
+/* Bento Card with Harmonized Themed Icon Badge (Image 3 style) */
 const HardwareBentoCard: FC<{
 	label: string;
 	icon: ReactNode;
@@ -452,6 +452,7 @@ const HardwareBentoCard: FC<{
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const safePercent = clampPercent(percent);
 	const colorScheme = getUsageColorScheme(percent);
+	const iconBg = useColorModeValue("rgba(224, 0, 60, 0.08)", "rgba(224, 0, 60, 0.15)");
 
 	return (
 		<Box
@@ -476,9 +477,9 @@ const HardwareBentoCard: FC<{
 							h={8}
 							align="center"
 							justify="center"
-							borderRadius="lg"
-							bg="panel.elevated"
-							color="panel.textSecondary"
+							borderRadius="xl"
+							bg={iconBg}
+							color="var(--rb-panel-accent)"
 						>
 							{icon}
 						</Flex>
@@ -539,56 +540,68 @@ const HardwareBentoCard: FC<{
 	);
 };
 
-/* Metric Cell with Top-Level Unconditional Hooks */
+/* Metric Cell with Harmonized Tinted Icon Badges */
 const MetricCell: FC<{
 	label: string;
 	value: number | string;
 	percentage?: string;
-	dotColor?: string;
-	variant?: "blue" | "green" | "cyan" | "purple" | "neutral";
-}> = ({ label, value, percentage, dotColor, variant = "neutral" }) => {
-	const blueBg = useColorModeValue("blue.50", "rgba(59, 130, 246, 0.08)");
-	const blueBorder = useColorModeValue("blue.200", "rgba(59, 130, 246, 0.25)");
-	const greenBg = useColorModeValue("green.50", "rgba(34, 197, 94, 0.08)");
-	const greenBorder = useColorModeValue("green.200", "rgba(34, 197, 94, 0.25)");
-	const cyanBg = useColorModeValue("cyan.50", "rgba(6, 182, 212, 0.08)");
-	const cyanBorder = useColorModeValue("cyan.200", "rgba(6, 182, 212, 0.25)");
-	const purpleBg = useColorModeValue("purple.50", "rgba(168, 85, 247, 0.08)");
-	const purpleBorder = useColorModeValue("purple.200", "rgba(168, 85, 247, 0.25)");
+	icon?: ReactNode;
+	badgeScheme?: "blue" | "green" | "cyan" | "purple" | "neutral";
+}> = ({ label, value, percentage, icon, badgeScheme = "neutral" }) => {
 	const neutralBg = useColorModeValue("panel.input", "panel.input");
 	const neutralBorder = useColorModeValue("panel.border", "panel.border");
 
-	let bg = neutralBg;
-	let borderColor = neutralBorder;
+	// Soft tints for icon containers matching Image 3 style
+	const blueBadgeBg = useColorModeValue("blue.50", "rgba(59, 130, 246, 0.15)");
+	const greenBadgeBg = useColorModeValue("green.50", "rgba(34, 197, 94, 0.15)");
+	const cyanBadgeBg = useColorModeValue("cyan.50", "rgba(6, 182, 212, 0.15)");
+	const purpleBadgeBg = useColorModeValue("purple.50", "rgba(168, 85, 247, 0.15)");
+	const accentBadgeBg = useColorModeValue("rgba(224, 0, 60, 0.08)", "rgba(224, 0, 60, 0.15)");
 
-	if (variant === "blue") {
-		bg = blueBg;
-		borderColor = blueBorder;
-	} else if (variant === "green") {
-		bg = greenBg;
-		borderColor = greenBorder;
-	} else if (variant === "cyan") {
-		bg = cyanBg;
-		borderColor = cyanBorder;
-	} else if (variant === "purple") {
-		bg = purpleBg;
-		borderColor = purpleBorder;
+	let iconBg = accentBadgeBg;
+	let iconColor = "var(--rb-panel-accent)";
+
+	if (badgeScheme === "blue") {
+		iconBg = blueBadgeBg;
+		iconColor = "#3b82f6";
+	} else if (badgeScheme === "green") {
+		iconBg = greenBadgeBg;
+		iconColor = "#22c55e";
+	} else if (badgeScheme === "cyan") {
+		iconBg = cyanBadgeBg;
+		iconColor = "#06b6d4";
+	} else if (badgeScheme === "purple") {
+		iconBg = purpleBadgeBg;
+		iconColor = "#a855f7";
 	}
 
 	return (
 		<Flex
 			p={4}
 			borderRadius="xl"
-			bg={bg}
+			bg={neutralBg}
 			borderWidth="1px"
-			borderColor={borderColor}
+			borderColor={neutralBorder}
 			justify="space-between"
 			align="center"
 			transition="all 0.2s ease"
-			_hover={{ borderColor: "panel.borderStrong", opacity: 0.95 }}
+			_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
 		>
 			<HStack spacing={2.5} minW={0}>
-				{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
+				{icon ? (
+					<Flex
+						w={7}
+						h={7}
+						align="center"
+						justify="center"
+						borderRadius="lg"
+						bg={iconBg}
+						color={iconColor}
+						flexShrink={0}
+					>
+						{icon}
+					</Flex>
+				) : null}
 				<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
 					{label}
 				</Text>
@@ -671,6 +684,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 		systemData.total_user > 0
 			? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
 			: "0.0%";
+
+	const headerIconBg = useColorModeValue("rgba(224, 0, 60, 0.08)", "rgba(224, 0, 60, 0.15)");
+	const speedInBg = useColorModeValue("green.50", "rgba(34, 197, 94, 0.15)");
+	const speedOutBg = useColorModeValue("blue.50", "rgba(59, 130, 246, 0.15)");
+	const uptimeSysBg = useColorModeValue("rgba(224, 0, 60, 0.08)", "rgba(224, 0, 60, 0.15)");
+	const uptimePanelBg = useColorModeValue("purple.50", "rgba(168, 85, 247, 0.15)");
 
 	return (
 		<Stack spacing={5} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
@@ -765,8 +784,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 										h={8}
 										align="center"
 										justify="center"
-										borderRadius="lg"
-										bg="panel.elevated"
+										borderRadius="xl"
+										bg={headerIconBg}
 										color="var(--rb-panel-accent)"
 									>
 										<SignalIcon width={18} />
@@ -811,8 +830,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 											h={7}
 											align="center"
 											justify="center"
-											borderRadius="md"
-											bg="panel.surface"
+											borderRadius="lg"
+											bg={speedInBg}
 											color="green.400"
 										>
 											<ArrowDownTrayIcon width={16} />
@@ -847,8 +866,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 											h={7}
 											align="center"
 											justify="center"
-											borderRadius="md"
-											bg="panel.surface"
+											borderRadius="lg"
+											bg={speedOutBg}
 											color="blue.400"
 										>
 											<ArrowUpTrayIcon width={16} />
@@ -890,8 +909,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 										h={8}
 										align="center"
 										justify="center"
-										borderRadius="lg"
-										bg="panel.elevated"
+										borderRadius="xl"
+										bg={headerIconBg}
 										color="var(--rb-panel-accent)"
 									>
 										<ClockIcon width={18} />
@@ -918,8 +937,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 											h={7}
 											align="center"
 											justify="center"
-											borderRadius="md"
-											bg="panel.surface"
+											borderRadius="lg"
+											bg={uptimeSysBg}
 											color="var(--rb-panel-accent)"
 										>
 											<ClockIcon width={16} />
@@ -953,8 +972,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 											h={7}
 											align="center"
 											justify="center"
-											borderRadius="md"
-											bg="panel.surface"
+											borderRadius="lg"
+											bg={uptimePanelBg}
 											color="purple.400"
 										>
 											<ServerStackIcon width={16} />
@@ -1117,8 +1136,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 							h={8}
 							align="center"
 							justify="center"
-							borderRadius="lg"
-							bg="panel.input"
+							borderRadius="xl"
+							bg={headerIconBg}
 							color="var(--rb-panel-accent)"
 						>
 							<UserGroupIcon width={18} />
@@ -1177,64 +1196,70 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<MetricCell
 								label={t("total")}
 								value={systemData.total_user}
-								dotColor="#3b82f6"
+								icon={<UserGroupIcon width={16} />}
+								badgeScheme="blue"
 							/>
 							<MetricCell
 								label={t("status.active")}
 								value={systemData.users_active}
 								percentage={activePercent}
-								dotColor="#22c55e"
+								icon={<ShieldCheckIcon width={16} />}
+								badgeScheme="green"
 							/>
 							<MetricCell
 								label={t("onlineUsers")}
 								value={systemData.online_users}
 								percentage={onlinePercent}
-								dotColor="#06b6d4"
+								icon={<SignalIcon width={16} />}
+								badgeScheme="cyan"
 							/>
 							<MetricCell
 								label={t("status.on_hold")}
 								value={systemData.users_on_hold}
-								dotColor="#a855f7"
+								icon={<ClockIcon width={16} />}
+								badgeScheme="purple"
 							/>
 							<MetricCell
 								label={t("status.limited")}
 								value={systemData.users_limited}
-								dotColor="#eab308"
+								icon={<CircleStackIcon width={16} />}
+								badgeScheme="neutral"
 							/>
 							<MetricCell
 								label={t("status.expired")}
 								value={systemData.users_expired}
-								dotColor="#f97316"
+								icon={<ClockIcon width={16} />}
+								badgeScheme="neutral"
 							/>
 						</SimpleGrid>
 					) : (
-						/* My Users: 2 Rows × 2 Cards (4 Cards) with Status Tints */
+						/* My Users: 2 Rows × 2 Cards (4 Cards) with Image 3 Style Icon Badges */
 						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
 							{/* Row 1: Total & Active */}
 							<MetricCell
 								label={t("total")}
 								value={systemData.personal_usage?.total_users ?? 0}
-								dotColor="#3b82f6"
-								variant="blue"
+								icon={<UserGroupIcon width={16} />}
+								badgeScheme="blue"
 							/>
 							<MetricCell
 								label={t("status.active")}
 								value={systemData.personal_usage?.total_users ?? 0}
-								dotColor="#22c55e"
-								variant="green"
+								icon={<ShieldCheckIcon width={16} />}
+								badgeScheme="green"
 							/>
 							{/* Row 2: Online & Consumed Traffic */}
 							<MetricCell
 								label={t("onlineUsers")}
 								value={systemData.online_users}
-								dotColor="#06b6d4"
-								variant="cyan"
+								icon={<SignalIcon width={16} />}
+								badgeScheme="cyan"
 							/>
 							<MetricCell
 								label={t("consumedData")}
 								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
-								dotColor="#a855f7"
-								variant="purple"
+								icon={<CircleStackIcon width={16} />}
+								badgeScheme="purple"
 							/>
 						</SimpleGrid>
 					)}
@@ -1251,8 +1276,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 								h={8}
 								align="center"
 								justify="center"
-								borderRadius="lg"
-								bg="panel.input"
+								borderRadius="xl"
+								bg={headerIconBg}
 								color="var(--rb-panel-accent)"
 							>
 								<ShieldCheckIcon width={18} />
@@ -1269,22 +1294,26 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<MetricCell
 								label={t("totalAdmins")}
 								value={systemData.admin_overview.total_admins}
-								dotColor="#3b82f6"
+								icon={<UserGroupIcon width={16} />}
+								badgeScheme="blue"
 							/>
 							<MetricCell
 								label={t("fullAccessAdmins")}
 								value={systemData.admin_overview.full_access_admins}
-								dotColor="#eab308"
+								icon={<ShieldCheckIcon width={16} />}
+								badgeScheme="neutral"
 							/>
 							<MetricCell
 								label={t("sudoAdmins")}
 								value={systemData.admin_overview.sudo_admins}
-								dotColor="#a855f7"
+								icon={<ShieldCheckIcon width={16} />}
+								badgeScheme="purple"
 							/>
 							<MetricCell
 								label={t("standardAdmins")}
 								value={systemData.admin_overview.standard_admins}
-								dotColor="#10b981"
+								icon={<ShieldCheckIcon width={16} />}
+								badgeScheme="green"
 							/>
 						</SimpleGrid>
 

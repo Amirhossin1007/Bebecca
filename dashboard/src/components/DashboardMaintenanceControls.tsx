@@ -19,6 +19,7 @@ import {
 	PopoverHeader,
 	PopoverTrigger,
 	Progress,
+	SimpleGrid,
 	Spinner,
 	Stack,
 	Tag,
@@ -321,32 +322,32 @@ export const DashboardMaintenanceControls = ({
 
 	return (
 		<>
-			<Flex
-				wrap="wrap"
-				align="center"
-				justify={{ base: "flex-start", sm: "flex-end" }}
-				gap={2}
-				w={{ base: "full", sm: "auto" }}
+			<SimpleGrid
+				columns={{ base: 2, md: 4 }}
+				spacing={2}
+				w={{ base: "full", md: "auto" }}
+				alignItems="center"
 			>
-				{/* Version Tag */}
-				<Tag
-					colorScheme="gray"
-					borderRadius="full"
+				{/* 1. Version Tag */}
+				<Flex
+					h="30px"
 					px={3}
-					py={1}
-					fontSize="11px"
-					fontWeight="700"
+					borderRadius="full"
 					bg="panel.elevated"
-					color="panel.textSecondary"
 					borderWidth="1px"
 					borderColor="panel.border"
+					align="center"
+					justify="center"
+					w="full"
 				>
-					{currentVersion}
-				</Tag>
+					<Text fontSize="11px" fontWeight="700" color="panel.textSecondary" dir="ltr" noOfLines={1}>
+						{currentVersion}
+					</Text>
+				</Flex>
 
-				{/* Update Button & Popover */}
-				{canMaintain && (
-					<Box>
+				{/* 2. Update Action Button */}
+				{canMaintain ? (
+					<Box w="full">
 						<Popover
 							isOpen={isUpdateMenuOpen}
 							onOpen={() => setUpdateMenuOpen(true)}
@@ -357,8 +358,8 @@ export const DashboardMaintenanceControls = ({
 							<PopoverTrigger>
 								<Button
 									size="xs"
-									h="28px"
-									px={3}
+									h="30px"
+									w="full"
 									colorScheme={update?.available ? "green" : "primary"}
 									variant={update?.available ? "solid" : "outline"}
 									borderRadius="full"
@@ -534,22 +535,24 @@ export const DashboardMaintenanceControls = ({
 							</PopoverContent>
 						</Popover>
 					</Box>
-				)}
+				) : null}
 
-				{/* Backup Controls */}
-				{canBackUp && (
-					<DashboardBackupControls
-						isBinaryRuntime={hostActionsAvailable}
-						runtimeLoading={info.isLoading}
-					/>
-				)}
+				{/* 3. Backup Button */}
+				{canBackUp ? (
+					<Box w="full">
+						<DashboardBackupControls
+							isBinaryRuntime={hostActionsAvailable}
+							runtimeLoading={info.isLoading}
+						/>
+					</Box>
+				) : null}
 
-				{/* Restart Action */}
-				{canMaintain && (
+				{/* 4. Restart Action Button */}
+				{canMaintain ? (
 					<Button
 						size="xs"
-						h="28px"
-						px={3}
+						h="30px"
+						w="full"
 						colorScheme="red"
 						variant="outline"
 						borderRadius="full"
@@ -562,8 +565,8 @@ export const DashboardMaintenanceControls = ({
 					>
 						{t("settings.panel.restartAction")}
 					</Button>
-				)}
-			</Flex>
+				) : null}
+			</SimpleGrid>
 
 			{/* Update Progress Dialog Modal */}
 			<Modal
