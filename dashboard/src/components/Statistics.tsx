@@ -20,7 +20,6 @@ import {
 	Text,
 	useColorMode,
 	useColorModeValue,
-	VStack,
 } from "@chakra-ui/react";
 import {
 	ArrowDownTrayIcon,
@@ -540,50 +539,79 @@ const HardwareBentoCard: FC<{
 	);
 };
 
-/* Metric Cell with Smooth Hover & Optional Tint */
+/* Metric Cell with Top-Level Unconditional Hooks */
 const MetricCell: FC<{
 	label: string;
 	value: number | string;
 	percentage?: string;
 	dotColor?: string;
-	customBg?: string;
-	customBorderColor?: string;
-}> = ({ label, value, percentage, dotColor, customBg, customBorderColor }) => (
-	<Flex
-		p={4}
-		borderRadius="xl"
-		bg={customBg ?? "panel.input"}
-		borderWidth="1px"
-		borderColor={customBorderColor ?? "panel.border"}
-		justify="space-between"
-		align="center"
-		transition="all 0.2s ease"
-		_hover={{ borderColor: "panel.borderStrong", opacity: 0.95 }}
-	>
-		<HStack spacing={2.5} minW={0}>
-			{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
-			<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
-				{label}
-			</Text>
-		</HStack>
-		<HStack spacing={2}>
-			{percentage && (
-				<Text fontSize="11px" color="panel.textMuted" dir="ltr">
-					{percentage}
+	variant?: "blue" | "green" | "cyan" | "purple" | "neutral";
+}> = ({ label, value, percentage, dotColor, variant = "neutral" }) => {
+	const blueBg = useColorModeValue("blue.50", "rgba(59, 130, 246, 0.08)");
+	const blueBorder = useColorModeValue("blue.200", "rgba(59, 130, 246, 0.25)");
+	const greenBg = useColorModeValue("green.50", "rgba(34, 197, 94, 0.08)");
+	const greenBorder = useColorModeValue("green.200", "rgba(34, 197, 94, 0.25)");
+	const cyanBg = useColorModeValue("cyan.50", "rgba(6, 182, 212, 0.08)");
+	const cyanBorder = useColorModeValue("cyan.200", "rgba(6, 182, 212, 0.25)");
+	const purpleBg = useColorModeValue("purple.50", "rgba(168, 85, 247, 0.08)");
+	const purpleBorder = useColorModeValue("purple.200", "rgba(168, 85, 247, 0.25)");
+	const neutralBg = useColorModeValue("panel.input", "panel.input");
+	const neutralBorder = useColorModeValue("panel.border", "panel.border");
+
+	let bg = neutralBg;
+	let borderColor = neutralBorder;
+
+	if (variant === "blue") {
+		bg = blueBg;
+		borderColor = blueBorder;
+	} else if (variant === "green") {
+		bg = greenBg;
+		borderColor = greenBorder;
+	} else if (variant === "cyan") {
+		bg = cyanBg;
+		borderColor = cyanBorder;
+	} else if (variant === "purple") {
+		bg = purpleBg;
+		borderColor = purpleBorder;
+	}
+
+	return (
+		<Flex
+			p={4}
+			borderRadius="xl"
+			bg={bg}
+			borderWidth="1px"
+			borderColor={borderColor}
+			justify="space-between"
+			align="center"
+			transition="all 0.2s ease"
+			_hover={{ borderColor: "panel.borderStrong", opacity: 0.95 }}
+		>
+			<HStack spacing={2.5} minW={0}>
+				{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
+				<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
+					{label}
 				</Text>
-			)}
-			<Text
-				fontSize="md"
-				fontWeight="800"
-				color="panel.text"
-				dir="ltr"
-				sx={{ fontVariantNumeric: "tabular-nums" }}
-			>
-				{typeof value === "number" ? formatNumberValue(value) : value}
-			</Text>
-		</HStack>
-	</Flex>
-);
+			</HStack>
+			<HStack spacing={2}>
+				{percentage && (
+					<Text fontSize="11px" color="panel.textMuted" dir="ltr">
+						{percentage}
+					</Text>
+				)}
+				<Text
+					fontSize="md"
+					fontWeight="800"
+					color="panel.text"
+					dir="ltr"
+					sx={{ fontVariantNumeric: "tabular-nums" }}
+				>
+					{typeof value === "number" ? formatNumberValue(value) : value}
+				</Text>
+			</HStack>
+		</Flex>
+	);
+};
 
 export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
@@ -1187,30 +1215,26 @@ export const Statistics: FC<BoxProps> = (props) => {
 								label={t("total")}
 								value={systemData.personal_usage?.total_users ?? 0}
 								dotColor="#3b82f6"
-								customBg={useColorModeValue("blue.50", "rgba(59, 130, 246, 0.08)")}
-								customBorderColor={useColorModeValue("blue.200", "rgba(59, 130, 246, 0.25)")}
+								variant="blue"
 							/>
 							<MetricCell
 								label={t("status.active")}
 								value={systemData.personal_usage?.total_users ?? 0}
 								dotColor="#22c55e"
-								customBg={useColorModeValue("green.50", "rgba(34, 197, 94, 0.08)")}
-								customBorderColor={useColorModeValue("green.200", "rgba(34, 197, 94, 0.25)")}
+								variant="green"
 							/>
 							{/* Row 2: Online & Consumed Traffic */}
 							<MetricCell
 								label={t("onlineUsers")}
 								value={systemData.online_users}
 								dotColor="#06b6d4"
-								customBg={useColorModeValue("cyan.50", "rgba(6, 182, 212, 0.08)")}
-								customBorderColor={useColorModeValue("cyan.200", "rgba(6, 182, 212, 0.25)")}
+								variant="cyan"
 							/>
 							<MetricCell
 								label={t("consumedData")}
 								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
 								dotColor="#a855f7"
-								customBg={useColorModeValue("purple.50", "rgba(168, 85, 247, 0.08)")}
-								customBorderColor={useColorModeValue("purple.200", "rgba(168, 85, 247, 0.25)")}
+								variant="purple"
 							/>
 						</SimpleGrid>
 					)}
