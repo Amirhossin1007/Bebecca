@@ -39,4 +39,41 @@ describe("onEditingUser", () => {
 			username: "new",
 		});
 	});
+
+	it("keeps live speed values while refreshing the user list", async () => {
+		vi.mocked(apiFetch).mockResolvedValue({
+			users: [
+				{
+					username: "alice",
+					used_traffic: 99,
+					upload_speed: undefined,
+					download_speed: undefined,
+				},
+			],
+			total: 1,
+		} as never);
+		useDashboard.setState({
+			users: {
+				users: [
+					{
+						username: "alice",
+						upload_speed: 12,
+						download_speed: 34,
+					},
+				],
+				total: 1,
+			} as never,
+			lastUsersFetchAt: null,
+		});
+
+		useDashboard.getState().refetchUsers(true);
+
+		await vi.waitFor(() => {
+			expect(useDashboard.getState().users.users[0]).toMatchObject({
+				used_traffic: 99,
+				upload_speed: 12,
+				download_speed: 34,
+			});
+		});
+	});
 });

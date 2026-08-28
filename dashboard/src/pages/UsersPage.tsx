@@ -2,12 +2,22 @@ import {
 	Button,
 	chakra,
 	Flex,
+	HStack,
+	Menu,
+	MenuButton,
+	MenuItem,
+	MenuList,
+	Portal,
 	Spinner,
 	Text,
 	useToast,
 	VStack,
 } from "@chakra-ui/react";
-import { ArrowPathIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import {
+	ArrowPathIcon,
+	ChevronDownIcon,
+	LockClosedIcon,
+} from "@heroicons/react/24/outline";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { ReloadIcon } from "components/Filters";
 import { Icon } from "components/Icon";
@@ -19,12 +29,12 @@ import { PageHeader, ResourceRefreshButton } from "components/ui";
 import { UsersFilterBar, UserQuickEditModal } from "components/users";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useEffect, useState } from "react";
+import { type FC, useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import { AdminStatus } from "types/Admin";
 
-const ONLINE_REFRESH_INTERVAL_MS = 5_000;
+const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000] as const;
 
 type OnlineUsersResponse =
 	| string[]
@@ -150,6 +160,35 @@ export const UsersPage: FC = () => {
 	const { loading, refetchUsers } = useDashboard();
 	const { userData, getUserIsPending } = useGetUser();
 	const isAdminDisabled = userData.status === AdminStatus.Disabled;
+	const [autoRefreshInterval, setAutoRefreshInterval] = useState(5_000);
+
+	const refreshOnlineUsers = useCallback(async () => {
+		try {
+			const response = await fetch<OnlineUsersResponse>("/users/onlines", {
+				query: { details: true },
+			});
+			const usernames = Array.isArray(response) ? response : response.users;
+			const speeds = Array.isArray(response) ? {} : response.speeds;
+			const online = new Set(usernames);
+			useDashboard.setState((state) => ({
+				users: {
+					...state.users,
+					online_total: usernames.length,
+					users: state.users.users.map((user) => {
+						const speed = speeds[user.username];
+						return {
+							...user,
+							is_online: online.has(user.username),
+							upload_speed: speed?.upload_speed ?? user.upload_speed,
+							download_speed: speed?.download_speed ?? user.download_speed,
+						};
+					}),
+				},
+			}));
+		} catch {
+			// Keep the last successful snapshot during a transient poll failure.
+		}
+	}, []);
 
 	useEffect(() => {
 		if (getUserIsPending || isAdminDisabled) return;
@@ -158,46 +197,19 @@ export const UsersPage: FC = () => {
 	}, [getUserIsPending, isAdminDisabled]);
 
 	useEffect(() => {
-		if (getUserIsPending || isAdminDisabled) return;
-		let active = true;
-		const refresh = async () => {
-			try {
-				const response = await fetch<OnlineUsersResponse>("/users/onlines", {
-					query: { details: true },
-				});
-				if (!active) return;
-				const usernames = Array.isArray(response) ? response : response.users;
-				const speeds = Array.isArray(response) ? {} : response.speeds;
-				const online = new Set(usernames);
-				useDashboard.setState((state) => ({
-					users: {
-						...state.users,
-						online_total: usernames.length,
-						users: state.users.users.map((user) => {
-							const speed = speeds[user.username];
-							return {
-								...user,
-								is_online: online.has(user.username),
-								upload_speed: speed?.upload_speed ?? 0,
-								download_speed: speed?.download_speed ?? 0,
-							};
-						}),
-					},
-				}));
-			} catch {
-				// Keep the last successful snapshot during a transient poll failure.
-			}
-		};
-		void refresh();
+		if (getUserIsPending || isAdminDisabled || !autoRefreshInterval) return;
+		void refreshOnlineUsers();
 		const timer = window.setInterval(
-			() => void refresh(),
-			ONLINE_REFRESH_INTERVAL_MS,
+			() => void refreshOnlineUsers(),
+			autoRefreshInterval,
 		);
-		return () => {
-			active = false;
-			window.clearInterval(timer);
-		};
-	}, [getUserIsPending, isAdminDisabled]);
+		return () => window.clearInterval(timer);
+	}, [
+		autoRefreshInterval,
+		getUserIsPending,
+		isAdminDisabled,
+		refreshOnlineUsers,
+	]);
 
 	useEffect(() => {
 		if (getUserIsPending || isAdminDisabled) return;
@@ -255,13 +267,60 @@ export const UsersPage: FC = () => {
 			<UsersTable
 				toolbar={<UsersFilterBar />}
 				headerActions={
-					<ResourceRefreshButton
-						aria-label={t("refresh")}
-						label={t("refresh")}
-						icon={<ReloadIcon />}
-						onClick={() => refetchUsers(true)}
-						isLoading={loading}
-					/>
+					<HStack spacing={1}>
+						<ResourceRefreshButton
+							aria-label={t("refresh")}
+							label={t("refresh")}
+							icon={<ReloadIcon />}
+							onClick={() => {
+								refetchUsers(true);
+								void refreshOnlineUsers();
+							}}
+							isLoading={loading}
+						/>
+						<Menu placement={isRTL ? "bottom-start" : "bottom-end"} isLazy>
+							<MenuButton
+								as={Button}
+								size="sm"
+								variant="ghost"
+								rightIcon={<ChevronDownIcon width={14} />}
+								aria-label={t("usersTable.autoRefresh")}
+								px={2}
+							>
+								{autoRefreshInterval
+									? `${t("usersTable.autoRefresh")} · ${autoRefreshInterval / 1000}s`
+									: t("usersTable.autoRefreshOff")}
+							</MenuButton>
+							<Portal>
+								<MenuList
+									zIndex={1800}
+									minW="170px"
+									bg="panel.surface"
+									borderColor="panel.border"
+								>
+									<MenuItem
+										onClick={() => setAutoRefreshInterval(0)}
+										fontWeight={autoRefreshInterval === 0 ? "bold" : "normal"}
+									>
+										{t("usersTable.autoRefreshOff")}
+									</MenuItem>
+									{AUTO_REFRESH_INTERVALS.map((interval) => (
+										<MenuItem
+											key={interval}
+											onClick={() => setAutoRefreshInterval(interval)}
+											fontWeight={
+												autoRefreshInterval === interval ? "bold" : "normal"
+											}
+										>
+											{t("usersTable.autoRefreshEvery", {
+												seconds: interval / 1000,
+											})}
+										</MenuItem>
+									))}
+								</MenuList>
+							</Portal>
+						</Menu>
+					</HStack>
 				}
 			/>
 			<Pagination />

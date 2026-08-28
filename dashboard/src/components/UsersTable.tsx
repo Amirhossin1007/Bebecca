@@ -68,6 +68,7 @@ import { generateUserLinks } from "utils/userLinks";
 import { AppDialog } from "./dialogs/AppDialog";
 import { ConfirmDialog, DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { OperatorIdentity } from "./OperatorIdentity";
+import { OnlineStatus } from "./OnlineStatus";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -1105,6 +1106,22 @@ export const UsersTable: FC<UsersTableProps> = ({
 				cell: (user) => <UserAdminChip adminUsername={user.admin_username} />,
 			});
 		}
+
+		columns.push({
+			id: "last_connection",
+			header: t("bulkActions.delete.lastOnline"),
+			desktopVisible: false,
+			mobileVisible: true,
+			mobilePriority: 10,
+			mobileMetaLabel: t("bulkActions.delete.lastOnline"),
+			cell: (user) => (
+				<OnlineStatus
+					lastOnline={user.online_at ?? null}
+					withMargin={false}
+					compact
+				/>
+			),
+		});
 
 		return columns;
 	}, [canOpenUserDialog, canViewTraffic, hasPrivilegedRole, t]);

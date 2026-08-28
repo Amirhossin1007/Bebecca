@@ -288,6 +288,19 @@ const fetchUsers = (
 				usersResponse,
 				sanitizedQuery,
 			);
+			const previousUsers = new Map(
+				useDashboard
+					.getState()
+					.users.users.map((user) => [user.username, user]),
+			);
+			normalizedResponse.users = normalizedResponse.users.map((user) => {
+				const previous = previousUsers.get(user.username);
+				return {
+					...user,
+					upload_speed: user.upload_speed ?? previous?.upload_speed,
+					download_speed: user.download_speed ?? previous?.download_speed,
+				};
+			});
 			const limit = normalizedResponse.users_limit ?? null;
 			const activeTotal = normalizedResponse.active_total ?? null;
 			const isUserLimitReached =
