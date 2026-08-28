@@ -52,14 +52,14 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-/* محاسبه رنگ بر اساس درصد مصرف */
+/* محاسبه رنگ خط پیشرفت بر اساس درصد مصرف */
 const getUsageColorScheme = (percent: number) => {
 	if (percent >= 80) return "red";
 	if (percent >= 60) return "orange";
 	return "green";
 };
 
-/* فرمت هوشمند و دقیق زمان */
+/* فرمت هوشمند و خوانای زمان */
 const formatLocalizedDuration = (
 	totalSeconds: number,
 	t: TFunction,
@@ -509,7 +509,7 @@ const HardwareBentoCard: FC<{
 					{subtitle && (
 						<Text
 							fontSize="xs"
-							fontWeight="600"
+							fontWeight="700"
 							color="panel.textMuted"
 							dir={isRTL ? "rtl" : "ltr"}
 						>
@@ -621,7 +621,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 	}
 
 	const cpuSubtitle = `${formatNumberValue(systemData.cpu_cores)} ${t("core", "هسته")}`;
-	const panelCpuSubtitle = `${formatNumberValue(systemData.app_threads)} ${t("threads", "تردها")}`;
+	const panelCpuSubtitle = `${formatNumberValue(systemData.app_threads)} ${t("thread", "ترد")}`;
 
 	const activePercent =
 		systemData.total_user > 0
@@ -650,8 +650,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}
 			>
 				<Stack spacing={5}>
-					{/* Hardware Metrics 4-Card Grid */}
-					<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={4}>
+					{/* Hardware Metrics 2x2 Grid */}
+					<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
 						<HardwareBentoCard
 							label={t("cpuUsage")}
 							icon={<CpuChipIcon width={18} />}
@@ -704,18 +704,20 @@ export const Statistics: FC<BoxProps> = (props) => {
 						/>
 					</SimpleGrid>
 
-					{/* Row: Network Speeds Card (Separate) & System Uptime Card (Separate) */}
-					<SimpleGrid columns={{ base: 1, lg: 3 }} gap={4}>
+					{/* Row: Network Speeds Card (Left) & System Uptime Card (Right) - Perfectly Balanced 2-Column Grid */}
+					<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
 						{/* Separate Speeds Card */}
 						<Box
-							gridColumn={{ base: "span 1", lg: "span 2" }}
 							p={{ base: 4, md: 5 }}
 							borderRadius="2xl"
 							bg="panel.input"
 							borderWidth="1px"
 							borderColor="panel.border"
+							display="flex"
+							flexDirection="column"
+							justifyContent="space-between"
 						>
-							<Flex justify="space-between" align="center" mb={4} flexWrap="wrap" gap={2}>
+							<Flex justify="space-between" align="center" mb={3.5} flexWrap="wrap" gap={2}>
 								<HStack spacing={2.5}>
 									<SignalIcon width={18} color="var(--rb-panel-accent)" />
 									<Text fontSize="sm" fontWeight="700" color="panel.text">
@@ -742,7 +744,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								</Button>
 							</Flex>
 
-							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
+							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
 								<Flex
 									p={3.5}
 									borderRadius="xl"
@@ -808,28 +810,40 @@ export const Statistics: FC<BoxProps> = (props) => {
 							flexDirection="column"
 							justifyContent="space-between"
 						>
-							<HStack spacing={2.5} mb={3}>
-								<ClockIcon width={18} color="var(--rb-panel-accent)" />
-								<Text fontSize="sm" fontWeight="700" color="panel.text">
-									{t("systemUptime")}
-								</Text>
-							</HStack>
+							<Flex justify="space-between" align="center" mb={3.5}>
+								<HStack spacing={2.5}>
+									<ClockIcon width={18} color="var(--rb-panel-accent)" />
+									<Text fontSize="sm" fontWeight="700" color="panel.text">
+										{t("systemUptime")}
+									</Text>
+								</HStack>
+								<Badge colorScheme="green" variant="subtle" borderRadius="full" px={2.5} py={0.5} fontSize="11px">
+									{t("status.active")}
+								</Badge>
+							</Flex>
+
 							<Flex
 								p={3.5}
 								borderRadius="xl"
 								bg="panel.elevated"
 								borderWidth="1px"
 								borderColor="panel.border"
-								justify="center"
+								justify="space-between"
 								align="center"
-								h="full"
 								minH="56px"
 							>
+								<HStack spacing={2.5}>
+									<Box color="var(--rb-panel-accent)">
+										<ClockIcon width={18} />
+									</Box>
+									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+										{t("systemUptime")}
+									</Text>
+								</HStack>
 								<Text
-									fontSize="sm"
+									fontSize={{ base: "xs", sm: "sm" }}
 									fontWeight="800"
 									color="panel.text"
-									textAlign="center"
 									dir={isRTL ? "rtl" : "ltr"}
 								>
 									{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
