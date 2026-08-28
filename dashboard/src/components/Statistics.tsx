@@ -149,6 +149,9 @@ const sanitizeSystemStats = (
 		cpu_usage: toFiniteNumber(raw.cpu_usage),
 		total_user: toFiniteNumber(raw.total_user),
 		online_users: toFiniteNumber(raw.online_users),
+		online_users_usage: toFiniteNumber(raw.online_users_usage),
+		online_users_upload_speed: toFiniteNumber(raw.online_users_upload_speed),
+		online_users_download_speed: toFiniteNumber(raw.online_users_download_speed),
 		users_active: toFiniteNumber(raw.users_active),
 		users_on_hold: toFiniteNumber(raw.users_on_hold),
 		users_disabled: toFiniteNumber(raw.users_disabled),
@@ -1251,6 +1254,20 @@ const UsersOverviewCard: FC<{
 				value={formatNumberValue(data.total_user)}
 				colorScheme="blue"
 			/>
+			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={5}>
+				<MetricBadge
+					label={t("dashboard.onlineUsersUsage")}
+					value={formatBytes(data.online_users_usage)}
+					colorScheme="teal"
+					helper={t("dashboard.onlineUsersCount", { count: data.online_users })}
+				/>
+				<MetricBadge
+					label={t("dashboard.onlineUsersSpeed")}
+					value={`${formatBytes(data.online_users_upload_speed + data.online_users_download_speed)}/s`}
+					colorScheme="cyan"
+					helper={`↑ ${formatBytes(data.online_users_upload_speed)}/s · ↓ ${formatBytes(data.online_users_download_speed)}/s`}
+				/>
+			</SimpleGrid>
 			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={5}>
 				<MetricBadge
 					label={t("status.active")}

@@ -104,6 +104,7 @@ type CollectUsageResult struct {
 type UserTrafficSpeed struct {
 	UserID        int64
 	Username      string
+	AdminID       *int64
 	ServiceID     *int64
 	UploadSpeed   uint64
 	DownloadSpeed uint64

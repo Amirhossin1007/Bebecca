@@ -7,9 +7,6 @@ import {
 	ButtonGroup,
 	Divider,
 	HStack,
-	Input,
-	InputGroup,
-	InputLeftElement,
 	Spinner,
 	Progress,
 	SimpleGrid,
@@ -18,13 +15,10 @@ import {
 	Text,
 	VStack,
 } from "@chakra-ui/react";
-import {
-	ArrowPathIcon,
-	EyeIcon,
-	MagnifyingGlassIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowPathIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { OperatorIdentity } from "components/OperatorIdentity";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { AppDialog } from "components/dialogs/AppDialog";
 import {
 	DataTable,
@@ -43,6 +37,10 @@ import type {
 } from "types/AccessInsights";
 import { filterAccessInsightItems } from "utils/accessInsights";
 import { formatBytes } from "utils/formatByte";
+import {
+	addSearchMatchQuery,
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+} from "utils/searchMatch";
 
 const PAGE_SIZE = 30;
 const REFRESH_INTERVAL = 15_000;
@@ -75,6 +73,7 @@ const AccessInsightsPage: FC = () => {
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const [data, setData] = useState<AccessInsightsResponse | null>(null);
 	const [search, setSearch] = useState("");
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [protocolFilter, setProtocolFilter] = useState("");
 	const [nodeFilter, setNodeFilter] = useState("");
 	const [page, setPage] = useState(0);
@@ -94,6 +93,7 @@ const AccessInsightsPage: FC = () => {
 				window_seconds: "300",
 			});
 			if (search.trim()) query.set("search", search.trim());
+			addSearchMatchQuery(query, searchMatch);
 			setData(
 				await fetch<AccessInsightsResponse>(
 					`/core/access/insights/multi-node?${query.toString()}`,
@@ -108,7 +108,7 @@ const AccessInsightsPage: FC = () => {
 		} finally {
 			setLoading(false);
 		}
-	}, [canView, search, t]);
+	}, [canView, search, searchMatch, t]);
 
 	useEffect(() => {
 		void load();
@@ -445,19 +445,20 @@ const AccessInsightsPage: FC = () => {
 						w="full"
 						maxW="760px"
 					>
-						<InputGroup flex="1">
-							<InputLeftElement pointerEvents="none">
-								<MagnifyingGlassIcon width={18} />
-							</InputLeftElement>
-							<Input
+						<SearchInput
+							containerProps={{ flex: "1" }}
 								value={search}
 								onChange={(event) => {
 									setSearch(event.target.value);
 									setPage(0);
 								}}
 								placeholder={t("pages.accessInsights.liveSearch")}
+							matchOptions={searchMatch}
+							onMatchOptionsChange={(options) => {
+								setSearchMatch(options);
+								setPage(0);
+							}}
 							/>
-						</InputGroup>
 						<Select
 							value={protocolFilter}
 							onChange={(event) => {

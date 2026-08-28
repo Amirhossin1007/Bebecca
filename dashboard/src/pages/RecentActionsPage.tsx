@@ -7,8 +7,6 @@ import {
 	Divider,
 	HStack,
 	Input,
-	InputGroup,
-	InputLeftElement,
 	SimpleGrid,
 	Spinner,
 	Stack,
@@ -21,13 +19,13 @@ import {
 	CheckCircleIcon,
 	EyeIcon,
 	KeyIcon,
-	MagnifyingGlassIcon,
 	NoSymbolIcon,
 	PencilSquareIcon,
 	PlusCircleIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { JsonEditor } from "components/JsonEditor";
 import { Pagination } from "components/Pagination";
 import {
@@ -45,6 +43,10 @@ import { useMutation, useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
 import { AdminRole, AdminSudoScope } from "types/Admin";
 import { buildJsonDiff } from "utils/jsonDiff";
+import {
+	addSearchMatchQuery,
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+} from "utils/searchMatch";
 import {
 	getRecentActionsPerPageLimitSize,
 	setRecentActionsPerPageLimitSize,
@@ -489,6 +491,7 @@ export const RecentActionsPage: FC = () => {
 	const [selectedID, setSelectedID] = useState<number | null>(null);
 	const [search, setSearch] = useState("");
 	const [searchQuery, setSearchQuery] = useState("");
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [actionTypesFilter, setActionTypesFilter] = useState<string[]>([]);
 	const [resourceTypesFilter, setResourceTypesFilter] = useState<string[]>([]);
 	const [statusesFilter, setStatusesFilter] = useState<string[]>([]);
@@ -516,6 +519,7 @@ export const RecentActionsPage: FC = () => {
 			offset: String(pageIndex * pageSize),
 		});
 		if (searchQuery) params.set("search", searchQuery);
+		addSearchMatchQuery(params, searchMatch);
 		if (dayFilter) params.set("day", dayFilter);
 		for (const value of actionTypesFilter) params.append("action_type", value);
 		for (const value of resourceTypesFilter)
@@ -529,6 +533,7 @@ export const RecentActionsPage: FC = () => {
 		pageSize,
 		resourceTypesFilter,
 		searchQuery,
+		searchMatch,
 		statusesFilter,
 	]);
 	const actionsQuery = useQuery(
@@ -578,12 +583,17 @@ export const RecentActionsPage: FC = () => {
 			Array.from(new Set(actions.map((action) => action.action_type))).sort(),
 		[actions, actionsQuery.data?.action_types],
 	);
-	const actionTypeLabel = useCallback((type: string) => {
+	const actionTypeLabel = useCallback(
+		(type: string) => {
 		const labelKey = recentActionLabelKeys[type];
 		if (labelKey) return t(labelKey);
 		const resource = t(resourceTranslationKey(actionTypeResource(type)));
-		return t(`recentActions.operations.${actionOperation(type)}`, { resource });
-	}, [t]);
+			return t(`recentActions.operations.${actionOperation(type)}`, {
+				resource,
+			});
+		},
+		[t],
+	);
 	const resourceTypes = useMemo(
 		() =>
 			actionsQuery.data?.resource_types ??
@@ -744,8 +754,7 @@ export const RecentActionsPage: FC = () => {
 
 	const detail = detailQuery.data;
 	const eventChanges = detail?.changes ?? [];
-	const affectedResources =
-		detail?.affected_resources?.length
+	const affectedResources = detail?.affected_resources?.length
 			? detail.affected_resources
 			: (selectedAction?.affected_resources ?? []);
 	const configChanges = detail?.config_changes ?? [];
@@ -798,7 +807,9 @@ export const RecentActionsPage: FC = () => {
 								return (
 									<HStack key={change.field} spacing={2} flexWrap="wrap">
 										<Text fontSize="sm" minW="140px" color="panel.textMuted">
-											{labelKey ? t(labelKey) : change.field.replaceAll("_", " ")}
+											{labelKey
+												? t(labelKey)
+												: change.field.replaceAll("_", " ")}
 										</Text>
 										<Text color="red.300" textDecoration="line-through">
 											{change.before}
@@ -893,7 +904,9 @@ export const RecentActionsPage: FC = () => {
 					<Alert status="error">
 						<AlertIcon />
 						<Stack spacing={2}>
-							<Text>{rollbackErrorDetail || t("recentActions.rollbackFailed")}</Text>
+							<Text>
+								{rollbackErrorDetail || t("recentActions.rollbackFailed")}
+							</Text>
 							{rollbackConflictPaths.length > 0 && (
 								<HStack spacing={2} flexWrap="wrap">
 									{rollbackConflictPaths.map((path) => (
@@ -943,11 +956,8 @@ export const RecentActionsPage: FC = () => {
 					spacing={2}
 					align="stretch"
 				>
-					<InputGroup size="sm" w={{ base: "full", md: "300px" }}>
-						<InputLeftElement pointerEvents="none">
-							<MagnifyingGlassIcon width={16} />
-						</InputLeftElement>
-						<Input
+					<SearchInput
+						containerProps={{ w: { base: "full", md: "340px" } }}
 							value={search}
 							onChange={(event) => {
 								setSearch(event.target.value);
@@ -955,8 +965,12 @@ export const RecentActionsPage: FC = () => {
 							}}
 							placeholder={t("recentActions.searchPlaceholder")}
 							aria-label={t("recentActions.searchPlaceholder")}
+						matchOptions={searchMatch}
+						onMatchOptionsChange={(options) => {
+							setSearchMatch(options);
+							resetPagination();
+						}}
 						/>
-					</InputGroup>
 					<Select
 						mode="multiple"
 						size="sm"

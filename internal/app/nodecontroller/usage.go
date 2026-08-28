@@ -90,6 +90,7 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 					continue
 				}
 				result.Speeds[i].Username = identity.Username
+				result.Speeds[i].AdminID = identity.AdminID
 				result.Speeds[i].ServiceID = identity.ServiceID
 			}
 		}

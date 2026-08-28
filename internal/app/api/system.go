@@ -21,12 +21,24 @@ func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	stats, err := s.systemStatsService().Stats(ctx, dashboardAdminContext(r))
+	stats, err := s.systemStatsForRequest(ctx, r)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
+}
+
+func (s *Server) systemStatsForRequest(ctx context.Context, r *http.Request) (systemapp.SystemStats, error) {
+	stats, err := s.systemStatsService().Stats(ctx, dashboardAdminContext(r))
+	if err != nil {
+		return systemapp.SystemStats{}, err
+	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	total := s.liveUserSpeedTotalFor(principal)
+	stats.OnlineUsersUploadRate = total.Upload
+	stats.OnlineUsersDownloadRate = total.Download
+	return stats, nil
 }
 
 func (s *Server) systemStatsService() *systemapp.Service {
@@ -40,9 +52,10 @@ func dashboardAdminContext(r *http.Request) dashboardapp.AdminContext {
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
 	adminID := principal.ID
 	adminContext := dashboardapp.AdminContext{
-		ID:       &adminID,
-		Username: principal.Username,
-		Role:     principal.Role,
+		ID:             &adminID,
+		Username:       principal.Username,
+		Role:           principal.Role,
+		CanViewTraffic: canViewUserTraffic(principal.Context.Admin, nil),
 	}
 	if adminID <= 0 {
 		adminContext.ID = nil

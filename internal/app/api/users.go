@@ -48,6 +48,13 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := s.usersListContext(r.Context())
 	defer cancel()
+	if hasAdvancedUserFilter(req.AdvancedFilters, "top_speed") {
+		req, err = s.applyTopSpeedUserFilter(ctx, principal, req)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+	}
 	result, err := s.userService.UsersList(ctx, req)
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -571,6 +578,14 @@ func (s *Server) usersListRequest(r *http.Request, principal adminPrincipal) (us
 	if err != nil {
 		return userapp.UsersListRequest{}, fmt.Errorf("invalid links")
 	}
+	matchCase, err := optionalQueryBool(q.Get("match_case"))
+	if err != nil {
+		return userapp.UsersListRequest{}, fmt.Errorf("invalid match_case")
+	}
+	matchWholeWord, err := optionalQueryBool(q.Get("match_whole_word"))
+	if err != nil {
+		return userapp.UsersListRequest{}, fmt.Errorf("invalid match_whole_word")
+	}
 
 	adminCtx := s.userAdminContext(principal, serviceID)
 	owners := cleanValues(q["admin"])
@@ -583,6 +598,8 @@ func (s *Server) usersListRequest(r *http.Request, principal adminPrincipal) (us
 		Limit:           limit,
 		Usernames:       cleanValues(q["username"]),
 		Search:          strings.TrimSpace(q.Get("search")),
+		MatchCase:       matchCase,
+		MatchWholeWord:  matchWholeWord,
 		Owners:          owners,
 		Status:          strings.TrimSpace(q.Get("status")),
 		AdvancedFilters: advancedFilterValues(q),

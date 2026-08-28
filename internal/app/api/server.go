@@ -67,6 +67,8 @@ type Server struct {
 	userOpsKickUserIDs   map[int64]struct{}
 	liveUserSpeedsMu     sync.RWMutex
 	liveUserSpeeds       map[string]liveUserSpeed
+	liveUserSpeedTotals  map[liveUserSpeedScope]liveUserSpeedTotal
+	liveUserGlobalSpeed  liveUserSpeedTotal
 	sessionAdmissionMu   sync.Mutex
 	loginLimiter         loginRateLimiter
 	operators            *operatorResolver

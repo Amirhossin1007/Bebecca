@@ -38,7 +38,14 @@ import { useAdminsStore } from "contexts/AdminsContext";
 import { getDefaultPermissionsForRole } from "constants/adminPermissions";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type FC,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { fetch } from "service/http";
@@ -51,6 +58,7 @@ import { AdminRole, AdminStatus, AdminTrafficLimitMode } from "types/Admin";
 import type { ServiceSummary } from "types/Service";
 import { relativeExpiryDate } from "utils/dateFormatter";
 import { formatBytes } from "utils/formatByte";
+import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import {
 	generateErrorMessage,
 	generateSuccessMessage,
@@ -63,6 +71,7 @@ import {
 	type AnimatedSubmitStatus,
 } from "./common/AnimatedSubmitButton";
 import { NumericInput } from "./common/NumericInput";
+import { SearchInput } from "./common/SearchInput";
 import { DateTimePicker } from "./DateTimePicker";
 import {
 	XrayModalBody,
@@ -187,7 +196,8 @@ export const AdminDialog: FC = () => {
 	const { userData } = useGetUser();
 	const canCreateFullAccess = userData.role === AdminRole.FullAccess;
 	const canManage2FA =
-		canCreateFullAccess || Boolean(userData.permissions.admin_management.manage_2fa);
+		canCreateFullAccess ||
+		Boolean(userData.permissions.admin_management.manage_2fa);
 	const toast = useToast();
 	const {
 		admins,
@@ -354,15 +364,17 @@ export const AdminDialog: FC = () => {
 		[adminExpireUnix],
 	);
 	const [serviceSearch, setServiceSearch] = useState("");
+	const [serviceSearchMatch, setServiceSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const filteredServices = useMemo(() => {
-		const query = serviceSearch.trim().toLowerCase();
-		if (!query) {
+		if (!serviceSearch.trim()) {
 			return serviceOptions;
 		}
 		return serviceOptions.filter((service) =>
-			service.name.toLowerCase().includes(query),
+			matchesSearch(service.name, serviceSearch, serviceSearchMatch),
 		);
-	}, [serviceOptions, serviceSearch]);
+	}, [serviceOptions, serviceSearch, serviceSearchMatch]);
 	const selectedServices = watch("services") || [];
 	const selectedServicesSet = useMemo(
 		() => new Set(selectedServices),
@@ -703,7 +715,8 @@ export const AdminDialog: FC = () => {
 		}
 	}, [clearSubmitTimers, isOpen]);
 
-	const handleFormSubmit = handleSubmit(async (values) => {
+	const handleFormSubmit = handleSubmit(
+		async (values) => {
 		if (submitStatus !== "idle") return;
 		clearSubmitTimers();
 		setSubmitStatus("loading");
@@ -893,10 +906,7 @@ export const AdminDialog: FC = () => {
 				if (shouldFetch) {
 					await fetchAdmins(undefined, { force: true });
 				}
-				generateSuccessMessage(
-					t("admins.createSuccess"),
-					toast,
-				);
+					generateSuccessMessage(t("admins.createSuccess"), toast);
 				if (serviceSyncError) {
 					generateErrorMessage(serviceSyncError, toast);
 				}
@@ -946,10 +956,7 @@ export const AdminDialog: FC = () => {
 					payload.password = values.password;
 				}
 				await updateAdmin(admin.username, payload);
-				generateSuccessMessage(
-					t("admins.updateSuccess"),
-					toast,
-				);
+					generateSuccessMessage(t("admins.updateSuccess"), toast);
 			}
 			setSubmitStatus("success");
 			successCloseTimerRef.current = window.setTimeout(() => {
@@ -960,10 +967,12 @@ export const AdminDialog: FC = () => {
 			generateErrorMessage(error, toast, form);
 			showSubmitError();
 		}
-	}, () => {
+		},
+		() => {
 		if (submitStatus !== "idle") return;
 		showSubmitError();
-	});
+		},
+	);
 
 	const detailsForm = (
 		<VStack spacing={4} align="stretch">
@@ -1100,9 +1109,7 @@ export const AdminDialog: FC = () => {
 						>
 							<VStack align="flex-start" spacing={2}>
 								<Radio value={AdminRole.Standard}>
-									<Text fontWeight="medium">
-										{t("admins.roles.standard")}
-									</Text>
+									<Text fontWeight="medium">{t("admins.roles.standard")}</Text>
 									<FormHelperText m={0}>
 										{t("admins.roles.standardDescription")}
 									</FormHelperText>
@@ -1119,9 +1126,7 @@ export const AdminDialog: FC = () => {
 									</FormHelperText>
 								</Radio>
 								<Radio value={AdminRole.Sudo}>
-									<Text fontWeight="medium">
-										{t("admins.roles.sudo")}
-									</Text>
+									<Text fontWeight="medium">{t("admins.roles.sudo")}</Text>
 									<FormHelperText m={0}>
 										{t("admins.roles.sudoDescription")}
 									</FormHelperText>
@@ -1309,9 +1314,7 @@ export const AdminDialog: FC = () => {
 								{t(adminExpireInfo.status, { time: adminExpireInfo.time })}
 							</FormHelperText>
 						) : (
-							<FormHelperText>
-								{t("admins.expireHint")}
-							</FormHelperText>
+							<FormHelperText>{t("admins.expireHint")}</FormHelperText>
 						)}
 					</FormControl>
 				</VStack>
@@ -1347,11 +1350,13 @@ export const AdminDialog: FC = () => {
 									{selectedServices.length} / {serviceOptions.length}
 								</Badge>
 							</HStack>
-							<Input
+							<SearchInput
 								value={serviceSearch}
 								onChange={(event) => setServiceSearch(event.target.value)}
 								placeholder={t("admins.searchServices")}
-								size="sm"
+								matchOptions={serviceSearchMatch}
+								onMatchOptionsChange={setServiceSearchMatch}
+								onClear={() => setServiceSearch("")}
 							/>
 							<VStack
 								className="admin-services-list"
@@ -1490,8 +1495,7 @@ export const AdminDialog: FC = () => {
 																	{service?.name ?? `#${serviceId}`}
 																</Text>
 																<Text color="gray.400" fontSize="xs">
-																	{t("admins.deletedUserUsage")}
-																	:{" "}
+																	{t("admins.deletedUserUsage")}:{" "}
 																	{formatBytes(
 																		Number(item.deleted_users_usage ?? 0),
 																		2,
@@ -1541,9 +1545,7 @@ export const AdminDialog: FC = () => {
 															spacing={2}
 														>
 															<FormControl>
-																<FormLabel>
-																	{t("admins.dataLimit")}
-																</FormLabel>
+																<FormLabel>{t("admins.dataLimit")}</FormLabel>
 																<NumericInput
 																	value={item.data_limit ?? ""}
 																	precision={0}
@@ -1556,9 +1558,7 @@ export const AdminDialog: FC = () => {
 																/>
 															</FormControl>
 															<FormControl>
-																<FormLabel>
-																	{t("admins.usersLimit")}
-																</FormLabel>
+																<FormLabel>{t("admins.usersLimit")}</FormLabel>
 																<NumericInput
 																	value={item.users_limit ?? ""}
 																	precision={0}
@@ -1625,9 +1625,7 @@ export const AdminDialog: FC = () => {
 								</VStack>
 							)}
 						</VStack>
-						<FormHelperText>
-							{t("admins.servicesHelper")}
-						</FormHelperText>
+						<FormHelperText>{t("admins.servicesHelper")}</FormHelperText>
 					</FormControl>
 				</VStack>
 			</Box>
@@ -1637,7 +1635,9 @@ export const AdminDialog: FC = () => {
 	const permissionsPanel = (
 		<VStack align="stretch" spacing={4}>
 			<AdminPermissionsEditor
-				value={permissionsValue ?? clonePermissions(watchRole ?? AdminRole.Standard)}
+				value={
+					permissionsValue ?? clonePermissions(watchRole ?? AdminRole.Standard)
+				}
 				onChange={handlePermissionsChange}
 				showReset
 				onReset={resetPermissionsToRole}
@@ -1728,12 +1728,7 @@ export const AdminDialog: FC = () => {
 						</Tabs>
 					</XrayModalBody>
 					<XrayModalFooter>
-						<HStack
-							spacing={3}
-							w="full"
-							justify="flex-end"
-							flexWrap="wrap"
-						>
+						<HStack spacing={3} w="full" justify="flex-end" flexWrap="wrap">
 							<Button
 								variant="ghost"
 								size="sm"
@@ -1745,9 +1740,7 @@ export const AdminDialog: FC = () => {
 								onClick={handleFormSubmit}
 								status={submitStatus}
 								idleContent={
-									mode === "create"
-										? t("admins.addAdmin")
-										: t("save")
+									mode === "create" ? t("admins.addAdmin") : t("save")
 								}
 								successLabel={t("userDialog.submitSuccess")}
 								isDisabled={isSubmitting}

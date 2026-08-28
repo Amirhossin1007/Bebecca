@@ -20,6 +20,8 @@ type UsersListRequest struct {
 	Limit           *int64       `json:"limit,omitempty"`
 	Usernames       []string     `json:"usernames,omitempty"`
 	Search          string       `json:"search,omitempty"`
+	MatchCase       bool         `json:"match_case,omitempty"`
+	MatchWholeWord  bool         `json:"match_whole_word,omitempty"`
 	Owners          []string     `json:"owners,omitempty"`
 	Status          string       `json:"status,omitempty"`
 	AdvancedFilters []string     `json:"advanced_filters,omitempty"`

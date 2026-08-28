@@ -12,6 +12,7 @@ import (
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	"github.com/rebeccapanel/rebecca/internal/app/online"
+	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 )
 
 func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
@@ -29,18 +30,31 @@ func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	usernameFilter := strings.TrimSpace(r.URL.Query().Get("username"))
+	matchCase, err := optionalQueryBool(r.URL.Query().Get("match_case"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid match_case")
+		return
+	}
+	matchWholeWord, err := optionalQueryBool(r.URL.Query().Get("match_whole_word"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid match_whole_word")
+		return
+	}
 	offset := parseOptionalNonNegativeInt(r.URL.Query().Get("offset"), 0)
 	limit := parseOptionalNonNegativeInt(r.URL.Query().Get("limit"), 0)
 	sortField := adminSortClause(r.URL.Query().Get("sort"))
 
 	admins := []map[string]any{}
 	total := 0
-	err := s.withTx(r.Context(), func(tx *sql.Tx) error {
+	err = s.withTx(r.Context(), func(tx *sql.Tx) error {
 		where := `WHERE status != ?`
 		args := []any{string(adminapp.StatusDeleted)}
 		if usernameFilter != "" {
-			where += ` AND LOWER(username) LIKE LOWER(?)`
-			args = append(args, "%"+usernameFilter+"%")
+			predicate, searchArgs := searchmatch.SQLAny(s.dialect, []string{"username"}, usernameFilter, searchmatch.Options{
+				MatchCase: matchCase, MatchWholeWord: matchWholeWord,
+			})
+			where += ` AND ` + predicate
+			args = append(args, searchArgs...)
 		}
 		if err := tx.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM admins `+where, args...).Scan(&total); err != nil {
 			return err

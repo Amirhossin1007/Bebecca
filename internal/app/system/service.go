@@ -92,6 +92,7 @@ func (s *Service) Stats(ctx context.Context, admin dashboardapp.AdminContext) (S
 		CPUUsage:              snapshot.CPUUsage,
 		TotalUser:             summary.TotalUser,
 		OnlineUsers:           summary.OnlineUsers,
+		OnlineUsersUsage:      summary.OnlineUsersUsage,
 		UsersActive:           summary.UsersActive,
 		UsersOnHold:           summary.UsersOnHold,
 		UsersDisabled:         summary.UsersDisabled,

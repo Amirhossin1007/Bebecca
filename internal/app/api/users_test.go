@@ -170,6 +170,27 @@ func TestOnlineUsersRouteUsesLiveSetAndAdminScope(t *testing.T) {
 		{Username: "alice", UploadSpeed: 100, DownloadSpeed: 200},
 		{Username: "bob", UploadSpeed: 300, DownloadSpeed: 400},
 	})
+	assertTopSpeedUser := func(token, want string) {
+		t.Helper()
+		rec := userReadRequest(t, server, http.MethodGet, "/api/users?filter=top_speed", token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("top speed user status = %d body=%s", rec.Code, rec.Body.String())
+		}
+		var result struct {
+			Users []struct {
+				Username string `json:"username"`
+			} `json:"users"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Users) != 1 || result.Users[0].Username != want {
+			t.Fatalf("top speed users = %#v, want %q", result.Users, want)
+		}
+	}
+	assertTopSpeedUser(adminBearerToken(t, server, "owner", "pass123"), "bob")
+	assertTopSpeedUser(adminBearerToken(t, server, "seller", "pass123"), "alice")
+
 	rec := userReadRequest(t, server, http.MethodGet, "/api/users/onlines?details=true", adminBearerToken(t, server, "seller", "pass123"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("online details status = %d body=%s", rec.Code, rec.Body.String())

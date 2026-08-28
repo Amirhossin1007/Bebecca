@@ -38,6 +38,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { AppleEmojiText } from "components/common/AppleEmojiText";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { Input } from "components/Input";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
@@ -81,6 +82,10 @@ import type {
 	ServiceSummary,
 } from "types/Service";
 import { formatBytes } from "utils/formatByte";
+import {
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+	matchesAnySearch,
+} from "utils/searchMatch";
 
 type HostOption = {
 	id: number;
@@ -192,6 +197,12 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 	);
 	const [adminSearch, setAdminSearch] = useState("");
 	const [hostSearch, setHostSearch] = useState("");
+	const [adminSearchMatch, setAdminSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
+	const [hostSearchMatch, setHostSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [hoveredHost, setHoveredHost] = useState<number | null>(null);
 	const [autoInboundBusy, setAutoInboundBusy] = useState(false);
 	const toast = useToast();
@@ -235,31 +246,26 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 	}, [allHosts, selectedHosts]);
 
 	const filteredAvailableHosts = useMemo(() => {
-		const query = hostSearch.trim().toLowerCase();
-		if (!query) {
+		if (!hostSearch.trim()) {
 			return availableHosts;
 		}
-		return availableHosts.filter((host) => {
-			const label = host.label.toLowerCase();
-			const inboundTag = host.inboundTag.toLowerCase();
-			const protocol = host.protocol.toLowerCase();
-			return (
-				label.includes(query) ||
-				inboundTag.includes(query) ||
-				protocol.includes(query)
+		return availableHosts.filter((host) =>
+			matchesAnySearch(
+				[host.label, host.inboundTag, host.protocol],
+				hostSearch,
+				hostSearchMatch,
+			),
 			);
-		});
-	}, [availableHosts, hostSearch]);
+	}, [availableHosts, hostSearch, hostSearchMatch]);
 
 	const filteredAdmins = useMemo(() => {
-		const query = adminSearch.trim().toLowerCase();
-		if (!query) {
+		if (!adminSearch.trim()) {
 			return allAdmins;
 		}
 		return allAdmins.filter((admin) =>
-			admin.username.toLowerCase().includes(query),
+			matchesAnySearch([admin.username], adminSearch, adminSearchMatch),
 		);
-	}, [adminSearch, allAdmins]);
+	}, [adminSearch, adminSearchMatch, allAdmins]);
 
 	const selectedAdminsSet = useMemo(
 		() => new Set(selectedAdmins),
@@ -449,12 +455,13 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 								>
 									{t("services.selectAllAdmins")}
 								</Checkbox>
-								<Input
+								<SearchInput
 									value={adminSearch}
 									onChange={(event) => setAdminSearch(event.target.value)}
 									placeholder={t("services.searchAdmins")}
-									size="sm"
-									clearable
+									matchOptions={adminSearchMatch}
+									onMatchOptionsChange={setAdminSearchMatch}
+									onClear={() => setAdminSearch("")}
 								/>
 								<VStack
 									className="service-dialog-list"
@@ -587,12 +594,13 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 									{t("services.availableHosts")}
 								</Text>
 								<Stack spacing={2}>
-									<Input
+									<SearchInput
 										value={hostSearch}
 										onChange={(event) => setHostSearch(event.target.value)}
 										placeholder={t("services.searchHosts")}
-										size="sm"
-										clearable
+										matchOptions={hostSearchMatch}
+										onMatchOptionsChange={setHostSearchMatch}
+										onClear={() => setHostSearch("")}
 									/>
 									<VStack
 										className="service-dialog-list"

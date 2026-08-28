@@ -73,6 +73,10 @@ import {
 	isFinalMaskObject,
 	sanitizeFinalMask,
 } from "utils/finalmask";
+import {
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+	matchesAnySearch,
+} from "utils/searchMatch";
 import { AppleEmojiText } from "./common/AppleEmojiText";
 import { DeleteIcon } from "./common/DeleteIcon";
 import {
@@ -81,6 +85,7 @@ import {
 } from "./common/MultiValueAutocomplete";
 import { NumericInput } from "./common/NumericInput";
 import { SearchableTagSelect } from "./common/SearchableTagSelect";
+import { SearchInput } from "./common/SearchInput";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { FinalMaskEditor } from "./FinalMaskEditor";
 import { JsonEditor } from "./JsonEditor";
@@ -2116,6 +2121,7 @@ export const HostsManager: FC = () => {
 	// Disabled hosts are hidden by default.
 	const [includeDisabled, setIncludeDisabled] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [savingHostUid, setSavingHostUid] = useState<string | null>(null);
 	const [deletingUid, setDeletingUid] = useState<string | null>(null);
@@ -2213,10 +2219,8 @@ export const HostsManager: FC = () => {
 		[activeHosts, allHosts, includeDisabled],
 	);
 
-	const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
 	const filteredHosts = useMemo(() => {
-		if (!normalizedSearchQuery) {
+		if (!searchQuery.trim()) {
 			return baseFilteredHosts;
 		}
 		return baseFilteredHosts.filter((host) => {
@@ -2229,18 +2233,16 @@ export const HostsManager: FC = () => {
 				host.inboundTag,
 				host.data.port != null ? String(host.data.port) : "",
 			];
-			return values.some((value) =>
-				value?.toLowerCase().includes(normalizedSearchQuery),
-			);
+			return matchesAnySearch(values, searchQuery, searchMatch);
 		});
-	}, [baseFilteredHosts, normalizedSearchQuery]);
+	}, [baseFilteredHosts, searchMatch, searchQuery]);
 
 	const displayedHosts = filteredHosts;
 
 	const hasLoadedHosts = hostItemsRef.current.length > 0;
 	const isInitialLoading = isLoading && !hasLoadedHosts;
 	const isRefreshing = isLoading && hasLoadedHosts;
-	const isSearchActive = normalizedSearchQuery.length > 0;
+	const isSearchActive = searchQuery.trim().length > 0;
 	const showSearchEmptyState =
 		!isInitialLoading &&
 		isSearchActive &&
@@ -2793,6 +2795,27 @@ export const HostsManager: FC = () => {
 				},
 			},
 			{
+				id: "status",
+				header: t("usersTable.status"),
+				priority: "high",
+				width: "112px",
+				minWidth: "96px",
+				maxWidth: "128px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobilePriority: 1,
+				mobileMetaLabel: t("usersTable.status"),
+				cell: (host) => (
+					<Text
+						fontSize="sm"
+						fontWeight="semibold"
+						color={host.data.is_disabled ? "red.400" : "green.400"}
+					>
+						{t(host.data.is_disabled ? "hostsPage.inactive" : "hostsPage.active")}
+					</Text>
+				),
+			},
+			{
 				id: "address",
 				header: t("hostsDialog.address"),
 				priority: "high",
@@ -2979,12 +3002,13 @@ export const HostsManager: FC = () => {
 					align={{ base: "stretch", sm: "center" }}
 					flexWrap="wrap"
 				>
-					<Input
+					<SearchInput
 						value={searchQuery}
 						onChange={(event) => setSearchQuery(event.target.value)}
 						placeholder={t("hostsPage.searchPlaceholder")}
-						size="sm"
-						w={{ base: "full", md: "280px" }}
+						containerProps={{ w: { base: "full", md: "320px" } }}
+						matchOptions={searchMatch}
+						onMatchOptionsChange={setSearchMatch}
 					/>
 					<Checkbox
 						isChecked={includeDisabled}

@@ -1117,6 +1117,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			cell: (user) => (
 				<OnlineStatus
 					lastOnline={user.online_at ?? null}
+					isOnline={user.is_online}
 					withMargin={false}
 					compact
 				/>

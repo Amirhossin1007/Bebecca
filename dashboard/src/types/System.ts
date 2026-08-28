@@ -41,6 +41,9 @@ export interface SystemStats {
 	cpu_usage: number;
 	total_user: number;
 	online_users: number;
+	online_users_usage: number;
+	online_users_upload_speed: number;
+	online_users_download_speed: number;
 	users_active: number;
 	users_on_hold: number;
 	users_disabled: number;

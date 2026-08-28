@@ -29,7 +29,7 @@ import { PageHeader, ResourceRefreshButton } from "components/ui";
 import { UsersFilterBar, UserQuickEditModal } from "components/users";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useCallback, useEffect, useState } from "react";
+import { type FC, useCallback, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import { AdminStatus } from "types/Admin";
@@ -161,6 +161,7 @@ export const UsersPage: FC = () => {
 	const { userData, getUserIsPending } = useGetUser();
 	const isAdminDisabled = userData.status === AdminStatus.Disabled;
 	const [autoRefreshInterval, setAutoRefreshInterval] = useState(5_000);
+	const topSpeedUsernameRef = useRef<string | undefined>(undefined);
 
 	const refreshOnlineUsers = useCallback(async () => {
 		try {
@@ -170,6 +171,17 @@ export const UsersPage: FC = () => {
 			const usernames = Array.isArray(response) ? response : response.users;
 			const speeds = Array.isArray(response) ? {} : response.speeds;
 			const online = new Set(usernames);
+			let topSpeedUsername = "";
+			let topSpeed = 0;
+			for (const [username, speed] of Object.entries(speeds)) {
+				const total = (speed.upload_speed ?? 0) + (speed.download_speed ?? 0);
+				if (total > topSpeed) {
+					topSpeed = total;
+					topSpeedUsername = username;
+				}
+			}
+			const previousTopSpeedUsername = topSpeedUsernameRef.current;
+			topSpeedUsernameRef.current = topSpeedUsername;
 			useDashboard.setState((state) => ({
 				users: {
 					...state.users,
@@ -185,6 +197,14 @@ export const UsersPage: FC = () => {
 					}),
 				},
 			}));
+			const state = useDashboard.getState();
+			if (
+				previousTopSpeedUsername !== undefined &&
+				previousTopSpeedUsername !== topSpeedUsername &&
+				state.filters.advancedFilters?.includes("top_speed")
+			) {
+				state.refetchUsers(true);
+			}
 		} catch {
 			// Keep the last successful snapshot during a transient poll failure.
 		}

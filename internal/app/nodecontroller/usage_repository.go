@@ -60,6 +60,7 @@ type usageUserMapping struct {
 
 type userSpeedIdentity struct {
 	Username  string
+	AdminID   *int64
 	ServiceID *int64
 }
 
@@ -198,7 +199,7 @@ func (r Repository) InboundUsageCoefficients(ctx context.Context) (map[string]fl
 func (r Repository) UserSpeedIdentities(ctx context.Context, userIDs []int64) (map[int64]userSpeedIdentity, error) {
 	result := make(map[int64]userSpeedIdentity, len(userIDs))
 	err := forEachInt64Chunk(userIDs, usagePersistBatchSize, func(chunk []int64) error {
-		rows, err := r.db.QueryContext(ctx, `SELECT id, username, service_id FROM users WHERE id IN (`+placeholders(len(chunk))+`)`, int64Args(chunk)...)
+		rows, err := r.db.QueryContext(ctx, `SELECT id, username, admin_id, service_id FROM users WHERE id IN (`+placeholders(len(chunk))+`)`, int64Args(chunk)...)
 		if err != nil {
 			return err
 		}
@@ -206,11 +207,15 @@ func (r Repository) UserSpeedIdentities(ctx context.Context, userIDs []int64) (m
 		for rows.Next() {
 			var id int64
 			var username string
-			var serviceID sql.NullInt64
-			if err := rows.Scan(&id, &username, &serviceID); err != nil {
+			var adminID, serviceID sql.NullInt64
+			if err := rows.Scan(&id, &username, &adminID, &serviceID); err != nil {
 				return err
 			}
 			identity := userSpeedIdentity{Username: username}
+			if adminID.Valid {
+				value := adminID.Int64
+				identity.AdminID = &value
+			}
 			if serviceID.Valid {
 				value := serviceID.Int64
 				identity.ServiceID = &value

@@ -3,9 +3,10 @@ package dashboard
 const ActionSystemSummary = "dashboard.system_summary"
 
 type AdminContext struct {
-	ID       *int64 `json:"id,omitempty"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	ID             *int64 `json:"id,omitempty"`
+	Username       string `json:"username"`
+	Role           string `json:"role"`
+	CanViewTraffic bool   `json:"can_view_traffic"`
 }
 
 type SystemSummaryRequest struct {
@@ -32,6 +33,7 @@ type AdminOverviewStats struct {
 type SystemSummary struct {
 	TotalUser           int64              `json:"total_user"`
 	OnlineUsers         int64              `json:"online_users"`
+	OnlineUsersUsage    int64              `json:"online_users_usage"`
 	UsersActive         int64              `json:"users_active"`
 	UsersDisabled       int64              `json:"users_disabled"`
 	UsersExpired        int64              `json:"users_expired"`

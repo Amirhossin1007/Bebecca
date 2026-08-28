@@ -3,11 +3,6 @@ import {
 	Button,
 	chakra,
 	HStack,
-	IconButton,
-	Input,
-	InputGroup,
-	InputLeftElement,
-	InputRightElement,
 	Stack,
 	Tag,
 	Text,
@@ -18,7 +13,7 @@ import {
 	PanelSelect as Select,
 	type PanelSelectProps as SelectProps,
 } from "components/common/PanelSelect";
-import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { SearchInput } from "components/common/SearchInput";
 import { ResourceListCard } from "components/ui";
 import { useNodesQuery } from "contexts/NodesContext";
 import useGetUser from "hooks/useGetUser";
@@ -35,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import useWebSocket from "react-use-websocket";
 import { fetch } from "service/http";
 import type { RawInbound } from "utils/inbounds";
+import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import { getAPIWebSocketURL } from "utils/websocket";
 
 const MAX_NUMBER_OF_LOGS = 500;
@@ -73,6 +69,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 	const [selectedNode, setNode] = useState<string>("");
 	const [logs, setLogs] = useState<string[]>([]);
 	const [searchFilter, setSearchFilter] = useState<string>("");
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [selectedInbound, setSelectedInbound] = useState<string>("");
 	const [inbounds, setInbounds] = useState<RawInbound[]>([]);
 	const [inboundsLoading, setInboundsLoading] = useState(false);
@@ -111,7 +108,10 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 			}
 			return;
 		}
-		if (!selectedNode || !nodes.some((node) => String(node.id) === selectedNode)) {
+		if (
+			!selectedNode ||
+			!nodes.some((node) => String(node.id) === selectedNode)
+		) {
 			setNode(String(nodes[0].id));
 			setLogs([]);
 		}
@@ -244,14 +244,13 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 
 		// Filter by search text if provided
 		if (searchFilter.trim()) {
-			const filterLower = searchFilter.toLowerCase();
 			filtered = filtered.filter((log) =>
-				log.toLowerCase().includes(filterLower),
+				matchesSearch(log, searchFilter, searchMatch),
 			);
 		}
 
 		return filtered;
-	}, [logs, searchFilter, selectedInboundTag]);
+	}, [logs, searchFilter, searchMatch, selectedInboundTag]);
 
 	const logEntries = useMemo(
 		() =>
@@ -261,21 +260,6 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 			})),
 		[filteredLogs],
 	);
-
-	const SearchIcon = chakra(MagnifyingGlassIcon, {
-		baseStyle: {
-			w: 4,
-			h: 4,
-			color: badgeColor,
-		},
-	});
-
-	const ClearIcon = chakra(XMarkIcon, {
-		baseStyle: {
-			w: 4,
-			h: 4,
-		},
-	});
 
 	const classifyLog = (message: string) => {
 		const lowerMessage = message.toLowerCase();
@@ -367,9 +351,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							colorScheme={autoScroll ? "green" : "gray"}
 							variant="subtle"
 						>
-							{autoScroll
-								? t("core.autoScrollOn")
-								: t("core.autoScrollOff")}
+							{autoScroll ? t("core.autoScrollOn") : t("core.autoScrollOff")}
 						</Tag>
 						<Button
 							size="sm"
@@ -419,16 +401,12 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							</option>
 						))}
 					</CompactLogSelect>
-					<InputGroup
-						size="sm"
-						maxW={{ base: "full", md: "420px" }}
-						flex={{ base: "1 1 100%", md: "1 1 280px" }}
-						bg="panel.input"
-					>
-						<InputLeftElement pointerEvents="none">
-							<SearchIcon />
-						</InputLeftElement>
-						<Input
+					<SearchInput
+						containerProps={{
+							maxW: { base: "full", md: "420px" },
+							flex: { base: "1 1 100%", md: "1 1 280px" },
+							bg: "panel.input",
+						}}
 							h="36px"
 							borderRadius="4px"
 							borderColor="panel.border"
@@ -436,22 +414,13 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							placeholder={t("xrayLogs.searchPlaceholder")}
 							value={searchFilter}
 							onChange={(e) => setSearchFilter(e.target.value)}
-						/>
-						{(searchFilter || selectedInbound) && (
-							<InputRightElement h="36px">
-								<IconButton
-									aria-label={t("clear")}
-									size="xs"
-									variant="ghost"
-									onClick={() => {
+						matchOptions={searchMatch}
+						onMatchOptionsChange={setSearchMatch}
+						onClear={() => {
 										setSearchFilter("");
 										setSelectedInbound("");
 									}}
-									icon={<ClearIcon />}
 								/>
-							</InputRightElement>
-						)}
-					</InputGroup>
 				</Stack>
 			</ResourceListCard>
 			<Box
@@ -484,7 +453,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 										const parts = message.split(
 											new RegExp(
 												`(${searchFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-												"gi",
+												searchMatch.matchCase ? "g" : "gi",
 											),
 										);
 										const partsWithKeys = parts.map((part, idx) => ({
@@ -492,7 +461,12 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 											key: `${key}-part-${idx}`,
 										}));
 										return partsWithKeys.map(({ part, key: partKey }) => {
-											if (part.toLowerCase() === searchFilter.toLowerCase()) {
+											if (
+												matchesSearch(part, searchFilter, {
+													...searchMatch,
+													matchWholeWord: false,
+												})
+											) {
 												return (
 													<chakra.span
 														key={partKey}

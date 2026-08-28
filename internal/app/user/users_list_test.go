@@ -118,6 +118,18 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO user_online_ips (node_id, user_id, last_seen_at) VALUES (1, 1, CURRENT_TIMESTAMP)`); err != nil {
 		t.Fatal(err)
 	}
+	rows, err = repo.usersRows(context.Background(), usersFilter{}, UsersListRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := onlineAt(rows, "tunnel-user")
+	if value == nil {
+		t.Fatal("expected an online Xray user to have a last connection")
+	}
+	seenAt, ok := parseDBTime(*value)
+	if !ok || time.Since(seenAt) > 5*time.Second {
+		t.Fatalf("expected an online Xray user to have a current last connection, got %v", value)
+	}
 	summary, err = repo.queryUsersSummary(context.Background(), usersFilter{})
 	if err != nil {
 		t.Fatal(err)

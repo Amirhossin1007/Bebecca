@@ -12,8 +12,6 @@ import {
 	FormLabel,
 	Heading,
 	HStack,
-	InputGroup,
-	InputLeftElement,
 	Menu,
 	MenuButton,
 	MenuItem,
@@ -41,7 +39,6 @@ import {
 	ArrowPathIcon,
 	ArrowUpTrayIcon,
 	ChevronDownIcon as HeroChevronDownIcon,
-	MagnifyingGlassIcon,
 	NoSymbolIcon,
 	PaperAirplaneIcon,
 	PlusIcon,
@@ -49,6 +46,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { NumericInput } from "components/common/NumericInput";
 import { PanelInput as Input } from "components/common/PanelInput";
+import { SearchInput } from "components/common/SearchInput";
 import useGetUser from "hooks/useGetUser";
 import {
 	type ReactNode,
@@ -96,6 +94,10 @@ import {
 	generateErrorMessage,
 	generateSuccessMessage,
 } from "utils/toastHandler";
+import {
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+	matchesAnySearch,
+} from "utils/searchMatch";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import {
 	DataTable,
@@ -475,7 +477,6 @@ const SaveIcon = chakra(PaperAirplaneIcon, { baseStyle: { w: 4, h: 4 } });
 const ChevronDownIcon = chakra(HeroChevronDownIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
-const SearchIcon = chakra(MagnifyingGlassIcon, { baseStyle: { w: 4, h: 4 } });
 
 const buildDefaultValues = (settings: TelegramSettingsResponse): FormValues => {
 	const topics: Record<string, TopicFormValue> = {};
@@ -849,6 +850,9 @@ export const IntegrationSettingsPage = () => {
 	const [selectedAdminId, setSelectedAdminId] = useState<number | null>(null);
 	const [activeIntegrationTab, setActiveIntegrationTab] = useState<number>(0);
 	const [adminSearchTerm, setAdminSearchTerm] = useState<string>("");
+	const [adminSearchMatch, setAdminSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [isOpeningPHPMyAdminExternal, setOpeningPHPMyAdminExternal] =
 		useState(false);
 	const [certificateForm, setCertificateForm] = useState<{
@@ -866,6 +870,9 @@ export const IntegrationSettingsPage = () => {
 	});
 	const [isCertificateDialogOpen, setCertificateDialogOpen] = useState(false);
 	const [certificateSearch, setCertificateSearch] = useState("");
+	const [certificateSearchMatch, setCertificateSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [certificateFilter, setCertificateFilter] = useState<
 		"all" | "expiring_7d"
 	>("all");
@@ -1366,13 +1373,13 @@ export const IntegrationSettingsPage = () => {
 	const filteredAdmins =
 		adminSearchTerm.trim().length === 0
 			? adminOptions
-			: adminOptions.filter((admin) => {
-					const q = adminSearchTerm.toLowerCase();
-					return (
-						admin.username.toLowerCase().includes(q) ||
-						(admin.subscription_domain || "").toLowerCase().includes(q)
+			: adminOptions.filter((admin) =>
+					matchesAnySearch(
+						[admin.username, admin.subscription_domain],
+						adminSearchTerm,
+						adminSearchMatch,
+					),
 					);
-				});
 
 	const runtimeDirty = Boolean(
 		runtimeSettings &&
@@ -1491,19 +1498,20 @@ export const IntegrationSettingsPage = () => {
 	const telegramBackupDisabledMessage = t("settings.telegram.backupBinaryOnly");
 	const certificates = subscriptionBundle?.certificates ?? [];
 	const filteredCertificates = useMemo(() => {
-		const query = certificateSearch.trim().toLowerCase();
 		const now = Date.now();
 		const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000;
 
 		return certificates.filter((certificate) => {
-			const matchesSearch =
-				!query ||
+			const matchesSearch = matchesAnySearch(
 				[
 					certificate.domain,
 					...(certificate.alt_names || []),
 					certificate.provider || "",
 					certificate.status || "",
-				].some((value) => value.toLowerCase().includes(query));
+				],
+				certificateSearch,
+				certificateSearchMatch,
+			);
 			if (!matchesSearch || certificateFilter === "all") {
 				return matchesSearch;
 			}
@@ -1513,7 +1521,12 @@ export const IntegrationSettingsPage = () => {
 				: Number.NaN;
 			return expiresAt >= now && expiresAt <= sevenDaysFromNow;
 		});
-	}, [certificateFilter, certificateSearch, certificates]);
+	}, [
+		certificateFilter,
+		certificateSearch,
+		certificateSearchMatch,
+		certificates,
+	]);
 	const certificateColumns = useMemo<
 		DataTableColumn<SubscriptionCertificate>[]
 	>(
@@ -1716,26 +1729,19 @@ export const IntegrationSettingsPage = () => {
 				}
 			>
 				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-					<InputGroup>
-						<InputLeftElement pointerEvents="none">
-							<SearchIcon />
-						</InputLeftElement>
-						<Input
-							ps={10}
+					<SearchInput
 							value={certificateSearch}
 							onChange={(event) => setCertificateSearch(event.target.value)}
-							placeholder={t(
-								"settings.subscriptions.searchCertificates",
-							)}
+						placeholder={t("settings.subscriptions.searchCertificates")}
+						matchOptions={certificateSearchMatch}
+						onMatchOptionsChange={setCertificateSearchMatch}
+						onClear={() => setCertificateSearch("")}
 						/>
-					</InputGroup>
 					<Select
 						showSearch={false}
 						value={certificateFilter}
 						onChange={(event) =>
-							setCertificateFilter(
-								event.target.value as "all" | "expiring_7d",
-							)
+							setCertificateFilter(event.target.value as "all" | "expiring_7d")
 						}
 					>
 						<option value="all">
@@ -3191,19 +3197,7 @@ export const IntegrationSettingsPage = () => {
 														borderBottom="1px solid"
 														borderColor="gray.200"
 													>
-														<InputGroup size="sm">
-															<InputLeftElement
-																pointerEvents="none"
-																w="2.4rem"
-																h="full"
-																display="flex"
-																alignItems="center"
-																justifyContent="center"
-															>
-																<SearchIcon color="gray.400" w={4} h={4} />
-															</InputLeftElement>
-															<Input
-																ps="2.4rem"
+														<SearchInput
 																textAlign="start"
 																placeholder={t(
 																	"settings.subscriptions.searchAdmin",
@@ -3212,8 +3206,10 @@ export const IntegrationSettingsPage = () => {
 																onChange={(event) =>
 																	setAdminSearchTerm(event.target.value)
 																}
+															matchOptions={adminSearchMatch}
+															onMatchOptionsChange={setAdminSearchMatch}
+															onClear={() => setAdminSearchTerm("")}
 															/>
-														</InputGroup>
 													</Box>
 													{filteredAdmins.length === 0 ? (
 														<Box px={3} py={2}>
@@ -3982,9 +3978,7 @@ export const IntegrationSettingsPage = () => {
 											}))
 										}
 									>
-										<option value="letsencrypt">
-											Certbot / Let's Encrypt
-										</option>
+										<option value="letsencrypt">Certbot / Let's Encrypt</option>
 										<option value="zerossl">ZeroSSL</option>
 										<option value="manual">
 											{t("settings.subscriptions.manualCertificate")}
@@ -3998,9 +3992,7 @@ export const IntegrationSettingsPage = () => {
 								</FormControl>
 								{certificateForm.provider !== "manual" ? (
 									<FormControl isRequired>
-										<FormLabel>
-											{t("settings.subscriptions.email")}
-										</FormLabel>
+										<FormLabel>{t("settings.subscriptions.email")}</FormLabel>
 										<Input
 											type="email"
 											placeholder="admin@example.com"
@@ -4077,11 +4069,7 @@ export const IntegrationSettingsPage = () => {
 							) : null}
 						</VStack>
 					</ModalBody>
-					<ModalFooter
-						gap={2}
-						borderTopWidth="1px"
-						borderColor={borderColor}
-					>
+					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
 						<Button
 							variant="ghost"
 							onClick={() => setCertificateDialogOpen(false)}

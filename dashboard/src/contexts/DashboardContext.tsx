@@ -11,6 +11,7 @@ import type {
 } from "types/User";
 import { queryClient } from "utils/react-query";
 import { getUsersPerPageLimitSize } from "utils/userPreferenceStorage";
+import { matchesSearch } from "utils/searchMatch";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
@@ -18,6 +19,8 @@ const DEFAULT_SORT = "-created_at";
 
 export type FilterType = {
 	search?: string;
+	matchCase?: boolean;
+	matchWholeWord?: boolean;
 	limit?: number;
 	offset?: number;
 	sort: string;
@@ -100,16 +103,24 @@ const isAbortError = (error: unknown): boolean => {
 	);
 };
 
-const getUserSearchRank = (user: UserListItem, search: string): number => {
-	const normalizedSearch = search.trim().toLowerCase();
+const getUserSearchRank = (
+	user: UserListItem,
+	search: string,
+	options: { matchCase: boolean; matchWholeWord: boolean },
+): number => {
+	const normalizedSearch = search.trim();
 	if (!normalizedSearch) {
 		return Number.MAX_SAFE_INTEGER;
 	}
-	const username = user.username?.toLowerCase() ?? "";
-	if (username === normalizedSearch) {
+	const username = user.username ?? "";
+	if (
+		options.matchCase
+			? username === normalizedSearch
+			: username.toLocaleLowerCase() === normalizedSearch.toLocaleLowerCase()
+	) {
 		return 0;
 	}
-	if (username.includes(normalizedSearch)) {
+	if (matchesSearch(username, normalizedSearch, options)) {
 		return 1;
 	}
 	const searchableValues = [
@@ -118,10 +129,10 @@ const getUserSearchRank = (user: UserListItem, search: string): number => {
 		...(user.links ?? []),
 		user.service_name,
 		user.admin_username,
-	]
-		.filter((value): value is string => Boolean(value))
-		.map((value) => value.toLowerCase());
-	return searchableValues.some((value) => value.includes(normalizedSearch))
+	].filter((value): value is string => Boolean(value));
+	return searchableValues.some((value) =>
+		matchesSearch(value, normalizedSearch, options),
+	)
 		? 2
 		: Number.MAX_SAFE_INTEGER;
 };
@@ -141,12 +152,16 @@ const normalizeUsersListResponse = (
 	});
 	const total = response.total ?? users.length;
 	const search = query.search?.trim();
+	const searchOptions = {
+		matchCase: Boolean(query.matchCase),
+		matchWholeWord: Boolean(query.matchWholeWord),
+	};
 	if (search && users.length > total) {
 		const rankedMatches = users
 			.map((user, index) => ({
 				user,
 				index,
-				rank: getUserSearchRank(user, search),
+				rank: getUserSearchRank(user, search, searchOptions),
 			}))
 			.filter((entry) => entry.rank < Number.MAX_SAFE_INTEGER)
 			.sort((a, b) => a.rank - b.rank || a.index - b.index)
@@ -271,10 +286,14 @@ const fetchUsers = (
 	if (sanitizedQuery.serviceId !== undefined) {
 		requestQuery.service_id = sanitizedQuery.serviceId;
 	}
+	requestQuery.match_case = Boolean(sanitizedQuery.matchCase);
+	requestQuery.match_whole_word = Boolean(sanitizedQuery.matchWholeWord);
 	requestQuery.links = true;
 	delete requestQuery.advancedFilters;
 	delete requestQuery.owner;
 	delete requestQuery.serviceId;
+	delete requestQuery.matchCase;
+	delete requestQuery.matchWholeWord;
 
 	return fetch<UsersListResponse>("/users", {
 		query: requestQuery,

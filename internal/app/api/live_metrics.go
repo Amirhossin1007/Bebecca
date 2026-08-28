@@ -174,7 +174,7 @@ func (s *Server) sendNodesMetricsSnapshot(parent context.Context, conn *websocke
 func (s *Server) sendSystemMetricsSnapshot(parent context.Context, conn *websocket.Conn, r *http.Request, interval time.Duration) error {
 	ctx, cancel := context.WithTimeout(parent, liveMetricsTimeout(interval))
 	defer cancel()
-	stats, err := s.systemStatsService().Stats(ctx, dashboardAdminContext(r))
+	stats, err := s.systemStatsForRequest(ctx, r)
 	if err != nil {
 		return websocket.JSON.Send(conn, systemMetricsMessage{
 			Type:  "system.metrics",

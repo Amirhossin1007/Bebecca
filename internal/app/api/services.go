@@ -1464,6 +1464,14 @@ func (s *Server) serviceUsersListRequest(r *http.Request, principal adminPrincip
 	if err != nil {
 		return userapp.UsersListRequest{}, fmt.Errorf("invalid links")
 	}
+	matchCase, err := optionalQueryBool(q.Get("match_case"))
+	if err != nil {
+		return userapp.UsersListRequest{}, fmt.Errorf("invalid match_case")
+	}
+	matchWholeWord, err := optionalQueryBool(q.Get("match_whole_word"))
+	if err != nil {
+		return userapp.UsersListRequest{}, fmt.Errorf("invalid match_whole_word")
+	}
 	adminCtx := userapp.AdminContext{
 		Username:       principal.Context.Admin.Username,
 		Role:           string(principal.Context.Admin.Role),
@@ -1479,6 +1487,8 @@ func (s *Server) serviceUsersListRequest(r *http.Request, principal adminPrincip
 		Limit:           limit,
 		Usernames:       cleanValues(q["username"]),
 		Search:          strings.TrimSpace(q.Get("search")),
+		MatchCase:       matchCase,
+		MatchWholeWord:  matchWholeWord,
 		Owners:          owners,
 		Status:          strings.TrimSpace(q.Get("status")),
 		AdvancedFilters: advancedFilterValues(q),

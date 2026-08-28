@@ -58,6 +58,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { CompactChips, CompactTextWithCopy } from "components/CompactPopover";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
@@ -70,6 +71,7 @@ import {
 import { useCoreSettings } from "contexts/CoreSettingsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
+import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import {
 	type FC,
 	type ReactNode,
@@ -126,10 +128,7 @@ import {
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
 import { sumOutboundTraffic } from "../utils/outboundTraffic";
-import {
-	sortByTraffic,
-	type TrafficSortOrder,
-} from "../utils/trafficSort";
+import { sortByTraffic, type TrafficSortOrder } from "../utils/trafficSort";
 
 const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
@@ -399,7 +398,9 @@ type ManagedOutboundMeta = {
 
 const managedOutboundMeta = (outbound: any): ManagedOutboundMeta | null => {
 	const tag = String(outbound?.tag ?? "").trim();
-	const match = tag.match(/(?:^|[-_.])(tor|windscribe|psiphon)(?:-([a-z]{2}))?$/i);
+	const match = tag.match(
+		/(?:^|[-_.])(tor|windscribe|psiphon)(?:-([a-z]{2}))?$/i,
+	);
 	if (!match) return null;
 	return {
 		provider: match[1].toLowerCase() as ManagedOutboundProvider,
@@ -798,6 +799,9 @@ export const CoreSettingsPage: FC = () => {
 
 	const [outboundData, setOutboundData] = useState<any[]>([]);
 	const [outboundSearch, setOutboundSearch] = useState("");
+	const [outboundSearchMatch, setOutboundSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [outboundTrafficSort, setOutboundTrafficSort] =
 		useState<TrafficSortOrder>("default");
 	const [selectedOutboundIds, setSelectedOutboundIds] = useState<string[]>([]);
@@ -810,6 +814,9 @@ export const CoreSettingsPage: FC = () => {
 	const [isApplyingPsiphonProxy, setIsApplyingPsiphonProxy] = useState(false);
 	const [routingRuleData, setRoutingRuleData] = useState<any[]>([]);
 	const [routingRuleSearch, setRoutingRuleSearch] = useState("");
+	const [routingRuleSearchMatch, setRoutingRuleSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [routeTestRule, setRouteTestRule] = useState<RoutingRule | null>(null);
 	const [balancersData, setBalancersData] = useState<BalancerRow[]>([]);
 	const [dnsServers, setDnsServers] = useState<any[]>([]);
@@ -1689,12 +1696,11 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const filteredRoutingRules = useMemo(() => {
-		const term = routingRuleSearch.trim().toLowerCase();
 		const rows = routingRuleData.map((rule, originalIndex) => ({
 			rule,
 			originalIndex,
 		}));
-		if (!term) return rows;
+		if (!routingRuleSearch.trim()) return rows;
 		return rows.filter(({ rule }) => {
 			const haystack = [
 				rule.source,
@@ -1711,21 +1717,23 @@ export const CoreSettingsPage: FC = () => {
 				rule.balancerTag,
 			]
 				.map(normalizeSearchValue)
-				.join(" ")
-				.toLowerCase();
-			return haystack.includes(term);
+				.join(" ");
+			return matchesSearch(haystack, routingRuleSearch, routingRuleSearchMatch);
 		});
-	}, [routingRuleData, routingRuleSearch]);
+	}, [routingRuleData, routingRuleSearch, routingRuleSearchMatch]);
 
 	const filteredOutboundData = useMemo(() => {
-		const term = outboundSearch.trim().toLowerCase();
 		const rows = outboundData.map((outbound, originalIndex) => ({
 			outbound,
 			originalIndex,
 		}));
-		const matches = term
+		const matches = outboundSearch.trim()
 			? rows.filter(({ outbound }) =>
-					JSON.stringify(outbound).toLowerCase().includes(term),
+					matchesSearch(
+						JSON.stringify(outbound),
+						outboundSearch,
+						outboundSearchMatch,
+					),
 				)
 			: rows;
 		return sortByTraffic(
@@ -1746,21 +1754,29 @@ export const CoreSettingsPage: FC = () => {
 		outboundData,
 		outboundIds,
 		outboundSearch,
+		outboundSearchMatch,
 		outboundTrafficSort,
 		outboundsTraffic,
 		selectedTarget,
 		isMasterTarget,
 	]);
 	const managedOutboundData = useMemo(
-		() => filteredOutboundData.filter(({ outbound }) => managedOutboundMeta(outbound)),
+		() =>
+			filteredOutboundData.filter(({ outbound }) =>
+				managedOutboundMeta(outbound),
+			),
 		[filteredOutboundData],
 	);
 	const standardOutboundData = useMemo(
-		() => filteredOutboundData.filter(({ outbound }) => !managedOutboundMeta(outbound)),
+		() =>
+			filteredOutboundData.filter(
+				({ outbound }) => !managedOutboundMeta(outbound),
+			),
 		[filteredOutboundData],
 	);
 	const managedOutboundTotal = useMemo(
-		() => outboundData.filter((outbound) => managedOutboundMeta(outbound)).length,
+		() =>
+			outboundData.filter((outbound) => managedOutboundMeta(outbound)).length,
 		[outboundData],
 	);
 
@@ -4665,12 +4681,13 @@ export const CoreSettingsPage: FC = () => {
 									</HStack>
 								}
 							>
-								<Input
-									size="sm"
-									maxW={{ base: "full", md: "280px" }}
+								<SearchInput
+									containerProps={{ maxW: { base: "full", md: "320px" } }}
 									placeholder={t("search")}
 									value={routingRuleSearch}
 									onChange={(e) => setRoutingRuleSearch(e.target.value)}
+									matchOptions={routingRuleSearchMatch}
+									onMatchOptionsChange={setRoutingRuleSearchMatch}
 								/>
 							</ResourceListCard>
 							<DataTable
@@ -4847,12 +4864,13 @@ export const CoreSettingsPage: FC = () => {
 									spacing={2}
 									align={{ base: "stretch", md: "center" }}
 								>
-									<Input
-										size="sm"
-										maxW={{ base: "full", md: "280px" }}
+									<SearchInput
+										containerProps={{ maxW: { base: "full", md: "320px" } }}
 										placeholder={t("search")}
 										value={outboundSearch}
 										onChange={(e) => setOutboundSearch(e.target.value)}
+										matchOptions={outboundSearchMatch}
+										onMatchOptionsChange={setOutboundSearchMatch}
 									/>
 									<Select
 										size="sm"

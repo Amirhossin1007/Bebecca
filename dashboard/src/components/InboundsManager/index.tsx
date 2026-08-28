@@ -4,7 +4,6 @@ import {
 	Box,
 	Button,
 	HStack,
-	Input,
 	MenuItem,
 	Stack,
 	Tag,
@@ -33,10 +32,12 @@ import {
 } from "utils/inbounds";
 import { SizeFormatter } from "utils/outbound";
 import {
-	sortByTraffic,
-	type TrafficSortOrder,
-} from "utils/trafficSort";
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+	matchesAnySearch,
+} from "utils/searchMatch";
+import { sortByTraffic, type TrafficSortOrder } from "utils/trafficSort";
 import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
+import { SearchInput } from "../common/SearchInput";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
 import {
 	DataTable,
@@ -96,6 +97,7 @@ export const InboundsManager: FC = () => {
 		search: "",
 		traffic: "default",
 	});
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [selectedInboundTags, setSelectedInboundTags] = useState<string[]>([]);
 	const [selected, setSelected] = useState<RawInbound | null>(null);
 	const [cloneTarget, setCloneTarget] = useState<RawInbound | null>(null);
@@ -125,15 +127,14 @@ export const InboundsManager: FC = () => {
 	}, [loadInbounds]);
 
 	const filtered = useMemo(() => {
-		const term = filter.search.trim().toLowerCase();
 		const matches = inbounds.filter((inbound) => {
 			if (filter.protocol !== "all" && inbound.protocol !== filter.protocol) {
 				return false;
 			}
-			if (!term) return true;
-			return (
-				inbound.tag.toLowerCase().includes(term) ||
-				inbound.port?.toString().includes(term)
+			return matchesAnySearch(
+				[inbound.tag, inbound.port],
+				filter.search,
+				searchMatch,
 			);
 		});
 		return sortByTraffic(
@@ -141,7 +142,7 @@ export const InboundsManager: FC = () => {
 			filter.traffic,
 			(inbound) => getInboundTraffic(inbound).total,
 		);
-	}, [inbounds, filter]);
+	}, [inbounds, filter, searchMatch]);
 	const targetNameById = useMemo(
 		() =>
 			Object.fromEntries(
@@ -569,7 +570,10 @@ export const InboundsManager: FC = () => {
 							whiteSpace="nowrap"
 							fontSize="xs"
 							dir="ltr"
-							sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+							sx={{
+								fontVariantNumeric: "tabular-nums",
+								unicodeBidi: "isolate",
+							}}
 						>
 							<Text color="teal.400">
 								↑ {SizeFormatter.sizeFormat(traffic.upload)}
@@ -722,14 +726,15 @@ export const InboundsManager: FC = () => {
 					align={{ base: "stretch", md: "center" }}
 					flexWrap="wrap"
 				>
-					<Input
-						size="sm"
-						w={{ base: "full", md: "280px" }}
+					<SearchInput
+						containerProps={{ w: { base: "full", md: "320px" } }}
 						placeholder={t("inbounds.searchPlaceholder")}
 						value={filter.search}
 						onChange={(event) =>
 							setFilter((prev) => ({ ...prev, search: event.target.value }))
 						}
+						matchOptions={searchMatch}
+						onMatchOptionsChange={setSearchMatch}
 					/>
 					<SearchableTagSelect
 						size="sm"
