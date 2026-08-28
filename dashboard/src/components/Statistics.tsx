@@ -46,12 +46,56 @@ import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
-import { formatDuration } from "utils/formatDuration";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { ChartBox } from "./common/ChartBox";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
+
+/* Smart Humanized Duration Formatter */
+const formatLocalizedDuration = (
+	totalSeconds: number,
+	t: TFunction,
+	isRTL: boolean,
+): string => {
+	if (!totalSeconds || totalSeconds <= 0) {
+		return t("time.seconds_other", { count: 0, defaultValue: "0 ثانیه" });
+	}
+
+	const days = Math.floor(totalSeconds / 86400);
+	const hours = Math.floor((totalSeconds % 86400) / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = Math.floor(totalSeconds % 60);
+
+	const secStr = t("time.seconds_other", { count: seconds, defaultValue: `${seconds} ثانیه` });
+	const minStr = t("time.minutes_other", { count: minutes, defaultValue: `${minutes} دقیقه` });
+	const hrStr = t("time.hours_other", { count: hours, defaultValue: `${hours} ساعت` });
+	const dayStr = t("time.days_other", { count: days, defaultValue: `${days} روز` });
+
+	const andWord = isRTL ? " و " : " and ";
+	const commaWord = isRTL ? "، " : ", ";
+
+	if (days > 0) {
+		const parts: string[] = [dayStr];
+		if (hours > 0) parts.push(hrStr);
+		if (minutes > 0) parts.push(minStr);
+		if (parts.length === 1) return parts[0];
+		if (parts.length === 2) return parts.join(andWord);
+		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
+	}
+
+	if (hours > 0) {
+		if (minutes > 0) return `${hrStr}${andWord}${minStr}`;
+		return hrStr;
+	}
+
+	if (minutes > 0) {
+		if (seconds > 0) return `${minStr}${andWord}${secStr}`;
+		return minStr;
+	}
+
+	return secStr;
+};
 
 const useSystemMetricsStream = (enabled = true) => {
 	const queryClient = useQueryClient();
@@ -213,7 +257,7 @@ const HISTORY_INTERVALS = [
 ];
 
 type HistoryModalPayload = {
-	type: "cpu" | "memory" | "network";
+	type: "cpu" | "memory" | "network" | "panelCpu" | "panelMemory";
 	title: string;
 	metricLabel?: string;
 	entries?: Array<{ timestamp: number; value: number }>;
@@ -410,7 +454,7 @@ const HardwareBentoCard: FC<{
 			p={{ base: 4, md: 5 }}
 			position="relative"
 			overflow="hidden"
-			transition="transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease"
+			transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				borderColor: "panel.borderStrong",
 				transform: "translateY(-2px)",
@@ -494,8 +538,8 @@ const MetricCell: FC<{
 		borderColor="panel.border"
 		justify="space-between"
 		align="center"
-		transition="transform 0.15s ease, border-color 0.15s ease"
-		_hover={{ borderColor: "panel.borderStrong" }}
+		transition="all 0.15s ease"
+		_hover={{ borderColor: "panel.borderStrong", transform: "translateY(-1px)" }}
 	>
 		<HStack spacing={2.5} minW={0}>
 			{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
@@ -580,40 +624,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 			? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
 			: "0.0%";
 
+	const panelCpuSubtitle = `${formatNumberValue(systemData.app_threads)} ${t("threads")}`;
+
 	return (
 		<Stack spacing={5} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
 			{/* 1. Main System & Hardware ChartBox */}
 			<ChartBox
 				title={
-					<HStack spacing={3} align="center" flexWrap="wrap">
-						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
-							{t("systemOverview")}
-						</Text>
-						{/* Running Status Badge */}
-						<Badge
-							colorScheme={systemData.xray_running ? "green" : "red"}
-							borderRadius="full"
-							px={3}
-							py={0.5}
-							fontSize="11px"
-							display="inline-flex"
-							alignItems="center"
-							gap={1.5}
-						>
-							<Box
-								w="6px"
-								h="6px"
-								borderRadius="full"
-								bg={systemData.xray_running ? "green.400" : "red.400"}
-								boxShadow={
-									systemData.xray_running
-										? "0 0 8px rgba(74, 222, 128, 0.8)"
-										: "0 0 8px rgba(248, 113, 113, 0.8)"
-								}
-							/>
-							{systemData.xray_running ? t("status.running") : t("status.stopped")}
-						</Badge>
-					</HStack>
+					<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
+						{t("systemOverview")}
+					</Text>
 				}
 				headerActions={
 					<DashboardMaintenanceControls
@@ -673,81 +693,20 @@ export const Statistics: FC<BoxProps> = (props) => {
 						/>
 					</SimpleGrid>
 
-					{/* Network Speeds & Uptime Grid */}
-					<SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-						<Flex
-							p={4}
-							borderRadius="2xl"
-							bg="panel.input"
-							borderWidth="1px"
-							borderColor="panel.border"
-							justify="space-between"
-							align="center"
-						>
-							<HStack spacing={3}>
-								<Flex
-									w={9}
-									h={9}
-									align="center"
-									justify="center"
-									borderRadius="lg"
-									bg="panel.elevated"
-									color="green.400"
-								>
-									<ArrowDownTrayIcon width={18} />
-								</Flex>
-								<Box>
-									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
-										{t("incomingSpeed")}
-									</Text>
-									<Text
-										fontSize="lg"
-										fontWeight="800"
-										color="panel.text"
-										dir="ltr"
-										sx={{ fontVariantNumeric: "tabular-nums" }}
-									>
-										{formatBytes(systemData.incoming_bandwidth_speed)}/s
-									</Text>
-								</Box>
-							</HStack>
-						</Flex>
-
-						<Flex
-							p={4}
-							borderRadius="2xl"
-							bg="panel.input"
-							borderWidth="1px"
-							borderColor="panel.border"
-							justify="space-between"
-							align="center"
-						>
-							<HStack spacing={3}>
-								<Flex
-									w={9}
-									h={9}
-									align="center"
-									justify="center"
-									borderRadius="lg"
-									bg="panel.elevated"
-									color="blue.400"
-								>
-									<ArrowUpTrayIcon width={18} />
-								</Flex>
-								<Box>
-									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
-										{t("outgoingSpeed")}
-									</Text>
-									<Text
-										fontSize="lg"
-										fontWeight="800"
-										color="panel.text"
-										dir="ltr"
-										sx={{ fontVariantNumeric: "tabular-nums" }}
-									>
-										{formatBytes(systemData.outgoing_bandwidth_speed)}/s
-									</Text>
-								</Box>
+					{/* Unified Network Speeds & System Uptime Box */}
+					<Box
+						p={{ base: 4, md: 5 }}
+						borderRadius="2xl"
+						bg="panel.input"
+						borderWidth="1px"
+						borderColor="panel.border"
+					>
+						<Flex justify="space-between" align="center" mb={4} flexWrap="wrap" gap={2}>
+							<HStack spacing={2.5}>
+								<SignalIcon width={18} color="var(--rb-panel-accent)" />
+								<Text fontSize="sm" fontWeight="700" color="panel.text">
+									{t("bandwidthSpeed")}
+								</Text>
 							</HStack>
 							<Button
 								size="xs"
@@ -769,69 +728,223 @@ export const Statistics: FC<BoxProps> = (props) => {
 							</Button>
 						</Flex>
 
-						<Flex
-							p={4}
-							borderRadius="2xl"
-							bg="panel.input"
-							borderWidth="1px"
-							borderColor="panel.border"
-							justify="space-between"
-							align="center"
-						>
-							<HStack spacing={3}>
-								<Flex
-									w={9}
-									h={9}
-									align="center"
-									justify="center"
-									borderRadius="lg"
-									bg="panel.elevated"
-									color="var(--rb-panel-accent)"
+						<SimpleGrid columns={{ base: 1, sm: 3 }} gap={3.5}>
+							<Flex
+								p={3.5}
+								borderRadius="xl"
+								bg="panel.elevated"
+								borderWidth="1px"
+								borderColor="panel.border"
+								justify="space-between"
+								align="center"
+							>
+								<HStack spacing={2.5}>
+									<ArrowDownTrayIcon width={18} color="#22c55e" />
+									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+										{t("incomingSpeed")}
+									</Text>
+								</HStack>
+								<Text
+									fontSize="sm"
+									fontWeight="800"
+									color="panel.text"
+									dir="ltr"
+									sx={{ fontVariantNumeric: "tabular-nums" }}
 								>
-									<ClockIcon width={18} />
-								</Flex>
-								<Box>
+									{formatBytes(systemData.incoming_bandwidth_speed)}/s
+								</Text>
+							</Flex>
+
+							<Flex
+								p={3.5}
+								borderRadius="xl"
+								bg="panel.elevated"
+								borderWidth="1px"
+								borderColor="panel.border"
+								justify="space-between"
+								align="center"
+							>
+								<HStack spacing={2.5}>
+									<ArrowUpTrayIcon width={18} color="#3b82f6" />
+									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+										{t("outgoingSpeed")}
+									</Text>
+								</HStack>
+								<Text
+									fontSize="sm"
+									fontWeight="800"
+									color="panel.text"
+									dir="ltr"
+									sx={{ fontVariantNumeric: "tabular-nums" }}
+								>
+									{formatBytes(systemData.outgoing_bandwidth_speed)}/s
+								</Text>
+							</Flex>
+
+							<Flex
+								p={3.5}
+								borderRadius="xl"
+								bg="panel.elevated"
+								borderWidth="1px"
+								borderColor="panel.border"
+								justify="space-between"
+								align="center"
+							>
+								<HStack spacing={2.5}>
+									<ClockIcon width={18} color="var(--rb-panel-accent)" />
 									<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
 										{t("systemUptime")}
 									</Text>
-									<Text
-										fontSize="md"
-										fontWeight="800"
-										color="panel.text"
-										dir="ltr"
-										sx={{ fontVariantNumeric: "tabular-nums" }}
-									>
-										{formatDuration(systemData.uptime_seconds)}
-									</Text>
-								</Box>
+								</HStack>
+								<Text
+									fontSize="xs"
+									fontWeight="800"
+									color="panel.text"
+									dir={isRTL ? "rtl" : "ltr"}
+								>
+									{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
+								</Text>
+							</Flex>
+						</SimpleGrid>
+					</Box>
+
+					{/* Errors inside System Overview Card (At the Bottom) */}
+					{systemData.last_xray_error && (
+						<Box
+							p={4}
+							borderRadius="xl"
+							bg="red.950"
+							borderWidth="1px"
+							borderColor="red.600"
+							color="red.100"
+							boxShadow="0 0 16px rgba(220, 38, 38, 0.15)"
+						>
+							<HStack spacing={2} mb={1.5} color="red.300">
+								<ExclamationTriangleIcon width={18} />
+								<Text fontSize="xs" fontWeight="800">
+									{t("coreError")}
+								</Text>
 							</HStack>
-						</Flex>
-					</SimpleGrid>
+							<Text fontSize="xs" fontFamily="mono" wordBreak="break-word" lineHeight="tall">
+								{systemData.last_xray_error}
+							</Text>
+						</Box>
+					)}
+
+					{systemData.last_telegram_error && (
+						<Box
+							p={4}
+							borderRadius="xl"
+							bg="orange.950"
+							borderWidth="1px"
+							borderColor="orange.600"
+							color="orange.100"
+							boxShadow="0 0 16px rgba(234, 88, 12, 0.15)"
+						>
+							<HStack spacing={2} mb={2} align="center" justify="space-between">
+								<HStack spacing={2} color="orange.300">
+									<ExclamationTriangleIcon width={18} />
+									<Text fontSize="xs" fontWeight="800">
+										{t("telegramError")}
+									</Text>
+								</HStack>
+								<Button
+									size="xs"
+									colorScheme="orange"
+									variant="outline"
+									borderRadius="full"
+									onClick={() => {
+										window.location.href = "/settings";
+									}}
+								>
+									{t("goToTelegramSettings")}
+								</Button>
+							</HStack>
+							<Text fontSize="xs" fontFamily="mono" wordBreak="break-word" lineHeight="tall">
+								{systemData.last_telegram_error}
+							</Text>
+						</Box>
+					)}
 				</Stack>
 			</ChartBox>
 
-			{/* 2. Error Alert Banner (Positioned above Users) */}
-			{systemData.last_xray_error && (
-				<Box
-					p={4}
-					borderRadius="2xl"
-					bg="red.950"
-					borderWidth="1px"
-					borderColor="red.600"
-					color="red.100"
-					boxShadow="0 0 16px rgba(220, 38, 38, 0.2)"
-				>
-					<HStack spacing={2} mb={1.5} color="red.300">
-						<ExclamationTriangleIcon width={18} />
-						<Text fontSize="xs" fontWeight="800">
-							{t("coreError")}
+			{/* 2. Panel Usage Stats Card */}
+			<ChartBox
+				title={
+					<HStack spacing={3} align="center" flexWrap="wrap">
+						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
+							{t("dashboard.panelUsageStats", { defaultValue: "آمار مصرف پنل" })}
+						</Text>
+						{/* Running Status Badge */}
+						<Badge
+							colorScheme={systemData.xray_running ? "green" : "red"}
+							borderRadius="full"
+							px={3}
+							py={0.5}
+							fontSize="11px"
+							display="inline-flex"
+							alignItems="center"
+							gap={1.5}
+						>
+							<Box
+								w="6px"
+								h="6px"
+								borderRadius="full"
+								bg={systemData.xray_running ? "green.400" : "red.400"}
+								boxShadow={
+									systemData.xray_running
+										? "0 0 8px rgba(74, 222, 128, 0.8)"
+										: "0 0 8px rgba(248, 113, 113, 0.8)"
+								}
+							/>
+							{systemData.xray_running ? t("status.running") : t("status.stopped")}
+						</Badge>
+					</HStack>
+				}
+				headerActions={
+					<HStack spacing={1.5} fontSize="xs" color="panel.textMuted">
+						<Text fontWeight="600">{t("panelUptime")}:</Text>
+						<Text fontWeight="700" color="panel.textSecondary">
+							{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
 						</Text>
 					</HStack>
-					<Text fontSize="xs" fontFamily="mono" wordBreak="break-word" lineHeight="tall">
-						{systemData.last_xray_error}
-					</Text>
-				</Box>
-			)}
+				}
+			>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+					<HardwareBentoCard
+						label={`${t("cpuUsage")} (Panel Process)`}
+						icon={<CpuChipIcon width={18} />}
+						primaryValue={`${systemData.panel_cpu_percent.toFixed(1)}%`}
+						percent={systemData.panel_cpu_percent}
+						subtitle={panelCpuSubtitle}
+						actionLabel={t("viewHistory")}
+						onViewHistory={() =>
+							openHistory({
+								type: "panelCpu",
+								title: `${t("cpuUsage")} (Panel Process)`,
+								metricLabel: `${t("cpuUsage")} (Panel Process)`,
+								entries: systemData.panel_cpu_history,
+							})
+						}
+					/>
+					<HardwareBentoCard
+						label={`${t("memoryUsage")} (Panel Heap)`}
+						icon={<ServerStackIcon width={18} />}
+						primaryValue={`${formatBytes(systemData.app_memory, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
+						percent={systemData.panel_memory_percent}
+						subtitle={`${systemData.panel_memory_percent.toFixed(1)}%`}
+						actionLabel={t("viewHistory")}
+						onViewHistory={() =>
+							openHistory({
+								type: "panelMemory",
+								title: `${t("memoryUsage")} (Panel Heap)`,
+								metricLabel: `${t("memoryUsage")} (Panel Heap)`,
+								entries: systemData.panel_memory_history,
+							})
+						}
+					/>
+				</SimpleGrid>
+			</ChartBox>
 
 			{/* 3. Users Overview ChartBox */}
 			<ChartBox
@@ -855,7 +968,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								colorScheme={userTab === "all" ? "primary" : "gray"}
 								onClick={() => setUserTab("all")}
 							>
-								همه کاربران
+								{t("dashboard.allUsers", { defaultValue: "همه کاربران" })}
 							</Button>
 							<Button
 								size="xs"
@@ -866,7 +979,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								colorScheme={userTab === "mine" ? "primary" : "gray"}
 								onClick={() => setUserTab("mine")}
 							>
-								کاربران من
+								{t("dashboard.myUsers", { defaultValue: "کاربران من" })}
 							</Button>
 						</HStack>
 					) : (
@@ -896,7 +1009,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						dotColor="#22c55e"
 					/>
 					<MetricCell
-						label={userTab === "mine" ? t("myaccount.usedData") : t("onlineUsers")}
+						label={userTab === "mine" ? t("dashboard.trafficUsage", { defaultValue: "مصرف ترافیک" }) : t("onlineUsers")}
 						value={
 							userTab === "mine"
 								? formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)

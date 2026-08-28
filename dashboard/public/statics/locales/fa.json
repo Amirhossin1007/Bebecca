@@ -2844,6 +2844,12 @@
 	"pages.xray.outbound.resetAll": "Reset all",
 	"pages.xray.outbound.testAll": "Test all",
 	"dashboard.subtitle": "اطلاعات زنده پنل، فعالیت کاربران و نمای کلی ترافیک.",
+	"dashboard.panelUsageStats": "آمار مصرف پنل",
+    "dashboard.allUsers": "همه کاربران",
+    "dashboard.myUsers": "کاربران من",
+    "dashboard.trafficUsage": "مصرف ترافیک",
+    "time.seconds_one": "{{count}} ثانیه",
+    "time.seconds_other": "{{count}} ثانیه"
 	"live": "زنده",
 	"hostsPage.noPermission": "You do not have permission to manage host or inbound settings.",
 	"settings.panel.maintenanceWaitingForAPI": "Rebecca is restarting. Waiting for the API to come back.",
