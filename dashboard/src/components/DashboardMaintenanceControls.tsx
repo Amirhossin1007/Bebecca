@@ -7,6 +7,7 @@ import {
 	FormControl,
 	FormHelperText,
 	FormLabel,
+	HStack,
 	Modal,
 	ModalBody,
 	ModalCloseButton,
@@ -19,7 +20,6 @@ import {
 	PopoverHeader,
 	PopoverTrigger,
 	Progress,
-	SimpleGrid,
 	Spinner,
 	Stack,
 	Tag,
@@ -320,239 +320,235 @@ export const DashboardMaintenanceControls = ({
 		updateMutation.mutate();
 	};
 
+	const renderUpdatePopover = () => (
+		<Popover
+			isOpen={isUpdateMenuOpen}
+			onOpen={() => setUpdateMenuOpen(true)}
+			onClose={() => setUpdateMenuOpen(false)}
+			placement="bottom-end"
+			closeOnBlur={!operation?.running}
+		>
+			<PopoverTrigger>
+				<Button
+					size="xs"
+					h="32px"
+					w="full"
+					colorScheme={update?.available ? "green" : "primary"}
+					variant={update?.available ? "solid" : "outline"}
+					borderRadius="full"
+					leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
+					fontSize="11px"
+					fontWeight="700"
+				>
+					{update?.available
+						? `${t("nodes.nodeUpdateAvailable", "به‌روزرسانی موجود")} ↑`
+						: t("settings.panel.updateAction")}
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent
+				w="min(480px, calc(100vw - 24px))"
+				maxW="480px"
+				borderRadius="2xl"
+				boxShadow="2xl"
+				bg="panel.surface"
+				borderColor="panel.border"
+			>
+				<PopoverHeader fontWeight="bold" py={3} borderColor="panel.border">
+					<Flex justify="space-between" align="center" gap={3}>
+						<Text>{t("settings.panel.maintenanceTitle")}</Text>
+						<Button
+							size="xs"
+							variant="ghost"
+							borderRadius="full"
+							leftIcon={<ArrowPathIcon width={14} height={14} />}
+							onClick={() => info.refetch()}
+							isLoading={info.isFetching}
+						>
+							{t("refresh")}
+						</Button>
+					</Flex>
+				</PopoverHeader>
+				<PopoverBody p={4}>
+					<Stack spacing={3}>
+						{info.isLoading && (
+							<Flex align="center" justify="center" py={5}>
+								<Spinner size="sm" />
+							</Flex>
+						)}
+						{info.isError && (
+							<Alert status="error" borderRadius="md">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.panel.updateCheckFailed", {
+										error:
+											(info.error as Error)?.message ||
+											t("errors.generic"),
+									})}
+								</Text>
+							</Alert>
+						)}
+						<Box>
+							<Text fontSize="sm" fontWeight="semibold">
+								{t("settings.panel.panelVersion")}
+							</Text>
+							<Text fontSize="sm" color="gray.500">
+								{panel?.image
+									? `${panel.image} (${currentVersion})`
+									: currentVersion}
+							</Text>
+						</Box>
+						{info.isSuccess && !hostActionsAvailable && (
+							<Alert status="warning" borderRadius="md">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.panel.binaryMigrationRequired")}
+								</Text>
+							</Alert>
+						)}
+						{update?.available && (
+							<Alert status="success" borderRadius="md">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.panel.updateAvailableNotice", {
+										current: update.current || currentVersion,
+										target: selectedTarget || update.target || "-",
+									})}
+								</Text>
+							</Alert>
+						)}
+						{update?.error && (
+							<Alert status="warning" borderRadius="md">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.panel.updateCheckFailed", {
+										error: update.error,
+									})}
+								</Text>
+							</Alert>
+						)}
+						{hostActionsAvailable && (
+							<FormControl>
+								<FormLabel fontSize="sm">
+									{t("settings.panel.updateChannel")}
+								</FormLabel>
+								<Select
+									size="sm"
+									portalled={false}
+									value={selectedChannel}
+									onChange={(event) => {
+										setSelectedChannel(
+											event.target.value as UpdateChannel,
+										);
+										setDevUpdateArmed(false);
+									}}
+								>
+									<option value="current">
+										{t("settings.panel.updateChannelCurrent")}
+									</option>
+									<option value="latest">
+										{t("settings.panel.updateChannelLatest")}
+									</option>
+									<option value="dev">
+										{t("settings.panel.updateChannelDev")}
+									</option>
+								</Select>
+								<FormHelperText>
+									{selectedTarget
+										? t("settings.panel.updateTargetHint", {
+												version: selectedTarget,
+											})
+										: t("settings.panel.updateTargetUnknown")}
+								</FormHelperText>
+							</FormControl>
+						)}
+						{selectedChannel === "dev" && hostActionsAvailable && (
+							<Alert status="warning" borderRadius="md">
+								<AlertIcon />
+								<Text fontSize="sm">
+									{t("settings.panel.devChannelWarning")}
+								</Text>
+							</Alert>
+						)}
+						<Flex gap={2} flexWrap="wrap" justify="flex-end">
+							<Button
+								size="xs"
+								h="28px"
+								px={3}
+								variant="outline"
+								borderRadius="full"
+								onClick={() => reloadMutation.mutate()}
+								isLoading={reloadMutation.isLoading}
+								isDisabled={!hostActionsAvailable}
+							>
+								{t("settings.panel.softReloadAction")}
+							</Button>
+							<Button
+								size="xs"
+								h="28px"
+								px={3}
+								colorScheme={
+									devUpdateArmed
+										? "orange"
+										: update?.available
+											? "green"
+											: "primary"
+								}
+								borderRadius="full"
+								onClick={startUpdate}
+								isLoading={updateMutation.isLoading}
+								isDisabled={!hostActionsAvailable}
+							>
+								{devUpdateArmed
+									? t("settings.panel.confirmDevUpdateAction")
+									: t("settings.panel.updateAction")}
+							</Button>
+						</Flex>
+					</Stack>
+				</PopoverBody>
+			</PopoverContent>
+		</Popover>
+	);
+
 	return (
 		<>
-			<SimpleGrid
-				columns={{ base: 2, md: 4 }}
+			{/* Desktop Layout: 1 Single Horizontal Row */}
+			<HStack
+				display={{ base: "none", md: "flex" }}
 				spacing={2}
-				w={{ base: "full", md: "auto" }}
-				alignItems="center"
+				align="center"
+				justify="flex-end"
 			>
-				{/* 1. Version Tag */}
-				<Flex
-					h="30px"
-					px={3}
+				<Tag
+					colorScheme="gray"
 					borderRadius="full"
+					px={3.5}
+					h="32px"
+					fontSize="11px"
+					fontWeight="700"
 					bg="panel.elevated"
+					color="panel.textSecondary"
 					borderWidth="1px"
 					borderColor="panel.border"
-					align="center"
-					justify="center"
-					w="full"
+					display="inline-flex"
+					alignItems="center"
 				>
-					<Text fontSize="11px" fontWeight="700" color="panel.textSecondary" dir="ltr" noOfLines={1}>
-						{currentVersion}
-					</Text>
-				</Flex>
+					{currentVersion}
+				</Tag>
 
-				{/* 2. Update Action Button */}
-				{canMaintain ? (
-					<Box w="full">
-						<Popover
-							isOpen={isUpdateMenuOpen}
-							onOpen={() => setUpdateMenuOpen(true)}
-							onClose={() => setUpdateMenuOpen(false)}
-							placement="bottom-end"
-							closeOnBlur={!operation?.running}
-						>
-							<PopoverTrigger>
-								<Button
-									size="xs"
-									h="30px"
-									w="full"
-									colorScheme={update?.available ? "green" : "primary"}
-									variant={update?.available ? "solid" : "outline"}
-									borderRadius="full"
-									leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
-									fontSize="11px"
-									fontWeight="700"
-								>
-									{update?.available
-										? `${t("nodes.nodeUpdateAvailable", "به‌روزرسانی موجود")} ↑`
-										: t("settings.panel.updateAction")}
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent
-								w="min(480px, calc(100vw - 24px))"
-								maxW="480px"
-								borderRadius="2xl"
-								boxShadow="2xl"
-								bg="panel.surface"
-								borderColor="panel.border"
-							>
-								<PopoverHeader fontWeight="bold" py={3} borderColor="panel.border">
-									<Flex justify="space-between" align="center" gap={3}>
-										<Text>{t("settings.panel.maintenanceTitle")}</Text>
-										<Button
-											size="xs"
-											variant="ghost"
-											borderRadius="full"
-											leftIcon={<ArrowPathIcon width={14} height={14} />}
-											onClick={() => info.refetch()}
-											isLoading={info.isFetching}
-										>
-											{t("refresh")}
-										</Button>
-									</Flex>
-								</PopoverHeader>
-								<PopoverBody p={4}>
-									<Stack spacing={3}>
-										{info.isLoading && (
-											<Flex align="center" justify="center" py={5}>
-												<Spinner size="sm" />
-											</Flex>
-										)}
-										{info.isError && (
-											<Alert status="error" borderRadius="md">
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.updateCheckFailed", {
-														error:
-															(info.error as Error)?.message ||
-															t("errors.generic"),
-													})}
-												</Text>
-											</Alert>
-										)}
-										<Box>
-											<Text fontSize="sm" fontWeight="semibold">
-												{t("settings.panel.panelVersion")}
-											</Text>
-											<Text fontSize="sm" color="gray.500">
-												{panel?.image
-													? `${panel.image} (${currentVersion})`
-													: currentVersion}
-											</Text>
-										</Box>
-										{info.isSuccess && !hostActionsAvailable && (
-											<Alert status="warning" borderRadius="md">
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.binaryMigrationRequired")}
-												</Text>
-											</Alert>
-										)}
-										{update?.available && (
-											<Alert status="success" borderRadius="md">
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.updateAvailableNotice", {
-														current: update.current || currentVersion,
-														target: selectedTarget || update.target || "-",
-													})}
-												</Text>
-											</Alert>
-										)}
-										{update?.error && (
-											<Alert status="warning" borderRadius="md">
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.updateCheckFailed", {
-														error: update.error,
-													})}
-												</Text>
-											</Alert>
-										)}
-										{hostActionsAvailable && (
-											<FormControl>
-												<FormLabel fontSize="sm">
-													{t("settings.panel.updateChannel")}
-												</FormLabel>
-												<Select
-													size="sm"
-													portalled={false}
-													value={selectedChannel}
-													onChange={(event) => {
-														setSelectedChannel(
-															event.target.value as UpdateChannel,
-														);
-														setDevUpdateArmed(false);
-													}}
-												>
-													<option value="current">
-														{t("settings.panel.updateChannelCurrent")}
-													</option>
-													<option value="latest">
-														{t("settings.panel.updateChannelLatest")}
-													</option>
-													<option value="dev">
-														{t("settings.panel.updateChannelDev")}
-													</option>
-												</Select>
-												<FormHelperText>
-													{selectedTarget
-														? t("settings.panel.updateTargetHint", {
-																version: selectedTarget,
-															})
-														: t("settings.panel.updateTargetUnknown")}
-												</FormHelperText>
-											</FormControl>
-										)}
-										{selectedChannel === "dev" && hostActionsAvailable && (
-											<Alert status="warning" borderRadius="md">
-												<AlertIcon />
-												<Text fontSize="sm">
-													{t("settings.panel.devChannelWarning")}
-												</Text>
-											</Alert>
-										)}
-										<Flex gap={2} flexWrap="wrap" justify="flex-end">
-											<Button
-												size="xs"
-												h="28px"
-												px={3}
-												variant="outline"
-												borderRadius="full"
-												onClick={() => reloadMutation.mutate()}
-												isLoading={reloadMutation.isLoading}
-												isDisabled={!hostActionsAvailable}
-											>
-												{t("settings.panel.softReloadAction")}
-											</Button>
-											<Button
-												size="xs"
-												h="28px"
-												px={3}
-												colorScheme={
-													devUpdateArmed
-														? "orange"
-														: update?.available
-															? "green"
-															: "primary"
-												}
-												borderRadius="full"
-												onClick={startUpdate}
-												isLoading={updateMutation.isLoading}
-												isDisabled={!hostActionsAvailable}
-											>
-												{devUpdateArmed
-													? t("settings.panel.confirmDevUpdateAction")
-													: t("settings.panel.updateAction")}
-											</Button>
-										</Flex>
-									</Stack>
-								</PopoverBody>
-							</PopoverContent>
-						</Popover>
-					</Box>
-				) : null}
+				{canMaintain && <Box minW="140px">{renderUpdatePopover()}</Box>}
 
-				{/* 3. Backup Button */}
-				{canBackUp ? (
-					<Box w="full">
-						<DashboardBackupControls
-							isBinaryRuntime={hostActionsAvailable}
-							runtimeLoading={info.isLoading}
-						/>
-					</Box>
-				) : null}
+				{canBackUp && (
+					<DashboardBackupControls
+						isBinaryRuntime={hostActionsAvailable}
+						runtimeLoading={info.isLoading}
+					/>
+				)}
 
-				{/* 4. Restart Action Button */}
-				{canMaintain ? (
+				{canMaintain && (
 					<Button
 						size="xs"
-						h="30px"
-						w="full"
+						h="32px"
+						px={3.5}
 						colorScheme="red"
 						variant="outline"
 						borderRadius="full"
@@ -565,8 +561,68 @@ export const DashboardMaintenanceControls = ({
 					>
 						{t("settings.panel.restartAction")}
 					</Button>
-				) : null}
-			</SimpleGrid>
+				)}
+			</HStack>
+
+			{/* Mobile Layout: 2 Perfectly Balanced Rows */}
+			<Stack
+				display={{ base: "flex", md: "none" }}
+				spacing={2}
+				w="full"
+			>
+				{/* Row 1: Version (25%) + Update Action (75%) */}
+				<Flex gap={2} w="full" align="center">
+					<Tag
+						flex="1 1 25%"
+						h="32px"
+						justifyContent="center"
+						borderRadius="full"
+						fontSize="11px"
+						fontWeight="700"
+						bg="panel.elevated"
+						color="panel.textSecondary"
+						borderWidth="1px"
+						borderColor="panel.border"
+					>
+						{currentVersion}
+					</Tag>
+					{canMaintain && (
+						<Box flex="3 3 75%">
+							{renderUpdatePopover()}
+						</Box>
+					)}
+				</Flex>
+
+				{/* Row 2: Backup (50%) + Restart (50%) */}
+				<Flex gap={2} w="full" align="center">
+					{canBackUp && (
+						<Box flex="1 1 50%">
+							<DashboardBackupControls
+								isBinaryRuntime={hostActionsAvailable}
+								runtimeLoading={info.isLoading}
+							/>
+						</Box>
+					)}
+					{canMaintain && (
+						<Button
+							flex="1 1 50%"
+							h="32px"
+							size="xs"
+							colorScheme="red"
+							variant="outline"
+							borderRadius="full"
+							leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
+							onClick={() => restartMutation.mutate()}
+							isLoading={restartMutation.isLoading}
+							isDisabled={info.isLoading || !hostActionsAvailable}
+							fontSize="11px"
+							fontWeight="700"
+						>
+							{t("settings.panel.restartAction")}
+						</Button>
+					)}
+				</Flex>
+			</Stack>
 
 			{/* Update Progress Dialog Modal */}
 			<Modal
