@@ -24,6 +24,7 @@ import {
 import {
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
+	CheckCircleIcon,
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
@@ -32,6 +33,8 @@ import {
 	ShieldCheckIcon,
 	SignalIcon,
 	UserGroupIcon,
+	UserIcon,
+	WifiIcon,
 } from "@heroicons/react/24/outline";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
@@ -552,6 +555,48 @@ const HardwareBentoCard: FC<{
 	);
 };
 
+/* کارت داخلی سرعت و آپتایم - ۱۰۰٪ واکنش‌گرا بدون شکستن کلمات */
+const ResponsiveInnerCard: FC<{
+	icon: ReactNode;
+	label: string;
+	value: string;
+	dir?: "ltr" | "rtl";
+}> = ({ icon, label, value, dir }) => (
+	<Box
+		p={3.5}
+		borderRadius="xl"
+		bg="panel.elevated"
+		borderWidth="1px"
+		borderColor="panel.border"
+		transition="all 0.2s ease"
+		_hover={{ borderColor: "panel.borderStrong" }}
+	>
+		<HStack spacing={2.5} mb={2} align="center">
+			<ThemedIconBadge icon={icon} size={7} />
+			<Text
+				fontSize="xs"
+				fontWeight="700"
+				color="panel.textSecondary"
+				whiteSpace="nowrap"
+				overflow="hidden"
+				textOverflow="ellipsis"
+			>
+				{label}
+			</Text>
+		</HStack>
+		<Text
+			fontSize={{ base: "sm", sm: "md" }}
+			fontWeight="800"
+			color="panel.text"
+			dir={dir}
+			sx={{ fontVariantNumeric: "tabular-nums" }}
+			noOfLines={1}
+		>
+			{value}
+		</Text>
+	</Box>
+);
+
 /* Metric Cell با نقطه دایره‌ای ساده و استاندارد */
 const MetricCell: FC<{
 	label: string;
@@ -740,7 +785,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						/>
 					</SimpleGrid>
 
-					{/* Row: Speeds Card (Left) & Uptime Card (Right) - Symmetrical 2x2 Bento Box */}
+					{/* Row: Speeds Card (Left) & Uptime Card (Right) */}
 					<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
 						{/* Separate Speeds Card */}
 						<Box
@@ -783,57 +828,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 							</Flex>
 
 							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
-								<Flex
-									p={3.5}
-									borderRadius="xl"
-									bg="panel.elevated"
-									borderWidth="1px"
-									borderColor="panel.border"
-									justify="space-between"
-									align="center"
-								>
-									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ArrowDownTrayIcon width={16} />} size={7} />
-										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
-											{t("incomingSpeed")}
-										</Text>
-									</HStack>
-									<Text
-										fontSize="sm"
-										fontWeight="800"
-										color="panel.text"
-										dir="ltr"
-										sx={{ fontVariantNumeric: "tabular-nums" }}
-									>
-										{formatBytes(systemData.incoming_bandwidth_speed)}/s
-									</Text>
-								</Flex>
-
-								<Flex
-									p={3.5}
-									borderRadius="xl"
-									bg="panel.elevated"
-									borderWidth="1px"
-									borderColor="panel.border"
-									justify="space-between"
-									align="center"
-								>
-									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ArrowUpTrayIcon width={16} />} size={7} />
-										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
-											{t("outgoingSpeed")}
-										</Text>
-									</HStack>
-									<Text
-										fontSize="sm"
-										fontWeight="800"
-										color="panel.text"
-										dir="ltr"
-										sx={{ fontVariantNumeric: "tabular-nums" }}
-									>
-										{formatBytes(systemData.outgoing_bandwidth_speed)}/s
-									</Text>
-								</Flex>
+								<ResponsiveInnerCard
+									icon={<ArrowDownTrayIcon width={16} />}
+									label={t("incomingSpeed")}
+									value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
+									dir="ltr"
+								/>
+								<ResponsiveInnerCard
+									icon={<ArrowUpTrayIcon width={16} />}
+									label={t("outgoingSpeed")}
+									value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
+									dir="ltr"
+								/>
 							</SimpleGrid>
 						</Box>
 
@@ -854,61 +860,24 @@ export const Statistics: FC<BoxProps> = (props) => {
 								<HStack spacing={2.5}>
 									<ThemedIconBadge icon={<ClockIcon width={18} />} />
 									<Text fontSize="sm" fontWeight="700" color="panel.text">
-										{t("uptime", "آپتایم")}
+										{t("uptime")}
 									</Text>
 								</HStack>
 							</Flex>
 
 							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
-								<Flex
-									p={3.5}
-									borderRadius="xl"
-									bg="panel.elevated"
-									borderWidth="1px"
-									borderColor="panel.border"
-									justify="space-between"
-									align="center"
-								>
-									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<ServerStackIcon width={16} />} size={7} />
-										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
-											{t("systemUptime")}
-										</Text>
-									</HStack>
-									<Text
-										fontSize="xs"
-										fontWeight="800"
-										color="panel.text"
-										dir={isRTL ? "rtl" : "ltr"}
-									>
-										{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
-									</Text>
-								</Flex>
-
-								<Flex
-									p={3.5}
-									borderRadius="xl"
-									bg="panel.elevated"
-									borderWidth="1px"
-									borderColor="panel.border"
-									justify="space-between"
-									align="center"
-								>
-									<HStack spacing={2.5}>
-										<ThemedIconBadge icon={<CircleStackIcon width={16} />} size={7} />
-										<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
-											{t("panelUptime")}
-										</Text>
-									</HStack>
-									<Text
-										fontSize="xs"
-										fontWeight="800"
-										color="panel.text"
-										dir={isRTL ? "rtl" : "ltr"}
-									>
-										{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
-									</Text>
-								</Flex>
+								<ResponsiveInnerCard
+									icon={<ServerStackIcon width={16} />}
+									label={t("systemUptime")}
+									value={formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
+									dir={isRTL ? "rtl" : "ltr"}
+								/>
+								<ResponsiveInnerCard
+									icon={<CircleStackIcon width={16} />}
+									label={t("panelUptime")}
+									value={formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
+									dir={isRTL ? "rtl" : "ltr"}
+								/>
 							</SimpleGrid>
 						</Box>
 					</SimpleGrid>

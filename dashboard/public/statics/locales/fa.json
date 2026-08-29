@@ -2420,6 +2420,7 @@
 	"inbounds.anyconnect.help.acMatchTLSDTLSCiphers": "سیاست رمزنگاری TLS و DTLS را هماهنگ می‌کند.",
 	"current": "فعلی",
 	"confirm": "تأیید",
+	"uptime": "آپتایم",
 	"admins.trafficMode": "Traffic mode",
 	"admins.details.showUserTraffic": "View user traffic",
 	"admins.deletedUserUsage": "Deleted-user usage",

@@ -2413,6 +2413,7 @@
 	"inbounds.anyconnect.help.acMatchTLSDTLSCiphers": "Use matching cipher policy for TLS and DTLS.",
 	"current": "Current",
 	"confirm": "Confirm",
+	"uptime": "Uptime",
 	"admins.trafficMode": "Traffic mode",
 	"admins.details.showUserTraffic": "View user traffic",
 	"admins.deletedUserUsage": "Deleted-user usage",
