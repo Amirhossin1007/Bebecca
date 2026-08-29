@@ -66,6 +66,18 @@ func (s *Server) handleInboundsFull(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInboundPath(w http.ResponseWriter, r *http.Request) {
+	if tag, ok := parseInboundUsageResetPath(r.URL.Path); ok {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		if err := s.configRepo.ResetInboundUsage(r.Context(), tag); err != nil {
+			writeInboundError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"detail": "Inbound usage reset"})
+		return
+	}
 	tag, ok := parseInboundTagPath(r.URL.Path)
 	if !ok {
 		writeError(w, http.StatusNotFound, "not found")
@@ -101,6 +113,22 @@ func (s *Server) handleInboundPath(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func parseInboundUsageResetPath(path string) (string, bool) {
+	for _, prefix := range []string{"/api/inbounds/", "/inbounds/"} {
+		if !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		rest := strings.Trim(strings.TrimPrefix(path, prefix), "/")
+		const suffix = "/usage/reset"
+		if !strings.HasSuffix(rest, suffix) {
+			return "", false
+		}
+		tag, err := url.PathUnescape(strings.TrimSuffix(rest, suffix))
+		return tag, err == nil && strings.TrimSpace(tag) != ""
+	}
+	return "", false
 }
 
 func parseInboundTagPath(path string) (string, bool) {

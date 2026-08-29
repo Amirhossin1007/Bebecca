@@ -36,15 +36,15 @@ import {
 	matchesAnySearch,
 } from "utils/searchMatch";
 import { sortByTraffic, type TrafficSortOrder } from "utils/trafficSort";
-import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
-import { SearchInput } from "../common/SearchInput";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
+import { SearchInput } from "../common/SearchInput";
+import { ConfirmDialog, DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
 import {
 	DataTable,
-	ResourceListCard,
-	ResourceRefreshButton,
 	type DataTableColumn,
 	type DataTableRowAction,
+	ResourceListCard,
+	ResourceRefreshButton,
 	type ResourceSummaryItem,
 } from "../ui";
 import { InboundFormModal } from "./FormDrawer";
@@ -103,7 +103,9 @@ export const InboundsManager: FC = () => {
 	const [cloneTarget, setCloneTarget] = useState<RawInbound | null>(null);
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const cloneDrawer = useDisclosure();
+	const resetDialog = useDisclosure();
 	const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
+	const [resetTarget, setResetTarget] = useState<RawInbound | null>(null);
 
 	const loadInbounds = useCallback(() => {
 		setIsLoading(true);
@@ -146,9 +148,12 @@ export const InboundsManager: FC = () => {
 	const targetNameById = useMemo(
 		() =>
 			Object.fromEntries(
-				configTargets.map((target) => [target.id, target.name || target.id]),
+				configTargets.map((target) => [
+					target.id,
+					target.type === "master" ? t("default") : target.name || target.id,
+				]),
 			),
-		[configTargets],
+		[configTargets, t],
 	);
 
 	const openCreate = () => {
@@ -383,6 +388,33 @@ export const InboundsManager: FC = () => {
 			});
 		} finally {
 			setIsMutating(false);
+		}
+	};
+
+	const handleResetUsage = async () => {
+		if (!resetTarget) return;
+		setIsMutating(true);
+		try {
+			await fetch(
+				`/inbounds/${encodeURIComponent(resetTarget.tag)}/usage/reset`,
+				{ method: "POST" },
+			);
+			toast({ status: "success", title: t("inbounds.resetUsageSuccess") });
+			await loadInbounds();
+		} catch (error: unknown) {
+			const detail = error as {
+				data?: { detail?: string };
+				message?: string;
+			};
+			toast({
+				status: "error",
+				title: t("inbounds.resetUsageError"),
+				description: detail.data?.detail || detail.message,
+			});
+		} finally {
+			setIsMutating(false);
+			setResetTarget(null);
+			resetDialog.onClose();
 		}
 	};
 
@@ -664,6 +696,16 @@ export const InboundsManager: FC = () => {
 			onClick: () => openEdit(inbound),
 		},
 		{
+			id: "reset-usage",
+			label: t("inbounds.resetUsage"),
+			icon: <ArrowPathIcon width={16} />,
+			onClick: () => {
+				setResetTarget(inbound);
+				resetDialog.onOpen();
+			},
+			isDisabled: isMutating,
+		},
+		{
 			id: "delete",
 			label: t("delete"),
 			icon: <TrashIcon width={16} />,
@@ -871,6 +913,23 @@ export const InboundsManager: FC = () => {
 					onSubmit={handleCloneSubmit}
 				/>
 			)}
+			<ConfirmDialog
+				isOpen={resetDialog.isOpen}
+				onClose={() => {
+					if (isMutating) return;
+					setResetTarget(null);
+					resetDialog.onClose();
+				}}
+				onConfirm={handleResetUsage}
+				title={t("inbounds.resetUsage")}
+				description={t("inbounds.resetUsageConfirm", {
+					tag: resetTarget?.tag ?? "",
+				})}
+				confirmLabel={t("inbounds.resetUsage")}
+				colorScheme="red"
+				isLoading={isMutating}
+				isConfirmDisabled={!resetTarget}
+			/>
 		</Stack>
 	);
 };

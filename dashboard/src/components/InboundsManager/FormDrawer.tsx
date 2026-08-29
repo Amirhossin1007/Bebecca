@@ -635,12 +635,12 @@ export const InboundFormModal: FC<Props> = ({
 						{
 							id: "master",
 							type: "master",
-							name: "Master",
+							name: t("default"),
 							node_id: null,
 							mode: "custom",
 						},
 					],
-		[configTargets],
+		[configTargets, t],
 	);
 
 	useEffect(() => {
@@ -6745,10 +6745,14 @@ export const InboundFormModal: FC<Props> = ({
 													>
 														<Checkbox value={target.id}>
 															<HStack spacing={2}>
-																<Text>{target.name}</Text>
+																<Text>
+																	{target.type === "master"
+																		? t("default")
+																		: target.name}
+																</Text>
 																<Tag size="sm" colorScheme="gray">
 																	{target.type === "master"
-																		? "Master"
+																		? t("default")
 																		: target.mode}
 																</Tag>
 															</HStack>
