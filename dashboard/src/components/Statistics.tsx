@@ -555,42 +555,31 @@ const HardwareBentoCard: FC<{
 	);
 };
 
-/* کارت داخلی سرعت و آپتایم - تطبیقی و هوشمند (بالای ۱۰۲۴ افقی، زیر ۱۰۲۴ دو سطری) */
+/* کارت داخلی سرعت و آپتایم - ۱۰۰٪ واکنش‌گرا بدون شکستن کلمات */
 const ResponsiveInnerCard: FC<{
 	icon: ReactNode;
 	label: string;
 	value: string;
 	dir?: "ltr" | "rtl";
 }> = ({ icon, label, value, dir }) => (
-	<Flex
+	<Box
 		p={3.5}
 		borderRadius="xl"
 		bg="panel.elevated"
 		borderWidth="1px"
 		borderColor="panel.border"
-		direction="column"
-		align="flex-start"
-		justify="center"
-		gap={1.5}
-		minH="56px"
 		transition="all 0.2s ease"
 		_hover={{ borderColor: "panel.borderStrong" }}
-		sx={{
-			"@media (min-width: 1024px)": {
-				flexDirection: "row",
-				alignItems: "center",
-				justifyContent: "space-between",
-				gap: "8px",
-			},
-		}}
 	>
-		<HStack spacing={2.5} minW={0} flexShrink={0}>
+		<HStack spacing={2.5} mb={2} align="center">
 			<ThemedIconBadge icon={icon} size={7} />
 			<Text
 				fontSize="xs"
 				fontWeight="700"
 				color="panel.textSecondary"
 				whiteSpace="nowrap"
+				overflow="hidden"
+				textOverflow="ellipsis"
 			>
 				{label}
 			</Text>
@@ -601,11 +590,11 @@ const ResponsiveInnerCard: FC<{
 			color="panel.text"
 			dir={dir}
 			sx={{ fontVariantNumeric: "tabular-nums" }}
-			whiteSpace="nowrap"
+			noOfLines={1}
 		>
 			{value}
 		</Text>
-	</Flex>
+	</Box>
 );
 
 /* Metric Cell با نقطه دایره‌ای ساده و استاندارد */
@@ -871,7 +860,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								<HStack spacing={2.5}>
 									<ThemedIconBadge icon={<ClockIcon width={18} />} />
 									<Text fontSize="sm" fontWeight="700" color="panel.text">
-										{t("uptime", "آپتایم")}
+										{t("uptime")}
 									</Text>
 								</HStack>
 							</Flex>
