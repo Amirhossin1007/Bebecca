@@ -162,15 +162,22 @@ VALUES
 	}
 
 	repo := NewRepository(db, "sqlite")
-	rows, err := repo.PendingOperations(ctx, 0, 1)
+	rows, err := repo.PendingOperations(ctx, 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(rows) != 1 {
-		t.Fatalf("expected one operation, got %d", len(rows))
+		t.Fatalf("expected only the connected node operation, got %d", len(rows))
 	}
 	if !rows[0].NodeID.Valid || rows[0].NodeID.Int64 != 50 {
-		t.Fatalf("expected connected node operation first, got %#v", rows[0])
+		t.Fatalf("expected connected node operation, got %#v", rows[0])
+	}
+	rows, err = repo.PendingOperations(ctx, 24, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected error node operations to stay paused, got %#v", rows)
 	}
 	rows, err = repo.PendingOperations(ctx, 60, 10)
 	if err != nil {
@@ -187,6 +194,17 @@ VALUES
 		t.Fatal("deleted node operation was claimed")
 	}
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 5`, "pending")
+	if _, err := db.ExecContext(ctx, `UPDATE nodes SET status = 'error' WHERE id = 50`); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = repo.MarkOperationRunning(ctx, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed {
+		t.Fatal("operation was claimed after its node disconnected")
+	}
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 4`, "pending")
 }
 
 func TestRepositoryPendingRuntimeUserOperationsOnlyConnectedUserDeltas(t *testing.T) {
@@ -581,7 +599,7 @@ VALUES ('add_user', 50, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMEST
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'sync_config'`, 0)
 }
 
-func TestControllerProcessQueueMarksDisabledNodeOperationPermanent(t *testing.T) {
+func TestControllerProcessQueuePausesDisabledNodeOperation(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue-disabled.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -632,11 +650,11 @@ VALUES ('add_user', 7, 200, '{}', 'pending', 'disabled-op', CURRENT_TIMESTAMP, C
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Processed != 1 || result.Failed != 1 || result.Retrying != 0 {
-		t.Fatalf("expected disabled operation to fail permanently, got %#v", result)
+	if result.Processed != 0 || result.Failed != 0 || result.Retrying != 0 {
+		t.Fatalf("expected disabled operation to stay paused, got %#v", result)
 	}
-	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 1`, "failed")
-	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE id = 1`, 1)
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 1`, "pending")
+	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE id = 1`, 0)
 }
 
 func TestControllerCompletesGlobalSyncConfigWhenNoNodesExist(t *testing.T) {

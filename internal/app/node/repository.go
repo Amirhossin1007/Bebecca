@@ -419,6 +419,11 @@ WHERE id = ? AND LOWER(COALESCE(status, '')) <> ?`, StatusDeleted, now, nodeID, 
 	if err := requireActiveNodeUpdate(result); err != nil {
 		return err
 	}
+	if _, err := tx.ExecContext(ctx, `UPDATE node_operations
+SET status = 'failed', last_error = 'node deleted', updated_at = ?
+WHERE node_id = ? AND status IN ('pending', 'retrying', 'running')`, now, nodeID); err != nil {
+		return err
+	}
 	if err := r.recordRecentActionTx(ctx, tx, "node.delete", node.Name, "Deleted node"); err != nil {
 		return err
 	}

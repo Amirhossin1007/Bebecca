@@ -118,6 +118,7 @@ func TestNodeRepositoryCreateUpdateResetDeleteAndRegenerate(t *testing.T) {
 	}
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1 AND status = 'deleted'`, 1)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1`, operationsBefore)
+	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1 AND status = 'failed' AND last_error = 'node deleted'`, operationsBefore)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_usage_user_queue WHERE node_id = 1`, 1)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM node_usage_outbound_queue WHERE node_id = 1`, 1)
 	assertNodeTestCount(t, db, `SELECT COUNT(*) FROM vpn_user_sessions WHERE node_id = 1`, 1)

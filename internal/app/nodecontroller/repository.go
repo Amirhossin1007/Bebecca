@@ -629,9 +629,12 @@ WHERE (
 	status = 'pending'
 	OR (status = 'retrying' AND updated_at <= ?)
 )
-AND NOT EXISTS (
-	SELECT 1 FROM nodes n
-	WHERE n.id = no.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted'
+AND (
+	no.node_id IS NULL
+	OR EXISTS (
+		SELECT 1 FROM nodes n
+		WHERE n.id = no.node_id AND LOWER(COALESCE(n.status, '')) = 'connected'
+	)
 )`
 	args := []any{retryCutoff}
 	query += ` AND node_id = ?`
@@ -749,19 +752,14 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 				END,
 				CASE WHEN no.operation_type = 'add_user' THEN -no.id ELSE no.id END
 		) AS node_rank,
-		CASE
-			WHEN no.node_id IS NULL THEN 0
-			WHEN LOWER(COALESCE(n.status, '')) = 'connected' THEN 1
-			WHEN LOWER(COALESCE(n.status, '')) IN ('disabled', 'limited') THEN 3
-			ELSE 2
-		END AS priority
+		CASE WHEN no.node_id IS NULL THEN 0 ELSE 1 END AS priority
 	FROM node_operations no
 	LEFT JOIN nodes n ON n.id = no.node_id
 	WHERE (
 		no.status = 'pending'
 		OR (no.status = 'retrying' AND no.updated_at <= ?)
 	)
-	AND (no.node_id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
+	AND (no.node_id IS NULL OR LOWER(COALESCE(n.status, '')) = 'connected')
 )
 SELECT id, operation_type, node_id, user_id, payload, attempts
 FROM ranked_operations
@@ -817,11 +815,11 @@ func (r Repository) MarkOperationRunning(ctx context.Context, id int64) (bool, e
 		`UPDATE node_operations
 SET status = 'running', updated_at = ?
 WHERE id = ? AND status IN ('pending', 'retrying')
-  AND (
+	AND (
 	node_id IS NULL
 	OR EXISTS (
 		SELECT 1 FROM nodes n
-		WHERE n.id = node_operations.node_id AND LOWER(COALESCE(n.status, '')) <> 'deleted'
+		WHERE n.id = node_operations.node_id AND LOWER(COALESCE(n.status, '')) = 'connected'
 	)
   )`,
 		r.timeArg(time.Now().UTC()),
