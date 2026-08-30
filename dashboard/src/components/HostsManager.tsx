@@ -2142,7 +2142,14 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 export const HostsManager: FC = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const { hosts, fetchHosts, isLoading, isPostLoading, setHosts } = useHosts();
+	const {
+		hosts,
+		fetchHosts,
+		isLoading,
+		isPostLoading,
+		setHosts,
+		setHostStatus,
+	} = useHosts();
 	const { inbounds } = useDashboard();
 	const { data: nodes = [] } = useNodesQuery();
 	const [_hostItemsState, setHostItemsState] = useState<HostState[]>([]);
@@ -2532,8 +2539,10 @@ export const HostsManager: FC = () => {
 			if (!updatedHost) {
 				throw new Error("Host not found");
 			}
-			const payload = groupHostsByInbound(nextHosts, inboundOptions);
-			await setHosts(payload);
+			if (!updatedHost.data.id) {
+				throw new Error("Host ID is missing");
+			}
+			await setHostStatus(updatedHost.data.id, !isActive);
 			await fetchHosts();
 		} catch (_error) {
 			applyHostItems(previousHosts);
@@ -2551,9 +2560,10 @@ export const HostsManager: FC = () => {
 	const handleDeleteHost = async (uid: string) => {
 		const host = hostItemsRef.current.find((item) => item.uid === uid);
 		if (!host) return;
+		const previousHosts = hostItemsRef.current;
 		setDeletingUid(uid);
 		try {
-			const nextHosts = hostItemsRef.current.filter((item) => item.uid !== uid);
+			const nextHosts = previousHosts.filter((item) => item.uid !== uid);
 			applyHostItems(nextHosts);
 			const payload = buildInboundPayload(
 				nextHosts,
@@ -2572,6 +2582,7 @@ export const HostsManager: FC = () => {
 				setSelectedHostUid(null);
 			}
 		} catch (_error) {
+			applyHostItems(previousHosts);
 			toast({
 				title: t("hostsPage.error.delete"),
 				status: "error",

@@ -55,7 +55,7 @@ func TestHostsListCreatesDefaultHosts(t *testing.T) {
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM hosts`, 2)
 }
 
-func TestHostStatusDisablesAndDetachesServiceUsers(t *testing.T) {
+func TestHostStatusKeepsServiceAssignmentAcrossDisableAndEnable(t *testing.T) {
 	server, db := testAdminServer(t)
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("cdn", "vless", 443)))
@@ -92,9 +92,16 @@ func TestHostStatusDisablesAndDetachesServiceUsers(t *testing.T) {
 	if !host.IsDisabled || host.Security != "tls" || host.ALPN != "h2" || host.Fingerprint != "chrome" {
 		t.Fatalf("unexpected host response: %#v", host)
 	}
-	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE host_id = 44`, 0)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE host_id = 44`, 1)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 0)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/hosts/44/status", token, `{"is_disabled":false}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("host enable status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE host_id = 44`, 1)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 2)
 }
 
 func TestAffectedServiceRuntimeChangeQueuesSingleSyncConfig(t *testing.T) {
@@ -184,7 +191,7 @@ func TestHostsBulkModifyMoveDisableAndEnqueue(t *testing.T) {
 	if !updated["info"][1].IsDisabled {
 		t.Fatalf("disabled host did not stay disabled: %#v", updated["info"][1])
 	}
-	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE host_id = `+itoa(infoID), 0)
+	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM service_hosts WHERE host_id = `+itoa(infoID), 1)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 0)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM hosts WHERE inbound_tag = 'cdn'`, 1)

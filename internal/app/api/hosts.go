@@ -430,11 +430,6 @@ func (s *Server) updateHostStatus(r *http.Request, hostID int64, disabled bool) 
 	if _, err := tx.ExecContext(r.Context(), `UPDATE hosts SET is_disabled = ? WHERE id = ?`, boolToInt(disabled), hostID); err != nil {
 		return hostResponse{}, err
 	}
-	if disabled {
-		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_hosts WHERE host_id = ?`, hostID); err != nil {
-			return hostResponse{}, err
-		}
-	}
 	changedServices, err := changedServiceRuntimeInboundSetsTx(r.Context(), tx, beforeServiceTags, serviceSet)
 	if err != nil {
 		return hostResponse{}, err
@@ -480,7 +475,6 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 			if exists, err := hostExistsTx(r.Context(), tx, *host.ID); err != nil {
 				return err
 			} else if exists {
-				newDisabled := boolPtrValue(host.IsDisabled)
 				oldServices, err := serviceIDsForHostTx(r.Context(), tx, *host.ID)
 				if err != nil {
 					return err
@@ -492,22 +486,12 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 					return err
 				}
 				delete(remaining, *host.ID)
-				if newDisabled {
-					if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_hosts WHERE host_id = ?`, *host.ID); err != nil {
-						return err
-					}
-				}
 				continue
 			}
 		}
-		id, err := insertHostTx(r.Context(), tx, inboundTag, host)
+		_, err := insertHostTx(r.Context(), tx, inboundTag, host)
 		if err != nil {
 			return err
-		}
-		if boolPtrValue(host.IsDisabled) {
-			if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_hosts WHERE host_id = ?`, id); err != nil {
-				return err
-			}
 		}
 	}
 
