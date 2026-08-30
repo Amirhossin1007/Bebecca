@@ -404,14 +404,13 @@ export const fetchInbounds = () => {
 			console.error("Failed to fetch inbounds:", error);
 			useDashboard.setState({ inbounds: new Map() });
 		})
-		.finally(() => {
-			if (requestId === inboundsFetchSequence) {
-				if (inboundsAbortController === abortController) {
-					inboundsAbortController = null;
+			.finally(() => {
+				if (requestId === inboundsFetchSequence) {
+					if (inboundsAbortController === abortController) {
+						inboundsAbortController = null;
+					}
 				}
-				useDashboard.setState({ loading: false });
-			}
-		});
+			});
 };
 
 export const clearDashboardCache = () => {

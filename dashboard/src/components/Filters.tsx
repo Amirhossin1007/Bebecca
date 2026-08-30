@@ -142,22 +142,22 @@ export const Filters: FC<FilterProps> = ({
 	showRefresh = true,
 	...props
 }) => {
-	const {
-		loading: usersLoading,
-		filters: userFilters,
-		onFilterChange: onUserFilterChange,
-		refetchUsers,
-		onCreateUser,
-	} = useDashboard();
-	const {
-		loading: adminsLoading,
-		filters: adminFilters,
-		onFilterChange: onAdminFilterChange,
-		fetchAdmins,
-		fetchAdminOptions,
-		openAdminDialog,
-		adminOptions,
-	} = useAdminsStore();
+	const usersLoading = useDashboard((state) => state.loading);
+	const userFilters = useDashboard((state) => state.filters);
+	const onUserFilterChange = useDashboard((state) => state.onFilterChange);
+	const refetchUsers = useDashboard((state) => state.refetchUsers);
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
+	const adminsLoading = useAdminsStore((state) => state.loading);
+	const adminFilters = useAdminsStore((state) => state.filters);
+	const onAdminFilterChange = useAdminsStore(
+		(state) => state.onFilterChange,
+	);
+	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
+	const fetchAdminOptions = useAdminsStore(
+		(state) => state.fetchAdminOptions,
+	);
+	const openAdminDialog = useAdminsStore((state) => state.openAdminDialog);
+	const adminOptions = useAdminsStore((state) => state.adminOptions);
 	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
 	const { userData } = useGetUser();
@@ -192,8 +192,10 @@ export const Filters: FC<FilterProps> = ({
 	const activeFilters: string[] = userFiltersOnly?.advancedFilters ?? [];
 	const serviceId = userFiltersOnly?.serviceId;
 	const ownerFilter = userFiltersOnly?.owner;
-	const { serviceOptions: rawServiceOptions, fetchServiceOptions } =
-		useServicesStore();
+	const rawServiceOptions = useServicesStore((state) => state.serviceOptions);
+	const fetchServiceOptions = useServicesStore(
+		(state) => state.fetchServiceOptions,
+	);
 	const serviceOptions = Array.isArray(rawServiceOptions)
 		? rawServiceOptions
 		: [];

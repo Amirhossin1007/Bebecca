@@ -45,14 +45,13 @@ import {
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
-import { ExternalAppFilesModal } from "components/ExternalAppFilesModal";
 import {
 	DataTable,
 	ResourceListCard,
 	type DataTableColumn,
 	type DataTableRowAction,
 } from "components/ui";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Link as RouterLink } from "react-router-dom";
@@ -71,6 +70,11 @@ import {
 
 type TemplateID = "archive" | "mirzabot";
 type ArchiveRuntime = "php" | "static" | "node";
+
+const ExternalAppFilesModal = lazy(async () => ({
+	default: (await import("components/ExternalAppFilesModal"))
+		.ExternalAppFilesModal,
+}));
 
 const errorDetail = (error: unknown) => {
 	const candidate = error as {
@@ -622,11 +626,15 @@ export const ExternalAppsPage = () => {
 					});
 				}}
 			/>
-			<ExternalAppFilesModal
-				app={managedApp}
-				initialView={managerView}
-				onClose={() => setManagedApp(null)}
-			/>
+			{managedApp && (
+				<Suspense fallback={null}>
+					<ExternalAppFilesModal
+						app={managedApp}
+						initialView={managerView}
+						onClose={() => setManagedApp(null)}
+					/>
+				</Suspense>
+			)}
 			<Modal
 				isOpen={Boolean(settingsTarget)}
 				onClose={() => setSettingsTarget(null)}

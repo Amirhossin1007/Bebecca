@@ -8,7 +8,7 @@ vi.mock("utils/userPreferenceStorage", () => ({
 
 import { fetch as apiFetch } from "service/http";
 
-import { useDashboard } from "./DashboardContext";
+import { fetchInbounds, useDashboard } from "./DashboardContext";
 
 type PendingRequest = { resolve: (value: unknown) => void };
 
@@ -75,5 +75,14 @@ describe("onEditingUser", () => {
 				download_speed: 34,
 			});
 		});
+	});
+
+	it("does not clear user loading when the inbounds request finishes", async () => {
+		vi.mocked(apiFetch).mockResolvedValue({} as never);
+		useDashboard.setState({ loading: true });
+
+		await fetchInbounds();
+
+		expect(useDashboard.getState().loading).toBe(true);
 	});
 });

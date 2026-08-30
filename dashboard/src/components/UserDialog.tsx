@@ -167,14 +167,6 @@ const SectionChevronIcon = chakra(HeroChevronDownIcon, {
 	},
 });
 
-const _ConfirmIcon = chakra(CheckIcon, {
-	baseStyle: {
-		w: 4,
-
-		h: 4,
-	},
-});
-
 export type UserDialogProps = {};
 type SubmitStatus = "idle" | "loading" | "success" | "error";
 
@@ -763,16 +755,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const [autoRenewFireOnEitherValue, setAutoRenewFireOnEitherValue] =
 		useState(true);
 
-	const [noteValue, telegramValue, contactNumberValue] = useWatch({
-		control: form.control,
-		name: ["note", "telegram_id", "contact_number"],
-	});
-
-	const _otherInfoCount =
-		(noteValue ? 1 : 0) +
-		(telegramValue ? 1 : 0) +
-		(contactNumberValue ? 1 : 0);
-
 	const resetAutoRenewFormValues = useCallback(
 		(rule?: AutoRenewRule | null) => {
 			if (rule) {
@@ -1333,12 +1315,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		const { status, time } = relativeExpiryDate(expireValue);
 		return t(status, { time });
 	}, [expireValue, t]);
-
-	const _nextPlanDataLimit = useWatch({
-		control: form.control,
-
-		name: "next_plan_data_limit",
-	});
 
 	useEffect(() => {
 		const derivedDays = deriveDaysFromSeconds(expireValue);

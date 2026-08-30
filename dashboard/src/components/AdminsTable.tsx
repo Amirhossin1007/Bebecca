@@ -153,9 +153,6 @@ const AdminRoleBadge: FC<{ role: AdminRole }> = ({ role }) => {
 	);
 };
 
-
-
-
 const formatCount = (value: number | null | undefined, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value ?? 0);
 
@@ -166,7 +163,9 @@ const getAdminEffectiveUsage = (admin: Admin) =>
 
 const getAdminIsExpired = (admin: Admin, nowUnix: number) =>
 	admin.disabled_reason === ADMIN_TIME_LIMIT_EXHAUSTED_REASON_KEY ||
-	(typeof admin.expire === "number" && admin.expire > 0 && admin.expire <= nowUnix);
+	(typeof admin.expire === "number" &&
+		admin.expire > 0 &&
+		admin.expire <= nowUnix);
 
 const getAdminIsLimited = (admin: Admin) =>
 	admin.disabled_reason === ADMIN_DATA_LIMIT_EXHAUSTED_REASON_KEY ||
@@ -193,24 +192,24 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const dialogBg = useColorModeValue("surface.light", "surface.dark");
 	const dialogBorderColor = useColorModeValue("light-border", "gray.700");
 	const inlineMenuBg = useColorModeValue("blackAlpha.50", "whiteAlpha.50");
-	const {
-		adminOptions,
-		admins,
-		loading,
-		total,
-		filters,
-		onFilterChange,
-		fetchAdmins,
-		deleteAdmin,
-		resetUsage,
-		resetDeletedUsersUsage,
-		disableAdmin,
-		enableAdmin,
-		fetchAdminOptions,
-		updateAdmin,
-		openAdminDialog,
-		openAdminDetails,
-	} = useAdminsStore();
+	const adminOptions = useAdminsStore((state) => state.adminOptions);
+	const admins = useAdminsStore((state) => state.admins);
+	const loading = useAdminsStore((state) => state.loading);
+	const total = useAdminsStore((state) => state.total);
+	const filters = useAdminsStore((state) => state.filters);
+	const onFilterChange = useAdminsStore((state) => state.onFilterChange);
+	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
+	const deleteAdmin = useAdminsStore((state) => state.deleteAdmin);
+	const resetUsage = useAdminsStore((state) => state.resetUsage);
+	const resetDeletedUsersUsage = useAdminsStore(
+		(state) => state.resetDeletedUsersUsage,
+	);
+	const disableAdmin = useAdminsStore((state) => state.disableAdmin);
+	const enableAdmin = useAdminsStore((state) => state.enableAdmin);
+	const fetchAdminOptions = useAdminsStore((state) => state.fetchAdminOptions);
+	const updateAdmin = useAdminsStore((state) => state.updateAdmin);
+	const openAdminDialog = useAdminsStore((state) => state.openAdminDialog);
+	const openAdminDetails = useAdminsStore((state) => state.openAdminDetails);
 	const {
 		isOpen: isDisableDialogOpen,
 		onOpen: openDisableDialog,
@@ -250,9 +249,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		username: string;
 		password: string;
 	} | null>(null);
-	const [selectedAdminUsernames, setSelectedAdminUsernames] = useState<string[]>(
-		[],
-	);
+	const [selectedAdminUsernames, setSelectedAdminUsernames] = useState<
+		string[]
+	>([]);
 	const {
 		isOpen: isQuickPassOpen,
 		onOpen: openQuickPassModal,
@@ -284,7 +283,8 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		adminManagement?.[AdminManagementPermission.ManageSudo] || hasFullAccess,
 	);
 	const canManageSessions = Boolean(
-		adminManagement?.[AdminManagementPermission.ManageSessions] || hasFullAccess,
+		adminManagement?.[AdminManagementPermission.ManageSessions] ||
+			hasFullAccess,
 	);
 	const canManage2FA = Boolean(
 		adminManagement?.[AdminManagementPermission.Manage2FA] || hasFullAccess,
@@ -318,9 +318,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	);
 	const selectedAdmins = useMemo(
 		() =>
-			admins.filter((admin) =>
-				selectedAdminUsernames.includes(admin.username),
-			),
+			admins.filter((admin) => selectedAdminUsernames.includes(admin.username)),
 		[admins, selectedAdminUsernames],
 	);
 
@@ -346,10 +344,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		setActionState({ type: "reset", username: admin.username });
 		try {
 			await resetUsage(admin.username);
-			generateSuccessMessage(
-				t("admins.resetUsageSuccess"),
-				toast,
-			);
+			generateSuccessMessage(t("admins.resetUsageSuccess"), toast);
 			fetchAdmins();
 		} catch (error) {
 			generateErrorMessage(error, toast);
@@ -362,10 +357,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		setActionState({ type: "resetDeleted", username: admin.username });
 		try {
 			await resetDeletedUsersUsage(admin.username);
-			generateSuccessMessage(
-				t("admins.resetDeletedUsageSuccess"),
-				toast,
-			);
+			generateSuccessMessage(t("admins.resetDeletedUsageSuccess"), toast);
 			fetchAdmins();
 		} catch (error) {
 			generateErrorMessage(error, toast);
@@ -458,10 +450,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		const nextLimit = admin.data_limit + delta;
 		try {
 			await updateAdmin(admin.username, { data_limit: nextLimit });
-			generateSuccessMessage(
-				t("admins.addTrafficSuccess"),
-				toast,
-			);
+			generateSuccessMessage(t("admins.addTrafficSuccess"), toast);
 			fetchAdmins();
 		} catch (error) {
 			generateErrorMessage(error, toast);
@@ -495,10 +484,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		setActionState({ type: "disableAdmin", username: adminToDisable.username });
 		try {
 			await disableAdmin(adminToDisable.username, reason);
-			generateSuccessMessage(
-				t("admins.disableAdminSuccess"),
-				toast,
-			);
+			generateSuccessMessage(t("admins.disableAdminSuccess"), toast);
 			closeDisableDialogAndReset();
 			fetchAdmins();
 		} catch (error) {
@@ -530,10 +516,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			closeQuickPassConfirm();
 			setQuickPassAdmin(null);
 			openQuickPassModal();
-			generateSuccessMessage(
-				t("admins.quickPasswordSuccess"),
-				toast,
-			);
+			generateSuccessMessage(t("admins.quickPasswordSuccess"), toast);
 			fetchAdmins();
 		} catch (error) {
 			generateErrorMessage(error, toast);
@@ -546,10 +529,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		setActionState({ type: "enableAdmin", username: admin.username });
 		try {
 			await enableAdmin(admin.username);
-			generateSuccessMessage(
-				t("admins.enableAdminSuccess"),
-				toast,
-			);
+			generateSuccessMessage(t("admins.enableAdminSuccess"), toast);
 			fetchAdmins();
 		} catch (error) {
 			generateErrorMessage(error, toast);
@@ -694,7 +674,8 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	};
 
 	const summaryData = useMemo(() => {
-		const hasCompleteSummary = adminOptions.length > 0 || total <= admins.length;
+		const hasCompleteSummary =
+			adminOptions.length > 0 || total <= admins.length;
 		const summaryAdmins = hasCompleteSummary
 			? adminOptions.length
 				? adminOptions
@@ -1140,7 +1121,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					selectedRows={selectedAdmins}
 					selectedCount={selectedAdminUsernames.length}
 					onSelectionChange={(rowIds) => setSelectedAdminUsernames(rowIds)}
-					selectedLabel={t("admins.selectedCount", { count: selectedAdminUsernames.length })}
+					selectedLabel={t("admins.selectedCount", {
+						count: selectedAdminUsernames.length,
+					})}
 					rowActions={adminRowActions}
 					actionsDisplay="menu"
 					actionsPlacement="end"
@@ -1166,7 +1149,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 						: "admins.resetUsage",
 					"Reset usage",
 				)}
-				description={t("admins.resetUsageConfirm", { username: resetConfirmation?.admin.username ?? "" })}
+				description={t("admins.resetUsageConfirm", {
+					username: resetConfirmation?.admin.username ?? "",
+				})}
 				confirmLabel={t("reset")}
 				isLoading={
 					actionState?.type === "reset" || actionState?.type === "resetDeleted"
@@ -1178,7 +1163,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				onClose={closeDeleteDialogAndReset}
 				onConfirm={confirmDeleteAdmin}
 				title={t("delete")}
-				description={t("admins.confirmDeleteMessage", { username: adminToDelete?.username ?? "" })}
+				description={t("admins.confirmDeleteMessage", {
+					username: adminToDelete?.username ?? "",
+				})}
 				confirmLabel={t("delete")}
 				colorScheme="red"
 				isLoading={actionState?.type === "deleteAdmin"}
@@ -1194,7 +1181,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				}}
 				onConfirm={confirmQuickPassword}
 				title={t("admins.quickPasswordConfirmTitle")}
-				description={t("admins.quickPasswordConfirm", { username: quickPassAdmin?.username ?? "" })}
+				description={t("admins.quickPasswordConfirm", {
+					username: quickPassAdmin?.username ?? "",
+				})}
 				confirmLabel={t("admins.quickPasswordAction")}
 				colorScheme="primary"
 				isLoading={contextAction === "quickPassword"}
@@ -1297,8 +1286,8 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					<Stack spacing={3}>
 						<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.300" }}>
 							{t("admins.disableAdminMessage", {
-									username: adminToDisable?.username ?? "",
-								})}
+								username: adminToDisable?.username ?? "",
+							})}
 						</Text>
 						<Textarea
 							value={disableReason}

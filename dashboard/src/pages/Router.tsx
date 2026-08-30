@@ -1,4 +1,4 @@
-import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
+import { Box, Button, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
 import { type ComponentType, lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -9,13 +9,19 @@ import {
 	useNavigate,
 	useRouteError,
 } from "react-router-dom";
-import { AppLayout } from "../components/AppLayout";
 import { fetch } from "../service/http";
 import { recoverFromStaleChunk } from "../utils/chunkRecovery";
-import { DashboardPage } from "./DashboardPage";
 import { Login } from "./Login";
-import { UsersPage } from "./UsersPage";
 
+const AppLayout = lazy(async () => ({
+	default: (await import("../components/AppLayout")).AppLayout,
+}));
+const DashboardPage = lazy(async () => ({
+	default: (await import("./DashboardPage")).DashboardPage,
+}));
+const UsersPage = lazy(async () => ({
+	default: (await import("./UsersPage")).UsersPage,
+}));
 const AccessInsightsPage = lazy(() => import("./AccessInsightsPage"));
 const AdminsPage = lazy(async () => ({
 	default: (await import("./AdminsPage")).AdminsPage,
@@ -48,8 +54,14 @@ const TutorialsPage = lazy(async () => ({
 const UsagePage = lazy(() => import("./UsagePage"));
 const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
 
+const PageLoading = () => (
+	<Box minH="160px" display="grid" placeItems="center">
+		<Spinner size="md" />
+	</Box>
+);
+
 const LazyPage = ({ Page }: { Page: ComponentType }) => (
-	<Suspense fallback={<Box minH="160px" />}>
+	<Suspense fallback={<PageLoading />}>
 		<Page />
 	</Suspense>
 );
@@ -188,17 +200,18 @@ export const router = createBrowserRouter(
 	[
 		{
 			path: "/",
-			element: <AppLayout />,
+			element: <LazyPage Page={AppLayout} />,
+			hydrateFallbackElement: <PageLoading />,
 			errorElement: <RouteErrorPage />,
 			loader: fetchAdminLoader,
 			children: [
 				{
 					index: true,
-					element: <DashboardPage />,
+						element: <LazyPage Page={DashboardPage} />,
 				},
 				{
 					path: "users",
-					element: <UsersPage />,
+						element: <LazyPage Page={UsersPage} />,
 				},
 				{
 					path: "bulk-actions",

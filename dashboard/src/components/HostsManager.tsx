@@ -26,6 +26,7 @@ import {
 	PopoverTrigger,
 	Portal,
 	SimpleGrid,
+	Spinner,
 	Stack,
 	Tab,
 	TabList,
@@ -57,6 +58,8 @@ import { type HostsSchema, useHosts } from "contexts/HostsContext";
 import { type NodeType, useNodesQuery } from "contexts/NodesContext";
 import {
 	type FC,
+	lazy,
+	Suspense,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -89,8 +92,6 @@ import { NumericInput } from "./common/NumericInput";
 import { SearchableTagSelect } from "./common/SearchableTagSelect";
 import { SearchInput } from "./common/SearchInput";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
-import { FinalMaskEditor } from "./FinalMaskEditor";
-import { JsonEditor } from "./JsonEditor";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -105,6 +106,13 @@ import {
 	XrayModalFooter,
 	XrayModalHeader,
 } from "./xray/XrayDialog";
+
+const FinalMaskEditor = lazy(async () => ({
+	default: (await import("./FinalMaskEditor")).FinalMaskEditor,
+}));
+const JsonEditor = lazy(async () => ({
+	default: (await import("./JsonEditor")).JsonEditor,
+}));
 
 type HostData = {
 	id: number | null;
@@ -923,13 +931,6 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 	const [jsonText, setJsonText] = useState<string>("");
 	const [jsonError, setJsonError] = useState<string | null>(null);
 	const updatingFromJsonRef = useRef(false);
-	const _resolvedHost = host ?? {
-		uid: "",
-		inboundTag: "",
-		initialInboundTag: "",
-		data: EMPTY_HOST_DATA,
-		original: EMPTY_HOST_DATA,
-	};
 	const isCloneMode = mode === "clone";
 	const dirty = host ? isHostDirty(host) : false;
 	const selectedInbound = useMemo(
@@ -1407,16 +1408,18 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 												<VStack align="stretch" spacing={4}>
 													{finalMaskCapabilities.supported && (
 														<>
-															<FinalMaskEditor
-																value={sanitizeFinalMask(
-																	host.data.finalmask,
-																	finalMaskCapabilities,
-																)}
-																onChange={(value) =>
-																	onChange(host.uid, "finalmask", value)
-																}
-																capabilities={finalMaskCapabilities}
-															/>
+															<Suspense fallback={<Spinner size="sm" />}>
+																<FinalMaskEditor
+																	value={sanitizeFinalMask(
+																		host.data.finalmask,
+																		finalMaskCapabilities,
+																	)}
+																	onChange={(value) =>
+																		onChange(host.uid, "finalmask", value)
+																	}
+																	capabilities={finalMaskCapabilities}
+																/>
+															</Suspense>
 															{finalMaskError && (
 																<Text fontSize="sm" color="red.500">
 																	{finalMaskError}
@@ -1487,10 +1490,12 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 							</TabPanel>
 							<TabPanel px={0}>
 								<VStack align="stretch" spacing={3}>
-									<JsonEditor
-										json={jsonText}
-										onChange={handleJsonEditorChange}
-									/>
+									<Suspense fallback={<Spinner size="sm" />}>
+										<JsonEditor
+											json={jsonText}
+											onChange={handleJsonEditorChange}
+										/>
+									</Suspense>
 									{jsonError && (
 										<Text fontSize="sm" color="red.500">
 											{jsonError}
@@ -2058,19 +2063,21 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 											</CardHeader>
 											<CardBody pt={0}>
 												<VStack align="stretch" spacing={4}>
-													<FinalMaskEditor
-														value={sanitizeFinalMask(
-															formState.finalmask,
-															finalMaskCapabilities,
-														)}
-														onChange={(value) =>
-															setFormState((prev) => ({
-																...prev,
-																finalmask: value,
-															}))
-														}
-														capabilities={finalMaskCapabilities}
-													/>
+													<Suspense fallback={<Spinner size="sm" />}>
+														<FinalMaskEditor
+															value={sanitizeFinalMask(
+																formState.finalmask,
+																finalMaskCapabilities,
+															)}
+															onChange={(value) =>
+																setFormState((prev) => ({
+																	...prev,
+																	finalmask: value,
+																}))
+															}
+															capabilities={finalMaskCapabilities}
+														/>
+													</Suspense>
 													{finalMaskError && (
 														<Text fontSize="sm" color="red.500">
 															{finalMaskError}
@@ -2097,10 +2104,12 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 							</TabPanel>
 							<TabPanel px={0}>
 								<VStack align="stretch" spacing={3}>
-									<JsonEditor
-										json={jsonText}
-										onChange={handleJsonEditorChange}
-									/>
+									<Suspense fallback={<Spinner size="sm" />}>
+										<JsonEditor
+											json={jsonText}
+											onChange={handleJsonEditorChange}
+										/>
+									</Suspense>
 									{jsonError && (
 										<Text fontSize="sm" color="red.500">
 											{jsonError}
@@ -2142,15 +2151,13 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 export const HostsManager: FC = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const {
-		hosts,
-		fetchHosts,
-		isLoading,
-		isPostLoading,
-		setHosts,
-		setHostStatus,
-	} = useHosts();
-	const { inbounds } = useDashboard();
+	const hosts = useHosts((state) => state.hosts);
+	const fetchHosts = useHosts((state) => state.fetchHosts);
+	const isLoading = useHosts((state) => state.isLoading);
+	const isPostLoading = useHosts((state) => state.isPostLoading);
+	const setHosts = useHosts((state) => state.setHosts);
+	const setHostStatus = useHosts((state) => state.setHostStatus);
+	const inbounds = useDashboard((state) => state.inbounds);
 	const { data: nodes = [] } = useNodesQuery();
 	const [_hostItemsState, setHostItemsState] = useState<HostState[]>([]);
 	const hostItemsRef = useRef<HostState[]>([]);

@@ -771,20 +771,6 @@ body {
   overflow: hidden;
 }
 
-.circle {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  min-width: 10px;
-  min-height: 10px;
-  flex: 0 0 10px;
-  vertical-align: middle;
-}
-
-.rb-user-online-indicator .circle {
-  margin: 0;
-}
-
 .rb-status-badge-shell {
   max-width: 100%;
   min-width: 0;
@@ -1080,11 +1066,6 @@ body {
   text-align: right;
 }
 
-.bg-blue-animate {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -1119,19 +1100,6 @@ table thead {
   }
 }
 
-
-.slick-prev {
-  left: -40px;
-}
-
-.slick-next {
-  right: -40px;
-}
-
-.slick-prev,
-.slick-next {
-  z-index: 100;
-}
 
 .chakra-popover__popper {
   z-index: 17020 !important;
@@ -1710,53 +1678,6 @@ table thead {
   position: relative;
 }
 
-.green {
-  background: #66ff99;
-}
-
-.red {
-  background: #e53e3e;
-}
-
-.orange {
-  background: #fbd38d;
-}
-
-.bx-shadow {
-  box-shadow: 0px 0px 8px 3px rgb(230 221 221 / 10%);
-}
-
-.circle {
-  min-width: 10px;
-  min-height: 10px;
-  border-radius: 50%;
-
-  box-shadow: 0px 0px 1px 1px #0000001a;
-}
-
-.pulse {
-  animation: pulse-animation 3s infinite;
-}
-.pulse.green {
-  animation: green-pulse-animation 3s infinite;
-}
-.pulse.red{
-  animation: red-pulse-animation 3s infinite;
-}
-.pulse.orange{
-  animation: orange-pulse-animation 3s infinite;
-}
-
-@keyframes pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.4);
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
-  }
-}
-
 .apple-emoji-glyph {
   display: inline-grid;
   grid-template: "emoji" 1.2em / 1.2em;
@@ -1792,41 +1713,6 @@ img.apple-emoji {
   img.apple-emoji {
     visibility: visible;
   }
-}
-
-@keyframes green-pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px #66ff9975;
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px #66ff9900;
-  }
-}
-@keyframes red-pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px #e53e3e8c;
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px #e53e3e00;
-  }
-}
-@keyframes orange-pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px #fbd38d85;
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px #fbd38d00;
-  }
-}
-
-.flex-status {
-  display: flex;
-  align-items: center;
-  justify-content: start;
-  gap: .7rem;
 }
 
 /* Keep usage pairs (used/total) ordered correctly in RTL */
@@ -2280,7 +2166,6 @@ img.apple-emoji {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bg-blue-animate,
   .rb-users-section .rb-resource-expanded,
   .rb-users-section .rb-bulk-action-bar[data-visible="true"],
   .rb-snow-layer,

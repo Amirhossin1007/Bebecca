@@ -762,17 +762,39 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 };
 
 const ServicesPage: FC = () => {
-	const { t, i18n } = useTranslation();
-	const _isRTL = i18n.language === "fa";
+	const { t } = useTranslation();
 	const labelColor = useColorModeValue("gray.500", "gray.400");
 	const toast = useToast();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canManageServices =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.services);
-	const servicesStore = useServicesStore();
-	const adminStore = useAdminsStore();
-	const hostsStore = useHosts();
-	const { inbounds, refetchUsers } = useDashboard();
+	const services = useServicesStore((state) => state.services);
+	const serviceDetail = useServicesStore((state) => state.serviceDetail);
+	const isServicesLoading = useServicesStore((state) => state.isLoading);
+	const isServiceSaving = useServicesStore((state) => state.isSaving);
+	const fetchServices = useServicesStore((state) => state.fetchServices);
+	const fetchServiceDetail = useServicesStore(
+		(state) => state.fetchServiceDetail,
+	);
+	const updateService = useServicesStore((state) => state.updateService);
+	const createService = useServicesStore((state) => state.createService);
+	const resetServiceUsage = useServicesStore(
+		(state) => state.resetServiceUsage,
+	);
+	const deleteService = useServicesStore((state) => state.deleteService);
+	const updateServiceAdminLimits = useServicesStore(
+		(state) => state.updateServiceAdminLimits,
+	);
+	const rawAdminOptions = useAdminsStore((state) => state.adminOptions);
+	const fetchAdminOptions = useAdminsStore((state) => state.fetchAdminOptions);
+	const updateAdmin = useAdminsStore((state) => state.updateAdmin);
+	const resetDeletedUsersUsage = useAdminsStore(
+		(state) => state.resetDeletedUsersUsage,
+	);
+	const hosts = useHosts((state) => state.hosts);
+	const fetchHosts = useHosts((state) => state.fetchHosts);
+	const inbounds = useDashboard((state) => state.inbounds);
+	const refetchUsers = useDashboard((state) => state.refetchUsers);
 
 	const dialogDisclosure = useDisclosure();
 	const [editingService, setEditingService] = useState<ServiceDetail | null>(
@@ -799,28 +821,28 @@ const ServicesPage: FC = () => {
 		if (!getUserIsSuccess || !canManageServices) {
 			return;
 		}
-		servicesStore.fetchServices();
-		adminStore.fetchAdminOptions({ limit: 1000, offset: 0, sort: "username" });
+		fetchServices();
+		fetchAdminOptions({ limit: 1000, offset: 0, sort: "username" });
 		fetchInbounds();
-		hostsStore.fetchHosts();
+		fetchHosts();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		getUserIsSuccess,
 		canManageServices,
-		adminStore.fetchAdminOptions,
-		hostsStore.fetchHosts,
-		servicesStore.fetchServices,
+		fetchAdminOptions,
+		fetchHosts,
+		fetchServices,
 	]);
 
 	const adminOptions = useMemo(() => {
-		return adminStore.adminOptions
+		return rawAdminOptions
 			.slice()
 			.sort((a, b) => a.username.localeCompare(b.username))
 			.map((admin) => ({
 				id: admin.id!,
 				username: admin.username,
 			}));
-	}, [adminStore.adminOptions]);
+	}, [rawAdminOptions]);
 
 	const inboundProtocols = useMemo(
 		() =>
@@ -834,9 +856,9 @@ const ServicesPage: FC = () => {
 
 	const hostOptions: HostOption[] = useMemo(() => {
 		const options: HostOption[] = [];
-		for (const [tag, hosts] of Object.entries(hostsStore.hosts)) {
+		for (const [tag, hostItems] of Object.entries(hosts)) {
 			const protocol = inboundProtocols.get(tag) ?? "unknown";
-			hosts.forEach((host) => {
+			hostItems.forEach((host) => {
 				if (host.id == null) {
 					return;
 				}
@@ -850,7 +872,7 @@ const ServicesPage: FC = () => {
 			});
 		}
 		return options;
-	}, [hostsStore.hosts, inboundProtocols]);
+	}, [hosts, inboundProtocols]);
 
 	const openCreateDialog = () => {
 		setEditingService(null);
@@ -859,7 +881,7 @@ const ServicesPage: FC = () => {
 
 	const openEditDialog = async (serviceId: number) => {
 		try {
-			const detail = await servicesStore.fetchServiceDetail(serviceId);
+			const detail = await fetchServiceDetail(serviceId);
 			if (!detail) return;
 			setEditingService(detail);
 			dialogDisclosure.onOpen();
@@ -876,7 +898,7 @@ const ServicesPage: FC = () => {
 		tab: "hosts" | "admins" = "admins",
 	) => {
 		setActiveServiceTab(tab);
-		await servicesStore.fetchServiceDetail(serviceId);
+		await fetchServiceDetail(serviceId);
 	};
 
 	const handleSubmit = async (
@@ -885,13 +907,13 @@ const ServicesPage: FC = () => {
 	) => {
 		try {
 			if (serviceId) {
-				await servicesStore.updateService(serviceId, payload);
+				await updateService(serviceId, payload);
 				toast({
 					status: "success",
 					title: t("services.updated"),
 				});
 			} else {
-				await servicesStore.createService(payload);
+				await createService(payload);
 				toast({
 					status: "success",
 					title: t("services.created"),
@@ -909,7 +931,7 @@ const ServicesPage: FC = () => {
 
 	const beginDeleteService = async (serviceId: number) => {
 		try {
-			const detail = await servicesStore.fetchServiceDetail(serviceId);
+			const detail = await fetchServiceDetail(serviceId);
 			if (!detail) return;
 			setServicePendingDelete(detail);
 			openDeleteDialog();
@@ -923,7 +945,7 @@ const ServicesPage: FC = () => {
 
 	const handleResetUsage = async (serviceId: number) => {
 		try {
-			await servicesStore.resetServiceUsage(serviceId);
+			await resetServiceUsage(serviceId);
 			toast({
 				status: "success",
 				title: t("services.resetSuccess"),
@@ -964,7 +986,7 @@ const ServicesPage: FC = () => {
 
 	const resetTargetName =
 		resetServiceId != null
-			? servicesStore.services.find((service) => service.id === resetServiceId)
+			? services.find((service) => service.id === resetServiceId)
 					?.name
 			: undefined;
 
@@ -994,7 +1016,7 @@ const ServicesPage: FC = () => {
 		}
 		setIsDeleting(true);
 		try {
-			await servicesStore.deleteService(servicePendingDelete.id, payload);
+			await deleteService(servicePendingDelete.id, payload);
 			toast({
 				status: "success",
 				title: t("services.deleted"),
@@ -1027,15 +1049,15 @@ const ServicesPage: FC = () => {
 
 	const otherServices = useMemo(() => {
 		if (!servicePendingDelete) {
-			return servicesStore.services;
+				return services;
 		}
-		return servicesStore.services.filter(
+		return services.filter(
 			(service) => service.id !== servicePendingDelete.id,
 		);
-	}, [servicePendingDelete, servicesStore.services]);
+	}, [servicePendingDelete, services]);
 	const servicesSummary = useMemo(
 		() =>
-			servicesStore.services.reduce(
+			services.reduce(
 				(summary, service) => ({
 					totalHosts: summary.totalHosts + Number(service.host_count || 0),
 					totalUsers: summary.totalUsers + Number(service.user_count || 0),
@@ -1052,14 +1074,14 @@ const ServicesPage: FC = () => {
 					brokenServices: 0,
 				},
 			),
-		[servicesStore.services],
+			[services],
 	);
 
 	const serviceSummaryItems = useMemo<ResourceSummaryItem[]>(
 		() => [
 			{
 				label: t("services.title"),
-				value: servicesStore.services.length,
+					value: services.length,
 				colorScheme: "gray",
 			},
 			{
@@ -1089,7 +1111,7 @@ const ServicesPage: FC = () => {
 						: undefined,
 			},
 		],
-		[servicesStore.services.length, servicesSummary, t],
+			[services.length, servicesSummary, t],
 	);
 
 	useEffect(() => {
@@ -1263,7 +1285,7 @@ const ServicesPage: FC = () => {
 		return actions;
 	};
 
-	const selectedService = servicesStore.serviceDetail;
+	const selectedService = serviceDetail;
 
 	const saveServiceAdminLimit = useCallback(
 		async (
@@ -1281,22 +1303,22 @@ const ServicesPage: FC = () => {
 			setSavingAdminLimitId(adminId);
 			try {
 				if (payload.delete_user_usage_limit_enabled === true) {
-					const targetAdmin = adminStore.adminOptions.find(
+					const targetAdmin = rawAdminOptions.find(
 						(item) => item.id === adminId,
 					);
 					if (targetAdmin && !adminCanDeleteUsers(targetAdmin)) {
-						await adminStore.updateAdmin(targetAdmin.username, {
+						await updateAdmin(targetAdmin.username, {
 							permissions: withDeleteUserPermission(targetAdmin.permissions),
 						});
 					}
 				}
-				await servicesStore.updateServiceAdminLimits(
+				await updateServiceAdminLimits(
 					selectedService.id,
 					adminId,
 					payload,
 				);
 				if (payload.delete_user_usage_limit_enabled === true) {
-					await servicesStore.fetchServiceDetail(selectedService.id);
+					await fetchServiceDetail(selectedService.id);
 				}
 				return true;
 			} catch (error) {
@@ -1310,7 +1332,15 @@ const ServicesPage: FC = () => {
 				setSavingAdminLimitId(null);
 			}
 		},
-		[adminStore, selectedService, servicesStore, t, toast],
+			[
+				fetchServiceDetail,
+				rawAdminOptions,
+				selectedService,
+				t,
+				toast,
+				updateAdmin,
+				updateServiceAdminLimits,
+			],
 	);
 
 	const openServiceAdminLimitEditor = (link: ServiceAdmin) => {
@@ -1367,11 +1397,11 @@ const ServicesPage: FC = () => {
 		if (!selectedService) return;
 		setSavingAdminLimitId(link.id);
 		try {
-			await adminStore.resetDeletedUsersUsage(
+			await resetDeletedUsersUsage(
 				link.username,
 				selectedService.id,
 			);
-			await servicesStore.fetchServiceDetail(selectedService.id);
+			await fetchServiceDetail(selectedService.id);
 			toast({
 				status: "success",
 				title: t("admins.resetDeletedUsageSuccess"),
@@ -1754,10 +1784,10 @@ const ServicesPage: FC = () => {
 
 			<DataTable
 				ariaLabel={t("services.title")}
-				data={servicesStore.services}
+					data={services}
 				columns={serviceColumns}
 				getRowId={(service) => String(service.id)}
-				isLoading={servicesStore.isLoading}
+					isLoading={isServicesLoading}
 				loadingRows={5}
 				emptyState={
 					<Box textAlign="center">
@@ -2162,13 +2192,13 @@ const ServicesPage: FC = () => {
 					isOpen={dialogDisclosure.isOpen}
 					onClose={dialogDisclosure.onClose}
 					onSubmit={handleSubmit}
-					isSaving={servicesStore.isSaving}
+						isSaving={isServiceSaving}
 					allHosts={hostOptions}
 					allAdmins={adminOptions}
 					initialService={editingService ?? undefined}
 					inbounds={inbounds}
 					refreshInbounds={fetchInbounds}
-					refreshHosts={hostsStore.fetchHosts}
+						refreshHosts={fetchHosts}
 				/>
 			)}
 		</VStack>

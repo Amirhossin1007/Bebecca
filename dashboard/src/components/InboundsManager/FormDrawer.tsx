@@ -584,12 +584,6 @@ export const InboundFormModal: FC<Props> = ({
 		() => Object.values(fieldValidationErrors).filter(Boolean),
 		[fieldValidationErrors],
 	);
-	const _hasBlockingErrors = Boolean(
-		tagError ||
-			portError ||
-			streamCompatibilityError ||
-			fieldValidationMessages.length,
-	);
 	const hasBlockingErrorsWithJson = Boolean(
 		tagError ||
 			portError ||

@@ -21,14 +21,12 @@ import {
 	ChevronRightIcon,
 	QrCodeIcon,
 } from "@heroicons/react/24/outline";
-import SlickSlider from "components/common/SlickSlider";
 import { QRCodeCanvas } from "qrcode.react";
-import { type FC, useEffect, useMemo, useState } from "react";
+import { type FC, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import "slick-carousel/slick/slick-theme.css";
-import "slick-carousel/slick/slick.css";
 import { copyTextToClipboard } from "utils/clipboard";
 import { getConfigLabelFromLink } from "utils/configLabel";
+import { getSwipeTargetIndex } from "utils/carousel";
 import { useDashboard } from "../contexts/DashboardContext";
 import { Icon } from "./Icon";
 
@@ -83,6 +81,8 @@ export const QRCodeDialog: FC = () => {
 	const [subAnimSeed, setSubAnimSeed] = useState(0);
 	const [configAnimSeed, setConfigAnimSeed] = useState(0);
 	const [showConfigQrs, setShowConfigQrs] = useState(false);
+	const touchStartX = useRef<number | null>(null);
+	const suppressNextCopy = useRef(false);
 	const { t } = useTranslation();
 	const qrSize = useBreakpointValue({ base: 220, sm: 260, md: 300 }) ?? 220;
 	const onClose = () => {
@@ -123,6 +123,7 @@ export const QRCodeDialog: FC = () => {
 
 	const activeIndex =
 		configItems.length > 0 ? Math.min(index, configItems.length - 1) : 0;
+	const activeConfig = configItems[activeIndex];
 	const activeConfigLabel = configItems[activeIndex]?.label ?? "";
 
 	useEffect(() => {
@@ -294,82 +295,103 @@ export const QRCodeDialog: FC = () => {
 												{t("copied")}
 											</Box>
 										)}
-										<SlickSlider
-											centerPadding="0px"
-											centerMode={true}
-											slidesToShow={1}
-											slidesToScroll={1}
-											dots={false}
-											afterChange={setIndex}
-											onInit={() => setIndex(0)}
-											nextArrow={
-												<IconButton
-													size="sm"
-													position="absolute"
-													display="flex !important"
-													_before={{ content: '""' }}
-													aria-label={t("a11y.next")}
-													mr="-2"
-												>
-													<NextIcon />
-												</IconButton>
-											}
-											prevArrow={
-												<IconButton
-													size="sm"
-													position="absolute"
-													display="flex !important"
-													_before={{ content: '""' }}
-													aria-label={t("a11y.previous")}
-													ml="-2"
-												>
-													<PrevIcon />
-												</IconButton>
-											}
+										<Box
+											position="relative"
+											onTouchStart={(event) => {
+												touchStartX.current = event.touches[0]?.clientX ?? null;
+												suppressNextCopy.current = false;
+											}}
+											onTouchEnd={(event) => {
+												const startX = touchStartX.current;
+												touchStartX.current = null;
+												if (startX === null || configItems.length < 2) return;
+												const delta =
+													(event.changedTouches[0]?.clientX ?? startX) - startX;
+												if (Math.abs(delta) < 40) return;
+												suppressNextCopy.current = true;
+												setIndex((current) =>
+													getSwipeTargetIndex(current, configItems.length, delta),
+												);
+											}}
+											onTouchCancel={() => {
+												touchStartX.current = null;
+											}}
 										>
-											{configItems.map((item, itemIndex) => (
-												<HStack
-													key={`${item.link}-${itemIndex}`}
-													justify="center"
+											<IconButton
+												size="sm"
+												position="absolute"
+												left="-2"
+												top="50%"
+												transform="translateY(-50%)"
+												zIndex={1}
+												aria-label={t("a11y.previous")}
+												isDisabled={configItems.length < 2}
+												onClick={() =>
+													setIndex((current) =>
+														(current - 1 + configItems.length) % configItems.length,
+													)
+												}
+											>
+												<PrevIcon />
+											</IconButton>
+											{activeConfig && (
+												<Box
+													key={
+														configAnimIndex === activeIndex
+															? `qr-${activeIndex}-${configAnimSeed}`
+															: `qr-${activeIndex}`
+													}
+													cursor="pointer"
+													role="button"
+													tabIndex={0}
+													aria-label={t("copy")}
+													animation={
+														configAnimIndex === activeIndex && configAnimSeed > 0
+															? `${clickPulse} 260ms ease-in-out`
+															: "none"
+													}
+													onClick={() => {
+														if (suppressNextCopy.current) {
+															suppressNextCopy.current = false;
+															return;
+														}
+														copyConfigLink(activeConfig.link, activeIndex);
+													}}
+													onKeyDown={(event) => {
+														if (event.key === "Enter" || event.key === " ") {
+															event.preventDefault();
+															copyConfigLink(activeConfig.link, activeIndex);
+														}
+													}}
 												>
-													<Box
-														key={
-															configAnimIndex === itemIndex
-																? `qr-${itemIndex}-${configAnimSeed}`
-																: `qr-${itemIndex}`
-														}
-														cursor="pointer"
-														role="button"
-														tabIndex={0}
-														aria-label={t("copy")}
-														animation={
-															configAnimIndex === itemIndex &&
-															configAnimSeed > 0
-																? `${clickPulse} 260ms ease-in-out`
-																: "none"
-														}
-														onClick={() => copyConfigLink(item.link, itemIndex)}
-														onKeyDown={(event) => {
-															if (event.key === "Enter" || event.key === " ") {
-																event.preventDefault();
-																copyConfigLink(item.link, itemIndex);
-															}
-														}}
-													>
-														<QRCode
-															mx="auto"
-															maxW="100%"
-															size={qrSize}
-															p="2"
-															level={"L"}
-															includeMargin={false}
-															value={item.link}
-															bg="white"
-														/>
-													</Box>
-												</HStack>
-											))}
-										</SlickSlider>
+													<QRCode
+														mx="auto"
+														maxW="100%"
+														size={qrSize}
+														p="2"
+														level="L"
+														includeMargin={false}
+														value={activeConfig.link}
+														bg="white"
+													/>
+												</Box>
+											)}
+											<IconButton
+												size="sm"
+												position="absolute"
+												right="-2"
+												top="50%"
+												transform="translateY(-50%)"
+												zIndex={1}
+												aria-label={t("a11y.next")}
+												isDisabled={configItems.length < 2}
+												onClick={() =>
+													setIndex((current) => (current + 1) % configItems.length)
+												}
+											>
+												<NextIcon />
+											</IconButton>
+										</Box>
 										<Text display="block" textAlign="center" pb={3} mt={1}>
 											{activeIndex + 1} / {configItems.length}
 										</Text>

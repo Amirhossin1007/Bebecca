@@ -44,7 +44,6 @@ import {
 	TrashIcon as DeleteIcon,
 	DocumentDuplicateIcon,
 	PencilIcon as EditIcon,
-	EllipsisVerticalIcon,
 	GlobeAltIcon,
 	NoSymbolIcon,
 	ShieldCheckIcon,
@@ -121,9 +120,6 @@ const DownloadIconStyled = chakra(ArrowDownTrayIcon, {
 const TutorialIconStyled = chakra(BookOpenIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
-const MoreIconStyled = chakra(EllipsisVerticalIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
 const EnableIconStyled = chakra(CheckCircleIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
@@ -143,7 +139,6 @@ const ServiceIconStyled = chakra(WrenchScrewdriverIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
 
-const BYTES_IN_GB = 1024 ** 3;
 const EMPTY_CELL_VALUE = "-";
 
 const formatCellValue = (value?: string | number | null): string => {
@@ -501,7 +496,7 @@ type ServiceActionConfirm =
 			nodes: NodeType[];
 			count: number;
 			hostImpact?: NodeHostImpact;
-		};
+	  };
 
 const createNodeActionBatchHeaders = () => ({
 	"X-Rebecca-Action-Batch":
@@ -546,8 +541,8 @@ export const NodesPage: FC = () => {
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canManageNodes =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.nodes);
-	const { inbounds, onEditingNodes } = useDashboard();
-	const isEditingNodes = useDashboard((state) => state.isEditingNodes);
+	const inbounds = useDashboard((state) => state.inbounds);
+	const onEditingNodes = useDashboard((state) => state.onEditingNodes);
 	const {
 		data: nodes,
 		isLoading,
@@ -556,18 +551,18 @@ export const NodesPage: FC = () => {
 		isFetching,
 	} = useNodesQuery({ enabled: canManageNodes });
 	useNodeMetricsStream(canManageNodes);
-	const {
-		addNode,
-		updateNode,
-		regenerateNodeCertificate,
-		reconnectNode,
-		restartNodeService,
-		rebootNodeHost,
-		updateNodeService,
-		resetNodeUsage,
-		deleteNode,
-		setDeletingNode,
-	} = useNodes();
+	const addNode = useNodes((state) => state.addNode);
+	const updateNode = useNodes((state) => state.updateNode);
+	const regenerateNodeCertificate = useNodes(
+		(state) => state.regenerateNodeCertificate,
+	);
+	const reconnectNode = useNodes((state) => state.reconnectNode);
+	const restartNodeService = useNodes((state) => state.restartNodeService);
+	const rebootNodeHost = useNodes((state) => state.rebootNodeHost);
+	const updateNodeService = useNodes((state) => state.updateNodeService);
+	const resetNodeUsage = useNodes((state) => state.resetNodeUsage);
+	const deleteNode = useNodes((state) => state.deleteNode);
+	const setDeletingNode = useNodes((state) => state.setDeletingNode);
 	const queryClient = useQueryClient();
 	const toast = useToast();
 	const refreshHosts = useHosts((state) => state.fetchHosts);
@@ -598,7 +593,6 @@ export const NodesPage: FC = () => {
 	const [pendingStatus, setPendingStatus] = useState<Record<number, boolean>>(
 		{},
 	);
-	const [resettingNodeId, setResettingNodeId] = useState<number | null>(null);
 	const [resetCandidate, setResetCandidate] = useState<NodeType | null>(null);
 	const [regeneratingNodeId, setRegeneratingNodeId] = useState<number | null>(
 		null,
@@ -878,7 +872,6 @@ export const NodesPage: FC = () => {
 				generateErrorMessage(err, toast);
 			},
 			onSettled: () => {
-				setResettingNodeId(null);
 				setResetCandidate(null);
 				closeResetConfirm();
 			},
@@ -1048,7 +1041,6 @@ export const NodesPage: FC = () => {
 
 	const confirmResetUsage = () => {
 		if (!resetCandidate?.id) return;
-		setResettingNodeId(resetCandidate.id);
 		resetUsageMutate(resetCandidate);
 	};
 
@@ -1182,59 +1174,59 @@ export const NodesPage: FC = () => {
 				}
 			} else
 				for (const node of targetNodes) {
-				if (node.id == null) {
-					continue;
-				}
-				try {
-					switch (actionType) {
-						case "bulk-enable":
-							await apiFetch(`/node/${node.id}`, {
-								method: "PUT",
-								headers: recentActionHeaders,
-								body: { status: "connecting" },
-							});
-							break;
-						case "bulk-disable":
-							await apiFetch(`/node/${node.id}`, {
-								method: "PUT",
-								headers: recentActionHeaders,
-								body: { status: "disabled" },
-							});
-							break;
-						case "bulk-delete":
-							await apiFetch(`/node/${node.id}`, {
-								method: "DELETE",
-								headers: recentActionHeaders,
-							});
-							break;
-						case "bulk-reset":
-							await apiFetch(`/node/${node.id}/usage/reset`, {
-								method: "POST",
-								headers: recentActionHeaders,
-							});
-							break;
-						case "bulk-restart":
-							await apiFetch(`/node/${node.id}/service/restart`, {
-								method: "POST",
-								headers: recentActionHeaders,
-							});
-							break;
-						case "bulk-reboot":
-							await apiFetch(`/node/${node.id}/host/reboot`, {
-								method: "POST",
-								headers: recentActionHeaders,
-							});
-							break;
-						default:
-							break;
+					if (node.id == null) {
+						continue;
 					}
-					successCount += 1;
-					completedIDs.push(node.id);
-				} catch (err) {
-					failedCount += 1;
-					generateErrorMessage(err, toast);
+					try {
+						switch (actionType) {
+							case "bulk-enable":
+								await apiFetch(`/node/${node.id}`, {
+									method: "PUT",
+									headers: recentActionHeaders,
+									body: { status: "connecting" },
+								});
+								break;
+							case "bulk-disable":
+								await apiFetch(`/node/${node.id}`, {
+									method: "PUT",
+									headers: recentActionHeaders,
+									body: { status: "disabled" },
+								});
+								break;
+							case "bulk-delete":
+								await apiFetch(`/node/${node.id}`, {
+									method: "DELETE",
+									headers: recentActionHeaders,
+								});
+								break;
+							case "bulk-reset":
+								await apiFetch(`/node/${node.id}/usage/reset`, {
+									method: "POST",
+									headers: recentActionHeaders,
+								});
+								break;
+							case "bulk-restart":
+								await apiFetch(`/node/${node.id}/service/restart`, {
+									method: "POST",
+									headers: recentActionHeaders,
+								});
+								break;
+							case "bulk-reboot":
+								await apiFetch(`/node/${node.id}/host/reboot`, {
+									method: "POST",
+									headers: recentActionHeaders,
+								});
+								break;
+							default:
+								break;
+						}
+						successCount += 1;
+						completedIDs.push(node.id);
+					} catch (err) {
+						failedCount += 1;
+						generateErrorMessage(err, toast);
+					}
 				}
-			}
 			setBulkNodeActionLoading(null);
 			queryClient.invalidateQueries(FetchNodesQueryKey);
 			refetchNodes();
@@ -1311,7 +1303,6 @@ export const NodesPage: FC = () => {
 
 	const handleVersionSubmit = async ({
 		version,
-		persist,
 	}: {
 		version: string;
 		persist?: boolean;
@@ -1568,7 +1559,6 @@ export const NodesPage: FC = () => {
 				case "status":
 					result = compareText(left.status || "error", right.status || "error");
 					break;
-				case "name":
 				default:
 					result = compareText(left.name || "", right.name || "");
 					break;
@@ -1623,26 +1613,6 @@ export const NodesPage: FC = () => {
 		selectedNodeIds.length === activeFilteredNodeIds.length &&
 		activeFilteredNodeIds.every((id) => selectedNodeIdSet.has(id));
 
-	const handleSort = (key: NodeSortKey) => {
-		if (sortKey === key) {
-			setSortDirection((value) => (value === "asc" ? "desc" : "asc"));
-			return;
-		}
-		setSortKey(key);
-		setSortDirection(
-			key === "usage" ||
-				key === "bandwidth" ||
-				key === "cpu" ||
-				key === "ram" ||
-				key === "uptime"
-				? "desc"
-				: "asc",
-		);
-	};
-
-	const sortLabel = (key: NodeSortKey, label: string) =>
-		sortKey === key ? `${label} ${sortDirection === "asc" ? "↑" : "↓"}` : label;
-
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Changing filters must reset pagination.
 	useEffect(() => {
 		setPage(1);
@@ -1665,15 +1635,6 @@ export const NodesPage: FC = () => {
 			current.filter((id) => availableIds.has(id)),
 		);
 	}, [nodes]);
-
-	const toggleNodeSelection = (nodeID: number, checked: boolean) => {
-		setSelectedNodeIds((current) => {
-			if (checked) {
-				return current.includes(nodeID) ? current : [...current, nodeID];
-			}
-			return current.filter((id) => id !== nodeID);
-		});
-	};
 
 	const selectAllFilteredNodes = () => {
 		setSelectedNodeIds(filteredNodeIds);
@@ -1791,25 +1752,25 @@ export const NodesPage: FC = () => {
 				? t("nodes.updateServiceAction")
 				: serviceActionConfirm?.type === "reboot"
 					? t("nodes.rebootHostAction")
-				: serviceActionConfirm?.type === "disable"
-					? t("nodes.disableNode")
-				: serviceActionConfirm?.type === "update-all"
-					? t("nodes.updateAllNodeServices")
-					: serviceActionConfirm?.type === "bulk-enable"
-						? t("nodes.bulkEnable")
-						: serviceActionConfirm?.type === "bulk-disable"
-							? t("nodes.bulkDisable")
-							: serviceActionConfirm?.type === "bulk-delete"
-								? t("nodes.bulkDelete")
-								: serviceActionConfirm?.type === "bulk-reset"
-									? t("nodes.bulkResetTraffic")
-									: serviceActionConfirm?.type === "bulk-restart"
-										? t("nodes.bulkRestartService")
-										: serviceActionConfirm?.type === "bulk-update"
-											? t("nodes.bulkUpdateService")
-											: serviceActionConfirm?.type === "bulk-reboot"
-												? t("nodes.bulkRebootHost")
-					: "";
+					: serviceActionConfirm?.type === "disable"
+						? t("nodes.disableNode")
+						: serviceActionConfirm?.type === "update-all"
+							? t("nodes.updateAllNodeServices")
+							: serviceActionConfirm?.type === "bulk-enable"
+								? t("nodes.bulkEnable")
+								: serviceActionConfirm?.type === "bulk-disable"
+									? t("nodes.bulkDisable")
+									: serviceActionConfirm?.type === "bulk-delete"
+										? t("nodes.bulkDelete")
+										: serviceActionConfirm?.type === "bulk-reset"
+											? t("nodes.bulkResetTraffic")
+											: serviceActionConfirm?.type === "bulk-restart"
+												? t("nodes.bulkRestartService")
+												: serviceActionConfirm?.type === "bulk-update"
+													? t("nodes.bulkUpdateService")
+													: serviceActionConfirm?.type === "bulk-reboot"
+														? t("nodes.bulkRebootHost")
+														: "";
 
 	const serviceActionConfirmMessage =
 		serviceActionConfirm?.type === "restart"
@@ -1818,74 +1779,74 @@ export const NodesPage: FC = () => {
 				? t("nodes.updateServiceConfirm", { name: serviceActionConfirm.label })
 				: serviceActionConfirm?.type === "reboot"
 					? t("nodes.rebootHostConfirm", { name: serviceActionConfirm.label })
-				: serviceActionConfirm?.type === "disable"
-					? renderHostImpactMessage(
-							t("nodes.disableConfirm", {
-								name: serviceActionConfirm.label,
-							}),
-							serviceActionConfirm.hostImpact,
-						)
-				: serviceActionConfirm?.type === "update-all"
+					: serviceActionConfirm?.type === "disable"
+						? renderHostImpactMessage(
+								t("nodes.disableConfirm", {
+									name: serviceActionConfirm.label,
+								}),
+								serviceActionConfirm.hostImpact,
+							)
+						: serviceActionConfirm?.type === "update-all"
 							? t("nodes.updateAllNodeServicesConfirm", {
 									count: serviceActionConfirm.count,
 								})
-					: serviceActionConfirm?.type === "bulk-enable"
+							: serviceActionConfirm?.type === "bulk-enable"
 								? t("nodes.bulkEnableConfirm", {
 										count: serviceActionConfirm.count,
 									})
-						: serviceActionConfirm?.type === "bulk-disable"
-							? renderHostImpactMessage(
+								: serviceActionConfirm?.type === "bulk-disable"
+									? renderHostImpactMessage(
 											t("nodes.bulkDisableConfirm", {
 												count: serviceActionConfirm.count,
 											}),
-									serviceActionConfirm.hostImpact,
-								)
-							: serviceActionConfirm?.type === "bulk-delete"
+											serviceActionConfirm.hostImpact,
+										)
+									: serviceActionConfirm?.type === "bulk-delete"
 										? t("nodes.bulkDeleteConfirm", {
 												count: serviceActionConfirm.count,
 											})
-								: serviceActionConfirm?.type === "bulk-reset"
+										: serviceActionConfirm?.type === "bulk-reset"
 											? t("nodes.bulkResetTrafficConfirm", {
 													count: serviceActionConfirm.count,
 												})
-									: serviceActionConfirm?.type === "bulk-restart"
+											: serviceActionConfirm?.type === "bulk-restart"
 												? t("nodes.bulkRestartServiceConfirm", {
 														count: serviceActionConfirm.count,
 													})
-										: serviceActionConfirm?.type === "bulk-update"
+												: serviceActionConfirm?.type === "bulk-update"
 													? t("nodes.bulkUpdateServiceConfirm", {
 															count: serviceActionConfirm.count,
 														})
-											: serviceActionConfirm?.type === "bulk-reboot"
+													: serviceActionConfirm?.type === "bulk-reboot"
 														? t("nodes.bulkRebootHostConfirm", {
 																count: serviceActionConfirm.count,
 															})
-					: "";
+														: "";
 
 	const serviceActionConfirmLabel =
 		serviceActionConfirm?.type === "restart"
 			? t("nodes.restartServiceAction")
 			: serviceActionConfirm?.type === "reboot"
 				? t("nodes.rebootHostAction")
-			: serviceActionConfirm?.type === "update-all"
-				? t("nodes.updateAllNodeServices")
-				: serviceActionConfirm?.type === "disable"
-					? t("nodes.disableNode")
-				: serviceActionConfirm?.type === "bulk-enable"
-					? t("nodes.enableNode")
-					: serviceActionConfirm?.type === "bulk-disable"
+				: serviceActionConfirm?.type === "update-all"
+					? t("nodes.updateAllNodeServices")
+					: serviceActionConfirm?.type === "disable"
 						? t("nodes.disableNode")
-						: serviceActionConfirm?.type === "bulk-delete"
-							? t("delete")
-							: serviceActionConfirm?.type === "bulk-reset"
-								? t("nodes.resetUsage")
-								: serviceActionConfirm?.type === "bulk-restart"
-									? t("nodes.restartServiceAction")
-									: serviceActionConfirm?.type === "bulk-update"
-										? t("nodes.updateServiceAction")
-										: serviceActionConfirm?.type === "bulk-reboot"
-											? t("nodes.rebootHostAction")
-				: t("nodes.updateServiceAction");
+						: serviceActionConfirm?.type === "bulk-enable"
+							? t("nodes.enableNode")
+							: serviceActionConfirm?.type === "bulk-disable"
+								? t("nodes.disableNode")
+								: serviceActionConfirm?.type === "bulk-delete"
+									? t("delete")
+									: serviceActionConfirm?.type === "bulk-reset"
+										? t("nodes.resetUsage")
+										: serviceActionConfirm?.type === "bulk-restart"
+											? t("nodes.restartServiceAction")
+											: serviceActionConfirm?.type === "bulk-update"
+												? t("nodes.updateServiceAction")
+												: serviceActionConfirm?.type === "bulk-reboot"
+													? t("nodes.rebootHostAction")
+													: t("nodes.updateServiceAction");
 
 	const serviceActionConfirmLoading =
 		isRestartingService ||
@@ -1899,19 +1860,19 @@ export const NodesPage: FC = () => {
 		versionDialogTarget?.type === "bulk"
 			? t("nodes.coreVersionDialog.bulkTitle")
 			: versionDialogTarget?.type === "node"
-					? t("nodes.coreVersionDialog.nodeTitle", {
+				? t("nodes.coreVersionDialog.nodeTitle", {
 						name: versionDialogTarget.node.name ?? t("nodes.unnamedNode"),
-						})
-					: "";
+					})
+				: "";
 
 	const versionDialogDescription =
 		versionDialogTarget?.type === "bulk"
 			? t("nodes.coreVersionDialog.bulkDescription")
 			: versionDialogTarget?.type === "node"
-					? t("nodes.coreVersionDialog.nodeDescription", {
+				? t("nodes.coreVersionDialog.nodeDescription", {
 						name: versionDialogTarget.node.name ?? t("nodes.unnamedNode"),
-						})
-					: "";
+					})
+				: "";
 
 	const versionDialogCurrentVersion =
 		versionDialogTarget?.type === "node"
@@ -1922,10 +1883,10 @@ export const NodesPage: FC = () => {
 		geoDialogTarget?.type === "node"
 			? t("nodes.geoDialog.nodeTitle", {
 					name: geoDialogTarget.node.name ?? t("nodes.unnamedNode"),
-					})
-				: geoDialogTarget?.type === "bulk"
-					? t("nodes.geoDialog.bulkTitle")
-					: "";
+				})
+			: geoDialogTarget?.type === "bulk"
+				? t("nodes.geoDialog.bulkTitle")
+				: "";
 
 	const renderNodeStatus = (node: NodeType) => {
 		const status = node.status || "error";
@@ -2103,10 +2064,10 @@ export const NodesPage: FC = () => {
 						nodeEffectiveUpdateChannel,
 					);
 					const nodeServiceUpdateAvailable = getNodeServiceUpdateAvailable(
-							nodeRuntimeVersion,
-							nodeLatestVersion,
-							nodeEffectiveUpdateChannel,
-						);
+						nodeRuntimeVersion,
+						nodeLatestVersion,
+						nodeEffectiveUpdateChannel,
+					);
 					const nodeInstallLabel =
 						[node.node_install_mode, node.node_update_channel]
 							.filter(Boolean)
@@ -2742,12 +2703,12 @@ export const NodesPage: FC = () => {
 								w: { base: "full", md: "300px", xl: "320px" },
 								flex: { base: "0 0 100%", md: "0 0 auto" },
 							}}
-								value={searchTerm}
-								onChange={(event) => setSearchTerm(event.target.value)}
-								placeholder={t("nodes.searchPlaceholder")}
+							value={searchTerm}
+							onChange={(event) => setSearchTerm(event.target.value)}
+							placeholder={t("nodes.searchPlaceholder")}
 							matchOptions={searchMatch}
 							onMatchOptionsChange={setSearchMatch}
-							/>
+						/>
 						<Select
 							size="sm"
 							value={statusFilter}
@@ -3056,11 +3017,11 @@ export const NodesPage: FC = () => {
 						? "orange"
 						: serviceActionConfirm?.type === "reboot"
 							? "red"
-						: serviceActionConfirm?.type === "bulk-delete" ||
-								serviceActionConfirm?.type === "bulk-reset" ||
-								serviceActionConfirm?.type === "bulk-reboot"
-							? "red"
-							: "blue"
+							: serviceActionConfirm?.type === "bulk-delete" ||
+									serviceActionConfirm?.type === "bulk-reset" ||
+									serviceActionConfirm?.type === "bulk-reboot"
+								? "red"
+								: "blue"
 				}
 				isLoading={serviceActionConfirmLoading}
 			/>
@@ -3070,11 +3031,11 @@ export const NodesPage: FC = () => {
 				onConfirm={confirmDeleteNode}
 				title={t("delete")}
 				description={t("deleteNode.prompt", {
-						name:
-							deleteCandidate?.name ??
-							deleteCandidate?.address ??
-							t("nodes.thisNode"),
-					})}
+					name:
+						deleteCandidate?.name ??
+						deleteCandidate?.address ??
+						t("nodes.thisNode"),
+				})}
 				confirmLabel={t("delete")}
 				colorScheme="red"
 				isLoading={isDeletingNode}
@@ -3087,11 +3048,11 @@ export const NodesPage: FC = () => {
 				onConfirm={confirmResetUsage}
 				title={t("nodes.resetUsage")}
 				description={t("nodes.resetUsageConfirm", {
-						name:
-							resetCandidate?.name ??
-							resetCandidate?.address ??
-							t("nodes.thisNode"),
-					})}
+					name:
+						resetCandidate?.name ??
+						resetCandidate?.address ??
+						t("nodes.thisNode"),
+				})}
 				confirmLabel={t("nodes.resetUsage")}
 				colorScheme="red"
 				isLoading={isResettingUsage}
@@ -3217,7 +3178,7 @@ export const NodesPage: FC = () => {
 													const blob = new Blob(
 														[generatedCertificateBundleValue],
 														{
-														type: "text/plain",
+															type: "text/plain",
 														},
 													);
 													const url = URL.createObjectURL(blob);

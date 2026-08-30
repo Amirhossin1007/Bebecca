@@ -191,7 +191,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	const { t } = useTranslation();
 	const toast = useToast();
 	const [showCertificate, setShowCertificate] = useState(false);
-	const { fetchNodesUsage } = useNodes();
+	const fetchNodesUsage = useNodes((state) => state.fetchNodesUsage);
 	const [nodeUsage, setNodeUsage] = useState<{
 		uplink: number;
 		downlink: number;

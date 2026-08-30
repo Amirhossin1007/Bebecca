@@ -22,19 +22,36 @@ import { AppDialog } from "components/dialogs/AppDialog";
 import { ReloadIcon } from "components/Filters";
 import { Icon } from "components/Icon";
 import { Pagination } from "components/Pagination";
-import { QRCodeDialog } from "components/QRCodeDialog";
-import { UserDialog } from "components/UserDialog";
 import { UsersTable } from "components/UsersTable";
 import { PageHeader, ResourceRefreshButton } from "components/ui";
-import { UsersFilterBar, UserQuickEditModal } from "components/users";
+import { UsersFilterBar } from "components/users";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useCallback, useEffect, useRef, useState } from "react";
+import {
+	type FC,
+	lazy,
+	Suspense,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import { AdminStatus } from "types/Admin";
 
 const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000] as const;
+
+const UserDialog = lazy(async () => ({
+	default: (await import("components/UserDialog")).UserDialog,
+}));
+const QRCodeDialog = lazy(async () => ({
+	default: (await import("components/QRCodeDialog")).QRCodeDialog,
+}));
+const UserQuickEditModal = lazy(async () => ({
+	default: (await import("components/users/UserQuickEditModal"))
+		.UserQuickEditModal,
+}));
 
 type OnlineUsersResponse =
 	| string[]
@@ -166,12 +183,28 @@ export const UsersPage: FC = () => {
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const loading = useDashboard((state) => state.loading);
 	const refetchUsers = useDashboard((state) => state.refetchUsers);
+	const isUserDialogOpen = useDashboard(
+		(state) => state.isCreatingNewUser || Boolean(state.editingUser),
+	);
+	const isQRCodeDialogOpen = useDashboard(
+		(state) => state.QRcodeLinks !== null,
+	);
+	const isQuickEditOpen = useDashboard((state) => state.quickEditUser !== null);
 	const { userData, getUserIsPending } = useGetUser();
 	const isAdminDisabled = userData.status === AdminStatus.Disabled;
 	const [autoRefreshInterval, setAutoRefreshInterval] = useState(5_000);
 	const topSpeedUsernameRef = useRef<string | undefined>(undefined);
+	const onlineRefreshInFlightRef = useRef(false);
 
 	const refreshOnlineUsers = useCallback(async () => {
+		if (
+			onlineRefreshInFlightRef.current ||
+			document.visibilityState === "hidden" ||
+			!navigator.onLine
+		) {
+			return;
+		}
+		onlineRefreshInFlightRef.current = true;
 		try {
 			const dashboard = useDashboard.getState();
 			const needsGlobalSpeeds = dashboard.filters.advancedFilters?.includes(
@@ -227,6 +260,8 @@ export const UsersPage: FC = () => {
 			}
 		} catch {
 			// Keep the last successful snapshot during a transient poll failure.
+		} finally {
+			onlineRefreshInFlightRef.current = false;
 		}
 	}, []);
 
@@ -244,6 +279,26 @@ export const UsersPage: FC = () => {
 			autoRefreshInterval,
 		);
 		return () => window.clearInterval(timer);
+	}, [
+		autoRefreshInterval,
+		getUserIsPending,
+		isAdminDisabled,
+		refreshOnlineUsers,
+	]);
+
+	useEffect(() => {
+		if (getUserIsPending || isAdminDisabled || !autoRefreshInterval) return;
+		const refreshWhenActive = () => {
+			if (document.visibilityState === "visible" && navigator.onLine) {
+				void refreshOnlineUsers();
+			}
+		};
+		document.addEventListener("visibilitychange", refreshWhenActive);
+		window.addEventListener("online", refreshWhenActive);
+		return () => {
+			document.removeEventListener("visibilitychange", refreshWhenActive);
+			window.removeEventListener("online", refreshWhenActive);
+		};
 	}, [
 		autoRefreshInterval,
 		getUserIsPending,
@@ -364,11 +419,23 @@ export const UsersPage: FC = () => {
 				}
 			/>
 			<Pagination />
-			<UserDialog />
-			<QRCodeDialog />
+			{isUserDialogOpen && (
+				<Suspense fallback={null}>
+					<UserDialog />
+				</Suspense>
+			)}
+			{isQRCodeDialogOpen && (
+				<Suspense fallback={null}>
+					<QRCodeDialog />
+				</Suspense>
+			)}
 			<UserActionDialog action="reset" />
 			<UserActionDialog action="revoke" />
-			<UserQuickEditModal />
+			{isQuickEditOpen && (
+				<Suspense fallback={null}>
+					<UserQuickEditModal />
+				</Suspense>
+			)}
 		</VStack>
 	);
 };
