@@ -54,7 +54,7 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 			borderRadius="2xl"
 			bg="panel.surface"
 			p={{ base: 4, md: 5 }}
-			transition="all 0.25s ease"
+			transition="border-color 0.25s ease, box-shadow 0.25s ease"
 			_hover={{
 				"@media (min-width: 768px)": {
 					boxShadow: "sm",

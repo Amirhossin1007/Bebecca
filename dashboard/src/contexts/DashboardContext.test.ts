@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("service/http", () => ({ fetch: vi.fn() }));
-vi.mock("components/Statistics", () => ({ StatisticsQueryKey: "statistics" }));
 vi.mock("utils/userPreferenceStorage", () => ({
 	getUsersPerPageLimitSize: () => 10,
 }));

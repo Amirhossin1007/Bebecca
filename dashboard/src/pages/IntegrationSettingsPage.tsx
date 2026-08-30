@@ -50,7 +50,6 @@ import { SearchInput } from "components/common/SearchInput";
 import useGetUser from "hooks/useGetUser";
 import {
 	type ReactNode,
-	useCallback,
 	useEffect,
 	useMemo,
 	useState,
@@ -98,6 +97,10 @@ import {
 	DEFAULT_SEARCH_MATCH_OPTIONS,
 	matchesAnySearch,
 } from "utils/searchMatch";
+import {
+	integrationTabKeys,
+	parseSettingsHash,
+} from "utils/settingsTabs";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import {
 	DataTable,
@@ -631,7 +634,7 @@ const DisabledCard = ({
 			pointerEvents={disabled ? "none" : "auto"}
 			filter={disabled ? "blur(1.2px)" : "none"}
 			opacity={disabled ? 0.55 : 1}
-			transition="all 0.2s ease"
+			transition="filter 0.2s ease, opacity 0.2s ease"
 		>
 			{children}
 		</Box>
@@ -741,6 +744,8 @@ const buildAdminSubscriptionPayload = (
 	),
 });
 
+const readSettingsHash = () => parseSettingsHash(window.location.hash);
+
 export const IntegrationSettingsPage = () => {
 	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
@@ -761,13 +766,16 @@ export const IntegrationSettingsPage = () => {
 			(userData.role === "sudo" &&
 				Boolean(userData.permissions?.sudo.maintenance)));
 	const queryClient = useQueryClient();
+	const [activeIntegrationTab, setActiveIntegrationTab] = useState(
+		() => readSettingsHash().index,
+	);
 
 	const { data, isLoading, refetch } = useQuery(
 		"telegram-settings",
 		getTelegramSettings,
 		{
 			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations,
+			enabled: canManageIntegrations && activeIntegrationTab === 1,
 		},
 	);
 
@@ -777,7 +785,7 @@ export const IntegrationSettingsPage = () => {
 		refetch: refetchPanelSettings,
 	} = useQuery<PanelSettingsResponse>("panel-settings", getPanelSettings, {
 		refetchOnWindowFocus: false,
-		enabled: canManageIntegrations,
+		enabled: canManageIntegrations && activeIntegrationTab === 0,
 	});
 
 	const {
@@ -789,7 +797,7 @@ export const IntegrationSettingsPage = () => {
 		getRuntimeSettings,
 		{
 			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations,
+			enabled: canManageIntegrations && activeIntegrationTab === 0,
 		},
 	);
 
@@ -799,7 +807,7 @@ export const IntegrationSettingsPage = () => {
 		refetch: refetchPHPMyAdminStatus,
 	} = useQuery("phpmyadmin-status", getPHPMyAdminStatus, {
 		refetchOnWindowFocus: false,
-		enabled: canManageIntegrations,
+		enabled: canManageIntegrations && activeIntegrationTab === 0,
 	});
 
 	const {
@@ -811,14 +819,17 @@ export const IntegrationSettingsPage = () => {
 		getSubscriptionSettings,
 		{
 			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations,
+			enabled: canManageIntegrations && activeIntegrationTab >= 2,
 		},
 	);
 
 	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>(
 		"maintenance-info",
 		() => apiFetch<RuntimeMaintenanceInfo>("/maintenance/info"),
-		{ refetchOnWindowFocus: false, enabled: canReadMaintenance },
+		{
+			refetchOnWindowFocus: false,
+			enabled: canReadMaintenance && activeIntegrationTab === 0,
+		},
 	);
 	const hostActionsAvailable =
 		(maintenanceInfoQuery.data?.panel?.mode ||
@@ -848,7 +859,6 @@ export const IntegrationSettingsPage = () => {
 		Record<number, AdminSubscriptionSettings>
 	>({});
 	const [selectedAdminId, setSelectedAdminId] = useState<number | null>(null);
-	const [activeIntegrationTab, setActiveIntegrationTab] = useState<number>(0);
 	const [adminSearchTerm, setAdminSearchTerm] = useState<string>("");
 	const [adminSearchMatch, setAdminSearchMatch] = useState(
 		DEFAULT_SEARCH_MATCH_OPTIONS,
@@ -968,22 +978,6 @@ export const IntegrationSettingsPage = () => {
 		[subscriptionPortsText],
 	);
 
-	const integrationTabKeys = useMemo(
-		() => ["panel", "telegram", "subscriptions", "ssl"],
-		[],
-	);
-	const readSettingsHash = useCallback(() => {
-		const hash = (window.location.hash || "").replace(/^#/, "");
-		const [tabWithQuery = ""] = hash.split("#").filter(Boolean);
-		const [tab = "", query = ""] = tabWithQuery.split("?");
-		return {
-			tab,
-			focus: query ? new URLSearchParams(query).get("focus") || "" : "",
-		};
-	}, []);
-	const getFocusFromHash = useCallback(() => {
-		return readSettingsHash();
-	}, [readSettingsHash]);
 	useEffect(() => {
 		const syncTabFromHash = () => {
 			const { tab } = readSettingsHash();
@@ -1006,10 +1000,10 @@ export const IntegrationSettingsPage = () => {
 		syncTabFromHash();
 		window.addEventListener("hashchange", syncTabFromHash);
 		return () => window.removeEventListener("hashchange", syncTabFromHash);
-	}, [integrationTabKeys, readSettingsHash]);
+	}, []);
 
 	useEffect(() => {
-		const { focus, tab } = getFocusFromHash();
+		const { focus, tab } = readSettingsHash();
 		if (
 			activeIntegrationTab !== 1 ||
 			tab.toLowerCase() !== "telegram" ||
@@ -1024,7 +1018,7 @@ export const IntegrationSettingsPage = () => {
 				?.scrollIntoView({ behavior: "smooth", block: "center" });
 		}, 250);
 		return () => window.clearTimeout(timer);
-	}, [activeIntegrationTab, data, getFocusFromHash, isLoading]);
+	}, [activeIntegrationTab, data, isLoading]);
 
 	const saveAllMutation = useMutation(updateAllSettings, {
 		onSuccess: (updated) => {
@@ -1946,11 +1940,8 @@ export const IntegrationSettingsPage = () => {
 					{t("settings.save")}
 				</Button>
 			</Flex>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 0 ? "block" : "none"}
-			>
+			{activeIntegrationTab === 0 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isPanelLoading && panelData === undefined ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -2288,12 +2279,10 @@ export const IntegrationSettingsPage = () => {
 						</Box>
 					</Stack>
 				)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 3 ? "block" : "none"}
-			>
+				</Box>
+			)}
+			{activeIntegrationTab === 3 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -2301,12 +2290,10 @@ export const IntegrationSettingsPage = () => {
 				) : (
 					certificateManager
 				)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 1 ? "block" : "none"}
-			>
+				</Box>
+			)}
+			{activeIntegrationTab === 1 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isLoading && !data ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -2715,12 +2702,10 @@ export const IntegrationSettingsPage = () => {
 						</VStack>
 					</form>
 				)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 2 ? "block" : "none"}
-			>
+				</Box>
+			)}
+			{activeIntegrationTab === 2 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -3924,7 +3909,8 @@ export const IntegrationSettingsPage = () => {
 						</VStack>
 					</form>
 				)}
-			</Box>
+				</Box>
+			)}
 			<Modal
 				isOpen={isCertificateDialogOpen}
 				onClose={() => setCertificateDialogOpen(false)}
@@ -3933,7 +3919,7 @@ export const IntegrationSettingsPage = () => {
 				scrollBehavior="inside"
 				closeOnOverlayClick={!isCertificateMutationLoading}
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					as="form"
 					onSubmit={(event) => {

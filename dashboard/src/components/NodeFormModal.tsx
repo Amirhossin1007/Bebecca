@@ -433,7 +433,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 			size="2xl"
 			scrollBehavior="inside"
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent
 				mx="3"
 				as="form"

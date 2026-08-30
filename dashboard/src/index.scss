@@ -215,6 +215,8 @@ body {
 
 .rb-data-table-row {
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
 }
 
 .rb-data-table-row > td {
@@ -489,10 +491,12 @@ body {
     border-radius: 6px;
     background: var(--rb-panel-surface);
     padding: 0.8rem;
-  overflow: hidden;
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
+    overflow: hidden;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
       box-shadow 140ms ease;
   }
 
@@ -2139,8 +2143,6 @@ img.apple-emoji {
   border-radius: 14px;
   border-color: color-mix(in srgb, var(--rb-panel-accent) 35%, var(--rb-panel-border-strong));
   background: color-mix(in srgb, var(--rb-panel-surface) 94%, var(--rb-panel-accent));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .rb-users-section .rb-bulk-action-bar .chakra-button {

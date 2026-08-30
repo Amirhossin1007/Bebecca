@@ -640,7 +640,7 @@ export const ExternalAppsPage = () => {
 				onClose={() => setSettingsTarget(null)}
 				size="xl"
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(8px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent bg={panelBg}>
 					<ModalHeader>{t("externalApps.settingsTitle")}</ModalHeader>
 					<ModalCloseButton />
@@ -770,7 +770,7 @@ export const ExternalAppsPage = () => {
 				scrollBehavior="inside"
 				closeOnOverlayClick={!installMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					bg={panelBg}
 					borderWidth="1px"

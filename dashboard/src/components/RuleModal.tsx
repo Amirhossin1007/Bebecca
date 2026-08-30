@@ -277,7 +277,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 			size="3xl"
 			scrollBehavior="inside"
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent as="form" onSubmit={handleSave}>
 				<XrayModalHeader>{title}</XrayModalHeader>
 				<ModalCloseButton />

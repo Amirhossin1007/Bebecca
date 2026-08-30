@@ -394,7 +394,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent
 				mx="3"
 				sx={{
@@ -497,7 +497,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 														borderColor: "primary.300",
 														cursor: "pointer",
 													}}
-													transition="all 0.1s ease-in-out"
+													transition="background-color 0.1s ease-in-out, border-color 0.1s ease-in-out"
 													onClick={() => handleAdminToggle(admin.id)}
 													onKeyDown={(event) => {
 														if (event.key === "Enter" || event.key === " ") {
@@ -1930,7 +1930,7 @@ const ServicesPage: FC = () => {
 						? ` - ${editingServiceAdminLimit.username}`
 						: ""
 				}`}
-				overlayProps={{ bg: "blackAlpha.300", backdropFilter: "blur(6px)" }}
+				overlayProps={{ bg: "blackAlpha.300" }}
 				footerProps={{ gap: 3 }}
 				footer={
 					<>
@@ -2080,7 +2080,7 @@ const ServicesPage: FC = () => {
 				title={`${t("services.deleteDialogTitle")}${
 					servicePendingDelete ? ` – ${servicePendingDelete.name}` : ""
 				}`}
-				overlayProps={{ bg: "blackAlpha.300", backdropFilter: "blur(6px)" }}
+				overlayProps={{ bg: "blackAlpha.300" }}
 				footerProps={{ gap: 3 }}
 				footer={
 					<>

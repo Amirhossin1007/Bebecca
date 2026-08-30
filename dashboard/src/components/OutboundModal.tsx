@@ -1271,7 +1271,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 			onClose={handleClose}
 			scrollBehavior="inside"
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent as="form" onSubmit={onSubmit}>
 				<XrayModalHeader>
 					{mode === "edit"
@@ -1281,6 +1281,8 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 				<ModalCloseButton />
 				<XrayModalBody>
 					<Tabs
+						isLazy
+						lazyBehavior="keepMounted"
 						className="xray-dialog-auto-sections"
 						variant="unstyled"
 						index={activeTab}

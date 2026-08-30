@@ -1065,7 +1065,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 			isCentered
 			returnFocusOnClose={false}
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
 				<ModalCloseButton />
 				<XrayModalHeader
@@ -1718,7 +1718,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 			initialFocusRef={initialRef}
 			returnFocusOnClose={false}
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
 				<XrayModalHeader subtitle={t("hostsPage.create.description")}>
 					{t("hostsPage.create.title")}

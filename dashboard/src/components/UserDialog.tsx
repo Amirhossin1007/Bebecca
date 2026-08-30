@@ -1955,7 +1955,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"}
 			scrollBehavior="inside"
 		>
-			<ModalOverlay bg="blackAlpha.300" backdropFilter="blur(10px)" />
+			<ModalOverlay bg="blackAlpha.300" />
 
 			<FormProvider {...form}>
 				<XrayModalContent

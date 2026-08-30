@@ -94,7 +94,7 @@ export const AdminDetailsDrawer = () => {
 			scrollBehavior="inside"
 			size="xl"
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3">
 				<XrayModalHeader
 					subtitle={

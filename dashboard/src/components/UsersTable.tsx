@@ -555,6 +555,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const disabledReason = userData.disabled_reason;
 
 	const rowsToRender = filters.limit || 10;
+	const compactRowActions = rowsToRender > 20;
 	const isFiltered = usersResponse.users.length !== usersResponse.total;
 	const hasUsageScopeFilter = Boolean(
 		filters.search?.trim() ||
@@ -1580,9 +1581,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 								}
 							/>
 						)}
-						actionsDisplay="inline"
+						actionsDisplay={compactRowActions ? "menu" : "inline"}
 						actionsPlacement="end"
-						actionsColumnWidth="210px"
+						actionsColumnWidth={compactRowActions ? "64px" : "210px"}
 						actionsAlwaysVisible
 						onRowClick={
 							isDesktop

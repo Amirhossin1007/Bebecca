@@ -135,7 +135,7 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 					<ResetIcon />
 				</Icon>
 			}
-			overlayProps={{ bg: "blackAlpha.300", backdropFilter: "blur(10px)" }}
+			overlayProps={{ bg: "blackAlpha.300" }}
 			contentProps={{ mx: "3" }}
 			headerProps={{ pt: 6 }}
 			closeButtonProps={{ mt: 3 }}

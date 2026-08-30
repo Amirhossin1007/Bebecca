@@ -92,7 +92,7 @@ export const DnsPresetsModal: FC<DnsPresetsModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="md">
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3">
 				<XrayModalHeader>
 					{t("pages.xray.dns.dnsPresetTitle")}

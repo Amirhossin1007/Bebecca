@@ -66,8 +66,8 @@ const sharedThemeConfig = {
 		global: {
 			".chakra-modal__overlay": {
 				bg: "blackAlpha.500 !important",
-				backdropFilter: "blur(12px) !important",
-				WebkitBackdropFilter: "blur(12px) !important",
+				backdropFilter: "none !important",
+				WebkitBackdropFilter: "none !important",
 			},
 			".chakra-modal__content": {
 				backgroundColor: "var(--rb-panel-surface) !important",

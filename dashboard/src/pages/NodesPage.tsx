@@ -3085,7 +3085,7 @@ export const NodesPage: FC = () => {
 			/>
 			{newNodeCertificate && (
 				<Modal isOpen onClose={() => setNewNodeCertificate(null)} size="md">
-					<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+					<ModalOverlay bg="blackAlpha.500" />
 					<ModalContent
 						bg={nodePanelBg}
 						borderWidth="1px"

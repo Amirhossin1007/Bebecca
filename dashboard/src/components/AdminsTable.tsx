@@ -1190,7 +1190,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			/>
 
 			<Modal isOpen={isQuickPassOpen} onClose={handleCloseQuickPass} isCentered>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					bg={dialogBg}
 					borderWidth="1px"

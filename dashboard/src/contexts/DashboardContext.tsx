@@ -1,4 +1,3 @@
-import { StatisticsQueryKey } from "components/Statistics";
 import { fetch } from "service/http";
 import type {
 	AdvancedUserActionPayload,
@@ -16,6 +15,8 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
 const DEFAULT_SORT = "-created_at";
+
+const StatisticsQueryKey = "statistics-query-key";
 
 export type FilterType = {
 	search?: string;

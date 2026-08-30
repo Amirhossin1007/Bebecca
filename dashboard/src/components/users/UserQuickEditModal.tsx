@@ -107,7 +107,7 @@ export const UserQuickEditModal: FC = () => {
 					? t("usersTable.setDataLimit")
 					: t("usersTable.setExpiry")
 			}
-			overlayProps={{ bg: "blackAlpha.300", backdropFilter: "blur(10px)" }}
+			overlayProps={{ bg: "blackAlpha.300" }}
 			contentProps={{ mx: "3" }}
 			footerProps={{ gap: 3 }}
 			footer={

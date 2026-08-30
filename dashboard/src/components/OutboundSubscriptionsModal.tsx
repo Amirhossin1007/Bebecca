@@ -320,7 +320,7 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 			size="4xl"
 			scrollBehavior="inside"
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3">
 				<XrayModalHeader>
 					{t("pages.xray.outboundSub.title")}

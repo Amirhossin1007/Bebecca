@@ -161,7 +161,7 @@ export const QRCodeDialog: FC = () => {
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose}>
-			<ModalOverlay bg="blackAlpha.300" backdropFilter="blur(10px)" />
+			<ModalOverlay bg="blackAlpha.300" />
 			<ModalContent
 				mx={{ base: 3, md: 4 }}
 				w="full"

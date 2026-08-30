@@ -180,7 +180,7 @@ export const DashboardBackupControls = ({
 				size="xl"
 				closeOnOverlayClick={!importMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					borderWidth="1px"
 					borderColor={borderColor}
@@ -244,7 +244,7 @@ export const DashboardBackupControls = ({
 				size="md"
 				closeOnOverlayClick={!exportMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					borderWidth="1px"
 					borderColor={borderColor}
