@@ -208,6 +208,17 @@ func TestOnlineUsersRouteUsesLiveSetAndAdminScope(t *testing.T) {
 	if _, leaked := details.Speeds["bob"]; leaked {
 		t.Fatal("seller received another admin's live speed")
 	}
+
+	rec = userReadRequest(t, server, http.MethodGet, "/api/users/onlines?details=true&usernames=alice", adminBearerToken(t, server, "owner", "pass123"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("scoped online details status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &details); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(details.Users, ",") != "alice" || len(details.Speeds) != 1 || details.Speeds["alice"].UploadSpeed != 100 {
+		t.Fatalf("unexpected scoped online details: %#v", details)
+	}
 }
 
 func userReadRequest(t *testing.T, server *Server, method string, path string, token string) *httptest.ResponseRecorder {

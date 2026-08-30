@@ -24,3 +24,17 @@ func TestAppendHistoryIncludesUsageMetrics(t *testing.T) {
 		}
 	}
 }
+
+func TestAppendHistorySamplesAtFixedIntervals(t *testing.T) {
+	service := &Service{}
+	service.appendHistory(MetricsSnapshot{Timestamp: 100, CPUUsage: 10})
+	history := service.appendHistory(MetricsSnapshot{Timestamp: 105, CPUUsage: 20})
+	if len(history.cpu) != 1 || history.cpu[0] != (HistoryEntry{Timestamp: 100, Value: 20}) {
+		t.Fatalf("history inside sample window = %#v", history.cpu)
+	}
+
+	history = service.appendHistory(MetricsSnapshot{Timestamp: 130, CPUUsage: 30})
+	if len(history.cpu) != 2 || history.cpu[1] != (HistoryEntry{Timestamp: 130, Value: 30}) {
+		t.Fatalf("history after sample window = %#v", history.cpu)
+	}
+}

@@ -98,8 +98,12 @@ const USER_STATUS_TEXT_COLORS: Partial<Record<UserListItem["status"], string>> =
 
 const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
 	const { t } = useTranslation();
-	const upload = user.upload_speed ?? 0;
-	const download = user.download_speed ?? 0;
+	const upload = useDashboard(
+		(state) => state.liveUserStats[user.username]?.upload_speed,
+	) ?? user.upload_speed ?? 0;
+	const download = useDashboard(
+		(state) => state.liveUserStats[user.username]?.download_speed,
+	) ?? user.download_speed ?? 0;
 	if (upload === 0 && download === 0) {
 		return <Text color="panel.textMuted">—</Text>;
 	}
@@ -113,6 +117,13 @@ const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
 			</Text>
 		</Stack>
 	);
+};
+
+const UserPresence: FC<{ user: UserListItem }> = ({ user }) => {
+	const isOnline = useDashboard(
+		(state) => state.liveUserStats[user.username]?.is_online,
+	);
+	return <UserOnlineBadge isOnline={isOnline ?? user.is_online} />;
 };
 
 const iconProps = {
@@ -463,7 +474,21 @@ export const UsersTable: FC<UsersTableProps> = ({
 		setQRCode,
 		setSubLink,
 		linkTemplates,
-	} = useDashboard();
+	} = {
+		filters: useDashboard((state) => state.filters),
+		users: useDashboard((state) => state.users),
+		onEditingUser: useDashboard((state) => state.onEditingUser),
+		onFilterChange: useDashboard((state) => state.onFilterChange),
+		loading: useDashboard((state) => state.loading),
+		isUserLimitReached: useDashboard((state) => state.isUserLimitReached),
+		deleteUser: useDashboard((state) => state.deleteUser),
+		resetDataUsage: useDashboard((state) => state.resetDataUsage),
+		revokeSubscription: useDashboard((state) => state.revokeSubscription),
+		refetchUsers: useDashboard((state) => state.refetchUsers),
+		setQRCode: useDashboard((state) => state.setQRCode),
+		setSubLink: useDashboard((state) => state.setSubLink),
+		linkTemplates: useDashboard((state) => state.linkTemplates),
+	};
 
 	const { t, i18n } = useTranslation();
 	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
@@ -898,7 +923,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobileVisible: true,
 				mobilePriority: 1,
 				mobileMetaLabel: t("usersTable.online"),
-				cell: (user) => <UserOnlineBadge isOnline={user.is_online} />,
+				cell: (user) => <UserPresence user={user} />,
 			},
 			{
 				id: "username",
@@ -1956,7 +1981,9 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 	menuActions,
 }) => {
 	const { t } = useTranslation();
-	const { setQRCode, setSubLink, linkTemplates } = useDashboard();
+	const setQRCode = useDashboard((state) => state.setQRCode);
+	const setSubLink = useDashboard((state) => state.setSubLink);
+	const linkTemplates = useDashboard((state) => state.linkTemplates);
 
 	const userLinks = generateUserLinks(user, linkTemplates);
 	const formatLink = (link?: string | null) => {
@@ -2097,7 +2124,7 @@ const EmptySection: FC<EmptySectionProps> = ({
 	isCreateDisabled,
 }) => {
 	const { t } = useTranslation();
-	const { onCreateUser } = useDashboard();
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
 	const handleCreate = () => {
 		if (isCreateDisabled) {
 			return;

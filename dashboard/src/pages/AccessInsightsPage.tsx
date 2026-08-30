@@ -73,6 +73,7 @@ const AccessInsightsPage: FC = () => {
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const [data, setData] = useState<AccessInsightsResponse | null>(null);
 	const [search, setSearch] = useState("");
+	const [searchQuery, setSearchQuery] = useState("");
 	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [protocolFilter, setProtocolFilter] = useState("");
 	const [nodeFilter, setNodeFilter] = useState("");
@@ -92,7 +93,7 @@ const AccessInsightsPage: FC = () => {
 				limit: "500",
 				window_seconds: "300",
 			});
-			if (search.trim()) query.set("search", search.trim());
+			if (searchQuery) query.set("search", searchQuery);
 			addSearchMatchQuery(query, searchMatch);
 			setData(
 				await fetch<AccessInsightsResponse>(
@@ -108,7 +109,12 @@ const AccessInsightsPage: FC = () => {
 		} finally {
 			setLoading(false);
 		}
-	}, [canView, search, searchMatch, t]);
+	}, [canView, searchQuery, searchMatch, t]);
+
+	useEffect(() => {
+		const timer = window.setTimeout(() => setSearchQuery(search.trim()), 250);
+		return () => window.clearTimeout(timer);
+	}, [search]);
 
 	useEffect(() => {
 		void load();

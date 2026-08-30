@@ -28,7 +28,8 @@ const BYTES_PER_GB = 1024 * 1024 * 1024;
 export const UserQuickEditModal: FC = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const { quickEditUser, refetchUsers } = useDashboard();
+	const quickEditUser = useDashboard((state) => state.quickEditUser);
+	const refetchUsers = useDashboard((state) => state.refetchUsers);
 	const user = quickEditUser?.user ?? null;
 	const field = quickEditUser?.field ?? null;
 

@@ -35,6 +35,10 @@ import { fetch } from "service/http";
 import type { SystemStats } from "types/System";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { formatDuration } from "utils/formatDuration";
+import {
+	mergeLiveSystemStats,
+	sampleSparklineValues,
+} from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { ChartBox } from "./common/ChartBox";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
@@ -78,7 +82,9 @@ const useSystemMetricsStream = (enabled = true) => {
 					if (!stats || typeof stats !== "object" || !("version" in stats)) {
 						return;
 					}
-					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, stats);
+					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, (current) =>
+						mergeLiveSystemStats(current, stats),
+					);
 				} catch (error) {
 					console.error("Unable to parse system metrics stream payload", error);
 				}
@@ -572,38 +578,37 @@ const HistorySparkline: FC<{ values: number[]; accent?: string }> = ({
 	accent,
 }) => {
 	const defaultColor = useColorModeValue("gray.600", "gray.300");
-	const normalized = values.length ? values : [0];
+	const normalized = sampleSparklineValues(values.length ? values : [0]);
 	const maxValue = Math.max(...normalized, 1);
-	const normalizedBars = normalized.map((value, idx) => ({
-		value,
-		id: `${idx}-${value}`,
-	}));
+	const points = normalized
+		.map((value, index) => {
+			const x = normalized.length === 1 ? 0 : (index / (normalized.length - 1)) * 100;
+			const y = 39 - (Math.max(0, value) / maxValue) * 38;
+			return `${x.toFixed(2)},${y.toFixed(2)}`;
+		})
+		.join(" ");
 
 	return (
-		<HStack
-			alignItems="flex-end"
-			spacing="3px"
+		<Box
+			as="svg"
+			viewBox="0 0 100 40"
+			preserveAspectRatio="none"
 			mt={3}
-			minH="42px"
+			h="42px"
 			w="full"
-			overflow="hidden"
+			color={accent ?? defaultColor}
+			aria-hidden="true"
 		>
-			{normalizedBars.map(({ value, id }) => {
-				const heightPct = maxValue > 0 ? (value / maxValue) * 100 : 0;
-				const height = Math.max(4, Math.round((heightPct / 100) * 40));
-				return (
-					<Box
-						key={id}
-						flex="1 1 0"
-						minW="2px"
-						maxW="6px"
-						h={`${height}px`}
-						bg={accent ?? defaultColor}
-						borderRadius="full"
-					/>
-				);
-			})}
-		</HStack>
+			<polyline
+				points={points}
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				vectorEffect="non-scaling-stroke"
+			/>
+		</Box>
 	);
 };
 

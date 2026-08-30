@@ -181,6 +181,13 @@ func (s *Server) sendSystemMetricsSnapshot(parent context.Context, conn *websock
 			Error: err.Error(),
 		})
 	}
+	stats.CPUHistory = nil
+	stats.MemoryHistory = nil
+	stats.SwapHistory = nil
+	stats.DiskHistory = nil
+	stats.NetworkHistory = nil
+	stats.PanelCPUHistory = nil
+	stats.PanelMemoryHistory = nil
 	return websocket.JSON.Send(conn, systemMetricsMessage{
 		Type:  "system.metrics",
 		Stats: stats,

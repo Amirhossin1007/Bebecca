@@ -556,39 +556,35 @@ const buildSchema = (isEditing: boolean) => {
 };
 
 export const UserDialog: FC<UserDialogProps> = () => {
-	const {
-		editingUser,
-
-		isCreatingNewUser,
-
-		onCreateUser,
-
-		editUser,
-
-		fetchUserUsage,
-
-		deleteUser,
-
-		onEditingUser,
-
-		createUserWithService,
-
-		users: usersState,
-
-		isUserLimitReached,
-		linkTemplates,
-		setQRCode,
-		setSubLink,
-		editingUserInitialTab,
-	} = useDashboard();
+	const editingUser = useDashboard((state) => state.editingUser);
+	const isCreatingNewUser = useDashboard(
+		(state) => state.isCreatingNewUser,
+	);
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
+	const editUser = useDashboard((state) => state.editUser);
+	const fetchUserUsage = useDashboard((state) => state.fetchUserUsage);
+	const deleteUser = useDashboard((state) => state.deleteUser);
+	const onEditingUser = useDashboard((state) => state.onEditingUser);
+	const createUserWithService = useDashboard(
+		(state) => state.createUserWithService,
+	);
+	const usersLimit = useDashboard((state) => state.users.users_limit ?? null);
+	const activeUsersCount = useDashboard(
+		(state) => state.users.active_total ?? null,
+	);
+	const isUserLimitReached = useDashboard(
+		(state) => state.isUserLimitReached,
+	);
+	const linkTemplates = useDashboard((state) => state.linkTemplates);
+	const setQRCode = useDashboard((state) => state.setQRCode);
+	const setSubLink = useDashboard((state) => state.setSubLink);
+	const editingUserInitialTab = useDashboard(
+		(state) => state.editingUserInitialTab,
+	);
 
 	const isEditing = !!editingUser;
 
 	const isOpen = isCreatingNewUser || isEditing;
-
-	const usersLimit = usersState.users_limit ?? null;
-
-	const activeUsersCount = usersState.active_total ?? null;
 
 	const limitReached = isUserLimitReached && !isEditing;
 

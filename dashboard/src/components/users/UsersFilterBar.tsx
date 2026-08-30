@@ -57,7 +57,10 @@ const formatChipCount = (value: number, locale: string) =>
  * Admins page keeps its own untouched toolbar.
  */
 export const UsersFilterBar: FC = () => {
-	const { loading, filters, onFilterChange, onCreateUser } = useDashboard();
+	const loading = useDashboard((state) => state.loading);
+	const filters = useDashboard((state) => state.filters);
+	const onFilterChange = useDashboard((state) => state.onFilterChange);
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
 	const { t, i18n } = useTranslation();
 	const locale = i18n.language || "en";
 	const [search, setSearch] = useState("");

@@ -17,7 +17,6 @@ import { SearchInput } from "components/common/SearchInput";
 import { ResourceListCard } from "components/ui";
 import { useNodesQuery } from "contexts/NodesContext";
 import useGetUser from "hooks/useGetUser";
-import debounce from "lodash.debounce";
 import React, {
 	type FC,
 	useCallback,
@@ -34,6 +33,12 @@ import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import { getAPIWebSocketURL } from "utils/websocket";
 
 const MAX_NUMBER_OF_LOGS = 500;
+const LOG_FLUSH_INTERVAL = 100;
+
+type LogEntry = {
+	id: number;
+	message: string;
+};
 
 const getWebsocketUrl = (nodeID: string) => {
 	if (!nodeID) return null;
@@ -67,7 +72,10 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const { data: nodes } = useNodesQuery({ enabled: canViewXrayLogs });
 	const [selectedNode, setNode] = useState<string>("");
-	const [logs, setLogs] = useState<string[]>([]);
+	const [logs, setLogs] = useState<LogEntry[]>([]);
+	const pendingLogs = useRef<LogEntry[]>([]);
+	const flushTimer = useRef<number | null>(null);
+	const nextLogID = useRef(0);
 	const [searchFilter, setSearchFilter] = useState<string>("");
 	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [selectedInbound, setSelectedInbound] = useState<string>("");
@@ -75,6 +83,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 	const [inboundsLoading, setInboundsLoading] = useState(false);
 	const logsDiv = useRef<HTMLDivElement | null>(null);
 	const [autoScroll, setAutoScroll] = useState(true);
+	const autoScrollRef = useRef(true);
 	const { colorMode } = useColorMode();
 
 	// Fetch inbounds list
@@ -97,6 +106,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 	const handleLog = (id: string) => {
 		if (id === selectedNode) return;
 		setNode(id);
+		pendingLogs.current = [];
 		setLogs([]);
 	};
 
@@ -117,24 +127,41 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 		}
 	}, [nodes, selectedNode]);
 
+	const flushLogs = useCallback(() => {
+		flushTimer.current = null;
+		const batch = pendingLogs.current;
+		pendingLogs.current = [];
+		if (batch.length === 0) return;
+		setLogs((current) => [...current, ...batch].slice(-MAX_NUMBER_OF_LOGS));
+		window.requestAnimationFrame(() => {
+			if (autoScrollRef.current && logsDiv.current) {
+				logsDiv.current.scrollTop = logsDiv.current.scrollHeight;
+			}
+		});
+	}, []);
+
 	const appendLog = useCallback(
-		debounce((line: string) => {
-			setLogs((prev) => {
-				const next =
-					prev.length >= MAX_NUMBER_OF_LOGS
-						? [...prev.slice(prev.length - MAX_NUMBER_OF_LOGS + 1), line]
-						: [...prev, line];
-				return next;
-			});
-		}, 50),
-		[],
+		(line: string) => {
+			pendingLogs.current.push({ id: nextLogID.current++, message: line });
+			if (flushTimer.current === null) {
+				flushTimer.current = window.setTimeout(flushLogs, LOG_FLUSH_INTERVAL);
+			}
+		},
+		[flushLogs],
 	);
+
+	const clearLogs = useCallback(() => {
+		pendingLogs.current = [];
+		setLogs([]);
+	}, []);
 
 	useEffect(() => {
 		return () => {
-			appendLog.cancel();
+			if (flushTimer.current !== null) {
+				window.clearTimeout(flushTimer.current);
+			}
 		};
-	}, [appendLog]);
+	}, []);
 
 	const socketUrl = useMemo(
 		() => (canViewXrayLogs ? getWebsocketUrl(selectedNode) : null),
@@ -162,6 +189,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 			const isAtBottom =
 				element.scrollHeight - element.scrollTop - element.clientHeight <=
 				threshold;
+			autoScrollRef.current = isAtBottom;
 			setAutoScroll(isAtBottom);
 		};
 		element.addEventListener("scroll", handleScroll);
@@ -170,12 +198,6 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 			element.removeEventListener("scroll", handleScroll);
 		};
 	}, []);
-
-	useEffect(() => {
-		if (autoScroll && logsDiv.current) {
-			logsDiv.current.scrollTop = logsDiv.current.scrollHeight;
-		}
-	}, [autoScroll]);
 
 	const logPalette = useMemo(() => {
 		const isDark = colorMode === "dark";
@@ -237,7 +259,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 		// Filter by inbound tag if selected
 		if (selectedInboundTag) {
 			filtered = filtered.filter((log) => {
-				const logLower = log.toLowerCase();
+				const logLower = log.message.toLowerCase();
 				return logLower.includes(selectedInboundTag.toLowerCase());
 			});
 		}
@@ -245,21 +267,12 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 		// Filter by search text if provided
 		if (searchFilter.trim()) {
 			filtered = filtered.filter((log) =>
-				matchesSearch(log, searchFilter, searchMatch),
+				matchesSearch(log.message, searchFilter, searchMatch),
 			);
 		}
 
 		return filtered;
 	}, [logs, searchFilter, searchMatch, selectedInboundTag]);
-
-	const logEntries = useMemo(
-		() =>
-			filteredLogs.map((message, idx) => ({
-				message,
-				key: `${idx}-${message}`,
-			})),
-		[filteredLogs],
-	);
 
 	const classifyLog = (message: string) => {
 		const lowerMessage = message.toLowerCase();
@@ -359,7 +372,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							h="36px"
 							px={3}
 							isDisabled={logs.length === 0}
-							onClick={() => setLogs([])}
+							onClick={clearLogs}
 						>
 							{t("clear")}
 						</Button>
@@ -444,7 +457,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 								: t("xrayLogs.noLogs")}
 						</Box>
 					) : (
-						logEntries.map(({ message, key }) => {
+						filteredLogs.map(({ id, message }) => {
 							const level = classifyLog(message);
 							const palette = logPalette[level] ?? logPalette.default;
 							// Highlight search term in the log message
@@ -458,7 +471,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 										);
 										const partsWithKeys = parts.map((part, idx) => ({
 											part,
-											key: `${key}-part-${idx}`,
+											key: `${id}-part-${idx}`,
 										}));
 										return partsWithKeys.map(({ part, key: partKey }) => {
 											if (
@@ -489,7 +502,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 								: message;
 							return (
 								<Box
-									key={key}
+									key={id}
 									bg={palette.bg}
 									color={palette.color}
 									borderLeftWidth={3}

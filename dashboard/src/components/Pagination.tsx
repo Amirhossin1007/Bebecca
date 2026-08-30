@@ -97,11 +97,9 @@ export const Pagination: FC<PaginationProps> = ({
 	onPageChange,
 	onPageSizeChange,
 }) => {
-	const {
-		filters: userFilters,
-		onFilterChange: onUserFilterChange,
-		users: { total: usersTotal },
-	} = useDashboard();
+	const userFilters = useDashboard((state) => state.filters);
+	const onUserFilterChange = useDashboard((state) => state.onFilterChange);
+	const usersTotal = useDashboard((state) => state.users.total);
 
 	const {
 		filters: adminFilters,

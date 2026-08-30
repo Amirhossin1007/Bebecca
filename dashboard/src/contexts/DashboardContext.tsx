@@ -191,6 +191,12 @@ export type InboundType = {
 };
 export type Inbounds = Map<ProtocolType, InboundType[]>;
 
+export type LiveUserStats = {
+	is_online: boolean;
+	upload_speed: number;
+	download_speed: number;
+};
+
 type DashboardStateType = {
 	isCreatingNewUser: boolean;
 	editingUser: User | null | undefined;
@@ -201,6 +207,7 @@ type DashboardStateType = {
 	quickEditUser: { user: UserListItem; field: "expire" | "data_limit" } | null;
 	version: string | null;
 	users: UsersListResponse;
+	liveUserStats: Record<string, LiveUserStats>;
 	linkTemplates?: Record<string, string[]>; // Link templates for generating user links
 	inbounds: Inbounds;
 	loading: boolean;
@@ -417,6 +424,7 @@ export const clearDashboardCache = () => {
 	inboundsAbortController = null;
 	useDashboard.setState({
 		users: createEmptyUsersResponse(),
+		liveUserStats: {},
 		linkTemplates: undefined,
 		inbounds: new Map(),
 		loading: false,
@@ -447,6 +455,7 @@ export const useDashboard = create(
 		qrCodeUsername: null,
 		subscribeUrl: null,
 		users: createEmptyUsersResponse(),
+		liveUserStats: {},
 		loading: true,
 		isUserLimitReached: false,
 		isResetingAllUsage: false,

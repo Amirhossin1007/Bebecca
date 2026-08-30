@@ -59,7 +59,14 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 		revokeSubscriptionUser,
 		resetDataUsage,
 		revokeSubscription,
-	} = useDashboard();
+	} = {
+		resetUsageUser: useDashboard((state) => state.resetUsageUser),
+		revokeSubscriptionUser: useDashboard(
+			(state) => state.revokeSubscriptionUser,
+		),
+		resetDataUsage: useDashboard((state) => state.resetDataUsage),
+		revokeSubscription: useDashboard((state) => state.revokeSubscription),
+	};
 	const [loading, setLoading] = useState(false);
 	const user = action === "reset" ? resetUsageUser : revokeSubscriptionUser;
 	const isRevoke = action === "revoke";
@@ -157,7 +164,8 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 export const UsersPage: FC = () => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
-	const { loading, refetchUsers } = useDashboard();
+	const loading = useDashboard((state) => state.loading);
+	const refetchUsers = useDashboard((state) => state.refetchUsers);
 	const { userData, getUserIsPending } = useGetUser();
 	const isAdminDisabled = userData.status === AdminStatus.Disabled;
 	const [autoRefreshInterval, setAutoRefreshInterval] = useState(5_000);
@@ -165,8 +173,19 @@ export const UsersPage: FC = () => {
 
 	const refreshOnlineUsers = useCallback(async () => {
 		try {
+			const dashboard = useDashboard.getState();
+			const needsGlobalSpeeds = dashboard.filters.advancedFilters?.includes(
+				"top_speed",
+			);
+			const visibleUsernames = dashboard.users.users.map(
+				(user) => user.username,
+			);
+			if (!needsGlobalSpeeds && visibleUsernames.length === 0) return;
 			const response = await fetch<OnlineUsersResponse>("/users/onlines", {
-				query: { details: true },
+				query: {
+					details: true,
+					usernames: needsGlobalSpeeds ? undefined : visibleUsernames.join(","),
+				},
 			});
 			const usernames = Array.isArray(response) ? response : response.users;
 			const speeds = Array.isArray(response) ? {} : response.speeds;
@@ -182,21 +201,22 @@ export const UsersPage: FC = () => {
 			}
 			const previousTopSpeedUsername = topSpeedUsernameRef.current;
 			topSpeedUsernameRef.current = topSpeedUsername;
-			useDashboard.setState((state) => ({
-				users: {
-					...state.users,
-					online_total: usernames.length,
-					users: state.users.users.map((user) => {
+			useDashboard.setState((state) => {
+				const liveUserStats = Object.fromEntries(
+					state.users.users.map((user) => {
 						const speed = speeds[user.username];
-						return {
-							...user,
-							is_online: online.has(user.username),
-							upload_speed: speed?.upload_speed ?? user.upload_speed,
-							download_speed: speed?.download_speed ?? user.download_speed,
-						};
+						return [
+							user.username,
+							{
+								is_online: online.has(user.username),
+								upload_speed: speed?.upload_speed ?? 0,
+								download_speed: speed?.download_speed ?? 0,
+							},
+						];
 					}),
-				},
-			}));
+				);
+				return { liveUserStats };
+			});
 			const state = useDashboard.getState();
 			if (
 				previousTopSpeedUsername !== undefined &&

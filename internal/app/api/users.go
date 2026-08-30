@@ -81,9 +81,25 @@ func (s *Server) handleOnlineUsers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "missing admin context")
 		return
 	}
-	users, err := s.userService.OnlineUsernames(r.Context(), userapp.UsersListRequest{
-		Admin: s.userAdminContext(principal, nil),
-	})
+	req := userapp.UsersListRequest{Admin: s.userAdminContext(principal, nil)}
+	if raw := strings.TrimSpace(r.URL.Query().Get("usernames")); raw != "" {
+		seen := make(map[string]struct{})
+		for _, value := range strings.Split(raw, ",") {
+			username := strings.TrimSpace(value)
+			if username == "" {
+				continue
+			}
+			if _, exists := seen[username]; exists {
+				continue
+			}
+			seen[username] = struct{}{}
+			req.Usernames = append(req.Usernames, username)
+			if len(req.Usernames) == 500 {
+				break
+			}
+		}
+	}
+	users, err := s.userService.OnlineUsernames(r.Context(), req)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -92,13 +108,9 @@ func (s *Server) handleOnlineUsers(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, users)
 		return
 	}
-	online := make(map[string]struct{}, len(users))
-	for _, username := range users {
-		online[username] = struct{}{}
-	}
-	speeds := s.liveUserSpeedsSnapshot()
+	speeds := s.liveUserSpeedsFor(users)
 	for username, speed := range speeds {
-		if _, ok := online[username]; !ok || !canViewUserTraffic(principal.Context.Admin, speed.ServiceID) {
+		if !canViewUserTraffic(principal.Context.Admin, speed.ServiceID) {
 			delete(speeds, username)
 		}
 	}

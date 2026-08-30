@@ -183,7 +183,7 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 		second.OnlineUsersDownloadRate != 40 ||
 		second.XrayRunning ||
 		second.XrayVersion != nil ||
-		len(second.CPUHistory) != 2 ||
+		len(second.CPUHistory) != 1 ||
 		second.PersonalUsage.TotalUsers != 2 {
 		t.Fatalf("unexpected second system response: %#v", second)
 	}

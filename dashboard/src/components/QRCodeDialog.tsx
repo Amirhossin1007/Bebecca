@@ -68,8 +68,11 @@ const clickPulse = keyframes`
 `;
 
 export const QRCodeDialog: FC = () => {
-	const { QRcodeLinks, qrCodeUsername, setQRCode, setSubLink, subscribeUrl } =
-		useDashboard();
+	const QRcodeLinks = useDashboard((state) => state.QRcodeLinks);
+	const qrCodeUsername = useDashboard((state) => state.qrCodeUsername);
+	const setQRCode = useDashboard((state) => state.setQRCode);
+	const setSubLink = useDashboard((state) => state.setSubLink);
+	const subscribeUrl = useDashboard((state) => state.subscribeUrl);
 	const isOpen = QRcodeLinks !== null;
 	const [index, setIndex] = useState(0);
 	const [copiedSub, setCopiedSub] = useState(false);

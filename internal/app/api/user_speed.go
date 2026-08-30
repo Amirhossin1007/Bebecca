@@ -71,6 +71,18 @@ func (s *Server) liveUserSpeedsSnapshot() map[string]liveUserSpeed {
 	return result
 }
 
+func (s *Server) liveUserSpeedsFor(usernames []string) map[string]liveUserSpeed {
+	s.liveUserSpeedsMu.RLock()
+	defer s.liveUserSpeedsMu.RUnlock()
+	result := make(map[string]liveUserSpeed, len(usernames))
+	for _, username := range usernames {
+		if speed, ok := s.liveUserSpeeds[username]; ok {
+			result[username] = speed
+		}
+	}
+	return result
+}
+
 func (s *Server) liveUserSpeedTotalFor(principal adminPrincipal) liveUserSpeedTotal {
 	s.liveUserSpeedsMu.RLock()
 	defer s.liveUserSpeedsMu.RUnlock()
