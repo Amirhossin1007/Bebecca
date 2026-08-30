@@ -363,7 +363,13 @@ const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 				if (action.render) {
 					const renderAction = action.render;
 					return (
-						<Menu key={action.id} placement="auto-end" strategy="fixed" autoSelect={false}>
+						<Menu
+							key={action.id}
+							placement="auto-end"
+							strategy="fixed"
+							autoSelect={false}
+							isLazy
+						>
 							{({ onClose }) => (
 								<>
 									<Tooltip label={action.label}>

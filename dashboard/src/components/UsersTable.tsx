@@ -310,6 +310,7 @@ const TrafficSubmenu: FC<{
 	return (
 		<Menu
 			isOpen={isOpen}
+			isLazy
 			onClose={closeMenu}
 			placement={isRTL ? "left-start" : "right-start"}
 			strategy="fixed"

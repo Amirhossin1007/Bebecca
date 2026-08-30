@@ -795,7 +795,6 @@ export function AppLayout() {
 					overflow="hidden"
 					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
 					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
-					transition={isRTL ? "margin-right 0.3s" : "margin-left 0.3s"}
 				>
 					<Box
 						as="header"
