@@ -9,8 +9,24 @@ import (
 	"testing"
 	"time"
 
+	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	_ "modernc.org/sqlite"
 )
+
+func TestOnlineIPSamplesUseSnapshotObservationTime(t *testing.T) {
+	before := time.Now().UTC()
+	got := onlineIPSamplesFromBatch([]*nodev1.OnlineUserIP{{
+		Uid: "42.user",
+		Ips: []*nodev1.OnlineIP{{Ip: "198.51.100.10", LastSeenUnix: 1}},
+	}})
+	after := time.Now().UTC()
+	if len(got) != 1 {
+		t.Fatalf("samples=%d want=1", len(got))
+	}
+	if got[0].LastSeenAt.Before(before) || got[0].LastSeenAt.After(after) {
+		t.Fatalf("last seen %s is outside snapshot window %s..%s", got[0].LastSeenAt, before, after)
+	}
+}
 
 func TestStoreNodeOnlineIPsHandlesConcurrentThreeThousandSampleCycle(t *testing.T) {
 	ctx := context.Background()
