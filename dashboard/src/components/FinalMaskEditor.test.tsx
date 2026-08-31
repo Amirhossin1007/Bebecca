@@ -3,7 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getFinalMaskCapabilities } from "utils/finalmask";
 import { describe, expect, it, vi } from "vitest";
-import { FinalMaskEditor } from "./FinalMaskEditor";
+import { createFinalMaskLayer, FinalMaskEditor } from "./FinalMaskEditor";
 
 Object.assign(globalThis, { React });
 
@@ -30,7 +30,22 @@ describe("FinalMaskEditor", () => {
 				}),
 			),
 		);
-		expect(html).toContain("TCP masks");
-		expect(html).toContain("No masks configured.");
+		expect(html).toContain("TCP connection masks");
+		expect(html).toContain("No TCP mask is active");
+	});
+
+	it("creates editable starter values for common masks", () => {
+		expect(createFinalMaskLayer("tcp", "fragment")).toEqual({
+			type: "fragment",
+			settings: {
+				packets: "tlshello",
+				lengths: ["10-100"],
+				delays: ["100-200"],
+			},
+		});
+		expect(createFinalMaskLayer("udp", "header-custom")).toEqual({
+			type: "header-custom",
+			settings: { client: [{}], server: [{}] },
+		});
 	});
 });

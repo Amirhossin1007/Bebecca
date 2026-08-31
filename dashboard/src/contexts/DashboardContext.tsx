@@ -9,8 +9,8 @@ import type {
 	UsersListResponse,
 } from "types/User";
 import { queryClient } from "utils/react-query";
-import { getUsersPerPageLimitSize } from "utils/userPreferenceStorage";
 import { matchesSearch } from "utils/searchMatch";
+import { getUsersPerPageLimitSize } from "utils/userPreferenceStorage";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
@@ -185,6 +185,7 @@ export type InboundType = {
 	protocol: ProtocolType;
 	network: string;
 	tls: string;
+	header_type?: string;
 	alpn?: string;
 	flow?: string;
 	settings?: Record<string, unknown>;
@@ -405,13 +406,13 @@ export const fetchInbounds = () => {
 			console.error("Failed to fetch inbounds:", error);
 			useDashboard.setState({ inbounds: new Map() });
 		})
-			.finally(() => {
-				if (requestId === inboundsFetchSequence) {
-					if (inboundsAbortController === abortController) {
-						inboundsAbortController = null;
-					}
+		.finally(() => {
+			if (requestId === inboundsFetchSequence) {
+				if (inboundsAbortController === abortController) {
+					inboundsAbortController = null;
 				}
-			});
+			}
+		});
 };
 
 export const clearDashboardCache = () => {
