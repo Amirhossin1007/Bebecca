@@ -6,6 +6,7 @@ import {
 	chakra,
 	Flex,
 	HStack,
+	Icon,
 	Modal,
 	ModalBody,
 	ModalCloseButton,
@@ -15,15 +16,20 @@ import {
 	ModalOverlay,
 	Progress,
 	SimpleGrid,
+	Skeleton,
 	Spinner,
 	Stack,
 	Text,
+	Tooltip,
 	useColorMode,
 	useColorModeValue,
 } from "@chakra-ui/react";
 import {
 	ArrowDownTrayIcon,
+	ArrowTrendingUpIcon,
 	ArrowUpTrayIcon,
+	BoltIcon,
+	ChartBarSquareIcon,
 	CheckCircleIcon,
 	CircleStackIcon,
 	ClockIcon,
@@ -32,6 +38,7 @@ import {
 	ServerStackIcon,
 	ShieldCheckIcon,
 	SignalIcon,
+	SparklesIcon,
 	UserGroupIcon,
 	UserIcon,
 	WifiIcon,
@@ -40,7 +47,14 @@ import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
-import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+	type FC,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import Chart from "react-apexcharts";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "react-query";
@@ -54,31 +68,71 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-/* آیکون با کادر گوشه‌گرد ملایم پشت آن، کاملاً هماهنگ با رنگ تم */
 export const ThemedIconBadge: FC<{
 	icon: ReactNode;
-	size?: number;
-}> = ({ icon, size = 9 }) => {
+	size?: { base?: number; md?: number } | number;
+	variant?: "accent" | "blue" | "emerald" | "amber" | "purple" | "rose";
+}> = ({ icon, size = 9, variant = "accent" }) => {
+	const rawSize = typeof size === "number" ? size : (size.md ?? 9);
+	const sizePx = rawSize * 4;
+
+	const colorMap = {
+		accent: {
+			color: "var(--rb-panel-accent)",
+			bg: "color-mix(in srgb, var(--rb-panel-accent) 12%, transparent)",
+			border: "color-mix(in srgb, var(--rb-panel-accent) 24%, transparent)",
+		},
+		blue: {
+			color: "#3b82f6",
+			bg: "rgba(59, 130, 246, 0.12)",
+			border: "rgba(59, 130, 246, 0.22)",
+		},
+		emerald: {
+			color: "#10b981",
+			bg: "rgba(168, 185, 129, 0.12)",
+			border: "rgba(16, 185, 129, 0.22)",
+		},
+		amber: {
+			color: "#f59e0b",
+			bg: "rgba(245, 158, 11, 0.12)",
+			border: "rgba(245, 158, 11, 0.22)",
+		},
+		purple: {
+			color: "#a855f7",
+			bg: "rgba(168, 85, 247, 0.12)",
+			border: "rgba(168, 85, 247, 0.22)",
+		},
+		rose: {
+			color: "#f43f5e",
+			bg: "rgba(244, 63, 94, 0.12)",
+			border: "rgba(244, 63, 94, 0.22)",
+		},
+	};
+
+	const style = colorMap[variant] || colorMap.accent;
+
 	return (
 		<Flex
-			w={`${size * 4}px`}
-			h={`${size * 4}px`}
+			w={`${sizePx}px`}
+			h={`${sizePx}px`}
 			align="center"
 			justify="center"
-			borderRadius="xl"
-			color="var(--rb-panel-accent)"
-			sx={{
-				backgroundColor: "color-mix(in srgb, var(--rb-panel-accent) 10%, transparent)",
-			}}
+			borderRadius={{ base: "lg", md: "xl" }}
+			color={style.color}
+			bg={style.bg}
+			borderWidth="1px"
+			borderColor={style.border}
 			flexShrink={0}
-			transition="all 0.2s ease"
+			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+			_hover={{
+				transform: "scale(1.05)",
+			}}
 		>
 			{icon}
 		</Flex>
 	);
 };
 
-/* فرمت هوشمند و خوانای زمان */
 const formatLocalizedDuration = (
 	totalSeconds: number,
 	t: TFunction,
@@ -404,31 +458,33 @@ const HistoryModal: FC<{
 				bg="panel.surface"
 				borderWidth="1px"
 				borderColor="panel.border"
-				borderRadius="2xl"
-				boxShadow="2xl"
+				borderRadius={{ base: "xl", md: "2xl" }}
+				boxShadow="0 24px 60px -12px rgba(0, 0, 0, 0.4)"
+				mx={{ base: 3, sm: 4 }}
 			>
 				<ModalHeader
 					display="flex"
 					alignItems="center"
 					justifyContent="space-between"
-					px={6}
-					py={4}
+					px={{ base: 4, md: 6 }}
+					py={{ base: 3.5, md: 4 }}
 					borderBottomWidth="1px"
 					borderColor="panel.border"
-					fontSize="md"
+					fontSize={{ base: "sm", md: "md" }}
 					fontWeight="bold"
 				>
 					<Text>{t("historyModalTitle", { metric: payload?.title ?? "" })}</Text>
 					<ModalCloseButton position="static" />
 				</ModalHeader>
-				<ModalBody px={6} py={5}>
-					<Stack spacing={5}>
+				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
+					<Stack spacing={{ base: 4, md: 5 }}>
 						<Flex wrap="wrap" gap={2}>
 							{HISTORY_INTERVALS.map((interval) => (
 								<Button
 									key={interval.seconds}
 									size="xs"
-									h="28px"
+									h={{ base: "26px", md: "28px" }}
+									px={3}
 									borderRadius="full"
 									variant={intervalSeconds === interval.seconds ? "solid" : "outline"}
 									colorScheme={intervalSeconds === interval.seconds ? "primary" : "gray"}
@@ -438,7 +494,7 @@ const HistoryModal: FC<{
 								</Button>
 							))}
 						</Flex>
-						<Box minH="280px">
+						<Box minH={{ base: "220px", md: "280px" }}>
 							<Chart
 								key={`chart-${intervalSeconds}`}
 								options={options}
@@ -449,7 +505,7 @@ const HistoryModal: FC<{
 						</Box>
 					</Stack>
 				</ModalBody>
-				<ModalFooter px={6} py={3} borderTopWidth="1px" borderColor="panel.border">
+				<ModalFooter px={{ base: 4, md: 6 }} py={3} borderTopWidth="1px" borderColor="panel.border">
 					<Button onClick={onClose} borderRadius="full" variant="ghost" size="sm">
 						{t("close")}
 					</Button>
@@ -459,7 +515,6 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Bento Card with Refined 22px Numbers & Themed Progress Bar */
 const HardwareBentoCard: FC<{
 	label: string;
 	icon: ReactNode;
@@ -469,31 +524,58 @@ const HardwareBentoCard: FC<{
 	onViewHistory?: () => void;
 	actionLabel?: string;
 	isRTL?: boolean;
-}> = ({ label, icon, primaryValue, percent, subtitle, onViewHistory, actionLabel, isRTL }) => {
+	variant?: "accent" | "blue" | "emerald" | "amber" | "purple" | "rose";
+}> = ({
+	label,
+	icon,
+	primaryValue,
+	percent,
+	subtitle,
+	onViewHistory,
+	actionLabel,
+	isRTL,
+	variant = "accent",
+}) => {
 	const cardBg = useColorModeValue("panel.input", "panel.input");
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 	const safePercent = clampPercent(percent);
+
+	const getProgressColor = (val: number) => {
+		if (val >= 90) return "#ef4444";
+		if (val >= 75) return "#f59e0b";
+		return "var(--rb-panel-accent)";
+	};
 
 	return (
 		<Box
 			borderWidth="1px"
 			borderColor={borderColor}
-			borderRadius="2xl"
+			borderRadius={{ base: "xl", md: "2xl" }}
 			bg={cardBg}
-			p={{ base: 4, md: 5 }}
+			p={{ base: 3.5, sm: 4, md: 5 }}
 			position="relative"
 			overflow="hidden"
-			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+			display="flex"
+			flexDirection="column"
+			justifyContent="space-between"
+			transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				borderColor: "panel.borderStrong",
 				bg: "panel.elevated",
+				transform: "translateY(-1px)",
+				boxShadow: "0 8px 24px -6px rgba(0, 0, 0, 0.25)",
 			}}
 		>
-			<Stack spacing={3.5}>
-				<Flex justify="space-between" align="center">
-					<HStack spacing={2.5}>
-						<ThemedIconBadge icon={icon} />
-						<Text fontSize="xs" fontWeight="700" color="panel.textSecondary">
+			<Stack spacing={{ base: 3, md: 3.5 }}>
+				<Flex justify="space-between" align="center" minH="28px">
+					<HStack spacing={{ base: 2, md: 2.5 }} minW={0}>
+						<ThemedIconBadge icon={icon} size={{ base: 7.5, md: 8.5 }} variant={variant} />
+						<Text
+							fontSize={{ base: "xs", sm: "13px" }}
+							fontWeight="700"
+							color="panel.textSecondary"
+							noOfLines={1}
+						>
 							{label}
 						</Text>
 					</HStack>
@@ -501,80 +583,85 @@ const HardwareBentoCard: FC<{
 						<Button
 							size="xs"
 							h="24px"
-							px={2.5}
+							px={2}
 							fontSize="11px"
 							variant="ghost"
 							borderRadius="full"
 							color="panel.textMuted"
 							_hover={{ color: "panel.text", bg: "panel.surface" }}
 							onClick={onViewHistory}
+							flexShrink={0}
 						>
-							{actionLabel ?? "نمایش تاریخچه"}
+							{actionLabel ?? "تاریخچه"}
 						</Button>
 					)}
 				</Flex>
 
-				<Flex justify="space-between" align="baseline">
+				<Flex justify="space-between" align="baseline" gap={2} flexWrap="nowrap">
 					<Text
-						fontSize={{ base: "xl", md: "22px" }}
+						fontSize={{ base: "lg", sm: "xl", md: "22px" }}
 						fontWeight="800"
 						lineHeight="1.2"
 						color="panel.text"
 						dir="ltr"
 						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+						noOfLines={1}
 					>
 						{primaryValue}
 					</Text>
 					{subtitle && (
 						<Text
-							fontSize="xs"
+							fontSize={{ base: "11px", sm: "xs" }}
 							fontWeight="700"
 							color="panel.textMuted"
 							dir={isRTL ? "rtl" : "ltr"}
+							flexShrink={0}
 						>
 							{subtitle}
 						</Text>
 					)}
 				</Flex>
 
-				<Progress
-					value={safePercent}
-					size="xs"
-					colorScheme="primary"
-					bg="panel.elevated"
-					borderRadius="full"
-					h="4px"
-					sx={{
-						"& > div": {
-							backgroundColor: "var(--rb-panel-accent)",
-						},
-					}}
-				/>
+				<Box position="relative">
+					<Progress
+						value={safePercent}
+						size="xs"
+						bg="panel.elevated"
+						borderRadius="full"
+						h="4px"
+						sx={{
+							"& > div": {
+								backgroundColor: getProgressColor(safePercent),
+								transition: "width 0.4s ease, background-color 0.4s ease",
+							},
+						}}
+					/>
+				</Box>
 			</Stack>
 		</Box>
 	);
 };
 
-/* کارت داخلی سرعت و آپتایم - ۱۰۰٪ واکنش‌گرا بدون شکستن کلمات */
 const ResponsiveInnerCard: FC<{
 	icon: ReactNode;
 	label: string;
 	value: string;
 	dir?: "ltr" | "rtl";
-}> = ({ icon, label, value, dir }) => (
+	variant?: "accent" | "blue" | "emerald" | "amber" | "purple" | "rose";
+}> = ({ icon, label, value, dir, variant = "accent" }) => (
 	<Box
-		p={3.5}
-		borderRadius="xl"
+		p={{ base: 3, sm: 3.5 }}
+		borderRadius={{ base: "lg", md: "xl" }}
 		bg="panel.elevated"
 		borderWidth="1px"
 		borderColor="panel.border"
 		transition="all 0.2s ease"
 		_hover={{ borderColor: "panel.borderStrong" }}
 	>
-		<HStack spacing={2.5} mb={2} align="center">
-			<ThemedIconBadge icon={icon} size={7} />
+		<HStack spacing={2} mb={1.5} align="center">
+			<ThemedIconBadge icon={icon} size={6.5} variant={variant} />
 			<Text
-				fontSize="xs"
+				fontSize={{ base: "11px", sm: "xs" }}
 				fontWeight="700"
 				color="panel.textSecondary"
 				whiteSpace="nowrap"
@@ -585,7 +672,7 @@ const ResponsiveInnerCard: FC<{
 			</Text>
 		</HStack>
 		<Text
-			fontSize={{ base: "sm", sm: "md" }}
+			fontSize={{ base: "13px", sm: "sm", md: "md" }}
 			fontWeight="800"
 			color="panel.text"
 			dir={dir}
@@ -597,42 +684,64 @@ const ResponsiveInnerCard: FC<{
 	</Box>
 );
 
-/* Metric Cell با نقطه دایره‌ای ساده و استاندارد */
 const MetricCell: FC<{
 	label: string;
 	value: number | string;
 	percentage?: string;
 	dotColor?: string;
-}> = ({ label, value, percentage, dotColor }) => {
+	icon?: ReactNode;
+}> = ({ label, value, percentage, dotColor, icon }) => {
 	const cardBg = useColorModeValue("panel.input", "panel.input");
 	const borderColor = useColorModeValue("panel.border", "panel.border");
 
 	return (
 		<Flex
-			p={4}
-			borderRadius="xl"
+			p={{ base: 3, sm: 3.5, md: 4 }}
+			borderRadius={{ base: "lg", md: "xl" }}
 			bg={cardBg}
 			borderWidth="1px"
 			borderColor={borderColor}
 			justify="space-between"
 			align="center"
+			gap={2}
 			transition="all 0.2s ease"
-			_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
+			_hover={{
+				borderColor: "panel.borderStrong",
+				bg: "panel.elevated",
+				transform: "translateY(-1px)",
+			}}
 		>
 			<HStack spacing={2.5} minW={0}>
-				{dotColor && <Box w="8px" h="8px" borderRadius="full" bg={dotColor} flexShrink={0} />}
-				<Text fontSize="xs" fontWeight="700" color="panel.textSecondary" noOfLines={1}>
+				{icon ? (
+					<Box flexShrink={0}>{icon}</Box>
+				) : dotColor ? (
+					<Box
+						w="7px"
+						h="7px"
+						borderRadius="full"
+						bg={dotColor}
+						flexShrink={0}
+						boxShadow={`0 0 8px ${dotColor}88`}
+					/>
+				) : null}
+				<Text
+					fontSize={{ base: "xs", sm: "13px" }}
+					fontWeight="700"
+					color="panel.textSecondary"
+					noOfLines={1}
+				>
 					{label}
 				</Text>
 			</HStack>
-			<HStack spacing={2}>
+
+			<HStack spacing={2} flexShrink={0}>
 				{percentage && (
-					<Text fontSize="11px" color="panel.textMuted" dir="ltr">
+					<Text fontSize="11px" fontWeight="600" color="panel.textMuted" dir="ltr">
 						{percentage}
 					</Text>
 				)}
 				<Text
-					fontSize={{ base: "sm", sm: "md" }}
+					fontSize={{ base: "sm", sm: "15px", md: "md" }}
 					fontWeight="800"
 					color="panel.text"
 					dir="ltr"
@@ -651,13 +760,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 
-	const redErrorBg = useColorModeValue("red.50", "rgba(220, 38, 38, 0.15)");
-	const redErrorBorder = useColorModeValue("red.300", "rgba(220, 38, 38, 0.4)");
+	const redErrorBg = useColorModeValue("red.50", "rgba(220, 38, 38, 0.12)");
+	const redErrorBorder = useColorModeValue("red.200", "rgba(220, 38, 38, 0.3)");
 	const redErrorColor = useColorModeValue("red.900", "red.100");
 	const redErrorHeader = useColorModeValue("red.600", "red.300");
 
-	const orangeErrorBg = useColorModeValue("orange.50", "rgba(234, 88, 12, 0.15)");
-	const orangeErrorBorder = useColorModeValue("orange.300", "rgba(234, 88, 12, 0.4)");
+	const orangeErrorBg = useColorModeValue("orange.50", "rgba(234, 88, 12, 0.12)");
+	const orangeErrorBorder = useColorModeValue("orange.200", "rgba(234, 88, 12, 0.3)");
 	const orangeErrorColor = useColorModeValue("orange.900", "orange.100");
 	const orangeErrorHeader = useColorModeValue("orange.600", "orange.300");
 
@@ -695,8 +804,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	if (!systemData) {
 		return (
-			<Flex justify="center" align="center" minH="300px">
-				<Spinner size="md" color="panel.accent" />
+			<Flex justify="center" align="center" minH="320px" w="full">
+				<VStack spacing={3}>
+					<Spinner size="lg" color="panel.accent" thickness="3px" speed="0.7s" />
+					<Text fontSize="xs" color="panel.textMuted">
+						{t("loading", "در حال بارگذاری...")}
+					</Text>
+				</VStack>
 			</Flex>
 		);
 	}
@@ -715,13 +829,20 @@ export const Statistics: FC<BoxProps> = (props) => {
 			: "0.0%";
 
 	return (
-		<Stack spacing={5} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
-			{/* 1. Main System & Hardware ChartBox */}
+		<Stack
+			spacing={{ base: 4, md: 5 }}
+			w="full"
+			dir={isRTL ? "rtl" : "ltr"}
+			{...props}
+		>
 			<ChartBox
 				title={
-					<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
-						{t("systemOverview")}
-					</Text>
+					<HStack spacing={2.5} align="center">
+						<ThemedIconBadge icon={<SparklesIcon width={17} />} size={{ base: 7.5, md: 8 }} />
+						<Text fontWeight="800" fontSize={{ base: "sm", sm: "md", md: "lg" }} color="panel.text">
+							{t("systemOverview")}
+						</Text>
+					</HStack>
 				}
 				headerActions={
 					<DashboardMaintenanceControls
@@ -730,17 +851,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 					/>
 				}
 			>
-				<Stack spacing={5}>
-					{/* Hardware Metrics 2x2 Grid */}
-					<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+				<Stack spacing={{ base: 4, md: 5 }}>
+					<SimpleGrid columns={{ base: 1, sm: 2, "2xl": 4 }} gap={{ base: 3, md: 4 }}>
 						<HardwareBentoCard
 							label={t("cpuUsage")}
-							icon={<CpuChipIcon width={18} />}
+							icon={<CpuChipIcon width={17} />}
 							primaryValue={`${systemData.cpu_usage.toFixed(1)}%`}
 							percent={systemData.cpu_usage}
 							subtitle={cpuSubtitle}
 							actionLabel={t("viewHistory")}
 							isRTL={isRTL}
+							variant="accent"
 							onViewHistory={() =>
 								openHistory({
 									type: "cpu",
@@ -752,12 +873,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 						/>
 						<HardwareBentoCard
 							label={t("memoryUsage")}
-							icon={<ServerStackIcon width={18} />}
+							icon={<ServerStackIcon width={17} />}
 							primaryValue={`${formatBytes(systemData.memory.current, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
 							percent={systemData.memory.percent}
 							subtitle={`${systemData.memory.percent.toFixed(1)}%`}
 							actionLabel={t("viewHistory")}
 							isRTL={isRTL}
+							variant="blue"
 							onViewHistory={() =>
 								openHistory({
 									type: "memory",
@@ -769,41 +891,45 @@ export const Statistics: FC<BoxProps> = (props) => {
 						/>
 						<HardwareBentoCard
 							label={t("swapUsage")}
-							icon={<CircleStackIcon width={18} />}
+							icon={<CircleStackIcon width={17} />}
 							primaryValue={`${formatBytes(systemData.swap.current, 1)} / ${formatBytes(systemData.swap.total, 1)}`}
 							percent={systemData.swap.percent}
 							subtitle={`${systemData.swap.percent.toFixed(1)}%`}
 							isRTL={isRTL}
+							variant="purple"
 						/>
 						<HardwareBentoCard
 							label={t("diskUsage")}
-							icon={<CircleStackIcon width={18} />}
+							icon={<CircleStackIcon width={17} />}
 							primaryValue={`${formatBytes(systemData.disk.current, 1)} / ${formatBytes(systemData.disk.total, 1)}`}
 							percent={systemData.disk.percent}
 							subtitle={`${systemData.disk.percent.toFixed(1)}%`}
 							isRTL={isRTL}
+							variant="amber"
 						/>
 					</SimpleGrid>
 
-					{/* Row: Speeds Card (Left) & Uptime Card (Right) */}
-					<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
-						{/* Separate Speeds Card */}
+					<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
 						<Box
-							p={{ base: 4, md: 5 }}
-							borderRadius="2xl"
+							p={{ base: 3.5, sm: 4, md: 5 }}
+							borderRadius={{ base: "xl", md: "2xl" }}
 							bg="panel.input"
 							borderWidth="1px"
 							borderColor="panel.border"
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
-							transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-							_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
+							transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+							_hover={{
+								borderColor: "panel.borderStrong",
+								bg: "panel.elevated",
+								boxShadow: "0 8px 24px -6px rgba(0, 0, 0, 0.25)",
+							}}
 						>
-							<Flex justify="space-between" align="center" mb={3.5} flexWrap="wrap" gap={2}>
+							<Flex justify="space-between" align="center" mb={{ base: 3, md: 3.5 }} flexWrap="wrap" gap={2}>
 								<HStack spacing={2.5}>
-									<ThemedIconBadge icon={<SignalIcon width={18} />} />
-									<Text fontSize="sm" fontWeight="700" color="panel.text">
+									<ThemedIconBadge icon={<SignalIcon width={17} />} size={{ base: 7.5, md: 8.5 }} variant="emerald" />
+									<Text fontSize={{ base: "xs", sm: "sm" }} fontWeight="700" color="panel.text">
 										{t("bandwidthSpeed")}
 									</Text>
 								</HStack>
@@ -827,66 +953,72 @@ export const Statistics: FC<BoxProps> = (props) => {
 								</Button>
 							</Flex>
 
-							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 2.5, sm: 3 }}>
 								<ResponsiveInnerCard
-									icon={<ArrowDownTrayIcon width={16} />}
+									icon={<ArrowDownTrayIcon width={15} />}
 									label={t("incomingSpeed")}
 									value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
 									dir="ltr"
+									variant="blue"
 								/>
 								<ResponsiveInnerCard
-									icon={<ArrowUpTrayIcon width={16} />}
+									icon={<ArrowUpTrayIcon width={15} />}
 									label={t("outgoingSpeed")}
 									value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
 									dir="ltr"
+									variant="emerald"
 								/>
 							</SimpleGrid>
 						</Box>
 
-						{/* Symmetrical Uptime Card */}
 						<Box
-							p={{ base: 4, md: 5 }}
-							borderRadius="2xl"
+							p={{ base: 3.5, sm: 4, md: 5 }}
+							borderRadius={{ base: "xl", md: "2xl" }}
 							bg="panel.input"
 							borderWidth="1px"
 							borderColor="panel.border"
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
-							transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-							_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
+							transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+							_hover={{
+								borderColor: "panel.borderStrong",
+								bg: "panel.elevated",
+								boxShadow: "0 8px 24px -6px rgba(0, 0, 0, 0.25)",
+							}}
 						>
-							<Flex justify="space-between" align="center" mb={3.5}>
+							<Flex justify="space-between" align="center" mb={{ base: 3, md: 3.5 }}>
 								<HStack spacing={2.5}>
-									<ThemedIconBadge icon={<ClockIcon width={18} />} />
-									<Text fontSize="sm" fontWeight="700" color="panel.text">
+									<ThemedIconBadge icon={<ClockIcon width={17} />} size={{ base: 7.5, md: 8.5 }} variant="purple" />
+									<Text fontSize={{ base: "xs", sm: "sm" }} fontWeight="700" color="panel.text">
 										{t("uptime")}
 									</Text>
 								</HStack>
 							</Flex>
 
-							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+							<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 2.5, sm: 3 }}>
 								<ResponsiveInnerCard
-									icon={<ServerStackIcon width={16} />}
+									icon={<ServerStackIcon width={15} />}
 									label={t("systemUptime")}
 									value={formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
 									dir={isRTL ? "rtl" : "ltr"}
+									variant="purple"
 								/>
 								<ResponsiveInnerCard
-									icon={<CircleStackIcon width={16} />}
+									icon={<CircleStackIcon width={15} />}
 									label={t("panelUptime")}
 									value={formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
 									dir={isRTL ? "rtl" : "ltr"}
+									variant="accent"
 								/>
 							</SimpleGrid>
 						</Box>
 					</SimpleGrid>
 
-					{/* Tinted Error Alerts inside System Overview Card (At the Bottom) */}
 					{systemData.last_xray_error && (
 						<Box
-							p={4}
-							borderRadius="xl"
+							p={3.5}
+							borderRadius={{ base: "lg", md: "xl" }}
 							bg={redErrorBg}
 							borderWidth="1px"
 							borderColor={redErrorBorder}
@@ -894,7 +1026,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							boxShadow="sm"
 						>
 							<HStack spacing={2} mb={1.5} color={redErrorHeader}>
-								<ExclamationTriangleIcon width={18} />
+								<ExclamationTriangleIcon width={17} />
 								<Text fontSize="xs" fontWeight="800">
 									{t("coreError")}
 								</Text>
@@ -907,17 +1039,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 					{systemData.last_telegram_error && (
 						<Box
-							p={4}
-							borderRadius="xl"
+							p={3.5}
+							borderRadius={{ base: "lg", md: "xl" }}
 							bg={orangeErrorBg}
 							borderWidth="1px"
 							borderColor={orangeErrorBorder}
 							color={orangeErrorColor}
 							boxShadow="sm"
 						>
-							<HStack spacing={2} mb={2} align="center" justify="space-between">
+							<HStack spacing={2} mb={2} align="center" justify="space-between" flexWrap="wrap" gap={2}>
 								<HStack spacing={2} color={orangeErrorHeader}>
-									<ExclamationTriangleIcon width={18} />
+									<ExclamationTriangleIcon width={17} />
 									<Text fontSize="xs" fontWeight="800">
 										{t("telegramError")}
 									</Text>
@@ -942,18 +1074,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</Stack>
 			</ChartBox>
 
-			{/* 2. Panel Usage Card */}
 			<ChartBox
 				title={
-					<HStack spacing={3} align="center" flexWrap="wrap">
-						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }} color="panel.text">
+					<HStack spacing={{ base: 2, md: 3 }} align="center" flexWrap="wrap">
+						<ThemedIconBadge icon={<BoltIcon width={17} />} size={{ base: 7.5, md: 8 }} variant="accent" />
+						<Text fontWeight="800" fontSize={{ base: "sm", sm: "md", md: "lg" }} color="panel.text">
 							{t("panelUsage")}
 						</Text>
-						{/* Running Status Badge */}
 						<Badge
 							colorScheme={systemData.xray_running ? "green" : "red"}
 							borderRadius="full"
-							px={3}
+							px={{ base: 2.5, md: 3 }}
 							py={0.5}
 							fontSize="11px"
 							display="inline-flex"
@@ -967,24 +1098,33 @@ export const Statistics: FC<BoxProps> = (props) => {
 								bg={systemData.xray_running ? "green.400" : "red.400"}
 								boxShadow={
 									systemData.xray_running
-										? "0 0 8px rgba(74, 222, 128, 0.8)"
-										: "0 0 8px rgba(248, 113, 113, 0.8)"
+										? "0 0 8px rgba(74, 222, 128, 0.9)"
+										: "0 0 8px rgba(248, 113, 113, 0.9)"
 								}
+								sx={{
+									animation: systemData.xray_running ? "pulse 2s infinite ease-in-out" : "none",
+									"@keyframes pulse": {
+										"0%": { opacity: 0.6, transform: "scale(0.95)" },
+										"50%": { opacity: 1, transform: "scale(1.15)" },
+										"100%": { opacity: 0.6, transform: "scale(0.95)" },
+									},
+								}}
 							/>
 							{systemData.xray_running ? t("status.running") : t("status.stopped")}
 						</Badge>
 					</HStack>
 				}
 			>
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
 					<HardwareBentoCard
 						label={`${t("cpuUsage")} (Panel Process)`}
-						icon={<CpuChipIcon width={18} />}
+						icon={<CpuChipIcon width={17} />}
 						primaryValue={`${systemData.panel_cpu_percent.toFixed(1)}%`}
 						percent={systemData.panel_cpu_percent}
 						subtitle={panelCpuSubtitle}
 						actionLabel={t("viewHistory")}
 						isRTL={isRTL}
+						variant="accent"
 						onViewHistory={() =>
 							openHistory({
 								type: "panelCpu",
@@ -996,12 +1136,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 					/>
 					<HardwareBentoCard
 						label={`${t("memoryUsage")} (Panel Heap)`}
-						icon={<ServerStackIcon width={18} />}
+						icon={<ServerStackIcon width={17} />}
 						primaryValue={`${formatBytes(systemData.app_memory, 1)} / ${formatBytes(systemData.memory.total, 1)}`}
 						percent={systemData.panel_memory_percent}
 						subtitle={`${systemData.panel_memory_percent.toFixed(1)}%`}
 						actionLabel={t("viewHistory")}
 						isRTL={isRTL}
+						variant="blue"
 						onViewHistory={() =>
 							openHistory({
 								type: "panelMemory",
@@ -1014,19 +1155,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</SimpleGrid>
 			</ChartBox>
 
-			{/* 3. Users Overview ChartBox */}
 			<ChartBox
 				title={
 					<HStack spacing={2.5}>
-						<ThemedIconBadge icon={<UserGroupIcon width={18} />} />
-						<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
+						<ThemedIconBadge icon={<UserGroupIcon width={17} />} size={{ base: 7.5, md: 8 }} variant="blue" />
+						<Text fontWeight="800" fontSize={{ base: "sm", sm: "md", md: "lg" }} color="panel.text">
 							{t("usersOverview")}
 						</Text>
 					</HStack>
 				}
 				headerActions={
 					canSeeGlobal ? (
-						<HStack spacing={1} bg="panel.input" p={0.5} borderRadius="lg">
+						<HStack spacing={1} bg="panel.input" p={0.5} borderRadius="lg" borderWidth="1px" borderColor="panel.border">
 							<Button
 								size="xs"
 								h="24px"
@@ -1060,16 +1200,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<Box
 					key={userTab}
 					sx={{
-						"@keyframes ultraSoftFade": {
-							from: { opacity: 0.35, transform: "scale(0.995)" },
-							to: { opacity: 1, transform: "scale(1)" },
+						"@keyframes softFadeIn": {
+							from: { opacity: 0.4, transform: "translateY(2px)" },
+							to: { opacity: 1, transform: "translateY(0)" },
 						},
-						animation: "ultraSoftFade 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+						animation: "softFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
 					{canSeeGlobal && userTab === "all" ? (
-						/* All Users: 6 Cards in 3 Columns */
-						<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} gap={3.5}>
+						<SimpleGrid columns={{ base: 1, sm: 2, lg: 3, "2xl": 6 }} gap={{ base: 2.5, md: 3.5 }}>
 							<MetricCell
 								label={t("total")}
 								value={systemData.total_user}
@@ -1104,9 +1243,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							/>
 						</SimpleGrid>
 					) : (
-						/* My Users: 2 Rows × 2 Cards (4 Cards) with Personal Data */
-						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
-							{/* Row 1: Total & Active */}
+						<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={{ base: 2.5, md: 3.5 }}>
 							<MetricCell
 								label={t("total")}
 								value={systemData.personal_usage?.total_users ?? 0}
@@ -1117,7 +1254,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 								value={systemData.personal_usage?.total_users ?? 0}
 								dotColor="#22c55e"
 							/>
-							{/* Row 2: Online & Consumed Traffic */}
 							<MetricCell
 								label={t("onlineUsers")}
 								value={systemData.online_users}
@@ -1133,21 +1269,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</Box>
 			</ChartBox>
 
-			{/* 4. Admins Overview ChartBox (Sudo / FullAccess Only) */}
 			{canSeeGlobal && systemData.admin_overview && (
 				<ChartBox
 					title={
 						<HStack spacing={2.5}>
-							<ThemedIconBadge icon={<ShieldCheckIcon width={18} />} />
-							<Text fontWeight="800" fontSize={{ base: "md", md: "lg" }}>
+							<ThemedIconBadge icon={<ShieldCheckIcon width={17} />} size={{ base: 7.5, md: 8 }} variant="purple" />
+							<Text fontWeight="800" fontSize={{ base: "sm", sm: "md", md: "lg" }} color="panel.text">
 								{t("adminOverview")}
 							</Text>
 						</HStack>
 					}
 				>
-					<Stack spacing={4}>
-						{/* 4 Equal Cards: Total Admins + Roles */}
-						<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={3.5}>
+					<Stack spacing={{ base: 3, md: 4 }}>
+						<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={{ base: 2.5, md: 3.5 }}>
 							<MetricCell
 								label={t("totalAdmins")}
 								value={systemData.admin_overview.total_admins}
@@ -1172,8 +1306,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 						{systemData.admin_overview.top_admin_username && (
 							<Flex
-								p={3.5}
-								borderRadius="xl"
+								p={{ base: 3, sm: 3.5 }}
+								borderRadius={{ base: "lg", md: "xl" }}
 								bg="panel.input"
 								borderWidth="1px"
 								borderColor="panel.border"
@@ -1198,7 +1332,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</ChartBox>
 			)}
 
-			{/* History Modal */}
 			<HistoryModal
 				isOpen={Boolean(historyPayload)}
 				onClose={() => setHistoryPayload(null)}
