@@ -23,6 +23,7 @@ import {
 	Tooltip,
 	useColorMode,
 	useColorModeValue,
+	VStack,
 } from "@chakra-ui/react";
 import {
 	ArrowDownTrayIcon,
