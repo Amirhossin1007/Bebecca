@@ -128,6 +128,7 @@ export const DashboardMaintenanceControls = ({
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
 	const [devUpdateArmed, setDevUpdateArmed] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
+	const [confirmAction, setConfirmAction] = useState<"restart" | "soft-reload" | null>(null);
 	const panelReturnPollRef = useRef<number | null>(null);
 	const panelReturnSawOfflineRef = useRef(false);
 	const devUpdateTimerRef = useRef<number | null>(null);
@@ -588,7 +589,7 @@ export const DashboardMaintenanceControls = ({
 						_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 						borderRadius="full"
 						leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
-						onClick={() => restartMutation.mutate()}
+						onClick={() => setConfirmAction("restart")}
 						isLoading={restartMutation.isLoading}
 						isDisabled={info.isLoading || !hostActionsAvailable}
 						fontSize="12px"
@@ -666,7 +667,7 @@ export const DashboardMaintenanceControls = ({
 							_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 							borderRadius="full"
 							leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
-							onClick={() => restartMutation.mutate()}
+							onClick={() => setConfirmAction("restart")}
 							isLoading={restartMutation.isLoading}
 							isDisabled={info.isLoading || !hostActionsAvailable}
 							fontSize="12px"
@@ -771,6 +772,63 @@ export const DashboardMaintenanceControls = ({
 							</Box>
 						</Stack>
 					</ModalBody>
+				</ModalContent>
+			</Modal>
+
+			<Modal
+				isOpen={confirmAction !== null}
+				onClose={() => setConfirmAction(null)}
+				isCentered
+				size="md"
+			>
+				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(6px)" />
+				<ModalContent
+					bg="panel.surface"
+					borderColor="panel.border"
+					borderWidth="1px"
+					borderRadius="2xl"
+					boxShadow="0 24px 60px rgba(0,0,0,0.4)"
+					mx={4}
+				>
+					<ModalHeader fontSize="md" fontWeight="700" color="panel.text" pb={2}>
+						{confirmAction === "restart"
+							? t("settings.panel.restartConfirmTitle")
+							: t("settings.panel.softReloadConfirmTitle")}
+					</ModalHeader>
+					<ModalCloseButton />
+					<ModalBody py={3}>
+						<Text fontSize="13px" color="panel.textSecondary" lineHeight="tall">
+							{confirmAction === "restart"
+								? t("settings.panel.restartConfirmDescription")
+								: t("settings.panel.softReloadConfirmDescription")}
+						</Text>
+					</ModalBody>
+					<ModalFooter gap={2} pt={3}>
+						<Button
+							variant="ghost"
+							size="sm"
+							borderRadius="full"
+							color="panel.textMuted"
+							onClick={() => setConfirmAction(null)}
+						>
+							{t("cancel")}
+						</Button>
+						<Button
+							colorScheme={confirmAction === "restart" ? "red" : "primary"}
+							size="sm"
+							borderRadius="full"
+							px={5}
+							isLoading={restartMutation.isLoading || reloadMutation.isLoading}
+							onClick={() => {
+								const act = confirmAction;
+								setConfirmAction(null);
+								if (act === "restart") restartMutation.mutate();
+								if (act === "soft-reload") reloadMutation.mutate();
+							}}
+						>
+							{t("confirm", "تأیید")}
+						</Button>
+					</ModalFooter>
 				</ModalContent>
 			</Modal>
 		</Flex>

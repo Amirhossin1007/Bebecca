@@ -38,21 +38,39 @@ import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
-import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
-import Chart from "react-apexcharts";
+import {
+	type FC,
+	lazy,
+	type ReactNode,
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
+import {
+	mergeLiveSystemStats,
+	sampleSparklineValues,
+} from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { ChartBox } from "./common/ChartBox";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-const formatLocalizedDuration = (totalSeconds: number, t: TFunction, isRTL: boolean): string => {
+const HistoryChart = lazy(() => import("react-apexcharts"));
+
+const formatLocalizedDuration = (
+	totalSeconds: number,
+	t: TFunction,
+	isRTL: boolean,
+): string => {
 	if (!totalSeconds || totalSeconds <= 0) return `0 ${t("second", "ثانیه")}`;
 	const days = Math.floor(totalSeconds / 86400);
 	const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -86,6 +104,7 @@ const useSystemMetricsStream = (enabled = true) => {
 		let closed = false;
 		let ws: WebSocket | null = null;
 		let reconnectTimer: number | undefined;
+
 		const connect = () => {
 			ws = new WebSocket(url);
 			ws.onmessage = (event) => {
@@ -93,14 +112,19 @@ const useSystemMetricsStream = (enabled = true) => {
 					const payload = JSON.parse(event.data);
 					const stats = payload?.stats ?? payload;
 					if (!stats || typeof stats !== "object" || !("version" in stats)) return;
-					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, stats);
+					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, (current) =>
+						mergeLiveSystemStats(current, stats),
+					);
 				} catch (error) {
 					console.error("Unable to parse system metrics stream payload", error);
 				}
 			};
 			ws.onerror = () => ws?.close();
-			ws.onclose = () => { if (!closed) reconnectTimer = window.setTimeout(connect, 3000); };
+			ws.onclose = () => {
+				if (!closed) reconnectTimer = window.setTimeout(connect, 3000);
+			};
 		};
+
 		connect();
 		return () => {
 			closed = true;
@@ -153,6 +177,9 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 		cpu_usage: toFiniteNumber(raw.cpu_usage),
 		total_user: toFiniteNumber(raw.total_user),
 		online_users: toFiniteNumber(raw.online_users),
+		online_users_usage: toFiniteNumber(raw.online_users_usage),
+		online_users_upload_speed: toFiniteNumber(raw.online_users_upload_speed),
+		online_users_download_speed: toFiniteNumber(raw.online_users_download_speed),
 		users_active: toFiniteNumber(raw.users_active),
 		users_on_hold: toFiniteNumber(raw.users_on_hold),
 		users_disabled: toFiniteNumber(raw.users_disabled),
@@ -192,18 +219,33 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 						reset_bytes: toFiniteNumber(raw.personal_usage.reset_bytes),
 						traffic_basis: raw.personal_usage.traffic_basis,
 					}
-				: { total_users: 0, consumed_bytes: 0, built_bytes: 0, reset_bytes: 0, traffic_basis: "used_traffic" },
+				: {
+						total_users: 0,
+						consumed_bytes: 0,
+						built_bytes: 0,
+						reset_bytes: 0,
+						traffic_basis: "used_traffic",
+					},
 		admin_overview:
 			raw.admin_overview && typeof raw.admin_overview === "object"
 				? {
 						total_admins: toFiniteNumber(raw.admin_overview.total_admins),
 						sudo_admins: toFiniteNumber(raw.admin_overview.sudo_admins),
-						full_access_admins: toFiniteNumber(raw.admin_overview.full_access_admins),
+						full_access_admins: toFiniteNumber(
+							raw.admin_overview.full_access_admins,
+						),
 						standard_admins: toFiniteNumber(raw.admin_overview.standard_admins),
 						top_admin_username: raw.admin_overview.top_admin_username ?? null,
 						top_admin_usage: toFiniteNumber(raw.admin_overview.top_admin_usage),
 					}
-				: { total_admins: 0, sudo_admins: 0, full_access_admins: 0, standard_admins: 0, top_admin_username: null, top_admin_usage: 0 },
+				: {
+						total_admins: 0,
+						sudo_admins: 0,
+						full_access_admins: 0,
+						standard_admins: 0,
+						top_admin_username: null,
+						top_admin_usage: 0,
+					},
 	};
 };
 
@@ -220,11 +262,55 @@ const HISTORY_INTERVALS = [
 ];
 
 type HistoryModalPayload = {
-	type: "cpu" | "memory" | "network" | "panelCpu" | "panelMemory";
+	type: "cpu" | "memory" | "network" | "panel" | "panelCpu" | "panelMemory";
 	title: string;
 	metricLabel?: string;
 	entries?: Array<{ timestamp: number; value: number }>;
 	networkEntries?: SystemStats["network_history"];
+	cpuEntries?: SystemStats["panel_cpu_history"];
+	memoryEntries?: SystemStats["panel_memory_history"];
+};
+
+const HistorySparkline: FC<{ values: number[]; accentColor?: string }> = ({
+	values,
+	accentColor = "var(--rb-panel-accent)",
+}) => {
+	const normalized = sampleSparklineValues(values.length ? values : [0], 35);
+	const maxValue = Math.max(...normalized, 1);
+	const points = normalized
+		.map((value, index) => {
+			const x =
+				normalized.length === 1
+					? 50
+					: (index / (normalized.length - 1)) * 100;
+			const y = 28 - (Math.max(0, value) / maxValue) * 24;
+			return `${x.toFixed(1)},${y.toFixed(1)}`;
+		})
+		.join(" ");
+
+	return (
+		<Box
+			as="svg"
+			viewBox="0 0 100 30"
+			preserveAspectRatio="none"
+			h="22px"
+			w="full"
+			color={accentColor}
+			opacity={0.7}
+			transition="opacity 0.2s ease"
+			_hover={{ opacity: 1 }}
+		>
+			<polyline
+				points={points}
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.75"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				vectorEffect="non-scaling-stroke"
+			/>
+		</Box>
+	);
 };
 
 const HistoryModal: FC<{
@@ -236,53 +322,147 @@ const HistoryModal: FC<{
 	t: TFunction;
 }> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t }) => {
 	const { colorMode } = useColorMode();
-	const gridColor = useColorModeValue("rgba(0,0,0,0.05)", "rgba(255,255,255,0.05)");
+	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
 	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
+
 	const latestTimestamp = useMemo(() => {
 		if (!payload) return Math.floor(Date.now() / 1000);
-		if (payload.type === "network" && payload.networkEntries?.length)
+		if (payload.type === "network" && payload.networkEntries?.length) {
 			return payload.networkEntries[payload.networkEntries.length - 1].timestamp;
+		}
+		if (payload.type === "panel") {
+			const lastCpu = payload.cpuEntries?.[payload.cpuEntries.length - 1]?.timestamp;
+			const lastMem = payload.memoryEntries?.[payload.memoryEntries.length - 1]?.timestamp;
+			return Math.max(lastCpu || 0, lastMem || 0) || Math.floor(Date.now() / 1000);
+		}
 		return payload.entries?.[payload.entries.length - 1]?.timestamp ?? Math.floor(Date.now() / 1000);
 	}, [payload]);
+
 	const cutoff = latestTimestamp - intervalSeconds;
+
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
 		if (payload.type === "network" && payload.networkEntries) {
 			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
 			return [
-				{ name: t("networkIncoming"), data: filtered.map((e) => [e.timestamp * 1000, e.incoming]) },
-				{ name: t("networkOutgoing"), data: filtered.map((e) => [e.timestamp * 1000, e.outgoing]) },
+				{
+					name: t("networkIncoming"),
+					data: filtered.map((e) => [e.timestamp * 1000, e.incoming]),
+				},
+				{
+					name: t("networkOutgoing"),
+					data: filtered.map((e) => [e.timestamp * 1000, e.outgoing]),
+				},
+			];
+		}
+		if (payload.type === "panel") {
+			const filteredCpu = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff);
+			const filteredMem = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff);
+			return [
+				{
+					name: `${t("cpuUsage")} (Panel)`,
+					data: filteredCpu.map((e) => [e.timestamp * 1000, e.value]),
+				},
+				{
+					name: `${t("memoryUsage")} (Panel)`,
+					data: filteredMem.map((e) => [e.timestamp * 1000, e.value]),
+				},
 			];
 		}
 		if (payload.entries) {
 			const filtered = payload.entries.filter((e) => e.timestamp >= cutoff);
-			return [{ name: payload.metricLabel ?? payload.title, data: filtered.map((e) => [e.timestamp * 1000, e.value]) }];
+			return [
+				{
+					name: payload.metricLabel ?? payload.title,
+					data: filtered.map((e) => [e.timestamp * 1000, e.value]),
+				},
+			];
 		}
 		return [];
 	}, [payload, cutoff, t]);
-	const options: ApexOptions = useMemo(() => ({
-		chart: { type: "area", animations: { enabled: false }, toolbar: { show: false }, zoom: { enabled: false }, background: "transparent", fontFamily: "inherit" },
-		colors: ["var(--rb-panel-accent)", "var(--rb-panel-text-secondary)"],
-		fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.2, opacityTo: 0.0, stops: [0, 100] } },
-		dataLabels: { enabled: false },
-		theme: { mode: colorMode },
-		stroke: { curve: "smooth", width: 1.5 },
-		grid: { borderColor: gridColor, strokeDashArray: 4, xaxis: { lines: { show: false } }, yaxis: { lines: { show: true } } },
-		xaxis: { type: "datetime", axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" }, datetimeFormatter: { hour: "HH:mm" } } },
-		yaxis: { decimalsInFloat: 0, labels: { style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" } } },
-		legend: { position: "bottom", labels: { colors: mutedTextColor } },
-		tooltip: { theme: colorMode, x: { format: "HH:mm:ss" } },
-	}), [colorMode, gridColor, mutedTextColor]);
+
+	const options: ApexOptions = useMemo(
+		() => ({
+			chart: {
+				type: "area",
+				animations: { enabled: false },
+				toolbar: { show: false },
+				zoom: { enabled: false },
+				background: "transparent",
+				fontFamily: "inherit",
+			},
+			colors: ["var(--rb-panel-accent)", "#3b82f6", "#10b981", "#a855f7"],
+			fill: {
+				type: "gradient",
+				gradient: {
+					shadeIntensity: 1,
+					opacityFrom: 0.28,
+					opacityTo: 0.02,
+					stops: [0, 100],
+				},
+			},
+			dataLabels: { enabled: false },
+			theme: { mode: colorMode },
+			stroke: { curve: "smooth", width: 2 },
+			grid: {
+				borderColor: gridColor,
+				strokeDashArray: 3,
+				xaxis: { lines: { show: false } },
+				yaxis: { lines: { show: true } },
+			},
+			xaxis: {
+				type: "datetime",
+				axisBorder: { show: false },
+				axisTicks: { show: false },
+				labels: {
+					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
+					datetimeFormatter: { hour: "HH:mm" },
+				},
+			},
+			yaxis: {
+				decimalsInFloat: 0,
+				labels: {
+					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
+				},
+			},
+			legend: {
+				position: "bottom",
+				labels: { colors: mutedTextColor },
+			},
+			tooltip: {
+				theme: colorMode,
+				x: { format: "HH:mm:ss" },
+			},
+		}),
+		[colorMode, gridColor, mutedTextColor],
+	);
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay bg="blackAlpha.700" />
-			<ModalContent bg="panel.surface" borderWidth="1px" borderColor="panel.border" borderRadius="2xl" boxShadow="0 32px 80px rgba(0,0,0,0.5)" mx={{ base: 3, sm: 6 }}>
-				<ModalHeader display="flex" alignItems="center" justifyContent="space-between" px={6} py={4} borderBottomWidth="1px" borderColor="panel.border" fontSize="sm" fontWeight="700">
+			<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(8px)" />
+			<ModalContent
+				bg="panel.surface"
+				borderWidth="1px"
+				borderColor="panel.border"
+				borderRadius="2xl"
+				boxShadow="0 32px 80px rgba(0,0,0,0.5)"
+				mx={{ base: 3, sm: 6 }}
+			>
+				<ModalHeader
+					display="flex"
+					alignItems="center"
+					justifyContent="space-between"
+					px={{ base: 4, md: 6 }}
+					py={{ base: 3.5, md: 4 }}
+					borderBottomWidth="1px"
+					borderColor="panel.border"
+					fontSize="sm"
+					fontWeight="700"
+				>
 					<Text color="panel.text">{t("historyModalTitle", { metric: payload?.title ?? "" })}</Text>
 					<ModalCloseButton position="static" size="sm" />
 				</ModalHeader>
-				<ModalBody px={6} py={5}>
+				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
 						<Flex wrap="wrap" gap={2}>
 							{HISTORY_INTERVALS.map((interval) => (
@@ -303,11 +483,25 @@ const HistoryModal: FC<{
 							))}
 						</Flex>
 						<Box minH="260px">
-							<Chart key={`chart-${intervalSeconds}`} options={options} series={chartSeries} type="area" height={260} />
+							<Suspense
+								fallback={
+									<Flex h="260px" align="center" justify="center">
+										<Spinner size="md" color="panel.accent" />
+									</Flex>
+								}
+							>
+								<HistoryChart
+									key={`chart-${intervalSeconds}`}
+									options={options}
+									series={chartSeries}
+									type="area"
+									height={260}
+								/>
+							</Suspense>
 						</Box>
 					</Stack>
 				</ModalBody>
-				<ModalFooter px={6} py={3} borderTopWidth="1px" borderColor="panel.border">
+				<ModalFooter px={{ base: 4, md: 6 }} py={3} borderTopWidth="1px" borderColor="panel.border">
 					<Button onClick={onClose} borderRadius="full" variant="ghost" size="sm" color="panel.textMuted">
 						{t("close")}
 					</Button>
@@ -323,9 +517,10 @@ const ResourceCard: FC<{
 	value: string;
 	percent: number;
 	meta?: string;
+	historyValues?: number[];
 	onHistory?: () => void;
 	historyLabel?: string;
-}> = ({ label, icon, value, percent, meta, onHistory, historyLabel }) => {
+}> = ({ label, icon, value, percent, meta, historyValues, onHistory, historyLabel }) => {
 	const safe = clampPercent(percent);
 	const accent = "var(--rb-panel-accent)";
 	const trackBg = useColorModeValue("panel.border", "panel.elevated");
@@ -337,89 +532,97 @@ const ResourceCard: FC<{
 			borderWidth="1px"
 			borderColor="panel.border"
 			borderRadius="20px"
-			p={{ base: 5, md: 6 }}
+			p={{ base: 4, sm: 5 }}
 			position="relative"
 			overflow="hidden"
-			transition="border-color 0.18s ease, box-shadow 0.18s ease"
+			display="flex"
+			flexDirection="column"
+			justifyContent="space-between"
+			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				borderColor: "panel.borderStrong",
-				boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+				transform: "translateY(-2px)",
+				boxShadow: "0 12px 28px -6px rgba(0,0,0,0.22)",
 			}}
 		>
-			<Flex justify="space-between" align="flex-start" mb={5}>
-				<HStack spacing={3} align="center">
-					<Flex
-						w="36px"
-						h="36px"
-						align="center"
-						justify="center"
-						borderRadius="10px"
-						bg="panel.elevated"
-						color="panel.textSecondary"
-						flexShrink={0}
+			<Box>
+				<Flex justify="space-between" align="center" mb={3}>
+					<HStack spacing={2.5} align="center">
+						<Flex
+							w="32px"
+							h="32px"
+							align="center"
+							justify="center"
+							borderRadius="9px"
+							bg="panel.elevated"
+							color="panel.textSecondary"
+							flexShrink={0}
+							transition="transform 0.2s ease"
+							_groupHover={{ transform: "scale(1.05)" }}
+						>
+							{icon}
+						</Flex>
+						<Text fontSize="13px" fontWeight="600" color="panel.textSecondary" noOfLines={1}>
+							{label}
+						</Text>
+					</HStack>
+					{onHistory && (
+						<Button
+							size="xs"
+							h="22px"
+							px={2}
+							fontSize="11px"
+							variant="ghost"
+							borderRadius="full"
+							color="panel.textMuted"
+							fontWeight="500"
+							_hover={{ color: "panel.text", bg: "panel.elevated" }}
+							onClick={onHistory}
+						>
+							{historyLabel}
+						</Button>
+					)}
+				</Flex>
+
+				<Flex justify="space-between" align="baseline" gap={2} mb={1}>
+					<Text
+						fontSize={{ base: "20px", sm: "22px" }}
+						fontWeight="800"
+						color="panel.text"
+						letterSpacing="-0.02em"
+						lineHeight="1.1"
+						dir="ltr"
+						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+						noOfLines={1}
 					>
-						{icon}
-					</Flex>
-					<Text fontSize="13px" fontWeight="600" color="panel.textSecondary" letterSpacing="-0.01em">
-						{label}
+						{value}
 					</Text>
-				</HStack>
-				{onHistory && (
-					<Button
-						size="xs"
-						h="22px"
-						px={2}
-						fontSize="11px"
-						variant="ghost"
-						borderRadius="full"
-						color="panel.textMuted"
-						fontWeight="500"
-						_hover={{ color: "panel.text", bg: "panel.elevated" }}
-						onClick={onHistory}
-					>
-						{historyLabel}
-					</Button>
+					{meta && (
+						<Text fontSize="11px" fontWeight="600" color="panel.textMuted" dir="ltr" flexShrink={0}>
+							{meta}
+						</Text>
+					)}
+				</Flex>
+			</Box>
+
+			<Box mt={3}>
+				{historyValues && historyValues.length > 1 && (
+					<Box mb={2}>
+						<HistorySparkline values={historyValues} />
+					</Box>
 				)}
-			</Flex>
-
-			<Text
-				fontSize={{ base: "24px", md: "26px" }}
-				fontWeight="700"
-				color="panel.text"
-				letterSpacing="-0.03em"
-				lineHeight="1"
-				mb={1}
-				dir="ltr"
-				sx={{ fontVariantNumeric: "tabular-nums" }}
-				noOfLines={1}
-			>
-				{value}
-			</Text>
-
-			{meta && (
-				<Text fontSize="12px" color="panel.textMuted" mb={4} dir="ltr">
-					{meta}
-				</Text>
-			)}
-
-			<Box mt={meta ? 0 : 4}>
 				<Flex justify="space-between" align="center" mb={1.5}>
-					<Text fontSize="11px" color="panel.textMuted" sx={{ fontVariantNumeric: "tabular-nums" }}>
+					<Text fontSize="11px" fontWeight="600" color="panel.textMuted" sx={{ fontVariantNumeric: "tabular-nums" }}>
 						{safe.toFixed(1)}%
 					</Text>
 				</Flex>
-				<Box
-					h="3px"
-					borderRadius="full"
-					bg={trackBg}
-					overflow="hidden"
-				>
+				<Box h="3px" borderRadius="full" bg={trackBg} overflow="hidden">
 					<Box
 						h="full"
 						borderRadius="full"
 						bg={criticalColor}
 						w={`${safe}%`}
-						transition="width 0.5s ease, background-color 0.3s ease"
+						transition="width 0.4s ease, background-color 0.3s ease"
 					/>
 				</Box>
 			</Box>
@@ -434,19 +637,20 @@ const StatRow: FC<{
 	accent?: boolean;
 	tag?: string;
 	tagColor?: string;
-}> = ({ label, value, dimLabel, accent, tag, tagColor }) => {
+	helper?: string;
+}> = ({ label, value, dimLabel, accent, tag, tagColor, helper }) => {
 	const accentColor = "var(--rb-panel-accent)";
 	return (
 		<Flex
 			align="center"
 			justify="space-between"
-			py={3}
+			py={2.5}
 			borderBottomWidth="1px"
 			borderColor="panel.border"
 			_last={{ borderBottomWidth: 0 }}
 			gap={3}
 		>
-			<HStack spacing={2} minW={0}>
+			<HStack spacing={2} minW={0} flexWrap="nowrap">
 				{tagColor && (
 					<Box
 						flexShrink={0}
@@ -454,6 +658,7 @@ const StatRow: FC<{
 						h="6px"
 						borderRadius="full"
 						bg={tagColor}
+						boxShadow={`0 0 6px ${tagColor}88`}
 					/>
 				)}
 				<Text
@@ -479,34 +684,48 @@ const StatRow: FC<{
 					</Badge>
 				)}
 			</HStack>
-			<Text
-				fontSize="13px"
-				fontWeight="700"
-				color={accent ? accentColor : "panel.text"}
-				dir="ltr"
-				flexShrink={0}
-				sx={{ fontVariantNumeric: "tabular-nums" }}
-			>
-				{typeof value === "number" ? formatNumberValue(value) : value}
-			</Text>
+			<VStack align="flex-end" spacing={0} flexShrink={0}>
+				<Text
+					fontSize="13px"
+					fontWeight="700"
+					color={accent ? accentColor : "panel.text"}
+					dir="ltr"
+					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+				>
+					{typeof value === "number" ? formatNumberValue(value) : value}
+				</Text>
+				{helper && (
+					<Text fontSize="10px" color="panel.textMuted" dir="ltr">
+						{helper}
+					</Text>
+				)}
+			</VStack>
 		</Flex>
 	);
 };
 
-const SectionCard: FC<{ children: ReactNode; title?: ReactNode; action?: ReactNode }> = ({ children, title, action }) => (
+const SectionCard: FC<{ children: ReactNode; title?: ReactNode; action?: ReactNode }> = ({
+	children,
+	title,
+	action,
+}) => (
 	<Box
 		bg="panel.surface"
 		borderWidth="1px"
 		borderColor="panel.border"
 		borderRadius="20px"
 		overflow="hidden"
-		transition="border-color 0.18s ease, box-shadow 0.18s ease"
-		_hover={{ borderColor: "panel.borderStrong", boxShadow: "0 4px 20px rgba(0,0,0,0.18)" }}
+		transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+		_hover={{
+			borderColor: "panel.borderStrong",
+			transform: "translateY(-1px)",
+			boxShadow: "0 10px 24px -4px rgba(0,0,0,0.18)",
+		}}
 	>
 		{(title || action) && (
 			<Flex
-				px={{ base: 5, md: 6 }}
-				py={4}
+				px={{ base: 4, sm: 5, md: 6 }}
+				py={3.5}
 				align="center"
 				justify="space-between"
 				borderBottomWidth="1px"
@@ -520,7 +739,7 @@ const SectionCard: FC<{ children: ReactNode; title?: ReactNode; action?: ReactNo
 				{action}
 			</Flex>
 		)}
-		<Box px={{ base: 5, md: 6 }} py={5}>
+		<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
 			{children}
 		</Box>
 	</Box>
@@ -536,7 +755,13 @@ const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon
 				{label}
 			</Text>
 		</HStack>
-		<Text fontSize="14px" fontWeight="700" color="panel.text" dir="ltr" sx={{ fontVariantNumeric: "tabular-nums" }}>
+		<Text
+			fontSize="14px"
+			fontWeight="700"
+			color="panel.text"
+			dir="ltr"
+			sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+		>
 			{value}
 		</Text>
 	</Flex>
@@ -591,22 +816,38 @@ export const Statistics: FC<BoxProps> = (props) => {
 			<Flex justify="center" align="center" minH="60vh" w="full">
 				<VStack spacing={4}>
 					<Spinner size="lg" color="panel.accent" thickness="2px" speed="0.8s" />
-					<Text fontSize="13px" color="panel.textMuted">{t("loading", "در حال بارگذاری...")}</Text>
+					<Text fontSize="13px" color="panel.textMuted">
+						{t("loading", "در حال بارگذاری...")}
+					</Text>
 				</VStack>
 			</Flex>
 		);
 	}
 
-	const activePercent = systemData.total_user > 0
-		? `${((systemData.users_active / systemData.total_user) * 100).toFixed(1)}%`
-		: "0.0%";
-	const onlinePercent = systemData.total_user > 0
-		? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
-		: "0.0%";
+	const activePercent =
+		systemData.total_user > 0
+			? `${((systemData.users_active / systemData.total_user) * 100).toFixed(1)}%`
+			: "0.0%";
+	const onlinePercent =
+		systemData.total_user > 0
+			? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
+			: "0.0%";
+
+	const cpuHistoryValues = systemData.cpu_history.map((e) => e.value);
+	const memoryHistoryValues = systemData.memory_history.map((e) => e.value);
+	const swapHistoryValues = systemData.swap_history.map((e) => e.value);
+	const diskHistoryValues = systemData.disk_history.map((e) => e.value);
 
 	return (
-		<Stack spacing={{ base: 4, md: 5 }} w="full" dir={isRTL ? "rtl" : "ltr"} {...props}>
-
+		<Stack
+			spacing={{ base: 4, md: 5 }}
+			w="full"
+			dir={isRTL ? "rtl" : "ltr"}
+			sx={{
+				transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+			}}
+			{...props}
+		>
 			<Flex align="center" justify="space-between" flexWrap="wrap" gap={3} px={1}>
 				<VStack align="flex-start" spacing={0.5}>
 					<Text fontSize={{ base: "18px", md: "20px" }} fontWeight="700" color="panel.text" letterSpacing="-0.02em">
@@ -628,22 +869,29 @@ export const Statistics: FC<BoxProps> = (props) => {
 						/>
 						<Text fontSize="12px" color="panel.textMuted" fontWeight="500">
 							{systemData.xray_running ? t("status.running") : t("status.stopped")}
-							{systemData.version ? ` · v${systemData.version}` : ""}
 						</Text>
 					</HStack>
 				</VStack>
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</Flex>
 
-			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
 				<ResourceCard
 					label={t("cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
 					value={`${systemData.cpu_usage.toFixed(1)}%`}
 					percent={systemData.cpu_usage}
 					meta={`${formatNumberValue(systemData.cpu_cores)} ${t("core", "هسته")}`}
+					historyValues={cpuHistoryValues}
 					historyLabel={t("viewHistory")}
-					onHistory={() => openHistory({ type: "cpu", title: t("cpuUsage"), metricLabel: t("cpuUsage"), entries: systemData.cpu_history })}
+					onHistory={() =>
+						openHistory({
+							type: "cpu",
+							title: t("cpuUsage"),
+							metricLabel: t("cpuUsage"),
+							entries: systemData.cpu_history,
+						})
+					}
 				/>
 				<ResourceCard
 					label={t("memoryUsage")}
@@ -651,8 +899,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={`${formatBytes(systemData.memory.current, 1)}`}
 					percent={systemData.memory.percent}
 					meta={`/ ${formatBytes(systemData.memory.total, 1)}`}
+					historyValues={memoryHistoryValues}
 					historyLabel={t("viewHistory")}
-					onHistory={() => openHistory({ type: "memory", title: t("memoryUsage"), metricLabel: t("memoryUsage"), entries: systemData.memory_history })}
+					onHistory={() =>
+						openHistory({
+							type: "memory",
+							title: t("memoryUsage"),
+							metricLabel: t("memoryUsage"),
+							entries: systemData.memory_history,
+						})
+					}
 				/>
 				<ResourceCard
 					label={t("swapUsage")}
@@ -660,6 +916,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={`${formatBytes(systemData.swap.current, 1)}`}
 					percent={systemData.swap.percent}
 					meta={`/ ${formatBytes(systemData.swap.total, 1)}`}
+					historyValues={swapHistoryValues}
 				/>
 				<ResourceCard
 					label={t("diskUsage")}
@@ -667,6 +924,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={`${formatBytes(systemData.disk.current, 1)}`}
 					percent={systemData.disk.percent}
 					meta={`/ ${formatBytes(systemData.disk.total, 1)}`}
+					historyValues={diskHistoryValues}
 				/>
 			</SimpleGrid>
 
@@ -691,7 +949,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 							color="panel.textMuted"
 							fontWeight="500"
 							_hover={{ color: "panel.text", bg: "panel.elevated" }}
-							onClick={() => openHistory({ type: "network", title: t("networkHistory"), networkEntries: systemData.network_history })}
+							onClick={() =>
+								openHistory({
+									type: "network",
+									title: t("networkHistory"),
+									networkEntries: systemData.network_history,
+								})
+							}
 						>
 							{t("viewHistory")}
 						</Button>
@@ -742,7 +1006,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
 							<HStack spacing={2} mb={2} color={redErrorColor}>
 								<ExclamationTriangleIcon width={15} />
-								<Text fontSize="12px" fontWeight="700">{t("coreError")}</Text>
+								<Text fontSize="12px" fontWeight="700">
+									{t("coreError")}
+								</Text>
 							</HStack>
 							<Text fontSize="12px" fontFamily="mono" color={redErrorColor} wordBreak="break-word" lineHeight="tall" opacity={0.85}>
 								{systemData.last_xray_error}
@@ -754,10 +1020,22 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Flex align="center" justify="space-between" mb={2} flexWrap="wrap" gap={2}>
 								<HStack spacing={2} color={orangeErrorColor}>
 									<ExclamationTriangleIcon width={15} />
-									<Text fontSize="12px" fontWeight="700">{t("telegramError")}</Text>
+									<Text fontSize="12px" fontWeight="700">
+										{t("telegramError")}
+									</Text>
 								</HStack>
-								<Button size="xs" colorScheme="orange" variant="ghost" borderRadius="full" fontSize="11px" h="22px" px={2.5}
-									onClick={() => { window.location.href = "/settings"; }}>
+								<Button
+									size="xs"
+									colorScheme="orange"
+									variant="ghost"
+									borderRadius="full"
+									fontSize="11px"
+									h="22px"
+									px={2.5}
+									onClick={() => {
+										window.location.href = "/settings";
+									}}
+								>
 									{t("goToTelegramSettings")}
 								</Button>
 							</Flex>
@@ -777,6 +1055,29 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</Flex>
 						<span>{t("panelUsage")}</span>
 					</HStack>
+				}
+				action={
+					<Button
+						size="xs"
+						h="22px"
+						px={2.5}
+						fontSize="11px"
+						variant="ghost"
+						borderRadius="full"
+						color="panel.textMuted"
+						fontWeight="500"
+						_hover={{ color: "panel.text", bg: "panel.elevated" }}
+						onClick={() =>
+							openHistory({
+								type: "panel",
+								title: t("panelUsage"),
+								cpuEntries: systemData.panel_cpu_history,
+								memoryEntries: systemData.panel_memory_history,
+							})
+						}
+					>
+						{t("viewHistory")}
+					</Button>
 				}
 			>
 				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={4}>
@@ -842,7 +1143,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<Box
 					key={userTab}
 					sx={{
-						"@keyframes tabFade": { from: { opacity: 0.5, transform: "translateY(3px)" }, to: { opacity: 1, transform: "translateY(0)" } },
+						"@keyframes tabFade": {
+							from: { opacity: 0.5, transform: "translateY(3px)" },
+							to: { opacity: 1, transform: "translateY(0)" },
+						},
 						animation: "tabFade 0.22s ease",
 					}}
 				>
@@ -850,7 +1154,24 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Stack spacing={0}>
 							<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
 							<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
-							<StatRow label={t("onlineUsers")} value={systemData.online_users} tag={onlinePercent} tagColor="#06b6d4" />
+							<StatRow
+								label={t("onlineUsers")}
+								value={systemData.online_users}
+								tag={onlinePercent}
+								tagColor="#06b6d4"
+								helper={
+									systemData.online_users_upload_speed || systemData.online_users_download_speed
+										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
+										: undefined
+								}
+							/>
+							{systemData.online_users_usage > 0 && (
+								<StatRow
+									label={t("dashboard.onlineUsersUsage", "مصرف کاربران آنلاین")}
+									value={formatBytes(systemData.online_users_usage)}
+									dimLabel
+								/>
+							)}
 							<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
 							<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
 							<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
@@ -860,7 +1181,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<StatRow label={t("total")} value={systemData.personal_usage?.total_users ?? 0} tagColor="#3b82f6" />
 							<StatRow label={t("status.active")} value={systemData.personal_usage?.total_users ?? 0} tagColor="#22c55e" />
 							<StatRow label={t("onlineUsers")} value={systemData.online_users} tagColor="#06b6d4" />
-							<StatRow label={t("consumedData")} value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)} tagColor="#a855f7" />
+							<StatRow
+								label={t("consumedData")}
+								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
+								tagColor="#a855f7"
+							/>
 						</Stack>
 					)}
 				</Box>
