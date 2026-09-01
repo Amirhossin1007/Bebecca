@@ -483,7 +483,6 @@ const HardwareBentoCard: FC<{
 			p={{ base: 4, md: 5 }}
 			position="relative"
 			overflow="hidden"
-			minW={0}
 			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				borderColor: "panel.borderStrong",
@@ -556,7 +555,7 @@ const HardwareBentoCard: FC<{
 	);
 };
 
-/* کارت داخلی سرعت و آپتایم - کاملاً ضد تداخل و ریسپانسیو در هر سایز */
+/* کارت داخلی سرعت و آپتایم - ۱۰۰٪ واکنش‌گرا بدون شکستن کلمات */
 const ResponsiveInnerCard: FC<{
 	icon: ReactNode;
 	label: string;
@@ -564,44 +563,37 @@ const ResponsiveInnerCard: FC<{
 	dir?: "ltr" | "rtl";
 }> = ({ icon, label, value, dir }) => (
 	<Box
-		p={{ base: 3, md: 3.5 }}
+		p={3.5}
 		borderRadius="xl"
 		bg="panel.elevated"
 		borderWidth="1px"
 		borderColor="panel.border"
-		minW={0}
-		overflow="hidden"
 		transition="all 0.2s ease"
 		_hover={{ borderColor: "panel.borderStrong" }}
 	>
-		<Stack spacing={1.5} minW={0}>
-			<HStack spacing={2} minW={0}>
-				<ThemedIconBadge icon={icon} size={7} />
-				<Text
-					fontSize="xs"
-					fontWeight="700"
-					color="panel.textSecondary"
-					whiteSpace="nowrap"
-					overflow="hidden"
-					textOverflow="ellipsis"
-				>
-					{label}
-				</Text>
-			</HStack>
+		<HStack spacing={2.5} mb={2} align="center">
+			<ThemedIconBadge icon={icon} size={7} />
 			<Text
-				fontSize={{ base: "xs", sm: "sm" }}
-				fontWeight="800"
-				color="panel.text"
-				dir={dir}
-				sx={{ fontVariantNumeric: "tabular-nums" }}
+				fontSize="xs"
+				fontWeight="700"
+				color="panel.textSecondary"
 				whiteSpace="nowrap"
 				overflow="hidden"
 				textOverflow="ellipsis"
-				pt={0.5}
 			>
-				{value}
+				{label}
 			</Text>
-		</Stack>
+		</HStack>
+		<Text
+			fontSize={{ base: "sm", sm: "md" }}
+			fontWeight="800"
+			color="panel.text"
+			dir={dir}
+			sx={{ fontVariantNumeric: "tabular-nums" }}
+			noOfLines={1}
+		>
+			{value}
+		</Text>
 	</Box>
 );
 
@@ -624,8 +616,6 @@ const MetricCell: FC<{
 			borderColor={borderColor}
 			justify="space-between"
 			align="center"
-			minW={0}
-			overflow="hidden"
 			transition="all 0.2s ease"
 			_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
 		>
@@ -635,7 +625,7 @@ const MetricCell: FC<{
 					{label}
 				</Text>
 			</HStack>
-			<HStack spacing={2} flexShrink={0}>
+			<HStack spacing={2}>
 				{percentage && (
 					<Text fontSize="11px" color="panel.textMuted" dir="ltr">
 						{percentage}
@@ -807,7 +797,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
-							minW={0}
 							transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 							_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
 						>
@@ -864,7 +853,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
-							minW={0}
 							transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 							_hover={{ borderColor: "panel.borderStrong", bg: "panel.elevated" }}
 						>
@@ -904,7 +892,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderColor={redErrorBorder}
 							color={redErrorColor}
 							boxShadow="sm"
-							minW={0}
 						>
 							<HStack spacing={2} mb={1.5} color={redErrorHeader}>
 								<ExclamationTriangleIcon width={18} />
@@ -927,7 +914,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderColor={orangeErrorBorder}
 							color={orangeErrorColor}
 							boxShadow="sm"
-							minW={0}
 						>
 							<HStack spacing={2} mb={2} align="center" justify="space-between">
 								<HStack spacing={2} color={orangeErrorHeader}>
@@ -1118,7 +1104,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							/>
 						</SimpleGrid>
 					) : (
-						/* My Users: 2 Rows × 2 Cards (4 Cards) */
+						/* My Users: 2 Rows × 2 Cards (4 Cards) with Personal Data */
 						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={3.5}>
 							{/* Row 1: Total & Active */}
 							<MetricCell
@@ -1194,7 +1180,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 								justify="space-between"
 								align="center"
 								fontSize="xs"
-								minW={0}
 								transition="all 0.2s ease"
 								_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 							>
