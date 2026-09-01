@@ -167,14 +167,6 @@ const SectionChevronIcon = chakra(HeroChevronDownIcon, {
 	},
 });
 
-const _ConfirmIcon = chakra(CheckIcon, {
-	baseStyle: {
-		w: 4,
-
-		h: 4,
-	},
-});
-
 export type UserDialogProps = {};
 type SubmitStatus = "idle" | "loading" | "success" | "error";
 
@@ -556,39 +548,35 @@ const buildSchema = (isEditing: boolean) => {
 };
 
 export const UserDialog: FC<UserDialogProps> = () => {
-	const {
-		editingUser,
-
-		isCreatingNewUser,
-
-		onCreateUser,
-
-		editUser,
-
-		fetchUserUsage,
-
-		deleteUser,
-
-		onEditingUser,
-
-		createUserWithService,
-
-		users: usersState,
-
-		isUserLimitReached,
-		linkTemplates,
-		setQRCode,
-		setSubLink,
-		editingUserInitialTab,
-	} = useDashboard();
+	const editingUser = useDashboard((state) => state.editingUser);
+	const isCreatingNewUser = useDashboard(
+		(state) => state.isCreatingNewUser,
+	);
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
+	const editUser = useDashboard((state) => state.editUser);
+	const fetchUserUsage = useDashboard((state) => state.fetchUserUsage);
+	const deleteUser = useDashboard((state) => state.deleteUser);
+	const onEditingUser = useDashboard((state) => state.onEditingUser);
+	const createUserWithService = useDashboard(
+		(state) => state.createUserWithService,
+	);
+	const usersLimit = useDashboard((state) => state.users.users_limit ?? null);
+	const activeUsersCount = useDashboard(
+		(state) => state.users.active_total ?? null,
+	);
+	const isUserLimitReached = useDashboard(
+		(state) => state.isUserLimitReached,
+	);
+	const linkTemplates = useDashboard((state) => state.linkTemplates);
+	const setQRCode = useDashboard((state) => state.setQRCode);
+	const setSubLink = useDashboard((state) => state.setSubLink);
+	const editingUserInitialTab = useDashboard(
+		(state) => state.editingUserInitialTab,
+	);
 
 	const isEditing = !!editingUser;
 
 	const isOpen = isCreatingNewUser || isEditing;
-
-	const usersLimit = usersState.users_limit ?? null;
-
-	const activeUsersCount = usersState.active_total ?? null;
 
 	const limitReached = isUserLimitReached && !isEditing;
 
@@ -766,16 +754,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		useState(false);
 	const [autoRenewFireOnEitherValue, setAutoRenewFireOnEitherValue] =
 		useState(true);
-
-	const [noteValue, telegramValue, contactNumberValue] = useWatch({
-		control: form.control,
-		name: ["note", "telegram_id", "contact_number"],
-	});
-
-	const _otherInfoCount =
-		(noteValue ? 1 : 0) +
-		(telegramValue ? 1 : 0) +
-		(contactNumberValue ? 1 : 0);
 
 	const resetAutoRenewFormValues = useCallback(
 		(rule?: AutoRenewRule | null) => {
@@ -1337,12 +1315,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		const { status, time } = relativeExpiryDate(expireValue);
 		return t(status, { time });
 	}, [expireValue, t]);
-
-	const _nextPlanDataLimit = useWatch({
-		control: form.control,
-
-		name: "next_plan_data_limit",
-	});
 
 	useEffect(() => {
 		const derivedDays = deriveDaysFromSeconds(expireValue);
@@ -1983,7 +1955,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"}
 			scrollBehavior="inside"
 		>
-			<ModalOverlay bg="blackAlpha.300" backdropFilter="blur(10px)" />
+			<ModalOverlay bg="blackAlpha.300" />
 
 			<FormProvider {...form}>
 				<XrayModalContent

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
@@ -88,12 +89,14 @@ type recentActionPreview struct {
 }
 
 type recentActionListFilter struct {
-	Search        string
-	ActionTypes   []string
-	ResourceTypes []string
-	Statuses      []string
-	CreatedFrom   string
-	CreatedBefore string
+	Search         string
+	MatchCase      bool
+	MatchWholeWord bool
+	ActionTypes    []string
+	ResourceTypes  []string
+	Statuses       []string
+	CreatedFrom    string
+	CreatedBefore  string
 }
 
 type recentActionStored struct {
@@ -509,6 +512,14 @@ func recentActionListFilterFromRequest(r *http.Request) (recentActionListFilter,
 	if len(search) > 256 {
 		return recentActionListFilter{}, fmt.Errorf("search must not exceed 256 characters")
 	}
+	matchCase, err := optionalQueryBool(r.URL.Query().Get("match_case"))
+	if err != nil {
+		return recentActionListFilter{}, fmt.Errorf("invalid match_case")
+	}
+	matchWholeWord, err := optionalQueryBool(r.URL.Query().Get("match_whole_word"))
+	if err != nil {
+		return recentActionListFilter{}, fmt.Errorf("invalid match_whole_word")
+	}
 	parse := func(key string) ([]string, error) {
 		values := make([]string, 0)
 		for _, raw := range r.URL.Query()[key] {
@@ -547,7 +558,8 @@ func recentActionListFilterFromRequest(r *http.Request) (recentActionListFilter,
 		createdBefore = dbTimestamp(day.AddDate(0, 0, 1))
 	}
 	return recentActionListFilter{
-		Search: search, ActionTypes: actionTypes,
+		Search: search, MatchCase: matchCase, MatchWholeWord: matchWholeWord,
+		ActionTypes:   actionTypes,
 		ResourceTypes: resourceTypes, Statuses: statuses,
 		CreatedFrom: createdFrom, CreatedBefore: createdBefore,
 	}, nil
@@ -583,11 +595,13 @@ func (s *Server) listRecentActions(ctx context.Context, beforeID int64, limit in
 		clauses := []string{"(? = 0 OR id < ?)", "(? = 1 OR resource_type <> 'admin')"}
 		args := []any{cursor, cursor, includeAdmin}
 		if filter.Search != "" {
-			term := "%" + strings.ToLower(filter.Search) + "%"
-			clauses = append(clauses, `(LOWER(summary) LIKE ? OR LOWER(action_type) LIKE ? OR LOWER(resource_type) LIKE ? OR LOWER(resource_key) LIKE ? OR LOWER(actor_username) LIKE ?)`)
-			for range 5 {
-				args = append(args, term)
-			}
+			predicate, searchArgs := searchmatch.SQLAny(s.dialect, []string{
+				"summary", "action_type", "resource_type", "resource_key", "actor_username",
+			}, filter.Search, searchmatch.Options{
+				MatchCase: filter.MatchCase, MatchWholeWord: filter.MatchWholeWord,
+			})
+			clauses = append(clauses, predicate)
+			args = append(args, searchArgs...)
 		}
 		addRecentActionListFilter(&clauses, &args, "action_type", filter.ActionTypes)
 		addRecentActionListFilter(&clauses, &args, "resource_type", filter.ResourceTypes)

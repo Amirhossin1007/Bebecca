@@ -65,11 +65,14 @@ func (r Repository) SystemSummary(ctx context.Context, req SystemSummaryRequest)
 	summary.UsersLimited = counts["limited"]
 	summary.UsersOnHold = counts["on_hold"]
 
-	online, err := r.onlineUsers(ctx, scopedAdminID)
+	online, onlineUsage, err := r.onlineUserStats(ctx, scopedAdminID)
 	if err != nil {
 		return summary, err
 	}
 	summary.OnlineUsers = online
+	if req.Admin.CanViewTraffic {
+		summary.OnlineUsersUsage = onlineUsage
+	}
 
 	personalTotalUsers := int64(0)
 	if !global {
@@ -225,6 +228,11 @@ func (r Repository) countUsers(ctx context.Context, adminID *int64, status strin
 }
 
 func (r Repository) onlineUsers(ctx context.Context, adminID *int64) (int64, error) {
+	count, _, err := r.onlineUserStats(ctx, adminID)
+	return count, err
+}
+
+func (r Repository) onlineUserStats(ctx context.Context, adminID *int64) (int64, int64, error) {
 	cutoff := r.timeArg(online.Cutoff(time.Now()))
 	clauses := []string{
 		"u.status != ?",
@@ -235,12 +243,12 @@ func (r Repository) onlineUsers(ctx context.Context, adminID *int64) (int64, err
 		clauses = append(clauses, "u.admin_id = ?")
 		args = append(args, *adminID)
 	}
-	query := `SELECT COUNT(u.id) FROM users u WHERE ` + strings.Join(clauses, " AND ")
-	var count int64
-	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
-		return 0, err
+	query := `SELECT COUNT(u.id), COALESCE(SUM(COALESCE(u.used_traffic, 0)), 0) FROM users u WHERE ` + strings.Join(clauses, " AND ")
+	var count, usage int64
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count, &usage); err != nil {
+		return 0, 0, err
 	}
-	return count, nil
+	return count, usage, nil
 }
 
 func (r Repository) adminOverview(ctx context.Context) (AdminOverviewStats, error) {

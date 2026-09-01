@@ -28,7 +28,8 @@ const BYTES_PER_GB = 1024 * 1024 * 1024;
 export const UserQuickEditModal: FC = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const { quickEditUser, refetchUsers } = useDashboard();
+	const quickEditUser = useDashboard((state) => state.quickEditUser);
+	const refetchUsers = useDashboard((state) => state.refetchUsers);
 	const user = quickEditUser?.user ?? null;
 	const field = quickEditUser?.field ?? null;
 
@@ -106,7 +107,7 @@ export const UserQuickEditModal: FC = () => {
 					? t("usersTable.setDataLimit")
 					: t("usersTable.setExpiry")
 			}
-			overlayProps={{ bg: "blackAlpha.300", backdropFilter: "blur(10px)" }}
+			overlayProps={{ bg: "blackAlpha.300" }}
 			contentProps={{ mx: "3" }}
 			footerProps={{ gap: 3 }}
 			footer={

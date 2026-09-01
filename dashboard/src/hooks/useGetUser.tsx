@@ -25,7 +25,7 @@ const useGetUser = (): UseGetUserReturn => {
 		queryKey: ["current-admin"],
 		queryFn: () => fetchUser(),
 		refetchInterval: 30_000,
-		refetchIntervalInBackground: true,
+		refetchIntervalInBackground: false,
 	});
 
 	const userDataEmpty: UserApi = {

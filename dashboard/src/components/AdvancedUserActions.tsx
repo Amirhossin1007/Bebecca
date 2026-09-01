@@ -84,7 +84,9 @@ const AdvancedUserActions = ({
 }: AdvancedUserActionsProps) => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const { performBulkUserAction } = useDashboard();
+	const performBulkUserAction = useDashboard(
+		(state) => state.performBulkUserAction,
+	);
 	const { userData } = useGetUser();
 	const userManagementLocked = isUserManagementLocked(userData);
 	const { isOpen, onOpen, onClose } = useDisclosure();

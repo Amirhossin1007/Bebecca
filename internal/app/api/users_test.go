@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 )
 
@@ -164,6 +165,60 @@ func TestOnlineUsersRouteUsesLiveSetAndAdminScope(t *testing.T) {
 
 	assertOnlineUsers(adminBearerToken(t, server, "owner", "pass123"), "alice", "bob")
 	assertOnlineUsers(adminBearerToken(t, server, "seller", "pass123"), "alice")
+
+	server.setLiveUserSpeeds([]nodecontroller.UserTrafficSpeed{
+		{Username: "alice", UploadSpeed: 100, DownloadSpeed: 200},
+		{Username: "bob", UploadSpeed: 300, DownloadSpeed: 400},
+	})
+	assertTopSpeedUser := func(token, want string) {
+		t.Helper()
+		rec := userReadRequest(t, server, http.MethodGet, "/api/users?filter=top_speed", token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("top speed user status = %d body=%s", rec.Code, rec.Body.String())
+		}
+		var result struct {
+			Users []struct {
+				Username string `json:"username"`
+			} `json:"users"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Users) != 1 || result.Users[0].Username != want {
+			t.Fatalf("top speed users = %#v, want %q", result.Users, want)
+		}
+	}
+	assertTopSpeedUser(adminBearerToken(t, server, "owner", "pass123"), "bob")
+	assertTopSpeedUser(adminBearerToken(t, server, "seller", "pass123"), "alice")
+
+	rec := userReadRequest(t, server, http.MethodGet, "/api/users/onlines?details=true", adminBearerToken(t, server, "seller", "pass123"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("online details status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var details struct {
+		Users  []string                 `json:"users"`
+		Speeds map[string]liveUserSpeed `json:"speeds"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &details); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(details.Users, ",") != "alice" || details.Speeds["alice"].DownloadSpeed != 200 {
+		t.Fatalf("unexpected online details: %#v", details)
+	}
+	if _, leaked := details.Speeds["bob"]; leaked {
+		t.Fatal("seller received another admin's live speed")
+	}
+
+	rec = userReadRequest(t, server, http.MethodGet, "/api/users/onlines?details=true&usernames=alice", adminBearerToken(t, server, "owner", "pass123"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("scoped online details status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &details); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(details.Users, ",") != "alice" || len(details.Speeds) != 1 || details.Speeds["alice"].UploadSpeed != 100 {
+		t.Fatalf("unexpected scoped online details: %#v", details)
+	}
 }
 
 func userReadRequest(t *testing.T, server *Server, method string, path string, token string) *httptest.ResponseRecorder {

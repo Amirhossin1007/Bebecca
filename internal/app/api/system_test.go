@@ -11,6 +11,7 @@ import (
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
 )
 
@@ -49,6 +50,7 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 	server, db := testAdminServer(t)
 	statements := []string{
 		`CREATE TABLE system (id INTEGER PRIMARY KEY, uplink BIGINT DEFAULT 0, downlink BIGINT DEFAULT 0)`,
+		`ALTER TABLE users ADD COLUMN used_traffic BIGINT DEFAULT 0`,
 		`CREATE TABLE user_online_ips (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME)`,
 		`CREATE TABLE vpn_user_sessions (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME, ended_at DATETIME)`,
 		`INSERT INTO system (id, uplink, downlink) VALUES (1, 111, 222)`,
@@ -63,10 +65,10 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
 	onlineAt := time.Now().UTC().Format("2006-01-02 15:04:05.000000")
 	if _, err := db.Exec(
-		`INSERT INTO users (id, username, admin_id, status, online_at) VALUES
-			(1, 'owner_active', 1, 'active', ?),
-			(2, 'seller_limited', 2, 'limited', ?),
-			(3, 'seller_disabled', 2, 'disabled', NULL)`,
+		`INSERT INTO users (id, username, admin_id, status, used_traffic, online_at) VALUES
+			(1, 'owner_active', 1, 'active', 100, ?),
+			(2, 'seller_limited', 2, 'limited', 200, ?),
+			(3, 'seller_disabled', 2, 'disabled', 300, NULL)`,
 		onlineAt,
 		onlineAt,
 	); err != nil {
@@ -86,6 +88,11 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 		systemapp.DefaultVersion,
 		&fakeSystemMetricsProvider{},
 	)
+	ownerID, sellerID := int64(1), int64(2)
+	server.setLiveUserSpeeds([]nodecontroller.UserTrafficSpeed{
+		{Username: "owner_active", AdminID: &ownerID, UploadSpeed: 10, DownloadSpeed: 20},
+		{Username: "seller_limited", AdminID: &sellerID, UploadSpeed: 30, DownloadSpeed: 40},
+	})
 
 	ownerToken := adminBearerToken(t, server, "owner", "pass123")
 	rec := adminJSONRequest(t, server, http.MethodGet, "/api/system", ownerToken, "")
@@ -93,26 +100,29 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 		t.Fatalf("system status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	var first struct {
-		Version               string                          `json:"version"`
-		CPUCores              int                             `json:"cpu_cores"`
-		CPUThreads            int                             `json:"cpu_threads"`
-		CPUFrequencyHz        float64                         `json:"cpu_frequency_hz"`
-		CPUUsage              float64                         `json:"cpu_usage"`
-		TotalUser             int64                           `json:"total_user"`
-		OnlineUsers           int64                           `json:"online_users"`
-		IncomingBandwidth     int64                           `json:"incoming_bandwidth"`
-		OutgoingBandwidth     int64                           `json:"outgoing_bandwidth"`
-		PanelTotalBandwidth   int64                           `json:"panel_total_bandwidth"`
-		IncomingBandwidthRate int64                           `json:"incoming_bandwidth_speed"`
-		OutgoingBandwidthRate int64                           `json:"outgoing_bandwidth_speed"`
-		XrayRunning           bool                            `json:"xray_running"`
-		XrayVersion           *string                         `json:"xray_version"`
-		LastTelegramError     *string                         `json:"last_telegram_error"`
-		CPUHistory            []systemapp.HistoryEntry        `json:"cpu_history"`
-		SwapHistory           []systemapp.HistoryEntry        `json:"swap_history"`
-		DiskHistory           []systemapp.HistoryEntry        `json:"disk_history"`
-		NetworkHistory        []systemapp.NetworkHistoryEntry `json:"network_history"`
-		PersonalUsage         systemapp.PersonalUsageStats    `json:"personal_usage"`
+		Version                 string                          `json:"version"`
+		CPUCores                int                             `json:"cpu_cores"`
+		CPUThreads              int                             `json:"cpu_threads"`
+		CPUFrequencyHz          float64                         `json:"cpu_frequency_hz"`
+		CPUUsage                float64                         `json:"cpu_usage"`
+		TotalUser               int64                           `json:"total_user"`
+		OnlineUsers             int64                           `json:"online_users"`
+		OnlineUsersUsage        int64                           `json:"online_users_usage"`
+		OnlineUsersUploadRate   uint64                          `json:"online_users_upload_speed"`
+		OnlineUsersDownloadRate uint64                          `json:"online_users_download_speed"`
+		IncomingBandwidth       int64                           `json:"incoming_bandwidth"`
+		OutgoingBandwidth       int64                           `json:"outgoing_bandwidth"`
+		PanelTotalBandwidth     int64                           `json:"panel_total_bandwidth"`
+		IncomingBandwidthRate   int64                           `json:"incoming_bandwidth_speed"`
+		OutgoingBandwidthRate   int64                           `json:"outgoing_bandwidth_speed"`
+		XrayRunning             bool                            `json:"xray_running"`
+		XrayVersion             *string                         `json:"xray_version"`
+		LastTelegramError       *string                         `json:"last_telegram_error"`
+		CPUHistory              []systemapp.HistoryEntry        `json:"cpu_history"`
+		SwapHistory             []systemapp.HistoryEntry        `json:"swap_history"`
+		DiskHistory             []systemapp.HistoryEntry        `json:"disk_history"`
+		NetworkHistory          []systemapp.NetworkHistoryEntry `json:"network_history"`
+		PersonalUsage           systemapp.PersonalUsageStats    `json:"personal_usage"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
 		t.Fatal(err)
@@ -124,6 +134,9 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 		first.CPUUsage != 11 ||
 		first.TotalUser != 3 ||
 		first.OnlineUsers != 2 ||
+		first.OnlineUsersUsage != 300 ||
+		first.OnlineUsersUploadRate != 40 ||
+		first.OnlineUsersDownloadRate != 60 ||
 		first.IncomingBandwidth != 111 ||
 		first.OutgoingBandwidth != 222 ||
 		first.PanelTotalBandwidth != 333 ||
@@ -150,21 +163,27 @@ func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 		t.Fatalf("seller system status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	var second struct {
-		TotalUser     int64                        `json:"total_user"`
-		UsersLimited  int64                        `json:"users_limited"`
-		XrayRunning   bool                         `json:"xray_running"`
-		XrayVersion   *string                      `json:"xray_version"`
-		CPUHistory    []systemapp.HistoryEntry     `json:"cpu_history"`
-		PersonalUsage systemapp.PersonalUsageStats `json:"personal_usage"`
+		TotalUser               int64                        `json:"total_user"`
+		UsersLimited            int64                        `json:"users_limited"`
+		OnlineUsersUsage        int64                        `json:"online_users_usage"`
+		OnlineUsersUploadRate   uint64                       `json:"online_users_upload_speed"`
+		OnlineUsersDownloadRate uint64                       `json:"online_users_download_speed"`
+		XrayRunning             bool                         `json:"xray_running"`
+		XrayVersion             *string                      `json:"xray_version"`
+		CPUHistory              []systemapp.HistoryEntry     `json:"cpu_history"`
+		PersonalUsage           systemapp.PersonalUsageStats `json:"personal_usage"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &second); err != nil {
 		t.Fatal(err)
 	}
 	if second.TotalUser != 2 ||
 		second.UsersLimited != 1 ||
+		second.OnlineUsersUsage != 200 ||
+		second.OnlineUsersUploadRate != 30 ||
+		second.OnlineUsersDownloadRate != 40 ||
 		second.XrayRunning ||
 		second.XrayVersion != nil ||
-		len(second.CPUHistory) != 2 ||
+		len(second.CPUHistory) != 1 ||
 		second.PersonalUsage.TotalUsers != 2 {
 		t.Fatalf("unexpected second system response: %#v", second)
 	}

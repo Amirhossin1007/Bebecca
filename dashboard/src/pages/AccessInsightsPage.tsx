@@ -7,9 +7,6 @@ import {
 	ButtonGroup,
 	Divider,
 	HStack,
-	Input,
-	InputGroup,
-	InputLeftElement,
 	Spinner,
 	Progress,
 	SimpleGrid,
@@ -18,13 +15,10 @@ import {
 	Text,
 	VStack,
 } from "@chakra-ui/react";
-import {
-	ArrowPathIcon,
-	EyeIcon,
-	MagnifyingGlassIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowPathIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { OperatorIdentity } from "components/OperatorIdentity";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { AppDialog } from "components/dialogs/AppDialog";
 import {
 	DataTable,
@@ -34,7 +28,14 @@ import {
 } from "components/ui";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type FC,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import type {
@@ -43,6 +44,10 @@ import type {
 } from "types/AccessInsights";
 import { filterAccessInsightItems } from "utils/accessInsights";
 import { formatBytes } from "utils/formatByte";
+import {
+	addSearchMatchQuery,
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+} from "utils/searchMatch";
 
 const PAGE_SIZE = 30;
 const REFRESH_INTERVAL = 15_000;
@@ -75,6 +80,8 @@ const AccessInsightsPage: FC = () => {
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const [data, setData] = useState<AccessInsightsResponse | null>(null);
 	const [search, setSearch] = useState("");
+	const [searchQuery, setSearchQuery] = useState("");
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [protocolFilter, setProtocolFilter] = useState("");
 	const [nodeFilter, setNodeFilter] = useState("");
 	const [page, setPage] = useState(0);
@@ -83,9 +90,13 @@ const AccessInsightsPage: FC = () => {
 	const [error, setError] = useState("");
 	const [selectedClient, setSelectedClient] =
 		useState<AccessInsightClient | null>(null);
+	const requestAbortRef = useRef<AbortController | null>(null);
 
 	const load = useCallback(async () => {
 		if (!canView) return;
+		requestAbortRef.current?.abort();
+		const abortController = new AbortController();
+		requestAbortRef.current = abortController;
 		setLoading(true);
 		setError("");
 		try {
@@ -93,22 +104,39 @@ const AccessInsightsPage: FC = () => {
 				limit: "500",
 				window_seconds: "300",
 			});
-			if (search.trim()) query.set("search", search.trim());
-			setData(
-				await fetch<AccessInsightsResponse>(
-					`/core/access/insights/multi-node?${query.toString()}`,
-				),
+			if (searchQuery) query.set("search", searchQuery);
+			addSearchMatchQuery(query, searchMatch);
+			const response = await fetch<AccessInsightsResponse>(
+				`/core/access/insights/multi-node?${query.toString()}`,
+				{ signal: abortController.signal },
 			);
+			if (!abortController.signal.aborted) setData(response);
 		} catch (requestError: any) {
+			if (abortController.signal.aborted) return;
 			setError(
 				requestError?.data?.detail ||
 					requestError?.message ||
 					t("pages.accessInsights.errors.loadFailed"),
 			);
 		} finally {
-			setLoading(false);
+			if (requestAbortRef.current === abortController) {
+				requestAbortRef.current = null;
+				setLoading(false);
+			}
 		}
-	}, [canView, search, t]);
+	}, [canView, searchQuery, searchMatch, t]);
+
+	useEffect(
+		() => () => {
+			requestAbortRef.current?.abort();
+		},
+		[],
+	);
+
+	useEffect(() => {
+		const timer = window.setTimeout(() => setSearchQuery(search.trim()), 250);
+		return () => window.clearTimeout(timer);
+	}, [search]);
 
 	useEffect(() => {
 		void load();
@@ -116,7 +144,10 @@ const AccessInsightsPage: FC = () => {
 
 	useEffect(() => {
 		if (!autoRefresh || !canView) return;
-		const timer = window.setInterval(() => void load(), REFRESH_INTERVAL);
+		const timer = window.setInterval(() => {
+			if (document.visibilityState === "visible" && navigator.onLine)
+				void load();
+		}, REFRESH_INTERVAL);
 		return () => window.clearInterval(timer);
 	}, [autoRefresh, canView, load]);
 
@@ -445,19 +476,20 @@ const AccessInsightsPage: FC = () => {
 						w="full"
 						maxW="760px"
 					>
-						<InputGroup flex="1">
-							<InputLeftElement pointerEvents="none">
-								<MagnifyingGlassIcon width={18} />
-							</InputLeftElement>
-							<Input
-								value={search}
-								onChange={(event) => {
-									setSearch(event.target.value);
-									setPage(0);
-								}}
-								placeholder={t("pages.accessInsights.liveSearch")}
-							/>
-						</InputGroup>
+						<SearchInput
+							containerProps={{ flex: "1" }}
+							value={search}
+							onChange={(event) => {
+								setSearch(event.target.value);
+								setPage(0);
+							}}
+							placeholder={t("pages.accessInsights.liveSearch")}
+							matchOptions={searchMatch}
+							onMatchOptionsChange={(options) => {
+								setSearchMatch(options);
+								setPage(0);
+							}}
+						/>
 						<Select
 							value={protocolFilter}
 							onChange={(event) => {

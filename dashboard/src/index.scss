@@ -215,6 +215,8 @@ body {
 
 .rb-data-table-row {
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
 }
 
 .rb-data-table-row > td {
@@ -273,6 +275,7 @@ body {
 }
 
 .rb-select-cell + .rb-primary-cell,
+.rb-select-cell + th,
 .rb-select-cell + td {
   padding-inline-start: clamp(8px, 0.65vw, 12px) !important;
 }
@@ -488,10 +491,12 @@ body {
     border-radius: 6px;
     background: var(--rb-panel-surface);
     padding: 0.8rem;
-  overflow: hidden;
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
+    overflow: hidden;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
       box-shadow 140ms ease;
   }
 
@@ -768,20 +773,6 @@ body {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-}
-
-.circle {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  min-width: 10px;
-  min-height: 10px;
-  flex: 0 0 10px;
-  vertical-align: middle;
-}
-
-.rb-user-online-indicator .circle {
-  margin: 0;
 }
 
 .rb-status-badge-shell {
@@ -1079,11 +1070,6 @@ body {
   text-align: right;
 }
 
-.bg-blue-animate {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -1118,19 +1104,6 @@ table thead {
   }
 }
 
-
-.slick-prev {
-  left: -40px;
-}
-
-.slick-next {
-  right: -40px;
-}
-
-.slick-prev,
-.slick-next {
-  z-index: 100;
-}
 
 .chakra-popover__popper {
   z-index: 17020 !important;
@@ -1709,53 +1682,6 @@ table thead {
   position: relative;
 }
 
-.green {
-  background: #66ff99;
-}
-
-.red {
-  background: #e53e3e;
-}
-
-.orange {
-  background: #fbd38d;
-}
-
-.bx-shadow {
-  box-shadow: 0px 0px 8px 3px rgb(230 221 221 / 10%);
-}
-
-.circle {
-  min-width: 10px;
-  min-height: 10px;
-  border-radius: 50%;
-
-  box-shadow: 0px 0px 1px 1px #0000001a;
-}
-
-.pulse {
-  animation: pulse-animation 3s infinite;
-}
-.pulse.green {
-  animation: green-pulse-animation 3s infinite;
-}
-.pulse.red{
-  animation: red-pulse-animation 3s infinite;
-}
-.pulse.orange{
-  animation: orange-pulse-animation 3s infinite;
-}
-
-@keyframes pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.4);
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
-  }
-}
-
 .apple-emoji-glyph {
   display: inline-grid;
   grid-template: "emoji" 1.2em / 1.2em;
@@ -1791,41 +1717,6 @@ img.apple-emoji {
   img.apple-emoji {
     visibility: visible;
   }
-}
-
-@keyframes green-pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px #66ff9975;
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px #66ff9900;
-  }
-}
-@keyframes red-pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px #e53e3e8c;
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px #e53e3e00;
-  }
-}
-@keyframes orange-pulse-animation {
-  0% {
-    box-shadow: 0 0 0 0px #fbd38d85;
-  }
-
-  100% {
-    box-shadow: 0 0 0 10px #fbd38d00;
-  }
-}
-
-.flex-status {
-  display: flex;
-  align-items: center;
-  justify-content: start;
-  gap: .7rem;
 }
 
 /* Keep usage pairs (used/total) ordered correctly in RTL */
@@ -1996,6 +1887,115 @@ img.apple-emoji {
 
 /* --- shared-piece overrides, scoped to the Users page ---------------- */
 
+.rb-users-section {
+  container: rb-users / inline-size;
+}
+
+.rb-user-card-status {
+  display: none;
+}
+
+.rb-users-section .rb-resource-card-main .rb-user-card-status {
+  display: block;
+}
+
+@container rb-users (max-width: 1280px) {
+  .rb-data-table [data-col="status"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 1180px) {
+  .rb-data-table [data-col="lifetime_used_traffic"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 1100px) {
+  .rb-data-table [data-col="remaining_traffic"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 980px) {
+  .rb-data-table [data-col="service"] {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 820px) {
+  .rb-data-table [data-col="speed"] {
+    display: none;
+  }
+
+  .rb-data-table-root {
+    --rb-actions-column-width: 44px !important;
+  }
+
+  .rb-actions-cell .rb-inline-actions > .chakra-stack > :not(:last-child) {
+    display: none;
+  }
+}
+
+@container rb-users (max-width: 650px) {
+  .rb-data-table [data-col="online"],
+  .rb-data-table [data-col="expire"] {
+    display: none;
+  }
+
+  .rb-data-table [data-col="status"],
+  .rb-data-table [data-col="used_traffic"] {
+    display: table-cell;
+  }
+
+  .rb-data-table [data-col="username"] {
+    width: 105px !important;
+    min-width: 105px !important;
+    max-width: 105px !important;
+  }
+
+  .rb-data-table [data-col="status"] {
+    width: 55px !important;
+    min-width: 55px !important;
+    max-width: 55px !important;
+  }
+
+  .rb-data-table [data-col="used_traffic"] {
+    width: 130px !important;
+    min-width: 130px !important;
+    max-width: 130px !important;
+  }
+
+  .rb-data-table th[data-col="used_traffic"] .chakra-stack {
+    justify-content: center;
+  }
+
+  .rb-data-table th[data-col="used_traffic"] .chakra-text {
+    width: auto;
+  }
+
+}
+
+@container rb-users (max-width: 360px) {
+  .rb-data-table [data-col="username"] {
+    width: 78px !important;
+    min-width: 78px !important;
+    max-width: 78px !important;
+  }
+
+  .rb-data-table [data-col="status"] {
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+  }
+
+  .rb-data-table [data-col="used_traffic"] {
+    width: 92px !important;
+    min-width: 92px !important;
+    max-width: 92px !important;
+  }
+}
+
 /* summary count tags read as colorful pills */
 .rb-users-section .chakra-tag {
   border-radius: 999px;
@@ -2024,6 +2024,57 @@ img.apple-emoji {
 .rb-users-section .rb-data-table-row > td:last-child {
   border-start-end-radius: 10px;
   border-end-end-radius: 10px;
+}
+
+.rb-users-section .rb-data-table-row[data-expanded="true"] > td {
+  border-bottom-color: transparent !important;
+}
+
+.rb-users-section .rb-data-table-row[data-expanded="true"] > td:first-child {
+  border-end-start-radius: 0;
+}
+
+.rb-users-section .rb-data-table-row[data-expanded="true"] > td:last-child {
+  border-end-end-radius: 0;
+}
+
+.rb-users-section .rb-data-table-row-detail {
+  position: relative;
+  transform: translateY(-6px);
+}
+
+.rb-users-section .rb-data-table-row-detail > td {
+  height: auto;
+  padding: 0 !important;
+  background: var(--rb-panel-surface) !important;
+  border-top: 0 !important;
+  border-bottom: 1px solid var(--rb-panel-border) !important;
+  border-inline: 1px solid var(--rb-panel-border) !important;
+  border-end-start-radius: 10px;
+  border-end-end-radius: 10px;
+}
+
+.rb-users-section .rb-data-table-row-detail .rb-data-table-expanded-content {
+  padding: 0 !important;
+}
+
+.rb-users-section .rb-data-table-row-detail .rb-resource-expanded {
+  margin-top: 0;
+  padding: 0.35rem 0.75rem 0.45rem;
+  border-top: 1px solid var(--rb-panel-border);
+}
+
+.rb-users-section .rb-data-table-row-detail .rb-resource-expanded-actions {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+}
+
+.rb-users-section .rb-expanded-user-actions .chakra-button {
+  border-radius: 8px;
+}
+
+.rb-users-section .rb-data-table [data-col="speed"] {
+  padding-inline-start: 12px !important;
 }
 
 /* mobile cards: rounder, and glowing accent while expanded */
@@ -2092,8 +2143,6 @@ img.apple-emoji {
   border-radius: 14px;
   border-color: color-mix(in srgb, var(--rb-panel-accent) 35%, var(--rb-panel-border-strong));
   background: color-mix(in srgb, var(--rb-panel-surface) 94%, var(--rb-panel-accent));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .rb-users-section .rb-bulk-action-bar .chakra-button {
@@ -2119,7 +2168,6 @@ img.apple-emoji {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bg-blue-animate,
   .rb-users-section .rb-resource-expanded,
   .rb-users-section .rb-bulk-action-bar[data-visible="true"],
   .rb-snow-layer,

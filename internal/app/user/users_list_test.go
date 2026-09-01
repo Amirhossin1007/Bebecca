@@ -22,6 +22,7 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 
 	for _, statement := range []string{
 		`CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, status TEXT, used_traffic BIGINT, created_at DATETIME, expire BIGINT, data_limit BIGINT, data_limit_reset_strategy TEXT, online_at DATETIME, service_id BIGINT, admin_id BIGINT, credential_key TEXT, subadress TEXT, flow TEXT, on_hold_expire_duration BIGINT)`,
+		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
 		`CREATE TABLE admins (id INTEGER PRIMARY KEY, username TEXT)`,
 		`CREATE TABLE services (id INTEGER PRIMARY KEY, name TEXT)`,
 		`CREATE TABLE user_usage_logs (user_id BIGINT, used_traffic_at_reset BIGINT)`,
@@ -116,6 +117,18 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 	}
 	if _, err := db.Exec(`INSERT INTO user_online_ips (node_id, user_id, last_seen_at) VALUES (1, 1, CURRENT_TIMESTAMP)`); err != nil {
 		t.Fatal(err)
+	}
+	rows, err = repo.usersRows(context.Background(), usersFilter{}, UsersListRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := onlineAt(rows, "tunnel-user")
+	if value == nil {
+		t.Fatal("expected an online Xray user to have a last connection")
+	}
+	seenAt, ok := parseDBTime(*value)
+	if !ok || time.Since(seenAt) > 5*time.Second {
+		t.Fatalf("expected an online Xray user to have a current last connection, got %v", value)
 	}
 	summary, err = repo.queryUsersSummary(context.Background(), usersFilter{})
 	if err != nil {

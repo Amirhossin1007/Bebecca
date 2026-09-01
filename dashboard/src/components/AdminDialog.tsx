@@ -38,7 +38,14 @@ import { useAdminsStore } from "contexts/AdminsContext";
 import { getDefaultPermissionsForRole } from "constants/adminPermissions";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type FC,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { fetch } from "service/http";
@@ -51,6 +58,7 @@ import { AdminRole, AdminStatus, AdminTrafficLimitMode } from "types/Admin";
 import type { ServiceSummary } from "types/Service";
 import { relativeExpiryDate } from "utils/dateFormatter";
 import { formatBytes } from "utils/formatByte";
+import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import {
 	generateErrorMessage,
 	generateSuccessMessage,
@@ -63,6 +71,7 @@ import {
 	type AnimatedSubmitStatus,
 } from "./common/AnimatedSubmitButton";
 import { NumericInput } from "./common/NumericInput";
+import { SearchInput } from "./common/SearchInput";
 import { DateTimePicker } from "./DateTimePicker";
 import {
 	XrayModalBody,
@@ -187,17 +196,16 @@ export const AdminDialog: FC = () => {
 	const { userData } = useGetUser();
 	const canCreateFullAccess = userData.role === AdminRole.FullAccess;
 	const canManage2FA =
-		canCreateFullAccess || Boolean(userData.permissions.admin_management.manage_2fa);
+		canCreateFullAccess ||
+		Boolean(userData.permissions.admin_management.manage_2fa);
 	const toast = useToast();
-	const {
-		admins,
-		adminInDialog: adminFromStore,
-		isAdminDialogOpen: isOpen,
-		closeAdminDialog,
-		createAdmin,
-		fetchAdmins,
-		updateAdmin,
-	} = useAdminsStore();
+	const admins = useAdminsStore((state) => state.admins);
+	const adminFromStore = useAdminsStore((state) => state.adminInDialog);
+	const isOpen = useAdminsStore((state) => state.isAdminDialogOpen);
+	const closeAdminDialog = useAdminsStore((state) => state.closeAdminDialog);
+	const createAdmin = useAdminsStore((state) => state.createAdmin);
+	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
+	const updateAdmin = useAdminsStore((state) => state.updateAdmin);
 	const admin = useMemo(() => {
 		if (!adminFromStore) {
 			return null;
@@ -354,15 +362,17 @@ export const AdminDialog: FC = () => {
 		[adminExpireUnix],
 	);
 	const [serviceSearch, setServiceSearch] = useState("");
+	const [serviceSearchMatch, setServiceSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const filteredServices = useMemo(() => {
-		const query = serviceSearch.trim().toLowerCase();
-		if (!query) {
+		if (!serviceSearch.trim()) {
 			return serviceOptions;
 		}
 		return serviceOptions.filter((service) =>
-			service.name.toLowerCase().includes(query),
+			matchesSearch(service.name, serviceSearch, serviceSearchMatch),
 		);
-	}, [serviceOptions, serviceSearch]);
+	}, [serviceOptions, serviceSearch, serviceSearchMatch]);
 	const selectedServices = watch("services") || [];
 	const selectedServicesSet = useMemo(
 		() => new Set(selectedServices),
@@ -461,7 +471,6 @@ export const AdminDialog: FC = () => {
 	const watchRole = watch("role");
 	const watchTrafficLimitMode = watch("traffic_limit_mode");
 	const watchUseServiceTrafficLimits = watch("use_service_traffic_limits");
-	const _hideExtendedPermissions = watchRole === AdminRole.Standard;
 	const permissionsValue = watch("permissions");
 	const showUserTrafficValue = watch("show_user_traffic");
 	const deleteUserUsageLimitEnabled = watch("delete_user_usage_limit_enabled");
@@ -703,267 +712,264 @@ export const AdminDialog: FC = () => {
 		}
 	}, [clearSubmitTimers, isOpen]);
 
-	const handleFormSubmit = handleSubmit(async (values) => {
-		if (submitStatus !== "idle") return;
-		clearSubmitTimers();
-		setSubmitStatus("loading");
-		const selectedRole: AdminRole = values.role ?? AdminRole.Standard;
-		let permissionPayload: AdminPermissions | undefined;
-		if (selectedRole === AdminRole.Reseller) {
-			toast({
-				status: "warning",
-				title: t("common.comingSoon"),
-				description: t("admins.roles.resellerDescription"),
-				isClosable: true,
-			});
-			showSubmitError();
-			return;
-		}
-
-		const buildPermissionsPayload = (): AdminPermissions => {
-			const computedPermissions: AdminPermissions = JSON.parse(
-				JSON.stringify(values.permissions ?? clonePermissions(selectedRole)),
-			);
-			const maxLimitInput = values.maxDataLimitPerUserGb?.trim();
-			if (computedPermissions.users.allow_unlimited_data) {
-				computedPermissions.users.max_data_limit_per_user = null;
-			} else if (maxLimitInput) {
-				const parsed = Number(maxLimitInput);
-				if (Number.isNaN(parsed) || parsed < 0) {
-					setError("maxDataLimitPerUserGb", {
-						type: "manual",
-						message: t("admins.validation.invalidMaxDataLimit"),
-					});
-					showSubmitError();
-					throw new Error("invalid_max_data_limit");
-				}
-				computedPermissions.users.max_data_limit_per_user =
-					parsed === 0 ? null : Math.round(parsed * GB_IN_BYTES);
-			} else {
-				computedPermissions.users.max_data_limit_per_user = null;
-			}
-			return computedPermissions;
-		};
-
-		if (mode === "create" || selectedRole !== AdminRole.FullAccess) {
-			try {
-				permissionPayload = buildPermissionsPayload();
-			} catch (error) {
-				if ((error as Error).message === "invalid_max_data_limit") {
-					return;
-				}
-				throw error;
-			}
-		}
-
-		if (mode === "edit" && admin) {
-			const currentActive = admin.active_users ?? 0;
-			if (values.users_limit) {
-				const requestedLimit = Number(values.users_limit);
-				if (
-					!Number.isNaN(requestedLimit) &&
-					requestedLimit > 0 &&
-					requestedLimit < currentActive
-				) {
-					setError("users_limit", {
-						type: "manual",
-						message: t("admins.validation.usersLimitTooLow", {
-							active: currentActive,
-						}),
-					});
-					showSubmitError();
-					return;
-				}
-			}
-		}
-		try {
-			const expireValue = adminExpireDate
-				? dayjs(adminExpireDate).utc().unix()
-				: null;
-			const buildServiceLimitPayload = () =>
-				(values.services ?? []).map((serviceId) => {
-					const item = values.service_limits?.[serviceId];
-					return {
-						service_id: serviceId,
-						traffic_limit_mode:
-							item?.traffic_limit_mode ?? AdminTrafficLimitMode.UsedTraffic,
-						data_limit: item?.data_limit
-							? Number(item.data_limit) * GB_IN_BYTES
-							: null,
-						show_user_traffic: item?.show_user_traffic ?? true,
-						users_limit: item?.users_limit ? Number(item.users_limit) : null,
-						delete_user_usage_limit_enabled: Boolean(
-							permissionsValue.users.delete &&
-								item?.delete_user_usage_limit_enabled,
-						),
-						delete_user_usage_limit: item?.delete_user_usage_limit
-							? Number(item.delete_user_usage_limit) * MB_IN_BYTES
-							: null,
-					};
+	const handleFormSubmit = handleSubmit(
+		async (values) => {
+			if (submitStatus !== "idle") return;
+			clearSubmitTimers();
+			setSubmitStatus("loading");
+			const selectedRole: AdminRole = values.role ?? AdminRole.Standard;
+			let permissionPayload: AdminPermissions | undefined;
+			if (selectedRole === AdminRole.Reseller) {
+				toast({
+					status: "warning",
+					title: t("common.comingSoon"),
+					description: t("admins.roles.resellerDescription"),
+					isClosable: true,
 				});
-			const requestedServices = values.services ?? [];
-			const serviceLimitPayload = values.use_service_traffic_limits
-				? buildServiceLimitPayload()
-				: undefined;
-			const globalDataLimit = values.data_limit
-				? Number(values.data_limit) * GB_IN_BYTES
-				: null;
-			const globalUsersLimit = values.users_limit
-				? Number(values.users_limit)
-				: null;
-			const globalDeleteUserUsageLimit = values.delete_user_usage_limit
-				? Number(values.delete_user_usage_limit) * MB_IN_BYTES
-				: null;
-			if (mode === "create") {
-				const payload: AdminCreatePayload = {
-					username: values.username.trim(),
-					password: values.password ?? "",
-					role: selectedRole,
-					require_2fa: canManage2FA ? values.require_2fa : undefined,
-					permissions: permissionPayload ?? clonePermissions(selectedRole),
-					services: values.services || [],
-					telegram_id: values.telegram_id
-						? Number(values.telegram_id)
-						: undefined,
-					data_limit: values.use_service_traffic_limits
-						? undefined
-						: globalDataLimit,
-					traffic_limit_mode:
-						selectedRole === AdminRole.FullAccess ||
-						values.use_service_traffic_limits
-							? undefined
-							: values.traffic_limit_mode,
-					use_service_traffic_limits:
-						selectedRole === AdminRole.FullAccess
-							? undefined
-							: values.use_service_traffic_limits,
-					show_user_traffic:
-						selectedRole === AdminRole.FullAccess
-							? undefined
-							: values.show_user_traffic,
-					delete_user_usage_limit_enabled:
-						selectedRole === AdminRole.FullAccess
-							? undefined
-							: Boolean(
-									permissionsValue.users.delete &&
-										values.delete_user_usage_limit_enabled,
-								),
-					delete_user_usage_limit: globalDeleteUserUsageLimit,
-					expire: expireValue,
-					users_limit: values.use_service_traffic_limits
-						? undefined
-						: globalUsersLimit,
-				};
-				const createdAdmin = await createAdmin(payload);
-				let shouldFetch = true;
-				let serviceSyncError: unknown = null;
-				if (
-					selectedRole !== AdminRole.FullAccess &&
-					values.use_service_traffic_limits
-				) {
-					try {
-						await updateAdmin(createdAdmin.username, {
-							services: requestedServices,
-							use_service_traffic_limits: true,
-							service_limits: serviceLimitPayload,
+				showSubmitError();
+				return;
+			}
+
+			const buildPermissionsPayload = (): AdminPermissions => {
+				const computedPermissions: AdminPermissions = JSON.parse(
+					JSON.stringify(values.permissions ?? clonePermissions(selectedRole)),
+				);
+				const maxLimitInput = values.maxDataLimitPerUserGb?.trim();
+				if (computedPermissions.users.allow_unlimited_data) {
+					computedPermissions.users.max_data_limit_per_user = null;
+				} else if (maxLimitInput) {
+					const parsed = Number(maxLimitInput);
+					if (Number.isNaN(parsed) || parsed < 0) {
+						setError("maxDataLimitPerUserGb", {
+							type: "manual",
+							message: t("admins.validation.invalidMaxDataLimit"),
 						});
-						shouldFetch = false;
-					} catch (error) {
-						serviceSyncError = error;
+						showSubmitError();
+						throw new Error("invalid_max_data_limit");
 					}
-				} else if (requestedServices.length > 0) {
-					const createdServices = new Set(createdAdmin?.services ?? []);
-					const missingServices = requestedServices.filter(
-						(serviceId) => !createdServices.has(serviceId),
-					);
-					const needsSync =
-						missingServices.length > 0 ||
-						createdServices.size !== requestedServices.length;
-					if (needsSync) {
+					computedPermissions.users.max_data_limit_per_user =
+						parsed === 0 ? null : Math.round(parsed * GB_IN_BYTES);
+				} else {
+					computedPermissions.users.max_data_limit_per_user = null;
+				}
+				return computedPermissions;
+			};
+
+			if (mode === "create" || selectedRole !== AdminRole.FullAccess) {
+				try {
+					permissionPayload = buildPermissionsPayload();
+				} catch (error) {
+					if ((error as Error).message === "invalid_max_data_limit") {
+						return;
+					}
+					throw error;
+				}
+			}
+
+			if (mode === "edit" && admin) {
+				const currentActive = admin.active_users ?? 0;
+				if (values.users_limit) {
+					const requestedLimit = Number(values.users_limit);
+					if (
+						!Number.isNaN(requestedLimit) &&
+						requestedLimit > 0 &&
+						requestedLimit < currentActive
+					) {
+						setError("users_limit", {
+							type: "manual",
+							message: t("admins.validation.usersLimitTooLow", {
+								active: currentActive,
+							}),
+						});
+						showSubmitError();
+						return;
+					}
+				}
+			}
+			try {
+				const expireValue = adminExpireDate
+					? dayjs(adminExpireDate).utc().unix()
+					: null;
+				const buildServiceLimitPayload = () =>
+					(values.services ?? []).map((serviceId) => {
+						const item = values.service_limits?.[serviceId];
+						return {
+							service_id: serviceId,
+							traffic_limit_mode:
+								item?.traffic_limit_mode ?? AdminTrafficLimitMode.UsedTraffic,
+							data_limit: item?.data_limit
+								? Number(item.data_limit) * GB_IN_BYTES
+								: null,
+							show_user_traffic: item?.show_user_traffic ?? true,
+							users_limit: item?.users_limit ? Number(item.users_limit) : null,
+							delete_user_usage_limit_enabled: Boolean(
+								permissionsValue.users.delete &&
+									item?.delete_user_usage_limit_enabled,
+							),
+							delete_user_usage_limit: item?.delete_user_usage_limit
+								? Number(item.delete_user_usage_limit) * MB_IN_BYTES
+								: null,
+						};
+					});
+				const requestedServices = values.services ?? [];
+				const serviceLimitPayload = values.use_service_traffic_limits
+					? buildServiceLimitPayload()
+					: undefined;
+				const globalDataLimit = values.data_limit
+					? Number(values.data_limit) * GB_IN_BYTES
+					: null;
+				const globalUsersLimit = values.users_limit
+					? Number(values.users_limit)
+					: null;
+				const globalDeleteUserUsageLimit = values.delete_user_usage_limit
+					? Number(values.delete_user_usage_limit) * MB_IN_BYTES
+					: null;
+				if (mode === "create") {
+					const payload: AdminCreatePayload = {
+						username: values.username.trim(),
+						password: values.password ?? "",
+						role: selectedRole,
+						require_2fa: canManage2FA ? values.require_2fa : undefined,
+						permissions: permissionPayload ?? clonePermissions(selectedRole),
+						services: values.services || [],
+						telegram_id: values.telegram_id
+							? Number(values.telegram_id)
+							: undefined,
+						data_limit: values.use_service_traffic_limits
+							? undefined
+							: globalDataLimit,
+						traffic_limit_mode:
+							selectedRole === AdminRole.FullAccess ||
+							values.use_service_traffic_limits
+								? undefined
+								: values.traffic_limit_mode,
+						use_service_traffic_limits:
+							selectedRole === AdminRole.FullAccess
+								? undefined
+								: values.use_service_traffic_limits,
+						show_user_traffic:
+							selectedRole === AdminRole.FullAccess
+								? undefined
+								: values.show_user_traffic,
+						delete_user_usage_limit_enabled:
+							selectedRole === AdminRole.FullAccess
+								? undefined
+								: Boolean(
+										permissionsValue.users.delete &&
+											values.delete_user_usage_limit_enabled,
+									),
+						delete_user_usage_limit: globalDeleteUserUsageLimit,
+						expire: expireValue,
+						users_limit: values.use_service_traffic_limits
+							? undefined
+							: globalUsersLimit,
+					};
+					const createdAdmin = await createAdmin(payload);
+					let shouldFetch = true;
+					let serviceSyncError: unknown = null;
+					if (
+						selectedRole !== AdminRole.FullAccess &&
+						values.use_service_traffic_limits
+					) {
 						try {
 							await updateAdmin(createdAdmin.username, {
 								services: requestedServices,
+								use_service_traffic_limits: true,
+								service_limits: serviceLimitPayload,
 							});
 							shouldFetch = false;
 						} catch (error) {
 							serviceSyncError = error;
 						}
+					} else if (requestedServices.length > 0) {
+						const createdServices = new Set(createdAdmin?.services ?? []);
+						const missingServices = requestedServices.filter(
+							(serviceId) => !createdServices.has(serviceId),
+						);
+						const needsSync =
+							missingServices.length > 0 ||
+							createdServices.size !== requestedServices.length;
+						if (needsSync) {
+							try {
+								await updateAdmin(createdAdmin.username, {
+									services: requestedServices,
+								});
+								shouldFetch = false;
+							} catch (error) {
+								serviceSyncError = error;
+							}
+						}
 					}
+					if (shouldFetch) {
+						await fetchAdmins(undefined, { force: true });
+					}
+					generateSuccessMessage(t("admins.createSuccess"), toast);
+					if (serviceSyncError) {
+						generateErrorMessage(serviceSyncError, toast);
+					}
+				} else if (admin) {
+					const payload: AdminUpdatePayload = {
+						role: selectedRole,
+						require_2fa: canManage2FA ? values.require_2fa : undefined,
+						permissions:
+							selectedRole === AdminRole.FullAccess
+								? undefined
+								: permissionPayload,
+						services: values.services || [],
+						telegram_id: values.telegram_id
+							? Number(values.telegram_id)
+							: undefined,
+						data_limit: values.use_service_traffic_limits
+							? undefined
+							: globalDataLimit,
+						traffic_limit_mode:
+							selectedRole === AdminRole.FullAccess ||
+							values.use_service_traffic_limits
+								? undefined
+								: values.traffic_limit_mode,
+						use_service_traffic_limits:
+							selectedRole === AdminRole.FullAccess
+								? undefined
+								: values.use_service_traffic_limits,
+						show_user_traffic:
+							selectedRole === AdminRole.FullAccess
+								? undefined
+								: values.show_user_traffic,
+						delete_user_usage_limit_enabled:
+							selectedRole === AdminRole.FullAccess
+								? undefined
+								: Boolean(
+										permissionsValue.users.delete &&
+											values.delete_user_usage_limit_enabled,
+									),
+						delete_user_usage_limit: globalDeleteUserUsageLimit,
+						expire: expireValue,
+						users_limit: values.use_service_traffic_limits
+							? undefined
+							: globalUsersLimit,
+						service_limits: serviceLimitPayload,
+					};
+					if (values.password) {
+						payload.password = values.password;
+					}
+					await updateAdmin(admin.username, payload);
+					generateSuccessMessage(t("admins.updateSuccess"), toast);
 				}
-				if (shouldFetch) {
-					await fetchAdmins(undefined, { force: true });
-				}
-				generateSuccessMessage(
-					t("admins.createSuccess"),
-					toast,
-				);
-				if (serviceSyncError) {
-					generateErrorMessage(serviceSyncError, toast);
-				}
-			} else if (admin) {
-				const payload: AdminUpdatePayload = {
-					role: selectedRole,
-					require_2fa: canManage2FA ? values.require_2fa : undefined,
-					permissions:
-						selectedRole === AdminRole.FullAccess
-							? undefined
-							: permissionPayload,
-					services: values.services || [],
-					telegram_id: values.telegram_id
-						? Number(values.telegram_id)
-						: undefined,
-					data_limit: values.use_service_traffic_limits
-						? undefined
-						: globalDataLimit,
-					traffic_limit_mode:
-						selectedRole === AdminRole.FullAccess ||
-						values.use_service_traffic_limits
-							? undefined
-							: values.traffic_limit_mode,
-					use_service_traffic_limits:
-						selectedRole === AdminRole.FullAccess
-							? undefined
-							: values.use_service_traffic_limits,
-					show_user_traffic:
-						selectedRole === AdminRole.FullAccess
-							? undefined
-							: values.show_user_traffic,
-					delete_user_usage_limit_enabled:
-						selectedRole === AdminRole.FullAccess
-							? undefined
-							: Boolean(
-									permissionsValue.users.delete &&
-										values.delete_user_usage_limit_enabled,
-								),
-					delete_user_usage_limit: globalDeleteUserUsageLimit,
-					expire: expireValue,
-					users_limit: values.use_service_traffic_limits
-						? undefined
-						: globalUsersLimit,
-					service_limits: serviceLimitPayload,
-				};
-				if (values.password) {
-					payload.password = values.password;
-				}
-				await updateAdmin(admin.username, payload);
-				generateSuccessMessage(
-					t("admins.updateSuccess"),
-					toast,
-				);
+				setSubmitStatus("success");
+				successCloseTimerRef.current = window.setTimeout(() => {
+					successCloseTimerRef.current = null;
+					handleCloseAdminDialog();
+				}, 1000);
+			} catch (error) {
+				generateErrorMessage(error, toast, form);
+				showSubmitError();
 			}
-			setSubmitStatus("success");
-			successCloseTimerRef.current = window.setTimeout(() => {
-				successCloseTimerRef.current = null;
-				handleCloseAdminDialog();
-			}, 1000);
-		} catch (error) {
-			generateErrorMessage(error, toast, form);
+		},
+		() => {
+			if (submitStatus !== "idle") return;
 			showSubmitError();
-		}
-	}, () => {
-		if (submitStatus !== "idle") return;
-		showSubmitError();
-	});
+		},
+	);
 
 	const detailsForm = (
 		<VStack spacing={4} align="stretch">
@@ -1100,9 +1106,7 @@ export const AdminDialog: FC = () => {
 						>
 							<VStack align="flex-start" spacing={2}>
 								<Radio value={AdminRole.Standard}>
-									<Text fontWeight="medium">
-										{t("admins.roles.standard")}
-									</Text>
+									<Text fontWeight="medium">{t("admins.roles.standard")}</Text>
 									<FormHelperText m={0}>
 										{t("admins.roles.standardDescription")}
 									</FormHelperText>
@@ -1119,9 +1123,7 @@ export const AdminDialog: FC = () => {
 									</FormHelperText>
 								</Radio>
 								<Radio value={AdminRole.Sudo}>
-									<Text fontWeight="medium">
-										{t("admins.roles.sudo")}
-									</Text>
+									<Text fontWeight="medium">{t("admins.roles.sudo")}</Text>
 									<FormHelperText m={0}>
 										{t("admins.roles.sudoDescription")}
 									</FormHelperText>
@@ -1309,9 +1311,7 @@ export const AdminDialog: FC = () => {
 								{t(adminExpireInfo.status, { time: adminExpireInfo.time })}
 							</FormHelperText>
 						) : (
-							<FormHelperText>
-								{t("admins.expireHint")}
-							</FormHelperText>
+							<FormHelperText>{t("admins.expireHint")}</FormHelperText>
 						)}
 					</FormControl>
 				</VStack>
@@ -1347,11 +1347,13 @@ export const AdminDialog: FC = () => {
 									{selectedServices.length} / {serviceOptions.length}
 								</Badge>
 							</HStack>
-							<Input
+							<SearchInput
 								value={serviceSearch}
 								onChange={(event) => setServiceSearch(event.target.value)}
 								placeholder={t("admins.searchServices")}
-								size="sm"
+								matchOptions={serviceSearchMatch}
+								onMatchOptionsChange={setServiceSearchMatch}
+								onClear={() => setServiceSearch("")}
 							/>
 							<VStack
 								className="admin-services-list"
@@ -1414,9 +1416,9 @@ export const AdminDialog: FC = () => {
 														</Text>
 														<Text fontSize="xs" color="gray.500">
 															{t("admins.serviceStats", {
-																	users: service.user_count ?? 0,
-																	hosts: service.host_count ?? 0,
-																})}
+																users: service.user_count ?? 0,
+																hosts: service.host_count ?? 0,
+															})}
 														</Text>
 													</Box>
 													{isSelected && (
@@ -1490,8 +1492,7 @@ export const AdminDialog: FC = () => {
 																	{service?.name ?? `#${serviceId}`}
 																</Text>
 																<Text color="gray.400" fontSize="xs">
-																	{t("admins.deletedUserUsage")}
-																	:{" "}
+																	{t("admins.deletedUserUsage")}:{" "}
 																	{formatBytes(
 																		Number(item.deleted_users_usage ?? 0),
 																		2,
@@ -1541,9 +1542,7 @@ export const AdminDialog: FC = () => {
 															spacing={2}
 														>
 															<FormControl>
-																<FormLabel>
-																	{t("admins.dataLimit")}
-																</FormLabel>
+																<FormLabel>{t("admins.dataLimit")}</FormLabel>
 																<NumericInput
 																	value={item.data_limit ?? ""}
 																	precision={0}
@@ -1556,9 +1555,7 @@ export const AdminDialog: FC = () => {
 																/>
 															</FormControl>
 															<FormControl>
-																<FormLabel>
-																	{t("admins.usersLimit")}
-																</FormLabel>
+																<FormLabel>{t("admins.usersLimit")}</FormLabel>
 																<NumericInput
 																	value={item.users_limit ?? ""}
 																	precision={0}
@@ -1625,9 +1622,7 @@ export const AdminDialog: FC = () => {
 								</VStack>
 							)}
 						</VStack>
-						<FormHelperText>
-							{t("admins.servicesHelper")}
-						</FormHelperText>
+						<FormHelperText>{t("admins.servicesHelper")}</FormHelperText>
 					</FormControl>
 				</VStack>
 			</Box>
@@ -1637,7 +1632,9 @@ export const AdminDialog: FC = () => {
 	const permissionsPanel = (
 		<VStack align="stretch" spacing={4}>
 			<AdminPermissionsEditor
-				value={permissionsValue ?? clonePermissions(watchRole ?? AdminRole.Standard)}
+				value={
+					permissionsValue ?? clonePermissions(watchRole ?? AdminRole.Standard)
+				}
 				onChange={handlePermissionsChange}
 				showReset
 				onReset={resetPermissionsToRole}
@@ -1674,7 +1671,7 @@ export const AdminDialog: FC = () => {
 				size="3xl"
 				scrollBehavior="inside"
 			>
-				<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+				<ModalOverlay bg="blackAlpha.400" />
 				<XrayModalContent
 					mx="3"
 					sx={{
@@ -1728,12 +1725,7 @@ export const AdminDialog: FC = () => {
 						</Tabs>
 					</XrayModalBody>
 					<XrayModalFooter>
-						<HStack
-							spacing={3}
-							w="full"
-							justify="flex-end"
-							flexWrap="wrap"
-						>
+						<HStack spacing={3} w="full" justify="flex-end" flexWrap="wrap">
 							<Button
 								variant="ghost"
 								size="sm"
@@ -1745,9 +1737,7 @@ export const AdminDialog: FC = () => {
 								onClick={handleFormSubmit}
 								status={submitStatus}
 								idleContent={
-									mode === "create"
-										? t("admins.addAdmin")
-										: t("save")
+									mode === "create" ? t("admins.addAdmin") : t("save")
 								}
 								successLabel={t("userDialog.submitSuccess")}
 								isDisabled={isSubmitting}

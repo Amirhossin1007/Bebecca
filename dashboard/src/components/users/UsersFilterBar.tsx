@@ -5,12 +5,7 @@ import {
 	Checkbox,
 	chakra,
 	Flex,
-	HStack,
 	IconButton,
-	Input,
-	InputGroup,
-	InputLeftElement,
-	InputRightElement,
 	Popover,
 	PopoverArrow,
 	PopoverBody,
@@ -18,7 +13,6 @@ import {
 	PopoverContent,
 	PopoverHeader,
 	PopoverTrigger,
-	Spinner,
 	Stack,
 	Text,
 	Tooltip,
@@ -26,12 +20,11 @@ import {
 } from "@chakra-ui/react";
 import {
 	FunnelIcon,
-	MagnifyingGlassIcon,
 	PlusIcon,
 	QuestionMarkCircleIcon,
-	XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { ADVANCED_FILTER_OPTIONS } from "components/Filters";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
@@ -42,7 +35,7 @@ import type React from "react";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdminRole, AdminStatus, UserPermissionToggle } from "types/Admin";
-import { isUserManagementLocked } from "utils/adminTraffic";
+import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
 const iconProps = {
 	baseStyle: {
@@ -51,9 +44,7 @@ const iconProps = {
 	},
 };
 
-const SearchIcon = chakra(MagnifyingGlassIcon, iconProps);
 const FilterIcon = chakra(FunnelIcon, iconProps);
-const ClearIcon = chakra(XMarkIcon, iconProps);
 const PlusIconStyled = chakra(PlusIcon, iconProps);
 const HelpIcon = chakra(QuestionMarkCircleIcon, iconProps);
 
@@ -66,7 +57,10 @@ const formatChipCount = (value: number, locale: string) =>
  * Admins page keeps its own untouched toolbar.
  */
 export const UsersFilterBar: FC = () => {
-	const { loading, filters, onFilterChange, onCreateUser } = useDashboard();
+	const loading = useDashboard((state) => state.loading);
+	const filters = useDashboard((state) => state.filters);
+	const onFilterChange = useDashboard((state) => state.onFilterChange);
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
 	const { t, i18n } = useTranslation();
 	const locale = i18n.language || "en";
 	const [search, setSearch] = useState("");
@@ -82,16 +76,24 @@ export const UsersFilterBar: FC = () => {
 		Boolean(userData.permissions?.users?.[UserPermissionToggle.Create]);
 	const showCreateButton =
 		canCreateUsers && !isCurrentAdminDisabled && !userManagementLocked;
+	const canViewTraffic = canViewUserTraffic(userData);
 
 	const activeFilters = filters.advancedFilters ?? [];
 	const serviceId = filters.serviceId;
 	const ownerFilter = filters.owner;
-	const { serviceOptions: rawServiceOptions, fetchServiceOptions } =
-		useServicesStore();
+	const matchOptions = {
+		matchCase: Boolean(filters.matchCase),
+		matchWholeWord: Boolean(filters.matchWholeWord),
+	};
+	const rawServiceOptions = useServicesStore((state) => state.serviceOptions);
+	const fetchServiceOptions = useServicesStore(
+		(state) => state.fetchServiceOptions,
+	);
 	const serviceOptions = Array.isArray(rawServiceOptions)
 		? rawServiceOptions
 		: [];
-	const { adminOptions, fetchAdminOptions } = useAdminsStore();
+	const adminOptions = useAdminsStore((state) => state.adminOptions);
+	const fetchAdminOptions = useAdminsStore((state) => state.fetchAdminOptions);
 	const safeAdminOptions = Array.isArray(adminOptions) ? adminOptions : [];
 
 	const debouncedSearchChange = useMemo(
@@ -196,60 +198,46 @@ export const UsersFilterBar: FC = () => {
 
 	return (
 		<Flex align="center" gap={2} w="full" minW={0}>
-			<InputGroup
-				flex="1 1 auto"
-				minW={0}
-				// Capped so the search field stays balanced inside the header
-				// card instead of swallowing the whole row on wide screens.
-				maxW={{ base: "100%", sm: "340px" }}
-			>
-				<InputLeftElement pointerEvents="none" h="full">
-					<SearchIcon color="panel.textMuted" />
-				</InputLeftElement>
-				<Input
-					className="rb-users-search-input"
-					placeholder={t("search")}
-					value={search}
-					onChange={onSearchChange}
-					borderRadius="full"
-					borderColor="panel.border"
-					bg="panel.elevated"
-					_focusVisible={{
-						borderColor: "primary.400",
-						bg: "panel.surface",
-					}}
-				/>
-				<InputRightElement w="auto" pe={1.5} h="full">
-					<HStack spacing={0.5}>
-						{loading && <Spinner size="xs" color="panel.textMuted" />}
-						{filters.search && filters.search.length > 0 && (
-							<IconButton
-								onClick={clearSearch}
-								aria-label={t("usersFilter.clearSearch")}
-								size="xs"
-								variant="ghost"
-								borderRadius="full"
-							>
-								<ClearIcon />
-							</IconButton>
-						)}
-						<Tooltip
-							label={t("users.searchHelp")}
-							placement="top"
-							hasArrow
+			<SearchInput
+				containerProps={{
+					flex: "1 1 auto",
+					minW: 0,
+					maxW: { base: "100%", sm: "380px" },
+				}}
+				className="rb-users-search-input"
+				placeholder={t("search")}
+				value={search}
+				onChange={onSearchChange}
+				matchOptions={matchOptions}
+				onMatchOptionsChange={(options) =>
+					onFilterChange({
+						matchCase: options.matchCase,
+						matchWholeWord: options.matchWholeWord,
+						offset: 0,
+					})
+				}
+				isLoading={loading}
+				onClear={clearSearch}
+				borderRadius="full"
+				borderColor="panel.border"
+				bg="panel.elevated"
+				_focusVisible={{
+					borderColor: "primary.400",
+					bg: "panel.surface",
+				}}
+				rightElement={
+					<Tooltip label={t("users.searchHelp")} placement="top" hasArrow>
+						<Box
+							display="inline-flex"
+							alignItems="center"
+							color="panel.textMuted"
+							px={1}
 						>
-							<Box
-								display="inline-flex"
-								alignItems="center"
-								color="panel.textMuted"
-								px={1}
-							>
-								<HelpIcon />
-							</Box>
-						</Tooltip>
-					</HStack>
-				</InputRightElement>
-			</InputGroup>
+							<HelpIcon />
+						</Box>
+					</Tooltip>
+				}
+			/>
 
 			<Popover placement="bottom-end">
 				<PopoverTrigger>
@@ -288,7 +276,9 @@ export const UsersFilterBar: FC = () => {
 					</PopoverHeader>
 					<PopoverBody>
 						<Stack spacing={2}>
-							{ADVANCED_FILTER_OPTIONS.map((option) => (
+							{ADVANCED_FILTER_OPTIONS.filter(
+								(option) => option.key !== "top_speed" || canViewTraffic,
+							).map((option) => (
 								<Checkbox
 									key={option.key}
 									isChecked={activeFilters.includes(option.key)}
@@ -309,9 +299,7 @@ export const UsersFilterBar: FC = () => {
 									portalled={false}
 									size="sm"
 								>
-									<option value="">
-										{t("filters.advanced.serviceAll")}
-									</option>
+									<option value="">{t("filters.advanced.serviceAll")}</option>
 									{serviceOptions.map((service) => (
 										<option key={service.id} value={String(service.id)}>
 											{service.name}
@@ -330,9 +318,7 @@ export const UsersFilterBar: FC = () => {
 										portalled={false}
 										size="sm"
 									>
-										<option value="">
-											{t("filters.advanced.adminAll")}
-										</option>
+										<option value="">{t("filters.advanced.adminAll")}</option>
 										<option value={userData.username}>
 											{t("filters.advanced.adminMyUsers")}
 										</option>

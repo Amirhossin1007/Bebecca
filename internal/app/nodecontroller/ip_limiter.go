@@ -81,6 +81,7 @@ func onlineIPActiveCutoff() time.Time {
 
 func onlineIPSamplesFromBatch(items []*nodev1.OnlineUserIP) []OnlineIPSample {
 	result := make([]OnlineIPSample, 0, len(items))
+	observedAt := time.Now().UTC()
 	for _, item := range items {
 		if item == nil {
 			continue
@@ -97,15 +98,11 @@ func onlineIPSamplesFromBatch(items []*nodev1.OnlineUserIP) []OnlineIPSample {
 			if !usableOnlineIP(addr) {
 				continue
 			}
-			lastSeen := time.Now().UTC()
-			if unix := ip.GetLastSeenUnix(); unix > 0 {
-				lastSeen = time.Unix(unix, 0).UTC()
-			}
 			result = append(result, OnlineIPSample{
 				UserID:     userID,
 				Protocol:   "xray",
 				IP:         addr,
-				LastSeenAt: lastSeen,
+				LastSeenAt: observedAt,
 			})
 		}
 	}

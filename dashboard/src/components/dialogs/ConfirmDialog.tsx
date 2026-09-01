@@ -71,7 +71,7 @@ export const ConfirmDialog = ({
 			onClose={onClose}
 			isCentered
 		>
-			<AlertDialogOverlay bg="blackAlpha.500" backdropFilter="blur(12px)">
+			<AlertDialogOverlay bg="blackAlpha.500">
 				<AlertDialogContent
 					className="rb-confirm-dialog-content"
 					bg={dialogBg}

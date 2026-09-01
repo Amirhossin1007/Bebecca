@@ -1,4 +1,3 @@
-import { StatisticsQueryKey } from "components/Statistics";
 import { fetch } from "service/http";
 import type {
 	AdvancedUserActionPayload,
@@ -10,14 +9,19 @@ import type {
 	UsersListResponse,
 } from "types/User";
 import { queryClient } from "utils/react-query";
+import { matchesSearch } from "utils/searchMatch";
 import { getUsersPerPageLimitSize } from "utils/userPreferenceStorage";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
 const DEFAULT_SORT = "-created_at";
 
+const StatisticsQueryKey = "statistics-query-key";
+
 export type FilterType = {
 	search?: string;
+	matchCase?: boolean;
+	matchWholeWord?: boolean;
 	limit?: number;
 	offset?: number;
 	sort: string;
@@ -100,16 +104,24 @@ const isAbortError = (error: unknown): boolean => {
 	);
 };
 
-const getUserSearchRank = (user: UserListItem, search: string): number => {
-	const normalizedSearch = search.trim().toLowerCase();
+const getUserSearchRank = (
+	user: UserListItem,
+	search: string,
+	options: { matchCase: boolean; matchWholeWord: boolean },
+): number => {
+	const normalizedSearch = search.trim();
 	if (!normalizedSearch) {
 		return Number.MAX_SAFE_INTEGER;
 	}
-	const username = user.username?.toLowerCase() ?? "";
-	if (username === normalizedSearch) {
+	const username = user.username ?? "";
+	if (
+		options.matchCase
+			? username === normalizedSearch
+			: username.toLocaleLowerCase() === normalizedSearch.toLocaleLowerCase()
+	) {
 		return 0;
 	}
-	if (username.includes(normalizedSearch)) {
+	if (matchesSearch(username, normalizedSearch, options)) {
 		return 1;
 	}
 	const searchableValues = [
@@ -118,10 +130,10 @@ const getUserSearchRank = (user: UserListItem, search: string): number => {
 		...(user.links ?? []),
 		user.service_name,
 		user.admin_username,
-	]
-		.filter((value): value is string => Boolean(value))
-		.map((value) => value.toLowerCase());
-	return searchableValues.some((value) => value.includes(normalizedSearch))
+	].filter((value): value is string => Boolean(value));
+	return searchableValues.some((value) =>
+		matchesSearch(value, normalizedSearch, options),
+	)
 		? 2
 		: Number.MAX_SAFE_INTEGER;
 };
@@ -141,12 +153,16 @@ const normalizeUsersListResponse = (
 	});
 	const total = response.total ?? users.length;
 	const search = query.search?.trim();
+	const searchOptions = {
+		matchCase: Boolean(query.matchCase),
+		matchWholeWord: Boolean(query.matchWholeWord),
+	};
 	if (search && users.length > total) {
 		const rankedMatches = users
 			.map((user, index) => ({
 				user,
 				index,
-				rank: getUserSearchRank(user, search),
+				rank: getUserSearchRank(user, search, searchOptions),
 			}))
 			.filter((entry) => entry.rank < Number.MAX_SAFE_INTEGER)
 			.sort((a, b) => a.rank - b.rank || a.index - b.index)
@@ -169,12 +185,19 @@ export type InboundType = {
 	protocol: ProtocolType;
 	network: string;
 	tls: string;
+	header_type?: string;
 	alpn?: string;
 	flow?: string;
 	settings?: Record<string, unknown>;
 	port?: number;
 };
 export type Inbounds = Map<ProtocolType, InboundType[]>;
+
+export type LiveUserStats = {
+	is_online: boolean;
+	upload_speed: number;
+	download_speed: number;
+};
 
 type DashboardStateType = {
 	isCreatingNewUser: boolean;
@@ -186,6 +209,7 @@ type DashboardStateType = {
 	quickEditUser: { user: UserListItem; field: "expire" | "data_limit" } | null;
 	version: string | null;
 	users: UsersListResponse;
+	liveUserStats: Record<string, LiveUserStats>;
 	linkTemplates?: Record<string, string[]>; // Link templates for generating user links
 	inbounds: Inbounds;
 	loading: boolean;
@@ -271,10 +295,14 @@ const fetchUsers = (
 	if (sanitizedQuery.serviceId !== undefined) {
 		requestQuery.service_id = sanitizedQuery.serviceId;
 	}
+	requestQuery.match_case = Boolean(sanitizedQuery.matchCase);
+	requestQuery.match_whole_word = Boolean(sanitizedQuery.matchWholeWord);
 	requestQuery.links = true;
 	delete requestQuery.advancedFilters;
 	delete requestQuery.owner;
 	delete requestQuery.serviceId;
+	delete requestQuery.matchCase;
+	delete requestQuery.matchWholeWord;
 
 	return fetch<UsersListResponse>("/users", {
 		query: requestQuery,
@@ -288,6 +316,19 @@ const fetchUsers = (
 				usersResponse,
 				sanitizedQuery,
 			);
+			const previousUsers = new Map(
+				useDashboard
+					.getState()
+					.users.users.map((user) => [user.username, user]),
+			);
+			normalizedResponse.users = normalizedResponse.users.map((user) => {
+				const previous = previousUsers.get(user.username);
+				return {
+					...user,
+					upload_speed: user.upload_speed ?? previous?.upload_speed,
+					download_speed: user.download_speed ?? previous?.download_speed,
+				};
+			});
 			const limit = normalizedResponse.users_limit ?? null;
 			const activeTotal = normalizedResponse.active_total ?? null;
 			const isUserLimitReached =
@@ -370,7 +411,6 @@ export const fetchInbounds = () => {
 				if (inboundsAbortController === abortController) {
 					inboundsAbortController = null;
 				}
-				useDashboard.setState({ loading: false });
 			}
 		});
 };
@@ -385,6 +425,7 @@ export const clearDashboardCache = () => {
 	inboundsAbortController = null;
 	useDashboard.setState({
 		users: createEmptyUsersResponse(),
+		liveUserStats: {},
 		linkTemplates: undefined,
 		inbounds: new Map(),
 		loading: false,
@@ -415,6 +456,7 @@ export const useDashboard = create(
 		qrCodeUsername: null,
 		subscribeUrl: null,
 		users: createEmptyUsersResponse(),
+		liveUserStats: {},
 		loading: true,
 		isUserLimitReached: false,
 		isResetingAllUsage: false,

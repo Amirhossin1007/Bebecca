@@ -359,6 +359,29 @@ func (r Repository) DeleteInbound(ctx context.Context, tag string) (InboundMutat
 	return InboundMutationResult{Detail: "Inbound removed"}, nil
 }
 
+func (r Repository) ResetInboundUsage(ctx context.Context, tag string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT 1 FROM inbounds WHERE tag = ? LIMIT 1`, tag).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrInboundNotFound
+		}
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE inbounds SET uplink = 0, downlink = 0 WHERE tag = ?`, tag); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE node_usage_outbound_queue SET inbound_uplink = 0, inbound_downlink = 0 WHERE tag = ? AND processed_at IS NULL`, tag); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 var (
 	ErrInboundNotFound      = errors.New("inbound not found")
 	ErrDuplicateInboundTag  = errors.New("duplicate inbound tag")

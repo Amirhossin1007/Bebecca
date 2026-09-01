@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -394,6 +395,25 @@ func TestMirzaWebhookUsesDedicatedPath(t *testing.T) {
 	}
 	if got := externalAppWebhookURL(Record{Domain: "legacy.example.com"}); got != "https://legacy.example.com/index.php" {
 		t.Fatalf("legacy webhook URL=%q", got)
+	}
+}
+
+func TestMirzaRecordIsEnabledWhileWebhookActivates(t *testing.T) {
+	record := Record{ID: "0123456789ab", Template: "mirzabot", Domain: "bot.example.com", Path: "bot0123456789ab"}
+	manager := &Manager{apps: map[string]Record{record.ID: record}}
+
+	wantErr := errors.New("webhook failed")
+	if _, err := manager.withEnabledRecord(record, func() error {
+		matched, _, ok := manager.Match(record.Domain, "/"+record.Path)
+		if !ok || !matched.Enabled {
+			t.Fatal("MirzaBot route was not enabled before webhook activation")
+		}
+		return wantErr
+	}); !errors.Is(err, wantErr) {
+		t.Fatalf("activation error = %v", err)
+	}
+	if restored, ok := manager.Lookup(record.ID); !ok || restored.Enabled {
+		t.Fatal("failed webhook activation did not restore the disabled record")
 	}
 }
 

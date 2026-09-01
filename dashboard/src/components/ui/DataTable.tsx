@@ -363,7 +363,13 @@ const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 				if (action.render) {
 					const renderAction = action.render;
 					return (
-						<Menu key={action.id} placement="auto-end" strategy="fixed" autoSelect={false}>
+						<Menu
+							key={action.id}
+							placement="auto-end"
+							strategy="fixed"
+							autoSelect={false}
+							isLazy
+						>
 							{({ onClose }) => (
 								<>
 									<Tooltip label={action.label}>
@@ -1275,6 +1281,11 @@ export function DataTable<TData>({
 											<Tr
 											className="rb-data-table-row"
 											data-selected={row.getIsSelected() ? "true" : undefined}
+											data-expanded={
+												renderExpandedRow && isRowExpanded?.(row.original)
+													? "true"
+													: undefined
+											}
 											onClick={() => onRowClick?.(row.original)}
 											onContextMenu={(event) =>
 												handleTableContextMenu(event, row.original)
@@ -1369,7 +1380,9 @@ export function DataTable<TData>({
 											{renderExpandedRow && isRowExpanded?.(row.original) && (
 												<Tr className="rb-data-table-row-detail">
 													<Td colSpan={visibleColumnCount} p={0}>
-														<Box p={4}>{renderExpandedRow(row.original)}</Box>
+														<Box className="rb-data-table-expanded-content" p={4}>
+															{renderExpandedRow(row.original)}
+														</Box>
 													</Td>
 												</Tr>
 											)}

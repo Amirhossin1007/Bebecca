@@ -8,15 +8,18 @@ import (
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/online"
+	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 )
 
 const maxAccessInsightRecords = 5000
 
 type OnlineAccessQuery struct {
-	AdminID *int64
-	Search  string
-	Limit   int
-	Cutoff  time.Time
+	AdminID        *int64
+	Search         string
+	MatchCase      bool
+	MatchWholeWord bool
+	Limit          int
+	Cutoff         time.Time
 }
 
 func (r Repository) OnlineAccessUserTotal(ctx context.Context, query OnlineAccessQuery) (int64, error) {
@@ -80,7 +83,7 @@ func (r Repository) OnlineAccessRecords(ctx context.Context, query OnlineAccessQ
 }
 
 func (r Repository) queryXrayAccessRecords(ctx context.Context, query OnlineAccessQuery, limit int) ([]UserOnlineIPRecord, error) {
-	where, args := accessRecordFilter(query, []any{r.timeArg(accessRecordCutoff(query))}, "uoi.ip", "uoi.protocol")
+	where, args := accessRecordFilter(r.dialect, query, []any{r.timeArg(accessRecordCutoff(query))}, "uoi.ip", "uoi.protocol")
 	args = append(args, limit)
 	rows, err := r.db.QueryContext(ctx, `
 SELECT uoi.node_id, COALESCE(n.name, ''), uoi.user_id, COALESCE(u.username, ''), COALESCE(u.status, ''),
@@ -119,7 +122,7 @@ func (r Repository) queryRemoteAccessRecords(ctx context.Context, query OnlineAc
 	if hasClientIP {
 		clientExpr = "COALESCE(vus.client_ip, '')"
 	}
-	where, args := accessRecordFilter(query, []any{r.timeArg(accessRecordCutoff(query))}, clientExpr, "vus.protocol")
+	where, args := accessRecordFilter(r.dialect, query, []any{r.timeArg(accessRecordCutoff(query))}, clientExpr, "vus.protocol")
 	args = append(args, limit)
 	rows, err := r.db.QueryContext(ctx, `
 SELECT vus.node_id, COALESCE(n.name, ''), vus.user_id, COALESCE(u.username, ''), COALESCE(u.status, ''),
@@ -163,17 +166,21 @@ func accessRecordCutoff(query OnlineAccessQuery) time.Time {
 	return cutoff.UTC()
 }
 
-func accessRecordFilter(query OnlineAccessQuery, initialArgs []any, ipExpr, protocolExpr string) (string, []any) {
+func accessRecordFilter(dialect string, query OnlineAccessQuery, initialArgs []any, ipExpr, protocolExpr string) (string, []any) {
 	where := ""
 	args := append([]any(nil), initialArgs...)
 	if query.AdminID != nil && *query.AdminID > 0 {
 		where += " AND u.admin_id = ?"
 		args = append(args, *query.AdminID)
 	}
-	if search := strings.ToLower(strings.TrimSpace(query.Search)); search != "" {
-		pattern := "%" + search + "%"
-		where += fmt.Sprintf(" AND (LOWER(u.username) LIKE ? OR LOWER(COALESCE(n.name, '')) LIKE ? OR LOWER(%s) LIKE ? OR LOWER(%s) LIKE ?)", ipExpr, protocolExpr)
-		args = append(args, pattern, pattern, pattern, pattern)
+	if strings.TrimSpace(query.Search) != "" {
+		predicate, searchArgs := searchmatch.SQLAny(dialect, []string{
+			"u.username", "n.name", ipExpr, protocolExpr,
+		}, query.Search, searchmatch.Options{
+			MatchCase: query.MatchCase, MatchWholeWord: query.MatchWholeWord,
+		})
+		where += " AND " + predicate
+		args = append(args, searchArgs...)
 	}
 	return where, args
 }

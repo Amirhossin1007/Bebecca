@@ -96,3 +96,8 @@ jobs:
       - name: Verify database schema
         run: |
           go test ./internal/app/migrations -run TestRunMigrationsExternalDatabase
+
+      - name: Verify runtime database queries
+        if: matrix.db != 'sqlite'
+        run: |
+          go test ./internal/app/nodecontroller -run TestRepositoryTouchesOnlineUsersExternalMySQL

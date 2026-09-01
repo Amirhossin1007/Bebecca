@@ -653,7 +653,7 @@ func (r Repository) bulkFilter(targetAdmin *adminapp.Admin, payload BulkUsersAct
 	}
 	now := time.Now().UTC()
 	if payload.LastOnlineDays != nil {
-		filter.where = append(filter.where, "online_at IS NOT NULL", "online_at <= ?")
+		filter.where = append(filter.where, "COALESCE((SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id), online_at) IS NOT NULL", "COALESCE((SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id), online_at) <= ?")
 		filter.args = append(filter.args, dbTime(now.Add(-time.Duration(*payload.LastOnlineDays)*24*time.Hour)))
 	}
 	if payload.StatusAgeDays != nil {

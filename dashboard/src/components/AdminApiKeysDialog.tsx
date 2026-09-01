@@ -5,7 +5,6 @@ import {
 	HStack,
 	IconButton,
 	Input,
-	Select,
 	Spinner,
 	Stack,
 	Text,
@@ -14,6 +13,7 @@ import {
 import { ClipboardIcon, KeyIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
+import { PanelSelect as Select } from "components/common/PanelSelect";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";

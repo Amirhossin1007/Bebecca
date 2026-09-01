@@ -97,17 +97,13 @@ export const Pagination: FC<PaginationProps> = ({
 	onPageChange,
 	onPageSizeChange,
 }) => {
-	const {
-		filters: userFilters,
-		onFilterChange: onUserFilterChange,
-		users: { total: usersTotal },
-	} = useDashboard();
+	const userFilters = useDashboard((state) => state.filters);
+	const onUserFilterChange = useDashboard((state) => state.onFilterChange);
+	const usersTotal = useDashboard((state) => state.users.total);
 
-	const {
-		filters: adminFilters,
-		onFilterChange: onAdminFilterChange,
-		total: adminsTotal,
-	} = useAdminsStore();
+	const adminFilters = useAdminsStore((state) => state.filters);
+	const onAdminFilterChange = useAdminsStore((state) => state.onFilterChange);
+	const adminsTotal = useAdminsStore((state) => state.total);
 
 	const { t, i18n } = useTranslation();
 	const direction = i18n.dir(i18n.language);

@@ -89,6 +89,19 @@ const typeLabel = (type: string) =>
 		realm: "Realm",
 	})[type] ?? type;
 
+const typeDescription = (type: string) =>
+	({
+		"header-custom": "Build custom packets for the start of a connection.",
+		fragment: "Split TCP packets using readable length and delay patterns.",
+		sudoku: "Encode packet shapes with a password and optional padding.",
+		"mkcp-legacy": "Use a legacy mKCP-compatible header.",
+		noise: "Add configurable noise packets and delays.",
+		salamander: "Apply Salamander or Gecko obfuscation.",
+		xdns: "Carry traffic through DNS domains and resolvers.",
+		xicmp: "Carry UDP traffic through ICMP endpoints.",
+		realm: "Route UDP traffic through a Realm endpoint.",
+	})[type] ?? "Configure this mask layer.";
+
 const TextField: FC<{
 	label: ReactNode;
 	value: unknown;
@@ -229,51 +242,66 @@ const normalizeUdpLayers = (layers: FinalMaskLayer[]) => {
 	];
 };
 
+export const createFinalMaskLayer = (
+	direction: Direction,
+	type: string,
+): FinalMaskLayer => {
+	if (type === "fragment") {
+		return {
+			type,
+			settings: {
+				packets: "tlshello",
+				lengths: ["10-100"],
+				delays: ["100-200"],
+			},
+		};
+	}
+	if (type === "header-custom") {
+		return {
+			type,
+			settings:
+				direction === "tcp"
+					? { clients: [[{}]], servers: [[{}]] }
+					: { client: [{}], server: [{}] },
+		};
+	}
+	if (type === "noise") {
+		return {
+			type,
+			settings: {
+				noise: [{ rand: "10-20", randRange: "0-255", delay: "100-200" }],
+			},
+		};
+	}
+	return { type, settings: {} };
+};
+
 const StringArrayField: FC<{
 	label: ReactNode;
 	value: unknown;
 	onChange: (value: string[] | undefined) => void;
 	placeholder?: string;
 }> = ({ label, value, onChange, placeholder }) => {
-	const { t } = useTranslation();
-	const items = stringArray(value);
-	const update = (next: string[]) => onChange(next.length ? next : undefined);
 	return (
-		<Stack spacing={2}>
-			<Flex align="center" justify="space-between" gap={2}>
-				<Text fontSize="sm" fontWeight="medium">
-					{label}
-				</Text>
-				<Button
-					size="xs"
-					variant="outline"
-					leftIcon={<PlusIcon width={13} />}
-					onClick={() => update([...items, ""])}
-				>
-					{t("add")}
-				</Button>
-			</Flex>
-			{items.map((item, index) => (
-				<HStack key={`${index}-${items.length}`} align="flex-start">
-					<Input
-						size="sm"
-						value={item}
-						placeholder={placeholder}
-						onChange={(event) => {
-							const next = [...items];
-							next[index] = event.target.value;
-							update(next);
-						}}
-					/>
-					<OrderButtons
-						index={index}
-						length={items.length}
-						onMove={(from, to) => update(moveItem(items, from, to))}
-						onRemove={() => update(items.filter((_, i) => i !== index))}
-					/>
-				</HStack>
-			))}
-		</Stack>
+		<FormControl>
+			<FormLabel fontSize="sm">{label}</FormLabel>
+			<Textarea
+				size="sm"
+				rows={3}
+				value={stringArray(value).join("\n")}
+				placeholder={placeholder}
+				onChange={(event) =>
+					onChange(
+						event.target.value === ""
+							? undefined
+							: event.target.value.split(/\r?\n/),
+					)
+				}
+			/>
+			<Text mt={1} fontSize="xs" color="gray.500">
+				One value per line.
+			</Text>
+		</FormControl>
 	);
 };
 
@@ -640,6 +668,16 @@ const HeaderCustomSettings: FC<{
 	}
 	return (
 		<Stack spacing={4}>
+			<SelectField
+				label="Packet mode"
+				value={settings.mode}
+				options={[
+					{ value: "", label: "Core default" },
+					{ value: "prefix", label: "Prefix" },
+					{ value: "standalone", label: "Standalone" },
+				]}
+				onChange={(next) => update("mode", next)}
+			/>
 			<PacketListEditor
 				label="Client packets"
 				value={settings.client}
@@ -1188,9 +1226,12 @@ const LayerCollection: FC<{
 				gap={2}
 			>
 				<Box>
-					<Text fontWeight="semibold">{direction.toUpperCase()} masks</Text>
+					<Text fontWeight="semibold">
+						{direction === "tcp" ? "TCP connection masks" : "UDP packet masks"}
+					</Text>
 					<Text fontSize="xs" color="gray.500">
-						Layer 1 is the innermost mask.
+						Add only what you need. Layer 1 runs closest to the original
+						traffic.
 					</Text>
 				</Box>
 				<HStack align="stretch">
@@ -1210,7 +1251,7 @@ const LayerCollection: FC<{
 						leftIcon={<PlusIcon width={14} />}
 						isDisabled={!selectedType}
 						onClick={() =>
-							emit([...value, { type: selectedType, settings: {} }])
+							emit([...value, createFinalMaskLayer(direction, selectedType)])
 						}
 					>
 						{t("add")}
@@ -1218,9 +1259,15 @@ const LayerCollection: FC<{
 				</HStack>
 			</Flex>
 			{value.length === 0 && (
-				<Text fontSize="sm" color="gray.500">
-					No masks configured.
-				</Text>
+				<Box borderWidth="1px" borderStyle="dashed" borderRadius="lg" p={4}>
+					<Text fontSize="sm" fontWeight="medium">
+						No {direction.toUpperCase()} mask is active
+					</Text>
+					<Text mt={1} fontSize="xs" color="gray.500">
+						Choose a mask type above and select Add. Safe starter values are
+						filled in automatically.
+					</Text>
+				</Box>
 			)}
 			{value.map((layer, index) => (
 				<Stack
@@ -1262,6 +1309,9 @@ const LayerCollection: FC<{
 						/>
 					</Flex>
 					<Divider />
+					<Text fontSize="xs" color="gray.500">
+						{typeDescription(layer.type)}
+					</Text>
 					<LayerSettings
 						direction={direction}
 						layer={layer}
@@ -1526,8 +1576,7 @@ export const FinalMaskEditor: FC<FinalMaskEditorProps> = ({
 	};
 	return (
 		<Stack spacing={4}>
-			<Box>
-				<Text fontWeight="semibold">{t("hostsDialog.finalMask")}</Text>
+			<Box borderWidth="1px" borderRadius="lg" p={3}>
 				<Text fontSize="xs" color="gray.500">
 					{t("hostsDialog.finalMaskHint")}
 				</Text>

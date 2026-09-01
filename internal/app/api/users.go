@@ -48,6 +48,13 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := s.usersListContext(r.Context())
 	defer cancel()
+	if hasAdvancedUserFilter(req.AdvancedFilters, "top_speed") {
+		req, err = s.applyTopSpeedUserFilter(ctx, principal, req)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+	}
 	result, err := s.userService.UsersList(ctx, req)
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -74,14 +81,43 @@ func (s *Server) handleOnlineUsers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "missing admin context")
 		return
 	}
-	users, err := s.userService.OnlineUsernames(r.Context(), userapp.UsersListRequest{
-		Admin: s.userAdminContext(principal, nil),
-	})
+	req := userapp.UsersListRequest{Admin: s.userAdminContext(principal, nil)}
+	if raw := strings.TrimSpace(r.URL.Query().Get("usernames")); raw != "" {
+		seen := make(map[string]struct{})
+		for _, value := range strings.Split(raw, ",") {
+			username := strings.TrimSpace(value)
+			if username == "" {
+				continue
+			}
+			if _, exists := seen[username]; exists {
+				continue
+			}
+			seen[username] = struct{}{}
+			req.Usernames = append(req.Usernames, username)
+			if len(req.Usernames) == 500 {
+				break
+			}
+		}
+	}
+	users, err := s.userService.OnlineUsernames(r.Context(), req)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, users)
+	if !strings.EqualFold(r.URL.Query().Get("details"), "true") {
+		writeJSON(w, http.StatusOK, users)
+		return
+	}
+	speeds := s.liveUserSpeedsFor(users)
+	for username, speed := range speeds {
+		if !canViewUserTraffic(principal.Context.Admin, speed.ServiceID) {
+			delete(speeds, username)
+		}
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Users  []string                 `json:"users"`
+		Speeds map[string]liveUserSpeed `json:"speeds"`
+	}{Users: users, Speeds: speeds})
 }
 
 func (s *Server) handleUserPath(w http.ResponseWriter, r *http.Request) {
@@ -554,6 +590,14 @@ func (s *Server) usersListRequest(r *http.Request, principal adminPrincipal) (us
 	if err != nil {
 		return userapp.UsersListRequest{}, fmt.Errorf("invalid links")
 	}
+	matchCase, err := optionalQueryBool(q.Get("match_case"))
+	if err != nil {
+		return userapp.UsersListRequest{}, fmt.Errorf("invalid match_case")
+	}
+	matchWholeWord, err := optionalQueryBool(q.Get("match_whole_word"))
+	if err != nil {
+		return userapp.UsersListRequest{}, fmt.Errorf("invalid match_whole_word")
+	}
 
 	adminCtx := s.userAdminContext(principal, serviceID)
 	owners := cleanValues(q["admin"])
@@ -566,6 +610,8 @@ func (s *Server) usersListRequest(r *http.Request, principal adminPrincipal) (us
 		Limit:           limit,
 		Usernames:       cleanValues(q["username"]),
 		Search:          strings.TrimSpace(q.Get("search")),
+		MatchCase:       matchCase,
+		MatchWholeWord:  matchWholeWord,
 		Owners:          owners,
 		Status:          strings.TrimSpace(q.Get("status")),
 		AdvancedFilters: advancedFilterValues(q),

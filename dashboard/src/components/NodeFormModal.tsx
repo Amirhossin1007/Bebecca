@@ -191,7 +191,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	const { t } = useTranslation();
 	const toast = useToast();
 	const [showCertificate, setShowCertificate] = useState(false);
-	const { fetchNodesUsage } = useNodes();
+	const fetchNodesUsage = useNodes((state) => state.fetchNodesUsage);
 	const [nodeUsage, setNodeUsage] = useState<{
 		uplink: number;
 		downlink: number;
@@ -433,7 +433,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 			size="2xl"
 			scrollBehavior="inside"
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent
 				mx="3"
 				as="form"

@@ -586,7 +586,7 @@ function HAProxyDialog({
 				isCentered
 				scrollBehavior="inside"
 			>
-				<ModalOverlay backdropFilter="blur(8px)" bg="blackAlpha.600" />
+				<ModalOverlay bg="blackAlpha.600" />
 				<ModalContent
 					bg="panel.surface"
 					borderWidth="1px"
@@ -599,6 +599,8 @@ function HAProxyDialog({
 					<ModalCloseButton />
 					<ModalBody px={{ base: 3, md: 6 }}>
 						<Tabs
+							isLazy
+							lazyBehavior="keepMounted"
 							colorScheme="pink"
 							onChange={(index) => index === 2 && previewMutation.mutate(draft)}
 						>
@@ -863,7 +865,7 @@ function HAProxyDialog({
 				size="lg"
 				isCentered
 			>
-				<ModalOverlay backdropFilter="blur(8px)" bg="blackAlpha.600" />
+				<ModalOverlay bg="blackAlpha.600" />
 				<ModalContent
 					bg="panel.surface"
 					borderWidth="1px"

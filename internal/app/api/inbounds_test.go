@@ -97,6 +97,31 @@ func TestInboundRoutesListFullAndDetail(t *testing.T) {
 	}
 }
 
+func TestInboundUsageResetClearsCountersAndPendingDeltas(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertCoreConfigNode(t, db, 7, "de-7", xrayconfig.ConfigModeDefault, nil)
+	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("reset-me", "vless", 443)))
+	if _, err := db.Exec(`INSERT INTO inbounds (tag, uplink, downlink) VALUES ('reset-me', 1024, 2048)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE node_usage_outbound_queue (node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, tag TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, inbound_uplink INTEGER NOT NULL DEFAULT 0, inbound_downlink INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO node_usage_outbound_queue (node_id, batch_id, tag, uplink, downlink, inbound_uplink, inbound_downlink, created_at) VALUES (7, 'pending-reset', 'reset-me', 11, 12, 13, 14, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	token := adminBearerToken(t, server, "pouria", "pass123")
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/inbounds/reset-me/usage/reset", token, `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reset inbound usage status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	assertMasterAPICount(t, db, `SELECT uplink + downlink FROM inbounds WHERE tag = 'reset-me'`, 0)
+	assertMasterAPICount(t, db, `SELECT inbound_uplink + inbound_downlink FROM node_usage_outbound_queue WHERE batch_id = 'pending-reset'`, 0)
+	assertMasterAPICount(t, db, `SELECT uplink + downlink FROM node_usage_outbound_queue WHERE batch_id = 'pending-reset'`, 23)
+}
+
 func TestInboundCreateUpdateValidationAndOperations(t *testing.T) {
 	server, db := testAdminServer(t)
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)

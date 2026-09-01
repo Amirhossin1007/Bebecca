@@ -153,7 +153,7 @@ const NodesUsageAnalytics: FC = () => {
 	const toast = useToast();
 	const { colorMode } = useColorMode();
 	const { data: nodes } = useNodesQuery();
-	const { fetchNodesUsage } = useNodes();
+	const fetchNodesUsage = useNodes((state) => state.fetchNodesUsage);
 	const { userData } = useGetUser();
 
 	const presets = useMemo<UsagePreset[]>(

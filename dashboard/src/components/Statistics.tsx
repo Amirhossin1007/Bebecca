@@ -40,42 +40,41 @@ import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
-import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
-import Chart from "react-apexcharts";
+import {
+	type FC,
+	lazy,
+	type ReactNode,
+	Suspense,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
+import { formatDuration } from "utils/formatDuration";
+import {
+	mergeLiveSystemStats,
+	sampleSparklineValues,
+} from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { ChartBox } from "./common/ChartBox";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-/* آیکون با کادر گوشه‌گرد ملایم پشت آن، کاملاً هماهنگ با رنگ تم */
-export const ThemedIconBadge: FC<{
-	icon: ReactNode;
-	size?: number;
-}> = ({ icon, size = 9 }) => {
-	return (
-		<Flex
-			w={`${size * 4}px`}
-			h={`${size * 4}px`}
-			align="center"
-			justify="center"
-			borderRadius="xl"
-			color="var(--rb-panel-accent)"
-			sx={{
-				backgroundColor: "color-mix(in srgb, var(--rb-panel-accent) 10%, transparent)",
-			}}
-			flexShrink={0}
-			transition="all 0.2s ease"
-		>
-			{icon}
-		</Flex>
-	);
+const HistoryChart = lazy(() => import("react-apexcharts"));
+
+const iconProps = {
+	baseStyle: {
+		w: 5,
+		h: 5,
+		position: "relative",
+		zIndex: "2",
+	},
 };
 
 /* فرمت هوشمند و خوانای زمان */
@@ -139,8 +138,12 @@ const useSystemMetricsStream = (enabled = true) => {
 				try {
 					const payload = JSON.parse(event.data);
 					const stats = payload?.stats ?? payload;
-					if (!stats || typeof stats !== "object" || !("version" in stats)) return;
-					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, stats);
+					if (!stats || typeof stats !== "object" || !("version" in stats)) {
+						return;
+					}
+					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, (current) =>
+						mergeLiveSystemStats(current, stats),
+					);
 				} catch (error) {
 					console.error("Unable to parse system metrics stream payload", error);
 				}
@@ -203,6 +206,9 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 		cpu_usage: toFiniteNumber(raw.cpu_usage),
 		total_user: toFiniteNumber(raw.total_user),
 		online_users: toFiniteNumber(raw.online_users),
+		online_users_usage: toFiniteNumber(raw.online_users_usage),
+		online_users_upload_speed: toFiniteNumber(raw.online_users_upload_speed),
+		online_users_download_speed: toFiniteNumber(raw.online_users_download_speed),
 		users_active: toFiniteNumber(raw.users_active),
 		users_on_hold: toFiniteNumber(raw.users_on_hold),
 		users_disabled: toFiniteNumber(raw.users_disabled),
@@ -398,8 +404,8 @@ const HistoryModal: FC<{
 	);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(8px)" />
+		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
+			<ModalOverlay bg="blackAlpha.500" />
 			<ModalContent
 				bg="panel.surface"
 				borderWidth="1px"
@@ -438,14 +444,35 @@ const HistoryModal: FC<{
 								</Button>
 							))}
 						</Flex>
-						<Box minH="280px">
-							<Chart
-								key={`chart-${intervalSeconds}`}
-								options={options}
-								series={chartSeries}
-								type="area"
-								height={280}
-							/>
+						<Box
+							key={`chart-interval-box-${intervalSeconds}`}
+							mx="-10px"
+							sx={{
+								"@keyframes subtleFadeIn": {
+									from: { opacity: 0.65 },
+									to: { opacity: 1 },
+								},
+								animation: "subtleFadeIn 0.2s ease-out",
+								"@media (prefers-reduced-motion: reduce)": {
+									animation: "none",
+								},
+							}}
+						>
+							<Suspense
+								fallback={
+									<Flex h="300px" align="center" justify="center">
+										<Spinner />
+									</Flex>
+								}
+							>
+								<HistoryChart
+									key={`chart-interval-${intervalSeconds}`}
+									options={options}
+									series={chartSeries}
+									type="area"
+									height={300}
+								/>
+							</Suspense>
 						</Box>
 					</Stack>
 				</ModalBody>
@@ -459,8 +486,63 @@ const HistoryModal: FC<{
 	);
 };
 
-/* Bento Card with Refined 22px Numbers & Themed Progress Bar */
-const HardwareBentoCard: FC<{
+const HistorySparkline: FC<{ values: number[]; accent?: string }> = ({
+	values,
+	accent,
+}) => {
+	const defaultColor = useColorModeValue("gray.600", "gray.300");
+	const normalized = sampleSparklineValues(values.length ? values : [0]);
+	const maxValue = Math.max(...normalized, 1);
+	const singlePointY = 39 - (Math.max(0, normalized[0]) / maxValue) * 38;
+	const points = normalized
+		.map((value, index) => {
+			const x =
+				normalized.length === 1
+					? 50
+					: (index / (normalized.length - 1)) * 100;
+			const y = 39 - (Math.max(0, value) / maxValue) * 38;
+			return `${x.toFixed(2)},${y.toFixed(2)}`;
+		})
+		.join(" ");
+
+	return (
+		<Box
+			as="svg"
+			viewBox="0 0 100 40"
+			preserveAspectRatio="none"
+			mt={3}
+			h="42px"
+			w="full"
+			color={accent ?? defaultColor}
+			aria-hidden="true"
+		>
+			{normalized.length === 1 ? (
+				<line
+					x1="42"
+					x2="58"
+					y1={singlePointY}
+					y2={singlePointY}
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					vectorEffect="non-scaling-stroke"
+				/>
+			) : (
+				<polyline
+					points={points}
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					vectorEffect="non-scaling-stroke"
+				/>
+			)}
+		</Box>
+	);
+};
+
+const UsageMetricCard: FC<{
 	label: string;
 	icon: ReactNode;
 	primaryValue: string;
@@ -601,6 +683,318 @@ const ResponsiveInnerCard: FC<{
 			>
 				{value}
 			</Text>
+			{helper ? (
+				<Text mt={2} fontSize="xs" color={helperColor} fontWeight="medium">
+					{helper}
+				</Text>
+			) : null}
+		</Box>
+	);
+};
+
+const SystemOverviewCard: FC<{
+	data: SystemStats;
+	t: TFunction;
+	onOpenHistory: (payload: HistoryModalPayload) => void;
+}> = ({ data, t, onOpenHistory }) => {
+	const cpuHistoryValues = data.cpu_history.map((entry) => entry.value);
+	const memoryHistoryValues = data.memory_history.map((entry) => entry.value);
+	const swapHistoryValues = data.swap_history.map((entry) => entry.value);
+	const diskHistoryValues = data.disk_history.map((entry) => entry.value);
+	const cpuThreads = data.cpu_threads || data.cpu_cores;
+	const cpuDetail = [
+		`${formatNumberValue(data.cpu_cores)} ${t("cores")} / ${formatNumberValue(cpuThreads)} ${t("threads")}`,
+		formatCPUFrequency(data.cpu_frequency_hz),
+		`${t("systemUptime")}: ${formatDuration(data.uptime_seconds)}`,
+	]
+		.filter(Boolean)
+		.join(" · ");
+	return (
+		<ChartBox
+			title={t("systemOverview")}
+			headerActions={
+				<DashboardMaintenanceControls
+					channel={data.channel}
+					version={data.version}
+				/>
+			}
+		>
+			<Stack spacing={5}>
+				<SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap={5}>
+					<UsageMetricCard
+						label={t("cpuUsage")}
+						percent={data.cpu_usage}
+						detail={cpuDetail}
+						history={cpuHistoryValues}
+						footerLeft={`${t("average")}: ${average(cpuHistoryValues).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(cpuHistoryValues).toFixed(1)}%`}
+						actionLabel={t("viewHistory")}
+						onOpen={() =>
+							onOpenHistory({
+								type: "cpu",
+								title: t("cpuUsage"),
+								metricLabel: t("cpuUsage"),
+								entries: data.cpu_history,
+							})
+						}
+					/>
+					<UsageMetricCard
+						label={t("memoryUsage")}
+						percent={data.memory.percent}
+						detail={`${formatBytes(data.memory.current)} / ${formatBytes(data.memory.total)}`}
+						history={memoryHistoryValues}
+						footerLeft={`${t("average")}: ${average(memoryHistoryValues).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(memoryHistoryValues).toFixed(1)}%`}
+						actionLabel={t("viewHistory")}
+						onOpen={() =>
+							onOpenHistory({
+								type: "memory",
+								title: t("memoryUsage"),
+								metricLabel: t("memoryUsage"),
+								entries: data.memory_history,
+							})
+						}
+					/>
+					<UsageMetricCard
+						label={t("swapUsage")}
+						percent={data.swap.percent}
+						detail={`${formatBytes(data.swap.current)} / ${formatBytes(data.swap.total)}`}
+						history={swapHistoryValues}
+						footerLeft={`${t("average")}: ${average(swapHistoryValues).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(swapHistoryValues).toFixed(1)}%`}
+					/>
+					<UsageMetricCard
+						label={t("diskUsage")}
+						percent={data.disk.percent}
+						detail={`${formatBytes(data.disk.current)} / ${formatBytes(data.disk.total)}`}
+						history={diskHistoryValues}
+						footerLeft={`${t("free")}: ${formatBytes(Math.max(0, data.disk.total - data.disk.current))}`}
+						footerRight={`${t("average")}: ${average(diskHistoryValues).toFixed(1)}%`}
+					/>
+				</SimpleGrid>
+				<NetworkSpeedCard
+					incoming={data.incoming_bandwidth_speed}
+					outgoing={data.outgoing_bandwidth_speed}
+					t={t}
+					onOpen={() =>
+						onOpenHistory({
+							type: "network",
+							title: t("networkHistory"),
+							entries: data.network_history,
+						})
+					}
+				/>
+				{data.last_xray_error && (
+					<Box
+						mt={4}
+						p={4}
+						borderRadius="xl"
+						bg="red.50"
+						borderWidth="1px"
+						borderColor="red.200"
+						_dark={{
+							bg: "rgba(239, 68, 68, 0.1)",
+							borderColor: "red.800",
+						}}
+					>
+						<HStack spacing={2} mb={2} alignItems="center">
+							<Text
+								fontSize="sm"
+								fontWeight="bold"
+								color="red.600"
+								_dark={{ color: "red.400" }}
+							>
+								{t("coreError")}:
+							</Text>
+						</HStack>
+						<Text
+							fontSize="sm"
+							color="red.700"
+							fontFamily="mono"
+							whiteSpace="pre-wrap"
+							wordBreak="break-word"
+							_dark={{ color: "red.300" }}
+						>
+							{data.last_xray_error}
+						</Text>
+					</Box>
+				)}
+				{data.last_telegram_error && (
+					<Box
+						mt={4}
+						p={4}
+						borderRadius="xl"
+						bg="orange.50"
+						borderWidth="1px"
+						borderColor="orange.200"
+						_dark={{
+							bg: "rgba(237, 137, 54, 0.1)",
+							borderColor: "orange.800",
+						}}
+					>
+						<HStack
+							spacing={2}
+							mb={2}
+							alignItems="center"
+							justifyContent="space-between"
+						>
+							<Text
+								fontSize="sm"
+								fontWeight="bold"
+								color="orange.600"
+								_dark={{ color: "orange.400" }}
+							>
+								{t("telegramError")}:
+							</Text>
+							<Button
+								size="xs"
+								colorScheme="orange"
+								variant="outline"
+								borderRadius="full"
+								onClick={() => {
+									window.location.href = "/settings";
+								}}
+							>
+								{t("goToTelegramSettings")}
+							</Button>
+						</HStack>
+						<Text
+							fontSize="sm"
+							color="orange.700"
+							fontFamily="mono"
+							whiteSpace="pre-wrap"
+							wordBreak="break-word"
+							_dark={{ color: "orange.300" }}
+						>
+							{data.last_telegram_error}
+						</Text>
+					</Box>
+				)}
+			</Stack>
+		</ChartBox>
+	);
+};
+
+const PanelOverviewCard: FC<{
+	data: SystemStats;
+	t: TFunction;
+	onOpenHistory: (payload: HistoryModalPayload) => void;
+}> = ({ data, t, onOpenHistory }) => {
+	const panelCpuHistory = data.panel_cpu_history.map((entry) => entry.value);
+	const panelMemoryHistory = data.panel_memory_history.map(
+		(entry) => entry.value,
+	);
+	const panelCpuDetail = `${formatNumberValue(data.app_threads)} ${t("threads")} · ${t("panelUptime")}: ${formatDuration(data.panel_uptime_seconds)}`;
+	return (
+		<ChartBox
+			title={t("panelUsage")}
+			headerActions={
+				<Badge
+					colorScheme={data.xray_running ? "green" : "red"}
+					borderRadius="full"
+					px={3}
+					py={1}
+				>
+					{data.xray_running ? t("status.running") : t("status.stopped")}
+				</Badge>
+			}
+		>
+			<Stack spacing={5}>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
+					<UsageMetricCard
+						label={t("cpuUsage")}
+						percent={data.panel_cpu_percent}
+						detail={panelCpuDetail}
+						history={panelCpuHistory}
+						footerLeft={`${t("average")}: ${average(panelCpuHistory).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(panelCpuHistory).toFixed(1)}%`}
+						actionLabel={t("viewHistory")}
+						onOpen={() =>
+							onOpenHistory({
+								type: "panel",
+								title: t("panelUsage"),
+								cpuEntries: data.panel_cpu_history,
+								memoryEntries: data.panel_memory_history,
+							})
+						}
+					/>
+					<UsageMetricCard
+						label={t("memoryUsage")}
+						percent={data.panel_memory_percent}
+						detail={`${formatBytes(data.app_memory)} / ${formatBytes(data.memory.total)}`}
+						history={panelMemoryHistory}
+						footerLeft={`${t("average")}: ${average(panelMemoryHistory).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(panelMemoryHistory).toFixed(1)}%`}
+						actionLabel={t("viewHistory")}
+						onOpen={() =>
+							onOpenHistory({
+								type: "panel",
+								title: t("panelUsage"),
+								cpuEntries: data.panel_cpu_history,
+								memoryEntries: data.panel_memory_history,
+							})
+						}
+					/>
+				</SimpleGrid>
+			</Stack>
+		</ChartBox>
+	);
+};
+
+const UsersOverviewCard: FC<{
+	data: SystemStats;
+	t: TFunction;
+}> = ({ data, t }) => (
+	<ChartBox title={t("usersOverview")}>
+		<Stack spacing={5}>
+			<MetricBadge
+				label={t("total")}
+				value={formatNumberValue(data.total_user)}
+				colorScheme="blue"
+			/>
+			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={5}>
+				<MetricBadge
+					label={t("dashboard.onlineUsersUsage")}
+					value={formatBytes(data.online_users_usage)}
+					colorScheme="teal"
+					helper={t("dashboard.onlineUsersCount", { count: data.online_users })}
+				/>
+				<MetricBadge
+					label={t("dashboard.onlineUsersSpeed")}
+					value={`${formatBytes(data.online_users_upload_speed + data.online_users_download_speed)}/s`}
+					colorScheme="cyan"
+					helper={`↑ ${formatBytes(data.online_users_upload_speed)}/s · ↓ ${formatBytes(data.online_users_download_speed)}/s`}
+				/>
+			</SimpleGrid>
+			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={5}>
+				<MetricBadge
+					label={t("status.active")}
+					value={formatNumberValue(data.users_active)}
+					colorScheme="green"
+				/>
+				<MetricBadge
+					label={t("status.disabled")}
+					value={formatNumberValue(data.users_disabled)}
+					colorScheme="red"
+				/>
+				<MetricBadge
+					label={t("status.expired")}
+					value={formatNumberValue(data.users_expired)}
+					colorScheme="orange"
+				/>
+				<MetricBadge
+					label={t("status.limited")}
+					value={formatNumberValue(data.users_limited)}
+					colorScheme="yellow"
+				/>
+				<Box gridColumn={{ base: "span 1", sm: "span 2" }}>
+					<MetricBadge
+						label={t("status.on_hold")}
+						value={formatNumberValue(data.users_on_hold)}
+						colorScheme="purple"
+					/>
+				</Box>
+			</SimpleGrid>
 		</Stack>
 	</Box>
 );

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/online"
+	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 )
 
 const (
@@ -211,7 +212,9 @@ func (r Repository) usersFilter(req UsersListRequest) (usersFilter, error) {
 		filter.add("u.admin_id IN (SELECT id FROM admins WHERE username IN ("+placeholders(len(req.Owners))+"))", stringArgs(req.Owners)...)
 	}
 	if strings.TrimSpace(req.Search) != "" {
-		if err := r.addUsersSearchFilter(&filter, req.Search); err != nil {
+		if err := r.addUsersSearchFilter(&filter, req.Search, searchmatch.Options{
+			MatchCase: req.MatchCase, MatchWholeWord: req.MatchWholeWord,
+		}); err != nil {
 			return filter, err
 		}
 	}
@@ -302,7 +305,7 @@ func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (
 	u.status,
 	COUNT(u.id),
 	COALESCE(SUM(COALESCE(u.used_traffic, 0) + COALESCE(rul.reseted_usage, 0)), 0),
-	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL OR u.online_at >= ? THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
+	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL OR ` + online.LastSeenExpression + ` >= ? THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
 	args := append([]any{cutoff, cutoff, cutoff}, filter.args...)
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -341,11 +344,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.expire,
 	u.data_limit,
 	u.data_limit_reset_strategy,
-	CASE WHEN EXISTS (
-		SELECT 1
-		FROM vpn_user_sessions vus
-		WHERE vus.user_id = u.id AND vus.ended_at IS NULL
-	) THEN CURRENT_TIMESTAMP ELSE u.online_at END,
+	CASE WHEN ` + online.UserPredicate + ` THEN CURRENT_TIMESTAMP ELSE ` + online.LastSeenExpression + ` END,
 	CASE WHEN ` + online.UserPredicate + ` THEN 1 ELSE 0 END,
 	u.service_id,
 	s.name,
@@ -355,7 +354,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.subadress,
 	u.flow,
 	u.on_hold_expire_duration` + usersRowsFromSQL() + filter.whereSQL() + " ORDER BY " + usersOrderSQL(req.Sort)
-	args := append([]any{cutoff, cutoff, cutoff}, filter.args...)
+	args := append([]any{cutoff, cutoff, cutoff, cutoff, cutoff, cutoff}, filter.args...)
 	if req.Offset != nil {
 		limit := int64(9223372036854775807)
 		if req.Limit != nil {
@@ -529,10 +528,10 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 		filter.add("(u.data_limit IS NULL OR u.data_limit = 0)")
 	}
 	if _, ok := normalized["sub_not_updated"]; ok {
-		filter.add("(u.sub_updated_at IS NULL OR u.sub_updated_at < ?)", now.Add(-24*time.Hour))
+		filter.add("(COALESCE((SELECT usa.updated_at FROM user_subscription_access usa WHERE usa.user_id = u.id), u.sub_updated_at) IS NULL OR COALESCE((SELECT usa.updated_at FROM user_subscription_access usa WHERE usa.user_id = u.id), u.sub_updated_at) < ?)", now.Add(-24*time.Hour))
 	}
 	if _, ok := normalized["sub_never_updated"]; ok {
-		filter.add("u.sub_updated_at IS NULL")
+		filter.add("COALESCE((SELECT usa.updated_at FROM user_subscription_access usa WHERE usa.user_id = u.id), u.sub_updated_at) IS NULL")
 	}
 	statuses := make([]string, 0, 4)
 	for key, status := range map[string]string{"expired": "expired", "limited": "limited", "disabled": "disabled", "on_hold": "on_hold"} {
@@ -546,24 +545,16 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 	}
 }
 
-func (r Repository) addUsersSearchFilter(filter *usersFilter, search string) error {
+func (r Repository) addUsersSearchFilter(filter *usersFilter, search string, options searchmatch.Options) error {
 	search = strings.TrimSpace(search)
 	if search == "" {
 		return nil
 	}
-	clauses := []string{
-		"LOWER(u.username) LIKE LOWER(?)",
-		"LOWER(u.subadress) LIKE LOWER(?)",
-		"LOWER(u.note) LIKE LOWER(?)",
-		"LOWER(u.credential_key) LIKE LOWER(?)",
-		"LOWER(u.telegram_id) LIKE LOWER(?)",
-		"LOWER(u.contact_number) LIKE LOWER(?)",
-	}
-	args := []any{}
-	like := "%" + search + "%"
-	for range clauses {
-		args = append(args, like)
-	}
+	searchClause, args := searchmatch.SQLAny(r.dialect, []string{
+		"u.username", "u.subadress", "u.note", "u.credential_key",
+		"u.telegram_id", "u.contact_number",
+	}, search, options)
+	clauses := []string{searchClause}
 
 	keyCandidates, uuidCandidates := deriveSearchTokens(search, nil)
 	configUUIDs, configPasswords := extractConfigIdentifiers(search)

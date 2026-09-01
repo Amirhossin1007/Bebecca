@@ -641,12 +641,34 @@ export const exportRebeccaBackup = async (
 
 export const importRebeccaBackup = async (
 	file: File,
+	onProgress?: (percent: number) => void,
 ): Promise<RebeccaBackupImportResponse> => {
-	const body = new FormData();
-	body.append("file", file);
-	return apiFetch("/settings/backup/import", {
-		method: "POST",
-		body,
+	return new Promise((resolve, reject) => {
+		const body = new FormData();
+		body.append("file", file);
+		const xhr = new XMLHttpRequest();
+		const baseURL = (apiBaseURL || "/api").replace(/\/$/, "");
+		xhr.open("POST", `${baseURL}/settings/backup/import`);
+		xhr.withCredentials = true;
+		xhr.responseType = "json";
+		xhr.upload.onprogress = (event) => {
+			if (event.lengthComputable) {
+				onProgress?.(
+					Math.min(100, Math.round((event.loaded / event.total) * 100)),
+				);
+			}
+		};
+		xhr.upload.onload = () => onProgress?.(100);
+		xhr.onload = () => {
+			if (xhr.status >= 200 && xhr.status < 300) {
+				resolve(xhr.response as RebeccaBackupImportResponse);
+				return;
+			}
+			reject({ response: { _data: xhr.response } });
+		};
+		xhr.onerror = () => reject(new Error("Backup upload failed"));
+		onProgress?.(0);
+		xhr.send(body);
 	});
 };
 

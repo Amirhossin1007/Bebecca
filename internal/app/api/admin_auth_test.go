@@ -137,6 +137,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			service_limit_disabled_at DATETIME NULL,
 			online_at DATETIME NULL
 		)`,
+		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
 		`CREATE TABLE services (
 			id INTEGER PRIMARY KEY,
 			name TEXT,

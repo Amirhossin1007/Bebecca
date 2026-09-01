@@ -3,11 +3,6 @@ import {
 	Button,
 	chakra,
 	HStack,
-	IconButton,
-	Input,
-	InputGroup,
-	InputLeftElement,
-	InputRightElement,
 	Stack,
 	Tag,
 	Text,
@@ -18,11 +13,10 @@ import {
 	PanelSelect as Select,
 	type PanelSelectProps as SelectProps,
 } from "components/common/PanelSelect";
-import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { SearchInput } from "components/common/SearchInput";
 import { ResourceListCard } from "components/ui";
 import { useNodesQuery } from "contexts/NodesContext";
 import useGetUser from "hooks/useGetUser";
-import debounce from "lodash.debounce";
 import React, {
 	type FC,
 	useCallback,
@@ -35,9 +29,16 @@ import { useTranslation } from "react-i18next";
 import useWebSocket from "react-use-websocket";
 import { fetch } from "service/http";
 import type { RawInbound } from "utils/inbounds";
+import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import { getAPIWebSocketURL } from "utils/websocket";
 
 const MAX_NUMBER_OF_LOGS = 500;
+const LOG_FLUSH_INTERVAL = 100;
+
+type LogEntry = {
+	id: number;
+	message: string;
+};
 
 const getWebsocketUrl = (nodeID: string) => {
 	if (!nodeID) return null;
@@ -71,13 +72,18 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const { data: nodes } = useNodesQuery({ enabled: canViewXrayLogs });
 	const [selectedNode, setNode] = useState<string>("");
-	const [logs, setLogs] = useState<string[]>([]);
+	const [logs, setLogs] = useState<LogEntry[]>([]);
+	const pendingLogs = useRef<LogEntry[]>([]);
+	const flushTimer = useRef<number | null>(null);
+	const nextLogID = useRef(0);
 	const [searchFilter, setSearchFilter] = useState<string>("");
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [selectedInbound, setSelectedInbound] = useState<string>("");
 	const [inbounds, setInbounds] = useState<RawInbound[]>([]);
 	const [inboundsLoading, setInboundsLoading] = useState(false);
 	const logsDiv = useRef<HTMLDivElement | null>(null);
 	const [autoScroll, setAutoScroll] = useState(true);
+	const autoScrollRef = useRef(true);
 	const { colorMode } = useColorMode();
 
 	// Fetch inbounds list
@@ -100,6 +106,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 	const handleLog = (id: string) => {
 		if (id === selectedNode) return;
 		setNode(id);
+		pendingLogs.current = [];
 		setLogs([]);
 	};
 
@@ -111,30 +118,50 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 			}
 			return;
 		}
-		if (!selectedNode || !nodes.some((node) => String(node.id) === selectedNode)) {
+		if (
+			!selectedNode ||
+			!nodes.some((node) => String(node.id) === selectedNode)
+		) {
 			setNode(String(nodes[0].id));
 			setLogs([]);
 		}
 	}, [nodes, selectedNode]);
 
+	const flushLogs = useCallback(() => {
+		flushTimer.current = null;
+		const batch = pendingLogs.current;
+		pendingLogs.current = [];
+		if (batch.length === 0) return;
+		setLogs((current) => [...current, ...batch].slice(-MAX_NUMBER_OF_LOGS));
+		window.requestAnimationFrame(() => {
+			if (autoScrollRef.current && logsDiv.current) {
+				logsDiv.current.scrollTop = logsDiv.current.scrollHeight;
+			}
+		});
+	}, []);
+
 	const appendLog = useCallback(
-		debounce((line: string) => {
-			setLogs((prev) => {
-				const next =
-					prev.length >= MAX_NUMBER_OF_LOGS
-						? [...prev.slice(prev.length - MAX_NUMBER_OF_LOGS + 1), line]
-						: [...prev, line];
-				return next;
-			});
-		}, 50),
-		[],
+		(line: string) => {
+			pendingLogs.current.push({ id: nextLogID.current++, message: line });
+			if (flushTimer.current === null) {
+				flushTimer.current = window.setTimeout(flushLogs, LOG_FLUSH_INTERVAL);
+			}
+		},
+		[flushLogs],
 	);
+
+	const clearLogs = useCallback(() => {
+		pendingLogs.current = [];
+		setLogs([]);
+	}, []);
 
 	useEffect(() => {
 		return () => {
-			appendLog.cancel();
+			if (flushTimer.current !== null) {
+				window.clearTimeout(flushTimer.current);
+			}
 		};
-	}, [appendLog]);
+	}, []);
 
 	const socketUrl = useMemo(
 		() => (canViewXrayLogs ? getWebsocketUrl(selectedNode) : null),
@@ -162,6 +189,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 			const isAtBottom =
 				element.scrollHeight - element.scrollTop - element.clientHeight <=
 				threshold;
+			autoScrollRef.current = isAtBottom;
 			setAutoScroll(isAtBottom);
 		};
 		element.addEventListener("scroll", handleScroll);
@@ -170,12 +198,6 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 			element.removeEventListener("scroll", handleScroll);
 		};
 	}, []);
-
-	useEffect(() => {
-		if (autoScroll && logsDiv.current) {
-			logsDiv.current.scrollTop = logsDiv.current.scrollHeight;
-		}
-	}, [autoScroll]);
 
 	const logPalette = useMemo(() => {
 		const isDark = colorMode === "dark";
@@ -237,45 +259,20 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 		// Filter by inbound tag if selected
 		if (selectedInboundTag) {
 			filtered = filtered.filter((log) => {
-				const logLower = log.toLowerCase();
+				const logLower = log.message.toLowerCase();
 				return logLower.includes(selectedInboundTag.toLowerCase());
 			});
 		}
 
 		// Filter by search text if provided
 		if (searchFilter.trim()) {
-			const filterLower = searchFilter.toLowerCase();
 			filtered = filtered.filter((log) =>
-				log.toLowerCase().includes(filterLower),
+				matchesSearch(log.message, searchFilter, searchMatch),
 			);
 		}
 
 		return filtered;
-	}, [logs, searchFilter, selectedInboundTag]);
-
-	const logEntries = useMemo(
-		() =>
-			filteredLogs.map((message, idx) => ({
-				message,
-				key: `${idx}-${message}`,
-			})),
-		[filteredLogs],
-	);
-
-	const SearchIcon = chakra(MagnifyingGlassIcon, {
-		baseStyle: {
-			w: 4,
-			h: 4,
-			color: badgeColor,
-		},
-	});
-
-	const ClearIcon = chakra(XMarkIcon, {
-		baseStyle: {
-			w: 4,
-			h: 4,
-		},
-	});
+	}, [logs, searchFilter, searchMatch, selectedInboundTag]);
 
 	const classifyLog = (message: string) => {
 		const lowerMessage = message.toLowerCase();
@@ -367,9 +364,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							colorScheme={autoScroll ? "green" : "gray"}
 							variant="subtle"
 						>
-							{autoScroll
-								? t("core.autoScrollOn")
-								: t("core.autoScrollOff")}
+							{autoScroll ? t("core.autoScrollOn") : t("core.autoScrollOff")}
 						</Tag>
 						<Button
 							size="sm"
@@ -377,7 +372,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							h="36px"
 							px={3}
 							isDisabled={logs.length === 0}
-							onClick={() => setLogs([])}
+							onClick={clearLogs}
 						>
 							{t("clear")}
 						</Button>
@@ -419,16 +414,12 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							</option>
 						))}
 					</CompactLogSelect>
-					<InputGroup
-						size="sm"
-						maxW={{ base: "full", md: "420px" }}
-						flex={{ base: "1 1 100%", md: "1 1 280px" }}
-						bg="panel.input"
-					>
-						<InputLeftElement pointerEvents="none">
-							<SearchIcon />
-						</InputLeftElement>
-						<Input
+					<SearchInput
+						containerProps={{
+							maxW: { base: "full", md: "420px" },
+							flex: { base: "1 1 100%", md: "1 1 280px" },
+							bg: "panel.input",
+						}}
 							h="36px"
 							borderRadius="4px"
 							borderColor="panel.border"
@@ -436,22 +427,13 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							placeholder={t("xrayLogs.searchPlaceholder")}
 							value={searchFilter}
 							onChange={(e) => setSearchFilter(e.target.value)}
-						/>
-						{(searchFilter || selectedInbound) && (
-							<InputRightElement h="36px">
-								<IconButton
-									aria-label={t("clear")}
-									size="xs"
-									variant="ghost"
-									onClick={() => {
+						matchOptions={searchMatch}
+						onMatchOptionsChange={setSearchMatch}
+						onClear={() => {
 										setSearchFilter("");
 										setSelectedInbound("");
 									}}
-									icon={<ClearIcon />}
 								/>
-							</InputRightElement>
-						)}
-					</InputGroup>
 				</Stack>
 			</ResourceListCard>
 			<Box
@@ -475,7 +457,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 								: t("xrayLogs.noLogs")}
 						</Box>
 					) : (
-						logEntries.map(({ message, key }) => {
+						filteredLogs.map(({ id, message }) => {
 							const level = classifyLog(message);
 							const palette = logPalette[level] ?? logPalette.default;
 							// Highlight search term in the log message
@@ -484,15 +466,20 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 										const parts = message.split(
 											new RegExp(
 												`(${searchFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-												"gi",
+												searchMatch.matchCase ? "g" : "gi",
 											),
 										);
 										const partsWithKeys = parts.map((part, idx) => ({
 											part,
-											key: `${key}-part-${idx}`,
+											key: `${id}-part-${idx}`,
 										}));
 										return partsWithKeys.map(({ part, key: partKey }) => {
-											if (part.toLowerCase() === searchFilter.toLowerCase()) {
+											if (
+												matchesSearch(part, searchFilter, {
+													...searchMatch,
+													matchWholeWord: false,
+												})
+											) {
 												return (
 													<chakra.span
 														key={partKey}
@@ -515,7 +502,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 								: message;
 							return (
 								<Box
-									key={key}
+									key={id}
 									bg={palette.bg}
 									color={palette.color}
 									borderLeftWidth={3}

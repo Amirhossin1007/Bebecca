@@ -174,13 +174,20 @@ func (s *Server) sendNodesMetricsSnapshot(parent context.Context, conn *websocke
 func (s *Server) sendSystemMetricsSnapshot(parent context.Context, conn *websocket.Conn, r *http.Request, interval time.Duration) error {
 	ctx, cancel := context.WithTimeout(parent, liveMetricsTimeout(interval))
 	defer cancel()
-	stats, err := s.systemStatsService().Stats(ctx, dashboardAdminContext(r))
+	stats, err := s.systemStatsForRequest(ctx, r)
 	if err != nil {
 		return websocket.JSON.Send(conn, systemMetricsMessage{
 			Type:  "system.metrics",
 			Error: err.Error(),
 		})
 	}
+	stats.CPUHistory = nil
+	stats.MemoryHistory = nil
+	stats.SwapHistory = nil
+	stats.DiskHistory = nil
+	stats.NetworkHistory = nil
+	stats.PanelCPUHistory = nil
+	stats.PanelMemoryHistory = nil
 	return websocket.JSON.Send(conn, systemMetricsMessage{
 		Type:  "system.metrics",
 		Stats: stats,

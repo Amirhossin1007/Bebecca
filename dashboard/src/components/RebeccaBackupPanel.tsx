@@ -16,16 +16,17 @@ import {
 	PopoverContent,
 	PopoverHeader,
 	PopoverTrigger,
+	Progress,
 	Stack,
 	Text,
 	useToast,
 } from "@chakra-ui/react";
-import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	ArchiveBoxIcon,
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
 } from "@heroicons/react/24/outline";
+import { PanelSelect as Select } from "components/common/PanelSelect";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "react-query";
@@ -62,6 +63,7 @@ export const DashboardBackupControls = ({
 	const [exportScope, setExportScope] =
 		useState<RebeccaBackupScope>("database");
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
+	const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
 
 	const exportMutation = useMutation(exportRebeccaBackup, {
@@ -82,31 +84,36 @@ export const DashboardBackupControls = ({
 		},
 	});
 
-	const importMutation = useMutation(importRebeccaBackup, {
-		onSuccess: (result) => {
-			generateSuccessMessage(
-				t("settings.backup.importDone", {
-					tables: result.tables_restored,
-					rows: result.rows_restored,
-				}),
-				toast,
-			);
-			if (result.warnings.length) {
-				toast({
-					status: "warning",
-					title: t("settings.backup.importWarnings"),
-					description: result.warnings.join("\n"),
-					duration: 8000,
-					isClosable: true,
-				});
-			}
-			setSelectedFile(null);
-			setDialog(null);
+	const importMutation = useMutation(
+		(file: File) => importRebeccaBackup(file, setUploadProgress),
+		{
+			onMutate: () => setUploadProgress(0),
+			onSuccess: (result) => {
+				generateSuccessMessage(
+					t("settings.backup.importDone", {
+						tables: result.tables_restored,
+						rows: result.rows_restored,
+					}),
+					toast,
+				);
+				if (result.warnings.length) {
+					toast({
+						status: "warning",
+						title: t("settings.backup.importWarnings"),
+						description: result.warnings.join("\n"),
+						duration: 8000,
+						isClosable: true,
+					});
+				}
+				setSelectedFile(null);
+				setDialog(null);
+			},
+			onError: (error) => {
+				generateErrorMessage(error, toast);
+			},
+			onSettled: () => setUploadProgress(null),
 		},
-		onError: (error) => {
-			generateErrorMessage(error, toast);
-		},
-	});
+	);
 
 	const openDialog = (nextDialog: Exclude<BackupDialog, null>) => {
 		setMenuOpen(false);
@@ -180,7 +187,7 @@ export const DashboardBackupControls = ({
 				size="xl"
 				closeOnOverlayClick={!importMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					borderWidth="1px"
 					borderColor={borderColor}
@@ -215,6 +222,24 @@ export const DashboardBackupControls = ({
 									onFileSelect={setSelectedFile}
 								/>
 							</FormControl>
+							{importMutation.isLoading && uploadProgress !== null && (
+								<Stack spacing={2} aria-live="polite">
+									<Text fontSize="sm" fontWeight="semibold">
+										{uploadProgress < 100
+											? t("settings.backup.uploadProgress", {
+													percent: uploadProgress,
+												})
+											: t("settings.backup.processing")}
+									</Text>
+									<Progress
+										value={uploadProgress}
+										isIndeterminate={uploadProgress >= 100}
+										colorScheme="pink"
+										borderRadius="full"
+										size="sm"
+									/>
+								</Stack>
+							)}
 						</Stack>
 					</ModalBody>
 					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
@@ -244,7 +269,7 @@ export const DashboardBackupControls = ({
 				size="md"
 				closeOnOverlayClick={!exportMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					borderWidth="1px"
 					borderColor={borderColor}

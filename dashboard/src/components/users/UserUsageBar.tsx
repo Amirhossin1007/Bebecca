@@ -26,11 +26,11 @@ const INLINE_VALUE_SLOT_WIDTH = "5rem";
 
 export const formatUsagePair = (used: number, total: number | null): string => {
 	const [usedValue, usedUnit] = formatBytes(used, 2, true);
-	if (total === 0 || total === null) return `${usedValue}${usedUnit}/∞`;
+	if (total === 0 || total === null) return `${usedValue} ${usedUnit}/∞`;
 
 	const [totalValue, totalUnit] = formatBytes(total, 2, true);
-	if (usedUnit === totalUnit) return `${usedValue}/${totalValue}${totalUnit}`;
-	return `${usedValue}${usedUnit}/${totalValue}${totalUnit}`;
+	if (usedUnit === totalUnit) return `${usedValue}/${totalValue} ${totalUnit}`;
+	return `${usedValue} ${usedUnit}/${totalValue} ${totalUnit}`;
 };
 
 /**

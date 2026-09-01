@@ -12,8 +12,6 @@ import {
 	FormLabel,
 	Heading,
 	HStack,
-	InputGroup,
-	InputLeftElement,
 	Menu,
 	MenuButton,
 	MenuItem,
@@ -41,7 +39,6 @@ import {
 	ArrowPathIcon,
 	ArrowUpTrayIcon,
 	ChevronDownIcon as HeroChevronDownIcon,
-	MagnifyingGlassIcon,
 	NoSymbolIcon,
 	PaperAirplaneIcon,
 	PlusIcon,
@@ -49,10 +46,10 @@ import {
 } from "@heroicons/react/24/outline";
 import { NumericInput } from "components/common/NumericInput";
 import { PanelInput as Input } from "components/common/PanelInput";
+import { SearchInput } from "components/common/SearchInput";
 import useGetUser from "hooks/useGetUser";
 import {
 	type ReactNode,
-	useCallback,
 	useEffect,
 	useMemo,
 	useState,
@@ -96,6 +93,14 @@ import {
 	generateErrorMessage,
 	generateSuccessMessage,
 } from "utils/toastHandler";
+import {
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+	matchesAnySearch,
+} from "utils/searchMatch";
+import {
+	integrationTabKeys,
+	parseSettingsHash,
+} from "utils/settingsTabs";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import {
 	DataTable,
@@ -475,7 +480,6 @@ const SaveIcon = chakra(PaperAirplaneIcon, { baseStyle: { w: 4, h: 4 } });
 const ChevronDownIcon = chakra(HeroChevronDownIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
-const SearchIcon = chakra(MagnifyingGlassIcon, { baseStyle: { w: 4, h: 4 } });
 
 const buildDefaultValues = (settings: TelegramSettingsResponse): FormValues => {
 	const topics: Record<string, TopicFormValue> = {};
@@ -630,7 +634,7 @@ const DisabledCard = ({
 			pointerEvents={disabled ? "none" : "auto"}
 			filter={disabled ? "blur(1.2px)" : "none"}
 			opacity={disabled ? 0.55 : 1}
-			transition="all 0.2s ease"
+			transition="filter 0.2s ease, opacity 0.2s ease"
 		>
 			{children}
 		</Box>
@@ -740,6 +744,8 @@ const buildAdminSubscriptionPayload = (
 	),
 });
 
+const readSettingsHash = () => parseSettingsHash(window.location.hash);
+
 export const IntegrationSettingsPage = () => {
 	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
@@ -760,13 +766,16 @@ export const IntegrationSettingsPage = () => {
 			(userData.role === "sudo" &&
 				Boolean(userData.permissions?.sudo.maintenance)));
 	const queryClient = useQueryClient();
+	const [activeIntegrationTab, setActiveIntegrationTab] = useState(
+		() => readSettingsHash().index,
+	);
 
 	const { data, isLoading, refetch } = useQuery(
 		"telegram-settings",
 		getTelegramSettings,
 		{
 			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations,
+			enabled: canManageIntegrations && activeIntegrationTab === 1,
 		},
 	);
 
@@ -776,7 +785,7 @@ export const IntegrationSettingsPage = () => {
 		refetch: refetchPanelSettings,
 	} = useQuery<PanelSettingsResponse>("panel-settings", getPanelSettings, {
 		refetchOnWindowFocus: false,
-		enabled: canManageIntegrations,
+		enabled: canManageIntegrations && activeIntegrationTab === 0,
 	});
 
 	const {
@@ -788,7 +797,7 @@ export const IntegrationSettingsPage = () => {
 		getRuntimeSettings,
 		{
 			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations,
+			enabled: canManageIntegrations && activeIntegrationTab === 0,
 		},
 	);
 
@@ -798,7 +807,7 @@ export const IntegrationSettingsPage = () => {
 		refetch: refetchPHPMyAdminStatus,
 	} = useQuery("phpmyadmin-status", getPHPMyAdminStatus, {
 		refetchOnWindowFocus: false,
-		enabled: canManageIntegrations,
+		enabled: canManageIntegrations && activeIntegrationTab === 0,
 	});
 
 	const {
@@ -810,14 +819,17 @@ export const IntegrationSettingsPage = () => {
 		getSubscriptionSettings,
 		{
 			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations,
+			enabled: canManageIntegrations && activeIntegrationTab >= 2,
 		},
 	);
 
 	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>(
 		"maintenance-info",
 		() => apiFetch<RuntimeMaintenanceInfo>("/maintenance/info"),
-		{ refetchOnWindowFocus: false, enabled: canReadMaintenance },
+		{
+			refetchOnWindowFocus: false,
+			enabled: canReadMaintenance && activeIntegrationTab === 0,
+		},
 	);
 	const hostActionsAvailable =
 		(maintenanceInfoQuery.data?.panel?.mode ||
@@ -847,8 +859,10 @@ export const IntegrationSettingsPage = () => {
 		Record<number, AdminSubscriptionSettings>
 	>({});
 	const [selectedAdminId, setSelectedAdminId] = useState<number | null>(null);
-	const [activeIntegrationTab, setActiveIntegrationTab] = useState<number>(0);
 	const [adminSearchTerm, setAdminSearchTerm] = useState<string>("");
+	const [adminSearchMatch, setAdminSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [isOpeningPHPMyAdminExternal, setOpeningPHPMyAdminExternal] =
 		useState(false);
 	const [certificateForm, setCertificateForm] = useState<{
@@ -866,6 +880,9 @@ export const IntegrationSettingsPage = () => {
 	});
 	const [isCertificateDialogOpen, setCertificateDialogOpen] = useState(false);
 	const [certificateSearch, setCertificateSearch] = useState("");
+	const [certificateSearchMatch, setCertificateSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [certificateFilter, setCertificateFilter] = useState<
 		"all" | "expiring_7d"
 	>("all");
@@ -961,22 +978,6 @@ export const IntegrationSettingsPage = () => {
 		[subscriptionPortsText],
 	);
 
-	const integrationTabKeys = useMemo(
-		() => ["panel", "telegram", "subscriptions", "ssl"],
-		[],
-	);
-	const readSettingsHash = useCallback(() => {
-		const hash = (window.location.hash || "").replace(/^#/, "");
-		const [tabWithQuery = ""] = hash.split("#").filter(Boolean);
-		const [tab = "", query = ""] = tabWithQuery.split("?");
-		return {
-			tab,
-			focus: query ? new URLSearchParams(query).get("focus") || "" : "",
-		};
-	}, []);
-	const getFocusFromHash = useCallback(() => {
-		return readSettingsHash();
-	}, [readSettingsHash]);
 	useEffect(() => {
 		const syncTabFromHash = () => {
 			const { tab } = readSettingsHash();
@@ -999,10 +1000,10 @@ export const IntegrationSettingsPage = () => {
 		syncTabFromHash();
 		window.addEventListener("hashchange", syncTabFromHash);
 		return () => window.removeEventListener("hashchange", syncTabFromHash);
-	}, [integrationTabKeys, readSettingsHash]);
+	}, []);
 
 	useEffect(() => {
-		const { focus, tab } = getFocusFromHash();
+		const { focus, tab } = readSettingsHash();
 		if (
 			activeIntegrationTab !== 1 ||
 			tab.toLowerCase() !== "telegram" ||
@@ -1017,7 +1018,7 @@ export const IntegrationSettingsPage = () => {
 				?.scrollIntoView({ behavior: "smooth", block: "center" });
 		}, 250);
 		return () => window.clearTimeout(timer);
-	}, [activeIntegrationTab, data, getFocusFromHash, isLoading]);
+	}, [activeIntegrationTab, data, isLoading]);
 
 	const saveAllMutation = useMutation(updateAllSettings, {
 		onSuccess: (updated) => {
@@ -1366,13 +1367,13 @@ export const IntegrationSettingsPage = () => {
 	const filteredAdmins =
 		adminSearchTerm.trim().length === 0
 			? adminOptions
-			: adminOptions.filter((admin) => {
-					const q = adminSearchTerm.toLowerCase();
-					return (
-						admin.username.toLowerCase().includes(q) ||
-						(admin.subscription_domain || "").toLowerCase().includes(q)
+			: adminOptions.filter((admin) =>
+					matchesAnySearch(
+						[admin.username, admin.subscription_domain],
+						adminSearchTerm,
+						adminSearchMatch,
+					),
 					);
-				});
 
 	const runtimeDirty = Boolean(
 		runtimeSettings &&
@@ -1491,19 +1492,20 @@ export const IntegrationSettingsPage = () => {
 	const telegramBackupDisabledMessage = t("settings.telegram.backupBinaryOnly");
 	const certificates = subscriptionBundle?.certificates ?? [];
 	const filteredCertificates = useMemo(() => {
-		const query = certificateSearch.trim().toLowerCase();
 		const now = Date.now();
 		const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000;
 
 		return certificates.filter((certificate) => {
-			const matchesSearch =
-				!query ||
+			const matchesSearch = matchesAnySearch(
 				[
 					certificate.domain,
 					...(certificate.alt_names || []),
 					certificate.provider || "",
 					certificate.status || "",
-				].some((value) => value.toLowerCase().includes(query));
+				],
+				certificateSearch,
+				certificateSearchMatch,
+			);
 			if (!matchesSearch || certificateFilter === "all") {
 				return matchesSearch;
 			}
@@ -1513,7 +1515,12 @@ export const IntegrationSettingsPage = () => {
 				: Number.NaN;
 			return expiresAt >= now && expiresAt <= sevenDaysFromNow;
 		});
-	}, [certificateFilter, certificateSearch, certificates]);
+	}, [
+		certificateFilter,
+		certificateSearch,
+		certificateSearchMatch,
+		certificates,
+	]);
 	const certificateColumns = useMemo<
 		DataTableColumn<SubscriptionCertificate>[]
 	>(
@@ -1716,26 +1723,19 @@ export const IntegrationSettingsPage = () => {
 				}
 			>
 				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-					<InputGroup>
-						<InputLeftElement pointerEvents="none">
-							<SearchIcon />
-						</InputLeftElement>
-						<Input
-							ps={10}
+					<SearchInput
 							value={certificateSearch}
 							onChange={(event) => setCertificateSearch(event.target.value)}
-							placeholder={t(
-								"settings.subscriptions.searchCertificates",
-							)}
+						placeholder={t("settings.subscriptions.searchCertificates")}
+						matchOptions={certificateSearchMatch}
+						onMatchOptionsChange={setCertificateSearchMatch}
+						onClear={() => setCertificateSearch("")}
 						/>
-					</InputGroup>
 					<Select
 						showSearch={false}
 						value={certificateFilter}
 						onChange={(event) =>
-							setCertificateFilter(
-								event.target.value as "all" | "expiring_7d",
-							)
+							setCertificateFilter(event.target.value as "all" | "expiring_7d")
 						}
 					>
 						<option value="all">
@@ -1940,11 +1940,8 @@ export const IntegrationSettingsPage = () => {
 					{t("settings.save")}
 				</Button>
 			</Flex>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 0 ? "block" : "none"}
-			>
+			{activeIntegrationTab === 0 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isPanelLoading && panelData === undefined ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -2282,12 +2279,10 @@ export const IntegrationSettingsPage = () => {
 						</Box>
 					</Stack>
 				)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 3 ? "block" : "none"}
-			>
+				</Box>
+			)}
+			{activeIntegrationTab === 3 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -2295,12 +2290,10 @@ export const IntegrationSettingsPage = () => {
 				) : (
 					certificateManager
 				)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 1 ? "block" : "none"}
-			>
+				</Box>
+			)}
+			{activeIntegrationTab === 1 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isLoading && !data ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -2709,12 +2702,10 @@ export const IntegrationSettingsPage = () => {
 						</VStack>
 					</form>
 				)}
-			</Box>
-			<Box
-				px={{ base: 0, md: 2 }}
-				mt={3}
-				display={activeIntegrationTab === 2 ? "block" : "none"}
-			>
+				</Box>
+			)}
+			{activeIntegrationTab === 2 && (
+				<Box px={{ base: 0, md: 2 }} mt={3}>
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<Flex align="center" justify="center" py={12}>
 						<Spinner size="lg" />
@@ -3191,19 +3182,7 @@ export const IntegrationSettingsPage = () => {
 														borderBottom="1px solid"
 														borderColor="gray.200"
 													>
-														<InputGroup size="sm">
-															<InputLeftElement
-																pointerEvents="none"
-																w="2.4rem"
-																h="full"
-																display="flex"
-																alignItems="center"
-																justifyContent="center"
-															>
-																<SearchIcon color="gray.400" w={4} h={4} />
-															</InputLeftElement>
-															<Input
-																ps="2.4rem"
+														<SearchInput
 																textAlign="start"
 																placeholder={t(
 																	"settings.subscriptions.searchAdmin",
@@ -3212,8 +3191,10 @@ export const IntegrationSettingsPage = () => {
 																onChange={(event) =>
 																	setAdminSearchTerm(event.target.value)
 																}
+															matchOptions={adminSearchMatch}
+															onMatchOptionsChange={setAdminSearchMatch}
+															onClear={() => setAdminSearchTerm("")}
 															/>
-														</InputGroup>
 													</Box>
 													{filteredAdmins.length === 0 ? (
 														<Box px={3} py={2}>
@@ -3928,7 +3909,8 @@ export const IntegrationSettingsPage = () => {
 						</VStack>
 					</form>
 				)}
-			</Box>
+				</Box>
+			)}
 			<Modal
 				isOpen={isCertificateDialogOpen}
 				onClose={() => setCertificateDialogOpen(false)}
@@ -3937,7 +3919,7 @@ export const IntegrationSettingsPage = () => {
 				scrollBehavior="inside"
 				closeOnOverlayClick={!isCertificateMutationLoading}
 			>
-				<ModalOverlay bg="blackAlpha.500" backdropFilter="blur(12px)" />
+				<ModalOverlay bg="blackAlpha.500" />
 				<ModalContent
 					as="form"
 					onSubmit={(event) => {
@@ -3982,9 +3964,7 @@ export const IntegrationSettingsPage = () => {
 											}))
 										}
 									>
-										<option value="letsencrypt">
-											Certbot / Let's Encrypt
-										</option>
+										<option value="letsencrypt">Certbot / Let's Encrypt</option>
 										<option value="zerossl">ZeroSSL</option>
 										<option value="manual">
 											{t("settings.subscriptions.manualCertificate")}
@@ -3998,9 +3978,7 @@ export const IntegrationSettingsPage = () => {
 								</FormControl>
 								{certificateForm.provider !== "manual" ? (
 									<FormControl isRequired>
-										<FormLabel>
-											{t("settings.subscriptions.email")}
-										</FormLabel>
+										<FormLabel>{t("settings.subscriptions.email")}</FormLabel>
 										<Input
 											type="email"
 											placeholder="admin@example.com"
@@ -4077,11 +4055,7 @@ export const IntegrationSettingsPage = () => {
 							) : null}
 						</VStack>
 					</ModalBody>
-					<ModalFooter
-						gap={2}
-						borderTopWidth="1px"
-						borderColor={borderColor}
-					>
+					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
 						<Button
 							variant="ghost"
 							onClick={() => setCertificateDialogOpen(false)}

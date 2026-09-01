@@ -65,6 +65,10 @@ type Server struct {
 	userOpsKickMu        sync.Mutex
 	userOpsKicking       bool
 	userOpsKickUserIDs   map[int64]struct{}
+	liveUserSpeedsMu     sync.RWMutex
+	liveUserSpeeds       map[string]liveUserSpeed
+	liveUserSpeedTotals  map[liveUserSpeedScope]liveUserSpeedTotal
+	liveUserGlobalSpeed  liveUserSpeedTotal
 	sessionAdmissionMu   sync.Mutex
 	loginLimiter         loginRateLimiter
 	operators            *operatorResolver
@@ -189,7 +193,6 @@ func (s *Server) StartBackground(ctx context.Context) {
 		}
 		go s.runNodeOperationsWorker(ctx)
 		go s.runNodeRecoveryWorker(ctx)
-		go s.runOnlineUsersCollector(ctx)
 		go s.runNodeUsageCollector(ctx)
 		go s.runNodeUsageFlushWorker(ctx)
 		go s.runAdminLifecycleWorker(ctx)

@@ -3799,6 +3799,27 @@ wait_for_managed_database() {
     return 1
 }
 
+restart_binary_database_if_running() {
+    local database_type service_name
+
+    is_binary_install || return 0
+    managed_database_url_is_local || return 0
+    database_type=$(get_configured_database_type)
+    case "$database_type" in
+        mysql) service_name="mysql" ;;
+        mariadb) service_name="mariadb" ;;
+        *) return 0 ;;
+    esac
+    systemctl is-active --quiet "$service_name" || return 0
+
+    colorized_echo blue "Restarting $database_type database service"
+    if ! restart_managed_database "$service_name" || ! wait_for_managed_database; then
+        colorized_echo red "$database_type did not become ready after restart."
+        return 1
+    fi
+    colorized_echo green "$database_type database service restarted successfully."
+}
+
 disable_managed_database_binary_log() {
     local database_type config_file service_name extra_databases log_bin backup_file setting_added=0
 
@@ -4408,6 +4429,9 @@ restart_command() {
     fi
     
     if is_binary_install; then
+        if ! restart_binary_database_if_running; then
+            return 1
+        fi
         if [ "$no_logs" = true ]; then
             schedule_binary_service_restart 1
             colorized_echo green "Rebecca restart scheduled."
@@ -4634,6 +4658,9 @@ update_command() {
     
     colorized_echo blue "Restarting Rebecca's services"
     if is_binary_install; then
+        if ! restart_binary_database_if_running; then
+            return 1
+        fi
         schedule_binary_service_restart 1
         colorized_echo blue "Rebecca updated successfully; restart scheduled."
         return
