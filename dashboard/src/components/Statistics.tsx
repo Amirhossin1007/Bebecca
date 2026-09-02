@@ -1016,7 +1016,32 @@ export const Statistics: FC<BoxProps> = (props) => {
 			{...props}
 		>
 			<Flex align="center" justify="space-between" flexWrap="wrap" gap={3} px={1}>
-				<VStack align="flex-start" spacing={1}>
+				<Flex
+					align={{ base: "center", md: "var(--rb-header-align, flex-start)" }}
+					direction={{ base: "row", md: "var(--rb-header-dir, column)" }}
+					wrap="wrap"
+					gap={{ base: 2.5, md: 1 }}
+					sx={{
+						"@media screen and (max-width: 767px)": {
+							flexDirection: "row",
+							alignItems: "center",
+						},
+						"@media screen and (min-width: 768px) and (max-width: 991px)": {
+							"body:has([data-sidebar-collapsed='true']) &": {
+								flexDirection: "row",
+								alignItems: "center",
+							},
+							"body:not(:has([data-sidebar-collapsed='true'])) &": {
+								flexDirection: "column",
+								alignItems: "flex-start",
+							},
+						},
+						"@media screen and (min-width: 992px)": {
+							flexDirection: "column",
+							alignItems: "flex-start",
+						},
+					}}
+				>
 					<Text fontSize={{ base: "18px", md: "20px" }} fontWeight="700" color="panel.text" letterSpacing="-0.02em">
 						{t("systemOverview")}
 					</Text>
@@ -1046,7 +1071,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							</HStack>
 						)}
 					</Flex>
-				</VStack>
+				</Flex>
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</Flex>
 
