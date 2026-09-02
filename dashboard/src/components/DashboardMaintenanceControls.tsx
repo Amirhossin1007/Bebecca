@@ -344,7 +344,7 @@ export const DashboardMaintenanceControls = ({
 					whiteSpace="nowrap"
 				>
 					{update?.available
-						? t("nodes.nodeUpdateAvailable", "به‌روزرسانی موجود")
+						? t("nodes.nodeUpdateAvailable")
 						: t("settings.panel.updateAction")}
 				</Button>
 			</PopoverTrigger>
@@ -765,7 +765,7 @@ export const DashboardMaintenanceControls = ({
 								if (act === "soft-reload") reloadMutation.mutate();
 							}}
 						>
-							{t("confirm", "تأیید")}
+							{t("confirm")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
