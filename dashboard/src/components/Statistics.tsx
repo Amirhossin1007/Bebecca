@@ -757,61 +757,95 @@ const SectionCard: FC<{
 	children: ReactNode;
 	title?: ReactNode;
 	action?: ReactNode;
-	layout?: boolean;
 }> = ({
 	children,
 	title,
 	action,
-	layout,
-}) => {
-	const content = (
-		<Box
-			bg="panel.surface"
-			borderWidth="1px"
-			borderColor="panel.border"
-			borderRadius="20px"
-			overflow="hidden"
-			transition="border-color 0.25s ease, background-color 0.25s ease"
-			_hover={{
-				borderColor: "panel.borderStrong",
-			}}
-		>
-			{(title || action) && (
-				<Flex
-					px={{ base: 4, sm: 5, md: 6 }}
-					py={3.5}
-					align="center"
-					justify="space-between"
-					borderBottomWidth="1px"
-					borderColor="panel.border"
-				>
-					{title && (
-						<Text fontSize="13px" fontWeight="700" color="panel.text" letterSpacing="-0.01em">
-							{title}
-						</Text>
-					)}
-					{action}
-				</Flex>
-			)}
-			<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
-				{children}
-			</Box>
-		</Box>
-	);
-
-	if (layout) {
-		return (
-			<motion.div
-				layout
-				transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-				style={{ borderRadius: 20 }}
+}) => (
+	<Box
+		bg="panel.surface"
+		borderWidth="1px"
+		borderColor="panel.border"
+		borderRadius="20px"
+		overflow="hidden"
+		transition="border-color 0.25s ease, background-color 0.25s ease"
+		_hover={{
+			borderColor: "panel.borderStrong",
+		}}
+	>
+		{(title || action) && (
+			<Flex
+				px={{ base: 4, sm: 5, md: 6 }}
+				py={3.5}
+				align="center"
+				justify="space-between"
+				borderBottomWidth="1px"
+				borderColor="panel.border"
 			>
-				{content}
-			</motion.div>
-		);
-	}
+				{title && (
+					<Text fontSize="13px" fontWeight="700" color="panel.text" letterSpacing="-0.01em">
+						{title}
+					</Text>
+				)}
+				{action}
+			</Flex>
+		)}
+		<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
+			{children}
+		</Box>
+	</Box>
+);
 
-	return content;
+const AnimatedHeightWrapper: FC<{
+	children: ReactNode;
+	activeKey: string;
+}> = ({ children, activeKey }) => {
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [height, setHeight] = useState<number | "auto">("auto");
+
+	useEffect(() => {
+		if (containerRef.current) {
+			const resizeObserver = new ResizeObserver((entries) => {
+				for (const entry of entries) {
+					const newHeight = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+					if (newHeight > 0) {
+						setHeight(newHeight);
+					}
+				}
+			});
+
+			resizeObserver.observe(containerRef.current);
+			return () => resizeObserver.disconnect();
+		}
+	}, []);
+
+	return (
+		<motion.div
+			animate={{ height }}
+			transition={{
+				duration: 0.7,
+				ease: [0.22, 1, 0.36, 1],
+			}}
+			style={{ overflow: "hidden" }}
+		>
+			<div ref={containerRef}>
+				<AnimatePresence mode="popLayout" initial={false}>
+					<motion.div
+						key={activeKey}
+						initial={{ opacity: 0, y: 6 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: -6 }}
+						transition={{
+							opacity: { duration: 0.2 },
+							y: { duration: 0.25, ease: "easeInOut" },
+						}}
+					>
+						{children}
+					</motion.div>
+				</AnimatePresence>
+			</div>
+		</motion.div>
+	);
 };
 
 const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
@@ -960,7 +994,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Text fontSize={{ base: "18px", md: "20px" }} fontWeight="700" color="panel.text" letterSpacing="-0.02em">
 						{t("systemOverview")}
 					</Text>
-					<HStack spacing={2} align="center">
+					<Flex align="center" gap={2} direction="row">
 						<Box
 							w="6px"
 							h="6px"
@@ -978,11 +1012,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 							{systemData.xray_running ? t("status.running") : t("status.stopped")}
 						</Text>
 						{exactVersion && exactVersion !== "-" && (
-							<Text fontSize="12px" color="panel.textMuted" fontWeight="500" dir="ltr">
-								· {exactVersion}
-							</Text>
+							<HStack spacing={1.5} align="center" color="panel.textMuted" fontSize="12px" fontWeight="500">
+								<Text as="span">·</Text>
+								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+									{exactVersion}
+								</Text>
+							</HStack>
 						)}
-					</HStack>
+					</Flex>
 				</VStack>
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</Flex>
@@ -1229,7 +1266,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 			</SectionCard>
 
 			<SectionCard
-				layout
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
@@ -1283,77 +1319,46 @@ export const Statistics: FC<BoxProps> = (props) => {
 					)
 				}
 			>
-				<motion.div
-					layout
-					style={{ overflow: "hidden" }}
-					transition={{
-						layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
-					}}
-				>
-					<AnimatePresence mode="wait" initial={false}>
-						{canSeeGlobal && userTab === "all" ? (
-							<motion.div
-								key="all"
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1 }}
-								exit={{ opacity: 0 }}
-								transition={{ duration: 0.25 }}
-							>
-								<Stack spacing={0}>
-									<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
-									<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
-									<StatRow
-										label={t("onlineUsers")}
-										value={systemData.online_users}
-										tag={onlinePercent}
-										tagColor="#06b6d4"
-										helper={
-											systemData.online_users_upload_speed || systemData.online_users_download_speed
-												? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
-												: undefined
-										}
-									/>
-									{systemData.online_users_usage > 0 && (
-										<StatRow
-											label={t("dashboard.onlineUsersUsage")}
-											value={formatBytes(systemData.online_users_usage)}
-											dimLabel
-										/>
-									)}
-									<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
-									<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
-									<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
-								</Stack>
-							</motion.div>
-						) : (
-							<motion.div
-								key="mine"
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1 }}
-								exit={{ opacity: 0 }}
-								transition={{ duration: 0.25 }}
-							>
-								<Stack spacing={0}>
-									<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
-									<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
-									<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
-									<StatRow
-										label={myUsageLabel}
-										value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
-										tagColor="#a855f7"
-									/>
-									{systemData.personal_usage?.reset_bytes ? (
-										<StatRow
-											label={t("resetData")}
-											value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
-											tagColor="#f59e0b"
-										/>
-									) : null}
-								</Stack>
-							</motion.div>
-						)}
-					</AnimatePresence>
-				</motion.div>
+				<AnimatedHeightWrapper activeKey={userTab}>
+					{canSeeGlobal && userTab === "all" ? (
+						<Stack spacing={0}>
+							<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
+							<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
+							<StatRow
+								label={t("onlineUsers")}
+								value={systemData.online_users}
+								tag={onlinePercent}
+								tagColor="#06b6d4"
+								helper={
+									systemData.online_users_upload_speed || systemData.online_users_download_speed
+										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
+										: undefined
+								}
+							/>
+							<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
+							<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
+							<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
+						</Stack>
+					) : (
+						<Stack spacing={0}>
+							<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
+							<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
+							<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
+							<StatRow
+								label={myUsageLabel}
+								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
+								tagColor="#a855f7"
+							/>
+							{systemData.personal_usage?.reset_bytes ? (
+								<StatRow
+									label={t("resetData")}
+									value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
+									tagColor="#f59e0b"
+								/>
+							) : null}
+						</Stack>
+					)}
+				</AnimatedHeightWrapper>
 			</SectionCard>
 
 			{canSeeGlobal && systemData.admin_overview && (
