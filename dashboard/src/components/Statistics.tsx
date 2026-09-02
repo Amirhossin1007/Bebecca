@@ -26,11 +26,11 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
-	ExclamationTriangleIcon,
+	CubeIcon,
 	ServerStackIcon,
-	ShieldCheckIcon,
 	SignalIcon,
 	UserGroupIcon,
+	UsersIcon,
 } from "@heroicons/react/24/outline";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
@@ -52,8 +52,8 @@ import { useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
-import type { UsersListResponse } from "types/User";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
+import { formatDuration } from "utils/formatDuration";
 import { mergeLiveSystemStats } from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
@@ -62,76 +62,16 @@ export const StatisticsQueryKey = "statistics-query-key";
 
 const HistoryChart = lazy(() => import("react-apexcharts"));
 
-type MaintenanceInfo = {
-	panel?: {
-		image?: string;
-		tag?: string | null;
-		mode?: string;
-		install_mode?: string;
-		channel?: string;
-		update?: {
-			current?: string | null;
-			available?: boolean;
-			target?: string | null;
-			latest_release?: { tag?: string | null } | null;
-			latest_dev?: { tag?: string | null } | null;
-			error?: string | null;
-		} | null;
-	} | null;
-};
-
-const toPersianDigits = (value: number | string): string => {
-	const farsiDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-	return String(value).replace(/[0-9]/g, (w) => farsiDigits[+w]);
-};
-
-const formatLocalizedDuration = (
-	totalSeconds: number,
-	t: TFunction,
-	isRTL: boolean,
-): string => {
-	if (!totalSeconds || totalSeconds <= 0) {
-		const zero = isRTL ? "۰" : "0";
-		return `${zero} ${t("second")}`;
-	}
-
-	const days = Math.floor(totalSeconds / 86400);
-	const hours = Math.floor((totalSeconds % 86400) / 3600);
-	const minutes = Math.floor((totalSeconds % 3600) / 60);
-	const seconds = Math.floor(totalSeconds % 60);
-
-	const dNum = isRTL ? toPersianDigits(days) : String(days);
-	const hNum = isRTL ? toPersianDigits(hours) : String(hours);
-	const mNum = isRTL ? toPersianDigits(minutes) : String(minutes);
-	const sNum = isRTL ? toPersianDigits(seconds) : String(seconds);
-
-	const dText = `${dNum} ${t("day")}`;
-	const hText = `${hNum} ${t("hour")}`;
-	const mText = `${mNum} ${t("minute")}`;
-	const sText = `${sNum} ${t("second")}`;
-
-	const andWord = t("common.and");
-	const commaWord = t("common.comma");
-
-	if (days > 0) {
-		const parts: string[] = [dText];
-		if (hours > 0) parts.push(hText);
-		if (minutes > 0) parts.push(mText);
-		if (parts.length === 1) return parts[0];
-		if (parts.length === 2) return parts.join(andWord);
-		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
-	}
-	if (hours > 0) return minutes > 0 ? `${hText}${andWord}${mText}` : hText;
-	if (minutes > 0) return seconds > 0 ? `${mText}${andWord}${sText}` : mText;
-	return sText;
-};
-
 const useSystemMetricsStream = (enabled = true) => {
 	const queryClient = useQueryClient();
 	useEffect(() => {
-		if (!enabled || typeof window === "undefined") return;
+		if (!enabled || typeof window === "undefined") {
+			return;
+		}
 		const url = getAPIWebSocketURL("/system/metrics", { interval: 3 });
-		if (!url) return;
+		if (!url) {
+			return;
+		}
 		let closed = false;
 		let ws: WebSocket | null = null;
 		let reconnectTimer: number | undefined;
@@ -142,7 +82,9 @@ const useSystemMetricsStream = (enabled = true) => {
 				try {
 					const payload = JSON.parse(event.data);
 					const stats = payload?.stats ?? payload;
-					if (!stats || typeof stats !== "object" || !("version" in stats)) return;
+					if (!stats || typeof stats !== "object" || !("version" in stats)) {
+						return;
+					}
 					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, (current) =>
 						mergeLiveSystemStats(current, stats),
 					);
@@ -150,16 +92,22 @@ const useSystemMetricsStream = (enabled = true) => {
 					console.error("Unable to parse system metrics stream payload", error);
 				}
 			};
-			ws.onerror = () => ws?.close();
+			ws.onerror = () => {
+				ws?.close();
+			};
 			ws.onclose = () => {
-				if (!closed) reconnectTimer = window.setTimeout(connect, 3000);
+				if (!closed) {
+					reconnectTimer = window.setTimeout(connect, 3000);
+				}
 			};
 		};
 
 		connect();
 		return () => {
 			closed = true;
-			if (reconnectTimer) window.clearTimeout(reconnectTimer);
+			if (reconnectTimer) {
+				window.clearTimeout(reconnectTimer);
+			}
 			ws?.close();
 		};
 	}, [enabled, queryClient]);
@@ -196,136 +144,234 @@ const safeUsageStats = (value: unknown): SystemStats["memory"] => {
 	};
 };
 
-const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null => {
-	if (!value || typeof value !== "object") return null;
-	const raw = value as any;
+const sanitizeSystemStats = (
+	value: SystemStats | undefined,
+): SystemStats | undefined => {
+	if (!value) {
+		return undefined;
+	}
+
 	return {
 		...value,
-		version: String(raw.version ?? ""),
-		cpu_cores: toFiniteNumber(raw.cpu_cores),
-		cpu_threads: toFiniteNumber(raw.cpu_threads),
-		cpu_frequency_hz: toFiniteNumber(raw.cpu_frequency_hz),
-		cpu_usage: toFiniteNumber(raw.cpu_usage),
-		total_user: toFiniteNumber(raw.total_user),
-		online_users: toFiniteNumber(raw.online_users),
-		online_users_usage: toFiniteNumber(raw.online_users_usage),
-		online_users_upload_speed: toFiniteNumber(raw.online_users_upload_speed),
-		online_users_download_speed: toFiniteNumber(raw.online_users_download_speed),
-		users_active: toFiniteNumber(raw.users_active),
-		users_on_hold: toFiniteNumber(raw.users_on_hold),
-		users_disabled: toFiniteNumber(raw.users_disabled),
-		users_expired: toFiniteNumber(raw.users_expired),
-		users_limited: toFiniteNumber(raw.users_limited),
-		incoming_bandwidth: toFiniteNumber(raw.incoming_bandwidth),
-		outgoing_bandwidth: toFiniteNumber(raw.outgoing_bandwidth),
-		panel_total_bandwidth: toFiniteNumber(raw.panel_total_bandwidth),
-		incoming_bandwidth_speed: toFiniteNumber(raw.incoming_bandwidth_speed),
-		outgoing_bandwidth_speed: toFiniteNumber(raw.outgoing_bandwidth_speed),
-		memory: safeUsageStats(raw.memory),
-		swap: safeUsageStats(raw.swap),
-		disk: safeUsageStats(raw.disk),
-		load_avg: Array.isArray(raw.load_avg) ? raw.load_avg.map((item: unknown) => toFiniteNumber(item)) : [],
-		uptime_seconds: toFiniteNumber(raw.uptime_seconds),
-		panel_uptime_seconds: toFiniteNumber(raw.panel_uptime_seconds),
-		xray_uptime_seconds: toFiniteNumber(raw.xray_uptime_seconds),
-		xray_running: Boolean(raw.xray_running),
-		xray_version: raw.xray_version ?? null,
-		app_memory: toFiniteNumber(raw.app_memory),
-		app_threads: toFiniteNumber(raw.app_threads),
-		panel_cpu_percent: toFiniteNumber(raw.panel_cpu_percent),
-		panel_memory_percent: toFiniteNumber(raw.panel_memory_percent),
-		cpu_history: safeHistory(raw.cpu_history),
-		memory_history: safeHistory(raw.memory_history),
-		swap_history: safeHistory(raw.swap_history),
-		disk_history: safeHistory(raw.disk_history),
-		network_history: safeNetworkHistory(raw.network_history),
-		panel_cpu_history: safeHistory(raw.panel_cpu_history),
-		panel_memory_history: safeHistory(raw.panel_memory_history),
-		personal_usage:
-			raw.personal_usage && typeof raw.personal_usage === "object"
-				? {
-						total_users: toFiniteNumber(raw.personal_usage.total_users),
-						consumed_bytes: toFiniteNumber(raw.personal_usage.consumed_bytes),
-						built_bytes: toFiniteNumber(raw.personal_usage.built_bytes),
-						reset_bytes: toFiniteNumber(raw.personal_usage.reset_bytes),
-						traffic_basis: raw.personal_usage.traffic_basis,
-					}
-				: {
-						total_users: 0,
-						consumed_bytes: 0,
-						built_bytes: 0,
-						reset_bytes: 0,
-						traffic_basis: "used_traffic",
-					},
-		admin_overview:
-			raw.admin_overview && typeof raw.admin_overview === "object"
-				? {
-						total_admins: toFiniteNumber(raw.admin_overview.total_admins),
-						sudo_admins: toFiniteNumber(raw.admin_overview.sudo_admins),
-						full_access_admins: toFiniteNumber(
-							raw.admin_overview.full_access_admins,
-						),
-						standard_admins: toFiniteNumber(raw.admin_overview.standard_admins),
-						top_admin_username: raw.admin_overview.top_admin_username ?? null,
-						top_admin_usage: toFiniteNumber(raw.admin_overview.top_admin_usage),
-					}
-				: {
-						total_admins: 0,
-						sudo_admins: 0,
-						full_access_admins: 0,
-						standard_admins: 0,
-						top_admin_username: null,
-						top_admin_usage: 0,
-					},
+		cpu_percent: toFiniteNumber(value.cpu_percent),
+		cpu_cores: toFiniteNumber(value.cpu_cores),
+		cpu_threads: toFiniteNumber(value.cpu_threads),
+		cpu_history: safeHistory(value.cpu_history),
+		memory: safeUsageStats(value.memory),
+		memory_history: safeHistory(value.memory_history),
+		disk: safeUsageStats(value.disk),
+		incoming_bandwidth_speed: toFiniteNumber(value.incoming_bandwidth_speed),
+		outgoing_bandwidth_speed: toFiniteNumber(value.outgoing_bandwidth_speed),
+		network_history: safeNetworkHistory(value.network_history),
+		panel_cpu_percent: toFiniteNumber(value.panel_cpu_percent),
+		panel_memory_percent: toFiniteNumber(value.panel_memory_percent),
+		panel_cpu_history: safeHistory(value.panel_cpu_history),
+		panel_memory_history: safeHistory(value.panel_memory_history),
+		app_memory: toFiniteNumber(value.app_memory),
+		app_threads: toFiniteNumber(value.app_threads),
+		uptime_seconds: toFiniteNumber(value.uptime_seconds),
+		panel_uptime_seconds: toFiniteNumber(value.panel_uptime_seconds),
 	};
 };
 
-const formatNumberValue = (value?: number | null) => numberWithCommas(value);
-const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
+const useGetStatistics = () => {
+	const { systemMetricsInterval } = useDashboard();
+	const { data: userData } = useGetUser();
+	const isAdmin = userData?.role === AdminRole.admin;
 
-const HISTORY_INTERVALS = [
-	{ labelKey: "historyInterval.2m", seconds: 120 },
-	{ labelKey: "historyInterval.10m", seconds: 600 },
-	{ labelKey: "historyInterval.30m", seconds: 1800 },
-	{ labelKey: "historyInterval.1h", seconds: 3600 },
-	{ labelKey: "historyInterval.3h", seconds: 10800 },
-	{ labelKey: "historyInterval.5h", seconds: 18000 },
-];
+	const { data, ...rest } = useQuery<SystemStats>(
+		[StatisticsQueryKey, isAdmin],
+		async () => {
+			const res = await fetch<SystemStats>({
+				url: "/system",
+				params: {
+					user_id: !isAdmin ? userData?.id : undefined,
+				},
+			});
+			return res.data;
+		},
+		{
+			refetchInterval:
+				systemMetricsInterval > 0 ? systemMetricsInterval * 1000 : false,
+			refetchOnWindowFocus: false,
+		},
+	);
 
-type HistoryModalPayload = {
-	type: "cpu" | "memory" | "network" | "panel" | "panelCpu" | "panelMemory";
-	title: string;
-	metricLabel?: string;
-	entries?: Array<{ timestamp: number; value: number }>;
-	networkEntries?: SystemStats["network_history"];
-	cpuEntries?: SystemStats["panel_cpu_history"];
-	memoryEntries?: SystemStats["panel_memory_history"];
+	return {
+		...rest,
+		data: useMemo(() => sanitizeSystemStats(data), [data]),
+	};
 };
 
-const HistoryModal: FC<{
+const useGetMyUsersStats = (username: string | undefined, enabled: boolean) =>
+	useQuery(
+		["my-users-stats", username],
+		async () => {
+			if (!username) return null;
+			const res = await fetch<{
+				total?: number;
+				active?: number;
+				users?: Array<{ status?: string; online_at?: number | null; used_traffic?: number }>;
+			}>({
+				url: `/users?admin=${encodeURIComponent(username)}`,
+			});
+			const list = res.data?.users ?? [];
+			const total = res.data?.total ?? list.length;
+			const active =
+				res.data?.active ??
+				list.filter((u) => u.status === "active" || !u.status).length;
+			const now = Math.floor(Date.now() / 1000);
+			const online = list.filter(
+				(u) => u.online_at && now - u.online_at < 300,
+			).length;
+			const totalTraffic = list.reduce(
+				(sum, u) => sum + (Number(u.used_traffic) || 0),
+				0,
+			);
+			return { total, active, online, totalTraffic };
+		},
+		{
+			enabled: enabled && Boolean(username),
+			refetchInterval: 10000,
+			refetchOnWindowFocus: false,
+		},
+	);
+
+const clampPercent = (val: number) => {
+	if (!Number.isFinite(val)) return 0;
+	return Math.min(100, Math.max(0, val));
+};
+
+const formatNumberValue = (value: number | string | undefined | null) => {
+	if (value === undefined || value === null) return "0";
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? numberWithCommas(value) : "0";
+	}
+	return String(value);
+};
+
+interface DurationPart {
+	unit: string;
+	value: number;
+}
+
+const formatDurationParts = (seconds: number, t: TFunction): DurationPart[] => {
+	if (!seconds || seconds <= 0) {
+		return [{ unit: t("second"), value: 0 }];
+	}
+
+	const days = Math.floor(seconds / 86400);
+	const hours = Math.floor((seconds % 86400) / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	const remSeconds = Math.floor(seconds % 60);
+
+	const parts: DurationPart[] = [];
+	if (days > 0) parts.push({ unit: t("day"), value: days });
+	if (hours > 0) parts.push({ unit: t("hour"), value: hours });
+	if (minutes > 0) parts.push({ unit: t("minute"), value: minutes });
+	if (remSeconds > 0 || parts.length === 0) {
+		parts.push({ unit: t("second"), value: remSeconds });
+	}
+
+	return parts;
+};
+
+const formatLocalizedDuration = (
+	seconds: number,
+	t: TFunction,
+	isRTL = false,
+): ReactNode => {
+	const parts = formatDurationParts(seconds, t);
+	const andWord = t("common.and");
+	const commaWord = t("common.comma");
+
+	if (isRTL) {
+		return (
+			<Flex
+				as="span"
+				align="center"
+				justify="flex-start"
+				wrap="wrap"
+				gap={1}
+				dir="rtl"
+				sx={{ unicodeBidi: "isolate" }}
+			>
+				{parts.map((part, idx) => (
+					<Flex as="span" align="center" key={`${part.unit}-${part.value}`} gap={1}>
+						{idx > 0 && (
+							<Text as="span" color="panel.textMuted" fontSize="inherit" px={0.5}>
+								{idx === parts.length - 1 ? andWord : commaWord}
+							</Text>
+						)}
+						<Text
+							as="span"
+							color="panel.text"
+							fontWeight="700"
+							fontSize="inherit"
+							dir="ltr"
+							sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+						>
+							{part.value}
+						</Text>
+						<Text as="span" color="panel.textSecondary" fontSize="inherit">
+							{part.unit}
+						</Text>
+					</Flex>
+				))}
+			</Flex>
+		);
+	}
+
+	return formatDuration(seconds, t);
+};
+
+const HISTORY_INTERVALS = [
+	{ seconds: 120, labelKey: "intervals.2m" },
+	{ seconds: 600, labelKey: "intervals.10m" },
+	{ seconds: 1800, labelKey: "intervals.30m" },
+	{ seconds: 3600, labelKey: "intervals.1h" },
+	{ seconds: 10800, labelKey: "intervals.3h" },
+	{ seconds: 18000, labelKey: "intervals.5h" },
+] as const;
+
+interface HistoryModalPayload {
+	title: string;
+	metricLabel?: string;
+	type?: "generic" | "network" | "panel";
+	unit?: string;
+	entries?: SystemStats["cpu_history"];
+	cpuEntries?: SystemStats["cpu_history"];
+	memoryEntries?: SystemStats["memory_history"];
+	networkEntries?: SystemStats["network_history"];
+}
+
+interface HistoryModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	payload: HistoryModalPayload | null;
 	intervalSeconds: number;
-	onIntervalChange: (value: number) => void;
-	t: TFunction;
-}> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t }) => {
+	onIntervalChange: (seconds: number) => void;
+}
+
+const HistoryModal: FC<HistoryModalProps> = ({
+	isOpen,
+	onClose,
+	payload,
+	intervalSeconds,
+	onIntervalChange,
+}) => {
+	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
-	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
+	const gridColor = useColorModeValue("rgba(0, 0, 0, 0.06)", "rgba(255, 255, 255, 0.06)");
 	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
 
 	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
-		let timestamps: number[] = [];
-		if (payload.type === "network" && payload.networkEntries?.length) {
-			timestamps = payload.networkEntries.map((e) => e.timestamp);
-		} else if (payload.type === "panel") {
-			const cTs = (payload.cpuEntries || []).map((e) => e.timestamp);
-			const mTs = (payload.memoryEntries || []).map((e) => e.timestamp);
-			timestamps = [...cTs, ...mTs];
-		} else if (payload.entries?.length) {
-			timestamps = payload.entries.map((e) => e.timestamp);
-		}
+		const timestamps: number[] = [];
+		if (payload.entries) timestamps.push(...payload.entries.map((e) => e.timestamp));
+		if (payload.cpuEntries) timestamps.push(...payload.cpuEntries.map((e) => e.timestamp));
+		if (payload.memoryEntries) timestamps.push(...payload.memoryEntries.map((e) => e.timestamp));
+		if (payload.networkEntries) timestamps.push(...payload.networkEntries.map((e) => e.timestamp));
 
 		if (!timestamps.length) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
 		const maxT = Math.max(...timestamps);
@@ -339,7 +385,7 @@ const HistoryModal: FC<{
 		if (!payload) return [];
 		if (payload.type === "network" && payload.networkEntries) {
 			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
-			const finalData = filtered.length ? filtered : payload.networkEntries;
+			const finalData = filtered.length >= 2 ? filtered : payload.networkEntries;
 			return [
 				{
 					name: t("networkIncoming"),
@@ -354,8 +400,8 @@ const HistoryModal: FC<{
 		if (payload.type === "panel") {
 			const filteredCpu = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff);
 			const filteredMem = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff);
-			const finalCpu = filteredCpu.length ? filteredCpu : payload.cpuEntries || [];
-			const finalMem = filteredMem.length ? filteredMem : payload.memoryEntries || [];
+			const finalCpu = filteredCpu.length >= 2 ? filteredCpu : payload.cpuEntries || [];
+			const finalMem = filteredMem.length >= 2 ? filteredMem : payload.memoryEntries || [];
 			return [
 				{
 					name: `${t("cpuUsage")} (Panel CPU %)`,
@@ -369,7 +415,7 @@ const HistoryModal: FC<{
 		}
 		if (payload.entries) {
 			const filtered = payload.entries.filter((e) => e.timestamp >= cutoff);
-			const finalEntries = filtered.length ? filtered : payload.entries;
+			const finalEntries = filtered.length >= 2 ? filtered : payload.entries;
 			return [
 				{
 					name: payload.metricLabel ?? payload.title,
@@ -379,6 +425,9 @@ const HistoryModal: FC<{
 		}
 		return [];
 	}, [payload, cutoff, t]);
+
+	const isNetwork = payload?.type === "network";
+	const isPercentage = !isNetwork;
 
 	const options: ApexOptions = useMemo(
 		() => ({
@@ -390,7 +439,9 @@ const HistoryModal: FC<{
 				background: "transparent",
 				fontFamily: "inherit",
 			},
-			colors: ["var(--rb-panel-accent)", "#3b82f6", "#10b981", "#a855f7"],
+			colors: isNetwork
+				? ["#3b82f6", "#10b981"]
+				: ["var(--rb-panel-accent)", "#8b5cf6", "#f59e0b", "#ec4899"],
 			fill: {
 				type: "gradient",
 				gradient: {
@@ -415,13 +466,23 @@ const HistoryModal: FC<{
 				axisTicks: { show: false },
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
-					datetimeFormatter: { hour: "HH:mm" },
+					datetimeUTC: false,
+					format: intervalSeconds <= 1800 ? "HH:mm:ss" : "HH:mm",
 				},
 			},
 			yaxis: {
-				decimalsInFloat: 0,
+				min: 0,
+				max: isPercentage ? 100 : undefined,
+				forceNiceScale: !isPercentage,
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
+					formatter: (val: number) => {
+						if (!Number.isFinite(val)) return "0";
+						if (isNetwork) {
+							return formatBytes(val, 1);
+						}
+						return `${val.toFixed(0)}%`;
+					},
 				},
 			},
 			legend: {
@@ -431,9 +492,18 @@ const HistoryModal: FC<{
 			tooltip: {
 				theme: colorMode,
 				x: { format: "HH:mm:ss" },
+				y: {
+					formatter: (val: number) => {
+						if (!Number.isFinite(val)) return "0";
+						if (isNetwork) {
+							return `${formatBytes(val, 2)}/s`;
+						}
+						return `${val.toFixed(1)}%`;
+					},
+				},
 			},
 		}),
-		[colorMode, gridColor, mutedTextColor],
+		[colorMode, gridColor, mutedTextColor, intervalSeconds, isNetwork, isPercentage],
 	);
 
 	return (
@@ -488,21 +558,24 @@ const HistoryModal: FC<{
 								);
 							})}
 						</Flex>
-						<Box minH="260px">
+						<Box minH="280px" w="100%">
 							<Suspense
 								fallback={
-									<Flex h="260px" align="center" justify="center">
+									<Flex h="280px" align="center" justify="center">
 										<Spinner size="md" color="panel.accent" />
 									</Flex>
 								}
 							>
-								<HistoryChart
-									key={`chart-${intervalSeconds}`}
-									options={options}
-									series={chartSeries}
-									type="area"
-									height={260}
-								/>
+								{chartSeries.length > 0 && isOpen && (
+									<HistoryChart
+										key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
+										options={options}
+										series={chartSeries}
+										type="area"
+										height={280}
+										width="100%"
+									/>
+								)}
 							</Suspense>
 						</Box>
 					</Stack>
@@ -642,16 +715,22 @@ const ResourceCard: FC<{
 							{metaValue !== undefined && metaUnit && (
 								<Flex
 									align="center"
-									gap={1}
-									color="panel.textMuted"
-									fontSize="12px"
-									fontWeight="600"
 									dir={isRTL ? "rtl" : "ltr"}
+									gap={1}
+									sx={{ unicodeBidi: "isolate" }}
 								>
-									<Text as="span">
-										{isRTL && typeof metaValue === "string" ? toPersianDigits(metaValue) : metaValue}
+									<Text
+										fontSize="13px"
+										fontWeight="600"
+										color="panel.textMuted"
+										dir="ltr"
+										sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+									>
+										{metaValue}
 									</Text>
-									<Text as="span">{metaUnit}</Text>
+									<Text fontSize="12px" fontWeight="600" color="panel.textMuted">
+										{metaUnit}
+									</Text>
 								</Flex>
 							)}
 						</Flex>
@@ -660,27 +739,21 @@ const ResourceCard: FC<{
 			</Box>
 
 			<Box mt={3}>
-				<Flex justify="flex-start" align="center" mb={1.5}>
-					<Text
-						fontSize="11px"
-						fontWeight="600"
-						color="panel.textMuted"
-						dir="ltr"
-						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-					>
-						{safe.toFixed(1)}%
+				<Flex justify="space-between" align="center" mb={1.5}>
+					<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
+						{safe.toFixed(0)}%
 					</Text>
 				</Flex>
 				<Progress
 					value={safe}
 					size="xs"
-					h="3px"
 					borderRadius="full"
 					bg={trackBg}
 					sx={{
 						"& > div": {
-							backgroundColor: criticalColor,
-							transition: "width 0.4s ease, background-color 0.3s ease",
+							bg: criticalColor,
+							transition: "width 0.6s ease, background-color 0.4s ease",
+							borderRadius: "full",
 						},
 					}}
 				/>
@@ -689,81 +762,73 @@ const ResourceCard: FC<{
 	);
 };
 
-const StatRow: FC<{
+const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({
+	icon,
+	label,
+	value,
+}) => (
+	<Flex align="center" justify="space-between" gap={3}>
+		<HStack spacing={2.5} color="panel.textMuted">
+			<Flex
+				w="28px"
+				h="28px"
+				align="center"
+				justify="center"
+				borderRadius="8px"
+				bg="panel.elevated"
+				color="panel.textSecondary"
+				flexShrink={0}
+			>
+				{icon}
+			</Flex>
+			<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
+				{label}
+			</Text>
+		</HStack>
+		<Text
+			fontSize="13px"
+			fontWeight="700"
+			color="panel.text"
+			letterSpacing="-0.01em"
+			dir="ltr"
+			sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+		>
+			{value}
+		</Text>
+	</Flex>
+);
+
+const UserStatRow: FC<{
 	label: string;
 	value: string | number;
-	dimLabel?: boolean;
-	accent?: boolean;
-	tag?: string;
-	tagColor?: string;
-	helper?: string;
-}> = ({ label, value, dimLabel, accent, tag, tagColor, helper }) => {
-	const accentColor = "var(--rb-panel-accent)";
+	color?: string;
+	isRTL?: boolean;
+}> = ({ label, value, color, isRTL = false }) => {
+	const textVal = formatNumberValue(value);
+
 	return (
-		<Flex
-			align="center"
-			justify="space-between"
-			py={2.5}
-			borderBottomWidth="1px"
-			borderColor="panel.border"
-			_last={{ borderBottomWidth: 0 }}
-			gap={3}
-		>
-			<HStack spacing={2} minW={0} flexWrap="nowrap">
-				{tagColor && (
-					<Box
-						flexShrink={0}
-						w="6px"
-						h="6px"
-						borderRadius="full"
-						bg={tagColor}
-						boxShadow={`0 0 6px ${tagColor}88`}
-					/>
-				)}
+		<Flex align="center" justify="space-between" py={2}>
+			<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
+				{label}
+			</Text>
+			<Box
+				display="inline-flex"
+				alignItems="center"
+				justifyContent={isRTL ? "flex-start" : "flex-end"}
+				dir={isRTL ? "rtl" : "ltr"}
+				sx={{ unicodeBidi: "isolate" }}
+			>
 				<Text
-					fontSize="13px"
-					fontWeight="500"
-					color={dimLabel ? "panel.textMuted" : "panel.textSecondary"}
-					noOfLines={1}
-				>
-					{label}
-				</Text>
-				{tag && (
-					<Badge
-						fontSize="10px"
-						px={1.5}
-						py={0.5}
-						borderRadius="md"
-						bg="panel.elevated"
-						color="panel.textMuted"
-						fontWeight="600"
-						textTransform="none"
-					>
-						{tag}
-					</Badge>
-				)}
-			</HStack>
-			<VStack align="flex-end" spacing={0} flexShrink={0}>
-				<Text
-					fontSize="13px"
+					fontSize="14px"
 					fontWeight="700"
-					color={accent ? accentColor : "panel.text"}
+					color={color ?? "panel.text"}
+					letterSpacing="-0.01em"
 					dir="ltr"
-					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+					sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
 				>
-					{typeof value === "number" ? formatNumberValue(value) : value}
+					{textVal}
 				</Text>
-				{helper && (
-					<Text
-						fontSize="10px"
-						color="panel.textMuted"
-						dir="ltr"
-						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-					>
-						{helper}
-					</Text>
-				)}
-			</VStack>
+			</Box>
 		</Flex>
 	);
 };
@@ -874,225 +939,105 @@ const AnimatedHeightWrapper: FC<{
 	);
 };
 
-const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
-	<Flex align="center" justify="space-between" gap={3}>
-		<HStack spacing={2.5} color="panel.textMuted">
-			<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
-				{icon}
-			</Flex>
-			<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
-				{label}
-			</Text>
-		</HStack>
-		<Text
-			fontSize="14px"
-			fontWeight="700"
-			color="panel.text"
-			dir="ltr"
-			sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-		>
-			{value}
-		</Text>
-	</Flex>
-);
-
 export const Statistics: FC<BoxProps> = (props) => {
-	const { version } = useDashboard();
-	const { userData } = useGetUser();
 	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const isRTL = i18n.language === "fa" || i18n.dir?.() === "rtl";
+	const { data: userData } = useGetUser();
+	const isAdmin = userData?.role === AdminRole.admin;
+	const isSudo = userData?.role === AdminRole.sudo;
+	const canSeeGlobal = isAdmin || isSudo;
 
-	const { data: rawSystemData } = useQuery<SystemStats>({
-		queryKey: StatisticsQueryKey,
-		queryFn: () => fetch("/system"),
-		onSuccess: (stats) => {
-			const currentVersion = stats?.version;
-			if (currentVersion && version !== currentVersion) {
-				useDashboard.setState({ version: currentVersion });
-			}
-		},
-	});
+	const [activeUserTab, setActiveUserTab] = useState<"all" | "mine">("all");
+	const [historyModalPayload, setHistoryModalPayload] =
+		useState<HistoryModalPayload | null>(null);
+	const [historyInterval, setHistoryInterval] = useState<number>(120);
 
-	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>(
-		["dashboard-maintenance-info"],
-		() => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }),
-		{
-			refetchOnWindowFocus: false,
-			staleTime: 5 * 60 * 1000,
-			retry: false,
-		},
+	const { data: systemData, isLoading, error } = useGetStatistics();
+	useSystemMetricsStream(Boolean(systemData));
+
+	const { data: myUsersData } = useGetMyUsersStats(
+		userData?.username,
+		activeUserTab === "mine",
 	);
 
-	const { data: myUsersData } = useQuery<UsersListResponse>(
-		["dashboard-my-users-stats", userData.username],
-		() =>
-			fetch<UsersListResponse>("/users", {
-				query: { admin: userData.username, limit: 1 },
-			}),
-		{
-			enabled: Boolean(userData.username),
-			staleTime: 10_000,
-			refetchInterval: 15_000,
-		},
-	);
+	const onlineUsersRatio = useMemo(() => {
+		if (!systemData?.online_users || !systemData.users?.active) return 0;
+		return (systemData.online_users / systemData.users.active) * 100;
+	}, [systemData]);
 
-	const systemData = useMemo(() => sanitizeSystemStats(rawSystemData), [rawSystemData]);
-	useSystemMetricsStream(true);
-
-	useEffect(() => {
-		if (systemData?.version && version !== systemData.version) {
-			useDashboard.setState({ version: systemData.version });
-		}
-	}, [systemData?.version, version]);
-
-	const [historyPayload, setHistoryPayload] = useState<HistoryModalPayload | null>(null);
-	const [historyInterval, setHistoryInterval] = useState(HISTORY_INTERVALS[0].seconds);
-	const [userTab, setUserTab] = useState<"all" | "mine">("all");
-
-	const canSeeGlobal = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const redErrorBg = useColorModeValue("red.50", "rgba(239, 68, 68, 0.1)");
+	const redErrorBorder = useColorModeValue("red.200", "rgba(239, 68, 68, 0.25)");
+	const orangeErrorBg = useColorModeValue("orange.50", "rgba(245, 158, 11, 0.1)");
+	const orangeErrorBorder = useColorModeValue("orange.200", "rgba(245, 158, 11, 0.25)");
 
 	const openHistory = (payload: HistoryModalPayload) => {
-		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
-		setHistoryPayload(payload);
+		setHistoryModalPayload(payload);
+		setHistoryInterval(120);
 	};
 
-	const redErrorBg = useColorModeValue("red.50", "rgba(220,38,38,0.08)");
-	const redErrorBorder = useColorModeValue("red.200", "rgba(220,38,38,0.2)");
-	const redErrorColor = useColorModeValue("red.900", "red.200");
-	const orangeErrorBg = useColorModeValue("orange.50", "rgba(234,88,12,0.08)");
-	const orangeErrorBorder = useColorModeValue("orange.200", "rgba(234,88,12,0.2)");
-	const orangeErrorColor = useColorModeValue("orange.900", "orange.200");
-
-	if (!systemData) {
+	if (isLoading) {
 		return (
-			<Flex justify="center" align="center" minH="60vh" w="full">
-				<VStack spacing={4}>
-					<Spinner size="lg" color="panel.accent" thickness="2px" speed="0.8s" />
-					<Text fontSize="13px" color="panel.textMuted">{t("loading")}</Text>
-				</VStack>
-			</Flex>
+			<Box {...props}>
+				<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={{ base: 3, md: 4 }}>
+					{[1, 2, 3, 4].map((item) => (
+						<Box
+							key={item}
+							bg="panel.surface"
+							borderWidth="1px"
+							borderColor="panel.border"
+							borderRadius="20px"
+							p={5}
+							minH="140px"
+							display="flex"
+							alignItems="center"
+							justifyContent="center"
+						>
+							<Spinner size="md" color="panel.accent" />
+						</Box>
+					))}
+				</SimpleGrid>
+			</Box>
 		);
 	}
 
-	const activePercent =
-		systemData.total_user > 0
-			? `${((systemData.users_active / systemData.total_user) * 100).toFixed(1)}%`
-			: "0.0%";
-	const onlinePercent =
-		systemData.total_user > 0
-			? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
-			: "0.0%";
-
-	const myTotalUsers = myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
-	const myActiveUsers = myUsersData?.active_total ?? myUsersData?.status_breakdown?.active ?? myTotalUsers;
-	const myOnlineUsers = myUsersData?.online_total ?? 0;
-
-	const myActivePercent =
-		myTotalUsers > 0
-			? `${((myActiveUsers / myTotalUsers) * 100).toFixed(1)}%`
-			: "0.0%";
-	const myOnlinePercent =
-		myTotalUsers > 0
-			? `${((myOnlineUsers / myTotalUsers) * 100).toFixed(1)}%`
-			: "0.0%";
-
-	const myUsageLabel =
-		systemData.personal_usage?.traffic_basis === "created_traffic"
-			? t("dashboard.currentCreatedTraffic")
-			: t("dashboard.currentUserUsage");
-
-	const panelInfo = maintenanceInfo?.panel;
-	const exactVersion =
-		panelInfo?.tag ||
-		panelInfo?.update?.current ||
-		(systemData.channel?.toLowerCase() === "dev" ? "dev" : systemData.version) ||
-		"-";
+	if (error || !systemData) {
+		return (
+			<Box {...props}>
+				<Box
+					bg="panel.surface"
+					borderWidth="1px"
+					borderColor="panel.border"
+					borderRadius="20px"
+					p={8}
+					textAlign="center"
+				>
+					<Text color="panel.textMuted">{t("errorLoadingData")}</Text>
+				</Box>
+			</Box>
+		);
+	}
 
 	return (
-		<Stack
-			spacing={{ base: 4, md: 5 }}
-			w="full"
-			dir={isRTL ? "rtl" : "ltr"}
-			{...props}
-		>
-			<Flex align="center" justify="space-between" flexWrap="wrap" gap={3} px={1}>
-				<Flex
-					wrap="wrap"
-					gap={{ base: 2.5, md: 1 }}
-					sx={{
-						flexDirection: "column",
-						alignItems: "flex-start",
-						"@media screen and (max-width: 767px)": {
-							flexDirection: "row",
-							alignItems: "center",
-						},
-						"@media screen and (min-width: 768px) and (max-width: 991px)": {
-							"body:has([data-sidebar-collapsed='true']) &": {
-								flexDirection: "row",
-								alignItems: "center",
-							},
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								flexDirection: "column",
-								alignItems: "flex-start",
-							},
-						},
-						"@media screen and (min-width: 992px)": {
-							flexDirection: "column",
-							alignItems: "flex-start",
-						},
-					}}
-				>
-					<Text fontSize={{ base: "18px", md: "20px" }} fontWeight="700" color="panel.text" letterSpacing="-0.02em">
-						{t("systemOverview")}
-					</Text>
-					<Flex align="center" gap={2} direction="row">
-						<Box
-							w="6px"
-							h="6px"
-							borderRadius="full"
-							bg={systemData.xray_running ? "#22c55e" : "#ef4444"}
-							sx={{
-								animation: systemData.xray_running ? "livePulse 2.4s ease-in-out infinite" : "none",
-								"@keyframes livePulse": {
-									"0%,100%": { opacity: 0.5 },
-									"50%": { opacity: 1 },
-								},
-							}}
-						/>
-						<Text fontSize="12px" color="panel.textMuted" fontWeight="500">
-							{systemData.xray_running ? t("status.running") : t("status.stopped")}
-						</Text>
-						{exactVersion && exactVersion !== "-" && (
-							<HStack spacing={1.5} align="center" color="panel.textMuted" fontSize="12px" fontWeight="500">
-								<Text as="span">·</Text>
-								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-									{exactVersion}
-								</Text>
-							</HStack>
-						)}
-					</Flex>
-				</Flex>
-				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
-			</Flex>
+		<Stack spacing={{ base: 4, md: 5 }} {...props}>
+			<DashboardMaintenanceControls />
 
-			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
+			<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={{ base: 3, md: 4 }}>
 				<ResourceCard
 					label={t("cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
-					value={`${systemData.cpu_usage.toFixed(1)}%`}
-					percent={systemData.cpu_usage}
-					metaValue={formatNumberValue(systemData.cpu_cores)}
-					metaUnit={t("core")}
+					value={`${systemData.cpu_percent.toFixed(1)}%`}
+					percent={systemData.cpu_percent}
+					metaValue={formatNumberValue(systemData.cpu_threads)}
+					metaUnit={t("thread")}
 					historyLabel={t("viewHistory")}
-					isRTL={isRTL}
 					onHistory={() =>
 						openHistory({
-							type: "cpu",
+							type: "generic",
 							title: t("cpuUsage"),
-							metricLabel: t("cpuUsage"),
 							entries: systemData.cpu_history,
 						})
 					}
+					isRTL={isRTL}
 				/>
 				<ResourceCard
 					label={t("memoryUsage")}
@@ -1101,22 +1046,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
 					historyLabel={t("viewHistory")}
-					isRTL={isRTL}
 					onHistory={() =>
 						openHistory({
-							type: "memory",
+							type: "generic",
 							title: t("memoryUsage"),
-							metricLabel: t("memoryUsage"),
 							entries: systemData.memory_history,
 						})
 					}
-				/>
-				<ResourceCard
-					label={t("swapUsage")}
-					icon={<CircleStackIcon width={16} />}
-					value={formatBytes(systemData.swap.current, 1)}
-					totalValue={formatBytes(systemData.swap.total, 1)}
-					percent={systemData.swap.percent}
 					isRTL={isRTL}
 				/>
 				<ResourceCard
@@ -1125,6 +1061,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
+					isRTL={isRTL}
+				/>
+				<ResourceCard
+					label={t("nodes.runtime")}
+					icon={<CubeIcon width={16} />}
+					value={systemData.version || "Rebecca"}
+					percent={100}
 					isRTL={isRTL}
 				/>
 			</SimpleGrid>
@@ -1153,7 +1096,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							onClick={() =>
 								openHistory({
 									type: "network",
-									title: t("networkHistory"),
+									title: t("bandwidthSpeed"),
 									networkEntries: systemData.network_history,
 								})
 							}
@@ -1217,45 +1160,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</SectionCard>
 			</SimpleGrid>
 
-			{(systemData.last_xray_error || systemData.last_telegram_error) && (
+			{systemData.warning && (
 				<Stack spacing={3}>
-					{systemData.last_xray_error && (
+					{systemData.warning.critical?.length > 0 && (
 						<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
-							<HStack spacing={2} mb={2} color={redErrorColor}>
-								<ExclamationTriangleIcon width={15} />
-								<Text fontSize="12px" fontWeight="700">
-									{t("coreError")}
-								</Text>
-							</HStack>
-							<Text fontSize="12px" fontFamily="mono" color={redErrorColor} wordBreak="break-word" lineHeight="tall" opacity={0.85}>
-								{systemData.last_xray_error}
+							<Text color="red.400" fontSize="13px" fontWeight="600">
+								{systemData.warning.critical.join(" · ")}
 							</Text>
 						</Box>
 					)}
-					{systemData.last_telegram_error && (
+					{systemData.warning.warn?.length > 0 && (
 						<Box p={4} borderRadius="14px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
-							<Flex align="center" justify="space-between" mb={2} flexWrap="wrap" gap={2}>
-								<HStack spacing={2} color={orangeErrorColor}>
-									<ExclamationTriangleIcon width={15} />
-									<Text fontSize="12px" fontWeight="700">{t("telegramError")}</Text>
-								</HStack>
-								<Button
-									size="xs"
-									colorScheme="orange"
-									variant="ghost"
-									borderRadius="full"
-									fontSize="11px"
-									h="22px"
-									px={2.5}
-									onClick={() => {
-										window.location.href = "/settings";
-									}}
-								>
-									{t("goToTelegramSettings")}
-								</Button>
-							</Flex>
-							<Text fontSize="12px" fontFamily="mono" color={orangeErrorColor} wordBreak="break-word" lineHeight="tall" opacity={0.85}>
-								{systemData.last_telegram_error}
+							<Text color="orange.400" fontSize="13px" fontWeight="600">
+								{systemData.warning.warn.join(" · ")}
 							</Text>
 						</Box>
 					)}
@@ -1333,13 +1250,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 								size="xs"
 								h="22px"
 								px={2.5}
-								borderRadius="6px"
 								fontSize="11px"
-								fontWeight="600"
-								variant={userTab === "all" ? "solid" : "ghost"}
-								colorScheme={userTab === "all" ? "primary" : "gray"}
-								color={userTab === "all" ? undefined : "panel.textMuted"}
-								onClick={() => setUserTab("all")}
+								variant="ghost"
+								borderRadius="6px"
+								bg={activeUserTab === "all" ? "panel.surface" : "transparent"}
+								color={activeUserTab === "all" ? "panel.text" : "panel.textMuted"}
+								boxShadow={activeUserTab === "all" ? "0 1px 2px rgba(0,0,0,0.12)" : "none"}
+								fontWeight={activeUserTab === "all" ? "600" : "500"}
+								onClick={() => setActiveUserTab("all")}
 							>
 								{t("allUsers")}
 							</Button>
@@ -1347,107 +1265,97 @@ export const Statistics: FC<BoxProps> = (props) => {
 								size="xs"
 								h="22px"
 								px={2.5}
-								borderRadius="6px"
 								fontSize="11px"
-								fontWeight="600"
-								variant={userTab === "mine" ? "solid" : "ghost"}
-								colorScheme={userTab === "mine" ? "primary" : "gray"}
-								color={userTab === "mine" ? undefined : "panel.textMuted"}
-								onClick={() => setUserTab("mine")}
+								variant="ghost"
+								borderRadius="6px"
+								bg={activeUserTab === "mine" ? "panel.surface" : "transparent"}
+								color={activeUserTab === "mine" ? "panel.text" : "panel.textMuted"}
+								boxShadow={activeUserTab === "mine" ? "0 1px 2px rgba(0,0,0,0.12)" : "none"}
+								fontWeight={activeUserTab === "mine" ? "600" : "500"}
+								onClick={() => setActiveUserTab("mine")}
 							>
 								{t("myUsers")}
 							</Button>
 						</HStack>
-					) : (
-						<Text
-							fontSize="12px"
-							color="panel.textMuted"
-							fontWeight="600"
-							dir="ltr"
-							sx={{ fontVariantNumeric: "tabular-nums" }}
-						>
-							{t("total")}: {formatNumberValue(myTotalUsers)}
-						</Text>
-					)
+					) : undefined
 				}
 			>
-				<AnimatedHeightWrapper activeKey={userTab}>
-					{canSeeGlobal && userTab === "all" ? (
-						<Stack spacing={0}>
-							<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
-							<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
-							<StatRow
-								label={t("onlineUsers")}
-								value={systemData.online_users}
-								tag={onlinePercent}
-								tagColor="#06b6d4"
-								helper={
-									systemData.online_users_upload_speed || systemData.online_users_download_speed
-										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
-										: undefined
-								}
-							/>
-							<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
-							<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
-							<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
+				<AnimatedHeightWrapper activeKey={activeUserTab}>
+					{activeUserTab === "all" ? (
+						<Stack spacing={1}>
+							<UserStatRow label={t("totalUsers")} value={systemData.users?.total ?? 0} isRTL={isRTL} />
+							<UserStatRow label={t("activeUsers")} value={systemData.users?.active ?? 0} color="green.400" isRTL={isRTL} />
+							<UserStatRow label={t("disabledUsers")} value={systemData.users?.disabled ?? 0} color="gray.400" isRTL={isRTL} />
+							<UserStatRow label={t("expiredUsers")} value={systemData.users?.expired ?? 0} color="orange.400" isRTL={isRTL} />
+							<UserStatRow label={t("onHoldUsers")} value={systemData.users?.on_hold ?? 0} color="yellow.400" isRTL={isRTL} />
+							<UserStatRow label={t("limitedUsers")} value={systemData.users?.limited ?? 0} color="red.400" isRTL={isRTL} />
+							<UserStatRow label={t("onlineUsers")} value={systemData.online_users ?? 0} color="blue.400" isRTL={isRTL} />
+							{systemData.personal_usage && (
+								<UserStatRow
+									label={
+										systemData.personal_usage.traffic_basis === "created_traffic"
+											? t("dashboard.currentCreatedTraffic")
+											: t("dashboard.currentUserUsage")
+									}
+									value={formatBytes(systemData.personal_usage.total_used_traffic, 1)}
+									isRTL={isRTL}
+								/>
+							)}
+							{systemData.personal_usage && systemData.personal_usage.reset_traffic_used_after_reset > 0 && (
+								<UserStatRow
+									label={t("dashboard.currentResetTraffic")}
+									value={formatBytes(systemData.personal_usage.reset_traffic_used_after_reset, 1)}
+									isRTL={isRTL}
+								/>
+							)}
 						</Stack>
 					) : (
-						<Stack spacing={0}>
-							<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
-							<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
-							<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
-							<StatRow
-								label={myUsageLabel}
-								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
-								tagColor="#a855f7"
+						<Stack spacing={1}>
+							<UserStatRow label={t("totalUsers")} value={myUsersData?.total ?? 0} isRTL={isRTL} />
+							<UserStatRow label={t("activeUsers")} value={myUsersData?.active ?? 0} color="green.400" isRTL={isRTL} />
+							<UserStatRow label={t("onlineUsers")} value={myUsersData?.online ?? 0} color="blue.400" isRTL={isRTL} />
+							<UserStatRow
+								label={t("dashboard.currentUserUsage")}
+								value={formatBytes(myUsersData?.totalTraffic ?? 0, 1)}
+								isRTL={isRTL}
 							/>
-							{systemData.personal_usage?.reset_bytes ? (
-								<StatRow
-									label={t("resetData")}
-									value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
-									tagColor="#f59e0b"
+							{systemData.personal_usage && systemData.personal_usage.reset_traffic_used_after_reset > 0 && (
+								<UserStatRow
+									label={t("dashboard.currentResetTraffic")}
+									value={formatBytes(systemData.personal_usage.reset_traffic_used_after_reset, 1)}
+									isRTL={isRTL}
 								/>
-							) : null}
+							)}
 						</Stack>
 					)}
 				</AnimatedHeightWrapper>
 			</SectionCard>
 
-			{canSeeGlobal && systemData.admin_overview && (
+			{systemData.admin && (
 				<SectionCard
 					title={
 						<HStack spacing={2.5}>
 							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
-								<ShieldCheckIcon width={14} />
+								<UsersIcon width={14} />
 							</Flex>
-							<span>{t("adminOverview")}</span>
+							<span>{t("admins.listHeader")}</span>
 						</HStack>
 					}
 				>
-					<Stack spacing={0}>
-						<StatRow label={t("totalAdmins")} value={systemData.admin_overview.total_admins} tagColor="#3b82f6" />
-						<StatRow label={t("fullAccessAdmins")} value={systemData.admin_overview.full_access_admins} tagColor="#f59e0b" />
-						<StatRow label={t("sudoAdmins")} value={systemData.admin_overview.sudo_admins} tagColor="#a855f7" />
-						<StatRow label={t("standardAdmins")} value={systemData.admin_overview.standard_admins} tagColor="#22c55e" />
-						{systemData.admin_overview.top_admin_username && (
-							<StatRow
-								label={t("topAdmin")}
-								value={`${systemData.admin_overview.top_admin_username} · ${formatBytes(systemData.admin_overview.top_admin_usage)}`}
-								dimLabel
-								accent
-							/>
-						)}
+					<Stack spacing={1}>
+						<UserStatRow label={t("totalUsers")} value={systemData.admin.total ?? 0} isRTL={isRTL} />
+						<UserStatRow label={t("activeUsers")} value={systemData.admin.active ?? 0} color="green.400" isRTL={isRTL} />
+						<UserStatRow label={t("disabledUsers")} value={systemData.admin.disabled ?? 0} color="gray.400" isRTL={isRTL} />
 					</Stack>
 				</SectionCard>
 			)}
 
 			<HistoryModal
-				isOpen={Boolean(historyPayload)}
-				onClose={() => setHistoryPayload(null)}
-				payload={historyPayload}
+				isOpen={Boolean(historyModalPayload)}
+				onClose={() => setHistoryModalPayload(null)}
+				payload={historyModalPayload}
 				intervalSeconds={historyInterval}
 				onIntervalChange={setHistoryInterval}
-				t={t}
 			/>
 		</Stack>
 	);
