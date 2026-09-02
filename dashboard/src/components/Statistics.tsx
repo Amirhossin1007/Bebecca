@@ -45,6 +45,7 @@ import {
 	Suspense,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -61,6 +62,24 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 export const StatisticsQueryKey = "statistics-query-key";
 
 const HistoryChart = lazy(() => import("react-apexcharts"));
+
+type MaintenanceInfo = {
+	panel?: {
+		image?: string;
+		tag?: string | null;
+		mode?: string;
+		install_mode?: string;
+		channel?: string;
+		update?: {
+			current?: string | null;
+			available?: boolean;
+			target?: string | null;
+			latest_release?: { tag?: string | null } | null;
+			latest_dev?: { tag?: string | null } | null;
+			error?: string | null;
+		} | null;
+	} | null;
+};
 
 const toPersianDigits = (value: number | string): string => {
 	const farsiDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -812,6 +831,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 		},
 	});
 
+	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>(
+		["dashboard-maintenance-info"],
+		() => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }),
+		{
+			refetchOnWindowFocus: false,
+			staleTime: 5 * 60 * 1000,
+			retry: false,
+		},
+	);
+
 	const { data: myUsersData } = useQuery<UsersListResponse>(
 		["dashboard-my-users-stats", userData.username],
 		() =>
@@ -890,8 +919,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 			? t("dashboard.currentCreatedTraffic")
 			: t("dashboard.currentUserUsage");
 
-	const fallbackVersion = systemData.channel?.toLowerCase() === "dev" ? "dev" : systemData.version;
-	const displayVersion = systemData.channel ? `${systemData.channel}` : fallbackVersion;
+	const panelInfo = maintenanceInfo?.panel;
+	const exactVersion =
+		panelInfo?.tag ||
+		panelInfo?.update?.current ||
+		(systemData.channel?.toLowerCase() === "dev" ? "dev" : systemData.version) ||
+		"-";
 
 	return (
 		<Stack
@@ -922,9 +955,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Text fontSize="12px" color="panel.textMuted" fontWeight="500">
 							{systemData.xray_running ? t("status.running") : t("status.stopped")}
 						</Text>
-						{displayVersion && (
-							<Text fontSize="12px" color="panel.textMuted" fontWeight="500">
-								· {displayVersion}
+						{exactVersion && exactVersion !== "-" && (
+							<Text fontSize="12px" color="panel.textMuted" fontWeight="500" dir="ltr">
+								· {exactVersion}
 							</Text>
 						)}
 					</HStack>
@@ -1228,8 +1261,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}
 			>
 				<motion.div
-					layout
-					transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+					layout="position"
+					style={{ overflow: "hidden" }}
+					transition={{
+						layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
+					}}
 				>
 					<AnimatePresence mode="wait" initial={false}>
 						{canSeeGlobal && userTab === "all" ? (
@@ -1238,7 +1274,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								exit={{ opacity: 0 }}
-								transition={{ duration: 0.35 }}
+								transition={{ duration: 0.35, ease: "easeInOut" }}
 							>
 								<Stack spacing={0}>
 									<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
@@ -1272,7 +1308,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								exit={{ opacity: 0 }}
-								transition={{ duration: 0.35 }}
+								transition={{ duration: 0.35, ease: "easeInOut" }}
 							>
 								<Stack spacing={0}>
 									<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
