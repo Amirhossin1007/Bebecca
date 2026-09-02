@@ -31,7 +31,6 @@ import {
 	ArrowPathIcon,
 	ArrowsRightLeftIcon,
 	ArrowUpTrayIcon,
-	TagIcon,
 } from "@heroicons/react/24/outline";
 import useGetUser from "hooks/useGetUser";
 import { useCallback, useEffect, useRef, useState } from "react";

@@ -3,7 +3,6 @@ import {
 	Box,
 	type BoxProps,
 	Button,
-	chakra,
 	Flex,
 	HStack,
 	Modal,
@@ -43,7 +42,6 @@ import {
 	lazy,
 	type ReactNode,
 	Suspense,
-	useCallback,
 	useEffect,
 	useMemo,
 	useState,
@@ -57,24 +55,25 @@ import type { UsersListResponse } from "types/User";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { mergeLiveSystemStats } from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
-import { ChartBox } from "./common/ChartBox";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
 const HistoryChart = lazy(() => import("react-apexcharts"));
 
-const formatDurationParts = (
+const toPersianDigits = (value: number | string): string => {
+	const farsiDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+	return String(value).replace(/[0-9]/g, (w) => farsiDigits[+w]);
+};
+
+const formatLocalizedDuration = (
 	totalSeconds: number,
 	t: TFunction,
 	isRTL: boolean,
-): ReactNode => {
+): string => {
 	if (!totalSeconds || totalSeconds <= 0) {
-		return (
-			<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-				0 {t("second")}
-			</Text>
-		);
+		const zero = isRTL ? "۰" : "0";
+		return `${zero} ${t("second")}`;
 	}
 
 	const days = Math.floor(totalSeconds / 86400);
@@ -82,47 +81,30 @@ const formatDurationParts = (
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
 	const seconds = Math.floor(totalSeconds % 60);
 
+	const dNum = isRTL ? toPersianDigits(days) : String(days);
+	const hNum = isRTL ? toPersianDigits(hours) : String(hours);
+	const mNum = isRTL ? toPersianDigits(minutes) : String(minutes);
+	const sNum = isRTL ? toPersianDigits(seconds) : String(seconds);
+
+	const dText = `${dNum} ${t("day")}`;
+	const hText = `${hNum} ${t("hour")}`;
+	const mText = `${mNum} ${t("minute")}`;
+	const sText = `${sNum} ${t("second")}`;
+
 	const andWord = t("common.and");
 	const commaWord = t("common.comma");
 
-	const renderUnit = (val: number, label: string) => (
-		<Text as="span" key={label} display="inline-flex" alignItems="center" gap={1}>
-			<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
-				{val}
-			</Text>
-			<Text as="span">{label}</Text>
-		</Text>
-	);
-
-	const parts: ReactNode[] = [];
-	if (days > 0) parts.push(renderUnit(days, t("day")));
-	if (hours > 0) parts.push(renderUnit(hours, t("hour")));
-	if (minutes > 0) parts.push(renderUnit(minutes, t("minute")));
-	if (parts.length === 0 || (days === 0 && hours === 0 && minutes === 0 && seconds > 0)) {
-		parts.push(renderUnit(seconds, t("second")));
+	if (days > 0) {
+		const parts: string[] = [dText];
+		if (hours > 0) parts.push(hText);
+		if (minutes > 0) parts.push(mText);
+		if (parts.length === 1) return parts[0];
+		if (parts.length === 2) return parts.join(andWord);
+		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
 	}
-
-	return (
-		<Flex
-			as="span"
-			direction="row"
-			align="center"
-			gap={1}
-			wrap="wrap"
-			justify={isRTL ? "flex-start" : "flex-start"}
-		>
-			{parts.map((part, idx) => (
-				<Flex as="span" align="center" key={idx} gap={1}>
-					{idx > 0 && (
-						<Text as="span" color="panel.textMuted">
-							{idx === parts.length - 1 ? andWord : commaWord}
-						</Text>
-					)}
-					{part}
-				</Flex>
-			))}
-		</Flex>
-	);
+	if (hours > 0) return minutes > 0 ? `${hText}${andWord}${mText}` : hText;
+	if (minutes > 0) return seconds > 0 ? `${mText}${andWord}${sText}` : mText;
+	return sText;
 };
 
 const useSystemMetricsStream = (enabled = true) => {
@@ -504,12 +486,12 @@ const ResourceCard: FC<{
 	icon: ReactNode;
 	value: string;
 	totalValue?: string;
-	unitLabel?: string;
 	percent: number;
 	metaUnit?: string;
 	metaValue?: string | number;
 	onHistory?: () => void;
 	historyLabel?: string;
+	isRTL?: boolean;
 }> = ({
 	label,
 	icon,
@@ -520,6 +502,7 @@ const ResourceCard: FC<{
 	metaValue,
 	onHistory,
 	historyLabel,
+	isRTL = false,
 }) => {
 	const safe = clampPercent(percent);
 	const accent = "var(--rb-panel-accent)";
@@ -623,8 +606,8 @@ const ResourceCard: FC<{
 							</Text>
 							{metaValue !== undefined && metaUnit && (
 								<Flex align="center" gap={1} color="panel.textMuted" fontSize="12px" fontWeight="600">
-									<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
-										{metaValue}
+									<Text as="span">
+										{isRTL && typeof metaValue === "string" ? toPersianDigits(metaValue) : metaValue}
 									</Text>
 									<Text as="span">{metaUnit}</Text>
 								</Flex>
@@ -646,15 +629,19 @@ const ResourceCard: FC<{
 						{safe.toFixed(1)}%
 					</Text>
 				</Flex>
-				<Box h="3px" borderRadius="full" bg={trackBg} overflow="hidden">
-					<Box
-						h="full"
-						borderRadius="full"
-						bg={criticalColor}
-						w={`${safe}%`}
-						transition="width 0.4s ease, background-color 0.3s ease"
-					/>
-				</Box>
+				<Progress
+					value={safe}
+					size="xs"
+					h="3px"
+					borderRadius="full"
+					bg={trackBg}
+					sx={{
+						"& > div": {
+							backgroundColor: criticalColor,
+							transition: "width 0.4s ease, background-color 0.3s ease",
+						},
+					}}
+				/>
 			</Box>
 		</Box>
 	);
@@ -959,6 +946,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("core")}
 					historyLabel={t("viewHistory")}
+					isRTL={isRTL}
 					onHistory={() =>
 						openHistory({
 							type: "cpu",
@@ -975,6 +963,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
 					historyLabel={t("viewHistory")}
+					isRTL={isRTL}
 					onHistory={() =>
 						openHistory({
 							type: "memory",
@@ -990,6 +979,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
+					isRTL={isRTL}
 				/>
 				<ResourceCard
 					label={t("diskUsage")}
@@ -997,6 +987,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
+					isRTL={isRTL}
 				/>
 			</SimpleGrid>
 
@@ -1067,9 +1058,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 									{t("systemUptime")}
 								</Text>
 							</HStack>
-							<Box fontSize="13px" fontWeight="700" color="panel.text">
-								{formatDurationParts(systemData.uptime_seconds, t, isRTL)}
-							</Box>
+							<Text fontSize="13px" fontWeight="700" color="panel.text" dir={isRTL ? "rtl" : "ltr"}>
+								{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
+							</Text>
 						</Flex>
 						<Flex align="center" justify="space-between" gap={3}>
 							<HStack spacing={2.5} color="panel.textMuted">
@@ -1080,9 +1071,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 									{t("panelUptime")}
 								</Text>
 							</HStack>
-							<Box fontSize="13px" fontWeight="700" color="panel.text">
-								{formatDurationParts(systemData.panel_uptime_seconds, t, isRTL)}
-							</Box>
+							<Text fontSize="13px" fontWeight="700" color="panel.text" dir={isRTL ? "rtl" : "ltr"}>
+								{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
+							</Text>
 						</Flex>
 					</Stack>
 				</SectionCard>
@@ -1174,6 +1165,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
 						metaUnit={t("thread")}
+						isRTL={isRTL}
 					/>
 					<ResourceCard
 						label={`${t("memoryUsage")} (Panel)`}
@@ -1181,6 +1173,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
+						isRTL={isRTL}
 					/>
 				</SimpleGrid>
 			</SectionCard>
