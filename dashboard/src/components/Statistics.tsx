@@ -129,21 +129,21 @@ const formatLocalizedDuration = (
 				{parts.map((part, idx) => (
 					<Flex as="span" align="center" key={`${part.unit}-${part.value}`} gap={1}>
 						{idx > 0 && (
-							<Text as="span" color="panel.textMuted" fontSize="inherit" px={0.5}>
+							<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500" px={0.5}>
 								{idx === parts.length - 1 ? andWord : commaWord}
 							</Text>
 						)}
 						<Text
 							as="span"
 							color="panel.text"
-							fontWeight="700"
-							fontSize="inherit"
+							fontWeight="600"
+							fontSize="13px"
 							dir="ltr"
 							sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
 						>
 							{part.value}
 						</Text>
-						<Text as="span" color="panel.textSecondary" fontSize="inherit">
+						<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500">
 							{part.unit}
 						</Text>
 					</Flex>
@@ -157,14 +157,14 @@ const formatLocalizedDuration = (
 			{parts.map((part, idx) => (
 				<Flex as="span" align="center" key={`${part.unit}-${part.value}`} gap={1}>
 					{idx > 0 && (
-						<Text as="span" color="panel.textMuted" fontSize="inherit" px={0.5}>
+						<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500" px={0.5}>
 							{idx === parts.length - 1 ? andWord : commaWord}
 						</Text>
 					)}
-					<Text as="span" color="panel.text" fontWeight="700" fontSize="inherit">
+					<Text as="span" color="panel.text" fontWeight="600" fontSize="13px">
 						{part.value}
 					</Text>
-					<Text as="span" color="panel.textSecondary" fontSize="inherit">
+					<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500">
 						{part.unit}
 					</Text>
 				</Flex>
@@ -485,9 +485,7 @@ const HistoryModal: FC<{
 				},
 			},
 			yaxis: {
-				min: 0,
-				max: isPercentage ? 100 : undefined,
-				forceNiceScale: !isPercentage,
+				forceNiceScale: true,
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					formatter: (val: number) => {
@@ -495,7 +493,7 @@ const HistoryModal: FC<{
 						if (isNetwork) {
 							return formatBytes(val, 1);
 						}
-						return `${val.toFixed(0)}%`;
+						return `${val.toFixed(1)}%`;
 					},
 				},
 			},
@@ -804,6 +802,7 @@ const StatRow: FC<{
 						h="7px"
 						borderRadius="full"
 						bg={tagColor}
+						me="3px"
 						boxShadow={`0 0 6px ${tagColor}88`}
 					/>
 				)}
