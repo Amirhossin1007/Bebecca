@@ -436,7 +436,6 @@ export const DashboardMaintenanceControls = ({
 										setSelectedChannel(
 											event.target.value as UpdateChannel,
 										);
-										setDevUpdateArmed(false);
 									}}
 								>
 									<option value="current">
