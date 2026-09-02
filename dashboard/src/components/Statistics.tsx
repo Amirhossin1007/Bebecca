@@ -772,10 +772,12 @@ const SectionCard: FC<{
 	children: ReactNode;
 	title?: ReactNode;
 	action?: ReactNode;
+	noHover?: boolean;
 }> = ({
 	children,
 	title,
 	action,
+	noHover = false,
 }) => (
 	<Box
 		bg="panel.surface"
@@ -785,13 +787,17 @@ const SectionCard: FC<{
 		overflow="hidden"
 		boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 		transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
-		_hover={{
-			md: {
-				borderColor: "panel.borderStrong",
-				bg: "panel.elevated",
-				boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
-			},
-		}}
+		_hover={
+			noHover
+				? undefined
+				: {
+						md: {
+							borderColor: "panel.borderStrong",
+							bg: "panel.elevated",
+							boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
+						},
+					}
+		}
 	>
 		{(title || action) && (
 			<Flex
@@ -1232,6 +1238,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			)}
 
 			<SectionCard
+				noHover
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
@@ -1250,7 +1257,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						borderRadius="full"
 						color="panel.textMuted"
 						fontWeight="500"
-						_hover={{ color: "panel.text", bg: "panel.elevated" }}
+						_hover={{ color: "panel.text", bg: "panel.surface" }}
 						onClick={() =>
 							openHistory({
 								type: "panel",
