@@ -1017,11 +1017,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 		>
 			<Flex align="center" justify="space-between" flexWrap="wrap" gap={3} px={1}>
 				<Flex
-					align={{ base: "center", md: "var(--rb-header-align, flex-start)" }}
-					direction={{ base: "row", md: "var(--rb-header-dir, column)" }}
 					wrap="wrap"
 					gap={{ base: 2.5, md: 1 }}
 					sx={{
+						flexDirection: "column",
+						alignItems: "flex-start",
 						"@media screen and (max-width: 767px)": {
 							flexDirection: "row",
 							alignItems: "center",
