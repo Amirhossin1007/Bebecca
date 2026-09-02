@@ -126,7 +126,6 @@ export const DashboardMaintenanceControls = ({
 		useState<UpdateChannel>("current");
 	const [operation, setOperation] = useState<MaintenanceOperation | null>(null);
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
-	const [devUpdateArmed, setDevUpdateArmed] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
 	const [confirmAction, setConfirmAction] = useState<"restart" | "soft-reload" | "update" | null>(null);
 	const panelReturnPollRef = useRef<number | null>(null);

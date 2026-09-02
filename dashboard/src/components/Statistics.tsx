@@ -26,7 +26,6 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
-	CubeIcon,
 	ExclamationTriangleIcon,
 	ServerStackIcon,
 	ShieldCheckIcon,
@@ -350,6 +349,15 @@ type HistoryModalPayload = {
 	memoryEntries?: SystemStats["panel_memory_history"];
 };
 
+const expandShortData = <T extends { timestamp: number }>(entries: T[]): T[] => {
+	if (entries.length === 1) {
+		const single = entries[0];
+		const synthesizedBefore = { ...single, timestamp: single.timestamp - 2 };
+		return [synthesizedBefore, single];
+	}
+	return entries;
+};
+
 const HistoryModal: FC<{
 	isOpen: boolean;
 	onClose: () => void;
@@ -382,15 +390,6 @@ const HistoryModal: FC<{
 	}, [payload]);
 
 	const cutoff = latestTimestamp - intervalSeconds;
-
-	const expandShortData = <T extends { timestamp: number }>(entries: T[]): T[] => {
-		if (entries.length === 1) {
-			const single = entries[0];
-			const synthesizedBefore = { ...single, timestamp: single.timestamp - 2 };
-			return [synthesizedBefore, single];
-		}
-		return entries;
-	};
 
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
