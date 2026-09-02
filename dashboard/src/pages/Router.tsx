@@ -55,8 +55,8 @@ const UsagePage = lazy(() => import("./UsagePage"));
 const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
 
 const PageLoading = () => (
-	<Box minH="160px" display="grid" placeItems="center">
-		<Spinner size="md" />
+	<Box minH="100vh" w="full" bg="var(--rb-panel-main)" display="grid" placeItems="center">
+		<Spinner size="lg" color="var(--rb-panel-accent)" thickness="3px" speed="0.75s" />
 	</Box>
 );
 
@@ -207,11 +207,11 @@ export const router = createBrowserRouter(
 			children: [
 				{
 					index: true,
-						element: <LazyPage Page={DashboardPage} />,
+					element: <LazyPage Page={DashboardPage} />,
 				},
 				{
 					path: "users",
-						element: <LazyPage Page={UsersPage} />,
+					element: <LazyPage Page={UsersPage} />,
 				},
 				{
 					path: "bulk-actions",
