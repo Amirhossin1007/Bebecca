@@ -763,49 +763,56 @@ const SectionCard: FC<{
 	title,
 	action,
 	layout,
-}) => (
-	<Box
-		as={layout ? motion.div : "div"}
-		layout={layout ? "size" : undefined}
-		transition="border-color 0.25s ease, background-color 0.25s ease"
-		bg="panel.surface"
-		borderWidth="1px"
-		borderColor="panel.border"
-		borderRadius="20px"
-		overflow="hidden"
-		_hover={{
-			borderColor: "panel.borderStrong",
-		}}
-		sx={{
-			...(layout
-				? {
-						transition: "height 0.7s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, background-color 0.25s ease",
-					}
-				: {}),
-		}}
-	>
-		{(title || action) && (
-			<Flex
-				px={{ base: 4, sm: 5, md: 6 }}
-				py={3.5}
-				align="center"
-				justify="space-between"
-				borderBottomWidth="1px"
-				borderColor="panel.border"
-			>
-				{title && (
-					<Text fontSize="13px" fontWeight="700" color="panel.text" letterSpacing="-0.01em">
-						{title}
-					</Text>
-				)}
-				{action}
-			</Flex>
-		)}
-		<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
-			{children}
+}) => {
+	const content = (
+		<Box
+			bg="panel.surface"
+			borderWidth="1px"
+			borderColor="panel.border"
+			borderRadius="20px"
+			overflow="hidden"
+			transition="border-color 0.25s ease, background-color 0.25s ease"
+			_hover={{
+				borderColor: "panel.borderStrong",
+			}}
+		>
+			{(title || action) && (
+				<Flex
+					px={{ base: 4, sm: 5, md: 6 }}
+					py={3.5}
+					align="center"
+					justify="space-between"
+					borderBottomWidth="1px"
+					borderColor="panel.border"
+				>
+					{title && (
+						<Text fontSize="13px" fontWeight="700" color="panel.text" letterSpacing="-0.01em">
+							{title}
+						</Text>
+					)}
+					{action}
+				</Flex>
+			)}
+			<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
+				{children}
+			</Box>
 		</Box>
-	</Box>
-);
+	);
+
+	if (layout) {
+		return (
+			<motion.div
+				layout
+				transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+				style={{ borderRadius: 20 }}
+			>
+				{content}
+			</motion.div>
+		);
+	}
+
+	return content;
+};
 
 const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
 	<Flex align="center" justify="space-between" gap={3}>
