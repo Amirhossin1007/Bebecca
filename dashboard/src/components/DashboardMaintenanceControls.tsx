@@ -128,7 +128,7 @@ export const DashboardMaintenanceControls = ({
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
 	const [devUpdateArmed, setDevUpdateArmed] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
-	const [confirmAction, setConfirmAction] = useState<"restart" | "soft-reload" | null>(null);
+	const [confirmAction, setConfirmAction] = useState<"restart" | "soft-reload" | "update" | null>(null);
 	const panelReturnPollRef = useRef<number | null>(null);
 	const panelReturnSawOfflineRef = useRef(false);
 	const devUpdateTimerRef = useRef<number | null>(null);
@@ -293,30 +293,14 @@ export const DashboardMaintenanceControls = ({
 		},
 	});
 
-	const startUpdate = () => {
-		if (selectedChannel === "dev" && !devUpdateArmed) {
-			setDevUpdateArmed(true);
-			toast({
-				status: "warning",
-				title: t("settings.panel.devChannelConfirmTitle"),
-				description: t("settings.panel.devChannelConfirm"),
-				duration: 10_000,
-				isClosable: true,
-			});
-			devUpdateTimerRef.current = window.setTimeout(
-				() => setDevUpdateArmed(false),
-				10_000,
-			);
-			return;
-		}
-		if (devUpdateTimerRef.current !== null) {
-			window.clearTimeout(devUpdateTimerRef.current);
-			devUpdateTimerRef.current = null;
-		}
-		setDevUpdateArmed(false);
+	const executeUpdate = () => {
 		setOperation(null);
 		setUpdateDialogOpen(true);
 		updateMutation.mutate();
+	};
+
+	const startUpdate = () => {
+		setConfirmAction("update");
 	};
 
 	const renderUpdatePopover = () => (
@@ -504,13 +488,7 @@ export const DashboardMaintenanceControls = ({
 								size="xs"
 								h="30px"
 								px={4}
-								colorScheme={
-									devUpdateArmed
-										? "orange"
-										: update?.available
-											? "primary"
-											: "gray"
-								}
+								colorScheme={update?.available ? "primary" : "gray"}
 								borderRadius="full"
 								onClick={startUpdate}
 								isLoading={updateMutation.isLoading}
@@ -518,9 +496,7 @@ export const DashboardMaintenanceControls = ({
 								fontSize="12px"
 								fontWeight="600"
 							>
-								{devUpdateArmed
-									? t("settings.panel.confirmDevUpdateAction")
-									: t("settings.panel.updateAction")}
+								{t("settings.panel.updateAction")}
 							</Button>
 						</Flex>
 					</Stack>
@@ -744,14 +720,22 @@ export const DashboardMaintenanceControls = ({
 					<ModalHeader fontSize="md" fontWeight="700" color="panel.text" pb={2}>
 						{confirmAction === "restart"
 							? t("settings.panel.restartConfirmTitle")
-							: t("settings.panel.softReloadConfirmTitle")}
+							: confirmAction === "soft-reload"
+								? t("settings.panel.softReloadConfirmTitle")
+								: t("settings.panel.updateConfirmTitle")}
 					</ModalHeader>
 					<ModalCloseButton />
 					<ModalBody py={3}>
 						<Text fontSize="13px" color="panel.textSecondary" lineHeight="tall">
 							{confirmAction === "restart"
 								? t("settings.panel.restartConfirmDescription")
-								: t("settings.panel.softReloadConfirmDescription")}
+								: confirmAction === "soft-reload"
+									? t("settings.panel.softReloadConfirmDescription")
+									: selectedChannel === "dev"
+										? t("settings.panel.updateDevConfirmDescription")
+										: t("settings.panel.updateConfirmDescription", {
+												target: selectedTarget || update?.target || "-",
+											})}
 						</Text>
 					</ModalBody>
 					<ModalFooter gap={2} pt={3}>
@@ -765,16 +749,17 @@ export const DashboardMaintenanceControls = ({
 							{t("cancel")}
 						</Button>
 						<Button
-							colorScheme={confirmAction === "restart" ? "red" : "primary"}
+							colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"}
 							size="sm"
 							borderRadius="full"
 							px={5}
-							isLoading={restartMutation.isLoading || reloadMutation.isLoading}
+							isLoading={restartMutation.isLoading || reloadMutation.isLoading || updateMutation.isLoading}
 							onClick={() => {
 								const act = confirmAction;
 								setConfirmAction(null);
 								if (act === "restart") restartMutation.mutate();
 								if (act === "soft-reload") reloadMutation.mutate();
+								if (act === "update") executeUpdate();
 							}}
 						>
 							{t("confirm")}

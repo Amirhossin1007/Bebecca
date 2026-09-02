@@ -57,7 +57,6 @@ export const DashboardBackupControls = ({
 }) => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const borderColor = "panel.border";
 	const [isMenuOpen, setMenuOpen] = useState(false);
 	const [dialog, setDialog] = useState<BackupDialog>(null);
 	const [exportScope, setExportScope] =
@@ -145,15 +144,14 @@ export const DashboardBackupControls = ({
 						variant="outline"
 						borderRadius="full"
 						leftIcon={<ArchiveBoxIcon width={14} height={14} />}
-						isDisabled={!backupActionsAvailable}
-						isLoading={runtimeLoading}
+						isDisabled={!backupActionsAvailable || runtimeLoading}
 						w="full"
 						fontSize="12px"
 						fontWeight="600"
 						borderColor="panel.border"
 						color="panel.text"
 						_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
-						transition="all 0.2s ease"
+						transition="border-color 0.25s ease, background-color 0.25s ease"
 					>
 						{t("settings.backup.tabTitle")}
 					</Button>
@@ -161,7 +159,7 @@ export const DashboardBackupControls = ({
 				<PopoverContent
 					w="min(280px, calc(100vw - 24px))"
 					borderRadius="2xl"
-					boxShadow="0 24px 60px rgba(0,0,0,0.4)"
+					boxShadow="0 24px 60px rgba(0,0,0,0.5)"
 					bg="panel.surface"
 					borderColor="panel.border"
 					borderWidth="1px"
@@ -180,6 +178,7 @@ export const DashboardBackupControls = ({
 								leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
 								onClick={() => openDialog("import")}
 								_hover={{ bg: "panel.elevated" }}
+								transition="background-color 0.2s ease"
 							>
 								{t("settings.backup.import")}
 							</Button>
@@ -192,6 +191,7 @@ export const DashboardBackupControls = ({
 								leftIcon={<ArrowDownTrayIcon width={16} height={16} />}
 								onClick={() => openDialog("export")}
 								_hover={{ bg: "panel.elevated" }}
+								transition="background-color 0.2s ease"
 							>
 								{t("settings.backup.exportTitle")}
 							</Button>
@@ -207,12 +207,12 @@ export const DashboardBackupControls = ({
 				size="xl"
 				closeOnOverlayClick={!importMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(6px)" />
+				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(8px)" />
 				<ModalContent
 					borderWidth="1px"
-					borderColor={borderColor}
+					borderColor="panel.border"
 					borderRadius="2xl"
-					boxShadow="0 24px 60px rgba(0,0,0,0.4)"
+					boxShadow="0 32px 80px rgba(0,0,0,0.5)"
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
 				>
@@ -230,7 +230,7 @@ export const DashboardBackupControls = ({
 								</Text>
 							</Alert>
 							<FormControl isRequired>
-								<FormLabel fontSize="13px" fontWeight="600">{t("settings.backup.file")}</FormLabel>
+								<FormLabel fontSize="13px" fontWeight="600" color="panel.textSecondary">{t("settings.backup.file")}</FormLabel>
 								<FileDropzone
 									accept=".rbbackup,application/vnd.rebecca.backup,application/gzip"
 									isDisabled={
@@ -264,7 +264,7 @@ export const DashboardBackupControls = ({
 							)}
 						</Stack>
 					</ModalBody>
-					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
+					<ModalFooter gap={2} borderTopWidth="1px" borderColor="panel.border">
 						<Button
 							variant="ghost"
 							size="sm"
@@ -278,7 +278,7 @@ export const DashboardBackupControls = ({
 							colorScheme="red"
 							size="sm"
 							borderRadius="full"
-							px={4}
+							px={5}
 							leftIcon={<ArrowUpTrayIcon width={15} height={15} />}
 							onClick={handleImport}
 							isLoading={importMutation.isLoading}
@@ -296,12 +296,12 @@ export const DashboardBackupControls = ({
 				size="md"
 				closeOnOverlayClick={!exportMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(6px)" />
+				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(8px)" />
 				<ModalContent
 					borderWidth="1px"
-					borderColor={borderColor}
+					borderColor="panel.border"
 					borderRadius="2xl"
-					boxShadow="0 24px 60px rgba(0,0,0,0.4)"
+					boxShadow="0 32px 80px rgba(0,0,0,0.5)"
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
 				>
@@ -313,7 +313,7 @@ export const DashboardBackupControls = ({
 								{t("settings.backup.exportHint")}
 							</Text>
 							<FormControl>
-								<FormLabel fontSize="13px" fontWeight="600">{t("settings.telegram.backupScope")}</FormLabel>
+								<FormLabel fontSize="13px" fontWeight="600" color="panel.textSecondary">{t("settings.telegram.backupScope")}</FormLabel>
 								<Select
 									value={exportScope}
 									showSearch={false}
@@ -329,7 +329,7 @@ export const DashboardBackupControls = ({
 							</FormControl>
 						</Stack>
 					</ModalBody>
-					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
+					<ModalFooter gap={2} borderTopWidth="1px" borderColor="panel.border">
 						<Button
 							variant="ghost"
 							size="sm"
@@ -343,7 +343,7 @@ export const DashboardBackupControls = ({
 							colorScheme="primary"
 							size="sm"
 							borderRadius="full"
-							px={4}
+							px={5}
 							leftIcon={<ArrowDownTrayIcon width={15} height={15} />}
 							onClick={() => exportMutation.mutate(exportScope)}
 							isLoading={exportMutation.isLoading}

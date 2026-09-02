@@ -491,11 +491,6 @@ const HistoryModal: FC<{
 						</Box>
 					</Stack>
 				</ModalBody>
-				<ModalFooter px={{ base: 4, md: 6 }} py={3} borderTopWidth="1px" borderColor="panel.border">
-					<Button onClick={onClose} borderRadius="full" variant="ghost" size="sm" color="panel.textMuted">
-						{t("close")}
-					</Button>
-				</ModalFooter>
 			</ModalContent>
 		</Modal>
 	);
