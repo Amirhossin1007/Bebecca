@@ -322,6 +322,7 @@ export const DashboardMaintenanceControls = ({
 					borderColor="panel.border"
 					borderRadius="full"
 					leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
+					isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading}
 					fontSize="12px"
 					fontWeight="600"
 					whiteSpace="nowrap"

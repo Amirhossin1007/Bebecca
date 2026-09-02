@@ -9,7 +9,6 @@ import {
 	ModalBody,
 	ModalCloseButton,
 	ModalContent,
-	ModalFooter,
 	ModalHeader,
 	ModalOverlay,
 	Progress,
@@ -315,17 +314,23 @@ const HistoryModal: FC<{
 	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
 	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
 
-	const latestTimestamp = useMemo(() => {
-		if (!payload) return Math.floor(Date.now() / 1000);
+	const { latestTimestamp, availableSpan } = useMemo(() => {
+		if (!payload) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
+		let timestamps: number[] = [];
 		if (payload.type === "network" && payload.networkEntries?.length) {
-			return payload.networkEntries[payload.networkEntries.length - 1].timestamp;
+			timestamps = payload.networkEntries.map((e) => e.timestamp);
+		} else if (payload.type === "panel") {
+			const cTs = (payload.cpuEntries || []).map((e) => e.timestamp);
+			const mTs = (payload.memoryEntries || []).map((e) => e.timestamp);
+			timestamps = [...cTs, ...mTs];
+		} else if (payload.entries?.length) {
+			timestamps = payload.entries.map((e) => e.timestamp);
 		}
-		if (payload.type === "panel") {
-			const lastCpu = payload.cpuEntries?.[payload.cpuEntries.length - 1]?.timestamp;
-			const lastMem = payload.memoryEntries?.[payload.memoryEntries.length - 1]?.timestamp;
-			return Math.max(lastCpu || 0, lastMem || 0) || Math.floor(Date.now() / 1000);
-		}
-		return payload.entries?.[payload.entries.length - 1]?.timestamp ?? Math.floor(Date.now() / 1000);
+
+		if (!timestamps.length) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
+		const maxT = Math.max(...timestamps);
+		const minT = Math.min(...timestamps);
+		return { latestTimestamp: maxT, availableSpan: Math.max(120, maxT - minT) };
 	}, [payload]);
 
 	const cutoff = latestTimestamp - intervalSeconds;
@@ -334,37 +339,41 @@ const HistoryModal: FC<{
 		if (!payload) return [];
 		if (payload.type === "network" && payload.networkEntries) {
 			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
+			const finalData = filtered.length ? filtered : payload.networkEntries;
 			return [
 				{
 					name: t("networkIncoming"),
-					data: filtered.map((e) => [e.timestamp * 1000, e.incoming]),
+					data: finalData.map((e) => [e.timestamp * 1000, e.incoming]),
 				},
 				{
 					name: t("networkOutgoing"),
-					data: filtered.map((e) => [e.timestamp * 1000, e.outgoing]),
+					data: finalData.map((e) => [e.timestamp * 1000, e.outgoing]),
 				},
 			];
 		}
 		if (payload.type === "panel") {
 			const filteredCpu = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff);
 			const filteredMem = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff);
+			const finalCpu = filteredCpu.length ? filteredCpu : payload.cpuEntries || [];
+			const finalMem = filteredMem.length ? filteredMem : payload.memoryEntries || [];
 			return [
 				{
 					name: `${t("cpuUsage")} (Panel CPU %)`,
-					data: filteredCpu.map((e) => [e.timestamp * 1000, e.value]),
+					data: finalCpu.map((e) => [e.timestamp * 1000, e.value]),
 				},
 				{
 					name: `${t("memoryUsage")} (Panel RAM %)`,
-					data: filteredMem.map((e) => [e.timestamp * 1000, e.value]),
+					data: finalMem.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
 		}
 		if (payload.entries) {
 			const filtered = payload.entries.filter((e) => e.timestamp >= cutoff);
+			const finalEntries = filtered.length ? filtered : payload.entries;
 			return [
 				{
 					name: payload.metricLabel ?? payload.title,
-					data: filtered.map((e) => [e.timestamp * 1000, e.value]),
+					data: finalEntries.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
 		}
@@ -429,13 +438,13 @@ const HistoryModal: FC<{
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(16px)" />
 			<ModalContent
 				bg="panel.surface"
 				borderWidth="1px"
 				borderColor="panel.border"
-				borderRadius="2xl"
-				boxShadow="0 32px 80px rgba(0,0,0,0.5)"
+				borderRadius="24px"
+				boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.1), 0 32px 80px rgba(0,0,0,0.6)"
 				mx={{ base: 3, sm: 6 }}
 			>
 				<ModalHeader
@@ -455,22 +464,29 @@ const HistoryModal: FC<{
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
 						<Flex wrap="wrap" gap={2}>
-							{HISTORY_INTERVALS.map((interval) => (
-								<Button
-									key={interval.seconds}
-									size="xs"
-									h="26px"
-									px={3}
-									borderRadius="full"
-									variant={intervalSeconds === interval.seconds ? "solid" : "ghost"}
-									colorScheme={intervalSeconds === interval.seconds ? "primary" : "gray"}
-									color={intervalSeconds === interval.seconds ? undefined : "panel.textMuted"}
-									fontSize="11px"
-									onClick={() => onIntervalChange(interval.seconds)}
-								>
-									{t(interval.labelKey)}
-								</Button>
-							))}
+							{HISTORY_INTERVALS.map((interval, idx) => {
+								const isAvailable = idx === 0 || interval.seconds <= availableSpan * 2;
+								return (
+									<Button
+										key={interval.seconds}
+										size="xs"
+										h="26px"
+										px={3}
+										borderRadius="full"
+										variant={intervalSeconds === interval.seconds ? "solid" : "ghost"}
+										colorScheme={intervalSeconds === interval.seconds ? "primary" : "gray"}
+										color={intervalSeconds === interval.seconds ? undefined : "panel.textMuted"}
+										fontSize="11px"
+										opacity={isAvailable ? 1 : 0.4}
+										cursor={isAvailable ? "pointer" : "not-allowed"}
+										onClick={() => {
+											if (isAvailable) onIntervalChange(interval.seconds);
+										}}
+									>
+										{t(interval.labelKey)}
+									</Button>
+								);
+							})}
 						</Flex>
 						<Box minH="260px">
 							<Suspense
@@ -536,10 +552,12 @@ const ResourceCard: FC<{
 			display="flex"
 			flexDirection="column"
 			justifyContent="space-between"
+			boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 			transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
 			_hover={{
 				borderColor: "panel.borderStrong",
 				bg: "panel.elevated",
+				boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
 			}}
 		>
 			<Box>
@@ -763,9 +781,11 @@ const SectionCard: FC<{
 		borderColor="panel.border"
 		borderRadius="20px"
 		overflow="hidden"
-		transition="border-color 0.25s ease, background-color 0.25s ease"
+		boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+		transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
 		_hover={{
 			borderColor: "panel.borderStrong",
+			boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
 		}}
 	>
 		{(title || action) && (
