@@ -50,11 +50,8 @@ import { useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
+import type { UsersListResponse } from "types/User";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
-import {
-	formatDurationParts,
-	formatLocalizedDuration,
-} from "utils/formatDuration";
 import { mergeLiveSystemStats } from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
@@ -62,6 +59,52 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 export const StatisticsQueryKey = "statistics-query-key";
 
 const HistoryChart = lazy(() => import("react-apexcharts"));
+
+const toPersianDigits = (value: number | string): string => {
+	const farsiDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+	return String(value).replace(/[0-9]/g, (w) => farsiDigits[+w]);
+};
+
+const formatLocalizedDuration = (
+	totalSeconds: number,
+	t: TFunction,
+	isRTL: boolean,
+): string => {
+	if (!totalSeconds || totalSeconds <= 0) {
+		const zero = isRTL ? "۰" : "0";
+		return `${zero} ${t("second")}`;
+	}
+
+	const days = Math.floor(totalSeconds / 86400);
+	const hours = Math.floor((totalSeconds % 86400) / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = Math.floor(totalSeconds % 60);
+
+	const dNum = isRTL ? toPersianDigits(days) : String(days);
+	const hNum = isRTL ? toPersianDigits(hours) : String(hours);
+	const mNum = isRTL ? toPersianDigits(minutes) : String(minutes);
+	const sNum = isRTL ? toPersianDigits(seconds) : String(seconds);
+
+	const dText = `${dNum} ${t("day")}`;
+	const hText = `${hNum} ${t("hour")}`;
+	const mText = `${mNum} ${t("minute")}`;
+	const sText = `${sNum} ${t("second")}`;
+
+	const andWord = t("common.and");
+	const commaWord = t("common.comma");
+
+	if (days > 0) {
+		const parts: string[] = [dText];
+		if (hours > 0) parts.push(hText);
+		if (minutes > 0) parts.push(mText);
+		if (parts.length === 1) return parts[0];
+		if (parts.length === 2) return parts.join(andWord);
+		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
+	}
+	if (hours > 0) return minutes > 0 ? `${hText}${andWord}${mText}` : hText;
+	if (minutes > 0) return seconds > 0 ? `${mText}${andWord}${sText}` : mText;
+	return sText;
+};
 
 const useSystemMetricsStream = (enabled = true) => {
 	const queryClient = useQueryClient();
@@ -152,64 +195,68 @@ const sanitizeSystemStats = (
 		return undefined;
 	}
 
+	const raw = value as any;
+
 	return {
-		version: typeof value.version === "string" ? value.version : "",
-		mem_total: toFiniteNumber(value.mem_total),
-		mem_used: toFiniteNumber(value.mem_used),
-		cpu_cores: toFiniteNumber(value.cpu_cores),
-		cpu_usage: toFiniteNumber(value.cpu_usage),
-		app_threads: toFiniteNumber(value.app_threads),
-		app_memory: toFiniteNumber(value.app_memory),
-		cpu_history: safeHistory(value.cpu_history),
-		panel_cpu_history: safeHistory(value.panel_cpu_history),
-		panel_memory_history: safeHistory(value.panel_memory_history),
-		network_history: safeNetworkHistory(value.network_history),
-		total_user: toFiniteNumber(value.total_user),
-		users_active: toFiniteNumber(value.users_active),
-		incoming_bandwidth: toFiniteNumber(value.incoming_bandwidth),
-		outgoing_bandwidth: toFiniteNumber(value.outgoing_bandwidth),
-		incoming_bandwidth_speed: toFiniteNumber(value.incoming_bandwidth_speed),
-		outgoing_bandwidth_speed: toFiniteNumber(value.outgoing_bandwidth_speed),
-		online_users_count: toFiniteNumber(value.online_users_count),
-		uptime_seconds: toFiniteNumber(value.uptime_seconds),
-		panel_uptime_seconds: toFiniteNumber(value.panel_uptime_seconds),
-		panel_cpu_percent: toFiniteNumber(value.panel_cpu_percent),
-		panel_memory_percent: toFiniteNumber(value.panel_memory_percent),
-		traffic_used_total: toFiniteNumber(value.traffic_used_total),
-		traffic_used_today: toFiniteNumber(value.traffic_used_today),
-		traffic_used_month: toFiniteNumber(value.traffic_used_month),
-		memory: safeUsageStats(value.memory),
-		swap: safeUsageStats(value.swap),
-		disk: safeUsageStats(value.disk),
-		online_users_usage: toFiniteNumber(value.online_users_usage),
-		personal_usage: value.personal_usage
-			? {
-					total_user: toFiniteNumber(value.personal_usage.total_user),
-					users_active: toFiniteNumber(value.personal_usage.users_active),
-					online_users_count: toFiniteNumber(
-						value.personal_usage.online_users_count,
-					),
-					traffic_used_total: toFiniteNumber(
-						value.personal_usage.traffic_used_total,
-					),
-					traffic_used_today: toFiniteNumber(
-						value.personal_usage.traffic_used_today,
-					),
-					traffic_used_month: toFiniteNumber(
-						value.personal_usage.traffic_used_month,
-					),
-					traffic_created_total: toFiniteNumber(
-						value.personal_usage.traffic_created_total,
-					),
-					traffic_reset_total: toFiniteNumber(
-						value.personal_usage.traffic_reset_total,
-					),
-					traffic_basis:
-						value.personal_usage.traffic_basis === "created_traffic"
-							? "created_traffic"
-							: "user_usage",
-				}
-			: undefined,
+		...value,
+		version: String(raw.version ?? ""),
+		channel: raw.channel,
+		cpu_cores: toFiniteNumber(raw.cpu_cores),
+		cpu_threads: toFiniteNumber(raw.cpu_threads),
+		cpu_frequency_hz: toFiniteNumber(raw.cpu_frequency_hz),
+		cpu_usage: toFiniteNumber(raw.cpu_usage),
+		total_user: toFiniteNumber(raw.total_user),
+		online_users: toFiniteNumber(raw.online_users),
+		online_users_usage: toFiniteNumber(raw.online_users_usage),
+		online_users_upload_speed: toFiniteNumber(raw.online_users_upload_speed),
+		online_users_download_speed: toFiniteNumber(raw.online_users_download_speed),
+		users_active: toFiniteNumber(raw.users_active),
+		users_on_hold: toFiniteNumber(raw.users_on_hold),
+		users_disabled: toFiniteNumber(raw.users_disabled),
+		users_expired: toFiniteNumber(raw.users_expired),
+		users_limited: toFiniteNumber(raw.users_limited),
+		incoming_bandwidth: toFiniteNumber(raw.incoming_bandwidth),
+		outgoing_bandwidth: toFiniteNumber(raw.outgoing_bandwidth),
+		panel_total_bandwidth: toFiniteNumber(raw.panel_total_bandwidth),
+		incoming_bandwidth_speed: toFiniteNumber(raw.incoming_bandwidth_speed),
+		outgoing_bandwidth_speed: toFiniteNumber(raw.outgoing_bandwidth_speed),
+		memory: safeUsageStats(raw.memory),
+		swap: safeUsageStats(raw.swap),
+		disk: safeUsageStats(raw.disk),
+		load_avg: Array.isArray(raw.load_avg) ? raw.load_avg.map((item: unknown) => toFiniteNumber(item)) : [],
+		uptime_seconds: toFiniteNumber(raw.uptime_seconds),
+		panel_uptime_seconds: toFiniteNumber(raw.panel_uptime_seconds),
+		xray_uptime_seconds: toFiniteNumber(raw.xray_uptime_seconds),
+		xray_running: Boolean(raw.xray_running),
+		xray_version: raw.xray_version ?? null,
+		app_memory: toFiniteNumber(raw.app_memory),
+		app_threads: toFiniteNumber(raw.app_threads),
+		panel_cpu_percent: toFiniteNumber(raw.panel_cpu_percent),
+		panel_memory_percent: toFiniteNumber(raw.panel_memory_percent),
+		cpu_history: safeHistory(raw.cpu_history),
+		memory_history: safeHistory(raw.memory_history),
+		swap_history: safeHistory(raw.swap_history),
+		disk_history: safeHistory(raw.disk_history),
+		network_history: safeNetworkHistory(raw.network_history),
+		panel_cpu_history: safeHistory(raw.panel_cpu_history),
+		panel_memory_history: safeHistory(raw.panel_memory_history),
+		personal_usage: {
+			total_users: toFiniteNumber(raw.personal_usage?.total_users),
+			consumed_bytes: toFiniteNumber(raw.personal_usage?.consumed_bytes),
+			built_bytes: toFiniteNumber(raw.personal_usage?.built_bytes),
+			reset_bytes: toFiniteNumber(raw.personal_usage?.reset_bytes),
+			traffic_basis: raw.personal_usage?.traffic_basis,
+		},
+		admin_overview: {
+			total_admins: toFiniteNumber(raw.admin_overview?.total_admins),
+			sudo_admins: toFiniteNumber(raw.admin_overview?.sudo_admins),
+			full_access_admins: toFiniteNumber(raw.admin_overview?.full_access_admins),
+			standard_admins: toFiniteNumber(raw.admin_overview?.standard_admins),
+			top_admin_username: raw.admin_overview?.top_admin_username ?? null,
+			top_admin_usage: toFiniteNumber(raw.admin_overview?.top_admin_usage),
+		},
+		last_xray_error: raw.last_xray_error ?? null,
+		last_telegram_error: raw.last_telegram_error ?? null,
 	};
 };
 
@@ -873,11 +920,9 @@ const AnimatedHeightWrapper: FC<{
 
 export const Statistics: FC<BoxProps> = (props) => {
 	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir() === "rtl";
-	const user = useGetUser();
-	const isAdmin = user?.role === AdminRole.admin;
-	const isSudo = user?.role === AdminRole.sudo;
-	const canSeeGlobal = isSudo || !isAdmin;
+	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const { userData } = useGetUser();
+	const canSeeGlobal = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 
 	const [activeUserTab, setActiveUserTab] = useState<"all" | "mine">("all");
 	const [historyModalPayload, setHistoryModalPayload] = useState<HistoryModalPayload | null>(null);
@@ -888,101 +933,39 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const orangeErrorBg = useColorModeValue("orange.50", "rgba(245, 158, 11, 0.1)");
 	const orangeErrorBorder = useColorModeValue("orange.200", "rgba(245, 158, 11, 0.25)");
 
-	const {
-		data: systemDataRaw,
-		error: systemError,
-		isLoading: isSystemLoading,
-	} = useQuery<SystemStats, Error>(
-		StatisticsQueryKey,
-		async () => {
-			const res = await fetch<SystemStats>({ url: "/system" });
-			return res.data;
-		},
-		{
-			refetchInterval: 10000,
-			refetchOnWindowFocus: true,
-		},
-	);
+	const { data: rawSystemData, error: systemError, isLoading: isSystemLoading } = useQuery<SystemStats>({
+		queryKey: StatisticsQueryKey,
+		queryFn: () => fetch<SystemStats>("/system"),
+		refetchInterval: 10000,
+	});
 
-	const { data: myUsersData } = useQuery<{
-		total: number;
-		active: number;
-		disabled: number;
-		expired: number;
-		on_hold: number;
-		limited: number;
-		online: number;
-	}>(
-		["my-admin-users-stats", user?.username],
-		async () => {
-			if (!user?.username) return { total: 0, active: 0, disabled: 0, expired: 0, on_hold: 0, limited: 0, online: 0 };
-			const res = await fetch<{ users?: Array<{ status?: string; is_online?: boolean }> }>({
-				url: `/users?admin=${encodeURIComponent(user.username)}`,
-			});
-			const list = res.data?.users ?? [];
-			const activeCount = list.filter((u) => u.status === "active").length;
-			const disabledCount = list.filter((u) => u.status === "disabled").length;
-			const expiredCount = list.filter((u) => u.status === "expired").length;
-			const onHoldCount = list.filter((u) => u.status === "on_hold").length;
-			const limitedCount = list.filter((u) => u.status === "limited").length;
-			const onlineCount = list.filter((u) => Boolean(u.is_online)).length;
-			return {
-				total: list.length,
-				active: activeCount,
-				disabled: disabledCount,
-				expired: expiredCount,
-				on_hold: onHoldCount,
-				limited: limitedCount,
-				online: onlineCount,
-			};
-		},
-		{
-			enabled: Boolean(user?.username),
-			refetchInterval: 15000,
-		},
-	);
+	const { data: myUsersData } = useQuery<UsersListResponse>({
+		queryKey: ["my-admin-users-stats", userData.username],
+		queryFn: () =>
+			fetch<UsersListResponse>("/users", {
+				query: { admin: userData.username, limit: 1 },
+			}),
+		enabled: Boolean(userData.username),
+		staleTime: 10000,
+		refetchInterval: 15000,
+	});
 
-	const { data: adminsData } = useQuery(
-		"dashboard-admins-count",
-		async () => {
-			const res = await fetch<{ total?: number; admins?: unknown[] }>({ url: "/admins" });
-			return res.data?.total ?? res.data?.admins?.length ?? 0;
-		},
-		{
-			enabled: canSeeGlobal,
-			staleTime: 60000,
-		},
-	);
-
-	const { data: maintenanceInfo } = useQuery(
-		"dashboard-maintenance-tag",
-		async () => {
-			const res = await fetch<{
-				panel?: { tag?: string; channel?: string; commit?: string };
-				update?: { current?: string };
-			}>({
-				url: "/maintenance/info",
-			});
-			return res.data;
-		},
-		{
-			staleTime: 60000,
-		},
-	);
+	const { data: maintenanceInfo } = useQuery<{
+		panel?: { tag?: string | null; channel?: string; commit?: string; update?: { current?: string | null } | null };
+	}>({
+		queryKey: ["dashboard-maintenance-tag"],
+		queryFn: () => fetch("/maintenance/info"),
+		staleTime: 60000,
+	});
 
 	useSystemMetricsStream(true);
 
-	const systemData = useMemo(() => sanitizeSystemStats(systemDataRaw), [systemDataRaw]);
-
-	const { hasPermission } = useDashboard();
-	const canViewSystem = hasPermission("GENERAL_SYSTEM");
+	const systemData = useMemo(() => sanitizeSystemStats(rawSystemData), [rawSystemData]);
 
 	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryModalPayload(payload);
 		setHistoryInterval(120);
 	};
-
-	if (!canViewSystem) return null;
 
 	if (isSystemLoading && !systemData) {
 		return (
@@ -996,22 +979,24 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const allUsers = systemData.total_user || 0;
 	const activeUsers = systemData.users_active || 0;
-	const onlineUsers = systemData.online_users_count || 0;
+	const onlineUsers = systemData.online_users || 0;
 	const inactiveUsers = Math.max(0, allUsers - activeUsers);
 	const activePercent = allUsers > 0 ? (activeUsers / allUsers) * 100 : 0;
 	const inactivePercent = allUsers > 0 ? (inactiveUsers / allUsers) * 100 : 0;
 	const onlinePercent = allUsers > 0 ? (onlineUsers / allUsers) * 100 : 0;
 
-	const myTotal = myUsersData?.total ?? systemData.personal_usage?.total_user ?? 0;
-	const myActive = myUsersData?.active ?? systemData.personal_usage?.users_active ?? 0;
-	const myOnline = myUsersData?.online ?? systemData.personal_usage?.online_users_count ?? 0;
+	const myTotal = myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
+	const myActive = myUsersData?.active_total ?? myUsersData?.status_breakdown?.active ?? myTotal;
+	const myOnline = myUsersData?.online_total ?? 0;
 	const myActivePercent = myTotal > 0 ? (myActive / myTotal) * 100 : 0;
 	const myOnlinePercent = myTotal > 0 ? (myOnline / myTotal) * 100 : 0;
 
+	const panelInfo = maintenanceInfo?.panel;
 	const exactVersion =
-		maintenanceInfo?.panel?.tag ||
-		maintenanceInfo?.update?.current ||
-		(systemData.version ? `v${systemData.version}` : "");
+		panelInfo?.tag ||
+		panelInfo?.update?.current ||
+		(systemData.channel?.toLowerCase() === "dev" ? "dev" : systemData.version) ||
+		"";
 
 	return (
 		<Stack spacing={{ base: 4, md: 5 }} {...props}>
@@ -1024,9 +1009,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 				py={1}
 			>
 				<HStack spacing={2} align="center">
-					<Box w="8px" h="8px" borderRadius="full" bg="emerald.500" />
+					<Box w="8px" h="8px" borderRadius="full" bg={systemData.xray_running ? "emerald.500" : "red.500"} />
 					<Text fontSize="13px" fontWeight="600" color="panel.text">
-						{t("running")}
+						{systemData.xray_running ? t("running") : t("status.stopped")}
 					</Text>
 					{exactVersion && (
 						<HStack
@@ -1045,7 +1030,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					)}
 				</HStack>
 
-				<DashboardMaintenanceControls />
+				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</Flex>
 
 			<SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={{ base: 3, md: 4 }}>
@@ -1341,7 +1326,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							/>
 							<UserStatRow
 								label={t("trafficUsage")}
-								secondaryText={formatBytes(systemData.traffic_used_total)}
+								secondaryText={formatBytes(systemData.panel_total_bandwidth)}
 							/>
 						</Stack>
 					) : (
@@ -1364,14 +1349,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<UserStatRow
 								label={t("trafficUsage")}
 								secondaryText={formatBytes(
-									systemData.personal_usage?.traffic_used_total ?? 0,
+									systemData.personal_usage?.consumed_bytes ?? 0,
 								)}
 							/>
-							{(systemData.personal_usage?.traffic_reset_total ?? 0) > 0 && (
+							{(systemData.personal_usage?.reset_bytes ?? 0) > 0 && (
 								<UserStatRow
 									label={t("resetUsage")}
 									secondaryText={formatBytes(
-										systemData.personal_usage?.traffic_reset_total ?? 0,
+										systemData.personal_usage?.reset_bytes ?? 0,
 									)}
 								/>
 							)}
@@ -1380,7 +1365,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</AnimatedHeightWrapper>
 			</SectionCard>
 
-			{canSeeGlobal && adminsData !== undefined && (
+			{canSeeGlobal && systemData.admin_overview && (
 				<SectionCard
 					title={
 						<HStack spacing={2.5}>
@@ -1402,7 +1387,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							dir="ltr"
 							sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
 						>
-							{formatNumberValue(adminsData)}
+							{formatNumberValue(systemData.admin_overview.total_admins)}
 						</Text>
 					</Flex>
 				</SectionCard>
