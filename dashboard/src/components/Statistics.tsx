@@ -81,50 +81,97 @@ type MaintenanceInfo = {
 	} | null;
 };
 
-const toPersianDigits = (value: number | string): string => {
-	const farsiDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-	return String(value).replace(/[0-9]/g, (w) => farsiDigits[+w]);
+interface DurationPart {
+	unit: string;
+	value: number;
+}
+
+const formatDurationParts = (seconds: number, t: TFunction): DurationPart[] => {
+	if (!seconds || seconds <= 0) {
+		return [{ unit: t("second"), value: 0 }];
+	}
+
+	const days = Math.floor(seconds / 86400);
+	const hours = Math.floor((seconds % 86400) / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	const remSeconds = Math.floor(seconds % 60);
+
+	const parts: DurationPart[] = [];
+	if (days > 0) parts.push({ unit: t("day"), value: days });
+	if (hours > 0) parts.push({ unit: t("hour"), value: hours });
+	if (minutes > 0) parts.push({ unit: t("minute"), value: minutes });
+	if (remSeconds > 0 || parts.length === 0) {
+		parts.push({ unit: t("second"), value: remSeconds });
+	}
+
+	return parts;
 };
 
 const formatLocalizedDuration = (
-	totalSeconds: number,
+	seconds: number,
 	t: TFunction,
-	isRTL: boolean,
-): string => {
-	if (!totalSeconds || totalSeconds <= 0) {
-		const zero = isRTL ? "۰" : "0";
-		return `${zero} ${t("second")}`;
-	}
-
-	const days = Math.floor(totalSeconds / 86400);
-	const hours = Math.floor((totalSeconds % 86400) / 3600);
-	const minutes = Math.floor((totalSeconds % 3600) / 60);
-	const seconds = Math.floor(totalSeconds % 60);
-
-	const dNum = isRTL ? toPersianDigits(days) : String(days);
-	const hNum = isRTL ? toPersianDigits(hours) : String(hours);
-	const mNum = isRTL ? toPersianDigits(minutes) : String(minutes);
-	const sNum = isRTL ? toPersianDigits(seconds) : String(seconds);
-
-	const dText = `${dNum} ${t("day")}`;
-	const hText = `${hNum} ${t("hour")}`;
-	const mText = `${mNum} ${t("minute")}`;
-	const sText = `${sNum} ${t("second")}`;
-
+	isRTL = false,
+): ReactNode => {
+	const parts = formatDurationParts(seconds, t);
 	const andWord = t("common.and");
 	const commaWord = t("common.comma");
 
-	if (days > 0) {
-		const parts: string[] = [dText];
-		if (hours > 0) parts.push(hText);
-		if (minutes > 0) parts.push(mText);
-		if (parts.length === 1) return parts[0];
-		if (parts.length === 2) return parts.join(andWord);
-		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
+	if (isRTL) {
+		return (
+			<Flex
+				as="span"
+				align="center"
+				justify="flex-end"
+				wrap="wrap"
+				gap={1}
+				dir="rtl"
+				sx={{ unicodeBidi: "isolate" }}
+			>
+				{parts.map((part, idx) => (
+					<Flex as="span" align="center" key={`${part.unit}-${part.value}`} gap={1}>
+						{idx > 0 && (
+							<Text as="span" color="panel.textMuted" fontSize="inherit" px={0.5}>
+								{idx === parts.length - 1 ? andWord : commaWord}
+							</Text>
+						)}
+						<Text
+							as="span"
+							color="panel.text"
+							fontWeight="700"
+							fontSize="inherit"
+							dir="ltr"
+							sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+						>
+							{part.value}
+						</Text>
+						<Text as="span" color="panel.textSecondary" fontSize="inherit">
+							{part.unit}
+						</Text>
+					</Flex>
+				))}
+			</Flex>
+		);
 	}
-	if (hours > 0) return minutes > 0 ? `${hText}${andWord}${mText}` : hText;
-	if (minutes > 0) return seconds > 0 ? `${mText}${andWord}${sText}` : mText;
-	return sText;
+
+	return (
+		<Flex as="span" align="center" gap={1} dir="ltr">
+			{parts.map((part, idx) => (
+				<Flex as="span" align="center" key={`${part.unit}-${part.value}`} gap={1}>
+					{idx > 0 && (
+						<Text as="span" color="panel.textMuted" fontSize="inherit" px={0.5}>
+							{idx === parts.length - 1 ? andWord : commaWord}
+						</Text>
+					)}
+					<Text as="span" color="panel.text" fontWeight="700" fontSize="inherit">
+						{part.value}
+					</Text>
+					<Text as="span" color="panel.textSecondary" fontSize="inherit">
+						{part.unit}
+					</Text>
+				</Flex>
+			))}
+		</Flex>
+	);
 };
 
 const useSystemMetricsStream = (enabled = true) => {
@@ -336,11 +383,21 @@ const HistoryModal: FC<{
 
 	const cutoff = latestTimestamp - intervalSeconds;
 
+	const expandShortData = <T extends { timestamp: number }>(entries: T[]): T[] => {
+		if (entries.length === 1) {
+			const single = entries[0];
+			const synthesizedBefore = { ...single, timestamp: single.timestamp - 2 };
+			return [synthesizedBefore, single];
+		}
+		return entries;
+	};
+
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
 		if (payload.type === "network" && payload.networkEntries) {
 			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
-			const finalData = filtered.length >= 2 ? filtered : payload.networkEntries;
+			const rawData = filtered.length >= 1 ? filtered : payload.networkEntries;
+			const finalData = expandShortData(rawData);
 			return [
 				{
 					name: t("networkIncoming"),
@@ -355,8 +412,10 @@ const HistoryModal: FC<{
 		if (payload.type === "panel") {
 			const filteredCpu = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff);
 			const filteredMem = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff);
-			const finalCpu = filteredCpu.length >= 2 ? filteredCpu : payload.cpuEntries || [];
-			const finalMem = filteredMem.length >= 2 ? filteredMem : payload.memoryEntries || [];
+			const rawCpu = filteredCpu.length >= 1 ? filteredCpu : payload.cpuEntries || [];
+			const rawMem = filteredMem.length >= 1 ? filteredMem : payload.memoryEntries || [];
+			const finalCpu = expandShortData(rawCpu);
+			const finalMem = expandShortData(rawMem);
 			return [
 				{
 					name: `${t("cpuUsage")} (Panel CPU %)`,
@@ -370,7 +429,8 @@ const HistoryModal: FC<{
 		}
 		if (payload.entries) {
 			const filtered = payload.entries.filter((e) => e.timestamp >= cutoff);
-			const finalEntries = filtered.length >= 2 ? filtered : payload.entries;
+			const rawEntries = filtered.length >= 1 ? filtered : payload.entries;
+			const finalEntries = expandShortData(rawEntries);
 			return [
 				{
 					name: payload.metricLabel ?? payload.title,
@@ -737,12 +797,12 @@ const StatRow: FC<{
 			_last={{ borderBottomWidth: 0 }}
 			gap={3}
 		>
-			<HStack spacing={2} minW={0} flexWrap="nowrap">
+			<HStack spacing={3} minW={0} flexWrap="nowrap">
 				{tagColor && (
 					<Box
 						flexShrink={0}
-						w="6px"
-						h="6px"
+						w="7px"
+						h="7px"
 						borderRadius="full"
 						bg={tagColor}
 						boxShadow={`0 0 6px ${tagColor}88`}
@@ -883,15 +943,14 @@ const AnimatedHeightWrapper: FC<{
 			style={{ overflow: "hidden" }}
 		>
 			<div ref={containerRef}>
-				<AnimatePresence mode="popLayout" initial={false}>
+				<AnimatePresence mode="wait" initial={false}>
 					<motion.div
 						key={activeKey}
-						initial={{ opacity: 0, y: 6 }}
-						animate={{ opacity: 1, y: 0 }}
-						exit={{ opacity: 0, y: -6 }}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
 						transition={{
-							opacity: { duration: 0.2 },
-							y: { duration: 0.25, ease: "easeInOut" },
+							opacity: { duration: 0.12, ease: "linear" },
 						}}
 					>
 						{children}
@@ -1224,9 +1283,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									{t("systemUptime")}
 								</Text>
 							</HStack>
-							<Text fontSize="13px" fontWeight="700" color="panel.text" dir="ltr" sx={{ fontVariantNumeric: "tabular-nums" }}>
-								{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
-							</Text>
+							{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
 						</Flex>
 						<Flex align="center" justify="space-between" gap={3}>
 							<HStack spacing={2.5} color="panel.textMuted">
@@ -1237,9 +1294,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									{t("panelUptime")}
 								</Text>
 							</HStack>
-							<Text fontSize="13px" fontWeight="700" color="panel.text" dir="ltr" sx={{ fontVariantNumeric: "tabular-nums" }}>
-								{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
-							</Text>
+							{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
 						</Flex>
 					</Stack>
 				</SectionCard>
