@@ -753,20 +753,35 @@ const StatRow: FC<{
 	);
 };
 
-const SectionCard: FC<{ children: ReactNode; title?: ReactNode; action?: ReactNode }> = ({
+const SectionCard: FC<{
+	children: ReactNode;
+	title?: ReactNode;
+	action?: ReactNode;
+	layout?: boolean;
+}> = ({
 	children,
 	title,
 	action,
+	layout,
 }) => (
 	<Box
+		as={layout ? motion.div : "div"}
+		layout={layout ? "size" : undefined}
+		transition="border-color 0.25s ease, background-color 0.25s ease"
 		bg="panel.surface"
 		borderWidth="1px"
 		borderColor="panel.border"
 		borderRadius="20px"
 		overflow="hidden"
-		transition="border-color 0.25s ease, background-color 0.25s ease"
 		_hover={{
 			borderColor: "panel.borderStrong",
+		}}
+		sx={{
+			...(layout
+				? {
+						transition: "height 0.7s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, background-color 0.25s ease",
+					}
+				: {}),
 		}}
 	>
 		{(title || action) && (
@@ -1207,6 +1222,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			</SectionCard>
 
 			<SectionCard
+				layout
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
@@ -1261,7 +1277,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}
 			>
 				<motion.div
-					layout="position"
+					layout
 					style={{ overflow: "hidden" }}
 					transition={{
 						layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
@@ -1274,7 +1290,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								exit={{ opacity: 0 }}
-								transition={{ duration: 0.35, ease: "easeInOut" }}
+								transition={{ duration: 0.25 }}
 							>
 								<Stack spacing={0}>
 									<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
@@ -1308,7 +1324,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								exit={{ opacity: 0 }}
-								transition={{ duration: 0.35, ease: "easeInOut" }}
+								transition={{ duration: 0.25 }}
 							>
 								<Stack spacing={0}>
 									<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
