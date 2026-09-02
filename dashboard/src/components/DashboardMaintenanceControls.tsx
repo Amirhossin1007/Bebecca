@@ -351,19 +351,23 @@ export const DashboardMaintenanceControls = ({
 				w="min(480px, calc(100vw - 24px))"
 				maxW="480px"
 				borderRadius="2xl"
-				boxShadow="2xl"
+				boxShadow="0 24px 60px rgba(0,0,0,0.5)"
 				bg="panel.surface"
 				borderColor="panel.border"
+				borderWidth="1px"
+				p={1}
 				onClick={(e) => e.stopPropagation()}
 			>
-				<PopoverHeader fontWeight="bold" py={3} borderColor="panel.border">
+				<PopoverHeader fontWeight="700" fontSize="13px" py={3} px={4} borderColor="panel.border">
 					<Flex justify="space-between" align="center" gap={3}>
-						<Text fontSize="sm">{t("settings.panel.maintenanceTitle")}</Text>
+						<Text fontSize="13px" fontWeight="700" color="panel.text">{t("settings.panel.maintenanceTitle")}</Text>
 						<Button
 							size="xs"
 							variant="ghost"
 							borderRadius="full"
-							leftIcon={<ArrowPathIcon width={14} height={14} />}
+							color="panel.textMuted"
+							_hover={{ color: "panel.text", bg: "panel.elevated" }}
+							leftIcon={<ArrowPathIcon width={13} height={13} />}
 							onClick={() => info.refetch()}
 							isLoading={info.isFetching}
 						>
@@ -372,16 +376,16 @@ export const DashboardMaintenanceControls = ({
 					</Flex>
 				</PopoverHeader>
 				<PopoverBody p={4}>
-					<Stack spacing={3}>
+					<Stack spacing={4}>
 						{info.isLoading && (
 							<Flex align="center" justify="center" py={5}>
-								<Spinner size="sm" />
+								<Spinner size="sm" color="panel.accent" />
 							</Flex>
 						)}
 						{info.isError && (
-							<Alert status="error" borderRadius="md">
+							<Alert status="error" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
-								<Text fontSize="sm">
+								<Text fontSize="12px">
 									{t("settings.panel.updateCheckFailed", {
 										error:
 											(info.error as Error)?.message ||
@@ -390,28 +394,34 @@ export const DashboardMaintenanceControls = ({
 								</Text>
 							</Alert>
 						)}
-						<Box>
-							<Text fontSize="sm" fontWeight="semibold">
+						<Box
+							p={3.5}
+							borderRadius="xl"
+							bg="panel.elevated"
+							borderWidth="1px"
+							borderColor="panel.border"
+						>
+							<Text fontSize="11px" fontWeight="600" color="panel.textMuted" mb={1}>
 								{t("settings.panel.panelVersion")}
 							</Text>
-							<Text fontSize="sm" color="gray.500">
+							<Text fontSize="13px" fontWeight="700" color="panel.text" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
 								{panel?.image
 									? `${panel.image} (${currentVersion})`
 									: currentVersion}
 							</Text>
 						</Box>
 						{info.isSuccess && !hostActionsAvailable && (
-							<Alert status="warning" borderRadius="md">
+							<Alert status="warning" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
-								<Text fontSize="sm">
+								<Text fontSize="12px">
 									{t("settings.panel.binaryMigrationRequired")}
 								</Text>
 							</Alert>
 						)}
 						{update?.available && (
-							<Alert status="success" borderRadius="md">
+							<Alert status="success" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
-								<Text fontSize="sm">
+								<Text fontSize="12px">
 									{t("settings.panel.updateAvailableNotice", {
 										current: update.current || currentVersion,
 										target: selectedTarget || update.target || "-",
@@ -420,9 +430,9 @@ export const DashboardMaintenanceControls = ({
 							</Alert>
 						)}
 						{update?.error && (
-							<Alert status="warning" borderRadius="md">
+							<Alert status="warning" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
-								<Text fontSize="sm">
+								<Text fontSize="12px">
 									{t("settings.panel.updateCheckFailed", {
 										error: update.error,
 									})}
@@ -431,7 +441,7 @@ export const DashboardMaintenanceControls = ({
 						)}
 						{hostActionsAvailable && (
 							<FormControl>
-								<FormLabel fontSize="sm">
+								<FormLabel fontSize="12px" fontWeight="600" color="panel.textSecondary">
 									{t("settings.panel.updateChannel")}
 								</FormLabel>
 								<Select
@@ -455,7 +465,7 @@ export const DashboardMaintenanceControls = ({
 										{t("settings.panel.updateChannelDev")}
 									</option>
 								</Select>
-								<FormHelperText>
+								<FormHelperText fontSize="11px" color="panel.textMuted" dir="ltr" textAlign="start">
 									{selectedTarget
 										? t("settings.panel.updateTargetHint", {
 												version: selectedTarget,
@@ -465,20 +475,23 @@ export const DashboardMaintenanceControls = ({
 							</FormControl>
 						)}
 						{selectedChannel === "dev" && hostActionsAvailable && (
-							<Alert status="warning" borderRadius="md">
+							<Alert status="warning" borderRadius="xl" fontSize="12px">
 								<AlertIcon />
-								<Text fontSize="sm">
+								<Text fontSize="12px">
 									{t("settings.panel.devChannelWarning")}
 								</Text>
 							</Alert>
 						)}
-						<Flex gap={2} flexWrap="wrap" justify="flex-end">
+						<Flex gap={2} flexWrap="wrap" justify="flex-end" pt={2} borderTopWidth="1px" borderColor="panel.border">
 							<Button
 								size="xs"
-								h="28px"
-								px={3}
+								h="30px"
+								px={3.5}
 								variant="outline"
 								borderRadius="full"
+								borderColor="panel.border"
+								color="panel.text"
+								_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 								onClick={() => setConfirmAction("soft-reload")}
 								isLoading={reloadMutation.isLoading}
 								isDisabled={!hostActionsAvailable}
@@ -489,8 +502,8 @@ export const DashboardMaintenanceControls = ({
 							</Button>
 							<Button
 								size="xs"
-								h="28px"
-								px={3}
+								h="30px"
+								px={4}
 								colorScheme={
 									devUpdateArmed
 										? "orange"
