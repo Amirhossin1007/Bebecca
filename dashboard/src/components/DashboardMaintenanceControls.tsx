@@ -480,7 +480,7 @@ export const DashboardMaintenanceControls = ({
 								px={3}
 								variant="outline"
 								borderRadius="full"
-								onClick={() => reloadMutation.mutate()}
+								onClick={() => setConfirmAction("soft-reload")}
 								isLoading={reloadMutation.isLoading}
 								isDisabled={!hostActionsAvailable}
 								fontSize="12px"
@@ -535,25 +535,6 @@ export const DashboardMaintenanceControls = ({
 				flexWrap="nowrap"
 				flexShrink={0}
 			>
-				<Flex
-					h="32px"
-					px={3.5}
-					align="center"
-					justify="center"
-					gap={1.5}
-					borderRadius="full"
-					fontSize="12px"
-					fontWeight="600"
-					bg="panel.elevated"
-					color="panel.textSecondary"
-					borderWidth="1px"
-					borderColor="panel.border"
-					whiteSpace="nowrap"
-				>
-					<TagIcon width={13} />
-					{currentVersion}
-				</Flex>
-
 				{canMaintain && <Box minW="130px">{renderUpdatePopover()}</Box>}
 
 				{canBackUp && (
@@ -602,60 +583,17 @@ export const DashboardMaintenanceControls = ({
 				)}
 			</HStack>
 
-			{/* Mobile Layout: Full-Width 100% (or Single-Line if Standard Admin) */}
-			{isStandardAdminOnly ? (
-				<Flex
-					h="32px"
-					px={3.5}
-					align="center"
-					justify="center"
-					gap={1.5}
-					borderRadius="full"
-					fontSize="12px"
-					fontWeight="600"
-					bg="panel.elevated"
-					color="panel.textSecondary"
-					borderWidth="1px"
-					borderColor="panel.border"
-					whiteSpace="nowrap"
-				>
-					<TagIcon width={13} />
-					{currentVersion}
-				</Flex>
-			) : (
+			{/* Mobile Layout: Full-Width */}
+			{!isStandardAdminOnly && (
 				<Stack
 					display={{ base: "flex", sm: "none" }}
 					spacing={2}
 					w="full"
 				>
-					{/* Row 1: Update (75%) + Version (25%) */}
-					<Flex gap={2} w="full" align="center">
-						<Box flex="3 3 75%" minW={0}>
-							{renderUpdatePopover()}
-						</Box>
-						<Flex
-							flex="1 1 25%"
-							minW="75px"
-							h="32px"
-							align="center"
-							justify="center"
-							gap={1}
-							borderRadius="full"
-							fontSize="12px"
-							fontWeight="600"
-							bg="panel.elevated"
-							color="panel.textSecondary"
-							borderWidth="1px"
-							borderColor="panel.border"
-							whiteSpace="nowrap"
-							flexShrink={0}
-						>
-							<TagIcon width={12} />
-							{currentVersion}
-						</Flex>
-					</Flex>
+					<Box w="full">
+						{renderUpdatePopover()}
+					</Box>
 
-					{/* Row 2: Restart (50%) + Backup (50%) */}
 					<Flex gap={2} w="full" align="center">
 						<Button
 							flex="1 1 50%"
