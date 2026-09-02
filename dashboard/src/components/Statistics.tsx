@@ -441,7 +441,6 @@ const HistoryModal: FC<{
 	}, [payload, cutoff, t]);
 
 	const isNetwork = payload?.type === "network";
-	const isPercentage = !isNetwork;
 
 	const options: ApexOptions = useMemo(
 		() => ({
@@ -515,7 +514,7 @@ const HistoryModal: FC<{
 				},
 			},
 		}),
-		[colorMode, gridColor, mutedTextColor, intervalSeconds, isNetwork, isPercentage],
+		[colorMode, gridColor, mutedTextColor, intervalSeconds, isNetwork],
 	);
 
 	return (
