@@ -933,7 +933,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const orangeErrorBg = useColorModeValue("orange.50", "rgba(245, 158, 11, 0.1)");
 	const orangeErrorBorder = useColorModeValue("orange.200", "rgba(245, 158, 11, 0.25)");
 
-	const { data: rawSystemData, error: systemError, isLoading: isSystemLoading } = useQuery<SystemStats>({
+	const { data: rawSystemData, error: systemError, isLoading: isSystemLoading } = useQuery<SystemStats, Error>({
 		queryKey: StatisticsQueryKey,
 		queryFn: () => fetch<SystemStats>("/system"),
 		refetchInterval: 10000,
@@ -1175,17 +1175,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</SectionCard>
 			</SimpleGrid>
 
-			{systemError && (
+			{Boolean(systemError) && (
 				<Stack spacing={2}>
 					<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
 						<Text fontSize="13px" fontWeight="700" color="red.500" mb={1}>
 							{t("error")}
 						</Text>
 						<Text fontSize="12px" color="panel.textSecondary">
-							{systemError.message}
+							{systemError?.message}
 						</Text>
 					</Box>
-					{String(systemError.message).toLowerCase().includes("permission") && (
+					{String(systemError?.message || "").toLowerCase().includes("permission") && (
 						<Box p={4} borderRadius="14px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
 							<Text fontSize="13px" fontWeight="700" color="orange.500" mb={1}>
 								{t("notice")}
