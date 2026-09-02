@@ -438,14 +438,13 @@ const HistoryModal: FC<{
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(20px) saturate(190%)" />
+			<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(16px)" />
 			<ModalContent
-				bg="color-mix(in srgb, var(--rb-panel-surface) 82%, transparent)"
-				backdropFilter="blur(24px) saturate(180%)"
+				bg="panel.surface"
 				borderWidth="1px"
-				borderColor="color-mix(in srgb, var(--rb-panel-border-strong) 40%, rgba(255,255,255,0.12))"
+				borderColor="panel.border"
 				borderRadius="24px"
-				boxShadow="inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 32px 80px rgba(0,0,0,0.65)"
+				boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.1), 0 32px 80px rgba(0,0,0,0.6)"
 				mx={{ base: 3, sm: 6 }}
 			>
 				<ModalHeader
@@ -455,7 +454,7 @@ const HistoryModal: FC<{
 					px={{ base: 4, md: 6 }}
 					py={{ base: 3.5, md: 4 }}
 					borderBottomWidth="1px"
-					borderColor="color-mix(in srgb, var(--rb-panel-border) 60%, transparent)"
+					borderColor="panel.border"
 					fontSize="sm"
 					fontWeight="700"
 				>
@@ -543,39 +542,35 @@ const ResourceCard: FC<{
 
 	return (
 		<Box
-			bg="color-mix(in srgb, var(--rb-panel-surface) 78%, transparent)"
-			backdropFilter="blur(16px) saturate(180%)"
+			bg="panel.surface"
 			borderWidth="1px"
-			borderColor="color-mix(in srgb, var(--rb-panel-border) 65%, rgba(255,255,255,0.08))"
-			borderRadius="22px"
+			borderColor="panel.border"
+			borderRadius="20px"
 			p={{ base: 4, sm: 5 }}
 			position="relative"
 			overflow="hidden"
 			display="flex"
 			flexDirection="column"
 			justifyContent="space-between"
-			boxShadow="inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 32px -4px rgba(0, 0, 0, 0.28)"
-			transition="all 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+			boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+			transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
 			_hover={{
-				borderColor: "color-mix(in srgb, var(--rb-panel-accent) 45%, var(--rb-panel-border-strong))",
-				bg: "color-mix(in srgb, var(--rb-panel-elevated) 88%, transparent)",
-				boxShadow: "inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px -4px rgba(0, 0, 0, 0.38)",
+				borderColor: "panel.borderStrong",
+				bg: "panel.elevated",
+				boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
 			}}
 		>
 			<Box>
 				<Flex justify="space-between" align="center" mb={3}>
 					<HStack spacing={2.5} align="center">
 						<Flex
-							w="34px"
-							h="34px"
+							w="32px"
+							h="32px"
 							align="center"
 							justify="center"
-							borderRadius="10px"
-							bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)"
-							borderWidth="1px"
-							borderColor="color-mix(in srgb, var(--rb-panel-border) 40%, rgba(255,255,255,0.1))"
+							borderRadius="9px"
+							bg="panel.elevated"
 							color="panel.textSecondary"
-							boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)"
 							flexShrink={0}
 						>
 							{icon}
@@ -588,7 +583,7 @@ const ResourceCard: FC<{
 						<Button
 							size="xs"
 							h="22px"
-							px={2.5}
+							px={2}
 							fontSize="11px"
 							variant="ghost"
 							borderRadius="full"
@@ -677,14 +672,13 @@ const ResourceCard: FC<{
 				<Progress
 					value={safe}
 					size="xs"
-					h="3.5px"
+					h="3px"
 					borderRadius="full"
 					bg={trackBg}
 					sx={{
 						"& > div": {
 							backgroundColor: criticalColor,
 							transition: "width 0.4s ease, background-color 0.3s ease",
-							boxShadow: `0 0 8px ${criticalColor}88`,
 						},
 					}}
 				/>
@@ -709,7 +703,7 @@ const StatRow: FC<{
 			justify="space-between"
 			py={2.5}
 			borderBottomWidth="1px"
-			borderColor="color-mix(in srgb, var(--rb-panel-border) 45%, transparent)"
+			borderColor="panel.border"
 			_last={{ borderBottomWidth: 0 }}
 			gap={3}
 		>
@@ -717,11 +711,11 @@ const StatRow: FC<{
 				{tagColor && (
 					<Box
 						flexShrink={0}
-						w="6.5px"
-						h="6.5px"
+						w="6px"
+						h="6px"
 						borderRadius="full"
 						bg={tagColor}
-						boxShadow={`0 0 8px ${tagColor}99`}
+						boxShadow={`0 0 6px ${tagColor}88`}
 					/>
 				)}
 				<Text
@@ -738,7 +732,7 @@ const StatRow: FC<{
 						px={1.5}
 						py={0.5}
 						borderRadius="md"
-						bg="color-mix(in srgb, var(--rb-panel-elevated) 80%, transparent)"
+						bg="panel.elevated"
 						color="panel.textMuted"
 						fontWeight="600"
 						textTransform="none"
@@ -782,17 +776,16 @@ const SectionCard: FC<{
 	action,
 }) => (
 	<Box
-		bg="color-mix(in srgb, var(--rb-panel-surface) 78%, transparent)"
-		backdropFilter="blur(16px) saturate(180%)"
+		bg="panel.surface"
 		borderWidth="1px"
-		borderColor="color-mix(in srgb, var(--rb-panel-border) 65%, rgba(255,255,255,0.08))"
-		borderRadius="22px"
+		borderColor="panel.border"
+		borderRadius="20px"
 		overflow="hidden"
-		boxShadow="inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 32px -4px rgba(0, 0, 0, 0.28)"
-		transition="all 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+		boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+		transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
 		_hover={{
-			borderColor: "color-mix(in srgb, var(--rb-panel-accent) 45%, var(--rb-panel-border-strong))",
-			boxShadow: "inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px -4px rgba(0, 0, 0, 0.38)",
+			borderColor: "panel.borderStrong",
+			boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
 		}}
 	>
 		{(title || action) && (
@@ -802,7 +795,7 @@ const SectionCard: FC<{
 				align="center"
 				justify="space-between"
 				borderBottomWidth="1px"
-				borderColor="color-mix(in srgb, var(--rb-panel-border) 45%, transparent)"
+				borderColor="panel.border"
 			>
 				{title && (
 					<Text fontSize="13px" fontWeight="700" color="panel.text" letterSpacing="-0.01em">
@@ -873,18 +866,7 @@ const AnimatedHeightWrapper: FC<{
 const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
 	<Flex align="center" justify="space-between" gap={3}>
 		<HStack spacing={2.5} color="panel.textMuted">
-			<Flex
-				w="30px"
-				h="30px"
-				align="center"
-				justify="center"
-				borderRadius="9px"
-				bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)"
-				borderWidth="1px"
-				borderColor="color-mix(in srgb, var(--rb-panel-border) 40%, rgba(255,255,255,0.1))"
-				boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)"
-				flexShrink={0}
-			>
+			<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
 				{icon}
 			</Flex>
 			<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
@@ -1115,7 +1097,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<SectionCard
 					title={
 						<HStack spacing={2.5}>
-							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)" color="panel.textSecondary">
+							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 								<SignalIcon width={14} />
 							</Flex>
 							<span>{t("bandwidthSpeed")}</span>
@@ -1161,7 +1143,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<SectionCard
 					title={
 						<HStack spacing={2.5}>
-							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)" color="panel.textSecondary">
+							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 								<ClockIcon width={14} />
 							</Flex>
 							<span>{t("uptime")}</span>
@@ -1171,18 +1153,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Stack spacing={3}>
 						<Flex align="center" justify="space-between" gap={3}>
 							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex
-									w="30px"
-									h="30px"
-									align="center"
-									justify="center"
-									borderRadius="9px"
-									bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)"
-									borderWidth="1px"
-									borderColor="color-mix(in srgb, var(--rb-panel-border) 40%, rgba(255,255,255,0.1))"
-									boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)"
-									flexShrink={0}
-								>
+								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
 									<ServerStackIcon width={13} />
 								</Flex>
 								<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
@@ -1195,18 +1166,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</Flex>
 						<Flex align="center" justify="space-between" gap={3}>
 							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex
-									w="30px"
-									h="30px"
-									align="center"
-									justify="center"
-									borderRadius="9px"
-									bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)"
-									borderWidth="1px"
-									borderColor="color-mix(in srgb, var(--rb-panel-border) 40%, rgba(255,255,255,0.1))"
-									boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.1)"
-									flexShrink={0}
-								>
+								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
 									<CircleStackIcon width={13} />
 								</Flex>
 								<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
@@ -1224,7 +1184,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			{(systemData.last_xray_error || systemData.last_telegram_error) && (
 				<Stack spacing={3}>
 					{systemData.last_xray_error && (
-						<Box p={4} borderRadius="16px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder} backdropFilter="blur(12px)">
+						<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
 							<HStack spacing={2} mb={2} color={redErrorColor}>
 								<ExclamationTriangleIcon width={15} />
 								<Text fontSize="12px" fontWeight="700">
@@ -1237,7 +1197,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</Box>
 					)}
 					{systemData.last_telegram_error && (
-						<Box p={4} borderRadius="16px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder} backdropFilter="blur(12px)">
+						<Box p={4} borderRadius="14px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
 							<Flex align="center" justify="space-between" mb={2} flexWrap="wrap" gap={2}>
 								<HStack spacing={2} color={orangeErrorColor}>
 									<ExclamationTriangleIcon width={15} />
@@ -1269,7 +1229,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			<SectionCard
 				title={
 					<HStack spacing={2.5}>
-						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)" color="panel.textSecondary">
+						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 							<CpuChipIcon width={14} />
 						</Flex>
 						<span>{t("panelUsage")}</span>
@@ -1323,7 +1283,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			<SectionCard
 				title={
 					<HStack spacing={2.5}>
-						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)" color="panel.textSecondary">
+						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 							<UserGroupIcon width={14} />
 						</Flex>
 						<span>{t("usersOverview")}</span>
@@ -1331,12 +1291,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}
 				action={
 					canSeeGlobal ? (
-						<HStack spacing={0.5} bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)" p={0.5} borderRadius="10px" borderWidth="1px" borderColor="color-mix(in srgb, var(--rb-panel-border) 45%, transparent)">
+						<HStack spacing={0.5} bg="panel.elevated" p={0.5} borderRadius="8px">
 							<Button
 								size="xs"
 								h="22px"
 								px={2.5}
-								borderRadius="8px"
+								borderRadius="6px"
 								fontSize="11px"
 								fontWeight="600"
 								variant={userTab === "all" ? "solid" : "ghost"}
@@ -1350,7 +1310,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								size="xs"
 								h="22px"
 								px={2.5}
-								borderRadius="8px"
+								borderRadius="6px"
 								fontSize="11px"
 								fontWeight="600"
 								variant={userTab === "mine" ? "solid" : "ghost"}
@@ -1420,7 +1380,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<SectionCard
 					title={
 						<HStack spacing={2.5}>
-							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="color-mix(in srgb, var(--rb-panel-elevated) 85%, transparent)" color="panel.textSecondary">
+							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 								<ShieldCheckIcon width={14} />
 							</Flex>
 							<span>{t("adminOverview")}</span>
