@@ -1124,7 +1124,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderRadius="full"
 							color="panel.textMuted"
 							fontWeight="500"
-							_hover={{ color: "panel.text", bg: "panel.elevated" }}
+							_hover={{ color: "panel.text", bg: "panel.surface" }}
 							onClick={() =>
 								openHistory({
 									type: "network",
