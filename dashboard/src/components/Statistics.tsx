@@ -53,6 +53,7 @@ import { useQuery, useQueryClient } from "react-query";
 import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
+import type { UsersListResponse } from "types/User";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { mergeLiveSystemStats } from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
@@ -63,36 +64,65 @@ export const StatisticsQueryKey = "statistics-query-key";
 
 const HistoryChart = lazy(() => import("react-apexcharts"));
 
-const formatLocalizedDuration = (
+const formatDurationParts = (
 	totalSeconds: number,
 	t: TFunction,
 	isRTL: boolean,
-): string => {
-	if (!totalSeconds || totalSeconds <= 0) return `0 ${t("second")}`;
+): ReactNode => {
+	if (!totalSeconds || totalSeconds <= 0) {
+		return (
+			<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+				0 {t("second")}
+			</Text>
+		);
+	}
+
 	const days = Math.floor(totalSeconds / 86400);
 	const hours = Math.floor((totalSeconds % 86400) / 3600);
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
 	const seconds = Math.floor(totalSeconds % 60);
 
-	const dText = `${days}\u200E ${t("day")}`;
-	const hText = `${hours}\u200E ${t("hour")}`;
-	const mText = `${minutes}\u200E ${t("minute")}`;
-	const sText = `${seconds}\u200E ${t("second")}`;
-
 	const andWord = t("common.and");
 	const commaWord = t("common.comma");
 
-	if (days > 0) {
-		const parts: string[] = [dText];
-		if (hours > 0) parts.push(hText);
-		if (minutes > 0) parts.push(mText);
-		if (parts.length === 1) return parts[0];
-		if (parts.length === 2) return parts.join(andWord);
-		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
+	const renderUnit = (val: number, label: string) => (
+		<Text as="span" key={label} display="inline-flex" alignItems="center" gap={1}>
+			<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
+				{val}
+			</Text>
+			<Text as="span">{label}</Text>
+		</Text>
+	);
+
+	const parts: ReactNode[] = [];
+	if (days > 0) parts.push(renderUnit(days, t("day")));
+	if (hours > 0) parts.push(renderUnit(hours, t("hour")));
+	if (minutes > 0) parts.push(renderUnit(minutes, t("minute")));
+	if (parts.length === 0 || (days === 0 && hours === 0 && minutes === 0 && seconds > 0)) {
+		parts.push(renderUnit(seconds, t("second")));
 	}
-	if (hours > 0) return minutes > 0 ? `${hText}${andWord}${mText}` : hText;
-	if (minutes > 0) return seconds > 0 ? `${mText}${andWord}${sText}` : mText;
-	return sText;
+
+	return (
+		<Flex
+			as="span"
+			direction="row"
+			align="center"
+			gap={1}
+			wrap="wrap"
+			justify={isRTL ? "flex-start" : "flex-start"}
+		>
+			{parts.map((part, idx) => (
+				<Flex as="span" align="center" key={idx} gap={1}>
+					{idx > 0 && (
+						<Text as="span" color="panel.textMuted">
+							{idx === parts.length - 1 ? andWord : commaWord}
+						</Text>
+					)}
+					{part}
+				</Flex>
+			))}
+		</Flex>
+	);
 };
 
 const useSystemMetricsStream = (enabled = true) => {
@@ -473,11 +503,24 @@ const ResourceCard: FC<{
 	label: string;
 	icon: ReactNode;
 	value: string;
+	totalValue?: string;
+	unitLabel?: string;
 	percent: number;
-	meta?: ReactNode;
+	metaUnit?: string;
+	metaValue?: string | number;
 	onHistory?: () => void;
 	historyLabel?: string;
-}> = ({ label, icon, value, percent, meta, onHistory, historyLabel }) => {
+}> = ({
+	label,
+	icon,
+	value,
+	totalValue,
+	percent,
+	metaUnit,
+	metaValue,
+	onHistory,
+	historyLabel,
+}) => {
 	const safe = clampPercent(percent);
 	const accent = "var(--rb-panel-accent)";
 	const trackBg = useColorModeValue("panel.border", "panel.elevated");
@@ -495,7 +538,7 @@ const ResourceCard: FC<{
 			display="flex"
 			flexDirection="column"
 			justifyContent="space-between"
-			transition="border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease"
+			transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
 			_hover={{
 				borderColor: "panel.borderStrong",
 				bg: "panel.elevated",
@@ -538,32 +581,61 @@ const ResourceCard: FC<{
 					)}
 				</Flex>
 
-				<HStack spacing={1.5} align="baseline" mb={1} wrap="wrap">
-					<Text
-						fontSize={{ base: "20px", sm: "22px" }}
-						fontWeight="800"
-						color="panel.text"
-						letterSpacing="-0.02em"
-						lineHeight="1.1"
-						dir="ltr"
-						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-					>
-						{value}
-					</Text>
-					{meta && (
-						<Box
-							fontSize="12px"
-							fontWeight="600"
-							color="panel.textMuted"
+				<Flex align="baseline" gap={1.5} mb={1} wrap="nowrap" justify="flex-start">
+					{totalValue ? (
+						<Flex
+							dir="ltr"
+							align="baseline"
+							gap={1.5}
+							sx={{ unicodeBidi: "isolate" }}
 						>
-							{meta}
-						</Box>
+							<Text
+								fontSize={{ base: "20px", sm: "22px" }}
+								fontWeight="800"
+								color="panel.text"
+								letterSpacing="-0.02em"
+								lineHeight="1.1"
+								sx={{ fontVariantNumeric: "tabular-nums" }}
+							>
+								{value}
+							</Text>
+							<Text
+								fontSize="13px"
+								fontWeight="600"
+								color="panel.textMuted"
+								sx={{ fontVariantNumeric: "tabular-nums" }}
+							>
+								/ {totalValue}
+							</Text>
+						</Flex>
+					) : (
+						<Flex align="baseline" gap={1.5} wrap="wrap">
+							<Text
+								fontSize={{ base: "20px", sm: "22px" }}
+								fontWeight="800"
+								color="panel.text"
+								letterSpacing="-0.02em"
+								lineHeight="1.1"
+								dir="ltr"
+								sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+							>
+								{value}
+							</Text>
+							{metaValue !== undefined && metaUnit && (
+								<Flex align="center" gap={1} color="panel.textMuted" fontSize="12px" fontWeight="600">
+									<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
+										{metaValue}
+									</Text>
+									<Text as="span">{metaUnit}</Text>
+								</Flex>
+							)}
+						</Flex>
 					)}
-				</HStack>
+				</Flex>
 			</Box>
 
 			<Box mt={3}>
-				<Flex justify="space-between" align="center" mb={1.5}>
+				<Flex justify="flex-start" align="center" mb={1.5}>
 					<Text
 						fontSize="11px"
 						fontWeight="600"
@@ -678,7 +750,7 @@ const SectionCard: FC<{ children: ReactNode; title?: ReactNode; action?: ReactNo
 		borderColor="panel.border"
 		borderRadius="20px"
 		overflow="hidden"
-		transition="border-color 0.2s ease, background-color 0.2s ease"
+		transition="border-color 0.25s ease, background-color 0.25s ease"
 		_hover={{
 			borderColor: "panel.borderStrong",
 		}}
@@ -745,20 +817,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 		},
 	});
 
-	const { data: adminsData } = useQuery<{ admins: Array<{ username: string; active_users?: number; online_users?: number; users_count?: number }> }>(
-		["dashboard-my-admin-stats", userData.username],
-		() => fetch(`/admins`),
+	const { data: myUsersData } = useQuery<UsersListResponse>(
+		["dashboard-my-users-stats", userData.username],
+		() =>
+			fetch<UsersListResponse>("/users", {
+				query: { admin: userData.username, limit: 1 },
+			}),
 		{
 			enabled: Boolean(userData.username),
 			staleTime: 10_000,
 			refetchInterval: 15_000,
 		},
 	);
-
-	const myAdminRecord = useMemo(() => {
-		if (!adminsData?.admins) return null;
-		return adminsData.admins.find((a) => a.username === userData.username) || null;
-	}, [adminsData, userData.username]);
 
 	const systemData = useMemo(() => sanitizeSystemStats(rawSystemData), [rawSystemData]);
 	useSystemMetricsStream(true);
@@ -807,9 +877,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 			? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
 			: "0.0%";
 
-	const myTotalUsers = myAdminRecord?.users_count ?? systemData.personal_usage?.total_users ?? 0;
-	const myActiveUsers = myAdminRecord?.active_users ?? myTotalUsers;
-	const myOnlineUsers = myAdminRecord?.online_users ?? 0;
+	const myTotalUsers = myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
+	const myActiveUsers = myUsersData?.active_total ?? myUsersData?.status_breakdown?.active ?? myTotalUsers;
+	const myOnlineUsers = myUsersData?.online_total ?? 0;
 
 	const myActivePercent =
 		myTotalUsers > 0
@@ -886,13 +956,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					icon={<CpuChipIcon width={16} />}
 					value={`${systemData.cpu_usage.toFixed(1)}%`}
 					percent={systemData.cpu_usage}
-					meta={
-						<Text as="span" dir={isRTL ? "rtl" : "ltr"}>
-							<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>{formatNumberValue(systemData.cpu_cores)}</Text>
-							{" "}
-							{t("core")}
-						</Text>
-					}
+					metaValue={formatNumberValue(systemData.cpu_cores)}
+					metaUnit={t("core")}
 					historyLabel={t("viewHistory")}
 					onHistory={() =>
 						openHistory({
@@ -907,12 +972,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					label={t("memoryUsage")}
 					icon={<ServerStackIcon width={16} />}
 					value={formatBytes(systemData.memory.current, 1)}
+					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
-					meta={
-						<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-							/ {formatBytes(systemData.memory.total, 1)}
-						</Text>
-					}
 					historyLabel={t("viewHistory")}
 					onHistory={() =>
 						openHistory({
@@ -927,23 +988,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 					label={t("swapUsage")}
 					icon={<CircleStackIcon width={16} />}
 					value={formatBytes(systemData.swap.current, 1)}
+					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
-					meta={
-						<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-							/ {formatBytes(systemData.swap.total, 1)}
-						</Text>
-					}
 				/>
 				<ResourceCard
 					label={t("diskUsage")}
 					icon={<CircleStackIcon width={16} />}
 					value={formatBytes(systemData.disk.current, 1)}
+					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
-					meta={
-						<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-							/ {formatBytes(systemData.disk.total, 1)}
-						</Text>
-					}
 				/>
 			</SimpleGrid>
 
@@ -1005,16 +1058,32 @@ export const Statistics: FC<BoxProps> = (props) => {
 					}
 				>
 					<Stack spacing={3}>
-						<SpeedItem
-							icon={<ServerStackIcon width={13} />}
-							label={t("systemUptime")}
-							value={formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
-						/>
-						<SpeedItem
-							icon={<CircleStackIcon width={13} />}
-							label={t("panelUptime")}
-							value={formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
-						/>
+						<Flex align="center" justify="space-between" gap={3}>
+							<HStack spacing={2.5} color="panel.textMuted">
+								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
+									<ServerStackIcon width={13} />
+								</Flex>
+								<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
+									{t("systemUptime")}
+								</Text>
+							</HStack>
+							<Box fontSize="13px" fontWeight="700" color="panel.text">
+								{formatDurationParts(systemData.uptime_seconds, t, isRTL)}
+							</Box>
+						</Flex>
+						<Flex align="center" justify="space-between" gap={3}>
+							<HStack spacing={2.5} color="panel.textMuted">
+								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
+									<CircleStackIcon width={13} />
+								</Flex>
+								<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
+									{t("panelUptime")}
+								</Text>
+							</HStack>
+							<Box fontSize="13px" fontWeight="700" color="panel.text">
+								{formatDurationParts(systemData.panel_uptime_seconds, t, isRTL)}
+							</Box>
+						</Flex>
 					</Stack>
 				</SectionCard>
 			</SimpleGrid>
@@ -1103,24 +1172,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 						icon={<CpuChipIcon width={16} />}
 						value={`${systemData.panel_cpu_percent.toFixed(1)}%`}
 						percent={systemData.panel_cpu_percent}
-						meta={
-							<Text as="span" dir={isRTL ? "rtl" : "ltr"}>
-								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>{formatNumberValue(systemData.app_threads)}</Text>
-								{" "}
-								{t("thread")}
-							</Text>
-						}
+						metaValue={formatNumberValue(systemData.app_threads)}
+						metaUnit={t("thread")}
 					/>
 					<ResourceCard
 						label={`${t("memoryUsage")} (Panel)`}
 						icon={<ServerStackIcon width={16} />}
 						value={formatBytes(systemData.app_memory, 1)}
+						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
-						meta={
-							<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-								/ {formatBytes(systemData.memory.total, 1)}
-							</Text>
-						}
 					/>
 				</SimpleGrid>
 			</SectionCard>
@@ -1180,68 +1240,73 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}
 			>
 				<Box
-					key={userTab}
 					sx={{
-						transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-						"@keyframes tabContentFade": {
-							from: { opacity: 0, transform: "translateY(4px)" },
-							to: { opacity: 1, transform: "translateY(0)" },
-						},
-						animation: "tabContentFade 0.25s ease-out",
+						transition: "height 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
-					{canSeeGlobal && userTab === "all" ? (
-						<Stack spacing={0}>
-							<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
-							<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
-							<StatRow
-								label={t("onlineUsers")}
-								value={systemData.online_users}
-								tag={onlinePercent}
-								tagColor="#06b6d4"
-								helper={
-									systemData.online_users_upload_speed || systemData.online_users_download_speed
-										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
-										: undefined
-								}
-							/>
-							{systemData.online_users_usage > 0 && (
+					<Box
+						key={userTab}
+						sx={{
+							"@keyframes tabItemFade": {
+								from: { opacity: 0 },
+								to: { opacity: 1 },
+							},
+							animation: "tabItemFade 0.22s ease-out",
+						}}
+					>
+						{canSeeGlobal && userTab === "all" ? (
+							<Stack spacing={0}>
+								<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
+								<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
 								<StatRow
-									label={t("dashboard.onlineUsersUsage")}
-									value={formatBytes(systemData.online_users_usage)}
-									dimLabel
+									label={t("onlineUsers")}
+									value={systemData.online_users}
+									tag={onlinePercent}
+									tagColor="#06b6d4"
+									helper={
+										systemData.online_users_upload_speed || systemData.online_users_download_speed
+											? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
+											: undefined
+									}
 								/>
-							)}
-							<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
-							<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
-							<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
-						</Stack>
-					) : (
-						<Stack spacing={0}>
-							<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
-							<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
-							<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
-							<StatRow
-								label={myUsageLabel}
-								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
-								tagColor="#a855f7"
-							/>
-							{systemData.personal_usage?.built_bytes ? (
+								{systemData.online_users_usage > 0 && (
+									<StatRow
+										label={t("dashboard.onlineUsersUsage")}
+										value={formatBytes(systemData.online_users_usage)}
+										dimLabel
+									/>
+								)}
+								<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
+								<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
+								<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
+							</Stack>
+						) : (
+							<Stack spacing={0}>
+								<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
+								<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
+								<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
 								<StatRow
-									label={t("builtData")}
-									value={formatBytes(systemData.personal_usage.built_bytes, 1)}
-									tagColor="#22c55e"
+									label={myUsageLabel}
+									value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
+									tagColor="#a855f7"
 								/>
-							) : null}
-							{systemData.personal_usage?.reset_bytes ? (
-								<StatRow
-									label={t("resetData")}
-									value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
-									tagColor="#f59e0b"
-								/>
-							) : null}
-						</Stack>
-					)}
+								{systemData.personal_usage?.built_bytes ? (
+									<StatRow
+										label={t("builtData")}
+										value={formatBytes(systemData.personal_usage.built_bytes, 1)}
+										tagColor="#22c55e"
+									/>
+								) : null}
+								{systemData.personal_usage?.reset_bytes ? (
+									<StatRow
+										label={t("resetData")}
+										value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
+										tagColor="#f59e0b"
+									/>
+								) : null}
+							</Stack>
+						)}
+					</Box>
 				</Box>
 			</SectionCard>
 
