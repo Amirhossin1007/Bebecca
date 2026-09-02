@@ -35,6 +35,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
+import { AnimatePresence, motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
 import {
@@ -605,7 +606,14 @@ const ResourceCard: FC<{
 								{value}
 							</Text>
 							{metaValue !== undefined && metaUnit && (
-								<Flex align="center" gap={1} color="panel.textMuted" fontSize="12px" fontWeight="600">
+								<Flex
+									align="center"
+									gap={1}
+									color="panel.textMuted"
+									fontSize="12px"
+									fontWeight="600"
+									dir={isRTL ? "rtl" : "ltr"}
+								>
 									<Text as="span">
 										{isRTL && typeof metaValue === "string" ? toPersianDigits(metaValue) : metaValue}
 									</Text>
@@ -915,22 +923,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 							{systemData.xray_running ? t("status.running") : t("status.stopped")}
 						</Text>
 						{displayVersion && (
-							<Badge
-								fontSize="11px"
-								px={2}
-								py={0.5}
-								borderRadius="full"
-								variant="subtle"
-								colorScheme="gray"
-								bg="panel.elevated"
-								color="panel.textSecondary"
-								borderWidth="1px"
-								borderColor="panel.border"
-								dir="ltr"
-								sx={{ fontVariantNumeric: "tabular-nums" }}
-							>
-								{displayVersion}
-							</Badge>
+							<Text fontSize="12px" color="panel.textMuted" fontWeight="500">
+								· {displayVersion}
+							</Text>
 						)}
 					</HStack>
 				</VStack>
@@ -1232,75 +1227,74 @@ export const Statistics: FC<BoxProps> = (props) => {
 					)
 				}
 			>
-				<Box
-					sx={{
-						transition: "height 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-					}}
+				<motion.div
+					layout
+					transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
 				>
-					<Box
-						key={userTab}
-						sx={{
-							"@keyframes tabItemFade": {
-								from: { opacity: 0 },
-								to: { opacity: 1 },
-							},
-							animation: "tabItemFade 0.22s ease-out",
-						}}
-					>
+					<AnimatePresence mode="wait" initial={false}>
 						{canSeeGlobal && userTab === "all" ? (
-							<Stack spacing={0}>
-								<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
-								<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
-								<StatRow
-									label={t("onlineUsers")}
-									value={systemData.online_users}
-									tag={onlinePercent}
-									tagColor="#06b6d4"
-									helper={
-										systemData.online_users_upload_speed || systemData.online_users_download_speed
-											? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
-											: undefined
-									}
-								/>
-								{systemData.online_users_usage > 0 && (
+							<motion.div
+								key="all"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								transition={{ duration: 0.35 }}
+							>
+								<Stack spacing={0}>
+									<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
+									<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
 									<StatRow
-										label={t("dashboard.onlineUsersUsage")}
-										value={formatBytes(systemData.online_users_usage)}
-										dimLabel
+										label={t("onlineUsers")}
+										value={systemData.online_users}
+										tag={onlinePercent}
+										tagColor="#06b6d4"
+										helper={
+											systemData.online_users_upload_speed || systemData.online_users_download_speed
+												? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
+												: undefined
+										}
 									/>
-								)}
-								<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
-								<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
-								<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
-							</Stack>
+									{systemData.online_users_usage > 0 && (
+										<StatRow
+											label={t("dashboard.onlineUsersUsage")}
+											value={formatBytes(systemData.online_users_usage)}
+											dimLabel
+										/>
+									)}
+									<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
+									<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
+									<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
+								</Stack>
+							</motion.div>
 						) : (
-							<Stack spacing={0}>
-								<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
-								<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
-								<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
-								<StatRow
-									label={myUsageLabel}
-									value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
-									tagColor="#a855f7"
-								/>
-								{systemData.personal_usage?.built_bytes ? (
+							<motion.div
+								key="mine"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								transition={{ duration: 0.35 }}
+							>
+								<Stack spacing={0}>
+									<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
+									<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
+									<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
 									<StatRow
-										label={t("builtData")}
-										value={formatBytes(systemData.personal_usage.built_bytes, 1)}
-										tagColor="#22c55e"
+										label={myUsageLabel}
+										value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
+										tagColor="#a855f7"
 									/>
-								) : null}
-								{systemData.personal_usage?.reset_bytes ? (
-									<StatRow
-										label={t("resetData")}
-										value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
-										tagColor="#f59e0b"
-									/>
-								) : null}
-							</Stack>
+									{systemData.personal_usage?.reset_bytes ? (
+										<StatRow
+											label={t("resetData")}
+											value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
+											tagColor="#f59e0b"
+										/>
+									) : null}
+								</Stack>
+							</motion.div>
 						)}
-					</Box>
-				</Box>
+					</AnimatePresence>
+				</motion.div>
 			</SectionCard>
 
 			{canSeeGlobal && systemData.admin_overview && (
