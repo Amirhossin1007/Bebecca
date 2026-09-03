@@ -26,6 +26,12 @@ import {
 	ArrowUpTrayIcon,
 } from "@heroicons/react/24/outline";
 import { useDashboard } from "contexts/DashboardContext";
+import { PanelSelect } from "components/common/PanelSelect";
+import {
+	type NodeType,
+	useNodeMetricsStream,
+	useNodesQuery,
+} from "contexts/NodesContext";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
 import {
@@ -1282,6 +1288,65 @@ const PanelOverviewCard: FC<{
 	);
 };
 
+type XrayHistory = Record<
+	number,
+	Array<{ timestamp: number; cpu: number; memory: number }>
+>;
+
+const XrayOverviewCard: FC<{
+	nodes: NodeType[];
+	selectedNodeID: number | null;
+	onSelectNode: (id: number) => void;
+	history: XrayHistory;
+	t: TFunction;
+}> = ({ nodes, selectedNodeID, onSelectNode, history, t }) => {
+	const node = nodes.find((item) => item.id === selectedNodeID) ?? nodes[0];
+	if (!node?.id) return null;
+	const samples = history[node.id] ?? [];
+	const memoryPercent = node.memory_total
+		? ((node.xray_memory_used ?? 0) * 100) / node.memory_total
+		: 0;
+	const xrayProtocol = node.protocol_statuses?.find(
+		(item) => item.protocol === "xray",
+	);
+	return (
+		<ChartBox
+			title={t("dashboard.xrayOverview")}
+			headerActions={
+				<PanelSelect
+					value={String(node.id)}
+					onValueChange={(value) => onSelectNode(Number(Array.isArray(value) ? value[0] : value))}
+					options={nodes.flatMap((item) => item.id ? [{ value: String(item.id), label: item.name }] : [])}
+					minW={{ base: "150px", md: "210px" }}
+				/>
+			}
+		>
+			<Stack spacing={5}>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
+					<UsageMetricCard
+						label={t("dashboard.xrayCPU")}
+						percent={node.xray_cpu_usage_percent ?? 0}
+						detail={`PID ${node.xray_pid || "-"} · ${formatDuration(node.xray_uptime_seconds ?? 0)}`}
+						history={samples.map((sample) => sample.cpu)}
+					/>
+					<UsageMetricCard
+						label={t("dashboard.xrayMemory")}
+						percent={memoryPercent}
+						detail={`${formatBytes(node.xray_memory_used ?? 0)} / ${formatBytes(node.memory_total ?? 0)}`}
+						history={samples.map((sample) => sample.memory)}
+					/>
+				</SimpleGrid>
+				<SimpleGrid columns={{ base: 2, md: 4 }} gap={3}>
+					<MetricBadge label={t("status")} value={xrayProtocol?.state ?? node.xray_status ?? "unknown"} colorScheme={xrayProtocol?.state === "running" ? "green" : "orange"} />
+					<MetricBadge label={t("dashboard.xrayVersion")} value={node.xray_version || "-"} colorScheme="blue" />
+					<MetricBadge label={t("dashboard.xrayInbounds")} value={xrayProtocol?.inbounds ?? 0} colorScheme="purple" />
+					<MetricBadge label={t("dashboard.xrayUptime")} value={formatDuration(node.xray_uptime_seconds ?? 0)} colorScheme="teal" />
+				</SimpleGrid>
+			</Stack>
+		</ChartBox>
+	);
+};
+
 const UsersOverviewCard: FC<{
 	data: SystemStats;
 	t: TFunction;
@@ -1438,6 +1503,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
 	const { t } = useTranslation();
+	const canSeeGlobal =
+		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const { data: nodes = [] } = useNodesQuery({ enabled: canSeeGlobal });
+	useNodeMetricsStream(canSeeGlobal);
 	const { data: rawSystemData } = useQuery<SystemStats>({
 		queryKey: StatisticsQueryKey,
 		queryFn: () => fetch("/system"),
@@ -1462,9 +1531,32 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const [historyInterval, setHistoryInterval] = useState(
 		HISTORY_INTERVALS[0].seconds,
 	);
-
-	const canSeeGlobal =
-		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const [selectedXrayNodeID, setSelectedXrayNodeID] = useState<number | null>(null);
+	const [xrayHistory, setXrayHistory] = useState<XrayHistory>({});
+	useEffect(() => {
+		const available = nodes.find((node) => node.id && node.xray_status === "running") ?? nodes.find((node) => node.id);
+		if (available?.id && !nodes.some((node) => node.id === selectedXrayNodeID)) {
+			setSelectedXrayNodeID(available.id);
+		}
+	}, [nodes, selectedXrayNodeID]);
+	useEffect(() => {
+		const now = Date.now();
+		setXrayHistory((current) => {
+			let next = current;
+			for (const node of nodes) {
+				if (!node.id || node.xray_cpu_usage_percent == null || node.xray_memory_used == null) continue;
+				const samples = current[node.id] ?? [];
+				if (samples.length && now - samples[samples.length - 1].timestamp < 2500) continue;
+				if (next === current) next = { ...current };
+				next[node.id] = [...samples, {
+					timestamp: now,
+					cpu: node.xray_cpu_usage_percent,
+					memory: node.memory_total ? node.xray_memory_used * 100 / node.memory_total : 0,
+				}].slice(-60);
+			}
+			return next;
+		});
+	}, [nodes]);
 
 	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
@@ -1500,6 +1592,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 						onOpenHistory={openHistory}
 					/>
 				</>
+			)}
+			{canSeeGlobal && nodes.length > 0 && (
+				<XrayOverviewCard
+					nodes={nodes}
+					selectedNodeID={selectedXrayNodeID}
+					onSelectNode={setSelectedXrayNodeID}
+					history={xrayHistory}
+					t={t}
+				/>
 			)}
 			{userCards.length > 0 && (
 				<SimpleGrid columns={{ base: 1, md: userGridColumns }} gap={5}>

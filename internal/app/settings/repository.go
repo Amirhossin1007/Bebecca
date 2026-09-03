@@ -295,6 +295,7 @@ func (r Repository) UpdateAdminSubscriptionSettings(ctx context.Context, adminID
 }
 
 var ErrAdminNotFound = errors.New("admin not found")
+var ErrServiceNotFound = errors.New("service not found")
 var ErrUnsupportedTemplateKey = errors.New("unsupported template key")
 
 func (r Repository) panelSettings(ctx context.Context) (PanelSettings, error) {

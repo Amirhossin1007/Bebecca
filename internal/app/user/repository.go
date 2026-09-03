@@ -155,6 +155,24 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	return result, nil
 }
 
+func (r Repository) servicePlaceholderPolicy(ctx context.Context, serviceID *int64) *SubscriptionPlaceholderPolicy {
+	if serviceID == nil || *serviceID <= 0 {
+		return nil
+	}
+	var raw sql.NullString
+	if err := r.db.QueryRowContext(ctx, `SELECT subscription_placeholder_settings FROM services WHERE id = ?`, *serviceID).Scan(&raw); err != nil || !raw.Valid {
+		return nil
+	}
+	if strings.TrimSpace(raw.String) == "{}" {
+		return nil
+	}
+	var policy SubscriptionPlaceholderPolicy
+	if json.Unmarshal([]byte(raw.String), &policy) != nil {
+		return nil
+	}
+	return &policy
+}
+
 func (r Repository) singleMapRow(ctx context.Context, query string, args ...any) (map[string]any, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

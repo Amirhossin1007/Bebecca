@@ -380,6 +380,9 @@ func TestSubscriptionSettingsRoutes(t *testing.T) {
 func TestSubscriptionPlaceholderSettingsRouteScopesAdminsAndServices(t *testing.T) {
 	server, db := testAdminServer(t)
 	createSettingsTables(t, db)
+	if _, err := db.Exec(`ALTER TABLE services ADD COLUMN subscription_placeholder_settings TEXT NOT NULL DEFAULT '{}'`); err != nil {
+		t.Fatal(err)
+	}
 	insertMasterAPIAdmin(t, db, 1, "owner", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
 	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (10, 'Main'), (11, 'Other')`); err != nil {
@@ -391,6 +394,13 @@ func TestSubscriptionPlaceholderSettingsRouteScopesAdminsAndServices(t *testing.
 
 	ownerToken := adminBearerToken(t, server, "owner", "pass123")
 	rec := adminJSONRequest(t, server, http.MethodPut, "/api/settings/placeholders", ownerToken, `{
+		"service_id":10,"enabled":true,
+		"expired_remark":"Default expired","limited_remark":"Default limited","disabled_remark":"Default disabled"
+	}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("service default update status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/placeholders", ownerToken, `{
 		"admin_id":2,"service_id":10,"enabled":true,
 		"expired_remark":"Expired {USERNAME}","limited_remark":"Limited {USERNAME}","disabled_remark":"Disabled {USERNAME}"
 	}`)
@@ -421,7 +431,7 @@ func TestSubscriptionPlaceholderSettingsRouteScopesAdminsAndServices(t *testing.
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
-	if response.ManageAll || len(response.Items) != 1 || response.Items[0].AdminID != 2 || response.Items[0].LimitedRemark != "Limited {USERNAME}" {
+	if response.ManageAll || len(response.Items) != 1 || response.Items[0].AdminID == nil || *response.Items[0].AdminID != 2 || response.Items[0].LimitedRemark != "Limited {USERNAME}" {
 		t.Fatalf("unexpected seller response: %#v", response)
 	}
 
@@ -432,6 +442,17 @@ func TestSubscriptionPlaceholderSettingsRouteScopesAdminsAndServices(t *testing.
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/placeholders", sellerToken, `{"service_id":11,"enabled":true}`)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("seller unassigned service status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/placeholders", sellerToken, `{"service_id":10,"inherit_default":true}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("seller inherit default status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var inherited settingsapp.SubscriptionPlaceholderSetting
+	if err := json.Unmarshal(rec.Body.Bytes(), &inherited); err != nil {
+		t.Fatal(err)
+	}
+	if !inherited.Inherited || inherited.LimitedRemark != "Default limited" {
+		t.Fatalf("unexpected inherited policy: %#v", inherited)
 	}
 }
 

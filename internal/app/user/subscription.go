@@ -418,7 +418,7 @@ func (s Service) effectiveSettings(ctx context.Context, adminID, serviceID *int6
 			admin = admins[*adminID]
 		}
 	}
-	return applyServicePlaceholderPolicy(effectiveSubscriptionSettings(settings, admin), admin.SubscriptionSettings, serviceID)
+	return applyServicePlaceholderPolicy(effectiveSubscriptionSettings(settings, admin), s.repo.servicePlaceholderPolicy(ctx, serviceID), admin.SubscriptionSettings, serviceID)
 }
 
 func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail, config SubscriptionClientConfig, placeholderRemark string) (string, error) {
