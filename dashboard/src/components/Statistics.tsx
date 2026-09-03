@@ -307,10 +307,10 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
 const formatPercent = (val: number, isRTL = false): string => {
-	if (!Number.isFinite(val)) return "0%";
+	if (!Number.isFinite(val)) return isRTL ? "%0" : "0%";
 	const rounded = Math.round(val * 10) / 10;
 	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
-	return `${formatted}%`;
+	return isRTL ? `%${formatted}` : `${formatted}%`;
 };
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -802,8 +802,14 @@ const ResourceCard: FC<{
 
 			<Box mt={3}>
 				<Flex justify="space-between" align="center" mb={1.5}>
-					<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
-						{formatPercent(safe, isRTL)}
+					<Text
+						fontSize="11px"
+						fontWeight="600"
+						color="panel.textMuted"
+						dir="ltr"
+						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+					>
+						{formatPercent(safe, false)}
 					</Text>
 				</Flex>
 				<Progress
@@ -886,15 +892,13 @@ const StatRow: FC<{
 						py={0.5}
 						borderRadius="md"
 						bg="panel.elevated"
-						borderWidth="1px"
-						borderColor="panel.border"
+						border="none"
 						color="panel.textMuted"
 						fontWeight="600"
 						textTransform="none"
 						transition="all 0.25s ease"
 						_groupHover={{
 							bg: "panel.surface",
-							borderColor: "panel.borderStrong",
 							color: "panel.textSecondary",
 						}}
 					>
@@ -1246,7 +1250,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<ResourceCard
 					label={t("cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
-					value={formatPercent(systemData.cpu_usage, isRTL)}
+					value={formatPercent(systemData.cpu_usage, false)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("core")}
@@ -1491,7 +1495,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<ResourceCard
 						label={`${t("cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
-						value={formatPercent(systemData.panel_cpu_percent, isRTL)}
+						value={formatPercent(systemData.panel_cpu_percent, false)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
 						metaUnit={t("thread")}
