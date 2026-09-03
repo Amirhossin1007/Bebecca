@@ -1180,7 +1180,7 @@ func renderSingBoxJSONWithTemplate(links []string, templateContent string, setti
 	if err != nil {
 		return "", err
 	}
-	usedTags := make(map[string]struct{}, len(templateOutbounds)+len(links))
+	usedTags := make(map[string]struct{})
 	for _, raw := range templateOutbounds {
 		if outbound, ok := raw.(map[string]any); ok {
 			if tag := strings.TrimSpace(stringValue(outbound["tag"])); tag != "" {
@@ -1515,7 +1515,7 @@ func applySingBoxTransportSettings(outbound map[string]any, settings map[string]
 }
 
 func mergeSingBoxObjects(base map[string]any, override map[string]any) map[string]any {
-	merged := make(map[string]any, len(base)+len(override))
+	merged := make(map[string]any)
 	for key, value := range base {
 		if nested, ok := value.(map[string]any); ok {
 			merged[key] = mergeSingBoxObjects(nested, map[string]any{})
@@ -3363,7 +3363,7 @@ func mergeCurrentGeneratedFinalMask(base, generated map[string]any, afterLeading
 		} else if index > 0 && strings.EqualFold(stringValue(mapValue(existing[index-1])["type"]), "sudoku") {
 			index--
 		}
-		items := make([]any, 0, len(existing)+len(insert))
+		items := make([]any, 0)
 		items = append(items, existing[:index]...)
 		items = append(items, insert...)
 		items = append(items, existing[index:]...)

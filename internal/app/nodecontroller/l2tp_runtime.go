@@ -150,7 +150,7 @@ ORDER BY id`, args...)
 
 func L2TPRuntimeSettings(inbound map[string]any) map[string]any {
 	settings := OVMapValue(inbound["settings"])
-	out := make(map[string]any, len(settings)+8)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}

@@ -143,7 +143,7 @@ func (s *Server) OVRuntime(r *http.Request, target string) (OVRuntimeResponse, e
 
 func OVRuntimeSettings(inbound map[string]any) map[string]any {
 	settings := OVMapValue(inbound["settings"])
-	out := make(map[string]any, len(settings)+6)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}

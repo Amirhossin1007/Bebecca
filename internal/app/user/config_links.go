@@ -1279,7 +1279,7 @@ func shadowsocksClientFinalMask(inbound ResolvedInbound) map[string]any {
 		}
 	}
 	insert := func(index int, item any) {
-		items := make([]any, 0, len(udp)+1)
+		items := make([]any, 0)
 		items = append(items, udp[:index]...)
 		items = append(items, item)
 		items = append(items, udp[index:]...)
