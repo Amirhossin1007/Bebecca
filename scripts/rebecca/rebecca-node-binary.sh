@@ -1551,6 +1551,15 @@ down_rebecca_node() {
     $COMPOSE -f $COMPOSE_FILE -p "$APP_NAME" down
 }
 
+stop_rebecca_node_for_uninstall() {
+    if [ "$install_mode" != "binary" ]; then
+        detect_compose
+        down_rebecca_node
+    elif is_rebecca_node_up; then
+        down_rebecca_node
+    fi
+}
+
 show_rebecca_node_logs() {
     if is_binary_install; then
         journalctl -u "$APP_NAME.service" --no-pager
@@ -1745,12 +1754,7 @@ uninstall_command() {
     fi
 
     if [ "$node_exists" -eq 1 ]; then
-        if [ "$install_mode" != "binary" ]; then
-            detect_compose
-        fi
-        if is_rebecca_node_up; then
-            down_rebecca_node
-        fi
+        stop_rebecca_node_for_uninstall
     fi
 
     uninstall_rebecca_node_script
