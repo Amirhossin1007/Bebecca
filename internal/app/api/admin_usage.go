@@ -320,7 +320,7 @@ func adminSortClause(value string) string {
 
 func addAdminCountsTx(ctx context.Context, tx *sql.Tx, adminID int64, response map[string]any) error {
 	statusCounts := map[string]int64{}
-	rows, err := tx.QueryContext(ctx, `SELECT status, COUNT(*) FROM users WHERE admin_id = ? GROUP BY status`, adminID)
+	rows, err := tx.QueryContext(ctx, `SELECT status, COUNT(*) FROM users WHERE admin_id = ? AND status != ? GROUP BY status`, adminID, "deleted")
 	if err != nil {
 		return err
 	}

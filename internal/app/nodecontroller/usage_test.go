@@ -6,9 +6,28 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
+
+func TestUsageRPCsReceiveIndependentDeadlines(t *testing.T) {
+	first, cancelFirst := withUsageRPCTimeout(context.Background())
+	cancelFirst()
+	<-first.Done()
+
+	second, cancelSecond := withUsageRPCTimeout(context.Background())
+	defer cancelSecond()
+	select {
+	case <-second.Done():
+		t.Fatal("a completed RPC must not cancel the next RPC")
+	default:
+	}
+	deadline, ok := second.Deadline()
+	if !ok || time.Until(deadline) < 40*time.Second {
+		t.Fatal("usage RPC deadline is too short for node-side collection")
+	}
+}
 
 func TestRetryTransientUsageWriteRetriesDeadlock(t *testing.T) {
 	attempts := 0

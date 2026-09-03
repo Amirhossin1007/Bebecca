@@ -904,7 +904,8 @@ func TestAdminListAndUsageRoutes(t *testing.T) {
 	}
 	_, err = db.Exec(`INSERT INTO users (id, username, admin_id, status, online_at) VALUES
 		(31, 'active-one', 2, 'active', ?),
-		(32, 'disabled-one', 2, 'disabled', NULL)`, dbTimestamp(time.Now().UTC()))
+		(32, 'disabled-one', 2, 'disabled', NULL),
+		(33, 'deleted-one', 2, 'deleted', NULL)`, dbTimestamp(time.Now().UTC()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -935,6 +936,9 @@ func TestAdminListAndUsageRoutes(t *testing.T) {
 	}
 	if listBody.Admins[0]["active_users"].(float64) != 1 || listBody.Admins[0]["disabled_users"].(float64) != 1 || listBody.Admins[0]["online_users"].(float64) != 1 {
 		t.Fatalf("unexpected admin counts: %#v", listBody.Admins[0])
+	}
+	if listBody.Admins[0]["users_count"].(float64) != 2 {
+		t.Fatalf("deleted users must not be included in users_count: %#v", listBody.Admins[0])
 	}
 
 	rec = adminJSONRequest(t, server, http.MethodGet, "/api/admin/usage/seller", token, ``)

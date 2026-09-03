@@ -200,6 +200,30 @@ func TestHostRotationSelectionModes(t *testing.T) {
 	}
 }
 
+func TestBuildConfigLinksRotatesWildcardSalt(t *testing.T) {
+	serviceID := int64(1)
+	wildcard := "*.edge.example.com"
+	build := func() string {
+		links, err := BuildConfigLinks(
+			ConfigLinkUser{Username: "alice", ServiceID: &serviceID, CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1"},
+			map[string]ResolvedInbound{"vless": {"protocol": "vless", "port": int64(443), "network": "ws", "tls": "tls"}},
+			[]string{"vless"},
+			[]Host{{ID: 1, InboundTag: "vless", Address: wildcard, SNI: &wildcard, Host: &wildcard, ServiceIDs: []int64{1}}},
+			nil,
+			false,
+		)
+		if err != nil || len(links.Links) != 1 {
+			t.Fatalf("build wildcard link: links=%#v err=%v", links.Links, err)
+		}
+		return links.Links[0]
+	}
+
+	first, second := build(), build()
+	if first == second || strings.Contains(first, "*") || strings.Contains(second, "*") {
+		t.Fatalf("wildcard did not rotate: first=%q second=%q", first, second)
+	}
+}
+
 func TestBuildConfigLinksReplacesServerIPPlaceholder(t *testing.T) {
 	serviceID := int64(1)
 	links, err := BuildConfigLinks(

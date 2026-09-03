@@ -584,6 +584,10 @@ const buildSubscriptionDefaults = (
 	subscription_path: settings?.subscription_path ?? "sub",
 	subscription_aliases: settings?.subscription_aliases ?? [],
 	subscription_ports: settings?.subscription_ports ?? [],
+	subscription_placeholder_enabled:
+		settings?.subscription_placeholder_enabled ?? false,
+	subscription_placeholder_remark:
+		settings?.subscription_placeholder_remark ?? "disabled",
 	subscription_aliases_text: (settings?.subscription_aliases ?? []).join("\n"),
 	subscription_ports_text: formatSubscriptionPorts(
 		settings?.subscription_ports ?? [],
@@ -733,6 +737,9 @@ const buildSubscriptionPayload = (
 	subscription_ports: parseSubscriptionPortsInput(
 		values.subscription_ports_text || "",
 	),
+	subscription_placeholder_enabled: values.subscription_placeholder_enabled,
+	subscription_placeholder_remark:
+		values.subscription_placeholder_remark?.trim() || "disabled",
 });
 
 const buildAdminSubscriptionPayload = (

@@ -118,8 +118,9 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
 	}
+	settings := s.effectiveSettings(ctx, user.AdminID, user.ServiceID)
+	placeholderRemark := subscriptionPlaceholderRemark(user, settings)
 	if wantsSubscriptionHTML(req) && req.ClientType == "" {
-		settings := s.effectiveSettings(ctx, user.AdminID)
 		html, err := s.renderSubscriptionHTML(ctx, user, req, settings)
 		if err != nil {
 			return SubscriptionHTTPResponse{}, err
@@ -134,28 +135,34 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 		_ = s.repo.updateSubscriptionAccess(ctx, user.ID, req.UserAgent)
 	}
 	if req.ClientType == "openvpn" {
+		if placeholderRemark != "" {
+			return subscriptionPlaceholderProfile(user, req, settings, placeholderRemark, "application/x-openvpn-profile", ".ovpn"), nil
+		}
 		return s.generateOVProfile(ctx, user, req)
 	}
 	if req.ClientType == "wireguard" {
+		if placeholderRemark != "" {
+			return subscriptionPlaceholderProfile(user, req, settings, placeholderRemark, "application/x-wireguard-profile", ".conf"), nil
+		}
 		return s.generateWGProfile(ctx, user, req)
 	}
 	clientType := req.ClientType
 	if clientType == "" {
-		clientType = selectSubscriptionClientType(req.UserAgent, s.effectiveSettings(ctx, user.AdminID))
+		clientType = selectSubscriptionClientType(req.UserAgent, settings)
 	}
 	config, ok := subscriptionClientConfigs[clientType]
 	if !ok {
 		return SubscriptionHTTPResponse{}, clientError(404, "Unsupported client type")
 	}
 	config.AutoCurrent = req.ClientType == "" && config.Format == "v2ray-json"
-	body, err := s.generateSubscriptionConfig(ctx, user, config)
+	body, err := s.generateSubscriptionConfig(ctx, user, config, placeholderRemark)
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
 	}
 	return SubscriptionHTTPResponse{
 		Status:    200,
 		MediaType: config.Media,
-		Headers:   subscriptionHeaders(user, req, s.effectiveSettings(ctx, user.AdminID)),
+		Headers:   subscriptionHeaders(user, req, settings),
 		Body:      []byte(body),
 	}, nil
 }
@@ -182,7 +189,7 @@ func (s Service) SubscriptionInfo(ctx context.Context, req SubscriptionRenderReq
 	if err != nil {
 		return nil, err
 	}
-	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL)
+	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL, s.effectiveSettings(ctx, user.AdminID, user.ServiceID))
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +202,10 @@ func (s Service) SubscriptionInfo(ctx context.Context, req SubscriptionRenderReq
 	return info, nil
 }
 
-func (s Service) subscriptionVPNInfo(ctx context.Context, user UserDetail, subscriptionURL string) (map[string]any, error) {
+func (s Service) subscriptionVPNInfo(ctx context.Context, user UserDetail, subscriptionURL string, settings SubscriptionSettings) (map[string]any, error) {
+	if subscriptionPlaceholderRemark(user, settings) != "" {
+		return emptySubscriptionVPNInfo(), nil
+	}
 	ovProfiles, err := s.OVDownloadProfiles(ctx, user, subscriptionURL)
 	if err != nil {
 		return nil, err
@@ -396,7 +406,7 @@ func (s Service) resolveSubscriptionToken(ctx context.Context, token string) (Us
 	return user, nil
 }
 
-func (s Service) effectiveSettings(ctx context.Context, adminID *int64) SubscriptionSettings {
+func (s Service) effectiveSettings(ctx context.Context, adminID, serviceID *int64) SubscriptionSettings {
 	settings, err := s.repo.subscriptionSettings(ctx)
 	if err != nil {
 		return SubscriptionSettings{SubscriptionProfileTitle: "Subscription", SubscriptionSupportURL: "https://t.me/", SubscriptionUpdateInterval: "12", SubscriptionPath: "sub"}
@@ -408,15 +418,20 @@ func (s Service) effectiveSettings(ctx context.Context, adminID *int64) Subscrip
 			admin = admins[*adminID]
 		}
 	}
-	return effectiveSubscriptionSettings(settings, admin)
+	return applyServicePlaceholderPolicy(effectiveSubscriptionSettings(settings, admin), admin.SubscriptionSettings, serviceID)
 }
 
-func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail, config SubscriptionClientConfig) (string, error) {
-	links, err := s.ConfigLinks(ctx, ConfigLinksRequest{UserID: user.ID, Reverse: config.Reverse})
-	if err != nil {
-		return "", err
+func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail, config SubscriptionClientConfig, placeholderRemark string) (string, error) {
+	connectable := ConfigLinksResponse{}
+	if placeholderRemark != "" {
+		connectable = ConfigLinksResponse{Links: []string{subscriptionPlaceholderLink(placeholderRemark, config.Format)}, Metadata: []ConfigLinkMetadata{{}}}
+	} else {
+		links, err := s.ConfigLinks(ctx, ConfigLinksRequest{UserID: user.ID, Reverse: config.Reverse})
+		if err != nil {
+			return "", err
+		}
+		connectable = connectableConfigLinks(links)
 	}
-	connectable := connectableConfigLinks(links)
 	raw := connectable.Links
 	switch config.Format {
 	case "v2ray":
@@ -469,9 +484,77 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 		if configLinksHaveUnrepresentedFinalMask(connectable, "") {
 			return "", fmt.Errorf("Mihomo cannot safely represent Xray FinalMask; use xray-json output")
 		}
-		return renderClashLikeYAML(user.Username, raw, config.Format == "clash-meta")
+		return renderClashLikeYAML(firstNonEmptyString(placeholderRemark, user.Username), raw, config.Format == "clash-meta")
 	default:
 		return "", clientError(404, "Unsupported client type")
+	}
+}
+
+func subscriptionPlaceholderRemark(user UserDetail, settings SubscriptionSettings) string {
+	if policy := settings.SubscriptionPlaceholderPolicy; policy != nil {
+		if !policy.Enabled {
+			return ""
+		}
+		var remark string
+		switch strings.ToLower(strings.TrimSpace(user.Status)) {
+		case "expired":
+			remark = firstNonEmptyString(strings.TrimSpace(policy.ExpiredRemark), "Subscription expired")
+		case "limited":
+			remark = firstNonEmptyString(strings.TrimSpace(policy.LimitedRemark), "Traffic limit reached")
+		case "disabled":
+			remark = firstNonEmptyString(strings.TrimSpace(policy.DisabledRemark), "Subscription disabled")
+		default:
+			return ""
+		}
+		return formatSubscriptionPlaceholderRemark(user, remark)
+	}
+	if !settings.SubscriptionPlaceholderEnabled {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(user.Status)) {
+	case "expired", "limited", "disabled":
+	default:
+		return ""
+	}
+	remark := firstNonEmptyString(strings.TrimSpace(settings.SubscriptionPlaceholderRemark), "disabled")
+	return formatSubscriptionPlaceholderRemark(user, remark)
+}
+
+func formatSubscriptionPlaceholderRemark(user UserDetail, remark string) string {
+	return applyFormat(remark, configFormatVariables(ConfigLinkUser{
+		ID:                   user.ID,
+		Username:             user.Username,
+		Status:               user.Status,
+		UsedTraffic:          user.UsedTraffic,
+		DataLimit:            user.DataLimit,
+		Expire:               user.Expire,
+		OnHoldExpireDuration: user.OnHoldExpireDuration,
+	}))
+}
+
+func subscriptionPlaceholderLink(remark string, format string) string {
+	if format == "outline" {
+		credentials := base64.RawURLEncoding.EncodeToString([]byte("aes-128-gcm:disabled"))
+		return "ss://" + credentials + "@127.0.0.1:1#" + url.PathEscape(remark)
+	}
+	payload, _ := json.Marshal(map[string]any{
+		"add": "127.0.0.1", "aid": "0", "host": "", "id": "00000000-0000-0000-0000-000000000000",
+		"net": "tcp", "path": "", "port": "1", "ps": remark, "scy": "auto", "tls": "", "type": "none", "v": "2",
+	})
+	return "vmess://" + base64.StdEncoding.EncodeToString(payload)
+}
+
+func subscriptionPlaceholderProfile(user UserDetail, req SubscriptionRenderRequest, settings SubscriptionSettings, remark string, mediaType string, extension string) SubscriptionHTTPResponse {
+	headers := subscriptionHeaders(user, req, settings)
+	headers["content-disposition"] = `attachment; filename="` + user.Username + extension + `"`
+	return SubscriptionHTTPResponse{Status: 200, MediaType: mediaType, Headers: headers, Body: []byte("# " + remark + "\n")}
+}
+
+func emptySubscriptionVPNInfo() map[string]any {
+	return map[string]any{
+		"openvpn":   map[string]any{"downloads": []string{}, "profiles": []OVProfile{}},
+		"wireguard": map[string]any{"downloads": []string{}, "links": []string{}, "profiles": []WGProfile{}},
+		"l2tp":      []L2TPInfo{}, "pptp": []PPTPInfo{}, "ikev2": []RemoteAccessInfo{}, "anyconnect": []RemoteAccessInfo{},
 	}
 }
 
@@ -1044,19 +1127,26 @@ func subscriptionHeaders(user UserDetail, req SubscriptionRenderRequest, setting
 }
 
 func (s Service) renderSubscriptionHTML(ctx context.Context, user UserDetail, req SubscriptionRenderRequest, settings SubscriptionSettings) (string, error) {
-	links, err := s.ConfigLinks(ctx, ConfigLinksRequest{UserID: user.ID})
-	if err != nil {
-		return "", err
+	placeholderRemark := subscriptionPlaceholderRemark(user, settings)
+	rawLinks := []string{}
+	if placeholderRemark != "" {
+		rawLinks = append(rawLinks, subscriptionPlaceholderLink(placeholderRemark, "v2ray"))
+	} else {
+		links, err := s.ConfigLinks(ctx, ConfigLinksRequest{UserID: user.ID})
+		if err != nil {
+			return "", err
+		}
+		rawLinks = append(rawLinks, links.Links...)
 	}
 	path := req.URL
 	if parsed, err := url.Parse(req.URL); err == nil {
 		path = strings.TrimRight(parsed.Path, "/")
 	}
-	rawLinks := append([]string{}, links.Links...)
-	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL)
+	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL, settings)
 	if err != nil {
 		return "", err
 	}
+	vpnInfo["placeholder"] = placeholderRemark != ""
 	if openvpn, ok := vpnInfo["openvpn"].(map[string]any); ok {
 		if downloadLinks, ok := openvpn["downloads"].([]string); ok {
 			rawLinks = append(rawLinks, downloadLinks...)
@@ -3530,7 +3620,7 @@ const fallbackSubscriptionPageTemplate = `<!DOCTYPE html>
     <p>Data Used: {{ user.used_traffic | bytesformat }}{% if user.data_limit_reset_strategy != 'no_reset' %} (resets every {{ user.data_limit_reset_strategy }}){% endif %}</p>
     <p>Expiration Date: {% if not user.expire %}∞{% else %}{{ user.expire | datetime }} ({{ remaining_days | int }} days remaining){% endif %}</p>
     <p><a href="{{ usage_url }}">Usage</a>{% if support_url %} · <a href="{{ support_url }}">Support</a>{% endif %}</p>
-    {% if user.status == 'active' or user.status == 'on_hold' %}
+    {% if user.status == 'active' or user.status == 'on_hold' or user.placeholder %}
     <h2>Links:</h2>
     <ul>
         {% for link in user.links %}
@@ -3637,8 +3727,8 @@ func normalizeLegacySubscriptionTemplate(content string) string {
 	normalized = subscriptionPythonDefaultFilterPattern.ReplaceAllString(normalized, `| default:$1`)
 	normalized = subscriptionRemainingDaysClampPattern.ReplaceAllString(normalized, `{{ remaining_days | int }}`)
 	normalized = subscriptionDirectUserLinksPattern.ReplaceAllString(normalized, `{{ links_text|safe }}`)
-	normalized = strings.ReplaceAll(normalized, "user.status == 'active'", "user.status == 'active' or user.status == 'on_hold'")
-	normalized = strings.ReplaceAll(normalized, `user.status == "active"`, `user.status == "active" or user.status == "on_hold"`)
+	normalized = strings.ReplaceAll(normalized, "user.status == 'active'", "user.status == 'active' or user.status == 'on_hold' or user.placeholder")
+	normalized = strings.ReplaceAll(normalized, `user.status == "active"`, `user.status == "active" or user.status == "on_hold" or user.placeholder`)
 	return normalized
 }
 
@@ -3659,6 +3749,7 @@ func subscriptionTemplateContext(user UserDetail, links []string, usageURL strin
 	if len(vpnInfo) > 0 && vpnInfo[0] != nil {
 		vpn = vpnInfo[0]
 	}
+	placeholder, _ := vpn["placeholder"].(bool)
 	context := pongo2.Context{
 		"user": map[string]any{
 			"username":                  user.Username,
@@ -3675,6 +3766,7 @@ func subscriptionTemplateContext(user UserDetail, links []string, usageURL strin
 			"subscription_urls":         user.SubscriptionURLs,
 			"service_id":                user.ServiceID,
 			"service_name":              user.ServiceName,
+			"placeholder":               placeholder,
 		},
 		"links":             links,
 		"links_text":        legacyTemplateStringList(links),

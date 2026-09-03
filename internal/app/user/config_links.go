@@ -72,6 +72,11 @@ func BuildConfigLinks(
 	if item.ServiceID == nil || *item.ServiceID <= 0 {
 		return ConfigLinksResponse{Links: []string{}}, nil
 	}
+	wildcardBytes := make([]byte, 8)
+	if _, err := rand.Read(wildcardBytes); err != nil {
+		return ConfigLinksResponse{}, fmt.Errorf("generate wildcard salt: %w", err)
+	}
+	wildcardSalt := hex.EncodeToString(wildcardBytes)
 
 	inboundIndex := make(map[string]int, len(inboundOrder))
 	for i, tag := range inboundOrder {
@@ -149,7 +154,7 @@ func BuildConfigLinks(
 			inboundVariables["protocol"] = "wireguard"
 			inboundVariables["TRANSPORT"] = configTransportName(inbound)
 			inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
-			remark, address, effective, ok := effectiveInboundForHost(username, inboundVariables, inbound, host)
+			remark, address, effective, ok := effectiveInboundForHost(wildcardSalt, inboundVariables, inbound, host)
 			if !ok {
 				continue
 			}
@@ -172,7 +177,7 @@ func BuildConfigLinks(
 		inboundVariables["protocol"] = binding.protocol
 		inboundVariables["TRANSPORT"] = configTransportName(inbound)
 		inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
-		remark, address, effective, ok := effectiveInboundForHost(username, inboundVariables, inbound, host)
+		remark, address, effective, ok := effectiveInboundForHost(wildcardSalt, inboundVariables, inbound, host)
 		if !ok {
 			continue
 		}
@@ -371,9 +376,9 @@ func selectProxyInboundTags(
 	return result
 }
 
-func effectiveInboundForHost(username string, variables map[string]string, inbound ResolvedInbound, host Host) (string, string, ResolvedInbound, bool) {
+func effectiveInboundForHost(wildcardSalt string, variables map[string]string, inbound ResolvedInbound, host Host) (string, string, ResolvedInbound, bool) {
 	addressRaw := selectHostRotationValue(host.ID, "address", host.Address, host.AddressOptions, host.AddressMode, host.AddressTTL)
-	address := applyWildcard(applyFormat(addressRaw, variables), username)
+	address := applyWildcard(applyFormat(addressRaw, variables), wildcardSalt)
 	if address == "" {
 		return "", "", nil, false
 	}
@@ -385,8 +390,8 @@ func effectiveInboundForHost(username string, variables map[string]string, inbou
 
 	sniRaw := selectHostRotationValue(host.ID, "sni", hostOverrideList(host.SNI, joinStringList(inbound["sni"])), host.SNIOptions, host.SNIMode, host.SNITTL)
 	hostRaw := selectHostRotationValue(host.ID, "host", hostOverrideList(host.Host, joinStringList(inbound["host"])), host.HostOptions, host.HostMode, host.HostTTL)
-	sni := applyWildcard(applyFormat(sniRaw, variables), username)
-	requestHost := applyWildcard(applyFormat(hostRaw, variables), username)
+	sni := applyWildcard(applyFormat(sniRaw, variables), wildcardSalt)
+	requestHost := applyWildcard(applyFormat(hostRaw, variables), wildcardSalt)
 	if host.UseSNIAsHost && sni != "" {
 		requestHost = sni
 	}
@@ -753,19 +758,11 @@ func applyFormat(value string, variables map[string]string) string {
 	return result
 }
 
-func applyWildcard(value string, username string) string {
+func applyWildcard(value string, salt string) string {
 	if !strings.Contains(value, "*") {
 		return value
 	}
-	tokenRunes := []rune(username)
-	if len(tokenRunes) > 8 {
-		tokenRunes = tokenRunes[:8]
-	}
-	token := string(tokenRunes)
-	for len([]rune(token)) < 8 {
-		token += "0"
-	}
-	return strings.ReplaceAll(value, "*", token)
+	return strings.ReplaceAll(value, "*", salt)
 }
 
 func runtimeProxySettings(settings map[string]any, protocol string, credentialKey string, flow string, masks map[string][]byte) (map[string]any, error) {

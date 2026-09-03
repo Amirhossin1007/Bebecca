@@ -251,10 +251,11 @@ ORDER BY uoi.last_seen_at DESC, uoi.node_id, uoi.protocol, uoi.ip`,
 SELECT vus.node_id, COALESCE(n.name, ''), vus.user_id, vus.protocol, COALESCE(vus.inbound_tag, ''), vus.session_id, COALESCE(vus.assigned_ip, ''), `+clientExpr+`, vus.last_seen_at
 FROM vpn_user_sessions vus
 LEFT JOIN nodes n ON n.id = vus.node_id
-WHERE vus.user_id = ? AND vus.ended_at IS NULL
+WHERE vus.user_id = ? AND vus.ended_at IS NULL AND vus.last_seen_at >= ?
   AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 ORDER BY vus.last_seen_at DESC, vus.node_id, vus.protocol, vus.session_id`,
 			userID,
+			r.timeArg(cutoff.UTC()),
 		)
 		if err != nil {
 			return nil, err

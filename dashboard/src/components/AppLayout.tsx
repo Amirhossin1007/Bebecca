@@ -39,6 +39,7 @@ import {
 	Cog6ToothIcon,
 	Cog8ToothIcon,
 	CommandLineIcon,
+	DocumentDuplicateIcon,
 	EyeIcon,
 	HomeIcon as HeroHomeIcon,
 	LanguageIcon,
@@ -86,6 +87,7 @@ const LanguageIconStyled = chakra(LanguageIcon, iconProps);
 const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
 const ExternalAppsIcon = chakra(CommandLineIcon, iconProps);
+const PlaceholderIcon = chakra(DocumentDuplicateIcon, iconProps);
 const UserIcon = chakra(UserCircleIcon, iconProps);
 const HomeIcon = chakra(HeroHomeIcon, iconProps);
 const UsersIcon = chakra(UserGroupIcon, iconProps);
@@ -237,6 +239,11 @@ export function AppLayout() {
 		userData.role === AdminRole.FullAccess ||
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
+	const canManagePlaceholders =
+		userData.role === AdminRole.FullAccess ||
+		(userData.role === AdminRole.Sudo &&
+			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
+		Boolean(userData.permissions?.self_permissions?.self_placeholders);
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
@@ -328,6 +335,16 @@ export function AppLayout() {
 						icon: DocsIcon,
 					}
 				: null,
+			canManagePlaceholders
+				? {
+						key: "placeholders",
+						label: isPrivilegedAdmin
+							? t("placeholders.menu")
+							: t("placeholders.settingsMenu"),
+						to: "/placeholders",
+						icon: PlaceholderIcon,
+					}
+				: null,
 			{
 				key: "tutorials",
 				label: t("tutorials.menu"),
@@ -336,7 +353,13 @@ export function AppLayout() {
 			},
 		];
 		return items.filter(Boolean) as SettingsMenuItem[];
-	}, [canViewRecentActions, isPrivilegedAdmin, sectionAccess, t]);
+	}, [
+		canManagePlaceholders,
+		canViewRecentActions,
+		isPrivilegedAdmin,
+		sectionAccess,
+		t,
+	]);
 
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestReporterSendsLegacyUserCreatedWhenEnabled(t *testing.T) {
@@ -15,14 +16,16 @@ func TestReporterSendsLegacyUserCreatedWhenEnabled(t *testing.T) {
 	db, repo := testTelegramRepo(t)
 	seedTelegramSettings(t, db, "")
 
-	var payload map[string]any
+	payloads := make(chan map[string]any, 1)
 	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/bottoken/sendMessage" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
+		var payload map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			t.Fatal(err)
 		}
+		payloads <- payload
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer api.Close()
@@ -40,6 +43,12 @@ func TestReporterSendsLegacyUserCreatedWhenEnabled(t *testing.T) {
 		Proxies:       []string{"vless", "vmess"},
 	})
 
+	var payload map[string]any
+	select {
+	case payload = <-payloads:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Telegram report")
+	}
 	text, _ := payload["text"].(string)
 	if payload["chat_id"].(float64) != -1001 || payload["message_thread_id"].(float64) != 42 {
 		t.Fatalf("unexpected destination payload: %#v", payload)
@@ -107,7 +116,54 @@ func TestReporterTelegramErrorDoesNotFailMutationPath(t *testing.T) {
 	sender := NewSender(repo, api.URL)
 	sender.retryDelays = nil
 	NewReporter(repo, sender).AdminDeleted(ctx, AdminReport{Username: "oldadmin", Actor: "pouria"})
-	assertTelegramColumnContains(t, db, "last_error", "temporary bad gateway")
+	deadline := time.Now().Add(time.Second)
+	for {
+		var value sql.NullString
+		if err := db.QueryRow(`SELECT last_error FROM telegram_settings WHERE id = 1`).Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		if value.Valid && strings.Contains(value.String, "temporary bad gateway") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("expected last_error to contain %q, got %q", "temporary bad gateway", value.String)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestReporterDoesNotBlockOnTelegramAndSurvivesRequestCancellation(t *testing.T) {
+	db, repo := testTelegramRepo(t)
+	seedTelegramSettings(t, db, "")
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		_, _ = w.Write([]byte(`{"ok":true}`))
+		close(done)
+	}))
+	defer api.Close()
+
+	sender := NewSender(repo, api.URL)
+	sender.retryDelays = nil
+	requestCtx, cancel := context.WithCancel(context.Background())
+	NewReporter(repo, sender).UserCreated(requestCtx, UserReport{Username: "alice"})
+	cancel()
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("background Telegram request did not start")
+	}
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("background Telegram request was canceled with its caller")
+	}
 }
 
 func TestReporterSkipsWhenTelegramDisabled(t *testing.T) {

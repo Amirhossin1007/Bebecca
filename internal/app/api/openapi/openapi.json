@@ -3176,6 +3176,43 @@
         "operationId": "postSettingsBackupImport"
       }
     },
+    "/api/settings/placeholders": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "List subscription placeholder policies",
+        "description": "Return placeholder messages scoped by admin and service. Full-access admins and sudo admins with subscription scope can list every assignment; other admins need the self_placeholders permission and only receive their own assigned services.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JSON"
+          }
+        },
+        "operationId": "getSettingsPlaceholders"
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update a subscription placeholder policy",
+        "description": "Set separate expired, traffic-limited, and disabled subscription messages for one admin and service assignment.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JSON"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JSON"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "putSettingsPlaceholders"
+      }
+    },
     "/api/settings/subscriptions": {
       "get": {
         "tags": [

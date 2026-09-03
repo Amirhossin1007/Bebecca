@@ -55,6 +55,7 @@ export enum SelfPermissionToggle {
 	SelfApiKeys = "self_api_keys",
 	SelfSessions = "self_sessions",
 	Self2FA = "self_2fa",
+	SelfPlaceholders = "self_placeholders",
 }
 
 export enum AdminSudoScope {
@@ -89,6 +90,7 @@ export type AdminPermissions = {
 		self_api_keys: boolean;
 		self_sessions: boolean;
 		self_2fa: boolean;
+		self_placeholders: boolean;
 	};
 	sudo: SudoPermissionSettings;
 };

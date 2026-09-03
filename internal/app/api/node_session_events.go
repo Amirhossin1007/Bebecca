@@ -13,6 +13,8 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 )
 
+const wireGuardSessionStaleAfter = 4 * time.Minute
+
 type nodeSessionEventPayload struct {
 	Token      string `json:"token,omitempty"`
 	NodeID     int64  `json:"node_id"`
@@ -132,6 +134,13 @@ func (s *Server) applyNodeSessionEvent(ctx context.Context, payload nodeSessionE
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `
+UPDATE vpn_user_sessions
+SET last_seen_at = ?, ended_at = ?
+WHERE protocol = 'wg' AND ended_at IS NULL AND last_seen_at < ?`,
+		dbTimestamp(now), dbTimestamp(now), dbTimestamp(now.Add(-wireGuardSessionStaleAfter))); err != nil {
+		return err
+	}
 
 	switch strings.ToLower(strings.TrimSpace(payload.Event)) {
 	case "start", "seen":
