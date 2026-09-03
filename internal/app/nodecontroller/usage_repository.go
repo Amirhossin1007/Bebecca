@@ -1254,8 +1254,8 @@ SET uplink = CASE
         ELSE COALESCE(downlink, 0) + ?
     END
 WHERE tag = ?`,
-			delta.Up, math.MaxInt64-delta.Up, math.MaxInt64, delta.Up,
-			delta.Down, math.MaxInt64-delta.Down, math.MaxInt64, delta.Down,
+			delta.Up, math.MaxInt64-delta.Up, int64(math.MaxInt64), delta.Up,
+			delta.Down, math.MaxInt64-delta.Down, int64(math.MaxInt64), delta.Down,
 			tag,
 		); err != nil {
 			return fmt.Errorf("increment inbound %q: %w", tag, err)
