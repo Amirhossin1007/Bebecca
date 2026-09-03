@@ -15,7 +15,10 @@ import (
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
-const usageCollectionConcurrency = 8
+const (
+	usageCollectionConcurrency = 8
+	usageRPCTimeout            = 45 * time.Second
+)
 
 func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (CollectUsageResult, error) {
 	collectUsers := req.Users
@@ -114,15 +117,14 @@ func (c Controller) collectUsageForNode(
 		communicationFailed = true
 		c.recordHealthFailure(ctx, node.ID, err)
 	}
-	nodeCtx, cancel := WithDefaultTimeout(ctx)
-	client, _, err := c.dial(nodeCtx, node.ID)
+	dialCtx, dialCancel := WithDefaultTimeout(ctx)
+	client, _, err := c.dial(dialCtx, node.ID)
+	dialCancel()
 	if err != nil {
 		recordCommunicationFailure(err)
-		cancel()
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
 		return result
 	}
-	defer cancel()
 
 	var userBatch *nodev1.UserUsageBatch
 	var outboundBatch *nodev1.OutboundUsageBatch
@@ -131,10 +133,12 @@ func (c Controller) collectUsageForNode(
 	var inboundDeltas []InboundUsageDelta
 
 	if collectUsers {
-		userBatch, err = client.Usage().CollectUserUsage(nodeCtx, &nodev1.CollectUsageRequest{
+		rpcCtx, rpcCancel := withUsageRPCTimeout(ctx)
+		userBatch, err = client.Usage().CollectUserUsage(rpcCtx, &nodev1.CollectUsageRequest{
 			CollectorId: collectorID,
 			Reset_:      reset,
 		})
+		rpcCancel()
 		if err != nil {
 			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, err.Error()))
@@ -180,10 +184,12 @@ func (c Controller) collectUsageForNode(
 	}
 
 	if collectOutbound {
-		outboundBatch, err = client.Usage().CollectOutboundUsage(nodeCtx, &nodev1.CollectUsageRequest{
+		rpcCtx, rpcCancel := withUsageRPCTimeout(ctx)
+		outboundBatch, err = client.Usage().CollectOutboundUsage(rpcCtx, &nodev1.CollectUsageRequest{
 			CollectorId: collectorID,
 			Reset_:      reset,
 		})
+		rpcCancel()
 		if err != nil {
 			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, err.Error()))
@@ -230,31 +236,44 @@ func (c Controller) collectUsageForNode(
 		return result
 	}
 	if collectUsers {
-		if err := c.applyIPLimitBlocksForNode(nodeCtx, client, node); err != nil {
+		rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
+		err := c.applyIPLimitBlocksForNode(rpcCtx, client, node)
+		rpcCancel()
+		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d IP limiter: %s", node.ID, err.Error()))
 		}
 	}
 
 	if userBatch != nil && strings.TrimSpace(userBatch.GetBatchId()) != "" {
-		if ack, err := client.Usage().AckUserUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: userBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
+		rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
+		ack, ackErr := client.Usage().AckUserUsage(rpcCtx, &nodev1.AckUsageRequest{BatchId: userBatch.GetBatchId()})
+		rpcCancel()
+		if ackErr == nil && ack.GetAcknowledged() {
 			result.UserAcked++
-		} else if err != nil {
-			recordCommunicationFailure(err)
-			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, err.Error()))
+		} else if ackErr != nil {
+			recordCommunicationFailure(ackErr)
+			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, ackErr.Error()))
 		}
 	}
 	if outboundBatch != nil && strings.TrimSpace(outboundBatch.GetBatchId()) != "" {
-		if ack, err := client.Usage().AckOutboundUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
+		rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
+		ack, ackErr := client.Usage().AckOutboundUsage(rpcCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()})
+		rpcCancel()
+		if ackErr == nil && ack.GetAcknowledged() {
 			result.OutboundAcked++
-		} else if err != nil {
-			recordCommunicationFailure(err)
-			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, err.Error()))
+		} else if ackErr != nil {
+			recordCommunicationFailure(ackErr)
+			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, ackErr.Error()))
 		}
 	}
 	if !communicationFailed {
 		c.clearHealthFailures(node.ID)
 	}
 	return result
+}
+
+func withUsageRPCTimeout(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, usageRPCTimeout)
 }
 
 func mergeCollectUsageResult(result *CollectUsageResult, next CollectUsageResult) {

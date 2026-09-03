@@ -174,6 +174,8 @@ export interface SubscriptionTemplateSettings {
 	subscription_path: string;
 	subscription_aliases: string[];
 	subscription_ports: number[];
+	subscription_placeholder_enabled: boolean;
+	subscription_placeholder_remark: string;
 }
 
 export type SubscriptionTemplateSettingsUpdatePayload =
@@ -223,6 +225,43 @@ export interface SubscriptionSettingsBundle {
 	admins: AdminSubscriptionSettings[];
 	certificates: SubscriptionCertificate[];
 }
+
+export interface SubscriptionPlaceholderSetting {
+	admin_id: number | null;
+	admin_username: string;
+	service_id: number;
+	service_name: string;
+	is_default: boolean;
+	inherited: boolean;
+	enabled: boolean;
+	expired_remark: string;
+	limited_remark: string;
+	disabled_remark: string;
+}
+
+export interface SubscriptionPlaceholderSettingsResponse {
+	items: SubscriptionPlaceholderSetting[];
+	manage_all: boolean;
+}
+
+export const getSubscriptionPlaceholderSettings = async () =>
+	apiFetch<SubscriptionPlaceholderSettingsResponse>("/settings/placeholders");
+
+export const updateSubscriptionPlaceholderSetting = async (
+	payload: Pick<
+		SubscriptionPlaceholderSetting,
+		| "admin_id"
+		| "service_id"
+		| "enabled"
+		| "expired_remark"
+		| "limited_remark"
+		| "disabled_remark"
+	> & { inherit_default?: boolean },
+) =>
+	apiFetch<SubscriptionPlaceholderSetting>("/settings/placeholders", {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
 
 export interface CertificateIssuePayload {
 	email: string;

@@ -299,7 +299,7 @@ func (s *Server) handleAccessOperators(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) buildAccessInsights(ctx context.Context, records []nodecontroller.UserOnlineIPRecord, limit, windowSeconds int, onlineTotal int64) map[string]any {
 	groups := map[int64]*accessInsightGroup{}
-	order := make([]int64, 0, limit)
+	order := make([]int64, 0)
 	allIPs := []string{}
 	nodeRecordCounts := map[string]int{}
 	for _, record := range records {

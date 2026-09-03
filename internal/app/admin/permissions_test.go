@@ -15,6 +15,9 @@ func TestRoleDefaultPermissions(t *testing.T) {
 	if standard.Sections.Nodes || !standard.Sections.Hosts {
 		t.Fatalf("unexpected standard section permissions: %#v", standard.Sections)
 	}
+	if standard.SelfPermissions["self_placeholders"] {
+		t.Fatalf("standard admins must be granted placeholder access explicitly")
+	}
 
 	sudo := RoleDefaultPermissions(RoleSudo)
 	if !sudo.AdminManagement.CanView || !sudo.AdminManagement.CanEdit || sudo.AdminManagement.CanManageSudo {

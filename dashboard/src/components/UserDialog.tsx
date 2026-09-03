@@ -105,6 +105,7 @@ import { NumericInput } from "./common/NumericInput";
 import { AnimatedSubmitButton } from "./common/AnimatedSubmitButton";
 import { DeleteIcon } from "./common/DeleteIcon";
 import { DateTimePicker } from "./DateTimePicker";
+import { addQuickExpiry } from "utils/expiry";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { Icon } from "./Icon";
 import { Input } from "./Input";
@@ -2711,15 +2712,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																								(option) => ({
 																									label: option.label,
 																									onClick: () => {
-																										const newDate = dayjs()
-																											.add(
+																										const newDate =
+																											addQuickExpiry(
+																												selectedDate,
 																												option.amount,
 																												option.unit,
-																											)
-																											.endOf("day");
-																										handleDateChange(
-																											newDate.toDate(),
-																										);
+																											);
+																										handleDateChange(newDate);
 																									},
 																								}),
 																							)}

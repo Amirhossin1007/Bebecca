@@ -573,7 +573,7 @@ func (s *Server) manageableInboundTags(r *http.Request) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	tagSet := make(map[string]bool, len(tags)+len(inbounds))
+	tagSet := make(map[string]bool)
 	for _, tag := range tags {
 		tagSet[tag] = true
 	}

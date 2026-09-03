@@ -7,6 +7,7 @@ import {
 	ButtonGroup,
 	chakra,
 	Divider,
+	Flex,
 	HStack,
 	IconButton,
 	Modal,
@@ -218,6 +219,50 @@ const formatCPUFrequency = (value?: number | null) => {
 	}
 	return `${Math.round((value / 1_000_000_000) * 100) / 100} GHz`;
 };
+
+const protocolColorScheme = (state: string) => {
+	switch (state) {
+		case "running":
+			return "green";
+		case "error":
+			return "red";
+		case "stopped":
+			return "orange";
+		default:
+			return "gray";
+	}
+};
+
+const ProtocolStatusList = ({
+	statuses,
+}: {
+	statuses?: NodeType["protocol_statuses"];
+}) => (
+	<Flex gap={2} wrap="wrap">
+		{statuses?.length ? (
+			statuses.map((status) => (
+				<Tag
+					key={status.protocol}
+					size="sm"
+					colorScheme={protocolColorScheme(status.state)}
+					title={status.detail}
+				>
+					{status.protocol} · {status.state}
+					{status.inbounds > 0 ? ` (${status.inbounds})` : ""}
+				</Tag>
+			))
+		) : (
+			<Text fontSize="sm" color="panel.textMuted">-</Text>
+		)}
+	</Flex>
+);
+
+const NodeDetail = ({ label, value }: { label: string; value: string }) => (
+	<Box minW={0}>
+		<Text fontSize="xs" color="panel.textMuted" mb={1}>{label}</Text>
+		<Text fontSize="sm" color="panel.text" fontWeight="medium" overflowWrap="anywhere">{value}</Text>
+	</Box>
+);
 
 const formatNodeLimit = (value?: number | null) =>
 	value !== null && value !== undefined && value > 0
@@ -569,6 +614,7 @@ export const NodesPage: FC = () => {
 	const nodePanelBg = useColorModeValue("panel.surface", "panel.surface");
 	const nodePanelBorder = useColorModeValue("panel.border", "panel.border");
 	const [editingNode, setEditingNode] = useState<NodeType | null>(null);
+	const [expandedNodeID, setExpandedNodeID] = useState<number | null>(null);
 	const [isAddNodeOpen, setAddNodeOpen] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
@@ -2304,6 +2350,15 @@ export const NodesPage: FC = () => {
 				),
 			},
 			{
+				id: "protocols",
+				header: t("nodes.protocols"),
+				desktopVisible: false,
+				mobileVisible: true,
+				mobilePriority: 10,
+				mobileMetaLabel: t("nodes.protocols"),
+				cell: (node) => <ProtocolStatusList statuses={node.protocol_statuses} />,
+			},
+			{
 				id: "certificate",
 				header: t("nodes.certificate"),
 				accessor: getNodeInstallBundle,
@@ -2348,6 +2403,35 @@ export const NodesPage: FC = () => {
 			t,
 			updatingServiceNodeId,
 		],
+	);
+
+	const renderExpandedNode = (node: NodeType) => (
+		<Stack className="rb-resource-expanded" spacing={4}>
+			<Box>
+				<Text fontSize="sm" fontWeight="semibold" mb={2}>
+					{t("nodes.protocolHealth")}
+				</Text>
+				<ProtocolStatusList statuses={node.protocol_statuses} />
+			</Box>
+			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3}>
+				<NodeDetail label={t("nodes.nodeAddress")} value={`${node.address}:${node.port}`} />
+				<NodeDetail label={t("nodes.columns.nodeRuntime")} value={getNodeRuntimeDisplayVersion(node) || "-"} />
+				<NodeDetail label={t("nodes.installMode.label")} value={node.node_install_mode || "-"} />
+				<NodeDetail label={t("nodes.updateChannel")} value={node.node_update_channel || "-"} />
+				<NodeDetail label={t("nodes.xrayProcess")} value={node.xray_pid ? `PID ${node.xray_pid}` : "-"} />
+				<NodeDetail label={t("nodes.xrayCPU")} value={formatNodePercent(node.xray_cpu_usage_percent)} />
+				<NodeDetail label={t("nodes.xrayMemory")} value={formatNodeBytes(node.xray_memory_used)} />
+				<NodeDetail label={t("nodes.xrayUptime")} value={formatNodeUptime(node.xray_uptime_seconds)} />
+				<NodeDetail label={t("nodes.cpu")} value={`${formatNodePercent(node.cpu_usage_percent)} · ${formatCPUFrequency(node.cpu_frequency_hz) || "-"}`} />
+				<NodeDetail label={t("nodes.ram")} value={`${formatNodeBytes(node.memory_used)} / ${formatNodeBytes(node.memory_total)}`} />
+				<NodeDetail label={t("nodes.bandwidthSpeed")} value={`↑ ${formatNodeSpeed(node.upload_speed)} · ↓ ${formatNodeSpeed(node.download_speed)}`} />
+				<NodeDetail label={t("redisUptime")} value={formatNodeUptime(node.uptime_seconds)} />
+				<NodeDetail label={t("nodes.revisions")} value={`${node.applied_revision ?? 0} / ${node.desired_revision ?? 0}`} />
+				<NodeDetail label={t("nodes.capabilities")} value={node.capabilities?.join(", ") || "-"} />
+				<NodeDetail label={t("nodes.note")} value={node.note || "-"} />
+				<NodeDetail label={t("nodes.lastMessage")} value={node.message || "-"} />
+			</SimpleGrid>
+		</Stack>
 	);
 
 	const nodeRowActions = (node: NodeType): DataTableRowAction<NodeType>[] => {
@@ -2818,6 +2902,11 @@ export const NodesPage: FC = () => {
 				actionsPlacement="end"
 				actionsColumnWidth="44px"
 				showActionsOnHover
+				onRowClick={(node) =>
+					setExpandedNodeID((current) => current === node.id ? null : (node.id ?? null))
+				}
+				isRowExpanded={(node) => expandedNodeID === node.id}
+				renderExpandedRow={renderExpandedNode}
 				sorting={nodeSorting}
 				onSortingChange={handleNodeTableSorting}
 				manualSorting

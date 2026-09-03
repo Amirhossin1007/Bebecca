@@ -149,8 +149,28 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	result.UseCustomJSONForStreisand = truthy(row["use_custom_json_for_streisand"])
 	result.UseCustomJSONForHapp = truthy(row["use_custom_json_for_happ"])
 	result.UseCustomJSONForIncy = truthy(row["use_custom_json_for_incy"])
+	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
+	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
 	return result, nil
+}
+
+func (r Repository) servicePlaceholderPolicy(ctx context.Context, serviceID *int64) *SubscriptionPlaceholderPolicy {
+	if serviceID == nil || *serviceID <= 0 {
+		return nil
+	}
+	var raw sql.NullString
+	if err := r.db.QueryRowContext(ctx, `SELECT subscription_placeholder_settings FROM services WHERE id = ?`, *serviceID).Scan(&raw); err != nil || !raw.Valid {
+		return nil
+	}
+	if strings.TrimSpace(raw.String) == "{}" {
+		return nil
+	}
+	var policy SubscriptionPlaceholderPolicy
+	if json.Unmarshal([]byte(raw.String), &policy) != nil {
+		return nil
+	}
+	return &policy
 }
 
 func (r Repository) singleMapRow(ctx context.Context, query string, args ...any) (map[string]any, error) {

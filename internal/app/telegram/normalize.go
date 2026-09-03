@@ -95,6 +95,9 @@ func rawPositiveInt(raw json.RawMessage, fallback int) (int, error) {
 	if parsed <= 0 {
 		return fallback, fmt.Errorf("value must be positive")
 	}
+	if parsed > 1<<31-1 {
+		return fallback, fmt.Errorf("value is too large")
+	}
 	return int(parsed), nil
 }
 

@@ -1172,6 +1172,11 @@ func runtimeResult(node NodeRow, state *nodev1.RuntimeState, metrics *nodev1.Met
 		result.AppliedRevision = state.GetAppliedRevision()
 		result.DesiredRevision = state.GetAppliedRevision()
 		result.Capabilities = append([]string(nil), state.GetCapabilities()...)
+		for _, status := range state.GetProtocolStatuses() {
+			result.ProtocolStatuses = append(result.ProtocolStatuses, ProtocolStatus{
+				Protocol: status.GetProtocol(), State: status.GetState(), Detail: status.GetDetail(), Inbounds: status.GetInbounds(), Version: status.GetVersion(),
+			})
+		}
 	}
 	if metrics != nil {
 		system := metrics.GetSystem()
@@ -1190,6 +1195,10 @@ func runtimeResult(node NodeRow, state *nodev1.RuntimeState, metrics *nodev1.Met
 		result.Transfer = NetInfo{
 			UploadSpeed:   transfer.GetUploadSpeed(),
 			DownloadSpeed: transfer.GetDownloadSpeed(),
+		}
+		xray := metrics.GetXray()
+		result.XrayMetrics = XrayMetrics{
+			PID: xray.GetPid(), CPUPercent: xray.GetCpuUsagePercent(), MemoryUsed: xray.GetMemoryUsed(), UptimeSeconds: xray.GetUptimeSeconds(),
 		}
 	}
 	return result

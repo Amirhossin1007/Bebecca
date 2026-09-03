@@ -145,6 +145,7 @@ func applyRuntimeToNodeItem(item *NodeListItem, runtime RuntimeResult) {
 	item.DesiredRevision = runtime.DesiredRevision
 	item.AppliedRevision = runtime.AppliedRevision
 	item.Capabilities = append([]string(nil), runtime.Capabilities...)
+	item.ProtocolStatuses = append([]ProtocolStatus(nil), runtime.ProtocolStatuses...)
 	if strings.TrimSpace(runtime.Message) != "" {
 		item.Message = &runtime.Message
 	}
@@ -164,6 +165,7 @@ func applyRuntimeToNodeItem(item *NodeListItem, runtime RuntimeResult) {
 	item.Memory = runtime.Memory
 	item.Transfer = runtime.Transfer
 	item.UptimeSeconds = runtime.UptimeSeconds
+	item.XrayMetrics = runtime.XrayMetrics
 }
 
 func enrichCertificateFields(item *NodeListItem, defaultCert string, defaultKey string) {

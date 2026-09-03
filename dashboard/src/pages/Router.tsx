@@ -36,6 +36,7 @@ const HAProxyPage = lazy(() => import("./HAProxyPage"));
 const IntegrationSettingsPage = lazy(async () => ({
 	default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
 }));
+const PlaceholderSettingsPage = lazy(() => import("./PlaceholderSettingsPage"));
 const RecentActionsPage = lazy(async () => ({
 	default: (await import("./RecentActionsPage")).RecentActionsPage,
 }));
@@ -133,6 +134,7 @@ const routeSegments = new Set([
 	"phpmyadmin",
 	"external-apps",
 	"recent-actions",
+	"placeholders",
 ]);
 
 const trimTrailingSlash = (value: string) => {
@@ -252,6 +254,10 @@ export const router = createBrowserRouter(
 				{
 					path: "settings",
 					element: <LazyPage Page={IntegrationSettingsPage} />,
+				},
+				{
+					path: "placeholders",
+					element: <LazyPage Page={PlaceholderSettingsPage} />,
 				},
 				{
 					path: "integrations",

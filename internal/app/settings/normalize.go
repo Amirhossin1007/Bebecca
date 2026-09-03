@@ -266,6 +266,9 @@ func applySubscriptionDefaults(settings *SubscriptionSettings) {
 	if settings.SubscriptionUpdateInterval == "" {
 		settings.SubscriptionUpdateInterval = defaultSubscriptionUpdateInterval
 	}
+	if settings.SubscriptionPlaceholderRemark == "" {
+		settings.SubscriptionPlaceholderRemark = defaultSubscriptionPlaceholderRemark
+	}
 	if settings.ClashSubscriptionTemplate == "" {
 		settings.ClashSubscriptionTemplate = defaultClashSubscriptionTemplate
 	}
