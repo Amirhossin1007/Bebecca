@@ -421,6 +421,32 @@ const HistoryModal: FC<{
 
 	const isNetwork = payload?.type === "network";
 
+	const { computedMin, computedMax } = useMemo(() => {
+		if (isNetwork || !chartSeries.length) {
+			return { computedMin: undefined, computedMax: undefined };
+		}
+		let maxVal = 0;
+		let minVal = 100;
+		for (const series of chartSeries) {
+			for (const pt of series.data) {
+				const v = pt[1];
+				if (Number.isFinite(v)) {
+					if (v > maxVal) maxVal = v;
+					if (v < minVal) minVal = v;
+				}
+			}
+		}
+		if (maxVal === 0 && minVal === 100) {
+			return { computedMin: 0, computedMax: 10 };
+		}
+		const dynamicMax = Math.min(100, Math.ceil(maxVal * 1.15) || 10);
+		const dynamicMin = Math.max(0, Math.floor(minVal * 0.85));
+		return {
+			computedMin: dynamicMin,
+			computedMax: dynamicMax,
+		};
+	}, [isNetwork, chartSeries]);
+
 	const options: ApexOptions = useMemo(
 		() => ({
 			chart: {
@@ -463,7 +489,9 @@ const HistoryModal: FC<{
 				},
 			},
 			yaxis: {
-				forceNiceScale: true,
+				min: isNetwork ? undefined : computedMin,
+				max: isNetwork ? undefined : computedMax,
+				forceNiceScale: isNetwork,
 				tickAmount: 5,
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
@@ -499,7 +527,16 @@ const HistoryModal: FC<{
 				},
 			},
 		}),
-		[colorMode, gridColor, mutedTextColor, intervalSeconds, isNetwork, isRTL],
+		[
+			colorMode,
+			gridColor,
+			mutedTextColor,
+			intervalSeconds,
+			isNetwork,
+			isRTL,
+			computedMin,
+			computedMax,
+		],
 	);
 
 	return (
