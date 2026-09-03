@@ -34,8 +34,8 @@ import {
 	SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAdminsStore } from "contexts/AdminsContext";
 import { getDefaultPermissionsForRole } from "constants/adminPermissions";
+import { useAdminsStore } from "contexts/AdminsContext";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
 import {
@@ -118,6 +118,7 @@ const adminPermissionsSchema: z.ZodType<AdminPermissions> = z.object({
 		self_api_keys: z.boolean(),
 		self_sessions: z.boolean(),
 		self_2fa: z.boolean(),
+		self_placeholders: z.boolean(),
 	}),
 	sections: z.object({
 		usage: z.boolean(),

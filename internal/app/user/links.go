@@ -170,6 +170,22 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 	return effective
 }
 
+func applyServicePlaceholderPolicy(settings SubscriptionSettings, raw json.RawMessage, serviceID *int64) SubscriptionSettings {
+	if serviceID == nil || *serviceID <= 0 || len(raw) == 0 {
+		return settings
+	}
+	var overrides struct {
+		Placeholders map[string]SubscriptionPlaceholderPolicy `json:"subscription_placeholders"`
+	}
+	if json.Unmarshal(raw, &overrides) != nil {
+		return settings
+	}
+	if policy, ok := overrides.Placeholders[strconv.FormatInt(*serviceID, 10)]; ok {
+		settings.SubscriptionPlaceholderPolicy = &policy
+	}
+	return settings
+}
+
 func buildSubscriptionBases(settings SubscriptionSettings, salt string, requestOrigin string) []string {
 	prefix := settings.SubscriptionURLPrefix
 	if salt != "" {

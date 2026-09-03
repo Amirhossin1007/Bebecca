@@ -120,6 +120,21 @@ type SubscriptionBundle struct {
 	Certificates []SubscriptionCertificate   `json:"certificates"`
 }
 
+type SubscriptionPlaceholderPolicy struct {
+	Enabled        bool   `json:"enabled"`
+	ExpiredRemark  string `json:"expired_remark"`
+	LimitedRemark  string `json:"limited_remark"`
+	DisabledRemark string `json:"disabled_remark"`
+}
+
+type SubscriptionPlaceholderSetting struct {
+	AdminID       int64  `json:"admin_id"`
+	AdminUsername string `json:"admin_username"`
+	ServiceID     int64  `json:"service_id"`
+	ServiceName   string `json:"service_name"`
+	SubscriptionPlaceholderPolicy
+}
+
 type TemplateContent struct {
 	TemplateKey     string  `json:"template_key"`
 	TemplateName    string  `json:"template_name"`

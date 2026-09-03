@@ -326,6 +326,36 @@ func TestInactiveSubscriptionPlaceholderHidesRealAccess(t *testing.T) {
 	}
 }
 
+func TestServicePlaceholderUsesSeparateStatusMessages(t *testing.T) {
+	serviceID := int64(9)
+	settings := applyServicePlaceholderPolicy(SubscriptionSettings{
+		SubscriptionPlaceholderEnabled: true,
+		SubscriptionPlaceholderRemark:  "legacy",
+	}, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":true,"expired_remark":"Expired {USERNAME}","limited_remark":"Limited {USERNAME}","disabled_remark":"Disabled {USERNAME}"}}}`), &serviceID)
+
+	user := UserDetail{ID: 1, Username: "alice", Status: "expired", ServiceID: &serviceID}
+	if got := subscriptionPlaceholderRemark(user, settings); got != "Expired alice" {
+		t.Fatalf("expired placeholder = %q", got)
+	}
+	user.Status = "limited"
+	if got := subscriptionPlaceholderRemark(user, settings); got != "Limited alice" {
+		t.Fatalf("limited placeholder = %q", got)
+	}
+	user.Status = "disabled"
+	if got := subscriptionPlaceholderRemark(user, settings); got != "Disabled alice" {
+		t.Fatalf("disabled placeholder = %q", got)
+	}
+	user.Status = "active"
+	if got := subscriptionPlaceholderRemark(user, settings); got != "" {
+		t.Fatalf("active placeholder = %q", got)
+	}
+	disabled := applyServicePlaceholderPolicy(settings, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":false}}}`), &serviceID)
+	user.Status = "expired"
+	if got := subscriptionPlaceholderRemark(user, disabled); got != "" {
+		t.Fatalf("disabled service policy must override the legacy global placeholder, got %q", got)
+	}
+}
+
 func TestSubscriptionAccessUsesNarrowCoalescedRow(t *testing.T) {
 	service, _ := newSubscriptionClientTestService(t)
 	ctx := context.Background()

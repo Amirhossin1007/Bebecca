@@ -2810,38 +2810,6 @@ export const IntegrationSettingsPage = () => {
 											{t("settings.subscriptions.updateIntervalHint")}
 										</FormHelperText>
 									</FormControl>
-									<Controller
-										control={subscriptionControl}
-										name="subscription_placeholder_enabled"
-										render={({ field }) => (
-											<FormControl display="flex" alignItems="center" gap={3}>
-												<Box flex="1">
-													<FormLabel mb={1}>
-														{t("settings.subscriptions.placeholderEnabled")}
-													</FormLabel>
-													<FormHelperText mt={0}>
-														{t("settings.subscriptions.placeholderEnabledHint")}
-													</FormHelperText>
-												</Box>
-												<Switch
-													isChecked={field.value}
-													onChange={(event) => field.onChange(event.target.checked)}
-												/>
-											</FormControl>
-										)}
-									/>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.placeholderRemark")}
-										</FormLabel>
-										<Input
-											placeholder="disabled"
-											{...subscriptionRegister("subscription_placeholder_remark")}
-										/>
-										<FormHelperText>
-											{t("settings.subscriptions.placeholderRemarkHint")}
-										</FormHelperText>
-									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.subscriptionPageTemplate")}

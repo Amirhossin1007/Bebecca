@@ -118,7 +118,7 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
 	}
-	settings := s.effectiveSettings(ctx, user.AdminID)
+	settings := s.effectiveSettings(ctx, user.AdminID, user.ServiceID)
 	placeholderRemark := subscriptionPlaceholderRemark(user, settings)
 	if wantsSubscriptionHTML(req) && req.ClientType == "" {
 		html, err := s.renderSubscriptionHTML(ctx, user, req, settings)
@@ -189,7 +189,7 @@ func (s Service) SubscriptionInfo(ctx context.Context, req SubscriptionRenderReq
 	if err != nil {
 		return nil, err
 	}
-	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL, s.effectiveSettings(ctx, user.AdminID))
+	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL, s.effectiveSettings(ctx, user.AdminID, user.ServiceID))
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +406,7 @@ func (s Service) resolveSubscriptionToken(ctx context.Context, token string) (Us
 	return user, nil
 }
 
-func (s Service) effectiveSettings(ctx context.Context, adminID *int64) SubscriptionSettings {
+func (s Service) effectiveSettings(ctx context.Context, adminID, serviceID *int64) SubscriptionSettings {
 	settings, err := s.repo.subscriptionSettings(ctx)
 	if err != nil {
 		return SubscriptionSettings{SubscriptionProfileTitle: "Subscription", SubscriptionSupportURL: "https://t.me/", SubscriptionUpdateInterval: "12", SubscriptionPath: "sub"}
@@ -418,7 +418,7 @@ func (s Service) effectiveSettings(ctx context.Context, adminID *int64) Subscrip
 			admin = admins[*adminID]
 		}
 	}
-	return effectiveSubscriptionSettings(settings, admin)
+	return applyServicePlaceholderPolicy(effectiveSubscriptionSettings(settings, admin), admin.SubscriptionSettings, serviceID)
 }
 
 func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail, config SubscriptionClientConfig, placeholderRemark string) (string, error) {
@@ -491,6 +491,23 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 }
 
 func subscriptionPlaceholderRemark(user UserDetail, settings SubscriptionSettings) string {
+	if policy := settings.SubscriptionPlaceholderPolicy; policy != nil {
+		if !policy.Enabled {
+			return ""
+		}
+		var remark string
+		switch strings.ToLower(strings.TrimSpace(user.Status)) {
+		case "expired":
+			remark = firstNonEmptyString(strings.TrimSpace(policy.ExpiredRemark), "Subscription expired")
+		case "limited":
+			remark = firstNonEmptyString(strings.TrimSpace(policy.LimitedRemark), "Traffic limit reached")
+		case "disabled":
+			remark = firstNonEmptyString(strings.TrimSpace(policy.DisabledRemark), "Subscription disabled")
+		default:
+			return ""
+		}
+		return formatSubscriptionPlaceholderRemark(user, remark)
+	}
 	if !settings.SubscriptionPlaceholderEnabled {
 		return ""
 	}
@@ -500,6 +517,10 @@ func subscriptionPlaceholderRemark(user UserDetail, settings SubscriptionSetting
 		return ""
 	}
 	remark := firstNonEmptyString(strings.TrimSpace(settings.SubscriptionPlaceholderRemark), "disabled")
+	return formatSubscriptionPlaceholderRemark(user, remark)
+}
+
+func formatSubscriptionPlaceholderRemark(user UserDetail, remark string) string {
 	return applyFormat(remark, configFormatVariables(ConfigLinkUser{
 		ID:                   user.ID,
 		Username:             user.Username,

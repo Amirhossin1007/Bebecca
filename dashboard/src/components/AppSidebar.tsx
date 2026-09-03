@@ -21,6 +21,7 @@ import {
 	Cog6ToothIcon,
 	Cog8ToothIcon,
 	CommandLineIcon,
+	DocumentDuplicateIcon,
 	DocumentTextIcon,
 	EyeIcon,
 	HomeIcon,
@@ -77,6 +78,7 @@ const XrayLogsIconStyled = chakra(DocumentTextIcon, iconProps);
 const ApiDocsIconStyled = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIconStyled = chakra(CircleStackIcon, iconProps);
 const ExternalAppsIconStyled = chakra(CommandLineIcon, iconProps);
+const PlaceholderIconStyled = chakra(DocumentDuplicateIcon, iconProps);
 const TutorialUpdateIconStyled = chakra(BellAlertIcon, {
 	baseStyle: {
 		w: 3,
@@ -147,6 +149,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		self_myaccount: false,
 		self_change_password: false,
 		self_api_keys: false,
+		self_placeholders: false,
 	};
 	const baseSelf =
 		userData.permissions?.self_permissions ?? defaultSelfPermissions;
@@ -162,6 +165,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		isFullAccess ||
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
+	const canManagePlaceholders =
+		isFullAccess ||
+		(userData.role === AdminRole.Sudo &&
+			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
+		Boolean(baseSelf.self_placeholders);
 	const [hasNewTutorials, setHasNewTutorials] = useState(false);
 
 	const checkTutorialUpdates = useCallback(async () => {
@@ -273,6 +281,15 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					title: t("apiDocs.menu"),
 					url: "/api-docs",
 					icon: ApiDocsIconStyled,
+				}
+			: null,
+		canManagePlaceholders
+			? {
+					title: isPrivilegedAdmin
+						? t("placeholders.menu")
+						: t("placeholders.settingsMenu"),
+					url: "/placeholders",
+					icon: PlaceholderIconStyled,
 				}
 			: null,
 		{
@@ -399,6 +416,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				pickSetting("/recent-actions"),
 				pickSetting("/phpmyadmin"),
 				pickSetting("/external-apps"),
+				pickSetting("/placeholders"),
 				pickSetting("/api-docs"),
 				pickSetting(tutorialsUrl),
 			],

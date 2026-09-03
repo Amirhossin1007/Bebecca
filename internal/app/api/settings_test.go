@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 )
 
@@ -373,6 +374,64 @@ func TestSubscriptionSettingsRoutes(t *testing.T) {
 	ports := updated["subscription_ports"].([]any)
 	if len(ports) != 2 || ports[0].(float64) != 443 || ports[1].(float64) != 8443 {
 		t.Fatalf("unexpected ports: %#v", ports)
+	}
+}
+
+func TestSubscriptionPlaceholderSettingsRouteScopesAdminsAndServices(t *testing.T) {
+	server, db := testAdminServer(t)
+	createSettingsTables(t, db)
+	insertMasterAPIAdmin(t, db, 1, "owner", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
+	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (10, 'Main'), (11, 'Other')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id) VALUES (1, 10), (2, 10)`); err != nil {
+		t.Fatal(err)
+	}
+
+	ownerToken := adminBearerToken(t, server, "owner", "pass123")
+	rec := adminJSONRequest(t, server, http.MethodPut, "/api/settings/placeholders", ownerToken, `{
+		"admin_id":2,"service_id":10,"enabled":true,
+		"expired_remark":"Expired {USERNAME}","limited_remark":"Limited {USERNAME}","disabled_remark":"Disabled {USERNAME}"
+	}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("owner update status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	sellerToken := adminBearerToken(t, server, "seller", "pass123")
+	rec = adminJSONRequest(t, server, http.MethodGet, "/api/settings/placeholders", sellerToken, `{}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("seller without permission status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	permissions := adminapp.RoleDefaultPermissions(adminapp.RoleStandard)
+	permissions.SelfPermissions["self_placeholders"] = true
+	encoded, _ := json.Marshal(permissions)
+	if _, err := db.Exec(`UPDATE admins SET permissions = ? WHERE id = 2`, string(encoded)); err != nil {
+		t.Fatal(err)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodGet, "/api/settings/placeholders", sellerToken, `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("seller list status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var response struct {
+		Items     []settingsapp.SubscriptionPlaceholderSetting `json:"items"`
+		ManageAll bool                                         `json:"manage_all"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.ManageAll || len(response.Items) != 1 || response.Items[0].AdminID != 2 || response.Items[0].LimitedRemark != "Limited {USERNAME}" {
+		t.Fatalf("unexpected seller response: %#v", response)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/placeholders", sellerToken, `{"admin_id":1,"service_id":10,"enabled":true}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("seller cross-admin status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/placeholders", sellerToken, `{"service_id":11,"enabled":true}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("seller unassigned service status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
