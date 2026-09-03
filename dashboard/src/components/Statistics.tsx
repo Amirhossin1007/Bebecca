@@ -1134,12 +1134,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const activePercent =
 		systemData.total_user > 0
-			? formatPercent((systemData.users_active / systemData.total_user) * 100, isRTL)
-			: formatPercent(0, isRTL);
+			? formatPercent((systemData.users_active / systemData.total_user) * 100)
+			: formatPercent(0);
 	const onlinePercent =
 		systemData.total_user > 0
-			? formatPercent((systemData.online_users / systemData.total_user) * 100, isRTL)
-			: formatPercent(0, isRTL);
+			? formatPercent((systemData.online_users / systemData.total_user) * 100)
+			: formatPercent(0);
 
 	const myTotalUsers = myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
 	const myActiveUsers = myUsersData?.active_total ?? myUsersData?.status_breakdown?.active ?? myTotalUsers;
@@ -1147,12 +1147,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const myActivePercent =
 		myTotalUsers > 0
-			? formatPercent((myActiveUsers / myTotalUsers) * 100, isRTL)
-			: formatPercent(0, isRTL);
+			? formatPercent((myActiveUsers / myTotalUsers) * 100)
+			: formatPercent(0);
 	const myOnlinePercent =
 		myTotalUsers > 0
-			? formatPercent((myOnlineUsers / myTotalUsers) * 100, isRTL)
-			: formatPercent(0, isRTL);
+			? formatPercent((myOnlineUsers / myTotalUsers) * 100)
+			: formatPercent(0);
 
 	const myUsersList = myUsersData?.users ?? [];
 	const myOnHoldUsers = myUsersData?.status_breakdown?.on_hold ?? myUsersList.filter((u) => u.status === "on_hold").length;
