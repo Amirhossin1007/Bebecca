@@ -1530,22 +1530,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 					)}
 				</Stack>
 			)}
-			{canSeeGlobal && nodes.length > 0 && (
-				<XrayOverviewCard
-					nodes={nodes}
-					selectedNodeID={selectedXrayNodeID}
-					onSelectNode={setSelectedXrayNodeID}
-					history={xrayHistory}
-					t={t}
-				/>
-			)}
-			{userCards.length > 0 && (
-				<SimpleGrid columns={{ base: 1, md: userGridColumns }} gap={5}>
-					{userCards}
-				</SimpleGrid>
-			</SectionCard>
 
 			<SectionCard
+				noHover
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
