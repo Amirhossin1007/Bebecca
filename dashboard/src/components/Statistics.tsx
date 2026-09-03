@@ -306,6 +306,12 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 };
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
+const formatPercent = (val: number, isRTL = false): string => {
+	if (!Number.isFinite(val)) return isRTL ? "%0" : "0%";
+	const rounded = Math.round(val * 10) / 10;
+	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+	return isRTL ? `%${formatted}` : `${formatted}%`;
+};
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
 const HISTORY_INTERVALS = [
@@ -784,7 +790,7 @@ const ResourceCard: FC<{
 			<Box mt={3}>
 				<Flex justify="space-between" align="center" mb={1.5}>
 					<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
-						{safe.toFixed(0)}%
+						{formatPercent(safe, isRTL)}
 					</Text>
 				</Flex>
 				<Progress
@@ -1058,7 +1064,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 		["dashboard-my-users-stats", userData.username],
 		() =>
 			fetch<UsersListResponse>("/users", {
-				query: { admin: userData.username, limit: 1 },
+				query: { admin: userData.username, limit: 1000 },
 			}),
 		{
 			enabled: Boolean(userData.username),
@@ -1107,12 +1113,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const activePercent =
 		systemData.total_user > 0
-			? `${((systemData.users_active / systemData.total_user) * 100).toFixed(1)}%`
-			: "0.0%";
+			? formatPercent((systemData.users_active / systemData.total_user) * 100, isRTL)
+			: formatPercent(0, isRTL);
 	const onlinePercent =
 		systemData.total_user > 0
-			? `${((systemData.online_users / systemData.total_user) * 100).toFixed(1)}%`
-			: "0.0%";
+			? formatPercent((systemData.online_users / systemData.total_user) * 100, isRTL)
+			: formatPercent(0, isRTL);
 
 	const myTotalUsers = myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
 	const myActiveUsers = myUsersData?.active_total ?? myUsersData?.status_breakdown?.active ?? myTotalUsers;
@@ -1120,12 +1126,20 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const myActivePercent =
 		myTotalUsers > 0
-			? `${((myActiveUsers / myTotalUsers) * 100).toFixed(1)}%`
-			: "0.0%";
+			? formatPercent((myActiveUsers / myTotalUsers) * 100, isRTL)
+			: formatPercent(0, isRTL);
 	const myOnlinePercent =
 		myTotalUsers > 0
-			? `${((myOnlineUsers / myTotalUsers) * 100).toFixed(1)}%`
-			: "0.0%";
+			? formatPercent((myOnlineUsers / myTotalUsers) * 100, isRTL)
+			: formatPercent(0, isRTL);
+
+	const myUsersList = myUsersData?.users ?? [];
+	const myOnHoldUsers = myUsersData?.status_breakdown?.on_hold ?? myUsersList.filter((u) => u.status === "on_hold").length;
+	const myLimitedUsers = myUsersData?.status_breakdown?.limited ?? myUsersList.filter((u) => u.status === "limited").length;
+	const myExpiredUsers = myUsersData?.status_breakdown?.expired ?? myUsersList.filter((u) => u.status === "expired").length;
+	const myOnlineUploadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.upload_speed) || 0), 0);
+	const myOnlineDownloadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.download_speed) || 0), 0);
+	const myActiveUsersUsedTraffic = myUsersList.reduce((sum, u) => sum + (Number(u.used_traffic) || 0), 0);
 
 	const myUsageLabel =
 		systemData.personal_usage?.traffic_basis === "created_traffic"
@@ -1210,12 +1224,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<ResourceCard
 					label={t("cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
-					value={`${systemData.cpu_usage.toFixed(1)}%`}
+					value={formatPercent(systemData.cpu_usage, isRTL)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("core")}
-					footerLeft={`${t("average")}: ${average(systemData.cpu_history.map((e) => e.value)).toFixed(1)}%`}
-					footerRight={`${t("peak")}: ${peak(systemData.cpu_history.map((e) => e.value)).toFixed(1)}%`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1233,8 +1247,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
-					footerLeft={`${t("average")}: ${average(systemData.memory_history.map((e) => e.value)).toFixed(1)}%`}
-					footerRight={`${t("peak")}: ${peak(systemData.memory_history.map((e) => e.value)).toFixed(1)}%`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1252,8 +1266,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
-					footerLeft={`${t("average")}: ${average(systemData.swap_history.map((e) => e.value)).toFixed(1)}%`}
-					footerRight={`${t("peak")}: ${peak(systemData.swap_history.map((e) => e.value)).toFixed(1)}%`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
 				<ResourceCard
@@ -1263,7 +1277,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
 					footerLeft={`${t("free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
-					footerRight={`${t("average")}: ${average(systemData.disk_history.map((e) => e.value)).toFixed(1)}%`}
+					footerRight={`${t("average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
 			</SimpleGrid>
@@ -1435,12 +1449,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<ResourceCard
 						label={`${t("cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
-						value={`${systemData.panel_cpu_percent.toFixed(1)}%`}
+						value={formatPercent(systemData.panel_cpu_percent, isRTL)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
 						metaUnit={t("thread")}
-						footerLeft={`${t("average")}: ${average(systemData.panel_cpu_history.map((e) => e.value)).toFixed(1)}%`}
-						footerRight={`${t("peak")}: ${peak(systemData.panel_cpu_history.map((e) => e.value)).toFixed(1)}%`}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
 					<ResourceCard
@@ -1449,8 +1463,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
-						footerLeft={`${t("average")}: ${average(systemData.panel_memory_history.map((e) => e.value)).toFixed(1)}%`}
-						footerRight={`${t("peak")}: ${peak(systemData.panel_memory_history.map((e) => e.value)).toFixed(1)}%`}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
 				</SimpleGrid>
@@ -1524,11 +1538,24 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Stack spacing={0}>
 							<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
 							<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
-							<StatRow label={t("onlineUsers")} value={myOnlineUsers} tag={myOnlinePercent} tagColor="#06b6d4" />
 							<StatRow
-								label={myUsageLabel}
-								value={formatBytes(systemData.personal_usage?.consumed_bytes ?? 0, 1)}
-								tagColor="#a855f7"
+								label={t("onlineUsers")}
+								value={myOnlineUsers}
+								tag={myOnlinePercent}
+								tagColor="#06b6d4"
+								helper={
+									myOnlineUploadSpeed || myOnlineDownloadSpeed
+										? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
+										: undefined
+								}
+							/>
+							<StatRow label={t("status.on_hold")} value={myOnHoldUsers} tagColor="#a855f7" />
+							<StatRow label={t("status.limited")} value={myLimitedUsers} tagColor="#f59e0b" />
+							<StatRow label={t("status.expired")} value={myExpiredUsers} tagColor="#f97316" />
+							<StatRow
+								label={t("dashboard.currentUserUsage")}
+								value={formatBytes(myActiveUsersUsedTraffic, 1)}
+								tagColor="#3b82f6"
 							/>
 							{systemData.personal_usage?.reset_bytes ? (
 								<StatRow
