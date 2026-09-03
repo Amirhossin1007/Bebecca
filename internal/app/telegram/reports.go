@@ -230,12 +230,16 @@ func (r Reporter) sendHTML(ctx context.Context, event string, text string) {
 	if err != nil || !enabled || !telegramReportsReady(settings) {
 		return
 	}
-	r.sender.SendMessageBestEffort(ctx, MessageRequest{
-		Destination:           DestinationRequest{Purpose: DestinationLogs, Category: event},
-		Text:                  text,
-		ParseMode:             "HTML",
-		DisableWebPagePreview: true,
-	})
+	go func() {
+		sendCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		r.sender.SendMessageBestEffort(sendCtx, MessageRequest{
+			Destination:           DestinationRequest{Purpose: DestinationLogs, Category: event},
+			Text:                  text,
+			ParseMode:             "HTML",
+			DisableWebPagePreview: true,
+		})
+	}()
 }
 
 func telegramReportsReady(settings Settings) bool {
