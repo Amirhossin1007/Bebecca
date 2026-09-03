@@ -343,7 +343,8 @@ const HistoryModal: FC<{
 	intervalSeconds: number;
 	onIntervalChange: (value: number) => void;
 	t: TFunction;
-}> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t }) => {
+	isRTL?: boolean;
+}> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
 	const { colorMode } = useColorMode();
 	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
 	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
@@ -1502,6 +1503,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				intervalSeconds={historyInterval}
 				onIntervalChange={setHistoryInterval}
 				t={t}
+				isRTL={isRTL}
 			/>
 		</Stack>
 	);
