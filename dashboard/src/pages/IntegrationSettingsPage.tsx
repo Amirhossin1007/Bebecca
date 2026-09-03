@@ -584,6 +584,10 @@ const buildSubscriptionDefaults = (
 	subscription_path: settings?.subscription_path ?? "sub",
 	subscription_aliases: settings?.subscription_aliases ?? [],
 	subscription_ports: settings?.subscription_ports ?? [],
+	subscription_placeholder_enabled:
+		settings?.subscription_placeholder_enabled ?? false,
+	subscription_placeholder_remark:
+		settings?.subscription_placeholder_remark ?? "disabled",
 	subscription_aliases_text: (settings?.subscription_aliases ?? []).join("\n"),
 	subscription_ports_text: formatSubscriptionPorts(
 		settings?.subscription_ports ?? [],
@@ -733,6 +737,9 @@ const buildSubscriptionPayload = (
 	subscription_ports: parseSubscriptionPortsInput(
 		values.subscription_ports_text || "",
 	),
+	subscription_placeholder_enabled: values.subscription_placeholder_enabled,
+	subscription_placeholder_remark:
+		values.subscription_placeholder_remark?.trim() || "disabled",
 });
 
 const buildAdminSubscriptionPayload = (
@@ -2801,6 +2808,38 @@ export const IntegrationSettingsPage = () => {
 										/>
 										<FormHelperText>
 											{t("settings.subscriptions.updateIntervalHint")}
+										</FormHelperText>
+									</FormControl>
+									<Controller
+										control={subscriptionControl}
+										name="subscription_placeholder_enabled"
+										render={({ field }) => (
+											<FormControl display="flex" alignItems="center" gap={3}>
+												<Box flex="1">
+													<FormLabel mb={1}>
+														{t("settings.subscriptions.placeholderEnabled")}
+													</FormLabel>
+													<FormHelperText mt={0}>
+														{t("settings.subscriptions.placeholderEnabledHint")}
+													</FormHelperText>
+												</Box>
+												<Switch
+													isChecked={field.value}
+													onChange={(event) => field.onChange(event.target.checked)}
+												/>
+											</FormControl>
+										)}
+									/>
+									<FormControl>
+										<FormLabel>
+											{t("settings.subscriptions.placeholderRemark")}
+										</FormLabel>
+										<Input
+											placeholder="disabled"
+											{...subscriptionRegister("subscription_placeholder_remark")}
+										/>
+										<FormHelperText>
+											{t("settings.subscriptions.placeholderRemarkHint")}
 										</FormHelperText>
 									</FormControl>
 									<FormControl>
