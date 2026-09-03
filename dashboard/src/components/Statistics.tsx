@@ -306,11 +306,11 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 };
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
-const formatPercent = (val: number, isRTL = false): string => {
-	if (!Number.isFinite(val)) return isRTL ? "%0" : "0%";
+const formatPercent = (val: number): string => {
+	if (!Number.isFinite(val)) return "0%";
 	const rounded = Math.round(val * 10) / 10;
 	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
-	return isRTL ? `%${formatted}` : `${formatted}%`;
+	return `${formatted}%`;
 };
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -633,7 +633,7 @@ const peak = (values: number[]) => (values.length ? Math.max(...values) : 0);
 const ResourceCard: FC<{
 	label: string;
 	icon: ReactNode;
-	value: string;
+	value: ReactNode;
 	totalValue?: string;
 	percent: number;
 	metaUnit?: string;
@@ -711,9 +711,17 @@ const ResourceCard: FC<{
 							fontSize="11px"
 							variant="ghost"
 							borderRadius="full"
+							bg="panel.elevated"
 							color="panel.textMuted"
 							fontWeight="500"
-							_hover={{ color: "panel.text", bg: "panel.surface" }}
+							transition="background-color 0.25s ease, color 0.25s ease"
+							_hover={{}}
+							sx={{
+								".chakra-box:hover &": {
+									bg: "panel.surface",
+									color: "panel.text",
+								},
+							}}
 							onClick={onHistory}
 						>
 							{historyLabel}
@@ -789,8 +797,14 @@ const ResourceCard: FC<{
 
 			<Box mt={3}>
 				<Flex justify="space-between" align="center" mb={1.5}>
-					<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
-						{formatPercent(safe, isRTL)}
+					<Text
+						fontSize="11px"
+						fontWeight="600"
+						color="panel.textMuted"
+						dir="ltr"
+						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+					>
+						{formatPercent(safe)}
 					</Text>
 				</Flex>
 				<Progress
@@ -876,6 +890,13 @@ const StatRow: FC<{
 						color="panel.textMuted"
 						fontWeight="600"
 						textTransform="none"
+						transition="background-color 0.25s ease, color 0.25s ease"
+						sx={{
+							".chakra-box:hover &": {
+								bg: "panel.surface",
+								color: "panel.textSecondary",
+							},
+						}}
 					>
 						{tag}
 					</Badge>
@@ -1224,12 +1245,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<ResourceCard
 					label={t("cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
-					value={formatPercent(systemData.cpu_usage, isRTL)}
+					value={
+						<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
+							{formatPercent(systemData.cpu_usage)}
+						</Text>
+					}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("core")}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)))}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)))}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1247,8 +1272,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)), isRTL)}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)), isRTL)}`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)))}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)))}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1266,8 +1291,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)), isRTL)}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)), isRTL)}`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)))}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)))}`}
 					isRTL={isRTL}
 				/>
 				<ResourceCard
@@ -1277,7 +1302,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
 					footerLeft={`${t("free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
-					footerRight={`${t("average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)))}`}
 					isRTL={isRTL}
 				/>
 			</SimpleGrid>
@@ -1429,9 +1454,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 						fontSize="11px"
 						variant="ghost"
 						borderRadius="full"
+						bg="panel.elevated"
 						color="panel.textMuted"
 						fontWeight="500"
-						_hover={{ color: "panel.text", bg: "panel.surface" }}
+						transition="background-color 0.25s ease, color 0.25s ease"
+						_hover={{}}
+						sx={{
+							".chakra-box:hover &": {
+								bg: "panel.surface",
+								color: "panel.text",
+							},
+						}}
 						onClick={() =>
 							openHistory({
 								type: "panel",
@@ -1449,12 +1482,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<ResourceCard
 						label={`${t("cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
-						value={formatPercent(systemData.panel_cpu_percent, isRTL)}
+						value={
+							<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
+								{formatPercent(systemData.panel_cpu_percent)}
+							</Text>
+						}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
 						metaUnit={t("thread")}
-						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
-						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)))}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)))}`}
 						isRTL={isRTL}
 					/>
 					<ResourceCard
@@ -1463,8 +1500,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
-						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
-						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)))}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)))}`}
 						isRTL={isRTL}
 					/>
 				</SimpleGrid>
