@@ -618,6 +618,12 @@ const HistoryModal: FC<{
 	);
 };
 
+const average = (values: number[]) =>
+	values.length
+		? values.reduce((total, value) => total + value, 0) / values.length
+		: 0;
+const peak = (values: number[]) => (values.length ? Math.max(...values) : 0);
+
 const ResourceCard: FC<{
 	label: string;
 	icon: ReactNode;
@@ -626,6 +632,8 @@ const ResourceCard: FC<{
 	percent: number;
 	metaUnit?: string;
 	metaValue?: string | number;
+	footerLeft?: string;
+	footerRight?: string;
 	onHistory?: () => void;
 	historyLabel?: string;
 	isRTL?: boolean;
@@ -637,6 +645,8 @@ const ResourceCard: FC<{
 	percent,
 	metaUnit,
 	metaValue,
+	footerLeft,
+	footerRight,
 	onHistory,
 	historyLabel,
 	isRTL = false,
@@ -790,6 +800,21 @@ const ResourceCard: FC<{
 						},
 					}}
 				/>
+				{(footerLeft || footerRight) && (
+					<Flex
+						justify="space-between"
+						align="center"
+						mt={2}
+						fontSize="11px"
+						fontWeight="500"
+						color="panel.textMuted"
+						dir={isRTL ? "rtl" : "ltr"}
+						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+					>
+						<Text noOfLines={1}>{footerLeft}</Text>
+						<Text noOfLines={1}>{footerRight}</Text>
+					</Flex>
+				)}
 			</Box>
 		</Box>
 	);
@@ -1189,6 +1214,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("core")}
+					footerLeft={`${t("average")}: ${average(systemData.cpu_history.map((e) => e.value)).toFixed(1)}%`}
+					footerRight={`${t("peak")}: ${peak(systemData.cpu_history.map((e) => e.value)).toFixed(1)}%`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1206,6 +1233,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
+					footerLeft={`${t("average")}: ${average(systemData.memory_history.map((e) => e.value)).toFixed(1)}%`}
+					footerRight={`${t("peak")}: ${peak(systemData.memory_history.map((e) => e.value)).toFixed(1)}%`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1223,6 +1252,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
+					footerLeft={`${t("average")}: ${average(systemData.swap_history.map((e) => e.value)).toFixed(1)}%`}
+					footerRight={`${t("peak")}: ${peak(systemData.swap_history.map((e) => e.value)).toFixed(1)}%`}
 					isRTL={isRTL}
 				/>
 				<ResourceCard
@@ -1231,6 +1262,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
+					footerLeft={`${t("free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
+					footerRight={`${t("average")}: ${average(systemData.disk_history.map((e) => e.value)).toFixed(1)}%`}
 					isRTL={isRTL}
 				/>
 			</SimpleGrid>
@@ -1406,6 +1439,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
 						metaUnit={t("thread")}
+						footerLeft={`${t("average")}: ${average(systemData.panel_cpu_history.map((e) => e.value)).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(systemData.panel_cpu_history.map((e) => e.value)).toFixed(1)}%`}
 						isRTL={isRTL}
 					/>
 					<ResourceCard
@@ -1414,6 +1449,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
+						footerLeft={`${t("average")}: ${average(systemData.panel_memory_history.map((e) => e.value)).toFixed(1)}%`}
+						footerRight={`${t("peak")}: ${peak(systemData.panel_memory_history.map((e) => e.value)).toFixed(1)}%`}
 						isRTL={isRTL}
 					/>
 				</SimpleGrid>
