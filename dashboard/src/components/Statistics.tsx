@@ -499,7 +499,7 @@ const HistoryModal: FC<{
 				},
 			},
 		}),
-		[colorMode, gridColor, mutedTextColor, intervalSeconds, isNetwork],
+		[colorMode, gridColor, mutedTextColor, intervalSeconds, isNetwork, isRTL],
 	);
 
 	return (
