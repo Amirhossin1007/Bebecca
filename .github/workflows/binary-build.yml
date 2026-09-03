@@ -130,7 +130,7 @@ jobs:
           path: dashboard/build
 
       - name: Set up QEMU
-        if: github.event_name == 'workflow_dispatch' && inputs.full_matrix == true && matrix.asset_arch != 'amd64'
+        if: matrix.asset_arch != 'amd64' && (github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true))
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Go for native Linux build
@@ -140,7 +140,7 @@ jobs:
           go-version-file: "go.mod"
 
       - name: Build Linux binary package
-        if: matrix.asset_arch == 'amd64' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
+        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         shell: bash
         env:
           ASSET_ARCH: ${{ matrix.asset_arch }}
@@ -206,7 +206,7 @@ jobs:
           fi
 
       - name: Upload Linux package artifact
-        if: matrix.asset_arch == 'amd64' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
+        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         uses: actions/upload-artifact@v4
         with:
           name: rebecca-linux-${{ matrix.asset_arch }}
