@@ -13,26 +13,27 @@ import (
 )
 
 const (
-	defaultSubscriptionType            = "key"
-	defaultDashboardPath               = "/dashboard/"
-	defaultPHPMyAdminPort              = 8080
-	defaultPHPMyAdminPath              = "/phpmyadmin/"
-	defaultPHPMyAdminLoginMode         = "rebecca"
-	defaultSubscriptionProfileTitle    = "Subscription"
-	defaultSubscriptionSupportURL      = "https://t.me/"
-	defaultSubscriptionUpdateInterval  = "12"
-	defaultClashSubscriptionTemplate   = "clash/default.yml"
-	defaultClashSettingsTemplate       = "clash/settings.yml"
-	defaultSubscriptionPageTemplate    = "subscription/index.html"
-	defaultHomePageTemplate            = "home/index.html"
-	defaultV2RaySubscriptionTemplate   = "v2ray/default.json"
-	defaultV2RaySettingsTemplate       = "v2ray/settings.json"
-	defaultHappSubscriptionTemplate    = "v2ray/default.json"
-	defaultIncySubscriptionTemplate    = "v2ray/default.json"
-	defaultSingBoxSubscriptionTemplate = "singbox/default.json"
-	defaultSingBoxSettingsTemplate     = "singbox/settings.json"
-	defaultMuxTemplate                 = "mux/default.json"
-	defaultSubscriptionPath            = "sub"
+	defaultSubscriptionType              = "key"
+	defaultDashboardPath                 = "/dashboard/"
+	defaultPHPMyAdminPort                = 8080
+	defaultPHPMyAdminPath                = "/phpmyadmin/"
+	defaultPHPMyAdminLoginMode           = "rebecca"
+	defaultSubscriptionProfileTitle      = "Subscription"
+	defaultSubscriptionSupportURL        = "https://t.me/"
+	defaultSubscriptionUpdateInterval    = "12"
+	defaultSubscriptionPlaceholderRemark = "disabled"
+	defaultClashSubscriptionTemplate     = "clash/default.yml"
+	defaultClashSettingsTemplate         = "clash/settings.yml"
+	defaultSubscriptionPageTemplate      = "subscription/index.html"
+	defaultHomePageTemplate              = "home/index.html"
+	defaultV2RaySubscriptionTemplate     = "v2ray/default.json"
+	defaultV2RaySettingsTemplate         = "v2ray/settings.json"
+	defaultHappSubscriptionTemplate      = "v2ray/default.json"
+	defaultIncySubscriptionTemplate      = "v2ray/default.json"
+	defaultSingBoxSubscriptionTemplate   = "singbox/default.json"
+	defaultSingBoxSettingsTemplate       = "singbox/settings.json"
+	defaultMuxTemplate                   = "mux/default.json"
+	defaultSubscriptionPath              = "sub"
 )
 
 var allowedSubscriptionTypes = map[string]bool{
@@ -193,6 +194,12 @@ func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[stri
 			add(key, normalizeSupportURL(rawStringDefault(value, "")))
 		case "subscription_profile_title", "subscription_update_interval":
 			add(key, strings.TrimSpace(rawStringDefault(value, "")))
+		case "subscription_placeholder_remark":
+			remark := strings.TrimSpace(rawStringDefault(value, ""))
+			if remark == "" {
+				remark = defaultSubscriptionPlaceholderRemark
+			}
+			add(key, remark)
 		case "subscription_path":
 			add(key, normalizePath(rawStringDefault(value, "")))
 		case "subscription_aliases":
@@ -209,7 +216,7 @@ func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[stri
 			}
 			encoded, _ := json.Marshal(normalizePorts(ports))
 			add(key, string(encoded))
-		case "use_custom_json_default", "use_custom_json_for_v2rayn", "use_custom_json_for_v2rayng", "use_custom_json_for_streisand", "use_custom_json_for_happ", "use_custom_json_for_incy":
+		case "use_custom_json_default", "use_custom_json_for_v2rayn", "use_custom_json_for_v2rayng", "use_custom_json_for_streisand", "use_custom_json_for_happ", "use_custom_json_for_incy", "subscription_placeholder_enabled":
 			add(key, rawBoolDefault(value, false))
 		case "custom_templates_directory":
 			if string(value) == "null" {
@@ -450,12 +457,16 @@ COALESCE(use_custom_json_for_happ, 0),
 COALESCE(use_custom_json_for_incy, 0),
 subscription_path,
 subscription_aliases,
-subscription_ports
+subscription_ports,
+COALESCE(subscription_placeholder_enabled, 0),
+COALESCE(subscription_placeholder_remark, '')
 FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	var result SubscriptionSettings
 	var customDir sql.NullString
 	var aliasesRaw, portsRaw sql.NullString
 	var useDefault, useV2RayN, useV2RayNG, useStreisand, useHapp, useIncy sql.NullBool
+	var placeholderEnabled sql.NullBool
+	var placeholderRemark sql.NullString
 	if err := row.Scan(
 		&result.SubscriptionURLPrefix,
 		&result.SubscriptionProfileTitle,
@@ -482,6 +493,8 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 		&result.SubscriptionPath,
 		&aliasesRaw,
 		&portsRaw,
+		&placeholderEnabled,
+		&placeholderRemark,
 	); err != nil {
 		return SubscriptionSettings{}, err
 	}
@@ -494,6 +507,10 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	result.UseCustomJSONForStreisand = useStreisand.Valid && useStreisand.Bool
 	result.UseCustomJSONForHapp = useHapp.Valid && useHapp.Bool
 	result.UseCustomJSONForIncy = useIncy.Valid && useIncy.Bool
+	result.SubscriptionPlaceholderEnabled = placeholderEnabled.Valid && placeholderEnabled.Bool
+	if placeholderRemark.Valid {
+		result.SubscriptionPlaceholderRemark = placeholderRemark.String
+	}
 	result.SubscriptionURLPrefix = normalizePrefix(result.SubscriptionURLPrefix)
 	result.SubscriptionSupportURL = normalizeSupportURL(result.SubscriptionSupportURL)
 	result.SubscriptionPath = normalizePath(result.SubscriptionPath)
@@ -538,9 +555,11 @@ use_custom_json_for_incy,
 subscription_path,
 subscription_aliases,
 subscription_ports,
+subscription_placeholder_enabled,
+subscription_placeholder_remark,
 created_at,
 updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"",
 		defaultSubscriptionProfileTitle,
 		defaultSubscriptionSupportURL,
@@ -566,6 +585,8 @@ updated_at
 		defaultSubscriptionPath,
 		"[]",
 		"[]",
+		false,
+		defaultSubscriptionPlaceholderRemark,
 		now,
 		now,
 	)

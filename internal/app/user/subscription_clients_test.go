@@ -226,6 +226,106 @@ func TestSubscriptionClientOutputsCoverExplicitFormatsAndAutoDetect(t *testing.T
 	}
 }
 
+func TestInactiveSubscriptionPlaceholderHidesRealAccess(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	active, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray", ReadOnly: true})
+	if err != nil || !strings.Contains(decodeSubscriptionTestBody(string(active.Body)), "edge.example.com") {
+		t.Fatalf("active subscription lost its real config: err=%v body=%s", err, active.Body)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET subscription_placeholder_enabled = 1, subscription_placeholder_remark = 'Blocked {USERNAME} {STATUS_TEXT}'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE users SET status = 'disabled' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray", ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded := decodeSubscriptionTestBody(string(response.Body))
+	if strings.Contains(decoded, "example.com") || !strings.HasPrefix(decoded, "vmess://") {
+		t.Fatalf("inactive raw subscription exposed real access: %s", decoded)
+	}
+	payload, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(decoded, "vmess://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	placeholder := map[string]any{}
+	if err := json.Unmarshal(payload, &placeholder); err != nil {
+		t.Fatal(err)
+	}
+	if placeholder["ps"] != "Blocked alice Disabled" || placeholder["add"] != "127.0.0.1" || placeholder["port"] != "1" {
+		t.Fatalf("unexpected placeholder config: %#v", placeholder)
+	}
+	for _, clientType := range []string{"v2ray-json", "xray-json", "sing-box", "clash", "clash-meta", "happ", "incy"} {
+		response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: clientType, ReadOnly: true})
+		if err != nil {
+			t.Fatalf("%s placeholder failed: %v", clientType, err)
+		}
+		if body := string(response.Body); strings.Contains(body, "example.com") || !strings.Contains(body, "Blocked alice Disabled") {
+			t.Fatalf("%s returned an unexpected placeholder: %s", clientType, body)
+		}
+	}
+
+	for _, test := range []struct {
+		clientType string
+		forbidden  []string
+	}{
+		{clientType: "outline", forbidden: []string{"ss.example.com", "edge.example.com"}},
+		{clientType: "openvpn", forbidden: []string{"remote ov.example.com", "auth-user-pass", "<ca>"}},
+		{clientType: "wireguard", forbidden: []string{"PrivateKey", "Endpoint", "wg.example.com"}},
+	} {
+		response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: test.clientType, ReadOnly: true})
+		if err != nil {
+			t.Fatalf("%s placeholder failed: %v", test.clientType, err)
+		}
+		body := string(response.Body)
+		if !strings.Contains(body, "Blocked") {
+			t.Fatalf("%s placeholder remark missing: %s", test.clientType, body)
+		}
+		for _, forbidden := range test.forbidden {
+			if strings.Contains(body, forbidden) {
+				t.Fatalf("%s placeholder exposed %q: %s", test.clientType, forbidden, body)
+			}
+		}
+	}
+
+	html, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, Accept: "text/html", URL: "https://panel.example/sub/" + key, ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"edge.example.com", "ov.example.com", "wg.example.com", "l2tp.example.com", "pptp.example.com"} {
+		if strings.Contains(string(html.Body), forbidden) {
+			t.Fatalf("HTML placeholder exposed %q", forbidden)
+		}
+	}
+	if !strings.Contains(string(html.Body), "vmess://") {
+		t.Fatalf("HTML placeholder config missing: %s", html.Body)
+	}
+
+	info, err := service.SubscriptionInfo(ctx, SubscriptionRenderRequest{Identifier: key, URL: "https://panel.example/sub/" + key})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profiles := info["openvpn"].(map[string]any)["profiles"].([]OVProfile); len(profiles) != 0 {
+		t.Fatalf("inactive info exposed OpenVPN profiles: %#v", profiles)
+	}
+	if profiles := info["wireguard"].(map[string]any)["profiles"].([]WGProfile); len(profiles) != 0 {
+		t.Fatalf("inactive info exposed WireGuard profiles: %#v", profiles)
+	}
+
+	if _, err := service.repo.db.Exec(`UPDATE users SET status = 'on_hold' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	onHold, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray", ReadOnly: true})
+	if err != nil || !strings.Contains(decodeSubscriptionTestBody(string(onHold.Body)), "edge.example.com") {
+		t.Fatalf("on-hold subscription must keep real configs: err=%v body=%s", err, onHold.Body)
+	}
+}
+
 func TestSubscriptionAccessUsesNarrowCoalescedRow(t *testing.T) {
 	service, _ := newSubscriptionClientTestService(t)
 	ctx := context.Background()
@@ -579,7 +679,9 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			subscription_ports TEXT,
 			use_custom_json_default INTEGER DEFAULT 0,
 			use_custom_json_for_happ INTEGER DEFAULT 0,
-			use_custom_json_for_incy INTEGER DEFAULT 0
+			use_custom_json_for_incy INTEGER DEFAULT 0,
+			subscription_placeholder_enabled INTEGER DEFAULT 0,
+			subscription_placeholder_remark TEXT DEFAULT 'disabled'
 		)`,
 		`CREATE TABLE admins (
 			id INTEGER PRIMARY KEY,
