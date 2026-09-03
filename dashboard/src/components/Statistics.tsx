@@ -463,6 +463,7 @@ const HistoryModal: FC<{
 			},
 			yaxis: {
 				forceNiceScale: true,
+				tickAmount: 5,
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					formatter: (val: number) => {
@@ -470,13 +471,18 @@ const HistoryModal: FC<{
 						if (isNetwork) {
 							return formatBytes(val, 1);
 						}
-						return `${val.toFixed(1)}%`;
+						return `${Math.round(val * 10) / 10}%`;
 					},
 				},
 			},
 			legend: {
 				position: "bottom",
 				labels: { colors: mutedTextColor },
+				itemMargin: { horizontal: 10, vertical: 4 },
+				markers: {
+					offsetX: isRTL ? 6 : -6,
+					offsetY: 0,
+				},
 			},
 			tooltip: {
 				theme: colorMode,
@@ -1416,17 +1422,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								{t("myUsers")}
 							</Button>
 						</HStack>
-					) : (
-						<Text
-							fontSize="12px"
-							color="panel.textMuted"
-							fontWeight="600"
-							dir="ltr"
-							sx={{ fontVariantNumeric: "tabular-nums" }}
-						>
-							{t("total")}: {formatNumberValue(myTotalUsers)}
-						</Text>
-					)
+					) : undefined
 				}
 			>
 				<AnimatedHeightWrapper activeKey={userTab}>
