@@ -44,7 +44,7 @@ func TestExportImportSQLiteDatabase(t *testing.T) {
 	}
 
 	importer := NewService(targetDB, "sqlite", sqliteURL(targetPath))
-	result, err := importer.Import(ctx, exported.Path, ScopeDatabase)
+	result, err := importer.Import(ctx, exported.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestExportImportFullBackupFileRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := service.Import(ctx, exported.Path, ScopeFull)
+	result, err := service.Import(ctx, exported.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestLegacyJSONImport(t *testing.T) {
 		DatabaseDumpName: legacyPayload,
 	})
 	service := NewService(db, "sqlite", sqliteURL(dbPath))
-	result, err := service.Import(ctx, archivePath, ScopeDatabase)
+	result, err := service.Import(ctx, archivePath)
 	if err != nil {
 		t.Fatal(err)
 	}

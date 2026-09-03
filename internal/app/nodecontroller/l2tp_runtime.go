@@ -41,12 +41,16 @@ type L2TPRuntimeUser struct {
 }
 
 func (r Repository) L2TPRuntime(ctx context.Context, nodeID int64) (L2TPRuntime, error) {
-	target := xrayconfig.NodeTargetID(nodeID)
 	configRepo := xrayconfig.NewRepository(r.db, r.dialect, xrayconfig.Options{})
 	inbounds, err := configRepo.FullInbounds(ctx)
 	if err != nil {
 		return L2TPRuntime{}, err
 	}
+	return r.l2tpRuntime(ctx, nodeID, inbounds)
+}
+
+func (r Repository) l2tpRuntime(ctx context.Context, nodeID int64, inbounds []map[string]any) (L2TPRuntime, error) {
+	target := xrayconfig.NodeTargetID(nodeID)
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
 		if port := OVIntValue(inbound["port"]); port > 0 {
@@ -146,7 +150,7 @@ ORDER BY id`, args...)
 
 func L2TPRuntimeSettings(inbound map[string]any) map[string]any {
 	settings := OVMapValue(inbound["settings"])
-	out := make(map[string]any, len(settings)+8)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}

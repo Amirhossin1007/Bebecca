@@ -57,6 +57,7 @@ type UserPermissionSettings struct {
 	Create               bool   `json:"create"`
 	Delete               bool   `json:"delete"`
 	ResetUsage           bool   `json:"reset_usage"`
+	PeriodicUsageReset   bool   `json:"periodic_usage_reset"`
 	Revoke               bool   `json:"revoke"`
 	CreateOnHold         bool   `json:"create_on_hold"`
 	AllowUnlimitedData   bool   `json:"allow_unlimited_data"`
@@ -121,6 +122,7 @@ type AdminServiceLimit struct {
 type Admin struct {
 	ID                          int64                 `json:"id,omitempty"`
 	Username                    string                `json:"username"`
+	CreatedBy                   string                `json:"created_by"`
 	HashedPassword              string                `json:"-"`
 	Role                        AdminRole             `json:"role"`
 	Permissions                 AdminPermissions      `json:"permissions"`

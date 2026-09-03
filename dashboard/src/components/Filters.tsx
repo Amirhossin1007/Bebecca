@@ -7,11 +7,6 @@ import {
 	Grid,
 	GridItem,
 	HStack,
-	IconButton,
-	Input,
-	InputGroup,
-	InputLeftElement,
-	InputRightElement,
 	Popover,
 	PopoverArrow,
 	PopoverBody,
@@ -19,7 +14,6 @@ import {
 	PopoverContent,
 	PopoverHeader,
 	PopoverTrigger,
-	Spinner,
 	Stack,
 	Tag,
 	TagCloseButton,
@@ -33,13 +27,12 @@ import {
 import {
 	ArrowPathIcon,
 	FunnelIcon,
-	MagnifyingGlassIcon,
 	PlusIcon,
 	QuestionMarkCircleIcon,
-	XMarkIcon,
 } from "@heroicons/react/24/outline";
 import classNames from "classnames";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { useServicesStore } from "contexts/ServicesContext";
@@ -54,7 +47,7 @@ import {
 	AdminStatus,
 	UserPermissionToggle,
 } from "types/Admin";
-import { isUserManagementLocked } from "utils/adminTraffic";
+import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
 const iconProps = {
 	baseStyle: {
@@ -63,9 +56,7 @@ const iconProps = {
 	},
 };
 
-const SearchIcon = chakra(MagnifyingGlassIcon, iconProps);
 const FilterIcon = chakra(FunnelIcon, iconProps);
-const ClearIcon = chakra(XMarkIcon, iconProps);
 export const ReloadIcon = chakra(ArrowPathIcon, iconProps);
 const PlusIconStyled = chakra(PlusIcon, iconProps);
 const HelpIcon = chakra(QuestionMarkCircleIcon, iconProps);
@@ -77,6 +68,11 @@ export type AdvancedFilterOption = {
 };
 
 export const ADVANCED_FILTER_OPTIONS: AdvancedFilterOption[] = [
+	{
+		key: "top_speed",
+		labelKey: "filters.advanced.topSpeed",
+		fallback: "Highest live speed",
+	},
 	{
 		key: "online",
 		labelKey: "filters.advanced.online",
@@ -146,22 +142,22 @@ export const Filters: FC<FilterProps> = ({
 	showRefresh = true,
 	...props
 }) => {
-	const {
-		loading: usersLoading,
-		filters: userFilters,
-		onFilterChange: onUserFilterChange,
-		refetchUsers,
-		onCreateUser,
-	} = useDashboard();
-	const {
-		loading: adminsLoading,
-		filters: adminFilters,
-		onFilterChange: onAdminFilterChange,
-		fetchAdmins,
-		fetchAdminOptions,
-		openAdminDialog,
-		adminOptions,
-	} = useAdminsStore();
+	const usersLoading = useDashboard((state) => state.loading);
+	const userFilters = useDashboard((state) => state.filters);
+	const onUserFilterChange = useDashboard((state) => state.onFilterChange);
+	const refetchUsers = useDashboard((state) => state.refetchUsers);
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
+	const adminsLoading = useAdminsStore((state) => state.loading);
+	const adminFilters = useAdminsStore((state) => state.filters);
+	const onAdminFilterChange = useAdminsStore(
+		(state) => state.onFilterChange,
+	);
+	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
+	const fetchAdminOptions = useAdminsStore(
+		(state) => state.fetchAdminOptions,
+	);
+	const openAdminDialog = useAdminsStore((state) => state.openAdminDialog);
+	const adminOptions = useAdminsStore((state) => state.adminOptions);
 	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
 	const { userData } = useGetUser();
@@ -169,6 +165,7 @@ export const Filters: FC<FilterProps> = ({
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 	const hasFullAccess = userData.role === AdminRole.FullAccess;
 	const userManagementLocked = isUserManagementLocked(userData);
+	const canViewTraffic = canViewUserTraffic(userData);
 	const isCurrentAdminDisabled =
 		!hasPrivilegedRole && userData.status === AdminStatus.Disabled;
 	const canManageAdmins = Boolean(
@@ -186,13 +183,19 @@ export const Filters: FC<FilterProps> = ({
 	const loading = target === "users" ? usersLoading : adminsLoading;
 	const isUserFilters = target === "users";
 	const filters = isUserFilters ? userFilters : adminFilters;
+	const matchOptions = {
+		matchCase: Boolean(filters.matchCase),
+		matchWholeWord: Boolean(filters.matchWholeWord),
+	};
 	const userFiltersOnly = isUserFilters ? userFilters : undefined;
 	const showAdvancedFilters = Boolean(userFiltersOnly);
 	const activeFilters: string[] = userFiltersOnly?.advancedFilters ?? [];
 	const serviceId = userFiltersOnly?.serviceId;
 	const ownerFilter = userFiltersOnly?.owner;
-	const { serviceOptions: rawServiceOptions, fetchServiceOptions } =
-		useServicesStore();
+	const rawServiceOptions = useServicesStore((state) => state.serviceOptions);
+	const fetchServiceOptions = useServicesStore(
+		(state) => state.fetchServiceOptions,
+	);
 	const serviceOptions = Array.isArray(rawServiceOptions)
 		? rawServiceOptions
 		: [];
@@ -354,11 +357,7 @@ export const Filters: FC<FilterProps> = ({
 							<Text fontSize="xs" color="gray.500">
 								{t("users.searchHelpLabel")}
 							</Text>
-							<Tooltip
-								label={t("users.searchHelp")}
-								placement="top"
-								hasArrow
-							>
+							<Tooltip label={t("users.searchHelp")} placement="top" hasArrow>
 								<Box display="inline-flex" alignItems="center">
 									<HelpIcon />
 								</Box>
@@ -366,40 +365,29 @@ export const Filters: FC<FilterProps> = ({
 						</HStack>
 					)}
 					<HStack spacing={2} align="center" w="full" flexWrap="wrap">
-						<InputGroup
-							flex={{ base: "1 1 100%", sm: "1 1 auto" }}
-							minW={{ base: "100%", sm: "200px" }}
-							maxW={{ base: "100%", sm: "none" }}
-						>
-							<InputLeftElement pointerEvents="none">
-								<SearchIcon />
-							</InputLeftElement>
-							<Input
+						<SearchInput
+							containerProps={{
+								flex: { base: "1 1 100%", sm: "1 1 auto" },
+								minW: { base: "100%", sm: "240px" },
+								maxW: { base: "100%", sm: "none" },
+							}}
 								placeholder={
-									target === "users"
-										? t("search")
-										: t("admins.searchPlaceholder")
+								target === "users" ? t("search") : t("admins.searchPlaceholder")
 								}
 								value={search}
 								borderColor="light-border"
-								w="full"
 								onChange={onChange}
+							matchOptions={matchOptions}
+							onMatchOptionsChange={(options) => {
+								if (isUserFilters) {
+									onUserFilterChange({ ...options, offset: 0 });
+								} else {
+									onAdminFilterChange({ ...options, offset: 0 });
+								}
+							}}
+							isLoading={loading}
+							onClear={clear}
 							/>
-
-							<InputRightElement>
-								{loading && <Spinner size="xs" />}
-								{filters.search && filters.search.length > 0 && (
-									<IconButton
-										onClick={clear}
-										aria-label={t("clear")}
-										size="xs"
-										variant="ghost"
-									>
-										<ClearIcon />
-									</IconButton>
-								)}
-							</InputRightElement>
-						</InputGroup>
 						{showAdvancedFilters && (
 							<Popover placement="bottom-start">
 								<PopoverTrigger>
@@ -423,7 +411,9 @@ export const Filters: FC<FilterProps> = ({
 									</PopoverHeader>
 									<PopoverBody>
 										<Stack spacing={2}>
-											{ADVANCED_FILTER_OPTIONS.map((option) => (
+											{ADVANCED_FILTER_OPTIONS.filter(
+												(option) => option.key !== "top_speed" || canViewTraffic,
+											).map((option) => (
 												<Checkbox
 													key={option.key}
 													isChecked={activeFilters.includes(option.key)}
@@ -622,9 +612,7 @@ export const Filters: FC<FilterProps> = ({
 							whiteSpace="nowrap"
 							w={{ base: "full", sm: "auto" }}
 						>
-							{target === "users"
-								? t("createUser")
-								: t("admins.addAdmin")}
+							{target === "users" ? t("createUser") : t("admins.addAdmin")}
 						</Button>
 					)}
 				</Stack>

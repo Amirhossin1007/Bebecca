@@ -34,6 +34,7 @@ service NodeRuntimeService {
 }
 
 service NodeUsageService {
+  rpc CollectOnlineUsers(Empty) returns (OnlineUsersResponse);
   rpc CollectUserUsage(CollectUsageRequest) returns (UserUsageBatch);
   rpc AckUserUsage(AckUsageRequest) returns (AckUsageResponse);
   rpc CollectOutboundUsage(CollectUsageRequest) returns (OutboundUsageBatch);
@@ -88,6 +89,8 @@ message RuntimeState {
   string install_mode = 5;
   string update_channel = 6;
   string message = 7;
+  repeated string capabilities = 8;
+  uint64 applied_revision = 9;
 }
 
 message RuntimeConfigRequest {
@@ -95,6 +98,7 @@ message RuntimeConfigRequest {
   string config_json = 2;
   bool include_db_users = 3;
   string ov_runtime_json = 4;
+  uint64 desired_revision = 5;
 }
 
 message StopRuntimeRequest {
@@ -317,11 +321,19 @@ message UserUsageBatch {
   string batch_id = 1;
   repeated UserUsageSample stats = 2;
   repeated OnlineUserIP online_ips = 3;
+  repeated UserTrafficSpeed speeds = 4;
+}
+
+message UserTrafficSpeed {
+  string uid = 1;
+  uint64 upload = 2;
+  uint64 download = 3;
 }
 
 message UserUsageSample {
   string uid = 1;
   uint64 value = 2;
+  string inbound_tag = 3;
 }
 
 message OnlineUserIP {
@@ -338,9 +350,16 @@ message OnlineIP {
 message OutboundUsageBatch {
   string batch_id = 1;
   repeated OutboundUsageSample stats = 2;
+  repeated InboundUsageSample inbound_stats = 3;
 }
 
 message OutboundUsageSample {
+  string tag = 1;
+  uint64 up = 2;
+  uint64 down = 3;
+}
+
+message InboundUsageSample {
   string tag = 1;
   uint64 up = 2;
   uint64 down = 3;
@@ -365,4 +384,8 @@ message LogLine {
   string stream_id = 1;
   string line = 2;
   int64 emitted_at_unix = 3;
+}
+
+message OnlineUsersResponse {
+  repeated string uids = 1;
 }

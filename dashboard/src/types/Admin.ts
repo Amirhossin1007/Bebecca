@@ -20,6 +20,7 @@ export enum UserPermissionToggle {
 	Create = "create",
 	Delete = "delete",
 	ResetUsage = "reset_usage",
+	PeriodicUsageReset = "periodic_usage_reset",
 	Revoke = "revoke",
 	CreateOnHold = "create_on_hold",
 	AllowUnlimitedData = "allow_unlimited_data",

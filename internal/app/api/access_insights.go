@@ -236,16 +236,28 @@ func (s *Server) handleAccessInsights(w http.ResponseWriter, r *http.Request) {
 	}
 	limit := boundedQueryInt(r, "limit", 250, 1, 500)
 	windowSeconds := boundedQueryInt(r, "window_seconds", 300, 30, 600)
+	matchCase, err := optionalQueryBool(r.URL.Query().Get("match_case"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid match_case")
+		return
+	}
+	matchWholeWord, err := optionalQueryBool(r.URL.Query().Get("match_whole_word"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid match_whole_word")
+		return
+	}
 	var adminID *int64
 	if !principal.Context.Admin.Role.IsGlobal() {
 		id := principal.ID
 		adminID = &id
 	}
 	query := nodecontroller.OnlineAccessQuery{
-		AdminID: adminID,
-		Search:  r.URL.Query().Get("search"),
-		Limit:   limit,
-		Cutoff:  time.Now().UTC().Add(-time.Duration(windowSeconds) * time.Second),
+		AdminID:        adminID,
+		Search:         r.URL.Query().Get("search"),
+		MatchCase:      matchCase,
+		MatchWholeWord: matchWholeWord,
+		Limit:          limit,
+		Cutoff:         time.Now().UTC().Add(-time.Duration(windowSeconds) * time.Second),
 	}
 	onlineTotal, err := s.nodeController.OnlineAccessUserTotal(r.Context(), query)
 	if err != nil {
@@ -287,7 +299,7 @@ func (s *Server) handleAccessOperators(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) buildAccessInsights(ctx context.Context, records []nodecontroller.UserOnlineIPRecord, limit, windowSeconds int, onlineTotal int64) map[string]any {
 	groups := map[int64]*accessInsightGroup{}
-	order := make([]int64, 0, limit)
+	order := make([]int64, 0)
 	allIPs := []string{}
 	nodeRecordCounts := map[string]int{}
 	for _, record := range records {

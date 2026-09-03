@@ -59,8 +59,8 @@ BotFather ابزار رسمی تلگرام برای ساخت و مدیریت ر�
 
 1. در پنل وارد تنظیمات Telegram/Bot شو و ربات را با توکن BotFather فعال کن.
 2. با پیام تست مطمئن شو ربات می‌تواند به گروه بکاپ پیام بفرستد.
-3. بعد مسیر Master settings -> Telegram -> <a href="#" data-panel-route="/integrations?focus=periodic-backup#telegram">Periodic Backup</a> را باز کن و بکاپ تلگرام را فعال کن.
-4. تنظیمات را ذخیره کن و یک بکاپ دستی بگیر تا ارسال فایل داخل گروه را ببینی.
+3. مسیر Settings -> Telegram -> <a href="#" data-panel-route="/settings#telegram">Periodic backup</a> را باز کن و بکاپ تلگرام را فعال کن.
+4. دکمه مشترک **Save Settings** را بزن و سپس با **Send backup now** رسیدن فایل به گروه را بررسی کن.
 5. بعد از موفق بودن تست، بکاپ زمان‌بندی‌شده را روشن بگذار.
 
 {{< callout type="info" >}}

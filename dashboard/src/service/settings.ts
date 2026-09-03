@@ -110,13 +110,16 @@ export const updateTelegramSettings = async (
 	});
 };
 
-export const testTelegramSettings =
-	async (): Promise<{ ok: boolean; chat_id: number; detail: string }> => {
-		return apiFetch("/settings/telegram/test", {
-			method: "POST",
-			body: JSON.stringify({}),
-		});
-	};
+export const testTelegramSettings = async (): Promise<{
+	ok: boolean;
+	chat_id: number;
+	detail: string;
+}> => {
+	return apiFetch("/settings/telegram/test", {
+		method: "POST",
+		body: JSON.stringify({}),
+	});
+};
 
 export const sendTelegramBackup = async (
 	scope: RebeccaBackupScope,
@@ -128,11 +131,11 @@ export const sendTelegramBackup = async (
 };
 
 export interface PanelSettingsResponse {
-	default_subscription_type: "username-key" | "key" | "token";
+	default_subscription_type: "username-key" | "key" | "token" | "key-username";
 }
 
 export interface PanelSettingsUpdatePayload {
-	default_subscription_type?: "username-key" | "key" | "token";
+	default_subscription_type?: "username-key" | "key" | "token" | "key-username";
 }
 
 export type RebeccaBackupScope = "database" | "full";
@@ -173,7 +176,8 @@ export interface SubscriptionTemplateSettings {
 	subscription_ports: number[];
 }
 
-export type SubscriptionTemplateSettingsUpdatePayload = Partial<SubscriptionTemplateSettings>;
+export type SubscriptionTemplateSettingsUpdatePayload =
+	Partial<SubscriptionTemplateSettings>;
 
 export interface AdminSubscriptionSettings {
 	id: number;
@@ -197,6 +201,21 @@ export interface SubscriptionCertificate {
 	last_issued_at: string | null;
 	last_renewed_at: string | null;
 	path: string;
+	status:
+		| "active"
+		| "expiring"
+		| "expired"
+		| "not_yet_valid"
+		| "missing"
+		| "invalid"
+		| "revoking"
+		| "revoked";
+	not_before: string | null;
+	not_after: string | null;
+	issuer: string | null;
+	fingerprint_sha256: string | null;
+	auto_renew: boolean;
+	serve_tls: boolean;
 }
 
 export interface SubscriptionSettingsBundle {
@@ -205,23 +224,22 @@ export interface SubscriptionSettingsBundle {
 	certificates: SubscriptionCertificate[];
 }
 
-export interface SubscriptionTemplateContentResponse {
-	template_key: string;
-	template_name: string;
-	custom_directory: string | null;
-	resolved_path: string | null;
-	admin_id: number | null;
-	content: string;
-}
-
 export interface CertificateIssuePayload {
 	email: string;
 	domains: string[];
 	admin_id?: number | null;
+	provider: "letsencrypt" | "zerossl";
 }
 
 export interface CertificateRenewPayload {
-	domain?: string | null;
+	domain: string;
+}
+
+export interface CertificateImportPayload {
+	domain: string;
+	admin_id?: number | null;
+	fullchain: string;
+	private_key: string;
 }
 
 export interface RuntimeSettingsResponse {
@@ -241,9 +259,38 @@ export interface RuntimeSettingsResponse {
 
 export type RuntimeSettingsUpdatePayload = Partial<RuntimeSettingsResponse>;
 
-export const getRuntimeSettings = async (): Promise<RuntimeSettingsResponse> => {
-	return apiFetch("/settings");
+export interface AllSettingsUpdatePayload {
+	panel?: PanelSettingsUpdatePayload;
+	runtime?: RuntimeSettingsUpdatePayload;
+	telegram?: TelegramSettingsUpdatePayload;
+	subscriptions?: SubscriptionTemplateSettingsUpdatePayload;
+	subscription_admins?: Array<{
+		id: number;
+		settings: AdminSubscriptionUpdatePayload;
+	}>;
+}
+
+export interface AllSettingsUpdateResponse {
+	panel?: PanelSettingsResponse;
+	runtime?: RuntimeSettingsResponse;
+	telegram?: TelegramSettingsResponse;
+	subscriptions?: SubscriptionTemplateSettings;
+	subscription_admins?: AdminSubscriptionSettings[];
+}
+
+export const updateAllSettings = async (
+	payload: AllSettingsUpdatePayload,
+): Promise<AllSettingsUpdateResponse> => {
+	return apiFetch("/settings/all", {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
 };
+
+export const getRuntimeSettings =
+	async (): Promise<RuntimeSettingsResponse> => {
+		return apiFetch("/settings");
+	};
 
 export const updateRuntimeSettings = async (
 	payload: RuntimeSettingsUpdatePayload,
@@ -296,6 +343,256 @@ export const disablePHPMyAdmin =
 		});
 	};
 
+export interface ExternalAppRecord {
+	id: string;
+	template: "archive" | "mirzabot";
+	name: string;
+	domain: string;
+	path?: string;
+	enabled: boolean;
+	runtime: "static" | "php" | "node";
+	version?: string;
+	source_sha?: string;
+	installed_at: string;
+	php_version?: string;
+	bot_username?: string;
+	index_file: string;
+	fallback_to_index: boolean;
+	max_request_body_mb: number;
+	static_cache_seconds: number;
+	not_found_file: string;
+	has_database: boolean;
+	public_url: string;
+	update_available?: boolean;
+	latest_version?: string;
+}
+
+export interface ExternalAppTemplate {
+	id: "archive" | "mirzabot";
+	name: string;
+	supported: boolean;
+	detail?: string;
+	version?: string;
+	source_sha?: string;
+	source_url?: string;
+}
+
+export interface ExternalAppsResponse {
+	supported: boolean;
+	detail: string;
+	templates: ExternalAppTemplate[];
+	apps: ExternalAppRecord[];
+}
+
+export const getExternalApps = async (): Promise<ExternalAppsResponse> => {
+	return apiFetch("/settings/external-apps");
+};
+
+export const installExternalArchive = async (payload: {
+	domain: string;
+	name: string;
+	runtime: "php" | "static" | "node";
+	archive?: File;
+	create_database: boolean;
+	database?: string;
+	database_user?: string;
+	database_password?: string;
+}): Promise<ExternalAppRecord> => {
+	const body = new FormData();
+	body.set("domain", payload.domain);
+	body.set("name", payload.name);
+	body.set("runtime", payload.runtime);
+	body.set("create_database", String(payload.create_database));
+	if (payload.archive) body.set("archive", payload.archive);
+	if (payload.create_database) {
+		body.set("database", payload.database ?? "");
+		body.set("database_user", payload.database_user ?? "");
+		body.set("database_password", payload.database_password ?? "");
+	}
+	return $fetch("/settings/external-apps/archive", {
+		method: "POST",
+		body,
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const installMirzaBot = async (payload: {
+	domain: string;
+	bot_token: string;
+	admin_id: string;
+	database_backup?: File;
+}): Promise<ExternalAppRecord> => {
+	const body = new FormData();
+	body.set("domain", payload.domain);
+	body.set("bot_token", payload.bot_token);
+	body.set("admin_id", payload.admin_id);
+	if (payload.database_backup) {
+		body.set("database_backup", payload.database_backup);
+	}
+	return $fetch("/settings/external-apps/mirzabot", {
+		method: "POST",
+		body,
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const setExternalAppEnabled = async (payload: {
+	id: string;
+	enabled: boolean;
+}): Promise<ExternalAppRecord> => {
+	return apiFetch(
+		`/settings/external-apps/${encodeURIComponent(payload.id)}/${payload.enabled ? "enable" : "disable"}`,
+		{ method: "POST", body: JSON.stringify({}), timeout: 120000 },
+	);
+};
+
+export const updateExternalMirzaBot = async (
+	id: string,
+): Promise<ExternalAppRecord> => {
+	return apiFetch(externalAppPath(id, "/update"), {
+		method: "POST",
+		body: JSON.stringify({}),
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const exportExternalAppDatabase = async (id: string): Promise<Blob> => {
+	return $fetch<Blob>(externalAppPath(id, "/database-backup"), {
+		responseType: "blob",
+		credentials: "include",
+		timeout: 10 * 60 * 1000,
+	} as any);
+};
+
+export const updateExternalAppSettings = async (payload: {
+	id: string;
+	index_file: string;
+	fallback_to_index: boolean;
+	max_request_body_mb: number;
+	static_cache_seconds: number;
+	not_found_file: string;
+}): Promise<ExternalAppRecord> => {
+	return apiFetch(externalAppPath(payload.id, "/settings"), {
+		method: "PUT",
+		body: JSON.stringify({
+			index_file: payload.index_file,
+			fallback_to_index: payload.fallback_to_index,
+			max_request_body_mb: payload.max_request_body_mb,
+			static_cache_seconds: payload.static_cache_seconds,
+			not_found_file: payload.not_found_file,
+		}),
+	});
+};
+
+export const deleteExternalApp = async (payload: {
+	id: string;
+	keep_database: boolean;
+}): Promise<void> => {
+	await apiFetch(`/settings/external-apps/${encodeURIComponent(payload.id)}`, {
+		method: "DELETE",
+		body: JSON.stringify({ keep_database: payload.keep_database }),
+		timeout: 10 * 60 * 1000,
+	});
+};
+
+export interface ExternalAppFile {
+	name: string;
+	isDirectory: boolean;
+	path: string;
+	updatedAt?: string;
+	size?: number;
+}
+
+export interface ExternalAppFileContent {
+	path: string;
+	content: string;
+	updated_at: string;
+}
+
+const externalAppPath = (id: string, suffix = "") =>
+	`/settings/external-apps/${encodeURIComponent(id)}${suffix}`;
+
+export const getExternalAppFiles = async (
+	domain: string,
+): Promise<{ files: ExternalAppFile[] }> => {
+	return apiFetch(externalAppPath(domain, "/files"));
+};
+
+export const getExternalAppFile = async (
+	domain: string,
+	path: string,
+): Promise<ExternalAppFileContent> => {
+	return apiFetch(
+		`${externalAppPath(domain, "/files/content")}?path=${encodeURIComponent(path)}`,
+	);
+};
+
+export const saveExternalAppFile = async (payload: {
+	domain: string;
+	path: string;
+	content: string;
+}): Promise<void> => {
+	await apiFetch(externalAppPath(payload.domain, "/files/content"), {
+		method: "PUT",
+		body: JSON.stringify({ path: payload.path, content: payload.content }),
+	});
+};
+
+export const createExternalAppFolder = async (payload: {
+	domain: string;
+	path: string;
+}): Promise<void> => {
+	await apiFetch(externalAppPath(payload.domain, "/files/folder"), {
+		method: "POST",
+		body: JSON.stringify({ path: payload.path }),
+	});
+};
+
+export const moveExternalAppFile = async (payload: {
+	domain: string;
+	path: string;
+	new_path: string;
+}): Promise<void> => {
+	await apiFetch(externalAppPath(payload.domain, "/files/move"), {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+};
+
+export const deleteExternalAppFiles = async (payload: {
+	domain: string;
+	paths: string[];
+}): Promise<void> => {
+	await apiFetch(externalAppPath(payload.domain, "/files/delete"), {
+		method: "POST",
+		body: JSON.stringify({ paths: payload.paths }),
+	});
+};
+
+const externalAppAPIBase = (apiBaseURL || "/api").replace(/\/$/, "");
+
+export const externalAppFileUploadURL = (domain: string) =>
+	`${externalAppAPIBase}${externalAppPath(domain, "/files/upload")}`;
+
+export const externalAppFileDownloadURL = (domain: string, path: string) =>
+	`${externalAppAPIBase}${externalAppPath(domain, "/files/download")}?path=${encodeURIComponent(path)}`;
+
+export const getExternalAppPHPConfig = async (
+	domain: string,
+): Promise<ExternalAppFileContent> => {
+	return apiFetch(externalAppPath(domain, "/php-config"));
+};
+
+export const saveExternalAppPHPConfig = async (payload: {
+	domain: string;
+	content: string;
+}): Promise<void> => {
+	await apiFetch(externalAppPath(payload.domain, "/php-config"), {
+		method: "PUT",
+		body: JSON.stringify({ content: payload.content }),
+	});
+};
+
 export const getPHPMyAdminEmbedHTML = async (
 	theme?: string,
 ): Promise<string> => {
@@ -343,14 +640,35 @@ export const exportRebeccaBackup = async (
 };
 
 export const importRebeccaBackup = async (
-	scope: RebeccaBackupScope,
 	file: File,
+	onProgress?: (percent: number) => void,
 ): Promise<RebeccaBackupImportResponse> => {
-	const body = new FormData();
-	body.append("file", file);
-	return apiFetch(`/settings/backup/import?scope=${scope}`, {
-		method: "POST",
-		body,
+	return new Promise((resolve, reject) => {
+		const body = new FormData();
+		body.append("file", file);
+		const xhr = new XMLHttpRequest();
+		const baseURL = (apiBaseURL || "/api").replace(/\/$/, "");
+		xhr.open("POST", `${baseURL}/settings/backup/import`);
+		xhr.withCredentials = true;
+		xhr.responseType = "json";
+		xhr.upload.onprogress = (event) => {
+			if (event.lengthComputable) {
+				onProgress?.(
+					Math.min(100, Math.round((event.loaded / event.total) * 100)),
+				);
+			}
+		};
+		xhr.upload.onload = () => onProgress?.(100);
+		xhr.onload = () => {
+			if (xhr.status >= 200 && xhr.status < 300) {
+				resolve(xhr.response as RebeccaBackupImportResponse);
+				return;
+			}
+			reject({ response: { _data: xhr.response } });
+		};
+		xhr.onerror = () => reject(new Error("Backup upload failed"));
+		onProgress?.(0);
+		xhr.send(body);
 	});
 };
 
@@ -378,25 +696,6 @@ export const updateAdminSubscriptionSettings = async (
 	});
 };
 
-export const getSubscriptionTemplateContent = async (
-	templateKey: string,
-	adminId?: number | null,
-): Promise<SubscriptionTemplateContentResponse> => {
-	const query = adminId != null ? `?admin_id=${adminId}` : "";
-	return apiFetch(`/settings/subscriptions/templates/${templateKey}${query}`);
-};
-
-export const updateSubscriptionTemplateContent = async (
-	templateKey: string,
-	payload: { content: string; admin_id?: number | null },
-): Promise<SubscriptionTemplateContentResponse> => {
-	const query = payload.admin_id != null ? `?admin_id=${payload.admin_id}` : "";
-	return apiFetch(`/settings/subscriptions/templates/${templateKey}${query}`, {
-		method: "PUT",
-		body: JSON.stringify({ content: payload.content }),
-	});
-};
-
 export const issueSubscriptionCertificate = async (
 	payload: CertificateIssuePayload,
 ): Promise<SubscriptionCertificate> => {
@@ -413,4 +712,44 @@ export const renewSubscriptionCertificate = async (
 		method: "POST",
 		body: JSON.stringify(payload),
 	});
+};
+
+export const importSubscriptionCertificate = async (
+	payload: CertificateImportPayload,
+): Promise<SubscriptionCertificate> => {
+	return apiFetch("/settings/subscriptions/certificates/import", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+};
+
+export const revokeSubscriptionCertificate = async (
+	domain: string,
+): Promise<SubscriptionCertificate> => {
+	return apiFetch(
+		`/settings/subscriptions/certificates/${encodeURIComponent(domain)}/revoke`,
+		{ method: "POST", body: JSON.stringify({}) },
+	);
+};
+
+export const deleteSubscriptionCertificate = async (
+	domain: string,
+): Promise<void> => {
+	return apiFetch(
+		`/settings/subscriptions/certificates/${encodeURIComponent(domain)}`,
+		{ method: "DELETE" },
+	);
+};
+
+export const updateSubscriptionCertificateServing = async (
+	domain: string,
+	serveTLS: boolean,
+): Promise<SubscriptionCertificate> => {
+	return apiFetch(
+		`/settings/subscriptions/certificates/${encodeURIComponent(domain)}`,
+		{
+			method: "PUT",
+			body: JSON.stringify({ serve_tls: serveTLS }),
+		},
+	);
 };

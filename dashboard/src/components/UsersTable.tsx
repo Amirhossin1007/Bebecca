@@ -41,7 +41,6 @@ import {
 import { LockClosedIcon } from "@heroicons/react/24/solid";
 import type { SortingState } from "@tanstack/react-table";
 import { ReactComponent as AddFileIcon } from "assets/add_file.svg";
-import { resetStrategy } from "constants/UserSettings";
 import { useDashboard } from "contexts/DashboardContext";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
@@ -68,9 +67,8 @@ import { formatBytes } from "utils/formatByte";
 import { generateUserLinks } from "utils/userLinks";
 import { AppDialog } from "./dialogs/AppDialog";
 import { ConfirmDialog, DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
-import { OnlineStatus } from "./OnlineStatus";
 import { OperatorIdentity } from "./OperatorIdentity";
-import { StatusBadge } from "./StatusBadge";
+import { OnlineStatus } from "./OnlineStatus";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -84,11 +82,49 @@ import {
 	formatUsagePair,
 	UserAdminChip,
 	UserExpiryCountdown,
-	UserStatusDot,
+	UserOnlineBadge,
 	UserUsageBar,
 } from "./users";
 
 const EmptySectionIcon = chakra(AddFileIcon);
+
+const USER_STATUS_TEXT_COLORS: Partial<Record<UserListItem["status"], string>> =
+	{
+		active: "green.400",
+		on_hold: "purple.400",
+		expired: "yellow.400",
+		limited: "red.400",
+	};
+
+const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
+	const { t } = useTranslation();
+	const upload = useDashboard(
+		(state) => state.liveUserStats[user.username]?.upload_speed,
+	) ?? user.upload_speed ?? 0;
+	const download = useDashboard(
+		(state) => state.liveUserStats[user.username]?.download_speed,
+	) ?? user.download_speed ?? 0;
+	if (upload === 0 && download === 0) {
+		return <Text color="panel.textMuted">—</Text>;
+	}
+	return (
+		<Stack spacing={0} fontSize="xs" lineHeight="short" dir="ltr">
+			<Text aria-label={t("usersTable.uploadSpeed")}>
+				↑ {formatBytes(upload)}/s
+			</Text>
+			<Text aria-label={t("usersTable.downloadSpeed")}>
+				↓ {formatBytes(download)}/s
+			</Text>
+		</Stack>
+	);
+};
+
+const UserPresence: FC<{ user: UserListItem }> = ({ user }) => {
+	const isOnline = useDashboard(
+		(state) => state.liveUserStats[user.username]?.is_online,
+	);
+	return <UserOnlineBadge isOnline={isOnline ?? user.is_online} />;
+};
 
 const iconProps = {
 	baseStyle: {
@@ -274,6 +310,7 @@ const TrafficSubmenu: FC<{
 	return (
 		<Menu
 			isOpen={isOpen}
+			isLazy
 			onClose={closeMenu}
 			placement={isRTL ? "left-start" : "right-start"}
 			strategy="fixed"
@@ -349,11 +386,6 @@ const TrafficSubmenu: FC<{
 	);
 };
 
-const getResetStrategy = (strategy: string): string => {
-	const entry = resetStrategy.find((item) => item.value === strategy);
-	return entry?.title ?? "No";
-};
-
 const formatCount = (value: number | null | undefined, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value ?? 0);
 
@@ -418,23 +450,6 @@ const toMenuItems = (
 			: undefined,
 	}));
 
-const getUsageResetLabel = (
-	user: UserListItem,
-	t: (key: string) => string,
-): string | undefined => {
-	const isUnlimited = user.data_limit === 0 || user.data_limit === null;
-	if (
-		isUnlimited ||
-		!user.data_limit_reset_strategy ||
-		user.data_limit_reset_strategy === "no_reset"
-	) {
-		return undefined;
-	}
-	return t(
-		`userDialog.resetStrategy${getResetStrategy(user.data_limit_reset_strategy)}`,
-	);
-};
-
 type UsersTableProps = BoxProps & {
 	toolbar?: ReactNode;
 	/** Rendered in the header of the list summary card (e.g. refresh). */
@@ -460,9 +475,24 @@ export const UsersTable: FC<UsersTableProps> = ({
 		setQRCode,
 		setSubLink,
 		linkTemplates,
-	} = useDashboard();
+	} = {
+		filters: useDashboard((state) => state.filters),
+		users: useDashboard((state) => state.users),
+		onEditingUser: useDashboard((state) => state.onEditingUser),
+		onFilterChange: useDashboard((state) => state.onFilterChange),
+		loading: useDashboard((state) => state.loading),
+		isUserLimitReached: useDashboard((state) => state.isUserLimitReached),
+		deleteUser: useDashboard((state) => state.deleteUser),
+		resetDataUsage: useDashboard((state) => state.resetDataUsage),
+		revokeSubscription: useDashboard((state) => state.revokeSubscription),
+		refetchUsers: useDashboard((state) => state.refetchUsers),
+		setQRCode: useDashboard((state) => state.setQRCode),
+		setSubLink: useDashboard((state) => state.setSubLink),
+		linkTemplates: useDashboard((state) => state.linkTemplates),
+	};
 
 	const { t, i18n } = useTranslation();
+	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const locale = i18n.language || "en";
 	const toast = useToast();
@@ -487,7 +517,10 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const hasPrivilegedRole =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 	const hasFullAccess = userData.role === AdminRole.FullAccess;
-	const userManagementLocked = isUserManagementLocked(userData);
+	const userManagementLocked = isUserManagementLocked(
+		userData,
+		filters.serviceId,
+	);
 	const canViewTraffic = canViewUserTraffic(userData);
 	const isAdminDisabled = Boolean(
 		!hasPrivilegedRole && userData.status === AdminStatus.Disabled,
@@ -522,13 +555,8 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const disabledReason = userData.disabled_reason;
 
 	const rowsToRender = filters.limit || 10;
+	const compactRowActions = rowsToRender > 20;
 	const isFiltered = usersResponse.users.length !== usersResponse.total;
-	// Matches DataTable's own mobile/desktop threshold (mobileBreakpoint
-	// defaults to "lg") so the two-row detailed usage layout applies at
-	// every genuine desktop width, while the mobile card's collapsed-row
-	// summary (which reuses this same cell) keeps its original compact form.
-	const isDesktopUsageLayout =
-		useBreakpointValue({ base: false, lg: true }) ?? false;
 	const hasUsageScopeFilter = Boolean(
 		filters.search?.trim() ||
 			filters.status ||
@@ -537,6 +565,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			filters.serviceId,
 	);
 	const [contextAction, setContextAction] = useState<string | null>(null);
+	const [expandedUsername, setExpandedUsername] = useState<string | null>(null);
 	const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);
 	const [bulkAction, setBulkAction] = useState<string | null>(null);
 	const [isBulkResetOpen, setIsBulkResetOpen] = useState(false);
@@ -564,6 +593,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				selectedUsernameSet.has(user.username),
 			),
 		[usersResponse.users, selectedUsernameSet],
+	);
+	const selectedUsersManagementLocked = selectedUsers.some((user) =>
+		isUserManagementLocked(userData, user.service_id),
 	);
 
 	useEffect(() => {
@@ -656,10 +688,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				method: "PUT",
 				body: { expire: nextExpire },
 			});
-			notify(
-				t("usersTable.extendExpireSuccess"),
-				"success",
-			);
+			notify(t("usersTable.extendExpireSuccess"), "success");
 			refetchUsers(true);
 		} catch (error: any) {
 			notify(error?.data?.detail || error?.message || t("error"), "error");
@@ -752,9 +781,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			);
 		} catch (error: any) {
 			const message =
-				error?.data?.detail ||
-				error?.message ||
-				t("usersTable.getIpsFailed");
+				error?.data?.detail || error?.message || t("usersTable.getIpsFailed");
 			setIPDialog((current) =>
 				current?.username === user.username
 					? { ...current, error: message }
@@ -812,8 +839,8 @@ export const UsersTable: FC<UsersTableProps> = ({
 			await Promise.all(users.map((user) => handler(user)));
 			notify(successLabel, "success", {
 				description: t("usersTable.bulkActionCount", {
-						count: users.length,
-					}),
+					count: users.length,
+				}),
 			});
 			clearSelectedUsers();
 			refetchUsers(true);
@@ -887,6 +914,20 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const userColumns = useMemo<DataTableColumn<UserListItem>[]>(() => {
 		const columns: DataTableColumn<UserListItem>[] = [
 			{
+				id: "online",
+				header: t("usersTable.online"),
+				priority: "high",
+				width: "76px",
+				minWidth: "72px",
+				maxWidth: "84px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobileVisible: true,
+				mobilePriority: 1,
+				mobileMetaLabel: t("usersTable.online"),
+				cell: (user) => <UserPresence user={user} />,
+			},
+			{
 				id: "username",
 				header: t("username"),
 				accessor: "username",
@@ -900,107 +941,61 @@ export const UsersTable: FC<UsersTableProps> = ({
 				tooltip: true,
 				multiline: true,
 				cellAlign: "start",
-				headerInset: "20px",
 				mobilePriority: 0,
 				mobileMetaLabel: t("username"),
 				cell: (user) => (
-					<HStack
-						spacing={2.5}
-						align="center"
-						dir="ltr"
-						flexDirection="row"
-						justify="flex-start"
-						minW={0}
-						maxW="full"
-						w="full"
-					>
-						<UserStatusDot lastOnline={user.online_at ?? null} />
-						<Box
-							minW={0}
-							flex="1 1 auto"
+					<Stack spacing={0.5} minW={0} align="flex-start">
+						<Text
+							fontWeight="semibold"
+							noOfLines={1}
 							maxW="full"
-							py={0.5}
-							lineHeight="short"
-							textAlign="left"
-							overflow="hidden"
+							color="panel.text"
+							dir="ltr"
+							sx={{ unicodeBidi: "isolate" }}
+							_hover={canOpenUserDialog ? { color: "panel.accent" } : undefined}
 						>
-							<Text
-								fontWeight="semibold"
-								noOfLines={1}
-								maxW="full"
-								color="panel.text"
-								dir="ltr"
-								sx={{ unicodeBidi: "isolate" }}
-								_hover={
-									canOpenUserDialog ? { color: "panel.accent" } : undefined
-								}
-							>
-								{formatUsernamePreview(user.username)}
-							</Text>
-							<HStack
-								className="rb-user-username-meta"
-								spacing={1.5}
-								minW={0}
-								maxW="full"
-								overflow="hidden"
-							>
-								<UserAdminChip
-									show={hasPrivilegedRole}
-									adminUsername={user.admin_username}
-								/>
-								<OnlineStatus
-									lastOnline={user.online_at ?? null}
-									withMargin={false}
-									compact
-								/>
-							</HStack>
-						</Box>
-					</HStack>
+							{formatUsernamePreview(user.username)}
+						</Text>
+						<UserAdminChip adminUsername={user.admin_username} />
+						<Text
+							className="rb-user-card-status"
+							fontSize="xs"
+							fontWeight="semibold"
+							color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"}
+							textTransform="capitalize"
+						>
+							{t(`status.${user.status}`)}
+						</Text>
+					</Stack>
 				),
 			},
 			{
-				id: "expire",
+				id: "status",
 				header: t("usersTable.status"),
-				sortable: true,
 				priority: "high",
-				width: { lg: "128px", xl: "138px" },
-				minWidth: "112px",
-				maxWidth: "148px",
-				headerAlign: "center",
+				width: "112px",
+				minWidth: "96px",
+				maxWidth: "128px",
+				headerAlign: "start",
 				cellAlign: "start",
-				headerInset: "16px",
-				mobilePriority: 1,
-				mobileMetaLabel: t("usersTable.status"),
-				mobileDetailCell: (user) => (
-					<StatusBadge expiryDate={null} status={user.status} compact />
-				),
-				cell: (user) => (
-					<Flex align="center" justify="flex-start" dir="ltr" w="full">
-						<StatusBadge
-							expiryDate={user.expire}
-							status={user.status}
-							compact
-							detailPlacement="inline"
-						/>
-					</Flex>
-				),
-			},
-			{
-				id: "expiry",
-				header: t("usersTable.expire"),
-				desktopVisible: false,
-				mobileVisible: true,
 				mobilePriority: 2,
-				mobileMetaLabel: t("usersTable.expire"),
-				cell: (user) => <UserExpiryCountdown expire={user.expire} />,
+				mobileMetaLabel: t("usersTable.status"),
+				cell: (user) => (
+					<Text
+						fontSize="sm"
+						fontWeight="semibold"
+						color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"}
+						textTransform="capitalize"
+					>
+						{t(`status.${user.status}`)}
+					</Text>
+				),
 			},
 			{
 				id: "service",
 				header: t("usersTable.service"),
-				accessor: (user) =>
-					user.service_name ?? t("usersTable.defaultService"),
-				priority: "medium",
-				hideBelow: "xl",
+				accessor: (user) => user.service_name ?? t("usersTable.defaultService"),
+				priority: "high",
 				width: "118px",
 				minWidth: "96px",
 				maxWidth: "138px",
@@ -1025,48 +1020,105 @@ export const UsersTable: FC<UsersTableProps> = ({
 		if (canViewTraffic) {
 			columns.push({
 				id: "used_traffic",
-				header: t("usersTable.dataUsage"),
+				header: t("usersTable.traffic"),
 				sortable: true,
 				priority: "high",
-				hideBelow: "lg",
-				width: "clamp(104px, 16vw, 240px)",
-				minWidth: "104px",
-				maxWidth: "240px",
-				headerAlign: "center",
+				width: "clamp(204px, 18vw, 280px)",
+				minWidth: "204px",
+				maxWidth: "280px",
+				headerAlign: "start",
 				cellAlign: "start",
 				mobileVisible: true,
 				mobileSummary: true,
 				mobilePriority: 4,
-				mobileMetaLabel: t("usersTable.dataUsage"),
+				mobileMetaLabel: t("usersTable.traffic"),
 				mobileDetailCell: (user) => (
 					<MobileUsageDetail used={user.used_traffic} total={user.data_limit} />
 				),
-				cell: (user) =>
-					isDesktopUsageLayout ? (
-						<UserUsageBar
-							variant="detailed"
-							used={user.used_traffic}
-							total={user.data_limit}
-							lifetimeUsed={user.lifetime_used_traffic}
-							lifetimeLabel={t("usersTable.lifetimeUsage")}
-							resetLabel={getUsageResetLabel(user, t)}
-						/>
-					) : (
-						<UserUsageBar used={user.used_traffic} total={user.data_limit} />
-					),
+				cell: (user) => (
+					<UserUsageBar
+						variant="compact"
+						used={user.used_traffic}
+						total={user.data_limit}
+					/>
+				),
+			});
+			columns.push({
+				id: "speed",
+				header: t("usersTable.speed"),
+				priority: "high",
+				width: "120px",
+				minWidth: "112px",
+				maxWidth: "136px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobileVisible: true,
+				mobilePriority: 5,
+				mobileMetaLabel: t("usersTable.speed"),
+				cell: (user) => <UserSpeed user={user} />,
+			});
+			columns.push({
+				id: "remaining_traffic",
+				header: t("usersTable.remainingTraffic"),
+				priority: "high",
+				width: "132px",
+				minWidth: "114px",
+				maxWidth: "148px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobileVisible: true,
+				mobilePriority: 6,
+				mobileMetaLabel: t("usersTable.remainingTraffic"),
+				cell: (user) => (
+					<Text
+						fontSize={!user.data_limit ? "xl" : "sm"}
+						fontWeight={!user.data_limit ? "semibold" : undefined}
+						lineHeight="1"
+						color={!user.data_limit ? "panel.textMuted" : "panel.text"}
+						dir="ltr"
+						aria-label={!user.data_limit ? t("unlimited") : undefined}
+					>
+						{!user.data_limit
+							? "∞"
+							: formatBytes(Math.max(user.data_limit - user.used_traffic, 0))}
+					</Text>
+				),
 			});
 			columns.push({
 				id: "lifetime_used_traffic",
 				header: t("usersTable.lifetimeUsage"),
-				desktopVisible: false,
+				priority: "high",
+				width: "132px",
+				minWidth: "114px",
+				maxWidth: "148px",
+				headerAlign: "start",
+				cellAlign: "start",
 				mobileVisible: true,
-				mobilePriority: 5,
+				mobilePriority: 7,
 				mobileMetaLabel: t("usersTable.lifetimeUsage"),
 				cell: (user) => (
 					<MobileLifetimeDetail totalUsedTraffic={user.lifetime_used_traffic} />
 				),
 			});
 		}
+
+		columns.push({
+			id: "expire",
+			header: t("usersTable.expire"),
+			sortable: true,
+			priority: "high",
+			width: "132px",
+			minWidth: "114px",
+			maxWidth: "148px",
+			headerAlign: "start",
+			cellAlign: "start",
+			mobileVisible: true,
+			mobilePriority: 8,
+			mobileMetaLabel: t("usersTable.expire"),
+			cell: (user) => (
+				<UserExpiryCountdown expire={user.expire} status={user.status} />
+			),
+		});
 
 		// The reseller tag is hidden in the collapsed mobile row (CSS) and
 		// surfaces here instead, inside the expanded details.
@@ -1076,20 +1128,31 @@ export const UsersTable: FC<UsersTableProps> = ({
 				header: t("usersTable.admin"),
 				desktopVisible: false,
 				mobileVisible: true,
-				mobilePriority: 6,
+				mobilePriority: 9,
 				mobileMetaLabel: t("usersTable.admin"),
 				cell: (user) => <UserAdminChip adminUsername={user.admin_username} />,
 			});
 		}
 
+		columns.push({
+			id: "last_connection",
+			header: t("bulkActions.delete.lastOnline"),
+			desktopVisible: false,
+			mobileVisible: true,
+			mobilePriority: 10,
+			mobileMetaLabel: t("bulkActions.delete.lastOnline"),
+			cell: (user) => (
+				<OnlineStatus
+					lastOnline={user.online_at ?? null}
+					isOnline={user.is_online}
+					withMargin={false}
+					compact
+				/>
+			),
+		});
+
 		return columns;
-	}, [
-		canOpenUserDialog,
-		canViewTraffic,
-		hasPrivilegedRole,
-		isDesktopUsageLayout,
-		t,
-	]);
+	}, [canOpenUserDialog, canViewTraffic, hasPrivilegedRole, t]);
 
 	const userSorting = useMemo<SortingState>(() => {
 		const currentSort = filters.sort || "";
@@ -1127,6 +1190,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const getUserRowActions = (
 		user: UserListItem,
 	): DataTableRowAction<UserListItem>[] => {
+		const rowManagementLocked = isUserManagementLocked(
+			userData,
+			user.service_id,
+		);
+		const canMutateRow = canMutateUsers && !rowManagementLocked;
 		const subscriptionLink = formatUserLink(user.subscription_url);
 		const configLinks = generateUserLinks(user, linkTemplates);
 		const configLinksText = configLinks.join("\n");
@@ -1136,16 +1204,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 				label: t("usersTable.copyLink"),
 				icon: <SubscriptionLinkIcon />,
 				isDisabled: !subscriptionLink,
-				onClick: () =>
-					copyUserText(subscriptionLink, t("copied")),
+				onClick: () => copyUserText(subscriptionLink, t("copied")),
 			},
 			{
 				id: "copy-configs",
 				label: t("usersTable.copyConfigs"),
 				icon: <CopyIcon />,
 				isDisabled: configLinks.length === 0,
-				onClick: () =>
-					copyUserText(configLinksText, t("copied")),
+				onClick: () => copyUserText(configLinksText, t("copied")),
 			},
 			{
 				id: "qr",
@@ -1165,7 +1231,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			},
 		];
 
-		if (canOpenUserDialog) {
+		if (canOpenUserDialog && !rowManagementLocked) {
 			actions.push({
 				id: "edit",
 				label: t("userDialog.editUser"),
@@ -1184,7 +1250,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canToggleUserStatus && user.status !== "disabled") {
+		if (
+			canToggleUserStatus &&
+			!rowManagementLocked &&
+			user.status !== "disabled"
+		) {
 			actions.push({
 				id: "disable",
 				label: t("usersTable.disableUser"),
@@ -1194,7 +1264,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canToggleUserStatus && user.status === "disabled") {
+		if (
+			canToggleUserStatus &&
+			!rowManagementLocked &&
+			user.status === "disabled"
+		) {
 			actions.push({
 				id: "enable",
 				label: t("usersTable.enableUser"),
@@ -1204,7 +1278,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canResetUsageActions) {
+		if (canResetUsageActions && !rowManagementLocked) {
 			actions.push({
 				id: "reset",
 				label: t("usersTable.resetUsage"),
@@ -1214,7 +1288,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canRevokeSubActions) {
+		if (canRevokeSubActions && !rowManagementLocked) {
 			actions.push({
 				id: "revoke",
 				label: t("usersTable.revokeSub"),
@@ -1224,7 +1298,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		if (canMutateUsers && user.data_limit !== null && user.data_limit !== 0) {
+		if (canMutateRow && user.data_limit !== null && user.data_limit !== 0) {
 			actions.push({
 				id: "add-traffic",
 				label: t("services.userActions.traffic.add"),
@@ -1248,7 +1322,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 		// Absolute data-limit editor (PUT data_limit) — complements the
 		// relative "Add traffic" action above.
-		if (canMutateUsers) {
+		if (canMutateRow) {
 			actions.push({
 				id: "set-data-limit",
 				label: t("usersTable.setDataLimit"),
@@ -1261,7 +1335,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		}
 
 		if (
-			canMutateUsers &&
+			canMutateRow &&
 			user.expire !== null &&
 			user.expire !== 0 &&
 			user.expire !== undefined
@@ -1276,7 +1350,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		}
 
 		// Absolute expiry editor (PUT expire) — complements "Add 30 days".
-		if (canMutateUsers) {
+		if (canMutateRow) {
 			actions.push({
 				id: "set-expiry",
 				label: t("usersTable.setExpiry"),
@@ -1368,6 +1442,80 @@ export const UsersTable: FC<UsersTableProps> = ({
 		});
 	}
 
+	const renderExpandedUser = (user: UserListItem) => {
+		const detailColumns = userColumns.filter(
+			(column) => column.id !== "username" && column.mobileVisible !== false,
+		);
+		const availableActions = toMenuItems(getUserRowActions(user), user);
+		const expandedActions = [
+			user.status === "disabled" ? "enable" : "disable",
+			"revoke",
+			"reset",
+			"get-ips",
+		].flatMap((id) => {
+			const action = availableActions.find((item) => item.id === id);
+			return action ? [action] : [];
+		});
+		return (
+			<Box className="rb-resource-expanded">
+				<Box className="rb-resource-details" data-density="compact">
+					{detailColumns.map((column) => (
+						<Box key={column.id} className="rb-resource-meta">
+							<Text as="span" color="panel.textMuted">
+								{column.mobileMetaLabel ?? column.mobileLabel ?? column.header}
+							</Text>
+							<Box color="panel.text" minW={0} className="rb-resource-meta-value">
+								{column.mobileDetailCell?.(user) ?? column.cell?.(user)}
+							</Box>
+						</Box>
+					))}
+				</Box>
+				<Flex
+					className="rb-resource-expanded-actions"
+					align="center"
+					justify="flex-end"
+					gap={1}
+					flexWrap="wrap"
+					onClick={(event) => event.stopPropagation()}
+				>
+					<HStack className="rb-expanded-user-actions" spacing={1}>
+						{expandedActions.map((action) => (
+							<Tooltip key={action.id} label={action.label}>
+								<span>
+									<IconButton
+										aria-label={String(action.label)}
+										icon={action.icon}
+										variant="ghost"
+										size="sm"
+										minW="30px"
+										h="30px"
+										isDisabled={action.isDisabled}
+										onClick={() => action.onClick?.()}
+									/>
+								</span>
+							</Tooltip>
+						))}
+					</HStack>
+					<ActionButtons
+						user={user}
+						isRTL={isRTL}
+						onEdit={
+							canOpenUserDialog &&
+							!isUserManagementLocked(userData, user.service_id)
+								? () => onEditingUser(user)
+								: undefined
+						}
+						onDelete={
+							canDeleteUserActions && canDeleteUserByTrafficCap(userData, user)
+								? () => handleDeleteUser(user)
+								: undefined
+						}
+					/>
+				</Flex>
+			</Box>
+		);
+	};
+
 	return (
 		<VStack
 			spacing={4}
@@ -1420,7 +1568,10 @@ export const UsersTable: FC<UsersTableProps> = ({
 								isRTL={isRTL}
 								menuActions={toMenuItems(getUserRowActions(user), user)}
 								onEdit={
-									canOpenUserDialog ? () => onEditingUser(user) : undefined
+									canOpenUserDialog &&
+									!isUserManagementLocked(userData, user.service_id)
+										? () => onEditingUser(user)
+										: undefined
 								}
 								onDelete={
 									canDeleteUserActions &&
@@ -1430,18 +1581,29 @@ export const UsersTable: FC<UsersTableProps> = ({
 								}
 							/>
 						)}
-						actionsDisplay="inline"
+						actionsDisplay={compactRowActions ? "menu" : "inline"}
 						actionsPlacement="end"
-						actionsColumnWidth="210px"
+						actionsColumnWidth={compactRowActions ? "64px" : "210px"}
 						actionsAlwaysVisible
 						onRowClick={
-							canOpenUserDialog ? (user) => onEditingUser(user) : undefined
+							isDesktop
+								? (user) =>
+										setExpandedUsername((current) =>
+											current === user.username ? null : user.username,
+										)
+								: undefined
 						}
+						isRowExpanded={
+							isDesktop ? (user) => expandedUsername === user.username : undefined
+						}
+						renderExpandedRow={isDesktop ? renderExpandedUser : undefined}
 						sorting={userSorting}
 						onSortingChange={handleUserTableSorting}
 						manualSorting
 						dir={isRTL ? "rtl" : "ltr"}
-						selectedLabel={t("usersTable.selectedCount", { count: selectedUsers.length })}
+						selectedLabel={t("usersTable.selectedCount", {
+							count: selectedUsers.length,
+						})}
 						renderBulkActions={() => (
 							<>
 								{canToggleUserStatus && (
@@ -1452,7 +1614,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={handleBulkDisable}
 										isLoading={bulkAction === "disable"}
 										isDisabled={
-											Boolean(bulkAction) || bulkDisableTargets.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											bulkDisableTargets.length === 0
 										}
 									>
 										{t("usersTable.disableUser")}
@@ -1466,7 +1630,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={handleBulkEnable}
 										isLoading={bulkAction === "enable"}
 										isDisabled={
-											Boolean(bulkAction) || bulkEnableTargets.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											bulkEnableTargets.length === 0
 										}
 									>
 										{t("usersTable.enableUser")}
@@ -1480,7 +1646,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={() => setIsBulkResetOpen(true)}
 										isLoading={bulkAction === "reset"}
 										isDisabled={
-											Boolean(bulkAction) || selectedUsers.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											selectedUsers.length === 0
 										}
 									>
 										{t("usersTable.resetUsage")}
@@ -1494,7 +1662,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										onClick={handleBulkRevoke}
 										isLoading={bulkAction === "revoke"}
 										isDisabled={
-											Boolean(bulkAction) || selectedUsers.length === 0
+											Boolean(bulkAction) ||
+											selectedUsersManagementLocked ||
+											selectedUsers.length === 0
 										}
 									>
 										{t("usersTable.revokeSub")}
@@ -1552,8 +1722,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 							{t("usersTable.adminDisabledTitle")}
 						</Text>
 						<Text maxW="480px" color="gray.600" _dark={{ color: "gray.200" }}>
-							{disabledReason ||
-								t("usersTable.adminDisabledDescription")}
+							{disabledReason || t("usersTable.adminDisabledDescription")}
 						</Text>
 					</Flex>
 				)}
@@ -1715,7 +1884,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 												>
 													<SignalIcon width={14} aria-hidden="true" />
 													<Text>
-														{t("usersTable.ipConnections_other", { count: connections })}
+														{t("usersTable.ipConnections_other", {
+															count: connections,
+														})}
 													</Text>
 												</HStack>
 											</Box>
@@ -1782,7 +1953,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				onClose={() => setIsBulkResetOpen(false)}
 				onConfirm={handleBulkReset}
 				title={t("usersTable.resetUsage")}
-				description={t("usersTable.bulkResetPrompt", { count: selectedUsers.length })}
+				description={t("usersTable.bulkResetPrompt", {
+					count: selectedUsers.length,
+				})}
 				confirmLabel={t("reset")}
 				isLoading={bulkAction === "reset"}
 				isConfirmDisabled={selectedUsers.length === 0}
@@ -1810,7 +1983,9 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 	menuActions,
 }) => {
 	const { t } = useTranslation();
-	const { setQRCode, setSubLink, linkTemplates } = useDashboard();
+	const setQRCode = useDashboard((state) => state.setQRCode);
+	const setSubLink = useDashboard((state) => state.setSubLink);
+	const linkTemplates = useDashboard((state) => state.linkTemplates);
 
 	const userLinks = generateUserLinks(user, linkTemplates);
 	const formatLink = (link?: string | null) => {
@@ -1849,9 +2024,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 				e.stopPropagation();
 			}}
 		>
-			<Tooltip
-				label={copied ? t("copied") : t("usersTable.copyLink")}
-			>
+			<Tooltip label={copied ? t("copied") : t("usersTable.copyLink")}>
 				<span>
 					<IconButton
 						aria-label={t("usersTable.copyLink")}
@@ -1872,9 +2045,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 				</span>
 			</Tooltip>
 			<Tooltip
-				label={
-					copiedConfigs ? t("copied") : t("usersTable.copyConfigs")
-				}
+				label={copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}
 			>
 				<span>
 					<IconButton
@@ -1955,7 +2126,7 @@ const EmptySection: FC<EmptySectionProps> = ({
 	isCreateDisabled,
 }) => {
 	const { t } = useTranslation();
-	const { onCreateUser } = useDashboard();
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
 	const handleCreate = () => {
 		if (isCreateDisabled) {
 			return;

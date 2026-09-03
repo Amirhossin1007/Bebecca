@@ -55,7 +55,6 @@ export const AdminDetailsDrawer = () => {
 	const unlimitedLabel = t("admins.details.unlimited");
 	const usersLimitLabel =
 		usersLimit && usersLimit > 0 ? String(usersLimit) : unlimitedLabel;
-	const _totalUsers = admin?.users_count ?? 0;
 	const limitedUsers = admin?.limited_users ?? 0;
 	const expiredUsers = admin?.expired_users ?? 0;
 	const onlineUsers = admin?.online_users ?? 0;
@@ -95,7 +94,7 @@ export const AdminDetailsDrawer = () => {
 			scrollBehavior="inside"
 			size="xl"
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3">
 				<XrayModalHeader
 					subtitle={

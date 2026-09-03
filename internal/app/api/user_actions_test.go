@@ -22,7 +22,6 @@ func testUserMutationServer(t *testing.T) (*Server, *sql.DB, string) {
 		`ALTER TABLE users ADD COLUMN sub_revoked_at DATETIME NULL`,
 		`ALTER TABLE users ADD COLUMN edit_at DATETIME NULL`,
 		`ALTER TABLE user_usage_logs ADD COLUMN reset_at DATETIME NULL`,
-		`ALTER TABLE admins_services ADD COLUMN updated_at DATETIME NULL`,
 		`CREATE TABLE IF NOT EXISTS inbounds (id INTEGER PRIMARY KEY, tag TEXT UNIQUE)`,
 		`INSERT INTO xray_config (id, data) VALUES (1, '{"inbounds":[{"tag":"vless-in","protocol":"vless","port":443,"settings":{"decryption":"none"},"streamSettings":{"network":"tcp","security":"none","tcpSettings":{"header":{"type":"none"}}}}]}')`,
 		`INSERT INTO services (id, name) VALUES (1, 'basic')`,
@@ -484,6 +483,110 @@ func TestServiceAdminLimitsEnforcedForUserCreate(t *testing.T) {
 	assertUserOperationCount(t, db, "add_user", "created_ok", 1)
 }
 
+func TestServiceAdminTrafficCapsBlockUserManagement(t *testing.T) {
+	server, db, _ := testUserMutationServer(t)
+	enableServiceTrafficAdmin(t, db, 2)
+	setAdminUserPermissions(t, db, 2, func(perms *adminapp.AdminPermissions) {
+		perms.Users.ResetUsage = true
+	})
+	seedServiceForAdmin(t, db, 1, "limited", 2, `traffic_limit_mode, data_limit, used_traffic, created_traffic`, `'used_traffic', 100, 100, 0`)
+	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, status, service_id, used_traffic, data_limit, credential_key, created_at) VALUES
+		(91, 'capped_user', 2, 'active', 1, 10, 50, 'capped-key', '2026-06-05 00:00:00')`); err != nil {
+		t.Fatal(err)
+	}
+	sellerToken := adminBearerToken(t, server, "seller", "pass123")
+
+	for _, request := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{method: http.MethodPost, path: "/api/v2/users", body: `{"username":"blocked_create","service_id":1,"data_limit":10}`},
+		{method: http.MethodPut, path: "/api/user/capped_user", body: `{"note":"blocked"}`},
+		{method: http.MethodPost, path: "/api/user/capped_user/reset", body: `{}`},
+	} {
+		rec := adminJSONRequest(t, server, request.method, request.path, sellerToken, request.body)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("%s %s status = %d body=%s", request.method, request.path, rec.Code, rec.Body.String())
+		}
+	}
+
+	if _, err := db.Exec(`UPDATE admins_services SET traffic_limit_mode = 'created_traffic', used_traffic = 0, created_traffic = 100 WHERE admin_id = 2 AND service_id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	server.reviewAdminLifecycle(t.Context())
+	assertDBString(t, db, `SELECT status FROM users WHERE id = 91`, "active")
+	for _, path := range []string{"/api/user/capped_user", "/api/user/capped_user/reset"} {
+		method := http.MethodPut
+		body := `{"note":"blocked"}`
+		if strings.HasSuffix(path, "/reset") {
+			method = http.MethodPost
+			body = `{}`
+		}
+		rec := adminJSONRequest(t, server, method, path, sellerToken, body)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("created cap %s status = %d body=%s", path, rec.Code, rec.Body.String())
+		}
+	}
+
+	if _, err := db.Exec(`UPDATE admins_services SET data_limit = 200 WHERE admin_id = 2 AND service_id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE nodes SET status = 'disconnected'`); err != nil {
+		t.Fatal(err)
+	}
+	rec := adminJSONRequest(t, server, http.MethodPut, "/api/user/capped_user", sellerToken, `{"note":"allowed"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("recharged edit status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/user/capped_user/reset", sellerToken, `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("recharged reset status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPeriodicUsageResetPermissionControlsUserConfiguration(t *testing.T) {
+	server, db, _ := testUserMutationServer(t)
+	enableServiceTrafficAdmin(t, db, 2)
+	setAdminUserPermissions(t, db, 2, func(perms *adminapp.AdminPermissions) {
+		perms.Users.PeriodicUsageReset = false
+	})
+	seedServiceForAdmin(t, db, 1, "periodic", 2, `traffic_limit_mode`, `'used_traffic'`)
+	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, status, service_id, used_traffic, data_limit, data_limit_reset_strategy, credential_key, created_at) VALUES
+		(92, 'existing_periodic', 2, 'active', 1, 0, 100, 'day', 'periodic-key', '2026-06-05 00:00:00')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE nodes SET status = 'disconnected'`); err != nil {
+		t.Fatal(err)
+	}
+	sellerToken := adminBearerToken(t, server, "seller", "pass123")
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/v2/users", sellerToken, `{"username":"blocked_periodic","service_id":1,"data_limit":100,"data_limit_reset_strategy":"day"}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("periodic create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/existing_periodic", sellerToken, `{"note":"allowed"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unrelated edit status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT data_limit_reset_strategy FROM users WHERE id = 92`, "day")
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/existing_periodic", sellerToken, `{"data_limit_reset_strategy":"week"}`)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("periodic update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/existing_periodic", sellerToken, `{"data_limit_reset_strategy":"no_reset"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("disable periodic reset status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	assertDBString(t, db, `SELECT data_limit_reset_strategy FROM users WHERE id = 92`, "no_reset")
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/users", sellerToken, `{"username":"allowed_without_periodic","service_id":1,"data_limit":100,"data_limit_reset_strategy":"no_reset"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("no-reset create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestServiceAdminLimitsEnforcedForUserServiceTransfer(t *testing.T) {
 	server, db, _ := testUserMutationServer(t)
 	enableServiceTrafficAdmin(t, db, 2)
@@ -692,7 +795,10 @@ func setAdminUserPermissions(t *testing.T, db *sql.DB, adminID int64, mutate fun
 
 func seedServiceForAdmin(t *testing.T, db *sql.DB, serviceID int64, name string, adminID int64, limitColumns string, limitValues string) {
 	t.Helper()
-	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (?, ?)`, serviceID, name); err != nil {
+	if _, err := db.Exec(`INSERT OR IGNORE INTO services (id, name) VALUES (?, ?)`, serviceID, name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE services SET name = ? WHERE id = ?`, name, serviceID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO service_hosts (service_id, host_id, sort) VALUES (?, 1, 0)`, serviceID); err != nil {

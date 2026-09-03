@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
 
-func TestRepositoryProcessesOperationState(t *testing.T) {
+func TestRepositoryProcessesOperationStateWithRetryBackoff(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -19,6 +20,7 @@ func TestRepositoryProcessesOperationState(t *testing.T) {
 	defer db.Close()
 
 	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (id INTEGER PRIMARY KEY, status TEXT);
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	operation_type TEXT NOT NULL,
@@ -35,9 +37,12 @@ CREATE TABLE node_operations (
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO nodes (id, status) VALUES (7, 'connected')`); err != nil {
+		t.Fatal(err)
+	}
 	_, err = db.ExecContext(ctx, `
 INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
-VALUES ('sync_config', 7, 42, '{"config_json":"{}"}', 'pending', 'op-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`)
+VALUES ('add_user', 7, 42, '{"config_json":"{}"}', 'pending', 'op-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +73,7 @@ VALUES ('sync_config', 7, 42, '{"config_json":"{}"}', 'pending', 'op-1', CURRENT
 		t.Fatal(err)
 	}
 	if len(rows) != 0 {
-		t.Fatalf("expected fresh sync_config retry to wait for backoff, got %#v", rows)
+		t.Fatalf("expected fresh retry to wait for backoff, got %#v", rows)
 	}
 	if _, err := db.ExecContext(ctx, `UPDATE node_operations SET updated_at = '2000-01-01 00:00:00' WHERE id = 1`); err != nil {
 		t.Fatal(err)
@@ -142,29 +147,64 @@ INSERT INTO nodes (id, name, address, port, api_port, status, usage_coefficient)
 VALUES
 	(24, 'bad-a', '127.0.0.1', 62024, 62025, 'error', 1),
 	(35, 'bad-b', '127.0.0.1', 62035, 62036, 'connecting', 1),
-	(50, 'good', '127.0.0.1', 62050, 62051, 'connected', 1);
+	(50, 'good', '127.0.0.1', 62050, 62051, 'connected', 1),
+	(60, 'deleted', '127.0.0.1', 62060, 62061, 'deleted', 1);
 INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
 VALUES
 	('add_user', 24, 100, '{}', 'pending', 'bad-a-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('add_user', 24, 101, '{}', 'pending', 'bad-a-2', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('add_user', 35, 102, '{}', 'pending', 'bad-b-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-	('add_user', 50, 200, '{}', 'pending', 'good-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+	('add_user', 50, 200, '{}', 'pending', 'good-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('add_user', 60, 300, '{}', 'pending', 'deleted-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	repo := NewRepository(db, "sqlite")
-	rows, err := repo.PendingOperations(ctx, 0, 1)
+	rows, err := repo.PendingOperations(ctx, 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(rows) != 1 {
-		t.Fatalf("expected one operation, got %d", len(rows))
+		t.Fatalf("expected only the connected node operation, got %d", len(rows))
 	}
 	if !rows[0].NodeID.Valid || rows[0].NodeID.Int64 != 50 {
-		t.Fatalf("expected connected node operation first, got %#v", rows[0])
+		t.Fatalf("expected connected node operation, got %#v", rows[0])
 	}
+	rows, err = repo.PendingOperations(ctx, 24, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected error node operations to stay paused, got %#v", rows)
+	}
+	rows, err = repo.PendingOperations(ctx, 60, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected deleted node operations to stay unclaimed, got %#v", rows)
+	}
+	claimed, err := repo.MarkOperationRunning(ctx, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed {
+		t.Fatal("deleted node operation was claimed")
+	}
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 5`, "pending")
+	if _, err := db.ExecContext(ctx, `UPDATE nodes SET status = 'error' WHERE id = 50`); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = repo.MarkOperationRunning(ctx, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed {
+		t.Fatal("operation was claimed after its node disconnected")
+	}
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 4`, "pending")
 }
 
 func TestRepositoryPendingRuntimeUserOperationsOnlyConnectedUserDeltas(t *testing.T) {
@@ -210,7 +250,8 @@ VALUES
 	('add_user', 1, 10, '{}', 'pending', 'add-connected', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('add_user', 2, 10, '{}', 'pending', 'add-error', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('update_user', 3, 11, '{}', 'pending', 'update-other-user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-	('remove_user', 3, 10, '{}', 'retrying', 'remove-connected', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('remove_user', 3, 10, '{}', 'retrying', 'remove-connected', CURRENT_TIMESTAMP, '2000-01-01 00:00:00'),
+	('disable_user', 1, 10, '{}', 'retrying', 'fresh-disable-connected', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 	('enable_user', 4, 10, '{}', 'pending', 'enable-connecting', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 `)
 	if err != nil {
@@ -417,7 +458,7 @@ VALUES
 	}
 }
 
-func TestRepositoryPendingOperationsPrioritizesFreshAddBeforeConfigSync(t *testing.T) {
+func TestRepositoryPendingOperationsPrioritizesFullSyncBeforeUserDelta(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "runtime-backlog-priority.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -459,8 +500,22 @@ VALUES
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || rows[0].OperationType != "add_user" || !rows[0].UserID.Valid || rows[0].UserID.Int64 != 101 {
-		t.Fatalf("expected fresh add_user before config sync, got %#v", rows)
+	if len(rows) != 1 || rows[0].OperationType != "sync_config" {
+		t.Fatalf("expected full config sync to replace the user backlog, got %#v", rows)
+	}
+}
+
+func TestBulkRuntimeUserOperationNodesUsesFullSyncAboveThreshold(t *testing.T) {
+	operations := make([]OperationRow, bulkRuntimeUserOperationThreshold+2)
+	for index := range operations {
+		operations[index] = OperationRow{
+			OperationType: "update_user",
+			NodeID:        sql.NullInt64{Int64: 7, Valid: true},
+		}
+	}
+	operations[0].NodeID.Int64 = 8
+	if folded := bulkRuntimeUserOperationNodes(operations); !folded[7] || folded[8] {
+		t.Fatalf("folded nodes = %#v, want only node 7", folded)
 	}
 }
 
@@ -544,7 +599,7 @@ VALUES ('add_user', 50, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMEST
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'sync_config'`, 0)
 }
 
-func TestControllerProcessQueueMarksDisabledNodeOperationPermanent(t *testing.T) {
+func TestControllerProcessQueuePausesDisabledNodeOperation(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue-disabled.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -595,11 +650,11 @@ VALUES ('add_user', 7, 200, '{}', 'pending', 'disabled-op', CURRENT_TIMESTAMP, C
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Processed != 1 || result.Failed != 1 || result.Retrying != 0 {
-		t.Fatalf("expected disabled operation to fail permanently, got %#v", result)
+	if result.Processed != 0 || result.Failed != 0 || result.Retrying != 0 {
+		t.Fatalf("expected disabled operation to stay paused, got %#v", result)
 	}
-	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 1`, "failed")
-	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE id = 1`, 1)
+	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 1`, "pending")
+	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE id = 1`, 0)
 }
 
 func TestControllerCompletesGlobalSyncConfigWhenNoNodesExist(t *testing.T) {
@@ -702,6 +757,7 @@ CREATE TABLE nodes (
 	status TEXT,
 	xray_version TEXT,
 	message TEXT,
+	last_status_change DATETIME,
 	certificate TEXT,
 	certificate_key TEXT,
 	xray_config_mode TEXT,
@@ -1025,6 +1081,11 @@ CREATE TABLE nodes (
 	status TEXT,
 	message TEXT,
 	xray_version TEXT,
+	agent_status TEXT DEFAULT 'unknown',
+	xray_status TEXT DEFAULT 'unknown',
+	desired_revision INTEGER DEFAULT 0,
+	applied_revision INTEGER DEFAULT 0,
+	node_capabilities TEXT,
 	geo_mode TEXT,
 	xray_config_mode TEXT,
 	uplink INTEGER DEFAULT 0,
@@ -1033,7 +1094,9 @@ CREATE TABLE nodes (
 	certificate_key TEXT
 );
 INSERT INTO nodes (id, name, address, port, api_port, usage_coefficient, status, geo_mode, xray_config_mode)
-VALUES (1, 'legacy-node', '127.0.0.1', 62050, 62051, 1, 'active', 'default', 'default');
+VALUES
+	(1, 'legacy-node', '127.0.0.1', 62050, 62051, 1, 'active', 'default', 'default'),
+	(2, 'deleted-node', '127.0.0.1', 62052, 62053, 1, 'deleted', 'default', 'default');
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1110,7 +1173,7 @@ VALUES (1, 'connected', 'ok', '1.0.0', '2026-06-26 00:00:00');
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1`, 0)
 }
 
-func TestRepositoryStatusUpdatesDoNotReenableDisabledNode(t *testing.T) {
+func TestRepositoryStatusUpdatesDoNotReenableDisabledOrDeletedNode(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "disabled-node-status.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -1140,7 +1203,9 @@ CREATE TABLE node_operations (
 	updated_at DATETIME NOT NULL
 );
 INSERT INTO nodes (id, status, message, xray_version, last_status_change)
-VALUES (1, 'disabled', NULL, '1.0.0', '2026-06-26 00:00:00');
+VALUES
+	(1, 'disabled', NULL, '1.0.0', '2026-06-26 00:00:00'),
+	(2, 'deleted', 'Deleted', NULL, '2026-06-26 00:00:00');
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1158,7 +1223,54 @@ VALUES (1, 'disabled', NULL, '1.0.0', '2026-06-26 00:00:00');
 	}
 
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "disabled")
+	if err := repo.SetConnected(ctx, 2, "1.0.1", "ok"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SetError(ctx, 2, "dial failed"); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 2`, "deleted")
+	assertRepositoryString(t, db, `SELECT message FROM nodes WHERE id = 2`, "Deleted")
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
+}
+
+func TestRepositorySetErrorPersistsAfterCallerTimeout(t *testing.T) {
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "node-error-timeout.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	status TEXT,
+	message TEXT,
+	xray_version TEXT,
+	last_status_change DATETIME
+);
+INSERT INTO nodes (id, status, message, xray_version, last_status_change)
+VALUES (1, 'connecting', NULL, NULL, '2026-06-26 00:00:00');
+`); err != nil {
+		t.Fatal(err)
+	}
+
+	callerCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	if err := NewRepository(db, "sqlite").SetError(callerCtx, 1, "dial timeout"); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
+	assertRepositoryString(t, db, `SELECT message FROM nodes WHERE id = 1`, "dial timeout")
+	if _, err := db.Exec(`UPDATE nodes SET status = 'connecting', message = NULL WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	canceledCtx, cancelCanceled := context.WithCancel(context.Background())
+	cancelCanceled()
+	if err := NewRepository(db, "sqlite").SetError(canceledCtx, 1, "server shutdown"); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "connecting")
 }
 
 func TestRepositoryQueueSyncConfigCoalescesPendingFullSyncs(t *testing.T) {
@@ -1203,6 +1315,172 @@ VALUES
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 1`, "done")
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 2`, "retrying")
 	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 3`, "pending")
+}
+
+func TestRepositoryReplaceOpenQueueWithFullSync(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "startup-full-sync.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES
+	('add_user', 7, 100, '{}', 'pending', 'add', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('remove_user', 8, 101, '{}', 'retrying', 'remove', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('sync_config', 9, NULL, '{}', 'running', 'sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('reboot_host', 9, NULL, '{}', 'pending', 'reboot', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('update_user', 10, 102, '{}', 'failed', 'failed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cleared, err := NewRepository(db, "sqlite").ReplaceOpenQueueWithFullSync(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleared != 0 {
+		t.Fatalf("startup must not clear operations before a successful sync, got %d", cleared)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status IN ('pending', 'retrying', 'running')`, 5)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id IS NULL AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type IN ('add_user', 'remove_user') AND status IN ('pending', 'retrying')`, 2)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'reboot_host' AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'failed'`, 1)
+}
+
+func TestRepositoryReconcilesLaggingRevisionAndPrunesDoneHistory(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "revision-retention.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	status TEXT,
+	desired_revision INTEGER NOT NULL DEFAULT 0,
+	applied_revision INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO nodes (id, status, desired_revision, applied_revision) VALUES
+	(1, 'connected', 3, 2),
+	(2, 'connected', 4, 4),
+	(3, 'deleted', 9, 1);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository(db, "sqlite")
+	if err := repo.QueueLaggingNodeSyncs(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.QueueLaggingNodeSyncs(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id = 1 AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id IN (2, 3)`, 0)
+
+	revision, err := repo.AdvanceDesiredRevision(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revision != 4 {
+		t.Fatalf("desired revision = %d, want 4", revision)
+	}
+
+	for i := 0; i < 8; i++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_operations
+(operation_type, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('reboot_host', '{}', 'done', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, fmt.Sprintf("done-%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO node_operations
+(operation_type, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('reboot_host', '{}', 'failed', 'failed-retained', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+
+	pruned, err := repo.PruneFinishedOperations(ctx, 3, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pruned != 2 {
+		t.Fatalf("pruned operations = %d, want 2", pruned)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'done'`, 6)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'failed'`, 1)
+}
+
+func TestRepositoryQueueCommandPersistsBeforeExecution(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "command-queue.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+)`); err != nil {
+		t.Fatal(err)
+	}
+	operation, err := NewRepository(db, "sqlite").QueueCommand(ctx, "reboot_host", 9, Request{NodeID: 9})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if operation.ID <= 0 || operation.NodeID.Int64 != 9 {
+		t.Fatalf("invalid queued operation: %#v", operation)
+	}
+	var status string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM node_operations WHERE id = ?`, operation.ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "pending" {
+		t.Fatalf("queued command status=%q", status)
+	}
 }
 
 func TestRepositoryCoalescedSyncClearsRuntimeUserBacklogForNode(t *testing.T) {
@@ -1368,16 +1646,22 @@ VALUES
 	}
 
 	repo := NewRepository(db, "sqlite")
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO nodes (id, status, last_status_change)
+VALUES (6, 'error', ?), (7, 'connecting', ?)`,
+		repo.timeArg(time.Now().UTC()), repo.timeArg(time.Now().UTC())); err != nil {
+		t.Fatal(err)
+	}
 	nodeIDs, err := repo.RecoverableNodeIDs(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(nodeIDs) != 2 || nodeIDs[0] != 3 || nodeIDs[1] != 2 {
-		t.Fatalf("expected connecting/error nodes ordered by last status change, got %#v", nodeIDs)
+		t.Fatalf("expected only stale connecting/error nodes ordered by last status change, got %#v", nodeIDs)
 	}
 }
 
-func TestControllerMetricsDoesNotPersistDialError(t *testing.T) {
+func TestControllerMetricsPersistsDialError(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "metrics-live.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -1393,8 +1677,10 @@ CREATE TABLE nodes (
 	port INTEGER,
 	api_port INTEGER,
 	status TEXT,
+	agent_status TEXT,
 	xray_version TEXT,
 	message TEXT,
+	last_status_change DATETIME,
 	certificate TEXT,
 	certificate_key TEXT,
 	xray_config_mode TEXT,
@@ -1419,7 +1705,64 @@ INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
 		t.Fatal("expected metrics dial error")
 	}
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "connected")
-	assertRepositoryString(t, db, `SELECT message FROM nodes WHERE id = 1`, "stable")
+	assertRepositoryString(t, db, `SELECT agent_status FROM nodes WHERE id = 1`, "degraded")
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM nodes WHERE id = 1 AND message <> 'stable'`, 1)
+}
+
+func TestControllerHealthSweepChecksOnlyConnectedNodes(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "health-sweep.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	name TEXT,
+	address TEXT,
+	port INTEGER,
+	api_port INTEGER,
+	status TEXT,
+	agent_status TEXT,
+	xray_version TEXT,
+	message TEXT,
+	last_status_change DATETIME,
+	certificate TEXT,
+	certificate_key TEXT,
+	xray_config_mode TEXT,
+	xray_config TEXT,
+	usage_coefficient REAL DEFAULT 1
+);
+CREATE TABLE tls (id INTEGER PRIMARY KEY, certificate TEXT, "key" TEXT);
+INSERT INTO nodes (id, name, address, port, api_port, status, message, usage_coefficient) VALUES
+	(1, 'connected', '127.0.0.1', 62050, 62051, 'connected', 'stable', 1),
+	(2, 'disabled', '127.0.0.1', 62050, 62051, 'disabled', 'disabled', 1),
+	(3, 'deleted', '127.0.0.1', 62050, 62051, 'deleted', 'deleted', 1);
+INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	controller := NewController(NewRepository(db, "sqlite"))
+	for attempt := 1; attempt <= nodeHealthFailureThreshold; attempt++ {
+		result, err := controller.CheckConnectedNodes(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantErrors := 0
+		if attempt == nodeHealthFailureThreshold {
+			wantErrors = 1
+		}
+		if result.Checked != 1 || len(result.Errors) != wantErrors {
+			t.Fatalf("health sweep %d result: %#v", attempt, result)
+		}
+	}
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 1`, "error")
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 2`, "disabled")
+	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 3`, "deleted")
 }
 
 func assertRepositoryString(t *testing.T, db *sql.DB, query string, expected string) {

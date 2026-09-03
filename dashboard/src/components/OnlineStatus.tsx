@@ -10,6 +10,7 @@ import {
 
 type UserStatusProps = {
 	lastOnline: string | null;
+	isOnline?: boolean;
 	withMargin?: boolean;
 	/** Render the relative time in short units (e.g. "2H, 4m") for tight cells. */
 	compact?: boolean;
@@ -17,6 +18,7 @@ type UserStatusProps = {
 
 export const OnlineStatus: FC<UserStatusProps> = ({
 	lastOnline,
+	isOnline = false,
 	withMargin = true,
 	compact = false,
 }) => {
@@ -29,6 +31,24 @@ export const OnlineStatus: FC<UserStatusProps> = ({
 	const timeDifferenceInSeconds = unixTime
 		? currentTimeInSeconds - unixTime
 		: null;
+
+	if (isOnline || (unixTime && timeDifferenceInSeconds !== null && timeDifferenceInSeconds <= ONLINE_ACTIVE_WINDOW_SECONDS)) {
+		return (
+			<Text
+				display="inline-flex"
+				fontSize="xs"
+				fontWeight="medium"
+				ml={marginLeft}
+				color="gray.600"
+				_dark={{ color: "gray.400" }}
+				as="span"
+				gap={1}
+				alignItems="center"
+			>
+				{t("onlineStatus.online")}
+			</Text>
+		);
+	}
 
 	if (!unixTime || timeDifferenceInSeconds === null) {
 		return (
@@ -56,10 +76,7 @@ export const OnlineStatus: FC<UserStatusProps> = ({
 	// A user seen between the online window and one minute ago produces no
 	// non-zero hour/minute parts, so the relative string is empty. Treat that
 	// sub-minute case as "Online" instead of rendering a bare "ago".
-	if (
-		timeDifferenceInSeconds <= ONLINE_ACTIVE_WINDOW_SECONDS ||
-		formattedParts.trim() === ""
-	) {
+	if (formattedParts.trim() === "") {
 		return (
 			<Text
 				display="inline-flex"

@@ -184,7 +184,7 @@ func normalizeAnyConnectSettings(settings map[string]any) map[string]any {
 }
 
 func normalizeRemoteAccessSettings(settings map[string]any, defaultPool string) map[string]any {
-	out := make(map[string]any, len(settings)+12)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}
@@ -213,7 +213,7 @@ func normalizeRemoteAccessSettings(settings map[string]any, defaultPool string) 
 }
 
 func normalizeWGSettings(settings map[string]any) map[string]any {
-	out := make(map[string]any, len(settings)+8)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}
@@ -272,7 +272,7 @@ func normalizeWGSettings(settings map[string]any) map[string]any {
 }
 
 func normalizeOVSettings(settings map[string]any) map[string]any {
-	out := make(map[string]any, len(settings)+8)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}
@@ -354,7 +354,7 @@ func normalizeOVSettings(settings map[string]any) map[string]any {
 }
 
 func normalizeL2TPSettings(settings map[string]any) map[string]any {
-	out := make(map[string]any, len(settings)+8)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}

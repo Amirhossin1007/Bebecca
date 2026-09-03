@@ -113,11 +113,6 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 	const controlBg = useColorModeValue("white", "whiteAlpha.50");
 	const mutedBg = useColorModeValue("gray.50", "whiteAlpha.100");
 
-	const _filterOptions = useBreakpointValue({
-		base: ["7h", "1d", "3d", "1w"],
-		md: ["7h", "1d", "3d", "1w", "1m", "3m"],
-	})!;
-
 	const filterOptionTypes = {
 		h: "hour",
 		d: "day",
@@ -239,15 +234,6 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 	const endLabel = dayjs(value.end).format("YYYY-MM-DD");
 	const rangeLabel =
 		startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
-
-	// Convert RangeState to DateRangeValue format
-	const _dateRangeValue: DateRangeValue = {
-		start: value.start,
-		end: value.end,
-		presetKey: value.presetKey || value.key,
-		key: value.key || value.presetKey,
-		unit: value.unit,
-	};
 
 	return (
 		<Flex

@@ -96,6 +96,9 @@ export type UserListItem = {
 	data_limit: number | null;
 	data_limit_reset_strategy: DataLimitResetStrategy | null;
 	online_at?: string | null;
+	is_online: boolean;
+	upload_speed?: number;
+	download_speed?: number;
 	service_id: number | null;
 	service_name: string | null;
 	admin_id?: number | null;

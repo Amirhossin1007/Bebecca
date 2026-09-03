@@ -182,7 +182,7 @@ export const DnsModal: FC<DnsModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3">
 				<XrayModalHeader>
 					{isEdit ? t("pages.xray.dns.edit") : t("pages.xray.dns.add")}

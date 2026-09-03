@@ -41,12 +41,16 @@ type WGRuntimePeer struct {
 }
 
 func (r Repository) WGRuntime(ctx context.Context, nodeID int64) (WGRuntime, error) {
-	target := xrayconfig.NodeTargetID(nodeID)
 	configRepo := xrayconfig.NewRepository(r.db, r.dialect, xrayconfig.Options{})
 	inbounds, err := configRepo.FullInbounds(ctx)
 	if err != nil {
 		return WGRuntime{}, err
 	}
+	return r.wgRuntime(ctx, nodeID, inbounds)
+}
+
+func (r Repository) wgRuntime(ctx context.Context, nodeID int64, inbounds []map[string]any) (WGRuntime, error) {
+	target := xrayconfig.NodeTargetID(nodeID)
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
 		if port := OVIntValue(inbound["port"]); port > 0 {
@@ -79,9 +83,15 @@ func (r Repository) WGRuntime(ctx context.Context, nodeID int64) (WGRuntime, err
 		if err != nil {
 			return WGRuntime{}, err
 		}
+		if len(serviceIDs) == 0 {
+			continue
+		}
 		peers, err := r.WGUsersForServices(ctx, tag, serviceIDs, OVStringValue(settings["address_pool"]), OVStringValue(settings["server_address"]))
 		if err != nil {
 			return WGRuntime{}, err
+		}
+		if len(peers) == 0 {
+			continue
 		}
 		tunnelPort := xrayconfig.RuntimeTunnelPortForInbound(inbound, usedPorts)
 		if tunnelPort > 0 {
@@ -155,7 +165,7 @@ ORDER BY id`, args...)
 
 func WGRuntimeSettings(inbound map[string]any) map[string]any {
 	settings := OVMapValue(inbound["settings"])
-	out := make(map[string]any, len(settings)+6)
+	out := make(map[string]any)
 	for key, value := range settings {
 		out[key] = value
 	}

@@ -197,6 +197,7 @@ func newLifecycleTestDB(t *testing.T) *sql.DB {
 			admin_id INTEGER NULL,
 			service_id INTEGER NULL
 		)`,
+		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
 		`CREATE TABLE next_plans (
 			id INTEGER PRIMARY KEY,
 			user_id INTEGER,

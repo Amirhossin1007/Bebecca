@@ -5,11 +5,13 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
@@ -31,6 +33,13 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 	nodes, err := c.repo.UsageNodes(ctx, req.NodeID, req.Limit)
 	if err != nil {
 		return CollectUsageResult{}, err
+	}
+	inboundCoefficients := map[string]float64{}
+	if collectUsers {
+		inboundCoefficients, err = c.repo.InboundUsageCoefficients(ctx)
+		if err != nil {
+			return CollectUsageResult{}, err
+		}
 	}
 
 	result := CollectUsageResult{}
@@ -61,13 +70,31 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 				return
 			}
 
-			nodeResult := c.collectUsageForNode(ctx, node, collectUsers, collectOutbound, reset, collectorID, persistOptions)
+			nodeResult := c.collectUsageForNode(ctx, node, collectUsers, collectOutbound, reset, collectorID, inboundCoefficients, persistOptions)
 			mu.Lock()
 			mergeCollectUsageResult(&result, nodeResult)
 			mu.Unlock()
 		}()
 	}
 	wg.Wait()
+	result.Speeds = mergeUserTrafficSpeeds(result.Speeds)
+	if len(result.Speeds) > 0 {
+		identities, identityErr := c.repo.UserSpeedIdentities(ctx, speedUserIDs(result.Speeds))
+		if identityErr != nil {
+			result.Errors = append(result.Errors, "user speed lookup: "+identityErr.Error())
+			result.Speeds = nil
+		} else {
+			for i := range result.Speeds {
+				identity, ok := identities[result.Speeds[i].UserID]
+				if !ok {
+					continue
+				}
+				result.Speeds[i].Username = identity.Username
+				result.Speeds[i].AdminID = identity.AdminID
+				result.Speeds[i].ServiceID = identity.ServiceID
+			}
+		}
+	}
 	return result, nil
 }
 
@@ -78,23 +105,30 @@ func (c Controller) collectUsageForNode(
 	collectOutbound bool,
 	reset bool,
 	collectorID string,
+	inboundCoefficients map[string]float64,
 	persistOptions UsagePersistOptions,
 ) CollectUsageResult {
 	result := CollectUsageResult{Nodes: 1}
+	communicationFailed := false
+	recordCommunicationFailure := func(err error) {
+		communicationFailed = true
+		c.recordHealthFailure(ctx, node.ID, err)
+	}
 	nodeCtx, cancel := WithDefaultTimeout(ctx)
 	client, _, err := c.dial(nodeCtx, node.ID)
 	if err != nil {
+		recordCommunicationFailure(err)
 		cancel()
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
 		return result
 	}
 	defer cancel()
-	defer client.Close()
 
 	var userBatch *nodev1.UserUsageBatch
 	var outboundBatch *nodev1.OutboundUsageBatch
 	var userDeltas []UserUsageDelta
 	var outboundDeltas []OutboundUsageDelta
+	var inboundDeltas []InboundUsageDelta
 
 	if collectUsers {
 		userBatch, err = client.Usage().CollectUserUsage(nodeCtx, &nodev1.CollectUsageRequest{
@@ -102,6 +136,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -120,11 +155,26 @@ func (c Controller) collectUsageForNode(
 				continue
 			}
 			if value > 0 {
-				userDeltas = append(userDeltas, UserUsageDelta{UserID: userID, Value: value, Online: true})
+				coefficient := 1.0
+				if tag := strings.TrimSpace(sample.GetInboundTag()); tag != "" {
+					coefficient = normalizeUsageFactor(inboundCoefficients[tag])
+				}
+				userDeltas = append(userDeltas, UserUsageDelta{UserID: userID, Value: value, Online: true, InboundCoefficient: coefficient})
 				result.UserSamples++
 			}
 		}
-		if err := c.repo.StoreNodeOnlineIPs(ctx, node.ID, onlineIPSamplesFromBatch(userBatch.GetOnlineIps())); err != nil {
+		for _, sample := range userBatch.GetSpeeds() {
+			userID, _, ok := parseUserUsageSampleUID(sample.GetUid())
+			if !ok {
+				continue
+			}
+			result.Speeds = append(result.Speeds, UserTrafficSpeed{
+				UserID:        userID,
+				UploadSpeed:   sample.GetUpload(),
+				DownloadSpeed: sample.GetDownload(),
+			})
+		}
+		if err := c.storeNodeOnlineIPsWithRetry(ctx, node.ID, onlineIPSamplesFromBatch(userBatch.GetOnlineIps())); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d online IPs: %s", node.ID, err.Error()))
 		}
 	}
@@ -135,6 +185,7 @@ func (c Controller) collectUsageForNode(
 			Reset_:      reset,
 		})
 		if err != nil {
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -143,13 +194,26 @@ func (c Controller) collectUsageForNode(
 		}
 		for _, sample := range outboundBatch.GetStats() {
 			tag := strings.TrimSpace(sample.GetTag())
-			up := int64(sample.GetUp())
-			down := int64(sample.GetDown())
+			up, upOK := usageUint64ToInt64(sample.GetUp())
+			down, downOK := usageUint64ToInt64(sample.GetDown())
+			if !upOK || !downOK {
+				continue
+			}
 			if tag == "" || (up <= 0 && down <= 0) {
 				continue
 			}
 			outboundDeltas = append(outboundDeltas, OutboundUsageDelta{Tag: tag, Up: up, Down: down})
 			result.OutboundSamples++
+		}
+		for _, sample := range outboundBatch.GetInboundStats() {
+			tag := strings.TrimSpace(sample.GetTag())
+			up, upOK := usageUint64ToInt64(sample.GetUp())
+			down, downOK := usageUint64ToInt64(sample.GetDown())
+			if tag == "" || !upOK || !downOK || (up <= 0 && down <= 0) {
+				continue
+			}
+			inboundDeltas = append(inboundDeltas, InboundUsageDelta{Tag: tag, Up: up, Down: down})
+			result.InboundSamples++
 		}
 	}
 
@@ -161,7 +225,7 @@ func (c Controller) collectUsageForNode(
 	if outboundBatch != nil {
 		outboundBatchID = outboundBatch.GetBatchId()
 	}
-	if err := c.storeCollectedUsageWithRetry(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, persistOptions); err != nil {
+	if err := c.storeCollectedUsageWithRetry(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, inboundDeltas, persistOptions); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d DB write: %s", node.ID, err.Error()))
 		return result
 	}
@@ -175,6 +239,7 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckUserUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: userBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.UserAcked++
 		} else if err != nil {
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, err.Error()))
 		}
 	}
@@ -182,8 +247,12 @@ func (c Controller) collectUsageForNode(
 		if ack, err := client.Usage().AckOutboundUsage(nodeCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()}); err == nil && ack.GetAcknowledged() {
 			result.OutboundAcked++
 		} else if err != nil {
+			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, err.Error()))
 		}
+	}
+	if !communicationFailed {
+		c.clearHealthFailures(node.ID)
 	}
 	return result
 }
@@ -194,9 +263,35 @@ func mergeCollectUsageResult(result *CollectUsageResult, next CollectUsageResult
 	result.OutboundBatches += next.OutboundBatches
 	result.UserSamples += next.UserSamples
 	result.OutboundSamples += next.OutboundSamples
+	result.InboundSamples += next.InboundSamples
 	result.UserAcked += next.UserAcked
 	result.OutboundAcked += next.OutboundAcked
 	result.Errors = append(result.Errors, next.Errors...)
+	result.Speeds = append(result.Speeds, next.Speeds...)
+}
+
+func mergeUserTrafficSpeeds(speeds []UserTrafficSpeed) []UserTrafficSpeed {
+	byUser := make(map[int64]UserTrafficSpeed, len(speeds))
+	for _, speed := range speeds {
+		item := byUser[speed.UserID]
+		item.UserID = speed.UserID
+		item.UploadSpeed += speed.UploadSpeed
+		item.DownloadSpeed += speed.DownloadSpeed
+		byUser[speed.UserID] = item
+	}
+	result := make([]UserTrafficSpeed, 0, len(byUser))
+	for _, speed := range byUser {
+		result = append(result, speed)
+	}
+	return result
+}
+
+func speedUserIDs(speeds []UserTrafficSpeed) []int64 {
+	ids := make([]int64, 0, len(speeds))
+	for _, speed := range speeds {
+		ids = append(ids, speed.UserID)
+	}
+	return ids
 }
 
 func usageCollectionShouldReset(req CollectUsageRequest) bool {
@@ -204,6 +299,13 @@ func usageCollectionShouldReset(req CollectUsageRequest) bool {
 		return false
 	}
 	return true
+}
+
+func usageUint64ToInt64(value uint64) (int64, bool) {
+	if value > uint64(^uint64(0)>>1) {
+		return 0, false
+	}
+	return int64(value), true
 }
 
 const onlineUsageSamplePrefix = "online:"
@@ -244,32 +346,34 @@ func isUserUsageProtocolPrefix(value string) bool {
 }
 
 func (c Controller) persistCollectedUsageWithRetry(ctx context.Context, node NodeRow, userDeltas []UserUsageDelta, outboundDeltas []OutboundUsageDelta, options UsagePersistOptions) error {
-	var err error
-	for attempt := 0; attempt < 3; attempt++ {
-		err = c.repo.PersistCollectedUsage(ctx, node, userDeltas, outboundDeltas, options)
-		if err == nil || !isTransientUsagePersistError(err) {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 100 * time.Millisecond):
-		}
-	}
-	return err
+	return retryTransientUsageWrite(ctx, func() error {
+		return c.repo.PersistCollectedUsage(ctx, node, userDeltas, outboundDeltas, options)
+	})
 }
 
-func (c Controller) storeCollectedUsageWithRetry(ctx context.Context, node NodeRow, userBatchID string, userDeltas []UserUsageDelta, outboundBatchID string, outboundDeltas []OutboundUsageDelta, options UsagePersistOptions) error {
+func (c Controller) storeCollectedUsageWithRetry(ctx context.Context, node NodeRow, userBatchID string, userDeltas []UserUsageDelta, outboundBatchID string, outboundDeltas []OutboundUsageDelta, inboundDeltas []InboundUsageDelta, options UsagePersistOptions) error {
+	return retryTransientUsageWrite(ctx, func() error {
+		return c.repo.StoreCollectedUsageWithInbounds(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, inboundDeltas, options)
+	})
+}
+
+func (c Controller) storeNodeOnlineIPsWithRetry(ctx context.Context, nodeID int64, samples []OnlineIPSample) error {
+	return retryTransientUsageWrite(ctx, func() error {
+		return c.repo.StoreNodeOnlineIPs(ctx, nodeID, samples)
+	})
+}
+
+func retryTransientUsageWrite(ctx context.Context, write func() error) error {
 	var err error
-	for attempt := 0; attempt < 3; attempt++ {
-		err = c.repo.StoreCollectedUsage(ctx, node, userBatchID, userDeltas, outboundBatchID, outboundDeltas, options)
+	for attempt := 0; attempt < 4; attempt++ {
+		err = write()
 		if err == nil || !isTransientUsagePersistError(err) {
 			return err
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 100 * time.Millisecond):
+		case <-time.After(50*time.Millisecond + time.Duration(rand.Int64N(int64(100*time.Millisecond)<<attempt))):
 		}
 	}
 	return err
@@ -278,7 +382,7 @@ func (c Controller) storeCollectedUsageWithRetry(ctx context.Context, node NodeR
 func (c Controller) FlushStagedUsage(ctx context.Context, limit int, options UsagePersistOptions) (UsageFlushResult, error) {
 	var result UsageFlushResult
 	var err error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 4; attempt++ {
 		result, err = c.repo.FlushStagedUsage(ctx, limit, options)
 		if err == nil || !isTransientUsagePersistError(err) {
 			return result, err
@@ -286,14 +390,38 @@ func (c Controller) FlushStagedUsage(ctx context.Context, limit int, options Usa
 		select {
 		case <-ctx.Done():
 			return UsageFlushResult{}, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 100 * time.Millisecond):
+		case <-time.After(50*time.Millisecond + time.Duration(rand.Int64N(int64(100*time.Millisecond)<<attempt))):
 		}
 	}
 	return result, err
 }
 
+func (c Controller) FlushStagedUsageHistory(ctx context.Context, limit int, options UsagePersistOptions) (UsageHistoryFlushResult, error) {
+	var result UsageHistoryFlushResult
+	err := retryTransientUsageWrite(ctx, func() error {
+		var err error
+		result, err = c.repo.FlushStagedUsageHistory(ctx, limit, options)
+		return err
+	})
+	return result, err
+}
+
+func (c Controller) PruneProcessedUsageQueue(ctx context.Context, cutoff time.Time, limit int) (int, error) {
+	var deleted int
+	err := retryTransientUsageWrite(ctx, func() error {
+		var err error
+		deleted, err = c.repo.PruneProcessedUsageQueue(ctx, cutoff, limit)
+		return err
+	})
+	return deleted, err
+}
+
 func isTransientUsagePersistError(err error) bool {
 	if errors.Is(err, driver.ErrBadConn) {
+		return true
+	}
+	var mysqlErr *mysqlDriver.MySQLError
+	if errors.As(err, &mysqlErr) && (mysqlErr.Number == 1213 || mysqlErr.Number == 1205) {
 		return true
 	}
 	message := strings.ToLower(err.Error())

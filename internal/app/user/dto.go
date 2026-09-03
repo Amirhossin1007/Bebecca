@@ -20,6 +20,8 @@ type UsersListRequest struct {
 	Limit           *int64       `json:"limit,omitempty"`
 	Usernames       []string     `json:"usernames,omitempty"`
 	Search          string       `json:"search,omitempty"`
+	MatchCase       bool         `json:"match_case,omitempty"`
+	MatchWholeWord  bool         `json:"match_whole_word,omitempty"`
 	Owners          []string     `json:"owners,omitempty"`
 	Status          string       `json:"status,omitempty"`
 	AdvancedFilters []string     `json:"advanced_filters,omitempty"`
@@ -50,7 +52,13 @@ type ConfigLinksRequest struct {
 }
 
 type ConfigLinksResponse struct {
-	Links []string `json:"links"`
+	Links    []string             `json:"links"`
+	Metadata []ConfigLinkMetadata `json:"-"`
+}
+
+type ConfigLinkMetadata struct {
+	FinalMask  map[string]any
+	MuxEnabled bool
 }
 
 type ConfigLinkUser struct {
@@ -85,6 +93,7 @@ type UserListItem struct {
 	DataLimit              *int64           `json:"data_limit"`
 	DataLimitResetStrategy string           `json:"data_limit_reset_strategy,omitempty"`
 	OnlineAt               *string          `json:"online_at"`
+	IsOnline               bool             `json:"is_online"`
 	ServiceID              *int64           `json:"service_id"`
 	ServiceName            *string          `json:"service_name"`
 	AdminID                *int64           `json:"admin_id"`
@@ -248,36 +257,39 @@ type Inbound struct {
 type ResolvedInbound map[string]any
 
 type Host struct {
-	ID              int64    `json:"id"`
-	InboundTag      string   `json:"inbound_tag"`
-	Remark          string   `json:"remark"`
-	Address         string   `json:"address"`
-	DNSPrimary      string   `json:"dns_primary"`
-	DNSSecondary    string   `json:"dns_secondary"`
-	AddressOptions  []string `json:"address_options,omitempty"`
-	AddressMode     string   `json:"address_selection_mode,omitempty"`
-	AddressTTL      *int64   `json:"address_ttl_seconds,omitempty"`
-	Port            *int64   `json:"port"`
-	Path            *string  `json:"path"`
-	SNI             *string  `json:"sni"`
-	SNIOptions      []string `json:"sni_options,omitempty"`
-	SNIMode         string   `json:"sni_selection_mode,omitempty"`
-	SNITTL          *int64   `json:"sni_ttl_seconds,omitempty"`
-	Host            *string  `json:"host"`
-	HostOptions     []string `json:"host_options,omitempty"`
-	HostMode        string   `json:"host_selection_mode,omitempty"`
-	HostTTL         *int64   `json:"host_ttl_seconds,omitempty"`
-	Security        string   `json:"security"`
-	ALPN            string   `json:"alpn"`
-	Fingerprint     string   `json:"fingerprint"`
-	AllowInsecure   *bool    `json:"allowinsecure"`
-	IsDisabled      bool     `json:"is_disabled"`
-	MuxEnable       bool     `json:"mux_enable"`
-	FragmentSetting *string  `json:"fragment_setting"`
-	NoiseSetting    *string  `json:"noise_setting"`
-	RandomUserAgent bool     `json:"random_user_agent"`
-	UseSNIAsHost    bool     `json:"use_sni_as_host"`
-	ServiceIDs      []int64  `json:"service_ids,omitempty"`
+	ID                   int64          `json:"id"`
+	InboundTag           string         `json:"inbound_tag"`
+	Remark               string         `json:"remark"`
+	Address              string         `json:"address"`
+	DNSPrimary           string         `json:"dns_primary"`
+	DNSSecondary         string         `json:"dns_secondary"`
+	AddressOptions       []string       `json:"address_options,omitempty"`
+	AddressMode          string         `json:"address_selection_mode,omitempty"`
+	AddressTTL           *int64         `json:"address_ttl_seconds,omitempty"`
+	Port                 *int64         `json:"port"`
+	Path                 *string        `json:"path"`
+	SNI                  *string        `json:"sni"`
+	SNIOptions           []string       `json:"sni_options,omitempty"`
+	SNIMode              string         `json:"sni_selection_mode,omitempty"`
+	SNITTL               *int64         `json:"sni_ttl_seconds,omitempty"`
+	Host                 *string        `json:"host"`
+	HostOptions          []string       `json:"host_options,omitempty"`
+	HostMode             string         `json:"host_selection_mode,omitempty"`
+	HostTTL              *int64         `json:"host_ttl_seconds,omitempty"`
+	Security             string         `json:"security"`
+	ALPN                 string         `json:"alpn"`
+	Fingerprint          string         `json:"fingerprint"`
+	VerifyPeerCertByName string         `json:"verify_peer_cert_by_name"`
+	PinnedPeerCertSHA256 string         `json:"pinned_peer_cert_sha256"`
+	AllowInsecure        *bool          `json:"allowinsecure"`
+	IsDisabled           bool           `json:"is_disabled"`
+	MuxEnable            bool           `json:"mux_enable"`
+	FragmentSetting      *string        `json:"fragment_setting"`
+	NoiseSetting         *string        `json:"noise_setting"`
+	FinalMask            map[string]any `json:"finalmask,omitempty"`
+	RandomUserAgent      bool           `json:"random_user_agent"`
+	UseSNIAsHost         bool           `json:"use_sni_as_host"`
+	ServiceIDs           []int64        `json:"service_ids,omitempty"`
 }
 
 type SubscriptionSettings struct {

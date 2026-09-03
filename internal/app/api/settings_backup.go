@@ -64,7 +64,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer cleanup()
-	result, err := s.backup().Import(r.Context(), uploadPath, r.URL.Query().Get("scope"))
+	result, err := s.backup().Import(r.Context(), uploadPath)
 	if err != nil {
 		writeBackupError(w, err)
 		return

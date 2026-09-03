@@ -7,9 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
@@ -32,6 +29,13 @@ func createSettingsTables(t *testing.T, db *sql.DB) {
 			record_node_user_usages INTEGER NOT NULL DEFAULT 1,
 			subscription_read_only INTEGER NOT NULL DEFAULT 0,
 			api_docs_enabled INTEGER NOT NULL DEFAULT 0,
+			phpmyadmin_enabled INTEGER NOT NULL DEFAULT 0,
+			phpmyadmin_port INTEGER NOT NULL DEFAULT 8080,
+			phpmyadmin_path TEXT NOT NULL DEFAULT '/phpmyadmin/',
+			phpmyadmin_public_url TEXT NOT NULL DEFAULT '',
+			phpmyadmin_login_mode TEXT NOT NULL DEFAULT 'rebecca',
+			phpmyadmin_username TEXT NOT NULL DEFAULT '',
+			phpmyadmin_password TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,
@@ -406,128 +410,90 @@ func TestAdminSubscriptionSettingsRoute(t *testing.T) {
 	}
 }
 
-func TestSubscriptionTemplateContentRoutes(t *testing.T) {
+func TestAllSettingsRoute(t *testing.T) {
 	server, db := testAdminServer(t)
 	createSettingsTables(t, db)
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
-	templateRoot := t.TempDir()
-	t.Chdir(templateRoot)
-	if err := os.MkdirAll(filepath.Join(templateRoot, "templates", "clash"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(templateRoot, "templates", "clash", "default.yml"), []byte("mode: Global\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	dataDir := t.TempDir()
-	t.Setenv("REBECCA_DATA_DIR", dataDir)
-
-	rec := adminJSONRequest(t, server, http.MethodGet, "/api/settings/subscriptions/templates/clash_subscription_template", token, `{}`)
+	rec := adminJSONRequest(t, server, http.MethodPut, "/api/settings/all", token, `{
+		"panel":{"default_subscription_type":"token"},
+		"runtime":{"record_node_usage":false,"subscription_read_only":true},
+		"telegram":{"use_telegram":false,"backup_interval_value":6},
+		"subscriptions":{"subscription_profile_title":"Combined settings"},
+		"subscription_admins":[{
+			"id":2,
+			"settings":{
+				"subscription_domain":"seller.example.com",
+				"subscription_settings":{"subscription_path":"seller-sub"}
+			}
+		}]
+	}`)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("read default template status = %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("all settings status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	var content struct {
-		TemplateKey     string  `json:"template_key"`
-		TemplateName    string  `json:"template_name"`
-		CustomDirectory *string `json:"custom_directory"`
-		ResolvedPath    *string `json:"resolved_path"`
-		AdminID         *int64  `json:"admin_id"`
-		Content         string  `json:"content"`
+	var response struct {
+		Panel struct {
+			DefaultSubscriptionType string `json:"default_subscription_type"`
+		} `json:"panel"`
+		Runtime struct {
+			RecordNodeUsage      bool `json:"record_node_usage"`
+			SubscriptionReadOnly bool `json:"subscription_read_only"`
+		} `json:"runtime"`
+		Telegram struct {
+			UseTelegram         bool `json:"use_telegram"`
+			BackupIntervalValue int  `json:"backup_interval_value"`
+		} `json:"telegram"`
+		Subscriptions struct {
+			SubscriptionProfileTitle string `json:"subscription_profile_title"`
+		} `json:"subscriptions"`
+		Admins []struct {
+			ID                 int64   `json:"id"`
+			SubscriptionDomain *string `json:"subscription_domain"`
+		} `json:"subscription_admins"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &content); err != nil {
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
-	if content.TemplateKey != "clash_subscription_template" || content.TemplateName != "clash/default.yml" || content.Content != "mode: Global\n" || content.ResolvedPath == nil {
-		t.Fatalf("unexpected default template content: %#v", content)
+	if response.Panel.DefaultSubscriptionType != "token" ||
+		response.Runtime.RecordNodeUsage ||
+		!response.Runtime.SubscriptionReadOnly ||
+		response.Telegram.UseTelegram ||
+		response.Telegram.BackupIntervalValue != 6 ||
+		response.Subscriptions.SubscriptionProfileTitle != "Combined settings" ||
+		len(response.Admins) != 1 ||
+		response.Admins[0].ID != 2 ||
+		response.Admins[0].SubscriptionDomain == nil ||
+		*response.Admins[0].SubscriptionDomain != "seller.example.com" {
+		t.Fatalf("unexpected all settings response: %#v", response)
 	}
 
-	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions/templates/clash_subscription_template", token, `{"content":"mode: Rule\n"}`)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("write global template status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &content); err != nil {
-		t.Fatal(err)
-	}
-	if content.CustomDirectory == nil || *content.CustomDirectory != filepath.Join(dataDir, "templates") || content.Content != "mode: Rule\n" {
-		t.Fatalf("unexpected written global template: %#v", content)
-	}
-	if _, err := os.Stat(filepath.Join(dataDir, "templates", "clash", "default.yml")); err != nil {
-		t.Fatalf("global template file missing: %v", err)
-	}
-
-	missingAdminDir := filepath.Join(t.TempDir(), "missing-admin-templates")
-	encodedOverrides, _ := json.Marshal(map[string]any{"custom_templates_directory": missingAdminDir})
-	if _, err := db.Exec(`UPDATE admins SET subscription_settings = ? WHERE id = 2`, string(encodedOverrides)); err != nil {
-		t.Fatal(err)
-	}
-	rec = adminJSONRequest(t, server, http.MethodGet, "/api/settings/subscriptions/templates/clash_subscription_template?admin_id=2", token, `{}`)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("read admin missing template status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &content); err != nil {
-		t.Fatal(err)
-	}
-	if content.Content != "mode: Rule\n" || content.CustomDirectory == nil || *content.CustomDirectory != filepath.Join(dataDir, "templates") {
-		t.Fatalf("expected admin missing template to fall back to global custom template, got %#v", content)
-	}
-
-	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions/templates/clash_subscription_template?admin_id=2", token, `{"content":"mode: Direct\n"}`)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("write admin template status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &content); err != nil {
-		t.Fatal(err)
-	}
-	if content.AdminID == nil || *content.AdminID != 2 || content.CustomDirectory == nil || *content.CustomDirectory != filepath.Join(dataDir, "templates", "admins", "2") || content.Content != "mode: Direct\n" {
-		t.Fatalf("unexpected written admin template: %#v", content)
-	}
-
-	rec = adminJSONRequest(t, server, http.MethodGet, "/api/settings/subscriptions/templates/unknown_template", token, `{}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("invalid template key status = %d body=%s", rec.Code, rec.Body.String())
-	}
-
-	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions", token, `{"clash_subscription_template":"../escape.yml"}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("set traversal template status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	if _, err := db.Exec(`UPDATE subscription_settings SET clash_subscription_template = '../escape.yml'`); err != nil {
-		t.Fatal(err)
-	}
-	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions/templates/clash_subscription_template", token, `{"content":"nope"}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("path traversal write status = %d body=%s", rec.Code, rec.Body.String())
-	}
 }
 
-func TestSettingsDisabledRoutes(t *testing.T) {
+func TestCertificateRoutesValidateRequests(t *testing.T) {
 	server, db := testAdminServer(t)
 	createSettingsTables(t, db)
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
-	cases := []struct {
-		method string
-		path   string
-		detail string
-	}{
-		{http.MethodPost, "/api/settings/subscriptions/certificates/issue", subscriptionCertificateDisabledDetail},
-		{http.MethodPost, "/api/settings/subscriptions/certificates/renew", subscriptionCertificateDisabledDetail},
-	}
-	for _, tc := range cases {
-		rec := adminJSONRequest(t, server, tc.method, tc.path, token, `{}`)
-		if rec.Code != http.StatusGone {
-			t.Fatalf("%s %s status = %d body=%s", tc.method, tc.path, rec.Code, rec.Body.String())
-		}
-		if !strings.Contains(rec.Body.String(), tc.detail) {
-			t.Fatalf("%s %s detail mismatch: %s", tc.method, tc.path, rec.Body.String())
+	for _, path := range []string{
+		"/api/settings/subscriptions/certificates/issue",
+		"/api/settings/subscriptions/certificates/renew",
+		"/api/settings/subscriptions/certificates/import",
+	} {
+		rec := adminJSONRequest(t, server, http.MethodPost, path, token, `{}`)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("POST %s status = %d body=%s", path, rec.Code, rec.Body.String())
 		}
 	}
 
 	rec := adminJSONRequest(t, server, http.MethodGet, "/api/settings/subscriptions/certificates/issue", token, `{}`)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("certificate GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/settings/subscriptions/certificates/example.com", token, `{}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("certificate serve TLS validation status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	externalapps "github.com/rebeccapanel/rebecca/internal/app/externalapps"
 )
 
 const (
@@ -16,8 +17,15 @@ func apiRequestBodyLimit(path string) int64 {
 	if path == "/api/settings/backup/import" {
 		return 0
 	}
+	if path == "/api/haproxy/templates" {
+		return maxHAProxyTemplateUpload + (1 << 20)
+	}
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
+	}
+	if path == "/api/settings/external-apps/archive" || path == "/api/settings/external-apps/mirzabot" ||
+		(strings.HasPrefix(path, "/api/settings/external-apps/") && strings.HasSuffix(path, "/files/upload")) {
+		return externalapps.MaxRequestBodyBytes
 	}
 	return maxAPIRequestBodyBytes
 }
@@ -58,10 +66,12 @@ func (s *Server) Handler() http.Handler {
 	r.HandleFunc("/admin/token", s.handleAdminToken)
 	r.HandleFunc("/internal/admin/validate", s.handleInternalAdminValidate)
 	r.HandleFunc("/internal/node/session-event", s.handleNodeSessionEvent)
+	r.HandleFunc("/internal/node/haproxy-template/*", s.handleNodeHAProxyTemplate)
 	r.HandleFunc("/xray/*", s.requireSudo(s.handleXrayHelperPath))
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
+	r.HandleFunc("/hosts/certificate-fingerprint", s.requireAdmin(s.handleHostCertificateFingerprint))
 	r.HandleFunc("/hosts/*", s.requireAdmin(s.handleHostStatusPath))
 	r.HandleFunc("/hosts", s.requireAdmin(s.handleHostsRoot))
 	r.HandleFunc("/sub/*", s.handleSubscriptionPath)
@@ -82,7 +92,7 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	r.NotFound(s.handleHomeOrSubscriptionPath)
-	return withAPIRequestBodyLimit(r)
+	return &externalAppAwareHandler{apps: s.externalApps, next: withAPIRequestBodyLimit(r)}
 }
 
 func (s *Server) registerAdminRoutes(r chi.Router) {
@@ -142,6 +152,7 @@ func (s *Server) registerInboundHostRoutes(r chi.Router) {
 	r.HandleFunc("/inbounds/openvpn/runtime", s.requireSudo(s.handleOVRuntime))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
+	r.HandleFunc("/hosts/certificate-fingerprint", s.requireAdmin(s.handleHostCertificateFingerprint))
 	r.HandleFunc("/hosts/*", s.requireAdmin(s.handleHostStatusPath))
 	r.HandleFunc("/hosts", s.requireAdmin(s.handleHostsRoot))
 }
@@ -158,19 +169,23 @@ func (s *Server) registerSystemRoutes(r chi.Router) {
 
 func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings", s.requireAdmin(s.handleRuntimeSettings))
+	r.HandleFunc("/settings/all", s.requireSudo(s.handleAllSettings))
 	r.HandleFunc("/settings/backup/export", s.requireSudo(s.handleBackupExport))
 	r.HandleFunc("/settings/backup/import", s.requireSudo(s.handleBackupImport))
 	r.HandleFunc("/settings/panel", s.requireAdmin(s.handlePanelSettings))
 	r.HandleFunc("/settings/phpmyadmin/embed/*", s.handlePHPMyAdmin)
 	r.HandleFunc("/settings/phpmyadmin/*", s.requireSudo(s.handlePHPMyAdmin))
 	r.HandleFunc("/settings/phpmyadmin", s.requireSudo(s.handlePHPMyAdmin))
+	r.Handle("/settings/external-apps/*", s.requireSudo(s.externalApps.ServeHTTP))
+	r.Handle("/settings/external-apps", s.requireSudo(s.externalApps.ServeHTTP))
 	r.HandleFunc("/settings/telegram/backup/send", s.requireSudo(s.handleTelegramBackupSend))
 	r.HandleFunc("/settings/telegram/test", s.requireSudo(s.handleTelegramSettingsTest))
 	r.HandleFunc("/settings/telegram", s.requireSudo(s.handleTelegramSettings))
-	r.HandleFunc("/settings/subscriptions/certificates/issue", s.requireSudo(s.handleSettingsDisabledRoute))
-	r.HandleFunc("/settings/subscriptions/certificates/renew", s.requireSudo(s.handleSettingsDisabledRoute))
+	r.HandleFunc("/settings/subscriptions/certificates/issue", s.requireSudo(s.handleCertificateIssue))
+	r.HandleFunc("/settings/subscriptions/certificates/import", s.requireSudo(s.handleCertificateImport))
+	r.HandleFunc("/settings/subscriptions/certificates/renew", s.requireSudo(s.handleCertificateRenew))
+	r.HandleFunc("/settings/subscriptions/certificates/*", s.requireSudo(s.handleCertificatePath))
 	r.HandleFunc("/settings/subscriptions/admins/*", s.requireSudo(s.handleAdminSubscriptionSettingsPath))
-	r.HandleFunc("/settings/subscriptions/templates/*", s.requireSudo(s.handleSubscriptionTemplatePath))
 	r.HandleFunc("/settings/subscriptions", s.requireSudo(s.handleSubscriptionSettings))
 }
 
@@ -184,6 +199,7 @@ func (s *Server) registerUserRoutes(r chi.Router) {
 	r.HandleFunc("/v2/users", s.requireAdmin(s.handleUserV2Root))
 	r.HandleFunc("/users/actions", s.requireAdmin(s.handleUsersBulkAction))
 	r.HandleFunc("/users/usage", s.requireAdmin(s.handleUsersUsage))
+	r.HandleFunc("/users/onlines", s.requireAdmin(s.handleOnlineUsers))
 	r.HandleFunc("/users", s.requireAdmin(s.handleUsers))
 	r.HandleFunc("/user/*", s.requireAdmin(s.handleUserPath))
 	r.HandleFunc("/user", s.requireAdmin(s.handleUserRoot))
@@ -211,6 +227,8 @@ func (s *Server) registerSubscriptionRoutes(r chi.Router) {
 }
 
 func (s *Server) registerNodeRoutes(r chi.Router) {
+	r.HandleFunc("/haproxy/*", s.requireSudo(s.handleHAProxyPath))
+	r.HandleFunc("/haproxy", s.requireSudo(s.handleHAProxyRoot))
 	r.HandleFunc("/nodes/service/update", s.requireSudo(s.handleNodesServiceUpdate))
 	r.HandleFunc("/nodes/usage", s.requireSudo(s.handleNodesUsage))
 	r.HandleFunc("/nodes/metrics", s.requireSudo(s.handleNodesMetricsWebSocket))

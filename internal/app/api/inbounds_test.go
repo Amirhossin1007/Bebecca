@@ -39,6 +39,9 @@ func TestInboundRoutesListFullAndDetail(t *testing.T) {
 	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
 	insertCoreConfigNode(t, db, 7, "de-7", xrayconfig.ConfigModeDefault, nil)
 	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("master-vless", "vless", 443)))
+	if _, err := db.Exec(`INSERT INTO inbounds (tag, uplink, downlink, usage_coefficient) VALUES ('master-vless', 1024, 2048, 1.5)`); err != nil {
+		t.Fatal(err)
+	}
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
 	rec := adminJSONRequest(t, server, http.MethodGet, "/inbounds", token, "")
@@ -64,6 +67,12 @@ func TestInboundRoutesListFullAndDetail(t *testing.T) {
 	if len(full) != 1 || full[0]["tag"] != "master-vless" {
 		t.Fatalf("unexpected full inbounds: %#v", full)
 	}
+	if full[0]["uplink"] != float64(1024) || full[0]["downlink"] != float64(2048) {
+		t.Fatalf("unexpected inbound traffic: %#v", full[0])
+	}
+	if full[0]["usage_coefficient"] != 1.5 {
+		t.Fatalf("unexpected usage coefficient: %#v", full[0])
+	}
 	settings := full[0]["settings"].(map[string]any)
 	if clients := settings["clients"].([]any); len(clients) != 0 {
 		t.Fatalf("settings.clients was not sanitized: %#v", clients)
@@ -83,6 +92,34 @@ func TestInboundRoutesListFullAndDetail(t *testing.T) {
 	if detail["tag"] != "master-vless" {
 		t.Fatalf("unexpected detail: %#v", detail)
 	}
+	if detail["uplink"] != float64(1024) || detail["downlink"] != float64(2048) {
+		t.Fatalf("unexpected detail traffic: %#v", detail)
+	}
+}
+
+func TestInboundUsageResetClearsCountersAndPendingDeltas(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "pouria", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertCoreConfigNode(t, db, 7, "de-7", xrayconfig.ConfigModeDefault, nil)
+	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("reset-me", "vless", 443)))
+	if _, err := db.Exec(`INSERT INTO inbounds (tag, uplink, downlink) VALUES ('reset-me', 1024, 2048)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE node_usage_outbound_queue (node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, tag TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, inbound_uplink INTEGER NOT NULL DEFAULT 0, inbound_downlink INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO node_usage_outbound_queue (node_id, batch_id, tag, uplink, downlink, inbound_uplink, inbound_downlink, created_at) VALUES (7, 'pending-reset', 'reset-me', 11, 12, 13, 14, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	token := adminBearerToken(t, server, "pouria", "pass123")
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/inbounds/reset-me/usage/reset", token, `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reset inbound usage status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	assertMasterAPICount(t, db, `SELECT uplink + downlink FROM inbounds WHERE tag = 'reset-me'`, 0)
+	assertMasterAPICount(t, db, `SELECT inbound_uplink + inbound_downlink FROM node_usage_outbound_queue WHERE batch_id = 'pending-reset'`, 0)
+	assertMasterAPICount(t, db, `SELECT uplink + downlink FROM node_usage_outbound_queue WHERE batch_id = 'pending-reset'`, 23)
 }
 
 func TestInboundCreateUpdateValidationAndOperations(t *testing.T) {
@@ -92,7 +129,7 @@ func TestInboundCreateUpdateValidationAndOperations(t *testing.T) {
 	insertRawMasterXrayConfig(t, db, inboundConfig(inboundEntry("base", "vless", 443)))
 	token := adminBearerToken(t, server, "pouria", "pass123")
 
-	createPayload := `{"tag":"new-vless","protocol":"vless","port":8443,"settings":{"clients":[{"id":"drop"}],"decryption":"none"},"target_ids":["master"]}`
+	createPayload := `{"tag":"new-vless","protocol":"vless","port":8443,"usage_coefficient":2.5,"settings":{"clients":[{"id":"drop"}],"decryption":"none"},"target_ids":["master"]}`
 	rec := adminJSONRequest(t, server, http.MethodPost, "/api/inbounds", token, createPayload)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("create inbound status=%d body=%s", rec.Code, rec.Body.String())
@@ -100,11 +137,20 @@ func TestInboundCreateUpdateValidationAndOperations(t *testing.T) {
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM inbounds WHERE tag = 'new-vless'`, 1)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM hosts WHERE inbound_tag = 'new-vless'`, 1)
 	assertMasterAPICount(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config' AND node_id IS NULL`, 1)
+	var coefficient float64
+	if err := db.QueryRow(`SELECT usage_coefficient FROM inbounds WHERE tag = 'new-vless'`).Scan(&coefficient); err != nil || coefficient != 2.5 {
+		t.Fatalf("coefficient=%v err=%v", coefficient, err)
+	}
 
 	duplicatePortPayload := `{"tag":"dup","protocol":"vless","port":443,"settings":{"clients":[]},"target_ids":["master"]}`
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/inbounds", token, duplicatePortPayload)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("duplicate port status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	invalidCoefficientPayload := `{"tag":"bad-coefficient","protocol":"vless","port":7443,"usage_coefficient":0,"settings":{"clients":[]},"target_ids":["master"]}`
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/inbounds", token, invalidCoefficientPayload)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid coefficient status=%d body=%s", rec.Code, rec.Body.String())
 	}
 
 	updatePayload := `{"tag":"new-vless","protocol":"vless","port":9443,"settings":{"clients":[]},"target_ids":["node:7"]}`
@@ -119,6 +165,12 @@ func TestInboundCreateUpdateValidationAndOperations(t *testing.T) {
 	}
 	if !nodeRaw.Valid || !strings.Contains(nodeRaw.String, `"new-vless"`) || strings.Contains(nodeRaw.String, `"port":8443`) {
 		t.Fatalf("node custom config was not updated: %s", nodeRaw.String)
+	}
+	if strings.Contains(nodeRaw.String, "usage_coefficient") {
+		t.Fatalf("panel metadata leaked into Xray config: %s", nodeRaw.String)
+	}
+	if err := db.QueryRow(`SELECT usage_coefficient FROM inbounds WHERE tag = 'new-vless'`).Scan(&coefficient); err != nil || coefficient != 2.5 {
+		t.Fatalf("omitted coefficient was not preserved: coefficient=%v err=%v", coefficient, err)
 	}
 }
 

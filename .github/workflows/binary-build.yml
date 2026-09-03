@@ -76,6 +76,9 @@ jobs:
       - name: Test Go
         run: go test ./internal/app/admin ./internal/app/backup ./internal/app/migrations
 
+      - name: Test binary database lifecycle
+        run: bash scripts/rebecca/test-database-maintenance.sh
+
       - name: Upload dashboard
         uses: actions/upload-artifact@v4
         with:
