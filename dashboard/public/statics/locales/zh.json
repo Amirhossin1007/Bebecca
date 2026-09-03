@@ -773,5 +773,17 @@
 	"settings.telegram.events.nodeErrorsHint": "当系统记录节点错误时发送通知。",
 	"settings.save": "Save Settings",
 	"settings.savedSuccess": "Telegram settings updated.",
-	"settings.tabs.comingSoon": "Coming Soon"
+	"settings.tabs.comingSoon": "Coming Soon",
+	"duration.day": "天",
+	"duration.days": "天",
+	"duration.hour": "小时",
+	"duration.hours": "小时",
+	"duration.minute": "分钟",
+	"duration.minutes": "分钟",
+	"duration.second": "秒",
+	"duration.seconds": "秒",
+	"common.and": " 和 ",
+	"common.comma": "， ",
+	"confirm": "确认",
+	"common.comingSoon": "即将推出"
 }

@@ -80,14 +80,9 @@ type MaintenanceInfo = {
 	} | null;
 };
 
-interface DurationPart {
-	unit: string;
-	value: number;
-}
-
-const formatDurationParts = (seconds: number, t: TFunction): DurationPart[] => {
+const formatDurationText = (seconds: number, t: TFunction): string => {
 	if (!seconds || seconds <= 0) {
-		return [{ unit: t("second"), value: 0 }];
+		return `0 ${t("duration.seconds")}`;
 	}
 
 	const days = Math.floor(seconds / 86400);
@@ -95,15 +90,46 @@ const formatDurationParts = (seconds: number, t: TFunction): DurationPart[] => {
 	const minutes = Math.floor((seconds % 3600) / 60);
 	const remSeconds = Math.floor(seconds % 60);
 
-	const parts: DurationPart[] = [];
-	if (days > 0) parts.push({ unit: t("day"), value: days });
-	if (hours > 0) parts.push({ unit: t("hour"), value: hours });
-	if (minutes > 0) parts.push({ unit: t("minute"), value: minutes });
-	if (remSeconds > 0 || parts.length === 0) {
-		parts.push({ unit: t("second"), value: remSeconds });
+	const andWord = t("common.and");
+	const commaWord = t("common.comma");
+
+	const formatUnit = (val: number, singleKey: string, pluralKey: string) => {
+		const unitStr = val === 1 ? t(singleKey) : t(pluralKey);
+		return `${val} ${unitStr}`;
+	};
+
+	if (days > 0) {
+		const parts: string[] = [formatUnit(days, "duration.day", "duration.days")];
+		if (hours > 0) {
+			parts.push(formatUnit(hours, "duration.hour", "duration.hours"));
+		}
+		if (minutes > 0) {
+			parts.push(formatUnit(minutes, "duration.minute", "duration.minutes"));
+		}
+		if (parts.length === 1) return parts[0];
+		if (parts.length === 2) return parts.join(andWord);
+		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
 	}
 
-	return parts;
+	if (hours > 0) {
+		const hStr = formatUnit(hours, "duration.hour", "duration.hours");
+		if (minutes > 0) {
+			const mStr = formatUnit(minutes, "duration.minute", "duration.minutes");
+			return `${hStr}${andWord}${mStr}`;
+		}
+		return hStr;
+	}
+
+	if (minutes > 0) {
+		const mStr = formatUnit(minutes, "duration.minute", "duration.minutes");
+		if (remSeconds > 0) {
+			const sStr = formatUnit(remSeconds, "duration.second", "duration.seconds");
+			return `${mStr}${andWord}${sStr}`;
+		}
+		return mStr;
+	}
+
+	return formatUnit(remSeconds, "duration.second", "duration.seconds");
 };
 
 const formatLocalizedDuration = (
@@ -111,65 +137,17 @@ const formatLocalizedDuration = (
 	t: TFunction,
 	isRTL = false,
 ): ReactNode => {
-	const parts = formatDurationParts(seconds, t);
-	const andWord = t("common.and");
-	const commaWord = t("common.comma");
-
-	if (isRTL) {
-		return (
-			<Flex
-				as="span"
-				align="center"
-				justify="flex-end"
-				wrap="wrap"
-				gap={1}
-				dir="rtl"
-				sx={{ unicodeBidi: "isolate" }}
-			>
-				{parts.map((part, idx) => (
-					<Flex as="span" align="center" key={`${part.unit}-${part.value}`} gap={1}>
-						{idx > 0 && (
-							<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500" px={0.5}>
-								{idx === parts.length - 1 ? andWord : commaWord}
-							</Text>
-						)}
-						<Text
-							as="span"
-							color="panel.text"
-							fontWeight="600"
-							fontSize="13px"
-							dir="ltr"
-							sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-						>
-							{part.value}
-						</Text>
-						<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500">
-							{part.unit}
-						</Text>
-					</Flex>
-				))}
-			</Flex>
-		);
-	}
-
+	const text = formatDurationText(seconds, t);
 	return (
-		<Flex as="span" align="center" gap={1} dir="ltr">
-			{parts.map((part, idx) => (
-				<Flex as="span" align="center" key={`${part.unit}-${part.value}`} gap={1}>
-					{idx > 0 && (
-						<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500" px={0.5}>
-							{idx === parts.length - 1 ? andWord : commaWord}
-						</Text>
-					)}
-					<Text as="span" color="panel.text" fontWeight="600" fontSize="13px">
-						{part.value}
-					</Text>
-					<Text as="span" color="panel.textSecondary" fontSize="13px" fontWeight="500">
-						{part.unit}
-					</Text>
-				</Flex>
-			))}
-		</Flex>
+		<Text
+			fontSize="13px"
+			fontWeight="500"
+			color="panel.text"
+			dir={isRTL ? "rtl" : "ltr"}
+			sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+		>
+			{text}
+		</Text>
 	);
 };
 

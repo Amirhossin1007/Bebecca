@@ -772,5 +772,17 @@
 	"nodes.remainingData": "Remaining data",
 	"nodes.lastUpdated": "Last updated",
 	"nodes.clearDataLimit": "Clear limit",
-	"nodes.limitReached": "Limit reached"
+	"nodes.limitReached": "Limit reached",
+	"duration.day": "день",
+	"duration.days": "дней",
+	"duration.hour": "час",
+	"duration.hours": "часов",
+	"duration.minute": "минута",
+	"duration.minutes": "минут",
+	"duration.second": "секунда",
+	"duration.seconds": "секунд",
+	"common.and": " и ",
+	"common.comma": ", ",
+	"confirm": "Подтвердить",
+	"common.comingSoon": "Скоро появится"
 }

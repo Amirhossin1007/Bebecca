@@ -3444,5 +3444,13 @@
 	"haproxy.jsonHelp": "این همان Payload تنظیمات است که هنگام ذخیره برای بک‌اند ارسال می‌شود و با هر تغییر در فرم همان لحظه به‌روزرسانی می‌شود.",
 	"settings.panel.updateConfirmTitle": "تأیید به‌روزرسانی پنل",
 	"settings.panel.updateConfirmDescription": "آیا از به‌روزرسانی پنل به نسخه {{target}} اطمینان دارید؟ پنل بعد از چند لحظه مجدداً راه‌اندازی خواهد شد.",
-	"settings.panel.updateDevConfirmDescription": "شما در حال به‌روزرسانی پنل به نسخه در حال توسعه (Dev) هستید. این نسخه ممکن است شامل تغییرات آزمایشی باشد. آیا ادامه می‌دهید؟"
+	"settings.panel.updateDevConfirmDescription": "شما در حال به‌روزرسانی پنل به نسخه در حال توسعه (Dev) هستید. این نسخه ممکن است شامل تغییرات آزمایشی باشد. آیا ادامه می‌دهید؟",
+	"duration.day": "روز",
+	"duration.days": "روز",
+	"duration.hour": "ساعت",
+	"duration.hours": "ساعت",
+	"duration.minute": "دقیقه",
+	"duration.minutes": "دقیقه",
+	"duration.second": "ثانیه",
+	"duration.seconds": "ثانیه"
 }
