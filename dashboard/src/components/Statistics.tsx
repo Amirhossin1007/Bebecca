@@ -34,12 +34,12 @@ import {
 } from "@heroicons/react/24/outline";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
-import { PanelSelect } from "components/common/PanelSelect";
 import {
 	type NodeType,
 	useNodeMetricsStream,
 	useNodesQuery,
 } from "contexts/NodesContext";
+import { AnimatePresence, motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
 import {
@@ -84,6 +84,11 @@ type MaintenanceInfo = {
 		} | null;
 	} | null;
 };
+
+interface DurationPart {
+	unit: string;
+	value: number;
+}
 
 const formatDurationText = (seconds: number, t: TFunction): string => {
 	if (!seconds || seconds <= 0) {
@@ -932,121 +937,58 @@ const StatRow: FC<{
 	);
 };
 
-type XrayHistory = Record<
-	number,
-	Array<{ timestamp: number; cpu: number; memory: number }>
->;
-
-const XrayOverviewCard: FC<{
-	nodes: NodeType[];
-	selectedNodeID: number | null;
-	onSelectNode: (id: number) => void;
-	history: XrayHistory;
-	t: TFunction;
-}> = ({ nodes, selectedNodeID, onSelectNode, history, t }) => {
-	const node = nodes.find((item) => item.id === selectedNodeID) ?? nodes[0];
-	if (!node?.id) return null;
-	const samples = history[node.id] ?? [];
-	const memoryPercent = node.memory_total
-		? ((node.xray_memory_used ?? 0) * 100) / node.memory_total
-		: 0;
-	const xrayProtocol = node.protocol_statuses?.find(
-		(item) => item.protocol === "xray",
-	);
-	return (
-		<ChartBox
-			title={t("dashboard.xrayOverview")}
-			headerActions={
-				<PanelSelect
-					value={String(node.id)}
-					onValueChange={(value) => onSelectNode(Number(Array.isArray(value) ? value[0] : value))}
-					options={nodes.flatMap((item) => item.id ? [{ value: String(item.id), label: item.name }] : [])}
-					minW={{ base: "150px", md: "210px" }}
-				/>
-			}
-		>
-			<Stack spacing={5}>
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={5}>
-					<UsageMetricCard
-						label={t("dashboard.xrayCPU")}
-						percent={node.xray_cpu_usage_percent ?? 0}
-						detail={`PID ${node.xray_pid || "-"} · ${formatDuration(node.xray_uptime_seconds ?? 0)}`}
-						history={samples.map((sample) => sample.cpu)}
-					/>
-					<UsageMetricCard
-						label={t("dashboard.xrayMemory")}
-						percent={memoryPercent}
-						detail={`${formatBytes(node.xray_memory_used ?? 0)} / ${formatBytes(node.memory_total ?? 0)}`}
-						history={samples.map((sample) => sample.memory)}
-					/>
-				</SimpleGrid>
-				<SimpleGrid columns={{ base: 2, md: 4 }} gap={3}>
-					<MetricBadge label={t("status")} value={xrayProtocol?.state ?? node.xray_status ?? "unknown"} colorScheme={xrayProtocol?.state === "running" ? "green" : "orange"} />
-					<MetricBadge label={t("dashboard.xrayVersion")} value={node.xray_version || "-"} colorScheme="blue" />
-					<MetricBadge label={t("dashboard.xrayInbounds")} value={xrayProtocol?.inbounds ?? 0} colorScheme="purple" />
-					<MetricBadge label={t("dashboard.xrayUptime")} value={formatDuration(node.xray_uptime_seconds ?? 0)} colorScheme="teal" />
-				</SimpleGrid>
-			</Stack>
-		</ChartBox>
-	);
-};
-
-const UsersOverviewCard: FC<{
-	data: SystemStats;
-	t: TFunction;
-}> = ({ data, t }) => (
-	<ChartBox title={t("usersOverview")}>
-		<Stack spacing={5}>
-			<MetricBadge
-				label={t("total")}
-				value={formatNumberValue(data.total_user)}
-				colorScheme="blue"
-			/>
-			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={5}>
-				<MetricBadge
-					label={t("dashboard.onlineUsersUsage")}
-					value={formatBytes(data.online_users_usage)}
-					colorScheme="teal"
-					helper={t("dashboard.onlineUsersCount", { count: data.online_users })}
-				/>
-				<MetricBadge
-					label={t("dashboard.onlineUsersSpeed")}
-					value={`${formatBytes(data.online_users_upload_speed + data.online_users_download_speed)}/s`}
-					colorScheme="cyan"
-					helper={`↑ ${formatBytes(data.online_users_upload_speed)}/s · ↓ ${formatBytes(data.online_users_download_speed)}/s`}
-				/>
-			</SimpleGrid>
-			<SimpleGrid columns={{ base: 1, sm: 2 }} gap={5}>
-				<MetricBadge
-					label={t("status.active")}
-					value={formatNumberValue(data.users_active)}
-					colorScheme="green"
-				/>
-				<MetricBadge
-					label={t("status.disabled")}
-					value={formatNumberValue(data.users_disabled)}
-					colorScheme="red"
-				/>
-				<MetricBadge
-					label={t("status.expired")}
-					value={formatNumberValue(data.users_expired)}
-					colorScheme="orange"
-				/>
-				<MetricBadge
-					label={t("status.limited")}
-					value={formatNumberValue(data.users_limited)}
-					colorScheme="yellow"
-				/>
-				<Box gridColumn={{ base: "span 1", sm: "span 2" }}>
-					<MetricBadge
-						label={t("status.on_hold")}
-						value={formatNumberValue(data.users_on_hold)}
-						colorScheme="purple"
-					/>
-				</Box>
-			</SimpleGrid>
-		</Stack>
-	</ChartBox>
+const SectionCard: FC<{
+	children: ReactNode;
+	title?: ReactNode;
+	action?: ReactNode;
+	noHover?: boolean;
+}> = ({
+	children,
+	title,
+	action,
+	noHover = false,
+}) => (
+	<Box
+		bg="panel.surface"
+		borderWidth="1px"
+		borderColor="panel.border"
+		borderRadius="20px"
+		overflow="hidden"
+		boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+		transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
+		_hover={
+			noHover
+				? undefined
+				: {
+						md: {
+							borderColor: "panel.borderStrong",
+							bg: "panel.elevated",
+							boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
+						},
+					}
+		}
+	>
+		{(title || action) && (
+			<Flex
+				px={{ base: 4, sm: 5, md: 6 }}
+				py={3.5}
+				align="center"
+				justify="space-between"
+				borderBottomWidth="1px"
+				borderColor="panel.border"
+			>
+				{title && (
+					<Text fontSize="13px" fontWeight="700" color="panel.text" letterSpacing="-0.01em">
+						{title}
+					</Text>
+				)}
+				{action}
+			</Flex>
+		)}
+		<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
+			{children}
+		</Box>
+	</Box>
 );
 
 const AnimatedHeightWrapper: FC<{
@@ -1125,11 +1067,14 @@ const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon
 export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const isRTL = i18n.dir(i18n.language) === "rtl";
+
 	const canSeeGlobal =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
-	const { data: nodes = [] } = useNodesQuery({ enabled: canSeeGlobal });
+	const { data: _nodes = [] } = useNodesQuery({ enabled: canSeeGlobal });
 	useNodeMetricsStream(canSeeGlobal);
+
 	const { data: rawSystemData } = useQuery<SystemStats>({
 		queryKey: StatisticsQueryKey,
 		queryFn: () => fetch("/system"),
@@ -1172,37 +1117,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 			useDashboard.setState({ version: systemData.version });
 		}
 	}, [systemData?.version, version]);
-	const [historyPayload, setHistoryPayload] =
-		useState<HistoryModalPayload | null>(null);
-	const [historyInterval, setHistoryInterval] = useState(
-		HISTORY_INTERVALS[0].seconds,
-	);
-	const [selectedXrayNodeID, setSelectedXrayNodeID] = useState<number | null>(null);
-	const [xrayHistory, setXrayHistory] = useState<XrayHistory>({});
-	useEffect(() => {
-		const available = nodes.find((node) => node.id && node.xray_status === "running") ?? nodes.find((node) => node.id);
-		if (available?.id && !nodes.some((node) => node.id === selectedXrayNodeID)) {
-			setSelectedXrayNodeID(available.id);
-		}
-	}, [nodes, selectedXrayNodeID]);
-	useEffect(() => {
-		const now = Date.now();
-		setXrayHistory((current) => {
-			let next = current;
-			for (const node of nodes) {
-				if (!node.id || node.xray_cpu_usage_percent == null || node.xray_memory_used == null) continue;
-				const samples = current[node.id] ?? [];
-				if (samples.length && now - samples[samples.length - 1].timestamp < 2500) continue;
-				if (next === current) next = { ...current };
-				next[node.id] = [...samples, {
-					timestamp: now,
-					cpu: node.xray_cpu_usage_percent,
-					memory: node.memory_total ? node.xray_memory_used * 100 / node.memory_total : 0,
-				}].slice(-60);
-			}
-			return next;
-		});
-	}, [nodes]);
+
+	const [historyPayload, setHistoryPayload] = useState<HistoryModalPayload | null>(null);
+	const [historyInterval, setHistoryInterval] = useState(HISTORY_INTERVALS[0].seconds);
+	const [userTab, setUserTab] = useState<"all" | "mine">("all");
 
 	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
@@ -1256,11 +1174,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const myOnlineUploadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.upload_speed) || 0), 0);
 	const myOnlineDownloadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.download_speed) || 0), 0);
 	const myActiveUsersUsedTraffic = myUsersList.reduce((sum, u) => sum + (Number(u.used_traffic) || 0), 0);
-
-	const myUsageLabel =
-		systemData.personal_usage?.traffic_basis === "created_traffic"
-			? t("dashboard.currentCreatedTraffic")
-			: t("dashboard.currentUserUsage");
 
 	const panelInfo = maintenanceInfo?.panel;
 	const exactVersion =
@@ -1533,6 +1446,76 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 			<SectionCard
 				noHover
+				title={
+					<HStack spacing={2.5}>
+						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
+							<CpuChipIcon width={14} />
+						</Flex>
+						<span>{t("panelUsage")}</span>
+					</HStack>
+				}
+				action={
+					<Button
+						size="xs"
+						h="22px"
+						px={2.5}
+						fontSize="11px"
+						variant="ghost"
+						borderRadius="full"
+						bg="panel.elevated"
+						color="panel.textMuted"
+						fontWeight="500"
+						transition="background-color 0.25s ease, color 0.25s ease"
+						_hover={{}}
+						sx={{
+							".chakra-box:hover &": {
+								bg: "panel.surface",
+								color: "panel.text",
+							},
+						}}
+						onClick={() =>
+							openHistory({
+								type: "panel",
+								title: t("panelUsage"),
+								cpuEntries: systemData.panel_cpu_history,
+								memoryEntries: systemData.panel_memory_history,
+							})
+						}
+					>
+						{t("viewHistory")}
+					</Button>
+				}
+			>
+				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+					<ResourceCard
+						label={`${t("cpuUsage")} (Panel)`}
+						icon={<CpuChipIcon width={16} />}
+						value={
+							<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
+								{formatPercent(systemData.panel_cpu_percent)}
+							</Text>
+						}
+						percent={systemData.panel_cpu_percent}
+						metaValue={formatNumberValue(systemData.app_threads)}
+						metaUnit={t("thread")}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)))}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)))}`}
+						isRTL={isRTL}
+					/>
+					<ResourceCard
+						label={`${t("memoryUsage")} (Panel)`}
+						icon={<ServerStackIcon width={16} />}
+						value={formatBytes(systemData.app_memory, 1)}
+						totalValue={formatBytes(systemData.memory.total, 1)}
+						percent={systemData.panel_memory_percent}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)))}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)))}`}
+						isRTL={isRTL}
+					/>
+				</SimpleGrid>
+			</SectionCard>
+
+			<SectionCard
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
