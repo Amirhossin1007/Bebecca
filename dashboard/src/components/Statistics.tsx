@@ -318,10 +318,10 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
 const formatMetricPair = (label: string, value: string, isRTL = false) => (
 	<Flex as="span" align="center" gap={1} dir={isRTL ? "rtl" : "ltr"} sx={{ unicodeBidi: "isolate" }}>
-		<Text as="span" color="panel.textMuted">
+		<Text as="span" color="panel.textMuted" fontSize="11px" fontWeight="500">
 			{label}:
 		</Text>
-		<Text as="span" color="panel.text" fontWeight="600" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
+		<Text as="span" color="panel.textMuted" fontSize="11px" fontWeight="500" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
 			{value}
 		</Text>
 	</Flex>
@@ -729,9 +729,8 @@ const ResourceCard: FC<{
 							h="22px"
 							px={2.5}
 							fontSize="11px"
-							variant="outline"
+							variant="ghost"
 							borderRadius="full"
-							borderColor="panel.borderStrong"
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							fontWeight="500"
@@ -739,7 +738,6 @@ const ResourceCard: FC<{
 							_hover={{
 								bg: "panel.borderStrong",
 								color: "panel.text",
-								borderColor: "panel.textMuted",
 							}}
 							_active={{
 								bg: "panel.border",
@@ -748,12 +746,10 @@ const ResourceCard: FC<{
 							sx={{
 								".chakra-box:hover &": {
 									bg: "panel.surface",
-									borderColor: "panel.border",
 									color: "panel.text",
 								},
 								".chakra-box:hover &:hover": {
-									bg: "panel.elevated",
-									borderColor: "panel.borderStrong",
+									bg: "panel.borderStrong",
 									color: "panel.text",
 								},
 							}}
@@ -929,7 +925,7 @@ const StatRow: FC<{
 						sx={{
 							".chakra-box:hover &": {
 								bg: "panel.surface",
-								color: "panel.textSecondary",
+								color: "panel.text",
 							},
 						}}
 					>
@@ -1028,7 +1024,7 @@ const AnimatedHeightWrapper: FC<{
 			const resizeObserver = new ResizeObserver((entries) => {
 				for (const entry of entries) {
 					const newHeight = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-					if (newHeight > 0) {
+					if (newHeight >= 0) {
 						setHeight(newHeight);
 					}
 				}
@@ -1056,7 +1052,7 @@ const AnimatedHeightWrapper: FC<{
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0 }}
 						transition={{
-							opacity: { duration: 0.12, ease: "linear" },
+							opacity: { duration: 0.15, ease: "linear" },
 						}}
 					>
 						{children}
@@ -1356,9 +1352,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 							h="22px"
 							px={2.5}
 							fontSize="11px"
-							variant="outline"
+							variant="ghost"
 							borderRadius="full"
-							borderColor="panel.borderStrong"
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							fontWeight="500"
@@ -1366,7 +1361,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 							_hover={{
 								bg: "panel.borderStrong",
 								color: "panel.text",
-								borderColor: "panel.textMuted",
 							}}
 							_active={{
 								bg: "panel.border",
@@ -1375,12 +1369,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 							sx={{
 								".chakra-box:hover &": {
 									bg: "panel.surface",
-									borderColor: "panel.border",
 									color: "panel.text",
 								},
 								".chakra-box:hover &:hover": {
-									bg: "panel.elevated",
-									borderColor: "panel.borderStrong",
+									bg: "panel.borderStrong",
 									color: "panel.text",
 								},
 							}}
