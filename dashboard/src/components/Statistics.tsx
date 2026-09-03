@@ -316,16 +316,6 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 };
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
-const formatMetricPair = (label: string, value: string, isRTL = false) => (
-	<Flex as="span" align="center" gap={1} dir={isRTL ? "rtl" : "ltr"} sx={{ unicodeBidi: "isolate" }}>
-		<Text as="span" color="panel.textMuted" fontSize="11px" fontWeight="500">
-			{label}:
-		</Text>
-		<Text as="span" color="panel.textMuted" fontSize="11px" fontWeight="500" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
-			{value}
-		</Text>
-	</Flex>
-);
 const formatPercent = (val: number): string => {
 	if (!Number.isFinite(val)) return "0%";
 	const rounded = Math.round(val * 10) / 10;
@@ -684,6 +674,7 @@ const ResourceCard: FC<{
 
 	return (
 		<Box
+			role="group"
 			bg="panel.surface"
 			borderWidth="1px"
 			borderColor="panel.border"
@@ -729,29 +720,24 @@ const ResourceCard: FC<{
 							h="22px"
 							px={2.5}
 							fontSize="11px"
-							variant="ghost"
 							borderRadius="full"
+							borderWidth="1px"
+							borderColor="panel.borderStrong"
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							fontWeight="500"
-							transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+							transition="all 0.2s ease"
+							_groupHover={{
+								bg: "panel.surface",
+								borderColor: "panel.border",
+							}}
 							_hover={{
-								bg: "panel.borderStrong",
-								color: "panel.text",
+								bg: "panel.border !important",
+								color: "panel.text !important",
 							}}
 							_active={{
-								bg: "panel.border",
-								transform: "scale(0.96)",
-							}}
-							sx={{
-								".chakra-box:hover &": {
-									bg: "panel.surface",
-									color: "panel.text",
-								},
-								".chakra-box:hover &:hover": {
-									bg: "panel.borderStrong",
-									color: "panel.text",
-								},
+								bg: "panel.borderStrong !important",
+								transform: "scale(0.97)",
 							}}
 							onClick={onHistory}
 						>
@@ -917,16 +903,16 @@ const StatRow: FC<{
 						px={1.5}
 						py={0.5}
 						borderRadius="md"
+						borderWidth="1px"
+						borderColor="panel.borderStrong"
 						bg="panel.elevated"
 						color="panel.textMuted"
 						fontWeight="600"
 						textTransform="none"
-						transition="background-color 0.25s ease, color 0.25s ease"
-						sx={{
-							".chakra-box:hover &": {
-								bg: "panel.surface",
-								color: "panel.text",
-							},
+						transition="all 0.2s ease"
+						_groupHover={{
+							bg: "panel.surface",
+							borderColor: "panel.border",
 						}}
 					>
 						{tag}
@@ -1274,16 +1260,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<ResourceCard
 					label={t("cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
-					value={
-						<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
-							{formatPercent(systemData.cpu_usage)}
-						</Text>
-					}
+					value={formatPercent(systemData.cpu_usage)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("core")}
-					footerLeft={formatMetricPair(t("average"), formatPercent(average(systemData.cpu_history.map((e) => e.value))), isRTL)}
-					footerRight={formatMetricPair(t("peak"), formatPercent(peak(systemData.cpu_history.map((e) => e.value))), isRTL)}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)))}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)))}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1301,8 +1283,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
-					footerLeft={formatMetricPair(t("average"), formatPercent(average(systemData.memory_history.map((e) => e.value))), isRTL)}
-					footerRight={formatMetricPair(t("peak"), formatPercent(peak(systemData.memory_history.map((e) => e.value))), isRTL)}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)))}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)))}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1320,8 +1302,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
-					footerLeft={formatMetricPair(t("average"), formatPercent(average(systemData.swap_history.map((e) => e.value))), isRTL)}
-					footerRight={formatMetricPair(t("peak"), formatPercent(peak(systemData.swap_history.map((e) => e.value))), isRTL)}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)))}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)))}`}
 					isRTL={isRTL}
 				/>
 				<ResourceCard
@@ -1330,8 +1312,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
-					footerLeft={formatMetricPair(t("free"), formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1), isRTL)}
-					footerRight={formatMetricPair(t("average"), formatPercent(average(systemData.disk_history.map((e) => e.value))), isRTL)}
+					footerLeft={`${t("free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
+					footerRight={`${t("average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)))}`}
 					isRTL={isRTL}
 				/>
 			</SimpleGrid>
@@ -1352,29 +1334,24 @@ export const Statistics: FC<BoxProps> = (props) => {
 							h="22px"
 							px={2.5}
 							fontSize="11px"
-							variant="ghost"
 							borderRadius="full"
+							borderWidth="1px"
+							borderColor="panel.borderStrong"
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							fontWeight="500"
-							transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+							transition="all 0.2s ease"
+							_groupHover={{
+								bg: "panel.surface",
+								borderColor: "panel.border",
+							}}
 							_hover={{
-								bg: "panel.borderStrong",
-								color: "panel.text",
+								bg: "panel.border !important",
+								color: "panel.text !important",
 							}}
 							_active={{
-								bg: "panel.border",
-								transform: "scale(0.96)",
-							}}
-							sx={{
-								".chakra-box:hover &": {
-									bg: "panel.surface",
-									color: "panel.text",
-								},
-								".chakra-box:hover &:hover": {
-									bg: "panel.borderStrong",
-									color: "panel.text",
-								},
+								bg: "panel.borderStrong !important",
+								transform: "scale(0.97)",
 							}}
 							onClick={() =>
 								openHistory({
@@ -1500,21 +1477,20 @@ export const Statistics: FC<BoxProps> = (props) => {
 						h="22px"
 						px={2.5}
 						fontSize="11px"
-						variant="outline"
 						borderRadius="full"
+						borderWidth="1px"
 						borderColor="panel.borderStrong"
 						bg="panel.elevated"
 						color="panel.textSecondary"
 						fontWeight="500"
-						transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+						transition="all 0.2s ease"
 						_hover={{
-							bg: "panel.borderStrong",
-							color: "panel.text",
-							borderColor: "panel.textMuted",
+							bg: "panel.border !important",
+							color: "panel.text !important",
 						}}
 						_active={{
-							bg: "panel.border",
-							transform: "scale(0.96)",
+							bg: "panel.borderStrong !important",
+							transform: "scale(0.97)",
 						}}
 						onClick={() =>
 							openHistory({
@@ -1533,16 +1509,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<ResourceCard
 						label={`${t("cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
-						value={
-							<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}>
-								{formatPercent(systemData.panel_cpu_percent)}
-							</Text>
-						}
+						value={formatPercent(systemData.panel_cpu_percent)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
 						metaUnit={t("thread")}
-						footerLeft={formatMetricPair(t("average"), formatPercent(average(systemData.panel_cpu_history.map((e) => e.value))), isRTL)}
-						footerRight={formatMetricPair(t("peak"), formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value))), isRTL)}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)))}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)))}`}
 						isRTL={isRTL}
 					/>
 					<ResourceCard
@@ -1551,14 +1523,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
-						footerLeft={formatMetricPair(t("average"), formatPercent(average(systemData.panel_memory_history.map((e) => e.value))), isRTL)}
-						footerRight={formatMetricPair(t("peak"), formatPercent(peak(systemData.panel_memory_history.map((e) => e.value))), isRTL)}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)))}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)))}`}
 						isRTL={isRTL}
 					/>
 				</SimpleGrid>
 			</SectionCard>
 
 			<SectionCard
+				role="group"
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
@@ -1602,47 +1575,58 @@ export const Statistics: FC<BoxProps> = (props) => {
 					) : undefined
 				}
 			>
-				<Stack spacing={0}>
-					<StatRow label={t("total")} value={userTab === "all" ? systemData.total_user : myTotalUsers} tagColor="#3b82f6" />
-					<StatRow label={t("status.active")} value={userTab === "all" ? systemData.users_active : myActiveUsers} tag={userTab === "all" ? activePercent : myActivePercent} tagColor="#22c55e" />
-					<StatRow
-						label={t("onlineUsers")}
-						value={userTab === "all" ? systemData.online_users : myOnlineUsers}
-						tag={userTab === "all" ? onlinePercent : myOnlinePercent}
-						tagColor="#06b6d4"
-						helper={
-							userTab === "all"
-								? systemData.online_users_upload_speed || systemData.online_users_download_speed
-									? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
-									: undefined
-								: myOnlineUploadSpeed || myOnlineDownloadSpeed
-									? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
-									: undefined
-						}
-					/>
-					<StatRow label={t("status.on_hold")} value={userTab === "all" ? systemData.users_on_hold : myOnHoldUsers} tagColor="#a855f7" />
-					<StatRow label={t("status.limited")} value={userTab === "all" ? systemData.users_limited : myLimitedUsers} tagColor="#f59e0b" />
-					<StatRow label={t("status.expired")} value={userTab === "all" ? systemData.users_expired : myExpiredUsers} tagColor="#f97316" />
-
-					<AnimatedHeightWrapper activeKey={userTab}>
+				<AnimatedHeightWrapper activeKey={userTab}>
+					<Stack spacing={0}>
+						<StatRow
+							label={t("total")}
+							value={userTab === "all" ? systemData.total_user : myTotalUsers}
+							tagColor="#3b82f6"
+						/>
+						<StatRow
+							label={t("status.active")}
+							value={userTab === "all" ? systemData.users_active : myActiveUsers}
+							tag={userTab === "all" ? activePercent : myActivePercent}
+							tagColor="#22c55e"
+						/>
+						<StatRow
+							label={t("onlineUsers")}
+							value={userTab === "all" ? systemData.online_users : myOnlineUsers}
+							tag={userTab === "all" ? onlinePercent : myOnlinePercent}
+							tagColor="#06b6d4"
+							helper={
+								userTab === "all"
+									? systemData.online_users_upload_speed || systemData.online_users_download_speed
+										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
+										: undefined
+									: myOnlineUploadSpeed || myOnlineDownloadSpeed
+										? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
+										: undefined
+							}
+						/>
+						<StatRow
+							label={t("status.on_hold")}
+							value={userTab === "all" ? systemData.users_on_hold : myOnHoldUsers}
+							tagColor="#a855f7"
+						/>
+						<StatRow
+							label={t("status.limited")}
+							value={userTab === "all" ? systemData.users_limited : myLimitedUsers}
+							tagColor="#f59e0b"
+						/>
+						<StatRow
+							label={t("status.expired")}
+							value={userTab === "all" ? systemData.users_expired : myExpiredUsers}
+							tagColor="#f97316"
+						/>
 						{userTab === "mine" && (
-							<Stack spacing={0}>
-								<StatRow
-									label={t("dashboard.currentUserUsage")}
-									value={formatBytes(myActiveUsersUsedTraffic, 1)}
-									tagColor="#3b82f6"
-								/>
-								{systemData.personal_usage?.reset_bytes ? (
-									<StatRow
-										label={t("resetData")}
-										value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
-										tagColor="#f59e0b"
-									/>
-								) : null}
-							</Stack>
+							<StatRow
+								label={t("dashboard.currentUserUsage")}
+								value={formatBytes(myActiveUsersUsedTraffic, 1)}
+								tagColor="#3b82f6"
+							/>
 						)}
-					</AnimatedHeightWrapper>
-				</Stack>
+					</Stack>
+				</AnimatedHeightWrapper>
 			</SectionCard>
 
 			{canSeeGlobal && systemData.admin_overview && (
