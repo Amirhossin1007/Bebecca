@@ -307,10 +307,10 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
 const formatPercent = (val: number, isRTL = false): string => {
-	if (!Number.isFinite(val)) return isRTL ? "%0" : "0%";
+	if (!Number.isFinite(val)) return "0%";
 	const rounded = Math.round(val * 10) / 10;
 	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
-	return isRTL ? `%${formatted}` : `${formatted}%`;
+	return `${formatted}%`;
 };
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -664,6 +664,7 @@ const ResourceCard: FC<{
 
 	return (
 		<Box
+			role="group"
 			bg="panel.surface"
 			borderWidth="1px"
 			borderColor="panel.border"
@@ -711,9 +712,21 @@ const ResourceCard: FC<{
 							fontSize="11px"
 							variant="ghost"
 							borderRadius="full"
+							bg="panel.elevated"
 							color="panel.textMuted"
 							fontWeight="500"
-							_hover={{ color: "panel.text", bg: "panel.surface" }}
+							transition="all 0.2s ease"
+							_groupHover={{
+								bg: "panel.surface",
+								color: "panel.textSecondary",
+							}}
+							_hover={{
+								bg: "panel.border !important",
+								color: "panel.text !important",
+							}}
+							_active={{
+								bg: "panel.borderStrong !important",
+							}}
 							onClick={onHistory}
 						>
 							{historyLabel}
@@ -873,9 +886,17 @@ const StatRow: FC<{
 						py={0.5}
 						borderRadius="md"
 						bg="panel.elevated"
+						borderWidth="1px"
+						borderColor="panel.border"
 						color="panel.textMuted"
 						fontWeight="600"
 						textTransform="none"
+						transition="all 0.25s ease"
+						_groupHover={{
+							bg: "panel.surface",
+							borderColor: "panel.borderStrong",
+							color: "panel.textSecondary",
+						}}
 					>
 						{tag}
 					</Badge>
@@ -918,6 +939,7 @@ const SectionCard: FC<{
 	noHover = false,
 }) => (
 	<Box
+		role="group"
 		bg="panel.surface"
 		borderWidth="1px"
 		borderColor="panel.border"
@@ -1300,9 +1322,21 @@ export const Statistics: FC<BoxProps> = (props) => {
 							fontSize="11px"
 							variant="ghost"
 							borderRadius="full"
+							bg="panel.elevated"
 							color="panel.textMuted"
 							fontWeight="500"
-							_hover={{ color: "panel.text", bg: "panel.surface" }}
+							transition="all 0.2s ease"
+							_groupHover={{
+								bg: "panel.surface",
+								color: "panel.textSecondary",
+							}}
+							_hover={{
+								bg: "panel.border !important",
+								color: "panel.text !important",
+							}}
+							_active={{
+								bg: "panel.borderStrong !important",
+							}}
 							onClick={() =>
 								openHistory({
 									type: "network",
@@ -1429,9 +1463,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 						fontSize="11px"
 						variant="ghost"
 						borderRadius="full"
+						bg="panel.elevated"
 						color="panel.textMuted"
 						fontWeight="500"
-						_hover={{ color: "panel.text", bg: "panel.surface" }}
+						transition="all 0.2s ease"
+						_hover={{
+							bg: "panel.border !important",
+							color: "panel.text !important",
+						}}
+						_active={{
+							bg: "panel.borderStrong !important",
+						}}
 						onClick={() =>
 							openHistory({
 								type: "panel",
