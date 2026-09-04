@@ -14,12 +14,18 @@ const (
 	PPTPProtocol              = "pptp"
 	IKEv2Protocol             = "ikev2"
 	AnyConnectProtocol        = "anyconnect"
+	SSTPProtocol              = "sstp"
+	AWGProtocol               = "amneziawg"
+	GREProtocol               = "gre"
 	defaultOVPoolCIDR         = "10.66.0.0/16"
 	defaultWGPoolCIDR         = "10.69.0.0/16"
 	defaultL2TPPoolCIDR       = "10.67.0.0/16"
 	defaultPPTPPoolCIDR       = "10.68.0.0/24"
 	defaultIKEv2PoolCIDR      = "10.70.0.0/16"
 	defaultAnyConnectPoolCIDR = "10.71.0.0/16"
+	defaultSSTPPoolCIDR       = "10.72.0.0/16"
+	defaultAWGPoolCIDR        = "10.73.0.0/16"
+	defaultGREPoolCIDR        = "10.74.0.0/16"
 	L2TPIPSecIKEPort          = 500
 	L2TPIPSecNATPort          = 4500
 	L2TPPort                  = 1701
@@ -31,7 +37,24 @@ func isManageableInboundProtocol(protocol string) bool {
 	if _, ok := proxyProtocols[protocol]; ok {
 		return true
 	}
+	if _, ok := auxiliaryInboundProtocols[protocol]; ok {
+		return true
+	}
 	return isVirtualTunnelProtocol(protocol)
+}
+
+func IsAuxiliaryInboundProtocol(protocol string) bool {
+	_, ok := auxiliaryInboundProtocols[normalizeProxyProtocol(protocol)]
+	return ok
+}
+
+func InboundSupportsHosts(protocol string) bool {
+	switch normalizeProxyProtocol(protocol) {
+	case "mtproto", "web":
+		return false
+	default:
+		return true
+	}
 }
 
 func isVirtualTunnelProtocol(protocol string) bool {
@@ -47,7 +70,7 @@ func normalizeVirtualTunnelInbound(inbound map[string]any) map[string]any {
 	normalized := deepCopyMap(inbound)
 	protocol := normalizeProxyProtocol(stringValue(normalized["protocol"]))
 	normalized["protocol"] = protocol
-	if protocol != OVProtocol && protocol != WGProtocol && protocol != L2TPProtocol && protocol != PPTPProtocol && protocol != IKEv2Protocol && protocol != AnyConnectProtocol {
+	if !isVirtualTunnelProtocol(protocol) {
 		return normalized
 	}
 	settings := normalizeVirtualTunnelSettings(protocol, mapValue(normalized["settings"]))
@@ -69,9 +92,73 @@ func normalizeVirtualTunnelSettings(protocol string, settings map[string]any) ma
 		return normalizeIKEv2Settings(settings)
 	case AnyConnectProtocol:
 		return normalizeAnyConnectSettings(settings)
+	case SSTPProtocol:
+		return normalizeSSTPSettings(settings)
+	case AWGProtocol:
+		return normalizeAWGSettings(settings)
+	case GREProtocol:
+		return normalizeGRESettings(settings)
 	default:
 		return normalizeOVSettings(settings)
 	}
+}
+
+func normalizeSSTPSettings(settings map[string]any) map[string]any {
+	out := normalizeRemoteAccessSettings(settings, defaultSSTPPoolCIDR)
+	for _, key := range []string{"server_certificate", "server_key"} {
+		if value := strings.TrimSpace(stringValue(out[key])); value != "" {
+			out[key] = value
+		} else {
+			delete(out, key)
+		}
+	}
+	if value, ok := normalizedOptionalInt(out["mtu"], 576, 1500); ok {
+		out["mtu"] = value
+	} else {
+		out["mtu"] = 1400
+	}
+	return out
+}
+
+func normalizeAWGSettings(settings map[string]any) map[string]any {
+	copy := make(map[string]any, len(settings)+2)
+	for key, value := range settings {
+		copy[key] = value
+	}
+	if strings.TrimSpace(firstNonEmptyString(copy["address_pool"], copy["ipv4_pool_cidr"], copy["ipv4PoolCidr"])) == "" {
+		copy["address_pool"] = defaultAWGPoolCIDR
+	}
+	out := normalizeWGSettings(copy)
+	for key, fallback := range map[string]int{"jc": 4, "jmin": 8, "jmax": 80, "s1": 77, "s2": 90, "h1": 123456789, "h2": 234567891, "h3": 345678912, "h4": 456789123} {
+		maximum := 2147483647
+		if key == "jc" || key == "jmin" || key == "jmax" || key == "s1" || key == "s2" {
+			maximum = 65535
+		}
+		if value, ok := normalizedOptionalInt(out[key], 0, maximum); ok {
+			out[key] = value
+		} else {
+			out[key] = fallback
+		}
+	}
+	return out
+}
+
+func normalizeGRESettings(settings map[string]any) map[string]any {
+	out := normalizeRemoteAccessSettings(settings, defaultGREPoolCIDR)
+	delete(out, "dns_servers")
+	for key, fallback := range map[string]int{"mtu": 1476, "ttl": 64} {
+		if value, ok := normalizedOptionalInt(out[key], 1, 65535); ok {
+			out[key] = value
+		} else {
+			out[key] = fallback
+		}
+	}
+	if value := strings.TrimSpace(stringValue(out["local_address"])); value != "" {
+		out["local_address"] = value
+	} else {
+		delete(out, "local_address")
+	}
+	return out
 }
 
 func normalizeIKEv2Settings(settings map[string]any) map[string]any {
@@ -446,7 +533,7 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		return fmt.Errorf("invalid inbound %q: port must be between 1 and 65535", tag)
 	}
 	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
-	if protocol != OVProtocol && protocol != WGProtocol && protocol != L2TPProtocol && protocol != PPTPProtocol && protocol != IKEv2Protocol && protocol != AnyConnectProtocol {
+	if !isVirtualTunnelProtocol(protocol) {
 		return fmt.Errorf("invalid inbound %q: unsupported virtual tunnel protocol %q", tag, protocol)
 	}
 	rawSettings := mapValue(inbound["settings"])
@@ -516,20 +603,24 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 			}
 		}
 	}
-	if protocol == WGProtocol {
+	if protocol == WGProtocol || protocol == AWGProtocol {
+		label := "WireGuard"
+		if protocol == AWGProtocol {
+			label = "AmneziaWG"
+		}
 		if strings.TrimSpace(stringValue(settings["private_key"])) == "" {
-			return fmt.Errorf("invalid inbound %q: WireGuard private_key is required", tag)
+			return fmt.Errorf("invalid inbound %q: %s private_key is required", tag, label)
 		}
 		if privateKey, err := base64.StdEncoding.DecodeString(strings.TrimSpace(stringValue(settings["private_key"]))); err != nil || len(privateKey) != 32 {
-			return fmt.Errorf("invalid inbound %q: WireGuard private_key must be a 32-byte base64 key", tag)
+			return fmt.Errorf("invalid inbound %q: %s private_key must be a 32-byte base64 key", tag, label)
 		}
 		serverAddress := strings.TrimSpace(stringValue(settings["server_address"]))
 		if serverAddress == "" {
-			return fmt.Errorf("invalid inbound %q: WireGuard server_address is required", tag)
+			return fmt.Errorf("invalid inbound %q: %s server_address is required", tag, label)
 		}
 		prefix, err := netip.ParsePrefix(serverAddress)
 		if err != nil || !prefix.Addr().Is4() {
-			return fmt.Errorf("invalid inbound %q: WireGuard server_address must be an IPv4 CIDR", tag)
+			return fmt.Errorf("invalid inbound %q: %s server_address must be an IPv4 CIDR", tag, label)
 		}
 		for _, item := range []struct {
 			key string
@@ -545,8 +636,43 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 			}
 			value, ok := normalizedOptionalInt(rawValue, item.min, item.max)
 			if !ok || value < item.min || value > item.max {
-				return fmt.Errorf("invalid inbound %q: WireGuard %s must be between %d and %d", tag, item.key, item.min, item.max)
+				return fmt.Errorf("invalid inbound %q: %s %s must be between %d and %d", tag, label, item.key, item.min, item.max)
 			}
+		}
+		if protocol == AWGProtocol {
+			if err := validateRemoteAccessNumbers(tag, protocol, rawSettings, []remoteAccessNumberRule{
+				{"jc", 1, 128}, {"jmin", 1, 1280}, {"jmax", 1, 1280},
+				{"s1", 0, 65535}, {"s2", 0, 65535},
+				{"h1", 0, 2147483647}, {"h2", 0, 2147483647}, {"h3", 0, 2147483647}, {"h4", 0, 2147483647},
+			}); err != nil {
+				return err
+			}
+			if intValue(settings["jmin"]) > intValue(settings["jmax"]) {
+				return fmt.Errorf("invalid inbound %q: AmneziaWG jmin must not exceed jmax", tag)
+			}
+		}
+	}
+	if protocol == SSTPProtocol {
+		for _, key := range []string{"server_certificate", "server_key"} {
+			if strings.TrimSpace(stringValue(settings[key])) == "" {
+				return fmt.Errorf("invalid inbound %q: SSTP %s is required", tag, key)
+			}
+		}
+		if err := validateRemoteAccessNumbers(tag, protocol, rawSettings, []remoteAccessNumberRule{{"mtu", 576, 1500}}); err != nil {
+			return err
+		}
+	}
+	if protocol == GREProtocol {
+		if port != 47 {
+			return fmt.Errorf("invalid inbound %q: GRE protocol number must be 47", tag)
+		}
+		if value := strings.TrimSpace(stringValue(settings["local_address"])); value != "" {
+			if address, err := netip.ParseAddr(value); err != nil || !address.Is4() {
+				return fmt.Errorf("invalid inbound %q: GRE local_address must be an IPv4 address", tag)
+			}
+		}
+		if err := validateRemoteAccessNumbers(tag, protocol, rawSettings, []remoteAccessNumberRule{{"mtu", 576, 1500}, {"ttl", 1, 255}}); err != nil {
+			return err
 		}
 	}
 	if protocol == L2TPProtocol {
@@ -795,12 +921,12 @@ func applyVirtualTunnelResolvedSettings(resolved ResolvedInbound, inbound map[st
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
-	case WGProtocol:
+	case WGProtocol, AWGProtocol:
 		resolved["network"] = "udp"
 		resolved["tls"] = "none"
 		resolved["settings"] = settings
 		resolved["ipv4_pool_cidr"] = stringValue(settings["ipv4_pool_cidr"])
-		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(WGProtocol, stringValue(inbound["tag"]))
+		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(protocol, stringValue(inbound["tag"]))
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
@@ -822,10 +948,13 @@ func applyVirtualTunnelResolvedSettings(resolved ResolvedInbound, inbound map[st
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
-	case IKEv2Protocol, AnyConnectProtocol:
+	case SSTPProtocol, GREProtocol, IKEv2Protocol, AnyConnectProtocol:
 		resolved["network"] = "udp"
-		if protocol == AnyConnectProtocol {
+		if protocol == SSTPProtocol || protocol == AnyConnectProtocol {
 			resolved["network"] = "tcp,udp"
+		}
+		if protocol == GREProtocol {
+			resolved["network"] = "gre"
 		}
 		resolved["tls"] = "none"
 		resolved["settings"] = settings
@@ -854,6 +983,12 @@ func RuntimeTunnelTagForProtocol(protocol string, tag string) string {
 		prefix = "__rebecca_ikev2_tunnel"
 	} else if normalizeProxyProtocol(protocol) == AnyConnectProtocol {
 		prefix = "__rebecca_anyconnect_tunnel"
+	} else if normalizeProxyProtocol(protocol) == SSTPProtocol {
+		prefix = "__rebecca_sstp_tunnel"
+	} else if normalizeProxyProtocol(protocol) == AWGProtocol {
+		prefix = "__rebecca_awg_tunnel"
+	} else if normalizeProxyProtocol(protocol) == GREProtocol {
+		prefix = "__rebecca_gre_tunnel"
 	}
 	if tag == "" {
 		return prefix
@@ -878,6 +1013,12 @@ func TranslateVirtualTunnelInboundsForRuntime(raw map[string]any) map[string]any
 	next := make([]any, 0, len(inbounds))
 	for _, inbound := range inbounds {
 		protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+		if IsAuxiliaryInboundProtocol(protocol) {
+			if tag := stringValue(inbound["tag"]); tag != "" {
+				skippedTags[tag] = struct{}{}
+			}
+			continue
+		}
 		if !isVirtualTunnelProtocol(protocol) {
 			next = append(next, inbound)
 			continue

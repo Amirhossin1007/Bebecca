@@ -1543,7 +1543,7 @@ func TestParseRejectsIncompleteL2TPInbound(t *testing.T) {
 }
 
 func TestTranslateVirtualInboundsToRuntimeTunnel(t *testing.T) {
-	for _, protocol := range []string{OVProtocol, WGProtocol, L2TPProtocol, PPTPProtocol, IKEv2Protocol, AnyConnectProtocol} {
+	for _, protocol := range []string{OVProtocol, WGProtocol, L2TPProtocol, PPTPProtocol, IKEv2Protocol, AnyConnectProtocol, SSTPProtocol, AWGProtocol, GREProtocol} {
 		t.Run(protocol, func(t *testing.T) {
 			tag := protocol + "-edge"
 			raw := map[string]any{
@@ -1573,6 +1573,35 @@ func TestTranslateVirtualInboundsToRuntimeTunnel(t *testing.T) {
 				t.Fatalf("unexpected translated rule: %#v", rule)
 			}
 		})
+	}
+}
+
+func TestAdditionalProxyInboundValidationAndRuntimeTranslation(t *testing.T) {
+	ssh := map[string]any{"tag": "ssh", "port": 2222, "protocol": "ssh", "settings": map[string]any{"user_limit": 2, "idle_timeout": 300}}
+	mt := map[string]any{"tag": "telegram", "port": 8443, "protocol": "mtproto", "settings": map[string]any{
+		"secret": strings.Repeat("ab", 16), "public_host": "proxy.example.com", "mode_classic": true,
+		"mode_secure": true, "mode_tls": true, "tls_domain": "www.google.com", "max_connections": 4096,
+	}}
+	web := map[string]any{"tag": "web", "port": 443, "protocol": "web", "settings": map[string]any{"hostname": "proxy.example.com", "acme_email": "admin@example.com", "secret": strings.Repeat("cd", 16)}}
+	for _, inbound := range []map[string]any{ssh, mt, web} {
+		if err := validateExecutableInbound(inbound); err != nil {
+			t.Fatalf("valid %s inbound rejected: %v", inbound["protocol"], err)
+		}
+	}
+	if InboundSupportsHosts("mtproto") || InboundSupportsHosts("web") || !InboundSupportsHosts("ssh") {
+		t.Fatal("unexpected Host support boundary for auxiliary inbounds")
+	}
+	runtime := TranslateVirtualTunnelInboundsForRuntime(map[string]any{
+		"inbounds": []any{ssh, mt, web},
+		"routing":  map[string]any{"rules": []any{map[string]any{"type": "field", "inboundTag": []any{"ssh"}, "outboundTag": "direct"}}},
+	})
+	inbounds := listOfMaps(runtime["inbounds"])
+	if len(inbounds) != 0 {
+		t.Fatalf("auxiliary inbounds leaked into the official Xray runtime: %#v", inbounds)
+	}
+	rules := listOfMaps(mapValue(runtime["routing"])["rules"])
+	if len(rules) != 0 {
+		t.Fatalf("auxiliary inbound tag was not removed from routing: %#v", rules)
 	}
 }
 
@@ -1678,6 +1707,19 @@ func TestRemoteAccessInboundValidation(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatalf("%s validation failed: %v", test.protocol, err)
+		}
+	}
+}
+
+func TestExtraVPNInboundValidation(t *testing.T) {
+	privateKey := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	for _, inbound := range []map[string]any{
+		{"tag": "sstp", "port": 443, "protocol": SSTPProtocol, "settings": map[string]any{"ipv4_pool_cidr": "10.72.0.0/24", "tproxy_enabled": false, "server_certificate": "cert", "server_key": "key"}},
+		{"tag": "awg", "port": 51820, "protocol": AWGProtocol, "settings": map[string]any{"address_pool": "10.73.0.0/24", "server_address": "10.73.0.1/24", "private_key": privateKey, "tproxy_enabled": false, "jc": 4, "jmin": 8, "jmax": 80}},
+		{"tag": "gre", "port": 47, "protocol": GREProtocol, "settings": map[string]any{"ipv4_pool_cidr": "10.74.0.0/24", "tproxy_enabled": false, "mtu": 1476, "ttl": 64}},
+	} {
+		if err := validateVirtualTunnelInbound(stringValue(inbound["tag"]), inbound); err != nil {
+			t.Fatalf("%s validation failed: %v", inbound["protocol"], err)
 		}
 	}
 }

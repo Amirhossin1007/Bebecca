@@ -475,6 +475,22 @@ func AnyConnectPasswordFromCredentialKey(credentialKey string) (string, error) {
 	return keyToPassword(key, "anyconnect"), nil
 }
 
+func SSTPPasswordFromCredentialKey(credentialKey string) (string, error) {
+	key, err := normalizeCredentialKey(credentialKey)
+	if err != nil {
+		return "", err
+	}
+	return keyToPassword(key, "sstp"), nil
+}
+
+func SSHPasswordFromCredentialKey(credentialKey string) (string, error) {
+	key, err := normalizeCredentialKey(credentialKey)
+	if err != nil {
+		return "", err
+	}
+	return keyToPassword(key, "ssh"), nil
+}
+
 type WGKeyPair struct {
 	PrivateKey string
 	PublicKey  string

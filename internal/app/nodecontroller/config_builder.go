@@ -20,6 +20,7 @@ var proxyProtocols = map[string]struct{}{
 	"trojan":      {},
 	"shadowsocks": {},
 	"hysteria":    {},
+	"ssh":         {},
 }
 
 type runtimeUserRow struct {
@@ -351,7 +352,7 @@ func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node No
 
 func protocolRequiresFullUserSync(protocol string) bool {
 	switch strings.ToLower(strings.TrimSpace(protocol)) {
-	case xrayconfig.OVProtocol, xrayconfig.L2TPProtocol, xrayconfig.PPTPProtocol, xrayconfig.WGProtocol, xrayconfig.IKEv2Protocol, xrayconfig.AnyConnectProtocol:
+	case xrayconfig.OVProtocol, xrayconfig.L2TPProtocol, xrayconfig.PPTPProtocol, xrayconfig.WGProtocol, xrayconfig.IKEv2Protocol, xrayconfig.AnyConnectProtocol, "ssh":
 		return true
 	default:
 		return false
