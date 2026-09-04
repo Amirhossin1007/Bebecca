@@ -487,19 +487,21 @@ const HistoryModal: FC<{
 				yaxis: { lines: { show: true } },
 				padding: {
 					top: 0,
-					right: 12,
+					right: 20,
 					bottom: 0,
-					left: 12,
+					left: 20,
 				},
 			},
 			xaxis: {
 				type: "datetime",
 				axisBorder: { show: false },
 				axisTicks: { show: false },
+				tickPlacement: "between",
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					datetimeUTC: false,
 					format: intervalSeconds <= 1800 ? "HH:mm:ss" : "HH:mm",
+					hideOverlappingLabels: true,
 				},
 			},
 			yaxis: {
@@ -508,6 +510,7 @@ const HistoryModal: FC<{
 				forceNiceScale: isNetwork,
 				tickAmount: 5,
 				labels: {
+					offsetX: isRTL ? 10 : -10,
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					formatter: (val: number) => {
 						if (!Number.isFinite(val)) return "0";
@@ -521,10 +524,16 @@ const HistoryModal: FC<{
 			legend: {
 				position: "bottom",
 				labels: { colors: mutedTextColor },
-				itemMargin: { horizontal: 10, vertical: 4 },
+				itemMargin: { horizontal: 12, vertical: 6 },
 				markers: {
 					offsetX: isRTL ? 6 : -6,
 					offsetY: 0,
+				},
+				onItemClick: {
+					toggleDataSeries: true,
+				},
+				onItemHover: {
+					highlightDataSeries: true,
 				},
 			},
 			tooltip: {
@@ -599,9 +608,10 @@ const HistoryModal: FC<{
 				bg="panel.surface"
 				borderWidth="1px"
 				borderColor="panel.border"
-				borderRadius="24px"
-				boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.1), 0 32px 80px rgba(0,0,0,0.6)"
+				borderRadius="20px"
+				boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 32px 80px rgba(0,0,0,0.6)"
 				mx={{ base: 3, sm: 6 }}
+				overflow="hidden"
 			>
 				<ModalHeader
 					display="flex"
@@ -648,9 +658,11 @@ const HistoryModal: FC<{
 													zIndex: 1,
 												}}
 												transition={{
-													type: "spring",
-													stiffness: 400,
-													damping: 32,
+													layout: {
+														type: "spring",
+														stiffness: 500,
+														damping: 35,
+													},
 												}}
 											/>
 										)}
@@ -688,42 +700,56 @@ const HistoryModal: FC<{
 							})}
 						</Flex>
 						<Box minH="280px" w="100%" position="relative">
-							{isSwitchingInterval && (
-								<Flex
-									position="absolute"
-									top={0}
-									left={0}
-									right={0}
-									bottom={0}
-									bg="blackAlpha.600"
-									backdropFilter="blur(4px)"
-									borderRadius="16px"
-									zIndex={10}
-									align="center"
-									justify="center"
-									transition="all 0.2s ease"
-								>
-									<Spinner size="md" color="panel.accent" thickness="2.5px" />
-								</Flex>
-							)}
-							<Suspense
-								fallback={
-									<Flex h="280px" align="center" justify="center">
-										<Spinner size="md" color="panel.accent" />
-									</Flex>
-								}
-							>
-								{chartSeries.length > 0 && isOpen && (
-									<HistoryChart
-										key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
-										options={options}
-										series={chartSeries}
-										type="area"
-										height={280}
-										width="100%"
-									/>
+							<AnimatePresence>
+								{isSwitchingInterval && (
+									<motion.div
+										initial={{ opacity: 0 }}
+										animate={{ opacity: 1 }}
+										exit={{ opacity: 0 }}
+										transition={{ duration: 0.2, ease: "easeInOut" }}
+										style={{
+											position: "absolute",
+											top: 0,
+											left: 0,
+											right: 0,
+											bottom: 0,
+											backgroundColor: "rgba(10, 12, 16, 0.7)",
+											backdropFilter: "blur(6px)",
+											borderRadius: "16px",
+											zIndex: 10,
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+										}}
+									>
+										<Spinner size="md" color="panel.accent" thickness="2.5px" />
+									</motion.div>
 								)}
-							</Suspense>
+							</AnimatePresence>
+							<motion.div
+								animate={{ opacity: isSwitchingInterval ? 0.3 : 1 }}
+								transition={{ duration: 0.25, ease: "easeInOut" }}
+								style={{ width: "100%", height: "100%" }}
+							>
+								<Suspense
+									fallback={
+										<Flex h="280px" align="center" justify="center">
+											<Spinner size="md" color="panel.accent" />
+										</Flex>
+									}
+								>
+									{chartSeries.length > 0 && isOpen && (
+										<HistoryChart
+											key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
+											options={options}
+											series={chartSeries}
+											type="area"
+											height={280}
+											width="100%"
+										/>
+									)}
+								</Suspense>
+							</motion.div>
 						</Box>
 					</Stack>
 				</ModalBody>
