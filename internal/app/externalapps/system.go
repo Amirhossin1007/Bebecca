@@ -765,29 +765,31 @@ func (m *Manager) latestMirzaBotRelease(ctx context.Context) (mirzaBotRelease, e
 	if apiBase == "" {
 		apiBase = mirzaBotAPIBaseURL
 	}
-	var release struct {
-		TagName    string `json:"tag_name"`
-		Draft      bool   `json:"draft"`
-		Prerelease bool   `json:"prerelease"`
+	var tags []struct {
+		Name   string `json:"name"`
+		Commit struct {
+			SHA string `json:"sha"`
+		} `json:"commit"`
 	}
-	if err := m.getMirzaBotJSON(ctx, apiBase+"/releases/latest", &release); err != nil {
-		return mirzaBotRelease{}, fmt.Errorf("find latest stable MirzaBot release: %w", err)
+	if err := m.getMirzaBotJSON(ctx, apiBase+"/tags?per_page=100", &tags); err != nil {
+		return mirzaBotRelease{}, fmt.Errorf("find latest MirzaBot version: %w", err)
 	}
-	release.TagName = strings.TrimSpace(release.TagName)
-	if release.Draft || release.Prerelease || !mirzaReleasePattern.MatchString(release.TagName) {
-		return mirzaBotRelease{}, errors.New("GitHub did not return a valid stable MirzaBot release")
+	var latest mirzaBotRelease
+	for _, tag := range tags {
+		version := strings.TrimSpace(tag.Name)
+		sha := strings.ToLower(strings.TrimSpace(tag.Commit.SHA))
+		if !mirzaReleasePattern.MatchString(version) || !mirzaCommitPattern.MatchString(sha) {
+			continue
+		}
+		comparison, ok := compareMirzaBotVersions(latest.Version, version)
+		if latest.Version == "" || ok && comparison < 0 {
+			latest = mirzaBotRelease{Version: version, SHA: sha}
+		}
 	}
-	var commit struct {
-		SHA string `json:"sha"`
+	if latest.Version == "" {
+		return mirzaBotRelease{}, errors.New("GitHub did not return a valid MirzaBot version")
 	}
-	if err := m.getMirzaBotJSON(ctx, apiBase+"/commits/"+url.PathEscape(release.TagName), &commit); err != nil {
-		return mirzaBotRelease{}, fmt.Errorf("resolve MirzaBot release commit: %w", err)
-	}
-	commit.SHA = strings.ToLower(strings.TrimSpace(commit.SHA))
-	if !mirzaCommitPattern.MatchString(commit.SHA) {
-		return mirzaBotRelease{}, errors.New("GitHub returned an invalid MirzaBot release commit")
-	}
-	return mirzaBotRelease{Version: release.TagName, SHA: commit.SHA}, nil
+	return latest, nil
 }
 
 func (m *Manager) cachedMirzaBotRelease(ctx context.Context) (mirzaBotRelease, error) {
@@ -909,10 +911,16 @@ func (m *Manager) setTelegramWebhook(ctx context.Context, token string, record R
 }
 
 func externalAppWebhookURL(record Record) string {
-	if record.Path != "" {
-		return externalAppPublicURL(record)
-	}
 	return externalAppPublicURL(record) + "/index.php"
+}
+
+func removeMirzaBotInstaller(root string) error {
+	for _, name := range []string{"install.sh", "install"} {
+		if err := os.RemoveAll(filepath.Join(root, name)); err != nil {
+			return fmt.Errorf("remove MirzaBot installer: %w", err)
+		}
+	}
+	return nil
 }
 
 func (m *Manager) deleteTelegramWebhook(ctx context.Context, token string) error {
