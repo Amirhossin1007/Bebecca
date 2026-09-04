@@ -710,7 +710,7 @@ export const DashboardMaintenanceControls = ({
 										{selectedTarget && (
 											<>
 												<Text fontSize="11px" color="panel.textMuted">
-													→
+													{document.documentElement.dir === "rtl" ? "←" : "→"}
 												</Text>
 												<Text
 													fontSize="11px"
@@ -835,7 +835,12 @@ export const DashboardMaintenanceControls = ({
 											{t("settings.panel.liveLogs")}
 										</Text>
 									</HStack>
-									<Tooltip label={logsCopied ? t("settings.panel.logsCopied") : t("settings.panel.copyLogs")} fontSize="10px">
+									<Tooltip
+										label={logsCopied ? t("settings.panel.logsCopied") : t("settings.panel.copyLogs")}
+										fontSize="10px"
+										openDelay={300}
+										closeOnClick={false}
+									>
 										<IconButton
 											aria-label={t("settings.panel.copyLogs")}
 											icon={logsCopied ? <CheckIcon width={13} /> : <ClipboardIcon width={13} />}
