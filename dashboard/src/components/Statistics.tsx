@@ -463,6 +463,7 @@ const HistoryModal: FC<{
 				zoom: { enabled: false },
 				background: "transparent",
 				fontFamily: "inherit",
+				sparkline: { enabled: false },
 			},
 			colors: isNetwork
 				? ["#3b82f6", "#10b981"]
@@ -484,6 +485,12 @@ const HistoryModal: FC<{
 				strokeDashArray: 3,
 				xaxis: { lines: { show: false } },
 				yaxis: { lines: { show: true } },
+				padding: {
+					top: 0,
+					right: 12,
+					bottom: 0,
+					left: 12,
+				},
 			},
 			xaxis: {
 				type: "datetime",
@@ -612,32 +619,71 @@ const HistoryModal: FC<{
 				</ModalHeader>
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
-						<Flex wrap="wrap" gap={2}>
+						<Flex
+							wrap="wrap"
+							gap={1}
+							p={1}
+							borderRadius="full"
+							bg="panel.elevated"
+							w="fit-content"
+							position="relative"
+						>
 							{HISTORY_INTERVALS.map((interval, idx) => {
 								const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
+								const isActive = intervalSeconds === interval.seconds;
 								return (
-									<Button
-										key={interval.seconds}
-										size="xs"
-										h="26px"
-										px={3}
-										borderRadius="full"
-										variant={intervalSeconds === interval.seconds ? "solid" : "ghost"}
-										colorScheme={intervalSeconds === interval.seconds ? "primary" : "gray"}
-										color={intervalSeconds === interval.seconds ? undefined : "panel.textMuted"}
-										fontSize="11px"
-										opacity={isAvailable ? 1 : 0.4}
-										cursor={isAvailable ? "pointer" : "not-allowed"}
-										onClick={() => {
-											if (isAvailable && intervalSeconds !== interval.seconds) {
-												setIsSwitchingInterval(true);
-												onIntervalChange(interval.seconds);
-												setTimeout(() => setIsSwitchingInterval(false), 300);
-											}
-										}}
-									>
-										{t(interval.labelKey)}
-									</Button>
+									<Box key={interval.seconds} position="relative">
+										{isActive && (
+											<motion.div
+												layoutId="historyIntervalPill"
+												style={{
+													position: "absolute",
+													top: 0,
+													left: 0,
+													right: 0,
+													bottom: 0,
+													borderRadius: "9999px",
+													backgroundColor: "var(--chakra-colors-panel-surface)",
+													boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
+													zIndex: 1,
+												}}
+												transition={{
+													type: "spring",
+													stiffness: 400,
+													damping: 32,
+												}}
+											/>
+										)}
+										<Button
+											size="xs"
+											h="26px"
+											px={3.5}
+											borderRadius="full"
+											variant="ghost"
+											bg="transparent !important"
+											color={isActive ? "panel.text" : "panel.textMuted"}
+											fontWeight={isActive ? "700" : "500"}
+											fontSize="11px"
+											position="relative"
+											zIndex={2}
+											opacity={isAvailable ? 1 : 0.4}
+											cursor={isAvailable ? "pointer" : "not-allowed"}
+											_hover={{
+												md: {
+													color: "panel.text",
+												},
+											}}
+											onClick={() => {
+												if (isAvailable && intervalSeconds !== interval.seconds) {
+													setIsSwitchingInterval(true);
+													onIntervalChange(interval.seconds);
+													setTimeout(() => setIsSwitchingInterval(false), 300);
+												}
+											}}
+										>
+											{t(interval.labelKey)}
+										</Button>
+									</Box>
 								);
 							})}
 						</Flex>
@@ -705,6 +751,7 @@ const ResourceCard: FC<{
 	onHistory?: () => void;
 	historyLabel?: string;
 	isRTL?: boolean;
+	parentNoHover?: boolean;
 }> = ({
 	label,
 	icon,
@@ -718,6 +765,7 @@ const ResourceCard: FC<{
 	onHistory,
 	historyLabel,
 	isRTL = false,
+	parentNoHover = false,
 }) => {
 	const safe = clampPercent(percent);
 	const accent = "var(--rb-panel-accent)";
@@ -778,12 +826,16 @@ const ResourceCard: FC<{
 							fontWeight="500"
 							transition="all 0.2s ease"
 							_groupHover={{
-								bg: "panel.surface",
-								color: "panel.textSecondary",
+								md: {
+									bg: "panel.surface",
+									color: "panel.textSecondary",
+								},
 							}}
 							_hover={{
-								bg: "panel.border !important",
-								color: "panel.text !important",
+								md: {
+									bg: "panel.border !important",
+									color: "panel.text !important",
+								},
 							}}
 							_active={{
 								bg: "panel.borderStrong !important",
@@ -879,9 +931,16 @@ const ResourceCard: FC<{
 					borderRadius="full"
 					bg="panel.elevated"
 					transition="background-color 0.25s ease"
-					_groupHover={{
+					_hover={{
 						bg: "panel.surface",
 					}}
+					_groupHover={
+						parentNoHover
+							? undefined
+							: {
+									bg: "panel.surface",
+								}
+					}
 					sx={{
 						"& > div": {
 							bg: criticalColor,
@@ -951,16 +1010,16 @@ const StatRow: FC<{
 					{label}
 				</Text>
 				{tag && (
-					<Badge
+					<Text
 						fontSize="10px"
 						px={1.5}
 						py={0.5}
 						borderRadius="md"
 						bg="panel.elevated"
-						border="none"
 						color="panel.textMuted"
 						fontWeight="600"
-						textTransform="none"
+						dir="ltr"
+						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
 						transition="all 0.25s ease"
 						_groupHover={{
 							bg: "panel.surface",
@@ -968,7 +1027,7 @@ const StatRow: FC<{
 						}}
 					>
 						{tag}
-					</Badge>
+					</Text>
 				)}
 			</HStack>
 			<VStack align="flex-end" spacing={0} flexShrink={0}>
@@ -1396,12 +1455,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 							fontWeight="500"
 							transition="all 0.2s ease"
 							_groupHover={{
-								bg: "panel.surface",
-								color: "panel.textSecondary",
+								md: {
+									bg: "panel.surface",
+									color: "panel.textSecondary",
+								},
 							}}
 							_hover={{
-								bg: "panel.border !important",
-								color: "panel.text !important",
+								md: {
+									bg: "panel.border !important",
+									color: "panel.text !important",
+								},
 							}}
 							_active={{
 								bg: "panel.borderStrong !important",
@@ -1558,6 +1621,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			>
 				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
 					<ResourceCard
+						parentNoHover
 						label={`${t("cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
@@ -1569,6 +1633,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						isRTL={isRTL}
 					/>
 					<ResourceCard
+						parentNoHover
 						label={`${t("memoryUsage")} (Panel)`}
 						icon={<ServerStackIcon width={16} />}
 						value={formatBytes(systemData.app_memory, 1)}
@@ -1597,57 +1662,102 @@ export const Statistics: FC<BoxProps> = (props) => {
 							bg="panel.elevated"
 							p={0.5}
 							borderRadius="8px"
+							position="relative"
 							transition="all 0.25s ease"
 							_groupHover={{
 								bg: "panel.surface",
 							}}
 						>
-							<Button
-								size="xs"
-								h="22px"
-								px={2.5}
-								borderRadius="6px"
-								fontSize="11px"
-								fontWeight="600"
-								variant="ghost"
-								bg={userTab === "all" ? "panel.surface" : "transparent"}
-								color={userTab === "all" ? "panel.text" : "panel.textMuted"}
-								transition="all 0.25s ease"
-								_groupHover={{
-									bg: userTab === "all" ? "panel.elevated" : "transparent",
-									color: userTab === "all" ? "panel.text" : "panel.textSecondary",
-								}}
-								_hover={{
-									bg: "panel.border !important",
-									color: "panel.text !important",
-								}}
-								onClick={() => setUserTab("all")}
-							>
-								{t("allUsers")}
-							</Button>
-							<Button
-								size="xs"
-								h="22px"
-								px={2.5}
-								borderRadius="6px"
-								fontSize="11px"
-								fontWeight="600"
-								variant="ghost"
-								bg={userTab === "mine" ? "panel.surface" : "transparent"}
-								color={userTab === "mine" ? "panel.text" : "panel.textMuted"}
-								transition="all 0.25s ease"
-								_groupHover={{
-									bg: userTab === "mine" ? "panel.elevated" : "transparent",
-									color: userTab === "mine" ? "panel.text" : "panel.textSecondary",
-								}}
-								_hover={{
-									bg: "panel.border !important",
-									color: "panel.text !important",
-								}}
-								onClick={() => setUserTab("mine")}
-							>
-								{t("myUsers")}
-							</Button>
+							<Box position="relative">
+								{userTab === "all" && (
+									<motion.div
+										layoutId="usersOverviewTabPill"
+										style={{
+											position: "absolute",
+											top: 0,
+											left: 0,
+											right: 0,
+											bottom: 0,
+											borderRadius: "6px",
+											backgroundColor: "var(--chakra-colors-panel-surface)",
+											boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+											zIndex: 1,
+										}}
+										transition={{
+											type: "spring",
+											stiffness: 400,
+											damping: 32,
+										}}
+									/>
+								)}
+								<Button
+									size="xs"
+									h="22px"
+									px={2.5}
+									borderRadius="6px"
+									fontSize="11px"
+									fontWeight="600"
+									variant="ghost"
+									bg="transparent !important"
+									color={userTab === "all" ? "panel.text" : "panel.textMuted"}
+									position="relative"
+									zIndex={2}
+									transition="all 0.2s ease"
+									_hover={{
+										md: {
+											color: "panel.text",
+										},
+									}}
+									onClick={() => setUserTab("all")}
+								>
+									{t("allUsers")}
+								</Button>
+							</Box>
+							<Box position="relative">
+								{userTab === "mine" && (
+									<motion.div
+										layoutId="usersOverviewTabPill"
+										style={{
+											position: "absolute",
+											top: 0,
+											left: 0,
+											right: 0,
+											bottom: 0,
+											borderRadius: "6px",
+											backgroundColor: "var(--chakra-colors-panel-surface)",
+											boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+											zIndex: 1,
+										}}
+										transition={{
+											type: "spring",
+											stiffness: 400,
+											damping: 32,
+										}}
+									/>
+								)}
+								<Button
+									size="xs"
+									h="22px"
+									px={2.5}
+									borderRadius="6px"
+									fontSize="11px"
+									fontWeight="600"
+									variant="ghost"
+									bg="transparent !important"
+									color={userTab === "mine" ? "panel.text" : "panel.textMuted"}
+									position="relative"
+									zIndex={2}
+									transition="all 0.2s ease"
+									_hover={{
+										md: {
+											color: "panel.text",
+										},
+									}}
+									onClick={() => setUserTab("mine")}
+								>
+									{t("myUsers")}
+								</Button>
+							</Box>
 						</HStack>
 					) : undefined
 				}
