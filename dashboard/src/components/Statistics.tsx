@@ -539,7 +539,7 @@ const HistoryModal: FC<{
 					toggleDataSeries: true,
 				},
 				onItemHover: {
-					highlightDataSeries: false,
+					highlightDataSeries: true,
 				},
 			},
 			tooltip: {
@@ -713,6 +713,16 @@ const HistoryModal: FC<{
 								},
 								"& .apexcharts-yaxis-label": {
 									direction: "ltr !important",
+								},
+								"& .apexcharts-legend-series.apexcharts-inactive-legend": {
+									opacity: "0.45 !important",
+									pointerEvents: "auto",
+								},
+								"& .apexcharts-legend-series.apexcharts-inactive-legend:hover": {
+									opacity: "0.75 !important",
+								},
+								"& .apexcharts-canvas:has(.apexcharts-inactive-legend:hover) .apexcharts-series": {
+									opacity: "1 !important",
 								},
 							}}
 						>
