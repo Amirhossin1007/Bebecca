@@ -659,7 +659,6 @@ const ResourceCard: FC<{
 }) => {
 	const safe = clampPercent(percent);
 	const accent = "var(--rb-panel-accent)";
-	const trackBg = useColorModeValue("panel.border", "panel.elevated");
 	const criticalColor = safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
 
 	return (
@@ -816,7 +815,11 @@ const ResourceCard: FC<{
 					value={safe}
 					size="xs"
 					borderRadius="full"
-					bg={trackBg}
+					bg="panel.elevated"
+					transition="background-color 0.25s ease"
+					_groupHover={{
+						bg: "panel.surface",
+					}}
 					sx={{
 						"& > div": {
 							bg: criticalColor,
