@@ -664,7 +664,6 @@ const ResourceCard: FC<{
 
 	return (
 		<Box
-			role="group"
 			bg="panel.surface"
 			borderWidth="1px"
 			borderColor="panel.border"
@@ -710,6 +709,7 @@ const ResourceCard: FC<{
 							h="22px"
 							px={2}
 							fontSize="11px"
+							variant="ghost"
 							borderRadius="full"
 							color="panel.textMuted"
 							fontWeight="500"
@@ -872,8 +872,6 @@ const StatRow: FC<{
 						px={1.5}
 						py={0.5}
 						borderRadius="md"
-						borderWidth="1px"
-						borderColor="panel.borderStrong"
 						bg="panel.elevated"
 						color="panel.textMuted"
 						fontWeight="600"
@@ -1300,6 +1298,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							h="22px"
 							px={2.5}
 							fontSize="11px"
+							variant="ghost"
 							borderRadius="full"
 							color="panel.textMuted"
 							fontWeight="500"
@@ -1472,7 +1471,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 			</SectionCard>
 
 			<SectionCard
-				role="group"
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
