@@ -307,10 +307,10 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
 const formatPercent = (val: number, isRTL = false): string => {
-	if (!Number.isFinite(val)) return isRTL ? "%0" : "0%";
+	if (!Number.isFinite(val)) return "0%";
 	const rounded = Math.round(val * 10) / 10;
 	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
-	return isRTL ? `%${formatted}` : `${formatted}%`;
+	return `${formatted}%`;
 };
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -1069,7 +1069,10 @@ const StatRow: FC<{
 					{label}
 				</Text>
 				{tag && (
-					<Text
+					<Flex
+						as="span"
+						align="center"
+						justify="center"
 						fontSize="10px"
 						px={1.5}
 						py={0.5}
@@ -1078,15 +1081,16 @@ const StatRow: FC<{
 						color="panel.textMuted"
 						fontWeight="600"
 						dir="ltr"
-						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
 						transition="all 0.25s ease"
 						_groupHover={{
 							bg: "panel.surface",
 							color: "panel.textSecondary",
 						}}
 					>
-						{tag}
-					</Text>
+						<Text as="span" dir="ltr" sx={{ fontVariantNumeric: "tabular-nums" }}>
+							{tag.endsWith("%") ? `${tag.slice(0, -1)}%` : tag}
+						</Text>
+					</Flex>
 				)}
 			</HStack>
 			<VStack align="flex-end" spacing={0} flexShrink={0}>
@@ -1829,7 +1833,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
 							<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
 							<StatRow
-								label={t("onlineUsers")}
+								label={t("online")}
 								value={systemData.online_users}
 								tag={onlinePercent}
 								tagColor="#06b6d4"
@@ -1848,7 +1852,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
 							<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
 							<StatRow
-								label={t("onlineUsers")}
+								label={t("online")}
 								value={myOnlineUsers}
 								tag={myOnlinePercent}
 								tagColor="#06b6d4"

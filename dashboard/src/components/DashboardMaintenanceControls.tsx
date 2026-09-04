@@ -448,7 +448,7 @@ export const DashboardMaintenanceControls = ({
 										{t("settings.panel.updateChannelDev")}
 									</option>
 								</Select>
-								<FormHelperText fontSize="11px" color="panel.textMuted" dir="ltr" textAlign="start">
+								<FormHelperText fontSize="11px" color="panel.textMuted">
 									{selectedTarget
 										? t("settings.panel.updateTargetHint", {
 												version: selectedTarget,
