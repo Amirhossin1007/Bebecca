@@ -526,7 +526,6 @@ export const DashboardMaintenanceControls = ({
 			w={{ base: "full", sm: "auto" }}
 			flexShrink={0}
 		>
-			{/* Desktop & Tablet Layout: Single Line locked horizontally with title */}
 			<HStack
 				display={{ base: "none", sm: "flex" }}
 				spacing={2}
@@ -583,7 +582,6 @@ export const DashboardMaintenanceControls = ({
 				)}
 			</HStack>
 
-			{/* Mobile Layout: Full-Width */}
 			{!isStandardAdminOnly && (
 				<Stack
 					display={{ base: "flex", sm: "none" }}
@@ -643,7 +641,6 @@ export const DashboardMaintenanceControls = ({
 				</Stack>
 			)}
 
-			{/* Update Progress Dialog Modal */}
 			<Modal
 				isOpen={isUpdateDialogOpen}
 				onClose={() => {
