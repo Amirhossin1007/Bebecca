@@ -352,6 +352,7 @@ const HistoryModal: FC<{
 	isRTL?: boolean;
 }> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
 	const { colorMode } = useColorMode();
+	const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
 	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
 	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
 
@@ -521,15 +522,54 @@ const HistoryModal: FC<{
 			},
 			tooltip: {
 				theme: colorMode,
-				x: { format: "HH:mm:ss" },
-				y: {
-					formatter: (val: number) => {
-						if (!Number.isFinite(val)) return "0";
-						if (isNetwork) {
-							return `${formatBytes(val, 2)}/s`;
-						}
-						return `${val.toFixed(1)}%`;
-					},
+				custom: ({ series, seriesIndex, dataPointIndex, w }) => {
+					const timestamp = w.globals.seriesX[seriesIndex]?.[dataPointIndex];
+					const dateStr = timestamp
+						? new Date(timestamp).toLocaleTimeString(isRTL ? "fa-IR" : "en-US", {
+								hour12: false,
+								hour: "2-digit",
+								minute: "2-digit",
+								second: "2-digit",
+							})
+						: "";
+
+					const linesHtml = w.globals.seriesNames
+						.map((name: string, i: number) => {
+							const val = series[i]?.[dataPointIndex];
+							if (val === undefined || Number.isNaN(val)) return "";
+							const color = w.globals.colors[i] || "var(--rb-panel-accent)";
+							const displayVal = isNetwork ? `${formatBytes(val, 2)}/s` : `${Math.round(val * 10) / 10}%`;
+							return `
+								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px;">
+									<div style="display: flex; align-items: center; gap: 6px;">
+										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; box-shadow: 0 0 6px ${color}88; flex-shrink: 0;"></span>
+										<span style="color: var(--chakra-colors-panel-textSecondary, #94a3b8); font-size: 11px; font-weight: 500;">${name}</span>
+									</div>
+									<span style="color: var(--chakra-colors-panel-text, #ffffff); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
+								</div>
+							`;
+						})
+						.join("");
+
+					return `
+						<div style="
+							background: rgba(22, 23, 28, 0.85);
+							backdrop-filter: blur(16px);
+							-webkit-backdrop-filter: blur(16px);
+							border: 1px solid rgba(255, 255, 255, 0.08);
+							border-radius: 12px;
+							padding: 8px 12px;
+							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+							direction: ${isRTL ? "rtl" : "ltr"};
+							font-family: inherit;
+							min-width: 140px;
+						">
+							<div style="color: var(--chakra-colors-panel-textMuted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 4px; margin-bottom: 4px;">
+								${dateStr}
+							</div>
+							${linesHtml}
+						</div>
+					`;
 				},
 			},
 		}),
@@ -574,7 +614,7 @@ const HistoryModal: FC<{
 					<Stack spacing={4}>
 						<Flex wrap="wrap" gap={2}>
 							{HISTORY_INTERVALS.map((interval, idx) => {
-								const isAvailable = idx === 0 || interval.seconds <= availableSpan * 2;
+								const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
 								return (
 									<Button
 										key={interval.seconds}
@@ -589,7 +629,11 @@ const HistoryModal: FC<{
 										opacity={isAvailable ? 1 : 0.4}
 										cursor={isAvailable ? "pointer" : "not-allowed"}
 										onClick={() => {
-											if (isAvailable) onIntervalChange(interval.seconds);
+											if (isAvailable && intervalSeconds !== interval.seconds) {
+												setIsSwitchingInterval(true);
+												onIntervalChange(interval.seconds);
+												setTimeout(() => setIsSwitchingInterval(false), 300);
+											}
 										}}
 									>
 										{t(interval.labelKey)}
@@ -597,7 +641,25 @@ const HistoryModal: FC<{
 								);
 							})}
 						</Flex>
-						<Box minH="280px" w="100%">
+						<Box minH="280px" w="100%" position="relative">
+							{isSwitchingInterval && (
+								<Flex
+									position="absolute"
+									top={0}
+									left={0}
+									right={0}
+									bottom={0}
+									bg="blackAlpha.600"
+									backdropFilter="blur(4px)"
+									borderRadius="16px"
+									zIndex={10}
+									align="center"
+									justify="center"
+									transition="all 0.2s ease"
+								>
+									<Spinner size="md" color="panel.accent" thickness="2.5px" />
+								</Flex>
+							)}
 							<Suspense
 								fallback={
 									<Flex h="280px" align="center" justify="center">
@@ -1530,7 +1592,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}
 				action={
 					canSeeGlobal ? (
-						<HStack spacing={0.5} bg="panel.elevated" p={0.5} borderRadius="8px">
+						<HStack
+							spacing={0.5}
+							bg="panel.elevated"
+							p={0.5}
+							borderRadius="8px"
+							transition="all 0.25s ease"
+							_groupHover={{
+								bg: "panel.surface",
+							}}
+						>
 							<Button
 								size="xs"
 								h="22px"
@@ -1538,9 +1609,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 								borderRadius="6px"
 								fontSize="11px"
 								fontWeight="600"
-								variant={userTab === "all" ? "solid" : "ghost"}
-								colorScheme={userTab === "all" ? "primary" : "gray"}
-								color={userTab === "all" ? undefined : "panel.textMuted"}
+								variant="ghost"
+								bg={userTab === "all" ? "panel.surface" : "transparent"}
+								color={userTab === "all" ? "panel.text" : "panel.textMuted"}
+								transition="all 0.25s ease"
+								_groupHover={{
+									bg: userTab === "all" ? "panel.elevated" : "transparent",
+									color: userTab === "all" ? "panel.text" : "panel.textSecondary",
+								}}
+								_hover={{
+									bg: "panel.border !important",
+									color: "panel.text !important",
+								}}
 								onClick={() => setUserTab("all")}
 							>
 								{t("allUsers")}
@@ -1552,9 +1632,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 								borderRadius="6px"
 								fontSize="11px"
 								fontWeight="600"
-								variant={userTab === "mine" ? "solid" : "ghost"}
-								colorScheme={userTab === "mine" ? "primary" : "gray"}
-								color={userTab === "mine" ? undefined : "panel.textMuted"}
+								variant="ghost"
+								bg={userTab === "mine" ? "panel.surface" : "transparent"}
+								color={userTab === "mine" ? "panel.text" : "panel.textMuted"}
+								transition="all 0.25s ease"
+								_groupHover={{
+									bg: userTab === "mine" ? "panel.elevated" : "transparent",
+									color: userTab === "mine" ? "panel.text" : "panel.textSecondary",
+								}}
+								_hover={{
+									bg: "panel.border !important",
+									color: "panel.text !important",
+								}}
 								onClick={() => setUserTab("mine")}
 							>
 								{t("myUsers")}
