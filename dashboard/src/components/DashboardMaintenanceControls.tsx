@@ -94,16 +94,15 @@ const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
 	);
 
 const ansiEscapePattern =
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: Remove ANSI terminal control sequences from maintenance logs.
-	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
+	new RegExp("[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))", "g");
 
 const cleanTerminalOutput = (logs?: string[]) =>
 	(logs || [])
 		.join("\n")
 		.replace(ansiEscapePattern, "")
-		.replace(/\r(?!\n)/g, "\n")
-		// biome-ignore lint/suspicious/noControlCharactersInRegex: Remove backspace characters from maintenance logs.
-		.replace(/\u0008/g, "")
+		.replace(/
+(?!\n)/g, "\n")
+		.replace(new RegExp("\\u0008", "g"), "")
 		.trimEnd();
 
 export const DashboardMaintenanceControls = ({
