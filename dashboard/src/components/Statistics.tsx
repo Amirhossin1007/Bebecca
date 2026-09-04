@@ -34,11 +34,6 @@ import {
 } from "@heroicons/react/24/outline";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
-import {
-	type NodeType,
-	useNodeMetricsStream,
-	useNodesQuery,
-} from "contexts/NodesContext";
 import { AnimatePresence, motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
@@ -84,11 +79,6 @@ type MaintenanceInfo = {
 		} | null;
 	} | null;
 };
-
-interface DurationPart {
-	unit: string;
-	value: number;
-}
 
 const formatDurationText = (seconds: number, t: TFunction): string => {
 	if (!seconds || seconds <= 0) {
@@ -316,11 +306,11 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 };
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
-const formatPercent = (val: number): string => {
-	if (!Number.isFinite(val)) return "0%";
+const formatPercent = (val: number, isRTL = false): string => {
+	if (!Number.isFinite(val)) return isRTL ? "%0" : "0%";
 	const rounded = Math.round(val * 10) / 10;
 	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
-	return `${formatted}%`;
+	return isRTL ? `%${formatted}` : `${formatted}%`;
 };
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -643,13 +633,13 @@ const peak = (values: number[]) => (values.length ? Math.max(...values) : 0);
 const ResourceCard: FC<{
 	label: string;
 	icon: ReactNode;
-	value: ReactNode;
+	value: string;
 	totalValue?: string;
 	percent: number;
 	metaUnit?: string;
 	metaValue?: string | number;
-	footerLeft?: ReactNode;
-	footerRight?: ReactNode;
+	footerLeft?: string;
+	footerRight?: string;
 	onHistory?: () => void;
 	historyLabel?: string;
 	isRTL?: boolean;
@@ -718,27 +708,12 @@ const ResourceCard: FC<{
 						<Button
 							size="xs"
 							h="22px"
-							px={2.5}
+							px={2}
 							fontSize="11px"
 							borderRadius="full"
-							borderWidth="1px"
-							borderColor="panel.borderStrong"
-							bg="panel.elevated"
-							color="panel.textSecondary"
+							color="panel.textMuted"
 							fontWeight="500"
-							transition="all 0.2s ease"
-							_groupHover={{
-								bg: "panel.surface",
-								borderColor: "panel.border",
-							}}
-							_hover={{
-								bg: "panel.border !important",
-								color: "panel.text !important",
-							}}
-							_active={{
-								bg: "panel.borderStrong !important",
-								transform: "scale(0.97)",
-							}}
+							_hover={{ color: "panel.text", bg: "panel.surface" }}
 							onClick={onHistory}
 						>
 							{historyLabel}
@@ -814,14 +789,8 @@ const ResourceCard: FC<{
 
 			<Box mt={3}>
 				<Flex justify="space-between" align="center" mb={1.5}>
-					<Text
-						fontSize="11px"
-						fontWeight="600"
-						color="panel.textMuted"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-					>
-						{formatPercent(safe)}
+					<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
+						{formatPercent(safe, isRTL)}
 					</Text>
 				</Flex>
 				<Progress
@@ -909,11 +878,6 @@ const StatRow: FC<{
 						color="panel.textMuted"
 						fontWeight="600"
 						textTransform="none"
-						transition="all 0.2s ease"
-						_groupHover={{
-							bg: "panel.surface",
-							borderColor: "panel.border",
-						}}
 					>
 						{tag}
 					</Badge>
@@ -1010,7 +974,7 @@ const AnimatedHeightWrapper: FC<{
 			const resizeObserver = new ResizeObserver((entries) => {
 				for (const entry of entries) {
 					const newHeight = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-					if (newHeight >= 0) {
+					if (newHeight > 0) {
 						setHeight(newHeight);
 					}
 				}
@@ -1038,7 +1002,7 @@ const AnimatedHeightWrapper: FC<{
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0 }}
 						transition={{
-							opacity: { duration: 0.15, ease: "linear" },
+							opacity: { duration: 0.12, ease: "linear" },
 						}}
 					>
 						{children}
@@ -1076,11 +1040,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { userData } = useGetUser();
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
-
-	const canSeeGlobal =
-		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
-	const { data: _nodes = [] } = useNodesQuery({ enabled: canSeeGlobal });
-	useNodeMetricsStream(canSeeGlobal);
 
 	const { data: rawSystemData } = useQuery<SystemStats>({
 		queryKey: StatisticsQueryKey,
@@ -1129,6 +1088,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const [historyInterval, setHistoryInterval] = useState(HISTORY_INTERVALS[0].seconds);
 	const [userTab, setUserTab] = useState<"all" | "mine">("all");
 
+	const canSeeGlobal = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+
 	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
 		setHistoryPayload(payload);
@@ -1154,12 +1115,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const activePercent =
 		systemData.total_user > 0
-			? formatPercent((systemData.users_active / systemData.total_user) * 100)
-			: formatPercent(0);
+			? formatPercent((systemData.users_active / systemData.total_user) * 100, isRTL)
+			: formatPercent(0, isRTL);
 	const onlinePercent =
 		systemData.total_user > 0
-			? formatPercent((systemData.online_users / systemData.total_user) * 100)
-			: formatPercent(0);
+			? formatPercent((systemData.online_users / systemData.total_user) * 100, isRTL)
+			: formatPercent(0, isRTL);
 
 	const myTotalUsers = myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
 	const myActiveUsers = myUsersData?.active_total ?? myUsersData?.status_breakdown?.active ?? myTotalUsers;
@@ -1167,12 +1128,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const myActivePercent =
 		myTotalUsers > 0
-			? formatPercent((myActiveUsers / myTotalUsers) * 100)
-			: formatPercent(0);
+			? formatPercent((myActiveUsers / myTotalUsers) * 100, isRTL)
+			: formatPercent(0, isRTL);
 	const myOnlinePercent =
 		myTotalUsers > 0
-			? formatPercent((myOnlineUsers / myTotalUsers) * 100)
-			: formatPercent(0);
+			? formatPercent((myOnlineUsers / myTotalUsers) * 100, isRTL)
+			: formatPercent(0, isRTL);
 
 	const myUsersList = myUsersData?.users ?? [];
 	const myOnHoldUsers = myUsersData?.status_breakdown?.on_hold ?? myUsersList.filter((u) => u.status === "on_hold").length;
@@ -1181,6 +1142,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const myOnlineUploadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.upload_speed) || 0), 0);
 	const myOnlineDownloadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.download_speed) || 0), 0);
 	const myActiveUsersUsedTraffic = myUsersList.reduce((sum, u) => sum + (Number(u.used_traffic) || 0), 0);
+
+	const myUsageLabel =
+		systemData.personal_usage?.traffic_basis === "created_traffic"
+			? t("dashboard.currentCreatedTraffic")
+			: t("dashboard.currentUserUsage");
 
 	const panelInfo = maintenanceInfo?.panel;
 	const exactVersion =
@@ -1260,12 +1226,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<ResourceCard
 					label={t("cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
-					value={formatPercent(systemData.cpu_usage)}
+					value={formatPercent(systemData.cpu_usage, isRTL)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("core")}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)))}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)))}`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1283,8 +1249,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)))}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)))}`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
@@ -1302,8 +1268,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)))}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)))}`}
+					footerLeft={`${t("average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
 				<ResourceCard
@@ -1313,7 +1279,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
 					footerLeft={`${t("free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
-					footerRight={`${t("average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)))}`}
+					footerRight={`${t("average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
 			</SimpleGrid>
@@ -1335,24 +1301,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 							px={2.5}
 							fontSize="11px"
 							borderRadius="full"
-							borderWidth="1px"
-							borderColor="panel.borderStrong"
-							bg="panel.elevated"
-							color="panel.textSecondary"
+							color="panel.textMuted"
 							fontWeight="500"
-							transition="all 0.2s ease"
-							_groupHover={{
-								bg: "panel.surface",
-								borderColor: "panel.border",
-							}}
-							_hover={{
-								bg: "panel.border !important",
-								color: "panel.text !important",
-							}}
-							_active={{
-								bg: "panel.borderStrong !important",
-								transform: "scale(0.97)",
-							}}
+							_hover={{ color: "panel.text", bg: "panel.surface" }}
 							onClick={() =>
 								openHistory({
 									type: "network",
@@ -1477,21 +1428,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 						h="22px"
 						px={2.5}
 						fontSize="11px"
+						variant="ghost"
 						borderRadius="full"
-						borderWidth="1px"
-						borderColor="panel.borderStrong"
-						bg="panel.elevated"
-						color="panel.textSecondary"
+						color="panel.textMuted"
 						fontWeight="500"
-						transition="all 0.2s ease"
-						_hover={{
-							bg: "panel.border !important",
-							color: "panel.text !important",
-						}}
-						_active={{
-							bg: "panel.borderStrong !important",
-							transform: "scale(0.97)",
-						}}
+						_hover={{ color: "panel.text", bg: "panel.surface" }}
 						onClick={() =>
 							openHistory({
 								type: "panel",
@@ -1509,12 +1450,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<ResourceCard
 						label={`${t("cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
-						value={formatPercent(systemData.panel_cpu_percent)}
+						value={formatPercent(systemData.panel_cpu_percent, isRTL)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
 						metaUnit={t("thread")}
-						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)))}`}
-						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)))}`}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
 					<ResourceCard
@@ -1523,8 +1464,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
-						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)))}`}
-						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)))}`}
+						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
+						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
 				</SimpleGrid>
@@ -1576,56 +1517,57 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}
 			>
 				<AnimatedHeightWrapper activeKey={userTab}>
-					<Stack spacing={0}>
-						<StatRow
-							label={t("total")}
-							value={userTab === "all" ? systemData.total_user : myTotalUsers}
-							tagColor="#3b82f6"
-						/>
-						<StatRow
-							label={t("status.active")}
-							value={userTab === "all" ? systemData.users_active : myActiveUsers}
-							tag={userTab === "all" ? activePercent : myActivePercent}
-							tagColor="#22c55e"
-						/>
-						<StatRow
-							label={t("onlineUsers")}
-							value={userTab === "all" ? systemData.online_users : myOnlineUsers}
-							tag={userTab === "all" ? onlinePercent : myOnlinePercent}
-							tagColor="#06b6d4"
-							helper={
-								userTab === "all"
-									? systemData.online_users_upload_speed || systemData.online_users_download_speed
+					{canSeeGlobal && userTab === "all" ? (
+						<Stack spacing={0}>
+							<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
+							<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
+							<StatRow
+								label={t("onlineUsers")}
+								value={systemData.online_users}
+								tag={onlinePercent}
+								tagColor="#06b6d4"
+								helper={
+									systemData.online_users_upload_speed || systemData.online_users_download_speed
 										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
 										: undefined
-									: myOnlineUploadSpeed || myOnlineDownloadSpeed
+								}
+							/>
+							<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
+							<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
+							<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
+						</Stack>
+					) : (
+						<Stack spacing={0}>
+							<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
+							<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
+							<StatRow
+								label={t("onlineUsers")}
+								value={myOnlineUsers}
+								tag={myOnlinePercent}
+								tagColor="#06b6d4"
+								helper={
+									myOnlineUploadSpeed || myOnlineDownloadSpeed
 										? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
 										: undefined
-							}
-						/>
-						<StatRow
-							label={t("status.on_hold")}
-							value={userTab === "all" ? systemData.users_on_hold : myOnHoldUsers}
-							tagColor="#a855f7"
-						/>
-						<StatRow
-							label={t("status.limited")}
-							value={userTab === "all" ? systemData.users_limited : myLimitedUsers}
-							tagColor="#f59e0b"
-						/>
-						<StatRow
-							label={t("status.expired")}
-							value={userTab === "all" ? systemData.users_expired : myExpiredUsers}
-							tagColor="#f97316"
-						/>
-						{userTab === "mine" && (
+								}
+							/>
+							<StatRow label={t("status.on_hold")} value={myOnHoldUsers} tagColor="#a855f7" />
+							<StatRow label={t("status.limited")} value={myLimitedUsers} tagColor="#f59e0b" />
+							<StatRow label={t("status.expired")} value={myExpiredUsers} tagColor="#f97316" />
 							<StatRow
 								label={t("dashboard.currentUserUsage")}
 								value={formatBytes(myActiveUsersUsedTraffic, 1)}
 								tagColor="#3b82f6"
 							/>
-						)}
-					</Stack>
+							{systemData.personal_usage?.reset_bytes ? (
+								<StatRow
+									label={t("resetData")}
+									value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
+									tagColor="#f59e0b"
+								/>
+							) : null}
+						</Stack>
+					)}
 				</AnimatedHeightWrapper>
 			</SectionCard>
 
