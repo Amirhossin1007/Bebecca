@@ -1,5 +1,4 @@
 import {
-	Badge,
 	Box,
 	type BoxProps,
 	Button,
@@ -307,7 +306,7 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 };
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
-const formatPercent = (val: number, isRTL = false): string => {
+const formatPercent = (val: number): string => {
 	if (!Number.isFinite(val)) return "0%";
 	const rounded = Math.round(val * 10) / 10;
 	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
@@ -369,7 +368,7 @@ const HistoryModal: FC<{
 				width: targetEl.offsetWidth,
 			});
 		}
-	}, [activeIntervalIndex, isOpen]);
+	}, [activeIntervalIndex]);
 
 	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
@@ -1379,11 +1378,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const myOnlineUploadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.upload_speed) || 0), 0);
 	const myOnlineDownloadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.download_speed) || 0), 0);
 	const myActiveUsersUsedTraffic = myUsersList.reduce((sum, u) => sum + (Number(u.used_traffic) || 0), 0);
-
-	const myUsageLabel =
-		systemData.personal_usage?.traffic_basis === "created_traffic"
-			? t("dashboard.users.currentCreatedTraffic")
-			: t("dashboard.users.currentUserUsage");
 
 	const panelInfo = maintenanceInfo?.panel;
 	const exactVersion =

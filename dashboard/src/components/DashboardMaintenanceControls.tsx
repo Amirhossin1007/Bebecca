@@ -94,13 +94,13 @@ const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
 	);
 
 const ansiEscapePattern =
-	new RegExp("\u001B|\u009B|[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))", "g");
+	/\u001B|\u009B|[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
 const cleanTerminalOutput = (logs?: string[]) =>
 	(logs || [])
 		.join("\n")
 		.replace(ansiEscapePattern, "")
-		.replace(new RegExp("\x08", "g"), "")
+		.replace(/\x08/g, "")
 		.trimEnd();
 
 export const DashboardMaintenanceControls = ({
