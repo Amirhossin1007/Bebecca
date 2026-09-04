@@ -493,9 +493,9 @@ const HistoryModal: FC<{
 				yaxis: { lines: { show: true } },
 				padding: {
 					top: 0,
-					right: 20,
+					right: 8,
 					bottom: 0,
-					left: 20,
+					left: 5,
 				},
 			},
 			xaxis: {
@@ -516,7 +516,7 @@ const HistoryModal: FC<{
 				forceNiceScale: isNetwork,
 				tickAmount: 5,
 				labels: {
-					offsetX: -5,
+					offsetX: 0,
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					formatter: (val: number) => {
 						if (!Number.isFinite(val)) return "0";
@@ -534,6 +534,9 @@ const HistoryModal: FC<{
 				markers: {
 					offsetX: isRTL ? 6 : -6,
 					offsetY: 0,
+				},
+				formatter: (seriesName: string) => {
+					return isRTL ? `\u200E${seriesName}\u00A0\u00A0` : `\u00A0\u00A0${seriesName}`;
 				},
 				onItemClick: {
 					toggleDataSeries: true,
@@ -575,18 +578,19 @@ const HistoryModal: FC<{
 
 					return `
 						<div style="
-							background: rgba(22, 23, 28, 0.85);
+							background: rgba(22, 23, 28, 0.9);
 							backdrop-filter: blur(16px);
 							-webkit-backdrop-filter: blur(16px);
-							border: 1px solid rgba(255, 255, 255, 0.08);
+							outline: 1px solid rgba(255, 255, 255, 0.1);
+							outline-offset: -1px;
 							border-radius: 12px;
 							padding: 8px 12px;
-							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
 							direction: ${isRTL ? "rtl" : "ltr"};
 							font-family: inherit;
 							min-width: 140px;
 						">
-							<div style="color: var(--chakra-colors-panel-textMuted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 4px; margin-bottom: 4px;">
+							<div style="color: var(--chakra-colors-panel-textMuted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px; margin-bottom: 4px;">
 								${dateStr}
 							</div>
 							${linesHtml}
@@ -666,7 +670,7 @@ const HistoryModal: FC<{
 												}}
 												transition={{
 													layout: {
-														duration: 0.22,
+														duration: 0.35,
 														ease: [0.16, 1, 0.3, 1],
 													},
 												}}
@@ -1734,7 +1738,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 											right: 0,
 											bottom: 0,
 											borderRadius: "6px",
-											backgroundColor: "color-mix(in srgb, var(--rb-panel-accent) 18%, var(--chakra-colors-panel-surface))",
+											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
 											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
@@ -1780,7 +1784,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 											right: 0,
 											bottom: 0,
 											borderRadius: "6px",
-											backgroundColor: "color-mix(in srgb, var(--rb-panel-accent) 18%, var(--chakra-colors-panel-surface))",
+											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
 											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
