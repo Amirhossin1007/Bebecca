@@ -827,6 +827,7 @@ const ResourceCard: FC<{
 	isRTL = false,
 	parentNoHover = false,
 }) => {
+	const { colorMode } = useColorMode();
 	const safe = clampPercent(percent);
 	const accent = "var(--rb-panel-accent)";
 	const criticalColor = safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
@@ -1300,6 +1301,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const [historyPayload, setHistoryPayload] = useState<HistoryModalPayload | null>(null);
 	const [historyInterval, setHistoryInterval] = useState(HISTORY_INTERVALS[0].seconds);
 	const [userTab, setUserTab] = useState<"all" | "mine">("all");
+	const { colorMode } = useColorMode();
 
 	const canSeeGlobal = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 
