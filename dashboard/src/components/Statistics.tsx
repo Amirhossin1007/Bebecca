@@ -458,7 +458,13 @@ const HistoryModal: FC<{
 		() => ({
 			chart: {
 				type: "area",
-				animations: { enabled: false },
+				animations: {
+					enabled: true,
+					easing: "easeinout",
+					speed: 300,
+					animateGradually: { enabled: true, delay: 50 },
+					dynamicAnimation: { enabled: true, speed: 250 },
+				},
 				toolbar: { show: false },
 				zoom: { enabled: false },
 				background: "transparent",
@@ -510,7 +516,7 @@ const HistoryModal: FC<{
 				forceNiceScale: isNetwork,
 				tickAmount: 5,
 				labels: {
-					offsetX: isRTL ? 10 : -10,
+					offsetX: -5,
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					formatter: (val: number) => {
 						if (!Number.isFinite(val)) return "0";
@@ -533,7 +539,7 @@ const HistoryModal: FC<{
 					toggleDataSeries: true,
 				},
 				onItemHover: {
-					highlightDataSeries: true,
+					highlightDataSeries: false,
 				},
 			},
 			tooltip: {
@@ -629,9 +635,8 @@ const HistoryModal: FC<{
 				</ModalHeader>
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
-						<Flex
-							wrap="wrap"
-							gap={1}
+						<HStack
+							spacing={1}
 							p={1}
 							borderRadius="full"
 							bg="panel.elevated"
@@ -658,11 +663,9 @@ const HistoryModal: FC<{
 													zIndex: 1,
 												}}
 												transition={{
-													layout: {
-														type: "spring",
-														stiffness: 500,
-														damping: 35,
-													},
+													type: "tween",
+													ease: "easeInOut",
+													duration: 0.25,
 												}}
 											/>
 										)}
@@ -698,8 +701,21 @@ const HistoryModal: FC<{
 									</Box>
 								);
 							})}
-						</Flex>
-						<Box minH="280px" w="100%" position="relative">
+						</HStack>
+						<Box
+							minH="280px"
+							w="100%"
+							position="relative"
+							dir="ltr"
+							sx={{
+								"& .apexcharts-canvas": {
+									direction: "ltr !important",
+								},
+								"& .apexcharts-yaxis-label": {
+									direction: "ltr !important",
+								},
+							}}
+						>
 							<AnimatePresence>
 								{isSwitchingInterval && (
 									<motion.div
@@ -1706,13 +1722,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 											bottom: 0,
 											borderRadius: "6px",
 											backgroundColor: "var(--chakra-colors-panel-surface)",
-											boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+											border: "1px solid var(--rb-panel-accent)",
+											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
 										}}
 										transition={{
-											type: "spring",
-											stiffness: 400,
-											damping: 32,
+											type: "tween",
+											ease: "easeInOut",
+											duration: 0.25,
 										}}
 									/>
 								)}
@@ -1751,13 +1768,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 											bottom: 0,
 											borderRadius: "6px",
 											backgroundColor: "var(--chakra-colors-panel-surface)",
-											boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+											border: "1px solid var(--rb-panel-accent)",
+											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
 										}}
 										transition={{
-											type: "spring",
-											stiffness: 400,
-											damping: 32,
+											type: "tween",
+											ease: "easeInOut",
+											duration: 0.25,
 										}}
 									/>
 								)}
