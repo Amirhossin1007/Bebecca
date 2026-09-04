@@ -635,19 +635,20 @@ const HistoryModal: FC<{
 				</ModalHeader>
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
-						<HStack
-							spacing={1}
+						<Box
 							p={1}
 							borderRadius="full"
 							bg="panel.elevated"
 							w="fit-content"
 							position="relative"
+							display="inline-flex"
+							alignItems="center"
 						>
 							{HISTORY_INTERVALS.map((interval, idx) => {
 								const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
 								const isActive = intervalSeconds === interval.seconds;
 								return (
-									<Box key={interval.seconds} position="relative">
+									<Box key={interval.seconds} position="relative" display="inline-flex" alignItems="center">
 										{isActive && (
 											<motion.div
 												layoutId="historyIntervalPill"
@@ -657,15 +658,17 @@ const HistoryModal: FC<{
 													left: 0,
 													right: 0,
 													bottom: 0,
+													height: "100%",
 													borderRadius: "9999px",
 													backgroundColor: "var(--chakra-colors-panel-surface)",
 													boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
 													zIndex: 1,
 												}}
 												transition={{
-													type: "tween",
-													ease: "easeInOut",
-													duration: 0.25,
+													layout: {
+														duration: 0.22,
+														ease: [0.16, 1, 0.3, 1],
+													},
 												}}
 											/>
 										)}
@@ -701,7 +704,7 @@ const HistoryModal: FC<{
 									</Box>
 								);
 							})}
-						</HStack>
+						</Box>
 						<Box
 							minH="280px"
 							w="100%"
