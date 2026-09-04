@@ -882,13 +882,13 @@ const ResourceCard: FC<{
 							variant="ghost"
 							borderRadius="full"
 							bg="panel.elevated"
-							color="panel.textMuted"
-							fontWeight="500"
+							color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
+							fontWeight={colorMode === "light" ? "600" : "500"}
 							transition="all 0.2s ease"
 							_groupHover={{
 								md: {
 									bg: "panel.surface",
-									color: "panel.textSecondary",
+									color: colorMode === "light" ? "panel.text" : "panel.textSecondary",
 								},
 							}}
 							_hover={{
@@ -1516,13 +1516,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 							variant="ghost"
 							borderRadius="full"
 							bg="panel.elevated"
-							color="panel.textMuted"
-							fontWeight="500"
+							color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
+							fontWeight={colorMode === "light" ? "600" : "500"}
 							transition="all 0.2s ease"
 							_groupHover={{
 								md: {
 									bg: "panel.surface",
-									color: "panel.textSecondary",
+									color: colorMode === "light" ? "panel.text" : "panel.textSecondary",
 								},
 							}}
 							_hover={{
