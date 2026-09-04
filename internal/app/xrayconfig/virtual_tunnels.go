@@ -121,7 +121,7 @@ func normalizeSSTPSettings(settings map[string]any) map[string]any {
 }
 
 func normalizeAWGSettings(settings map[string]any) map[string]any {
-	copy := make(map[string]any, len(settings)+2)
+	copy := make(map[string]any, len(settings))
 	for key, value := range settings {
 		copy[key] = value
 	}
