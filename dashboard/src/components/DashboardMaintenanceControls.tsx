@@ -829,20 +829,22 @@ export const DashboardMaintenanceControls = ({
 									borderColor={outputBorder}
 									bg="panel.elevated"
 								>
-									<HStack spacing={2}>
-										<CommandLineIcon width={14} color="var(--rb-panel-accent)" />
-										<Text fontSize="11px" fontWeight="600" color="panel.textSecondary">
+									<Flex align="center" gap={2}>
+										<CommandLineIcon width={14} height={14} color="var(--rb-panel-accent)" />
+										<Text fontSize="11px" fontWeight="600" color="panel.textSecondary" lineHeight="1">
 											{t("settings.panel.liveLogs")}
 										</Text>
-									</HStack>
+									</Flex>
 									<Tooltip
 										label={logsCopied ? t("settings.panel.logsCopied") : t("settings.panel.copyLogs")}
 										fontSize="10px"
 										openDelay={300}
 										closeOnClick={false}
+										closeOnMouseDown
 									>
 										<IconButton
 											aria-label={t("settings.panel.copyLogs")}
+											tabIndex={-1}
 											icon={logsCopied ? <CheckIcon width={13} /> : <ClipboardIcon width={13} />}
 											size="xs"
 											variant="ghost"
