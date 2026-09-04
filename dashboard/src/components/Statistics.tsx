@@ -306,7 +306,7 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 };
 
 const formatNumberValue = (value?: number | null) => numberWithCommas(value);
-const formatPercent = (val: number): string => {
+const formatPercent = (val: number, _isRTL = false): string => {
 	if (!Number.isFinite(val)) return "0%";
 	const rounded = Math.round(val * 10) / 10;
 	const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
