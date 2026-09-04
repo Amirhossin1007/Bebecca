@@ -256,18 +256,18 @@ export const DashboardMaintenanceControls = ({
 			action,
 			phase: result.wentOffline ? "restarting" : "queued",
 			message: result.wentOffline
-				? t("settings.panel.maintenanceWaitingForAPI")
-				: t("settings.panel.maintenanceQueued"),
+				? t("dashboard.maintenance.waitingForAPI")
+				: t("dashboard.maintenance.queued"),
 			restarting: result.wentOffline,
 		};
 		setOperation(nextOperation);
 		generateSuccessMessage(
 			t(
 				action === "update"
-					? "settings.panel.updateTriggered"
+					? "dashboard.maintenance.updateTriggered"
 					: action === "restart"
-						? "settings.panel.restartTriggered"
-						: "settings.panel.softReloadTriggered",
+						? "dashboard.maintenance.restartTriggered"
+						: "dashboard.maintenance.softReloadTriggered",
 			),
 			toast,
 		);
@@ -338,8 +338,8 @@ export const DashboardMaintenanceControls = ({
 					whiteSpace="nowrap"
 				>
 					{update?.available
-						? t("nodes.nodeUpdateAvailable")
-						: t("settings.panel.updateAction")}
+						? t("dashboard.maintenance.updateAvailable")
+						: t("dashboard.maintenance.updateAction")}
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
@@ -355,7 +355,7 @@ export const DashboardMaintenanceControls = ({
 			>
 				<PopoverHeader fontWeight="700" fontSize="13px" py={3} px={4} borderColor="panel.border">
 					<Flex justify="space-between" align="center" gap={3}>
-						<Text fontSize="13px" fontWeight="700" color="panel.text">{t("settings.panel.maintenanceTitle")}</Text>
+						<Text fontSize="13px" fontWeight="700" color="panel.text">{t("dashboard.maintenance.title")}</Text>
 						<Button
 							size="xs"
 							variant="ghost"
@@ -381,10 +381,10 @@ export const DashboardMaintenanceControls = ({
 							<Alert status="error" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
-									{t("settings.panel.updateCheckFailed", {
+									{t("dashboard.maintenance.updateCheckFailed", {
 										error:
 											(info.error as Error)?.message ||
-											t("errors.generic"),
+											t("dashboard.system.genericError"),
 									})}
 								</Text>
 							</Alert>
@@ -397,7 +397,7 @@ export const DashboardMaintenanceControls = ({
 							borderColor="panel.border"
 						>
 							<Text fontSize="11px" fontWeight="600" color="panel.textMuted" mb={1}>
-								{t("settings.panel.panelVersion")}
+								{t("dashboard.maintenance.panelVersion")}
 							</Text>
 							<Text fontSize="13px" fontWeight="700" color="panel.text" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
 								{panel?.image
@@ -409,7 +409,7 @@ export const DashboardMaintenanceControls = ({
 							<Alert status="warning" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
-									{t("settings.panel.binaryMigrationRequired")}
+									{t("dashboard.maintenance.binaryMigrationRequired")}
 								</Text>
 							</Alert>
 						)}
@@ -417,7 +417,7 @@ export const DashboardMaintenanceControls = ({
 							<Alert status="success" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
-									{t("settings.panel.updateAvailableNotice", {
+									{t("dashboard.maintenance.updateAvailableNotice", {
 										current: update.current || currentVersion,
 										target: selectedTarget || update.target || "-",
 									})}
@@ -428,7 +428,7 @@ export const DashboardMaintenanceControls = ({
 							<Alert status="warning" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
-									{t("settings.panel.updateCheckFailed", {
+									{t("dashboard.maintenance.updateCheckFailed", {
 										error: update.error,
 									})}
 								</Text>
@@ -437,7 +437,7 @@ export const DashboardMaintenanceControls = ({
 						{hostActionsAvailable && (
 							<FormControl>
 								<FormLabel fontSize="12px" fontWeight="600" color="panel.textSecondary">
-									{t("settings.panel.updateChannel")}
+									{t("dashboard.maintenance.updateChannel")}
 								</FormLabel>
 								<Select
 									size="sm"
@@ -450,21 +450,21 @@ export const DashboardMaintenanceControls = ({
 									}}
 								>
 									<option value="current">
-										{t("settings.panel.updateChannelCurrent")}
+										{t("dashboard.maintenance.updateChannelCurrent")}
 									</option>
 									<option value="latest">
-										{t("settings.panel.updateChannelLatest")}
+										{t("dashboard.maintenance.updateChannelLatest")}
 									</option>
 									<option value="dev">
-										{t("settings.panel.updateChannelDev")}
+										{t("dashboard.maintenance.updateChannelDev")}
 									</option>
 								</Select>
 								<FormHelperText fontSize="11px" color="panel.textMuted">
 									{selectedTarget
-										? t("settings.panel.updateTargetHint", {
+										? t("dashboard.maintenance.updateTargetHint", {
 												version: selectedTarget,
 											})
-										: t("settings.panel.updateTargetUnknown")}
+										: t("dashboard.maintenance.updateTargetUnknown")}
 								</FormHelperText>
 							</FormControl>
 						)}
@@ -472,7 +472,7 @@ export const DashboardMaintenanceControls = ({
 							<Alert status="warning" borderRadius="xl" fontSize="12px">
 								<AlertIcon />
 								<Text fontSize="12px">
-									{t("settings.panel.devChannelWarning")}
+									{t("dashboard.maintenance.devChannelWarning")}
 								</Text>
 							</Alert>
 						)}
@@ -492,7 +492,7 @@ export const DashboardMaintenanceControls = ({
 								fontSize="12px"
 								fontWeight="600"
 							>
-								{t("settings.panel.softReloadAction")}
+								{t("dashboard.maintenance.softReloadAction")}
 							</Button>
 							<Button
 								size="xs"
@@ -506,7 +506,7 @@ export const DashboardMaintenanceControls = ({
 								fontSize="12px"
 								fontWeight="600"
 							>
-								{t("settings.panel.updateAction")}
+								{t("dashboard.maintenance.updateAction")}
 							</Button>
 						</Flex>
 					</Stack>
@@ -576,7 +576,7 @@ export const DashboardMaintenanceControls = ({
 						fontWeight="600"
 						whiteSpace="nowrap"
 					>
-						{t("settings.panel.restartAction")}
+						{t("dashboard.maintenance.restartAction")}
 					</Button>
 				)}
 			</HStack>
@@ -611,7 +611,7 @@ export const DashboardMaintenanceControls = ({
 							fontWeight="600"
 							whiteSpace="nowrap"
 						>
-							{t("settings.panel.restartAction")}
+							{t("dashboard.maintenance.restartAction")}
 						</Button>
 
 						{canBackUp && (
@@ -698,7 +698,7 @@ export const DashboardMaintenanceControls = ({
 								</Flex>
 								<Box>
 									<Text fontSize="15px" fontWeight="700" color="panel.text">
-										{t("settings.panel.updateProgressTitle")}
+										{t("dashboard.maintenance.updateProgressTitle")}
 									</Text>
 									<HStack spacing={2} mt={0.5}>
 										<Text fontSize="11px" color="panel.textMuted" fontWeight="500">
@@ -760,8 +760,8 @@ export const DashboardMaintenanceControls = ({
 										/>
 										<Text fontSize="13px" fontWeight="700" color="panel.text">
 											{operation?.phase
-												? t(`settings.panel.maintenancePhase.${operation.phase}`, operation.phase)
-												: t("settings.panel.maintenancePhase.queued")}
+												? t(`dashboard.maintenance.phase.${operation.phase}`, operation.phase)
+												: t("dashboard.maintenance.phase.queued")}
 										</Text>
 									</HStack>
 									{typeof operation?.progress === "number" && (
@@ -781,8 +781,8 @@ export const DashboardMaintenanceControls = ({
 									{operation?.error
 										? operation.error
 										: operation?.message
-											? t(`settings.panel.maintenanceMsg.${operation.message.replace(/[^a-zA-Z]/g, "")}`, operation.message)
-											: t("settings.panel.maintenanceMsg.preparingUpdate")}
+											? t(`dashboard.maintenance.message.${operation.message.replace(/[^a-zA-Z]/g, "")}`, operation.message)
+											: t("dashboard.maintenance.message.preparingUpdate")}
 								</Text>
 
 								<Progress
@@ -806,7 +806,7 @@ export const DashboardMaintenanceControls = ({
 
 							{waitingForAPI && (
 								<Text fontSize="12px" color="panel.textMuted" textAlign="center">
-									{t("settings.panel.autoRefreshAfterRestart")}
+									{t("dashboard.maintenance.autoRefreshAfterRestart")}
 								</Text>
 							)}
 
@@ -829,18 +829,18 @@ export const DashboardMaintenanceControls = ({
 									<Flex align="center" gap={2}>
 										<CommandLineIcon width={14} height={14} color="var(--rb-panel-accent)" />
 										<Text fontSize="11px" fontWeight="600" color="panel.textSecondary" lineHeight="1">
-											{t("settings.panel.liveLogs")}
+											{t("dashboard.maintenance.liveLogs")}
 										</Text>
 									</Flex>
 									<Tooltip
-										label={logsCopied ? t("settings.panel.logsCopied") : t("settings.panel.copyLogs")}
+										label={logsCopied ? t("dashboard.maintenance.logsCopied") : t("dashboard.maintenance.copyLogs")}
 										fontSize="10px"
 										openDelay={300}
 										closeOnClick={false}
 										closeOnMouseDown
 									>
 										<IconButton
-											aria-label={t("settings.panel.copyLogs")}
+											aria-label={t("dashboard.maintenance.copyLogs")}
 											tabIndex={-1}
 											icon={logsCopied ? <CheckIcon width={13} /> : <ClipboardIcon width={13} />}
 											size="xs"
@@ -887,7 +887,7 @@ export const DashboardMaintenanceControls = ({
 										},
 									}}
 								>
-									{cleanTerminalOutput(operation?.logs) || t("settings.panel.waitingForOutput.variant2")}
+									{cleanTerminalOutput(operation?.logs) || t("dashboard.maintenance.waitingForOutput")}
 								</Box>
 							</Box>
 						</Stack>
@@ -912,21 +912,21 @@ export const DashboardMaintenanceControls = ({
 				>
 					<ModalHeader fontSize="md" fontWeight="700" color="panel.text" pb={2}>
 						{confirmAction === "restart"
-							? t("settings.panel.restartConfirmTitle")
+							? t("dashboard.maintenance.restartConfirmTitle")
 							: confirmAction === "soft-reload"
-								? t("settings.panel.softReloadConfirmTitle")
-								: t("settings.panel.updateConfirmTitle")}
+								? t("dashboard.maintenance.softReloadConfirmTitle")
+								: t("dashboard.maintenance.updateConfirmTitle")}
 					</ModalHeader>
 					<ModalCloseButton />
 					<ModalBody py={3}>
 						<Text fontSize="13px" color="panel.textSecondary" lineHeight="tall">
 							{confirmAction === "restart"
-								? t("settings.panel.restartConfirmDescription")
+								? t("dashboard.maintenance.restartConfirmDescription")
 								: confirmAction === "soft-reload"
-									? t("settings.panel.softReloadConfirmDescription")
+									? t("dashboard.maintenance.softReloadConfirmDescription")
 									: selectedChannel === "dev"
-										? t("settings.panel.updateDevConfirmDescription")
-										: t("settings.panel.updateConfirmDescription", {
+										? t("dashboard.maintenance.updateDevConfirmDescription")
+										: t("dashboard.maintenance.updateConfirmDescription", {
 												target: selectedTarget || update?.target || "-",
 											})}
 						</Text>

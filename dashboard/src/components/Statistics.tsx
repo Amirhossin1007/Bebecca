@@ -82,7 +82,7 @@ type MaintenanceInfo = {
 
 const formatDurationText = (seconds: number, t: TFunction): string => {
 	if (!seconds || seconds <= 0) {
-		return `0 ${t("duration.seconds")}`;
+		return `0 ${t("dashboard.system.durationSeconds")}`;
 	}
 
 	const days = Math.floor(seconds / 86400);
@@ -90,8 +90,8 @@ const formatDurationText = (seconds: number, t: TFunction): string => {
 	const minutes = Math.floor((seconds % 3600) / 60);
 	const remSeconds = Math.floor(seconds % 60);
 
-	const andWord = t("common.and");
-	const commaWord = t("common.comma");
+	const andWord = t("dashboard.system.durationAnd");
+	const commaWord = t("dashboard.system.durationComma");
 
 	const formatUnit = (val: number, singleKey: string, pluralKey: string) => {
 		const unitStr = val === 1 ? t(singleKey) : t(pluralKey);
@@ -99,12 +99,12 @@ const formatDurationText = (seconds: number, t: TFunction): string => {
 	};
 
 	if (days > 0) {
-		const parts: string[] = [formatUnit(days, "duration.day", "duration.days")];
+		const parts: string[] = [formatUnit(days, "dashboard.system.durationDay", "dashboard.system.durationDays")];
 		if (hours > 0) {
-			parts.push(formatUnit(hours, "duration.hour", "duration.hours"));
+			parts.push(formatUnit(hours, "dashboard.system.durationHour", "dashboard.system.durationHours"));
 		}
 		if (minutes > 0) {
-			parts.push(formatUnit(minutes, "duration.minute", "duration.minutes"));
+			parts.push(formatUnit(minutes, "dashboard.system.durationMinute", "dashboard.system.durationMinutes"));
 		}
 		if (parts.length === 1) return parts[0];
 		if (parts.length === 2) return parts.join(andWord);
@@ -112,24 +112,24 @@ const formatDurationText = (seconds: number, t: TFunction): string => {
 	}
 
 	if (hours > 0) {
-		const hStr = formatUnit(hours, "duration.hour", "duration.hours");
+		const hStr = formatUnit(hours, "dashboard.system.durationHour", "dashboard.system.durationHours");
 		if (minutes > 0) {
-			const mStr = formatUnit(minutes, "duration.minute", "duration.minutes");
+			const mStr = formatUnit(minutes, "dashboard.system.durationMinute", "dashboard.system.durationMinutes");
 			return `${hStr}${andWord}${mStr}`;
 		}
 		return hStr;
 	}
 
 	if (minutes > 0) {
-		const mStr = formatUnit(minutes, "duration.minute", "duration.minutes");
+		const mStr = formatUnit(minutes, "dashboard.system.durationMinute", "dashboard.system.durationMinutes");
 		if (remSeconds > 0) {
-			const sStr = formatUnit(remSeconds, "duration.second", "duration.seconds");
+			const sStr = formatUnit(remSeconds, "dashboard.system.durationSecond", "dashboard.system.durationSeconds");
 			return `${mStr}${andWord}${sStr}`;
 		}
 		return mStr;
 	}
 
-	return formatUnit(remSeconds, "duration.second", "duration.seconds");
+	return formatUnit(remSeconds, "dashboard.system.durationSecond", "dashboard.system.durationSeconds");
 };
 
 const formatLocalizedDuration = (
@@ -316,12 +316,12 @@ const formatPercent = (val: number, isRTL = false): string => {
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
 const HISTORY_INTERVALS = [
-	{ labelKey: "historyInterval.2m", seconds: 120 },
-	{ labelKey: "historyInterval.10m", seconds: 600 },
-	{ labelKey: "historyInterval.30m", seconds: 1800 },
-	{ labelKey: "historyInterval.1h", seconds: 3600 },
-	{ labelKey: "historyInterval.3h", seconds: 10800 },
-	{ labelKey: "historyInterval.5h", seconds: 18000 },
+	{ labelKey: "dashboard.history.interval.2m", seconds: 120 },
+	{ labelKey: "dashboard.history.interval.10m", seconds: 600 },
+	{ labelKey: "dashboard.history.interval.30m", seconds: 1800 },
+	{ labelKey: "dashboard.history.interval.1h", seconds: 3600 },
+	{ labelKey: "dashboard.history.interval.3h", seconds: 10800 },
+	{ labelKey: "dashboard.history.interval.5h", seconds: 18000 },
 ];
 
 type HistoryModalPayload = {
@@ -354,8 +354,22 @@ const HistoryModal: FC<{
 }> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
 	const { colorMode } = useColorMode();
 	const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
+	const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
+	const [pillStyle, setPillStyle] = useState<{ left: number; width: number }>({ left: 4, width: 0 });
 	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
 	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
+
+	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
+
+	useEffect(() => {
+		const targetEl = tabRefs.current[activeIntervalIndex];
+		if (targetEl) {
+			setPillStyle({
+				left: targetEl.offsetLeft,
+				width: targetEl.offsetWidth,
+			});
+		}
+	}, [activeIntervalIndex, isOpen]);
 
 	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
@@ -386,11 +400,11 @@ const HistoryModal: FC<{
 			const finalData = expandShortData(rawData);
 			return [
 				{
-					name: t("networkIncoming"),
+					name: t("dashboard.system.networkIncoming"),
 					data: finalData.map((e) => [e.timestamp * 1000, e.incoming]),
 				},
 				{
-					name: t("networkOutgoing"),
+					name: t("dashboard.system.networkOutgoing"),
 					data: finalData.map((e) => [e.timestamp * 1000, e.outgoing]),
 				},
 			];
@@ -404,11 +418,11 @@ const HistoryModal: FC<{
 			const finalMem = expandShortData(rawMem);
 			return [
 				{
-					name: `${t("cpuUsage")} (Panel CPU %)`,
+					name: `${t("dashboard.system.cpuUsage")} (Panel CPU %)`,
 					data: finalCpu.map((e) => [e.timestamp * 1000, e.value]),
 				},
 				{
-					name: `${t("memoryUsage")} (Panel RAM %)`,
+					name: `${t("dashboard.system.memoryUsage")} (Panel RAM %)`,
 					data: finalMem.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
@@ -635,7 +649,7 @@ const HistoryModal: FC<{
 					fontSize="sm"
 					fontWeight="700"
 				>
-					<Text color="panel.text">{t("historyModalTitle", { metric: payload?.title ?? "" })}</Text>
+					<Text color="panel.text">{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}</Text>
 					<ModalCloseButton position="static" size="sm" />
 				</ModalHeader>
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
@@ -649,34 +663,42 @@ const HistoryModal: FC<{
 							display="inline-flex"
 							alignItems="center"
 						>
+							{pillStyle.width > 0 && (
+								<motion.div
+									animate={{
+										left: pillStyle.left,
+										width: pillStyle.width,
+									}}
+									transition={{
+										type: "tween",
+										ease: [0.16, 1, 0.3, 1],
+										duration: 0.32,
+									}}
+									style={{
+										position: "absolute",
+										top: 4,
+										bottom: 4,
+										borderRadius: "9999px",
+										backgroundColor: "var(--chakra-colors-panel-surface)",
+										boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
+										zIndex: 1,
+										pointerEvents: "none",
+									}}
+								/>
+							)}
 							{HISTORY_INTERVALS.map((interval, idx) => {
 								const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
 								const isActive = intervalSeconds === interval.seconds;
 								return (
-									<Box key={interval.seconds} position="relative" display="inline-flex" alignItems="center">
-										{isActive && (
-											<motion.div
-												layoutId="historyIntervalPill"
-												style={{
-													position: "absolute",
-													top: 0,
-													left: 0,
-													right: 0,
-													bottom: 0,
-													height: "100%",
-													borderRadius: "9999px",
-													backgroundColor: "var(--chakra-colors-panel-surface)",
-													boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
-													zIndex: 1,
-												}}
-												transition={{
-													layout: {
-														duration: 0.35,
-														ease: [0.16, 1, 0.3, 1],
-													},
-												}}
-											/>
-										)}
+									<Box
+										key={interval.seconds}
+										ref={(el: HTMLDivElement | null) => {
+											tabRefs.current[idx] = el;
+										}}
+										position="relative"
+										display="inline-flex"
+										alignItems="center"
+									>
 										<Button
 											size="xs"
 											h="26px"
@@ -1360,8 +1382,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const myUsageLabel =
 		systemData.personal_usage?.traffic_basis === "created_traffic"
-			? t("dashboard.currentCreatedTraffic")
-			: t("dashboard.currentUserUsage");
+			? t("dashboard.users.currentCreatedTraffic")
+			: t("dashboard.users.currentUserUsage");
 
 	const panelInfo = maintenanceInfo?.panel;
 	const exactVersion =
@@ -1405,7 +1427,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					}}
 				>
 					<Text fontSize={{ base: "18px", md: "20px" }} fontWeight="700" color="panel.text" letterSpacing="-0.02em">
-						{t("systemOverview")}
+						{t("dashboard.system.overview")}
 					</Text>
 					<Flex align="center" gap={2} direction="row">
 						<Box
@@ -1422,7 +1444,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							}}
 						/>
 						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
-							{systemData.xray_running ? t("status.running") : t("status.stopped")}
+							{systemData.xray_running ? t("dashboard.system.statusRunning") : t("dashboard.system.statusStopped")}
 						</Text>
 						{exactVersion && exactVersion !== "-" && (
 							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
@@ -1439,62 +1461,62 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
 				<ResourceCard
-					label={t("cpuUsage")}
+					label={t("dashboard.system.cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
 					value={formatPercent(systemData.cpu_usage, false)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
-					metaUnit={t("core")}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
-					historyLabel={t("viewHistory")}
+					metaUnit={t("dashboard.system.core")}
+					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
+					historyLabel={t("dashboard.system.viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
 						openHistory({
 							type: "cpu",
-							title: t("cpuUsage"),
-							metricLabel: t("cpuUsage"),
+							title: t("dashboard.system.cpuUsage"),
+							metricLabel: t("dashboard.system.cpuUsage"),
 							entries: systemData.cpu_history,
 						})
 					}
 				/>
 				<ResourceCard
-					label={t("memoryUsage")}
+					label={t("dashboard.system.memoryUsage")}
 					icon={<ServerStackIcon width={16} />}
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)), isRTL)}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)), isRTL)}`}
-					historyLabel={t("viewHistory")}
+					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.memory_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)), isRTL)}`}
+					historyLabel={t("dashboard.system.viewHistory")}
 					isRTL={isRTL}
 					onHistory={() =>
 						openHistory({
 							type: "memory",
-							title: t("memoryUsage"),
-							metricLabel: t("memoryUsage"),
+							title: t("dashboard.system.memoryUsage"),
+							metricLabel: t("dashboard.system.memoryUsage"),
 							entries: systemData.memory_history,
 						})
 					}
 				/>
 				<ResourceCard
-					label={t("swapUsage")}
+					label={t("dashboard.system.swapUsage")}
 					icon={<CircleStackIcon width={16} />}
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
-					footerLeft={`${t("average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)), isRTL)}`}
-					footerRight={`${t("peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)), isRTL)}`}
+					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)), isRTL)}`}
+					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
 				<ResourceCard
-					label={t("diskUsage")}
+					label={t("dashboard.system.diskUsage")}
 					icon={<CircleStackIcon width={16} />}
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
-					footerLeft={`${t("free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
-					footerRight={`${t("average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
+					footerLeft={`${t("dashboard.system.free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
+					footerRight={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
 			</SimpleGrid>
@@ -1506,7 +1528,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 								<SignalIcon width={14} />
 							</Flex>
-							<span>{t("bandwidthSpeed")}</span>
+							<span>{t("dashboard.system.bandwidthSpeed")}</span>
 						</HStack>
 					}
 					action={
@@ -1539,24 +1561,24 @@ export const Statistics: FC<BoxProps> = (props) => {
 							onClick={() =>
 								openHistory({
 									type: "network",
-									title: t("bandwidthSpeed"),
+									title: t("dashboard.system.bandwidthSpeed"),
 									networkEntries: systemData.network_history,
 								})
 							}
 						>
-							{t("viewHistory")}
+							{t("dashboard.system.viewHistory")}
 						</Button>
 					}
 				>
 					<Stack spacing={3}>
 						<SpeedItem
 							icon={<ArrowDownTrayIcon width={13} />}
-							label={t("incomingSpeed")}
+							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
 						/>
 						<SpeedItem
 							icon={<ArrowUpTrayIcon width={13} />}
-							label={t("outgoingSpeed")}
+							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
 						/>
 					</Stack>
@@ -1568,7 +1590,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 								<ClockIcon width={14} />
 							</Flex>
-							<span>{t("uptime")}</span>
+							<span>{t("dashboard.system.uptime")}</span>
 						</HStack>
 					}
 				>
@@ -1579,7 +1601,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									<ServerStackIcon width={13} />
 								</Flex>
 								<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
-									{t("systemUptime")}
+									{t("dashboard.system.systemUptime")}
 								</Text>
 							</HStack>
 							{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
@@ -1590,7 +1612,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									<CircleStackIcon width={13} />
 								</Flex>
 								<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
-									{t("panelUptime")}
+									{t("dashboard.system.panelUptime")}
 								</Text>
 							</HStack>
 							{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
@@ -1606,7 +1628,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<HStack spacing={2} mb={2} color={redErrorColor}>
 								<ExclamationTriangleIcon width={15} />
 								<Text fontSize="12px" fontWeight="700">
-									{t("coreError")}
+									{t("dashboard.system.coreError")}
 								</Text>
 							</HStack>
 							<Text fontSize="12px" fontFamily="mono" color={redErrorColor} wordBreak="break-word" lineHeight="tall" opacity={0.85}>
@@ -1619,7 +1641,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Flex align="center" justify="space-between" mb={2} flexWrap="wrap" gap={2}>
 								<HStack spacing={2} color={orangeErrorColor}>
 									<ExclamationTriangleIcon width={15} />
-									<Text fontSize="12px" fontWeight="700">{t("telegramError")}</Text>
+									<Text fontSize="12px" fontWeight="700">{t("dashboard.system.telegramError")}</Text>
 								</HStack>
 								<Button
 									size="xs"
@@ -1633,7 +1655,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 										window.location.href = "/settings";
 									}}
 								>
-									{t("goToTelegramSettings")}
+									{t("dashboard.system.goToTelegramSettings")}
 								</Button>
 							</Flex>
 							<Text fontSize="12px" fontFamily="mono" color={orangeErrorColor} wordBreak="break-word" lineHeight="tall" opacity={0.85}>
@@ -1651,7 +1673,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 							<CpuChipIcon width={14} />
 						</Flex>
-						<span>{t("panelUsage")}</span>
+						<span>{t("dashboard.system.panelUsage")}</span>
 					</HStack>
 				}
 				action={
@@ -1676,38 +1698,38 @@ export const Statistics: FC<BoxProps> = (props) => {
 						onClick={() =>
 							openHistory({
 								type: "panel",
-								title: t("panelUsage"),
+								title: t("dashboard.system.panelUsage"),
 								cpuEntries: systemData.panel_cpu_history,
 								memoryEntries: systemData.panel_memory_history,
 							})
 						}
 					>
-						{t("viewHistory")}
+						{t("dashboard.system.viewHistory")}
 					</Button>
 				}
 			>
 				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
 					<ResourceCard
 						parentNoHover
-						label={`${t("cpuUsage")} (Panel)`}
+						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
-						metaUnit={t("thread")}
-						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
-						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
+						metaUnit={t("dashboard.system.thread")}
+						footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
+						footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
 					<ResourceCard
 						parentNoHover
-						label={`${t("memoryUsage")} (Panel)`}
+						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
 						icon={<ServerStackIcon width={16} />}
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
-						footerLeft={`${t("average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
-						footerRight={`${t("peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
+						footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
+						footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
 				</SimpleGrid>
@@ -1719,7 +1741,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 							<UserGroupIcon width={14} />
 						</Flex>
-						<span>{t("usersOverview")}</span>
+						<span>{t("dashboard.users")}</span>
 					</HStack>
 				}
 				action={
@@ -1778,7 +1800,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									}}
 									onClick={() => setUserTab("all")}
 								>
-									{t("allUsers")}
+									{t("dashboard.users.allUsers")}
 								</Button>
 							</Box>
 							<Box position="relative">
@@ -1824,7 +1846,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									}}
 									onClick={() => setUserTab("mine")}
 								>
-									{t("myUsers")}
+									{t("dashboard.users.myUsers")}
 								</Button>
 							</Box>
 						</HStack>
@@ -1834,10 +1856,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<AnimatedHeightWrapper activeKey={userTab}>
 					{canSeeGlobal && userTab === "all" ? (
 						<Stack spacing={0}>
-							<StatRow label={t("total")} value={systemData.total_user} tagColor="#3b82f6" />
-							<StatRow label={t("status.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
+							<StatRow label={t("dashboard.users.total")} value={systemData.total_user} tagColor="#3b82f6" />
+							<StatRow label={t("dashboard.users.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
 							<StatRow
-								label={t("online")}
+								label={t("dashboard.users.online")}
 								value={systemData.online_users}
 								tag={onlinePercent}
 								tagColor="#06b6d4"
@@ -1847,16 +1869,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 										: undefined
 								}
 							/>
-							<StatRow label={t("status.on_hold")} value={systemData.users_on_hold} tagColor="#a855f7" />
-							<StatRow label={t("status.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
-							<StatRow label={t("status.expired")} value={systemData.users_expired} tagColor="#f97316" />
+							<StatRow label={t("dashboard.users.onHold")} value={systemData.users_on_hold} tagColor="#a855f7" />
+							<StatRow label={t("dashboard.users.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
+							<StatRow label={t("dashboard.users.expired")} value={systemData.users_expired} tagColor="#f97316" />
 						</Stack>
 					) : (
 						<Stack spacing={0}>
-							<StatRow label={t("total")} value={myTotalUsers} tagColor="#3b82f6" />
-							<StatRow label={t("status.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
+							<StatRow label={t("dashboard.users.total")} value={myTotalUsers} tagColor="#3b82f6" />
+							<StatRow label={t("dashboard.users.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
 							<StatRow
-								label={t("online")}
+								label={t("dashboard.users.online")}
 								value={myOnlineUsers}
 								tag={myOnlinePercent}
 								tagColor="#06b6d4"
@@ -1866,17 +1888,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 										: undefined
 								}
 							/>
-							<StatRow label={t("status.on_hold")} value={myOnHoldUsers} tagColor="#a855f7" />
-							<StatRow label={t("status.limited")} value={myLimitedUsers} tagColor="#f59e0b" />
-							<StatRow label={t("status.expired")} value={myExpiredUsers} tagColor="#f97316" />
+							<StatRow label={t("dashboard.users.onHold")} value={myOnHoldUsers} tagColor="#a855f7" />
+							<StatRow label={t("dashboard.users.limited")} value={myLimitedUsers} tagColor="#f59e0b" />
+							<StatRow label={t("dashboard.users.expired")} value={myExpiredUsers} tagColor="#f97316" />
 							<StatRow
-								label={t("dashboard.currentUserUsage")}
+								label={t("dashboard.users.currentUserUsage")}
 								value={formatBytes(myActiveUsersUsedTraffic, 1)}
 								tagColor="#3b82f6"
 							/>
 							{systemData.personal_usage?.reset_bytes ? (
 								<StatRow
-									label={t("resetData")}
+									label={t("dashboard.users.resetData")}
 									value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
 									tagColor="#f59e0b"
 								/>
@@ -1893,18 +1915,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
 								<ShieldCheckIcon width={14} />
 							</Flex>
-							<span>{t("adminOverview")}</span>
+							<span>{t("dashboard.admins")}</span>
 						</HStack>
 					}
 				>
 					<Stack spacing={0}>
-						<StatRow label={t("totalAdmins")} value={systemData.admin_overview.total_admins} tagColor="#3b82f6" />
-						<StatRow label={t("fullAccessAdmins")} value={systemData.admin_overview.full_access_admins} tagColor="#f59e0b" />
-						<StatRow label={t("sudoAdmins")} value={systemData.admin_overview.sudo_admins} tagColor="#a855f7" />
-						<StatRow label={t("standardAdmins")} value={systemData.admin_overview.standard_admins} tagColor="#22c55e" />
+						<StatRow label={t("dashboard.admins.total")} value={systemData.admin_overview.total_admins} tagColor="#3b82f6" />
+						<StatRow label={t("dashboard.admins.fullAccess")} value={systemData.admin_overview.full_access_admins} tagColor="#f59e0b" />
+						<StatRow label={t("dashboard.admins.sudo")} value={systemData.admin_overview.sudo_admins} tagColor="#a855f7" />
+						<StatRow label={t("dashboard.admins.standard")} value={systemData.admin_overview.standard_admins} tagColor="#22c55e" />
 						{systemData.admin_overview.top_admin_username && (
 							<StatRow
-								label={t("topAdmin")}
+								label={t("dashboard.admins.topAdmin")}
 								value={`${systemData.admin_overview.top_admin_username} · ${formatBytes(systemData.admin_overview.top_admin_usage)}`}
 								dimLabel
 								accent

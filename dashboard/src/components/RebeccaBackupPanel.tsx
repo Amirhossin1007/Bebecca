@@ -76,7 +76,7 @@ export const DashboardBackupControls = ({
 			anchor.remove();
 			URL.revokeObjectURL(url);
 			setDialog(null);
-			generateSuccessMessage(t("settings.backup.exportReady"), toast);
+			generateSuccessMessage(t("dashboard.backup.exportReady"), toast);
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -89,7 +89,7 @@ export const DashboardBackupControls = ({
 			onMutate: () => setUploadProgress(0),
 			onSuccess: (result) => {
 				generateSuccessMessage(
-					t("settings.backup.importDone", {
+					t("dashboard.backup.importDone", {
 						tables: result.tables_restored,
 						rows: result.rows_restored,
 					}),
@@ -98,7 +98,7 @@ export const DashboardBackupControls = ({
 				if (result.warnings.length) {
 					toast({
 						status: "warning",
-						title: t("settings.backup.importWarnings"),
+						title: t("dashboard.backup.importWarnings"),
 						description: result.warnings.join("\n"),
 						duration: 8000,
 						isClosable: true,
@@ -121,7 +121,7 @@ export const DashboardBackupControls = ({
 
 	const handleImport = () => {
 		if (!selectedFile) {
-			toast({ status: "warning", title: t("settings.backup.fileRequired") });
+			toast({ status: "warning", title: t("dashboard.backup.fileRequired") });
 			return;
 		}
 		importMutation.mutate(selectedFile);
@@ -153,7 +153,7 @@ export const DashboardBackupControls = ({
 						_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 						transition="border-color 0.25s ease, background-color 0.25s ease"
 					>
-						{t("settings.backup.tabTitle")}
+						{t("dashboard.backup.tabTitle")}
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent
@@ -165,7 +165,7 @@ export const DashboardBackupControls = ({
 					borderWidth="1px"
 				>
 					<PopoverHeader fontWeight="700" fontSize="13px" py={3} px={4} borderColor="panel.border">
-						{t("settings.backup.title")}
+						{t("dashboard.backup.title")}
 					</PopoverHeader>
 					<PopoverBody p={2}>
 						<Stack spacing={1}>
@@ -180,7 +180,7 @@ export const DashboardBackupControls = ({
 								_hover={{ bg: "panel.elevated" }}
 								transition="background-color 0.2s ease"
 							>
-								{t("settings.backup.import")}
+								{t("dashboard.backup.import")}
 							</Button>
 							<Button
 								variant="ghost"
@@ -193,7 +193,7 @@ export const DashboardBackupControls = ({
 								_hover={{ bg: "panel.elevated" }}
 								transition="background-color 0.2s ease"
 							>
-								{t("settings.backup.exportTitle")}
+								{t("dashboard.backup.exportTitle")}
 							</Button>
 						</Stack>
 					</PopoverBody>
@@ -216,30 +216,30 @@ export const DashboardBackupControls = ({
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
 				>
-					<ModalHeader fontSize="md" fontWeight="700" color="panel.text">{t("settings.backup.import")}</ModalHeader>
+					<ModalHeader fontSize="md" fontWeight="700" color="panel.text">{t("dashboard.backup.import")}</ModalHeader>
 					<ModalCloseButton isDisabled={importMutation.isLoading} />
 					<ModalBody py={4}>
 						<Stack spacing={4}>
 							<Text fontSize="13px" color="panel.textMuted">
-								{t("settings.backup.importHint")}
+								{t("dashboard.backup.importHint")}
 							</Text>
 							<Alert status="warning" borderRadius="xl" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
-									{t("settings.backup.autoDetectImportWarning")}
+									{t("dashboard.backup.autoDetectImportWarning")}
 								</Text>
 							</Alert>
 							<FormControl isRequired>
-								<FormLabel fontSize="13px" fontWeight="600" color="panel.textSecondary">{t("settings.backup.file")}</FormLabel>
+								<FormLabel fontSize="13px" fontWeight="600" color="panel.textSecondary">{t("dashboard.backup.file")}</FormLabel>
 								<FileDropzone
 									accept=".rbbackup,application/vnd.rebecca.backup,application/gzip"
 									isDisabled={
 										!backupActionsAvailable || importMutation.isLoading
 									}
 									selectedFile={selectedFile}
-									title={t("settings.backup.dropTitle")}
-									description={t("settings.backup.dropHint")}
-									emptyText={t("settings.backup.selectFile")}
+									title={t("dashboard.backup.dropTitle")}
+									description={t("dashboard.backup.dropHint")}
+									emptyText={t("dashboard.backup.selectFile")}
 									onFileSelect={setSelectedFile}
 								/>
 							</FormControl>
@@ -247,10 +247,10 @@ export const DashboardBackupControls = ({
 								<Stack spacing={2} aria-live="polite">
 									<Text fontSize="12px" fontWeight="600">
 										{uploadProgress < 100
-											? t("settings.backup.uploadProgress", {
+											? t("dashboard.backup.uploadProgress", {
 													percent: uploadProgress,
 												})
-											: t("settings.backup.processing")}
+											: t("dashboard.backup.processing")}
 									</Text>
 									<Progress
 										value={uploadProgress}
@@ -283,7 +283,7 @@ export const DashboardBackupControls = ({
 							onClick={handleImport}
 							isLoading={importMutation.isLoading}
 						>
-							{t("settings.backup.import")}
+							{t("dashboard.backup.import")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
@@ -305,15 +305,15 @@ export const DashboardBackupControls = ({
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
 				>
-					<ModalHeader fontSize="md" fontWeight="700" color="panel.text">{t("settings.backup.exportTitle")}</ModalHeader>
+					<ModalHeader fontSize="md" fontWeight="700" color="panel.text">{t("dashboard.backup.exportTitle")}</ModalHeader>
 					<ModalCloseButton isDisabled={exportMutation.isLoading} />
 					<ModalBody py={4}>
 						<Stack spacing={4}>
 							<Text fontSize="13px" color="panel.textMuted">
-								{t("settings.backup.exportHint")}
+								{t("dashboard.backup.exportHint")}
 							</Text>
 							<FormControl>
-								<FormLabel fontSize="13px" fontWeight="600" color="panel.textSecondary">{t("settings.telegram.backupScope")}</FormLabel>
+								<FormLabel fontSize="13px" fontWeight="600" color="panel.textSecondary">{t("dashboard.backup.scope")}</FormLabel>
 								<Select
 									value={exportScope}
 									showSearch={false}
@@ -322,9 +322,9 @@ export const DashboardBackupControls = ({
 									}
 								>
 									<option value="database">
-										{t("settings.backup.databaseOnly")}
+										{t("dashboard.backup.databaseOnly")}
 									</option>
-									<option value="full">{t("settings.backup.full")}</option>
+									<option value="full">{t("dashboard.backup.full")}</option>
 								</Select>
 							</FormControl>
 						</Stack>
@@ -348,7 +348,7 @@ export const DashboardBackupControls = ({
 							onClick={() => exportMutation.mutate(exportScope)}
 							isLoading={exportMutation.isLoading}
 						>
-							{t("settings.backup.download")}
+							{t("dashboard.backup.download")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
