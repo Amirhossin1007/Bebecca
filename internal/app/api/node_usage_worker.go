@@ -9,8 +9,12 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 )
 
-const defaultNodeUsageCollectionInterval = 30 * time.Second
+const defaultNodeUsageCollectionInterval = 5 * time.Second
 const defaultNodeUsageFlushInterval = 2 * time.Second
+const nodeUsageHistoryFlushInterval = 30 * time.Second
+const nodeUsageQueueCleanupInterval = time.Minute
+const nodeUsageQueueRetention = 5 * time.Minute
+const nodeUsageHistoryBatchSize = 50000
 
 func (s *Server) runNodeUsageCollector(ctx context.Context) {
 	interval := parseNodeUsageCollectionInterval(s.cfg.NodeUsageCollectionInterval)
@@ -38,8 +42,30 @@ func (s *Server) runNodeUsageFlushWorker(ctx context.Context) {
 	if interval <= 0 {
 		return
 	}
+	nextHistory := time.Now()
+	nextCleanup := time.Now()
 	for {
 		s.flushNodeUsage(ctx)
+		if !time.Now().Before(nextHistory) {
+			s.flushNodeUsageHistory(ctx)
+			nextHistory = time.Now().Add(nodeUsageHistoryFlushInterval)
+		}
+		if !time.Now().Before(nextCleanup) {
+			workerCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			var err error
+			for batch := 0; batch < 3; batch++ {
+				var deleted int
+				deleted, err = s.nodeController.PruneProcessedUsageQueue(workerCtx, time.Now().UTC().Add(-nodeUsageQueueRetention), nodeUsageHistoryBatchSize)
+				if err != nil || deleted < nodeUsageHistoryBatchSize {
+					break
+				}
+			}
+			cancel()
+			if err != nil && ctx.Err() == nil {
+				logging.Warnf(logging.ComponentNode, "usage queue cleanup failed: %v", err)
+			}
+			nextCleanup = time.Now().Add(nodeUsageQueueCleanupInterval)
+		}
 		if ctx.Err() != nil {
 			return
 		}
@@ -63,26 +89,63 @@ func (s *Server) flushNodeUsage(ctx context.Context) {
 		runtimeSettings.RecordNodeUsage = s.cfg.RecordNodeUsage
 		runtimeSettings.RecordNodeUserUsages = s.cfg.RecordNodeUserUsages
 	}
-	result, err := s.nodeController.FlushStagedUsage(workerCtx, s.cfg.NodeUsageFlushBatchSize, nodecontroller.UsagePersistOptions{
+	options := nodecontroller.UsagePersistOptions{
 		SkipNodeUsageHistory:     !runtimeSettings.RecordNodeUsage,
 		SkipNodeUserUsageHistory: !runtimeSettings.RecordNodeUserUsages,
-	})
-	if err != nil {
-		if ctx.Err() != nil {
-			logging.Debugf(logging.ComponentNode, "usage flush stopped: %v", err)
+	}
+	var total nodecontroller.UsageFlushResult
+	for batch := 0; batch < 5; batch++ {
+		result, err := s.nodeController.FlushStagedUsage(workerCtx, s.cfg.NodeUsageFlushBatchSize, options)
+		if err != nil {
+			if ctx.Err() != nil {
+				logging.Debugf(logging.ComponentNode, "usage flush stopped: %v", err)
+				return
+			}
+			logging.Warnf(logging.ComponentNode, "usage flush failed: %v", err)
 			return
 		}
-		logging.Warnf(logging.ComponentNode, "usage flush failed: %v", err)
-		return
+		total.UserRows += result.UserRows
+		total.OutboundRows += result.OutboundRows
+		total.Operations += result.Operations
+		if result.UserRows < s.cfg.NodeUsageFlushBatchSize && result.OutboundRows < s.cfg.NodeUsageFlushBatchSize {
+			break
+		}
 	}
-	if result.UserRows > 0 || result.OutboundRows > 0 || result.Operations > 0 {
+	if total.UserRows > 0 || total.OutboundRows > 0 || total.Operations > 0 {
 		logging.Debugf(
 			logging.ComponentNode,
 			"usage flush user_rows=%d outbound_rows=%d operations=%d",
-			result.UserRows,
-			result.OutboundRows,
-			result.Operations,
+			total.UserRows,
+			total.OutboundRows,
+			total.Operations,
 		)
+	}
+}
+
+func (s *Server) flushNodeUsageHistory(ctx context.Context) {
+	workerCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	runtimeSettings, err := s.settingsRepo.RuntimeSettings(workerCtx)
+	if err != nil {
+		logging.Warnf(logging.ComponentNode, "usage history settings read failed: %v", err)
+		runtimeSettings.RecordNodeUsage = s.cfg.RecordNodeUsage
+		runtimeSettings.RecordNodeUserUsages = s.cfg.RecordNodeUserUsages
+	}
+	options := nodecontroller.UsagePersistOptions{
+		SkipNodeUsageHistory:     !runtimeSettings.RecordNodeUsage,
+		SkipNodeUserUsageHistory: !runtimeSettings.RecordNodeUserUsages,
+	}
+	for batch := 0; batch < 3; batch++ {
+		result, err := s.nodeController.FlushStagedUsageHistory(workerCtx, nodeUsageHistoryBatchSize, options)
+		if err != nil {
+			if ctx.Err() == nil {
+				logging.Warnf(logging.ComponentNode, "usage history flush failed: %v", err)
+			}
+			return
+		}
+		if result.UserRows < nodeUsageHistoryBatchSize && result.OutboundRows < nodeUsageHistoryBatchSize {
+			return
+		}
 	}
 }
 
@@ -105,6 +168,7 @@ func (s *Server) collectNodeUsage(ctx context.Context) {
 		SkipNodeUserUsageHistory: !runtimeSettings.RecordNodeUserUsages,
 	})
 	if err != nil {
+		s.setLiveUserSpeeds(nil)
 		if ctx.Err() != nil {
 			logging.Debugf(logging.ComponentNode, "usage collection stopped: %v", err)
 			return
@@ -112,13 +176,15 @@ func (s *Server) collectNodeUsage(ctx context.Context) {
 		logging.Warnf(logging.ComponentNode, "usage collection failed: %v", err)
 		return
 	}
-	if result.UserSamples > 0 || result.OutboundSamples > 0 || len(result.Errors) > 0 {
+	s.setLiveUserSpeeds(result.Speeds)
+	if result.UserSamples > 0 || result.OutboundSamples > 0 || result.InboundSamples > 0 || len(result.Errors) > 0 {
 		logging.Debugf(
 			logging.ComponentNode,
-			"usage collection nodes=%d user_samples=%d outbound_samples=%d user_acked=%d outbound_acked=%d errors=%d",
+			"usage collection nodes=%d user_samples=%d outbound_samples=%d inbound_samples=%d user_acked=%d outbound_acked=%d errors=%d",
 			result.Nodes,
 			result.UserSamples,
 			result.OutboundSamples,
+			result.InboundSamples,
 			result.UserAcked,
 			result.OutboundAcked,
 			len(result.Errors),

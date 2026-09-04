@@ -9,11 +9,14 @@ import (
 
 func TestRoleDefaultPermissions(t *testing.T) {
 	standard := RoleDefaultPermissions(RoleStandard)
-	if !standard.Users.Create || standard.Users.Delete || !standard.Users.AdvancedActions {
+	if !standard.Users.Create || standard.Users.Delete || !standard.Users.AdvancedActions || !standard.Users.PeriodicUsageReset {
 		t.Fatalf("unexpected standard user permissions: %#v", standard.Users)
 	}
 	if standard.Sections.Nodes || !standard.Sections.Hosts {
 		t.Fatalf("unexpected standard section permissions: %#v", standard.Sections)
+	}
+	if standard.SelfPermissions["self_placeholders"] {
+		t.Fatalf("standard admins must be granted placeholder access explicitly")
 	}
 
 	sudo := RoleDefaultPermissions(RoleSudo)
@@ -35,6 +38,7 @@ func TestBuildPermissionsMergesOverrides(t *testing.T) {
 	raw := map[string]any{
 		"users": map[string]any{
 			"delete":                  true,
+			"periodic_usage_reset":    false,
 			"allow_unlimited_data":    false,
 			"max_data_limit_per_user": max,
 		},
@@ -46,7 +50,7 @@ func TestBuildPermissionsMergesOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !perms.Users.Delete || perms.Users.AllowUnlimitedData {
+	if !perms.Users.Delete || perms.Users.AllowUnlimitedData || perms.Users.PeriodicUsageReset {
 		t.Fatalf("override was not applied: %#v", perms.Users)
 	}
 	if perms.Users.MaxDataLimitPerUser == nil || *perms.Users.MaxDataLimitPerUser != max {

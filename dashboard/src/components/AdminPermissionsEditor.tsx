@@ -49,6 +49,10 @@ const userPermissionKeys: Array<{ key: UserPermissionToggle; label: string }> =
 			key: UserPermissionToggle.ResetUsage,
 			label: "admins.permissions.resetUsage",
 		},
+		{
+			key: UserPermissionToggle.PeriodicUsageReset,
+			label: "admins.permissions.periodicUsageReset",
+		},
 		{ key: UserPermissionToggle.Revoke, label: "admins.permissions.revoke" },
 		{
 			key: UserPermissionToggle.CreateOnHold,
@@ -96,8 +100,14 @@ const adminManagementKeys: Array<{
 		key: AdminManagementPermission.ManageSudo,
 		label: "admins.permissions.manageSudo",
 	},
-	{ key: AdminManagementPermission.ManageSessions, label: "admins.permissions.manageSessions" },
-	{ key: AdminManagementPermission.Manage2FA, label: "admins.permissions.manage2FA" },
+	{
+		key: AdminManagementPermission.ManageSessions,
+		label: "admins.permissions.manageSessions",
+	},
+	{
+		key: AdminManagementPermission.Manage2FA,
+		label: "admins.permissions.manage2FA",
+	},
 ];
 
 const sectionPermissionKeys: Array<{ key: AdminSection; label: string }> = [
@@ -120,6 +130,10 @@ const selfPermissionKeys: Array<{ key: SelfPermissionToggle; label: string }> =
 		{ key: SelfPermissionToggle.SelfApiKeys, label: "admins.self.apiKeys" },
 		{ key: SelfPermissionToggle.SelfSessions, label: "admins.self.sessions" },
 		{ key: SelfPermissionToggle.Self2FA, label: "admins.self.twoFactor" },
+		{
+			key: SelfPermissionToggle.SelfPlaceholders,
+			label: "admins.self.placeholders",
+		},
 	];
 
 const sudoPermissionKeys: Array<{ key: AdminSudoScope; label: string }> = [
@@ -231,9 +245,7 @@ export const AdminPermissionsEditor = ({
 				))}
 			</SimpleGrid>
 			<FormControl isInvalid={Boolean(maxDataLimitError)}>
-				<FormLabel>
-					{t("admins.permissions.maxDataPerUser")}
-				</FormLabel>
+				<FormLabel>{t("admins.permissions.maxDataPerUser")}</FormLabel>
 				<Tooltip
 					label={t("admins.permissions.unlimitedEnabledHint")}
 					isDisabled={!value.users.allow_unlimited_data}
@@ -267,9 +279,26 @@ export const AdminPermissionsEditor = ({
 					<Text fontWeight="semibold">{t("admins.sudo.title")}</Text>
 					<SimpleGrid columns={gridColumns} spacing={3}>
 						{sudoPermissionKeys.map(({ key, label }) => (
-							<HStack key={key} justify="space-between" align="center" borderWidth="1px" borderRadius="md" px={3} py={2} minW={0}>
-								<Text fontSize="sm" flex="1" minW={0}>{t(label)}</Text>
-								<Switch isChecked={Boolean(value.sudo?.[key])} isDisabled={isReadOnly} onChange={(event) => updatePermissions("sudo", key, event.target.checked)} />
+							<HStack
+								key={key}
+								justify="space-between"
+								align="center"
+								borderWidth="1px"
+								borderRadius="md"
+								px={3}
+								py={2}
+								minW={0}
+							>
+								<Text fontSize="sm" flex="1" minW={0}>
+									{t(label)}
+								</Text>
+								<Switch
+									isChecked={Boolean(value.sudo?.[key])}
+									isDisabled={isReadOnly}
+									onChange={(event) =>
+										updatePermissions("sudo", key, event.target.checked)
+									}
+								/>
 							</HStack>
 						))}
 					</SimpleGrid>

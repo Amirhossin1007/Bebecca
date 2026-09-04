@@ -1,14 +1,19 @@
 import {
+	Accordion,
+	AccordionButton,
+	AccordionIcon,
+	AccordionItem,
+	AccordionPanel,
 	Badge,
 	Box,
 	Button,
 	Card,
-	CardBody,
-	CardHeader,
 	Checkbox,
 	chakra,
+	Flex,
 	FormControl,
 	FormErrorMessage,
+	FormHelperText,
 	FormLabel,
 	HStack,
 	Input,
@@ -26,7 +31,9 @@ import {
 	PopoverTrigger,
 	Portal,
 	SimpleGrid,
+	Spinner,
 	Stack,
+	Switch,
 	Tab,
 	TabList,
 	TabPanel,
@@ -57,6 +64,10 @@ import { type HostsSchema, useHosts } from "contexts/HostsContext";
 import { type NodeType, useNodesQuery } from "contexts/NodesContext";
 import {
 	type FC,
+	lazy,
+	type ReactNode,
+	type RefObject,
+	Suspense,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -64,6 +75,22 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { fetch as apiFetch } from "service/http";
+import {
+	cloneFinalMask,
+	type FinalMaskObject,
+	finalMaskValidationError,
+	getFinalMaskCapabilities,
+	hostFinalMaskValue,
+	isFinalMaskObject,
+	sanitizeFinalMask,
+} from "utils/finalmask";
+import { getHostFormFields } from "utils/hostFormFields";
+import {
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+	matchesAnySearch,
+} from "utils/searchMatch";
+import { generateErrorMessage } from "utils/toastHandler";
 import { AppleEmojiText } from "./common/AppleEmojiText";
 import { DeleteIcon } from "./common/DeleteIcon";
 import {
@@ -72,14 +99,14 @@ import {
 } from "./common/MultiValueAutocomplete";
 import { NumericInput } from "./common/NumericInput";
 import { SearchableTagSelect } from "./common/SearchableTagSelect";
+import { SearchInput } from "./common/SearchInput";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
-import { JsonEditor } from "./JsonEditor";
 import {
 	DataTable,
-	ResourceListCard,
-	ResourceRefreshButton,
 	type DataTableColumn,
 	type DataTableRowAction,
+	ResourceListCard,
+	ResourceRefreshButton,
 	type ResourceSummaryItem,
 } from "./ui";
 import {
@@ -88,6 +115,13 @@ import {
 	XrayModalFooter,
 	XrayModalHeader,
 } from "./xray/XrayDialog";
+
+const FinalMaskEditor = lazy(async () => ({
+	default: (await import("./FinalMaskEditor")).FinalMaskEditor,
+}));
+const JsonEditor = lazy(async () => ({
+	default: (await import("./JsonEditor")).JsonEditor,
+}));
 
 type HostData = {
 	id: number | null;
@@ -113,10 +147,13 @@ type HostData = {
 	is_disabled: boolean;
 	fragment_setting: string;
 	noise_setting: string;
+	finalmask: FinalMaskObject | null;
 	random_user_agent: boolean;
 	security: string;
 	alpn: string;
 	fingerprint: string;
+	verify_peer_cert_by_name: string;
+	pinned_peer_cert_sha256: string;
 	use_sni_as_host: boolean;
 };
 
@@ -176,6 +213,15 @@ const coerceHostValue = <Key extends keyof HostData>(
 	) {
 		return normalizeRotationMode(String(value ?? "")) as HostData[Key];
 	}
+	if (key === "finalmask") {
+		return (
+			isFinalMaskObject(value)
+				? cloneFinalMask(value)
+				: value === null
+					? null
+					: currentData.finalmask
+		) as HostData[Key];
+	}
 	return (value ?? "") as HostData[Key];
 };
 
@@ -203,10 +249,13 @@ const EMPTY_HOST_DATA: HostData = {
 	is_disabled: false,
 	fragment_setting: "",
 	noise_setting: "",
+	finalmask: null,
 	random_user_agent: false,
 	security: "inbound_default",
 	alpn: "",
 	fingerprint: "",
+	verify_peer_cert_by_name: "",
+	pinned_peer_cert_sha256: "",
 	use_sni_as_host: false,
 };
 
@@ -223,6 +272,11 @@ type InboundOption = {
 	value: string;
 	protocol: string;
 	network: string;
+	headerType?: string;
+	alpn?: string;
+	tls?: string;
+	flow?: string;
+	proxyNetwork?: string;
 	port?: number;
 };
 
@@ -241,26 +295,14 @@ const profileHostNameError = (protocol: string | undefined, value: string) => {
 	return null;
 };
 
-type CreateHostValues = {
+type CreateHostValues = HostData & {
 	inboundTag: string;
-	remark: string;
-	address: string;
-	dns_primary: string;
-	dns_secondary: string;
-	address_options: string;
-	address_selection_mode: string;
-	address_ttl_seconds: number | null;
-	port: number | null;
-	path: string;
-	sni: string;
-	sni_options: string;
-	sni_selection_mode: string;
-	sni_ttl_seconds: number | null;
-	host: string;
-	host_options: string;
-	host_selection_mode: string;
-	host_ttl_seconds: number | null;
 };
+
+const emptyCreateHostValues = (inboundTag: string): CreateHostValues => ({
+	...EMPTY_HOST_DATA,
+	inboundTag,
+});
 
 const EditIcon = chakra(PencilIcon, {
 	baseStyle: {
@@ -317,7 +359,7 @@ const RotationControls: FC<RotationControlsProps> = ({
 }) => {
 	const { t } = useTranslation();
 	return (
-		<SimpleGrid columns={2} spacing={2} mt={2}>
+		<SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2} mt={2}>
 			<FormControl>
 				<FormLabel fontSize="xs" color="gray.500" mb={1}>
 					{t("hostsDialog.rotationMode")}
@@ -396,293 +438,36 @@ const alpnAutocompleteOptions = proxyALPN
 const inboundPortPlaceholder = (inbound?: InboundOption) =>
 	inbound?.port ? `Inbound default: ${inbound.port}` : "Inherited from inbound";
 
-type FragmentFields = {
-	length: string;
-	interval: string;
-	packet: string;
-	maxSplit: string;
-};
+const inheritedHostValue = (value: string, fallback?: string) =>
+	["", "none", "default", "inbound_default", "inbound-default"].includes(
+		value.trim().toLowerCase(),
+	)
+		? fallback
+		: value;
 
-const parseFragmentSetting = (value: string): FragmentFields => {
-	const [length = "", interval = "", packet = "", maxSplit = ""] = value
-		.split(",")
-		.map((item) => item.trim());
-	return { length, interval, packet, maxSplit };
-};
+const finalMaskCapabilitiesForHost = (
+	data: HostData,
+	inbound?: InboundOption,
+) =>
+	getFinalMaskCapabilities({
+		protocol: inbound?.protocol,
+		network: inbound?.network,
+		alpn: inheritedHostValue(data.alpn, inbound?.alpn),
+		security: inheritedHostValue(data.security, inbound?.tls),
+		flow: inbound?.flow,
+		proxyNetwork: inbound?.proxyNetwork,
+	});
 
-const formatFragmentSetting = (fields: FragmentFields) => {
-	const length = fields.length.trim();
-	const interval = fields.interval.trim();
-	const packet = fields.packet.trim();
-	const maxSplit = fields.maxSplit.trim();
-	if (!length && !interval && !packet && !maxSplit) return "";
-	const parts = [
-		length || "10-100",
-		interval || "100-200",
-		packet || "tlshello",
-	];
-	if (maxSplit) parts.push(maxSplit);
-	return parts.join(",");
-};
-
-type NoisePattern = {
-	type: string;
-	packet: string;
-	delay: string;
-};
-
-const defaultNoisePattern = (): NoisePattern => ({
-	type: "rand",
-	packet: "10-20",
-	delay: "100-200",
-});
-
-const parseNoiseSetting = (value: string): NoisePattern[] => {
-	const patterns = value
-		.split("&")
-		.map((raw) => raw.trim())
-		.filter(Boolean)
-		.map((raw) => {
-			const colonIndex = raw.indexOf(":");
-			const type = colonIndex > 0 ? raw.slice(0, colonIndex).trim() : "rand";
-			const rest = colonIndex > 0 ? raw.slice(colonIndex + 1) : raw;
-			const [packet = "", delay = ""] = rest
-				.split(",")
-				.map((item) => item.trim());
-			return {
-				type: ["rand", "str", "hex", "base64"].includes(type) ? type : "rand",
-				packet: packet || "10-20",
-				delay: delay || "100-200",
-			};
-		});
-	return patterns.length ? patterns : [defaultNoisePattern()];
-};
-
-const formatNoiseSetting = (patterns: NoisePattern[]) =>
-	patterns
-		.map((pattern) => ({
-			type: pattern.type || "rand",
-			packet: pattern.packet.trim(),
-			delay: pattern.delay.trim(),
-		}))
-		.filter((pattern) => pattern.packet)
-		.map((pattern) =>
-			pattern.delay
-				? `${pattern.type}:${pattern.packet},${pattern.delay}`
-				: `${pattern.type}:${pattern.packet}`,
-		)
-		.join("&");
-
-const FragmentSettingFields: FC<{
-	value: string;
-	onChange: (value: string) => void;
-}> = ({ value, onChange }) => {
-	const { t } = useTranslation();
-	const fields = parseFragmentSetting(value);
-	const isEnabled = value.trim() !== "";
-	const update = (patch: Partial<FragmentFields>) => {
-		onChange(formatFragmentSetting({ ...fields, ...patch }));
+const fitHostToInbound = (
+	data: HostData,
+	inbound?: InboundOption,
+): HostData => {
+	const capabilities = finalMaskCapabilitiesForHost(data, inbound);
+	return {
+		...data,
+		finalmask: sanitizeFinalMask(data.finalmask, capabilities),
+		mux_enable: capabilities.mux && data.mux_enable,
 	};
-	return (
-		<Box>
-			<Checkbox
-				isChecked={isEnabled}
-				onChange={(event) =>
-					onChange(
-						event.target.checked
-							? formatFragmentSetting(
-									parseFragmentSetting("10-100,100-200,tlshello"),
-								)
-							: "",
-					)
-				}
-			>
-				{t("hostsDialog.fragment")}
-			</Checkbox>
-			{isEnabled && (
-				<Box mt={2} pl={{ base: 0, md: 6 }}>
-					<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={2}>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragment.length")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.length}
-								placeholder={t("hostsDialog.fragmentLength")}
-								onChange={(event) => update({ length: event.target.value })}
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragmentIntervalLabel")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.interval}
-								placeholder={t("hostsDialog.fragmentInterval")}
-								onChange={(event) => update({ interval: event.target.value })}
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragmentPacketLabel")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.packet}
-								placeholder={t("hostsDialog.fragmentPacket")}
-								onChange={(event) => update({ packet: event.target.value })}
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="xs" color="gray.500" mb={1}>
-								{t("hostsDialog.fragmentMaxSplitLabel")}
-							</FormLabel>
-							<Input
-								size="sm"
-								value={fields.maxSplit}
-								placeholder={t("hostsDialog.fragmentMaxSplit")}
-								onChange={(event) => update({ maxSplit: event.target.value })}
-							/>
-						</FormControl>
-					</SimpleGrid>
-					<Text mt={1.5} fontSize="xs" color="gray.500">
-						{t("hostsDialog.fragmentHint")}
-					</Text>
-				</Box>
-			)}
-		</Box>
-	);
-};
-
-const NoisePatternFields: FC<{
-	value: string;
-	onChange: (value: string) => void;
-}> = ({ value, onChange }) => {
-	const { t } = useTranslation();
-	const patterns = parseNoiseSetting(value);
-	const isEnabled = value.trim() !== "";
-	const updatePatterns = (next: NoisePattern[]) =>
-		onChange(formatNoiseSetting(next));
-	const updatePattern = (index: number, patch: Partial<NoisePattern>) => {
-		updatePatterns(
-			patterns.map((pattern, patternIndex) =>
-				patternIndex === index ? { ...pattern, ...patch } : pattern,
-			),
-		);
-	};
-	return (
-		<Box>
-			<Stack
-				direction={{ base: "column", sm: "row" }}
-				spacing={2}
-				align={{ base: "stretch", sm: "center" }}
-				justify="space-between"
-			>
-				<Checkbox
-					isChecked={isEnabled}
-					onChange={(event) =>
-						onChange(
-							event.target.checked
-								? formatNoiseSetting([defaultNoisePattern()])
-								: "",
-						)
-					}
-				>
-					{t("hostsDialog.noise")}
-				</Checkbox>
-				{isEnabled && (
-					<Button
-						size="xs"
-						variant="outline"
-						alignSelf={{ base: "flex-start", sm: "center" }}
-						onClick={() => updatePatterns([...patterns, defaultNoisePattern()])}
-					>
-						{t("hostsDialog.addNoisePattern")}
-					</Button>
-				)}
-			</Stack>
-			{isEnabled && (
-				<Box mt={2} pl={{ base: 0, md: 6 }}>
-					<VStack align="stretch" spacing={2}>
-						{patterns.map((pattern, index) => (
-							<SimpleGrid
-								key={`${index}-${pattern.type}`}
-								columns={{ base: 1, md: 12 }}
-								spacing={2}
-								alignItems="end"
-							>
-								<FormControl gridColumn={{ md: "span 3" }}>
-									<FormLabel fontSize="xs" color="gray.500" mb={1}>
-										{t("inbounds.fallbacks.type")}
-									</FormLabel>
-									<SearchableTagSelect
-										size="sm"
-										value={pattern.type}
-										options={["rand", "str", "hex", "base64"]}
-										placeholder={t("inbounds.fallbacks.type")}
-										onChange={(value) =>
-											updatePattern(index, { type: String(value) })
-										}
-									/>
-								</FormControl>
-								<FormControl gridColumn={{ md: "span 4" }}>
-									<FormLabel fontSize="xs" color="gray.500" mb={1}>
-										{t("hostsDialog.noisePacket")}
-									</FormLabel>
-									<Input
-										size="sm"
-										value={pattern.packet}
-										placeholder={
-											pattern.type === "rand"
-												? "10-20"
-												: t("hostsDialog.noisePacket")
-										}
-										onChange={(event) =>
-											updatePattern(index, { packet: event.target.value })
-										}
-									/>
-								</FormControl>
-								<FormControl gridColumn={{ md: "span 4" }}>
-									<FormLabel fontSize="xs" color="gray.500" mb={1}>
-										{t("hostsDialog.noiseDelay")}
-									</FormLabel>
-									<Input
-										size="sm"
-										value={pattern.delay}
-										placeholder="100-200"
-										onChange={(event) =>
-											updatePattern(index, { delay: event.target.value })
-										}
-									/>
-								</FormControl>
-								<Button
-									size="sm"
-									variant="ghost"
-									colorScheme="red"
-									isDisabled={patterns.length === 1}
-									onClick={() =>
-										updatePatterns(
-											patterns.filter(
-												(_, patternIndex) => patternIndex !== index,
-											),
-										)
-									}
-									gridColumn={{ md: "span 1" }}
-								>
-									×
-								</Button>
-							</SimpleGrid>
-						))}
-					</VStack>
-					<Text mt={1.5} fontSize="xs" color="gray.500">
-						{t("hostsDialog.noiseHint")}
-					</Text>
-				</Box>
-			)}
-		</Box>
-	);
 };
 
 const DynamicTokensPopover: FC = () => {
@@ -751,6 +536,80 @@ const normalizeBoolean = (
 	fallback = false,
 ) => (typeof value === "boolean" ? value : fallback);
 
+const certificatePinsValid = (value: string) =>
+	!value.trim() ||
+	value
+		.split(",")
+		.every((pin) => /^[0-9a-f]{64}$/i.test(pin.trim().replaceAll(":", "")));
+
+const CertificateFingerprintField: FC<{
+	data: Pick<HostData, "address" | "sni" | "host" | "verify_peer_cert_by_name">;
+	port: number;
+	value: string;
+	onChange: (value: string) => void;
+}> = ({ data, port, value, onChange }) => {
+	const { t } = useTranslation();
+	const toast = useToast();
+	const [isGenerating, setIsGenerating] = useState(false);
+	const address = rotationTextToOptions(data.address)[0] ?? "";
+	const serverName =
+		rotationTextToOptions(data.sni)[0] ??
+		rotationTextToOptions(data.host)[0] ??
+		rotationTextToOptions(data.verify_peer_cert_by_name)[0] ??
+		address;
+
+	const generate = async () => {
+		setIsGenerating(true);
+		try {
+			const result = await apiFetch<{ fingerprint: string }>(
+				"/hosts/certificate-fingerprint",
+				{
+					method: "POST",
+					body: { address, port, server_name: serverName },
+				},
+			);
+			onChange(result.fingerprint);
+			toast({
+				title: t("hostsDialog.certificateFingerprintGenerated"),
+				status: "success",
+				isClosable: true,
+				position: "top",
+			});
+		} catch (error) {
+			generateErrorMessage(error, toast);
+		} finally {
+			setIsGenerating(false);
+		}
+	};
+
+	return (
+		<FormControl isInvalid={!certificatePinsValid(value)}>
+			<FormLabel>{t("hostsDialog.pinnedPeerCertSha256")}</FormLabel>
+			<HStack align="stretch" spacing={2}>
+				<Input
+					minW={0}
+					dir="ltr"
+					value={value}
+					placeholder={t("hostsDialog.pinnedPeerCertSha256Hint")}
+					onChange={(event) => onChange(event.target.value)}
+				/>
+				<Button
+					flexShrink={0}
+					size="sm"
+					alignSelf="center"
+					variant="outline"
+					leftIcon={<ArrowPathIcon width={14} />}
+					isDisabled={!address}
+					isLoading={isGenerating}
+					onClick={generate}
+				>
+					{t("hostsDialog.generateCertificateFingerprint")}
+				</Button>
+			</HStack>
+		</FormControl>
+	);
+};
+
 const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	id: host.id ?? null,
 	remark: host.remark ?? "",
@@ -773,12 +632,19 @@ const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	mux_enable: normalizeBoolean(host.mux_enable),
 	allowinsecure: normalizeBoolean(host.allowinsecure),
 	is_disabled: normalizeBoolean(host.is_disabled, false),
-	fragment_setting: normalizeString(host.fragment_setting),
-	noise_setting: normalizeString(host.noise_setting),
+	fragment_setting: "",
+	noise_setting: "",
+	finalmask: hostFinalMaskValue(
+		host.finalmask,
+		normalizeString(host.fragment_setting),
+		normalizeString(host.noise_setting),
+	),
 	random_user_agent: normalizeBoolean(host.random_user_agent),
 	security: host.security ?? "inbound_default",
 	alpn: host.alpn ?? "",
 	fingerprint: host.fingerprint ?? "",
+	verify_peer_cert_by_name: host.verify_peer_cert_by_name ?? "",
+	pinned_peer_cert_sha256: host.pinned_peer_cert_sha256 ?? "",
 	use_sni_as_host: normalizeBoolean(host.use_sni_as_host),
 });
 
@@ -806,10 +672,13 @@ const cloneHostData = (data: HostData): HostData => ({
 	is_disabled: data.is_disabled,
 	fragment_setting: data.fragment_setting,
 	noise_setting: data.noise_setting,
+	finalmask: cloneFinalMask(data.finalmask),
 	random_user_agent: data.random_user_agent,
 	security: data.security,
 	alpn: data.alpn,
 	fingerprint: data.fingerprint,
+	verify_peer_cert_by_name: data.verify_peer_cert_by_name,
+	pinned_peer_cert_sha256: data.pinned_peer_cert_sha256,
 	use_sni_as_host: data.use_sni_as_host,
 });
 
@@ -829,14 +698,15 @@ const serializeHostData = (data: HostData) => ({
 	host_options: rotationTextToOptions(data.host_options),
 	host_selection_mode: normalizeRotationMode(data.host_selection_mode),
 	host_ttl_seconds: data.host_ttl_seconds ?? null,
-	fragment_setting: normalizeString(data.fragment_setting),
-	noise_setting: normalizeString(data.noise_setting),
+	fragment_setting: "",
+	noise_setting: "",
+	finalmask: data.finalmask,
 });
 
 const validateHostState = (
 	inboundTag: string,
 	data: HostData | CreateHostValues,
-	protocol?: string,
+	inbound?: InboundOption,
 ): string[] => {
 	const errors: string[] = [];
 	if (!inboundTag.trim()) {
@@ -845,7 +715,7 @@ const validateHostState = (
 	if (!data.remark.trim()) {
 		errors.push("Remark is required.");
 	}
-	const profileNameError = profileHostNameError(protocol, data.remark);
+	const profileNameError = profileHostNameError(inbound?.protocol, data.remark);
 	if (profileNameError) {
 		errors.push(profileNameError);
 	}
@@ -864,6 +734,11 @@ const validateHostState = (
 	const path = data.path.trim();
 	if (path && !path.startsWith("/")) {
 		errors.push("Path must start with /.");
+	}
+	if (!certificatePinsValid(data.pinned_peer_cert_sha256)) {
+		errors.push(
+			"Certificate pins must be comma-separated SHA-256 fingerprints.",
+		);
 	}
 	for (const [label, mode, ttl] of [
 		["Address", data.address_selection_mode, data.address_ttl_seconds],
@@ -885,6 +760,12 @@ const validateHostState = (
 			errors.push(`${label} is required.`);
 		}
 	}
+	const finalMaskError = finalMaskValidationError(
+		fitHostToInbound(data, inbound).finalmask,
+	);
+	if (finalMaskError) {
+		errors.push(finalMaskError);
+	}
 	return errors;
 };
 
@@ -897,7 +778,12 @@ const isHostDirty = (host: HostState) => {
 	return JSON.stringify(current) !== JSON.stringify(original);
 };
 
-const formatHostForApi = (data: HostData): HostsSchema[string][number] => {
+const formatHostForApi = (
+	rawData: HostData,
+	inbound?: InboundOption,
+	fitToInbound = true,
+): HostsSchema[string][number] => {
+	const data = fitToInbound ? fitHostToInbound(rawData, inbound) : rawData;
 	return {
 		id: data.id ?? null,
 		remark: data.remark.trim(),
@@ -920,14 +806,15 @@ const formatHostForApi = (data: HostData): HostsSchema[string][number] => {
 		mux_enable: data.mux_enable,
 		allowinsecure: data.allowinsecure,
 		is_disabled: data.is_disabled,
-		fragment_setting: data.fragment_setting.trim()
-			? data.fragment_setting.trim()
-			: null,
-		noise_setting: data.noise_setting.trim() ? data.noise_setting.trim() : null,
+		fragment_setting: null,
+		noise_setting: null,
+		finalmask: cloneFinalMask(data.finalmask),
 		random_user_agent: data.random_user_agent,
 		security: data.security || "inbound_default",
 		alpn: data.alpn || "",
 		fingerprint: data.fingerprint || "",
+		verify_peer_cert_by_name: data.verify_peer_cert_by_name.trim(),
+		pinned_peer_cert_sha256: data.pinned_peer_cert_sha256.trim(),
 		use_sni_as_host: data.use_sni_as_host,
 	};
 };
@@ -976,16 +863,26 @@ const mapHostsToState = (hosts: HostsSchema): HostState[] => {
 	return sortHosts(result);
 };
 
-const groupHostsByInbound = (items: HostState[]): HostsSchema => {
-	const grouped = new Map<string, HostData[]>();
+const groupHostsByInbound = (
+	items: HostState[],
+	inboundOptions: InboundOption[],
+	fitHostUid?: string,
+): HostsSchema => {
+	const grouped = new Map<string, HostState[]>();
 	items.forEach((host) => {
 		const list = grouped.get(host.inboundTag) ?? [];
-		list.push(host.data);
+		list.push(host);
 		grouped.set(host.inboundTag, list);
 	});
 	const result: HostsSchema = {};
 	grouped.forEach((value, key) => {
-		result[key] = value.map((host) => formatHostForApi(host));
+		result[key] = value.map((host) =>
+			formatHostForApi(
+				host.data,
+				inboundOptions.find((option) => option.value === host.inboundTag),
+				host.uid === fitHostUid,
+			),
+		);
 	});
 	return result;
 };
@@ -993,14 +890,557 @@ const groupHostsByInbound = (items: HostState[]): HostsSchema => {
 const buildInboundPayload = (
 	items: HostState[],
 	inboundTags: Iterable<string>,
+	inboundOptions: InboundOption[],
+	fitHostUid?: string,
 ): Partial<HostsSchema> => {
-	const grouped = groupHostsByInbound(items);
+	const grouped = groupHostsByInbound(items, inboundOptions, fitHostUid);
 	const uniqueTags = Array.from(new Set(inboundTags));
 	const payload: Partial<HostsSchema> = {};
 	uniqueTags.forEach((tag) => {
 		payload[tag] = grouped[tag] ?? [];
 	});
 	return payload;
+};
+
+const HostFormSection: FC<{
+	title: string;
+	description: string;
+	badge?: string;
+	children: ReactNode;
+}> = ({ title, description, badge, children }) => (
+	<Box as="section">
+		<HStack mb={1.5} spacing={2} flexWrap="wrap">
+			<Text as="h3" fontSize="sm" fontWeight="semibold">
+				{title}
+			</Text>
+			{badge && (
+				<Badge
+					colorScheme="gray"
+					variant="subtle"
+					fontSize="10px"
+					textTransform="none"
+				>
+					{badge}
+				</Badge>
+			)}
+		</HStack>
+		<Text mb={5} maxW="3xl" fontSize="xs" color="panel.textMuted">
+			{description}
+		</Text>
+		{children}
+	</Box>
+);
+
+const HostAdvancedSection: FC<{
+	title: string;
+	description: string;
+	badge?: string;
+	children: ReactNode;
+}> = ({ title, description, badge, children }) => (
+	<Accordion allowToggle reduceMotion>
+		<AccordionItem border="0">
+			<Card
+				variant="outline"
+				borderColor="panel.border"
+				borderRadius="xl"
+				bg="panel.surface"
+				overflow="hidden"
+			>
+				<h3>
+					<AccordionButton
+						px={{ base: 3, md: 4 }}
+						py={3}
+						minH="48px"
+						textAlign="start"
+						_hover={{ bg: "panel.surfaceMuted" }}
+						_expanded={{ bg: "panel.surfaceMuted" }}
+					>
+						<AccordionIcon me={3} flexShrink={0} />
+						<HStack flex="1" minW={0} spacing={2} flexWrap="wrap">
+							<Text fontSize="sm" fontWeight="semibold" lineHeight="short">
+								{title}
+							</Text>
+							{badge && (
+								<Badge
+									colorScheme="gray"
+									variant="subtle"
+									fontSize="10px"
+									textTransform="none"
+								>
+									{badge}
+								</Badge>
+							)}
+						</HStack>
+					</AccordionButton>
+				</h3>
+				<AccordionPanel
+					px={{ base: 4, md: 5 }}
+					pt={4}
+					pb={5}
+					borderTopWidth="1px"
+					borderColor="panel.border"
+				>
+					<Text mb={5} maxW="3xl" fontSize="xs" color="panel.textMuted">
+						{description}
+					</Text>
+					{children}
+				</AccordionPanel>
+			</Card>
+		</AccordionItem>
+	</Accordion>
+);
+
+const HostToggle: FC<{
+	label: string;
+	description: string;
+	isChecked: boolean;
+	onChange: (checked: boolean) => void;
+	danger?: boolean;
+}> = ({ label, description, isChecked, onChange, danger = false }) => (
+	<Box
+		borderWidth="1px"
+		borderRadius="lg"
+		px={4}
+		py={3}
+		borderColor={danger && isChecked ? "orange.400" : undefined}
+	>
+		<Flex align="center" justify="space-between" gap={4}>
+			<Box minW={0}>
+				<Text fontSize="sm" fontWeight="semibold">
+					{label}
+				</Text>
+				<Text mt={1} fontSize="xs" color="gray.500">
+					{description}
+				</Text>
+			</Box>
+			<Switch
+				flexShrink={0}
+				aria-label={label}
+				isChecked={isChecked}
+				onChange={(event) => onChange(event.target.checked)}
+			/>
+		</Flex>
+	</Box>
+);
+
+type HostFormProps = {
+	data: HostData;
+	inboundTag: string;
+	inboundOptions: InboundOption[];
+	nodes?: NodeType[];
+	initialFocusRef?: RefObject<HTMLInputElement>;
+	onChange: <Key extends keyof HostData>(
+		key: Key,
+		value: HostData[Key],
+	) => void;
+	onChangeInbound: (value: string) => void;
+};
+
+const HostForm: FC<HostFormProps> = ({
+	data,
+	inboundTag,
+	inboundOptions,
+	nodes,
+	initialFocusRef,
+	onChange,
+	onChangeInbound,
+}) => {
+	const { t } = useTranslation();
+	const selectedInbound = useMemo(
+		() => inboundOptions.find((option) => option.value === inboundTag),
+		[inboundOptions, inboundTag],
+	);
+	const nodeAddressOptions = useMemo(
+		() => getNodeAddressOptions(nodes),
+		[nodes],
+	);
+	const isWireGuardInbound = selectedInbound?.protocol === "wireguard";
+	const isProfileHostInbound =
+		isWireGuardInbound || selectedInbound?.protocol === "openvpn";
+	const isVirtualTunnelInbound = [
+		"openvpn",
+		"l2tp",
+		"pptp",
+		"ikev2",
+		"anyconnect",
+	].includes(selectedInbound?.protocol ?? "");
+	const remarkError = profileHostNameError(
+		selectedInbound?.protocol,
+		data.remark,
+	);
+	const capabilities = finalMaskCapabilitiesForHost(data, selectedInbound);
+	const sanitizedFinalMask = sanitizeFinalMask(data.finalmask, capabilities);
+	const finalMaskError = finalMaskValidationError(sanitizedFinalMask);
+	const maskCount =
+		(sanitizedFinalMask?.tcp?.length ?? 0) +
+		(sanitizedFinalMask?.udp?.length ?? 0) +
+		(sanitizedFinalMask?.quicParams ? 1 : 0);
+	const effectiveSecurity =
+		inheritedHostValue(data.security, selectedInbound?.tls)
+			?.trim()
+			.toLowerCase() ?? "";
+	const {
+		showsRequestHost,
+		showsRequestPath,
+		showsSNI,
+		showsALPN,
+		showsFingerprint,
+		showsCertificateVerification,
+		supportsStreamSecurity,
+		usesTLS,
+	} = getHostFormFields(
+		selectedInbound?.network,
+		effectiveSecurity,
+		selectedInbound?.headerType,
+		selectedInbound?.protocol,
+	);
+	const hasAdvancedSettings =
+		usesTLS || capabilities.supported || capabilities.mux || showsRequestHost;
+	const transport = selectedInbound?.network.trim().toLowerCase() ?? "";
+	const requestHostLabel =
+		transport === "grpc"
+			? t("inbounds.grpc.authority")
+			: transport === "quic"
+				? t("inbounds.quic.security")
+				: t("hostsDialog.host");
+	const requestPathLabel =
+		transport === "grpc"
+			? t("serviceName")
+			: transport === "kcp"
+				? t("inbounds.kcp.seed")
+				: transport === "quic"
+					? t("inbounds.quic.key")
+					: t("hostsDialog.path");
+	const requestPathPlaceholder = ["grpc", "kcp"].includes(transport)
+		? ""
+		: transport === "quic"
+			? "none"
+			: "/";
+
+	return (
+		<Stack spacing={{ base: 6, md: 8 }}>
+			<HostFormSection
+				title={t("hostsPage.section.connection")}
+				description={t("hostsPage.section.connectionDescription")}
+				badge={t("hostsPage.required")}
+			>
+				<VStack align="stretch" spacing={4}>
+					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+						<FormControl isRequired>
+							<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
+							<SearchableTagSelect
+								value={inboundTag}
+								options={inboundOptions}
+								placeholder={t("hostsPage.inboundLabel")}
+								onChange={(value) => onChangeInbound(String(value))}
+							/>
+							<FormHelperText>{t("hostsPage.inboundHint")}</FormHelperText>
+						</FormControl>
+						<FormControl isRequired isInvalid={Boolean(remarkError)}>
+							<FormLabel>{t("hostsDialog.remark")}</FormLabel>
+							<InputGroup>
+								<Input
+									ref={initialFocusRef}
+									value={data.remark}
+									maxLength={isWireGuardInbound ? 15 : undefined}
+									placeholder={t("hostsPage.remarkPlaceholder")}
+									onChange={(event) => onChange("remark", event.target.value)}
+								/>
+								<InputRightElement width="auto" pr={2} pointerEvents="auto">
+									{!isProfileHostInbound && <DynamicTokensPopover />}
+								</InputRightElement>
+							</InputGroup>
+							{remarkError ? (
+								<FormErrorMessage>{t(remarkError)}</FormErrorMessage>
+							) : (
+								<FormHelperText>{t("hostsPage.remarkHint")}</FormHelperText>
+							)}
+						</FormControl>
+					</SimpleGrid>
+
+					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+						<FormControl
+							isRequired
+							gridColumn={{ md: isVirtualTunnelInbound ? "1 / -1" : "auto" }}
+						>
+							<FormLabel>{t("hostsDialog.address")}</FormLabel>
+							<MultiValueAutocomplete
+								value={data.address}
+								options={nodeAddressOptions}
+								placeholder={t("hostsDialog.addressPlaceholder")}
+								onChange={(value) => onChange("address", value)}
+								rightElement={<DynamicTokensPopover />}
+							/>
+							<FormHelperText>{t("hostsPage.addressHint")}</FormHelperText>
+						</FormControl>
+						{!isVirtualTunnelInbound && (
+							<FormControl>
+								<FormLabel>{t("port")}</FormLabel>
+								<NumericInput
+									value={data.port ?? ""}
+									min={1}
+									max={65535}
+									allowMouseWheel
+									fieldProps={{
+										placeholder: inboundPortPlaceholder(selectedInbound),
+									}}
+									onChange={(_, num) =>
+										onChange("port", Number.isNaN(num) ? null : num)
+									}
+								/>
+								<FormHelperText>{t("hostsPage.portHint")}</FormHelperText>
+							</FormControl>
+						)}
+					</SimpleGrid>
+
+					{hasMultipleRotationValues(data.address) && (
+						<RotationControls
+							mode={data.address_selection_mode}
+							ttl={data.address_ttl_seconds}
+							onModeChange={(value) =>
+								onChange("address_selection_mode", value)
+							}
+							onTTLChange={(value) => onChange("address_ttl_seconds", value)}
+						/>
+					)}
+
+					{isWireGuardInbound && (
+						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<FormControl isRequired>
+								<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
+								<Input
+									value={data.dns_primary}
+									placeholder="1.1.1.1"
+									onChange={(event) =>
+										onChange("dns_primary", event.target.value)
+									}
+								/>
+							</FormControl>
+							<FormControl isRequired>
+								<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
+								<Input
+									value={data.dns_secondary}
+									placeholder="8.8.8.8"
+									onChange={(event) =>
+										onChange("dns_secondary", event.target.value)
+									}
+								/>
+							</FormControl>
+						</SimpleGrid>
+					)}
+				</VStack>
+			</HostFormSection>
+
+			{supportsStreamSecurity && (
+				<HostFormSection
+					title={t("hostsPage.section.security")}
+					description={t("hostsPage.section.securityDescription")}
+				>
+					<VStack align="stretch" spacing={4}>
+						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<FormControl>
+								<FormLabel>{t("hostsDialog.security")}</FormLabel>
+								<SearchableTagSelect
+									value={data.security}
+									options={proxyHostSecurity.map((option) => ({
+										value: option.value,
+										label: option.title,
+									}))}
+									placeholder={t("hostsDialog.security")}
+									onChange={(value) => onChange("security", String(value))}
+								/>
+							</FormControl>
+							{showsSNI && (
+								<FormControl>
+									<FormLabel>{t("hostsDialog.sni")}</FormLabel>
+									<MultiValueAutocomplete
+										value={data.sni}
+										placeholder={t("hostsDialog.sniPlaceholder")}
+										onChange={(value) => onChange("sni", value)}
+									/>
+									<FormHelperText>{t("hostsPage.inheritHint")}</FormHelperText>
+								</FormControl>
+							)}
+							{showsALPN && (
+								<FormControl>
+									<FormLabel>{t("hostsDialog.alpn")}</FormLabel>
+									<MultiValueAutocomplete
+										value={data.alpn}
+										options={alpnAutocompleteOptions}
+										placeholder={t("hostsDialog.alpnPlaceholder")}
+										onChange={(value) => onChange("alpn", value)}
+									/>
+								</FormControl>
+							)}
+							{showsFingerprint && (
+								<FormControl>
+									<FormLabel>{t("hostsDialog.fingerprint")}</FormLabel>
+									<SearchableTagSelect
+										value={data.fingerprint}
+										options={proxyFingerprint.map((option) => ({
+											value: option.value,
+											label: option.title,
+										}))}
+										placeholder={t("hostsDialog.fingerprint")}
+										onChange={(value) => onChange("fingerprint", String(value))}
+									/>
+								</FormControl>
+							)}
+							{showsCertificateVerification && (
+								<>
+									<FormControl>
+										<FormLabel>
+											{t("hostsDialog.verifyPeerCertByName")}
+										</FormLabel>
+										<Input
+											dir="ltr"
+											value={data.verify_peer_cert_by_name}
+											onChange={(event) =>
+												onChange("verify_peer_cert_by_name", event.target.value)
+											}
+										/>
+									</FormControl>
+									<CertificateFingerprintField
+										data={data}
+										port={data.port ?? selectedInbound?.port ?? 443}
+										value={data.pinned_peer_cert_sha256}
+										onChange={(value) =>
+											onChange("pinned_peer_cert_sha256", value)
+										}
+									/>
+								</>
+							)}
+							{showsRequestHost && (
+								<FormControl>
+									<FormLabel>{requestHostLabel}</FormLabel>
+									<MultiValueAutocomplete
+										value={data.host}
+										placeholder={t("hostsDialog.hostPlaceholder")}
+										onChange={(value) => onChange("host", value)}
+										rightElement={<DynamicTokensPopover />}
+									/>
+									<FormHelperText>{t("hostsPage.inheritHint")}</FormHelperText>
+								</FormControl>
+							)}
+							{showsRequestPath && (
+								<FormControl>
+									<FormLabel>{requestPathLabel}</FormLabel>
+									<Input
+										dir="ltr"
+										value={data.path}
+										placeholder={requestPathPlaceholder}
+										onChange={(event) => onChange("path", event.target.value)}
+									/>
+									{!["grpc", "kcp", "quic"].includes(transport) && (
+										<FormHelperText>{t("hostsPage.pathHint")}</FormHelperText>
+									)}
+								</FormControl>
+							)}
+						</SimpleGrid>
+
+						{((showsSNI && hasMultipleRotationValues(data.sni)) ||
+							(showsRequestHost && hasMultipleRotationValues(data.host))) && (
+							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								{showsSNI && hasMultipleRotationValues(data.sni) && (
+									<RotationControls
+										mode={data.sni_selection_mode}
+										ttl={data.sni_ttl_seconds}
+										onModeChange={(value) =>
+											onChange("sni_selection_mode", value)
+										}
+										onTTLChange={(value) => onChange("sni_ttl_seconds", value)}
+									/>
+								)}
+								{showsRequestHost && hasMultipleRotationValues(data.host) && (
+									<RotationControls
+										mode={data.host_selection_mode}
+										ttl={data.host_ttl_seconds}
+										onModeChange={(value) =>
+											onChange("host_selection_mode", value)
+										}
+										onTTLChange={(value) => onChange("host_ttl_seconds", value)}
+									/>
+								)}
+							</SimpleGrid>
+						)}
+					</VStack>
+				</HostFormSection>
+			)}
+
+			{!isVirtualTunnelInbound && hasAdvancedSettings && (
+				<HostAdvancedSection
+					title={t("hostsPage.section.advanced")}
+					description={t("hostsPage.section.advancedDescription")}
+					badge={
+						maskCount
+							? `${maskCount} ${t("hostsPage.configured")}`
+							: t("hostsPage.optional")
+					}
+				>
+					<VStack align="stretch" spacing={6}>
+						{capabilities.supported && (
+							<Box>
+								<Text mb={1} fontSize="sm" fontWeight="semibold">
+									{t("hostsDialog.finalMask")}
+								</Text>
+								<Text mb={4} fontSize="xs" color="panel.textMuted">
+									{t("hostsPage.section.finalMaskDescription")}
+								</Text>
+								<Suspense fallback={<Spinner size="sm" />}>
+									<FinalMaskEditor
+										value={sanitizedFinalMask}
+										onChange={(value) => onChange("finalmask", value)}
+										capabilities={capabilities}
+									/>
+								</Suspense>
+								{finalMaskError && (
+									<Text mt={3} fontSize="sm" color="red.500">
+										{finalMaskError}
+									</Text>
+								)}
+							</Box>
+						)}
+
+						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+							{usesTLS && (
+								<HostToggle
+									label={t("hostsDialog.allowinsecure")}
+									description={t("hostsPage.allowInsecureHint")}
+									isChecked={data.allowinsecure}
+									danger
+									onChange={(checked) => onChange("allowinsecure", checked)}
+								/>
+							)}
+							{capabilities.mux && (
+								<HostToggle
+									label={t("hostsDialog.muxEnable")}
+									description={t("hostsPage.muxHint")}
+									isChecked={data.mux_enable}
+									onChange={(checked) => onChange("mux_enable", checked)}
+								/>
+							)}
+							{showsRequestHost && (
+								<HostToggle
+									label={t("hostsDialog.randomUserAgent")}
+									description={t("hostsPage.randomUserAgentHint")}
+									isChecked={data.random_user_agent}
+									onChange={(checked) => onChange("random_user_agent", checked)}
+								/>
+							)}
+							{showsSNI && showsRequestHost && (
+								<HostToggle
+									label={t("hostsDialog.useSniAsHost")}
+									description={t("hostsPage.useSniAsHostHint")}
+									isChecked={data.use_sni_as_host}
+									onChange={(checked) => onChange("use_sni_as_host", checked)}
+								/>
+							)}
+						</SimpleGrid>
+					</VStack>
+				</HostAdvancedSection>
+			)}
+		</Stack>
+	);
 };
 
 type HostDetailModalProps = {
@@ -1044,13 +1484,6 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 	const [jsonText, setJsonText] = useState<string>("");
 	const [jsonError, setJsonError] = useState<string | null>(null);
 	const updatingFromJsonRef = useRef(false);
-	const _resolvedHost = host ?? {
-		uid: "",
-		inboundTag: "",
-		initialInboundTag: "",
-		data: EMPTY_HOST_DATA,
-		original: EMPTY_HOST_DATA,
-	};
 	const isCloneMode = mode === "clone";
 	const dirty = host ? isHostDirty(host) : false;
 	const selectedInbound = useMemo(
@@ -1061,24 +1494,30 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 		[inboundOptions, host],
 	);
 	const isWireGuardInbound = selectedInbound?.protocol === "wireguard";
-	const isProfileHostInbound =
-		isWireGuardInbound || selectedInbound?.protocol === "openvpn";
 	const remarkError = profileHostNameError(
 		selectedInbound?.protocol,
 		host?.data.remark ?? "",
 	);
+	const finalMaskError = host
+		? finalMaskValidationError(
+				fitHostToInbound(host.data, selectedInbound).finalmask,
+			)
+		: null;
+	const finalMaskValid = host ? finalMaskError === null : false;
 	const canSubmit = host
 		? Boolean(
 				host.inboundTag &&
 					host.data.remark.trim() &&
 					!remarkError &&
+					finalMaskValid &&
 					(host.data.address.trim() ||
 						rotationTextToOptions(host.data.address_options).length > 0) &&
 					(!isWireGuardInbound ||
 						(host.data.dns_primary.trim() && host.data.dns_secondary.trim())),
 			)
 		: false;
-	const primaryDisabled = isCloneMode ? !canSubmit : !dirty || !canSubmit;
+	const primaryDisabled =
+		Boolean(jsonError) || (isCloneMode ? !canSubmit : !dirty || !canSubmit);
 	const primaryLabel = isCloneMode ? t("hostsPage.clone.submit") : t("save");
 	const hostPayload = useMemo(() => {
 		if (!host) {
@@ -1086,18 +1525,9 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 		}
 		return {
 			inboundTag: host.inboundTag,
-			...formatHostForApi(host.data),
+			...formatHostForApi(host.data, selectedInbound),
 		};
-	}, [host]);
-	const nodeAddressOptions = useMemo(
-		() => getNodeAddressOptions(nodes),
-		[nodes],
-	);
-	const isVirtualTunnelInbound =
-		selectedInbound?.protocol === "openvpn" ||
-		selectedInbound?.protocol === "l2tp" ||
-		selectedInbound?.protocol === "ikev2" ||
-		selectedInbound?.protocol === "anyconnect";
+	}, [host, selectedInbound]);
 	useEffect(() => {
 		if (!hostPayload) {
 			setJsonText("");
@@ -1120,11 +1550,18 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 			}
 			setJsonText(value);
 			try {
-				const parsed = JSON.parse(value);
-				if (!parsed || typeof parsed !== "object") {
+				const parsed: unknown = JSON.parse(value);
+				if (!isFinalMaskObject(parsed)) {
 					throw new Error("Invalid JSON payload");
 				}
-				const payload = parsed as Record<string, unknown>;
+				const payload = parsed;
+				if (
+					Object.hasOwn(payload, "finalmask") &&
+					payload.finalmask !== null &&
+					!isFinalMaskObject(payload.finalmask)
+				) {
+					throw new Error(t("hostsPage.error.finalMaskObject"));
+				}
 				const nextInboundTag =
 					typeof payload.inboundTag === "string"
 						? payload.inboundTag
@@ -1150,7 +1587,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 				setJsonError(error instanceof Error ? error.message : "Invalid JSON");
 			}
 		},
-		[host, onChange, onChangeInbound],
+		[host, onChange, onChangeInbound, t],
 	);
 
 	if (!host) {
@@ -1166,7 +1603,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 			isCentered
 			returnFocusOnClose={false}
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
 				<ModalCloseButton />
 				<XrayModalHeader
@@ -1179,380 +1616,30 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 					</AppleEmojiText>
 				</XrayModalHeader>
 				<XrayModalBody>
-					<Tabs className="xray-dialog-auto-sections" variant="unstyled">
+					<Tabs isLazy className="xray-dialog-auto-sections" variant="unstyled">
 						<TabList>
 							<Tab>{t("form")}</Tab>
 							<Tab>{t("json")}</Tab>
 						</TabList>
 						<TabPanels>
 							<TabPanel px={0}>
-								<VStack align="stretch" spacing={5}>
-									<Card className="xray-dialog-section" variant="outline">
-										<CardHeader pb={2}>
-											<Text fontWeight="semibold">
-												{t("hostsPage.section.general")}
-											</Text>
-										</CardHeader>
-										<CardBody pt={0}>
-											<VStack align="stretch" spacing={4}>
-												<FormControl
-													isRequired
-													isInvalid={Boolean(remarkError)}
-												>
-													<FormLabel>{t("hostsDialog.remark")}</FormLabel>
-													<InputGroup>
-														<Input
-															value={host.data.remark}
-															maxLength={isWireGuardInbound ? 15 : undefined}
-															onChange={(event) =>
-																onChange(host.uid, "remark", event.target.value)
-															}
-														/>
-														<InputRightElement
-															width="auto"
-															pr={2}
-															pointerEvents="auto"
-														>
-															{!isProfileHostInbound && (
-																<DynamicTokensPopover />
-															)}
-														</InputRightElement>
-													</InputGroup>
-													{remarkError && (
-														<FormErrorMessage>
-															{t(remarkError)}
-														</FormErrorMessage>
-													)}
-												</FormControl>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl isRequired>
-														<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
-														<SearchableTagSelect
-															value={host.inboundTag}
-															options={inboundOptions}
-															placeholder={t("hostsPage.inboundLabel")}
-															onChange={(value) =>
-																onChangeInbound(host.uid, String(value))
-															}
-														/>
-													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl isRequired>
-														<FormLabel>{t("hostsDialog.address")}</FormLabel>
-														<MultiValueAutocomplete
-															value={host.data.address}
-															options={nodeAddressOptions}
-															placeholder={t("hostsDialog.addressPlaceholder")}
-															onChange={(value) =>
-																onChange(host.uid, "address", value)
-															}
-															rightElement={<DynamicTokensPopover />}
-														/>
-													</FormControl>
-													{!isVirtualTunnelInbound && (
-														<FormControl>
-															<FormLabel>{t("port")}</FormLabel>
-															<NumericInput
-																value={host.data.port ?? ""}
-																allowMouseWheel
-																fieldProps={{
-																	placeholder:
-																		inboundPortPlaceholder(selectedInbound),
-																}}
-																onChange={(_, num) =>
-																	onChange(
-																		host.uid,
-																		"port",
-																		Number.isNaN(num) ? null : num,
-																	)
-																}
-															/>
-														</FormControl>
-													)}
-												</SimpleGrid>
-												{hasMultipleRotationValues(host.data.address) && (
-													<RotationControls
-														mode={host.data.address_selection_mode}
-														ttl={host.data.address_ttl_seconds}
-														onModeChange={(value) =>
-															onChange(
-																host.uid,
-																"address_selection_mode",
-																value,
-															)
-														}
-														onTTLChange={(value) =>
-															onChange(host.uid, "address_ttl_seconds", value)
-														}
-													/>
-												)}
-												{isWireGuardInbound && (
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-														<FormControl isRequired>
-															<FormLabel>
-																{t("hostsDialog.dnsPrimary")}
-															</FormLabel>
-															<Input
-																value={host.data.dns_primary}
-																placeholder="1.1.1.1"
-																onChange={(event) =>
-																	onChange(
-																		host.uid,
-																		"dns_primary",
-																		event.target.value,
-																	)
-																}
-															/>
-														</FormControl>
-														<FormControl isRequired>
-															<FormLabel>
-																{t("hostsDialog.dnsSecondary")}
-															</FormLabel>
-															<Input
-																value={host.data.dns_secondary}
-																placeholder="8.8.8.8"
-																onChange={(event) =>
-																	onChange(
-																		host.uid,
-																		"dns_secondary",
-																		event.target.value,
-																	)
-																}
-															/>
-														</FormControl>
-													</SimpleGrid>
-												)}
-												{!isVirtualTunnelInbound && (
-													<FormControl>
-														<FormLabel>{t("hostsDialog.path")}</FormLabel>
-														<Input
-															value={host.data.path}
-															onChange={(event) =>
-																onChange(host.uid, "path", event.target.value)
-															}
-															placeholder="/"
-														/>
-													</FormControl>
-												)}
-											</VStack>
-										</CardBody>
-									</Card>
-
-									{!isVirtualTunnelInbound && (
-										<Card className="xray-dialog-section" variant="outline">
-											<CardHeader pb={2}>
-												<Text fontWeight="semibold">
-													{t("hostsPage.section.security")}
-												</Text>
-											</CardHeader>
-											<CardBody pt={0}>
-												<VStack align="stretch" spacing={4}>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-														<FormControl>
-															<FormLabel>{t("hostsDialog.sni")}</FormLabel>
-															<MultiValueAutocomplete
-																value={host.data.sni}
-																placeholder={t("hostsDialog.sniPlaceholder")}
-																onChange={(value) =>
-																	onChange(host.uid, "sni", value)
-																}
-															/>
-														</FormControl>
-														<FormControl>
-															<FormLabel>{t("hostsDialog.host")}</FormLabel>
-															<MultiValueAutocomplete
-																value={host.data.host}
-																placeholder={t("hostsDialog.hostPlaceholder")}
-																onChange={(value) =>
-																	onChange(host.uid, "host", value)
-																}
-																rightElement={<DynamicTokensPopover />}
-															/>
-														</FormControl>
-													</SimpleGrid>
-													{(hasMultipleRotationValues(host.data.sni) ||
-														hasMultipleRotationValues(host.data.host)) && (
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={4}
-														>
-															{hasMultipleRotationValues(host.data.sni) && (
-																<RotationControls
-																	mode={host.data.sni_selection_mode}
-																	ttl={host.data.sni_ttl_seconds}
-																	onModeChange={(value) =>
-																		onChange(
-																			host.uid,
-																			"sni_selection_mode",
-																			value,
-																		)
-																	}
-																	onTTLChange={(value) =>
-																		onChange(host.uid, "sni_ttl_seconds", value)
-																	}
-																/>
-															)}
-															{hasMultipleRotationValues(host.data.host) && (
-																<RotationControls
-																	mode={host.data.host_selection_mode}
-																	ttl={host.data.host_ttl_seconds}
-																	onModeChange={(value) =>
-																		onChange(
-																			host.uid,
-																			"host_selection_mode",
-																			value,
-																		)
-																	}
-																	onTTLChange={(value) =>
-																		onChange(
-																			host.uid,
-																			"host_ttl_seconds",
-																			value,
-																		)
-																	}
-																/>
-															)}
-														</SimpleGrid>
-													)}
-													<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-														<FormControl>
-															<FormLabel>{t("hostsDialog.security")}</FormLabel>
-															<SearchableTagSelect
-																value={host.data.security}
-																options={proxyHostSecurity.map((option) => ({
-																	value: option.value,
-																	label: option.title,
-																}))}
-																placeholder={t("hostsDialog.security")}
-																onChange={(value) =>
-																	onChange(host.uid, "security", String(value))
-																}
-															/>
-														</FormControl>
-														<FormControl>
-															<FormLabel>{t("hostsDialog.alpn")}</FormLabel>
-															<MultiValueAutocomplete
-																value={host.data.alpn}
-																options={alpnAutocompleteOptions}
-																placeholder={t("hostsDialog.alpnPlaceholder")}
-																onChange={(value) =>
-																	onChange(host.uid, "alpn", value)
-																}
-															/>
-														</FormControl>
-														<FormControl>
-															<FormLabel>
-																{t("hostsDialog.fingerprint")}
-															</FormLabel>
-															<SearchableTagSelect
-																value={host.data.fingerprint}
-																options={proxyFingerprint.map((option) => ({
-																	value: option.value,
-																	label: option.title,
-																}))}
-																placeholder={t("hostsDialog.fingerprint")}
-																onChange={(value) =>
-																	onChange(
-																		host.uid,
-																		"fingerprint",
-																		String(value),
-																	)
-																}
-															/>
-														</FormControl>
-													</SimpleGrid>
-												</VStack>
-											</CardBody>
-										</Card>
-									)}
-
-									{!isVirtualTunnelInbound && (
-										<Card className="xray-dialog-section" variant="outline">
-											<CardHeader pb={2}>
-												<Text fontWeight="semibold">
-													{t("hostsPage.section.advanced")}
-												</Text>
-											</CardHeader>
-											<CardBody pt={0}>
-												<VStack align="stretch" spacing={4}>
-													<FragmentSettingFields
-														value={host.data.fragment_setting}
-														onChange={(value) =>
-															onChange(host.uid, "fragment_setting", value)
-														}
-													/>
-													<NoisePatternFields
-														value={host.data.noise_setting}
-														onChange={(value) =>
-															onChange(host.uid, "noise_setting", value)
-														}
-													/>
-													<Stack
-														direction={{ base: "column", md: "row" }}
-														spacing={4}
-													>
-														<Checkbox
-															isChecked={host.data.allowinsecure}
-															onChange={(event) =>
-																onChange(
-																	host.uid,
-																	"allowinsecure",
-																	event.target.checked,
-																)
-															}
-														>
-															{t("hostsDialog.allowinsecure")}
-														</Checkbox>
-														<Checkbox
-															isChecked={host.data.mux_enable}
-															onChange={(event) =>
-																onChange(
-																	host.uid,
-																	"mux_enable",
-																	event.target.checked,
-																)
-															}
-														>
-															{t("hostsDialog.muxEnable")}
-														</Checkbox>
-														<Checkbox
-															isChecked={host.data.random_user_agent}
-															onChange={(event) =>
-																onChange(
-																	host.uid,
-																	"random_user_agent",
-																	event.target.checked,
-																)
-															}
-														>
-															{t("hostsDialog.randomUserAgent")}
-														</Checkbox>
-														<Checkbox
-															isChecked={host.data.use_sni_as_host}
-															onChange={(event) =>
-																onChange(
-																	host.uid,
-																	"use_sni_as_host",
-																	event.target.checked,
-																)
-															}
-														>
-															{t("hostsDialog.useSniAsHost")}
-														</Checkbox>
-													</Stack>
-												</VStack>
-											</CardBody>
-										</Card>
-									)}
-								</VStack>
+								<HostForm
+									data={host.data}
+									inboundTag={host.inboundTag}
+									inboundOptions={inboundOptions}
+									nodes={nodes}
+									onChange={(key, value) => onChange(host.uid, key, value)}
+									onChangeInbound={(value) => onChangeInbound(host.uid, value)}
+								/>
 							</TabPanel>
 							<TabPanel px={0}>
 								<VStack align="stretch" spacing={3}>
-									<JsonEditor
-										json={jsonText}
-										onChange={handleJsonEditorChange}
-									/>
+									<Suspense fallback={<Spinner size="sm" />}>
+										<JsonEditor
+											json={jsonText}
+											onChange={handleJsonEditorChange}
+										/>
+									</Suspense>
 									{jsonError && (
 										<Text fontSize="sm" color="red.500">
 											{jsonError}
@@ -1638,76 +1725,107 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 }) => {
 	const { t } = useTranslation();
 	const initialRef = useRef<HTMLInputElement | null>(null);
-	const [formState, setFormState] = useState<CreateHostValues>({
-		inboundTag: inboundOptions[0]?.value ?? "",
-		remark: "",
-		address: "",
-		dns_primary: "1.1.1.1",
-		dns_secondary: "8.8.8.8",
-		address_options: "",
-		address_selection_mode: "random",
-		address_ttl_seconds: null,
-		port: null,
-		path: "",
-		sni: "",
-		sni_options: "",
-		sni_selection_mode: "random",
-		sni_ttl_seconds: null,
-		host: "",
-		host_options: "",
-		host_selection_mode: "random",
-		host_ttl_seconds: null,
-	});
-	const nodeAddressOptions = useMemo(
-		() => getNodeAddressOptions(nodes),
-		[nodes],
+	const [formState, setFormState] = useState<CreateHostValues>(() =>
+		emptyCreateHostValues(inboundOptions[0]?.value ?? ""),
 	);
+	const [jsonText, setJsonText] = useState("");
+	const [jsonError, setJsonError] = useState<string | null>(null);
+	const updatingFromJsonRef = useRef(false);
 	const selectedInbound = useMemo(
 		() =>
 			inboundOptions.find((option) => option.value === formState.inboundTag),
 		[inboundOptions, formState.inboundTag],
 	);
-	const isVirtualTunnelInbound =
-		selectedInbound?.protocol === "openvpn" ||
-		selectedInbound?.protocol === "l2tp" ||
-		selectedInbound?.protocol === "ikev2" ||
-		selectedInbound?.protocol === "anyconnect";
 	const isWireGuardInbound = selectedInbound?.protocol === "wireguard";
-	const isProfileHostInbound =
-		isWireGuardInbound || selectedInbound?.protocol === "openvpn";
 	const remarkError = profileHostNameError(
 		selectedInbound?.protocol,
 		formState.remark,
 	);
+	const finalMaskError = finalMaskValidationError(
+		fitHostToInbound(formState, selectedInbound).finalmask,
+	);
+	const finalMaskValid = finalMaskError === null;
 
 	useEffect(() => {
 		if (isOpen) {
-			setFormState({
-				inboundTag: inboundOptions[0]?.value ?? "",
-				remark: "",
-				address: "",
-				dns_primary: "1.1.1.1",
-				dns_secondary: "8.8.8.8",
-				address_options: "",
-				address_selection_mode: "random",
-				address_ttl_seconds: null,
-				port: null,
-				path: "",
-				sni: "",
-				sni_options: "",
-				sni_selection_mode: "random",
-				sni_ttl_seconds: null,
-				host: "",
-				host_options: "",
-				host_selection_mode: "random",
-				host_ttl_seconds: null,
-			});
+			updatingFromJsonRef.current = false;
+			setFormState(emptyCreateHostValues(inboundOptions[0]?.value ?? ""));
+			setJsonError(null);
 			setTimeout(() => initialRef.current?.focus(), 150);
 		}
 	}, [inboundOptions, isOpen]);
 
+	const jsonPayload = useMemo(
+		() => ({
+			inboundTag: formState.inboundTag,
+			...formatHostForApi(formState, selectedInbound),
+		}),
+		[formState, selectedInbound],
+	);
+
+	useEffect(() => {
+		if (!isOpen) {
+			return;
+		}
+		if (updatingFromJsonRef.current) {
+			updatingFromJsonRef.current = false;
+			return;
+		}
+		const formatted = JSON.stringify(jsonPayload, null, 2);
+		setJsonText((current) => (current === formatted ? current : formatted));
+		setJsonError(null);
+	}, [isOpen, jsonPayload]);
+
+	const handleJsonEditorChange = useCallback(
+		(value: string) => {
+			setJsonText(value);
+			try {
+				const parsed: unknown = JSON.parse(value);
+				if (!isFinalMaskObject(parsed)) {
+					throw new Error("Invalid JSON payload");
+				}
+				const payload = parsed;
+				if (
+					Object.hasOwn(payload, "finalmask") &&
+					payload.finalmask !== null &&
+					!isFinalMaskObject(payload.finalmask)
+				) {
+					throw new Error(t("hostsPage.error.finalMaskObject"));
+				}
+				updatingFromJsonRef.current = true;
+				setFormState((current) => {
+					let next = {
+						...current,
+						inboundTag:
+							typeof payload.inboundTag === "string"
+								? payload.inboundTag
+								: current.inboundTag,
+					};
+					for (const key of Object.keys(EMPTY_HOST_DATA) as Array<
+						keyof HostData
+					>) {
+						if (Object.hasOwn(payload, key)) {
+							next = {
+								...next,
+								[key]: coerceHostValue(key, payload[key], current),
+							};
+						}
+					}
+					return next;
+				});
+				setJsonError(null);
+			} catch (error) {
+				setJsonError(error instanceof Error ? error.message : "Invalid JSON");
+			}
+		},
+		[t],
+	);
+
 	const handleSubmit = () => {
 		if (
+			jsonError ||
+			!finalMaskValid ||
+			!certificatePinsValid(formState.pinned_peer_cert_sha256) ||
 			!formState.inboundTag ||
 			!formState.remark.trim() ||
 			Boolean(remarkError) ||
@@ -1725,225 +1843,60 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 		<Modal
 			isOpen={isOpen}
 			onClose={onClose}
-			size="2xl"
+			size="4xl"
 			initialFocusRef={initialRef}
+			scrollBehavior="inside"
+			isCentered
 			returnFocusOnClose={false}
 		>
-			<ModalOverlay bg="blackAlpha.400" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.400" />
 			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
 				<XrayModalHeader subtitle={t("hostsPage.create.description")}>
 					{t("hostsPage.create.title")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<VStack className="xray-dialog-section" align="stretch" spacing={4}>
-						<Text fontSize="sm" fontWeight="semibold">
-							{t("hostsPage.section.general")}
-						</Text>
-						<FormControl isRequired>
-							<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
-							<SearchableTagSelect
-								value={formState.inboundTag}
-								options={inboundOptions}
-								placeholder={t("hostsPage.inboundLabel")}
-								onChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										inboundTag: String(value),
-									}))
-								}
-							/>
-						</FormControl>
-						<FormControl isRequired isInvalid={Boolean(remarkError)}>
-							<FormLabel>{t("hostsDialog.remark")}</FormLabel>
-							<InputGroup>
-								<Input
-									ref={initialRef}
-									value={formState.remark}
-									maxLength={isWireGuardInbound ? 15 : undefined}
-									onChange={(event) =>
-										setFormState((prev) => ({
-											...prev,
-											remark: event.target.value,
+					<Tabs isLazy className="xray-dialog-auto-sections" variant="unstyled">
+						<TabList>
+							<Tab>{t("form")}</Tab>
+							<Tab>{t("json")}</Tab>
+						</TabList>
+						<TabPanels>
+							<TabPanel px={0}>
+								<HostForm
+									data={formState}
+									inboundTag={formState.inboundTag}
+									inboundOptions={inboundOptions}
+									nodes={nodes}
+									initialFocusRef={initialRef}
+									onChange={(key, value) =>
+										setFormState((current) => ({ ...current, [key]: value }))
+									}
+									onChangeInbound={(value) =>
+										setFormState((current) => ({
+											...current,
+											inboundTag: value,
 										}))
 									}
 								/>
-								<InputRightElement width="auto" pr={2} pointerEvents="auto">
-									{!isProfileHostInbound && <DynamicTokensPopover />}
-								</InputRightElement>
-							</InputGroup>
-							{remarkError && (
-								<FormErrorMessage>{t(remarkError)}</FormErrorMessage>
-							)}
-						</FormControl>
-						<FormControl isRequired>
-							<FormLabel>{t("hostsDialog.address")}</FormLabel>
-							<MultiValueAutocomplete
-								value={formState.address}
-								options={nodeAddressOptions}
-								placeholder={t("hostsDialog.addressPlaceholder")}
-								onChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										address: value,
-									}))
-								}
-								rightElement={<DynamicTokensPopover />}
-							/>
-						</FormControl>
-						{hasMultipleRotationValues(formState.address) && (
-							<RotationControls
-								mode={formState.address_selection_mode}
-								ttl={formState.address_ttl_seconds}
-								onModeChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										address_selection_mode: value,
-									}))
-								}
-								onTTLChange={(value) =>
-									setFormState((prev) => ({
-										...prev,
-										address_ttl_seconds: value,
-									}))
-								}
-							/>
-						)}
-						{isWireGuardInbound && (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-								<FormControl isRequired>
-									<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
-									<Input
-										value={formState.dns_primary}
-										placeholder="1.1.1.1"
-										onChange={(event) =>
-											setFormState((prev) => ({
-												...prev,
-												dns_primary: event.target.value,
-											}))
-										}
-									/>
-								</FormControl>
-								<FormControl isRequired>
-									<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
-									<Input
-										value={formState.dns_secondary}
-										placeholder="8.8.8.8"
-										onChange={(event) =>
-											setFormState((prev) => ({
-												...prev,
-												dns_secondary: event.target.value,
-											}))
-										}
-									/>
-								</FormControl>
-							</SimpleGrid>
-						)}
-						{!isVirtualTunnelInbound && (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-								<FormControl>
-									<FormLabel>{t("port")}</FormLabel>
-									<NumericInput
-										value={formState.port ?? ""}
-										fieldProps={{
-											placeholder: inboundPortPlaceholder(selectedInbound),
-										}}
-										onChange={(_, num) =>
-											setFormState((prev) => ({
-												...prev,
-												port: Number.isNaN(num) ? null : num,
-											}))
-										}
-									/>
-								</FormControl>
-								<FormControl>
-									<FormLabel>{t("hostsDialog.sni")}</FormLabel>
-									<MultiValueAutocomplete
-										value={formState.sni}
-										placeholder={t("hostsDialog.sniPlaceholder")}
-										onChange={(value) =>
-											setFormState((prev) => ({
-												...prev,
-												sni: value,
-											}))
-										}
-									/>
-								</FormControl>
-							</SimpleGrid>
-						)}
-						{!isVirtualTunnelInbound && (
-							<FormControl>
-								<FormLabel>{t("hostsDialog.path")}</FormLabel>
-								<Input
-									value={formState.path}
-									onChange={(event) =>
-										setFormState((prev) => ({
-											...prev,
-											path: event.target.value,
-										}))
-									}
-								/>
-							</FormControl>
-						)}
-						{!isVirtualTunnelInbound && (
-							<FormControl>
-								<FormLabel>{t("hostsDialog.host")}</FormLabel>
-								<MultiValueAutocomplete
-									value={formState.host}
-									placeholder={t("hostsDialog.hostPlaceholder")}
-									onChange={(value) =>
-										setFormState((prev) => ({
-											...prev,
-											host: value,
-										}))
-									}
-									rightElement={<DynamicTokensPopover />}
-								/>
-							</FormControl>
-						)}
-						{!isVirtualTunnelInbound &&
-							(hasMultipleRotationValues(formState.sni) ||
-								hasMultipleRotationValues(formState.host)) && (
-								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-									{hasMultipleRotationValues(formState.sni) && (
-										<RotationControls
-											mode={formState.sni_selection_mode}
-											ttl={formState.sni_ttl_seconds}
-											onModeChange={(value) =>
-												setFormState((prev) => ({
-													...prev,
-													sni_selection_mode: value,
-												}))
-											}
-											onTTLChange={(value) =>
-												setFormState((prev) => ({
-													...prev,
-													sni_ttl_seconds: value,
-												}))
-											}
+							</TabPanel>
+							<TabPanel px={0}>
+								<VStack align="stretch" spacing={3}>
+									<Suspense fallback={<Spinner size="sm" />}>
+										<JsonEditor
+											json={jsonText}
+											onChange={handleJsonEditorChange}
 										/>
+									</Suspense>
+									{jsonError && (
+										<Text fontSize="sm" color="red.500">
+											{jsonError}
+										</Text>
 									)}
-									{hasMultipleRotationValues(formState.host) && (
-										<RotationControls
-											mode={formState.host_selection_mode}
-											ttl={formState.host_ttl_seconds}
-											onModeChange={(value) =>
-												setFormState((prev) => ({
-													...prev,
-													host_selection_mode: value,
-												}))
-											}
-											onTTLChange={(value) =>
-												setFormState((prev) => ({
-													...prev,
-													host_ttl_seconds: value,
-												}))
-											}
-										/>
-									)}
-								</SimpleGrid>
-							)}
-					</VStack>
+								</VStack>
+							</TabPanel>
+						</TabPanels>
+					</Tabs>
 				</XrayModalBody>
 				<XrayModalFooter justifyContent="flex-end">
 					<Button variant="ghost" onClick={onClose}>
@@ -1954,6 +1907,9 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 						onClick={handleSubmit}
 						isLoading={isSubmitting}
 						isDisabled={
+							Boolean(jsonError) ||
+							!finalMaskValid ||
+							!certificatePinsValid(formState.pinned_peer_cert_sha256) ||
 							!formState.inboundTag ||
 							!formState.remark.trim() ||
 							Boolean(remarkError) ||
@@ -1973,8 +1929,13 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 export const HostsManager: FC = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const { hosts, fetchHosts, isLoading, isPostLoading, setHosts } = useHosts();
-	const { inbounds } = useDashboard();
+	const hosts = useHosts((state) => state.hosts);
+	const fetchHosts = useHosts((state) => state.fetchHosts);
+	const isLoading = useHosts((state) => state.isLoading);
+	const isPostLoading = useHosts((state) => state.isPostLoading);
+	const setHosts = useHosts((state) => state.setHosts);
+	const setHostStatus = useHosts((state) => state.setHostStatus);
+	const inbounds = useDashboard((state) => state.inbounds);
 	const { data: nodes = [] } = useNodesQuery();
 	const [_hostItemsState, setHostItemsState] = useState<HostState[]>([]);
 	const hostItemsRef = useRef<HostState[]>([]);
@@ -2000,6 +1961,7 @@ export const HostsManager: FC = () => {
 	// Disabled hosts are hidden by default.
 	const [includeDisabled, setIncludeDisabled] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [savingHostUid, setSavingHostUid] = useState<string | null>(null);
 	const [deletingUid, setDeletingUid] = useState<string | null>(null);
@@ -2071,6 +2033,14 @@ export const HostsManager: FC = () => {
 					value: inbound.tag,
 					protocol: inbound.protocol,
 					network: inbound.network,
+					headerType: inbound.header_type,
+					alpn: inbound.alpn,
+					tls: inbound.tls,
+					flow: inbound.flow,
+					proxyNetwork:
+						typeof inbound.settings?.network === "string"
+							? inbound.settings.network
+							: undefined,
 					port: inbound.port,
 				});
 			});
@@ -2090,10 +2060,8 @@ export const HostsManager: FC = () => {
 		[activeHosts, allHosts, includeDisabled],
 	);
 
-	const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
 	const filteredHosts = useMemo(() => {
-		if (!normalizedSearchQuery) {
+		if (!searchQuery.trim()) {
 			return baseFilteredHosts;
 		}
 		return baseFilteredHosts.filter((host) => {
@@ -2106,18 +2074,16 @@ export const HostsManager: FC = () => {
 				host.inboundTag,
 				host.data.port != null ? String(host.data.port) : "",
 			];
-			return values.some((value) =>
-				value?.toLowerCase().includes(normalizedSearchQuery),
-			);
+			return matchesAnySearch(values, searchQuery, searchMatch);
 		});
-	}, [baseFilteredHosts, normalizedSearchQuery]);
+	}, [baseFilteredHosts, searchMatch, searchQuery]);
 
 	const displayedHosts = filteredHosts;
 
 	const hasLoadedHosts = hostItemsRef.current.length > 0;
 	const isInitialLoading = isLoading && !hasLoadedHosts;
 	const isRefreshing = isLoading && hasLoadedHosts;
-	const isSearchActive = normalizedSearchQuery.length > 0;
+	const isSearchActive = searchQuery.trim().length > 0;
 	const showSearchEmptyState =
 		!isInitialLoading &&
 		isSearchActive &&
@@ -2148,14 +2114,7 @@ export const HostsManager: FC = () => {
 	const updateHostInbound = (uid: string, inboundTag: string) => {
 		applyHostItems((prev) =>
 			sortHosts(
-				prev.map((host) =>
-					host.uid === uid
-						? {
-								...host,
-								inboundTag,
-							}
-						: host,
-				),
+				prev.map((host) => (host.uid === uid ? { ...host, inboundTag } : host)),
 			),
 		);
 	};
@@ -2168,8 +2127,7 @@ export const HostsManager: FC = () => {
 				validateHostState(
 					host.inboundTag,
 					host.data,
-					inboundOptions.find((option) => option.value === host.inboundTag)
-						?.protocol,
+					inboundOptions.find((option) => option.value === host.inboundTag),
 				),
 			)
 		) {
@@ -2177,10 +2135,12 @@ export const HostsManager: FC = () => {
 		}
 		setSavingHostUid(uid);
 		try {
-			const payload = buildInboundPayload(hostItemsRef.current, [
-				host.inboundTag,
-				host.initialInboundTag,
-			]);
+			const payload = buildInboundPayload(
+				hostItemsRef.current,
+				[host.inboundTag, host.initialInboundTag],
+				inboundOptions,
+				uid,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
@@ -2238,17 +2198,23 @@ export const HostsManager: FC = () => {
 		key: Key,
 		value: HostData[Key],
 	) => {
-		setCloneHost((prev) =>
-			prev && prev.uid === uid
-				? { ...prev, data: { ...prev.data, [key]: value } }
-				: prev,
-		);
+		setCloneHost((prev) => {
+			if (!prev || prev.uid !== uid) return prev;
+			return {
+				...prev,
+				data: { ...prev.data, [key]: value },
+			};
+		});
 	};
 
 	const updateCloneInbound = (uid: string, inboundTag: string) => {
-		setCloneHost((prev) =>
-			prev && prev.uid === uid ? { ...prev, inboundTag } : prev,
-		);
+		setCloneHost((prev) => {
+			if (!prev || prev.uid !== uid) return prev;
+			return {
+				...prev,
+				inboundTag,
+			};
+		});
 	};
 
 	const resetCloneHost = (uid: string) => {
@@ -2270,8 +2236,9 @@ export const HostsManager: FC = () => {
 				validateHostState(
 					cloneHost.inboundTag,
 					cloneHost.data,
-					inboundOptions.find((option) => option.value === cloneHost.inboundTag)
-						?.protocol,
+					inboundOptions.find(
+						(option) => option.value === cloneHost.inboundTag,
+					),
 				),
 			)
 		) {
@@ -2311,7 +2278,12 @@ export const HostsManager: FC = () => {
 		try {
 			const nextHosts = sortHosts([...previousHosts, newHost]);
 			applyHostItems(nextHosts);
-			const payload = buildInboundPayload(nextHosts, [cloneHost.inboundTag]);
+			const payload = buildInboundPayload(
+				nextHosts,
+				[cloneHost.inboundTag],
+				inboundOptions,
+				newHost.uid,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
@@ -2353,8 +2325,10 @@ export const HostsManager: FC = () => {
 			if (!updatedHost) {
 				throw new Error("Host not found");
 			}
-			const payload = groupHostsByInbound(nextHosts);
-			await setHosts(payload);
+			if (!updatedHost.data.id) {
+				throw new Error("Host ID is missing");
+			}
+			await setHostStatus(updatedHost.data.id, !isActive);
 			await fetchHosts();
 		} catch (_error) {
 			applyHostItems(previousHosts);
@@ -2372,14 +2346,16 @@ export const HostsManager: FC = () => {
 	const handleDeleteHost = async (uid: string) => {
 		const host = hostItemsRef.current.find((item) => item.uid === uid);
 		if (!host) return;
+		const previousHosts = hostItemsRef.current;
 		setDeletingUid(uid);
 		try {
-			const nextHosts = hostItemsRef.current.filter((item) => item.uid !== uid);
+			const nextHosts = previousHosts.filter((item) => item.uid !== uid);
 			applyHostItems(nextHosts);
-			const payload = buildInboundPayload(nextHosts, [
-				host.inboundTag,
-				host.initialInboundTag,
-			]);
+			const payload = buildInboundPayload(
+				nextHosts,
+				[host.inboundTag, host.initialInboundTag],
+				inboundOptions,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
@@ -2392,6 +2368,7 @@ export const HostsManager: FC = () => {
 				setSelectedHostUid(null);
 			}
 		} catch (_error) {
+			applyHostItems(previousHosts);
 			toast({
 				title: t("hostsPage.error.delete"),
 				status: "error",
@@ -2427,7 +2404,11 @@ export const HostsManager: FC = () => {
 		applyHostItems(nextHosts);
 		setBulkAction(isActive ? "enable" : "disable");
 		try {
-			const payload = buildInboundPayload(nextHosts, affectedTags);
+			const payload = buildInboundPayload(
+				nextHosts,
+				affectedTags,
+				inboundOptions,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			setSelectedHostUids([]);
@@ -2467,7 +2448,11 @@ export const HostsManager: FC = () => {
 		applyHostItems(nextHosts);
 		setBulkAction("delete");
 		try {
-			const payload = buildInboundPayload(nextHosts, affectedTags);
+			const payload = buildInboundPayload(
+				nextHosts,
+				affectedTags,
+				inboundOptions,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			setSelectedHostUids([]);
@@ -2496,8 +2481,7 @@ export const HostsManager: FC = () => {
 				validateHostState(
 					values.inboundTag,
 					values,
-					inboundOptions.find((option) => option.value === values.inboundTag)
-						?.protocol,
+					inboundOptions.find((option) => option.value === values.inboundTag),
 				),
 			)
 		) {
@@ -2505,76 +2489,25 @@ export const HostsManager: FC = () => {
 		}
 		setSavingHostUid("create");
 		try {
+			const { inboundTag, ...hostData } = values;
+			const newData = cloneHostData({ ...hostData, id: null });
 			const newHost: HostState = {
 				uid: createUid(),
-				inboundTag: values.inboundTag,
-				initialInboundTag: values.inboundTag,
-				data: {
-					id: null,
-					remark: values.remark,
-					address: values.address,
-					dns_primary: values.dns_primary,
-					dns_secondary: values.dns_secondary,
-					address_options: values.address_options,
-					address_selection_mode: values.address_selection_mode,
-					address_ttl_seconds: values.address_ttl_seconds,
-					port: values.port,
-					path: values.path,
-					sni: values.sni,
-					sni_options: values.sni_options,
-					sni_selection_mode: values.sni_selection_mode,
-					sni_ttl_seconds: values.sni_ttl_seconds,
-					host: values.host,
-					host_options: values.host_options,
-					host_selection_mode: values.host_selection_mode,
-					host_ttl_seconds: values.host_ttl_seconds,
-					mux_enable: false,
-					allowinsecure: false,
-					is_disabled: false,
-					fragment_setting: "",
-					noise_setting: "",
-					random_user_agent: false,
-					security: "inbound_default",
-					alpn: "",
-					fingerprint: "",
-					use_sni_as_host: false,
-				},
-				original: {
-					id: null,
-					remark: values.remark,
-					address: values.address,
-					dns_primary: values.dns_primary,
-					dns_secondary: values.dns_secondary,
-					address_options: values.address_options,
-					address_selection_mode: values.address_selection_mode,
-					address_ttl_seconds: values.address_ttl_seconds,
-					port: values.port,
-					path: values.path,
-					sni: values.sni,
-					sni_options: values.sni_options,
-					sni_selection_mode: values.sni_selection_mode,
-					sni_ttl_seconds: values.sni_ttl_seconds,
-					host: values.host,
-					host_options: values.host_options,
-					host_selection_mode: values.host_selection_mode,
-					host_ttl_seconds: values.host_ttl_seconds,
-					mux_enable: false,
-					allowinsecure: false,
-					is_disabled: false,
-					fragment_setting: "",
-					noise_setting: "",
-					random_user_agent: false,
-					security: "inbound_default",
-					alpn: "",
-					fingerprint: "",
-					use_sni_as_host: false,
-				},
+				inboundTag,
+				initialInboundTag: inboundTag,
+				data: newData,
+				original: cloneHostData(newData),
 			};
 
 			const nextHosts = sortHosts([...hostItemsRef.current, newHost]);
 			applyHostItems(nextHosts);
 
-			const payload = buildInboundPayload(nextHosts, [values.inboundTag]);
+			const payload = buildInboundPayload(
+				nextHosts,
+				[inboundTag],
+				inboundOptions,
+				newHost.uid,
+			);
 			await setHosts(payload);
 			await fetchHosts();
 			toast({
@@ -2705,6 +2638,29 @@ export const HostsManager: FC = () => {
 						</Stack>
 					);
 				},
+			},
+			{
+				id: "status",
+				header: t("usersTable.status"),
+				priority: "high",
+				width: "112px",
+				minWidth: "96px",
+				maxWidth: "128px",
+				headerAlign: "start",
+				cellAlign: "start",
+				mobilePriority: 1,
+				mobileMetaLabel: t("usersTable.status"),
+				cell: (host) => (
+					<Text
+						fontSize="sm"
+						fontWeight="semibold"
+						color={host.data.is_disabled ? "red.400" : "green.400"}
+					>
+						{t(
+							host.data.is_disabled ? "hostsPage.inactive" : "hostsPage.active",
+						)}
+					</Text>
+				),
 			},
 			{
 				id: "address",
@@ -2893,12 +2849,13 @@ export const HostsManager: FC = () => {
 					align={{ base: "stretch", sm: "center" }}
 					flexWrap="wrap"
 				>
-					<Input
+					<SearchInput
 						value={searchQuery}
 						onChange={(event) => setSearchQuery(event.target.value)}
 						placeholder={t("hostsPage.searchPlaceholder")}
-						size="sm"
-						w={{ base: "full", md: "280px" }}
+						containerProps={{ w: { base: "full", md: "320px" } }}
+						matchOptions={searchMatch}
+						onMatchOptionsChange={setSearchMatch}
 					/>
 					<Checkbox
 						isChecked={includeDisabled}
@@ -2998,7 +2955,7 @@ export const HostsManager: FC = () => {
 						</>
 					);
 				}}
-				mobileBreakpoint="lg"
+				mobileBreakpoint="md"
 				tableProps={{
 					w: "full",
 					sx: {

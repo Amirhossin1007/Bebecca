@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 )
 
@@ -31,18 +32,18 @@ func testUserReadServer(t *testing.T) (*Server, *sql.DB) {
 		`ALTER TABLE users ADD COLUMN expire BIGINT NULL`,
 		`ALTER TABLE users ADD COLUMN data_limit BIGINT NULL`,
 		`ALTER TABLE users ADD COLUMN data_limit_reset_strategy TEXT NULL`,
-		`ALTER TABLE users ADD COLUMN online_at DATETIME NULL`,
 		`ALTER TABLE users ADD COLUMN note TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN telegram_id TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN contact_number TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN sub_updated_at DATETIME NULL`,
 		`ALTER TABLE users ADD COLUMN sub_last_user_agent TEXT NULL`,
-		`ALTER TABLE users ADD COLUMN on_hold_expire_duration BIGINT NULL`,
 		`ALTER TABLE users ADD COLUMN ip_limit BIGINT DEFAULT 0`,
 		`ALTER TABLE users ADD COLUMN auto_delete_in_days BIGINT NULL`,
 		`CREATE TABLE panel_settings (id INTEGER PRIMARY KEY, default_subscription_type TEXT)`,
 		`CREATE TABLE subscription_settings (id INTEGER PRIMARY KEY, subscription_url_prefix TEXT, subscription_path TEXT, subscription_ports TEXT)`,
 		`CREATE TABLE user_usage_logs (id INTEGER PRIMARY KEY, user_id INTEGER, used_traffic_at_reset BIGINT DEFAULT 0)`,
+		`CREATE TABLE user_online_ips (node_id INTEGER, user_id INTEGER, protocol TEXT, ip TEXT, last_seen_at DATETIME)`,
+		`CREATE TABLE vpn_user_sessions (node_id INTEGER, user_id INTEGER, last_seen_at DATETIME, ended_at DATETIME)`,
 		`CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`,
 		`CREATE TABLE next_plans (
 			id INTEGER PRIMARY KEY,
@@ -133,6 +134,90 @@ func TestUsersReadRoutesScopeAndSanitizeTraffic(t *testing.T) {
 	}
 	if detail["username"] != "alice" || int64(detail["used_traffic"].(float64)) != 0 {
 		t.Fatalf("unexpected sanitized detail: %#v", detail)
+	}
+}
+
+func TestOnlineUsersRouteUsesLiveSetAndAdminScope(t *testing.T) {
+	server, db := testUserReadServer(t)
+	insertMasterAPIAdmin(t, db, 1, "owner", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
+	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, status, online_at) VALUES
+		(10, 'alice', 2, 'active', CURRENT_TIMESTAMP),
+		(11, 'bob', 1, 'active', CURRENT_TIMESTAMP),
+		(12, 'stale', 2, 'active', datetime('now', '-10 minutes'))`); err != nil {
+		t.Fatal(err)
+	}
+
+	assertOnlineUsers := func(token string, want ...string) {
+		t.Helper()
+		rec := userReadRequest(t, server, http.MethodGet, "/api/users/onlines", token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("online users status = %d body=%s", rec.Code, rec.Body.String())
+		}
+		var got []string
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(got, ",") != strings.Join(want, ",") {
+			t.Fatalf("online users = %#v, want %#v", got, want)
+		}
+	}
+
+	assertOnlineUsers(adminBearerToken(t, server, "owner", "pass123"), "alice", "bob")
+	assertOnlineUsers(adminBearerToken(t, server, "seller", "pass123"), "alice")
+
+	server.setLiveUserSpeeds([]nodecontroller.UserTrafficSpeed{
+		{Username: "alice", UploadSpeed: 100, DownloadSpeed: 200},
+		{Username: "bob", UploadSpeed: 300, DownloadSpeed: 400},
+	})
+	assertTopSpeedUser := func(token, want string) {
+		t.Helper()
+		rec := userReadRequest(t, server, http.MethodGet, "/api/users?filter=top_speed", token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("top speed user status = %d body=%s", rec.Code, rec.Body.String())
+		}
+		var result struct {
+			Users []struct {
+				Username string `json:"username"`
+			} `json:"users"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Users) != 1 || result.Users[0].Username != want {
+			t.Fatalf("top speed users = %#v, want %q", result.Users, want)
+		}
+	}
+	assertTopSpeedUser(adminBearerToken(t, server, "owner", "pass123"), "bob")
+	assertTopSpeedUser(adminBearerToken(t, server, "seller", "pass123"), "alice")
+
+	rec := userReadRequest(t, server, http.MethodGet, "/api/users/onlines?details=true", adminBearerToken(t, server, "seller", "pass123"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("online details status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var details struct {
+		Users  []string                 `json:"users"`
+		Speeds map[string]liveUserSpeed `json:"speeds"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &details); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(details.Users, ",") != "alice" || details.Speeds["alice"].DownloadSpeed != 200 {
+		t.Fatalf("unexpected online details: %#v", details)
+	}
+	if _, leaked := details.Speeds["bob"]; leaked {
+		t.Fatal("seller received another admin's live speed")
+	}
+
+	rec = userReadRequest(t, server, http.MethodGet, "/api/users/onlines?details=true&usernames=alice", adminBearerToken(t, server, "owner", "pass123"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("scoped online details status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &details); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(details.Users, ",") != "alice" || len(details.Speeds) != 1 || details.Speeds["alice"].UploadSpeed != 100 {
+		t.Fatalf("unexpected scoped online details: %#v", details)
 	}
 }
 

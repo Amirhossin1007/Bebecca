@@ -10,6 +10,7 @@ func RoleDefaultPermissions(role AdminRole) AdminPermissions {
 		Create:               true,
 		Delete:               false,
 		ResetUsage:           false,
+		PeriodicUsageReset:   true,
 		Revoke:               true,
 		CreateOnHold:         true,
 		AllowUnlimitedData:   true,
@@ -51,11 +52,15 @@ func RoleDefaultPermissions(role AdminRole) AdminPermissions {
 		role = RoleStandard
 	}
 
+	selfPermissions := defaultSelfPermissions()
+	if role.IsGlobal() {
+		selfPermissions["self_placeholders"] = true
+	}
 	return AdminPermissions{
 		Users:           baseUsers,
 		AdminManagement: baseAdminManagement,
 		Sections:        baseSections,
-		SelfPermissions: defaultSelfPermissions(),
+		SelfPermissions: selfPermissions,
 		Sudo:            baseSudo,
 	}
 }
@@ -102,6 +107,7 @@ func defaultSelfPermissions() map[string]bool {
 		"self_api_keys":        true,
 		"self_sessions":        true,
 		"self_2fa":             true,
+		"self_placeholders":    false,
 	}
 }
 

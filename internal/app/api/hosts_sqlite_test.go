@@ -14,9 +14,12 @@ import (
 )
 
 func TestHostsCRUDOnMigratedSQLite(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "hosts.sqlite3")
+	testDir := t.TempDir()
+	dbPath := filepath.Join(testDir, "hosts.sqlite3")
 	server, err := New(Config{
 		Database:                    "sqlite:///" + filepath.ToSlash(dbPath),
+		CertificateBase:             filepath.Join(testDir, "certificates"),
+		ExternalAppsBase:            filepath.Join(testDir, "apps"),
 		JWTAccessTokenExpireMinutes: 1440,
 	})
 	if err != nil {
@@ -56,7 +59,22 @@ func TestHostsCRUDOnMigratedSQLite(t *testing.T) {
 		t.Fatalf("edit host status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = ? AND host_id = ?`, 1, serviceID, hostID)
+	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
+
+	payload = `{"sqlite-in":[{"id":` + strconv.FormatInt(hostID, 10) + `,"remark":"two","address":"two.example.com","port":8443,"security":"none","is_disabled":true}]}`
+	rec = sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token, payload)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("disable host status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = ? AND host_id = ?`, 1, serviceID, hostID)
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 1)
+
+	rec = sqliteJSONRequest(server, http.MethodPut, "/api/hosts/"+strconv.FormatInt(hostID, 10)+"/status", token, `{"is_disabled":false}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enable host status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = ? AND host_id = ?`, 1, serviceID, hostID)
+	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 2)
 
 	payload = `{"sqlite-in":[]}`
 	rec = sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token, payload)
@@ -65,7 +83,7 @@ func TestHostsCRUDOnMigratedSQLite(t *testing.T) {
 	}
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM hosts WHERE id = ?`, 0, hostID)
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = ? AND host_id = ?`, 0, serviceID, hostID)
-	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 2)
+	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 3)
 }
 
 func TestHostsMoveUsesConfigInboundMissingFromRegistry(t *testing.T) {

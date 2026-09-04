@@ -17,6 +17,7 @@ const USER_ONLY_TEMPLATE: PermissionTemplate = {
 		[UserPermissionToggle.Create]: true,
 		[UserPermissionToggle.Delete]: true,
 		[UserPermissionToggle.ResetUsage]: true,
+		[UserPermissionToggle.PeriodicUsageReset]: true,
 		[UserPermissionToggle.Revoke]: true,
 		[UserPermissionToggle.CreateOnHold]: true,
 		[UserPermissionToggle.AllowUnlimitedData]: true,
@@ -49,6 +50,7 @@ const USER_ONLY_TEMPLATE: PermissionTemplate = {
 		self_api_keys: true,
 		self_sessions: true,
 		self_2fa: true,
+		self_placeholders: false,
 	},
 	sudo: {
 		[AdminSudoScope.Nodes]: false,
@@ -66,6 +68,7 @@ const SUDO_TEMPLATE: PermissionTemplate = {
 		[UserPermissionToggle.Create]: true,
 		[UserPermissionToggle.Delete]: true,
 		[UserPermissionToggle.ResetUsage]: true,
+		[UserPermissionToggle.PeriodicUsageReset]: true,
 		[UserPermissionToggle.Revoke]: true,
 		[UserPermissionToggle.CreateOnHold]: true,
 		[UserPermissionToggle.AllowUnlimitedData]: true,
@@ -98,6 +101,7 @@ const SUDO_TEMPLATE: PermissionTemplate = {
 		self_api_keys: true,
 		self_sessions: true,
 		self_2fa: true,
+		self_placeholders: true,
 	},
 	sudo: {
 		[AdminSudoScope.Nodes]: true,
@@ -115,6 +119,7 @@ const FULL_ACCESS_TEMPLATE: PermissionTemplate = {
 		[UserPermissionToggle.Create]: true,
 		[UserPermissionToggle.Delete]: true,
 		[UserPermissionToggle.ResetUsage]: true,
+		[UserPermissionToggle.PeriodicUsageReset]: true,
 		[UserPermissionToggle.Revoke]: true,
 		[UserPermissionToggle.CreateOnHold]: true,
 		[UserPermissionToggle.AllowUnlimitedData]: true,
@@ -147,6 +152,7 @@ const FULL_ACCESS_TEMPLATE: PermissionTemplate = {
 		self_api_keys: true,
 		self_sessions: true,
 		self_2fa: true,
+		self_placeholders: true,
 	},
 	sudo: {
 		[AdminSudoScope.Nodes]: true,

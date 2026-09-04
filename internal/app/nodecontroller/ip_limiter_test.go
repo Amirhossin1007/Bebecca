@@ -3,12 +3,88 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
+	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	_ "modernc.org/sqlite"
 )
+
+func TestOnlineIPSamplesUseSnapshotObservationTime(t *testing.T) {
+	before := time.Now().UTC()
+	got := onlineIPSamplesFromBatch([]*nodev1.OnlineUserIP{{
+		Uid: "42.user",
+		Ips: []*nodev1.OnlineIP{{Ip: "198.51.100.10", LastSeenUnix: 1}},
+	}})
+	after := time.Now().UTC()
+	if len(got) != 1 {
+		t.Fatalf("samples=%d want=1", len(got))
+	}
+	if got[0].LastSeenAt.Before(before) || got[0].LastSeenAt.After(after) {
+		t.Fatalf("last seen %s is outside snapshot window %s..%s", got[0].LastSeenAt, before, after)
+	}
+}
+
+func TestStoreNodeOnlineIPsHandlesConcurrentThreeThousandSampleCycle(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "online-ip-load.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(8)
+
+	if _, err := db.ExecContext(ctx, `CREATE TABLE user_online_ips (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		node_id INTEGER NOT NULL,
+		user_id INTEGER NOT NULL,
+		protocol TEXT NOT NULL,
+		ip TEXT NOT NULL,
+		last_seen_at DATETIME NOT NULL,
+		UNIQUE(node_id, user_id, protocol, ip)
+	)`); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository(db, "sqlite")
+	now := time.Now().UTC()
+	errs := make(chan error, 8)
+	var wg sync.WaitGroup
+	for nodeID := int64(1); nodeID <= 8; nodeID++ {
+		wg.Add(1)
+		go func(nodeID int64) {
+			defer wg.Done()
+			samples := make([]OnlineIPSample, 375)
+			for i := range samples {
+				samples[i] = OnlineIPSample{
+					UserID:     nodeID*1000 + int64(i),
+					Protocol:   "xray",
+					IP:         fmt.Sprintf("203.0.%d.%d", nodeID, i%250+1),
+					LastSeenAt: now,
+				}
+			}
+			errs <- repo.StoreNodeOnlineIPs(ctx, nodeID, samples)
+		}(nodeID)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var count int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM user_online_ips`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3000 {
+		t.Fatalf("stored rows = %d, want 3000", count)
+	}
+}
 
 func TestXrayIPBlocksForLimiterEndpoints(t *testing.T) {
 	base := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
@@ -26,6 +102,27 @@ func TestXrayIPBlocksForLimiterEndpoints(t *testing.T) {
 	}
 	if got, want := blocks[0].GetUserUid(), "42"; got != want {
 		t.Fatalf("blocked UID = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizedOnlineIPSamplesDeduplicatesAndSorts(t *testing.T) {
+	base := time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+	got := normalizedOnlineIPSamples([]OnlineIPSample{
+		{UserID: 9, Protocol: "XRay", IP: "2001:0db8::1", LastSeenAt: base},
+		{UserID: 2, Protocol: "", IP: "203.0.113.2", LastSeenAt: base},
+		{UserID: 9, Protocol: "xray", IP: "2001:db8::1", LastSeenAt: base.Add(time.Second)},
+		{UserID: 0, Protocol: "xray", IP: "203.0.113.9", LastSeenAt: base},
+		{UserID: 3, Protocol: "xray", IP: "127.0.0.1", LastSeenAt: base},
+	})
+
+	if len(got) != 2 {
+		t.Fatalf("normalized sample count = %d, want 2: %#v", len(got), got)
+	}
+	if got[0].UserID != 2 || got[0].Protocol != "xray" || got[0].IP != "203.0.113.2" {
+		t.Fatalf("first normalized sample = %#v", got[0])
+	}
+	if got[1].UserID != 9 || got[1].IP != "2001:db8::1" || !got[1].LastSeenAt.Equal(base.Add(time.Second)) {
+		t.Fatalf("deduplicated sample = %#v", got[1])
 	}
 }
 

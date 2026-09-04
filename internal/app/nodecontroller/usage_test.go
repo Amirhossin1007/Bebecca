@@ -3,11 +3,48 @@ package nodecontroller
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
+
+func TestUsageRPCsReceiveIndependentDeadlines(t *testing.T) {
+	first, cancelFirst := withUsageRPCTimeout(context.Background())
+	cancelFirst()
+	<-first.Done()
+
+	second, cancelSecond := withUsageRPCTimeout(context.Background())
+	defer cancelSecond()
+	select {
+	case <-second.Done():
+		t.Fatal("a completed RPC must not cancel the next RPC")
+	default:
+	}
+	deadline, ok := second.Deadline()
+	if !ok || time.Until(deadline) < 40*time.Second {
+		t.Fatal("usage RPC deadline is too short for node-side collection")
+	}
+}
+
+func TestRetryTransientUsageWriteRetriesDeadlock(t *testing.T) {
+	attempts := 0
+	err := retryTransientUsageWrite(context.Background(), func() error {
+		attempts++
+		if attempts < 3 {
+			return errors.New("Error 1213 (40001): Deadlock found when trying to get lock; try restarting transaction")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 3 {
+		t.Fatalf("attempts = %d, want 3", attempts)
+	}
+}
 
 func TestUsageCollectionResetsXrayCountersByDefault(t *testing.T) {
 	cases := []struct {
@@ -30,7 +67,7 @@ func TestUsageCollectionResetsXrayCountersByDefault(t *testing.T) {
 	}
 }
 
-func TestCollectUsageFailureDoesNotMarkNodeError(t *testing.T) {
+func TestCollectUsageDialFailureMarksNodeDegraded(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-status.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -51,6 +88,7 @@ CREATE TABLE nodes (
 	port INTEGER,
 	api_port INTEGER,
 	status TEXT,
+	agent_status TEXT,
 	xray_version TEXT,
 	message TEXT,
 	certificate TEXT,
@@ -59,6 +97,11 @@ CREATE TABLE nodes (
 	xray_config TEXT,
 	usage_coefficient REAL DEFAULT 1,
 	last_status_change DATETIME
+);
+CREATE TABLE inbounds (
+	id INTEGER PRIMARY KEY,
+	tag TEXT NOT NULL UNIQUE,
+	usage_coefficient REAL NOT NULL DEFAULT 1
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,5 +138,6 @@ INSERT INTO nodes (
 		t.Fatal("expected usage collection error")
 	}
 	assertString(t, db, `SELECT status FROM nodes WHERE id = 7`, "connected")
+	assertString(t, db, `SELECT agent_status FROM nodes WHERE id = 7`, "degraded")
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
 }

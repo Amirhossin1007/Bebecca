@@ -226,6 +226,279 @@ func TestSubscriptionClientOutputsCoverExplicitFormatsAndAutoDetect(t *testing.T
 	}
 }
 
+func TestInactiveSubscriptionPlaceholderHidesRealAccess(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	active, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray", ReadOnly: true})
+	if err != nil || !strings.Contains(decodeSubscriptionTestBody(string(active.Body)), "edge.example.com") {
+		t.Fatalf("active subscription lost its real config: err=%v body=%s", err, active.Body)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET subscription_placeholder_enabled = 1, subscription_placeholder_remark = 'Blocked {USERNAME} {STATUS_TEXT}'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE users SET status = 'disabled' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray", ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded := decodeSubscriptionTestBody(string(response.Body))
+	if strings.Contains(decoded, "example.com") || !strings.HasPrefix(decoded, "vmess://") {
+		t.Fatalf("inactive raw subscription exposed real access: %s", decoded)
+	}
+	payload, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(decoded, "vmess://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	placeholder := map[string]any{}
+	if err := json.Unmarshal(payload, &placeholder); err != nil {
+		t.Fatal(err)
+	}
+	if placeholder["ps"] != "Blocked alice Disabled" || placeholder["add"] != "127.0.0.1" || placeholder["port"] != "1" {
+		t.Fatalf("unexpected placeholder config: %#v", placeholder)
+	}
+	for _, clientType := range []string{"v2ray-json", "xray-json", "sing-box", "clash", "clash-meta", "happ", "incy"} {
+		response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: clientType, ReadOnly: true})
+		if err != nil {
+			t.Fatalf("%s placeholder failed: %v", clientType, err)
+		}
+		if body := string(response.Body); strings.Contains(body, "example.com") || !strings.Contains(body, "Blocked alice Disabled") {
+			t.Fatalf("%s returned an unexpected placeholder: %s", clientType, body)
+		}
+	}
+
+	for _, test := range []struct {
+		clientType string
+		forbidden  []string
+	}{
+		{clientType: "outline", forbidden: []string{"ss.example.com", "edge.example.com"}},
+		{clientType: "openvpn", forbidden: []string{"remote ov.example.com", "auth-user-pass", "<ca>"}},
+		{clientType: "wireguard", forbidden: []string{"PrivateKey", "Endpoint", "wg.example.com"}},
+	} {
+		response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: test.clientType, ReadOnly: true})
+		if err != nil {
+			t.Fatalf("%s placeholder failed: %v", test.clientType, err)
+		}
+		body := string(response.Body)
+		if !strings.Contains(body, "Blocked") {
+			t.Fatalf("%s placeholder remark missing: %s", test.clientType, body)
+		}
+		for _, forbidden := range test.forbidden {
+			if strings.Contains(body, forbidden) {
+				t.Fatalf("%s placeholder exposed %q: %s", test.clientType, forbidden, body)
+			}
+		}
+	}
+
+	html, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, Accept: "text/html", URL: "https://panel.example/sub/" + key, ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"edge.example.com", "ov.example.com", "wg.example.com", "l2tp.example.com", "pptp.example.com"} {
+		if strings.Contains(string(html.Body), forbidden) {
+			t.Fatalf("HTML placeholder exposed %q", forbidden)
+		}
+	}
+	if !strings.Contains(string(html.Body), "vmess://") {
+		t.Fatalf("HTML placeholder config missing: %s", html.Body)
+	}
+
+	info, err := service.SubscriptionInfo(ctx, SubscriptionRenderRequest{Identifier: key, URL: "https://panel.example/sub/" + key})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profiles := info["openvpn"].(map[string]any)["profiles"].([]OVProfile); len(profiles) != 0 {
+		t.Fatalf("inactive info exposed OpenVPN profiles: %#v", profiles)
+	}
+	if profiles := info["wireguard"].(map[string]any)["profiles"].([]WGProfile); len(profiles) != 0 {
+		t.Fatalf("inactive info exposed WireGuard profiles: %#v", profiles)
+	}
+
+	if _, err := service.repo.db.Exec(`UPDATE users SET status = 'on_hold' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	onHold, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray", ReadOnly: true})
+	if err != nil || !strings.Contains(decodeSubscriptionTestBody(string(onHold.Body)), "edge.example.com") {
+		t.Fatalf("on-hold subscription must keep real configs: err=%v body=%s", err, onHold.Body)
+	}
+}
+
+func TestServicePlaceholderUsesSeparateStatusMessages(t *testing.T) {
+	serviceID := int64(9)
+	settings := applyServicePlaceholderPolicy(SubscriptionSettings{
+		SubscriptionPlaceholderEnabled: true,
+		SubscriptionPlaceholderRemark:  "legacy",
+	}, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":true,"expired_remark":"Expired {USERNAME}","limited_remark":"Limited {USERNAME}","disabled_remark":"Disabled {USERNAME}"}}}`), &serviceID)
+
+	user := UserDetail{ID: 1, Username: "alice", Status: "expired", ServiceID: &serviceID}
+	if got := subscriptionPlaceholderRemark(user, settings); got != "Expired alice" {
+		t.Fatalf("expired placeholder = %q", got)
+	}
+	user.Status = "limited"
+	if got := subscriptionPlaceholderRemark(user, settings); got != "Limited alice" {
+		t.Fatalf("limited placeholder = %q", got)
+	}
+	user.Status = "disabled"
+	if got := subscriptionPlaceholderRemark(user, settings); got != "Disabled alice" {
+		t.Fatalf("disabled placeholder = %q", got)
+	}
+	user.Status = "active"
+	if got := subscriptionPlaceholderRemark(user, settings); got != "" {
+		t.Fatalf("active placeholder = %q", got)
+	}
+	disabled := applyServicePlaceholderPolicy(settings, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":false}}}`), &serviceID)
+	user.Status = "expired"
+	if got := subscriptionPlaceholderRemark(user, disabled); got != "" {
+		t.Fatalf("disabled service policy must override the legacy global placeholder, got %q", got)
+	}
+}
+
+func TestSubscriptionAccessUsesNarrowCoalescedRow(t *testing.T) {
+	service, _ := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+	if err := service.repo.updateSubscriptionAccess(ctx, 1, "test-agent"); err != nil {
+		t.Fatal(err)
+	}
+	var firstUpdated, secondUpdated string
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT updated_at FROM user_subscription_access WHERE user_id = 1`).Scan(&firstUpdated); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.repo.updateSubscriptionAccess(ctx, 1, "test-agent"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT updated_at FROM user_subscription_access WHERE user_id = 1`).Scan(&secondUpdated); err != nil {
+		t.Fatal(err)
+	}
+	if firstUpdated != secondUpdated {
+		t.Fatalf("same subscription access was not coalesced: %q != %q", firstUpdated, secondUpdated)
+	}
+	if err := service.repo.updateSubscriptionAccess(ctx, 1, "changed-agent"); err != nil {
+		t.Fatal(err)
+	}
+	var userAgent string
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT user_agent FROM user_subscription_access WHERE user_id = 1`).Scan(&userAgent); err != nil {
+		t.Fatal(err)
+	}
+	if userAgent != "changed-agent" {
+		t.Fatalf("unexpected user agent: %q", userAgent)
+	}
+	var legacyCount int
+	if err := service.repo.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE id = 1 AND sub_updated_at IS NOT NULL`).Scan(&legacyCount); err != nil {
+		t.Fatal(err)
+	}
+	if legacyCount != 0 {
+		t.Fatal("subscription access still writes the hot users row")
+	}
+}
+
+func TestV2rayNGSubscriptionsKeepAddressAndPort(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	raw, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, UserAgent: "v2rayNG/1.10.28"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, link := range strings.Fields(decodeSubscriptionTestBody(string(raw.Body))) {
+		parsed, err := parseSubscriptionShareURL(link)
+		if err != nil {
+			t.Fatalf("v2rayNG raw subscription contains an invalid link: %v", err)
+		}
+		if parsed.Hostname() == "" || parsed.Port() == "" {
+			t.Fatalf("v2rayNG raw subscription lost address or port: %s", link)
+		}
+	}
+
+	if _, err := service.repo.db.Exec(`ALTER TABLE subscription_settings ADD COLUMN use_custom_json_for_v2rayng INTEGER DEFAULT 0`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET use_custom_json_for_v2rayng = 1`); err != nil {
+		t.Fatal(err)
+	}
+	structured, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, UserAgent: "v2rayNG/1.10.28"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []map[string]any
+	if err := json.Unmarshal(structured.Body, &configs); err != nil {
+		t.Fatal(err)
+	}
+	for _, config := range configs {
+		outbound := config["outbounds"].([]any)[0].(map[string]any)
+		settings := outbound["settings"].(map[string]any)
+		serverKey := "servers"
+		if protocol := stringValue(outbound["protocol"]); protocol == "vless" || protocol == "vmess" {
+			serverKey = "vnext"
+		}
+		server := settings[serverKey].([]any)[0].(map[string]any)
+		if stringValue(server["address"]) == "" || intValue(server["port"]) <= 0 {
+			t.Fatalf("v2rayNG JSON subscription lost address or port: %#v", outbound)
+		}
+	}
+}
+
+func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+	if _, err := service.repo.db.Exec(`ALTER TABLE subscription_settings ADD COLUMN use_custom_json_for_v2rayng INTEGER DEFAULT 0`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET use_custom_json_for_v2rayng = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE nodes SET xray_config_mode = 'custom', xray_config = (SELECT data FROM xray_config WHERE id = 1) WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE xray_config SET data = '{"inbounds":[]}' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	render := func() map[string]any {
+		t.Helper()
+		response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, UserAgent: "v2rayNG/1.10.28", ReadOnly: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		configs := []map[string]any{}
+		if err := json.Unmarshal(response.Body, &configs); err != nil {
+			t.Fatal(err)
+		}
+		for _, config := range configs {
+			outbound := config["outbounds"].([]any)[0].(map[string]any)
+			if stringValue(outbound["protocol"]) == "vless" {
+				return outbound
+			}
+		}
+		t.Fatal("VLESS outbound not found")
+		return nil
+	}
+
+	before := render()
+	if len(mapValue(mapValue(before["streamSettings"])["finalmask"])) != 0 {
+		t.Fatalf("fixture unexpectedly started with FinalMask: %#v", before)
+	}
+	mask := `{"tcp":[{"type":"fragment","settings":{"lengths":["3-5","6-8"],"delays":["10-20"]}}]}`
+	if _, err := service.repo.db.Exec(`UPDATE hosts SET finalmask = ? WHERE id = 1`, mask); err != nil {
+		t.Fatal(err)
+	}
+	after := render()
+	finalMask := mapValue(mapValue(after["streamSettings"])["finalmask"])
+	tcp := listOfMaps(finalMask["tcp"])
+	if len(tcp) != 1 {
+		t.Fatalf("updated FinalMask was not rendered: %#v", finalMask)
+	}
+	lengths := listAny(mapValue(tcp[0]["settings"])["lengths"])
+	if len(lengths) != 2 || lengths[0] != "3-5" || lengths[1] != "6-8" {
+		t.Fatalf("current fragment ranges were not refreshed: %#v", finalMask)
+	}
+	if _, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray-json", ReadOnly: true}); err == nil {
+		t.Fatal("explicit stable v2ray-json unexpectedly accepted current-only FinalMask")
+	}
+}
+
 func TestSubscriptionClientsKeepShadowsocksHTTPHeader(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()
@@ -275,7 +548,9 @@ func TestSubscriptionClientsKeepShadowsocksHTTPHeader(t *testing.T) {
 			t.Fatal(err)
 		}
 		body := string(response.Body)
-		if !strings.Contains(body, `"type": "shadowsocks"`) || !strings.Contains(body, `"plugin": "obfs-local"`) || !strings.Contains(body, `"plugin_opts": "obfs=http;obfs-host=header.example.com"`) {
+		if !strings.Contains(body, `"dns"`) || !strings.Contains(body, `"inbounds"`) || !strings.Contains(body, `"route"`) ||
+			!strings.Contains(body, `"tag": "xray-edge"`) || !strings.Contains(body, `"tag": "ss-edge"`) ||
+			!strings.Contains(body, `"type": "shadowsocks"`) || !strings.Contains(body, `"plugin": "obfs-local"`) || !strings.Contains(body, `"plugin_opts": "obfs=http;obfs-host=header.example.com"`) {
 			t.Fatalf("sing-box lost the Shadowsocks HTTP plugin: %s", body)
 		}
 	})
@@ -290,6 +565,60 @@ func TestSubscriptionClientsKeepShadowsocksHTTPHeader(t *testing.T) {
 			t.Fatalf("unexpected Outline payload: %s", body)
 		}
 	})
+}
+
+func TestSubscriptionClientsPreserveShadowsocksTLS(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+	var rawConfig string
+	if err := service.repo.db.QueryRow(`SELECT data FROM xray_config WHERE id = 1`).Scan(&rawConfig); err != nil {
+		t.Fatal(err)
+	}
+	config := map[string]any{}
+	if err := json.Unmarshal([]byte(rawConfig), &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range listOfMaps(config["inbounds"]) {
+		if stringValue(raw["tag"]) != "ss-http" {
+			continue
+		}
+		raw["streamSettings"] = map[string]any{
+			"network": "ws", "security": "tls",
+			"tlsSettings": map[string]any{"serverName": "sni.example.com", "fingerprint": "chrome", "alpn": []any{"h2", "http/1.1"}},
+			"wsSettings":  map[string]any{"path": "/ss", "host": "edge.example.com"},
+		}
+	}
+	updated, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.repo.db.Exec(`UPDATE xray_config SET data = ? WHERE id = 1`, string(updated)); err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var clientLink string
+	for _, link := range strings.Fields(decodeSubscriptionTestBody(string(response.Body))) {
+		if strings.HasPrefix(link, "v2rayn://shadowsocks/") {
+			clientLink = link
+			break
+		}
+	}
+	parsed, err := parseSubscriptionShareURL(clientLink)
+	if err != nil || parsed.Query().Get("security") != "tls" || parsed.Query().Get("type") != "ws" || parsed.Query().Get("sni") != "sni.example.com" || parsed.Query().Get("host") != "edge.example.com" || parsed.Query().Get("path") != "/ss" {
+		t.Fatalf("raw subscription lost Shadowsocks TLS: link=%s parsed=%#v err=%v", clientLink, parsed, err)
+	}
+
+	response, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "xray-json"})
+	if err != nil || !strings.Contains(string(response.Body), `"protocol": "shadowsocks"`) || !strings.Contains(string(response.Body), `"security": "tls"`) || !strings.Contains(string(response.Body), `"serverName": "sni.example.com"`) {
+		t.Fatalf("xray-json lost Shadowsocks TLS: err=%v body=%s", err, response.Body)
+	}
+	if _, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "outline"}); err == nil {
+		t.Fatal("Outline must reject native Shadowsocks TLS instead of silently returning plain SS")
+	}
 }
 
 func TestSubscriptionInfoIncludesVPNDownloadMaterialAndProtocolEntries(t *testing.T) {
@@ -380,7 +709,9 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			subscription_ports TEXT,
 			use_custom_json_default INTEGER DEFAULT 0,
 			use_custom_json_for_happ INTEGER DEFAULT 0,
-			use_custom_json_for_incy INTEGER DEFAULT 0
+			use_custom_json_for_incy INTEGER DEFAULT 0,
+			subscription_placeholder_enabled INTEGER DEFAULT 0,
+			subscription_placeholder_remark TEXT DEFAULT 'disabled'
 		)`,
 		`CREATE TABLE admins (
 			id INTEGER PRIMARY KEY,
@@ -418,6 +749,8 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			admin_id INTEGER NULL,
 			sub_revoked_at DATETIME NULL
 		)`,
+		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
+		`CREATE TABLE user_subscription_access (user_id INTEGER PRIMARY KEY, updated_at DATETIME NOT NULL, user_agent TEXT NULL)`,
 		`CREATE TABLE user_usage_logs (
 			id INTEGER PRIMARY KEY,
 			user_id INTEGER,
@@ -464,11 +797,14 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			security TEXT NOT NULL DEFAULT 'inbound_default',
 			alpn TEXT NOT NULL DEFAULT 'none',
 			fingerprint TEXT NOT NULL DEFAULT 'none',
+			verify_peer_cert_by_name TEXT NULL,
+			pinned_peer_cert_sha256 TEXT NULL,
 			allowinsecure INTEGER NULL,
 			is_disabled INTEGER DEFAULT 0,
 			mux_enable INTEGER NOT NULL DEFAULT 0,
 			fragment_setting TEXT NULL,
 			noise_setting TEXT NULL,
+			finalmask TEXT NULL,
 			random_user_agent INTEGER NOT NULL DEFAULT 0,
 			use_sni_as_host INTEGER NOT NULL DEFAULT 0
 		)`,

@@ -483,7 +483,7 @@ func MergeOutbounds(cfg map[string]any, prepend []any, appendList []any) map[str
 	}
 	cloned := deepCloneMap(cfg)
 	template := interfaceSlice(cloned["outbounds"])
-	merged := make([]any, 0, len(prepend)+len(template)+len(appendList))
+	merged := make([]any, 0)
 	merged = append(merged, prepend...)
 	merged = append(merged, template...)
 	merged = append(merged, appendList...)

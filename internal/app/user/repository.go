@@ -24,7 +24,7 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 func (r Repository) configServerIP(ctx context.Context) string {
 	for _, query := range []string{
 		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' AND LOWER(COALESCE(status, '')) = 'connected' ORDER BY id LIMIT 1`,
-		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' ORDER BY id LIMIT 1`,
+		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' AND LOWER(COALESCE(status, '')) <> 'deleted' ORDER BY id LIMIT 1`,
 	} {
 		var address sql.NullString
 		if err := r.db.QueryRowContext(ctx, query).Scan(&address); err == nil && address.Valid {
@@ -40,6 +40,14 @@ type repositoryCache struct {
 	fastCreateContextExpires time.Time
 	activeNodeIDs            []int64
 	activeNodeIDsExpires     time.Time
+	usersSummaryMu           sync.Mutex
+	usersSummaries           map[string]usersSummaryCacheEntry
+	subscriptionAccess       map[int64]subscriptionAccessCacheEntry
+}
+
+type subscriptionAccessCacheEntry struct {
+	userAgent string
+	expiresAt time.Time
 }
 
 func (r Repository) LinkPrerequisites(ctx context.Context, req LinkPrerequisitesRequest) (LinkPrerequisites, error) {
@@ -141,6 +149,8 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	result.UseCustomJSONForStreisand = truthy(row["use_custom_json_for_streisand"])
 	result.UseCustomJSONForHapp = truthy(row["use_custom_json_for_happ"])
 	result.UseCustomJSONForIncy = truthy(row["use_custom_json_for_incy"])
+	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
+	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
 	return result, nil
 }
@@ -286,7 +296,64 @@ func (r Repository) ResolvedInboundsByTag(ctx context.Context) (map[string]Resol
 			order = append(order, tag)
 		}
 	}
+	publicPorts, err := r.haproxyPublicPorts(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	for tag, port := range publicPorts {
+		if inbound, ok := result[tag]; ok {
+			inbound["port"] = port
+		}
+	}
 	return result, order, nil
+}
+
+func (r Repository) haproxyPublicPorts(ctx context.Context) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT ht.listeners
+FROM haproxy_targets ht
+JOIN haproxy_configs hc ON hc.id = ht.config_id
+WHERE hc.enabled = 1`)
+	if err != nil {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "no such table") || strings.Contains(message, "doesn't exist") {
+			return map[string]int{}, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	ports, conflicts := map[string]int{}, map[string]bool{}
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var listeners []struct {
+			ListenPort int `json:"listen_port"`
+			Routes     []struct {
+				Source     string `json:"source"`
+				InboundTag string `json:"inbound_tag"`
+			} `json:"routes"`
+		}
+		if err := json.Unmarshal([]byte(raw), &listeners); err != nil {
+			return nil, fmt.Errorf("decode HAProxy listeners: %w", err)
+		}
+		for _, listener := range listeners {
+			for _, route := range listener.Routes {
+				tag := strings.TrimSpace(route.InboundTag)
+				if route.Source != "xray" || tag == "" || conflicts[tag] {
+					continue
+				}
+				if current, exists := ports[tag]; exists && current != listener.ListenPort {
+					delete(ports, tag)
+					conflicts[tag] = true
+					continue
+				}
+				ports[tag] = listener.ListenPort
+			}
+		}
+	}
+	return ports, rows.Err()
 }
 
 func (r Repository) rawXrayConfigs(ctx context.Context) ([]map[string]any, error) {
@@ -302,7 +369,7 @@ func (r Repository) rawXrayConfigs(ctx context.Context) ([]map[string]any, error
 		}
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE xray_config_mode = 'custom' AND xray_config IS NOT NULL ORDER BY id`)
+	rows, err := r.db.QueryContext(ctx, `SELECT xray_config FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' AND xray_config_mode = 'custom' AND xray_config IS NOT NULL ORDER BY id`)
 	if err != nil {
 		return result, nil
 	}
@@ -379,8 +446,8 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		address_options, COALESCE(address_selection_mode, ''), address_ttl_seconds,
 		port, path, sni, sni_options, COALESCE(sni_selection_mode, ''), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, ''), host_ttl_seconds,
-		security, alpn, fingerprint, allowinsecure, is_disabled, mux_enable,
-		fragment_setting, noise_setting, random_user_agent, use_sni_as_host
+		security, alpn, fingerprint, COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''), allowinsecure, is_disabled, mux_enable,
+		fragment_setting, noise_setting, finalmask, random_user_agent, use_sni_as_host
 		FROM hosts ORDER BY inbound_tag, id`)
 	if err != nil {
 		return nil, err
@@ -395,7 +462,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		var addressOptions, sniOptions, hostOptions sql.NullString
 		var allowInsecure sql.NullBool
 		var disabled, mux, randomUA, useSNI sql.NullBool
-		var fragment, noise sql.NullString
+		var fragment, noise, finalMask sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.InboundTag,
@@ -419,11 +486,14 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 			&item.Security,
 			&item.ALPN,
 			&item.Fingerprint,
+			&item.VerifyPeerCertByName,
+			&item.PinnedPeerCertSHA256,
 			&allowInsecure,
 			&disabled,
 			&mux,
 			&fragment,
 			&noise,
+			&finalMask,
 			&randomUA,
 			&useSNI,
 		); err != nil {
@@ -447,6 +517,9 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		item.MuxEnable = nullBool(mux)
 		item.FragmentSetting = stringPtr(fragment)
 		item.NoiseSetting = stringPtr(noise)
+		if finalMask.Valid {
+			item.FinalMask = jsonMap(finalMask.String)
+		}
 		item.RandomUserAgent = nullBool(randomUA)
 		item.UseSNIAsHost = nullBool(useSNI)
 		result = append(result, item)

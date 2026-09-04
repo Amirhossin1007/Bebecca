@@ -1,4 +1,4 @@
-import { AdminTrafficLimitMode } from "./Admin";
+import type { AdminTrafficLimitMode } from "./Admin";
 
 export type ServiceHost = {
 	id: number;

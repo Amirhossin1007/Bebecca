@@ -4,7 +4,6 @@ import {
 	Box,
 	Button,
 	HStack,
-	Input,
 	MenuItem,
 	Stack,
 	Tag,
@@ -26,18 +25,26 @@ import { useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import {
 	buildInboundPayload,
+	getInboundTraffic,
 	type InboundFormValues,
 	protocolOptions,
 	type RawInbound,
 } from "utils/inbounds";
-import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
+import { SizeFormatter } from "utils/outbound";
+import {
+	DEFAULT_SEARCH_MATCH_OPTIONS,
+	matchesAnySearch,
+} from "utils/searchMatch";
+import { sortByTraffic, type TrafficSortOrder } from "utils/trafficSort";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
+import { SearchInput } from "../common/SearchInput";
+import { ConfirmDialog, DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
 import {
 	DataTable,
-	ResourceListCard,
-	ResourceRefreshButton,
 	type DataTableColumn,
 	type DataTableRowAction,
+	ResourceListCard,
+	ResourceRefreshButton,
 	type ResourceSummaryItem,
 } from "../ui";
 import { InboundFormModal } from "./FormDrawer";
@@ -45,6 +52,7 @@ import { InboundFormModal } from "./FormDrawer";
 type FilterState = {
 	protocol: string;
 	search: string;
+	traffic: TrafficSortOrder;
 };
 
 const normalizeTargetRefs = (value: unknown): string[] => {
@@ -87,13 +95,17 @@ export const InboundsManager: FC = () => {
 	const [filter, setFilter] = useState<FilterState>({
 		protocol: "all",
 		search: "",
+		traffic: "default",
 	});
+	const [searchMatch, setSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [selectedInboundTags, setSelectedInboundTags] = useState<string[]>([]);
 	const [selected, setSelected] = useState<RawInbound | null>(null);
 	const [cloneTarget, setCloneTarget] = useState<RawInbound | null>(null);
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const cloneDrawer = useDisclosure();
+	const resetDialog = useDisclosure();
 	const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
+	const [resetTarget, setResetTarget] = useState<RawInbound | null>(null);
 
 	const loadInbounds = useCallback(() => {
 		setIsLoading(true);
@@ -117,24 +129,31 @@ export const InboundsManager: FC = () => {
 	}, [loadInbounds]);
 
 	const filtered = useMemo(() => {
-		const term = filter.search.trim().toLowerCase();
-		return inbounds.filter((inbound) => {
+		const matches = inbounds.filter((inbound) => {
 			if (filter.protocol !== "all" && inbound.protocol !== filter.protocol) {
 				return false;
 			}
-			if (!term) return true;
-			return (
-				inbound.tag.toLowerCase().includes(term) ||
-				inbound.port?.toString().includes(term)
+			return matchesAnySearch(
+				[inbound.tag, inbound.port],
+				filter.search,
+				searchMatch,
 			);
 		});
-	}, [inbounds, filter]);
+		return sortByTraffic(
+			matches,
+			filter.traffic,
+			(inbound) => getInboundTraffic(inbound).total,
+		);
+	}, [inbounds, filter, searchMatch]);
 	const targetNameById = useMemo(
 		() =>
 			Object.fromEntries(
-				configTargets.map((target) => [target.id, target.name || target.id]),
+				configTargets.map((target) => [
+					target.id,
+					target.type === "master" ? t("default") : target.name || target.id,
+				]),
 			),
-		[configTargets],
+		[configTargets, t],
 	);
 
 	const openCreate = () => {
@@ -372,6 +391,33 @@ export const InboundsManager: FC = () => {
 		}
 	};
 
+	const handleResetUsage = async () => {
+		if (!resetTarget) return;
+		setIsMutating(true);
+		try {
+			await fetch(
+				`/inbounds/${encodeURIComponent(resetTarget.tag)}/usage/reset`,
+				{ method: "POST" },
+			);
+			toast({ status: "success", title: t("inbounds.resetUsageSuccess") });
+			await loadInbounds();
+		} catch (error: unknown) {
+			const detail = error as {
+				data?: { detail?: string };
+				message?: string;
+			};
+			toast({
+				status: "error",
+				title: t("inbounds.resetUsageError"),
+				description: detail.data?.detail || detail.message,
+			});
+		} finally {
+			setIsMutating(false);
+			setResetTarget(null);
+			resetDialog.onClose();
+		}
+	};
+
 	const openClone = useCallback(
 		(inbound: RawInbound) => {
 			const trimmedTag = (inbound.tag || "").trim();
@@ -541,13 +587,44 @@ export const InboundsManager: FC = () => {
 				},
 			},
 			{
+				id: "traffic",
+				header: t("inbounds.traffic"),
+				priority: "medium",
+				width: "175px",
+				maxWidth: "195px",
+				mobilePriority: 5,
+				mobileMetaLabel: t("inbounds.traffic"),
+				cell: (inbound) => {
+					const traffic = getInboundTraffic(inbound);
+					return (
+						<HStack
+							spacing={3}
+							whiteSpace="nowrap"
+							fontSize="xs"
+							dir="ltr"
+							sx={{
+								fontVariantNumeric: "tabular-nums",
+								unicodeBidi: "isolate",
+							}}
+						>
+							<Text color="teal.400">
+								↑ {SizeFormatter.sizeFormat(traffic.upload)}
+							</Text>
+							<Text color="blue.400">
+								↓ {SizeFormatter.sizeFormat(traffic.download)}
+							</Text>
+						</HStack>
+					);
+				},
+			},
+			{
 				id: "sniffing",
 				header: t("inbounds.sniffing"),
 				priority: "low",
 				hideBelow: "xl",
 				width: "150px",
 				maxWidth: "170px",
-				mobilePriority: 5,
+				mobilePriority: 6,
 				mobileMetaLabel: t("inbounds.sniffing"),
 				cell: (inbound) =>
 					inbound.sniffing?.enabled ? (
@@ -567,7 +644,7 @@ export const InboundsManager: FC = () => {
 				hideBelow: "lg",
 				width: "210px",
 				maxWidth: "260px",
-				mobilePriority: 6,
+				mobilePriority: 7,
 				mobileMetaLabel: t("inbounds.targets"),
 				cell: (inbound) => {
 					const targetIds = getInboundTargetIds(inbound);
@@ -617,6 +694,16 @@ export const InboundsManager: FC = () => {
 			label: t("edit"),
 			icon: <PencilIcon width={16} />,
 			onClick: () => openEdit(inbound),
+		},
+		{
+			id: "reset-usage",
+			label: t("inbounds.resetUsage"),
+			icon: <ArrowPathIcon width={16} />,
+			onClick: () => {
+				setResetTarget(inbound);
+				resetDialog.onOpen();
+			},
+			isDisabled: isMutating,
 		},
 		{
 			id: "delete",
@@ -681,14 +768,15 @@ export const InboundsManager: FC = () => {
 					align={{ base: "stretch", md: "center" }}
 					flexWrap="wrap"
 				>
-					<Input
-						size="sm"
-						w={{ base: "full", md: "280px" }}
+					<SearchInput
+						containerProps={{ w: { base: "full", md: "320px" } }}
 						placeholder={t("inbounds.searchPlaceholder")}
 						value={filter.search}
 						onChange={(event) =>
 							setFilter((prev) => ({ ...prev, search: event.target.value }))
 						}
+						matchOptions={searchMatch}
+						onMatchOptionsChange={setSearchMatch}
 					/>
 					<SearchableTagSelect
 						size="sm"
@@ -707,6 +795,23 @@ export const InboundsManager: FC = () => {
 						placeholder={t("inbounds.filterProtocol")}
 						onChange={(value) =>
 							setFilter((prev) => ({ ...prev, protocol: String(value) }))
+						}
+					/>
+					<SearchableTagSelect
+						size="sm"
+						width="190px"
+						value={filter.traffic}
+						options={[
+							{ value: "default", label: t("trafficSort.default") },
+							{ value: "highest", label: t("trafficSort.highest") },
+							{ value: "lowest", label: t("trafficSort.lowest") },
+						]}
+						placeholder={t("trafficSort.label")}
+						onChange={(value) =>
+							setFilter((prev) => ({
+								...prev,
+								traffic: String(value) as TrafficSortOrder,
+							}))
 						}
 					/>
 				</Stack>
@@ -764,7 +869,7 @@ export const InboundsManager: FC = () => {
 						</Button>
 					</DeleteConfirmDialog>
 				)}
-				mobileBreakpoint="lg"
+				mobileBreakpoint="md"
 				tableProps={{
 					w: "full",
 					sx: {
@@ -808,6 +913,23 @@ export const InboundsManager: FC = () => {
 					onSubmit={handleCloneSubmit}
 				/>
 			)}
+			<ConfirmDialog
+				isOpen={resetDialog.isOpen}
+				onClose={() => {
+					if (isMutating) return;
+					setResetTarget(null);
+					resetDialog.onClose();
+				}}
+				onConfirm={handleResetUsage}
+				title={t("inbounds.resetUsage")}
+				description={t("inbounds.resetUsageConfirm", {
+					tag: resetTarget?.tag ?? "",
+				})}
+				confirmLabel={t("inbounds.resetUsage")}
+				colorScheme="red"
+				isLoading={isMutating}
+				isConfirmDisabled={!resetTarget}
+			/>
 		</Stack>
 	);
 };

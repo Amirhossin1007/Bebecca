@@ -1,4 +1,5 @@
-import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
+import { Box, Button, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
+import { type ComponentType, lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	createBrowserRouter,
@@ -8,13 +9,19 @@ import {
 	useNavigate,
 	useRouteError,
 } from "react-router-dom";
-import { lazy, Suspense, type ComponentType } from "react";
-import { AppLayout } from "../components/AppLayout";
 import { fetch } from "../service/http";
-import { DashboardPage } from "./DashboardPage";
+import { recoverFromStaleChunk } from "../utils/chunkRecovery";
 import { Login } from "./Login";
-import { UsersPage } from "./UsersPage";
 
+const AppLayout = lazy(async () => ({
+	default: (await import("../components/AppLayout")).AppLayout,
+}));
+const DashboardPage = lazy(async () => ({
+	default: (await import("./DashboardPage")).DashboardPage,
+}));
+const UsersPage = lazy(async () => ({
+	default: (await import("./UsersPage")).UsersPage,
+}));
 const AccessInsightsPage = lazy(() => import("./AccessInsightsPage"));
 const AdminsPage = lazy(async () => ({
 	default: (await import("./AdminsPage")).AdminsPage,
@@ -25,9 +32,11 @@ const ApiDocsPage = lazy(async () => ({
 const BulkActionsPage = lazy(() => import("./BulkActionsPage"));
 const CoreSettingsPage = lazy(() => import("./CoreSettingsPage"));
 const HostsPage = lazy(() => import("./HostsPage"));
+const HAProxyPage = lazy(() => import("./HAProxyPage"));
 const IntegrationSettingsPage = lazy(async () => ({
 	default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
 }));
+const PlaceholderSettingsPage = lazy(() => import("./PlaceholderSettingsPage"));
 const RecentActionsPage = lazy(async () => ({
 	default: (await import("./RecentActionsPage")).RecentActionsPage,
 }));
@@ -36,6 +45,9 @@ const NodesPage = lazy(() => import("./NodesPage"));
 const PhpMyAdminPage = lazy(async () => ({
 	default: (await import("./PhpMyAdminPage")).PhpMyAdminPage,
 }));
+const ExternalAppsPage = lazy(async () => ({
+	default: (await import("./ExternalAppsPage")).ExternalAppsPage,
+}));
 const ServicesPage = lazy(() => import("./ServicesPage"));
 const TutorialsPage = lazy(async () => ({
 	default: (await import("./TutorialsPage")).TutorialsPage,
@@ -43,8 +55,14 @@ const TutorialsPage = lazy(async () => ({
 const UsagePage = lazy(() => import("./UsagePage"));
 const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
 
+const PageLoading = () => (
+	<Box minH="160px" display="grid" placeItems="center">
+		<Spinner size="md" />
+	</Box>
+);
+
 const LazyPage = ({ Page }: { Page: ComponentType }) => (
-	<Suspense fallback={<Box minH="160px" />}>
+	<Suspense fallback={<PageLoading />}>
 		<Page />
 	</Suspense>
 );
@@ -64,13 +82,15 @@ const RouteErrorPage = () => {
 	const navigate = useNavigate();
 	const { t } = useTranslation();
 
+	useEffect(() => {
+		recoverFromStaleChunk(error);
+	}, [error]);
+
 	return (
 		<Box minH="100vh" bg="gray.950" color="white" px={6} py={10}>
 			<VStack align="start" spacing={4} maxW="720px" mx="auto">
 				<Heading size="lg">{t("router.errorTitle")}</Heading>
-				<Text color="gray.300">
-					{t("router.errorDescription")}
-				</Text>
+				<Text color="gray.300">{t("router.errorDescription")}</Text>
 				<Text
 					bg="whiteAlpha.100"
 					border="1px solid"
@@ -103,6 +123,7 @@ const routeSegments = new Set([
 	"tutorials",
 	"services",
 	"hosts",
+	"haproxy",
 	"node-settings",
 	"integrations",
 	"settings",
@@ -111,7 +132,9 @@ const routeSegments = new Set([
 	"access-insights",
 	"api-docs",
 	"phpmyadmin",
+	"external-apps",
 	"recent-actions",
+	"placeholders",
 ]);
 
 const trimTrailingSlash = (value: string) => {
@@ -179,17 +202,18 @@ export const router = createBrowserRouter(
 	[
 		{
 			path: "/",
-			element: <AppLayout />,
+			element: <LazyPage Page={AppLayout} />,
+			hydrateFallbackElement: <PageLoading />,
 			errorElement: <RouteErrorPage />,
 			loader: fetchAdminLoader,
 			children: [
 				{
 					index: true,
-					element: <DashboardPage />,
+					element: <LazyPage Page={DashboardPage} />,
 				},
 				{
 					path: "users",
-					element: <UsersPage />,
+					element: <LazyPage Page={UsersPage} />,
 				},
 				{
 					path: "bulk-actions",
@@ -220,12 +244,20 @@ export const router = createBrowserRouter(
 					element: <LazyPage Page={HostsPage} />,
 				},
 				{
+					path: "haproxy",
+					element: <LazyPage Page={HAProxyPage} />,
+				},
+				{
 					path: "node-settings",
 					element: <LazyPage Page={NodesPage} />,
 				},
 				{
 					path: "settings",
 					element: <LazyPage Page={IntegrationSettingsPage} />,
+				},
+				{
+					path: "placeholders",
+					element: <LazyPage Page={PlaceholderSettingsPage} />,
 				},
 				{
 					path: "integrations",
@@ -254,6 +286,10 @@ export const router = createBrowserRouter(
 				{
 					path: "phpmyadmin",
 					element: <LazyPage Page={PhpMyAdminPage} />,
+				},
+				{
+					path: "external-apps",
+					element: <LazyPage Page={ExternalAppsPage} />,
 				},
 			],
 		},

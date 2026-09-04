@@ -266,6 +266,9 @@ func applySubscriptionDefaults(settings *SubscriptionSettings) {
 	if settings.SubscriptionUpdateInterval == "" {
 		settings.SubscriptionUpdateInterval = defaultSubscriptionUpdateInterval
 	}
+	if settings.SubscriptionPlaceholderRemark == "" {
+		settings.SubscriptionPlaceholderRemark = defaultSubscriptionPlaceholderRemark
+	}
 	if settings.ClashSubscriptionTemplate == "" {
 		settings.ClashSubscriptionTemplate = defaultClashSubscriptionTemplate
 	}
@@ -357,18 +360,6 @@ func appTemplateBasePath() string {
 	return "templates"
 }
 
-func persistentTemplateDirectory(adminID *int64) string {
-	dataDir := strings.TrimSpace(os.Getenv("REBECCA_DATA_DIR"))
-	if dataDir == "" {
-		dataDir = "/var/lib/rebecca"
-	}
-	base := filepath.Join(dataDir, "templates")
-	if adminID != nil {
-		return filepath.Join(base, "admins", strconv.FormatInt(*adminID, 10))
-	}
-	return base
-}
-
 func resolveExistingTemplatePath(templateName string, customDirectory *string) (string, error) {
 	if path, err := resolveCustomTemplatePath(templateName, customDirectory, nil); err == nil {
 		return path, nil
@@ -405,10 +396,6 @@ func resolveAppTemplatePath(templateName string) (string, error) {
 		return path, nil
 	}
 	return "", fmt.Errorf("%w: %s", ErrTemplateNotFound, templateName)
-}
-
-func resolveWritableTemplatePath(templateName string, customDirectory string) (string, error) {
-	return safeJoin(customDirectory, templateName)
 }
 
 func normalizeTemplateName(value string) (string, error) {

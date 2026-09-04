@@ -52,10 +52,6 @@ export const AdminsPage: FC = () => {
 
 	return (
 		<VStack spacing={4} align="stretch">
-			<PageHeader
-				title={t("admins")}
-				description={t("admins.pageDescription")}
-			/>
 			<AdminsTable
 				toolbar={<Filters for="admins" py={0} showRefresh={false} />}
 				footerActions={

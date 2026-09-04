@@ -11,6 +11,8 @@ import (
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/online"
+	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 )
 
 func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
@@ -28,18 +30,31 @@ func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	usernameFilter := strings.TrimSpace(r.URL.Query().Get("username"))
+	matchCase, err := optionalQueryBool(r.URL.Query().Get("match_case"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid match_case")
+		return
+	}
+	matchWholeWord, err := optionalQueryBool(r.URL.Query().Get("match_whole_word"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid match_whole_word")
+		return
+	}
 	offset := parseOptionalNonNegativeInt(r.URL.Query().Get("offset"), 0)
 	limit := parseOptionalNonNegativeInt(r.URL.Query().Get("limit"), 0)
 	sortField := adminSortClause(r.URL.Query().Get("sort"))
 
 	admins := []map[string]any{}
 	total := 0
-	err := s.withTx(r.Context(), func(tx *sql.Tx) error {
+	err = s.withTx(r.Context(), func(tx *sql.Tx) error {
 		where := `WHERE status != ?`
 		args := []any{string(adminapp.StatusDeleted)}
 		if usernameFilter != "" {
-			where += ` AND LOWER(username) LIKE LOWER(?)`
-			args = append(args, "%"+usernameFilter+"%")
+			predicate, searchArgs := searchmatch.SQLAny(s.dialect, []string{"username"}, usernameFilter, searchmatch.Options{
+				MatchCase: matchCase, MatchWholeWord: matchWholeWord,
+			})
+			where += ` AND ` + predicate
+			args = append(args, searchArgs...)
 		}
 		if err := tx.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM admins `+where, args...).Scan(&total); err != nil {
 			return err
@@ -305,7 +320,7 @@ func adminSortClause(value string) string {
 
 func addAdminCountsTx(ctx context.Context, tx *sql.Tx, adminID int64, response map[string]any) error {
 	statusCounts := map[string]int64{}
-	rows, err := tx.QueryContext(ctx, `SELECT status, COUNT(*) FROM users WHERE admin_id = ? GROUP BY status`, adminID)
+	rows, err := tx.QueryContext(ctx, `SELECT status, COUNT(*) FROM users WHERE admin_id = ? AND status != ? GROUP BY status`, adminID, "deleted")
 	if err != nil {
 		return err
 	}
@@ -321,13 +336,15 @@ func addAdminCountsTx(ctx context.Context, tx *sql.Tx, adminID int64, response m
 	if err := rows.Close(); err != nil {
 		return err
 	}
-	onlineCutoff := dbTimestamp(time.Now().UTC().Add(-5 * time.Minute))
+	onlineCutoff := dbTimestamp(online.Cutoff(time.Now()))
 	onlineUsers := int64(0)
 	if err := tx.QueryRowContext(
 		ctx,
-		`SELECT COUNT(*) FROM users WHERE admin_id = ? AND status != ? AND online_at IS NOT NULL AND online_at >= ?`,
+		`SELECT COUNT(*) FROM users u WHERE u.admin_id = ? AND u.status != ? AND `+online.UserPredicate,
 		adminID,
 		"deleted",
+		onlineCutoff,
+		onlineCutoff,
 		onlineCutoff,
 	).Scan(&onlineUsers); err != nil {
 		return err

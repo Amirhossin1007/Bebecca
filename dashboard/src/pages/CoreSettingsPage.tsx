@@ -48,7 +48,6 @@ import {
 	CheckCircleIcon,
 	CloudArrowUpIcon,
 	TrashIcon as DeleteIcon,
-	DocumentTextIcon,
 	PencilIcon as EditIcon,
 	EllipsisHorizontalIcon,
 	GlobeAltIcon,
@@ -59,6 +58,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { CompactChips, CompactTextWithCopy } from "components/CompactPopover";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
@@ -71,14 +71,17 @@ import {
 import { useCoreSettings } from "contexts/CoreSettingsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
+import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import {
 	type FC,
 	type ReactNode,
 	useCallback,
 	useEffect,
+	lazy,
 	useMemo,
 	useRef,
 	useState,
+	Suspense,
 } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -87,47 +90,73 @@ import { useMutation, useQuery } from "react-query";
 import { fetch as apiFetch } from "service/http";
 import psiphonIconUrl from "../assets/brands/psiphon.png";
 import windscribeIconUrl from "../assets/brands/windscribe.png";
-import {
-	type BalancerFormValues,
-	BalancerModal,
-} from "../components/BalancerModal";
+import type { BalancerFormValues } from "../components/BalancerModal";
 import { splitMultiValueText } from "../components/common/MultiValueAutocomplete";
-import { DnsModal } from "../components/DnsModal";
-import { DnsPresetsModal } from "../components/DnsPresetsModal";
-import { FakeDnsModal } from "../components/FakeDnsModal";
-import { JsonEditor } from "../components/JsonEditor";
-import { NordVPNModal } from "../components/NordVPNModal";
-import { OutboundModal } from "../components/OutboundModal";
-import { OutboundSubscriptionsModal } from "../components/OutboundSubscriptionsModal";
-import {
-	type PsiphonProxyFormValues,
-	PsiphonProxyModal,
-} from "../components/PsiphonProxyModal";
-import {
-	type ReverseFormValues,
-	ReverseModal,
-	type ReverseType,
+import type { PsiphonProxyFormValues } from "../components/PsiphonProxyModal";
+import type {
+	ReverseFormValues,
+	ReverseType,
 } from "../components/ReverseModal";
-import { type RoutingRule, RuleModal } from "../components/RuleModal";
-import { RouteTestModal } from "../components/xray/RouteTestModal";
-import {
-	type TorProxyFormValues,
-	TorProxyModal,
-} from "../components/TorProxyModal";
-import { WarpModal } from "../components/WarpModal";
-import {
-	type WindscribeProxyFormValues,
-	WindscribeProxyModal,
-} from "../components/WindscribeProxyModal";
+import type { RoutingRule } from "../components/RuleModal";
+import type { TorProxyFormValues } from "../components/TorProxyModal";
+import type { WindscribeProxyFormValues } from "../components/WindscribeProxyModal";
 import {
 	canonicalizeRebeccaJson,
 	type RebeccaJsonContext,
 	stringifyRebeccaJson,
 } from "../utils/jsonFormatting";
-import { countryFlag } from "../utils/countries";
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
-import XrayLogsPage from "./XrayLogsPage";
+import { sumOutboundTraffic } from "../utils/outboundTraffic";
+import { sortByTraffic, type TrafficSortOrder } from "../utils/trafficSort";
+
+const JsonEditor = lazy(async () => ({
+	default: (await import("../components/JsonEditor")).JsonEditor,
+}));
+const BalancerModal = lazy(async () => ({
+	default: (await import("../components/BalancerModal")).BalancerModal,
+}));
+const DnsModal = lazy(async () => ({
+	default: (await import("../components/DnsModal")).DnsModal,
+}));
+const DnsPresetsModal = lazy(async () => ({
+	default: (await import("../components/DnsPresetsModal")).DnsPresetsModal,
+}));
+const FakeDnsModal = lazy(async () => ({
+	default: (await import("../components/FakeDnsModal")).FakeDnsModal,
+}));
+const NordVPNModal = lazy(async () => ({
+	default: (await import("../components/NordVPNModal")).NordVPNModal,
+}));
+const OutboundModal = lazy(async () => ({
+	default: (await import("../components/OutboundModal")).OutboundModal,
+}));
+const OutboundSubscriptionsModal = lazy(async () => ({
+	default: (await import("../components/OutboundSubscriptionsModal"))
+		.OutboundSubscriptionsModal,
+}));
+const PsiphonProxyModal = lazy(async () => ({
+	default: (await import("../components/PsiphonProxyModal")).PsiphonProxyModal,
+}));
+const ReverseModal = lazy(async () => ({
+	default: (await import("../components/ReverseModal")).ReverseModal,
+}));
+const RuleModal = lazy(async () => ({
+	default: (await import("../components/RuleModal")).RuleModal,
+}));
+const RouteTestModal = lazy(async () => ({
+	default: (await import("../components/xray/RouteTestModal")).RouteTestModal,
+}));
+const TorProxyModal = lazy(async () => ({
+	default: (await import("../components/TorProxyModal")).TorProxyModal,
+}));
+const WarpModal = lazy(async () => ({
+	default: (await import("../components/WarpModal")).WarpModal,
+}));
+const WindscribeProxyModal = lazy(async () => ({
+	default: (await import("../components/WindscribeProxyModal"))
+		.WindscribeProxyModal,
+}));
 
 const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
@@ -155,7 +184,6 @@ const DnsTabIcon = chakra(GlobeAltIcon, { baseStyle: { w: 4, h: 4 } });
 const AdvancedTabIcon = chakra(WrenchScrewdriverIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
-const LogsTabIcon = chakra(DocumentTextIcon, { baseStyle: { w: 4, h: 4 } });
 const WarpIconStyled = chakra(CloudArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
 const BoltIconStyled = chakra(BoltIcon, { baseStyle: { w: 4, h: 4 } });
 const CheckCircleIconStyled = chakra(CheckCircleIcon, {
@@ -172,9 +200,9 @@ const NordVPNIconStyled = () => (
 		{SiNordvpn({ size: 16, "aria-hidden": true })}
 	</Box>
 );
-const TorIconStyled = () => (
+const TorIconStyled: FC<{ size?: number }> = ({ size = 16 }) => (
 	<Box as="span" display="inline-flex" color="#7d4698">
-		{SiTorproject({ size: 16, "aria-hidden": true })}
+		{SiTorproject({ size, "aria-hidden": true })}
 	</Box>
 );
 const WindscribeIconStyled = () => (
@@ -199,17 +227,11 @@ const PsiphonIconStyled = () => (
 );
 const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 	const meta = managedOutboundMeta(outbound);
-	if (!meta) return null;
+	if (!meta || meta.provider === "tor") return null;
 	const providerName =
-		meta.provider === "tor"
-			? "Tor"
-			: meta.provider === "windscribe"
-				? "Windscribe"
-				: "Psiphon";
+		meta.provider === "windscribe" ? "Windscribe" : "Psiphon";
 	const icon =
-		meta.provider === "tor" ? (
-			<TorIconStyled />
-		) : meta.provider === "windscribe" ? (
+		meta.provider === "windscribe" ? (
 			<WindscribeIconStyled />
 		) : (
 			<PsiphonIconStyled />
@@ -231,7 +253,6 @@ const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 				flexShrink={0}
 			>
 				{icon}
-				{meta.country && <Text fontSize="sm">{countryFlag(meta.country)}</Text>}
 			</HStack>
 		</Tooltip>
 	);
@@ -405,7 +426,9 @@ type ManagedOutboundMeta = {
 
 const managedOutboundMeta = (outbound: any): ManagedOutboundMeta | null => {
 	const tag = String(outbound?.tag ?? "").trim();
-	const match = tag.match(/(?:^|[-_.])(tor|windscribe|psiphon)(?:-([a-z]{2}))?$/i);
+	const match = tag.match(
+		/(?:^|[-_.])(tor|windscribe|psiphon)(?:-([a-z]{2}))?$/i,
+	);
 	if (!match) return null;
 	return {
 		provider: match[1].toLowerCase() as ManagedOutboundProvider,
@@ -706,7 +729,7 @@ export const CoreSettingsPage: FC = () => {
 	} = useCoreSettings();
 	const config = loadedConfig as EditableCoreConfig | null;
 	const { userData, getUserIsSuccess } = useGetUser();
-	const { onEditingCore } = useDashboard();
+	const onEditingCore = useDashboard((state) => state.onEditingCore);
 	const canManageXraySettings =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
 	const [selectedTarget, setSelectedTarget] = useState("master");
@@ -804,6 +827,11 @@ export const CoreSettingsPage: FC = () => {
 
 	const [outboundData, setOutboundData] = useState<any[]>([]);
 	const [outboundSearch, setOutboundSearch] = useState("");
+	const [outboundSearchMatch, setOutboundSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
+	const [outboundTrafficSort, setOutboundTrafficSort] =
+		useState<TrafficSortOrder>("default");
 	const [selectedOutboundIds, setSelectedOutboundIds] = useState<string[]>([]);
 	const [outboundTestType, setOutboundTestType] =
 		useState<OutboundTestType>("latency");
@@ -814,6 +842,9 @@ export const CoreSettingsPage: FC = () => {
 	const [isApplyingPsiphonProxy, setIsApplyingPsiphonProxy] = useState(false);
 	const [routingRuleData, setRoutingRuleData] = useState<any[]>([]);
 	const [routingRuleSearch, setRoutingRuleSearch] = useState("");
+	const [routingRuleSearchMatch, setRoutingRuleSearchMatch] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const [routeTestRule, setRouteTestRule] = useState<RoutingRule | null>(null);
 	const [balancersData, setBalancersData] = useState<BalancerRow[]>([]);
 	const [dnsServers, setDnsServers] = useState<any[]>([]);
@@ -909,7 +940,6 @@ export const CoreSettingsPage: FC = () => {
 			"balancers",
 			"dns",
 			"advanced",
-			"logs",
 		],
 		[],
 	);
@@ -1694,12 +1724,11 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const filteredRoutingRules = useMemo(() => {
-		const term = routingRuleSearch.trim().toLowerCase();
 		const rows = routingRuleData.map((rule, originalIndex) => ({
 			rule,
 			originalIndex,
 		}));
-		if (!term) return rows;
+		if (!routingRuleSearch.trim()) return rows;
 		return rows.filter(({ rule }) => {
 			const haystack = [
 				rule.source,
@@ -1716,33 +1745,66 @@ export const CoreSettingsPage: FC = () => {
 				rule.balancerTag,
 			]
 				.map(normalizeSearchValue)
-				.join(" ")
-				.toLowerCase();
-			return haystack.includes(term);
+				.join(" ");
+			return matchesSearch(haystack, routingRuleSearch, routingRuleSearchMatch);
 		});
-	}, [routingRuleData, routingRuleSearch]);
+	}, [routingRuleData, routingRuleSearch, routingRuleSearchMatch]);
 
 	const filteredOutboundData = useMemo(() => {
-		const term = outboundSearch.trim().toLowerCase();
 		const rows = outboundData.map((outbound, originalIndex) => ({
 			outbound,
 			originalIndex,
 		}));
-		if (!term) return rows;
-		return rows.filter(({ outbound }) =>
-			JSON.stringify(outbound).toLowerCase().includes(term),
+		const matches = outboundSearch.trim()
+			? rows.filter(({ outbound }) =>
+					matchesSearch(
+						JSON.stringify(outbound),
+						outboundSearch,
+						outboundSearchMatch,
+					),
+				)
+			: rows;
+		return sortByTraffic(
+			matches,
+			outboundTrafficSort,
+			({ outbound, originalIndex }) => {
+				const traffic = sumOutboundTraffic(
+					outboundsTraffic,
+					selectedTarget,
+					outboundIds[originalIndex],
+					outbound.tag,
+					isMasterTarget,
+				);
+				return traffic.up + traffic.down;
+			},
 		);
-	}, [outboundData, outboundSearch]);
+	}, [
+		outboundData,
+		outboundIds,
+		outboundSearch,
+		outboundSearchMatch,
+		outboundTrafficSort,
+		outboundsTraffic,
+		selectedTarget,
+		isMasterTarget,
+	]);
 	const managedOutboundData = useMemo(
-		() => filteredOutboundData.filter(({ outbound }) => managedOutboundMeta(outbound)),
+		() =>
+			filteredOutboundData.filter(({ outbound }) =>
+				managedOutboundMeta(outbound),
+			),
 		[filteredOutboundData],
 	);
 	const standardOutboundData = useMemo(
-		() => filteredOutboundData.filter(({ outbound }) => !managedOutboundMeta(outbound)),
+		() =>
+			filteredOutboundData.filter(
+				({ outbound }) => !managedOutboundMeta(outbound),
+			),
 		[filteredOutboundData],
 	);
 	const managedOutboundTotal = useMemo(
-		() => outboundData.filter((outbound) => managedOutboundMeta(outbound)).length,
+		() =>
+			outboundData.filter((outbound) => managedOutboundMeta(outbound)).length,
 		[outboundData],
 	);
 
@@ -2505,14 +2567,28 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const findOutboundTraffic = (outbound: any, index: number) => {
-		const outboundId = outboundIds[index];
-		const targetTraffic = outboundsTraffic.filter(
-			(t) => (t.target_id || "master") === selectedTarget,
+		return sumOutboundTraffic(
+			outboundsTraffic,
+			selectedTarget,
+			outboundIds[index],
+			outbound.tag,
+			isMasterTarget,
 		);
-		const traffic = outboundId
-			? targetTraffic.find((t) => t.outbound_id === outboundId)
-			: targetTraffic.find((t) => t.tag === outbound.tag);
-		return { up: Number(traffic?.up) || 0, down: Number(traffic?.down) || 0 };
+	};
+
+	const findSubscriptionOutboundTraffic = (outbound: any) => {
+		const outboundId = outboundsTraffic.find(
+			(item) =>
+				(item.target_id || "master") === selectedTarget &&
+				item.tag === outbound.tag,
+		)?.outbound_id;
+		return sumOutboundTraffic(
+			outboundsTraffic,
+			selectedTarget,
+			outboundId,
+			outbound.tag,
+			isMasterTarget,
+		);
 	};
 
 	const renderOutboundTraffic = (traffic?: { up?: number; down?: number }) => (
@@ -3525,6 +3601,13 @@ export const CoreSettingsPage: FC = () => {
 			cell: ({ outbound }) => (
 				<VStack align="start" spacing={1}>
 					<HStack spacing={1.5} maxW="full" minW={0}>
+						{managedOutboundMeta(outbound)?.provider === "tor" && (
+							<Tooltip label="Tor">
+								<Box display="inline-flex" flexShrink={0}>
+									<TorIconStyled size={20} />
+								</Box>
+							</Tooltip>
+						)}
 						<Text fontWeight="semibold" noOfLines={1}>
 							{String(outbound.tag ?? "-")}
 						</Text>
@@ -3586,7 +3669,10 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-up",
 			label: t("pages.xray.outbound.moveUp"),
 			icon: <ArrowUpIconStyled />,
-			isDisabled: outboundSearch.trim().length > 0 || row.originalIndex === 0,
+			isDisabled:
+				outboundSearch.trim().length > 0 ||
+				outboundTrafficSort !== "default" ||
+				row.originalIndex === 0,
 			onClick: () => moveOutboundUp(row.originalIndex),
 		},
 		{
@@ -3595,6 +3681,7 @@ export const CoreSettingsPage: FC = () => {
 			icon: <ArrowDownIconStyled />,
 			isDisabled:
 				outboundSearch.trim().length > 0 ||
+				outboundTrafficSort !== "default" ||
 				row.originalIndex === outboundData.length - 1,
 			onClick: () => moveOutboundDown(row.originalIndex),
 		},
@@ -3673,12 +3760,8 @@ export const CoreSettingsPage: FC = () => {
 				header: t("pages.inbounds.traffic"),
 				priority: "high",
 				mobileSummary: true,
-				cell: ({ outbound }) => {
-					const traffic = outboundsTraffic
-						.filter((item) => (item.target_id || "master") === selectedTarget)
-						.find((item) => item.tag === outbound.tag);
-					return renderOutboundTraffic(traffic);
-				},
+				cell: ({ outbound }) =>
+					renderOutboundTraffic(findSubscriptionOutboundTraffic(outbound)),
 			},
 			{
 				id: "latency",
@@ -3978,9 +4061,16 @@ export const CoreSettingsPage: FC = () => {
 			<Box
 				borderWidth="1px"
 				borderColor={pageShellBorder}
-				borderRadius="md"
+				borderRadius="2xl"
 				bg={pageShellBg}
-				p={{ base: 3, md: 4 }}
+				p={{ base: 4, md: 5 }}
+				transition="box-shadow 0.2s ease, border-color 0.2s ease"
+				_hover={{
+					"@media (min-width: 768px)": {
+						boxShadow: "sm",
+						borderColor: "panel.borderStrong",
+					},
+				}}
 			>
 				<Stack
 					direction={{ base: "column", lg: "row" }}
@@ -4043,16 +4133,33 @@ export const CoreSettingsPage: FC = () => {
 								h="32px"
 								value={selectedTarget}
 								onChange={(event) => setSelectedTarget(event.target.value)}
-							>
-								<option value="master">{t("core.defaultConfig")}</option>
-								{configTargets
-									.filter((target) => target.type === "node")
-									.map((target) => (
-										<option key={target.id} value={target.id}>
-											{target.name}
-										</option>
-									))}
-							</Select>
+								options={[
+									{ label: t("core.defaultConfig"), value: "master" },
+									...configTargets
+										.filter((target) => target.type === "node")
+										.map((target) => ({
+											label: (
+												<HStack as="span" minW={0} spacing={1}>
+													<Text as="span" noOfLines={1}>
+														{target.name}
+													</Text>
+													{target.mode === "custom" && (
+														<Text
+															as="span"
+															flexShrink={0}
+															fontSize="10px"
+															opacity={0.7}
+														>
+															(custom)
+														</Text>
+													)}
+												</HStack>
+											),
+											searchLabel: target.name,
+											value: target.id,
+										})),
+								]}
+							/>
 						</FormControl>
 						{selectedTargetInfo?.type === "node" && (
 							<FormControl
@@ -4162,17 +4269,6 @@ export const CoreSettingsPage: FC = () => {
 							<HStack spacing={2} align="center">
 								<AdvancedTabIcon />
 								<Text as="span">{t("pages.xray.advancedTemplate")}</Text>
-							</HStack>
-						),
-					},
-					{
-						value: "logs",
-						isActive: activeTab === 7,
-						onClick: () => handleTabChange(7),
-						label: (
-							<HStack spacing={2} align="center">
-								<LogsTabIcon />
-								<Text as="span">{t("pages.xray.logs")}</Text>
 							</HStack>
 						),
 					},
@@ -4613,12 +4709,13 @@ export const CoreSettingsPage: FC = () => {
 									</HStack>
 								}
 							>
-								<Input
-									size="sm"
-									maxW={{ base: "full", md: "280px" }}
+								<SearchInput
+									containerProps={{ maxW: { base: "full", md: "320px" } }}
 									placeholder={t("search")}
 									value={routingRuleSearch}
 									onChange={(e) => setRoutingRuleSearch(e.target.value)}
+									matchOptions={routingRuleSearchMatch}
+									onMatchOptionsChange={setRoutingRuleSearchMatch}
 								/>
 							</ResourceListCard>
 							<DataTable
@@ -4795,12 +4892,30 @@ export const CoreSettingsPage: FC = () => {
 									spacing={2}
 									align={{ base: "stretch", md: "center" }}
 								>
-									<Input
-										size="sm"
-										maxW={{ base: "full", md: "280px" }}
+									<SearchInput
+										containerProps={{ maxW: { base: "full", md: "320px" } }}
 										placeholder={t("search")}
 										value={outboundSearch}
 										onChange={(e) => setOutboundSearch(e.target.value)}
+										matchOptions={outboundSearchMatch}
+										onMatchOptionsChange={setOutboundSearchMatch}
+									/>
+									<Select
+										size="sm"
+										w={{ base: "full", md: "210px" }}
+										value={outboundTrafficSort}
+										showSearch={false}
+										options={[
+											{ value: "default", label: t("trafficSort.default") },
+											{ value: "highest", label: t("trafficSort.highest") },
+											{ value: "lowest", label: t("trafficSort.lowest") },
+										]}
+										placeholder={t("trafficSort.label")}
+										onChange={(event) =>
+											setOutboundTrafficSort(
+												event.target.value as TrafficSortOrder,
+											)
+										}
 									/>
 									<RadioGroup
 										size="sm"
@@ -4988,11 +5103,13 @@ export const CoreSettingsPage: FC = () => {
 										</HStack>
 									</RadioGroup>
 									<Box h="300px">
-										<JsonEditor
-											key={`obs-${obsSettings}-${jsonKey}`}
-											json={observatoryJsonValue}
-											onChange={(value) => setObsJson(value)}
-										/>
+										<Suspense fallback={<Spinner size="sm" />}>
+											<JsonEditor
+												key={`obs-${obsSettings}-${jsonKey}`}
+												json={observatoryJsonValue}
+												onChange={(value) => setObsJson(value)}
+											/>
+										</Suspense>
 									</Box>
 								</VStack>
 							)}
@@ -5371,34 +5488,36 @@ export const CoreSettingsPage: FC = () => {
 									left={isFullScreen ? 0 : "auto"}
 									zIndex={isFullScreen ? 1000 : "auto"}
 								>
-									<JsonEditor
-										key={`advanced-${advSettings}-${jsonKey}`}
-										label={activeAdvancedJsonMode.label}
-										description={activeAdvancedJsonMode.description}
-										json={advancedJsonValue}
-										canonicalContext={advancedJsonContext}
-										onValidityChange={setAdvancedJsonValid}
-										toolbarActions={
-											<IconButton
-												aria-label={
-													isFullScreen ? "Exit Full Screen" : "Full Screen"
-												}
-												icon={
-													isFullScreen ? (
-														<ExitFullScreenIconStyled />
-													) : (
-														<FullScreenIconStyled />
-													)
-												}
-												onClick={toggleFullScreen}
-												size="xs"
-												variant="outline"
-											/>
-										}
-										onChange={(value) => {
-											setAdvancedJson(value);
-										}}
-									/>
+									<Suspense fallback={<Spinner size="sm" />}>
+										<JsonEditor
+											key={`advanced-${advSettings}-${jsonKey}`}
+											label={activeAdvancedJsonMode.label}
+											description={activeAdvancedJsonMode.description}
+											json={advancedJsonValue}
+											canonicalContext={advancedJsonContext}
+											onValidityChange={setAdvancedJsonValid}
+											toolbarActions={
+												<IconButton
+													aria-label={
+														isFullScreen ? "Exit Full Screen" : "Full Screen"
+													}
+													icon={
+														isFullScreen ? (
+															<ExitFullScreenIconStyled />
+														) : (
+															<FullScreenIconStyled />
+														)
+													}
+													onClick={toggleFullScreen}
+													size="xs"
+													variant="outline"
+												/>
+											}
+											onChange={(value) => {
+												setAdvancedJson(value);
+											}}
+										/>
+									</Suspense>
 								</Box>
 								{isFullScreen && isMobile && (
 									<Button
@@ -5418,203 +5537,199 @@ export const CoreSettingsPage: FC = () => {
 						</VStack>
 					</Box>
 				)}
-				{activeTab === 7 && (
-					<Box p={0} mt={3}>
-						<Box>
-							<XrayLogsPage showTitle={false} />
-						</Box>
-					</Box>
-				)}
 			</Box>
-			{isOutboundOpen && (
-				<OutboundModal
-					isOpen={isOutboundOpen}
-					onClose={handleOutboundModalClose}
-					mode={editingOutboundIndex !== null ? "edit" : "create"}
-					initialOutbound={
-						editingOutboundIndex !== null
-							? canonicalOutbounds[editingOutboundIndex]
-							: null
-					}
-					existingTags={availableOutboundTags}
-					onSubmitOutbound={handleOutboundSave}
-				/>
-			)}
-			{isRuleOpen && (
-				<RuleModal
-					isOpen={isRuleOpen}
-					mode={editingRuleIndex !== null ? "edit" : "create"}
-					initialRule={
-						editingRuleIndex !== null
-							? canonicalRoutingRules[editingRuleIndex] || null
-							: null
-					}
-					availableInboundTags={availableInboundTags}
-					availableOutboundTags={outboundTagOptions}
-					availableBalancerTags={availableBalancerTags}
-					onTestOutbound={testOutboundByTag}
-					outboundTestingByTag={outboundTestingByTag}
-					onSubmit={handleRuleModalSubmit}
-					onClose={handleRuleModalClose}
-				/>
-			)}
-			{isRouteTestOpen && (
-				<RouteTestModal
-					isOpen={isRouteTestOpen}
-					onClose={onRouteTestClose}
-					rule={routeTestRule}
-					target={selectedTarget}
-					targetName={selectedTargetInfo?.name || selectedTarget || "master"}
-					isMasterTarget={isMasterTarget}
-					config={form.getValues("config")}
-				/>
-			)}
-			{isReverseOpen && (
-				<ReverseModal
-					isOpen={isReverseOpen}
-					onClose={handleReverseModalClose}
-					mode={editingReverseIndex !== null ? "edit" : "create"}
-					initialReverse={editingReverseInitial}
-					inboundTags={availableInboundTags}
-					outboundTags={availableOutboundTags}
-					outboundOptions={outboundTagOptions}
-					vlessInboundTags={vlessInboundTags}
-					vlessOutboundTags={vlessOutboundTags}
-					vlessOutboundOptions={vlessOutboundTagOptions}
-					vlessOutboundDetails={vlessOutboundDetails}
-					existingTags={existingReverseTags}
-					reverseCount={reverseData.length}
-					onTestOutbound={testOutboundByTag}
-					outboundTestingByTag={outboundTestingByTag}
-					onSubmit={handleReverseSubmit}
-				/>
-			)}
-			{isWarpOpen && (
-				<WarpModal
-					isOpen={isWarpOpen}
-					onClose={handleWarpModalClose}
-					initialOutbound={warpOutbound}
-					onSave={handleWarpSave}
-					onDelete={handleWarpDelete}
-				/>
-			)}
-			{isNordOpen && (
-				<NordVPNModal
-					isOpen={isNordOpen}
-					onClose={handleNordModalClose}
-					initialOutbounds={getOutbounds()}
-					onSave={handleNordSave}
-					onDelete={handleNordDelete}
-				/>
-			)}
-			{isOutboundSubsOpen && (
-				<OutboundSubscriptionsModal
-					isOpen={isOutboundSubsOpen}
-					onClose={onOutboundSubsClose}
-					onChanged={async () => {
-						await fetchActiveSubscriptionOutbounds();
-						await fetchOutboundsTraffic();
-					}}
-				/>
-			)}
-			{isTorProxyOpen && (
-				<TorProxyModal
-					isOpen={isTorProxyOpen}
-					isLoading={isApplyingTorProxy}
-					isMasterTarget={isMasterTarget}
-					existingTags={availableOutboundTags}
-					onClose={onTorProxyClose}
-					onSubmit={addTorOutbound}
-				/>
-			)}
-			{isWindscribeProxyOpen && (
-				<WindscribeProxyModal
-					isOpen={isWindscribeProxyOpen}
-					isLoading={isApplyingWindscribeProxy}
-					isMasterTarget={isMasterTarget}
-					targetID={selectedTarget}
-					existingTags={availableOutboundTags}
-					onClose={onWindscribeProxyClose}
-					onSubmit={addWindscribeOutbound}
-				/>
-			)}
-			{isPsiphonProxyOpen && (
-				<PsiphonProxyModal
-					isOpen={isPsiphonProxyOpen}
-					isLoading={isApplyingPsiphonProxy}
-					isMasterTarget={isMasterTarget}
-					targetID={selectedTarget}
-					existingTags={availableOutboundTags}
-					onClose={onPsiphonProxyClose}
-					onSubmit={addPsiphonOutbounds}
-				/>
-			)}
-			{isBalancerOpen && (
-				<BalancerModal
-					isOpen={isBalancerOpen}
-					onClose={handleBalancerModalClose}
-					mode={editingBalancerIndex !== null ? "edit" : "create"}
-					initialBalancer={
-						editingBalancerIndex !== null
-							? {
-									tag: balancersData[editingBalancerIndex]?.tag ?? "",
-									strategy:
-										balancersData[editingBalancerIndex]?.strategy ?? "random",
-									selector: balancersData[editingBalancerIndex]?.selector ?? [],
-									fallbackTag:
-										balancersData[editingBalancerIndex]?.fallbackTag ?? "",
-								}
-							: null
-					}
-					outboundTags={availableOutboundTags}
-					outboundOptions={outboundTagOptions}
-					excludedOutboundTags={excludedBalancerOutboundTags}
-					onTestOutbound={testOutboundByTag}
-					outboundTestingByTag={outboundTestingByTag}
-					existingTags={availableBalancerTags
-						.map((tag) => tag.trim())
-						.filter(
-							(tag) =>
-								tag &&
-								tag !==
-									(editingBalancerIndex !== null
-										? balancersData[editingBalancerIndex]?.tag
-										: ""),
-						)}
-					onSubmit={handleBalancerSubmit}
-				/>
-			)}
-			{isDnsOpen && (
-				<DnsModal
-					isOpen={isDnsOpen}
-					onClose={handleDnsModalClose}
-					form={form}
-					setDnsServers={setDnsServers}
-					dnsIndex={editingDnsIndex}
-					currentDnsData={
-						editingDnsIndex !== null ? dnsServers[editingDnsIndex] : null
-					}
-				/>
-			)}
-			{isDnsPresetsOpen && (
-				<DnsPresetsModal
-					isOpen={isDnsPresetsOpen}
-					onClose={onDnsPresetsClose}
-					onSelectPreset={applyDnsPreset}
-				/>
-			)}
-			{isFakeDnsOpen && (
-				<FakeDnsModal
-					isOpen={isFakeDnsOpen}
-					onClose={handleFakeDnsModalClose}
-					form={form}
-					setFakeDns={setFakeDns}
-					fakeDnsIndex={editingFakeDnsIndex}
-					currentFakeDnsData={
-						editingFakeDnsIndex !== null ? fakeDns[editingFakeDnsIndex] : null
-					}
-				/>
-			)}
+			<Suspense fallback={null}>
+				{isOutboundOpen && (
+					<OutboundModal
+						isOpen={isOutboundOpen}
+						onClose={handleOutboundModalClose}
+						mode={editingOutboundIndex !== null ? "edit" : "create"}
+						initialOutbound={
+							editingOutboundIndex !== null
+								? canonicalOutbounds[editingOutboundIndex]
+								: null
+						}
+						existingTags={availableOutboundTags}
+						onSubmitOutbound={handleOutboundSave}
+					/>
+				)}
+				{isRuleOpen && (
+					<RuleModal
+						isOpen={isRuleOpen}
+						mode={editingRuleIndex !== null ? "edit" : "create"}
+						initialRule={
+							editingRuleIndex !== null
+								? canonicalRoutingRules[editingRuleIndex] || null
+								: null
+						}
+						availableInboundTags={availableInboundTags}
+						availableOutboundTags={outboundTagOptions}
+						availableBalancerTags={availableBalancerTags}
+						onTestOutbound={testOutboundByTag}
+						outboundTestingByTag={outboundTestingByTag}
+						onSubmit={handleRuleModalSubmit}
+						onClose={handleRuleModalClose}
+					/>
+				)}
+				{isRouteTestOpen && (
+					<RouteTestModal
+						isOpen={isRouteTestOpen}
+						onClose={onRouteTestClose}
+						rule={routeTestRule}
+						target={selectedTarget}
+						targetName={selectedTargetInfo?.name || selectedTarget || "master"}
+						isMasterTarget={isMasterTarget}
+						config={form.getValues("config")}
+					/>
+				)}
+				{isReverseOpen && (
+					<ReverseModal
+						isOpen={isReverseOpen}
+						onClose={handleReverseModalClose}
+						mode={editingReverseIndex !== null ? "edit" : "create"}
+						initialReverse={editingReverseInitial}
+						inboundTags={availableInboundTags}
+						outboundTags={availableOutboundTags}
+						outboundOptions={outboundTagOptions}
+						vlessInboundTags={vlessInboundTags}
+						vlessOutboundTags={vlessOutboundTags}
+						vlessOutboundOptions={vlessOutboundTagOptions}
+						vlessOutboundDetails={vlessOutboundDetails}
+						existingTags={existingReverseTags}
+						reverseCount={reverseData.length}
+						onTestOutbound={testOutboundByTag}
+						outboundTestingByTag={outboundTestingByTag}
+						onSubmit={handleReverseSubmit}
+					/>
+				)}
+				{isWarpOpen && (
+					<WarpModal
+						isOpen={isWarpOpen}
+						onClose={handleWarpModalClose}
+						initialOutbound={warpOutbound}
+						onSave={handleWarpSave}
+						onDelete={handleWarpDelete}
+					/>
+				)}
+				{isNordOpen && (
+					<NordVPNModal
+						isOpen={isNordOpen}
+						onClose={handleNordModalClose}
+						initialOutbounds={getOutbounds()}
+						onSave={handleNordSave}
+						onDelete={handleNordDelete}
+					/>
+				)}
+				{isOutboundSubsOpen && (
+					<OutboundSubscriptionsModal
+						isOpen={isOutboundSubsOpen}
+						onClose={onOutboundSubsClose}
+						onChanged={async () => {
+							await fetchActiveSubscriptionOutbounds();
+							await fetchOutboundsTraffic();
+						}}
+					/>
+				)}
+				{isTorProxyOpen && (
+					<TorProxyModal
+						isOpen={isTorProxyOpen}
+						isLoading={isApplyingTorProxy}
+						isMasterTarget={isMasterTarget}
+						existingTags={availableOutboundTags}
+						onClose={onTorProxyClose}
+						onSubmit={addTorOutbound}
+					/>
+				)}
+				{isWindscribeProxyOpen && (
+					<WindscribeProxyModal
+						isOpen={isWindscribeProxyOpen}
+						isLoading={isApplyingWindscribeProxy}
+						isMasterTarget={isMasterTarget}
+						targetID={selectedTarget}
+						existingTags={availableOutboundTags}
+						onClose={onWindscribeProxyClose}
+						onSubmit={addWindscribeOutbound}
+					/>
+				)}
+				{isPsiphonProxyOpen && (
+					<PsiphonProxyModal
+						isOpen={isPsiphonProxyOpen}
+						isLoading={isApplyingPsiphonProxy}
+						isMasterTarget={isMasterTarget}
+						targetID={selectedTarget}
+						existingTags={availableOutboundTags}
+						onClose={onPsiphonProxyClose}
+						onSubmit={addPsiphonOutbounds}
+					/>
+				)}
+				{isBalancerOpen && (
+					<BalancerModal
+						isOpen={isBalancerOpen}
+						onClose={handleBalancerModalClose}
+						mode={editingBalancerIndex !== null ? "edit" : "create"}
+						initialBalancer={
+							editingBalancerIndex !== null
+								? {
+										tag: balancersData[editingBalancerIndex]?.tag ?? "",
+										strategy:
+											balancersData[editingBalancerIndex]?.strategy ?? "random",
+										selector:
+											balancersData[editingBalancerIndex]?.selector ?? [],
+										fallbackTag:
+											balancersData[editingBalancerIndex]?.fallbackTag ?? "",
+									}
+								: null
+						}
+						outboundTags={availableOutboundTags}
+						outboundOptions={outboundTagOptions}
+						excludedOutboundTags={excludedBalancerOutboundTags}
+						onTestOutbound={testOutboundByTag}
+						outboundTestingByTag={outboundTestingByTag}
+						existingTags={availableBalancerTags
+							.map((tag) => tag.trim())
+							.filter(
+								(tag) =>
+									tag &&
+									tag !==
+										(editingBalancerIndex !== null
+											? balancersData[editingBalancerIndex]?.tag
+											: ""),
+							)}
+						onSubmit={handleBalancerSubmit}
+					/>
+				)}
+				{isDnsOpen && (
+					<DnsModal
+						isOpen={isDnsOpen}
+						onClose={handleDnsModalClose}
+						form={form}
+						setDnsServers={setDnsServers}
+						dnsIndex={editingDnsIndex}
+						currentDnsData={
+							editingDnsIndex !== null ? dnsServers[editingDnsIndex] : null
+						}
+					/>
+				)}
+				{isDnsPresetsOpen && (
+					<DnsPresetsModal
+						isOpen={isDnsPresetsOpen}
+						onClose={onDnsPresetsClose}
+						onSelectPreset={applyDnsPreset}
+					/>
+				)}
+				{isFakeDnsOpen && (
+					<FakeDnsModal
+						isOpen={isFakeDnsOpen}
+						onClose={handleFakeDnsModalClose}
+						form={form}
+						setFakeDns={setFakeDns}
+						fakeDnsIndex={editingFakeDnsIndex}
+						currentFakeDnsData={
+							editingFakeDnsIndex !== null ? fakeDns[editingFakeDnsIndex] : null
+						}
+					/>
+				)}
+			</Suspense>
 			<ConfirmDialog
 				isOpen={Boolean(outboundReset)}
 				onClose={() => setOutboundReset(null)}

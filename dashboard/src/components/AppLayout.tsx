@@ -27,6 +27,7 @@ import {
 } from "@chakra-ui/react";
 import {
 	ArrowLeftOnRectangleIcon,
+	ArrowsRightLeftIcon,
 	ArrowUpOnSquareIcon,
 	Bars3Icon,
 	BookOpenIcon,
@@ -37,6 +38,8 @@ import {
 	CodeBracketSquareIcon,
 	Cog6ToothIcon,
 	Cog8ToothIcon,
+	CommandLineIcon,
+	DocumentDuplicateIcon,
 	EyeIcon,
 	HomeIcon as HeroHomeIcon,
 	LanguageIcon,
@@ -83,6 +86,8 @@ const MenuIcon = chakra(Bars3Icon, iconProps);
 const LanguageIconStyled = chakra(LanguageIcon, iconProps);
 const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
+const ExternalAppsIcon = chakra(CommandLineIcon, iconProps);
+const PlaceholderIcon = chakra(DocumentDuplicateIcon, iconProps);
 const UserIcon = chakra(UserCircleIcon, iconProps);
 const HomeIcon = chakra(HeroHomeIcon, iconProps);
 const UsersIcon = chakra(UserGroupIcon, iconProps);
@@ -92,6 +97,7 @@ const MasterSettingsIcon = chakra(Cog8ToothIcon, iconProps);
 const XraySettingsIcon = chakra(WrenchScrewdriverIcon, iconProps);
 const ServicesIcon = chakra(Squares2X2Icon, iconProps);
 const HostsIcon = chakra(LinkIcon, iconProps);
+const HAProxyIcon = chakra(ArrowsRightLeftIcon, iconProps);
 const NodesIcon = chakra(ServerStackIcon, iconProps);
 const InsightsIcon = chakra(EyeIcon, iconProps);
 const RecentActionsIcon = chakra(ClockIcon, iconProps);
@@ -124,6 +130,9 @@ export function AppLayout() {
 	const { userData, getUserIsSuccess } = useGetUser();
 	const navigate = useNavigate();
 	const location = useLocation();
+	const [activeLocationHash, setActiveLocationHash] = useState(
+		() => window.location.hash,
+	);
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
@@ -181,13 +190,23 @@ export function AppLayout() {
 	);
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
 	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
-	const shellHeaderShadow = "none";
+	const shellHeaderShadow = useColorModeValue(
+		"0 18px 48px rgba(15, 23, 42, 0.10)",
+		"0 18px 48px rgba(0, 0, 0, 0.32)",
+	);
 	const shellMainBg = useColorModeValue("panel.main", "panel.main");
 	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const headerButtonHoverBg = useColorModeValue(
 		"panel.borderStrong",
 		"panel.borderStrong",
 	);
+
+	useEffect(() => {
+		const syncHash = () => setActiveLocationHash(window.location.hash);
+		setActiveLocationHash(location.hash);
+		window.addEventListener("hashchange", syncHash);
+		return () => window.removeEventListener("hashchange", syncHash);
+	}, [location.hash]);
 
 	const setPreviewTabKeySafe = (value: string | null) => {
 		previewTabKeyRef.current = value;
@@ -220,6 +239,11 @@ export function AppLayout() {
 		userData.role === AdminRole.FullAccess ||
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
+	const canManagePlaceholders =
+		userData.role === AdminRole.FullAccess ||
+		(userData.role === AdminRole.Sudo &&
+			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
+		Boolean(userData.permissions?.self_permissions?.self_placeholders);
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
@@ -263,6 +287,14 @@ export function AppLayout() {
 						icon: XraySettingsIcon,
 					}
 				: null,
+			isPrivilegedAdmin
+				? {
+						key: "haproxy",
+						label: t("haproxy.title"),
+						to: "/haproxy",
+						icon: HAProxyIcon,
+					}
+				: null,
 			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
 				? {
 						key: "access-insights",
@@ -281,18 +313,36 @@ export function AppLayout() {
 				: null,
 			isPrivilegedAdmin
 				? {
+						key: "phpmyadmin",
+						label: t("phpmyadmin.menu"),
+						to: "/phpmyadmin",
+						icon: PHPMyAdminIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "external-apps",
+						label: t("externalApps.menu"),
+						to: "/external-apps",
+						icon: ExternalAppsIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
 						key: "api-docs",
 						label: t("apiDocs.menu"),
 						to: "/api-docs",
 						icon: DocsIcon,
 					}
 				: null,
-			isPrivilegedAdmin
+			canManagePlaceholders
 				? {
-						key: "phpmyadmin",
-						label: t("phpmyadmin.menu"),
-						to: "/phpmyadmin",
-						icon: PHPMyAdminIcon,
+						key: "placeholders",
+						label: isPrivilegedAdmin
+							? t("placeholders.menu")
+							: t("placeholders.settingsMenu"),
+						to: "/placeholders",
+						icon: PlaceholderIcon,
 					}
 				: null,
 			{
@@ -303,7 +353,13 @@ export function AppLayout() {
 			},
 		];
 		return items.filter(Boolean) as SettingsMenuItem[];
-	}, [canViewRecentActions, isPrivilegedAdmin, sectionAccess, t]);
+	}, [
+		canManagePlaceholders,
+		canViewRecentActions,
+		isPrivilegedAdmin,
+		sectionAccess,
+		t,
+	]);
 
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 
@@ -699,6 +755,23 @@ export function AppLayout() {
 		"/usage": "services",
 		"/xray-settings": "basic",
 	};
+	const locationTrail = [
+		"dashboard",
+		...location.pathname.split("/").filter(Boolean),
+		activeLocationHash.replace(/^#/, "") ||
+			settingsDefaultTabByPath[location.pathname] ||
+			"",
+	]
+		.filter(Boolean)
+		.map((part) => part.replace(/[-_]+/g, " "));
+	const openCurrentPage = () => {
+		const defaultTab = settingsDefaultTabByPath[location.pathname];
+		if (defaultTab) {
+			window.location.hash = defaultTab;
+			return;
+		}
+		navigate(location.pathname);
+	};
 
 	const navigateToSettingsItem = (target: string) => {
 		const defaultTab = settingsDefaultTabByPath[target];
@@ -725,8 +798,8 @@ export function AppLayout() {
 					"--rb-sidebar-offset": isMobile
 						? "0px"
 						: sidebarCollapsed
-							? "64px"
-							: "240px",
+							? "88px"
+							: "248px",
 				}}
 			>
 				{/* persistent sidebar on md+; drawer on mobile */}
@@ -743,25 +816,27 @@ export function AppLayout() {
 					direction="column"
 					minW="0"
 					overflow="hidden"
-					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "16" : "60"}
-					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "16" : "60"}
-					transition={isRTL ? "margin-right 0.3s" : "margin-left 0.3s"}
+					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
+					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
 				>
 					<Box
 						as="header"
 						h="12"
 						minH="12"
-						borderBottom="1px"
+						borderWidth="1px"
 						borderColor={shellBorder}
+						borderRadius="2xl"
 						bg={shellHeaderBg}
 						boxShadow={shellHeaderShadow}
+						mt="3"
+						mx={{ base: "3", md: "4" }}
 						display="flex"
 						alignItems="center"
 						px={{ base: 3, md: 5 }}
 						justifyContent="space-between"
 						flexShrink={0}
 						position="sticky"
-						top={0}
+						top="3"
 						zIndex={100}
 						userSelect="none"
 						gap={4}
@@ -781,6 +856,53 @@ export function AppLayout() {
 								borderColor={shellBorder}
 								_hover={{ bg: headerButtonHoverBg }}
 							/>
+							<HStack
+								aria-label="Current location"
+								spacing="1"
+								minW="0"
+								overflow="hidden"
+								dir="ltr"
+							>
+								<Button
+									variant="link"
+									fontSize={{ base: "xs", md: "sm" }}
+									fontWeight="semibold"
+									color="panel.textSecondary"
+									flexShrink={0}
+									onClick={() => navigate("/")}
+									_hover={{ color: "panel.text" }}
+								>
+									dashboard
+								</Button>
+								{locationTrail.length > 1 && (
+									<>
+										<Text color="panel.textSecondary">→</Text>
+										<Button
+											variant="link"
+											fontSize={{ base: "xs", md: "sm" }}
+											fontWeight="semibold"
+											color="panel.textSecondary"
+											flexShrink={0}
+											onClick={openCurrentPage}
+											_hover={{ color: "panel.text" }}
+										>
+											{locationTrail[1]}
+										</Button>
+									</>
+								)}
+								{locationTrail.length > 2 && (
+									<Text
+										fontSize={{ base: "xs", md: "sm" }}
+										fontWeight="semibold"
+										color="panel.textSecondary"
+										whiteSpace="nowrap"
+										overflow="hidden"
+										textOverflow="ellipsis"
+									>
+										→ {locationTrail.slice(2).join(" → ")}
+									</Text>
+								)}
+							</HStack>
 						</HStack>
 						<HStack spacing={2} alignItems="center" flexShrink={0}>
 							<HeaderCalendar />
@@ -1001,13 +1123,13 @@ export function AppLayout() {
 													bg: "transparent !important",
 												},
 											}}
-										onClick={async () => {
-											try {
-												await logoutSession();
-											} finally {
-												clearClientSession();
-												navigate("/login");
-											}
+											onClick={async () => {
+												try {
+													await logoutSession();
+												} finally {
+													clearClientSession();
+													navigate("/login");
+												}
 											}}
 										>
 											{t("header.logout")}
@@ -1020,8 +1142,8 @@ export function AppLayout() {
 					<Box
 						as="main"
 						flex="1"
-						p={{ base: 3, md: 6 }}
-						pb={{ base: "40", md: "6" }}
+						p={{ base: 3, md: 4 }}
+						pb={{ base: "40", md: "4" }}
 						overflow="auto"
 						minH="0"
 						bg={shellMainBg}
@@ -1463,14 +1585,14 @@ export function AppLayout() {
 																	_active={{ bg: menuHover }}
 																	_focus={{ bg: "transparent" }}
 																	_focusVisible={{ bg: menuHover }}
-																onClick={async () => {
-																	try {
-																		await logoutSession();
-																	} finally {
-																		clearClientSession();
-																		handleAccountMenuClose();
-																		navigate("/login");
-																	}
+																	onClick={async () => {
+																		try {
+																			await logoutSession();
+																		} finally {
+																			clearClientSession();
+																			handleAccountMenuClose();
+																			navigate("/login");
+																		}
 																	}}
 																>
 																	{t("header.logout")}

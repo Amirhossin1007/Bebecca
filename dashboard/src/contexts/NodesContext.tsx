@@ -4,7 +4,7 @@ import { fetch } from "service/http";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { z } from "zod";
 import { create } from "zustand";
-import { type FilterUsageType } from "./DashboardContext";
+import type { FilterUsageType } from "./DashboardContext";
 
 const configSchema = z
 	.union([
@@ -52,6 +52,7 @@ export const NodeSchema = z
 			.number()
 			.min(1)
 			.or(z.string().transform((v) => parseFloat(v))),
+		control_port: z.number().min(1).optional(),
 		api_port: z
 			.number()
 			.min(1)
@@ -75,6 +76,13 @@ export const NodeSchema = z
 			.enum(["connected", "connecting", "error", "disabled", "limited"])
 			.nullable()
 			.optional(),
+		agent_status: z
+			.enum(["connected", "connecting", "error", "unknown"])
+			.optional(),
+		xray_status: z.enum(["running", "stopped", "unknown"]).optional(),
+		desired_revision: z.number().optional(),
+		applied_revision: z.number().optional(),
+		capabilities: z.array(z.string()).optional(),
 		message: z.string().nullable().optional(),
 		usage_coefficient: z
 			.number()
@@ -342,6 +350,18 @@ export const useNodeMetricsStream = (enabled = true) => {
 		let closed = false;
 		let ws: WebSocket | null = null;
 		let reconnectTimer: number | undefined;
+		let flushTimer: number | undefined;
+		let pendingNodes: NodeType[] = [];
+
+		const flush = () => {
+			flushTimer = undefined;
+			const liveNodes = pendingNodes;
+			pendingNodes = [];
+			if (liveNodes.length === 0) return;
+			queryClient.setQueryData<NodeType[]>(FetchNodesQueryKey, (current) =>
+				mergeLiveNodes(current, liveNodes),
+			);
+		};
 
 		const connect = () => {
 			ws = new WebSocket(url);
@@ -352,9 +372,10 @@ export const useNodeMetricsStream = (enabled = true) => {
 					if (!Array.isArray(liveNodes)) {
 						return;
 					}
-					queryClient.setQueryData<NodeType[]>(FetchNodesQueryKey, (current) =>
-						mergeLiveNodes(current, liveNodes),
-					);
+					pendingNodes = mergeLiveNodes(pendingNodes, liveNodes);
+					if (!flushTimer) {
+						flushTimer = window.setTimeout(flush, 100);
+					}
 				} catch (error) {
 					console.error("Unable to parse node metrics stream payload", error);
 				}
@@ -374,6 +395,9 @@ export const useNodeMetricsStream = (enabled = true) => {
 			closed = true;
 			if (reconnectTimer) {
 				window.clearTimeout(reconnectTimer);
+			}
+			if (flushTimer) {
+				window.clearTimeout(flushTimer);
 			}
 			ws?.close();
 		};

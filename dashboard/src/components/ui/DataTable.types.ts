@@ -1,5 +1,5 @@
 import type { SortingState } from "@tanstack/react-table";
-import { Td, Th, type BoxProps, type TableProps } from "@chakra-ui/react";
+import type { BoxProps, TableProps, Td, Th } from "@chakra-ui/react";
 import type { ReactElement, ReactNode } from "react";
 import type { ComponentProps } from "react";
 

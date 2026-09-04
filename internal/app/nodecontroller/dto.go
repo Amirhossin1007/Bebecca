@@ -1,6 +1,7 @@
 package nodecontroller
 
 type Request struct {
+	OperationID             string   `json:"-"`
 	NodeID                  int64    `json:"node_id"`
 	ConfigJSON              string   `json:"config_json,omitempty"`
 	Force                   bool     `json:"force,omitempty"`
@@ -71,6 +72,11 @@ type RecoverNodesResult struct {
 	Errors    []string `json:"errors,omitempty"`
 }
 
+type HealthCheckNodesResult struct {
+	Checked int      `json:"checked"`
+	Errors  []string `json:"errors,omitempty"`
+}
+
 type CollectUsageRequest struct {
 	NodeID                   int64 `json:"node_id,omitempty"`
 	Limit                    int   `json:"limit,omitempty"`
@@ -83,14 +89,25 @@ type CollectUsageRequest struct {
 }
 
 type CollectUsageResult struct {
-	Nodes           int      `json:"nodes"`
-	UserBatches     int      `json:"user_batches"`
-	OutboundBatches int      `json:"outbound_batches"`
-	UserSamples     int      `json:"user_samples"`
-	OutboundSamples int      `json:"outbound_samples"`
-	UserAcked       int      `json:"user_acked"`
-	OutboundAcked   int      `json:"outbound_acked"`
-	Errors          []string `json:"errors,omitempty"`
+	Nodes           int                `json:"nodes"`
+	UserBatches     int                `json:"user_batches"`
+	OutboundBatches int                `json:"outbound_batches"`
+	UserSamples     int                `json:"user_samples"`
+	OutboundSamples int                `json:"outbound_samples"`
+	InboundSamples  int                `json:"inbound_samples"`
+	UserAcked       int                `json:"user_acked"`
+	OutboundAcked   int                `json:"outbound_acked"`
+	Errors          []string           `json:"errors,omitempty"`
+	Speeds          []UserTrafficSpeed `json:"-"`
+}
+
+type UserTrafficSpeed struct {
+	UserID        int64
+	Username      string
+	AdminID       *int64
+	ServiceID     *int64
+	UploadSpeed   uint64
+	DownloadSpeed uint64
 }
 
 type RuntimeResult struct {
@@ -104,6 +121,11 @@ type RuntimeResult struct {
 	UpdateChannel      string   `json:"node_update_channel,omitempty"`
 	Connected          bool     `json:"connected"`
 	Started            bool     `json:"started"`
+	AgentStatus        string   `json:"agent_status"`
+	XrayStatus         string   `json:"xray_status"`
+	DesiredRevision    uint64   `json:"desired_revision"`
+	AppliedRevision    uint64   `json:"applied_revision"`
+	Capabilities       []string `json:"capabilities,omitempty"`
 	CPU                CPUInfo  `json:"cpu"`
 	Memory             MemInfo  `json:"memory"`
 	Transfer           NetInfo  `json:"transfer"`
@@ -175,39 +197,44 @@ type NodeListResult struct {
 }
 
 type NodeListItem struct {
-	ID                     int64   `json:"id"`
-	Name                   string  `json:"name"`
-	Note                   *string `json:"note"`
-	Address                string  `json:"address"`
-	Port                   int     `json:"port"`
-	APIPort                int     `json:"api_port"`
-	UsageCoefficient       float64 `json:"usage_coefficient"`
-	DataLimit              *int64  `json:"data_limit"`
-	ProxyEnabled           bool    `json:"proxy_enabled"`
-	ProxyType              *string `json:"proxy_type"`
-	ProxyHost              *string `json:"proxy_host"`
-	ProxyPort              *int64  `json:"proxy_port"`
-	ProxyUsername          *string `json:"proxy_username"`
-	ProxyPassword          *string `json:"proxy_password"`
-	Status                 string  `json:"status"`
-	Message                *string `json:"message"`
-	XrayVersion            *string `json:"xray_version"`
-	NodeServiceVersion     *string `json:"node_service_version"`
-	NodeInstallMode        *string `json:"node_install_mode"`
-	NodeUpdateChannel      *string `json:"node_update_channel"`
-	CPU                    CPUInfo `json:"cpu"`
-	Memory                 MemInfo `json:"memory"`
-	Transfer               NetInfo `json:"transfer"`
-	UptimeSeconds          uint64  `json:"uptime_seconds"`
-	GeoMode                string  `json:"geo_mode"`
-	XrayConfigMode         string  `json:"xray_config_mode"`
-	Uplink                 int64   `json:"uplink"`
-	Downlink               int64   `json:"downlink"`
-	HasCustomCertificate   bool    `json:"has_custom_certificate"`
-	UsesDefaultCertificate bool    `json:"uses_default_certificate"`
-	CertificatePublicKey   *string `json:"certificate_public_key"`
-	NodeCertificate        *string `json:"node_certificate"`
-	NodeCertificateKey     *string `json:"node_certificate_key,omitempty"`
+	ID                     int64    `json:"id"`
+	Name                   string   `json:"name"`
+	Note                   *string  `json:"note"`
+	Address                string   `json:"address"`
+	Port                   int      `json:"port"`
+	APIPort                int      `json:"api_port"`
+	UsageCoefficient       float64  `json:"usage_coefficient"`
+	DataLimit              *int64   `json:"data_limit"`
+	ProxyEnabled           bool     `json:"proxy_enabled"`
+	ProxyType              *string  `json:"proxy_type"`
+	ProxyHost              *string  `json:"proxy_host"`
+	ProxyPort              *int64   `json:"proxy_port"`
+	ProxyUsername          *string  `json:"proxy_username"`
+	ProxyPassword          *string  `json:"proxy_password"`
+	Status                 string   `json:"status"`
+	AgentStatus            string   `json:"agent_status"`
+	XrayStatus             string   `json:"xray_status"`
+	DesiredRevision        uint64   `json:"desired_revision"`
+	AppliedRevision        uint64   `json:"applied_revision"`
+	Capabilities           []string `json:"capabilities,omitempty"`
+	Message                *string  `json:"message"`
+	XrayVersion            *string  `json:"xray_version"`
+	NodeServiceVersion     *string  `json:"node_service_version"`
+	NodeInstallMode        *string  `json:"node_install_mode"`
+	NodeUpdateChannel      *string  `json:"node_update_channel"`
+	CPU                    CPUInfo  `json:"cpu"`
+	Memory                 MemInfo  `json:"memory"`
+	Transfer               NetInfo  `json:"transfer"`
+	UptimeSeconds          uint64   `json:"uptime_seconds"`
+	GeoMode                string   `json:"geo_mode"`
+	XrayConfigMode         string   `json:"xray_config_mode"`
+	Uplink                 int64    `json:"uplink"`
+	Downlink               int64    `json:"downlink"`
+	HasCustomCertificate   bool     `json:"has_custom_certificate"`
+	UsesDefaultCertificate bool     `json:"uses_default_certificate"`
+	CertificatePublicKey   *string  `json:"certificate_public_key"`
+	NodeCertificate        *string  `json:"node_certificate"`
+	NodeCertificateKey     *string  `json:"node_certificate_key,omitempty"`
 }
 
 type CPUInfo struct {

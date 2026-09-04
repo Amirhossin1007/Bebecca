@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
@@ -17,14 +18,25 @@ import (
 )
 
 const (
-	ipBlockTTLSeconds = uint32(2 * 60)
+	ipBlockTTLSeconds      = uint32(2 * 60)
+	onlineIPWriteBatchSize = 500
 )
+
+// ponytail: Rebecca runs one master writer; split this into a dedicated DB
+// writer only if multiple master processes become supported.
+var onlineIPWriteMu sync.Mutex
 
 type OnlineIPSample struct {
 	UserID     int64
 	Protocol   string
 	IP         string
 	LastSeenAt time.Time
+}
+
+type onlineIPSampleKey struct {
+	userID   int64
+	protocol string
+	ip       string
 }
 
 type UserOnlineIPRecord struct {
@@ -69,6 +81,7 @@ func onlineIPActiveCutoff() time.Time {
 
 func onlineIPSamplesFromBatch(items []*nodev1.OnlineUserIP) []OnlineIPSample {
 	result := make([]OnlineIPSample, 0, len(items))
+	observedAt := time.Now().UTC()
 	for _, item := range items {
 		if item == nil {
 			continue
@@ -85,15 +98,11 @@ func onlineIPSamplesFromBatch(items []*nodev1.OnlineUserIP) []OnlineIPSample {
 			if !usableOnlineIP(addr) {
 				continue
 			}
-			lastSeen := time.Now().UTC()
-			if unix := ip.GetLastSeenUnix(); unix > 0 {
-				lastSeen = time.Unix(unix, 0).UTC()
-			}
 			result = append(result, OnlineIPSample{
 				UserID:     userID,
 				Protocol:   "xray",
 				IP:         addr,
-				LastSeenAt: lastSeen,
+				LastSeenAt: observedAt,
 			})
 		}
 	}
@@ -108,6 +117,44 @@ func usableOnlineIP(value string) bool {
 	return !addr.IsLoopback() && !addr.IsUnspecified() && !addr.IsMulticast()
 }
 
+func normalizedOnlineIPSamples(samples []OnlineIPSample) []OnlineIPSample {
+	latest := make(map[onlineIPSampleKey]OnlineIPSample, len(samples))
+	for _, sample := range samples {
+		addr, ok := normalizedUsableIP(sample.IP)
+		if sample.UserID <= 0 || !ok {
+			continue
+		}
+		protocol := normalizedOnlineProtocol(sample.Protocol)
+		if protocol == "" {
+			protocol = "xray"
+		}
+		if sample.LastSeenAt.IsZero() {
+			sample.LastSeenAt = time.Now().UTC()
+		}
+		sample.Protocol = protocol
+		sample.IP = addr
+		key := onlineIPSampleKey{userID: sample.UserID, protocol: protocol, ip: addr}
+		if current, exists := latest[key]; !exists || sample.LastSeenAt.After(current.LastSeenAt) {
+			latest[key] = sample
+		}
+	}
+
+	result := make([]OnlineIPSample, 0, len(latest))
+	for _, sample := range latest {
+		result = append(result, sample)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].UserID != result[j].UserID {
+			return result[i].UserID < result[j].UserID
+		}
+		if result[i].Protocol != result[j].Protocol {
+			return result[i].Protocol < result[j].Protocol
+		}
+		return result[i].IP < result[j].IP
+	})
+	return result
+}
+
 func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, samples []OnlineIPSample) error {
 	if nodeID <= 0 {
 		return nil
@@ -115,48 +162,38 @@ func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, sample
 	if ok, err := r.tableExists(ctx, "user_online_ips"); err != nil || !ok {
 		return err
 	}
+	normalized := normalizedOnlineIPSamples(samples)
+	batchSize := onlineIPWriteBatchSize
+	if r.dialect == "sqlite" {
+		batchSize = 100
+	}
+	onlineIPWriteMu.Lock()
+	defer onlineIPWriteMu.Unlock()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	for _, sample := range samples {
-		if sample.UserID <= 0 || !usableOnlineIP(sample.IP) {
-			continue
-		}
-		protocol := normalizedOnlineProtocol(sample.Protocol)
-		if protocol == "" {
-			protocol = "xray"
-		}
-		lastSeen := sample.LastSeenAt
-		if lastSeen.IsZero() {
-			lastSeen = time.Now().UTC()
+	for start := 0; start < len(normalized); start += batchSize {
+		end := min(start+batchSize, len(normalized))
+		var query strings.Builder
+		query.WriteString("INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at) VALUES ")
+		args := make([]any, 0, (end-start)*5)
+		for index, sample := range normalized[start:end] {
+			if index > 0 {
+				query.WriteByte(',')
+			}
+			query.WriteString("(?, ?, ?, ?, ?)")
+			args = append(args, nodeID, sample.UserID, sample.Protocol, sample.IP, r.timeArg(sample.LastSeenAt.UTC()))
 		}
 		if r.dialect == "mysql" || r.dialect == "mariadb" {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at)
-VALUES (?, ?, ?, ?, ?)
-ON DUPLICATE KEY UPDATE last_seen_at = VALUES(last_seen_at)`,
-				nodeID,
-				sample.UserID,
-				protocol,
-				strings.TrimSpace(sample.IP),
-				r.timeArg(lastSeen.UTC()),
-			)
+			query.WriteString(" ON DUPLICATE KEY UPDATE last_seen_at = GREATEST(last_seen_at, VALUES(last_seen_at))")
 		} else {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at)
-VALUES (?, ?, ?, ?, ?)
-ON CONFLICT(node_id, user_id, protocol, ip) DO UPDATE SET last_seen_at = excluded.last_seen_at`,
-				nodeID,
-				sample.UserID,
-				protocol,
-				strings.TrimSpace(sample.IP),
-				r.timeArg(lastSeen.UTC()),
-			)
+			query.WriteString(" ON CONFLICT(node_id, user_id, protocol, ip) DO UPDATE SET last_seen_at = CASE WHEN excluded.last_seen_at > user_online_ips.last_seen_at THEN excluded.last_seen_at ELSE user_online_ips.last_seen_at END")
 		}
-		if err != nil {
+		if _, err := tx.ExecContext(ctx, query.String(), args...); err != nil {
 			return err
 		}
 	}
@@ -180,6 +217,7 @@ SELECT uoi.node_id, COALESCE(n.name, ''), uoi.user_id, uoi.protocol, uoi.ip, uoi
 FROM user_online_ips uoi
 LEFT JOIN nodes n ON n.id = uoi.node_id
 WHERE uoi.user_id = ? AND uoi.last_seen_at >= ?
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 ORDER BY uoi.last_seen_at DESC, uoi.node_id, uoi.protocol, uoi.ip`,
 			userID,
 			r.timeArg(cutoff.UTC()),
@@ -213,9 +251,11 @@ ORDER BY uoi.last_seen_at DESC, uoi.node_id, uoi.protocol, uoi.ip`,
 SELECT vus.node_id, COALESCE(n.name, ''), vus.user_id, vus.protocol, COALESCE(vus.inbound_tag, ''), vus.session_id, COALESCE(vus.assigned_ip, ''), `+clientExpr+`, vus.last_seen_at
 FROM vpn_user_sessions vus
 LEFT JOIN nodes n ON n.id = vus.node_id
-WHERE vus.user_id = ? AND vus.ended_at IS NULL
+WHERE vus.user_id = ? AND vus.ended_at IS NULL AND vus.last_seen_at >= ?
+  AND (n.id IS NULL OR LOWER(COALESCE(n.status, '')) <> 'deleted')
 ORDER BY vus.last_seen_at DESC, vus.node_id, vus.protocol, vus.session_id`,
 			userID,
+			r.timeArg(cutoff.UTC()),
 		)
 		if err != nil {
 			return nil, err

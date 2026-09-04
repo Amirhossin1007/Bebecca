@@ -7,10 +7,13 @@ import type {
 	StandardAdminPermissionsBulkResponse,
 } from "types/Admin";
 import { getAdminsPerPageLimitSize } from "utils/userPreferenceStorage";
+import { matchesSearch } from "utils/searchMatch";
 import { create } from "zustand";
 
 export type AdminFilters = {
 	search: string;
+	matchCase: boolean;
+	matchWholeWord: boolean;
 	limit: number;
 	offset: number;
 	sort: string;
@@ -62,6 +65,8 @@ type AdminsStore = {
 
 const createDefaultFilters = (): AdminFilters => ({
 	search: "",
+	matchCase: false,
+	matchWholeWord: false,
 	limit: getAdminsPerPageLimitSize(),
 	offset: 0,
 	sort: "username",
@@ -91,10 +96,10 @@ const normalizeAdminsResponse = (
 		seen.add(key);
 		return true;
 	});
-	const search = filters.search?.trim().toLowerCase();
+	const search = filters.search?.trim();
 	if (search && normalizedAdmins.length > total) {
 		const matching = normalizedAdmins.filter((admin) =>
-			admin.username.toLowerCase().includes(search),
+			matchesSearch(admin.username, search, filters),
 		);
 		if (matching.length >= Math.max(total, 1)) {
 			normalizedAdmins = matching.slice(0, Math.max(total, 0));
@@ -173,6 +178,8 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 		const query: Record<string, string | number> = {};
 		if (filters.search) {
 			query.username = filters.search;
+			query.match_case = String(filters.matchCase);
+			query.match_whole_word = String(filters.matchWholeWord);
 		}
 		if (filters.offset !== undefined) {
 			query.offset = filters.offset;
@@ -280,6 +287,8 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 		const force = options?.force === true;
 		const filters: AdminFilters = {
 			search: "",
+			matchCase: false,
+			matchWholeWord: false,
 			limit: 1000,
 			offset: 0,
 			sort: "username",
@@ -288,6 +297,8 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 		const query: Record<string, string | number> = {};
 		if (filters.search) {
 			query.username = filters.search;
+			query.match_case = String(filters.matchCase);
+			query.match_whole_word = String(filters.matchWholeWord);
 		}
 		if (filters.offset !== undefined) {
 			query.offset = filters.offset;

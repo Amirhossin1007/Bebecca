@@ -153,7 +153,7 @@ const buildServiceDonutOptions = (
 const AdminsUsage: FC = () => {
 	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
-	const { admins: pagedAdmins } = useAdminsStore();
+	const pagedAdmins = useAdminsStore((state) => state.admins);
 
 	const [admins, setAdmins] = useState<Admin[]>([]);
 	const [serviceOptions, setServiceOptions] = useState<ServiceSummary[]>([]);
@@ -193,12 +193,6 @@ const AdminsUsage: FC = () => {
 	const [selectedAdmin, setSelectedAdmin] = useState<string | null>(null);
 	const [points, setPoints] = useState<DailyUsagePoint[]>([]);
 	const [loading, setLoading] = useState(false);
-	const _selectedService = useMemo(
-		() =>
-			serviceOptions.find((service) => service.id === selectedServiceId) ??
-			null,
-		[serviceOptions, selectedServiceId],
-	);
 	const filteredAdmins = useMemo(() => {
 		if (!selectedServiceId) return admins;
 		const allowedUsernames = new Set(
@@ -565,8 +559,7 @@ const AdminsUsage: FC = () => {
 					<VStack flex="1" align="stretch" spacing={2}>
 						{serviceAdminUsage.length ? (
 							serviceAdminUsage.map((item) => {
-								const username =
-									item.username || t("services.unassignedAdmin");
+								const username = item.username || t("services.unassignedAdmin");
 								const isSelectable = Boolean(item.username);
 								const isActive =
 									selectedAdmin === item.username && isSelectable;

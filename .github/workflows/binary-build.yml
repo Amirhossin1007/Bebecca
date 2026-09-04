@@ -76,6 +76,9 @@ jobs:
       - name: Test Go
         run: go test ./internal/app/admin ./internal/app/backup ./internal/app/migrations
 
+      - name: Test binary database lifecycle
+        run: bash scripts/rebecca/test-database-maintenance.sh
+
       - name: Upload dashboard
         uses: actions/upload-artifact@v4
         with:
@@ -91,26 +94,26 @@ jobs:
       matrix:
         include:
           - asset_arch: "386"
-            platform: linux/386
-            image: golang:1.25-trixie
+            goarch: "386"
+            goarm: ""
           - asset_arch: amd64
-            platform: linux/amd64
-            image: golang:1.25-trixie
+            goarch: amd64
+            goarm: ""
           - asset_arch: arm64
-            platform: linux/arm64
-            image: golang:1.25-trixie
+            goarch: arm64
+            goarm: ""
           - asset_arch: armv5
-            platform: linux/arm/v7
-            image: golang:1.25-trixie
+            goarch: arm
+            goarm: "5"
           - asset_arch: armv6
-            platform: linux/arm/v7
-            image: golang:1.25-trixie
+            goarch: arm
+            goarm: "6"
           - asset_arch: armv7
-            platform: linux/arm/v7
-            image: golang:1.25-trixie
+            goarch: arm
+            goarm: "7"
           - asset_arch: s390x
-            platform: linux/s390x
-            image: golang:1.25-trixie
+            goarch: s390x
+            goarm: ""
 
     steps:
       - name: Checkout
@@ -126,84 +129,28 @@ jobs:
           name: dashboard-build
           path: dashboard/build
 
-      - name: Set up QEMU
-        if: github.event_name == 'workflow_dispatch' && inputs.full_matrix == true && matrix.asset_arch != 'amd64'
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Go for native Linux build
-        if: matrix.asset_arch == 'amd64'
+      - name: Set up Go
+        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
 
       - name: Build Linux binary package
-        if: matrix.asset_arch == 'amd64' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
+        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         shell: bash
         env:
-          ASSET_ARCH: ${{ matrix.asset_arch }}
           ASSET_NAME: rebecca-linux-${{ matrix.asset_arch }}.tar.gz
-          BUILD_IMAGE: ${{ matrix.image }}
-          BUILD_PLATFORM: ${{ matrix.platform }}
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
         run: |
           set -euo pipefail
-
-          if [ "${ASSET_ARCH}" = "amd64" ]; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends \
-              bash \
-              build-essential \
-              ca-certificates \
-              git \
-              pkg-config
-            bash scripts/build_binary.sh
-            tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli templates
-            sha256sum "dist/${ASSET_NAME}"
-            exit 0
-          fi
-
-          docker pull --platform "${BUILD_PLATFORM}" "${BUILD_IMAGE}"
-
-          set +e
-          docker run --rm \
-            --pull never \
-            --platform "${BUILD_PLATFORM}" \
-            -e ASSET_ARCH="${ASSET_ARCH}" \
-            -e ASSET_NAME="${ASSET_NAME}" \
-            -v "${PWD}:/workspace" \
-            -w /workspace \
-            "${BUILD_IMAGE}" \
-            bash -lc '
-              set -euo pipefail
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update
-              apt-get install -y --no-install-recommends \
-                bash \
-                build-essential \
-                ca-certificates \
-                git \
-                pkg-config
-              bash scripts/build_binary.sh
-              tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli templates
-              sha256sum "dist/${ASSET_NAME}"
-            ' 2>&1 | tee "build-${ASSET_ARCH}.log"
-          status="${PIPESTATUS[0]}"
-          set -e
-
-          if [ "${status}" -ne 0 ]; then
-            echo "::group::Last ${ASSET_NAME} build log lines"
-            tail -n 120 "build-${ASSET_ARCH}.log" || true
-            echo "::endgroup::"
-            tail -n 20 "build-${ASSET_ARCH}.log" | while IFS= read -r line; do
-              line="${line//'%'/'%25'}"
-              line="${line//$'\r'/'%0D'}"
-              line="${line//$'\n'/'%0A'}"
-              echo "::error title=${ASSET_NAME}::${line}"
-            done
-            exit "${status}"
-          fi
+          bash scripts/build_binary.sh
+          tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli templates
+          sha256sum "dist/${ASSET_NAME}"
 
       - name: Upload Linux package artifact
-        if: matrix.asset_arch == 'amd64' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
+        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         uses: actions/upload-artifact@v4
         with:
           name: rebecca-linux-${{ matrix.asset_arch }}

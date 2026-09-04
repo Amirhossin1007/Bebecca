@@ -20,6 +20,7 @@ export enum UserPermissionToggle {
 	Create = "create",
 	Delete = "delete",
 	ResetUsage = "reset_usage",
+	PeriodicUsageReset = "periodic_usage_reset",
 	Revoke = "revoke",
 	CreateOnHold = "create_on_hold",
 	AllowUnlimitedData = "allow_unlimited_data",
@@ -54,6 +55,7 @@ export enum SelfPermissionToggle {
 	SelfApiKeys = "self_api_keys",
 	SelfSessions = "self_sessions",
 	Self2FA = "self_2fa",
+	SelfPlaceholders = "self_placeholders",
 }
 
 export enum AdminSudoScope {
@@ -88,6 +90,7 @@ export type AdminPermissions = {
 		self_api_keys: boolean;
 		self_sessions: boolean;
 		self_2fa: boolean;
+		self_placeholders: boolean;
 	};
 	sudo: SudoPermissionSettings;
 };

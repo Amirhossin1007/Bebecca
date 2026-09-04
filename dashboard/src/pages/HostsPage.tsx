@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 export const HostsPage: FC = () => {
 	const { t } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
-	const { fetchHosts } = useHosts();
+	const fetchHosts = useHosts((state) => state.fetchHosts);
 	const [activeTab, setActiveTab] = useState<number>(0);
 	const tabKeys = useMemo(() => ["inbounds", "hosts"], []);
 	const hostsTabIndex = 1;
@@ -71,7 +71,6 @@ export const HostsPage: FC = () => {
 
 	return (
 		<VStack spacing={4} align="stretch">
-			<PageHeader title={t("header.hostSettings")} />
 			<TabSystem
 				tabs={[
 					{

@@ -62,7 +62,7 @@ export const RowActionsMenu: FC<RowActionsMenuProps> = ({
 	const orderedActions = orderRowActions(actions);
 
 	return (
-		<Menu placement="auto-end" strategy="fixed" autoSelect={false}>
+		<Menu placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
 			{({ onClose }) => (
 				<>
 					<MenuButton

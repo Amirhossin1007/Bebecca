@@ -144,6 +144,49 @@ func TestPhase9AdminLifecycleDisablesAndReenablesLimitExhaustedAdmins(t *testing
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'enable_user'`, 2)
 }
 
+func TestPhase9PerServiceUsedLimitDisablesAndRestoresOnlyMarkedUsers(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "root", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
+	if _, err := db.Exec(`UPDATE admins SET use_service_traffic_limits = 1 WHERE id = 2`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id, traffic_limit_mode, data_limit, used_traffic, created_traffic) VALUES (2, 7, 'used_traffic', 100, 100, 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, service_id, status) VALUES
+		(201, 'service-active', 2, 7, 'active'),
+		(202, 'manually-disabled', 2, 7, 'disabled')`); err != nil {
+		t.Fatal(err)
+	}
+
+	server.reviewAdminLifecycle(context.Background())
+
+	assertDBString(t, db, `SELECT status FROM admins WHERE id = 2`, "active")
+	assertDBString(t, db, `SELECT status FROM users WHERE id = 201`, "disabled")
+	assertDBString(t, db, `SELECT status FROM users WHERE id = 202`, "disabled")
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 201 AND service_limit_disabled_at IS NOT NULL`, 1)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 202 AND service_limit_disabled_at IS NOT NULL`, 0)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'disable_user' AND user_id = 201`, 1)
+
+	if _, err := db.Exec(`UPDATE admins_services SET used_traffic = 0 WHERE admin_id = 2 AND service_id = 7`); err != nil {
+		t.Fatal(err)
+	}
+	server.reviewAdminLifecycle(context.Background())
+
+	assertDBString(t, db, `SELECT status FROM users WHERE id = 201`, "active")
+	assertDBString(t, db, `SELECT status FROM users WHERE id = 202`, "disabled")
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM users WHERE id = 201 AND service_limit_disabled_at IS NOT NULL`, 0)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'enable_user' AND user_id = 201`, 1)
+
+	if _, err := db.Exec(`UPDATE admins_services SET traffic_limit_mode = 'created_traffic', created_traffic = 100 WHERE admin_id = 2 AND service_id = 7`); err != nil {
+		t.Fatal(err)
+	}
+	server.reviewAdminLifecycle(context.Background())
+	assertDBString(t, db, `SELECT status FROM users WHERE id = 201`, "active")
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'disable_user' AND user_id = 201`, 1)
+}
+
 func TestPhase9AdminGlobalAndPerServiceLimitsRoundTrip(t *testing.T) {
 	server, db := testAdminServer(t)
 	insertMasterAPIAdmin(t, db, 1, "root", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)

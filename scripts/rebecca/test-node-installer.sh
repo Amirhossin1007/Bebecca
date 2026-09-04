@@ -34,4 +34,23 @@ for SCRIPT in "$ROOT/rebecca-node.sh" "$ROOT/rebecca-node-binary.sh"; do
     if [[ "$(uname -s)" == Linux* ]]; then
         [ "$(stat -c '%a' "$CERT_KEY_FILE")" = "600" ]
     fi
+
+    eval "$(sed -n '/^stop_rebecca_node_for_uninstall() {$/,/^}$/p' "$SCRIPT")"
+    detect_calls=0
+    down_calls=0
+    detect_compose() { detect_calls=$((detect_calls + 1)); }
+    down_rebecca_node() { down_calls=$((down_calls + 1)); }
+    is_rebecca_node_up() { return 1; }
+    install_mode=docker
+    stop_rebecca_node_for_uninstall
+    [ "$detect_calls" -eq 1 ]
+    [ "$down_calls" -eq 1 ]
+
+    down_calls=0
+    install_mode=binary
+    stop_rebecca_node_for_uninstall
+    [ "$down_calls" -eq 0 ]
+    is_rebecca_node_up() { return 0; }
+    stop_rebecca_node_for_uninstall
+    [ "$down_calls" -eq 1 ]
 done

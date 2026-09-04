@@ -19,6 +19,7 @@ const (
 	subscriptionTypeUsernameKey = "username-key"
 	subscriptionTypeKey         = "key"
 	subscriptionTypeToken       = "token"
+	subscriptionTypeKeyUsername = "key-username"
 )
 
 func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettings, admin AdminLinkSettings, secret string) (SubscriptionLinks, error) {
@@ -54,6 +55,7 @@ func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettin
 	if credentialKey != "" {
 		links.Set(subscriptionTypeUsernameKey, urlPrefix+"/"+username+"/"+credentialKey)
 		links.Set(subscriptionTypeKey, urlPrefix+"/"+credentialKey)
+		links.Set(subscriptionTypeKeyUsername, urlPrefix+"/"+credentialKey+"#"+username)
 	}
 
 	token := createSubscriptionToken(username, secret, time.Now())
@@ -67,6 +69,7 @@ func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettin
 		if credentialKey != "" {
 			links.Set(subscriptionTypeUsernameKey+"@"+label, extraPrefix+"/"+username+"/"+credentialKey)
 			links.Set(subscriptionTypeKey+"@"+label, extraPrefix+"/"+credentialKey)
+			links.Set(subscriptionTypeKeyUsername+"@"+label, extraPrefix+"/"+credentialKey+"#"+username)
 		}
 		links.Set(subscriptionTypeToken+"@"+label, extraPrefix+"/"+token)
 	}
@@ -82,22 +85,24 @@ func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettin
 
 func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSettings) SubscriptionSettings {
 	effective := SubscriptionSettings{
-		DefaultSubscriptionType:    preferredType("", base.DefaultSubscriptionType),
-		SubscriptionURLPrefix:      normalizePrefix(base.SubscriptionURLPrefix),
-		SubscriptionProfileTitle:   firstNonEmptyString(base.SubscriptionProfileTitle, "Subscription"),
-		SubscriptionSupportURL:     firstNonEmptyString(base.SubscriptionSupportURL, "https://t.me/"),
-		SubscriptionUpdateInterval: firstNonEmptyString(base.SubscriptionUpdateInterval, "12"),
-		SubscriptionPath:           normalizePath(base.SubscriptionPath),
-		SubscriptionPorts:          normalizePorts(base.SubscriptionPorts),
-		SubscriptionAliases:        append([]string{}, base.SubscriptionAliases...),
-		UseCustomJSONDefault:       base.UseCustomJSONDefault,
-		UseCustomJSONForV2rayN:     base.UseCustomJSONForV2rayN,
-		UseCustomJSONForV2rayNG:    base.UseCustomJSONForV2rayNG,
-		UseCustomJSONForStreisand:  base.UseCustomJSONForStreisand,
-		UseCustomJSONForHapp:       base.UseCustomJSONForHapp,
-		UseCustomJSONForIncy:       base.UseCustomJSONForIncy,
-		RawPanelSettings:           base.RawPanelSettings,
-		RawSubscriptionSettings:    base.RawSubscriptionSettings,
+		DefaultSubscriptionType:        preferredType("", base.DefaultSubscriptionType),
+		SubscriptionURLPrefix:          normalizePrefix(base.SubscriptionURLPrefix),
+		SubscriptionProfileTitle:       firstNonEmptyString(base.SubscriptionProfileTitle, "Subscription"),
+		SubscriptionSupportURL:         firstNonEmptyString(base.SubscriptionSupportURL, "https://t.me/"),
+		SubscriptionUpdateInterval:     firstNonEmptyString(base.SubscriptionUpdateInterval, "12"),
+		SubscriptionPath:               normalizePath(base.SubscriptionPath),
+		SubscriptionPorts:              normalizePorts(base.SubscriptionPorts),
+		SubscriptionAliases:            append([]string{}, base.SubscriptionAliases...),
+		UseCustomJSONDefault:           base.UseCustomJSONDefault,
+		UseCustomJSONForV2rayN:         base.UseCustomJSONForV2rayN,
+		UseCustomJSONForV2rayNG:        base.UseCustomJSONForV2rayNG,
+		UseCustomJSONForStreisand:      base.UseCustomJSONForStreisand,
+		UseCustomJSONForHapp:           base.UseCustomJSONForHapp,
+		UseCustomJSONForIncy:           base.UseCustomJSONForIncy,
+		SubscriptionPlaceholderEnabled: base.SubscriptionPlaceholderEnabled,
+		SubscriptionPlaceholderRemark:  firstNonEmptyString(base.SubscriptionPlaceholderRemark, "disabled"),
+		RawPanelSettings:               base.RawPanelSettings,
+		RawSubscriptionSettings:        base.RawSubscriptionSettings,
 	}
 
 	var overrides map[string]any
@@ -145,6 +150,12 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 			effective.UseCustomJSONForHapp = truthy(value)
 		case "use_custom_json_for_incy":
 			effective.UseCustomJSONForIncy = truthy(value)
+		case "subscription_placeholder_enabled":
+			effective.SubscriptionPlaceholderEnabled = truthy(value)
+		case "subscription_placeholder_remark":
+			if text, ok := coerceString(value); ok && strings.TrimSpace(text) != "" {
+				effective.SubscriptionPlaceholderRemark = strings.TrimSpace(text)
+			}
 		}
 	}
 
@@ -157,6 +168,22 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 		effective.SubscriptionURLPrefix = normalizePrefix(effective.SubscriptionURLPrefix)
 	}
 	return effective
+}
+
+func applyServicePlaceholderPolicy(settings SubscriptionSettings, raw json.RawMessage, serviceID *int64) SubscriptionSettings {
+	if serviceID == nil || *serviceID <= 0 || len(raw) == 0 {
+		return settings
+	}
+	var overrides struct {
+		Placeholders map[string]SubscriptionPlaceholderPolicy `json:"subscription_placeholders"`
+	}
+	if json.Unmarshal(raw, &overrides) != nil {
+		return settings
+	}
+	if policy, ok := overrides.Placeholders[strconv.FormatInt(*serviceID, 10)]; ok {
+		settings.SubscriptionPlaceholderPolicy = &policy
+	}
+	return settings
 }
 
 func buildSubscriptionBases(settings SubscriptionSettings, salt string, requestOrigin string) []string {
@@ -277,6 +304,10 @@ func selectPrimaryLink(links OrderedStringMap, hasKey bool, hasSubadress bool, p
 		}
 	case subscriptionTypeUsernameKey:
 		if value, ok := links.Get(subscriptionTypeUsernameKey); ok && value != "" {
+			return value
+		}
+	case subscriptionTypeKeyUsername:
+		if value, ok := links.Get(subscriptionTypeKeyUsername); ok && value != "" {
 			return value
 		}
 	case subscriptionTypeToken:

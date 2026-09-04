@@ -13,6 +13,8 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 )
 
+const wireGuardSessionStaleAfter = 4 * time.Minute
+
 type nodeSessionEventPayload struct {
 	Token      string `json:"token,omitempty"`
 	NodeID     int64  `json:"node_id"`
@@ -42,6 +44,16 @@ func (s *Server) handleNodeSessionEvent(w http.ResponseWriter, r *http.Request) 
 		writeStatusError(w, err)
 		return
 	}
+	if strings.EqualFold(strings.TrimSpace(payload.Event), "ready") {
+		nodeID := payload.NodeID
+		if err := s.nodeControllerQueueSync(r.Context(), &nodeID, map[string]any{"source": "node_ready"}); err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+		s.kickNodeOperationsSoon()
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
 	if err := s.applyNodeSessionEvent(r.Context(), payload); err != nil {
 		if errors.Is(err, errDeviceLimitReached) {
 			writeError(w, http.StatusConflict, "device limit reached")
@@ -56,21 +68,27 @@ func (s *Server) handleNodeSessionEvent(w http.ResponseWriter, r *http.Request) 
 var errDeviceLimitReached = errors.New("device limit reached")
 
 func (s *Server) validateNodeSessionEvent(ctx context.Context, payload nodeSessionEventPayload) error {
-	if payload.NodeID <= 0 || payload.UserID <= 0 || strings.TrimSpace(payload.SessionID) == "" {
+	event := strings.ToLower(strings.TrimSpace(payload.Event))
+	if payload.NodeID <= 0 {
+		return statusError{status: http.StatusBadRequest, detail: "node_id is required"}
+	}
+	if event != "ready" && (payload.UserID <= 0 || strings.TrimSpace(payload.SessionID) == "") {
 		return statusError{status: http.StatusBadRequest, detail: "node_id, user_id and session_id are required"}
 	}
-	switch strings.ToLower(strings.TrimSpace(payload.Protocol)) {
-	case "ov", "openvpn", "l2tp", "pptp", "wg", "wireguard", "ikev2", "anyconnect":
-	default:
-		return statusError{status: http.StatusBadRequest, detail: "unsupported protocol"}
+	if event != "ready" {
+		switch strings.ToLower(strings.TrimSpace(payload.Protocol)) {
+		case "ov", "openvpn", "l2tp", "pptp", "wg", "wireguard", "ikev2", "anyconnect":
+		default:
+			return statusError{status: http.StatusBadRequest, detail: "unsupported protocol"}
+		}
 	}
-	switch strings.ToLower(strings.TrimSpace(payload.Event)) {
-	case "start", "stop", "seen":
+	switch event {
+	case "ready", "start", "stop", "seen":
 	default:
 		return statusError{status: http.StatusBadRequest, detail: "unsupported event"}
 	}
 	var cert string
-	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(certificate, '') FROM nodes WHERE id = ? LIMIT 1`, payload.NodeID).Scan(&cert)
+	err := s.db.QueryRowContext(ctx, `SELECT COALESCE(certificate, '') FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted' LIMIT 1`, payload.NodeID).Scan(&cert)
 	if err == sql.ErrNoRows {
 		return statusError{status: http.StatusForbidden, detail: "node not found"}
 	}
@@ -116,6 +134,13 @@ func (s *Server) applyNodeSessionEvent(ctx context.Context, payload nodeSessionE
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `
+UPDATE vpn_user_sessions
+SET last_seen_at = ?, ended_at = ?
+WHERE protocol = 'wg' AND ended_at IS NULL AND last_seen_at < ?`,
+		dbTimestamp(now), dbTimestamp(now), dbTimestamp(now.Add(-wireGuardSessionStaleAfter))); err != nil {
+		return err
+	}
 
 	switch strings.ToLower(strings.TrimSpace(payload.Event)) {
 	case "start", "seen":

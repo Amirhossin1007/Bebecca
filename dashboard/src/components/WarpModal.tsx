@@ -613,7 +613,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.300" backdropFilter="blur(8px)" />
+			<ModalOverlay bg="blackAlpha.300" />
 			<XrayModalContent>
 				<XrayModalHeader>
 					{t("pages.xray.warp.manage")}
