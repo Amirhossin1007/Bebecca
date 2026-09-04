@@ -73,7 +73,8 @@ func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *h
 		proxy.ServeHTTP(w, r)
 		return nil
 	}
-	rel, fullPath, info, err := resolveExternalAppPath(record, requestPath)
+	directoryIndex := strings.HasSuffix(r.URL.Path, "/") || (requestPath == "" && r.Method == http.MethodPost)
+	rel, fullPath, info, err := resolveExternalAppPath(record, requestPath, directoryIndex)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			if !serveExternalAppNotFound(w, r, record) {
@@ -82,6 +83,14 @@ func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *h
 			return nil
 		}
 		return err
+	}
+	if info.IsDir() && !strings.HasSuffix(r.URL.Path, "/") {
+		target := r.URL.Path + "/"
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+		return nil
 	}
 	if info.IsDir() {
 		if !serveExternalAppNotFound(w, r, record) {
@@ -110,7 +119,7 @@ func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *h
 	return nil
 }
 
-func resolveExternalAppPath(record externalapps.Record, requestPath string) (string, string, os.FileInfo, error) {
+func resolveExternalAppPath(record externalapps.Record, requestPath string, directoryIndex bool) (string, string, os.FileInfo, error) {
 	if strings.ContainsRune(requestPath, '\x00') || strings.Contains(requestPath, "\\") {
 		return "", "", nil, os.ErrNotExist
 	}
@@ -140,7 +149,7 @@ func resolveExternalAppPath(record externalapps.Record, requestPath string) (str
 			err = nil
 		}
 	}
-	if err == nil && info.IsDir() {
+	if err == nil && info.IsDir() && directoryIndex {
 		indexes := []string{"index.php", "index.html"}
 		if rootPath == "." && record.IndexFile != "" {
 			indexes = []string{record.IndexFile}
@@ -282,6 +291,10 @@ func externalAppFastCGIParams(r *http.Request, record externalapps.Record, scrip
 		serverPort = "443"
 	}
 	scriptName := "/" + path.Join(record.Path, strings.TrimLeft(filepath.ToSlash(scriptRel), "/"))
+	remoteAddr := remoteHost(r.RemoteAddr)
+	if record.Template == "mirzabot" {
+		remoteAddr = requestRemote(r)
+	}
 	params := map[string]string{
 		"GATEWAY_INTERFACE": "CGI/1.1",
 		"SERVER_SOFTWARE":   "Rebecca",
@@ -296,7 +309,7 @@ func externalAppFastCGIParams(r *http.Request, record externalapps.Record, scrip
 		"SERVER_NAME":       serverName,
 		"SERVER_PORT":       serverPort,
 		"SERVER_PROTOCOL":   r.Proto,
-		"REMOTE_ADDR":       remoteHost(r.RemoteAddr),
+		"REMOTE_ADDR":       remoteAddr,
 		"HTTPS":             "off",
 	}
 	if requestScheme(r) == "https" {

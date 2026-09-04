@@ -89,7 +89,7 @@ func TestExternalAppAwareHandlerRoutesMultipleAppsByPath(t *testing.T) {
 	}
 	handler := &externalAppAwareHandler{apps: externalapps.New(externalapps.Config{BaseDir: base}, nil), next: http.NotFoundHandler()}
 	for path, want := range map[string]string{
-		"/bot0123456789ab":  "0123456789ab",
+		"/bot0123456789ab/": "0123456789ab",
 		"/botabcdef012345/": "abcdef012345",
 	} {
 		request := httptest.NewRequest(http.MethodGet, "https://bots.example.com"+path, nil)
@@ -99,6 +99,55 @@ func TestExternalAppAwareHandlerRoutesMultipleAppsByPath(t *testing.T) {
 		if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != want {
 			t.Fatalf("path %s response=%d %q", path, response.Code, response.Body.String())
 		}
+	}
+}
+
+func TestExternalAppAwareHandlerRedirectsDirectoriesToTrailingSlash(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "apps", "0123456789ab")
+	if err := os.MkdirAll(filepath.Join(root, "app", "assets"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte("webhook"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "app", "index.html"), []byte(`<script src="./assets/app.js"></script>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	record := externalapps.Record{ID: "0123456789ab", Template: "mirzabot", Domain: "bot.example.com", Path: "bot0123456789ab", Enabled: true, Runtime: "static", Root: root}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(base, ".metadata"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, ".metadata", record.ID+".json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	handler := &externalAppAwareHandler{apps: externalapps.New(externalapps.Config{BaseDir: base}, nil), next: http.NotFoundHandler()}
+	request := httptest.NewRequest(http.MethodGet, "https://bot.example.com/bot0123456789ab/app?x=1", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusMovedPermanently || response.Header().Get("Location") != "/bot0123456789ab/app/?x=1" {
+		t.Fatalf("directory redirect=%d %q", response.Code, response.Header().Get("Location"))
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "https://bot.example.com/bot0123456789ab", nil)
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code == http.StatusMovedPermanently {
+		t.Fatal("legacy webhook POST was redirected")
+	}
+}
+
+func TestMirzaFastCGIUsesForwardedClientIP(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "https://bot.example.com/index.php", nil)
+	request.RemoteAddr = "172.70.0.1:1234"
+	request.Header.Set("CF-Connecting-IP", "149.154.167.220")
+	params := externalAppFastCGIParams(request, externalapps.Record{Template: "mirzabot"}, "index.php", "/app/index.php")
+	if params["REMOTE_ADDR"] != "149.154.167.220" {
+		t.Fatalf("REMOTE_ADDR=%q", params["REMOTE_ADDR"])
 	}
 }
 

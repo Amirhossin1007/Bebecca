@@ -51,6 +51,69 @@ describe("inbound usage coefficient", () => {
 	});
 });
 
+describe("additional proxy inbounds", () => {
+	it("builds SSH, MTProxy and WEB payloads with their runtime boundaries", () => {
+		const ssh = createDefaultInboundForm("ssh");
+		ssh.tag = "ssh";
+		ssh.port = "2222";
+		expect(buildInboundPayload(ssh)).not.toHaveProperty("streamSettings");
+
+		const mt = createDefaultInboundForm("mtproto");
+		Object.assign(mt, {
+			tag: "telegram",
+			port: "8443",
+			mtPublicHost: "proxy.example.com",
+		});
+		expect(validateInboundFormFields(mt)).toEqual({});
+		expect(buildInboundPayload(mt)).not.toHaveProperty("sniffing");
+
+		const web = createDefaultInboundForm("web");
+		Object.assign(web, {
+			tag: "web",
+			webHostname: "proxy.example.com",
+			webACMEEmail: "admin@example.com",
+		});
+		expect(validateInboundFormFields(web)).toEqual({});
+		expect(buildInboundPayload(web)).toMatchObject({
+			protocol: "web",
+			port: 443,
+		});
+	});
+});
+
+describe("extra VPN inbounds", () => {
+	it("round-trips AmneziaWG, SSTP and GRE without Xray stream settings", () => {
+		const awg = createDefaultInboundForm("amneziawg");
+		Object.assign(awg, {
+			tag: "awg",
+			wgPrivateKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+			wgTunnelPort: "51821",
+		});
+		expect(validateInboundFormFields(awg)).toEqual({});
+		expect(buildInboundPayload(awg)).toMatchObject({
+			protocol: "amneziawg",
+			settings: { jc: 4, jmin: 8, jmax: 80 },
+		});
+
+		const sstp = createDefaultInboundForm("sstp");
+		Object.assign(sstp, {
+			tag: "sstp",
+			raServerCertificate: "cert",
+			raServerKey: "key",
+		});
+		expect(validateInboundFormFields(sstp)).toEqual({});
+		expect(buildInboundPayload(sstp)).not.toHaveProperty("streamSettings");
+
+		const gre = createDefaultInboundForm("gre");
+		gre.tag = "gre";
+		expect(validateInboundFormFields(gre)).toEqual({});
+		expect(buildInboundPayload(gre)).toMatchObject({
+			port: 47,
+			settings: { ipv4_pool_cidr: "10.74.0.0/16", ttl: 64 },
+		});
+	});
+});
+
 describe("VLESS inbound default flow", () => {
 	it("round-trips the supported inbound value and drops outbound-only values", () => {
 		const raw: RawInbound = {
@@ -323,7 +386,9 @@ describe("XHTTP inbound settings", () => {
 				},
 			},
 		});
-		expect(buildInboundPayload(grpc).streamSettings?.grpcSettings).toMatchObject({
+		expect(
+			buildInboundPayload(grpc).streamSettings?.grpcSettings,
+		).toMatchObject({
 			idle_timeout: 60,
 			health_check_timeout: 20,
 			permit_without_stream: true,

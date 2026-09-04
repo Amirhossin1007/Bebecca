@@ -170,8 +170,15 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 	return effective
 }
 
-func applyServicePlaceholderPolicy(settings SubscriptionSettings, raw json.RawMessage, serviceID *int64) SubscriptionSettings {
-	if serviceID == nil || *serviceID <= 0 || len(raw) == 0 {
+func applyServicePlaceholderPolicy(settings SubscriptionSettings, servicePolicy *SubscriptionPlaceholderPolicy, raw json.RawMessage, serviceID *int64) SubscriptionSettings {
+	if serviceID == nil || *serviceID <= 0 {
+		return settings
+	}
+	if servicePolicy != nil {
+		policy := *servicePolicy
+		settings.SubscriptionPlaceholderPolicy = &policy
+	}
+	if len(raw) == 0 {
 		return settings
 	}
 	var overrides struct {

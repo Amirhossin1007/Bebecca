@@ -6,18 +6,22 @@ import (
 )
 
 type RemoteAccessInfo struct {
-	HostTag    string   `json:"host_tag"`
-	HostName   string   `json:"host_name"`
-	InboundTag string   `json:"inbound_tag"`
-	Remark     string   `json:"remark"`
-	Server     string   `json:"server"`
-	Address    string   `json:"address"`
-	Port       int      `json:"port"`
-	Protocol   string   `json:"protocol"`
-	AuthMode   string   `json:"auth_mode"`
-	Username   string   `json:"username,omitempty"`
-	Password   string   `json:"password,omitempty"`
-	DNS        []string `json:"dns,omitempty"`
+	HostTag       string   `json:"host_tag"`
+	HostName      string   `json:"host_name"`
+	InboundTag    string   `json:"inbound_tag"`
+	Remark        string   `json:"remark"`
+	Server        string   `json:"server"`
+	Address       string   `json:"address"`
+	Port          int      `json:"port"`
+	Protocol      string   `json:"protocol"`
+	AuthMode      string   `json:"auth_mode"`
+	Username      string   `json:"username,omitempty"`
+	Password      string   `json:"password,omitempty"`
+	DNS           []string `json:"dns,omitempty"`
+	ClientAddress string   `json:"client_address,omitempty"`
+	ServerAddress string   `json:"server_address,omitempty"`
+	MTU           int      `json:"mtu,omitempty"`
+	TTL           int      `json:"ttl,omitempty"`
 }
 
 func (s Service) IKEv2Infos(ctx context.Context, user UserDetail, subscriptionURL string) ([]RemoteAccessInfo, error) {
@@ -26,6 +30,14 @@ func (s Service) IKEv2Infos(ctx context.Context, user UserDetail, subscriptionUR
 
 func (s Service) AnyConnectInfos(ctx context.Context, user UserDetail, subscriptionURL string) ([]RemoteAccessInfo, error) {
 	return s.remoteAccessInfos(ctx, user, "anyconnect")
+}
+
+func (s Service) SSTPInfos(ctx context.Context, user UserDetail, subscriptionURL string) ([]RemoteAccessInfo, error) {
+	return s.remoteAccessInfos(ctx, user, "sstp")
+}
+
+func (s Service) GREInfos(ctx context.Context, user UserDetail, subscriptionURL string) ([]RemoteAccessInfo, error) {
+	return s.remoteAccessInfos(ctx, user, "gre")
 }
 
 func (s Service) remoteAccessInfos(ctx context.Context, user UserDetail, protocol string) ([]RemoteAccessInfo, error) {
@@ -64,6 +76,10 @@ func (s Service) remoteAccessInfos(ctx context.Context, user UserDetail, protoco
 	password := ""
 	if protocol == "ikev2" {
 		password, err = IKEv2PasswordFromCredentialKey(item.CredentialKey)
+	} else if protocol == "sstp" {
+		password, err = SSTPPasswordFromCredentialKey(item.CredentialKey)
+	} else if protocol == "gre" {
+		password = ""
 	} else {
 		password, err = AnyConnectPasswordFromCredentialKey(item.CredentialKey)
 	}
@@ -86,7 +102,21 @@ func (s Service) remoteAccessInfos(ctx context.Context, user UserDetail, protoco
 		}
 		settings := mapValue(inbound["settings"])
 		authMode := firstNonEmptyString(stringValue(settings["auth_mode"]), "password")
-		info := RemoteAccessInfo{HostTag: l2tpHostTag(host, remark, address), HostName: firstNonEmptyString(host.Remark, remark, address), InboundTag: host.InboundTag, Remark: remark, Server: address, Address: address, Port: intValue(effective["port"]), Protocol: protocol, AuthMode: authMode, DNS: stringList(settings["dns_servers"])}
+		if protocol == "gre" {
+			authMode = "none"
+		}
+		info := RemoteAccessInfo{HostTag: l2tpHostTag(host, remark, address), HostName: firstNonEmptyString(host.Remark, remark, address), InboundTag: host.InboundTag, Remark: remark, Server: address, Address: address, Port: intValue(effective["port"]), Protocol: protocol, AuthMode: authMode, DNS: stringList(settings["dns_servers"]), MTU: intValue(settings["mtu"]), TTL: intValue(settings["ttl"])}
+		if protocol == "gre" {
+			allocationID := item.ID*65 + 1
+			addresses, addressErr := s.repo.WGIPv4Addresses(ctx, "gre:"+host.InboundTag, []int64{allocationID}, stringValue(settings["ipv4_pool_cidr"]), "")
+			if addressErr != nil {
+				return nil, addressErr
+			}
+			info.ClientAddress = addresses[allocationID]
+			if server, serverErr := newWGAddressPool(stringValue(settings["ipv4_pool_cidr"]), ""); serverErr == nil {
+				info.ServerAddress = server.serverAddress()
+			}
+		}
 		if authMode != "certificate" {
 			info.Username, info.Password = item.Username, password
 		}

@@ -53,6 +53,10 @@ func (c Controller) runtimeConfigRequestFromInbounds(ctx context.Context, node N
 	if err != nil {
 		return nil, fmt.Errorf("HAProxy runtime: %w", err)
 	}
+	extraRuntime, err := c.repo.extraRuntime(ctx, node.ID, inbounds)
+	if err != nil {
+		return nil, fmt.Errorf("extra runtime: %w", err)
+	}
 	raw, err := json.Marshal(map[string]any{
 		"generated_at":         ovRuntime.GeneratedAt,
 		"target":               ovRuntime.Target,
@@ -69,6 +73,7 @@ func (c Controller) runtimeConfigRequestFromInbounds(ctx context.Context, node N
 		"anyconnect_inbounds":  anyConnectRuntime.Inbounds,
 		"anyconnect_generated": anyConnectRuntime.GeneratedAt,
 		"haproxy":              haproxyRuntime,
+		"extra":                extraRuntime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("VPN runtime: %w", err)

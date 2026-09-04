@@ -128,10 +128,12 @@ type SubscriptionPlaceholderPolicy struct {
 }
 
 type SubscriptionPlaceholderSetting struct {
-	AdminID       int64  `json:"admin_id"`
+	AdminID       *int64 `json:"admin_id"`
 	AdminUsername string `json:"admin_username"`
 	ServiceID     int64  `json:"service_id"`
 	ServiceName   string `json:"service_name"`
+	IsDefault     bool   `json:"is_default"`
+	Inherited     bool   `json:"inherited"`
 	SubscriptionPlaceholderPolicy
 }
 
