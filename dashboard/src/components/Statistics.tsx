@@ -141,7 +141,8 @@ const formatLocalizedDuration = (
 	return (
 		<Text
 			fontSize="13px"
-			fontWeight="500"
+			fontWeight="700"
+			letterSpacing="-0.01em"
 			color="panel.text"
 			dir={isRTL ? "rtl" : "ltr"}
 			sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
@@ -1062,7 +1063,7 @@ const StatRow: FC<{
 				)}
 				<Text
 					fontSize="13px"
-					fontWeight="500"
+					fontWeight="600"
 					color={dimLabel ? "panel.textMuted" : "panel.textSecondary"}
 					noOfLines={1}
 				>
@@ -1230,13 +1231,14 @@ const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon
 			<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
 				{icon}
 			</Flex>
-			<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
+			<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
 				{label}
 			</Text>
 		</HStack>
 		<Text
-			fontSize="14px"
+			fontSize="13px"
 			fontWeight="700"
+			letterSpacing="-0.01em"
 			color="panel.text"
 			dir="ltr"
 			sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
@@ -1417,11 +1419,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 								},
 							}}
 						/>
-						<Text fontSize="12px" color="panel.textMuted" fontWeight="500">
+						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
 							{systemData.xray_running ? t("status.running") : t("status.stopped")}
 						</Text>
 						{exactVersion && exactVersion !== "-" && (
-							<HStack spacing={1.5} align="center" color="panel.textMuted" fontSize="12px" fontWeight="500">
+							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
 								<Text as="span">·</Text>
 								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
 									{exactVersion}
@@ -1574,7 +1576,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
 									<ServerStackIcon width={13} />
 								</Flex>
-								<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
+								<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
 									{t("systemUptime")}
 								</Text>
 							</HStack>
@@ -1585,7 +1587,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
 									<CircleStackIcon width={13} />
 								</Flex>
-								<Text fontSize="13px" fontWeight="500" color="panel.textSecondary">
+								<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
 									{t("panelUptime")}
 								</Text>
 							</HStack>
@@ -1763,13 +1765,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 									fontWeight="600"
 									variant="ghost"
 									bg="transparent !important"
-									color={userTab === "all" ? "panel.text" : "panel.textMuted"}
+									color={userTab === "all" ? "white" : "panel.text"}
 									position="relative"
 									zIndex={2}
 									transition="all 0.2s ease"
 									_hover={{
 										md: {
-											color: "panel.text",
+											color: userTab === "all" ? "white" : "panel.text",
 										},
 									}}
 									onClick={() => setUserTab("all")}
@@ -1809,13 +1811,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 									fontWeight="600"
 									variant="ghost"
 									bg="transparent !important"
-									color={userTab === "mine" ? "panel.text" : "panel.textMuted"}
+									color={userTab === "mine" ? "white" : "panel.text"}
 									position="relative"
 									zIndex={2}
 									transition="all 0.2s ease"
 									_hover={{
 										md: {
-											color: "panel.text",
+											color: userTab === "mine" ? "white" : "panel.text",
 										},
 									}}
 									onClick={() => setUserTab("mine")}
