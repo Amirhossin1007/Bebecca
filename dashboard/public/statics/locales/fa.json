@@ -3502,5 +3502,22 @@
 	"duration.minute": "دقیقه",
 	"duration.minutes": "دقیقه",
 	"duration.second": "ثانیه",
-	"duration.seconds": "ثانیه"
+	"duration.seconds": "ثانیه",
+	"settings.panel.maintenancePhase.queued": "در صف انتظار",
+	"settings.panel.maintenancePhase.updating": "در حال آماده‌سازی به‌روزرسانی",
+	"settings.panel.maintenancePhase.downloading": "در حال دریافت بسته به‌روزرسانی",
+	"settings.panel.maintenancePhase.installing": "در حال استخراج و نصب فایل‌ها",
+	"settings.panel.maintenancePhase.migrating": "در حال مهاجرت و به‌روزرسانی پایگاه‌داده",
+	"settings.panel.maintenancePhase.restarting": "در حال راه‌اندازی مجدد پنل",
+	"settings.panel.maintenancePhase.completed": "به‌روزرسانی با موفقیت تکمیل شد",
+	"settings.panel.maintenancePhase.failed": "خطا در فرآیند به‌روزرسانی",
+	"settings.panel.maintenanceMsg.preparingUpdate": "آماده‌سازی برای شروع به‌روزرسانی پنل...",
+	"settings.panel.maintenanceMsg.downloadingImage": "در حال دانلود بسته جدید پنل...",
+	"settings.panel.maintenanceMsg.installingFiles": "در حال اعمال و استخراج فایل‌های جدید...",
+	"settings.panel.maintenanceMsg.runningMigrations": "در حال همگام‌سازی ساختار دیتابیس...",
+	"settings.panel.maintenanceMsg.restarting": "در حال راه‌اندازی مجدد سرویس‌ها...",
+	"settings.panel.maintenanceMsg.completed": "کلیه مراحل به‌روزرسانی با موفقیت به پایان رسید.",
+	"settings.panel.copyLogs": "کپی لاگ‌ها",
+	"settings.panel.logsCopied": "لاگ‌ها در کلیپ‌بورد کپی شدند",
+	"settings.panel.liveLogs": "لاگ‌های زنده عملیات"
 }

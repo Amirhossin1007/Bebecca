@@ -3502,5 +3502,22 @@
 	"duration.minute": "minute",
 	"duration.minutes": "minutes",
 	"duration.second": "second",
-	"duration.seconds": "seconds"
+	"duration.seconds": "seconds",
+	"settings.panel.maintenancePhase.queued": "Queued",
+	"settings.panel.maintenancePhase.updating": "Preparing update",
+	"settings.panel.maintenancePhase.downloading": "Downloading update package",
+	"settings.panel.maintenancePhase.installing": "Installing files",
+	"settings.panel.maintenancePhase.migrating": "Running database migrations",
+	"settings.panel.maintenancePhase.restarting": "Restarting panel",
+	"settings.panel.maintenancePhase.completed": "Update completed successfully",
+	"settings.panel.maintenancePhase.failed": "Update failed",
+	"settings.panel.maintenanceMsg.preparingUpdate": "Preparing panel update...",
+	"settings.panel.maintenanceMsg.downloadingImage": "Downloading new update package...",
+	"settings.panel.maintenanceMsg.installingFiles": "Extracting and installing files...",
+	"settings.panel.maintenanceMsg.runningMigrations": "Running database migrations...",
+	"settings.panel.maintenanceMsg.restarting": "Restarting panel services...",
+	"settings.panel.maintenanceMsg.completed": "Operation completed successfully.",
+	"settings.panel.copyLogs": "Copy logs",
+	"settings.panel.logsCopied": "Logs copied to clipboard",
+	"settings.panel.liveLogs": "Live operation logs"
 }

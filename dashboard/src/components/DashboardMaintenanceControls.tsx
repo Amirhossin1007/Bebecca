@@ -8,6 +8,7 @@ import {
 	FormHelperText,
 	FormLabel,
 	HStack,
+	IconButton,
 	Modal,
 	ModalBody,
 	ModalCloseButton,
@@ -24,6 +25,7 @@ import {
 	Spinner,
 	Stack,
 	Text,
+	Tooltip,
 	useColorModeValue,
 	useToast,
 } from "@chakra-ui/react";
@@ -31,7 +33,11 @@ import {
 	ArrowPathIcon,
 	ArrowsRightLeftIcon,
 	ArrowUpTrayIcon,
+	CheckIcon,
+	ClipboardIcon,
+	CommandLineIcon,
 } from "@heroicons/react/24/outline";
+import { motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -128,6 +134,8 @@ export const DashboardMaintenanceControls = ({
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
 	const [confirmAction, setConfirmAction] = useState<"restart" | "soft-reload" | "update" | null>(null);
+	const [logsCopied, setLogsCopied] = useState(false);
+	const logsContainerRef = useRef<HTMLDivElement | null>(null);
 	const panelReturnPollRef = useRef<number | null>(null);
 	const panelReturnSawOfflineRef = useRef(false);
 	const devUpdateTimerRef = useRef<number | null>(null);
@@ -220,6 +228,12 @@ export const DashboardMaintenanceControls = ({
 		};
 		return () => socket.close();
 	}, [operation?.id, startPanelReturnPolling, waitingForAPI]);
+
+	useEffect(() => {
+		if (operation?.logs && logsContainerRef.current) {
+			logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+		}
+	}, [operation?.logs]);
 
 	const triggerAction = async (
 		action: MaintenanceAction,
@@ -641,60 +655,236 @@ export const DashboardMaintenanceControls = ({
 				isCentered
 				size="xl"
 			>
-				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(8px)" />
-				<ModalContent borderRadius="2xl" overflow="hidden" bg="panel.surface" borderColor="panel.border" borderWidth="1px">
-					<ModalHeader>{t("settings.panel.updateProgressTitle")}</ModalHeader>
-					{operation?.error ? <ModalCloseButton /> : null}
-					<ModalBody pb={6}>
-						<Stack spacing={4}>
-							<Alert
-								status={operation?.error ? "error" : "info"}
-								borderRadius="lg"
-							>
-								<AlertIcon />
+				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(16px)" />
+				<ModalContent
+					borderRadius="24px"
+					overflow="hidden"
+					bg="panel.surface"
+					borderColor="panel.border"
+					borderWidth="1px"
+					boxShadow="0 24px 60px -12px rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08)"
+					mx={4}
+				>
+					<ModalHeader
+						px={6}
+						pt={6}
+						pb={4}
+						borderBottom="1px solid"
+						borderColor="panel.border"
+					>
+						<Flex align="center" justify="space-between">
+							<HStack spacing={3}>
+								<Flex
+									w="36px"
+									h="36px"
+									align="center"
+									justify="center"
+									borderRadius="12px"
+									bg="panel.elevated"
+									color="var(--rb-panel-accent)"
+									border="1px solid"
+									borderColor="panel.border"
+								>
+									{operation?.error ? (
+										<ArrowPathIcon width={18} />
+									) : operation?.phase === "completed" ? (
+										<CheckIcon width={18} />
+									) : (
+										<motion.div
+											animate={{ rotate: 360 }}
+											transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+											style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+										>
+											<ArrowPathIcon width={18} />
+										</motion.div>
+									)}
+								</Flex>
 								<Box>
-									<Text fontWeight="semibold">
-										{operation?.phase || t("settings.panel.maintenanceQueued")}
+									<Text fontSize="15px" fontWeight="700" color="panel.text">
+										{t("settings.panel.updateProgressTitle")}
 									</Text>
-									<Text fontSize="sm">
-										{operation?.error ||
-											operation?.message ||
-											t("settings.panel.waitingForOutput.variant2")}
-									</Text>
+									<HStack spacing={2} mt={0.5}>
+										<Text fontSize="11px" color="panel.textMuted" fontWeight="500">
+											{currentVersion}
+										</Text>
+										{selectedTarget && (
+											<>
+												<Text fontSize="11px" color="panel.textMuted">
+													→
+												</Text>
+												<Text
+													fontSize="11px"
+													color="var(--rb-panel-accent)"
+													fontWeight="700"
+													dir="ltr"
+													sx={{ unicodeBidi: "isolate" }}
+												>
+													{selectedTarget}
+												</Text>
+											</>
+										)}
+									</HStack>
 								</Box>
-							</Alert>
-							<Progress
-								value={
-									typeof operation?.progress === "number"
-										? operation.progress
-										: undefined
-								}
-								isIndeterminate={
-									typeof operation?.progress !== "number" && !operation?.error
-								}
-								colorScheme={operation?.error ? "red" : "green"}
-								borderRadius="full"
-								h="6px"
-							/>
-							{waitingForAPI ? (
-								<Text fontSize="sm" color="panel.textMuted">
+							</HStack>
+							{operation?.error && <ModalCloseButton position="static" />}
+						</Flex>
+					</ModalHeader>
+
+					<ModalBody px={6} py={5}>
+						<Stack spacing={4}>
+							<Box
+								p={4}
+								borderRadius="16px"
+								bg="panel.elevated"
+								border="1px solid"
+								borderColor="panel.border"
+								transition="all 0.3s ease"
+							>
+								<Flex align="center" justify="space-between" mb={2}>
+									<HStack spacing={2.5}>
+										<Flex
+											w="8px"
+											h="8px"
+											borderRadius="full"
+											bg={
+												operation?.error
+													? "red.500"
+													: operation?.phase === "completed"
+														? "green.500"
+														: "var(--rb-panel-accent)"
+											}
+											boxShadow={
+												operation?.error
+													? "0 0 10px rgba(239, 68, 68, 0.6)"
+													: operation?.phase === "completed"
+														? "0 0 10px rgba(34, 197, 94, 0.6)"
+														: "0 0 10px var(--rb-panel-accent)"
+											}
+										/>
+										<Text fontSize="13px" fontWeight="700" color="panel.text">
+											{operation?.phase
+												? t(`settings.panel.maintenancePhase.${operation.phase}`, operation.phase)
+												: t("settings.panel.maintenancePhase.queued")}
+										</Text>
+									</HStack>
+									{typeof operation?.progress === "number" && (
+										<Text
+											fontSize="12px"
+											fontWeight="700"
+											color="var(--rb-panel-accent)"
+											dir="ltr"
+											sx={{ fontVariantNumeric: "tabular-nums" }}
+										>
+											{Math.round(operation.progress)}%
+										</Text>
+									)}
+								</Flex>
+
+								<Text fontSize="12px" color="panel.textSecondary" fontWeight="500" mb={3}>
+									{operation?.error
+										? operation.error
+										: operation?.message
+											? t(`settings.panel.maintenanceMsg.${operation.message.replace(/[^a-zA-Z]/g, "")}`, operation.message)
+											: t("settings.panel.maintenanceMsg.preparingUpdate")}
+								</Text>
+
+								<Progress
+									value={typeof operation?.progress === "number" ? operation.progress : undefined}
+									isIndeterminate={typeof operation?.progress !== "number" && !operation?.error && operation?.phase !== "completed"}
+									borderRadius="full"
+									h="6px"
+									bg="panel.surface"
+									sx={{
+										"& > div": {
+											background: operation?.error
+												? "var(--chakra-colors-red-500)"
+												: operation?.phase === "completed"
+													? "var(--chakra-colors-green-500)"
+													: "var(--rb-panel-accent)",
+											transition: "width 0.4s ease",
+										},
+									}}
+								/>
+							</Box>
+
+							{waitingForAPI && (
+								<Text fontSize="12px" color="panel.textMuted" textAlign="center">
 									{t("settings.panel.autoRefreshAfterRestart")}
 								</Text>
-							) : null}
+							)}
+
 							<Box
-								as="pre"
-								maxH="260px"
-								overflowY="auto"
+								borderRadius="16px"
 								bg={outputBg}
 								border="1px solid"
 								borderColor={outputBorder}
-								borderRadius="lg"
-								p={3}
-								fontSize="xs"
-								whiteSpace="pre-wrap"
+								overflow="hidden"
 							>
-								{cleanTerminalOutput(operation?.logs) ||
-									t("settings.panel.waitingForOutput.variant2")}
+								<Flex
+									align="center"
+									justify="space-between"
+									px={3.5}
+									py={2}
+									borderBottom="1px solid"
+									borderColor={outputBorder}
+									bg="panel.elevated"
+								>
+									<HStack spacing={2}>
+										<CommandLineIcon width={14} color="var(--rb-panel-accent)" />
+										<Text fontSize="11px" fontWeight="600" color="panel.textSecondary">
+											{t("settings.panel.liveLogs")}
+										</Text>
+									</HStack>
+									<Tooltip label={logsCopied ? t("settings.panel.logsCopied") : t("settings.panel.copyLogs")} fontSize="10px">
+										<IconButton
+											aria-label={t("settings.panel.copyLogs")}
+											icon={logsCopied ? <CheckIcon width={13} /> : <ClipboardIcon width={13} />}
+											size="xs"
+											variant="ghost"
+											h="22px"
+											w="22px"
+											minW="22px"
+											borderRadius="6px"
+											color={logsCopied ? "green.500" : "panel.textMuted"}
+											_hover={{ color: "panel.text" }}
+											onClick={() => {
+												const logs = cleanTerminalOutput(operation?.logs);
+												if (logs) {
+													navigator.clipboard.writeText(logs);
+													setLogsCopied(true);
+													setTimeout(() => setLogsCopied(false), 2000);
+												}
+											}}
+										/>
+									</Tooltip>
+								</Flex>
+
+								<Box
+									ref={logsContainerRef}
+									as="pre"
+									maxH="220px"
+									overflowY="auto"
+									p={3.5}
+									fontSize="11px"
+									fontFamily="'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace"
+									lineHeight="1.6"
+									color="panel.text"
+									dir="ltr"
+									textAlign="left"
+									whiteSpace="pre-wrap"
+									wordBreak="break-all"
+									sx={{
+										"&::-webkit-scrollbar": {
+											width: "6px",
+										},
+										"&::-webkit-scrollbar-thumb": {
+											background: "rgba(255, 255, 255, 0.12)",
+											borderRadius: "3px",
+										},
+									}}
+								>
+									{cleanTerminalOutput(operation?.logs) || t("settings.panel.waitingForOutput.variant2")}
+								</Box>
 							</Box>
 						</Stack>
 					</ModalBody>

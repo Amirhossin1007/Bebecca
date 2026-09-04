@@ -786,5 +786,22 @@
 	"common.comma": "， ",
 	"confirm": "确认",
 	"common.comingSoon": "即将推出",
-	"online": "在线"
+	"online": "在线",
+	"settings.panel.maintenancePhase.queued": "排队中",
+	"settings.panel.maintenancePhase.updating": "准备更新中",
+	"settings.panel.maintenancePhase.downloading": "下载更新包中",
+	"settings.panel.maintenancePhase.installing": "安装文件中",
+	"settings.panel.maintenancePhase.migrating": "执行数据库迁移中",
+	"settings.panel.maintenancePhase.restarting": "面板重启中",
+	"settings.panel.maintenancePhase.completed": "更新成功完成",
+	"settings.panel.maintenancePhase.failed": "更新失败",
+	"settings.panel.maintenanceMsg.preparingUpdate": "正在准备面板更新...",
+	"settings.panel.maintenanceMsg.downloadingImage": "正在下载最新面板包...",
+	"settings.panel.maintenanceMsg.installingFiles": "正在解压并安装新文件...",
+	"settings.panel.maintenanceMsg.runningMigrations": "正在同步数据库结构...",
+	"settings.panel.maintenanceMsg.restarting": "正在重启面板服务...",
+	"settings.panel.maintenanceMsg.completed": "所有更新步骤均已成功完成。",
+	"settings.panel.copyLogs": "复制日志",
+	"settings.panel.logsCopied": "日志已复制到剪贴板",
+	"settings.panel.liveLogs": "实时操作日志"
 }

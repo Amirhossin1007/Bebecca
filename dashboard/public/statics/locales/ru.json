@@ -785,5 +785,22 @@
 	"common.comma": ", ",
 	"confirm": "Подтвердить",
 	"common.comingSoon": "Скоро появится",
-	"online": "Онлайн"
+	"online": "Онлайн",
+	"settings.panel.maintenancePhase.queued": "В очереди",
+	"settings.panel.maintenancePhase.updating": "Подготовка к обновлению",
+	"settings.panel.maintenancePhase.downloading": "Загрузка пакета обновления",
+	"settings.panel.maintenancePhase.installing": "Установка файлов",
+	"settings.panel.maintenancePhase.migrating": "Миграция базы данных",
+	"settings.panel.maintenancePhase.restarting": "Перезапуск панели",
+	"settings.panel.maintenancePhase.completed": "Обновление успешно завершено",
+	"settings.panel.maintenancePhase.failed": "Ошибка обновления",
+	"settings.panel.maintenanceMsg.preparingUpdate": "Подготовка к обновлению панели...",
+	"settings.panel.maintenanceMsg.downloadingImage": "Загрузка нового пакета обновления...",
+	"settings.panel.maintenanceMsg.installingFiles": "Распаковка и установка файлов...",
+	"settings.panel.maintenanceMsg.runningMigrations": "Синхронизация структуры БД...",
+	"settings.panel.maintenanceMsg.restarting": "Перезапуск служб панели...",
+	"settings.panel.maintenanceMsg.completed": "Все этапы обновления успешно завершены.",
+	"settings.panel.copyLogs": "Скопировать логи",
+	"settings.panel.logsCopied": "Логи скопированы в буфер обмена",
+	"settings.panel.liveLogs": "Журнал операций в реальном времени"
 }
