@@ -1516,7 +1516,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 					</HStack>
 				</Flex>
 
-				<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
+				<SimpleGrid
+					columns={{ base: 1, sm: 2, xl: 4 }}
+					gap={{ base: 3, md: 4 }}
+					sx={{
+						"@media screen and (min-width: 768px) and (max-width: 910px)": {
+							"body:not(:has([data-sidebar-collapsed='true'])) &": {
+								gridTemplateColumns: "1fr !important",
+							},
+						},
+					}}
+				>
 					{[1, 2, 3, 4].map((i) => (
 						<Box
 							key={i}
@@ -1550,7 +1560,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 					))}
 				</SimpleGrid>
 
-				<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
+				<SimpleGrid
+					columns={{ base: 1, md: 2 }}
+					gap={{ base: 3, md: 4 }}
+					sx={{
+						"@media screen and (min-width: 768px) and (max-width: 910px)": {
+							"body:not(:has([data-sidebar-collapsed='true'])) &": {
+								gridTemplateColumns: "1fr !important",
+							},
+						},
+					}}
+				>
 					<Box
 						className="shimmer-box"
 						minH="120px"
@@ -1702,7 +1722,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									<HStack spacing={3}>
 										<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" />
 										<Box w="70px" h="13px" borderRadius="md" bg="panel.elevated" />
-										{i <= 3 && <Box w="40px" h="16px" borderRadius="md" bg="panel.elevated" />}
+										{i >= 2 && i <= 3 && <Box w="40px" h="16px" borderRadius="md" bg="panel.elevated" />}
 									</HStack>
 									<Box w="45px" h="16px" borderRadius="md" bg="panel.elevated" />
 								</Flex>
@@ -1859,7 +1879,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</Flex>
 
-			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
+			<SimpleGrid
+				columns={{ base: 1, sm: 2, xl: 4 }}
+				gap={{ base: 3, md: 4 }}
+				sx={{
+					"@media screen and (min-width: 768px) and (max-width: 910px)": {
+						"body:not(:has([data-sidebar-collapsed='true'])) &": {
+							gridTemplateColumns: "1fr !important",
+						},
+					},
+				}}
+			>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
@@ -1921,7 +1951,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 			</SimpleGrid>
 
-			<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
+			<SimpleGrid
+				columns={{ base: 1, md: 2 }}
+				gap={{ base: 3, md: 4 }}
+				sx={{
+					"@media screen and (min-width: 768px) and (max-width: 910px)": {
+						"body:not(:has([data-sidebar-collapsed='true'])) &": {
+							gridTemplateColumns: "1fr !important",
+						},
+					},
+				}}
+			>
 				<SectionCard
 					title={
 						<HStack spacing={2.5}>
