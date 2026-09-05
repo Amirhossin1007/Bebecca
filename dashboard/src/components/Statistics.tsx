@@ -374,8 +374,11 @@ const HistoryModal: FC<{
 		return () => clearTimeout(timer);
 	}, [activeIntervalIndex, isOpen]);
 
-	const { latestTimestamp, availableSpan } = useMemo(() => {
-		if (!payload) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
+	const { latestTimestamp, earliestTimestamp, availableSpan } = useMemo(() => {
+		if (!payload) {
+			const now = Math.floor(Date.now() / 1000);
+			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
+		}
 		let timestamps: number[] = [];
 		if (payload.type === "network" && payload.networkEntries?.length) {
 			timestamps = payload.networkEntries.map((e) => e.timestamp);
@@ -387,17 +390,19 @@ const HistoryModal: FC<{
 			timestamps = payload.entries.map((e) => e.timestamp);
 		}
 
-		if (!timestamps.length) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
+		if (!timestamps.length) {
+			const now = Math.floor(Date.now() / 1000);
+			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
+		}
 		const maxT = Math.max(...timestamps);
 		const minT = Math.min(...timestamps);
-		return { latestTimestamp: maxT, availableSpan: Math.max(120, maxT - minT) };
+		return { latestTimestamp: maxT, earliestTimestamp: minT, availableSpan: Math.max(1, maxT - minT) };
 	}, [payload]);
 
-	const effectiveMinSpan =
+	const cutoff =
 		intervalSeconds === 120
-			? availableSpan
-			: Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
-	const cutoff = latestTimestamp - effectiveMinSpan;
+			? earliestTimestamp
+			: latestTimestamp - Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
 
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
@@ -771,19 +776,29 @@ const HistoryModal: FC<{
 								"& .apexcharts-legend-series": {
 									display: "inline-flex !important",
 									alignItems: "center !important",
-									flexDirection: isRTL ? "row-reverse !important" : "row !important",
+									flexDirection: isRTL ? "row !important" : "row !important",
 									gap: "6px !important",
 									margin: "0 !important",
 								},
 								"& .apexcharts-legend-marker": {
+									order: isRTL ? 2 : 1,
 									margin: "0 !important",
-									position: "static !important",
+									position: "relative !important",
+									top: "auto !important",
+									left: "auto !important",
+									right: "auto !important",
+									bottom: "auto !important",
 									transform: "none !important",
 								},
 								"& .apexcharts-legend-text": {
+									order: isRTL ? 1 : 2,
 									margin: "0 !important",
 									padding: "0 !important",
-									position: "static !important",
+									position: "relative !important",
+									top: "auto !important",
+									left: "auto !important",
+									right: "auto !important",
+									bottom: "auto !important",
 								},
 								"& .apexcharts-legend-series.apexcharts-inactive-legend": {
 									opacity: "0.45 !important",
@@ -1060,15 +1075,11 @@ const ResourceCard: FC<{
 							bg: "panel.surface",
 						},
 					}}
-					_groupHover={
-						parentNoHover
-							? undefined
-							: {
-									md: {
-										bg: "panel.surface",
-									},
-								}
-					}
+					_groupHover={{
+						md: {
+							bg: "panel.surface",
+						},
+					}}
 					sx={{
 						"& > div": {
 							bg: criticalColor,
