@@ -393,7 +393,8 @@ const HistoryModal: FC<{
 		return { latestTimestamp: maxT, availableSpan: Math.max(120, maxT - minT) };
 	}, [payload]);
 
-	const cutoff = latestTimestamp - intervalSeconds;
+	const effectiveMinSpan = Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
+	const cutoff = latestTimestamp - effectiveMinSpan;
 
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
@@ -520,13 +521,14 @@ const HistoryModal: FC<{
 				type: "datetime",
 				min: cutoff * 1000,
 				max: latestTimestamp * 1000,
+				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					datetimeUTC: false,
 					format: intervalSeconds <= 1800 ? "HH:mm:ss" : "HH:mm",
-					hideOverlappingLabels: true,
+					hideOverlappingLabels: false,
 				},
 			},
 			yaxis: {
@@ -549,14 +551,12 @@ const HistoryModal: FC<{
 			legend: {
 				position: "bottom",
 				labels: { colors: mutedTextColor },
-				itemMargin: { horizontal: 12, vertical: 6 },
+				itemMargin: { horizontal: 8, vertical: 6 },
 				markers: {
-					offsetX: isRTL ? -6 : 6,
+					offsetX: 0,
 					offsetY: 0,
 				},
-				formatter: (seriesName: string) => {
-					return isRTL ? `\u200E${seriesName}\u200F` : `\u00A0\u00A0${seriesName}`;
-				},
+				formatter: (seriesName: string) => seriesName,
 				onItemClick: {
 					toggleDataSeries: true,
 				},
@@ -664,7 +664,7 @@ const HistoryModal: FC<{
 							p={1}
 							borderRadius="full"
 							bg="panel.elevated"
-							w="full"
+							w="fit-content"
 							maxW="100%"
 							overflowX="auto"
 							position="relative"
@@ -758,6 +758,29 @@ const HistoryModal: FC<{
 								},
 								"& .apexcharts-yaxis-label": {
 									direction: "ltr !important",
+								},
+								"& .apexcharts-legend": {
+									direction: isRTL ? "rtl !important" : "ltr !important",
+									display: "flex !important",
+									justifyContent: "center !important",
+									gap: "18px !important",
+								},
+								"& .apexcharts-legend-series": {
+									display: "inline-flex !important",
+									alignItems: "center !important",
+									flexDirection: isRTL ? "row-reverse !important" : "row !important",
+									gap: "6px !important",
+									margin: "0 !important",
+								},
+								"& .apexcharts-legend-marker": {
+									margin: "0 !important",
+									position: "static !important",
+									transform: "none !important",
+								},
+								"& .apexcharts-legend-text": {
+									margin: "0 !important",
+									padding: "0 !important",
+									position: "static !important",
 								},
 								"& .apexcharts-legend-series.apexcharts-inactive-legend": {
 									opacity: "0.45 !important",
@@ -1034,15 +1057,11 @@ const ResourceCard: FC<{
 							bg: "panel.surface",
 						},
 					}}
-					_groupHover={
-						parentNoHover
-							? undefined
-							: {
-									md: {
-										bg: "panel.surface",
-									},
-								}
-					}
+					_groupHover={{
+						md: {
+							bg: "panel.surface",
+						},
+					}}
 					sx={{
 						"& > div": {
 							bg: criticalColor,
@@ -1726,6 +1745,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			>
 				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
 					<ResourceCard
+						parentNoHover
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
@@ -1737,6 +1757,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						isRTL={isRTL}
 					/>
 					<ResourceCard
+						parentNoHover
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
 						icon={<ServerStackIcon width={16} />}
 						value={formatBytes(systemData.app_memory, 1)}
