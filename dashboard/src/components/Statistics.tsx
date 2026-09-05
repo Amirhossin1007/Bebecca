@@ -1495,18 +1495,25 @@ export const Statistics: FC<BoxProps> = (props) => {
 				dir={isRTL ? "rtl" : "ltr"}
 				sx={{
 					"@keyframes shimmer": {
-						"0%": { opacity: 0.4 },
-						"50%": { opacity: 0.8 },
-						"100%": { opacity: 0.4 },
+						"0%": { opacity: 0.35 },
+						"50%": { opacity: 0.75 },
+						"100%": { opacity: 0.35 },
 					},
 					"& .shimmer-box": {
-						animation: "shimmer 1.8s ease-in-out infinite",
+						animation: "shimmer 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
 					},
 				}}
 			>
 				<Flex align="center" justify="space-between" px={1} flexWrap="wrap" gap={3}>
-					<Box className="shimmer-box" w="180px" h="28px" bg="panel.surface" borderRadius="10px" borderWidth="1px" borderColor="panel.border" />
-					<Box className="shimmer-box" w="120px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+					<HStack spacing={2.5}>
+						<Box className="shimmer-box" w="170px" h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w="90px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+					</HStack>
+					<HStack spacing={2}>
+						<Box className="shimmer-box" w="110px" h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w="95px" h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w="135px" h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+					</HStack>
 				</Flex>
 
 				<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
@@ -1514,7 +1521,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Box
 							key={i}
 							className="shimmer-box"
-							minH="150px"
+							minH="140px"
 							bg="panel.surface"
 							borderRadius="20px"
 							borderWidth="1px"
@@ -1527,16 +1534,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Flex justify="space-between" align="center" mb={3}>
 								<HStack spacing={2.5}>
 									<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
-									<Box w="80px" h="14px" borderRadius="md" bg="panel.elevated" />
+									<Box w="85px" h="14px" borderRadius="md" bg="panel.elevated" />
 								</HStack>
-								<Box w="65px" h="22px" borderRadius="full" bg="panel.elevated" />
+								{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
 							</Flex>
-							<Box w="110px" h="28px" borderRadius="md" bg="panel.elevated" my={2} />
+							<Box w="120px" h="26px" borderRadius="md" bg="panel.elevated" my={1.5} />
 							<Box>
-								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2} />
+								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2.5} />
 								<Flex justify="space-between">
-									<Box w="60px" h="12px" borderRadius="sm" bg="panel.elevated" />
-									<Box w="60px" h="12px" borderRadius="sm" bg="panel.elevated" />
+									<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+									<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
 								</Flex>
 							</Box>
 						</Box>
@@ -1546,6 +1553,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
 					<Box
 						className="shimmer-box"
+						minH="120px"
 						bg="panel.surface"
 						borderRadius="20px"
 						borderWidth="1px"
@@ -1557,18 +1565,31 @@ export const Statistics: FC<BoxProps> = (props) => {
 								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
 								<Box w="110px" h="14px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
-							<Box w="70px" h="22px" borderRadius="full" bg="panel.elevated" />
+							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={3}>
-								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
-								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="80px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="85px" h="18px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="80px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="85px" h="18px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
 							</Stack>
 						</Box>
 					</Box>
 
 					<Box
 						className="shimmer-box"
+						minH="120px"
 						bg="panel.surface"
 						borderRadius="20px"
 						borderWidth="1px"
@@ -1578,13 +1599,25 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
 								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="100px" h="14px" borderRadius="md" bg="panel.elevated" />
+								<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={3}>
-								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
-								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="95px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="110px" h="15px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="85px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
 							</Stack>
 						</Box>
 					</Box>
@@ -1601,14 +1634,41 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
 							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-							<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+							<Box w="105px" h="14px" borderRadius="md" bg="panel.elevated" />
 						</HStack>
 						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
 					</Flex>
 					<Box p={{ base: 4, sm: 5, md: 6 }}>
 						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
-							<Box h="150px" borderRadius="20px" bg="panel.elevated" />
-							<Box h="150px" borderRadius="20px" bg="panel.elevated" />
+							{[1, 2].map((i) => (
+								<Box
+									key={i}
+									minH="130px"
+									bg="panel.surface"
+									borderRadius="20px"
+									borderWidth="1px"
+									borderColor="panel.border"
+									p={{ base: 4, sm: 5 }}
+									display="flex"
+									flexDirection="column"
+									justifyContent="space-between"
+								>
+									<Flex justify="space-between" align="center" mb={3}>
+										<HStack spacing={2.5}>
+											<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
+											<Box w="100px" h="14px" borderRadius="md" bg="panel.elevated" />
+										</HStack>
+									</Flex>
+									<Box w="110px" h="26px" borderRadius="md" bg="panel.elevated" my={1.5} />
+									<Box>
+										<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2.5} />
+										<Flex justify="space-between">
+											<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+											<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+										</Flex>
+									</Box>
+								</Box>
+							))}
 						</SimpleGrid>
 					</Box>
 				</Box>
@@ -1624,16 +1684,29 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
 							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-							<Box w="100px" h="14px" borderRadius="md" bg="panel.elevated" />
+							<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
 						</HStack>
-						<Box w="140px" h="26px" borderRadius="8px" bg="panel.elevated" />
+						<Box w="140px" h="24px" borderRadius="8px" bg="panel.elevated" />
 					</Flex>
 					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<Stack spacing={2.5}>
-							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
-							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
-							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
-							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+						<Stack spacing={0}>
+							{[1, 2, 3, 4, 5, 6].map((i) => (
+								<Flex
+									key={i}
+									justify="space-between"
+									align="center"
+									py={2.5}
+									borderBottomWidth={i === 6 ? "0" : "1px"}
+									borderColor="panel.border"
+								>
+									<HStack spacing={3}>
+										<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" />
+										<Box w="70px" h="13px" borderRadius="md" bg="panel.elevated" />
+										{i <= 3 && <Box w="40px" h="16px" borderRadius="md" bg="panel.elevated" />}
+									</HStack>
+									<Box w="45px" h="16px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+							))}
 						</Stack>
 					</Box>
 				</Box>
@@ -1650,16 +1723,27 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
 								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+								<Box w="85px" h="14px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={2.5}>
-								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
-								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
-								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
-								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
-								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+							<Stack spacing={0}>
+								{[1, 2, 3, 4, 5].map((i) => (
+									<Flex
+										key={i}
+										justify="space-between"
+										align="center"
+										py={2.5}
+										borderBottomWidth={i === 5 ? "0" : "1px"}
+										borderColor="panel.border"
+									>
+										<HStack spacing={3}>
+											<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" />
+											<Box w={i === 5 ? "110px" : "75px"} h="13px" borderRadius="md" bg="panel.elevated" />
+										</HStack>
+										<Box w={i === 5 ? "120px" : "45px"} h="16px" borderRadius="md" bg="panel.elevated" />
+									</Flex>
+								))}
 							</Stack>
 						</Box>
 					</Box>
@@ -1985,7 +2069,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									h="22px"
 									px={2.5}
 									onClick={() => {
-										window.location.href = "/settings";
+										window.location.href = "/dashboard/settings#telegram";
 									}}
 								>
 									{t("dashboard.system.goToTelegramSettings")}
@@ -2019,8 +2103,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 						variant="ghost"
 						borderRadius="full"
 						bg="panel.elevated"
-						color="panel.textMuted"
-						fontWeight="500"
+						color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
+						fontWeight={colorMode === "light" ? "600" : "500"}
 						transition="all 0.2s ease"
 						_hover={{
 							bg: "panel.border !important",
