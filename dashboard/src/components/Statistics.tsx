@@ -574,6 +574,7 @@ const HistoryModal: FC<{
 			},
 			legend: {
 				position: "bottom",
+				offsetY: 10,
 				labels: { colors: mutedTextColor },
 				itemMargin: { horizontal: 8, vertical: 6 },
 				markers: {
@@ -684,93 +685,95 @@ const HistoryModal: FC<{
 				</ModalHeader>
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
-						<Box
-							p={1}
-							borderRadius="full"
-							bg="panel.elevated"
-							w="fit-content"
-							maxW="100%"
-							overflowX="auto"
-							position="relative"
-							display="inline-flex"
-							alignItems="center"
-							sx={{
-								"&::-webkit-scrollbar": {
-									display: "none",
-								},
-								scrollbarWidth: "none",
-							}}
-						>
-							{pillStyle.width > 0 && (
-								<motion.div
-									animate={{
-										left: pillStyle.left,
-										width: pillStyle.width,
-									}}
-									transition={{
-										type: "tween",
-										ease: [0.16, 1, 0.3, 1],
-										duration: 0.32,
-									}}
-									style={{
-										position: "absolute",
-										top: 4,
-										bottom: 4,
-										borderRadius: "9999px",
-										backgroundColor: "var(--chakra-colors-panel-surface)",
-										boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
-										zIndex: 1,
-										pointerEvents: "none",
-									}}
-								/>
-							)}
-							{HISTORY_INTERVALS.map((interval, idx) => {
-								const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
-								const isActive = intervalSeconds === interval.seconds;
-								return (
-									<Box
-										key={interval.seconds}
-										ref={(el: HTMLDivElement | null) => {
-											tabRefs.current[idx] = el;
+						{hasEnoughPoints && (
+							<Box
+								p={1}
+								borderRadius="full"
+								bg="panel.elevated"
+								w="fit-content"
+								maxW="100%"
+								overflowX="auto"
+								position="relative"
+								display="inline-flex"
+								alignItems="center"
+								sx={{
+									"&::-webkit-scrollbar": {
+										display: "none",
+									},
+									scrollbarWidth: "none",
+								}}
+							>
+								{pillStyle.width > 0 && (
+									<motion.div
+										animate={{
+											left: pillStyle.left,
+											width: pillStyle.width,
 										}}
-										position="relative"
-										display="inline-flex"
-										alignItems="center"
-									>
-										<Button
-											size="xs"
-											h="26px"
-											px={{ base: 2, sm: 3.5 }}
-											borderRadius="full"
-											variant="ghost"
-											bg="transparent !important"
-											color={isActive ? "panel.text" : "panel.textMuted"}
-											fontWeight={isActive ? "700" : "500"}
-											fontSize={{ base: "10px", sm: "11px" }}
-											whiteSpace="nowrap"
+										transition={{
+											type: "tween",
+											ease: [0.16, 1, 0.3, 1],
+											duration: 0.32,
+										}}
+										style={{
+											position: "absolute",
+											top: 4,
+											bottom: 4,
+											borderRadius: "9999px",
+											backgroundColor: "var(--chakra-colors-panel-surface)",
+											boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
+											zIndex: 1,
+											pointerEvents: "none",
+										}}
+									/>
+								)}
+								{HISTORY_INTERVALS.map((interval, idx) => {
+									const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
+									const isActive = intervalSeconds === interval.seconds;
+									return (
+										<Box
+											key={interval.seconds}
+											ref={(el: HTMLDivElement | null) => {
+												tabRefs.current[idx] = el;
+											}}
 											position="relative"
-											zIndex={2}
-											opacity={isAvailable ? 1 : 0.4}
-											cursor={isAvailable ? "pointer" : "not-allowed"}
-											_hover={{
-												md: {
-													color: "panel.text",
-												},
-											}}
-											onClick={() => {
-												if (isAvailable && intervalSeconds !== interval.seconds) {
-													setIsSwitchingInterval(true);
-													onIntervalChange(interval.seconds);
-													setTimeout(() => setIsSwitchingInterval(false), 300);
-												}
-											}}
+											display="inline-flex"
+											alignItems="center"
 										>
-											{t(interval.labelKey)}
-										</Button>
-									</Box>
-								);
-							})}
-						</Box>
+											<Button
+												size="xs"
+												h="26px"
+												px={{ base: 2, sm: 3.5 }}
+												borderRadius="full"
+												variant="ghost"
+												bg="transparent !important"
+												color={isActive ? "panel.text" : "panel.textMuted"}
+												fontWeight={isActive ? "700" : "500"}
+												fontSize={{ base: "10px", sm: "11px" }}
+												whiteSpace="nowrap"
+												position="relative"
+												zIndex={2}
+												opacity={isAvailable ? 1 : 0.4}
+												cursor={isAvailable ? "pointer" : "not-allowed"}
+												_hover={{
+													md: {
+														color: "panel.text",
+													},
+												}}
+												onClick={() => {
+													if (isAvailable && intervalSeconds !== interval.seconds) {
+														setIsSwitchingInterval(true);
+														onIntervalChange(interval.seconds);
+														setTimeout(() => setIsSwitchingInterval(false), 300);
+													}
+												}}
+											>
+												{t(interval.labelKey)}
+											</Button>
+										</Box>
+									);
+								})}
+							</Box>
+						)}
 						<Box
 							minH="280px"
 							w="100%"
