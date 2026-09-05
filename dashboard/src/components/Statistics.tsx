@@ -536,7 +536,7 @@ const HistoryModal: FC<{
 				padding: {
 					top: 0,
 					right: 8,
-					bottom: 0,
+					bottom: 12,
 					left: 5,
 				},
 			},
@@ -574,7 +574,7 @@ const HistoryModal: FC<{
 			},
 			legend: {
 				position: "bottom",
-				offsetY: 10,
+				offsetY: 0,
 				labels: { colors: mutedTextColor },
 				itemMargin: { horizontal: 8, vertical: 6 },
 				markers: {
@@ -775,10 +775,11 @@ const HistoryModal: FC<{
 							</Box>
 						)}
 						<Box
-							minH="280px"
+							minH="300px"
 							w="100%"
 							position="relative"
 							dir="ltr"
+							pb={2}
 							sx={{
 								"& .apexcharts-canvas": {
 									direction: "ltr !important",
@@ -875,11 +876,11 @@ const HistoryModal: FC<{
 											options={options}
 											series={chartSeries}
 											type="area"
-											height={280}
+											height={300}
 											width="100%"
 										/>
 									) : (
-										<Flex h="280px" align="center" justify="center" direction="column" gap={2}>
+										<Flex h="300px" align="center" justify="center" direction="column" gap={2}>
 											<Text fontSize="13px" color="panel.textMuted">
 												{t("noData")}
 											</Text>
