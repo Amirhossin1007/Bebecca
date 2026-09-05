@@ -9,8 +9,9 @@ import (
 )
 
 type subscriptionPlaceholderUpdateRequest struct {
-	AdminID   int64 `json:"admin_id"`
-	ServiceID int64 `json:"service_id"`
+	AdminID        *int64 `json:"admin_id"`
+	ServiceID      int64  `json:"service_id"`
+	InheritDefault bool   `json:"inherit_default"`
 	settingsapp.SubscriptionPlaceholderPolicy
 }
 
@@ -45,19 +46,33 @@ func (s *Server) handleSubscriptionPlaceholders(w http.ResponseWriter, r *http.R
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if payload.AdminID <= 0 {
-			payload.AdminID = principal.ID
-		}
 		if payload.ServiceID <= 0 {
 			writeError(w, http.StatusBadRequest, "service_id is required")
 			return
 		}
-		if !manageAll && payload.AdminID != principal.ID {
+		if !manageAll && payload.AdminID != nil && *payload.AdminID != principal.ID {
 			writeError(w, http.StatusForbidden, "You're not allowed")
 			return
 		}
+		if payload.AdminID == nil && manageAll {
+			item, err := s.settingsRepo.UpdateServiceSubscriptionPlaceholderSetting(r.Context(), payload.ServiceID, payload.SubscriptionPlaceholderPolicy)
+			if errors.Is(err, settingsapp.ErrServiceNotFound) {
+				writeError(w, http.StatusNotFound, "Service was not found")
+				return
+			}
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, item)
+			return
+		}
+		adminID := principal.ID
+		if payload.AdminID != nil {
+			adminID = *payload.AdminID
+		}
 		item, err := s.settingsRepo.UpdateSubscriptionPlaceholderSetting(
-			r.Context(), payload.AdminID, payload.ServiceID, payload.SubscriptionPlaceholderPolicy,
+			r.Context(), adminID, payload.ServiceID, payload.SubscriptionPlaceholderPolicy, payload.InheritDefault,
 		)
 		if errors.Is(err, settingsapp.ErrAdminNotFound) {
 			writeError(w, http.StatusNotFound, "Admin is not assigned to this service")

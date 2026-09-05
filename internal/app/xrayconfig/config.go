@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net"
 	"net/netip"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -28,6 +29,12 @@ var proxyProtocols = map[string]struct{}{
 	"hysteria":    {},
 }
 
+var auxiliaryInboundProtocols = map[string]struct{}{
+	"ssh":     {},
+	"mtproto": {},
+	"web":     {},
+}
+
 var virtualTunnelProtocols = map[string]struct{}{
 	OVProtocol:         {},
 	WGProtocol:         {},
@@ -35,6 +42,9 @@ var virtualTunnelProtocols = map[string]struct{}{
 	PPTPProtocol:       {},
 	IKEv2Protocol:      {},
 	AnyConnectProtocol: {},
+	SSTPProtocol:       {},
+	AWGProtocol:        {},
+	GREProtocol:        {},
 }
 
 var (
@@ -1161,6 +1171,9 @@ func validateExecutableInbound(inbound map[string]any) error {
 	if isVirtualTunnelProtocol(protocol) {
 		return validateVirtualTunnelInbound(tag, inbound)
 	}
+	if IsAuxiliaryInboundProtocol(protocol) {
+		return validateAuxiliaryInbound(tag, protocol, inbound)
+	}
 	if _, ok := proxyProtocols[protocol]; !ok {
 		return nil
 	}
@@ -1241,7 +1254,7 @@ func validateExecutableInbound(inbound map[string]any) error {
 	switch security {
 	case "", "none":
 		if protocol == "hysteria" {
-			return fmt.Errorf("invalid inbound %q: hysteria protocol requires TLS security", tag)
+			return fmt.Errorf("invalid inbound %q: %s protocol requires TLS security", tag, strings.ToUpper(protocol))
 		}
 		return nil
 	case "tls":
@@ -1251,6 +1264,113 @@ func validateExecutableInbound(inbound map[string]any) error {
 	default:
 		return fmt.Errorf("invalid inbound %q: unsupported stream security %q", tag, security)
 	}
+}
+
+func validateAuxiliaryInbound(tag, protocol string, inbound map[string]any) error {
+	port, err := parseConfigPort(inbound["port"])
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("invalid inbound %q: port must be between 1 and 65535", tag)
+	}
+	settings := mapValue(inbound["settings"])
+	switch protocol {
+	case "ssh":
+		limit := intValue(settings["user_limit"])
+		if limit < 0 || limit > 64 {
+			return fmt.Errorf("invalid inbound %q: SSH user limit must be between 0 and 64", tag)
+		}
+		idle := intValue(settings["idle_timeout"])
+		if idle != 0 && (idle < 30 || idle > 86400) {
+			return fmt.Errorf("invalid inbound %q: SSH idle timeout must be between 30 and 86400 seconds", tag)
+		}
+	case "mtproto":
+		if err := validateProxySecret(settings["secret"], false); err != nil {
+			return fmt.Errorf("invalid inbound %q: %w", tag, err)
+		}
+		publicHost := strings.TrimSpace(stringValue(settings["public_host"]))
+		if net.ParseIP(publicHost) == nil && !isValidPublicHostname(strings.ToLower(publicHost)) {
+			return fmt.Errorf("invalid inbound %q: MTProxy requires a public hostname or IP", tag)
+		}
+		classic, secure, fakeTLS := boolValue(settings["mode_classic"]), boolValue(settings["mode_secure"]), boolValue(settings["mode_tls"])
+		if !classic && !secure && !fakeTLS {
+			return fmt.Errorf("invalid inbound %q: at least one MTProxy connection mode is required", tag)
+		}
+		if fakeTLS && !isValidPublicHostname(strings.ToLower(strings.TrimSpace(stringValue(settings["tls_domain"])))) {
+			return fmt.Errorf("invalid inbound %q: MTProxy FakeTLS requires a public TLS domain", tag)
+		}
+		if sponsor := strings.TrimSpace(stringValue(settings["sponsor_tag"])); sponsor != "" {
+			if len(sponsor) != 32 {
+				return fmt.Errorf("invalid inbound %q: MTProxy sponsor tag must contain 32 hexadecimal characters", tag)
+			}
+			if _, err := hex.DecodeString(sponsor); err != nil {
+				return fmt.Errorf("invalid inbound %q: MTProxy sponsor tag must contain 32 hexadecimal characters", tag)
+			}
+		}
+		limit := intValue(settings["user_limit"])
+		if limit < 0 || limit > 64 {
+			return fmt.Errorf("invalid inbound %q: MTProxy unique IP limit must be between 0 and 64", tag)
+		}
+		connections := intValue(settings["max_connections"])
+		if connections < 0 || connections > 1000000 {
+			return fmt.Errorf("invalid inbound %q: MTProxy maximum connections must be between 0 and 1000000", tag)
+		}
+	case "web":
+		if port != 443 {
+			return fmt.Errorf("invalid inbound %q: Telegram WEB proxy requires public port 443", tag)
+		}
+		hostname := strings.ToLower(strings.TrimSpace(stringValue(settings["hostname"])))
+		if !isValidPublicHostname(hostname) {
+			return fmt.Errorf("invalid inbound %q: Web proxy hostname must be a public DNS name", tag)
+		}
+		email := strings.TrimSpace(stringValue(settings["acme_email"]))
+		if !strings.Contains(email, "@") || strings.ContainsAny(email, "\r\n") {
+			return fmt.Errorf("invalid inbound %q: a valid ACME email is required", tag)
+		}
+		if err := validateProxySecret(settings["secret"], true); err != nil {
+			return fmt.Errorf("invalid inbound %q: Web proxy %w", tag, err)
+		}
+		if upstream := strings.TrimSpace(stringValue(settings["site_upstream"])); upstream != "" {
+			parsed, err := url.Parse(upstream)
+			if err != nil || parsed.Scheme != "http" || parsed.Hostname() == "" || parsed.Port() == "" {
+				return fmt.Errorf("invalid inbound %q: Web proxy site upstream must be a loopback HTTP URL with a port", tag)
+			}
+			ip := net.ParseIP(parsed.Hostname())
+			if ip == nil || !ip.IsLoopback() {
+				return fmt.Errorf("invalid inbound %q: Web proxy site upstream must use a numeric loopback address", tag)
+			}
+		}
+	}
+	return nil
+}
+
+func validateProxySecret(value any, allowDDPrefix bool) error {
+	secret := strings.ToLower(strings.TrimSpace(stringValue(value)))
+	if allowDDPrefix && strings.HasPrefix(secret, "dd") {
+		secret = secret[2:]
+	}
+	if len(secret) != 32 {
+		return fmt.Errorf("secret must contain 32 hexadecimal characters")
+	}
+	if _, err := hex.DecodeString(secret); err != nil {
+		return fmt.Errorf("secret must contain 32 hexadecimal characters")
+	}
+	return nil
+}
+
+func isValidPublicHostname(value string) bool {
+	if value == "" || len(value) > 253 || !strings.Contains(value, ".") || net.ParseIP(value) != nil {
+		return false
+	}
+	for _, label := range strings.Split(value, ".") {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, char := range label {
+			if (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '-' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func validateNetworkSettings(tag string, network string, settings map[string]any) error {
@@ -1656,6 +1776,9 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 	}
 
 	settings := mapValue(inbound["settings"])
+	if _, ok := inbound["port"]; ok {
+		resolved["port"] = inbound["port"]
+	}
 	if protocol == "vless" {
 		if encryption := firstNonEmptyString(settings["encryption"]); encryption != "" {
 			resolved["encryption"] = encryption
@@ -1672,9 +1795,14 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 		applyVirtualTunnelResolvedSettings(resolved, inbound)
 		return resolved, nil
 	}
-
-	if _, ok := inbound["port"]; ok {
-		resolved["port"] = inbound["port"]
+	if IsAuxiliaryInboundProtocol(protocol) {
+		resolved["settings"] = settings
+		resolved["network"] = "tcp"
+		if protocol == "web" {
+			resolved["tls"] = "tls"
+			resolved["sni"] = []string{stringValue(settings["hostname"])}
+		}
+		return resolved, nil
 	}
 
 	stream := mapValue(inbound["streamSettings"])

@@ -328,10 +328,15 @@ func TestInactiveSubscriptionPlaceholderHidesRealAccess(t *testing.T) {
 
 func TestServicePlaceholderUsesSeparateStatusMessages(t *testing.T) {
 	serviceID := int64(9)
+	serviceDefault := SubscriptionPlaceholderPolicy{Enabled: true, ExpiredRemark: "Service expired {USERNAME}", LimitedRemark: "Service limited", DisabledRemark: "Service disabled"}
+	inherited := applyServicePlaceholderPolicy(SubscriptionSettings{}, &serviceDefault, nil, &serviceID)
+	if got := subscriptionPlaceholderRemark(UserDetail{Username: "alice", Status: "expired"}, inherited); got != "Service expired alice" {
+		t.Fatalf("service default placeholder = %q", got)
+	}
 	settings := applyServicePlaceholderPolicy(SubscriptionSettings{
 		SubscriptionPlaceholderEnabled: true,
 		SubscriptionPlaceholderRemark:  "legacy",
-	}, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":true,"expired_remark":"Expired {USERNAME}","limited_remark":"Limited {USERNAME}","disabled_remark":"Disabled {USERNAME}"}}}`), &serviceID)
+	}, &serviceDefault, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":true,"expired_remark":"Expired {USERNAME}","limited_remark":"Limited {USERNAME}","disabled_remark":"Disabled {USERNAME}"}}}`), &serviceID)
 
 	user := UserDetail{ID: 1, Username: "alice", Status: "expired", ServiceID: &serviceID}
 	if got := subscriptionPlaceholderRemark(user, settings); got != "Expired alice" {
@@ -349,7 +354,7 @@ func TestServicePlaceholderUsesSeparateStatusMessages(t *testing.T) {
 	if got := subscriptionPlaceholderRemark(user, settings); got != "" {
 		t.Fatalf("active placeholder = %q", got)
 	}
-	disabled := applyServicePlaceholderPolicy(settings, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":false}}}`), &serviceID)
+	disabled := applyServicePlaceholderPolicy(settings, nil, json.RawMessage(`{"subscription_placeholders":{"9":{"enabled":false}}}`), &serviceID)
 	user.Status = "expired"
 	if got := subscriptionPlaceholderRemark(user, disabled); got != "" {
 		t.Fatalf("disabled service policy must override the legacy global placeholder, got %q", got)
@@ -721,7 +726,8 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 		)`,
 		`CREATE TABLE services (
 			id INTEGER PRIMARY KEY,
-			name TEXT
+			name TEXT,
+			subscription_placeholder_settings TEXT NOT NULL DEFAULT '{}'
 		)`,
 		`CREATE TABLE users (
 			id INTEGER PRIMARY KEY,
