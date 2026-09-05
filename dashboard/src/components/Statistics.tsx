@@ -589,7 +589,7 @@ const HistoryModal: FC<{
 				},
 			},
 			tooltip: {
-				theme: colorMode,
+				theme: false,
 				custom: ({ series, seriesIndex, dataPointIndex, w }) => {
 					const timestamp = w.globals.seriesX[seriesIndex]?.[dataPointIndex];
 					const dateStr = timestamp
@@ -734,14 +734,17 @@ const HistoryModal: FC<{
 											ref={(el: HTMLDivElement | null) => {
 												tabRefs.current[idx] = el;
 											}}
+											flex={{ base: "1 1 0", md: "none" }}
 											position="relative"
 											display="inline-flex"
 											alignItems="center"
+											justifyContent="center"
 										>
 											<Button
 												size="xs"
 												h="26px"
-												px={{ base: 2, sm: 3.5 }}
+												w="full"
+												px={{ base: 1, sm: 3.5 }}
 												borderRadius="full"
 												variant="ghost"
 												bg="transparent !important"
@@ -824,6 +827,17 @@ const HistoryModal: FC<{
 									bottom: "auto !important",
 								},
 								"& .apexcharts-tooltip": {
+									background: "transparent !important",
+									border: "none !important",
+									boxShadow: "none !important",
+									overflow: "visible !important",
+								},
+								"& .apexcharts-tooltip.apexcharts-theme-light": {
+									background: "transparent !important",
+									border: "none !important",
+									boxShadow: "none !important",
+								},
+								"& .apexcharts-tooltip.apexcharts-theme-dark": {
 									background: "transparent !important",
 									border: "none !important",
 									boxShadow: "none !important",
