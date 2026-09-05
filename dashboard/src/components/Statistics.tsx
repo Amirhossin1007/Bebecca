@@ -544,7 +544,6 @@ const HistoryModal: FC<{
 				type: "datetime",
 				min: cutoff * 1000,
 				max: latestTimestamp * 1000,
-				range: (latestTimestamp - cutoff) * 1000,
 				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
@@ -552,7 +551,7 @@ const HistoryModal: FC<{
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					datetimeUTC: false,
 					format: intervalSeconds <= 1800 ? "HH:mm:ss" : "HH:mm",
-					hideOverlappingLabels: false,
+					hideOverlappingLabels: true,
 				},
 			},
 			yaxis: {
