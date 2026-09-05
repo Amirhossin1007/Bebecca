@@ -589,7 +589,6 @@ const HistoryModal: FC<{
 				},
 			},
 			tooltip: {
-				theme: false,
 				custom: ({ series, seriesIndex, dataPointIndex, w }) => {
 					const timestamp = w.globals.seriesX[seriesIndex]?.[dataPointIndex];
 					const dateStr = timestamp
@@ -1490,41 +1489,181 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	if (!systemData) {
 		return (
-			<Stack spacing={{ base: 4, md: 5 }} w="full" dir={isRTL ? "rtl" : "ltr"} opacity={0.6}>
-				<Flex align="center" justify="space-between" px={1}>
-					<Box w="160px" h="28px" bg="panel.elevated" borderRadius="8px" />
-					<Box w="120px" h="32px" bg="panel.elevated" borderRadius="full" />
+			<Stack
+				spacing={{ base: 4, md: 5 }}
+				w="full"
+				dir={isRTL ? "rtl" : "ltr"}
+				sx={{
+					"@keyframes shimmer": {
+						"0%": { opacity: 0.4 },
+						"50%": { opacity: 0.8 },
+						"100%": { opacity: 0.4 },
+					},
+					"& .shimmer-box": {
+						animation: "shimmer 1.8s ease-in-out infinite",
+					},
+				}}
+			>
+				<Flex align="center" justify="space-between" px={1} flexWrap="wrap" gap={3}>
+					<Box className="shimmer-box" w="180px" h="28px" bg="panel.surface" borderRadius="10px" borderWidth="1px" borderColor="panel.border" />
+					<Box className="shimmer-box" w="120px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
 				</Flex>
+
 				<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
 					{[1, 2, 3, 4].map((i) => (
 						<Box
 							key={i}
-							h="140px"
+							className="shimmer-box"
+							minH="150px"
 							bg="panel.surface"
 							borderRadius="20px"
 							borderWidth="1px"
 							borderColor="panel.border"
-							p={5}
+							p={{ base: 4, sm: 5 }}
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
 						>
-							<HStack justify="space-between">
+							<Flex justify="space-between" align="center" mb={3}>
 								<HStack spacing={2.5}>
 									<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
 									<Box w="80px" h="14px" borderRadius="md" bg="panel.elevated" />
 								</HStack>
-								<Box w="60px" h="20px" borderRadius="full" bg="panel.elevated" />
-							</HStack>
-							<Box w="100px" h="24px" borderRadius="md" bg="panel.elevated" />
-							<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" />
+								<Box w="65px" h="22px" borderRadius="full" bg="panel.elevated" />
+							</Flex>
+							<Box w="110px" h="28px" borderRadius="md" bg="panel.elevated" my={2} />
+							<Box>
+								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2} />
+								<Flex justify="space-between">
+									<Box w="60px" h="12px" borderRadius="sm" bg="panel.elevated" />
+									<Box w="60px" h="12px" borderRadius="sm" bg="panel.elevated" />
+								</Flex>
+							</Box>
 						</Box>
 					))}
 				</SimpleGrid>
+
 				<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
-					<Box h="180px" bg="panel.surface" borderRadius="20px" borderWidth="1px" borderColor="panel.border" p={5} />
-					<Box h="180px" bg="panel.surface" borderRadius="20px" borderWidth="1px" borderColor="panel.border" p={5} />
+					<Box
+						className="shimmer-box"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+					>
+						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="110px" h="14px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+							<Box w="70px" h="22px" borderRadius="full" bg="panel.elevated" />
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={3}>
+								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
+								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
+							</Stack>
+						</Box>
+					</Box>
+
+					<Box
+						className="shimmer-box"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+					>
+						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="100px" h="14px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={3}>
+								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
+								<Box h="36px" borderRadius="8px" bg="panel.elevated" />
+							</Stack>
+						</Box>
+					</Box>
 				</SimpleGrid>
+
+				<Box
+					className="shimmer-box"
+					bg="panel.surface"
+					borderRadius="20px"
+					borderWidth="1px"
+					borderColor="panel.border"
+					overflow="hidden"
+				>
+					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+						<HStack spacing={2.5}>
+							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+							<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+						</HStack>
+						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
+					</Flex>
+					<Box p={{ base: 4, sm: 5, md: 6 }}>
+						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+							<Box h="150px" borderRadius="20px" bg="panel.elevated" />
+							<Box h="150px" borderRadius="20px" bg="panel.elevated" />
+						</SimpleGrid>
+					</Box>
+				</Box>
+
+				<Box
+					className="shimmer-box"
+					bg="panel.surface"
+					borderRadius="20px"
+					borderWidth="1px"
+					borderColor="panel.border"
+					overflow="hidden"
+				>
+					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+						<HStack spacing={2.5}>
+							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+							<Box w="100px" h="14px" borderRadius="md" bg="panel.elevated" />
+						</HStack>
+						<Box w="140px" h="26px" borderRadius="8px" bg="panel.elevated" />
+					</Flex>
+					<Box p={{ base: 4, sm: 5, md: 6 }}>
+						<Stack spacing={2.5}>
+							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+							<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+						</Stack>
+					</Box>
+				</Box>
+
+				{canSeeGlobal && (
+					<Box
+						className="shimmer-box"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+					>
+						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={2.5}>
+								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+								<Box h="32px" borderRadius="8px" bg="panel.elevated" />
+							</Stack>
+						</Box>
+					</Box>
+				)}
 			</Stack>
 		);
 	}
@@ -1610,13 +1749,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderRadius="full"
 							bg={systemData.xray_running ? "#22c55e" : "#ef4444"}
 							sx={{
-								animation: systemData.xray_running ? "livePulse 2s ease-in-out infinite" : "none",
+								animation: systemData.xray_running ? "livePulse 3.5s ease-in-out infinite" : "none",
 								boxShadow: systemData.xray_running
-									? "0 0 8px rgba(34, 197, 94, 0.7), 0 0 0 2px rgba(34, 197, 94, 0.15)"
-									: "0 0 8px rgba(239, 68, 68, 0.7)",
+									? "0 0 5px rgba(34, 197, 94, 0.4)"
+									: "0 0 5px rgba(239, 68, 68, 0.4)",
 								"@keyframes livePulse": {
-									"0%, 100%": { transform: "scale(1)", opacity: 0.8 },
-									"50%": { transform: "scale(1.15)", opacity: 1, boxShadow: "0 0 12px rgba(34, 197, 94, 0.9), 0 0 0 4px rgba(34, 197, 94, 0.25)" },
+									"0%, 100%": { opacity: 0.65, transform: "scale(1)" },
+									"50%": { opacity: 1, transform: "scale(1.08)", boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)" },
 								},
 							}}
 						/>
