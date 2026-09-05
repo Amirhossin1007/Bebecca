@@ -361,14 +361,18 @@ const HistoryModal: FC<{
 	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
 
 	useEffect(() => {
-		const targetEl = tabRefs.current[activeIntervalIndex];
-		if (targetEl) {
-			setPillStyle({
-				left: targetEl.offsetLeft,
-				width: targetEl.offsetWidth,
-			});
-		}
-	}, [activeIntervalIndex]);
+		if (!isOpen) return;
+		const timer = setTimeout(() => {
+			const targetEl = tabRefs.current[activeIntervalIndex];
+			if (targetEl) {
+				setPillStyle({
+					left: targetEl.offsetLeft,
+					width: targetEl.offsetWidth,
+				});
+			}
+		}, 50);
+		return () => clearTimeout(timer);
+	}, [activeIntervalIndex, isOpen]);
 
 	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
@@ -514,9 +518,10 @@ const HistoryModal: FC<{
 			},
 			xaxis: {
 				type: "datetime",
+				min: cutoff * 1000,
+				max: latestTimestamp * 1000,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
-				tickPlacement: "between",
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					datetimeUTC: false,
@@ -546,11 +551,11 @@ const HistoryModal: FC<{
 				labels: { colors: mutedTextColor },
 				itemMargin: { horizontal: 12, vertical: 6 },
 				markers: {
-					offsetX: isRTL ? 6 : -6,
+					offsetX: isRTL ? -6 : 6,
 					offsetY: 0,
 				},
 				formatter: (seriesName: string) => {
-					return isRTL ? `\u200E${seriesName}\u00A0\u00A0` : `\u00A0\u00A0${seriesName}`;
+					return isRTL ? `\u200E${seriesName}\u200F` : `\u00A0\u00A0${seriesName}`;
 				},
 				onItemClick: {
 					toggleDataSeries: true,
@@ -657,10 +662,18 @@ const HistoryModal: FC<{
 							p={1}
 							borderRadius="full"
 							bg="panel.elevated"
-							w="fit-content"
+							w="full"
+							maxW="100%"
+							overflowX="auto"
 							position="relative"
 							display="inline-flex"
 							alignItems="center"
+							sx={{
+								"&::-webkit-scrollbar": {
+									display: "none",
+								},
+								scrollbarWidth: "none",
+							}}
 						>
 							{pillStyle.width > 0 && (
 								<motion.div
@@ -701,13 +714,14 @@ const HistoryModal: FC<{
 										<Button
 											size="xs"
 											h="26px"
-											px={3.5}
+											px={{ base: 2, sm: 3.5 }}
 											borderRadius="full"
 											variant="ghost"
 											bg="transparent !important"
 											color={isActive ? "panel.text" : "panel.textMuted"}
 											fontWeight={isActive ? "700" : "500"}
-											fontSize="11px"
+											fontSize={{ base: "10px", sm: "11px" }}
+											whiteSpace="nowrap"
 											position="relative"
 											zIndex={2}
 											opacity={isAvailable ? 1 : 0.4}
@@ -761,7 +775,7 @@ const HistoryModal: FC<{
 										initial={{ opacity: 0 }}
 										animate={{ opacity: 1 }}
 										exit={{ opacity: 0 }}
-										transition={{ duration: 0.2, ease: "easeInOut" }}
+										transition={{ duration: 0.15, ease: "easeInOut" }}
 										style={{
 											position: "absolute",
 											top: 0,
@@ -782,7 +796,7 @@ const HistoryModal: FC<{
 								)}
 							</AnimatePresence>
 							<motion.div
-								animate={{ opacity: isSwitchingInterval ? 0.3 : 1 }}
+								animate={{ opacity: isSwitchingInterval ? 0 : 1 }}
 								transition={{ duration: 0.25, ease: "easeInOut" }}
 								style={{ width: "100%", height: "100%" }}
 							>
@@ -1014,13 +1028,17 @@ const ResourceCard: FC<{
 					bg="panel.elevated"
 					transition="background-color 0.25s ease"
 					_hover={{
-						bg: "panel.surface",
+						md: {
+							bg: "panel.surface",
+						},
 					}}
 					_groupHover={
 						parentNoHover
 							? undefined
 							: {
-									bg: "panel.surface",
+									md: {
+										bg: "panel.surface",
+									},
 								}
 					}
 					sx={{
@@ -1106,8 +1124,10 @@ const StatRow: FC<{
 						dir="ltr"
 						transition="all 0.25s ease"
 						_groupHover={{
-							bg: "panel.surface",
-							color: "panel.textSecondary",
+							md: {
+								bg: "panel.surface",
+								color: "panel.textSecondary",
+							},
 						}}
 					>
 						<Text as="span" dir="ltr" sx={{ fontVariantNumeric: "tabular-nums" }}>
@@ -1704,7 +1724,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 			>
 				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
 					<ResourceCard
-						parentNoHover
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
@@ -1716,7 +1735,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 						isRTL={isRTL}
 					/>
 					<ResourceCard
-						parentNoHover
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
 						icon={<ServerStackIcon width={16} />}
 						value={formatBytes(systemData.app_memory, 1)}
@@ -1748,7 +1766,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 							position="relative"
 							transition="all 0.25s ease"
 							_groupHover={{
-								bg: "panel.surface",
+								md: {
+									bg: "panel.surface",
+								},
 							}}
 						>
 							<Box position="relative">
