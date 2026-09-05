@@ -627,6 +627,8 @@ const HistoryModal: FC<{
 			isRTL,
 			computedMin,
 			computedMax,
+			cutoff,
+			latestTimestamp,
 		],
 	);
 
