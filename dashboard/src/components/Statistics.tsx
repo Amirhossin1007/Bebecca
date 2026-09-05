@@ -361,17 +361,24 @@ const HistoryModal: FC<{
 	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
 
 	useEffect(() => {
-		const targetEl = tabRefs.current[activeIntervalIndex];
-		if (targetEl) {
-			setPillStyle({
-				left: targetEl.offsetLeft,
-				width: targetEl.offsetWidth,
-			});
-		}
-	}, [activeIntervalIndex]);
+		if (!isOpen) return;
+		const timer = setTimeout(() => {
+			const targetEl = tabRefs.current[activeIntervalIndex];
+			if (targetEl) {
+				setPillStyle({
+					left: targetEl.offsetLeft,
+					width: targetEl.offsetWidth,
+				});
+			}
+		}, 50);
+		return () => clearTimeout(timer);
+	}, [activeIntervalIndex, isOpen]);
 
-	const { latestTimestamp, availableSpan } = useMemo(() => {
-		if (!payload) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
+	const { latestTimestamp, earliestTimestamp, availableSpan } = useMemo(() => {
+		if (!payload) {
+			const now = Math.floor(Date.now() / 1000);
+			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
+		}
 		let timestamps: number[] = [];
 		if (payload.type === "network" && payload.networkEntries?.length) {
 			timestamps = payload.networkEntries.map((e) => e.timestamp);
@@ -383,13 +390,19 @@ const HistoryModal: FC<{
 			timestamps = payload.entries.map((e) => e.timestamp);
 		}
 
-		if (!timestamps.length) return { latestTimestamp: Math.floor(Date.now() / 1000), availableSpan: 120 };
+		if (!timestamps.length) {
+			const now = Math.floor(Date.now() / 1000);
+			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
+		}
 		const maxT = Math.max(...timestamps);
 		const minT = Math.min(...timestamps);
-		return { latestTimestamp: maxT, availableSpan: Math.max(120, maxT - minT) };
+		return { latestTimestamp: maxT, earliestTimestamp: minT, availableSpan: Math.max(1, maxT - minT) };
 	}, [payload]);
 
-	const cutoff = latestTimestamp - intervalSeconds;
+	const cutoff =
+		intervalSeconds === 120
+			? Math.max(latestTimestamp - 120, earliestTimestamp)
+			: latestTimestamp - Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
 
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
@@ -439,6 +452,21 @@ const HistoryModal: FC<{
 		}
 		return [];
 	}, [payload, cutoff, t]);
+
+	const hasEnoughPoints = useMemo(() => {
+		if (!payload) return false;
+		let totalPoints = 0;
+		if (payload.type === "network" && payload.networkEntries) {
+			totalPoints = payload.networkEntries.filter((e) => e.timestamp >= cutoff).length;
+		} else if (payload.type === "panel") {
+			const cLen = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff).length;
+			const mLen = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff).length;
+			totalPoints = Math.max(cLen, mLen);
+		} else if (payload.entries) {
+			totalPoints = payload.entries.filter((e) => e.timestamp >= cutoff).length;
+		}
+		return totalPoints >= 2;
+	}, [payload, cutoff]);
 
 	const isNetwork = payload?.type === "network";
 
@@ -508,15 +536,17 @@ const HistoryModal: FC<{
 				padding: {
 					top: 0,
 					right: 8,
-					bottom: 0,
+					bottom: 12,
 					left: 5,
 				},
 			},
 			xaxis: {
 				type: "datetime",
+				min: cutoff * 1000,
+				max: latestTimestamp * 1000,
+				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
-				tickPlacement: "between",
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					datetimeUTC: false,
@@ -543,15 +573,14 @@ const HistoryModal: FC<{
 			},
 			legend: {
 				position: "bottom",
+				offsetY: 0,
 				labels: { colors: mutedTextColor },
-				itemMargin: { horizontal: 12, vertical: 6 },
+				itemMargin: { horizontal: 8, vertical: 6 },
 				markers: {
-					offsetX: isRTL ? 6 : -6,
+					offsetX: 0,
 					offsetY: 0,
 				},
-				formatter: (seriesName: string) => {
-					return isRTL ? `\u200E${seriesName}\u00A0\u00A0` : `\u00A0\u00A0${seriesName}`;
-				},
+				formatter: (seriesName: string) => seriesName,
 				onItemClick: {
 					toggleDataSeries: true,
 				},
@@ -560,7 +589,6 @@ const HistoryModal: FC<{
 				},
 			},
 			tooltip: {
-				theme: colorMode,
 				custom: ({ series, seriesIndex, dataPointIndex, w }) => {
 					const timestamp = w.globals.seriesX[seriesIndex]?.[dataPointIndex];
 					const dateStr = timestamp
@@ -592,14 +620,14 @@ const HistoryModal: FC<{
 
 					return `
 						<div style="
-							background: rgba(22, 23, 28, 0.9);
+							background: rgba(22, 23, 28, 0.92);
 							backdrop-filter: blur(16px);
 							-webkit-backdrop-filter: blur(16px);
-							outline: 1px solid rgba(255, 255, 255, 0.1);
-							outline-offset: -1px;
+							border: 1px solid rgba(255, 255, 255, 0.12);
 							border-radius: 12px;
+							background-clip: padding-box;
 							padding: 8px 12px;
-							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
 							direction: ${isRTL ? "rtl" : "ltr"};
 							font-family: inherit;
 							min-width: 140px;
@@ -622,6 +650,8 @@ const HistoryModal: FC<{
 			isRTL,
 			computedMin,
 			computedMax,
+			cutoff,
+			latestTimestamp,
 		],
 	);
 
@@ -653,95 +683,163 @@ const HistoryModal: FC<{
 				</ModalHeader>
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
-						<Box
-							p={1}
-							borderRadius="full"
-							bg="panel.elevated"
-							w="fit-content"
-							position="relative"
-							display="inline-flex"
-							alignItems="center"
-						>
-							{pillStyle.width > 0 && (
-								<motion.div
-									animate={{
-										left: pillStyle.left,
-										width: pillStyle.width,
-									}}
-									transition={{
-										type: "tween",
-										ease: [0.16, 1, 0.3, 1],
-										duration: 0.32,
-									}}
-									style={{
-										position: "absolute",
-										top: 4,
-										bottom: 4,
-										borderRadius: "9999px",
-										backgroundColor: "var(--chakra-colors-panel-surface)",
-										boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
-										zIndex: 1,
-										pointerEvents: "none",
-									}}
-								/>
-							)}
-							{HISTORY_INTERVALS.map((interval, idx) => {
-								const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
-								const isActive = intervalSeconds === interval.seconds;
-								return (
-									<Box
-										key={interval.seconds}
-										ref={(el: HTMLDivElement | null) => {
-											tabRefs.current[idx] = el;
+						{hasEnoughPoints && (
+							<Box
+								p={1}
+								borderRadius="full"
+								bg="panel.elevated"
+								w={{ base: "full", md: "fit-content" }}
+								maxW="100%"
+								overflowX="auto"
+								position="relative"
+								display="inline-flex"
+								alignItems="center"
+								sx={{
+									"&::-webkit-scrollbar": {
+										display: "none",
+									},
+									scrollbarWidth: "none",
+								}}
+							>
+								{pillStyle.width > 0 && (
+									<motion.div
+										animate={{
+											left: pillStyle.left,
+											width: pillStyle.width,
 										}}
-										position="relative"
-										display="inline-flex"
-										alignItems="center"
-									>
-										<Button
-											size="xs"
-											h="26px"
-											px={3.5}
-											borderRadius="full"
-											variant="ghost"
-											bg="transparent !important"
-											color={isActive ? "panel.text" : "panel.textMuted"}
-											fontWeight={isActive ? "700" : "500"}
-											fontSize="11px"
+										transition={{
+											type: "tween",
+											ease: [0.16, 1, 0.3, 1],
+											duration: 0.32,
+										}}
+										style={{
+											position: "absolute",
+											top: 4,
+											bottom: 4,
+											borderRadius: "9999px",
+											backgroundColor: "var(--chakra-colors-panel-surface)",
+											boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
+											zIndex: 1,
+											pointerEvents: "none",
+										}}
+									/>
+								)}
+								{HISTORY_INTERVALS.map((interval, idx) => {
+									const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
+									const isActive = intervalSeconds === interval.seconds;
+									return (
+										<Box
+											key={interval.seconds}
+											ref={(el: HTMLDivElement | null) => {
+												tabRefs.current[idx] = el;
+											}}
+											flex={{ base: "1 1 0", md: "none" }}
 											position="relative"
-											zIndex={2}
-											opacity={isAvailable ? 1 : 0.4}
-											cursor={isAvailable ? "pointer" : "not-allowed"}
-											_hover={{
-												md: {
-													color: "panel.text",
-												},
-											}}
-											onClick={() => {
-												if (isAvailable && intervalSeconds !== interval.seconds) {
-													setIsSwitchingInterval(true);
-													onIntervalChange(interval.seconds);
-													setTimeout(() => setIsSwitchingInterval(false), 300);
-												}
-											}}
+											display="inline-flex"
+											alignItems="center"
+											justifyContent="center"
 										>
-											{t(interval.labelKey)}
-										</Button>
-									</Box>
-								);
-							})}
-						</Box>
+											<Button
+												size="xs"
+												h="26px"
+												w="full"
+												px={{ base: 1, sm: 3.5 }}
+												borderRadius="full"
+												variant="ghost"
+												bg="transparent !important"
+												color={isActive ? "panel.text" : "panel.textMuted"}
+												fontWeight={isActive ? "700" : "500"}
+												fontSize={{ base: "10px", sm: "11px" }}
+												whiteSpace="nowrap"
+												position="relative"
+												zIndex={2}
+												opacity={isAvailable ? 1 : 0.4}
+												cursor={isAvailable ? "pointer" : "not-allowed"}
+												_hover={{
+													md: {
+														color: "panel.text",
+													},
+												}}
+												_focusVisible={{
+													outline: "2px solid var(--rb-panel-accent)",
+													outlineOffset: "2px",
+												}}
+												onClick={() => {
+													if (isAvailable && intervalSeconds !== interval.seconds) {
+														setIsSwitchingInterval(true);
+														onIntervalChange(interval.seconds);
+														setTimeout(() => setIsSwitchingInterval(false), 300);
+													}
+												}}
+											>
+												{t(interval.labelKey)}
+											</Button>
+										</Box>
+									);
+								})}
+							</Box>
+						)}
 						<Box
-							minH="280px"
+							minH="300px"
 							w="100%"
 							position="relative"
 							dir="ltr"
+							pb={2}
 							sx={{
 								"& .apexcharts-canvas": {
 									direction: "ltr !important",
 								},
 								"& .apexcharts-yaxis-label": {
 									direction: "ltr !important",
+								},
+								"& .apexcharts-legend": {
+									direction: "ltr !important",
+									display: "flex !important",
+									justifyContent: "center !important",
+									gap: "18px !important",
+								},
+								"& .apexcharts-legend-series": {
+									display: "inline-flex !important",
+									alignItems: "center !important",
+									flexDirection: isRTL ? "row !important" : "row !important",
+									gap: "6px !important",
+									margin: "0 !important",
+								},
+								"& .apexcharts-legend-marker": {
+									order: isRTL ? 2 : 1,
+									margin: "0 !important",
+									position: "relative !important",
+									top: "auto !important",
+									left: "auto !important",
+									right: "auto !important",
+									bottom: "auto !important",
+									transform: "none !important",
+								},
+								"& .apexcharts-legend-text": {
+									order: isRTL ? 1 : 2,
+									margin: "0 !important",
+									padding: "0 !important",
+									position: "relative !important",
+									top: "auto !important",
+									left: "auto !important",
+									right: "auto !important",
+									bottom: "auto !important",
+								},
+								"& .apexcharts-tooltip": {
+									background: "transparent !important",
+									border: "none !important",
+									boxShadow: "none !important",
+									overflow: "visible !important",
+								},
+								"& .apexcharts-tooltip.apexcharts-theme-light": {
+									background: "transparent !important",
+									border: "none !important",
+									boxShadow: "none !important",
+								},
+								"& .apexcharts-tooltip.apexcharts-theme-dark": {
+									background: "transparent !important",
+									border: "none !important",
+									boxShadow: "none !important",
 								},
 								"& .apexcharts-legend-series.apexcharts-inactive-legend": {
 									opacity: "0.45 !important",
@@ -761,7 +859,7 @@ const HistoryModal: FC<{
 										initial={{ opacity: 0 }}
 										animate={{ opacity: 1 }}
 										exit={{ opacity: 0 }}
-										transition={{ duration: 0.2, ease: "easeInOut" }}
+										transition={{ duration: 0.15, ease: "easeInOut" }}
 										style={{
 											position: "absolute",
 											top: 0,
@@ -782,7 +880,7 @@ const HistoryModal: FC<{
 								)}
 							</AnimatePresence>
 							<motion.div
-								animate={{ opacity: isSwitchingInterval ? 0.3 : 1 }}
+								animate={{ opacity: isSwitchingInterval ? 0 : 1 }}
 								transition={{ duration: 0.25, ease: "easeInOut" }}
 								style={{ width: "100%", height: "100%" }}
 							>
@@ -793,15 +891,21 @@ const HistoryModal: FC<{
 										</Flex>
 									}
 								>
-									{chartSeries.length > 0 && isOpen && (
+									{hasEnoughPoints && isOpen ? (
 										<HistoryChart
 											key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
 											options={options}
 											series={chartSeries}
 											type="area"
-											height={280}
+											height={300}
 											width="100%"
 										/>
+									) : (
+										<Flex h="300px" align="center" justify="center" direction="column" gap={2}>
+											<Text fontSize="13px" color="panel.textMuted">
+												{t("noData")}
+											</Text>
+										</Flex>
 									)}
 								</Suspense>
 							</motion.div>
@@ -922,6 +1026,19 @@ const ResourceCard: FC<{
 							_active={{
 								bg: "panel.borderStrong !important",
 							}}
+							_focusVisible={{
+								outline: "2px solid var(--rb-panel-accent)",
+								outlineOffset: "2px",
+							}}
+							position="relative"
+							_after={{
+								content: '""',
+								position: "absolute",
+								top: "-10px",
+								bottom: "-10px",
+								left: "-10px",
+								right: "-10px",
+							}}
 							onClick={onHistory}
 						>
 							{historyLabel}
@@ -1014,15 +1131,15 @@ const ResourceCard: FC<{
 					bg="panel.elevated"
 					transition="background-color 0.25s ease"
 					_hover={{
-						bg: "panel.surface",
+						md: {
+							bg: "panel.surface",
+						},
 					}}
-					_groupHover={
-						parentNoHover
-							? undefined
-							: {
-									bg: "panel.surface",
-								}
-					}
+					_groupHover={{
+						md: {
+							bg: "panel.surface",
+						},
+					}}
 					sx={{
 						"& > div": {
 							bg: criticalColor,
@@ -1106,8 +1223,10 @@ const StatRow: FC<{
 						dir="ltr"
 						transition="all 0.25s ease"
 						_groupHover={{
-							bg: "panel.surface",
-							color: "panel.textSecondary",
+							md: {
+								bg: "panel.surface",
+								color: "panel.textSecondary",
+							},
 						}}
 					>
 						<Text as="span" dir="ltr" sx={{ fontVariantNumeric: "tabular-nums" }}>
@@ -1146,14 +1265,16 @@ const SectionCard: FC<{
 	title?: ReactNode;
 	action?: ReactNode;
 	noHover?: boolean;
+	roleGroup?: boolean;
 }> = ({
 	children,
 	title,
 	action,
 	noHover = false,
+	roleGroup = true,
 }) => (
 	<Box
-		role="group"
+		role={roleGroup ? "group" : undefined}
 		bg="panel.surface"
 		borderWidth="1px"
 		borderColor="panel.border"
@@ -1247,28 +1368,56 @@ const AnimatedHeightWrapper: FC<{
 	);
 };
 
-const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
-	<Flex align="center" justify="space-between" gap={3}>
-		<HStack spacing={2.5} color="panel.textMuted">
-			<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
-				{icon}
-			</Flex>
-			<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
-				{label}
-			</Text>
-		</HStack>
-		<Text
-			fontSize="13px"
-			fontWeight="700"
-			letterSpacing="-0.01em"
-			color="panel.text"
-			dir="ltr"
-			sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-		>
-			{value}
-		</Text>
-	</Flex>
-);
+const SpeedItem: FC<{
+	icon: ReactNode;
+	label: string;
+	value: string;
+	rawBytes?: number;
+	avgBytes?: number;
+}> = ({ icon, label, value, rawBytes, avgBytes }) => {
+	const trend = useMemo(() => {
+		if (rawBytes === undefined || avgBytes === undefined || avgBytes <= 0) return null;
+		const diff = ((rawBytes - avgBytes) / avgBytes) * 100;
+		if (Math.abs(diff) < 5) return null;
+		return diff > 0 ? "up" : "down";
+	}, [rawBytes, avgBytes]);
+
+	return (
+		<Flex align="center" justify="space-between" gap={3}>
+			<HStack spacing={2.5} color="panel.textMuted">
+				<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
+					{icon}
+				</Flex>
+				<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
+					{label}
+				</Text>
+			</HStack>
+			<HStack spacing={1.5} align="center">
+				{trend && (
+					<Text
+						as="span"
+						fontSize="11px"
+						fontWeight="700"
+						color={trend === "up" ? "cyan.400" : "panel.textMuted"}
+						title={trend === "up" ? "Surging above average" : "Below average"}
+					>
+						{trend === "up" ? "↑" : "↓"}
+					</Text>
+				)}
+				<Text
+					fontSize="13px"
+					fontWeight="700"
+					letterSpacing="-0.01em"
+					color="panel.text"
+					dir="ltr"
+					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+				>
+					{value}
+				</Text>
+			</HStack>
+		</Flex>
+	);
+};
 
 export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
@@ -1340,12 +1489,325 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	if (!systemData) {
 		return (
-			<Flex justify="center" align="center" minH="60vh" w="full">
-				<VStack spacing={4}>
-					<Spinner size="lg" color="panel.accent" thickness="2px" speed="0.8s" />
-					<Text fontSize="13px" color="panel.textMuted">{t("loading")}</Text>
-				</VStack>
-			</Flex>
+			<Stack
+				spacing={{ base: 4, md: 5 }}
+				w="full"
+				dir={isRTL ? "rtl" : "ltr"}
+				sx={{
+					"@keyframes shimmer": {
+						"0%": { opacity: 0.35 },
+						"50%": { opacity: 0.75 },
+						"100%": { opacity: 0.35 },
+					},
+					"& .shimmer-box": {
+						animation: "shimmer 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+					},
+				}}
+			>
+				<Flex
+					align="center"
+					justify="space-between"
+					px={1}
+					flexWrap="wrap"
+					gap={3}
+					sx={{
+						"@media screen and (max-width: 767px)": {
+							"& > div:last-child": {
+								width: "100%",
+								justifyContent: "flex-start",
+							},
+						},
+					}}
+				>
+					<Flex
+						wrap="wrap"
+						gap={{ base: 2.5, md: 1 }}
+						sx={{
+							flexDirection: "column",
+							alignItems: "flex-start",
+							"@media screen and (max-width: 767px)": {
+								flexDirection: "row",
+								alignItems: "center",
+							},
+							"@media screen and (min-width: 768px) and (max-width: 991px)": {
+								"body:has([data-sidebar-collapsed='true']) &": {
+									flexDirection: "row",
+									alignItems: "center",
+								},
+								"body:not(:has([data-sidebar-collapsed='true'])) &": {
+									flexDirection: "column",
+									alignItems: "flex-start",
+								},
+							},
+							"@media screen and (min-width: 992px)": {
+								flexDirection: "column",
+								alignItems: "flex-start",
+							},
+						}}
+					>
+						<Box className="shimmer-box" w={{ base: "140px", sm: "170px" }} h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w="90px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+					</Flex>
+					<HStack spacing={2} flexWrap="wrap" w={{ base: "full", md: "auto" }}>
+						<Box className="shimmer-box" w={{ base: "100px", sm: "110px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w={{ base: "85px", sm: "95px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w={{ base: "120px", sm: "135px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+					</HStack>
+				</Flex>
+
+				<SimpleGrid
+					columns={{ base: 1, sm: 2, xl: 4 }}
+					gap={{ base: 3, md: 4 }}
+					sx={{
+						"@media screen and (min-width: 768px) and (max-width: 910px)": {
+							"body:not(:has([data-sidebar-collapsed='true'])) &": {
+								gridTemplateColumns: "1fr !important",
+							},
+						},
+					}}
+				>
+					{[1, 2, 3, 4].map((i) => (
+						<Box
+							key={i}
+							className="shimmer-box"
+							minH="140px"
+							bg="panel.surface"
+							borderRadius="20px"
+							borderWidth="1px"
+							borderColor="panel.border"
+							p={{ base: 4, sm: 5 }}
+							display="flex"
+							flexDirection="column"
+							justifyContent="space-between"
+						>
+							<Flex justify="space-between" align="center" mb={3}>
+								<HStack spacing={2.5}>
+									<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
+									<Box w="85px" h="14px" borderRadius="md" bg="panel.elevated" />
+								</HStack>
+								{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
+							</Flex>
+							<Box w="120px" h="26px" borderRadius="md" bg="panel.elevated" my={1.5} />
+							<Box>
+								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2.5} />
+								<Flex justify="space-between">
+									<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+									<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+								</Flex>
+							</Box>
+						</Box>
+					))}
+				</SimpleGrid>
+
+				<SimpleGrid
+					columns={{ base: 1, md: 2 }}
+					gap={{ base: 3, md: 4 }}
+					sx={{
+						"@media screen and (min-width: 768px) and (max-width: 910px)": {
+							"body:not(:has([data-sidebar-collapsed='true'])) &": {
+								gridTemplateColumns: "1fr !important",
+							},
+						},
+					}}
+				>
+					<Box
+						className="shimmer-box"
+						minH="120px"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+					>
+						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="110px" h="14px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={3}>
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="80px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="85px" h="18px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="80px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="85px" h="18px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+							</Stack>
+						</Box>
+					</Box>
+
+					<Box
+						className="shimmer-box"
+						minH="120px"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+					>
+						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={3}>
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="95px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="110px" h="15px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+								<Flex justify="space-between" align="center">
+									<HStack spacing={2.5}>
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+										<Box w="85px" h="13px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+							</Stack>
+						</Box>
+					</Box>
+				</SimpleGrid>
+
+				<Box
+					className="shimmer-box"
+					bg="panel.surface"
+					borderRadius="20px"
+					borderWidth="1px"
+					borderColor="panel.border"
+					overflow="hidden"
+				>
+					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+						<HStack spacing={2.5}>
+							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+							<Box w="105px" h="14px" borderRadius="md" bg="panel.elevated" />
+						</HStack>
+						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
+					</Flex>
+					<Box p={{ base: 4, sm: 5, md: 6 }}>
+						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+							{[1, 2].map((i) => (
+								<Box
+									key={i}
+									minH="130px"
+									bg="panel.surface"
+									borderRadius="20px"
+									borderWidth="1px"
+									borderColor="panel.border"
+									p={{ base: 4, sm: 5 }}
+									display="flex"
+									flexDirection="column"
+									justifyContent="space-between"
+								>
+									<Flex justify="space-between" align="center" mb={3}>
+										<HStack spacing={2.5}>
+											<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
+											<Box w="100px" h="14px" borderRadius="md" bg="panel.elevated" />
+										</HStack>
+									</Flex>
+									<Box w="110px" h="26px" borderRadius="md" bg="panel.elevated" my={1.5} />
+									<Box>
+										<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2.5} />
+										<Flex justify="space-between">
+											<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+											<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+										</Flex>
+									</Box>
+								</Box>
+							))}
+						</SimpleGrid>
+					</Box>
+				</Box>
+
+				<Box
+					className="shimmer-box"
+					bg="panel.surface"
+					borderRadius="20px"
+					borderWidth="1px"
+					borderColor="panel.border"
+					overflow="hidden"
+				>
+					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+						<HStack spacing={2.5}>
+							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+							<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+						</HStack>
+						<Box w="140px" h="24px" borderRadius="8px" bg="panel.elevated" />
+					</Flex>
+					<Box p={{ base: 4, sm: 5, md: 6 }}>
+						<Stack spacing={0}>
+							{[1, 2, 3, 4, 5, 6].map((i) => (
+								<Flex
+									key={i}
+									justify="space-between"
+									align="center"
+									py={2.5}
+									borderBottomWidth={i === 6 ? "0" : "1px"}
+									borderColor="panel.border"
+								>
+									<HStack spacing={3}>
+										<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" />
+										<Box w="70px" h="13px" borderRadius="md" bg="panel.elevated" />
+										{i >= 2 && i <= 3 && <Box w="40px" h="16px" borderRadius="md" bg="panel.elevated" />}
+									</HStack>
+									<Box w="45px" h="16px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+							))}
+						</Stack>
+					</Box>
+				</Box>
+
+				{canSeeGlobal && (
+					<Box
+						className="shimmer-box"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+					>
+						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="85px" h="14px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={0}>
+								{[1, 2, 3, 4, 5].map((i) => (
+									<Flex
+										key={i}
+										justify="space-between"
+										align="center"
+										py={2.5}
+										borderBottomWidth={i === 5 ? "0" : "1px"}
+										borderColor="panel.border"
+									>
+										<HStack spacing={3}>
+											<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" />
+											<Box w={i === 5 ? "110px" : "75px"} h="13px" borderRadius="md" bg="panel.elevated" />
+										</HStack>
+										<Box w={i === 5 ? "120px" : "45px"} h="16px" borderRadius="md" bg="panel.elevated" />
+									</Flex>
+								))}
+							</Stack>
+						</Box>
+					</Box>
+				)}
+			</Stack>
 		);
 	}
 
@@ -1425,15 +1887,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 					</Text>
 					<Flex align="center" gap={2} direction="row">
 						<Box
-							w="6px"
-							h="6px"
+							w="7px"
+							h="7px"
 							borderRadius="full"
 							bg={systemData.xray_running ? "#22c55e" : "#ef4444"}
 							sx={{
-								animation: systemData.xray_running ? "livePulse 2.4s ease-in-out infinite" : "none",
+								animation: systemData.xray_running ? "livePulse 3.5s ease-in-out infinite" : "none",
+								boxShadow: systemData.xray_running
+									? "0 0 5px rgba(34, 197, 94, 0.4)"
+									: "0 0 5px rgba(239, 68, 68, 0.4)",
 								"@keyframes livePulse": {
-									"0%,100%": { opacity: 0.5 },
-									"50%": { opacity: 1 },
+									"0%, 100%": { opacity: 0.65, transform: "scale(1)" },
+									"50%": { opacity: 1, transform: "scale(1.08)", boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)" },
 								},
 							}}
 						/>
@@ -1453,7 +1918,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</Flex>
 
-			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
+			<SimpleGrid
+				columns={{ base: 1, sm: 2, xl: 4 }}
+				gap={{ base: 3, md: 4 }}
+				sx={{
+					"@media screen and (min-width: 768px) and (max-width: 910px)": {
+						"body:not(:has([data-sidebar-collapsed='true'])) &": {
+							gridTemplateColumns: "1fr !important",
+						},
+					},
+				}}
+			>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
 					icon={<CpuChipIcon width={16} />}
@@ -1515,7 +1990,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 			</SimpleGrid>
 
-			<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
+			<SimpleGrid
+				columns={{ base: 1, md: 2 }}
+				gap={{ base: 3, md: 4 }}
+				sx={{
+					"@media screen and (min-width: 768px) and (max-width: 910px)": {
+						"body:not(:has([data-sidebar-collapsed='true'])) &": {
+							gridTemplateColumns: "1fr !important",
+						},
+					},
+				}}
+			>
 				<SectionCard
 					title={
 						<HStack spacing={2.5}>
@@ -1552,6 +2037,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 							_active={{
 								bg: "panel.borderStrong !important",
 							}}
+							_focusVisible={{
+								outline: "2px solid var(--rb-panel-accent)",
+								outlineOffset: "2px",
+							}}
+							position="relative"
+							_after={{
+								content: '""',
+								position: "absolute",
+								top: "-10px",
+								bottom: "-10px",
+								left: "-10px",
+								right: "-10px",
+							}}
 							onClick={() =>
 								openHistory({
 									type: "network",
@@ -1569,11 +2067,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 							icon={<ArrowDownTrayIcon width={13} />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
+							rawBytes={systemData.incoming_bandwidth_speed}
+							avgBytes={average(systemData.network_history.map((e) => e.incoming))}
 						/>
 						<SpeedItem
 							icon={<ArrowUpTrayIcon width={13} />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
+							rawBytes={systemData.outgoing_bandwidth_speed}
+							avgBytes={average(systemData.network_history.map((e) => e.outgoing))}
 						/>
 					</Stack>
 				</SectionCard>
@@ -1646,7 +2148,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									h="22px"
 									px={2.5}
 									onClick={() => {
-										window.location.href = "/settings";
+										window.location.href = "/dashboard/settings#telegram";
 									}}
 								>
 									{t("dashboard.system.goToTelegramSettings")}
@@ -1662,6 +2164,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 			<SectionCard
 				noHover
+				roleGroup={false}
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
@@ -1679,8 +2182,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 						variant="ghost"
 						borderRadius="full"
 						bg="panel.elevated"
-						color="panel.textMuted"
-						fontWeight="500"
+						color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
+						fontWeight={colorMode === "light" ? "600" : "500"}
 						transition="all 0.2s ease"
 						_hover={{
 							bg: "panel.border !important",
@@ -1688,6 +2191,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 						}}
 						_active={{
 							bg: "panel.borderStrong !important",
+						}}
+						_focusVisible={{
+							outline: "2px solid var(--rb-panel-accent)",
+							outlineOffset: "2px",
+						}}
+						position="relative"
+						_after={{
+							content: '""',
+							position: "absolute",
+							top: "-10px",
+							bottom: "-10px",
+							left: "-10px",
+							right: "-10px",
 						}}
 						onClick={() =>
 							openHistory({
@@ -1748,7 +2264,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 							position="relative"
 							transition="all 0.25s ease"
 							_groupHover={{
-								bg: "panel.surface",
+								md: {
+									bg: "panel.surface",
+								},
 							}}
 						>
 							<Box position="relative">
@@ -1791,6 +2309,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 										md: {
 											color: userTab === "all" ? "white" : "panel.text",
 										},
+									}}
+									_focusVisible={{
+										outline: "2px solid var(--rb-panel-accent)",
+										outlineOffset: "2px",
 									}}
 									onClick={() => setUserTab("all")}
 								>
@@ -1837,6 +2359,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 										md: {
 											color: userTab === "mine" ? "white" : "panel.text",
 										},
+									}}
+									_focusVisible={{
+										outline: "2px solid var(--rb-panel-accent)",
+										outlineOffset: "2px",
 									}}
 									onClick={() => setUserTab("mine")}
 								>
