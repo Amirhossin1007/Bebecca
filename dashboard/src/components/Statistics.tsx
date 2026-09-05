@@ -393,7 +393,10 @@ const HistoryModal: FC<{
 		return { latestTimestamp: maxT, availableSpan: Math.max(120, maxT - minT) };
 	}, [payload]);
 
-	const effectiveMinSpan = Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
+	const effectiveMinSpan =
+		intervalSeconds === 120
+			? availableSpan
+			: Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
 	const cutoff = latestTimestamp - effectiveMinSpan;
 
 	const chartSeries = useMemo(() => {
@@ -760,7 +763,7 @@ const HistoryModal: FC<{
 									direction: "ltr !important",
 								},
 								"& .apexcharts-legend": {
-									direction: isRTL ? "rtl !important" : "ltr !important",
+									direction: "ltr !important",
 									display: "flex !important",
 									justifyContent: "center !important",
 									gap: "18px !important",
@@ -1057,11 +1060,15 @@ const ResourceCard: FC<{
 							bg: "panel.surface",
 						},
 					}}
-					_groupHover={{
-						md: {
-							bg: "panel.surface",
-						},
-					}}
+					_groupHover={
+						parentNoHover
+							? undefined
+							: {
+									md: {
+										bg: "panel.surface",
+									},
+								}
+					}
 					sx={{
 						"& > div": {
 							bg: criticalColor,
