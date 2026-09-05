@@ -758,6 +758,10 @@ const HistoryModal: FC<{
 														color: "panel.text",
 													},
 												}}
+												_focusVisible={{
+													outline: "2px solid var(--rb-panel-accent)",
+													outlineOffset: "2px",
+												}}
 												onClick={() => {
 													if (isAvailable && intervalSeconds !== interval.seconds) {
 														setIsSwitchingInterval(true);
@@ -1008,6 +1012,19 @@ const ResourceCard: FC<{
 							}}
 							_active={{
 								bg: "panel.borderStrong !important",
+							}}
+							_focusVisible={{
+								outline: "2px solid var(--rb-panel-accent)",
+								outlineOffset: "2px",
+							}}
+							position="relative"
+							_after={{
+								content: '""',
+								position: "absolute",
+								top: "-10px",
+								bottom: "-10px",
+								left: "-10px",
+								right: "-10px",
 							}}
 							onClick={onHistory}
 						>
@@ -1643,6 +1660,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 							_active={{
 								bg: "panel.borderStrong !important",
 							}}
+							_focusVisible={{
+								outline: "2px solid var(--rb-panel-accent)",
+								outlineOffset: "2px",
+							}}
+							position="relative"
+							_after={{
+								content: '""',
+								position: "absolute",
+								top: "-10px",
+								bottom: "-10px",
+								left: "-10px",
+								right: "-10px",
+							}}
 							onClick={() =>
 								openHistory({
 									type: "network",
@@ -1781,6 +1811,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 						_active={{
 							bg: "panel.borderStrong !important",
 						}}
+						_focusVisible={{
+							outline: "2px solid var(--rb-panel-accent)",
+							outlineOffset: "2px",
+						}}
+						position="relative"
+						_after={{
+							content: '""',
+							position: "absolute",
+							top: "-10px",
+							bottom: "-10px",
+							left: "-10px",
+							right: "-10px",
+						}}
 						onClick={() =>
 							openHistory({
 								type: "panel",
@@ -1886,6 +1929,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 											color: userTab === "all" ? "white" : "panel.text",
 										},
 									}}
+									_focusVisible={{
+										outline: "2px solid var(--rb-panel-accent)",
+										outlineOffset: "2px",
+									}}
 									onClick={() => setUserTab("all")}
 								>
 									{t("dashboard.users.allUsers")}
@@ -1931,6 +1978,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 										md: {
 											color: userTab === "mine" ? "white" : "panel.text",
 										},
+									}}
+									_focusVisible={{
+										outline: "2px solid var(--rb-panel-accent)",
+										outlineOffset: "2px",
 									}}
 									onClick={() => setUserTab("mine")}
 								>
