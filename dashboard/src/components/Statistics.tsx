@@ -453,6 +453,21 @@ const HistoryModal: FC<{
 		return [];
 	}, [payload, cutoff, t]);
 
+	const hasEnoughPoints = useMemo(() => {
+		if (!payload) return false;
+		let totalPoints = 0;
+		if (payload.type === "network" && payload.networkEntries) {
+			totalPoints = payload.networkEntries.filter((e) => e.timestamp >= cutoff).length;
+		} else if (payload.type === "panel") {
+			const cLen = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff).length;
+			const mLen = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff).length;
+			totalPoints = Math.max(cLen, mLen);
+		} else if (payload.entries) {
+			totalPoints = payload.entries.filter((e) => e.timestamp >= cutoff).length;
+		}
+		return totalPoints >= 2;
+	}, [payload, cutoff]);
+
 	const isNetwork = payload?.type === "network";
 
 	const { computedMin, computedMax } = useMemo(() => {
@@ -529,6 +544,7 @@ const HistoryModal: FC<{
 				type: "datetime",
 				min: cutoff * 1000,
 				max: latestTimestamp * 1000,
+				range: (latestTimestamp - cutoff) * 1000,
 				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
@@ -850,7 +866,7 @@ const HistoryModal: FC<{
 										</Flex>
 									}
 								>
-									{chartSeries.length > 0 && isOpen && (
+									{hasEnoughPoints && isOpen ? (
 										<HistoryChart
 											key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
 											options={options}
@@ -859,6 +875,12 @@ const HistoryModal: FC<{
 											height={280}
 											width="100%"
 										/>
+									) : (
+										<Flex h="280px" align="center" justify="center" direction="column" gap={2}>
+											<Text fontSize="13px" color="panel.textMuted">
+												{t("noData")}
+											</Text>
+										</Flex>
 									)}
 								</Suspense>
 							</motion.div>
@@ -1205,14 +1227,16 @@ const SectionCard: FC<{
 	title?: ReactNode;
 	action?: ReactNode;
 	noHover?: boolean;
+	roleGroup?: boolean;
 }> = ({
 	children,
 	title,
 	action,
 	noHover = false,
+	roleGroup = true,
 }) => (
 	<Box
-		role="group"
+		role={roleGroup ? "group" : undefined}
 		bg="panel.surface"
 		borderWidth="1px"
 		borderColor="panel.border"
@@ -1721,6 +1745,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 			<SectionCard
 				noHover
+				roleGroup={false}
 				title={
 					<HStack spacing={2.5}>
 						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
