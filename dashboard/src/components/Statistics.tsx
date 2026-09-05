@@ -621,14 +621,14 @@ const HistoryModal: FC<{
 
 					return `
 						<div style="
-							background: rgba(22, 23, 28, 0.9);
+							background: rgba(22, 23, 28, 0.92);
 							backdrop-filter: blur(16px);
 							-webkit-backdrop-filter: blur(16px);
-							outline: 1px solid rgba(255, 255, 255, 0.1);
-							outline-offset: -1px;
+							border: 1px solid rgba(255, 255, 255, 0.12);
 							border-radius: 12px;
+							background-clip: padding-box;
 							padding: 8px 12px;
-							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
 							direction: ${isRTL ? "rtl" : "ltr"};
 							font-family: inherit;
 							min-width: 140px;
@@ -689,7 +689,7 @@ const HistoryModal: FC<{
 								p={1}
 								borderRadius="full"
 								bg="panel.elevated"
-								w="fit-content"
+								w={{ base: "full", md: "fit-content" }}
 								maxW="100%"
 								overflowX="auto"
 								position="relative"
@@ -818,6 +818,11 @@ const HistoryModal: FC<{
 									left: "auto !important",
 									right: "auto !important",
 									bottom: "auto !important",
+								},
+								"& .apexcharts-tooltip": {
+									background: "transparent !important",
+									border: "none !important",
+									boxShadow: "none !important",
 								},
 								"& .apexcharts-legend-series.apexcharts-inactive-legend": {
 									opacity: "0.45 !important",
