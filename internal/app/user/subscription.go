@@ -82,6 +82,7 @@ var subscriptionClientConfigs = map[string]SubscriptionClientConfig{
 	"nekobox":      {Format: "v2ray", Media: "text/plain", Base64: true},
 	"openvpn":      {Format: "openvpn", Media: "application/x-openvpn-profile"},
 	"wireguard":    {Format: "wireguard", Media: "application/x-wireguard-profile"},
+	"amneziawg":    {Format: "amneziawg", Media: "application/x-wireguard-profile"},
 }
 
 func NormalizeSubscriptionClientType(value string) (string, bool) {
@@ -108,6 +109,8 @@ func NormalizeSubscriptionClientType(value string) (string, bool) {
 		value = "passwall"
 	case "wg":
 		value = "wireguard"
+	case "awg", "amnezia-wg":
+		value = "amneziawg"
 	}
 	_, ok := subscriptionClientConfigs[value]
 	return value, ok
@@ -145,6 +148,12 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 			return subscriptionPlaceholderProfile(user, req, settings, placeholderRemark, "application/x-wireguard-profile", ".conf"), nil
 		}
 		return s.generateWGProfile(ctx, user, req)
+	}
+	if req.ClientType == "amneziawg" {
+		if placeholderRemark != "" {
+			return subscriptionPlaceholderProfile(user, req, settings, placeholderRemark, "application/x-wireguard-profile", ".conf"), nil
+		}
+		return s.generateAWGProfile(ctx, user, req)
 	}
 	clientType := req.ClientType
 	if clientType == "" {
@@ -230,6 +239,16 @@ func (s Service) subscriptionVPNInfo(ctx context.Context, user UserDetail, subsc
 			wgLinks = append(wgLinks, profile.Link)
 		}
 	}
+	awgProfiles, err := s.AWGDownloadProfiles(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	awgDownloads := make([]string, 0, len(awgProfiles))
+	for _, profile := range awgProfiles {
+		if strings.TrimSpace(profile.DownloadURL) != "" {
+			awgDownloads = append(awgDownloads, profile.DownloadURL)
+		}
+	}
 	l2tpItems, err := s.L2TPInfos(ctx, user, subscriptionURL)
 	if err != nil {
 		return nil, err
@@ -246,6 +265,14 @@ func (s Service) subscriptionVPNInfo(ctx context.Context, user UserDetail, subsc
 	if err != nil {
 		return nil, err
 	}
+	sstpItems, err := s.SSTPInfos(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
+	greItems, err := s.GREInfos(ctx, user, subscriptionURL)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
 		"openvpn": map[string]any{
 			"downloads": ovLinks,
@@ -256,10 +283,13 @@ func (s Service) subscriptionVPNInfo(ctx context.Context, user UserDetail, subsc
 			"links":     wgLinks,
 			"profiles":  wgProfiles,
 		},
+		"amneziawg":  map[string]any{"downloads": awgDownloads, "profiles": awgProfiles},
 		"l2tp":       l2tpItems,
 		"pptp":       pptpItems,
 		"ikev2":      ikev2Items,
 		"anyconnect": anyConnectItems,
+		"sstp":       sstpItems,
+		"gre":        greItems,
 	}, nil
 }
 
@@ -554,7 +584,8 @@ func emptySubscriptionVPNInfo() map[string]any {
 	return map[string]any{
 		"openvpn":   map[string]any{"downloads": []string{}, "profiles": []OVProfile{}},
 		"wireguard": map[string]any{"downloads": []string{}, "links": []string{}, "profiles": []WGProfile{}},
-		"l2tp":      []L2TPInfo{}, "pptp": []PPTPInfo{}, "ikev2": []RemoteAccessInfo{}, "anyconnect": []RemoteAccessInfo{},
+		"amneziawg": map[string]any{"downloads": []string{}, "profiles": []WGProfile{}},
+		"l2tp":      []L2TPInfo{}, "pptp": []PPTPInfo{}, "ikev2": []RemoteAccessInfo{}, "anyconnect": []RemoteAccessInfo{}, "sstp": []RemoteAccessInfo{}, "gre": []RemoteAccessInfo{},
 	}
 }
 
@@ -969,6 +1000,9 @@ func resolvePrefixedSubscriptionPath(path string, prefix string) (SubscriptionRe
 				HostTag:    strings.TrimSuffix(segments[2], ".conf"),
 			}, true
 		}
+		if segments[1] == "awg" || segments[1] == "amneziawg" {
+			return SubscriptionRenderRequest{Identifier: segments[0], ClientType: "amneziawg", HostTag: strings.TrimSuffix(segments[2], ".conf")}, true
+		}
 		if segments[2] == "info" || segments[2] == "usage" {
 			return SubscriptionRenderRequest{Username: segments[0], Key: segments[1], ClientType: segments[2]}, true
 		}
@@ -991,6 +1025,9 @@ func resolvePrefixedSubscriptionPath(path string, prefix string) (SubscriptionRe
 			ClientType: "wireguard",
 			HostTag:    strings.TrimSuffix(segments[3], ".conf"),
 		}, true
+	}
+	if len(segments) == 4 && (segments[2] == "awg" || segments[2] == "amneziawg") {
+		return SubscriptionRenderRequest{Username: segments[0], Key: segments[1], ClientType: "amneziawg", HostTag: strings.TrimSuffix(segments[3], ".conf")}, true
 	}
 	return SubscriptionRenderRequest{}, false
 }
@@ -1157,6 +1194,11 @@ func (s Service) renderSubscriptionHTML(ctx context.Context, user UserDetail, re
 			rawLinks = append(rawLinks, wgLinks...)
 		}
 		if downloadLinks, ok := wireguard["downloads"].([]string); ok {
+			rawLinks = append(rawLinks, downloadLinks...)
+		}
+	}
+	if amneziawg, ok := vpnInfo["amneziawg"].(map[string]any); ok {
+		if downloadLinks, ok := amneziawg["downloads"].([]string); ok {
 			rawLinks = append(rawLinks, downloadLinks...)
 		}
 	}
@@ -3776,7 +3818,7 @@ func subscriptionTemplateContext(user UserDetail, links []string, usageURL strin
 		"current_timestamp": time.Now().UTC().Unix(),
 		"remaining_days":    subscriptionRemainingDaysInt(user.Expire),
 	}
-	for _, key := range []string{"openvpn", "wireguard", "l2tp", "pptp", "ikev2", "anyconnect"} {
+	for _, key := range []string{"openvpn", "wireguard", "amneziawg", "l2tp", "pptp", "ikev2", "anyconnect", "sstp", "gre"} {
 		if value, ok := vpn[key]; ok {
 			context[key] = value
 		}
