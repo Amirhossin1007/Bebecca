@@ -1504,15 +1504,54 @@ export const Statistics: FC<BoxProps> = (props) => {
 					},
 				}}
 			>
-				<Flex align="center" justify="space-between" px={1} flexWrap="wrap" gap={3}>
-					<HStack spacing={2.5}>
-						<Box className="shimmer-box" w="170px" h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
+				<Flex
+					align="center"
+					justify="space-between"
+					px={1}
+					flexWrap="wrap"
+					gap={3}
+					sx={{
+						"@media screen and (max-width: 767px)": {
+							"& > div:last-child": {
+								width: "100%",
+								justifyContent: "flex-start",
+							},
+						},
+					}}
+				>
+					<Flex
+						wrap="wrap"
+						gap={{ base: 2.5, md: 1 }}
+						sx={{
+							flexDirection: "column",
+							alignItems: "flex-start",
+							"@media screen and (max-width: 767px)": {
+								flexDirection: "row",
+								alignItems: "center",
+							},
+							"@media screen and (min-width: 768px) and (max-width: 991px)": {
+								"body:has([data-sidebar-collapsed='true']) &": {
+									flexDirection: "row",
+									alignItems: "center",
+								},
+								"body:not(:has([data-sidebar-collapsed='true'])) &": {
+									flexDirection: "column",
+									alignItems: "flex-start",
+								},
+							},
+							"@media screen and (min-width: 992px)": {
+								flexDirection: "column",
+								alignItems: "flex-start",
+							},
+						}}
+					>
+						<Box className="shimmer-box" w={{ base: "140px", sm: "170px" }} h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
 						<Box className="shimmer-box" w="90px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-					</HStack>
-					<HStack spacing={2}>
-						<Box className="shimmer-box" w="110px" h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w="95px" h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w="135px" h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+					</Flex>
+					<HStack spacing={2} flexWrap="wrap" w={{ base: "full", md: "auto" }}>
+						<Box className="shimmer-box" w={{ base: "100px", sm: "110px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w={{ base: "85px", sm: "95px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<Box className="shimmer-box" w={{ base: "120px", sm: "135px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
 					</HStack>
 				</Flex>
 
