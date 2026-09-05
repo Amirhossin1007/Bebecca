@@ -1355,28 +1355,56 @@ const AnimatedHeightWrapper: FC<{
 	);
 };
 
-const SpeedItem: FC<{ icon: ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
-	<Flex align="center" justify="space-between" gap={3}>
-		<HStack spacing={2.5} color="panel.textMuted">
-			<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
-				{icon}
-			</Flex>
-			<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
-				{label}
-			</Text>
-		</HStack>
-		<Text
-			fontSize="13px"
-			fontWeight="700"
-			letterSpacing="-0.01em"
-			color="panel.text"
-			dir="ltr"
-			sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-		>
-			{value}
-		</Text>
-	</Flex>
-);
+const SpeedItem: FC<{
+	icon: ReactNode;
+	label: string;
+	value: string;
+	rawBytes?: number;
+	avgBytes?: number;
+}> = ({ icon, label, value, rawBytes, avgBytes }) => {
+	const trend = useMemo(() => {
+		if (rawBytes === undefined || avgBytes === undefined || avgBytes <= 0) return null;
+		const diff = ((rawBytes - avgBytes) / avgBytes) * 100;
+		if (Math.abs(diff) < 5) return null;
+		return diff > 0 ? "up" : "down";
+	}, [rawBytes, avgBytes]);
+
+	return (
+		<Flex align="center" justify="space-between" gap={3}>
+			<HStack spacing={2.5} color="panel.textMuted">
+				<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
+					{icon}
+				</Flex>
+				<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
+					{label}
+				</Text>
+			</HStack>
+			<HStack spacing={1.5} align="center">
+				{trend && (
+					<Text
+						as="span"
+						fontSize="11px"
+						fontWeight="700"
+						color={trend === "up" ? "cyan.400" : "panel.textMuted"}
+						title={trend === "up" ? "Surging above average" : "Below average"}
+					>
+						{trend === "up" ? "↑" : "↓"}
+					</Text>
+				)}
+				<Text
+					fontSize="13px"
+					fontWeight="700"
+					letterSpacing="-0.01em"
+					color="panel.text"
+					dir="ltr"
+					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+				>
+					{value}
+				</Text>
+			</HStack>
+		</Flex>
+	);
+};
 
 export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
@@ -1448,12 +1476,42 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	if (!systemData) {
 		return (
-			<Flex justify="center" align="center" minH="60vh" w="full">
-				<VStack spacing={4}>
-					<Spinner size="lg" color="panel.accent" thickness="2px" speed="0.8s" />
-					<Text fontSize="13px" color="panel.textMuted">{t("loading")}</Text>
-				</VStack>
-			</Flex>
+			<Stack spacing={{ base: 4, md: 5 }} w="full" dir={isRTL ? "rtl" : "ltr"} opacity={0.6}>
+				<Flex align="center" justify="space-between" px={1}>
+					<Box w="160px" h="28px" bg="panel.elevated" borderRadius="8px" />
+					<Box w="120px" h="32px" bg="panel.elevated" borderRadius="full" />
+				</Flex>
+				<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
+					{[1, 2, 3, 4].map((i) => (
+						<Box
+							key={i}
+							h="140px"
+							bg="panel.surface"
+							borderRadius="20px"
+							borderWidth="1px"
+							borderColor="panel.border"
+							p={5}
+							display="flex"
+							flexDirection="column"
+							justifyContent="space-between"
+						>
+							<HStack justify="space-between">
+								<HStack spacing={2.5}>
+									<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
+									<Box w="80px" h="14px" borderRadius="md" bg="panel.elevated" />
+								</HStack>
+								<Box w="60px" h="20px" borderRadius="full" bg="panel.elevated" />
+							</HStack>
+							<Box w="100px" h="24px" borderRadius="md" bg="panel.elevated" />
+							<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" />
+						</Box>
+					))}
+				</SimpleGrid>
+				<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
+					<Box h="180px" bg="panel.surface" borderRadius="20px" borderWidth="1px" borderColor="panel.border" p={5} />
+					<Box h="180px" bg="panel.surface" borderRadius="20px" borderWidth="1px" borderColor="panel.border" p={5} />
+				</SimpleGrid>
+			</Stack>
 		);
 	}
 
@@ -1533,15 +1591,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 					</Text>
 					<Flex align="center" gap={2} direction="row">
 						<Box
-							w="6px"
-							h="6px"
+							w="7px"
+							h="7px"
 							borderRadius="full"
 							bg={systemData.xray_running ? "#22c55e" : "#ef4444"}
 							sx={{
-								animation: systemData.xray_running ? "livePulse 2.4s ease-in-out infinite" : "none",
+								animation: systemData.xray_running ? "livePulse 2s ease-in-out infinite" : "none",
+								boxShadow: systemData.xray_running
+									? "0 0 8px rgba(34, 197, 94, 0.7), 0 0 0 2px rgba(34, 197, 94, 0.15)"
+									: "0 0 8px rgba(239, 68, 68, 0.7)",
 								"@keyframes livePulse": {
-									"0%,100%": { opacity: 0.5 },
-									"50%": { opacity: 1 },
+									"0%, 100%": { transform: "scale(1)", opacity: 0.8 },
+									"50%": { transform: "scale(1.15)", opacity: 1, boxShadow: "0 0 12px rgba(34, 197, 94, 0.9), 0 0 0 4px rgba(34, 197, 94, 0.25)" },
 								},
 							}}
 						/>
@@ -1690,11 +1751,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 							icon={<ArrowDownTrayIcon width={13} />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
+							rawBytes={systemData.incoming_bandwidth_speed}
+							avgBytes={average(systemData.network_history.map((e) => e.incoming))}
 						/>
 						<SpeedItem
 							icon={<ArrowUpTrayIcon width={13} />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
+							rawBytes={systemData.outgoing_bandwidth_speed}
+							avgBytes={average(systemData.network_history.map((e) => e.outgoing))}
 						/>
 					</Stack>
 				</SectionCard>
