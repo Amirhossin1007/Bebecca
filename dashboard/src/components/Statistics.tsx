@@ -936,7 +936,6 @@ const ResourceCard: FC<{
 	onHistory?: () => void;
 	historyLabel?: string;
 	isRTL?: boolean;
-	parentNoHover?: boolean;
 }> = ({
 	label,
 	icon,
@@ -950,7 +949,6 @@ const ResourceCard: FC<{
 	onHistory,
 	historyLabel,
 	isRTL = false,
-	parentNoHover = false,
 }) => {
 	const { colorMode } = useColorMode();
 	const safe = clampPercent(percent);
@@ -1548,11 +1546,20 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Box className="shimmer-box" w={{ base: "140px", sm: "170px" }} h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
 						<Box className="shimmer-box" w="90px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
 					</Flex>
-					<HStack spacing={2} flexWrap="wrap" w={{ base: "full", md: "auto" }}>
-						<Box className="shimmer-box" w={{ base: "100px", sm: "110px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w={{ base: "85px", sm: "95px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w={{ base: "120px", sm: "135px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-					</HStack>
+					<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
+						<HStack display={{ base: "none", sm: "flex" }} spacing={2} align="center" justify="flex-end">
+							<Box className="shimmer-box" w="130px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="90px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="110px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						</HStack>
+						<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
+							<Box className="shimmer-box" w="full" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Flex gap={2} w="full" align="center">
+								<Box className="shimmer-box" flex="1 1 50%" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+								<Box className="shimmer-box" flex="1 1 50%" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							</Flex>
+						</Stack>
+					</Box>
 				</Flex>
 
 				<SimpleGrid
