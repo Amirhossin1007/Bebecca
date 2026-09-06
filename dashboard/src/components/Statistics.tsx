@@ -227,6 +227,7 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 	return {
 		...value,
 		version: String(raw.version ?? ""),
+		os: typeof raw.os === "string" ? raw.os : undefined,
 		cpu_cores: toFiniteNumber(raw.cpu_cores),
 		cpu_threads: toFiniteNumber(raw.cpu_threads),
 		cpu_frequency_hz: toFiniteNumber(raw.cpu_frequency_hz),
@@ -374,7 +375,7 @@ const HistoryModal: FC<{
 		return () => clearTimeout(timer);
 	}, [activeIntervalIndex, isOpen]);
 
-	const { latestTimestamp, earliestTimestamp, availableSpan } = useMemo(() => {
+	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) {
 			const now = Math.floor(Date.now() / 1000);
 			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
@@ -399,18 +400,25 @@ const HistoryModal: FC<{
 		return { latestTimestamp: maxT, earliestTimestamp: minT, availableSpan: Math.max(1, maxT - minT) };
 	}, [payload]);
 
-	const cutoff =
+	const effectiveSpan =
 		intervalSeconds === 120
-			? Math.max(latestTimestamp - 120, earliestTimestamp)
-			: latestTimestamp - Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
+			? Math.min(120, availableSpan)
+			: Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
 
-	const chartSeries = useMemo(() => {
-		if (!payload) return [];
+	const cutoff = latestTimestamp - effectiveSpan;
+
+	const { chartSeries, actualMinTs, actualMaxTs } = useMemo(() => {
+		if (!payload) return { chartSeries: [], actualMinTs: cutoff, actualMaxTs: latestTimestamp };
+
+		let seriesList: { name: string; data: [number, number][] }[] = [];
+		let allTs: number[] = [];
+
 		if (payload.type === "network" && payload.networkEntries) {
 			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
 			const rawData = filtered.length >= 1 ? filtered : payload.networkEntries;
 			const finalData = expandShortData(rawData);
-			return [
+			allTs = finalData.map((e) => e.timestamp);
+			seriesList = [
 				{
 					name: t("dashboard.system.networkIncoming"),
 					data: finalData.map((e) => [e.timestamp * 1000, e.incoming]),
@@ -420,15 +428,15 @@ const HistoryModal: FC<{
 					data: finalData.map((e) => [e.timestamp * 1000, e.outgoing]),
 				},
 			];
-		}
-		if (payload.type === "panel") {
+		} else if (payload.type === "panel") {
 			const filteredCpu = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff);
 			const filteredMem = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff);
 			const rawCpu = filteredCpu.length >= 1 ? filteredCpu : payload.cpuEntries || [];
 			const rawMem = filteredMem.length >= 1 ? filteredMem : payload.memoryEntries || [];
 			const finalCpu = expandShortData(rawCpu);
 			const finalMem = expandShortData(rawMem);
-			return [
+			allTs = [...finalCpu.map((e) => e.timestamp), ...finalMem.map((e) => e.timestamp)];
+			seriesList = [
 				{
 					name: `${t("dashboard.system.cpuUsage")} (Panel CPU %)`,
 					data: finalCpu.map((e) => [e.timestamp * 1000, e.value]),
@@ -438,20 +446,28 @@ const HistoryModal: FC<{
 					data: finalMem.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
-		}
-		if (payload.entries) {
+		} else if (payload.entries) {
 			const filtered = payload.entries.filter((e) => e.timestamp >= cutoff);
 			const rawEntries = filtered.length >= 1 ? filtered : payload.entries;
 			const finalEntries = expandShortData(rawEntries);
-			return [
+			allTs = finalEntries.map((e) => e.timestamp);
+			seriesList = [
 				{
 					name: payload.metricLabel ?? payload.title,
 					data: finalEntries.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
 		}
-		return [];
-	}, [payload, cutoff, t]);
+
+		const minTs = allTs.length ? Math.min(...allTs) : cutoff;
+		const maxTs = allTs.length ? Math.max(...allTs) : latestTimestamp;
+
+		return {
+			chartSeries: seriesList,
+			actualMinTs: minTs,
+			actualMaxTs: maxTs,
+		};
+	}, [payload, cutoff, latestTimestamp, t]);
 
 	const hasEnoughPoints = useMemo(() => {
 		if (!payload) return false;
@@ -541,17 +557,24 @@ const HistoryModal: FC<{
 				},
 			},
 			xaxis: {
-				type: "datetime",
-				min: cutoff * 1000,
-				max: latestTimestamp * 1000,
+				type: "numeric",
+				min: actualMinTs * 1000,
+				max: actualMaxTs * 1000,
 				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
-					datetimeUTC: false,
-					format: intervalSeconds <= 1800 ? "HH:mm:ss" : "HH:mm",
 					hideOverlappingLabels: true,
+					formatter: (val: string, timestamp?: number) => {
+						const num = timestamp !== undefined ? timestamp : Number(val);
+						if (!num || !Number.isFinite(num)) return val || "";
+						const d = new Date(num);
+						const h = String(d.getHours()).padStart(2, "0");
+						const m = String(d.getMinutes()).padStart(2, "0");
+						const s = String(d.getSeconds()).padStart(2, "0");
+						return intervalSeconds === 120 ? `${h}:${m}:${s}` : `${h}:${m}`;
+					},
 				},
 			},
 			yaxis: {
@@ -650,8 +673,8 @@ const HistoryModal: FC<{
 			isRTL,
 			computedMin,
 			computedMax,
-			cutoff,
-			latestTimestamp,
+			actualMinTs,
+			actualMaxTs,
 		],
 	);
 
@@ -931,12 +954,12 @@ const ResourceCard: FC<{
 	percent: number;
 	metaUnit?: string;
 	metaValue?: string | number;
+	subMeta?: ReactNode;
 	footerLeft?: string;
 	footerRight?: string;
 	onHistory?: () => void;
 	historyLabel?: string;
 	isRTL?: boolean;
-	parentNoHover?: boolean;
 }> = ({
 	label,
 	icon,
@@ -945,12 +968,12 @@ const ResourceCard: FC<{
 	percent,
 	metaUnit,
 	metaValue,
+	subMeta,
 	footerLeft,
 	footerRight,
 	onHistory,
 	historyLabel,
 	isRTL = false,
-	parentNoHover = false,
 }) => {
 	const { colorMode } = useColorMode();
 	const safe = clampPercent(percent);
@@ -1110,6 +1133,11 @@ const ResourceCard: FC<{
 						</Flex>
 					)}
 				</Flex>
+				{subMeta && (
+					<Box mt={0.5}>
+						{subMeta}
+					</Box>
+				)}
 			</Box>
 
 			<Box mt={3}>
@@ -1372,16 +1400,7 @@ const SpeedItem: FC<{
 	icon: ReactNode;
 	label: string;
 	value: string;
-	rawBytes?: number;
-	avgBytes?: number;
-}> = ({ icon, label, value, rawBytes, avgBytes }) => {
-	const trend = useMemo(() => {
-		if (rawBytes === undefined || avgBytes === undefined || avgBytes <= 0) return null;
-		const diff = ((rawBytes - avgBytes) / avgBytes) * 100;
-		if (Math.abs(diff) < 5) return null;
-		return diff > 0 ? "up" : "down";
-	}, [rawBytes, avgBytes]);
-
+}> = ({ icon, label, value }) => {
 	return (
 		<Flex align="center" justify="space-between" gap={3}>
 			<HStack spacing={2.5} color="panel.textMuted">
@@ -1392,29 +1411,16 @@ const SpeedItem: FC<{
 					{label}
 				</Text>
 			</HStack>
-			<HStack spacing={1.5} align="center">
-				{trend && (
-					<Text
-						as="span"
-						fontSize="11px"
-						fontWeight="700"
-						color={trend === "up" ? "cyan.400" : "panel.textMuted"}
-						title={trend === "up" ? "Surging above average" : "Below average"}
-					>
-						{trend === "up" ? "↑" : "↓"}
-					</Text>
-				)}
-				<Text
-					fontSize="13px"
-					fontWeight="700"
-					letterSpacing="-0.01em"
-					color="panel.text"
-					dir="ltr"
-					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-				>
-					{value}
-				</Text>
-			</HStack>
+			<Text
+				fontSize="13px"
+				fontWeight="700"
+				letterSpacing="-0.01em"
+				color="panel.text"
+				dir="ltr"
+				sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+			>
+				{value}
+			</Text>
 		</Flex>
 	);
 };
@@ -1546,13 +1552,26 @@ export const Statistics: FC<BoxProps> = (props) => {
 						}}
 					>
 						<Box className="shimmer-box" w={{ base: "140px", sm: "170px" }} h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w="90px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<HStack spacing={1.5}>
+							<Box className="shimmer-box" w="65px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="85px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="75px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						</HStack>
 					</Flex>
-					<HStack spacing={2} flexWrap="wrap" w={{ base: "full", md: "auto" }}>
-						<Box className="shimmer-box" w={{ base: "100px", sm: "110px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w={{ base: "85px", sm: "95px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w={{ base: "120px", sm: "135px" }} h="30px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-					</HStack>
+					<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
+						<HStack display={{ base: "none", sm: "flex" }} spacing={2} align="center" justify="flex-end">
+							<Box className="shimmer-box" w="118px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="100px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="114px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						</HStack>
+						<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
+							<Box className="shimmer-box" w="full" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Flex gap={2} w="full" align="center">
+								<Box className="shimmer-box" flex="1 1 50%" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+								<Box className="shimmer-box" flex="1 1 50%" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							</Flex>
+						</Stack>
+					</Box>
 				</Flex>
 
 				<SimpleGrid
@@ -1570,7 +1589,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Box
 							key={i}
 							className="shimmer-box"
-							minH="140px"
 							bg="panel.surface"
 							borderRadius="20px"
 							borderWidth="1px"
@@ -1579,20 +1597,34 @@ export const Statistics: FC<BoxProps> = (props) => {
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
+							boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 						>
-							<Flex justify="space-between" align="center" mb={3}>
-								<HStack spacing={2.5}>
-									<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
-									<Box w="85px" h="14px" borderRadius="md" bg="panel.elevated" />
-								</HStack>
-								{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
-							</Flex>
-							<Box w="120px" h="26px" borderRadius="md" bg="panel.elevated" my={1.5} />
 							<Box>
-								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2.5} />
-								<Flex justify="space-between">
-									<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
-									<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+								<Flex justify="space-between" align="center" mb={3}>
+									<HStack spacing={2.5} align="center">
+										<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" flexShrink={0} />
+										<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
+								</Flex>
+								<Flex align="baseline" gap={1.5} mb={1}>
+									<Box w="65px" h="24px" borderRadius="md" bg="panel.elevated" />
+									<Box w={i === 1 ? "45px" : "60px"} h="16px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+								{i === 1 && (
+									<Box mt={0.5}>
+										<Box w="150px" h="14px" borderRadius="md" bg="panel.elevated" />
+									</Box>
+								)}
+							</Box>
+							<Box mt={3}>
+								<Flex justify="space-between" align="center" mb={1.5}>
+									<Box w="35px" h="13px" borderRadius="sm" bg="panel.elevated" />
+								</Flex>
+								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" />
+								<Flex justify="space-between" align="center" mt={2.5} pt={2.5} borderTopWidth="1px" borderColor="panel.border">
+									<Box w="80px" h="14px" borderRadius="sm" bg="panel.elevated" />
+									<Box w="70px" h="14px" borderRadius="sm" bg="panel.elevated" />
 								</Flex>
 							</Box>
 						</Box>
@@ -1612,35 +1644,35 @@ export const Statistics: FC<BoxProps> = (props) => {
 				>
 					<Box
 						className="shimmer-box"
-						minH="120px"
 						bg="panel.surface"
 						borderRadius="20px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
+						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
 								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="110px" h="14px" borderRadius="md" bg="panel.elevated" />
+								<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={3}>
-								<Flex justify="space-between" align="center">
+								<Flex justify="space-between" align="center" gap={3}>
 									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
-										<Box w="80px" h="13px" borderRadius="md" bg="panel.elevated" />
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
+										<Box w="85px" h="15px" borderRadius="md" bg="panel.elevated" />
 									</HStack>
-									<Box w="85px" h="18px" borderRadius="md" bg="panel.elevated" />
+									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
 								</Flex>
-								<Flex justify="space-between" align="center">
+								<Flex justify="space-between" align="center" gap={3}>
 									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
-										<Box w="80px" h="13px" borderRadius="md" bg="panel.elevated" />
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
+										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
 									</HStack>
-									<Box w="85px" h="18px" borderRadius="md" bg="panel.elevated" />
+									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
 								</Flex>
 							</Stack>
 						</Box>
@@ -1648,34 +1680,34 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 					<Box
 						className="shimmer-box"
-						minH="120px"
 						bg="panel.surface"
 						borderRadius="20px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
+						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
 								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+								<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={3}>
-								<Flex justify="space-between" align="center">
+								<Flex justify="space-between" align="center" gap={3}>
 									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
-										<Box w="95px" h="13px" borderRadius="md" bg="panel.elevated" />
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
+										<Box w="95px" h="15px" borderRadius="md" bg="panel.elevated" />
 									</HStack>
-									<Box w="110px" h="15px" borderRadius="md" bg="panel.elevated" />
+									<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
 								</Flex>
-								<Flex justify="space-between" align="center">
+								<Flex justify="space-between" align="center" gap={3}>
 									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
-										<Box w="85px" h="13px" borderRadius="md" bg="panel.elevated" />
+										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
+										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
 									</HStack>
-									<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
+									<Box w="95px" h="16px" borderRadius="md" bg="panel.elevated" />
 								</Flex>
 							</Stack>
 						</Box>
@@ -1689,11 +1721,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 					borderWidth="1px"
 					borderColor="panel.border"
 					overflow="hidden"
+					boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 				>
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
 							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-							<Box w="105px" h="14px" borderRadius="md" bg="panel.elevated" />
+							<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
 						</HStack>
 						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
 					</Flex>
@@ -1702,7 +1735,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 							{[1, 2].map((i) => (
 								<Box
 									key={i}
-									minH="130px"
 									bg="panel.surface"
 									borderRadius="20px"
 									borderWidth="1px"
@@ -1711,19 +1743,28 @@ export const Statistics: FC<BoxProps> = (props) => {
 									display="flex"
 									flexDirection="column"
 									justifyContent="space-between"
+									boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 								>
-									<Flex justify="space-between" align="center" mb={3}>
-										<HStack spacing={2.5}>
-											<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" />
-											<Box w="100px" h="14px" borderRadius="md" bg="panel.elevated" />
-										</HStack>
-									</Flex>
-									<Box w="110px" h="26px" borderRadius="md" bg="panel.elevated" my={1.5} />
 									<Box>
-										<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2.5} />
-										<Flex justify="space-between">
-											<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
-											<Box w="65px" h="11px" borderRadius="sm" bg="panel.elevated" />
+										<Flex justify="space-between" align="center" mb={3}>
+											<HStack spacing={2.5} align="center">
+												<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" flexShrink={0} />
+												<Box w={i === 1 ? "120px" : "130px"} h="16px" borderRadius="md" bg="panel.elevated" />
+											</HStack>
+										</Flex>
+										<Flex align="baseline" gap={1.5} mb={1}>
+											<Box w="55px" h="24px" borderRadius="md" bg="panel.elevated" />
+											<Box w="45px" h="16px" borderRadius="md" bg="panel.elevated" />
+										</Flex>
+									</Box>
+									<Box mt={3}>
+										<Flex justify="space-between" align="center" mb={1.5}>
+											<Box w="32px" h="13px" borderRadius="sm" bg="panel.elevated" />
+										</Flex>
+										<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" />
+										<Flex justify="space-between" align="center" mt={2.5} pt={2.5} borderTopWidth="1px" borderColor="panel.border">
+											<Box w="75px" h="14px" borderRadius="sm" bg="panel.elevated" />
+											<Box w="70px" h="14px" borderRadius="sm" bg="panel.elevated" />
 										</Flex>
 									</Box>
 								</Box>
@@ -1739,31 +1780,45 @@ export const Statistics: FC<BoxProps> = (props) => {
 					borderWidth="1px"
 					borderColor="panel.border"
 					overflow="hidden"
+					boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 				>
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
 							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-							<Box w="90px" h="14px" borderRadius="md" bg="panel.elevated" />
+							<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
 						</HStack>
-						<Box w="140px" h="24px" borderRadius="8px" bg="panel.elevated" />
+						<HStack spacing={0.5} bg="panel.elevated" p={0.5} borderRadius="8px">
+							<Box w="65px" h="22px" borderRadius="6px" bg="panel.surface" />
+							<Box w="60px" h="22px" borderRadius="6px" bg="transparent" />
+						</HStack>
 					</Flex>
 					<Box p={{ base: 4, sm: 5, md: 6 }}>
 						<Stack spacing={0}>
-							{[1, 2, 3, 4, 5, 6].map((i) => (
+							{[
+								{ id: "skel-u-total", hasTag: false, hasHelper: false, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-active", hasTag: true, hasHelper: false, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-online", hasTag: true, hasHelper: true, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-onhold", hasTag: false, hasHelper: false, labelW: "65px", valW: "30px" },
+								{ id: "skel-u-limited", hasTag: false, hasHelper: false, labelW: "70px", valW: "30px" },
+								{ id: "skel-u-expired", hasTag: false, hasHelper: false, labelW: "75px", valW: "30px" },
+							].map((row, idx) => (
 								<Flex
-									key={i}
+									key={row.id}
 									justify="space-between"
 									align="center"
 									py={2.5}
-									borderBottomWidth={i === 6 ? "0" : "1px"}
+									borderBottomWidth={idx === 5 ? "0" : "1px"}
 									borderColor="panel.border"
 								>
-									<HStack spacing={3}>
-										<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" />
-										<Box w="70px" h="13px" borderRadius="md" bg="panel.elevated" />
-										{i >= 2 && i <= 3 && <Box w="40px" h="16px" borderRadius="md" bg="panel.elevated" />}
+									<HStack spacing={3} minW={0}>
+										<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" me="3px" flexShrink={0} />
+										<Box w={row.labelW} h="14px" borderRadius="md" bg="panel.elevated" />
+										{row.hasTag && <Box w="36px" h="18px" borderRadius="md" bg="panel.elevated" />}
 									</HStack>
-									<Box w="45px" h="16px" borderRadius="md" bg="panel.elevated" />
+									<VStack align="flex-end" spacing={0.5} flexShrink={0}>
+										<Box w={row.valW} h="16px" borderRadius="md" bg="panel.elevated" />
+										{row.hasHelper && <Box w="100px" h="12px" borderRadius="sm" bg="panel.elevated" mt={0.5} />}
+									</VStack>
 								</Flex>
 							))}
 						</Stack>
@@ -1778,29 +1833,36 @@ export const Statistics: FC<BoxProps> = (props) => {
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
+						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
 								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="85px" h="14px" borderRadius="md" bg="panel.elevated" />
+								<Box w="85px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={0}>
-								{[1, 2, 3, 4, 5].map((i) => (
+								{[
+									{ id: "skel-a-total", labelW: "75px", valW: "40px" },
+									{ id: "skel-a-full", labelW: "85px", valW: "40px" },
+									{ id: "skel-a-sudo", labelW: "65px", valW: "40px" },
+									{ id: "skel-a-standard", labelW: "80px", valW: "40px" },
+									{ id: "skel-a-top", labelW: "75px", valW: "120px" },
+								].map((row, idx) => (
 									<Flex
-										key={i}
+										key={row.id}
 										justify="space-between"
 										align="center"
 										py={2.5}
-										borderBottomWidth={i === 5 ? "0" : "1px"}
+										borderBottomWidth={idx === 4 ? "0" : "1px"}
 										borderColor="panel.border"
 									>
-										<HStack spacing={3}>
-											<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" />
-											<Box w={i === 5 ? "110px" : "75px"} h="13px" borderRadius="md" bg="panel.elevated" />
+										<HStack spacing={3} minW={0}>
+											<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" me="3px" flexShrink={0} />
+											<Box w={row.labelW} h="14px" borderRadius="md" bg="panel.elevated" />
 										</HStack>
-										<Box w={i === 5 ? "120px" : "45px"} h="16px" borderRadius="md" bg="panel.elevated" />
+										<Box w={row.valW} h="16px" borderRadius="md" bg="panel.elevated" />
 									</Flex>
 								))}
 							</Stack>
@@ -1905,6 +1967,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
 							{systemData.xray_running ? t("dashboard.system.statusRunning") : t("dashboard.system.statusStopped")}
 						</Text>
+						{systemData.os && (
+							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
+								<Text as="span">·</Text>
+								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+									{systemData.os}
+								</Text>
+							</HStack>
+						)}
 						{exactVersion && exactVersion !== "-" && (
 							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
 								<Text as="span">·</Text>
@@ -1936,6 +2006,27 @@ export const Statistics: FC<BoxProps> = (props) => {
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("dashboard.system.core")}
+					subMeta={
+						systemData.load_avg && systemData.load_avg.length >= 3 ? (
+							<Flex
+								align="center"
+								gap={1.5}
+								fontSize="11px"
+								fontWeight="500"
+								color="panel.textMuted"
+								dir={isRTL ? "rtl" : "ltr"}
+							>
+								<Text as="span">{t("loadAverage")}:</Text>
+								<Text
+									as="span"
+									dir="ltr"
+									sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+								>
+									{systemData.load_avg.slice(0, 3).map((v) => v.toFixed(2)).join(" · ")}
+								</Text>
+							</Flex>
+						) : undefined
+					}
 					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
 					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("dashboard.system.viewHistory")}
@@ -2067,15 +2158,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 							icon={<ArrowDownTrayIcon width={13} />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
-							rawBytes={systemData.incoming_bandwidth_speed}
-							avgBytes={average(systemData.network_history.map((e) => e.incoming))}
 						/>
 						<SpeedItem
 							icon={<ArrowUpTrayIcon width={13} />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
-							rawBytes={systemData.outgoing_bandwidth_speed}
-							avgBytes={average(systemData.network_history.map((e) => e.outgoing))}
 						/>
 					</Stack>
 				</SectionCard>
@@ -2220,7 +2307,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 			>
 				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
 					<ResourceCard
-						parentNoHover
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
@@ -2232,7 +2318,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 						isRTL={isRTL}
 					/>
 					<ResourceCard
-						parentNoHover
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
 						icon={<ServerStackIcon width={16} />}
 						value={formatBytes(systemData.app_memory, 1)}
