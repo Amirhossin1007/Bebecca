@@ -1548,9 +1548,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 					</Flex>
 					<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
 						<HStack display={{ base: "none", sm: "flex" }} spacing={2} align="center" justify="flex-end">
-							<Box className="shimmer-box" w="130px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							<Box className="shimmer-box" w="90px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							<Box className="shimmer-box" w="110px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="136px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="136px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="136px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
 						</HStack>
 						<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
 							<Box className="shimmer-box" w="full" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />

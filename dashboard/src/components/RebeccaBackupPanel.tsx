@@ -2,6 +2,7 @@ import {
 	Alert,
 	AlertIcon,
 	Button,
+	Flex,
 	FormControl,
 	FormLabel,
 	Modal,
@@ -55,7 +56,8 @@ export const DashboardBackupControls = ({
 	isBinaryRuntime: boolean;
 	runtimeLoading: boolean;
 }) => {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const toast = useToast();
 	const [isMenuOpen, setMenuOpen] = useState(false);
 	const [dialog, setDialog] = useState<BackupDialog>(null);
@@ -141,19 +143,34 @@ export const DashboardBackupControls = ({
 					<Button
 						size="xs"
 						h="32px"
+						p={0}
+						overflow="hidden"
 						variant="outline"
 						borderRadius="full"
-						leftIcon={<ArchiveBoxIcon width={14} height={14} />}
 						isDisabled={!backupActionsAvailable || runtimeLoading}
 						w="full"
-						fontSize="12px"
-						fontWeight="600"
 						borderColor="panel.border"
 						color="panel.text"
 						_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 						transition="border-color 0.25s ease, background-color 0.25s ease"
+						whiteSpace="nowrap"
 					>
-						{t("dashboard.backup.tabTitle")}
+						<Flex
+							as="span"
+							w="full"
+							h="full"
+							align="center"
+							dir={isRTL ? "rtl" : "ltr"}
+						>
+							<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+								<ArchiveBoxIcon width={15} height={15} />
+							</Flex>
+							<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
+								<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
+									{t("dashboard.backup.tabTitle")}
+								</Text>
+							</Flex>
+						</Flex>
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent

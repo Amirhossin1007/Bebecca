@@ -112,7 +112,8 @@ export const DashboardMaintenanceControls = ({
 	channel?: string;
 	version: string;
 }) => {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const toast = useToast();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canMaintain =
@@ -327,21 +328,35 @@ export const DashboardMaintenanceControls = ({
 					size="xs"
 					h="32px"
 					w="full"
+					p={0}
+					overflow="hidden"
 					colorScheme={update?.available ? "primary" : "gray"}
 					variant={update?.available ? "solid" : "outline"}
 					bg={update?.available ? "var(--rb-panel-accent)" : "transparent"}
 					color={update?.available ? "white" : "panel.text"}
 					borderColor="panel.border"
 					borderRadius="full"
-					leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
 					isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading}
-					fontSize="12px"
-					fontWeight="600"
 					whiteSpace="nowrap"
 				>
-					{update?.available
-						? t("dashboard.maintenance.updateAvailable")
-						: t("dashboard.maintenance.updateAction")}
+					<Flex
+						as="span"
+						w="full"
+						h="full"
+						align="center"
+						dir={isRTL ? "rtl" : "ltr"}
+					>
+						<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+							<ArrowUpTrayIcon width={15} height={15} />
+						</Flex>
+						<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
+							<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
+								{update?.available
+									? t("dashboard.maintenance.updateAvailable")
+									: t("dashboard.maintenance.updateAction")}
+							</Text>
+						</Flex>
+					</Flex>
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
@@ -534,17 +549,16 @@ export const DashboardMaintenanceControls = ({
 				flexWrap="nowrap"
 				flexShrink={0}
 			>
-				{canMaintain && <Box minW="130px">{renderUpdatePopover()}</Box>}
+				{canMaintain && <Box w="136px">{renderUpdatePopover()}</Box>}
 
 				{canBackUp && (
 					<Box
-						minW="90px"
+						w="136px"
 						sx={{
 							"& > button": {
 								h: "32px !important",
+								w: "full !important",
 								borderRadius: "full !important",
-								fontSize: "12px !important",
-								fontWeight: "600 !important",
 								borderColor: "panel.border !important",
 								color: "panel.text !important",
 								whiteSpace: "nowrap !important",
@@ -562,22 +576,36 @@ export const DashboardMaintenanceControls = ({
 					<Button
 						size="xs"
 						h="32px"
-						px={3.5}
+						w="136px"
+						p={0}
+						overflow="hidden"
 						colorScheme="red"
 						variant="outline"
 						borderColor="panel.border"
 						color="red.400"
 						_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 						borderRadius="full"
-						leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
 						onClick={() => setConfirmAction("restart")}
 						isLoading={restartMutation.isLoading}
 						isDisabled={info.isLoading || !hostActionsAvailable}
-						fontSize="12px"
-						fontWeight="600"
 						whiteSpace="nowrap"
 					>
-						{t("dashboard.maintenance.restartAction")}
+						<Flex
+							as="span"
+							w="full"
+							h="full"
+							align="center"
+							dir={isRTL ? "rtl" : "ltr"}
+						>
+							<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+								<ArrowsRightLeftIcon width={15} height={15} />
+							</Flex>
+							<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
+								<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
+									{t("dashboard.maintenance.restartAction")}
+								</Text>
+							</Flex>
+						</Flex>
 					</Button>
 				)}
 			</HStack>
@@ -597,21 +625,35 @@ export const DashboardMaintenanceControls = ({
 							flex="1 1 50%"
 							h="32px"
 							size="xs"
+							p={0}
+							overflow="hidden"
 							colorScheme="red"
 							variant="outline"
 							borderColor="panel.border"
 							color="red.400"
 							_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 							borderRadius="full"
-							leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
 							onClick={() => setConfirmAction("restart")}
 							isLoading={restartMutation.isLoading}
 							isDisabled={info.isLoading || !hostActionsAvailable}
-							fontSize="12px"
-							fontWeight="600"
 							whiteSpace="nowrap"
 						>
-							{t("dashboard.maintenance.restartAction")}
+							<Flex
+								as="span"
+								w="full"
+								h="full"
+								align="center"
+								dir={isRTL ? "rtl" : "ltr"}
+							>
+								<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+									<ArrowsRightLeftIcon width={15} height={15} />
+								</Flex>
+								<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
+									<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
+										{t("dashboard.maintenance.restartAction")}
+									</Text>
+								</Flex>
+							</Flex>
 						</Button>
 
 						{canBackUp && (
