@@ -1795,15 +1795,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Box p={{ base: 4, sm: 5, md: 6 }}>
 						<Stack spacing={0}>
 							{[
-								{ hasTag: false, hasHelper: false, labelW: "55px", valW: "35px" },
-								{ hasTag: true, hasHelper: false, labelW: "55px", valW: "35px" },
-								{ hasTag: true, hasHelper: true, labelW: "55px", valW: "35px" },
-								{ hasTag: false, hasHelper: false, labelW: "65px", valW: "30px" },
-								{ hasTag: false, hasHelper: false, labelW: "70px", valW: "30px" },
-								{ hasTag: false, hasHelper: false, labelW: "75px", valW: "30px" },
+								{ id: "skel-u-total", hasTag: false, hasHelper: false, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-active", hasTag: true, hasHelper: false, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-online", hasTag: true, hasHelper: true, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-onhold", hasTag: false, hasHelper: false, labelW: "65px", valW: "30px" },
+								{ id: "skel-u-limited", hasTag: false, hasHelper: false, labelW: "70px", valW: "30px" },
+								{ id: "skel-u-expired", hasTag: false, hasHelper: false, labelW: "75px", valW: "30px" },
 							].map((row, idx) => (
 								<Flex
-									key={idx}
+									key={row.id}
 									justify="space-between"
 									align="center"
 									py={2.5}
@@ -1844,14 +1844,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={0}>
 								{[
-									{ labelW: "75px", valW: "40px" },
-									{ labelW: "85px", valW: "40px" },
-									{ labelW: "65px", valW: "40px" },
-									{ labelW: "80px", valW: "40px" },
-									{ labelW: "75px", valW: "120px" },
+									{ id: "skel-a-total", labelW: "75px", valW: "40px" },
+									{ id: "skel-a-full", labelW: "85px", valW: "40px" },
+									{ id: "skel-a-sudo", labelW: "65px", valW: "40px" },
+									{ id: "skel-a-standard", labelW: "80px", valW: "40px" },
+									{ id: "skel-a-top", labelW: "75px", valW: "120px" },
 								].map((row, idx) => (
 									<Flex
-										key={idx}
+										key={row.id}
 										justify="space-between"
 										align="center"
 										py={2.5}
