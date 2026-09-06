@@ -1,10 +1,11 @@
 import {
 	Alert,
 	AlertIcon,
+	Box,
 	Button,
-	Flex,
 	FormControl,
 	FormLabel,
+	HStack,
 	Modal,
 	ModalBody,
 	ModalCloseButton,
@@ -56,8 +57,7 @@ export const DashboardBackupControls = ({
 	isBinaryRuntime: boolean;
 	runtimeLoading: boolean;
 }) => {
-	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const { t } = useTranslation();
 	const toast = useToast();
 	const [isMenuOpen, setMenuOpen] = useState(false);
 	const [dialog, setDialog] = useState<BackupDialog>(null);
@@ -143,34 +143,25 @@ export const DashboardBackupControls = ({
 					<Button
 						size="xs"
 						h="32px"
-						p={0}
-						overflow="hidden"
+						w={{ base: "full", sm: "auto" }}
+						px={3.5}
 						variant="outline"
 						borderRadius="full"
 						isDisabled={!backupActionsAvailable || runtimeLoading}
-						w="full"
 						borderColor="panel.border"
 						color="panel.text"
 						_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 						transition="border-color 0.25s ease, background-color 0.25s ease"
 						whiteSpace="nowrap"
 					>
-						<Flex
-							as="span"
-							w="full"
-							h="full"
-							align="center"
-							dir={isRTL ? "rtl" : "ltr"}
-						>
-							<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+						<HStack spacing={1.5} align="center" justify="center" w="full">
+							<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
 								<ArchiveBoxIcon width={15} height={15} />
-							</Flex>
-							<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
-								<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
-									{t("dashboard.backup.tabTitle")}
-								</Text>
-							</Flex>
-						</Flex>
+							</Box>
+							<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+								{t("dashboard.backup.tabTitle")}
+							</Text>
+						</HStack>
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent

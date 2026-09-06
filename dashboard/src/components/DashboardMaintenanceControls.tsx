@@ -112,8 +112,7 @@ export const DashboardMaintenanceControls = ({
 	channel?: string;
 	version: string;
 }) => {
-	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const { t } = useTranslation();
 	const toast = useToast();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canMaintain =
@@ -327,9 +326,8 @@ export const DashboardMaintenanceControls = ({
 				<Button
 					size="xs"
 					h="32px"
-					w="full"
-					p={0}
-					overflow="hidden"
+					w={{ base: "full", sm: "auto" }}
+					px={3.5}
 					colorScheme={update?.available ? "primary" : "gray"}
 					variant={update?.available ? "solid" : "outline"}
 					bg={update?.available ? "var(--rb-panel-accent)" : "transparent"}
@@ -339,24 +337,16 @@ export const DashboardMaintenanceControls = ({
 					isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading}
 					whiteSpace="nowrap"
 				>
-					<Flex
-						as="span"
-						w="full"
-						h="full"
-						align="center"
-						dir={isRTL ? "rtl" : "ltr"}
-					>
-						<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+					<HStack spacing={1.5} align="center" justify="center" w="full">
+						<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
 							<ArrowUpTrayIcon width={15} height={15} />
-						</Flex>
-						<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
-							<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
-								{update?.available
-									? t("dashboard.maintenance.updateAvailable")
-									: t("dashboard.maintenance.updateAction")}
-							</Text>
-						</Flex>
-					</Flex>
+						</Box>
+						<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+							{update?.available
+								? t("dashboard.maintenance.updateAvailable")
+								: t("dashboard.maintenance.updateAction")}
+						</Text>
+					</HStack>
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
@@ -549,36 +539,20 @@ export const DashboardMaintenanceControls = ({
 				flexWrap="nowrap"
 				flexShrink={0}
 			>
-				{canMaintain && <Box w="136px">{renderUpdatePopover()}</Box>}
+				{canMaintain && renderUpdatePopover()}
 
 				{canBackUp && (
-					<Box
-						w="136px"
-						sx={{
-							"& > button": {
-								h: "32px !important",
-								w: "full !important",
-								borderRadius: "full !important",
-								borderColor: "panel.border !important",
-								color: "panel.text !important",
-								whiteSpace: "nowrap !important",
-							},
-						}}
-					>
-						<DashboardBackupControls
-							isBinaryRuntime={hostActionsAvailable}
-							runtimeLoading={info.isLoading}
-						/>
-					</Box>
+					<DashboardBackupControls
+						isBinaryRuntime={hostActionsAvailable}
+						runtimeLoading={info.isLoading}
+					/>
 				)}
 
 				{canMaintain && (
 					<Button
 						size="xs"
 						h="32px"
-						w="136px"
-						p={0}
-						overflow="hidden"
+						px={3.5}
 						colorScheme="red"
 						variant="outline"
 						borderColor="panel.border"
@@ -590,22 +564,14 @@ export const DashboardMaintenanceControls = ({
 						isDisabled={info.isLoading || !hostActionsAvailable}
 						whiteSpace="nowrap"
 					>
-						<Flex
-							as="span"
-							w="full"
-							h="full"
-							align="center"
-							dir={isRTL ? "rtl" : "ltr"}
-						>
-							<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+						<HStack spacing={1.5} align="center" justify="center">
+							<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
 								<ArrowsRightLeftIcon width={15} height={15} />
-							</Flex>
-							<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
-								<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
-									{t("dashboard.maintenance.restartAction")}
-								</Text>
-							</Flex>
-						</Flex>
+							</Box>
+							<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+								{t("dashboard.maintenance.restartAction")}
+							</Text>
+						</HStack>
 					</Button>
 				)}
 			</HStack>
@@ -625,8 +591,7 @@ export const DashboardMaintenanceControls = ({
 							flex="1 1 50%"
 							h="32px"
 							size="xs"
-							p={0}
-							overflow="hidden"
+							px={3}
 							colorScheme="red"
 							variant="outline"
 							borderColor="panel.border"
@@ -638,22 +603,14 @@ export const DashboardMaintenanceControls = ({
 							isDisabled={info.isLoading || !hostActionsAvailable}
 							whiteSpace="nowrap"
 						>
-							<Flex
-								as="span"
-								w="full"
-								h="full"
-								align="center"
-								dir={isRTL ? "rtl" : "ltr"}
-							>
-								<Flex as="span" w="25%" h="full" align="center" justify="center" flexShrink={0}>
+							<HStack spacing={1.5} align="center" justify="center" w="full">
+								<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
 									<ArrowsRightLeftIcon width={15} height={15} />
-								</Flex>
-								<Flex as="span" w="75%" h="full" align="center" justify="center" flexShrink={0} px={1}>
-									<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none" whiteSpace="nowrap" textAlign="center">
-										{t("dashboard.maintenance.restartAction")}
-									</Text>
-								</Flex>
-							</Flex>
+								</Box>
+								<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+									{t("dashboard.maintenance.restartAction")}
+								</Text>
+							</HStack>
 						</Button>
 
 						{canBackUp && (
