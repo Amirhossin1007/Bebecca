@@ -74,7 +74,7 @@
 	"dashboard.maintenance.updateTargetHint": "نسخه مقصد: {{version}}",
 	"dashboard.maintenance.updateTargetUnknown": "نسخه مقصد هنوز در دسترس نیست.",
 	"dashboard.maintenance.devChannelWarning": "نسخه‌های Dev ناپایدار هستند و ممکن است شامل تغییرات ناتمام یا باگ‌های موقت باشند.",
-	"dashboard.maintenance.restartAction": "راه‌اندازی مجدد پنل",
+	"dashboard.maintenance.restartAction": "راه‌اندازی مجدد",
 	"dashboard.maintenance.softReloadAction": "بارگذاری مجدد نرم",
 	"dashboard.maintenance.restartConfirmTitle": "تأیید راه‌اندازی مجدد پنل",
 	"dashboard.maintenance.restartConfirmDescription": "آیا مطمئن هستید که می‌خواهید پنل را مجدداً راه‌اندازی کنید؟ سرویس برای چند ثانیه موقتاً قطع خواهد شد.",
