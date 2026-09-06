@@ -1,9 +1,11 @@
 import {
 	Alert,
 	AlertIcon,
+	Box,
 	Button,
 	FormControl,
 	FormLabel,
+	HStack,
 	Modal,
 	ModalBody,
 	ModalCloseButton,
@@ -141,19 +143,25 @@ export const DashboardBackupControls = ({
 					<Button
 						size="xs"
 						h="32px"
+						w={{ base: "full", sm: "auto" }}
+						px={3.5}
 						variant="outline"
 						borderRadius="full"
-						leftIcon={<ArchiveBoxIcon width={14} height={14} />}
 						isDisabled={!backupActionsAvailable || runtimeLoading}
-						w="full"
-						fontSize="12px"
-						fontWeight="600"
 						borderColor="panel.border"
 						color="panel.text"
 						_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 						transition="border-color 0.25s ease, background-color 0.25s ease"
+						whiteSpace="nowrap"
 					>
-						{t("dashboard.backup.tabTitle")}
+						<HStack spacing={1.5} align="center" justify="center" w="full">
+							<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
+								<ArchiveBoxIcon width={15} height={15} />
+							</Box>
+							<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+								{t("dashboard.backup.tabTitle")}
+							</Text>
+						</HStack>
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent

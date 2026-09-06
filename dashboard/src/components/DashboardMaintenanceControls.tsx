@@ -326,22 +326,27 @@ export const DashboardMaintenanceControls = ({
 				<Button
 					size="xs"
 					h="32px"
-					w="full"
+					w={{ base: "full", sm: "auto" }}
+					px={3.5}
 					colorScheme={update?.available ? "primary" : "gray"}
 					variant={update?.available ? "solid" : "outline"}
 					bg={update?.available ? "var(--rb-panel-accent)" : "transparent"}
 					color={update?.available ? "white" : "panel.text"}
 					borderColor="panel.border"
 					borderRadius="full"
-					leftIcon={<ArrowUpTrayIcon width={14} height={14} />}
 					isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading}
-					fontSize="12px"
-					fontWeight="600"
 					whiteSpace="nowrap"
 				>
-					{update?.available
-						? t("dashboard.maintenance.updateAvailable")
-						: t("dashboard.maintenance.updateAction")}
+					<HStack spacing={1.5} align="center" justify="center" w="full">
+						<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
+							<ArrowUpTrayIcon width={15} height={15} />
+						</Box>
+						<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+							{update?.available
+								? t("dashboard.maintenance.updateAvailable")
+								: t("dashboard.maintenance.updateAction")}
+						</Text>
+					</HStack>
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
@@ -534,28 +539,13 @@ export const DashboardMaintenanceControls = ({
 				flexWrap="nowrap"
 				flexShrink={0}
 			>
-				{canMaintain && <Box minW="130px">{renderUpdatePopover()}</Box>}
+				{canMaintain && renderUpdatePopover()}
 
 				{canBackUp && (
-					<Box
-						minW="90px"
-						sx={{
-							"& > button": {
-								h: "32px !important",
-								borderRadius: "full !important",
-								fontSize: "12px !important",
-								fontWeight: "600 !important",
-								borderColor: "panel.border !important",
-								color: "panel.text !important",
-								whiteSpace: "nowrap !important",
-							},
-						}}
-					>
-						<DashboardBackupControls
-							isBinaryRuntime={hostActionsAvailable}
-							runtimeLoading={info.isLoading}
-						/>
-					</Box>
+					<DashboardBackupControls
+						isBinaryRuntime={hostActionsAvailable}
+						runtimeLoading={info.isLoading}
+					/>
 				)}
 
 				{canMaintain && (
@@ -569,15 +559,19 @@ export const DashboardMaintenanceControls = ({
 						color="red.400"
 						_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 						borderRadius="full"
-						leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
 						onClick={() => setConfirmAction("restart")}
 						isLoading={restartMutation.isLoading}
 						isDisabled={info.isLoading || !hostActionsAvailable}
-						fontSize="12px"
-						fontWeight="600"
 						whiteSpace="nowrap"
 					>
-						{t("dashboard.maintenance.restartAction")}
+						<HStack spacing={1.5} align="center" justify="center">
+							<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
+								<ArrowsRightLeftIcon width={15} height={15} />
+							</Box>
+							<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+								{t("dashboard.maintenance.restartAction")}
+							</Text>
+						</HStack>
 					</Button>
 				)}
 			</HStack>
@@ -597,21 +591,26 @@ export const DashboardMaintenanceControls = ({
 							flex="1 1 50%"
 							h="32px"
 							size="xs"
+							px={3}
 							colorScheme="red"
 							variant="outline"
 							borderColor="panel.border"
 							color="red.400"
 							_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
 							borderRadius="full"
-							leftIcon={<ArrowsRightLeftIcon width={14} height={14} />}
 							onClick={() => setConfirmAction("restart")}
 							isLoading={restartMutation.isLoading}
 							isDisabled={info.isLoading || !hostActionsAvailable}
-							fontSize="12px"
-							fontWeight="600"
 							whiteSpace="nowrap"
 						>
-							{t("dashboard.maintenance.restartAction")}
+							<HStack spacing={1.5} align="center" justify="center" w="full">
+								<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
+									<ArrowsRightLeftIcon width={15} height={15} />
+								</Box>
+								<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+									{t("dashboard.maintenance.restartAction")}
+								</Text>
+							</HStack>
 						</Button>
 
 						{canBackUp && (

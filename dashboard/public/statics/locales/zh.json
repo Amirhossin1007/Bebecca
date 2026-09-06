@@ -908,5 +908,6 @@
 	"common.comingSoon": "即将推出",
 	"nodes.nodeUpdateAvailable": "有可用更新",
 	"settings.telegram.backupScope": "备份范围",
-	"total": "总计"
+	"total": "总计",
+	"loadAverage": "平均负载"
 }
