@@ -2227,7 +2227,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 			>
 				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
 					<ResourceCard
-						parentNoHover
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<CpuChipIcon width={16} />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
@@ -2239,7 +2238,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 						isRTL={isRTL}
 					/>
 					<ResourceCard
-						parentNoHover
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
 						icon={<ServerStackIcon width={16} />}
 						value={formatBytes(systemData.app_memory, 1)}
