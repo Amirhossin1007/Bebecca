@@ -566,9 +566,10 @@ const HistoryModal: FC<{
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					hideOverlappingLabels: true,
-					formatter: (val: number) => {
-						if (!val || !Number.isFinite(val)) return "";
-						const d = new Date(val);
+					formatter: (val: string, timestamp?: number) => {
+						const num = timestamp !== undefined ? timestamp : Number(val);
+						if (!num || !Number.isFinite(num)) return val || "";
+						const d = new Date(num);
 						const h = String(d.getHours()).padStart(2, "0");
 						const m = String(d.getMinutes()).padStart(2, "0");
 						const s = String(d.getSeconds()).padStart(2, "0");
@@ -1399,16 +1400,7 @@ const SpeedItem: FC<{
 	icon: ReactNode;
 	label: string;
 	value: string;
-	rawBytes?: number;
-	avgBytes?: number;
-}> = ({ icon, label, value, rawBytes, avgBytes }) => {
-	const trend = useMemo(() => {
-		if (rawBytes === undefined || avgBytes === undefined || avgBytes <= 0) return null;
-		const diff = ((rawBytes - avgBytes) / avgBytes) * 100;
-		if (Math.abs(diff) < 5) return null;
-		return diff > 0 ? "up" : "down";
-	}, [rawBytes, avgBytes]);
-
+}> = ({ icon, label, value }) => {
 	return (
 		<Flex align="center" justify="space-between" gap={3}>
 			<HStack spacing={2.5} color="panel.textMuted">
@@ -1419,29 +1411,16 @@ const SpeedItem: FC<{
 					{label}
 				</Text>
 			</HStack>
-			<HStack spacing={1.5} align="center">
-				{trend && (
-					<Text
-						as="span"
-						fontSize="11px"
-						fontWeight="700"
-						color={trend === "up" ? "cyan.400" : "panel.textMuted"}
-						title={trend === "up" ? "Surging above average" : "Below average"}
-					>
-						{trend === "up" ? "↑" : "↓"}
-					</Text>
-				)}
-				<Text
-					fontSize="13px"
-					fontWeight="700"
-					letterSpacing="-0.01em"
-					color="panel.text"
-					dir="ltr"
-					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-				>
-					{value}
-				</Text>
-			</HStack>
+			<Text
+				fontSize="13px"
+				fontWeight="700"
+				letterSpacing="-0.01em"
+				color="panel.text"
+				dir="ltr"
+				sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+			>
+				{value}
+			</Text>
 		</Flex>
 	);
 };
@@ -2179,15 +2158,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 							icon={<ArrowDownTrayIcon width={13} />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
-							rawBytes={systemData.incoming_bandwidth_speed}
-							avgBytes={average(systemData.network_history.map((e) => e.incoming))}
 						/>
 						<SpeedItem
 							icon={<ArrowUpTrayIcon width={13} />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
-							rawBytes={systemData.outgoing_bandwidth_speed}
-							avgBytes={average(systemData.network_history.map((e) => e.outgoing))}
 						/>
 					</Stack>
 				</SectionCard>
