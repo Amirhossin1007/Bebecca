@@ -39,6 +39,7 @@ type MetricsSnapshot struct {
 	PanelMemoryPercent     float64
 	IncomingBandwidthSpeed int64
 	OutgoingBandwidthSpeed int64
+	OS                     string
 }
 
 type PersonalUsageStats = dashboardapp.PersonalUsageStats
@@ -47,6 +48,7 @@ type AdminOverviewStats = dashboardapp.AdminOverviewStats
 type SystemStats struct {
 	Version                 string                `json:"version"`
 	Channel                 string                `json:"channel"`
+	OS                      string                `json:"os,omitempty"`
 	CPUCores                int                   `json:"cpu_cores"`
 	CPUThreads              int                   `json:"cpu_threads"`
 	CPUFrequencyHz          float64               `json:"cpu_frequency_hz"`

@@ -227,6 +227,7 @@ const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null
 	return {
 		...value,
 		version: String(raw.version ?? ""),
+		os: typeof raw.os === "string" ? raw.os : undefined,
 		cpu_cores: toFiniteNumber(raw.cpu_cores),
 		cpu_threads: toFiniteNumber(raw.cpu_threads),
 		cpu_frequency_hz: toFiniteNumber(raw.cpu_frequency_hz),
@@ -1544,7 +1545,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 						}}
 					>
 						<Box className="shimmer-box" w={{ base: "140px", sm: "170px" }} h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
-						<Box className="shimmer-box" w="90px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						<HStack spacing={1.5}>
+							<Box className="shimmer-box" w="65px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="85px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+							<Box className="shimmer-box" w="75px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
+						</HStack>
 					</Flex>
 					<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
 						<HStack display={{ base: "none", sm: "flex" }} spacing={2} align="center" justify="flex-end">
@@ -1912,6 +1917,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
 							{systemData.xray_running ? t("dashboard.system.statusRunning") : t("dashboard.system.statusStopped")}
 						</Text>
+						{systemData.os && (
+							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
+								<Text as="span">·</Text>
+								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+									{systemData.os}
+								</Text>
+							</HStack>
+						)}
 						{exactVersion && exactVersion !== "-" && (
 							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
 								<Text as="span">·</Text>
