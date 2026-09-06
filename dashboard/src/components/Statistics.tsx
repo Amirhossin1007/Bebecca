@@ -375,7 +375,7 @@ const HistoryModal: FC<{
 		return () => clearTimeout(timer);
 	}, [activeIntervalIndex, isOpen]);
 
-	const { latestTimestamp, earliestTimestamp, availableSpan } = useMemo(() => {
+	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) {
 			const now = Math.floor(Date.now() / 1000);
 			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
@@ -400,18 +400,25 @@ const HistoryModal: FC<{
 		return { latestTimestamp: maxT, earliestTimestamp: minT, availableSpan: Math.max(1, maxT - minT) };
 	}, [payload]);
 
-	const cutoff =
+	const effectiveSpan =
 		intervalSeconds === 120
-			? Math.max(latestTimestamp - 120, earliestTimestamp)
-			: Math.max(latestTimestamp - intervalSeconds, earliestTimestamp);
+			? Math.min(120, availableSpan)
+			: Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
 
-	const chartSeries = useMemo(() => {
-		if (!payload) return [];
+	const cutoff = latestTimestamp - effectiveSpan;
+
+	const { chartSeries, actualMinTs, actualMaxTs } = useMemo(() => {
+		if (!payload) return { chartSeries: [], actualMinTs: cutoff, actualMaxTs: latestTimestamp };
+
+		let seriesList: { name: string; data: [number, number][] }[] = [];
+		let allTs: number[] = [];
+
 		if (payload.type === "network" && payload.networkEntries) {
 			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
 			const rawData = filtered.length >= 1 ? filtered : payload.networkEntries;
 			const finalData = expandShortData(rawData);
-			return [
+			allTs = finalData.map((e) => e.timestamp);
+			seriesList = [
 				{
 					name: t("dashboard.system.networkIncoming"),
 					data: finalData.map((e) => [e.timestamp * 1000, e.incoming]),
@@ -421,15 +428,15 @@ const HistoryModal: FC<{
 					data: finalData.map((e) => [e.timestamp * 1000, e.outgoing]),
 				},
 			];
-		}
-		if (payload.type === "panel") {
+		} else if (payload.type === "panel") {
 			const filteredCpu = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff);
 			const filteredMem = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff);
 			const rawCpu = filteredCpu.length >= 1 ? filteredCpu : payload.cpuEntries || [];
 			const rawMem = filteredMem.length >= 1 ? filteredMem : payload.memoryEntries || [];
 			const finalCpu = expandShortData(rawCpu);
 			const finalMem = expandShortData(rawMem);
-			return [
+			allTs = [...finalCpu.map((e) => e.timestamp), ...finalMem.map((e) => e.timestamp)];
+			seriesList = [
 				{
 					name: `${t("dashboard.system.cpuUsage")} (Panel CPU %)`,
 					data: finalCpu.map((e) => [e.timestamp * 1000, e.value]),
@@ -439,20 +446,28 @@ const HistoryModal: FC<{
 					data: finalMem.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
-		}
-		if (payload.entries) {
+		} else if (payload.entries) {
 			const filtered = payload.entries.filter((e) => e.timestamp >= cutoff);
 			const rawEntries = filtered.length >= 1 ? filtered : payload.entries;
 			const finalEntries = expandShortData(rawEntries);
-			return [
+			allTs = finalEntries.map((e) => e.timestamp);
+			seriesList = [
 				{
 					name: payload.metricLabel ?? payload.title,
 					data: finalEntries.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
 		}
-		return [];
-	}, [payload, cutoff, t]);
+
+		const minTs = allTs.length ? Math.min(...allTs) : cutoff;
+		const maxTs = allTs.length ? Math.max(...allTs) : latestTimestamp;
+
+		return {
+			chartSeries: seriesList,
+			actualMinTs: minTs,
+			actualMaxTs: maxTs,
+		};
+	}, [payload, cutoff, latestTimestamp, t]);
 
 	const hasEnoughPoints = useMemo(() => {
 		if (!payload) return false;
@@ -542,17 +557,23 @@ const HistoryModal: FC<{
 				},
 			},
 			xaxis: {
-				type: "datetime",
-				min: cutoff * 1000,
-				max: latestTimestamp * 1000,
+				type: "numeric",
+				min: actualMinTs * 1000,
+				max: actualMaxTs * 1000,
 				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
 				labels: {
 					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
-					datetimeUTC: false,
-					format: intervalSeconds <= 1800 ? "HH:mm:ss" : "HH:mm",
 					hideOverlappingLabels: true,
+					formatter: (val: number) => {
+						if (!val || !Number.isFinite(val)) return "";
+						const d = new Date(val);
+						const h = String(d.getHours()).padStart(2, "0");
+						const m = String(d.getMinutes()).padStart(2, "0");
+						const s = String(d.getSeconds()).padStart(2, "0");
+						return intervalSeconds === 120 ? `${h}:${m}:${s}` : `${h}:${m}`;
+					},
 				},
 			},
 			yaxis: {
@@ -651,8 +672,8 @@ const HistoryModal: FC<{
 			isRTL,
 			computedMin,
 			computedMax,
-			cutoff,
-			latestTimestamp,
+			actualMinTs,
+			actualMaxTs,
 		],
 	);
 
@@ -2011,8 +2032,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Flex
 								align="center"
 								gap={1.5}
-								fontSize="12px"
-								fontWeight="600"
+								fontSize="11px"
+								fontWeight="500"
 								color="panel.textMuted"
 								dir={isRTL ? "rtl" : "ltr"}
 							>
