@@ -12,10 +12,10 @@ const appendHistory = <T extends { timestamp: number }>(
 	entry: T,
 ): T[] => {
 	const current = Array.isArray(entries) ? entries : [];
+	if (!current.length) return [entry];
 	const last = current[current.length - 1];
-	if (!last) return [entry];
 	if (entry.timestamp - last.timestamp < HISTORY_SAMPLE_SECONDS) {
-		return [...current.slice(0, -1), { ...entry, timestamp: last.timestamp }];
+		return current;
 	}
 	return [...current, entry].slice(-HISTORY_MAX_ENTRIES);
 };

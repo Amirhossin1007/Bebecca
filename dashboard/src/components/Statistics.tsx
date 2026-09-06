@@ -402,7 +402,7 @@ const HistoryModal: FC<{
 	const cutoff =
 		intervalSeconds === 120
 			? Math.max(latestTimestamp - 120, earliestTimestamp)
-			: latestTimestamp - Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
+			: Math.max(latestTimestamp - intervalSeconds, earliestTimestamp);
 
 	const chartSeries = useMemo(() => {
 		if (!payload) return [];
