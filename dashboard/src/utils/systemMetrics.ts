@@ -15,7 +15,7 @@ const appendHistory = <T extends { timestamp: number }>(
 	if (!current.length) return [entry];
 	const last = current[current.length - 1];
 	if (entry.timestamp - last.timestamp < HISTORY_SAMPLE_SECONDS) {
-		return current;
+		return [...current.slice(0, -1), { ...entry, timestamp: last.timestamp }];
 	}
 	return [...current, entry].slice(-HISTORY_MAX_ENTRIES);
 };
