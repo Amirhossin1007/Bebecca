@@ -932,6 +932,7 @@ const ResourceCard: FC<{
 	percent: number;
 	metaUnit?: string;
 	metaValue?: string | number;
+	subMeta?: ReactNode;
 	footerLeft?: string;
 	footerRight?: string;
 	onHistory?: () => void;
@@ -945,6 +946,7 @@ const ResourceCard: FC<{
 	percent,
 	metaUnit,
 	metaValue,
+	subMeta,
 	footerLeft,
 	footerRight,
 	onHistory,
@@ -1109,6 +1111,11 @@ const ResourceCard: FC<{
 						</Flex>
 					)}
 				</Flex>
+				{subMeta && (
+					<Box mt={0.5}>
+						{subMeta}
+					</Box>
+				)}
 			</Box>
 
 			<Box mt={3}>
@@ -1600,6 +1607,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
 							</Flex>
 							<Box w="120px" h="26px" borderRadius="md" bg="panel.elevated" my={1.5} />
+							{i === 1 && <Box w="110px" h="14px" borderRadius="md" bg="panel.elevated" mb={1} />}
 							<Box>
 								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" mb={2.5} />
 								<Flex justify="space-between">
@@ -1956,6 +1964,27 @@ export const Statistics: FC<BoxProps> = (props) => {
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("dashboard.system.core")}
+					subMeta={
+						systemData.load_avg && systemData.load_avg.length >= 3 ? (
+							<Flex
+								align="center"
+								gap={1.5}
+								fontSize="12px"
+								fontWeight="600"
+								color="panel.textMuted"
+								dir={isRTL ? "rtl" : "ltr"}
+							>
+								<Text as="span">{t("loadAverage")}:</Text>
+								<Text
+									as="span"
+									dir="ltr"
+									sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+								>
+									{systemData.load_avg.slice(0, 3).map((v) => v.toFixed(2)).join(" · ")}
+								</Text>
+							</Flex>
+						) : undefined
+					}
 					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
 					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("dashboard.system.viewHistory")}

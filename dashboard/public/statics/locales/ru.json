@@ -907,5 +907,6 @@
 	"common.comingSoon": "Скоро появится",
 	"nodes.nodeUpdateAvailable": "Доступно обновление",
 	"settings.telegram.backupScope": "Область резервного копирования",
-	"total": "Всего"
+	"total": "Всего",
+	"loadAverage": "Средняя загрузка"
 }
