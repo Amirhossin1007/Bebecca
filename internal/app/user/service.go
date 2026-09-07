@@ -70,6 +70,15 @@ func (s Service) ConfigLinks(ctx context.Context, req ConfigLinksRequest) (Confi
 		}
 		item = loaded
 	}
+	if item.ServiceID != nil {
+		if serviceFlows, err := s.repo.serviceFlows(ctx); err != nil {
+			return ConfigLinksResponse{}, err
+		} else if serviceFlows != nil {
+			if flow, ok := serviceFlows[*item.ServiceID]; ok {
+				item.Flow = flow
+			}
+		}
+	}
 	if item.Username == "" {
 		return ConfigLinksResponse{}, fmt.Errorf("username is required")
 	}
@@ -146,6 +155,8 @@ func (s Service) CreateUser(ctx context.Context, admin adminapp.Admin, raw []byt
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return MutationResult{}, clientError(400, "invalid request body")
 	}
+	// Flow is retained in the public payload for compatibility; service flow is authoritative.
+	payload.Flow = nil
 	if rawFieldPresent(fields, "next_plan") {
 		return MutationResult{}, clientError(400, NextPlanRemovedMessage)
 	}
@@ -184,6 +195,9 @@ func (s Service) UpdateUser(ctx context.Context, admin adminapp.Admin, username 
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return MutationResult{}, clientError(400, "invalid request body")
 	}
+	// Ignore legacy per-user flow writes while accepting the field for old clients.
+	payload.Flow = nil
+	delete(fields, "flow")
 	if rawFieldPresent(fields, "next_plan") {
 		return MutationResult{}, clientError(400, NextPlanRemovedMessage)
 	}
