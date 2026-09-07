@@ -173,7 +173,7 @@ export const HeaderCalendar: FC = () => {
 					variant="outline"
 					h="34px"
 					px={3}
-					borderRadius="full"
+					borderRadius="12px"
 					borderColor="panel.border"
 					bg="panel.surface"
 					color="panel.text"
@@ -187,7 +187,7 @@ export const HeaderCalendar: FC = () => {
 					}}
 					transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 				>
-					<CalendarIcon color="var(--rb-panel-accent)" />
+					<CalendarIcon color="panel.textSecondary" />
 					<Text noOfLines={1} maxW="320px" fontWeight="600" fontSize="12px">
 						{formattedDate}
 					</Text>
@@ -290,21 +290,16 @@ export const HeaderCalendar: FC = () => {
 										align="center"
 										justify="center"
 										borderRadius="10px"
-										bg={day.isToday ? "var(--rb-panel-accent)" : "transparent"}
+										bg={day.isToday ? "panel.elevated" : "transparent"}
+										borderWidth={day.isToday ? "1.5px" : "0px"}
+										borderColor={day.isToday ? "panel.borderStrong" : "transparent"}
 										color={
-											day.isToday
-												? "white"
-												: isHoliday
-													? "red.400"
-													: "panel.text"
+											isHoliday
+												? "red.400"
+												: "panel.text"
 										}
 										fontWeight={day.isToday ? "700" : isHoliday ? "600" : "500"}
 										fontSize="12px"
-										boxShadow={
-											day.isToday
-												? "0 2px 8px var(--rb-panel-accent)"
-												: undefined
-										}
 										transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
 										cursor="default"
 										_hover={

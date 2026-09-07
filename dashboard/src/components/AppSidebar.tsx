@@ -129,7 +129,6 @@ type GroupNavItem = {
 	id: string;
 	title: string;
 	icon: ElementType;
-	primaryUrl?: string;
 	subItems: GroupSubItem[];
 	visible: boolean;
 };
@@ -257,7 +256,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				id: "users_hub",
 				title: t("sidebar.groups.userHub"),
 				icon: UsersIconStyled,
-				primaryUrl: "/users",
 				visible: true,
 				subItems: [
 					{
@@ -477,10 +475,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const handleGroupClick = (group: GroupNavItem) => {
 		const isCurrentlyOpen = Boolean(openGroups[group.id]);
 		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
-
-		if (group.primaryUrl) {
-			handleNavigate(group.primaryUrl);
-		}
 	};
 
 	return (
@@ -573,7 +567,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										px={collapsed ? 0 : 3}
 										borderRadius="10px"
 										bg={isCurrent ? activeItemBg : "transparent"}
-										color={isCurrent ? activeItemColor : normalItemColor}
+										color={isCurrent ? "panel.text" : normalItemColor}
 										fontWeight={isCurrent ? "700" : "600"}
 										fontSize="13px"
 										position="relative"
@@ -583,14 +577,24 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										borderInlineStartColor="var(--rb-panel-accent)"
 										_hover={{
 											bg: isCurrent ? activeItemBg : hoverItemBg,
-											color: isCurrent ? activeItemColor : "panel.text",
+											color: "panel.text",
 										}}
 									>
 										<HStack spacing={2.5} align="center">
-											<Box as="span" display="inline-flex" alignItems="center" justifyContent="center">
+											<Box
+												as="span"
+												display="inline-flex"
+												alignItems="center"
+												justifyContent="center"
+												color={isCurrent ? activeItemColor : "inherit"}
+											>
 												<IconEl />
 											</Box>
-											{!collapsed && <Text noOfLines={1}>{entry.title}</Text>}
+											{!collapsed && (
+												<Text noOfLines={1} color={isCurrent ? "panel.text" : normalItemColor}>
+													{entry.title}
+												</Text>
+											)}
 										</HStack>
 
 										{!collapsed && entry.badge && (
@@ -729,11 +733,17 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																	fontSize="12px"
 																	fontWeight={isSubActive ? "700" : "500"}
 																	bg={isSubActive ? activeItemBg : "transparent"}
-																	color={isSubActive ? activeItemColor : normalItemColor}
+																	color={isSubActive ? "panel.text" : normalItemColor}
+																	borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
+																	borderInlineStartColor="var(--rb-panel-accent)"
 																	_hover={{ bg: hoverItemBg, color: "panel.text" }}
 																>
-																	<SubIcon />
-																	<Text noOfLines={1}>{sub.title}</Text>
+																	<Box as="span" color={isSubActive ? activeItemColor : "inherit"}>
+																		<SubIcon />
+																	</Box>
+																	<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																		{sub.title}
+																	</Text>
 																</Flex>
 															</Box>
 														);
@@ -755,11 +765,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										px={3}
 										borderRadius="10px"
 										bg={isGroupActive && !isOpen ? activeItemBg : "transparent"}
-										color={isGroupActive ? activeItemColor : normalItemColor}
+										color={isGroupActive ? "panel.text" : normalItemColor}
 										fontWeight={isGroupActive ? "700" : "600"}
 										fontSize="13px"
 										cursor="pointer"
 										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										borderInlineStartWidth={isGroupActive && !isOpen ? "3px" : "0px"}
+										borderInlineStartColor="var(--rb-panel-accent)"
 										onClick={() => handleGroupClick(entry)}
 										_hover={{
 											bg: hoverItemBg,
@@ -767,10 +779,18 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										}}
 									>
 										<HStack spacing={2.5} align="center">
-											<Box as="span" display="inline-flex" alignItems="center" justifyContent="center">
+											<Box
+												as="span"
+												display="inline-flex"
+												alignItems="center"
+												justifyContent="center"
+												color={isGroupActive ? activeItemColor : "inherit"}
+											>
 												<GroupIcon />
 											</Box>
-											<Text noOfLines={1}>{entry.title}</Text>
+											<Text noOfLines={1} color={isGroupActive ? "panel.text" : normalItemColor}>
+												{entry.title}
+											</Text>
 										</HStack>
 
 										<Icon
@@ -822,14 +842,16 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																		px={2.5}
 																		borderRadius="8px"
 																		bg={isSubActive ? activeItemBg : "transparent"}
-																		color={isSubActive ? activeItemColor : normalItemColor}
+																		color={isSubActive ? "panel.text" : normalItemColor}
 																		fontWeight={isSubActive ? "700" : "500"}
 																		fontSize="12px"
 																		cursor="pointer"
 																		transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+																		borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
+																		borderInlineStartColor="var(--rb-panel-accent)"
 																		_hover={{
 																			bg: isSubActive ? activeItemBg : hoverItemBg,
-																			color: isSubActive ? activeItemColor : "panel.text",
+																			color: "panel.text",
 																		}}
 																	>
 																		<HStack spacing={2} align="center">
@@ -838,11 +860,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																				display="inline-flex"
 																				alignItems="center"
 																				justifyContent="center"
-																				opacity={0.8}
+																				color={isSubActive ? activeItemColor : "inherit"}
+																				opacity={isSubActive ? 1 : 0.8}
 																			>
 																				<SubIcon />
 																			</Box>
-																			<Text noOfLines={1}>{sub.title}</Text>
+																			<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																				{sub.title}
+																			</Text>
 																		</HStack>
 																	</Flex>
 																</Box>

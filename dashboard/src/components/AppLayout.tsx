@@ -758,12 +758,13 @@ export function AppLayout() {
 		} else if (path === "/users") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.userHub"), path: "/users" },
+				{ label: t("sidebar.groups.userHub") },
+				{ label: t("sidebar.usersList"), path: "/users" },
 			];
 		} else if (path === "/bulk-actions") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.userHub"), path: "/users" },
+				{ label: t("sidebar.groups.userHub") },
 				{ label: t("bulkActions.menu"), path: "/bulk-actions" },
 			];
 		} else if (path === "/admins") {
@@ -1031,10 +1032,10 @@ export function AppLayout() {
 										size="sm"
 										variant="outline"
 										h="34px"
-										w={{ base: "34px", sm: "auto" }}
-										minW={{ base: "34px", sm: "auto" }}
-										p={{ base: 0, sm: 2.5 }}
-										borderRadius="full"
+										w={{ base: "34px", md: "auto" }}
+										minW={{ base: "34px", md: "auto" }}
+										p={{ base: 0, md: 2.5 }}
+										borderRadius={{ base: "full", md: "12px" }}
 										borderColor="panel.border"
 										bg="panel.surface"
 										color="panel.text"
@@ -1058,14 +1059,14 @@ export function AppLayout() {
 												align="center"
 												justify="center"
 												borderRadius="full"
-												color="var(--rb-panel-accent)"
+												color="panel.textSecondary"
 												flexShrink={0}
 											>
 												<UserIcon />
 											</Flex>
 											<Text
-												display={{ base: "none", sm: "inline" }}
-												maxW={{ base: "100px", sm: "140px" }}
+												display={{ base: "none", md: "inline" }}
+												maxW={{ base: "100px", md: "140px" }}
 												fontSize="12px"
 												fontWeight="600"
 												isTruncated
@@ -1132,9 +1133,11 @@ export function AppLayout() {
 												h="34px"
 												align="center"
 												justify="center"
-												borderRadius="full"
-												bg="var(--rb-panel-accent)"
-												color="white"
+												borderRadius="10px"
+												bg="panel.surface"
+												borderWidth="1px"
+												borderColor="panel.border"
+												color="panel.text"
 												flexShrink={0}
 											>
 												<UserIcon />
@@ -1255,7 +1258,7 @@ export function AppLayout() {
 																		)}
 																		<Text fontWeight={isActiveLang ? "700" : "500"}>{label}</Text>
 																	</HStack>
-																	{isActiveLang && <CheckIcon width={15} color="var(--rb-panel-accent)" />}
+																	{isActiveLang && <CheckIcon width={15} color="panel.text" />}
 																</HStack>
 															</MenuItem>
 														);

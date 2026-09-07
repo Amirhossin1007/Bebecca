@@ -6,7 +6,6 @@ import {
 	IconButton,
 	Menu,
 	MenuButton,
-	MenuDivider,
 	MenuList,
 	Portal,
 	SimpleGrid,
@@ -348,31 +347,37 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 			<Button
 				key={theme.key}
 				variant="outline"
-				h="72px"
-				borderRadius="6px"
-				borderColor={selected ? "panel.accent" : "panel.border"}
-				borderWidth={selected ? "2px" : "1px"}
+				h="46px"
+				borderRadius="12px"
+				borderColor={selected ? "panel.borderStrong" : "panel.border"}
+				borderWidth={selected ? "1.5px" : "1px"}
 				bg={selected ? "panel.elevated" : "transparent"}
-				color="panel.text"
-				_hover={{ bg: menuHover, borderColor: "panel.accent" }}
+				color={selected ? "panel.text" : "panel.textSecondary"}
+				boxShadow={selected ? "0 2px 8px rgba(0, 0, 0, 0.08)" : "none"}
+				_hover={{
+					bg: "panel.elevated",
+					color: "panel.text",
+					borderColor: "panel.borderStrong",
+				}}
 				onClick={() => selectTheme(theme.key)}
+				transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 				position="relative"
 				px={3}
 			>
-				<VStack spacing={2} align="center" justify="center" w="full">
+				<HStack spacing={2.5} align="center" justify="center" w="full">
 					<Icon />
-					<Text textAlign="center" fontWeight="700" lineHeight="1">
+					<Text fontSize="13px" fontWeight={selected ? "700" : "500"}>
 						{t(`theme.${theme.key}`, theme.label)}
 					</Text>
-				</VStack>
+				</HStack>
 				{selected ? (
 					<Box
 						position="absolute"
-						top="2"
-						insetInlineEnd="2"
-						color="panel.accent"
+						top="2.5"
+						insetInlineEnd="2.5"
+						color="panel.text"
 					>
-						<CheckIconChakra />
+						<CheckIconChakra w="12px" h="12px" />
 					</Box>
 				) : null}
 			</Button>
@@ -381,13 +386,17 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	const menuList = (
 		<MenuList
-			minW={{ base: "min(320px, calc(100vw - 24px))", sm: "320px" }}
+			minW={{ base: "min(300px, calc(100vw - 24px))", sm: "300px" }}
 			maxW="calc(100vw - 16px)"
 			bg={menuBg}
 			borderColor={menuBorder}
+			borderWidth="1px"
+			borderRadius="20px"
+			boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
+			backdropFilter="blur(24px)"
 			color={textColor}
 			zIndex={9999}
-			p={3}
+			p={3.5}
 			userSelect="none"
 			sx={{
 				".chakra-menu__menuitem": {
@@ -407,10 +416,11 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 			<VStack align="stretch" spacing={3}>
 				<Box>
 					<Text
-						fontSize="xs"
+						fontSize="11px"
 						fontWeight="700"
 						color={secondaryText}
 						textTransform="uppercase"
+						letterSpacing="0.04em"
 						mb={2}
 					>
 						{t("header.theme")}
@@ -420,19 +430,20 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					</SimpleGrid>
 				</Box>
 
-				{!minimal ? <MenuDivider borderColor={menuBorder} /> : null}
+				{!minimal ? <Box h="1px" bg="panel.border" my={0.5} /> : null}
 
 				<Box>
 					<Text
-						fontSize="xs"
+						fontSize="11px"
 						fontWeight="700"
 						color={secondaryText}
 						textTransform="uppercase"
-						mb={2}
+						letterSpacing="0.04em"
+						mb={2.5}
 					>
 						{t("theme.accent")}
 					</Text>
-					<SimpleGrid columns={{ base: 5 }} spacing={2}>
+					<SimpleGrid columns={5} spacing={2.5} justifyItems="center">
 						{ACCENT_OPTIONS.map((accent) => {
 							const selected = activeAccent === accent.key;
 							return (
@@ -443,22 +454,30 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 								>
 									<IconButton
 										aria-label={t(`theme.accent.${accent.key}`, accent.label)}
-										icon={selected ? <CheckIconChakra /> : undefined}
+										icon={
+											selected ? (
+												<CheckIconChakra w="14px" h="14px" color="white" />
+											) : undefined
+										}
 										size="sm"
-										h="34px"
-										minW="34px"
-										borderRadius="6px"
-										borderWidth={selected ? "2px" : "1px"}
-										borderColor={selected ? "panel.text" : "panel.border"}
+										w="36px"
+										h="36px"
+										minW="36px"
+										borderRadius="full"
+										borderWidth="2px"
+										borderColor={selected ? "white" : "transparent"}
 										bg={accent.color}
-										color="white"
+										boxShadow={
+											selected
+												? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
+												: "0 2px 6px rgba(0, 0, 0, 0.15)"
+										}
+										transform={selected ? "scale(1.06)" : "scale(1)"}
 										_hover={{
 											bg: accent.hover,
-											borderColor: "panel.text",
+											transform: "scale(1.1)",
 										}}
-										_focusVisible={{
-											boxShadow: "0 0 0 2px var(--rb-panel-accent)",
-										}}
+										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 										onClick={() => selectAccent(accent.key)}
 									/>
 								</Tooltip>
@@ -489,10 +508,11 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					as={Button}
 					variant="ghost"
 					w="full"
-					h="40px"
-					justifyContent="flex-start"
+					h="38px"
+					justifyContent="space-between"
 					fontWeight="500"
-					borderRadius="md"
+					fontSize="13px"
+					borderRadius="10px"
 					px={3}
 					bg="transparent"
 					color={textColor}
@@ -504,12 +524,21 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						themeMenu.isOpen ? themeMenu.onClose() : themeMenu.onOpen();
 					}}
 				>
-					<HStack justify="flex-start" spacing={3} w="full" minW={0}>
+					<HStack justify="flex-start" spacing={2.5} minW={0}>
 						<SwatchIconChakra flexShrink={0} />
 						<Text noOfLines={1}>
 							{triggerLabel || t("header.theme")}
 						</Text>
 					</HStack>
+					<Box
+						w="12px"
+						h="12px"
+						borderRadius="full"
+						bg="var(--rb-panel-accent)"
+						borderWidth="1.5px"
+						borderColor="panel.borderStrong"
+						flexShrink={0}
+					/>
 				</MenuButton>
 				{portalContainer ? (
 					<Portal containerRef={portalContainer}>{menuList}</Portal>
