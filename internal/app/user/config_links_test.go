@@ -1719,3 +1719,12 @@ func TestTLSCipherSuitesSurviveResolutionAndShareLinks(t *testing.T) {
 		t.Fatalf("VMess payload lost cipherSuites: payload=%#v err=%v", payload, err)
 	}
 }
+
+func TestSSHShareLink(t *testing.T) {
+	ssh := sshShareLink("SSH test", "example.com", ResolvedInbound{"port": 2222}, map[string]any{"username": "alice", "password": "secret"})
+	parsed, err := url.Parse(ssh)
+	password, _ := parsed.User.Password()
+	if err != nil || parsed.Scheme != "ssh" || parsed.User.Username() != "alice" || password != "secret" {
+		t.Fatalf("unexpected SSH link %q: %v", ssh, err)
+	}
+}

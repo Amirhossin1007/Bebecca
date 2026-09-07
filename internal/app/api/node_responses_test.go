@@ -34,6 +34,11 @@ func TestFlattenNodeStaticItemOmitsRuntimeFields(t *testing.T) {
 		"cpu_usage_percent",
 		"upload_speed",
 		"download_speed",
+		"protocol_statuses",
+		"xray_pid",
+		"xray_cpu_usage_percent",
+		"xray_memory_used",
+		"xray_uptime_seconds",
 	} {
 		if _, exists := item[key]; exists {
 			t.Fatalf("runtime field %q must not be included in a static update", key)
@@ -59,6 +64,11 @@ func TestFlattenNodeLiveItemOmitsUnavailableRuntime(t *testing.T) {
 		"cpu_usage_percent",
 		"upload_speed",
 		"download_speed",
+		"protocol_statuses",
+		"xray_pid",
+		"xray_cpu_usage_percent",
+		"xray_memory_used",
+		"xray_uptime_seconds",
 	} {
 		if _, exists := item[key]; exists {
 			t.Fatalf("unavailable runtime field %q must not overwrite cached data", key)

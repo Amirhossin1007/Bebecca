@@ -227,10 +227,12 @@ export interface SubscriptionSettingsBundle {
 }
 
 export interface SubscriptionPlaceholderSetting {
-	admin_id: number;
+	admin_id: number | null;
 	admin_username: string;
 	service_id: number;
 	service_name: string;
+	is_default: boolean;
+	inherited: boolean;
 	enabled: boolean;
 	expired_remark: string;
 	limited_remark: string;
@@ -254,7 +256,7 @@ export const updateSubscriptionPlaceholderSetting = async (
 		| "expired_remark"
 		| "limited_remark"
 		| "disabled_remark"
-	>,
+	> & { inherit_default?: boolean },
 ) =>
 	apiFetch<SubscriptionPlaceholderSetting>("/settings/placeholders", {
 		method: "PUT",

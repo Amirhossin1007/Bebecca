@@ -950,7 +950,9 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		return PublicRecord{}, fmt.Errorf("install MirzaBot source: %w", err)
 	}
 	appCreated = true
-	_ = os.Remove(filepath.Join(record.Root, "install.sh"))
+	if err := removeMirzaBotInstaller(record.Root); err != nil {
+		return PublicRecord{}, err
+	}
 	uid, gid, err := unixUserIDs(ctx, record.SystemUser)
 	if err != nil {
 		return PublicRecord{}, err
@@ -1222,11 +1224,16 @@ func (m *Manager) updateMirzaBot(ctx context.Context, identifier string) (Public
 		return PublicRecord{}, err
 	}
 	defer os.RemoveAll(stage)
+	if err := os.Chmod(stage, 0o711); err != nil {
+		return PublicRecord{}, err
+	}
 	nextRoot, err := extractMirzaBotArchive(source.Archive, stage)
 	if err != nil {
 		return PublicRecord{}, err
 	}
-	_ = os.Remove(filepath.Join(nextRoot, "install.sh"))
+	if err := removeMirzaBotInstaller(nextRoot); err != nil {
+		return PublicRecord{}, err
+	}
 	if err := prepareOwnedExternalAppTree(nextRoot, uid, gid); err != nil {
 		return PublicRecord{}, err
 	}
@@ -1285,6 +1292,15 @@ func (m *Manager) updateMirzaBot(ctx context.Context, identifier string) (Public
 	updated := record
 	updated.Version = source.Version
 	updated.SourceSHA = source.SHA
+	if updated.Enabled {
+		if err := m.setTelegramWebhook(ctx, storedSecrets.BotToken, updated, storedSecrets.WebhookSecret); err != nil {
+			if rollbackErr := rollback(); rollbackErr != nil {
+				return PublicRecord{}, fmt.Errorf("update Telegram webhook: %v; rollback failed: %w", err, rollbackErr)
+			}
+			_ = reloadPHPFPM(context.Background(), record)
+			return PublicRecord{}, fmt.Errorf("update Telegram webhook: %w", err)
+		}
+	}
 	if err := m.writeRecord(updated); err != nil {
 		if rollbackErr := rollback(); rollbackErr != nil {
 			return PublicRecord{}, fmt.Errorf("save MirzaBot version: %v; rollback failed: %w", err, rollbackErr)
@@ -1576,15 +1592,17 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		mirzaVersion := "latest"
+		mirzaSourceURL := mirzaBotRepositoryURL + "/tags"
 		if release.Version != "" {
 			mirzaVersion = release.Version
+			mirzaSourceURL = mirzaBotRepositoryURL + "/releases/tag/" + url.PathEscape(release.Version)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"supported": supported,
 			"detail":    detail,
 			"templates": []map[string]any{
 				{"id": "archive", "name": "PHP / HTML ZIP", "supported": supported},
-				{"id": "mirzabot", "name": "MirzaBot", "version": mirzaVersion, "source_sha": release.SHA, "source_url": mirzaBotRepositoryURL + "/releases/latest", "supported": mirzaSupported, "detail": mirzaDetail},
+				{"id": "mirzabot", "name": "MirzaBot", "version": mirzaVersion, "source_sha": release.SHA, "source_url": mirzaSourceURL, "supported": mirzaSupported, "detail": mirzaDetail},
 			},
 			"apps": apps,
 		})

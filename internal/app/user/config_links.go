@@ -28,6 +28,7 @@ var proxyProtocols = map[string]struct{}{
 	"trojan":      {},
 	"shadowsocks": {},
 	"hysteria":    {},
+	"ssh":         {},
 }
 
 var subscriptionDownloadProtocols = map[string]struct{}{
@@ -37,6 +38,9 @@ var subscriptionDownloadProtocols = map[string]struct{}{
 	"pptp":       {},
 	"ikev2":      {},
 	"anyconnect": {},
+	"sstp":       {},
+	"amneziawg":  {},
+	"gre":        {},
 }
 
 func isResolvableInboundProtocol(protocol string) bool {
@@ -123,6 +127,9 @@ func BuildConfigLinks(
 		settings, err := runtimeProxySettings(proxy.Settings, protocol, item.CredentialKey, item.Flow, masks)
 		if err != nil {
 			return ConfigLinksResponse{}, err
+		}
+		if protocol == "ssh" {
+			settings["username"] = item.Username
 		}
 		for _, tag := range selectProxyInboundTags(item, proxy, protocol, inbounds, inboundOrder, hostsByTag) {
 			inbound, ok := inbounds[tag]
@@ -804,7 +811,7 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 		} else {
 			return nil, fmt.Errorf("UUID is required for proxy type %s", protocol)
 		}
-	case "trojan", "shadowsocks", "hysteria":
+	case "trojan", "shadowsocks", "hysteria", "ssh":
 		if stringValue(data["password"]) == "" {
 			if normalizedKey != "" {
 				data["password"] = keyToPassword(normalizedKey, protocol)
@@ -824,6 +831,10 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 			delete(data, "method")
 			delete(data, "iv_check")
 			break
+		}
+		if protocol == "ssh" {
+			delete(data, "method")
+			delete(data, "iv_check")
 		}
 		if protocol == "shadowsocks" {
 			if stringValue(data["method"]) == "" {
@@ -987,6 +998,8 @@ func buildShareLink(remark string, address string, inbound ResolvedInbound, sett
 		return shadowsocksShareLink(remark, formatIPForURL(address), inbound, settings), nil
 	case "hysteria":
 		return hysteriaShareLink(remark, formatIPForURL(address), inbound, settings)
+	case "ssh":
+		return sshShareLink(remark, formatIPForURL(address), inbound, settings), nil
 	default:
 		return "", nil
 	}
@@ -1379,6 +1392,11 @@ func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, s
 	return link + "#" + percentEncode(remark, "/", false), nil
 }
 
+func sshShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) string {
+	userinfo := url.UserPassword(stringValue(settings["username"]), stringValue(settings["password"])).String()
+	return "ssh://" + userinfo + "@" + address + ":" + portString(inbound["port"]) + "#" + percentEncode(remark, "/", false)
+}
+
 func parseHysteriaPortExpression(raw string) (int, string, error) {
 	expression := strings.TrimSpace(raw)
 	if expression == "" || strings.ContainsAny(expression, " \t\r\n") {
@@ -1667,11 +1685,11 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		applyOVResolvedSettings(resolved, inbound)
 		return resolved, nil
 	}
-	if protocol == "wireguard" {
+	if protocol == "wireguard" || protocol == "amneziawg" {
 		resolved["settings"] = settings
 		return resolved, nil
 	}
-	if protocol == "l2tp" || protocol == "pptp" || protocol == "ikev2" || protocol == "anyconnect" {
+	if protocol == "l2tp" || protocol == "pptp" || protocol == "ikev2" || protocol == "anyconnect" || protocol == "sstp" || protocol == "gre" {
 		resolved["settings"] = settings
 		return resolved, nil
 	}

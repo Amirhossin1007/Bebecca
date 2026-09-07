@@ -91,6 +91,7 @@ message RuntimeState {
   string message = 7;
   repeated string capabilities = 8;
   uint64 applied_revision = 9;
+  repeated ProtocolStatus protocol_statuses = 10;
 }
 
 message RuntimeConfigRequest {
@@ -140,6 +141,7 @@ message MetricsResponse {
   SystemMetrics system = 2;
   TransferMetrics transfer = 3;
   int64 sampled_at_unix = 4;
+  XrayMetrics xray = 5;
 }
 
 message PublicIPsRequest {}
@@ -388,4 +390,19 @@ message LogLine {
 
 message OnlineUsersResponse {
   repeated string uids = 1;
+}
+
+message ProtocolStatus {
+  string protocol = 1;
+  string state = 2;
+  string detail = 3;
+  uint32 inbounds = 4;
+  string version = 5;
+}
+
+message XrayMetrics {
+  int32 pid = 1;
+  double cpu_usage_percent = 2;
+  uint64 memory_used = 3;
+  uint64 uptime_seconds = 4;
 }

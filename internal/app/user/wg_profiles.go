@@ -45,6 +45,14 @@ type wgProfileMaterial struct {
 }
 
 func (s Service) WGProfiles(ctx context.Context, userID int64, hostTag string, includeBody bool) ([]WGProfile, error) {
+	return s.wgProfiles(ctx, userID, hostTag, includeBody, "wireguard")
+}
+
+func (s Service) AWGProfiles(ctx context.Context, userID int64, hostTag string, includeBody bool) ([]WGProfile, error) {
+	return s.wgProfiles(ctx, userID, hostTag, includeBody, "amneziawg")
+}
+
+func (s Service) wgProfiles(ctx context.Context, userID int64, hostTag string, includeBody bool, protocol string) ([]WGProfile, error) {
 	item, err := s.repo.ConfigLinkUser(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -73,7 +81,7 @@ func (s Service) WGProfiles(ctx context.Context, userID int64, hostTag string, i
 	if strings.TrimSpace(item.ServerIP) == "" {
 		item.ServerIP = s.repo.configServerIP(ctx)
 	}
-	if err := s.repo.populateWGAddresses(ctx, &item, inbounds); err != nil {
+	if err := s.repo.populateTunnelAddresses(ctx, &item, inbounds, protocol); err != nil {
 		return nil, err
 	}
 
@@ -88,12 +96,12 @@ func (s Service) WGProfiles(ctx context.Context, userID int64, hostTag string, i
 	for _, selected := range selectedHosts {
 		host := selected.host
 		inbound, ok := inbounds[host.InboundTag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != "wireguard" {
+		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol {
 			continue
 		}
 		inboundVariables := cloneFormatVariables(variables)
-		inboundVariables["PROTOCOL"] = "wireguard"
-		inboundVariables["protocol"] = "wireguard"
+		inboundVariables["PROTOCOL"] = protocol
+		inboundVariables["protocol"] = protocol
 		inboundVariables["TRANSPORT"] = configTransportName(inbound)
 		inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
 		remark, address, effective, ok := effectiveInboundForHost(item.Username, inboundVariables, inbound, host)
@@ -104,7 +112,7 @@ func (s Service) WGProfiles(ctx context.Context, userID int64, hostTag string, i
 		if hostTag != "" && !WGHostTagMatches(host, remark, address, tag, hostTag) {
 			continue
 		}
-		material, err := buildWGProfileMaterial(item, remark, address, effective, host, includeBody)
+		material, err := buildWGProfileMaterialForProtocol(item, remark, address, effective, host, includeBody, protocol)
 		if err != nil {
 			return nil, err
 		}
@@ -146,8 +154,28 @@ func (s Service) generateWGProfile(ctx context.Context, user UserDetail, req Sub
 	}, nil
 }
 
+func (s Service) generateAWGProfile(ctx context.Context, user UserDetail, req SubscriptionRenderRequest) (SubscriptionHTTPResponse, error) {
+	profiles, err := s.AWGProfiles(ctx, user.ID, firstNonEmptyString(req.HostTag, req.InboundTag), true)
+	if err != nil {
+		return SubscriptionHTTPResponse{}, err
+	}
+	if len(profiles) == 0 {
+		return SubscriptionHTTPResponse{}, clientError(404, "AmneziaWG profile not found")
+	}
+	profile := profiles[0]
+	return SubscriptionHTTPResponse{Status: 200, MediaType: "application/x-wireguard-profile", Headers: map[string]string{"content-disposition": `attachment; filename="` + profile.Filename + `"`}, Body: []byte(profile.Body)}, nil
+}
+
 func (s Service) WGDownloadProfiles(ctx context.Context, user UserDetail, subscriptionURL string) ([]WGProfile, error) {
-	profiles, err := s.WGProfiles(ctx, user.ID, "", true)
+	return s.wgDownloadProfiles(ctx, user, subscriptionURL, "wireguard")
+}
+
+func (s Service) AWGDownloadProfiles(ctx context.Context, user UserDetail, subscriptionURL string) ([]WGProfile, error) {
+	return s.wgDownloadProfiles(ctx, user, subscriptionURL, "amneziawg")
+}
+
+func (s Service) wgDownloadProfiles(ctx context.Context, user UserDetail, subscriptionURL, protocol string) ([]WGProfile, error) {
+	profiles, err := s.wgProfiles(ctx, user.ID, "", true, protocol)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +191,7 @@ func (s Service) WGDownloadProfiles(ctx context.Context, user UserDetail, subscr
 		basePath = path.Dir(basePath)
 	}
 	for i := range profiles {
-		profiles[i].DownloadURL = wgProfileDownloadURL(baseURL, basePath, profiles[i].HostTag)
+		profiles[i].DownloadURL = wgProfileDownloadURL(baseURL, basePath, profiles[i].HostTag, protocol)
 	}
 	return profiles, nil
 }
@@ -183,7 +211,7 @@ func (s Service) WGDownloadLinks(ctx context.Context, user UserDetail, subscript
 }
 
 func buildWGShareLink(item ConfigLinkUser, remark string, address string, inbound ResolvedInbound, host Host) (string, error) {
-	material, err := buildWGProfileMaterial(item, remark, address, inbound, host, false)
+	material, err := buildWGProfileMaterialForProtocol(item, remark, address, inbound, host, false, "wireguard")
 	if err != nil {
 		return "", err
 	}
@@ -191,6 +219,10 @@ func buildWGShareLink(item ConfigLinkUser, remark string, address string, inboun
 }
 
 func buildWGProfileMaterial(item ConfigLinkUser, remark string, address string, inbound ResolvedInbound, host Host, includeBody bool) (wgProfileMaterial, error) {
+	return buildWGProfileMaterialForProtocol(item, remark, address, inbound, host, includeBody, "wireguard")
+}
+
+func buildWGProfileMaterialForProtocol(item ConfigLinkUser, remark string, address string, inbound ResolvedInbound, host Host, includeBody bool, protocol string) (wgProfileMaterial, error) {
 	pair, err := WGKeyPairFromCredentialKey(item.CredentialKey)
 	if err != nil {
 		return wgProfileMaterial{}, err
@@ -224,6 +256,12 @@ func buildWGProfileMaterial(item ConfigLinkUser, remark string, address string, 
 	}
 	if includeBody {
 		material.Body = buildWGConfigBody(pair.PrivateKey, clientAddress, serverPublicKey, endpoint, settings)
+		if protocol == "amneziawg" {
+			material.Body = buildAWGConfigBody(pair.PrivateKey, clientAddress, serverPublicKey, endpoint, settings)
+		}
+	}
+	if protocol == "amneziawg" {
+		material.Link = ""
 	}
 	return material, nil
 }
@@ -279,6 +317,31 @@ func buildWGConfigBody(privateKey string, clientAddress string, serverPublicKey 
 	}
 	if mtu := intValue(settings["mtu"]); mtu > 0 {
 		writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
+	}
+	writeWGLine(&b, "")
+	writeWGLine(&b, "[Peer]")
+	writeWGLine(&b, "PublicKey = "+serverPublicKey)
+	writeWGLine(&b, "Endpoint = "+endpoint)
+	writeWGLine(&b, "AllowedIPs = "+strings.Join(stringList(settings["allowed_ips"]), ", "))
+	if keepalive := intValue(settings["persistent_keepalive"]); keepalive > 0 {
+		writeWGLine(&b, "PersistentKeepalive = "+fmt.Sprint(keepalive))
+	}
+	return b.String()
+}
+
+func buildAWGConfigBody(privateKey string, clientAddress string, serverPublicKey string, endpoint string, settings map[string]any) string {
+	var b strings.Builder
+	writeWGLine(&b, "[Interface]")
+	writeWGLine(&b, "PrivateKey = "+privateKey)
+	writeWGLine(&b, "Address = "+clientAddress)
+	if dns := stringList(settings["dns_servers"]); len(dns) > 0 {
+		writeWGLine(&b, "DNS = "+strings.Join(dns, ", "))
+	}
+	if mtu := intValue(settings["mtu"]); mtu > 0 {
+		writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
+	}
+	for _, item := range []struct{ name, key string }{{"Jc", "jc"}, {"Jmin", "jmin"}, {"Jmax", "jmax"}, {"S1", "s1"}, {"S2", "s2"}, {"H1", "h1"}, {"H2", "h2"}, {"H3", "h3"}, {"H4", "h4"}} {
+		writeWGLine(&b, item.name+" = "+fmt.Sprint(intValue(settings[item.key])))
 	}
 	writeWGLine(&b, "")
 	writeWGLine(&b, "[Peer]")
@@ -367,11 +430,15 @@ func formatWGEndpoint(address string, port string) string {
 	return net.JoinHostPort(host, port)
 }
 
-func wgProfileDownloadURL(baseURL *url.URL, basePath string, hostTag string) string {
+func wgProfileDownloadURL(baseURL *url.URL, basePath string, hostTag string, protocol string) string {
 	next := *baseURL
 	next.RawQuery = ""
 	next.Fragment = ""
-	next.Path = basePath + "/wg/" + url.PathEscape(hostTag) + ".conf"
+	segment := "wg"
+	if protocol == "amneziawg" {
+		segment = "awg"
+	}
+	next.Path = basePath + "/" + segment + "/" + url.PathEscape(hostTag) + ".conf"
 	return next.String()
 }
 

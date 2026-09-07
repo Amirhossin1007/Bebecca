@@ -577,9 +577,18 @@ func (s *Server) manageableInboundTags(r *http.Request) ([]string, error) {
 	for _, tag := range tags {
 		tagSet[tag] = true
 	}
+	blocked := make(map[string]bool)
 	for _, inbound := range inbounds {
 		if tag, ok := inbound["tag"].(string); ok {
 			if tag = strings.TrimSpace(tag); tag != "" {
+				if !xrayconfig.InboundSupportsHosts(fmt.Sprint(inbound["protocol"])) {
+					blocked[tag] = true
+					delete(tagSet, tag)
+					continue
+				}
+				if blocked[tag] {
+					continue
+				}
 				tagSet[tag] = true
 			}
 		}

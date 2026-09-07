@@ -66,7 +66,7 @@ func (r Repository) CreateServiceAutoInbound(ctx context.Context, serviceID int6
 	if err := r.saveMasterRawConfigTx(ctx, tx, config); err != nil {
 		return AutoInboundResult{}, err
 	}
-	if err := r.ensureInboundRecordTx(ctx, tx, tag); err != nil {
+	if err := r.ensureInboundRecordTx(ctx, tx, tag, "shadowsocks"); err != nil {
 		return AutoInboundResult{}, err
 	}
 	if err := r.enqueueSyncConfigTx(ctx, tx, nil, map[string]any{"service_id": serviceID, "auto_inbound": true, "tag": tag}); err != nil {

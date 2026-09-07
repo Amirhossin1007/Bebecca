@@ -89,6 +89,7 @@ func (s *Service) Stats(ctx context.Context, admin dashboardapp.AdminContext) (S
 	return SystemStats{
 		Version:               s.version,
 		Channel:               s.channel,
+		OS:                    snapshot.OS,
 		CPUCores:              snapshot.CPUCores,
 		CPUThreads:            snapshot.CPUThreads,
 		CPUFrequencyHz:        snapshot.CPUFrequencyHz,
@@ -318,6 +319,7 @@ type GopsutilMetricsProvider struct {
 	cpuCores       int
 	cpuThreads     int
 	cpuFrequencyHz float64
+	osName         string
 	process        *process.Process
 	lastNet        *gonet.IOCountersStat
 	lastNetAt      time.Time
@@ -345,10 +347,17 @@ func (p *GopsutilMetricsProvider) Snapshot(ctx context.Context) (MetricsSnapshot
 		if info, err := cpu.InfoWithContext(ctx); err == nil && len(info) > 0 && info[0].Mhz > 0 {
 			p.cpuFrequencyHz = info[0].Mhz * 1_000_000
 		}
+		if hInfo, err := host.InfoWithContext(ctx); err == nil && hInfo != nil {
+			p.osName = cleanOS(hInfo.Platform, hInfo.PlatformVersion)
+			if p.osName == "" && hInfo.OS != "" {
+				p.osName = cleanOS(hInfo.OS, hInfo.PlatformVersion)
+			}
+		}
 	})
 	result.CPUCores = p.cpuCores
 	result.CPUThreads = p.cpuThreads
 	result.CPUFrequencyHz = p.cpuFrequencyHz
+	result.OS = p.osName
 	if percents, err := cpu.PercentWithContext(ctx, 0, false); err == nil && len(percents) > 0 {
 		result.CPUUsage = finitePercent(percents[0])
 	}
@@ -466,4 +475,49 @@ func maxInt64(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+func cleanOS(platform, version string) string {
+	platform = strings.TrimSpace(platform)
+	version = strings.TrimSpace(version)
+	if platform == "" {
+		return ""
+	}
+	name := platform
+	switch strings.ToLower(platform) {
+	case "ubuntu":
+		name = "Ubuntu"
+	case "debian":
+		name = "Debian"
+	case "centos":
+		name = "CentOS"
+	case "rhel", "redhat":
+		name = "RHEL"
+	case "almalinux":
+		name = "AlmaLinux"
+	case "rocky":
+		name = "Rocky Linux"
+	case "arch":
+		name = "Arch Linux"
+	case "fedora":
+		name = "Fedora"
+	case "alpine":
+		name = "Alpine"
+	default:
+		name = strings.ToUpper(platform[:1]) + strings.ToLower(platform[1:])
+	}
+
+	v := strings.TrimSpace(version)
+	v = strings.TrimSuffix(v, " LTS")
+	v = strings.TrimSuffix(v, " (LTS)")
+	v = strings.TrimSpace(v)
+	parts := strings.Split(v, ".")
+	if len(parts) >= 3 && (name == "Ubuntu" || name == "Debian") {
+		v = parts[0] + "." + parts[1]
+	}
+
+	if v != "" {
+		return name + " " + v
+	}
+	return name
 }

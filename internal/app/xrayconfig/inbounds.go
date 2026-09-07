@@ -71,6 +71,11 @@ func (r Repository) GroupedInbounds(ctx context.Context) (map[string][]map[strin
 			grouped[protocol] = []map[string]any{}
 		}
 	}
+	for protocol := range auxiliaryInboundProtocols {
+		if _, ok := grouped[protocol]; !ok {
+			grouped[protocol] = []map[string]any{}
+		}
+	}
 	return grouped, nil
 }
 
@@ -145,7 +150,7 @@ func (r Repository) CreateInbound(ctx context.Context, payload map[string]any) (
 	if err := r.persistMutatedTargetConfigsTx(ctx, tx, configs); err != nil {
 		return InboundMutationResult{}, err
 	}
-	if err := r.ensureInboundRecordTx(ctx, tx, tag); err != nil {
+	if err := r.ensureInboundRecordTx(ctx, tx, tag, stringValue(inbound["protocol"])); err != nil {
 		return InboundMutationResult{}, err
 	}
 	if err := r.setInboundUsageCoefficientTx(ctx, tx, tag, usageCoefficient); err != nil {
@@ -260,7 +265,7 @@ func (r Repository) UpdateInbound(ctx context.Context, tag string, payload map[s
 	if err := r.persistMutatedTargetConfigsTx(ctx, tx, configs); err != nil {
 		return InboundMutationResult{}, err
 	}
-	if err := r.ensureInboundRecordTx(ctx, tx, tag); err != nil {
+	if err := r.ensureInboundRecordTx(ctx, tx, tag, stringValue(inbound["protocol"])); err != nil {
 		return InboundMutationResult{}, err
 	}
 	if err := r.setInboundUsageCoefficientTx(ctx, tx, tag, usageCoefficient); err != nil {
@@ -605,6 +610,21 @@ func (r Repository) prepareInboundPayload(payload map[string]any, enforceTag str
 		}
 		return inbound, nil
 	}
+	if IsAuxiliaryInboundProtocol(protocol) {
+		inbound["tag"] = tag
+		inbound["protocol"] = protocol
+		settings := mapValue(inbound["settings"])
+		if settings == nil {
+			settings = map[string]any{}
+		}
+		inbound["settings"] = settings
+		delete(inbound, "streamSettings")
+		delete(inbound, "sniffing")
+		if err := validateExecutableInbound(inbound); err != nil {
+			return nil, err
+		}
+		return inbound, nil
+	}
 	settings := mapValue(inbound["settings"])
 	if len(settings) == 0 {
 		settings = make(map[string]any)
@@ -772,6 +792,9 @@ func inboundRuntimePorts(inbound map[string]any) []int {
 		ports = append(ports, port)
 	}
 	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	if protocol == "web" {
+		ports = append(ports, 80)
+	}
 	if !isVirtualTunnelProtocol(protocol) {
 		return ports
 	}
@@ -1170,7 +1193,7 @@ func (r Repository) enqueueSyncForTargetsTx(ctx context.Context, tx *sql.Tx, tar
 	return nil
 }
 
-func (r Repository) ensureInboundRecordTx(ctx context.Context, tx *sql.Tx, tag string) error {
+func (r Repository) ensureInboundRecordTx(ctx context.Context, tx *sql.Tx, tag, protocol string) error {
 	var id int64
 	err := tx.QueryRowContext(ctx, `SELECT id FROM inbounds WHERE tag = ?`, tag).Scan(&id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -1180,6 +1203,9 @@ func (r Repository) ensureInboundRecordTx(ctx context.Context, tx *sql.Tx, tag s
 		if _, err := tx.ExecContext(ctx, `INSERT INTO inbounds (tag) VALUES (?)`, tag); err != nil {
 			return err
 		}
+	}
+	if !InboundSupportsHosts(protocol) {
+		return nil
 	}
 	return r.ensureDefaultHostForInboundTx(ctx, tx, tag)
 }

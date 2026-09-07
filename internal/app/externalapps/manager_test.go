@@ -209,14 +209,13 @@ func TestMirzaBotUpdatePreservesConfigurationAndRunsMigration(t *testing.T) {
 		"mirzabot/composer.json": "{}", "mirzabot/composer.lock": "{}",
 		"mirzabot/config.php": "upstream config", "mirzabot/index.php": "<?php echo 'new';",
 		"mirzabot/new.php": "<?php", "mirzabot/install.sh": "#!/bin/bash",
-		"mirzabot/table.php": "<?php\ntelegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);\n",
+		"mirzabot/install/index.php": "<?php echo 'installer';",
+		"mirzabot/table.php":         "<?php\ntelegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);\n",
 	})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/releases/latest":
-			_, _ = w.Write([]byte(`{"tag_name":"0.3.2","draft":false,"prerelease":false}`))
-		case "/commits/0.3.2":
-			_, _ = w.Write([]byte(`{"sha":"` + newSHA + `"}`))
+		case "/tags":
+			_, _ = w.Write([]byte(`[{"name":"0.3.2","commit":{"sha":"` + newSHA + `"}}]`))
 		case "/zip/" + newSHA:
 			_, _ = w.Write(archive)
 		default:
@@ -306,6 +305,9 @@ exit 0`)
 	if _, err := os.Stat(filepath.Join(root, "install.sh")); !os.IsNotExist(err) {
 		t.Fatal("upstream installer was retained")
 	}
+	if _, err := os.Stat(filepath.Join(root, "install")); !os.IsNotExist(err) {
+		t.Fatal("upstream web installer was retained")
+	}
 	commands, err := os.ReadFile(runuserLog)
 	if err != nil || !strings.Contains(string(commands), "php .rebecca-init.php") {
 		t.Fatalf("table initializer was not run: %q err=%v", commands, err)
@@ -390,7 +392,7 @@ func TestWriteMirzaCronUsesPerAppIdentityWithoutEmbeddingSecret(t *testing.T) {
 
 func TestMirzaWebhookUsesDedicatedPath(t *testing.T) {
 	record := Record{Domain: "bot.example.com", Path: "bot0123456789ab"}
-	if got := externalAppWebhookURL(record); got != "https://bot.example.com/bot0123456789ab" {
+	if got := externalAppWebhookURL(record); got != "https://bot.example.com/bot0123456789ab/index.php" {
 		t.Fatalf("webhook URL=%q", got)
 	}
 	if got := externalAppWebhookURL(Record{Domain: "legacy.example.com"}); got != "https://legacy.example.com/index.php" {
@@ -737,7 +739,7 @@ func TestExternalAppCannotReplaceCurrentPanelHost(t *testing.T) {
 	}
 }
 
-func TestDownloadMirzaBotUsesLatestStableReleaseCommit(t *testing.T) {
+func TestDownloadMirzaBotUsesLatestTaggedCommit(t *testing.T) {
 	const commit = "0123456789abcdef0123456789abcdef01234567"
 	archive := externalAppTestZIP(t, map[string]string{
 		"mirzabot/composer.json": "{}", "mirzabot/composer.lock": "{}",
@@ -748,10 +750,8 @@ func TestDownloadMirzaBotUsesLatestStableReleaseCommit(t *testing.T) {
 			t.Errorf("user-agent=%q", r.Header.Get("User-Agent"))
 		}
 		switch r.URL.Path {
-		case "/releases/latest":
-			_, _ = w.Write([]byte(`{"tag_name":"0.3.1","draft":false,"prerelease":false}`))
-		case "/commits/0.3.1":
-			_, _ = w.Write([]byte(`{"sha":"` + commit + `"}`))
+		case "/tags":
+			_, _ = w.Write([]byte(`[{"name":"0.3.0","commit":{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},{"name":"0.3.1","commit":{"sha":"` + commit + `"}}]`))
 		case "/zip/" + commit:
 			_, _ = w.Write(archive)
 		default:
@@ -772,20 +772,20 @@ func TestDownloadMirzaBotUsesLatestStableReleaseCommit(t *testing.T) {
 	}
 }
 
-func TestDownloadMirzaBotRejectsPrerelease(t *testing.T) {
+func TestDownloadMirzaBotRejectsInvalidTags(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"tag_name":"0.4.0","prerelease":true}`))
+		_, _ = w.Write([]byte(`[{"name":"main","commit":{"sha":"not-a-commit"}}]`))
 	}))
 	defer server.Close()
 	manager := &Manager{httpClient: server.Client(), mirzaAPIBase: server.URL, mirzaArchive: server.URL}
 	if _, err := manager.downloadMirzaBot(context.Background()); err == nil {
-		t.Fatal("prerelease was accepted as latest stable")
+		t.Fatal("invalid tag was accepted")
 	}
 }
 
 func TestLatestMirzaBotReleaseArchive(t *testing.T) {
 	if os.Getenv("REBECCA_TEST_LATEST_MIRZABOT") != "1" {
-		t.Skip("set REBECCA_TEST_LATEST_MIRZABOT=1 to verify the current stable GitHub release")
+		t.Skip("set REBECCA_TEST_LATEST_MIRZABOT=1 to verify the current tagged GitHub release")
 	}
 	manager := New(Config{BaseDir: t.TempDir()}, nil)
 	source, err := manager.downloadMirzaBot(context.Background())

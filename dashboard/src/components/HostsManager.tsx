@@ -2028,6 +2028,9 @@ export const HostsManager: FC = () => {
 		const options: InboundOption[] = [];
 		inbounds.forEach((list) => {
 			list.forEach((inbound) => {
+				if (["mtproto", "web"].includes(inbound.protocol.toLowerCase())) {
+					return;
+				}
 				options.push({
 					label: `${inbound.tag} (${inbound.protocol.toUpperCase()} - ${inbound.network})`,
 					value: inbound.tag,

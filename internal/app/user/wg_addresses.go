@@ -184,6 +184,10 @@ func isWGAddressConflict(err error) bool {
 }
 
 func (r Repository) populateWGAddresses(ctx context.Context, item *ConfigLinkUser, inbounds map[string]ResolvedInbound) error {
+	return r.populateTunnelAddresses(ctx, item, inbounds, "wireguard")
+}
+
+func (r Repository) populateTunnelAddresses(ctx context.Context, item *ConfigLinkUser, inbounds map[string]ResolvedInbound, protocol string) error {
 	if item == nil || item.ServiceID == nil || *item.ServiceID <= 0 {
 		return nil
 	}
@@ -193,11 +197,15 @@ func (r Repository) populateWGAddresses(ctx context.Context, item *ConfigLinkUse
 	for _, selected := range selectConfigHosts(item.Hosts, item.ServiceID) {
 		tag := selected.host.InboundTag
 		inbound, ok := inbounds[tag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != "wireguard" || item.WireGuardAddresses[tag] != "" {
+		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol || item.WireGuardAddresses[tag] != "" {
 			continue
 		}
 		settings := normalizeWGProfileSettings(mapValue(inbound["settings"]))
-		addresses, err := r.WGIPv4Addresses(ctx, tag, []int64{item.ID}, stringValue(settings["address_pool"]), stringValue(settings["server_address"]))
+		addressTag := tag
+		if protocol != "wireguard" {
+			addressTag = protocol + ":" + tag
+		}
+		addresses, err := r.WGIPv4Addresses(ctx, addressTag, []int64{item.ID}, stringValue(settings["address_pool"]), stringValue(settings["server_address"]))
 		if err != nil {
 			return err
 		}

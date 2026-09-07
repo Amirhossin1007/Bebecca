@@ -113,7 +113,13 @@ func (r Repository) UserGet(ctx context.Context, req UserGetRequest) (UserDetail
 		ServiceHostOrders:    int64Orders(row.ServiceHostOrders),
 		ServerIP:             r.configServerIP(ctx),
 	}
-	if row.Flow != nil {
+	serviceFlowConfigured := false
+	if serviceFlows, err := r.serviceFlows(ctx); err != nil {
+		return UserDetail{}, err
+	} else if serviceFlows != nil && row.ServiceID != nil {
+		configUser.Flow, serviceFlowConfigured = serviceFlows[*row.ServiceID]
+	}
+	if row.Flow != nil && !serviceFlowConfigured {
 		configUser.Flow = *row.Flow
 	}
 	configUser.Hosts = hosts

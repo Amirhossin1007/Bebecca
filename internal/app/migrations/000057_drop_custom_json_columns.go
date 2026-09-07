@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	goose.AddNamedMigrationContext("000056_drop_custom_json_columns.go", up000056DropCustomJsonColumns, emptyDown)
+	goose.AddNamedMigrationContext("000057_drop_custom_json_columns.go", up000056DropCustomJsonColumns, emptyDown)
 }
 
 func up000056DropCustomJsonColumns(ctx context.Context, tx *sql.Tx) error {

@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	goose.AddNamedMigrationContext("000055_client_routing_rules.go", up000055ClientRoutingRules, emptyDown)
+	goose.AddNamedMigrationContext("000056_client_routing_rules.go", up000055ClientRoutingRules, emptyDown)
 }
 
 func up000055ClientRoutingRules(ctx context.Context, tx *sql.Tx) error {

@@ -21,6 +21,35 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 	return Repository{db: db, dialect: dialect, cache: &repositoryCache{}}
 }
 
+func serviceFlowColumnMissing(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such column") ||
+		strings.Contains(message, "unknown column") ||
+		strings.Contains(message, "no such table") ||
+		strings.Contains(message, "doesn't exist")
+}
+
+func (r Repository) serviceFlows(ctx context.Context) (map[int64]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(flow, '') FROM services`)
+	if err != nil {
+		if serviceFlowColumnMissing(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var flow string
+		if err := rows.Scan(&id, &flow); err != nil {
+			return nil, err
+		}
+		result[id] = strings.TrimSpace(flow)
+	}
+	return result, rows.Err()
+}
+
 func (r Repository) configServerIP(ctx context.Context) string {
 	for _, query := range []string{
 		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' AND LOWER(COALESCE(status, '')) = 'connected' ORDER BY id LIMIT 1`,
@@ -150,6 +179,24 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	return result, nil
 }
 
+func (r Repository) servicePlaceholderPolicy(ctx context.Context, serviceID *int64) *SubscriptionPlaceholderPolicy {
+	if serviceID == nil || *serviceID <= 0 {
+		return nil
+	}
+	var raw sql.NullString
+	if err := r.db.QueryRowContext(ctx, `SELECT subscription_placeholder_settings FROM services WHERE id = ?`, *serviceID).Scan(&raw); err != nil || !raw.Valid {
+		return nil
+	}
+	if strings.TrimSpace(raw.String) == "{}" {
+		return nil
+	}
+	var policy SubscriptionPlaceholderPolicy
+	if json.Unmarshal([]byte(raw.String), &policy) != nil {
+		return nil
+	}
+	return &policy
+}
+
 func (r Repository) singleMapRow(ctx context.Context, query string, args ...any) (map[string]any, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -244,6 +291,11 @@ func (r Repository) ConfigLinkUser(ctx context.Context, userID int64) (ConfigLin
 	}
 	if flow.Valid {
 		item.Flow = flow.String
+	}
+	if serviceFlows, err := r.serviceFlows(ctx); err != nil {
+		return ConfigLinkUser{}, err
+	} else if serviceFlows != nil && item.ServiceID != nil {
+		item.Flow = serviceFlows[*item.ServiceID]
 	}
 
 	proxies, err := r.proxiesByUser(ctx, []int64{userID})

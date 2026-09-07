@@ -80,6 +80,17 @@ export const NodeSchema = z
 			.enum(["connected", "connecting", "error", "unknown"])
 			.optional(),
 		xray_status: z.enum(["running", "stopped", "unknown"]).optional(),
+		protocol_statuses: z.array(z.object({
+			protocol: z.string(),
+			state: z.enum(["running", "stopped", "idle", "error"]),
+			detail: z.string().optional(),
+			inbounds: z.number(),
+			version: z.string().optional(),
+		})).optional(),
+		xray_pid: z.number().optional(),
+		xray_cpu_usage_percent: z.number().nullable().optional(),
+		xray_memory_used: z.number().nullable().optional(),
+		xray_uptime_seconds: z.number().nullable().optional(),
 		desired_revision: z.number().optional(),
 		applied_revision: z.number().optional(),
 		capabilities: z.array(z.string()).optional(),
@@ -214,6 +225,9 @@ const liveMetricKeys: Array<keyof NodeType> = [
 	"uptime_seconds",
 	"upload_speed",
 	"download_speed",
+	"xray_cpu_usage_percent",
+	"xray_memory_used",
+	"xray_uptime_seconds",
 ];
 
 const liveNodeKeys: Array<keyof NodeType> = [
@@ -223,6 +237,8 @@ const liveNodeKeys: Array<keyof NodeType> = [
 	"node_service_version",
 	"node_install_mode",
 	"node_update_channel",
+	"protocol_statuses",
+	"xray_pid",
 	"cpu_cores",
 	"cpu_frequency_hz",
 	...liveMetricKeys,

@@ -6,8 +6,14 @@ export type Protocol =
 	| "trojan"
 	| "shadowsocks"
 	| "hysteria"
+	| "ssh"
+	| "mtproto"
+	| "web"
 	| "openvpn"
 	| "wireguard"
+	| "amneziawg"
+	| "sstp"
+	| "gre"
 	| "l2tp"
 	| "pptp"
 	| "ikev2"
@@ -172,6 +178,23 @@ export type InboundFormValues = {
 	hysteriaMasqueradeHeaders: HeaderForm[];
 	hysteriaUdpMasks: HysteriaUdpMaskForm[];
 	hysteriaQuicParams: HysteriaQuicParamsForm;
+
+	// Standalone proxy runtimes
+	sshUserLimit: string;
+	sshIdleTimeout: string;
+	mtSecret: string;
+	mtSponsorTag: string;
+	mtPublicHost: string;
+	mtModeClassic: boolean;
+	mtModeSecure: boolean;
+	mtModeTLS: boolean;
+	mtTLSDomain: string;
+	mtUserLimit: string;
+	mtMaxConnections: string;
+	webHostname: string;
+	webACMEEmail: string;
+	webSecret: string;
+	webSiteUpstream: string;
 
 	// sniffing
 	sniffingEnabled: boolean;
@@ -382,6 +405,19 @@ export type InboundFormValues = {
 	wgTproxyEnabled: boolean;
 	wgNatEnabled: boolean;
 	wgAccountingEnabled: boolean;
+	awgJc: string;
+	awgJmin: string;
+	awgJmax: string;
+	awgS1: string;
+	awgS2: string;
+	awgH1: string;
+	awgH2: string;
+	awgH3: string;
+	awgH4: string;
+
+	greLocalAddress: string;
+	greMTU: string;
+	greTTL: string;
 
 	l2tpTunnelPort: string;
 	l2tpIPv4Pool: string;
@@ -507,8 +543,14 @@ export const protocolOptions: Protocol[] = [
 	"trojan",
 	"shadowsocks",
 	"hysteria",
+	"ssh",
+	"mtproto",
+	"web",
 	"openvpn",
 	"wireguard",
+	"amneziawg",
+	"sstp",
+	"gre",
 	"l2tp",
 	"pptp",
 	"ikev2",
@@ -581,6 +623,20 @@ const randomLowerAndNum = (length: number): string => {
 	return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 };
 
+const randomHex = (bytesLength = 16): string => {
+	const bytes = new Uint8Array(bytesLength);
+	if (globalThis.crypto?.getRandomValues) {
+		globalThis.crypto.getRandomValues(bytes);
+	} else {
+		for (let i = 0; i < bytes.length; i += 1) {
+			bytes[i] = Math.floor(Math.random() * 256);
+		}
+	}
+	return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+		"",
+	);
+};
+
 const randomPortText = (): string => {
 	const blocked = new Set([
 		21, 22, 23, 25, 53, 67, 68, 110, 111, 123, 137, 143, 161, 162, 993,
@@ -599,6 +655,10 @@ const defaultPortText = (protocol: Protocol): string => {
 	if (protocol === "pptp") return "1723";
 	if (protocol === "ikev2") return "500";
 	if (protocol === "anyconnect") return "443";
+	if (protocol === "sstp") return "443";
+	if (protocol === "amneziawg") return "51820";
+	if (protocol === "gre") return "47";
+	if (protocol === "web") return "443";
 	return randomPortText();
 };
 
@@ -844,6 +904,92 @@ export const validateInboundFormFields = (
 			} catch {
 				errors.shadowsocksPassword = `Shadowsocks 2022 server password must be a base64-encoded ${keyBytes}-byte key.`;
 			}
+		}
+	}
+	if (values.protocol === "ssh") {
+		const limitError = validateIntegerRange(
+			values.sshUserLimit,
+			"SSH user limit",
+			0,
+			64,
+		);
+		if (limitError) errors.sshUserLimit = limitError;
+		const idleError = validateIntegerRange(
+			values.sshIdleTimeout,
+			"SSH idle timeout",
+			30,
+			86400,
+		);
+		if (idleError) errors.sshIdleTimeout = idleError;
+	}
+	if (values.protocol === "mtproto" || values.protocol === "web") {
+		const field = values.protocol === "web" ? "webSecret" : "mtSecret";
+		const pattern =
+			values.protocol === "web" ? /^(?:dd)?[0-9a-f]{32}$/i : /^[0-9a-f]{32}$/i;
+		if (!pattern.test(values[field].trim())) {
+			errors[field] = "Proxy secret must contain 32 hexadecimal characters.";
+		}
+	}
+	if (values.protocol === "mtproto") {
+		if (!values.mtPublicHost.trim()) {
+			errors.mtPublicHost =
+				"Public hostname or IP is required for the Telegram link.";
+		}
+		if (
+			values.mtSponsorTag.trim() &&
+			!/^[0-9a-f]{32}$/i.test(values.mtSponsorTag.trim())
+		) {
+			errors.mtSponsorTag =
+				"Sponsor tag must contain 32 hexadecimal characters.";
+		}
+		if (!values.mtModeClassic && !values.mtModeSecure && !values.mtModeTLS) {
+			errors.mtModeClassic = "Enable at least one MTProxy connection mode.";
+		}
+		if (
+			values.mtModeTLS &&
+			!/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z0-9-]+$/i.test(
+				values.mtTLSDomain.trim(),
+			)
+		) {
+			errors.mtTLSDomain = "A public FakeTLS hostname is required.";
+		}
+		const userLimitError = validateIntegerRange(
+			values.mtUserLimit,
+			"MTProxy IP limit",
+			0,
+			64,
+		);
+		if (userLimitError) errors.mtUserLimit = userLimitError;
+		const maxConnectionsError = validateIntegerRange(
+			values.mtMaxConnections,
+			"MTProxy maximum connections",
+			0,
+			1_000_000,
+		);
+		if (maxConnectionsError) errors.mtMaxConnections = maxConnectionsError;
+	}
+	if (values.protocol === "web") {
+		if (values.port !== "443") {
+			errors.port = "Telegram WEB proxy requires public port 443.";
+		}
+		if (
+			!/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z0-9-]+$/i.test(
+				values.webHostname.trim(),
+			)
+		) {
+			errors.webHostname = "A public DNS hostname is required.";
+		}
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.webACMEEmail.trim())) {
+			errors.webACMEEmail = "A valid ACME email is required.";
+		}
+		if (
+			values.webSiteUpstream.trim() &&
+			!/^http:\/\/(?:127(?:\.\d{1,3}){3}|\[::1\]):\d{1,5}$/.test(
+				values.webSiteUpstream.trim(),
+			)
+		) {
+			errors.webSiteUpstream =
+				"Use a numeric loopback HTTP URL, for example http://127.0.0.1:3000.";
 		}
 	}
 	if (values.tlsPinnedPeerCertSha256.trim()) {
@@ -1146,7 +1292,7 @@ export const validateInboundFormFields = (
 			errors.ovServerKey = "Server key is required.";
 		}
 	}
-	if (values.protocol === "wireguard") {
+	if (values.protocol === "wireguard" || values.protocol === "amneziawg") {
 		if (!/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(values.wgIPv4Pool.trim())) {
 			errors.wgIPv4Pool = "IPv4 pool must be a CIDR, for example 10.69.0.0/16.";
 		}
@@ -1188,6 +1334,58 @@ export const validateInboundFormFields = (
 		};
 		validateWGNumber("wgMTU", "MTU", 576, 1500);
 		validateWGNumber("wgPersistentKeepalive", "Persistent keepalive", 0, 3600);
+		if (values.protocol === "amneziawg") {
+			for (const [key, label, min, max] of [
+				["awgJc", "Jc", 1, 128],
+				["awgJmin", "Jmin", 1, 1280],
+				["awgJmax", "Jmax", 1, 1280],
+				["awgS1", "S1", 0, 65535],
+				["awgS2", "S2", 0, 65535],
+				["awgH1", "H1", 0, 2147483647],
+				["awgH2", "H2", 0, 2147483647],
+				["awgH3", "H3", 0, 2147483647],
+				["awgH4", "H4", 0, 2147483647],
+			] as const) {
+				const error = validateIntegerRange(values[key], label, min, max);
+				if (error) errors[key] = error;
+			}
+			if (Number(values.awgJmin) > Number(values.awgJmax)) {
+				errors.awgJmax = "Jmax must be greater than or equal to Jmin.";
+			}
+		}
+	}
+	if (values.protocol === "sstp" || values.protocol === "gre") {
+		if (!/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(values.raIPv4Pool.trim())) {
+			errors.raIPv4Pool = "IPv4 pool must be a valid CIDR.";
+		}
+		if (values.raTproxyEnabled && !isValidPortText(values.raTunnelPort)) {
+			errors.raTunnelPort = "Tunnel port must be between 1 and 65535.";
+		}
+		if (values.protocol === "sstp") {
+			if (!values.raServerCertificate.trim())
+				errors.raServerCertificate = "Server certificate is required.";
+			if (!values.raServerKey.trim())
+				errors.raServerKey = "Server key is required.";
+		}
+		if (values.protocol === "gre") {
+			if (values.port.trim() !== "47")
+				errors.port = "GRE protocol number must be 47.";
+			const mtuError = validateIntegerRange(
+				values.greMTU,
+				"GRE MTU",
+				576,
+				1500,
+			);
+			const ttlError = validateIntegerRange(values.greTTL, "GRE TTL", 1, 255);
+			if (mtuError) errors.greMTU = mtuError;
+			if (ttlError) errors.greTTL = ttlError;
+			if (
+				values.greLocalAddress.trim() &&
+				!/^\d{1,3}(\.\d{1,3}){3}$/.test(values.greLocalAddress.trim())
+			) {
+				errors.greLocalAddress = "Local address must be an IPv4 address.";
+			}
+		}
 	}
 	if (values.protocol === "l2tp" || values.protocol === "pptp") {
 		if (!/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(values.l2tpIPv4Pool.trim())) {
@@ -1685,13 +1883,31 @@ export const createDefaultInboundForm = (
 	hysteriaUdpMasks:
 		protocol === "hysteria" ? [createDefaultHysteriaUdpMask()] : [],
 	hysteriaQuicParams: createDefaultHysteriaQuicParams(),
+	sshUserLimit: "0",
+	sshIdleTimeout: "300",
+	mtSecret: randomHex(),
+	mtSponsorTag: "",
+	mtPublicHost: "",
+	mtModeClassic: true,
+	mtModeSecure: true,
+	mtModeTLS: true,
+	mtTLSDomain: "www.google.com",
+	mtUserLimit: "0",
+	mtMaxConnections: "0",
+	webHostname: "",
+	webACMEEmail: "",
+	webSecret: randomHex(),
+	webSiteUpstream: "",
 	sniffingEnabled:
 		protocol !== "openvpn" &&
 		protocol !== "wireguard" &&
 		protocol !== "l2tp" &&
 		protocol !== "pptp" &&
 		protocol !== "ikev2" &&
-		protocol !== "anyconnect",
+		protocol !== "anyconnect" &&
+		protocol !== "ssh" &&
+		protocol !== "mtproto" &&
+		protocol !== "web",
 	sniffingDestinations: ["http", "tls"],
 	sniffingRouteOnly: false,
 	sniffingMetadataOnly: false,
@@ -1857,8 +2073,8 @@ export const createDefaultInboundForm = (
 	ovTlsAuth: "",
 	ovExtraClientConfig: "",
 	wgTunnelPort: "",
-	wgIPv4Pool: "10.69.0.0/16",
-	wgServerAddress: "10.69.0.1/16",
+	wgIPv4Pool: protocol === "amneziawg" ? "10.73.0.0/16" : "10.69.0.0/16",
+	wgServerAddress: protocol === "amneziawg" ? "10.73.0.1/16" : "10.69.0.1/16",
 	wgPrivateKey: "",
 	wgPublicKey: "",
 	wgMTU: "1420",
@@ -1866,6 +2082,18 @@ export const createDefaultInboundForm = (
 	wgTproxyEnabled: true,
 	wgNatEnabled: false,
 	wgAccountingEnabled: true,
+	awgJc: "4",
+	awgJmin: "8",
+	awgJmax: "80",
+	awgS1: "77",
+	awgS2: "90",
+	awgH1: "123456789",
+	awgH2: "234567891",
+	awgH3: "345678912",
+	awgH4: "456789123",
+	greLocalAddress: "",
+	greMTU: "1476",
+	greTTL: "64",
 	l2tpTunnelPort:
 		protocol === "l2tp" ? "1702" : protocol === "pptp" ? "41942" : "",
 	l2tpIPv4Pool: "10.67.0.0/16",
@@ -1879,8 +2107,16 @@ export const createDefaultInboundForm = (
 	l2tpLcpEchoInterval: "30",
 	l2tpLcpEchoFailure: "4",
 	raAuthMode: "password",
-	raTunnelPort: "",
-	raIPv4Pool: protocol === "ikev2" ? "10.70.0.0/16" : "10.71.0.0/16",
+	raTunnelPort:
+		protocol === "sstp" ? "41945" : protocol === "gre" ? "41946" : "",
+	raIPv4Pool:
+		protocol === "ikev2"
+			? "10.70.0.0/16"
+			: protocol === "sstp"
+				? "10.72.0.0/16"
+				: protocol === "gre"
+					? "10.74.0.0/16"
+					: "10.71.0.0/16",
 	raDNSServers: "1.1.1.1\n8.8.8.8",
 	raTproxyEnabled: true,
 	raAccountingEnabled: true,
@@ -1990,6 +2226,12 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 		: "vless";
 	const base = createDefaultInboundForm(protocol);
 	const settings = raw.settings ?? {};
+	const wireguardLike = protocol === "wireguard" || protocol === "amneziawg";
+	const remoteAccessLike =
+		protocol === "ikev2" ||
+		protocol === "anyconnect" ||
+		protocol === "sstp" ||
+		protocol === "gre";
 	const sniffing = raw.sniffing ?? {};
 	const stream = raw.streamSettings ?? {};
 	const tlsSettings = stream.tlsSettings ?? {};
@@ -2182,6 +2424,23 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 					),
 				}
 			: base.hysteriaQuicParams,
+		sshUserLimit: toInputValue(settings.user_limit ?? base.sshUserLimit),
+		sshIdleTimeout: toInputValue(settings.idle_timeout ?? base.sshIdleTimeout),
+		mtSecret: settings.secret ?? base.mtSecret,
+		mtSponsorTag: settings.sponsor_tag ?? base.mtSponsorTag,
+		mtPublicHost: settings.public_host ?? base.mtPublicHost,
+		mtModeClassic: Boolean(settings.mode_classic ?? base.mtModeClassic),
+		mtModeSecure: Boolean(settings.mode_secure ?? base.mtModeSecure),
+		mtModeTLS: Boolean(settings.mode_tls ?? base.mtModeTLS),
+		mtTLSDomain: settings.tls_domain ?? base.mtTLSDomain,
+		mtUserLimit: toInputValue(settings.user_limit ?? base.mtUserLimit),
+		mtMaxConnections: toInputValue(
+			settings.max_connections ?? base.mtMaxConnections,
+		),
+		webHostname: settings.hostname ?? base.webHostname,
+		webACMEEmail: settings.acme_email ?? base.webACMEEmail,
+		webSecret: settings.secret ?? base.webSecret,
+		webSiteUpstream: settings.site_upstream ?? base.webSiteUpstream,
 		sniffingEnabled: Boolean(sniffing.enabled ?? base.sniffingEnabled),
 		sniffingDestinations:
 			Array.isArray(sniffing.destOverride) && sniffing.destOverride.length
@@ -2665,59 +2924,86 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			protocol === "openvpn"
 				? (settings.extra_client_config ?? base.ovExtraClientConfig)
 				: base.ovExtraClientConfig,
-		wgTunnelPort:
-			protocol === "wireguard"
+		wgTunnelPort: wireguardLike
 				? toInputValue(
 						settings.tunnel_port ??
 							settings.xray_tunnel_port ??
 							settings.tproxy_port,
 					)
 				: base.wgTunnelPort,
-		wgIPv4Pool:
-			protocol === "wireguard"
+		wgIPv4Pool: wireguardLike
 				? (settings.address_pool ??
 					settings.ipv4_pool_cidr ??
 					settings.ipv4PoolCidr ??
 					base.wgIPv4Pool)
 				: base.wgIPv4Pool,
-		wgServerAddress:
-			protocol === "wireguard"
+		wgServerAddress: wireguardLike
 				? (settings.server_address ??
 					settings.serverAddress ??
 					base.wgServerAddress)
 				: base.wgServerAddress,
-		wgPrivateKey:
-			protocol === "wireguard"
+		wgPrivateKey: wireguardLike
 				? (settings.private_key ?? settings.privateKey ?? base.wgPrivateKey)
 				: base.wgPrivateKey,
-		wgPublicKey:
-			protocol === "wireguard"
+		wgPublicKey: wireguardLike
 				? (settings.public_key ?? settings.publicKey ?? base.wgPublicKey)
 				: base.wgPublicKey,
-		wgMTU:
-			protocol === "wireguard"
+		wgMTU: wireguardLike
 				? toInputValue(settings.mtu ?? base.wgMTU)
 				: base.wgMTU,
-		wgPersistentKeepalive:
-			protocol === "wireguard"
+		wgPersistentKeepalive: wireguardLike
 				? toInputValue(
 						settings.persistent_keepalive ??
 							settings.persistentKeepalive ??
 							base.wgPersistentKeepalive,
 					)
 				: base.wgPersistentKeepalive,
-		wgTproxyEnabled:
-			protocol === "wireguard"
+		wgTproxyEnabled: wireguardLike
 				? Boolean(settings.tproxy_enabled ?? base.wgTproxyEnabled)
 				: base.wgTproxyEnabled,
-		wgNatEnabled:
-			protocol === "wireguard"
+		wgNatEnabled: wireguardLike
 				? Boolean(settings.nat_enabled ?? base.wgNatEnabled)
 				: base.wgNatEnabled,
-		wgAccountingEnabled:
-			protocol === "wireguard"
+		wgAccountingEnabled: wireguardLike
 				? Boolean(settings.accounting_enabled ?? base.wgAccountingEnabled)
 				: base.wgAccountingEnabled,
+		awgJc:
+			protocol === "amneziawg" ? toInputValue(settings.jc ?? 4) : base.awgJc,
+		awgJmin:
+			protocol === "amneziawg"
+				? toInputValue(settings.jmin ?? 8)
+				: base.awgJmin,
+		awgJmax:
+			protocol === "amneziawg"
+				? toInputValue(settings.jmax ?? 80)
+				: base.awgJmax,
+		awgS1:
+			protocol === "amneziawg" ? toInputValue(settings.s1 ?? 77) : base.awgS1,
+		awgS2:
+			protocol === "amneziawg" ? toInputValue(settings.s2 ?? 90) : base.awgS2,
+		awgH1:
+			protocol === "amneziawg"
+				? toInputValue(settings.h1 ?? 123456789)
+				: base.awgH1,
+		awgH2:
+			protocol === "amneziawg"
+				? toInputValue(settings.h2 ?? 234567891)
+				: base.awgH2,
+		awgH3:
+			protocol === "amneziawg"
+				? toInputValue(settings.h3 ?? 345678912)
+				: base.awgH3,
+		awgH4:
+			protocol === "amneziawg"
+				? toInputValue(settings.h4 ?? 456789123)
+				: base.awgH4,
+		greLocalAddress:
+			protocol === "gre"
+				? String(settings.local_address ?? "")
+				: base.greLocalAddress,
+		greMTU:
+			protocol === "gre" ? toInputValue(settings.mtu ?? 1476) : base.greMTU,
+		greTTL: protocol === "gre" ? toInputValue(settings.ttl ?? 64) : base.greTTL,
 		l2tpTunnelPort:
 			protocol === "l2tp"
 				? "1702"
@@ -2776,28 +3062,22 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			protocol === "ikev2" || protocol === "anyconnect"
 				? (settings.auth_mode ?? base.raAuthMode)
 				: base.raAuthMode,
-		raTunnelPort:
-			protocol === "ikev2" || protocol === "anyconnect"
+		raTunnelPort: remoteAccessLike
 				? toInputValue(settings.tunnel_port)
 				: base.raTunnelPort,
-		raIPv4Pool:
-			protocol === "ikev2" || protocol === "anyconnect"
+		raIPv4Pool: remoteAccessLike
 				? (settings.ipv4_pool_cidr ?? base.raIPv4Pool)
 				: base.raIPv4Pool,
-		raDNSServers:
-			protocol === "ikev2" || protocol === "anyconnect"
+		raDNSServers: remoteAccessLike
 				? joinLines(parseStringList(settings.dns_servers))
 				: base.raDNSServers,
-		raTproxyEnabled:
-			protocol === "ikev2" || protocol === "anyconnect"
+		raTproxyEnabled: remoteAccessLike
 				? Boolean(settings.tproxy_enabled ?? true)
 				: base.raTproxyEnabled,
-		raAccountingEnabled:
-			protocol === "ikev2" || protocol === "anyconnect"
+		raAccountingEnabled: remoteAccessLike
 				? Boolean(settings.accounting_enabled ?? true)
 				: base.raAccountingEnabled,
-		raRedirectGateway:
-			protocol === "ikev2" || protocol === "anyconnect"
+		raRedirectGateway: remoteAccessLike
 				? Boolean(settings.redirect_gateway ?? true)
 				: base.raRedirectGateway,
 		raCA:
@@ -2805,11 +3085,11 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 				? (settings.ca_certificate ?? "")
 				: base.raCA,
 		raServerCertificate:
-			protocol === "ikev2" || protocol === "anyconnect"
+			protocol === "ikev2" || protocol === "anyconnect" || protocol === "sstp"
 				? (settings.server_certificate ?? "")
 				: base.raServerCertificate,
 		raServerKey:
-			protocol === "ikev2" || protocol === "anyconnect"
+			protocol === "ikev2" || protocol === "anyconnect" || protocol === "sstp"
 				? (settings.server_key ?? "")
 				: base.raServerKey,
 		raCertificateNames:
@@ -2821,7 +3101,7 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 				? (settings.server_identity ?? "")
 				: base.raServerIdentity,
 		raMTU:
-			protocol === "ikev2" || protocol === "anyconnect"
+			protocol === "ikev2" || protocol === "anyconnect" || protocol === "sstp"
 				? toInputValue(settings.mtu ?? 1400)
 				: base.raMTU,
 		ikeProposals:
@@ -3225,9 +3505,7 @@ const buildStreamSettings = (
 			authority: values.grpcAuthority,
 			multiMode: values.grpcMultiMode,
 			idle_timeout: parseOptionalNumber(values.grpcIdleTimeout),
-			health_check_timeout: parseOptionalNumber(
-				values.grpcHealthCheckTimeout,
-			),
+			health_check_timeout: parseOptionalNumber(values.grpcHealthCheckTimeout),
 			permit_without_stream: values.grpcPermitWithoutStream || undefined,
 			initial_windows_size: parseOptionalNumber(values.grpcInitialWindowsSize),
 			user_agent: values.grpcUserAgent.trim() || undefined,
@@ -3876,6 +4154,27 @@ const buildSettings = (values: InboundFormValues): Record<string, any> => {
 		case "hysteria":
 			base.version = parseOptionalNumber(values.hysteriaVersion) || 2;
 			break;
+		case "ssh":
+			base.user_limit = parseOptionalNumber(values.sshUserLimit);
+			base.idle_timeout = parseOptionalNumber(values.sshIdleTimeout);
+			break;
+		case "mtproto":
+			base.secret = values.mtSecret.trim();
+			base.sponsor_tag = values.mtSponsorTag.trim() || undefined;
+			base.public_host = values.mtPublicHost.trim();
+			base.mode_classic = values.mtModeClassic;
+			base.mode_secure = values.mtModeSecure;
+			base.mode_tls = values.mtModeTLS;
+			base.tls_domain = values.mtTLSDomain.trim().toLowerCase();
+			base.user_limit = parseOptionalNumber(values.mtUserLimit);
+			base.max_connections = parseOptionalNumber(values.mtMaxConnections);
+			break;
+		case "web":
+			base.hostname = values.webHostname.trim().toLowerCase();
+			base.acme_email = values.webACMEEmail.trim();
+			base.secret = values.webSecret.trim();
+			base.site_upstream = values.webSiteUpstream.trim() || undefined;
+			break;
 		case "http": {
 			const accounts = values.httpAccounts
 				.map(formToAccount)
@@ -3933,7 +4232,10 @@ const buildSettings = (values: InboundFormValues): Record<string, any> => {
 			base.extra_client_config = values.ovExtraClientConfig.trim() || undefined;
 			break;
 		case "wireguard":
-			base.address_pool = values.wgIPv4Pool.trim() || "10.69.0.0/16";
+		case "amneziawg":
+			base.address_pool =
+				values.wgIPv4Pool.trim() ||
+				(values.protocol === "amneziawg" ? "10.73.0.0/16" : "10.69.0.0/16");
 			base.ipv4_pool_cidr = base.address_pool;
 			base.server_address = values.wgServerAddress.trim() || "10.69.0.1/16";
 			base.private_key = values.wgPrivateKey.trim() || undefined;
@@ -3948,6 +4250,41 @@ const buildSettings = (values: InboundFormValues): Record<string, any> => {
 			base.tproxy_enabled = values.wgTproxyEnabled;
 			base.nat_enabled = !values.wgTproxyEnabled || values.wgNatEnabled;
 			base.accounting_enabled = values.wgAccountingEnabled;
+			if (values.protocol === "amneziawg") {
+				base.jc = parseOptionalNumber(values.awgJc);
+				base.jmin = parseOptionalNumber(values.awgJmin);
+				base.jmax = parseOptionalNumber(values.awgJmax);
+				base.s1 = parseOptionalNumber(values.awgS1);
+				base.s2 = parseOptionalNumber(values.awgS2);
+				base.h1 = parseOptionalNumber(values.awgH1);
+				base.h2 = parseOptionalNumber(values.awgH2);
+				base.h3 = parseOptionalNumber(values.awgH3);
+				base.h4 = parseOptionalNumber(values.awgH4);
+			}
+			break;
+		case "sstp":
+			base.ipv4_pool_cidr = values.raIPv4Pool.trim() || "10.72.0.0/16";
+			base.dns_servers = splitLines(values.raDNSServers);
+			base.redirect_gateway = values.raRedirectGateway;
+			base.tproxy_enabled = values.raTproxyEnabled;
+			base.accounting_enabled = values.raAccountingEnabled;
+			base.tunnel_port = values.raTproxyEnabled
+				? parseOptionalNumber(values.raTunnelPort)
+				: undefined;
+			base.mtu = parseOptionalNumber(values.raMTU);
+			base.server_certificate = values.raServerCertificate.trim() || undefined;
+			base.server_key = values.raServerKey.trim() || undefined;
+			break;
+		case "gre":
+			base.ipv4_pool_cidr = values.raIPv4Pool.trim() || "10.74.0.0/16";
+			base.tproxy_enabled = values.raTproxyEnabled;
+			base.accounting_enabled = values.raAccountingEnabled;
+			base.tunnel_port = values.raTproxyEnabled
+				? parseOptionalNumber(values.raTunnelPort)
+				: undefined;
+			base.local_address = values.greLocalAddress.trim() || undefined;
+			base.mtu = parseOptionalNumber(values.greMTU);
+			base.ttl = parseOptionalNumber(values.greTTL);
 			break;
 		case "l2tp":
 		case "pptp":
@@ -4080,10 +4417,16 @@ export const buildInboundPayload = (
 		values.protocol !== "socks" &&
 		values.protocol !== "openvpn" &&
 		values.protocol !== "wireguard" &&
+		values.protocol !== "amneziawg" &&
+		values.protocol !== "sstp" &&
+		values.protocol !== "gre" &&
 		values.protocol !== "l2tp" &&
 		values.protocol !== "pptp" &&
 		values.protocol !== "ikev2" &&
-		values.protocol !== "anyconnect";
+		values.protocol !== "anyconnect" &&
+		values.protocol !== "ssh" &&
+		values.protocol !== "mtproto" &&
+		values.protocol !== "web";
 	const streamSettings = supportsStream
 		? buildStreamSettings(values, options)
 		: undefined;
@@ -4105,10 +4448,16 @@ export const buildInboundPayload = (
 	if (
 		values.protocol === "openvpn" ||
 		values.protocol === "wireguard" ||
+		values.protocol === "amneziawg" ||
+		values.protocol === "sstp" ||
+		values.protocol === "gre" ||
 		values.protocol === "l2tp" ||
 		values.protocol === "pptp" ||
 		values.protocol === "ikev2" ||
-		values.protocol === "anyconnect"
+		values.protocol === "anyconnect" ||
+		values.protocol === "ssh" ||
+		values.protocol === "mtproto" ||
+		values.protocol === "web"
 	) {
 		delete payload.sniffing;
 	} else if (values.sniffingEnabled) {

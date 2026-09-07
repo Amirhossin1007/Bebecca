@@ -40,7 +40,7 @@ import {
 
 const keyFor = (
 	item: Pick<SubscriptionPlaceholderSetting, "admin_id" | "service_id">,
-) => `${item.admin_id}:${item.service_id}`;
+) => `${item.admin_id ?? "default"}:${item.service_id}`;
 
 const PlaceholderSettingsPage = () => {
 	const { t } = useTranslation();
@@ -76,7 +76,9 @@ const PlaceholderSettingsPage = () => {
 		() =>
 			Array.from(
 				new Map(
-					items.map((item) => [item.admin_id, item.admin_username]),
+					items
+						.filter((item) => item.admin_id !== null)
+						.map((item) => [item.admin_id as number, item.admin_username]),
 				).entries(),
 			),
 		[items],
@@ -107,14 +109,15 @@ const PlaceholderSettingsPage = () => {
 	});
 
 	const selectAdmin = (value: string | string[]) => {
-		const adminID = Number(Array.isArray(value) ? value[0] : value);
+		const raw = Array.isArray(value) ? value[0] : value;
+		const adminID = raw === "default" ? null : Number(raw);
 		const first = items.find((item) => item.admin_id === adminID);
 		if (first) setSelectedKey(keyFor(first));
 	};
 	const selectService = (value: string | string[]) => {
 		if (!selected) return;
 		const serviceID = Number(Array.isArray(value) ? value[0] : value);
-		setSelectedKey(`${selected.admin_id}:${serviceID}`);
+		setSelectedKey(`${selected.admin_id ?? "default"}:${serviceID}`);
 	};
 	const updateDraft = <K extends keyof SubscriptionPlaceholderSetting>(
 		key: K,
@@ -184,14 +187,14 @@ const PlaceholderSettingsPage = () => {
 										>
 											{query.data?.manage_all && (
 												<FormControl>
-													<FormLabel>{t("placeholders.admin")}</FormLabel>
+													<FormLabel>{t("placeholders.scope")}</FormLabel>
 													<PanelSelect
-														value={String(draft.admin_id)}
+														value={draft.admin_id === null ? "default" : String(draft.admin_id)}
 														onValueChange={selectAdmin}
-														options={admins.map(([id, username]) => ({
-															value: String(id),
-															label: username,
-														}))}
+														options={[
+															{ value: "default", label: t("placeholders.serviceDefaults") },
+															...admins.map(([id, username]) => ({ value: String(id), label: username })),
+														]}
 													/>
 												</FormControl>
 											)}
@@ -207,6 +210,27 @@ const PlaceholderSettingsPage = () => {
 												/>
 											</FormControl>
 										</SimpleGrid>
+
+										{!draft.is_default && (
+											<HStack
+												bg={subtleBg}
+												border="1px solid"
+												borderColor={borderColor}
+												borderRadius="xl"
+												p={4}
+												justify="space-between"
+											>
+												<Box>
+													<Text fontWeight="semibold">{t("placeholders.inherit")}</Text>
+													<Text fontSize="sm" color="panel.textSecondary" mt={1}>{t("placeholders.inheritHint")}</Text>
+												</Box>
+												<Switch
+													colorScheme="pink"
+													isChecked={draft.inherited}
+													onChange={(event) => updateDraft("inherited", event.target.checked)}
+												/>
+											</HStack>
+										)}
 
 										<HStack
 											bg={subtleBg}
@@ -228,6 +252,7 @@ const PlaceholderSettingsPage = () => {
 											<Switch
 												colorScheme="pink"
 												isChecked={draft.enabled}
+												isDisabled={draft.inherited}
 												onChange={(event) =>
 													updateDraft("enabled", event.target.checked)
 												}
@@ -240,6 +265,7 @@ const PlaceholderSettingsPage = () => {
 												hint={t("placeholders.expiredHint")}
 												color="orange.400"
 												value={draft.expired_remark}
+												isDisabled={draft.inherited}
 												onChange={(value) =>
 													updateDraft("expired_remark", value)
 												}
@@ -249,6 +275,7 @@ const PlaceholderSettingsPage = () => {
 												hint={t("placeholders.limitedHint")}
 												color="red.400"
 												value={draft.limited_remark}
+												isDisabled={draft.inherited}
 												onChange={(value) =>
 													updateDraft("limited_remark", value)
 												}
@@ -258,6 +285,7 @@ const PlaceholderSettingsPage = () => {
 												hint={t("placeholders.disabledHint")}
 												color="gray.400"
 												value={draft.disabled_remark}
+												isDisabled={draft.inherited}
 												onChange={(value) =>
 													updateDraft("disabled_remark", value)
 												}
@@ -297,7 +325,7 @@ const PlaceholderSettingsPage = () => {
 											<Button
 												colorScheme="pink"
 												isLoading={save.isLoading}
-												onClick={() => save.mutate(draft)}
+												onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}
 											>
 												{t("placeholders.save")}
 											</Button>
@@ -318,12 +346,14 @@ const PlaceholderField = ({
 	hint,
 	color,
 	value,
+	isDisabled,
 	onChange,
 }: {
 	label: string;
 	hint: string;
 	color: string;
 	value: string;
+	isDisabled?: boolean;
 	onChange: (value: string) => void;
 }) => (
 	<FormControl>
@@ -333,6 +363,7 @@ const PlaceholderField = ({
 		</HStack>
 		<Input
 			value={value}
+			isDisabled={isDisabled}
 			maxLength={255}
 			onChange={(event) => onChange(event.target.value)}
 		/>
