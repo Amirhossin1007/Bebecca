@@ -909,5 +909,10 @@
 	"nodes.nodeUpdateAvailable": "有可用更新",
 	"settings.telegram.backupScope": "备份范围",
 	"total": "总计",
-	"loadAverage": "平均负载"
+	"loadAverage": "平均负载",
+	"sidebar.groups.userHub": "用户管理",
+	"sidebar.usersList": "用户列表",
+	"sidebar.groups.observability": "可观测性与日志",
+	"sidebar.groups.infrastructure": "网络与基础设施",
+	"sidebar.groups.system": "系统与工具"
 }

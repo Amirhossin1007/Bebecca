@@ -1,4 +1,5 @@
 import {
+	Avatar,
 	Box,
 	Button,
 	chakra,
@@ -754,23 +755,137 @@ export function AppLayout() {
 		"/usage": "services",
 		"/xray-settings": "basic",
 	};
-	const locationTrail = [
-		"dashboard",
-		...location.pathname.split("/").filter(Boolean),
-		activeLocationHash.replace(/^#/, "") ||
-			settingsDefaultTabByPath[location.pathname] ||
-			"",
-	]
-		.filter(Boolean)
-		.map((part) => part.replace(/[-_]+/g, " "));
-	const openCurrentPage = () => {
-		const defaultTab = settingsDefaultTabByPath[location.pathname];
-		if (defaultTab) {
-			window.location.hash = defaultTab;
-			return;
+	const breadcrumbItems = useMemo(() => {
+		const path = location.pathname;
+		let items: { label: string; path?: string }[] = [];
+
+		if (path === "/") {
+			items = [{ label: t("dashboard"), path: "/" }];
+		} else if (path === "/users") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.userHub"), path: "/users" },
+			];
+		} else if (path === "/bulk-actions") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.userHub"), path: "/users" },
+				{ label: t("bulkActions.menu"), path: "/bulk-actions" },
+			];
+		} else if (path === "/admins") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("admins"), path: "/admins" },
+			];
+		} else if (path === "/myaccount") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("myaccount.menu"), path: "/myaccount" },
+			];
+		} else if (path === "/usage") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("usage.menu"), path: "/usage" },
+			];
+		} else if (path === "/hosts") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("header.hostSettings"), path: "/hosts" },
+			];
+		} else if (path === "/services") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("services.title"), path: "/services" },
+			];
+		} else if (path === "/node-settings") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("header.nodeSettings"), path: "/node-settings" },
+			];
+		} else if (path === "/xray-logs") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
+				{ label: t("pages.xray.logs"), path: "/xray-logs" },
+			];
+		} else if (path === "/access-insights") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
+				{ label: t("header.accessInsights"), path: "/access-insights" },
+			];
+		} else if (path === "/recent-actions") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
+				{ label: t("recentActions.title"), path: "/recent-actions" },
+			];
+		} else if (path === "/xray-settings") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.infrastructure") },
+				{ label: t("header.xraySettings"), path: "/xray-settings" },
+			];
+		} else if (path === "/haproxy") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.infrastructure") },
+				{ label: t("haproxy.title"), path: "/haproxy" },
+			];
+		} else if (path === "/settings") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("header.integrationSettings"), path: "/settings" },
+			];
+		} else if (path === "/placeholders") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("placeholders.menu"), path: "/placeholders" },
+			];
+		} else if (path === "/phpmyadmin") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("phpmyadmin.menu"), path: "/phpmyadmin" },
+			];
+		} else if (path === "/external-apps") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("externalApps.menu"), path: "/external-apps" },
+			];
+		} else if (path === "/api-docs") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("apiDocs.menu"), path: "/api-docs" },
+			];
+		} else if (path === "/tutorials") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("tutorials.menu"), path: "/tutorials" },
+			];
+		} else {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				...path
+					.split("/")
+					.filter(Boolean)
+					.map((part) => ({
+						label: part.replace(/[-_]+/g, " "),
+					})),
+			];
 		}
-		navigate(location.pathname);
-	};
+
+		const rawHash = activeLocationHash.replace(/^#/, "");
+		if (rawHash && items.length > 0) {
+			items.push({ label: rawHash.replace(/[-_]+/g, " ") });
+		}
+
+		return items;
+	}, [location.pathname, activeLocationHash, t]);
 
 	const navigateToSettingsItem = (target: string) => {
 		const defaultTab = settingsDefaultTabByPath[target];
@@ -798,14 +913,14 @@ export function AppLayout() {
 						? "0px"
 						: sidebarCollapsed
 							? "88px"
-							: "248px",
+							: "260px",
 				}}
 			>
-				{/* persistent sidebar on md+; drawer on mobile */}
 				{!isMobile ? (
 					<AppSidebar
 						collapsed={sidebarCollapsed}
 						onRequestExpand={() => setSidebarCollapsed(false)}
+						onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
 					/>
 				) : null}
 
@@ -815,19 +930,20 @@ export function AppLayout() {
 					direction="column"
 					minW="0"
 					overflow="hidden"
-					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
-					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
+					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
+					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
 					transition="margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
 				>
 					<Box
 						as="header"
-						h="12"
-						minH="12"
+						h="52px"
+						minH="52px"
 						borderWidth="1px"
 						borderColor={shellBorder}
 						borderRadius="2xl"
 						bg={shellHeaderBg}
 						boxShadow={shellHeaderShadow}
+						backdropFilter="blur(20px)"
 						mt="3"
 						mx={{ base: "3", md: "4" }}
 						display="flex"
@@ -844,7 +960,8 @@ export function AppLayout() {
 						<HStack spacing={3} alignItems="center" flex="1" minW="0">
 							<IconButton
 								size="sm"
-								variant="outline"
+								variant="ghost"
+								borderRadius="full"
 								aria-label={t("a11y.toggleSidebar")}
 								onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
@@ -853,55 +970,53 @@ export function AppLayout() {
 								icon={<MenuIcon />}
 								flexShrink={0}
 								bg={headerButtonBg}
-								borderColor={shellBorder}
-								_hover={{ bg: headerButtonHoverBg }}
+								color="panel.textSecondary"
+								_hover={{ bg: headerButtonHoverBg, color: "panel.text" }}
 							/>
 							<HStack
-								aria-label="Current location"
-								spacing="1"
+								aria-label="Breadcrumb navigation"
+								spacing={1.5}
 								minW="0"
 								overflow="hidden"
-								dir="ltr"
+								dir={isRTL ? "rtl" : "ltr"}
 							>
-								<Button
-									variant="link"
-									fontSize={{ base: "xs", md: "sm" }}
-									fontWeight="semibold"
-									color="panel.textSecondary"
-									flexShrink={0}
-									onClick={() => navigate("/")}
-									_hover={{ color: "panel.text" }}
-								>
-									dashboard
-								</Button>
-								{locationTrail.length > 1 && (
-									<>
-										<Text color="panel.textSecondary">→</Text>
-										<Button
-											variant="link"
-											fontSize={{ base: "xs", md: "sm" }}
-											fontWeight="semibold"
-											color="panel.textSecondary"
-											flexShrink={0}
-											onClick={openCurrentPage}
-											_hover={{ color: "panel.text" }}
-										>
-											{locationTrail[1]}
-										</Button>
-									</>
-								)}
-								{locationTrail.length > 2 && (
-									<Text
-										fontSize={{ base: "xs", md: "sm" }}
-										fontWeight="semibold"
-										color="panel.textSecondary"
-										whiteSpace="nowrap"
-										overflow="hidden"
-										textOverflow="ellipsis"
-									>
-										→ {locationTrail.slice(2).join(" → ")}
-									</Text>
-								)}
+								{breadcrumbItems.map((crumb, idx) => {
+									const isLast = idx === breadcrumbItems.length - 1;
+									return (
+										<HStack key={crumb.label} spacing={1.5} flexShrink={isLast ? 1 : 0} minW="0">
+											{idx > 0 && (
+												<Text as="span" fontSize="11px" color="panel.textMuted" userSelect="none">
+													{isRTL ? "←" : "→"}
+												</Text>
+											)}
+											{crumb.path && !isLast ? (
+												<Button
+													variant="unstyled"
+													h="auto"
+													minW="auto"
+													p={0}
+													fontSize={{ base: "xs", md: "13px" }}
+													fontWeight="600"
+													color="panel.textSecondary"
+													_hover={{ color: "panel.text" }}
+													transition="color 0.18s ease"
+													onClick={() => navigate(crumb.path!)}
+												>
+													<Text as="span" isTruncated>{crumb.label}</Text>
+												</Button>
+											) : (
+												<Text
+													fontSize={{ base: "xs", md: "13px" }}
+													fontWeight={isLast ? "700" : "600"}
+													color={isLast ? "panel.text" : "panel.textSecondary"}
+													isTruncated
+												>
+													{crumb.label}
+												</Text>
+											)}
+										</HStack>
+									);
+								})}
 							</HStack>
 						</HStack>
 						<HStack spacing={2} alignItems="center" flexShrink={0}>
@@ -922,13 +1037,14 @@ export function AppLayout() {
 										as={Button}
 										size="sm"
 										variant="outline"
-										leftIcon={<UserIcon />}
+										h="32px"
+										px={2.5}
+										borderRadius="full"
+										borderColor="panel.border"
+										bg="transparent"
+										color="panel.text"
+										_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 										aria-label={t("a11y.userMenu")}
-										fontSize="sm"
-										fontWeight="medium"
-										bg={headerButtonBg}
-										borderColor={shellBorder}
-										_hover={{ bg: headerButtonHoverBg }}
 										onClick={() => {
 											if (userMenu.isOpen) {
 												handleUserMenuClose();
@@ -937,13 +1053,26 @@ export function AppLayout() {
 											}
 										}}
 									>
-										<Text
-											display={{ base: "none", sm: "inline" }}
-											maxW={{ base: "100px", sm: "150px" }}
-											isTruncated
-										>
-											{userData.username}
-										</Text>
+										<HStack spacing={2} align="center">
+											<Avatar
+												size="xs"
+												w="20px"
+												h="20px"
+												fontSize="10px"
+												name={userData.username}
+												bg="var(--rb-panel-accent)"
+												color="white"
+											/>
+											<Text
+												display={{ base: "none", sm: "inline" }}
+												maxW={{ base: "100px", sm: "140px" }}
+												fontSize="12px"
+												fontWeight="600"
+												isTruncated
+											>
+												{userData.username}
+											</Text>
+										</HStack>
 									</MenuButton>
 									<MenuList
 										dir={isRTL ? "rtl" : "ltr"}
