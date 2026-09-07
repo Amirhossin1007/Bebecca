@@ -1,11 +1,9 @@
 import {
-	Avatar,
 	Box,
 	chakra,
 	Flex,
 	HStack,
 	Icon,
-	IconButton,
 	Popover,
 	PopoverBody,
 	PopoverContent,
@@ -24,8 +22,6 @@ import {
 	BriefcaseIcon,
 	ChartBarIcon,
 	ChevronDownIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
@@ -43,7 +39,6 @@ import {
 	UserCircleIcon,
 	UserGroupIcon,
 	WrenchScrewdriverIcon,
-	ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import logoUrl from "assets/logo.svg";
 import { AnimatePresence, motion } from "framer-motion";
@@ -59,9 +54,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
-import { logout as logoutSession } from "service/auth";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
-import { clearClientSession } from "utils/session";
 import {
 	getTutorialManifestUrl,
 	getTutorialSeenKey,
@@ -110,7 +103,6 @@ interface AppSidebarProps {
 	collapsed: boolean;
 	inDrawer?: boolean;
 	onRequestExpand?: () => void;
-	onToggleCollapse?: () => void;
 }
 
 type DirectNavItem = {
@@ -148,14 +140,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	collapsed,
 	inDrawer = false,
 	onRequestExpand,
-	onToggleCollapse,
 }) => {
 	const { t, i18n } = useTranslation();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const dashboardRoot = useHref("/");
 	const { colorMode } = useColorMode();
-	const { userData, getUserIsSuccess } = useGetUser();
+	const { userData } = useGetUser();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const tutorialsUrl = "/tutorials";
 
@@ -199,19 +190,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const activeItemColor = "var(--rb-panel-accent)";
 	const normalItemColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
 	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
-
-	const roleLabel = useMemo(() => {
-		switch (userData.role) {
-			case AdminRole.FullAccess:
-				return t("admins.roles.fullAccess");
-			case AdminRole.Sudo:
-				return t("admins.roles.sudo");
-			case AdminRole.Reseller:
-				return t("admins.roles.reseller");
-			default:
-				return t("admins.roles.standard");
-		}
-	}, [t, userData.role]);
 
 	const checkTutorialUpdates = useCallback(async () => {
 		const langKey = normalizeTutorialLang(i18n.language);
@@ -505,15 +483,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		}
 	};
 
-	const handleLogout = async () => {
-		try {
-			await logoutSession();
-		} finally {
-			clearClientSession();
-			navigate("/login");
-		}
-	};
-
 	return (
 		<Box
 			w={inDrawer ? "full" : collapsed ? "68px" : "240px"}
@@ -522,13 +491,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			bg={sidebarBg}
 			borderWidth={inDrawer ? undefined : "1px"}
 			borderColor={inDrawer ? undefined : sidebarBorderColor}
-			borderRadius={inDrawer ? undefined : "2xl"}
+			borderRadius={inDrawer ? undefined : "20px"}
 			boxShadow={
 				inDrawer
 					? undefined
 					: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px -8px rgba(0, 0, 0, 0.28)"
 			}
-			transition="width 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
+			transition="width 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
 			position={inDrawer ? "relative" : "fixed"}
 			top={inDrawer ? undefined : "12px"}
 			left={inDrawer || isRTL ? undefined : "12px"}
@@ -541,7 +510,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			<Flex direction="column" h="full" justify="space-between" p={collapsed ? 2 : 3}>
 				<Flex
 					align="center"
-					justify={collapsed ? "center" : "space-between"}
+					justify={collapsed ? "center" : "flex-start"}
 					px={collapsed ? 0 : 2}
 					py={2.5}
 					mb={2}
@@ -553,7 +522,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							<LogoIcon
 								src={logoUrl}
 								alt="Rebecca"
-								filter={colorMode === "dark" ? "brightness(0) invert(1)" : "none"}
+								style={{
+									filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+								}}
 							/>
 							<Text fontSize="15px" fontWeight="700" letterSpacing="-0.02em" color="panel.text">
 								Rebecca
@@ -565,29 +536,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 								<LogoIcon
 									src={logoUrl}
 									alt="Rebecca"
-									filter={colorMode === "dark" ? "brightness(0) invert(1)" : "none"}
+									style={{
+										filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+									}}
 								/>
 							</Box>
 						</Tooltip>
-					)}
-
-					{!inDrawer && !collapsed && onToggleCollapse && (
-						<IconButton
-							size="xs"
-							variant="ghost"
-							borderRadius="full"
-							aria-label="Collapse"
-							icon={
-								isRTL ? (
-									<ChevronRightIcon width={14} height={14} />
-								) : (
-									<ChevronLeftIcon width={14} height={14} />
-								)
-							}
-							onClick={onToggleCollapse}
-							color="panel.textMuted"
-							_hover={{ color: "panel.text", bg: "panel.elevated" }}
-						/>
 					)}
 				</Flex>
 
@@ -835,7 +789,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												initial={{ opacity: 0, height: 0 }}
 												animate={{ opacity: 1, height: "auto" }}
 												exit={{ opacity: 0, height: 0 }}
-												transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+												transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
 												style={{ overflow: "hidden" }}
 											>
 												<Box
@@ -872,7 +826,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																		fontWeight={isSubActive ? "700" : "500"}
 																		fontSize="12px"
 																		cursor="pointer"
-																		transition="all 0.18s ease"
+																		transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 																		_hover={{
 																			bg: isSubActive ? activeItemBg : hoverItemBg,
 																			color: isSubActive ? activeItemColor : "panel.text",
@@ -904,64 +858,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						})}
 					</VStack>
 				</Box>
-
-				{getUserIsSuccess && userData.username && (
-					<Box pt={2} mt={1} borderTopWidth="1px" borderColor="panel.border">
-						{!collapsed ? (
-							<Flex
-								align="center"
-								justify="space-between"
-								p={2}
-								borderRadius="12px"
-								bg="panel.elevated"
-							>
-								<HStack spacing={2.5} minW={0}>
-									<Avatar
-										size="xs"
-										name={userData.username}
-										bg="var(--rb-panel-accent)"
-										color="white"
-									/>
-									<VStack align="flex-start" spacing={0} minW={0}>
-										<Text fontSize="12px" fontWeight="700" color="panel.text" isTruncated>
-											{userData.username}
-										</Text>
-										<Text fontSize="10px" color="panel.textMuted" isTruncated>
-											{roleLabel}
-										</Text>
-									</VStack>
-								</HStack>
-								<IconButton
-									size="xs"
-									variant="ghost"
-									borderRadius="full"
-									aria-label="Logout"
-									icon={<ArrowRightOnRectangleIcon width={15} height={15} />}
-									onClick={handleLogout}
-									color="panel.textMuted"
-									_hover={{ color: "red.400", bg: "rgba(239, 68, 68, 0.1)" }}
-								/>
-							</Flex>
-						) : (
-							<Tooltip
-								label={`${userData.username} (${roleLabel})`}
-								placement={isRTL ? "left" : "right"}
-								hasArrow
-							>
-								<Flex justify="center" py={1}>
-									<Avatar
-										size="xs"
-										name={userData.username}
-										bg="var(--rb-panel-accent)"
-										color="white"
-										cursor="pointer"
-										onClick={() => navigate("/myaccount")}
-									/>
-								</Flex>
-							</Tooltip>
-						)}
-					</Box>
-				)}
 			</Flex>
 		</Box>
 	);

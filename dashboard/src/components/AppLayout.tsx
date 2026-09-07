@@ -1,5 +1,4 @@
 import {
-	Avatar,
 	Box,
 	Button,
 	chakra,
@@ -175,11 +174,6 @@ export function AppLayout() {
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
 	const menuHover = useColorModeValue("panel.elevated", "panel.elevated");
-	const textColor = useColorModeValue("panel.text", "panel.text");
-	const secondaryTextColor = useColorModeValue(
-		"panel.textSecondary",
-		"panel.textSecondary",
-	);
 	const activePillBg = useColorModeValue(
 		"rgba(255, 255, 255, 0.18)",
 		"rgba(255, 255, 255, 0.08)",
@@ -920,7 +914,6 @@ export function AppLayout() {
 					<AppSidebar
 						collapsed={sidebarCollapsed}
 						onRequestExpand={() => setSidebarCollapsed(false)}
-						onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
 					/>
 				) : null}
 
@@ -940,7 +933,7 @@ export function AppLayout() {
 						minH="52px"
 						borderWidth="1px"
 						borderColor={shellBorder}
-						borderRadius="2xl"
+						borderRadius="20px"
 						bg={shellHeaderBg}
 						boxShadow={shellHeaderShadow}
 						backdropFilter="blur(20px)"
@@ -1037,14 +1030,19 @@ export function AppLayout() {
 										as={Button}
 										size="sm"
 										variant="outline"
-										h="32px"
-										px={2.5}
+										h="34px"
+										w={{ base: "34px", sm: "auto" }}
+										minW={{ base: "34px", sm: "auto" }}
+										p={{ base: 0, sm: 2.5 }}
 										borderRadius="full"
 										borderColor="panel.border"
-										bg="transparent"
+										bg="panel.surface"
 										color="panel.text"
 										_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
 										aria-label={t("a11y.userMenu")}
+										display="inline-flex"
+										alignItems="center"
+										justifyContent="center"
 										onClick={() => {
 											if (userMenu.isOpen) {
 												handleUserMenuClose();
@@ -1053,16 +1051,18 @@ export function AppLayout() {
 											}
 										}}
 									>
-										<HStack spacing={2} align="center">
-											<Avatar
-												size="xs"
+										<HStack spacing={2} align="center" justify="center">
+											<Flex
 												w="20px"
 												h="20px"
-												fontSize="10px"
-												name={userData.username}
-												bg="var(--rb-panel-accent)"
-												color="white"
-											/>
+												align="center"
+												justify="center"
+												borderRadius="full"
+												color="var(--rb-panel-accent)"
+												flexShrink={0}
+											>
+												<UserIcon />
+											</Flex>
 											<Text
 												display={{ base: "none", sm: "inline" }}
 												maxW={{ base: "100px", sm: "140px" }}
@@ -1077,52 +1077,78 @@ export function AppLayout() {
 									<MenuList
 										dir={isRTL ? "rtl" : "ltr"}
 										ref={userMenuContentRef}
-										minW="220px"
-										bg={menuBg}
-										borderColor={menuBorder}
-										color={textColor}
+										minW="230px"
+										p={2}
+										borderRadius="20px"
+										borderWidth="1px"
+										borderColor="panel.border"
+										bg="panel.surface"
+										boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
+										backdropFilter="blur(24px)"
 										zIndex={9999}
 										userSelect="none"
 										sx={{
 											".chakra-menu__menuitem": {
 												bg: "transparent !important",
+												borderRadius: "10px",
+												h: "38px",
+												px: "12px",
+												my: "2px",
+												fontSize: "13px",
+												fontWeight: "500",
+												transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
 												"&:hover": {
-													bg: `${menuHover} !important`,
+													bg: "panel.elevated !important",
 												},
 												"&:active, &:focus-visible": {
-													bg: `${menuHover} !important`,
+													bg: "panel.elevated !important",
 												},
 												"&:focus:not(:focus-visible)": {
 													bg: "transparent !important",
 												},
 											},
-											".rb-logout-menu-item[data-focus]:not(:hover):not(:focus-visible)":
-												{
-													bg: "transparent !important",
+											".rb-logout-menu-item": {
+												color: "red.400 !important",
+												fontWeight: "600 !important",
+												"&:hover": {
+													bg: "rgba(239, 68, 68, 0.12) !important",
+													color: "red.400 !important",
 												},
+											},
 										}}
 									>
-										{/* User Info */}
-										<Box
-											px={3}
-											py={2}
-											borderBottom="1px"
-											borderColor={menuBorder}
+										<Flex
+											align="center"
+											gap={3}
+											p={2.5}
+											mb={1.5}
+											borderRadius="14px"
+											bg="panel.elevated"
+											borderWidth="1px"
+											borderColor="panel.border"
 										>
-											<VStack align="flex-start" spacing={1}>
-												<HStack spacing={2}>
-													<UserIcon />
-													<Text fontWeight="medium" fontSize="sm">
-														{userData.username}
-													</Text>
-												</HStack>
-												<Text fontSize="xs" color={secondaryTextColor}>
+											<Flex
+												w="34px"
+												h="34px"
+												align="center"
+												justify="center"
+												borderRadius="full"
+												bg="var(--rb-panel-accent)"
+												color="white"
+												flexShrink={0}
+											>
+												<UserIcon />
+											</Flex>
+											<VStack align="flex-start" spacing={0} minW={0}>
+												<Text fontWeight="700" fontSize="13px" color="panel.text" isTruncated>
+													{userData.username}
+												</Text>
+												<Text fontSize="11px" fontWeight="500" color="panel.textMuted" isTruncated>
 													{roleLabel}
 												</Text>
 											</VStack>
-										</Box>
+										</Flex>
 
-										{/* Language Selector */}
 										<Menu
 											placement={languagePlacement}
 											strategy="fixed"
@@ -1138,15 +1164,16 @@ export function AppLayout() {
 												leftIcon={<LanguageIconStyled />}
 												variant="ghost"
 												w="full"
-												h="40px"
+												h="38px"
 												justifyContent="flex-start"
 												fontWeight="500"
-												borderRadius="md"
+												fontSize="13px"
+												borderRadius="10px"
 												px={3}
 												bg="transparent"
-												_hover={{ bg: menuHover }}
-												_active={{ bg: menuHover }}
-												_focusVisible={{ bg: menuHover }}
+												_hover={{ bg: "panel.elevated" }}
+												_active={{ bg: "panel.elevated" }}
+												_focusVisible={{ bg: "panel.elevated" }}
 												onClick={(e: ReactMouseEvent) => {
 													e.stopPropagation();
 													languageMenu.isOpen
@@ -1156,7 +1183,7 @@ export function AppLayout() {
 											>
 												<HStack justify="space-between" w="full" minW={0}>
 													<Text>{t("header.language")}</Text>
-													<Text fontSize="xs" color={secondaryTextColor}>
+													<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
 														{languageItems.find(
 															(item) => item.code === i18n.language,
 														)?.label || "English"}
@@ -1166,20 +1193,30 @@ export function AppLayout() {
 											<Portal containerRef={userMenuContentRef}>
 												<MenuList
 													dir={isRTL ? "rtl" : "ltr"}
-													minW="160px"
-													bg={menuBg}
-													borderColor={menuBorder}
-													color={textColor}
+													minW="170px"
+													p={1.5}
+													borderRadius="16px"
+													borderWidth="1px"
+													borderColor="panel.border"
+													bg="panel.surface"
+													backdropFilter="blur(24px)"
+													boxShadow="0 18px 42px rgba(0, 0, 0, 0.35)"
 													zIndex={9999}
 													userSelect="none"
 													sx={{
 														".chakra-menu__menuitem": {
 															bg: "transparent !important",
+															borderRadius: "8px",
+															h: "36px",
+															px: "10px",
+															my: "1px",
+															fontSize: "12px",
+															fontWeight: "500",
 															"&:hover": {
-																bg: `${menuHover} !important`,
+																bg: "panel.elevated !important",
 															},
 															"&:active, &:focus-visible": {
-																bg: `${menuHover} !important`,
+																bg: "panel.elevated !important",
 															},
 															"&:focus:not(:focus-visible)": {
 																bg: "transparent !important",
@@ -1198,7 +1235,7 @@ export function AppLayout() {
 																}}
 															>
 																<HStack justify="space-between" w="full">
-																	<HStack spacing={2}>
+																	<HStack spacing={2.5}>
 																		{code === "fa" ? (
 																			<ImperialIranFlag
 																				style={{
@@ -1216,9 +1253,9 @@ export function AppLayout() {
 																				}}
 																			/>
 																		)}
-																		<Text>{label}</Text>
+																		<Text fontWeight={isActiveLang ? "700" : "500"}>{label}</Text>
 																	</HStack>
-																	{isActiveLang && <CheckIcon width={16} />}
+																	{isActiveLang && <CheckIcon width={15} color="var(--rb-panel-accent)" />}
 																</HStack>
 															</MenuItem>
 														);
@@ -1227,7 +1264,6 @@ export function AppLayout() {
 											</Portal>
 										</Menu>
 
-										{/* Theme Selector */}
 										<ThemeSelector
 											trigger="menuItem"
 											triggerLabel={t("header.theme")}
@@ -1236,21 +1272,9 @@ export function AppLayout() {
 											onModalClose={handleThemeModalClose}
 										/>
 
-										{/* Logout */}
 										<MenuItem
 											className="rb-logout-menu-item"
 											icon={<LogoutIcon />}
-											color="red.500"
-											bg="transparent"
-											_hover={{ bg: menuHover }}
-											_active={{ bg: "transparent" }}
-											_focus={{ bg: "transparent" }}
-											_focusVisible={{ bg: menuHover }}
-											sx={{
-												"&[data-focus]:not(:hover):not(:focus-visible)": {
-													bg: "transparent !important",
-												},
-											}}
 											onClick={async () => {
 												try {
 													await logoutSession();
