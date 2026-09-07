@@ -576,8 +576,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										borderInlineStartWidth={!collapsed && isCurrent ? "3px" : "0px"}
 										borderInlineStartColor="var(--rb-panel-accent)"
 										_hover={{
-											bg: isCurrent ? activeItemBg : hoverItemBg,
-											color: "panel.text",
+											md: {
+												bg: isCurrent ? activeItemBg : hoverItemBg,
+												color: "panel.text",
+											},
 										}}
 									>
 										<HStack spacing={2.5} align="center">
@@ -681,7 +683,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												color={isGroupActive ? activeItemColor : normalItemColor}
 												cursor="pointer"
 												transition="all 0.2s ease"
-												_hover={{ bg: hoverItemBg, color: "panel.text" }}
+												_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
 											>
 												<GroupIcon />
 											</Flex>
@@ -736,7 +738,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																	color={isSubActive ? "panel.text" : normalItemColor}
 																	borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
 																	borderInlineStartColor="var(--rb-panel-accent)"
-																	_hover={{ bg: hoverItemBg, color: "panel.text" }}
+																	_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
 																>
 																	<Box as="span" color={isSubActive ? activeItemColor : "inherit"}>
 																		<SubIcon />
@@ -774,8 +776,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										borderInlineStartColor="var(--rb-panel-accent)"
 										onClick={() => handleGroupClick(entry)}
 										_hover={{
-											bg: hoverItemBg,
-											color: "panel.text",
+											md: {
+												bg: hoverItemBg,
+												color: "panel.text",
+											},
 										}}
 									>
 										<HStack spacing={2.5} align="center">
@@ -850,8 +854,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																		borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
 																		borderInlineStartColor="var(--rb-panel-accent)"
 																		_hover={{
-																			bg: isSubActive ? activeItemBg : hoverItemBg,
-																			color: "panel.text",
+																			md: {
+																				bg: isSubActive ? activeItemBg : hoverItemBg,
+																				color: "panel.text",
+																			},
 																		}}
 																	>
 																		<HStack spacing={2} align="center">

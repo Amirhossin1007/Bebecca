@@ -965,7 +965,7 @@ export function AppLayout() {
 								flexShrink={0}
 								bg={headerButtonBg}
 								color="panel.textSecondary"
-								_hover={{ bg: headerButtonHoverBg, color: "panel.text" }}
+								_hover={{ md: { bg: headerButtonHoverBg, color: "panel.text" } }}
 							/>
 							<HStack
 								aria-label="Breadcrumb navigation"
@@ -992,7 +992,7 @@ export function AppLayout() {
 													fontSize={{ base: "xs", md: "13px" }}
 													fontWeight="600"
 													color="panel.textSecondary"
-													_hover={{ color: "panel.text" }}
+													_hover={{ md: { color: "panel.text" } }}
 													transition="color 0.18s ease"
 													onClick={() => navigate(crumb.path!)}
 												>
@@ -1039,7 +1039,7 @@ export function AppLayout() {
 										borderColor="panel.border"
 										bg="panel.surface"
 										color="panel.text"
-										_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
+										_hover={{ md: { bg: "panel.elevated", borderColor: "panel.borderStrong" } }}
 										aria-label={t("a11y.userMenu")}
 										display="inline-flex"
 										alignItems="center"

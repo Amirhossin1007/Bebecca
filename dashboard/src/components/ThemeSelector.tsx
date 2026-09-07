@@ -355,9 +355,11 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				color={selected ? "panel.text" : "panel.textSecondary"}
 				boxShadow={selected ? "0 2px 8px rgba(0, 0, 0, 0.08)" : "none"}
 				_hover={{
-					bg: "panel.elevated",
-					color: "panel.text",
-					borderColor: "panel.borderStrong",
+					md: {
+						bg: "panel.elevated",
+						color: "panel.text",
+						borderColor: "panel.borderStrong",
+					},
 				}}
 				onClick={() => selectTheme(theme.key)}
 				transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -451,6 +453,8 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 									key={accent.key}
 									label={t(`theme.accent.${accent.key}`, accent.label)}
 									hasArrow
+									placement="top"
+									zIndex={10005}
 								>
 									<IconButton
 										aria-label={t(`theme.accent.${accent.key}`, accent.label)}
@@ -474,8 +478,10 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 										}
 										transform={selected ? "scale(1.06)" : "scale(1)"}
 										_hover={{
-											bg: accent.hover,
-											transform: "scale(1.1)",
+											md: {
+												bg: accent.hover,
+												transform: "scale(1.1)",
+											},
 										}}
 										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 										onClick={() => selectAccent(accent.key)}
@@ -509,14 +515,16 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					variant="ghost"
 					w="full"
 					h="38px"
-					justifyContent="space-between"
+					justifyContent="flex-start"
 					fontWeight="500"
 					fontSize="13px"
 					borderRadius="10px"
 					px={3}
 					bg="transparent"
 					color={textColor}
-					_hover={{ bg: menuHover }}
+					_hover={{
+						md: { bg: menuHover },
+					}}
 					_active={{ bg: menuHover }}
 					_focusVisible={{ bg: menuHover }}
 					onClick={(event: ReactMouseEvent) => {
@@ -530,15 +538,6 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 							{triggerLabel || t("header.theme")}
 						</Text>
 					</HStack>
-					<Box
-						w="12px"
-						h="12px"
-						borderRadius="full"
-						bg="var(--rb-panel-accent)"
-						borderWidth="1.5px"
-						borderColor="panel.borderStrong"
-						flexShrink={0}
-					/>
 				</MenuButton>
 				{portalContainer ? (
 					<Portal containerRef={portalContainer}>{menuList}</Portal>

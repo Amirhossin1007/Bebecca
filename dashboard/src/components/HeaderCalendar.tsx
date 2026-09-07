@@ -182,8 +182,10 @@ export const HeaderCalendar: FC = () => {
 					alignItems="center"
 					gap={2}
 					_hover={{
-						bg: "panel.elevated",
-						borderColor: "panel.borderStrong",
+						md: {
+							bg: "panel.elevated",
+							borderColor: "panel.borderStrong",
+						},
 					}}
 					transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 				>
@@ -224,7 +226,7 @@ export const HeaderCalendar: FC = () => {
 									next.setMonth(displayDate.getMonth() - 1);
 									setDisplayDate(next);
 								}}
-								_hover={{ bg: "panel.elevated" }}
+								_hover={{ md: { bg: "panel.elevated" } }}
 							/>
 							<HStack spacing={2} align="center">
 								<Text fontWeight="700" fontSize="13px" color="panel.text">
@@ -257,7 +259,7 @@ export const HeaderCalendar: FC = () => {
 									next.setMonth(displayDate.getMonth() + 1);
 									setDisplayDate(next);
 								}}
-								_hover={{ bg: "panel.elevated" }}
+								_hover={{ md: { bg: "panel.elevated" } }}
 							/>
 						</Flex>
 
@@ -290,24 +292,32 @@ export const HeaderCalendar: FC = () => {
 										align="center"
 										justify="center"
 										borderRadius="10px"
-										bg={day.isToday ? "panel.elevated" : "transparent"}
-										borderWidth={day.isToday ? "1.5px" : "0px"}
-										borderColor={day.isToday ? "panel.borderStrong" : "transparent"}
+										bg={day.isToday ? "var(--rb-panel-accent)" : "transparent"}
+										borderWidth="0px"
 										color={
-											isHoliday
-												? "red.400"
-												: "panel.text"
+											day.isToday
+												? "white !important"
+												: isHoliday
+													? "red.400"
+													: "panel.text"
 										}
 										fontWeight={day.isToday ? "700" : isHoliday ? "600" : "500"}
 										fontSize="12px"
+										boxShadow={
+											day.isToday
+												? "0 2px 8px var(--rb-panel-accent)"
+												: undefined
+										}
 										transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
 										cursor="default"
 										_hover={
 											day.isToday
 												? undefined
 												: {
-														bg: "panel.elevated",
-														color: isHoliday ? "red.400" : "panel.text",
+														md: {
+															bg: "panel.elevated",
+															color: isHoliday ? "red.400" : "panel.text",
+														},
 													}
 										}
 									>
