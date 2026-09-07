@@ -39,9 +39,10 @@ type runtimeUserIdentity struct {
 }
 
 type runtimeConfigData struct {
-	users       []runtimeUserRow
-	serviceTags map[int64]map[string]bool
-	masks       map[string][]byte
+	users        []runtimeUserRow
+	serviceTags  map[int64]map[string]bool
+	serviceFlows map[int64]string
+	masks        map[string][]byte
 }
 
 type preparedRuntimeConfig struct {
@@ -281,7 +282,13 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 		if len(targets) == 0 {
 			continue
 		}
-		baseSettings, err := userread.RuntimeProxySettings(user.Settings, user.Protocol, user.CredentialKey, user.Flow, data.masks)
+		flow := user.Flow
+		if data.serviceFlows != nil {
+			if serviceFlow, ok := data.serviceFlows[user.ServiceID.Int64]; ok {
+				flow = serviceFlow
+			}
+		}
+		baseSettings, err := userread.RuntimeProxySettings(user.Settings, user.Protocol, user.CredentialKey, flow, data.masks)
 		if err != nil {
 			continue
 		}
@@ -372,11 +379,15 @@ func (c Controller) loadRuntimeConfigDataForProtocols(ctx context.Context, proto
 	if err != nil {
 		return nil, err
 	}
+	serviceFlows, err := c.repo.ServiceFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
 	masks, err := c.repo.UUIDMasks(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &runtimeConfigData{users: users, serviceTags: serviceTags, masks: masks}, nil
+	return &runtimeConfigData{users: users, serviceTags: serviceTags, serviceFlows: serviceFlows, masks: masks}, nil
 }
 
 func applyRuntimeAPI(raw map[string]any, apiPort int) {
