@@ -214,6 +214,35 @@ func (r Repository) RuntimeUsersForProtocols(ctx context.Context, protocols []st
 	return r.runtimeUsers(ctx, 0, protocols)
 }
 
+func serviceFlowColumnMissing(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such column") ||
+		strings.Contains(message, "unknown column") ||
+		strings.Contains(message, "no such table") ||
+		strings.Contains(message, "doesn't exist")
+}
+
+func (r Repository) ServiceFlows(ctx context.Context) (map[int64]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(flow, '') FROM services`)
+	if err != nil {
+		if serviceFlowColumnMissing(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var flow string
+		if err := rows.Scan(&id, &flow); err != nil {
+			return nil, err
+		}
+		result[id] = strings.TrimSpace(flow)
+	}
+	return result, rows.Err()
+}
+
 func (r Repository) RuntimeUserIdentity(ctx context.Context, userID int64) (runtimeUserIdentity, error) {
 	var row runtimeUserIdentity
 	err := r.db.QueryRowContext(ctx, `SELECT id, username FROM users WHERE id = ? LIMIT 1`, userID).Scan(&row.ID, &row.Username)
@@ -254,6 +283,10 @@ func (r Repository) RuntimeUserIDsForServices(ctx context.Context, serviceIDs []
 }
 
 func (r Repository) runtimeUsers(ctx context.Context, userID int64, protocols []string) ([]runtimeUserRow, error) {
+	serviceFlows, err := r.ServiceFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
 	excludeVPNSessions, _ := r.tableExists(ctx, "vpn_user_sessions")
 	protocolQuery := runtimeProtocolsQuery(protocols)
 	if protocolQuery == "" {
@@ -336,6 +369,11 @@ WHERE u.status IN ('active', 'on_hold') AND u.service_id IS NOT NULL AND u.servi
 		}
 		if flow.Valid {
 			row.Flow = flow.String
+		}
+		if serviceFlows != nil {
+			if serviceFlow, ok := serviceFlows[row.ServiceID.Int64]; ok {
+				row.Flow = serviceFlow
+			}
 		}
 		row.Protocol = strings.ToLower(row.Protocol)
 		row.Settings = jsonMap(settings)

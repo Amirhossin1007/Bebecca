@@ -330,6 +330,10 @@ func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (
 
 func (r Repository) usersRows(ctx context.Context, filter usersFilter, req UsersListRequest) ([]usersListRow, error) {
 	cutoff := dbTime(online.Cutoff(time.Now()))
+	serviceFlows, err := r.serviceFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
 	query := `SELECT
 	u.id,
 	u.username,
@@ -422,6 +426,11 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		row.credentialKey = nullStringValue(credentialKey)
 		row.subadress = nullStringValue(subadress)
 		row.flow = nullStringValue(flow)
+		if serviceFlows != nil && serviceID.Valid {
+			if serviceFlow, ok := serviceFlows[serviceID.Int64]; ok {
+				row.flow = serviceFlow
+			}
+		}
 		row.onHoldExpireDuration = int64Ptr(holdDuration)
 		result = append(result, row)
 	}
