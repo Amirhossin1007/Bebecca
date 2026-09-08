@@ -27,7 +27,6 @@ type serviceHostAssignment struct {
 type serviceWritePayload struct {
 	Name        string                  `json:"name"`
 	Description *string                 `json:"description"`
-	Flow        *string                 `json:"flow"`
 	Hosts       []serviceHostAssignment `json:"hosts"`
 	AdminIDs    []int64                 `json:"admin_ids"`
 }
@@ -52,7 +51,6 @@ type serviceBaseResponse struct {
 	ID                  int64   `json:"id"`
 	Name                string  `json:"name"`
 	Description         *string `json:"description"`
-	Flow                *string `json:"flow"`
 	UsedTraffic         int64   `json:"used_traffic"`
 	LifetimeUsedTraffic int64   `json:"lifetime_used_traffic"`
 	HostCount           int64   `json:"host_count"`
@@ -268,15 +266,7 @@ func (s *Server) handleServiceCreate(w http.ResponseWriter, r *http.Request) {
 		if err := syncServiceHostsTx(r.Context(), tx, serviceID, payload.Hosts); err != nil {
 			return err
 		}
-		if err := syncServiceAdminsTx(r.Context(), tx, serviceID, payload.AdminIDs); err != nil {
-			return err
-		}
-		if payload.Flow != nil {
-			if _, err := tx.ExecContext(r.Context(), `UPDATE services SET flow = ? WHERE id = ?`, *payload.Flow, serviceID); err != nil && !serviceFlowColumnMissing(err) {
-				return serviceWriteSQLError(err)
-			}
-		}
-		return nil
+		return syncServiceAdminsTx(r.Context(), tx, serviceID, payload.AdminIDs)
 	})
 	if err != nil {
 		writeServiceError(w, err)
@@ -318,7 +308,6 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request, ser
 		}
 		assignments := []string{}
 		args := []any{}
-		flowChanged := false
 		if _, ok := fields["name"]; ok {
 			name := strings.TrimSpace(payload.Name)
 			if name == "" {
@@ -330,21 +319,6 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request, ser
 		if _, ok := fields["description"]; ok {
 			assignments = append(assignments, "description = ?")
 			args = append(args, nullableTrimmedString(payload.Description))
-		}
-		if _, ok := fields["flow"]; ok {
-			oldFlow, supported, err := serviceFlowTx(r.Context(), tx, serviceID)
-			if err != nil {
-				return err
-			}
-			newFlow := ""
-			if payload.Flow != nil {
-				newFlow = *payload.Flow
-			}
-			if supported {
-				flowChanged = oldFlow != newFlow
-				assignments = append(assignments, "flow = ?")
-				args = append(args, nullableTrimmedString(payload.Flow))
-			}
 		}
 		if len(assignments) > 0 {
 			assignments = append(assignments, "updated_at = ?")
@@ -374,11 +348,6 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request, ser
 		}
 		if _, ok := fields["admin_ids"]; ok {
 			if err := syncServiceAdminsTx(r.Context(), tx, serviceID, payload.AdminIDs); err != nil {
-				return err
-			}
-		}
-		if flowChanged {
-			if err := enqueueAffectedServicesUsersTx(r.Context(), tx, map[int64]bool{serviceID: true}); err != nil {
 				return err
 			}
 		}
@@ -825,17 +794,6 @@ func decodeServiceWritePayload(w http.ResponseWriter, r *http.Request, create bo
 			return serviceWritePayload{}, nil, statusError{status: http.StatusBadRequest, detail: "invalid request body"}
 		}
 	}
-	if payload.Flow != nil {
-		normalized, ok := userapp.NormalizeFlow(*payload.Flow)
-		if !ok {
-			return serviceWritePayload{}, nil, statusError{status: http.StatusBadRequest, detail: "Unsupported flow value"}
-		}
-		if normalized == "" {
-			payload.Flow = nil
-		} else {
-			payload.Flow = &normalized
-		}
-	}
 	if create {
 		fields["name"] = nil
 		fields["hosts"] = nil
@@ -1001,10 +959,6 @@ ORDER BY s.created_at DESC, s.id DESC`
 		if err != nil {
 			return nil, 0, err
 		}
-		item.Flow, err = s.serviceFlow(r.Context(), item.ID)
-		if err != nil {
-			return nil, 0, err
-		}
 		services = append(services, item)
 	}
 	return services, total, rows.Err()
@@ -1050,10 +1004,6 @@ GROUP BY s.id, s.name, s.description, s.used_traffic, s.lifetime_used_traffic`, 
 	if err == sql.ErrNoRows {
 		return serviceBaseResponse{}, statusError{status: http.StatusNotFound, detail: "Service not found"}
 	}
-	if err != nil {
-		return serviceBaseResponse{}, err
-	}
-	item.Flow, err = s.serviceFlow(ctx, serviceID)
 	return item, err
 }
 
@@ -1160,42 +1110,6 @@ func scanServiceBase(scanner serviceBaseScanner) (serviceBaseResponse, error) {
 	item.HasHosts = item.HostCount > 0
 	item.Broken = item.HostCount == 0
 	return item, nil
-}
-
-func serviceFlowColumnMissing(err error) bool {
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "no such column") ||
-		strings.Contains(message, "unknown column") ||
-		strings.Contains(message, "no such table") ||
-		strings.Contains(message, "doesn't exist")
-}
-
-func (s *Server) serviceFlow(ctx context.Context, serviceID int64) (*string, error) {
-	var flow sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT flow FROM services WHERE id = ? LIMIT 1`, serviceID).Scan(&flow)
-	if err != nil {
-		if serviceFlowColumnMissing(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if !flow.Valid || strings.TrimSpace(flow.String) == "" {
-		return nil, nil
-	}
-	value := strings.TrimSpace(flow.String)
-	return &value, nil
-}
-
-func serviceFlowTx(ctx context.Context, tx *sql.Tx, serviceID int64) (string, bool, error) {
-	var flow sql.NullString
-	err := tx.QueryRowContext(ctx, `SELECT flow FROM services WHERE id = ? LIMIT 1`, serviceID).Scan(&flow)
-	if err != nil {
-		if serviceFlowColumnMissing(err) {
-			return "", false, nil
-		}
-		return "", false, err
-	}
-	return strings.TrimSpace(flow.String), true, nil
 }
 
 func scanServiceAdmin(scanner serviceBaseScanner) (serviceAdminResponse, error) {
