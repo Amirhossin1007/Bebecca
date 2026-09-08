@@ -94,8 +94,8 @@ const InfrastructureIconStyled = chakra(WrenchScrewdriverIcon, iconProps);
 
 const LogoIcon = chakra("img", {
 	baseStyle: {
-		w: "24px",
-		h: "24px",
+		w: "26px",
+		h: "26px",
 	},
 });
 
@@ -134,12 +134,6 @@ type GroupNavItem = {
 };
 
 type NavEntry = DirectNavItem | GroupNavItem;
-
-type NavSection = {
-	id: string;
-	labelKey?: string;
-	entries: NavEntry[];
-};
 
 export const AppSidebar: FC<AppSidebarProps> = ({
 	collapsed,
@@ -184,6 +178,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
 		Boolean(baseSelf.self_placeholders);
 
+	const [hasNewTutorials, setHasNewTutorials] = useState(false);
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
 		users_hub: true,
 	});
@@ -207,15 +202,19 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			const manifest = (await response.json()) as Record<string, string>;
 			const version = manifest[langKey]?.toString().trim();
 			if (!version) {
+				setHasNewTutorials(false);
 				return;
 			}
 			const seenKey = getTutorialSeenKey(langKey);
 			const seenVersion = window.localStorage.getItem(seenKey);
 			if (seenVersion === null) {
 				window.localStorage.setItem(seenKey, version);
+				setHasNewTutorials(false);
+				return;
 			}
+			setHasNewTutorials(seenVersion !== version);
 		} catch {
-			return;
+			setHasNewTutorials(false);
 		}
 	}, [dashboardRoot, i18n.language]);
 
@@ -242,239 +241,197 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		}
 	};
 
-	const navSections: NavSection[] = useMemo(
+	const navEntries: NavEntry[] = useMemo(
 		() => [
 			{
-				id: "main",
-				entries: [
-					{
-						type: "direct",
-						id: "dashboard",
-						title: t("dashboard"),
-						url: "/",
-						icon: HomeIconStyled,
-						visible: true,
-					},
-				],
+				type: "direct",
+				id: "dashboard",
+				title: t("dashboard"),
+				url: "/",
+				icon: HomeIconStyled,
+				visible: true,
 			},
 			{
-				id: "users",
-				labelKey: "sidebar.groups.userHub",
-				entries: [
+				type: "group",
+				id: "users_hub",
+				title: t("sidebar.groups.userHub"),
+				icon: UsersIconStyled,
+				visible: true,
+				subItems: [
 					{
-						type: "group",
-						id: "users_hub",
-						title: t("sidebar.groups.userHub"),
+						id: "users_list",
+						title: t("sidebar.usersList"),
+						url: "/users",
 						icon: UsersIconStyled,
 						visible: true,
-						subItems: [
-							{
-								id: "users_list",
-								title: t("sidebar.usersList"),
-								url: "/users",
-								icon: UsersIconStyled,
-								visible: true,
-							},
-							{
-								id: "bulk_actions",
-								title: t("bulkActions.menu"),
-								url: "/bulk-actions",
-								icon: BulkActionsIconStyled,
-								visible: true,
-							},
-						],
-					},
-				],
-			},
-			{
-				id: "traffic",
-				labelKey: "sidebar.groups.traffic",
-				entries: [
-					{
-						type: "direct",
-						id: "myaccount",
-						title: t("myaccount.menu"),
-						url: "/myaccount",
-						icon: MyAccountIconStyled,
-						visible: Boolean(selfAccess.self_myaccount),
 					},
 					{
-						type: "direct",
-						id: "usage",
-						title: t("usage.menu"),
-						url: "/usage",
-						icon: UsageIconStyled,
-						visible: canViewUsage,
-					},
-					{
-						type: "direct",
-						id: "admins",
-						title: t("admins"),
-						url: "/admins",
-						icon: AdminIconStyled,
-						visible: canViewAdmins,
-					},
-				],
-			},
-			{
-				id: "infrastructure",
-				labelKey: "sidebar.groups.infrastructure",
-				entries: [
-					{
-						type: "direct",
-						id: "services",
-						title: t("services.title"),
-						url: "/services",
-						icon: ServicesIconStyled,
-						visible: canViewServicesSection,
-					},
-					{
-						type: "direct",
-						id: "hosts",
-						title: t("header.hostSettings"),
-						url: "/hosts",
-						icon: HostsIconStyled,
-						visible: canViewHosts,
-					},
-					{
-						type: "direct",
-						id: "nodes",
-						title: t("header.nodeSettings"),
-						url: "/node-settings",
-						icon: NodeIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Nodes]),
-					},
-				],
-			},
-			{
-				id: "observability",
-				labelKey: "sidebar.groups.observability",
-				entries: [
-					{
-						type: "group",
-						id: "observability",
-						title: t("sidebar.groups.observability"),
-						icon: ObservabilityIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || canViewRecentActions,
-						subItems: [
-							{
-								id: "xray_logs",
-								title: t("pages.xray.logs"),
-								url: "/xray-logs",
-								icon: XrayLogsIconStyled,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "access_insights",
-								title: t("header.accessInsights"),
-								url: "/access-insights",
-								icon: InsightsIconStyled,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "recent_actions",
-								title: t("recentActions.title"),
-								url: "/recent-actions",
-								icon: RecentActionsIconStyled,
-								visible: canViewRecentActions,
-							},
-						],
-					},
-					{
-						type: "group",
-						id: "infrastructure",
-						title: t("sidebar.groups.infrastructure"),
-						icon: InfrastructureIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
-						subItems: [
-							{
-								id: "xray_settings",
-								title: t("header.xraySettings"),
-								url: "/xray-settings",
-								icon: XraySettingsIconStyled,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "haproxy",
-								title: t("haproxy.title"),
-								url: "/haproxy",
-								icon: HAProxyIconStyled,
-								visible: isPrivilegedAdmin,
-							},
-						],
-					},
-				],
-			},
-			{
-				id: "system",
-				labelKey: "sidebar.groups.system",
-				entries: [
-					{
-						type: "group",
-						id: "system",
-						title: t("sidebar.groups.system"),
-						icon: SettingsIconStyled,
-						visible:
-							Boolean(sectionAccess?.[AdminSection.Integrations]) ||
-							canManagePlaceholders ||
-							isPrivilegedAdmin,
-						subItems: [
-							{
-								id: "settings_panel",
-								title: t("header.integrationSettings"),
-								url: "/settings",
-								icon: MasterSettingsIconStyled,
-								visible: Boolean(sectionAccess?.[AdminSection.Integrations]),
-							},
-							{
-								id: "placeholders",
-								title: isPrivilegedAdmin
-									? t("placeholders.menu")
-									: t("placeholders.settingsMenu"),
-								url: "/placeholders",
-								icon: PlaceholderIconStyled,
-								visible: canManagePlaceholders,
-							},
-							{
-								id: "phpmyadmin",
-								title: t("phpmyadmin.menu"),
-								url: "/phpmyadmin",
-								icon: PHPMyAdminIconStyled,
-								visible: isPrivilegedAdmin,
-							},
-							{
-								id: "external_apps",
-								title: t("externalApps.menu"),
-								url: "/external-apps",
-								icon: ExternalAppsIconStyled,
-								visible: isPrivilegedAdmin,
-							},
-						],
-					},
-					{
-						type: "group",
-						id: "docs",
-						title: t("sidebar.groups.docs"),
-						icon: TutorialIconStyled,
+						id: "bulk_actions",
+						title: t("bulkActions.menu"),
+						url: "/bulk-actions",
+						icon: BulkActionsIconStyled,
 						visible: true,
-						subItems: [
-							{
-								id: "api_docs",
-								title: t("apiDocs.menu"),
-								url: "/api-docs",
-								icon: ApiDocsIconStyled,
-								visible: isPrivilegedAdmin,
-							},
-							{
-								id: "tutorials",
-								title: t("tutorials.menu"),
-								url: tutorialsUrl,
-								icon: TutorialIconStyled,
-								visible: true,
-							},
-						],
 					},
 				],
+			},
+			{
+				type: "direct",
+				id: "admins",
+				title: t("admins"),
+				url: "/admins",
+				icon: AdminIconStyled,
+				visible: canViewAdmins,
+			},
+			{
+				type: "direct",
+				id: "myaccount",
+				title: t("myaccount.menu"),
+				url: "/myaccount",
+				icon: MyAccountIconStyled,
+				visible: Boolean(selfAccess.self_myaccount),
+			},
+			{
+				type: "direct",
+				id: "usage",
+				title: t("usage.menu"),
+				url: "/usage",
+				icon: UsageIconStyled,
+				visible: canViewUsage,
+			},
+			{
+				type: "direct",
+				id: "hosts",
+				title: t("header.hostSettings"),
+				url: "/hosts",
+				icon: HostsIconStyled,
+				visible: canViewHosts,
+			},
+			{
+				type: "direct",
+				id: "services",
+				title: t("services.title"),
+				url: "/services",
+				icon: ServicesIconStyled,
+				visible: canViewServicesSection,
+			},
+			{
+				type: "direct",
+				id: "nodes",
+				title: t("header.nodeSettings"),
+				url: "/node-settings",
+				icon: NodeIconStyled,
+				visible: Boolean(sectionAccess?.[AdminSection.Nodes]),
+			},
+			{
+				type: "group",
+				id: "observability",
+				title: t("sidebar.groups.observability"),
+				icon: ObservabilityIconStyled,
+				visible: Boolean(sectionAccess?.[AdminSection.Xray]) || canViewRecentActions,
+				subItems: [
+					{
+						id: "xray_logs",
+						title: t("pages.xray.logs"),
+						url: "/xray-logs",
+						icon: XrayLogsIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+					},
+					{
+						id: "access_insights",
+						title: t("header.accessInsights"),
+						url: "/access-insights",
+						icon: InsightsIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+					},
+					{
+						id: "recent_actions",
+						title: t("recentActions.title"),
+						url: "/recent-actions",
+						icon: RecentActionsIconStyled,
+						visible: canViewRecentActions,
+					},
+				],
+			},
+			{
+				type: "group",
+				id: "infrastructure",
+				title: t("sidebar.groups.infrastructure"),
+				icon: InfrastructureIconStyled,
+				visible: Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
+				subItems: [
+					{
+						id: "xray_settings",
+						title: t("header.xraySettings"),
+						url: "/xray-settings",
+						icon: XraySettingsIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+					},
+					{
+						id: "haproxy",
+						title: t("haproxy.title"),
+						url: "/haproxy",
+						icon: HAProxyIconStyled,
+						visible: isPrivilegedAdmin,
+					},
+				],
+			},
+			{
+				type: "group",
+				id: "system",
+				title: t("sidebar.groups.system"),
+				icon: SettingsIconStyled,
+				visible:
+					Boolean(sectionAccess?.[AdminSection.Integrations]) ||
+					canManagePlaceholders ||
+					isPrivilegedAdmin,
+				subItems: [
+					{
+						id: "settings_panel",
+						title: t("header.integrationSettings"),
+						url: "/settings",
+						icon: MasterSettingsIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Integrations]),
+					},
+					{
+						id: "placeholders",
+						title: isPrivilegedAdmin
+							? t("placeholders.menu")
+							: t("placeholders.settingsMenu"),
+						url: "/placeholders",
+						icon: PlaceholderIconStyled,
+						visible: canManagePlaceholders,
+					},
+					{
+						id: "phpmyadmin",
+						title: t("phpmyadmin.menu"),
+						url: "/phpmyadmin",
+						icon: PHPMyAdminIconStyled,
+						visible: isPrivilegedAdmin,
+					},
+					{
+						id: "external_apps",
+						title: t("externalApps.menu"),
+						url: "/external-apps",
+						icon: ExternalAppsIconStyled,
+						visible: isPrivilegedAdmin,
+					},
+					{
+						id: "api_docs",
+						title: t("apiDocs.menu"),
+						url: "/api-docs",
+						icon: ApiDocsIconStyled,
+						visible: isPrivilegedAdmin,
+					},
+				],
+			},
+			{
+				type: "direct",
+				id: "tutorials",
+				title: t("tutorials.menu"),
+				url: tutorialsUrl,
+				icon: TutorialIconStyled,
+				badge: hasNewTutorials,
+				visible: true,
 			},
 		],
 		[
@@ -488,6 +445,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			canViewRecentActions,
 			isPrivilegedAdmin,
 			canManagePlaceholders,
+			hasNewTutorials,
 		],
 	);
 
@@ -554,24 +512,15 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					borderColor="panel.border"
 				>
 					{!collapsed ? (
-						<HStack spacing={2} align="center" cursor="pointer" onClick={() => navigate("/")}>
+						<HStack spacing={2.5} align="center" cursor="pointer" onClick={() => navigate("/")}>
 							<LogoIcon
 								src={logoUrl}
 								alt="Rebecca"
 								style={{
 									filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
-									display: "block",
-									flexShrink: 0,
 								}}
 							/>
-							<Text
-								fontSize="16px"
-								fontWeight="700"
-								lineHeight="24px"
-								letterSpacing="-0.02em"
-								color="panel.text"
-								whiteSpace="nowrap"
-							>
+							<Text fontSize="15px" fontWeight="700" letterSpacing="-0.02em" color="panel.text">
 								Rebecca
 							</Text>
 						</HStack>
@@ -600,44 +549,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					px={collapsed ? 0 : 1}
 				>
 					<VStack align="stretch" spacing={1.5} py={1}>
-						{navSections.map((section, sectionIdx) => {
-							const visibleEntries = section.entries.filter((e) => e.visible);
-							if (visibleEntries.length === 0) return null;
-							return (
-								<Box key={section.id}>
-									{sectionIdx > 0 && <Box h={sectionIdx === 1 ? 3 : 5} />}
-									<AnimatePresence initial={false}>
-										{!collapsed && section.labelKey && sectionIdx > 0 && (
-											<motion.div
-												key="label"
-												initial={{ opacity: 0, height: 0 }}
-												animate={{ opacity: 1, height: "auto" }}
-												exit={{ opacity: 0, height: 0 }}
-												transition={{
-													height: { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
-													opacity: { duration: 0.18, ease: "easeOut" },
-												}}
-												style={{ overflow: "hidden" }}
-											>
-												<Text
-													fontSize="10px"
-													fontWeight="700"
-													color="panel.textMuted"
-													textTransform="uppercase"
-													letterSpacing="0.06em"
-													px={3.5}
-													pb={1.5}
-													opacity={0.75}
-												>
-													{t(section.labelKey)}
-												</Text>
-											</motion.div>
-										)}
-									</AnimatePresence>
-										<VStack align="stretch" spacing={1}>
-												{visibleEntries.map((entry) => {
+						{navEntries.map((entry) => {
+							if (!entry.visible) return null;
 
-												if (entry.type === "direct") {
+							if (entry.type === "direct") {
 								const isCurrent =
 									location.pathname === entry.url ||
 									(entry.url !== "/" && location.pathname.startsWith(entry.url));
@@ -674,33 +589,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												alignItems="center"
 												justifyContent="center"
 												color={isCurrent ? activeItemColor : "inherit"}
-												flexShrink={0}
 											>
 												<IconEl />
 											</Box>
-											<AnimatePresence initial={false}>
-												{!collapsed && (
-													<motion.span
-														key="title"
-														initial={{ opacity: 0, width: 0 }}
-														animate={{ opacity: 1, width: "auto" }}
-														exit={{ opacity: 0, width: 0 }}
-														transition={{
-															width: { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
-															opacity: { duration: 0.18, ease: "easeOut" },
-														}}
-														style={{
-															display: "block",
-															overflow: "hidden",
-															whiteSpace: "nowrap",
-														}}
-													>
-														<Text noOfLines={1} color={isCurrent ? "panel.text" : normalItemColor}>
-															{entry.title}
-														</Text>
-													</motion.span>
-												)}
-											</AnimatePresence>
+											{!collapsed && (
+												<Text noOfLines={1} color={isCurrent ? "panel.text" : normalItemColor}>
+													{entry.title}
+												</Text>
+											)}
 										</HStack>
 
 										{!collapsed && entry.badge && (
@@ -893,47 +789,23 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												alignItems="center"
 												justifyContent="center"
 												color={isGroupActive ? activeItemColor : "inherit"}
-												flexShrink={0}
 											>
 												<GroupIcon />
 											</Box>
-											<AnimatePresence initial={false}>
-												{!collapsed && (
-													<motion.span
-														key="title"
-														initial={{ opacity: 0, width: 0 }}
-														animate={{ opacity: 1, width: "auto" }}
-														exit={{ opacity: 0, width: 0 }}
-														transition={{
-															width: { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
-															opacity: { duration: 0.18, ease: "easeOut" },
-														}}
-														style={{
-															display: "block",
-															overflow: "hidden",
-															whiteSpace: "nowrap",
-														}}
-													>
-														<Text noOfLines={1} color={isGroupActive ? "panel.text" : normalItemColor}>
-															{entry.title}
-														</Text>
-													</motion.span>
-												)}
-											</AnimatePresence>
+											<Text noOfLines={1} color={isGroupActive ? "panel.text" : normalItemColor}>
+												{entry.title}
+											</Text>
 										</HStack>
 
-										{!collapsed && (
-											<Icon
-												as={ChevronDownIcon}
-												w="14px"
-												h="14px"
-												color="panel.textMuted"
-												flexShrink={0}
-												transform={isOpen ? "rotate(180deg)" : "rotate(0deg)"}
-												transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
-											/>
-										)}
-										</Flex>
+										<Icon
+											as={ChevronDownIcon}
+											w="14px"
+											h="14px"
+											color="panel.textMuted"
+											transform={isOpen ? "rotate(180deg)" : "rotate(0deg)"}
+											transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
+										/>
+									</Flex>
 
 									<AnimatePresence initial={false}>
 										{isOpen && (
@@ -998,32 +870,26 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																				opacity={isSubActive ? 1 : 0.8}
 																			>
 																				<SubIcon />
-																				</Box>
-																				<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																			</Box>
+																			<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
 																				{sub.title}
-																				</Text>
-																				</HStack>
-																				</Flex>
-																				</Box>
-																				);
-																				})}
-																				</VStack>
-																				</Box>
-																				</motion.div>
-																				)}
-																				</AnimatePresence>
-																				</Box>
-																				);
-																				})
-																				}
-																				</VStack>
-																				</Box>
-																				);
-																				})
-																				}
-																				</VStack>
-																				</Box>
-																				</Flex>
-																				</Box>
-																				);
-																				};
+																			</Text>
+																		</HStack>
+																	</Flex>
+																</Box>
+															);
+														})}
+													</VStack>
+												</Box>
+											</motion.div>
+										)}
+									</AnimatePresence>
+								</Box>
+							);
+						})}
+					</VStack>
+				</Box>
+			</Flex>
+		</Box>
+	);
+};

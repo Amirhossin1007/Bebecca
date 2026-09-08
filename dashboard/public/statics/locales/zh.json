@@ -920,7 +920,5 @@
 	"sidebar.usersList": "用户列表",
 	"sidebar.groups.observability": "可观测性与日志",
 	"sidebar.groups.infrastructure": "网络与基础设施",
-	"sidebar.groups.traffic": "流量与管理员",
-	"sidebar.groups.docs": "文档",
 	"sidebar.groups.system": "系统与工具"
 }

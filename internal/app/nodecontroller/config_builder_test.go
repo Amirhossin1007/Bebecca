@@ -78,16 +78,17 @@ func TestIncludeDBUsersPreservesReverseClient(t *testing.T) {
 
 func TestIncludeDBUsersKeepsPerInboundEmailsIndependent(t *testing.T) {
 	raw := map[string]any{"inbounds": []any{
-		map[string]any{"tag": "vless-a", "protocol": "vless", "settings": map[string]any{"clients": []any{}}},
-		map[string]any{"tag": "vless-b", "protocol": "vless", "settings": map[string]any{"clients": []any{}}},
+		map[string]any{"tag": "vless-a", "protocol": "vless", "settings": map[string]any{"clients": []any{}}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
+		map[string]any{"tag": "vless-b", "protocol": "vless", "settings": map[string]any{"clients": []any{}}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
 	}}
 	data := &runtimeConfigData{
 		users: []runtimeUserRow{{
-			ID: 1, Username: "alice", CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1", Protocol: "vless",
+			ID: 1, Username: "alice", CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1", Flow: "legacy-flow", Protocol: "vless",
 			ServiceID: sql.NullInt64{Int64: 7, Valid: true}, Settings: map[string]any{},
 		}},
-		serviceTags: map[int64]map[string]bool{7: {"vless-a": true, "vless-b": true}},
-		masks:       map[string][]byte{},
+		serviceTags:  map[int64]map[string]bool{7: {"vless-a": true, "vless-b": true}},
+		serviceFlows: map[int64]string{7: "xtls-rprx-vision"},
+		masks:        map[string][]byte{},
 	}
 	if err := (Controller{}).includeDBUsers(context.Background(), raw, data); err != nil {
 		t.Fatal(err)
@@ -96,6 +97,9 @@ func TestIncludeDBUsersKeepsPerInboundEmailsIndependent(t *testing.T) {
 		clients := interfaceSlice(mapValue(listOfMaps(raw["inbounds"])[i]["settings"])["clients"])
 		if len(clients) != 1 || stringValue(mapValue(clients[0])["email"]) != inboundRuntimeUserEmail(1, "alice", tag) {
 			t.Fatalf("%s clients = %#v", tag, clients)
+		}
+		if stringValue(mapValue(clients[0])["flow"]) != "xtls-rprx-vision" {
+			t.Fatalf("%s flow = %#v, want service flow", tag, clients[0])
 		}
 	}
 }

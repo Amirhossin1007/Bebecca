@@ -10,6 +10,7 @@ import {
 	Portal,
 	SimpleGrid,
 	Text,
+	Tooltip,
 	useColorMode,
 	useColorModeValue,
 	useDisclosure,
@@ -400,11 +401,6 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 			p={3.5}
 			userSelect="none"
 			sx={{
-				zIndex: 9999,
-				isolation: "isolate",
-				".chakra-tooltip__popper": {
-					zIndex: "10005 !important",
-				},
 				".chakra-menu__menuitem": {
 					bg: "transparent !important",
 					"&:hover": {
@@ -453,37 +449,44 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						{ACCENT_OPTIONS.map((accent) => {
 							const selected = activeAccent === accent.key;
 							return (
-								<IconButton
+								<Tooltip
 									key={accent.key}
-									aria-label={t(`theme.accent.${accent.key}`, accent.label)}
-									icon={
-										selected ? (
-											<CheckIconChakra w="14px" h="14px" color="white" />
-										) : undefined
-									}
-									size="sm"
-									w="36px"
-									h="36px"
-									minW="36px"
-									borderRadius="full"
-									borderWidth="2px"
-									borderColor={selected ? "white" : "transparent"}
-									bg={accent.color}
-									boxShadow={
-										selected
-											? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
-											: "0 2px 6px rgba(0, 0, 0, 0.15)"
-									}
-									transform={selected ? "scale(1.06)" : "scale(1)"}
-									_hover={{
-										md: {
-											bg: accent.hover,
-											transform: "scale(1.1)",
-										},
-									}}
-									transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-									onClick={() => selectAccent(accent.key)}
-								/>
+									label={t(`theme.accent.${accent.key}`, accent.label)}
+									hasArrow
+									placement="top"
+									zIndex={10005}
+								>
+									<IconButton
+										aria-label={t(`theme.accent.${accent.key}`, accent.label)}
+										icon={
+											selected ? (
+												<CheckIconChakra w="14px" h="14px" color="white" />
+											) : undefined
+										}
+										size="sm"
+										w="36px"
+										h="36px"
+										minW="36px"
+										borderRadius="full"
+										borderWidth="2px"
+										borderColor={selected ? "white" : "transparent"}
+										bg={accent.color}
+										boxShadow={
+											selected
+												? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
+												: "0 2px 6px rgba(0, 0, 0, 0.15)"
+										}
+										transform={selected ? "scale(1.06)" : "scale(1)"}
+										_hover={{
+											md: {
+												bg: accent.hover,
+												transform: "scale(1.1)",
+											},
+										}}
+										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										onClick={() => selectAccent(accent.key)}
+									/>
+								</Tooltip>
 							);
 						})}
 					</SimpleGrid>
