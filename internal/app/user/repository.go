@@ -21,6 +21,35 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 	return Repository{db: db, dialect: dialect, cache: &repositoryCache{}}
 }
 
+func serviceFlowColumnMissing(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such column") ||
+		strings.Contains(message, "unknown column") ||
+		strings.Contains(message, "no such table") ||
+		strings.Contains(message, "doesn't exist")
+}
+
+func (r Repository) serviceFlows(ctx context.Context) (map[int64]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(flow, '') FROM services`)
+	if err != nil {
+		if serviceFlowColumnMissing(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var flow string
+		if err := rows.Scan(&id, &flow); err != nil {
+			return nil, err
+		}
+		result[id] = strings.TrimSpace(flow)
+	}
+	return result, rows.Err()
+}
+
 func (r Repository) configServerIP(ctx context.Context) string {
 	for _, query := range []string{
 		`SELECT address FROM nodes WHERE TRIM(COALESCE(address, '')) != '' AND LOWER(COALESCE(status, '')) = 'connected' ORDER BY id LIMIT 1`,
@@ -143,12 +172,7 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	}
 	result.SubscriptionPorts = normalizePorts(row["subscription_ports"])
 	result.SubscriptionAliases = normalizeAliases(row["subscription_aliases"])
-	result.UseCustomJSONDefault = truthy(row["use_custom_json_default"])
-	result.UseCustomJSONForV2rayN = truthy(row["use_custom_json_for_v2rayn"])
-	result.UseCustomJSONForV2rayNG = truthy(row["use_custom_json_for_v2rayng"])
-	result.UseCustomJSONForStreisand = truthy(row["use_custom_json_for_streisand"])
-	result.UseCustomJSONForHapp = truthy(row["use_custom_json_for_happ"])
-	result.UseCustomJSONForIncy = truthy(row["use_custom_json_for_incy"])
+	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])	
 	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
 	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
@@ -267,6 +291,11 @@ func (r Repository) ConfigLinkUser(ctx context.Context, userID int64) (ConfigLin
 	}
 	if flow.Valid {
 		item.Flow = flow.String
+	}
+	if serviceFlows, err := r.serviceFlows(ctx); err != nil {
+		return ConfigLinkUser{}, err
+	} else if serviceFlows != nil && item.ServiceID != nil {
+		item.Flow = serviceFlows[*item.ServiceID]
 	}
 
 	proxies, err := r.proxiesByUser(ctx, []int64{userID})
@@ -500,7 +529,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 			&hostName,
 			&hostOptions,
 			&item.HostMode,
-			&hostTTL,
+			&item.HostTTL,
 			&item.Security,
 			&item.ALPN,
 			&item.Fingerprint,
@@ -894,6 +923,33 @@ func normalizeAliases(raw any) []string {
 		result = append(result, alias)
 	}
 	return result
+}
+
+func normalizeClientRoutingRules(raw any) []ClientRoutingRule {
+	if raw == nil {
+		return []ClientRoutingRule{}
+	}
+	text := ""
+	switch typed := raw.(type) {
+	case string:
+		text = typed
+	case []byte:
+		text = string(typed)
+	default:
+		text = fmt.Sprint(raw)
+	}
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return []ClientRoutingRule{}
+	}
+	var rules []ClientRoutingRule
+	if err := json.Unmarshal([]byte(text), &rules); err == nil {
+		if rules == nil {
+			return []ClientRoutingRule{}
+		}
+		return rules
+	}
+	return []ClientRoutingRule{}
 }
 
 func mustJSON(value any) []byte {

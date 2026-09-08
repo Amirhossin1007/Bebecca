@@ -35,6 +35,7 @@ export interface AdminOverviewStats {
 export interface SystemStats {
 	version: string;
 	channel?: string;
+	os?: string;
 	cpu_cores: number;
 	cpu_threads: number;
 	cpu_frequency_hz: number;
