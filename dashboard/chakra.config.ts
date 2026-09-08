@@ -69,6 +69,8 @@ const sharedThemeConfig = {
 				boxShadow: "0 24px 72px rgba(0, 0, 0, 0.46) !important",
 			},
 			":root": {
+				transition:
+					"background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease",
 				"--primary-50": "#ffe6ed",
 				"--primary-100": "#ffb8c9",
 				"--primary-200": "#ff88a5",
@@ -83,6 +85,15 @@ const sharedThemeConfig = {
 				"--bg-dark": "#101010",
 				"--surface-light": "#242424",
 				"--surface-dark": "#242424",
+			},
+
+			"html, body, .chakra-ui-dark *, .chakra-ui-light *": {
+				transition:
+					"background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), fill 0.45s ease, stroke 0.45s ease",
+			},
+			"html, body": {
+				transition:
+					"background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s ease",
 			},
 
 			".rb-theme-dark": {

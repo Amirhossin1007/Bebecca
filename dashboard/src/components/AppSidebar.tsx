@@ -94,8 +94,8 @@ const InfrastructureIconStyled = chakra(WrenchScrewdriverIcon, iconProps);
 
 const LogoIcon = chakra("img", {
 	baseStyle: {
-		w: "26px",
-		h: "26px",
+		w: "24px",
+		h: "24px",
 	},
 });
 
@@ -517,12 +517,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const handleGroupClick = (group: GroupNavItem) => {
 		const isCurrentlyOpen = Boolean(openGroups[group.id]);
 		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
-		if (!isCurrentlyOpen) {
-			const firstVisible = group.subItems.find((sub) => sub.visible);
-			if (firstVisible) {
-				handleNavigate(firstVisible.url);
-			}
-		}
 	};
 
 	return (
@@ -560,20 +554,23 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					borderColor="panel.border"
 				>
 					{!collapsed ? (
-						<HStack spacing={2.5} align="center" cursor="pointer" onClick={() => navigate("/")}>
+						<HStack spacing={2} align="center" cursor="pointer" onClick={() => navigate("/")}>
 							<LogoIcon
 								src={logoUrl}
 								alt="Rebecca"
 								style={{
 									filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+									display: "block",
+									flexShrink: 0,
 								}}
 							/>
 							<Text
-								fontSize="18px"
+								fontSize="16px"
 								fontWeight="700"
-								lineHeight="26px"
+								lineHeight="24px"
 								letterSpacing="-0.02em"
 								color="panel.text"
+								whiteSpace="nowrap"
 							>
 								Rebecca
 							</Text>
@@ -608,30 +605,35 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							if (visibleEntries.length === 0) return null;
 							return (
 								<Box key={section.id}>
-									{sectionIdx > 0 && (
-										<Box
-											h="1px"
-											bg="panel.border"
-											opacity={0.6}
-											mx={2}
-											mb={2}
-											mt={sectionIdx === 1 ? 2 : 3}
-										/>
-									)}
-									{!collapsed && section.labelKey && sectionIdx > 0 && (
-										<Text
-											fontSize="10px"
-											fontWeight="700"
-											color="panel.textMuted"
-											textTransform="uppercase"
-											letterSpacing="0.06em"
-											px={3.5}
-											pb={1.5}
-											opacity={0.75}
-										>
-											{t(section.labelKey)}
-										</Text>
-									)}
+									{sectionIdx > 0 && <Box h={sectionIdx === 1 ? 3 : 5} />}
+									<AnimatePresence initial={false}>
+										{!collapsed && section.labelKey && sectionIdx > 0 && (
+											<motion.div
+												key="label"
+												initial={{ opacity: 0, height: 0 }}
+												animate={{ opacity: 1, height: "auto" }}
+												exit={{ opacity: 0, height: 0 }}
+												transition={{
+													height: { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
+													opacity: { duration: 0.18, ease: "easeOut" },
+												}}
+												style={{ overflow: "hidden" }}
+											>
+												<Text
+													fontSize="10px"
+													fontWeight="700"
+													color="panel.textMuted"
+													textTransform="uppercase"
+													letterSpacing="0.06em"
+													px={3.5}
+													pb={1.5}
+													opacity={0.75}
+												>
+													{t(section.labelKey)}
+												</Text>
+											</motion.div>
+										)}
+									</AnimatePresence>
 										<VStack align="stretch" spacing={1}>
 												{visibleEntries.map((entry) => {
 
@@ -672,14 +674,33 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												alignItems="center"
 												justifyContent="center"
 												color={isCurrent ? activeItemColor : "inherit"}
+												flexShrink={0}
 											>
 												<IconEl />
 											</Box>
-											{!collapsed && (
-												<Text noOfLines={1} color={isCurrent ? "panel.text" : normalItemColor}>
-													{entry.title}
-												</Text>
-											)}
+											<AnimatePresence initial={false}>
+												{!collapsed && (
+													<motion.span
+														key="title"
+														initial={{ opacity: 0, width: 0 }}
+														animate={{ opacity: 1, width: "auto" }}
+														exit={{ opacity: 0, width: 0 }}
+														transition={{
+															width: { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
+															opacity: { duration: 0.18, ease: "easeOut" },
+														}}
+														style={{
+															display: "block",
+															overflow: "hidden",
+															whiteSpace: "nowrap",
+														}}
+													>
+														<Text noOfLines={1} color={isCurrent ? "panel.text" : normalItemColor}>
+															{entry.title}
+														</Text>
+													</motion.span>
+												)}
+											</AnimatePresence>
 										</HStack>
 
 										{!collapsed && entry.badge && (
@@ -872,23 +893,47 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												alignItems="center"
 												justifyContent="center"
 												color={isGroupActive ? activeItemColor : "inherit"}
+												flexShrink={0}
 											>
 												<GroupIcon />
 											</Box>
-											<Text noOfLines={1} color={isGroupActive ? "panel.text" : normalItemColor}>
-												{entry.title}
-											</Text>
+											<AnimatePresence initial={false}>
+												{!collapsed && (
+													<motion.span
+														key="title"
+														initial={{ opacity: 0, width: 0 }}
+														animate={{ opacity: 1, width: "auto" }}
+														exit={{ opacity: 0, width: 0 }}
+														transition={{
+															width: { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
+															opacity: { duration: 0.18, ease: "easeOut" },
+														}}
+														style={{
+															display: "block",
+															overflow: "hidden",
+															whiteSpace: "nowrap",
+														}}
+													>
+														<Text noOfLines={1} color={isGroupActive ? "panel.text" : normalItemColor}>
+															{entry.title}
+														</Text>
+													</motion.span>
+												)}
+											</AnimatePresence>
 										</HStack>
 
-										<Icon
-											as={ChevronDownIcon}
-											w="14px"
-											h="14px"
-											color="panel.textMuted"
-											transform={isOpen ? "rotate(180deg)" : "rotate(0deg)"}
-											transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
-										/>
-									</Flex>
+										{!collapsed && (
+											<Icon
+												as={ChevronDownIcon}
+												w="14px"
+												h="14px"
+												color="panel.textMuted"
+												flexShrink={0}
+												transform={isOpen ? "rotate(180deg)" : "rotate(0deg)"}
+												transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
+											/>
+										)}
+										</Flex>
 
 									<AnimatePresence initial={false}>
 										{isOpen && (
@@ -953,32 +998,32 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																				opacity={isSubActive ? 1 : 0.8}
 																			>
 																				<SubIcon />
-																			</Box>
-																			<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																				</Box>
+																				<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
 																				{sub.title}
-																			</Text>
-																		</HStack>
-																	</Flex>
-																</Box>
-															);
-														})}
-													</VStack>
-												</Box>
-												</motion.div>
-												)}
-												</AnimatePresence>
-												</Box>
-												);
-												})
-												}
-												</VStack>
-												</Box>
-												);
-												})
-												}
-												</VStack>
-												</Box>
-												</Flex>
-												</Box>
-												);
-												};
+																				</Text>
+																				</HStack>
+																				</Flex>
+																				</Box>
+																				);
+																				})}
+																				</VStack>
+																				</Box>
+																				</motion.div>
+																				)}
+																				</AnimatePresence>
+																				</Box>
+																				);
+																				})
+																				}
+																				</VStack>
+																				</Box>
+																				);
+																				})
+																				}
+																				</VStack>
+																				</Box>
+																				</Flex>
+																				</Box>
+																				);
+																				};

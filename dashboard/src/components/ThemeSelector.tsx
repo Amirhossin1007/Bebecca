@@ -10,7 +10,6 @@ import {
 	Portal,
 	SimpleGrid,
 	Text,
-	Tooltip,
 	useColorMode,
 	useColorModeValue,
 	useDisclosure,
@@ -22,7 +21,6 @@ import {
 	SunIcon,
 	SwatchIcon,
 } from "@heroicons/react/24/outline";
-import { AnimatePresence, motion } from "framer-motion";
 import {
 	type FC,
 	type MutableRefObject,
@@ -368,25 +366,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				px={3}
 			>
 				<HStack spacing={2.5} align="center" justify="center" w="full">
-					<Box
-						as="span"
-						display="inline-flex"
-						alignItems="center"
-						justifyContent="center"
-					>
-						<AnimatePresence mode="wait" initial={false}>
-							<motion.span
-								key={selected ? `${theme.key}-on` : `${theme.key}-off`}
-								initial={{ rotate: -120, opacity: 0, scale: 0.6 }}
-								animate={{ rotate: 0, opacity: 1, scale: 1 }}
-								exit={{ rotate: 120, opacity: 0, scale: 0.6 }}
-								transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-								style={{ display: "inline-flex" }}
-							>
-								<Icon />
-							</motion.span>
-						</AnimatePresence>
-					</Box>
+					<Icon />
 					<Text fontSize="13px" fontWeight={selected ? "700" : "500"}>
 						{t(`theme.${theme.key}`, theme.label)}
 					</Text>
@@ -473,44 +453,37 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						{ACCENT_OPTIONS.map((accent) => {
 							const selected = activeAccent === accent.key;
 							return (
-								<Tooltip
+								<IconButton
 									key={accent.key}
-									label={t(`theme.accent.${accent.key}`, accent.label)}
-									hasArrow
-									placement="top"
-									zIndex={10005}
-								>
-									<IconButton
-										aria-label={t(`theme.accent.${accent.key}`, accent.label)}
-										icon={
-											selected ? (
-												<CheckIconChakra w="14px" h="14px" color="white" />
-											) : undefined
-										}
-										size="sm"
-										w="36px"
-										h="36px"
-										minW="36px"
-										borderRadius="full"
-										borderWidth="2px"
-										borderColor={selected ? "white" : "transparent"}
-										bg={accent.color}
-										boxShadow={
-											selected
-												? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
-												: "0 2px 6px rgba(0, 0, 0, 0.15)"
-										}
-										transform={selected ? "scale(1.06)" : "scale(1)"}
-										_hover={{
-											md: {
-												bg: accent.hover,
-												transform: "scale(1.1)",
-											},
-										}}
-										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-										onClick={() => selectAccent(accent.key)}
-									/>
-								</Tooltip>
+									aria-label={t(`theme.accent.${accent.key}`, accent.label)}
+									icon={
+										selected ? (
+											<CheckIconChakra w="14px" h="14px" color="white" />
+										) : undefined
+									}
+									size="sm"
+									w="36px"
+									h="36px"
+									minW="36px"
+									borderRadius="full"
+									borderWidth="2px"
+									borderColor={selected ? "white" : "transparent"}
+									bg={accent.color}
+									boxShadow={
+										selected
+											? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
+											: "0 2px 6px rgba(0, 0, 0, 0.15)"
+									}
+									transform={selected ? "scale(1.06)" : "scale(1)"}
+									_hover={{
+										md: {
+											bg: accent.hover,
+											transform: "scale(1.1)",
+										},
+									}}
+									transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+									onClick={() => selectAccent(accent.key)}
+								/>
 							);
 						})}
 					</SimpleGrid>
