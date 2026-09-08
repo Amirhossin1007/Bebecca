@@ -2651,6 +2651,8 @@
 	"sidebar.usersList": "لیست کاربران",
 	"sidebar.groups.observability": "نظارت و لاگ‌ها",
 	"sidebar.groups.infrastructure": "شبکه و زیرساخت",
+	"sidebar.groups.traffic": "ترافیک و مدیران",
+	"sidebar.groups.docs": "مستندات",
 	"sidebar.groups.system": "تنظیمات و سیستم",
 	"pages.xray.outbound.empty": "هیچ اوتباندی یافت نشد",
 	"common.confirmDelete": "آیا از حذف این مورد اطمینان دارید؟",

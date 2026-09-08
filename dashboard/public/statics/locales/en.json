@@ -2645,6 +2645,8 @@
 	"sidebar.usersList": "User List",
 	"sidebar.groups.observability": "Observability & Logs",
 	"sidebar.groups.infrastructure": "Infrastructure",
+	"sidebar.groups.traffic": "Traffic & Admins",
+	"sidebar.groups.docs": "Documentation",
 	"sidebar.groups.system": "System & Tools",
 	"pages.xray.outbound.empty": "No outbound found",
 	"common.confirmDelete": "Delete this item?",

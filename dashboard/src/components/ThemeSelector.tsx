@@ -22,6 +22,7 @@ import {
 	SunIcon,
 	SwatchIcon,
 } from "@heroicons/react/24/outline";
+import { AnimatePresence, motion } from "framer-motion";
 import {
 	type FC,
 	type MutableRefObject,
@@ -367,7 +368,25 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				px={3}
 			>
 				<HStack spacing={2.5} align="center" justify="center" w="full">
-					<Icon />
+					<Box
+						as="span"
+						display="inline-flex"
+						alignItems="center"
+						justifyContent="center"
+					>
+						<AnimatePresence mode="wait" initial={false}>
+							<motion.span
+								key={selected ? `${theme.key}-on` : `${theme.key}-off`}
+								initial={{ rotate: -120, opacity: 0, scale: 0.6 }}
+								animate={{ rotate: 0, opacity: 1, scale: 1 }}
+								exit={{ rotate: 120, opacity: 0, scale: 0.6 }}
+								transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+								style={{ display: "inline-flex" }}
+							>
+								<Icon />
+							</motion.span>
+						</AnimatePresence>
+					</Box>
 					<Text fontSize="13px" fontWeight={selected ? "700" : "500"}>
 						{t(`theme.${theme.key}`, theme.label)}
 					</Text>
@@ -401,6 +420,11 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 			p={3.5}
 			userSelect="none"
 			sx={{
+				zIndex: 9999,
+				isolation: "isolate",
+				".chakra-tooltip__popper": {
+					zIndex: "10005 !important",
+				},
 				".chakra-menu__menuitem": {
 					bg: "transparent !important",
 					"&:hover": {

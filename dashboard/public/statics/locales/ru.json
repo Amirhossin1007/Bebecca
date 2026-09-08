@@ -919,5 +919,7 @@
 	"sidebar.usersList": "Список пользователей",
 	"sidebar.groups.observability": "Наблюдаемость и журналы",
 	"sidebar.groups.infrastructure": "Инфраструктура",
+	"sidebar.groups.traffic": "Трафик и администраторы",
+	"sidebar.groups.docs": "Документация",
 	"sidebar.groups.system": "Система и инструменты"
 }

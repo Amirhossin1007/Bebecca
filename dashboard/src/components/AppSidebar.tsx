@@ -135,6 +135,12 @@ type GroupNavItem = {
 
 type NavEntry = DirectNavItem | GroupNavItem;
 
+type NavSection = {
+	id: string;
+	labelKey?: string;
+	entries: NavEntry[];
+};
+
 export const AppSidebar: FC<AppSidebarProps> = ({
 	collapsed,
 	inDrawer = false,
@@ -178,7 +184,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
 		Boolean(baseSelf.self_placeholders);
 
-	const [hasNewTutorials, setHasNewTutorials] = useState(false);
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
 		users_hub: true,
 	});
@@ -202,19 +207,15 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			const manifest = (await response.json()) as Record<string, string>;
 			const version = manifest[langKey]?.toString().trim();
 			if (!version) {
-				setHasNewTutorials(false);
 				return;
 			}
 			const seenKey = getTutorialSeenKey(langKey);
 			const seenVersion = window.localStorage.getItem(seenKey);
 			if (seenVersion === null) {
 				window.localStorage.setItem(seenKey, version);
-				setHasNewTutorials(false);
-				return;
 			}
-			setHasNewTutorials(seenVersion !== version);
 		} catch {
-			setHasNewTutorials(false);
+			return;
 		}
 	}, [dashboardRoot, i18n.language]);
 
@@ -241,197 +242,239 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		}
 	};
 
-	const navEntries: NavEntry[] = useMemo(
+	const navSections: NavSection[] = useMemo(
 		() => [
 			{
-				type: "direct",
-				id: "dashboard",
-				title: t("dashboard"),
-				url: "/",
-				icon: HomeIconStyled,
-				visible: true,
+				id: "main",
+				entries: [
+					{
+						type: "direct",
+						id: "dashboard",
+						title: t("dashboard"),
+						url: "/",
+						icon: HomeIconStyled,
+						visible: true,
+					},
+				],
 			},
 			{
-				type: "group",
-				id: "users_hub",
-				title: t("sidebar.groups.userHub"),
-				icon: UsersIconStyled,
-				visible: true,
-				subItems: [
+				id: "users",
+				labelKey: "sidebar.groups.userHub",
+				entries: [
 					{
-						id: "users_list",
-						title: t("sidebar.usersList"),
-						url: "/users",
+						type: "group",
+						id: "users_hub",
+						title: t("sidebar.groups.userHub"),
 						icon: UsersIconStyled,
 						visible: true,
-					},
-					{
-						id: "bulk_actions",
-						title: t("bulkActions.menu"),
-						url: "/bulk-actions",
-						icon: BulkActionsIconStyled,
-						visible: true,
-					},
-				],
-			},
-			{
-				type: "direct",
-				id: "admins",
-				title: t("admins"),
-				url: "/admins",
-				icon: AdminIconStyled,
-				visible: canViewAdmins,
-			},
-			{
-				type: "direct",
-				id: "myaccount",
-				title: t("myaccount.menu"),
-				url: "/myaccount",
-				icon: MyAccountIconStyled,
-				visible: Boolean(selfAccess.self_myaccount),
-			},
-			{
-				type: "direct",
-				id: "usage",
-				title: t("usage.menu"),
-				url: "/usage",
-				icon: UsageIconStyled,
-				visible: canViewUsage,
-			},
-			{
-				type: "direct",
-				id: "hosts",
-				title: t("header.hostSettings"),
-				url: "/hosts",
-				icon: HostsIconStyled,
-				visible: canViewHosts,
-			},
-			{
-				type: "direct",
-				id: "services",
-				title: t("services.title"),
-				url: "/services",
-				icon: ServicesIconStyled,
-				visible: canViewServicesSection,
-			},
-			{
-				type: "direct",
-				id: "nodes",
-				title: t("header.nodeSettings"),
-				url: "/node-settings",
-				icon: NodeIconStyled,
-				visible: Boolean(sectionAccess?.[AdminSection.Nodes]),
-			},
-			{
-				type: "group",
-				id: "observability",
-				title: t("sidebar.groups.observability"),
-				icon: ObservabilityIconStyled,
-				visible: Boolean(sectionAccess?.[AdminSection.Xray]) || canViewRecentActions,
-				subItems: [
-					{
-						id: "xray_logs",
-						title: t("pages.xray.logs"),
-						url: "/xray-logs",
-						icon: XrayLogsIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-					},
-					{
-						id: "access_insights",
-						title: t("header.accessInsights"),
-						url: "/access-insights",
-						icon: InsightsIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-					},
-					{
-						id: "recent_actions",
-						title: t("recentActions.title"),
-						url: "/recent-actions",
-						icon: RecentActionsIconStyled,
-						visible: canViewRecentActions,
+						subItems: [
+							{
+								id: "users_list",
+								title: t("sidebar.usersList"),
+								url: "/users",
+								icon: UsersIconStyled,
+								visible: true,
+							},
+							{
+								id: "bulk_actions",
+								title: t("bulkActions.menu"),
+								url: "/bulk-actions",
+								icon: BulkActionsIconStyled,
+								visible: true,
+							},
+						],
 					},
 				],
 			},
 			{
-				type: "group",
+				id: "traffic",
+				labelKey: "sidebar.groups.traffic",
+				entries: [
+					{
+						type: "direct",
+						id: "myaccount",
+						title: t("myaccount.menu"),
+						url: "/myaccount",
+						icon: MyAccountIconStyled,
+						visible: Boolean(selfAccess.self_myaccount),
+					},
+					{
+						type: "direct",
+						id: "usage",
+						title: t("usage.menu"),
+						url: "/usage",
+						icon: UsageIconStyled,
+						visible: canViewUsage,
+					},
+					{
+						type: "direct",
+						id: "admins",
+						title: t("admins"),
+						url: "/admins",
+						icon: AdminIconStyled,
+						visible: canViewAdmins,
+					},
+				],
+			},
+			{
 				id: "infrastructure",
-				title: t("sidebar.groups.infrastructure"),
-				icon: InfrastructureIconStyled,
-				visible: Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
-				subItems: [
+				labelKey: "sidebar.groups.infrastructure",
+				entries: [
 					{
-						id: "xray_settings",
-						title: t("header.xraySettings"),
-						url: "/xray-settings",
-						icon: XraySettingsIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+						type: "direct",
+						id: "services",
+						title: t("services.title"),
+						url: "/services",
+						icon: ServicesIconStyled,
+						visible: canViewServicesSection,
 					},
 					{
-						id: "haproxy",
-						title: t("haproxy.title"),
-						url: "/haproxy",
-						icon: HAProxyIconStyled,
-						visible: isPrivilegedAdmin,
+						type: "direct",
+						id: "hosts",
+						title: t("header.hostSettings"),
+						url: "/hosts",
+						icon: HostsIconStyled,
+						visible: canViewHosts,
+					},
+					{
+						type: "direct",
+						id: "nodes",
+						title: t("header.nodeSettings"),
+						url: "/node-settings",
+						icon: NodeIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Nodes]),
 					},
 				],
 			},
 			{
-				type: "group",
+				id: "observability",
+				labelKey: "sidebar.groups.observability",
+				entries: [
+					{
+						type: "group",
+						id: "observability",
+						title: t("sidebar.groups.observability"),
+						icon: ObservabilityIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || canViewRecentActions,
+						subItems: [
+							{
+								id: "xray_logs",
+								title: t("pages.xray.logs"),
+								url: "/xray-logs",
+								icon: XrayLogsIconStyled,
+								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+							},
+							{
+								id: "access_insights",
+								title: t("header.accessInsights"),
+								url: "/access-insights",
+								icon: InsightsIconStyled,
+								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+							},
+							{
+								id: "recent_actions",
+								title: t("recentActions.title"),
+								url: "/recent-actions",
+								icon: RecentActionsIconStyled,
+								visible: canViewRecentActions,
+							},
+						],
+					},
+					{
+						type: "group",
+						id: "infrastructure",
+						title: t("sidebar.groups.infrastructure"),
+						icon: InfrastructureIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
+						subItems: [
+							{
+								id: "xray_settings",
+								title: t("header.xraySettings"),
+								url: "/xray-settings",
+								icon: XraySettingsIconStyled,
+								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+							},
+							{
+								id: "haproxy",
+								title: t("haproxy.title"),
+								url: "/haproxy",
+								icon: HAProxyIconStyled,
+								visible: isPrivilegedAdmin,
+							},
+						],
+					},
+				],
+			},
+			{
 				id: "system",
-				title: t("sidebar.groups.system"),
-				icon: SettingsIconStyled,
-				visible:
-					Boolean(sectionAccess?.[AdminSection.Integrations]) ||
-					canManagePlaceholders ||
-					isPrivilegedAdmin,
-				subItems: [
+				labelKey: "sidebar.groups.system",
+				entries: [
 					{
-						id: "settings_panel",
-						title: t("header.integrationSettings"),
-						url: "/settings",
-						icon: MasterSettingsIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Integrations]),
+						type: "group",
+						id: "system",
+						title: t("sidebar.groups.system"),
+						icon: SettingsIconStyled,
+						visible:
+							Boolean(sectionAccess?.[AdminSection.Integrations]) ||
+							canManagePlaceholders ||
+							isPrivilegedAdmin,
+						subItems: [
+							{
+								id: "settings_panel",
+								title: t("header.integrationSettings"),
+								url: "/settings",
+								icon: MasterSettingsIconStyled,
+								visible: Boolean(sectionAccess?.[AdminSection.Integrations]),
+							},
+							{
+								id: "placeholders",
+								title: isPrivilegedAdmin
+									? t("placeholders.menu")
+									: t("placeholders.settingsMenu"),
+								url: "/placeholders",
+								icon: PlaceholderIconStyled,
+								visible: canManagePlaceholders,
+							},
+							{
+								id: "phpmyadmin",
+								title: t("phpmyadmin.menu"),
+								url: "/phpmyadmin",
+								icon: PHPMyAdminIconStyled,
+								visible: isPrivilegedAdmin,
+							},
+							{
+								id: "external_apps",
+								title: t("externalApps.menu"),
+								url: "/external-apps",
+								icon: ExternalAppsIconStyled,
+								visible: isPrivilegedAdmin,
+							},
+						],
 					},
 					{
-						id: "placeholders",
-						title: isPrivilegedAdmin
-							? t("placeholders.menu")
-							: t("placeholders.settingsMenu"),
-						url: "/placeholders",
-						icon: PlaceholderIconStyled,
-						visible: canManagePlaceholders,
-					},
-					{
-						id: "phpmyadmin",
-						title: t("phpmyadmin.menu"),
-						url: "/phpmyadmin",
-						icon: PHPMyAdminIconStyled,
-						visible: isPrivilegedAdmin,
-					},
-					{
-						id: "external_apps",
-						title: t("externalApps.menu"),
-						url: "/external-apps",
-						icon: ExternalAppsIconStyled,
-						visible: isPrivilegedAdmin,
-					},
-					{
-						id: "api_docs",
-						title: t("apiDocs.menu"),
-						url: "/api-docs",
-						icon: ApiDocsIconStyled,
-						visible: isPrivilegedAdmin,
+						type: "group",
+						id: "docs",
+						title: t("sidebar.groups.docs"),
+						icon: TutorialIconStyled,
+						visible: true,
+						subItems: [
+							{
+								id: "api_docs",
+								title: t("apiDocs.menu"),
+								url: "/api-docs",
+								icon: ApiDocsIconStyled,
+								visible: isPrivilegedAdmin,
+							},
+							{
+								id: "tutorials",
+								title: t("tutorials.menu"),
+								url: tutorialsUrl,
+								icon: TutorialIconStyled,
+								visible: true,
+							},
+						],
 					},
 				],
-			},
-			{
-				type: "direct",
-				id: "tutorials",
-				title: t("tutorials.menu"),
-				url: tutorialsUrl,
-				icon: TutorialIconStyled,
-				badge: hasNewTutorials,
-				visible: true,
 			},
 		],
 		[
@@ -445,7 +488,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			canViewRecentActions,
 			isPrivilegedAdmin,
 			canManagePlaceholders,
-			hasNewTutorials,
 		],
 	);
 
@@ -475,6 +517,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const handleGroupClick = (group: GroupNavItem) => {
 		const isCurrentlyOpen = Boolean(openGroups[group.id]);
 		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
+		if (!isCurrentlyOpen) {
+			const firstVisible = group.subItems.find((sub) => sub.visible);
+			if (firstVisible) {
+				handleNavigate(firstVisible.url);
+			}
+		}
 	};
 
 	return (
@@ -520,7 +568,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 									filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
 								}}
 							/>
-							<Text fontSize="15px" fontWeight="700" letterSpacing="-0.02em" color="panel.text">
+							<Text
+								fontSize="18px"
+								fontWeight="700"
+								lineHeight="26px"
+								letterSpacing="-0.02em"
+								color="panel.text"
+							>
 								Rebecca
 							</Text>
 						</HStack>
@@ -549,10 +603,39 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					px={collapsed ? 0 : 1}
 				>
 					<VStack align="stretch" spacing={1.5} py={1}>
-						{navEntries.map((entry) => {
-							if (!entry.visible) return null;
+						{navSections.map((section, sectionIdx) => {
+							const visibleEntries = section.entries.filter((e) => e.visible);
+							if (visibleEntries.length === 0) return null;
+							return (
+								<Box key={section.id}>
+									{sectionIdx > 0 && (
+										<Box
+											h="1px"
+											bg="panel.border"
+											opacity={0.6}
+											mx={2}
+											mb={2}
+											mt={sectionIdx === 1 ? 2 : 3}
+										/>
+									)}
+									{!collapsed && section.labelKey && sectionIdx > 0 && (
+										<Text
+											fontSize="10px"
+											fontWeight="700"
+											color="panel.textMuted"
+											textTransform="uppercase"
+											letterSpacing="0.06em"
+											px={3.5}
+											pb={1.5}
+											opacity={0.75}
+										>
+											{t(section.labelKey)}
+										</Text>
+									)}
+										<VStack align="stretch" spacing={1}>
+												{visibleEntries.map((entry) => {
 
-							if (entry.type === "direct") {
+												if (entry.type === "direct") {
 								const isCurrent =
 									location.pathname === entry.url ||
 									(entry.url !== "/" && location.pathname.startsWith(entry.url));
@@ -881,15 +964,21 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														})}
 													</VStack>
 												</Box>
-											</motion.div>
-										)}
-									</AnimatePresence>
-								</Box>
-							);
-						})}
-					</VStack>
-				</Box>
-			</Flex>
-		</Box>
-	);
-};
+												</motion.div>
+												)}
+												</AnimatePresence>
+												</Box>
+												);
+												})
+												}
+												</VStack>
+												</Box>
+												);
+												})
+												}
+												</VStack>
+												</Box>
+												</Flex>
+												</Box>
+												);
+												};

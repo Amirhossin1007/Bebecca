@@ -854,12 +854,13 @@ export function AppLayout() {
 		} else if (path === "/api-docs") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
+				{ label: t("sidebar.groups.docs") },
 				{ label: t("apiDocs.menu"), path: "/api-docs" },
 			];
 		} else if (path === "/tutorials") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.docs") },
 				{ label: t("tutorials.menu"), path: "/tutorials" },
 			];
 		} else {
