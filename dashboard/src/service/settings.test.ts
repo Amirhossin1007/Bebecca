@@ -64,7 +64,9 @@ describe("importRebeccaBackup", () => {
 	it("surfaces the API error detail when restore fails", async () => {
 		class FailedUploadRequest extends UploadRequest {
 			status = 408;
-			response = { detail: "backup upload timed out" };
+			response = {
+				detail: "backup upload timed out",
+			} as unknown as UploadRequest["response"];
 		}
 		vi.stubGlobal("XMLHttpRequest", FailedUploadRequest);
 
