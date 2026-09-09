@@ -23,6 +23,7 @@ func testRepository(t *testing.T) (Repository, *sql.DB) {
 		`CREATE TABLE nodes (
 			id INTEGER PRIMARY KEY,
 			name TEXT,
+			address TEXT,
 			status TEXT,
 			xray_config_mode TEXT DEFAULT 'default',
 			xray_config TEXT NULL
@@ -42,9 +43,9 @@ func testRepository(t *testing.T) (Repository, *sql.DB) {
 		)`,
 		`CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, usage_coefficient REAL NOT NULL DEFAULT 1)`,
 		`CREATE TABLE hosts (id INTEGER PRIMARY KEY AUTOINCREMENT, remark TEXT NULL, address TEXT NULL, inbound_tag TEXT NULL)`,
-		`INSERT INTO nodes (id, name, status, xray_config_mode) VALUES (7, 'de-1', 'connected', 'default')`,
-		`INSERT INTO nodes (id, name, status, xray_config_mode, xray_config) VALUES (8, 'custom-1', 'error', 'custom', '{"inbounds":[{"tag":"custom-ss","protocol":"shadowsocks","port":8080,"settings":{"clients":[],"network":"tcp,udp"}}],"outbounds":[{"tag":"DIRECT","protocol":"freedom"}]}')`,
-		`INSERT INTO nodes (id, name, status, xray_config_mode, xray_config) VALUES (9, 'deleted-1', 'deleted', 'custom', '{"inbounds":[{"tag":"deleted-vless","protocol":"vless","port":9443,"settings":{"decryption":"none"}}]}')`,
+		`INSERT INTO nodes (id, name, address, status, xray_config_mode) VALUES (7, 'de-1', '192.0.2.7', 'connected', 'default')`,
+		`INSERT INTO nodes (id, name, address, status, xray_config_mode, xray_config) VALUES (8, 'custom-1', '192.0.2.8', 'error', 'custom', '{"inbounds":[{"tag":"custom-ss","protocol":"shadowsocks","port":8080,"settings":{"clients":[],"network":"tcp,udp"}}],"outbounds":[{"tag":"DIRECT","protocol":"freedom"}]}')`,
+		`INSERT INTO nodes (id, name, address, status, xray_config_mode, xray_config) VALUES (9, 'deleted-1', '192.0.2.9', 'deleted', 'custom', '{"inbounds":[{"tag":"deleted-vless","protocol":"vless","port":9443,"settings":{"decryption":"none"}}]}')`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {

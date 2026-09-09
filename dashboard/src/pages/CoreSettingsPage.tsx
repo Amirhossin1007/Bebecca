@@ -4142,6 +4142,7 @@ export const CoreSettingsPage: FC = () => {
 												<HStack as="span" minW={0} spacing={1}>
 													<Text as="span" noOfLines={1}>
 														{target.name}
+														{target.address ? ` - ${target.address}` : ""}
 													</Text>
 													{target.mode === "custom" && (
 														<Text
