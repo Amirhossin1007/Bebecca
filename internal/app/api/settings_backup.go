@@ -15,6 +15,8 @@ import (
 
 const maxBackupUploadBytes int64 = 128 << 20
 
+const backupUploadMemoryBytes int64 = 8 << 20
+
 func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/settings/backup/export" {
 		writeError(w, http.StatusNotFound, "not found")
@@ -60,6 +62,10 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusRequestEntityTooLarge, "backup upload is too large")
 			return
 		}
+		if isBackupUploadTimeout(err) {
+			writeError(w, http.StatusRequestTimeout, "backup upload timed out while receiving data; retry with a stable connection")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -97,7 +103,7 @@ func saveBackupUpload(w http.ResponseWriter, r *http.Request) (string, func(), e
 		return "", func() {}, errBackupUploadTooLarge
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBackupUploadBytes)
-	if err := r.ParseMultipartForm(128 << 20); err != nil {
+	if err := r.ParseMultipartForm(backupUploadMemoryBytes); err != nil {
 		return "", func() {}, err
 	}
 	if r.MultipartForm != nil {
@@ -128,6 +134,13 @@ func saveBackupUpload(w http.ResponseWriter, r *http.Request) (string, func(), e
 		return "", func() {}, err
 	}
 	return path, cleanup, nil
+}
+
+func isBackupUploadTimeout(err error) bool {
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "i/o timeout")
 }
 
 func writeBackupError(w http.ResponseWriter, err error) {

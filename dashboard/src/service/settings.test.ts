@@ -60,4 +60,19 @@ describe("importRebeccaBackup", () => {
 		expect(UploadRequest.current.withCredentials).toBe(true);
 		expect(result.rows_restored).toBe(2);
 	});
+
+	it("surfaces the API error detail when restore fails", async () => {
+		class FailedUploadRequest extends UploadRequest {
+			status = 408;
+			response = { detail: "backup upload timed out" };
+		}
+		vi.stubGlobal("XMLHttpRequest", FailedUploadRequest);
+
+		await expect(
+			importRebeccaBackup(new File(["backup"], "test.rbbackup")),
+		).rejects.toMatchObject({
+			message: "backup upload timed out",
+			response: { status: 408, _data: { detail: "backup upload timed out" } },
+		});
+	});
 });
