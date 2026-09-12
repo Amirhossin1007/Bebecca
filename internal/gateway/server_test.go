@@ -226,7 +226,7 @@ func TestNewHTTPServerSetsReadAndIdleTimeouts(t *testing.T) {
 	if server.ReadHeaderTimeout != 15*time.Second {
 		t.Fatalf("ReadHeaderTimeout = %s", server.ReadHeaderTimeout)
 	}
-	if server.ReadTimeout != 30*time.Second {
+	if server.ReadTimeout != 15*time.Minute {
 		t.Fatalf("ReadTimeout = %s", server.ReadTimeout)
 	}
 	if server.IdleTimeout != 2*time.Minute {
