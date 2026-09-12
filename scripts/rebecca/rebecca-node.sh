@@ -966,11 +966,18 @@ get_node_binary_release_asset_metadata() {
         release_payload=$(curl -fsSL "$release_api" 2>/dev/null) || release_payload=""
         resolved_tag=$(echo "$release_payload" | jq -r '.tag_name // empty')
         node_asset_name="rebecca-node-${resolved_tag}-linux-${binary_arch}"
-        node_asset_url=$(echo "$release_payload" | jq -r --arg name "$node_asset_name" '
-            .assets[]?
-            | select(.name == $name)
-            | .browser_download_url
-        ' | head -n 1)
+        node_asset_url=$(echo "$release_payload" | jq -r --arg name "$node_asset_name" --arg arch "$binary_arch" '
+            [
+                .assets[]?
+                | select(
+                    (.name == $name)
+                    or (.name | test("^rebecca-node-.*-linux-" + $arch + "$"))
+                )
+                | select(.browser_download_url != null)
+            ]
+            | sort_by(if .name == $name then 0 else 1 end, .name)
+            | .[0].browser_download_url // empty
+        ')
         if [ -n "$node_asset_url" ] && [ "$node_asset_url" != "null" ]; then
             printf '%s|%s\n' "${resolved_tag:-$node_version}" "$node_asset_url"
             return 0
