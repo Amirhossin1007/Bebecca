@@ -54,7 +54,7 @@ import type { SortingState } from "@tanstack/react-table";
 import { AppleEmojiText } from "components/common/AppleEmojiText";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
-import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
+import { useDashboard } from "contexts/DashboardContext";
 import {
 	FetchNodesQueryKey,
 	type NodeType,
@@ -148,9 +148,6 @@ const formatCellValue = (value?: string | number | null): string => {
 	}
 	return String(value);
 };
-
-const uniqueValues = (items: string[]): string[] =>
-	Array.from(new Set(items.filter(Boolean)));
 
 const getNodeServiceUpdateAvailable = (
 	currentVersion?: string | null,
@@ -252,15 +249,26 @@ const ProtocolStatusList = ({
 				</Tag>
 			))
 		) : (
-			<Text fontSize="sm" color="panel.textMuted">-</Text>
+			<Text fontSize="sm" color="panel.textMuted">
+				-
+			</Text>
 		)}
 	</Flex>
 );
 
 const NodeDetail = ({ label, value }: { label: string; value: string }) => (
 	<Box minW={0}>
-		<Text fontSize="xs" color="panel.textMuted" mb={1}>{label}</Text>
-		<Text fontSize="sm" color="panel.text" fontWeight="medium" overflowWrap="anywhere">{value}</Text>
+		<Text fontSize="xs" color="panel.textMuted" mb={1}>
+			{label}
+		</Text>
+		<Text
+			fontSize="sm"
+			color="panel.text"
+			fontWeight="medium"
+			overflowWrap="anywhere"
+		>
+			{value}
+		</Text>
 	</Box>
 );
 
@@ -586,7 +594,6 @@ export const NodesPage: FC = () => {
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canManageNodes =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.nodes);
-	const inbounds = useDashboard((state) => state.inbounds);
 	const onEditingNodes = useDashboard((state) => state.onEditingNodes);
 	const {
 		data: nodes,
@@ -708,16 +715,6 @@ export const NodesPage: FC = () => {
 		maintenanceInfo?.panel?.install_mode ||
 		"docker";
 	const hostActionsAvailable = panelInstallMode === "binary";
-	const defaultInboundSummaries = useMemo(
-		() =>
-			uniqueValues(
-				Array.from(inbounds.values()).flatMap((items) =>
-					items.map((inbound) => inbound.tag),
-				),
-			),
-		[inbounds],
-	);
-
 	useEffect(() => {
 		if (!canManageNodes) {
 			onEditingNodes(false);
@@ -729,12 +726,6 @@ export const NodesPage: FC = () => {
 			onEditingNodes(false);
 		};
 	}, [canManageNodes, onEditingNodes]);
-
-	useEffect(() => {
-		if (canManageNodes && !inbounds.size) {
-			fetchInbounds();
-		}
-	}, [canManageNodes, inbounds.size]);
 
 	const { isLoading: isAdding, mutate: addNodeMutate } = useMutation(addNode, {
 		onSuccess: (createdNode: NodeType) => {
@@ -2356,7 +2347,9 @@ export const NodesPage: FC = () => {
 				mobileVisible: true,
 				mobilePriority: 10,
 				mobileMetaLabel: t("nodes.protocols"),
-				cell: (node) => <ProtocolStatusList statuses={node.protocol_statuses} />,
+				cell: (node) => (
+					<ProtocolStatusList statuses={node.protocol_statuses} />
+				),
 			},
 			{
 				id: "certificate",
@@ -2414,22 +2407,75 @@ export const NodesPage: FC = () => {
 				<ProtocolStatusList statuses={node.protocol_statuses} />
 			</Box>
 			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3}>
-				<NodeDetail label={t("nodes.nodeAddress")} value={`${node.address}:${node.port}`} />
-				<NodeDetail label={t("nodes.columns.nodeRuntime")} value={getNodeRuntimeDisplayVersion(node) || "-"} />
-				<NodeDetail label={t("nodes.installMode.label")} value={node.node_install_mode || "-"} />
-				<NodeDetail label={t("nodes.updateChannel")} value={node.node_update_channel || "-"} />
-				<NodeDetail label={t("nodes.xrayProcess")} value={node.xray_pid ? `PID ${node.xray_pid}` : "-"} />
-				<NodeDetail label={t("nodes.xrayCPU")} value={formatNodePercent(node.xray_cpu_usage_percent)} />
-				<NodeDetail label={t("nodes.xrayMemory")} value={formatNodeBytes(node.xray_memory_used)} />
-				<NodeDetail label={t("nodes.xrayUptime")} value={formatNodeUptime(node.xray_uptime_seconds)} />
-				<NodeDetail label={t("nodes.cpu")} value={`${formatNodePercent(node.cpu_usage_percent)} · ${formatCPUFrequency(node.cpu_frequency_hz) || "-"}`} />
-				<NodeDetail label={t("nodes.ram")} value={`${formatNodeBytes(node.memory_used)} / ${formatNodeBytes(node.memory_total)}`} />
-				<NodeDetail label={t("nodes.bandwidthSpeed")} value={`↑ ${formatNodeSpeed(node.upload_speed)} · ↓ ${formatNodeSpeed(node.download_speed)}`} />
-				<NodeDetail label={t("redisUptime")} value={formatNodeUptime(node.uptime_seconds)} />
-				<NodeDetail label={t("nodes.revisions")} value={`${node.applied_revision ?? 0} / ${node.desired_revision ?? 0}`} />
-				<NodeDetail label={t("nodes.capabilities")} value={node.capabilities?.join(", ") || "-"} />
+				<NodeDetail
+					label={t("nodes.agentHealth")}
+					value={node.agent_status || "unknown"}
+				/>
+				<NodeDetail
+					label={t("nodes.xrayHealth")}
+					value={node.xray_status || "unknown"}
+				/>
+				<NodeDetail
+					label={t("nodes.nodeAddress")}
+					value={`${node.address}:${node.port}`}
+				/>
+				<NodeDetail
+					label={t("nodes.columns.nodeRuntime")}
+					value={getNodeRuntimeDisplayVersion(node) || "-"}
+				/>
+				<NodeDetail
+					label={t("nodes.installMode.label")}
+					value={node.node_install_mode || "-"}
+				/>
+				<NodeDetail
+					label={t("nodes.updateChannel")}
+					value={node.node_update_channel || "-"}
+				/>
+				<NodeDetail
+					label={t("nodes.xrayProcess")}
+					value={node.xray_pid ? `PID ${node.xray_pid}` : "-"}
+				/>
+				<NodeDetail
+					label={t("nodes.xrayCPU")}
+					value={formatNodePercent(node.xray_cpu_usage_percent)}
+				/>
+				<NodeDetail
+					label={t("nodes.xrayMemory")}
+					value={formatNodeBytes(node.xray_memory_used)}
+				/>
+				<NodeDetail
+					label={t("nodes.xrayUptime")}
+					value={formatNodeUptime(node.xray_uptime_seconds)}
+				/>
+				<NodeDetail
+					label={t("nodes.cpu")}
+					value={`${formatNodePercent(node.cpu_usage_percent)} · ${formatCPUFrequency(node.cpu_frequency_hz) || "-"}`}
+				/>
+				<NodeDetail
+					label={t("nodes.ram")}
+					value={`${formatNodeBytes(node.memory_used)} / ${formatNodeBytes(node.memory_total)}`}
+				/>
+				<NodeDetail
+					label={t("nodes.bandwidthSpeed")}
+					value={`↑ ${formatNodeSpeed(node.upload_speed)} · ↓ ${formatNodeSpeed(node.download_speed)}`}
+				/>
+				<NodeDetail
+					label={t("redisUptime")}
+					value={formatNodeUptime(node.uptime_seconds)}
+				/>
+				<NodeDetail
+					label={t("nodes.revisions")}
+					value={`${node.applied_revision ?? 0} / ${node.desired_revision ?? 0}`}
+				/>
+				<NodeDetail
+					label={t("nodes.capabilities")}
+					value={node.capabilities?.join(", ") || "-"}
+				/>
 				<NodeDetail label={t("nodes.note")} value={node.note || "-"} />
-				<NodeDetail label={t("nodes.lastMessage")} value={node.message || "-"} />
+				<NodeDetail
+					label={t("nodes.lastMessage")}
+					value={node.message || "-"}
+				/>
 			</SimpleGrid>
 		</Stack>
 	);
@@ -2903,7 +2949,9 @@ export const NodesPage: FC = () => {
 				actionsColumnWidth="44px"
 				showActionsOnHover
 				onRowClick={(node) =>
-					setExpandedNodeID((current) => current === node.id ? null : (node.id ?? null))
+					setExpandedNodeID((current) =>
+						current === node.id ? null : (node.id ?? null),
+					)
 				}
 				isRowExpanded={(node) => expandedNodeID === node.id}
 				renderExpandedRow={renderExpandedNode}
@@ -3168,7 +3216,6 @@ export const NodesPage: FC = () => {
 				isOpen={!!editingNode}
 				onClose={() => setEditingNode(null)}
 				node={editingNode || undefined}
-				defaultInboundTags={defaultInboundSummaries}
 				mutate={updateNodeMutate}
 				isLoading={isUpdating}
 			/>
