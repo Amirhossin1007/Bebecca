@@ -35,6 +35,8 @@ const (
 	mirzaBotRepositoryURL       = "https://github.com/mahdiMGF2/mirzabot"
 	mirzaBotAPIBaseURL          = "https://api.github.com/repos/mahdiMGF2/mirzabot"
 	mirzaBotArchiveBaseURL      = "https://codeload.github.com/mahdiMGF2/mirzabot"
+	faoximaRepositoryURL        = "https://github.com/Mmd-Amir/Faoxima"
+	faoximaArchiveBaseURL       = "https://codeload.github.com/Mmd-Amir/Faoxima"
 	MaxRequestBodyBytes         = 34 << 20
 	maxExternalAppArchiveBytes  = 32 << 20
 	maxExternalAppExtractedSize = 256 << 20
@@ -149,16 +151,17 @@ type secrets struct {
 }
 
 type Manager struct {
-	baseDir      string
-	legacyBase   string
-	databaseURL  string
-	dialect      string
-	rootPassword string
-	certificates *certificateapp.Manager
-	httpClient   *http.Client
-	mirzaAPIBase string
-	mirzaArchive string
-	fileAccess   string
+	baseDir        string
+	legacyBase     string
+	databaseURL    string
+	dialect        string
+	rootPassword   string
+	certificates   *certificateapp.Manager
+	httpClient     *http.Client
+	mirzaAPIBase   string
+	mirzaArchive   string
+	faoximaArchive string
+	fileAccess     string
 
 	operationMu  sync.Mutex
 	releaseMu    sync.Mutex
@@ -180,15 +183,16 @@ func New(cfg Config, certificates *certificateapp.Manager) *Manager {
 		}
 	}
 	manager := &Manager{
-		baseDir:      filepath.Clean(baseDir),
-		legacyBase:   legacyBase,
-		databaseURL:  cfg.DatabaseURL,
-		dialect:      dialect,
-		rootPassword: cfg.MySQLRootPassword,
-		certificates: certificates,
-		mirzaAPIBase: mirzaBotAPIBaseURL,
-		mirzaArchive: mirzaBotArchiveBaseURL,
-		fileAccess:   externalAppFileAccessRoot,
+		baseDir:        filepath.Clean(baseDir),
+		legacyBase:     legacyBase,
+		databaseURL:    cfg.DatabaseURL,
+		dialect:        dialect,
+		rootPassword:   cfg.MySQLRootPassword,
+		certificates:   certificates,
+		mirzaAPIBase:   mirzaBotAPIBaseURL,
+		mirzaArchive:   mirzaBotArchiveBaseURL,
+		faoximaArchive: faoximaArchiveBaseURL,
+		fileAccess:     externalAppFileAccessRoot,
 		httpClient: &http.Client{
 			Timeout: 2 * time.Minute,
 			CheckRedirect: func(request *http.Request, via []*http.Request) error {
@@ -258,7 +262,7 @@ func (m *Manager) reload() {
 				continue
 			}
 			var record Record
-			if json.Unmarshal(data, &record) != nil || (record.Template != "archive" && record.Template != "mirzabot") {
+			if json.Unmarshal(data, &record) != nil || (record.Template != "archive" && !IsTelegramBotTemplate(record.Template)) {
 				continue
 			}
 			id := strings.TrimSuffix(entry.Name(), ".json")
@@ -287,7 +291,7 @@ func (m *Manager) reload() {
 			record.Domain = domain
 			record.Path = mountPath
 			record.storageBase = base
-			if record.Template == "mirzabot" {
+			if IsTelegramBotTemplate(record.Template) {
 				_ = patchMirzaMiniApp(record.Root, mountPath)
 			}
 			loaded[id] = record
@@ -388,7 +392,7 @@ func (m *Manager) MatchMirzaLegacyPath(host, requestPath string) (Record, string
 	defer m.mu.RUnlock()
 	var matched Record
 	for _, record := range m.apps {
-		if record.Template != "mirzabot" || record.Domain != host || strings.TrimSpace(record.Path) == "" {
+		if !IsTelegramBotTemplate(record.Template) || record.Domain != host || strings.TrimSpace(record.Path) == "" {
 			continue
 		}
 		if matched.ID != "" {
@@ -485,6 +489,10 @@ func publicExternalAppRecord(record Record) PublicRecord {
 	}
 }
 
+func IsTelegramBotTemplate(template string) bool {
+	return template == "mirzabot" || template == "faoxima"
+}
+
 func externalAppDefaultIndex(root, runtime string) string {
 	if runtime == "node" {
 		return ""
@@ -501,7 +509,7 @@ func externalAppIndexFile(record Record) string {
 	if index := strings.TrimSpace(record.IndexFile); index != "" {
 		return filepath.ToSlash(index)
 	}
-	if record.Template == "mirzabot" {
+	if IsTelegramBotTemplate(record.Template) {
 		return "index.php"
 	}
 	return externalAppDefaultIndex(record.Root, record.Runtime)
@@ -605,7 +613,7 @@ func (m *Manager) mirzaSupported() (bool, string) {
 	}
 	credentials, err := parseDatabaseCredentials(m.databaseURL)
 	if err != nil || !isLocalDatabaseHost(credentials.Host) || credentials.Port != "3306" {
-		return false, "MirzaBot requires Rebecca to use the local MySQL or MariaDB service on port 3306."
+		return false, "Telegram bot hosting requires Rebecca to use the local MySQL or MariaDB service on port 3306."
 	}
 	return true, ""
 }
@@ -861,7 +869,49 @@ func (m *Manager) installArchive(ctx context.Context, request ArchiveInstallRequ
 	return publicExternalAppRecord(record), nil
 }
 
+type telegramBotInstallSpec struct {
+	template       string
+	displayName    string
+	databasePrefix string
+	stagePrefix    string
+	download       func(context.Context) (mirzaBotSource, error)
+	extract        func([]byte, string) (string, error)
+	configure      func([]byte, string, string, string, string, string, string, string) ([]byte, error)
+	initialize     func([]byte) ([]byte, error)
+	writeCron      func(Record) error
+}
+
 func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (PublicRecord, error) {
+	return m.installTelegramBot(ctx, request, telegramBotInstallSpec{
+		template:       "mirzabot",
+		displayName:    "MirzaBot",
+		databasePrefix: "rb_mirza_",
+		stagePrefix:    ".mirzabot-install-",
+		download:       m.downloadMirzaBot,
+		extract:        extractMirzaBotArchive,
+		configure: func(_ []byte, database, username, password, token, adminID, domain, botUsername string) ([]byte, error) {
+			return []byte(mirzaBotConfig(database, username, password, token, adminID, domain, botUsername)), nil
+		},
+		initialize: mirzaBotTableInitializer,
+		writeCron:  writeMirzaCron,
+	})
+}
+
+func (m *Manager) installFaoximaBot(ctx context.Context, request InstallRequest) (PublicRecord, error) {
+	return m.installTelegramBot(ctx, request, telegramBotInstallSpec{
+		template:       "faoxima",
+		displayName:    "Faoxima",
+		databasePrefix: "rb_faoxima_",
+		stagePrefix:    ".faoxima-install-",
+		download:       m.downloadFaoxima,
+		extract:        extractFaoximaArchive,
+		configure:      configureFaoximaBot,
+		initialize:     faoximaTableInitializer,
+		writeCron:      writeFaoximaCron,
+	})
+}
+
+func (m *Manager) installTelegramBot(ctx context.Context, request InstallRequest, spec telegramBotInstallSpec) (PublicRecord, error) {
 	if !m.operationMu.TryLock() {
 		return PublicRecord{}, errExternalAppBusy
 	}
@@ -893,19 +943,19 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 	if err != nil {
 		return PublicRecord{}, err
 	}
-	source, err := m.downloadMirzaBot(ctx)
+	source, err := spec.download(ctx)
 	if err != nil {
 		return PublicRecord{}, err
 	}
 	if err := m.prepareStorage(); err != nil {
 		return PublicRecord{}, err
 	}
-	stage, err := os.MkdirTemp(m.baseDir, ".mirzabot-install-")
+	stage, err := os.MkdirTemp(m.baseDir, spec.stagePrefix)
 	if err != nil {
 		return PublicRecord{}, err
 	}
 	defer os.RemoveAll(stage)
-	sourceRoot, err := extractMirzaBotArchive(source.Archive, stage)
+	sourceRoot, err := spec.extract(source.Archive, stage)
 	if err != nil {
 		return PublicRecord{}, err
 	}
@@ -920,8 +970,8 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 	}
 	record := Record{
 		ID:           suffix,
-		Template:     "mirzabot",
-		Name:         "MirzaBot @" + botUsername,
+		Template:     spec.template,
+		Name:         spec.displayName + " @" + botUsername,
 		Domain:       domain,
 		Path:         mountPath,
 		Enabled:      false,
@@ -938,7 +988,7 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		CronConfig:   filepath.Join("/etc/cron.d", "rebecca-php-"+suffix),
 		Service:      "php" + phpVersion + "-fpm",
 		SystemUser:   "rbphp_" + suffix,
-		Database:     "rb_mirza_" + suffix,
+		Database:     spec.databasePrefix + suffix,
 		DatabaseUser: "rbm_" + suffix,
 		storageBase:  m.baseDir,
 	}
@@ -1012,9 +1062,16 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		return PublicRecord{}, err
 	}
 	configPath := filepath.Join(record.Root, "config.php")
-	config := mirzaBotConfig(record.Database, record.DatabaseUser, databasePassword, request.BotToken, request.AdminID, externalAppHostPath(record), botUsername)
-	if err := os.WriteFile(configPath, []byte(config), 0o600); err != nil {
-		return PublicRecord{}, fmt.Errorf("write MirzaBot configuration: %w", err)
+	upstreamConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		return PublicRecord{}, fmt.Errorf("read %s configuration: %w", spec.displayName, err)
+	}
+	config, err := spec.configure(upstreamConfig, record.Database, record.DatabaseUser, databasePassword, request.BotToken, request.AdminID, externalAppHostPath(record), botUsername)
+	if err != nil {
+		return PublicRecord{}, fmt.Errorf("configure %s: %w", spec.displayName, err)
+	}
+	if err := os.WriteFile(configPath, config, 0o600); err != nil {
+		return PublicRecord{}, fmt.Errorf("write %s configuration: %w", spec.displayName, err)
 	}
 	if err := os.Chown(configPath, uid, gid); err != nil {
 		return PublicRecord{}, err
@@ -1024,7 +1081,7 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 			return PublicRecord{}, err
 		}
 	}
-	if err := initializeMirzaBotDatabase(ctx, record.Root, record.SystemUser, uid, gid); err != nil {
+	if err := initializeTelegramBotDatabase(ctx, record.Root, record.SystemUser, uid, gid, spec.initialize); err != nil {
 		return PublicRecord{}, err
 	}
 	if err := m.verifyExternalAppDatabase(ctx, record.Database); err != nil {
@@ -1045,7 +1102,7 @@ func (m *Manager) installMirzaBot(ctx context.Context, request InstallRequest) (
 		return PublicRecord{}, err
 	}
 	poolCreated = true
-	if err := writeMirzaCron(record); err != nil {
+	if err := spec.writeCron(record); err != nil {
 		return PublicRecord{}, err
 	}
 	cronCreated = true
@@ -1079,7 +1136,7 @@ func (m *Manager) ensureBotTokenAvailable(token string) error {
 	m.mu.RLock()
 	records := make([]Record, 0, len(m.apps))
 	for _, record := range m.apps {
-		if record.Template == "mirzabot" {
+		if IsTelegramBotTemplate(record.Template) {
 			records = append(records, record)
 		}
 	}
@@ -1142,8 +1199,8 @@ func validateExternalAppIndexFile(record Record, rootPath, raw string) (string, 
 	if record.Runtime == "static" && extension == ".php" {
 		return "", errors.New("static applications cannot use a PHP default document")
 	}
-	if record.Template == "mirzabot" && extension != ".php" {
-		return "", errors.New("MirzaBot requires a PHP default document")
+	if IsTelegramBotTemplate(record.Template) && extension != ".php" {
+		return "", errors.New("Telegram bot applications require a PHP default document")
 	}
 	root, err := os.OpenRoot(rootPath)
 	if err != nil {
@@ -1444,7 +1501,7 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 		if _, err := m.certificateDomain(ctx, record.Domain); err != nil {
 			return PublicRecord{}, err
 		}
-		if record.Template == "mirzabot" {
+		if IsTelegramBotTemplate(record.Template) {
 			secrets, err := m.readSecrets(record)
 			if err != nil {
 				return PublicRecord{}, err
@@ -1453,7 +1510,7 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 				if err := m.setTelegramWebhook(ctx, secrets.BotToken, record, secrets.WebhookSecret); err != nil {
 					return err
 				}
-				if err := writeMirzaCron(record); err != nil {
+				if err := writeBotCron(record); err != nil {
 					_ = m.deleteTelegramWebhook(context.Background(), secrets.BotToken)
 					return err
 				}
@@ -1488,7 +1545,7 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 				_ = startExternalAppNode(context.Background(), record)
 			}
 		}
-		if enabled && record.Template == "mirzabot" {
+		if enabled && IsTelegramBotTemplate(record.Template) {
 			_ = os.Remove(record.CronConfig)
 			if secrets, secretErr := m.readSecrets(record); secretErr == nil {
 				_ = m.deleteTelegramWebhook(context.Background(), secrets.BotToken)
@@ -1497,7 +1554,7 @@ func (m *Manager) setEnabled(ctx context.Context, identifier string, enabled boo
 		return PublicRecord{}, err
 	}
 	m.setRecord(record)
-	if !enabled && record.Template == "mirzabot" {
+	if !enabled && IsTelegramBotTemplate(record.Template) {
 		if err := os.Remove(record.CronConfig); err != nil && !os.IsNotExist(err) {
 			return publicExternalAppRecord(record), err
 		}
@@ -1526,7 +1583,7 @@ func (m *Manager) delete(ctx context.Context, identifier string, keepDatabase bo
 		return err
 	}
 	m.setRecord(record)
-	if record.Template == "mirzabot" {
+	if IsTelegramBotTemplate(record.Template) {
 		if secrets, err := m.readSecrets(record); err == nil {
 			_ = m.deleteTelegramWebhook(ctx, secrets.BotToken)
 		}
@@ -1683,6 +1740,7 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				"templates": []map[string]any{
 					{"id": "archive", "name": "PHP / HTML ZIP", "supported": false, "detail": externalAppsSQLiteDetail},
 					{"id": "mirzabot", "name": "MirzaBot", "supported": false, "detail": externalAppsSQLiteDetail},
+					{"id": "faoxima", "name": "Faoxima", "supported": false, "detail": externalAppsSQLiteDetail},
 				},
 				"apps": []PublicRecord{},
 			})
@@ -1721,6 +1779,7 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"templates": []map[string]any{
 				{"id": "archive", "name": "PHP / HTML ZIP", "supported": supported},
 				{"id": "mirzabot", "name": "MirzaBot", "version": mirzaVersion, "source_sha": release.SHA, "source_url": mirzaSourceURL, "supported": mirzaSupported, "detail": mirzaDetail},
+				{"id": "faoxima", "name": "Faoxima", "version": "main", "source_url": faoximaRepositoryURL, "supported": mirzaSupported, "detail": mirzaDetail},
 			},
 			"apps": apps,
 		})
@@ -1749,6 +1808,27 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		record, err := m.installMirzaBot(r.Context(), payload)
+		if err != nil {
+			writeExternalAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, record)
+		return
+	case "faoxima":
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		payload, err := decodeMirzaInstallRequest(r)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if externalAppUsesCurrentPanelHost(r, payload.Domain) {
+			writeError(w, http.StatusBadRequest, "the current panel hostname cannot be replaced by an application")
+			return
+		}
+		record, err := m.installFaoximaBot(r.Context(), payload)
 		if err != nil {
 			writeExternalAppError(w, err)
 			return
@@ -1870,9 +1950,9 @@ func (m *Manager) handleExternalAppDatabaseBackup(w http.ResponseWriter, r *http
 		writeExternalAppError(w, errExternalAppNotFound)
 		return
 	}
-	if record.Template != "mirzabot" || record.Database == "" {
+	if !IsTelegramBotTemplate(record.Template) || record.Database == "" {
 		m.operationMu.Unlock()
-		writeError(w, http.StatusBadRequest, "database backup is available only for MirzaBot applications")
+		writeError(w, http.StatusBadRequest, "database backup is available only for Telegram bot applications")
 		return
 	}
 	dump, err := m.dumpExternalAppDatabase(r.Context(), record.Database)
@@ -1891,7 +1971,7 @@ func (m *Manager) handleExternalAppDatabaseBackup(w http.ResponseWriter, r *http
 		writeError(w, http.StatusInternalServerError, "read database backup")
 		return
 	}
-	filename := fmt.Sprintf("mirzabot-%s-%s.sql", record.ID, time.Now().UTC().Format("20060102-150405"))
+	filename := fmt.Sprintf("%s-%s-%s.sql", record.Template, record.ID, time.Now().UTC().Format("20060102-150405"))
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	w.Header().Set("Content-Type", "application/sql")
@@ -2079,6 +2159,19 @@ func extractMirzaBotArchive(data []byte, destination string) (string, error) {
 	for _, required := range []string{"composer.json", "composer.lock", "table.php", "config.php", "index.php"} {
 		if info, err := os.Stat(filepath.Join(root, required)); err != nil || info.IsDir() {
 			return "", fmt.Errorf("MirzaBot archive is missing %s", required)
+		}
+	}
+	return root, nil
+}
+
+func extractFaoximaArchive(data []byte, destination string) (string, error) {
+	root, err := extractZIPArchive(data, destination, true)
+	if err != nil {
+		return "", err
+	}
+	for _, required := range []string{"composer.json", "table.php", "config.php", "index.php"} {
+		if info, err := os.Stat(filepath.Join(root, required)); err != nil || info.IsDir() {
+			return "", fmt.Errorf("Faoxima archive is missing %s", required)
 		}
 	}
 	return root, nil

@@ -384,7 +384,7 @@ export const disablePHPMyAdmin =
 
 export interface ExternalAppRecord {
 	id: string;
-	template: "archive" | "mirzabot";
+	template: "archive" | "mirzabot" | "faoxima";
 	name: string;
 	domain: string;
 	path?: string;
@@ -407,7 +407,7 @@ export interface ExternalAppRecord {
 }
 
 export interface ExternalAppTemplate {
-	id: "archive" | "mirzabot";
+	id: "archive" | "mirzabot" | "faoxima";
 	name: string;
 	supported: boolean;
 	detail?: string;
@@ -469,6 +469,26 @@ export const installMirzaBot = async (payload: {
 		body.set("database_backup", payload.database_backup);
 	}
 	return $fetch("/settings/external-apps/mirzabot", {
+		method: "POST",
+		body,
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const installFaoxima = async (payload: {
+	domain: string;
+	bot_token: string;
+	admin_id: string;
+	database_backup?: File;
+}): Promise<ExternalAppRecord> => {
+	const body = new FormData();
+	body.set("domain", payload.domain);
+	body.set("bot_token", payload.bot_token);
+	body.set("admin_id", payload.admin_id);
+	if (payload.database_backup) {
+		body.set("database_backup", payload.database_backup);
+	}
+	return $fetch("/settings/external-apps/faoxima", {
 		method: "POST",
 		body,
 		timeout: 20 * 60 * 1000,

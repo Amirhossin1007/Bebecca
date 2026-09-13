@@ -860,3 +860,34 @@ func TestMatchMirzaLegacyPathRequiresSingleMountedApp(t *testing.T) {
 		t.Fatal("ambiguous legacy match was accepted")
 	}
 }
+
+func TestConfigureFaoximaBotPreservesUpstreamConfig(t *testing.T) {
+	input := []byte("<?php\n$dbname = '';\n$usernamedb = '';\n$passworddb = '';\n$dbhost = '';\n$APIKEY = '';\n$adminnumber = '';\n$domainhosts = '';\n$usernamebot = '';\n")
+	output, err := configureFaoximaBot(input, "rb_faoxima_abc", "rbm_abc", "safe-pass", "12345:abcdefghijklmnopqrstuvwxyz", "987654", "bot.example.com/botabc", "demo_bot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"$dbname = 'rb_faoxima_abc';",
+		"$dbhost = '127.0.0.1';",
+		"$APIKEY = '12345:abcdefghijklmnopqrstuvwxyz';",
+		"$domainhosts = 'bot.example.com/botabc';",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("configured Faoxima value %q missing from %s", expected, text)
+		}
+	}
+}
+
+func TestFaoximaTableInitializerRemovesWebhookSetup(t *testing.T) {
+	input := []byte("before\n$hookParams = [\n    'url' => \"https://$domainhosts/index.php\",\n];\n$rxSetHookResp = telegram('setwebhook', $hookParams);\nif (!is_array($rxSetHookResp) || empty($rxSetHookResp['ok'])) {\n    error_log('setwebhook FAILED: ' . json_encode($rxSetHookResp));\n}\n\nafter\n")
+	output, err := faoximaTableInitializer(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(output)
+	if strings.Contains(text, "setwebhook") || !strings.Contains(text, "Webhook is configured by Rebecca") || !strings.Contains(text, "after") {
+		t.Fatalf("webhook setup was not removed: %s", text)
+	}
+}
