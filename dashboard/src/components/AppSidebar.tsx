@@ -4,7 +4,6 @@ import {
 	HStack,
 	Text,
 	Tooltip,
-	useColorMode,
 	useColorModeValue,
 	VStack,
 } from "@chakra-ui/react";
@@ -44,6 +43,8 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
+import { SponsorCarousel, type SponsorCarouselItem } from "./SponsorCarousel";
+import type { SponsorAsset } from "service/sponsors";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import {
 	getTutorialManifestUrl,
@@ -87,6 +88,8 @@ const TutorialUpdateIconStyled = chakra(BellAlertIcon, {
 });
 interface AppSidebarProps {
 	collapsed: boolean;
+	sponsors?: SponsorAsset[];
+	sidebarBanners?: SponsorAsset[];
 	/** when rendered inside a Drawer on mobile */
 	inDrawer?: boolean;
 	/** optional callback to request the parent to expand the sidebar */
@@ -105,15 +108,10 @@ type SidebarItem = {
 };
 type SidebarSubItems = NonNullable<SidebarItem["subItems"]>;
 
-const LogoIcon = chakra("img", {
-	baseStyle: {
-		w: 8,
-		h: 8,
-	},
-});
-
 export const AppSidebar: FC<AppSidebarProps> = ({
 	collapsed,
+	sponsors = [],
+	sidebarBanners = [],
 	inDrawer = false,
 	onRequestExpand,
 }) => {
@@ -121,7 +119,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const location = useLocation();
 	const navigate = useNavigate();
 	const dashboardRoot = useHref("/");
-	const { colorMode } = useColorMode();
 	const { userData } = useGetUser();
 	const currentLanguage = i18n.language || "en";
 	const tutorialsUrl = "/tutorials";
@@ -144,7 +141,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const activeItemColor = useColorModeValue("panel.text", "panel.text");
 	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const subNavBorder = useColorModeValue("panel.border", "panel.border");
-	const logoTextColor = useColorModeValue("panel.text", "panel.text");
 	const defaultSelfPermissions = {
 		self_myaccount: false,
 		self_change_password: false,
@@ -427,6 +423,22 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	}));
 
 	const isRTL = i18n.dir(currentLanguage) === "rtl";
+	const sponsorItems: SponsorCarouselItem[] = [
+		{
+			id: "rebecca",
+			src: logoUrl,
+			alt: "Rebecca",
+			label: t("menu"),
+		},
+		...sponsors.map((asset) => ({
+			id: asset.id,
+			src: asset.image_url,
+			alt: asset.alt || asset.label || "Sponsor",
+			href: asset.target_url,
+			label: asset.label,
+			isSponsor: true,
+		})),
+	];
 
 	return (
 		<Box
@@ -465,49 +477,37 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					data-collapsed={collapsed ? "true" : "false"}
 					dir={isRTL ? "rtl" : "ltr"}
 				>
-					{!collapsed ? (
-						<HStack
-							spacing={3}
-							align="center"
-							mb={5}
-							px={3}
-							py={3}
-							borderWidth="1px"
-							borderColor={sidebarPanelBorder}
-							borderRadius="md"
-							bg={sidebarPanelBg}
-						>
-							<LogoIcon
-								src={logoUrl}
-								alt="Rebecca"
-								filter={
-									colorMode === "dark" ? "brightness(0) invert(1)" : "none"
-								}
+					<Box
+						borderWidth="1px"
+						borderColor={sidebarPanelBorder}
+						borderRadius="md"
+						bg={sidebarPanelBg}
+						mb={5}
+						px={collapsed ? 2 : 3}
+						py={collapsed ? 2 : 3}
+					>
+						<SponsorCarousel
+							items={sponsorItems}
+							variant="logo"
+							collapsed={collapsed}
+							sponsorPrefix={t("sponsors.sponsoredBy")}
+							fallbackLabel={t("menu")}
+						/>
+					</Box>
+					{!collapsed && sidebarBanners.length > 0 && (
+						<Box mt={2}>
+							<SponsorCarousel
+								items={sidebarBanners.map((asset) => ({
+									id: asset.id,
+									src: asset.image_url,
+									alt: asset.alt || asset.label || "Sponsor",
+									href: asset.target_url,
+									label: asset.label,
+									isSponsor: true,
+								}))}
+								variant="sidebar"
 							/>
-							<Text fontSize="lg" fontWeight="bold" color={logoTextColor}>
-								{t("menu")}
-							</Text>
-						</HStack>
-					) : (
-						<HStack
-							justify="center"
-							mb={5}
-							borderWidth="1px"
-							borderColor={sidebarPanelBorder}
-							borderRadius="md"
-							bg={sidebarPanelBg}
-							py={2}
-						>
-							<Tooltip label="Rebecca" placement="right" hasArrow>
-								<LogoIcon
-									src={logoUrl}
-									alt="Rebecca"
-									filter={
-										colorMode === "dark" ? "brightness(0) invert(1)" : "none"
-									}
-								/>
-							</Tooltip>
-						</HStack>
+						</Box>
 					)}
 					<VStack align="stretch" spacing={4}>
 						{compactGroups.map((group) => {

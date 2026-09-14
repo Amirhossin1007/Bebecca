@@ -52,6 +52,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
+import { useQuery } from "react-query";
 import {
 	type ElementType,
 	type MouseEvent as ReactMouseEvent,
@@ -68,11 +69,13 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { logout as logoutSession } from "service/auth";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
+import { getSponsors, type SponsorAsset } from "service/sponsors";
 import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
 import { AppSidebar } from "./AppSidebar";
 import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
 import ThemeSelector from "./ThemeSelector";
+import { SponsorCarousel } from "./SponsorCarousel";
 
 const iconProps = {
 	baseStyle: {
@@ -128,6 +131,23 @@ export function AppLayout() {
 	const settingsMenu = useDisclosure();
 	const { t, i18n } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
+	const sponsorsQuery = useQuery("sponsors", getSponsors, {
+		staleTime: 5 * 60 * 1000,
+		cacheTime: 30 * 60 * 1000,
+		retry: false,
+	});
+	const sponsorHeaderItems = (sponsorsQuery.data?.header ?? []).slice(0, 3).map(
+		(asset: SponsorAsset) => ({
+			id: asset.id,
+			src: asset.image_url,
+			alt: asset.alt || asset.label || "Sponsor",
+			href: asset.target_url,
+			label: asset.label,
+			isSponsor: true,
+		}),
+	);
+	const sponsorSidebarLogoItems = (sponsorsQuery.data?.sidebar_logo ?? []).slice(0, 5);
+	const sponsorSidebarBanners = (sponsorsQuery.data?.sidebar ?? []).slice(0, 5);
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [activeLocationHash, setActiveLocationHash] = useState(
@@ -806,6 +826,8 @@ export function AppLayout() {
 				{!isMobile ? (
 					<AppSidebar
 						collapsed={sidebarCollapsed}
+						sponsors={sponsorSidebarLogoItems}
+						sidebarBanners={sponsorSidebarBanners}
 						onRequestExpand={() => setSidebarCollapsed(false)}
 					/>
 				) : null}
@@ -904,6 +926,18 @@ export function AppLayout() {
 									</Text>
 								)}
 							</HStack>
+							{sponsorHeaderItems.length > 0 && (
+								<Box
+									w={{ base: "140px", sm: "220px", md: "360px" }}
+									flexShrink={1}
+									display={{ base: "none", sm: "block" }}
+								>
+									<SponsorCarousel
+										items={sponsorHeaderItems}
+										variant="banner"
+									/>
+								</Box>
+							)}
 						</HStack>
 						<HStack spacing={2} alignItems="center" flexShrink={0}>
 							<HeaderCalendar />
@@ -1166,6 +1200,8 @@ export function AppLayout() {
 							<DrawerBody p={0}>
 								<AppSidebar
 									collapsed={false}
+									sponsors={sponsorSidebarLogoItems}
+									sidebarBanners={sponsorSidebarBanners}
 									inDrawer
 									onRequestExpand={sidebarDrawer.onClose}
 								/>

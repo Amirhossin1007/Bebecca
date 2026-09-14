@@ -908,5 +908,6 @@
 	"nodes.nodeUpdateAvailable": "Доступно обновление",
 	"settings.telegram.backupScope": "Область резервного копирования",
 	"total": "Всего",
-	"loadAverage": "Средняя загрузка"
+	"loadAverage": "Средняя загрузка",
+	"sponsors.sponsoredBy": "При поддержке"
 }

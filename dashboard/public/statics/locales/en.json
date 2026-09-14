@@ -3558,5 +3558,6 @@
 	"haproxy.disableAction": "Disable configuration",
 	"haproxy.matcherPriorityHelp": "Rebecca selects SNI first, then HTTP Path, HTTP Host, and Default. You can switch only to methods available on this inbound.",
 	"haproxy.json": "JSON",
-	"haproxy.jsonHelp": "This is the exact configuration payload sent to the backend when you save. It updates immediately as you edit the form."
+	"haproxy.jsonHelp": "This is the exact configuration payload sent to the backend when you save. It updates immediately as you edit the form.",
+	"sponsors.sponsoredBy": "Sponsored by"
 }
