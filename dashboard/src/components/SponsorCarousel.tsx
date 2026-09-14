@@ -112,7 +112,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							gap={isBanner ? 0 : 3}
 						>
 							<SponsorLink href={item.href}>{image}</SponsorLink>
-							{!isBanner && !collapsed && (
+							{!isBanner && !isSidebarBanner && !collapsed && (
 								<Text fontSize="lg" fontWeight="bold" color="panel.text" noOfLines={1}>
 									{item.isSponsor
 										? `${sponsorPrefix} ${item.label || item.alt}`
