@@ -44,20 +44,21 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const [paused, setPaused] = useState(false);
 	const itemCount = stableItems.length;
 	const currentIsSponsor = Boolean(stableItems[index]?.isSponsor);
+	const currentItemId = stableItems[index]?.id ?? "";
 
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
 
 	useEffect(() => {
-		if (paused || itemCount < 2) return;
+		if (paused || itemCount < 2 || !currentItemId) return;
 		const delay =
 			variant === "logo" ? (currentIsSponsor ? 5000 : 10000) : 6000;
 		const timer = window.setTimeout(() => {
 			setIndex((current) => (current + 1) % itemCount);
 		}, delay);
 		return () => window.clearTimeout(timer);
-	}, [currentIsSponsor, index, itemCount, paused, variant]);
+	}, [currentIsSponsor, currentItemId, itemCount, paused, variant]);
 
 	if (stableItems.length === 0) return null;
 
