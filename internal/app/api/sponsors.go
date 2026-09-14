@@ -55,10 +55,11 @@ type cachedSponsorAsset struct {
 }
 
 type sponsorManifest struct {
-	Enabled *bool                  `json:"enabled"`
-	Assets  []sponsorManifestAsset `json:"assets"`
-	Header  []sponsorManifestAsset `json:"header"`
-	Sidebar []sponsorManifestAsset `json:"sidebar"`
+	Enabled      *bool                  `json:"enabled"`
+	Assets       []sponsorManifestAsset `json:"assets"`
+	Header       []sponsorManifestAsset `json:"header"`
+	HeaderMobile []sponsorManifestAsset `json:"header_mobile"`
+	Sidebar      []sponsorManifestAsset `json:"sidebar"`
 }
 
 type sponsorManifestAsset struct {
@@ -85,9 +86,10 @@ type sponsorAssetResponse struct {
 }
 
 type sponsorResponse struct {
-	Header      []sponsorAssetResponse `json:"header"`
-	Sidebar     []sponsorAssetResponse `json:"sidebar"`
-	SidebarLogo []sponsorAssetResponse `json:"sidebar_logo"`
+	Header       []sponsorAssetResponse `json:"header"`
+	HeaderMobile []sponsorAssetResponse `json:"header_mobile"`
+	Sidebar      []sponsorAssetResponse `json:"sidebar"`
+	SidebarLogo  []sponsorAssetResponse `json:"sidebar_logo"`
 }
 
 func newSponsorManager(manifestURL, cacheDir string, client *http.Client) *sponsorManager {
@@ -107,14 +109,15 @@ func (m *sponsorManager) response(ctx context.Context) (sponsorResponse, error) 
 		return sponsorResponse{}, err
 	}
 	result := sponsorResponse{
-		Header:      make([]sponsorAssetResponse, 0),
-		Sidebar:     make([]sponsorAssetResponse, 0),
-		SidebarLogo: make([]sponsorAssetResponse, 0),
+		Header:       make([]sponsorAssetResponse, 0),
+		HeaderMobile: make([]sponsorAssetResponse, 0),
+		Sidebar:      make([]sponsorAssetResponse, 0),
+		SidebarLogo:  make([]sponsorAssetResponse, 0),
 	}
 	counts := map[string]int{}
 	for _, asset := range assets {
 		limit := sponsorSidebarMax
-		if asset.Placement == "header" {
+		if asset.Placement == "header" || asset.Placement == "header_mobile" {
 			limit = sponsorHeaderMax
 		}
 		if counts[asset.Placement] >= limit {
@@ -133,6 +136,8 @@ func (m *sponsorManager) response(ctx context.Context) (sponsorResponse, error) 
 		switch asset.Placement {
 		case "header":
 			result.Header = append(result.Header, item)
+		case "header_mobile":
+			result.HeaderMobile = append(result.HeaderMobile, item)
 		case "sidebar_logo":
 			result.SidebarLogo = append(result.SidebarLogo, item)
 		default:
@@ -189,7 +194,7 @@ func (m *sponsorManager) validAssets(assets []cachedSponsorAsset) []cachedSponso
 	result := make([]cachedSponsorAsset, 0, len(assets))
 	for _, asset := range assets {
 		if asset.ID == "" || !sponsorIDPattern.MatchString(asset.ID) ||
-			(asset.Placement != "header" && asset.Placement != "sidebar" && asset.Placement != "sidebar_logo") ||
+			(asset.Placement != "header" && asset.Placement != "header_mobile" && asset.Placement != "sidebar" && asset.Placement != "sidebar_logo") ||
 			asset.ValidUntil.IsZero() || !time.Now().Before(asset.ValidUntil) ||
 			!m.isCachePath(asset.LocalPath) {
 			m.removeCachePath(asset.LocalPath)
@@ -287,11 +292,17 @@ func (m *sponsorManager) fetchManifest(ctx context.Context) ([]cachedSponsorAsse
 	if document.Enabled != nil && !*document.Enabled {
 		return []cachedSponsorAsset{}, manifestHash, nil
 	}
-	items := make([]sponsorManifestAsset, 0, len(document.Assets)+len(document.Header)+len(document.Sidebar))
+	items := make([]sponsorManifestAsset, 0, len(document.Assets)+len(document.Header)+len(document.HeaderMobile)+len(document.Sidebar))
 	items = append(items, document.Assets...)
 	for _, item := range document.Header {
 		if item.Placement == "" {
 			item.Placement = "header"
+		}
+		items = append(items, item)
+	}
+	for _, item := range document.HeaderMobile {
+		if item.Placement == "" {
+			item.Placement = "header_mobile"
 		}
 		items = append(items, item)
 	}
@@ -315,11 +326,11 @@ func (m *sponsorManager) normalizeManifestItems(manifestURL string, items []spon
 	for _, item := range items {
 		id := strings.TrimSpace(item.ID)
 		placement := strings.ToLower(strings.TrimSpace(item.Placement))
-		if !sponsorIDPattern.MatchString(id) || (placement != "header" && placement != "sidebar" && placement != "sidebar_logo") {
+		if !sponsorIDPattern.MatchString(id) || (placement != "header" && placement != "header_mobile" && placement != "sidebar" && placement != "sidebar_logo") {
 			continue
 		}
 		limit := sponsorSidebarMax
-		if placement == "header" {
+		if placement == "header" || placement == "header_mobile" {
 			limit = sponsorHeaderMax
 		}
 		if counts[placement] >= limit {
@@ -556,7 +567,7 @@ func (s *Server) handleSponsor(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	result := sponsorResponse{Header: []sponsorAssetResponse{}, Sidebar: []sponsorAssetResponse{}, SidebarLogo: []sponsorAssetResponse{}}
+	result := sponsorResponse{Header: []sponsorAssetResponse{}, HeaderMobile: []sponsorAssetResponse{}, Sidebar: []sponsorAssetResponse{}, SidebarLogo: []sponsorAssetResponse{}}
 	if s.sponsors != nil {
 		if loaded, err := s.sponsors.response(r.Context()); err == nil {
 			result = loaded

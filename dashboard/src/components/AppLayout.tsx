@@ -146,8 +146,21 @@ export function AppLayout() {
 			isSponsor: true,
 		}),
 	);
+	const sponsorHeaderMobileItems = (sponsorsQuery.data?.header_mobile ?? [])
+		.slice(0, 3)
+		.map((asset: SponsorAsset) => ({
+			id: asset.id,
+			src: asset.image_url,
+			alt: asset.alt || asset.label || "Sponsor",
+			href: asset.target_url,
+			label: asset.label,
+			isSponsor: true,
+		}));
 	const sponsorSidebarLogoItems = (sponsorsQuery.data?.sidebar_logo ?? []).slice(0, 5);
 	const sponsorSidebarBanners = (sponsorsQuery.data?.sidebar ?? []).slice(0, 5);
+	const mobileHeaderItems = sponsorHeaderMobileItems.length > 0
+		? sponsorHeaderMobileItems
+		: sponsorHeaderItems;
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [activeLocationHash, setActiveLocationHash] = useState(
@@ -885,6 +898,10 @@ export function AppLayout() {
 								minW="0"
 								overflow="hidden"
 								dir="ltr"
+								display={{
+									base: mobileHeaderItems.length > 0 ? "none" : "flex",
+									md: "flex",
+								}}
 							>
 								<Button
 									variant="link"
@@ -926,11 +943,25 @@ export function AppLayout() {
 									</Text>
 								)}
 							</HStack>
+							{mobileHeaderItems.length > 0 && (
+								<Box
+									w={{ base: "160px", sm: "220px", md: "360px" }}
+									minW="0"
+									flexShrink={1}
+									display={{ base: "block", md: "none" }}
+								>
+									<SponsorCarousel
+										items={mobileHeaderItems}
+										variant="banner"
+									/>
+								</Box>
+							)}
 							{sponsorHeaderItems.length > 0 && (
 								<Box
-									w={{ base: "140px", sm: "220px", md: "360px" }}
+									w={{ base: "160px", sm: "220px", md: "360px" }}
+									minW="0"
 									flexShrink={1}
-									display={{ base: "none", sm: "block" }}
+									display={{ base: "none", md: "block" }}
 								>
 									<SponsorCarousel
 										items={sponsorHeaderItems}

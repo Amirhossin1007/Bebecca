@@ -20,8 +20,6 @@ interface SponsorCarouselProps {
 	items: SponsorCarouselItem[];
 	variant: "logo" | "banner" | "sidebar";
 	collapsed?: boolean;
-	sponsorPrefix?: string;
-	fallbackLabel?: string;
 }
 
 const SponsorLink: FC<{ href?: string; children: ReactNode }> = ({
@@ -40,24 +38,26 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	items,
 	variant,
 	collapsed = false,
-	sponsorPrefix = "Sponsored by",
-	fallbackLabel = "Rebecca",
 }) => {
 	const stableItems = useMemo(() => items.filter((item) => item.src), [items]);
 	const [index, setIndex] = useState(0);
 	const [paused, setPaused] = useState(false);
+	const itemCount = stableItems.length;
+	const currentIsSponsor = Boolean(stableItems[index]?.isSponsor);
 
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
 
 	useEffect(() => {
-		if (paused || stableItems.length < 2) return;
-		const timer = window.setInterval(() => {
-			setIndex((current) => (current + 1) % stableItems.length);
-		}, 6000);
-		return () => window.clearInterval(timer);
-	}, [paused, stableItems.length]);
+		if (paused || itemCount < 2) return;
+		const delay =
+			variant === "logo" ? (currentIsSponsor ? 5000 : 10000) : 6000;
+		const timer = window.setTimeout(() => {
+			setIndex((current) => (current + 1) % itemCount);
+		}, delay);
+		return () => window.clearTimeout(timer);
+	}, [currentIsSponsor, index, itemCount, paused, variant]);
 
 	if (stableItems.length === 0) return null;
 
@@ -67,6 +67,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		<Box
 			overflow="hidden"
 			w="full"
+			border="none"
+			borderRadius="md"
+			boxShadow="none"
 			aspectRatio={
 				isBanner
 					? { base: "4 / 1", md: "8 / 1" }
@@ -85,7 +88,10 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				h="full"
 				transform={`translateX(-${index * 100}%)`}
 				transition="transform 450ms cubic-bezier(0.16, 1, 0.3, 1)"
-				sx={{ "@media (prefers-reduced-motion: reduce)": { transition: "none" } }}
+				sx={{
+					"@media (prefers-reduced-motion: reduce)": { transition: "none" },
+					img: { border: "none", outline: "none" },
+				}}
 			>
 				{stableItems.map((item) => {
 					const image = (
@@ -93,13 +99,15 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							src={item.src}
 							alt={item.alt}
 							loading="lazy"
-								display="block"
-								maxW="full"
-								maxH="full"
-								objectFit={isBanner || isSidebarBanner ? "cover" : "contain"}
-								w={isBanner || isSidebarBanner ? "full" : 8}
-								h={isBanner || isSidebarBanner ? "full" : 8}
-							/>
+							display="block"
+							maxW="full"
+							maxH="full"
+							objectFit={isBanner || isSidebarBanner ? "cover" : "contain"}
+							w={isBanner || isSidebarBanner ? "full" : 8}
+							h={isBanner || isSidebarBanner ? "full" : 8}
+							border="none"
+							borderRadius="md"
+						/>
 					);
 					return (
 						<Box
@@ -112,11 +120,19 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							gap={isBanner ? 0 : 3}
 						>
 							<SponsorLink href={item.href}>{image}</SponsorLink>
-							{!isBanner && !isSidebarBanner && !collapsed && (
-								<Text fontSize="lg" fontWeight="bold" color="panel.text" noOfLines={1}>
-									{item.isSponsor
-										? `${sponsorPrefix} ${item.label || item.alt}`
-										: item.label || fallbackLabel}
+							{variant === "logo" && !item.isSponsor && !collapsed && (
+								<Text
+									fontSize={{ base: "lg", md: "2xl" }}
+									fontWeight="bold"
+									fontFamily="'Inter', system-ui, sans-serif"
+									letterSpacing="tight"
+									lineHeight="1"
+									alignSelf="flex-end"
+									whiteSpace="nowrap"
+									color="panel.text"
+									noOfLines={1}
+								>
+									Rebecca
 								</Text>
 							)}
 						</Box>

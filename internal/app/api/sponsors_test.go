@@ -31,3 +31,16 @@ func TestSponsorDateOnlyExpirationIncludesTheDate(t *testing.T) {
 		t.Fatalf("date-only expiration parsed as %s", parsed.UTC().Format(time.RFC3339))
 	}
 }
+
+func TestSponsorManifestSupportsMobileHeaders(t *testing.T) {
+	m := newSponsorManager("", filepath.Join(t.TempDir(), "cache"), nil)
+	items, err := m.normalizeManifestItems("https://raw.githubusercontent.com/example/sponsors/main/manifest.json", []sponsorManifestAsset{
+		{ID: "mobile", Placement: "header_mobile", Image: "mobile.svg", ValidUntil: time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Placement != "header_mobile" {
+		t.Fatalf("unexpected mobile header assets: %#v", items)
+	}
+}

@@ -428,7 +428,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			id: "rebecca",
 			src: logoUrl,
 			alt: "Rebecca",
-			label: t("menu"),
+			label: "Rebecca",
 		},
 		...sponsors.map((asset) => ({
 			id: asset.id,
@@ -490,8 +490,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							items={sponsorItems}
 							variant="logo"
 							collapsed={collapsed}
-							sponsorPrefix={t("sponsors.sponsoredBy")}
-							fallbackLabel={t("menu")}
 						/>
 					</Box>
 					<VStack align="stretch" spacing={4}>
