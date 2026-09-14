@@ -494,21 +494,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							fallbackLabel={t("menu")}
 						/>
 					</Box>
-					{!collapsed && sidebarBanners.length > 0 && (
-						<Box mt={2}>
-							<SponsorCarousel
-								items={sidebarBanners.map((asset) => ({
-									id: asset.id,
-									src: asset.image_url,
-									alt: asset.alt || asset.label || "Sponsor",
-									href: asset.target_url,
-									label: asset.label,
-									isSponsor: true,
-								}))}
-								variant="sidebar"
-							/>
-						</Box>
-					)}
 					<VStack align="stretch" spacing={4}>
 						{compactGroups.map((group) => {
 							if (group.items.length === 0) return null;
@@ -650,6 +635,21 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						})}
 					</VStack>
 				</Box>
+				{!collapsed && sidebarBanners.length > 0 && (
+					<Box flexShrink={0} w="full">
+						<SponsorCarousel
+							items={sidebarBanners.map((asset) => ({
+								id: asset.id,
+								src: asset.image_url,
+								alt: asset.alt || asset.label || "Sponsor",
+								href: asset.target_url,
+								label: asset.label,
+								isSponsor: true,
+							}))}
+							variant="sidebar"
+						/>
+					</Box>
+				)}
 			</VStack>
 		</Box>
 	);
