@@ -62,6 +62,7 @@ import { SearchInput } from "components/common/SearchInput";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
+	PageLoadingSkeleton,
 	type DataTableBulkAction,
 	type DataTableColumn,
 	type DataTableRowAction,
@@ -3987,11 +3988,7 @@ export const CoreSettingsPage: FC = () => {
 	];
 
 	if (!getUserIsSuccess) {
-		return (
-			<VStack spacing={4} align="center" py={10}>
-				<Spinner size="lg" />
-			</VStack>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canManageXraySettings) {

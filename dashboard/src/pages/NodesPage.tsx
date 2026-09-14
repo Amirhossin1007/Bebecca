@@ -24,7 +24,6 @@ import {
 	PopoverTrigger,
 	Progress,
 	SimpleGrid,
-	Spinner,
 	Stack,
 	Tag,
 	Text,
@@ -86,6 +85,7 @@ import {
 } from "utils/toastHandler";
 import {
 	DataTable,
+	PageLoadingSkeleton,
 	type DataTableColumn,
 	type DataTableRowAction,
 } from "../components/ui";
@@ -2671,11 +2671,7 @@ export const NodesPage: FC = () => {
 		) : null;
 
 	if (!getUserIsSuccess) {
-		return (
-			<VStack spacing={4} align="center" py={10}>
-				<Spinner size="lg" />
-			</VStack>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canManageNodes) {
@@ -2689,6 +2685,10 @@ export const NodesPage: FC = () => {
 				</Text>
 			</VStack>
 		);
+	}
+
+	if (isLoading && !nodes) {
+		return <PageLoadingSkeleton />;
 	}
 
 	return (

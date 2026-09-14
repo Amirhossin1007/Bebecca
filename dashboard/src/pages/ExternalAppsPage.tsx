@@ -20,12 +20,10 @@ import {
 	ModalHeader,
 	ModalOverlay,
 	SimpleGrid,
-	Spinner,
 	Stack,
 	Text,
 	useColorModeValue,
 	useToast,
-	VStack,
 } from "@chakra-ui/react";
 import {
 	ArrowDownTrayIcon,
@@ -47,6 +45,7 @@ import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
+	PageLoadingSkeleton,
 	ResourceListCard,
 	type DataTableColumn,
 	type DataTableRowAction,
@@ -564,11 +563,7 @@ export const ExternalAppsPage = () => {
 	};
 
 	if (appsQuery.isLoading) {
-		return (
-			<VStack minH="50vh" justify="center">
-				<Spinner />
-			</VStack>
-		);
+		return <PageLoadingSkeleton />;
 	}
 	if (appsQuery.data?.supported === false) {
 		return (

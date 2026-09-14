@@ -18,7 +18,6 @@ import {
 	Radio,
 	RadioGroup,
 	SimpleGrid,
-	Spinner,
 	Stack,
 	Text,
 	Tooltip,
@@ -45,6 +44,7 @@ import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
 	PageHeader,
+	PageLoadingSkeleton,
 	ResourceListCard,
 	TabSystem,
 	type DataTableColumn,
@@ -1773,11 +1773,7 @@ const ServicesPage: FC = () => {
 	);
 
 	if (!getUserIsSuccess) {
-		return (
-			<Flex justify="center" align="center" h="full" py={10}>
-				<Spinner />
-			</Flex>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canManageServices) {
