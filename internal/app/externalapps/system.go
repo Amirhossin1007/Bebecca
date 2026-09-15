@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -296,7 +297,7 @@ func writeExternalAppPool(record Record, mirza bool) error {
 func externalAppPoolConfig(record Record, mirza bool) string {
 	disabledFunctions := "exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec"
 	if mirza {
-		// MirzaBot's database backup uses exec; all other process-spawning APIs stay disabled.
+		// Telegram bot database backups use exec; all other process-spawning APIs stay disabled.
 		disabledFunctions = "passthru,shell_exec,system,proc_open,popen,pcntl_exec"
 	}
 	return fmt.Sprintf(`[%s]
@@ -363,16 +364,20 @@ func installMirzaBotDependencies(ctx context.Context, appRoot, systemUser string
 }
 
 func initializeMirzaBotDatabase(ctx context.Context, appRoot, systemUser string, uid, gid int) error {
+	return initializeTelegramBotDatabase(ctx, appRoot, systemUser, uid, gid, mirzaBotTableInitializer)
+}
+
+func initializeTelegramBotDatabase(ctx context.Context, appRoot, systemUser string, uid, gid int, initializer func([]byte) ([]byte, error)) error {
 	table, err := os.ReadFile(filepath.Join(appRoot, "table.php"))
 	if err != nil {
 		return err
 	}
-	initializer, err := mirzaBotTableInitializer(table)
+	prepared, err := initializer(table)
 	if err != nil {
 		return err
 	}
 	path := filepath.Join(appRoot, ".rebecca-init.php")
-	if err := os.WriteFile(path, initializer, 0o600); err != nil {
+	if err := os.WriteFile(path, prepared, 0o600); err != nil {
 		return err
 	}
 	defer os.Remove(path)
@@ -396,6 +401,59 @@ func mirzaBotTableInitializer(table []byte) ([]byte, error) {
 		return nil, errors.New("pinned MirzaBot table initializer changed unexpectedly")
 	}
 	return bytes.Replace(table, needle, []byte("// Webhook is configured by Rebecca with a secret token."), 1), nil
+}
+
+func configureFaoximaBot(config []byte, database, username, password, botToken, adminID, domain, botUsername string) ([]byte, error) {
+	values := map[string]string{
+		"dbname":      database,
+		"usernamedb":  username,
+		"passworddb":  password,
+		"dbhost":      "127.0.0.1",
+		"APIKEY":      botToken,
+		"adminnumber": adminID,
+		"domainhosts": domain,
+		"usernamebot": botUsername,
+	}
+	updated := config
+	for variable, value := range values {
+		pattern := regexp.MustCompile(`(?m)(\$` + regexp.QuoteMeta(variable) + `\s*=\s*)'[^']*'(\s*;)`)
+		matches := pattern.FindAllIndex(updated, -1)
+		if len(matches) != 1 {
+			return nil, fmt.Errorf("Faoxima config assignment %s is missing or ambiguous", variable)
+		}
+		updated = []byte(pattern.ReplaceAllStringFunc(string(updated), func(match string) string {
+			semicolon := strings.LastIndex(match, ";")
+			if semicolon < 0 {
+				return match
+			}
+			return "$" + variable + " = '" + phpSingleQuoted(value) + "'" + match[semicolon:]
+		}))
+	}
+	return updated, nil
+}
+
+func faoximaTableInitializer(table []byte) ([]byte, error) {
+	startMarker := []byte("$hookParams = [")
+	endMarker := []byte("if (!is_array($rxSetHookResp) || empty($rxSetHookResp['ok'])) {")
+	start := bytes.Index(table, startMarker)
+	if start < 0 || bytes.Count(table, startMarker) != 1 {
+		return nil, errors.New("Faoxima table initializer changed unexpectedly")
+	}
+	relEnd := bytes.Index(table[start:], endMarker)
+	if relEnd < 0 {
+		return nil, errors.New("Faoxima webhook setup changed unexpectedly")
+	}
+	end := start + relEnd
+	closeRel := bytes.Index(table[end:], []byte("\n}\n"))
+	if closeRel < 0 {
+		return nil, errors.New("Faoxima webhook setup is incomplete")
+	}
+	end += closeRel + len("\n}\n")
+	updated := make([]byte, 0, len(table)-end+start+64)
+	updated = append(updated, table[:start]...)
+	updated = append(updated, []byte("// Webhook is configured by Rebecca with a secret token.\n")...)
+	updated = append(updated, table[end:]...)
+	return updated, nil
 }
 
 func writeExternalAppSecretFile(root, name, value string, uid, gid int) error {
@@ -432,10 +490,31 @@ var mirzaCronTasks = []mirzaCronTask{
 }
 
 func writeMirzaCron(record Record) error {
+	return writeTelegramCron(record, mirzaCronTasks)
+}
+
+func writeFaoximaCron(record Record) error {
+	tasks := make([]mirzaCronTask, 0, len(mirzaCronTasks))
+	for _, task := range mirzaCronTasks {
+		if _, err := os.Stat(filepath.Join(record.Root, "cronbot", task.path)); err == nil {
+			tasks = append(tasks, task)
+		}
+	}
+	return writeTelegramCron(record, tasks)
+}
+
+func writeBotCron(record Record) error {
+	if record.Template == "faoxima" {
+		return writeFaoximaCron(record)
+	}
+	return writeMirzaCron(record)
+}
+
+func writeTelegramCron(record Record, tasks []mirzaCronTask) error {
 	secretPath := filepath.Join(record.Root, ".rebecca-cron-secret")
 	var content strings.Builder
 	content.WriteString("SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nMAILTO=\"\"\n\n")
-	for _, task := range mirzaCronTasks {
+	for _, task := range tasks {
 		lockPath := filepath.Join(record.Root, ".locks", strings.TrimSuffix(task.path, ".php")+".lock")
 		fmt.Fprintf(&content,
 			"%s %s /usr/bin/flock -n %s /usr/bin/curl -fsS --max-time 50 --resolve %s:443:127.0.0.1 -H \"X-Rebecca-Cron-Secret: $(/bin/cat %s)\" %s/cronbot/%s >/dev/null 2>&1\n",
@@ -842,6 +921,34 @@ func (m *Manager) downloadMirzaBot(ctx context.Context) (mirzaBotSource, error) 
 	return mirzaBotSource{Version: release.Version, SHA: release.SHA, Archive: data}, nil
 }
 
+func (m *Manager) downloadFaoxima(ctx context.Context) (mirzaBotSource, error) {
+	archiveBase := strings.TrimSuffix(m.faoximaArchive, "/")
+	if archiveBase == "" {
+		archiveBase = faoximaArchiveBaseURL
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, archiveBase+"/zip/refs/heads/main", nil)
+	if err != nil {
+		return mirzaBotSource{}, err
+	}
+	setMirzaBotGitHubHeaders(req)
+	response, err := m.doExternalAppRequest(req)
+	if err != nil {
+		return mirzaBotSource{}, errors.New("download latest stable Faoxima source failed")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return mirzaBotSource{}, fmt.Errorf("download latest stable Faoxima source returned HTTP %d", response.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxExternalAppArchiveBytes+1))
+	if err != nil {
+		return mirzaBotSource{}, fmt.Errorf("read Faoxima archive: %w", err)
+	}
+	if len(data) == 0 || len(data) > maxExternalAppArchiveBytes {
+		return mirzaBotSource{}, errors.New("Faoxima archive is empty or exceeds 32 MiB")
+	}
+	return mirzaBotSource{Version: "main", SHA: sha256Hex(data), Archive: data}, nil
+}
+
 func (m *Manager) getMirzaBotJSON(ctx context.Context, endpoint string, target any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -915,7 +1022,7 @@ func externalAppWebhookURL(record Record) string {
 }
 
 func removeMirzaBotInstaller(root string) error {
-	for _, name := range []string{"install.sh", "install"} {
+	for _, name := range []string{"install.sh", "install", "installer"} {
 		if err := os.RemoveAll(filepath.Join(root, name)); err != nil {
 			return fmt.Errorf("remove MirzaBot installer: %w", err)
 		}

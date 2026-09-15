@@ -1066,8 +1066,13 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 	for _, address := range addresses {
 		attemptCtx, cancel := withNodeDialAttemptTimeout(ctx)
 		client, err := nodeclient.Dial(attemptCtx, address, tlsConfig, grpc.WithBlock())
+		cancel()
 		if err == nil {
-			hello, helloErr := client.Control().Hello(attemptCtx, &nodev1.HelloRequest{MasterId: "rebecca-master"})
+			// The dial deadline only covers transport setup. Reusing that context
+			// for Hello makes a slow TLS handshake leave no time for the first RPC.
+			helloCtx, helloCancel := withNodeDialAttemptTimeout(ctx)
+			hello, helloErr := client.Control().Hello(helloCtx, &nodev1.HelloRequest{MasterId: "rebecca-master"})
+			helloCancel()
 			if helloErr != nil {
 				_ = client.Close()
 				err = helloErr
@@ -1075,7 +1080,6 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 				client.SetHandshake(hello.GetNodeVersion(), hello.GetRuntime().GetCapabilities())
 			}
 		}
-		cancel()
 		if err == nil {
 			if c.nodeClients != nil {
 				actual, loaded := c.nodeClients.LoadOrStore(nodeID, cachedNodeClient{key: cacheKey, client: client})

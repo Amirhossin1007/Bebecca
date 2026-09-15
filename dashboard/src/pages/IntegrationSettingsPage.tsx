@@ -106,6 +106,7 @@ import {
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import {
 	DataTable,
+	PageLoadingSkeleton,
 	ResourceListCard,
 	TabSystem,
 	type DataTableColumn,
@@ -1824,11 +1825,7 @@ export const IntegrationSettingsPage = () => {
 	);
 
 	if (!getUserIsSuccess) {
-		return (
-			<Flex align="center" justify="center" py={12}>
-				<Spinner size="lg" />
-			</Flex>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canManageIntegrations) {

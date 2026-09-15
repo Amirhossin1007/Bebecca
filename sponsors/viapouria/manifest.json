@@ -1,0 +1,77 @@
+{
+  "enabled": false,
+  "assets": [
+    {
+      "id": "viapouria-header-01",
+      "placement": "header",
+      "image_url": "header-01.svg",
+      "alt": "viapouria blue and violet banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-header-02",
+      "placement": "header",
+      "image_url": "header-02.svg",
+      "alt": "viapouria green and white banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-header-03",
+      "placement": "header",
+      "image_url": "header-03.svg",
+      "alt": "viapouria orange and red banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-sidebar-01",
+      "placement": "sidebar",
+      "image_url": "sidebar-01.svg",
+      "alt": "viapouria green and white sidebar banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-sidebar-02",
+      "placement": "sidebar",
+      "image_url": "sidebar-02.svg",
+      "alt": "viapouria cyan and blue sidebar banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-sidebar-03",
+      "placement": "sidebar",
+      "image_url": "sidebar-03.svg",
+      "alt": "viapouria violet and pink sidebar banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-sidebar-04",
+      "placement": "sidebar",
+      "image_url": "sidebar-04.svg",
+      "alt": "viapouria amber and red sidebar banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-sidebar-05",
+      "placement": "sidebar",
+      "image_url": "sidebar-05.svg",
+      "alt": "viapouria midnight blue sidebar banner",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    },
+    {
+      "id": "viapouria-logo",
+      "placement": "sidebar_logo",
+      "image_url": "logo.svg",
+      "alt": "viapouria logo",
+      "label": "viapouria",
+      "valid_until": "2030-12-31T23:59:59Z"
+    }
+  ]
+}

@@ -2,6 +2,23 @@ package nodecontroller
 
 import "testing"
 
+func TestSkipNodeMetricsClearsInactiveRuntimeState(t *testing.T) {
+	for _, status := range []string{"disabled", "limited"} {
+		item := NodeListItem{Status: status, AgentStatus: "connected", XrayStatus: "running"}
+		if !skipNodeMetrics(&item) {
+			t.Fatalf("expected %s node metrics to be skipped", status)
+		}
+		if item.AgentStatus != "unknown" || item.XrayStatus != "stopped" {
+			t.Fatalf("stale runtime state remained for %s node: %#v", status, item)
+		}
+	}
+
+	item := NodeListItem{Status: "connected", AgentStatus: "connected", XrayStatus: "running"}
+	if skipNodeMetrics(&item) {
+		t.Fatal("connected node metrics should still be collected")
+	}
+}
+
 func TestEnrichCertificateFieldsIncludesInstallBundleMaterial(t *testing.T) {
 	defaultCert := "default certificate"
 	defaultKey := "default key"

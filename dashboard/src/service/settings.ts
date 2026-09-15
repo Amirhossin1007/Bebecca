@@ -384,7 +384,7 @@ export const disablePHPMyAdmin =
 
 export interface ExternalAppRecord {
 	id: string;
-	template: "archive" | "mirzabot";
+	template: "archive" | "mirzabot" | "faoxima";
 	name: string;
 	domain: string;
 	path?: string;
@@ -407,7 +407,7 @@ export interface ExternalAppRecord {
 }
 
 export interface ExternalAppTemplate {
-	id: "archive" | "mirzabot";
+	id: "archive" | "mirzabot" | "faoxima";
 	name: string;
 	supported: boolean;
 	detail?: string;
@@ -469,6 +469,26 @@ export const installMirzaBot = async (payload: {
 		body.set("database_backup", payload.database_backup);
 	}
 	return $fetch("/settings/external-apps/mirzabot", {
+		method: "POST",
+		body,
+		timeout: 20 * 60 * 1000,
+	});
+};
+
+export const installFaoxima = async (payload: {
+	domain: string;
+	bot_token: string;
+	admin_id: string;
+	database_backup?: File;
+}): Promise<ExternalAppRecord> => {
+	const body = new FormData();
+	body.set("domain", payload.domain);
+	body.set("bot_token", payload.bot_token);
+	body.set("admin_id", payload.admin_id);
+	if (payload.database_backup) {
+		body.set("database_backup", payload.database_backup);
+	}
+	return $fetch("/settings/external-apps/faoxima", {
 		method: "POST",
 		body,
 		timeout: 20 * 60 * 1000,
@@ -690,6 +710,18 @@ export const importRebeccaBackup = async (
 		xhr.open("POST", `${baseURL}/settings/backup/import`);
 		xhr.withCredentials = true;
 		xhr.responseType = "json";
+		const responseBody = (): unknown => {
+			if (xhr.response !== null && xhr.response !== undefined) {
+				return xhr.response;
+			}
+			try {
+				const text = xhr.responseText?.trim();
+				if (!text) return undefined;
+				return JSON.parse(text);
+			} catch {
+				return undefined;
+			}
+		};
 		xhr.upload.onprogress = (event) => {
 			if (event.lengthComputable) {
 				onProgress?.(
@@ -699,13 +731,33 @@ export const importRebeccaBackup = async (
 		};
 		xhr.upload.onload = () => onProgress?.(100);
 		xhr.onload = () => {
+			const response = responseBody();
 			if (xhr.status >= 200 && xhr.status < 300) {
-				resolve(xhr.response as RebeccaBackupImportResponse);
+				resolve(response as RebeccaBackupImportResponse);
 				return;
 			}
-			reject({ response: { _data: xhr.response } });
+			const responseRecord =
+				response && typeof response === "object"
+					? (response as Record<string, unknown>)
+					: undefined;
+			const detail =
+				typeof response === "string"
+					? response
+					: typeof responseRecord?.detail === "string"
+						? responseRecord.detail
+						: typeof responseRecord?.message === "string"
+							? responseRecord.message
+							: `Request failed (HTTP ${xhr.status})`;
+			const error = new Error(detail);
+			(error as Error & { response?: unknown }).response = {
+				status: xhr.status,
+				_data: response,
+			};
+			reject(error);
 		};
-		xhr.onerror = () => reject(new Error("Backup upload failed"));
+		xhr.onerror = () => reject(new Error("Backup upload failed; check your connection and retry"));
+		xhr.ontimeout = () => reject(new Error("Backup upload timed out; retry with a stable connection"));
+		xhr.onabort = () => reject(new Error("Backup upload was cancelled"));
 		onProgress?.(0);
 		xhr.send(body);
 	});
