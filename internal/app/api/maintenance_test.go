@@ -24,7 +24,7 @@ func (r fakeRuntimeDetector) Info() systemapp.RuntimeInfo {
 type fakeUpdateChecker struct{}
 
 func (fakeUpdateChecker) Builds(context.Context, string) (systemapp.BuildCatalog, error) {
-	return systemapp.BuildCatalog{Floor: "v1.3.0"}, nil
+	return systemapp.BuildCatalog{Floor: "v1.4.0"}, nil
 }
 
 func (fakeUpdateChecker) Status(_ context.Context, repo string, current *string, channel string) systemapp.UpdateStatus {
@@ -142,7 +142,7 @@ func TestMaintenanceInfoBinaryAndDockerMock(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &builds); err != nil {
 		t.Fatal(err)
 	}
-	if builds.Floor != "v1.3.0" {
+	if builds.Floor != "v1.4.0" {
 		t.Fatalf("unexpected build floor: %#v", builds)
 	}
 

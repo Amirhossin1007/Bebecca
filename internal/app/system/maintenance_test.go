@@ -134,7 +134,7 @@ func TestGitHubUpdateCheckerListsBuildsFromSwitchFloor(t *testing.T) {
 		case "/repos/rebeccapanel/Rebecca/releases":
 			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{"tag_name": "v1.2.0"},
-				{"tag_name": "v1.3.0", "published_at": "2026-06-24T00:00:00Z"},
+				{"tag_name": "v1.4.0", "published_at": "2026-06-24T00:00:00Z"},
 				{"tag_name": "v1.4.0", "prerelease": true},
 			})
 		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
@@ -162,7 +162,7 @@ func TestGitHubUpdateCheckerListsBuildsFromSwitchFloor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.Floor != versionSwitchFloor || len(catalog.Stable) != 1 || catalog.Stable[0].Version != "v1.3.0" || len(catalog.Dev) != 1 || catalog.Dev[0].Commit != "abcdef0123456789" {
+	if catalog.Floor != versionSwitchFloor || len(catalog.Stable) != 1 || catalog.Stable[0].Version != "v1.4.0" || len(catalog.Dev) != 1 || catalog.Dev[0].Commit != "abcdef0123456789" {
 		t.Fatalf("unexpected build catalog: %#v", catalog)
 	}
 }

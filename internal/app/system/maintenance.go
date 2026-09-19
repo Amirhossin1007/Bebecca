@@ -25,7 +25,7 @@ var (
 	devVersionPattern     = regexp.MustCompile(`^dev-[0-9a-fA-F]{7,40}$`)
 )
 
-const versionSwitchFloor = "v1.3.0"
+const versionSwitchFloor = "v1.4.0"
 
 type MaintenanceError struct {
 	Status int
