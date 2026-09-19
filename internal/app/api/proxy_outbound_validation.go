@@ -53,6 +53,20 @@ func managedProxyLocationFromTag(kind, tag string) string {
 	return ""
 }
 
+func managedProxySingletonConflict(config map[string]any, kind, tag string) (string, bool) {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	for _, outbound := range outboundMaps(config["outbounds"]) {
+		if strings.ToLower(strings.TrimSpace(stringFromAny(outbound["rebecca_proxy"]))) != kind {
+			continue
+		}
+		existingTag := strings.TrimSpace(stringFromAny(outbound["tag"]))
+		if existingTag != "" && existingTag != tag {
+			return existingTag, true
+		}
+	}
+	return "", false
+}
+
 func isLoopbackAddress(value string) bool {
 	value = strings.TrimSpace(strings.Trim(value, "[]"))
 	return value == "127.0.0.1" || value == "::1" || strings.EqualFold(value, "localhost")

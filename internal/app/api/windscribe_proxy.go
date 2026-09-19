@@ -91,6 +91,10 @@ func (s *Server) handleWindscribeSetup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, fmt.Sprintf("Windscribe location %s is already used by outbound %s", strings.ToUpper(location), existingTag))
 		return
 	}
+	if existingTag, conflict := managedProxySingletonConflict(config, "windscribe", tag); conflict {
+		writeError(w, http.StatusConflict, fmt.Sprintf("only one Windscribe outbound can run on a node; existing outbound: %s", existingTag))
+		return
+	}
 	proxyUsername, err := randomWindscribeCredential()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
