@@ -1188,6 +1188,44 @@ get_node_binary_dev_artifact_metadata() {
     exit 1
 }
 
+get_node_binary_dev_artifact_metadata_for_version() {
+    local requested_version="$1"
+    local binary_arch="$2"
+    local requested_sha="${requested_version#dev-}"
+    local workflow_name="${REBECCA_NODE_BINARY_WORKFLOW_NAME}"
+    local workflow_path
+    local runs_url
+    local run_json
+    local run_id
+    local head_sha
+    local artifact_name
+
+    if ! [[ "$requested_version" =~ ^dev-[0-9a-fA-F]{7,40}$ ]]; then
+        colorized_echo red "Invalid Rebecca-node dev build: $requested_version" >&2
+        exit 1
+    fi
+    case "$workflow_name" in
+        *.yml|*.yaml) ;;
+        *) workflow_name="${workflow_name}.yml" ;;
+    esac
+    workflow_path=".github/workflows/${workflow_name}"
+    runs_url="https://api.github.com/repos/${REBECCA_NODE_RELEASE_REPO}/actions/runs?branch=${REBECCA_NODE_BINARY_DEV_BRANCH}&event=push&status=success&per_page=100"
+    while IFS= read -r run_json; do
+        [ -n "$run_json" ] || continue
+        run_id=$(echo "$run_json" | jq -r '.id // empty')
+        head_sha=$(echo "$run_json" | jq -r '.head_sha // empty')
+        [ -n "$run_id" ] && [ -n "$head_sha" ] || continue
+        [[ "$head_sha" == "$requested_sha"* ]] || continue
+        [[ "$(echo "$run_json" | jq -r '.path // empty')" == "$workflow_path" ]] || continue
+        artifact_name="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch}"
+        printf '%s|%s\n' "$requested_version" "https://nightly.link/${REBECCA_NODE_RELEASE_REPO}/workflows/${workflow_name}/${head_sha}/${artifact_name}.zip"
+        return 0
+    done < <(curl -fsSL "$runs_url" | jq -c '.workflow_runs[]?')
+
+    colorized_echo red "Rebecca-node dev build $requested_version was not found in successful workflow runs." >&2
+    exit 1
+}
+
 write_node_binary_release_metadata() {
     local resolved_version="$1"
     local binary_arch="$2"
@@ -1393,6 +1431,12 @@ install_binary_rebecca_node() {
         ui_spinner_run "Installing Rebecca-node custom binary" install -m 755 "$REBECCA_NODE_BINARY_OVERRIDE" "$tmp_dir/rebecca-node"
         resolved_version="${REBECCA_NODE_BINARY_OVERRIDE_VERSION:-custom}"
         artifact_url="local-override"
+    elif [[ "$node_version" =~ ^dev-[0-9a-fA-F]{7,40}$ ]]; then
+        IFS='|' read -r resolved_version artifact_url < <(get_node_binary_dev_artifact_metadata_for_version "$node_version" "$binary_arch")
+        package_path="$tmp_dir/rebecca-node-binaries.zip"
+        ui_spinner_run "Downloading Rebecca-node dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
+        ui_spinner_run "Extracting Rebecca-node dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
+        normalize_node_dev_artifact "$tmp_dir" "$binary_arch"
     elif [ "$node_version" = "dev" ]; then
         IFS='|' read -r resolved_version artifact_url < <(get_node_binary_dev_artifact_metadata "$binary_arch")
         if [[ "$artifact_url" == *.zip ]]; then

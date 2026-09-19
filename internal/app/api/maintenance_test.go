@@ -23,6 +23,10 @@ func (r fakeRuntimeDetector) Info() systemapp.RuntimeInfo {
 
 type fakeUpdateChecker struct{}
 
+func (fakeUpdateChecker) Builds(context.Context, string) (systemapp.BuildCatalog, error) {
+	return systemapp.BuildCatalog{Floor: "v1.4.0"}, nil
+}
+
 func (fakeUpdateChecker) Status(_ context.Context, repo string, current *string, channel string) systemapp.UpdateStatus {
 	releaseTag := "v0.2.0"
 	devTag := "dev-abcdef0"
@@ -130,6 +134,17 @@ func TestMaintenanceInfoBinaryAndDockerMock(t *testing.T) {
 		info.NodeUpdate.Repo != "rebeccapanel/Rebecca-node" {
 		t.Fatalf("unexpected maintenance info: %#v", info)
 	}
+	rec = adminJSONRequest(t, server, http.MethodGet, "/api/maintenance/builds?target=node", token, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("maintenance builds status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var builds systemapp.BuildCatalog
+	if err := json.Unmarshal(rec.Body.Bytes(), &builds); err != nil {
+		t.Fatal(err)
+	}
+	if builds.Floor != "v1.4.0" {
+		t.Fatalf("unexpected build floor: %#v", builds)
+	}
 
 	server.maintenance = systemapp.NewMaintenanceServiceWithDeps(
 		fakeRuntimeDetector{info: systemapp.RuntimeInfo{
@@ -176,7 +191,7 @@ func TestMaintenanceActionsAcceptedAndValidated(t *testing.T) {
 		t.Fatalf("update status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	var updateResponse struct {
-		Status    string                                  `json:"status"`
+		Status    string                                 `json:"status"`
 		Operation systemapp.MaintenanceOperationSnapshot `json:"operation"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &updateResponse); err != nil {

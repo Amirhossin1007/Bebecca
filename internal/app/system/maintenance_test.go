@@ -128,6 +128,68 @@ func TestSelectManifestBuildUsesLatestTag(t *testing.T) {
 	}
 }
 
+func TestGitHubUpdateCheckerListsBuildsFromSwitchFloor(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/rebeccapanel/Rebecca/releases":
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"tag_name": "v1.2.0"},
+				{"tag_name": "v1.4.0", "published_at": "2026-06-24T00:00:00Z"},
+				{"tag_name": "v1.4.0", "prerelease": true},
+			})
+		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"builds": []map[string]any{
+					{"tag": "dev-0123456", "sha": "0123456789abcdef", "run_id": "11", "created_at": "2026-06-23T00:00:00Z"},
+					{"tag": "dev-abcdef0", "sha": "abcdef0123456789", "run_id": "12", "created_at": "2026-06-25T00:00:00Z"},
+					{"tag": "not-a-build", "sha": "bad"},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	checker := &GitHubUpdateChecker{
+		APIBase:        server.URL,
+		RawBase:        server.URL,
+		HTTPClient:     server.Client(),
+		ManifestBranch: "dev-build-manifest",
+		ManifestPath:   "dev-builds.json",
+	}
+	catalog, err := checker.Builds(context.Background(), "rebeccapanel/Rebecca")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.Floor != versionSwitchFloor || len(catalog.Stable) != 1 || catalog.Stable[0].Version != "v1.4.0" || len(catalog.Dev) != 1 || catalog.Dev[0].Commit != "abcdef0123456789" {
+		t.Fatalf("unexpected build catalog: %#v", catalog)
+	}
+}
+
+func TestGitHubUpdateCheckerListsDevBuildsFromWorkflowWhenManifestIsMissing(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/rebeccapanel/Rebecca-node/releases":
+			_ = json.NewEncoder(w).Encode([]map[string]any{})
+		case "/rebeccapanel/Rebecca-node/dev-build-manifest/dev-builds.json":
+			http.NotFound(w, r)
+		case "/repos/rebeccapanel/Rebecca-node/actions/workflows/binary-build.yml/runs":
+			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{{
+				"head_branch": "dev", "conclusion": "success", "head_sha": "1234567890abcdef",
+			}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	checker := &GitHubUpdateChecker{APIBase: server.URL, RawBase: server.URL, HTTPClient: server.Client()}
+	catalog, err := checker.Builds(context.Background(), "rebeccapanel/Rebecca-node")
+	if err != nil || len(catalog.Dev) != 1 || catalog.Dev[0].Version != "dev-1234567" {
+		t.Fatalf("unexpected workflow build catalog: %#v, error=%v", catalog, err)
+	}
+}
+
 func TestGitHubUpdateCheckerCachesErrors(t *testing.T) {
 	var requests int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

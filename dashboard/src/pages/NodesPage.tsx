@@ -90,10 +90,15 @@ import {
 	type DataTableRowAction,
 } from "../components/ui";
 import { CoreVersionDialog } from "../components/CoreVersionDialog";
+import type { BuildCatalog } from "../components/BuildVersionSelect";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import { GeoUpdateDialog } from "../components/GeoUpdateDialog";
 import { NodeFormModal } from "../components/NodeFormModal";
 import { NodeModalStatusBadge } from "../components/NodeModalStatusBadge";
+import {
+	NodeServiceUpdateDialog,
+	type NodeServiceUpdateChannel,
+} from "../components/NodeServiceUpdateDialog";
 
 const normalizeVersion = (value?: string | null) => {
 	if (!value) return "";
@@ -526,6 +531,10 @@ type GeoDialogTarget =
 	| { type: "node"; node: NodeType }
 	| { type: "bulk"; nodes?: NodeType[] };
 
+type ServiceUpdateTarget =
+	| { type: "node"; node: NodeType }
+	| { type: "bulk"; nodes: NodeType[] };
+
 type ServiceActionConfirm =
 	| { type: "restart"; node: NodeType; label: string }
 	| { type: "update"; node: NodeType; label: string }
@@ -633,6 +642,8 @@ export const NodesPage: FC = () => {
 	const [pageSize, setPageSize] = useState(() => getNodesPerPageLimitSize());
 	const [versionDialogTarget, setVersionDialogTarget] =
 		useState<VersionDialogTarget | null>(null);
+	const [serviceUpdateTarget, setServiceUpdateTarget] =
+		useState<ServiceUpdateTarget | null>(null);
 	const [geoDialogTarget, setGeoDialogTarget] =
 		useState<GeoDialogTarget | null>(null);
 	const [updatingCoreNodeId, setUpdatingCoreNodeId] = useState<number | null>(
@@ -703,6 +714,16 @@ export const NodesPage: FC = () => {
 		{
 			refetchOnWindowFocus: false,
 			enabled: canManageNodes,
+		},
+	);
+	const { data: buildCatalog } = useQuery<BuildCatalog>(
+		["maintenance-builds", "node"],
+		() => apiFetch<BuildCatalog>("/maintenance/builds?target=node"),
+		{
+			enabled: canManageNodes,
+			refetchOnWindowFocus: false,
+			staleTime: 10 * 60 * 1000,
+			retry: false,
 		},
 	);
 	const detectedNodeUpdateChannel =
@@ -1036,14 +1057,67 @@ export const NodesPage: FC = () => {
 		setServiceActionConfirm({ type: "restart", node, label });
 	};
 
-	const handleUpdateNodeService = useCallback(
-		(node: NodeType) => {
-			if (!node?.id) return;
-			const label = node.name || node.address || t("nodes.thisNode");
-			setServiceActionConfirm({ type: "update", node, label });
-		},
-		[t],
-	);
+	const handleUpdateNodeService = useCallback((node: NodeType) => {
+		if (!node?.id) return;
+		setServiceUpdateTarget({ type: "node", node });
+	}, []);
+
+	const closeServiceUpdateDialog = () => {
+		if (updatingServiceNodeId !== null || updatingBulkService) return;
+		setServiceUpdateTarget(null);
+	};
+
+	const handleServiceUpdateSubmit = async (
+		channel: NodeServiceUpdateChannel,
+		version?: string,
+	) => {
+		if (!serviceUpdateTarget) return;
+		if (serviceUpdateTarget.type === "node") {
+			const node = serviceUpdateTarget.node;
+			if (!node.id) return;
+			setUpdatingServiceNodeId(node.id);
+			try {
+				await apiFetch(`/node/${node.id}/service/update`, {
+					method: "POST",
+					body: { channel, version },
+				});
+				generateSuccessMessage(t("nodes.updateServiceTriggered"), toast);
+				queryClient.invalidateQueries(FetchNodesQueryKey);
+				setServiceUpdateTarget(null);
+			} catch (err) {
+				generateErrorMessage(err, toast);
+			} finally {
+				setUpdatingServiceNodeId(null);
+			}
+			return;
+		}
+
+		const targetNodes = serviceUpdateTarget.nodes.filter(
+			(node) => node.id != null,
+		);
+		if (targetNodes.length === 0) return;
+		setUpdatingBulkService(true);
+		try {
+			await apiFetch("/nodes/service/update", {
+				method: "POST",
+				body: {
+					nodes: targetNodes.map((node) => ({ id: node.id, channel, version })),
+				},
+			});
+			generateSuccessMessage(
+				t("nodes.updateAllNodeServicesTriggered", {
+					count: targetNodes.length,
+				}),
+				toast,
+			);
+			queryClient.invalidateQueries(FetchNodesQueryKey);
+			setServiceUpdateTarget(null);
+		} catch (err) {
+			generateErrorMessage(err, toast);
+		} finally {
+			setUpdatingBulkService(false);
+		}
+	};
 
 	const handleRebootNodeHost = useCallback(
 		(node: NodeType) => {
@@ -1099,10 +1173,7 @@ export const NodesPage: FC = () => {
 			});
 			return;
 		}
-		setServiceActionConfirm({
-			type: "update-all",
-			count: targetNodes.length,
-		});
+		setServiceUpdateTarget({ type: "bulk", nodes: targetNodes });
 	};
 
 	const closeServiceActionConfirm = () => {
@@ -1712,6 +1783,10 @@ export const NodesPage: FC = () => {
 			});
 			return;
 		}
+		if (type === "bulk-update") {
+			setServiceUpdateTarget({ type: "bulk", nodes: nodesForAction });
+			return;
+		}
 		let hostImpact: NodeHostImpact | undefined;
 		if (type === "bulk-disable") {
 			try {
@@ -1892,6 +1967,27 @@ export const NodesPage: FC = () => {
 		hostCleanupLoading ||
 		updatingBulkService ||
 		Boolean(bulkNodeActionLoading);
+
+	const serviceUpdateDialogTitle =
+		serviceUpdateTarget?.type === "node"
+			? t("nodes.updateServiceDialog.nodeTitle", {
+					name: serviceUpdateTarget.node.name ?? t("nodes.unnamedNode"),
+				})
+			: t("nodes.updateServiceDialog.bulkTitle");
+	const serviceUpdateDialogDescription =
+		serviceUpdateTarget?.type === "node"
+			? t("nodes.updateServiceDialog.nodeDescription")
+			: t("nodes.updateServiceDialog.bulkDescription", {
+					count: serviceUpdateTarget?.nodes.length ?? 0,
+				});
+	const serviceUpdateCurrentChannel =
+		serviceUpdateTarget?.type === "node"
+			? getNodeUpdateChannel(serviceUpdateTarget.node, nodeUpdateChannel)
+			: nodeUpdateChannel;
+	const serviceUpdateCurrentVersion =
+		serviceUpdateTarget?.type === "node"
+			? getNodeRuntimeVersion(serviceUpdateTarget.node)
+			: undefined;
 
 	const versionDialogTitle =
 		versionDialogTarget?.type === "bulk"
@@ -3133,6 +3229,22 @@ export const NodesPage: FC = () => {
 				description={versionDialogDescription}
 				allowPersist={false}
 				isSubmitting={versionDialogLoading}
+			/>
+			<NodeServiceUpdateDialog
+				isOpen={Boolean(serviceUpdateTarget)}
+				onClose={closeServiceUpdateDialog}
+				onSubmit={handleServiceUpdateSubmit}
+				title={serviceUpdateDialogTitle}
+				description={serviceUpdateDialogDescription}
+				currentChannel={serviceUpdateCurrentChannel}
+				targetVersion={serviceUpdateCurrentVersion}
+				latestVersion={getLatestNodeVersionForChannel(
+					maintenanceInfo,
+					"latest",
+				)}
+				devVersion={getLatestNodeVersionForChannel(maintenanceInfo, "dev")}
+				catalog={buildCatalog}
+				isSubmitting={updatingServiceNodeId !== null || updatingBulkService}
 			/>
 			<GeoUpdateDialog
 				isOpen={Boolean(geoDialogTarget)}

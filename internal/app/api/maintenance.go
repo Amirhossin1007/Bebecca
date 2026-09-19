@@ -29,6 +29,29 @@ func (s *Server) handleMaintenanceInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, info)
 }
 
+func (s *Server) handleMaintenanceBuilds(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/maintenance/builds" {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	repo := "rebeccapanel/Rebecca"
+	if strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("target")), "node") {
+		repo = "rebeccapanel/Rebecca-node"
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	catalog, err := s.maintenanceService().Builds(ctx, repo)
+	if err != nil {
+		writeMaintenanceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, catalog)
+}
+
 func (s *Server) handleMaintenanceUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/maintenance/update" {
 		writeError(w, http.StatusNotFound, "not found")
