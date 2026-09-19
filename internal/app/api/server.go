@@ -60,7 +60,6 @@ type Server struct {
 	backupService        *backupapp.Service
 	certificateManager   *certificateapp.Manager
 	externalApps         *externalapps.Manager
-	sponsors             *sponsorManager
 	backgroundOnce       sync.Once
 	nodeOperationsKick   chan struct{}
 	userOpsKickMu        sync.Mutex
@@ -154,7 +153,6 @@ func New(cfg Config) (*Server, error) {
 			DatabaseDialect:   pool.Dialect,
 			MySQLRootPassword: cfg.MySQLRootPassword,
 		}, certificateManager),
-		sponsors:             newSponsorManager(cfg.SponsorManifestURL, cfg.SponsorCacheDir, nil),
 		nodeOperationsKick:   make(chan struct{}, 1),
 		recentActionsEnabled: true,
 	}

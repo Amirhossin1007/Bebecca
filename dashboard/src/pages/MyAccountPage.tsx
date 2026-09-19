@@ -46,7 +46,7 @@ import {
 } from "components/common/DateRangePicker";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
-import { PageHeader, PageLoadingSkeleton } from "components/ui";
+import { PageHeader } from "components/ui";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import useGetUser from "hooks/useGetUser";
@@ -895,7 +895,11 @@ export const MyAccountPage: React.FC = () => {
 	}
 
 	if (isLoading || !data) {
-		return <PageLoadingSkeleton />;
+		return (
+			<Flex justify="center" align="center" py={10}>
+				<Spinner />
+			</Flex>
+		);
 	}
 
 	const used = data.used_traffic || 0;

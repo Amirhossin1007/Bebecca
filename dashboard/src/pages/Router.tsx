@@ -1,5 +1,4 @@
-import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
-import { PageLoadingSkeleton } from "../components/ui";
+import { Box, Button, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
 import { type ComponentType, lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -56,7 +55,11 @@ const TutorialsPage = lazy(async () => ({
 const UsagePage = lazy(() => import("./UsagePage"));
 const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
 
-const PageLoading = () => <PageLoadingSkeleton />;
+const PageLoading = () => (
+	<Box minH="100vh" w="full" bg="var(--rb-panel-main)" display="grid" placeItems="center">
+		<Spinner size="lg" color="var(--rb-panel-accent)" thickness="3px" speed="0.75s" />
+	</Box>
+);
 
 const LazyPage = ({ Page }: { Page: ComponentType }) => (
 	<Suspense fallback={<PageLoading />}>

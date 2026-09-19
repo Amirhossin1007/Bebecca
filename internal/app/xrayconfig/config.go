@@ -2154,26 +2154,18 @@ func applyNetworkSettings(resolved ResolvedInbound, network string, settings map
 }
 
 func mergePolicy(runtime map[string]any) {
-	current := mapValue(runtime["policy"])
-	system := mapValue(current["system"])
-	systemDefaults := map[string]any{
-		"statsOutboundDownlink": true,
-		"statsOutboundUplink":   true,
-	}
-	if _, ok := system["statsInboundDownlink"]; !ok {
-		systemDefaults["statsInboundDownlink"] = true
-	}
-	if _, ok := system["statsInboundUplink"]; !ok {
-		systemDefaults["statsInboundUplink"] = true
-	}
 	forced := map[string]any{
 		"levels": map[string]any{"0": map[string]any{
 			"statsUserUplink":   true,
 			"statsUserDownlink": true,
 			"statsUserOnline":   true,
 		}},
-		"system": systemDefaults,
+		"system": map[string]any{
+			"statsOutboundDownlink": true,
+			"statsOutboundUplink":   true,
+		},
 	}
+	current := mapValue(runtime["policy"])
 	runtime["policy"] = mergeMaps(current, forced)
 }
 

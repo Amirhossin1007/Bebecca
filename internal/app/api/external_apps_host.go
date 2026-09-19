@@ -39,9 +39,6 @@ func (h *externalAppAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 	record, relativePath, ok := h.apps.Match(r.Host, r.URL.Path)
 	if !ok {
-		record, relativePath, ok = h.apps.MatchMirzaLegacyPath(r.Host, r.URL.Path)
-	}
-	if !ok {
 		if !h.apps.HasHost(r.Host) {
 			h.next.ServeHTTP(w, r)
 			return
@@ -106,7 +103,7 @@ func serveExternalApp(manager *externalapps.Manager, w http.ResponseWriter, r *h
 			http.NotFound(w, r)
 			return nil
 		}
-		if externalapps.IsTelegramBotTemplate(record.Template) {
+		if record.Template == "mirzabot" {
 			if err := manager.AuthorizeMirzaRequest(r, record, rel); err != nil {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return nil
@@ -199,7 +196,7 @@ func externalAppPathDenied(rel string) bool {
 }
 
 func phpScriptAllowed(record externalapps.Record, rel string) bool {
-	if !externalapps.IsTelegramBotTemplate(record.Template) {
+	if record.Template != "mirzabot" {
 		return true
 	}
 	rel = strings.ToLower(filepath.ToSlash(rel))
@@ -295,7 +292,7 @@ func externalAppFastCGIParams(r *http.Request, record externalapps.Record, scrip
 	}
 	scriptName := "/" + path.Join(record.Path, strings.TrimLeft(filepath.ToSlash(scriptRel), "/"))
 	remoteAddr := remoteHost(r.RemoteAddr)
-	if externalapps.IsTelegramBotTemplate(record.Template) {
+	if record.Template == "mirzabot" {
 		remoteAddr = requestRemote(r)
 	}
 	params := map[string]string{

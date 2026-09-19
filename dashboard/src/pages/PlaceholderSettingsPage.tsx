@@ -13,6 +13,7 @@ import {
 	HStack,
 	Input,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Switch,
 	Tab,
@@ -28,7 +29,6 @@ import {
 } from "@chakra-ui/react";
 import { DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 import { PanelSelect } from "components/common/PanelSelect";
-import { PageLoadingSkeleton } from "components/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "react-query";
@@ -126,7 +126,12 @@ const PlaceholderSettingsPage = () => {
 		setDraft((current) => (current ? { ...current, [key]: value } : current));
 
 	if (query.isLoading) {
-		return <PageLoadingSkeleton />;
+		return (
+			<Stack spacing={4}>
+				<Skeleton h="72px" borderRadius="2xl" />
+				<Skeleton h="430px" borderRadius="2xl" />
+			</Stack>
+		);
 	}
 	if (query.isError) {
 		return (

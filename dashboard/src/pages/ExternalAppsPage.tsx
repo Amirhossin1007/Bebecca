@@ -20,10 +20,12 @@ import {
 	ModalHeader,
 	ModalOverlay,
 	SimpleGrid,
+	Spinner,
 	Stack,
 	Text,
 	useColorModeValue,
 	useToast,
+	VStack,
 } from "@chakra-ui/react";
 import {
 	ArrowDownTrayIcon,
@@ -45,7 +47,6 @@ import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
-	PageLoadingSkeleton,
 	ResourceListCard,
 	type DataTableColumn,
 	type DataTableRowAction,
@@ -59,7 +60,6 @@ import {
 	exportExternalAppDatabase,
 	getExternalApps,
 	getSubscriptionSettings,
-	installFaoxima,
 	installMirzaBot,
 	installExternalArchive,
 	setExternalAppEnabled,
@@ -68,7 +68,7 @@ import {
 	type ExternalAppRecord,
 } from "service/settings";
 
-type TemplateID = "archive" | "mirzabot" | "faoxima";
+type TemplateID = "archive" | "mirzabot";
 type ArchiveRuntime = "php" | "static" | "node";
 
 const ExternalAppFilesModal = lazy(async () => ({
@@ -209,13 +209,12 @@ export const ExternalAppsPage = () => {
 				});
 			}
 			if (!botToken.trim() || !adminID.trim()) {
-				throw new Error(t("externalApps.errors.botFieldsRequired"));
+				throw new Error(t("externalApps.errors.mirzaFieldsRequired"));
 			}
 			if (hasDatabaseBackup && !databaseBackup) {
 				throw new Error(t("externalApps.errors.databaseBackupRequired"));
 			}
-			const install = template === "mirzabot" ? installMirzaBot : installFaoxima;
-			return install({
+			return installMirzaBot({
 				domain,
 				bot_token: botToken.trim(),
 				admin_id: adminID.trim(),
@@ -317,7 +316,7 @@ export const ExternalAppsPage = () => {
 					"_",
 				);
 				anchor.href = url;
-				anchor.download = `${app.template}-${label}.sql`;
+				anchor.download = `mirzabot-${label}.sql`;
 				document.body.appendChild(anchor);
 				anchor.click();
 				anchor.remove();
@@ -382,11 +381,7 @@ export const ExternalAppsPage = () => {
 				cell: (app) => (
 					<Stack spacing={0} minW={0} align="start">
 						<Text fontWeight="semibold" noOfLines={1}>
-							{app.template === "mirzabot"
-								? "MirzaBot"
-								: app.template === "faoxima"
-									? "Faoxima"
-									: app.name}
+							{app.template === "mirzabot" ? "MirzaBot" : app.name}
 						</Text>
 						<Text color={mutedColor} fontSize="xs" noOfLines={1}>
 							{app.bot_username
@@ -420,8 +415,6 @@ export const ExternalAppsPage = () => {
 						<Badge>
 							{app.template === "mirzabot"
 								? "MirzaBot"
-								: app.template === "faoxima"
-									? "Faoxima"
 								: app.runtime.toUpperCase()}
 						</Badge>
 						{app.php_version ? (
@@ -478,7 +471,7 @@ export const ExternalAppsPage = () => {
 				onClick: () => setUpdateTarget(app),
 			});
 		}
-		if ((app.template === "mirzabot" || app.template === "faoxima") && app.has_database) {
+		if (app.template === "mirzabot" && app.has_database) {
 			actions.push({
 				id: "database-backup",
 				label: t("externalApps.downloadDatabaseBackup"),
@@ -563,7 +556,11 @@ export const ExternalAppsPage = () => {
 	};
 
 	if (appsQuery.isLoading) {
-		return <PageLoadingSkeleton />;
+		return (
+			<VStack minH="50vh" justify="center">
+				<Spinner />
+			</VStack>
+		);
 	}
 	if (appsQuery.data?.supported === false) {
 		return (
@@ -806,16 +803,12 @@ export const ExternalAppsPage = () => {
 											label: t("externalApps.mirzaTemplate"),
 										},
 										{
-											value: "faoxima",
-											label: t("externalApps.faoximaTemplate"),
-										},
-										{
 											value: "archive",
 											label: t("externalApps.archiveTemplate"),
 										},
 									]}
 								/>
-								{(template === "mirzabot" || template === "faoxima") && selectedTemplate?.source_url ? (
+								{template === "mirzabot" && selectedTemplate?.source_url ? (
 									<Link
 										href={selectedTemplate.source_url}
 										isExternal
@@ -826,11 +819,7 @@ export const ExternalAppsPage = () => {
 										fontSize="sm"
 										color="blue.300"
 									>
-										{t(
-											template === "faoxima"
-												? "externalApps.latestFaoximaRelease"
-												: "externalApps.latestRelease",
-										)}
+										{t("externalApps.latestRelease")}
 										<ArrowTopRightOnSquareIcon width={14} />
 									</Link>
 								) : null}
@@ -854,7 +843,7 @@ export const ExternalAppsPage = () => {
 							</FormControl>
 						</SimpleGrid>
 
-						{template !== "archive" ? (
+						{template === "mirzabot" ? (
 							<Stack mt={4} spacing={3}>
 								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 									<FormControl isRequired>
@@ -882,11 +871,7 @@ export const ExternalAppsPage = () => {
 										if (!event.target.checked) setDatabaseBackup(null);
 									}}
 								>
-									{t(
-										template === "faoxima"
-											? "externalApps.faoximaDatabaseBackupToggle"
-											: "externalApps.databaseBackupToggle",
-									)}
+									{t("externalApps.databaseBackupToggle")}
 								</Checkbox>
 								{hasDatabaseBackup ? (
 									<FormControl isRequired>

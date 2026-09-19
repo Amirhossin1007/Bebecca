@@ -403,19 +403,13 @@ func applyRuntimeAPI(raw map[string]any, apiPort int) {
 		"statsUserDownlink": true,
 		"statsUserOnline":   true,
 	})
-	system := mapValue(policy["system"])
-	systemDefaults := map[string]any{
+	policy["levels"] = levels
+	policy["system"] = mergeMaps(mapValue(policy["system"]), map[string]any{
+		"statsInboundDownlink":  false,
+		"statsInboundUplink":    false,
 		"statsOutboundDownlink": true,
 		"statsOutboundUplink":   true,
-	}
-	if _, ok := system["statsInboundDownlink"]; !ok {
-		systemDefaults["statsInboundDownlink"] = true
-	}
-	if _, ok := system["statsInboundUplink"]; !ok {
-		systemDefaults["statsInboundUplink"] = true
-	}
-	policy["levels"] = levels
-	policy["system"] = mergeMaps(system, systemDefaults)
+	})
 	raw["policy"] = policy
 
 	inbounds := listOfMaps(raw["inbounds"])

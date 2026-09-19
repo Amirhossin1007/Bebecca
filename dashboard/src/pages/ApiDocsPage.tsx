@@ -1,14 +1,15 @@
 import {
 	Button,
 	Box,
+	Flex,
 	Heading,
+	Spinner,
 	Text,
 	useColorModeValue,
 	VStack,
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PageLoadingSkeleton } from "components/ui";
 
 type DocsStatus = "checking" | "enabled" | "disabled";
 
@@ -43,7 +44,14 @@ export const ApiDocsPage = () => {
 	}, []);
 
 	if (status === "checking") {
-		return <PageLoadingSkeleton />;
+		return (
+			<Flex minH="50vh" align="center" justify="center">
+				<VStack spacing={3}>
+					<Spinner />
+					<Text color={mutedColor}>{t("apiDocs.checking")}</Text>
+				</VStack>
+			</Flex>
+		);
 	}
 
 	if (status === "disabled") {

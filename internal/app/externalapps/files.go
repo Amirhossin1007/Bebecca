@@ -583,7 +583,7 @@ func (m *Manager) safePHPConfigRecord(domain string) (Record, error) {
 }
 
 func validateExternalAppPoolConfig(record Record, content string) error {
-	expectedSection, expected, err := parseExternalAppPoolConfig(externalAppPoolConfig(record, IsTelegramBotTemplate(record.Template)))
+	expectedSection, expected, err := parseExternalAppPoolConfig(externalAppPoolConfig(record, record.Template == "mirzabot"))
 	if err != nil {
 		return err
 	}
