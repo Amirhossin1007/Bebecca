@@ -916,5 +916,18 @@
 	"settings.telegram.backupScope": "备份范围",
 	"total": "总计",
 	"loadAverage": "平均负载",
-	"sponsors.sponsoredBy": "赞助商"
+	"sponsors.sponsoredBy": "赞助商",
+	"sidebar.sections.dashboard": "仪表板",
+	"sidebar.sections.users": "用户",
+	"sidebar.sections.trafficAndAdmins": "流量与管理员",
+	"sidebar.sections.infrastructure": "网络与基础设施",
+	"sidebar.sections.system": "系统",
+	"sidebar.sections.docs": "文档",
+	"sidebar.groups.userHub": "用户管理",
+	"sidebar.usersList": "用户列表",
+	"sidebar.groups.observability": "可观测性与日志",
+	"sidebar.groups.infrastructure": "基础设施",
+	"sidebar.groups.coreRouting": "核心与路由",
+	"sidebar.groups.system": "系统与工具",
+	"sidebar.tutorialsAndFaq": "教程与常见问题"
 }

@@ -10,7 +10,6 @@ import {
 	Portal,
 	SimpleGrid,
 	Text,
-	Tooltip,
 	useColorMode,
 	useColorModeValue,
 	useDisclosure,
@@ -22,6 +21,7 @@ import {
 	SunIcon,
 	SwatchIcon,
 } from "@heroicons/react/24/outline";
+import { motion } from "framer-motion";
 import {
 	type FC,
 	type MutableRefObject,
@@ -333,7 +333,15 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	}, [activeAccent]);
 
 	const selectTheme = (theme: ThemeMode) => {
-		if (theme !== activeTheme) setColorMode(theme);
+		if (theme !== activeTheme) {
+			if (typeof document !== "undefined" && "startViewTransition" in document) {
+				(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
+					setColorMode(theme);
+				});
+			} else {
+				setColorMode(theme);
+			}
+		}
 	};
 
 	const selectAccent = (accent: string) => {
@@ -362,12 +370,23 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					},
 				}}
 				onClick={() => selectTheme(theme.key)}
-				transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				position="relative"
 				px={3}
 			>
 				<HStack spacing={2.5} align="center" justify="center" w="full">
-					<Icon />
+					<motion.div
+						initial={false}
+						animate={{
+							rotate: selected ? 360 : 0,
+							scale: selected ? 1.12 : 0.95,
+							opacity: selected ? 1 : 0.65,
+						}}
+						transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+						style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+					>
+						<Icon />
+					</motion.div>
 					<Text fontSize="13px" fontWeight={selected ? "700" : "500"}>
 						{t(`theme.${theme.key}`, theme.label)}
 					</Text>
@@ -449,44 +468,38 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						{ACCENT_OPTIONS.map((accent) => {
 							const selected = activeAccent === accent.key;
 							return (
-								<Tooltip
+								<IconButton
 									key={accent.key}
-									label={t(`theme.accent.${accent.key}`, accent.label)}
-									hasArrow
-									placement="top"
-									zIndex={10005}
-								>
-									<IconButton
-										aria-label={t(`theme.accent.${accent.key}`, accent.label)}
-										icon={
-											selected ? (
-												<CheckIconChakra w="14px" h="14px" color="white" />
-											) : undefined
-										}
-										size="sm"
-										w="36px"
-										h="36px"
-										minW="36px"
-										borderRadius="full"
-										borderWidth="2px"
-										borderColor={selected ? "white" : "transparent"}
-										bg={accent.color}
-										boxShadow={
-											selected
-												? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
-												: "0 2px 6px rgba(0, 0, 0, 0.15)"
-										}
-										transform={selected ? "scale(1.06)" : "scale(1)"}
-										_hover={{
-											md: {
-												bg: accent.hover,
-												transform: "scale(1.1)",
-											},
-										}}
-										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-										onClick={() => selectAccent(accent.key)}
-									/>
-								</Tooltip>
+									aria-label={accent.key}
+									icon={
+										selected ? (
+											<CheckIconChakra w="14px" h="14px" color="white" />
+										) : undefined
+									}
+									size="sm"
+									w="36px"
+									h="36px"
+									minW="36px"
+									borderRadius="full"
+									borderWidth="2px"
+									borderColor={selected ? "white" : "transparent"}
+									bg={accent.color}
+									boxShadow={
+										selected
+											? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
+											: "0 2px 6px rgba(0, 0, 0, 0.15)"
+									}
+									transform={selected ? "scale(1.08)" : "scale(1)"}
+									_hover={{
+										md: {
+											bg: accent.hover,
+											transform: "scale(1.15)",
+											boxShadow: `0 0 0 3px var(--chakra-colors-panel-borderStrong), 0 4px 14px ${accent.color}66`,
+										},
+									}}
+									transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+									onClick={() => selectAccent(accent.key)}
+								/>
 							);
 						})}
 					</SimpleGrid>

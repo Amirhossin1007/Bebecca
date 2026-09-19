@@ -89,6 +89,22 @@
   --rb-panel-row-selected: #ffffff;
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body,
+header,
+aside,
+main,
+.chakra-modal__content,
+.chakra-menu__menu-list,
+.chakra-popover__content {
+  transition: background-color 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s cubic-bezier(0.16, 1, 0.3, 1), color 0.22s ease;
+}
+
 @supports (height: 100svh) {
   :root {
     --rb-dialog-viewport-height: 100svh;

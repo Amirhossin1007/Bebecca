@@ -915,5 +915,18 @@
 	"settings.telegram.backupScope": "Область резервного копирования",
 	"total": "Всего",
 	"loadAverage": "Средняя загрузка",
-	"sponsors.sponsoredBy": "При поддержке"
+	"sponsors.sponsoredBy": "При поддержке",
+	"sidebar.sections.dashboard": "Панель",
+	"sidebar.sections.users": "Пользователи",
+	"sidebar.sections.trafficAndAdmins": "Трафик и администраторы",
+	"sidebar.sections.infrastructure": "Сеть и инфраструктура",
+	"sidebar.sections.system": "Система",
+	"sidebar.sections.docs": "Документация",
+	"sidebar.groups.userHub": "Управление пользователями",
+	"sidebar.usersList": "Список пользователей",
+	"sidebar.groups.observability": "Мониторинг и логи",
+	"sidebar.groups.infrastructure": "Инфраструктура",
+	"sidebar.groups.coreRouting": "Ядро и маршрутизация",
+	"sidebar.groups.system": "Система и инструменты",
+	"sidebar.tutorialsAndFaq": "Обучение и FAQ"
 }

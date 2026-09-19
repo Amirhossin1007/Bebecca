@@ -851,13 +851,13 @@ export function AppLayout() {
 		} else if (path === "/xray-settings") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.infrastructure") },
+				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("header.xraySettings"), path: "/xray-settings" },
 			];
 		} else if (path === "/haproxy") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.infrastructure") },
+				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("haproxy.title"), path: "/haproxy" },
 			];
 		} else if (path === "/settings") {
@@ -887,13 +887,14 @@ export function AppLayout() {
 		} else if (path === "/api-docs") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
+				{ label: t("sidebar.sections.docs") },
 				{ label: t("apiDocs.menu"), path: "/api-docs" },
 			];
 		} else if (path === "/tutorials") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("tutorials.menu"), path: "/tutorials" },
+				{ label: t("sidebar.sections.docs") },
+				{ label: t("sidebar.tutorialsAndFaq"), path: "/tutorials" },
 			];
 		} else {
 			items = [
