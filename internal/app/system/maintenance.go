@@ -555,11 +555,11 @@ func (c *GitHubUpdateChecker) Builds(ctx context.Context, repo string) (BuildCat
 	}
 	c.mu.Unlock()
 
-	stable, err := c.buildStableVersions(ctx, repo)
+	stable, floorTime, err := c.buildStableVersions(ctx, repo)
 	if err != nil {
 		return BuildCatalog{}, err
 	}
-	dev, err := c.buildDevVersions(ctx, repo)
+	dev, err := c.buildDevVersions(ctx, repo, floorTime)
 	if err != nil {
 		return BuildCatalog{}, err
 	}
@@ -703,13 +703,15 @@ func (c *GitHubUpdateChecker) latestRelease(ctx context.Context, repo string) (*
 	return &info, nil
 }
 
-func (c *GitHubUpdateChecker) buildStableVersions(ctx context.Context, repo string) ([]BuildVersion, error) {
+func (c *GitHubUpdateChecker) buildStableVersions(ctx context.Context, repo string) ([]BuildVersion, time.Time, error) {
 	var data []map[string]any
 	url := strings.TrimRight(c.APIBase, "/") + "/repos/" + repo + "/releases?per_page=100"
 	if err := c.getJSON(ctx, url, &data); err != nil {
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	versions := make([]BuildVersion, 0, len(data))
+	floorTag := versionSwitchFloor
+	var floorTime time.Time
 	for _, item := range data {
 		if boolFromAny(item["draft"]) || boolFromAny(item["prerelease"]) {
 			continue
@@ -718,20 +720,24 @@ func (c *GitHubUpdateChecker) buildStableVersions(ctx context.Context, repo stri
 		if !versionAtLeast(version, versionSwitchFloor) {
 			continue
 		}
+		published := stringFromAny(item["published_at"])
+		if NormalizeVersionTag(&version) == NormalizeVersionTag(&floorTag) {
+			floorTime = parseBuildTime(published)
+		}
 		versions = append(versions, BuildVersion{
 			Version:   version,
 			Channel:   "stable",
-			Published: stringFromAny(item["published_at"]),
+			Published: published,
 			URL:       stringFromAny(item["html_url"]),
 		})
 	}
-	return versions, nil
+	return versions, floorTime, nil
 }
 
-func (c *GitHubUpdateChecker) buildDevVersions(ctx context.Context, repo string) ([]BuildVersion, error) {
+func (c *GitHubUpdateChecker) buildDevVersions(ctx context.Context, repo string, floorTime time.Time) ([]BuildVersion, error) {
 	data, err := c.devManifest(ctx, repo)
 	if err != nil {
-		return c.buildDevVersionsFromWorkflow(ctx, repo)
+		return c.buildDevVersionsFromWorkflow(ctx, repo, floorTime)
 	}
 	builds, _ := data["builds"].([]any)
 	versions := make([]BuildVersion, 0, len(builds))
@@ -742,6 +748,11 @@ func (c *GitHubUpdateChecker) buildDevVersions(ctx context.Context, repo string)
 		}
 		version := firstNonEmptyString(stringFromAny(build["tag"]), stringFromAny(build["build_tag"]))
 		if !devVersionPattern.MatchString(version) {
+			continue
+		}
+		published := firstNonEmptyString(stringFromAny(build["created_at"]), stringFromAny(build["generated_at"]))
+		publishedAt := parseBuildTime(published)
+		if !floorTime.IsZero() && !publishedAt.IsZero() && !publishedAt.After(floorTime) {
 			continue
 		}
 		sha := strings.TrimSpace(stringFromAny(build["sha"]))
@@ -755,14 +766,14 @@ func (c *GitHubUpdateChecker) buildDevVersions(ctx context.Context, repo string)
 			Version:   version,
 			Channel:   "dev",
 			Commit:    sha,
-			Published: firstNonEmptyString(stringFromAny(build["created_at"]), stringFromAny(build["generated_at"])),
+			Published: published,
 			URL:       url,
 		})
 	}
 	return versions, nil
 }
 
-func (c *GitHubUpdateChecker) buildDevVersionsFromWorkflow(ctx context.Context, repo string) ([]BuildVersion, error) {
+func (c *GitHubUpdateChecker) buildDevVersionsFromWorkflow(ctx context.Context, repo string, floorTime time.Time) ([]BuildVersion, error) {
 	var data map[string]any
 	url := strings.TrimRight(c.APIBase, "/") + "/repos/" + repo + "/actions/workflows/binary-build.yml/runs?branch=dev&event=push&status=success&per_page=100"
 	if err := c.getJSON(ctx, url, &data); err != nil {
@@ -779,6 +790,11 @@ func (c *GitHubUpdateChecker) buildDevVersionsFromWorkflow(ctx context.Context, 
 		if sha == "" {
 			continue
 		}
+		published := firstNonEmptyString(stringFromAny(run["created_at"]), stringFromAny(run["updated_at"]))
+		publishedAt := parseBuildTime(published)
+		if !floorTime.IsZero() && !publishedAt.IsZero() && !publishedAt.After(floorTime) {
+			continue
+		}
 		short := sha
 		if len(short) > 7 {
 			short = short[:7]
@@ -787,7 +803,7 @@ func (c *GitHubUpdateChecker) buildDevVersionsFromWorkflow(ctx context.Context, 
 			Version:   "dev-" + short,
 			Channel:   "dev",
 			Commit:    sha,
-			Published: firstNonEmptyString(stringFromAny(run["created_at"]), stringFromAny(run["updated_at"])),
+			Published: published,
 			URL:       stringFromAny(run["html_url"]),
 		})
 	}
@@ -941,6 +957,14 @@ func versionAtLeast(version string, floor string) bool {
 func boolFromAny(value any) bool {
 	result, ok := value.(bool)
 	return ok && result
+}
+
+func parseBuildTime(value string) time.Time {
+	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
 }
 
 func selectManifestBuild(data map[string]any) *map[string]any {

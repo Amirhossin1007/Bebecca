@@ -140,7 +140,8 @@ func TestGitHubUpdateCheckerListsBuildsFromSwitchFloor(t *testing.T) {
 		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"builds": []map[string]any{
-					{"tag": "dev-abcdef0", "sha": "abcdef0123456789", "run_id": "12"},
+					{"tag": "dev-0123456", "sha": "0123456789abcdef", "run_id": "11", "created_at": "2026-06-23T00:00:00Z"},
+					{"tag": "dev-abcdef0", "sha": "abcdef0123456789", "run_id": "12", "created_at": "2026-06-25T00:00:00Z"},
 					{"tag": "not-a-build", "sha": "bad"},
 				},
 			})
