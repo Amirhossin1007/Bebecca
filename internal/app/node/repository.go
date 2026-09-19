@@ -410,9 +410,10 @@ func (r Repository) DeleteNode(ctx context.Context, nodeID int64) error {
 		return err
 	}
 	now := dbTimestamp(r.now().UTC())
+	deletedName := deletedNodeName(node.Name, nodeID)
 	result, err := tx.ExecContext(ctx, `UPDATE nodes
-SET status = ?, last_status_change = ?
-WHERE id = ? AND LOWER(COALESCE(status, '')) <> ?`, StatusDeleted, now, nodeID, StatusDeleted)
+SET name = ?, status = ?, last_status_change = ?
+WHERE id = ? AND LOWER(COALESCE(status, '')) <> ?`, deletedName, StatusDeleted, now, nodeID, StatusDeleted)
 	if err != nil {
 		return err
 	}
@@ -520,6 +521,15 @@ func requireActiveNodeUpdate(result sql.Result) error {
 		return typedError(ErrorNotFound, "Node not found")
 	}
 	return nil
+}
+
+func deletedNodeName(name string, nodeID int64) string {
+	suffix := fmt.Sprintf(" [deleted-%d]", nodeID)
+	nameRunes := []rune(name)
+	if len(nameRunes)+len([]rune(suffix)) <= MaxNodeNameLength {
+		return name + suffix
+	}
+	return string(nameRunes[:MaxNodeNameLength-len([]rune(suffix))]) + suffix
 }
 
 func nodeUpdateRecentAction(before, after string) (string, string) {

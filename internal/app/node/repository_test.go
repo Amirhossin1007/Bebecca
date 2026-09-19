@@ -132,6 +132,16 @@ func TestNodeRepositoryCreateUpdateResetDeleteAndRegenerate(t *testing.T) {
 	if err := repo.DeleteNode(ctx, created.ID); !IsKind(err, ErrorNotFound) {
 		t.Fatalf("expected repeated delete to return not found, got %v", err)
 	}
+	var archivedName string
+	if err := db.QueryRow(`SELECT name FROM nodes WHERE id = 1`).Scan(&archivedName); err != nil {
+		t.Fatalf("read archived node name: %v", err)
+	}
+	if archivedName == name || !strings.Contains(archivedName, "[deleted-1]") {
+		t.Fatalf("deleted node name was not released: %q", archivedName)
+	}
+	if _, err := repo.CreateNode(ctx, baseNodeCreate(name)); err != nil {
+		t.Fatalf("reusing a deleted node name: %v", err)
+	}
 }
 
 func TestNodeRepositoryDoesNotSyncForNonConnectionEdits(t *testing.T) {
