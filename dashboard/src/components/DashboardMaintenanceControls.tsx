@@ -50,6 +50,10 @@ import {
 } from "utils/toastHandler";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardBackupControls } from "./RebeccaBackupPanel";
+import {
+	BuildVersionSelect,
+	type BuildCatalog,
+} from "./BuildVersionSelect";
 import { PanelSelect as Select } from "./common/PanelSelect";
 
 type UpdateChannel = "current" | "latest" | "dev";
@@ -129,6 +133,7 @@ export const DashboardMaintenanceControls = ({
 	const outputBorder = useColorModeValue("gray.200", "whiteAlpha.200");
 	const [selectedChannel, setSelectedChannel] =
 		useState<UpdateChannel>("current");
+	const [selectedVersion, setSelectedVersion] = useState("");
 	const [operation, setOperation] = useState<MaintenanceOperation | null>(null);
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -153,21 +158,41 @@ export const DashboardMaintenanceControls = ({
 	const update = panel?.update;
 	const installMode = panel?.mode || panel?.install_mode;
 	const hostActionsAvailable = installMode === "binary";
+	const builds = useQuery<BuildCatalog>(
+		["maintenance-builds", "panel"],
+		() => fetch<BuildCatalog>("/maintenance/builds?target=panel", { timeout: 12000 }),
+		{
+			enabled: canMaintain && hostActionsAvailable,
+			refetchOnWindowFocus: false,
+			staleTime: 10 * 60 * 1000,
+			retry: false,
+		},
+	);
 	const fallbackVersion = channel?.toLowerCase() === "dev" ? "dev" : version;
 	const currentVersion =
 		panel?.tag || update?.current || fallbackVersion || "-";
 	const selectedTarget =
-		selectedChannel === "dev"
+		selectedVersion ||
+		(selectedChannel === "dev"
 			? update?.latest_dev?.tag
 			: selectedChannel === "latest"
 				? update?.latest_release?.tag
-				: update?.target;
+				: update?.target);
 
 	useEffect(() => {
 		if (panel?.channel === "dev" || panel?.channel === "latest") {
 			setSelectedChannel(panel.channel);
 		}
 	}, [panel?.channel]);
+
+	const selectBuildVersion = (value: string) => {
+		setSelectedVersion(value);
+		if (!value) return;
+		const build = [...(builds.data?.stable ?? []), ...(builds.data?.dev ?? [])].find(
+			(item) => item.version === value,
+		);
+		if (build) setSelectedChannel(build.channel === "dev" ? "dev" : "latest");
+	};
 
 	const clearPanelReturnPolling = useCallback(() => {
 		if (panelReturnPollRef.current !== null) {
@@ -280,7 +305,11 @@ export const DashboardMaintenanceControls = ({
 	};
 
 	const updateMutation = useMutation(
-		() => triggerAction("update", { channel: selectedChannel }),
+		() =>
+			triggerAction("update", {
+				channel: selectedChannel,
+				...(selectedVersion ? { version: selectedVersion } : {}),
+			}),
 		{
 			retry: false,
 			onSuccess: (result) => handleSuccess("update", result),
@@ -454,6 +483,7 @@ export const DashboardMaintenanceControls = ({
 										setSelectedChannel(
 											event.target.value as UpdateChannel,
 										);
+										setSelectedVersion("");
 									}}
 								>
 									<option value="current">
@@ -473,8 +503,15 @@ export const DashboardMaintenanceControls = ({
 											})
 										: t("dashboard.maintenance.updateTargetUnknown")}
 								</FormHelperText>
-							</FormControl>
-						)}
+								</FormControl>
+							)}
+							{hostActionsAvailable && (
+								<BuildVersionSelect
+									catalog={builds.data}
+									value={selectedVersion}
+									onChange={selectBuildVersion}
+								/>
+							)}
 						{selectedChannel === "dev" && hostActionsAvailable && (
 							<Alert status="warning" borderRadius="xl" fontSize="12px">
 								<AlertIcon />
@@ -916,9 +953,10 @@ export const DashboardMaintenanceControls = ({
 								: t("dashboard.maintenance.updateConfirmTitle")}
 					</ModalHeader>
 					<ModalCloseButton />
-					<ModalBody py={3}>
-						<Text fontSize="13px" color="panel.textSecondary" lineHeight="tall">
-							{confirmAction === "restart"
+							<ModalBody py={3}>
+								<Stack spacing={3}>
+									<Text fontSize="13px" color="panel.textSecondary" lineHeight="tall">
+									{confirmAction === "restart"
 								? t("dashboard.maintenance.restartConfirmDescription")
 								: confirmAction === "soft-reload"
 									? t("dashboard.maintenance.softReloadConfirmDescription")
@@ -927,7 +965,14 @@ export const DashboardMaintenanceControls = ({
 										: t("dashboard.maintenance.updateConfirmDescription", {
 												target: selectedTarget || update?.target || "-",
 											})}
-						</Text>
+									</Text>
+									{confirmAction === "update" && selectedVersion && (
+										<Alert status="warning" borderRadius="xl" fontSize="12px">
+											<AlertIcon />
+											<Text>{t("dashboard.maintenance.versionSwitchWarning")}</Text>
+										</Alert>
+									)}
+								</Stack>
 					</ModalBody>
 					<ModalFooter gap={2} pt={3}>
 						<Button
