@@ -11,6 +11,7 @@ import {
 	PopoverTrigger,
 	Text,
 	Tooltip,
+	useColorMode,
 	useColorModeValue,
 	VStack,
 } from "@chakra-ui/react";
@@ -53,7 +54,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
-import { SponsorCarousel, type SponsorCarouselItem } from "./SponsorCarousel";
 import type { SponsorAsset } from "service/sponsors";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import {
@@ -61,6 +61,7 @@ import {
 	getTutorialSeenKey,
 	normalizeTutorialLang,
 } from "utils/tutorials";
+import { SponsorCarousel } from "./SponsorCarousel";
 
 const iconProps = {
 	baseStyle: {
@@ -104,7 +105,6 @@ interface AppSidebarProps {
 	collapsed: boolean;
 	sponsors?: SponsorAsset[];
 	sidebarBanners?: SponsorAsset[];
-	/** when rendered inside a Drawer on mobile */
 	inDrawer?: boolean;
 	onRequestExpand?: () => void;
 }
@@ -127,11 +127,20 @@ type GroupSubItem = {
 	badge?: boolean;
 	visible: boolean;
 };
-type SidebarSubItems = NonNullable<SidebarItem["subItems"]>;
+
+type GroupNavItem = {
+	type: "group";
+	id: string;
+	title: string;
+	icon: ElementType;
+	subItems: GroupSubItem[];
+	visible: boolean;
+};
+
+type NavEntry = DirectNavItem | GroupNavItem;
 
 export const AppSidebar: FC<AppSidebarProps> = ({
 	collapsed,
-	sponsors = [],
 	sidebarBanners = [],
 	inDrawer = false,
 	onRequestExpand,
@@ -140,28 +149,15 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const location = useLocation();
 	const navigate = useNavigate();
 	const dashboardRoot = useHref("/");
+	const { colorMode } = useColorMode();
 	const { userData } = useGetUser();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const tutorialsUrl = "/tutorials";
 
 	const isFullAccess = userData.role === AdminRole.FullAccess;
 	const isPrivilegedAdmin = isFullAccess || userData.role === AdminRole.Sudo;
-	const sidebarBg = useColorModeValue("panel.sidebar", "panel.sidebar");
-	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
-	const sidebarPanelBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const sidebarPanelBorder = useColorModeValue("panel.border", "panel.border");
-	const sidebarShadow = useColorModeValue(
-		"0 18px 48px rgba(15, 23, 42, 0.10)",
-		"0 18px 48px rgba(0, 0, 0, 0.32)",
-	);
-	const itemColor = useColorModeValue(
-		"panel.textSecondary",
-		"panel.textSecondary",
-	);
-	const activeItemBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const activeItemColor = useColorModeValue("panel.text", "panel.text");
-	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const subNavBorder = useColorModeValue("panel.border", "panel.border");
+	const sectionAccess = userData.permissions?.sections;
+
 	const defaultSelfPermissions = {
 		self_myaccount: false,
 		self_change_password: false,
@@ -481,23 +477,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		}
 	}, [location.pathname]);
 
-	const isRTL = i18n.dir(currentLanguage) === "rtl";
-	const sponsorItems: SponsorCarouselItem[] = [
-		{
-			id: "rebecca",
-			src: logoUrl,
-			alt: "Rebecca",
-			label: "Rebecca",
-		},
-		...sponsors.map((asset) => ({
-			id: asset.id,
-			src: asset.image_url,
-			alt: asset.alt || asset.label || "Sponsor",
-			href: asset.target_url,
-			label: asset.label,
-			isSponsor: true,
-		})),
-	];
+	const handleGroupClick = (group: GroupNavItem) => {
+		const isCurrentlyOpen = Boolean(openGroups[group.id]);
+		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
+	};
 
 	return (
 		<Box
@@ -533,164 +516,386 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					borderBottomWidth="1px"
 					borderColor="panel.border"
 				>
-					<Box
-						borderWidth="1px"
-						borderColor={sidebarPanelBorder}
-						borderRadius="md"
-						bg={sidebarPanelBg}
-						mb={5}
-						px={collapsed ? 2 : 3}
-						py={collapsed ? 2 : 3}
-					>
-						<SponsorCarousel
-							items={sponsorItems}
-							variant="logo"
-							collapsed={collapsed}
-						/>
-					</Box>
-					<VStack align="stretch" spacing={4}>
-						{compactGroups.map((group) => {
-							if (group.items.length === 0) return null;
+					{!collapsed ? (
+						<HStack spacing={2.5} align="center" cursor="pointer" onClick={() => navigate("/")}>
+							<LogoIcon
+								src={logoUrl}
+								alt="Rebecca"
+								style={{
+									filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+								}}
+							/>
+							<Text fontSize="15px" fontWeight="700" letterSpacing="-0.02em" color="panel.text">
+								Rebecca
+							</Text>
+						</HStack>
+					) : (
+						<Tooltip label="Rebecca" placement={isRTL ? "left" : "right"} hasArrow>
+							<Box cursor="pointer" onClick={() => navigate("/")}>
+								<LogoIcon
+									src={logoUrl}
+									alt="Rebecca"
+									style={{
+										filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+									}}
+								/>
+							</Box>
+						</Tooltip>
+					)}
+				</Flex>
+
+				<Box
+					flex="1"
+					minH={0}
+					overflowY="auto"
+					overflowX="hidden"
+					className="rb-sidebar-scroll"
+					dir={isRTL ? "rtl" : "ltr"}
+					px={collapsed ? 0 : 1}
+				>
+					<VStack align="stretch" spacing={1.5} py={1}>
+						{navEntries.map((entry) => {
+							if (!entry.visible) return null;
+
+							if (entry.type === "direct") {
+								const isCurrent =
+									location.pathname === entry.url ||
+									(entry.url !== "/" && location.pathname.startsWith(entry.url));
+								const IconEl = entry.icon;
+
+								const btnContent = (
+									<Flex
+										align="center"
+										justify={collapsed ? "center" : "space-between"}
+										w="full"
+										h="38px"
+										px={collapsed ? 0 : 3}
+										borderRadius="10px"
+										bg={isCurrent ? activeItemBg : "transparent"}
+										color={isCurrent ? "panel.text" : normalItemColor}
+										fontWeight={isCurrent ? "700" : "600"}
+										fontSize="13px"
+										position="relative"
+										cursor="pointer"
+										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										borderInlineStartWidth={!collapsed && isCurrent ? "3px" : "0px"}
+										borderInlineStartColor="var(--rb-panel-accent)"
+										_hover={{
+											md: {
+												bg: isCurrent ? activeItemBg : hoverItemBg,
+												color: "panel.text",
+											},
+										}}
+									>
+										<HStack spacing={2.5} align="center">
+											<Box
+												as="span"
+												display="inline-flex"
+												alignItems="center"
+												justifyContent="center"
+												color={isCurrent ? activeItemColor : "inherit"}
+											>
+												<IconEl />
+											</Box>
+											{!collapsed && (
+												<Text noOfLines={1} color={isCurrent ? "panel.text" : normalItemColor}>
+													{entry.title}
+												</Text>
+											)}
+										</HStack>
+
+										{!collapsed && entry.badge && (
+											<Box
+												w="6px"
+												h="6px"
+												borderRadius="full"
+												bg="var(--rb-panel-accent)"
+												boxShadow="0 0 6px var(--rb-panel-accent)"
+											/>
+										)}
+
+										{collapsed && entry.badge && (
+											<Box
+												position="absolute"
+												top="6px"
+												insetInlineEnd="6px"
+												w="5px"
+												h="5px"
+												borderRadius="full"
+												bg="var(--rb-panel-accent)"
+											/>
+										)}
+									</Flex>
+								);
+
+								return collapsed ? (
+									<Tooltip
+										key={entry.id}
+										label={entry.title}
+										placement={isRTL ? "left" : "right"}
+										hasArrow
+									>
+										<Box
+											as={NavLink}
+											to={entry.url}
+											onClick={(e: ReactMouseEvent) => handleNavigate(entry.url, e)}
+											display="block"
+										>
+											{btnContent}
+										</Box>
+									</Tooltip>
+								) : (
+									<Box
+										key={entry.id}
+										as={NavLink}
+										to={entry.url}
+										onClick={(e: ReactMouseEvent) => handleNavigate(entry.url, e)}
+										display="block"
+									>
+										{btnContent}
+									</Box>
+								);
+							}
+
+							const visibleSubs = entry.subItems.filter((s) => s.visible);
+							if (visibleSubs.length === 0) return null;
+
+							const isGroupActive = visibleSubs.some(
+								(s) =>
+									location.pathname === s.url ||
+									(s.url !== "/" && location.pathname.startsWith(s.url)),
+							);
+							const isOpen = Boolean(openGroups[entry.id]);
+							const GroupIcon = entry.icon;
+
+							if (collapsed) {
+								return (
+									<Popover
+										key={entry.id}
+										trigger="hover"
+										placement={isRTL ? "left-start" : "right-start"}
+										isLazy
+										gutter={8}
+									>
+										<PopoverTrigger>
+											<Flex
+												align="center"
+												justify="center"
+												w="full"
+												h="38px"
+												borderRadius="10px"
+												bg={isGroupActive ? activeItemBg : "transparent"}
+												color={isGroupActive ? activeItemColor : normalItemColor}
+												cursor="pointer"
+												transition="all 0.2s ease"
+												_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
+											>
+												<GroupIcon />
+											</Flex>
+										</PopoverTrigger>
+										<PopoverContent
+											bg="panel.surface"
+											borderColor="panel.border"
+											borderWidth="1px"
+											borderRadius="xl"
+											p={1.5}
+											minW="180px"
+											boxShadow="0 12px 36px rgba(0,0,0,0.3)"
+											dir={isRTL ? "rtl" : "ltr"}
+											_focus={{ outline: "none" }}
+										>
+											<PopoverHeader
+												borderBottomWidth="1px"
+												borderColor="panel.border"
+												px={2.5}
+												py={1.5}
+												fontSize="11px"
+												fontWeight="700"
+												color="panel.textMuted"
+											>
+												{entry.title}
+											</PopoverHeader>
+											<PopoverBody p={0} pt={1}>
+												<VStack align="stretch" spacing={1}>
+													{visibleSubs.map((sub) => {
+														const isSubActive =
+															location.pathname === sub.url ||
+															(sub.url !== "/" && location.pathname.startsWith(sub.url));
+														const SubIcon = sub.icon;
+
+														return (
+															<Box
+																key={sub.id}
+																as={NavLink}
+																to={sub.url}
+																onClick={(e: ReactMouseEvent) => handleNavigate(sub.url, e)}
+																display="block"
+															>
+																<Flex
+																	align="center"
+																	gap={2}
+																	px={2.5}
+																	py={1.5}
+																	borderRadius="md"
+																	fontSize="12px"
+																	fontWeight={isSubActive ? "700" : "500"}
+																	bg={isSubActive ? activeItemBg : "transparent"}
+																	color={isSubActive ? "panel.text" : normalItemColor}
+																	borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
+																	borderInlineStartColor="var(--rb-panel-accent)"
+																	_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
+																>
+																	<Box as="span" color={isSubActive ? activeItemColor : "inherit"}>
+																		<SubIcon />
+																	</Box>
+																	<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																		{sub.title}
+																	</Text>
+																</Flex>
+															</Box>
+														);
+													})}
+												</VStack>
+											</PopoverBody>
+										</PopoverContent>
+									</Popover>
+								);
+							}
 
 							return (
-								<Box key={group.title}>
-									{collapsed ? (
-										<Box
-											borderTopWidth="1px"
-											borderColor={subNavBorder}
-											my={2}
-											mx={2}
-										/>
-									) : (
-										<Text
-											px={3}
-											mb={2}
-											fontSize="11px"
-											fontWeight="700"
-											color="panel.textMuted"
-											textTransform="uppercase"
-										>
-											{group.title}
-										</Text>
-									)}
-									<VStack align="stretch" spacing={1}>
-										{group.items.map((item) => {
-											if (!item.url) return null;
-											const itemUrl = item.url;
-											const isActive =
-												location.pathname === itemUrl ||
-												(itemUrl !== "/" &&
-													location.pathname.startsWith(itemUrl));
-											const Icon = item.icon;
-											const showTutorialBadge =
-												itemUrl === tutorialsUrl && hasNewTutorials;
-											const navItem = (
-												<Tooltip
-													key={itemUrl}
-													label={collapsed ? item.title : ""}
-													placement={isRTL ? "left" : "right"}
-													hasArrow
-												>
-													<HStack
-														spacing={3}
-														px={collapsed ? 2 : 3}
-														py={2}
-														minH="40px"
-														borderRadius="4px"
-														cursor="pointer"
-														bg={isActive ? activeItemBg : "transparent"}
-														color={isActive ? activeItemColor : itemColor}
-														borderInlineStartWidth="3px"
-														borderInlineStartColor={
-															isActive ? "panel.accent" : "transparent"
-														}
-														_hover={{
-															bg: isActive ? activeItemBg : hoverItemBg,
-															color: activeItemColor,
-														}}
-														transition="background 0.15s ease, color 0.15s ease"
-														justifyContent={collapsed ? "center" : "flex-start"}
-													>
-														{showTutorialBadge && collapsed ? (
-															<Box position="relative" display="inline-flex">
-																<Icon
-																	w={collapsed ? 5 : undefined}
-																	h={collapsed ? 5 : undefined}
-																/>
-																<Box
-																	position="absolute"
-																	top="-6px"
-																	left={isRTL ? "-7px" : undefined}
-																	right={isRTL ? undefined : "-7px"}
-																	w="4"
-																	h="4"
-																	borderRadius="full"
-																	bg="panel.accent"
-																	color="white"
-																	border="2px solid"
-																	borderColor={sidebarBg}
-																	display="inline-flex"
-																	alignItems="center"
-																	justifyContent="center"
-																>
-																	<TutorialUpdateIconStyled />
-																</Box>
-															</Box>
-														) : (
-															<Icon
-																w={collapsed ? 5 : undefined}
-																h={collapsed ? 5 : undefined}
-															/>
-														)}
-														{!collapsed && (
-															<>
-																<Text
-																	fontSize="sm"
-																	fontWeight={isActive ? "700" : "600"}
-																	noOfLines={1}
-																>
-																	{item.title}
-																</Text>
-																{showTutorialBadge ? (
-																	<Box
-																		ml={isRTL ? undefined : "auto"}
-																		mr={isRTL ? "auto" : undefined}
-																		w="5"
-																		h="5"
-																		borderRadius="full"
-																		bg="panel.accent"
-																		color="white"
-																		display="inline-flex"
-																		alignItems="center"
-																		justifyContent="center"
-																	>
-																		<TutorialUpdateIconStyled />
-																	</Box>
-																) : null}
-															</>
-														)}
-													</HStack>
-												</Tooltip>
-											);
+								<Box key={entry.id}>
+									<Flex
+										align="center"
+										justify="space-between"
+										w="full"
+										h="38px"
+										px={3}
+										borderRadius="10px"
+										bg={isGroupActive && !isOpen ? activeItemBg : "transparent"}
+										color={isGroupActive ? "panel.text" : normalItemColor}
+										fontWeight={isGroupActive ? "700" : "600"}
+										fontSize="13px"
+										cursor="pointer"
+										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										borderInlineStartWidth={isGroupActive && !isOpen ? "3px" : "0px"}
+										borderInlineStartColor="var(--rb-panel-accent)"
+										onClick={() => handleGroupClick(entry)}
+										_hover={{
+											md: {
+												bg: hoverItemBg,
+												color: "panel.text",
+											},
+										}}
+									>
+										<HStack spacing={2.5} align="center">
+											<Box
+												as="span"
+												display="inline-flex"
+												alignItems="center"
+												justifyContent="center"
+												color={isGroupActive ? activeItemColor : "inherit"}
+											>
+												<GroupIcon />
+											</Box>
+											<Text noOfLines={1} color={isGroupActive ? "panel.text" : normalItemColor}>
+												{entry.title}
+											</Text>
+										</HStack>
 
-											return (
-												<NavLink
-													key={itemUrl}
-													to={itemUrl}
-													onClick={(e) => handleNavClick(e, itemUrl)}
+										<Icon
+											as={ChevronDownIcon}
+											w="14px"
+											h="14px"
+											color="panel.textMuted"
+											transform={isOpen ? "rotate(180deg)" : "rotate(0deg)"}
+											transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
+										/>
+									</Flex>
+
+									<AnimatePresence initial={false}>
+										{isOpen && (
+											<motion.div
+												initial={{ opacity: 0, height: 0 }}
+												animate={{ opacity: 1, height: "auto" }}
+												exit={{ opacity: 0, height: 0 }}
+												transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+												style={{ overflow: "hidden" }}
+											>
+												<Box
+													ms="16px"
+													ps="10px"
+													my={1}
+													borderInlineStart="1.5px solid"
+													borderColor="panel.border"
 												>
-													{navItem}
-												</NavLink>
-											);
-										})}
-									</VStack>
+													<VStack align="stretch" spacing={0.5}>
+														{visibleSubs.map((sub) => {
+															const isSubActive =
+																location.pathname === sub.url ||
+																(sub.url !== "/" && location.pathname.startsWith(sub.url));
+															const SubIcon = sub.icon;
+
+															return (
+																<Box
+																	key={sub.id}
+																	as={NavLink}
+																	to={sub.url}
+																	onClick={(e: ReactMouseEvent) => handleNavigate(sub.url, e)}
+																	display="block"
+																>
+																	<Flex
+																		align="center"
+																		justify="space-between"
+																		w="full"
+																		h="32px"
+																		px={2.5}
+																		borderRadius="8px"
+																		bg={isSubActive ? activeItemBg : "transparent"}
+																		color={isSubActive ? "panel.text" : normalItemColor}
+																		fontWeight={isSubActive ? "700" : "500"}
+																		fontSize="12px"
+																		cursor="pointer"
+																		transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+																		borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
+																		borderInlineStartColor="var(--rb-panel-accent)"
+																		_hover={{
+																			md: {
+																				bg: isSubActive ? activeItemBg : hoverItemBg,
+																				color: "panel.text",
+																			},
+																		}}
+																	>
+																		<HStack spacing={2} align="center">
+																			<Box
+																				as="span"
+																				display="inline-flex"
+																				alignItems="center"
+																				justifyContent="center"
+																				color={isSubActive ? activeItemColor : "inherit"}
+																				opacity={isSubActive ? 1 : 0.8}
+																			>
+																				<SubIcon />
+																			</Box>
+																			<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																				{sub.title}
+																			</Text>
+																		</HStack>
+																	</Flex>
+																</Box>
+															);
+														})}
+													</VStack>
+												</Box>
+											</motion.div>
+										)}
+									</AnimatePresence>
 								</Box>
 							);
 						})}
 					</VStack>
 				</Box>
 				{!collapsed && sidebarBanners.length > 0 && (
-					<Box flexShrink={0} w="full">
+					<Box flexShrink={0} w="full" pt={2}>
 						<SponsorCarousel
 							items={sidebarBanners.map((asset) => ({
 								id: asset.id,
@@ -704,7 +909,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						/>
 					</Box>
 				)}
-			</VStack>
+			</Flex>
 		</Box>
 	);
 };
