@@ -9,6 +9,7 @@ export type CoreConfigTarget = {
 	id: string;
 	type: "master" | "node";
 	name: string;
+	address?: string;
 	node_id: number | null;
 	mode: "default" | "custom";
 	status?: string | null;

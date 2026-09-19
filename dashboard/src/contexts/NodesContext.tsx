@@ -56,7 +56,8 @@ export const NodeSchema = z
 		api_port: z
 			.number()
 			.min(1)
-			.or(z.string().transform((v) => parseFloat(v))),
+			.or(z.string().transform((v) => parseFloat(v)))
+			.optional(),
 		xray_version: z.string().nullable().optional(),
 		node_service_version: z.string().nullable().optional(),
 		node_install_mode: z.string().nullable().optional(),
@@ -77,16 +78,20 @@ export const NodeSchema = z
 			.nullable()
 			.optional(),
 		agent_status: z
-			.enum(["connected", "connecting", "error", "unknown"])
+			.enum(["connected", "connecting", "error", "degraded", "unknown"])
 			.optional(),
 		xray_status: z.enum(["running", "stopped", "unknown"]).optional(),
-		protocol_statuses: z.array(z.object({
-			protocol: z.string(),
-			state: z.enum(["running", "stopped", "idle", "error"]),
-			detail: z.string().optional(),
-			inbounds: z.number(),
-			version: z.string().optional(),
-		})).optional(),
+		protocol_statuses: z
+			.array(
+				z.object({
+					protocol: z.string(),
+					state: z.enum(["running", "stopped", "idle", "error"]),
+					detail: z.string().optional(),
+					inbounds: z.number(),
+					version: z.string().optional(),
+				}),
+			)
+			.optional(),
 		xray_pid: z.number().optional(),
 		xray_cpu_usage_percent: z.number().nullable().optional(),
 		xray_memory_used: z.number().nullable().optional(),

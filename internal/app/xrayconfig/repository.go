@@ -30,12 +30,13 @@ type Repository struct {
 }
 
 type Target struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	Name   string `json:"name"`
-	NodeID *int64 `json:"node_id"`
-	Mode   string `json:"mode"`
-	Status string `json:"status,omitempty"`
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Address string `json:"address,omitempty"`
+	NodeID  *int64 `json:"node_id"`
+	Mode    string `json:"mode"`
+	Status  string `json:"status,omitempty"`
 }
 
 type StoredConfig struct {
@@ -238,25 +239,26 @@ func (r Repository) ListConfigTargets(ctx context.Context) ([]Target, error) {
 		Name: "Master",
 		Mode: ConfigModeCustom,
 	}}
-	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(name, ''), COALESCE(xray_config_mode, 'default'), COALESCE(status, '') FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' ORDER BY id`)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(name, ''), COALESCE(address, ''), COALESCE(xray_config_mode, 'default'), COALESCE(status, '') FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var nodeID int64
-		var name, mode, status string
-		if err := rows.Scan(&nodeID, &name, &mode, &status); err != nil {
+		var name, address, mode, status string
+		if err := rows.Scan(&nodeID, &name, &address, &mode, &status); err != nil {
 			return nil, err
 		}
 		id := nodeID
 		targets = append(targets, Target{
-			ID:     NodeTargetID(nodeID),
-			Type:   "node",
-			Name:   name,
-			NodeID: &id,
-			Mode:   normalizeConfigMode(mode),
-			Status: status,
+			ID:      NodeTargetID(nodeID),
+			Type:    "node",
+			Name:    name,
+			Address: address,
+			NodeID:  &id,
+			Mode:    normalizeConfigMode(mode),
+			Status:  status,
 		})
 	}
 	return targets, rows.Err()

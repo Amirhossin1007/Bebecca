@@ -67,7 +67,7 @@ func TestUsageCollectionResetsXrayCountersByDefault(t *testing.T) {
 	}
 }
 
-func TestCollectUsageDialFailureMarksNodeDegraded(t *testing.T) {
+func TestCollectUsageDialFailureDoesNotChangeNodeHealth(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-status.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -118,10 +118,10 @@ CREATE TABLE node_operations (
 );
 INSERT INTO tls (id, certificate, `+"`key`"+`) VALUES (1, 'invalid-cert', 'invalid-key');
 INSERT INTO nodes (
-	id, name, address, port, api_port, status, xray_version, message,
+	id, name, address, port, api_port, status, agent_status, xray_version, message,
 	certificate, certificate_key, xray_config_mode, xray_config, usage_coefficient
 ) VALUES (
-	7, 'usage-node', '127.0.0.1', 62051, 62052, 'connected', '', '',
+	7, 'usage-node', '127.0.0.1', 62051, 62052, 'connected', 'connected', '', '',
 	'', '', 'default', '', 1
 );
 `)
@@ -138,6 +138,6 @@ INSERT INTO nodes (
 		t.Fatal("expected usage collection error")
 	}
 	assertString(t, db, `SELECT status FROM nodes WHERE id = 7`, "connected")
-	assertString(t, db, `SELECT agent_status FROM nodes WHERE id = 7`, "degraded")
+	assertString(t, db, `SELECT agent_status FROM nodes WHERE id = 7`, "connected")
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
 }

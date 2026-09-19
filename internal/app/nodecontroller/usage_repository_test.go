@@ -530,6 +530,32 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT downlink FROM inbounds WHERE tag = 'direct'`, 6)
 }
 
+func TestRepositoryDropsOrphanedUsageHistoryRows(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-orphan.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createUsageTables(t, ctx, db)
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
+INSERT INTO node_usage_user_queue (node_id, batch_id, user_id, used_traffic, online, created_at, processed_at)
+VALUES (7, 'orphan-batch', 404, 123, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := NewRepository(db, "sqlite").FlushStagedUsageHistory(ctx, 100, UsagePersistOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.OrphanUserRows != 1 {
+		t.Fatalf("expected one orphan row to be discarded, got %#v", result)
+	}
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_usage_user_queue`, 0)
+}
+
 func TestRepositoryAggregatesInboundUsageAcrossNodesAndBatches(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "inbound-usage.db")+"?_pragma=busy_timeout(30000)")

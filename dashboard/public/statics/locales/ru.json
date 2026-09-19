@@ -915,9 +915,5 @@
 	"settings.telegram.backupScope": "Область резервного копирования",
 	"total": "Всего",
 	"loadAverage": "Средняя загрузка",
-	"sidebar.groups.userHub": "Управление пользователями",
-	"sidebar.usersList": "Список пользователей",
-	"sidebar.groups.observability": "Наблюдаемость и журналы",
-	"sidebar.groups.infrastructure": "Инфраструктура",
-	"sidebar.groups.system": "Система и инструменты"
+	"sponsors.sponsoredBy": "При поддержке"
 }

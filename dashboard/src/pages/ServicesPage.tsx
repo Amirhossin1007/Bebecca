@@ -18,7 +18,6 @@ import {
 	Radio,
 	RadioGroup,
 	SimpleGrid,
-	Spinner,
 	Stack,
 	Text,
 	Tooltip,
@@ -45,6 +44,7 @@ import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
 	PageHeader,
+	PageLoadingSkeleton,
 	ResourceListCard,
 	TabSystem,
 	type DataTableColumn,
@@ -842,17 +842,24 @@ const ServicesPage: FC = () => {
 			return;
 		}
 		fetchServices();
-		fetchAdminOptions({ limit: 1000, offset: 0, sort: "username" });
-		fetchInbounds();
-		fetchHosts();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		getUserIsSuccess,
 		canManageServices,
-		fetchAdminOptions,
-		fetchHosts,
 		fetchServices,
 	]);
+
+	const ensureServiceDialogResources = useCallback(() => {
+		if (useAdminsStore.getState().adminOptions.length === 0) {
+			void fetchAdminOptions({ limit: 1000, offset: 0, sort: "username" });
+		}
+		if (useDashboard.getState().inbounds.size === 0) {
+			void fetchInbounds();
+		}
+		if (Object.keys(useHosts.getState().hosts).length === 0) {
+			void fetchHosts();
+		}
+	}, [fetchAdminOptions, fetchHosts]);
 
 	const adminOptions = useMemo(() => {
 		return rawAdminOptions
@@ -895,11 +902,13 @@ const ServicesPage: FC = () => {
 	}, [hosts, inboundProtocols]);
 
 	const openCreateDialog = () => {
+		ensureServiceDialogResources();
 		setEditingService(null);
 		dialogDisclosure.onOpen();
 	};
 
 	const openEditDialog = async (serviceId: number) => {
+		ensureServiceDialogResources();
 		try {
 			const detail = await fetchServiceDetail(serviceId);
 			if (!detail) return;
@@ -1764,11 +1773,7 @@ const ServicesPage: FC = () => {
 	);
 
 	if (!getUserIsSuccess) {
-		return (
-			<Flex justify="center" align="center" h="full" py={10}>
-				<Spinner />
-			</Flex>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canManageServices) {

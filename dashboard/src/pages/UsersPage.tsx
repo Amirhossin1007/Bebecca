@@ -23,7 +23,11 @@ import { ReloadIcon } from "components/Filters";
 import { Icon } from "components/Icon";
 import { Pagination } from "components/Pagination";
 import { UsersTable } from "components/UsersTable";
-import { PageHeader, ResourceRefreshButton } from "components/ui";
+import {
+	PageHeader,
+	PageLoadingSkeleton,
+	ResourceRefreshButton,
+} from "components/ui";
 import { UsersFilterBar } from "components/users";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
@@ -316,11 +320,7 @@ export const UsersPage: FC = () => {
 	}, [getUserIsPending, isAdminDisabled]);
 
 	if (getUserIsPending) {
-		return (
-			<Flex align="center" justify="center" minH="420px">
-				<Spinner size="lg" />
-			</Flex>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (isAdminDisabled) {

@@ -143,6 +143,9 @@ func (s *Server) flushNodeUsageHistory(ctx context.Context) {
 			}
 			return
 		}
+		if result.OrphanUserRows > 0 {
+			logging.Warnf(logging.ComponentNode, "discarded orphan usage history rows=%d", result.OrphanUserRows)
+		}
 		if result.UserRows < nodeUsageHistoryBatchSize && result.OutboundRows < nodeUsageHistoryBatchSize {
 			return
 		}

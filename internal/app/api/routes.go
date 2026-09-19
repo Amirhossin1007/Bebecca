@@ -23,7 +23,7 @@ func apiRequestBodyLimit(path string) int64 {
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
 	}
-	if path == "/api/settings/external-apps/archive" || path == "/api/settings/external-apps/mirzabot" ||
+	if path == "/api/settings/external-apps/archive" || path == "/api/settings/external-apps/mirzabot" || path == "/api/settings/external-apps/faoxima" ||
 		(strings.HasPrefix(path, "/api/settings/external-apps/") && strings.HasSuffix(path, "/files/upload")) {
 		return externalapps.MaxRequestBodyBytes
 	}
@@ -158,6 +158,8 @@ func (s *Server) registerInboundHostRoutes(r chi.Router) {
 }
 
 func (s *Server) registerSystemRoutes(r chi.Router) {
+	r.HandleFunc("/sponsor/assets/*", s.requireAdmin(s.handleSponsorAsset))
+	r.HandleFunc("/sponsor", s.requireAdmin(s.handleSponsor))
 	r.HandleFunc("/system/metrics", s.requireAdmin(s.handleSystemMetricsWebSocket))
 	r.HandleFunc("/system", s.requireAdmin(s.handleSystemStats))
 	r.HandleFunc("/maintenance/info", s.requireSudo(s.handleMaintenanceInfo))

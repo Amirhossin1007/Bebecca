@@ -76,8 +76,9 @@ type UsageFlushResult struct {
 }
 
 type UsageHistoryFlushResult struct {
-	UserRows     int `json:"user_rows"`
-	OutboundRows int `json:"outbound_rows"`
+	UserRows       int `json:"user_rows"`
+	OutboundRows   int `json:"outbound_rows"`
+	OrphanUserRows int `json:"orphan_user_rows"`
 }
 
 type stagedUserUsageRow struct {
@@ -486,6 +487,19 @@ func (r Repository) FlushStagedUsageHistory(ctx context.Context, limit int, opti
 	usageHistoryFlushMu.Lock()
 	defer usageHistoryFlushMu.Unlock()
 
+	// A node may flush usage after its user was deleted. Replaying that stale
+	// history row violates the users foreign key and otherwise retries forever.
+	// Current (unprocessed) rows are intentionally left for the normal flush.
+	orphanRows := 0
+	if result, err := r.db.ExecContext(ctx, `DELETE FROM node_usage_user_queue
+WHERE processed_at IS NOT NULL
+  AND history_processed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM users WHERE users.id = node_usage_user_queue.user_id)`); err != nil {
+		return UsageHistoryFlushResult{}, err
+	} else if affected, err := result.RowsAffected(); err == nil {
+		orphanRows = int(affected)
+	}
+
 	userRows, err := r.pendingStagedUserUsageHistory(ctx, limit)
 	if err != nil {
 		return UsageHistoryFlushResult{}, err
@@ -495,7 +509,7 @@ func (r Repository) FlushStagedUsageHistory(ctx context.Context, limit int, opti
 		return UsageHistoryFlushResult{}, err
 	}
 	if len(userRows) == 0 && len(outboundRows) == 0 {
-		return UsageHistoryFlushResult{}, nil
+		return UsageHistoryFlushResult{OrphanUserRows: orphanRows}, nil
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -551,7 +565,7 @@ func (r Repository) FlushStagedUsageHistory(ctx context.Context, limit int, opti
 	if err := tx.Commit(); err != nil {
 		return UsageHistoryFlushResult{}, err
 	}
-	return UsageHistoryFlushResult{UserRows: len(userRows), OutboundRows: len(outboundRows)}, nil
+	return UsageHistoryFlushResult{UserRows: len(userRows), OutboundRows: len(outboundRows), OrphanUserRows: orphanRows}, nil
 }
 
 func mergeUsagePersistOptions(optionValues []UsagePersistOptions) UsagePersistOptions {

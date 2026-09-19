@@ -112,16 +112,10 @@ func (c Controller) collectUsageForNode(
 	persistOptions UsagePersistOptions,
 ) CollectUsageResult {
 	result := CollectUsageResult{Nodes: 1}
-	communicationFailed := false
-	recordCommunicationFailure := func(err error) {
-		communicationFailed = true
-		c.recordHealthFailure(ctx, node.ID, err)
-	}
 	dialCtx, dialCancel := WithDefaultTimeout(ctx)
 	client, _, err := c.dial(dialCtx, node.ID)
 	dialCancel()
 	if err != nil {
-		recordCommunicationFailure(err)
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
 		return result
 	}
@@ -140,7 +134,6 @@ func (c Controller) collectUsageForNode(
 		})
 		rpcCancel()
 		if err != nil {
-			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -191,7 +184,6 @@ func (c Controller) collectUsageForNode(
 		})
 		rpcCancel()
 		if err != nil {
-			recordCommunicationFailure(err)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, err.Error()))
 			return result
 		}
@@ -251,7 +243,6 @@ func (c Controller) collectUsageForNode(
 		if ackErr == nil && ack.GetAcknowledged() {
 			result.UserAcked++
 		} else if ackErr != nil {
-			recordCommunicationFailure(ackErr)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, ackErr.Error()))
 		}
 	}
@@ -262,12 +253,8 @@ func (c Controller) collectUsageForNode(
 		if ackErr == nil && ack.GetAcknowledged() {
 			result.OutboundAcked++
 		} else if ackErr != nil {
-			recordCommunicationFailure(ackErr)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, ackErr.Error()))
 		}
-	}
-	if !communicationFailed {
-		c.clearHealthFailures(node.ID)
 	}
 	return result
 }
