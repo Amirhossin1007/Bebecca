@@ -88,7 +88,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { SiNordvpn, SiTorproject } from "react-icons/si";
 import { useMutation, useQuery } from "react-query";
-import { fetch as apiFetch } from "service/http";
+import { fetch as apiFetch, getAPIErrorMessage } from "service/http";
 import psiphonIconUrl from "../assets/brands/psiphon.png";
 import windscribeIconUrl from "../assets/brands/windscribe.png";
 import type { BalancerFormValues } from "../components/BalancerModal";
@@ -426,6 +426,12 @@ type ManagedOutboundMeta = {
 };
 
 const managedOutboundMeta = (outbound: any): ManagedOutboundMeta | null => {
+	const metadataProvider = String(outbound?.rebecca_proxy ?? "")
+		.trim()
+		.toLowerCase();
+	if (["tor", "windscribe", "psiphon"].includes(metadataProvider)) {
+		return { provider: metadataProvider as ManagedOutboundProvider };
+	}
 	const tag = String(outbound?.tag ?? "").trim();
 	const match = tag.match(
 		/(?:^|[-_.])(tor|windscribe|psiphon)(?:-([a-z]{2}))?$/i,
@@ -857,6 +863,9 @@ export const CoreSettingsPage: FC = () => {
 		scope: "target" | "all";
 	} | null>(null);
 	const [outboundTestStates, setOutboundTestStates] = useState<
+		Record<number, OutboundTestState>
+	>({});
+	const [outboundHealthStates, setOutboundHealthStates] = useState<
 		Record<number, OutboundTestState>
 	>({});
 	const [subscriptionOutbounds, setSubscriptionOutbounds] = useState<
@@ -1465,6 +1474,83 @@ export const CoreSettingsPage: FC = () => {
 			}));
 			toast({
 				title: `${t("pages.xray.outbound.testError")}: ${detailText}`,
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+		}
+	};
+
+	const checkOutboundHealth = async (index: number) => {
+		const outbounds = getOutbounds();
+		const outbound = outbounds[index];
+		if (!outbound) return;
+		if (!managedOutboundMeta(outbound)) {
+			toast({
+				title: t("pages.xray.outbound.healthSupported"),
+				status: "warning",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+			return;
+		}
+		if (isMasterTarget) {
+			toast({
+				title: outboundNodeTargetRequiredMessage,
+				status: "warning",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+			return;
+		}
+		setOutboundHealthStates((prev) => ({
+			...prev,
+			[index]: { testing: true, result: null },
+		}));
+		try {
+			const response = await apiFetch<{
+				success: boolean;
+				obj?: OutboundTestResult;
+				msg?: string;
+			}>("/panel/xray/outboundHealth", {
+				method: "POST",
+				body: {
+					outbound: JSON.stringify(outbound),
+					allOutbounds: JSON.stringify(outbounds),
+					target_id: selectedTarget,
+					test_type: "latency",
+				},
+			});
+			const result = response?.obj ?? {
+				success: false,
+				error: response?.msg || t("pages.xray.outbound.healthFailed"),
+			};
+			setOutboundHealthStates((prev) => ({
+				...prev,
+				[index]: { testing: false, result },
+			}));
+			toast({
+				title: result.success
+					? `${t("pages.xray.outbound.healthHealthy")}: ${outboundTestResultLabel(result)}`
+					: `${t("pages.xray.outbound.healthFailed")}: ${result.error || t("unknown")}`,
+				status: result.success ? "success" : "error",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+		} catch (error: unknown) {
+			const detail =
+				getAPIErrorMessage(error) || t("pages.xray.outbound.healthFailed");
+			const result = { success: false, error: detail };
+			setOutboundHealthStates((prev) => ({
+				...prev,
+				[index]: { testing: false, result },
+			}));
+			toast({
+				title: `${t("pages.xray.outbound.healthFailed")}: ${detail}`,
 				status: "error",
 				isClosable: true,
 				position: "top",
@@ -3446,6 +3532,37 @@ export const CoreSettingsPage: FC = () => {
 		);
 	};
 
+	const renderOutboundHealthButton = (
+		outbound: any,
+		state: OutboundTestState | undefined,
+		onCheck: () => void,
+	) => {
+		if (!managedOutboundMeta(outbound)) return null;
+		const resultLabel = state?.result
+			? state.result.success
+				? `${t("pages.xray.outbound.healthHealthy")}: ${outboundTestResultLabel(state.result)}`
+				: `${t("pages.xray.outbound.healthFailed")}: ${state.result.error || t("unknown")}`
+			: t("pages.xray.outbound.healthCheck");
+		return (
+			<Tooltip hasArrow label={resultLabel} shouldWrapChildren>
+				<IconButton
+					aria-label={t("pages.xray.outbound.healthCheck")}
+					icon={<CheckCircleIcon width={18} height={18} />}
+					size="sm"
+					isRound
+					variant="outline"
+					colorScheme="green"
+					isLoading={Boolean(state?.testing)}
+					isDisabled={isMasterTarget}
+					onClick={(event) => {
+						event.stopPropagation();
+						onCheck();
+					}}
+				/>
+			</Tooltip>
+		);
+	};
+
 	const routingRuleColumns: DataTableColumn<RoutingRuleDisplayRow>[] = [
 		{
 			id: "rule",
@@ -3648,11 +3765,18 @@ export const CoreSettingsPage: FC = () => {
 			priority: "medium",
 			hideBelow: "lg",
 			cell: ({ outbound, originalIndex }) =>
-				renderOutboundTestButton(
-					outbound,
-					outboundTestStates[originalIndex],
-					() => testOutbound(originalIndex),
-				),
+				<HStack spacing={1}>
+					{renderOutboundTestButton(
+						outbound,
+						outboundTestStates[originalIndex],
+						() => testOutbound(originalIndex),
+					)}
+					{renderOutboundHealthButton(
+						outbound,
+						outboundHealthStates[originalIndex],
+						() => checkOutboundHealth(originalIndex),
+					)}
+				</HStack>,
 			mobileMetaLabel: t("pages.xray.routeTester.test"),
 		},
 	];

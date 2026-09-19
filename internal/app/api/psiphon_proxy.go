@@ -205,8 +205,10 @@ func duplicatePsiphonOutboundTag(config map[string]any, profiles []psiphonProxyP
 
 func psiphonOutbound(profile psiphonProxyProfile) map[string]any {
 	return map[string]any{
-		"tag":      profile.Tag,
-		"protocol": "socks",
+		"tag":                    profile.Tag,
+		"rebecca_proxy":          "psiphon",
+		"rebecca_proxy_location": profile.Location,
+		"protocol":               "socks",
 		"settings": map[string]any{
 			"servers": []map[string]any{{
 				"address": "127.0.0.1",
