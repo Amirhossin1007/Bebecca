@@ -396,11 +396,10 @@ func initializeTelegramBotDatabase(ctx context.Context, appRoot, systemUser stri
 }
 
 func mirzaBotTableInitializer(table []byte) ([]byte, error) {
-	needle := []byte("telegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);")
-	if bytes.Count(table, needle) != 1 {
-		return nil, errors.New("pinned MirzaBot table initializer changed unexpectedly")
+	if matches := mirzaWebhookCallPattern.FindAllIndex(table, -1); len(matches) != 1 {
+		return nil, errors.New("MirzaBot table initializer does not contain exactly one setWebhook call")
 	}
-	return bytes.Replace(table, needle, []byte("// Webhook is configured by Rebecca with a secret token."), 1), nil
+	return mirzaWebhookCallPattern.ReplaceAll(table, []byte("// Webhook is configured by Rebecca with a secret token.")), nil
 }
 
 func configureFaoximaBot(config []byte, database, username, password, botToken, adminID, domain, botUsername string) ([]byte, error) {

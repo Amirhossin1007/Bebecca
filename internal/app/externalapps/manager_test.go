@@ -314,6 +314,28 @@ exit 0`)
 	}
 }
 
+func TestMirzaBotTableInitializerSupportsCurrentWebhookFormat(t *testing.T) {
+	table := []byte(`<?php
+
+require_once __DIR__ . '/db/bootstrap.php';
+
+global $domainhosts;
+
+$webhookSecret = ensureWebhookSecret();
+
+telegram('setWebhook', [
+    'url' => "https://$domainhosts/index.php?secret={$webhookSecret['secret']}",
+]);
+`)
+	updated, err := mirzaBotTableInitializer(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(updated, []byte("setWebhook")) || !bytes.Contains(updated, []byte("Webhook is configured by Rebecca")) {
+		t.Fatalf("webhook call was not replaced: %s", updated)
+	}
+}
+
 func TestMirzaRequestSecretsAreIndependent(t *testing.T) {
 	base := t.TempDir()
 	manager := &Manager{baseDir: base, apps: map[string]Record{}}

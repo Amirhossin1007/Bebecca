@@ -63,6 +63,7 @@ var (
 	externalAppIDPattern      = regexp.MustCompile(`^[0-9a-f]{12}$`)
 	externalAppPathPattern    = regexp.MustCompile(`^bot[0-9a-f]{12}$`)
 	mirzaBotTokenPattern      = regexp.MustCompile(`^[0-9]{5,16}:[A-Za-z0-9_-]{20,100}$`)
+	mirzaWebhookCallPattern   = regexp.MustCompile(`(?is)telegram\s*\(\s*['"]setwebhook['"]\s*,\s*\[.*?\]\s*\)\s*;`)
 	mirzaReleasePattern       = regexp.MustCompile(`^v?[0-9]+(?:\.[0-9]+){1,3}$`)
 	mirzaCommitPattern        = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	telegramIDPattern         = regexp.MustCompile(`^-?[0-9]{5,20}$`)
