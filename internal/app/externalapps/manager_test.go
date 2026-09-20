@@ -314,6 +314,28 @@ exit 0`)
 	}
 }
 
+func TestMirzaBotTableInitializerSupportsCurrentWebhookFormat(t *testing.T) {
+	table := []byte(`<?php
+
+require_once __DIR__ . '/db/bootstrap.php';
+
+global $domainhosts;
+
+$webhookSecret = ensureWebhookSecret();
+
+telegram('setWebhook', [
+    'url' => "https://$domainhosts/index.php?secret={$webhookSecret['secret']}",
+]);
+`)
+	updated, err := mirzaBotTableInitializer(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(updated, []byte("setWebhook")) || !bytes.Contains(updated, []byte("Webhook is configured by Rebecca")) {
+		t.Fatalf("webhook call was not replaced: %s", updated)
+	}
+}
+
 func TestMirzaRequestSecretsAreIndependent(t *testing.T) {
 	base := t.TempDir()
 	manager := &Manager{baseDir: base, apps: map[string]Record{}}
@@ -397,6 +419,10 @@ func TestMirzaWebhookUsesDedicatedPath(t *testing.T) {
 	}
 	if got := externalAppWebhookURL(Record{Domain: "legacy.example.com"}); got != "https://legacy.example.com/index.php" {
 		t.Fatalf("legacy webhook URL=%q", got)
+	}
+	mirza := Record{Template: "mirzabot", Domain: "bot.example.com", Path: "bot0123456789ab"}
+	if got := telegramWebhookURL(mirza, "secret value"); got != "https://bot.example.com/bot0123456789ab/index.php?secret=secret+value" {
+		t.Fatalf("Mirza webhook URL=%q", got)
 	}
 }
 

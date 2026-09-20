@@ -163,7 +163,7 @@ func TestApplyRuntimeAPIEnablesOnlineUserStats(t *testing.T) {
 }
 
 func TestRemoteAccessProtocolsRequireFullUserSync(t *testing.T) {
-	for _, protocol := range []string{"openvpn", "l2tp", "pptp", "wireguard", "ikev2", "anyconnect"} {
+	for _, protocol := range []string{"openvpn", "l2tp", "pptp", "wireguard", "amneziawg", "ikev2", "anyconnect"} {
 		if !protocolRequiresFullUserSync(protocol) {
 			t.Fatalf("%s user changes must trigger a full runtime sync", protocol)
 		}

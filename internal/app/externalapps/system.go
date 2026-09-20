@@ -392,15 +392,22 @@ func initializeTelegramBotDatabase(ctx context.Context, appRoot, systemUser stri
 	if err != nil {
 		return fmt.Errorf("initialize MirzaBot database: %s", limitedExternalAppCommandOutput(output, err))
 	}
+	// Keep upstream webhook setup in the one-time initializer only; running it
+	// for every Telegram update quickly triggers Telegram rate limits.
+	if err := os.WriteFile(filepath.Join(appRoot, "table.php"), prepared, 0o600); err != nil {
+		return fmt.Errorf("disable runtime Telegram webhook setup: %w", err)
+	}
+	if err := os.Chown(filepath.Join(appRoot, "table.php"), uid, gid); err != nil {
+		return fmt.Errorf("set runtime Telegram table ownership: %w", err)
+	}
 	return nil
 }
 
 func mirzaBotTableInitializer(table []byte) ([]byte, error) {
-	needle := []byte("telegram('setwebhook', [\n    'url' => \"https://$domainhosts/index.php\"\n]);")
-	if bytes.Count(table, needle) != 1 {
-		return nil, errors.New("pinned MirzaBot table initializer changed unexpectedly")
+	if matches := mirzaWebhookCallPattern.FindAllIndex(table, -1); len(matches) != 1 {
+		return nil, errors.New("MirzaBot table initializer does not contain exactly one setWebhook call")
 	}
-	return bytes.Replace(table, needle, []byte("// Webhook is configured by Rebecca with a secret token."), 1), nil
+	return mirzaWebhookCallPattern.ReplaceAll(table, []byte("// Webhook is configured by Rebecca with a secret token.")), nil
 }
 
 func configureFaoximaBot(config []byte, database, username, password, botToken, adminID, domain, botUsername string) ([]byte, error) {
@@ -641,6 +648,14 @@ func (m *Manager) verifyExternalAppDatabase(ctx context.Context, database string
 	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
 	if err != nil || count < 10 {
 		return errors.New("MirzaBot database initialization did not create the expected tables")
+	}
+	return nil
+}
+
+func (m *Manager) setExternalAppWebhookSecret(ctx context.Context, database, secret string) error {
+	query := "UPDATE " + sqlIdentifier(database) + ".setting SET webhook_secret=" + sqlString(secret) + ";\n"
+	if _, err := m.mysqlRoot(ctx, query); err != nil {
+		return fmt.Errorf("store MirzaBot webhook secret: %w", err)
 	}
 	return nil
 }
@@ -1001,7 +1016,7 @@ func (m *Manager) telegramBotUsername(ctx context.Context, token string) (string
 
 func (m *Manager) setTelegramWebhook(ctx context.Context, token string, record Record, secret string) error {
 	payload := url.Values{
-		"url":                  {externalAppWebhookURL(record)},
+		"url":                  {telegramWebhookURL(record, secret)},
 		"secret_token":         {secret},
 		"drop_pending_updates": {"false"},
 	}
@@ -1015,6 +1030,14 @@ func (m *Manager) setTelegramWebhook(ctx context.Context, token string, record R
 		return errors.New("Telegram rejected the webhook")
 	}
 	return nil
+}
+
+func telegramWebhookURL(record Record, secret string) string {
+	webhookURL := externalAppWebhookURL(record)
+	if record.Template == "mirzabot" {
+		webhookURL += "?secret=" + url.QueryEscape(secret)
+	}
+	return webhookURL
 }
 
 func externalAppWebhookURL(record Record) string {
@@ -1045,29 +1068,51 @@ func (m *Manager) deleteTelegramWebhook(ctx context.Context, token string) error
 
 func (m *Manager) telegramRequest(ctx context.Context, token, method string, payload url.Values, target any) error {
 	endpoint := "https://api.telegram.org/bot" + token + "/" + method
-	var body io.Reader
+	body := ""
 	if payload != nil {
-		body = strings.NewReader(payload.Encode())
+		body = payload.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, body)
-	if err != nil {
-		return errors.New("prepare Telegram request")
+	for attempt := 0; attempt < 3; attempt++ {
+		var requestBody io.Reader
+		if body != "" {
+			requestBody = strings.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, requestBody)
+		if err != nil {
+			return errors.New("prepare Telegram request")
+		}
+		if body != "" {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+		response, err := m.httpClient.Do(req)
+		if err != nil {
+			return errors.New("Telegram API request failed")
+		}
+		if response.StatusCode == http.StatusTooManyRequests && attempt < 2 {
+			wait := time.Second
+			if seconds, err := strconv.Atoi(strings.TrimSpace(response.Header.Get("Retry-After"))); err == nil && seconds > 0 && seconds < 30 {
+				wait = time.Duration(seconds) * time.Second
+			}
+			response.Body.Close()
+			timer := time.NewTimer(wait)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+			continue
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return fmt.Errorf("Telegram API returned HTTP %d", response.StatusCode)
+		}
+		if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target); err != nil {
+			return errors.New("Telegram API returned an invalid response")
+		}
+		return nil
 	}
-	if payload != nil {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
-	response, err := m.httpClient.Do(req)
-	if err != nil {
-		return errors.New("Telegram API request failed")
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("Telegram API returned HTTP %d", response.StatusCode)
-	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target); err != nil {
-		return errors.New("Telegram API returned an invalid response")
-	}
-	return nil
+	return errors.New("Telegram API request rate limited")
 }
 
 func mirzaBotConfig(database, username, password, botToken, adminID, domain, botUsername string) string {

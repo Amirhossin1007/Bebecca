@@ -321,9 +321,10 @@ func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node No
 	if !isRuntimeUserOperation(operation.OperationType) || !operation.UserID.Valid {
 		return false, nil, nil
 	}
-	// Updated nodes reconcile one user against their cached runtime config. Old
-	// nodes are detected after dial and keep the full-sync compatibility path.
-	if operation.OperationType == "update_user" {
+	// A nil repository is only possible in lightweight unit tests. Production
+	// controllers always have a database and must inspect virtual protocols so
+	// their generated peer runtime is refreshed too.
+	if c.repo.db == nil {
 		return false, nil, nil
 	}
 	var serviceID sql.NullInt64
@@ -359,7 +360,7 @@ func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node No
 
 func protocolRequiresFullUserSync(protocol string) bool {
 	switch strings.ToLower(strings.TrimSpace(protocol)) {
-	case xrayconfig.OVProtocol, xrayconfig.L2TPProtocol, xrayconfig.PPTPProtocol, xrayconfig.WGProtocol, xrayconfig.IKEv2Protocol, xrayconfig.AnyConnectProtocol, "ssh":
+	case xrayconfig.OVProtocol, xrayconfig.L2TPProtocol, xrayconfig.PPTPProtocol, xrayconfig.WGProtocol, xrayconfig.AWGProtocol, xrayconfig.IKEv2Protocol, xrayconfig.AnyConnectProtocol, "ssh":
 		return true
 	default:
 		return false
