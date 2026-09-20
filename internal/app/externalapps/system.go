@@ -392,6 +392,14 @@ func initializeTelegramBotDatabase(ctx context.Context, appRoot, systemUser stri
 	if err != nil {
 		return fmt.Errorf("initialize MirzaBot database: %s", limitedExternalAppCommandOutput(output, err))
 	}
+	// Keep upstream webhook setup in the one-time initializer only; running it
+	// for every Telegram update quickly triggers Telegram rate limits.
+	if err := os.WriteFile(filepath.Join(appRoot, "table.php"), prepared, 0o600); err != nil {
+		return fmt.Errorf("disable runtime Telegram webhook setup: %w", err)
+	}
+	if err := os.Chown(filepath.Join(appRoot, "table.php"), uid, gid); err != nil {
+		return fmt.Errorf("set runtime Telegram table ownership: %w", err)
+	}
 	return nil
 }
 
