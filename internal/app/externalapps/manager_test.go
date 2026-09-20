@@ -420,6 +420,10 @@ func TestMirzaWebhookUsesDedicatedPath(t *testing.T) {
 	if got := externalAppWebhookURL(Record{Domain: "legacy.example.com"}); got != "https://legacy.example.com/index.php" {
 		t.Fatalf("legacy webhook URL=%q", got)
 	}
+	mirza := Record{Template: "mirzabot", Domain: "bot.example.com", Path: "bot0123456789ab"}
+	if got := telegramWebhookURL(mirza, "secret value"); got != "https://bot.example.com/bot0123456789ab/index.php?secret=secret+value" {
+		t.Fatalf("Mirza webhook URL=%q", got)
+	}
 }
 
 func TestMirzaRecordIsEnabledWhileWebhookActivates(t *testing.T) {

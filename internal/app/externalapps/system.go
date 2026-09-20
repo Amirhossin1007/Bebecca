@@ -652,6 +652,14 @@ func (m *Manager) verifyExternalAppDatabase(ctx context.Context, database string
 	return nil
 }
 
+func (m *Manager) setExternalAppWebhookSecret(ctx context.Context, database, secret string) error {
+	query := "UPDATE " + sqlIdentifier(database) + ".setting SET webhook_secret=" + sqlString(secret) + ";\n"
+	if _, err := m.mysqlRoot(ctx, query); err != nil {
+		return fmt.Errorf("store MirzaBot webhook secret: %w", err)
+	}
+	return nil
+}
+
 func (m *Manager) importExternalAppDatabase(ctx context.Context, database, username, password string, data []byte) error {
 	if len(data) == 0 || len(data) > maxExternalAppArchiveBytes {
 		return errors.New("SQL backup is empty or exceeds 32 MiB")
@@ -1008,7 +1016,7 @@ func (m *Manager) telegramBotUsername(ctx context.Context, token string) (string
 
 func (m *Manager) setTelegramWebhook(ctx context.Context, token string, record Record, secret string) error {
 	payload := url.Values{
-		"url":                  {externalAppWebhookURL(record)},
+		"url":                  {telegramWebhookURL(record, secret)},
 		"secret_token":         {secret},
 		"drop_pending_updates": {"false"},
 	}
@@ -1022,6 +1030,14 @@ func (m *Manager) setTelegramWebhook(ctx context.Context, token string, record R
 		return errors.New("Telegram rejected the webhook")
 	}
 	return nil
+}
+
+func telegramWebhookURL(record Record, secret string) string {
+	webhookURL := externalAppWebhookURL(record)
+	if record.Template == "mirzabot" {
+		webhookURL += "?secret=" + url.QueryEscape(secret)
+	}
+	return webhookURL
 }
 
 func externalAppWebhookURL(record Record) string {

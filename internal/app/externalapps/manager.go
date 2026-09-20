@@ -1055,6 +1055,10 @@ func (m *Manager) installTelegramBot(ctx context.Context, request InstallRequest
 	if err != nil {
 		return PublicRecord{}, err
 	}
+	webhookSecret, err := randomHex(32)
+	if err != nil {
+		return PublicRecord{}, err
+	}
 	if err := m.ensureExternalAppDatabaseFree(ctx, record.Database, record.DatabaseUser); err != nil {
 		return PublicRecord{}, err
 	}
@@ -1088,9 +1092,10 @@ func (m *Manager) installTelegramBot(ctx context.Context, request InstallRequest
 	if err := m.verifyExternalAppDatabase(ctx, record.Database); err != nil {
 		return PublicRecord{}, err
 	}
-	webhookSecret, err := randomHex(32)
-	if err != nil {
-		return PublicRecord{}, err
+	if spec.template == "mirzabot" {
+		if err := m.setExternalAppWebhookSecret(ctx, record.Database, webhookSecret); err != nil {
+			return PublicRecord{}, err
+		}
 	}
 	cronSecret, err := randomHex(24)
 	if err != nil {
