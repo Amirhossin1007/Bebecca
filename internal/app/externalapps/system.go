@@ -1044,29 +1044,51 @@ func (m *Manager) deleteTelegramWebhook(ctx context.Context, token string) error
 
 func (m *Manager) telegramRequest(ctx context.Context, token, method string, payload url.Values, target any) error {
 	endpoint := "https://api.telegram.org/bot" + token + "/" + method
-	var body io.Reader
+	body := ""
 	if payload != nil {
-		body = strings.NewReader(payload.Encode())
+		body = payload.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, body)
-	if err != nil {
-		return errors.New("prepare Telegram request")
+	for attempt := 0; attempt < 3; attempt++ {
+		var requestBody io.Reader
+		if body != "" {
+			requestBody = strings.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, requestBody)
+		if err != nil {
+			return errors.New("prepare Telegram request")
+		}
+		if body != "" {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+		response, err := m.httpClient.Do(req)
+		if err != nil {
+			return errors.New("Telegram API request failed")
+		}
+		if response.StatusCode == http.StatusTooManyRequests && attempt < 2 {
+			wait := time.Second
+			if seconds, err := strconv.Atoi(strings.TrimSpace(response.Header.Get("Retry-After"))); err == nil && seconds > 0 && seconds < 30 {
+				wait = time.Duration(seconds) * time.Second
+			}
+			response.Body.Close()
+			timer := time.NewTimer(wait)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+			continue
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return fmt.Errorf("Telegram API returned HTTP %d", response.StatusCode)
+		}
+		if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target); err != nil {
+			return errors.New("Telegram API returned an invalid response")
+		}
+		return nil
 	}
-	if payload != nil {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
-	response, err := m.httpClient.Do(req)
-	if err != nil {
-		return errors.New("Telegram API request failed")
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("Telegram API returned HTTP %d", response.StatusCode)
-	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target); err != nil {
-		return errors.New("Telegram API returned an invalid response")
-	}
-	return nil
+	return errors.New("Telegram API request rate limited")
 }
 
 func mirzaBotConfig(database, username, password, botToken, adminID, domain, botUsername string) string {
