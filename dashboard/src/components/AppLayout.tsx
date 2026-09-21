@@ -49,7 +49,7 @@ import {
 	UserGroupIcon,
 	WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { useQuery } from "react-query";
 import {
@@ -107,37 +107,22 @@ const TutorialIcon = chakra(BookOpenIcon, iconProps);
 
 const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 	<Box
-		w="18px"
-		h="14px"
+		w="15px"
+		h="11px"
 		position="relative"
 		display="flex"
 		flexDirection="column"
 		justifyContent="space-between"
+		alignItems="flex-start"
 	>
 		<motion.span
 			animate={{
-				rotate: isOpen ? 45 : 0,
-				y: isOpen ? 6 : 0,
+				width: "15px",
+				opacity: 1,
 			}}
-			transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				width: "100%",
-				height: "2px",
-				backgroundColor: "currentColor",
-				borderRadius: "2px",
-				transformOrigin: "center",
-				display: "block",
-			}}
-		/>
-		<motion.span
-			animate={{
-				opacity: isOpen ? 0 : 1,
-				scaleX: isOpen ? 0 : 1,
-			}}
-			transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-			style={{
-				width: "100%",
-				height: "2px",
+				height: "1.75px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
 				display: "block",
@@ -145,16 +130,27 @@ const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 		/>
 		<motion.span
 			animate={{
-				rotate: isOpen ? -45 : 0,
-				y: isOpen ? -6 : 0,
+				width: isOpen ? "9px" : "15px",
+				opacity: isOpen ? 0.75 : 1,
 			}}
-			transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				width: "100%",
-				height: "2px",
+				height: "1.75px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
-				transformOrigin: "center",
+				display: "block",
+			}}
+		/>
+		<motion.span
+			animate={{
+				width: isOpen ? "12px" : "15px",
+				opacity: 1,
+			}}
+			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+			style={{
+				height: "1.75px",
+				backgroundColor: "currentColor",
+				borderRadius: "2px",
 				display: "block",
 			}}
 		/>
@@ -1069,8 +1065,11 @@ export function AppLayout() {
 						<HStack spacing={3} alignItems="center" flex="1" minW="0">
 							<IconButton
 								size="sm"
+								w="32px"
+								h="32px"
+								minW="32px"
 								variant="ghost"
-								borderRadius="12px"
+								borderRadius="10px"
 								borderWidth="1px"
 								borderColor={shellBorder}
 								aria-label={t("a11y.toggleSidebar")}
@@ -1138,32 +1137,50 @@ export function AppLayout() {
 									);
 								})}
 							</HStack>
-							{mobileHeaderItems.length > 0 && (
-								<Box
-									w={{ base: "160px", sm: "220px", md: "360px" }}
-									minW="0"
-									flexShrink={1}
-									display={{ base: "block", md: "none" }}
-								>
-									<SponsorCarousel
-										items={mobileHeaderItems}
-										variant="banner"
-									/>
-								</Box>
-							)}
-							{sponsorHeaderItems.length > 0 && (
-								<Box
-									w={{ base: "160px", sm: "220px", md: "360px" }}
-									minW="0"
-									flexShrink={1}
-									display={{ base: "none", md: "block" }}
-								>
-									<SponsorCarousel
-										items={sponsorHeaderItems}
-										variant="banner"
-									/>
-								</Box>
-							)}
+							<AnimatePresence mode="wait">
+								{mobileHeaderItems.length > 0 && (
+									<motion.div
+										key={mobileHeaderItems[0]?.id || "mobile-banner"}
+										initial={{ opacity: 0, y: -16 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={{ opacity: 0, y: 16 }}
+										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+										style={{ minWidth: 0, flexShrink: 1 }}
+									>
+										<Box
+											w={{ base: "160px", sm: "220px", md: "360px" }}
+											display={{ base: "block", md: "none" }}
+										>
+											<SponsorCarousel
+												items={mobileHeaderItems}
+												variant="banner"
+											/>
+										</Box>
+									</motion.div>
+								)}
+							</AnimatePresence>
+							<AnimatePresence mode="wait">
+								{sponsorHeaderItems.length > 0 && (
+									<motion.div
+										key={sponsorHeaderItems[0]?.id || "desktop-banner"}
+										initial={{ opacity: 0, y: -16 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={{ opacity: 0, y: 16 }}
+										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+										style={{ minWidth: 0, flexShrink: 1 }}
+									>
+										<Box
+											w={{ base: "160px", sm: "220px", md: "360px" }}
+											display={{ base: "none", md: "block" }}
+										>
+											<SponsorCarousel
+												items={sponsorHeaderItems}
+												variant="banner"
+											/>
+										</Box>
+									</motion.div>
+								)}
+							</AnimatePresence>
 						</HStack>
 						<HStack spacing={2} alignItems="center" flexShrink={0}>
 							<HeaderCalendar />
@@ -1270,10 +1287,11 @@ export function AppLayout() {
 													bg: "transparent !important",
 												},
 											},
-											".rb-logout-menu-item": {
+											".rb-logout-menu-item, .rb-logout-menu-item[data-focus]": {
 												color: "red.400 !important",
 												fontWeight: "600 !important",
-												"&:hover": {
+												bg: "transparent !important",
+												"&:hover, &[data-focus]": {
 													bg: "rgba(239, 68, 68, 0.12) !important",
 													color: "red.400 !important",
 												},
@@ -1440,6 +1458,18 @@ export function AppLayout() {
 										<MenuItem
 											className="rb-logout-menu-item"
 											icon={<LogoutIcon />}
+											color="red.400"
+											_hover={{
+												bg: "rgba(239, 68, 68, 0.12) !important",
+												color: "red.400 !important",
+											}}
+											_focus={{
+												bg: "rgba(239, 68, 68, 0.12) !important",
+												color: "red.400 !important",
+											}}
+											_active={{
+												bg: "rgba(239, 68, 68, 0.18) !important",
+											}}
 											onClick={async () => {
 												try {
 													await logoutSession();
@@ -1757,17 +1787,31 @@ export function AppLayout() {
 													</PopoverTrigger>
 													<Portal>
 														<PopoverContent
-															w="min(210px, calc(100vw - 24px))"
+															w="min(240px, calc(100vw - 24px))"
 															maxW="calc(100vw - 24px)"
 															maxH="calc(100vh - 160px)"
 															overflowY="auto"
-															borderRadius="18px"
-															bg={menuBg}
-															borderColor={menuBorder}
+															borderRadius="20px"
+															bg="panel.surface"
+															borderColor="panel.border"
 															borderWidth="1px"
-															boxShadow="xl"
+															boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
+															backdropFilter="blur(24px)"
+															p={2}
 														>
-															<PopoverBody position="relative" zIndex={1} p="2">
+															<PopoverBody p={0}>
+																<Text
+																	px={3}
+																	pt={1.5}
+																	pb={1}
+																	fontSize="11px"
+																	fontWeight="700"
+																	color="panel.textMuted"
+																	textTransform="uppercase"
+																	letterSpacing="0.05em"
+																>
+																	{t("header.settings")}
+																</Text>
 																<VStack align="stretch" spacing={1}>
 																	{settingsMenuItems.map((entry) => {
 																		const ItemIcon = entry.icon;
@@ -1779,26 +1823,31 @@ export function AppLayout() {
 																				variant="ghost"
 																				size="sm"
 																				w="full"
+																				h="38px"
+																				borderRadius="12px"
+																				px={3}
 																				justifyContent="flex-start"
 																				leftIcon={
 																					ItemIcon ? <ItemIcon /> : undefined
 																				}
 																				bg={
-																					isSelected ? menuHover : "transparent"
+																					isSelected ? "panel.elevated" : "transparent"
+																				}
+																				color={
+																					isSelected ? "panel.text" : "panel.textSecondary"
 																				}
 																				fontWeight={
-																					isSelected ? "semibold" : "normal"
+																					isSelected ? "700" : "500"
 																				}
+																				fontSize="13px"
 																				aria-current={
 																					isSelected ? "page" : undefined
 																				}
 																				_hover={{
-																					bg:
-																						isSelected || activeSettingsKey
-																							? menuHover
-																							: "transparent",
+																					bg: "panel.elevated",
+																					color: "panel.text",
 																				}}
-																				_active={{ bg: menuHover }}
+																				_active={{ bg: "panel.elevated" }}
 																				_focusVisible={{ boxShadow: "outline" }}
 																				onClick={() => {
 																					handleSettingsMenuClose();

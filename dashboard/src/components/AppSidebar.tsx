@@ -10,6 +10,7 @@ import {
 	PopoverContent,
 	PopoverHeader,
 	PopoverTrigger,
+	Portal,
 	Text,
 	Tooltip,
 	useBreakpointValue,
@@ -210,8 +211,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
 	const activeItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const activeItemColor = "var(--rb-panel-accent)";
-	const normalItemColor = useColorModeValue("gray.700", "panel.textSecondary");
-	const sectionTitleColor = useColorModeValue("gray.600", "panel.textMuted");
+	const normalItemColor = useColorModeValue("gray.800", "gray.100");
+	const sectionTitleColor = useColorModeValue("gray.700", "gray.300");
 	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const popoverTrigger = (useBreakpointValue({ base: "click", md: "hover" }) || "hover") as "click" | "hover";
 
@@ -742,7 +743,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															overflow="hidden"
 															whiteSpace="nowrap"
 															opacity={collapsed ? 0 : 1}
-															maxW={collapsed ? "0px" : "160px"}
+															maxW={collapsed ? "0px" : "none"}
 															transform={
 																collapsed
 																	? isRTL
@@ -757,7 +758,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																noOfLines={1}
 																color={isCurrent ? "panel.text" : normalItemColor}
 																fontSize="13px"
-																fontWeight={isCurrent ? "700" : "600"}
+																fontWeight={isCurrent ? "800" : "700"}
 															>
 																{entry.title}
 															</Text>
@@ -836,6 +837,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														placement={isRTL ? "left-start" : "right-start"}
 														isLazy
 														gutter={8}
+														openDelay={50}
+														closeDelay={120}
 													>
 														<PopoverTrigger>
 															<Flex
@@ -864,71 +867,75 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																</Box>
 															</Flex>
 														</PopoverTrigger>
-														<PopoverContent
-															bg="panel.surface"
-															borderColor="panel.border"
-															borderWidth="1px"
-															borderRadius="xl"
-															p={1.5}
-															minW="180px"
-															boxShadow="0 12px 36px rgba(0,0,0,0.3)"
-															dir={isRTL ? "rtl" : "ltr"}
-															_focus={{ outline: "none" }}
-														>
-															<PopoverHeader
-																borderBottomWidth="1px"
+														<Portal>
+															<PopoverContent
+																bg="panel.surface"
 																borderColor="panel.border"
-																px={2.5}
-																py={1.5}
-																fontSize="11px"
-																fontWeight="700"
-																color="panel.textMuted"
+																borderWidth="1px"
+																borderRadius="xl"
+																p={1.5}
+																minW="180px"
+																boxShadow="0 16px 40px rgba(0,0,0,0.35)"
+																backdropFilter="blur(20px)"
+																dir={isRTL ? "rtl" : "ltr"}
+																zIndex={9999}
+																_focus={{ outline: "none" }}
 															>
-																{entry.title}
-															</PopoverHeader>
-															<PopoverBody p={0} pt={1}>
-																<VStack align="stretch" spacing={1}>
-																	{visibleSubs.map((sub) => {
-																		const isSubActive =
-																			location.pathname === sub.url ||
-																			(sub.url !== "/" && location.pathname.startsWith(sub.url));
-																		const SubIcon = sub.icon;
+																<PopoverHeader
+																	borderBottomWidth="1px"
+																	borderColor="panel.border"
+																	px={2.5}
+																	py={1.5}
+																	fontSize="11px"
+																	fontWeight="700"
+																	color="panel.textMuted"
+																>
+																	{entry.title}
+																</PopoverHeader>
+																<PopoverBody p={0} pt={1}>
+																	<VStack align="stretch" spacing={1}>
+																		{visibleSubs.map((sub) => {
+																			const isSubActive =
+																				location.pathname === sub.url ||
+																				(sub.url !== "/" && location.pathname.startsWith(sub.url));
+																			const SubIcon = sub.icon;
 
-																		return (
-																			<Box
-																				key={sub.id}
-																				as={NavLink}
-																				to={sub.url}
-																				onClick={(e: ReactMouseEvent) => handleNavigate(sub.url, e)}
-																				display="block"
-																			>
-																				<Flex
-																					align="center"
-																					gap={2}
-																					px={2.5}
-																					py={1.5}
-																					borderRadius="md"
-																					fontSize="12px"
-																					fontWeight={isSubActive ? "700" : "500"}
-																					bg={isSubActive ? activeItemBg : "transparent"}
-																					color={isSubActive ? "panel.text" : normalItemColor}
-																					borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
-																					borderInlineStartColor="var(--rb-panel-accent)"
-																					_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
+																			return (
+																				<Box
+																					key={sub.id}
+																					as={NavLink}
+																					to={sub.url}
+																					onClick={(e: ReactMouseEvent) => handleNavigate(sub.url, e)}
+																					display="block"
 																				>
-																					<Box as="span" color={isSubActive ? activeItemColor : "inherit"}>
-																						<SubIcon />
-																					</Box>
-																					<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
-																						{sub.title}
-																					</Text>
-																				</Flex>
-																			</Box>
-																		);
-																	})}
-																</VStack>
-															</PopoverBody>
-														</PopoverContent>
+																					<Flex
+																						align="center"
+																						gap={2}
+																						px={2.5}
+																						py={1.5}
+																						borderRadius="md"
+																						fontSize="12px"
+																						fontWeight={isSubActive ? "700" : "600"}
+																						bg={isSubActive ? activeItemBg : "transparent"}
+																						color={isSubActive ? "panel.text" : normalItemColor}
+																						borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
+																						borderInlineStartColor="var(--rb-panel-accent)"
+																						_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
+																					>
+																						<Box as="span" color={isSubActive ? activeItemColor : "inherit"}>
+																							<SubIcon />
+																						</Box>
+																						<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																							{sub.title}
+																						</Text>
+																					</Flex>
+																				</Box>
+																			);
+																		})}
+																	</VStack>
+																</PopoverBody>
+															</PopoverContent>
+														</Portal>
 													</Popover>
 												);
 											}
@@ -937,13 +944,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												<Box key={entry.id}>
 													<Flex
 														align="center"
+														justify="space-between"
 														w="full"
 														h="38px"
 														px="11px"
 														borderRadius="10px"
 														bg={isGroupActive && !isOpen ? activeItemBg : "transparent"}
 														color={isGroupActive ? "panel.text" : normalItemColor}
-														fontWeight={isGroupActive ? "700" : "500"}
+														fontWeight={isGroupActive ? "800" : "700"}
 														fontSize="13px"
 														cursor="pointer"
 														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -977,7 +985,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															overflow="hidden"
 															whiteSpace="nowrap"
 															opacity={collapsed ? 0 : 1}
-															maxW={collapsed ? "0px" : "160px"}
+															maxW={collapsed ? "0px" : "none"}
 															transform={
 																collapsed
 																	? isRTL
@@ -992,7 +1000,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																noOfLines={1}
 																color={isGroupActive ? "panel.text" : normalItemColor}
 																fontSize="13px"
-																fontWeight={isGroupActive ? "700" : "500"}
+																fontWeight={isGroupActive ? "800" : "700"}
 															>
 																{entry.title}
 															</Text>
@@ -1056,7 +1064,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						borderRadius="8px"
 																						bg={isSubActive ? activeItemBg : "transparent"}
 																						color={isSubActive ? "panel.text" : normalItemColor}
-																						fontWeight={isSubActive ? "700" : "500"}
+																						fontWeight={isSubActive ? "700" : "600"}
 																						fontSize="12px"
 																						cursor="pointer"
 																						transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -1102,21 +1110,31 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						})}
 					</VStack>
 				</Box>
-				{!collapsed && sidebarBanners.length > 0 && (
-					<Box flexShrink={0} w="full" pt={2}>
-						<SponsorCarousel
-							items={sidebarBanners.map((asset) => ({
-								id: asset.id,
-								src: asset.image_url,
-								alt: asset.alt || asset.label || "Sponsor",
-								href: asset.target_url,
-								label: asset.label,
-								isSponsor: true,
-							}))}
-							variant="sidebar"
-						/>
-					</Box>
-				)}
+				<AnimatePresence>
+					{!collapsed && sidebarBanners.length > 0 && (
+						<motion.div
+							initial={{ opacity: 0, height: 0, y: 24 }}
+							animate={{ opacity: 1, height: "auto", y: 0 }}
+							exit={{ opacity: 0, height: 0, y: 24 }}
+							transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+							style={{ overflow: "hidden", width: "100%", flexShrink: 0 }}
+						>
+							<Box pt={2} w="full">
+								<SponsorCarousel
+									items={sidebarBanners.map((asset) => ({
+										id: asset.id,
+										src: asset.image_url,
+										alt: asset.alt || asset.label || "Sponsor",
+										href: asset.target_url,
+										label: asset.label,
+										isSponsor: true,
+									}))}
+									variant="sidebar"
+								/>
+							</Box>
+						</motion.div>
+					)}
+				</AnimatePresence>
 			</Flex>
 		</Box>
 	);

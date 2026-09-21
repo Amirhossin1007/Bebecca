@@ -51,7 +51,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const currentIsSponsor = Boolean(stableItems[index]?.isSponsor);
 	const currentItemId = stableItems[index]?.id ?? "";
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
-	const frameBorder = useColorModeValue("panel.border", "panel.border");
 
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
@@ -77,16 +76,12 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			overflow="hidden"
 			w="full"
 			borderRadius={isBanner || isSidebarBanner ? "16px" : "12px"}
-			borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
-			borderColor={frameBorder}
 			bg={isBanner || isSidebarBanner ? frameBg : "transparent"}
-			backdropFilter={isBanner || isSidebarBanner ? "blur(16px)" : undefined}
 			boxShadow={
 				isBanner || isSidebarBanner
 					? "0 4px 20px rgba(0, 0, 0, 0.08)"
 					: "none"
 			}
-			p={isBanner ? "2px" : isSidebarBanner ? "4px" : 0}
 			aspectRatio={
 				isBanner
 					? { base: "4 / 1", md: "8 / 1" }
@@ -97,7 +92,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				md: {
-					borderColor: "panel.borderStrong",
 					boxShadow: "0 8px 24px rgba(0, 0, 0, 0.14)",
 				},
 			}}
