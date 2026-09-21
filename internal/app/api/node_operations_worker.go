@@ -11,7 +11,7 @@ import (
 
 const defaultNodeOperationsPollInterval = 15 * time.Second
 const defaultNodeOperationsBatchSize = 5000
-const retainedFinishedNodeOperations = 100000
+const retainedFinishedNodeOperations = 0
 const nodeOperationsPruneBatchSize = 1000
 
 func (s *Server) runNodeOperationsWorker(ctx context.Context) {

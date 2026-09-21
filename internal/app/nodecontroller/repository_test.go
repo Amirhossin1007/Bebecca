@@ -1442,6 +1442,15 @@ VALUES ('reboot_host', '{}', 'failed', 'failed-retained', CURRENT_TIMESTAMP, CUR
 	}
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'done'`, 6)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'failed'`, 1)
+
+	pruned, err = repo.PruneFinishedOperations(ctx, 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pruned != 6 {
+		t.Fatalf("pruned all finished operations = %d, want 6", pruned)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'done'`, 0)
 }
 
 func TestRepositoryQueueCommandPersistsBeforeExecution(t *testing.T) {

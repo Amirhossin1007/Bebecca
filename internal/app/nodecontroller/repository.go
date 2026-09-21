@@ -1005,12 +1005,38 @@ func (r Repository) MarkOperationFailed(ctx context.Context, id int64, message s
 }
 
 func (r Repository) PruneFinishedOperations(ctx context.Context, retain, limit int) (int, error) {
-	if retain <= 0 {
+	if retain < 0 {
 		retain = 100000
 	}
 	if limit <= 0 || limit > 5000 {
 		limit = 1000
 	}
+	if retain == 0 {
+		rows, err := r.db.QueryContext(ctx, `SELECT id FROM node_operations
+WHERE status = 'done' ORDER BY id LIMIT ?`, limit)
+		if err != nil {
+			return 0, err
+		}
+		ids := make([]int64, 0, limit)
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return 0, err
+			}
+			ids = append(ids, id)
+		}
+		if err := rows.Close(); err != nil || len(ids) == 0 {
+			return 0, err
+		}
+		args := int64Args(ids)
+		res, err := r.db.ExecContext(ctx, `DELETE FROM node_operations WHERE status = 'done' AND id IN (`+placeholders(len(ids))+`)`, args...)
+		if err != nil {
+			return 0, err
+		}
+		return rowsAffectedOrDefault(res, len(ids)), nil
+	}
+
 	var cutoff int64
 	err := r.db.QueryRowContext(ctx, `SELECT id FROM node_operations
 WHERE status = 'done' ORDER BY id DESC LIMIT 1 OFFSET ?`, retain-1).Scan(&cutoff)
