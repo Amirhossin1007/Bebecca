@@ -6,7 +6,8 @@
       "placement": "header",
       "image_url": "header-cloud-board-1440x180.webp",
       "alt": "Webdade cloud services banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -14,7 +15,8 @@
       "placement": "header",
       "image_url": "header-cloud-30-dot-1440x180.webp",
       "alt": "Webdade cloud services banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -22,7 +24,8 @@
       "placement": "header",
       "image_url": "header-cloud-fresh-ip-1440x180.webp",
       "alt": "Webdade cloud services banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -30,7 +33,8 @@
       "placement": "header_mobile",
       "image_url": "header-cloud-board-720x180.webp",
       "alt": "Webdade cloud services mobile banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -38,7 +42,8 @@
       "placement": "header_mobile",
       "image_url": "header-cloud-30-dot-720x180.webp",
       "alt": "Webdade cloud services mobile banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -46,7 +51,8 @@
       "placement": "header_mobile",
       "image_url": "header-cloud-fresh-ip-720x180.webp",
       "alt": "Webdade cloud services mobile banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -54,7 +60,8 @@
       "placement": "sidebar",
       "image_url": "sidebar-cloud-gift-210x170.webp",
       "alt": "Webdade sidebar banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -62,7 +69,8 @@
       "placement": "sidebar",
       "image_url": "sidebar-cloud-passport-210x170.webp",
       "alt": "Webdade sidebar banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -70,7 +78,8 @@
       "placement": "sidebar",
       "image_url": "sidebar-cloud-espresso-210x170.webp",
       "alt": "Webdade sidebar banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -78,7 +87,8 @@
       "placement": "sidebar",
       "image_url": "sidebar-g11-kondi-210x170.webp",
       "alt": "Webdade sidebar banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -86,7 +96,8 @@
       "placement": "sidebar",
       "image_url": "sidebar-g11-50gbps-210x170.webp",
       "alt": "Webdade sidebar banner",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     },
     {
@@ -94,7 +105,8 @@
       "placement": "sidebar_logo",
       "image_url": "logo.svg",
       "alt": "Webdade logo",
-      "label": "Webdade",
+      "label": "webdade",
+      "target_url": "https://webdade.com/",
       "valid_until": "2030-12-31T23:59:59Z"
     }
   ]
