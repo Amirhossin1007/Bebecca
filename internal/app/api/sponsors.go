@@ -38,6 +38,7 @@ type sponsorManager struct {
 
 type sponsorCache struct {
 	CheckedAt    time.Time            `json:"checked_at"`
+	ManifestURL  string               `json:"manifest_url,omitempty"`
 	ManifestHash string               `json:"manifest_hash,omitempty"`
 	Assets       []cachedSponsorAsset `json:"assets"`
 }
@@ -155,13 +156,14 @@ func (m *sponsorManager) ensure(ctx context.Context) ([]cachedSponsorAsset, erro
 	defer m.mu.Unlock()
 
 	cached, cacheErr := m.loadCache()
+	cacheMatchesSource := cached.ManifestURL == m.manifestURL
 	valid := m.validAssets(cached.Assets)
-	if len(valid) == len(cached.Assets) && len(cached.Assets) > 0 {
+	if cacheMatchesSource && len(valid) == len(cached.Assets) && len(cached.Assets) > 0 {
 		if cacheErr == nil && !cached.CheckedAt.IsZero() && time.Since(cached.CheckedAt) < sponsorCacheTTL {
 			return valid, nil
 		}
 	}
-	if len(cached.Assets) == 0 && cacheErr == nil && !cached.CheckedAt.IsZero() && time.Since(cached.CheckedAt) < sponsorCacheTTL {
+	if cacheMatchesSource && len(cached.Assets) == 0 && cacheErr == nil && !cached.CheckedAt.IsZero() && time.Since(cached.CheckedAt) < sponsorCacheTTL {
 		return nil, nil
 	}
 
@@ -217,6 +219,7 @@ func (m *sponsorManager) refresh(ctx context.Context, old sponsorCache) ([]cache
 	validOld := m.validAssets(old.Assets)
 	if manifestHash == old.ManifestHash && len(validOld) == len(old.Assets) {
 		old.CheckedAt = time.Now().UTC()
+		old.ManifestURL = m.manifestURL
 		if err := m.saveCache(old); err != nil {
 			return nil, err
 		}
@@ -248,7 +251,7 @@ func (m *sponsorManager) refresh(ctx context.Context, old sponsorCache) ([]cache
 			m.removeCachePath(item.LocalPath)
 		}
 	}
-	if err := m.saveCache(sponsorCache{CheckedAt: time.Now().UTC(), ManifestHash: manifestHash, Assets: assets}); err != nil {
+	if err := m.saveCache(sponsorCache{CheckedAt: time.Now().UTC(), ManifestURL: m.manifestURL, ManifestHash: manifestHash, Assets: assets}); err != nil {
 		return nil, err
 	}
 	return assets, nil
