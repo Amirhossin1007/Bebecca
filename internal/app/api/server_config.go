@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const defaultSponsorManifestURL = "https://raw.githubusercontent.com/rebeccapanel/Rebecca/dev/sponsors/webdade/manifest.json"
+
 type Config struct {
 	Database                     string
 	CertificateBase              string
@@ -64,7 +66,7 @@ func LoadConfig() (Config, error) {
 		CertificateBase:              lookup("REBECCA_CERT_BASE"),
 		CertbotBinary:                lookup("REBECCA_CERTBOT_BIN"),
 		ExternalAppsBase:             lookup("REBECCA_EXTERNAL_APPS_BASE"),
-		SponsorManifestURL:           lookup("REBECCA_SPONSOR_MANIFEST_URL"),
+		SponsorManifestURL:           firstNonEmpty(lookup("REBECCA_SPONSOR_MANIFEST_URL"), defaultSponsorManifestURL),
 		SponsorCacheDir:              firstNonEmpty(lookup("REBECCA_SPONSOR_CACHE_DIR"), filepath.Join(firstNonEmpty(lookup("REBECCA_DATA_DIR"), "/var/lib/rebecca"), "sponsor-cache")),
 		MySQLRootPassword:            lookup("MYSQL_ROOT_PASSWORD"),
 		NodeOperationsPollInterval:   lookup("REBECCA_NODE_OPERATIONS_POLL_INTERVAL"),
