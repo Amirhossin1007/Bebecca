@@ -211,8 +211,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
 	const activeItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const activeItemColor = "var(--rb-panel-accent)";
-	const normalItemColor = useColorModeValue("gray.800", "gray.100");
-	const sectionTitleColor = useColorModeValue("gray.700", "gray.300");
+	const normalItemColor = useColorModeValue("gray.700", "gray.200");
+	const sectionTitleColor = useColorModeValue("gray.600", "gray.400");
+	const tooltipBg = useColorModeValue("gray.900", "panel.surface");
+	const tooltipColor = useColorModeValue("white", "panel.text");
+	const tooltipBorder = useColorModeValue("gray.800", "panel.border");
 	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const popoverTrigger = (useBreakpointValue({ base: "click", md: "hover" }) || "hover") as "click" | "hover";
 
@@ -681,7 +684,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 									>
 										<Text
 											px={3}
-											fontSize="11px"
+											fontSize="10.5px"
 											fontWeight="700"
 											color={sectionTitleColor}
 											textTransform="uppercase"
@@ -758,7 +761,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																noOfLines={1}
 																color={isCurrent ? "panel.text" : normalItemColor}
 																fontSize="13px"
-																fontWeight={isCurrent ? "800" : "700"}
+																fontWeight={isCurrent ? "700" : "600"}
 															>
 																{entry.title}
 															</Text>
@@ -795,6 +798,17 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														label={entry.title}
 														placement={isRTL ? "left" : "right"}
 														hasArrow
+														bg={tooltipBg}
+														color={tooltipColor}
+														borderColor={tooltipBorder}
+														borderWidth="1px"
+														borderRadius="8px"
+														fontSize="11px"
+														fontWeight="600"
+														px="9px"
+														py="4px"
+														boxShadow="0 6px 18px rgba(0, 0, 0, 0.3)"
+														openDelay={60}
 													>
 														<Box
 															as={NavLink}
@@ -872,10 +886,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																bg="panel.surface"
 																borderColor="panel.border"
 																borderWidth="1px"
-																borderRadius="xl"
-																p={1.5}
-																minW="180px"
-																boxShadow="0 16px 40px rgba(0,0,0,0.35)"
+																borderRadius="14px"
+																p="5px"
+																minW="150px"
+																maxW="190px"
+																boxShadow="0 10px 28px rgba(0,0,0,0.28)"
 																backdropFilter="blur(20px)"
 																dir={isRTL ? "rtl" : "ltr"}
 																zIndex={9999}
@@ -884,16 +899,16 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																<PopoverHeader
 																	borderBottomWidth="1px"
 																	borderColor="panel.border"
-																	px={2.5}
-																	py={1.5}
-																	fontSize="11px"
+																	px={2}
+																	py={1}
+																	fontSize="10.5px"
 																	fontWeight="700"
 																	color="panel.textMuted"
 																>
 																	{entry.title}
 																</PopoverHeader>
-																<PopoverBody p={0} pt={1}>
-																	<VStack align="stretch" spacing={1}>
+																<PopoverBody p={0} pt="3px">
+																	<VStack align="stretch" spacing="2px">
 																		{visibleSubs.map((sub) => {
 																			const isSubActive =
 																				location.pathname === sub.url ||
@@ -911,18 +926,19 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																					<Flex
 																						align="center"
 																						gap={2}
-																						px={2.5}
+																						px={2}
 																						py={1.5}
-																						borderRadius="md"
-																						fontSize="12px"
-																						fontWeight={isSubActive ? "700" : "600"}
+																						h="30px"
+																						borderRadius="7px"
+																						fontSize="11.5px"
+																						fontWeight={isSubActive ? "600" : "500"}
 																						bg={isSubActive ? activeItemBg : "transparent"}
 																						color={isSubActive ? "panel.text" : normalItemColor}
 																						borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
 																						borderInlineStartColor="var(--rb-panel-accent)"
 																						_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
 																					>
-																						<Box as="span" color={isSubActive ? activeItemColor : "inherit"}>
+																						<Box as="span" color={isSubActive ? activeItemColor : "inherit"} fontSize="13px">
 																							<SubIcon />
 																						</Box>
 																						<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
@@ -951,7 +967,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														borderRadius="10px"
 														bg={isGroupActive && !isOpen ? activeItemBg : "transparent"}
 														color={isGroupActive ? "panel.text" : normalItemColor}
-														fontWeight={isGroupActive ? "800" : "700"}
+														fontWeight={isGroupActive ? "700" : "600"}
 														fontSize="13px"
 														cursor="pointer"
 														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -1000,7 +1016,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																noOfLines={1}
 																color={isGroupActive ? "panel.text" : normalItemColor}
 																fontSize="13px"
-																fontWeight={isGroupActive ? "800" : "700"}
+																fontWeight={isGroupActive ? "700" : "600"}
 															>
 																{entry.title}
 															</Text>
@@ -1064,7 +1080,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						borderRadius="8px"
 																						bg={isSubActive ? activeItemBg : "transparent"}
 																						color={isSubActive ? "panel.text" : normalItemColor}
-																						fontWeight={isSubActive ? "700" : "600"}
+																						fontWeight={isSubActive ? "600" : "500"}
 																						fontSize="12px"
 																						cursor="pointer"
 																						transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"

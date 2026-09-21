@@ -51,6 +51,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const currentIsSponsor = Boolean(stableItems[index]?.isSponsor);
 	const currentItemId = stableItems[index]?.id ?? "";
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
+	const frameBorder = useColorModeValue("panel.border", "panel.border");
 
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
@@ -70,16 +71,19 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	const isBanner = variant === "banner";
 	const isSidebarBanner = variant === "sidebar";
+	const isVertical = isBanner || isSidebarBanner;
 
 	return (
 		<Box
 			overflow="hidden"
 			w="full"
-			borderRadius={isBanner || isSidebarBanner ? "16px" : "12px"}
+			borderRadius={isBanner || isSidebarBanner ? "14px" : "10px"}
+			borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
+			borderColor={frameBorder}
 			bg={isBanner || isSidebarBanner ? frameBg : "transparent"}
 			boxShadow={
 				isBanner || isSidebarBanner
-					? "0 4px 20px rgba(0, 0, 0, 0.08)"
+					? "0 4px 16px rgba(0, 0, 0, 0.08)"
 					: "none"
 			}
 			aspectRatio={
@@ -92,7 +96,8 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				md: {
-					boxShadow: "0 8px 24px rgba(0, 0, 0, 0.14)",
+					borderColor: "panel.borderStrong",
+					boxShadow: "0 6px 20px rgba(0, 0, 0, 0.14)",
 				},
 			}}
 			onMouseEnter={() => setPaused(true)}
@@ -102,10 +107,15 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		>
 			<Box
 				display="flex"
+				flexDirection={isVertical ? "column" : "row"}
 				w="full"
 				h="full"
-				transform={`translateX(-${index * 100}%)`}
-				transition="transform 450ms cubic-bezier(0.16, 1, 0.3, 1)"
+				transform={
+					isVertical
+						? `translateY(-${index * 100}%)`
+						: `translateX(-${index * 100}%)`
+				}
+				transition="transform 500ms cubic-bezier(0.16, 1, 0.3, 1)"
 				sx={{
 					"@media (prefers-reduced-motion: reduce)": { transition: "none" },
 					img: { border: "none", outline: "none" },
@@ -123,7 +133,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							objectFit={isBanner || isSidebarBanner ? "cover" : "contain"}
 							w={isBanner || isSidebarBanner ? "full" : 8}
 							h={isBanner || isSidebarBanner ? "full" : 8}
-							borderRadius={isBanner || isSidebarBanner ? "12px" : "8px"}
+							borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
 							transition="transform 0.25s ease"
 						/>
 					);
@@ -131,11 +141,14 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						<Box
 							key={item.id}
 							minW="full"
+							w="full"
+							minH={isVertical ? "full" : undefined}
 							h="full"
 							display="flex"
 							alignItems="center"
 							justifyContent={isBanner ? "center" : "flex-start"}
 							gap={isBanner ? 0 : 3}
+							flexShrink={0}
 						>
 							<SponsorLink href={item.href}>{image}</SponsorLink>
 							{variant === "logo" && !item.isSponsor && !collapsed && (
