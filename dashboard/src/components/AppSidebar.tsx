@@ -4,6 +4,7 @@ import {
 	Flex,
 	HStack,
 	Icon,
+	IconButton,
 	Popover,
 	PopoverBody,
 	PopoverContent,
@@ -11,6 +12,7 @@ import {
 	PopoverTrigger,
 	Text,
 	Tooltip,
+	useBreakpointValue,
 	useColorMode,
 	useColorModeValue,
 	VStack,
@@ -39,6 +41,7 @@ import {
 	UserCircleIcon,
 	UserGroupIcon,
 	WrenchScrewdriverIcon,
+	XMarkIcon,
 } from "@heroicons/react/24/outline";
 import logoUrl from "assets/logo.svg";
 import { AnimatePresence, motion } from "framer-motion";
@@ -207,8 +210,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
 	const activeItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const activeItemColor = "var(--rb-panel-accent)";
-	const normalItemColor = useColorModeValue("panel.textSecondary", "panel.textSecondary");
+	const normalItemColor = useColorModeValue("gray.700", "panel.textSecondary");
+	const sectionTitleColor = useColorModeValue("gray.600", "panel.textMuted");
 	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
+	const popoverTrigger = (useBreakpointValue({ base: "click", md: "hover" }) || "hover") as "click" | "hover";
 
 	const checkTutorialUpdates = useCallback(async () => {
 		const langKey = normalizeTutorialLang(i18n.language);
@@ -342,11 +347,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				items: [
 					{
 						type: "direct",
-						id: "services",
-						title: t("services.title"),
-						url: "/services",
-						icon: ServicesIconStyled,
-						visible: canViewServicesSection,
+						id: "nodes",
+						title: t("header.nodeSettings"),
+						url: "/node-settings",
+						icon: NodeIconStyled,
+						visible: canViewNodes,
 					},
 					{
 						type: "direct",
@@ -358,11 +363,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					},
 					{
 						type: "direct",
-						id: "nodes",
-						title: t("header.nodeSettings"),
-						url: "/node-settings",
-						icon: NodeIconStyled,
-						visible: canViewNodes,
+						id: "services",
+						title: t("services.title"),
+						url: "/services",
+						icon: ServicesIconStyled,
+						visible: canViewServicesSection,
 					},
 				],
 			},
@@ -370,6 +375,29 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				id: "sec_system",
 				title: t("sidebar.sections.system"),
 				items: [
+					{
+						type: "group",
+						id: "core_routing",
+						title: t("sidebar.groups.coreRouting"),
+						icon: InfrastructureIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
+						subItems: [
+							{
+								id: "xray_settings",
+								title: t("header.xraySettings"),
+								url: "/xray-settings",
+								icon: XraySettingsIconStyled,
+								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+							},
+							{
+								id: "haproxy",
+								title: t("haproxy.title"),
+								url: "/haproxy",
+								icon: HAProxyIconStyled,
+								visible: isPrivilegedAdmin,
+							},
+						],
+					},
 					{
 						type: "group",
 						id: "observability",
@@ -397,29 +425,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 								url: "/recent-actions",
 								icon: RecentActionsIconStyled,
 								visible: canViewRecentActions,
-							},
-						],
-					},
-					{
-						type: "group",
-						id: "core_routing",
-						title: t("sidebar.groups.coreRouting"),
-						icon: InfrastructureIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
-						subItems: [
-							{
-								id: "xray_settings",
-								title: t("header.xraySettings"),
-								url: "/xray-settings",
-								icon: XraySettingsIconStyled,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "haproxy",
-								title: t("haproxy.title"),
-								url: "/haproxy",
-								icon: HAProxyIconStyled,
-								visible: isPrivilegedAdmin,
 							},
 						],
 					},
@@ -561,54 +566,78 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			<Flex direction="column" h="full" justify="space-between" p={collapsed ? 2 : 3}>
 				<Flex
 					align="center"
+					justify="space-between"
 					px="10px"
 					py={2.5}
 					mb={2}
 					minH="48px"
 					borderBottomWidth="1px"
 					borderColor="panel.border"
-					cursor="pointer"
-					onClick={() => navigate("/")}
 				>
-					<Box
-						w="32px"
-						h="32px"
-						flexShrink={0}
-						display="flex"
-						alignItems="center"
-						justifyContent="center"
+					<HStack
+						spacing={2.5}
+						align="center"
+						cursor="pointer"
+						onClick={() => navigate("/")}
 					>
-						<LogoIcon
-							src={logoUrl}
-							alt="Rebecca"
-							style={{
-								filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
-								transition: "filter 0.3s ease",
-							}}
+						<Box
+							w="30px"
+							h="30px"
+							flexShrink={0}
+							display="flex"
+							alignItems="center"
+							justifyContent="center"
+						>
+							<LogoIcon
+								src={logoUrl}
+								alt="Rebecca"
+								style={{
+									filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+									transition: "filter 0.3s ease",
+								}}
+							/>
+						</Box>
+						<Box
+							flex="1"
+							minW="0"
+							overflow="hidden"
+							whiteSpace="nowrap"
+							opacity={collapsed ? 0 : 1}
+							maxW={collapsed ? "0px" : "150px"}
+							transform={
+								collapsed
+									? isRTL
+										? "translateX(10px)"
+										: "translateX(-10px)"
+									: "translateX(0)"
+							}
+							transition="max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+							pointerEvents={collapsed ? "none" : "auto"}
+						>
+							<Text
+								fontSize="17px"
+								fontWeight="800"
+								letterSpacing="-0.02em"
+								color="panel.text"
+								pt="3px"
+							>
+								Rebecca
+							</Text>
+						</Box>
+					</HStack>
+
+					{inDrawer && onRequestExpand && (
+						<IconButton
+							size="xs"
+							variant="ghost"
+							borderRadius="full"
+							aria-label="Close sidebar"
+							icon={<XMarkIcon width={16} height={16} />}
+							onClick={onRequestExpand}
+							color="panel.textSecondary"
+							_hover={{ bg: "panel.elevated", color: "panel.text" }}
 						/>
-					</Box>
-					<Box
-						flex="1"
-						minW="0"
-						ms={2.5}
-						overflow="hidden"
-						whiteSpace="nowrap"
-						opacity={collapsed ? 0 : 1}
-						maxW={collapsed ? "0px" : "150px"}
-						transform={
-							collapsed
-								? isRTL
-									? "translateX(10px)"
-									: "translateX(-10px)"
-								: "translateX(0)"
-						}
-						transition="max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-						pointerEvents={collapsed ? "none" : "auto"}
-					>
-						<Text fontSize="17px" fontWeight="800" letterSpacing="-0.02em" color="panel.text">
-							Rebecca
-						</Text>
-					</Box>
+					)}
 				</Flex>
 
 				<Box
@@ -651,9 +680,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 									>
 										<Text
 											px={3}
-											fontSize="10px"
+											fontSize="11px"
 											fontWeight="700"
-											color="panel.textMuted"
+											color={sectionTitleColor}
 											textTransform="uppercase"
 											letterSpacing="0.06em"
 											userSelect="none"
@@ -679,7 +708,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
-														fontWeight={isCurrent ? "700" : "500"}
+														fontWeight={isCurrent ? "700" : "600"}
 														fontSize="13px"
 														position="relative"
 														cursor="pointer"
@@ -728,7 +757,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																noOfLines={1}
 																color={isCurrent ? "panel.text" : normalItemColor}
 																fontSize="13px"
-																fontWeight={isCurrent ? "700" : "500"}
+																fontWeight={isCurrent ? "700" : "600"}
 															>
 																{entry.title}
 															</Text>
@@ -803,7 +832,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												return (
 													<Popover
 														key={entry.id}
-														trigger="hover"
+														trigger={popoverTrigger}
 														placement={isRTL ? "left-start" : "right-start"}
 														isLazy
 														gutter={8}

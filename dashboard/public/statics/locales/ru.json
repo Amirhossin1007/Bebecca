@@ -921,12 +921,13 @@
 	"sidebar.sections.trafficAndAdmins": "Трафик и администраторы",
 	"sidebar.sections.infrastructure": "Сеть и инфраструктура",
 	"sidebar.sections.system": "Система",
-	"sidebar.sections.docs": "Документация",
+	"sidebar.sections.docs": "Документация и обучение",
 	"sidebar.groups.userHub": "Управление пользователями",
 	"sidebar.usersList": "Список пользователей",
 	"sidebar.groups.observability": "Мониторинг и логи",
 	"sidebar.groups.infrastructure": "Инфраструктура",
-	"sidebar.groups.coreRouting": "Ядро и маршрутизация",
+	"sidebar.groups.coreRouting": "Ядро и конфигурация",
 	"sidebar.groups.system": "Система и инструменты",
-	"sidebar.tutorialsAndFaq": "Обучение и FAQ"
+	"sidebar.tutorialsAndFaq": "Обучение / FAQ",
+	"calendar.today": "Сегодня"
 }

@@ -29,7 +29,6 @@ import {
 	ArrowLeftOnRectangleIcon,
 	ArrowsRightLeftIcon,
 	ArrowUpOnSquareIcon,
-	Bars3Icon,
 	BookOpenIcon,
 	BriefcaseIcon,
 	CheckIcon,
@@ -55,6 +54,7 @@ import useGetUser from "hooks/useGetUser";
 import { useQuery } from "react-query";
 import {
 	type ElementType,
+	type FC,
 	type MouseEvent as ReactMouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	useCallback,
@@ -84,7 +84,6 @@ const iconProps = {
 };
 
 const LogoutIcon = chakra(ArrowLeftOnRectangleIcon, iconProps);
-const MenuIcon = chakra(Bars3Icon, iconProps);
 const LanguageIconStyled = chakra(LanguageIcon, iconProps);
 const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
@@ -105,6 +104,62 @@ const InsightsIcon = chakra(EyeIcon, iconProps);
 const RecentActionsIcon = chakra(ClockIcon, iconProps);
 const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
 const TutorialIcon = chakra(BookOpenIcon, iconProps);
+
+const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
+	<Box
+		w="18px"
+		h="14px"
+		position="relative"
+		display="flex"
+		flexDirection="column"
+		justifyContent="space-between"
+	>
+		<motion.span
+			animate={{
+				rotate: isOpen ? 45 : 0,
+				y: isOpen ? 6 : 0,
+			}}
+			transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+			style={{
+				width: "100%",
+				height: "2px",
+				backgroundColor: "currentColor",
+				borderRadius: "2px",
+				transformOrigin: "center",
+				display: "block",
+			}}
+		/>
+		<motion.span
+			animate={{
+				opacity: isOpen ? 0 : 1,
+				scaleX: isOpen ? 0 : 1,
+			}}
+			transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+			style={{
+				width: "100%",
+				height: "2px",
+				backgroundColor: "currentColor",
+				borderRadius: "2px",
+				display: "block",
+			}}
+		/>
+		<motion.span
+			animate={{
+				rotate: isOpen ? -45 : 0,
+				y: isOpen ? -6 : 0,
+			}}
+			transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+			style={{
+				width: "100%",
+				height: "2px",
+				backgroundColor: "currentColor",
+				borderRadius: "2px",
+				transformOrigin: "center",
+				display: "block",
+			}}
+		/>
+	</Box>
+);
 
 type SettingsMenuItem = {
 	key: string;
@@ -391,7 +446,13 @@ export function AppLayout() {
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 
 	const changeLanguage = (lang: string) => {
-		i18n.changeLanguage(lang);
+		if (typeof document !== "undefined" && "startViewTransition" in document) {
+			(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
+				i18n.changeLanguage(lang);
+			});
+		} else {
+			i18n.changeLanguage(lang);
+		}
 	};
 
 	const closeUserMenu = () => {
@@ -490,11 +551,11 @@ export function AppLayout() {
 	const bottomNavItems = useMemo<BottomNavItem[]>(() => {
 		const items: BottomNavItem[] = [];
 		const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
-		items.push({ key: "users", label: t("nav.users"), to: "/users" });
+		items.push({ key: "users", label: t("users"), to: "/users" });
 		if (canSeeAdmins) {
 			items.push({
 				key: "admins",
-				label: t("nav.admins"),
+				label: t("admins"),
 				to: "/admins",
 			});
 		}
@@ -505,7 +566,7 @@ export function AppLayout() {
 		});
 		items.push({
 			key: "myaccount",
-			label: t("nav.myaccount"),
+			label: t("myaccount.menu"),
 			to: "/myaccount",
 		});
 		if (hasSettingsMenu) {
@@ -910,11 +971,29 @@ export function AppLayout() {
 
 		const rawHash = activeLocationHash.replace(/^#/, "");
 		if (rawHash && items.length > 0) {
-			items.push({ label: rawHash.replace(/[-_]+/g, " ") });
+			const hashKeyBulk = `bulkActions.tabs.${rawHash}`;
+			const hashKeySettings = `settings.tabs.${rawHash}`;
+			const hashKeyHosts = `hosts.tabs.${rawHash}`;
+			let hashLabel = rawHash.replace(/[-_]+/g, " ");
+
+			if (i18n.exists(hashKeyBulk)) {
+				hashLabel = t(hashKeyBulk);
+			} else if (i18n.exists(hashKeySettings)) {
+				hashLabel = t(hashKeySettings);
+			} else if (i18n.exists(hashKeyHosts)) {
+				hashLabel = t(hashKeyHosts);
+			} else if (rawHash === "create") {
+				hashLabel = t("common.create", "ایجاد");
+			} else if (rawHash === "edit") {
+				hashLabel = t("common.edit", "ویرایش");
+			} else if (rawHash === "delete") {
+				hashLabel = t("common.delete", "حذف");
+			}
+			items.push({ label: hashLabel });
 		}
 
 		return items;
-	}, [location.pathname, activeLocationHash, t]);
+	}, [location.pathname, activeLocationHash, t, i18n]);
 
 	const navigateToSettingsItem = (target: string) => {
 		const defaultTab = settingsDefaultTabByPath[target];
@@ -991,24 +1070,31 @@ export function AppLayout() {
 							<IconButton
 								size="sm"
 								variant="ghost"
-								borderRadius="full"
+								borderRadius="12px"
+								borderWidth="1px"
+								borderColor={shellBorder}
 								aria-label={t("a11y.toggleSidebar")}
 								onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
 									else setSidebarCollapsed(!sidebarCollapsed);
 								}}
-								icon={<MenuIcon />}
+								icon={
+									<AnimatedHamburger
+										isOpen={isMobile ? sidebarDrawer.isOpen : !sidebarCollapsed}
+									/>
+								}
 								flexShrink={0}
 								bg={headerButtonBg}
-								color="panel.textSecondary"
-								_hover={{ md: { bg: headerButtonHoverBg, color: "panel.text" } }}
+								color="panel.text"
+								_hover={{ md: { bg: headerButtonHoverBg, borderColor: "panel.borderStrong" } }}
+								transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 							/>
 							<HStack
 								aria-label="Breadcrumb navigation"
 								spacing={1.5}
 								minW="0"
 								overflow="hidden"
-								dir="ltr"
+								dir={isRTL ? "rtl" : "ltr"}
 								display={{
 									base: mobileHeaderItems.length > 0 ? "none" : "flex",
 									md: "flex",
@@ -1100,16 +1186,26 @@ export function AppLayout() {
 										h="34px"
 										w={{ base: "34px", md: "auto" }}
 										minW={{ base: "34px", md: "auto" }}
-										p={{ base: 0, md: 2.5 }}
+										p={{ base: 0, md: "6px 12px" }}
 										borderRadius={{ base: "full", md: "12px" }}
-										borderColor="panel.border"
+										borderColor={shellBorder}
 										bg="panel.surface"
 										color="panel.text"
-										_hover={{ md: { bg: "panel.elevated", borderColor: "panel.borderStrong" } }}
+										boxShadow="0 1px 3px rgba(0, 0, 0, 0.04)"
+										backdropFilter="blur(16px)"
+										_hover={{
+											md: {
+												bg: "panel.elevated",
+												borderColor: "panel.borderStrong",
+												boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
+											},
+										}}
+										_active={{ bg: "panel.elevated" }}
 										aria-label={t("a11y.userMenu")}
 										display="inline-flex"
 										alignItems="center"
 										justifyContent="center"
+										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 										onClick={() => {
 											if (userMenu.isOpen) {
 												handleUserMenuClose();
@@ -1381,8 +1477,13 @@ export function AppLayout() {
 						onClose={sidebarDrawer.onClose}
 						size="xs"
 					>
-						<DrawerOverlay />
-						<DrawerContent bg="panel.sidebar">
+						<DrawerOverlay bg="blackAlpha.600" backdropFilter="blur(6px)" />
+						<DrawerContent
+							bg="panel.surface"
+							borderInlineEndWidth="1px"
+							borderColor="panel.border"
+							boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
+						>
 							<DrawerBody p={0}>
 								<AppSidebar
 									collapsed={false}
@@ -1461,23 +1562,24 @@ export function AppLayout() {
 							right="0"
 							bottom="0"
 							zIndex={1500}
-							px="4"
+							px="3"
 							pb="6px"
 							pt="1"
 						>
 							<Box
 								bg={menuBg}
 								borderColor={menuBorder}
-								boxShadow="xl"
+								boxShadow="0 16px 40px rgba(0, 0, 0, 0.28)"
 								borderWidth="1px"
-								borderRadius="26px"
-								px="3"
-								pt="2"
+								borderRadius="22px"
+								px="2"
+								pt="1.5"
 								pb="calc(env(safe-area-inset-bottom) + 6px)"
-								maxW="min(520px, 100%)"
+								maxW="min(480px, 100%)"
 								mx="auto"
 								position="relative"
 								overflow="hidden"
+								backdropFilter="blur(20px)"
 							>
 								<HStack
 									justify="space-between"
@@ -1526,10 +1628,9 @@ export function AppLayout() {
 													flexDirection="column"
 													alignItems="center"
 													justifyContent="center"
-													px="3"
-													py="1.5"
-													maxW="100%"
-													w="fit-content"
+													px="1"
+													py="1"
+													w="full"
 												>
 													{isSelected && (
 														<motion.div
@@ -1543,7 +1644,7 @@ export function AppLayout() {
 															style={{
 																position: "absolute",
 																inset: 0,
-																borderRadius: 999,
+																borderRadius: 14,
 																background: activePillBg,
 																boxShadow: activePillShadow,
 																zIndex: 0,
@@ -1554,15 +1655,15 @@ export function AppLayout() {
 													<Box
 														position="relative"
 														zIndex={1}
-														w="8"
-														h="8"
+														w="7"
+														h="7"
 														display="grid"
 														placeItems="center"
 													>
 														<motion.div
 															animate={{
 																y: isSelected ? -2 : 0,
-																scale: isSelected ? 1.06 : 1,
+																scale: isSelected ? 1.08 : 1,
 															}}
 															transition={{
 																type: "spring",
@@ -1577,14 +1678,12 @@ export function AppLayout() {
 													<Text
 														position="relative"
 														zIndex={1}
-														fontSize="10px"
-														lineHeight="1.1"
-														fontWeight="semibold"
+														fontSize="10.5px"
+														lineHeight="1.2"
+														fontWeight={isSelected ? "700" : "600"}
 														textAlign="center"
-														noOfLines={2}
-														maxW="100%"
-														overflowWrap="anywhere"
-														px="1"
+														whiteSpace="nowrap"
+														mt="1px"
 													>
 														{settingsLabel}
 													</Text>

@@ -13,6 +13,7 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
+	useColorModeValue,
 } from "@chakra-ui/react";
 import {
 	CalendarDaysIcon,
@@ -21,6 +22,7 @@ import {
 	SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { useSeasonal } from "contexts/SeasonalContext";
+import { AnimatePresence, motion } from "framer-motion";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -40,16 +42,16 @@ type CalendarDay = {
 	date: Date;
 	label: string;
 	isToday: boolean;
-	weekday: number;
+	weekdayIndex: number;
 };
 
-const buildMonthDays = (
+const buildDoranMonthDays = (
 	baseDate: Date,
 	displayLocale: string,
 	numberLocale: string,
-	usePersianCalendar: boolean,
+	usePersian: boolean,
 ) => {
-	const numericLocale = usePersianCalendar
+	const numericLocale = usePersian
 		? "en-u-ca-persian"
 		: "en-u-ca-gregory";
 	const monthFormatter = new Intl.DateTimeFormat(numericLocale, {
@@ -72,11 +74,14 @@ const buildMonthDays = (
 	let cursor = firstDay;
 	while (monthFormatter.format(cursor) === monthId) {
 		const label = numberFormatter.format(Number(dayFormatter.format(cursor)));
+		const weekday = cursor.getDay();
+		const weekdayIndex = usePersian ? (weekday + 1) % 7 : weekday;
+
 		days.push({
 			date: new Date(cursor),
 			label,
-			isToday: cursor.toDateString() === baseDate.toDateString(),
-			weekday: cursor.getDay(),
+			isToday: cursor.toDateString() === new Date().toDateString(),
+			weekdayIndex,
 		});
 
 		cursor = new Date(cursor);
@@ -86,19 +91,14 @@ const buildMonthDays = (
 	return { monthLabel, days };
 };
 
-const buildWeekdayLabels = (locale: string) => {
-	const start = new Date(2023, 0, 1);
-	return Array.from({ length: 7 }).map((_, index) =>
-		new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
-			new Date(start.getTime() + index * 24 * 60 * 60 * 1000),
-		),
-	);
-};
+const DORAN_PERSIAN_WEEKDAYS = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
+const DORAN_GREGORIAN_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 export const HeaderCalendar: FC = () => {
 	const { t, i18n } = useTranslation();
 	const [today, setToday] = useState(() => new Date());
 	const [displayDate, setDisplayDate] = useState(() => new Date());
+	const [monthDirection, setMonthDirection] = useState<1 | -1>(1);
 	const { isChristmas, window: seasonWindow } = useSeasonal();
 	const isPersian = i18n.language?.startsWith("fa");
 	const isRTL = i18n.dir(i18n.language) === "rtl";
@@ -106,6 +106,12 @@ export const HeaderCalendar: FC = () => {
 		? "fa-IR-u-ca-persian"
 		: `${i18n.language || "en"}-u-ca-gregory`;
 	const numberLocale = isPersian ? "fa-IR" : i18n.language || "en";
+
+	const cardBg = useColorModeValue("panel.surface", "panel.surface");
+	const cardBorder = useColorModeValue("panel.border", "panel.border");
+	const headerBtnBg = useColorModeValue("panel.surface", "panel.surface");
+	const headerBtnBorder = useColorModeValue("panel.border", "panel.border");
+	const textMuted = useColorModeValue("gray.500", "panel.textMuted");
 
 	useEffect(() => {
 		const timer = setInterval(() => setToday(new Date()), 60 * 1000);
@@ -133,7 +139,7 @@ export const HeaderCalendar: FC = () => {
 
 	const { monthLabel, days } = useMemo(
 		() =>
-			buildMonthDays(
+			buildDoranMonthDays(
 				displayDate,
 				displayLocale,
 				numberLocale,
@@ -141,19 +147,46 @@ export const HeaderCalendar: FC = () => {
 			),
 		[displayDate, displayLocale, isPersian, numberLocale],
 	);
-	const weekdayLabels = useMemo(
-		() => buildWeekdayLabels(displayLocale),
-		[displayLocale],
-	);
 
-	const emptySlots = days.length ? days[0].weekday : 0;
+	const weekdayLabels = isPersian
+		? DORAN_PERSIAN_WEEKDAYS
+		: DORAN_GREGORIAN_WEEKDAYS;
+
+	const emptySlots = days.length ? days[0].weekdayIndex : 0;
 	const emptySlotKeys = useMemo(
 		() => Array.from({ length: emptySlots }, () => createStableKey()),
 		[emptySlots],
 	);
-	const weekendDays = isPersian ? [5] : [0];
+
+	const holidayWeekdayIndex = isPersian ? 6 : 0;
 	const prevIcon = isRTL ? <ChevronRight /> : <ChevronLeft />;
 	const nextIcon = isRTL ? <ChevronLeft /> : <ChevronRight />;
+
+	const isCurrentMonth = useMemo(() => {
+		return (
+			displayDate.getFullYear() === today.getFullYear() &&
+			displayDate.getMonth() === today.getMonth()
+		);
+	}, [displayDate, today]);
+
+	const handlePrevMonth = () => {
+		setMonthDirection(isRTL ? 1 : -1);
+		const next = new Date(displayDate);
+		next.setMonth(displayDate.getMonth() - 1);
+		setDisplayDate(next);
+	};
+
+	const handleNextMonth = () => {
+		setMonthDirection(isRTL ? -1 : 1);
+		const next = new Date(displayDate);
+		next.setMonth(displayDate.getMonth() + 1);
+		setDisplayDate(next);
+	};
+
+	const handleResetToday = () => {
+		setMonthDirection(1);
+		setDisplayDate(new Date());
+	};
 
 	const christmasRange = useMemo(() => {
 		if (!seasonWindow) return null;
@@ -174,8 +207,8 @@ export const HeaderCalendar: FC = () => {
 					h="34px"
 					px={3}
 					borderRadius="12px"
-					borderColor="panel.border"
-					bg="panel.surface"
+					borderColor={headerBtnBorder}
+					bg={headerBtnBg}
 					color="panel.text"
 					boxShadow="sm"
 					display={{ base: "none", md: "inline-flex" }}
@@ -197,12 +230,12 @@ export const HeaderCalendar: FC = () => {
 			</PopoverTrigger>
 			<PopoverContent
 				w="fit-content"
-				minW="290px"
+				minW="300px"
 				p={3.5}
 				borderRadius="20px"
 				borderWidth="1px"
-				borderColor="panel.border"
-				bg="panel.surface"
+				borderColor={cardBorder}
+				bg={cardBg}
 				backdropFilter="blur(24px)"
 				boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
 				_focus={{ outline: "none" }}
@@ -215,19 +248,27 @@ export const HeaderCalendar: FC = () => {
 							dir={isRTL ? "rtl" : "ltr"}
 							px={1}
 						>
-							<IconButton
-								size="xs"
-								variant="ghost"
-								borderRadius="full"
-								aria-label={t("dateTimePicker.previousMonth")}
-								icon={prevIcon}
-								onClick={() => {
-									const next = new Date(displayDate);
-									next.setMonth(displayDate.getMonth() - 1);
-									setDisplayDate(next);
-								}}
-								_hover={{ md: { bg: "panel.elevated" } }}
-							/>
+							<HStack spacing={1.5}>
+								<IconButton
+									size="xs"
+									variant="ghost"
+									borderRadius="full"
+									aria-label={t("dateTimePicker.previousMonth")}
+									icon={prevIcon}
+									onClick={handlePrevMonth}
+									_hover={{ md: { bg: "panel.elevated" } }}
+								/>
+								<IconButton
+									size="xs"
+									variant="ghost"
+									borderRadius="full"
+									aria-label={t("dateTimePicker.nextMonth")}
+									icon={nextIcon}
+									onClick={handleNextMonth}
+									_hover={{ md: { bg: "panel.elevated" } }}
+								/>
+							</HStack>
+
 							<HStack spacing={2} align="center">
 								<Text fontWeight="700" fontSize="13px" color="panel.text">
 									{monthLabel}
@@ -248,84 +289,114 @@ export const HeaderCalendar: FC = () => {
 									</Badge>
 								)}
 							</HStack>
-							<IconButton
+
+							<Button
 								size="xs"
-								variant="ghost"
+								variant={isCurrentMonth ? "ghost" : "outline"}
+								colorScheme={isCurrentMonth ? undefined : "primary"}
 								borderRadius="full"
-								aria-label={t("dateTimePicker.nextMonth")}
-								icon={nextIcon}
-								onClick={() => {
-									const next = new Date(displayDate);
-									next.setMonth(displayDate.getMonth() + 1);
-									setDisplayDate(next);
+								fontSize="11px"
+								fontWeight="600"
+								px={2.5}
+								h="24px"
+								onClick={handleResetToday}
+								opacity={isCurrentMonth ? 0.75 : 1}
+								borderColor={isCurrentMonth ? "transparent" : "panel.borderStrong"}
+								_hover={{
+									md: {
+										bg: "panel.elevated",
+										opacity: 1,
+									},
 								}}
-								_hover={{ md: { bg: "panel.elevated" } }}
-							/>
+							>
+								{t("calendar.today")}
+							</Button>
 						</Flex>
 
 						<SimpleGrid columns={7} spacing={1} px={1}>
-							{weekdayLabels.map((label) => (
-								<Text
-									key={label}
-									textAlign="center"
-									fontSize="11px"
-									color="panel.textMuted"
-									fontWeight="600"
-									py={0.5}
-								>
-									{label}
-								</Text>
-							))}
-						</SimpleGrid>
-
-						<SimpleGrid columns={7} spacing={1} px={1}>
-							{emptySlotKeys.map((key) => (
-								<Box key={key} w="34px" h="34px" />
-							))}
-							{days.map((day) => {
-								const isHoliday = weekendDays.includes(day.weekday);
+							{weekdayLabels.map((label, idx) => {
+								const isHol = idx === holidayWeekdayIndex;
 								return (
-									<Flex
-										key={day.date.toISOString()}
-										w="34px"
-										h="34px"
-										align="center"
-										justify="center"
-										borderRadius="10px"
-										bg={day.isToday ? "var(--rb-panel-accent)" : "transparent"}
-										borderWidth="0px"
-										color={
-											day.isToday
-												? "white !important"
-												: isHoliday
-													? "red.400"
-													: "panel.text"
-										}
-										fontWeight={day.isToday ? "700" : isHoliday ? "600" : "500"}
-										fontSize="12px"
-										boxShadow={
-											day.isToday
-												? "0 2px 8px var(--rb-panel-accent)"
-												: undefined
-										}
-										transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-										cursor="default"
-										_hover={
-											day.isToday
-												? undefined
-												: {
-														md: {
-															bg: "panel.elevated",
-															color: isHoliday ? "red.400" : "panel.text",
-														},
-													}
-										}
+									<Text
+										key={label}
+										textAlign="center"
+										fontSize="11px"
+										color={isHol ? "red.400" : textMuted}
+										fontWeight="700"
+										py={0.5}
 									>
-										<Text>{day.label}</Text>
-									</Flex>
+										{label}
+									</Text>
 								);
 							})}
 						</SimpleGrid>
+
+						<Box overflow="hidden" position="relative" minH="210px">
+							<AnimatePresence initial={false} custom={monthDirection} mode="wait">
+								<motion.div
+									key={monthLabel}
+									initial={{ opacity: 0, x: monthDirection * 20 }}
+									animate={{ opacity: 1, x: 0 }}
+									exit={{ opacity: 0, x: -monthDirection * 20 }}
+									transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+								>
+									<SimpleGrid columns={7} spacing={1} px={1}>
+										{emptySlotKeys.map((key) => (
+											<Box key={key} w="34px" h="34px" />
+										))}
+										{days.map((day) => {
+											const isHoliday = day.weekdayIndex === holidayWeekdayIndex;
+											return (
+												<Flex
+													key={day.date.toISOString()}
+													w="34px"
+													h="34px"
+													align="center"
+													justify="center"
+													borderRadius="10px"
+													bg={day.isToday ? "var(--rb-panel-accent)" : "transparent"}
+													borderWidth="0px"
+													color={
+														day.isToday
+															? "white !important"
+															: isHoliday
+																? "red.400"
+																: "panel.text"
+													}
+													fontWeight={
+														day.isToday
+															? "700"
+															: isHoliday
+																? "600"
+																: "500"
+													}
+													fontSize="12px"
+													boxShadow={
+														day.isToday
+															? "0 2px 8px var(--rb-panel-accent)"
+															: undefined
+													}
+													transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+													cursor="default"
+													_hover={
+														day.isToday
+															? undefined
+															: {
+																	md: {
+																		bg: "panel.elevated",
+																		color: isHoliday ? "red.400" : "panel.text",
+																	},
+																}
+													}
+												>
+													<Text>{day.label}</Text>
+												</Flex>
+											);
+										})}
+									</SimpleGrid>
+								</motion.div>
+							</AnimatePresence>
+						</Box>
 
 						{isChristmas && christmasRange && (
 							<Text fontSize="10px" color="panel.textMuted" textAlign="center" pt={1}>
