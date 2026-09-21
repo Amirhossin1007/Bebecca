@@ -27,14 +27,20 @@ const SponsorLink: FC<{ href?: string; children: ReactNode }> = ({
 	children,
 }) =>
 	href ? (
-		<a
+		<Box
+			as="a"
 			href={href}
 			target="_blank"
 			rel="noopener noreferrer"
-			style={{ width: "100%", height: "100%", display: "block" }}
+			display="flex"
+			alignItems="center"
+			gap={3}
+			w="full"
+			h="full"
+			minW={0}
 		>
 			{children}
-		</a>
+		</Box>
 	) : (
 		<>{children}</>
 	);
@@ -90,7 +96,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				isBanner
 					? { base: "4 / 1", md: "8 / 1" }
 					: isSidebarBanner
-						? "3 / 2"
+						? "21 / 17"
 						: undefined
 			}
 			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -130,7 +136,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							display="block"
 							maxW="full"
 							maxH="full"
-							objectFit={isBanner || isSidebarBanner ? "cover" : "contain"}
+							objectFit={isBanner ? "cover" : "contain"}
 							w={isBanner || isSidebarBanner ? "full" : 8}
 							h={isBanner || isSidebarBanner ? "full" : 8}
 							borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
@@ -150,22 +156,23 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							gap={isBanner ? 0 : 3}
 							flexShrink={0}
 						>
-							<SponsorLink href={item.href}>{image}</SponsorLink>
-							{variant === "logo" && !item.isSponsor && !collapsed && (
-								<Text
-									fontSize={{ base: "lg", md: "2xl" }}
-									fontWeight="bold"
-									fontFamily="'Inter', system-ui, sans-serif"
-									letterSpacing="tight"
-									lineHeight="1"
-									alignSelf="flex-end"
-									whiteSpace="nowrap"
-									color="panel.text"
-									noOfLines={1}
-								>
-									Rebecca
-								</Text>
-							)}
+							<SponsorLink href={item.href}>
+								{image}
+								{variant === "logo" && !collapsed && (
+									<Text
+										fontSize={{ base: "lg", md: "2xl" }}
+										fontWeight="bold"
+										fontFamily="'Inter', system-ui, sans-serif"
+										letterSpacing="tight"
+										lineHeight="1"
+										whiteSpace="nowrap"
+										color="panel.text"
+										noOfLines={1}
+									>
+										{item.isSponsor ? item.label : "Rebecca"}
+									</Text>
+								)}
+							</SponsorLink>
 						</Box>
 					);
 				})}

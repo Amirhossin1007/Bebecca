@@ -180,12 +180,17 @@ export function AppLayout() {
 	const settingsMenu = useDisclosure();
 	const { t, i18n } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
+	const canSeeSponsors =
+		getUserIsSuccess &&
+		(userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo);
 	const sponsorsQuery = useQuery("sponsors", getSponsors, {
 		staleTime: 5 * 60 * 1000,
 		cacheTime: 30 * 60 * 1000,
 		retry: false,
+		enabled: canSeeSponsors,
 	});
-	const sponsorHeaderItems = (sponsorsQuery.data?.header ?? []).slice(0, 3).map(
+	const sponsorData = canSeeSponsors ? sponsorsQuery.data : undefined;
+	const sponsorHeaderItems = (sponsorData?.header ?? []).slice(0, 3).map(
 		(asset: SponsorAsset) => ({
 			id: asset.id,
 			src: asset.image_url,
@@ -195,7 +200,7 @@ export function AppLayout() {
 			isSponsor: true,
 		}),
 	);
-	const sponsorHeaderMobileItems = (sponsorsQuery.data?.header_mobile ?? [])
+	const sponsorHeaderMobileItems = (sponsorData?.header_mobile ?? [])
 		.slice(0, 3)
 		.map((asset: SponsorAsset) => ({
 			id: asset.id,
@@ -205,8 +210,8 @@ export function AppLayout() {
 			label: asset.label,
 			isSponsor: true,
 		}));
-	const sponsorSidebarLogoItems = (sponsorsQuery.data?.sidebar_logo ?? []).slice(0, 5);
-	const sponsorSidebarBanners = (sponsorsQuery.data?.sidebar ?? []).slice(0, 5);
+	const sponsorSidebarLogoItems = (sponsorData?.sidebar_logo ?? []).slice(0, 5);
+	const sponsorSidebarBanners = (sponsorData?.sidebar ?? []).slice(0, 5);
 	const mobileHeaderItems = sponsorHeaderMobileItems.length > 0
 		? sponsorHeaderMobileItems
 		: sponsorHeaderItems;
