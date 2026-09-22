@@ -13,6 +13,7 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
+	useBreakpointValue,
 	useColorModeValue,
 } from "@chakra-ui/react";
 import {
@@ -94,7 +95,11 @@ const buildDoranMonthDays = (
 const DORAN_PERSIAN_WEEKDAYS = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 const DORAN_GREGORIAN_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-export const HeaderCalendar: FC = () => {
+export interface HeaderCalendarProps {
+	hasBanner?: boolean;
+}
+
+export const HeaderCalendar: FC<HeaderCalendarProps> = ({ hasBanner = false }) => {
 	const { t, i18n } = useTranslation();
 	const [today, setToday] = useState(() => new Date());
 	const [displayDate, setDisplayDate] = useState(() => new Date());
@@ -102,6 +107,10 @@ export const HeaderCalendar: FC = () => {
 	const { isChristmas, window: seasonWindow } = useSeasonal();
 	const isPersian = i18n.language?.startsWith("fa");
 	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
+	const isWide = useBreakpointValue({ base: false, xl: true }) ?? false;
+	const showText = isDesktop && (!hasBanner || isWide);
+	const isCircle = !isDesktop;
 	const displayLocale = isPersian
 		? "fa-IR-u-ca-persian"
 		: `${i18n.language || "en"}-u-ca-gregory`;
@@ -205,10 +214,10 @@ export const HeaderCalendar: FC = () => {
 					size="sm"
 					variant="outline"
 					h="34px"
-					w={{ base: "34px", xl: "auto" }}
-					minW={{ base: "34px", xl: "auto" }}
-					px={{ base: 0, xl: 3 }}
-					borderRadius={{ base: "full", xl: "12px" }}
+					w={showText ? "auto" : "34px"}
+					minW={showText ? "auto" : "34px"}
+					px={showText ? 3 : 0}
+					borderRadius={isCircle ? "full" : "12px"}
 					borderColor={headerBtnBorder}
 					bg={headerBtnBg}
 					color="panel.text"
@@ -216,7 +225,7 @@ export const HeaderCalendar: FC = () => {
 					display="inline-flex"
 					alignItems="center"
 					justifyContent="center"
-					gap={2}
+					gap={showText ? 2 : 0}
 					title={formattedDate}
 					aria-label={formattedDate}
 					_hover={{
@@ -228,15 +237,16 @@ export const HeaderCalendar: FC = () => {
 					transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 				>
 					<CalendarIcon color="panel.textSecondary" />
-					<Text
-						display={{ base: "none", xl: "block" }}
-						noOfLines={1}
-						maxW="320px"
-						fontWeight="600"
-						fontSize="12px"
-					>
-						{formattedDate}
-					</Text>
+					{showText && (
+						<Text
+							noOfLines={1}
+							maxW="320px"
+							fontWeight="600"
+							fontSize="12px"
+						>
+							{formattedDate}
+						</Text>
+					)}
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent

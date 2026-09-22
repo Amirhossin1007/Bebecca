@@ -91,7 +91,7 @@
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.3s;
+  animation-duration: 0.18s;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -102,7 +102,7 @@ main,
 .chakra-modal__content,
 .chakra-menu__menu-list,
 .chakra-popover__content {
-  transition: background-color 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s cubic-bezier(0.16, 1, 0.3, 1), color 0.22s ease;
+  transition: background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
 }
 
 @supports (height: 100svh) {

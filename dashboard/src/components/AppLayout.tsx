@@ -106,21 +106,20 @@ const TutorialIcon = chakra(BookOpenIcon, iconProps);
 
 const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 	<Box
-		w="15px"
-		h="10px"
-		position="relative"
+		w="16px"
 		display="flex"
 		flexDirection="column"
-		justifyContent="space-between"
 		alignItems="flex-start"
+		justifyContent="center"
+		gap="3px"
 	>
 		<motion.span
 			animate={{
-				width: "15px",
+				width: "16px",
 			}}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				height: "1.25px",
+				height: "1.5px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
 				display: "block",
@@ -129,11 +128,11 @@ const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 		/>
 		<motion.span
 			animate={{
-				width: isOpen ? "9px" : "15px",
+				width: isOpen ? "10px" : "16px",
 			}}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				height: "1.25px",
+				height: "1.5px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
 				display: "block",
@@ -142,11 +141,11 @@ const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 		/>
 		<motion.span
 			animate={{
-				width: isOpen ? "12px" : "15px",
+				width: isOpen ? "13px" : "16px",
 			}}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				height: "1.25px",
+				height: "1.5px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
 				display: "block",
@@ -869,16 +868,16 @@ export function AppLayout() {
 						top="3"
 						zIndex={100}
 						userSelect="none"
-						gap={4}
+						gap={2}
 					>
-						<HStack spacing={3} alignItems="center" flex="1" minW="0">
+						<HStack spacing={2.5} alignItems="center" flex="1" minW="0">
 							<IconButton
 								size="sm"
-								w="32px"
-								h="32px"
-								minW="32px"
+								w="34px"
+								h="34px"
+								minW="34px"
 								variant="ghost"
-								borderRadius="10px"
+								borderRadius={{ base: "full", md: "12px" }}
 								borderWidth="1px"
 								borderColor={shellBorder}
 								aria-label={t("a11y.toggleSidebar")}
@@ -904,8 +903,8 @@ export function AppLayout() {
 								overflow="hidden"
 								dir={isRTL ? "rtl" : "ltr"}
 								display={{
-									base: mobileHeaderItems.length > 0 ? "none" : "flex",
-									md: "flex",
+									base: "none",
+									lg: "flex",
 								}}
 							>
 								{breadcrumbItems.map((crumb, idx) => {
@@ -946,57 +945,69 @@ export function AppLayout() {
 									);
 								})}
 							</HStack>
-							<AnimatePresence mode="wait">
-								{mobileHeaderItems.length > 0 && (
-									<motion.div
-										key={mobileHeaderItems[0]?.id || "mobile-banner"}
-										initial={{ opacity: 0, y: -16 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: 16 }}
-										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
-									>
-										<Box
-											w={{ base: "130px", sm: "160px" }}
-											maxH="32px"
-											h="32px"
-											display={{ base: "block", md: "none" }}
-										>
-											<SponsorCarousel
-												items={mobileHeaderItems}
-												variant="banner"
-											/>
-										</Box>
-									</motion.div>
-								)}
-							</AnimatePresence>
-							<AnimatePresence mode="wait">
-								{sponsorHeaderItems.length > 0 && (
-									<motion.div
-										key={sponsorHeaderItems[0]?.id || "desktop-banner"}
-										initial={{ opacity: 0, y: -16 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: 16 }}
-										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
-									>
-										<Box
-											w={{ md: "220px", lg: "280px", xl: "340px" }}
-											maxH="34px"
-											h="34px"
-											display={{ base: "none", md: "block" }}
-										>
-											<SponsorCarousel
-												items={sponsorHeaderItems}
-												variant="banner"
-											/>
-										</Box>
-									</motion.div>
-								)}
-							</AnimatePresence>
 						</HStack>
-						<HStack spacing={2} alignItems="center" flexShrink={0}>
-							<HeaderCalendar />
+
+						{(mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0) && (
+							<Box
+								display="flex"
+								alignItems="center"
+								justifyContent="center"
+								flexShrink={0}
+								mx="auto"
+							>
+								<AnimatePresence mode="wait">
+									{mobileHeaderItems.length > 0 && (
+										<motion.div
+											key={mobileHeaderItems[0]?.id || "mobile-banner"}
+											initial={{ opacity: 0, y: -16 }}
+											animate={{ opacity: 1, y: 0 }}
+											exit={{ opacity: 0, y: 16 }}
+											transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+											style={{ minWidth: 0, display: "flex", alignItems: "center" }}
+										>
+											<Box
+												w={{ base: "130px", sm: "160px" }}
+												maxH="32px"
+												h="32px"
+												display={{ base: "block", md: "none" }}
+											>
+												<SponsorCarousel
+													items={mobileHeaderItems}
+													variant="banner"
+												/>
+											</Box>
+										</motion.div>
+									)}
+								</AnimatePresence>
+								<AnimatePresence mode="wait">
+									{sponsorHeaderItems.length > 0 && (
+										<motion.div
+											key={sponsorHeaderItems[0]?.id || "desktop-banner"}
+											initial={{ opacity: 0, y: -16 }}
+											animate={{ opacity: 1, y: 0 }}
+											exit={{ opacity: 0, y: 16 }}
+											transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+											style={{ minWidth: 0, display: "flex", alignItems: "center" }}
+										>
+											<Box
+												w={{ md: "240px", lg: "300px", xl: "360px" }}
+												maxH="34px"
+												h="34px"
+												display={{ base: "none", md: "block" }}
+											>
+												<SponsorCarousel
+													items={sponsorHeaderItems}
+													variant="banner"
+												/>
+											</Box>
+										</motion.div>
+									)}
+								</AnimatePresence>
+							</Box>
+						)}
+
+						<HStack spacing={2} alignItems="center" flex="1" minW="0" justifyContent="flex-end">
+							<HeaderCalendar hasBanner={sponsorHeaderItems.length > 0 || mobileHeaderItems.length > 0} />
 
 							{/* User Menu */}
 							{getUserIsSuccess && userData.username && (
@@ -1458,9 +1469,10 @@ export function AppLayout() {
 													flexDirection="column"
 													alignItems="center"
 													justifyContent="center"
-													px="1"
+													px="2"
 													py="1"
 													w="full"
+													borderRadius="14px"
 												>
 													{isSelected && (
 														<motion.div
@@ -1474,9 +1486,10 @@ export function AppLayout() {
 															style={{
 																position: "absolute",
 																inset: 0,
-																borderRadius: 9999,
-																background: "var(--rb-panel-accent)",
-																boxShadow: "0 2px 10px rgba(0, 0, 0, 0.22)",
+																borderRadius: 14,
+																background: "var(--chakra-colors-panel-elevated)",
+																border: "1px solid var(--chakra-colors-panel-borderStrong)",
+																boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
 																zIndex: 0,
 																pointerEvents: "none",
 															}}
@@ -1489,12 +1502,13 @@ export function AppLayout() {
 														h="6"
 														display="grid"
 														placeItems="center"
-														color={isSelected ? "white" : dockInactiveIcon}
+														color={isSelected ? "var(--rb-panel-accent)" : dockInactiveIcon}
+														transition="color 0.2s ease"
 													>
 														<motion.div
 															animate={{
 																y: isSelected ? -1 : 0,
-																scale: isSelected ? 1.05 : 1,
+																scale: isSelected ? 1.08 : 1,
 															}}
 															transition={{
 																type: "spring",
@@ -1511,14 +1525,27 @@ export function AppLayout() {
 														zIndex={1}
 														fontSize="11px"
 														lineHeight="1.2"
-														fontWeight={isSelected ? "700" : "600"}
+														fontWeight={isSelected ? "700" : "500"}
 														textAlign="center"
 														whiteSpace="nowrap"
 														mt="1px"
-														color={isSelected ? "white" : dockInactiveText}
+														color={isSelected ? "panel.text" : dockInactiveText}
+														transition="color 0.2s ease"
 													>
 														{settingsLabel}
 													</Text>
+													{isSelected && (
+														<Box
+															position="relative"
+															zIndex={1}
+															w="4px"
+															h="4px"
+															borderRadius="full"
+															bg="var(--rb-panel-accent)"
+															boxShadow="0 0 6px var(--rb-panel-accent)"
+															mt="2px"
+														/>
+													)}
 												</Box>
 											</Box>
 										);

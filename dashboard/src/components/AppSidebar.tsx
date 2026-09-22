@@ -404,36 +404,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					},
 					{
 						type: "group",
-						id: "observability",
-						title: t("sidebar.groups.observability"),
-						icon: ObservabilityIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || canViewRecentActions,
-						subItems: [
-							{
-								id: "xray_logs",
-								title: t("pages.xray.logs"),
-								url: "/xray-logs",
-								icon: XrayLogsIconStyled,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "access_insights",
-								title: t("header.accessInsights"),
-								url: "/access-insights",
-								icon: InsightsIconStyled,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "recent_actions",
-								title: t("recentActions.title"),
-								url: "/recent-actions",
-								icon: RecentActionsIconStyled,
-								visible: canViewRecentActions,
-							},
-						],
-					},
-					{
-						type: "group",
 						id: "system_tools",
 						title: t("sidebar.groups.system"),
 						icon: SettingsIconStyled,
@@ -471,6 +441,36 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 								url: "/external-apps",
 								icon: ExternalAppsIconStyled,
 								visible: isPrivilegedAdmin,
+							},
+						],
+					},
+					{
+						type: "group",
+						id: "observability",
+						title: t("sidebar.groups.observability"),
+						icon: ObservabilityIconStyled,
+						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || canViewRecentActions,
+						subItems: [
+							{
+								id: "xray_logs",
+								title: t("pages.xray.logs"),
+								url: "/xray-logs",
+								icon: XrayLogsIconStyled,
+								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+							},
+							{
+								id: "access_insights",
+								title: t("header.accessInsights"),
+								url: "/access-insights",
+								icon: InsightsIconStyled,
+								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
+							},
+							{
+								id: "recent_actions",
+								title: t("recentActions.title"),
+								url: "/recent-actions",
+								icon: RecentActionsIconStyled,
+								visible: canViewRecentActions,
 							},
 						],
 					},
@@ -1132,11 +1132,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					mx={inDrawer ? "auto" : undefined}
 					flexShrink={0}
 					overflow="hidden"
-					maxH={collapsed ? "0px" : "190px"}
+					maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
 					opacity={collapsed ? 0 : 1}
 					transform={collapsed ? "translateY(24px) scale(0.95)" : "translateY(0) scale(1)"}
 					transition="max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)"
 					pt={collapsed ? 0 : 2}
+					pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
 					pointerEvents={collapsed ? "none" : "auto"}
 				>
 					{sidebarBanners.length > 0 && (

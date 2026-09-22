@@ -1,5 +1,6 @@
 import { Box, Image, Text, Tooltip, useColorModeValue } from "@chakra-ui/react";
 import {
+	forwardRef,
 	useEffect,
 	useMemo,
 	useState,
@@ -22,59 +23,76 @@ interface SponsorCarouselProps {
 	collapsed?: boolean;
 }
 
-const SponsorLink: FC<{
+interface SponsorLinkProps {
 	href?: string;
 	label?: string;
 	children: ReactNode;
-}> = ({ href, label, children }) =>
-	href ? (
-		<Box
-			as="a"
-			href={href}
-			target="_blank"
-			rel="noopener noreferrer"
-			title={label}
-			display="flex"
-			alignItems="center"
-			justifyContent="center"
-			gap={3}
-			w="full"
-			h="full"
-			minW={0}
-			cursor="pointer"
-			userSelect="none"
-			sx={{
-				WebkitUserDrag: "none",
-				WebkitTouchCallout: "none",
-			}}
-			onDragStart={(e: React.DragEvent) => e.preventDefault()}
-			onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-			onClick={(e: React.MouseEvent) => {
-				e.stopPropagation();
-			}}
-		>
-			{children}
-		</Box>
-	) : (
-		<Box
-			display="flex"
-			alignItems="center"
-			justifyContent="center"
-			gap={3}
-			w="full"
-			h="full"
-			minW={0}
-			userSelect="none"
-			sx={{
-				WebkitUserDrag: "none",
-				WebkitTouchCallout: "none",
-			}}
-			onDragStart={(e: React.DragEvent) => e.preventDefault()}
-			onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-		>
-			{children}
-		</Box>
-	);
+	onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+}
+
+const SponsorLink = forwardRef<HTMLAnchorElement, SponsorLinkProps>(
+	({ href, label, children, onClick, ...rest }, ref) => {
+		if (href) {
+			return (
+				<Box
+					as="a"
+					ref={ref}
+					href={href}
+					target="_blank"
+					rel="noopener noreferrer"
+					title={label}
+					display="flex"
+					alignItems="center"
+					justifyContent="center"
+					gap={3}
+					w="full"
+					h="full"
+					minW={0}
+					cursor="pointer"
+					userSelect="none"
+					sx={{
+						WebkitUserDrag: "none",
+						WebkitTouchCallout: "none",
+					}}
+					onDragStart={(e: React.DragEvent) => e.preventDefault()}
+					onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+					onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+						e.stopPropagation();
+						if (href) {
+							window.open(href, "_blank", "noopener,noreferrer");
+						}
+						onClick?.(e);
+					}}
+					{...rest}
+				>
+					{children}
+				</Box>
+			);
+		}
+		return (
+			<Box
+				ref={ref as any}
+				display="flex"
+				alignItems="center"
+				justifyContent="center"
+				gap={3}
+				w="full"
+				h="full"
+				minW={0}
+				userSelect="none"
+				sx={{
+					WebkitUserDrag: "none",
+					WebkitTouchCallout: "none",
+				}}
+				onDragStart={(e: React.DragEvent) => e.preventDefault()}
+				onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+				{...rest}
+			>
+				{children}
+			</Box>
+		);
+	},
+);
 
 export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	items,
@@ -233,7 +251,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 										borderColor: "panel.border",
 										borderWidth: "1px",
 									}}
-									openDelay={180}
+									openDelay={80}
 								>
 									{content}
 								</Tooltip>
