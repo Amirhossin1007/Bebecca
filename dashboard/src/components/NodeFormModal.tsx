@@ -37,6 +37,7 @@ import {
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import {
 	AnimatedSubmitButton,
 	type AnimatedSubmitStatus,
@@ -67,6 +68,34 @@ const getInputError = (error: unknown): string | undefined => {
 	return undefined;
 };
 
+const getFirstInputError = (value: unknown): string | undefined => {
+	const direct = getInputError(value);
+	if (direct) return direct;
+	if (!value || typeof value !== "object") return undefined;
+	for (const nested of Object.values(value as Record<string, unknown>)) {
+		const message = getFirstInputError(nested);
+		if (message) return message;
+	}
+	return undefined;
+};
+
+const optionalPortSchema = z.preprocess(
+	(value) => (value === "" || value === null ? undefined : value),
+	z.coerce.number().int().min(1).max(65535).optional(),
+);
+
+const optionalNullablePortSchema = z.preprocess(
+	(value) => (value === "" ? null : value),
+	z.coerce.number().int().min(1).max(65535).nullable().optional(),
+);
+
+const toValidPort = (value: unknown): number | null => {
+	const numeric = Number(value);
+	return Number.isInteger(numeric) && numeric >= 1 && numeric <= 65535
+		? numeric
+		: null;
+};
+
 const buildNodeInstallBundle = (
 	certificate?: string | null,
 	certificateKey?: string | null,
@@ -78,6 +107,47 @@ const buildNodeInstallBundle = (
 	}
 	return cert;
 };
+
+const EditableNodeSchema = z
+	.object({
+		name: z.string().trim().min(1).max(120),
+		note: z.string().max(500).nullable().optional(),
+		address: z.string().trim().min(1),
+		port: z.coerce.number().int().min(1).max(65535),
+		api_port: optionalPortSchema,
+		usage_coefficient: z.coerce.number().positive(),
+		data_limit: z.number().finite().nonnegative().nullable().optional(),
+		proxy_enabled: z.boolean().optional(),
+		proxy_type: z.enum(["http", "socks5"]).nullable().optional(),
+		proxy_host: z.string().nullable().optional(),
+		proxy_port: optionalNullablePortSchema,
+		proxy_username: z.string().nullable().optional(),
+		proxy_password: z.string().nullable().optional(),
+	})
+	.superRefine((value, ctx) => {
+		if (!value.proxy_enabled) return;
+		if (!value.proxy_type) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["proxy_type"],
+				message: "Proxy type is required",
+			});
+		}
+		if (!value.proxy_host?.trim()) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["proxy_host"],
+				message: "Proxy host is required",
+			});
+		}
+		if (value.proxy_port === null || value.proxy_port === undefined) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["proxy_port"],
+				message: "Proxy port must be between 1 and 65535",
+			});
+		}
+	});
 interface NodeFormModalProps {
 	isOpen: boolean;
 	onClose: () => void;
@@ -128,29 +198,25 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 			? null
 			: Math.round(value * BYTES_IN_GB);
 
-	const buildMutationPayload = (data: NodeType) => ({
-		...(isAddMode ? {} : { id: node?.id ?? data.id }),
-		name: data.name,
-		note: data.note ?? "",
-		address: data.address,
-		control_port: Number(data.port),
-		...(Number.isFinite(Number(data.api_port))
-			? { api_port: Number(data.api_port) }
-			: {}),
-		usage_coefficient: Number(data.usage_coefficient),
-		data_limit: convertLimitToBytes(data.data_limit ?? null),
-		proxy_enabled: Boolean(data.proxy_enabled),
-		proxy_type: data.proxy_enabled ? data.proxy_type : null,
-		proxy_host: data.proxy_enabled ? data.proxy_host : null,
-		proxy_port:
-			data.proxy_enabled &&
-			data.proxy_port !== null &&
-			data.proxy_port !== undefined
-				? Number(data.proxy_port)
-				: null,
-		proxy_username: data.proxy_enabled ? data.proxy_username : null,
-		proxy_password: data.proxy_enabled ? data.proxy_password : null,
-	});
+	const buildMutationPayload = (data: NodeType) => {
+		const apiPort = toValidPort(data.api_port);
+		return {
+			...(isAddMode ? {} : { id: node?.id ?? data.id }),
+			name: data.name,
+			note: data.note ?? "",
+			address: data.address,
+			control_port: Number(data.port),
+			...(apiPort ? { api_port: apiPort } : {}),
+			usage_coefficient: Number(data.usage_coefficient),
+			data_limit: convertLimitToBytes(data.data_limit ?? null),
+			proxy_enabled: Boolean(data.proxy_enabled),
+			proxy_type: data.proxy_enabled ? data.proxy_type : null,
+			proxy_host: data.proxy_enabled ? data.proxy_host : null,
+			proxy_port: data.proxy_enabled ? toValidPort(data.proxy_port) : null,
+			proxy_username: data.proxy_enabled ? data.proxy_username : null,
+			proxy_password: data.proxy_enabled ? data.proxy_password : null,
+		};
+	};
 
 	const baseDefaults = isAddMode
 		? getNodeDefaultValues()
@@ -160,7 +226,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 			};
 
 	const form = useForm({
-		resolver: zodResolver(NodeSchema),
+		resolver: zodResolver(isAddMode ? NodeSchema : EditableNodeSchema),
 		defaultValues: {
 			...baseDefaults,
 			data_limit: formatDataLimitForInput(baseDefaults.data_limit ?? null),
@@ -259,8 +325,17 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 				},
 			});
 		},
-		() => {
+		(errors) => {
 			if (submitStatus !== "idle") return;
+			const message =
+				getFirstInputError(errors) || "Please fix the node form fields.";
+			toast({
+				title: message,
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 3500,
+			});
 			showSubmitError();
 		},
 	);
