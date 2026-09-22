@@ -685,7 +685,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										<Text
 											px={3}
 											fontSize="10.5px"
-											fontWeight="700"
+											fontWeight="600"
 											color={sectionTitleColor}
 											textTransform="uppercase"
 											letterSpacing="0.06em"
@@ -712,7 +712,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
-														fontWeight={isCurrent ? "700" : "600"}
+														fontWeight={isCurrent ? "600" : "500"}
 														fontSize="13px"
 														position="relative"
 														cursor="pointer"
@@ -761,7 +761,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																noOfLines={1}
 																color={isCurrent ? "panel.text" : normalItemColor}
 																fontSize="13px"
-																fontWeight={isCurrent ? "700" : "600"}
+																fontWeight={isCurrent ? "600" : "500"}
 															>
 																{entry.title}
 															</Text>
@@ -967,7 +967,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														borderRadius="10px"
 														bg={isGroupActive && !isOpen ? activeItemBg : "transparent"}
 														color={isGroupActive ? "panel.text" : normalItemColor}
-														fontWeight={isGroupActive ? "700" : "600"}
+														fontWeight={isGroupActive ? "600" : "500"}
 														fontSize="13px"
 														cursor="pointer"
 														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -1016,7 +1016,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																noOfLines={1}
 																color={isGroupActive ? "panel.text" : normalItemColor}
 																fontSize="13px"
-																fontWeight={isGroupActive ? "700" : "600"}
+																fontWeight={isGroupActive ? "600" : "500"}
 															>
 																{entry.title}
 															</Text>
@@ -1080,7 +1080,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						borderRadius="8px"
 																						bg={isSubActive ? activeItemBg : "transparent"}
 																						color={isSubActive ? "panel.text" : normalItemColor}
-																						fontWeight={isSubActive ? "600" : "500"}
+																						fontWeight={isSubActive ? "600" : "400"}
 																						fontSize="12px"
 																						cursor="pointer"
 																						transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"

@@ -96,10 +96,10 @@ const DORAN_PERSIAN_WEEKDAYS = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 const DORAN_GREGORIAN_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 export interface HeaderCalendarProps {
-	hasBanner?: boolean;
+	isCompact?: boolean;
 }
 
-export const HeaderCalendar: FC<HeaderCalendarProps> = ({ hasBanner = false }) => {
+export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) => {
 	const { t, i18n } = useTranslation();
 	const [today, setToday] = useState(() => new Date());
 	const [displayDate, setDisplayDate] = useState(() => new Date());
@@ -108,8 +108,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ hasBanner = false }) =
 	const isPersian = i18n.language?.startsWith("fa");
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
-	const isWide = useBreakpointValue({ base: false, xl: true }) ?? false;
-	const showText = isDesktop && (!hasBanner || isWide);
+	const showText = isDesktop && !isCompact;
 	const isCircle = !isDesktop;
 	const displayLocale = isPersian
 		? "fa-IR-u-ca-persian"

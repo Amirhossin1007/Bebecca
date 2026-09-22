@@ -32,6 +32,7 @@ import {
 	BookOpenIcon,
 	BriefcaseIcon,
 	CheckIcon,
+	ChevronDownIcon,
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
@@ -103,54 +104,43 @@ const InsightsIcon = chakra(EyeIcon, iconProps);
 const RecentActionsIcon = chakra(ClockIcon, iconProps);
 const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
 const TutorialIcon = chakra(BookOpenIcon, iconProps);
+const ChevronDownIconStyled = chakra(ChevronDownIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 
 const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 	<Box
-		w="16px"
-		display="flex"
-		flexDirection="column"
-		alignItems="flex-start"
-		justifyContent="center"
-		gap="3px"
+		as="svg"
+		width="16"
+		height="16"
+		viewBox="0 0 16 16"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="1.75"
+		strokeLinecap="round"
+		display="block"
 	>
-		<motion.span
-			animate={{
-				width: "16px",
-			}}
+		<motion.line
+			x1="2"
+			y1="3.5"
+			x2="14"
+			y2="3.5"
+			animate={{ x2: 14 }}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-			style={{
-				height: "1.5px",
-				backgroundColor: "currentColor",
-				borderRadius: "2px",
-				display: "block",
-				opacity: 1,
-			}}
 		/>
-		<motion.span
-			animate={{
-				width: isOpen ? "10px" : "16px",
-			}}
+		<motion.line
+			x1="2"
+			y1="8"
+			x2={isOpen ? 8.5 : 14}
+			y2="8"
+			animate={{ x2: isOpen ? 8.5 : 14 }}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-			style={{
-				height: "1.5px",
-				backgroundColor: "currentColor",
-				borderRadius: "2px",
-				display: "block",
-				opacity: 1,
-			}}
 		/>
-		<motion.span
-			animate={{
-				width: isOpen ? "13px" : "16px",
-			}}
+		<motion.line
+			x1="2"
+			y1="12.5"
+			x2={isOpen ? 11.5 : 14}
+			y2="12.5"
+			animate={{ x2: isOpen ? 11.5 : 14 }}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-			style={{
-				height: "1.5px",
-				backgroundColor: "currentColor",
-				borderRadius: "2px",
-				display: "block",
-				opacity: 1,
-			}}
 		/>
 	</Box>
 );
@@ -229,6 +219,13 @@ export function AppLayout() {
 	const tabContentRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 	const [previewTabKey, setPreviewTabKey] = useState<string | null>(null);
 	const previewTabKeyRef = useRef<string | null>(null);
+	const headerRef = useRef<HTMLDivElement | null>(null);
+	const [calendarCompact, setCalendarCompact] = useState(false);
+	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<Record<string, boolean>>({
+		core_routing: false,
+		system_tools: false,
+		observability: false,
+	});
 	const languagePlacement =
 		useBreakpointValue<PlacementWithLogical>({
 			base: "bottom-start",
@@ -424,6 +421,204 @@ export function AppLayout() {
 		t,
 	]);
 
+	const mobileDockSections = useMemo(
+		() => [
+			{
+				id: "sec_infrastructure",
+				title: t("sidebar.sections.infrastructure"),
+				items: [
+					isPrivilegedAdmin && sectionAccess?.[AdminSection.Nodes]
+						? {
+								type: "direct" as const,
+								key: "node-settings",
+								label: t("header.nodeSettings"),
+								to: "/node-settings",
+								icon: NodesIcon,
+						  }
+						: null,
+					isPrivilegedAdmin && sectionAccess?.[AdminSection.Hosts]
+						? {
+								type: "direct" as const,
+								key: "hosts",
+								label: t("header.hostSettings"),
+								to: "/hosts",
+								icon: HostsIcon,
+						  }
+						: null,
+					isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
+						? {
+								type: "direct" as const,
+								key: "services",
+								label: t("services.title"),
+								to: "/services",
+								icon: ServicesIcon,
+						  }
+						: null,
+				].filter(Boolean) as Array<{
+					type: "direct";
+					key: string;
+					label: string;
+					to: string;
+					icon: ElementType;
+				}>,
+			},
+			{
+				id: "sec_system",
+				title: t("sidebar.sections.system"),
+				items: [
+					{
+						type: "group" as const,
+						id: "core_routing",
+						title: t("sidebar.groups.coreRouting"),
+						icon: XraySettingsIcon,
+						subItems: [
+							sectionAccess?.[AdminSection.Xray]
+								? {
+										id: "xray-settings",
+										title: t("header.xraySettings"),
+										to: "/xray-settings",
+										icon: XraySettingsIcon,
+								  }
+								: null,
+							isPrivilegedAdmin
+								? {
+										id: "haproxy",
+										title: t("haproxy.title"),
+										to: "/haproxy",
+										icon: HAProxyIcon,
+								  }
+								: null,
+						].filter(Boolean) as Array<{
+							id: string;
+							title: string;
+							to: string;
+							icon: ElementType;
+						}>,
+					},
+					{
+						type: "group" as const,
+						id: "system_tools",
+						title: t("sidebar.groups.system"),
+						icon: MasterSettingsIcon,
+						subItems: [
+							sectionAccess?.[AdminSection.Integrations]
+								? {
+										id: "settings",
+										title: t("header.integrationSettings"),
+										to: "/settings",
+										icon: MasterSettingsIcon,
+								  }
+								: null,
+							canManagePlaceholders
+								? {
+										id: "placeholders",
+										title: isPrivilegedAdmin
+											? t("placeholders.menu")
+											: t("placeholders.settingsMenu"),
+										to: "/placeholders",
+										icon: PlaceholderIcon,
+								  }
+								: null,
+							isPrivilegedAdmin
+								? {
+										id: "phpmyadmin",
+										title: t("phpmyadmin.menu"),
+										to: "/phpmyadmin",
+										icon: PHPMyAdminIcon,
+								  }
+								: null,
+							isPrivilegedAdmin
+								? {
+										id: "external-apps",
+										title: t("externalApps.menu"),
+										to: "/external-apps",
+										icon: ExternalAppsIcon,
+								  }
+								: null,
+						].filter(Boolean) as Array<{
+							id: string;
+							title: string;
+							to: string;
+							icon: ElementType;
+						}>,
+					},
+					{
+						type: "group" as const,
+						id: "observability",
+						title: t("sidebar.groups.observability"),
+						icon: InsightsIcon,
+						subItems: [
+							sectionAccess?.[AdminSection.Xray]
+								? {
+										id: "xray-logs",
+										title: t("pages.xray.logs"),
+										to: "/xray-logs",
+										icon: InsightsIcon,
+								  }
+								: null,
+							sectionAccess?.[AdminSection.Xray]
+								? {
+										id: "access-insights",
+										title: t("header.accessInsights"),
+										to: "/access-insights",
+										icon: InsightsIcon,
+								  }
+								: null,
+							canViewRecentActions
+								? {
+										id: "recent-actions",
+										title: t("recentActions.title"),
+										to: "/recent-actions",
+										icon: RecentActionsIcon,
+								  }
+								: null,
+						].filter(Boolean) as Array<{
+							id: string;
+							title: string;
+							to: string;
+							icon: ElementType;
+						}>,
+					},
+				],
+			},
+			{
+				id: "sec_docs",
+				title: t("sidebar.sections.docs"),
+				items: [
+					{
+						type: "direct" as const,
+						key: "tutorials",
+						label: t("tutorials.title"),
+						to: tutorialsUrl,
+						icon: TutorialIcon,
+					},
+					isPrivilegedAdmin
+						? {
+								type: "direct" as const,
+								key: "api-docs",
+								label: t("apiDocs.menu"),
+								to: "/api-docs",
+								icon: DocsIcon,
+						  }
+						: null,
+				].filter(Boolean) as Array<{
+					type: "direct";
+					key: string;
+					label: string;
+					to: string;
+					icon: ElementType;
+				}>,
+			},
+		],
+		[
+			t,
+			isPrivilegedAdmin,
+			sectionAccess,
+			canManagePlaceholders,
+			canViewRecentActions,
+		],
+	);
+
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 
 	const changeLanguage = (lang: string) => {
@@ -569,7 +764,6 @@ export function AppLayout() {
 		[settingsMenuItems, location.pathname],
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
-	const activeSettingsKey = activeSettingsItem?.key ?? null;
 	const SettingsNavIcon = activeSettingsItem?.icon ?? SettingsIcon;
 	const popoverModifiers = useMemo(
 		() => [
@@ -808,6 +1002,32 @@ export function AppLayout() {
 		navigate(target);
 	};
 
+	useEffect(() => {
+		const headerEl = headerRef.current;
+		if (!headerEl) return;
+		const checkFit = () => {
+			const totalWidth = headerEl.clientWidth;
+			if (totalWidth < 769) {
+				setCalendarCompact(true);
+				return;
+			}
+			const hasBanner = mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0;
+			const bannerWidth = hasBanner ? (totalWidth >= 1200 ? 320 : 220) : 0;
+			const breadcrumbEl = headerEl.querySelector<HTMLElement>("[data-header-breadcrumb]");
+			const breadcrumbWidth = breadcrumbEl ? breadcrumbEl.scrollWidth : 80;
+			const navButtonWidth = 46;
+			const profileWidth = 100;
+			const fullCalendarWidth = 210;
+			const safetyBuffer = 60;
+			const requiredWidth = navButtonWidth + breadcrumbWidth + bannerWidth + profileWidth + fullCalendarWidth + safetyBuffer;
+			setCalendarCompact(totalWidth < requiredWidth);
+		};
+		checkFit();
+		const ro = new ResizeObserver(checkFit);
+		ro.observe(headerEl);
+		return () => ro.disconnect();
+	}, [mobileHeaderItems.length, sponsorHeaderItems.length]);
+
 	return (
 		<>
 			<Box display="none" aria-hidden="true">
@@ -848,6 +1068,7 @@ export function AppLayout() {
 					transition="margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
 				>
 					<Box
+						ref={headerRef}
 						as="header"
 						h="52px"
 						minH="52px"
@@ -868,9 +1089,9 @@ export function AppLayout() {
 						top="3"
 						zIndex={100}
 						userSelect="none"
-						gap={2}
+						gap={3}
 					>
-						<HStack spacing={2.5} alignItems="center" flex="1" minW="0">
+						<HStack spacing={3} alignItems="center" flex="1" minW="0" h="full">
 							<IconButton
 								size="sm"
 								w="34px"
@@ -892,20 +1113,22 @@ export function AppLayout() {
 								}
 								flexShrink={0}
 								bg={headerButtonBg}
-								color="panel.text"
-								_hover={{ md: { bg: headerButtonHoverBg, borderColor: "panel.borderStrong" } }}
+								color="panel.textSecondary"
+								_hover={{ md: { bg: headerButtonHoverBg, borderColor: "panel.borderStrong", color: "panel.text" } }}
 								transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 							/>
 							<HStack
+								data-header-breadcrumb
 								aria-label="Breadcrumb navigation"
 								spacing={1.5}
 								minW="0"
 								overflow="hidden"
 								dir={isRTL ? "rtl" : "ltr"}
 								display={{
-									base: "none",
-									lg: "flex",
+									base: mobileHeaderItems.length > 0 ? "none" : "flex",
+									md: "flex",
 								}}
+								flexShrink={1}
 							>
 								{breadcrumbItems.map((crumb, idx) => {
 									const isLast = idx === breadcrumbItems.length - 1;
@@ -945,69 +1168,61 @@ export function AppLayout() {
 									);
 								})}
 							</HStack>
+
+							<AnimatePresence mode="wait">
+								{mobileHeaderItems.length > 0 && (
+									<motion.div
+										key={mobileHeaderItems[0]?.id || "mobile-banner"}
+										initial={{ opacity: 0, y: -16 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={{ opacity: 0, y: 16 }}
+										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
+									>
+										<Box
+											w={{ base: "130px", sm: "160px" }}
+											maxH="32px"
+											h="32px"
+											display={{ base: "flex", md: "none" }}
+											alignItems="center"
+										>
+											<SponsorCarousel
+												items={mobileHeaderItems}
+												variant="banner"
+											/>
+										</Box>
+									</motion.div>
+								)}
+							</AnimatePresence>
+							<AnimatePresence mode="wait">
+								{sponsorHeaderItems.length > 0 && (
+									<motion.div
+										key={sponsorHeaderItems[0]?.id || "desktop-banner"}
+										initial={{ opacity: 0, y: -16 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={{ opacity: 0, y: 16 }}
+										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
+									>
+										<Box
+											w={{ md: "220px", lg: "280px", xl: "340px" }}
+											maxH="34px"
+											h="34px"
+											display={{ base: "none", md: "flex" }}
+											alignItems="center"
+										>
+											<SponsorCarousel
+												items={sponsorHeaderItems}
+												variant="banner"
+											/>
+										</Box>
+									</motion.div>
+								)}
+							</AnimatePresence>
 						</HStack>
 
-						{(mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0) && (
-							<Box
-								display="flex"
-								alignItems="center"
-								justifyContent="center"
-								flexShrink={0}
-								mx="auto"
-							>
-								<AnimatePresence mode="wait">
-									{mobileHeaderItems.length > 0 && (
-										<motion.div
-											key={mobileHeaderItems[0]?.id || "mobile-banner"}
-											initial={{ opacity: 0, y: -16 }}
-											animate={{ opacity: 1, y: 0 }}
-											exit={{ opacity: 0, y: 16 }}
-											transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-											style={{ minWidth: 0, display: "flex", alignItems: "center" }}
-										>
-											<Box
-												w={{ base: "130px", sm: "160px" }}
-												maxH="32px"
-												h="32px"
-												display={{ base: "block", md: "none" }}
-											>
-												<SponsorCarousel
-													items={mobileHeaderItems}
-													variant="banner"
-												/>
-											</Box>
-										</motion.div>
-									)}
-								</AnimatePresence>
-								<AnimatePresence mode="wait">
-									{sponsorHeaderItems.length > 0 && (
-										<motion.div
-											key={sponsorHeaderItems[0]?.id || "desktop-banner"}
-											initial={{ opacity: 0, y: -16 }}
-											animate={{ opacity: 1, y: 0 }}
-											exit={{ opacity: 0, y: 16 }}
-											transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-											style={{ minWidth: 0, display: "flex", alignItems: "center" }}
-										>
-											<Box
-												w={{ md: "240px", lg: "300px", xl: "360px" }}
-												maxH="34px"
-												h="34px"
-												display={{ base: "none", md: "block" }}
-											>
-												<SponsorCarousel
-													items={sponsorHeaderItems}
-													variant="banner"
-												/>
-											</Box>
-										</motion.div>
-									)}
-								</AnimatePresence>
-							</Box>
-						)}
-
-						<HStack spacing={2} alignItems="center" flex="1" minW="0" justifyContent="flex-end">
-							<HeaderCalendar hasBanner={sponsorHeaderItems.length > 0 || mobileHeaderItems.length > 0} />
+						<HStack spacing={2} alignItems="center" flexShrink={0} h="full">
+							<HeaderCalendar isCompact={calendarCompact} />
 
 							{/* User Menu */}
 							{getUserIsSuccess && userData.username && (
@@ -1475,24 +1690,16 @@ export function AppLayout() {
 													borderRadius="14px"
 												>
 													{isSelected && (
-														<motion.div
-															layoutId="mobile-bottom-nav-active-pill"
-															transition={{
-																type: "spring",
-																stiffness: 450,
-																damping: 32,
-																mass: 0.6,
-															}}
-															style={{
-																position: "absolute",
-																inset: 0,
-																borderRadius: 14,
-																background: "var(--chakra-colors-panel-elevated)",
-																border: "1px solid var(--chakra-colors-panel-borderStrong)",
-																boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-																zIndex: 0,
-																pointerEvents: "none",
-															}}
+														<Box
+															position="absolute"
+															inset="0"
+															borderRadius="14px"
+															bg="panel.elevated"
+															borderWidth="1px"
+															borderColor="panel.borderStrong"
+															boxShadow="0 2px 6px rgba(0, 0, 0, 0.08)"
+															pointerEvents="none"
+															transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
 														/>
 													)}
 													<Box
@@ -1511,9 +1718,8 @@ export function AppLayout() {
 																scale: isSelected ? 1.08 : 1,
 															}}
 															transition={{
-																type: "spring",
-																stiffness: 450,
-																damping: 30,
+																duration: 0.2,
+																ease: [0.16, 1, 0.3, 1],
 															}}
 															style={{ position: "relative", zIndex: 1 }}
 														>
@@ -1525,7 +1731,7 @@ export function AppLayout() {
 														zIndex={1}
 														fontSize="11px"
 														lineHeight="1.2"
-														fontWeight={isSelected ? "700" : "500"}
+														fontWeight={isSelected ? "600" : "500"}
 														textAlign="center"
 														whiteSpace="nowrap"
 														mt="1px"
@@ -1534,18 +1740,6 @@ export function AppLayout() {
 													>
 														{settingsLabel}
 													</Text>
-													{isSelected && (
-														<Box
-															position="relative"
-															zIndex={1}
-															w="4px"
-															h="4px"
-															borderRadius="full"
-															bg="var(--rb-panel-accent)"
-															boxShadow="0 0 6px var(--rb-panel-accent)"
-															mt="2px"
-														/>
-													)}
 												</Box>
 											</Box>
 										);
@@ -1595,9 +1789,9 @@ export function AppLayout() {
 													</PopoverTrigger>
 													<Portal>
 														<PopoverContent
-															w="min(250px, calc(100vw - 24px))"
+															w="min(270px, calc(100vw - 24px))"
 															maxW="calc(100vw - 24px)"
-															maxH="calc(100vh - 140px)"
+															maxH="calc(100vh - 130px)"
 															overflowY="auto"
 															borderRadius="22px"
 															bg="panel.surface"
@@ -1605,10 +1799,11 @@ export function AppLayout() {
 															borderWidth="1px"
 															boxShadow="0 24px 48px rgba(0, 0, 0, 0.45)"
 															backdropFilter="blur(28px)"
-															p={2}
+															p={2.5}
+															dir={isRTL ? "rtl" : "ltr"}
 														>
 															<PopoverBody p={0}>
-																<Box px={3} pt={2} pb={1.5} borderBottomWidth="1px" borderColor="panel.border" mb={1.5}>
+																<Box px={2.5} pt={1.5} pb={1} borderBottomWidth="1px" borderColor="panel.border" mb={2}>
 																	<Text
 																		fontSize="11px"
 																		fontWeight="700"
@@ -1619,54 +1814,166 @@ export function AppLayout() {
 																		{t("header.settings")}
 																	</Text>
 																</Box>
-																<VStack align="stretch" spacing={1}>
-																	{settingsMenuItems.map((entry) => {
-																		const ItemIcon = entry.icon;
-																		const isSelected =
-																			activeSettingsKey === entry.key;
-																		return (
-																			<Button
-																				key={entry.key}
-																				variant="ghost"
-																				size="sm"
-																				w="full"
-																				h="40px"
-																				borderRadius="14px"
-																				px={3}
-																				justifyContent="flex-start"
-																				leftIcon={
-																					ItemIcon ? <ItemIcon /> : undefined
-																				}
-																				bg={
-																					isSelected ? "panel.elevated" : "transparent"
-																				}
-																				color={
-																					isSelected ? "panel.text" : "panel.textSecondary"
-																				}
-																				fontWeight={
-																					isSelected ? "700" : "500"
-																				}
-																				fontSize="13px"
-																				borderInlineStartWidth={isSelected ? "3px" : "0px"}
-																				borderInlineStartColor="var(--rb-panel-accent)"
-																				aria-current={
-																					isSelected ? "page" : undefined
-																				}
-																				_hover={{
-																					bg: "panel.elevated",
-																					color: "panel.text",
-																				}}
-																				_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
-																				_focusVisible={{ boxShadow: "outline" }}
-																				onClick={() => {
-																					handleSettingsMenuClose();
-																					navigateToSettingsItem(entry.to);
-																				}}
+																<VStack align="stretch" spacing={2.5}>
+																	{mobileDockSections.map((sec) => (
+																		<Box key={sec.id}>
+																			<Text
+																				px={2}
+																				py={0.5}
+																				fontSize="10.5px"
+																				fontWeight="600"
+																				color="panel.textMuted"
+																				textTransform="uppercase"
+																				letterSpacing="0.06em"
 																			>
-																				{entry.label}
-																			</Button>
-																		);
-																	})}
+																				{sec.title}
+																			</Text>
+																			<VStack align="stretch" spacing={1} mt={0.5}>
+																				{sec.items.map((entry) => {
+																					if (entry.type === "direct") {
+																						const ItemIcon = entry.icon;
+																						const isSelected =
+																							location.pathname === entry.to ||
+																							(entry.to !== "/" &&
+																								location.pathname.startsWith(entry.to));
+																						return (
+																							<Button
+																								key={entry.key}
+																								variant="ghost"
+																								size="sm"
+																								w="full"
+																								h="36px"
+																								borderRadius="10px"
+																								px={2.5}
+																								justifyContent="flex-start"
+																								leftIcon={<ItemIcon />}
+																								bg={isSelected ? "panel.elevated" : "transparent"}
+																								color={isSelected ? "panel.text" : "panel.textSecondary"}
+																								fontWeight={isSelected ? "600" : "500"}
+																								fontSize="12.5px"
+																								borderInlineStartWidth={isSelected ? "3px" : "0px"}
+																								borderInlineStartColor="var(--rb-panel-accent)"
+																								_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
+																								_active={{ bg: "panel.elevated" }}
+																								onClick={() => {
+																									handleSettingsMenuClose();
+																									navigateToSettingsItem(entry.to);
+																								}}
+																							>
+																								{entry.label}
+																							</Button>
+																						);
+																					}
+
+																					const GroupIcon = entry.icon;
+																					const isGroupOpen = Boolean(mobileDockOpenGroups[entry.id]);
+																					const isGroupActive = entry.subItems.some(
+																						(s) =>
+																							location.pathname === s.to ||
+																							(s.to !== "/" &&
+																								location.pathname.startsWith(s.to)),
+																					);
+
+																					return (
+																						<Box key={entry.id}>
+																							<Flex
+																								align="center"
+																								justify="space-between"
+																								w="full"
+																								h="36px"
+																								px={2.5}
+																								borderRadius="10px"
+																								bg={isGroupActive && !isGroupOpen ? "panel.elevated" : "transparent"}
+																								color={isGroupActive ? "panel.text" : "panel.textSecondary"}
+																								fontWeight={isGroupActive ? "600" : "500"}
+																								fontSize="12.5px"
+																								cursor="pointer"
+																								borderInlineStartWidth={isGroupActive && !isGroupOpen ? "3px" : "0px"}
+																								borderInlineStartColor="var(--rb-panel-accent)"
+																								onClick={() => {
+																									setMobileDockOpenGroups((prev) => ({
+																										...prev,
+																										[entry.id]: !prev[entry.id],
+																									}));
+																								}}
+																								_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
+																								_active={{ bg: "panel.elevated" }}
+																							>
+																								<HStack spacing={2} align="center">
+																									<Box as="span" color={isGroupActive ? "var(--rb-panel-accent)" : "inherit"}>
+																										<GroupIcon />
+																									</Box>
+																									<Text noOfLines={1}>{entry.title}</Text>
+																								</HStack>
+																								<ChevronDownIconStyled
+																									color="panel.textMuted"
+																									transform={isGroupOpen ? "rotate(180deg)" : "rotate(0deg)"}
+																									transition="transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+																								/>
+																							</Flex>
+
+																							<AnimatePresence initial={false}>
+																								{isGroupOpen && (
+																									<motion.div
+																										initial={{ opacity: 0, height: 0 }}
+																										animate={{ opacity: 1, height: "auto" }}
+																										exit={{ opacity: 0, height: 0 }}
+																										transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+																										style={{ overflow: "hidden" }}
+																									>
+																										<Box
+																											ms="14px"
+																											ps="8px"
+																											my={1}
+																											borderInlineStart="1.5px solid"
+																											borderColor="panel.border"
+																										>
+																											<VStack align="stretch" spacing={0.5}>
+																												{entry.subItems.map((sub) => {
+																													const isSubActive =
+																														location.pathname === sub.to ||
+																														(sub.to !== "/" &&
+																															location.pathname.startsWith(sub.to));
+																													const SubIcon = sub.icon;
+																													return (
+																														<Button
+																															key={sub.id}
+																															variant="ghost"
+																															size="sm"
+																															w="full"
+																															h="32px"
+																															borderRadius="8px"
+																															px={2}
+																															justifyContent="flex-start"
+																															leftIcon={<SubIcon />}
+																															bg={isSubActive ? "panel.elevated" : "transparent"}
+																															color={isSubActive ? "panel.text" : "panel.textSecondary"}
+																															fontWeight={isSubActive ? "600" : "400"}
+																															fontSize="12px"
+																															borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
+																															borderInlineStartColor="var(--rb-panel-accent)"
+																															_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
+																															_active={{ bg: "panel.elevated" }}
+																															onClick={() => {
+																																handleSettingsMenuClose();
+																																navigateToSettingsItem(sub.to);
+																															}}
+																														>
+																															{sub.title}
+																														</Button>
+																													);
+																												})}
+																											</VStack>
+																										</Box>
+																									</motion.div>
+																								)}
+																							</AnimatePresence>
+																						</Box>
+																					);
+																				})}
+																			</VStack>
+																		</Box>
+																	))}
 																</VStack>
 															</PopoverBody>
 														</PopoverContent>

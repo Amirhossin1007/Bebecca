@@ -1,4 +1,4 @@
-import { Box, Image, Text, Tooltip, useColorModeValue } from "@chakra-ui/react";
+import { Box, Image, Text, useColorModeValue } from "@chakra-ui/react";
 import {
 	forwardRef,
 	useEffect,
@@ -56,13 +56,7 @@ const SponsorLink = forwardRef<HTMLAnchorElement, SponsorLinkProps>(
 					}}
 					onDragStart={(e: React.DragEvent) => e.preventDefault()}
 					onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-					onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-						e.stopPropagation();
-						if (href) {
-							window.open(href, "_blank", "noopener,noreferrer");
-						}
-						onClick?.(e);
-					}}
+					onClick={onClick}
 					{...rest}
 				>
 					{children}
@@ -200,25 +194,8 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							onContextMenu={(e) => e.preventDefault()}
 						/>
 					);
-					const content = (
-						<SponsorLink href={item.href} label={item.label}>
-							{image}
-							{variant === "logo" && !collapsed && (
-								<Text
-									fontSize={{ base: "lg", md: "2xl" }}
-									fontWeight="bold"
-									fontFamily="'Inter', system-ui, sans-serif"
-									letterSpacing="tight"
-									lineHeight="1"
-									whiteSpace="nowrap"
-									color="panel.text"
-									noOfLines={1}
-								>
-									{item.isSponsor ? item.label : "Rebecca"}
-								</Text>
-							)}
-						</SponsorLink>
-					);
+					const effectiveHref = item.href || (item.isSponsor ? "https://webdade.com/" : undefined);
+					const hoverTitle = item.label || item.alt || "Sponsor";
 
 					return (
 						<Box
@@ -233,31 +210,23 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							gap={isBanner ? 0 : 3}
 							flexShrink={0}
 						>
-							{item.label && (isBanner || isSidebarBanner) ? (
-								<Tooltip
-									label={item.label}
-									placement="top"
-									hasArrow
-									borderRadius="8px"
-									fontSize="11px"
-									fontWeight="600"
-									px="9px"
-									py="4px"
-									bg="gray.900"
-									color="white"
-									_dark={{
-										bg: "panel.surface",
-										color: "panel.text",
-										borderColor: "panel.border",
-										borderWidth: "1px",
-									}}
-									openDelay={80}
-								>
-									{content}
-								</Tooltip>
-							) : (
-								content
-							)}
+							<SponsorLink href={effectiveHref} label={hoverTitle}>
+								{image}
+								{variant === "logo" && !collapsed && (
+									<Text
+										fontSize={{ base: "lg", md: "2xl" }}
+										fontWeight="bold"
+										fontFamily="'Inter', system-ui, sans-serif"
+										letterSpacing="tight"
+										lineHeight="1"
+										whiteSpace="nowrap"
+										color="panel.text"
+										noOfLines={1}
+									>
+										{item.isSponsor ? item.label : "Rebecca"}
+									</Text>
+								)}
+							</SponsorLink>
 						</Box>
 					);
 				})}
