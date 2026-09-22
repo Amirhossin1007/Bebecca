@@ -1,4 +1,4 @@
-import { Box, Image, Text, useColorModeValue } from "@chakra-ui/react";
+import { Box, Image, Text, Tooltip, useColorModeValue } from "@chakra-ui/react";
 import {
 	useEffect,
 	useMemo,
@@ -22,27 +22,58 @@ interface SponsorCarouselProps {
 	collapsed?: boolean;
 }
 
-const SponsorLink: FC<{ href?: string; children: ReactNode }> = ({
-	href,
-	children,
-}) =>
+const SponsorLink: FC<{
+	href?: string;
+	label?: string;
+	children: ReactNode;
+}> = ({ href, label, children }) =>
 	href ? (
 		<Box
 			as="a"
 			href={href}
 			target="_blank"
 			rel="noopener noreferrer"
+			title={label}
 			display="flex"
 			alignItems="center"
+			justifyContent="center"
 			gap={3}
 			w="full"
 			h="full"
 			minW={0}
+			cursor="pointer"
+			userSelect="none"
+			sx={{
+				WebkitUserDrag: "none",
+				WebkitTouchCallout: "none",
+			}}
+			onDragStart={(e: React.DragEvent) => e.preventDefault()}
+			onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+			onClick={(e: React.MouseEvent) => {
+				e.stopPropagation();
+			}}
 		>
 			{children}
 		</Box>
 	) : (
-		<>{children}</>
+		<Box
+			display="flex"
+			alignItems="center"
+			justifyContent="center"
+			gap={3}
+			w="full"
+			h="full"
+			minW={0}
+			userSelect="none"
+			sx={{
+				WebkitUserDrag: "none",
+				WebkitTouchCallout: "none",
+			}}
+			onDragStart={(e: React.DragEvent) => e.preventDefault()}
+			onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+		>
+			{children}
+		</Box>
 	);
 
 export const SponsorCarousel: FC<SponsorCarouselProps> = ({
@@ -132,6 +163,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						<Image
 							src={item.src}
 							alt={item.alt}
+							draggable={false}
 							loading="lazy"
 							display="block"
 							maxW="full"
@@ -141,8 +173,35 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							h={isBanner || isSidebarBanner ? "full" : 8}
 							borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
 							transition="transform 0.25s ease"
+							userSelect="none"
+							sx={{
+								WebkitUserDrag: "none",
+								pointerEvents: "none",
+							}}
+							onDragStart={(e) => e.preventDefault()}
+							onContextMenu={(e) => e.preventDefault()}
 						/>
 					);
+					const content = (
+						<SponsorLink href={item.href} label={item.label}>
+							{image}
+							{variant === "logo" && !collapsed && (
+								<Text
+									fontSize={{ base: "lg", md: "2xl" }}
+									fontWeight="bold"
+									fontFamily="'Inter', system-ui, sans-serif"
+									letterSpacing="tight"
+									lineHeight="1"
+									whiteSpace="nowrap"
+									color="panel.text"
+									noOfLines={1}
+								>
+									{item.isSponsor ? item.label : "Rebecca"}
+								</Text>
+							)}
+						</SponsorLink>
+					);
+
 					return (
 						<Box
 							key={item.id}
@@ -156,23 +215,31 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							gap={isBanner ? 0 : 3}
 							flexShrink={0}
 						>
-							<SponsorLink href={item.href}>
-								{image}
-								{variant === "logo" && !collapsed && (
-									<Text
-										fontSize={{ base: "lg", md: "2xl" }}
-										fontWeight="bold"
-										fontFamily="'Inter', system-ui, sans-serif"
-										letterSpacing="tight"
-										lineHeight="1"
-										whiteSpace="nowrap"
-										color="panel.text"
-										noOfLines={1}
-									>
-										{item.isSponsor ? item.label : "Rebecca"}
-									</Text>
-								)}
-							</SponsorLink>
+							{item.label && (isBanner || isSidebarBanner) ? (
+								<Tooltip
+									label={item.label}
+									placement="top"
+									hasArrow
+									borderRadius="8px"
+									fontSize="11px"
+									fontWeight="600"
+									px="9px"
+									py="4px"
+									bg="gray.900"
+									color="white"
+									_dark={{
+										bg: "panel.surface",
+										color: "panel.text",
+										borderColor: "panel.border",
+										borderWidth: "1px",
+									}}
+									openDelay={180}
+								>
+									{content}
+								</Tooltip>
+							) : (
+								content
+							)}
 						</Box>
 					);
 				})}

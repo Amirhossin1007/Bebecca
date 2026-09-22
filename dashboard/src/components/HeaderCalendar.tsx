@@ -205,15 +205,20 @@ export const HeaderCalendar: FC = () => {
 					size="sm"
 					variant="outline"
 					h="34px"
-					px={3}
-					borderRadius="12px"
+					w={{ base: "34px", xl: "auto" }}
+					minW={{ base: "34px", xl: "auto" }}
+					px={{ base: 0, xl: 3 }}
+					borderRadius={{ base: "full", xl: "12px" }}
 					borderColor={headerBtnBorder}
 					bg={headerBtnBg}
 					color="panel.text"
 					boxShadow="sm"
-					display={{ base: "none", md: "inline-flex" }}
+					display="inline-flex"
 					alignItems="center"
+					justifyContent="center"
 					gap={2}
+					title={formattedDate}
+					aria-label={formattedDate}
 					_hover={{
 						md: {
 							bg: "panel.elevated",
@@ -223,7 +228,13 @@ export const HeaderCalendar: FC = () => {
 					transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 				>
 					<CalendarIcon color="panel.textSecondary" />
-					<Text noOfLines={1} maxW="320px" fontWeight="600" fontSize="12px">
+					<Text
+						display={{ base: "none", xl: "block" }}
+						noOfLines={1}
+						maxW="320px"
+						fontWeight="600"
+						fontSize="12px"
+					>
 						{formattedDate}
 					</Text>
 				</Button>

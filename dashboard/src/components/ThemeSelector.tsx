@@ -382,7 +382,11 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 							scale: selected ? 1.12 : 0.95,
 							opacity: selected ? 1 : 0.65,
 						}}
-						transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+						transition={{
+							rotate: { duration: selected ? 0.45 : 0, ease: [0.16, 1, 0.3, 1] },
+							scale: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
+							opacity: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
+						}}
 						style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
 					>
 						<Icon />

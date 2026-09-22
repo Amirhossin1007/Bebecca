@@ -7,6 +7,14 @@ const sharedThemeConfig = {
 		useSystemColorMode: false,
 	},
 	direction: "ltr" as const,
+	breakpoints: {
+		base: "0px",
+		sm: "480px",
+		md: "769px",
+		lg: "992px",
+		xl: "1280px",
+		"2xl": "1536px",
+	},
 	shadows: { outline: "0 0 0 2px var(--chakra-colors-primary-200)" },
 	fonts: {
 		body: `Arad,Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol",sans-serif`,

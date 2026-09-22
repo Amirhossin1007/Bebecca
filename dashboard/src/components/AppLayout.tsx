@@ -107,7 +107,7 @@ const TutorialIcon = chakra(BookOpenIcon, iconProps);
 const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 	<Box
 		w="15px"
-		h="11px"
+		h="10px"
 		position="relative"
 		display="flex"
 		flexDirection="column"
@@ -120,7 +120,7 @@ const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 			}}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				height: "2px",
+				height: "1.25px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
 				display: "block",
@@ -133,7 +133,7 @@ const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 			}}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				height: "2px",
+				height: "1.25px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
 				display: "block",
@@ -146,7 +146,7 @@ const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
 			}}
 			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
 			style={{
-				height: "2px",
+				height: "1.25px",
 				backgroundColor: "currentColor",
 				borderRadius: "2px",
 				display: "block",
@@ -238,14 +238,20 @@ export function AppLayout() {
 
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
-	const activePillBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.18)",
-		"rgba(255, 255, 255, 0.08)",
+	const dockBg = useColorModeValue(
+		"rgba(255, 255, 255, 0.94)",
+		"rgba(30, 30, 30, 0.90)",
 	);
-	const activePillShadow = useColorModeValue(
-		"0 6px 14px rgba(15, 23, 42, 0.1)",
-		"0 6px 14px rgba(0, 0, 0, 0.24)",
+	const dockBorder = useColorModeValue(
+		"rgba(0, 0, 0, 0.12)",
+		"rgba(255, 255, 255, 0.12)",
 	);
+	const dockShadow = useColorModeValue(
+		"0 12px 36px -4px rgba(0, 0, 0, 0.16), 0 4px 14px rgba(0, 0, 0, 0.06)",
+		"0 16px 48px rgba(0, 0, 0, 0.6)",
+	);
+	const dockInactiveText = useColorModeValue("gray.700", "gray.300");
+	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
 	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
 	const shellHeaderShadow = useColorModeValue(
@@ -948,10 +954,12 @@ export function AppLayout() {
 										animate={{ opacity: 1, y: 0 }}
 										exit={{ opacity: 0, y: 16 }}
 										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-										style={{ minWidth: 0, flexShrink: 1 }}
+										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
 									>
 										<Box
-											w={{ base: "160px", sm: "220px", md: "360px" }}
+											w={{ base: "130px", sm: "160px" }}
+											maxH="32px"
+											h="32px"
 											display={{ base: "block", md: "none" }}
 										>
 											<SponsorCarousel
@@ -970,10 +978,12 @@ export function AppLayout() {
 										animate={{ opacity: 1, y: 0 }}
 										exit={{ opacity: 0, y: 16 }}
 										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-										style={{ minWidth: 0, flexShrink: 1 }}
+										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
 									>
 										<Box
-											w={{ base: "160px", sm: "220px", md: "360px" }}
+											w={{ md: "220px", lg: "280px", xl: "340px" }}
+											maxH="34px"
+											h="34px"
 											display={{ base: "none", md: "block" }}
 										>
 											<SponsorCarousel
@@ -1393,21 +1403,21 @@ export function AppLayout() {
 							position="fixed"
 							left="0"
 							right="0"
-							bottom="10px"
+							bottom="calc(env(safe-area-inset-bottom, 0px) + 12px)"
 							zIndex={1500}
 							px="3"
 							pointerEvents="none"
 						>
 							<Box
 								pointerEvents="auto"
-								bg={menuBg}
-								borderColor={menuBorder}
-								boxShadow="0 14px 40px rgba(0, 0, 0, 0.35)"
+								bg={dockBg}
+								borderColor={dockBorder}
+								boxShadow={dockShadow}
 								borderWidth="1px"
 								borderRadius="full"
-								px="2"
+								px="2.5"
 								py="1.5"
-								maxW="min(430px, calc(100vw - 20px))"
+								maxW="min(440px, calc(100vw - 20px))"
 								mx="auto"
 								position="relative"
 								backdropFilter="blur(24px)"
@@ -1465,9 +1475,8 @@ export function AppLayout() {
 																position: "absolute",
 																inset: 0,
 																borderRadius: 9999,
-																background: activePillBg,
-																boxShadow: activePillShadow,
-																border: "1px solid var(--chakra-colors-panel-borderStrong)",
+																background: "var(--rb-panel-accent)",
+																boxShadow: "0 2px 10px rgba(0, 0, 0, 0.22)",
 																zIndex: 0,
 																pointerEvents: "none",
 															}}
@@ -1480,10 +1489,11 @@ export function AppLayout() {
 														h="6"
 														display="grid"
 														placeItems="center"
+														color={isSelected ? "white" : dockInactiveIcon}
 													>
 														<motion.div
 															animate={{
-																y: isSelected ? -1.5 : 0,
+																y: isSelected ? -1 : 0,
 																scale: isSelected ? 1.05 : 1,
 															}}
 															transition={{
@@ -1499,12 +1509,13 @@ export function AppLayout() {
 													<Text
 														position="relative"
 														zIndex={1}
-														fontSize="9.5px"
-														lineHeight="1.1"
+														fontSize="11px"
+														lineHeight="1.2"
 														fontWeight={isSelected ? "700" : "600"}
 														textAlign="center"
 														whiteSpace="nowrap"
-														mt="1.5px"
+														mt="1px"
+														color={isSelected ? "white" : dockInactiveText}
 													>
 														{settingsLabel}
 													</Text>

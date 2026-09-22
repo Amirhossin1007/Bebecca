@@ -1126,31 +1126,33 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						})}
 					</VStack>
 				</Box>
-				<AnimatePresence>
-					{!collapsed && sidebarBanners.length > 0 && (
-						<motion.div
-							initial={{ opacity: 0, height: 0, y: 24 }}
-							animate={{ opacity: 1, height: "auto", y: 0 }}
-							exit={{ opacity: 0, height: 0, y: 24 }}
-							transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-							style={{ overflow: "hidden", width: "100%", flexShrink: 0 }}
-						>
-							<Box pt={2} w="full">
-								<SponsorCarousel
-									items={sidebarBanners.map((asset) => ({
-										id: asset.id,
-										src: asset.image_url,
-										alt: asset.alt || asset.label || "Sponsor",
-										href: asset.target_url,
-										label: asset.label,
-										isSponsor: true,
-									}))}
-									variant="sidebar"
-								/>
-							</Box>
-						</motion.div>
+				<Box
+					w="full"
+					maxW={inDrawer ? "min(260px, calc(100% - 24px))" : "full"}
+					mx={inDrawer ? "auto" : undefined}
+					flexShrink={0}
+					overflow="hidden"
+					maxH={collapsed ? "0px" : "190px"}
+					opacity={collapsed ? 0 : 1}
+					transform={collapsed ? "translateY(24px) scale(0.95)" : "translateY(0) scale(1)"}
+					transition="max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)"
+					pt={collapsed ? 0 : 2}
+					pointerEvents={collapsed ? "none" : "auto"}
+				>
+					{sidebarBanners.length > 0 && (
+						<SponsorCarousel
+							items={sidebarBanners.map((asset) => ({
+								id: asset.id,
+								src: asset.image_url,
+								alt: asset.alt || asset.label || "Sponsor",
+								href: asset.target_url,
+								label: asset.label,
+								isSponsor: true,
+							}))}
+							variant="sidebar"
+						/>
 					)}
-				</AnimatePresence>
+				</Box>
 			</Flex>
 		</Box>
 	);
