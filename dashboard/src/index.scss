@@ -89,33 +89,51 @@
   --rb-panel-row-selected: #ffffff;
 }
 
+::view-transition-group(root) {
+  animation: none !important;
+}
+
+::view-transition-image-pair(root) {
+  isolation: isolate;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  mix-blend-mode: normal;
+  transform: none !important;
+  height: 100%;
+  overflow: clip;
+}
+
 ::view-transition-old(root) {
-  animation: 300ms cubic-bezier(0.16, 1, 0.3, 1) both rb-view-fade-out;
+  animation-name: rb-view-fade-out;
 }
 
 ::view-transition-new(root) {
-  animation: 300ms cubic-bezier(0.16, 1, 0.3, 1) both rb-view-fade-in;
+  animation-name: rb-view-fade-in;
 }
 
 @keyframes rb-view-fade-out {
   from {
     opacity: 1;
-    transform: scale(1);
+    filter: blur(0px);
   }
   to {
     opacity: 0;
-    transform: scale(0.995);
+    filter: blur(1.5px);
   }
 }
 
 @keyframes rb-view-fade-in {
   from {
     opacity: 0;
-    transform: scale(1.005);
+    filter: blur(1.5px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    filter: blur(0px);
   }
 }
 
@@ -127,7 +145,8 @@
 
 /* Prevent accidental horizontal scrolling on small screens */
 html, body, #root {
-  overflow-x: hidden;
+  height: 100%;
+  overflow: hidden;
   font-family: var(--rb-font-stack);
   background: var(--rb-panel-bg);
   color: var(--rb-panel-text);
