@@ -106,44 +106,47 @@ const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
 const TutorialIcon = chakra(BookOpenIcon, iconProps);
 const ChevronDownIconStyled = chakra(ChevronDownIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 
-const AnimatedHamburger: FC<{ isOpen: boolean }> = ({ isOpen }) => (
-	<Box
-		as="svg"
-		width="16"
-		height="16"
-		viewBox="0 0 16 16"
-		fill="none"
-		stroke="currentColor"
-		strokeWidth="1.75"
-		strokeLinecap="round"
-		display="block"
-	>
-		<motion.line
-			x1="2"
-			y1="3.5"
-			x2="14"
-			y2="3.5"
-			animate={{ x2: 14 }}
-			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-		/>
-		<motion.line
-			x1="2"
-			y1="8"
-			x2={isOpen ? 8.5 : 14}
-			y2="8"
-			animate={{ x2: isOpen ? 8.5 : 14 }}
-			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-		/>
-		<motion.line
-			x1="2"
-			y1="12.5"
-			x2={isOpen ? 11.5 : 14}
-			y2="12.5"
-			animate={{ x2: isOpen ? 11.5 : 14 }}
-			transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-		/>
-	</Box>
-);
+const AnimatedHamburger: FC<{ isOpen: boolean; isRTL: boolean }> = ({
+	isOpen,
+	isRTL,
+}) => {
+	const x1Mid = isRTL ? (isOpen ? 7 : 2) : 2;
+	const x2Mid = isRTL ? 14 : isOpen ? 9 : 14;
+	const x1Bot = isRTL ? (isOpen ? 4.5 : 2) : 2;
+	const x2Bot = isRTL ? 14 : isOpen ? 11.5 : 14;
+
+	return (
+		<Box
+			as="svg"
+			width="15"
+			height="15"
+			viewBox="0 0 16 16"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.25"
+			strokeLinecap="round"
+			display="block"
+		>
+			<line x1="2" y1="3.5" x2="14" y2="3.5" />
+			<motion.line
+				x1={x1Mid}
+				y1="8"
+				x2={x2Mid}
+				y2="8"
+				animate={{ x1: x1Mid, x2: x2Mid }}
+				transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+			/>
+			<motion.line
+				x1={x1Bot}
+				y1="12.5"
+				x2={x2Bot}
+				y2="12.5"
+				animate={{ x1: x1Bot, x2: x2Bot }}
+				transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+			/>
+		</Box>
+	);
+};
 
 type SettingsMenuItem = {
 	key: string;
@@ -226,6 +229,13 @@ export function AppLayout() {
 		system_tools: false,
 		observability: false,
 	});
+
+	useEffect(() => {
+		const dir = i18n.dir(i18n.language);
+		document.documentElement.dir = dir;
+		document.documentElement.lang = i18n.language;
+	}, [i18n.language, i18n]);
+
 	const languagePlacement =
 		useBreakpointValue<PlacementWithLogical>({
 			base: "bottom-start",
@@ -588,7 +598,7 @@ export function AppLayout() {
 					{
 						type: "direct" as const,
 						key: "tutorials",
-						label: t("tutorials.title"),
+						label: t("sidebar.tutorialsAndFaq"),
 						to: tutorialsUrl,
 						icon: TutorialIcon,
 					},
@@ -1005,28 +1015,34 @@ export function AppLayout() {
 	useEffect(() => {
 		const headerEl = headerRef.current;
 		if (!headerEl) return;
+		const _pathKey = location.pathname + location.hash;
+		void _pathKey;
 		const checkFit = () => {
-			const totalWidth = headerEl.clientWidth;
+			if (!headerRef.current) return;
+			const totalWidth = headerRef.current.clientWidth;
 			if (totalWidth < 769) {
 				setCalendarCompact(true);
 				return;
 			}
 			const hasBanner = mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0;
-			const bannerWidth = hasBanner ? (totalWidth >= 1200 ? 320 : 220) : 0;
-			const breadcrumbEl = headerEl.querySelector<HTMLElement>("[data-header-breadcrumb]");
-			const breadcrumbWidth = breadcrumbEl ? breadcrumbEl.scrollWidth : 80;
+			const bannerWidth = hasBanner ? (totalWidth >= 1200 ? 300 : 220) : 0;
+			const breadcrumbEl = headerRef.current.querySelector<HTMLElement>("[data-header-breadcrumb]");
+			const breadcrumbWidth = breadcrumbEl ? Math.max(breadcrumbEl.scrollWidth, breadcrumbEl.offsetWidth) : 80;
 			const navButtonWidth = 46;
-			const profileWidth = 100;
-			const fullCalendarWidth = 210;
-			const safetyBuffer = 60;
+			const profileWidth = 110;
+			const fullCalendarWidth = 200;
+			const safetyBuffer = 40;
 			const requiredWidth = navButtonWidth + breadcrumbWidth + bannerWidth + profileWidth + fullCalendarWidth + safetyBuffer;
 			setCalendarCompact(totalWidth < requiredWidth);
 		};
-		checkFit();
+		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
 		ro.observe(headerEl);
-		return () => ro.disconnect();
-	}, [mobileHeaderItems.length, sponsorHeaderItems.length]);
+		return () => {
+			clearTimeout(timer);
+			ro.disconnect();
+		};
+	}, [location.pathname, location.hash, mobileHeaderItems.length, sponsorHeaderItems.length]);
 
 	return (
 		<>
@@ -1090,6 +1106,7 @@ export function AppLayout() {
 						zIndex={100}
 						userSelect="none"
 						gap={3}
+						dir={isRTL ? "rtl" : "ltr"}
 					>
 						<HStack spacing={3} alignItems="center" flex="1" minW="0" h="full">
 							<IconButton
@@ -1109,6 +1126,7 @@ export function AppLayout() {
 								icon={
 									<AnimatedHamburger
 										isOpen={isMobile ? sidebarDrawer.isOpen : !sidebarCollapsed}
+										isRTL={isRTL}
 									/>
 								}
 								flexShrink={0}
@@ -1270,27 +1288,54 @@ export function AppLayout() {
 											}
 										}}
 									>
-										<HStack spacing={2} align="center" justify="center">
-											<Flex
-												w="20px"
-												h="20px"
-												align="center"
-												justify="center"
-												borderRadius="full"
-												color="panel.textSecondary"
-												flexShrink={0}
-											>
-												<UserIcon />
-											</Flex>
-											<Text
-												display={{ base: "none", md: "inline" }}
-												maxW={{ base: "100px", md: "140px" }}
-												fontSize="12px"
-												fontWeight="600"
-												isTruncated
-											>
-												{userData.username}
-											</Text>
+										<HStack spacing={2} align="center" justify="center" dir={isRTL ? "rtl" : "ltr"}>
+											{isRTL ? (
+												<>
+													<Text
+														display={{ base: "none", md: "inline" }}
+														maxW={{ base: "100px", md: "140px" }}
+														fontSize="12px"
+														fontWeight="600"
+														isTruncated
+													>
+														{userData.username}
+													</Text>
+													<Flex
+														w="20px"
+														h="20px"
+														align="center"
+														justify="center"
+														borderRadius="full"
+														color="panel.textSecondary"
+														flexShrink={0}
+													>
+														<UserIcon />
+													</Flex>
+												</>
+											) : (
+												<>
+													<Flex
+														w="20px"
+														h="20px"
+														align="center"
+														justify="center"
+														borderRadius="full"
+														color="panel.textSecondary"
+														flexShrink={0}
+													>
+														<UserIcon />
+													</Flex>
+													<Text
+														display={{ base: "none", md: "inline" }}
+														maxW={{ base: "100px", md: "140px" }}
+														fontSize="12px"
+														fontWeight="600"
+														isTruncated
+													>
+														{userData.username}
+													</Text>
+												</>
+											)}
 										</HStack>
 									</MenuButton>
 									<MenuList
@@ -1641,9 +1686,9 @@ export function AppLayout() {
 								boxShadow={dockShadow}
 								borderWidth="1px"
 								borderRadius="full"
-								px="2.5"
+								px="3"
 								py="1.5"
-								maxW="min(440px, calc(100vw - 20px))"
+								maxW="min(490px, calc(100vw - 16px))"
 								mx="auto"
 								position="relative"
 								backdropFilter="blur(24px)"
@@ -1658,18 +1703,15 @@ export function AppLayout() {
 									{bottomNavItems.map((item) => {
 										const isActive = resolveActive(item);
 										const isSelected = selectedTabKey === item.key;
-										const settingsLabel = item.label;
-										const icon =
-											item.key === "dashboard" ? (
-												<HomeIcon />
-											) : item.key === "users" ? (
-												<UsersIcon />
-											) : item.key === "admins" ? (
-												<AdminsIcon />
-											) : item.key === "settings" ? (
-												<SettingsNavIcon />
-											) : (
-												<UserIcon />
+										const isSettingsItem = item.key === "settings";
+										const displayLabel = isSettingsItem && activeSettingsItem ? activeSettingsItem.label : item.label;
+										const DisplayIcon = isSettingsItem
+											? (activeSettingsItem?.icon ?? SettingsNavIcon)
+											: (
+												item.key === "dashboard" ? HomeIcon :
+												item.key === "users" ? UsersIcon :
+												item.key === "admins" ? AdminsIcon :
+												UserIcon
 											);
 										const navContent = (
 											<Box
@@ -1690,16 +1732,24 @@ export function AppLayout() {
 													borderRadius="14px"
 												>
 													{isSelected && (
-														<Box
-															position="absolute"
-															inset="0"
-															borderRadius="14px"
-															bg="panel.elevated"
-															borderWidth="1px"
-															borderColor="panel.borderStrong"
-															boxShadow="0 2px 6px rgba(0, 0, 0, 0.08)"
-															pointerEvents="none"
-															transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+														<motion.div
+															layoutId="mobile-bottom-dock-indicator"
+															transition={{
+																type: "spring",
+																stiffness: 450,
+																damping: 32,
+																mass: 0.5,
+															}}
+															style={{
+																position: "absolute",
+																inset: 0,
+																borderRadius: 14,
+																backgroundColor: "var(--chakra-colors-panel-elevated)",
+																border: "1px solid var(--chakra-colors-panel-borderStrong)",
+																boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+																zIndex: 0,
+																pointerEvents: "none",
+															}}
 														/>
 													)}
 													<Box
@@ -1723,7 +1773,7 @@ export function AppLayout() {
 															}}
 															style={{ position: "relative", zIndex: 1 }}
 														>
-															{icon}
+															<DisplayIcon />
 														</motion.div>
 													</Box>
 													<Text
@@ -1738,7 +1788,7 @@ export function AppLayout() {
 														color={isSelected ? "panel.text" : dockInactiveText}
 														transition="color 0.2s ease"
 													>
-														{settingsLabel}
+														{displayLabel}
 													</Text>
 												</Box>
 											</Box>

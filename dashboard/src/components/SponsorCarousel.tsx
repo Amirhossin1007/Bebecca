@@ -50,13 +50,21 @@ const SponsorLink = forwardRef<HTMLAnchorElement, SponsorLinkProps>(
 					minW={0}
 					cursor="pointer"
 					userSelect="none"
+					style={{ textDecoration: "none" }}
 					sx={{
 						WebkitUserDrag: "none",
 						WebkitTouchCallout: "none",
 					}}
 					onDragStart={(e: React.DragEvent) => e.preventDefault()}
 					onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-					onClick={onClick}
+					onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+						e.preventDefault();
+						e.stopPropagation();
+						if (href) {
+							window.open(href, "_blank", "noopener,noreferrer");
+						}
+						onClick?.(e);
+					}}
 					{...rest}
 				>
 					{children}
@@ -126,22 +134,18 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		<Box
 			overflow="hidden"
 			w="full"
-			borderRadius={isBanner || isSidebarBanner ? "14px" : "10px"}
+			maxH={isBanner ? "34px" : undefined}
+			h={isBanner ? "34px" : "full"}
+			borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 			borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 			borderColor={frameBorder}
 			bg={isBanner || isSidebarBanner ? frameBg : "transparent"}
 			boxShadow={
 				isBanner || isSidebarBanner
-					? "0 4px 16px rgba(0, 0, 0, 0.08)"
+					? "0 2px 10px rgba(0, 0, 0, 0.06)"
 					: "none"
 			}
-			aspectRatio={
-				isBanner
-					? { base: "4 / 1", md: "8 / 1" }
-					: isSidebarBanner
-						? "21 / 17"
-						: undefined
-			}
+			aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
 			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				md: {
