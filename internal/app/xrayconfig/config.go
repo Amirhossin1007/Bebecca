@@ -188,10 +188,29 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 	atLeast2659, _ := xrayVersionAtLeast(coreVersion, 26, 5, 9)
 	mkcpTTIMaximum, _ := xrayMKCPTTIMax(coreVersion)
 	atLeast26711, _ := xrayVersionAtLeast(coreVersion, 26, 7, 11)
+	atLeast2698, _ := xrayVersionAtLeast(coreVersion, 26, 9, 8)
+	atLeast2699, _ := xrayVersionAtLeast(coreVersion, 26, 9, 9)
 	atLeast26327, _ := xrayVersionAtLeast(coreVersion, 26, 3, 27)
 	atLeast2661, _ := xrayVersionAtLeast(coreVersion, 26, 6, 1)
 	atLeast26622, _ := xrayVersionAtLeast(coreVersion, 26, 6, 22)
 	useSessionIDFields := atLeast26622
+	skippedLocalOSRules := 0
+	if !atLeast2698 {
+		routing := mapValue(cfg["routing"])
+		if rules, ok := routing["rules"].([]any); ok {
+			kept := make([]any, 0, len(rules))
+			for _, rule := range rules {
+				if len(stringList(mapValue(rule)["localOS"])) > 0 {
+					skippedLocalOSRules++
+					continue
+				}
+				kept = append(kept, rule)
+			}
+			if skippedLocalOSRules > 0 {
+				routing["rules"] = kept
+			}
+		}
+	}
 	inbounds := listOfMaps(cfg["inbounds"])
 	outbounds := listOfMaps(cfg["outbounds"])
 	legacyInsecureTags := make([]string, 0)
@@ -207,6 +226,11 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 	normalizedFragmentTags := make([]string, 0)
 	incompatibleFragmentTags := make([]string, 0)
 	unknownFragmentTags := make([]string, 0)
+	updatedOutboundTags := make([]string, 0)
+	updatedHopTags := make([]string, 0)
+	incompatibleHopTags := make([]string, 0)
+	unsupportedRemoteDNSTags := make([]string, 0)
+	unsupportedCustomResponseTags := make([]string, 0)
 	vlessEncryptionTags := append(vlessEncryptionEndpointTags(inbounds), vlessEncryptionEndpointTags(outbounds)...)
 	vlessDefaultFlowTags := vlessDefaultFlowEndpointTags(inbounds)
 	for index, inbound := range inbounds {
@@ -249,9 +273,36 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 	}
 	for index, outbound := range outbounds {
 		stream := mapValue(outbound["streamSettings"])
+		label := configEndpointLabel(outbound, index)
+		if !atLeast2698 && strings.EqualFold(stringValue(outbound["protocol"]), "wireguard") {
+			settings := mapValue(outbound["settings"])
+			if _, exists := settings["remoteDNS"]; exists {
+				delete(settings, "remoteDNS")
+				unsupportedRemoteDNSTags = append(unsupportedRemoteDNSTags, label)
+			}
+		}
+		if !atLeast2698 && strings.EqualFold(stringValue(outbound["protocol"]), "blackhole") {
+			response := mapValue(mapValue(outbound["settings"])["response"])
+			if strings.EqualFold(stringValue(response["type"]), "custom") {
+				response["type"] = "none"
+				delete(response, "customResponseData")
+				unsupportedCustomResponseTags = append(unsupportedCustomResponseTags, label)
+			}
+		}
+		if atLeast2698 && normalizeModernOutbound(outbound) {
+			updatedOutboundTags = append(updatedOutboundTags, label)
+			stream = mapValue(outbound["streamSettings"])
+		}
+		if atLeast2699 {
+			switch normalizeLegacyUDPHop(stream) {
+			case 1:
+				updatedHopTags = append(updatedHopTags, label)
+			case -1:
+				incompatibleHopTags = append(incompatibleHopTags, label)
+			}
+		}
 		normalizeStreamForXrayVersion(stream, atLeast26711, useSessionIDFields, knownVersion)
 		invalidPin, versionSensitive := normalizeTLSFieldsForXrayVersion(stream, atLeast26131, knownVersion)
-		label := configEndpointLabel(outbound, index)
 		if invalidPin {
 			invalidPinTags = append(invalidPinTags, label)
 		}
@@ -289,6 +340,24 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 		}
 	}
 	warnings := make([]string, 0, 12)
+	if skippedLocalOSRules > 0 {
+		warnings = append(warnings, fmt.Sprintf("Routing localOS requires Xray 26.9.8+; skipped %d incompatible rule(s) on this node", skippedLocalOSRules))
+	}
+	if len(updatedOutboundTags) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Adapted removed outbound keys for Xray 26.9.8+: %s", strings.Join(updatedOutboundTags, ", ")))
+	}
+	if len(updatedHopTags) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Moved legacy QUIC UDP hopping to the Xray 26.9.9+ udphop mask for: %s", strings.Join(updatedHopTags, ", ")))
+	}
+	if len(incompatibleHopTags) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Legacy UDP hopping conflicts with an existing outer UDP mask and cannot be migrated automatically for: %s", strings.Join(incompatibleHopTags, ", ")))
+	}
+	if len(unsupportedRemoteDNSTags) > 0 {
+		warnings = append(warnings, fmt.Sprintf("WireGuard remoteDNS requires Xray 26.9.8+ and was omitted on this node for: %s", strings.Join(unsupportedRemoteDNSTags, ", ")))
+	}
+	if len(unsupportedCustomResponseTags) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Custom blackhole responses require Xray 26.9.8+ and were disabled on this node for: %s", strings.Join(unsupportedCustomResponseTags, ", ")))
+	}
 	if !knownVersion {
 		warnings = append(warnings, "Xray core version is unknown or invalid; using legacy transport naming, preserving both XHTTP session aliases, and preserving Hysteria settings")
 	} else {
@@ -404,6 +473,127 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 		}
 	}
 	return cfg, strings.Join(warnings, "; ")
+}
+
+func normalizeModernOutbound(outbound map[string]any) bool {
+	changed := false
+	stream := mapValue(outbound["streamSettings"])
+	sockopt := mapValue(stream["sockopt"])
+	if proxy, ok := outbound["proxySettings"]; ok && proxy != nil {
+		if tag := strings.TrimSpace(stringValue(mapValue(proxy)["tag"])); tag != "" && strings.TrimSpace(stringValue(sockopt["dialerProxy"])) == "" {
+			sockopt["dialerProxy"] = tag
+		}
+		delete(outbound, "proxySettings")
+		changed = true
+	}
+	if strings.EqualFold(stringValue(outbound["protocol"]), "freedom") {
+		if _, ok := sockopt["addressPortStrategy"]; ok {
+			delete(sockopt, "addressPortStrategy")
+			changed = true
+		}
+		settings := mapValue(outbound["settings"])
+		strategy := firstNonEmptyString(outbound["targetStrategy"], settings["targetStrategy"], settings["domainStrategy"])
+		if strategy != "" && !strings.EqualFold(strategy, "asis") {
+			sockopt["domainStrategy"] = strategy
+		}
+		for _, key := range []string{"targetStrategy", "domainStrategy"} {
+			if _, ok := settings[key]; ok {
+				delete(settings, key)
+				changed = true
+			}
+		}
+		if _, ok := outbound["targetStrategy"]; ok {
+			delete(outbound, "targetStrategy")
+			changed = true
+		}
+	}
+	if len(sockopt) > 0 {
+		stream["sockopt"] = sockopt
+		outbound["streamSettings"] = stream
+	}
+	if strings.EqualFold(stringValue(outbound["protocol"]), "dns") && normalizeLegacyDNSOutbound(mapValue(outbound["settings"])) {
+		changed = true
+	}
+	return changed
+}
+
+func normalizeLegacyDNSOutbound(settings map[string]any) bool {
+	mode, hasMode := settings["nonIPQuery"]
+	blocked, hasBlocked := settings["blockTypes"]
+	if (!hasMode || mode == nil) && (!hasBlocked || blocked == nil) {
+		return false
+	}
+	if settings["rules"] == nil {
+		policy := strings.TrimSpace(stringValue(mode))
+		if policy == "" {
+			policy = "reject"
+		}
+		if policy != "reject" && policy != "drop" && policy != "skip" {
+			return false
+		}
+		rules := make([]any, 0, 3)
+		var types []string
+		for _, value := range stringList(blocked) {
+			n, err := strconv.Atoi(strings.TrimSpace(value))
+			if err != nil || n < 0 || n > 65535 {
+				return false
+			}
+			types = append(types, strconv.Itoa(n))
+		}
+		if len(types) > 0 {
+			rule := map[string]any{"action": "drop", "qType": strings.Join(types, ",")}
+			if policy == "reject" {
+				rule["action"] = "return"
+				rule["rCode"] = 5
+			}
+			rules = append(rules, rule)
+		}
+		rules = append(rules, map[string]any{"action": "hijack", "qType": "1,28"})
+		last := map[string]any{"action": "direct"}
+		if policy == "drop" {
+			last["action"] = "drop"
+		} else if policy == "reject" {
+			last["action"] = "return"
+			last["rCode"] = 5
+		}
+		settings["rules"] = append(rules, last)
+	}
+	delete(settings, "nonIPQuery")
+	delete(settings, "blockTypes")
+	return true
+}
+
+// The legacy QUIC setting became a client-side FinalMask layer in Xray 26.9.9.
+func normalizeLegacyUDPHop(stream map[string]any) int {
+	finalMask := mapValue(stream["finalmask"])
+	quic := mapValue(finalMask["quicParams"])
+	hop := mapValue(quic["udpHop"])
+	ports := hop["ports"]
+	if strings.TrimSpace(stringValue(ports)) == "" {
+		return 0
+	}
+	masks, _ := finalMask["udp"].([]any)
+	for _, mask := range masks {
+		typeName := strings.ToLower(stringValue(mapValue(mask)["type"]))
+		if typeName == "udphop" {
+			delete(quic, "udpHop")
+			return 1
+		}
+		if typeName == "realm" || typeName == "xicmp" {
+			return -1
+		}
+	}
+	interval := hop["interval"]
+	if interval == nil || stringValue(interval) == "" || stringValue(interval) == "0" {
+		interval = "30"
+	}
+	mask := map[string]any{"type": "udphop", "settings": map[string]any{
+		"mode": "intervalRemote", "interval": interval, "remotePorts": ports,
+	}}
+	finalMask["udp"] = append([]any{mask}, masks...)
+	delete(quic, "udpHop")
+	stream["finalmask"] = finalMask
+	return 1
 }
 
 func normalizeOutboundAllowInsecureForXrayVersion(stream map[string]any, atLeast26131 bool, knownVersion bool) bool {
