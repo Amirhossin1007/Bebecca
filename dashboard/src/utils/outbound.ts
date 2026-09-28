@@ -1120,7 +1120,9 @@ export class Outbound extends CommonClass {
 			const sni = url.searchParams.get("sni") ?? "";
 			const ech = url.searchParams.get("ech") ?? "";
 			const pinnedPeerCertSha256 =
-				url.searchParams.get("pcs") ?? url.searchParams.get("pinSHA256") ?? "";
+				url.searchParams.get("pcs") ??
+				url.searchParams.get("pinSHA256") ??
+				"";
 			const verifyPeerCertByName = url.searchParams.get("vcn") ?? "";
 			stream.tls = new TlsStreamSettings(
 				sni,
@@ -1154,11 +1156,7 @@ export class Outbound extends CommonClass {
 			protocol = Protocols.Shadowsocks;
 			userData = base64Decode(userData);
 		}
-		if (
-			protocol === "hysteria" ||
-			protocol === "hysteria2" ||
-			protocol === "hy2"
-		) {
+		if (protocol === "hysteria" || protocol === "hysteria2" || protocol === "hy2") {
 			protocol = Protocols.Hysteria;
 			userData = decodeURIComponent(userData);
 		}
@@ -1403,26 +1401,21 @@ export class Outbound extends CommonClass {
 
 	static BlackholeSettings = class BlackholeSettings extends CommonClass {
 		type?: string;
-		customResponseData?: string;
 
-		constructor(type?: string, customResponseData?: string) {
+		constructor(type?: string) {
 			super();
 			this.type = type;
-			this.customResponseData = customResponseData;
 		}
 
 		static override fromJson(json: any = {}) {
-			return new BlackholeSettings(
-				json?.response?.type,
-				json?.response?.customResponseData,
-			);
+			return new BlackholeSettings(json?.response?.type);
 		}
 
 		override toJson(): JsonObject {
 			return {
 				response: ObjectUtil.isEmpty(this.type)
 					? undefined
-					: { type: this.type, customResponseData: this.customResponseData },
+					: { type: this.type },
 			};
 		}
 	};
@@ -1518,7 +1511,10 @@ export class Outbound extends CommonClass {
 		}
 
 		static override fromJson(json: any = {}) {
-			if (Object.hasOwn(json, "address") || json?.reverse) {
+			if (
+				Object.hasOwn(json, "address") ||
+				json?.reverse
+			) {
 				return new Outbound.VLESSSettings(
 					json?.address ?? "",
 					json?.port ?? 0,
@@ -1774,7 +1770,6 @@ export class Outbound extends CommonClass {
 		address: string;
 		workers: number;
 		domainStrategy: string;
-		remoteDNS: string[];
 		reserved: string;
 		peers: InstanceType<typeof WireguardSettings.Peer>[];
 		noKernelTun: boolean;
@@ -1785,7 +1780,6 @@ export class Outbound extends CommonClass {
 			address: string | string[] = [""],
 			workers = 2,
 			domainStrategy = "",
-			remoteDNS: string[] = [],
 			reserved: string | number[] = "",
 			peers: InstanceType<typeof WireguardSettings.Peer>[] = [
 				new WireguardSettings.Peer(),
@@ -1804,7 +1798,6 @@ export class Outbound extends CommonClass {
 				: (address ?? "");
 			this.workers = workers ?? 2;
 			this.domainStrategy = domainStrategy ?? "";
-			this.remoteDNS = remoteDNS ?? [];
 			this.reserved = Array.isArray(reserved)
 				? reserved.join(",")
 				: (reserved ?? "");
@@ -1827,7 +1820,6 @@ export class Outbound extends CommonClass {
 				json?.address ?? [""],
 				json?.workers ?? 2,
 				json?.domainStrategy ?? "",
-				Array.isArray(json?.remoteDNS) ? json.remoteDNS : [],
 				json?.reserved ?? "",
 				Array.isArray(json?.peers)
 					? json.peers.map((peer: unknown) =>
@@ -1849,7 +1841,6 @@ export class Outbound extends CommonClass {
 				)
 					? this.domainStrategy
 					: undefined,
-				remoteDNS: this.remoteDNS.length ? this.remoteDNS : undefined,
 				reserved: this.reserved
 					? this.reserved
 							.split(",")

@@ -50,7 +50,6 @@ type RuleFormValues = {
 	protocols: string[];
 	sourceIps: string;
 	sourcePort: string;
-	localOS: string;
 	domain: string;
 	ip: string;
 	user: string;
@@ -68,7 +67,6 @@ export type RoutingRule = {
 	protocol?: string[];
 	source?: string[];
 	sourcePort?: string[];
-	localOS?: string[];
 	domain?: string[];
 	ip?: string[];
 	user?: string[];
@@ -104,7 +102,6 @@ const defaultFormValues: RuleFormValues = {
 	protocols: [],
 	sourceIps: "",
 	sourcePort: "",
-	localOS: "",
 	domain: "",
 	ip: "",
 	user: "",
@@ -161,7 +158,6 @@ const ruleToFormValues = (rule?: RoutingRule | null): RuleFormValues => {
 		protocols: Array.isArray(rule.protocol) ? rule.protocol : [],
 		sourceIps: toDelimitedString(rule.source),
 		sourcePort: toDelimitedString(rule.sourcePort),
-		localOS: toDelimitedString(rule.localOS),
 		domain: toDelimitedString(rule.domain),
 		ip: toDelimitedString(rule.ip),
 		user: toDelimitedString(rule.user),
@@ -189,10 +185,6 @@ const formValuesToRule = (values: RuleFormValues): RoutingRule => {
 
 	const sourcePort = splitStringList(values.sourcePort);
 	if (sourcePort.length) rule.sourcePort = sourcePort;
-	const localOS = splitStringList(values.localOS).map((value) =>
-		value.toLowerCase(),
-	);
-	if (localOS.length) rule.localOS = localOS;
 
 	const domain = splitStringList(values.domain);
 	if (domain.length) rule.domain = domain;
@@ -512,14 +504,6 @@ export const RuleModal: FC<RuleModalProps> = ({
 												placeholder="80, 443, 1000-2000"
 											/>
 										)}
-									/>
-								</FormControl>
-								<FormControl>
-									<FormLabel>Node OS (Xray 26.9.8+)</FormLabel>
-									<Input
-										size="sm"
-										placeholder="linux, windows, darwin"
-										{...register("localOS")}
 									/>
 								</FormControl>
 							</XrayFieldGrid>

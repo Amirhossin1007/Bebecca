@@ -155,13 +155,11 @@ interface OutboundFormValues {
 	dnsPort: number;
 	freedomStrategy: string;
 	blackholeResponse: string;
-	blackholeCustomResponseData: string;
 	wireguardSecret: string;
 	wireguardAddress: string;
 	wireguardMtu: number;
 	wireguardWorkers: number;
 	wireguardDomainStrategy: string;
-	wireguardRemoteDNS: string;
 	wireguardReserved: string;
 	wireguardNoKernelTun: boolean;
 	wireguardPeers: WireguardPeerForm[];
@@ -242,13 +240,11 @@ const defaultValues: OutboundFormValues = {
 	dnsPort: 53,
 	freedomStrategy: "",
 	blackholeResponse: "",
-	blackholeCustomResponseData: "",
 	wireguardSecret: "",
 	wireguardAddress: "",
 	wireguardMtu: 1420,
 	wireguardWorkers: 2,
 	wireguardDomainStrategy: "",
-	wireguardRemoteDNS: "",
 	wireguardReserved: "",
 	wireguardNoKernelTun: false,
 	wireguardPeers: [
@@ -391,13 +387,7 @@ const buildOutboundJson = (values: OutboundFormValues) => {
 			break;
 		case Protocols.Blackhole:
 			settings.response = values.blackholeResponse
-				? {
-						type: values.blackholeResponse,
-						customResponseData:
-							values.blackholeResponse.toLowerCase() === "custom"
-								? values.blackholeCustomResponseData.trim()
-								: undefined,
-					}
+				? { type: values.blackholeResponse }
 				: undefined;
 			break;
 		case Protocols.DNS:
@@ -416,9 +406,6 @@ const buildOutboundJson = (values: OutboundFormValues) => {
 				values.wireguardDomainStrategy as never,
 			)
 				? values.wireguardDomainStrategy
-				: undefined;
-			settings.remoteDNS = values.wireguardRemoteDNS
-				? splitComma(values.wireguardRemoteDNS)
 				: undefined;
 			settings.reserved = values.wireguardReserved
 				? splitComma(values.wireguardReserved)
@@ -684,8 +671,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 		const streamSecurity =
 			(streamRaw?.security as OutboundSecurityValue | undefined) ?? "none";
 		mapped.network =
-			((streamRaw?.method ??
-				streamRaw?.network) as OutboundFormValues["network"]) ??
+			((streamRaw?.method ?? streamRaw?.network) as OutboundFormValues["network"]) ??
 			defaultValues.network;
 		mapped.tlsEnabled = streamSecurity === "tls";
 		mapped.realityEnabled = streamSecurity === "reality";
@@ -696,7 +682,8 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 			? tlsSettings.alpn.join(",")
 			: "";
 		mapped.tlsEchConfigList = tlsSettings?.echConfigList ?? "";
-		mapped.tlsPinnedPeerCertSha256 = tlsSettings?.pinnedPeerCertSha256 ?? "";
+		mapped.tlsPinnedPeerCertSha256 =
+			tlsSettings?.pinnedPeerCertSha256 ?? "";
 		mapped.tlsVerifyPeerCertByName = tlsSettings?.verifyPeerCertByName ?? "";
 
 		const realitySettings =
@@ -858,7 +845,6 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 			case Protocols.Blackhole: {
 				const settings = outbound.settings as Outbound.BlackholeSettings;
 				mapped.blackholeResponse = settings?.type ?? "";
-				mapped.blackholeCustomResponseData = settings?.customResponseData ?? "";
 				break;
 			}
 			case Protocols.Wireguard: {
@@ -875,9 +861,6 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 				);
 				mapped.wireguardDomainStrategy =
 					(settings as any)?.domainStrategy ?? "";
-				mapped.wireguardRemoteDNS = Array.isArray(settings?.remoteDNS)
-					? settings.remoteDNS.join(",")
-					: "";
 				mapped.wireguardReserved = Array.isArray((settings as any)?.reserved)
 					? (settings as any).reserved.join(",")
 					: ((settings as any)?.reserved ?? "");
@@ -1193,7 +1176,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 	const handleConfigToJson = () => {
 		const trimmed = configInput.trim();
 		if (!trimmed) {
-			setJsonError(t("pages.outbound.configEmpty"));
+			setJsonError(
+				t("pages.outbound.configEmpty"),
+			);
 			return;
 		}
 		const wg = parseWireguardIni(trimmed);
@@ -1212,7 +1197,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 		}
 		const outboundFromLink = Outbound.fromLink(trimmed);
 		if (!outboundFromLink) {
-			setJsonError(t("pages.outbound.invalidConfig"));
+			setJsonError(
+				t("pages.outbound.invalidConfig"),
+			);
 			toast({
 				status: "error",
 				duration: 2500,
@@ -1322,9 +1309,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														validate: (value) => {
 															const tag = value.trim();
 															if (!tag) return requiredMessage;
-															const originalTag = String(
-																initialOutbound?.tag ?? "",
-															);
+															const originalTag = String(initialOutbound?.tag ?? "");
 															return (
 																!existingTags.includes(tag) ||
 																(mode === "edit" && tag === originalTag) ||
@@ -1333,9 +1318,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														},
 													})}
 												/>
-												<FormErrorMessage>
-													{errors.tag?.message}
-												</FormErrorMessage>
+												<FormErrorMessage>{errors.tag?.message}</FormErrorMessage>
 											</FormControl>
 											<XrayFieldGrid>
 												<FormControl isRequired>
@@ -1378,7 +1361,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 											</Text>
 											<VStack spacing={3} align="stretch">
 												<FormControl isRequired={requiresEndpoint}>
-													<FormLabel>{t("pages.outbound.address")}</FormLabel>
+													<FormLabel>
+														{t("pages.outbound.address")}
+													</FormLabel>
 													<Input
 														size="sm"
 														placeholder="example.com"
@@ -1395,7 +1380,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													alignItems="flex-end"
 												>
 													<FormControl isRequired={requiresEndpoint}>
-														<FormLabel>{t("port")}</FormLabel>
+														<FormLabel>
+															{t("port")}
+														</FormLabel>
 														<Input
 															size="sm"
 															type="number"
@@ -1524,7 +1511,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 												{typedProtocol === Protocols.Hysteria && (
 													<HStack spacing={3} flexWrap="wrap">
 														<FormControl minW="180px">
-															<FormLabel>{t("redisVersion")}</FormLabel>
+															<FormLabel>
+																{t("redisVersion")}
+															</FormLabel>
 															<Input
 																size="sm"
 																type="number"
@@ -1658,7 +1647,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 												{t("pages.outbound.freedom")}
 											</Text>
 											<FormControl>
-												<FormLabel>{t("pages.outbound.strategy")}</FormLabel>
+												<FormLabel>
+													{t("pages.outbound.strategy")}
+												</FormLabel>
 												<Input
 													size="sm"
 													placeholder="UseIP"
@@ -1681,31 +1672,6 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													{...register("blackholeResponse")}
 												/>
 											</FormControl>
-											{(watch("blackholeResponse") || "").toLowerCase() ===
-												"custom" && (
-												<FormControl
-													mt={3}
-													isInvalid={Boolean(
-														errors.blackholeCustomResponseData,
-													)}
-												>
-													<FormLabel>
-														Custom response data (Base64, Xray 26.9.8+)
-													</FormLabel>
-													<Input
-														size="sm"
-														{...register("blackholeCustomResponseData", {
-															validate: (value) =>
-																/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-																	value,
-																) || "Use standard Base64.",
-														})}
-													/>
-													<FormErrorMessage>
-														{errors.blackholeCustomResponseData?.message}
-													</FormErrorMessage>
-												</FormControl>
-											)}
 										</Box>
 									)}
 
@@ -1716,7 +1682,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 											</Text>
 											<VStack spacing={3} align="stretch">
 												<FormControl>
-													<FormLabel>{t("pages.outbound.secretKey")}</FormLabel>
+													<FormLabel>
+														{t("pages.outbound.secretKey")}
+													</FormLabel>
 													<Input size="sm" {...register("wireguardSecret")} />
 												</FormControl>
 												<FormControl>
@@ -1758,10 +1726,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 															<SearchableTagSelect
 																mode="single"
 																options={[
-																	{
-																		value: "",
-																		label: t("userDialog.flow.none"),
-																	},
+																	{ value: "", label: t("userDialog.flow.none") },
 																	...WireguardDomainStrategy,
 																]}
 																value={field.value ?? ""}
@@ -1772,14 +1737,6 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																searchPlaceholder={t("search")}
 															/>
 														)}
-													/>
-												</FormControl>
-												<FormControl>
-													<FormLabel>Remote DNS (Xray 26.9.8+)</FormLabel>
-													<Input
-														size="sm"
-														placeholder="1.1.1.1,8.8.8.8"
-														{...register("wireguardRemoteDNS")}
 													/>
 												</FormControl>
 												<FormControl>
@@ -1984,10 +1941,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	<SearchableTagSelect
 																		mode="single"
 																		options={[
-																			{
-																				value: "",
-																				label: t("userDialog.flow.none"),
-																			},
+																			{ value: "", label: t("userDialog.flow.none") },
 																			...XHTTP_MODE_OPTIONS,
 																		]}
 																		value={field.value ?? ""}
@@ -2017,7 +1971,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 												{network === "kcp" && (
 													<XrayFieldGrid>
 														<FormControl>
-															<FormLabel>{t("inbounds.kcp.seed")}</FormLabel>
+															<FormLabel>
+																{t("inbounds.kcp.seed")}
+															</FormLabel>
 															<Input size="sm" {...register("kcpSeed")} />
 														</FormControl>
 													</XrayFieldGrid>
@@ -2254,10 +2210,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																<SearchableTagSelect
 																	mode="single"
 																	options={[
-																		{
-																			value: "",
-																			label: t("userDialog.flow.none"),
-																		},
+																		{ value: "", label: t("userDialog.flow.none") },
 																		...TLS_FINGERPRINT_OPTIONS,
 																	]}
 																	value={field.value ?? ""}
@@ -2320,10 +2273,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																<SearchableTagSelect
 																	mode="single"
 																	options={[
-																		{
-																			value: "",
-																			label: t("userDialog.flow.none"),
-																		},
+																		{ value: "", label: t("userDialog.flow.none") },
 																		...TLS_FINGERPRINT_OPTIONS,
 																	]}
 																	value={field.value ?? ""}
@@ -2429,7 +2379,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 							<TabPanel>
 								<VStack align="stretch" spacing={3}>
 									<FormControl>
-										<FormLabel>{t("pages.outbound.configToJson")}</FormLabel>
+										<FormLabel>
+											{t("pages.outbound.configToJson")}
+										</FormLabel>
 										<HStack align="start" spacing={3}>
 											<Textarea
 												value={configInput}
