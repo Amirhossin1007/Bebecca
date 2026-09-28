@@ -30,7 +30,6 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { updateThemeColor } from "utils/themeColor";
 
@@ -337,14 +336,10 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 		if (theme !== activeTheme) {
 			if (typeof document !== "undefined" && "startViewTransition" in document) {
 				(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
-					flushSync(() => {
-						setColorMode(theme);
-						applyThemeMode(theme);
-					});
+					setColorMode(theme);
 				});
 			} else {
 				setColorMode(theme);
-				applyThemeMode(theme);
 			}
 		}
 	};

@@ -631,26 +631,19 @@ export function AppLayout() {
 
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 
-	const closeUserMenu = () => {
-		userMenu.onClose();
-		languageMenu.onClose();
-	};
-
 	const changeLanguage = (lang: string) => {
-		if (lang === i18n.language) return;
-		closeUserMenu();
 		if (typeof document !== "undefined" && "startViewTransition" in document) {
-			(document as unknown as { startViewTransition: (cb: () => Promise<void> | void) => void }).startViewTransition(async () => {
-				await i18n.changeLanguage(lang);
-				const dir = i18n.dir(lang);
-				document.documentElement.setAttribute("dir", dir);
-				document.documentElement.setAttribute("lang", lang);
-				document.body?.setAttribute("dir", dir);
-				await new Promise((resolve) => setTimeout(resolve, 35));
+			(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
+				i18n.changeLanguage(lang);
 			});
 		} else {
 			i18n.changeLanguage(lang);
 		}
+	};
+
+	const closeUserMenu = () => {
+		userMenu.onClose();
+		languageMenu.onClose();
 	};
 
 	const handleUserMenuClose = () => {
@@ -1060,7 +1053,7 @@ export function AppLayout() {
 				minH="100vh"
 				maxH="100vh"
 				overflow="hidden"
-				direction="row"
+				direction={isRTL ? "row-reverse" : "row"}
 				dir={isRTL ? "rtl" : "ltr"}
 				bg="panel.app"
 				sx={{
@@ -1086,9 +1079,9 @@ export function AppLayout() {
 					direction="column"
 					minW="0"
 					overflow="hidden"
-					ms={isMobile ? "0" : sidebarCollapsed ? "88px" : "260px"}
-					me="0"
-					transition="margin-inline-start 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
+					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
+					transition="margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
 				>
 					<Box
 						ref={headerRef}

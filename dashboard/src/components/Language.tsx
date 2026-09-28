@@ -47,19 +47,7 @@ export const Language: FC<HeaderProps> = ({
 	const textColor = useColorModeValue("gray.800", "gray.100");
 
 	const changeLanguage = (lang: string) => {
-		if (lang === i18n.language) return;
-		if (typeof document !== "undefined" && "startViewTransition" in document) {
-			(document as unknown as { startViewTransition: (cb: () => Promise<void> | void) => void }).startViewTransition(async () => {
-				await i18n.changeLanguage(lang);
-				const dir = i18n.dir(lang);
-				document.documentElement.setAttribute("dir", dir);
-				document.documentElement.setAttribute("lang", lang);
-				document.body?.setAttribute("dir", dir);
-				await new Promise((resolve) => setTimeout(resolve, 35));
-			});
-		} else {
-			i18n.changeLanguage(lang);
-		}
+		i18n.changeLanguage(lang);
 	};
 
 	const items = [
