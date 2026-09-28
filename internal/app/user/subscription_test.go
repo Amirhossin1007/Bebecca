@@ -149,7 +149,7 @@ func TestShadowsocksTLSUsesClientNativeLinkWithoutLossyConversion(t *testing.T) 
 		t.Fatal(err)
 	}
 	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
-	if stream["network"] != "ws" || stream["security"] != "tls" || stream["tlsSettings"].(map[string]any)["serverName"] != "sni.example.com" {
+	if stream["method"] != "ws" || stream["security"] != "tls" || stream["tlsSettings"].(map[string]any)["serverName"] != "sni.example.com" {
 		t.Fatalf("Xray JSON lost Shadowsocks TLS: %#v", stream)
 	}
 	if masks := listOfMaps(mapValue(stream["finalmask"])["tcp"]); len(masks) != 1 || stringValue(masks[0]["type"]) != "fragment" {
@@ -868,7 +868,7 @@ func TestXrayJSONPreservesCompleteCurrentFinalMaskAndMux(t *testing.T) {
 		want []string
 		mux  bool
 	}{
-		{name: "five UDP plus all QUIC", mask: full, want: []string{"header-custom", "mkcp-legacy", "noise", "salamander", "sudoku"}, mux: true},
+		{name: "five UDP plus all QUIC", mask: full, want: []string{"udphop", "header-custom", "mkcp-legacy", "noise", "salamander", "sudoku"}, mux: true},
 		{name: "XDNS", mask: map[string]any{"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{"domains": []any{"t.example.com:txt"}, "resolvers": []any{"t.example.com:txt+udp://8.8.8.8:53"}}}}}, want: []string{"xdns"}},
 		{name: "Realm", mask: map[string]any{"udp": []any{map[string]any{"type": "realm", "settings": map[string]any{"url": "realm://token@example.com/id", "stunServers": []any{"stun.example.com:3478"}}}}}, want: []string{"realm"}},
 		{name: "XICMP", mask: map[string]any{"udp": []any{map[string]any{"type": "xicmp", "settings": map[string]any{"dgram": true, "ips": []any{"1.1.1.1"}}}}}, want: []string{"xicmp"}},
@@ -898,10 +898,13 @@ func TestXrayJSONPreservesCompleteCurrentFinalMaskAndMux(t *testing.T) {
 					t.Fatalf("TCP masks changed: %#v", finalMask["tcp"])
 				}
 				gotQUIC := mapValue(finalMask["quicParams"])
-				if len(gotQUIC) != 14 {
+				if len(gotQUIC) != 13 {
 					t.Fatalf("QUIC fields changed: %#v", gotQUIC)
 				}
 				for key := range quic {
+					if key == "udpHop" {
+						continue
+					}
 					if _, ok := gotQUIC[key]; !ok {
 						t.Fatalf("QUIC field %q was dropped: %#v", key, gotQUIC)
 					}
@@ -1663,6 +1666,18 @@ func TestHysteria2GeckoUsesNativeDefaultsAcrossOutputs(t *testing.T) {
 	clash := mustRenderClashLikeYAML(t, "alice", []string{link}, true)
 	if !strings.Contains(clash, `obfs: "gecko"`) || !strings.Contains(clash, `obfs-min-packet-size: 512`) || !strings.Contains(clash, `obfs-max-packet-size: 1200`) {
 		t.Fatalf("Mihomo should preserve native Gecko: %s", clash)
+	}
+}
+
+func TestXrayJSONMovesHysteriaPortHoppingToCurrentMask(t *testing.T) {
+	link := "hysteria2://secret@example.com:443/?mport=20000-30000#hop"
+	current, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(current, `"type": "udphop"`) || !strings.Contains(current, `"remotePorts": "20000-30000"`) || strings.Contains(current, `"udpHop"`) {
+		t.Fatalf("current Xray JSON uses a removed UDP hop field: body=%s err=%v", current, err)
+	}
+	legacy, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(legacy, `"udpHop"`) || strings.Contains(legacy, `"type": "udphop"`) {
+		t.Fatalf("legacy JSON changed: body=%s err=%v", legacy, err)
 	}
 }
 

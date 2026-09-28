@@ -20,6 +20,7 @@ import (
 	"github.com/flosch/pongo2/v6"
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	"github.com/rebeccapanel/rebecca/internal/app/usage"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
 type SubscriptionClientConfig struct {
@@ -1104,12 +1105,12 @@ func selectSubscriptionClientType(userAgent string, settings SubscriptionSetting
 		if rule.Pattern == "" {
 			continue
 		}
-		
+
 		re, err := regexp.Compile(rule.Pattern)
 		if err != nil {
 			continue
 		}
-		
+
 		if re.MatchString(ua) {
 			return rule.Result
 		}
@@ -2254,6 +2255,9 @@ func renderXrayJSONSubscriptionWithMetadata(links []string, metadata []ConfigLin
 		config["remarks"] = remark
 		existing := listAny(config["outbounds"])
 		config["outbounds"] = append([]any{outbound}, existing...)
+		if current {
+			config, _ = xrayconfig.NormalizePayloadForXrayVersion(config, "26.9.9")
+		}
 		configs = append(configs, config)
 	}
 	if reverse {
