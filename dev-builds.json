@@ -1,9 +1,29 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "dev-78984f1",
-  "updated_at": "2026-09-29T00:44:51Z",
+  "latest": "dev-4a8d6c0",
+  "updated_at": "2026-09-29T01:33:29Z",
   "builds": [
+    {
+      "tag": "dev-4a8d6c0",
+      "sha": "4a8d6c09d9049a7cdb885ea9be20430160aca6b5",
+      "branch": "dev",
+      "workflow": "Binary Build",
+      "run_id": "36508153336",
+      "run_number": "365",
+      "created_at": "2026-09-29T01:33:29Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-dev-4a8d6c0.zip",
+          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-windows-amd64-dev-4a8d6c0.zip"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-4a8d6c0.tar.gz",
+          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-4a8d6c0.tar.gz"
+        }
+      }
+    },
     {
       "tag": "dev-78984f1",
       "sha": "78984f1689d955a2622211247a778a11e6dbece3",
@@ -981,26 +1001,6 @@
         "windows-amd64": {
           "name": "rebecca-windows-amd64-dev-3de7104.zip",
           "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-windows-amd64-dev-3de7104.zip"
-        }
-      }
-    },
-    {
-      "tag": "dev-7532cf3",
-      "sha": "7532cf34153c3951f3447f1639dfc815486a5dc9",
-      "branch": "dev",
-      "workflow": "Binary Build",
-      "run_id": "33990151333",
-      "run_number": "302",
-      "created_at": "2026-09-05T20:31:20Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-dev-7532cf3.tar.gz",
-          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-7532cf3.tar.gz"
-        },
-        "windows-amd64": {
-          "name": "rebecca-windows-amd64-dev-7532cf3.zip",
-          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-windows-amd64-dev-7532cf3.zip"
         }
       }
     }
