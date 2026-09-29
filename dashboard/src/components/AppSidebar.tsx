@@ -587,6 +587,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						align="center"
 						cursor="pointer"
 						onClick={() => navigate("/")}
+						transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
+						_active={{ transform: "scale(0.98)" }}
 					>
 						<Box
 							w="30px"
@@ -643,7 +645,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							icon={<XMarkIcon width={16} height={16} />}
 							onClick={onRequestExpand}
 							color="panel.textSecondary"
+							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							_hover={{ bg: "panel.elevated", color: "panel.text" }}
+							_active={{ transform: "scale(0.95)" }}
 						/>
 					)}
 				</Flex>
@@ -720,7 +724,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														fontSize="13px"
 														position="relative"
 														cursor="pointer"
-														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+														transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 														borderInlineStart="3px solid"
 														borderInlineStartColor={isCurrent ? "var(--rb-panel-accent)" : "transparent"}
 														_hover={{
@@ -728,6 +732,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																bg: isCurrent ? activeItemBg : hoverItemBg,
 																color: "panel.text",
 															},
+														}}
+														_active={{
+															transform: "scale(0.98)",
 														}}
 													>
 														<Box
@@ -859,7 +866,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													fontWeight={isGroupActive ? "600" : "500"}
 													fontSize="13px"
 													cursor="pointer"
-													transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 													borderInlineStart="3px solid"
 													borderInlineStartColor={isGroupActive ? "var(--rb-panel-accent)" : "transparent"}
 													onClick={() => {
@@ -872,6 +879,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															bg: hoverItemBg,
 															color: "panel.text",
 														},
+													}}
+													_active={{
+														transform: "scale(0.98)",
 													}}
 												>
 													<Box
@@ -1002,7 +1012,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						color={isSubActive ? "panel.text" : normalItemColor}
 																						borderInlineStart="2.5px solid"
 																						borderInlineStartColor={isSubActive ? "var(--rb-panel-accent)" : "transparent"}
+																						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 																						_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
+																						_active={{ transform: "scale(0.98)" }}
 																					>
 																						<Box as="span" color={isSubActive ? activeItemColor : "inherit"} fontSize="13px">
 																							<SubIcon />
@@ -1066,7 +1078,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						fontWeight={isSubActive ? "600" : "400"}
 																						fontSize="12px"
 																						cursor="pointer"
-																						transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+																						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 																						borderInlineStart="2.5px solid"
 																						borderInlineStartColor={isSubActive ? "var(--rb-panel-accent)" : "transparent"}
 																						_hover={{
@@ -1074,6 +1086,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																								bg: isSubActive ? activeItemBg : hoverItemBg,
 																								color: "panel.text",
 																							},
+																						}}
+																						_active={{
+																							transform: "scale(0.98)",
 																						}}
 																					>
 																						<HStack spacing={2} align="center">

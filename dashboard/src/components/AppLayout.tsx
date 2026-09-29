@@ -1146,7 +1146,8 @@ export function AppLayout() {
 								bg={headerButtonBg}
 								color="panel.textSecondary"
 								_hover={{ md: { bg: headerButtonHoverBg, borderColor: "panel.borderStrong", color: "panel.text" } }}
-								transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+								_active={{ transform: "scale(0.95)" }}
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							/>
 							<Box w="1px" h="16px" bg="panel.border" mx={0.5} flexShrink={0} />
 							<HStack
@@ -1181,7 +1182,8 @@ export function AppLayout() {
 													fontWeight="600"
 													color="panel.textSecondary"
 													_hover={{ md: { color: "panel.text" } }}
-													transition="color 0.18s ease"
+													_active={{ transform: "scale(0.98)" }}
+													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 													onClick={() => navigate(crumb.path!)}
 												>
 													<Text as="span" isTruncated>{crumb.label}</Text>
@@ -1287,12 +1289,12 @@ export function AppLayout() {
 												boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
 											},
 										}}
-										_active={{ bg: "panel.elevated" }}
+										_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
 										aria-label={t("a11y.userMenu")}
 										display="inline-flex"
 										alignItems="center"
 										justifyContent="center"
-										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 										onClick={() => {
 											if (userMenu.isOpen) {
 												handleUserMenuClose();
@@ -1451,8 +1453,9 @@ export function AppLayout() {
 												borderRadius="10px"
 												px={3}
 												bg="transparent"
+												transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 												_hover={{ bg: "panel.elevated" }}
-												_active={{ bg: "panel.elevated" }}
+												_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
 												_focusVisible={{ bg: "panel.elevated" }}
 												onClick={(e: ReactMouseEvent) => {
 													e.stopPropagation();
@@ -1853,8 +1856,9 @@ export function AppLayout() {
 															zIndex={1}
 															sx={{ touchAction: "manipulation" }}
 															userSelect="none"
+															transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
 															_hover={{ bg: "transparent" }}
-															_active={{ bg: "transparent" }}
+															_active={{ bg: "transparent", transform: "scale(0.96)" }}
 															_focus={{ bg: "transparent" }}
 														>
 															{navContent}
@@ -2090,8 +2094,9 @@ export function AppLayout() {
 															zIndex={1}
 															sx={{ touchAction: "manipulation" }}
 															userSelect="none"
+															transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
 															_hover={{ bg: "transparent" }}
-															_active={{ bg: "transparent" }}
+															_active={{ bg: "transparent", transform: "scale(0.96)" }}
 															_focus={{ bg: "transparent" }}
 														>
 															{navContent}
@@ -2165,8 +2170,9 @@ export function AppLayout() {
 												position="relative"
 												zIndex={1}
 												userSelect="none"
+												transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
 												_hover={{ bg: "transparent" }}
-												_active={{ bg: "transparent" }}
+												_active={{ bg: "transparent", transform: "scale(0.96)" }}
 												_focus={{ bg: "transparent" }}
 											>
 												{navContent}

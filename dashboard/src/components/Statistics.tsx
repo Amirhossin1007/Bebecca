@@ -48,6 +48,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "react-query";
+import { useNavigate } from "react-router-dom";
 import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
@@ -777,10 +778,14 @@ const HistoryModal: FC<{
 												zIndex={2}
 												opacity={isAvailable ? 1 : 0.4}
 												cursor={isAvailable ? "pointer" : "not-allowed"}
+												transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 												_hover={{
 													md: {
 														color: "panel.text",
 													},
+												}}
+												_active={{
+													transform: "scale(0.97)",
 												}}
 												_focusVisible={{
 													outline: "2px solid var(--rb-panel-accent)",
@@ -1031,7 +1036,7 @@ const ResourceCard: FC<{
 							bg="panel.elevated"
 							color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
 							fontWeight={colorMode === "light" ? "600" : "500"}
-							transition="all 0.2s ease"
+							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							_groupHover={{
 								md: {
 									bg: "panel.surface",
@@ -1046,6 +1051,7 @@ const ResourceCard: FC<{
 							}}
 							_active={{
 								bg: "panel.borderStrong !important",
+								transform: "scale(0.97)",
 							}}
 							_focusVisible={{
 								outline: "2px solid var(--rb-panel-accent)",
@@ -1424,6 +1430,7 @@ const SpeedItem: FC<{
 };
 
 export const Statistics: FC<BoxProps> = (props) => {
+	const navigate = useNavigate();
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
 	const { t, i18n } = useTranslation();
@@ -2110,7 +2117,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							bg="panel.elevated"
 							color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
 							fontWeight={colorMode === "light" ? "600" : "500"}
-							transition="all 0.2s ease"
+							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							_groupHover={{
 								md: {
 									bg: "panel.surface",
@@ -2125,6 +2132,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							}}
 							_active={{
 								bg: "panel.borderStrong !important",
+								transform: "scale(0.97)",
 							}}
 							_focusVisible={{
 								outline: "2px solid var(--rb-panel-accent)",
@@ -2232,8 +2240,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 									fontSize="11px"
 									h="22px"
 									px={2.5}
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+									_hover={{ md: { bg: "rgba(249, 115, 22, 0.12)" } }}
+									_active={{ transform: "scale(0.97)" }}
 									onClick={() => {
-										window.location.href = "/dashboard/settings#telegram";
+										navigate("/settings#telegram");
 									}}
 								>
 									{t("dashboard.system.goToTelegramSettings")}
@@ -2269,13 +2280,16 @@ export const Statistics: FC<BoxProps> = (props) => {
 						bg="panel.elevated"
 						color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
 						fontWeight={colorMode === "light" ? "600" : "500"}
-						transition="all 0.2s ease"
+						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 						_hover={{
-							bg: "panel.border !important",
-							color: "panel.text !important",
+							md: {
+								bg: "panel.border !important",
+								color: "panel.text !important",
+							},
 						}}
 						_active={{
 							bg: "panel.borderStrong !important",
+							transform: "scale(0.97)",
 						}}
 						_focusVisible={{
 							outline: "2px solid var(--rb-panel-accent)",
@@ -2387,11 +2401,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 									color={userTab === "all" ? "white" : "panel.text"}
 									position="relative"
 									zIndex={2}
-									transition="all 0.2s ease"
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 									_hover={{
 										md: {
 											color: userTab === "all" ? "white" : "panel.text",
 										},
+									}}
+									_active={{
+										transform: "scale(0.97)",
 									}}
 									_focusVisible={{
 										outline: "2px solid var(--rb-panel-accent)",
@@ -2437,11 +2454,14 @@ export const Statistics: FC<BoxProps> = (props) => {
 									color={userTab === "mine" ? "white" : "panel.text"}
 									position="relative"
 									zIndex={2}
-									transition="all 0.2s ease"
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 									_hover={{
 										md: {
 											color: userTab === "mine" ? "white" : "panel.text",
 										},
+									}}
+									_active={{
+										transform: "scale(0.97)",
 									}}
 									_focusVisible={{
 										outline: "2px solid var(--rb-panel-accent)",

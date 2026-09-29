@@ -234,7 +234,8 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 							borderColor: "panel.borderStrong",
 						},
 					}}
-					transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+					_active={{ transform: "scale(0.98)" }}
+					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 				>
 					<CalendarIcon color="panel.textSecondary" />
 					{showText && (
@@ -278,7 +279,9 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 									aria-label={t("dateTimePicker.previousMonth")}
 									icon={prevIcon}
 									onClick={handlePrevMonth}
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 									_hover={{ md: { bg: "panel.elevated" } }}
+									_active={{ transform: "scale(0.95)" }}
 								/>
 								<IconButton
 									size="xs"
@@ -287,7 +290,9 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 									aria-label={t("dateTimePicker.nextMonth")}
 									icon={nextIcon}
 									onClick={handleNextMonth}
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 									_hover={{ md: { bg: "panel.elevated" } }}
+									_active={{ transform: "scale(0.95)" }}
 								/>
 							</HStack>
 
@@ -324,12 +329,14 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 								onClick={handleResetToday}
 								opacity={isCurrentMonth ? 0.75 : 1}
 								borderColor={isCurrentMonth ? "transparent" : "panel.borderStrong"}
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 								_hover={{
 									md: {
 										bg: "panel.elevated",
-										opacity: 1,
+										borderColor: "panel.borderStrong",
 									},
 								}}
+								_active={{ transform: "scale(0.96)" }}
 							>
 								{t("calendar.today")}
 							</Button>

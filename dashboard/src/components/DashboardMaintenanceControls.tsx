@@ -21,6 +21,7 @@ import {
 	PopoverContent,
 	PopoverHeader,
 	PopoverTrigger,
+	Portal,
 	Progress,
 	Spinner,
 	Stack,
@@ -365,6 +366,8 @@ export const DashboardMaintenanceControls = ({
 					borderRadius="full"
 					isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading}
 					whiteSpace="nowrap"
+					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+					_active={{ transform: "scale(0.98)" }}
 				>
 					<HStack spacing={1.5} align="center" justify="center" w="full">
 						<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
@@ -378,34 +381,37 @@ export const DashboardMaintenanceControls = ({
 					</HStack>
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent
-				w="min(480px, calc(100vw - 24px))"
-				maxW="480px"
-				borderRadius="2xl"
-				boxShadow="0 24px 60px rgba(0,0,0,0.5)"
-				bg="panel.surface"
-				borderColor="panel.border"
-				borderWidth="1px"
-				p={1}
-				onClick={(e) => e.stopPropagation()}
-			>
-				<PopoverHeader fontWeight="700" fontSize="13px" py={3} px={4} borderColor="panel.border">
-					<Flex justify="space-between" align="center" gap={3}>
-						<Text fontSize="13px" fontWeight="700" color="panel.text">{t("dashboard.maintenance.title")}</Text>
-						<Button
-							size="xs"
-							variant="ghost"
-							borderRadius="full"
-							color="panel.textMuted"
-							_hover={{ color: "panel.text", bg: "panel.elevated" }}
-							leftIcon={<ArrowPathIcon width={13} height={13} />}
-							onClick={() => info.refetch()}
-							isLoading={info.isFetching}
-						>
-							{t("refresh")}
-						</Button>
-					</Flex>
-				</PopoverHeader>
+			<Portal>
+				<PopoverContent
+					w="min(480px, calc(100vw - 24px))"
+					maxW="480px"
+					borderRadius="2xl"
+					boxShadow="0 24px 60px rgba(0,0,0,0.5)"
+					bg="panel.surface"
+					borderColor="panel.border"
+					borderWidth="1px"
+					p={1}
+					onClick={(e) => e.stopPropagation()}
+				>
+					<PopoverHeader fontWeight="700" fontSize="13px" py={3} px={4} borderColor="panel.border">
+						<Flex justify="space-between" align="center" gap={3}>
+							<Text fontSize="13px" fontWeight="700" color="panel.text">{t("dashboard.maintenance.title")}</Text>
+							<Button
+								size="xs"
+								variant="ghost"
+								borderRadius="full"
+								color="panel.textMuted"
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+								_hover={{ color: "panel.text", bg: "panel.elevated" }}
+								_active={{ transform: "scale(0.96)" }}
+								leftIcon={<ArrowPathIcon width={13} height={13} />}
+								onClick={() => info.refetch()}
+								isLoading={info.isFetching}
+							>
+								{t("refresh")}
+							</Button>
+						</Flex>
+					</PopoverHeader>
 				<PopoverBody p={4}>
 					<Stack spacing={4}>
 						{info.isLoading && (
@@ -529,7 +535,9 @@ export const DashboardMaintenanceControls = ({
 								borderRadius="full"
 								borderColor="panel.border"
 								color="panel.text"
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 								_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
+								_active={{ transform: "scale(0.98)" }}
 								onClick={() => setConfirmAction("soft-reload")}
 								isLoading={reloadMutation.isLoading}
 								isDisabled={!hostActionsAvailable}
@@ -544,6 +552,8 @@ export const DashboardMaintenanceControls = ({
 								px={4}
 								colorScheme={update?.available ? "primary" : "gray"}
 								borderRadius="full"
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+								_active={{ transform: "scale(0.98)" }}
 								onClick={startUpdate}
 								isLoading={updateMutation.isLoading}
 								isDisabled={!hostActionsAvailable}
@@ -556,6 +566,7 @@ export const DashboardMaintenanceControls = ({
 					</Stack>
 				</PopoverBody>
 			</PopoverContent>
+			</Portal>
 		</Popover>
 	);
 
@@ -594,7 +605,9 @@ export const DashboardMaintenanceControls = ({
 						variant="outline"
 						borderColor="panel.border"
 						color="red.400"
-						_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
+						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+						_hover={{ md: { bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" } }}
+						_active={{ transform: "scale(0.98)" }}
 						borderRadius="full"
 						onClick={() => setConfirmAction("restart")}
 						isLoading={restartMutation.isLoading}
@@ -633,7 +646,9 @@ export const DashboardMaintenanceControls = ({
 							variant="outline"
 							borderColor="panel.border"
 							color="red.400"
-							_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
+							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+							_hover={{ md: { bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" } }}
+							_active={{ transform: "scale(0.98)" }}
 							borderRadius="full"
 							onClick={() => setConfirmAction("restart")}
 							isLoading={restartMutation.isLoading}
