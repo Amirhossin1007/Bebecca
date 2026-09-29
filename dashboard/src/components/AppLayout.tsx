@@ -634,13 +634,23 @@ export function AppLayout() {
 
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 
-	const changeLanguage = (lang: string) => {
+	const changeLanguage = async (lang: string) => {
+		closeUserMenu();
+		const applyChange = async () => {
+			await i18n.changeLanguage(lang);
+			const dir = i18n.dir(lang);
+			document.documentElement.dir = dir;
+			document.documentElement.lang = lang;
+		};
+
 		if (typeof document !== "undefined" && "startViewTransition" in document) {
-			(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
-				i18n.changeLanguage(lang);
-			});
+			(
+				document as unknown as {
+					startViewTransition: (cb: () => Promise<void>) => void;
+				}
+			).startViewTransition(applyChange);
 		} else {
-			i18n.changeLanguage(lang);
+			await applyChange();
 		}
 	};
 
@@ -778,6 +788,30 @@ export function AppLayout() {
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
 	const SettingsNavIcon = activeSettingsItem?.icon ?? SettingsIcon;
+
+	const getCompactDockLabel = useCallback(
+		(item: BottomNavItem, isSettings: boolean) => {
+			if (!isSettings || !activeSettingsItem) return item.label;
+			const key = activeSettingsItem.key;
+			if (key === "services") return t("services.title") || "Services";
+			if (key === "hosts") return t("hosts.title") || "Hosts";
+			if (key === "node-settings") return t("nodes") || "Nodes";
+			if (key === "haproxy") return "HAProxy";
+			if (key === "xray-settings") return "Xray";
+			if (key === "settings") return t("sidebar.settings") || "Settings";
+			if (key === "xray-logs") return t("pages.xray.logs") || "Logs";
+			if (key === "access-insights") return t("header.accessInsights") || "Insights";
+			if (key === "recent-actions") return t("recentActions.title") || "Actions";
+			if (key === "tutorials") return t("sidebar.sections.docs") || "Docs";
+			if (key === "api-docs") return "API";
+			if (key === "phpmyadmin") return "DB";
+			if (key === "placeholders") return "Placeholders";
+			const full = activeSettingsItem.label || item.label;
+			return full.length > 12 ? `${full.slice(0, 11)}…` : full;
+		},
+		[activeSettingsItem, t],
+	);
+
 	const popoverModifiers = useMemo(
 		() => [
 			{
@@ -1695,29 +1729,64 @@ export function AppLayout() {
 								borderColor={dockBorder}
 								boxShadow={dockShadow}
 								borderWidth="1px"
-								borderRadius="full"
-								px="3"
+								borderRadius="24px"
+								px="2"
 								py="1.5"
-								maxW="min(490px, calc(100vw - 16px))"
+								maxW="min(440px, calc(100vw - 20px))"
 								mx="auto"
 								position="relative"
-								backdropFilter="blur(8px)"
+								backdropFilter="blur(16px)"
 								sx={{
-									WebkitBackdropFilter: "blur(8px)",
+									WebkitBackdropFilter: "blur(16px)",
 								}}
 							>
+								{(() => {
+									const dockItemCount = bottomNavItems.length;
+									const activeDockIndex = bottomNavItems.findIndex(
+										(it) => it.key === selectedTabKey,
+									);
+									if (activeDockIndex < 0 || dockItemCount === 0) return null;
+									return (
+										<Box
+											position="absolute"
+											top="6px"
+											bottom="6px"
+											width={`calc((100% - 16px) / ${dockItemCount})`}
+											left={isRTL ? undefined : "8px"}
+											right={isRTL ? "8px" : undefined}
+											transform={
+												isRTL
+													? `translateX(calc(-${activeDockIndex * 100}%))`
+													: `translateX(calc(${activeDockIndex * 100}%))`
+											}
+											transition="transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
+											borderRadius="18px"
+											bg="panel.elevated"
+											borderWidth="1px"
+											borderColor="panel.borderStrong"
+											boxShadow="0 2px 8px rgba(0, 0, 0, 0.12)"
+											pointerEvents="none"
+											zIndex={0}
+											sx={{
+												willChange: "transform",
+											}}
+										/>
+									);
+								})()}
+
 								<HStack
 									justify="space-between"
 									position="relative"
 									align="center"
 									spacing={1}
 									dir={isRTL ? "rtl" : "ltr"}
+									zIndex={1}
 								>
 									{bottomNavItems.map((item) => {
 										const isActive = resolveActive(item);
 										const isSelected = selectedTabKey === item.key;
 										const isSettingsItem = item.key === "settings";
-										const displayLabel = isSettingsItem && activeSettingsItem ? activeSettingsItem.label : item.label;
+										const displayLabel = getCompactDockLabel(item, isSettingsItem);
 										const DisplayIcon = isSettingsItem
 											? (activeSettingsItem?.icon ?? SettingsNavIcon)
 											: (
@@ -1730,73 +1799,42 @@ export function AppLayout() {
 											<Box
 												w="full"
 												display="flex"
+												flexDirection="column"
+												alignItems="center"
 												justifyContent="center"
 												minW="0"
+												py="1"
+												px="1"
+												position="relative"
+												zIndex={1}
 											>
 												<Box
-													position="relative"
-													display="inline-flex"
-													flexDirection="column"
-													alignItems="center"
-													justifyContent="center"
-													px="2"
-													py="1"
-													w="full"
-													borderRadius="14px"
+													w="6"
+													h="6"
+													display="grid"
+													placeItems="center"
+													color={isSelected ? "var(--rb-panel-accent)" : dockInactiveIcon}
+													transform={isSelected ? "scale(1.08) translateY(-1px)" : "scale(1) translateY(0)"}
+													transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 												>
-													<Box
-														position="absolute"
-														inset="0"
-														borderRadius="14px"
-														bg="panel.elevated"
-														borderWidth="1px"
-														borderColor="panel.borderStrong"
-														boxShadow="0 2px 6px rgba(0, 0, 0, 0.08)"
-														pointerEvents="none"
-														opacity={isSelected ? 1 : 0}
-														transform={isSelected ? "scale(1)" : "scale(0.92)"}
-														transition="opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
-														sx={{ willChange: "opacity, transform" }}
-													/>
-													<Box
-														position="relative"
-														zIndex={1}
-														w="6"
-														h="6"
-														display="grid"
-														placeItems="center"
-														color={isSelected ? "var(--rb-panel-accent)" : dockInactiveIcon}
-														transition="color 0.2s ease"
-													>
-														<motion.div
-															animate={{
-																y: isSelected ? -1 : 0,
-																scale: isSelected ? 1.08 : 1,
-															}}
-															transition={{
-																duration: 0.2,
-																ease: [0.16, 1, 0.3, 1],
-															}}
-															style={{ position: "relative", zIndex: 1 }}
-														>
-															<DisplayIcon />
-														</motion.div>
-													</Box>
-													<Text
-														position="relative"
-														zIndex={1}
-														fontSize="11px"
-														lineHeight="1.2"
-														fontWeight={isSelected ? "600" : "500"}
-														textAlign="center"
-														whiteSpace="nowrap"
-														mt="1px"
-														color={isSelected ? "panel.text" : dockInactiveText}
-														transition="color 0.2s ease"
-													>
-														{displayLabel}
-													</Text>
+													<DisplayIcon />
 												</Box>
+												<Text
+													fontSize="10px"
+													lineHeight="1.2"
+													fontWeight={isSelected ? "600" : "500"}
+													textAlign="center"
+													whiteSpace="nowrap"
+													overflow="hidden"
+													textOverflow="ellipsis"
+													maxW="100%"
+													px="0.5"
+													mt="2px"
+													color={isSelected ? "panel.text" : dockInactiveText}
+													transition="color 0.2s ease"
+												>
+													{displayLabel}
+												</Text>
 											</Box>
 										);
 

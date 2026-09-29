@@ -345,7 +345,14 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	};
 
 	const selectAccent = (accent: string) => {
-		setActiveAccent(accent);
+		if (accent === activeAccent) return;
+		if (typeof document !== "undefined" && "startViewTransition" in document) {
+			(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
+				setActiveAccent(accent);
+			});
+		} else {
+			setActiveAccent(accent);
+		}
 	};
 
 	const renderThemeCard = (theme: (typeof THEME_OPTIONS)[number]) => {
