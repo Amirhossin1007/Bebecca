@@ -557,7 +557,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					? undefined
 					: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px -8px rgba(0, 0, 0, 0.28)"
 			}
-			transition="width 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+			transition={inDrawer ? "none" : "width 0.22s cubic-bezier(0.16, 1, 0.3, 1)"}
 			position={inDrawer ? "relative" : "fixed"}
 			top={inDrawer ? undefined : "12px"}
 			left={inDrawer || isRTL ? undefined : "12px"}

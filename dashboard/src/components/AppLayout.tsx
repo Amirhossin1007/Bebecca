@@ -19,6 +19,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 	Portal,
+	SimpleGrid,
 	Text,
 	useBreakpointValue,
 	useColorModeValue,
@@ -636,22 +637,10 @@ export function AppLayout() {
 
 	const changeLanguage = async (lang: string) => {
 		closeUserMenu();
-		const applyChange = async () => {
-			await i18n.changeLanguage(lang);
-			const dir = i18n.dir(lang);
-			document.documentElement.dir = dir;
-			document.documentElement.lang = lang;
-		};
-
-		if (typeof document !== "undefined" && "startViewTransition" in document) {
-			(
-				document as unknown as {
-					startViewTransition: (cb: () => Promise<void>) => void;
-				}
-			).startViewTransition(applyChange);
-		} else {
-			await applyChange();
-		}
+		await i18n.changeLanguage(lang);
+		const dir = i18n.dir(lang);
+		document.documentElement.dir = dir;
+		document.documentElement.lang = lang;
 	};
 
 	const closeUserMenu = () => {
@@ -788,29 +777,6 @@ export function AppLayout() {
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
 	const SettingsNavIcon = activeSettingsItem?.icon ?? SettingsIcon;
-
-	const getCompactDockLabel = useCallback(
-		(item: BottomNavItem, isSettings: boolean) => {
-			if (!isSettings || !activeSettingsItem) return item.label;
-			const key = activeSettingsItem.key;
-			if (key === "services") return t("services.title") || "Services";
-			if (key === "hosts") return t("hosts.title") || "Hosts";
-			if (key === "node-settings") return t("nodes") || "Nodes";
-			if (key === "haproxy") return "HAProxy";
-			if (key === "xray-settings") return "Xray";
-			if (key === "settings") return t("sidebar.settings") || "Settings";
-			if (key === "xray-logs") return t("pages.xray.logs") || "Logs";
-			if (key === "access-insights") return t("header.accessInsights") || "Insights";
-			if (key === "recent-actions") return t("recentActions.title") || "Actions";
-			if (key === "tutorials") return t("sidebar.sections.docs") || "Docs";
-			if (key === "api-docs") return "API";
-			if (key === "phpmyadmin") return "DB";
-			if (key === "placeholders") return "Placeholders";
-			const full = activeSettingsItem.label || item.label;
-			return full.length > 12 ? `${full.slice(0, 11)}…` : full;
-		},
-		[activeSettingsItem, t],
-	);
 
 	const popoverModifiers = useMemo(
 		() => [
@@ -1635,7 +1601,7 @@ export function AppLayout() {
 						onClose={sidebarDrawer.onClose}
 						size="xs"
 					>
-						<DrawerOverlay bg="blackAlpha.600" backdropFilter="blur(6px)" />
+						<DrawerOverlay bg="blackAlpha.700" />
 						<DrawerContent
 							bg="panel.surface"
 							borderInlineEndWidth="1px"
@@ -1749,36 +1715,43 @@ export function AppLayout() {
 									return (
 										<Box
 											position="absolute"
-											top="6px"
-											bottom="6px"
-											width={`calc((100% - 16px) / ${dockItemCount})`}
-											left={isRTL ? undefined : "8px"}
-											right={isRTL ? "8px" : undefined}
+											top="5px"
+											bottom="5px"
+											width={`calc(100% / ${dockItemCount})`}
+											left={isRTL ? undefined : "0px"}
+											right={isRTL ? "0px" : undefined}
 											transform={
 												isRTL
 													? `translateX(calc(-${activeDockIndex * 100}%))`
 													: `translateX(calc(${activeDockIndex * 100}%))`
 											}
 											transition="transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
-											borderRadius="18px"
-											bg="panel.elevated"
-											borderWidth="1px"
-											borderColor="panel.borderStrong"
-											boxShadow="0 2px 8px rgba(0, 0, 0, 0.12)"
+											p="2px"
 											pointerEvents="none"
 											zIndex={0}
 											sx={{
 												willChange: "transform",
 											}}
-										/>
+										>
+											<Box
+												w="full"
+												h="full"
+												borderRadius="18px"
+												bg="panel.elevated"
+												borderWidth="1px"
+												borderColor="panel.borderStrong"
+												boxShadow="0 2px 8px rgba(0, 0, 0, 0.12)"
+											/>
+										</Box>
 									);
 								})()}
 
-								<HStack
-									justify="space-between"
+								<SimpleGrid
+									columns={bottomNavItems.length}
+									spacing={0}
+									w="full"
 									position="relative"
-									align="center"
-									spacing={1}
+									alignItems="center"
 									dir={isRTL ? "rtl" : "ltr"}
 									zIndex={1}
 								>
@@ -1786,7 +1759,7 @@ export function AppLayout() {
 										const isActive = resolveActive(item);
 										const isSelected = selectedTabKey === item.key;
 										const isSettingsItem = item.key === "settings";
-										const displayLabel = getCompactDockLabel(item, isSettingsItem);
+										const displayLabel = isSettingsItem && activeSettingsItem ? activeSettingsItem.label : item.label;
 										const DisplayIcon = isSettingsItem
 											? (activeSettingsItem?.icon ?? SettingsNavIcon)
 											: (
@@ -1864,7 +1837,7 @@ export function AppLayout() {
 															_dark={{
 																color: isActive ? "primary.300" : "gray.300",
 															}}
-															flex="1"
+															w="full"
 															minW="0"
 															minH="46px"
 															h="auto"
@@ -2104,7 +2077,7 @@ export function AppLayout() {
 															_dark={{
 																color: isActive ? "primary.300" : "gray.300",
 															}}
-															flex="1"
+															w="full"
 															minW="0"
 															minH="46px"
 															h="auto"
@@ -2181,7 +2154,7 @@ export function AppLayout() {
 												}}
 												color={isActive ? "primary.500" : "gray.600"}
 												_dark={{ color: isActive ? "primary.300" : "gray.300" }}
-												flex="1"
+												w="full"
 												minW="0"
 												minH="46px"
 												h="auto"
@@ -2198,7 +2171,7 @@ export function AppLayout() {
 											</Button>
 										);
 									})}
-								</HStack>
+								</SimpleGrid>
 							</Box>
 						</Box>
 					</>

@@ -334,25 +334,13 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	const selectTheme = (theme: ThemeMode) => {
 		if (theme !== activeTheme) {
-			if (typeof document !== "undefined" && "startViewTransition" in document) {
-				(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
-					setColorMode(theme);
-				});
-			} else {
-				setColorMode(theme);
-			}
+			setColorMode(theme);
 		}
 	};
 
 	const selectAccent = (accent: string) => {
 		if (accent === activeAccent) return;
-		if (typeof document !== "undefined" && "startViewTransition" in document) {
-			(document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
-				setActiveAccent(accent);
-			});
-		} else {
-			setActiveAccent(accent);
-		}
+		setActiveAccent(accent);
 	};
 
 	const renderThemeCard = (theme: (typeof THEME_OPTIONS)[number]) => {
