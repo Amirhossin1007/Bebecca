@@ -1114,8 +1114,6 @@ export function AppLayout() {
 						gap={3}
 						dir={isRTL ? "rtl" : "ltr"}
 						sx={{
-							contain: "paint",
-							willChange: "transform",
 							WebkitBackdropFilter: "blur(8px)",
 						}}
 					>
@@ -1348,9 +1346,10 @@ export function AppLayout() {
 											)}
 										</HStack>
 									</MenuButton>
-									<MenuList
-										dir={isRTL ? "rtl" : "ltr"}
-										ref={userMenuContentRef}
+									<Portal>
+										<MenuList
+											dir={isRTL ? "rtl" : "ltr"}
+											ref={userMenuContentRef}
 										minW="230px"
 										p={2}
 										borderRadius="20px"
@@ -1576,7 +1575,8 @@ export function AppLayout() {
 											{t("header.logout")}
 										</MenuItem>
 									</MenuList>
-								</Menu>
+								</Portal>
+							</Menu>
 							)}
 						</HStack>
 					</Box>
@@ -1703,8 +1703,6 @@ export function AppLayout() {
 								position="relative"
 								backdropFilter="blur(8px)"
 								sx={{
-									contain: "paint",
-									willChange: "transform",
 									WebkitBackdropFilter: "blur(8px)",
 								}}
 							>

@@ -10,6 +10,7 @@ import {
 	PopoverBody,
 	PopoverContent,
 	PopoverTrigger,
+	Portal,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -248,18 +249,20 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 					)}
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent
-				w="fit-content"
-				minW="300px"
-				p={3.5}
-				borderRadius="20px"
-				borderWidth="1px"
-				borderColor={cardBorder}
-				bg={cardBg}
-				backdropFilter="blur(8px)"
-				boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
-				_focus={{ outline: "none" }}
-			>
+			<Portal>
+				<PopoverContent
+					w="fit-content"
+					minW="300px"
+					p={3.5}
+					borderRadius="20px"
+					borderWidth="1px"
+					borderColor={cardBorder}
+					bg={cardBg}
+					backdropFilter="blur(8px)"
+					boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
+					_focus={{ outline: "none" }}
+					zIndex={9999}
+				>
 				<PopoverBody p={0}>
 					<Stack spacing={3}>
 						<Flex
@@ -426,6 +429,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 					</Stack>
 				</PopoverBody>
 			</PopoverContent>
-		</Popover>
+		</Portal>
+	</Popover>
 	);
 };

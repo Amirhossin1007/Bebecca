@@ -567,7 +567,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			userSelect="none"
 			zIndex={200}
 			sx={{
-				contain: inDrawer ? undefined : "layout style paint",
+				contain: inDrawer ? undefined : "layout style",
 				willChange: inDrawer ? undefined : "width",
 			}}
 		>
