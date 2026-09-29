@@ -721,8 +721,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														position="relative"
 														cursor="pointer"
 														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-														borderInlineStartWidth={isCurrent ? "3px" : "0px"}
-														borderInlineStartColor="var(--rb-panel-accent)"
+														borderInlineStart="3px solid"
+														borderInlineStartColor={isCurrent ? "var(--rb-panel-accent)" : "transparent"}
 														_hover={{
 															md: {
 																bg: isCurrent ? activeItemBg : hoverItemBg,
@@ -870,8 +870,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																color={isGroupActive ? activeItemColor : normalItemColor}
 																cursor="pointer"
 																transition="all 0.2s ease"
-																borderInlineStartWidth={isGroupActive ? "3px" : "0px"}
-																borderInlineStartColor="var(--rb-panel-accent)"
+																borderInlineStart="3px solid"
+																borderInlineStartColor={isGroupActive ? "var(--rb-panel-accent)" : "transparent"}
 																_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
 															>
 																<Box
@@ -895,7 +895,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																minW="150px"
 																maxW="190px"
 																boxShadow="0 10px 28px rgba(0,0,0,0.28)"
-																backdropFilter="blur(8px)"
 																dir={isRTL ? "rtl" : "ltr"}
 																zIndex={9999}
 																_focus={{ outline: "none" }}
@@ -938,8 +937,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						fontWeight={isSubActive ? "600" : "500"}
 																						bg={isSubActive ? activeItemBg : "transparent"}
 																						color={isSubActive ? "panel.text" : normalItemColor}
-																						borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
-																						borderInlineStartColor="var(--rb-panel-accent)"
+																						borderInlineStart="2.5px solid"
+																						borderInlineStartColor={isSubActive ? "var(--rb-panel-accent)" : "transparent"}
 																						_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
 																					>
 																						<Box as="span" color={isSubActive ? activeItemColor : "inherit"} fontSize="13px">
@@ -1088,8 +1087,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						fontSize="12px"
 																						cursor="pointer"
 																						transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
-																						borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
-																						borderInlineStartColor="var(--rb-panel-accent)"
+																						borderInlineStart="2.5px solid"
+																						borderInlineStartColor={isSubActive ? "var(--rb-panel-accent)" : "transparent"}
 																						_hover={{
 																							md: {
 																								bg: isSubActive ? activeItemBg : hoverItemBg,

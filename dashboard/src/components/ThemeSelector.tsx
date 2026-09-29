@@ -413,7 +413,6 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 			borderWidth="1px"
 			borderRadius="20px"
 			boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
-			backdropFilter="blur(8px)"
 			color={textColor}
 			zIndex={9999}
 			p={3.5}

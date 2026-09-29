@@ -687,7 +687,7 @@ export const DashboardMaintenanceControls = ({
 				isCentered
 				size="xl"
 			>
-				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(16px)" />
+				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
 					borderRadius="24px"
 					overflow="hidden"
@@ -936,7 +936,7 @@ export const DashboardMaintenanceControls = ({
 				isCentered
 				size="md"
 			>
-				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(6px)" />
+				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
 					bg="panel.surface"
 					borderColor="panel.border"

@@ -246,8 +246,8 @@ export function AppLayout() {
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
 	const dockBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.94)",
-		"rgba(30, 30, 30, 0.90)",
+		"rgba(255, 255, 255, 0.98)",
+		"rgba(24, 27, 34, 0.98)",
 	);
 	const dockBorder = useColorModeValue(
 		"rgba(0, 0, 0, 0.12)",
@@ -261,8 +261,8 @@ export function AppLayout() {
 	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
 	const shellHeaderBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.90)",
-		"rgba(36, 36, 36, 0.88)",
+		"rgba(255, 255, 255, 0.98)",
+		"rgba(22, 25, 32, 0.98)",
 	);
 	const shellHeaderShadow = useColorModeValue(
 		"0 18px 48px rgba(15, 23, 42, 0.10)",
@@ -1099,7 +1099,6 @@ export function AppLayout() {
 						borderRadius="20px"
 						bg={shellHeaderBg}
 						boxShadow={shellHeaderShadow}
-						backdropFilter="blur(8px)"
 						mt="3"
 						mx={{ base: "3", md: "4" }}
 						display="flex"
@@ -1113,11 +1112,8 @@ export function AppLayout() {
 						userSelect="none"
 						gap={3}
 						dir={isRTL ? "rtl" : "ltr"}
-						sx={{
-							WebkitBackdropFilter: "blur(8px)",
-						}}
 					>
-						<HStack spacing={3} alignItems="center" flex="1" minW="0" h="full">
+						<HStack spacing={2.5} alignItems="center" flex="1" minW="0" h="full">
 							<IconButton
 								size="sm"
 								w="34px"
@@ -1144,6 +1140,7 @@ export function AppLayout() {
 								_hover={{ md: { bg: headerButtonHoverBg, borderColor: "panel.borderStrong", color: "panel.text" } }}
 								transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 							/>
+							<Box w="1px" h="16px" bg="panel.border" mx={0.5} flexShrink={0} />
 							<HStack
 								data-header-breadcrumb
 								aria-label="Breadcrumb navigation"
@@ -1357,7 +1354,6 @@ export function AppLayout() {
 										borderColor="panel.border"
 										bg="panel.surface"
 										boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
-										backdropFilter="blur(8px)"
 										zIndex={9999}
 										userSelect="none"
 										sx={{
@@ -1475,7 +1471,6 @@ export function AppLayout() {
 													borderWidth="1px"
 													borderColor="panel.border"
 													bg="panel.surface"
-													backdropFilter="blur(8px)"
 													boxShadow="0 18px 42px rgba(0, 0, 0, 0.35)"
 													zIndex={9999}
 													userSelect="none"
@@ -1701,10 +1696,6 @@ export function AppLayout() {
 								maxW="min(440px, calc(100vw - 20px))"
 								mx="auto"
 								position="relative"
-								backdropFilter="blur(16px)"
-								sx={{
-									WebkitBackdropFilter: "blur(16px)",
-								}}
 							>
 								{(() => {
 									const dockItemCount = bottomNavItems.length;
@@ -1865,7 +1856,6 @@ export function AppLayout() {
 															borderColor="panel.border"
 															borderWidth="1px"
 															boxShadow="0 24px 48px rgba(0, 0, 0, 0.45)"
-															backdropFilter="blur(8px)"
 															p={2.5}
 															dir={isRTL ? "rtl" : "ltr"}
 														>
@@ -2103,7 +2093,6 @@ export function AppLayout() {
 															borderColor="panel.border"
 															borderWidth="1px"
 															boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
-															backdropFilter="blur(8px)"
 															p={2}
 														>
 															<PopoverBody p={0}>

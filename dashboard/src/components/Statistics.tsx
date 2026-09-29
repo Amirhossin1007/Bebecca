@@ -644,9 +644,7 @@ const HistoryModal: FC<{
 
 					return `
 						<div style="
-							background: rgba(22, 23, 28, 0.92);
-							backdrop-filter: blur(16px);
-							-webkit-backdrop-filter: blur(16px);
+							background: rgba(18, 21, 28, 0.98);
 							border: 1px solid rgba(255, 255, 255, 0.12);
 							border-radius: 12px;
 							background-clip: padding-box;
@@ -681,7 +679,7 @@ const HistoryModal: FC<{
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(16px)" />
+			<ModalOverlay bg="blackAlpha.700" />
 			<ModalContent
 				bg="panel.surface"
 				borderWidth="1px"
@@ -890,8 +888,7 @@ const HistoryModal: FC<{
 											left: 0,
 											right: 0,
 											bottom: 0,
-											backgroundColor: "rgba(10, 12, 16, 0.7)",
-											backdropFilter: "blur(6px)",
+											backgroundColor: "rgba(10, 12, 16, 0.85)",
 											borderRadius: "16px",
 											zIndex: 10,
 											display: "flex",

@@ -258,7 +258,6 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 					borderWidth="1px"
 					borderColor={cardBorder}
 					bg={cardBg}
-					backdropFilter="blur(8px)"
 					boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
 					_focus={{ outline: "none" }}
 					zIndex={9999}

@@ -159,8 +159,9 @@ const sharedThemeConfig = {
 					bg: mode("panel.surface", "panel.surface")(props),
 					borderWidth: "1px",
 					borderColor: mode("panel.border", "panel.border")(props),
-					boxShadow: "none",
-					borderRadius: "6px",
+					boxShadow: mode("0 1px 3px 0 rgba(0, 0, 0, 0.04)", "0 1px 3px 0 rgba(0, 0, 0, 0.2)")(props),
+					borderRadius: "16px",
+					transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease",
 				},
 			}),
 		},
@@ -170,8 +171,8 @@ const sharedThemeConfig = {
 					bg: mode("panel.surface", "panel.surface")(props),
 					borderWidth: "1px",
 					borderColor: mode("panel.border", "panel.border")(props),
-					borderRadius: "6px",
-					boxShadow: "0 20px 60px rgba(0, 0, 0, 0.42)",
+					borderRadius: "20px",
+					boxShadow: "0 24px 64px rgba(0, 0, 0, 0.42)",
 				},
 				header: {
 					borderBottomWidth: "1px",
@@ -200,13 +201,22 @@ const sharedThemeConfig = {
 						bg: mode("panel.surface", "panel.surface")(props),
 						borderWidth: "1px",
 						borderColor: mode("panel.border", "panel.border")(props),
-						boxShadow: "0 18px 48px rgba(0, 0, 0, 0.38)",
+						boxShadow: "0 14px 40px rgba(0, 0, 0, 0.32)",
+						borderRadius: "14px",
+						p: "5px",
 					},
 					item: {
 						bg: "transparent !important",
+						borderRadius: "8px",
+						h: "34px",
+						px: "10px",
+						fontSize: "13px",
+						fontWeight: "500",
 						color: mode("panel.text", "panel.text")(props),
 						_hover: {
-							bg: `${hoverBg} !important`,
+							md: {
+								bg: `${hoverBg} !important`,
+							},
 						},
 						_focus: {
 							bg: `${hoverBg} !important`,
@@ -224,7 +234,8 @@ const sharedThemeConfig = {
 					bg: mode("panel.surface", "panel.surface")(props),
 					borderWidth: "1px",
 					borderColor: mode("panel.border", "panel.border")(props),
-					boxShadow: "0 18px 48px rgba(0, 0, 0, 0.38)",
+					boxShadow: "0 14px 40px rgba(0, 0, 0, 0.32)",
+					borderRadius: "14px",
 				},
 				header: {
 					borderBottomWidth: "1px",
@@ -249,7 +260,9 @@ const sharedThemeConfig = {
 				button: {
 					bg: "transparent",
 					_hover: {
-						bg: mode("panel.elevated", "panel.elevated")(props),
+						md: {
+							bg: mode("panel.elevated", "panel.elevated")(props),
+						},
 					},
 					_expanded: {
 						bg: mode("panel.elevated", "panel.elevated")(props),
@@ -263,7 +276,7 @@ const sharedThemeConfig = {
 		Alert: {
 			baseStyle: {
 				container: {
-					borderRadius: "6px",
+					borderRadius: "10px",
 					fontSize: "sm",
 				},
 			},
@@ -273,12 +286,14 @@ const sharedThemeConfig = {
 				field: {
 					bg: "panel.surface",
 					color: "panel.text",
+					borderRadius: "10px",
+					borderColor: "panel.border",
 					_dark: {
 						borderColor: "panel.borderStrong",
-						borderRadius: "6px",
+						borderRadius: "10px",
 					},
 					_light: {
-						borderRadius: "6px",
+						borderRadius: "10px",
 					},
 				},
 			},
@@ -310,6 +325,8 @@ const sharedThemeConfig = {
 				field: {
 					bg: "panel.surface",
 					color: "panel.text",
+					borderRadius: "10px",
+					borderColor: "panel.border",
 					_focusVisible: {
 						boxShadow: "none",
 						borderColor: "primary.500",
@@ -408,14 +425,66 @@ const sharedThemeConfig = {
 			},
 		},
 		Button: {
+			baseStyle: {
+				fontWeight: "500",
+				borderRadius: "10px",
+				transition: "all 0.16s cubic-bezier(0.16, 1, 0.3, 1)",
+				_active: { transform: "scale(0.98)" },
+				_focusVisible: {
+					outline: "2px solid var(--rb-panel-accent)",
+					outlineOffset: "2px",
+					boxShadow: "none",
+				},
+			},
 			variants: {
-				outline: (props: StyleFunctionProps) => ({
-					borderColor: mode("blackAlpha.300", "whiteAlpha.300")(props),
+				solid: {
+					bg: "panel.accent",
+					color: "#ffffff",
 					_hover: {
-						bg: mode("blackAlpha.50", "whiteAlpha.100")(props),
+						md: {
+							opacity: 0.92,
+							boxShadow: "0 2px 8px rgba(0, 0, 0, 0.16)",
+						},
 					},
 					_active: {
-						bg: mode("blackAlpha.100", "whiteAlpha.200")(props),
+						opacity: 0.85,
+					},
+				},
+				outline: (props: StyleFunctionProps) => ({
+					borderWidth: "1px",
+					borderColor: mode("panel.border", "panel.border")(props),
+					bg: "transparent",
+					color: mode("panel.text", "panel.text")(props),
+					_hover: {
+						md: {
+							bg: mode("panel.elevated", "panel.elevated")(props),
+							borderColor: mode("panel.borderStrong", "panel.borderStrong")(props),
+						},
+					},
+					_active: {
+						bg: mode("panel.elevated", "panel.elevated")(props),
+					},
+				}),
+				ghost: (props: StyleFunctionProps) => ({
+					bg: "transparent",
+					color: mode("panel.textSecondary", "panel.textSecondary")(props),
+					_hover: {
+						md: {
+							bg: mode("panel.elevated", "panel.elevated")(props),
+							color: mode("panel.text", "panel.text")(props),
+						},
+					},
+					_active: {
+						bg: mode("panel.elevated", "panel.elevated")(props),
+					},
+				}),
+				secondary: (props: StyleFunctionProps) => ({
+					bg: mode("panel.elevated", "panel.elevated")(props),
+					color: mode("panel.text", "panel.text")(props),
+					_hover: {
+						md: {
+							bg: mode("panel.borderStrong", "panel.borderStrong")(props),
+						},
 					},
 				}),
 			},
