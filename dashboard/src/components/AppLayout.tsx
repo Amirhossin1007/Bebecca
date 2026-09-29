@@ -246,12 +246,12 @@ export function AppLayout() {
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
 	const dockBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.98)",
-		"rgba(24, 27, 34, 0.98)",
+		"panel.surface",
+		"panel.surface",
 	);
 	const dockBorder = useColorModeValue(
-		"rgba(0, 0, 0, 0.12)",
-		"rgba(255, 255, 255, 0.12)",
+		"panel.border",
+		"panel.border",
 	);
 	const dockShadow = useColorModeValue(
 		"0 12px 36px -4px rgba(0, 0, 0, 0.16), 0 4px 14px rgba(0, 0, 0, 0.06)",
@@ -261,8 +261,8 @@ export function AppLayout() {
 	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
 	const shellHeaderBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.98)",
-		"rgba(22, 25, 32, 0.98)",
+		"panel.surface",
+		"panel.surface",
 	);
 	const shellHeaderShadow = useColorModeValue(
 		"0 18px 48px rgba(15, 23, 42, 0.10)",
@@ -636,7 +636,6 @@ export function AppLayout() {
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 
 	const changeLanguage = async (lang: string) => {
-		closeUserMenu();
 		await i18n.changeLanguage(lang);
 		const dir = i18n.dir(lang);
 		document.documentElement.dir = dir;
@@ -1007,6 +1006,8 @@ export function AppLayout() {
 	}, [location.pathname, activeLocationHash, t, i18n]);
 
 	const navigateToSettingsItem = (target: string) => {
+		settingsMenu.onClose();
+		setPreviewTabKeySafe("settings");
 		const defaultTab = settingsDefaultTabByPath[target];
 		if (defaultTab) {
 			navigate(`${target}#${defaultTab}`);
@@ -1014,6 +1015,13 @@ export function AppLayout() {
 		}
 		navigate(target);
 	};
+
+	useEffect(() => {
+		if (previewTabKeyRef.current && activeTabKey === previewTabKeyRef.current) {
+			previewTabKeyRef.current = null;
+			setPreviewTabKey(null);
+		}
+	}, [activeTabKey]);
 
 	useEffect(() => {
 		const headerEl = headerRef.current;
@@ -1502,7 +1510,6 @@ export function AppLayout() {
 																key={code}
 																onClick={() => {
 																	changeLanguage(code);
-																	languageMenu.onClose();
 																}}
 															>
 																<HStack justify="space-between" w="full">
@@ -1595,6 +1602,10 @@ export function AppLayout() {
 						placement={isRTL ? "right" : "left"}
 						onClose={sidebarDrawer.onClose}
 						size="xs"
+						autoFocus={false}
+						returnFocusOnClose={false}
+						trapFocus={false}
+						blockScrollOnMount={false}
 					>
 						<DrawerOverlay bg="blackAlpha.700" />
 						<DrawerContent
@@ -1602,6 +1613,10 @@ export function AppLayout() {
 							borderInlineEndWidth="1px"
 							borderColor="panel.border"
 							boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
+							sx={{
+								willChange: "transform",
+								transform: "translateZ(0)",
+							}}
 						>
 							<DrawerBody p={0}>
 								<AppSidebar
@@ -1695,8 +1710,8 @@ export function AppLayout() {
 								py="1.5"
 								maxW="min(440px, calc(100vw - 20px))"
 								mx="auto"
-								position="relative"
 							>
+								<Box position="relative" w="full">
 								{(() => {
 									const dockItemCount = bottomNavItems.length;
 									const activeDockIndex = bottomNavItems.findIndex(
@@ -1706,8 +1721,8 @@ export function AppLayout() {
 									return (
 										<Box
 											position="absolute"
-											top="5px"
-											bottom="5px"
+											top="0"
+											bottom="0"
 											width={`calc(100% / ${dockItemCount})`}
 											left={isRTL ? undefined : "0px"}
 											right={isRTL ? "0px" : undefined}
@@ -1727,7 +1742,7 @@ export function AppLayout() {
 											<Box
 												w="full"
 												h="full"
-												borderRadius="18px"
+												borderRadius="16px"
 												bg="panel.elevated"
 												borderWidth="1px"
 												borderColor="panel.borderStrong"
@@ -1913,7 +1928,6 @@ export function AppLayout() {
 																								_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
 																								_active={{ bg: "panel.elevated" }}
 																								onClick={() => {
-																									handleSettingsMenuClose();
 																									navigateToSettingsItem(entry.to);
 																								}}
 																							>
@@ -2012,7 +2026,6 @@ export function AppLayout() {
 																															_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
 																															_active={{ bg: "panel.elevated" }}
 																															onClick={() => {
-																																handleSettingsMenuClose();
 																																navigateToSettingsItem(sub.to);
 																															}}
 																														>
@@ -2161,6 +2174,7 @@ export function AppLayout() {
 										);
 									})}
 								</SimpleGrid>
+								</Box>
 							</Box>
 						</Box>
 					</>

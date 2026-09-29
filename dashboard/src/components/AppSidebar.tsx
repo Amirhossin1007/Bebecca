@@ -750,7 +750,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															overflow="hidden"
 															whiteSpace="nowrap"
 															opacity={collapsed ? 0 : 1}
-															maxW={collapsed ? "0px" : "none"}
+															maxW={collapsed ? "0px" : "180px"}
 															transform={
 																collapsed
 																	? isRTL
@@ -847,44 +847,107 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 											const isOpen = Boolean(openGroups[entry.id]);
 											const GroupIcon = entry.icon;
 
-											if (collapsed) {
-												return (
-													<Popover
-														key={entry.id}
-														trigger={popoverTrigger}
-														placement={isRTL ? "left-start" : "right-start"}
-														isLazy
-														gutter={8}
-														openDelay={50}
-														closeDelay={120}
+											const groupTriggerContent = (
+												<Flex
+													align="center"
+													w="full"
+													h="38px"
+													px="11px"
+													borderRadius="10px"
+													bg={isGroupActive && (!isOpen || collapsed) ? activeItemBg : "transparent"}
+													color={isGroupActive ? "panel.text" : normalItemColor}
+													fontWeight={isGroupActive ? "600" : "500"}
+													fontSize="13px"
+													cursor="pointer"
+													transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+													borderInlineStart="3px solid"
+													borderInlineStartColor={isGroupActive ? "var(--rb-panel-accent)" : "transparent"}
+													onClick={() => {
+														if (!collapsed) {
+															handleGroupClick(entry);
+														}
+													}}
+													_hover={{
+														md: {
+															bg: hoverItemBg,
+															color: "panel.text",
+														},
+													}}
+												>
+													<Box
+														w="30px"
+														h="30px"
+														flexShrink={0}
+														display="flex"
+														alignItems="center"
+														justifyContent="center"
+														color={isGroupActive ? activeItemColor : "inherit"}
+														transition="color 0.2s ease"
 													>
-														<PopoverTrigger>
-															<Flex
-																align="center"
-																justify="center"
-																w="full"
-																h="38px"
-																px="11px"
-																borderRadius="10px"
-																bg={isGroupActive ? activeItemBg : "transparent"}
-																color={isGroupActive ? activeItemColor : normalItemColor}
-																cursor="pointer"
-																transition="all 0.2s ease"
-																borderInlineStart="3px solid"
-																borderInlineStartColor={isGroupActive ? "var(--rb-panel-accent)" : "transparent"}
-																_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
-															>
-																<Box
-																	w="30px"
-																	h="30px"
-																	display="flex"
-																	alignItems="center"
-																	justifyContent="center"
-																>
-																	<GroupIcon />
-																</Box>
-															</Flex>
-														</PopoverTrigger>
+														<GroupIcon />
+													</Box>
+
+													<Box
+														flex="1"
+														minW="0"
+														ms={collapsed ? 0 : 2.5}
+														overflow="hidden"
+														whiteSpace="nowrap"
+														opacity={collapsed ? 0 : 1}
+														maxW={collapsed ? "0px" : "180px"}
+														transform={
+															collapsed
+																? isRTL
+																	? "translateX(8px)"
+																	: "translateX(-8px)"
+																: "translateX(0)"
+														}
+														transition="max-width 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), margin 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
+														pointerEvents={collapsed ? "none" : "auto"}
+													>
+														<Text
+															noOfLines={1}
+															color={isGroupActive ? "panel.text" : normalItemColor}
+															fontSize="13px"
+															fontWeight={isGroupActive ? "600" : "500"}
+														>
+															{entry.title}
+														</Text>
+													</Box>
+
+													<Box
+														flexShrink={0}
+														overflow="hidden"
+														opacity={collapsed ? 0 : 0.65}
+														maxW={collapsed ? "0px" : "20px"}
+														transition="max-width 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease"
+													>
+														<Icon
+															as={ChevronDownIcon}
+															w="14px"
+															h="14px"
+															color="panel.textMuted"
+															transform={isOpen && !collapsed ? "rotate(180deg)" : "rotate(0deg)"}
+															transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
+														/>
+													</Box>
+												</Flex>
+											);
+
+											return (
+												<Box key={entry.id}>
+													{collapsed ? (
+														<Popover
+															trigger={popoverTrigger}
+															placement={isRTL ? "left-start" : "right-start"}
+															isLazy
+															gutter={8}
+															openDelay={50}
+															closeDelay={120}
+														>
+															<PopoverTrigger>
+																{groupTriggerContent}
+															</PopoverTrigger>
 														<Portal>
 															<PopoverContent
 																bg="panel.surface"
@@ -955,96 +1018,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																</PopoverBody>
 															</PopoverContent>
 														</Portal>
-													</Popover>
-												);
-											}
-
-											return (
-												<Box key={entry.id}>
-													<Flex
-														align="center"
-														justify="space-between"
-														w="full"
-														h="38px"
-														px="11px"
-														borderRadius="10px"
-														bg={isGroupActive && !isOpen ? activeItemBg : "transparent"}
-														color={isGroupActive ? "panel.text" : normalItemColor}
-														fontWeight={isGroupActive ? "600" : "500"}
-														fontSize="13px"
-														cursor="pointer"
-														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-														borderInlineStartWidth={isGroupActive && !isOpen ? "3px" : "0px"}
-														borderInlineStartColor="var(--rb-panel-accent)"
-														onClick={() => handleGroupClick(entry)}
-														_hover={{
-															md: {
-																bg: hoverItemBg,
-																color: "panel.text",
-															},
-														}}
-													>
-														<Box
-															w="30px"
-															h="30px"
-															flexShrink={0}
-															display="flex"
-															alignItems="center"
-															justifyContent="center"
-															color={isGroupActive ? activeItemColor : "inherit"}
-															transition="color 0.2s ease"
-														>
-															<GroupIcon />
-														</Box>
-
-														<Box
-															flex="1"
-															minW="0"
-															ms={collapsed ? 0 : 2.5}
-															overflow="hidden"
-															whiteSpace="nowrap"
-															opacity={collapsed ? 0 : 1}
-															maxW={collapsed ? "0px" : "none"}
-															transform={
-																collapsed
-																	? isRTL
-																		? "translateX(8px)"
-																		: "translateX(-8px)"
-																	: "translateX(0)"
-															}
-															transition="max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
-															pointerEvents={collapsed ? "none" : "auto"}
-														>
-															<Text
-																noOfLines={1}
-																color={isGroupActive ? "panel.text" : normalItemColor}
-																fontSize="13px"
-																fontWeight={isGroupActive ? "600" : "500"}
-															>
-																{entry.title}
-															</Text>
-														</Box>
-
-														<Box
-															flexShrink={0}
-															overflow="hidden"
-															opacity={collapsed ? 0 : 0.65}
-															maxW={collapsed ? "0px" : "20px"}
-															transition="max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease"
-														>
-															<Icon
-																as={ChevronDownIcon}
-																w="14px"
-																h="14px"
-																color="panel.textMuted"
-																transform={isOpen ? "rotate(180deg)" : "rotate(0deg)"}
-																transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
-															/>
-														</Box>
-													</Flex>
+														</Popover>
+													) : (
+														groupTriggerContent
+													)}
 
 													<AnimatePresence initial={false}>
-														{isOpen && (
+														{isOpen && !collapsed && (
 															<motion.div
 																initial={{ opacity: 0, height: 0 }}
 																animate={{ opacity: 1, height: "auto" }}

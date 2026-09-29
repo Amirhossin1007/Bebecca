@@ -90,13 +90,19 @@
 }
 
 body,
+#root,
+header,
+aside,
+nav,
+.chakra-card,
 .chakra-modal__content,
 .chakra-menu__menu-list,
 .chakra-popover__content {
   transition:
-    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    background-color 260ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 260ms cubic-bezier(0.2, 0, 0, 1),
+    color 260ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 260ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 @supports (height: 100svh) {
