@@ -164,6 +164,7 @@ const useSystemMetricsStream = (enabled = true) => {
 		const connect = () => {
 			ws = new WebSocket(url);
 			ws.onmessage = (event) => {
+				if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 				try {
 					const payload = JSON.parse(event.data);
 					const stats = payload?.stats ?? payload;

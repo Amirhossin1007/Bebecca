@@ -259,7 +259,10 @@ export function AppLayout() {
 	const dockInactiveText = useColorModeValue("gray.700", "gray.300");
 	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
-	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
+	const shellHeaderBg = useColorModeValue(
+		"rgba(255, 255, 255, 0.90)",
+		"rgba(36, 36, 36, 0.88)",
+	);
 	const shellHeaderShadow = useColorModeValue(
 		"0 18px 48px rgba(15, 23, 42, 0.10)",
 		"0 18px 48px rgba(0, 0, 0, 0.32)",
@@ -1081,7 +1084,10 @@ export function AppLayout() {
 					overflow="hidden"
 					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
 					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
-					transition="margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+					transition="margin 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+					sx={{
+						willChange: isMobile ? undefined : "margin",
+					}}
 				>
 					<Box
 						ref={headerRef}
@@ -1093,7 +1099,7 @@ export function AppLayout() {
 						borderRadius="20px"
 						bg={shellHeaderBg}
 						boxShadow={shellHeaderShadow}
-						backdropFilter="blur(20px)"
+						backdropFilter="blur(8px)"
 						mt="3"
 						mx={{ base: "3", md: "4" }}
 						display="flex"
@@ -1107,6 +1113,11 @@ export function AppLayout() {
 						userSelect="none"
 						gap={3}
 						dir={isRTL ? "rtl" : "ltr"}
+						sx={{
+							contain: "paint",
+							willChange: "transform",
+							WebkitBackdropFilter: "blur(8px)",
+						}}
 					>
 						<HStack spacing={3} alignItems="center" flex="1" minW="0" h="full">
 							<IconButton
@@ -1266,7 +1277,6 @@ export function AppLayout() {
 										bg="panel.surface"
 										color="panel.text"
 										boxShadow="0 1px 3px rgba(0, 0, 0, 0.04)"
-										backdropFilter="blur(16px)"
 										_hover={{
 											md: {
 												bg: "panel.elevated",
@@ -1348,7 +1358,7 @@ export function AppLayout() {
 										borderColor="panel.border"
 										bg="panel.surface"
 										boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
-										backdropFilter="blur(24px)"
+										backdropFilter="blur(8px)"
 										zIndex={9999}
 										userSelect="none"
 										sx={{
@@ -1466,7 +1476,7 @@ export function AppLayout() {
 													borderWidth="1px"
 													borderColor="panel.border"
 													bg="panel.surface"
-													backdropFilter="blur(24px)"
+													backdropFilter="blur(8px)"
 													boxShadow="0 18px 42px rgba(0, 0, 0, 0.35)"
 													zIndex={9999}
 													userSelect="none"
@@ -1691,7 +1701,12 @@ export function AppLayout() {
 								maxW="min(490px, calc(100vw - 16px))"
 								mx="auto"
 								position="relative"
-								backdropFilter="blur(24px)"
+								backdropFilter="blur(8px)"
+								sx={{
+									contain: "paint",
+									willChange: "transform",
+									WebkitBackdropFilter: "blur(8px)",
+								}}
 							>
 								<HStack
 									justify="space-between"
@@ -1731,27 +1746,20 @@ export function AppLayout() {
 													w="full"
 													borderRadius="14px"
 												>
-													{isSelected && (
-														<motion.div
-															layoutId="mobile-bottom-dock-indicator"
-															transition={{
-																type: "spring",
-																stiffness: 450,
-																damping: 32,
-																mass: 0.5,
-															}}
-															style={{
-																position: "absolute",
-																inset: 0,
-																borderRadius: 14,
-																backgroundColor: "var(--chakra-colors-panel-elevated)",
-																border: "1px solid var(--chakra-colors-panel-borderStrong)",
-																boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
-																zIndex: 0,
-																pointerEvents: "none",
-															}}
-														/>
-													)}
+													<Box
+														position="absolute"
+														inset="0"
+														borderRadius="14px"
+														bg="panel.elevated"
+														borderWidth="1px"
+														borderColor="panel.borderStrong"
+														boxShadow="0 2px 6px rgba(0, 0, 0, 0.08)"
+														pointerEvents="none"
+														opacity={isSelected ? 1 : 0}
+														transform={isSelected ? "scale(1)" : "scale(0.92)"}
+														transition="opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
+														sx={{ willChange: "opacity, transform" }}
+													/>
 													<Box
 														position="relative"
 														zIndex={1}
@@ -1848,7 +1856,7 @@ export function AppLayout() {
 															borderColor="panel.border"
 															borderWidth="1px"
 															boxShadow="0 24px 48px rgba(0, 0, 0, 0.45)"
-															backdropFilter="blur(28px)"
+															backdropFilter="blur(8px)"
 															p={2.5}
 															dir={isRTL ? "rtl" : "ltr"}
 														>
@@ -2086,7 +2094,7 @@ export function AppLayout() {
 															borderColor="panel.border"
 															borderWidth="1px"
 															boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
-															backdropFilter="blur(24px)"
+															backdropFilter="blur(8px)"
 															p={2}
 														>
 															<PopoverBody p={0}>

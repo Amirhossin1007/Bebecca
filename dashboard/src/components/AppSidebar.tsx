@@ -557,7 +557,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					? undefined
 					: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px -8px rgba(0, 0, 0, 0.28)"
 			}
-			transition="width 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+			transition="width 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 			position={inDrawer ? "relative" : "fixed"}
 			top={inDrawer ? undefined : "12px"}
 			left={inDrawer || isRTL ? undefined : "12px"}
@@ -566,6 +566,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			flexShrink={0}
 			userSelect="none"
 			zIndex={200}
+			sx={{
+				contain: inDrawer ? undefined : "layout style paint",
+				willChange: inDrawer ? undefined : "width",
+			}}
 		>
 			<Flex direction="column" h="full" justify="space-between" p={collapsed ? 2 : 3}>
 				<Flex
@@ -891,7 +895,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																minW="150px"
 																maxW="190px"
 																boxShadow="0 10px 28px rgba(0,0,0,0.28)"
-																backdropFilter="blur(20px)"
+																backdropFilter="blur(8px)"
 																dir={isRTL ? "rtl" : "ltr"}
 																zIndex={9999}
 																_focus={{ outline: "none" }}
