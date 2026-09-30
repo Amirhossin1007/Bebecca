@@ -670,7 +670,6 @@ const HistoryModal: FC<{
 				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
-				crosshairs: { show: false },
 				labels: {
 					style: {
 						colors: mutedTextColor,
@@ -728,11 +727,6 @@ const HistoryModal: FC<{
 				},
 			},
 			tooltip: {
-				enabled: true,
-				shared: true,
-				intersect: false,
-				followCursor: true,
-				fixed: { enabled: false },
 				custom: ({ series, seriesIndex, dataPointIndex, w }) => {
 					const timestamp = w.globals.seriesX[seriesIndex]?.[dataPointIndex];
 					const dateStr = timestamp
@@ -747,23 +741,6 @@ const HistoryModal: FC<{
 							)
 						: "";
 
-					const isLight = colorMode === "light";
-					const ttBg = isLight
-						? "rgba(255, 255, 255, 0.98)"
-						: "rgba(20, 20, 22, 0.98)";
-					const ttBorder = isLight
-						? "rgba(0, 0, 0, 0.08)"
-						: "rgba(255, 255, 255, 0.1)";
-					const ttHighlight = isLight
-						? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
-						: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)";
-					const ttDivider = isLight
-						? "rgba(0, 0, 0, 0.06)"
-						: "rgba(255, 255, 255, 0.06)";
-					const ttTextSecondary = isLight ? "#71717a" : "#a1a1aa";
-					const ttTextPrimary = isLight ? "#09090b" : "#fafafa";
-					const ttTextMuted = isLight ? "#a1a1aa" : "#71717a";
-
 					const linesHtml = w.globals.seriesNames
 						.map((name: string, i: number) => {
 							const val = series[i]?.[dataPointIndex];
@@ -775,10 +752,10 @@ const HistoryModal: FC<{
 							return `
 								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px;">
 									<div style="display: flex; align-items: center; gap: 6px;">
-										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
-										<span style="color: ${ttTextSecondary}; font-size: 11px; font-weight: 500;">${name}</span>
+										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; box-shadow: 0 0 6px ${color}88; flex-shrink: 0;"></span>
+										<span style="color: var(--chakra-colors-panel-textSecondary, #94a3b8); font-size: 11px; font-weight: 500;">${name}</span>
 									</div>
-									<span style="color: ${ttTextPrimary}; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
+									<span style="color: var(--chakra-colors-panel-text, #ffffff); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
 								</div>
 							`;
 						})
@@ -786,17 +763,17 @@ const HistoryModal: FC<{
 
 					return `
 						<div style="
-							background: ${ttBg};
-							border: 1px solid ${ttBorder};
-							border-radius: 10px;
+							background: rgba(18, 21, 28, 0.98);
+							border: 1px solid rgba(255, 255, 255, 0.12);
+							border-radius: 12px;
 							background-clip: padding-box;
 							padding: 8px 12px;
-							box-shadow: ${ttHighlight};
+							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
 							direction: ${isRTL ? "rtl" : "ltr"};
 							font-family: inherit;
 							min-width: 140px;
 						">
-							<div style="color: ${ttTextMuted}; font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid ${ttDivider}; padding-bottom: 4px; margin-bottom: 4px;">
+							<div style="color: var(--chakra-colors-panel-textMuted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px; margin-bottom: 4px;">
 								${dateStr}
 							</div>
 							${linesHtml}
@@ -1024,9 +1001,6 @@ const HistoryModal: FC<{
 									border: "none !important",
 									boxShadow: "none !important",
 									overflow: "visible !important",
-								},
-								"& .apexcharts-tooltip .apexcharts-tooltip-title": {
-									display: "none !important",
 								},
 								"& .apexcharts-tooltip.apexcharts-theme-light": {
 									background: "transparent !important",
