@@ -1,5 +1,5 @@
 import { Box, Image, Text, useColorModeValue } from "@chakra-ui/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
 	type FC,
 	forwardRef,
@@ -156,59 +156,70 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			onFocus={() => setPaused(true)}
 			onBlur={() => setPaused(false)}
 		>
-			<AnimatePresence mode="wait" initial={false}>
-				{(() => {
-					const item = stableItems[index] || stableItems[0];
-					if (!item) return null;
-					const image = (
-						<Image
-							src={item.src}
-							alt={item.alt}
-							draggable={false}
-							loading="lazy"
-							display="block"
-							maxW="full"
-							maxH="full"
-							objectFit={isBanner ? "cover" : "contain"}
-							w={isBanner || isSidebarBanner ? "full" : 8}
-							h={isBanner || isSidebarBanner ? "full" : 8}
-							borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
-							transition="transform 0.25s ease"
-							userSelect="none"
-							sx={{
-								WebkitUserDrag: "none",
-								pointerEvents: "none",
-							}}
-							onDragStart={(e) => e.preventDefault()}
-							onContextMenu={(e) => e.preventDefault()}
-						/>
-					);
-					const effectiveHref =
-						item.href || (item.isSponsor ? "https://webdade.com/" : undefined);
-					const hoverTitle = item.label || item.alt || "Sponsor";
+			<motion.div
+				initial={
+					isSidebarBanner
+						? { y: "100%", opacity: 0 }
+						: isBanner
+							? { y: "-100%", opacity: 0 }
+							: false
+				}
+				animate={{ y: 0, opacity: 1 }}
+				transition={{
+					duration: 0.55,
+					ease: [0.16, 1, 0.3, 1],
+					delay: isBanner || isSidebarBanner ? 0.9 : 0,
+				}}
+				style={{ width: "100%", height: "100%" }}
+			>
+				<Box
+					display="flex"
+					flexDirection={isVertical ? "column" : "row"}
+					w="full"
+					h="full"
+					transform={
+						isVertical
+							? `translateY(-${index * 100}%)`
+							: `translateX(-${index * 100}%)`
+					}
+					transition="transform 500ms cubic-bezier(0.16, 1, 0.3, 1)"
+					sx={{
+						"@media (prefers-reduced-motion: reduce)": { transition: "none" },
+						img: { border: "none", outline: "none" },
+					}}
+				>
+					{stableItems.map((item) => {
+						const image = (
+							<Image
+								src={item.src}
+								alt={item.alt}
+								draggable={false}
+								loading="lazy"
+								display="block"
+								maxW="full"
+								maxH="full"
+								objectFit={isBanner ? "cover" : "contain"}
+								w={isBanner || isSidebarBanner ? "full" : 8}
+								h={isBanner || isSidebarBanner ? "full" : 8}
+								borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
+								transition="transform 0.25s ease"
+								userSelect="none"
+								sx={{
+									WebkitUserDrag: "none",
+									pointerEvents: "none",
+								}}
+								onDragStart={(e) => e.preventDefault()}
+								onContextMenu={(e) => e.preventDefault()}
+							/>
+						);
+						const effectiveHref =
+							item.href ||
+							(item.isSponsor ? "https://webdade.com/" : undefined);
+						const hoverTitle = item.label || item.alt || "Sponsor";
 
-					return (
-						<motion.div
-							key={item.id}
-							initial={
-								isSidebarBanner
-									? { y: 24, opacity: 0 }
-									: isBanner
-										? { y: -20, opacity: 0 }
-										: { x: 20, opacity: 0 }
-							}
-							animate={{ y: 0, x: 0, opacity: 1 }}
-							exit={
-								isSidebarBanner
-									? { y: 24, opacity: 0 }
-									: isBanner
-										? { y: 20, opacity: 0 }
-										: { x: -20, opacity: 0 }
-							}
-							transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-							style={{ width: "100%", height: "100%" }}
-						>
+						return (
 							<Box
+								key={item.id}
 								minW="full"
 								w="full"
 								minH={isVertical ? "full" : undefined}
@@ -237,10 +248,10 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 									)}
 								</SponsorLink>
 							</Box>
-						</motion.div>
-					);
-				})()}
-			</AnimatePresence>
+						);
+					})}
+				</Box>
+			</motion.div>
 		</Box>
 	);
 };

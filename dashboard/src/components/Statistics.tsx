@@ -670,11 +670,7 @@ const HistoryModal: FC<{
 				tickAmount: 5,
 				axisBorder: { show: false },
 				axisTicks: { show: false },
-				crosshairs: {
-					show: true,
-					stroke: { dashArray: 4 },
-					tooltip: { enabled: false },
-				},
+				crosshairs: { show: false },
 				labels: {
 					style: {
 						colors: mutedTextColor,
@@ -1530,6 +1526,22 @@ const SectionCard: FC<{
 					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 			}
 			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			sx={{
+				"&[data-rb-iconswap] svg, &[data-rb-iconswap] > * > svg": {
+					transition: "color 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+				},
+				...(noHover
+					? {}
+					: {
+							"@media screen and (min-width: 768px)": {
+								"&:hover [data-rb-icon]": {
+									bg: "var(--chakra-colors-panel-surface) !important",
+									color: "var(--chakra-colors-panel-text) !important",
+								},
+							},
+						}),
+			}}
+			data-rb-iconswap={noHover ? undefined : ""}
 			_hover={
 				noHover
 					? undefined
@@ -1644,6 +1656,7 @@ const SpeedItem: FC<{
 					flexShrink={0}
 					transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 					_groupHover={{ md: { bg: "panel.surface" } }}
+					data-rb-icon=""
 				>
 					{icon}
 				</Flex>
@@ -2826,6 +2839,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								borderRadius="7px"
 								bg="panel.elevated"
 								color="panel.textSecondary"
+								data-rb-icon=""
 							>
 								<SignalIcon width={14} />
 							</Flex>
@@ -2917,6 +2931,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								borderRadius="7px"
 								bg="panel.elevated"
 								color="panel.textSecondary"
+								data-rb-icon=""
 							>
 								<ClockIcon width={14} />
 							</Flex>
@@ -3074,6 +3089,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderRadius="7px"
 							bg="panel.elevated"
 							color="panel.textSecondary"
+							data-rb-icon=""
 						>
 							<CpuChipIcon width={14} />
 						</Flex>
@@ -3403,6 +3419,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								borderRadius="7px"
 								bg="panel.elevated"
 								color="panel.textSecondary"
+								data-rb-icon=""
 							>
 								<ShieldCheckIcon width={14} />
 							</Flex>

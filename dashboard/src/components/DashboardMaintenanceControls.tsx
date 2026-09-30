@@ -139,7 +139,6 @@ export const DashboardMaintenanceControls = ({
 	const [operation, setOperation] = useState<MaintenanceOperation | null>(null);
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
-	const [isUpdatePopoverOpen, setUpdatePopoverOpen] = useState(false);
 	const [confirmAction, setConfirmAction] = useState<
 		"restart" | "soft-reload" | "update" | null
 	>(null);
@@ -355,15 +354,7 @@ export const DashboardMaintenanceControls = ({
 	};
 
 	const renderUpdatePopover = () => (
-		<Popover
-			isOpen={isUpdatePopoverOpen}
-			onOpen={() => setUpdatePopoverOpen(true)}
-			onClose={() => setUpdatePopoverOpen(false)}
-			placement="bottom-end"
-			closeOnBlur={true}
-			closeOnEsc={true}
-			isLazy
-		>
+		<Popover placement="bottom-end" closeOnBlur={true} closeOnEsc={true} isLazy>
 			<PopoverTrigger>
 				<Button
 					size="xs"

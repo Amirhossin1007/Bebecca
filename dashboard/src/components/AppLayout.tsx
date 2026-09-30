@@ -1444,18 +1444,16 @@ export function AppLayout() {
 														fontWeight: "600 !important",
 														bg: "transparent !important",
 														transition:
-															"all 0.16s cubic-bezier(0.2, 0, 0, 1) !important",
-														"@media (hover: hover)": {
-															"&:hover": {
-																bg: "rgba(239, 68, 68, 0.14) !important",
-																color: "red.400 !important",
-															},
+															"background-color 0.12s linear, color 0.12s linear, transform 0.12s ease-out !important",
+														"&[data-highlighted]": {
+															bg: "rgba(239, 68, 68, 0.14) !important",
+															color: "red.400 !important",
 														},
 														"&[data-focus]": {
 															bg: "rgba(239, 68, 68, 0.14) !important",
 															color: "red.400 !important",
 														},
-														"&:active, &[data-active]": {
+														"&[data-active]": {
 															bg: "rgba(239, 68, 68, 0.22) !important",
 															transform: "scale(0.98) !important",
 														},

@@ -279,11 +279,16 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 										aria-label={t("dateTimePicker.previousMonth")}
 										icon={prevIcon}
 										onClick={handlePrevMonth}
-										transition="all 0.14s cubic-bezier(0.2, 0, 0, 1)"
-										_hover={{ md: { bg: "panel.elevated" } }}
+										transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+										_hover={{
+											md: {
+												bg: "panel.elevated",
+												borderColor: "panel.borderStrong",
+											},
+										}}
 										_active={{
 											bg: "panel.borderStrong",
-											transform: "scale(0.88)",
+											transform: "scale(0.98)",
 										}}
 									/>
 									<IconButton
@@ -293,11 +298,16 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 										aria-label={t("dateTimePicker.nextMonth")}
 										icon={nextIcon}
 										onClick={handleNextMonth}
-										transition="all 0.14s cubic-bezier(0.2, 0, 0, 1)"
-										_hover={{ md: { bg: "panel.elevated" } }}
+										transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+										_hover={{
+											md: {
+												bg: "panel.elevated",
+												borderColor: "panel.borderStrong",
+											},
+										}}
 										_active={{
 											bg: "panel.borderStrong",
-											transform: "scale(0.88)",
+											transform: "scale(0.98)",
 										}}
 									/>
 								</HStack>
