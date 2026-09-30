@@ -221,8 +221,6 @@ export function AppLayout() {
 	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
 	const userMenuContentRef = useRef<HTMLDivElement | null>(null);
-	const [logoutHovered, setLogoutHovered] = useState(false);
-	const [logoutPressed, setLogoutPressed] = useState(false);
 	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
@@ -1416,22 +1414,21 @@ export function AppLayout() {
 														bg: "transparent !important",
 													},
 												},
-												".rb-logout-menu-item, .rb-logout-menu-item[data-focus]":
-													{
+												".rb-logout-menu-item": {
+													color: "red.400 !important",
+													fontWeight: "600 !important",
+													bg: "transparent !important",
+													transition:
+														"background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important",
+													"&:hover, &:focus, &[data-focus]": {
+														bg: "rgba(239, 68, 68, 0.16) !important",
 														color: "red.400 !important",
-														fontWeight: "600 !important",
-														bg: "transparent !important",
-														transition:
-															"background-color 0.12s linear, color 0.12s linear, transform 0.12s ease-out !important",
-														"&[data-rb-hovered]": {
-															bg: "rgba(239, 68, 68, 0.14) !important",
-															color: "red.400 !important",
-														},
-														"&[data-rb-active]": {
-															bg: "rgba(239, 68, 68, 0.22) !important",
-															transform: "scale(0.98) !important",
-														},
 													},
+													"&:active, &[data-active]": {
+														bg: "rgba(239, 68, 68, 0.24) !important",
+														transform: "scale(0.98) !important",
+													},
+												},
 											}}
 										>
 											<Flex
@@ -1627,16 +1624,6 @@ export function AppLayout() {
 												className="rb-logout-menu-item"
 												icon={<LogoutIcon />}
 												color="red.400"
-												data-rb-hovered={logoutHovered ? "" : undefined}
-												data-rb-active={logoutPressed ? "" : undefined}
-												onMouseEnter={() => setLogoutHovered(true)}
-												onMouseLeave={() => setLogoutHovered(false)}
-												onMouseDown={() => setLogoutPressed(true)}
-												onMouseUp={() => setLogoutPressed(false)}
-												onBlur={() => {
-													setLogoutHovered(false);
-													setLogoutPressed(false);
-												}}
 												onClick={async () => {
 													try {
 														await logoutSession();

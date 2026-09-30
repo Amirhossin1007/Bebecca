@@ -728,10 +728,11 @@ const HistoryModal: FC<{
 				},
 			},
 			tooltip: {
-				fixed: { enabled: true, position: "top-left", offsetX: 0, offsetY: 0 },
+				enabled: true,
 				shared: true,
 				intersect: false,
-				followCursor: false,
+				followCursor: true,
+				fixed: { enabled: false },
 				custom: ({ series, seriesIndex, dataPointIndex, w }) => {
 					const timestamp = w.globals.seriesX[seriesIndex]?.[dataPointIndex];
 					const dateStr = timestamp
@@ -1023,6 +1024,9 @@ const HistoryModal: FC<{
 									border: "none !important",
 									boxShadow: "none !important",
 									overflow: "visible !important",
+								},
+								"& .apexcharts-tooltip .apexcharts-tooltip-title": {
+									display: "none !important",
 								},
 								"& .apexcharts-tooltip.apexcharts-theme-light": {
 									background: "transparent !important",
