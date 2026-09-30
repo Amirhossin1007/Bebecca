@@ -53,7 +53,6 @@ import {
 } from "@heroicons/react/24/outline";
 import { AnimatePresence, motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
-import { useQuery } from "react-query";
 import {
 	type ElementType,
 	type FC,
@@ -66,16 +65,17 @@ import {
 } from "react";
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "react-query";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { logout as logoutSession } from "service/auth";
+import { getSponsors, type SponsorAsset } from "service/sponsors";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
-import { getSponsors, type SponsorAsset } from "service/sponsors";
 import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
 import { AppSidebar } from "./AppSidebar";
 import { HeaderCalendar } from "./HeaderCalendar";
-import ThemeSelector from "./ThemeSelector";
 import { SponsorCarousel } from "./SponsorCarousel";
+import ThemeSelector from "./ThemeSelector";
 
 const iconProps = {
 	baseStyle: {
@@ -105,7 +105,9 @@ const InsightsIcon = chakra(EyeIcon, iconProps);
 const RecentActionsIcon = chakra(ClockIcon, iconProps);
 const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
 const TutorialIcon = chakra(BookOpenIcon, iconProps);
-const ChevronDownIconStyled = chakra(ChevronDownIcon, { baseStyle: { w: 3.5, h: 3.5 } });
+const ChevronDownIconStyled = chakra(ChevronDownIcon, {
+	baseStyle: { w: 3.5, h: 3.5 },
+});
 
 const AnimatedHamburger: FC<{ isOpen: boolean; isRTL: boolean }> = ({
 	isOpen,
@@ -175,7 +177,8 @@ export function AppLayout() {
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canSeeSponsors =
 		getUserIsSuccess &&
-		(userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo);
+		(userData.role === AdminRole.FullAccess ||
+			userData.role === AdminRole.Sudo);
 	const sponsorsQuery = useQuery("sponsors", getSponsors, {
 		staleTime: 5 * 60 * 1000,
 		cacheTime: 30 * 60 * 1000,
@@ -183,16 +186,16 @@ export function AppLayout() {
 		enabled: canSeeSponsors,
 	});
 	const sponsorData = canSeeSponsors ? sponsorsQuery.data : undefined;
-	const sponsorHeaderItems = (sponsorData?.header ?? []).slice(0, 3).map(
-		(asset: SponsorAsset) => ({
+	const sponsorHeaderItems = (sponsorData?.header ?? [])
+		.slice(0, 3)
+		.map((asset: SponsorAsset) => ({
 			id: asset.id,
 			src: asset.image_url,
 			alt: asset.alt || asset.label || "Sponsor",
 			href: asset.target_url,
 			label: asset.label,
 			isSponsor: true,
-		}),
-	);
+		}));
 	const sponsorHeaderMobileItems = (sponsorData?.header_mobile ?? [])
 		.slice(0, 3)
 		.map((asset: SponsorAsset) => ({
@@ -205,9 +208,10 @@ export function AppLayout() {
 		}));
 	const sponsorSidebarLogoItems = (sponsorData?.sidebar_logo ?? []).slice(0, 5);
 	const sponsorSidebarBanners = (sponsorData?.sidebar ?? []).slice(0, 5);
-	const mobileHeaderItems = sponsorHeaderMobileItems.length > 0
-		? sponsorHeaderMobileItems
-		: sponsorHeaderItems;
+	const mobileHeaderItems =
+		sponsorHeaderMobileItems.length > 0
+			? sponsorHeaderMobileItems
+			: sponsorHeaderItems;
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [activeLocationHash, setActiveLocationHash] = useState(
@@ -225,7 +229,9 @@ export function AppLayout() {
 	const previewTabKeyRef = useRef<string | null>(null);
 	const headerRef = useRef<HTMLDivElement | null>(null);
 	const [calendarCompact, setCalendarCompact] = useState(false);
-	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<Record<string, boolean>>({
+	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
+		Record<string, boolean>
+	>({
 		core_routing: false,
 		system_tools: false,
 		observability: false,
@@ -245,14 +251,8 @@ export function AppLayout() {
 
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
-	const dockBg = useColorModeValue(
-		"panel.surface",
-		"panel.surface",
-	);
-	const dockBorder = useColorModeValue(
-		"panel.border",
-		"panel.border",
-	);
+	const dockBg = useColorModeValue("panel.surface", "panel.surface");
+	const dockBorder = useColorModeValue("panel.border", "panel.border");
 	const menuShadow = useColorModeValue(
 		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
 		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
@@ -261,10 +261,7 @@ export function AppLayout() {
 	const dockInactiveText = useColorModeValue("gray.700", "gray.300");
 	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
-	const shellHeaderBg = useColorModeValue(
-		"panel.surface",
-		"panel.surface",
-	);
+	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
 	const shellHeaderShadow = menuShadow;
 	const shellMainBg = useColorModeValue("panel.main", "panel.main");
 	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
@@ -446,7 +443,7 @@ export function AppLayout() {
 								label: t("header.nodeSettings"),
 								to: "/node-settings",
 								icon: NodesIcon,
-						  }
+							}
 						: null,
 					isPrivilegedAdmin && sectionAccess?.[AdminSection.Hosts]
 						? {
@@ -455,7 +452,7 @@ export function AppLayout() {
 								label: t("header.hostSettings"),
 								to: "/hosts",
 								icon: HostsIcon,
-						  }
+							}
 						: null,
 					isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
 						? {
@@ -464,7 +461,7 @@ export function AppLayout() {
 								label: t("services.title"),
 								to: "/services",
 								icon: ServicesIcon,
-						  }
+							}
 						: null,
 				].filter(Boolean) as Array<{
 					type: "direct";
@@ -490,7 +487,7 @@ export function AppLayout() {
 										title: t("header.xraySettings"),
 										to: "/xray-settings",
 										icon: XraySettingsIcon,
-								  }
+									}
 								: null,
 							isPrivilegedAdmin
 								? {
@@ -498,7 +495,7 @@ export function AppLayout() {
 										title: t("haproxy.title"),
 										to: "/haproxy",
 										icon: HAProxyIcon,
-								  }
+									}
 								: null,
 						].filter(Boolean) as Array<{
 							id: string;
@@ -519,7 +516,7 @@ export function AppLayout() {
 										title: t("header.integrationSettings"),
 										to: "/settings",
 										icon: MasterSettingsIcon,
-								  }
+									}
 								: null,
 							canManagePlaceholders
 								? {
@@ -529,7 +526,7 @@ export function AppLayout() {
 											: t("placeholders.settingsMenu"),
 										to: "/placeholders",
 										icon: PlaceholderIcon,
-								  }
+									}
 								: null,
 							isPrivilegedAdmin
 								? {
@@ -537,7 +534,7 @@ export function AppLayout() {
 										title: t("phpmyadmin.menu"),
 										to: "/phpmyadmin",
 										icon: PHPMyAdminIcon,
-								  }
+									}
 								: null,
 							isPrivilegedAdmin
 								? {
@@ -545,7 +542,7 @@ export function AppLayout() {
 										title: t("externalApps.menu"),
 										to: "/external-apps",
 										icon: ExternalAppsIcon,
-								  }
+									}
 								: null,
 						].filter(Boolean) as Array<{
 							id: string;
@@ -566,7 +563,7 @@ export function AppLayout() {
 										title: t("pages.xray.logs"),
 										to: "/xray-logs",
 										icon: InsightsIcon,
-								  }
+									}
 								: null,
 							sectionAccess?.[AdminSection.Xray]
 								? {
@@ -574,7 +571,7 @@ export function AppLayout() {
 										title: t("header.accessInsights"),
 										to: "/access-insights",
 										icon: InsightsIcon,
-								  }
+									}
 								: null,
 							canViewRecentActions
 								? {
@@ -582,7 +579,7 @@ export function AppLayout() {
 										title: t("recentActions.title"),
 										to: "/recent-actions",
 										icon: RecentActionsIcon,
-								  }
+									}
 								: null,
 						].filter(Boolean) as Array<{
 							id: string;
@@ -611,7 +608,7 @@ export function AppLayout() {
 								label: t("apiDocs.menu"),
 								to: "/api-docs",
 								icon: DocsIcon,
-						  }
+							}
 						: null,
 				].filter(Boolean) as Array<{
 					type: "direct";
@@ -1033,15 +1030,26 @@ export function AppLayout() {
 				setCalendarCompact(true);
 				return;
 			}
-			const hasBanner = mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0;
+			const hasBanner =
+				mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0;
 			const bannerWidth = hasBanner ? (totalWidth >= 1200 ? 300 : 220) : 0;
-			const breadcrumbEl = headerRef.current.querySelector<HTMLElement>("[data-header-breadcrumb]");
-			const breadcrumbWidth = breadcrumbEl ? Math.max(breadcrumbEl.scrollWidth, breadcrumbEl.offsetWidth) : 80;
+			const breadcrumbEl = headerRef.current.querySelector<HTMLElement>(
+				"[data-header-breadcrumb]",
+			);
+			const breadcrumbWidth = breadcrumbEl
+				? Math.max(breadcrumbEl.scrollWidth, breadcrumbEl.offsetWidth)
+				: 80;
 			const navButtonWidth = 46;
 			const profileWidth = 110;
 			const fullCalendarWidth = 200;
 			const safetyBuffer = 40;
-			const requiredWidth = navButtonWidth + breadcrumbWidth + bannerWidth + profileWidth + fullCalendarWidth + safetyBuffer;
+			const requiredWidth =
+				navButtonWidth +
+				breadcrumbWidth +
+				bannerWidth +
+				profileWidth +
+				fullCalendarWidth +
+				safetyBuffer;
 			setCalendarCompact(totalWidth < requiredWidth);
 		};
 		const timer = setTimeout(checkFit, 20);
@@ -1051,7 +1059,12 @@ export function AppLayout() {
 			clearTimeout(timer);
 			ro.disconnect();
 		};
-	}, [location.pathname, location.hash, mobileHeaderItems.length, sponsorHeaderItems.length]);
+	}, [
+		location.pathname,
+		location.hash,
+		mobileHeaderItems.length,
+		sponsorHeaderItems.length,
+	]);
 
 	return (
 		<>
@@ -1119,7 +1132,13 @@ export function AppLayout() {
 						gap={3}
 						dir={isRTL ? "rtl" : "ltr"}
 					>
-						<HStack spacing={2.5} alignItems="center" flex="1" minW="0" h="full">
+						<HStack
+							spacing={2.5}
+							alignItems="center"
+							flex="1"
+							minW="0"
+							h="full"
+						>
 							<IconButton
 								size="sm"
 								w="34px"
@@ -1143,7 +1162,13 @@ export function AppLayout() {
 								flexShrink={0}
 								bg={headerButtonBg}
 								color="panel.textSecondary"
-								_hover={{ md: { bg: headerButtonHoverBg, borderColor: "panel.borderStrong", color: "panel.text" } }}
+								_hover={{
+									md: {
+										bg: headerButtonHoverBg,
+										borderColor: "panel.borderStrong",
+										color: "panel.text",
+									},
+								}}
 								_active={{ transform: "scale(0.95)" }}
 								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							/>
@@ -1164,10 +1189,20 @@ export function AppLayout() {
 								{breadcrumbItems.map((crumb, idx) => {
 									const isLast = idx === breadcrumbItems.length - 1;
 									return (
-										<HStack key={crumb.label} spacing={1.5} flexShrink={isLast ? 1 : 0} minW="0">
+										<HStack
+											key={crumb.label}
+											spacing={1.5}
+											flexShrink={isLast ? 1 : 0}
+											minW="0"
+										>
 											{idx > 0 && (
-												<Text as="span" fontSize="11px" color="panel.textMuted" userSelect="none">
-													{isRTL ? "←" : "→"}
+												<Text
+													as="span"
+													fontSize="11px"
+													color="panel.textMuted"
+													userSelect="none"
+												>
+													{isRTL ? "<" : ">"}
 												</Text>
 											)}
 											{crumb.path && !isLast ? (
@@ -1184,7 +1219,9 @@ export function AppLayout() {
 													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 													onClick={() => navigate(crumb.path!)}
 												>
-													<Text as="span" isTruncated>{crumb.label}</Text>
+													<Text as="span" isTruncated>
+														{crumb.label}
+													</Text>
 												</Button>
 											) : (
 												<Text
@@ -1209,7 +1246,12 @@ export function AppLayout() {
 										animate={{ opacity: 1, y: 0 }}
 										exit={{ opacity: 0, y: 16 }}
 										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
+										style={{
+											minWidth: 0,
+											flexShrink: 1,
+											display: "flex",
+											alignItems: "center",
+										}}
 									>
 										<Box
 											w={{ base: "130px", sm: "160px" }}
@@ -1234,7 +1276,12 @@ export function AppLayout() {
 										animate={{ opacity: 1, y: 0 }}
 										exit={{ opacity: 0, y: 16 }}
 										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-										style={{ minWidth: 0, flexShrink: 1, display: "flex", alignItems: "center" }}
+										style={{
+											minWidth: 0,
+											flexShrink: 1,
+											display: "flex",
+											alignItems: "center",
+										}}
 									>
 										<Box
 											w={{ md: "220px", lg: "280px", xl: "340px" }}
@@ -1301,7 +1348,12 @@ export function AppLayout() {
 											}
 										}}
 									>
-										<HStack spacing={2} align="center" justify="center" dir={isRTL ? "rtl" : "ltr"}>
+										<HStack
+											spacing={2}
+											align="center"
+											justify="center"
+											dir={isRTL ? "rtl" : "ltr"}
+										>
 											{isRTL ? (
 												<>
 													<Text
@@ -1355,242 +1407,281 @@ export function AppLayout() {
 										<MenuList
 											dir={isRTL ? "rtl" : "ltr"}
 											ref={userMenuContentRef}
-										minW="230px"
-										p={2}
-										borderRadius="20px"
-										borderWidth="1px"
-										borderColor="panel.border"
-										bg="panel.surface"
-										boxShadow={menuShadow}
-										zIndex={9999}
-										userSelect="none"
-										sx={{
-											".chakra-menu__menuitem": {
-												bg: "transparent !important",
-												borderRadius: "10px",
-												h: "38px",
-												px: "12px",
-												my: "2px",
-												fontSize: "13px",
-												fontWeight: "500",
-												transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
-												"@media (hover: hover)": {
-													"&:hover": {
-														bg: "panel.elevated !important",
-													},
-												},
-												"&:active, &:focus-visible": {
-													bg: "panel.elevated !important",
-												},
-												"&:focus:not(:focus-visible)": {
-													bg: "transparent !important",
-												},
-											},
-											".rb-logout-menu-item, .rb-logout-menu-item[data-focus]": {
-												color: "red.400 !important",
-												fontWeight: "600 !important",
-												bg: "transparent !important",
-												"@media (hover: hover)": {
-													"&:hover": {
-														bg: "rgba(239, 68, 68, 0.12) !important",
-														color: "red.400 !important",
-													},
-												},
-												"&[data-focus]": {
-													bg: "rgba(239, 68, 68, 0.12) !important",
-													color: "red.400 !important",
-												},
-											},
-										}}
-									>
-										<Flex
-											align="center"
-											gap={3}
-											p={2.5}
-											mb={1.5}
-											borderRadius="14px"
-											bg="panel.elevated"
+											minW="230px"
+											p={2}
+											borderRadius="20px"
 											borderWidth="1px"
 											borderColor="panel.border"
-										>
-											<Flex
-												w="34px"
-												h="34px"
-												align="center"
-												justify="center"
-												borderRadius="10px"
-												bg="panel.surface"
-												borderWidth="1px"
-												borderColor="panel.border"
-												color="panel.text"
-												flexShrink={0}
-											>
-												<UserIcon />
-											</Flex>
-											<VStack align="flex-start" spacing={0} minW={0}>
-												<Text fontWeight="700" fontSize="13px" color="panel.text" isTruncated>
-													{userData.username}
-												</Text>
-												<Text fontSize="11px" fontWeight="500" color="panel.textMuted" isTruncated>
-													{roleLabel}
-												</Text>
-											</VStack>
-										</Flex>
-
-										<Menu
-											placement={languagePlacement}
-											strategy="fixed"
-											isOpen={languageMenu.isOpen}
-											onOpen={languageMenu.onOpen}
-											onClose={languageMenu.onClose}
-											closeOnSelect={false}
-											isLazy
-											autoSelect={false}
-										>
-											<MenuButton
-												as={Button}
-												leftIcon={<LanguageIconStyled />}
-												variant="ghost"
-												w="full"
-												h="38px"
-												justifyContent="flex-start"
-												fontWeight="500"
-												fontSize="13px"
-												borderRadius="12px"
-												px={3}
-												bg="transparent"
-												color="panel.text"
-												transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-												_hover={{ bg: "panel.elevated" }}
-												_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
-												_focusVisible={{ bg: "panel.elevated" }}
-												onClick={(e: ReactMouseEvent) => {
-													e.stopPropagation();
-													languageMenu.isOpen
-														? languageMenu.onClose()
-														: languageMenu.onOpen();
-												}}
-											>
-												<HStack justify="space-between" w="full" minW={0}>
-													<Text color="panel.text">{t("header.language")}</Text>
-													<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
-														{languageItems.find(
-															(item) => item.code === i18n.language,
-														)?.label || "English"}
-													</Text>
-												</HStack>
-											</MenuButton>
-											<Portal containerRef={userMenuContentRef}>
-												<MenuList
-													dir={isRTL ? "rtl" : "ltr"}
-													minW="170px"
-													p={1.5}
-													borderRadius="18px"
-													borderWidth="1px"
-													borderColor="panel.border"
-													bg="panel.surface"
-													boxShadow={menuShadow}
-													zIndex={9999}
-													userSelect="none"
-													sx={{
-														".chakra-menu__menuitem": {
-															bg: "transparent !important",
-															borderRadius: "8px",
-															h: "36px",
-															px: "10px",
-															my: "1px",
-															fontSize: "12px",
-															fontWeight: "500",
-															"@media (hover: hover)": {
-																"&:hover": {
-																	bg: "panel.elevated !important",
-																},
-															},
-															"&:active, &:focus-visible": {
-																bg: "panel.elevated !important",
-															},
-															"&:focus:not(:focus-visible)": {
-																bg: "transparent !important",
+											bg="panel.surface"
+											boxShadow={menuShadow}
+											zIndex={9999}
+											userSelect="none"
+											sx={{
+												".chakra-menu__menuitem": {
+													bg: "transparent !important",
+													borderRadius: "10px",
+													h: "38px",
+													px: "12px",
+													my: "2px",
+													fontSize: "13px",
+													fontWeight: "500",
+													transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
+													"@media (hover: hover)": {
+														"&:hover": {
+															bg: "panel.elevated !important",
+														},
+													},
+													"&:active, &:focus-visible": {
+														bg: "panel.elevated !important",
+													},
+													"&:focus:not(:focus-visible)": {
+														bg: "transparent !important",
+													},
+												},
+												".rb-logout-menu-item, .rb-logout-menu-item[data-focus]":
+													{
+														color: "red.400 !important",
+														fontWeight: "600 !important",
+														bg: "transparent !important",
+														transition:
+															"all 0.16s cubic-bezier(0.2, 0, 0, 1) !important",
+														"@media (hover: hover)": {
+															"&:hover": {
+																bg: "rgba(239, 68, 68, 0.14) !important",
+																color: "red.400 !important",
 															},
 														},
-													}}
-												>
-													{languageItems.map(({ code, label, flag }) => {
-														const isActiveLang = i18n.language === code;
-														return (
-															<MenuItem
-																key={code}
-																onClick={() => {
-																	changeLanguage(code);
-																}}
-															>
-																<HStack justify="space-between" w="full">
-																	<HStack spacing={2.5}>
-																		{code === "fa" ? (
-																			<ImperialIranFlag
-																				style={{
-																					width: "16px",
-																					height: "12px",
-																				}}
-																			/>
-																		) : (
-																			<ReactCountryFlag
-																				countryCode={flag}
-																				svg
-																				style={{
-																					width: "16px",
-																					height: "12px",
-																				}}
-																			/>
-																		)}
-																		<Text fontWeight={isActiveLang ? "700" : "500"}>{label}</Text>
-																	</HStack>
-																	{isActiveLang && <CheckIcon width={15} color="panel.text" />}
-																</HStack>
-															</MenuItem>
-														);
-													})}
-												</MenuList>
-											</Portal>
-										</Menu>
-
-										<ThemeSelector
-											trigger="menuItem"
-											triggerLabel={t("header.theme")}
-											portalContainer={userMenuContentRef}
-											onModalOpen={handleThemeModalOpen}
-											onModalClose={handleThemeModalClose}
-										/>
-
-										<MenuItem
-											className="rb-logout-menu-item"
-											icon={<LogoutIcon />}
-											color="red.400"
-											_hover={{
-												bg: "rgba(239, 68, 68, 0.12) !important",
-												color: "red.400 !important",
-											}}
-											_focus={{
-												bg: "rgba(239, 68, 68, 0.12) !important",
-												color: "red.400 !important",
-											}}
-											_active={{
-												bg: "rgba(239, 68, 68, 0.18) !important",
-											}}
-											onClick={async () => {
-												try {
-													await logoutSession();
-												} finally {
-													clearClientSession();
-													navigate("/login");
-												}
+														"&[data-focus]": {
+															bg: "rgba(239, 68, 68, 0.14) !important",
+															color: "red.400 !important",
+														},
+														"&:active, &[data-active]": {
+															bg: "rgba(239, 68, 68, 0.22) !important",
+															transform: "scale(0.98) !important",
+														},
+													},
 											}}
 										>
-											{t("header.logout")}
-										</MenuItem>
-									</MenuList>
-								</Portal>
-							</Menu>
+											<Flex
+												align="center"
+												gap={3}
+												p={2.5}
+												mb={1.5}
+												borderRadius="14px"
+												bg="panel.elevated"
+												borderWidth="1px"
+												borderColor="panel.border"
+											>
+												<Flex
+													w="34px"
+													h="34px"
+													align="center"
+													justify="center"
+													borderRadius="10px"
+													bg="panel.surface"
+													borderWidth="1px"
+													borderColor="panel.border"
+													color="panel.text"
+													flexShrink={0}
+												>
+													<UserIcon />
+												</Flex>
+												<VStack align="flex-start" spacing={0} minW={0}>
+													<Text
+														fontWeight="700"
+														fontSize="13px"
+														color="panel.text"
+														isTruncated
+													>
+														{userData.username}
+													</Text>
+													<Text
+														fontSize="11px"
+														fontWeight="500"
+														color="panel.textMuted"
+														isTruncated
+													>
+														{roleLabel}
+													</Text>
+												</VStack>
+											</Flex>
+
+											<Menu
+												placement={languagePlacement}
+												strategy="fixed"
+												isOpen={languageMenu.isOpen}
+												onOpen={languageMenu.onOpen}
+												onClose={languageMenu.onClose}
+												closeOnSelect={false}
+												isLazy
+												autoSelect={false}
+											>
+												<MenuButton
+													as={Button}
+													leftIcon={<LanguageIconStyled />}
+													variant="ghost"
+													w="full"
+													h="38px"
+													justifyContent="flex-start"
+													fontWeight="500"
+													fontSize="13px"
+													borderRadius="12px"
+													px={3}
+													bg="transparent"
+													color="panel.text"
+													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+													_hover={{ bg: "panel.elevated" }}
+													_active={{
+														bg: "panel.elevated",
+														transform: "scale(0.98)",
+													}}
+													_focusVisible={{ bg: "panel.elevated" }}
+													onClick={(e: ReactMouseEvent) => {
+														e.stopPropagation();
+														languageMenu.isOpen
+															? languageMenu.onClose()
+															: languageMenu.onOpen();
+													}}
+												>
+													<HStack justify="space-between" w="full" minW={0}>
+														<Text color="panel.text">
+															{t("header.language")}
+														</Text>
+														<Text
+															fontSize="11px"
+															fontWeight="600"
+															color="panel.textMuted"
+														>
+															{languageItems.find(
+																(item) => item.code === i18n.language,
+															)?.label || "English"}
+														</Text>
+													</HStack>
+												</MenuButton>
+												<Portal containerRef={userMenuContentRef}>
+													<MenuList
+														dir={isRTL ? "rtl" : "ltr"}
+														minW="170px"
+														p={1.5}
+														borderRadius="18px"
+														borderWidth="1px"
+														borderColor="panel.border"
+														bg="panel.surface"
+														boxShadow={menuShadow}
+														zIndex={9999}
+														userSelect="none"
+														sx={{
+															".chakra-menu__menuitem": {
+																bg: "transparent !important",
+																borderRadius: "8px",
+																h: "36px",
+																px: "10px",
+																my: "1px",
+																fontSize: "12px",
+																fontWeight: "500",
+																"@media (hover: hover)": {
+																	"&:hover": {
+																		bg: "panel.elevated !important",
+																	},
+																},
+																"&:active, &:focus-visible": {
+																	bg: "panel.elevated !important",
+																},
+																"&:focus:not(:focus-visible)": {
+																	bg: "transparent !important",
+																},
+															},
+														}}
+													>
+														{languageItems.map(({ code, label, flag }) => {
+															const isActiveLang = i18n.language === code;
+															return (
+																<MenuItem
+																	key={code}
+																	onClick={() => {
+																		changeLanguage(code);
+																	}}
+																>
+																	<HStack justify="space-between" w="full">
+																		<HStack spacing={2.5}>
+																			{code === "fa" ? (
+																				<ImperialIranFlag
+																					style={{
+																						width: "16px",
+																						height: "12px",
+																					}}
+																				/>
+																			) : (
+																				<ReactCountryFlag
+																					countryCode={flag}
+																					svg
+																					style={{
+																						width: "16px",
+																						height: "12px",
+																					}}
+																				/>
+																			)}
+																			<Text
+																				fontWeight={
+																					isActiveLang ? "700" : "500"
+																				}
+																			>
+																				{label}
+																			</Text>
+																		</HStack>
+																		{isActiveLang && (
+																			<CheckIcon
+																				width={15}
+																				color="panel.text"
+																			/>
+																		)}
+																	</HStack>
+																</MenuItem>
+															);
+														})}
+													</MenuList>
+												</Portal>
+											</Menu>
+
+											<ThemeSelector
+												trigger="menuItem"
+												triggerLabel={t("header.theme")}
+												portalContainer={userMenuContentRef}
+												onModalOpen={handleThemeModalOpen}
+												onModalClose={handleThemeModalClose}
+											/>
+
+											<MenuItem
+												className="rb-logout-menu-item"
+												icon={<LogoutIcon />}
+												color="red.400"
+												transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+												_hover={{
+													bg: "rgba(239, 68, 68, 0.14) !important",
+													color: "red.400 !important",
+												}}
+												_focus={{
+													bg: "rgba(239, 68, 68, 0.14) !important",
+													color: "red.400 !important",
+												}}
+												_active={{
+													bg: "rgba(239, 68, 68, 0.22) !important",
+													transform: "scale(0.98)",
+												}}
+												onClick={async () => {
+													try {
+														await logoutSession();
+													} finally {
+														clearClientSession();
+														navigate("/login");
+													}
+												}}
+											>
+												{t("header.logout")}
+											</MenuItem>
+										</MenuList>
+									</Portal>
+								</Menu>
 							)}
 						</HStack>
 					</Box>
@@ -1724,471 +1815,637 @@ export function AppLayout() {
 								mx="auto"
 							>
 								<Box position="relative" w="full">
-								{(() => {
-									const dockItemCount = bottomNavItems.length;
-									const activeDockIndex = bottomNavItems.findIndex(
-										(it) => it.key === selectedTabKey,
-									);
-									if (activeDockIndex < 0 || dockItemCount === 0) return null;
-									return (
-										<Box
-											position="absolute"
-											top="0"
-											bottom="0"
-											width={`calc(100% / ${dockItemCount})`}
-											left={isRTL ? undefined : "0px"}
-											right={isRTL ? "0px" : undefined}
-											transform={
-												isRTL
-													? `translateX(calc(-${activeDockIndex * 100}%))`
-													: `translateX(calc(${activeDockIndex * 100}%))`
-											}
-											transition="transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
-											p="2px"
-											pointerEvents="none"
-											zIndex={0}
-											sx={{
-												willChange: "transform",
-											}}
-										>
+									{(() => {
+										const dockItemCount = bottomNavItems.length;
+										const activeDockIndex = bottomNavItems.findIndex(
+											(it) => it.key === selectedTabKey,
+										);
+										if (activeDockIndex < 0 || dockItemCount === 0) return null;
+										return (
 											<Box
-												w="full"
-												h="full"
-												borderRadius="16px"
-												bg="panel.elevated"
-												borderWidth="1px"
-												borderColor="panel.borderStrong"
-												boxShadow="0 2px 8px rgba(0, 0, 0, 0.12)"
-											/>
-										</Box>
-									);
-								})()}
-
-								<SimpleGrid
-									columns={bottomNavItems.length}
-									spacing={0}
-									w="full"
-									position="relative"
-									alignItems="center"
-									dir={isRTL ? "rtl" : "ltr"}
-									zIndex={1}
-								>
-									{bottomNavItems.map((item) => {
-										const isActive = resolveActive(item);
-										const isSelected = selectedTabKey === item.key;
-										const isSettingsItem = item.key === "settings";
-										const displayLabel = isSettingsItem && activeSettingsItem ? activeSettingsItem.label : item.label;
-										const DisplayIcon = isSettingsItem
-											? (activeSettingsItem?.icon ?? SettingsNavIcon)
-											: (
-												item.key === "dashboard" ? HomeIcon :
-												item.key === "users" ? UsersIcon :
-												item.key === "admins" ? AdminsIcon :
-												UserIcon
-											);
-										const navContent = (
-											<Box
-												w="full"
-												display="flex"
-												flexDirection="column"
-												alignItems="center"
-												justifyContent="center"
-												minW="0"
-												py="1"
-												px="1"
-												position="relative"
-												zIndex={1}
+												position="absolute"
+												top="0"
+												bottom="0"
+												width={`calc(100% / ${dockItemCount})`}
+												left={isRTL ? undefined : "0px"}
+												right={isRTL ? "0px" : undefined}
+												transform={
+													isRTL
+														? `translateX(calc(-${activeDockIndex * 100}%))`
+														: `translateX(calc(${activeDockIndex * 100}%))`
+												}
+												transition="transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
+												p="2px"
+												pointerEvents="none"
+												zIndex={0}
+												sx={{
+													willChange: "transform",
+												}}
 											>
 												<Box
-													w="6"
-													h="6"
-													display="grid"
-													placeItems="center"
-													color={isSelected ? "var(--rb-panel-accent)" : dockInactiveIcon}
-													transform={isSelected ? "scale(1.08) translateY(-1px)" : "scale(1) translateY(0)"}
-													transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-												>
-													<DisplayIcon />
-												</Box>
-												<Text
-													fontSize="10px"
-													lineHeight="1.2"
-													fontWeight={isSelected ? "600" : "500"}
-													textAlign="center"
-													whiteSpace="nowrap"
-													overflow="hidden"
-													textOverflow="ellipsis"
-													maxW="100%"
-													px="0.5"
-													mt="2px"
-													color={isSelected ? "panel.text" : dockInactiveText}
-													transition="color 0.2s ease"
-												>
-													{displayLabel}
-												</Text>
+													w="full"
+													h="full"
+													borderRadius="16px"
+													bg="panel.elevated"
+													borderWidth="1px"
+													borderColor="panel.borderStrong"
+													boxShadow="0 2px 8px rgba(0, 0, 0, 0.12)"
+												/>
 											</Box>
 										);
+									})()}
 
-										if (item.key === "settings") {
-											return (
-												<Popover
-													key={item.key}
-													isOpen={settingsMenu.isOpen}
-													onClose={handleSettingsMenuClose}
-													placement="top"
-													gutter={12}
-													closeOnBlur
-													modifiers={popoverModifiers}
-													strategy="fixed"
+									<SimpleGrid
+										columns={bottomNavItems.length}
+										spacing={0}
+										w="full"
+										position="relative"
+										alignItems="center"
+										dir={isRTL ? "rtl" : "ltr"}
+										zIndex={1}
+									>
+										{bottomNavItems.map((item) => {
+											const isActive = resolveActive(item);
+											const isSelected = selectedTabKey === item.key;
+											const isSettingsItem = item.key === "settings";
+											const displayLabel =
+												isSettingsItem && activeSettingsItem
+													? activeSettingsItem.label
+													: item.label;
+											const DisplayIcon = isSettingsItem
+												? (activeSettingsItem?.icon ?? SettingsNavIcon)
+												: item.key === "dashboard"
+													? HomeIcon
+													: item.key === "users"
+														? UsersIcon
+														: item.key === "admins"
+															? AdminsIcon
+															: UserIcon;
+											const navContent = (
+												<Box
+													w="full"
+													display="flex"
+													flexDirection="column"
+													alignItems="center"
+													justifyContent="center"
+													minW="0"
+													py="1"
+													px="1"
+													position="relative"
+													zIndex={1}
 												>
-													<PopoverTrigger>
-														<Button
-															variant="ghost"
-															size="sm"
-															ref={(node) => {
-																tabContentRefs.current[item.key] = node;
-															}}
-															onClick={() => {
-																handleSettingsMenuToggle();
-															}}
-															color={isActive ? "primary.500" : "gray.600"}
-															_dark={{
-																color: isActive ? "primary.300" : "gray.300",
-															}}
-															w="full"
-															minW="0"
-															minH="46px"
-															h="auto"
-															px="0"
-															borderRadius="full"
-															position="relative"
-															zIndex={1}
-															sx={{ touchAction: "manipulation" }}
-															userSelect="none"
-															transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
-															_hover={{ bg: "transparent" }}
-															_active={{ bg: "transparent", transform: "scale(0.96)" }}
-															_focus={{ bg: "transparent" }}
-														>
-															{navContent}
-														</Button>
-													</PopoverTrigger>
-													<Portal>
-														<PopoverContent
-															w="min(270px, calc(100vw - 24px))"
-															maxW="calc(100vw - 24px)"
-															maxH="calc(100vh - 130px)"
-															overflowY="auto"
-															borderRadius="20px"
-															bg="panel.surface"
-															borderColor="panel.border"
-															borderWidth="1px"
-															boxShadow={menuShadow}
-															p={2.5}
-															dir={isRTL ? "rtl" : "ltr"}
-														>
-															<PopoverBody p={0}>
-																<Box px={2.5} pt={1.5} pb={1} borderBottomWidth="1px" borderColor="panel.border" mb={2}>
-																	<Text
-																		fontSize="11px"
-																		fontWeight="700"
-																		color="panel.textMuted"
-																		textTransform="uppercase"
-																		letterSpacing="0.06em"
+													<Box
+														w="6"
+														h="6"
+														display="grid"
+														placeItems="center"
+														color={
+															isSelected
+																? "var(--rb-panel-accent)"
+																: dockInactiveIcon
+														}
+														transform={
+															isSelected
+																? "scale(1.08) translateY(-1px)"
+																: "scale(1) translateY(0)"
+														}
+														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+													>
+														<DisplayIcon />
+													</Box>
+													<Text
+														fontSize="10px"
+														lineHeight="1.2"
+														fontWeight={isSelected ? "600" : "500"}
+														textAlign="center"
+														whiteSpace="nowrap"
+														overflow="hidden"
+														textOverflow="ellipsis"
+														maxW="100%"
+														px="0.5"
+														mt="2px"
+														color={isSelected ? "panel.text" : dockInactiveText}
+														transition="color 0.2s ease"
+													>
+														{displayLabel}
+													</Text>
+												</Box>
+											);
+
+											if (item.key === "settings") {
+												return (
+													<Popover
+														key={item.key}
+														isOpen={settingsMenu.isOpen}
+														onClose={handleSettingsMenuClose}
+														placement="top"
+														gutter={12}
+														closeOnBlur
+														modifiers={popoverModifiers}
+														strategy="fixed"
+													>
+														<PopoverTrigger>
+															<Button
+																variant="ghost"
+																size="sm"
+																ref={(node) => {
+																	tabContentRefs.current[item.key] = node;
+																}}
+																onClick={() => {
+																	handleSettingsMenuToggle();
+																}}
+																color={isActive ? "primary.500" : "gray.600"}
+																_dark={{
+																	color: isActive ? "primary.300" : "gray.300",
+																}}
+																w="full"
+																minW="0"
+																minH="46px"
+																h="auto"
+																px="0"
+																borderRadius="full"
+																position="relative"
+																zIndex={1}
+																sx={{ touchAction: "manipulation" }}
+																userSelect="none"
+																transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
+																_hover={{ bg: "transparent" }}
+																_active={{
+																	bg: "transparent",
+																	transform: "scale(0.96)",
+																}}
+																_focus={{ bg: "transparent" }}
+															>
+																{navContent}
+															</Button>
+														</PopoverTrigger>
+														<Portal>
+															<PopoverContent
+																w="min(270px, calc(100vw - 24px))"
+																maxW="calc(100vw - 24px)"
+																maxH="calc(100vh - 130px)"
+																overflowY="auto"
+																borderRadius="20px"
+																bg="panel.surface"
+																borderColor="panel.border"
+																borderWidth="1px"
+																boxShadow={menuShadow}
+																p={2.5}
+																dir={isRTL ? "rtl" : "ltr"}
+															>
+																<PopoverBody p={0}>
+																	<Box
+																		px={2.5}
+																		pt={1.5}
+																		pb={1}
+																		borderBottomWidth="1px"
+																		borderColor="panel.border"
+																		mb={2}
 																	>
-																		{t("header.settings")}
-																	</Text>
-																</Box>
-																<VStack align="stretch" spacing={2.5}>
-																	{mobileDockSections.map((sec) => (
-																		<Box key={sec.id}>
-																			<Text
-																				px={2}
-																				py={0.5}
-																				fontSize="10.5px"
-																				fontWeight="600"
-																				color="panel.textMuted"
-																				textTransform="uppercase"
-																				letterSpacing="0.06em"
-																			>
-																				{sec.title}
-																			</Text>
-																			<VStack align="stretch" spacing={1} mt={0.5}>
-																				{sec.items.map((entry) => {
-																					if (entry.type === "direct") {
-																						const ItemIcon = entry.icon;
-																						const isSelected =
-																							location.pathname === entry.to ||
-																							(entry.to !== "/" &&
-																								location.pathname.startsWith(entry.to));
-																						return (
-																							<Button
-																								key={entry.key}
-																								variant="ghost"
-																								size="sm"
-																								w="full"
-																								h="36px"
-																								borderRadius="10px"
-																								px={2.5}
-																								justifyContent="flex-start"
-																								leftIcon={<ItemIcon />}
-																								bg={isSelected ? "panel.elevated" : "transparent"}
-																								color={isSelected ? "panel.text" : "panel.textSecondary"}
-																								fontWeight={isSelected ? "600" : "500"}
-																								fontSize="12.5px"
-																								borderInlineStartWidth={isSelected ? "3px" : "0px"}
-																								borderInlineStartColor="var(--rb-panel-accent)"
-																								_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
-																								_active={{ bg: "panel.elevated" }}
-																								onClick={() => {
-																									navigateToSettingsItem(entry.to);
-																								}}
-																							>
-																								{entry.label}
-																							</Button>
+																		<Text
+																			fontSize="11px"
+																			fontWeight="700"
+																			color="panel.textMuted"
+																			textTransform="uppercase"
+																			letterSpacing="0.06em"
+																		>
+																			{t("header.settings")}
+																		</Text>
+																	</Box>
+																	<VStack align="stretch" spacing={2.5}>
+																		{mobileDockSections.map((sec) => (
+																			<Box key={sec.id}>
+																				<Text
+																					px={2}
+																					py={0.5}
+																					fontSize="10.5px"
+																					fontWeight="600"
+																					color="panel.textMuted"
+																					textTransform="uppercase"
+																					letterSpacing="0.06em"
+																				>
+																					{sec.title}
+																				</Text>
+																				<VStack
+																					align="stretch"
+																					spacing={1}
+																					mt={0.5}
+																				>
+																					{sec.items.map((entry) => {
+																						if (entry.type === "direct") {
+																							const ItemIcon = entry.icon;
+																							const isSelected =
+																								location.pathname ===
+																									entry.to ||
+																								(entry.to !== "/" &&
+																									location.pathname.startsWith(
+																										entry.to,
+																									));
+																							return (
+																								<Button
+																									key={entry.key}
+																									variant="ghost"
+																									size="sm"
+																									w="full"
+																									h="36px"
+																									borderRadius="10px"
+																									px={2.5}
+																									justifyContent="flex-start"
+																									leftIcon={<ItemIcon />}
+																									bg={
+																										isSelected
+																											? "panel.elevated"
+																											: "transparent"
+																									}
+																									color={
+																										isSelected
+																											? "panel.text"
+																											: "panel.textSecondary"
+																									}
+																									fontWeight={
+																										isSelected ? "600" : "500"
+																									}
+																									fontSize="12.5px"
+																									borderInlineStartWidth={
+																										isSelected ? "3px" : "0px"
+																									}
+																									borderInlineStartColor="var(--rb-panel-accent)"
+																									_hover={{
+																										md: {
+																											bg: "panel.elevated",
+																											color: "panel.text",
+																										},
+																									}}
+																									_active={{
+																										bg: "panel.elevated",
+																									}}
+																									onClick={() => {
+																										navigateToSettingsItem(
+																											entry.to,
+																										);
+																									}}
+																								>
+																									{entry.label}
+																								</Button>
+																							);
+																						}
+
+																						const GroupIcon = entry.icon;
+																						const isGroupOpen = Boolean(
+																							mobileDockOpenGroups[entry.id],
 																						);
-																					}
+																						const isGroupActive =
+																							entry.subItems.some(
+																								(s) =>
+																									location.pathname === s.to ||
+																									(s.to !== "/" &&
+																										location.pathname.startsWith(
+																											s.to,
+																										)),
+																							);
 
-																					const GroupIcon = entry.icon;
-																					const isGroupOpen = Boolean(mobileDockOpenGroups[entry.id]);
-																					const isGroupActive = entry.subItems.some(
-																						(s) =>
-																							location.pathname === s.to ||
-																							(s.to !== "/" &&
-																								location.pathname.startsWith(s.to)),
-																					);
-
-																					return (
-																						<Box key={entry.id}>
-																							<Flex
-																								align="center"
-																								justify="space-between"
-																								w="full"
-																								h="36px"
-																								px={2.5}
-																								borderRadius="10px"
-																								bg={isGroupActive && !isGroupOpen ? "panel.elevated" : "transparent"}
-																								color={isGroupActive ? "panel.text" : "panel.textSecondary"}
-																								fontWeight={isGroupActive ? "600" : "500"}
-																								fontSize="12.5px"
-																								cursor="pointer"
-																								borderInlineStartWidth={isGroupActive && !isGroupOpen ? "3px" : "0px"}
-																								borderInlineStartColor="var(--rb-panel-accent)"
-																								onClick={() => {
-																									setMobileDockOpenGroups((prev) => ({
-																										...prev,
-																										[entry.id]: !prev[entry.id],
-																									}));
-																								}}
-																								_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
-																								_active={{ bg: "panel.elevated" }}
-																							>
-																								<HStack spacing={2} align="center">
-																									<Box as="span" color={isGroupActive ? "var(--rb-panel-accent)" : "inherit"}>
-																										<GroupIcon />
-																									</Box>
-																									<Text noOfLines={1}>{entry.title}</Text>
-																								</HStack>
-																								<ChevronDownIconStyled
-																									color="panel.textMuted"
-																									transform={isGroupOpen ? "rotate(180deg)" : "rotate(0deg)"}
-																									transition="transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
-																								/>
-																							</Flex>
-
-																							<AnimatePresence initial={false}>
-																								{isGroupOpen && (
-																									<motion.div
-																										initial={{ opacity: 0, height: 0 }}
-																										animate={{ opacity: 1, height: "auto" }}
-																										exit={{ opacity: 0, height: 0 }}
-																										transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-																										style={{ overflow: "hidden" }}
+																						return (
+																							<Box key={entry.id}>
+																								<Flex
+																									align="center"
+																									justify="space-between"
+																									w="full"
+																									h="36px"
+																									px={2.5}
+																									borderRadius="10px"
+																									bg={
+																										isGroupActive &&
+																										!isGroupOpen
+																											? "panel.elevated"
+																											: "transparent"
+																									}
+																									color={
+																										isGroupActive
+																											? "panel.text"
+																											: "panel.textSecondary"
+																									}
+																									fontWeight={
+																										isGroupActive
+																											? "600"
+																											: "500"
+																									}
+																									fontSize="12.5px"
+																									cursor="pointer"
+																									borderInlineStartWidth={
+																										isGroupActive &&
+																										!isGroupOpen
+																											? "3px"
+																											: "0px"
+																									}
+																									borderInlineStartColor="var(--rb-panel-accent)"
+																									onClick={() => {
+																										setMobileDockOpenGroups(
+																											(prev) => ({
+																												...prev,
+																												[entry.id]:
+																													!prev[entry.id],
+																											}),
+																										);
+																									}}
+																									_hover={{
+																										md: {
+																											bg: "panel.elevated",
+																											color: "panel.text",
+																										},
+																									}}
+																									_active={{
+																										bg: "panel.elevated",
+																									}}
+																								>
+																									<HStack
+																										spacing={2}
+																										align="center"
 																									>
 																										<Box
-																											ms="14px"
-																											ps="8px"
-																											my={1}
-																											borderInlineStart="1.5px solid"
-																											borderColor="panel.border"
+																											as="span"
+																											color={
+																												isGroupActive
+																													? "var(--rb-panel-accent)"
+																													: "inherit"
+																											}
 																										>
-																											<VStack align="stretch" spacing={0.5}>
-																												{entry.subItems.map((sub) => {
-																													const isSubActive =
-																														location.pathname === sub.to ||
-																														(sub.to !== "/" &&
-																															location.pathname.startsWith(sub.to));
-																													const SubIcon = sub.icon;
-																													return (
-																														<Button
-																															key={sub.id}
-																															variant="ghost"
-																															size="sm"
-																															w="full"
-																															h="32px"
-																															borderRadius="10px"
-																															px={2}
-																															justifyContent="flex-start"
-																															leftIcon={<SubIcon />}
-																															bg={isSubActive ? "panel.elevated" : "transparent"}
-																															color={isSubActive ? "panel.text" : "panel.textSecondary"}
-																															fontWeight={isSubActive ? "600" : "400"}
-																															fontSize="12px"
-																															borderInlineStartWidth={isSubActive ? "2.5px" : "0px"}
-																															borderInlineStartColor="var(--rb-panel-accent)"
-																															_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
-																															_active={{ bg: "panel.elevated" }}
-																															onClick={() => {
-																																navigateToSettingsItem(sub.to);
-																															}}
-																														>
-																															{sub.title}
-																														</Button>
-																													);
-																												})}
-																											</VStack>
+																											<GroupIcon />
 																										</Box>
-																									</motion.div>
-																								)}
-																							</AnimatePresence>
-																						</Box>
-																					);
-																				})}
-																			</VStack>
-																		</Box>
-																	))}
-																</VStack>
-															</PopoverBody>
-														</PopoverContent>
-													</Portal>
-												</Popover>
-											);
-										}
+																										<Text noOfLines={1}>
+																											{entry.title}
+																										</Text>
+																									</HStack>
+																									<ChevronDownIconStyled
+																										color="panel.textMuted"
+																										transform={
+																											isGroupOpen
+																												? "rotate(180deg)"
+																												: "rotate(0deg)"
+																										}
+																										transition="transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+																									/>
+																								</Flex>
 
-										if (item.key === "myaccount") {
+																								<AnimatePresence
+																									initial={false}
+																								>
+																									{isGroupOpen && (
+																										<motion.div
+																											initial={{
+																												opacity: 0,
+																												height: 0,
+																											}}
+																											animate={{
+																												opacity: 1,
+																												height: "auto",
+																											}}
+																											exit={{
+																												opacity: 0,
+																												height: 0,
+																											}}
+																											transition={{
+																												duration: 0.24,
+																												ease: [0.16, 1, 0.3, 1],
+																											}}
+																											style={{
+																												overflow: "hidden",
+																											}}
+																										>
+																											<Box
+																												ms="14px"
+																												ps="8px"
+																												my={1}
+																												borderInlineStart="1.5px solid"
+																												borderColor="panel.border"
+																											>
+																												<VStack
+																													align="stretch"
+																													spacing={0.5}
+																												>
+																													{entry.subItems.map(
+																														(sub) => {
+																															const isSubActive =
+																																location.pathname ===
+																																	sub.to ||
+																																(sub.to !==
+																																	"/" &&
+																																	location.pathname.startsWith(
+																																		sub.to,
+																																	));
+																															const SubIcon =
+																																sub.icon;
+																															return (
+																																<Button
+																																	key={sub.id}
+																																	variant="ghost"
+																																	size="sm"
+																																	w="full"
+																																	h="32px"
+																																	borderRadius="10px"
+																																	px={2}
+																																	justifyContent="flex-start"
+																																	leftIcon={
+																																		<SubIcon />
+																																	}
+																																	bg={
+																																		isSubActive
+																																			? "panel.elevated"
+																																			: "transparent"
+																																	}
+																																	color={
+																																		isSubActive
+																																			? "panel.text"
+																																			: "panel.textSecondary"
+																																	}
+																																	fontWeight={
+																																		isSubActive
+																																			? "600"
+																																			: "400"
+																																	}
+																																	fontSize="12px"
+																																	borderInlineStartWidth={
+																																		isSubActive
+																																			? "2.5px"
+																																			: "0px"
+																																	}
+																																	borderInlineStartColor="var(--rb-panel-accent)"
+																																	_hover={{
+																																		md: {
+																																			bg: "panel.elevated",
+																																			color:
+																																				"panel.text",
+																																		},
+																																	}}
+																																	_active={{
+																																		bg: "panel.elevated",
+																																	}}
+																																	onClick={() => {
+																																		navigateToSettingsItem(
+																																			sub.to,
+																																		);
+																																	}}
+																																>
+																																	{sub.title}
+																																</Button>
+																															);
+																														},
+																													)}
+																												</VStack>
+																											</Box>
+																										</motion.div>
+																									)}
+																								</AnimatePresence>
+																							</Box>
+																						);
+																					})}
+																				</VStack>
+																			</Box>
+																		))}
+																	</VStack>
+																</PopoverBody>
+															</PopoverContent>
+														</Portal>
+													</Popover>
+												);
+											}
+
+											if (item.key === "myaccount") {
+												return (
+													<Popover
+														key={item.key}
+														isOpen={accountMenu.isOpen}
+														onClose={handleAccountMenuClose}
+														autoFocus={false}
+														placement="top"
+														gutter={12}
+														closeOnBlur
+														modifiers={popoverModifiers}
+														strategy="fixed"
+													>
+														<PopoverTrigger>
+															<Button
+																variant="ghost"
+																size="sm"
+																ref={(node) => {
+																	tabContentRefs.current[item.key] = node;
+																}}
+																onClick={() => {
+																	handleAccountMenuClose();
+																	handleNavClick(item.to);
+																}}
+																color={isActive ? "primary.500" : "gray.600"}
+																_dark={{
+																	color: isActive ? "primary.300" : "gray.300",
+																}}
+																w="full"
+																minW="0"
+																minH="46px"
+																h="auto"
+																px="0"
+																borderRadius="full"
+																position="relative"
+																zIndex={1}
+																sx={{ touchAction: "manipulation" }}
+																userSelect="none"
+																transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
+																_hover={{ bg: "transparent" }}
+																_active={{
+																	bg: "transparent",
+																	transform: "scale(0.96)",
+																}}
+																_focus={{ bg: "transparent" }}
+															>
+																{navContent}
+															</Button>
+														</PopoverTrigger>
+														<Portal>
+															<PopoverContent
+																w="min(200px, calc(100vw - 24px))"
+																maxW="calc(100vw - 24px)"
+																borderRadius="20px"
+																bg="panel.surface"
+																borderColor="panel.border"
+																borderWidth="1px"
+																boxShadow={menuShadow}
+																p={2}
+															>
+																<PopoverBody p={0}>
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		w="full"
+																		h="38px"
+																		borderRadius="10px"
+																		justifyContent="flex-start"
+																		leftIcon={<LogoutIcon />}
+																		color="red.400"
+																		_hover={{
+																			bg: "rgba(239, 68, 68, 0.12)",
+																			color: "red.400",
+																		}}
+																		_active={{ bg: "rgba(239, 68, 68, 0.18)" }}
+																		_focus={{ bg: "transparent" }}
+																		_focusVisible={{
+																			bg: "rgba(239, 68, 68, 0.12)",
+																		}}
+																		onClick={async () => {
+																			try {
+																				await logoutSession();
+																			} finally {
+																				clearClientSession();
+																				handleAccountMenuClose();
+																				navigate("/login");
+																			}
+																		}}
+																	>
+																		{t("header.logout")}
+																	</Button>
+																</PopoverBody>
+															</PopoverContent>
+														</Portal>
+													</Popover>
+												);
+											}
+
 											return (
-												<Popover
+												<Button
 													key={item.key}
-													isOpen={accountMenu.isOpen}
-													onClose={handleAccountMenuClose}
-													autoFocus={false}
-													placement="top"
-													gutter={12}
-													closeOnBlur
-													modifiers={popoverModifiers}
-													strategy="fixed"
+													variant="ghost"
+													size="sm"
+													ref={(node) => {
+														tabContentRefs.current[item.key] = node;
+													}}
+													onClick={() => {
+														if (item.to) {
+															handleNavClick(item.to);
+														}
+													}}
+													color={isActive ? "primary.500" : "gray.600"}
+													_dark={{
+														color: isActive ? "primary.300" : "gray.300",
+													}}
+													w="full"
+													minW="0"
+													minH="46px"
+													h="auto"
+													px="0"
+													borderRadius="full"
+													position="relative"
+													zIndex={1}
+													userSelect="none"
+													transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
+													_hover={{ bg: "transparent" }}
+													_active={{
+														bg: "transparent",
+														transform: "scale(0.96)",
+													}}
+													_focus={{ bg: "transparent" }}
 												>
-													<PopoverTrigger>
-														<Button
-															variant="ghost"
-															size="sm"
-															ref={(node) => {
-																tabContentRefs.current[item.key] = node;
-															}}
-															onClick={() => {
-																handleAccountMenuClose();
-																handleNavClick(item.to);
-															}}
-															color={isActive ? "primary.500" : "gray.600"}
-															_dark={{
-																color: isActive ? "primary.300" : "gray.300",
-															}}
-															w="full"
-															minW="0"
-															minH="46px"
-															h="auto"
-															px="0"
-															borderRadius="full"
-															position="relative"
-															zIndex={1}
-															sx={{ touchAction: "manipulation" }}
-															userSelect="none"
-															transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
-															_hover={{ bg: "transparent" }}
-															_active={{ bg: "transparent", transform: "scale(0.96)" }}
-															_focus={{ bg: "transparent" }}
-														>
-															{navContent}
-														</Button>
-													</PopoverTrigger>
-													<Portal>
-														<PopoverContent
-															w="min(200px, calc(100vw - 24px))"
-															maxW="calc(100vw - 24px)"
-															borderRadius="20px"
-															bg="panel.surface"
-															borderColor="panel.border"
-															borderWidth="1px"
-															boxShadow={menuShadow}
-															p={2}
-														>
-															<PopoverBody p={0}>
-																<Button
-																	variant="ghost"
-																	size="sm"
-																	w="full"
-																	h="38px"
-																	borderRadius="10px"
-																	justifyContent="flex-start"
-																	leftIcon={<LogoutIcon />}
-																	color="red.400"
-																	_hover={{ bg: "rgba(239, 68, 68, 0.12)", color: "red.400" }}
-																	_active={{ bg: "rgba(239, 68, 68, 0.18)" }}
-																	_focus={{ bg: "transparent" }}
-																	_focusVisible={{ bg: "rgba(239, 68, 68, 0.12)" }}
-																	onClick={async () => {
-																		try {
-																			await logoutSession();
-																		} finally {
-																			clearClientSession();
-																			handleAccountMenuClose();
-																			navigate("/login");
-																		}
-																	}}
-																>
-																	{t("header.logout")}
-																</Button>
-															</PopoverBody>
-														</PopoverContent>
-													</Portal>
-												</Popover>
+													{navContent}
+												</Button>
 											);
-										}
-
-										return (
-											<Button
-												key={item.key}
-												variant="ghost"
-												size="sm"
-												ref={(node) => {
-													tabContentRefs.current[item.key] = node;
-												}}
-												onClick={() => {
-													if (item.to) {
-														handleNavClick(item.to);
-													}
-												}}
-												color={isActive ? "primary.500" : "gray.600"}
-												_dark={{ color: isActive ? "primary.300" : "gray.300" }}
-												w="full"
-												minW="0"
-												minH="46px"
-												h="auto"
-												px="0"
-												borderRadius="full"
-												position="relative"
-												zIndex={1}
-												userSelect="none"
-												transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
-												_hover={{ bg: "transparent" }}
-												_active={{ bg: "transparent", transform: "scale(0.96)" }}
-												_focus={{ bg: "transparent" }}
-											>
-												{navContent}
-											</Button>
-										);
-									})}
-								</SimpleGrid>
+										})}
+									</SimpleGrid>
 								</Box>
 							</Box>
 						</Box>

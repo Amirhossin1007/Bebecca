@@ -1,11 +1,12 @@
 import { Box, Image, Text, useColorModeValue } from "@chakra-ui/react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
+	type FC,
 	forwardRef,
+	type ReactNode,
 	useEffect,
 	useMemo,
 	useState,
-	type FC,
-	type ReactNode,
 } from "react";
 
 export interface SponsorCarouselItem {
@@ -116,8 +117,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	useEffect(() => {
 		if (paused || itemCount < 2 || !currentItemId) return;
-		const delay =
-			variant === "logo" ? (currentIsSponsor ? 5000 : 10000) : 6000;
+		const delay = variant === "logo" ? (currentIsSponsor ? 5000 : 10000) : 6000;
 		const timer = window.setTimeout(() => {
 			setIndex((current) => (current + 1) % itemCount);
 		}, delay);
@@ -141,9 +141,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			borderColor={frameBorder}
 			bg={isBanner || isSidebarBanner ? frameBg : "transparent"}
 			boxShadow={
-				isBanner || isSidebarBanner
-					? "0 2px 10px rgba(0, 0, 0, 0.06)"
-					: "none"
+				isBanner || isSidebarBanner ? "0 2px 10px rgba(0, 0, 0, 0.06)" : "none"
 			}
 			aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
 			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -158,23 +156,10 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			onFocus={() => setPaused(true)}
 			onBlur={() => setPaused(false)}
 		>
-			<Box
-				display="flex"
-				flexDirection={isVertical ? "column" : "row"}
-				w="full"
-				h="full"
-				transform={
-					isVertical
-						? `translateY(-${index * 100}%)`
-						: `translateX(-${index * 100}%)`
-				}
-				transition="transform 500ms cubic-bezier(0.16, 1, 0.3, 1)"
-				sx={{
-					"@media (prefers-reduced-motion: reduce)": { transition: "none" },
-					img: { border: "none", outline: "none" },
-				}}
-			>
-				{stableItems.map((item) => {
+			<AnimatePresence mode="wait" initial={false}>
+				{(() => {
+					const item = stableItems[index] || stableItems[0];
+					if (!item) return null;
 					const image = (
 						<Image
 							src={item.src}
@@ -198,43 +183,64 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							onContextMenu={(e) => e.preventDefault()}
 						/>
 					);
-					const effectiveHref = item.href || (item.isSponsor ? "https://webdade.com/" : undefined);
+					const effectiveHref =
+						item.href || (item.isSponsor ? "https://webdade.com/" : undefined);
 					const hoverTitle = item.label || item.alt || "Sponsor";
 
 					return (
-						<Box
+						<motion.div
 							key={item.id}
-							minW="full"
-							w="full"
-							minH={isVertical ? "full" : undefined}
-							h="full"
-							display="flex"
-							alignItems="center"
-							justifyContent={isBanner ? "center" : "flex-start"}
-							gap={isBanner ? 0 : 3}
-							flexShrink={0}
+							initial={
+								isSidebarBanner
+									? { y: 24, opacity: 0 }
+									: isBanner
+										? { y: -20, opacity: 0 }
+										: { x: 20, opacity: 0 }
+							}
+							animate={{ y: 0, x: 0, opacity: 1 }}
+							exit={
+								isSidebarBanner
+									? { y: 24, opacity: 0 }
+									: isBanner
+										? { y: 20, opacity: 0 }
+										: { x: -20, opacity: 0 }
+							}
+							transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+							style={{ width: "100%", height: "100%" }}
 						>
-							<SponsorLink href={effectiveHref} label={hoverTitle}>
-								{image}
-								{variant === "logo" && !collapsed && (
-									<Text
-										fontSize={{ base: "lg", md: "2xl" }}
-										fontWeight="bold"
-										fontFamily="'Inter', system-ui, sans-serif"
-										letterSpacing="tight"
-										lineHeight="1"
-										whiteSpace="nowrap"
-										color="panel.text"
-										noOfLines={1}
-									>
-										{item.isSponsor ? item.label : "Rebecca"}
-									</Text>
-								)}
-							</SponsorLink>
-						</Box>
+							<Box
+								minW="full"
+								w="full"
+								minH={isVertical ? "full" : undefined}
+								h="full"
+								display="flex"
+								alignItems="center"
+								justifyContent={isBanner ? "center" : "flex-start"}
+								gap={isBanner ? 0 : 3}
+								flexShrink={0}
+							>
+								<SponsorLink href={effectiveHref} label={hoverTitle}>
+									{image}
+									{variant === "logo" && !collapsed && (
+										<Text
+											fontSize={{ base: "lg", md: "2xl" }}
+											fontWeight="bold"
+											fontFamily="'Inter', system-ui, sans-serif"
+											letterSpacing="tight"
+											lineHeight="1"
+											whiteSpace="nowrap"
+											color="panel.text"
+											noOfLines={1}
+										>
+											{item.isSponsor ? item.label : "Rebecca"}
+										</Text>
+									)}
+								</SponsorLink>
+							</Box>
+						</motion.div>
 					);
-				})}
-			</Box>
+				})()}
+			</AnimatePresence>
 		</Box>
 	);
 };

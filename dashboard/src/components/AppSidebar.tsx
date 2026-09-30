@@ -182,15 +182,19 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		self_api_keys: false,
 		self_placeholders: false,
 	};
-	const baseSelf = userData.permissions?.self_permissions ?? defaultSelfPermissions;
+	const baseSelf =
+		userData.permissions?.self_permissions ?? defaultSelfPermissions;
 	const selfAccess = isFullAccess
 		? { self_myaccount: true, self_change_password: true, self_api_keys: true }
 		: baseSelf;
 
 	const canViewUsage = Boolean(sectionAccess?.[AdminSection.Usage]);
 	const canViewAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
-	const canViewServicesSection = Boolean(sectionAccess?.[AdminSection.Services]);
-	const canViewHosts = isPrivilegedAdmin && Boolean(sectionAccess?.[AdminSection.Hosts]);
+	const canViewServicesSection = Boolean(
+		sectionAccess?.[AdminSection.Services],
+	);
+	const canViewHosts =
+		isPrivilegedAdmin && Boolean(sectionAccess?.[AdminSection.Hosts]);
 	const canViewNodes = Boolean(sectionAccess?.[AdminSection.Nodes]);
 	const canViewRecentActions =
 		isFullAccess ||
@@ -221,7 +225,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
 		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
 	);
-	const popoverTrigger = (useBreakpointValue({ base: "click", md: "hover" }) || "hover") as "click" | "hover";
+	const popoverTrigger = (useBreakpointValue({ base: "click", md: "hover" }) ||
+		"hover") as "click" | "hover";
 
 	const checkTutorialUpdates = useCallback(async () => {
 		const langKey = normalizeTutorialLang(i18n.language);
@@ -388,7 +393,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						id: "core_routing",
 						title: t("sidebar.groups.coreRouting"),
 						icon: InfrastructureIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
+						visible:
+							Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
 						subItems: [
 							{
 								id: "xray_settings",
@@ -453,7 +459,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						id: "observability",
 						title: t("sidebar.groups.observability"),
 						icon: ObservabilityIconStyled,
-						visible: Boolean(sectionAccess?.[AdminSection.Xray]) || canViewRecentActions,
+						visible:
+							Boolean(sectionAccess?.[AdminSection.Xray]) ||
+							canViewRecentActions,
 						subItems: [
 							{
 								id: "xray_logs",
@@ -530,7 +538,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			path.startsWith("/recent-actions")
 		) {
 			setOpenGroups((prev) => ({ ...prev, observability: true }));
-		} else if (path.startsWith("/xray-settings") || path.startsWith("/haproxy")) {
+		} else if (
+			path.startsWith("/xray-settings") ||
+			path.startsWith("/haproxy")
+		) {
 			setOpenGroups((prev) => ({ ...prev, core_routing: true }));
 		} else if (
 			path.startsWith("/settings") ||
@@ -557,7 +568,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			borderColor={inDrawer ? undefined : sidebarBorderColor}
 			borderRadius={inDrawer ? undefined : "20px"}
 			boxShadow={inDrawer ? undefined : sidebarShadow}
-			transition={inDrawer ? "none" : "width 0.22s cubic-bezier(0.16, 1, 0.3, 1)"}
+			transition={
+				inDrawer ? "none" : "width 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+			}
 			position={inDrawer ? "relative" : "fixed"}
 			top={inDrawer ? undefined : "12px"}
 			left={inDrawer || isRTL ? undefined : "12px"}
@@ -571,7 +584,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				willChange: inDrawer ? undefined : "width",
 			}}
 		>
-			<Flex direction="column" h="full" justify="space-between" p={collapsed ? 2 : 3}>
+			<Flex
+				direction="column"
+				h="full"
+				justify="space-between"
+				p={collapsed ? 2 : 3}
+			>
 				<Flex
 					align="center"
 					justify="space-between"
@@ -602,7 +620,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 								src={logoUrl}
 								alt="Rebecca"
 								style={{
-									filter: colorMode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+									filter:
+										colorMode === "dark"
+											? "brightness(0) invert(1)"
+											: "brightness(0)",
 									transition: "filter 0.3s ease",
 								}}
 							/>
@@ -708,15 +729,17 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 											if (entry.type === "direct") {
 												const isCurrent =
 													location.pathname === entry.url ||
-													(entry.url !== "/" && location.pathname.startsWith(entry.url));
+													(entry.url !== "/" &&
+														location.pathname.startsWith(entry.url));
 												const IconEl = entry.icon;
 
 												const btnContent = (
 													<Flex
 														align="center"
+														justify={collapsed ? "center" : "flex-start"}
 														w="full"
 														h="38px"
-														px="11px"
+														px={collapsed ? 0 : "11px"}
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
@@ -726,7 +749,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														cursor="pointer"
 														transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 														borderInlineStart="3px solid"
-														borderInlineStartColor={isCurrent ? "var(--rb-panel-accent)" : "transparent"}
+														borderInlineStartColor={
+															isCurrent
+																? "var(--rb-panel-accent)"
+																: "transparent"
+														}
+														borderInlineEnd={
+															collapsed ? "3px solid transparent" : "none"
+														}
 														_hover={{
 															md: {
 																bg: isCurrent ? activeItemBg : hoverItemBg,
@@ -770,7 +800,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														>
 															<Text
 																noOfLines={1}
-																color={isCurrent ? "panel.text" : normalItemColor}
+																color={
+																	isCurrent ? "panel.text" : normalItemColor
+																}
 																fontSize="13px"
 																fontWeight={isCurrent ? "600" : "500"}
 															>
@@ -824,7 +856,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														<Box
 															as={NavLink}
 															to={entry.url}
-															onClick={(e: ReactMouseEvent) => handleNavigate(entry.url, e)}
+															onClick={(e: ReactMouseEvent) =>
+																handleNavigate(entry.url, e)
+															}
 															display="block"
 														>
 															{btnContent}
@@ -835,7 +869,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														key={entry.id}
 														as={NavLink}
 														to={entry.url}
-														onClick={(e: ReactMouseEvent) => handleNavigate(entry.url, e)}
+														onClick={(e: ReactMouseEvent) =>
+															handleNavigate(entry.url, e)
+														}
 														display="block"
 													>
 														{btnContent}
@@ -843,13 +879,16 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												);
 											}
 
-											const visibleSubs = entry.subItems.filter((s) => s.visible);
+											const visibleSubs = entry.subItems.filter(
+												(s) => s.visible,
+											);
 											if (visibleSubs.length === 0) return null;
 
 											const isGroupActive = visibleSubs.some(
 												(s) =>
 													location.pathname === s.url ||
-													(s.url !== "/" && location.pathname.startsWith(s.url)),
+													(s.url !== "/" &&
+														location.pathname.startsWith(s.url)),
 											);
 											const isOpen = Boolean(openGroups[entry.id]);
 											const GroupIcon = entry.icon;
@@ -857,18 +896,30 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 											const groupTriggerContent = (
 												<Flex
 													align="center"
+													justify={collapsed ? "center" : "flex-start"}
 													w="full"
 													h="38px"
-													px="11px"
+													px={collapsed ? 0 : "11px"}
 													borderRadius="10px"
-													bg={isGroupActive && (!isOpen || collapsed) ? activeItemBg : "transparent"}
+													bg={
+														isGroupActive && (!isOpen || collapsed)
+															? activeItemBg
+															: "transparent"
+													}
 													color={isGroupActive ? "panel.text" : normalItemColor}
 													fontWeight={isGroupActive ? "600" : "500"}
 													fontSize="13px"
 													cursor="pointer"
 													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 													borderInlineStart="3px solid"
-													borderInlineStartColor={isGroupActive ? "var(--rb-panel-accent)" : "transparent"}
+													borderInlineStartColor={
+														isGroupActive
+															? "var(--rb-panel-accent)"
+															: "transparent"
+													}
+													borderInlineEnd={
+														collapsed ? "3px solid transparent" : "none"
+													}
 													onClick={() => {
 														if (!collapsed) {
 															handleGroupClick(entry);
@@ -917,7 +968,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													>
 														<Text
 															noOfLines={1}
-															color={isGroupActive ? "panel.text" : normalItemColor}
+															color={
+																isGroupActive ? "panel.text" : normalItemColor
+															}
 															fontSize="13px"
 															fontWeight={isGroupActive ? "600" : "500"}
 														>
@@ -937,7 +990,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															w="14px"
 															h="14px"
 															color="panel.textMuted"
-															transform={isOpen && !collapsed ? "rotate(180deg)" : "rotate(0deg)"}
+															transform={
+																isOpen && !collapsed
+																	? "rotate(180deg)"
+																	: "rotate(0deg)"
+															}
 															transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
 														/>
 													</Box>
@@ -952,84 +1009,126 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															placement={isRTL ? "left-start" : "right-start"}
 															isLazy
 															gutter={8}
-															openDelay={50}
-															closeDelay={120}
+															openDelay={0}
+															closeDelay={60}
 														>
 															<PopoverTrigger>
 																{groupTriggerContent}
 															</PopoverTrigger>
-														<Portal>
-															<PopoverContent
-																bg="panel.surface"
-																borderColor="panel.border"
-																borderWidth="1px"
-																borderRadius="18px"
-																p="6px"
-																minW="150px"
-																maxW="190px"
-																boxShadow={sidebarShadow}
-																dir={isRTL ? "rtl" : "ltr"}
-																zIndex={9999}
-																_focus={{ outline: "none" }}
-															>
-																<PopoverHeader
-																	borderBottomWidth="1px"
+															<Portal>
+																<PopoverContent
+																	bg="panel.surface"
 																	borderColor="panel.border"
-																	px={2}
-																	py={1}
-																	fontSize="10.5px"
-																	fontWeight="700"
-																	color="panel.textMuted"
+																	borderWidth="1px"
+																	borderRadius="18px"
+																	p="6px"
+																	minW="160px"
+																	maxW="200px"
+																	boxShadow={sidebarShadow}
+																	backdropFilter="blur(16px)"
+																	dir={isRTL ? "rtl" : "ltr"}
+																	zIndex={9999}
+																	_focus={{ outline: "none" }}
 																>
-																	{entry.title}
-																</PopoverHeader>
-																<PopoverBody p={0} pt="3px">
-																	<VStack align="stretch" spacing="2px">
-																		{visibleSubs.map((sub) => {
-																			const isSubActive =
-																				location.pathname === sub.url ||
-																				(sub.url !== "/" && location.pathname.startsWith(sub.url));
-																			const SubIcon = sub.icon;
+																	<PopoverHeader
+																		borderBottomWidth="1px"
+																		borderColor="panel.border"
+																		px={2.5}
+																		py={1.5}
+																		fontSize="11px"
+																		fontWeight="700"
+																		color="panel.text"
+																	>
+																		{entry.title}
+																	</PopoverHeader>
+																	<PopoverBody p={0} pt="3px">
+																		<VStack align="stretch" spacing="2px">
+																			{visibleSubs.map((sub) => {
+																				const isSubActive =
+																					location.pathname === sub.url ||
+																					(sub.url !== "/" &&
+																						location.pathname.startsWith(
+																							sub.url,
+																						));
+																				const SubIcon = sub.icon;
 
-																			return (
-																				<Box
-																					key={sub.id}
-																					as={NavLink}
-																					to={sub.url}
-																					onClick={(e: ReactMouseEvent) => handleNavigate(sub.url, e)}
-																					display="block"
-																				>
-																					<Flex
-																						align="center"
-																						gap={2}
-																						px={2}
-																						py={1.5}
-																						h="30px"
-																						borderRadius="8px"
-																						fontSize="11.5px"
-																						fontWeight={isSubActive ? "600" : "500"}
-																						bg={isSubActive ? activeItemBg : "transparent"}
-																						color={isSubActive ? "panel.text" : normalItemColor}
-																						borderInlineStart="2.5px solid"
-																						borderInlineStartColor={isSubActive ? "var(--rb-panel-accent)" : "transparent"}
-																						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-																						_hover={{ md: { bg: hoverItemBg, color: "panel.text" } }}
-																						_active={{ transform: "scale(0.98)" }}
+																				return (
+																					<Box
+																						key={sub.id}
+																						as={NavLink}
+																						to={sub.url}
+																						onClick={(e: ReactMouseEvent) =>
+																							handleNavigate(sub.url, e)
+																						}
+																						display="block"
 																					>
-																						<Box as="span" color={isSubActive ? activeItemColor : "inherit"} fontSize="13px">
-																							<SubIcon />
-																						</Box>
-																						<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
-																							{sub.title}
-																						</Text>
-																					</Flex>
-																				</Box>
-																			);
-																		})}
-																	</VStack>
-																</PopoverBody>
-															</PopoverContent>
-														</Portal>
+																						<Flex
+																							align="center"
+																							gap={2}
+																							px={2}
+																							py={1.5}
+																							h="30px"
+																							borderRadius="8px"
+																							fontSize="11.5px"
+																							fontWeight={
+																								isSubActive ? "600" : "500"
+																							}
+																							bg={
+																								isSubActive
+																									? activeItemBg
+																									: "transparent"
+																							}
+																							color={
+																								isSubActive
+																									? "panel.text"
+																									: normalItemColor
+																							}
+																							borderInlineStart="2.5px solid"
+																							borderInlineStartColor={
+																								isSubActive
+																									? "var(--rb-panel-accent)"
+																									: "transparent"
+																							}
+																							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+																							_hover={{
+																								md: {
+																									bg: hoverItemBg,
+																									color: "panel.text",
+																								},
+																							}}
+																							_active={{
+																								transform: "scale(0.98)",
+																							}}
+																						>
+																							<Box
+																								as="span"
+																								color={
+																									isSubActive
+																										? activeItemColor
+																										: "inherit"
+																								}
+																								fontSize="13px"
+																							>
+																								<SubIcon />
+																							</Box>
+																							<Text
+																								noOfLines={1}
+																								color={
+																									isSubActive
+																										? "panel.text"
+																										: normalItemColor
+																								}
+																							>
+																								{sub.title}
+																							</Text>
+																						</Flex>
+																					</Box>
+																				);
+																			})}
+																		</VStack>
+																	</PopoverBody>
+																</PopoverContent>
+															</Portal>
 														</Popover>
 													) : (
 														groupTriggerContent
@@ -1041,7 +1140,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																initial={{ opacity: 0, height: 0 }}
 																animate={{ opacity: 1, height: "auto" }}
 																exit={{ opacity: 0, height: 0 }}
-																transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+																transition={{
+																	duration: 0.28,
+																	ease: [0.16, 1, 0.3, 1],
+																}}
 																style={{ overflow: "hidden" }}
 															>
 																<Box
@@ -1055,7 +1157,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																		{visibleSubs.map((sub) => {
 																			const isSubActive =
 																				location.pathname === sub.url ||
-																				(sub.url !== "/" && location.pathname.startsWith(sub.url));
+																				(sub.url !== "/" &&
+																					location.pathname.startsWith(
+																						sub.url,
+																					));
 																			const SubIcon = sub.icon;
 
 																			return (
@@ -1063,7 +1168,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																					key={sub.id}
 																					as={NavLink}
 																					to={sub.url}
-																					onClick={(e: ReactMouseEvent) => handleNavigate(sub.url, e)}
+																					onClick={(e: ReactMouseEvent) =>
+																						handleNavigate(sub.url, e)
+																					}
 																					display="block"
 																				>
 																					<Flex
@@ -1073,17 +1180,33 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						h="32px"
 																						px={2.5}
 																						borderRadius="8px"
-																						bg={isSubActive ? activeItemBg : "transparent"}
-																						color={isSubActive ? "panel.text" : normalItemColor}
-																						fontWeight={isSubActive ? "600" : "400"}
+																						bg={
+																							isSubActive
+																								? activeItemBg
+																								: "transparent"
+																						}
+																						color={
+																							isSubActive
+																								? "panel.text"
+																								: normalItemColor
+																						}
+																						fontWeight={
+																							isSubActive ? "600" : "400"
+																						}
 																						fontSize="12px"
 																						cursor="pointer"
 																						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 																						borderInlineStart="2.5px solid"
-																						borderInlineStartColor={isSubActive ? "var(--rb-panel-accent)" : "transparent"}
+																						borderInlineStartColor={
+																							isSubActive
+																								? "var(--rb-panel-accent)"
+																								: "transparent"
+																						}
 																						_hover={{
 																							md: {
-																								bg: isSubActive ? activeItemBg : hoverItemBg,
+																								bg: isSubActive
+																									? activeItemBg
+																									: hoverItemBg,
 																								color: "panel.text",
 																							},
 																						}}
@@ -1097,12 +1220,23 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																								display="inline-flex"
 																								alignItems="center"
 																								justifyContent="center"
-																								color={isSubActive ? activeItemColor : "inherit"}
+																								color={
+																									isSubActive
+																										? activeItemColor
+																										: "inherit"
+																								}
 																								opacity={isSubActive ? 1 : 0.8}
 																							>
 																								<SubIcon />
 																							</Box>
-																							<Text noOfLines={1} color={isSubActive ? "panel.text" : normalItemColor}>
+																							<Text
+																								noOfLines={1}
+																								color={
+																									isSubActive
+																										? "panel.text"
+																										: normalItemColor
+																								}
+																							>
 																								{sub.title}
 																							</Text>
 																						</HStack>
@@ -1132,7 +1266,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					overflow="hidden"
 					maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
 					opacity={collapsed ? 0 : 1}
-					transform={collapsed ? "translateY(24px) scale(0.95)" : "translateY(0) scale(1)"}
+					transform={
+						collapsed
+							? "translateY(24px) scale(0.95)"
+							: "translateY(0) scale(1)"
+					}
 					transition="max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)"
 					pt={collapsed ? 0 : 2}
 					pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}

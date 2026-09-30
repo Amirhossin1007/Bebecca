@@ -378,11 +378,18 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 							opacity: selected ? 1 : 0.65,
 						}}
 						transition={{
-							rotate: { duration: selected ? 0.45 : 0, ease: [0.16, 1, 0.3, 1] },
+							rotate: {
+								duration: selected ? 0.45 : 0,
+								ease: [0.16, 1, 0.3, 1],
+							},
 							scale: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
 							opacity: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
 						}}
-						style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+						style={{
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+						}}
 					>
 						<Icon />
 					</motion.div>
@@ -533,10 +540,11 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					px={3}
 					bg="transparent"
 					color={textColor}
+					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 					_hover={{
 						md: { bg: menuHover },
 					}}
-					_active={{ bg: menuHover }}
+					_active={{ bg: menuHover, transform: "scale(0.98)" }}
 					_focusVisible={{ bg: menuHover }}
 					onClick={(event: ReactMouseEvent) => {
 						event.stopPropagation();
@@ -545,9 +553,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				>
 					<HStack justify="flex-start" spacing={2.5} minW={0}>
 						<SwatchIconChakra flexShrink={0} />
-						<Text noOfLines={1}>
-							{triggerLabel || t("header.theme")}
-						</Text>
+						<Text noOfLines={1}>{triggerLabel || t("header.theme")}</Text>
 					</HStack>
 				</MenuButton>
 				{portalContainer ? (
