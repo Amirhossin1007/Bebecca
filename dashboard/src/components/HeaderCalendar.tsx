@@ -170,6 +170,10 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 	const holidayWeekdayIndex = isPersian ? 6 : 0;
 	const prevIcon = isRTL ? <ChevronRight /> : <ChevronLeft />;
 	const nextIcon = isRTL ? <ChevronLeft /> : <ChevronRight />;
+	const popoverHighlight = useColorModeValue(
+		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
+		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
+	);
 
 	const isCurrentMonth = useMemo(() => {
 		return (
@@ -255,11 +259,11 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 					w="fit-content"
 					minW="300px"
 					p={3.5}
-					borderRadius="20px"
+					borderRadius="10px"
 					borderWidth="1px"
 					borderColor={cardBorder}
 					bg={cardBg}
-					boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
+					boxShadow={popoverHighlight}
 					_focus={{ outline: "none" }}
 					zIndex={9999}
 				>
@@ -275,7 +279,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 								<IconButton
 									size="xs"
 									variant="ghost"
-									borderRadius="full"
+									borderRadius="6px"
 									aria-label={t("dateTimePicker.previousMonth")}
 									icon={prevIcon}
 									onClick={handlePrevMonth}
@@ -286,7 +290,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 								<IconButton
 									size="xs"
 									variant="ghost"
-									borderRadius="full"
+									borderRadius="6px"
 									aria-label={t("dateTimePicker.nextMonth")}
 									icon={nextIcon}
 									onClick={handleNextMonth}
@@ -321,7 +325,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 								size="xs"
 								variant={isCurrentMonth ? "ghost" : "outline"}
 								colorScheme={isCurrentMonth ? undefined : "primary"}
-								borderRadius="full"
+								borderRadius="6px"
 								fontSize="11px"
 								fontWeight="600"
 								px={2.5}
@@ -382,7 +386,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 													h="34px"
 													align="center"
 													justify="center"
-													borderRadius="10px"
+													borderRadius="6px"
 													bg={day.isToday ? "var(--rb-panel-accent)" : "transparent"}
 													borderWidth="0px"
 													color={

@@ -625,6 +625,15 @@ const HistoryModal: FC<{
 							})
 						: "";
 
+					const isLight = colorMode === "light";
+					const ttBg = isLight ? "rgba(255, 255, 255, 0.98)" : "rgba(20, 20, 22, 0.98)";
+					const ttBorder = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.1)";
+					const ttHighlight = isLight ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)";
+					const ttDivider = isLight ? "rgba(0, 0, 0, 0.06)" : "rgba(255, 255, 255, 0.06)";
+					const ttTextSecondary = isLight ? "#71717a" : "#a1a1aa";
+					const ttTextPrimary = isLight ? "#09090b" : "#fafafa";
+					const ttTextMuted = isLight ? "#a1a1aa" : "#71717a";
+
 					const linesHtml = w.globals.seriesNames
 						.map((name: string, i: number) => {
 							const val = series[i]?.[dataPointIndex];
@@ -634,10 +643,10 @@ const HistoryModal: FC<{
 							return `
 								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px;">
 									<div style="display: flex; align-items: center; gap: 6px;">
-										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; box-shadow: 0 0 6px ${color}88; flex-shrink: 0;"></span>
-										<span style="color: var(--chakra-colors-panel-textSecondary, #94a3b8); font-size: 11px; font-weight: 500;">${name}</span>
+										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
+										<span style="color: ${ttTextSecondary}; font-size: 11px; font-weight: 500;">${name}</span>
 									</div>
-									<span style="color: var(--chakra-colors-panel-text, #ffffff); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
+									<span style="color: ${ttTextPrimary}; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
 								</div>
 							`;
 						})
@@ -645,17 +654,17 @@ const HistoryModal: FC<{
 
 					return `
 						<div style="
-							background: rgba(18, 21, 28, 0.98);
-							border: 1px solid rgba(255, 255, 255, 0.12);
-							border-radius: 12px;
+							background: ${ttBg};
+							border: 1px solid ${ttBorder};
+							border-radius: 10px;
 							background-clip: padding-box;
 							padding: 8px 12px;
-							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
+							box-shadow: ${ttHighlight};
 							direction: ${isRTL ? "rtl" : "ltr"};
 							font-family: inherit;
 							min-width: 140px;
 						">
-							<div style="color: var(--chakra-colors-panel-textMuted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px; margin-bottom: 4px;">
+							<div style="color: ${ttTextMuted}; font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid ${ttDivider}; padding-bottom: 4px; margin-bottom: 4px;">
 								${dateStr}
 							</div>
 							${linesHtml}
@@ -685,8 +694,8 @@ const HistoryModal: FC<{
 				bg="panel.surface"
 				borderWidth="1px"
 				borderColor="panel.border"
-				borderRadius="20px"
-				boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 32px 80px rgba(0,0,0,0.6)"
+				borderRadius="10px"
+				boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 				mx={{ base: 3, sm: 6 }}
 				overflow="hidden"
 			>
@@ -708,8 +717,8 @@ const HistoryModal: FC<{
 					<Stack spacing={4}>
 						{hasEnoughPoints && (
 							<Box
-								p={1}
-								borderRadius="full"
+								p="3px"
+								borderRadius="8px"
 								bg="panel.elevated"
 								w={{ base: "full", md: "fit-content" }}
 								maxW="100%"
@@ -733,15 +742,15 @@ const HistoryModal: FC<{
 										transition={{
 											type: "tween",
 											ease: [0.16, 1, 0.3, 1],
-											duration: 0.32,
+											duration: 0.22,
 										}}
 										style={{
 											position: "absolute",
-											top: 4,
-											bottom: 4,
-											borderRadius: "9999px",
+											top: 3,
+											bottom: 3,
+											borderRadius: "6px",
 											backgroundColor: "var(--chakra-colors-panel-surface)",
-											boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
+											boxShadow: colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
 											zIndex: 1,
 											pointerEvents: "none",
 										}}
@@ -766,8 +775,8 @@ const HistoryModal: FC<{
 												size="xs"
 												h="26px"
 												w="full"
-												px={{ base: 1, sm: 3.5 }}
-												borderRadius="full"
+												px={{ base: 1, sm: 3 }}
+												borderRadius="6px"
 												variant="ghost"
 												bg="transparent !important"
 												color={isActive ? "panel.text" : "panel.textMuted"}
@@ -989,20 +998,20 @@ const ResourceCard: FC<{
 			bg="panel.surface"
 			borderWidth="1px"
 			borderColor="panel.border"
-			borderRadius="20px"
+			borderRadius="10px"
 			p={{ base: 4, sm: 5 }}
 			position="relative"
 			overflow="hidden"
 			display="flex"
 			flexDirection="column"
 			justifyContent="space-between"
-			boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-			transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
+			boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
+			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				md: {
 					borderColor: "panel.borderStrong",
 					bg: "panel.elevated",
-					boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
+					boxShadow: colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.06)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 				},
 			}}
 		>
@@ -1014,7 +1023,7 @@ const ResourceCard: FC<{
 							h="32px"
 							align="center"
 							justify="center"
-							borderRadius="9px"
+							borderRadius="8px"
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							flexShrink={0}
@@ -1032,7 +1041,7 @@ const ResourceCard: FC<{
 							px={2}
 							fontSize="11px"
 							variant="ghost"
-							borderRadius="full"
+							borderRadius="6px"
 							bg="panel.elevated"
 							color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
 							fontWeight={colorMode === "light" ? "600" : "500"}
@@ -1304,30 +1313,32 @@ const SectionCard: FC<{
 	action,
 	noHover = false,
 	roleGroup = true,
-}) => (
-	<Box
-		role={roleGroup ? "group" : undefined}
-		bg="panel.surface"
-		borderWidth="1px"
-		borderColor="panel.border"
-		borderRadius="20px"
-		overflow="hidden"
-		boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-		transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
-		_hover={
-			noHover
-				? undefined
-				: {
-						md: {
-							borderColor: "panel.borderStrong",
-							bg: "panel.elevated",
-							boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
-						},
-					}
-		}
-	>
-		{(title || action) && (
-			<Flex
+}) => {
+	const { colorMode } = useColorMode();
+	return (
+		<Box
+			role={roleGroup ? "group" : undefined}
+			bg="panel.surface"
+			borderWidth="1px"
+			borderColor="panel.border"
+			borderRadius="10px"
+			overflow="hidden"
+			boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
+			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			_hover={
+				noHover
+					? undefined
+					: {
+							md: {
+								borderColor: "panel.borderStrong",
+								bg: "panel.elevated",
+								boxShadow: colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.06)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
+							},
+						}
+			}
+		>
+			{(title || action) && (
+				<Flex
 				px={{ base: 4, sm: 5, md: 6 }}
 				py={3.5}
 				align="center"
@@ -1347,7 +1358,8 @@ const SectionCard: FC<{
 			{children}
 		</Box>
 	</Box>
-);
+	);
+};
 
 const AnimatedHeightWrapper: FC<{
 	children: ReactNode;
@@ -1595,19 +1607,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 							key={i}
 							className="shimmer-box"
 							bg="panel.surface"
-							borderRadius="20px"
+							borderRadius="10px"
 							borderWidth="1px"
 							borderColor="panel.border"
 							p={{ base: 4, sm: 5 }}
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
-							boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+							boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 						>
 							<Box>
 								<Flex justify="space-between" align="center" mb={3}>
 									<HStack spacing={2.5} align="center">
-										<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" flexShrink={0} />
+										<Box w="32px" h="32px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
 										<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
 									</HStack>
 									{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
@@ -1650,11 +1662,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Box
 						className="shimmer-box"
 						bg="panel.surface"
-						borderRadius="20px"
+						borderRadius="10px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
-						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+						boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
@@ -1686,11 +1698,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Box
 						className="shimmer-box"
 						bg="panel.surface"
-						borderRadius="20px"
+						borderRadius="10px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
-						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+						boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
@@ -1722,11 +1734,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<Box
 					className="shimmer-box"
 					bg="panel.surface"
-					borderRadius="20px"
+					borderRadius="10px"
 					borderWidth="1px"
 					borderColor="panel.border"
 					overflow="hidden"
-					boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+					boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 				>
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
@@ -1741,19 +1753,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 								<Box
 									key={i}
 									bg="panel.surface"
-									borderRadius="20px"
+									borderRadius="10px"
 									borderWidth="1px"
 									borderColor="panel.border"
 									p={{ base: 4, sm: 5 }}
 									display="flex"
 									flexDirection="column"
 									justifyContent="space-between"
-									boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+									boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 								>
 									<Box>
 										<Flex justify="space-between" align="center" mb={3}>
 											<HStack spacing={2.5} align="center">
-												<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" flexShrink={0} />
+												<Box w="32px" h="32px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
 												<Box w={i === 1 ? "120px" : "130px"} h="16px" borderRadius="md" bg="panel.elevated" />
 											</HStack>
 										</Flex>
@@ -1781,11 +1793,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<Box
 					className="shimmer-box"
 					bg="panel.surface"
-					borderRadius="20px"
+					borderRadius="10px"
 					borderWidth="1px"
 					borderColor="panel.border"
 					overflow="hidden"
-					boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+					boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 				>
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
@@ -1834,11 +1846,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Box
 						className="shimmer-box"
 						bg="panel.surface"
-						borderRadius="20px"
+						borderRadius="10px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
-						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
+						boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
@@ -2213,7 +2225,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			{(systemData.last_xray_error || systemData.last_telegram_error) && (
 				<Stack spacing={3}>
 					{systemData.last_xray_error && (
-						<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
+						<Box p={4} borderRadius="10px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
 							<HStack spacing={2} mb={2} color={redErrorColor}>
 								<ExclamationTriangleIcon width={15} />
 								<Text fontSize="12px" fontWeight="700">
@@ -2226,7 +2238,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</Box>
 					)}
 					{systemData.last_telegram_error && (
-						<Box p={4} borderRadius="14px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
+						<Box p={4} borderRadius="10px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
 							<Flex align="center" justify="space-between" mb={2} flexWrap="wrap" gap={2}>
 								<HStack spacing={2} color={orangeErrorColor}>
 									<ExclamationTriangleIcon width={15} />
@@ -2236,7 +2248,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									size="xs"
 									colorScheme="orange"
 									variant="ghost"
-									borderRadius="full"
+									borderRadius="8px"
 									fontSize="11px"
 									h="22px"
 									px={2.5}
@@ -2359,12 +2371,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							p={0.5}
 							borderRadius="8px"
 							position="relative"
-							transition="all 0.25s ease"
-							_groupHover={{
-								md: {
-									bg: "panel.surface",
-								},
-							}}
+							transition="border-color 0.2s ease"
 						>
 							<Box position="relative">
 								{userTab === "all" && (
@@ -2379,13 +2386,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 											borderRadius: "6px",
 											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
-											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
 										}}
 										transition={{
 											type: "tween",
-											ease: "easeInOut",
-											duration: 0.25,
+											ease: [0.16, 1, 0.3, 1],
+											duration: 0.22,
 										}}
 									/>
 								)}
@@ -2398,7 +2404,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									fontWeight="600"
 									variant="ghost"
 									bg="transparent !important"
-									color={userTab === "all" ? "white" : "panel.text"}
+									color={userTab === "all" ? "white" : "panel.textSecondary"}
 									position="relative"
 									zIndex={2}
 									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
@@ -2432,13 +2438,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 											borderRadius: "6px",
 											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
-											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
 										}}
 										transition={{
 											type: "tween",
-											ease: "easeInOut",
-											duration: 0.25,
+											ease: [0.16, 1, 0.3, 1],
+											duration: 0.22,
 										}}
 									/>
 								)}
@@ -2451,7 +2456,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									fontWeight="600"
 									variant="ghost"
 									bg="transparent !important"
-									color={userTab === "mine" ? "white" : "panel.text"}
+									color={userTab === "mine" ? "white" : "panel.textSecondary"}
 									position="relative"
 									zIndex={2}
 									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"

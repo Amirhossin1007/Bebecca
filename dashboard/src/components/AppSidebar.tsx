@@ -217,6 +217,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const tooltipColor = useColorModeValue("white", "panel.text");
 	const tooltipBorder = useColorModeValue("gray.800", "panel.border");
 	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
+	const sidebarShadow = useColorModeValue(
+		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
+		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
+	);
 	const popoverTrigger = (useBreakpointValue({ base: "click", md: "hover" }) || "hover") as "click" | "hover";
 
 	const checkTutorialUpdates = useCallback(async () => {
@@ -552,11 +556,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			borderWidth={inDrawer ? undefined : "1px"}
 			borderColor={inDrawer ? undefined : sidebarBorderColor}
 			borderRadius={inDrawer ? undefined : "20px"}
-			boxShadow={
-				inDrawer
-					? undefined
-					: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px -8px rgba(0, 0, 0, 0.28)"
-			}
+			boxShadow={inDrawer ? undefined : sidebarShadow}
 			transition={inDrawer ? "none" : "width 0.22s cubic-bezier(0.16, 1, 0.3, 1)"}
 			position={inDrawer ? "relative" : "fixed"}
 			top={inDrawer ? undefined : "12px"}
@@ -813,12 +813,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														color={tooltipColor}
 														borderColor={tooltipBorder}
 														borderWidth="1px"
-														borderRadius="8px"
+														borderRadius="6px"
 														fontSize="11px"
 														fontWeight="600"
 														px="9px"
 														py="4px"
-														boxShadow="0 6px 18px rgba(0, 0, 0, 0.3)"
+														boxShadow="none"
 														openDelay={60}
 													>
 														<Box
@@ -963,11 +963,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																bg="panel.surface"
 																borderColor="panel.border"
 																borderWidth="1px"
-																borderRadius="14px"
+																borderRadius="10px"
 																p="5px"
 																minW="150px"
 																maxW="190px"
-																boxShadow="0 10px 28px rgba(0,0,0,0.28)"
+																boxShadow={sidebarShadow}
 																dir={isRTL ? "rtl" : "ltr"}
 																zIndex={9999}
 																_focus={{ outline: "none" }}
@@ -1005,7 +1005,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																						px={2}
 																						py={1.5}
 																						h="30px"
-																						borderRadius="7px"
+																						borderRadius="6px"
 																						fontSize="11.5px"
 																						fontWeight={isSubActive ? "600" : "500"}
 																						bg={isSubActive ? activeItemBg : "transparent"}

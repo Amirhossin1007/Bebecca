@@ -253,10 +253,11 @@ export function AppLayout() {
 		"panel.border",
 		"panel.border",
 	);
-	const dockShadow = useColorModeValue(
-		"0 12px 36px -4px rgba(0, 0, 0, 0.16), 0 4px 14px rgba(0, 0, 0, 0.06)",
-		"0 16px 48px rgba(0, 0, 0, 0.6)",
+	const menuShadow = useColorModeValue(
+		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
+		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
 	);
+	const dockShadow = menuShadow;
 	const dockInactiveText = useColorModeValue("gray.700", "gray.300");
 	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
@@ -264,10 +265,7 @@ export function AppLayout() {
 		"panel.surface",
 		"panel.surface",
 	);
-	const shellHeaderShadow = useColorModeValue(
-		"0 18px 48px rgba(15, 23, 42, 0.10)",
-		"0 18px 48px rgba(0, 0, 0, 0.32)",
-	);
+	const shellHeaderShadow = menuShadow;
 	const shellMainBg = useColorModeValue("panel.main", "panel.main");
 	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const headerButtonHoverBg = useColorModeValue(
@@ -1359,25 +1357,27 @@ export function AppLayout() {
 											ref={userMenuContentRef}
 										minW="230px"
 										p={2}
-										borderRadius="20px"
+										borderRadius="10px"
 										borderWidth="1px"
 										borderColor="panel.border"
 										bg="panel.surface"
-										boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
+										boxShadow={menuShadow}
 										zIndex={9999}
 										userSelect="none"
 										sx={{
 											".chakra-menu__menuitem": {
 												bg: "transparent !important",
-												borderRadius: "10px",
+												borderRadius: "8px",
 												h: "38px",
 												px: "12px",
 												my: "2px",
 												fontSize: "13px",
 												fontWeight: "500",
 												transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
-												"&:hover": {
-													bg: "panel.elevated !important",
+												"@media (hover: hover)": {
+													"&:hover": {
+														bg: "panel.elevated !important",
+													},
 												},
 												"&:active, &:focus-visible": {
 													bg: "panel.elevated !important",
@@ -1390,7 +1390,13 @@ export function AppLayout() {
 												color: "red.400 !important",
 												fontWeight: "600 !important",
 												bg: "transparent !important",
-												"&:hover, &[data-focus]": {
+												"@media (hover: hover)": {
+													"&:hover": {
+														bg: "rgba(239, 68, 68, 0.12) !important",
+														color: "red.400 !important",
+													},
+												},
+												"&[data-focus]": {
 													bg: "rgba(239, 68, 68, 0.12) !important",
 													color: "red.400 !important",
 												},
@@ -1402,7 +1408,7 @@ export function AppLayout() {
 											gap={3}
 											p={2.5}
 											mb={1.5}
-											borderRadius="14px"
+											borderRadius="8px"
 											bg="panel.elevated"
 											borderWidth="1px"
 											borderColor="panel.border"
@@ -1412,7 +1418,7 @@ export function AppLayout() {
 												h="34px"
 												align="center"
 												justify="center"
-												borderRadius="10px"
+												borderRadius="6px"
 												bg="panel.surface"
 												borderWidth="1px"
 												borderColor="panel.border"
@@ -1478,24 +1484,26 @@ export function AppLayout() {
 													dir={isRTL ? "rtl" : "ltr"}
 													minW="170px"
 													p={1.5}
-													borderRadius="16px"
+													borderRadius="10px"
 													borderWidth="1px"
 													borderColor="panel.border"
 													bg="panel.surface"
-													boxShadow="0 18px 42px rgba(0, 0, 0, 0.35)"
+													boxShadow={menuShadow}
 													zIndex={9999}
 													userSelect="none"
 													sx={{
 														".chakra-menu__menuitem": {
 															bg: "transparent !important",
-															borderRadius: "8px",
+															borderRadius: "6px",
 															h: "36px",
 															px: "10px",
 															my: "1px",
 															fontSize: "12px",
 															fontWeight: "500",
-															"&:hover": {
-																bg: "panel.elevated !important",
+															"@media (hover: hover)": {
+																"&:hover": {
+																	bg: "panel.elevated !important",
+																},
 															},
 															"&:active, &:focus-visible": {
 																bg: "panel.elevated !important",
@@ -1870,11 +1878,11 @@ export function AppLayout() {
 															maxW="calc(100vw - 24px)"
 															maxH="calc(100vh - 130px)"
 															overflowY="auto"
-															borderRadius="22px"
+															borderRadius="10px"
 															bg="panel.surface"
 															borderColor="panel.border"
 															borderWidth="1px"
-															boxShadow="0 24px 48px rgba(0, 0, 0, 0.45)"
+															boxShadow={menuShadow}
 															p={2.5}
 															dir={isRTL ? "rtl" : "ltr"}
 														>
@@ -1919,7 +1927,7 @@ export function AppLayout() {
 																								size="sm"
 																								w="full"
 																								h="36px"
-																								borderRadius="10px"
+																								borderRadius="8px"
 																								px={2.5}
 																								justifyContent="flex-start"
 																								leftIcon={<ItemIcon />}
@@ -1957,7 +1965,7 @@ export function AppLayout() {
 																								w="full"
 																								h="36px"
 																								px={2.5}
-																								borderRadius="10px"
+																								borderRadius="8px"
 																								bg={isGroupActive && !isGroupOpen ? "panel.elevated" : "transparent"}
 																								color={isGroupActive ? "panel.text" : "panel.textSecondary"}
 																								fontWeight={isGroupActive ? "600" : "500"}
@@ -2106,11 +2114,11 @@ export function AppLayout() {
 														<PopoverContent
 															w="min(200px, calc(100vw - 24px))"
 															maxW="calc(100vw - 24px)"
-															borderRadius="20px"
+															borderRadius="10px"
 															bg="panel.surface"
 															borderColor="panel.border"
 															borderWidth="1px"
-															boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
+															boxShadow={menuShadow}
 															p={2}
 														>
 															<PopoverBody p={0}>
@@ -2119,7 +2127,7 @@ export function AppLayout() {
 																	size="sm"
 																	w="full"
 																	h="38px"
-																	borderRadius="12px"
+																	borderRadius="8px"
 																	justifyContent="flex-start"
 																	leftIcon={<LogoutIcon />}
 																	color="red.400"

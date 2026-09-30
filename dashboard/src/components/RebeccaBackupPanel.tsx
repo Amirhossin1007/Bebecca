@@ -21,6 +21,7 @@ import {
 	Progress,
 	Stack,
 	Text,
+	useColorModeValue,
 	useToast,
 } from "@chakra-ui/react";
 import {
@@ -66,6 +67,10 @@ export const DashboardBackupControls = ({
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
+	const cardHighlight = useColorModeValue(
+		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
+		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
+	);
 
 	const exportMutation = useMutation(exportRebeccaBackup, {
 		onSuccess: (blob, scope) => {
@@ -146,12 +151,12 @@ export const DashboardBackupControls = ({
 						w={{ base: "full", sm: "auto" }}
 						px={3.5}
 						variant="outline"
-						borderRadius="full"
+						borderRadius="8px"
 						isDisabled={!backupActionsAvailable || runtimeLoading}
 						borderColor="panel.border"
 						color="panel.text"
-						_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
-						transition="border-color 0.25s ease, background-color 0.25s ease"
+						_hover={{ md: { bg: "panel.elevated", borderColor: "panel.borderStrong" } }}
+						transition="border-color 0.2s ease, background-color 0.2s ease"
 						whiteSpace="nowrap"
 					>
 						<HStack spacing={1.5} align="center" justify="center" w="full">
@@ -166,8 +171,8 @@ export const DashboardBackupControls = ({
 				</PopoverTrigger>
 				<PopoverContent
 					w="min(280px, calc(100vw - 24px))"
-					borderRadius="2xl"
-					boxShadow="0 24px 60px rgba(0,0,0,0.5)"
+					borderRadius="10px"
+					boxShadow={cardHighlight}
 					bg="panel.surface"
 					borderColor="panel.border"
 					borderWidth="1px"
@@ -181,11 +186,11 @@ export const DashboardBackupControls = ({
 								variant="ghost"
 								justifyContent="flex-start"
 								fontSize="13px"
-								borderRadius="xl"
+								borderRadius="8px"
 								h="36px"
 								leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
 								onClick={() => openDialog("import")}
-								_hover={{ bg: "panel.elevated" }}
+								_hover={{ md: { bg: "panel.elevated" } }}
 								transition="background-color 0.2s ease"
 							>
 								{t("dashboard.backup.import")}
@@ -194,11 +199,11 @@ export const DashboardBackupControls = ({
 								variant="ghost"
 								justifyContent="flex-start"
 								fontSize="13px"
-								borderRadius="xl"
+								borderRadius="8px"
 								h="36px"
 								leftIcon={<ArrowDownTrayIcon width={16} height={16} />}
 								onClick={() => openDialog("export")}
-								_hover={{ bg: "panel.elevated" }}
+								_hover={{ md: { bg: "panel.elevated" } }}
 								transition="background-color 0.2s ease"
 							>
 								{t("dashboard.backup.exportTitle")}
@@ -219,8 +224,8 @@ export const DashboardBackupControls = ({
 				<ModalContent
 					borderWidth="1px"
 					borderColor="panel.border"
-					borderRadius="2xl"
-					boxShadow="0 32px 80px rgba(0,0,0,0.5)"
+					borderRadius="10px"
+					boxShadow={cardHighlight}
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
 				>
@@ -231,7 +236,7 @@ export const DashboardBackupControls = ({
 							<Text fontSize="13px" color="panel.textMuted">
 								{t("dashboard.backup.importHint")}
 							</Text>
-							<Alert status="warning" borderRadius="xl" fontSize="13px">
+							<Alert status="warning" borderRadius="10px" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
 									{t("dashboard.backup.autoDetectImportWarning")}
@@ -276,7 +281,7 @@ export const DashboardBackupControls = ({
 						<Button
 							variant="ghost"
 							size="sm"
-							borderRadius="full"
+							borderRadius="8px"
 							onClick={() => setDialog(null)}
 							isDisabled={importMutation.isLoading}
 						>
@@ -285,7 +290,7 @@ export const DashboardBackupControls = ({
 						<Button
 							colorScheme="red"
 							size="sm"
-							borderRadius="full"
+							borderRadius="8px"
 							px={5}
 							leftIcon={<ArrowUpTrayIcon width={15} height={15} />}
 							onClick={handleImport}
@@ -308,8 +313,8 @@ export const DashboardBackupControls = ({
 				<ModalContent
 					borderWidth="1px"
 					borderColor="panel.border"
-					borderRadius="2xl"
-					boxShadow="0 32px 80px rgba(0,0,0,0.5)"
+					borderRadius="10px"
+					boxShadow={cardHighlight}
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
 				>
@@ -341,7 +346,7 @@ export const DashboardBackupControls = ({
 						<Button
 							variant="ghost"
 							size="sm"
-							borderRadius="full"
+							borderRadius="8px"
 							onClick={() => setDialog(null)}
 							isDisabled={exportMutation.isLoading}
 						>
@@ -350,7 +355,7 @@ export const DashboardBackupControls = ({
 						<Button
 							colorScheme="primary"
 							size="sm"
-							borderRadius="full"
+							borderRadius="8px"
 							px={5}
 							leftIcon={<ArrowDownTrayIcon width={15} height={15} />}
 							onClick={() => exportMutation.mutate(exportScope)}
