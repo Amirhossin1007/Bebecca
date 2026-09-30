@@ -151,7 +151,7 @@ export const DashboardBackupControls = ({
 						w={{ base: "full", sm: "auto" }}
 						px={3.5}
 						variant="outline"
-						borderRadius="8px"
+						borderRadius="12px"
 						isDisabled={!backupActionsAvailable || runtimeLoading}
 						borderColor="panel.border"
 						color="panel.text"
@@ -171,7 +171,7 @@ export const DashboardBackupControls = ({
 				</PopoverTrigger>
 				<PopoverContent
 					w="min(280px, calc(100vw - 24px))"
-					borderRadius="10px"
+					borderRadius="20px"
 					boxShadow={cardHighlight}
 					bg="panel.surface"
 					borderColor="panel.border"
@@ -186,12 +186,19 @@ export const DashboardBackupControls = ({
 								variant="ghost"
 								justifyContent="flex-start"
 								fontSize="13px"
-								borderRadius="8px"
-								h="36px"
-								leftIcon={<ArrowUpTrayIcon width={16} height={16} />}
+								fontWeight="600"
+								color="panel.text"
+								borderRadius="12px"
+								h="38px"
+								px={3}
+								leftIcon={
+									<Box as="span" display="inline-flex" color="var(--rb-panel-accent)">
+										<ArrowUpTrayIcon width={16} height={16} />
+									</Box>
+								}
 								onClick={() => openDialog("import")}
-								_hover={{ md: { bg: "panel.elevated" } }}
-								transition="background-color 0.2s ease"
+								_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							>
 								{t("dashboard.backup.import")}
 							</Button>
@@ -199,12 +206,19 @@ export const DashboardBackupControls = ({
 								variant="ghost"
 								justifyContent="flex-start"
 								fontSize="13px"
-								borderRadius="8px"
-								h="36px"
-								leftIcon={<ArrowDownTrayIcon width={16} height={16} />}
+								fontWeight="600"
+								color="panel.text"
+								borderRadius="12px"
+								h="38px"
+								px={3}
+								leftIcon={
+									<Box as="span" display="inline-flex" color="var(--rb-panel-accent)">
+										<ArrowDownTrayIcon width={16} height={16} />
+									</Box>
+								}
 								onClick={() => openDialog("export")}
-								_hover={{ md: { bg: "panel.elevated" } }}
-								transition="background-color 0.2s ease"
+								_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							>
 								{t("dashboard.backup.exportTitle")}
 							</Button>
@@ -224,7 +238,7 @@ export const DashboardBackupControls = ({
 				<ModalContent
 					borderWidth="1px"
 					borderColor="panel.border"
-					borderRadius="10px"
+					borderRadius="20px"
 					boxShadow={cardHighlight}
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
@@ -236,7 +250,7 @@ export const DashboardBackupControls = ({
 							<Text fontSize="13px" color="panel.textMuted">
 								{t("dashboard.backup.importHint")}
 							</Text>
-							<Alert status="warning" borderRadius="10px" fontSize="13px">
+							<Alert status="warning" borderRadius="14px" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
 									{t("dashboard.backup.autoDetectImportWarning")}
@@ -281,7 +295,7 @@ export const DashboardBackupControls = ({
 						<Button
 							variant="ghost"
 							size="sm"
-							borderRadius="8px"
+							borderRadius="10px"
 							onClick={() => setDialog(null)}
 							isDisabled={importMutation.isLoading}
 						>
@@ -290,7 +304,7 @@ export const DashboardBackupControls = ({
 						<Button
 							colorScheme="red"
 							size="sm"
-							borderRadius="8px"
+							borderRadius="10px"
 							px={5}
 							leftIcon={<ArrowUpTrayIcon width={15} height={15} />}
 							onClick={handleImport}
@@ -313,7 +327,7 @@ export const DashboardBackupControls = ({
 				<ModalContent
 					borderWidth="1px"
 					borderColor="panel.border"
-					borderRadius="10px"
+					borderRadius="20px"
 					boxShadow={cardHighlight}
 					bg="panel.surface"
 					mx={{ base: 4, sm: 0 }}
@@ -346,7 +360,7 @@ export const DashboardBackupControls = ({
 						<Button
 							variant="ghost"
 							size="sm"
-							borderRadius="8px"
+							borderRadius="10px"
 							onClick={() => setDialog(null)}
 							isDisabled={exportMutation.isLoading}
 						>
@@ -355,7 +369,7 @@ export const DashboardBackupControls = ({
 						<Button
 							colorScheme="primary"
 							size="sm"
-							borderRadius="8px"
+							borderRadius="10px"
 							px={5}
 							leftIcon={<ArrowDownTrayIcon width={15} height={15} />}
 							onClick={() => exportMutation.mutate(exportScope)}

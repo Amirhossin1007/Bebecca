@@ -38,7 +38,6 @@ import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
 import {
 	type FC,
-	lazy,
 	type ReactNode,
 	Suspense,
 	useEffect,
@@ -60,7 +59,7 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
-const HistoryChart = lazy(() => import("react-apexcharts"));
+import HistoryChart from "react-apexcharts";
 
 type MaintenanceInfo = {
 	panel?: {
@@ -694,7 +693,7 @@ const HistoryModal: FC<{
 				bg="panel.surface"
 				borderWidth="1px"
 				borderColor="panel.border"
-				borderRadius="10px"
+				borderRadius="20px"
 				boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 				mx={{ base: 3, sm: 6 }}
 				overflow="hidden"
@@ -718,7 +717,7 @@ const HistoryModal: FC<{
 						{hasEnoughPoints && (
 							<Box
 								p="3px"
-								borderRadius="8px"
+								borderRadius="10px"
 								bg="panel.elevated"
 								w={{ base: "full", md: "fit-content" }}
 								maxW="100%"
@@ -748,7 +747,7 @@ const HistoryModal: FC<{
 											position: "absolute",
 											top: 3,
 											bottom: 3,
-											borderRadius: "6px",
+											borderRadius: "8px",
 											backgroundColor: "var(--chakra-colors-panel-surface)",
 											boxShadow: colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
 											zIndex: 1,
@@ -776,7 +775,7 @@ const HistoryModal: FC<{
 												h="26px"
 												w="full"
 												px={{ base: 1, sm: 3 }}
-												borderRadius="6px"
+												borderRadius="8px"
 												variant="ghost"
 												bg="transparent !important"
 												color={isActive ? "panel.text" : "panel.textMuted"}
@@ -998,7 +997,7 @@ const ResourceCard: FC<{
 			bg="panel.surface"
 			borderWidth="1px"
 			borderColor="panel.border"
-			borderRadius="10px"
+			borderRadius="20px"
 			p={{ base: 4, sm: 5 }}
 			position="relative"
 			overflow="hidden"
@@ -1023,7 +1022,7 @@ const ResourceCard: FC<{
 							h="32px"
 							align="center"
 							justify="center"
-							borderRadius="8px"
+							borderRadius="10px"
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							flexShrink={0}
@@ -1041,7 +1040,7 @@ const ResourceCard: FC<{
 							px={2}
 							fontSize="11px"
 							variant="ghost"
-							borderRadius="6px"
+							borderRadius="8px"
 							bg="panel.elevated"
 							color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
 							fontWeight={colorMode === "light" ? "600" : "500"}
@@ -1321,7 +1320,7 @@ const SectionCard: FC<{
 			bg="panel.surface"
 			borderWidth="1px"
 			borderColor="panel.border"
-			borderRadius="10px"
+			borderRadius="20px"
 			overflow="hidden"
 			boxShadow={colorMode === "light" ? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)" : "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"}
 			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -1420,7 +1419,7 @@ const SpeedItem: FC<{
 	return (
 		<Flex align="center" justify="space-between" gap={3}>
 			<HStack spacing={2.5} color="panel.textMuted">
-				<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
+				<Flex w="28px" h="28px" align="center" justify="center" borderRadius="10px" bg="panel.elevated" flexShrink={0}>
 					{icon}
 				</Flex>
 				<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
@@ -1607,7 +1606,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							key={i}
 							className="shimmer-box"
 							bg="panel.surface"
-							borderRadius="10px"
+							borderRadius="20px"
 							borderWidth="1px"
 							borderColor="panel.border"
 							p={{ base: 4, sm: 5 }}
@@ -1619,7 +1618,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<Box>
 								<Flex justify="space-between" align="center" mb={3}>
 									<HStack spacing={2.5} align="center">
-										<Box w="32px" h="32px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
+										<Box w="32px" h="32px" borderRadius="10px" bg="panel.elevated" flexShrink={0} />
 										<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
 									</HStack>
 									{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
@@ -1662,7 +1661,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Box
 						className="shimmer-box"
 						bg="panel.surface"
-						borderRadius="10px"
+						borderRadius="20px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
@@ -1670,7 +1669,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
 								<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
@@ -1698,7 +1697,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Box
 						className="shimmer-box"
 						bg="panel.surface"
-						borderRadius="10px"
+						borderRadius="20px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
@@ -1706,7 +1705,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					>
 						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
 								<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 						</Flex>
@@ -1734,7 +1733,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<Box
 					className="shimmer-box"
 					bg="panel.surface"
-					borderRadius="10px"
+					borderRadius="20px"
 					borderWidth="1px"
 					borderColor="panel.border"
 					overflow="hidden"
@@ -1742,7 +1741,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				>
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+							<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
 							<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
 						</HStack>
 						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
@@ -1753,7 +1752,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								<Box
 									key={i}
 									bg="panel.surface"
-									borderRadius="10px"
+									borderRadius="14px"
 									borderWidth="1px"
 									borderColor="panel.border"
 									p={{ base: 4, sm: 5 }}
@@ -1765,7 +1764,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									<Box>
 										<Flex justify="space-between" align="center" mb={3}>
 											<HStack spacing={2.5} align="center">
-												<Box w="32px" h="32px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
+												<Box w="32px" h="32px" borderRadius="10px" bg="panel.elevated" flexShrink={0} />
 												<Box w={i === 1 ? "120px" : "130px"} h="16px" borderRadius="md" bg="panel.elevated" />
 											</HStack>
 										</Flex>
@@ -1793,7 +1792,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				<Box
 					className="shimmer-box"
 					bg="panel.surface"
-					borderRadius="10px"
+					borderRadius="20px"
 					borderWidth="1px"
 					borderColor="panel.border"
 					overflow="hidden"
@@ -1801,12 +1800,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 				>
 					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
 						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+							<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
 							<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
 						</HStack>
-						<HStack spacing={0.5} bg="panel.elevated" p={0.5} borderRadius="8px">
-							<Box w="65px" h="22px" borderRadius="6px" bg="panel.surface" />
-							<Box w="60px" h="22px" borderRadius="6px" bg="transparent" />
+						<HStack spacing={0.5} bg="panel.elevated" p={0.5} borderRadius="10px">
+							<Box w="65px" h="22px" borderRadius="8px" bg="panel.surface" />
+							<Box w="60px" h="22px" borderRadius="8px" bg="transparent" />
 						</HStack>
 					</Flex>
 					<Box p={{ base: 4, sm: 5, md: 6 }}>
@@ -1846,7 +1845,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					<Box
 						className="shimmer-box"
 						bg="panel.surface"
-						borderRadius="10px"
+						borderRadius="20px"
 						borderWidth="1px"
 						borderColor="panel.border"
 						overflow="hidden"
@@ -2225,7 +2224,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			{(systemData.last_xray_error || systemData.last_telegram_error) && (
 				<Stack spacing={3}>
 					{systemData.last_xray_error && (
-						<Box p={4} borderRadius="10px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
+						<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
 							<HStack spacing={2} mb={2} color={redErrorColor}>
 								<ExclamationTriangleIcon width={15} />
 								<Text fontSize="12px" fontWeight="700">
@@ -2238,7 +2237,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</Box>
 					)}
 					{systemData.last_telegram_error && (
-						<Box p={4} borderRadius="10px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
+						<Box p={4} borderRadius="14px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
 							<Flex align="center" justify="space-between" mb={2} flexWrap="wrap" gap={2}>
 								<HStack spacing={2} color={orangeErrorColor}>
 									<ExclamationTriangleIcon width={15} />
@@ -2357,7 +2356,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			<SectionCard
 				title={
 					<HStack spacing={2.5}>
-						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
+						<Flex w="28px" h="28px" align="center" justify="center" borderRadius="10px" bg="panel.elevated" color="panel.textSecondary">
 							<UserGroupIcon width={14} />
 						</Flex>
 						<span>{t("dashboard.users")}</span>
@@ -2369,7 +2368,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							spacing={0.5}
 							bg="panel.elevated"
 							p={0.5}
-							borderRadius="8px"
+							borderRadius="10px"
 							position="relative"
 							transition="border-color 0.2s ease"
 						>
@@ -2383,7 +2382,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 											left: 0,
 											right: 0,
 											bottom: 0,
-											borderRadius: "6px",
+											borderRadius: "8px",
 											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
 											zIndex: 1,
@@ -2399,7 +2398,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									size="xs"
 									h="22px"
 									px={2.5}
-									borderRadius="6px"
+									borderRadius="8px"
 									fontSize="11px"
 									fontWeight="600"
 									variant="ghost"
@@ -2435,7 +2434,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 											left: 0,
 											right: 0,
 											bottom: 0,
-											borderRadius: "6px",
+											borderRadius: "8px",
 											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
 											zIndex: 1,
@@ -2451,7 +2450,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									size="xs"
 									h="22px"
 									px={2.5}
-									borderRadius="6px"
+									borderRadius="8px"
 									fontSize="11px"
 									fontWeight="600"
 									variant="ghost"

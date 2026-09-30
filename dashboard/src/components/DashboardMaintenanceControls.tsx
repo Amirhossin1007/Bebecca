@@ -367,7 +367,7 @@ export const DashboardMaintenanceControls = ({
 					bg={update?.available ? "var(--rb-panel-accent)" : "transparent"}
 					color={update?.available ? "white" : "panel.text"}
 					borderColor="panel.border"
-					borderRadius="8px"
+					borderRadius="12px"
 					isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading}
 					whiteSpace="nowrap"
 					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
@@ -389,7 +389,7 @@ export const DashboardMaintenanceControls = ({
 				<PopoverContent
 					w="min(480px, calc(100vw - 24px))"
 					maxW="480px"
-					borderRadius="10px"
+					borderRadius="20px"
 					boxShadow={cardHighlight}
 					bg="panel.surface"
 					borderColor="panel.border"
@@ -403,7 +403,7 @@ export const DashboardMaintenanceControls = ({
 							<Button
 								size="xs"
 								variant="ghost"
-								borderRadius="6px"
+								borderRadius="8px"
 								color="panel.textMuted"
 								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 								_hover={{ color: "panel.text", bg: "panel.elevated" }}
@@ -424,7 +424,7 @@ export const DashboardMaintenanceControls = ({
 							</Flex>
 						)}
 						{info.isError && (
-							<Alert status="error" borderRadius="10px" fontSize="13px">
+							<Alert status="error" borderRadius="14px" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
 									{t("dashboard.maintenance.updateCheckFailed", {
@@ -437,7 +437,7 @@ export const DashboardMaintenanceControls = ({
 						)}
 						<Box
 							p={3.5}
-							borderRadius="10px"
+							borderRadius="14px"
 							bg="panel.elevated"
 							borderWidth="1px"
 							borderColor="panel.border"
@@ -452,7 +452,7 @@ export const DashboardMaintenanceControls = ({
 							</Text>
 						</Box>
 						{info.isSuccess && !hostActionsAvailable && (
-							<Alert status="warning" borderRadius="10px" fontSize="13px">
+							<Alert status="warning" borderRadius="14px" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
 									{t("dashboard.maintenance.binaryMigrationRequired")}
@@ -460,7 +460,7 @@ export const DashboardMaintenanceControls = ({
 							</Alert>
 						)}
 						{update?.available && (
-							<Alert status="success" borderRadius="10px" fontSize="13px">
+							<Alert status="success" borderRadius="14px" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
 									{t("dashboard.maintenance.updateAvailableNotice", {
@@ -471,7 +471,7 @@ export const DashboardMaintenanceControls = ({
 							</Alert>
 						)}
 						{update?.error && (
-							<Alert status="warning" borderRadius="10px" fontSize="13px">
+							<Alert status="warning" borderRadius="14px" fontSize="13px">
 								<AlertIcon />
 								<Text fontSize="12px">
 									{t("dashboard.maintenance.updateCheckFailed", {
@@ -488,7 +488,7 @@ export const DashboardMaintenanceControls = ({
 								<Select
 									size="sm"
 									portalled={false}
-									borderRadius="8px"
+									borderRadius="10px"
 									value={selectedChannel}
 									onChange={(event) => {
 										setSelectedChannel(
@@ -524,7 +524,7 @@ export const DashboardMaintenanceControls = ({
 								/>
 							)}
 						{selectedChannel === "dev" && hostActionsAvailable && (
-							<Alert status="warning" borderRadius="10px" fontSize="12px">
+							<Alert status="warning" borderRadius="14px" fontSize="12px">
 								<AlertIcon />
 								<Text fontSize="12px">
 									{t("dashboard.maintenance.devChannelWarning")}
@@ -537,7 +537,7 @@ export const DashboardMaintenanceControls = ({
 								h="30px"
 								px={3.5}
 								variant="outline"
-								borderRadius="8px"
+								borderRadius="10px"
 								borderColor="panel.border"
 								color="panel.text"
 								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
@@ -556,7 +556,7 @@ export const DashboardMaintenanceControls = ({
 								h="30px"
 								px={4}
 								colorScheme={update?.available ? "primary" : "gray"}
-								borderRadius="8px"
+								borderRadius="10px"
 								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 								_active={{ transform: "scale(0.98)" }}
 								onClick={startUpdate}
@@ -613,7 +613,7 @@ export const DashboardMaintenanceControls = ({
 						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 						_hover={{ md: { bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" } }}
 						_active={{ transform: "scale(0.98)" }}
-						borderRadius="8px"
+						borderRadius="12px"
 						onClick={() => setConfirmAction("restart")}
 						isLoading={restartMutation.isLoading}
 						isDisabled={info.isLoading || !hostActionsAvailable}
@@ -654,7 +654,7 @@ export const DashboardMaintenanceControls = ({
 							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							_hover={{ md: { bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" } }}
 							_active={{ transform: "scale(0.98)" }}
-							borderRadius="8px"
+							borderRadius="12px"
 							onClick={() => setConfirmAction("restart")}
 							isLoading={restartMutation.isLoading}
 							isDisabled={info.isLoading || !hostActionsAvailable}
@@ -678,7 +678,7 @@ export const DashboardMaintenanceControls = ({
 									"& > button": {
 										w: "full",
 										h: "32px !important",
-										borderRadius: "8px !important",
+										borderRadius: "12px !important",
 										fontSize: "12px !important",
 										fontWeight: "600 !important",
 										borderColor: "panel.border !important",
@@ -709,7 +709,7 @@ export const DashboardMaintenanceControls = ({
 			>
 				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
-					borderRadius="10px"
+					borderRadius="20px"
 					overflow="hidden"
 					bg="panel.surface"
 					borderColor="panel.border"
@@ -731,7 +731,7 @@ export const DashboardMaintenanceControls = ({
 									h="36px"
 									align="center"
 									justify="center"
-									borderRadius="8px"
+									borderRadius="12px"
 									bg="panel.elevated"
 									color="var(--rb-panel-accent)"
 									border="1px solid"
@@ -786,7 +786,7 @@ export const DashboardMaintenanceControls = ({
 						<Stack spacing={4}>
 							<Box
 								p={4}
-								borderRadius="10px"
+								borderRadius="14px"
 								bg="panel.elevated"
 								border="1px solid"
 								borderColor="panel.border"
@@ -866,7 +866,7 @@ export const DashboardMaintenanceControls = ({
 							)}
 
 							<Box
-								borderRadius="10px"
+								borderRadius="14px"
 								bg={outputBg}
 								border="1px solid"
 								borderColor={outputBorder}
@@ -961,7 +961,7 @@ export const DashboardMaintenanceControls = ({
 					bg="panel.surface"
 					borderColor="panel.border"
 					borderWidth="1px"
-					borderRadius="10px"
+					borderRadius="20px"
 					boxShadow={cardHighlight}
 					mx={4}
 				>
@@ -987,7 +987,7 @@ export const DashboardMaintenanceControls = ({
 											})}
 									</Text>
 									{confirmAction === "update" && selectedVersion && (
-										<Alert status="warning" borderRadius="10px" fontSize="12px">
+										<Alert status="warning" borderRadius="14px" fontSize="12px">
 											<AlertIcon />
 											<Text>{t("dashboard.maintenance.versionSwitchWarning")}</Text>
 										</Alert>
@@ -998,7 +998,7 @@ export const DashboardMaintenanceControls = ({
 						<Button
 							variant="ghost"
 							size="sm"
-							borderRadius="8px"
+							borderRadius="10px"
 							color="panel.textMuted"
 							onClick={() => setConfirmAction(null)}
 						>
@@ -1007,7 +1007,7 @@ export const DashboardMaintenanceControls = ({
 						<Button
 							colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"}
 							size="sm"
-							borderRadius="8px"
+							borderRadius="10px"
 							px={5}
 							isLoading={restartMutation.isLoading || reloadMutation.isLoading || updateMutation.isLoading}
 							onClick={() => {

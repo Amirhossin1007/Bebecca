@@ -1357,7 +1357,7 @@ export function AppLayout() {
 											ref={userMenuContentRef}
 										minW="230px"
 										p={2}
-										borderRadius="10px"
+										borderRadius="20px"
 										borderWidth="1px"
 										borderColor="panel.border"
 										bg="panel.surface"
@@ -1367,7 +1367,7 @@ export function AppLayout() {
 										sx={{
 											".chakra-menu__menuitem": {
 												bg: "transparent !important",
-												borderRadius: "8px",
+												borderRadius: "10px",
 												h: "38px",
 												px: "12px",
 												my: "2px",
@@ -1408,7 +1408,7 @@ export function AppLayout() {
 											gap={3}
 											p={2.5}
 											mb={1.5}
-											borderRadius="8px"
+											borderRadius="14px"
 											bg="panel.elevated"
 											borderWidth="1px"
 											borderColor="panel.border"
@@ -1418,7 +1418,7 @@ export function AppLayout() {
 												h="34px"
 												align="center"
 												justify="center"
-												borderRadius="6px"
+												borderRadius="10px"
 												bg="panel.surface"
 												borderWidth="1px"
 												borderColor="panel.border"
@@ -1456,9 +1456,10 @@ export function AppLayout() {
 												justifyContent="flex-start"
 												fontWeight="500"
 												fontSize="13px"
-												borderRadius="10px"
+												borderRadius="12px"
 												px={3}
 												bg="transparent"
+												color="panel.text"
 												transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 												_hover={{ bg: "panel.elevated" }}
 												_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
@@ -1471,7 +1472,7 @@ export function AppLayout() {
 												}}
 											>
 												<HStack justify="space-between" w="full" minW={0}>
-													<Text>{t("header.language")}</Text>
+													<Text color="panel.text">{t("header.language")}</Text>
 													<Text fontSize="11px" fontWeight="600" color="panel.textMuted">
 														{languageItems.find(
 															(item) => item.code === i18n.language,
@@ -1484,7 +1485,7 @@ export function AppLayout() {
 													dir={isRTL ? "rtl" : "ltr"}
 													minW="170px"
 													p={1.5}
-													borderRadius="10px"
+													borderRadius="18px"
 													borderWidth="1px"
 													borderColor="panel.border"
 													bg="panel.surface"
@@ -1494,7 +1495,7 @@ export function AppLayout() {
 													sx={{
 														".chakra-menu__menuitem": {
 															bg: "transparent !important",
-															borderRadius: "6px",
+															borderRadius: "8px",
 															h: "36px",
 															px: "10px",
 															my: "1px",
@@ -1878,7 +1879,7 @@ export function AppLayout() {
 															maxW="calc(100vw - 24px)"
 															maxH="calc(100vh - 130px)"
 															overflowY="auto"
-															borderRadius="10px"
+															borderRadius="20px"
 															bg="panel.surface"
 															borderColor="panel.border"
 															borderWidth="1px"
@@ -1927,7 +1928,7 @@ export function AppLayout() {
 																								size="sm"
 																								w="full"
 																								h="36px"
-																								borderRadius="8px"
+																								borderRadius="10px"
 																								px={2.5}
 																								justifyContent="flex-start"
 																								leftIcon={<ItemIcon />}
@@ -1965,7 +1966,7 @@ export function AppLayout() {
 																								w="full"
 																								h="36px"
 																								px={2.5}
-																								borderRadius="8px"
+																								borderRadius="10px"
 																								bg={isGroupActive && !isGroupOpen ? "panel.elevated" : "transparent"}
 																								color={isGroupActive ? "panel.text" : "panel.textSecondary"}
 																								fontWeight={isGroupActive ? "600" : "500"}
@@ -2025,7 +2026,7 @@ export function AppLayout() {
 																															size="sm"
 																															w="full"
 																															h="32px"
-																															borderRadius="8px"
+																															borderRadius="10px"
 																															px={2}
 																															justifyContent="flex-start"
 																															leftIcon={<SubIcon />}
@@ -2114,7 +2115,7 @@ export function AppLayout() {
 														<PopoverContent
 															w="min(200px, calc(100vw - 24px))"
 															maxW="calc(100vw - 24px)"
-															borderRadius="10px"
+															borderRadius="20px"
 															bg="panel.surface"
 															borderColor="panel.border"
 															borderWidth="1px"
@@ -2127,7 +2128,7 @@ export function AppLayout() {
 																	size="sm"
 																	w="full"
 																	h="38px"
-																	borderRadius="8px"
+																	borderRadius="10px"
 																	justifyContent="flex-start"
 																	leftIcon={<LogoutIcon />}
 																	color="red.400"

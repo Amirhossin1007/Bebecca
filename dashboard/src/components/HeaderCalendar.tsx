@@ -259,7 +259,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 					w="fit-content"
 					minW="300px"
 					p={3.5}
-					borderRadius="10px"
+					borderRadius="20px"
 					borderWidth="1px"
 					borderColor={cardBorder}
 					bg={cardBg}
@@ -279,7 +279,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 								<IconButton
 									size="xs"
 									variant="ghost"
-									borderRadius="6px"
+									borderRadius="8px"
 									aria-label={t("dateTimePicker.previousMonth")}
 									icon={prevIcon}
 									onClick={handlePrevMonth}
@@ -290,7 +290,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 								<IconButton
 									size="xs"
 									variant="ghost"
-									borderRadius="6px"
+									borderRadius="8px"
 									aria-label={t("dateTimePicker.nextMonth")}
 									icon={nextIcon}
 									onClick={handleNextMonth}
@@ -325,7 +325,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 								size="xs"
 								variant={isCurrentMonth ? "ghost" : "outline"}
 								colorScheme={isCurrentMonth ? undefined : "primary"}
-								borderRadius="6px"
+								borderRadius="8px"
 								fontSize="11px"
 								fontWeight="600"
 								px={2.5}
@@ -386,7 +386,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({ isCompact = false }) =
 													h="34px"
 													align="center"
 													justify="center"
-													borderRadius="6px"
+													borderRadius="8px"
 													bg={day.isToday ? "var(--rb-panel-accent)" : "transparent"}
 													borderWidth="0px"
 													color={
