@@ -996,6 +996,9 @@ const HistoryModal: FC<{
 									right: "auto !important",
 									bottom: "auto !important",
 								},
+								"& .apexcharts-xaxistooltip": {
+									display: "none !important",
+								},
 								"& .apexcharts-tooltip": {
 									background: "transparent !important",
 									border: "none !important",
