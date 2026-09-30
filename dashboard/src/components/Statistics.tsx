@@ -753,32 +753,32 @@ const HistoryModal: FC<{
 								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px;">
 									<div style="display: flex; align-items: center; gap: 6px;">
 										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; box-shadow: 0 0 6px ${color}88; flex-shrink: 0;"></span>
-										<span style="color: var(--chakra-colors-panel-textSecondary, #94a3b8); font-size: 11px; font-weight: 500;">${name}</span>
+										<span style="color: var(--rb-panel-text-secondary, #d0d0d0); font-size: 11px; font-weight: 500;">${name}</span>
 									</div>
-									<span style="color: var(--chakra-colors-panel-text, #ffffff); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
+									<span style="color: var(--rb-panel-text, #f5f5f5); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
 								</div>
 							`;
 						})
 						.join("");
 
 					return `
-						<div style="
-							background: rgba(18, 21, 28, 0.98);
-							border: 1px solid rgba(255, 255, 255, 0.12);
-							border-radius: 12px;
-							background-clip: padding-box;
-							padding: 8px 12px;
-							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
-							direction: ${isRTL ? "rtl" : "ltr"};
-							font-family: inherit;
-							min-width: 140px;
-						">
-							<div style="color: var(--chakra-colors-panel-textMuted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px; margin-bottom: 4px;">
-								${dateStr}
-							</div>
-							${linesHtml}
-						</div>
-					`;
+										<div style="
+											background: var(--rb-panel-elevated, #2f2f2f);
+											border: 1px solid var(--rb-panel-border, #3a3a3a);
+											border-radius: 12px;
+											background-clip: padding-box;
+											padding: 8px 12px;
+											box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+											direction: ${isRTL ? "rtl" : "ltr"};
+											font-family: inherit;
+											min-width: 140px;
+										">
+											<div style="color: var(--rb-panel-text-muted, #8a8a8a); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid var(--rb-panel-border, #3a3a3a); padding-bottom: 4px; margin-bottom: 4px;">
+												${dateStr}
+											</div>
+											${linesHtml}
+										</div>
+									`;
 				},
 			},
 		}),
@@ -874,7 +874,7 @@ const HistoryModal: FC<{
 											top: 3,
 											bottom: 3,
 											borderRadius: "8px",
-											backgroundColor: "var(--chakra-colors-panel-surface)",
+											backgroundColor: "var(--rb-panel-elevated, #2f2f2f)",
 											boxShadow:
 												colorMode === "light"
 													? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
@@ -1516,8 +1516,8 @@ const SectionCard: FC<{
 					: {
 							"@media screen and (min-width: 768px)": {
 								"&:hover [data-rb-icon]": {
-									bg: "var(--chakra-colors-panel-surface) !important",
-									color: "var(--chakra-colors-panel-text) !important",
+									bg: "var(--rb-panel-elevated, #2f2f2f) !important",
+									color: "var(--rb-panel-text, #f5f5f5) !important",
 								},
 							},
 						}),
