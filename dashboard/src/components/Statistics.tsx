@@ -874,11 +874,12 @@ const HistoryModal: FC<{
 											top: 3,
 											bottom: 3,
 											borderRadius: "8px",
-											backgroundColor: "var(--rb-panel-elevated, #2f2f2f)",
+											backgroundColor: "var(--rb-panel-accent, #2563eb)",
+											opacity: 0.16,
 											boxShadow:
 												colorMode === "light"
-													? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
-													: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
+													? "inset 0 0 0 1px rgba(37, 99, 235, 0.35)"
+													: "inset 0 0 0 1px rgba(59, 130, 246, 0.4)",
 											zIndex: 1,
 											pointerEvents: "none",
 										}}
@@ -1508,7 +1509,7 @@ const SectionCard: FC<{
 			}
 			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 			sx={{
-				"&[data-rb-iconswap] svg, &[data-rb-iconswap] > * > svg": {
+				"&[data-rb-iconswap] svg, &[data-rb-iconswap] [data-rb-icon]": {
 					transition: "color 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
 				},
 				...(noHover

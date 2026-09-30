@@ -132,26 +132,20 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	return (
 		<motion.div
-			initial={
-				isSidebarBanner
-					? { y: 18, opacity: 0 }
-					: isBanner
-						? { y: -18, opacity: 0 }
-						: false
-			}
+			initial={isBanner ? { y: -18, opacity: 0 } : false}
 			animate={{ y: 0, opacity: 1 }}
 			transition={{
 				duration: 0.5,
 				ease: [0.16, 1, 0.3, 1],
-				delay: isBanner || isSidebarBanner ? 1 : 0,
+				delay: isBanner ? 1 : 0,
 			}}
 			style={{ width: "100%" }}
 		>
 			<Box
 				overflow="hidden"
 				w="full"
-				maxH={isBanner ? "34px" : undefined}
-				h={isBanner ? "34px" : "full"}
+				maxH={isBanner ? { base: "38px", md: "42px" } : undefined}
+				h={isBanner ? { base: "38px", md: "42px" } : "full"}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}

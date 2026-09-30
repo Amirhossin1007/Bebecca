@@ -1254,11 +1254,12 @@ export function AppLayout() {
 										}}
 									>
 										<Box
-											w={{ base: "130px", sm: "160px" }}
-											maxH="32px"
-											h="32px"
+											w={{ base: "130px", sm: "170px" }}
+											maxH={{ base: "38px", md: "42px" }}
+											h={{ base: "38px", md: "42px" }}
 											display={{ base: "flex", md: "none" }}
 											alignItems="center"
+											justifyContent="center"
 										>
 											<SponsorCarousel
 												items={mobileHeaderItems}
@@ -1284,11 +1285,12 @@ export function AppLayout() {
 										}}
 									>
 										<Box
-											w={{ md: "220px", lg: "280px", xl: "340px" }}
-											maxH="34px"
-											h="34px"
+											w={{ md: "240px", lg: "300px", xl: "360px" }}
+											maxH="42px"
+											h="42px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
+											justifyContent="center"
 										>
 											<SponsorCarousel
 												items={sponsorHeaderItems}
@@ -1403,29 +1405,32 @@ export function AppLayout() {
 													transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
 													"@media (hover: hover)": {
 														"&:hover:not(.rb-logout-menu-item)": {
-															bg: "panel.elevated !important",
+															"--menu-bg":
+																"var(--rb-panel-elevated) !important",
 														},
 													},
 													"&:active:not(.rb-logout-menu-item), &:focus-visible:not(.rb-logout-menu-item)":
 														{
-															bg: "panel.elevated !important",
+															"--menu-bg":
+																"var(--rb-panel-elevated) !important",
 														},
 													"&:focus:not(:focus-visible)": {
-														bg: "transparent !important",
+														"--menu-bg": "transparent !important",
 													},
 												},
 												".rb-logout-menu-item": {
 													color: "red.400 !important",
 													fontWeight: "600 !important",
-													bg: "transparent !important",
+													"--menu-bg": "transparent !important",
 													transition:
 														"background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important",
-													"&:hover, &:focus, &[data-focus]": {
-														bg: "rgba(239, 68, 68, 0.16) !important",
-														color: "red.400 !important",
-													},
-													"&:active, &[data-active]": {
-														bg: "rgba(239, 68, 68, 0.24) !important",
+													"&:hover, &:focus, &:focus-visible, &[data-focus], &[data-active]":
+														{
+															"--menu-bg": "rgba(239, 68, 68, 0.16) !important",
+															color: "red.400 !important",
+														},
+													"&:active": {
+														"--menu-bg": "rgba(239, 68, 68, 0.26) !important",
 														transform: "scale(0.98) !important",
 													},
 												},

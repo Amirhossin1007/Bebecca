@@ -274,41 +274,53 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 								<HStack spacing={1.5}>
 									<IconButton
 										size="xs"
-										variant="ghost"
-										borderRadius="8px"
+										variant="outline"
+										h="30px"
+										w="30px"
+										minW="30px"
+										px={0}
+										borderRadius="10px"
+										borderColor={headerBtnBorder}
+										bg={headerBtnBg}
+										color="panel.textSecondary"
+										boxShadow="sm"
 										aria-label={t("dateTimePicker.previousMonth")}
 										icon={prevIcon}
 										onClick={handlePrevMonth}
-										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 										_hover={{
 											md: {
 												bg: "panel.elevated",
 												borderColor: "panel.borderStrong",
+												color: "panel.text",
 											},
 										}}
-										_active={{
-											bg: "panel.borderStrong",
-											transform: "scale(0.96)",
-										}}
+										_active={{ transform: "scale(0.98)" }}
+										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									/>
 									<IconButton
 										size="xs"
-										variant="ghost"
-										borderRadius="8px"
+										variant="outline"
+										h="30px"
+										w="30px"
+										minW="30px"
+										px={0}
+										borderRadius="10px"
+										borderColor={headerBtnBorder}
+										bg={headerBtnBg}
+										color="panel.textSecondary"
+										boxShadow="sm"
 										aria-label={t("dateTimePicker.nextMonth")}
 										icon={nextIcon}
 										onClick={handleNextMonth}
-										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 										_hover={{
 											md: {
 												bg: "panel.elevated",
 												borderColor: "panel.borderStrong",
+												color: "panel.text",
 											},
 										}}
-										_active={{
-											bg: "panel.borderStrong",
-											transform: "scale(0.96)",
-										}}
+										_active={{ transform: "scale(0.98)" }}
+										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									/>
 								</HStack>
 
