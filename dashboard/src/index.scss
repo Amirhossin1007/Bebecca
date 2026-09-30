@@ -1,7 +1,8 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
-/* Arad Font - Persian/Arabic Font */
-/* Using local font files from public/fonts directory */
+@tailwind components;
+@tailwind utilities;
+
 @font-face {
   font-family: 'Arad';
   src:
@@ -55,6 +56,26 @@
   --rb-ease-standard: cubic-bezier(0.77, 0, 0.175, 1);
   --rb-duration-fast: 140ms;
   --rb-duration-ui: 180ms;
+  --background: var(--rb-panel-bg);
+  --foreground: var(--rb-panel-text);
+  --card: var(--rb-panel-surface);
+  --card-foreground: var(--rb-panel-text);
+  --popover: var(--rb-panel-surface);
+  --popover-foreground: var(--rb-panel-text);
+  --primary: var(--rb-panel-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--rb-panel-elevated);
+  --secondary-foreground: var(--rb-panel-text);
+  --muted: var(--rb-panel-elevated);
+  --muted-foreground: var(--rb-panel-text-muted);
+  --accent: var(--rb-panel-elevated);
+  --accent-foreground: var(--rb-panel-text);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: var(--rb-panel-border);
+  --input: var(--rb-panel-border);
+  --ring: var(--rb-panel-accent);
+  --radius: 10px;
 }
 
 .rb-theme-dark,
