@@ -2950,6 +2950,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									borderRadius="8px"
 									bg="panel.elevated"
 									flexShrink={0}
+									data-rb-icon=""
 								>
 									<ServerStackIcon width={13} />
 								</Flex>
@@ -2973,6 +2974,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									borderRadius="8px"
 									bg="panel.elevated"
 									flexShrink={0}
+									data-rb-icon=""
 								>
 									<CircleStackIcon width={13} />
 								</Flex>

@@ -221,6 +221,8 @@ export function AppLayout() {
 	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
 	const userMenuContentRef = useRef<HTMLDivElement | null>(null);
+	const [logoutHovered, setLogoutHovered] = useState(false);
+	const [logoutPressed, setLogoutPressed] = useState(false);
 	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
@@ -1202,7 +1204,7 @@ export function AppLayout() {
 													color="panel.textMuted"
 													userSelect="none"
 												>
-													{isRTL ? "<" : ">"}
+													{isRTL ? ">" : "<"}
 												</Text>
 											)}
 											{crumb.path && !isLast ? (
@@ -1354,53 +1356,28 @@ export function AppLayout() {
 											justify="center"
 											dir={isRTL ? "rtl" : "ltr"}
 										>
-											{isRTL ? (
-												<>
-													<Text
-														display={{ base: "none", md: "inline" }}
-														maxW={{ base: "100px", md: "140px" }}
-														fontSize="12px"
-														fontWeight="600"
-														isTruncated
-													>
-														{userData.username}
-													</Text>
-													<Flex
-														w="20px"
-														h="20px"
-														align="center"
-														justify="center"
-														borderRadius="full"
-														color="panel.textSecondary"
-														flexShrink={0}
-													>
-														<UserIcon />
-													</Flex>
-												</>
-											) : (
-												<>
-													<Flex
-														w="20px"
-														h="20px"
-														align="center"
-														justify="center"
-														borderRadius="full"
-														color="panel.textSecondary"
-														flexShrink={0}
-													>
-														<UserIcon />
-													</Flex>
-													<Text
-														display={{ base: "none", md: "inline" }}
-														maxW={{ base: "100px", md: "140px" }}
-														fontSize="12px"
-														fontWeight="600"
-														isTruncated
-													>
-														{userData.username}
-													</Text>
-												</>
-											)}
+											<Flex
+												w="20px"
+												h="20px"
+												align="center"
+												justify="center"
+												borderRadius="full"
+												color="panel.textSecondary"
+												flexShrink={0}
+											>
+												<UserIcon />
+											</Flex>
+											<Text
+												display={{ base: "none", md: "inline" }}
+												maxW={{ base: "100px", md: "140px" }}
+												fontSize="12px"
+												fontWeight="600"
+												isTruncated
+												dir="ltr"
+												sx={{ unicodeBidi: "isolate" }}
+											>
+												{userData.username}
+											</Text>
 										</HStack>
 									</MenuButton>
 									<Portal>
@@ -1427,13 +1404,14 @@ export function AppLayout() {
 													fontWeight: "500",
 													transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
 													"@media (hover: hover)": {
-														"&:hover": {
+														"&:hover:not(.rb-logout-menu-item)": {
 															bg: "panel.elevated !important",
 														},
 													},
-													"&:active, &:focus-visible": {
-														bg: "panel.elevated !important",
-													},
+													"&:active:not(.rb-logout-menu-item), &:focus-visible:not(.rb-logout-menu-item)":
+														{
+															bg: "panel.elevated !important",
+														},
 													"&:focus:not(:focus-visible)": {
 														bg: "transparent !important",
 													},
@@ -1445,15 +1423,11 @@ export function AppLayout() {
 														bg: "transparent !important",
 														transition:
 															"background-color 0.12s linear, color 0.12s linear, transform 0.12s ease-out !important",
-														"&[data-highlighted]": {
+														"&[data-rb-hovered]": {
 															bg: "rgba(239, 68, 68, 0.14) !important",
 															color: "red.400 !important",
 														},
-														"&[data-focus]": {
-															bg: "rgba(239, 68, 68, 0.14) !important",
-															color: "red.400 !important",
-														},
-														"&[data-active]": {
+														"&[data-rb-active]": {
 															bg: "rgba(239, 68, 68, 0.22) !important",
 															transform: "scale(0.98) !important",
 														},
@@ -1653,18 +1627,15 @@ export function AppLayout() {
 												className="rb-logout-menu-item"
 												icon={<LogoutIcon />}
 												color="red.400"
-												transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-												_hover={{
-													bg: "rgba(239, 68, 68, 0.14) !important",
-													color: "red.400 !important",
-												}}
-												_focus={{
-													bg: "rgba(239, 68, 68, 0.14) !important",
-													color: "red.400 !important",
-												}}
-												_active={{
-													bg: "rgba(239, 68, 68, 0.22) !important",
-													transform: "scale(0.98)",
+												data-rb-hovered={logoutHovered ? "" : undefined}
+												data-rb-active={logoutPressed ? "" : undefined}
+												onMouseEnter={() => setLogoutHovered(true)}
+												onMouseLeave={() => setLogoutHovered(false)}
+												onMouseDown={() => setLogoutPressed(true)}
+												onMouseUp={() => setLogoutPressed(false)}
+												onBlur={() => {
+													setLogoutHovered(false);
+													setLogoutPressed(false);
 												}}
 												onClick={async () => {
 													try {

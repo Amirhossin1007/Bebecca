@@ -131,46 +131,48 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const isVertical = isBanner || isSidebarBanner;
 
 	return (
-		<Box
-			overflow="hidden"
-			w="full"
-			maxH={isBanner ? "34px" : undefined}
-			h={isBanner ? "34px" : "full"}
-			borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
-			borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
-			borderColor={frameBorder}
-			bg={isBanner || isSidebarBanner ? frameBg : "transparent"}
-			boxShadow={
-				isBanner || isSidebarBanner ? "0 2px 10px rgba(0, 0, 0, 0.06)" : "none"
+		<motion.div
+			initial={
+				isSidebarBanner
+					? { y: 18, opacity: 0 }
+					: isBanner
+						? { y: -18, opacity: 0 }
+						: false
 			}
-			aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
-			transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-			_hover={{
-				md: {
-					borderColor: "panel.borderStrong",
-					boxShadow: "0 6px 20px rgba(0, 0, 0, 0.14)",
-				},
+			animate={{ y: 0, opacity: 1 }}
+			transition={{
+				duration: 0.5,
+				ease: [0.16, 1, 0.3, 1],
+				delay: isBanner || isSidebarBanner ? 1 : 0,
 			}}
-			onMouseEnter={() => setPaused(true)}
-			onMouseLeave={() => setPaused(false)}
-			onFocus={() => setPaused(true)}
-			onBlur={() => setPaused(false)}
+			style={{ width: "100%" }}
 		>
-			<motion.div
-				initial={
-					isSidebarBanner
-						? { y: "100%", opacity: 0 }
-						: isBanner
-							? { y: "-100%", opacity: 0 }
-							: false
+			<Box
+				overflow="hidden"
+				w="full"
+				maxH={isBanner ? "34px" : undefined}
+				h={isBanner ? "34px" : "full"}
+				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
+				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
+				borderColor={frameBorder}
+				bg={isBanner || isSidebarBanner ? frameBg : "transparent"}
+				boxShadow={
+					isBanner || isSidebarBanner
+						? "0 2px 10px rgba(0, 0, 0, 0.06)"
+						: "none"
 				}
-				animate={{ y: 0, opacity: 1 }}
-				transition={{
-					duration: 0.55,
-					ease: [0.16, 1, 0.3, 1],
-					delay: isBanner || isSidebarBanner ? 0.9 : 0,
+				aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
+				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+				_hover={{
+					md: {
+						borderColor: "panel.borderStrong",
+						boxShadow: "0 6px 20px rgba(0, 0, 0, 0.14)",
+					},
 				}}
-				style={{ width: "100%", height: "100%" }}
+				onMouseEnter={() => setPaused(true)}
+				onMouseLeave={() => setPaused(false)}
+				onFocus={() => setPaused(true)}
+				onBlur={() => setPaused(false)}
 			>
 				<Box
 					display="flex"
@@ -251,7 +253,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						);
 					})}
 				</Box>
-			</motion.div>
-		</Box>
+			</Box>
+		</motion.div>
 	);
 };

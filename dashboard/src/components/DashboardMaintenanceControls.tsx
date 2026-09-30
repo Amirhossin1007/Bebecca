@@ -571,23 +571,27 @@ export const DashboardMaintenanceControls = ({
 							>
 								<Button
 									size="xs"
-									h="30px"
+									h="32px"
+									minW={{ base: "full", sm: "115px" }}
 									px={3.5}
 									variant="outline"
-									borderRadius="10px"
+									borderRadius="12px"
 									borderColor="panel.border"
 									color="panel.text"
 									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 									_hover={{
-										bg: "panel.elevated",
-										borderColor: "panel.borderStrong",
+										md: {
+											bg: "panel.elevated",
+											borderColor: "panel.borderStrong",
+										},
 									}}
-									_active={{ transform: "scale(0.98)" }}
+									_active={{ transform: "scale(0.96)" }}
 									onClick={() => setConfirmAction("soft-reload")}
 									isLoading={reloadMutation.isLoading}
 									isDisabled={!hostActionsAvailable}
 									fontSize="12px"
 									fontWeight="600"
+									whiteSpace="nowrap"
 								>
 									{t("dashboard.maintenance.softReloadAction")}
 								</Button>
