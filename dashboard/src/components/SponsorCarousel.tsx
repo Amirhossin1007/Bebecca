@@ -114,6 +114,10 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
 	const [isInitial, setIsInitial] = useState(true);
+	const [frameRatio, setFrameRatio] = useState<string | undefined>(undefined);
+	useEffect(() => {
+		setFrameRatio(undefined);
+	}, [variant, stableItems]);
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
@@ -145,8 +149,13 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		>
 			<Box
 				overflow="hidden"
-				w="full"
-				h={isBanner ? { base: "40px", md: "48px" } : "full"}
+				w={isBanner ? "fit-content" : "full"}
+				maxW={isBanner ? "100%" : undefined}
+				maxH={isBanner ? "40px" : undefined}
+				h={isBanner ? "auto" : "full"}
+				aspectRatio={
+					isSidebarBanner ? "21 / 17" : isBanner ? frameRatio : undefined
+				}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -156,7 +165,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						? "0 2px 10px rgba(0, 0, 0, 0.06)"
 						: "none"
 				}
-				aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{
 					md: {
@@ -198,6 +206,13 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 								objectFit="contain"
 								w={isBanner || isSidebarBanner ? "full" : 8}
 								h={isBanner || isSidebarBanner ? "full" : 8}
+								onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+									if (!isBanner) return;
+									const img = e.currentTarget;
+									if (img.naturalWidth && img.naturalHeight) {
+										setFrameRatio(`${img.naturalWidth} / ${img.naturalHeight}`);
+									}
+								}}
 								borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
 								transition="transform 0.25s ease"
 								userSelect="none"

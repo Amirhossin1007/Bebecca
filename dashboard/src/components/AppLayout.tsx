@@ -1260,7 +1260,7 @@ export function AppLayout() {
 										<Box
 											w="fit-content"
 											maxW="100%"
-											h={{ base: "40px", md: "48px" }}
+											h="auto"
 											display="flex"
 											alignItems="center"
 											justifyContent="center"
@@ -1295,7 +1295,7 @@ export function AppLayout() {
 										<Box
 											maxW="95%"
 											minW={0}
-											h={{ base: "40px", md: "48px" }}
+											maxH="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
 											justifyContent="center"
@@ -1316,7 +1316,7 @@ export function AppLayout() {
 							{/* User Menu */}
 							{getUserIsSuccess && userData.username && (
 								<Menu
-									placement="bottom-end"
+									placement={isRTL ? "bottom-start" : "bottom-end"}
 									isLazy
 									autoSelect={false}
 									closeOnSelect={false}
