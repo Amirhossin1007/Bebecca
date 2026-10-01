@@ -1251,16 +1251,15 @@ export function AppLayout() {
 											flexGrow: 1,
 											flexBasis: 0,
 											flexShrink: 1,
-											display: "flex",
+											display: isMobile ? "flex" : "none",
 											alignItems: "center",
 										}}
 									>
 										<Box
 											w="full"
 											maxW={{ base: "240px", sm: "320px" }}
-											maxH={{ base: "38px", md: "42px" }}
-											h={{ base: "38px", md: "42px" }}
-											display={{ base: "flex", md: "none" }}
+											h="38px"
+											display="flex"
 											alignItems="center"
 											justifyContent="center"
 										>
@@ -1408,32 +1407,30 @@ export function AppLayout() {
 													transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
 													"@media (hover: hover)": {
 														"&:hover:not(.rb-logout-menu-item)": {
-															"--menu-bg":
-																"var(--rb-panel-elevated) !important",
+															bg: "var(--rb-panel-elevated) !important",
 														},
 													},
 													"&:active:not(.rb-logout-menu-item), &:focus-visible:not(.rb-logout-menu-item)":
 														{
-															"--menu-bg":
-																"var(--rb-panel-elevated) !important",
+															bg: "var(--rb-panel-elevated) !important",
 														},
 													"&:focus:not(:focus-visible)": {
-														"--menu-bg": "transparent !important",
+														bg: "transparent !important",
 													},
 												},
 												".rb-logout-menu-item": {
 													color: "red.400 !important",
 													fontWeight: "600 !important",
-													"--menu-bg": "transparent !important",
+													bg: "transparent !important",
 													transition:
 														"background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important",
 													"&:hover, &:focus, &:focus-visible, &[data-focus], &[data-active]":
 														{
-															"--menu-bg": "rgba(239, 68, 68, 0.16) !important",
+															bg: "rgba(239, 68, 68, 0.16) !important",
 															color: "red.400 !important",
 														},
 													"&:active": {
-														"--menu-bg": "rgba(239, 68, 68, 0.26) !important",
+														bg: "rgba(239, 68, 68, 0.26) !important",
 														transform: "scale(0.98) !important",
 													},
 												},

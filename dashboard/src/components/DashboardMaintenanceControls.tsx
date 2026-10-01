@@ -695,7 +695,7 @@ export const DashboardMaintenanceControls = ({
 
 					<Flex gap={2} w="full" align="center">
 						<Button
-							flex="1 1 50%"
+							flex="1 1 0"
 							h="32px"
 							size="xs"
 							px={3}
