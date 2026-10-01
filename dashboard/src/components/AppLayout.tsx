@@ -1260,7 +1260,7 @@ export function AppLayout() {
 										<Box
 											w="fit-content"
 											maxW="100%"
-											h={{ base: "40px", md: "48px" }}
+											h="40px"
 											display="flex"
 											alignItems="center"
 											justifyContent="center"
@@ -1296,7 +1296,7 @@ export function AppLayout() {
 										<Box
 											maxW="100%"
 											minW={0}
-											h={{ base: "40px", md: "48px" }}
+											h="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
 											justifyContent="center"
