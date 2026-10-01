@@ -2424,7 +2424,13 @@ func formatIPForURL(value string) string {
 func urlencodeOrdered(params []queryParam) string {
 	parts := make([]string, 0, len(params))
 	for _, param := range params {
-		parts = append(parts, queryEscape(param.key)+"="+queryEscape(pythonStringValue(param.value)))
+		value := pythonStringValue(param.value)
+		if param.key == "extra" {
+			// Some clients do not decode "+" back to a space inside JSON.
+			parts = append(parts, queryEscape(param.key)+"="+percentEncode(value, "", false))
+			continue
+		}
+		parts = append(parts, queryEscape(param.key)+"="+queryEscape(value))
 	}
 	return strings.Join(parts, "&")
 }
@@ -2481,9 +2487,47 @@ func pythonStringValue(value any) string {
 func pythonJSONDumpsOrdered(params []queryParam) string {
 	parts := make([]string, 0, len(params))
 	for _, param := range params {
-		parts = append(parts, strconv.QuoteToASCII(param.key)+":"+pythonJSONDumpsValue(param.value, false))
+		parts = append(parts, strconv.QuoteToASCII(param.key)+":"+pythonJSONDumpsCompact(param.value))
 	}
 	return "{" + strings.Join(parts, ",") + "}"
+}
+
+// pythonJSONDumpsCompact serializes nested values without whitespace so that
+// URL query encoding never turns separators into "+" (breaks some clients).
+func pythonJSONDumpsCompact(value any) string {
+	switch typed := value.(type) {
+	case []string:
+		parts := make([]string, 0, len(typed))
+		for _, item := range typed {
+			parts = append(parts, pythonJSONDumpsCompact(item))
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	case []any:
+		parts := make([]string, 0, len(typed))
+		for _, item := range typed {
+			parts = append(parts, pythonJSONDumpsCompact(item))
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	case map[string]string:
+		converted := make(map[string]any, len(typed))
+		for key, item := range typed {
+			converted[key] = item
+		}
+		return pythonJSONDumpsCompact(converted)
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, key := range keys {
+			parts = append(parts, strconv.QuoteToASCII(key)+":"+pythonJSONDumpsCompact(typed[key]))
+		}
+		return "{" + strings.Join(parts, ",") + "}"
+	default:
+		return pythonJSONDumpsValue(typed, false)
+	}
 }
 
 func pythonJSONDumpsSorted(value map[string]any) string {
