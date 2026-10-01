@@ -1,10 +1,4 @@
-import {
-	Box,
-	Image,
-	Text,
-	useBreakpointValue,
-	useColorModeValue,
-} from "@chakra-ui/react";
+import { Box, Image, Text, useColorModeValue } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import {
 	type FC,
@@ -119,33 +113,12 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const currentItemId = stableItems[index]?.id ?? "";
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
-	const isDesktop = useBreakpointValue({ base: false, md: true });
-	const [mountedBreakpoint, setMountedBreakpoint] = useState(isDesktop);
-	useEffect(() => {
-		if (isDesktop !== undefined) setMountedBreakpoint(isDesktop);
-	}, [isDesktop]);
-	const canAnimateSidebar = mountedBreakpoint !== false;
 	const [isInitial, setIsInitial] = useState(true);
 	useEffect(() => {
 		if (!isInitial) return;
 		const timer = window.setTimeout(() => setIsInitial(false), 1600);
 		return () => window.clearTimeout(timer);
 	}, [isInitial]);
-	const [frameRatio, setFrameRatio] = useState<string | undefined>(undefined);
-	useEffect(() => {
-		if (!isBanner) return;
-		setFrameRatio(undefined);
-		const active = stableItems[index];
-		if (!active) return;
-		const probe = new window.Image();
-		probe.onload = () => {
-			if (probe.naturalWidth && probe.naturalHeight) {
-				setFrameRatio(`${probe.naturalWidth} / ${probe.naturalHeight}`);
-			}
-		};
-		probe.src = active.src;
-	}, [isBanner, index, stableItems]);
-
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
@@ -161,33 +134,29 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	if (stableItems.length === 0) return null;
 
-	const animateIn = isSidebarBanner ? canAnimateSidebar : true;
+	const animateIn = true;
 
 	return (
 		<motion.div
 			initial={
 				animateIn && isSidebarBanner
-					? { y: 18, opacity: 0 }
+					? { y: 24, opacity: 0 }
 					: isBanner
-						? { y: -18, opacity: 0 }
+						? { y: 0, opacity: 0 }
 						: false
 			}
 			animate={{ y: 0, opacity: 1 }}
 			transition={{
 				duration: 0.5,
 				ease: [0.16, 1, 0.3, 1],
-				delay:
-					isBanner || (isSidebarBanner && canAnimateSidebar && isInitial)
-						? 1
-						: 0,
+				delay: isSidebarBanner && isInitial ? 1 : 0,
 			}}
-			style={{ width: isBanner && frameRatio ? "auto" : "100%" }}
+			style={{ width: "100%" }}
 		>
 			<Box
 				overflow="hidden"
-				w={isBanner && frameRatio ? "auto" : "full"}
-				maxH={isBanner ? { base: "44px", md: "56px" } : undefined}
-				h={isBanner ? { base: "44px", md: "56px" } : "full"}
+				w="full"
+				h={isBanner ? { base: "40px", md: "48px" } : "full"}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -197,9 +166,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						? "0 2px 10px rgba(0, 0, 0, 0.06)"
 						: "none"
 				}
-				aspectRatio={
-					isSidebarBanner ? "21 / 17" : isBanner ? frameRatio : undefined
-				}
+				aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{
 					md: {
