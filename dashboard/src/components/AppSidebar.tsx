@@ -1266,19 +1266,16 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					overflow="hidden"
 					maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
 					opacity={collapsed ? 0 : 1}
-					transform={
-						collapsed
-							? "translateY(24px) scale(0.95)"
-							: "translateY(0) scale(1)"
-					}
 					transition={
 						sidebarBanners.length > 0 && !collapsed
-							? "max-height 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.7s, opacity 0.4s ease 0.7s, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.7s"
-							: "max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)"
+							? "max-height 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.7s, opacity 0.4s ease 0.7s"
+							: "max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease"
 					}
 					pt={collapsed ? 0 : 2}
 					pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
 					pointerEvents={collapsed ? "none" : "auto"}
+					borderTopWidth="1px"
+					borderColor="panel.border"
 				>
 					{sidebarBanners.length > 0 && (
 						<SponsorCarousel

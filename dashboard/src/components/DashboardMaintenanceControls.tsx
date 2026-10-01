@@ -721,52 +721,59 @@ export const DashboardMaintenanceControls = ({
 					</Flex>
 
 					{canBackUp && (
-						<Box w="full">
-							<DashboardBackupControls
-								isBinaryRuntime={hostActionsAvailable}
-								runtimeLoading={info.isLoading}
-							/>
-						</Box>
-					)}
-
-					{canMaintain && (
-						<Button
-							w="full"
-							size="xs"
-							h="32px"
-							px={3}
-							colorScheme="red"
-							variant="outline"
-							borderRadius="12px"
-							borderColor="panel.border"
-							color="red.400"
-							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							_active={{ transform: "scale(0.96)" }}
-							onClick={() => setConfirmAction("restart")}
-							isLoading={restartMutation.isLoading}
-							isDisabled={info.isLoading || !hostActionsAvailable}
-							whiteSpace="nowrap"
-						>
-							<HStack spacing={1.5} align="center" justify="center" w="full">
-								<Box
-									as="span"
-									display="inline-flex"
-									alignItems="center"
-									justifyContent="center"
-									flexShrink={0}
+						<Flex gap={2} w="full" align="stretch">
+							<Box flex="1 1 0" minW={0}>
+								<DashboardBackupControls
+									isBinaryRuntime={hostActionsAvailable}
+									runtimeLoading={info.isLoading}
+								/>
+							</Box>
+							{canMaintain && (
+								<Button
+									flex="1 1 0"
+									minW={0}
+									size="xs"
+									h="32px"
+									px={3}
+									colorScheme="red"
+									variant="outline"
+									borderRadius="12px"
+									borderColor="panel.border"
+									color="red.400"
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+									_active={{ transform: "scale(0.96)" }}
+									onClick={() => setConfirmAction("restart")}
+									isLoading={restartMutation.isLoading}
+									isDisabled={info.isLoading || !hostActionsAvailable}
+									whiteSpace="nowrap"
 								>
-									<ArrowsRightLeftIcon width={15} height={15} />
-								</Box>
-								<Text
-									as="span"
-									fontSize="12px"
-									fontWeight="600"
-									lineHeight="none"
-								>
-									{t("dashboard.maintenance.restartAction")}
-								</Text>
-							</HStack>
-						</Button>
+									<HStack
+										spacing={1.5}
+										align="center"
+										justify="center"
+										w="full"
+									>
+										<Box
+											as="span"
+											display="inline-flex"
+											alignItems="center"
+											justifyContent="center"
+											flexShrink={0}
+										>
+											<ArrowsRightLeftIcon width={15} height={15} />
+										</Box>
+										<Text
+											as="span"
+											fontSize="12px"
+											fontWeight="600"
+											lineHeight="none"
+										>
+											{t("dashboard.maintenance.restartAction")}
+										</Text>
+									</HStack>
+								</Button>
+							)}
+						</Flex>
 					)}
 				</Stack>
 			)}

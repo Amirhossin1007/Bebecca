@@ -114,6 +114,19 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
 	const [isInitial, setIsInitial] = useState(true);
+	const [bannerRatio, setBannerRatio] = useState<string | undefined>(undefined);
+	useEffect(() => {
+		if (!isBanner) return;
+		const active = stableItems[index];
+		if (!active) return;
+		const probe = new window.Image();
+		probe.onload = () => {
+			if (probe.naturalWidth && probe.naturalHeight) {
+				setBannerRatio(`${probe.naturalWidth} / ${probe.naturalHeight}`);
+			}
+		};
+		probe.src = active.src;
+	}, [isBanner, index, stableItems]);
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
@@ -131,7 +144,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	return (
 		<motion.div
-			initial={false}
+			initial={{ y: 24, opacity: 0 }}
 			animate={{ y: 0, opacity: 1 }}
 			transition={{
 				duration: 0.5,
@@ -146,7 +159,15 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			<Box
 				overflow="hidden"
 				w="full"
-				h={isBanner ? { base: "40px", md: "48px" } : "full"}
+				maxH={isBanner ? { base: "44px", md: "56px" } : undefined}
+				h={
+					isBanner
+						? bannerRatio
+							? "auto"
+							: { base: "40px", md: "48px" }
+						: "full"
+				}
+				minH={isBanner ? { base: "34px", md: "40px" } : undefined}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -156,7 +177,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						? "0 2px 10px rgba(0, 0, 0, 0.06)"
 						: "none"
 				}
-				aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
+				aspectRatio={
+					isSidebarBanner ? "21 / 17" : isBanner ? bannerRatio : undefined
+				}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{
 					md: {

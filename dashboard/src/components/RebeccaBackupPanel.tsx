@@ -27,7 +27,7 @@ import {
 } from "@chakra-ui/react";
 import {
 	ArchiveBoxIcon,
-	ArrowDownTrayIcon,
+	ArrowDownOnSquareIcon,
 	ArrowUpTrayIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
@@ -216,17 +216,13 @@ export const DashboardBackupControls = ({
 								leftIcon={
 									<Flex
 										data-rb-icon="true"
-										w="28px"
-										h="28px"
-										align="center"
-										justify="center"
-										borderRadius="8px"
-										bg="panel.surface"
+										alignItems="center"
+										justifyContent="center"
 										color="panel.textSecondary"
 										flexShrink={0}
-										transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										transition="color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									>
-										<ArrowUpTrayIcon width={15} height={15} />
+										<ArrowUpTrayIcon width={16} height={16} />
 									</Flex>
 								}
 								onClick={() => openDialog("import")}
@@ -248,17 +244,13 @@ export const DashboardBackupControls = ({
 								leftIcon={
 									<Flex
 										data-rb-icon="true"
-										w="28px"
-										h="28px"
-										align="center"
-										justify="center"
-										borderRadius="8px"
-										bg="panel.surface"
+										alignItems="center"
+										justifyContent="center"
 										color="panel.textSecondary"
 										flexShrink={0}
-										transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										transition="color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									>
-										<ArrowDownTrayIcon width={15} height={15} />
+										<ArrowDownOnSquareIcon width={16} height={16} />
 									</Flex>
 								}
 								onClick={() => openDialog("export")}
@@ -534,7 +526,7 @@ export const DashboardBackupControls = ({
 							h="34px"
 							fontWeight="600"
 							fontSize="12.5px"
-							leftIcon={<ArrowDownTrayIcon width={15} height={15} />}
+							leftIcon={<ArrowDownOnSquareIcon width={15} height={15} />}
 							onClick={() => exportMutation.mutate(exportScope)}
 							isLoading={exportMutation.isLoading}
 						>
