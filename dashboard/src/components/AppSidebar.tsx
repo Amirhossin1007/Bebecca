@@ -963,7 +963,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																	: "translateX(-8px)"
 																: "translateX(0)"
 														}
-														transition="max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1) 0.12s"
+														transition={
+															collapsed
+																? "max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1) 0.12s"
+																: "max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+														}
 														pointerEvents={collapsed ? "none" : "auto"}
 													>
 														<Text
