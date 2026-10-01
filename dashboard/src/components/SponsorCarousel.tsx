@@ -1,4 +1,10 @@
-import { Box, Image, Text, useColorModeValue } from "@chakra-ui/react";
+import {
+	Box,
+	Image,
+	Text,
+	useBreakpointValue,
+	useColorModeValue,
+} from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import {
 	type FC,
@@ -110,6 +116,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const currentItemId = stableItems[index]?.id ?? "";
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
+	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
 
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
@@ -130,14 +137,22 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const isSidebarBanner = variant === "sidebar";
 	const isVertical = isBanner || isSidebarBanner;
 
+	const animateIn = isSidebarBanner ? isDesktop : true;
+
 	return (
 		<motion.div
-			initial={isBanner ? { y: -18, opacity: 0 } : false}
+			initial={
+				animateIn && isSidebarBanner
+					? { y: 18, opacity: 0 }
+					: isBanner
+						? { y: -18, opacity: 0 }
+						: false
+			}
 			animate={{ y: 0, opacity: 1 }}
 			transition={{
 				duration: 0.5,
 				ease: [0.16, 1, 0.3, 1],
-				delay: isBanner ? 1 : 0,
+				delay: isBanner || (isSidebarBanner && animateIn) ? 1 : 0,
 			}}
 			style={{ width: "100%" }}
 		>

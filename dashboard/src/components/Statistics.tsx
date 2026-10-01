@@ -1509,9 +1509,10 @@ const SectionCard: FC<{
 			}
 			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 			sx={{
-				"&[data-rb-iconswap] svg, &[data-rb-iconswap] [data-rb-icon]": {
-					transition: "color 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-				},
+				"&[data-rb-iconswap] [data-rb-icon], &[data-rb-iconswap] [data-rb-icon] svg, &[data-rb-iconswap] [data-rb-icon] *":
+					{
+						transition: "color 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+					},
 				...(noHover
 					? {}
 					: {
@@ -1519,6 +1520,10 @@ const SectionCard: FC<{
 								"&:hover [data-rb-icon]": {
 									bg: "var(--rb-panel-elevated, #2f2f2f) !important",
 									color: "var(--rb-panel-text, #f5f5f5) !important",
+								},
+								"&:hover [data-rb-icon] svg, &:hover [data-rb-icon] *": {
+									color: "var(--rb-panel-text, #f5f5f5) !important",
+									stroke: "currentColor",
 								},
 							},
 						}),
@@ -3167,7 +3172,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-							_groupHover={{ md: { bg: "panel.surface", color: "panel.text" } }}
+							data-rb-icon=""
 						>
 							<UserGroupIcon width={14} />
 						</Flex>
