@@ -570,9 +570,10 @@ export const DashboardMaintenanceControls = ({
 								borderColor="panel.border"
 							>
 								<Button
+									flex={{ base: "1 1 0", sm: "0 1 auto" }}
+									minW={0}
 									size="xs"
 									h="32px"
-									minW={{ base: "full", sm: "115px" }}
 									px={3.5}
 									variant="outline"
 									borderRadius="12px"
@@ -596,13 +597,15 @@ export const DashboardMaintenanceControls = ({
 									{t("dashboard.maintenance.softReloadAction")}
 								</Button>
 								<Button
+									flex={{ base: "1 1 0", sm: "0 1 auto" }}
+									minW={0}
 									size="xs"
-									h="30px"
-									px={4}
+									h="32px"
+									px={3.5}
 									colorScheme={update?.available ? "primary" : "gray"}
-									borderRadius="10px"
+									borderRadius="12px"
 									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-									_active={{ transform: "scale(0.98)" }}
+									_active={{ transform: "scale(0.96)" }}
 									onClick={startUpdate}
 									isLoading={updateMutation.isLoading}
 									isDisabled={!hostActionsAvailable}
