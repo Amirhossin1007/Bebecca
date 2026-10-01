@@ -736,10 +736,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												const btnContent = (
 													<Flex
 														align="center"
-														justify={collapsed ? "center" : "flex-start"}
+														justify="flex-start"
 														w="full"
 														h="38px"
-														px={collapsed ? 0 : "11px"}
+														px={collapsed ? "3px" : "11px"}
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
@@ -747,7 +747,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														fontSize="13px"
 														position="relative"
 														cursor="pointer"
-														transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+														transition="all 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
 														borderInlineStart="3px solid"
 														borderInlineStartColor={
 															isCurrent
@@ -896,10 +896,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 											const groupTriggerContent = (
 												<Flex
 													align="center"
-													justify={collapsed ? "center" : "flex-start"}
+													justify="flex-start"
 													w="full"
 													h="38px"
-													px={collapsed ? 0 : "11px"}
+													px={collapsed ? "3px" : "11px"}
 													borderRadius="10px"
 													bg={
 														isGroupActive && (!isOpen || collapsed)
@@ -910,7 +910,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													fontWeight={isGroupActive ? "600" : "500"}
 													fontSize="13px"
 													cursor="pointer"
-													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+													transition="all 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
 													borderInlineStart="3px solid"
 													borderInlineStartColor={
 														isGroupActive
@@ -963,7 +963,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																	: "translateX(-8px)"
 																: "translateX(0)"
 														}
-														transition="max-width 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), margin 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
+														transition="max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1) 0.12s"
 														pointerEvents={collapsed ? "none" : "auto"}
 													>
 														<Text
