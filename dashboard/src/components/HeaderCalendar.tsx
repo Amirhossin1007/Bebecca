@@ -275,11 +275,11 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 									<IconButton
 										size="xs"
 										variant="outline"
-										h="30px"
-										w="30px"
-										minW="30px"
+										h="34px"
+										w="34px"
+										minW="34px"
 										px={0}
-										borderRadius="10px"
+										borderRadius="12px"
 										borderColor={headerBtnBorder}
 										bg={headerBtnBg}
 										color="panel.textSecondary"
@@ -294,17 +294,17 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 												color: "panel.text",
 											},
 										}}
-										_active={{ transform: "scale(0.98)" }}
+										_active={{ transform: "scale(0.9)" }}
 										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									/>
 									<IconButton
 										size="xs"
 										variant="outline"
-										h="30px"
-										w="30px"
-										minW="30px"
+										h="34px"
+										w="34px"
+										minW="34px"
 										px={0}
-										borderRadius="10px"
+										borderRadius="12px"
 										borderColor={headerBtnBorder}
 										bg={headerBtnBg}
 										color="panel.textSecondary"
@@ -319,7 +319,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 												color: "panel.text",
 											},
 										}}
-										_active={{ transform: "scale(0.98)" }}
+										_active={{ transform: "scale(0.9)" }}
 										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									/>
 								</HStack>

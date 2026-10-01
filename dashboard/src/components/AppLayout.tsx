@@ -1248,13 +1248,16 @@ export function AppLayout() {
 										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
 										style={{
 											minWidth: 0,
+											flexGrow: 1,
+											flexBasis: 0,
 											flexShrink: 1,
 											display: "flex",
 											alignItems: "center",
 										}}
 									>
 										<Box
-											w={{ base: "130px", sm: "170px" }}
+											w="full"
+											maxW={{ base: "240px", sm: "320px" }}
 											maxH={{ base: "38px", md: "42px" }}
 											h={{ base: "38px", md: "42px" }}
 											display={{ base: "flex", md: "none" }}
@@ -1395,7 +1398,7 @@ export function AppLayout() {
 											userSelect="none"
 											sx={{
 												".chakra-menu__menuitem": {
-													bg: "transparent !important",
+													"--menu-bg": "transparent !important",
 													borderRadius: "10px",
 													h: "38px",
 													px: "12px",
