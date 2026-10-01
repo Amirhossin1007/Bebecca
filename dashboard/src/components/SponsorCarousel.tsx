@@ -22,6 +22,7 @@ interface SponsorCarouselProps {
 	items: SponsorCarouselItem[];
 	variant: "logo" | "banner" | "sidebar";
 	collapsed?: boolean;
+	animateIn?: boolean;
 }
 
 interface SponsorLinkProps {
@@ -101,6 +102,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	items,
 	variant,
 	collapsed = false,
+	animateIn = true,
 }) => {
 	const stableItems = useMemo(() => items.filter((item) => item.src), [items]);
 	const [index, setIndex] = useState(0);
@@ -144,12 +146,12 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	return (
 		<motion.div
-			initial={{ y: -24, opacity: 0 }}
+			initial={animateIn ? { y: -24, opacity: 0 } : false}
 			animate={{ y: 0, opacity: 1 }}
 			transition={{
 				duration: 0.5,
 				ease: [0.16, 1, 0.3, 1],
-				delay: isInitial ? 0.7 : 0,
+				delay: animateIn && isInitial ? 0.7 : 0,
 			}}
 			style={{ width: "100%" }}
 			onAnimationComplete={() => {
@@ -159,7 +161,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			<Box
 				overflow="hidden"
 				w="full"
-				maxH={isBanner ? { base: "44px", md: "56px" } : undefined}
 				h={
 					isBanner
 						? bannerRatio
@@ -167,7 +168,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							: { base: "40px", md: "48px" }
 						: "full"
 				}
-				minH={isBanner ? { base: "34px", md: "40px" } : undefined}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -219,8 +219,8 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 								maxW="full"
 								maxH="full"
 								objectFit="contain"
-								w={isBanner || isSidebarBanner ? "full" : 8}
-								h={isBanner || isSidebarBanner ? "full" : 8}
+								w="full"
+								h={isBanner || isSidebarBanner ? "auto" : 8}
 								borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
 								transition="transform 0.25s ease"
 								userSelect="none"
