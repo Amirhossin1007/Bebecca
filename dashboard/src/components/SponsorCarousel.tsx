@@ -111,6 +111,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const stableItems = useMemo(() => items.filter((item) => item.src), [items]);
 	const [index, setIndex] = useState(0);
 	const [paused, setPaused] = useState(false);
+	const isBanner = variant === "banner";
+	const isSidebarBanner = variant === "sidebar";
+	const isVertical = isBanner || isSidebarBanner;
 	const itemCount = stableItems.length;
 	const currentIsSponsor = Boolean(stableItems[index]?.isSponsor);
 	const currentItemId = stableItems[index]?.id ?? "";
@@ -122,6 +125,26 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		if (isDesktop !== undefined) setMountedBreakpoint(isDesktop);
 	}, [isDesktop]);
 	const canAnimateSidebar = mountedBreakpoint !== false;
+	const [isInitial, setIsInitial] = useState(true);
+	useEffect(() => {
+		if (!isInitial) return;
+		const timer = window.setTimeout(() => setIsInitial(false), 1600);
+		return () => window.clearTimeout(timer);
+	}, [isInitial]);
+	const [frameRatio, setFrameRatio] = useState<string | undefined>(undefined);
+	useEffect(() => {
+		if (!isBanner) return;
+		setFrameRatio(undefined);
+		const active = stableItems[index];
+		if (!active) return;
+		const probe = new window.Image();
+		probe.onload = () => {
+			if (probe.naturalWidth && probe.naturalHeight) {
+				setFrameRatio(`${probe.naturalWidth} / ${probe.naturalHeight}`);
+			}
+		};
+		probe.src = active.src;
+	}, [isBanner, index, stableItems]);
 
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
@@ -138,10 +161,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	if (stableItems.length === 0) return null;
 
-	const isBanner = variant === "banner";
-	const isSidebarBanner = variant === "sidebar";
-	const isVertical = isBanner || isSidebarBanner;
-
 	const animateIn = isSidebarBanner ? canAnimateSidebar : true;
 
 	return (
@@ -157,13 +176,16 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			transition={{
 				duration: 0.5,
 				ease: [0.16, 1, 0.3, 1],
-				delay: isBanner || (isSidebarBanner && animateIn) ? 1 : 0,
+				delay:
+					isBanner || (isSidebarBanner && canAnimateSidebar && isInitial)
+						? 1
+						: 0,
 			}}
-			style={{ width: "100%" }}
+			style={{ width: isBanner && frameRatio ? "auto" : "100%" }}
 		>
 			<Box
 				overflow="hidden"
-				w="full"
+				w={isBanner && frameRatio ? "auto" : "full"}
 				maxH={isBanner ? { base: "44px", md: "56px" } : undefined}
 				h={isBanner ? { base: "44px", md: "56px" } : "full"}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
@@ -176,7 +198,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						: "none"
 				}
 				aspectRatio={
-					isSidebarBanner ? "21 / 17" : isBanner ? "auto" : undefined
+					isSidebarBanner ? "21 / 17" : isBanner ? frameRatio : undefined
 				}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{

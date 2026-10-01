@@ -1256,8 +1256,8 @@ export function AppLayout() {
 										}}
 									>
 										<Box
-											w="full"
-											maxW={{ base: "240px", sm: "320px" }}
+											w="fit-content"
+											maxW="100%"
 											h={{ base: "44px", md: "56px" }}
 											display="flex"
 											alignItems="center"
@@ -1386,6 +1386,7 @@ export function AppLayout() {
 										<MenuList
 											dir={isRTL ? "rtl" : "ltr"}
 											ref={userMenuContentRef}
+											id="rb-user-menu"
 											minW="230px"
 											p={2}
 											borderRadius="20px"
@@ -1419,12 +1420,15 @@ export function AppLayout() {
 													color: "red.400 !important",
 													fontWeight: "600 !important",
 													bg: "transparent !important",
-													"&:hover, &:active, &:focus-visible": {
+													"--menu-bg": "transparent",
+													"&:hover, &:active, &:focus, &:focus-visible": {
 														color: "red.400 !important",
 														bg: "rgba(239, 68, 68, 0.18) !important",
+														"--menu-bg": "rgba(239, 68, 68, 0.18) !important",
 													},
 													"&:focus:not(:focus-visible)": {
 														bg: "transparent !important",
+														"--menu-bg": "transparent !important",
 													},
 												},
 											}}
