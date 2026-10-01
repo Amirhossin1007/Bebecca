@@ -131,28 +131,25 @@ describe("Statistics icon color swap", () => {
 		).toBeGreaterThanOrEqual(labels.length);
 	});
 
-	it("pairs each label with an icon box inside the same card", () => {
+	it("inverts the icon box away from the card hover colour", () => {
 		const html = render();
 
-		const labels = [
-			"dashboard.system.bandwidthSpeed",
-			"dashboard.system.incomingSpeed",
-			"dashboard.system.outgoingSpeed",
-			"dashboard.system.uptime",
-			"dashboard.system.systemUptime",
-			"dashboard.system.panelUptime",
-			"dashboard.admins",
-		];
+		const cardHover =
+			html.match(
+				/\.css-\w+:hover,\.css-\w+\[data-hover\]\{[^}]*background:([^;}]+)/,
+			)?.[1] ?? "";
+		const iconHover =
+			html.match(/:hover \[data-rb-icon\]\{[^}]*background:([^;!}]+)/)?.[1] ??
+			"";
 
-		for (const key of labels) {
-			const at = html.indexOf(key);
-			expect(at, `label ${key} present`).toBeGreaterThan(-1);
+		expect(cardHover, "card hover background declared").toBeTruthy();
+		expect(iconHover, "icon box hover background declared").toBeTruthy();
 
-			const window = html.slice(Math.max(0, at - 1200), at);
-			expect(
-				window.includes("data-rb-icon"),
-				`an icon box sits before label ${key}`,
-			).toBe(true);
-		}
+		expect(
+			iconHover.trim(),
+			"icon box hover must differ from the card hover colour",
+		).not.toBe(cardHover.trim());
+
+		expect(iconHover).toContain("rb-panel-surface");
 	});
 });

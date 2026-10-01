@@ -1518,7 +1518,7 @@ const SectionCard: FC<{
 					: {
 							"@media screen and (min-width: 768px)": {
 								"&:hover [data-rb-icon]": {
-									bg: "var(--rb-panel-elevated, #2f2f2f) !important",
+									bg: "var(--rb-panel-surface, #242424) !important",
 									color: "var(--rb-panel-text, #f5f5f5) !important",
 								},
 								"&:hover [data-rb-icon] svg, &:hover [data-rb-icon] *": {
