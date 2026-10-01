@@ -1258,7 +1258,7 @@ export function AppLayout() {
 										<Box
 											w="full"
 											maxW={{ base: "240px", sm: "320px" }}
-											h="38px"
+											h={{ base: "44px", md: "56px" }}
 											display="flex"
 											alignItems="center"
 											justifyContent="center"
@@ -1397,7 +1397,7 @@ export function AppLayout() {
 											userSelect="none"
 											sx={{
 												".chakra-menu__menuitem": {
-													"--menu-bg": "transparent !important",
+													bg: "transparent !important",
 													borderRadius: "10px",
 													h: "38px",
 													px: "12px",
@@ -1405,15 +1405,12 @@ export function AppLayout() {
 													fontSize: "13px",
 													fontWeight: "500",
 													transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
-													"@media (hover: hover)": {
-														"&:hover:not(.rb-logout-menu-item)": {
-															bg: "var(--rb-panel-elevated) !important",
-														},
+													"&:hover": {
+														bg: "var(--rb-panel-elevated) !important",
 													},
-													"&:active:not(.rb-logout-menu-item), &:focus-visible:not(.rb-logout-menu-item)":
-														{
-															bg: "var(--rb-panel-elevated) !important",
-														},
+													"&:active, &:focus-visible": {
+														bg: "var(--rb-panel-elevated) !important",
+													},
 													"&:focus:not(:focus-visible)": {
 														bg: "transparent !important",
 													},
@@ -1422,16 +1419,12 @@ export function AppLayout() {
 													color: "red.400 !important",
 													fontWeight: "600 !important",
 													bg: "transparent !important",
-													transition:
-														"background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important",
-													"&:hover, &:focus, &:focus-visible, &[data-focus], &[data-active]":
-														{
-															bg: "rgba(239, 68, 68, 0.16) !important",
-															color: "red.400 !important",
-														},
-													"&:active": {
-														bg: "rgba(239, 68, 68, 0.26) !important",
-														transform: "scale(0.98) !important",
+													"&:hover, &:active, &:focus-visible": {
+														color: "red.400 !important",
+														bg: "rgba(239, 68, 68, 0.18) !important",
+													},
+													"&:focus:not(:focus-visible)": {
+														bg: "transparent !important",
 													},
 												},
 											}}

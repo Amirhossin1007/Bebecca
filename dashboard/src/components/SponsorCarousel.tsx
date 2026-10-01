@@ -116,7 +116,12 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const currentItemId = stableItems[index]?.id ?? "";
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
-	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
+	const isDesktop = useBreakpointValue({ base: false, md: true });
+	const [mountedBreakpoint, setMountedBreakpoint] = useState(isDesktop);
+	useEffect(() => {
+		if (isDesktop !== undefined) setMountedBreakpoint(isDesktop);
+	}, [isDesktop]);
+	const canAnimateSidebar = mountedBreakpoint !== false;
 
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
@@ -137,7 +142,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const isSidebarBanner = variant === "sidebar";
 	const isVertical = isBanner || isSidebarBanner;
 
-	const animateIn = isSidebarBanner ? isDesktop : true;
+	const animateIn = isSidebarBanner ? canAnimateSidebar : true;
 
 	return (
 		<motion.div
@@ -159,8 +164,8 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			<Box
 				overflow="hidden"
 				w="full"
-				maxH={isBanner ? { base: "38px", md: "42px" } : undefined}
-				h={isBanner ? { base: "38px", md: "42px" } : "full"}
+				maxH={isBanner ? { base: "44px", md: "56px" } : undefined}
+				h={isBanner ? { base: "44px", md: "56px" } : "full"}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -170,7 +175,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						? "0 2px 10px rgba(0, 0, 0, 0.06)"
 						: "none"
 				}
-				aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
+				aspectRatio={
+					isSidebarBanner ? "21 / 17" : isBanner ? "auto" : undefined
+				}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{
 					md: {
@@ -209,7 +216,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 								display="block"
 								maxW="full"
 								maxH="full"
-								objectFit={isBanner ? "cover" : "contain"}
+								objectFit="contain"
 								w={isBanner || isSidebarBanner ? "full" : 8}
 								h={isBanner || isSidebarBanner ? "full" : 8}
 								borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
