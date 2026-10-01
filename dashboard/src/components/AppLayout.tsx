@@ -1287,13 +1287,14 @@ export function AppLayout() {
 										}}
 										style={{
 											minWidth: 0,
+											maxWidth: "45%",
 											flexShrink: 1,
 											display: "flex",
 											alignItems: "center",
 										}}
 									>
 										<Box
-											maxW="95%"
+											maxW="100%"
 											minW={0}
 											h={{ base: "40px", md: "48px" }}
 											display={{ base: "none", md: "flex" }}

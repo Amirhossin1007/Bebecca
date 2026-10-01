@@ -160,14 +160,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		>
 			<Box
 				overflow="hidden"
-				w="full"
-				h={
-					isBanner
-						? bannerRatio
-							? "auto"
-							: { base: "40px", md: "48px" }
-						: "full"
-				}
+				w={isBanner ? "auto" : "full"}
+				maxW="100%"
+				h={isBanner ? { base: "40px", md: "48px" } : "full"}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -218,9 +213,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 								display="block"
 								maxW="full"
 								maxH="full"
-								objectFit="contain"
-								w="full"
-								h={isBanner || isSidebarBanner ? "auto" : 8}
+								objectFit="cover"
+								w="100%"
+								h="100%"
 								borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
 								transition="transform 0.25s ease"
 								userSelect="none"
