@@ -353,14 +353,14 @@ export const DashboardMaintenanceControls = ({
 		setConfirmAction("update");
 	};
 
-	const renderUpdatePopover = () => (
+	const renderUpdatePopover = (width?: string) => (
 		<Popover placement="bottom-end" closeOnBlur={true} closeOnEsc={true} isLazy>
 			<PopoverTrigger>
 				<Button
 					size="xs"
 					h="32px"
 					minW={{ base: "full", sm: "115px" }}
-					w={{ base: "full", sm: "auto" }}
+					w={width ?? { base: "full", sm: "auto" }}
 					px={3.5}
 					colorScheme={update?.available ? "primary" : "gray"}
 					variant={update?.available ? "solid" : "outline"}
@@ -691,24 +691,57 @@ export const DashboardMaintenanceControls = ({
 
 			{!isStandardAdminOnly && (
 				<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
-					<Box w="full">{renderUpdatePopover()}</Box>
-
-					<Flex gap={2} w="full" align="center">
+					<Flex gap={2} w="full" align="stretch">
+						<Box flex="1 1 0" minW={0}>
+							{renderUpdatePopover("full")}
+						</Box>
 						<Button
-							flex="1 1 50%"
-							h="32px"
+							flex="1 1 0"
+							minW={0}
 							size="xs"
+							h="32px"
+							px={3}
+							variant="outline"
+							borderRadius="12px"
+							borderColor="panel.border"
+							color="panel.text"
+							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+							_active={{ transform: "scale(0.96)" }}
+							onClick={() => setConfirmAction("soft-reload")}
+							isLoading={reloadMutation.isLoading}
+							isDisabled={!hostActionsAvailable}
+							fontSize="12px"
+							fontWeight="600"
+							whiteSpace="nowrap"
+							overflow="hidden"
+							textOverflow="ellipsis"
+						>
+							{t("dashboard.maintenance.softReloadAction")}
+						</Button>
+					</Flex>
+
+					{canBackUp && (
+						<Box w="full">
+							<DashboardBackupControls
+								isBinaryRuntime={hostActionsAvailable}
+								runtimeLoading={info.isLoading}
+							/>
+						</Box>
+					)}
+
+					{canMaintain && (
+						<Button
+							w="full"
+							size="xs"
+							h="32px"
 							px={3}
 							colorScheme="red"
 							variant="outline"
+							borderRadius="12px"
 							borderColor="panel.border"
 							color="red.400"
 							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							_hover={{
-								md: { bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" },
-							}}
 							_active={{ transform: "scale(0.96)" }}
-							borderRadius="12px"
 							onClick={() => setConfirmAction("restart")}
 							isLoading={restartMutation.isLoading}
 							isDisabled={info.isLoading || !hostActionsAvailable}
@@ -734,31 +767,7 @@ export const DashboardMaintenanceControls = ({
 								</Text>
 							</HStack>
 						</Button>
-
-						{canBackUp && (
-							<Box
-								flex="1 1 50%"
-								minW={0}
-								sx={{
-									"& > button": {
-										w: "full",
-										h: "32px !important",
-										borderRadius: "12px !important",
-										fontSize: "12px !important",
-										fontWeight: "600 !important",
-										borderColor: "panel.border !important",
-										color: "panel.text !important",
-										whiteSpace: "nowrap !important",
-									},
-								}}
-							>
-								<DashboardBackupControls
-									isBinaryRuntime={hostActionsAvailable}
-									runtimeLoading={info.isLoading}
-								/>
-							</Box>
-						)}
-					</Flex>
+					)}
 				</Stack>
 			)}
 

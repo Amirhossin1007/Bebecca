@@ -115,11 +115,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
 	const [isInitial, setIsInitial] = useState(true);
 	useEffect(() => {
-		if (!isInitial) return;
-		const timer = window.setTimeout(() => setIsInitial(false), 1600);
-		return () => window.clearTimeout(timer);
-	}, [isInitial]);
-	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
 
@@ -134,24 +129,19 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 
 	if (stableItems.length === 0) return null;
 
-	const animateIn = true;
-
 	return (
 		<motion.div
-			initial={
-				animateIn && isSidebarBanner
-					? { y: 24, opacity: 0 }
-					: isBanner
-						? { y: 0, opacity: 0 }
-						: false
-			}
+			initial={false}
 			animate={{ y: 0, opacity: 1 }}
 			transition={{
 				duration: 0.5,
 				ease: [0.16, 1, 0.3, 1],
-				delay: isSidebarBanner && isInitial ? 1 : 0,
+				delay: isInitial ? 0.7 : 0,
 			}}
 			style={{ width: "100%" }}
+			onAnimationComplete={() => {
+				if (isInitial) setIsInitial(false);
+			}}
 		>
 			<Box
 				overflow="hidden"

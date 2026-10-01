@@ -1118,6 +1118,7 @@ export function AppLayout() {
 						borderRadius="20px"
 						bg={shellHeaderBg}
 						boxShadow={shellHeaderShadow}
+						overflow="hidden"
 						mt="3"
 						mx={{ base: "3", md: "4" }}
 						display="flex"
@@ -1176,14 +1177,11 @@ export function AppLayout() {
 							<HStack
 								data-header-breadcrumb
 								aria-label="Breadcrumb navigation"
+								display={{ base: "none", md: "flex" }}
 								spacing={1.5}
 								minW="0"
 								overflow="hidden"
 								dir={isRTL ? "rtl" : "ltr"}
-								display={{
-									base: mobileHeaderItems.length > 0 ? "none" : "flex",
-									md: "flex",
-								}}
 								flexShrink={1}
 							>
 								{breadcrumbItems.map((crumb, idx) => {
@@ -1242,10 +1240,14 @@ export function AppLayout() {
 								{mobileHeaderItems.length > 0 && (
 									<motion.div
 										key={mobileHeaderItems[0]?.id || "mobile-banner"}
-										initial={{ opacity: 0, y: -16 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: 16 }}
-										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+										initial={{ opacity: 0 }}
+										animate={{ opacity: 1 }}
+										exit={{ opacity: 0 }}
+										transition={{
+											duration: 0.5,
+											delay: 0.7,
+											ease: [0.16, 1, 0.3, 1],
+										}}
 										style={{
 											minWidth: 0,
 											flexGrow: 1,
@@ -1275,10 +1277,14 @@ export function AppLayout() {
 								{sponsorHeaderItems.length > 0 && (
 									<motion.div
 										key={sponsorHeaderItems[0]?.id || "desktop-banner"}
-										initial={{ opacity: 0, y: -16 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: 16 }}
-										transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+										initial={{ opacity: 0 }}
+										animate={{ opacity: 1 }}
+										exit={{ opacity: 0 }}
+										transition={{
+											duration: 0.5,
+											delay: 0.7,
+											ease: [0.16, 1, 0.3, 1],
+										}}
 										style={{
 											minWidth: 0,
 											flexShrink: 1,

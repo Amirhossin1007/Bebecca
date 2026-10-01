@@ -215,14 +215,16 @@ export const DashboardBackupControls = ({
 								px={2.5}
 								leftIcon={
 									<Flex
+										data-rb-icon="true"
 										w="28px"
 										h="28px"
 										align="center"
 										justify="center"
 										borderRadius="8px"
-										bg="panel.elevated"
+										bg="panel.surface"
 										color="panel.textSecondary"
 										flexShrink={0}
+										transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									>
 										<ArrowUpTrayIcon width={15} height={15} />
 									</Flex>
@@ -245,14 +247,16 @@ export const DashboardBackupControls = ({
 								px={2.5}
 								leftIcon={
 									<Flex
+										data-rb-icon="true"
 										w="28px"
 										h="28px"
 										align="center"
 										justify="center"
 										borderRadius="8px"
-										bg="panel.elevated"
+										bg="panel.surface"
 										color="panel.textSecondary"
 										flexShrink={0}
+										transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									>
 										<ArrowDownTrayIcon width={15} height={15} />
 									</Flex>
