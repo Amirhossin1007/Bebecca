@@ -116,6 +116,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const [isInitial, setIsInitial] = useState(true);
 	const [frameRatio, setFrameRatio] = useState<string | undefined>(undefined);
 	useEffect(() => {
+		setFrameRatio(undefined);
+	}, [variant, stableItems]);
+	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
 
