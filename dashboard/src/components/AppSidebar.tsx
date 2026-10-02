@@ -739,7 +739,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														justify="flex-start"
 														w="full"
 														h="38px"
-														px={collapsed ? "17px" : "11px"}
+														px={collapsed ? "10px" : "11px"}
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
@@ -899,7 +899,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													justify="flex-start"
 													w="full"
 													h="38px"
-													px={collapsed ? "17px" : "11px"}
+													px={collapsed ? "10px" : "11px"}
 													borderRadius="10px"
 													bg={
 														isGroupActive && (!isOpen || collapsed)
@@ -1279,22 +1279,23 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					pt={collapsed ? 0 : 2}
 					pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
 					pointerEvents={collapsed ? "none" : "auto"}
-					borderTopWidth="1px"
-					borderColor="panel.border"
 				>
 					{sidebarBanners.length > 0 && (
-						<SponsorCarousel
-							items={sidebarBanners.map((asset) => ({
-								id: asset.id,
-								src: asset.image_url,
-								alt: asset.alt || asset.label || "Sponsor",
-								href: asset.target_url,
-								label: asset.label,
-								isSponsor: true,
-							}))}
-							variant="sidebar"
-							animateIn={false}
-						/>
+						<>
+							<Box borderTopWidth="1px" borderColor="panel.border" />
+							<SponsorCarousel
+								items={sidebarBanners.map((asset) => ({
+									id: asset.id,
+									src: asset.image_url,
+									alt: asset.alt || asset.label || "Sponsor",
+									href: asset.target_url,
+									label: asset.label,
+									isSponsor: true,
+								}))}
+								variant="sidebar"
+								animateIn={false}
+							/>
+						</>
 					)}
 				</Box>
 			</Flex>
