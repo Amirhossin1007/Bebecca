@@ -1053,17 +1053,15 @@ export function AppLayout() {
 		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
 		ro.observe(headerEl);
+		const bannerEl = headerEl.querySelector<HTMLElement>(
+			"[data-header-banner]",
+		);
+		if (bannerEl) ro.observe(bannerEl);
 		return () => {
 			clearTimeout(timer);
 			ro.disconnect();
 		};
-	}, [
-		location.pathname,
-		location.hash,
-		isRTL,
-		mobileHeaderItems.length,
-		sponsorHeaderItems.length,
-	]);
+	}, [location.pathname, location.hash, isRTL]);
 
 	return (
 		<>
