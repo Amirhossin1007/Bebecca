@@ -25,7 +25,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useSeasonal } from "contexts/SeasonalContext";
 import { AnimatePresence, motion } from "framer-motion";
-import { type FC, useEffect, useMemo, useState } from "react";
+import { type FC, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const CalendarIcon = chakra(CalendarDaysIcon, { baseStyle: { w: 4, h: 4 } });
@@ -110,6 +110,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
 	const showText = isDesktop && !isCompact;
+	const calendarBtnRef = useRef<HTMLButtonElement>(null);
 	const isCircle = !isDesktop;
 	const displayLocale = isPersian
 		? "fa-IR-u-ca-persian"
@@ -212,10 +213,26 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 		return `${formatter.format(seasonWindow.start)} - ${formatter.format(seasonWindow.end)}`;
 	}, [i18n.language, seasonWindow]);
 
+	const fullDateWidth = useMemo(() => {
+		if (!showText) return 0;
+		const canvas = document.createElement("canvas").getContext("2d");
+		if (!canvas) return 220;
+		canvas.font = "600 12px system-ui, sans-serif";
+		return Math.ceil(canvas.measureText(formattedDate).width) + 74;
+	}, [formattedDate, showText]);
+
+	useEffect(() => {
+		if (!showText || !fullDateWidth) return;
+		const el = calendarBtnRef.current;
+		if (el) el.dataset.fullWidth = String(fullDateWidth);
+	}, [fullDateWidth, showText]);
+
 	return (
 		<Popover placement="bottom-start" gutter={8}>
 			<PopoverTrigger>
 				<Button
+					ref={calendarBtnRef}
+					data-header-calendar="true"
 					size="sm"
 					variant="outline"
 					h="34px"
