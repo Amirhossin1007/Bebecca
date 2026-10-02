@@ -1026,7 +1026,7 @@ export function AppLayout() {
 		const checkFit = () => {
 			if (!headerRef.current) return;
 			const totalWidth = headerRef.current.clientWidth;
-			if (totalWidth < 769) {
+			if (totalWidth < 801) {
 				setCalendarCompact(true);
 				return;
 			}
