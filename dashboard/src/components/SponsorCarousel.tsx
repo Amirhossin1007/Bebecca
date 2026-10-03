@@ -116,6 +116,19 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
 	const [isInitial, setIsInitial] = useState(true);
+	const [bannerRatio, setBannerRatio] = useState<string | undefined>(undefined);
+	useEffect(() => {
+		if (!isBanner) return;
+		const active = stableItems[index];
+		if (!active) return;
+		const probe = new window.Image();
+		probe.onload = () => {
+			if (probe.naturalWidth && probe.naturalHeight) {
+				setBannerRatio(`${probe.naturalWidth} / ${probe.naturalHeight}`);
+			}
+		};
+		probe.src = active.src;
+	}, [isBanner, index, stableItems]);
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
@@ -140,7 +153,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				ease: [0.16, 1, 0.3, 1],
 				delay: animateIn && isInitial ? 0.7 : 0,
 			}}
-			style={isBanner ? { width: "auto" } : { width: "100%" }}
+			style={{ width: "100%" }}
 			onAnimationComplete={() => {
 				if (isInitial) setIsInitial(false);
 			}}
@@ -150,8 +163,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				w={isBanner ? "auto" : "full"}
 				maxW="100%"
 				h={isBanner ? "40px" : "full"}
-				display={isBanner ? "inline-flex" : undefined}
-				alignItems="center"
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -160,6 +171,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 					isBanner || isSidebarBanner
 						? "0 2px 10px rgba(0, 0, 0, 0.06)"
 						: "none"
+				}
+				aspectRatio={
+					isSidebarBanner ? "21 / 17" : isBanner ? bannerRatio : undefined
 				}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{
@@ -200,7 +214,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 								maxW="full"
 								maxH="full"
 								objectFit="scale-down"
-								w={isBanner ? "auto" : "100%"}
+								w="100%"
 								h="100%"
 								borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
 								transition="transform 0.25s ease"

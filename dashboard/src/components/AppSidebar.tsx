@@ -736,10 +736,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 												const btnContent = (
 													<Flex
 														align="center"
-														justify={collapsed ? "center" : "flex-start"}
+														justify="flex-start"
 														w="full"
 														h="38px"
-														px={collapsed ? 0 : "11px"}
+														px={collapsed ? "10px" : "11px"}
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
@@ -896,10 +896,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 											const groupTriggerContent = (
 												<Flex
 													align="center"
-													justify={collapsed ? "center" : "flex-start"}
+													justify="flex-start"
 													w="full"
 													h="38px"
-													px={collapsed ? 0 : "11px"}
+													px={collapsed ? "10px" : "11px"}
 													borderRadius="10px"
 													bg={
 														isGroupActive && (!isOpen || collapsed)
@@ -1276,13 +1276,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							? "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 							: "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
 					}
-					pt={collapsed ? 0 : 0}
+					pt={collapsed ? 0 : 2}
 					pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
 					pointerEvents={collapsed ? "none" : "auto"}
 				>
 					{sidebarBanners.length > 0 && (
 						<>
-							<Box borderTopWidth="1px" borderColor="panel.border" mb={2} />
+							<Box borderTopWidth="1px" borderColor="panel.border" />
 							<SponsorCarousel
 								items={sidebarBanners.map((asset) => ({
 									id: asset.id,
