@@ -1053,16 +1053,16 @@ export function AppLayout() {
 				'[data-header-slot="trailing"]',
 			);
 			const trailingWidth = trailingSlotEl ? trailingSlotEl.offsetWidth : 170;
-			const compactSlotEl = headerRef.current.querySelector<HTMLElement>(
-				"[data-header-calendar]",
-			);
-			const fullCalendarWidth = compactSlotEl?.dataset.fullWidth
-				? Number(compactSlotEl.dataset.fullWidth)
-				: 200;
-			const fixedWidth =
-				navButtonWidth + breadcrumbWidth + bannerWidth + trailingWidth;
-			const freeWidth = totalWidth - fixedWidth - 8;
-			setCalendarCompact(freeWidth < fullCalendarWidth);
+			const fullCalendarWidth = 200;
+			const safetyBuffer = 8;
+			const requiredWidth =
+				navButtonWidth +
+				breadcrumbWidth +
+				bannerWidth +
+				trailingWidth +
+				fullCalendarWidth +
+				safetyBuffer;
+			setCalendarCompact(totalWidth < requiredWidth);
 		};
 		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
@@ -1299,12 +1299,10 @@ export function AppLayout() {
 										}}
 										style={{
 											minWidth: 0,
-											flexGrow: 1,
-											flexBasis: 0,
+											maxWidth: "45%",
 											flexShrink: 1,
 											display: "flex",
 											alignItems: "center",
-											justifyContent: "center",
 										}}
 									>
 										<Box
