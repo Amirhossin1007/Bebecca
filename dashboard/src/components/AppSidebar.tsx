@@ -569,7 +569,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			borderRadius={inDrawer ? undefined : "20px"}
 			boxShadow={inDrawer ? undefined : sidebarShadow}
 			transition={
-				inDrawer ? "none" : "width 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+				inDrawer ? "none" : "width 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
 			}
 			position={inDrawer ? "relative" : "fixed"}
 			top={inDrawer ? undefined : "12px"}
@@ -739,7 +739,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														justify="flex-start"
 														w="full"
 														h="38px"
-														px={collapsed ? "3px" : "11px"}
+														px={collapsed ? "17px" : "11px"}
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
@@ -899,7 +899,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													justify="flex-start"
 													w="full"
 													h="38px"
-													px={collapsed ? "3px" : "11px"}
+													px={collapsed ? "17px" : "11px"}
 													borderRadius="10px"
 													bg={
 														isGroupActive && (!isOpen || collapsed)
@@ -1273,8 +1273,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					transform={collapsed ? "translateY(24px)" : "translateY(0)"}
 					transition={
 						collapsed
-							? "max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)"
-							: undefined
+							? "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+							: "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
 					}
 					pt={collapsed ? 0 : 2}
 					pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
