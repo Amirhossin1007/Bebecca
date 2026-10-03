@@ -1049,17 +1049,14 @@ export function AppLayout() {
 				? Math.max(breadcrumbEl.scrollWidth, breadcrumbEl.offsetWidth)
 				: 80;
 			const navButtonWidth = 46;
-			const trailingSlotEl = headerRef.current.querySelector<HTMLElement>(
-				'[data-header-slot="trailing"]',
-			);
-			const trailingWidth = trailingSlotEl ? trailingSlotEl.offsetWidth : 170;
+			const profileWidth = 110;
 			const fullCalendarWidth = 200;
-			const safetyBuffer = 8;
+			const safetyBuffer = 40;
 			const requiredWidth =
 				navButtonWidth +
 				breadcrumbWidth +
 				bannerWidth +
-				trailingWidth +
+				profileWidth +
 				fullCalendarWidth +
 				safetyBuffer;
 			setCalendarCompact(totalWidth < requiredWidth);
@@ -1324,13 +1321,7 @@ export function AppLayout() {
 							</AnimatePresence>
 						</HStack>
 
-						<HStack
-							data-header-slot="trailing"
-							spacing={2}
-							alignItems="center"
-							flexShrink={0}
-							h="full"
-						>
+						<HStack spacing={2} alignItems="center" flexShrink={0} h="full">
 							<HeaderCalendar isCompact={calendarCompact} />
 
 							{/* User Menu */}
