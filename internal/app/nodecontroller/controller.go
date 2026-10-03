@@ -302,7 +302,9 @@ func (c Controller) RecoverNodes(ctx context.Context, req RecoverNodesRequest) (
 	result := RecoverNodesResult{Checked: len(nodeIDs)}
 	for _, nodeID := range nodeIDs {
 		metricsCtx, cancel := WithDefaultTimeout(ctx)
-		_, err := c.Connect(metricsCtx, Request{NodeID: nodeID})
+		// A failed health poll is not a request to replace the live runtime.
+		// Restore control-plane health only; pending changes stay in the queue.
+		_, err := c.Health(metricsCtx, Request{NodeID: nodeID})
 		cancel()
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d: %v", nodeID, err))
