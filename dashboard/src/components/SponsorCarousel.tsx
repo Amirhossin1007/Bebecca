@@ -23,7 +23,6 @@ interface SponsorCarouselProps {
 	variant: "logo" | "banner" | "sidebar";
 	collapsed?: boolean;
 	animateIn?: boolean;
-	shrink?: boolean;
 }
 
 interface SponsorLinkProps {
@@ -104,7 +103,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	variant,
 	collapsed = false,
 	animateIn = true,
-	shrink = false,
 }) => {
 	const stableItems = useMemo(() => items.filter((item) => item.src), [items]);
 	const [index, setIndex] = useState(0);
@@ -142,18 +140,14 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				ease: [0.16, 1, 0.3, 1],
 				delay: animateIn && isInitial ? 0.7 : 0,
 			}}
-			style={
-				isBanner
-					? { width: shrink ? "100%" : "auto", minWidth: 0 }
-					: { width: "100%" }
-			}
+			style={isBanner ? { width: "auto" } : { width: "100%" }}
 			onAnimationComplete={() => {
 				if (isInitial) setIsInitial(false);
 			}}
 		>
 			<Box
 				overflow="hidden"
-				w={isBanner ? (shrink ? "100%" : "auto") : "full"}
+				w={isBanner ? "auto" : "full"}
 				maxW="100%"
 				h={isBanner ? "40px" : "full"}
 				display={isBanner ? "inline-flex" : "block"}
