@@ -1267,7 +1267,6 @@ export function AppLayout() {
 											flexShrink: 1,
 											display: isMobile ? "flex" : "none",
 											alignItems: "center",
-											justifyContent: "flex-start",
 										}}
 									>
 										<Box
@@ -1276,7 +1275,7 @@ export function AppLayout() {
 											h="40px"
 											display="flex"
 											alignItems="center"
-											justifyContent="flex-start"
+											justifyContent="center"
 										>
 											<SponsorCarousel
 												items={mobileHeaderItems}
@@ -1305,7 +1304,7 @@ export function AppLayout() {
 											flexShrink: 1,
 											display: "flex",
 											alignItems: "center",
-											justifyContent: "flex-start",
+											justifyContent: "center",
 										}}
 									>
 										<Box
@@ -1315,7 +1314,7 @@ export function AppLayout() {
 											h="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
-											justifyContent="flex-start"
+											justifyContent="center"
 										>
 											<SponsorCarousel
 												items={sponsorHeaderItems}
