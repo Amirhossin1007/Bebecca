@@ -1032,16 +1032,7 @@ export function AppLayout() {
 			}
 			const hasBanner =
 				mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0;
-			const bannerEl = headerRef.current.querySelector<HTMLElement>(
-				"[data-header-banner]",
-			);
-			const bannerWidth = hasBanner
-				? bannerEl
-					? Math.max(bannerEl.scrollWidth, bannerEl.offsetWidth)
-					: totalWidth >= 1200
-						? 300
-						: 220
-				: 0;
+			const bannerWidth = hasBanner ? (totalWidth >= 1200 ? 300 : 220) : 0;
 			const breadcrumbEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-breadcrumb]",
 			);
@@ -1303,7 +1294,6 @@ export function AppLayout() {
 										}}
 									>
 										<Box
-											data-header-banner="true"
 											maxW="100%"
 											minW={0}
 											h="40px"

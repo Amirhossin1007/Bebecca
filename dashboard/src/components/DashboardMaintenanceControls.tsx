@@ -694,7 +694,34 @@ export const DashboardMaintenanceControls = ({
 
 			{!isStandardAdminOnly && (
 				<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
-					<Box w="full">{renderUpdatePopover("full")}</Box>
+					<Flex gap={2} w="full" align="stretch">
+						<Box flex="1 1 0" minW={0}>
+							{renderUpdatePopover("full")}
+						</Box>
+						<Button
+							flex="1 1 0"
+							minW={0}
+							size="xs"
+							h="32px"
+							px={3}
+							variant="outline"
+							borderRadius="12px"
+							borderColor="panel.border"
+							color="panel.text"
+							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+							_active={{ transform: "scale(0.96)" }}
+							onClick={() => setConfirmAction("soft-reload")}
+							isLoading={reloadMutation.isLoading}
+							isDisabled={!hostActionsAvailable}
+							fontSize="12px"
+							fontWeight="600"
+							whiteSpace="nowrap"
+							overflow="hidden"
+							textOverflow="ellipsis"
+						>
+							{t("dashboard.maintenance.softReloadAction")}
+						</Button>
+					</Flex>
 
 					{canBackUp && (
 						<Flex gap={2} w="full" align="stretch">
