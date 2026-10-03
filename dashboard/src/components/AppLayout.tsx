@@ -1025,30 +1025,44 @@ export function AppLayout() {
 		void _pathKey;
 		const checkFit = () => {
 			if (!headerRef.current) return;
-			const root = headerRef.current;
-			const totalWidth = root.clientWidth;
-			if (totalWidth < 769) {
+			const totalWidth = headerRef.current.clientWidth;
+			if (totalWidth < 801) {
 				setCalendarCompact(true);
 				return;
 			}
-			const calendarEl = root.querySelector<HTMLElement>(
+			const hasBanner =
+				mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0;
+			const bannerEl = headerRef.current.querySelector<HTMLElement>(
+				"[data-header-banner]",
+			);
+			const bannerWidth = hasBanner
+				? bannerEl
+					? Math.max(bannerEl.scrollWidth, bannerEl.offsetWidth)
+					: totalWidth >= 1200
+						? 300
+						: 220
+				: 0;
+			const breadcrumbEl = headerRef.current.querySelector<HTMLElement>(
+				"[data-header-breadcrumb]",
+			);
+			const breadcrumbWidth = breadcrumbEl
+				? Math.max(breadcrumbEl.scrollWidth, breadcrumbEl.offsetWidth)
+				: 80;
+			const navButtonWidth = 46;
+			const trailingSlotEl = headerRef.current.querySelector<HTMLElement>(
+				'[data-header-slot="trailing"]',
+			);
+			const trailingWidth = trailingSlotEl ? trailingSlotEl.offsetWidth : 170;
+			const compactSlotEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-calendar]",
 			);
-			if (!calendarEl) return;
-			if (calendarEl.dataset.measured !== "true") return;
-			const bannerEl = root.querySelector<HTMLElement>("[data-header-banner]");
-			const fullWidth = Number(calendarEl.dataset.fullWidth);
-			if (!Number.isFinite(fullWidth) || fullWidth <= 0) return;
-
-			const calendarRect = calendarEl.getBoundingClientRect();
-			let available = root.getBoundingClientRect().right - calendarRect.right;
-			if (isRTL) {
-				available = calendarRect.left - root.getBoundingClientRect().left;
-			}
-			if (bannerEl && bannerEl.offsetParent !== null) {
-				available -= bannerEl.getBoundingClientRect().width;
-			}
-			setCalendarCompact(available < fullWidth);
+			const fullCalendarWidth = compactSlotEl?.dataset.fullWidth
+				? Number(compactSlotEl.dataset.fullWidth)
+				: 200;
+			const fixedWidth =
+				navButtonWidth + breadcrumbWidth + bannerWidth + trailingWidth;
+			const freeWidth = totalWidth - fixedWidth - 8;
+			setCalendarCompact(freeWidth < fullCalendarWidth);
 		};
 		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
@@ -1060,7 +1074,6 @@ export function AppLayout() {
 	}, [
 		location.pathname,
 		location.hash,
-		isRTL,
 		mobileHeaderItems.length,
 		sponsorHeaderItems.length,
 	]);
@@ -1135,7 +1148,7 @@ export function AppLayout() {
 						<HStack
 							spacing={2.5}
 							alignItems="center"
-							flex="0 1 auto"
+							flex="1"
 							minW="0"
 							h="full"
 						>
@@ -1292,7 +1305,7 @@ export function AppLayout() {
 											flexShrink: 1,
 											display: "flex",
 											alignItems: "center",
-											justifyContent: "center",
+											justifyContent: "flex-start",
 										}}
 									>
 										<Box
@@ -1302,7 +1315,7 @@ export function AppLayout() {
 											h="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
-											justifyContent="center"
+											justifyContent="flex-start"
 										>
 											<SponsorCarousel
 												items={sponsorHeaderItems}

@@ -214,18 +214,18 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 	}, [i18n.language, seasonWindow]);
 
 	const fullDateWidth = useMemo(() => {
+		if (!showText) return 0;
 		const canvas = document.createElement("canvas").getContext("2d");
 		if (!canvas) return 220;
 		canvas.font = "600 12px system-ui, sans-serif";
 		return Math.ceil(canvas.measureText(formattedDate).width) + 74;
-	}, [formattedDate]);
+	}, [formattedDate, showText]);
 
 	useEffect(() => {
+		if (!showText || !fullDateWidth) return;
 		const el = calendarBtnRef.current;
-		if (!el) return;
-		el.dataset.fullWidth = String(fullDateWidth);
-		el.dataset.measured = "true";
-	}, [fullDateWidth]);
+		if (el) el.dataset.fullWidth = String(fullDateWidth);
+	}, [fullDateWidth, showText]);
 
 	return (
 		<Popover placement="bottom-start" gutter={8}>
