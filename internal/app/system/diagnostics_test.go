@@ -27,6 +27,30 @@ func TestResourceIssuesUseMeasuredPressureWithoutInventingCauses(t *testing.T) {
 	}
 }
 
+func TestMissingRequiredTablesAreCritical(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	issues, err := NewService(db, "sqlite", "test").Diagnostics(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	missing := 0
+	for _, issue := range issues {
+		if issue.ResourceType == "database" {
+			if issue.Severity != "critical" {
+				t.Fatalf("missing table not critical: %+v", issue)
+			}
+			missing++
+		}
+	}
+	if missing != 4 {
+		t.Fatalf("missing table errors lost: %+v", issues)
+	}
+}
+
 func TestBackupDestinationDiagnosticsRespectAdminFallbackAndDisabledBackup(t *testing.T) {
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {

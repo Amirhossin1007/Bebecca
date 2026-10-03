@@ -20,7 +20,7 @@ func (s *Service) Diagnostics(ctx context.Context) ([]xrayconfig.ConfigIssue, er
 			return nil, err
 		}
 		if !exists {
-			issues = append(issues, xrayconfig.ConfigIssue{TargetID: "master", ResourceType: "database", Resource: table, Message: "Required database table is missing; the database restore or migration is incomplete"})
+			issues = append(issues, xrayconfig.ConfigIssue{TargetID: "master", ResourceType: "database", Resource: table, Severity: "critical", Message: "Required database table is missing; the database restore or migration is incomplete"})
 		}
 	}
 	if snapshot, err := s.metrics.Snapshot(ctx); err != nil {

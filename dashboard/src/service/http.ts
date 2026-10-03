@@ -1,7 +1,8 @@
 import { type FetchOptions, $fetch as ohMyFetch } from "ofetch";
 import { create } from "zustand";
+import { requestErrorHref } from "utils/diagnostics";
 
-type RequestFailure = { key: string; message: string };
+type RequestFailure = { key: string; message: string; href?: string };
 export const useAPIRequestErrors = create<{
 	errors: RequestFailure[];
 	clear: (key?: string) => void;
@@ -93,8 +94,11 @@ export const reportAPIError = (key: string, error: unknown) => {
 	}
 	const status = (error as { response?: { status?: number } } | null)?.response?.status;
 	if (message && status !== 401) {
+		const contextLink = typeof window !== "undefined" && window.location.pathname.replace(/\/$/, "").endsWith("/xray-settings")
+			? { href: requestErrorHref(key, window.location.search) }
+			: {};
 		useAPIRequestErrors.setState((state) => ({
-			errors: [{ key, message }, ...state.errors.filter((item) => item.key !== key)].slice(0, 20),
+			errors: [{ key, message, ...contextLink }, ...state.errors.filter((item) => item.key !== key)].slice(0, 20),
 		}));
 	}
 };

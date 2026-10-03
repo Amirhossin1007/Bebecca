@@ -1,9 +1,41 @@
+export type DiagnosticSeverity = "critical" | "error" | "warning";
+
 export type Diagnostic = {
 	target_id: string;
 	resource_type: string;
 	resource: string;
 	message: string;
-	severity?: "error" | "warning";
+	severity?: DiagnosticSeverity;
+};
+
+export const diagnosticSeverity = (issue: Diagnostic): DiagnosticSeverity =>
+	issue.severity ||
+	(issue.resource_type === "runtime_warning" ? "warning" : "error");
+
+export const isCriticalDiagnostic = (issue: Diagnostic) =>
+	diagnosticSeverity(issue) === "critical";
+
+export const dashboardDiagnostics = (
+	issues: Diagnostic[],
+	legacyRuntime?: { xray_running: boolean; last_xray_error?: string | null },
+) => {
+	const critical = issues.filter(isCriticalDiagnostic);
+	// Older APIs expose only the last node error. Do not treat it as an outage
+	// while any core is running, or infer severity from its wording.
+	if (
+		!critical.length &&
+		legacyRuntime?.last_xray_error &&
+		!legacyRuntime.xray_running
+	) {
+		critical.push({
+			target_id: "master",
+			resource_type: "node",
+			resource: "Xray",
+			message: legacyRuntime.last_xray_error,
+			severity: "critical",
+		});
+	}
+	return critical;
 };
 
 export const diagnosticHref = ({

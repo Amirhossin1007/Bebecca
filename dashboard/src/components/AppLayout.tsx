@@ -76,7 +76,6 @@ import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
 import ThemeSelector from "./ThemeSelector";
 import { SponsorCarousel } from "./SponsorCarousel";
-import { RequestErrors } from "./RequestErrors";
 
 const iconProps = {
 	baseStyle: {
@@ -286,6 +285,12 @@ export function AppLayout() {
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
+			{
+				key: "errors",
+				label: "errors",
+				to: "/errors",
+				icon: InsightsIcon,
+			},
 			isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
 				? {
 						key: "services",
@@ -1220,7 +1225,6 @@ export function AppLayout() {
 						minH="0"
 						bg={shellMainBg}
 					>
-						<RequestErrors />
 						<Outlet />
 					</Box>
 				</Flex>

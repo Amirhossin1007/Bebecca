@@ -48,6 +48,9 @@ func TestSystemDiagnosticsShowsStoredFailuresAndRequiresFullAccess(t *testing.T)
 	foundNode, foundSubscription := false, false
 	subscriptionFailures := 0
 	for _, issue := range issues {
+		if issue.Severity != "critical" && issue.Severity != "error" && issue.Severity != "warning" {
+			t.Fatalf("missing diagnostic severity: %+v", issue)
+		}
 		foundNode = foundNode || issue.Resource == "de-1" && issue.Message == "configuration apply failed"
 		foundSubscription = foundSubscription || issue.Resource == "provider" && issue.Message == "subscription download failed"
 		if issue.ResourceType == "outbound_subscription" && issue.Message == "subscription download failed" {

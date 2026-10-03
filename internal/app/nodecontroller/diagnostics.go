@@ -42,6 +42,10 @@ func (c Controller) rememberRuntimeDiagnostics(runtime RuntimeResult) {
 		severity := "error"
 		if protocol.State == "warning" {
 			severity = "warning"
+		} else if protocol.Protocol == "xray" && protocol.State == "error" || protocol.State == "stopped" && protocol.Inbounds > 0 {
+			// Native proxy setup errors alone do not prove Xray has stopped.
+			// Escalate only a reported core failure or a configured stopped runtime.
+			severity = "critical"
 		}
 		issues = append(issues, xrayconfig.ConfigIssue{TargetID: target, ResourceType: kind, Resource: protocol.Protocol, Message: message, Severity: severity})
 	}

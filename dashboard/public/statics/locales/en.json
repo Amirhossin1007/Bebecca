@@ -1,4 +1,13 @@
 {
+	"diagnostics.pageDescription": "All current problems with severity levels. Only critical service-stopping failures appear on the dashboard.",
+	"diagnostics.criticalTitle": "Critical failures",
+	"diagnostics.level.critical": "Critical",
+	"diagnostics.level.error": "Error",
+	"diagnostics.level.warning": "Warning",
+	"diagnostics.filterLevel": "Filter by severity",
+	"diagnostics.allLevels": "All levels",
+	"diagnostics.refresh": "Refresh",
+	"diagnostics.empty": "No problems at this level.",
 	"diagnostics.title": "Problems requiring attention",
 	"diagnostics.requestFailed": "Request failed",
 	"diagnostics.broken": "Broken",

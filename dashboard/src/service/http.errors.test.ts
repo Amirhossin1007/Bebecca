@@ -40,4 +40,13 @@ describe("shared request error reporting", () => {
 		expect(() => reportAPIError("GET /native", Object.freeze({ message: "connection failed" }))).not.toThrow();
 		expect(useAPIRequestErrors.getState().errors[0].message).toBe("connection failed");
 	});
+	it("keeps the selected node when an outbound error is later opened from ERROR", () => {
+		vi.stubGlobal("window", { location: { pathname: "/dashboard/xray-settings", search: "?target=node%3A7" } });
+		try {
+			reportAPIError("POST /panel/xray/testOutbound", new Error("outbound failed"));
+			expect(useAPIRequestErrors.getState().errors[0].href).toBe("/xray-settings?target=node%3A7#outbounds");
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 });

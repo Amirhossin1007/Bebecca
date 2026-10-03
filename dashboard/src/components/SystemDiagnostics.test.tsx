@@ -5,6 +5,8 @@ import { StaticRouter } from "react-router-dom";
 import { useAPIRequestErrors } from "service/http";
 import {
 	diagnosticHref,
+	diagnosticSeverity,
+	dashboardDiagnostics,
 	requestErrorHref,
 	type Diagnostic,
 } from "utils/diagnostics";
@@ -44,6 +46,54 @@ describe("dashboard diagnostic navigation", () => {
 			),
 		).toHaveLength(8);
 		expect(html).not.toContain("diagnostics.showAll");
+	});
+
+	it("keeps ordinary errors and warnings off the dashboard without hiding critical failures", () => {
+		const issues: Diagnostic[] = [
+			{
+				target_id: "node:7",
+				resource_type: "node_service",
+				resource: "xray",
+				severity: "critical",
+				message: "core-start-failed",
+			},
+			{
+				target_id: "master",
+				resource_type: "backup",
+				resource: "backup",
+				message: "backup-delivery-failed",
+			},
+			{
+				target_id: "master",
+				resource_type: "runtime_warning",
+				resource: "Runtime",
+				message: "routine-warning",
+			},
+		];
+		expect(issues.map(diagnosticSeverity)).toEqual([
+			"critical",
+			"error",
+			"warning",
+		]);
+		expect(dashboardDiagnostics(issues)).toEqual([issues[0]]);
+		const html = render(<SystemDiagnostics issues={issues} criticalOnly />);
+		expect(html).toContain("core-start-failed");
+		expect(html).toContain("diagnostics.level.critical");
+		expect(html).not.toContain("backup-delivery-failed");
+		expect(html).not.toContain("routine-warning");
+		expect(
+			dashboardDiagnostics([], {
+				xray_running: true,
+				last_xray_error: "old-node-error",
+			}),
+		).toEqual([]);
+		expect(dashboardDiagnostics([], { xray_running: false })).toEqual([]);
+		expect(
+			dashboardDiagnostics([], {
+				xray_running: false,
+				last_xray_error: "core-failed",
+			})[0].severity,
+		).toBe("critical");
 	});
 
 	it("renders all request failures and keeps dismiss buttons outside navigation links", () => {

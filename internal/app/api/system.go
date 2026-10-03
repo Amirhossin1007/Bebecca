@@ -76,6 +76,11 @@ func (s *Server) handleSystemDiagnostics(w http.ResponseWriter, r *http.Request)
 		issues = append(issues, s.externalApps.Diagnostics(appCtx)...)
 		appCancel()
 	}
+	for i := range issues {
+		if issues[i].Severity == "" {
+			issues[i].Severity = "error"
+		}
+	}
 	writeJSON(w, http.StatusOK, issues)
 }
 

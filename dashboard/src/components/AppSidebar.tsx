@@ -202,6 +202,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	}, [checkTutorialUpdates]);
 
 	const baseSettingsSubItems: SidebarSubItems = [
+		{
+			title: "errors",
+			url: "/errors",
+			icon: InsightsIconStyled,
+		},
 		sectionAccess?.[AdminSection.Hosts]
 			? {
 					title: t("header.hostSettings"),
@@ -408,6 +413,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				pickSetting("/xray-settings"),
 				pickSetting("/haproxy"),
 				pickSetting("/xray-logs"),
+				pickSetting("/errors"),
 				pickSetting("/access-insights"),
 				pickSetting("/recent-actions"),
 				pickSetting("/phpmyadmin"),

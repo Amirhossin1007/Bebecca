@@ -25,7 +25,6 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
-	ExclamationTriangleIcon,
 	ServerStackIcon,
 	ShieldCheckIcon,
 	SignalIcon,
@@ -54,6 +53,7 @@ import type { SystemStats } from "types/System";
 import type { UsersListResponse } from "types/User";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { mergeLiveSystemStats } from "utils/systemMetrics";
+import { dashboardDiagnostics } from "utils/diagnostics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
@@ -1487,21 +1487,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const canSeeGlobal = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 	const diagnosticsQuery = useSystemDiagnostics(canSeeGlobal);
-	const hasXrayError = Boolean(systemData?.last_xray_error) || diagnosticsQuery.data?.some((issue) =>
-		issue.severity !== "warning" && (["inbound", "xray_config", "node", "outbound"].includes(issue.resource_type) || issue.resource_type === "node_service" && issue.resource === "xray"),
+	const criticalIssues = dashboardDiagnostics(diagnosticsQuery.data || [], diagnosticsQuery.isSuccess ? undefined : systemData || undefined);
+	const hasXrayError = criticalIssues.some((issue) =>
+		issue.resource_type === "node" || issue.resource_type === "node_service" && issue.resource === "xray",
 	);
 
 	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
 		setHistoryPayload(payload);
 	};
-
-	const redErrorBg = useColorModeValue("red.50", "rgba(220,38,38,0.08)");
-	const redErrorBorder = useColorModeValue("red.200", "rgba(220,38,38,0.2)");
-	const redErrorColor = useColorModeValue("red.900", "red.200");
-	const orangeErrorBg = useColorModeValue("orange.50", "rgba(234,88,12,0.08)");
-	const orangeErrorBorder = useColorModeValue("orange.200", "rgba(234,88,12,0.2)");
-	const orangeErrorColor = useColorModeValue("orange.900", "orange.200");
 
 	if (!systemData) {
 		return (
@@ -1520,6 +1514,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					},
 				}}
 			>
+				{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
 				<Flex
 					align="center"
 					justify="space-between"
@@ -1927,7 +1922,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			dir={isRTL ? "rtl" : "ltr"}
 			{...props}
 		>
-			{canSeeGlobal && <SystemDiagnostics issues={diagnosticsQuery.data || []} error={diagnosticsQuery.error} />}
+			{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
 			<Flex align="center" justify="space-between" flexWrap="wrap" gap={3} px={1}>
 				<Flex
 					wrap="wrap"
@@ -2214,51 +2209,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 					</Stack>
 				</SectionCard>
 			</SimpleGrid>
-
-			{!diagnosticsQuery.isSuccess && (systemData.last_xray_error || systemData.last_telegram_error) && (
-				<Stack spacing={3}>
-					{systemData.last_xray_error && (
-						<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>
-							<HStack spacing={2} mb={2} color={redErrorColor}>
-								<ExclamationTriangleIcon width={15} />
-								<Text fontSize="12px" fontWeight="700">
-									{t("dashboard.system.coreError")}
-								</Text>
-							</HStack>
-							<Text fontSize="12px" fontFamily="mono" color={redErrorColor} wordBreak="break-word" lineHeight="tall" opacity={0.85}>
-								{systemData.last_xray_error}
-							</Text>
-						</Box>
-					)}
-					{systemData.last_telegram_error && (
-						<Box p={4} borderRadius="14px" bg={orangeErrorBg} borderWidth="1px" borderColor={orangeErrorBorder}>
-							<Flex align="center" justify="space-between" mb={2} flexWrap="wrap" gap={2}>
-								<HStack spacing={2} color={orangeErrorColor}>
-									<ExclamationTriangleIcon width={15} />
-									<Text fontSize="12px" fontWeight="700">{t("dashboard.system.telegramError")}</Text>
-								</HStack>
-								<Button
-									size="xs"
-									colorScheme="orange"
-									variant="ghost"
-									borderRadius="full"
-									fontSize="11px"
-									h="22px"
-									px={2.5}
-									onClick={() => {
-										window.location.href = "/dashboard/settings#telegram";
-									}}
-								>
-									{t("dashboard.system.goToTelegramSettings")}
-								</Button>
-							</Flex>
-							<Text fontSize="12px" fontFamily="mono" color={orangeErrorColor} wordBreak="break-word" lineHeight="tall" opacity={0.85}>
-								{systemData.last_telegram_error}
-							</Text>
-						</Box>
-					)}
-				</Stack>
-			)}
 
 			<SectionCard
 				noHover

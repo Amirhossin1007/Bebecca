@@ -11,7 +11,12 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "react-query";
 import { Link } from "react-router-dom";
 import { fetch, getAPIErrorMessage } from "service/http";
-import { diagnosticHref, type Diagnostic } from "utils/diagnostics";
+import {
+	diagnosticHref,
+	diagnosticSeverity,
+	isCriticalDiagnostic,
+	type Diagnostic,
+} from "utils/diagnostics";
 
 export const useSystemDiagnostics = (enabled: boolean) =>
 	useQuery<Diagnostic[]>(
@@ -23,16 +28,22 @@ export const useSystemDiagnostics = (enabled: boolean) =>
 export const SystemDiagnostics = ({
 	issues,
 	error,
+	criticalOnly = false,
 }: {
 	issues: Diagnostic[];
 	error?: unknown;
+	criticalOnly?: boolean;
 }) => {
 	const { t } = useTranslation();
-	if (!issues.length && !error) return null;
+	const visibleIssues = criticalOnly
+		? issues.filter(isCriticalDiagnostic)
+		: issues;
+	if (!visibleIssues.length && !error) return null;
 	return (
 		<Stack spacing={3} role="alert" aria-live="polite">
 			<Text fontWeight="bold" color="red.400">
-				{t("diagnostics.title")} ({issues.length})
+				{t(criticalOnly ? "diagnostics.criticalTitle" : "diagnostics.title")} (
+				{visibleIssues.length})
 			</Text>
 			{Boolean(error) && (
 				<Alert status="error" borderRadius="xl">
@@ -40,19 +51,14 @@ export const SystemDiagnostics = ({
 					{getAPIErrorMessage(error)}
 				</Alert>
 			)}
-			{issues.map((issue, index) => (
+			{visibleIssues.map((issue, index) => (
 				<Alert
 					as={Link}
 					to={diagnosticHref(issue)}
 					role="link"
 					aria-label={`${issue.resource}: ${issue.message}`}
 					key={`${issue.target_id}-${issue.resource_type}-${index}`}
-					status={
-						issue.severity === "warning" ||
-						issue.resource_type === "runtime_warning"
-							? "warning"
-							: "error"
-					}
+					status={diagnosticSeverity(issue) === "warning" ? "warning" : "error"}
 					borderRadius="xl"
 					alignItems="flex-start"
 					textDecoration="none"
@@ -68,10 +74,15 @@ export const SystemDiagnostics = ({
 						<HStack flexWrap="wrap" spacing={2} mb={2}>
 							<Tag
 								colorScheme={
-									issue.severity === "warning" ||
-									issue.resource_type === "runtime_warning"
-										? "orange"
-										: "red"
+									diagnosticSeverity(issue) === "warning" ? "orange" : "red"
+								}
+								size="sm"
+							>
+								{t(`diagnostics.level.${diagnosticSeverity(issue)}`)}
+							</Tag>
+							<Tag
+								colorScheme={
+									diagnosticSeverity(issue) === "warning" ? "orange" : "red"
 								}
 								size="sm"
 							>

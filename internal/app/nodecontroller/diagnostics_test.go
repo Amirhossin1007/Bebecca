@@ -49,3 +49,26 @@ func TestRuntimeDiagnosticsUseHealthCacheClearRecoveredErrorsAndIgnoreDisabledNo
 		t.Fatalf("recovered errors were retained: %v %v", issues, err)
 	}
 }
+
+func TestRuntimeDiagnosticsEscalateOnlyConfirmedRuntimeStops(t *testing.T) {
+	c := NewController(NewRepository(nil, "sqlite"))
+	c.rememberRuntimeDiagnostics(RuntimeResult{NodeID: 1, ProtocolStatuses: []ProtocolStatus{
+		{Protocol: "xray", State: "error", Detail: "core startup failed"},
+		{Protocol: "wireguard", State: "stopped", Inbounds: 1},
+		{Protocol: "tor/tor-de", State: "error", Inbounds: 1, Detail: "service not found"},
+		{Protocol: "disk", State: "warning", Detail: "low disk space"},
+		{Protocol: "haproxy", State: "disabled", Inbounds: 1},
+		{Protocol: "openvpn", State: "stopped"},
+	}})
+	value, _ := c.runtimeDiagnostics.Load(int64(1))
+	issues := value.(runtimeDiagnosticSnapshot).issues
+	if len(issues) != 4 {
+		t.Fatalf("unexpected diagnostics: %+v", issues)
+	}
+	want := map[string]string{"xray": "critical", "wireguard": "critical", "tor/tor-de": "error", "disk": "warning"}
+	for _, issue := range issues {
+		if issue.Severity != want[issue.Resource] {
+			t.Fatalf("wrong severity: %+v", issue)
+		}
+	}
+}

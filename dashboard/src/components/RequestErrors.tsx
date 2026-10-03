@@ -5,6 +5,7 @@ import {
 	CloseButton,
 	HStack,
 	Stack,
+	Tag,
 	Text,
 } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
@@ -23,12 +24,15 @@ export const RequestErrors = () => {
 				<Box key={item.key} position="relative">
 					<Alert
 						as={Link}
-						to={requestErrorHref(
-							item.key,
-							location.pathname.replace(/\/$/, "").endsWith("/xray-settings")
-								? location.search
-								: "",
-						)}
+						to={
+							item.href ||
+							requestErrorHref(
+								item.key,
+								location.pathname.replace(/\/$/, "").endsWith("/xray-settings")
+									? location.search
+									: "",
+							)
+						}
 						role="link"
 						aria-label={`${t("diagnostics.requestFailed")}: ${item.message}`}
 						status="error"
@@ -45,6 +49,9 @@ export const RequestErrors = () => {
 						<AlertIcon mt={1} />
 						<Box flex={1} minW={0}>
 							<HStack justify="space-between" pe={8}>
+								<Tag colorScheme="red" size="sm">
+									{t("diagnostics.level.error")}
+								</Tag>
 								<Text fontWeight="semibold">
 									{t("diagnostics.requestFailed")}
 								</Text>

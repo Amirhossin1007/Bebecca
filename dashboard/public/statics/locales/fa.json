@@ -1,4 +1,13 @@
 {
+	"diagnostics.pageDescription": "همهٔ مشکلات فعلی با سطح اهمیت؛ فقط خطاهای بحرانیِ متوقف‌کنندهٔ سرویس در داشبورد نمایش داده می‌شوند.",
+	"diagnostics.criticalTitle": "خطاهای بحرانی",
+	"diagnostics.level.critical": "بحرانی",
+	"diagnostics.level.error": "خطا",
+	"diagnostics.level.warning": "هشدار",
+	"diagnostics.filterLevel": "فیلتر بر اساس سطح اهمیت",
+	"diagnostics.allLevels": "همهٔ سطوح",
+	"diagnostics.refresh": "تازه‌سازی",
+	"diagnostics.empty": "مشکلی در این سطح وجود ندارد.",
 	"diagnostics.title": "مشکلات نیازمند بررسی",
 	"diagnostics.requestFailed": "درخواست ناموفق بود",
 	"diagnostics.broken": "Broken",
