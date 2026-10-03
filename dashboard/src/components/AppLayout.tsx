@@ -229,6 +229,7 @@ export function AppLayout() {
 	const previewTabKeyRef = useRef<string | null>(null);
 	const headerRef = useRef<HTMLDivElement | null>(null);
 	const [calendarCompact, setCalendarCompact] = useState(false);
+	const [bannerShrink, setBannerShrink] = useState(false);
 	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
 		Record<string, boolean>
 	>({
@@ -1041,14 +1042,17 @@ export function AppLayout() {
 			if (!Number.isFinite(fullWidth) || fullWidth <= 0) return;
 
 			const calendarRect = calendarEl.getBoundingClientRect();
-			let available = root.getBoundingClientRect().right - calendarRect.right;
-			if (isRTL) {
-				available = calendarRect.left - root.getBoundingClientRect().left;
-			}
+			let gap = Infinity;
 			if (bannerEl && bannerEl.offsetParent !== null) {
-				available -= bannerEl.getBoundingClientRect().width;
+				const bannerRect = bannerEl.getBoundingClientRect();
+				gap = isRTL
+					? bannerRect.left - calendarRect.right
+					: calendarRect.left - bannerRect.right;
 			}
-			setCalendarCompact(available < fullWidth);
+			const MIN_BANNER_GAP = 12;
+			const needsBannerShrink = gap < MIN_BANNER_GAP + fullWidth;
+			setCalendarCompact(gap < fullWidth);
+			setBannerShrink(needsBannerShrink);
 		};
 		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
@@ -1305,6 +1309,7 @@ export function AppLayout() {
 											<SponsorCarousel
 												items={sponsorHeaderItems}
 												variant="banner"
+												shrink={bannerShrink}
 											/>
 										</Box>
 									</motion.div>
