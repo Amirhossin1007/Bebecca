@@ -8,8 +8,10 @@ import { useHosts } from "contexts/HostsContext";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
 
 export const HostsPage: FC = () => {
+	const location = useLocation();
 	const { t } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const fetchHosts = useHosts((state) => state.fetchHosts);
@@ -19,13 +21,13 @@ export const HostsPage: FC = () => {
 	const canManageHosts =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.hosts);
 	const readHashTab = useCallback(
-		() => (window.location.hash || "").replace(/^#/, "").toLowerCase(),
+		(hash = window.location.hash) => (hash || "").replace(/^#/, "").toLowerCase(),
 		[],
 	);
 
 	useEffect(() => {
-		const syncFromHash = () => {
-			const idx = tabKeys.indexOf(readHashTab());
+		const syncFromHash = (hash: string) => {
+			const idx = tabKeys.indexOf(readHashTab(hash));
 			if (idx >= 0) {
 				setActiveTab(idx);
 			} else {
@@ -37,10 +39,11 @@ export const HostsPage: FC = () => {
 				);
 			}
 		};
-		syncFromHash();
-		window.addEventListener("hashchange", syncFromHash);
-		return () => window.removeEventListener("hashchange", syncFromHash);
-	}, [readHashTab, tabKeys]);
+		syncFromHash(location.hash);
+		const onHashChange = () => syncFromHash(window.location.hash);
+		window.addEventListener("hashchange", onHashChange);
+		return () => window.removeEventListener("hashchange", onHashChange);
+	}, [location.hash, readHashTab, tabKeys]);
 
 	useEffect(() => {
 		if (activeTab !== hostsTabIndex) {

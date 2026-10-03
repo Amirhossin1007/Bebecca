@@ -76,6 +76,7 @@ import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
 import ThemeSelector from "./ThemeSelector";
 import { SponsorCarousel } from "./SponsorCarousel";
+import { RequestErrors } from "./RequestErrors";
 
 const iconProps = {
 	baseStyle: {
@@ -1219,6 +1220,7 @@ export function AppLayout() {
 						minH="0"
 						bg={shellMainBg}
 					>
+						<RequestErrors />
 						<Outlet />
 					</Box>
 				</Flex>

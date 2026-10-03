@@ -55,6 +55,75 @@ func testRepository(t *testing.T) (Repository, *sql.DB) {
 	return NewRepository(db, "sqlite", Options{}), db
 }
 
+func TestSQLRestoredBrokenInboundRemainsVisibleWithoutHidingHealthySiblings(t *testing.T) {
+	repo, db := testRepository(t)
+	raw := repositoryConfig("broken-ws", "vless", 443)
+	inbound := raw["inbounds"].([]any)[0].(map[string]any)
+	inbound["streamSettings"] = map[string]any{"network": "ws", "wsSettings": map[string]any{"path": "?ed=2048"}}
+	encoded, _ := json.Marshal(raw)
+	if _, err := db.Exec(`INSERT INTO xray_config (id, data) VALUES (1, ?)`, string(encoded)); err != nil {
+		t.Fatal(err)
+	}
+	grouped, err := repo.GroupedInbounds(context.Background())
+	if err != nil || len(grouped["vless"]) != 2 {
+		t.Fatalf("healthy sibling was hidden: %v %v", grouped, err)
+	}
+	if grouped["vless"][0]["validation_error"] == nil || grouped["vless"][1]["validation_error"] != nil {
+		t.Fatalf("incorrect broken flags: %v", grouped["vless"])
+	}
+	full, err := repo.FullInbounds(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range full {
+		if item["tag"] == "broken-ws" && item["validation_error"] == nil {
+			t.Fatal("broken inbound did not include its error")
+		}
+	}
+	issues, err := repo.ConfigIssues(context.Background())
+	if err != nil || len(issues) != 1 || issues[0].Resource != "broken-ws" {
+		t.Fatalf("unexpected diagnostics: %v %v", issues, err)
+	}
+	if _, err := repo.SaveTargetRawConfig(context.Background(), MasterTargetID, raw); err == nil {
+		t.Fatal("read-only diagnostics must not weaken configuration write validation")
+	}
+	if _, err := db.Exec(`DROP TABLE hosts`); err != nil {
+		t.Fatal(err)
+	}
+	issues, err = repo.ConfigIssues(context.Background())
+	if err == nil || len(issues) != 1 || issues[0].Resource != "broken-ws" {
+		t.Fatalf("a second restore error hid the original inbound failure: %v %v", issues, err)
+	}
+}
+
+func TestMissingRoutingOutboundMarksInboundBrokenWithoutChangingConfig(t *testing.T) {
+	repo, db := testRepository(t)
+	raw := repositoryConfig("routed-in", "vless", 443)
+	raw["routing"] = map[string]any{"rules": []any{
+		map[string]any{"inboundTag": []any{"routed-in"}, "outboundTag": "missing-relay"},
+		map[string]any{"inboundTag": []any{"API_INBOUND"}, "outboundTag": "API"},
+	}}
+	encoded, _ := json.Marshal(raw)
+	if _, err := db.Exec(`INSERT INTO xray_config (id, data) VALUES (1, ?)`, string(encoded)); err != nil {
+		t.Fatal(err)
+	}
+	grouped, err := repo.GroupedInbounds(context.Background())
+	if err != nil || grouped["vless"][0]["validation_error"] == nil {
+		t.Fatalf("missing route was not exposed: %v %v", grouped, err)
+	}
+	issues, err := repo.ConfigIssues(context.Background())
+	if err != nil || len(issues) != 1 || issues[0].Resource != "routed-in" {
+		t.Fatalf("incorrect routing diagnostics: %v %v", issues, err)
+	}
+	if issues := routingIssues(MasterTargetID, raw, []string{"missing-relay"}); len(issues) != 0 {
+		t.Fatalf("subscription or API outbound falsely marked missing: %v", issues)
+	}
+	var saved string
+	if err := db.QueryRow(`SELECT data FROM xray_config WHERE id=1`).Scan(&saved); err != nil || saved != string(encoded) {
+		t.Fatal("diagnostics changed the saved routing")
+	}
+}
+
 func repositoryConfig(tag string, protocol string, port int) map[string]any {
 	return map[string]any{
 		"inbounds": []any{

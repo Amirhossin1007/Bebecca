@@ -23,12 +23,13 @@ import (
 )
 
 type Controller struct {
-	repo              Repository
-	outboundSubs      outboundsubapp.Service
-	nodeLocks         *sync.Map
-	nodeClients       *sync.Map
-	healthFailures    *sync.Map
-	runtimeConfigPrep chan struct{}
+	repo               Repository
+	outboundSubs       outboundsubapp.Service
+	nodeLocks          *sync.Map
+	nodeClients        *sync.Map
+	healthFailures     *sync.Map
+	runtimeDiagnostics *sync.Map
+	runtimeConfigPrep  chan struct{}
 }
 
 const (
@@ -41,12 +42,13 @@ const (
 
 func NewController(repo Repository) Controller {
 	return Controller{
-		repo:              repo,
-		outboundSubs:      outboundsubapp.NewService(repo.db, repo.dialect),
-		nodeLocks:         &sync.Map{},
-		nodeClients:       &sync.Map{},
-		healthFailures:    &sync.Map{},
-		runtimeConfigPrep: make(chan struct{}, 1),
+		repo:               repo,
+		outboundSubs:       outboundsubapp.NewService(repo.db, repo.dialect),
+		nodeLocks:          &sync.Map{},
+		nodeClients:        &sync.Map{},
+		healthFailures:     &sync.Map{},
+		runtimeDiagnostics: &sync.Map{},
+		runtimeConfigPrep:  make(chan struct{}, 1),
 	}
 }
 
@@ -263,6 +265,7 @@ func (c Controller) Health(ctx context.Context, req Request) (RuntimeResult, err
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
+	c.rememberRuntimeDiagnostics(result)
 	return result, nil
 }
 
@@ -287,6 +290,7 @@ func (c Controller) Metrics(ctx context.Context, req Request) (RuntimeResult, er
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
+	c.rememberRuntimeDiagnostics(result)
 	return result, nil
 }
 
@@ -1112,6 +1116,7 @@ func (c Controller) finishRuntime(ctx context.Context, node NodeRow, state *node
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
+	c.rememberRuntimeDiagnostics(result)
 	return result, nil
 }
 

@@ -48,7 +48,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "react-query";
-import { fetch } from "service/http";
+import { fetch, reportAPIError, useAPIRequestErrors } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
 import type { UsersListResponse } from "types/User";
@@ -56,6 +56,7 @@ import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { mergeLiveSystemStats } from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
+import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
@@ -166,8 +167,13 @@ const useSystemMetricsStream = (enabled = true) => {
 			ws.onmessage = (event) => {
 				try {
 					const payload = JSON.parse(event.data);
+					if (payload?.error) {
+						reportAPIError("STREAM /system/metrics", payload);
+						return;
+					}
 					const stats = payload?.stats ?? payload;
 					if (!stats || typeof stats !== "object" || !("version" in stats)) return;
+					useAPIRequestErrors.getState().clear("STREAM /system/metrics");
 					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, (current) =>
 						mergeLiveSystemStats(current, stats),
 					);
@@ -1480,6 +1486,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { colorMode } = useColorMode();
 
 	const canSeeGlobal = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const diagnosticsQuery = useSystemDiagnostics(canSeeGlobal);
+	const hasXrayError = Boolean(systemData?.last_xray_error) || diagnosticsQuery.data?.some((issue) =>
+		issue.severity !== "warning" && (["inbound", "xray_config", "node", "outbound"].includes(issue.resource_type) || issue.resource_type === "node_service" && issue.resource === "xray"),
+	);
 
 	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
@@ -1917,6 +1927,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 			dir={isRTL ? "rtl" : "ltr"}
 			{...props}
 		>
+			{canSeeGlobal && <SystemDiagnostics issues={diagnosticsQuery.data || []} error={diagnosticsQuery.error} />}
 			<Flex align="center" justify="space-between" flexWrap="wrap" gap={3} px={1}>
 				<Flex
 					wrap="wrap"
@@ -1952,10 +1963,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 							w="7px"
 							h="7px"
 							borderRadius="full"
-							bg={systemData.xray_running ? "#22c55e" : "#ef4444"}
+							bg={systemData.xray_running && !hasXrayError ? "#22c55e" : "#ef4444"}
 							sx={{
-								animation: systemData.xray_running ? "livePulse 3.5s ease-in-out infinite" : "none",
-								boxShadow: systemData.xray_running
+								animation: systemData.xray_running && !hasXrayError ? "livePulse 3.5s ease-in-out infinite" : "none",
+								boxShadow: systemData.xray_running && !hasXrayError
 									? "0 0 5px rgba(34, 197, 94, 0.4)"
 									: "0 0 5px rgba(239, 68, 68, 0.4)",
 								"@keyframes livePulse": {
@@ -1965,7 +1976,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							}}
 						/>
 						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
-							{systemData.xray_running ? t("dashboard.system.statusRunning") : t("dashboard.system.statusStopped")}
+							{hasXrayError ? t("diagnostics.statusError") : systemData.xray_running ? t("dashboard.system.statusRunning") : t("dashboard.system.statusStopped")}
 						</Text>
 						{systemData.os && (
 							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
@@ -2204,7 +2215,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</SectionCard>
 			</SimpleGrid>
 
-			{(systemData.last_xray_error || systemData.last_telegram_error) && (
+			{!diagnosticsQuery.isSuccess && (systemData.last_xray_error || systemData.last_telegram_error) && (
 				<Stack spacing={3}>
 					{systemData.last_xray_error && (
 						<Box p={4} borderRadius="14px" bg={redErrorBg} borderWidth="1px" borderColor={redErrorBorder}>

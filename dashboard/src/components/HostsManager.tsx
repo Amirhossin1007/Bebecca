@@ -278,6 +278,7 @@ type InboundOption = {
 	flow?: string;
 	proxyNetwork?: string;
 	port?: number;
+	validationError?: string;
 };
 
 const profileHostNameError = (protocol: string | undefined, value: string) => {
@@ -2045,6 +2046,7 @@ export const HostsManager: FC = () => {
 							? inbound.settings.network
 							: undefined,
 					port: inbound.port,
+					validationError: (inbound as { validation_error?: string }).validation_error,
 				});
 			});
 		});
@@ -2717,6 +2719,11 @@ export const HostsManager: FC = () => {
 							<Text fontWeight="semibold" noOfLines={1}>
 								{host.inboundTag}
 							</Text>
+							{(!inbound || inbound.validationError) && (
+								<Tooltip label={inbound?.validationError || t("diagnostics.missingInbound", { tag: host.inboundTag })} hasArrow>
+									<Tag size="sm" colorScheme="red" w="fit-content">{t("diagnostics.broken")}</Tag>
+								</Tooltip>
+							)}
 							<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
 								{inbound
 									? `${inbound.protocol.toUpperCase()} / ${inbound.network}`

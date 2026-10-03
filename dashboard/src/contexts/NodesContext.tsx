@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "react-query";
-import { fetch } from "service/http";
+import { fetch, reportAPIError, useAPIRequestErrors } from "service/http";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { z } from "zod";
 import { create } from "zustand";
@@ -389,10 +389,15 @@ export const useNodeMetricsStream = (enabled = true) => {
 			ws.onmessage = (event) => {
 				try {
 					const payload = JSON.parse(event.data);
+					if (payload?.error) {
+						reportAPIError("STREAM /nodes/metrics", payload);
+						return;
+					}
 					const liveNodes = Array.isArray(payload) ? payload : payload?.nodes;
 					if (!Array.isArray(liveNodes)) {
 						return;
 					}
+					useAPIRequestErrors.getState().clear("STREAM /nodes/metrics");
 					pendingNodes = mergeLiveNodes(pendingNodes, liveNodes);
 					if (!flushTimer) {
 						flushTimer = window.setTimeout(flush, 100);

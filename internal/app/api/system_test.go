@@ -13,11 +13,57 @@ import (
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
 type fakeSystemMetricsProvider struct {
 	mu    sync.Mutex
 	calls int
+}
+
+func TestSystemDiagnosticsShowsStoredFailuresAndRequiresFullAccess(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "owner", "pass123", adminapp.RoleFullAccess, adminapp.StatusActive)
+	insertMasterAPIAdmin(t, db, 2, "seller", "pass123", adminapp.RoleStandard, adminapp.StatusActive)
+	for _, sql := range []string{
+		`ALTER TABLE nodes ADD COLUMN agent_status TEXT DEFAULT 'unknown'`,
+		`INSERT INTO nodes (id, name, status, message, agent_status) VALUES (1, 'de-1', 'connected', 'configuration apply failed', 'degraded')`,
+		`CREATE TABLE outbound_subscriptions (id INTEGER PRIMARY KEY, remark TEXT, enabled INTEGER, last_error TEXT)`,
+		`INSERT INTO outbound_subscriptions VALUES (1, 'provider', 1, 'subscription download failed')`,
+		`INSERT INTO outbound_subscriptions VALUES (2, 'provider-2', 1, 'subscription download failed')`,
+	} {
+		if _, err := db.Exec(sql); err != nil {
+			t.Fatal(err)
+		}
+	}
+	token := adminBearerToken(t, server, "owner", "pass123")
+	rec := adminJSONRequest(t, server, http.MethodGet, "/api/system/diagnostics", token, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("diagnostics status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var issues []xrayconfig.ConfigIssue
+	if err := json.Unmarshal(rec.Body.Bytes(), &issues); err != nil {
+		t.Fatal(err)
+	}
+	foundNode, foundSubscription := false, false
+	subscriptionFailures := 0
+	for _, issue := range issues {
+		foundNode = foundNode || issue.Resource == "de-1" && issue.Message == "configuration apply failed"
+		foundSubscription = foundSubscription || issue.Resource == "provider" && issue.Message == "subscription download failed"
+		if issue.ResourceType == "outbound_subscription" && issue.Message == "subscription download failed" {
+			subscriptionFailures++
+		}
+	}
+	if !foundNode || !foundSubscription {
+		t.Fatalf("missing stored failures: %v", issues)
+	}
+	if subscriptionFailures != 2 {
+		t.Fatalf("identical error messages from different resources were collapsed: %v", issues)
+	}
+	seller := adminBearerToken(t, server, "seller", "pass123")
+	if rec := adminJSONRequest(t, server, http.MethodGet, "/api/system/diagnostics", seller, ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("standard admin accessed global diagnostics: %d", rec.Code)
+	}
 }
 
 func (p *fakeSystemMetricsProvider) Snapshot(context.Context) (systemapp.MetricsSnapshot, error) {
