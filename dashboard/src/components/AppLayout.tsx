@@ -268,6 +268,9 @@ export function AppLayout() {
 	const previewTabKeyRef = useRef<string | null>(null);
 	const headerRef = useRef<HTMLDivElement | null>(null);
 	const [calendarCompact, setCalendarCompact] = useState(false);
+	const [breadcrumbMode, setBreadcrumbMode] = useState<
+		"full" | "compact" | "minimal"
+	>("full");
 	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
 		Record<string, boolean>
 	>({
@@ -896,96 +899,113 @@ export function AppLayout() {
 		} else if (path === "/users") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.users") },
 				{ label: t("sidebar.groups.userHub") },
 				{ label: t("sidebar.usersList"), path: "/users" },
 			];
 		} else if (path === "/bulk-actions") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.users") },
 				{ label: t("sidebar.groups.userHub") },
 				{ label: t("bulkActions.menu"), path: "/bulk-actions" },
 			];
 		} else if (path === "/admins") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.trafficAndAdmins") },
 				{ label: t("admins"), path: "/admins" },
 			];
 		} else if (path === "/myaccount") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.trafficAndAdmins") },
 				{ label: t("myaccount.menu"), path: "/myaccount" },
 			];
 		} else if (path === "/usage") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.trafficAndAdmins") },
 				{ label: t("usage.menu"), path: "/usage" },
 			];
 		} else if (path === "/hosts") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.infrastructure") },
 				{ label: t("header.hostSettings"), path: "/hosts" },
 			];
 		} else if (path === "/services") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.infrastructure") },
 				{ label: t("services.title"), path: "/services" },
 			];
 		} else if (path === "/node-settings") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.infrastructure") },
 				{ label: t("header.nodeSettings"), path: "/node-settings" },
 			];
 		} else if (path === "/xray-logs") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.observability") },
 				{ label: t("pages.xray.logs"), path: "/xray-logs" },
 			];
 		} else if (path === "/access-insights") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.observability") },
 				{ label: t("header.accessInsights"), path: "/access-insights" },
 			];
 		} else if (path === "/recent-actions") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.observability") },
 				{ label: t("recentActions.title"), path: "/recent-actions" },
 			];
 		} else if (path === "/xray-settings") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("header.xraySettings"), path: "/xray-settings" },
 			];
 		} else if (path === "/haproxy") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("haproxy.title"), path: "/haproxy" },
 			];
 		} else if (path === "/settings") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.system") },
 				{ label: t("header.integrationSettings"), path: "/settings" },
 			];
 		} else if (path === "/placeholders") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.system") },
 				{ label: t("placeholders.menu"), path: "/placeholders" },
 			];
 		} else if (path === "/phpmyadmin") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.system") },
 				{ label: t("phpmyadmin.menu"), path: "/phpmyadmin" },
 			];
 		} else if (path === "/external-apps") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.sections.system") },
 				{ label: t("sidebar.groups.system") },
 				{ label: t("externalApps.menu"), path: "/external-apps" },
 			];
@@ -1067,6 +1087,7 @@ export function AppLayout() {
 			const totalWidth = headerRef.current.clientWidth;
 			if (totalWidth < 768) {
 				setCalendarCompact(true);
+				setBreadcrumbMode("minimal");
 				return;
 			}
 			const hasBanner = sponsorHeaderItems.length > 0;
@@ -1083,23 +1104,35 @@ export function AppLayout() {
 					naturalBannerWidth = 220;
 				}
 			}
-			const breadcrumbEl = headerRef.current.querySelector<HTMLElement>(
-				"[data-header-breadcrumb]",
-			);
-			const breadcrumbWidth = breadcrumbEl ? breadcrumbEl.offsetWidth : 80;
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
 			);
 			const profileWidth = profileEl ? profileEl.offsetWidth : 110;
 			const navButtonWidth = 46;
 			const gapsAndPadding = 75;
-			const fixedWidth =
-				navButtonWidth + breadcrumbWidth + profileWidth + gapsAndPadding;
-			const availableForBannerAndCalendar = totalWidth - fixedWidth;
 
+			const availableForBannerAndCalendar =
+				totalWidth - (navButtonWidth + 120 + profileWidth + gapsAndPadding);
 			const canFitFullCalendar =
 				availableForBannerAndCalendar >= naturalBannerWidth + 190;
 			setCalendarCompact(!canFitFullCalendar);
+
+			const calendarWidth = canFitFullCalendar ? 200 : 34;
+			const nonBreadcrumbWidth =
+				navButtonWidth +
+				profileWidth +
+				naturalBannerWidth +
+				calendarWidth +
+				gapsAndPadding;
+			const availableForBreadcrumb = totalWidth - nonBreadcrumbWidth;
+
+			if (availableForBreadcrumb < 140) {
+				setBreadcrumbMode("minimal");
+			} else if (availableForBreadcrumb < 280) {
+				setBreadcrumbMode("compact");
+			} else {
+				setBreadcrumbMode("full");
+			}
 		};
 		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
@@ -1236,61 +1269,181 @@ export function AppLayout() {
 									)}
 									{breadcrumbItems.length === 2 && (
 										<>
-											<BreadcrumbItem
-												display={{ base: "none", lg: "inline-flex" }}
-												flexShrink={0}
-											>
-												<BreadcrumbLink
-													onClick={() => {
-														if (breadcrumbItems[0].path) {
-															navigate(breadcrumbItems[0].path);
-														}
-													}}
-												>
-													{breadcrumbItems[0].label}
-												</BreadcrumbLink>
-											</BreadcrumbItem>
-											<BreadcrumbSeparator
-												display={{ base: "none", lg: "inline-flex" }}
-											/>
-											<BreadcrumbItem minW="0" flexShrink={1}>
-												<BreadcrumbPage>
-													{breadcrumbItems[1].label}
-												</BreadcrumbPage>
-											</BreadcrumbItem>
+											{breadcrumbMode === "minimal" ? (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbEllipsisDropdown
+															items={[breadcrumbItems[0]]}
+															onNavigate={(path) => navigate(path)}
+														/>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[1].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											) : (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[0].path)}
+															onClick={() => {
+																if (breadcrumbItems[0].path) {
+																	navigate(breadcrumbItems[0].path);
+																}
+															}}
+														>
+															{breadcrumbItems[0].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[1].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
 										</>
 									)}
-									{breadcrumbItems.length >= 3 && (
+									{breadcrumbItems.length === 3 && (
 										<>
-											<BreadcrumbItem
-												display={{ base: "none", lg: "inline-flex" }}
-												flexShrink={0}
-											>
-												<BreadcrumbLink
-													onClick={() => {
-														if (breadcrumbItems[0].path) {
-															navigate(breadcrumbItems[0].path);
-														}
-													}}
-												>
-													{breadcrumbItems[0].label}
-												</BreadcrumbLink>
-											</BreadcrumbItem>
-											<BreadcrumbSeparator
-												display={{ base: "none", lg: "inline-flex" }}
-											/>
-											<BreadcrumbItem flexShrink={0}>
-												<BreadcrumbEllipsisDropdown
-													items={breadcrumbItems.slice(1, -1)}
-													onNavigate={(path) => navigate(path)}
-												/>
-											</BreadcrumbItem>
-											<BreadcrumbSeparator flexShrink={0} />
-											<BreadcrumbItem minW="0" flexShrink={1}>
-												<BreadcrumbPage>
-													{breadcrumbItems[breadcrumbItems.length - 1].label}
-												</BreadcrumbPage>
-											</BreadcrumbItem>
+											{breadcrumbMode === "full" && (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[0].path)}
+															onClick={() => {
+																if (breadcrumbItems[0].path) {
+																	navigate(breadcrumbItems[0].path);
+																}
+															}}
+														>
+															{breadcrumbItems[0].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[1].path)}
+															onClick={() => {
+																if (breadcrumbItems[1].path) {
+																	navigate(breadcrumbItems[1].path);
+																}
+															}}
+														>
+															{breadcrumbItems[1].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[2].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
+											{breadcrumbMode === "compact" && (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[0].path)}
+															onClick={() => {
+																if (breadcrumbItems[0].path) {
+																	navigate(breadcrumbItems[0].path);
+																}
+															}}
+														>
+															{breadcrumbItems[0].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbEllipsisDropdown
+															items={[breadcrumbItems[1]]}
+															onNavigate={(path) => navigate(path)}
+														/>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[2].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
+											{breadcrumbMode === "minimal" && (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbEllipsisDropdown
+															items={[breadcrumbItems[0], breadcrumbItems[1]]}
+															onNavigate={(path) => navigate(path)}
+														/>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[2].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
+										</>
+									)}
+									{breadcrumbItems.length >= 4 && (
+										<>
+											{breadcrumbMode === "minimal" ? (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbEllipsisDropdown
+															items={breadcrumbItems.slice(0, -1)}
+															onNavigate={(path) => navigate(path)}
+														/>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{
+																breadcrumbItems[breadcrumbItems.length - 1]
+																	.label
+															}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											) : (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[0].path)}
+															onClick={() => {
+																if (breadcrumbItems[0].path) {
+																	navigate(breadcrumbItems[0].path);
+																}
+															}}
+														>
+															{breadcrumbItems[0].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbEllipsisDropdown
+															items={breadcrumbItems.slice(1, -1)}
+															onNavigate={(path) => navigate(path)}
+														/>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{
+																breadcrumbItems[breadcrumbItems.length - 1]
+																	.label
+															}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
 										</>
 									)}
 								</BreadcrumbList>

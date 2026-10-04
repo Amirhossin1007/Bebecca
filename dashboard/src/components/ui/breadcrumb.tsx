@@ -84,20 +84,48 @@ export interface BreadcrumbLinkProps extends BoxProps {
 	onClick?: (event: ReactMouseEvent<HTMLElement>) => void;
 	render?: ReactElement;
 	asChild?: boolean;
+	isClickable?: boolean;
 }
 
 export const BreadcrumbLink = forwardRef<HTMLElement, BreadcrumbLinkProps>(
-	({ render, children, href, onClick, ...props }, ref) => {
+	({ render, children, href, onClick, isClickable = true, ...props }, ref) => {
 		if (render) {
 			return cloneElement(render, {
 				ref,
 				...props,
-				onClick: (e: ReactMouseEvent<HTMLElement>) => {
-					render.props.onClick?.(e);
-					onClick?.(e);
-				},
+				onClick: isClickable
+					? (e: ReactMouseEvent<HTMLElement>) => {
+							render.props.onClick?.(e);
+							onClick?.(e);
+						}
+					: undefined,
 				children: render.props.children ?? children,
 			});
+		}
+
+		if (!isClickable || (!href && !onClick)) {
+			return (
+				<Box
+					as="span"
+					ref={ref as any}
+					display="inline-flex"
+					alignItems="center"
+					p={0}
+					h="auto"
+					minW="auto"
+					maxW={{ base: "100px", md: "160px" }}
+					noOfLines={1}
+					isTruncated
+					cursor="default"
+					userSelect="none"
+					fontSize={{ base: "xs", md: "12.5px" }}
+					fontWeight="500"
+					color="panel.textMuted"
+					{...props}
+				>
+					{children}
+				</Box>
+			);
 		}
 
 		return (
@@ -267,35 +295,51 @@ export const BreadcrumbEllipsisDropdown = ({
 					minW="160px"
 					zIndex={2500}
 				>
-					{items.map((item, idx) => (
-						<MenuItem
-							key={`${item.label}-${idx}`}
-							borderRadius="8px"
-							fontSize="12px"
-							fontWeight="500"
-							color="panel.text"
-							px={2.5}
-							py={1.5}
-							isDisabled={!item.path}
-							onClick={() => {
-								if (item.path) {
-									onNavigate?.(item.path);
-								}
-							}}
-							_hover={{
-								md: {
-									bg: "panel.elevated",
-									color: "panel.text",
-								},
-							}}
-							_active={{
-								transform: "scale(0.98)",
-							}}
-							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-						>
-							{item.label}
-						</MenuItem>
-					))}
+					{items.map((item, idx) => {
+						if (!item.path) {
+							return (
+								<Box
+									key={`${item.label}-${idx}`}
+									px={2.5}
+									py={1.5}
+									fontSize="11px"
+									fontWeight="600"
+									color="panel.textMuted"
+									userSelect="none"
+									letterSpacing="0.02em"
+								>
+									{item.label}
+								</Box>
+							);
+						}
+
+						return (
+							<MenuItem
+								key={`${item.label}-${idx}`}
+								borderRadius="8px"
+								fontSize="12px"
+								fontWeight="500"
+								color="panel.text"
+								px={2.5}
+								py={1.5}
+								onClick={() => {
+									onNavigate?.(item.path!);
+								}}
+								_hover={{
+									md: {
+										bg: "panel.elevated",
+										color: "panel.text",
+									},
+								}}
+								_active={{
+									transform: "scale(0.98)",
+								}}
+								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+							>
+								{item.label}
+							</MenuItem>
+						);
+					})}
 				</MenuList>
 			</Portal>
 		</Menu>
