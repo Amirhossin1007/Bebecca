@@ -76,6 +76,15 @@ import { AppSidebar } from "./AppSidebar";
 import { HeaderCalendar } from "./HeaderCalendar";
 import { SponsorCarousel } from "./SponsorCarousel";
 import ThemeSelector from "./ThemeSelector";
+import {
+	Breadcrumb,
+	BreadcrumbEllipsisDropdown,
+	BreadcrumbItem,
+	BreadcrumbLink,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
+} from "./ui/breadcrumb";
 
 const iconProps = {
 	baseStyle: {
@@ -1209,67 +1218,83 @@ export function AppLayout() {
 								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 							/>
 							<Box w="1px" h="16px" bg="panel.border" mx={0.5} flexShrink={0} />
-							<HStack
+							<Breadcrumb
 								data-header-breadcrumb
-								aria-label="Breadcrumb navigation"
 								display={{ base: "none", md: "flex" }}
-								spacing={1.5}
 								minW="0"
 								overflow="hidden"
 								dir={isRTL ? "rtl" : "ltr"}
 								flexShrink={1}
 							>
-								{breadcrumbItems.map((crumb, idx) => {
-									const isLast = idx === breadcrumbItems.length - 1;
-									return (
-										<HStack
-											key={crumb.label}
-											spacing={1.5}
-											flexShrink={isLast ? 1 : 0}
-											minW="0"
-										>
-											{idx > 0 && (
-												<Text
-													as="span"
-													fontSize="11px"
-													color="panel.textMuted"
-													userSelect="none"
+								<BreadcrumbList>
+									{breadcrumbItems.length === 1 && (
+										<BreadcrumbItem minW="0" flexShrink={1}>
+											<BreadcrumbPage>
+												{breadcrumbItems[0].label}
+											</BreadcrumbPage>
+										</BreadcrumbItem>
+									)}
+									{breadcrumbItems.length === 2 && (
+										<>
+											<BreadcrumbItem
+												display={{ base: "none", lg: "inline-flex" }}
+												flexShrink={0}
+											>
+												<BreadcrumbLink
+													onClick={() => {
+														if (breadcrumbItems[0].path) {
+															navigate(breadcrumbItems[0].path);
+														}
+													}}
 												>
-													{isRTL ? ">" : "<"}
-												</Text>
-											)}
-											{crumb.path && !isLast ? (
-												<Button
-													variant="unstyled"
-													h="auto"
-													minW="auto"
-													p={0}
-													fontSize={{ base: "xs", md: "13px" }}
-													fontWeight="600"
-													color="panel.textSecondary"
-													_hover={{ md: { color: "panel.text" } }}
-													_active={{ transform: "scale(0.98)" }}
-													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-													onClick={() => navigate(crumb.path!)}
+													{breadcrumbItems[0].label}
+												</BreadcrumbLink>
+											</BreadcrumbItem>
+											<BreadcrumbSeparator
+												display={{ base: "none", lg: "inline-flex" }}
+											/>
+											<BreadcrumbItem minW="0" flexShrink={1}>
+												<BreadcrumbPage>
+													{breadcrumbItems[1].label}
+												</BreadcrumbPage>
+											</BreadcrumbItem>
+										</>
+									)}
+									{breadcrumbItems.length >= 3 && (
+										<>
+											<BreadcrumbItem
+												display={{ base: "none", lg: "inline-flex" }}
+												flexShrink={0}
+											>
+												<BreadcrumbLink
+													onClick={() => {
+														if (breadcrumbItems[0].path) {
+															navigate(breadcrumbItems[0].path);
+														}
+													}}
 												>
-													<Text as="span" isTruncated>
-														{crumb.label}
-													</Text>
-												</Button>
-											) : (
-												<Text
-													fontSize={{ base: "xs", md: "13px" }}
-													fontWeight={isLast ? "700" : "600"}
-													color={isLast ? "panel.text" : "panel.textSecondary"}
-													isTruncated
-												>
-													{crumb.label}
-												</Text>
-											)}
-										</HStack>
-									);
-								})}
-							</HStack>
+													{breadcrumbItems[0].label}
+												</BreadcrumbLink>
+											</BreadcrumbItem>
+											<BreadcrumbSeparator
+												display={{ base: "none", lg: "inline-flex" }}
+											/>
+											<BreadcrumbItem flexShrink={0}>
+												<BreadcrumbEllipsisDropdown
+													items={breadcrumbItems.slice(1, -1)}
+													onNavigate={(path) => navigate(path)}
+												/>
+											</BreadcrumbItem>
+											<BreadcrumbSeparator flexShrink={0} />
+											<BreadcrumbItem minW="0" flexShrink={1}>
+												<BreadcrumbPage>
+													{breadcrumbItems[breadcrumbItems.length - 1].label}
+												</BreadcrumbPage>
+											</BreadcrumbItem>
+										</>
+									)}
+								</BreadcrumbList>
+							</Breadcrumb>
 
 							<AnimatePresence mode="wait">
 								{mobileHeaderItems.length > 0 && (

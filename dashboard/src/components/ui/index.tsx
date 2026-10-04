@@ -1,34 +1,38 @@
+import { Box, type BoxProps, Button, Flex, Text } from "@chakra-ui/react";
 import {
-	Box,
-	Button,
-	Flex,
-	Text,
-	type BoxProps,
-} from "@chakra-ui/react";
-import {
-	useEffect,
-	useRef,
 	type FC,
 	type PropsWithChildren,
 	type ReactNode,
+	useEffect,
+	useRef,
 } from "react";
 
 export { BulkActionBar } from "./BulkActionBar";
-export { DataTable } from "./DataTable";
-export { PageLoadingSkeleton } from "./PageLoadingSkeleton";
 export {
-	ResourceListCard,
-	ResourceRefreshButton,
-	type ResourceSummaryItem,
-} from "./ResourceListCard";
-export { RowActionsMenu } from "./DataTableRowActions";
-export type { RowActionItem } from "./DataTableRowActions";
+	Breadcrumb,
+	BreadcrumbEllipsis,
+	BreadcrumbEllipsisDropdown,
+	BreadcrumbItem,
+	BreadcrumbLink,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
+} from "./breadcrumb";
+export { DataTable } from "./DataTable";
 export type {
 	DataTableBulkAction,
 	DataTableColumn,
 	DataTableProps,
 	DataTableRowAction,
 } from "./DataTable.types";
+export type { RowActionItem } from "./DataTableRowActions";
+export { RowActionsMenu } from "./DataTableRowActions";
+export { PageLoadingSkeleton } from "./PageLoadingSkeleton";
+export {
+	ResourceListCard,
+	ResourceRefreshButton,
+	type ResourceSummaryItem,
+} from "./ResourceListCard";
 
 type PageHeaderProps = PropsWithChildren<
 	Omit<BoxProps, "title"> & {
@@ -68,11 +72,7 @@ export const PageHeader: FC<PageHeaderProps> = ({
 						</Text>
 					)}
 					{description && (
-						<Text
-							fontSize="sm"
-							color="panel.textSecondary"
-							mt={title ? 1 : 0}
-						>
+						<Text fontSize="sm" color="panel.textSecondary" mt={title ? 1 : 0}>
 							{description}
 						</Text>
 					)}
@@ -101,7 +101,10 @@ export const TabSystem: FC<TabSystemProps> = ({ tabs, ...props }) => {
 
 	useEffect(() => {
 		if (!activeValue) return;
-		activeTabRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+		activeTabRef.current?.scrollIntoView({
+			block: "nearest",
+			inline: "nearest",
+		});
 	}, [activeValue]);
 
 	return (
