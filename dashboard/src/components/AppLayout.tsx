@@ -1416,6 +1416,8 @@ export function AppLayout() {
 												maxW={{ base: "100px", md: "140px" }}
 												fontSize="12px"
 												fontWeight="600"
+												lineHeight="normal"
+												color="panel.text"
 												isTruncated
 												dir="ltr"
 												sx={{ unicodeBidi: "isolate" }}
@@ -1462,16 +1464,29 @@ export function AppLayout() {
 													color: "red.400 !important",
 													fontWeight: "600 !important",
 													bg: "transparent !important",
-													"--menu-bg": "transparent",
-													"&:hover, &:active, &:focus, &:focus-visible": {
+													"--menu-bg": "transparent !important",
+													transition:
+														"all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important",
+													"&:hover, &[data-hover]": {
 														color: "red.400 !important",
-														bg: "rgba(239, 68, 68, 0.18) !important",
-														"--menu-bg": "rgba(239, 68, 68, 0.18) !important",
+														bg: "rgba(239, 68, 68, 0.16) !important",
+														"--menu-bg": "rgba(239, 68, 68, 0.16) !important",
 													},
-													"&:focus:not(:focus-visible)": {
-														bg: "transparent !important",
-														"--menu-bg": "transparent !important",
+													"&:active": {
+														color: "red.400 !important",
+														bg: "rgba(239, 68, 68, 0.24) !important",
+														"--menu-bg": "rgba(239, 68, 68, 0.24) !important",
+														transform: "scale(0.98) !important",
 													},
+													"&:focus-visible": {
+														bg: "rgba(239, 68, 68, 0.16) !important",
+														"--menu-bg": "rgba(239, 68, 68, 0.16) !important",
+													},
+													"&:focus:not(:focus-visible):not(:hover):not(:active):not([data-hover])":
+														{
+															bg: "transparent !important",
+															"--menu-bg": "transparent !important",
+														},
 												},
 											}}
 										>
@@ -1668,6 +1683,15 @@ export function AppLayout() {
 												className="rb-logout-menu-item"
 												icon={<LogoutIcon />}
 												color="red.400"
+												transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
+												_hover={{
+													bg: "rgba(239, 68, 68, 0.16) !important",
+													color: "red.400 !important",
+												}}
+												_active={{
+													bg: "rgba(239, 68, 68, 0.24) !important",
+													transform: "scale(0.98)",
+												}}
 												onClick={async () => {
 													try {
 														await logoutSession();

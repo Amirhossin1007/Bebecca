@@ -242,9 +242,26 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 					_active={{ transform: "scale(0.98)" }}
 					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 				>
-					<CalendarIcon color="panel.textSecondary" />
+					<Flex
+						w="20px"
+						h="20px"
+						align="center"
+						justify="center"
+						borderRadius="full"
+						color="panel.textSecondary"
+						flexShrink={0}
+					>
+						<CalendarIcon />
+					</Flex>
 					{showText && (
-						<Text noOfLines={1} maxW="320px" fontWeight="600" fontSize="12px">
+						<Text
+							noOfLines={1}
+							maxW="320px"
+							fontWeight="600"
+							fontSize="12px"
+							lineHeight="normal"
+							color="panel.text"
+						>
 							{formattedDate}
 						</Text>
 					)}

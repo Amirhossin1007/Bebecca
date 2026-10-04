@@ -325,36 +325,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				],
 			},
 			{
-				id: "sec_traffic_admins",
-				title: t("sidebar.sections.trafficAndAdmins"),
-				items: [
-					{
-						type: "direct",
-						id: "myaccount",
-						title: t("myaccount.menu"),
-						url: "/myaccount",
-						icon: MyAccountIconStyled,
-						visible: Boolean(selfAccess.self_myaccount),
-					},
-					{
-						type: "direct",
-						id: "usage",
-						title: t("usage.menu"),
-						url: "/usage",
-						icon: UsageIconStyled,
-						visible: canViewUsage,
-					},
-					{
-						type: "direct",
-						id: "admins",
-						title: t("admins"),
-						url: "/admins",
-						icon: AdminIconStyled,
-						visible: canViewAdmins,
-					},
-				],
-			},
-			{
 				id: "sec_infrastructure",
 				title: t("sidebar.sections.infrastructure"),
 				items: [
@@ -381,6 +351,36 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						url: "/services",
 						icon: ServicesIconStyled,
 						visible: canViewServicesSection,
+					},
+				],
+			},
+			{
+				id: "sec_traffic_admins",
+				title: t("sidebar.sections.trafficAndAdmins"),
+				items: [
+					{
+						type: "direct",
+						id: "myaccount",
+						title: t("myaccount.menu"),
+						url: "/myaccount",
+						icon: MyAccountIconStyled,
+						visible: Boolean(selfAccess.self_myaccount),
+					},
+					{
+						type: "direct",
+						id: "usage",
+						title: t("usage.menu"),
+						url: "/usage",
+						icon: UsageIconStyled,
+						visible: canViewUsage,
+					},
+					{
+						type: "direct",
+						id: "admins",
+						title: t("admins"),
+						url: "/admins",
+						icon: AdminIconStyled,
+						visible: canViewAdmins,
 					},
 				],
 			},
@@ -1285,14 +1285,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				</Box>
 				{sidebarBanners.length > 0 && (
 					<motion.div
-						initial={{ y: "120%", opacity: 0 }}
+						initial={inDrawer ? false : { y: "120%", opacity: 0 }}
 						animate={{
 							y: collapsed ? "120%" : "0%",
 							opacity: collapsed ? 0 : 1,
 						}}
 						transition={{
-							duration: isInitialMount ? 0.5 : 0.26,
-							delay: isInitialMount && !collapsed ? 0.7 : 0,
+							duration: inDrawer ? 0 : isInitialMount ? 0.5 : 0.26,
+							delay: inDrawer ? 0 : isInitialMount && !collapsed ? 0.7 : 0,
 							ease: [0.16, 1, 0.3, 1],
 						}}
 						onAnimationComplete={() => {
@@ -1304,8 +1304,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							w="full"
 							maxW={inDrawer ? "min(360px, calc(100% - 24px))" : "full"}
 							mx={inDrawer ? "auto" : undefined}
-							overflow="hidden"
-							maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
+							overflow={collapsed ? "hidden" : undefined}
+							maxH={collapsed ? "0px" : inDrawer ? "none" : "220px"}
 							transition="max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
 							pt={collapsed ? 0 : 2}
 							pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
