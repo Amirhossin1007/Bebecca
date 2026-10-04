@@ -1275,13 +1275,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				</Box>
 				{sidebarBanners.length > 0 && (
 					<motion.div
-						initial={collapsed ? false : { y: 24, opacity: 0 }}
+						initial={{ y: "120%", opacity: 0 }}
 						animate={{
-							y: collapsed ? 24 : 0,
+							y: collapsed ? "120%" : "0%",
 							opacity: collapsed ? 0 : 1,
 						}}
 						transition={{
-							duration: 0.5,
+							duration: isInitialMount ? 0.5 : 0.26,
 							delay: isInitialMount && !collapsed ? 0.7 : 0,
 							ease: [0.16, 1, 0.3, 1],
 						}}
