@@ -557,6 +557,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		const isCurrentlyOpen = Boolean(openGroups[group.id]);
 		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
 	};
+	const [isInitialMount, setIsInitialMount] = useState(true);
 
 	return (
 		<Box
@@ -981,22 +982,28 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															}
 															fontSize="13px"
 															fontWeight={isGroupActive ? "600" : "500"}
+															lineHeight="30px"
 														>
 															{entry.title}
 														</Text>
 													</Box>
 
-													<Box
+													<Flex
+														align="center"
+														justify="center"
+														h="30px"
+														w={collapsed ? "0px" : "20px"}
 														flexShrink={0}
 														overflow="hidden"
 														opacity={collapsed ? 0 : 0.65}
 														maxW={collapsed ? "0px" : "20px"}
-														transition="max-width 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease"
+														transition="max-width 0.24s cubic-bezier(0.16, 1, 0.3, 1), width 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease"
 													>
 														<Icon
 															as={ChevronDownIcon}
 															w="14px"
 															h="14px"
+															display="block"
 															color="panel.textMuted"
 															transform={
 																isOpen && !collapsed
@@ -1005,7 +1012,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															}
 															transition="transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)"
 														/>
-													</Box>
+													</Flex>
 												</Flex>
 											);
 
@@ -1267,39 +1274,49 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					</VStack>
 				</Box>
 				{sidebarBanners.length > 0 && (
-					<Box
-						w="full"
-						maxW={inDrawer ? "min(260px, calc(100% - 24px))" : "full"}
-						mx={inDrawer ? "auto" : undefined}
-						flexShrink={0}
-						overflow="hidden"
-						maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
-						opacity={collapsed ? 0 : 1}
-						transform={collapsed ? "translateY(24px)" : "translateY(0)"}
-						transition={
-							collapsed
-								? "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
-								: "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
-						}
-						pt={collapsed ? 0 : 2}
-						pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
-						pointerEvents={collapsed ? "none" : "auto"}
-						borderTopWidth="1px"
-						borderColor="panel.border"
+					<motion.div
+						initial={collapsed ? false : { y: 24, opacity: 0 }}
+						animate={{
+							y: collapsed ? 24 : 0,
+							opacity: collapsed ? 0 : 1,
+						}}
+						transition={{
+							duration: 0.5,
+							delay: isInitialMount && !collapsed ? 0.7 : 0,
+							ease: [0.16, 1, 0.3, 1],
+						}}
+						onAnimationComplete={() => {
+							if (isInitialMount) setIsInitialMount(false);
+						}}
+						style={{ width: "100%", flexShrink: 0 }}
 					>
-						<SponsorCarousel
-							items={sidebarBanners.map((asset) => ({
-								id: asset.id,
-								src: asset.image_url,
-								alt: asset.alt || asset.label || "Sponsor",
-								href: asset.target_url,
-								label: asset.label,
-								isSponsor: true,
-							}))}
-							variant="sidebar"
-							animateIn={false}
-						/>
-					</Box>
+						<Box
+							w="full"
+							maxW={inDrawer ? "min(260px, calc(100% - 24px))" : "full"}
+							mx={inDrawer ? "auto" : undefined}
+							overflow="hidden"
+							maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
+							transition="max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
+							pt={collapsed ? 0 : 2}
+							pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
+							pointerEvents={collapsed ? "none" : "auto"}
+							borderTopWidth="1px"
+							borderColor="panel.border"
+						>
+							<SponsorCarousel
+								items={sidebarBanners.map((asset) => ({
+									id: asset.id,
+									src: asset.image_url,
+									alt: asset.alt || asset.label || "Sponsor",
+									href: asset.target_url,
+									label: asset.label,
+									isSponsor: true,
+								}))}
+								variant="sidebar"
+								animateIn={false}
+							/>
+						</Box>
+					</motion.div>
 				)}
 			</Flex>
 		</Box>

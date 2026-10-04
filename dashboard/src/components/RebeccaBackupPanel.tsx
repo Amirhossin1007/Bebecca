@@ -27,8 +27,8 @@ import {
 } from "@chakra-ui/react";
 import {
 	ArchiveBoxIcon,
-	ArrowDownOnSquareIcon,
-	ArrowUpTrayIcon,
+	ArrowPathRoundedSquareIcon,
+	DocumentArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { useState } from "react";
@@ -222,7 +222,7 @@ export const DashboardBackupControls = ({
 										flexShrink={0}
 										transition="color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									>
-										<ArrowUpTrayIcon width={16} height={16} />
+										<ArrowPathRoundedSquareIcon width={16} height={16} />
 									</Flex>
 								}
 								onClick={() => openDialog("import")}
@@ -250,7 +250,7 @@ export const DashboardBackupControls = ({
 										flexShrink={0}
 										transition="color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 									>
-										<ArrowDownOnSquareIcon width={16} height={16} />
+										<DocumentArrowDownIcon width={16} height={16} />
 									</Flex>
 								}
 								onClick={() => openDialog("export")}
@@ -402,7 +402,7 @@ export const DashboardBackupControls = ({
 							h="34px"
 							fontWeight="600"
 							fontSize="12.5px"
-							leftIcon={<ArrowUpTrayIcon width={15} height={15} />}
+							leftIcon={<ArrowPathRoundedSquareIcon width={15} height={15} />}
 							onClick={handleImport}
 							isLoading={importMutation.isLoading}
 						>
@@ -526,7 +526,7 @@ export const DashboardBackupControls = ({
 							h="34px"
 							fontWeight="600"
 							fontSize="12.5px"
-							leftIcon={<ArrowDownOnSquareIcon width={15} height={15} />}
+							leftIcon={<DocumentArrowDownIcon width={15} height={15} />}
 							onClick={() => exportMutation.mutate(exportScope)}
 							isLoading={exportMutation.isLoading}
 						>

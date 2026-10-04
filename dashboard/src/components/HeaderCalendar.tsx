@@ -30,8 +30,8 @@ import { useTranslation } from "react-i18next";
 
 const CalendarIcon = chakra(CalendarDaysIcon, { baseStyle: { w: 4, h: 4 } });
 const Sparkles = chakra(SparklesIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const ChevronLeft = chakra(ChevronLeftIcon, { baseStyle: { w: 4, h: 4 } });
-const ChevronRight = chakra(ChevronRightIcon, { baseStyle: { w: 4, h: 4 } });
+const ChevronLeft = chakra(ChevronLeftIcon, { baseStyle: { w: 3, h: 3 } });
+const ChevronRight = chakra(ChevronRightIcon, { baseStyle: { w: 3, h: 3 } });
 
 const createStableKey = () => {
 	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -275,11 +275,11 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 									<IconButton
 										size="xs"
 										variant="outline"
-										h="26px"
-										w="26px"
-										minW="26px"
+										h="22px"
+										w="22px"
+										minW="22px"
 										px={0}
-										borderRadius="7px"
+										borderRadius="6px"
 										borderColor={headerBtnBorder}
 										bg={headerBtnBg}
 										color="panel.textSecondary"
@@ -293,17 +293,17 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 												color: "panel.text",
 											},
 										}}
-										_active={{ transform: "scale(0.94)" }}
-										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										_active={{ transform: "scale(0.92)" }}
+										transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
 									/>
 									<IconButton
 										size="xs"
 										variant="outline"
-										h="26px"
-										w="26px"
-										minW="26px"
+										h="22px"
+										w="22px"
+										minW="22px"
 										px={0}
-										borderRadius="7px"
+										borderRadius="6px"
 										borderColor={headerBtnBorder}
 										bg={headerBtnBg}
 										color="panel.textSecondary"
@@ -317,8 +317,8 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 												color: "panel.text",
 											},
 										}}
-										_active={{ transform: "scale(0.94)" }}
-										transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+										_active={{ transform: "scale(0.92)" }}
+										transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
 									/>
 								</HStack>
 
@@ -347,11 +347,12 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 									size="xs"
 									variant={isCurrentMonth ? "ghost" : "outline"}
 									colorScheme={isCurrentMonth ? undefined : "primary"}
-									borderRadius="7px"
-									fontSize="11px"
+									borderRadius="6px"
+									fontSize="10px"
 									fontWeight="600"
-									px={2.5}
-									h="26px"
+									px={2}
+									h="22px"
+									minW="auto"
 									onClick={handleResetToday}
 									opacity={isCurrentMonth ? 0.75 : 1}
 									borderColor={
@@ -364,7 +365,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 											borderColor: "panel.borderStrong",
 										},
 									}}
-									_active={{ transform: "scale(0.96)" }}
+									_active={{ transform: "scale(0.94)" }}
 								>
 									{t("calendar.today")}
 								</Button>
