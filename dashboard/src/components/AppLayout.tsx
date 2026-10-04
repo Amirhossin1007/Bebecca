@@ -904,6 +904,7 @@ export function AppLayout() {
 		} else if (path === "/users") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.userHub") },
 				{ label: t("sidebar.usersList"), path: "/users" },
 			];
 		} else if (path === "/bulk-actions") {
@@ -916,14 +917,14 @@ export function AppLayout() {
 			if (activeBulkTab) {
 				items = [
 					{ label: t("dashboard"), path: "/" },
-					{ label: t("sidebar.usersList"), path: "/users" },
+					{ label: t("sidebar.groups.userHub") },
 					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
 					{ label: activeBulkTab },
 				];
 			} else {
 				items = [
 					{ label: t("dashboard"), path: "/" },
-					{ label: t("sidebar.usersList"), path: "/users" },
+					{ label: t("sidebar.groups.userHub") },
 					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
 				];
 			}
@@ -973,16 +974,19 @@ export function AppLayout() {
 		} else if (path === "/xray-logs") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
 				{ label: t("pages.xray.logs"), path: "/xray-logs" },
 			];
 		} else if (path === "/access-insights") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
 				{ label: t("header.accessInsights"), path: "/access-insights" },
 			];
 		} else if (path === "/recent-actions") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
 				{ label: t("recentActions.title"), path: "/recent-actions" },
 			];
 		} else if (path === "/xray-settings") {
@@ -998,12 +1002,14 @@ export function AppLayout() {
 			const activeXrayTab = xrayTabs[hashKey] || xrayTabs.basic;
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("header.xraySettings"), path: "/xray-settings#basic" },
 				{ label: activeXrayTab },
 			];
 		} else if (path === "/haproxy") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("haproxy.title"), path: "/haproxy" },
 			];
 		} else if (path === "/settings") {
@@ -1016,22 +1022,26 @@ export function AppLayout() {
 			const activeSettingsTab = settingsTabs[hashKey] || settingsTabs.panel;
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
 				{ label: t("header.integrationSettings"), path: "/settings#panel" },
 				{ label: activeSettingsTab },
 			];
 		} else if (path === "/placeholders") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
 				{ label: t("placeholders.menu"), path: "/placeholders" },
 			];
 		} else if (path === "/phpmyadmin") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
 				{ label: t("phpmyadmin.menu"), path: "/phpmyadmin" },
 			];
 		} else if (path === "/external-apps") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
 				{ label: t("externalApps.menu"), path: "/external-apps" },
 			];
 		} else if (path === "/api-docs") {
