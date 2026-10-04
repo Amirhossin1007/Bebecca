@@ -1703,7 +1703,7 @@ export function AppLayout() {
 						isOpen={sidebarDrawer.isOpen}
 						placement={isRTL ? "right" : "left"}
 						onClose={sidebarDrawer.onClose}
-						size="xs"
+						size="full"
 						autoFocus={false}
 						returnFocusOnClose={false}
 						trapFocus={false}

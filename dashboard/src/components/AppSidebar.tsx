@@ -663,6 +663,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							size="xs"
 							variant="ghost"
 							borderRadius="full"
+							w="34px"
+							h="34px"
+							minW="34px"
 							aria-label="Close sidebar"
 							icon={<XMarkIcon width={16} height={16} />}
 							onClick={onRequestExpand}
@@ -788,7 +791,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															overflow="hidden"
 															whiteSpace="nowrap"
 															opacity={collapsed ? 0 : 1}
-															maxW={collapsed ? "0px" : "180px"}
+															maxW={
+																collapsed ? "0px" : inDrawer ? "full" : "180px"
+															}
 															transform={
 																collapsed
 																	? isRTL
@@ -810,6 +815,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																}
 																fontSize="13px"
 																fontWeight={isCurrent ? "600" : "500"}
+																lineHeight="normal"
 															>
 																{entry.title}
 															</Text>
@@ -960,7 +966,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														overflow="hidden"
 														whiteSpace="nowrap"
 														opacity={collapsed ? 0 : 1}
-														maxW={collapsed ? "0px" : "180px"}
+														maxW={
+															collapsed ? "0px" : inDrawer ? "full" : "180px"
+														}
 														transform={
 															collapsed
 																? isRTL
@@ -982,7 +990,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															}
 															fontSize="13px"
 															fontWeight={isGroupActive ? "600" : "500"}
-															lineHeight="30px"
+															lineHeight="normal"
 														>
 															{entry.title}
 														</Text>
@@ -994,8 +1002,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														h="30px"
 														w={collapsed ? "0px" : "20px"}
 														flexShrink={0}
+														ms="auto"
 														overflow="hidden"
-														opacity={collapsed ? 0 : 0.65}
+														opacity={collapsed ? 0 : 1}
 														maxW={collapsed ? "0px" : "20px"}
 														transition="max-width 0.24s cubic-bezier(0.16, 1, 0.3, 1), width 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease"
 													>
@@ -1004,7 +1013,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															w="14px"
 															h="14px"
 															display="block"
-															color="panel.textMuted"
+															color={
+																isGroupActive ? "panel.text" : "panel.textMuted"
+															}
 															transform={
 																isOpen && !collapsed
 																	? "rotate(180deg)"
@@ -1291,7 +1302,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					>
 						<Box
 							w="full"
-							maxW={inDrawer ? "min(260px, calc(100% - 24px))" : "full"}
+							maxW={inDrawer ? "min(360px, calc(100% - 24px))" : "full"}
 							mx={inDrawer ? "auto" : undefined}
 							overflow="hidden"
 							maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
