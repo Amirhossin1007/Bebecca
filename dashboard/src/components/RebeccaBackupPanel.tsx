@@ -272,7 +272,7 @@ export const DashboardBackupControls = ({
 				size="xl"
 				closeOnOverlayClick={!importMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(4px)" />
+				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
 					borderWidth="1px"
 					borderColor="panel.border"
@@ -390,7 +390,7 @@ export const DashboardBackupControls = ({
 							fontSize="12.5px"
 							onClick={() => setDialog(null)}
 							isDisabled={importMutation.isLoading}
-							_hover={{ bg: "panel.surface", color: "panel.text" }}
+							_hover={{ md: { bg: "panel.surface", color: "panel.text" } }}
 						>
 							{t("cancel")}
 						</Button>
@@ -419,7 +419,7 @@ export const DashboardBackupControls = ({
 				size="md"
 				closeOnOverlayClick={!exportMutation.isLoading}
 			>
-				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(4px)" />
+				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
 					borderWidth="1px"
 					borderColor="panel.border"
@@ -514,7 +514,7 @@ export const DashboardBackupControls = ({
 							fontSize="12.5px"
 							onClick={() => setDialog(null)}
 							isDisabled={exportMutation.isLoading}
-							_hover={{ bg: "panel.surface", color: "panel.text" }}
+							_hover={{ md: { bg: "panel.surface", color: "panel.text" } }}
 						>
 							{t("cancel")}
 						</Button>

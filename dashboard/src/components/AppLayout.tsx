@@ -1349,7 +1349,6 @@ export function AppLayout() {
 						<HStack spacing={2} alignItems="center" flexShrink={0} h="full">
 							<HeaderCalendar isCompact={calendarCompact} />
 
-							{/* User Menu */}
 							{getUserIsSuccess && userData.username && (
 								<Menu
 									placement="bottom-end"
@@ -1544,7 +1543,7 @@ export function AppLayout() {
 													bg="transparent"
 													color="panel.text"
 													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-													_hover={{ bg: "panel.elevated" }}
+													_hover={{ md: { bg: "panel.elevated" } }}
 													_active={{
 														bg: "panel.elevated",
 														transform: "scale(0.98)",
@@ -1699,7 +1698,6 @@ export function AppLayout() {
 					</Box>
 				</Flex>
 
-				{/* mobile drawer */}
 				{isMobile && (
 					<Drawer
 						isOpen={sidebarDrawer.isOpen}

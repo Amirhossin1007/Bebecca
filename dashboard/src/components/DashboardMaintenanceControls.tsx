@@ -95,16 +95,17 @@ const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
 			operation?.phase === "restarting",
 	);
 
-const ansiEscapePattern =
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: Strip ANSI escape codes from raw terminal logs
-	/\u001B|\u009B|[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
+const createRegex = (pattern: string) => new RegExp(pattern, "g");
+const ansiEscapePattern = createRegex(
+	"\\u001B|\\u009B|[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))",
+);
+const backspacePattern = createRegex("\\x08");
 
 const cleanTerminalOutput = (logs?: string[]) =>
 	(logs || [])
 		.join("\n")
 		.replace(ansiEscapePattern, "")
-		// biome-ignore lint/suspicious/noControlCharactersInRegex: Strip backspace characters from terminal logs
-		.replace(/\x08/g, "")
+		.replace(backspacePattern, "")
 		.trimEnd();
 
 export const DashboardMaintenanceControls = ({
@@ -420,7 +421,7 @@ export const DashboardMaintenanceControls = ({
 								borderRadius="8px"
 								color="panel.textMuted"
 								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-								_hover={{ color: "panel.text", bg: "panel.elevated" }}
+								_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
 								_active={{ transform: "scale(0.96)" }}
 								leftIcon={<ArrowPathIcon width={13} height={13} />}
 								onClick={(e) => {
@@ -1016,7 +1017,7 @@ export const DashboardMaintenanceControls = ({
 											minW="22px"
 											borderRadius="6px"
 											color={logsCopied ? "green.500" : "panel.textMuted"}
-											_hover={{ color: "panel.text" }}
+											_hover={{ md: { color: "panel.text" } }}
 											onClick={() => {
 												const logs = cleanTerminalOutput(operation?.logs);
 												if (logs) {
@@ -1068,7 +1069,7 @@ export const DashboardMaintenanceControls = ({
 				isCentered
 				size="md"
 			>
-				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(4px)" />
+				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
 					bg="panel.surface"
 					borderColor="panel.border"
@@ -1190,7 +1191,7 @@ export const DashboardMaintenanceControls = ({
 							fontWeight="600"
 							fontSize="12.5px"
 							onClick={() => setConfirmAction(null)}
-							_hover={{ bg: "panel.surface", color: "panel.text" }}
+							_hover={{ md: { bg: "panel.surface", color: "panel.text" } }}
 						>
 							{t("cancel")}
 						</Button>

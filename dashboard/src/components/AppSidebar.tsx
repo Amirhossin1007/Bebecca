@@ -643,7 +643,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 										: "translateX(-10px)"
 									: "translateX(0)"
 							}
-							transition="max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+							transition="max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 							pointerEvents={collapsed ? "none" : "auto"}
 						>
 							<Text
@@ -668,7 +668,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							onClick={onRequestExpand}
 							color="panel.textSecondary"
 							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							_hover={{ bg: "panel.elevated", color: "panel.text" }}
+							_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
 							_active={{ transform: "scale(0.95)" }}
 						/>
 					)}
@@ -1040,7 +1040,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																	minW="160px"
 																	maxW="200px"
 																	boxShadow={sidebarShadow}
-																	backdropFilter="blur(16px)"
 																	dir={isRTL ? "rtl" : "ltr"}
 																	zIndex={9999}
 																	_focus={{ outline: "none" }}
