@@ -739,7 +739,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														justify="flex-start"
 														w="full"
 														h="38px"
-														px={collapsed ? "17px" : "11px"}
+														px={collapsed ? "7px" : "11px"}
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
 														color={isCurrent ? "panel.text" : normalItemColor}
@@ -795,7 +795,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 																		: "translateX(-8px)"
 																	: "translateX(0)"
 															}
-															transition="max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+															transition={
+																collapsed
+																	? "max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1) 0.12s"
+																	: "max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), margin 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+															}
 															pointerEvents={collapsed ? "none" : "auto"}
 														>
 															<Text
@@ -899,7 +903,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													justify="flex-start"
 													w="full"
 													h="38px"
-													px={collapsed ? "17px" : "11px"}
+													px={collapsed ? "7px" : "11px"}
 													borderRadius="10px"
 													bg={
 														isGroupActive && (!isOpen || collapsed)
@@ -1262,27 +1266,27 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						})}
 					</VStack>
 				</Box>
-				<Box
-					w="full"
-					maxW={inDrawer ? "min(260px, calc(100% - 24px))" : "full"}
-					mx={inDrawer ? "auto" : undefined}
-					flexShrink={0}
-					overflow="hidden"
-					maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
-					opacity={collapsed ? 0 : 1}
-					transform={collapsed ? "translateY(24px)" : "translateY(0)"}
-					transition={
-						collapsed
-							? "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
-							: "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
-					}
-					pt={collapsed ? 0 : 2}
-					pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
-					pointerEvents={collapsed ? "none" : "auto"}
-					borderTopWidth="1px"
-					borderColor="panel.border"
-				>
-					{sidebarBanners.length > 0 && (
+				{sidebarBanners.length > 0 && (
+					<Box
+						w="full"
+						maxW={inDrawer ? "min(260px, calc(100% - 24px))" : "full"}
+						mx={inDrawer ? "auto" : undefined}
+						flexShrink={0}
+						overflow="hidden"
+						maxH={collapsed ? "0px" : inDrawer ? "240px" : "220px"}
+						opacity={collapsed ? 0 : 1}
+						transform={collapsed ? "translateY(24px)" : "translateY(0)"}
+						transition={
+							collapsed
+								? "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+								: "max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
+						}
+						pt={collapsed ? 0 : 2}
+						pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
+						pointerEvents={collapsed ? "none" : "auto"}
+						borderTopWidth="1px"
+						borderColor="panel.border"
+					>
 						<SponsorCarousel
 							items={sidebarBanners.map((asset) => ({
 								id: asset.id,
@@ -1295,8 +1299,8 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							variant="sidebar"
 							animateIn={false}
 						/>
-					)}
-				</Box>
+					</Box>
+				)}
 			</Flex>
 		</Box>
 	);

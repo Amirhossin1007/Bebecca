@@ -175,15 +175,45 @@ export function AppLayout() {
 	const settingsMenu = useDisclosure();
 	const { t, i18n } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
+	const cachedRole = useMemo(() => {
+		try {
+			return localStorage.getItem("rb-user-role");
+		} catch {
+			return null;
+		}
+	}, []);
+	const effectiveRole = getUserIsSuccess
+		? userData.role
+		: (cachedRole as AdminRole | null);
 	const canSeeSponsors =
-		getUserIsSuccess &&
-		(userData.role === AdminRole.FullAccess ||
-			userData.role === AdminRole.Sudo);
+		effectiveRole === AdminRole.FullAccess || effectiveRole === AdminRole.Sudo;
+
+	useEffect(() => {
+		if (getUserIsSuccess && userData.role) {
+			try {
+				localStorage.setItem("rb-user-role", userData.role);
+			} catch {}
+		}
+	}, [getUserIsSuccess, userData.role]);
+
 	const sponsorsQuery = useQuery("sponsors", getSponsors, {
 		staleTime: 5 * 60 * 1000,
 		cacheTime: 30 * 60 * 1000,
 		retry: false,
 		enabled: canSeeSponsors,
+		initialData: () => {
+			try {
+				const raw = sessionStorage.getItem("rb-sponsors-cache");
+				return raw ? JSON.parse(raw) : undefined;
+			} catch {
+				return undefined;
+			}
+		},
+		onSuccess: (data) => {
+			try {
+				sessionStorage.setItem("rb-sponsors-cache", JSON.stringify(data));
+			} catch {}
+		},
 	});
 	const sponsorData = canSeeSponsors ? sponsorsQuery.data : undefined;
 	const sponsorHeaderItems = (sponsorData?.header ?? [])
@@ -1026,40 +1056,41 @@ export function AppLayout() {
 		const checkFit = () => {
 			if (!headerRef.current) return;
 			const totalWidth = headerRef.current.clientWidth;
-			if (totalWidth < 769) {
+			if (totalWidth < 768) {
 				setCalendarCompact(true);
 				return;
 			}
-			const hasBanner =
-				mobileHeaderItems.length > 0 || sponsorHeaderItems.length > 0;
-			const bannerEl = headerRef.current.querySelector<HTMLElement>(
-				"[data-header-banner]",
+			const hasBanner = sponsorHeaderItems.length > 0;
+			const bannerImg = headerRef.current.querySelector<HTMLImageElement>(
+				"[data-header-banner] img",
 			);
-			const bannerWidth = hasBanner
-				? bannerEl
-					? Math.max(bannerEl.scrollWidth, bannerEl.offsetWidth)
-					: totalWidth >= 1200
-						? 300
-						: 220
-				: 0;
+			let naturalBannerWidth = 0;
+			if (hasBanner) {
+				if (bannerImg?.naturalWidth && bannerImg.naturalHeight) {
+					naturalBannerWidth = Math.round(
+						(bannerImg.naturalWidth / bannerImg.naturalHeight) * 40,
+					);
+				} else {
+					naturalBannerWidth = 220;
+				}
+			}
 			const breadcrumbEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-breadcrumb]",
 			);
-			const breadcrumbWidth = breadcrumbEl
-				? Math.max(breadcrumbEl.scrollWidth, breadcrumbEl.offsetWidth)
-				: 80;
+			const breadcrumbWidth = breadcrumbEl ? breadcrumbEl.offsetWidth : 80;
+			const profileEl = headerRef.current.querySelector<HTMLElement>(
+				"[data-header-profile]",
+			);
+			const profileWidth = profileEl ? profileEl.offsetWidth : 110;
 			const navButtonWidth = 46;
-			const profileWidth = 110;
-			const fullCalendarWidth = 200;
-			const safetyBuffer = 40;
-			const requiredWidth =
-				navButtonWidth +
-				breadcrumbWidth +
-				bannerWidth +
-				profileWidth +
-				fullCalendarWidth +
-				safetyBuffer;
-			setCalendarCompact(totalWidth < requiredWidth);
+			const gapsAndPadding = 75;
+			const fixedWidth =
+				navButtonWidth + breadcrumbWidth + profileWidth + gapsAndPadding;
+			const availableForBannerAndCalendar = totalWidth - fixedWidth;
+
+			const canFitFullCalendar =
+				availableForBannerAndCalendar >= naturalBannerWidth + 190;
+			setCalendarCompact(!canFitFullCalendar);
 		};
 		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
@@ -1068,12 +1099,7 @@ export function AppLayout() {
 			clearTimeout(timer);
 			ro.disconnect();
 		};
-	}, [
-		location.pathname,
-		location.hash,
-		mobileHeaderItems.length,
-		sponsorHeaderItems.length,
-	]);
+	}, [location.pathname, location.hash, sponsorHeaderItems.length]);
 
 	return (
 		<>
@@ -1296,7 +1322,6 @@ export function AppLayout() {
 										}}
 										style={{
 											minWidth: 0,
-											maxWidth: "45%",
 											flexShrink: 1,
 											display: "flex",
 											alignItems: "center",
@@ -1337,6 +1362,7 @@ export function AppLayout() {
 								>
 									<MenuButton
 										as={Button}
+										data-header-profile="true"
 										size="sm"
 										variant="outline"
 										h="34px"

@@ -117,17 +117,24 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
 	const [isInitial, setIsInitial] = useState(true);
 	const [bannerRatio, setBannerRatio] = useState<string | undefined>(undefined);
+	const [bannerWidth, setBannerWidth] = useState<number | undefined>(undefined);
 	useEffect(() => {
 		if (!isBanner) return;
 		const active = stableItems[index];
 		if (!active) return;
 		const probe = new window.Image();
-		probe.onload = () => {
+		const updateDimensions = () => {
 			if (probe.naturalWidth && probe.naturalHeight) {
+				const ratio = probe.naturalWidth / probe.naturalHeight;
 				setBannerRatio(`${probe.naturalWidth} / ${probe.naturalHeight}`);
+				setBannerWidth(Math.round(ratio * 40));
 			}
 		};
+		probe.onload = updateDimensions;
 		probe.src = active.src;
+		if (probe.complete) {
+			updateDimensions();
+		}
 	}, [isBanner, index, stableItems]);
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
@@ -153,14 +160,20 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				ease: [0.16, 1, 0.3, 1],
 				delay: animateIn && isInitial ? 0.7 : 0,
 			}}
-			style={{ width: "100%" }}
+			style={{
+				display: isBanner ? "inline-flex" : "block",
+				width: isBanner ? "fit-content" : "100%",
+				maxWidth: "100%",
+				alignItems: "center",
+				justifyContent: "center",
+			}}
 			onAnimationComplete={() => {
 				if (isInitial) setIsInitial(false);
 			}}
 		>
 			<Box
 				overflow="hidden"
-				w={isBanner ? "auto" : "full"}
+				w={isBanner ? (bannerWidth ? `${bannerWidth}px` : "auto") : "full"}
 				maxW="100%"
 				h={isBanner ? "auto" : "full"}
 				maxH={isBanner ? "40px" : undefined}
@@ -177,6 +190,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				aspectRatio={
 					isSidebarBanner ? "21 / 17" : isBanner ? bannerRatio : undefined
 				}
+				flexShrink={isBanner ? 1 : undefined}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{
 					md: {
@@ -218,9 +232,19 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 								objectFit="contain"
 								w="100%"
 								h="100%"
-								borderRadius={isBanner || isSidebarBanner ? "10px" : "8px"}
+								borderRadius={isBanner || isSidebarBanner ? "11px" : "8px"}
 								transition="transform 0.25s ease"
 								userSelect="none"
+								onLoad={(e) => {
+									const img = e.currentTarget;
+									if (img.naturalWidth && img.naturalHeight && isBanner) {
+										const ratio = img.naturalWidth / img.naturalHeight;
+										setBannerRatio(
+											`${img.naturalWidth} / ${img.naturalHeight}`,
+										);
+										setBannerWidth(Math.round(ratio * 40));
+									}
+								}}
 								sx={{
 									WebkitUserDrag: "none",
 									pointerEvents: "none",
