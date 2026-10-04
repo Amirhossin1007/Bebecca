@@ -892,6 +892,11 @@ export function AppLayout() {
 	};
 	const breadcrumbItems = useMemo(() => {
 		const path = location.pathname;
+		const hashKey = (activeLocationHash || "")
+			.replace(/^#/, "")
+			.split("?")[0]
+			.toLowerCase();
+
 		let items: { label: string; path?: string }[] = [];
 
 		if (path === "/") {
@@ -899,126 +904,144 @@ export function AppLayout() {
 		} else if (path === "/users") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.users") },
-				{ label: t("sidebar.groups.userHub") },
 				{ label: t("sidebar.usersList"), path: "/users" },
 			];
 		} else if (path === "/bulk-actions") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.users") },
-				{ label: t("sidebar.groups.userHub") },
-				{ label: t("bulkActions.menu"), path: "/bulk-actions" },
-			];
+			const bulkActionsTabs: Record<string, string> = {
+				edit: t("bulkActions.tabs.edit"),
+				delete: t("bulkActions.tabs.delete"),
+				permissions: t("bulkActions.tabs.permissions"),
+			};
+			const activeBulkTab = bulkActionsTabs[hashKey];
+			if (activeBulkTab) {
+				items = [
+					{ label: t("dashboard"), path: "/" },
+					{ label: t("sidebar.usersList"), path: "/users" },
+					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
+					{ label: activeBulkTab },
+				];
+			} else {
+				items = [
+					{ label: t("dashboard"), path: "/" },
+					{ label: t("sidebar.usersList"), path: "/users" },
+					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
+				];
+			}
 		} else if (path === "/admins") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.trafficAndAdmins") },
 				{ label: t("admins"), path: "/admins" },
 			];
 		} else if (path === "/myaccount") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.trafficAndAdmins") },
 				{ label: t("myaccount.menu"), path: "/myaccount" },
 			];
 		} else if (path === "/usage") {
+			const usageTabs: Record<string, string> = {
+				services: t("usage.tabs.services"),
+				admins: t("usage.tabs.admins"),
+				nodes: t("usage.tabs.nodes"),
+			};
+			const activeUsageTab = usageTabs[hashKey] || usageTabs.services;
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.trafficAndAdmins") },
-				{ label: t("usage.menu"), path: "/usage" },
+				{ label: t("usage.menu"), path: "/usage#services" },
+				{ label: activeUsageTab },
 			];
 		} else if (path === "/hosts") {
+			const hostsTabs: Record<string, string> = {
+				inbounds: t("hostsPage.tabInbounds"),
+				hosts: t("hostsPage.tabHosts"),
+			};
+			const activeHostsTab = hostsTabs[hashKey] || hostsTabs.inbounds;
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.infrastructure") },
-				{ label: t("header.hostSettings"), path: "/hosts" },
+				{ label: t("header.hostSettings"), path: "/hosts#inbounds" },
+				{ label: activeHostsTab },
 			];
 		} else if (path === "/services") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.infrastructure") },
 				{ label: t("services.title"), path: "/services" },
 			];
 		} else if (path === "/node-settings") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.infrastructure") },
 				{ label: t("header.nodeSettings"), path: "/node-settings" },
 			];
 		} else if (path === "/xray-logs") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.observability") },
 				{ label: t("pages.xray.logs"), path: "/xray-logs" },
 			];
 		} else if (path === "/access-insights") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.observability") },
 				{ label: t("header.accessInsights"), path: "/access-insights" },
 			];
 		} else if (path === "/recent-actions") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.observability") },
 				{ label: t("recentActions.title"), path: "/recent-actions" },
 			];
 		} else if (path === "/xray-settings") {
+			const xrayTabs: Record<string, string> = {
+				basic: t("pages.xray.basicTemplate"),
+				routing: t("pages.xray.Routings"),
+				outbounds: t("pages.xray.Outbounds"),
+				reverse: t("pages.xray.reverse.title"),
+				balancers: t("pages.xray.Balancers"),
+				dns: t("DNS"),
+				advanced: t("pages.xray.advancedTemplate"),
+			};
+			const activeXrayTab = xrayTabs[hashKey] || xrayTabs.basic;
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.coreRouting") },
-				{ label: t("header.xraySettings"), path: "/xray-settings" },
+				{ label: t("header.xraySettings"), path: "/xray-settings#basic" },
+				{ label: activeXrayTab },
 			];
 		} else if (path === "/haproxy") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("haproxy.title"), path: "/haproxy" },
 			];
 		} else if (path === "/settings") {
+			const settingsTabs: Record<string, string> = {
+				panel: t("settings.panel.tabTitle"),
+				telegram: t("settings.telegram"),
+				subscriptions: t("settings.subscriptions.tabTitle"),
+				ssl: t("settings.ssl.tabTitle"),
+			};
+			const activeSettingsTab = settingsTabs[hashKey] || settingsTabs.panel;
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("header.integrationSettings"), path: "/settings" },
+				{ label: t("header.integrationSettings"), path: "/settings#panel" },
+				{ label: activeSettingsTab },
 			];
 		} else if (path === "/placeholders") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.system") },
 				{ label: t("placeholders.menu"), path: "/placeholders" },
 			];
 		} else if (path === "/phpmyadmin") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.system") },
 				{ label: t("phpmyadmin.menu"), path: "/phpmyadmin" },
 			];
 		} else if (path === "/external-apps") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.system") },
-				{ label: t("sidebar.groups.system") },
 				{ label: t("externalApps.menu"), path: "/external-apps" },
 			];
 		} else if (path === "/api-docs") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.docs") },
 				{ label: t("apiDocs.menu"), path: "/api-docs" },
 			];
 		} else if (path === "/tutorials") {
 			items = [
 				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.sections.docs") },
 				{ label: t("sidebar.tutorialsAndFaq"), path: "/tutorials" },
 			];
 		} else {
@@ -1033,31 +1056,8 @@ export function AppLayout() {
 			];
 		}
 
-		const rawHash = activeLocationHash.replace(/^#/, "");
-		if (rawHash && items.length > 0) {
-			const hashKeyBulk = `bulkActions.tabs.${rawHash}`;
-			const hashKeySettings = `settings.tabs.${rawHash}`;
-			const hashKeyHosts = `hosts.tabs.${rawHash}`;
-			let hashLabel = rawHash.replace(/[-_]+/g, " ");
-
-			if (i18n.exists(hashKeyBulk)) {
-				hashLabel = t(hashKeyBulk);
-			} else if (i18n.exists(hashKeySettings)) {
-				hashLabel = t(hashKeySettings);
-			} else if (i18n.exists(hashKeyHosts)) {
-				hashLabel = t(hashKeyHosts);
-			} else if (rawHash === "create") {
-				hashLabel = t("common.create", "ایجاد");
-			} else if (rawHash === "edit") {
-				hashLabel = t("common.edit", "ویرایش");
-			} else if (rawHash === "delete") {
-				hashLabel = t("common.delete", "حذف");
-			}
-			items.push({ label: hashLabel });
-		}
-
 		return items;
-	}, [location.pathname, activeLocationHash, t, i18n]);
+	}, [location.pathname, activeLocationHash, t]);
 
 	const navigateToSettingsItem = (target: string) => {
 		settingsMenu.onClose();
