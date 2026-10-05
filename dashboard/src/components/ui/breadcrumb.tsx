@@ -113,9 +113,7 @@ export const BreadcrumbLink = forwardRef<HTMLElement, BreadcrumbLinkProps>(
 					p={0}
 					h="auto"
 					minW="auto"
-					maxW={{ base: "100px", md: "160px" }}
-					noOfLines={1}
-					isTruncated
+					whiteSpace="nowrap"
 					cursor="default"
 					userSelect="none"
 					fontSize={{ base: "xs", md: "12.5px" }}
@@ -139,9 +137,7 @@ export const BreadcrumbLink = forwardRef<HTMLElement, BreadcrumbLinkProps>(
 				p={0}
 				h="auto"
 				minW="auto"
-				maxW={{ base: "100px", md: "160px" }}
-				noOfLines={1}
-				isTruncated
+				whiteSpace="nowrap"
 				bg="transparent"
 				border="none"
 				cursor="pointer"
@@ -177,9 +173,7 @@ export const BreadcrumbPage = forwardRef<HTMLSpanElement, BreadcrumbPageProps>(
 			fontSize={{ base: "xs", md: "12.5px" }}
 			fontWeight="600"
 			color="panel.text"
-			maxW={{ base: "120px", md: "240px", lg: "320px" }}
-			noOfLines={1}
-			isTruncated
+			whiteSpace="nowrap"
 			{...props}
 		/>
 	),

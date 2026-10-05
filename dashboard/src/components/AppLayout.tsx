@@ -1277,14 +1277,13 @@ export function AppLayout() {
 							<Breadcrumb
 								data-header-breadcrumb
 								display={{ base: "none", md: "flex" }}
-								minW="0"
-								overflow="hidden"
+								minW="fit-content"
 								dir={isRTL ? "rtl" : "ltr"}
-								flexShrink={1}
+								flexShrink={0}
 							>
 								<BreadcrumbList>
 									{breadcrumbItems.length === 1 && (
-										<BreadcrumbItem minW="0" flexShrink={1}>
+										<BreadcrumbItem flexShrink={0}>
 											<BreadcrumbPage>
 												{breadcrumbItems[0].label}
 											</BreadcrumbPage>
@@ -1301,7 +1300,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[1].label}
 														</BreadcrumbPage>
@@ -1322,7 +1321,7 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[1].label}
 														</BreadcrumbPage>
@@ -1361,7 +1360,7 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
@@ -1390,7 +1389,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
@@ -1406,7 +1405,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
@@ -1458,7 +1457,7 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
@@ -1487,7 +1486,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
@@ -1507,7 +1506,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
@@ -1527,7 +1526,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{
 																breadcrumbItems[breadcrumbItems.length - 1]
@@ -1558,7 +1557,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
+													<BreadcrumbItem flexShrink={0}>
 														<BreadcrumbPage>
 															{
 																breadcrumbItems[breadcrumbItems.length - 1]
