@@ -1150,27 +1150,29 @@ const ResourceCard: FC<{
 		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
 		e.currentTarget.style.setProperty("--mouse-opacity", "1");
 
-		const icons =
-			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
-		for (const icon of icons) {
-			const iconRect = icon.getBoundingClientRect();
-			const iconCenterX = iconRect.left + iconRect.width / 2;
-			const iconCenterY = iconRect.top + iconRect.height / 2;
-			const dist = Math.hypot(e.clientX - iconCenterX, e.clientY - iconCenterY);
-			if (dist < 100) {
-				icon.setAttribute("data-rb-near", "true");
+		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
+			"[data-rb-icon], [data-rb-swap]",
+		);
+		for (const el of swappables) {
+			const rect = el.getBoundingClientRect();
+			const dx = Math.max(rect.left - e.clientX, 0, e.clientX - rect.right);
+			const dy = Math.max(rect.top - e.clientY, 0, e.clientY - rect.bottom);
+			const dist = Math.hypot(dx, dy);
+			if (dist < 60) {
+				el.setAttribute("data-rb-near", "true");
 			} else {
-				icon.removeAttribute("data-rb-near");
+				el.removeAttribute("data-rb-near");
 			}
 		}
 	};
 
 	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
 		e.currentTarget.style.setProperty("--mouse-opacity", "0");
-		const icons =
-			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
-		for (const icon of icons) {
-			icon.removeAttribute("data-rb-near");
+		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
+			"[data-rb-icon], [data-rb-swap]",
+		);
+		for (const el of swappables) {
+			el.removeAttribute("data-rb-near");
 		}
 	};
 
@@ -1196,10 +1198,11 @@ const ResourceCard: FC<{
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
 			sx={{
-				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *": {
-					transition:
-						"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-				},
+				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *, & [data-rb-swap]":
+					{
+						transition:
+							"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+					},
 				"@media screen and (min-width: 768px)": {
 					"& [data-rb-icon][data-rb-near='true'], & [data-rb-icon]:hover": {
 						bg: "var(--rb-panel-surface, #242424) !important",
@@ -1210,6 +1213,10 @@ const ResourceCard: FC<{
 							color: "var(--rb-panel-text, #f5f5f5) !important",
 							stroke: "currentColor",
 						},
+					"& [data-rb-swap][data-rb-near='true']": {
+						bg: "var(--rb-panel-surface, #242424) !important",
+						color: "var(--rb-panel-text, #f5f5f5) !important",
+					},
 				},
 			}}
 			_hover={{
@@ -1277,15 +1284,7 @@ const ResourceCard: FC<{
 							}
 							fontWeight={colorMode === "light" ? "600" : "500"}
 							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							_groupHover={{
-								md: {
-									bg: "panel.surface",
-									color:
-										colorMode === "light"
-											? "panel.text"
-											: "panel.textSecondary",
-								},
-							}}
+							data-rb-swap=""
 							_hover={{
 								md: {
 									bg: "panel.border !important",
@@ -1417,12 +1416,8 @@ const ResourceCard: FC<{
 					borderRadius="full"
 					bg="panel.elevated"
 					transition="background-color 0.25s ease"
+					data-rb-swap=""
 					_hover={{
-						md: {
-							bg: "panel.surface",
-						},
-					}}
-					_groupHover={{
 						md: {
 							bg: "panel.surface",
 						},
@@ -1509,12 +1504,7 @@ const StatRow: FC<{
 						fontWeight="600"
 						dir="ltr"
 						transition="all 0.25s ease"
-						_groupHover={{
-							md: {
-								bg: "panel.surface",
-								color: "panel.textSecondary",
-							},
-						}}
+						data-rb-swap=""
 					>
 						<Text
 							as="span"
@@ -1570,17 +1560,18 @@ const SectionCard: FC<{
 		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
 		e.currentTarget.style.setProperty("--mouse-opacity", "1");
 
-		const icons =
-			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
-		for (const icon of icons) {
-			const iconRect = icon.getBoundingClientRect();
-			const iconCenterX = iconRect.left + iconRect.width / 2;
-			const iconCenterY = iconRect.top + iconRect.height / 2;
-			const dist = Math.hypot(e.clientX - iconCenterX, e.clientY - iconCenterY);
-			if (dist < 100) {
-				icon.setAttribute("data-rb-near", "true");
+		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
+			"[data-rb-icon], [data-rb-swap]",
+		);
+		for (const el of swappables) {
+			const elRect = el.getBoundingClientRect();
+			const dx = Math.max(elRect.left - e.clientX, 0, e.clientX - elRect.right);
+			const dy = Math.max(elRect.top - e.clientY, 0, e.clientY - elRect.bottom);
+			const dist = Math.hypot(dx, dy);
+			if (dist < 60) {
+				el.setAttribute("data-rb-near", "true");
 			} else {
-				icon.removeAttribute("data-rb-near");
+				el.removeAttribute("data-rb-near");
 			}
 		}
 	};
@@ -1588,10 +1579,11 @@ const SectionCard: FC<{
 	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
 		if (noHover) return;
 		e.currentTarget.style.setProperty("--mouse-opacity", "0");
-		const icons =
-			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
-		for (const icon of icons) {
-			icon.removeAttribute("data-rb-near");
+		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
+			"[data-rb-icon], [data-rb-swap]",
+		);
+		for (const el of swappables) {
+			el.removeAttribute("data-rb-near");
 		}
 	};
 
@@ -1613,10 +1605,11 @@ const SectionCard: FC<{
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
 			sx={{
-				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *": {
-					transition:
-						"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-				},
+				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *, & [data-rb-swap]":
+					{
+						transition:
+							"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+					},
 				...(noHover
 					? {}
 					: {
@@ -1631,6 +1624,11 @@ const SectionCard: FC<{
 										color: "var(--rb-panel-text, #f5f5f5) !important",
 										stroke: "currentColor",
 									},
+								"& [data-rb-swap][data-rb-near='true']": {
+									bg: "var(--rb-panel-surface, #242424) !important",
+									color:
+										"var(--rb-panel-text-secondary, rgba(255, 255, 255, 0.7)) !important",
+								},
 							},
 						}),
 			}}
@@ -2970,15 +2968,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							}
 							fontWeight={colorMode === "light" ? "600" : "500"}
 							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							_groupHover={{
-								md: {
-									bg: "panel.surface",
-									color:
-										colorMode === "light"
-											? "panel.text"
-											: "panel.textSecondary",
-								},
-							}}
+							data-rb-swap=""
 							_hover={{
 								md: {
 									bg: "panel.border !important",
@@ -3308,8 +3298,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 							p={0.5}
 							borderRadius="10px"
 							position="relative"
-							transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease"
-							_groupHover={{ md: { bg: "panel.surface" } }}
+							transition="background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease"
+							data-rb-swap=""
 						>
 							<Box position="relative">
 								{userTab === "all" && (
