@@ -1149,10 +1149,29 @@ const ResourceCard: FC<{
 		);
 		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
 		e.currentTarget.style.setProperty("--mouse-opacity", "1");
+
+		const icons =
+			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
+		for (const icon of icons) {
+			const iconRect = icon.getBoundingClientRect();
+			const iconCenterX = iconRect.left + iconRect.width / 2;
+			const iconCenterY = iconRect.top + iconRect.height / 2;
+			const dist = Math.hypot(e.clientX - iconCenterX, e.clientY - iconCenterY);
+			if (dist < 100) {
+				icon.setAttribute("data-rb-near", "true");
+			} else {
+				icon.removeAttribute("data-rb-near");
+			}
+		}
 	};
 
 	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
 		e.currentTarget.style.setProperty("--mouse-opacity", "0");
+		const icons =
+			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
+		for (const icon of icons) {
+			icon.removeAttribute("data-rb-near");
+		}
 	};
 
 	return (
@@ -1176,6 +1195,23 @@ const ResourceCard: FC<{
 			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
+			sx={{
+				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *": {
+					transition:
+						"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+				},
+				"@media screen and (min-width: 768px)": {
+					"& [data-rb-icon][data-rb-near='true'], & [data-rb-icon]:hover": {
+						bg: "var(--rb-panel-surface, #242424) !important",
+						color: "var(--rb-panel-text, #f5f5f5) !important",
+					},
+					"& [data-rb-icon][data-rb-near='true'] svg, & [data-rb-icon][data-rb-near='true'] *, & [data-rb-icon]:hover svg, & [data-rb-icon]:hover *":
+						{
+							color: "var(--rb-panel-text, #f5f5f5) !important",
+							stroke: "currentColor",
+						},
+				},
+			}}
 			_hover={{
 				md: {
 					borderColor: "panel.borderStrong",
@@ -1212,8 +1248,7 @@ const ResourceCard: FC<{
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							flexShrink={0}
-							transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-							_groupHover={{ md: { bg: "panel.surface", color: "panel.text" } }}
+							data-rb-icon=""
 						>
 							{icon}
 						</Flex>
@@ -1534,11 +1569,30 @@ const SectionCard: FC<{
 		);
 		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
 		e.currentTarget.style.setProperty("--mouse-opacity", "1");
+
+		const icons =
+			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
+		for (const icon of icons) {
+			const iconRect = icon.getBoundingClientRect();
+			const iconCenterX = iconRect.left + iconRect.width / 2;
+			const iconCenterY = iconRect.top + iconRect.height / 2;
+			const dist = Math.hypot(e.clientX - iconCenterX, e.clientY - iconCenterY);
+			if (dist < 100) {
+				icon.setAttribute("data-rb-near", "true");
+			} else {
+				icon.removeAttribute("data-rb-near");
+			}
+		}
 	};
 
 	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
 		if (noHover) return;
 		e.currentTarget.style.setProperty("--mouse-opacity", "0");
+		const icons =
+			e.currentTarget.querySelectorAll<HTMLElement>("[data-rb-icon]");
+		for (const icon of icons) {
+			icon.removeAttribute("data-rb-near");
+		}
 	};
 
 	return (
@@ -1559,22 +1613,24 @@ const SectionCard: FC<{
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
 			sx={{
-				"&[data-rb-iconswap] [data-rb-icon], &[data-rb-iconswap] [data-rb-icon] svg, &[data-rb-iconswap] [data-rb-icon] *":
-					{
-						transition: "color 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-					},
+				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *": {
+					transition:
+						"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+				},
 				...(noHover
 					? {}
 					: {
 							"@media screen and (min-width: 768px)": {
-								"&:hover [data-rb-icon]": {
-									bg: "var(--rb-panel-surface, #242424) !important",
-									color: "var(--rb-panel-text, #f5f5f5) !important",
-								},
-								"&:hover [data-rb-icon] svg, &:hover [data-rb-icon] *": {
-									color: "var(--rb-panel-text, #f5f5f5) !important",
-									stroke: "currentColor",
-								},
+								"& [data-rb-icon][data-rb-near='true'], & [data-rb-icon]:hover":
+									{
+										bg: "var(--rb-panel-surface, #242424) !important",
+										color: "var(--rb-panel-text, #f5f5f5) !important",
+									},
+								"& [data-rb-icon][data-rb-near='true'] svg, & [data-rb-icon][data-rb-near='true'] *, & [data-rb-icon]:hover svg, & [data-rb-icon]:hover *":
+									{
+										color: "var(--rb-panel-text, #f5f5f5) !important",
+										stroke: "currentColor",
+									},
 							},
 						}),
 			}}
@@ -1708,8 +1764,6 @@ const SpeedItem: FC<{
 					borderRadius="10px"
 					bg="panel.elevated"
 					flexShrink={0}
-					transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-					_groupHover={{ md: { bg: "panel.surface" } }}
 					data-rb-icon=""
 				>
 					{icon}
