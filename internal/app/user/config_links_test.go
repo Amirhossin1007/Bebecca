@@ -1450,7 +1450,7 @@ func TestVLESSShareLinkFlowMatchesOfficialTransportRules(t *testing.T) {
 	}
 }
 
-func TestVLESSShareLinkUsesInboundFlowAsUserDefault(t *testing.T) {
+func TestVLESSShareLinkUsesResolvedPerInboundAccountFlow(t *testing.T) {
 	inbound := ResolvedInbound{
 		"port": 443, "network": "tcp", "tls": "tls", "header_type": "none",
 		"encryption": "none", "flow": "xtls-rprx-vision",
@@ -1462,8 +1462,8 @@ func TestVLESSShareLinkUsesInboundFlowAsUserDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := parsed.Query().Get("flow"); got != "xtls-rprx-vision" {
-		t.Fatalf("default flow = %q, want xtls-rprx-vision", got)
+	if got := parsed.Query().Get("flow"); got != "" {
+		t.Fatalf("inbound flow leaked into link: %q", got)
 	}
 
 	userLink := vlessShareLink("user", "example.com", "/", inbound, map[string]any{

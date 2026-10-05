@@ -43,25 +43,42 @@ func TestHostsCRUDOnMigratedSQLite(t *testing.T) {
 	}
 	serviceID := sqliteLastID(t, server.db)
 
-	payload := `{"sqlite-in":[{"remark":"one","address":"one.example.com","port":443,"security":"inbound_default","is_disabled":false}]}`
+	payload := `{"sqlite-in":[{"remark":"one","address":"one.example.com","port":443,"security":"inbound_default","is_disabled":false,"client_settings":{"tlsSettings":{"echConfigList":"cloudflare-ech.com+udp://1.1.1.1"}}}]}`
 	rec := sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token, payload)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("add host status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	hostID := sqliteHostID(t, server.db, "one")
+	var clientSettings string
+	if err := server.db.QueryRow(`SELECT client_settings FROM hosts WHERE id = ?`, hostID).Scan(&clientSettings); err != nil || !bytes.Contains([]byte(clientSettings), []byte("cloudflare-ech.com")) {
+		t.Fatalf("client settings not inserted: %q err=%v", clientSettings, err)
+	}
 	if _, err := server.db.Exec(`INSERT INTO service_hosts (service_id, host_id, sort) VALUES (?, ?, 0)`, serviceID, hostID); err != nil {
 		t.Fatal(err)
 	}
 
-	payload = `{"sqlite-in":[{"id":` + strconv.FormatInt(hostID, 10) + `,"remark":"two","address":"two.example.com","port":8443,"security":"none","is_disabled":false}]}`
+	payload = `{"sqlite-in":[{"id":` + strconv.FormatInt(hostID, 10) + `,"remark":"two","address":"two.example.com","port":8443,"security":"none","is_disabled":false,"client_settings":{"sockopt":{"tcpFastOpen":false}}}]}`
 	rec = sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token, payload)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("edit host status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = ? AND host_id = ?`, 1, serviceID, hostID)
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
+	var updated map[string][]hostResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	if value, ok := updated["sqlite-in"][0].ClientSettings["sockopt"].(map[string]any); !ok || value["tcpFastOpen"] != false {
+		t.Fatalf("client settings not returned: %#v", updated)
+	}
+	invalid := `{"sqlite-in":[{"id":` + strconv.FormatInt(hostID, 10) + `,"remark":"invalid","address":"two.example.com","client_settings":{"tlsSettings":{"echServerKeys":"secret"}}}]}`
+	rec = sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token, invalid)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid client setting accepted: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM hosts WHERE id = ? AND remark = 'two'`, 1, hostID)
 
-	payload = `{"sqlite-in":[{"id":` + strconv.FormatInt(hostID, 10) + `,"remark":"two","address":"two.example.com","port":8443,"security":"none","is_disabled":true}]}`
+	payload = `{"sqlite-in":[{"id":` + strconv.FormatInt(hostID, 10) + `,"remark":"two","address":"two.example.com","port":8443,"security":"none","is_disabled":true,"client_settings":{"sockopt":{"tcpFastOpen":false}}}]}`
 	rec = sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token, payload)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("disable host status=%d body=%s", rec.Code, rec.Body.String())
@@ -75,6 +92,10 @@ func TestHostsCRUDOnMigratedSQLite(t *testing.T) {
 	}
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM service_hosts WHERE service_id = ? AND host_id = ?`, 1, serviceID, hostID)
 	sqliteAssertCount(t, server.db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 2)
+	var enabled hostResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &enabled); err != nil || enabled.ClientSettings["sockopt"] == nil {
+		t.Fatalf("status update lost client settings: %#v err=%v", enabled, err)
+	}
 
 	payload = `{"sqlite-in":[]}`
 	rec = sqliteJSONRequest(server, http.MethodPut, "/api/hosts", token, payload)

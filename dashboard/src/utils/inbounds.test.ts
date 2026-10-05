@@ -143,6 +143,8 @@ describe("VLESS inbound default flow", () => {
 			},
 		});
 		expect(invalid.vlessFlow).toBe("");
+		values.vlessFlow = "";
+		expect(buildInboundPayload(values, { initial: raw }).settings.flow).toBe("");
 	});
 });
 

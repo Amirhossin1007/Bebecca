@@ -12,6 +12,37 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func TestStoredHostClientSettingsReachSubscription(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	if _, err := service.repo.db.Exec(`UPDATE hosts SET client_settings = ? WHERE id = 1`, `{"tlsSettings":{"echConfigList":"cloudflare-ech.com+udp://1.1.1.1"},"wsSettings":{"heartbeatPeriod":30},"sockopt":{"tcpFastOpen":false}}`); err != nil {
+		t.Fatal(err)
+	}
+	for _, format := range []string{"xray-json", "v2ray-json"} {
+		response, err := service.RenderSubscription(context.Background(), SubscriptionRenderRequest{Identifier: key, ClientType: format, ReadOnly: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var configs []map[string]any
+		if err := json.Unmarshal(response.Body, &configs); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, config := range configs {
+			if config["remarks"] != "xray-edge" {
+				continue
+			}
+			found = true
+			stream := mapValue(listOfMaps(config["outbounds"])[0]["streamSettings"])
+			if mapValue(stream["tlsSettings"])["echConfigList"] != "cloudflare-ech.com+udp://1.1.1.1" || mapValue(stream["wsSettings"])["heartbeatPeriod"] != float64(30) || mapValue(stream["sockopt"])["tcpFastOpen"] != false {
+				t.Fatalf("stored client settings missing from %s: %#v", format, stream)
+			}
+		}
+		if !found {
+			t.Fatalf("host missing from %s: %s", format, response.Body)
+		}
+	}
+}
+
 func TestSubscriptionClientOutputsCoverExplicitFormatsAndAutoDetect(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()
@@ -816,6 +847,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			fragment_setting TEXT NULL,
 			noise_setting TEXT NULL,
 			finalmask TEXT NULL,
+			client_settings TEXT NULL,
 			random_user_agent INTEGER NOT NULL DEFAULT 0,
 			use_sni_as_host INTEGER NOT NULL DEFAULT 0
 		)`,

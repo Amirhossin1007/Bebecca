@@ -104,15 +104,15 @@ func TestRestoreMutationSnapshotPreservesHostFinalMask(t *testing.T) {
 			host TEXT, host_options TEXT, host_selection_mode TEXT, host_ttl_seconds INTEGER,
 			security TEXT, alpn TEXT, fingerprint TEXT, verify_peer_cert_by_name TEXT, pinned_peer_cert_sha256 TEXT,
 			allowinsecure INTEGER, is_disabled INTEGER, mux_enable INTEGER,
-			fragment_setting TEXT, noise_setting TEXT, finalmask TEXT, random_user_agent INTEGER, use_sni_as_host INTEGER
+			fragment_setting TEXT, noise_setting TEXT, finalmask TEXT, random_user_agent INTEGER, use_sni_as_host INTEGER, client_settings TEXT
 		)`,
 		`CREATE TABLE service_hosts (service_id INTEGER, host_id INTEGER, sort INTEGER)`,
 		`INSERT INTO hosts (
 			id, inbound_tag, remark, address, dns_primary, dns_secondary, address_selection_mode,
 			sni_selection_mode, host_selection_mode, security, alpn, fingerprint, is_disabled, mux_enable,
-			finalmask, random_user_agent, use_sni_as_host
+			finalmask, random_user_agent, use_sni_as_host, client_settings
 		) VALUES (1, 'vless', 'edge', 'example.com', '', '', 'random', 'random', 'random',
-			'inbound_default', 'none', 'none', 0, 0, '{"tcp":[{"type":"fragment"}]}', 0, 0)`,
+			'inbound_default', 'none', 'none', 0, 0, '{"tcp":[{"type":"fragment"}]}', 0, 0, '{"tlsSettings":{"echConfigList":"cloudflare-ech.com+udp://1.1.1.1"}}')`,
 	} {
 		if _, err := db.Exec(statement); err != nil {
 			t.Fatal(err)
@@ -129,7 +129,7 @@ func TestRestoreMutationSnapshotPreservesHostFinalMask(t *testing.T) {
 		_ = tx.Rollback()
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(`UPDATE hosts SET finalmask = '{"udp":[{"type":"noise"}]}' WHERE id = 1`); err != nil {
+	if _, err := tx.Exec(`UPDATE hosts SET finalmask = '{"udp":[{"type":"noise"}]}', client_settings = '{}' WHERE id = 1`); err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
 	}
@@ -148,11 +148,14 @@ func TestRestoreMutationSnapshotPreservesHostFinalMask(t *testing.T) {
 	if err := repo.RestoreMutationSnapshot(ctx, 1, afterHash, before, nil); err != nil {
 		t.Fatal(err)
 	}
-	var finalMask string
-	if err := db.QueryRow(`SELECT finalmask FROM hosts WHERE id = 1`).Scan(&finalMask); err != nil {
+	var finalMask, clientSettings string
+	if err := db.QueryRow(`SELECT finalmask, client_settings FROM hosts WHERE id = 1`).Scan(&finalMask, &clientSettings); err != nil {
 		t.Fatal(err)
 	}
 	if finalMask != `{"tcp":[{"type":"fragment"}]}` {
 		t.Fatalf("FinalMask after rollback = %q", finalMask)
+	}
+	if clientSettings != `{"tlsSettings":{"echConfigList":"cloudflare-ech.com+udp://1.1.1.1"}}` {
+		t.Fatalf("ClientSettings after rollback = %q", clientSettings)
 	}
 }

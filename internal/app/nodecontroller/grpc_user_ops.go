@@ -116,16 +116,13 @@ func (c Controller) grpcAddUserToNode(ctx context.Context, client *nodeclient.Cl
 				continue
 			}
 			matched++
-			settings, err := userread.RuntimeProxySettings(runtimeUser.Settings, runtimeUser.Protocol, runtimeUser.CredentialKey, runtimeUser.Flow, masks)
+			settings, err := userread.RuntimeProxySettingsForInbound(runtimeUser.Settings, inbound, runtimeUser.CredentialKey, runtimeUser.Flow, masks)
 			if err != nil {
 				lastErr = err
 				continue
 			}
 			if runtimeUser.Protocol == "shadowsocks" {
 				settings = userread.RuntimeShadowsocksSettings(settings, ensureMap(inbound, "settings"))
-			}
-			if flow := stringValue(settings["flow"]); flow != "" && !flowSupportedForInbound(inbound) {
-				delete(settings, "flow")
 			}
 			email := taggedRuntimeUserEmail(legacyEmail, tag)
 			settings["email"] = email

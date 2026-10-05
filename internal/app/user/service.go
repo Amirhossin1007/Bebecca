@@ -155,7 +155,7 @@ func (s Service) CreateUser(ctx context.Context, admin adminapp.Admin, raw []byt
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return MutationResult{}, clientError(400, "invalid request body")
 	}
-	// Flow is retained in the public payload for compatibility; service flow is authoritative.
+	// Flow is retained in the public payload for compatibility; inbound flow is authoritative.
 	payload.Flow = nil
 	if rawFieldPresent(fields, "next_plan") {
 		return MutationResult{}, clientError(400, NextPlanRemovedMessage)
