@@ -1119,29 +1119,37 @@ export function AppLayout() {
 			);
 			const profileWidth = profileEl ? profileEl.offsetWidth : 110;
 			const navButtonWidth = 46;
-			const gapsAndPadding = 75;
+			const gapsAndPadding = 65;
+			const fixedWidth = navButtonWidth + profileWidth + gapsAndPadding;
+			const spaceLeft = totalWidth - fixedWidth;
 
-			const availableForBannerAndCalendar =
-				totalWidth - (navButtonWidth + 120 + profileWidth + gapsAndPadding);
+			const neededBreadcrumbWidth =
+				breadcrumbItems.length >= 4
+					? 320
+					: breadcrumbItems.length === 3
+						? 230
+						: breadcrumbItems.length === 2
+							? 150
+							: 85;
+
+			const idealBannerWidth = hasBanner ? naturalBannerWidth || 220 : 0;
+			const minBannerWidth = hasBanner ? 80 : 0;
 			const canFitFullCalendar =
-				availableForBannerAndCalendar >= naturalBannerWidth + 190;
+				spaceLeft >= neededBreadcrumbWidth + idealBannerWidth + 190;
 			setCalendarCompact(!canFitFullCalendar);
 
 			const calendarWidth = canFitFullCalendar ? 200 : 34;
-			const nonBreadcrumbWidth =
-				navButtonWidth +
-				profileWidth +
-				naturalBannerWidth +
-				calendarWidth +
-				gapsAndPadding;
-			const availableForBreadcrumb = totalWidth - nonBreadcrumbWidth;
+			const spaceForBannerAndBreadcrumb = spaceLeft - calendarWidth;
 
-			if (availableForBreadcrumb < 140) {
-				setBreadcrumbMode("minimal");
-			} else if (availableForBreadcrumb < 280) {
+			if (
+				spaceForBannerAndBreadcrumb >=
+				neededBreadcrumbWidth + minBannerWidth
+			) {
+				setBreadcrumbMode("full");
+			} else if (spaceForBannerAndBreadcrumb >= 180) {
 				setBreadcrumbMode("compact");
 			} else {
-				setBreadcrumbMode("full");
+				setBreadcrumbMode("minimal");
 			}
 		};
 		const timer = setTimeout(checkFit, 20);
@@ -1151,7 +1159,12 @@ export function AppLayout() {
 			clearTimeout(timer);
 			ro.disconnect();
 		};
-	}, [location.pathname, location.hash, sponsorHeaderItems.length]);
+	}, [
+		location.pathname,
+		location.hash,
+		sponsorHeaderItems.length,
+		breadcrumbItems.length,
+	]);
 
 	return (
 		<>
@@ -1402,7 +1415,108 @@ export function AppLayout() {
 											)}
 										</>
 									)}
-									{breadcrumbItems.length >= 4 && (
+									{breadcrumbItems.length === 4 && (
+										<>
+											{breadcrumbMode === "full" && (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[0].path)}
+															onClick={() => {
+																if (breadcrumbItems[0].path) {
+																	navigate(breadcrumbItems[0].path);
+																}
+															}}
+														>
+															{breadcrumbItems[0].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[1].path)}
+															onClick={() => {
+																if (breadcrumbItems[1].path) {
+																	navigate(breadcrumbItems[1].path);
+																}
+															}}
+														>
+															{breadcrumbItems[1].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[2].path)}
+															onClick={() => {
+																if (breadcrumbItems[2].path) {
+																	navigate(breadcrumbItems[2].path);
+																}
+															}}
+														>
+															{breadcrumbItems[2].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[3].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
+											{breadcrumbMode === "compact" && (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbLink
+															isClickable={Boolean(breadcrumbItems[0].path)}
+															onClick={() => {
+																if (breadcrumbItems[0].path) {
+																	navigate(breadcrumbItems[0].path);
+																}
+															}}
+														>
+															{breadcrumbItems[0].label}
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbEllipsisDropdown
+															items={[breadcrumbItems[1], breadcrumbItems[2]]}
+															onNavigate={(path) => navigate(path)}
+														/>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[3].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
+											{breadcrumbMode === "minimal" && (
+												<>
+													<BreadcrumbItem flexShrink={0}>
+														<BreadcrumbEllipsisDropdown
+															items={[
+																breadcrumbItems[0],
+																breadcrumbItems[1],
+																breadcrumbItems[2],
+															]}
+															onNavigate={(path) => navigate(path)}
+														/>
+													</BreadcrumbItem>
+													<BreadcrumbSeparator flexShrink={0} />
+													<BreadcrumbItem minW="0" flexShrink={1}>
+														<BreadcrumbPage>
+															{breadcrumbItems[3].label}
+														</BreadcrumbPage>
+													</BreadcrumbItem>
+												</>
+											)}
+										</>
+									)}
+									{breadcrumbItems.length > 4 && (
 										<>
 											{breadcrumbMode === "minimal" ? (
 												<>
@@ -1517,12 +1631,13 @@ export function AppLayout() {
 									>
 										<Box
 											data-header-banner="true"
-											maxW="100%"
-											minW={0}
+											maxW={{ base: "100%", md: "340px" }}
+											minW={{ base: "0px", md: "70px" }}
 											h="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
 											justifyContent="center"
+											flexShrink={1}
 										>
 											<SponsorCarousel
 												items={sponsorHeaderItems}

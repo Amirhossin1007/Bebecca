@@ -38,6 +38,7 @@ import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
 import {
 	type FC,
+	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	Suspense,
 	useEffect,
@@ -1140,6 +1141,20 @@ const ResourceCard: FC<{
 	const criticalColor =
 		safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
 
+	const handleMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+		const rect = e.currentTarget.getBoundingClientRect();
+		e.currentTarget.style.setProperty(
+			"--mouse-x",
+			`${e.clientX - rect.left}px`,
+		);
+		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+		e.currentTarget.style.setProperty("--mouse-opacity", "1");
+	};
+
+	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
+		e.currentTarget.style.setProperty("--mouse-opacity", "0");
+	};
+
 	return (
 		<Box
 			role="group"
@@ -1158,11 +1173,12 @@ const ResourceCard: FC<{
 					? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
 					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 			}
-			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			onMouseMove={handleMouseMove}
+			onMouseLeave={handleMouseLeave}
 			_hover={{
 				md: {
 					borderColor: "panel.borderStrong",
-					bg: "panel.elevated",
 					boxShadow:
 						colorMode === "light"
 							? "inset 0 1px 0 0 rgba(0, 0, 0, 0.06)"
@@ -1170,7 +1186,21 @@ const ResourceCard: FC<{
 				},
 			}}
 		>
-			<Box>
+			<Box
+				position="absolute"
+				inset={0}
+				pointerEvents="none"
+				borderRadius="20px"
+				opacity="var(--mouse-opacity, 0)"
+				transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+				bg={
+					colorMode === "light"
+						? "radial-gradient(350px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.035), transparent 75%)"
+						: "radial-gradient(350px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.06), transparent 75%)"
+				}
+				zIndex={0}
+			/>
+			<Box position="relative" zIndex={1} w="full">
 				<Flex justify="space-between" align="center" mb={3}>
 					<HStack spacing={2.5} align="center">
 						<Flex
@@ -1494,6 +1524,23 @@ const SectionCard: FC<{
 	roleGroup?: boolean;
 }> = ({ children, title, action, noHover = false, roleGroup = true }) => {
 	const { colorMode } = useColorMode();
+
+	const handleMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+		if (noHover) return;
+		const rect = e.currentTarget.getBoundingClientRect();
+		e.currentTarget.style.setProperty(
+			"--mouse-x",
+			`${e.clientX - rect.left}px`,
+		);
+		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+		e.currentTarget.style.setProperty("--mouse-opacity", "1");
+	};
+
+	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
+		if (noHover) return;
+		e.currentTarget.style.setProperty("--mouse-opacity", "0");
+	};
+
 	return (
 		<Box
 			role={roleGroup ? "group" : undefined}
@@ -1501,13 +1548,16 @@ const SectionCard: FC<{
 			borderWidth="1px"
 			borderColor="panel.border"
 			borderRadius="20px"
+			position="relative"
 			overflow="hidden"
 			boxShadow={
 				colorMode === "light"
 					? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
 					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 			}
-			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			onMouseMove={handleMouseMove}
+			onMouseLeave={handleMouseLeave}
 			sx={{
 				"&[data-rb-iconswap] [data-rb-icon], &[data-rb-iconswap] [data-rb-icon] svg, &[data-rb-iconswap] [data-rb-icon] *":
 					{
@@ -1535,7 +1585,6 @@ const SectionCard: FC<{
 					: {
 							md: {
 								borderColor: "panel.borderStrong",
-								bg: "panel.elevated",
 								boxShadow:
 									colorMode === "light"
 										? "inset 0 1px 0 0 rgba(0, 0, 0, 0.06)"
@@ -1544,8 +1593,26 @@ const SectionCard: FC<{
 						}
 			}
 		>
+			{!noHover && (
+				<Box
+					position="absolute"
+					inset={0}
+					pointerEvents="none"
+					borderRadius="20px"
+					opacity="var(--mouse-opacity, 0)"
+					transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+					bg={
+						colorMode === "light"
+							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.035), transparent 75%)"
+							: "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.06), transparent 75%)"
+					}
+					zIndex={0}
+				/>
+			)}
 			{(title || action) && (
 				<Flex
+					position="relative"
+					zIndex={1}
 					px={{ base: 4, sm: 5, md: 6 }}
 					py={3.5}
 					align="center"
@@ -1566,7 +1633,7 @@ const SectionCard: FC<{
 					{action}
 				</Flex>
 			)}
-			<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
+			<Box position="relative" zIndex={1} px={{ base: 4, sm: 5, md: 6 }} py={4}>
 				{children}
 			</Box>
 		</Box>
