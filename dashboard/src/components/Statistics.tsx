@@ -1153,15 +1153,18 @@ const ResourceCard: FC<{
 		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
 			"[data-rb-icon], [data-rb-swap]",
 		);
+		const RADIUS = 110;
 		for (const el of swappables) {
 			const rect = el.getBoundingClientRect();
 			const dx = Math.max(rect.left - e.clientX, 0, e.clientX - rect.right);
 			const dy = Math.max(rect.top - e.clientY, 0, e.clientY - rect.bottom);
 			const dist = Math.hypot(dx, dy);
-			if (dist < 60) {
-				el.setAttribute("data-rb-near", "true");
+			if (dist < RADIUS) {
+				const t = 1 - dist / RADIUS;
+				const proximity = t * t * (3 - 2 * t);
+				el.style.setProperty("--proximity", proximity.toFixed(3));
 			} else {
-				el.removeAttribute("data-rb-near");
+				el.style.removeProperty("--proximity");
 			}
 		}
 	};
@@ -1172,7 +1175,7 @@ const ResourceCard: FC<{
 			"[data-rb-icon], [data-rb-swap]",
 		);
 		for (const el of swappables) {
-			el.removeAttribute("data-rb-near");
+			el.style.removeProperty("--proximity");
 		}
 	};
 
@@ -1198,24 +1201,32 @@ const ResourceCard: FC<{
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
 			sx={{
-				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *, & [data-rb-swap]":
-					{
-						transition:
-							"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-					},
+				"& [data-rb-icon], & [data-rb-swap]": {
+					transition:
+						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
+				},
 				"@media screen and (min-width: 768px)": {
-					"& [data-rb-icon][data-rb-near='true'], & [data-rb-icon]:hover": {
-						bg: "var(--rb-panel-surface, #242424) !important",
-						color: "var(--rb-panel-text, #f5f5f5) !important",
+					"& [data-rb-icon]": {
+						bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
+						color:
+							"color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
 					},
-					"& [data-rb-icon][data-rb-near='true'] svg, & [data-rb-icon][data-rb-near='true'] *, & [data-rb-icon]:hover svg, & [data-rb-icon]:hover *":
-						{
-							color: "var(--rb-panel-text, #f5f5f5) !important",
-							stroke: "currentColor",
-						},
-					"& [data-rb-swap][data-rb-near='true']": {
-						bg: "var(--rb-panel-surface, #242424) !important",
-						color: "var(--rb-panel-text, #f5f5f5) !important",
+					"& [data-rb-icon]:hover": {
+						"--proximity": "1",
+					},
+					"& [data-rb-icon] svg, & [data-rb-icon] *": {
+						color: "currentColor !important",
+						stroke: "currentColor",
+					},
+					"& [data-rb-swap]": {
+						bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
+					},
+					"& [data-rb-swap]:hover": {
+						"--proximity": "1",
+					},
+					"& [data-rb-swap][data-rb-swap-text]": {
+						color:
+							"color-mix(in srgb, var(--rb-panel-text-secondary, #b8b8b8) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-muted, #8a8a8a)) !important",
 					},
 				},
 			}}
@@ -1505,6 +1516,7 @@ const StatRow: FC<{
 						dir="ltr"
 						transition="all 0.25s ease"
 						data-rb-swap=""
+						data-rb-swap-text=""
 					>
 						<Text
 							as="span"
@@ -1563,15 +1575,18 @@ const SectionCard: FC<{
 		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
 			"[data-rb-icon], [data-rb-swap]",
 		);
+		const RADIUS = 110;
 		for (const el of swappables) {
 			const elRect = el.getBoundingClientRect();
 			const dx = Math.max(elRect.left - e.clientX, 0, e.clientX - elRect.right);
 			const dy = Math.max(elRect.top - e.clientY, 0, e.clientY - elRect.bottom);
 			const dist = Math.hypot(dx, dy);
-			if (dist < 60) {
-				el.setAttribute("data-rb-near", "true");
+			if (dist < RADIUS) {
+				const t = 1 - dist / RADIUS;
+				const proximity = t * t * (3 - 2 * t);
+				el.style.setProperty("--proximity", proximity.toFixed(3));
 			} else {
-				el.removeAttribute("data-rb-near");
+				el.style.removeProperty("--proximity");
 			}
 		}
 	};
@@ -1583,7 +1598,7 @@ const SectionCard: FC<{
 			"[data-rb-icon], [data-rb-swap]",
 		);
 		for (const el of swappables) {
-			el.removeAttribute("data-rb-near");
+			el.style.removeProperty("--proximity");
 		}
 	};
 
@@ -1605,29 +1620,35 @@ const SectionCard: FC<{
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
 			sx={{
-				"& [data-rb-icon], & [data-rb-icon] svg, & [data-rb-icon] *, & [data-rb-swap]":
-					{
-						transition:
-							"background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-					},
+				"& [data-rb-icon], & [data-rb-swap]": {
+					transition:
+						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
+				},
 				...(noHover
 					? {}
 					: {
 							"@media screen and (min-width: 768px)": {
-								"& [data-rb-icon][data-rb-near='true'], & [data-rb-icon]:hover":
-									{
-										bg: "var(--rb-panel-surface, #242424) !important",
-										color: "var(--rb-panel-text, #f5f5f5) !important",
-									},
-								"& [data-rb-icon][data-rb-near='true'] svg, & [data-rb-icon][data-rb-near='true'] *, & [data-rb-icon]:hover svg, & [data-rb-icon]:hover *":
-									{
-										color: "var(--rb-panel-text, #f5f5f5) !important",
-										stroke: "currentColor",
-									},
-								"& [data-rb-swap][data-rb-near='true']": {
-									bg: "var(--rb-panel-surface, #242424) !important",
+								"& [data-rb-icon]": {
+									bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
 									color:
-										"var(--rb-panel-text-secondary, rgba(255, 255, 255, 0.7)) !important",
+										"color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
+								},
+								"& [data-rb-icon]:hover": {
+									"--proximity": "1",
+								},
+								"& [data-rb-icon] svg, & [data-rb-icon] *": {
+									color: "currentColor !important",
+									stroke: "currentColor",
+								},
+								"& [data-rb-swap]": {
+									bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
+								},
+								"& [data-rb-swap]:hover": {
+									"--proximity": "1",
+								},
+								"& [data-rb-swap][data-rb-swap-text]": {
+									color:
+										"color-mix(in srgb, var(--rb-panel-text-secondary, #b8b8b8) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-muted, #8a8a8a)) !important",
 								},
 							},
 						}),
