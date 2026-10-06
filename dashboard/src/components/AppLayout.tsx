@@ -275,6 +275,7 @@ export function AppLayout() {
 		natural: 280,
 		half: 140,
 	});
+	const canTruncateLastCrumb = breadcrumbMode === "minimal" && calendarCompact;
 	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
 		Record<string, boolean>
 	>({
@@ -1122,9 +1123,6 @@ export function AppLayout() {
 						: { natural: naturalBannerWidth, half: halfBannerWidth },
 				);
 			}
-			const halfBannerWidth = hasBanner
-				? Math.max(110, Math.round(naturalBannerWidth / 2))
-				: 0;
 
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
@@ -1135,7 +1133,7 @@ export function AppLayout() {
 			const fixedWidth = navButtonWidth + profileWidth + gapsAndPadding;
 			const spaceLeft = totalWidth - fixedWidth;
 
-			const neededBreadcrumbWidth =
+			const fullBreadcrumbWidth =
 				breadcrumbItems.length === 4
 					? 320
 					: breadcrumbItems.length === 3
@@ -1146,21 +1144,44 @@ export function AppLayout() {
 								? 190
 								: 85;
 
-			const canFitFullCalendar =
-				spaceLeft >= neededBreadcrumbWidth + naturalBannerWidth + 190;
-			setCalendarCompact(!canFitFullCalendar);
+			const compactBreadcrumbWidth =
+				breadcrumbItems.length <= 2 ? fullBreadcrumbWidth : 160;
 
-			const calendarWidth = canFitFullCalendar ? 200 : 34;
-			const spaceForBannerAndBreadcrumb = spaceLeft - calendarWidth;
-			const availableForBreadcrumb =
-				spaceForBannerAndBreadcrumb - halfBannerWidth;
+			const fullCalendarWidth = 200;
+			const compactCalendarWidth = 34;
+			const minBannerWidth = hasBanner ? 40 : 0;
 
-			if (availableForBreadcrumb >= neededBreadcrumbWidth) {
+			if (
+				spaceLeft >=
+				fullBreadcrumbWidth + naturalBannerWidth + fullCalendarWidth
+			) {
+				setCalendarCompact(false);
 				setBreadcrumbMode("full");
-			} else if (availableForBreadcrumb >= 150) {
+			} else if (
+				spaceLeft >=
+				fullBreadcrumbWidth + minBannerWidth + fullCalendarWidth
+			) {
+				setCalendarCompact(false);
+				setBreadcrumbMode("full");
+			} else if (
+				spaceLeft >=
+				compactBreadcrumbWidth + minBannerWidth + fullCalendarWidth
+			) {
+				setCalendarCompact(false);
 				setBreadcrumbMode("compact");
 			} else {
-				setBreadcrumbMode("minimal");
+				setCalendarCompact(true);
+				const spaceWithCompactCalendar = spaceLeft - compactCalendarWidth;
+				if (spaceWithCompactCalendar >= fullBreadcrumbWidth + minBannerWidth) {
+					setBreadcrumbMode("full");
+				} else if (
+					spaceWithCompactCalendar >=
+					compactBreadcrumbWidth + minBannerWidth
+				) {
+					setBreadcrumbMode("compact");
+				} else {
+					setBreadcrumbMode("minimal");
+				}
 			}
 		};
 		const timer = setTimeout(checkFit, 20);
@@ -1288,15 +1309,20 @@ export function AppLayout() {
 							<Breadcrumb
 								data-header-breadcrumb
 								display={{ base: "none", md: "flex" }}
-								minW="0"
-								overflow="hidden"
+								minW={canTruncateLastCrumb ? "0" : "fit-content"}
+								overflow={canTruncateLastCrumb ? "hidden" : "visible"}
 								dir={isRTL ? "rtl" : "ltr"}
-								flexShrink={1}
+								flexShrink={canTruncateLastCrumb ? 1 : 0}
 							>
-								<BreadcrumbList>
+								<BreadcrumbList
+									minW={canTruncateLastCrumb ? "0" : "fit-content"}
+								>
 									{breadcrumbItems.length === 1 && (
-										<BreadcrumbItem minW="0" flexShrink={1}>
-											<BreadcrumbPage>
+										<BreadcrumbItem
+											minW={canTruncateLastCrumb ? "0" : "fit-content"}
+											flexShrink={canTruncateLastCrumb ? 1 : 0}
+										>
+											<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 												{breadcrumbItems[0].label}
 											</BreadcrumbPage>
 										</BreadcrumbItem>
@@ -1312,8 +1338,11 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[1].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1333,8 +1362,11 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[1].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1372,8 +1404,11 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1401,8 +1436,11 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1417,8 +1455,11 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1469,8 +1510,11 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1498,8 +1542,11 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1518,8 +1565,11 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
 													</BreadcrumbItem>
@@ -1538,8 +1588,11 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{
 																breadcrumbItems[breadcrumbItems.length - 1]
 																	.label
@@ -1569,8 +1622,11 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem minW="0" flexShrink={1}>
-														<BreadcrumbPage>
+													<BreadcrumbItem
+														minW={canTruncateLastCrumb ? "0" : "fit-content"}
+														flexShrink={canTruncateLastCrumb ? 1 : 0}
+													>
+														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
 															{
 																breadcrumbItems[breadcrumbItems.length - 1]
 																	.label
@@ -1648,7 +1704,7 @@ export function AppLayout() {
 											}}
 											minW={{
 												base: "0px",
-												md: `${bannerDimensions.half}px`,
+												md: "40px",
 											}}
 											h="40px"
 											display={{ base: "none", md: "flex" }}

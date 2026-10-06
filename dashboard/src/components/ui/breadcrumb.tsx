@@ -164,7 +164,7 @@ export interface BreadcrumbPageProps
 }
 
 export const BreadcrumbPage = forwardRef<HTMLSpanElement, BreadcrumbPageProps>(
-	(props, ref) => (
+	({ isTruncated = false, noOfLines, display, ...props }, ref) => (
 		<Box
 			as="span"
 			ref={ref}
@@ -174,10 +174,11 @@ export const BreadcrumbPage = forwardRef<HTMLSpanElement, BreadcrumbPageProps>(
 			fontSize={{ base: "xs", md: "12.5px" }}
 			fontWeight="600"
 			color="panel.text"
-			display="inline-block"
-			maxW="100%"
-			noOfLines={1}
-			isTruncated
+			display={display ?? (isTruncated ? "inline-block" : "inline-flex")}
+			maxW={isTruncated ? "100%" : "none"}
+			whiteSpace="nowrap"
+			noOfLines={isTruncated ? (noOfLines ?? 1) : undefined}
+			isTruncated={isTruncated}
 			{...props}
 		/>
 	),
