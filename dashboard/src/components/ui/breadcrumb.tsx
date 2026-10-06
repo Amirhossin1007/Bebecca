@@ -51,6 +51,7 @@ export const BreadcrumbList = forwardRef<HTMLOListElement, BreadcrumbListProps>(
 			alignItems="center"
 			gap={1.5}
 			listStyleType="none"
+			minW="0"
 			p={0}
 			m={0}
 			{...props}
@@ -173,7 +174,10 @@ export const BreadcrumbPage = forwardRef<HTMLSpanElement, BreadcrumbPageProps>(
 			fontSize={{ base: "xs", md: "12.5px" }}
 			fontWeight="600"
 			color="panel.text"
-			whiteSpace="nowrap"
+			display="inline-block"
+			maxW="100%"
+			noOfLines={1}
+			isTruncated
 			{...props}
 		/>
 	),

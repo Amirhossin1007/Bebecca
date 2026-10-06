@@ -116,7 +116,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const frameBg = useColorModeValue("panel.surface", "panel.surface");
 	const frameBorder = useColorModeValue("panel.border", "panel.border");
 	const [isInitial, setIsInitial] = useState(true);
-	const [bannerRatio, setBannerRatio] = useState<string | undefined>(undefined);
 	const [bannerWidth, setBannerWidth] = useState<number | undefined>(undefined);
 	useEffect(() => {
 		if (!isBanner) return;
@@ -126,7 +125,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		const updateDimensions = () => {
 			if (probe.naturalWidth && probe.naturalHeight) {
 				const ratio = probe.naturalWidth / probe.naturalHeight;
-				setBannerRatio(`${probe.naturalWidth} / ${probe.naturalHeight}`);
 				setBannerWidth(Math.round(ratio * 40));
 			}
 		};
@@ -175,9 +173,8 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				overflow="hidden"
 				w={isBanner ? (bannerWidth ? `${bannerWidth}px` : "auto") : "full"}
 				maxW="100%"
-				h={isBanner ? "auto" : "full"}
+				h={isBanner ? "40px" : "full"}
 				maxH={isBanner ? "40px" : undefined}
-				minH={isBanner ? "24px" : undefined}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
 				borderWidth={isBanner || isSidebarBanner ? "1px" : "0px"}
 				borderColor={frameBorder}
@@ -187,9 +184,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 						? "0 2px 10px rgba(0, 0, 0, 0.06)"
 						: "none"
 				}
-				aspectRatio={
-					isSidebarBanner ? "21 / 17" : isBanner ? bannerRatio : undefined
-				}
+				aspectRatio={isSidebarBanner ? "21 / 17" : undefined}
 				flexShrink={isBanner ? 1 : undefined}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				_hover={{
@@ -239,9 +234,6 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 									const img = e.currentTarget;
 									if (img.naturalWidth && img.naturalHeight && isBanner) {
 										const ratio = img.naturalWidth / img.naturalHeight;
-										setBannerRatio(
-											`${img.naturalWidth} / ${img.naturalHeight}`,
-										);
 										setBannerWidth(Math.round(ratio * 40));
 									}
 								}}

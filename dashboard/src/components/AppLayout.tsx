@@ -271,6 +271,10 @@ export function AppLayout() {
 	const [breadcrumbMode, setBreadcrumbMode] = useState<
 		"full" | "compact" | "minimal"
 	>("full");
+	const [bannerDimensions, setBannerDimensions] = useState({
+		natural: 280,
+		half: 140,
+	});
 	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
 		Record<string, boolean>
 	>({
@@ -1095,11 +1099,6 @@ export function AppLayout() {
 		const checkFit = () => {
 			if (!headerRef.current) return;
 			const totalWidth = headerRef.current.clientWidth;
-			if (totalWidth < 768) {
-				setCalendarCompact(true);
-				setBreadcrumbMode("minimal");
-				return;
-			}
 			const hasBanner = sponsorHeaderItems.length > 0;
 			const bannerImg = headerRef.current.querySelector<HTMLImageElement>(
 				"[data-header-banner] img",
@@ -1111,42 +1110,54 @@ export function AppLayout() {
 						(bannerImg.naturalWidth / bannerImg.naturalHeight) * 40,
 					);
 				} else {
-					naturalBannerWidth = 220;
+					naturalBannerWidth = 280;
 				}
+				const halfBannerWidth = Math.max(
+					110,
+					Math.round(naturalBannerWidth / 2),
+				);
+				setBannerDimensions((prev) =>
+					prev.natural === naturalBannerWidth && prev.half === halfBannerWidth
+						? prev
+						: { natural: naturalBannerWidth, half: halfBannerWidth },
+				);
 			}
+			const halfBannerWidth = hasBanner
+				? Math.max(110, Math.round(naturalBannerWidth / 2))
+				: 0;
+
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
 			);
 			const profileWidth = profileEl ? profileEl.offsetWidth : 110;
 			const navButtonWidth = 46;
-			const gapsAndPadding = 65;
+			const gapsAndPadding = 50;
 			const fixedWidth = navButtonWidth + profileWidth + gapsAndPadding;
 			const spaceLeft = totalWidth - fixedWidth;
 
 			const neededBreadcrumbWidth =
-				breadcrumbItems.length >= 4
+				breadcrumbItems.length === 4
 					? 320
 					: breadcrumbItems.length === 3
 						? 230
 						: breadcrumbItems.length === 2
 							? 150
-							: 85;
+							: breadcrumbItems.length > 4
+								? 190
+								: 85;
 
-			const idealBannerWidth = hasBanner ? naturalBannerWidth || 220 : 0;
-			const minBannerWidth = hasBanner ? 80 : 0;
 			const canFitFullCalendar =
-				spaceLeft >= neededBreadcrumbWidth + idealBannerWidth + 190;
+				spaceLeft >= neededBreadcrumbWidth + naturalBannerWidth + 190;
 			setCalendarCompact(!canFitFullCalendar);
 
 			const calendarWidth = canFitFullCalendar ? 200 : 34;
 			const spaceForBannerAndBreadcrumb = spaceLeft - calendarWidth;
+			const availableForBreadcrumb =
+				spaceForBannerAndBreadcrumb - halfBannerWidth;
 
-			if (
-				spaceForBannerAndBreadcrumb >=
-				neededBreadcrumbWidth + minBannerWidth
-			) {
+			if (availableForBreadcrumb >= neededBreadcrumbWidth) {
 				setBreadcrumbMode("full");
-			} else if (spaceForBannerAndBreadcrumb >= 180) {
+			} else if (availableForBreadcrumb >= 150) {
 				setBreadcrumbMode("compact");
 			} else {
 				setBreadcrumbMode("minimal");
@@ -1277,13 +1288,14 @@ export function AppLayout() {
 							<Breadcrumb
 								data-header-breadcrumb
 								display={{ base: "none", md: "flex" }}
-								minW="fit-content"
+								minW="0"
+								overflow="hidden"
 								dir={isRTL ? "rtl" : "ltr"}
-								flexShrink={0}
+								flexShrink={1}
 							>
 								<BreadcrumbList>
 									{breadcrumbItems.length === 1 && (
-										<BreadcrumbItem flexShrink={0}>
+										<BreadcrumbItem minW="0" flexShrink={1}>
 											<BreadcrumbPage>
 												{breadcrumbItems[0].label}
 											</BreadcrumbPage>
@@ -1300,7 +1312,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[1].label}
 														</BreadcrumbPage>
@@ -1321,7 +1333,7 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[1].label}
 														</BreadcrumbPage>
@@ -1360,7 +1372,7 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
@@ -1389,7 +1401,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
@@ -1405,7 +1417,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[2].label}
 														</BreadcrumbPage>
@@ -1457,7 +1469,7 @@ export function AppLayout() {
 														</BreadcrumbLink>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
@@ -1486,7 +1498,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
@@ -1506,7 +1518,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{breadcrumbItems[3].label}
 														</BreadcrumbPage>
@@ -1526,7 +1538,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{
 																breadcrumbItems[breadcrumbItems.length - 1]
@@ -1557,7 +1569,7 @@ export function AppLayout() {
 														/>
 													</BreadcrumbItem>
 													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
+													<BreadcrumbItem minW="0" flexShrink={1}>
 														<BreadcrumbPage>
 															{
 																breadcrumbItems[breadcrumbItems.length - 1]
@@ -1623,20 +1635,26 @@ export function AppLayout() {
 										}}
 										style={{
 											minWidth: 0,
-											flexShrink: 1,
+											flexShrink: 2,
 											display: "flex",
 											alignItems: "center",
 										}}
 									>
 										<Box
 											data-header-banner="true"
-											maxW={{ base: "100%", md: "340px" }}
-											minW={{ base: "0px", md: "70px" }}
+											maxW={{
+												base: "100%",
+												md: `${bannerDimensions.natural}px`,
+											}}
+											minW={{
+												base: "0px",
+												md: `${bannerDimensions.half}px`,
+											}}
 											h="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
 											justifyContent="center"
-											flexShrink={1}
+											flexShrink={2}
 										>
 											<SponsorCarousel
 												items={sponsorHeaderItems}
