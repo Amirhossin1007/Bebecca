@@ -69,7 +69,7 @@ export const DashboardBackupControls = ({
 	const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
 	const cardHighlight = useColorModeValue(
-		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
+		"0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)",
 		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
 	);
 

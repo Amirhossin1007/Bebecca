@@ -300,7 +300,7 @@ export function AppLayout() {
 	const dockBg = useColorModeValue("panel.surface", "panel.surface");
 	const dockBorder = useColorModeValue("panel.border", "panel.border");
 	const menuShadow = useColorModeValue(
-		"inset 0 1px 0 0 rgba(0, 0, 0, 0.04)",
+		"0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)",
 		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
 	);
 	const dockShadow = menuShadow;

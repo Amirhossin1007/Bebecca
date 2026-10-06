@@ -769,7 +769,7 @@ const HistoryModal: FC<{
 											border-radius: 12px;
 											background-clip: padding-box;
 											padding: 8px 12px;
-											box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+											box-shadow: ${colorMode === "light" ? "0 8px 20px -4px rgba(0, 0, 0, 0.12)" : "0 8px 24px -4px rgba(0, 0, 0, 0.35)"};
 											direction: ${isRTL ? "rtl" : "ltr"};
 											font-family: inherit;
 											min-width: 140px;
@@ -813,7 +813,7 @@ const HistoryModal: FC<{
 				borderRadius="20px"
 				boxShadow={
 					colorMode === "light"
-						? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+						? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 						: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 				}
 				mx={{ base: 3, sm: 6 }}
@@ -841,6 +841,7 @@ const HistoryModal: FC<{
 					<Stack spacing={4}>
 						{hasEnoughPoints && (
 							<Box
+								dir="ltr"
 								p="3px"
 								borderRadius="10px"
 								bg="panel.elevated"
@@ -1194,7 +1195,7 @@ const ResourceCard: FC<{
 			justifyContent="space-between"
 			boxShadow={
 				colorMode === "light"
-					? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+					? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 			}
 			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -1203,13 +1204,17 @@ const ResourceCard: FC<{
 			sx={{
 				"& [data-rb-icon], & [data-rb-swap]": {
 					transition:
-						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
+						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease",
 				},
 				"@media screen and (min-width: 768px)": {
 					"& [data-rb-icon]": {
 						bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
 						color:
 							"color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
+						boxShadow:
+							colorMode === "light"
+								? "0 1px 3px rgba(0, 0, 0, 0.05), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent)"
+								: "none",
 					},
 					"& [data-rb-icon]:hover": {
 						"--proximity": "1",
@@ -1220,6 +1225,10 @@ const ResourceCard: FC<{
 					},
 					"& [data-rb-swap]": {
 						bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
+						boxShadow:
+							colorMode === "light"
+								? "0 1px 2px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent)"
+								: "none",
 					},
 					"& [data-rb-swap]:hover": {
 						"--proximity": "1",
@@ -1235,7 +1244,7 @@ const ResourceCard: FC<{
 					borderColor: "panel.borderStrong",
 					boxShadow:
 						colorMode === "light"
-							? "inset 0 1px 0 0 rgba(0, 0, 0, 0.06)"
+							? "0 4px 16px -2px rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 				},
 			}}
@@ -1249,8 +1258,8 @@ const ResourceCard: FC<{
 				transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				bg={
 					colorMode === "light"
-						? "radial-gradient(350px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.035), transparent 75%)"
-						: "radial-gradient(350px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.06), transparent 75%)"
+						? "radial-gradient(380px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(37, 99, 235, 0.045), transparent 75%)"
+						: "radial-gradient(380px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.06), transparent 75%)"
 				}
 				zIndex={0}
 			/>
@@ -1613,7 +1622,7 @@ const SectionCard: FC<{
 			overflow="hidden"
 			boxShadow={
 				colorMode === "light"
-					? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+					? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 			}
 			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -1622,7 +1631,7 @@ const SectionCard: FC<{
 			sx={{
 				"& [data-rb-icon], & [data-rb-swap]": {
 					transition:
-						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease",
+						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease",
 				},
 				...(noHover
 					? {}
@@ -1632,6 +1641,10 @@ const SectionCard: FC<{
 									bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
 									color:
 										"color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
+									boxShadow:
+										colorMode === "light"
+											? "0 1px 3px rgba(0, 0, 0, 0.05), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent)"
+											: "none",
 								},
 								"& [data-rb-icon]:hover": {
 									"--proximity": "1",
@@ -1642,6 +1655,10 @@ const SectionCard: FC<{
 								},
 								"& [data-rb-swap]": {
 									bg: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
+									boxShadow:
+										colorMode === "light"
+											? "0 1px 2px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent)"
+											: "none",
 								},
 								"& [data-rb-swap]:hover": {
 									"--proximity": "1",
@@ -1662,7 +1679,7 @@ const SectionCard: FC<{
 								borderColor: "panel.borderStrong",
 								boxShadow:
 									colorMode === "light"
-										? "inset 0 1px 0 0 rgba(0, 0, 0, 0.06)"
+										? "0 4px 16px -2px rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 										: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 							},
 						}
@@ -1678,7 +1695,7 @@ const SectionCard: FC<{
 					transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 					bg={
 						colorMode === "light"
-							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.035), transparent 75%)"
+							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(37, 99, 235, 0.045), transparent 75%)"
 							: "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.06), transparent 75%)"
 					}
 					zIndex={0}
@@ -2075,7 +2092,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							justifyContent="space-between"
 							boxShadow={
 								colorMode === "light"
-									? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+									? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 									: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 							}
 						>
@@ -2186,7 +2203,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						overflow="hidden"
 						boxShadow={
 							colorMode === "light"
-								? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 						}
 					>
@@ -2265,7 +2282,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						overflow="hidden"
 						boxShadow={
 							colorMode === "light"
-								? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 						}
 					>
@@ -2344,7 +2361,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					overflow="hidden"
 					boxShadow={
 						colorMode === "light"
-							? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+							? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 					}
 				>
@@ -2377,7 +2394,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									justifyContent="space-between"
 									boxShadow={
 										colorMode === "light"
-											? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+											? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 											: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 									}
 								>
@@ -2466,7 +2483,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					overflow="hidden"
 					boxShadow={
 						colorMode === "light"
-							? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+							? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 					}
 				>
@@ -2603,7 +2620,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						overflow="hidden"
 						boxShadow={
 							colorMode === "light"
-								? "inset 0 1px 0 0 rgba(0, 0, 0, 0.04)"
+								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 						}
 					>
