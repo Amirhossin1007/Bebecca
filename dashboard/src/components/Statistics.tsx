@@ -1210,15 +1210,15 @@ const ResourceCard: FC<{
 					"& [data-rb-icon]": {
 						bg:
 							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 16%), var(--rb-panel-elevated, #eef0f3)) !important"
+								? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
 								: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
 						color:
 							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
+								? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
 								: "color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
 						boxShadow:
 							colorMode === "light"
-								? "0 2px 6px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 22%), transparent), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 40%), var(--rb-panel-border, #d8dce2)) !important"
+								? "0 1px 3px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 								: "none",
 					},
 					"& [data-rb-icon]:hover": {
@@ -1231,11 +1231,11 @@ const ResourceCard: FC<{
 					"& [data-rb-swap]": {
 						bg:
 							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 12%), var(--rb-panel-elevated, #eef0f3)) !important"
+								? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
 								: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
 						boxShadow:
 							colorMode === "light"
-								? "0 2px 6px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 18%), transparent), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 35%), var(--rb-panel-border, #d8dce2)) !important"
+								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 								: "none",
 					},
 					"& [data-rb-swap]:hover": {
@@ -1244,20 +1244,17 @@ const ResourceCard: FC<{
 					"& [data-rb-swap][data-rb-swap-text]": {
 						color:
 							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
+								? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
 								: "color-mix(in srgb, var(--rb-panel-text-secondary, #b8b8b8) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-muted, #8a8a8a)) !important",
 					},
 				},
 			}}
 			_hover={{
 				md: {
-					borderColor:
-						colorMode === "light"
-							? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) 45%, var(--rb-panel-border))"
-							: "panel.borderStrong",
+					borderColor: "panel.borderStrong",
 					boxShadow:
 						colorMode === "light"
-							? "0 10px 28px -4px rgba(37, 99, 235, 0.15), 0 3px 8px -1px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
+							? "0 4px 14px -2px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 				},
 			}}
@@ -1271,7 +1268,7 @@ const ResourceCard: FC<{
 				transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				bg={
 					colorMode === "light"
-						? "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), color-mix(in srgb, var(--rb-panel-accent, #2563eb) 22%, transparent) 0%, color-mix(in srgb, var(--rb-panel-accent, #2563eb) 10%, transparent) 40%, color-mix(in srgb, var(--rb-panel-accent, #2563eb) 3%, transparent) 65%, transparent 80%)"
+						? "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.015) 45%, transparent 75%)"
 						: "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.07), transparent 75%)"
 				}
 				zIndex={0}
@@ -1452,7 +1449,7 @@ const ResourceCard: FC<{
 					data-rb-swap=""
 					_hover={{
 						md: {
-							bg: colorMode === "light" ? "panel.border" : "panel.surface",
+							bg: "panel.surface",
 						},
 					}}
 					sx={{
@@ -1653,15 +1650,15 @@ const SectionCard: FC<{
 								"& [data-rb-icon]": {
 									bg:
 										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 16%), var(--rb-panel-elevated, #eef0f3)) !important"
+											? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
 											: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
 									color:
 										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
+											? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
 											: "color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
 									boxShadow:
 										colorMode === "light"
-											? "0 2px 6px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 22%), transparent), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 40%), var(--rb-panel-border, #d8dce2)) !important"
+											? "0 1px 3px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 											: "none",
 								},
 								"& [data-rb-icon]:hover": {
@@ -1674,11 +1671,11 @@ const SectionCard: FC<{
 								"& [data-rb-swap]": {
 									bg:
 										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 12%), var(--rb-panel-elevated, #eef0f3)) !important"
+											? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
 											: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
 									boxShadow:
 										colorMode === "light"
-											? "0 2px 6px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 18%), transparent), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 35%), var(--rb-panel-border, #d8dce2)) !important"
+											? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 											: "none",
 								},
 								"& [data-rb-swap]:hover": {
@@ -1687,7 +1684,7 @@ const SectionCard: FC<{
 								"& [data-rb-swap][data-rb-swap-text]": {
 									color:
 										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
+											? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
 											: "color-mix(in srgb, var(--rb-panel-text-secondary, #b8b8b8) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-muted, #8a8a8a)) !important",
 								},
 							},
@@ -1699,13 +1696,10 @@ const SectionCard: FC<{
 					? undefined
 					: {
 							md: {
-								borderColor:
-									colorMode === "light"
-										? "color-mix(in srgb, var(--rb-panel-accent, #2563eb) 45%, var(--rb-panel-border))"
-										: "panel.borderStrong",
+								borderColor: "panel.borderStrong",
 								boxShadow:
 									colorMode === "light"
-										? "0 10px 28px -4px rgba(37, 99, 235, 0.15), 0 3px 8px -1px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
+										? "0 4px 14px -2px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 										: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 							},
 						}
@@ -1721,7 +1715,7 @@ const SectionCard: FC<{
 					transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 					bg={
 						colorMode === "light"
-							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), color-mix(in srgb, var(--rb-panel-accent, #2563eb) 22%, transparent) 0%, color-mix(in srgb, var(--rb-panel-accent, #2563eb) 10%, transparent) 40%, color-mix(in srgb, var(--rb-panel-accent, #2563eb) 3%, transparent) 65%, transparent 80%)"
+							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.015) 45%, transparent 75%)"
 							: "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.07), transparent 75%)"
 					}
 					zIndex={0}
