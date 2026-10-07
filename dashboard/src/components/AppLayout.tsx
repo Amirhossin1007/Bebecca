@@ -271,11 +271,18 @@ export function AppLayout() {
 	const [breadcrumbMode, setBreadcrumbMode] = useState<
 		"full" | "compact" | "minimal"
 	>("full");
+	const [bannerShrinkable, setBannerShrinkable] = useState(false);
+	const [canTruncateLastCrumbState, setCanTruncateLastCrumbState] =
+		useState(false);
 	const [bannerDimensions, setBannerDimensions] = useState({
 		natural: 280,
 		half: 140,
 	});
-	const canTruncateLastCrumb = breadcrumbMode === "minimal" && calendarCompact;
+	const canTruncateLastCrumb =
+		canTruncateLastCrumbState &&
+		calendarCompact &&
+		breadcrumbMode === "minimal" &&
+		bannerShrinkable;
 	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
 		Record<string, boolean>
 	>({
@@ -1146,6 +1153,7 @@ export function AppLayout() {
 
 			const compactBreadcrumbWidth =
 				breadcrumbItems.length <= 2 ? fullBreadcrumbWidth : 160;
+			const minimalBreadcrumbWidth = breadcrumbItems.length === 1 ? 85 : 125;
 
 			const fullCalendarWidth = 200;
 			const compactCalendarWidth = 34;
@@ -1157,31 +1165,45 @@ export function AppLayout() {
 			) {
 				setCalendarCompact(false);
 				setBreadcrumbMode("full");
+				setBannerShrinkable(false);
+				setCanTruncateLastCrumbState(false);
 			} else if (
 				spaceLeft >=
-				fullBreadcrumbWidth + minBannerWidth + fullCalendarWidth
+				fullBreadcrumbWidth + naturalBannerWidth + compactCalendarWidth
 			) {
-				setCalendarCompact(false);
+				setCalendarCompact(true);
 				setBreadcrumbMode("full");
+				setBannerShrinkable(false);
+				setCanTruncateLastCrumbState(false);
 			} else if (
 				spaceLeft >=
-				compactBreadcrumbWidth + minBannerWidth + fullCalendarWidth
+				compactBreadcrumbWidth + naturalBannerWidth + compactCalendarWidth
 			) {
-				setCalendarCompact(false);
+				setCalendarCompact(true);
 				setBreadcrumbMode("compact");
+				setBannerShrinkable(false);
+				setCanTruncateLastCrumbState(false);
+			} else if (
+				spaceLeft >=
+				compactBreadcrumbWidth + minBannerWidth + compactCalendarWidth
+			) {
+				setCalendarCompact(true);
+				setBreadcrumbMode("compact");
+				setBannerShrinkable(true);
+				setCanTruncateLastCrumbState(false);
+			} else if (
+				spaceLeft >=
+				minimalBreadcrumbWidth + minBannerWidth + compactCalendarWidth
+			) {
+				setCalendarCompact(true);
+				setBreadcrumbMode("minimal");
+				setBannerShrinkable(true);
+				setCanTruncateLastCrumbState(false);
 			} else {
 				setCalendarCompact(true);
-				const spaceWithCompactCalendar = spaceLeft - compactCalendarWidth;
-				if (spaceWithCompactCalendar >= fullBreadcrumbWidth + minBannerWidth) {
-					setBreadcrumbMode("full");
-				} else if (
-					spaceWithCompactCalendar >=
-					compactBreadcrumbWidth + minBannerWidth
-				) {
-					setBreadcrumbMode("compact");
-				} else {
-					setBreadcrumbMode("minimal");
-				}
+				setBreadcrumbMode("minimal");
+				setBannerShrinkable(true);
+				setCanTruncateLastCrumbState(true);
 			}
 		};
 		const timer = setTimeout(checkFit, 20);
@@ -1690,27 +1712,35 @@ export function AppLayout() {
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
-											minWidth: 0,
-											flexShrink: 2,
+											minWidth: bannerShrinkable ? 0 : bannerDimensions.natural,
+											flexShrink: bannerShrinkable ? 2 : 0,
 											display: "flex",
 											alignItems: "center",
 										}}
 									>
 										<Box
 											data-header-banner="true"
+											w={{
+												base: "100%",
+												md: bannerShrinkable
+													? "auto"
+													: `${bannerDimensions.natural}px`,
+											}}
 											maxW={{
 												base: "100%",
 												md: `${bannerDimensions.natural}px`,
 											}}
 											minW={{
 												base: "0px",
-												md: "40px",
+												md: bannerShrinkable
+													? "40px"
+													: `${bannerDimensions.natural}px`,
 											}}
 											h="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
 											justifyContent="center"
-											flexShrink={2}
+											flexShrink={bannerShrinkable ? 2 : 0}
 										>
 											<SponsorCarousel
 												items={sponsorHeaderItems}
