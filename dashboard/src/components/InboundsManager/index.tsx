@@ -22,7 +22,7 @@ import type { CoreConfigTarget } from "contexts/CoreSettingsContext";
 import { fetchInbounds as refreshInboundsStore } from "contexts/DashboardContext";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { fetch } from "service/http";
+import { fetch, getAPIErrorMessage } from "service/http";
 import {
 	buildInboundPayload,
 	getInboundTraffic,
@@ -118,8 +118,8 @@ export const InboundsManager: FC = () => {
 				setInbounds((data || []).map(normalizeInboundTargets));
 				setConfigTargets(targetsResponse?.targets || []);
 			})
-			.catch(() => {
-				setError(t("inbounds.error.load"));
+			.catch((error) => {
+				setError(getAPIErrorMessage(error) || t("inbounds.error.load"));
 			})
 			.finally(() => setIsLoading(false));
 	}, [t]);
@@ -519,6 +519,14 @@ export const InboundsManager: FC = () => {
 						<Text fontWeight="semibold" noOfLines={1}>
 							{inbound.tag}
 						</Text>
+						{inbound.validation_error && (
+							<Tooltip label={inbound.validation_error} hasArrow>
+								<Stack spacing={1} align="start">
+									<Tag size="sm" colorScheme="red">{t("diagnostics.broken")}</Tag>
+									<Text fontSize="xs" color="red.400" noOfLines={2}>{inbound.validation_error}</Text>
+								</Stack>
+							</Tooltip>
+						)}
 						{inbound.listen && (
 							<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
 								{inbound.listen}

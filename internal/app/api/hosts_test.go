@@ -359,7 +359,7 @@ func TestHostFinalMaskRoundTripAndValidation(t *testing.T) {
 		host_selection_mode TEXT, host_ttl_seconds INTEGER, security TEXT, alpn TEXT, fingerprint TEXT,
 		verify_peer_cert_by_name TEXT, pinned_peer_cert_sha256 TEXT, inbound_tag TEXT,
 		allowinsecure INTEGER, is_disabled INTEGER, mux_enable INTEGER, fragment_setting TEXT, noise_setting TEXT,
-		finalmask TEXT, random_user_agent INTEGER, use_sni_as_host INTEGER
+		finalmask TEXT, random_user_agent INTEGER, use_sni_as_host INTEGER, client_settings TEXT
 	)`); err != nil {
 		t.Fatal(err)
 	}

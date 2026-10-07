@@ -471,6 +471,15 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
 							},
 							{
+								id: "system_errors",
+								title: t("errors.title", "Errors"),
+								url: "/errors",
+								icon: InsightsIconStyled,
+								visible:
+									Boolean(sectionAccess?.[AdminSection.Xray]) ||
+									isPrivilegedAdmin,
+							},
+							{
 								id: "access_insights",
 								title: t("header.accessInsights"),
 								url: "/access-insights",
@@ -534,6 +543,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			setOpenGroups((prev) => ({ ...prev, users_hub: true }));
 		} else if (
 			path.startsWith("/xray-logs") ||
+			path.startsWith("/errors") ||
 			path.startsWith("/access-insights") ||
 			path.startsWith("/recent-actions")
 		) {

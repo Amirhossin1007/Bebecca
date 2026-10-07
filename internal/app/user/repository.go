@@ -21,18 +21,13 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 	return Repository{db: db, dialect: dialect, cache: &repositoryCache{}}
 }
 
-func serviceFlowColumnMissing(err error) bool {
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "no such column") ||
-		strings.Contains(message, "unknown column") ||
-		strings.Contains(message, "no such table") ||
-		strings.Contains(message, "doesn't exist")
-}
-
+// Legacy values remain read-only for backups with conflicting service flows.
+// An explicit inbound flow, including an empty one, always overrides them.
 func (r Repository) serviceFlows(ctx context.Context) (map[int64]string, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(flow, '') FROM services`)
 	if err != nil {
-		if serviceFlowColumnMissing(err) {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "no such column") || strings.Contains(message, "unknown column") || strings.Contains(message, "no such table") || strings.Contains(message, "doesn't exist") {
 			return nil, nil
 		}
 		return nil, err
@@ -172,7 +167,7 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	}
 	result.SubscriptionPorts = normalizePorts(row["subscription_ports"])
 	result.SubscriptionAliases = normalizeAliases(row["subscription_aliases"])
-	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])	
+	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])
 	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
 	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
@@ -494,7 +489,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		port, path, sni, sni_options, COALESCE(sni_selection_mode, ''), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, ''), host_ttl_seconds,
 		security, alpn, fingerprint, COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''), allowinsecure, is_disabled, mux_enable,
-		fragment_setting, noise_setting, finalmask, random_user_agent, use_sni_as_host
+		fragment_setting, noise_setting, finalmask, random_user_agent, use_sni_as_host, client_settings
 		FROM hosts ORDER BY inbound_tag, id`)
 	if err != nil {
 		return nil, err
@@ -510,6 +505,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		var allowInsecure sql.NullBool
 		var disabled, mux, randomUA, useSNI sql.NullBool
 		var fragment, noise, finalMask sql.NullString
+		var clientSettings sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.InboundTag,
@@ -543,10 +539,14 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 			&finalMask,
 			&randomUA,
 			&useSNI,
+			&clientSettings,
 		); err != nil {
 			return nil, err
 		}
 		item.Port = int64Ptr(port)
+		if clientSettings.Valid {
+			item.ClientSettings = jsonMap(clientSettings.String)
+		}
 		item.AddressOptions = parseHostOptionJSON(addressOptions)
 		item.AddressMode = normalizeHostSelectionMode(item.AddressMode)
 		item.AddressTTL = int64Ptr(addressTTL)

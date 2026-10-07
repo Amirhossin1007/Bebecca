@@ -2314,6 +2314,10 @@ func applyV2RayConfigLinkMetadata(outbound map[string]any, metadata ConfigLinkMe
 		mux["enabled"] = true
 		outbound["mux"] = mux
 	}
+	if err := ValidateHostClientSettings(metadata.ClientSettings); err != nil {
+		return err
+	}
+	applyHostClientSettings(outbound, metadata.ClientSettings)
 	return nil
 }
 

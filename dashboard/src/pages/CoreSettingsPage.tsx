@@ -88,6 +88,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { SiNordvpn, SiTorproject } from "react-icons/si";
 import { useMutation, useQuery } from "react-query";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { fetch as apiFetch, getAPIErrorMessage } from "service/http";
 import psiphonIconUrl from "../assets/brands/psiphon.png";
 import windscribeIconUrl from "../assets/brands/windscribe.png";
@@ -723,6 +724,9 @@ const SettingRow: FC<{
 };
 
 export const CoreSettingsPage: FC = () => {
+	const location = useLocation();
+	const [searchParams] = useSearchParams();
+	const requestedTarget = searchParams.get("target") || "master";
 	const { t } = useTranslation();
 	const {
 		fetchCoreSettings,
@@ -739,7 +743,8 @@ export const CoreSettingsPage: FC = () => {
 	const onEditingCore = useDashboard((state) => state.onEditingCore);
 	const canManageXraySettings =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
-	const [selectedTarget, setSelectedTarget] = useState("master");
+	const [selectedTarget, setSelectedTarget] = useState(requestedTarget);
+	useEffect(() => setSelectedTarget(requestedTarget), [requestedTarget]);
 	const toast = useToast();
 	const {
 		isOpen: isOutboundOpen,
@@ -954,13 +959,13 @@ export const CoreSettingsPage: FC = () => {
 		[],
 	);
 	const readHashTab = useCallback(
-		() => (window.location.hash || "").replace(/^#/, "").toLowerCase(),
+		(hash = window.location.hash) => (hash || "").replace(/^#/, "").toLowerCase(),
 		[],
 	);
 
 	useEffect(() => {
-		const syncFromHash = () => {
-			const idx = tabKeys.indexOf(readHashTab());
+		const syncFromHash = (hash: string) => {
+			const idx = tabKeys.indexOf(readHashTab(hash));
 			if (idx >= 0) {
 				setActiveTab(idx);
 			} else {
@@ -972,10 +977,11 @@ export const CoreSettingsPage: FC = () => {
 				);
 			}
 		};
-		syncFromHash();
-		window.addEventListener("hashchange", syncFromHash);
-		return () => window.removeEventListener("hashchange", syncFromHash);
-	}, [readHashTab, tabKeys]);
+		syncFromHash(location.hash);
+		const onHashChange = () => syncFromHash(window.location.hash);
+		window.addEventListener("hashchange", onHashChange);
+		return () => window.removeEventListener("hashchange", onHashChange);
+	}, [location.hash, readHashTab, tabKeys]);
 
 	const pageShellBg = useColorModeValue("white", "surface.dark");
 	const pageShellBorder = useColorModeValue("gray.200", "whiteAlpha.300");

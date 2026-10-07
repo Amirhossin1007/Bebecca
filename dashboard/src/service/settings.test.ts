@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { importRebeccaBackup } from "./settings";
+import { useAPIRequestErrors } from "./http";
 
 class UploadRequest {
 	static current: UploadRequest;
@@ -44,6 +45,7 @@ class UploadRequest {
 describe("importRebeccaBackup", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
+		useAPIRequestErrors.getState().clear();
 	});
 
 	it("reports upload progress before resolving the restore response", async () => {
@@ -59,6 +61,7 @@ describe("importRebeccaBackup", () => {
 		expect(UploadRequest.current.url).toBe("/api/settings/backup/import");
 		expect(UploadRequest.current.withCredentials).toBe(true);
 		expect(result.rows_restored).toBe(2);
+		expect(useAPIRequestErrors.getState().errors).toEqual([]);
 	});
 
 	it("surfaces the API error detail when restore fails", async () => {
@@ -76,5 +79,9 @@ describe("importRebeccaBackup", () => {
 			message: "backup upload timed out",
 			response: { status: 408, _data: { detail: "backup upload timed out" } },
 		});
+		expect(useAPIRequestErrors.getState().errors).toEqual([{ key: "POST /settings/backup/import", message: "backup upload timed out" }]);
+		vi.stubGlobal("XMLHttpRequest", UploadRequest);
+		await importRebeccaBackup(new File(["backup"], "test.rbbackup"));
+		expect(useAPIRequestErrors.getState().errors).toEqual([]);
 	});
 });

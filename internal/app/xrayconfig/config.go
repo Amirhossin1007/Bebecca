@@ -234,6 +234,10 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 	vlessEncryptionTags := append(vlessEncryptionEndpointTags(inbounds), vlessEncryptionEndpointTags(outbounds)...)
 	vlessDefaultFlowTags := vlessDefaultFlowEndpointTags(inbounds)
 	for index, inbound := range inbounds {
+		inheritVLESSInboundFlow(inbound)
+		if knownVersion && !atLeast25829 && strings.EqualFold(stringValue(inbound["protocol"]), "vless") {
+			delete(mapValue(inbound["settings"]), "flow")
+		}
 		stream := mapValue(inbound["streamSettings"])
 		normalizeStreamForXrayVersion(stream, atLeast26711, useSessionIDFields, knownVersion)
 		invalidPin, versionSensitive := normalizeTLSFieldsForXrayVersion(stream, atLeast26131, knownVersion)
@@ -409,7 +413,7 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 		case !knownVersion:
 			warnings = append(warnings, fmt.Sprintf("Xray core version is unknown; VLESS inbound default flow support starts at 25.8.29 and settings were preserved for: %s", strings.Join(vlessDefaultFlowTags, ", ")))
 		case !atLeast25829:
-			warnings = append(warnings, fmt.Sprintf("Xray before 25.8.29 does not support VLESS inbound default flow; settings were preserved without downgrade for: %s", strings.Join(vlessDefaultFlowTags, ", ")))
+			warnings = append(warnings, fmt.Sprintf("Xray before 25.8.29: VLESS inbound flow was applied explicitly to accounts instead of settings.flow for: %s", strings.Join(vlessDefaultFlowTags, ", ")))
 		}
 	}
 	if atLeast26711 {
@@ -1114,6 +1118,34 @@ func vlessDefaultFlowEndpointTags(inbounds []map[string]any) []string {
 	return tags
 }
 
+func inheritVLESSInboundFlow(inbound map[string]any) {
+	if !strings.EqualFold(stringValue(inbound["protocol"]), "vless") {
+		return
+	}
+	settings := mapValue(inbound["settings"])
+	flow := stringValue(settings["flow"])
+	if flow == "" {
+		return
+	}
+	for _, client := range listOfMaps(settings["clients"]) {
+		if stringValue(client["flow"]) == "" {
+			client["flow"] = flow
+		}
+	}
+}
+
+func VLESSFlowSupported(inbound map[string]any) bool {
+	settings := mapValue(inbound["settings"])
+	if vlessEncryptionEnabled(settings["decryption"]) {
+		return true
+	}
+	stream := mapValue(inbound["streamSettings"])
+	network := streamNetwork(stream)
+	security := strings.ToLower(stringValue(stream["security"]))
+	headerType := strings.ToLower(stringValue(mapValue(mapValue(stream[networkSettingsKey(network)])["header"])["type"]))
+	return (security == "tls" || security == "reality") && (network == "tcp" || network == "raw") && headerType != "http"
+}
+
 func isXrayPublicDestination(value string) bool {
 	return strings.TrimSpace(value) != "" && !isXrayPrivateDestination(value)
 }
@@ -1379,25 +1411,13 @@ func validateExecutableInbound(inbound map[string]any) error {
 	}
 	if protocol == "vless" {
 		settings := mapValue(inbound["settings"])
-		stream := mapValue(inbound["streamSettings"])
 		flow := firstNonEmptyString(settings["flow"])
 
 		if flow != "" {
 			if flow != "xtls-rprx-vision" {
 				return fmt.Errorf("invalid inbound %q: VLESS flow must be xtls-rprx-vision", tag)
 			}
-			network := streamNetwork(stream)
-			security := strings.ToLower(strings.TrimSpace(stringValue(stream["security"])))
-
-			hasEncryption := vlessEncryptionEnabled(settings["decryption"])
-
-			networkSettings := mapValue(stream[networkSettingsKey(network)])
-			headerType := strings.ToLower(stringValue(mapValue(networkSettings["header"])["type"]))
-			isStandardFlowSupported := (security == "tls" || security == "reality") &&
-				(network == "tcp" || network == "raw") &&
-				headerType != "http"
-
-			if !hasEncryption && !isStandardFlowSupported {
+			if !VLESSFlowSupported(inbound) {
 				return fmt.Errorf("invalid inbound %q: VLESS flow requires TCP with TLS/REALITY (without HTTP header) or VLESS Encryption", tag)
 			}
 		}
@@ -1973,8 +1993,10 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 		if encryption := firstNonEmptyString(settings["encryption"]); encryption != "" {
 			resolved["encryption"] = encryption
 		}
-		if flow := firstNonEmptyString(settings["flow"]); flow != "" {
-			resolved["flow"] = flow
+		if flow, configured := settings["flow"]; configured {
+			resolved["flow"] = stringValue(flow)
+		} else {
+			delete(resolved, "flow")
 		}
 	}
 	if protocol == "shadowsocks" {

@@ -25,7 +25,6 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
-	ExclamationTriangleIcon,
 	ServerStackIcon,
 	ShieldCheckIcon,
 	SignalIcon,
@@ -48,15 +47,16 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "react-query";
-import { useNavigate } from "react-router-dom";
-import { fetch } from "service/http";
+import { fetch, reportAPIError, useAPIRequestErrors } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
 import type { UsersListResponse } from "types/User";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
 import { mergeLiveSystemStats } from "utils/systemMetrics";
+import { dashboardDiagnostics } from "utils/diagnostics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
+import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
@@ -212,9 +212,14 @@ const useSystemMetricsStream = (enabled = true) => {
 					return;
 				try {
 					const payload = JSON.parse(event.data);
+					if (payload?.error) {
+						reportAPIError("STREAM /system/metrics", payload);
+						return;
+					}
 					const stats = payload?.stats ?? payload;
 					if (!stats || typeof stats !== "object" || !("version" in stats))
 						return;
+					useAPIRequestErrors.getState().clear("STREAM /system/metrics");
 					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, (current) =>
 						mergeLiveSystemStats(current, stats),
 					);
@@ -1843,7 +1848,6 @@ const SpeedItem: FC<{
 };
 
 export const Statistics: FC<BoxProps> = (props) => {
-	const navigate = useNavigate();
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
 	const { t, i18n } = useTranslation();
@@ -1905,21 +1909,21 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	const canSeeGlobal =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const diagnosticsQuery = useSystemDiagnostics(canSeeGlobal);
+	const criticalIssues = dashboardDiagnostics(
+		diagnosticsQuery.data || [],
+		diagnosticsQuery.isSuccess ? undefined : systemData || undefined,
+	);
+	const hasXrayError = criticalIssues.some(
+		(issue) =>
+			issue.resource_type === "node" ||
+			(issue.resource_type === "node_service" && issue.resource === "xray"),
+	);
 
 	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
 		setHistoryPayload(payload);
 	};
-
-	const redErrorBg = useColorModeValue("red.50", "rgba(220,38,38,0.08)");
-	const redErrorBorder = useColorModeValue("red.200", "rgba(220,38,38,0.2)");
-	const redErrorColor = useColorModeValue("red.900", "red.200");
-	const orangeErrorBg = useColorModeValue("orange.50", "rgba(234,88,12,0.08)");
-	const orangeErrorBorder = useColorModeValue(
-		"orange.200",
-		"rgba(234,88,12,0.2)",
-	);
-	const orangeErrorColor = useColorModeValue("orange.900", "orange.200");
 
 	if (!systemData) {
 		return (
@@ -1938,6 +1942,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					},
 				}}
 			>
+				{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
 				<Flex
 					align="center"
 					justify="space-between"
@@ -2777,6 +2782,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 			dir={isRTL ? "rtl" : "ltr"}
 			{...props}
 		>
+			{canSeeGlobal && (
+				<SystemDiagnostics issues={criticalIssues} criticalOnly />
+			)}
 			<Flex
 				align="center"
 				justify="space-between"
@@ -2823,14 +2831,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 							w="7px"
 							h="7px"
 							borderRadius="full"
-							bg={systemData.xray_running ? "#22c55e" : "#ef4444"}
+							bg={
+								systemData.xray_running && !hasXrayError ? "#22c55e" : "#ef4444"
+							}
 							sx={{
-								animation: systemData.xray_running
-									? "livePulse 3.5s ease-in-out infinite"
-									: "none",
-								boxShadow: systemData.xray_running
-									? "0 0 5px rgba(34, 197, 94, 0.4)"
-									: "0 0 5px rgba(239, 68, 68, 0.4)",
+								animation:
+									systemData.xray_running && !hasXrayError
+										? "livePulse 3.5s ease-in-out infinite"
+										: "none",
+								boxShadow:
+									systemData.xray_running && !hasXrayError
+										? "0 0 5px rgba(34, 197, 94, 0.4)"
+										: "0 0 5px rgba(239, 68, 68, 0.4)",
 								"@keyframes livePulse": {
 									"0%, 100%": { opacity: 0.65, transform: "scale(1)" },
 									"50%": {
@@ -2842,9 +2854,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 							}}
 						/>
 						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
-							{systemData.xray_running
-								? t("dashboard.system.statusRunning")
-								: t("dashboard.system.statusStopped")}
+							{hasXrayError
+								? t("diagnostics.statusError")
+								: systemData.xray_running
+									? t("dashboard.system.statusRunning")
+									: t("dashboard.system.statusStopped")}
 						</Text>
 						{systemData.os && (
 							<HStack
@@ -3151,88 +3165,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 					</Stack>
 				</SectionCard>
 			</SimpleGrid>
-
-			{(systemData.last_xray_error || systemData.last_telegram_error) && (
-				<Stack spacing={3}>
-					{systemData.last_xray_error && (
-						<Box
-							p={4}
-							borderRadius="14px"
-							bg={redErrorBg}
-							borderWidth="1px"
-							borderColor={redErrorBorder}
-						>
-							<HStack spacing={2} mb={2} color={redErrorColor}>
-								<ExclamationTriangleIcon width={15} />
-								<Text fontSize="12px" fontWeight="700">
-									{t("dashboard.system.coreError")}
-								</Text>
-							</HStack>
-							<Text
-								fontSize="12px"
-								fontFamily="mono"
-								color={redErrorColor}
-								wordBreak="break-word"
-								lineHeight="tall"
-								opacity={0.85}
-							>
-								{systemData.last_xray_error}
-							</Text>
-						</Box>
-					)}
-					{systemData.last_telegram_error && (
-						<Box
-							p={4}
-							borderRadius="14px"
-							bg={orangeErrorBg}
-							borderWidth="1px"
-							borderColor={orangeErrorBorder}
-						>
-							<Flex
-								align="center"
-								justify="space-between"
-								mb={2}
-								flexWrap="wrap"
-								gap={2}
-							>
-								<HStack spacing={2} color={orangeErrorColor}>
-									<ExclamationTriangleIcon width={15} />
-									<Text fontSize="12px" fontWeight="700">
-										{t("dashboard.system.telegramError")}
-									</Text>
-								</HStack>
-								<Button
-									size="xs"
-									colorScheme="orange"
-									variant="ghost"
-									borderRadius="8px"
-									fontSize="11px"
-									h="22px"
-									px={2.5}
-									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-									_hover={{ md: { bg: "rgba(249, 115, 22, 0.12)" } }}
-									_active={{ transform: "scale(0.97)" }}
-									onClick={() => {
-										navigate("/settings#telegram");
-									}}
-								>
-									{t("dashboard.system.goToTelegramSettings")}
-								</Button>
-							</Flex>
-							<Text
-								fontSize="12px"
-								fontFamily="mono"
-								color={orangeErrorColor}
-								wordBreak="break-word"
-								lineHeight="tall"
-								opacity={0.85}
-							>
-								{systemData.last_telegram_error}
-							</Text>
-						</Box>
-					)}
-				</Stack>
-			)}
 
 			<SectionCard
 				noHover

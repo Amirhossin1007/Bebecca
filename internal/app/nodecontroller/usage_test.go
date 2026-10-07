@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -140,4 +141,15 @@ INSERT INTO nodes (
 	assertString(t, db, `SELECT status FROM nodes WHERE id = 7`, "connected")
 	assertString(t, db, `SELECT agent_status FROM nodes WHERE id = 7`, "connected")
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
+
+	t.Run("health recovery does not enqueue a runtime replacement", func(t *testing.T) {
+		if _, err := db.Exec(`UPDATE nodes SET status = 'error', last_status_change = NULL WHERE id = 7`); err != nil {
+			t.Fatal(err)
+		}
+		recovered, err := controller.RecoverNodes(ctx, RecoverNodesRequest{Limit: 10})
+		if err != nil || recovered.Checked != 1 || len(recovered.Errors) != 1 || !strings.Contains(recovered.Errors[0], "certificate") {
+			t.Fatalf("expected a read-only health attempt: result=%#v err=%v", recovered, err)
+		}
+		assertInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
+	})
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -78,17 +79,16 @@ func TestIncludeDBUsersPreservesReverseClient(t *testing.T) {
 
 func TestIncludeDBUsersKeepsPerInboundEmailsIndependent(t *testing.T) {
 	raw := map[string]any{"inbounds": []any{
-		map[string]any{"tag": "vless-a", "protocol": "vless", "settings": map[string]any{"clients": []any{}}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
-		map[string]any{"tag": "vless-b", "protocol": "vless", "settings": map[string]any{"clients": []any{}}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
+		map[string]any{"tag": "vless-a", "protocol": "vless", "settings": map[string]any{"clients": []any{}, "flow": "xtls-rprx-vision"}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
+		map[string]any{"tag": "vless-b", "protocol": "vless", "settings": map[string]any{"clients": []any{}, "flow": ""}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
 	}}
 	data := &runtimeConfigData{
 		users: []runtimeUserRow{{
 			ID: 1, Username: "alice", CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1", Flow: "legacy-flow", Protocol: "vless",
 			ServiceID: sql.NullInt64{Int64: 7, Valid: true}, Settings: map[string]any{},
 		}},
-		serviceTags:  map[int64]map[string]bool{7: {"vless-a": true, "vless-b": true}},
-		serviceFlows: map[int64]string{7: "xtls-rprx-vision"},
-		masks:        map[string][]byte{},
+		serviceTags: map[int64]map[string]bool{7: {"vless-a": true, "vless-b": true}},
+		masks:       map[string][]byte{},
 	}
 	if err := (Controller{}).includeDBUsers(context.Background(), raw, data); err != nil {
 		t.Fatal(err)
@@ -98,8 +98,9 @@ func TestIncludeDBUsersKeepsPerInboundEmailsIndependent(t *testing.T) {
 		if len(clients) != 1 || stringValue(mapValue(clients[0])["email"]) != inboundRuntimeUserEmail(1, "alice", tag) {
 			t.Fatalf("%s clients = %#v", tag, clients)
 		}
-		if stringValue(mapValue(clients[0])["flow"]) != "xtls-rprx-vision" {
-			t.Fatalf("%s flow = %#v, want service flow", tag, clients[0])
+		wantFlow := []string{"xtls-rprx-vision", ""}[i]
+		if stringValue(mapValue(clients[0])["flow"]) != wantFlow {
+			t.Fatalf("%s flow = %#v, want inbound flow %q", tag, clients[0], wantFlow)
 		}
 	}
 }
@@ -138,6 +139,27 @@ func TestIncludeDBUsersBuildsShadowsocks2022Client(t *testing.T) {
 	key, err := base64.StdEncoding.DecodeString(stringValue(client["password"]))
 	if err != nil || len(key) != 32 {
 		t.Fatalf("shadowsocks 2022 client key must be 32 bytes: %#v err=%v", client, err)
+	}
+}
+
+func TestHundredNewUsersKeepInboundFlowInFullSyncAndRPC(t *testing.T) {
+	inbound := map[string]any{"tag": "encrypted-xhttp", "protocol": "vless", "settings": map[string]any{"decryption": "mlkem768x25519plus.native.600s.test", "flow": "xtls-rprx-vision", "clients": []any{}}, "streamSettings": map[string]any{"network": "xhttp", "security": "none"}}
+	raw := map[string]any{"inbounds": []any{inbound}}
+	data := &runtimeConfigData{serviceTags: map[int64]map[string]bool{1: {"encrypted-xhttp": true}}}
+	for i := 1; i <= 100; i++ {
+		data.users = append(data.users, runtimeUserRow{ID: int64(i), Username: fmt.Sprintf("pouria-test-%04d", i), CredentialKey: fmt.Sprintf("%032x", i), Protocol: "vless", ServiceID: sql.NullInt64{Int64: 1, Valid: true}, Settings: map[string]any{}})
+	}
+	if err := (Controller{}).includeDBUsers(context.Background(), raw, data); err != nil {
+		t.Fatal(err)
+	}
+	clients := listOfMaps(mapValue(inbound["settings"])["clients"])
+	if len(clients) != 100 {
+		t.Fatalf("clients=%d, want 100", len(clients))
+	}
+	for _, client := range clients {
+		if got := grpcInboundUserPayload(client).GetFields()["flow"]; got != "xtls-rprx-vision" {
+			t.Fatalf("RPC account flow=%q", got)
+		}
 	}
 }
 

@@ -59,7 +59,7 @@ import {
 import { Controller, useForm, useFieldArray } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { fetch as apiFetch } from "service/http";
 import {
 	type AdminSubscriptionUpdatePayload,
@@ -788,9 +788,10 @@ const buildAdminSubscriptionPayload = (
 	),
 });
 
-const readSettingsHash = () => parseSettingsHash(window.location.hash);
+const readSettingsHash = (hash = window.location.hash) => parseSettingsHash(hash);
 
 export const IntegrationSettingsPage = () => {
+	const location = useLocation();
 	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
 	const toast = useToast();
@@ -1033,8 +1034,8 @@ export const IntegrationSettingsPage = () => {
 	);
 
 	useEffect(() => {
-		const syncTabFromHash = () => {
-			const { tab } = readSettingsHash();
+		const syncTabFromHash = (hash: string) => {
+			const { tab } = readSettingsHash(hash);
 			const idx = integrationTabKeys.findIndex(
 				(key) => key.toLowerCase() === tab.toLowerCase(),
 			);
@@ -1051,13 +1052,14 @@ export const IntegrationSettingsPage = () => {
 				);
 			}
 		};
-		syncTabFromHash();
-		window.addEventListener("hashchange", syncTabFromHash);
-		return () => window.removeEventListener("hashchange", syncTabFromHash);
-	}, []);
+		syncTabFromHash(location.hash);
+		const onHashChange = () => syncTabFromHash(window.location.hash);
+		window.addEventListener("hashchange", onHashChange);
+		return () => window.removeEventListener("hashchange", onHashChange);
+	}, [location.hash]);
 
 	useEffect(() => {
-		const { focus, tab } = readSettingsHash();
+		const { focus, tab } = readSettingsHash(location.hash);
 		if (
 			activeIntegrationTab !== 1 ||
 			tab.toLowerCase() !== "telegram" ||
@@ -1072,7 +1074,7 @@ export const IntegrationSettingsPage = () => {
 				?.scrollIntoView({ behavior: "smooth", block: "center" });
 		}, 250);
 		return () => window.clearTimeout(timer);
-	}, [activeIntegrationTab, data, isLoading]);
+	}, [location.hash, activeIntegrationTab, data, isLoading]);
 
 	const saveAllMutation = useMutation(updateAllSettings, {
 		onSuccess: (updated) => {

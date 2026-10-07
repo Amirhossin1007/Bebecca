@@ -189,7 +189,6 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 	const [description, setDescription] = useState(
 		initialService?.description ?? "",
 	);
-	const [flow, setFlow] = useState(initialService?.flow ?? "");
 	const [selectedAdmins, setSelectedAdmins] = useState<number[]>(
 		initialService?.admin_ids ?? [],
 	);
@@ -228,7 +227,6 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 		if (isOpen) {
 			setName(initialService?.name ?? "");
 			setDescription(initialService?.description ?? "");
-			setFlow(initialService?.flow ?? "");
 			setSelectedAdmins(initialService?.admin_ids ?? []);
 			setSelectedHosts(initialService?.hosts.map((host) => host.id) ?? []);
 			setAdminSearch("");
@@ -337,7 +335,6 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 			{
 				name: name.trim(),
 				description: description?.trim() || null,
-				flow: flow || null,
 				admin_ids: selectedAdmins,
 				hosts: assignments,
 			},
@@ -436,23 +433,6 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 									maxLength={256}
 								/>
 							</SimpleGrid>
-							<FormControl mt={3}>
-								<FormLabel>{t("services.fields.flow")}</FormLabel>
-								<Select
-									size="sm"
-									value={flow}
-									onChange={(event) => setFlow(event.target.value)}
-								>
-									<option value="">{t("userDialog.flow.none")}</option>
-									<option value="xtls-rprx-vision">
-										{t("userDialog.flow.xtls_rprx_vision")}
-									</option>
-									<option value="xtls-rprx-vision-udp443">
-										{t("userDialog.flow.xtls_rprx_vision_udp443")}
-									</option>
-								</Select>
-								<FormHelperText>{t("services.flowHint")}</FormHelperText>
-							</FormControl>
 						</Box>
 
 						<Box className="xray-dialog-section service-dialog-section">

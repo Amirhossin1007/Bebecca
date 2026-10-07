@@ -57,8 +57,9 @@ type ConfigLinksResponse struct {
 }
 
 type ConfigLinkMetadata struct {
-	FinalMask  map[string]any
-	MuxEnabled bool
+	FinalMask      map[string]any
+	MuxEnabled     bool
+	ClientSettings map[string]any
 }
 
 type ConfigLinkUser struct {
@@ -287,6 +288,7 @@ type Host struct {
 	FragmentSetting      *string        `json:"fragment_setting"`
 	NoiseSetting         *string        `json:"noise_setting"`
 	FinalMask            map[string]any `json:"finalmask,omitempty"`
+	ClientSettings       map[string]any `json:"client_settings,omitempty"`
 	RandomUserAgent      bool           `json:"random_user_agent"`
 	UseSNIAsHost         bool           `json:"use_sni_as_host"`
 	ServiceIDs           []int64        `json:"service_ids,omitempty"`

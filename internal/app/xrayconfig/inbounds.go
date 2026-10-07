@@ -38,12 +38,29 @@ func (r Repository) GroupedInbounds(ctx context.Context) (map[string][]map[strin
 
 	grouped := make(map[string][]map[string]any)
 	seen := make(map[string]bool)
+	subscriptionTags := r.subscriptionOutboundTags(ctx)
 	for _, item := range stored {
-		cfg, err := Parse(item.Config, r.manageableParseOptions())
-		if err != nil {
-			continue
+		// A broken saved inbound must remain visible and must not hide its siblings.
+		byProtocol := map[string][]ResolvedInbound{}
+		resolver := &Config{raw: item.Config, options: normalizeOptions(r.manageableParseOptions())}
+		resolver.migrateDeprecated()
+		routingErrors := routingInboundErrors(item.Config, subscriptionTags)
+		for _, inbound := range listOfMaps(item.Config["inbounds"]) {
+			if !r.isManageableInbound(inbound) {
+				continue
+			}
+			resolved, err := resolver.resolveInbound(inbound)
+			if err != nil {
+				resolved = ResolvedInbound{"tag": inbound["tag"], "protocol": inbound["protocol"], "port": inbound["port"], "network": streamNetwork(mapValue(inbound["streamSettings"])), "tls": "none"}
+			}
+			if validationErr := inboundValidationError(inbound); validationErr != nil {
+				resolved["validation_error"] = validationErr.Error()
+			} else if message := routingErrors[stringValue(inbound["tag"])]; message != "" {
+				resolved["validation_error"] = message
+			}
+			protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+			byProtocol[protocol] = append(byProtocol[protocol], resolved)
 		}
-		byProtocol := cfg.InboundsByProtocol()
 		protocols := make([]string, 0, len(byProtocol))
 		for protocol := range byProtocol {
 			protocols = append(protocols, protocol)
@@ -406,8 +423,10 @@ func (r Repository) manageableInboundsWithTargets(ctx context.Context) ([]map[st
 	}
 	byTag := make(map[string]map[string]any)
 	order := make([]string, 0)
+	subscriptionTags := r.subscriptionOutboundTags(ctx)
 	for _, item := range stored {
 		inbounds := listOfMaps(item.Config["inbounds"])
+		routingErrors := routingInboundErrors(item.Config, subscriptionTags)
 		for _, inbound := range inbounds {
 			if !r.isManageableInbound(inbound) {
 				continue
@@ -428,6 +447,11 @@ func (r Repository) manageableInboundsWithTargets(ctx context.Context) ([]map[st
 				return nil, err
 			}
 			sanitized := sanitizeInbound(inbound, direct, effective)
+			if err := inboundValidationError(inbound); err != nil {
+				sanitized["validation_error"] = err.Error()
+			} else if message := routingErrors[tag]; message != "" {
+				sanitized["validation_error"] = message
+			}
 			record := metadata[tag]
 			sanitized["uplink"] = record.Uplink
 			sanitized["downlink"] = record.Downlink
@@ -474,6 +498,7 @@ func extractInboundUsageCoefficient(payload map[string]any, fallback float64) (f
 	delete(clean, "usage_coefficient")
 	delete(clean, "uplink")
 	delete(clean, "downlink")
+	delete(clean, "validation_error")
 	if !ok || raw == nil {
 		return normalizedInboundUsageCoefficient(fallback), clean, nil
 	}

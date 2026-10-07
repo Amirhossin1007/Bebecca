@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os"
 	"strings"
 
@@ -39,10 +38,9 @@ type runtimeUserIdentity struct {
 }
 
 type runtimeConfigData struct {
-	users        []runtimeUserRow
-	serviceTags  map[int64]map[string]bool
-	serviceFlows map[int64]string
-	masks        map[string][]byte
+	users       []runtimeUserRow
+	serviceTags map[int64]map[string]bool
+	masks       map[string][]byte
 }
 
 type preparedRuntimeConfig struct {
@@ -146,15 +144,15 @@ func (c Controller) buildRuntimeConfigWithData(ctx context.Context, node NodeRow
 	raw = xrayconfig.NormalizePayload(raw)
 	raw = mergeNodeVirtualTunnelConfig(raw, node.XrayConfig)
 	raw = xrayconfig.TranslateVirtualTunnelInboundsForRuntime(raw)
-	raw, compatibilityWarning := xrayconfig.NormalizePayloadForXrayVersion(raw, node.XrayVersion)
-	if compatibilityWarning != "" {
-		logging.Warnf(logging.ComponentNode, "node=%d %s", node.ID, compatibilityWarning)
-	}
 	if err := inlineTLSCertificateFiles(raw); err != nil {
 		return "", err
 	}
 	if err := c.includeDBUsers(ctx, raw, data); err != nil {
 		return "", err
+	}
+	raw, compatibilityWarning := xrayconfig.NormalizePayloadForXrayVersion(raw, node.XrayVersion)
+	if compatibilityWarning != "" {
+		logging.Warnf(logging.ComponentNode, "node=%d %s", node.ID, compatibilityWarning)
 	}
 	encoded, err := json.Marshal(raw)
 	if err != nil {
@@ -282,27 +280,18 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 		if len(targets) == 0 {
 			continue
 		}
-		flow := user.Flow
-		if data.serviceFlows != nil {
-			if serviceFlow, ok := data.serviceFlows[user.ServiceID.Int64]; ok {
-				flow = serviceFlow
-			}
-		}
-		baseSettings, err := userread.RuntimeProxySettings(user.Settings, user.Protocol, user.CredentialKey, flow, data.masks)
-		if err != nil {
-			continue
-		}
 		for _, inbound := range targets {
 			tag := stringValue(inbound["tag"])
 			if !data.serviceTags[user.ServiceID.Int64][tag] {
 				continue
 			}
-			settings := maps.Clone(baseSettings)
-			if user.Protocol == "shadowsocks" {
-				settings = userread.RuntimeShadowsocksSettings(baseSettings, ensureMap(inbound, "settings"))
+			settings, err := userread.RuntimeProxySettingsForInbound(user.Settings, inbound, user.CredentialKey, user.Flow, data.masks)
+			if err != nil {
+				logging.Warnf(logging.ComponentNode, "build runtime user %d on inbound %s: %v", user.ID, tag, err)
+				continue
 			}
-			if flow := stringValue(settings["flow"]); flow != "" && !flowSupportedForInbound(inbound) {
-				delete(settings, "flow")
+			if user.Protocol == "shadowsocks" {
+				settings = userread.RuntimeShadowsocksSettings(settings, ensureMap(inbound, "settings"))
 			}
 			settings["email"] = inboundRuntimeUserEmail(user.ID, user.Username, tag)
 			clients := ensureMap(inbound, "settings")["clients"].([]any)
@@ -380,15 +369,11 @@ func (c Controller) loadRuntimeConfigDataForProtocols(ctx context.Context, proto
 	if err != nil {
 		return nil, err
 	}
-	serviceFlows, err := c.repo.ServiceFlows(ctx)
-	if err != nil {
-		return nil, err
-	}
 	masks, err := c.repo.UUIDMasks(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &runtimeConfigData{users: users, serviceTags: serviceTags, serviceFlows: serviceFlows, masks: masks}, nil
+	return &runtimeConfigData{users: users, serviceTags: serviceTags, masks: masks}, nil
 }
 
 func applyRuntimeAPI(raw map[string]any, apiPort int) {
@@ -606,21 +591,6 @@ func mapsToInterfaces(items []map[string]any) []any {
 		result = append(result, item)
 	}
 	return result
-}
-
-func flowSupportedForInbound(inbound map[string]any) bool {
-	stream := mapValue(inbound["streamSettings"])
-	security := strings.ToLower(stringValue(stream["security"]))
-	network := strings.ToLower(stringValue(stream["method"]))
-	if network == "" {
-		network = strings.ToLower(stringValue(stream["network"]))
-	}
-	tcpSettings := mapValue(stream["tcpSettings"])
-	header := mapValue(tcpSettings["header"])
-	headerType := strings.ToLower(stringValue(header["type"]))
-	return (security == "tls" || security == "reality") &&
-		(network == "tcp" || network == "raw" || network == "kcp") &&
-		headerType != "http"
 }
 
 func ensureMap(parent map[string]any, key string) map[string]any {

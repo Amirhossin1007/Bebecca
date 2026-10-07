@@ -46,6 +46,7 @@ export type RawInbound = {
 	uplink?: number;
 	downlink?: number;
 	usage_coefficient?: number;
+	validation_error?: string;
 };
 
 export const getInboundTraffic = (inbound: RawInbound) => {
@@ -4129,9 +4130,6 @@ const buildSettings = (values: InboundFormValues): Record<string, any> => {
 			if (values.vlessSelectedAuth) {
 				base.selectedAuth = values.vlessSelectedAuth;
 			}
-			if (values.vlessFlow) {
-				base.flow = values.vlessFlow;
-			}
 			if (values.fallbacks.length) {
 				base.fallbacks = values.fallbacks
 					.map(formToFallback)
@@ -4440,6 +4438,10 @@ export const buildInboundPayload = (
 			: 1,
 		settings: buildSettings(values),
 	};
+	// Keep an explicit empty value so legacy service defaults cannot re-enable it.
+	if (values.protocol === "vless") {
+		payload.settings.flow = values.vlessFlow;
+	}
 
 	if (streamSettings) {
 		payload.streamSettings = streamSettings;

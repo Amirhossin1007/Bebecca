@@ -55,6 +55,7 @@ const TutorialsPage = lazy(async () => ({
 }));
 const UsagePage = lazy(() => import("./UsagePage"));
 const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
+const ErrorsPage = lazy(() => import("./ErrorsPage"));
 
 const PageLoading = () => <PageLoadingSkeleton />;
 
@@ -126,6 +127,7 @@ const routeSegments = new Set([
 	"settings",
 	"xray-settings",
 	"xray-logs",
+	"errors",
 	"access-insights",
 	"api-docs",
 	"phpmyadmin",
@@ -267,6 +269,10 @@ export const router = createBrowserRouter(
 				{
 					path: "xray-logs",
 					element: <LazyPage Page={XrayLogsPage} />,
+				},
+				{
+					path: "errors",
+					element: <LazyPage Page={ErrorsPage} />,
 				},
 				{
 					path: "access-insights",

@@ -433,7 +433,7 @@ func TestNormalizePayloadForXrayVersionGatesVLESSInboundDefaultFlow(t *testing.T
 	payload := map[string]any{
 		"inbounds": []any{map[string]any{
 			"tag": "default-flow", "protocol": "vless",
-			"settings": map[string]any{"flow": "xtls-rprx-vision"},
+			"settings": map[string]any{"flow": "xtls-rprx-vision", "clients": []any{map[string]any{"id": "user-id"}}},
 		}},
 		"outbounds": []any{map[string]any{
 			"tag": "client-flow", "protocol": "vless",
@@ -447,12 +447,18 @@ func TestNormalizePayloadForXrayVersionGatesVLESSInboundDefaultFlow(t *testing.T
 	}{
 		{version: "Xray 25.8.28", wantWarning: "before 25.8.29"},
 		{version: "Xray 25.8.29"},
+		{version: "Xray 26.5.9"},
+		{version: "Xray 26.7.28"},
 		{version: "custom build", wantWarning: "support starts at 25.8.29"},
 	} {
 		normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
 		settings := mapValue(listOfMaps(normalized["inbounds"])[0]["settings"])
-		if settings["flow"] != "xtls-rprx-vision" {
-			t.Fatalf("default flow was mutated for %s: %#v", tc.version, settings)
+		wantDefault := tc.version != "Xray 25.8.28"
+		if (settings["flow"] == "xtls-rprx-vision") != wantDefault {
+			t.Fatalf("default flow compatibility mismatch for %s: %#v", tc.version, settings)
+		}
+		if got := listOfMaps(settings["clients"])[0]["flow"]; got != "xtls-rprx-vision" {
+			t.Fatalf("account flow for %s = %v", tc.version, got)
 		}
 		if tc.wantWarning == "" {
 			if strings.Contains(warning, "default flow") {
@@ -464,6 +470,9 @@ func TestNormalizePayloadForXrayVersionGatesVLESSInboundDefaultFlow(t *testing.T
 		if strings.Contains(warning, "client-flow") {
 			t.Fatalf("outbound flow was incorrectly version-gated: %s", warning)
 		}
+	}
+	if got := listOfMaps(mapValue(listOfMaps(payload["inbounds"])[0]["settings"])["clients"])[0]["flow"]; got != nil {
+		t.Fatal("normalization changed persisted config")
 	}
 }
 

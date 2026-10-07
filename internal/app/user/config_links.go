@@ -140,7 +140,18 @@ func BuildConfigLinks(
 				continue
 			}
 			if _, exists := bindings[tag]; !exists {
-				bindings[tag] = tagBinding{settings: settings, protocol: protocol}
+				perInbound := cloneJSONMap(settings)
+				delete(perInbound, "flow")
+				if protocol == "vless" {
+					flow := item.Flow // Compatibility for unmigrated, conflicting legacy services only.
+					if value, configured := inbound["flow"]; configured {
+						flow = stringValue(value)
+					}
+					if flow != "" {
+						perInbound["flow"] = flow
+					}
+				}
+				bindings[tag] = tagBinding{settings: perInbound, protocol: protocol}
 			}
 		}
 	}
@@ -209,8 +220,9 @@ func BuildConfigLinks(
 
 func configLinkMetadata(inbound ResolvedInbound) ConfigLinkMetadata {
 	return ConfigLinkMetadata{
-		FinalMask:  configLinkFinalMask(inbound),
-		MuxEnabled: boolValue(inbound["mux_enable"]),
+		FinalMask:      configLinkFinalMask(inbound),
+		MuxEnabled:     boolValue(inbound["mux_enable"]),
+		ClientSettings: cloneJSONMap(mapValue(inbound["client_settings"])),
 	}
 }
 
@@ -410,6 +422,26 @@ func effectiveInboundForHost(wildcardSalt string, variables map[string]string, i
 	path = applyFormat(path, variables)
 
 	effective := copyInbound(inbound)
+	effective["client_settings"] = cloneJSONMap(host.ClientSettings)
+	clientTLS := mapValue(host.ClientSettings["tlsSettings"])
+	for key, aliases := range map[string][]string{
+		"echConfigList": {"ech", "echConfigList"},
+		"cipherSuites":  {"cipherSuites"},
+	} {
+		if value, configured := clientTLS[key]; configured {
+			for _, alias := range aliases {
+				effective[alias] = value
+			}
+		}
+	}
+	if security, configured := host.ClientSettings["vmessSecurity"]; configured && inbound["protocol"] == "vmess" {
+		effective["vmess_security"] = security
+	}
+	if network := normalizeNetwork(stringValue(inbound["network"])); network == "grpc" || network == "gun" {
+		if mode, configured := mapValue(host.ClientSettings["grpcSettings"])["multiMode"]; configured {
+			effective["multiMode"] = mode
+		}
+	}
 	if host.Port != nil && normalizeProxyProtocol(stringValue(inbound["protocol"])) != "openvpn" && normalizeProxyProtocol(stringValue(inbound["protocol"])) != "ikev2" {
 		effective["port"] = *host.Port
 	}
@@ -784,9 +816,6 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 	}
 
 	flowValue := flow
-	if flowValue == "" {
-		flowValue = stringValue(data["flow"])
-	}
 	delete(data, "flow")
 
 	normalizedKey := ""
@@ -855,6 +884,21 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 }
 
 func RuntimeProxySettings(settings map[string]any, protocol string, credentialKey string, flow string, masks map[string][]byte) (map[string]any, error) {
+	return runtimeProxySettings(settings, protocol, credentialKey, flow, masks)
+}
+
+// RuntimeProxySettingsForInbound is shared by full sync and live AddUser/UpdateUser.
+// Xray only inherits settings.flow while parsing JSON, not in its gRPC user API.
+func RuntimeProxySettingsForInbound(settings map[string]any, inbound map[string]any, credentialKey string, legacyFlow string, masks map[string][]byte) (map[string]any, error) {
+	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	flow := ""
+	if protocol == "vless" {
+		if value, configured := mapValue(inbound["settings"])["flow"]; configured {
+			flow = stringValue(value)
+		} else if xrayconfig.VLESSFlowSupported(inbound) {
+			flow = legacyFlow
+		}
+	}
 	return runtimeProxySettings(settings, protocol, credentialKey, flow, masks)
 }
 
@@ -1015,7 +1059,7 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 		"path": path,
 		"port": inbound["port"],
 		"ps":   remark,
-		"scy":  "auto",
+		"scy":  firstNonEmptyString(inbound["vmess_security"], "auto"),
 		"tls":  stringValue(inbound["tls"]),
 		"type": stringValue(inbound["header_type"]),
 		"v":    "2",
@@ -1105,7 +1149,7 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	tls := stringValue(inbound["tls"])
 	netValue := stringValue(inbound["network"])
 	headerType := stringValue(inbound["header_type"])
-	flow := firstNonEmptyString(settings["flow"], inbound["flow"])
+	flow := stringValue(settings["flow"])
 	if vlessFlowAllowed(flow, stringValue(inbound["encryption"]), netValue, tls, headerType) {
 		params = append(params, queryParam{"flow", flow})
 	}
@@ -1677,8 +1721,10 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		if encryption := stringValue(settings["encryption"]); encryption != "" {
 			resolved["encryption"] = encryption
 		}
-		if flow := firstNonEmptyString(settings["flow"]); flow != "" {
-			resolved["flow"] = flow
+		if value, configured := settings["flow"]; configured {
+			resolved["flow"] = stringValue(value)
+		} else {
+			delete(resolved, "flow")
 		}
 	}
 	if protocol == "openvpn" {
@@ -2424,7 +2470,13 @@ func formatIPForURL(value string) string {
 func urlencodeOrdered(params []queryParam) string {
 	parts := make([]string, 0, len(params))
 	for _, param := range params {
-		parts = append(parts, queryEscape(param.key)+"="+queryEscape(pythonStringValue(param.value)))
+		value := pythonStringValue(param.value)
+		if param.key == "extra" {
+			// Some clients do not decode "+" back to a space inside JSON.
+			parts = append(parts, queryEscape(param.key)+"="+percentEncode(value, "", false))
+			continue
+		}
+		parts = append(parts, queryEscape(param.key)+"="+queryEscape(value))
 	}
 	return strings.Join(parts, "&")
 }
@@ -2481,9 +2533,47 @@ func pythonStringValue(value any) string {
 func pythonJSONDumpsOrdered(params []queryParam) string {
 	parts := make([]string, 0, len(params))
 	for _, param := range params {
-		parts = append(parts, strconv.QuoteToASCII(param.key)+":"+pythonJSONDumpsValue(param.value, false))
+		parts = append(parts, strconv.QuoteToASCII(param.key)+":"+pythonJSONDumpsCompact(param.value))
 	}
 	return "{" + strings.Join(parts, ",") + "}"
+}
+
+// pythonJSONDumpsCompact serializes nested values without whitespace so that
+// URL query encoding never turns separators into "+" (breaks some clients).
+func pythonJSONDumpsCompact(value any) string {
+	switch typed := value.(type) {
+	case []string:
+		parts := make([]string, 0, len(typed))
+		for _, item := range typed {
+			parts = append(parts, pythonJSONDumpsCompact(item))
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	case []any:
+		parts := make([]string, 0, len(typed))
+		for _, item := range typed {
+			parts = append(parts, pythonJSONDumpsCompact(item))
+		}
+		return "[" + strings.Join(parts, ",") + "]"
+	case map[string]string:
+		converted := make(map[string]any, len(typed))
+		for key, item := range typed {
+			converted[key] = item
+		}
+		return pythonJSONDumpsCompact(converted)
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, key := range keys {
+			parts = append(parts, strconv.QuoteToASCII(key)+":"+pythonJSONDumpsCompact(typed[key]))
+		}
+		return "{" + strings.Join(parts, ",") + "}"
+	default:
+		return pythonJSONDumpsValue(typed, false)
+	}
 }
 
 func pythonJSONDumpsSorted(value map[string]any) string {

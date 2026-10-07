@@ -1,4 +1,4 @@
-import { $fetch, apiBaseURL, fetch as apiFetch } from "./http";
+import { $fetch, apiBaseURL, fetch as apiFetch, reportAPIError, useAPIRequestErrors } from "./http";
 
 export interface TelegramTopicSettingsPayload {
 	title: string;
@@ -656,24 +656,9 @@ export const getPHPMyAdminEmbedHTML = async (
 	theme?: string,
 ): Promise<string> => {
 	const search = theme ? `?theme=${encodeURIComponent(theme)}` : "";
-	const response = await fetch(
-		`${apiBaseURL}/settings/phpmyadmin/embed-html${search}`,
-		{
-			cache: "no-store",
-			credentials: "include",
-		},
-	);
-	if (!response.ok) {
-		let detail = await response.text();
-		try {
-			const parsed = JSON.parse(detail);
-			detail = parsed?.detail || detail;
-		} catch {
-			// keep raw response body
-		}
-		throw new Error(detail || `Request failed with status ${response.status}`);
-	}
-	return response.text();
+	return apiFetch<string>(`/settings/phpmyadmin/embed-html${search}`, {
+		responseType: "text",
+	} as any);
 };
 
 export const getPanelSettings = async (): Promise<PanelSettingsResponse> => {
@@ -703,6 +688,11 @@ export const importRebeccaBackup = async (
 	onProgress?: (percent: number) => void,
 ): Promise<RebeccaBackupImportResponse> => {
 	return new Promise((resolve, reject) => {
+		const errorKey = "POST /settings/backup/import";
+		const fail = (error: Error) => {
+			reportAPIError(errorKey, error);
+			reject(error);
+		};
 		const body = new FormData();
 		body.append("file", file);
 		const xhr = new XMLHttpRequest();
@@ -733,6 +723,7 @@ export const importRebeccaBackup = async (
 		xhr.onload = () => {
 			const response = responseBody();
 			if (xhr.status >= 200 && xhr.status < 300) {
+				useAPIRequestErrors.getState().clear(errorKey);
 				resolve(response as RebeccaBackupImportResponse);
 				return;
 			}
@@ -753,10 +744,10 @@ export const importRebeccaBackup = async (
 				status: xhr.status,
 				_data: response,
 			};
-			reject(error);
+			fail(error);
 		};
-		xhr.onerror = () => reject(new Error("Backup upload failed; check your connection and retry"));
-		xhr.ontimeout = () => reject(new Error("Backup upload timed out; retry with a stable connection"));
+		xhr.onerror = () => fail(new Error("Backup upload failed; check your connection and retry"));
+		xhr.ontimeout = () => fail(new Error("Backup upload timed out; retry with a stable connection"));
 		xhr.onabort = () => reject(new Error("Backup upload was cancelled"));
 		onProgress?.(0);
 		xhr.send(body);

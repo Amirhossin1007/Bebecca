@@ -370,6 +370,12 @@ export function AppLayout() {
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
+			{
+				key: "errors",
+				label: "errors",
+				to: "/errors",
+				icon: InsightsIcon,
+			},
 			isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
 				? {
 						key: "services",
