@@ -872,9 +872,10 @@ const HistoryModal: FC<{
 											width: pillStyle.width,
 										}}
 										transition={{
-											type: "tween",
-											ease: [0.16, 1, 0.3, 1],
-											duration: 0.22,
+											type: "spring",
+											stiffness: 450,
+											damping: 34,
+											mass: 0.8,
 										}}
 										style={{
 											position: "absolute",
@@ -1200,10 +1201,10 @@ const ResourceCard: FC<{
 			justifyContent="space-between"
 			boxShadow={
 				colorMode === "light"
-					? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
+					? "0 1px 3px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 			}
-			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			transition="transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
 			sx={{
@@ -1257,11 +1258,15 @@ const ResourceCard: FC<{
 			_hover={{
 				md: {
 					borderColor: "panel.borderStrong",
+					transform: "translateY(-2px)",
 					boxShadow:
 						colorMode === "light"
-							? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
-							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
+							? "0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
+							: "0 8px 24px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 				},
+			}}
+			_active={{
+				transform: "scale(0.99)",
 			}}
 		>
 			<Box
@@ -1365,11 +1370,11 @@ const ResourceCard: FC<{
 							sx={{ unicodeBidi: "isolate" }}
 						>
 							<Text
-								fontSize={{ base: "20px", sm: "22px" }}
+								fontSize={{ base: "22px", sm: "24px" }}
 								fontWeight="800"
 								color="panel.text"
-								letterSpacing="-0.02em"
-								lineHeight="1.1"
+								letterSpacing="-0.03em"
+								lineHeight="1.05"
 								sx={{ fontVariantNumeric: "tabular-nums" }}
 							>
 								{value}
@@ -1386,11 +1391,11 @@ const ResourceCard: FC<{
 					) : (
 						<Flex align="baseline" gap={1.5} wrap="wrap">
 							<Text
-								fontSize={{ base: "20px", sm: "22px" }}
+								fontSize={{ base: "22px", sm: "24px" }}
 								fontWeight="800"
 								color="panel.text"
-								letterSpacing="-0.02em"
-								lineHeight="1.1"
+								letterSpacing="-0.03em"
+								lineHeight="1.05"
 								dir="ltr"
 								sx={{
 									fontVariantNumeric: "tabular-nums",
@@ -1448,6 +1453,7 @@ const ResourceCard: FC<{
 				<Progress
 					value={safe}
 					size="xs"
+					h="5px"
 					borderRadius="full"
 					bg="panel.elevated"
 					transition="background-color 0.25s ease"
@@ -1460,7 +1466,8 @@ const ResourceCard: FC<{
 					sx={{
 						"& > div": {
 							bg: criticalColor,
-							transition: "width 0.6s ease, background-color 0.4s ease",
+							transition:
+								"width 0.45s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease",
 							borderRadius: "full",
 						},
 					}}
@@ -1557,6 +1564,7 @@ const StatRow: FC<{
 					fontSize="13px"
 					fontWeight="700"
 					color={accent ? accentColor : "panel.text"}
+					letterSpacing="-0.01em"
 					dir="ltr"
 					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
 				>
@@ -1637,10 +1645,10 @@ const SectionCard: FC<{
 			overflow="hidden"
 			boxShadow={
 				colorMode === "light"
-					? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
+					? "0 1px 3px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 			}
-			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			transition="transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 			onMouseMove={handleMouseMove}
 			onMouseLeave={handleMouseLeave}
 			sx={{
@@ -1702,10 +1710,11 @@ const SectionCard: FC<{
 					: {
 							md: {
 								borderColor: "panel.borderStrong",
+								transform: "translateY(-2px)",
 								boxShadow:
 									colorMode === "light"
-										? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
-										: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
+										? "0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
+										: "0 8px 24px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 							},
 						}
 			}
@@ -1785,8 +1794,8 @@ const AnimatedHeightWrapper: FC<{
 		<motion.div
 			animate={{ height }}
 			transition={{
-				duration: 0.7,
-				ease: [0.22, 1, 0.36, 1],
+				duration: 0.38,
+				ease: [0.16, 1, 0.3, 1],
 			}}
 			style={{ overflow: "hidden" }}
 		>
@@ -2828,31 +2837,56 @@ export const Statistics: FC<BoxProps> = (props) => {
 					</Text>
 					<Flex align="center" gap={2} direction="row">
 						<Box
-							w="7px"
-							h="7px"
-							borderRadius="full"
-							bg={
-								systemData.xray_running && !hasXrayError ? "#22c55e" : "#ef4444"
-							}
-							sx={{
-								animation:
+							position="relative"
+							display="inline-flex"
+							alignItems="center"
+							justifyContent="center"
+							w="8px"
+							h="8px"
+							flexShrink={0}
+						>
+							{systemData.xray_running && !hasXrayError && (
+								<Box
+									position="absolute"
+									w="full"
+									h="full"
+									borderRadius="full"
+									bg="#22c55e"
+									opacity={0.6}
+									sx={{
+										animation:
+											"beaconPing 2.8s cubic-bezier(0, 0, 0.2, 1) infinite",
+										"@keyframes beaconPing": {
+											"0%": {
+												transform: "scale(1)",
+												opacity: 0.7,
+											},
+											"70%, 100%": {
+												transform: "scale(2.6)",
+												opacity: 0,
+											},
+										},
+									}}
+								/>
+							)}
+							<Box
+								w="7px"
+								h="7px"
+								borderRadius="full"
+								bg={
 									systemData.xray_running && !hasXrayError
-										? "livePulse 3.5s ease-in-out infinite"
-										: "none",
-								boxShadow:
+										? "#22c55e"
+										: "#ef4444"
+								}
+								boxShadow={
 									systemData.xray_running && !hasXrayError
-										? "0 0 5px rgba(34, 197, 94, 0.4)"
-										: "0 0 5px rgba(239, 68, 68, 0.4)",
-								"@keyframes livePulse": {
-									"0%, 100%": { opacity: 0.65, transform: "scale(1)" },
-									"50%": {
-										opacity: 1,
-										transform: "scale(1.08)",
-										boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)",
-									},
-								},
-							}}
-						/>
+										? "0 0 6px rgba(34, 197, 94, 0.5)"
+										: "0 0 6px rgba(239, 68, 68, 0.5)"
+								}
+								position="relative"
+								zIndex={1}
+							/>
+						</Box>
 						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
 							{hasXrayError
 								? t("diagnostics.statusError")
@@ -3010,11 +3044,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 					title={
 						<HStack spacing={2.5}>
 							<Flex
-								w="26px"
-								h="26px"
+								w="28px"
+								h="28px"
 								align="center"
 								justify="center"
-								borderRadius="7px"
+								borderRadius="8px"
 								bg="panel.elevated"
 								color="panel.textSecondary"
 								data-rb-icon=""
@@ -3094,11 +3128,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 					title={
 						<HStack spacing={2.5}>
 							<Flex
-								w="26px"
-								h="26px"
+								w="28px"
+								h="28px"
 								align="center"
 								justify="center"
-								borderRadius="7px"
+								borderRadius="8px"
 								bg="panel.elevated"
 								color="panel.textSecondary"
 								data-rb-icon=""
@@ -3172,11 +3206,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 				title={
 					<HStack spacing={2.5}>
 						<Flex
-							w="26px"
-							h="26px"
+							w="28px"
+							h="28px"
 							align="center"
 							justify="center"
-							borderRadius="7px"
+							borderRadius="8px"
 							bg="panel.elevated"
 							color="panel.textSecondary"
 							data-rb-icon=""
@@ -3307,9 +3341,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 											zIndex: 1,
 										}}
 										transition={{
-											type: "tween",
-											ease: [0.16, 1, 0.3, 1],
-											duration: 0.22,
+											type: "spring",
+											stiffness: 420,
+											damping: 32,
+											mass: 0.8,
 										}}
 									/>
 								)}
@@ -3332,7 +3367,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 										},
 									}}
 									_active={{
-										transform: "scale(0.97)",
+										transform: "scale(0.96)",
 									}}
 									_focusVisible={{
 										outline: "2px solid var(--rb-panel-accent)",
@@ -3359,9 +3394,10 @@ export const Statistics: FC<BoxProps> = (props) => {
 											zIndex: 1,
 										}}
 										transition={{
-											type: "tween",
-											ease: [0.16, 1, 0.3, 1],
-											duration: 0.22,
+											type: "spring",
+											stiffness: 420,
+											damping: 32,
+											mass: 0.8,
 										}}
 									/>
 								)}
@@ -3384,7 +3420,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 										},
 									}}
 									_active={{
-										transform: "scale(0.97)",
+										transform: "scale(0.96)",
 									}}
 									_focusVisible={{
 										outline: "2px solid var(--rb-panel-accent)",
@@ -3502,11 +3538,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 					title={
 						<HStack spacing={2.5}>
 							<Flex
-								w="26px"
-								h="26px"
+								w="28px"
+								h="28px"
 								align="center"
 								justify="center"
-								borderRadius="7px"
+								borderRadius="8px"
 								bg="panel.elevated"
 								color="panel.textSecondary"
 								data-rb-icon=""
