@@ -1254,7 +1254,7 @@ const ResourceCard: FC<{
 					borderColor: "panel.borderStrong",
 					boxShadow:
 						colorMode === "light"
-							? "0 4px 14px -2px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
+							? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 				},
 			}}
@@ -1268,7 +1268,7 @@ const ResourceCard: FC<{
 				transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				bg={
 					colorMode === "light"
-						? "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.015) 45%, transparent 75%)"
+						? "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.08), transparent 75%)"
 						: "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.07), transparent 75%)"
 				}
 				zIndex={0}
@@ -1699,7 +1699,7 @@ const SectionCard: FC<{
 								borderColor: "panel.borderStrong",
 								boxShadow:
 									colorMode === "light"
-										? "0 4px 14px -2px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
+										? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 										: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
 							},
 						}
@@ -1715,7 +1715,7 @@ const SectionCard: FC<{
 					transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 					bg={
 						colorMode === "light"
-							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.015) 45%, transparent 75%)"
+							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.08), transparent 75%)"
 							: "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.07), transparent 75%)"
 					}
 					zIndex={0}
