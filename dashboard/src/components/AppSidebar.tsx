@@ -157,6 +157,77 @@ type NavSection = {
 	items: NavItem[];
 };
 
+interface SidebarBannerSectionProps {
+	banners: SponsorAsset[];
+	collapsed: boolean;
+	inDrawer: boolean;
+}
+
+const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
+	banners,
+	collapsed,
+	inDrawer,
+}) => {
+	const [isReady, setIsReady] = useState(inDrawer);
+	const [isInitialMount, setIsInitialMount] = useState(true);
+
+	useEffect(() => {
+		if (inDrawer) return;
+		const timer = setTimeout(() => {
+			setIsReady(true);
+		}, 380);
+		return () => clearTimeout(timer);
+	}, [inDrawer]);
+
+	const isExpanded = !collapsed && isReady;
+	const animDuration = inDrawer ? 0 : isInitialMount ? 0.45 : 0.26;
+
+	return (
+		<motion.div
+			initial={inDrawer ? false : { y: "120%", opacity: 0 }}
+			animate={{
+				y: isExpanded ? "0%" : "120%",
+				opacity: isExpanded ? 1 : 0,
+			}}
+			transition={{
+				duration: animDuration,
+				ease: [0.16, 1, 0.3, 1],
+			}}
+			onAnimationComplete={() => {
+				if (isInitialMount && isReady) setIsInitialMount(false);
+			}}
+			style={{ width: "100%", flexShrink: 0 }}
+		>
+			<Box
+				w="full"
+				maxW={inDrawer ? "min(360px, calc(100% - 24px))" : "full"}
+				mx={inDrawer ? "auto" : undefined}
+				overflow="hidden"
+				maxH={isExpanded ? (inDrawer ? "none" : "220px") : "0px"}
+				transition={`max-height ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1), padding ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1), border-color ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1)`}
+				pt={isExpanded ? 2 : 0}
+				pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
+				pointerEvents={isExpanded ? "auto" : "none"}
+				borderTopWidth="1px"
+				borderColor={isExpanded ? "panel.border" : "transparent"}
+			>
+				<SponsorCarousel
+					items={banners.map((asset) => ({
+						id: asset.id,
+						src: asset.image_url,
+						alt: asset.alt || asset.label || "Sponsor",
+						href: asset.target_url,
+						label: asset.label,
+						isSponsor: true,
+					}))}
+					variant="sidebar"
+					animateIn={false}
+				/>
+			</Box>
+		</motion.div>
+	);
+};
+
 export const AppSidebar: FC<AppSidebarProps> = ({
 	collapsed,
 	sidebarBanners = [],
@@ -567,7 +638,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		const isCurrentlyOpen = Boolean(openGroups[group.id]);
 		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
 	};
-	const [isInitialMount, setIsInitialMount] = useState(true);
 
 	return (
 		<Box
@@ -1294,49 +1364,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					</VStack>
 				</Box>
 				{sidebarBanners.length > 0 && (
-					<motion.div
-						initial={inDrawer ? false : { y: "120%", opacity: 0 }}
-						animate={{
-							y: collapsed ? "120%" : "0%",
-							opacity: collapsed ? 0 : 1,
-						}}
-						transition={{
-							duration: inDrawer ? 0 : isInitialMount ? 0.5 : 0.26,
-							delay: inDrawer ? 0 : isInitialMount && !collapsed ? 0.7 : 0,
-							ease: [0.16, 1, 0.3, 1],
-						}}
-						onAnimationComplete={() => {
-							if (isInitialMount) setIsInitialMount(false);
-						}}
-						style={{ width: "100%", flexShrink: 0 }}
-					>
-						<Box
-							w="full"
-							maxW={inDrawer ? "min(360px, calc(100% - 24px))" : "full"}
-							mx={inDrawer ? "auto" : undefined}
-							overflow={collapsed ? "hidden" : undefined}
-							maxH={collapsed ? "0px" : inDrawer ? "none" : "220px"}
-							transition="max-height 0.26s cubic-bezier(0.16, 1, 0.3, 1)"
-							pt={collapsed ? 0 : 2}
-							pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
-							pointerEvents={collapsed ? "none" : "auto"}
-							borderTopWidth="1px"
-							borderColor="panel.border"
-						>
-							<SponsorCarousel
-								items={sidebarBanners.map((asset) => ({
-									id: asset.id,
-									src: asset.image_url,
-									alt: asset.alt || asset.label || "Sponsor",
-									href: asset.target_url,
-									label: asset.label,
-									isSponsor: true,
-								}))}
-								variant="sidebar"
-								animateIn={false}
-							/>
-						</Box>
-					</motion.div>
+					<SidebarBannerSection
+						banners={sidebarBanners}
+						collapsed={collapsed}
+						inDrawer={inDrawer}
+					/>
 				)}
 			</Flex>
 		</Box>
