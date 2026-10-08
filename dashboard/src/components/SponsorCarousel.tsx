@@ -160,8 +160,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			}}
 			style={{
 				display: isBanner ? "inline-flex" : "block",
-				width: isBanner ? "fit-content" : "100%",
-				maxWidth: "100%",
+				width: isBanner ? "100%" : "100%",
+				maxWidth: isBanner && bannerWidth ? `${bannerWidth}px` : "100%",
+				minWidth: isBanner ? "40px" : undefined,
 				alignItems: "center",
 				justifyContent: "center",
 			}}
@@ -171,8 +172,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		>
 			<Box
 				overflow="hidden"
-				w={isBanner ? (bannerWidth ? `${bannerWidth}px` : "auto") : "full"}
-				maxW="100%"
+				w={isBanner ? "100%" : "full"}
+				maxW={isBanner && bannerWidth ? `${bannerWidth}px` : "100%"}
+				minW={isBanner ? "40px" : undefined}
 				h={isBanner ? "40px" : "full"}
 				maxH={isBanner ? "40px" : undefined}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}

@@ -1165,23 +1165,24 @@ export function AppLayout() {
 			const spaceLeft = totalWidth - fixedWidth;
 
 			const fullBreadcrumbWidth =
-				breadcrumbItems.length === 4
-					? 320
+				breadcrumbItems.length >= 4
+					? 330
 					: breadcrumbItems.length === 3
-						? 230
+						? 240
 						: breadcrumbItems.length === 2
-							? 150
-							: breadcrumbItems.length > 4
-								? 190
-								: 85;
+							? 160
+							: 85;
 
 			const compactBreadcrumbWidth =
-				breadcrumbItems.length <= 2 ? fullBreadcrumbWidth : 160;
-			const minimalBreadcrumbWidth = breadcrumbItems.length === 1 ? 85 : 125;
+				breadcrumbItems.length <= 2 ? fullBreadcrumbWidth : 165;
+			const minimalBreadcrumbWidth = breadcrumbItems.length === 1 ? 85 : 115;
 
 			const fullCalendarWidth = 200;
 			const compactCalendarWidth = 34;
 			const minBannerWidth = hasBanner ? 40 : 0;
+			const halfBannerWidth = hasBanner
+				? Math.max(110, Math.round(naturalBannerWidth / 2))
+				: 0;
 
 			if (
 				spaceLeft >=
@@ -1203,13 +1204,16 @@ export function AppLayout() {
 				spaceLeft >=
 				compactBreadcrumbWidth + naturalBannerWidth + compactCalendarWidth
 			) {
-				setCalendarCompact(true);
+				setCalendarCompact(
+					spaceLeft <
+						compactBreadcrumbWidth + naturalBannerWidth + fullCalendarWidth,
+				);
 				setBreadcrumbMode("compact");
 				setBannerShrinkable(false);
 				setCanTruncateLastCrumbState(false);
 			} else if (
 				spaceLeft >=
-				compactBreadcrumbWidth + minBannerWidth + compactCalendarWidth
+				compactBreadcrumbWidth + halfBannerWidth + compactCalendarWidth
 			) {
 				setCalendarCompact(true);
 				setBreadcrumbMode("compact");
@@ -1699,21 +1703,23 @@ export function AppLayout() {
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
-											minWidth: 0,
+											minWidth: 40,
+											maxWidth: "100%",
 											flexGrow: 1,
-											flexBasis: 0,
 											flexShrink: 1,
 											display: isMobile ? "flex" : "none",
 											alignItems: "center",
 										}}
 									>
 										<Box
-											w="fit-content"
+											w="100%"
 											maxW="100%"
+											minW="40px"
 											h="40px"
 											display="flex"
 											alignItems="center"
 											justifyContent="center"
+											flexShrink={1}
 										>
 											<SponsorCarousel
 												items={mobileHeaderItems}
@@ -1736,35 +1742,32 @@ export function AppLayout() {
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
-											minWidth: bannerShrinkable ? 0 : bannerDimensions.natural,
-											flexShrink: bannerShrinkable ? 2 : 0,
+											minWidth: bannerShrinkable ? 40 : bannerDimensions.natural,
+											maxWidth: bannerDimensions.natural,
+											width: bannerShrinkable ? "100%" : bannerDimensions.natural,
+											flexShrink: bannerShrinkable ? 1 : 0,
 											display: "flex",
 											alignItems: "center",
 										}}
 									>
 										<Box
 											data-header-banner="true"
-											w={{
-												base: "100%",
-												md: bannerShrinkable
-													? "auto"
-													: `${bannerDimensions.natural}px`,
-											}}
-											maxW={{
-												base: "100%",
-												md: `${bannerDimensions.natural}px`,
-											}}
-											minW={{
-												base: "0px",
-												md: bannerShrinkable
+											w={
+												bannerShrinkable
+													? "100%"
+													: `${bannerDimensions.natural}px`
+											}
+											maxW={`${bannerDimensions.natural}px`}
+											minW={
+												bannerShrinkable
 													? "40px"
-													: `${bannerDimensions.natural}px`,
-											}}
+													: `${bannerDimensions.natural}px`
+											}
 											h="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
 											justifyContent="center"
-											flexShrink={bannerShrinkable ? 2 : 0}
+											flexShrink={bannerShrinkable ? 1 : 0}
 										>
 											<SponsorCarousel
 												items={sponsorHeaderItems}
