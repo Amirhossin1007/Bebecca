@@ -295,12 +295,20 @@ export function AppLayout() {
 		const dir = i18n.dir(i18n.language);
 		document.documentElement.dir = dir;
 		document.documentElement.lang = i18n.language;
+		if (document.body) {
+			document.body.dir = dir;
+		}
+		window.dispatchEvent(new Event("resize"));
+		const raf = requestAnimationFrame(() => {
+			window.dispatchEvent(new Event("resize"));
+		});
+		return () => cancelAnimationFrame(raf);
 	}, [i18n.language, i18n]);
 
 	const languagePlacement =
 		useBreakpointValue<PlacementWithLogical>({
 			base: "bottom-start",
-			md: isRTL ? "left-start" : "right-start",
+			md: isRTL ? "right-start" : "left-start",
 		}) ?? "bottom-start";
 
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
@@ -691,10 +699,20 @@ export function AppLayout() {
 	const hasSettingsMenu = settingsMenuItems.length > 0;
 
 	const changeLanguage = async (lang: string) => {
-		await i18n.changeLanguage(lang);
-		const dir = i18n.dir(lang);
-		document.documentElement.dir = dir;
+		const nextDir = i18n.dir(lang);
+		document.documentElement.dir = nextDir;
 		document.documentElement.lang = lang;
+		if (document.body) {
+			document.body.dir = nextDir;
+		}
+		await i18n.changeLanguage(lang);
+		window.dispatchEvent(new Event("resize"));
+		requestAnimationFrame(() => {
+			window.dispatchEvent(new Event("resize"));
+			setTimeout(() => {
+				window.dispatchEvent(new Event("resize"));
+			}, 60);
+		});
 	};
 
 	const closeUserMenu = () => {
@@ -1763,7 +1781,7 @@ export function AppLayout() {
 
 							{getUserIsSuccess && userData.username && (
 								<Menu
-									placement="bottom-end"
+									placement={isRTL ? "bottom-start" : "bottom-end"}
 									isLazy
 									autoSelect={false}
 									closeOnSelect={false}
@@ -1840,6 +1858,7 @@ export function AppLayout() {
 									</MenuButton>
 									<Portal>
 										<MenuList
+											key={`${i18n.language}-${isRTL ? "rtl" : "ltr"}`}
 											dir={isRTL ? "rtl" : "ltr"}
 											ref={userMenuContentRef}
 											id="rb-user-menu"
@@ -2000,6 +2019,7 @@ export function AppLayout() {
 												</MenuButton>
 												<Portal containerRef={userMenuContentRef}>
 													<MenuList
+														key={`${i18n.language}-${isRTL ? "rtl" : "ltr"}`}
 														dir={isRTL ? "rtl" : "ltr"}
 														minW="170px"
 														p={1.5}

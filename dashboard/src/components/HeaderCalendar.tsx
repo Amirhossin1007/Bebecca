@@ -213,7 +213,10 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 	}, [i18n.language, seasonWindow]);
 
 	return (
-		<Popover placement="bottom-start" gutter={8}>
+		<Popover
+			placement={isRTL ? "bottom-start" : "bottom-end"}
+			gutter={8}
+		>
 			<PopoverTrigger>
 				<Button
 					size="sm"
