@@ -1113,6 +1113,248 @@ const average = (values: number[]) =>
 		: 0;
 const peak = (values: number[]) => (values.length ? Math.max(...values) : 0);
 
+const MiniSparkline: FC<{
+	data?: number[];
+	color?: string;
+	height?: number;
+}> = ({ data, color = "#3b82f6", height = 26 }) => {
+	const gradId = useMemo(
+		() => `spk-${Math.random().toString(36).substring(2, 9)}`,
+		[],
+	);
+	if (!data || data.length < 2) return null;
+	const min = Math.min(...data);
+	const max = Math.max(...data);
+	const range = max - min || 1;
+	const w = 120;
+	const points = data.map((v, i) => {
+		const x = (i / (data.length - 1)) * w;
+		const y = height - ((v - min) / range) * (height - 6) - 3;
+		return `${x.toFixed(1)},${y.toFixed(1)}`;
+	});
+	const pathD = `M ${points.join(" L ")}`;
+	const areaD = `M 0,${height} L ${points.join(" L ")} L ${w},${height} Z`;
+
+	return (
+		<Box
+			w="full"
+			h={`${height}px`}
+			overflow="hidden"
+			position="relative"
+			pointerEvents="none"
+			my={1.5}
+		>
+			<svg
+				viewBox={`0 0 ${w} ${height}`}
+				preserveAspectRatio="none"
+				style={{ width: "100%", height: "100%", display: "block" }}
+				role="img"
+				aria-label="Sparkline"
+			>
+				<title>Sparkline</title>
+				<defs>
+					<linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0%" stopColor={color} stopOpacity="0.28" />
+						<stop offset="100%" stopColor={color} stopOpacity="0" />
+					</linearGradient>
+				</defs>
+				<path d={areaD} fill={`url(#${gradId})`} />
+				<path
+					d={pathD}
+					fill="none"
+					stroke={color}
+					strokeWidth="1.8"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
+			</svg>
+		</Box>
+	);
+};
+
+const DualNetworkSparkline: FC<{
+	entries?: SystemStats["network_history"];
+	height?: number;
+}> = ({ entries, height = 36 }) => {
+	if (!entries || entries.length < 2) return null;
+	const incomingData = entries.map((e) => e.incoming);
+	const outgoingData = entries.map((e) => e.outgoing);
+	const allVals = [...incomingData, ...outgoingData];
+	const min = Math.min(...allVals);
+	const max = Math.max(...allVals);
+	const range = max - min || 1;
+	const w = 120;
+
+	const inPoints = incomingData.map((v, i) => {
+		const x = (i / (incomingData.length - 1)) * w;
+		const y = height - ((v - min) / range) * (height - 6) - 3;
+		return `${x.toFixed(1)},${y.toFixed(1)}`;
+	});
+
+	const outPoints = outgoingData.map((v, i) => {
+		const x = (i / (outgoingData.length - 1)) * w;
+		const y = height - ((v - min) / range) * (height - 6) - 3;
+		return `${x.toFixed(1)},${y.toFixed(1)}`;
+	});
+
+	return (
+		<Box
+			w="full"
+			h={`${height}px`}
+			overflow="hidden"
+			position="relative"
+			pointerEvents="none"
+			my={2}
+		>
+			<svg
+				viewBox={`0 0 ${w} ${height}`}
+				preserveAspectRatio="none"
+				style={{ width: "100%", height: "100%", display: "block" }}
+				role="img"
+				aria-label="Network Sparkline"
+			>
+				<title>Network Sparkline</title>
+				<path
+					d={`M ${inPoints.join(" L ")}`}
+					fill="none"
+					stroke="#10b981"
+					strokeWidth="1.8"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
+				<path
+					d={`M ${outPoints.join(" L ")}`}
+					fill="none"
+					stroke="#3b82f6"
+					strokeWidth="1.8"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
+			</svg>
+		</Box>
+	);
+};
+
+const UserDistributionBar: FC<{
+	active: number;
+	online: number;
+	onHold: number;
+	limited: number;
+	expired: number;
+	total: number;
+}> = ({ active, online, onHold, limited, expired, total }) => {
+	const validTotal = Math.max(total, 1);
+	const items = [
+		{ key: "active", count: active, color: "#22c55e", width: (active / validTotal) * 100 },
+		{ key: "online", count: online, color: "#06b6d4", width: (online / validTotal) * 100 },
+		{ key: "onHold", count: onHold, color: "#a855f7", width: (onHold / validTotal) * 100 },
+		{ key: "limited", count: limited, color: "#f59e0b", width: (limited / validTotal) * 100 },
+		{ key: "expired", count: expired, color: "#ef4444", width: (expired / validTotal) * 100 },
+	].filter((item) => item.count > 0);
+
+	if (total === 0 || items.length === 0) return null;
+
+	return (
+		<HStack
+			w="full"
+			h="7px"
+			borderRadius="full"
+			spacing={0.5}
+			overflow="hidden"
+			bg="panel.elevated"
+			my={2.5}
+		>
+			{items.map((item) => (
+				<Box
+					key={item.key}
+					w={`${Math.max(item.width, 1.5)}%`}
+					h="full"
+					bg={item.color}
+					borderRadius="full"
+					transition="width 0.4s cubic-bezier(0.16, 1, 0.3, 1)"
+				/>
+			))}
+		</HStack>
+	);
+};
+
+const UserKpiCard: FC<{
+	label: string;
+	value: string | number;
+	tag?: string;
+	tagColor?: string;
+	helper?: string;
+}> = ({ label, value, tag, tagColor, helper }) => {
+	return (
+		<Box
+			p={3.5}
+			borderRadius="14px"
+			bg="panel.elevated"
+			borderWidth="1px"
+			borderColor="panel.border"
+			transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+			_hover={{
+				md: {
+					borderColor: "panel.borderStrong",
+					transform: "translateY(-1px)",
+				},
+			}}
+		>
+			<Flex justify="space-between" align="center" mb={1.5} gap={1.5}>
+				<Text
+					fontSize="12px"
+					fontWeight="600"
+					color="panel.textSecondary"
+					noOfLines={1}
+				>
+					{label}
+				</Text>
+				{tag && (
+					<Flex
+						align="center"
+						justify="center"
+						fontSize="10px"
+						px={1.5}
+						py={0.5}
+						borderRadius="md"
+						bg={tagColor ? `${tagColor}1a` : "panel.surface"}
+						color={tagColor || "panel.textSecondary"}
+						fontWeight="700"
+						dir="ltr"
+						flexShrink={0}
+						sx={{ fontVariantNumeric: "tabular-nums" }}
+					>
+						{tag}
+					</Flex>
+				)}
+			</Flex>
+			<Text
+				fontSize="20px"
+				fontWeight="800"
+				letterSpacing="-0.02em"
+				color="panel.text"
+				dir="ltr"
+				lineHeight="1.1"
+				sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+			>
+				{typeof value === "number" ? numberWithCommas(value) : value}
+			</Text>
+			{helper && (
+				<Text
+					fontSize="10px"
+					color="panel.textMuted"
+					mt={1.5}
+					dir="ltr"
+					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
+					noOfLines={1}
+				>
+					{helper}
+				</Text>
+			)}
+		</Box>
+	);
+};
+
 const ResourceCard: FC<{
 	label: string;
 	icon: ReactNode;
@@ -1127,6 +1369,8 @@ const ResourceCard: FC<{
 	onHistory?: () => void;
 	historyLabel?: string;
 	isRTL?: boolean;
+	sparklineData?: number[];
+	sparklineColor?: string;
 }> = ({
 	label,
 	icon,
@@ -1141,6 +1385,8 @@ const ResourceCard: FC<{
 	onHistory,
 	historyLabel,
 	isRTL = false,
+	sparklineData,
+	sparklineColor = "var(--rb-panel-accent)",
 }) => {
 	const { colorMode } = useColorMode();
 	const safe = clampPercent(percent);
@@ -1438,7 +1684,15 @@ const ResourceCard: FC<{
 				{subMeta && <Box mt={0.5}>{subMeta}</Box>}
 			</Box>
 
-			<Box mt={3}>
+			{sparklineData && sparklineData.length >= 2 && (
+				<MiniSparkline
+					data={sparklineData}
+					color={sparklineColor}
+					height={24}
+				/>
+			)}
+
+			<Box mt={sparklineData && sparklineData.length >= 2 ? 1.5 : 3}>
 				<Flex justify="space-between" align="center" mb={1.5}>
 					<Text
 						fontSize="11px"
@@ -1818,44 +2072,6 @@ const AnimatedHeightWrapper: FC<{
 	);
 };
 
-const SpeedItem: FC<{
-	icon: ReactNode;
-	label: string;
-	value: string;
-}> = ({ icon, label, value }) => {
-	return (
-		<Flex align="center" justify="space-between" gap={3}>
-			<HStack spacing={2.5} color="panel.textMuted">
-				<Flex
-					w="28px"
-					h="28px"
-					align="center"
-					justify="center"
-					borderRadius="10px"
-					bg="panel.elevated"
-					flexShrink={0}
-					data-rb-icon=""
-				>
-					{icon}
-				</Flex>
-				<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
-					{label}
-				</Text>
-			</HStack>
-			<Text
-				fontSize="13px"
-				fontWeight="700"
-				letterSpacing="-0.01em"
-				color="panel.text"
-				dir="ltr"
-				sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-			>
-				{value}
-			</Text>
-		</Flex>
-	);
-};
-
 export const Statistics: FC<BoxProps> = (props) => {
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
@@ -1952,154 +2168,113 @@ export const Statistics: FC<BoxProps> = (props) => {
 				}}
 			>
 				{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
-				<Flex
-					align="center"
-					justify="space-between"
-					px={1}
-					flexWrap="wrap"
-					gap={3}
-					sx={{
-						"@media screen and (max-width: 767px)": {
-							"& > div:last-child": {
-								width: "100%",
-								justifyContent: "flex-start",
-							},
-						},
-					}}
+				<Box
+					className="shimmer-box"
+					w="full"
+					bg="panel.surface"
+					borderWidth="1px"
+					borderColor="panel.border"
+					borderRadius="20px"
+					p={{ base: 4, sm: 5 }}
+					boxShadow={
+						colorMode === "light"
+							? "0 1px 3px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
+							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
+					}
 				>
 					<Flex
-						wrap="wrap"
-						gap={{ base: 2.5, md: 1 }}
-						sx={{
-							flexDirection: "column",
-							alignItems: "flex-start",
-							"@media screen and (max-width: 767px)": {
-								flexDirection: "row",
-								alignItems: "center",
-							},
-							"@media screen and (min-width: 768px) and (max-width: 991px)": {
-								"body:has([data-sidebar-collapsed='true']) &": {
-									flexDirection: "row",
-									alignItems: "center",
-								},
-								"body:not(:has([data-sidebar-collapsed='true'])) &": {
-									flexDirection: "column",
-									alignItems: "flex-start",
-								},
-							},
-							"@media screen and (min-width: 992px)": {
-								flexDirection: "column",
-								alignItems: "flex-start",
-							},
-						}}
+						align="center"
+						justify="space-between"
+						flexWrap="wrap"
+						gap={4}
 					>
-						<Box
-							className="shimmer-box"
-							w={{ base: "140px", sm: "170px" }}
-							h="24px"
-							bg="panel.surface"
-							borderRadius="8px"
-							borderWidth="1px"
-							borderColor="panel.border"
-						/>
-						<HStack spacing={1.5}>
-							<Box
-								className="shimmer-box"
-								w="65px"
-								h="18px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="shimmer-box"
-								w="85px"
-								h="18px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="shimmer-box"
-								w="75px"
-								h="18px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-						</HStack>
+						<VStack align="flex-start" spacing={2} minW={0} flex={1}>
+							<HStack spacing={3} align="center" flexWrap="wrap">
+								<Box
+									w="140px"
+									h="22px"
+									borderRadius="md"
+									bg="panel.elevated"
+								/>
+								<Box
+									w="90px"
+									h="24px"
+									borderRadius="full"
+									bg="panel.elevated"
+								/>
+							</HStack>
+							<HStack spacing={2} align="center" flexWrap="wrap">
+								<Box
+									w="80px"
+									h="14px"
+									borderRadius="md"
+									bg="panel.elevated"
+								/>
+								<Box
+									w="50px"
+									h="14px"
+									borderRadius="md"
+									bg="panel.elevated"
+								/>
+								<Box
+									w="120px"
+									h="14px"
+									borderRadius="md"
+									bg="panel.elevated"
+								/>
+							</HStack>
+						</VStack>
+						<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
+							<HStack
+								display={{ base: "none", sm: "flex" }}
+								spacing={2}
+								align="center"
+								justify="flex-end"
+							>
+								<Box
+									w="118px"
+									h="32px"
+									bg="panel.elevated"
+									borderRadius="12px"
+								/>
+								<Box
+									w="100px"
+									h="32px"
+									bg="panel.elevated"
+									borderRadius="12px"
+								/>
+								<Box
+									w="114px"
+									h="32px"
+									bg="panel.elevated"
+									borderRadius="12px"
+								/>
+							</HStack>
+							<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
+								<Box
+									w="full"
+									h="32px"
+									bg="panel.elevated"
+									borderRadius="12px"
+								/>
+								<Flex gap={2} w="full" align="center">
+									<Box
+										flex="1 1 50%"
+										h="32px"
+										bg="panel.elevated"
+										borderRadius="12px"
+									/>
+									<Box
+										flex="1 1 50%"
+										h="32px"
+										bg="panel.elevated"
+										borderRadius="12px"
+									/>
+								</Flex>
+							</Stack>
+						</Box>
 					</Flex>
-					<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
-						<HStack
-							display={{ base: "none", sm: "flex" }}
-							spacing={2}
-							align="center"
-							justify="flex-end"
-						>
-							<Box
-								className="shimmer-box"
-								w="118px"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="shimmer-box"
-								w="100px"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="shimmer-box"
-								w="114px"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-						</HStack>
-						<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
-							<Box
-								className="shimmer-box"
-								w="full"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Flex gap={2} w="full" align="center">
-								<Box
-									className="shimmer-box"
-									flex="1 1 50%"
-									h="32px"
-									bg="panel.surface"
-									borderRadius="full"
-									borderWidth="1px"
-									borderColor="panel.border"
-								/>
-								<Box
-									className="shimmer-box"
-									flex="1 1 50%"
-									h="32px"
-									bg="panel.surface"
-									borderRadius="full"
-									borderWidth="1px"
-									borderColor="panel.border"
-								/>
-							</Flex>
-						</Stack>
-					</Box>
-				</Flex>
+				</Box>
 
 				<SimpleGrid
 					columns={{ base: 1, sm: 2, xl: 4 }}
@@ -2180,6 +2355,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 										/>
 									</Box>
 								)}
+								<Box w="full" h="26px" borderRadius="md" bg="panel.elevated" my={2} />
 							</Box>
 							<Box mt={3}>
 								<Flex justify="space-between" align="center" mb={1.5}>
@@ -2250,58 +2426,42 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderColor="panel.border"
 						>
 							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-								<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
+								<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+								<Box w="120px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
+								<SimpleGrid columns={{ base: 1, sm: 2 }} gap={2.5}>
+									{[1, 2].map((i) => (
 										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
+											key={i}
+											p={3}
+											borderRadius="12px"
 											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="85px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									<Box
-										w="80px"
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="90px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									<Box
-										w="80px"
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
+											borderWidth="1px"
+											borderColor="panel.border"
+										>
+											<HStack spacing={2} mb={1.5}>
+												<Box w="24px" h="24px" borderRadius="7px" bg="panel.surface" />
+												<Box w="70px" h="12px" borderRadius="sm" bg="panel.surface" />
+											</HStack>
+											<Box w="90px" h="20px" borderRadius="md" bg="panel.surface" my={1} />
+											<Box w="60px" h="10px" borderRadius="sm" bg="panel.surface" />
+										</Box>
+									))}
+								</SimpleGrid>
+								<Box w="full" h="36px" borderRadius="8px" bg="panel.elevated" />
+								<Flex
+									align="center"
+									justify="space-between"
+									pt={1}
+									borderTopWidth="1px"
+									borderColor="panel.border"
+								>
+									<Box w="80px" h="12px" borderRadius="sm" bg="panel.elevated" />
+									<Box w="65px" h="12px" borderRadius="sm" bg="panel.elevated" />
 								</Flex>
 							</Stack>
 						</Box>
@@ -2329,57 +2489,112 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderColor="panel.border"
 						>
 							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-								<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
+								<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
+								<Box w="100px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
+							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
 							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
+								<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 2.5, md: 3 }}>
+									{[1, 2].map((i) => (
 										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="95px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
+											key={i}
+											bg="panel.surface"
+											borderRadius="14px"
+											borderWidth="1px"
+											borderColor="panel.border"
+											p={{ base: 4, sm: 5 }}
+											display="flex"
+											flexDirection="column"
+											justifyContent="space-between"
+										>
+											<Box>
+												<Flex justify="space-between" align="center" mb={3}>
+													<HStack spacing={2.5} align="center">
+														<Box
+															w="32px"
+															h="32px"
+															borderRadius="10px"
+															bg="panel.elevated"
+															flexShrink={0}
+														/>
+														<Box
+															w={i === 1 ? "90px" : "100px"}
+															h="16px"
+															borderRadius="md"
+															bg="panel.elevated"
+														/>
+													</HStack>
+												</Flex>
+												<Flex align="baseline" gap={1.5} mb={1}>
+													<Box
+														w="55px"
+														h="24px"
+														borderRadius="md"
+														bg="panel.elevated"
+													/>
+													<Box
+														w="45px"
+														h="16px"
+														borderRadius="md"
+														bg="panel.elevated"
+													/>
+												</Flex>
+												<Box w="full" h="26px" borderRadius="md" bg="panel.elevated" my={2} />
+											</Box>
+											<Box mt={3}>
+												<Flex justify="space-between" align="center" mb={1.5}>
+													<Box
+														w="32px"
+														h="13px"
+														borderRadius="sm"
+														bg="panel.elevated"
+													/>
+												</Flex>
+												<Box
+													w="full"
+													h="4px"
+													borderRadius="full"
+													bg="panel.elevated"
+												/>
+												<Flex
+													justify="space-between"
+													align="center"
+													mt={2.5}
+													pt={2.5}
+													borderTopWidth="1px"
+													borderColor="panel.border"
+												>
+													<Box
+														w="75px"
+														h="14px"
+														borderRadius="sm"
+														bg="panel.elevated"
+													/>
+													<Box
+														w="70px"
+														h="14px"
+														borderRadius="sm"
+														bg="panel.elevated"
+													/>
+												</Flex>
+											</Box>
+										</Box>
+									))}
+								</SimpleGrid>
+								<Flex
+									align="center"
+									justify="space-between"
+									pt={1}
+									borderTopWidth="1px"
+									borderColor="panel.border"
+								>
+									<HStack spacing={2}>
+										<Box w="18px" h="18px" borderRadius="5px" bg="panel.elevated" />
+										<Box w="75px" h="12px" borderRadius="sm" bg="panel.elevated" />
 									</HStack>
-									<Box
-										w="110px"
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="90px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									<Box
-										w="95px"
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
+									<Box w="90px" h="12px" borderRadius="sm" bg="panel.elevated" />
 								</Flex>
 							</Stack>
 						</Box>
@@ -2408,129 +2623,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 						borderColor="panel.border"
 					>
 						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-							<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
-						</HStack>
-						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
-					</Flex>
-					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
-							{[1, 2].map((i) => (
-								<Box
-									key={i}
-									bg="panel.surface"
-									borderRadius="14px"
-									borderWidth="1px"
-									borderColor="panel.border"
-									p={{ base: 4, sm: 5 }}
-									display="flex"
-									flexDirection="column"
-									justifyContent="space-between"
-									boxShadow={
-										colorMode === "light"
-											? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-											: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-									}
-								>
-									<Box>
-										<Flex justify="space-between" align="center" mb={3}>
-											<HStack spacing={2.5} align="center">
-												<Box
-													w="32px"
-													h="32px"
-													borderRadius="10px"
-													bg="panel.elevated"
-													flexShrink={0}
-												/>
-												<Box
-													w={i === 1 ? "120px" : "130px"}
-													h="16px"
-													borderRadius="md"
-													bg="panel.elevated"
-												/>
-											</HStack>
-										</Flex>
-										<Flex align="baseline" gap={1.5} mb={1}>
-											<Box
-												w="55px"
-												h="24px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-											<Box
-												w="45px"
-												h="16px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-										</Flex>
-									</Box>
-									<Box mt={3}>
-										<Flex justify="space-between" align="center" mb={1.5}>
-											<Box
-												w="32px"
-												h="13px"
-												borderRadius="sm"
-												bg="panel.elevated"
-											/>
-										</Flex>
-										<Box
-											w="full"
-											h="4px"
-											borderRadius="full"
-											bg="panel.elevated"
-										/>
-										<Flex
-											justify="space-between"
-											align="center"
-											mt={2.5}
-											pt={2.5}
-											borderTopWidth="1px"
-											borderColor="panel.border"
-										>
-											<Box
-												w="75px"
-												h="14px"
-												borderRadius="sm"
-												bg="panel.elevated"
-											/>
-											<Box
-												w="70px"
-												h="14px"
-												borderRadius="sm"
-												bg="panel.elevated"
-											/>
-										</Flex>
-									</Box>
-								</Box>
-							))}
-						</SimpleGrid>
-					</Box>
-				</Box>
-
-				<Box
-					className="shimmer-box"
-					bg="panel.surface"
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					overflow="hidden"
-					boxShadow={
-						colorMode === "light"
-							? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-					}
-				>
-					<Flex
-						px={{ base: 4, sm: 5, md: 6 }}
-						py={3.5}
-						justify="space-between"
-						align="center"
-						borderBottomWidth="1px"
-						borderColor="panel.border"
-					>
-						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
+							<Box w="28px" h="28px" borderRadius="10px" bg="panel.elevated" />
 							<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
 						</HStack>
 						<HStack
@@ -2544,102 +2637,38 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</HStack>
 					</Flex>
 					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<Stack spacing={0}>
-							{[
-								{
-									id: "skel-u-total",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "55px",
-									valW: "35px",
-								},
-								{
-									id: "skel-u-active",
-									hasTag: true,
-									hasHelper: false,
-									labelW: "55px",
-									valW: "35px",
-								},
-								{
-									id: "skel-u-online",
-									hasTag: true,
-									hasHelper: true,
-									labelW: "55px",
-									valW: "35px",
-								},
-								{
-									id: "skel-u-onhold",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "65px",
-									valW: "30px",
-								},
-								{
-									id: "skel-u-limited",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "70px",
-									valW: "30px",
-								},
-								{
-									id: "skel-u-expired",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "75px",
-									valW: "30px",
-								},
-							].map((row, idx) => (
-								<Flex
-									key={row.id}
-									justify="space-between"
-									align="center"
-									py={2.5}
-									borderBottomWidth={idx === 5 ? "0" : "1px"}
-									borderColor="panel.border"
-								>
-									<HStack spacing={3} minW={0}>
-										<Box
-											w="7px"
-											h="7px"
-											borderRadius="full"
-											bg="panel.elevated"
-											me="3px"
-											flexShrink={0}
-										/>
-										<Box
-											w={row.labelW}
-											h="14px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-										{row.hasTag && (
-											<Box
-												w="36px"
-												h="18px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-										)}
-									</HStack>
-									<VStack align="flex-end" spacing={0.5} flexShrink={0}>
-										<Box
-											w={row.valW}
-											h="16px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-										{row.hasHelper && (
-											<Box
-												w="100px"
-												h="12px"
-												borderRadius="sm"
-												bg="panel.elevated"
-												mt={0.5}
-											/>
-										)}
-									</VStack>
-								</Flex>
-							))}
+						<Stack spacing={3}>
+							<Box w="full" h="7px" borderRadius="full" bg="panel.elevated" my={1} />
+							<SimpleGrid columns={{ base: 1, sm: 3 }} gap={2.5}>
+								{[1, 2, 3].map((i) => (
+									<Box
+										key={i}
+										p={3.5}
+										borderRadius="14px"
+										bg="panel.elevated"
+										borderWidth="1px"
+										borderColor="panel.border"
+									>
+										<Box w="60px" h="12px" borderRadius="sm" bg="panel.surface" mb={2} />
+										<Box w="80px" h="22px" borderRadius="md" bg="panel.surface" />
+									</Box>
+								))}
+							</SimpleGrid>
+							<SimpleGrid columns={{ base: 1, sm: 3 }} gap={2.5}>
+								{[4, 5, 6].map((i) => (
+									<Box
+										key={i}
+										p={3.5}
+										borderRadius="14px"
+										bg="panel.elevated"
+										borderWidth="1px"
+										borderColor="panel.border"
+									>
+										<Box w="50px" h="12px" borderRadius="sm" bg="panel.surface" mb={2} />
+										<Box w="70px" h="22px" borderRadius="md" bg="panel.surface" />
+									</Box>
+								))}
+							</SimpleGrid>
 						</Stack>
 					</Box>
 				</Box>
@@ -2667,51 +2696,35 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderColor="panel.border"
 						>
 							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" />
 								<Box w="85px" h="16px" borderRadius="md" bg="panel.elevated" />
 							</HStack>
 						</Flex>
 						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={0}>
-								{[
-									{ id: "skel-a-total", labelW: "75px", valW: "40px" },
-									{ id: "skel-a-full", labelW: "85px", valW: "40px" },
-									{ id: "skel-a-sudo", labelW: "65px", valW: "40px" },
-									{ id: "skel-a-standard", labelW: "80px", valW: "40px" },
-									{ id: "skel-a-top", labelW: "75px", valW: "120px" },
-								].map((row, idx) => (
-									<Flex
-										key={row.id}
-										justify="space-between"
-										align="center"
-										py={2.5}
-										borderBottomWidth={idx === 4 ? "0" : "1px"}
-										borderColor="panel.border"
-									>
-										<HStack spacing={3} minW={0}>
-											<Box
-												w="7px"
-												h="7px"
-												borderRadius="full"
-												bg="panel.elevated"
-												me="3px"
-												flexShrink={0}
-											/>
-											<Box
-												w={row.labelW}
-												h="14px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-										</HStack>
+							<Stack spacing={3}>
+								<SimpleGrid columns={{ base: 2, sm: 4 }} gap={2.5}>
+									{[1, 2, 3, 4].map((i) => (
 										<Box
-											w={row.valW}
-											h="16px"
-											borderRadius="md"
+											key={i}
+											p={3.5}
+											borderRadius="14px"
 											bg="panel.elevated"
-										/>
-									</Flex>
-								))}
+											borderWidth="1px"
+											borderColor="panel.border"
+										>
+											<Box w="50px" h="12px" borderRadius="sm" bg="panel.surface" mb={2} />
+											<Box w="60px" h="22px" borderRadius="md" bg="panel.surface" />
+										</Box>
+									))}
+								</SimpleGrid>
+								<Box
+									p={3}
+									borderRadius="12px"
+									bg="panel.elevated"
+									borderWidth="1px"
+									borderColor="panel.border"
+									h="38px"
+								/>
 							</Stack>
 						</Box>
 					</Box>
@@ -2794,141 +2807,134 @@ export const Statistics: FC<BoxProps> = (props) => {
 			{canSeeGlobal && (
 				<SystemDiagnostics issues={criticalIssues} criticalOnly />
 			)}
-			<Flex
-				align="center"
-				justify="space-between"
-				flexWrap="wrap"
-				gap={3}
-				px={1}
+			<Box
+				w="full"
+				bg="panel.surface"
+				borderWidth="1px"
+				borderColor="panel.border"
+				borderRadius="20px"
+				p={{ base: 4, sm: 5 }}
+				boxShadow={
+					colorMode === "light"
+						? "0 1px 3px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
+						: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
+				}
 			>
 				<Flex
-					wrap="wrap"
-					gap={{ base: 2.5, md: 1 }}
-					sx={{
-						flexDirection: "column",
-						alignItems: "flex-start",
-						"@media screen and (max-width: 767px)": {
-							flexDirection: "row",
-							alignItems: "center",
-						},
-						"@media screen and (min-width: 768px) and (max-width: 991px)": {
-							"body:has([data-sidebar-collapsed='true']) &": {
-								flexDirection: "row",
-								alignItems: "center",
-							},
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								flexDirection: "column",
-								alignItems: "flex-start",
-							},
-						},
-						"@media screen and (min-width: 992px)": {
-							flexDirection: "column",
-							alignItems: "flex-start",
-						},
-					}}
+					align="center"
+					justify="space-between"
+					flexWrap="wrap"
+					gap={4}
 				>
-					<Text
-						fontSize={{ base: "18px", md: "20px" }}
-						fontWeight="700"
-						color="panel.text"
-						letterSpacing="-0.02em"
-					>
-						{t("dashboard.system.overview")}
-					</Text>
-					<Flex align="center" gap={2} direction="row">
-						<Box
-							position="relative"
-							display="inline-flex"
-							alignItems="center"
-							justifyContent="center"
-							w="8px"
-							h="8px"
-							flexShrink={0}
-						>
-							{systemData.xray_running && !hasXrayError && (
-								<Box
-									position="absolute"
-									w="full"
-									h="full"
-									borderRadius="full"
-									bg="#22c55e"
-									opacity={0.6}
-									sx={{
-										animation:
-											"beaconPing 2.8s cubic-bezier(0, 0, 0.2, 1) infinite",
-										"@keyframes beaconPing": {
-											"0%": {
-												transform: "scale(1)",
-												opacity: 0.7,
-											},
-											"70%, 100%": {
-												transform: "scale(2.6)",
-												opacity: 0,
-											},
-										},
-									}}
-								/>
-							)}
-							<Box
-								w="7px"
-								h="7px"
+					<VStack align="flex-start" spacing={2} minW={0} flex={1}>
+						<HStack spacing={3} align="center" flexWrap="wrap">
+							<Text
+								fontSize={{ base: "18px", md: "20px" }}
+								fontWeight="800"
+								color="panel.text"
+								letterSpacing="-0.02em"
+							>
+								{t("dashboard.system.overview")}
+							</Text>
+							<HStack
+								spacing={2}
+								px={2.5}
+								py={1}
 								borderRadius="full"
 								bg={
 									systemData.xray_running && !hasXrayError
-										? "#22c55e"
-										: "#ef4444"
+										? "rgba(34, 197, 94, 0.12)"
+										: "rgba(239, 68, 68, 0.12)"
 								}
-								boxShadow={
+								color={
 									systemData.xray_running && !hasXrayError
-										? "0 0 6px rgba(34, 197, 94, 0.5)"
-										: "0 0 6px rgba(239, 68, 68, 0.5)"
+										? "#16a34a"
+										: "#dc2626"
 								}
-								position="relative"
-								zIndex={1}
-							/>
-						</Box>
-						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
-							{hasXrayError
-								? t("diagnostics.statusError")
-								: systemData.xray_running
-									? t("dashboard.system.statusRunning")
-									: t("dashboard.system.statusStopped")}
-						</Text>
-						{systemData.os && (
-							<HStack
-								spacing={1.5}
-								align="center"
-								color="panel.textSecondary"
-								fontSize="12px"
-								fontWeight="600"
 							>
-								<Text as="span">·</Text>
+								<Box
+									position="relative"
+									display="inline-flex"
+									alignItems="center"
+									justifyContent="center"
+									w="8px"
+									h="8px"
+									flexShrink={0}
+								>
+									{systemData.xray_running && !hasXrayError && (
+										<Box
+											position="absolute"
+											w="full"
+											h="full"
+											borderRadius="full"
+											bg="#22c55e"
+											opacity={0.6}
+											sx={{
+												animation:
+													"beaconPing 2.8s cubic-bezier(0, 0, 0.2, 1) infinite",
+												"@keyframes beaconPing": {
+													"0%": { transform: "scale(1)", opacity: 0.7 },
+													"70%, 100%": { transform: "scale(2.6)", opacity: 0 },
+												},
+											}}
+										/>
+									)}
+									<Box
+										w="7px"
+										h="7px"
+										borderRadius="full"
+										bg={
+											systemData.xray_running && !hasXrayError
+												? "#22c55e"
+												: "#ef4444"
+										}
+										position="relative"
+										zIndex={1}
+									/>
+								</Box>
+								<Text fontSize="12px" fontWeight="700">
+									{hasXrayError
+										? t("diagnostics.statusError")
+										: systemData.xray_running
+											? t("dashboard.system.statusRunning")
+											: t("dashboard.system.statusStopped")}
+								</Text>
+							</HStack>
+						</HStack>
+						<HStack
+							spacing={2}
+							align="center"
+							color="panel.textMuted"
+							fontSize="12px"
+							fontWeight="500"
+							flexWrap="wrap"
+						>
+							{systemData.os && (
 								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
 									{systemData.os}
 								</Text>
-							</HStack>
-						)}
-						{exactVersion && exactVersion !== "-" && (
-							<HStack
-								spacing={1.5}
-								align="center"
-								color="panel.textSecondary"
-								fontSize="12px"
-								fontWeight="600"
-							>
-								<Text as="span">·</Text>
-								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-									{exactVersion}
-								</Text>
-							</HStack>
-						)}
-					</Flex>
+							)}
+							{exactVersion && exactVersion !== "-" && (
+								<>
+									<Text as="span">·</Text>
+									<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+										v{exactVersion}
+									</Text>
+								</>
+							)}
+							<Text as="span">·</Text>
+							<Text as="span">
+								{t("dashboard.system.uptime")}:{" "}
+								{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
+							</Text>
+						</HStack>
+					</VStack>
+					<DashboardMaintenanceControls
+						channel={systemData.channel}
+						version={systemData.version}
+					/>
 				</Flex>
-				<DashboardMaintenanceControls
-					channel={systemData.channel}
-					version={systemData.version}
-				/>
-			</Flex>
+			</Box>
 
 			<SimpleGrid
 				columns={{ base: 1, sm: 2, xl: 4 }}
@@ -2979,6 +2985,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("dashboard.system.viewHistory")}
 					isRTL={isRTL}
+					sparklineData={systemData.cpu_history.map((e) => e.value)}
+					sparklineColor="var(--rb-panel-accent)"
 					onHistory={() =>
 						openHistory({
 							type: "cpu",
@@ -2998,6 +3006,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)), isRTL)}`}
 					historyLabel={t("dashboard.system.viewHistory")}
 					isRTL={isRTL}
+					sparklineData={systemData.memory_history.map((e) => e.value)}
+					sparklineColor="#3b82f6"
 					onHistory={() =>
 						openHistory({
 							type: "memory",
@@ -3016,6 +3026,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.swap_history.map((e) => e.value)), isRTL)}`}
 					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.swap_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
+					sparklineData={systemData.swap_history.map((e) => e.value)}
+					sparklineColor="#a855f7"
 				/>
 				<ResourceCard
 					label={t("dashboard.system.diskUsage")}
@@ -3026,6 +3038,8 @@ export const Statistics: FC<BoxProps> = (props) => {
 					footerLeft={`${t("dashboard.system.free")}: ${formatBytes(Math.max(0, systemData.disk.total - systemData.disk.current), 1)}`}
 					footerRight={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
+					sparklineData={systemData.disk_history.map((e) => e.value)}
+					sparklineColor="#10b981"
 				/>
 			</SimpleGrid>
 
@@ -3111,16 +3125,149 @@ export const Statistics: FC<BoxProps> = (props) => {
 					}
 				>
 					<Stack spacing={3}>
-						<SpeedItem
-							icon={<ArrowDownTrayIcon width={13} />}
-							label={t("dashboard.system.incomingSpeed")}
-							value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
+						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={2.5}>
+							<Box
+								p={3}
+								borderRadius="12px"
+								bg="panel.elevated"
+								borderWidth="1px"
+								borderColor="panel.border"
+							>
+								<HStack spacing={2} mb={1.5}>
+									<Flex
+										w="24px"
+										h="24px"
+										align="center"
+										justify="center"
+										borderRadius="7px"
+										bg="rgba(16, 185, 129, 0.14)"
+										color="#10b981"
+										flexShrink={0}
+									>
+										<ArrowDownTrayIcon width={13} />
+									</Flex>
+									<Text
+										fontSize="11px"
+										fontWeight="600"
+										color="panel.textSecondary"
+										noOfLines={1}
+									>
+										{t("dashboard.system.incomingSpeed")}
+									</Text>
+								</HStack>
+								<Text
+									fontSize="18px"
+									fontWeight="800"
+									letterSpacing="-0.02em"
+									color="panel.text"
+									dir="ltr"
+									lineHeight="1.2"
+									sx={{
+										fontVariantNumeric: "tabular-nums",
+										unicodeBidi: "isolate",
+									}}
+								>
+									{`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
+								</Text>
+								<Text
+									fontSize="10px"
+									color="panel.textMuted"
+									mt={1}
+									dir="ltr"
+									sx={{
+										fontVariantNumeric: "tabular-nums",
+										unicodeBidi: "isolate",
+									}}
+								>
+									{formatBytes(systemData.incoming_bandwidth)}
+								</Text>
+							</Box>
+
+							<Box
+								p={3}
+								borderRadius="12px"
+								bg="panel.elevated"
+								borderWidth="1px"
+								borderColor="panel.border"
+							>
+								<HStack spacing={2} mb={1.5}>
+									<Flex
+										w="24px"
+										h="24px"
+										align="center"
+										justify="center"
+										borderRadius="7px"
+										bg="rgba(59, 130, 246, 0.14)"
+										color="#3b82f6"
+										flexShrink={0}
+									>
+										<ArrowUpTrayIcon width={13} />
+									</Flex>
+									<Text
+										fontSize="11px"
+										fontWeight="600"
+										color="panel.textSecondary"
+										noOfLines={1}
+									>
+										{t("dashboard.system.outgoingSpeed")}
+									</Text>
+								</HStack>
+								<Text
+									fontSize="18px"
+									fontWeight="800"
+									letterSpacing="-0.02em"
+									color="panel.text"
+									dir="ltr"
+									lineHeight="1.2"
+									sx={{
+										fontVariantNumeric: "tabular-nums",
+										unicodeBidi: "isolate",
+									}}
+								>
+									{`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
+								</Text>
+								<Text
+									fontSize="10px"
+									color="panel.textMuted"
+									mt={1}
+									dir="ltr"
+									sx={{
+										fontVariantNumeric: "tabular-nums",
+										unicodeBidi: "isolate",
+									}}
+								>
+									{formatBytes(systemData.outgoing_bandwidth)}
+								</Text>
+							</Box>
+						</SimpleGrid>
+
+						<DualNetworkSparkline
+							entries={systemData.network_history}
+							height={36}
 						/>
-						<SpeedItem
-							icon={<ArrowUpTrayIcon width={13} />}
-							label={t("dashboard.system.outgoingSpeed")}
-							value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
-						/>
+
+						<Flex
+							align="center"
+							justify="space-between"
+							pt={1}
+							borderTopWidth="1px"
+							borderColor="panel.border"
+							fontSize="11px"
+							color="panel.textMuted"
+						>
+							<Text>{t("dashboard.system.total") || "Total"}</Text>
+							<Text
+								dir="ltr"
+								fontWeight="600"
+								color="panel.text"
+								sx={{
+									fontVariantNumeric: "tabular-nums",
+									unicodeBidi: "isolate",
+								}}
+							>
+								{formatBytes(systemData.panel_total_bandwidth)}
+							</Text>
+						</Flex>
 					</Stack>
 				</SectionCard>
 
@@ -3137,163 +3284,127 @@ export const Statistics: FC<BoxProps> = (props) => {
 								color="panel.textSecondary"
 								data-rb-icon=""
 							>
-								<ClockIcon width={14} />
+								<CpuChipIcon width={14} />
 							</Flex>
-							<span>{t("dashboard.system.uptime")}</span>
+							<span>{t("dashboard.system.panelUsage")}</span>
 						</HStack>
+					}
+					action={
+						<Button
+							size="xs"
+							h="22px"
+							px={2.5}
+							fontSize="11px"
+							variant="ghost"
+							borderRadius="full"
+							bg="panel.elevated"
+							color={
+								colorMode === "light"
+									? "panel.textSecondary"
+									: "panel.textMuted"
+							}
+							fontWeight={colorMode === "light" ? "600" : "500"}
+							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+							_hover={{
+								md: {
+									bg: "panel.border !important",
+									color: "panel.text !important",
+								},
+							}}
+							_active={{
+								bg: "panel.borderStrong !important",
+								transform: "scale(0.97)",
+							}}
+							_focusVisible={{
+								outline: "2px solid var(--rb-panel-accent)",
+								outlineOffset: "2px",
+							}}
+							position="relative"
+							_after={{
+								content: '""',
+								position: "absolute",
+								top: "-10px",
+								bottom: "-10px",
+								left: "-10px",
+								right: "-10px",
+							}}
+							onClick={() =>
+								openHistory({
+									type: "panel",
+									title: t("dashboard.system.panelUsage"),
+									cpuEntries: systemData.panel_cpu_history,
+									memoryEntries: systemData.panel_memory_history,
+								})
+							}
+						>
+							{t("dashboard.system.viewHistory")}
+						</Button>
 					}
 				>
 					<Stack spacing={3}>
-						<Flex align="center" justify="space-between" gap={3}>
-							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex
-									w="28px"
-									h="28px"
-									align="center"
-									justify="center"
-									borderRadius="8px"
-									bg="panel.elevated"
-									flexShrink={0}
-									data-rb-icon=""
-								>
-									<ServerStackIcon width={13} />
-								</Flex>
-								<Text
-									fontSize="13px"
-									fontWeight="600"
-									color="panel.textSecondary"
-								>
-									{t("dashboard.system.systemUptime")}
-								</Text>
-							</HStack>
-							{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
-						</Flex>
-						<Flex align="center" justify="space-between" gap={3}>
-							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex
-									w="28px"
-									h="28px"
-									align="center"
-									justify="center"
-									borderRadius="8px"
-									bg="panel.elevated"
-									flexShrink={0}
-									data-rb-icon=""
-								>
-									<CircleStackIcon width={13} />
-								</Flex>
-								<Text
-									fontSize="13px"
-									fontWeight="600"
-									color="panel.textSecondary"
-								>
+						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 2.5, md: 3 }}>
+							<ResourceCard
+								label={`${t("dashboard.system.cpuUsage")} (Panel)`}
+								icon={<CpuChipIcon width={16} />}
+								value={formatPercent(systemData.panel_cpu_percent, false)}
+								percent={systemData.panel_cpu_percent}
+								metaValue={formatNumberValue(systemData.app_threads)}
+								metaUnit={t("dashboard.system.thread")}
+								footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
+								footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
+								isRTL={isRTL}
+								sparklineData={systemData.panel_cpu_history.map((e) => e.value)}
+								sparklineColor="var(--rb-panel-accent)"
+							/>
+							<ResourceCard
+								label={`${t("dashboard.system.memoryUsage")} (Panel)`}
+								icon={<ServerStackIcon width={16} />}
+								value={formatBytes(systemData.app_memory, 1)}
+								totalValue={formatBytes(systemData.memory.total, 1)}
+								percent={systemData.panel_memory_percent}
+								footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
+								footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
+								isRTL={isRTL}
+								sparklineData={systemData.panel_memory_history.map((e) => e.value)}
+								sparklineColor="#3b82f6"
+							/>
+						</SimpleGrid>
+						<Flex
+							align="center"
+							justify="space-between"
+							pt={2}
+							borderTopWidth="1px"
+							borderColor="panel.border"
+							fontSize="12px"
+							gap={2}
+							flexWrap="wrap"
+						>
+							<HStack spacing={2} color="panel.textSecondary">
+								<ClockIcon width={14} />
+								<Text fontSize="11px" fontWeight="600">
 									{t("dashboard.system.panelUptime")}
 								</Text>
 							</HStack>
-							{formatLocalizedDuration(
-								systemData.panel_uptime_seconds,
-								t,
-								isRTL,
-							)}
+							<Text
+								dir="ltr"
+								fontSize="11px"
+								fontWeight="600"
+								color="panel.text"
+								sx={{
+									fontVariantNumeric: "tabular-nums",
+									unicodeBidi: "isolate",
+								}}
+							>
+								{formatLocalizedDuration(
+									systemData.panel_uptime_seconds,
+									t,
+									isRTL,
+								)}
+							</Text>
 						</Flex>
 					</Stack>
 				</SectionCard>
 			</SimpleGrid>
-
-			<SectionCard
-				noHover
-				roleGroup={false}
-				title={
-					<HStack spacing={2.5}>
-						<Flex
-							w="28px"
-							h="28px"
-							align="center"
-							justify="center"
-							borderRadius="8px"
-							bg="panel.elevated"
-							color="panel.textSecondary"
-							data-rb-icon=""
-						>
-							<CpuChipIcon width={14} />
-						</Flex>
-						<span>{t("dashboard.system.panelUsage")}</span>
-					</HStack>
-				}
-				action={
-					<Button
-						size="xs"
-						h="22px"
-						px={2.5}
-						fontSize="11px"
-						variant="ghost"
-						borderRadius="full"
-						bg="panel.elevated"
-						color={
-							colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"
-						}
-						fontWeight={colorMode === "light" ? "600" : "500"}
-						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-						_hover={{
-							md: {
-								bg: "panel.border !important",
-								color: "panel.text !important",
-							},
-						}}
-						_active={{
-							bg: "panel.borderStrong !important",
-							transform: "scale(0.97)",
-						}}
-						_focusVisible={{
-							outline: "2px solid var(--rb-panel-accent)",
-							outlineOffset: "2px",
-						}}
-						position="relative"
-						_after={{
-							content: '""',
-							position: "absolute",
-							top: "-10px",
-							bottom: "-10px",
-							left: "-10px",
-							right: "-10px",
-						}}
-						onClick={() =>
-							openHistory({
-								type: "panel",
-								title: t("dashboard.system.panelUsage"),
-								cpuEntries: systemData.panel_cpu_history,
-								memoryEntries: systemData.panel_memory_history,
-							})
-						}
-					>
-						{t("dashboard.system.viewHistory")}
-					</Button>
-				}
-			>
-				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
-					<ResourceCard
-						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
-						icon={<CpuChipIcon width={16} />}
-						value={formatPercent(systemData.panel_cpu_percent, false)}
-						percent={systemData.panel_cpu_percent}
-						metaValue={formatNumberValue(systemData.app_threads)}
-						metaUnit={t("dashboard.system.thread")}
-						footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
-						footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_cpu_history.map((e) => e.value)), isRTL)}`}
-						isRTL={isRTL}
-					/>
-					<ResourceCard
-						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
-						icon={<ServerStackIcon width={16} />}
-						value={formatBytes(systemData.app_memory, 1)}
-						totalValue={formatBytes(systemData.memory.total, 1)}
-						percent={systemData.panel_memory_percent}
-						footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
-						footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
-						isRTL={isRTL}
-					/>
-				</SimpleGrid>
-			</SectionCard>
 
 			<SectionCard
 				title={
@@ -3437,97 +3548,121 @@ export const Statistics: FC<BoxProps> = (props) => {
 			>
 				<AnimatedHeightWrapper activeKey={userTab}>
 					{canSeeGlobal && userTab === "all" ? (
-						<Stack spacing={0}>
-							<StatRow
-								label={t("dashboard.users.total")}
-								value={systemData.total_user}
-								tagColor="#3b82f6"
+						<Stack spacing={3}>
+							<UserDistributionBar
+								active={systemData.users_active}
+								online={systemData.online_users}
+								onHold={systemData.users_on_hold}
+								limited={systemData.users_limited}
+								expired={systemData.users_expired}
+								total={systemData.total_user}
 							/>
-							<StatRow
-								label={t("dashboard.users.active")}
-								value={systemData.users_active}
-								tag={activePercent}
-								tagColor="#22c55e"
-							/>
-							<StatRow
-								label={t("dashboard.users.online")}
-								value={systemData.online_users}
-								tag={onlinePercent}
-								tagColor="#06b6d4"
-								helper={
-									systemData.online_users_upload_speed ||
-									systemData.online_users_download_speed
-										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
-										: undefined
-								}
-							/>
-							<StatRow
-								label={t("dashboard.users.onHold")}
-								value={systemData.users_on_hold}
-								tagColor="#a855f7"
-							/>
-							<StatRow
-								label={t("dashboard.users.limited")}
-								value={systemData.users_limited}
-								tagColor="#f59e0b"
-							/>
-							<StatRow
-								label={t("dashboard.users.expired")}
-								value={systemData.users_expired}
-								tagColor="#f97316"
-							/>
-						</Stack>
-					) : (
-						<Stack spacing={0}>
-							<StatRow
-								label={t("dashboard.users.total")}
-								value={myTotalUsers}
-								tagColor="#3b82f6"
-							/>
-							<StatRow
-								label={t("dashboard.users.active")}
-								value={myActiveUsers}
-								tag={myActivePercent}
-								tagColor="#22c55e"
-							/>
-							<StatRow
-								label={t("dashboard.users.online")}
-								value={myOnlineUsers}
-								tag={myOnlinePercent}
-								tagColor="#06b6d4"
-								helper={
-									myOnlineUploadSpeed || myOnlineDownloadSpeed
-										? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
-										: undefined
-								}
-							/>
-							<StatRow
-								label={t("dashboard.users.onHold")}
-								value={myOnHoldUsers}
-								tagColor="#a855f7"
-							/>
-							<StatRow
-								label={t("dashboard.users.limited")}
-								value={myLimitedUsers}
-								tagColor="#f59e0b"
-							/>
-							<StatRow
-								label={t("dashboard.users.expired")}
-								value={myExpiredUsers}
-								tagColor="#f97316"
-							/>
-							<StatRow
-								label={t("dashboard.users.currentUserUsage")}
-								value={formatBytes(myActiveUsersUsedTraffic, 1)}
-								tagColor="#3b82f6"
-							/>
-							{systemData.personal_usage?.reset_bytes ? (
-								<StatRow
-									label={t("dashboard.users.resetData")}
-									value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
+							<SimpleGrid columns={{ base: 1, sm: 3 }} gap={2.5}>
+								<UserKpiCard
+									label={t("dashboard.users.total")}
+									value={systemData.total_user}
+								/>
+								<UserKpiCard
+									label={t("dashboard.users.active")}
+									value={systemData.users_active}
+									tag={activePercent}
+									tagColor="#22c55e"
+								/>
+								<UserKpiCard
+									label={t("dashboard.users.online")}
+									value={systemData.online_users}
+									tag={onlinePercent}
+									tagColor="#06b6d4"
+									helper={
+										systemData.online_users_upload_speed ||
+										systemData.online_users_download_speed
+											? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
+											: undefined
+									}
+								/>
+							</SimpleGrid>
+							<SimpleGrid columns={{ base: 1, sm: 3 }} gap={2.5}>
+								<UserKpiCard
+									label={t("dashboard.users.onHold")}
+									value={systemData.users_on_hold}
+									tagColor="#a855f7"
+								/>
+								<UserKpiCard
+									label={t("dashboard.users.limited")}
+									value={systemData.users_limited}
 									tagColor="#f59e0b"
 								/>
-							) : null}
+								<UserKpiCard
+									label={t("dashboard.users.expired")}
+									value={systemData.users_expired}
+									tagColor="#ef4444"
+								/>
+							</SimpleGrid>
+						</Stack>
+					) : (
+						<Stack spacing={3}>
+							<UserDistributionBar
+								active={myActiveUsers}
+								online={myOnlineUsers}
+								onHold={myOnHoldUsers}
+								limited={myLimitedUsers}
+								expired={myExpiredUsers}
+								total={myTotalUsers}
+							/>
+							<SimpleGrid columns={{ base: 1, sm: 3 }} gap={2.5}>
+								<UserKpiCard
+									label={t("dashboard.users.total")}
+									value={myTotalUsers}
+								/>
+								<UserKpiCard
+									label={t("dashboard.users.active")}
+									value={myActiveUsers}
+									tag={myActivePercent}
+									tagColor="#22c55e"
+								/>
+								<UserKpiCard
+									label={t("dashboard.users.online")}
+									value={myOnlineUsers}
+									tag={myOnlinePercent}
+									tagColor="#06b6d4"
+									helper={
+										myOnlineUploadSpeed || myOnlineDownloadSpeed
+											? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
+											: undefined
+									}
+								/>
+							</SimpleGrid>
+							<SimpleGrid columns={{ base: 1, sm: 3 }} gap={2.5}>
+								<UserKpiCard
+									label={t("dashboard.users.onHold")}
+									value={myOnHoldUsers}
+									tagColor="#a855f7"
+								/>
+								<UserKpiCard
+									label={t("dashboard.users.limited")}
+									value={myLimitedUsers}
+									tagColor="#f59e0b"
+								/>
+								<UserKpiCard
+									label={t("dashboard.users.expired")}
+									value={myExpiredUsers}
+									tagColor="#ef4444"
+								/>
+							</SimpleGrid>
+							<Stack spacing={0} pt={1} borderTopWidth="1px" borderColor="panel.border">
+								<StatRow
+									label={t("dashboard.users.currentUserUsage")}
+									value={formatBytes(myActiveUsersUsedTraffic, 1)}
+									tagColor="#3b82f6"
+								/>
+								{systemData.personal_usage?.reset_bytes ? (
+									<StatRow
+										label={t("dashboard.users.resetData")}
+										value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
+										tagColor="#f59e0b"
+									/>
+								) : null}
+							</Stack>
 						</Stack>
 					)}
 				</AnimatedHeightWrapper>
@@ -3553,34 +3688,62 @@ export const Statistics: FC<BoxProps> = (props) => {
 						</HStack>
 					}
 				>
-					<Stack spacing={0}>
-						<StatRow
-							label={t("dashboard.admins.total")}
-							value={systemData.admin_overview.total_admins}
-							tagColor="#3b82f6"
-						/>
-						<StatRow
-							label={t("dashboard.admins.fullAccess")}
-							value={systemData.admin_overview.full_access_admins}
-							tagColor="#f59e0b"
-						/>
-						<StatRow
-							label={t("dashboard.admins.sudo")}
-							value={systemData.admin_overview.sudo_admins}
-							tagColor="#a855f7"
-						/>
-						<StatRow
-							label={t("dashboard.admins.standard")}
-							value={systemData.admin_overview.standard_admins}
-							tagColor="#22c55e"
-						/>
-						{systemData.admin_overview.top_admin_username && (
-							<StatRow
-								label={t("dashboard.admins.topAdmin")}
-								value={`${systemData.admin_overview.top_admin_username} · ${formatBytes(systemData.admin_overview.top_admin_usage)}`}
-								dimLabel
-								accent
+					<Stack spacing={3}>
+						<SimpleGrid columns={{ base: 2, sm: 4 }} gap={2.5}>
+							<UserKpiCard
+								label={t("dashboard.admins.total")}
+								value={systemData.admin_overview.total_admins}
+								tagColor="#3b82f6"
 							/>
+							<UserKpiCard
+								label={t("dashboard.admins.fullAccess")}
+								value={systemData.admin_overview.full_access_admins}
+								tagColor="#f59e0b"
+							/>
+							<UserKpiCard
+								label={t("dashboard.admins.sudo")}
+								value={systemData.admin_overview.sudo_admins}
+								tagColor="#a855f7"
+							/>
+							<UserKpiCard
+								label={t("dashboard.admins.standard")}
+								value={systemData.admin_overview.standard_admins}
+								tagColor="#22c55e"
+							/>
+						</SimpleGrid>
+						{systemData.admin_overview.top_admin_username && (
+							<Flex
+								p={3}
+								borderRadius="12px"
+								bg="panel.elevated"
+								align="center"
+								justify="space-between"
+								borderWidth="1px"
+								borderColor="panel.border"
+								gap={2}
+							>
+								<Text
+									fontSize="12px"
+									fontWeight="600"
+									color="panel.textSecondary"
+								>
+									{t("dashboard.admins.topAdmin")}
+								</Text>
+								<HStack spacing={2}>
+									<Text fontSize="13px" fontWeight="700" color="panel.text">
+										{systemData.admin_overview.top_admin_username}
+									</Text>
+									<Text
+										fontSize="12px"
+										fontWeight="600"
+										color="var(--rb-panel-accent)"
+										dir="ltr"
+										sx={{ fontVariantNumeric: "tabular-nums" }}
+									>
+										{formatBytes(systemData.admin_overview.top_admin_usage)}
+									</Text>
+								</HStack>
+							</Flex>
 						)}
 					</Stack>
 				</SectionCard>
