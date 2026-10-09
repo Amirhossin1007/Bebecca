@@ -275,8 +275,8 @@ export function AppLayout() {
 	const [canTruncateLastCrumbState, setCanTruncateLastCrumbState] =
 		useState(false);
 	const [bannerDimensions, setBannerDimensions] = useState({
-		natural: 280,
-		half: 140,
+		natural: 220,
+		half: 110,
 	});
 	const canTruncateLastCrumb =
 		canTruncateLastCrumbState &&
@@ -1124,6 +1124,25 @@ export function AppLayout() {
 	}, [activeTabKey]);
 
 	useEffect(() => {
+		if (sponsorHeaderItems.length === 0 || !sponsorHeaderItems[0]?.src) return;
+		const probe = new Image();
+		const update = () => {
+			if (probe.naturalWidth && probe.naturalHeight) {
+				const natural = Math.round(
+					(probe.naturalWidth / probe.naturalHeight) * 40,
+				);
+				setBannerDimensions({
+					natural,
+					half: Math.max(90, Math.round(natural / 2)),
+				});
+			}
+		};
+		probe.onload = update;
+		probe.src = sponsorHeaderItems[0].src;
+		if (probe.complete) update();
+	}, [sponsorHeaderItems]);
+
+	useEffect(() => {
 		const headerEl = headerRef.current;
 		if (!headerEl) return;
 		const _pathKey = location.pathname + location.hash;
@@ -1142,35 +1161,26 @@ export function AppLayout() {
 						(bannerImg.naturalWidth / bannerImg.naturalHeight) * 40,
 					);
 				} else {
-					naturalBannerWidth = 280;
+					naturalBannerWidth = bannerDimensions.natural;
 				}
-				const halfBannerWidth = Math.max(
-					110,
-					Math.round(naturalBannerWidth / 2),
-				);
-				setBannerDimensions((prev) =>
-					prev.natural === naturalBannerWidth && prev.half === halfBannerWidth
-						? prev
-						: { natural: naturalBannerWidth, half: halfBannerWidth },
-				);
 			}
 
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
 			);
-			const profileWidth = profileEl ? profileEl.offsetWidth : 130;
+			const profileWidth = profileEl ? profileEl.offsetWidth : 90;
 			const navButtonEl = headerRef.current.querySelector<HTMLElement>(
 				"[aria-label='Toggle Sidebar']",
 			);
 			const navButtonWidth = navButtonEl ? navButtonEl.offsetWidth : 34;
-			const fixedChrome = 95;
+			const fixedChrome = 45;
 			const fixedWidth = navButtonWidth + profileWidth + fixedChrome;
-			const spaceLeft = totalWidth - fixedWidth;
+			const spaceLeft = totalWidth - 40 - fixedWidth;
 
 			const isFa = i18n.language?.startsWith("fa");
-			const charWidth = isFa ? 9 : 8;
-			const crumbPad = 16;
-			const separatorWidth = 28;
+			const charWidth = isFa ? 7 : 6.5;
+			const crumbPad = 10;
+			const separatorWidth = 14;
 
 			const calculateCrumbWidth = (label: string) => {
 				return Math.ceil((label || "").length * charWidth) + crumbPad;
@@ -1184,31 +1194,33 @@ export function AppLayout() {
 				breadcrumbItems.length <= 2
 					? fullBreadcrumbWidth
 					: calculateCrumbWidth(breadcrumbItems[0]?.label || "") +
-					  34 +
-					  calculateCrumbWidth(breadcrumbItems[breadcrumbItems.length - 1]?.label || "") +
-					  separatorWidth * 2;
+					  separatorWidth +
+					  22 +
+					  separatorWidth +
+					  calculateCrumbWidth(breadcrumbItems[breadcrumbItems.length - 1]?.label || "");
 
 			const minimalBreadcrumbWidth =
 				breadcrumbItems.length <= 1
 					? calculateCrumbWidth(breadcrumbItems[0]?.label || "")
-					: 34 +
+					: 22 +
 					  separatorWidth +
 					  calculateCrumbWidth(breadcrumbItems[breadcrumbItems.length - 1]?.label || "");
 
-			const fullCalendarWidth = 245;
+			const fullCalendarWidth = isFa ? 185 : 205;
 			const compactCalendarWidth = 34;
-			const minBannerWidth = hasBanner ? 40 : 0;
+			const bannerRequired = hasBanner ? naturalBannerWidth + 10 : 0;
+			const minBannerRequired = hasBanner ? 40 + 10 : 0;
 
 			const stage1Required =
-				fullBreadcrumbWidth + naturalBannerWidth + fullCalendarWidth;
+				fullBreadcrumbWidth + bannerRequired + fullCalendarWidth;
 			const stage2Required =
-				fullBreadcrumbWidth + naturalBannerWidth + compactCalendarWidth;
+				fullBreadcrumbWidth + bannerRequired + compactCalendarWidth;
 			const stage3Required =
-				compactBreadcrumbWidth + naturalBannerWidth + compactCalendarWidth;
+				compactBreadcrumbWidth + bannerRequired + compactCalendarWidth;
 			const stage4Required =
-				minimalBreadcrumbWidth + naturalBannerWidth + compactCalendarWidth;
+				minimalBreadcrumbWidth + bannerRequired + compactCalendarWidth;
 			const stage5Required =
-				minimalBreadcrumbWidth + minBannerWidth + compactCalendarWidth;
+				minimalBreadcrumbWidth + minBannerRequired + compactCalendarWidth;
 
 			if (spaceLeft >= stage1Required) {
 				setCalendarCompact(false);
@@ -1223,7 +1235,7 @@ export function AppLayout() {
 			} else if (spaceLeft >= stage3Required) {
 				setCalendarCompact(
 					spaceLeft <
-						compactBreadcrumbWidth + naturalBannerWidth + fullCalendarWidth,
+						compactBreadcrumbWidth + bannerRequired + fullCalendarWidth,
 				);
 				setBreadcrumbMode("compact");
 				setBannerShrinkable(false);
@@ -1258,6 +1270,7 @@ export function AppLayout() {
 		sponsorHeaderItems.length,
 		breadcrumbItems,
 		i18n.language,
+		bannerDimensions.natural,
 	]);
 
 	return (
@@ -1725,22 +1738,23 @@ export function AppLayout() {
 										style={{
 											minWidth: 40,
 											maxWidth: "100%",
-											flex: "1 1 auto",
 											display: isMobile ? "flex" : "none",
 											alignItems: "center",
-											justifyContent: "center",
+											justifyContent: "flex-start",
+											flexShrink: 1,
 											overflow: "hidden",
 										}}
 									>
 										<Box
-											w="auto"
+											data-header-mobile-banner="true"
 											maxW="100%"
 											minW="40px"
 											h="40px"
 											display="flex"
 											alignItems="center"
-											justifyContent="center"
+											justifyContent="flex-start"
 											flexShrink={1}
+											overflow="hidden"
 										>
 											<SponsorCarousel
 												items={mobileHeaderItems}
