@@ -156,66 +156,9 @@ jobs:
           name: rebecca-linux-${{ matrix.asset_arch }}
           path: dist/rebecca-linux-${{ matrix.asset_arch }}.tar.gz
 
-  build-windows-amd64:
-    needs: dashboard
-    runs-on: windows-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Download dashboard
-        uses: actions/download-artifact@v4
-        with:
-          name: dashboard-build
-          path: dashboard/build
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.mod"
-
-      - name: Set up Windows C toolchain
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: false
-          path-type: inherit
-          install: mingw-w64-ucrt-x86_64-gcc
-
-      - name: Add Windows C toolchain to PATH
-        shell: msys2 {0}
-        run: |
-          set -euo pipefail
-          toolchain_path="$(cygpath -w "${MINGW_PREFIX}/bin")"
-          echo "${toolchain_path}" >> "${GITHUB_PATH}"
-          gcc --version
-
-      - name: Build Windows binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/build_binary.sh
-
-      - name: Package Windows binaries
-        shell: pwsh
-        run: |
-          Compress-Archive `
-            -Path dist/rebecca-server.exe, dist/rebecca-cli.exe, dist/templates `
-            -DestinationPath dist/rebecca-windows-amd64.zip `
-            -Force
-
-      - name: Upload Windows package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rebecca-windows-amd64
-          path: dist/rebecca-windows-amd64.zip
-
   publish-release:
     needs:
       - build-linux
-      - build-windows-amd64
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'release' || github.ref_type == 'tag'
@@ -266,7 +209,6 @@ jobs:
   publish-dev-manifest:
     needs:
       - build-linux
-      - build-windows-amd64
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'push' && github.ref_name == 'dev'
