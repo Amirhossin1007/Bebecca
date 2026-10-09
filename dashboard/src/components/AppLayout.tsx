@@ -1168,19 +1168,19 @@ export function AppLayout() {
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
 			);
-			const profileWidth = profileEl ? profileEl.offsetWidth : 90;
+			const profileWidth = profileEl ? profileEl.offsetWidth : 80;
 			const navButtonEl = headerRef.current.querySelector<HTMLElement>(
 				"[aria-label='Toggle Sidebar']",
 			);
 			const navButtonWidth = navButtonEl ? navButtonEl.offsetWidth : 34;
-			const fixedChrome = 45;
-			const fixedWidth = navButtonWidth + profileWidth + fixedChrome;
+			const fixedGapsAndPadding = 24;
+			const fixedWidth = navButtonWidth + profileWidth + fixedGapsAndPadding;
 			const spaceLeft = totalWidth - 40 - fixedWidth;
 
 			const isFa = i18n.language?.startsWith("fa");
-			const charWidth = isFa ? 7 : 6.5;
-			const crumbPad = 10;
-			const separatorWidth = 14;
+			const charWidth = isFa ? 6.5 : 6;
+			const crumbPad = 4;
+			const separatorWidth = 10;
 
 			const calculateCrumbWidth = (label: string) => {
 				return Math.ceil((label || "").length * charWidth) + crumbPad;
@@ -1206,10 +1206,10 @@ export function AppLayout() {
 					  separatorWidth +
 					  calculateCrumbWidth(breadcrumbItems[breadcrumbItems.length - 1]?.label || "");
 
-			const fullCalendarWidth = isFa ? 185 : 205;
+			const fullCalendarWidth = isFa ? 165 : 175;
 			const compactCalendarWidth = 34;
-			const bannerRequired = hasBanner ? naturalBannerWidth + 10 : 0;
-			const minBannerRequired = hasBanner ? 40 + 10 : 0;
+			const bannerRequired = hasBanner ? naturalBannerWidth : 0;
+			const minBannerRequired = hasBanner ? 40 : 0;
 
 			const stage1Required =
 				fullBreadcrumbWidth + bannerRequired + fullCalendarWidth;
@@ -1749,7 +1749,7 @@ export function AppLayout() {
 											data-header-mobile-banner="true"
 											maxW="100%"
 											minW="40px"
-											h="40px"
+											maxH="40px"
 											display="flex"
 											alignItems="center"
 											justifyContent="flex-start"
@@ -1781,7 +1781,7 @@ export function AppLayout() {
 											maxWidth: bannerDimensions.natural,
 											width: bannerShrinkable ? "100%" : bannerDimensions.natural,
 											flexShrink: bannerShrinkable ? 1 : 0,
-											display: "flex",
+											display: isMobile ? "none" : "flex",
 											alignItems: "center",
 											overflow: "hidden",
 										}}
@@ -1799,7 +1799,7 @@ export function AppLayout() {
 													? "40px"
 													: `${bannerDimensions.natural}px`
 											}
-											h="40px"
+											maxH="40px"
 											display={{ base: "none", md: "flex" }}
 											alignItems="center"
 											justifyContent="center"
