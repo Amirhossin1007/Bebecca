@@ -174,6 +174,23 @@ type BottomNavItem = {
 	kind?: "menu" | "link";
 };
 
+let textMeasureCanvas: HTMLCanvasElement | null = null;
+const measureBreadcrumbLabel = (text: string, isPage = false): number => {
+	if (!text) return 0;
+	if (typeof document === "undefined") {
+		return Math.ceil(text.length * (isPage ? 8.5 : 8));
+	}
+	if (!textMeasureCanvas) {
+		textMeasureCanvas = document.createElement("canvas");
+	}
+	const ctx = textMeasureCanvas.getContext("2d");
+	if (!ctx) {
+		return Math.ceil(text.length * (isPage ? 8.5 : 8));
+	}
+	ctx.font = `${isPage ? "600" : "500"} 12.5px Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+	return Math.ceil(ctx.measureText(text).width);
+};
+
 export function AppLayout() {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const isMobile = useBreakpointValue({ base: true, md: false });
@@ -1164,85 +1181,112 @@ export function AppLayout() {
 					naturalBannerWidth = bannerDimensions.natural;
 				}
 			}
+			const bannerWidth = hasBanner ? naturalBannerWidth + 2 : 0;
+			const minBannerWidth = hasBanner ? 42 : 0;
 
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
 			);
 			const profileWidth = profileEl ? profileEl.offsetWidth : 80;
+			const isFa = i18n.language?.startsWith("fa");
+			const fullCalendarWidth = isFa ? 165 : 175;
+			const compactCalendarWidth = 34;
+			const compactControlsWidth = compactCalendarWidth + 8 + profileWidth;
+			const fullControlsWidth = fullCalendarWidth + 8 + profileWidth;
+
 			const navButtonEl = headerRef.current.querySelector<HTMLElement>(
 				"[aria-label='Toggle Sidebar']",
 			);
 			const navButtonWidth = navButtonEl ? navButtonEl.offsetWidth : 34;
-			const fixedGapsAndPadding = 24;
-			const fixedWidth = navButtonWidth + profileWidth + fixedGapsAndPadding;
-			const spaceLeft = totalWidth - 40 - fixedWidth;
+			const isDesktop = window.innerWidth >= 768;
+			const headerPadding = isDesktop ? 40 : 24;
+			const hstackGap = 12;
+			const navDividerGaps = 21;
+			const bannerGap = hasBanner ? 10 : 0;
 
-			const isFa = i18n.language?.startsWith("fa");
-			const charWidth = isFa ? 6.5 : 6;
-			const crumbPad = 4;
-			const separatorWidth = 10;
+			const fixedOverheadFull =
+				headerPadding +
+				hstackGap +
+				navButtonWidth +
+				navDividerGaps +
+				bannerGap +
+				fullControlsWidth;
+			const fixedOverheadCompact =
+				headerPadding +
+				hstackGap +
+				navButtonWidth +
+				navDividerGaps +
+				bannerGap +
+				compactControlsWidth;
 
-			const calculateCrumbWidth = (label: string) => {
-				return Math.ceil((label || "").length * charWidth) + crumbPad;
-			};
+			const spaceFullCalendar = totalWidth - fixedOverheadFull;
+			const spaceCompactCalendar = totalWidth - fixedOverheadCompact;
 
-			const fullBreadcrumbWidth = breadcrumbItems.reduce((acc, item, idx) => {
-				return acc + calculateCrumbWidth(item.label) + (idx > 0 ? separatorWidth : 0);
-			}, 0);
+			const crumbCount = breadcrumbItems.length;
+			const fullBreadcrumbWidth =
+				crumbCount === 0
+					? 0
+					: crumbCount === 1
+						? measureBreadcrumbLabel(breadcrumbItems[0]?.label || "", true)
+						: breadcrumbItems.reduce((acc, item, idx) => {
+								const isLast = idx === crumbCount - 1;
+								return (
+									acc +
+									measureBreadcrumbLabel(item.label || "", isLast) +
+									(idx > 0 ? 26 : 0)
+								);
+							}, 0);
 
 			const compactBreadcrumbWidth =
-				breadcrumbItems.length <= 2
+				crumbCount <= 2
 					? fullBreadcrumbWidth
-					: calculateCrumbWidth(breadcrumbItems[0]?.label || "") +
-					  separatorWidth +
-					  22 +
-					  separatorWidth +
-					  calculateCrumbWidth(breadcrumbItems[breadcrumbItems.length - 1]?.label || "");
+					: measureBreadcrumbLabel(breadcrumbItems[0]?.label || "", false) +
+						26 +
+						22 +
+						26 +
+						measureBreadcrumbLabel(
+							breadcrumbItems[crumbCount - 1]?.label || "",
+							true,
+						);
 
 			const minimalBreadcrumbWidth =
-				breadcrumbItems.length <= 1
-					? calculateCrumbWidth(breadcrumbItems[0]?.label || "")
+				crumbCount <= 1
+					? measureBreadcrumbLabel(breadcrumbItems[0]?.label || "", true)
 					: 22 +
-					  separatorWidth +
-					  calculateCrumbWidth(breadcrumbItems[breadcrumbItems.length - 1]?.label || "");
+						26 +
+						measureBreadcrumbLabel(
+							breadcrumbItems[crumbCount - 1]?.label || "",
+							true,
+						);
 
-			const fullCalendarWidth = isFa ? 165 : 175;
-			const compactCalendarWidth = 34;
-			const bannerRequired = hasBanner ? naturalBannerWidth : 0;
-			const minBannerRequired = hasBanner ? 40 : 0;
+			const buffer = 4;
+			const stage1Needed = fullBreadcrumbWidth + bannerWidth + buffer;
+			const stage2Needed = fullBreadcrumbWidth + bannerWidth + buffer;
+			const stage3Needed = compactBreadcrumbWidth + bannerWidth + buffer;
+			const stage4Needed = minimalBreadcrumbWidth + bannerWidth + buffer;
+			const stage5Needed = minimalBreadcrumbWidth + minBannerWidth + buffer;
 
-			const stage1Required =
-				fullBreadcrumbWidth + bannerRequired + fullCalendarWidth;
-			const stage2Required =
-				fullBreadcrumbWidth + bannerRequired + compactCalendarWidth;
-			const stage3Required =
-				compactBreadcrumbWidth + bannerRequired + compactCalendarWidth;
-			const stage4Required =
-				minimalBreadcrumbWidth + bannerRequired + compactCalendarWidth;
-			const stage5Required =
-				minimalBreadcrumbWidth + minBannerRequired + compactCalendarWidth;
-
-			if (spaceLeft >= stage1Required) {
+			if (spaceFullCalendar >= stage1Needed) {
 				setCalendarCompact(false);
 				setBreadcrumbMode("full");
 				setBannerShrinkable(false);
 				setCanTruncateLastCrumbState(false);
-			} else if (spaceLeft >= stage2Required) {
+			} else if (spaceCompactCalendar >= stage2Needed) {
 				setCalendarCompact(true);
 				setBreadcrumbMode("full");
 				setBannerShrinkable(false);
 				setCanTruncateLastCrumbState(false);
-			} else if (spaceLeft >= stage3Required) {
+			} else if (spaceCompactCalendar >= stage3Needed) {
 				setCalendarCompact(true);
 				setBreadcrumbMode("compact");
 				setBannerShrinkable(false);
 				setCanTruncateLastCrumbState(false);
-			} else if (spaceLeft >= stage4Required) {
+			} else if (spaceCompactCalendar >= stage4Needed) {
 				setCalendarCompact(true);
 				setBreadcrumbMode("minimal");
 				setBannerShrinkable(false);
 				setCanTruncateLastCrumbState(false);
-			} else if (hasBanner && spaceLeft >= stage5Required) {
+			} else if (hasBanner && spaceCompactCalendar >= stage5Needed) {
 				setCalendarCompact(true);
 				setBreadcrumbMode("minimal");
 				setBannerShrinkable(true);
@@ -1813,7 +1857,13 @@ export function AppLayout() {
 							</AnimatePresence>
 						</HStack>
 
-						<HStack spacing={2} alignItems="center" flexShrink={0} h="full">
+						<HStack
+							data-header-controls="true"
+							spacing={2}
+							alignItems="center"
+							flexShrink={0}
+							h="full"
+						>
 							<Box display={{ base: "none", md: "inline-flex" }}>
 								<HeaderCalendar isCompact={calendarCompact} />
 							</Box>
