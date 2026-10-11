@@ -1213,18 +1213,14 @@ export function AppLayout() {
 
 			const stage1Required =
 				fullBreadcrumbWidth + bannerRequired + fullCalendarWidth;
-			const stage2Required = Math.round(
-				(fullBreadcrumbWidth + bannerRequired + compactCalendarWidth) * 0.75,
-			);
-			const stage3Required = Math.round(
-				(compactBreadcrumbWidth + bannerRequired + compactCalendarWidth) * 0.75,
-			);
-			const stage4Required = Math.round(
-				(minimalBreadcrumbWidth + bannerRequired + compactCalendarWidth) * 0.75,
-			);
-			const stage5Required = Math.round(
-				(minimalBreadcrumbWidth + minBannerRequired + compactCalendarWidth) * 0.75,
-			);
+			const stage2Required =
+				fullBreadcrumbWidth + bannerRequired + compactCalendarWidth;
+			const stage3Required =
+				compactBreadcrumbWidth + bannerRequired + compactCalendarWidth;
+			const stage4Required =
+				minimalBreadcrumbWidth + bannerRequired + compactCalendarWidth;
+			const stage5Required =
+				minimalBreadcrumbWidth + minBannerRequired + compactCalendarWidth;
 
 			if (spaceLeft >= stage1Required) {
 				setCalendarCompact(false);
@@ -1237,13 +1233,7 @@ export function AppLayout() {
 				setBannerShrinkable(false);
 				setCanTruncateLastCrumbState(false);
 			} else if (spaceLeft >= stage3Required) {
-				setCalendarCompact(
-					spaceLeft <
-						Math.round(
-							(compactBreadcrumbWidth + bannerRequired + fullCalendarWidth) *
-								0.75,
-						),
-				);
+				setCalendarCompact(true);
 				setBreadcrumbMode("compact");
 				setBannerShrinkable(false);
 				setCanTruncateLastCrumbState(false);
