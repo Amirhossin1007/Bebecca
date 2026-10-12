@@ -11,7 +11,6 @@ import {
 	IconButton,
 	Menu,
 	MenuButton,
-	MenuDivider,
 	MenuItem,
 	MenuList,
 	type PlacementWithLogical,
@@ -31,7 +30,6 @@ import {
 	ArrowLeftOnRectangleIcon,
 	ArrowsRightLeftIcon,
 	ArrowUpOnSquareIcon,
-	Bars3Icon,
 	BellIcon,
 	BookOpenIcon,
 	BriefcaseIcon,
@@ -40,7 +38,6 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
-	Cog6ToothIcon,
 	Cog8ToothIcon,
 	CommandLineIcon,
 	DocumentDuplicateIcon,
@@ -54,15 +51,7 @@ import {
 	UserGroupIcon,
 	WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
-import {
-	BellIcon as BellSolidIcon,
-	BriefcaseIcon as BriefcaseSolidIcon,
-	Cog6ToothIcon as Cog6ToothSolidIcon,
-	HomeIcon as HomeSolidIcon,
-	UserGroupIcon as UserGroupSolidIcon,
-	UserIcon as UserSolidIcon,
-} from "@heroicons/react/24/solid";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import {
 	type ElementType,
@@ -112,18 +101,8 @@ const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
 const ExternalAppsIcon = chakra(CommandLineIcon, iconProps);
 const PlaceholderIcon = chakra(DocumentDuplicateIcon, iconProps);
-const PersonIcon = chakra(UserIcon, iconProps);
 const MasterSettingsIcon = chakra(Cog8ToothIcon, iconProps);
 const XraySettingsIcon = chakra(WrenchScrewdriverIcon, iconProps);
-const tabIconStyle = { baseStyle: { w: "22px", h: "22px" } };
-const TAB_ICONS: Record<string, [ElementType, ElementType]> = {
-	dashboard: [chakra(HeroHomeIcon, tabIconStyle), chakra(HomeSolidIcon, tabIconStyle)],
-	users: [chakra(UserGroupIcon, tabIconStyle), chakra(UserGroupSolidIcon, tabIconStyle)],
-	admins: [chakra(BriefcaseIcon, tabIconStyle), chakra(BriefcaseSolidIcon, tabIconStyle)],
-	settings: [chakra(Cog6ToothIcon, tabIconStyle), chakra(Cog6ToothSolidIcon, tabIconStyle)],
-	myaccount: [chakra(UserIcon, tabIconStyle), chakra(UserSolidIcon, tabIconStyle)],
-	notifications: [chakra(BellIcon, tabIconStyle), chakra(BellSolidIcon, tabIconStyle)],
-};
 const ServicesIcon = chakra(Squares2X2Icon, iconProps);
 const HostsIcon = chakra(LinkIcon, iconProps);
 const HAProxyIcon = chakra(ArrowsRightLeftIcon, iconProps);
@@ -879,8 +858,7 @@ export function AppLayout() {
 		[settingsMenuItems, location.pathname],
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
-	const SettingsNavIcon = activeSettingsItem?.icon ?? SettingsIcon;
-	const activeSettingsKey = activeSettingsItem?.key ?? null;
+	const SettingsNavIcon = activeSettingsItem?.icon ?? MasterSettingsIcon;
 	const popoverModifiers = useMemo(
 		() => [
 			{
@@ -1885,7 +1863,6 @@ export function AppLayout() {
 							<Box display={{ base: "none", sm: "inline-flex" }}>
 								<GitHubStars />
 							</Box>
-						</HStack>
 
 							{getUserIsSuccess && userData.username && (
 								<Menu
@@ -2438,11 +2415,11 @@ export function AppLayout() {
 											const DisplayIcon = isSettingsItem
 												? (activeSettingsItem?.icon ?? SettingsNavIcon)
 												: item.key === "dashboard"
-													? HomeIcon
+													? HeroHomeIcon
 													: item.key === "users"
-														? UsersIcon
+														? UserGroupIcon
 														: item.key === "admins"
-															? AdminsIcon
+															? BriefcaseIcon
 															: item.key === "notifications"
 																? BellIcon
 																: UserIcon;
