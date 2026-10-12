@@ -52,6 +52,9 @@ type ThemeSelectorProps = {
 	portalContainer?: MutableRefObject<HTMLElement | null>;
 	trigger?: "icon" | "menu" | "menuItem";
 	triggerLabel?: string;
+	isOpen?: boolean;
+	onToggle?: () => void;
+	onClose?: () => void;
 	onModalOpen?: () => void;
 	onModalClose?: () => void;
 };
@@ -269,16 +272,21 @@ const applyThemeMode = (theme: ThemeMode) => {
 };
 
 export const ThemeSelector: FC<ThemeSelectorProps> = ({
-	minimal = false,
+	minimal,
 	portalContainer,
-	trigger = "icon",
+	trigger = "menu",
 	triggerLabel,
+	isOpen: controlledIsOpen,
+	onToggle: controlledOnToggle,
+	onClose: controlledOnClose,
 	onModalOpen,
 	onModalClose,
 }) => {
 	const { t } = useTranslation();
 	const { colorMode, setColorMode } = useColorMode();
 	const themeMenu = useDisclosure();
+	const isControlled = controlledIsOpen !== undefined;
+	const isMenuOpen = isControlled ? controlledIsOpen : themeMenu.isOpen;
 	const activeTheme = normalizeTheme(colorMode);
 	const [activeAccent, setActiveAccent] = useState(getStoredAccent);
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
@@ -517,6 +525,23 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	);
 
 	if (trigger === "menuItem") {
+		const handleMenuClose = () => {
+			if (isControlled) {
+				controlledOnClose?.();
+			} else {
+				themeMenu.onClose();
+			}
+			onModalClose?.();
+		};
+
+		const handleToggle = () => {
+			if (isControlled) {
+				controlledOnToggle?.();
+			} else {
+				themeMenu.isOpen ? themeMenu.onClose() : themeMenu.onOpen();
+			}
+		};
+
 		return (
 			<Menu
 				placement="auto-start"
@@ -526,15 +551,12 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				gutter={6}
 				computePositionOnMount
 				modifiers={popperModifiers}
-				isOpen={themeMenu.isOpen}
+				isOpen={isMenuOpen}
 				onOpen={() => {
-					themeMenu.onOpen();
+					if (!isControlled) themeMenu.onOpen();
 					onModalOpen?.();
 				}}
-				onClose={() => {
-					themeMenu.onClose();
-					onModalClose?.();
-				}}
+				onClose={handleMenuClose}
 				closeOnSelect={false}
 				closeOnBlur={false}
 			>
@@ -558,7 +580,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					_focusVisible={{ bg: menuHover }}
 					onClick={(event: ReactMouseEvent) => {
 						event.stopPropagation();
-						themeMenu.isOpen ? themeMenu.onClose() : themeMenu.onOpen();
+						handleToggle();
 					}}
 				>
 					<HStack justify="space-between" w="full" minW={0}>

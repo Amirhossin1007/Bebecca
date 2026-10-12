@@ -246,6 +246,9 @@ function AppLayoutContent() {
 	const userMenu = useDisclosure();
 	const accountMenu = useDisclosure();
 	const settingsMenu = useDisclosure();
+	const [activeProfileSubmenu, setActiveProfileSubmenu] = useState<
+		"notifications" | "language" | "theme" | null
+	>(null);
 	const { t, i18n } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const cachedRole = useMemo(() => {
@@ -488,14 +491,17 @@ function AppLayoutContent() {
 		await i18n.changeLanguage(lang);
 		userMenu.onOpen();
 		languageMenu.onOpen();
+		setActiveProfileSubmenu("language");
 		window.dispatchEvent(new Event("resize"));
 		requestAnimationFrame(() => {
 			userMenu.onOpen();
 			languageMenu.onOpen();
+			setActiveProfileSubmenu("language");
 			window.dispatchEvent(new Event("resize"));
 			setTimeout(() => {
 				userMenu.onOpen();
 				languageMenu.onOpen();
+				setActiveProfileSubmenu("language");
 				window.dispatchEvent(new Event("resize"));
 				isChangingLanguageRef.current = false;
 			}, 300);
@@ -506,12 +512,14 @@ function AppLayoutContent() {
 		if (isChangingLanguageRef.current) return;
 		userMenu.onClose();
 		languageMenu.onClose();
+		setActiveProfileSubmenu(null);
 	};
 
 	const handleUserMenuClose = () => {
 		if (
 			isThemeModalOpen ||
 			languageMenu.isOpen ||
+			activeProfileSubmenu !== null ||
 			isChangingLanguageRef.current
 		)
 			return;
@@ -521,6 +529,7 @@ function AppLayoutContent() {
 	const handleLanguageMenuClose = () => {
 		if (isChangingLanguageRef.current) return;
 		languageMenu.onClose();
+		setActiveProfileSubmenu((prev) => (prev === "language" ? null : prev));
 	};
 
 	const handleThemeModalOpen = () => setIsThemeModalOpen(true);
@@ -2234,14 +2243,37 @@ function AppLayoutContent() {
 											<NotificationMenuItem
 												placement={languagePlacement}
 												onNavigate={handleUserMenuClose}
+												isOpen={activeProfileSubmenu === "notifications"}
+												onToggle={() => {
+													languageMenu.onClose();
+													setActiveProfileSubmenu((prev) =>
+														prev === "notifications" ? null : "notifications",
+													);
+												}}
+												onClose={() =>
+													setActiveProfileSubmenu((prev) =>
+														prev === "notifications" ? null : prev,
+													)
+												}
 											/>
 
 											<Menu
 												placement={languagePlacement}
 												strategy="fixed"
-												isOpen={languageMenu.isOpen}
-												onOpen={languageMenu.onOpen}
-												onClose={handleLanguageMenuClose}
+												isOpen={
+													activeProfileSubmenu === "language" ||
+													languageMenu.isOpen
+												}
+												onOpen={() => {
+													languageMenu.onOpen();
+													setActiveProfileSubmenu("language");
+												}}
+												onClose={() => {
+													handleLanguageMenuClose();
+													setActiveProfileSubmenu((prev) =>
+														prev === "language" ? null : prev,
+													);
+												}}
 												closeOnSelect={false}
 												closeOnBlur={false}
 												isLazy={false}
@@ -2269,9 +2301,16 @@ function AppLayoutContent() {
 													_focusVisible={{ bg: "panel.elevated" }}
 													onClick={(e: ReactMouseEvent) => {
 														e.stopPropagation();
-														languageMenu.isOpen
-															? languageMenu.onClose()
-															: languageMenu.onOpen();
+														const isCurrentlyOpen =
+															activeProfileSubmenu === "language" ||
+															languageMenu.isOpen;
+														if (isCurrentlyOpen) {
+															languageMenu.onClose();
+															setActiveProfileSubmenu(null);
+														} else {
+															setActiveProfileSubmenu("language");
+															languageMenu.onOpen();
+														}
 													}}
 												>
 													<HStack justify="space-between" w="full" minW={0}>
@@ -2379,6 +2418,18 @@ function AppLayoutContent() {
 											<ThemeSelector
 												trigger="menuItem"
 												triggerLabel={t("header.theme")}
+												isOpen={activeProfileSubmenu === "theme"}
+												onToggle={() => {
+													languageMenu.onClose();
+													setActiveProfileSubmenu((prev) =>
+														prev === "theme" ? null : "theme",
+													);
+												}}
+												onClose={() =>
+													setActiveProfileSubmenu((prev) =>
+														prev === "theme" ? null : prev,
+													)
+												}
 												onModalOpen={handleThemeModalOpen}
 												onModalClose={handleThemeModalClose}
 											/>

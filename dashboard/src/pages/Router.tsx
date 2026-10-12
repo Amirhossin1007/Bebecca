@@ -1,6 +1,6 @@
 import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
-import { PageLoadingSkeleton } from "../components/ui";
-import { type ComponentType, lazy, Suspense, useEffect } from "react";
+import { PageLoadingSkeleton, PanelLoadingSkeleton } from "../components/ui";
+import { type ComponentType, lazy, type ReactNode, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	createBrowserRouter,
@@ -59,9 +59,16 @@ const ErrorsPage = lazy(() => import("./ErrorsPage"));
 const NotificationsPage = lazy(() => import("./NotificationsPage"));
 
 const PageLoading = () => <PageLoadingSkeleton />;
+const PanelLoading = () => <PanelLoadingSkeleton />;
 
-const LazyPage = ({ Page }: { Page: ComponentType }) => (
-	<Suspense fallback={<PageLoading />}>
+const LazyPage = ({
+	Page,
+	fallback = <PageLoading />,
+}: {
+	Page: ComponentType;
+	fallback?: ReactNode;
+}) => (
+	<Suspense fallback={fallback}>
 		<Page />
 	</Suspense>
 );
@@ -203,8 +210,8 @@ export const router = createBrowserRouter(
 	[
 		{
 			path: "/",
-			element: <LazyPage Page={AppLayout} />,
-			hydrateFallbackElement: <PageLoading />,
+			element: <LazyPage Page={AppLayout} fallback={<PanelLoading />} />,
+			hydrateFallbackElement: <PanelLoading />,
 			errorElement: <RouteErrorPage />,
 			loader: fetchAdminLoader,
 			children: [

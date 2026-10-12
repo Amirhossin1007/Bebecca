@@ -3,6 +3,7 @@ import {
 	Flex,
 	HStack,
 	SimpleGrid,
+	Spacer,
 	Stack,
 	VStack,
 } from "@chakra-ui/react";
@@ -187,3 +188,459 @@ export const PageLoadingSkeleton: FC = () => (
 		</Box>
 	</VStack>
 );
+
+export const PanelLoadingSkeleton: FC = () => {
+	const isRTL =
+		typeof document !== "undefined"
+			? document.documentElement.dir === "rtl" ||
+				document.documentElement.lang === "fa"
+			: true;
+
+	return (
+		<Box
+			minH="100vh"
+			w="full"
+			bg="panel.bg"
+			dir={isRTL ? "rtl" : "ltr"}
+			position="relative"
+			sx={{
+				"@keyframes rbGlassPulse": {
+					"0%, 100%": {
+						opacity: 0.42,
+						transform: "scale(1)",
+					},
+					"50%": {
+						opacity: 0.78,
+						transform: "scale(1.002)",
+					},
+				},
+				"& .rb-glass-item": {
+					animation: "rbGlassPulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite",
+				},
+			}}
+		>
+			<Box
+				display={{ base: "none", md: "flex" }}
+				position="fixed"
+				top={0}
+				bottom={0}
+				insetInlineStart={0}
+				w="var(--rb-sidebar-width, 240px)"
+				bg="panel.surface"
+				borderInlineEndWidth="1px"
+				borderColor="panel.border"
+				backdropFilter="blur(16px)"
+				zIndex={10}
+				flexDirection="column"
+				className="rb-glass-item"
+			>
+				<Flex
+					h="60px"
+					px={4}
+					align="center"
+					justify="space-between"
+					borderBottomWidth="1px"
+					borderColor="panel.border"
+					flexShrink={0}
+				>
+					<HStack spacing={2.5}>
+						<Box
+							w="32px"
+							h="32px"
+							borderRadius="10px"
+							bg="panel.elevated"
+							borderWidth="1px"
+							borderColor="panel.border"
+							flexShrink={0}
+						/>
+						<Box
+							w="72px"
+							h="18px"
+							borderRadius="md"
+							bg="panel.elevated"
+						/>
+					</HStack>
+					<Box
+						w="36px"
+						h="18px"
+						borderRadius="full"
+						bg="panel.elevated"
+					/>
+				</Flex>
+
+				<VStack align="stretch" spacing={1} p={3} flex="1">
+					<Flex
+						h="38px"
+						borderRadius="12px"
+						bg="panel.elevated"
+						px={3}
+						align="center"
+						justify="space-between"
+					>
+						<HStack spacing={2.5}>
+							<Box
+								w="20px"
+								h="20px"
+								borderRadius="6px"
+								bg="panel.border"
+								flexShrink={0}
+							/>
+							<Box
+								w="60px"
+								h="14px"
+								borderRadius="md"
+								bg="panel.border"
+							/>
+						</HStack>
+						<Box
+							w="5px"
+							h="14px"
+							borderRadius="full"
+							bg="panel.border"
+						/>
+					</Flex>
+
+					<Box
+						w="42px"
+						h="10px"
+						borderRadius="sm"
+						bg="panel.elevated"
+						mt={3}
+						mb={1}
+						mx={2}
+					/>
+					<Flex
+						h="38px"
+						borderRadius="12px"
+						px={3}
+						align="center"
+						justify="space-between"
+					>
+						<HStack spacing={2.5}>
+							<Box
+								w="20px"
+								h="20px"
+								borderRadius="6px"
+								bg="panel.elevated"
+								flexShrink={0}
+							/>
+							<Box
+								w="65px"
+								h="14px"
+								borderRadius="md"
+								bg="panel.elevated"
+							/>
+						</HStack>
+						<Box
+							w="10px"
+							h="10px"
+							borderRadius="sm"
+							bg="panel.elevated"
+						/>
+					</Flex>
+
+					<Flex
+						h="30px"
+						borderRadius="8px"
+						ps={8}
+						pe={3}
+						align="center"
+					>
+						<Box
+							w="60px"
+							h="12px"
+							borderRadius="md"
+							bg="panel.elevated"
+						/>
+					</Flex>
+					<Flex
+						h="30px"
+						borderRadius="8px"
+						ps={8}
+						pe={3}
+						align="center"
+					>
+						<Box
+							w="75px"
+							h="12px"
+							borderRadius="md"
+							bg="panel.elevated"
+						/>
+					</Flex>
+
+					<Box
+						w="36px"
+						h="10px"
+						borderRadius="sm"
+						bg="panel.elevated"
+						mt={2.5}
+						mb={1}
+						mx={2}
+					/>
+					<Flex
+						h="38px"
+						borderRadius="12px"
+						px={3}
+						align="center"
+						justify="space-between"
+					>
+						<HStack spacing={2.5}>
+							<Box
+								w="20px"
+								h="20px"
+								borderRadius="6px"
+								bg="panel.elevated"
+								flexShrink={0}
+							/>
+							<Box
+								w="70px"
+								h="14px"
+								borderRadius="md"
+								bg="panel.elevated"
+							/>
+						</HStack>
+						<Box
+							w="10px"
+							h="10px"
+							borderRadius="sm"
+							bg="panel.elevated"
+						/>
+					</Flex>
+
+					<Box
+						w="46px"
+						h="10px"
+						borderRadius="sm"
+						bg="panel.elevated"
+						mt={2.5}
+						mb={1}
+						mx={2}
+					/>
+					<Flex
+						h="38px"
+						borderRadius="12px"
+						px={3}
+						align="center"
+						justify="space-between"
+					>
+						<HStack spacing={2.5}>
+							<Box
+								w="20px"
+								h="20px"
+								borderRadius="6px"
+								bg="panel.elevated"
+								flexShrink={0}
+							/>
+							<Box
+								w="62px"
+								h="14px"
+								borderRadius="md"
+								bg="panel.elevated"
+							/>
+						</HStack>
+						<Box
+							w="10px"
+							h="10px"
+							borderRadius="sm"
+							bg="panel.elevated"
+						/>
+					</Flex>
+
+					<Box
+						w="64px"
+						h="10px"
+						borderRadius="sm"
+						bg="panel.elevated"
+						mt={2.5}
+						mb={1}
+						mx={2}
+					/>
+					<Flex
+						h="38px"
+						borderRadius="12px"
+						px={3}
+						align="center"
+						justify="space-between"
+					>
+						<HStack spacing={2.5}>
+							<Box
+								w="20px"
+								h="20px"
+								borderRadius="6px"
+								bg="panel.elevated"
+								flexShrink={0}
+							/>
+							<Box
+								w="78px"
+								h="14px"
+								borderRadius="md"
+								bg="panel.elevated"
+							/>
+						</HStack>
+						<Box
+							w="10px"
+							h="10px"
+							borderRadius="sm"
+							bg="panel.elevated"
+						/>
+					</Flex>
+				</VStack>
+
+				<Box p={3} flexShrink={0}>
+					<Box
+						h="48px"
+						borderRadius="14px"
+						bg="panel.elevated"
+						borderWidth="1px"
+						borderColor="panel.border"
+					/>
+				</Box>
+			</Box>
+
+			<Flex
+				position="sticky"
+				top={0}
+				h={{ base: "56px", md: "60px" }}
+				ms={{ base: 0, md: "var(--rb-sidebar-width, 240px)" }}
+				bg="panel.surface"
+				borderBottomWidth="1px"
+				borderColor="panel.border"
+				backdropFilter="blur(16px)"
+				align="center"
+				justify="space-between"
+				px={{ base: 3, sm: 4, md: 5 }}
+				zIndex={9}
+				className="rb-glass-item"
+			>
+				<Flex
+					display={{ base: "none", md: "flex" }}
+					align="center"
+					gap={2.5}
+				>
+					<Box
+						w="34px"
+						h="34px"
+						borderRadius="12px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.elevated"
+					/>
+					<Box
+						w="1px"
+						h="16px"
+						bg="panel.border"
+						mx={1}
+					/>
+					<HStack spacing={2} align="center">
+						<Box
+							w="16px"
+							h="16px"
+							borderRadius="4px"
+							bg="panel.elevated"
+						/>
+						<Box
+							w="8px"
+							h="12px"
+							borderRadius="xs"
+							bg="panel.elevated"
+						/>
+						<Box
+							w="65px"
+							h="16px"
+							borderRadius="md"
+							bg="panel.elevated"
+						/>
+					</HStack>
+				</Flex>
+
+				<Flex
+					display={{ base: "flex", md: "none" }}
+					align="center"
+					gap={2.5}
+				>
+					<Box
+						w="34px"
+						h="34px"
+						borderRadius="full"
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.elevated"
+					/>
+					<HStack spacing={2} align="center">
+						<Box
+							w="24px"
+							h="24px"
+							borderRadius="8px"
+							bg="panel.elevated"
+						/>
+						<Box
+							w="65px"
+							h="16px"
+							borderRadius="md"
+							bg="panel.elevated"
+						/>
+					</HStack>
+				</Flex>
+
+				<Spacer />
+
+				<HStack
+					spacing={{ base: 1.5, sm: 2 }}
+					align="center"
+				>
+					<Box
+						display={{ base: "none", md: "block" }}
+						w="115px"
+						h="32px"
+						borderRadius="12px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.elevated"
+					/>
+					<Box
+						w={{ base: "65px", sm: "75px" }}
+						h={{ base: "28px", sm: "32px" }}
+						borderRadius={{ base: "10px", sm: "12px" }}
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.elevated"
+					/>
+					<Flex
+						align="center"
+						justify="center"
+						w={{ base: "34px", md: "115px" }}
+						h="34px"
+						borderRadius={{ base: "full", md: "12px" }}
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.surface"
+						px={{ base: 0, md: 2.5 }}
+						gap={2}
+					>
+						<Box
+							w="22px"
+							h="22px"
+							borderRadius="full"
+							bg="panel.elevated"
+							flexShrink={0}
+						/>
+						<Box
+							display={{ base: "none", md: "block" }}
+							w="50px"
+							h="12px"
+							borderRadius="sm"
+							bg="panel.elevated"
+						/>
+					</Flex>
+				</HStack>
+			</Flex>
+
+			<Box
+				ms={{ base: 0, md: "var(--rb-sidebar-width, 240px)" }}
+				p={{ base: 3, sm: 4, md: 5 }}
+			>
+				<PageLoadingSkeleton />
+			</Box>
+		</Box>
+	);
+};

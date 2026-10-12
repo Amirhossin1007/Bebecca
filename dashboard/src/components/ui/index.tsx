@@ -27,7 +27,10 @@ export type {
 } from "./DataTable.types";
 export type { RowActionItem } from "./DataTableRowActions";
 export { RowActionsMenu } from "./DataTableRowActions";
-export { PageLoadingSkeleton } from "./PageLoadingSkeleton";
+export {
+	PageLoadingSkeleton,
+	PanelLoadingSkeleton,
+} from "./PageLoadingSkeleton";
 export {
 	ResourceListCard,
 	ResourceRefreshButton,

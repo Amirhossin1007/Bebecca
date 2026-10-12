@@ -2037,7 +2037,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderWidth="1px"
 							borderColor="panel.border"
 							p={{ base: 4, sm: 5 }}
-							minH={{ base: "125px", md: "140px" }}
+							minH={{ base: "135px", md: "148px" }}
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
@@ -2072,7 +2072,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								/>
 							</Flex>
 
-							<Stack spacing={2} mt={2}>
+							<Stack spacing={2} my={1}>
 								<Box
 									w={i === 1 ? "110px" : "90px"}
 									h="26px"
@@ -2087,6 +2087,27 @@ export const Statistics: FC<BoxProps> = (props) => {
 									opacity={0.6}
 								/>
 							</Stack>
+
+							<Flex
+								justify="space-between"
+								align="center"
+								pt={2.5}
+								borderTopWidth="1px"
+								borderColor="panel.border"
+							>
+								<Box
+									w={i === 1 ? "60px" : i === 2 ? "70px" : "65px"}
+									h="13px"
+									borderRadius="sm"
+									bg="panel.elevated"
+								/>
+								<Box
+									w={i === 1 ? "80px" : i === 2 ? "70px" : "75px"}
+									h="13px"
+									borderRadius="sm"
+									bg="panel.elevated"
+								/>
+							</Flex>
 						</Box>
 					))}
 				</SimpleGrid>
@@ -2102,80 +2123,128 @@ export const Statistics: FC<BoxProps> = (props) => {
 						},
 					}}
 				>
-					{[1, 2].map((cardIdx) => (
-						<Box
-							key={cardIdx}
-							className="rb-glass-item"
-							bg="panel.surface"
-							borderRadius="20px"
-							borderWidth="1px"
+					<Box
+						className="rb-glass-item"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+						boxShadow={
+							colorMode === "light"
+								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
+								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
+						}
+						backdropFilter="blur(8px)"
+					>
+						<Flex
+							px={{ base: 4, sm: 5, md: 6 }}
+							py={3.5}
+							justify="space-between"
+							align="center"
+							borderBottomWidth="1px"
 							borderColor="panel.border"
-							overflow="hidden"
-							boxShadow={
-								colorMode === "light"
-									? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-									: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-							}
-							backdropFilter="blur(8px)"
 						>
-							<Flex
-								px={{ base: 4, sm: 5, md: 6 }}
-								py={3.5}
-								justify="space-between"
-								align="center"
-								borderBottomWidth="1px"
-								borderColor="panel.border"
-							>
-								<HStack spacing={2.5}>
-									<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-									<Box
-										w={cardIdx === 1 ? "110px" : "90px"}
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</HStack>
-							</Flex>
-							<Box p={{ base: 4, sm: 5, md: 6 }}>
-								<Stack spacing={3}>
-									{[1, 2].map((rowIdx) => (
-										<Flex
-											key={rowIdx}
-											justify="space-between"
-											align="center"
-											gap={3}
-										>
-											<HStack spacing={2.5}>
-												<Box
-													w="28px"
-													h="28px"
-													borderRadius="8px"
-													bg="panel.elevated"
-													flexShrink={0}
-												/>
-												<Box
-													w={rowIdx === 1 ? "85px" : "95px"}
-													h="14px"
-													borderRadius="md"
-													bg="panel.elevated"
-												/>
-											</HStack>
-											<Box
-												w={rowIdx === 1 ? "60px" : "80px"}
-												h="16px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-										</Flex>
-									))}
-								</Stack>
-							</Box>
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={3}>
+								<Flex justify="space-between" align="center" gap={3}>
+									<HStack spacing={2.5}>
+										<Box
+											w="28px"
+											h="28px"
+											borderRadius="8px"
+											bg="panel.elevated"
+											flexShrink={0}
+										/>
+										<Box w="85px" h="15px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="75px" h="16px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+								<Flex justify="space-between" align="center" gap={3}>
+									<HStack spacing={2.5}>
+										<Box
+											w="28px"
+											h="28px"
+											borderRadius="8px"
+											bg="panel.elevated"
+											flexShrink={0}
+										/>
+										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="75px" h="16px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+							</Stack>
 						</Box>
-					))}
+					</Box>
+
+					<Box
+						className="rb-glass-item"
+						bg="panel.surface"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						overflow="hidden"
+						boxShadow={
+							colorMode === "light"
+								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
+								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
+						}
+						backdropFilter="blur(8px)"
+					>
+						<Flex
+							px={{ base: 4, sm: 5, md: 6 }}
+							py={3.5}
+							justify="space-between"
+							align="center"
+							borderBottomWidth="1px"
+							borderColor="panel.border"
+						>
+							<HStack spacing={2.5}>
+								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
+								<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
+							</HStack>
+						</Flex>
+						<Box p={{ base: 4, sm: 5, md: 6 }}>
+							<Stack spacing={3}>
+								<Flex justify="space-between" align="center" gap={3}>
+									<HStack spacing={2.5}>
+										<Box
+											w="28px"
+											h="28px"
+											borderRadius="8px"
+											bg="panel.elevated"
+											flexShrink={0}
+										/>
+										<Box w="95px" h="15px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+								<Flex justify="space-between" align="center" gap={3}>
+									<HStack spacing={2.5}>
+										<Box
+											w="28px"
+											h="28px"
+											borderRadius="8px"
+											bg="panel.elevated"
+											flexShrink={0}
+										/>
+										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
+									</HStack>
+									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
+								</Flex>
+							</Stack>
+						</Box>
+					</Box>
 				</SimpleGrid>
 
 				<Box
-					className="shimmer-box"
+					className="rb-glass-item"
 					bg="panel.surface"
 					borderRadius="20px"
 					borderWidth="1px"
@@ -2186,6 +2255,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 					}
+					backdropFilter="blur(8px)"
 				>
 					<Flex
 						px={{ base: 4, sm: 5, md: 6 }}
@@ -2297,7 +2367,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				</Box>
 
 				<Box
-					className="shimmer-box"
+					className="rb-glass-item"
 					bg="panel.surface"
 					borderRadius="20px"
 					borderWidth="1px"
@@ -2308,6 +2378,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 					}
+					backdropFilter="blur(8px)"
 				>
 					<Flex
 						px={{ base: 4, sm: 5, md: 6 }}
@@ -2434,7 +2505,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 				{canSeeGlobal && (
 					<Box
-						className="shimmer-box"
+						className="rb-glass-item"
 						bg="panel.surface"
 						borderRadius="20px"
 						borderWidth="1px"
@@ -2445,6 +2516,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 						}
+						backdropFilter="blur(8px)"
 					>
 						<Flex
 							px={{ base: 4, sm: 5, md: 6 }}

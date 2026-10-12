@@ -275,16 +275,24 @@ export interface NotificationMenuItemProps {
 	onBeforeOpen?: () => void;
 	placement?: PlacementWithLogical;
 	onNavigate?: () => void;
+	isOpen?: boolean;
+	onToggle?: () => void;
+	onClose?: () => void;
 }
 
 export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	onBeforeOpen,
 	placement = "auto-start",
 	onNavigate,
+	isOpen: controlledIsOpen,
+	onToggle: controlledOnToggle,
+	onClose: controlledOnClose,
 }) => {
 	const { t, i18n } = useTranslation();
 	const navigate = useNavigate();
 	const notifMenu = useDisclosure();
+	const isControlled = controlledIsOpen !== undefined;
+	const isMenuOpen = isControlled ? controlledIsOpen : notifMenu.isOpen;
 	const { unread, items, markAll, isMarkingAll, openItem } = useNotificationCenter();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const popperModifiers = useMemo(
@@ -512,6 +520,23 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 		</MenuList>
 	);
 
+	const handleMenuClose = () => {
+		if (isControlled) {
+			controlledOnClose?.();
+		} else {
+			notifMenu.onClose();
+		}
+	};
+
+	const handleToggle = () => {
+		if (onBeforeOpen) onBeforeOpen();
+		if (isControlled) {
+			controlledOnToggle?.();
+		} else {
+			notifMenu.isOpen ? notifMenu.onClose() : notifMenu.onOpen();
+		}
+	};
+
 	return (
 		<Menu
 			placement={placement}
@@ -521,9 +546,11 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 			gutter={6}
 			computePositionOnMount
 			modifiers={popperModifiers}
-			isOpen={notifMenu.isOpen}
-			onOpen={notifMenu.onOpen}
-			onClose={notifMenu.onClose}
+			isOpen={isMenuOpen}
+			onOpen={() => {
+				if (!isControlled) notifMenu.onOpen();
+			}}
+			onClose={handleMenuClose}
 			closeOnSelect={false}
 		>
 			<MenuButton
@@ -544,8 +571,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 				_focusVisible={{ bg: "panel.elevated" }}
 				onClick={(e: ReactMouseEvent) => {
 					e.stopPropagation();
-					if (onBeforeOpen) onBeforeOpen();
-					notifMenu.isOpen ? notifMenu.onClose() : notifMenu.onOpen();
+					handleToggle();
 				}}
 			>
 				<HStack justify="space-between" w="full" minW={0} spacing={2.5}>
