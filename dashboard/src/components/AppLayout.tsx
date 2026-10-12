@@ -75,7 +75,11 @@ import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag
 import { AppSidebar } from "./AppSidebar";
 import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
-import { NotificationBell } from "./NotificationBell";
+import {
+	NotificationMenuItem,
+	NotificationProvider,
+	useNotificationCenter,
+} from "./NotificationBell";
 import { SponsorCarousel } from "./SponsorCarousel";
 import ThemeSelector from "./ThemeSelector";
 import {
@@ -188,7 +192,8 @@ const measureBreadcrumbLabel = (text: string, isPage = false): number => {
 	return Math.ceil(ctx.measureText(text).width);
 };
 
-export function AppLayout() {
+function AppLayoutContent() {
+	const { unread } = useNotificationCenter();
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const isMobile = useBreakpointValue({ base: true, md: false });
 	const sidebarDrawer = useDisclosure();
@@ -1179,12 +1184,18 @@ export function AppLayout() {
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
 			);
+			const starsEl = headerRef.current.querySelector<HTMLElement>(
+				"[data-github-stars]",
+			);
 			const profileWidth = profileEl ? profileEl.offsetWidth : 80;
+			const starsWidth = starsEl ? starsEl.offsetWidth : 80;
 			const isFa = i18n.language?.startsWith("fa");
 			const fullCalendarWidth = isFa ? 165 : 175;
 			const compactCalendarWidth = 34;
-			const compactControlsWidth = compactCalendarWidth + 8 + profileWidth;
-			const fullControlsWidth = fullCalendarWidth + 8 + profileWidth;
+			const compactControlsWidth =
+				compactCalendarWidth + 8 + starsWidth + 8 + profileWidth;
+			const fullControlsWidth =
+				fullCalendarWidth + 8 + starsWidth + 8 + profileWidth;
 
 			const navButtonEl = headerRef.current.querySelector<HTMLElement>(
 				"[aria-label='Toggle Sidebar']",
@@ -1851,7 +1862,7 @@ export function AppLayout() {
 
 						<HStack
 							data-header-controls="true"
-							spacing={2}
+							spacing={{ base: 1.5, sm: 2 }}
 							alignItems="center"
 							flexShrink={0}
 							h="full"
@@ -1859,10 +1870,7 @@ export function AppLayout() {
 							<Box display={{ base: "none", md: "inline-flex" }}>
 								<HeaderCalendar isCompact={calendarCompact} />
 							</Box>
-							{getUserIsSuccess && userData.username && <NotificationBell />}
-							<Box display={{ base: "none", sm: "inline-flex" }}>
-								<GitHubStars />
-							</Box>
+							<GitHubStars />
 
 							{getUserIsSuccess && userData.username && (
 								<Menu
@@ -1915,17 +1923,31 @@ export function AppLayout() {
 											justify="center"
 											dir={isRTL ? "rtl" : "ltr"}
 										>
-											<Flex
-												w="20px"
-												h="20px"
-												align="center"
-												justify="center"
-												borderRadius="full"
-												color="panel.textSecondary"
-												flexShrink={0}
-											>
-												<UserIcon />
-											</Flex>
+											<Box position="relative" display="inline-flex">
+												<Flex
+													w="20px"
+													h="20px"
+													align="center"
+													justify="center"
+													borderRadius="full"
+													color="panel.textSecondary"
+													flexShrink={0}
+												>
+													<UserIcon />
+												</Flex>
+												{unread > 0 && (
+													<Box
+														position="absolute"
+														top="-1px"
+														insetInlineEnd="-1px"
+														w="7px"
+														h="7px"
+														borderRadius="full"
+														bg="var(--chakra-colors-accent)"
+														border="1.5px solid var(--chakra-colors-panel-surface)"
+													/>
+												)}
+											</Box>
 											<Text
 												display={{ base: "none", md: "inline" }}
 												maxW={{ base: "100px", md: "140px" }}
@@ -2188,6 +2210,10 @@ export function AppLayout() {
 												</Portal>
 											</Menu>
 
+											<NotificationMenuItem
+												onBeforeOpen={handleUserMenuClose}
+											/>
+
 											<ThemeSelector
 												trigger="menuItem"
 												triggerLabel={t("header.theme")}
@@ -2441,6 +2467,7 @@ export function AppLayout() {
 														h="6"
 														display="grid"
 														placeItems="center"
+														position="relative"
 														color={
 															isSelected
 																? "var(--rb-panel-accent)"
@@ -2454,6 +2481,17 @@ export function AppLayout() {
 														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
 													>
 														<DisplayIcon />
+														{item.key === "notifications" && unread > 0 && (
+															<Box
+																position="absolute"
+																top="-1px"
+																insetInlineEnd="-1px"
+																w="6px"
+																h="6px"
+																borderRadius="full"
+																bg="var(--chakra-colors-accent)"
+															/>
+														)}
 													</Box>
 													<Text
 														fontSize="10px"
@@ -2995,5 +3033,13 @@ export function AppLayout() {
 				)}
 			</Flex>
 		</>
+	);
+}
+
+export function AppLayout() {
+	return (
+		<NotificationProvider>
+			<AppLayoutContent />
+		</NotificationProvider>
 	);
 }
