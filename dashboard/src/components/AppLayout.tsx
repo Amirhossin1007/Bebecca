@@ -973,28 +973,47 @@ function AppLayoutContent() {
 	const bottomNavItems = useMemo<BottomNavItem[]>(() => {
 		const items: BottomNavItem[] = [];
 		const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
-		items.push({ key: "users", label: t("users"), to: "/users" });
-		if (canSeeAdmins) {
-			items.push({ key: "admins", label: t("admins"), to: "/admins" });
+		const canSeeMyAccount = Boolean(selfAccess.self_myaccount);
+
+		items.push({
+			key: "dashboard",
+			label: t("dashboard"),
+			to: "/",
+		});
+		items.push({
+			key: "users",
+			label: t("users"),
+			to: "/users",
+		});
+		if (canSeeMyAccount) {
+			items.push({
+				key: "myaccount",
+				label: t("myaccount.menu"),
+				to: "/myaccount",
+			});
 		}
-		if (items.length + 3 + (hasSettingsMenu ? 1 : 0) <= 5) {
+		if (canSeeAdmins && items.length + (hasSettingsMenu ? 1 : 0) < 5) {
+			items.push({
+				key: "admins",
+				label: t("admins"),
+				to: "/admins",
+			});
+		} else if (items.length + (hasSettingsMenu ? 1 : 0) < 5) {
 			items.push({
 				key: "notifications",
 				label: t("notifications.menu"),
 				to: "/notifications",
 			});
 		}
-		items.push({ key: "myaccount", label: t("myaccount.menu"), to: "/myaccount" });
 		if (hasSettingsMenu) {
-			items.push({ key: "settings", label: t("header.settings"), kind: "menu" });
+			items.push({
+				key: "settings",
+				label: t("header.settings"),
+				kind: "menu",
+			});
 		}
-		items.splice(Math.floor((items.length + 1) / 2), 0, {
-			key: "dashboard",
-			label: t("dashboard"),
-			to: "/",
-		});
 		return items;
-	}, [t, sectionAccess, hasSettingsMenu]);
+	}, [t, sectionAccess, selfAccess.self_myaccount, hasSettingsMenu]);
 
 	const activeSettingsItem = useMemo(
 		() =>
@@ -2025,6 +2044,9 @@ function AppLayoutContent() {
 							{getUserIsSuccess && userData.username && (
 								<Menu
 									placement={isRTL ? "bottom-start" : "bottom-end"}
+									strategy="fixed"
+									gutter={8}
+									computePositionOnMount
 									isLazy
 									autoSelect={false}
 									closeOnSelect={false}
@@ -2082,7 +2104,7 @@ function AppLayoutContent() {
 													color="panel.text"
 													flexShrink={0}
 												>
-													<UserCircleIcon style={{ width: "16px", height: "16px" }} />
+													<UserCircleIcon style={{ width: "18px", height: "18px" }} />
 												</Flex>
 												{unread > 0 && (
 													<Box
@@ -2118,7 +2140,9 @@ function AppLayoutContent() {
 											dir={isRTL ? "rtl" : "ltr"}
 											ref={userMenuContentRef}
 											id="rb-user-menu"
-											minW="230px"
+											w="240px"
+											minW="240px"
+											maxW="240px"
 											p={2}
 											borderRadius="20px"
 											borderWidth="1px"
@@ -2128,7 +2152,7 @@ function AppLayoutContent() {
 											zIndex={9999}
 											userSelect="none"
 											sx={{
-												".chakra-menu__menuitem": {
+												".chakra-menu__menuitem:not(.rb-logout-menu-item)": {
 													bg: "transparent !important",
 													borderRadius: "10px",
 													h: "38px",
@@ -2137,8 +2161,10 @@ function AppLayoutContent() {
 													fontSize: "13px",
 													fontWeight: "500",
 													transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
-													"&:hover": {
-														bg: "var(--rb-panel-elevated) !important",
+													"@media (min-width: 769px)": {
+														"&:hover": {
+															bg: "var(--rb-panel-elevated) !important",
+														},
 													},
 													"&:active, &:focus-visible": {
 														bg: "var(--rb-panel-elevated) !important",
@@ -2147,29 +2173,36 @@ function AppLayoutContent() {
 														bg: "transparent !important",
 													},
 												},
-												".rb-logout-menu-item": {
+												".rb-logout-menu-item, .chakra-menu__menuitem.rb-logout-menu-item": {
 													color: "red.400 !important",
 													fontWeight: "600 !important",
 													bg: "transparent !important",
+													borderRadius: "10px !important",
+													h: "38px !important",
+													px: "12px !important",
+													my: "2px !important",
+													fontSize: "13px !important",
 													"--menu-bg": "transparent !important",
 													transition:
 														"all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important",
-													"&:hover, &[data-hover]": {
-														color: "red.400 !important",
-														bg: "rgba(239, 68, 68, 0.16) !important",
-														"--menu-bg": "rgba(239, 68, 68, 0.16) !important",
+													"@media (min-width: 769px)": {
+														"&:hover, &[data-hover]": {
+															color: "red.400 !important",
+															bg: "rgba(239, 68, 68, 0.14) !important",
+															"--menu-bg": "rgba(239, 68, 68, 0.14) !important",
+														},
 													},
-													"&:active": {
+													"&:active, &[data-active]": {
 														color: "red.400 !important",
-														bg: "rgba(239, 68, 68, 0.24) !important",
-														"--menu-bg": "rgba(239, 68, 68, 0.24) !important",
+														bg: "rgba(239, 68, 68, 0.22) !important",
+														"--menu-bg": "rgba(239, 68, 68, 0.22) !important",
 														transform: "scale(0.98) !important",
 													},
-													"&:focus-visible": {
-														bg: "rgba(239, 68, 68, 0.16) !important",
-														"--menu-bg": "rgba(239, 68, 68, 0.16) !important",
+													"&:focus-visible, &[data-focus]": {
+														bg: "rgba(239, 68, 68, 0.14) !important",
+														"--menu-bg": "rgba(239, 68, 68, 0.14) !important",
 													},
-													"&:focus:not(:focus-visible):not(:hover):not(:active):not([data-hover])":
+													"&:focus:not(:focus-visible):not(:hover):not(:active):not([data-hover]):not([data-focus])":
 														{
 															bg: "transparent !important",
 															"--menu-bg": "transparent !important",
@@ -2223,7 +2256,6 @@ function AppLayoutContent() {
 
 											<NotificationMenuItem
 												placement={languagePlacement}
-												portalContainer={userMenuContentRef}
 												onNavigate={handleUserMenuClose}
 											/>
 
@@ -2279,18 +2311,18 @@ function AppLayoutContent() {
 														</Text>
 													</HStack>
 												</MenuButton>
-												<Portal containerRef={userMenuContentRef}>
+												<Portal>
 													<MenuList
 														key={`${i18n.language}-${isRTL ? "rtl" : "ltr"}`}
 														dir={isRTL ? "rtl" : "ltr"}
 														minW="170px"
 														p={1.5}
-														borderRadius="18px"
+														borderRadius="20px"
 														borderWidth="1px"
 														borderColor="panel.border"
 														bg="panel.surface"
-														boxShadow={menuShadow}
-														zIndex={9999}
+														boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
+														zIndex={10005}
 														userSelect="none"
 														sx={{
 															".chakra-menu__menuitem": {
@@ -2301,7 +2333,7 @@ function AppLayoutContent() {
 																my: "1px",
 																fontSize: "12px",
 																fontWeight: "500",
-																"@media (hover: hover)": {
+																"@media (min-width: 769px)": {
 																	"&:hover": {
 																		bg: "panel.elevated !important",
 																	},
@@ -2368,7 +2400,6 @@ function AppLayoutContent() {
 											<ThemeSelector
 												trigger="menuItem"
 												triggerLabel={t("header.theme")}
-												portalContainer={userMenuContentRef}
 												onModalOpen={handleThemeModalOpen}
 												onModalClose={handleThemeModalClose}
 											/>
@@ -2379,11 +2410,18 @@ function AppLayoutContent() {
 												color="red.400"
 												transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
 												_hover={{
-													bg: "rgba(239, 68, 68, 0.16) !important",
+													md: {
+														bg: "rgba(239, 68, 68, 0.14) !important",
+														color: "red.400 !important",
+													},
+												}}
+												_focus={{
+													bg: "rgba(239, 68, 68, 0.14) !important",
 													color: "red.400 !important",
 												}}
 												_active={{
-													bg: "rgba(239, 68, 68, 0.24) !important",
+													bg: "rgba(239, 68, 68, 0.22) !important",
+													color: "red.400 !important",
 													transform: "scale(0.98)",
 												}}
 												onClick={async () => {

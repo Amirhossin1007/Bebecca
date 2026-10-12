@@ -29,9 +29,7 @@ import {
 	createContext,
 	type FC,
 	type MouseEvent as ReactMouseEvent,
-	type MutableRefObject,
 	type ReactNode,
-	type RefObject,
 	useCallback,
 	useContext,
 	useEffect,
@@ -245,7 +243,7 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 												px={0}
 												h="auto"
 												mt={1}
-												_hover={{ bg: "transparent", textDecoration: "underline" }}
+												_hover={{ md: { bg: "transparent", textDecoration: "underline" } }}
 												onClick={() => {
 													openItem(incomingNotification);
 													dismissIncomingNotification();
@@ -275,14 +273,12 @@ export const useNotificationCenter = () => {
 
 export interface NotificationMenuItemProps {
 	onBeforeOpen?: () => void;
-	portalContainer?: RefObject<HTMLElement> | MutableRefObject<HTMLElement | null>;
 	placement?: PlacementWithLogical;
 	onNavigate?: () => void;
 }
 
 export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	onBeforeOpen,
-	portalContainer,
 	placement = "auto-start",
 	onNavigate,
 }) => {
@@ -328,11 +324,11 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 			w={{ base: "calc(100vw - 32px)", sm: "360px" }}
 			maxW="380px"
 			p={2}
-			borderRadius="18px"
+			borderRadius="20px"
 			borderWidth="1px"
 			borderColor="panel.border"
 			bg="panel.surface"
-			boxShadow="0 14px 40px -6px rgba(0, 0, 0, 0.32), 0 0 0 1px var(--chakra-colors-panel-border)"
+			boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
 			zIndex={10005}
 			overflow="hidden"
 			userSelect="none"
@@ -369,7 +365,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 						fontSize="11px"
 						fontWeight="600"
 						color="panel.textSecondary"
-						_hover={{ bg: "panel.elevated", color: "panel.text" }}
+						_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
 						onClick={(e: ReactMouseEvent) => {
 							e.stopPropagation();
 							markAll();
@@ -559,26 +555,22 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 							{t("notifications.menu")}
 						</Text>
 					</HStack>
-					{unread > 0 && (
+					{unread > 0 ? (
 						<Badge
 							borderRadius="full"
-							px={2}
-							py={0.5}
-							fontSize="11px"
+							px={1.5}
+							py={0.2}
+							fontSize="10px"
 							fontWeight="700"
 							bg="var(--chakra-colors-accent)"
 							color="white"
 						>
-							{unread} {t("notifications.inbox.unread")}
+							{unread}
 						</Badge>
-					)}
+					) : null}
 				</HStack>
 			</MenuButton>
-			{portalContainer ? (
-				<Portal containerRef={portalContainer}>{menuList}</Portal>
-			) : (
-				<Portal>{menuList}</Portal>
-			)}
+			<Portal>{menuList}</Portal>
 		</Menu>
 	);
 };

@@ -1,4 +1,4 @@
-import { Box, HStack, Text } from "@chakra-ui/react";
+import { Box, Flex, HStack, Text } from "@chakra-ui/react";
 import { StarIcon } from "@heroicons/react/24/solid";
 import { type FC, useEffect, useState } from "react";
 
@@ -101,19 +101,31 @@ export const GitHubStars: FC = () => {
 
 			<Box w="1px" h="12px" bg="panel.border" flexShrink={0} />
 
-			<HStack spacing={1} align="center" flexShrink={0}>
-				<StarIcon style={{ width: "13px", height: "13px", color: "#f59e0b" }} />
+			<HStack spacing={1} align="center" justify="center" flexShrink={0} h="16px">
+				<Flex w="13px" h="13px" align="center" justify="center" flexShrink={0}>
+					<StarIcon
+						style={{
+							width: "13px",
+							height: "13px",
+							color: "#f59e0b",
+							display: "block",
+						}}
+					/>
+				</Flex>
 				{formattedStars ? (
 					<Text
 						as="span"
 						dir="ltr"
 						fontSize="12px"
 						fontWeight="600"
-						lineHeight="normal"
+						lineHeight="1"
+						display="inline-flex"
+						alignItems="center"
 						color="panel.text"
 						sx={{
 							unicodeBidi: "isolate",
 							fontVariantNumeric: "tabular-nums",
+							transform: "translateY(0.5px)",
 						}}
 					>
 						{formattedStars}

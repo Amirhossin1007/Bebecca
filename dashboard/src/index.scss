@@ -244,9 +244,11 @@ body {
   border-end-end-radius: 6px;
 }
 
-.rb-data-table-row:hover > td {
-  background: var(--rb-panel-row-hover) !important;
-  border-color: var(--rb-panel-border-strong) !important;
+@media (min-width: 769px) {
+  .rb-data-table-row:hover > td {
+    background: var(--rb-panel-row-hover) !important;
+    border-color: var(--rb-panel-border-strong) !important;
+  }
 }
 
 .rb-data-table-row[data-selected="true"] > td {
@@ -515,9 +517,11 @@ body {
     width: 100%;
   }
 
-.rb-resource-card:hover {
-  background: var(--rb-panel-row-hover);
-  border-color: var(--rb-panel-border-strong);
+@media (min-width: 769px) {
+  .rb-resource-card:hover {
+    background: var(--rb-panel-row-hover);
+    border-color: var(--rb-panel-border-strong);
+  }
 }
 
 .rb-resource-card[data-selected="true"] {
@@ -840,6 +844,11 @@ body {
 @media (max-width: 768px) {
   body {
     overscroll-behavior: none;
+  }
+
+  .rb-data-table-row:hover > td,
+  .rb-resource-card:hover {
+    background: transparent !important;
   }
 
   .chakra-modal__overlay {
