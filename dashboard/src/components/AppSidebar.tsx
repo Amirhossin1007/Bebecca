@@ -96,7 +96,7 @@ const HostsIconStyled = chakra(LinkIcon, iconProps);
 const HAProxyIconStyled = chakra(ArrowsRightLeftIcon, subIconProps);
 const UsageIconStyled = chakra(ChartBarIcon, iconProps);
 const MyAccountIconStyled = chakra(UserCircleIcon, iconProps);
-const NotificationIconStyled = chakra(BellIcon, iconProps);
+const NotificationSubIconStyled = chakra(BellIcon, subIconProps);
 const InsightsIconStyled = chakra(EyeIcon, subIconProps);
 const TutorialIconStyled = chakra(BookOpenIcon, iconProps);
 const XraySettingsIconStyled = chakra(WrenchScrewdriverIcon, subIconProps);
@@ -202,10 +202,10 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 		>
 			<Box
 				w="full"
-				maxW={inDrawer ? "min(280px, calc(100% - 28px))" : "full"}
+				maxW={inDrawer ? "min(210px, calc(100% - 28px))" : "full"}
 				mx={inDrawer ? "auto" : undefined}
 				overflow="hidden"
-				maxH={isExpanded ? (inDrawer ? "100px" : "180px") : "0px"}
+				maxH={isExpanded ? (inDrawer ? "none" : "220px") : "0px"}
 				transition={`max-height ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1), padding ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1), border-color ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1)`}
 				pt={isExpanded ? 2 : 0}
 				pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
@@ -490,10 +490,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						id: "system_tools",
 						title: t("sidebar.groups.system"),
 						icon: SettingsIconStyled,
-						visible:
-							Boolean(sectionAccess?.[AdminSection.Integrations]) ||
-							canManagePlaceholders ||
-							isPrivilegedAdmin,
+						visible: true,
 						subItems: [
 							{
 								id: "settings_panel",
@@ -501,6 +498,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 								url: "/settings",
 								icon: MasterSettingsIconStyled,
 								visible: Boolean(sectionAccess?.[AdminSection.Integrations]),
+							},
+							{
+								id: "notifications",
+								title: t("notifications.menu"),
+								url: "/notifications",
+								icon: NotificationSubIconStyled,
+								visible: true,
 							},
 							{
 								id: "placeholders",
@@ -567,14 +571,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 								visible: canViewRecentActions,
 							},
 						],
-					},
-					{
-						type: "direct",
-						id: "notifications",
-						title: t("notifications.menu"),
-						url: "/notifications",
-						icon: NotificationIconStyled,
-						visible: true,
 					},
 				],
 			},

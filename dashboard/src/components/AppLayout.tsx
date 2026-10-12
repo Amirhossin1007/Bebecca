@@ -693,6 +693,12 @@ function AppLayoutContent() {
 											icon: MasterSettingsIcon,
 										}
 									: null,
+								{
+									id: "notifications",
+									title: t("notifications.menu"),
+									to: "/notifications",
+									icon: NotificationNavIcon,
+								},
 								canManagePlaceholders
 									? {
 											id: "placeholders",
@@ -770,13 +776,6 @@ function AppLayoutContent() {
 								to: string;
 								icon: ElementType;
 							}>,
-						},
-						{
-							type: "direct" as const,
-							key: "notifications",
-							label: t("notifications.menu"),
-							to: "/notifications",
-							icon: NotificationNavIcon,
 						},
 					],
 				},
@@ -1207,6 +1206,12 @@ function AppLayoutContent() {
 				{ label: t("dashboard"), path: "/" },
 				{ label: t("sidebar.groups.coreRouting") },
 				{ label: t("haproxy.title"), path: "/haproxy" },
+			];
+		} else if (path === "/notifications") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("notifications.menu"), path: "/notifications" },
 			];
 		} else if (path === "/settings") {
 			const settingsTabs: Record<string, string> = {
@@ -2074,15 +2079,14 @@ function AppLayoutContent() {
 										>
 											<Box position="relative" display="inline-flex">
 												<Flex
-													w="20px"
-													h="20px"
+													w="18px"
+													h="18px"
 													align="center"
 													justify="center"
-													borderRadius="full"
-													color="panel.textSecondary"
+													color="panel.text"
 													flexShrink={0}
 												>
-													<UserIcon />
+													<UserIcon style={{ width: "15px", height: "15px" }} />
 												</Flex>
 												{unread > 0 && (
 													<Box
@@ -2188,8 +2192,8 @@ function AppLayoutContent() {
 												borderColor="panel.border"
 											>
 												<Flex
-													w="34px"
-													h="34px"
+													w="32px"
+													h="32px"
 													align="center"
 													justify="center"
 													borderRadius="10px"
@@ -2199,7 +2203,7 @@ function AppLayoutContent() {
 													color="panel.text"
 													flexShrink={0}
 												>
-													<UserIcon />
+													<UserIcon style={{ width: "16px", height: "16px" }} />
 												</Flex>
 												<VStack align="flex-start" spacing={0} minW={0}>
 													<Text
@@ -2220,6 +2224,10 @@ function AppLayoutContent() {
 													</Text>
 												</VStack>
 											</Flex>
+
+											<NotificationMenuItem
+												onBeforeOpen={handleUserMenuClose}
+											/>
 
 											<Menu
 												placement={languagePlacement}
@@ -2358,10 +2366,6 @@ function AppLayoutContent() {
 													</MenuList>
 												</Portal>
 											</Menu>
-
-											<NotificationMenuItem
-												onBeforeOpen={handleUserMenuClose}
-											/>
 
 											<ThemeSelector
 												trigger="menuItem"

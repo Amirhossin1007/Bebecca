@@ -3,17 +3,16 @@ import {
 	Box,
 	Button,
 	chakra,
-	Drawer,
-	DrawerBody,
-	DrawerCloseButton,
-	DrawerContent,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerOverlay,
 	Flex,
 	HStack,
 	IconButton,
-	MenuItem,
+	Modal,
+	ModalBody,
+	ModalCloseButton,
+	ModalContent,
+	ModalFooter,
+	ModalHeader,
+	ModalOverlay,
 	Portal,
 	Stack,
 	Text,
@@ -262,29 +261,32 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 				</AnimatePresence>
 			</Portal>
 
-			<Drawer
+			<Modal
 				isOpen={isOpen}
-				placement={isRTL ? "left" : "right"}
 				onClose={onClose}
-				size="sm"
+				isCentered
 				autoFocus={false}
 				returnFocusOnClose={false}
 				trapFocus={false}
 				blockScrollOnMount={false}
 			>
-				<DrawerOverlay bg="blackAlpha.700" />
-				<DrawerContent
+				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(8px)" />
+				<ModalContent
 					dir={isRTL ? "rtl" : "ltr"}
 					bg="panel.surface"
 					borderWidth="1px"
 					borderColor="panel.border"
-					maxW={{ base: "100%", sm: "400px" }}
-					boxShadow="0 10px 40px rgba(0, 0, 0, 0.24)"
+					borderRadius="20px"
+					boxShadow="0 24px 60px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--chakra-colors-panel-border)"
+					maxW={{ base: "calc(100vw - 28px)", sm: "460px" }}
+					maxH="min(620px, calc(100vh - 80px))"
+					my="auto"
+					mx="auto"
 					display="flex"
 					flexDirection="column"
-					h="100%"
+					overflow="hidden"
 				>
-					<DrawerHeader
+					<ModalHeader
 						borderBottomWidth="1px"
 						borderColor="panel.border"
 						p={4}
@@ -338,7 +340,7 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 										{t("notifications.inbox.markAllRead")}
 									</Button>
 								)}
-								<DrawerCloseButton
+								<ModalCloseButton
 									position="static"
 									size="sm"
 									borderRadius="full"
@@ -346,9 +348,9 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 								/>
 							</HStack>
 						</HStack>
-					</DrawerHeader>
+					</ModalHeader>
 
-					<DrawerBody p={3} overflowY="auto">
+					<ModalBody p={3} overflowY="auto">
 						{items.length === 0 ? (
 							<Flex
 								direction="column"
@@ -448,9 +450,9 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 								})}
 							</Stack>
 						)}
-					</DrawerBody>
+					</ModalBody>
 
-					<DrawerFooter
+					<ModalFooter
 						borderTopWidth="1px"
 						borderColor="panel.border"
 						p={3}
@@ -483,9 +485,9 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 						>
 							{t("notifications.bell.viewAll")}
 						</Button>
-					</DrawerFooter>
-				</DrawerContent>
-			</Drawer>
+					</ModalFooter>
+				</ModalContent>
+			</Modal>
 		</NotificationContext.Provider>
 	);
 };
@@ -505,15 +507,33 @@ export const NotificationMenuItem: FC<{ onBeforeOpen?: () => void }> = ({
 	const { unread, onOpen } = useNotificationCenter();
 
 	return (
-		<MenuItem
-			icon={<BellIconStyled color={unread > 0 ? "var(--chakra-colors-accent)" : "panel.textSecondary"} />}
+		<Button
+			variant="ghost"
+			w="full"
+			h="38px"
+			justifyContent="flex-start"
+			fontWeight="500"
+			fontSize="13px"
+			borderRadius="12px"
+			px={3}
+			bg="transparent"
+			color="panel.text"
+			transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+			_hover={{ md: { bg: "panel.elevated" } }}
+			_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
+			_focusVisible={{ bg: "panel.elevated" }}
 			onClick={() => {
 				if (onBeforeOpen) onBeforeOpen();
 				onOpen();
 			}}
 		>
-			<HStack justify="space-between" w="full">
-				<Text color="panel.text">{t("notifications.menu")}</Text>
+			<HStack justify="space-between" w="full" minW={0} spacing={2.5}>
+				<HStack spacing={2.5} minW={0}>
+					<BellIconStyled flexShrink={0} color="panel.text" />
+					<Text noOfLines={1} color="panel.text">
+						{t("notifications.menu")}
+					</Text>
+				</HStack>
 				{unread > 0 && (
 					<Badge
 						borderRadius="full"
@@ -528,7 +548,7 @@ export const NotificationMenuItem: FC<{ onBeforeOpen?: () => void }> = ({
 					</Badge>
 				)}
 			</HStack>
-		</MenuItem>
+		</Button>
 	);
 };
 

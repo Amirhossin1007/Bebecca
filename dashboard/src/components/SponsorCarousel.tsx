@@ -183,12 +183,12 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 				maxW="100%"
 				minW={isBanner ? "40px" : undefined}
 				h={isBanner ? "auto" : "full"}
-				maxH={isBanner ? "40px" : isSidebarBanner ? "110px" : undefined}
+				maxH={isBanner ? "40px" : undefined}
 				aspectRatio={
 					isBanner
 						? `${bannerDimensions.ratio}`
 						: isSidebarBanner
-							? "16 / 7"
+							? "21 / 17"
 							: undefined
 				}
 				borderRadius={isBanner || isSidebarBanner ? "12px" : "10px"}
