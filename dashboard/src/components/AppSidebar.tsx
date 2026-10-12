@@ -669,6 +669,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			sx={{
 				contain: inDrawer ? undefined : "layout style",
 				willChange: inDrawer ? undefined : "width",
+				transform: inDrawer ? undefined : "translateZ(0)",
 			}}
 		>
 			<Flex

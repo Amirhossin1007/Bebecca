@@ -382,13 +382,10 @@ function AppLayoutContent() {
 	const dockInactiveText = useColorModeValue("gray.700", "gray.300");
 	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
-	const shellHeaderBg = useColorModeValue(
-		"rgba(255, 255, 255, 0.88)",
-		"rgba(36, 36, 36, 0.88)",
-	);
+	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
 	const shellHeaderShadow = useColorModeValue(
-		"0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)",
-		"0 8px 32px -4px rgba(0, 0, 0, 0.36), 0 1px 3px rgba(0, 0, 0, 0.12)",
+		"0 2px 10px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03)",
+		"0 4px 16px rgba(0, 0, 0, 0.24), 0 1px 2px rgba(0, 0, 0, 0.12)",
 	);
 	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const headerButtonHoverBg = useColorModeValue(
@@ -1521,10 +1518,6 @@ function AppLayoutContent() {
 							borderColor={shellBorder}
 							borderRadius="18px"
 							bg={shellHeaderBg}
-							backdropFilter="blur(20px)"
-							sx={{
-								WebkitBackdropFilter: "blur(20px)",
-							}}
 							boxShadow={shellHeaderShadow}
 							overflow="hidden"
 							mt="3"
@@ -1536,6 +1529,10 @@ function AppLayoutContent() {
 							userSelect="none"
 							gap={3}
 							dir={isRTL ? "rtl" : "ltr"}
+							sx={{
+								transform: "translateZ(0)",
+								contain: "paint layout",
+							}}
 						>
 						<HStack
 							spacing={2.5}
@@ -2414,12 +2411,6 @@ function AppLayoutContent() {
 						h="16px"
 						pointerEvents="none"
 						bg="linear-gradient(180deg, var(--rb-panel-main) 0%, transparent 100%)"
-						backdropFilter="blur(6px)"
-						sx={{
-							WebkitBackdropFilter: "blur(6px)",
-							maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-							WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-						}}
 						zIndex={99}
 					/>
 				</Box>
@@ -2432,6 +2423,11 @@ function AppLayoutContent() {
 					overflow="auto"
 					minH="0"
 					bg="transparent"
+					sx={{
+						transform: "translateZ(0)",
+						willChange: "scroll-position",
+						overscrollBehavior: "contain",
+					}}
 				>
 					<Outlet />
 				</Box>
