@@ -463,7 +463,10 @@ function AppLayoutContent() {
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
 		Boolean(baseSelf.self_placeholders);
 
+	const isChangingLanguageRef = useRef(false);
+
 	const changeLanguage = async (lang: string) => {
+		isChangingLanguageRef.current = true;
 		const nextDir = i18n.dir(lang);
 		document.documentElement.dir = nextDir;
 		document.documentElement.lang = lang;
@@ -471,23 +474,36 @@ function AppLayoutContent() {
 			document.body.dir = nextDir;
 		}
 		await i18n.changeLanguage(lang);
+		userMenu.onOpen();
+		languageMenu.onOpen();
 		window.dispatchEvent(new Event("resize"));
 		requestAnimationFrame(() => {
+			userMenu.onOpen();
+			languageMenu.onOpen();
 			window.dispatchEvent(new Event("resize"));
 			setTimeout(() => {
+				userMenu.onOpen();
+				languageMenu.onOpen();
 				window.dispatchEvent(new Event("resize"));
-			}, 60);
+				isChangingLanguageRef.current = false;
+			}, 150);
 		});
 	};
 
 	const closeUserMenu = () => {
+		if (isChangingLanguageRef.current) return;
 		userMenu.onClose();
 		languageMenu.onClose();
 	};
 
 	const handleUserMenuClose = () => {
-		if (isThemeModalOpen) return;
+		if (isThemeModalOpen || isChangingLanguageRef.current) return;
 		closeUserMenu();
+	};
+
+	const handleLanguageMenuClose = () => {
+		if (isChangingLanguageRef.current) return;
+		languageMenu.onClose();
 	};
 
 	const handleThemeModalOpen = () => setIsThemeModalOpen(true);
@@ -1979,7 +1995,7 @@ function AppLayoutContent() {
 									strategy="fixed"
 									gutter={8}
 									computePositionOnMount
-									isLazy
+									isLazy={false}
 									autoSelect={false}
 									closeOnSelect={false}
 									isOpen={userMenu.isOpen}
@@ -2068,7 +2084,6 @@ function AppLayoutContent() {
 									</MenuButton>
 									<Portal>
 										<MenuList
-											key={`${i18n.language}-${isRTL ? "rtl" : "ltr"}`}
 											dir={isRTL ? "rtl" : "ltr"}
 											ref={userMenuContentRef}
 											id="rb-user-menu"
@@ -2196,9 +2211,9 @@ function AppLayoutContent() {
 												strategy="fixed"
 												isOpen={languageMenu.isOpen}
 												onOpen={languageMenu.onOpen}
-												onClose={languageMenu.onClose}
+												onClose={handleLanguageMenuClose}
 												closeOnSelect={false}
-												isLazy
+												isLazy={false}
 												autoSelect={false}
 											>
 												<MenuButton
@@ -2245,7 +2260,6 @@ function AppLayoutContent() {
 												</MenuButton>
 												<Portal>
 													<MenuList
-														key={`${i18n.language}-${isRTL ? "rtl" : "ltr"}`}
 														dir={isRTL ? "rtl" : "ltr"}
 														minW="170px"
 														p={1.5}
@@ -2284,7 +2298,9 @@ function AppLayoutContent() {
 															return (
 																<MenuItem
 																	key={code}
-																	onClick={() => {
+																	onClick={(e: ReactMouseEvent) => {
+																		e.preventDefault();
+																		e.stopPropagation();
 																		changeLanguage(code);
 																	}}
 																>

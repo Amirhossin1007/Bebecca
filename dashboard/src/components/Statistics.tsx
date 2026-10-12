@@ -1159,7 +1159,7 @@ const ResourceCard: FC<{
 		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
 			"[data-rb-icon], [data-rb-swap]",
 		);
-		const RADIUS = 140;
+		const RADIUS = 210;
 		for (const el of swappables) {
 			const rect = el.getBoundingClientRect();
 			const dx = Math.max(rect.left - e.clientX, 0, e.clientX - rect.right);
@@ -1167,7 +1167,7 @@ const ResourceCard: FC<{
 			const dist = Math.hypot(dx, dy);
 			if (dist < RADIUS) {
 				const t = 1 - dist / RADIUS;
-				const proximity = t * t * (3 - 2 * t);
+				const proximity = t ** 1.15;
 				el.style.setProperty("--proximity", proximity.toFixed(3));
 			} else {
 				el.style.removeProperty("--proximity");
@@ -1181,7 +1181,14 @@ const ResourceCard: FC<{
 			"[data-rb-icon], [data-rb-swap]",
 		);
 		for (const el of swappables) {
+			el.style.setProperty(
+				"transition",
+				"background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
+			);
 			el.style.removeProperty("--proximity");
+			setTimeout(() => {
+				el.style.removeProperty("transition");
+			}, 260);
 		}
 	};
 
@@ -1209,7 +1216,7 @@ const ResourceCard: FC<{
 			sx={{
 				"& [data-rb-icon], & [data-rb-swap]": {
 					transition:
-						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease",
+						"border-color 0.16s ease, box-shadow 0.16s ease",
 				},
 				"@media screen and (min-width: 768px)": {
 					"& [data-rb-icon]": {
@@ -1226,7 +1233,7 @@ const ResourceCard: FC<{
 								? "0 1px 3px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 								: "none",
 					},
-					"& [data-rb-icon]:hover": {
+					"& [data-rb-icon]:focus-visible": {
 						"--proximity": "1",
 					},
 					"& [data-rb-icon] svg, & [data-rb-icon] *": {
@@ -1243,7 +1250,7 @@ const ResourceCard: FC<{
 								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 								: "none",
 					},
-					"& [data-rb-swap]:hover": {
+					"& [data-rb-swap]:focus-visible": {
 						"--proximity": "1",
 					},
 					"& [data-rb-swap][data-rb-swap-text]": {
@@ -1450,13 +1457,6 @@ const ResourceCard: FC<{
 					size="xs"
 					borderRadius="full"
 					bg="panel.elevated"
-					transition="background-color 0.25s ease"
-					data-rb-swap=""
-					_hover={{
-						md: {
-							bg: "panel.surface",
-						},
-					}}
 					sx={{
 						"& > div": {
 							bg: criticalColor,
@@ -1599,7 +1599,7 @@ const SectionCard: FC<{
 		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
 			"[data-rb-icon], [data-rb-swap]",
 		);
-		const RADIUS = 140;
+		const RADIUS = 210;
 		for (const el of swappables) {
 			const elRect = el.getBoundingClientRect();
 			const dx = Math.max(elRect.left - e.clientX, 0, e.clientX - elRect.right);
@@ -1607,7 +1607,7 @@ const SectionCard: FC<{
 			const dist = Math.hypot(dx, dy);
 			if (dist < RADIUS) {
 				const t = 1 - dist / RADIUS;
-				const proximity = t * t * (3 - 2 * t);
+				const proximity = t ** 1.15;
 				el.style.setProperty("--proximity", proximity.toFixed(3));
 			} else {
 				el.style.removeProperty("--proximity");
@@ -1622,7 +1622,14 @@ const SectionCard: FC<{
 			"[data-rb-icon], [data-rb-swap]",
 		);
 		for (const el of swappables) {
+			el.style.setProperty(
+				"transition",
+				"background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
+			);
 			el.style.removeProperty("--proximity");
+			setTimeout(() => {
+				el.style.removeProperty("transition");
+			}, 260);
 		}
 	};
 
@@ -1646,7 +1653,7 @@ const SectionCard: FC<{
 			sx={{
 				"& [data-rb-icon], & [data-rb-swap]": {
 					transition:
-						"background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease",
+						"border-color 0.16s ease, box-shadow 0.16s ease",
 				},
 				...(noHover
 					? {}
@@ -1666,7 +1673,7 @@ const SectionCard: FC<{
 											? "0 1px 3px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 											: "none",
 								},
-								"& [data-rb-icon]:hover": {
+								"& [data-rb-icon]:focus-visible": {
 									"--proximity": "1",
 								},
 								"& [data-rb-icon] svg, & [data-rb-icon] *": {
@@ -1683,7 +1690,7 @@ const SectionCard: FC<{
 											? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
 											: "none",
 								},
-								"& [data-rb-swap]:hover": {
+								"& [data-rb-swap]:focus-visible": {
 									"--proximity": "1",
 								},
 								"& [data-rb-swap][data-rb-swap-text]": {
