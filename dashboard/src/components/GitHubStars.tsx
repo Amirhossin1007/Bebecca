@@ -47,7 +47,7 @@ export const GitHubStars: FC = () => {
 			onClick={handleClick}
 			h="34px"
 			px={{ base: 2, sm: 2.5 }}
-			borderRadius={{ base: "full", md: "12px" }}
+			borderRadius="12px"
 			bg="panel.surface"
 			borderWidth="1px"
 			borderColor="panel.border"

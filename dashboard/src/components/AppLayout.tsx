@@ -282,6 +282,7 @@ function AppLayoutContent() {
 				return undefined;
 			}
 		},
+		initialDataUpdatedAt: 0,
 		onSuccess: (data) => {
 			try {
 				sessionStorage.setItem("rb-sponsors-cache", JSON.stringify(data));
@@ -309,8 +310,19 @@ function AppLayoutContent() {
 			label: asset.label,
 			isSponsor: true,
 		}));
-	const sponsorSidebarLogoItems = (sponsorData?.sidebar_logo ?? []).slice(0, 5);
-	const sponsorSidebarBanners = (sponsorData?.sidebar ?? []).slice(0, 5);
+	const rawLogoList: SponsorAsset[] = [
+		...(sponsorData?.sidebar_logo ?? []),
+		...((sponsorData as unknown as { sidebarLogo?: SponsorAsset[] })?.sidebarLogo ?? []),
+		...(sponsorData?.sidebar ?? []).filter(
+			(a: SponsorAsset) => a.placement === "sidebar_logo",
+		),
+	];
+	const sponsorSidebarLogoItems = rawLogoList
+		.filter((a, i, arr) => arr.findIndex((x) => x.id === a.id) === i)
+		.slice(0, 5);
+	const sponsorSidebarBanners = (sponsorData?.sidebar ?? [])
+		.filter((a: SponsorAsset) => a.placement !== "sidebar_logo")
+		.slice(0, 5);
 	const mobileHeaderItems =
 		sponsorHeaderMobileItems.length > 0
 			? sponsorHeaderMobileItems
@@ -486,7 +498,7 @@ function AppLayoutContent() {
 				languageMenu.onOpen();
 				window.dispatchEvent(new Event("resize"));
 				isChangingLanguageRef.current = false;
-			}, 150);
+			}, 300);
 		});
 	};
 
@@ -497,7 +509,12 @@ function AppLayoutContent() {
 	};
 
 	const handleUserMenuClose = () => {
-		if (isThemeModalOpen || isChangingLanguageRef.current) return;
+		if (
+			isThemeModalOpen ||
+			languageMenu.isOpen ||
+			isChangingLanguageRef.current
+		)
+			return;
 		closeUserMenu();
 	};
 
@@ -1448,7 +1465,7 @@ function AppLayoutContent() {
 						? "0px"
 						: sidebarCollapsed
 							? "88px"
-							: "260px",
+							: "calc(var(--rb-sidebar-width, 240px) + 20px)",
 				}}
 			>
 				{!isMobile ? (
@@ -1466,8 +1483,20 @@ function AppLayoutContent() {
 					direction="column"
 					minW="0"
 					overflow="hidden"
-					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
-					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
+					ml={
+						isMobile || isRTL
+							? "0"
+							: sidebarCollapsed
+								? "88px"
+								: "calc(var(--rb-sidebar-width, 240px) + 20px)"
+					}
+					mr={
+						isMobile || !isRTL
+							? "0"
+							: sidebarCollapsed
+								? "88px"
+								: "calc(var(--rb-sidebar-width, 240px) + 20px)"
+					}
 					transition="margin 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 					bg="panel.main"
 					position="relative"
@@ -1998,6 +2027,7 @@ function AppLayoutContent() {
 									isLazy={false}
 									autoSelect={false}
 									closeOnSelect={false}
+									closeOnBlur={false}
 									isOpen={userMenu.isOpen}
 									onOpen={userMenu.onOpen}
 									onClose={handleUserMenuClose}
@@ -2213,6 +2243,7 @@ function AppLayoutContent() {
 												onOpen={languageMenu.onOpen}
 												onClose={handleLanguageMenuClose}
 												closeOnSelect={false}
+												closeOnBlur={false}
 												isLazy={false}
 												autoSelect={false}
 											>
@@ -2424,24 +2455,27 @@ function AppLayoutContent() {
 						isOpen={sidebarDrawer.isOpen}
 						placement={isRTL ? "right" : "left"}
 						onClose={sidebarDrawer.onClose}
-						size="full"
 						autoFocus={false}
 						returnFocusOnClose={false}
 						trapFocus={false}
 						blockScrollOnMount={false}
+						preserveScrollBarGap={false}
 					>
 						<DrawerOverlay bg="blackAlpha.700" />
 						<DrawerContent
+							maxW="285px"
+							w="285px"
 							bg="panel.surface"
 							borderInlineEndWidth="1px"
 							borderColor="panel.border"
 							boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
 							sx={{
 								willChange: "transform",
-								transform: "translateZ(0)",
+								transform: "translate3d(0, 0, 0)",
+								backfaceVisibility: "hidden",
 							}}
 						>
-							<DrawerBody p={0}>
+							<DrawerBody p={0} overflow="hidden">
 								<AppSidebar
 									collapsed={false}
 									sponsors={sponsorSidebarLogoItems}

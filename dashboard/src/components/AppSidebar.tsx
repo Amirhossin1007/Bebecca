@@ -61,6 +61,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
 import type { SponsorAsset } from "service/sponsors";
+import { apiBaseURL } from "service/http";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import {
 	getTutorialManifestUrl,
@@ -231,6 +232,24 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 	);
 };
 
+const resolveAssetUrl = (rawUrl?: string): string => {
+	if (!rawUrl) return "";
+	if (
+		rawUrl.startsWith("http://") ||
+		rawUrl.startsWith("https://") ||
+		rawUrl.startsWith("data:") ||
+		rawUrl.startsWith("blob:")
+	) {
+		return rawUrl;
+	}
+	if (rawUrl.startsWith("/") && !rawUrl.startsWith("//") && apiBaseURL) {
+		const base = apiBaseURL.replace(/\/+$/, "");
+		const cleanPath = rawUrl.startsWith("/api") ? rawUrl.slice(4) : rawUrl;
+		return `${base}${cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`}`;
+	}
+	return rawUrl;
+};
+
 interface SidebarLogoCarouselProps {
 	sponsors?: SponsorAsset[];
 	collapsed: boolean;
@@ -262,28 +281,26 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 			isSponsor: false,
 			href: undefined as string | undefined,
 		};
-		const validSponsors = sponsors
-			.filter((s) => Boolean(s.image_url))
-			.map((s) => ({
-				id: s.id,
-				src: s.image_url,
-				alt: s.alt || s.label || "Sponsor",
-				label: s.label
-					? s.label.charAt(0).toUpperCase() + s.label.slice(1)
-					: s.alt || "Sponsor",
-				isSponsor: true,
-				href: s.target_url,
-			}));
-		if (validSponsors.length === 0) return [rebeccaItem];
-		if (validSponsors.length === 1) return [rebeccaItem, validSponsors[0]];
-		const result: Array<{
-			id: string;
-			src: string;
-			alt: string;
-			label: string;
-			isSponsor: boolean;
-			href?: string;
-		}> = [];
+		const validSponsors = (sponsors || [])
+			.filter((s) => Boolean(s?.image_url || (s as unknown as { src?: string })?.src))
+			.map((s) => {
+				const rawSrc = s.image_url || (s as unknown as { src?: string })?.src || "";
+				const href = s.target_url || (s as unknown as { href?: string })?.href;
+				return {
+					id: s.id,
+					src: resolveAssetUrl(rawSrc),
+					alt: s.alt || s.label || "Sponsor",
+					label: s.label
+						? s.label.charAt(0).toUpperCase() + s.label.slice(1)
+						: s.alt || "Sponsor",
+					isSponsor: true,
+					href,
+				};
+			});
+		if (validSponsors.length === 0) {
+			return [rebeccaItem];
+		}
+		const result: typeof rebeccaItem[] = [];
 		for (const sp of validSponsors) {
 			result.push(rebeccaItem, sp);
 		}
@@ -299,7 +316,7 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 	useEffect(() => {
 		if (isPaused || items.length < 2) return;
 		const current = items[activeIndex];
-		const delay = current?.isSponsor ? 5000 : 10000;
+		const delay = current?.isSponsor ? 4500 : 5500;
 		const timer = window.setTimeout(() => {
 			setActiveIndex((prev) => (prev + 1) % items.length);
 		}, delay);
@@ -327,39 +344,36 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 			overflow="hidden"
 			flex="1"
 			minW="0"
-			cursor="pointer"
+			cursor={currentItem.isSponsor && currentItem.href ? "pointer" : "default"}
 			userSelect="none"
-			onMouseEnter={() => setIsPaused(true)}
+			onMouseEnter={() => {
+				if (window.matchMedia?.("(hover: hover)").matches) {
+					setIsPaused(true);
+				}
+			}}
 			onMouseLeave={() => setIsPaused(false)}
-			onFocus={() => setIsPaused(true)}
-			onBlur={() => setIsPaused(false)}
 			onClick={handleClick}
 			transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
 			_active={{ transform: "scale(0.98)" }}
 			title={currentItem.isSponsor ? currentItem.label : "Rebecca"}
 		>
-			<Box
-				display="flex"
-				flexDirection="column"
-				w="full"
-				h="full"
-				transform={`translateY(-${activeIndex * 100}%)`}
-				transition="transform 500ms cubic-bezier(0.16, 1, 0.3, 1)"
-				sx={{
-					"@media (prefers-reduced-motion: reduce)": { transition: "none" },
-				}}
-			>
-				{items.map((item, idx) => (
-					<HStack
-						key={`${item.id}-${idx}`}
-						h="34px"
-						w="full"
-						spacing={2.5}
-						align="center"
-						flexShrink={0}
-					>
+			<AnimatePresence mode="wait" initial={false}>
+				<motion.div
+					key={`${currentItem.id}-${activeIndex}`}
+					initial={{ opacity: 0, y: -6 }}
+					animate={{ opacity: 1, y: 0 }}
+					exit={{ opacity: 0, y: 6 }}
+					transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+					style={{
+						display: "flex",
+						alignItems: "center",
+						width: "100%",
+						height: "34px",
+					}}
+				>
+					<HStack h="34px" w="full" spacing={2.5} align="center" flexShrink={0}>
 						<Tooltip
-							label={item.label}
+							label={currentItem.label}
 							placement={isRTL ? "left" : "right"}
 							isDisabled={!collapsed}
 							hasArrow
@@ -373,10 +387,10 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 								alignItems="center"
 								justifyContent="center"
 							>
-								{item.isSponsor ? (
+								{currentItem.isSponsor ? (
 									<Image
-										src={item.src}
-										alt={item.alt}
+										src={currentItem.src}
+										alt={currentItem.alt}
 										maxW="26px"
 										maxH="26px"
 										objectFit="contain"
@@ -391,7 +405,7 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 									/>
 								) : (
 									<LogoIcon
-										src={item.src}
+										src={currentItem.src}
 										alt="Rebecca"
 										style={{
 											filter:
@@ -410,7 +424,7 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 							overflow="hidden"
 							whiteSpace="nowrap"
 							opacity={collapsed ? 0 : 1}
-							maxW={collapsed ? "0px" : "150px"}
+							maxW={collapsed ? "0px" : "full"}
 							transform={
 								collapsed
 									? isRTL
@@ -429,12 +443,12 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 								pt="3px"
 								isTruncated
 							>
-								{item.label}
+								{currentItem.label}
 							</Text>
 						</Box>
 					</HStack>
-				))}
-			</Box>
+				</motion.div>
+			</AnimatePresence>
 		</Box>
 	);
 };
@@ -855,9 +869,46 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
 	};
 
+	const dynamicSidebarWidth = useMemo(() => {
+		let maxLen = 0;
+		for (const section of navSections) {
+			for (const it of section.items) {
+				if (it.title && it.title.length > maxLen) {
+					maxLen = it.title.length;
+				}
+				if (it.type === "group" && it.subItems) {
+					for (const sub of it.subItems) {
+						if (sub.title && sub.title.length > maxLen) {
+							maxLen = sub.title.length;
+						}
+					}
+				}
+			}
+		}
+		if (maxLen > 20) {
+			return Math.min(300, Math.round(240 + (maxLen - 20) * 5.5));
+		}
+		return 240;
+	}, [navSections]);
+
+	useEffect(() => {
+		if (typeof document !== "undefined") {
+			document.documentElement.style.setProperty(
+				"--rb-sidebar-width",
+				`${dynamicSidebarWidth}px`,
+			);
+		}
+	}, [dynamicSidebarWidth]);
+
 	return (
 		<Box
-			w={inDrawer ? "full" : collapsed ? "68px" : "240px"}
+			w={
+				inDrawer
+					? "full"
+					: collapsed
+						? "68px"
+						: `var(--rb-sidebar-width, ${dynamicSidebarWidth}px)`
+			}
 			h={inDrawer ? "100%" : "calc(100vh - 24px)"}
 			maxH={inDrawer ? "100%" : "calc(100vh - 24px)"}
 			bg={sidebarBg}
@@ -1042,7 +1093,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															whiteSpace="nowrap"
 															opacity={collapsed ? 0 : 1}
 															maxW={
-																collapsed ? "0px" : inDrawer ? "full" : "180px"
+																collapsed ? "0px" : "full"
 															}
 															transform={
 																collapsed
@@ -1217,7 +1268,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 														whiteSpace="nowrap"
 														opacity={collapsed ? 0 : 1}
 														maxW={
-															collapsed ? "0px" : inDrawer ? "full" : "180px"
+															collapsed ? "0px" : "full"
 														}
 														transform={
 															collapsed

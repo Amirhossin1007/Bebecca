@@ -855,13 +855,13 @@ body {
     z-index: 16000 !important;
   }
 
-  .chakra-modal__content-container {
+  .chakra-modal__content-container:not(:has(.chakra-slide)) {
     align-items: stretch !important;
     padding: 0 !important;
     z-index: 16001 !important;
   }
 
-  .chakra-modal__content {
+  .chakra-modal__content:not(.chakra-slide) {
     width: 100vw !important;
     max-width: 100vw !important;
     height: var(--rb-dialog-viewport-height) !important;

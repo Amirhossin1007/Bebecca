@@ -1939,13 +1939,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 				w="full"
 				dir={isRTL ? "rtl" : "ltr"}
 				sx={{
-					"@keyframes shimmer": {
-						"0%": { opacity: 0.35 },
-						"50%": { opacity: 0.75 },
-						"100%": { opacity: 0.35 },
+					"@keyframes rbGlassPulse": {
+						"0%, 100%": {
+							opacity: 0.42,
+							transform: "scale(1)",
+						},
+						"50%": {
+							opacity: 0.78,
+							transform: "scale(1.002)",
+						},
 					},
-					"& .shimmer-box": {
-						animation: "shimmer 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+					"& .rb-glass-item": {
+						animation: "rbGlassPulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite",
 					},
 				}}
 			>
@@ -1954,149 +1959,62 @@ export const Statistics: FC<BoxProps> = (props) => {
 					align="center"
 					justify="space-between"
 					px={1}
+					py={0.5}
 					flexWrap="wrap"
 					gap={3}
-					sx={{
-						"@media screen and (max-width: 767px)": {
-							"& > div:last-child": {
-								width: "100%",
-								justifyContent: "flex-start",
-							},
-						},
-					}}
 				>
-					<Flex
-						wrap="wrap"
-						gap={{ base: 2.5, md: 1 }}
-						sx={{
-							flexDirection: "column",
-							alignItems: "flex-start",
-							"@media screen and (max-width: 767px)": {
-								flexDirection: "row",
-								alignItems: "center",
-							},
-							"@media screen and (min-width: 768px) and (max-width: 991px)": {
-								"body:has([data-sidebar-collapsed='true']) &": {
-									flexDirection: "row",
-									alignItems: "center",
-								},
-								"body:not(:has([data-sidebar-collapsed='true'])) &": {
-									flexDirection: "column",
-									alignItems: "flex-start",
-								},
-							},
-							"@media screen and (min-width: 992px)": {
-								flexDirection: "column",
-								alignItems: "flex-start",
-							},
-						}}
-					>
+					<VStack align="flex-start" spacing={1.5}>
 						<Box
-							className="shimmer-box"
+							className="rb-glass-item"
 							w={{ base: "140px", sm: "170px" }}
 							h="24px"
-							bg="panel.surface"
 							borderRadius="8px"
+							bg="panel.surface"
 							borderWidth="1px"
 							borderColor="panel.border"
 						/>
 						<HStack spacing={1.5}>
 							<Box
-								className="shimmer-box"
+								className="rb-glass-item"
 								w="65px"
 								h="18px"
-								bg="panel.surface"
 								borderRadius="full"
+								bg="panel.surface"
 								borderWidth="1px"
 								borderColor="panel.border"
 							/>
 							<Box
-								className="shimmer-box"
-								w="85px"
+								className="rb-glass-item"
+								w="80px"
 								h="18px"
-								bg="panel.surface"
 								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="shimmer-box"
-								w="75px"
-								h="18px"
 								bg="panel.surface"
-								borderRadius="full"
 								borderWidth="1px"
 								borderColor="panel.border"
 							/>
 						</HStack>
-					</Flex>
-					<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
-						<HStack
-							display={{ base: "none", sm: "flex" }}
-							spacing={2}
-							align="center"
-							justify="flex-end"
-						>
-							<Box
-								className="shimmer-box"
-								w="118px"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="shimmer-box"
-								w="100px"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="shimmer-box"
-								w="114px"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-						</HStack>
-						<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
-							<Box
-								className="shimmer-box"
-								w="full"
-								h="32px"
-								bg="panel.surface"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Flex gap={2} w="full" align="center">
-								<Box
-									className="shimmer-box"
-									flex="1 1 50%"
-									h="32px"
-									bg="panel.surface"
-									borderRadius="full"
-									borderWidth="1px"
-									borderColor="panel.border"
-								/>
-								<Box
-									className="shimmer-box"
-									flex="1 1 50%"
-									h="32px"
-									bg="panel.surface"
-									borderRadius="full"
-									borderWidth="1px"
-									borderColor="panel.border"
-								/>
-							</Flex>
-						</Stack>
-					</Box>
+					</VStack>
+
+					<HStack spacing={2} align="center">
+						<Box
+							className="rb-glass-item"
+							w={{ base: "70px", sm: "90px" }}
+							h="32px"
+							borderRadius="full"
+							bg="panel.surface"
+							borderWidth="1px"
+							borderColor="panel.border"
+						/>
+						<Box
+							className="rb-glass-item"
+							w={{ base: "70px", sm: "90px" }}
+							h="32px"
+							borderRadius="full"
+							bg="panel.surface"
+							borderWidth="1px"
+							borderColor="panel.border"
+						/>
+					</HStack>
 				</Flex>
 
 				<SimpleGrid
@@ -2113,12 +2031,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 					{[1, 2, 3, 4].map((i) => (
 						<Box
 							key={i}
-							className="shimmer-box"
+							className="rb-glass-item"
 							bg="panel.surface"
 							borderRadius="20px"
 							borderWidth="1px"
 							borderColor="panel.border"
 							p={{ base: 4, sm: 5 }}
+							minH={{ base: "125px", md: "140px" }}
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
@@ -2127,90 +2046,47 @@ export const Statistics: FC<BoxProps> = (props) => {
 									? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
 									: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
 							}
+							backdropFilter="blur(8px)"
 						>
-							<Box>
-								<Flex justify="space-between" align="center" mb={3}>
-									<HStack spacing={2.5} align="center">
-										<Box
-											w="32px"
-											h="32px"
-											borderRadius="10px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="90px"
-											h="16px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									{i <= 2 && (
-										<Box
-											w="75px"
-											h="22px"
-											borderRadius="full"
-											bg="panel.elevated"
-										/>
-									)}
-								</Flex>
-								<Flex align="baseline" gap={1.5} mb={1}>
+							<Flex justify="space-between" align="center" mb={2}>
+								<HStack spacing={2.5}>
 									<Box
-										w="65px"
-										h="24px"
-										borderRadius="md"
+										w="32px"
+										h="32px"
+										borderRadius="10px"
 										bg="panel.elevated"
+										flexShrink={0}
 									/>
 									<Box
-										w={i === 1 ? "45px" : "60px"}
+										w={i === 1 ? "75px" : i === 2 ? "65px" : "85px"}
 										h="16px"
 										borderRadius="md"
 										bg="panel.elevated"
 									/>
-								</Flex>
-								{i === 1 && (
-									<Box mt={0.5}>
-										<Box
-											w="150px"
-											h="14px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</Box>
-								)}
-							</Box>
-							<Box mt={3}>
-								<Flex justify="space-between" align="center" mb={1.5}>
-									<Box
-										w="35px"
-										h="13px"
-										borderRadius="sm"
-										bg="panel.elevated"
-									/>
-								</Flex>
-								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" />
-								<Flex
-									justify="space-between"
-									align="center"
-									mt={2.5}
-									pt={2.5}
-									borderTopWidth="1px"
-									borderColor="panel.border"
-								>
-									<Box
-										w="80px"
-										h="14px"
-										borderRadius="sm"
-										bg="panel.elevated"
-									/>
-									<Box
-										w="70px"
-										h="14px"
-										borderRadius="sm"
-										bg="panel.elevated"
-									/>
-								</Flex>
-							</Box>
+								</HStack>
+								<Box
+									w="45px"
+									h="20px"
+									borderRadius="full"
+									bg="panel.elevated"
+								/>
+							</Flex>
+
+							<Stack spacing={2} mt={2}>
+								<Box
+									w={i === 1 ? "110px" : "90px"}
+									h="26px"
+									borderRadius="md"
+									bg="panel.elevated"
+								/>
+								<Box
+									w="full"
+									h="4px"
+									borderRadius="full"
+									bg="panel.elevated"
+									opacity={0.6}
+								/>
+							</Stack>
 						</Box>
 					))}
 				</SimpleGrid>
@@ -2226,162 +2102,76 @@ export const Statistics: FC<BoxProps> = (props) => {
 						},
 					}}
 				>
-					<Box
-						className="shimmer-box"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow={
-							colorMode === "light"
-								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-						}
-					>
-						<Flex
-							px={{ base: 4, sm: 5, md: 6 }}
-							py={3.5}
-							justify="space-between"
-							align="center"
-							borderBottomWidth="1px"
+					{[1, 2].map((cardIdx) => (
+						<Box
+							key={cardIdx}
+							className="rb-glass-item"
+							bg="panel.surface"
+							borderRadius="20px"
+							borderWidth="1px"
 							borderColor="panel.border"
+							overflow="hidden"
+							boxShadow={
+								colorMode === "light"
+									? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
+									: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
+							}
+							backdropFilter="blur(8px)"
 						>
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-								<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="85px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
+							<Flex
+								px={{ base: 4, sm: 5, md: 6 }}
+								py={3.5}
+								justify="space-between"
+								align="center"
+								borderBottomWidth="1px"
+								borderColor="panel.border"
+							>
+								<HStack spacing={2.5}>
+									<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
 									<Box
-										w="80px"
+										w={cardIdx === 1 ? "110px" : "90px"}
 										h="16px"
 										borderRadius="md"
 										bg="panel.elevated"
 									/>
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="90px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									<Box
-										w="80px"
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</Flex>
-							</Stack>
+								</HStack>
+							</Flex>
+							<Box p={{ base: 4, sm: 5, md: 6 }}>
+								<Stack spacing={3}>
+									{[1, 2].map((rowIdx) => (
+										<Flex
+											key={rowIdx}
+											justify="space-between"
+											align="center"
+											gap={3}
+										>
+											<HStack spacing={2.5}>
+												<Box
+													w="28px"
+													h="28px"
+													borderRadius="8px"
+													bg="panel.elevated"
+													flexShrink={0}
+												/>
+												<Box
+													w={rowIdx === 1 ? "85px" : "95px"}
+													h="14px"
+													borderRadius="md"
+													bg="panel.elevated"
+												/>
+											</HStack>
+											<Box
+												w={rowIdx === 1 ? "60px" : "80px"}
+												h="16px"
+												borderRadius="md"
+												bg="panel.elevated"
+											/>
+										</Flex>
+									))}
+								</Stack>
+							</Box>
 						</Box>
-					</Box>
-
-					<Box
-						className="shimmer-box"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow={
-							colorMode === "light"
-								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-						}
-					>
-						<Flex
-							px={{ base: 4, sm: 5, md: 6 }}
-							py={3.5}
-							justify="space-between"
-							align="center"
-							borderBottomWidth="1px"
-							borderColor="panel.border"
-						>
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-								<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="95px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									<Box
-										w="110px"
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w="90px"
-											h="15px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									<Box
-										w="95px"
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</Flex>
-							</Stack>
-						</Box>
-					</Box>
+					))}
 				</SimpleGrid>
 
 				<Box

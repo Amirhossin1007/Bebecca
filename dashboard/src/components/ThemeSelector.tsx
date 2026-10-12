@@ -273,6 +273,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	portalContainer,
 	trigger = "icon",
 	triggerLabel,
+	onModalOpen,
 	onModalClose,
 }) => {
 	const { t } = useTranslation();
@@ -318,10 +319,6 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	);
 
 	useEffect(() => {
-		onModalClose?.();
-	}, [onModalClose]);
-
-	useEffect(() => {
 		applyThemeMode(activeTheme);
 	}, [activeTheme]);
 
@@ -364,7 +361,10 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						borderColor: "panel.borderStrong",
 					},
 				}}
-				onClick={() => selectTheme(theme.key)}
+				onClick={(event) => {
+					event.stopPropagation();
+					selectTheme(theme.key);
+				}}
 				transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 				position="relative"
 				px={3}
@@ -503,7 +503,10 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 										},
 									}}
 									transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
-									onClick={() => selectAccent(accent.key)}
+									onClick={(event) => {
+										event.stopPropagation();
+										selectAccent(accent.key);
+									}}
 								/>
 							);
 						})}
@@ -518,15 +521,22 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 			<Menu
 				placement="auto-start"
 				strategy="fixed"
-				isLazy
+				isLazy={false}
 				autoSelect={false}
 				gutter={6}
 				computePositionOnMount
 				modifiers={popperModifiers}
 				isOpen={themeMenu.isOpen}
-				onOpen={themeMenu.onOpen}
-				onClose={themeMenu.onClose}
+				onOpen={() => {
+					themeMenu.onOpen();
+					onModalOpen?.();
+				}}
+				onClose={() => {
+					themeMenu.onClose();
+					onModalClose?.();
+				}}
 				closeOnSelect={false}
+				closeOnBlur={false}
 			>
 				<MenuButton
 					as={Button}
@@ -551,9 +561,18 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						themeMenu.isOpen ? themeMenu.onClose() : themeMenu.onOpen();
 					}}
 				>
-					<HStack justify="flex-start" spacing={2.5} minW={0}>
-						<SwatchIconChakra flexShrink={0} />
-						<Text noOfLines={1}>{triggerLabel || t("header.theme")}</Text>
+					<HStack justify="space-between" w="full" minW={0}>
+						<HStack spacing={2.5} minW={0}>
+							<SwatchIconChakra flexShrink={0} />
+							<Text noOfLines={1}>{triggerLabel || t("header.theme")}</Text>
+						</HStack>
+						<Text
+							fontSize="11px"
+							fontWeight="600"
+							color="panel.textMuted"
+						>
+							{activeTheme === "dark" ? t("theme.dark") : t("theme.light")}
+						</Text>
 					</HStack>
 				</MenuButton>
 				{portalContainer ? (
