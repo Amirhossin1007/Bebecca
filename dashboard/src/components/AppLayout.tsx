@@ -51,7 +51,6 @@ import {
 	ServerStackIcon,
 	Squares2X2Icon,
 	UserCircleIcon,
-	UserIcon,
 	UserGroupIcon,
 	WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
@@ -2086,7 +2085,7 @@ function AppLayoutContent() {
 													color="panel.text"
 													flexShrink={0}
 												>
-													<UserIcon style={{ width: "15px", height: "15px" }} />
+													<UserCircleIcon style={{ width: "16px", height: "16px" }} />
 												</Flex>
 												{unread > 0 && (
 													<Box
@@ -2194,16 +2193,16 @@ function AppLayoutContent() {
 												<Flex
 													w="32px"
 													h="32px"
+													borderRadius="10px"
 													align="center"
 													justify="center"
-													borderRadius="10px"
 													bg="panel.surface"
 													borderWidth="1px"
 													borderColor="panel.border"
 													color="panel.text"
 													flexShrink={0}
 												>
-													<UserIcon style={{ width: "16px", height: "16px" }} />
+													<UserCircleIcon style={{ width: "18px", height: "18px" }} />
 												</Flex>
 												<VStack align="flex-start" spacing={0} minW={0}>
 													<Text
