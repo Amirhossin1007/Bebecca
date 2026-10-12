@@ -5,6 +5,7 @@ import {
 	HStack,
 	Icon,
 	IconButton,
+	Image,
 	Popover,
 	PopoverBody,
 	PopoverContent,
@@ -230,8 +231,217 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 	);
 };
 
+interface SidebarLogoCarouselProps {
+	sponsors?: SponsorAsset[];
+	collapsed: boolean;
+	inDrawer: boolean;
+	colorMode: string;
+	isRTL: boolean;
+	onNavigateRoot: () => void;
+	onRequestExpand?: () => void;
+}
+
+const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
+	sponsors = [],
+	collapsed,
+	inDrawer,
+	colorMode,
+	isRTL,
+	onNavigateRoot,
+	onRequestExpand,
+}) => {
+	const [activeIndex, setActiveIndex] = useState(0);
+	const [isPaused, setIsPaused] = useState(false);
+
+	const items = useMemo(() => {
+		const rebeccaItem = {
+			id: "rebecca",
+			src: logoUrl,
+			alt: "Rebecca",
+			label: "Rebecca",
+			isSponsor: false,
+			href: undefined as string | undefined,
+		};
+		const validSponsors = sponsors
+			.filter((s) => Boolean(s.image_url))
+			.map((s) => ({
+				id: s.id,
+				src: s.image_url,
+				alt: s.alt || s.label || "Sponsor",
+				label: s.label
+					? s.label.charAt(0).toUpperCase() + s.label.slice(1)
+					: s.alt || "Sponsor",
+				isSponsor: true,
+				href: s.target_url,
+			}));
+		if (validSponsors.length === 0) return [rebeccaItem];
+		if (validSponsors.length === 1) return [rebeccaItem, validSponsors[0]];
+		const result: Array<{
+			id: string;
+			src: string;
+			alt: string;
+			label: string;
+			isSponsor: boolean;
+			href?: string;
+		}> = [];
+		for (const sp of validSponsors) {
+			result.push(rebeccaItem, sp);
+		}
+		return result;
+	}, [sponsors]);
+
+	useEffect(() => {
+		if (activeIndex >= items.length) {
+			setActiveIndex(0);
+		}
+	}, [activeIndex, items.length]);
+
+	useEffect(() => {
+		if (isPaused || items.length < 2) return;
+		const current = items[activeIndex];
+		const delay = current?.isSponsor ? 5000 : 10000;
+		const timer = window.setTimeout(() => {
+			setActiveIndex((prev) => (prev + 1) % items.length);
+		}, delay);
+		return () => window.clearTimeout(timer);
+	}, [isPaused, items, activeIndex]);
+
+	const currentItem = items[activeIndex] || items[0];
+
+	const handleClick = (e: ReactMouseEvent) => {
+		e.stopPropagation();
+		if (currentItem.isSponsor && currentItem.href) {
+			window.open(currentItem.href, "_blank", "noopener,noreferrer");
+		} else {
+			onNavigateRoot();
+			if (inDrawer && onRequestExpand) {
+				onRequestExpand();
+			}
+		}
+	};
+
+	return (
+		<Box
+			position="relative"
+			h="34px"
+			overflow="hidden"
+			flex="1"
+			minW="0"
+			cursor="pointer"
+			userSelect="none"
+			onMouseEnter={() => setIsPaused(true)}
+			onMouseLeave={() => setIsPaused(false)}
+			onFocus={() => setIsPaused(true)}
+			onBlur={() => setIsPaused(false)}
+			onClick={handleClick}
+			transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
+			_active={{ transform: "scale(0.98)" }}
+			title={currentItem.isSponsor ? currentItem.label : "Rebecca"}
+		>
+			<Box
+				display="flex"
+				flexDirection="column"
+				w="full"
+				h="full"
+				transform={`translateY(-${activeIndex * 100}%)`}
+				transition="transform 500ms cubic-bezier(0.16, 1, 0.3, 1)"
+				sx={{
+					"@media (prefers-reduced-motion: reduce)": { transition: "none" },
+				}}
+			>
+				{items.map((item, idx) => (
+					<HStack
+						key={`${item.id}-${idx}`}
+						h="34px"
+						w="full"
+						spacing={2.5}
+						align="center"
+						flexShrink={0}
+					>
+						<Tooltip
+							label={item.label}
+							placement={isRTL ? "left" : "right"}
+							isDisabled={!collapsed}
+							hasArrow
+							openDelay={250}
+						>
+							<Box
+								w="30px"
+								h="30px"
+								flexShrink={0}
+								display="flex"
+								alignItems="center"
+								justifyContent="center"
+							>
+								{item.isSponsor ? (
+									<Image
+										src={item.src}
+										alt={item.alt}
+										maxW="26px"
+										maxH="26px"
+										objectFit="contain"
+										draggable={false}
+										loading="eager"
+										borderRadius="6px"
+										userSelect="none"
+										sx={{
+											WebkitUserDrag: "none",
+											pointerEvents: "none",
+										}}
+									/>
+								) : (
+									<LogoIcon
+										src={item.src}
+										alt="Rebecca"
+										style={{
+											filter:
+												colorMode === "dark"
+													? "brightness(0) invert(1)"
+													: "brightness(0)",
+											transition: "filter 0.3s ease",
+										}}
+									/>
+								)}
+							</Box>
+						</Tooltip>
+						<Box
+							flex="1"
+							minW="0"
+							overflow="hidden"
+							whiteSpace="nowrap"
+							opacity={collapsed ? 0 : 1}
+							maxW={collapsed ? "0px" : "150px"}
+							transform={
+								collapsed
+									? isRTL
+										? "translateX(10px)"
+										: "translateX(-10px)"
+									: "translateX(0)"
+							}
+							transition="max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+							pointerEvents={collapsed ? "none" : "auto"}
+						>
+							<Text
+								fontSize="17px"
+								fontWeight="800"
+								letterSpacing="-0.02em"
+								color="panel.text"
+								pt="3px"
+								isTruncated
+							>
+								{item.label}
+							</Text>
+						</Box>
+					</HStack>
+				))}
+			</Box>
+		</Box>
+	);
+};
+
 export const AppSidebar: FC<AppSidebarProps> = ({
 	collapsed,
+	sponsors = [],
 	sidebarBanners = [],
 	inDrawer = false,
 	onRequestExpand,
@@ -688,62 +898,15 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					borderBottomWidth="1px"
 					borderColor="panel.border"
 				>
-					<HStack
-						spacing={2.5}
-						align="center"
-						cursor="pointer"
-						onClick={() => navigate("/")}
-						transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
-						_active={{ transform: "scale(0.98)" }}
-					>
-						<Box
-							w="30px"
-							h="30px"
-							flexShrink={0}
-							display="flex"
-							alignItems="center"
-							justifyContent="center"
-						>
-							<LogoIcon
-								src={logoUrl}
-								alt="Rebecca"
-								style={{
-									filter:
-										colorMode === "dark"
-											? "brightness(0) invert(1)"
-											: "brightness(0)",
-									transition: "filter 0.3s ease",
-								}}
-							/>
-						</Box>
-						<Box
-							flex="1"
-							minW="0"
-							overflow="hidden"
-							whiteSpace="nowrap"
-							opacity={collapsed ? 0 : 1}
-							maxW={collapsed ? "0px" : "150px"}
-							transform={
-								collapsed
-									? isRTL
-										? "translateX(10px)"
-										: "translateX(-10px)"
-									: "translateX(0)"
-							}
-							transition="max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-							pointerEvents={collapsed ? "none" : "auto"}
-						>
-							<Text
-								fontSize="17px"
-								fontWeight="800"
-								letterSpacing="-0.02em"
-								color="panel.text"
-								pt="3px"
-							>
-								Rebecca
-							</Text>
-						</Box>
-					</HStack>
+					<SidebarLogoCarousel
+						sponsors={sponsors}
+						collapsed={collapsed}
+						inDrawer={inDrawer}
+						colorMode={colorMode}
+						isRTL={isRTL}
+						onNavigateRoot={() => navigate("/")}
+						onRequestExpand={onRequestExpand}
+					/>
 
 					{inDrawer && onRequestExpand && (
 						<IconButton
