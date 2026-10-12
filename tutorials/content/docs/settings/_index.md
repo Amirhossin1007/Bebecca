@@ -83,6 +83,8 @@ Open **Backup** beside **Restart panel**, then choose **Export backup** or **Imp
 4. Configure a proxy only when the panel host cannot reach Telegram directly.
 5. Send a test message before enabling notifications or scheduled backups.
 
+The [Telegram bot and notifications](../admin/telegram-bot/) guide explains event routing, forum topics, and bot commands.
+
 ### Periodic backup
 
 Scheduled Telegram backup is available only on binary installations. Choose database-only or full scope, select the interval, and optionally set a dedicated backup chat. **Send backup now** is the quickest way to verify permissions and file delivery.
@@ -116,6 +118,8 @@ The SSL tab lists saved certificates and supports search by domain, provider, or
 - **Get new SSL** opens one dialog for Let's Encrypt, ZeroSSL, or manual PEM import. Enter the email and one or more domains for ACME providers; manual import requires the domain, `fullchain.pem`, and `privkey.pem`.
 - ACME issuance requires public port 80. Enabled certificates are selected by SNI, while the certificate configured through ENV remains the fallback.
 - Row actions can renew eligible certificates, toggle TLS serving, revoke, or delete. Revoke and delete can interrupt TLS access for clients using that domain and do not change DNS.
+
+For the full workflow, see [SSL certificates](../admin/ssl-certificates/).
 
 ## Suggested order for a new panel
 

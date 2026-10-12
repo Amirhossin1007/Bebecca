@@ -918,6 +918,12 @@ func RuntimeShadowsocksSettings(settings map[string]any, inboundSettings map[str
 	return data
 }
 
+func RuntimeShadowsocksLiveSettings(settings map[string]any, inboundSettings map[string]any) map[string]any {
+	data := RuntimeShadowsocksSettings(settings, inboundSettings)
+	data["method"] = firstNonEmptyString(inboundSettings["method"], defaultShadowsocksMethod)
+	return data
+}
+
 func shadowsocks2022Password(password string, method string) string {
 	keyLength := 32
 	if strings.Contains(method, "aes-128") {
@@ -1211,9 +1217,6 @@ func shadowsocksNeedsV2rayNLink(inbound ResolvedInbound) bool {
 	if len(configLinkFinalMask(inbound)) > 0 {
 		return true
 	}
-	if boolValue(inbound["mux_enable"]) {
-		return true
-	}
 	network := strings.ToLower(firstNonEmptyString(inbound["network"], "tcp"))
 	if network != "tcp" && network != "raw" {
 		return true
@@ -1271,7 +1274,6 @@ func shadowsocksV2rayNShareLink(remark, address, method string, inbound Resolved
 		SpiderX:        stringValue(inbound["spx"]),
 		MLDSA65Verify:  stringValue(inbound["pqv"]),
 		CipherSuites:   stringValue(inbound["cipherSuites"]),
-		MuxEnabled:     boolValue(inbound["mux_enable"]),
 		CertSHA:        firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]),
 		ECHConfigList:  firstNonEmptyString(inbound["ech"], inbound["echConfigList"]),
 		VerifyPeerCertByName: firstNonEmptyString(

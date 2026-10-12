@@ -111,7 +111,7 @@ func (s *Server) validateNodeSessionEvent(ctx context.Context, payload nodeSessi
 
 func (s *Server) nodeSessionCallbackSecret(ctx context.Context) (string, error) {
 	var adminSecret, legacySecret sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM jwt ORDER BY id LIMIT 1`).Scan(&adminSecret, &legacySecret)
+	err := s.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM auth_secrets ORDER BY id LIMIT 1`).Scan(&adminSecret, &legacySecret)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}

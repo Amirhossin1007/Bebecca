@@ -87,6 +87,7 @@ export type User = {
 };
 
 export type UserListItem = {
+	id: number;
 	username: string;
 	status: Status;
 	used_traffic: number;

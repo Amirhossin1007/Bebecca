@@ -995,6 +995,22 @@ export const UsersTable: FC<UsersTableProps> = ({
 				),
 			},
 			{
+				id: "id",
+				header: t("usersTable.userId"),
+				accessor: (user) => user.id,
+				sortable: true,
+				width: "96px",
+				minWidth: "84px",
+				maxWidth: "120px",
+				cellAlign: "start",
+				mobileVisible: false,
+				cell: (user) => (
+					<Text fontSize="sm" color="panel.text" dir="ltr" fontFamily="mono">
+						{user.id}
+					</Text>
+				),
+			},
+			{
 				id: "status",
 				header: t("usersTable.status"),
 				priority: "high",

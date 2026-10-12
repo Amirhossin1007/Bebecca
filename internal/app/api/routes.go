@@ -89,6 +89,7 @@ func (s *Server) Handler() http.Handler {
 		s.registerPanelXrayRoutes(r)
 		s.registerSubscriptionRoutes(r)
 		s.registerNodeRoutes(r)
+		s.registerNotificationRoutes(r)
 	})
 
 	r.NotFound(s.handleHomeOrSubscriptionPath)

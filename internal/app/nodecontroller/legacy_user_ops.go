@@ -53,6 +53,10 @@ func (c Controller) legacyRuntimeInboundTags(ctx context.Context, node NodeRow) 
 	if err != nil {
 		return nil, err
 	}
+	return legacyRuntimeInboundTagsFromRaw(raw), nil
+}
+
+func legacyRuntimeInboundTagsFromRaw(raw map[string]any) []string {
 	tags := []string{}
 	for _, inbound := range listOfMaps(raw["inbounds"]) {
 		tag := stringValue(inbound["tag"])
@@ -64,7 +68,7 @@ func (c Controller) legacyRuntimeInboundTags(ctx context.Context, node NodeRow) 
 			tags = append(tags, tag)
 		}
 	}
-	return tags, nil
+	return tags
 }
 
 func legacyInboundUserPayload(settings map[string]any) map[string]any {

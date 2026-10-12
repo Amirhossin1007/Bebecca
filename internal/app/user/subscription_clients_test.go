@@ -740,7 +740,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	statements := []string{
-		`CREATE TABLE jwt (id INTEGER PRIMARY KEY, subscription_secret_key TEXT)`,
+		`CREATE TABLE auth_secrets (id INTEGER PRIMARY KEY, subscription_secret_key TEXT)`,
 		`CREATE TABLE panel_settings (id INTEGER PRIMARY KEY, default_subscription_type TEXT)`,
 		`CREATE TABLE subscription_settings (
 			id INTEGER PRIMARY KEY,
@@ -786,7 +786,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			on_hold_timeout DATETIME NULL,
 			ip_limit INTEGER DEFAULT 0,
 			auto_delete_in_days INTEGER NULL,
-			subadress TEXT NULL,
+			subscription_token TEXT NULL,
 			service_id INTEGER NULL,
 			admin_id INTEGER NULL,
 			sub_revoked_at DATETIME NULL
@@ -798,7 +798,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			user_id INTEGER,
 			used_traffic_at_reset BIGINT DEFAULT 0
 		)`,
-		`CREATE TABLE proxies (
+		`CREATE TABLE user_credentials (
 			id INTEGER PRIMARY KEY,
 			user_id INTEGER,
 			type TEXT,
@@ -875,7 +875,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			xray_config_mode TEXT NULL,
 			xray_config TEXT NULL
 		)`,
-		`INSERT INTO jwt (id, subscription_secret_key) VALUES (1, 'sub-secret')`,
+		`INSERT INTO auth_secrets (id, subscription_secret_key) VALUES (1, 'sub-secret')`,
 		`INSERT INTO panel_settings (id, default_subscription_type) VALUES (1, 'key')`,
 		`INSERT INTO subscription_settings (
 			id, subscription_url_prefix, subscription_profile_title, subscription_support_url,
@@ -893,7 +893,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			1, 'alice', '0123456789abcdef0123456789abcdef', 'active', 1024, '2026-07-01 10:00:00',
 			10485760, 'no_reset', 1, 1
 		)`,
-		`INSERT INTO proxies (id, user_id, type, settings) VALUES
+		`INSERT INTO user_credentials (id, user_id, type, settings) VALUES
 			(1, 1, 'vless', '{"id":"11111111-1111-4111-8111-111111111111"}'),
 			(2, 1, 'shadowsocks', '{"method":"aes-256-gcm","password":"ss-secret"}')`,
 		`INSERT INTO hosts (id, inbound_tag, remark, address, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host) VALUES

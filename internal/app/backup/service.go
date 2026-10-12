@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/migrations"
 	_ "modernc.org/sqlite"
 )
 
@@ -172,6 +173,11 @@ func (s *Service) Import(ctx context.Context, archivePath string) (ImportResult,
 	tables, rows, warnings, err := s.restoreDatabasePayload(ctx, extractDir, m)
 	if err != nil {
 		return ImportResult{}, err
+	}
+	if s.db != nil && m.Database.Payload != "" {
+		if err := migrations.RunMigrations(ctx, s.db, s.dialect); err != nil {
+			return ImportResult{}, Error{Message: "restored database could not be migrated to the current schema: " + err.Error()}
+		}
 	}
 
 	filesRestored := []string{}

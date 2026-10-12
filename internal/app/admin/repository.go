@@ -23,7 +23,7 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 
 func (r Repository) AdminSecret(ctx context.Context) (string, error) {
 	var adminSecret, legacySecret sql.NullString
-	err := r.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM jwt ORDER BY id LIMIT 1`).
+	err := r.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM auth_secrets ORDER BY id LIMIT 1`).
 		Scan(&adminSecret, &legacySecret)
 	if err == sql.ErrNoRows {
 		return "", errors.New("jwt secret is not initialized")
@@ -269,7 +269,7 @@ func (r Repository) adminServiceLimits(
 	COALESCE(delete_user_usage_limit_enabled, 0),
 	delete_user_usage_limit,
 	COALESCE(deleted_users_usage, 0)
-FROM admins_services WHERE admin_id = ? ORDER BY service_id`,
+FROM service_admins WHERE admin_id = ? ORDER BY service_id`,
 		adminID,
 	)
 	if err != nil {

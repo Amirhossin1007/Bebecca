@@ -20,7 +20,7 @@ var gooseMu sync.Mutex
 var migrationDialect string
 
 const (
-	latestGooseVersion         int64 = 59
+	latestGooseVersion         int64 = 61
 	legacyAlembicFinalRevision       = "23_drop_access_insights"
 	legacyAlembicFinalBaseline int64 = 16
 )
@@ -95,6 +95,9 @@ func (r Runner) run(ctx context.Context, targetVersion int64) error {
 	if err := r.prepareLegacyBaseline(ctx, dialect, targetVersion); err != nil {
 		return err
 	}
+	if err := r.refuseNewerSchema(ctx, dialect); err != nil {
+		return err
+	}
 	var err error
 	if targetVersion > 0 {
 		err = goose.UpToContext(ctx, r.DB, "sql", targetVersion, goose.WithNoColor(true))
@@ -106,6 +109,24 @@ func (r Runner) run(ctx context.Context, targetVersion int64) error {
 		return ensureErr
 	}
 	return err
+}
+
+// refuseNewerSchema stops an older build from running against a schema that
+// a newer build already migrated. Such a build would read renamed tables. It
+// reads goose directly because the caller already holds gooseMu.
+func (r Runner) refuseNewerSchema(ctx context.Context, dialect string) error {
+	hasGoose, err := HasTable(ctx, r.DB, dialect, goose.TableName())
+	if err != nil || !hasGoose {
+		return err
+	}
+	version, err := goose.GetDBVersion(r.DB)
+	if err != nil {
+		return err
+	}
+	if version > latestGooseVersion {
+		return fmt.Errorf("database schema version %d is newer than this build supports (%d); refusing to downgrade", version, latestGooseVersion)
+	}
+	return nil
 }
 
 func (r Runner) prepareLegacyBaseline(ctx context.Context, dialect string, _ int64) error {

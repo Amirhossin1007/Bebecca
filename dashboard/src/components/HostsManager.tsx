@@ -339,6 +339,7 @@ const DYNAMIC_TOKENS: Array<{ token: string; labelKey: string }> = [
 	{ token: "{SERVER_IP}", labelKey: "hostsDialog.currentServer" },
 	{ token: "{SERVER_IPV6}", labelKey: "hostsDialog.currentServerv6" },
 	{ token: "{USERNAME}", labelKey: "hostsDialog.username" },
+	{ token: "{user_id}", labelKey: "hostsDialog.userId" },
 	{ token: "{DATA_USAGE}", labelKey: "hostsDialog.dataUsage" },
 	{ token: "{DATA_LEFT}", labelKey: "hostsDialog.remainingData" },
 	{ token: "{DATA_LIMIT}", labelKey: "hostsDialog.dataLimit" },

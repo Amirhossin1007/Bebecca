@@ -27,12 +27,12 @@ CREATE TABLE users (
 	service_id INTEGER,
 	status TEXT
 );
-CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT);
+CREATE TABLE user_credentials (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT);
 CREATE TABLE service_hosts (service_id INTEGER, host_id INTEGER);
 CREATE TABLE hosts (id INTEGER PRIMARY KEY, inbound_tag TEXT, is_disabled BOOLEAN DEFAULT 0);
 INSERT INTO users (id, username, credential_key, service_id, status)
 VALUES (42, 'user-42', 'key-42', 10, 'active');
-INSERT INTO proxies (id, user_id, type, settings) VALUES (1, 42, 'vless', '{}');
+INSERT INTO user_credentials (id, user_id, type, settings) VALUES (1, 42, 'vless', '{}');
 INSERT INTO hosts (id, inbound_tag, is_disabled) VALUES (1, 'service-vless', 0);
 INSERT INTO service_hosts (service_id, host_id) VALUES (10, 1);
 `)

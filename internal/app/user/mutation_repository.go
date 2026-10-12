@@ -109,7 +109,7 @@ func (r Repository) createUserMutation(ctx context.Context, admin adminapp.Admin
 	adminID := nullableInt64Value(admin.ID)
 	res, err := tx.ExecContext(ctx, `
 INSERT INTO users (
-	username, credential_key, subadress, flow, status, used_traffic, data_limit,
+	username, credential_key, subscription_token, flow, status, used_traffic, data_limit,
 	data_limit_reset_strategy, expire, admin_id, created_at, note, telegram_id,
 	contact_number, on_hold_expire_duration, on_hold_timeout, ip_limit,
 	auto_delete_in_days, last_status_change, service_id

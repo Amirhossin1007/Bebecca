@@ -86,7 +86,7 @@ func (r Repository) SubscriptionPlaceholderSettings(ctx context.Context, adminID
 
 	query := `SELECT a.id, a.username, s.id, s.name, COALESCE(a.subscription_settings, '{}'), COALESCE(s.subscription_placeholder_settings, '{}')
 FROM admins a
-JOIN admins_services linked ON linked.admin_id = a.id
+JOIN service_admins linked ON linked.admin_id = a.id
 JOIN services s ON s.id = linked.service_id
 WHERE COALESCE(a.status, '') != 'deleted'`
 	args := []any{}
@@ -156,7 +156,7 @@ func (r Repository) UpdateSubscriptionPlaceholderSetting(ctx context.Context, ad
 
 	query := `SELECT a.username, s.name, COALESCE(a.subscription_settings, '{}'), COALESCE(s.subscription_placeholder_settings, '{}')
 FROM admins a
-JOIN admins_services linked ON linked.admin_id = a.id
+JOIN service_admins linked ON linked.admin_id = a.id
 JOIN services s ON s.id = linked.service_id
 WHERE a.id = ? AND s.id = ? AND COALESCE(a.status, '') != 'deleted'`
 	if r.dialect == "mysql" {

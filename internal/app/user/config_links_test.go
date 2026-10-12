@@ -101,6 +101,28 @@ func TestBuildConfigLinksOmitsInformationalInboundHosts(t *testing.T) {
 	}
 }
 
+func TestRuntimeShadowsocksLiveSettingsKeepsInboundMethod(t *testing.T) {
+	inbound := map[string]any{"protocol": "shadowsocks", "settings": map[string]any{"method": "2022-blake3-aes-256-gcm"}}
+	settings, err := RuntimeProxySettingsForInbound(map[string]any{"password": "secret", "method": defaultShadowsocksMethod}, inbound, "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	live := RuntimeShadowsocksLiveSettings(settings, mapValue(inbound["settings"]))
+	if live["method"] != "2022-blake3-aes-256-gcm" {
+		t.Fatalf("live method = %v, want the inbound 2022 method", live["method"])
+	}
+	if key, err := base64.StdEncoding.DecodeString(stringValue(live["password"])); err != nil || len(key) != 32 {
+		t.Fatalf("live password must be a base64 32-byte key, got %v", live["password"])
+	}
+	if _, ok := RuntimeShadowsocksSettings(settings, mapValue(inbound["settings"]))["method"]; ok {
+		t.Fatal("config JSON users must not carry a method on a 2022 inbound")
+	}
+	legacy := RuntimeShadowsocksLiveSettings(map[string]any{"password": "p", "method": defaultShadowsocksMethod}, map[string]any{"method": "aes-256-gcm"})
+	if legacy["method"] != "aes-256-gcm" {
+		t.Fatalf("live method = %v, want the inbound method over the user default", legacy["method"])
+	}
+}
+
 func TestShadowsocks2022LinkUsesSIP022UserInfo(t *testing.T) {
 	settings := map[string]any{"method": defaultShadowsocksMethod, "password": "client-password"}
 	inbound := ResolvedInbound{

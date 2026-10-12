@@ -302,11 +302,25 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 }
 
 func (c Controller) userOperationRequiresConfigSync(ctx context.Context, node NodeRow, operation OperationRow) (bool, error) {
-	required, _, err := c.userOperationConfigSyncDecision(ctx, node, operation)
+	return c.userOperationRequiresConfigSyncCached(ctx, node, operation, &runtimeSyncCache{})
+}
+
+func (c Controller) userOperationRequiresConfigSyncCached(ctx context.Context, node NodeRow, operation OperationRow, cache *runtimeSyncCache) (bool, error) {
+	required, _, err := c.userOperationConfigSyncDecisionCached(ctx, node, operation, cache)
 	return required, err
 }
 
+type runtimeSyncCache struct {
+	loaded      bool
+	serviceTags map[int64]map[string]bool
+	inbounds    []map[string]any
+}
+
 func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node NodeRow, operation OperationRow) (bool, []map[string]any, error) {
+	return c.userOperationConfigSyncDecisionCached(ctx, node, operation, &runtimeSyncCache{})
+}
+
+func (c Controller) userOperationConfigSyncDecisionCached(ctx context.Context, node NodeRow, operation OperationRow, cache *runtimeSyncCache) (bool, []map[string]any, error) {
 	if !isRuntimeUserOperation(operation.OperationType) || !operation.UserID.Valid {
 		return false, nil, nil
 	}
@@ -326,14 +340,18 @@ func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node No
 	if !serviceID.Valid || serviceID.Int64 <= 0 {
 		return false, nil, nil
 	}
-	serviceTags, err := c.repo.ServiceAllowedTags(ctx)
-	if err != nil {
-		return false, nil, err
+	if !cache.loaded {
+		serviceTags, err := c.repo.ServiceAllowedTags(ctx)
+		if err != nil {
+			return false, nil, err
+		}
+		inbounds, err := c.runtimeInbounds(ctx)
+		if err != nil {
+			return false, nil, err
+		}
+		cache.serviceTags, cache.inbounds, cache.loaded = serviceTags, inbounds, true
 	}
-	inbounds, err := c.runtimeInbounds(ctx)
-	if err != nil {
-		return false, nil, err
-	}
+	serviceTags, inbounds := cache.serviceTags, cache.inbounds
 	target := xrayconfig.NodeTargetID(node.ID)
 	for _, inbound := range inbounds {
 		if !protocolRequiresFullUserSync(stringValue(inbound["protocol"])) {

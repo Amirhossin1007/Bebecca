@@ -827,7 +827,7 @@ WHERE id = ?`,
 		value := adminServiceUsage[key]
 		if _, err := tx.ExecContext(
 			ctx,
-			`UPDATE admins_services
+			`UPDATE service_admins
 SET used_traffic = COALESCE(used_traffic, 0) + ?,
     lifetime_used_traffic = COALESCE(lifetime_used_traffic, 0) + ?,
     updated_at = ?
@@ -1068,7 +1068,7 @@ func (r Repository) enforceUsageLifecycle(ctx context.Context, tx *sql.Tx, userI
        COALESCE(used_traffic, 0),
        data_limit,
        expire,
-	       COALESCE((SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id), online_at),
+	       (SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id),
        on_hold_expire_duration,
        on_hold_timeout,
        edit_at,
@@ -1360,11 +1360,11 @@ func (r Repository) incrementSystemUsage(ctx context.Context, tx *sql.Tx, up int
 	if r.dialect == "sqlite" {
 		_, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO system (id, uplink, downlink)
+			`INSERT INTO master_usage (id, uplink, downlink)
 VALUES (1, ?, ?)
 ON CONFLICT(id) DO UPDATE
-SET uplink = COALESCE(system.uplink, 0) + excluded.uplink,
-    downlink = COALESCE(system.downlink, 0) + excluded.downlink`,
+SET uplink = COALESCE(master_usage.uplink, 0) + excluded.uplink,
+    downlink = COALESCE(master_usage.downlink, 0) + excluded.downlink`,
 			up,
 			down,
 		)
@@ -1372,7 +1372,7 @@ SET uplink = COALESCE(system.uplink, 0) + excluded.uplink,
 	}
 	_, err := tx.ExecContext(
 		ctx,
-		"INSERT INTO `system` (id, uplink, downlink)\n"+
+		"INSERT INTO `master_usage` (id, uplink, downlink)\n"+
 			`VALUES (1, ?, ?)
 ON DUPLICATE KEY UPDATE
     uplink = COALESCE(uplink, 0) + VALUES(uplink),

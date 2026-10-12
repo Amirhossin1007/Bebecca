@@ -231,7 +231,7 @@ func (r Repository) singleMapRow(ctx context.Context, query string, args ...any)
 
 func (r Repository) subscriptionSecretKey(ctx context.Context) (string, error) {
 	var secret sql.NullString
-	err := r.db.QueryRowContext(ctx, `SELECT subscription_secret_key FROM jwt ORDER BY id LIMIT 1`).Scan(&secret)
+	err := r.db.QueryRowContext(ctx, `SELECT subscription_secret_key FROM auth_secrets ORDER BY id LIMIT 1`).Scan(&secret)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", fmt.Errorf("subscription secret key was not found")
@@ -658,7 +658,7 @@ func (r Repository) proxiesByUser(ctx context.Context, userIDs []int64) (map[int
 	}
 
 	query := fmt.Sprintf(
-		`SELECT id, user_id, type, settings FROM proxies WHERE user_id IN (%s) ORDER BY user_id, id`,
+		`SELECT id, user_id, type, settings FROM user_credentials WHERE user_id IN (%s) ORDER BY user_id, id`,
 		placeholders(len(userIDs)),
 	)
 	rows, err := r.db.QueryContext(ctx, query, int64Args(userIDs)...)

@@ -190,25 +190,18 @@ func TestShadowsocksWebSocketHeartbeatSurvivesXrayJSON(t *testing.T) {
 	}
 }
 
-func TestShadowsocksMuxOnlyIsNotSilentlyDowngraded(t *testing.T) {
+func TestShadowsocksMuxKeepsStandardShareLink(t *testing.T) {
 	link := shadowsocksShareLink("ss-mux", "ss.example.com", ResolvedInbound{
 		"port": 443, "network": "tcp", "mux_enable": true,
 	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
-	profile, err := outboundsub.DecodeV2rayNShadowsocks(link)
-	if err != nil || !profile.MuxEnabled {
-		t.Fatalf("Shadowsocks mux was not represented in the client link: profile=%#v err=%v", profile, err)
+	if !strings.HasPrefix(link, "ss://") || strings.Contains(link, "v2rayn://") {
+		t.Fatalf("Shadowsocks mux produced a non-standard share link: %s", link)
 	}
 	parsed, err := parseSubscriptionShareURL(link)
-	if err != nil || !shadowsocksHasNativeStreamSettings(parsed) {
-		t.Fatalf("Shadowsocks mux-only link was treated as plain SIP002: parsed=%#v err=%v", parsed, err)
+	if err != nil || shadowsocksHasNativeStreamSettings(parsed) {
+		t.Fatalf("Shadowsocks mux link is not a plain SIP002 link: parsed=%#v err=%v", parsed, err)
 	}
-	if _, ok := singBoxShadowsocksOutbound(parsed, "ss-mux"); ok {
-		t.Fatal("sing-box conversion silently dropped Shadowsocks mux")
-	}
-	if _, ok := clashShadowsocksProxy("ss-mux", parsed); ok {
-		t.Fatal("Mihomo conversion silently dropped Shadowsocks mux")
-	}
-	body, err := renderXrayJSONSubscription([]string{link}, false)
+	body, err := renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{MuxEnabled: true}}, false, "", "", true)
 	if err != nil || !strings.Contains(body, `"mux"`) || !strings.Contains(body, `"enabled": true`) {
 		t.Fatalf("xray-json lost standalone Shadowsocks mux: body=%s err=%v", body, err)
 	}

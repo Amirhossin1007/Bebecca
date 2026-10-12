@@ -11,6 +11,7 @@ import {
 	IconButton,
 	Menu,
 	MenuButton,
+	MenuDivider,
 	MenuItem,
 	MenuList,
 	type PlacementWithLogical,
@@ -30,6 +31,8 @@ import {
 	ArrowLeftOnRectangleIcon,
 	ArrowsRightLeftIcon,
 	ArrowUpOnSquareIcon,
+	Bars3Icon,
+	BellIcon,
 	BookOpenIcon,
 	BriefcaseIcon,
 	CheckIcon,
@@ -47,11 +50,19 @@ import {
 	LinkIcon,
 	ServerStackIcon,
 	Squares2X2Icon,
-	UserCircleIcon,
+	UserIcon,
 	UserGroupIcon,
 	WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+	BellIcon as BellSolidIcon,
+	BriefcaseIcon as BriefcaseSolidIcon,
+	Cog6ToothIcon as Cog6ToothSolidIcon,
+	HomeIcon as HomeSolidIcon,
+	UserGroupIcon as UserGroupSolidIcon,
+	UserIcon as UserSolidIcon,
+} from "@heroicons/react/24/solid";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import {
 	type ElementType,
@@ -73,7 +84,9 @@ import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
 import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
 import { AppSidebar } from "./AppSidebar";
+import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
+import { NotificationBell } from "./NotificationBell";
 import { SponsorCarousel } from "./SponsorCarousel";
 import ThemeSelector from "./ThemeSelector";
 import {
@@ -99,13 +112,18 @@ const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
 const ExternalAppsIcon = chakra(CommandLineIcon, iconProps);
 const PlaceholderIcon = chakra(DocumentDuplicateIcon, iconProps);
-const UserIcon = chakra(UserCircleIcon, iconProps);
-const HomeIcon = chakra(HeroHomeIcon, iconProps);
-const UsersIcon = chakra(UserGroupIcon, iconProps);
-const AdminsIcon = chakra(BriefcaseIcon, iconProps);
-const SettingsIcon = chakra(Cog6ToothIcon, iconProps);
+const PersonIcon = chakra(UserIcon, iconProps);
 const MasterSettingsIcon = chakra(Cog8ToothIcon, iconProps);
 const XraySettingsIcon = chakra(WrenchScrewdriverIcon, iconProps);
+const tabIconStyle = { baseStyle: { w: "22px", h: "22px" } };
+const TAB_ICONS: Record<string, [ElementType, ElementType]> = {
+	dashboard: [chakra(HeroHomeIcon, tabIconStyle), chakra(HomeSolidIcon, tabIconStyle)],
+	users: [chakra(UserGroupIcon, tabIconStyle), chakra(UserGroupSolidIcon, tabIconStyle)],
+	admins: [chakra(BriefcaseIcon, tabIconStyle), chakra(BriefcaseSolidIcon, tabIconStyle)],
+	settings: [chakra(Cog6ToothIcon, tabIconStyle), chakra(Cog6ToothSolidIcon, tabIconStyle)],
+	myaccount: [chakra(UserIcon, tabIconStyle), chakra(UserSolidIcon, tabIconStyle)],
+	notifications: [chakra(BellIcon, tabIconStyle), chakra(BellSolidIcon, tabIconStyle)],
+};
 const ServicesIcon = chakra(Squares2X2Icon, iconProps);
 const HostsIcon = chakra(LinkIcon, iconProps);
 const HAProxyIcon = chakra(ArrowsRightLeftIcon, iconProps);
@@ -321,7 +339,6 @@ export function AppLayout() {
 		});
 		return () => cancelAnimationFrame(raf);
 	}, [i18n.language, i18n]);
-
 	const languagePlacement =
 		useBreakpointValue<PlacementWithLogical>({
 			base: "bottom-start",
@@ -395,12 +412,14 @@ export function AppLayout() {
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
-			{
-				key: "errors",
-				label: "errors",
-				to: "/errors",
-				icon: InsightsIcon,
-			},
+			isPrivilegedAdmin
+				? {
+						key: "errors",
+						label: "errors",
+						to: "/errors",
+						icon: InsightsIcon,
+					}
+				: null,
 			isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
 				? {
 						key: "services",
@@ -830,29 +849,24 @@ export function AppLayout() {
 		const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
 		items.push({ key: "users", label: t("users"), to: "/users" });
 		if (canSeeAdmins) {
+			items.push({ key: "admins", label: t("admins"), to: "/admins" });
+		}
+		if (items.length + 3 + (hasSettingsMenu ? 1 : 0) <= 5) {
 			items.push({
-				key: "admins",
-				label: t("admins"),
-				to: "/admins",
+				key: "notifications",
+				label: t("notifications.menu"),
+				to: "/notifications",
 			});
 		}
-		items.push({
+		items.push({ key: "myaccount", label: t("myaccount.menu"), to: "/myaccount" });
+		if (hasSettingsMenu) {
+			items.push({ key: "settings", label: t("header.settings"), kind: "menu" });
+		}
+		items.splice(Math.floor((items.length + 1) / 2), 0, {
 			key: "dashboard",
 			label: t("dashboard"),
 			to: "/",
 		});
-		items.push({
-			key: "myaccount",
-			label: t("myaccount.menu"),
-			to: "/myaccount",
-		});
-		if (hasSettingsMenu) {
-			items.push({
-				key: "settings",
-				label: t("header.settings"),
-				kind: "menu",
-			});
-		}
 		return items;
 	}, [t, sectionAccess, hasSettingsMenu]);
 
@@ -866,7 +880,7 @@ export function AppLayout() {
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
 	const SettingsNavIcon = activeSettingsItem?.icon ?? SettingsIcon;
-
+	const activeSettingsKey = activeSettingsItem?.key ?? null;
 	const popoverModifiers = useMemo(
 		() => [
 			{
@@ -909,7 +923,7 @@ export function AppLayout() {
 		}
 		handleSettingsMenuClose();
 		handleAccountMenuClose();
-		navigate(to);
+		if (to !== location.pathname) navigate(to);
 	};
 
 	const handleAccountMenuClose = () => {
@@ -1867,6 +1881,11 @@ export function AppLayout() {
 							<Box display={{ base: "none", md: "inline-flex" }}>
 								<HeaderCalendar isCompact={calendarCompact} />
 							</Box>
+							{getUserIsSuccess && userData.username && <NotificationBell />}
+							<Box display={{ base: "none", sm: "inline-flex" }}>
+								<GitHubStars />
+							</Box>
+						</HStack>
 
 							{getUserIsSuccess && userData.username && (
 								<Menu
@@ -2424,7 +2443,9 @@ export function AppLayout() {
 														? UsersIcon
 														: item.key === "admins"
 															? AdminsIcon
-															: UserIcon;
+															: item.key === "notifications"
+																? BellIcon
+																: UserIcon;
 											const navContent = (
 												<Box
 													w="full"

@@ -50,11 +50,6 @@ type ProcessOperationsRequest struct {
 	Limit  int   `json:"limit,omitempty"`
 }
 
-type ProcessUserOperationsRequest struct {
-	UserID int64 `json:"user_id,omitempty"`
-	Limit  int   `json:"limit,omitempty"`
-}
-
 type ProcessOperationsResult struct {
 	Processed int `json:"processed"`
 	Done      int `json:"done"`

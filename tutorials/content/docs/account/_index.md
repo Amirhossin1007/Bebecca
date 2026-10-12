@@ -11,5 +11,6 @@ Account contains personal settings for the administrator who is currently signed
 ## Guide
 
 - [My Account](my-account/) — review usage, change your password, and create or revoke personal API keys.
+- [Notifications](notifications/) — read admin messages and automatic alerts, and send messages to other admins.
 
 API keys inherit the permissions and limits of their owner. Treat them like passwords and revoke keys that are no longer used.

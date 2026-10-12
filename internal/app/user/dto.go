@@ -84,7 +84,7 @@ type ConfigLinkUser struct {
 }
 
 type UserListItem struct {
-	ID                     int64            `json:"-"`
+	ID                     int64            `json:"id"`
 	Username               string           `json:"username"`
 	Status                 string           `json:"status"`
 	UsedTraffic            int64            `json:"used_traffic"`

@@ -699,7 +699,7 @@ FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> ? LIMIT 1`, nodeID, S
 
 func (r Repository) tls(ctx context.Context) (tlsRow, error) {
 	var row tlsRow
-	err := r.db.QueryRowContext(ctx, `SELECT certificate, `+"`key`"+` FROM tls ORDER BY id LIMIT 1`).Scan(&row.Certificate, &row.Key)
+	err := r.db.QueryRowContext(ctx, `SELECT certificate, private_key FROM default_certificates ORDER BY id LIMIT 1`).Scan(&row.Certificate, &row.Key)
 	return row, err
 }
 

@@ -122,7 +122,7 @@ func (c Controller) grpcAddUserToNode(ctx context.Context, client *nodeclient.Cl
 				continue
 			}
 			if runtimeUser.Protocol == "shadowsocks" {
-				settings = userread.RuntimeShadowsocksSettings(settings, ensureMap(inbound, "settings"))
+				settings = userread.RuntimeShadowsocksLiveSettings(settings, ensureMap(inbound, "settings"))
 			}
 			email := taggedRuntimeUserEmail(legacyEmail, tag)
 			settings["email"] = email

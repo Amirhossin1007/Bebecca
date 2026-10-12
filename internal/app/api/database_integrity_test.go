@@ -22,7 +22,7 @@ func TestDatabaseIntegrityAllowsConsistentNodeData(t *testing.T) {
 		`INSERT INTO hosts (id, inbound_tag) VALUES (1, 'vless')`,
 		`INSERT INTO service_hosts (service_id, host_id) VALUES (1, 1)`,
 		`INSERT INTO admins (id) VALUES (1)`,
-		`INSERT INTO admins_services (admin_id, service_id) VALUES (1, 1)`,
+		`INSERT INTO service_admins (admin_id, service_id) VALUES (1, 1)`,
 	)
 
 	if err := checkDatabaseIntegrity(context.Background(), db); err != nil {
@@ -96,7 +96,7 @@ func newIntegrityTestDB(t *testing.T) *sql.DB {
 		`CREATE TABLE inbounds (id INTEGER PRIMARY KEY, tag TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE TABLE service_hosts (service_id INTEGER NOT NULL, host_id INTEGER NOT NULL)`,
 		`CREATE TABLE admins (id INTEGER PRIMARY KEY)`,
-		`CREATE TABLE admins_services (admin_id INTEGER NOT NULL, service_id INTEGER NOT NULL)`,
+		`CREATE TABLE service_admins (admin_id INTEGER NOT NULL, service_id INTEGER NOT NULL)`,
 	)
 	return db
 }

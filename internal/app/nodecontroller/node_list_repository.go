@@ -13,7 +13,7 @@ func (r Repository) ListNodeItems(ctx context.Context, nodeID int64) ([]NodeList
 	defaultCert := ""
 	defaultKey := ""
 	var defaultCertNull, defaultKeyNull sql.NullString
-	if err := r.db.QueryRowContext(ctx, `SELECT certificate, `+"`key`"+` FROM tls ORDER BY id LIMIT 1`).Scan(&defaultCertNull, &defaultKeyNull); err == nil && defaultCertNull.Valid {
+	if err := r.db.QueryRowContext(ctx, `SELECT certificate, private_key FROM default_certificates ORDER BY id LIMIT 1`).Scan(&defaultCertNull, &defaultKeyNull); err == nil && defaultCertNull.Valid {
 		defaultCert = defaultCertNull.String
 		if defaultKeyNull.Valid {
 			defaultKey = defaultKeyNull.String

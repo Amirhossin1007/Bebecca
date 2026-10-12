@@ -77,10 +77,10 @@ func TestCollectUsageDialFailureDoesNotChangeNodeHealth(t *testing.T) {
 	defer db.Close()
 
 	_, err = db.ExecContext(ctx, `
-CREATE TABLE tls (
+CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
 	certificate TEXT,
-	`+"`key`"+` TEXT
+	private_key TEXT
 );
 CREATE TABLE nodes (
 	id INTEGER PRIMARY KEY,
@@ -117,7 +117,7 @@ CREATE TABLE node_operations (
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL
 );
-INSERT INTO tls (id, certificate, `+"`key`"+`) VALUES (1, 'invalid-cert', 'invalid-key');
+INSERT INTO default_certificates (id, certificate, private_key) VALUES (1, 'invalid-cert', 'invalid-key');
 INSERT INTO nodes (
 	id, name, address, port, api_port, status, agent_status, xray_version, message,
 	certificate, certificate_key, xray_config_mode, xray_config, usage_coefficient

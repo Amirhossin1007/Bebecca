@@ -98,11 +98,11 @@ func (p *fakeSystemMetricsProvider) Snapshot(context.Context) (systemapp.Metrics
 func TestSystemStatsRouteIsGoNativeAndCompatible(t *testing.T) {
 	server, db := testAdminServer(t)
 	statements := []string{
-		`CREATE TABLE system (id INTEGER PRIMARY KEY, uplink BIGINT DEFAULT 0, downlink BIGINT DEFAULT 0)`,
+		`CREATE TABLE master_usage (id INTEGER PRIMARY KEY, uplink BIGINT DEFAULT 0, downlink BIGINT DEFAULT 0)`,
 		`ALTER TABLE users ADD COLUMN used_traffic BIGINT DEFAULT 0`,
 		`CREATE TABLE user_online_ips (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME)`,
 		`CREATE TABLE vpn_user_sessions (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME, ended_at DATETIME)`,
-		`INSERT INTO system (id, uplink, downlink) VALUES (1, 111, 222)`,
+		`INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 111, 222)`,
 		`INSERT INTO nodes (id, name, status, xray_version) VALUES (1, 'node-a', 'connected', '25.1.0')`,
 	}
 	for _, statement := range statements {

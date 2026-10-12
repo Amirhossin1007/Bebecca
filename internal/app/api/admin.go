@@ -459,7 +459,7 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 			if _, err := tx.ExecContext(r.Context(), `UPDATE admins SET delete_user_usage_limit_enabled = 0 WHERE id = ?`, target.ID); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET delete_user_usage_limit_enabled = 0 WHERE admin_id = ?`, target.ID); err != nil {
+			if _, err := tx.ExecContext(r.Context(), `UPDATE service_admins SET delete_user_usage_limit_enabled = 0 WHERE admin_id = ?`, target.ID); err != nil {
 				return err
 			}
 		}
@@ -535,7 +535,7 @@ func (s *Server) handleDeleteAdmin(w http.ResponseWriter, r *http.Request, usern
 		if _, err := tx.ExecContext(r.Context(), `DELETE FROM admin_usage_logs WHERE admin_id = ?`, target.ID); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(r.Context(), `DELETE FROM admins_services WHERE admin_id = ?`, target.ID); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_admins WHERE admin_id = ?`, target.ID); err != nil {
 			return err
 		}
 		now := dbTimestamp(time.Now().UTC())
@@ -816,7 +816,7 @@ func (s *Server) handleAdminUsageResetPath(w http.ResponseWriter, r *http.Reques
 		if _, err := tx.ExecContext(r.Context(), `UPDATE admins SET users_usage = 0, created_traffic = 0 WHERE id = ?`, target.ID); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET used_traffic = 0, created_traffic = 0 WHERE admin_id = ?`, target.ID); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `UPDATE service_admins SET used_traffic = 0, created_traffic = 0 WHERE admin_id = ?`, target.ID); err != nil {
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
@@ -861,7 +861,7 @@ func (s *Server) handleDeletedUsersUsageReset(w http.ResponseWriter, r *http.Req
 			}
 		}
 		if payload.ServiceID != nil {
-			_, err = tx.ExecContext(r.Context(), `UPDATE admins_services SET deleted_users_usage = 0 WHERE admin_id = ? AND service_id = ?`, target.ID, *payload.ServiceID)
+			_, err = tx.ExecContext(r.Context(), `UPDATE service_admins SET deleted_users_usage = 0 WHERE admin_id = ? AND service_id = ?`, target.ID, *payload.ServiceID)
 		} else {
 			_, err = tx.ExecContext(r.Context(), `UPDATE admins SET deleted_users_usage = 0 WHERE id = ?`, target.ID)
 		}
@@ -1206,7 +1206,7 @@ func adminServiceLimitsTx(ctx context.Context, tx *sql.Tx, adminID int64, canDel
 	COALESCE(delete_user_usage_limit_enabled, 0),
 	delete_user_usage_limit,
 	COALESCE(deleted_users_usage, 0)
-FROM admins_services WHERE admin_id = ? ORDER BY service_id`, adminID)
+FROM service_admins WHERE admin_id = ? ORDER BY service_id`, adminID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1240,7 +1240,7 @@ func syncAdminServicesTx(ctx context.Context, tx *sql.Tx, adminID int64, service
 			desired[id] = true
 		}
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT service_id FROM admins_services WHERE admin_id = ?`, adminID)
+	rows, err := tx.QueryContext(ctx, `SELECT service_id FROM service_admins WHERE admin_id = ?`, adminID)
 	if err != nil {
 		return err
 	}
@@ -1258,7 +1258,7 @@ func syncAdminServicesTx(ctx context.Context, tx *sql.Tx, adminID int64, service
 	}
 	for id := range existing {
 		if !desired[id] {
-			if _, err := tx.ExecContext(ctx, `DELETE FROM admins_services WHERE admin_id = ? AND service_id = ?`, adminID, id); err != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM service_admins WHERE admin_id = ? AND service_id = ?`, adminID, id); err != nil {
 				return err
 			}
 		}
@@ -1272,7 +1272,7 @@ func syncAdminServicesTx(ctx context.Context, tx *sql.Tx, adminID int64, service
 	for _, id := range ids {
 		if !existing[id] {
 			if _, err := tx.ExecContext(ctx, `
-INSERT INTO admins_services (
+INSERT INTO service_admins (
 	admin_id,
 	service_id,
 	used_traffic,
@@ -1328,7 +1328,7 @@ func syncAdminServiceLimitsTx(ctx context.Context, tx *sql.Tx, adminID int64, li
 			continue
 		}
 		args = append(args, adminID, item.ServiceID)
-		if _, err := tx.ExecContext(ctx, `UPDATE admins_services SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE service_admins SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...); err != nil {
 			return err
 		}
 	}

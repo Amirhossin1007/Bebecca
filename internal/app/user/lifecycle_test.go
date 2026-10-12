@@ -27,7 +27,8 @@ INSERT INTO users (id, username, status, used_traffic, data_limit, created_at, e
 VALUES
   (1, 'limited_user', 'active', 200, 100, ?, ?, NULL, NULL),
   (2, 'next_user', 'active', 200, 100, ?, ?, NULL, NULL),
-  (3, 'hold_user', 'on_hold', 0, 1000, ?, ?, ?, 3600);
+  (3, 'hold_user', 'on_hold', 0, 1000, ?, ?, NULL, 3600);
+INSERT INTO user_presence (user_id, online_at) VALUES (3, ?);
 INSERT INTO next_plans (id, user_id, position, data_limit, expire, add_remaining_traffic, fire_on_either, increase_data_limit, start_on_first_connect, trigger_on)
 VALUES (10, 2, 0, 500, NULL, 0, 0, 0, 0, 'data');`,
 		past, past,
@@ -226,7 +227,7 @@ func newLifecycleTestDB(t *testing.T) *sql.DB {
 		`CREATE TABLE user_usage_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, used_traffic_at_reset BIGINT, reset_at DATETIME NULL)`,
 		`CREATE TABLE node_user_usages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, user_id INTEGER, node_id INTEGER, used_traffic BIGINT)`,
 		`CREATE TABLE admins (id INTEGER PRIMARY KEY, role TEXT, use_service_traffic_limits INTEGER DEFAULT 0, created_traffic BIGINT DEFAULT 0)`,
-		`CREATE TABLE admins_services (admin_id INTEGER, service_id INTEGER, created_traffic BIGINT DEFAULT 0, updated_at DATETIME NULL, PRIMARY KEY(admin_id, service_id))`,
+		`CREATE TABLE service_admins (admin_id INTEGER, service_id INTEGER, created_traffic BIGINT DEFAULT 0, updated_at DATETIME NULL, PRIMARY KEY(admin_id, service_id))`,
 		`CREATE TABLE admin_created_traffic_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_id INTEGER, service_id INTEGER NULL, amount BIGINT, action TEXT, created_at DATETIME NULL)`,
 	}
 	for _, stmt := range statements {

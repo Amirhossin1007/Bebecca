@@ -32,6 +32,7 @@ import {
 	Cog8ToothIcon,
 	CommandLineIcon,
 	DocumentDuplicateIcon,
+	BellIcon,
 	DocumentTextIcon,
 	EyeIcon,
 	HomeIcon,
@@ -95,6 +96,7 @@ const HostsIconStyled = chakra(LinkIcon, iconProps);
 const HAProxyIconStyled = chakra(ArrowsRightLeftIcon, subIconProps);
 const UsageIconStyled = chakra(ChartBarIcon, iconProps);
 const MyAccountIconStyled = chakra(UserCircleIcon, iconProps);
+const NotificationIconStyled = chakra(BellIcon, iconProps);
 const InsightsIconStyled = chakra(EyeIcon, subIconProps);
 const TutorialIconStyled = chakra(BookOpenIcon, iconProps);
 const XraySettingsIconStyled = chakra(WrenchScrewdriverIcon, subIconProps);
@@ -436,6 +438,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 						url: "/myaccount",
 						icon: MyAccountIconStyled,
 						visible: Boolean(selfAccess.self_myaccount),
+					},
+					{
+						type: "direct",
+						id: "notifications",
+						title: t("notifications.menu"),
+						url: "/notifications",
+						icon: NotificationIconStyled,
+						visible: true,
 					},
 					{
 						type: "direct",

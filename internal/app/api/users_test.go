@@ -21,11 +21,11 @@ func testUserReadServer(t *testing.T) (*Server, *sql.DB) {
 	server.userService = userapp.NewService(userapp.NewRepository(db, "sqlite"))
 
 	statements := []string{
-		`ALTER TABLE jwt ADD COLUMN subscription_secret_key TEXT DEFAULT 'sub-secret'`,
-		`ALTER TABLE jwt ADD COLUMN vmess_mask TEXT NULL`,
-		`ALTER TABLE jwt ADD COLUMN vless_mask TEXT NULL`,
+		`ALTER TABLE auth_secrets ADD COLUMN subscription_secret_key TEXT DEFAULT 'sub-secret'`,
+		`ALTER TABLE auth_secrets ADD COLUMN vmess_mask TEXT NULL`,
+		`ALTER TABLE auth_secrets ADD COLUMN vless_mask TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN credential_key TEXT NULL`,
-		`ALTER TABLE users ADD COLUMN subadress TEXT NULL`,
+		`ALTER TABLE users ADD COLUMN subscription_token TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN flow TEXT NULL`,
 		`ALTER TABLE users ADD COLUMN used_traffic BIGINT DEFAULT 0`,
 		`ALTER TABLE users ADD COLUMN created_at DATETIME NULL`,
@@ -44,7 +44,7 @@ func testUserReadServer(t *testing.T) (*Server, *sql.DB) {
 		`CREATE TABLE user_usage_logs (id INTEGER PRIMARY KEY, user_id INTEGER, used_traffic_at_reset BIGINT DEFAULT 0)`,
 		`CREATE TABLE user_online_ips (node_id INTEGER, user_id INTEGER, protocol TEXT, ip TEXT, last_seen_at DATETIME)`,
 		`CREATE TABLE vpn_user_sessions (node_id INTEGER, user_id INTEGER, last_seen_at DATETIME, ended_at DATETIME)`,
-		`CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`,
+		`CREATE TABLE user_credentials (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`,
 		`CREATE TABLE next_plans (
 			id INTEGER PRIMARY KEY,
 			user_id INTEGER,

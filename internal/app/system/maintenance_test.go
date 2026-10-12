@@ -160,12 +160,13 @@ func TestGitHubUpdateCheckerListsBuildsFromSwitchFloor(t *testing.T) {
 				{"tag_name": "v1.2.0"},
 				{"tag_name": "v1.4.0", "published_at": "2026-06-24T00:00:00Z"},
 				{"tag_name": "v1.4.0", "prerelease": true},
+				{"tag_name": "v1.6.0", "published_at": "2026-10-12T00:00:00Z"},
 			})
 		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"builds": []map[string]any{
-					{"tag": "dev-0123456", "sha": "0123456789abcdef", "run_id": "11", "created_at": "2026-06-23T00:00:00Z"},
-					{"tag": "dev-abcdef0", "sha": "abcdef0123456789", "run_id": "12", "created_at": "2026-06-25T00:00:00Z"},
+					{"tag": "dev-0123456", "sha": "0123456789abcdef", "run_id": "11", "created_at": "2026-10-10T00:00:00Z"},
+					{"tag": "dev-abcdef0", "sha": "abcdef0123456789", "run_id": "12", "created_at": "2026-10-12T00:00:00Z"},
 					{"tag": "not-a-build", "sha": "bad"},
 				},
 			})
@@ -186,7 +187,7 @@ func TestGitHubUpdateCheckerListsBuildsFromSwitchFloor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.Floor != versionSwitchFloor || len(catalog.Stable) != 1 || catalog.Stable[0].Version != "v1.4.0" || len(catalog.Dev) != 1 || catalog.Dev[0].Commit != "abcdef0123456789" {
+	if catalog.Floor != versionSwitchFloor || len(catalog.Stable) != 1 || catalog.Stable[0].Version != "v1.6.0" || len(catalog.Dev) != 1 || catalog.Dev[0].Commit != "abcdef0123456789" {
 		t.Fatalf("unexpected build catalog: %#v", catalog)
 	}
 }

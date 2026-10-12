@@ -27,8 +27,8 @@ func testServiceServer(t *testing.T) (*Server, *sql.DB, string) {
 	server.usageService = usage.NewService(usage.NewRepository(db, "sqlite"))
 	server.userService = userapp.NewService(userapp.NewRepository(db, "sqlite"))
 	statements := []string{
-		`ALTER TABLE admins_services ADD COLUMN created_at DATETIME NULL`,
-		`ALTER TABLE admins_services ADD COLUMN updated_at DATETIME NULL`,
+		`ALTER TABLE service_admins ADD COLUMN created_at DATETIME NULL`,
+		`ALTER TABLE service_admins ADD COLUMN updated_at DATETIME NULL`,
 		`DROP TABLE services`,
 		`DROP TABLE hosts`,
 		`DROP TABLE service_hosts`,
@@ -144,12 +144,12 @@ func TestServiceMutationRoutesGoNative(t *testing.T) {
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 0)
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
-	assertDBInt64(t, db, `SELECT data_limit FROM admins_services WHERE service_id = ? AND admin_id = 2`, 1000, created.ID)
+	assertDBInt64(t, db, `SELECT data_limit FROM service_admins WHERE service_id = ? AND admin_id = 2`, 1000, created.ID)
 
 	if _, err := db.Exec(`UPDATE services SET used_traffic = 500, users_usage = 700, lifetime_used_traffic = 900 WHERE id = ?`, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`UPDATE admins_services SET used_traffic = 500, lifetime_used_traffic = 900 WHERE service_id = ? AND admin_id = 2`, created.ID); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET used_traffic = 500, lifetime_used_traffic = 900 WHERE service_id = ? AND admin_id = 2`, created.ID); err != nil {
 		t.Fatal(err)
 	}
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services/"+itoa(created.ID)+"/reset-usage", token, `{}`)
@@ -159,8 +159,8 @@ func TestServiceMutationRoutesGoNative(t *testing.T) {
 	assertDBInt64(t, db, `SELECT used_traffic FROM services WHERE id = ?`, 0, created.ID)
 	assertDBInt64(t, db, `SELECT users_usage FROM services WHERE id = ?`, 0, created.ID)
 	assertDBInt64(t, db, `SELECT lifetime_used_traffic FROM services WHERE id = ?`, 900, created.ID)
-	assertDBInt64(t, db, `SELECT used_traffic FROM admins_services WHERE service_id = ? AND admin_id = 2`, 0, created.ID)
-	assertDBInt64(t, db, `SELECT lifetime_used_traffic FROM admins_services WHERE service_id = ? AND admin_id = 2`, 900, created.ID)
+	assertDBInt64(t, db, `SELECT used_traffic FROM service_admins WHERE service_id = ? AND admin_id = 2`, 0, created.ID)
+	assertDBInt64(t, db, `SELECT lifetime_used_traffic FROM service_admins WHERE service_id = ? AND admin_id = 2`, 900, created.ID)
 
 	rec = adminJSONRequest(t, server, http.MethodDelete, "/api/v2/services/"+itoa(created.ID), token, `{"mode":"delete_users","unlink_admins":true}`)
 	if rec.Code != http.StatusNoContent {
@@ -210,12 +210,12 @@ func TestServiceAdminLimitUpdatePersistsAllLimitFields(t *testing.T) {
 		body.DeleteUserUsageLimit == nil || *body.DeleteUserUsageLimit != 512 {
 		t.Fatalf("unexpected limit response: %#v", body)
 	}
-	assertDBString(t, db, `SELECT traffic_limit_mode FROM admins_services WHERE admin_id = 2 AND service_id = ?`, "created_traffic", created.ID)
-	assertDBInt64(t, db, `SELECT data_limit FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 2048, created.ID)
-	assertDBInt64(t, db, `SELECT users_limit FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 3, created.ID)
-	assertDBInt64(t, db, `SELECT show_user_traffic FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 0, created.ID)
-	assertDBInt64(t, db, `SELECT delete_user_usage_limit_enabled FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 1, created.ID)
-	assertDBInt64(t, db, `SELECT delete_user_usage_limit FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 512, created.ID)
+	assertDBString(t, db, `SELECT traffic_limit_mode FROM service_admins WHERE admin_id = 2 AND service_id = ?`, "created_traffic", created.ID)
+	assertDBInt64(t, db, `SELECT data_limit FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 2048, created.ID)
+	assertDBInt64(t, db, `SELECT users_limit FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 3, created.ID)
+	assertDBInt64(t, db, `SELECT show_user_traffic FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 0, created.ID)
+	assertDBInt64(t, db, `SELECT delete_user_usage_limit_enabled FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 1, created.ID)
+	assertDBInt64(t, db, `SELECT delete_user_usage_limit FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 512, created.ID)
 }
 
 func TestServiceUsageAnalyticsRoutes(t *testing.T) {
@@ -224,7 +224,7 @@ func TestServiceUsageAnalyticsRoutes(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO services (id, name, used_traffic, lifetime_used_traffic, users_usage) VALUES (77, 'UsageSvc', 0, 0, 0)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id) VALUES (2, 77), (3, 77)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO service_admins (admin_id, service_id) VALUES (2, 77), (3, 77)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, service_id, status) VALUES
@@ -487,7 +487,7 @@ func TestServiceDeleteEmptyService(t *testing.T) {
 		t.Fatalf("delete status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM services WHERE id = ?`, 0, created.ID)
-	assertDBInt64(t, db, `SELECT COUNT(*) FROM admins_services WHERE service_id = ?`, 0, created.ID)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM service_admins WHERE service_id = ?`, 0, created.ID)
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'remove_user'`, 0)
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
 }
@@ -591,16 +591,16 @@ func TestServiceHostChangeKeepsSubscriptionLinkAndChangesConfigOutput(t *testing
 	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN auto_delete_in_days INTEGER NULL`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN subadress TEXT NULL`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN subscription_token TEXT NULL`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE jwt ADD COLUMN subscription_secret_key TEXT DEFAULT 'sub-secret'`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE auth_secrets ADD COLUMN subscription_secret_key TEXT DEFAULT 'sub-secret'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE jwt ADD COLUMN vmess_mask TEXT NULL`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE auth_secrets ADD COLUMN vmess_mask TEXT NULL`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE jwt ADD COLUMN vless_mask TEXT NULL`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE auth_secrets ADD COLUMN vless_mask TEXT NULL`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`CREATE TABLE panel_settings (id INTEGER PRIMARY KEY, default_subscription_type TEXT)`); err != nil {
@@ -612,7 +612,7 @@ func TestServiceHostChangeKeepsSubscriptionLinkAndChangesConfigOutput(t *testing
 	if _, err := db.Exec(`CREATE TABLE user_usage_logs (id INTEGER PRIMARY KEY, user_id INTEGER, used_traffic_at_reset BIGINT DEFAULT 0)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`); err != nil {
+	if _, err := db.Exec(`CREATE TABLE user_credentials (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`CREATE TABLE next_plans (
@@ -655,7 +655,7 @@ func TestServiceHostChangeKeepsSubscriptionLinkAndChangesConfigOutput(t *testing
 	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, status, service_id, credential_key, used_traffic, data_limit, created_at) VALUES (30, 'config_user', 2, 'active', ?, '0123456789abcdef0123456789abcdef', 0, 1000, '2026-06-05 00:00:00')`, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO proxies (id, user_id, type, settings) VALUES (30, 30, 'vless', '{"id":"11111111-1111-4111-8111-111111111111"}')`); err != nil {
+	if _, err := db.Exec(`INSERT INTO user_credentials (id, user_id, type, settings) VALUES (30, 30, 'vless', '{"id":"11111111-1111-4111-8111-111111111111"}')`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -699,7 +699,7 @@ func TestServiceUsersReadRouteGoNative(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (7, 'service-users')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id) VALUES (2, 7)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO service_admins (admin_id, service_id) VALUES (2, 7)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO users (

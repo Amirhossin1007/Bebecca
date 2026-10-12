@@ -791,7 +791,7 @@ func (r Repository) subscriptionUserBySubadress(ctx context.Context, subadress s
 	}
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT username FROM users WHERE subadress = ? AND status != 'deleted' ORDER BY created_at DESC, id DESC LIMIT 2`,
+		`SELECT username FROM users WHERE subscription_token = ? AND status != 'deleted' ORDER BY created_at DESC, id DESC LIMIT 2`,
 		subadress,
 	)
 	if err != nil {
@@ -804,7 +804,7 @@ func (r Repository) subscriptionUserBySubadress(ctx context.Context, subadress s
 	if len(usernames) != 1 {
 		rows, err = r.db.QueryContext(
 			ctx,
-			`SELECT username FROM users WHERE subadress != '' AND LOWER(subadress) = LOWER(?) AND status != 'deleted' ORDER BY created_at DESC, id DESC LIMIT 2`,
+			`SELECT username FROM users WHERE subscription_token != '' AND LOWER(subscription_token) = LOWER(?) AND status != 'deleted' ORDER BY created_at DESC, id DESC LIMIT 2`,
 			subadress,
 		)
 		if err != nil {

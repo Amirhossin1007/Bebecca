@@ -383,7 +383,7 @@ func (s *Server) handleServiceDelete(w http.ResponseWriter, r *http.Request, ser
 			return err
 		}
 		var adminLinks int64
-		if err := tx.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM admins_services WHERE service_id = ?`, serviceID).Scan(&adminLinks); err != nil {
+		if err := tx.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM service_admins WHERE service_id = ?`, serviceID).Scan(&adminLinks); err != nil {
 			return err
 		}
 		if adminLinks > 0 && !payload.UnlinkAdmins {
@@ -426,7 +426,7 @@ func (s *Server) handleServiceDelete(w http.ResponseWriter, r *http.Request, ser
 		default:
 			return statusError{status: http.StatusBadRequest, detail: "Invalid delete mode"}
 		}
-		if _, err := tx.ExecContext(r.Context(), `DELETE FROM admins_services WHERE service_id = ?`, serviceID); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_admins WHERE service_id = ?`, serviceID); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_hosts WHERE service_id = ?`, serviceID); err != nil {
@@ -463,10 +463,10 @@ func (s *Server) handleServiceResetUsage(w http.ResponseWriter, r *http.Request,
 		if _, err := tx.ExecContext(r.Context(), `UPDATE services SET used_traffic = 0, users_usage = 0, updated_at = ? WHERE id = ?`, now, serviceID); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET used_traffic = 0, updated_at = ? WHERE service_id = ?`, now, serviceID); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `UPDATE service_admins SET used_traffic = 0, updated_at = ? WHERE service_id = ?`, now, serviceID); err != nil {
 			return err
 		}
-		rows, err := tx.QueryContext(r.Context(), `SELECT admin_id FROM admins_services WHERE service_id = ?`, serviceID)
+		rows, err := tx.QueryContext(r.Context(), `SELECT admin_id FROM service_admins WHERE service_id = ?`, serviceID)
 		if err != nil {
 			return err
 		}
@@ -583,7 +583,7 @@ func (s *Server) handleServiceAdminLimitUpdate(w http.ResponseWriter, r *http.Re
 		assignments = append(assignments, "updated_at = ?")
 		args = append(args, dbTimestamp(time.Now().UTC()))
 		args = append(args, adminID, serviceID)
-		if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `UPDATE service_admins SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...); err != nil {
 			return err
 		}
 		return reconcileAdminTrafficLimitByIDTx(r.Context(), tx, adminID, time.Now().UTC())
@@ -916,7 +916,7 @@ func (s *Server) servicesList(r *http.Request, dbadmin adminapp.Admin, name stri
 		args = append(args, "%"+name+"%")
 	}
 	if !dbadmin.Role.IsGlobal() {
-		join = " JOIN admins_services vis ON vis.service_id = s.id"
+		join = " JOIN service_admins vis ON vis.service_id = s.id"
 		where = append(where, "vis.admin_id = ?")
 		args = append(args, dbadmin.ID)
 	}
@@ -1060,7 +1060,7 @@ func (s *Server) serviceAdmins(ctx context.Context, serviceID int64) ([]serviceA
 	COALESCE(l.delete_user_usage_limit_enabled, 0),
 	l.delete_user_usage_limit,
 	COALESCE(l.deleted_users_usage, 0)
-FROM admins_services l
+FROM service_admins l
 JOIN admins a ON a.id = l.admin_id
 WHERE l.service_id = ? AND COALESCE(a.status, '') != 'deleted'
 ORDER BY a.username`, serviceID)
@@ -1095,7 +1095,7 @@ func (s *Server) serviceAdmin(ctx context.Context, serviceID int64, adminID int6
 	COALESCE(l.delete_user_usage_limit_enabled, 0),
 	l.delete_user_usage_limit,
 	COALESCE(l.deleted_users_usage, 0)
-FROM admins_services l
+FROM service_admins l
 JOIN admins a ON a.id = l.admin_id
 WHERE l.service_id = ? AND l.admin_id = ? AND COALESCE(a.status, '') != 'deleted'`, serviceID, adminID)
 	item, err := scanServiceAdmin(row)
@@ -1168,7 +1168,7 @@ func (s *Server) ensureServiceVisible(ctx context.Context, serviceID int64, dbad
 		return ensureServiceExistsDB(ctx, s.db, serviceID)
 	}
 	var exists int64
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins_services WHERE admin_id = ? AND service_id = ?`, dbadmin.ID, serviceID).Scan(&exists)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM service_admins WHERE admin_id = ? AND service_id = ?`, dbadmin.ID, serviceID).Scan(&exists)
 	if err != nil {
 		return err
 	}
@@ -1198,7 +1198,7 @@ func ensureServiceExistsTx(ctx context.Context, tx *sql.Tx, serviceID int64) err
 
 func ensureAdminServiceLinkExistsTx(ctx context.Context, tx *sql.Tx, adminID int64, serviceID int64) error {
 	var id int64
-	err := tx.QueryRowContext(ctx, `SELECT admin_id FROM admins_services WHERE admin_id = ? AND service_id = ? LIMIT 1`, adminID, serviceID).Scan(&id)
+	err := tx.QueryRowContext(ctx, `SELECT admin_id FROM service_admins WHERE admin_id = ? AND service_id = ? LIMIT 1`, adminID, serviceID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return statusError{status: http.StatusNotFound, detail: "Admin service link not found"}
 	}
@@ -1235,7 +1235,7 @@ func syncServiceAdminsTx(ctx context.Context, tx *sql.Tx, serviceID int64, admin
 			return err
 		}
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT admin_id FROM admins_services WHERE service_id = ?`, serviceID)
+	rows, err := tx.QueryContext(ctx, `SELECT admin_id FROM service_admins WHERE service_id = ?`, serviceID)
 	if err != nil {
 		return err
 	}
@@ -1251,7 +1251,7 @@ func syncServiceAdminsTx(ctx context.Context, tx *sql.Tx, serviceID int64, admin
 	for _, id := range existingIDs {
 		existing[id] = struct{}{}
 		if _, ok := desired[id]; !ok {
-			if _, err := tx.ExecContext(ctx, `DELETE FROM admins_services WHERE admin_id = ? AND service_id = ?`, id, serviceID); err != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM service_admins WHERE admin_id = ? AND service_id = ?`, id, serviceID); err != nil {
 				return err
 			}
 		}
@@ -1262,7 +1262,7 @@ func syncServiceAdminsTx(ctx context.Context, tx *sql.Tx, serviceID int64, admin
 		}
 		now := dbTimestamp(time.Now().UTC())
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO admins_services (
+INSERT INTO service_admins (
 	admin_id,
 	service_id,
 	used_traffic,

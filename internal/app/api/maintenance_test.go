@@ -24,7 +24,19 @@ func (r fakeRuntimeDetector) Info() systemapp.RuntimeInfo {
 type fakeUpdateChecker struct{}
 
 func (fakeUpdateChecker) Builds(context.Context, string) (systemapp.BuildCatalog, error) {
-	return systemapp.BuildCatalog{Floor: "v1.4.0"}, nil
+	return systemapp.BuildCatalog{
+		Floor: "v1.4.0",
+		Dev:   []systemapp.BuildVersion{{Version: "dev-abcdef0", Channel: "dev", Commit: "abcdef0123456789"}},
+	}, nil
+}
+
+type catalogUpdateChecker struct {
+	fakeUpdateChecker
+	catalog systemapp.BuildCatalog
+}
+
+func (c catalogUpdateChecker) Builds(context.Context, string) (systemapp.BuildCatalog, error) {
+	return c.catalog, nil
 }
 
 func (fakeUpdateChecker) Status(_ context.Context, repo string, current *string, channel string) systemapp.UpdateStatus {
@@ -172,6 +184,50 @@ func TestMaintenanceInfoBinaryAndDockerMock(t *testing.T) {
 	}
 	if dockerInfo.Panel.Mode != "docker" {
 		t.Fatalf("expected docker mode, got %#v", dockerInfo)
+	}
+}
+
+func TestMaintenanceUpdateRefusesDowngrades(t *testing.T) {
+	server, db := testAdminServer(t)
+	insertMasterAPIAdmin(t, db, 1, "owner", "pass123", adminapp.RoleSudo, adminapp.StatusActive)
+	token := adminBearerToken(t, server, "owner", "pass123")
+	server.maintenance = systemapp.NewMaintenanceServiceWithDeps(
+		fakeRuntimeDetector{info: systemapp.RuntimeInfo{Mode: "binary", InstallMode: "binary", Channel: "stable", Binary: map[string]any{}}},
+		catalogUpdateChecker{catalog: systemapp.BuildCatalog{
+			Floor:  "v1.6.0",
+			Stable: []systemapp.BuildVersion{{Version: "v1.6.0", Channel: "stable"}},
+		}},
+		&recordingScheduler{},
+	)
+	for _, body := range []string{`{"version":"v1.5.0"}`, `{"version":"v1.4.0"}`} {
+		rec := adminJSONRequest(t, server, http.MethodPost, "/api/maintenance/update", token, body)
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("update %s status=%d body=%s, want 409", body, rec.Code, rec.Body.String())
+		}
+	}
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/maintenance/update", token, `{"version":"v1.6.0"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update to the floor status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestNodeUpdateTargetRefusesDowngrades(t *testing.T) {
+	server, _ := testAdminServer(t)
+	server.maintenance = systemapp.NewMaintenanceServiceWithDeps(
+		fakeRuntimeDetector{info: systemapp.RuntimeInfo{Mode: "binary", InstallMode: "binary", Channel: "stable", Binary: map[string]any{}}},
+		catalogUpdateChecker{catalog: systemapp.BuildCatalog{
+			Floor:  "v1.6.0",
+			Stable: []systemapp.BuildVersion{{Version: "v1.6.0", Channel: "stable"}},
+		}},
+		&recordingScheduler{},
+	)
+	if _, err := server.resolveNodeUpdateVersion(context.Background(), 1, "", "v1.5.0"); err == nil {
+		t.Fatal("a node update below the node floor must be refused")
+	} else if status, _ := systemapp.HTTPStatus(err); status != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", status)
+	}
+	if _, err := server.resolveNodeUpdateVersion(context.Background(), 1, "", "v1.6.0"); err != nil {
+		t.Fatalf("a node update to the floor must be allowed: %v", err)
 	}
 }
 

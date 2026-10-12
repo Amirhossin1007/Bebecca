@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -1640,6 +1641,23 @@ func TestParseRejectsInvalidMultiUserShadowsocks2022(t *testing.T) {
 	}
 }
 
+func TestParseRejectsShadowsocks2022ChachaWithUsers(t *testing.T) {
+	password := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	_, err := Parse(map[string]any{
+		"inbounds": []any{map[string]any{
+			"tag": "ss", "port": 8388, "protocol": "shadowsocks",
+			"settings": map[string]any{
+				"method": "2022-blake3-chacha20-poly1305", "password": password,
+				"clients": []any{map[string]any{"email": "u", "password": password}},
+			},
+		}},
+		"outbounds": []any{map[string]any{"tag": "direct", "protocol": "freedom"}},
+	}, Options{})
+	if err == nil || !strings.Contains(err.Error(), "chacha20") {
+		t.Fatalf("chacha20 2022 with users must be rejected, got %v", err)
+	}
+}
+
 func TestParseAcceptsShadowsocks2022Chacha20(t *testing.T) {
 	password := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	_, err := Parse(map[string]any{
@@ -1970,4 +1988,105 @@ func hasAPIInbound(payload map[string]any) bool {
 		}
 	}
 	return false
+}
+
+func TestNormalizePayloadForXrayVersionAdaptsXDNSSchema(t *testing.T) {
+	payload := map[string]any{
+		"inbounds": []any{map[string]any{"tag": "server", "streamSettings": map[string]any{
+			"finalmask": map[string]any{"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{
+				"domains": []any{"t.example.com", "a.example.com:a"},
+			}}}},
+		}}},
+		"outbounds": []any{map[string]any{"tag": "client", "streamSettings": map[string]any{
+			"finalmask": map[string]any{"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{
+				"domains":   []any{"ignored.example.com"},
+				"resolvers": []any{"t.example.com:aaaa+udp://1.1.1.1:53", "t.example.com+udp://8.8.8.8:53"},
+			}}}},
+		}}},
+	}
+	xdnsSettings := func(t *testing.T, config map[string]any, direction string) map[string]any {
+		t.Helper()
+		var stream map[string]any
+		if direction == "inbound" {
+			stream = mapValue(listOfMaps(config["inbounds"])[0]["streamSettings"])
+		} else {
+			stream = mapValue(listOfMaps(config["outbounds"])[0]["streamSettings"])
+		}
+		return mapValue(listOfMaps(mapValue(stream["finalmask"])["udp"])[0]["settings"])
+	}
+
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.9")
+	if warning != "" {
+		t.Fatalf("legacy XDNS warning = %q", warning)
+	}
+	if got := xdnsSettings(t, legacy, "inbound")["domains"]; !reflect.DeepEqual(got, []any{"t.example.com", "a.example.com:a"}) {
+		t.Fatalf("legacy XDNS server domains changed: %#v", got)
+	}
+
+	v2, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.30")
+	if !strings.Contains(warning, "26.9.30+ schema") {
+		t.Fatalf("26.9.30 XDNS warning = %q", warning)
+	}
+	serverV2 := xdnsSettings(t, v2, "inbound")["domains"]
+	if !reflect.DeepEqual(serverV2, []any{
+		map[string]any{"name": "t.example.com", "types": []any{1, 5, 16, 28}},
+		map[string]any{"name": "a.example.com", "types": []any{1}},
+	}) {
+		t.Fatalf("26.9.30 XDNS server domains = %#v", serverV2)
+	}
+	clientV2 := xdnsSettings(t, v2, "outbound")
+	if !reflect.DeepEqual(clientV2["domains"], []any{
+		map[string]any{"name": "t.example.com", "types": []any{28}},
+		map[string]any{"name": "t.example.com", "types": []any{16}},
+	}) || !reflect.DeepEqual(clientV2["resolvers"], []any{
+		map[string]any{"type": "udp", "settings": map[string]any{"addr": "1.1.1.1:53"}},
+		map[string]any{"type": "udp", "settings": map[string]any{"addr": "8.8.8.8:53"}},
+	}) {
+		t.Fatalf("26.9.30 XDNS client settings = %#v", clientV2)
+	}
+
+	v3, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.10.10")
+	if !strings.Contains(warning, "26.10.10+ schema") {
+		t.Fatalf("26.10.10 XDNS warning = %q", warning)
+	}
+	serverV3 := xdnsSettings(t, v3, "inbound")["domains"]
+	if !reflect.DeepEqual(serverV3, []any{
+		map[string]any{"names": []any{"t.example.com"}, "types": []any{1, 5, 16, 28}},
+		map[string]any{"names": []any{"a.example.com"}, "types": []any{1}},
+	}) {
+		t.Fatalf("26.10.10 XDNS server domains = %#v", serverV3)
+	}
+	clientV3 := xdnsSettings(t, v3, "outbound")
+	if !reflect.DeepEqual(clientV3["resolvers"], []any{
+		map[string]any{"addrs": []any{"udp://1.1.1.1:53"}},
+		map[string]any{"addrs": []any{"udp://8.8.8.8:53"}},
+	}) {
+		t.Fatalf("26.10.10 XDNS client resolvers = %#v", clientV3)
+	}
+}
+
+func TestNormalizePayloadForXrayVersionDropsNonIPWireGuardRemoteDNS(t *testing.T) {
+	outbound := func(remoteDNS ...any) map[string]any {
+		return map[string]any{"tag": "wg", "protocol": "wireguard", "settings": map[string]any{"remoteDNS": remoteDNS}}
+	}
+	payload := map[string]any{"outbounds": []any{outbound("1.1.1.1", "local"), outbound("local")}}
+
+	kept, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.30")
+	if !strings.Contains(warning, "remoteDNS") {
+		t.Fatalf("WireGuard remoteDNS warning = %q", warning)
+	}
+	if got := mapValue(listOfMaps(kept["outbounds"])[0]["settings"])["remoteDNS"]; !reflect.DeepEqual(got, []string{"1.1.1.1"}) {
+		t.Fatalf("WireGuard remoteDNS after 26.9.30 = %#v", got)
+	}
+	if _, exists := mapValue(listOfMaps(kept["outbounds"])[1]["settings"])["remoteDNS"]; exists {
+		t.Fatalf("WireGuard non-IP-only remoteDNS was kept: %#v", kept)
+	}
+
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.9")
+	if warning != "" {
+		t.Fatalf("legacy WireGuard warning = %q", warning)
+	}
+	if got := mapValue(listOfMaps(legacy["outbounds"])[0]["settings"])["remoteDNS"]; !reflect.DeepEqual(got, []any{"1.1.1.1", "local"}) {
+		t.Fatalf("legacy WireGuard remoteDNS changed: %#v", got)
+	}
 }

@@ -125,7 +125,7 @@ FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted' LIMIT 1`, n
 
 func (r Repository) TLS(ctx context.Context) (TLSRow, error) {
 	var row TLSRow
-	err := r.db.QueryRowContext(ctx, `SELECT certificate, `+"`key`"+` FROM tls ORDER BY id LIMIT 1`).Scan(&row.Certificate, &row.Key)
+	err := r.db.QueryRowContext(ctx, `SELECT certificate, private_key FROM default_certificates ORDER BY id LIMIT 1`).Scan(&row.Certificate, &row.Key)
 	if err != nil {
 		return TLSRow{}, err
 	}
@@ -317,7 +317,7 @@ SELECT
 	COALESCE(p.settings, '{}')
 FROM users u
 JOIN (` + protocolQuery + `) protocols
-LEFT JOIN proxies p ON u.id = p.user_id AND LOWER(p.type) = protocols.type`
+LEFT JOIN user_credentials p ON u.id = p.user_id AND LOWER(p.type) = protocols.type`
 	if excludeVPNSessions {
 		query += `
 LEFT JOIN (
@@ -455,7 +455,7 @@ func (r Repository) callbackSecret(ctx context.Context) (string, error) {
 		return "", nil
 	}
 	var adminSecret, legacySecret sql.NullString
-	err := r.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM jwt ORDER BY id LIMIT 1`).Scan(&adminSecret, &legacySecret)
+	err := r.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM auth_secrets ORDER BY id LIMIT 1`).Scan(&adminSecret, &legacySecret)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -680,6 +680,99 @@ AND (
 	query += ` ORDER BY id LIMIT ?`
 	args = append(args, limit)
 
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]OperationRow, 0, limit)
+	for rows.Next() {
+		var row OperationRow
+		var payload []byte
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+			return nil, err
+		}
+		row.Payload = append(row.Payload[:0], payload...)
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (r Repository) PendingRuntimeUserOperationsAll(ctx context.Context, limit int) ([]OperationRow, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	if limit > maxPendingOperationsLimit {
+		limit = maxPendingOperationsLimit
+	}
+	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
+	rows, err := r.db.QueryContext(ctx, `
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts
+FROM node_operations no
+JOIN nodes n ON n.id = no.node_id
+WHERE (
+    no.status = 'pending'
+    OR (no.status = 'retrying' AND no.updated_at <= ?)
+  )
+  AND no.user_id IS NOT NULL
+  AND no.node_id IS NOT NULL
+  AND no.operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
+  AND LOWER(COALESCE(n.status, '')) = 'connected'
+ORDER BY no.id
+LIMIT ?`, retryCutoff, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]OperationRow, 0, limit)
+	for rows.Next() {
+		var row OperationRow
+		var payload []byte
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+			return nil, err
+		}
+		row.Payload = append(row.Payload[:0], payload...)
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func (r Repository) PendingRuntimeUserOperationsForUsers(ctx context.Context, userIDs []int64, limit int) ([]OperationRow, error) {
+	userIDs = uniqueInt64s(userIDs)
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 1000
+	}
+	if limit > maxPendingOperationsLimit {
+		limit = maxPendingOperationsLimit
+	}
+	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
+	args := []any{retryCutoff}
+	for _, userID := range userIDs {
+		args = append(args, userID)
+	}
+	args = append(args, limit)
+	query := `
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts
+FROM node_operations no
+JOIN nodes n ON n.id = no.node_id
+WHERE (
+    no.status = 'pending'
+    OR (no.status = 'retrying' AND no.updated_at <= ?)
+  )
+  AND no.user_id IN (` + placeholders(len(userIDs)) + `)
+  AND no.node_id IS NOT NULL
+  AND no.operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
+  AND LOWER(COALESCE(n.status, '')) = 'connected'
+ORDER BY no.id
+LIMIT ?`
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
