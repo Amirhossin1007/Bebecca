@@ -1341,8 +1341,8 @@ function AppLayoutContent() {
 			const profileWidth = profileEl ? profileEl.offsetWidth : 80;
 			const starsWidth = starsEl ? starsEl.offsetWidth : 80;
 			const isFa = i18n.language?.startsWith("fa");
-			const fullCalendarWidth = isFa ? 165 : 175;
-			const compactCalendarWidth = 34;
+			const fullCalendarWidth = isFa ? 180 : 196;
+			const compactCalendarWidth = 36;
 			const compactControlsWidth =
 				compactCalendarWidth + 8 + starsWidth + 8 + profileWidth;
 			const fullControlsWidth =
@@ -1355,7 +1355,7 @@ function AppLayoutContent() {
 			const isDesktop = window.innerWidth >= 768;
 			const headerPadding = isDesktop ? 40 : 24;
 			const hstackGap = 12;
-			const navDividerGaps = 21;
+			const navDividerGaps = 25;
 			const bannerGap = hasBanner ? 10 : 0;
 
 			const fixedOverheadFull =
@@ -1413,7 +1413,7 @@ function AppLayoutContent() {
 							true,
 						);
 
-			const buffer = 4;
+			const buffer = 18;
 			const stage1Needed = fullBreadcrumbWidth + bannerWidth + buffer;
 			const stage2Needed = fullBreadcrumbWidth + bannerWidth + buffer;
 			const stage3Needed = compactBreadcrumbWidth + bannerWidth + buffer;

@@ -9,11 +9,11 @@ const sharedThemeConfig = {
 	direction: "ltr" as const,
 	breakpoints: {
 		base: "0px",
-		sm: "470px",
-		md: "759px",
-		lg: "982px",
-		xl: "1270px",
-		"2xl": "1526px",
+		sm: "480px",
+		md: "769px",
+		lg: "992px",
+		xl: "1280px",
+		"2xl": "1536px",
 	},
 	shadows: { outline: "0 0 0 2px var(--chakra-colors-primary-200)" },
 	fonts: {
