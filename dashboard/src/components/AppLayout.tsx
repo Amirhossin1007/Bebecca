@@ -31,6 +31,7 @@ import {
 	ArrowsRightLeftIcon,
 	ArrowUpOnSquareIcon,
 	BellIcon,
+	BoltIcon,
 	BookOpenIcon,
 	BriefcaseIcon,
 	ChartBarIcon,
@@ -121,6 +122,9 @@ const TutorialIcon = chakra(BookOpenIcon, iconProps);
 const UsageIcon = chakra(ChartBarIcon, iconProps);
 const MyAccountIcon = chakra(UserCircleIcon, iconProps);
 const AdminIcon = chakra(BriefcaseIcon, iconProps);
+const BulkActionsIcon = chakra(BoltIcon, iconProps);
+const UsersGroupIcon = chakra(UserGroupIcon, iconProps);
+const UsersListIcon = chakra(UserGroupIcon, iconProps);
 const NotificationNavIcon = chakra(BellIcon, iconProps);
 const XrayLogsIcon = chakra(DocumentTextIcon, iconProps);
 const ChevronDownIconStyled = chakra(ChevronDownIcon, {
@@ -346,6 +350,7 @@ function AppLayoutContent() {
 	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
 		Record<string, boolean>
 	>({
+		users_hub: true,
 		core_routing: false,
 		system_tools: false,
 		observability: false,
@@ -458,408 +463,6 @@ function AppLayoutContent() {
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
 		Boolean(baseSelf.self_placeholders);
 
-	const settingsMenuItems = useMemo(() => {
-		const items: Array<SettingsMenuItem | null> = [
-			Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin
-				? {
-						key: "errors",
-						label: t("errors.title", "Errors"),
-						to: "/errors",
-						icon: InsightsIcon,
-					}
-				: null,
-			canViewServicesSection
-				? {
-						key: "services",
-						label: t("services.title"),
-						to: "/services",
-						icon: ServicesIcon,
-					}
-				: null,
-			canViewHosts
-				? {
-						key: "hosts",
-						label: t("header.hostSettings"),
-						to: "/hosts",
-						icon: HostsIcon,
-					}
-				: null,
-			canViewNodes
-				? {
-						key: "node-settings",
-						label: t("header.nodeSettings"),
-						to: "/node-settings",
-						icon: NodesIcon,
-					}
-				: null,
-			sectionAccess?.[AdminSection.Integrations]
-				? {
-						key: "settings",
-						label: t("header.integrationSettings"),
-						to: "/settings",
-						icon: MasterSettingsIcon,
-					}
-				: null,
-			sectionAccess?.[AdminSection.Xray]
-				? {
-						key: "xray-settings",
-						label: t("header.xraySettings"),
-						to: "/xray-settings",
-						icon: XraySettingsIcon,
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "haproxy",
-						label: t("haproxy.title"),
-						to: "/haproxy",
-						icon: HAProxyIcon,
-					}
-				: null,
-			sectionAccess?.[AdminSection.Xray]
-				? {
-						key: "access-insights",
-						label: t("header.accessInsights"),
-						to: "/access-insights",
-						icon: InsightsIcon,
-					}
-				: null,
-			canViewRecentActions
-				? {
-						key: "recent-actions",
-						label: t("recentActions.title"),
-						to: "/recent-actions",
-						icon: RecentActionsIcon,
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "phpmyadmin",
-						label: t("phpmyadmin.menu"),
-						to: "/phpmyadmin",
-						icon: PHPMyAdminIcon,
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "external-apps",
-						label: t("externalApps.menu"),
-						to: "/external-apps",
-						icon: ExternalAppsIcon,
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "api-docs",
-						label: t("apiDocs.menu"),
-						to: "/api-docs",
-						icon: DocsIcon,
-					}
-				: null,
-			canManagePlaceholders
-				? {
-						key: "placeholders",
-						label: isPrivilegedAdmin
-							? t("placeholders.menu")
-							: t("placeholders.settingsMenu"),
-						to: "/placeholders",
-						icon: PlaceholderIcon,
-					}
-				: null,
-			canViewUsage
-				? {
-						key: "usage",
-						label: t("usage.menu"),
-						to: "/usage",
-						icon: UsageIcon,
-					}
-				: null,
-			{
-				key: "notifications",
-				label: t("notifications.menu"),
-				to: "/notifications",
-				icon: NotificationNavIcon,
-			},
-			{
-				key: "tutorials",
-				label: t("tutorials.menu"),
-				to: tutorialsUrl,
-				icon: TutorialIcon,
-			},
-		];
-		return items.filter(Boolean) as SettingsMenuItem[];
-	}, [
-		canManagePlaceholders,
-		canViewHosts,
-		canViewNodes,
-		canViewRecentActions,
-		canViewServicesSection,
-		canViewUsage,
-		isPrivilegedAdmin,
-		sectionAccess,
-		t,
-	]);
-
-	const mobileDockSections = useMemo(
-		() =>
-			[
-				{
-					id: "sec_infrastructure",
-					title: t("sidebar.sections.infrastructure"),
-					items: [
-						canViewNodes
-							? {
-									type: "direct" as const,
-									key: "node-settings",
-									label: t("header.nodeSettings"),
-									to: "/node-settings",
-									icon: NodesIcon,
-								}
-							: null,
-						canViewHosts
-							? {
-									type: "direct" as const,
-									key: "hosts",
-									label: t("header.hostSettings"),
-									to: "/hosts",
-									icon: HostsIcon,
-								}
-							: null,
-						canViewServicesSection
-							? {
-									type: "direct" as const,
-									key: "services",
-									label: t("services.title"),
-									to: "/services",
-									icon: ServicesIcon,
-								}
-							: null,
-					].filter(Boolean) as Array<{
-						type: "direct";
-						key: string;
-						label: string;
-						to: string;
-						icon: ElementType;
-					}>,
-				},
-				{
-					id: "sec_system",
-					title: t("sidebar.sections.system"),
-					items: [
-						{
-							type: "group" as const,
-							id: "core_routing",
-							title: t("sidebar.groups.coreRouting"),
-							icon: XraySettingsIcon,
-							subItems: [
-								sectionAccess?.[AdminSection.Xray]
-									? {
-											id: "xray-settings",
-											title: t("header.xraySettings"),
-											to: "/xray-settings",
-											icon: XraySettingsIcon,
-										}
-									: null,
-								isPrivilegedAdmin
-									? {
-											id: "haproxy",
-											title: t("haproxy.title"),
-											to: "/haproxy",
-											icon: HAProxyIcon,
-										}
-									: null,
-							].filter(Boolean) as Array<{
-								id: string;
-								title: string;
-								to: string;
-								icon: ElementType;
-							}>,
-						},
-						{
-							type: "group" as const,
-							id: "system_tools",
-							title: t("sidebar.groups.system"),
-							icon: MasterSettingsIcon,
-							subItems: [
-								sectionAccess?.[AdminSection.Integrations]
-									? {
-											id: "settings",
-											title: t("header.integrationSettings"),
-											to: "/settings",
-											icon: MasterSettingsIcon,
-										}
-									: null,
-								{
-									id: "notifications",
-									title: t("notifications.menu"),
-									to: "/notifications",
-									icon: NotificationNavIcon,
-								},
-								canManagePlaceholders
-									? {
-											id: "placeholders",
-											title: isPrivilegedAdmin
-												? t("placeholders.menu")
-												: t("placeholders.settingsMenu"),
-											to: "/placeholders",
-											icon: PlaceholderIcon,
-										}
-									: null,
-								isPrivilegedAdmin
-									? {
-											id: "phpmyadmin",
-											title: t("phpmyadmin.menu"),
-											to: "/phpmyadmin",
-											icon: PHPMyAdminIcon,
-										}
-									: null,
-								isPrivilegedAdmin
-									? {
-											id: "external-apps",
-											title: t("externalApps.menu"),
-											to: "/external-apps",
-											icon: ExternalAppsIcon,
-										}
-									: null,
-							].filter(Boolean) as Array<{
-								id: string;
-								title: string;
-								to: string;
-								icon: ElementType;
-							}>,
-						},
-						{
-							type: "group" as const,
-							id: "observability",
-							title: t("sidebar.groups.observability"),
-							icon: InsightsIcon,
-							subItems: [
-								sectionAccess?.[AdminSection.Xray]
-									? {
-											id: "xray-logs",
-											title: t("pages.xray.logs"),
-											to: "/xray-logs",
-											icon: XrayLogsIcon,
-										}
-									: null,
-								Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin
-									? {
-											id: "errors",
-											title: t("errors.title", "Errors"),
-											to: "/errors",
-											icon: InsightsIcon,
-										}
-									: null,
-								sectionAccess?.[AdminSection.Xray]
-									? {
-											id: "access-insights",
-											title: t("header.accessInsights"),
-											to: "/access-insights",
-											icon: InsightsIcon,
-										}
-									: null,
-								canViewRecentActions
-									? {
-											id: "recent-actions",
-											title: t("recentActions.title"),
-											to: "/recent-actions",
-											icon: RecentActionsIcon,
-										}
-									: null,
-							].filter(Boolean) as Array<{
-								id: string;
-								title: string;
-								to: string;
-								icon: ElementType;
-							}>,
-						},
-					],
-				},
-				{
-					id: "sec_traffic_admins",
-					title: t("sidebar.sections.trafficAndAdmins"),
-					items: [
-						selfAccess.self_myaccount
-							? {
-									type: "direct" as const,
-									key: "myaccount",
-									label: t("myaccount.menu"),
-									to: "/myaccount",
-									icon: MyAccountIcon,
-								}
-							: null,
-						canViewUsage
-							? {
-									type: "direct" as const,
-									key: "usage",
-									label: t("usage.menu"),
-									to: "/usage",
-									icon: UsageIcon,
-								}
-							: null,
-						canViewAdmins
-							? {
-									type: "direct" as const,
-									key: "admins",
-									label: t("admins"),
-									to: "/admins",
-									icon: AdminIcon,
-								}
-							: null,
-					].filter(Boolean) as Array<{
-						type: "direct";
-						key: string;
-						label: string;
-						to: string;
-						icon: ElementType;
-					}>,
-				},
-				{
-					id: "sec_docs",
-					title: t("sidebar.sections.docs"),
-					items: [
-						{
-							type: "direct" as const,
-							key: "tutorials",
-							label: t("sidebar.tutorialsAndFaq"),
-							to: tutorialsUrl,
-							icon: TutorialIcon,
-						},
-						isPrivilegedAdmin
-							? {
-									type: "direct" as const,
-									key: "api-docs",
-									label: t("apiDocs.menu"),
-									to: "/api-docs",
-									icon: DocsIcon,
-								}
-							: null,
-					].filter(Boolean) as Array<{
-						type: "direct";
-						key: string;
-						label: string;
-						to: string;
-						icon: ElementType;
-					}>,
-				},
-			].filter((sec) => sec.items.length > 0),
-		[
-			t,
-			canViewNodes,
-			canViewHosts,
-			canViewServicesSection,
-			canViewUsage,
-			canViewAdmins,
-			canViewRecentActions,
-			canManagePlaceholders,
-			isPrivilegedAdmin,
-			sectionAccess,
-			selfAccess.self_myaccount,
-		],
-	);
-
-	const hasSettingsMenu = settingsMenuItems.length > 0;
-
 	const changeLanguage = async (lang: string) => {
 		const nextDir = i18n.dir(lang);
 		document.documentElement.dir = nextDir;
@@ -970,50 +573,379 @@ function AppLayoutContent() {
 		};
 	}, [isMobile, isRTL, sidebarDrawer]);
 
+	const hasSettingsMenu = Boolean(
+		canViewNodes ||
+			canViewHosts ||
+			canViewServicesSection ||
+			canViewUsage ||
+			isPrivilegedAdmin ||
+			sectionAccess?.[AdminSection.Xray] ||
+			sectionAccess?.[AdminSection.Integrations] ||
+			canViewRecentActions ||
+			canManagePlaceholders ||
+			true,
+	);
+
 	const bottomNavItems = useMemo<BottomNavItem[]>(() => {
 		const items: BottomNavItem[] = [];
 		const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
-		const canSeeMyAccount = Boolean(selfAccess.self_myaccount);
-
-		items.push({
-			key: "dashboard",
-			label: t("dashboard"),
-			to: "/",
-		});
-		items.push({
-			key: "users",
-			label: t("users"),
-			to: "/users",
-		});
-		if (canSeeMyAccount) {
-			items.push({
-				key: "myaccount",
-				label: t("myaccount.menu"),
-				to: "/myaccount",
-			});
+		items.push({ key: "users", label: t("users"), to: "/users" });
+		if (canSeeAdmins) {
+			items.push({ key: "admins", label: t("admins"), to: "/admins" });
 		}
-		if (canSeeAdmins && items.length + (hasSettingsMenu ? 1 : 0) < 5) {
-			items.push({
-				key: "admins",
-				label: t("admins"),
-				to: "/admins",
-			});
-		} else if (items.length + (hasSettingsMenu ? 1 : 0) < 5) {
+		if (items.length + 3 + (hasSettingsMenu ? 1 : 0) <= 5) {
 			items.push({
 				key: "notifications",
 				label: t("notifications.menu"),
 				to: "/notifications",
 			});
 		}
+		items.push({ key: "myaccount", label: t("myaccount.menu"), to: "/myaccount" });
 		if (hasSettingsMenu) {
-			items.push({
-				key: "settings",
-				label: t("header.settings"),
-				kind: "menu",
-			});
+			items.push({ key: "settings", label: t("header.settings"), kind: "menu" });
+		}
+		items.splice(Math.floor((items.length + 1) / 2), 0, {
+			key: "dashboard",
+			label: t("dashboard"),
+			to: "/",
+		});
+		return items;
+	}, [t, sectionAccess, hasSettingsMenu]);
+
+	const dockRoutes = useMemo(
+		() => new Set(bottomNavItems.map((item) => item.to).filter(Boolean) as string[]),
+		[bottomNavItems],
+	);
+
+	const mobileDockSections = useMemo(
+		() =>
+			[
+				{
+					id: "sec_users",
+					title: t("sidebar.sections.users"),
+					items: [
+						{
+							type: "group" as const,
+							id: "users_hub",
+							title: t("sidebar.groups.userHub"),
+							icon: UsersGroupIcon,
+							subItems: [
+								!dockRoutes.has("/users")
+									? {
+											id: "users_list",
+											title: t("sidebar.usersList"),
+											to: "/users",
+											icon: UsersListIcon,
+										}
+									: null,
+								!dockRoutes.has("/bulk-actions")
+									? {
+											id: "bulk-actions",
+											title: t("bulkActions.menu"),
+											to: "/bulk-actions",
+											icon: BulkActionsIcon,
+										}
+									: null,
+							].filter(Boolean) as Array<{
+								id: string;
+								title: string;
+								to: string;
+								icon: ElementType;
+							}>,
+						},
+					].filter((item) => item.subItems.length > 0),
+				},
+				{
+					id: "sec_infrastructure",
+					title: t("sidebar.sections.infrastructure"),
+					items: [
+						canViewNodes && !dockRoutes.has("/node-settings")
+							? {
+									type: "direct" as const,
+									key: "node-settings",
+									label: t("header.nodeSettings"),
+									to: "/node-settings",
+									icon: NodesIcon,
+								}
+							: null,
+						canViewHosts && !dockRoutes.has("/hosts")
+							? {
+									type: "direct" as const,
+									key: "hosts",
+									label: t("header.hostSettings"),
+									to: "/hosts",
+									icon: HostsIcon,
+								}
+							: null,
+						canViewServicesSection && !dockRoutes.has("/services")
+							? {
+									type: "direct" as const,
+									key: "services",
+									label: t("services.title"),
+									to: "/services",
+									icon: ServicesIcon,
+								}
+							: null,
+					].filter(Boolean) as Array<{
+						type: "direct";
+						key: string;
+						label: string;
+						to: string;
+						icon: ElementType;
+					}>,
+				},
+				{
+					id: "sec_traffic_admins",
+					title: t("sidebar.sections.trafficAndAdmins"),
+					items: [
+						selfAccess.self_myaccount && !dockRoutes.has("/myaccount")
+							? {
+									type: "direct" as const,
+									key: "myaccount",
+									label: t("myaccount.menu"),
+									to: "/myaccount",
+									icon: MyAccountIcon,
+								}
+							: null,
+						canViewUsage && !dockRoutes.has("/usage")
+							? {
+									type: "direct" as const,
+									key: "usage",
+									label: t("usage.menu"),
+									to: "/usage",
+									icon: UsageIcon,
+								}
+							: null,
+						canViewAdmins && !dockRoutes.has("/admins")
+							? {
+									type: "direct" as const,
+									key: "admins",
+									label: t("admins"),
+									to: "/admins",
+									icon: AdminIcon,
+								}
+							: null,
+					].filter(Boolean) as Array<{
+						type: "direct";
+						key: string;
+						label: string;
+						to: string;
+						icon: ElementType;
+					}>,
+				},
+				{
+					id: "sec_system",
+					title: t("sidebar.sections.system"),
+					items: [
+						{
+							type: "group" as const,
+							id: "core_routing",
+							title: t("sidebar.groups.coreRouting"),
+							icon: XraySettingsIcon,
+							subItems: [
+								sectionAccess?.[AdminSection.Xray] &&
+								!dockRoutes.has("/xray-settings")
+									? {
+											id: "xray-settings",
+											title: t("header.xraySettings"),
+											to: "/xray-settings",
+											icon: XraySettingsIcon,
+										}
+									: null,
+								isPrivilegedAdmin && !dockRoutes.has("/haproxy")
+									? {
+											id: "haproxy",
+											title: t("haproxy.title"),
+											to: "/haproxy",
+											icon: HAProxyIcon,
+										}
+									: null,
+							].filter(Boolean) as Array<{
+								id: string;
+								title: string;
+								to: string;
+								icon: ElementType;
+							}>,
+						},
+						{
+							type: "group" as const,
+							id: "system_tools",
+							title: t("sidebar.groups.system"),
+							icon: MasterSettingsIcon,
+							subItems: [
+								sectionAccess?.[AdminSection.Integrations] &&
+								!dockRoutes.has("/settings")
+									? {
+											id: "settings",
+											title: t("header.integrationSettings"),
+											to: "/settings",
+											icon: MasterSettingsIcon,
+										}
+									: null,
+								!dockRoutes.has("/notifications")
+									? {
+											id: "notifications",
+											title: t("notifications.menu"),
+											to: "/notifications",
+											icon: NotificationNavIcon,
+										}
+									: null,
+								canManagePlaceholders && !dockRoutes.has("/placeholders")
+									? {
+											id: "placeholders",
+											title: isPrivilegedAdmin
+												? t("placeholders.menu")
+												: t("placeholders.settingsMenu"),
+											to: "/placeholders",
+											icon: PlaceholderIcon,
+										}
+									: null,
+								isPrivilegedAdmin && !dockRoutes.has("/phpmyadmin")
+									? {
+											id: "phpmyadmin",
+											title: t("phpmyadmin.menu"),
+											to: "/phpmyadmin",
+											icon: PHPMyAdminIcon,
+										}
+									: null,
+								isPrivilegedAdmin && !dockRoutes.has("/external-apps")
+									? {
+											id: "external-apps",
+											title: t("externalApps.menu"),
+											to: "/external-apps",
+											icon: ExternalAppsIcon,
+										}
+									: null,
+							].filter(Boolean) as Array<{
+								id: string;
+								title: string;
+								to: string;
+								icon: ElementType;
+							}>,
+						},
+						{
+							type: "group" as const,
+							id: "observability",
+							title: t("sidebar.groups.observability"),
+							icon: InsightsIcon,
+							subItems: [
+								sectionAccess?.[AdminSection.Xray] &&
+								!dockRoutes.has("/xray-logs")
+									? {
+											id: "xray-logs",
+											title: t("pages.xray.logs"),
+											to: "/xray-logs",
+											icon: XrayLogsIcon,
+										}
+									: null,
+								(Boolean(sectionAccess?.[AdminSection.Xray]) ||
+									isPrivilegedAdmin) &&
+								!dockRoutes.has("/errors")
+									? {
+											id: "errors",
+											title: t("errors.title", "Errors"),
+											to: "/errors",
+											icon: InsightsIcon,
+										}
+									: null,
+								sectionAccess?.[AdminSection.Xray] &&
+								!dockRoutes.has("/access-insights")
+									? {
+											id: "access-insights",
+											title: t("header.accessInsights"),
+											to: "/access-insights",
+											icon: InsightsIcon,
+										}
+									: null,
+								canViewRecentActions && !dockRoutes.has("/recent-actions")
+									? {
+											id: "recent-actions",
+											title: t("recentActions.title"),
+											to: "/recent-actions",
+											icon: RecentActionsIcon,
+										}
+									: null,
+							].filter(Boolean) as Array<{
+								id: string;
+								title: string;
+								to: string;
+								icon: ElementType;
+							}>,
+						},
+					].filter((item) => item.subItems.length > 0),
+				},
+				{
+					id: "sec_docs",
+					title: t("sidebar.sections.docs"),
+					items: [
+						!dockRoutes.has(tutorialsUrl)
+							? {
+									type: "direct" as const,
+									key: "tutorials",
+									label: t("sidebar.tutorialsAndFaq"),
+									to: tutorialsUrl,
+									icon: TutorialIcon,
+								}
+							: null,
+						isPrivilegedAdmin && !dockRoutes.has("/api-docs")
+							? {
+									type: "direct" as const,
+									key: "api-docs",
+									label: t("apiDocs.menu"),
+									to: "/api-docs",
+									icon: DocsIcon,
+								}
+							: null,
+					].filter(Boolean) as Array<{
+						type: "direct";
+						key: string;
+						label: string;
+						to: string;
+						icon: ElementType;
+					}>,
+				},
+			].filter((sec) => sec.items.length > 0),
+		[
+			t,
+			dockRoutes,
+			canViewNodes,
+			canViewHosts,
+			canViewServicesSection,
+			canViewUsage,
+			canViewAdmins,
+			canViewRecentActions,
+			canManagePlaceholders,
+			isPrivilegedAdmin,
+			sectionAccess,
+			selfAccess.self_myaccount,
+		],
+	);
+
+	const settingsMenuItems = useMemo<SettingsMenuItem[]>(() => {
+		const items: SettingsMenuItem[] = [];
+		for (const sec of mobileDockSections) {
+			for (const entry of sec.items) {
+				if (entry.type === "direct") {
+					items.push({
+						key: entry.key,
+						label: entry.label,
+						to: entry.to,
+						icon: entry.icon,
+					});
+				} else if (entry.type === "group") {
+					for (const sub of entry.subItems) {
+						items.push({
+							key: sub.id,
+							label: sub.title,
+							to: sub.to,
+							icon: sub.icon,
+						});
+					}
+				}
+			}
 		}
 		return items;
-	}, [t, sectionAccess, selfAccess.self_myaccount, hasSettingsMenu]);
+	}, [mobileDockSections]);
 
 	const activeSettingsItem = useMemo(
 		() =>
