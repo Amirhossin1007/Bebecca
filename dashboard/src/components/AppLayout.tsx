@@ -33,6 +33,7 @@ import {
 	BellIcon,
 	BookOpenIcon,
 	BriefcaseIcon,
+	ChartBarIcon,
 	CheckIcon,
 	ChevronDownIcon,
 	CircleStackIcon,
@@ -41,12 +42,14 @@ import {
 	Cog8ToothIcon,
 	CommandLineIcon,
 	DocumentDuplicateIcon,
+	DocumentTextIcon,
 	EyeIcon,
 	HomeIcon as HeroHomeIcon,
 	LanguageIcon,
 	LinkIcon,
 	ServerStackIcon,
 	Squares2X2Icon,
+	UserCircleIcon,
 	UserIcon,
 	UserGroupIcon,
 	WrenchScrewdriverIcon,
@@ -115,6 +118,11 @@ const InsightsIcon = chakra(EyeIcon, iconProps);
 const RecentActionsIcon = chakra(ClockIcon, iconProps);
 const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
 const TutorialIcon = chakra(BookOpenIcon, iconProps);
+const UsageIcon = chakra(ChartBarIcon, iconProps);
+const MyAccountIcon = chakra(UserCircleIcon, iconProps);
+const AdminIcon = chakra(BriefcaseIcon, iconProps);
+const NotificationNavIcon = chakra(BellIcon, iconProps);
+const XrayLogsIcon = chakra(DocumentTextIcon, iconProps);
 const ChevronDownIconStyled = chakra(ChevronDownIcon, {
 	baseStyle: { w: 3.5, h: 3.5 },
 });
@@ -341,9 +349,14 @@ function AppLayoutContent() {
 	const dockInactiveText = useColorModeValue("gray.700", "gray.300");
 	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
 	const shellBorder = useColorModeValue("panel.border", "panel.border");
-	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
-	const shellHeaderShadow = menuShadow;
-	const shellMainBg = useColorModeValue("panel.main", "panel.main");
+	const shellHeaderBg = useColorModeValue(
+		"rgba(255, 255, 255, 0.88)",
+		"rgba(36, 36, 36, 0.88)",
+	);
+	const shellHeaderShadow = useColorModeValue(
+		"0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)",
+		"0 8px 32px -4px rgba(0, 0, 0, 0.36), 0 1px 3px rgba(0, 0, 0, 0.12)",
+	);
 	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const headerButtonHoverBg = useColorModeValue(
 		"panel.borderStrong",
@@ -382,29 +395,50 @@ function AppLayoutContent() {
 		{ code: "ru", label: "Русский", flag: "RU" },
 	];
 
-	const isPrivilegedAdmin =
-		userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo;
+	const isFullAccess = userData.role === AdminRole.FullAccess;
+	const isPrivilegedAdmin = isFullAccess || userData.role === AdminRole.Sudo;
+
+	const defaultSelfPermissions = {
+		self_myaccount: false,
+		self_change_password: false,
+		self_api_keys: false,
+		self_placeholders: false,
+	};
+	const baseSelf =
+		userData.permissions?.self_permissions ?? defaultSelfPermissions;
+	const selfAccess = isFullAccess
+		? { self_myaccount: true, self_change_password: true, self_api_keys: true }
+		: baseSelf;
+
+	const canViewUsage = Boolean(sectionAccess?.[AdminSection.Usage]);
+	const canViewAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
+	const canViewServicesSection = Boolean(
+		sectionAccess?.[AdminSection.Services],
+	);
+	const canViewHosts =
+		isPrivilegedAdmin && Boolean(sectionAccess?.[AdminSection.Hosts]);
+	const canViewNodes = Boolean(sectionAccess?.[AdminSection.Nodes]);
 	const canViewRecentActions =
-		userData.role === AdminRole.FullAccess ||
+		isFullAccess ||
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
 	const canManagePlaceholders =
-		userData.role === AdminRole.FullAccess ||
+		isFullAccess ||
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
-		Boolean(userData.permissions?.self_permissions?.self_placeholders);
+		Boolean(baseSelf.self_placeholders);
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
-			isPrivilegedAdmin
+			Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin
 				? {
 						key: "errors",
-						label: "errors",
+						label: t("errors.title", "Errors"),
 						to: "/errors",
 						icon: InsightsIcon,
 					}
 				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
+			canViewServicesSection
 				? {
 						key: "services",
 						label: t("services.title"),
@@ -412,7 +446,7 @@ function AppLayoutContent() {
 						icon: ServicesIcon,
 					}
 				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Hosts]
+			canViewHosts
 				? {
 						key: "hosts",
 						label: t("header.hostSettings"),
@@ -420,7 +454,7 @@ function AppLayoutContent() {
 						icon: HostsIcon,
 					}
 				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Nodes]
+			canViewNodes
 				? {
 						key: "node-settings",
 						label: t("header.nodeSettings"),
@@ -428,7 +462,7 @@ function AppLayoutContent() {
 						icon: NodesIcon,
 					}
 				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Integrations]
+			sectionAccess?.[AdminSection.Integrations]
 				? {
 						key: "settings",
 						label: t("header.integrationSettings"),
@@ -436,7 +470,7 @@ function AppLayoutContent() {
 						icon: MasterSettingsIcon,
 					}
 				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
+			sectionAccess?.[AdminSection.Xray]
 				? {
 						key: "xray-settings",
 						label: t("header.xraySettings"),
@@ -452,7 +486,7 @@ function AppLayoutContent() {
 						icon: HAProxyIcon,
 					}
 				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
+			sectionAccess?.[AdminSection.Xray]
 				? {
 						key: "access-insights",
 						label: t("header.accessInsights"),
@@ -502,6 +536,20 @@ function AppLayoutContent() {
 						icon: PlaceholderIcon,
 					}
 				: null,
+			canViewUsage
+				? {
+						key: "usage",
+						label: t("usage.menu"),
+						to: "/usage",
+						icon: UsageIcon,
+					}
+				: null,
+			{
+				key: "notifications",
+				label: t("notifications.menu"),
+				to: "/notifications",
+				icon: NotificationNavIcon,
+			},
 			{
 				key: "tutorials",
 				label: t("tutorials.menu"),
@@ -512,207 +560,272 @@ function AppLayoutContent() {
 		return items.filter(Boolean) as SettingsMenuItem[];
 	}, [
 		canManagePlaceholders,
+		canViewHosts,
+		canViewNodes,
 		canViewRecentActions,
+		canViewServicesSection,
+		canViewUsage,
 		isPrivilegedAdmin,
 		sectionAccess,
 		t,
 	]);
 
 	const mobileDockSections = useMemo(
-		() => [
-			{
-				id: "sec_infrastructure",
-				title: t("sidebar.sections.infrastructure"),
-				items: [
-					isPrivilegedAdmin && sectionAccess?.[AdminSection.Nodes]
-						? {
-								type: "direct" as const,
-								key: "node-settings",
-								label: t("header.nodeSettings"),
-								to: "/node-settings",
-								icon: NodesIcon,
-							}
-						: null,
-					isPrivilegedAdmin && sectionAccess?.[AdminSection.Hosts]
-						? {
-								type: "direct" as const,
-								key: "hosts",
-								label: t("header.hostSettings"),
-								to: "/hosts",
-								icon: HostsIcon,
-							}
-						: null,
-					isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
-						? {
-								type: "direct" as const,
-								key: "services",
-								label: t("services.title"),
-								to: "/services",
-								icon: ServicesIcon,
-							}
-						: null,
-				].filter(Boolean) as Array<{
-					type: "direct";
-					key: string;
-					label: string;
-					to: string;
-					icon: ElementType;
-				}>,
-			},
-			{
-				id: "sec_system",
-				title: t("sidebar.sections.system"),
-				items: [
-					{
-						type: "group" as const,
-						id: "core_routing",
-						title: t("sidebar.groups.coreRouting"),
-						icon: XraySettingsIcon,
-						subItems: [
-							sectionAccess?.[AdminSection.Xray]
-								? {
-										id: "xray-settings",
-										title: t("header.xraySettings"),
-										to: "/xray-settings",
-										icon: XraySettingsIcon,
-									}
-								: null,
-							isPrivilegedAdmin
-								? {
-										id: "haproxy",
-										title: t("haproxy.title"),
-										to: "/haproxy",
-										icon: HAProxyIcon,
-									}
-								: null,
-						].filter(Boolean) as Array<{
-							id: string;
-							title: string;
-							to: string;
-							icon: ElementType;
-						}>,
-					},
-					{
-						type: "group" as const,
-						id: "system_tools",
-						title: t("sidebar.groups.system"),
-						icon: MasterSettingsIcon,
-						subItems: [
-							sectionAccess?.[AdminSection.Integrations]
-								? {
-										id: "settings",
-										title: t("header.integrationSettings"),
-										to: "/settings",
-										icon: MasterSettingsIcon,
-									}
-								: null,
-							canManagePlaceholders
-								? {
-										id: "placeholders",
-										title: isPrivilegedAdmin
-											? t("placeholders.menu")
-											: t("placeholders.settingsMenu"),
-										to: "/placeholders",
-										icon: PlaceholderIcon,
-									}
-								: null,
-							isPrivilegedAdmin
-								? {
-										id: "phpmyadmin",
-										title: t("phpmyadmin.menu"),
-										to: "/phpmyadmin",
-										icon: PHPMyAdminIcon,
-									}
-								: null,
-							isPrivilegedAdmin
-								? {
-										id: "external-apps",
-										title: t("externalApps.menu"),
-										to: "/external-apps",
-										icon: ExternalAppsIcon,
-									}
-								: null,
-						].filter(Boolean) as Array<{
-							id: string;
-							title: string;
-							to: string;
-							icon: ElementType;
-						}>,
-					},
-					{
-						type: "group" as const,
-						id: "observability",
-						title: t("sidebar.groups.observability"),
-						icon: InsightsIcon,
-						subItems: [
-							sectionAccess?.[AdminSection.Xray]
-								? {
-										id: "xray-logs",
-										title: t("pages.xray.logs"),
-										to: "/xray-logs",
-										icon: InsightsIcon,
-									}
-								: null,
-							sectionAccess?.[AdminSection.Xray]
-								? {
-										id: "access-insights",
-										title: t("header.accessInsights"),
-										to: "/access-insights",
-										icon: InsightsIcon,
-									}
-								: null,
-							canViewRecentActions
-								? {
-										id: "recent-actions",
-										title: t("recentActions.title"),
-										to: "/recent-actions",
-										icon: RecentActionsIcon,
-									}
-								: null,
-						].filter(Boolean) as Array<{
-							id: string;
-							title: string;
-							to: string;
-							icon: ElementType;
-						}>,
-					},
-				],
-			},
-			{
-				id: "sec_docs",
-				title: t("sidebar.sections.docs"),
-				items: [
-					{
-						type: "direct" as const,
-						key: "tutorials",
-						label: t("sidebar.tutorialsAndFaq"),
-						to: tutorialsUrl,
-						icon: TutorialIcon,
-					},
-					isPrivilegedAdmin
-						? {
-								type: "direct" as const,
-								key: "api-docs",
-								label: t("apiDocs.menu"),
-								to: "/api-docs",
-								icon: DocsIcon,
-							}
-						: null,
-				].filter(Boolean) as Array<{
-					type: "direct";
-					key: string;
-					label: string;
-					to: string;
-					icon: ElementType;
-				}>,
-			},
-		],
+		() =>
+			[
+				{
+					id: "sec_infrastructure",
+					title: t("sidebar.sections.infrastructure"),
+					items: [
+						canViewNodes
+							? {
+									type: "direct" as const,
+									key: "node-settings",
+									label: t("header.nodeSettings"),
+									to: "/node-settings",
+									icon: NodesIcon,
+								}
+							: null,
+						canViewHosts
+							? {
+									type: "direct" as const,
+									key: "hosts",
+									label: t("header.hostSettings"),
+									to: "/hosts",
+									icon: HostsIcon,
+								}
+							: null,
+						canViewServicesSection
+							? {
+									type: "direct" as const,
+									key: "services",
+									label: t("services.title"),
+									to: "/services",
+									icon: ServicesIcon,
+								}
+							: null,
+					].filter(Boolean) as Array<{
+						type: "direct";
+						key: string;
+						label: string;
+						to: string;
+						icon: ElementType;
+					}>,
+				},
+				{
+					id: "sec_system",
+					title: t("sidebar.sections.system"),
+					items: [
+						{
+							type: "group" as const,
+							id: "core_routing",
+							title: t("sidebar.groups.coreRouting"),
+							icon: XraySettingsIcon,
+							subItems: [
+								sectionAccess?.[AdminSection.Xray]
+									? {
+											id: "xray-settings",
+											title: t("header.xraySettings"),
+											to: "/xray-settings",
+											icon: XraySettingsIcon,
+										}
+									: null,
+								isPrivilegedAdmin
+									? {
+											id: "haproxy",
+											title: t("haproxy.title"),
+											to: "/haproxy",
+											icon: HAProxyIcon,
+										}
+									: null,
+							].filter(Boolean) as Array<{
+								id: string;
+								title: string;
+								to: string;
+								icon: ElementType;
+							}>,
+						},
+						{
+							type: "group" as const,
+							id: "system_tools",
+							title: t("sidebar.groups.system"),
+							icon: MasterSettingsIcon,
+							subItems: [
+								sectionAccess?.[AdminSection.Integrations]
+									? {
+											id: "settings",
+											title: t("header.integrationSettings"),
+											to: "/settings",
+											icon: MasterSettingsIcon,
+										}
+									: null,
+								canManagePlaceholders
+									? {
+											id: "placeholders",
+											title: isPrivilegedAdmin
+												? t("placeholders.menu")
+												: t("placeholders.settingsMenu"),
+											to: "/placeholders",
+											icon: PlaceholderIcon,
+										}
+									: null,
+								isPrivilegedAdmin
+									? {
+											id: "phpmyadmin",
+											title: t("phpmyadmin.menu"),
+											to: "/phpmyadmin",
+											icon: PHPMyAdminIcon,
+										}
+									: null,
+								isPrivilegedAdmin
+									? {
+											id: "external-apps",
+											title: t("externalApps.menu"),
+											to: "/external-apps",
+											icon: ExternalAppsIcon,
+										}
+									: null,
+							].filter(Boolean) as Array<{
+								id: string;
+								title: string;
+								to: string;
+								icon: ElementType;
+							}>,
+						},
+						{
+							type: "group" as const,
+							id: "observability",
+							title: t("sidebar.groups.observability"),
+							icon: InsightsIcon,
+							subItems: [
+								sectionAccess?.[AdminSection.Xray]
+									? {
+											id: "xray-logs",
+											title: t("pages.xray.logs"),
+											to: "/xray-logs",
+											icon: XrayLogsIcon,
+										}
+									: null,
+								Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin
+									? {
+											id: "errors",
+											title: t("errors.title", "Errors"),
+											to: "/errors",
+											icon: InsightsIcon,
+										}
+									: null,
+								sectionAccess?.[AdminSection.Xray]
+									? {
+											id: "access-insights",
+											title: t("header.accessInsights"),
+											to: "/access-insights",
+											icon: InsightsIcon,
+										}
+									: null,
+								canViewRecentActions
+									? {
+											id: "recent-actions",
+											title: t("recentActions.title"),
+											to: "/recent-actions",
+											icon: RecentActionsIcon,
+										}
+									: null,
+							].filter(Boolean) as Array<{
+								id: string;
+								title: string;
+								to: string;
+								icon: ElementType;
+							}>,
+						},
+						{
+							type: "direct" as const,
+							key: "notifications",
+							label: t("notifications.menu"),
+							to: "/notifications",
+							icon: NotificationNavIcon,
+						},
+					],
+				},
+				{
+					id: "sec_traffic_admins",
+					title: t("sidebar.sections.trafficAndAdmins"),
+					items: [
+						selfAccess.self_myaccount
+							? {
+									type: "direct" as const,
+									key: "myaccount",
+									label: t("myaccount.menu"),
+									to: "/myaccount",
+									icon: MyAccountIcon,
+								}
+							: null,
+						canViewUsage
+							? {
+									type: "direct" as const,
+									key: "usage",
+									label: t("usage.menu"),
+									to: "/usage",
+									icon: UsageIcon,
+								}
+							: null,
+						canViewAdmins
+							? {
+									type: "direct" as const,
+									key: "admins",
+									label: t("admins"),
+									to: "/admins",
+									icon: AdminIcon,
+								}
+							: null,
+					].filter(Boolean) as Array<{
+						type: "direct";
+						key: string;
+						label: string;
+						to: string;
+						icon: ElementType;
+					}>,
+				},
+				{
+					id: "sec_docs",
+					title: t("sidebar.sections.docs"),
+					items: [
+						{
+							type: "direct" as const,
+							key: "tutorials",
+							label: t("sidebar.tutorialsAndFaq"),
+							to: tutorialsUrl,
+							icon: TutorialIcon,
+						},
+						isPrivilegedAdmin
+							? {
+									type: "direct" as const,
+									key: "api-docs",
+									label: t("apiDocs.menu"),
+									to: "/api-docs",
+									icon: DocsIcon,
+								}
+							: null,
+					].filter(Boolean) as Array<{
+						type: "direct";
+						key: string;
+						label: string;
+						to: string;
+						icon: ElementType;
+					}>,
+				},
+			].filter((sec) => sec.items.length > 0),
 		[
 			t,
+			canViewNodes,
+			canViewHosts,
+			canViewServicesSection,
+			canViewUsage,
+			canViewAdmins,
+			canViewRecentActions,
+			canManagePlaceholders,
 			isPrivilegedAdmin,
 			sectionAccess,
-			canManagePlaceholders,
-			canViewRecentActions,
+			selfAccess.self_myaccount,
 		],
 	);
 
@@ -1355,35 +1468,38 @@ function AppLayoutContent() {
 					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
 					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "260px"}
 					transition="margin 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+					bg="panel.main"
+					position="relative"
 					sx={{
 						willChange: isMobile ? undefined : "margin",
 					}}
 				>
-					<Box
-						ref={headerRef}
-						as="header"
-						h="52px"
-						minH="52px"
-						borderWidth="1px"
-						borderColor={shellBorder}
-						borderRadius="20px"
-						bg={shellHeaderBg}
-						boxShadow={shellHeaderShadow}
-						overflow="hidden"
-						mt="3"
-						mx={{ base: "3", md: "4" }}
-						display="flex"
-						alignItems="center"
-						px={{ base: 3, md: 5 }}
-						justifyContent="space-between"
-						flexShrink={0}
-						position="sticky"
-						top="3"
-						zIndex={100}
-						userSelect="none"
-						gap={3}
-						dir={isRTL ? "rtl" : "ltr"}
-					>
+					<Box position="relative" zIndex={100} flexShrink={0}>
+						<Box
+							ref={headerRef}
+							as="header"
+							h="52px"
+							minH="52px"
+							borderWidth="1px"
+							borderColor={shellBorder}
+							borderRadius="18px"
+							bg={shellHeaderBg}
+							backdropFilter="blur(20px)"
+							sx={{
+								WebkitBackdropFilter: "blur(20px)",
+							}}
+							boxShadow={shellHeaderShadow}
+							overflow="hidden"
+							mt="3"
+							mx={{ base: "3", md: "4" }}
+							display="flex"
+							alignItems="center"
+							px={{ base: 3, md: 5 }}
+							justifyContent="space-between"
+							userSelect="none"
+							gap={3}
+							dir={isRTL ? "rtl" : "ltr"}
+						>
 						<HStack
 							spacing={2.5}
 							alignItems="center"
@@ -2253,17 +2369,35 @@ function AppLayoutContent() {
 						</HStack>
 					</Box>
 					<Box
-						as="main"
-						flex="1"
-						p={{ base: 3, md: 4 }}
-						pb={{ base: "40", md: "4" }}
-						overflow="auto"
-						minH="0"
-						bg={shellMainBg}
-					>
-						<Outlet />
-					</Box>
-				</Flex>
+						position="absolute"
+						left="0"
+						right="0"
+						bottom="-16px"
+						h="16px"
+						pointerEvents="none"
+						bg="linear-gradient(180deg, var(--rb-panel-main) 0%, transparent 100%)"
+						backdropFilter="blur(6px)"
+						sx={{
+							WebkitBackdropFilter: "blur(6px)",
+							maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+							WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+						}}
+						zIndex={99}
+					/>
+				</Box>
+				<Box
+					as="main"
+					flex="1"
+					p={{ base: 3, md: 4 }}
+					pt={{ base: 2.5, md: 3 }}
+					pb={{ base: "40", md: "4" }}
+					overflow="auto"
+					minH="0"
+					bg="transparent"
+				>
+					<Outlet />
+				</Box>
+			</Flex>
 
 				{isMobile && (
 					<Drawer
