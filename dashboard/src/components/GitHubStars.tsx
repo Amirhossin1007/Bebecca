@@ -58,16 +58,16 @@ export const GitHubStars: FC = () => {
 			gap={1.5}
 			cursor="pointer"
 			flexShrink={0}
-			transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
+			boxShadow="sm"
+			transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 			_hover={{
 				md: {
 					bg: "panel.elevated",
 					borderColor: "panel.borderStrong",
-					transform: "translateY(-1px)",
-					boxShadow: "0 3px 10px rgba(0, 0, 0, 0.06)",
+					boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
 				},
 			}}
-			_active={{ transform: "scale(0.97)" }}
+			_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
 			_focusVisible={{
 				outline: "none",
 				boxShadow: "0 0 0 2px var(--chakra-colors-accent)",
@@ -76,9 +76,10 @@ export const GitHubStars: FC = () => {
 		>
 			<Box
 				as="span"
-				display="inline-flex"
-				alignItems="center"
-				justifyContent="center"
+				w="16px"
+				h="16px"
+				display="grid"
+				placeItems="center"
 				color="panel.text"
 				flexShrink={0}
 			>
@@ -101,14 +102,14 @@ export const GitHubStars: FC = () => {
 			<Box w="1px" h="12px" bg="panel.border" flexShrink={0} />
 
 			<HStack spacing={1} align="center" flexShrink={0}>
-				<StarIcon style={{ width: "13px", height: "13px", color: "#f5b301" }} />
+				<StarIcon style={{ width: "13px", height: "13px", color: "#f59e0b" }} />
 				{formattedStars ? (
 					<Text
 						as="span"
 						dir="ltr"
 						fontSize="12px"
 						fontWeight="600"
-						lineHeight="1"
+						lineHeight="normal"
 						color="panel.text"
 						sx={{
 							unicodeBidi: "isolate",

@@ -6,18 +6,15 @@ import {
 	Flex,
 	HStack,
 	IconButton,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
-	ModalOverlay,
+	Menu,
+	MenuButton,
+	MenuList,
 	Portal,
 	Stack,
 	Text,
 	VStack,
 	useDisclosure,
+	type PlacementWithLogical,
 } from "@chakra-ui/react";
 import {
 	ArrowLeftIcon,
@@ -31,10 +28,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
 	createContext,
 	type FC,
+	type MouseEvent as ReactMouseEvent,
+	type MutableRefObject,
 	type ReactNode,
+	type RefObject,
 	useCallback,
 	useContext,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -260,234 +261,6 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 					)}
 				</AnimatePresence>
 			</Portal>
-
-			<Modal
-				isOpen={isOpen}
-				onClose={onClose}
-				isCentered
-				autoFocus={false}
-				returnFocusOnClose={false}
-				trapFocus={false}
-				blockScrollOnMount={false}
-			>
-				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(8px)" />
-				<ModalContent
-					dir={isRTL ? "rtl" : "ltr"}
-					bg="panel.surface"
-					borderWidth="1px"
-					borderColor="panel.border"
-					borderRadius="20px"
-					boxShadow="0 24px 60px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--chakra-colors-panel-border)"
-					maxW={{ base: "calc(100vw - 28px)", sm: "460px" }}
-					maxH="min(620px, calc(100vh - 80px))"
-					my="auto"
-					mx="auto"
-					display="flex"
-					flexDirection="column"
-					overflow="hidden"
-				>
-					<ModalHeader
-						borderBottomWidth="1px"
-						borderColor="panel.border"
-						p={4}
-						bg="panel.surface"
-					>
-						<HStack justify="space-between" align="center">
-							<HStack spacing={2.5}>
-								<Flex
-									w="32px"
-									h="32px"
-									borderRadius="10px"
-									bg="panel.elevated"
-									borderWidth="1px"
-									borderColor="panel.border"
-									align="center"
-									justify="center"
-									color="panel.text"
-								>
-									<BellIconStyled />
-								</Flex>
-								<Text fontSize="15px" fontWeight="700" color="panel.text">
-									{t("notifications.menu")}
-								</Text>
-								{unread > 0 && (
-									<Badge
-										borderRadius="full"
-										px={2}
-										py={0.5}
-										fontSize="11px"
-										fontWeight="700"
-										colorScheme="primary"
-										bg="var(--chakra-colors-accent)"
-										color="white"
-									>
-										{unread}
-									</Badge>
-								)}
-							</HStack>
-							<HStack spacing={1}>
-								{unread > 0 && (
-									<Button
-										size="xs"
-										variant="ghost"
-										fontSize="11px"
-										fontWeight="600"
-										color="panel.textSecondary"
-										_hover={{ bg: "panel.elevated", color: "panel.text" }}
-										onClick={markAll}
-										isLoading={markAllMutation.isLoading}
-									>
-										{t("notifications.inbox.markAllRead")}
-									</Button>
-								)}
-								<ModalCloseButton
-									position="static"
-									size="sm"
-									borderRadius="full"
-									_hover={{ bg: "panel.elevated" }}
-								/>
-							</HStack>
-						</HStack>
-					</ModalHeader>
-
-					<ModalBody p={3} overflowY="auto">
-						{items.length === 0 ? (
-							<Flex
-								direction="column"
-								align="center"
-								justify="center"
-								py={14}
-								px={4}
-								textAlign="center"
-							>
-								<Flex
-									w="48px"
-									h="48px"
-									borderRadius="14px"
-									bg="panel.elevated"
-									borderWidth="1px"
-									borderColor="panel.border"
-									align="center"
-									justify="center"
-									color="panel.textMuted"
-									mb={3}
-								>
-									<EnvelopeOpenIcon width={22} height={22} />
-								</Flex>
-								<Text fontSize="14px" fontWeight="600" color="panel.text" mb={1}>
-									{t("notifications.bell.empty")}
-								</Text>
-							</Flex>
-						) : (
-							<Stack spacing={2}>
-								{items.map((item) => {
-									const isUnread = item.read_at === null;
-									return (
-										<Box
-											key={item.id}
-											as="button"
-											textAlign="start"
-											p={3}
-											borderRadius="14px"
-											borderWidth="1px"
-											borderColor={isUnread ? "var(--chakra-colors-accent)" : "panel.border"}
-											borderInlineStartWidth={isUnread ? "3px" : "1px"}
-											borderInlineStartColor={
-												isUnread ? "var(--chakra-colors-accent)" : "panel.border"
-											}
-											bg={isUnread ? "panel.elevated" : "panel.surface"}
-											transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
-											_hover={{
-												md: {
-													borderColor: "panel.borderStrong",
-													transform: "translateY(-1px)",
-													boxShadow: "0 3px 10px rgba(0, 0, 0, 0.05)",
-												},
-											}}
-											_active={{ transform: "scale(0.99)" }}
-											onClick={() => openItem(item)}
-										>
-											<HStack justify="space-between" mb={1.5} align="center">
-												<HStack spacing={2} minW={0}>
-													{isUnread && (
-														<Box
-															w="6px"
-															h="6px"
-															borderRadius="full"
-															bg="var(--chakra-colors-accent)"
-															flexShrink={0}
-														/>
-													)}
-													<Text
-														fontSize="13px"
-														fontWeight={isUnread ? "700" : "600"}
-														color="panel.text"
-														isTruncated
-													>
-														{item.title}
-													</Text>
-												</HStack>
-												<Text
-													fontSize="11px"
-													color="panel.textMuted"
-													flexShrink={0}
-													dir="ltr"
-													sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-												>
-													{dayjs.unix(item.created_at).format("HH:mm · MM/DD")}
-												</Text>
-											</HStack>
-											<Text
-												fontSize="12px"
-												color="panel.textSecondary"
-												noOfLines={2}
-												lineHeight="tall"
-											>
-												{item.body}
-											</Text>
-										</Box>
-									);
-								})}
-							</Stack>
-						)}
-					</ModalBody>
-
-					<ModalFooter
-						borderTopWidth="1px"
-						borderColor="panel.border"
-						p={3}
-						bg="panel.surface"
-					>
-						<Button
-							w="full"
-							size="sm"
-							h="38px"
-							borderRadius="12px"
-							variant="outline"
-							borderColor="panel.border"
-							bg="panel.surface"
-							color="panel.text"
-							fontWeight="600"
-							fontSize="13px"
-							rightIcon={
-								isRTL ? (
-									<ArrowLeftIcon width={14} height={14} />
-								) : (
-									<ArrowRightIcon width={14} height={14} />
-								)
-							}
-							_hover={{ md: { bg: "panel.elevated", borderColor: "panel.borderStrong" } }}
-							_active={{ transform: "scale(0.98)" }}
-							onClick={() => {
-								onClose();
-								navigate("/notifications");
-							}}
-						>
-							{t("notifications.bell.viewAll")}
-						</Button>
-					</ModalFooter>
-				</ModalContent>
-			</Modal>
 		</NotificationContext.Provider>
 	);
 };
@@ -500,55 +273,313 @@ export const useNotificationCenter = () => {
 	return context;
 };
 
-export const NotificationMenuItem: FC<{ onBeforeOpen?: () => void }> = ({
-	onBeforeOpen,
-}) => {
-	const { t } = useTranslation();
-	const { unread, onOpen } = useNotificationCenter();
+export interface NotificationMenuItemProps {
+	onBeforeOpen?: () => void;
+	portalContainer?: RefObject<HTMLElement> | MutableRefObject<HTMLElement | null>;
+	placement?: PlacementWithLogical;
+	onNavigate?: () => void;
+}
 
-	return (
-		<Button
-			variant="ghost"
-			w="full"
-			h="38px"
-			justifyContent="flex-start"
-			fontWeight="500"
-			fontSize="13px"
-			borderRadius="12px"
-			px={3}
-			bg="transparent"
-			color="panel.text"
-			transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-			_hover={{ md: { bg: "panel.elevated" } }}
-			_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
-			_focusVisible={{ bg: "panel.elevated" }}
-			onClick={() => {
-				if (onBeforeOpen) onBeforeOpen();
-				onOpen();
-			}}
+export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
+	onBeforeOpen,
+	portalContainer,
+	placement = "auto-start",
+	onNavigate,
+}) => {
+	const { t, i18n } = useTranslation();
+	const navigate = useNavigate();
+	const notifMenu = useDisclosure();
+	const { unread, items, markAll, isMarkingAll, openItem } = useNotificationCenter();
+	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const popperModifiers = useMemo(
+		() => [
+			{
+				name: "preventOverflow",
+				options: {
+					padding: 12,
+					boundary: "clippingParents",
+				},
+			},
+			{
+				name: "flip",
+				options: {
+					fallbackPlacements: ["bottom-start", "left-start", "right-start"],
+				},
+			},
+		],
+		[],
+	);
+
+	const handleItemClick = (item: NotificationItem) => {
+		notifMenu.onClose();
+		if (onNavigate) onNavigate();
+		openItem(item);
+	};
+
+	const handleViewAll = () => {
+		notifMenu.onClose();
+		if (onNavigate) onNavigate();
+		navigate("/notifications");
+	};
+
+	const menuList = (
+		<MenuList
+			dir={isRTL ? "rtl" : "ltr"}
+			w={{ base: "calc(100vw - 32px)", sm: "360px" }}
+			maxW="380px"
+			p={2}
+			borderRadius="18px"
+			borderWidth="1px"
+			borderColor="panel.border"
+			bg="panel.surface"
+			boxShadow="0 14px 40px -6px rgba(0, 0, 0, 0.32), 0 0 0 1px var(--chakra-colors-panel-border)"
+			zIndex={10005}
+			overflow="hidden"
+			userSelect="none"
 		>
-			<HStack justify="space-between" w="full" minW={0} spacing={2.5}>
-				<HStack spacing={2.5} minW={0}>
-					<BellIconStyled flexShrink={0} color="panel.text" />
-					<Text noOfLines={1} color="panel.text">
+			<HStack
+				justify="space-between"
+				align="center"
+				p={2.5}
+				borderBottomWidth="1px"
+				borderColor="panel.border"
+			>
+				<HStack spacing={2}>
+					<Text fontSize="13px" fontWeight="700" color="panel.text">
 						{t("notifications.menu")}
 					</Text>
+					{unread > 0 && (
+						<Badge
+							borderRadius="full"
+							px={1.5}
+							py={0.2}
+							fontSize="10px"
+							fontWeight="700"
+							bg="var(--chakra-colors-accent)"
+							color="white"
+						>
+							{unread}
+						</Badge>
+					)}
 				</HStack>
 				{unread > 0 && (
-					<Badge
-						borderRadius="full"
-						px={2}
-						py={0.5}
+					<Button
+						size="xs"
+						variant="ghost"
 						fontSize="11px"
-						fontWeight="700"
-						bg="var(--chakra-colors-accent)"
-						color="white"
+						fontWeight="600"
+						color="panel.textSecondary"
+						_hover={{ bg: "panel.elevated", color: "panel.text" }}
+						onClick={(e: ReactMouseEvent) => {
+							e.stopPropagation();
+							markAll();
+						}}
+						isLoading={isMarkingAll}
 					>
-						{unread} {t("notifications.inbox.unread")}
-					</Badge>
+						{t("notifications.inbox.markAllRead")}
+					</Button>
 				)}
 			</HStack>
-		</Button>
+
+			<Box p={1.5} overflowY="auto" maxH="280px" sx={{ overscrollBehavior: "contain" }}>
+				{items.length === 0 ? (
+					<Flex
+						direction="column"
+						align="center"
+						justify="center"
+						py={8}
+						px={3}
+						textAlign="center"
+					>
+						<Flex
+							w="38px"
+							h="38px"
+							borderRadius="12px"
+							bg="panel.elevated"
+							borderWidth="1px"
+							borderColor="panel.border"
+							align="center"
+							justify="center"
+							color="panel.textMuted"
+							mb={2}
+						>
+							<EnvelopeOpenIcon width={18} height={18} />
+						</Flex>
+						<Text fontSize="13px" fontWeight="600" color="panel.text">
+							{t("notifications.bell.empty")}
+						</Text>
+					</Flex>
+				) : (
+					<Stack spacing={1.5}>
+						{items.slice(0, 5).map((item) => {
+							const isUnread = item.read_at === null;
+							return (
+								<Box
+									key={item.id}
+									as="button"
+									textAlign="start"
+									p={2.5}
+									borderRadius="12px"
+									borderWidth="1px"
+									borderColor={isUnread ? "var(--chakra-colors-accent)" : "panel.border"}
+									borderInlineStartWidth={isUnread ? "3px" : "1px"}
+									borderInlineStartColor={
+										isUnread ? "var(--chakra-colors-accent)" : "panel.border"
+									}
+									bg={isUnread ? "panel.elevated" : "panel.surface"}
+									transition="all 0.16s ease"
+									_hover={{
+										md: {
+											borderColor: "panel.borderStrong",
+											bg: "panel.elevated",
+										},
+									}}
+									onClick={(e: ReactMouseEvent) => {
+										e.stopPropagation();
+										handleItemClick(item);
+									}}
+								>
+									<HStack justify="space-between" mb={1} align="center">
+										<HStack spacing={1.5} minW={0}>
+											{isUnread && (
+												<Box
+													w="5px"
+													h="5px"
+													borderRadius="full"
+													bg="var(--chakra-colors-accent)"
+													flexShrink={0}
+												/>
+											)}
+											<Text
+												fontSize="12px"
+												fontWeight={isUnread ? "700" : "600"}
+												color="panel.text"
+												isTruncated
+											>
+												{item.title}
+											</Text>
+										</HStack>
+										<Text
+											fontSize="10px"
+											color="panel.textMuted"
+											flexShrink={0}
+											dir="ltr"
+											sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
+										>
+											{dayjs.unix(item.created_at).format("HH:mm · MM/DD")}
+										</Text>
+									</HStack>
+									<Text
+										fontSize="11px"
+										color="panel.textSecondary"
+										noOfLines={2}
+										lineHeight="short"
+									>
+										{item.body}
+									</Text>
+								</Box>
+							);
+						})}
+					</Stack>
+				)}
+			</Box>
+
+			<Box p={1.5} borderTopWidth="1px" borderColor="panel.border">
+				<Button
+					w="full"
+					size="xs"
+					h="32px"
+					borderRadius="10px"
+					variant="outline"
+					borderColor="panel.border"
+					bg="panel.surface"
+					color="panel.text"
+					fontWeight="600"
+					fontSize="12px"
+					rightIcon={
+						isRTL ? (
+							<ArrowLeftIcon width={12} height={12} />
+						) : (
+							<ArrowRightIcon width={12} height={12} />
+						)
+					}
+					_hover={{ md: { bg: "panel.elevated", borderColor: "panel.borderStrong" } }}
+					_active={{ transform: "scale(0.98)" }}
+					onClick={(e: ReactMouseEvent) => {
+						e.stopPropagation();
+						handleViewAll();
+					}}
+				>
+					{t("notifications.bell.viewAll")}
+				</Button>
+			</Box>
+		</MenuList>
+	);
+
+	return (
+		<Menu
+			placement={placement}
+			strategy="fixed"
+			isLazy
+			autoSelect={false}
+			gutter={6}
+			computePositionOnMount
+			modifiers={popperModifiers}
+			isOpen={notifMenu.isOpen}
+			onOpen={notifMenu.onOpen}
+			onClose={notifMenu.onClose}
+			closeOnSelect={false}
+		>
+			<MenuButton
+				as={Button}
+				variant="ghost"
+				w="full"
+				h="38px"
+				justifyContent="flex-start"
+				fontWeight="500"
+				fontSize="13px"
+				borderRadius="12px"
+				px={3}
+				bg="transparent"
+				color="panel.text"
+				transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+				_hover={{ md: { bg: "panel.elevated" } }}
+				_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
+				_focusVisible={{ bg: "panel.elevated" }}
+				onClick={(e: ReactMouseEvent) => {
+					e.stopPropagation();
+					if (onBeforeOpen) onBeforeOpen();
+					notifMenu.isOpen ? notifMenu.onClose() : notifMenu.onOpen();
+				}}
+			>
+				<HStack justify="space-between" w="full" minW={0} spacing={2.5}>
+					<HStack spacing={2.5} minW={0}>
+						<BellIconStyled flexShrink={0} color="panel.text" />
+						<Text noOfLines={1} color="panel.text">
+							{t("notifications.menu")}
+						</Text>
+					</HStack>
+					{unread > 0 && (
+						<Badge
+							borderRadius="full"
+							px={2}
+							py={0.5}
+							fontSize="11px"
+							fontWeight="700"
+							bg="var(--chakra-colors-accent)"
+							color="white"
+						>
+							{unread} {t("notifications.inbox.unread")}
+						</Badge>
+					)}
+				</HStack>
+			</MenuButton>
+			{portalContainer ? (
+				<Portal containerRef={portalContainer}>{menuList}</Portal>
+			) : (
+				<Portal>{menuList}</Portal>
+			)}
+		</Menu>
 	);
 };
 

@@ -240,21 +240,21 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 						md: {
 							bg: "panel.elevated",
 							borderColor: "panel.borderStrong",
+							boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
 						},
 					}}
-					_active={{ transform: "scale(0.98)" }}
+					_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
 					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 				>
 					<Flex
-						w="20px"
-						h="20px"
+						w="16px"
+						h="16px"
 						align="center"
 						justify="center"
-						borderRadius="full"
-						color="panel.textSecondary"
+						color="panel.text"
 						flexShrink={0}
 					>
-						<CalendarIcon />
+						<CalendarIcon style={{ width: "15px", height: "15px" }} />
 					</Flex>
 					{showText && (
 						<Text

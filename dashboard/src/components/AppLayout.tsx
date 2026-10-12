@@ -2226,7 +2226,9 @@ function AppLayoutContent() {
 											</Flex>
 
 											<NotificationMenuItem
-												onBeforeOpen={handleUserMenuClose}
+												placement={languagePlacement}
+												portalContainer={userMenuContentRef}
+												onNavigate={handleUserMenuClose}
 											/>
 
 											<Menu
