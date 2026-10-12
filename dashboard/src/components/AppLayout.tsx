@@ -39,6 +39,7 @@ import {
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
+	Cog6ToothIcon,
 	Cog8ToothIcon,
 	CommandLineIcon,
 	DocumentDuplicateIcon,
@@ -126,6 +127,39 @@ const XrayLogsIcon = chakra(DocumentTextIcon, iconProps);
 const ChevronDownIconStyled = chakra(ChevronDownIcon, {
 	baseStyle: { w: 3.5, h: 3.5 },
 });
+
+const dockIconStyle = {
+	baseStyle: {
+		w: "19px",
+		h: "19px",
+	},
+};
+
+const DockHomeIcon = chakra(HeroHomeIcon, dockIconStyle);
+const DockUsersIcon = chakra(UserGroupIcon, dockIconStyle);
+const DockAdminsIcon = chakra(BriefcaseIcon, dockIconStyle);
+const DockNotificationsIcon = chakra(BellIcon, dockIconStyle);
+const DockMyAccountIcon = chakra(UserCircleIcon, dockIconStyle);
+const DockSettingsIcon = chakra(Cog6ToothIcon, dockIconStyle);
+
+const getDockIcon = (key: string): ElementType => {
+	switch (key) {
+		case "dashboard":
+			return DockHomeIcon;
+		case "users":
+			return DockUsersIcon;
+		case "admins":
+			return DockAdminsIcon;
+		case "notifications":
+			return DockNotificationsIcon;
+		case "myaccount":
+			return DockMyAccountIcon;
+		case "settings":
+			return DockSettingsIcon;
+		default:
+			return DockHomeIcon;
+	}
+};
 
 const AnimatedHamburger: FC<{ isOpen: boolean; isRTL: boolean }> = ({
 	isOpen,
@@ -976,7 +1010,6 @@ function AppLayoutContent() {
 		[settingsMenuItems, location.pathname],
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
-	const SettingsNavIcon = activeSettingsItem?.icon ?? MasterSettingsIcon;
 	const popoverModifiers = useMemo(
 		() => [
 			{
@@ -2567,22 +2600,7 @@ function AppLayoutContent() {
 										{bottomNavItems.map((item) => {
 											const isActive = resolveActive(item);
 											const isSelected = selectedTabKey === item.key;
-											const isSettingsItem = item.key === "settings";
-											const displayLabel =
-												isSettingsItem && activeSettingsItem
-													? activeSettingsItem.label
-													: item.label;
-											const DisplayIcon = isSettingsItem
-												? (activeSettingsItem?.icon ?? SettingsNavIcon)
-												: item.key === "dashboard"
-													? HeroHomeIcon
-													: item.key === "users"
-														? UserGroupIcon
-														: item.key === "admins"
-															? BriefcaseIcon
-															: item.key === "notifications"
-																? BellIcon
-																: UserIcon;
+											const DisplayIcon = getDockIcon(item.key);
 											const navContent = (
 												<Box
 													w="full"
@@ -2597,8 +2615,8 @@ function AppLayoutContent() {
 													zIndex={1}
 												>
 													<Box
-														w="6"
-														h="6"
+														w="22px"
+														h="22px"
 														display="grid"
 														placeItems="center"
 														position="relative"
@@ -2609,7 +2627,7 @@ function AppLayoutContent() {
 														}
 														transform={
 															isSelected
-																? "scale(1.08) translateY(-1px)"
+																? "scale(1.05) translateY(-0.5px)"
 																: "scale(1) translateY(0)"
 														}
 														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -2641,7 +2659,7 @@ function AppLayoutContent() {
 														color={isSelected ? "panel.text" : dockInactiveText}
 														transition="color 0.2s ease"
 													>
-														{displayLabel}
+														{item.label}
 													</Text>
 												</Box>
 											);
