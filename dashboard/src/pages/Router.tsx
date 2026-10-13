@@ -12,6 +12,7 @@ import {
 } from "react-router-dom";
 import { fetch } from "../service/http";
 import { recoverFromStaleChunk } from "../utils/chunkRecovery";
+import { queryClient } from "../utils/react-query";
 import { Login } from "./Login";
 
 const AppLayout = lazy(async () => ({
@@ -183,7 +184,11 @@ normalizeLegacyHashRoute(dashboardBasename);
 
 const fetchAdminLoader = async ({ request }: { request: Request }) => {
 	try {
-		const response = await fetch<{ state?: string }>("/auth/session");
+		const response = await fetch<{
+			state?: string;
+			admin?: unknown;
+			error?: string;
+		}>("/auth/session");
 		if (response?.state === "disabled") {
 			const pathname = new URL(request.url).pathname.replace(/\/+$/, "");
 			if (!pathname.endsWith("/users")) throw redirect("/users/");
@@ -192,6 +197,23 @@ const fetchAdminLoader = async ({ request }: { request: Request }) => {
 		}
 		if (response && typeof response === "object" && "error" in response) {
 			throw new Error(`API error: ${response.error || "Unknown error"}`);
+		}
+		if (response?.admin) {
+			queryClient.setQueryData(["current-admin"], response.admin);
+		}
+		const url = new URL(request.url);
+		const pathname = url.pathname.replace(/\/+$/, "");
+		const isDashboardRoute =
+			pathname === "" ||
+			pathname === "/" ||
+			pathname.endsWith("/dashboard") ||
+			pathname === dashboardBasename.replace(/\/+$/, "");
+		if (isDashboardRoute) {
+			try {
+				await queryClient.prefetchQuery("statistics-query-key", () =>
+					fetch("/system"),
+				);
+			} catch {}
 		}
 		return response;
 	} catch (error) {

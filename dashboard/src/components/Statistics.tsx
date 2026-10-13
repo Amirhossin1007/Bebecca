@@ -2037,7 +2037,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 							borderWidth="1px"
 							borderColor="panel.border"
 							p={{ base: 4, sm: 5 }}
-							minH={{ base: "135px", md: "148px" }}
+							minH={{ base: "125px", md: "140px" }}
 							display="flex"
 							flexDirection="column"
 							justifyContent="space-between"
@@ -2072,7 +2072,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								/>
 							</Flex>
 
-							<Stack spacing={2} my={1}>
+							<Stack spacing={2} mt={2}>
 								<Box
 									w={i === 1 ? "110px" : "90px"}
 									h="26px"
@@ -2087,27 +2087,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 									opacity={0.6}
 								/>
 							</Stack>
-
-							<Flex
-								justify="space-between"
-								align="center"
-								pt={2.5}
-								borderTopWidth="1px"
-								borderColor="panel.border"
-							>
-								<Box
-									w={i === 1 ? "60px" : i === 2 ? "70px" : "65px"}
-									h="13px"
-									borderRadius="sm"
-									bg="panel.elevated"
-								/>
-								<Box
-									w={i === 1 ? "80px" : i === 2 ? "70px" : "75px"}
-									h="13px"
-									borderRadius="sm"
-									bg="panel.elevated"
-								/>
-							</Flex>
 						</Box>
 					))}
 				</SimpleGrid>
