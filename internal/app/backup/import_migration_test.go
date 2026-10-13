@@ -49,7 +49,7 @@ func TestImportOldBackupIsMigratedToCurrentSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version.GooseVersion != 61 {
-		t.Fatalf("restored database schema version = %d, want 61", version.GooseVersion)
+	if version.GooseVersion != 62 {
+		t.Fatalf("restored database schema version = %d, want 62", version.GooseVersion)
 	}
 }

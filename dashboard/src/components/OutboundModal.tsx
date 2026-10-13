@@ -65,6 +65,7 @@ import {
 	XrayModalFooter,
 	XrayModalHeader,
 } from "./xray/XrayDialog";
+import { PropagationTargets } from "./xray/PropagationTargets";
 
 const AddIcon = chakra(PlusIcon);
 const MinusIcon = chakra(MinusIconOutline);
@@ -173,7 +174,12 @@ interface OutboundModalProps {
 	mode: "create" | "edit";
 	initialOutbound?: Record<string, unknown> | null;
 	existingTags: string[];
-	onSubmitOutbound: (outboundJson: unknown) => Promise<void> | void;
+	sourceTarget: string;
+	propagationBase: Record<string, unknown> | null;
+	onSubmitOutbound: (
+		outboundJson: unknown,
+		targetIds: string[],
+	) => Promise<void> | void;
 }
 
 const defaultValues: OutboundFormValues = {
@@ -545,10 +551,13 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 	mode,
 	initialOutbound,
 	existingTags,
+	sourceTarget,
+	propagationBase,
 	onSubmitOutbound,
 }) => {
 	const { t } = useTranslation();
 	const toast = useToast();
+	const [targetIds, setTargetIds] = useState<string[]>([]);
 	const bgSubtle = useColorModeValue("gray.50", "whiteAlpha.100");
 	const {
 		control,
@@ -575,6 +584,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 		name: "wireguardPeers",
 	});
 	const protocol = watch("protocol");
+	const currentTag = watch("tag");
 	const network = watch("network");
 	const tlsEnabled = watch("tlsEnabled");
 	const realityEnabled = watch("realityEnabled");
@@ -929,6 +939,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 			return;
 		}
 		setActiveTab(0);
+		setTargetIds([]);
 		setJsonError(null);
 		setConfigInput("");
 		const baseValues = initialOutbound
@@ -1238,7 +1249,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 	const onSubmit = handleSubmit(async (values) => {
 		const outboundJson = buildOutboundJson(values);
 		try {
-			await onSubmitOutbound(outboundJson);
+			await onSubmitOutbound(outboundJson, targetIds);
 			toast({
 				title:
 					mode === "edit"
@@ -1304,6 +1315,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 						<TabList>
 							<Tab>{t("form")}</Tab>
 							<Tab>{t("json")}</Tab>
+							<Tab>{t("pages.xray.propagate.tab")}</Tab>
 						</TabList>
 						<TabPanels>
 							<TabPanel>
@@ -2463,6 +2475,16 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 										</Text>
 									)}
 								</VStack>
+							</TabPanel>
+							<TabPanel>
+								<PropagationTargets
+									source={sourceTarget}
+									section="outbounds"
+									before={propagationBase}
+									after={{ tag: currentTag }}
+									selectedIds={targetIds}
+									onChange={setTargetIds}
+								/>
 							</TabPanel>
 						</TabPanels>
 					</Tabs>

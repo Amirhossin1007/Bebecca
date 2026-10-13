@@ -77,6 +77,7 @@ import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
 import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
 import { AppSidebar } from "./AppSidebar";
+import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
 import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
 import {
@@ -255,6 +256,7 @@ function AppLayoutContent() {
 	}, []);
 
 	const sidebarDrawer = useDisclosure();
+	useSheetSwipeToClose();
 	const languageMenu = useDisclosure();
 	const userMenu = useDisclosure();
 	const accountMenu = useDisclosure();

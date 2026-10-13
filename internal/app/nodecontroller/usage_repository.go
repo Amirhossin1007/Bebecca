@@ -197,6 +197,23 @@ func (r Repository) InboundUsageCoefficients(ctx context.Context) (map[string]fl
 	return result, rows.Err()
 }
 
+func (r Repository) IPLimitedUserIDs(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id FROM users WHERE COALESCE(ip_limit, 0) > 0`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []string
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		result = append(result, strconv.FormatInt(id, 10))
+	}
+	return result, rows.Err()
+}
+
 func (r Repository) UserSpeedIdentities(ctx context.Context, userIDs []int64) (map[int64]userSpeedIdentity, error) {
 	result := make(map[int64]userSpeedIdentity, len(userIDs))
 	err := forEachInt64Chunk(userIDs, usagePersistBatchSize, func(chunk []int64) error {

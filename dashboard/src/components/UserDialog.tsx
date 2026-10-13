@@ -108,7 +108,6 @@ import { DateTimePicker } from "./DateTimePicker";
 import { addQuickExpiry } from "utils/expiry";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { Icon } from "./Icon";
-import { Input } from "./Input";
 import { createUsageConfig, UsageFilter } from "./UsageFilter";
 import {
 	XrayModalBody,
@@ -312,6 +311,9 @@ const usernameRegex = /^[A-Za-z0-9._@-]{3,32}$/;
 const BYTES_PER_GB = 1073741824;
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+const alwaysVisibleStepper = {
+	".rb-number-stepper": { opacity: 1, pointerEvents: "auto" },
+};
 
 const normalizeDecimalText = (value: string) =>
 	value
@@ -637,6 +639,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			<InputGroup size="sm" dir="ltr" w="full" minW={0}>
 				<Box flex="1" minW={0}>
 					<NumericInput
+						sx={alwaysVisibleStepper}
 						value={args.value}
 						isDisabled={args.disabled}
 						min={0}
@@ -1970,11 +1973,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					dir={isRTL ? "rtl" : "ltr"}
 				>
 					<ModalCloseButton
-						mt={3}
 						disabled={loading}
 						insetInlineEnd={4}
 						insetInlineStart="auto"
-						top={4}
+						top={3}
 						position="absolute"
 						zIndex={2}
 						_rtl={{
@@ -2173,7 +2175,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											"&::-webkit-scrollbar": { display: "none" },
 										}}
 									>
-										<Tab flexShrink={0}>{t("edit")}</Tab>
+										<Tab flexShrink={0}>{t("form")}</Tab>
 										{isEditing && canViewTraffic && (
 											<Tab flexShrink={0}>{t("userDialog.tabs.usage")}</Tab>
 										)}
@@ -2248,13 +2250,14 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				<ChakraInput
 																					type="text"
 																					borderRadius="6px"
-																					placeholder={t("username")}
+																					
 																					isDisabled={disabled || isEditing}
 																					{...(!isEditing ? endPadding : {})}
 																					{...form.register("username")}
 																				/>
 																				{!isEditing && (
 																					<InputRightElement
+														h="full"
 																						width="auto"
 																						insetInlineEnd={
 																							endAdornmentProps.insetInlineEnd
@@ -2271,7 +2274,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																							)}
 																							size="sm"
 																							variant="ghost"
-																							icon={<SparklesIcon width={18} />}
+																							h="32px"
+																																																																																																						minW="32px"
+																																																																																																																																			w="32px"
+																																																																																																																										icon={<SparklesIcon width={18} />}
 																							onClick={() => {
 																								const randomUsername =
 																									createRandomUsername();
@@ -2342,7 +2348,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	<FormHelperText
 																		fontSize="xs"
 																		color="gray.500"
-																		textAlign={isRTL ? "end" : "start"}
+																		textAlign={isRTL ? "start" : "end"}
 																	>
 																		{`${usernameValue?.length ?? 0}/32`}
 																	</FormHelperText>
@@ -2367,8 +2373,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															</Flex>
 
 															<Stack
-																direction={{ base: "column", md: "row" }}
-																spacing={4}
+																direction="row"
+																spacing={3}
 																mb={"10px"}
 															>
 																<FormControl
@@ -2418,7 +2424,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		}}
 																	/>
 																</FormControl>
-																<FormControl flex="1">
+																<FormControl flex="1" minW={0} isInvalid={Boolean(form.formState.errors.ip_limit)}>
 																	<FormLabel
 																		display="flex"
 																		alignItems="center"
@@ -2474,43 +2480,44 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																			},
 																		}}
 																		render={({ field }) => (
-																			<Input
-																				size="sm"
-																				borderRadius="6px"
-																				placeholder={t(
-																					"userDialog.ipLimitPlaceholder",
-																				)}
-																				value={
-																					typeof field.value === "number" &&
-																					field.value > 0
-																						? String(field.value)
-																						: ""
-																				}
-																				onChange={(event) => {
-																					const raw = event.target.value;
-																					if (
-																						!raw.trim() ||
-																						raw.trim() === "-"
-																					) {
-																						field.onChange(null);
-																						return;
+																			<>
+																				<NumericInput
+																					sx={alwaysVisibleStepper}
+																					variant="outline"
+																					value={
+																						typeof field.value === "number" && field.value > 0
+																							? String(field.value)
+																							: ""
 																					}
-																					const parsed = Number(raw);
-																					if (Number.isNaN(parsed)) {
-																						return;
-																					}
-																					field.onChange(
-																						parsed < 0 ? 0 : Math.floor(parsed),
-																					);
-																				}}
-																				disabled={disabled}
-																				error={
-																					form.formState.errors.ip_limit
-																						?.message
-																				}
-																				dir="ltr"
-																				textAlign={isRTL ? "right" : "left"}
-																			/>
+																					min={0}
+																					step={1}
+																					isDisabled={disabled}
+																					isInvalid={Boolean(form.formState.errors.ip_limit)}
+																					onChange={(valueAsString) => {
+																						const raw = valueAsString.trim();
+																						if (!raw || raw === "-") {
+																							field.onChange(null);
+																							return;
+																						}
+																						const parsed = Number(raw);
+																						if (Number.isNaN(parsed)) {
+																							return;
+																						}
+																						field.onChange(parsed < 0 ? 0 : Math.floor(parsed));
+																					}}
+																					fieldProps={{
+																						placeholder: t("userDialog.remainingDataUnlimited"),
+																						borderRadius: "6px",
+																						h: "32px",
+																						minH: "32px",
+																						dir: "ltr",
+																						textAlign: isRTL ? "right" : "left",
+																					}}
+																				/>
+																				<FormErrorMessage>
+																					{form.formState.errors.ip_limit?.message}
+																				</FormErrorMessage>
+																			</>
 																		)}
 																	/>
 																</FormControl>
@@ -2599,13 +2606,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		md: "minmax(0, 1fr) auto",
 																	}}
 																	templateAreas={{
-																		base: isOnHold
-																			? `"label" "field" "button"`
-																			: `"label" "field" "helper" "button"`,
-																		md: isOnHold
-																			? `"label ."
-																			   "field button"`
-																			: `"label ."
+																		base: `"label" "field" "helper" "button"`,
+																		md: `"label ."
 																			   "field button"
 																			   "helper ."`,
 																	}}
@@ -2732,6 +2734,27 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		<FormHelperText gridArea="helper" mt={0}>
 																			{expireHelperText}
 																		</FormHelperText>
+																	) : null}
+																	{isOnHold ? (
+																		<HStack gridArea="helper" spacing={2} flexWrap="wrap">
+																			{[7, 30, 60, 90, 180, 365].map((days) => (
+																				<Button
+																					key={days}
+																					size="xs"
+																					variant="outline"
+																					isDisabled={disabled}
+																					onClick={() =>
+																						form.setValue(
+																							"on_hold_expire_duration",
+																							days,
+																							{ shouldDirty: true, shouldValidate: true },
+																						)
+																					}
+																				>
+																					{days}D
+																				</Button>
+																			))}
+																		</HStack>
 																	) : null}
 																	<Button
 																		gridArea="button"

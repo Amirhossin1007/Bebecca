@@ -49,12 +49,13 @@ type RuntimeSessionCallback struct {
 }
 
 type OperationRow struct {
-	ID            int64
-	OperationType string
-	NodeID        sql.NullInt64
-	UserID        sql.NullInt64
-	Payload       json.RawMessage
-	Attempts      int
+	ID             int64
+	OperationType  string
+	NodeID         sql.NullInt64
+	UserID         sql.NullInt64
+	Payload        json.RawMessage
+	Attempts       int
+	IdempotencyKey string
 }
 
 const (
@@ -661,7 +662,7 @@ func (r Repository) PendingOperations(ctx context.Context, nodeID int64, limit i
 		return r.pendingOperationsFair(ctx, limit)
 	}
 	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
-	query := `SELECT id, operation_type, node_id, user_id, payload, attempts
+	query := `SELECT id, operation_type, node_id, user_id, payload, attempts, idempotency_key
 FROM node_operations no
 WHERE (
 	status = 'pending'
@@ -690,7 +691,7 @@ AND (
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -711,7 +712,7 @@ func (r Repository) PendingRuntimeUserOperationsAll(ctx context.Context, limit i
 	}
 	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
 	rows, err := r.db.QueryContext(ctx, `
-SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts, no.idempotency_key
 FROM node_operations no
 JOIN nodes n ON n.id = no.node_id
 WHERE (
@@ -733,7 +734,7 @@ LIMIT ?`, retryCutoff, limit)
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -760,7 +761,7 @@ func (r Repository) PendingRuntimeUserOperationsForUsers(ctx context.Context, us
 	}
 	args = append(args, limit)
 	query := `
-SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts, no.idempotency_key
 FROM node_operations no
 JOIN nodes n ON n.id = no.node_id
 WHERE (
@@ -783,7 +784,7 @@ LIMIT ?`
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -807,7 +808,7 @@ func (r Repository) PendingRuntimeUserOperations(ctx context.Context, userID int
 	}
 	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
 	query := `
-SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts, no.idempotency_key
 FROM node_operations no
 JOIN nodes n ON n.id = no.node_id
 WHERE (
@@ -838,7 +839,7 @@ LIMIT ?`
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -864,6 +865,7 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 		no.user_id,
 		no.payload,
 		no.attempts,
+		no.idempotency_key,
 		CASE
 			WHEN no.operation_type = 'sync_config' THEN 0
 			WHEN no.operation_type = 'add_user' THEN 1
@@ -892,7 +894,7 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 	)
 	AND (no.node_id IS NULL OR LOWER(COALESCE(n.status, '')) = 'connected')
 )
-SELECT id, operation_type, node_id, user_id, payload, attempts
+SELECT id, operation_type, node_id, user_id, payload, attempts, idempotency_key
 FROM ranked_operations
 WHERE node_rank <= ?
 ORDER BY priority, node_rank, operation_priority, COALESCE(node_id, -1), id
@@ -907,7 +909,7 @@ LIMIT ?`
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -977,7 +979,7 @@ func (r Repository) MarkOperationDone(ctx context.Context, id int64) error {
 }
 
 func (r Repository) CoalescibleOperationIDsForTarget(ctx context.Context, representative OperationRow) ([]int64, error) {
-	query := `SELECT id, operation_type, node_id, user_id, payload, attempts
+	query := `SELECT id, operation_type, node_id, user_id, payload, attempts, idempotency_key
 FROM node_operations
 WHERE status IN ('pending', 'retrying', 'running')
   AND operation_type IN ('sync_config', 'add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')`
@@ -1000,7 +1002,7 @@ WHERE status IN ('pending', 'retrying', 'running')
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)

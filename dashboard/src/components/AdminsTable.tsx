@@ -3,7 +3,9 @@ import {
 	Button,
 	Collapse,
 	chakra,
+	Flex,
 	HStack,
+	IconButton,
 	Input,
 	InputGroup,
 	InputRightElement,
@@ -19,6 +21,8 @@ import {
 	type TableProps,
 	Text,
 	Textarea,
+	Tooltip,
+	useBreakpointValue,
 	useColorModeValue,
 	useDisclosure,
 	useToast,
@@ -62,6 +66,7 @@ import {
 } from "utils/toastHandler";
 import { copyTextToClipboard } from "utils/clipboard";
 import { AdminApiKeysDialog } from "./AdminApiKeysDialog";
+import { AdminDetailsPanel } from "./AdminDetailsPanel";
 import AdminPermissionsModal from "./AdminPermissionsModal";
 import { AdminSecurityDialog } from "./AdminSecurityDialog";
 import { ConfirmDialog } from "./dialogs/ConfirmDialog";
@@ -209,7 +214,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const fetchAdminOptions = useAdminsStore((state) => state.fetchAdminOptions);
 	const updateAdmin = useAdminsStore((state) => state.updateAdmin);
 	const openAdminDialog = useAdminsStore((state) => state.openAdminDialog);
-	const openAdminDetails = useAdminsStore((state) => state.openAdminDetails);
 	const {
 		isOpen: isDisableDialogOpen,
 		onOpen: openDisableDialog,
@@ -808,9 +812,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				sortable: true,
 				isPrimary: true,
 				priority: "primary",
-				width: "168px",
-				minWidth: "148px",
-				maxWidth: "188px",
+				width: "13%",
 				truncate: true,
 				tooltip: true,
 				cellAlign: "start",
@@ -832,8 +834,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "status",
 				header: t("status"),
 				priority: "high",
-				width: "116px",
-				maxWidth: "130px",
+				width: "9%",
 				headerAlign: "center",
 				mobilePriority: 1,
 				mobileMetaLabel: t("status"),
@@ -843,8 +844,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "role",
 				header: t("core.role"),
 				priority: "high",
-				width: "118px",
-				maxWidth: "130px",
+				width: "9%",
 				mobilePriority: 2,
 				mobileMetaLabel: t("core.role"),
 				cell: (admin) => <AdminRoleBadge role={admin.role} />,
@@ -854,8 +854,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				header: t("admins.details.activeLabel"),
 				sortable: true,
 				priority: "high",
-				width: "92px",
-				maxWidth: "104px",
+				width: "7%",
 				headerAlign: "center",
 				mobilePriority: 3,
 				mobileMetaLabel: t("admins.details.activeLabel"),
@@ -876,8 +875,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "online",
 				header: t("admins.details.onlineLabel"),
 				priority: "medium",
-				width: "86px",
-				maxWidth: "96px",
+				width: "6%",
 				headerAlign: "center",
 				mobilePriority: 4,
 				mobileMetaLabel: t("admins.details.onlineLabel"),
@@ -896,8 +894,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "services",
 				header: t("services.title"),
 				priority: "medium",
-				width: "112px",
-				maxWidth: "130px",
+				width: "7%",
 				mobilePriority: 5,
 				mobileMetaLabel: t("services.title"),
 				cell: (admin) => (
@@ -913,9 +910,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				header: t("usersTable.traffic"),
 				sortable: true,
 				priority: "high",
-				width: "clamp(240px, 22vw, 340px)",
-				minWidth: "240px",
-				maxWidth: "340px",
+				width: "16%",
 				headerAlign: "center",
 				cellAlign: "start",
 				mobilePriority: 6,
@@ -933,9 +928,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "remaining_traffic",
 				header: t("usersTable.remainingTraffic"),
 				priority: "medium",
-				width: "132px",
-				minWidth: "118px",
-				maxWidth: "148px",
+				width: "9%",
 				mobilePriority: 7,
 				mobileMetaLabel: t("usersTable.remainingTraffic"),
 				cell: (admin) => (
@@ -959,8 +952,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				id: "expire",
 				header: t("expire"),
 				priority: "medium",
-				width: "126px",
-				maxWidth: "146px",
+				width: "10%",
 				mobilePriority: 8,
 				mobileMetaLabel: t("expire"),
 				cell: (admin) => <UserExpiryCountdown expire={admin.expire} />,
@@ -1093,6 +1085,48 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		return actions;
 	};
 
+	const [expandedAdminUsername, setExpandedAdminUsername] = useState<string | null>(null);
+	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
+	const renderExpandedAdmin = (admin: Admin) => {
+		const actions = adminRowActions(admin).filter(Boolean);
+		return (
+			<Box className="rb-resource-expanded">
+				<AdminDetailsPanel
+					admin={admin}
+					actions={
+						<Flex
+							className="rb-resource-expanded-actions"
+							align="center"
+							justify="flex-end"
+							gap={1}
+							flexWrap="wrap"
+							onClick={(event) => event.stopPropagation()}
+						>
+							<HStack className="rb-inline-actions" spacing={1} flexWrap="wrap">
+								{actions.map((action) => (
+									<Tooltip key={action.id} label={action.label}>
+										<span>
+											<IconButton
+												aria-label={String(action.label)}
+												icon={action.icon}
+												variant="ghost"
+												size="sm"
+												minW="30px"
+												h="30px"
+												isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(admin) : action.isDisabled}
+												onClick={() => action.onClick?.(admin)}
+											/>
+										</span>
+									</Tooltip>
+								))}
+							</HStack>
+						</Flex>
+					}
+				/>
+			</Box>
+		);
+	};
+
 	return (
 		<>
 			<Stack spacing={3}>
@@ -1104,6 +1138,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					{toolbar}
 				</ResourceListCard>
 
+				<Box className="rb-admins-section">
 				<DataTable
 					ariaLabel={t("admins")}
 					data={admins}
@@ -1129,7 +1164,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					actionsPlacement="end"
 					actionsColumnWidth="60px"
 					showActionsOnHover
-					onRowClick={(admin) => openAdminDetails(admin)}
+									onRowClick={isDesktop ? (admin) => setExpandedAdminUsername((current) => (current === admin.username ? null : admin.username)) : undefined}
+									isRowExpanded={isDesktop ? (admin) => expandedAdminUsername === admin.username : undefined}
+									renderExpandedRow={isDesktop ? renderExpandedAdmin : undefined}
 					sorting={adminSorting}
 					onSortingChange={handleAdminTableSorting}
 					manualSorting
@@ -1137,6 +1174,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					mobileBreakpoint="md"
 					tableProps={tableProps}
 				/>
+				</Box>
 			</Stack>
 
 			<ConfirmDialog

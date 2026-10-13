@@ -31,7 +31,7 @@ func (c Controller) grpcApplyUserOperation(ctx context.Context, client *nodeclie
 			if syncErr := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); syncErr != nil {
 				return syncErr
 			}
-			res, syncErr := client.Runtime().SyncConfig(ctx, runtimeReq)
+			res, syncErr := client.Runtime().SyncConfig(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 			if syncErr != nil {
 				return syncErr
 			}

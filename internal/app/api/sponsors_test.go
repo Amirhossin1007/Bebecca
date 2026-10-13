@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -80,6 +81,36 @@ func TestSponsorRefreshesWhenCachedURLChanges(t *testing.T) {
 	}
 	if len(assets) != 1 || assets[0].ID != "fresh" {
 		t.Fatalf("expected cache miss after URL change, got %#v", assets)
+	}
+}
+
+func TestSponsorStillServesWhenCacheDirIsBlocked(t *testing.T) {
+	cacheDir := filepath.Join(t.TempDir(), "sponsor-cache")
+	if err := os.WriteFile(cacheDir, nil, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	m := newSponsorManager(
+		"https://raw.githubusercontent.com/example/sponsors/main/manifest.json",
+		cacheDir,
+		&http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			body := `{"enabled":true,"assets":[{"id":"fresh","placement":"header","image_url":"header.svg","valid_until":"2099-12-31"}]}`
+			if strings.HasSuffix(req.URL.Path, "/header.svg") {
+				body = `<svg xmlns="http://www.w3.org/2000/svg"></svg>`
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    req,
+			}, nil
+		})},
+	)
+	assets, err := m.ensure(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(assets) != 1 || assets[0].ID != "fresh" || len(assets[0].Data) == 0 {
+		t.Fatalf("expected sponsor to be served from memory, got %#v", assets)
 	}
 }
 

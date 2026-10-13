@@ -103,7 +103,7 @@ func sqliteDSN(path string) string {
 	if strings.HasPrefix(path, "file:") {
 		return path
 	}
-	query := "_busy_timeout=30000&_journal_mode=WAL&_synchronous=NORMAL"
+	query := "_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
 	if strings.Contains(path, "?") {
 		return "file:" + path + "&" + query
 	}

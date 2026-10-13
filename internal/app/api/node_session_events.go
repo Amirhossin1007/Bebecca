@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	"github.com/rebeccapanel/rebecca/internal/app/online"
 )
 
 const wireGuardSessionStaleAfter = 4 * time.Minute
@@ -210,11 +211,15 @@ WHERE user_id = ? AND ended_at IS NULL`, payload.UserID)
 		return false, nil
 	}
 	devices := map[string]struct{}{}
+	tunneled := map[string]struct{}{}
 	for rows.Next() {
 		var nodeID int64
 		var sessionID, assignedIP, clientIP string
 		if err := rows.Scan(&nodeID, &sessionID, &assignedIP, &clientIP); err != nil {
 			return false, err
+		}
+		if strings.TrimSpace(assignedIP) != "" {
+			tunneled[strings.TrimSpace(assignedIP)] = struct{}{}
 		}
 		if nodeID == payload.NodeID && strings.TrimSpace(sessionID) == strings.TrimSpace(payload.SessionID) {
 			continue
@@ -227,10 +232,43 @@ WHERE user_id = ? AND ended_at IS NULL`, payload.UserID)
 	if err := rows.Err(); err != nil {
 		return false, err
 	}
+	xrayRows, err := tx.QueryContext(ctx, `
+SELECT ip FROM user_online_ips
+WHERE user_id = ? AND protocol = 'xray' AND last_seen_at >= ?`,
+		payload.UserID, onlineIPCutoffArg(online.Cutoff(time.Now())))
+	if err != nil {
+		return false, err
+	}
+	for xrayRows.Next() {
+		var ip string
+		if err := xrayRows.Scan(&ip); err != nil {
+			xrayRows.Close()
+			return false, err
+		}
+		ip = strings.TrimSpace(ip)
+		if ip == "" {
+			continue
+		}
+		if _, isTunneled := tunneled[ip]; isTunneled {
+			continue
+		}
+		devices["client:"+ip] = struct{}{}
+	}
+	if err := xrayRows.Err(); err != nil {
+		xrayRows.Close()
+		return false, err
+	}
+	if err := xrayRows.Close(); err != nil {
+		return false, err
+	}
 	if _, exists := devices[incoming]; exists {
 		return true, nil
 	}
 	return int64(len(devices)) < limit, nil
+}
+
+func onlineIPCutoffArg(value time.Time) string {
+	return value.UTC().Format("2006-01-02 15:04:05.000000")
 }
 
 func globalSessionDeviceKey(assignedIP, clientIP string) string {

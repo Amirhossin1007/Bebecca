@@ -372,20 +372,9 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 		return (
 			<>
 				{mobileTrigger}
-				<Modal
-					isOpen={isOpen}
-					onClose={handleClose}
-					size="full"
-					motionPreset="slideInBottom"
-				>
+				<Modal isOpen={isOpen} onClose={handleClose}>
 					<ModalOverlay />
-					<ModalContent
-						m={0}
-						minH="100dvh"
-						bg={popoverBg}
-						color={popoverText}
-						borderRadius={0}
-					>
+					<ModalContent bg={popoverBg} color={popoverText}>
 						<ModalHeader fontSize="sm" py={3} pe={12}>
 							{inputPlaceholder}
 						</ModalHeader>

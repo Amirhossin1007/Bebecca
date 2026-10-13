@@ -12,12 +12,17 @@ import {
 	ModalCloseButton,
 	ModalOverlay,
 	Stack,
+	Tab,
+	TabList,
+	TabPanel,
+	TabPanels,
+	Tabs,
 	Text,
 	Wrap,
 	WrapItem,
 } from "@chakra-ui/react";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { type FC, useEffect, useMemo } from "react";
+import { type FC, useEffect, useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { MultiValueAutocomplete } from "./common/MultiValueAutocomplete";
@@ -26,6 +31,7 @@ import {
 	type SearchableTagSelectOption,
 } from "./common/SearchableTagSelect";
 import { OutboundTestButton } from "./xray/OutboundTestButton";
+import { PropagationTargets } from "./xray/PropagationTargets";
 import {
 	XrayDialogSection,
 	XrayFieldGrid,
@@ -85,7 +91,9 @@ export interface RuleModalProps {
 	availableBalancerTags: string[];
 	onTestOutbound?: (tag: string) => void;
 	outboundTestingByTag?: Record<string, boolean>;
-	onSubmit: (rule: RoutingRule) => void;
+	sourceTarget: string;
+	propagationBase: RoutingRule | null;
+	onSubmit: (rule: RoutingRule, targetIds: string[]) => void;
 	onClose: () => void;
 }
 
@@ -233,10 +241,13 @@ export const RuleModal: FC<RuleModalProps> = ({
 	availableBalancerTags,
 	onTestOutbound,
 	outboundTestingByTag = {},
+	sourceTarget,
+	propagationBase,
 	onSubmit,
 	onClose,
 }) => {
 	const { t } = useTranslation();
+	const [targetIds, setTargetIds] = useState<string[]>([]);
 
 	const {
 		control,
@@ -257,6 +268,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 	useEffect(() => {
 		if (isOpen) {
 			reset(ruleToFormValues(initialRule));
+			setTargetIds([]);
 		}
 	}, [isOpen, initialRule, reset]);
 
@@ -268,7 +280,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 
 	const handleSave = handleSubmit((values) => {
 		const rule = formValuesToRule(values);
-		onSubmit(rule);
+		onSubmit(rule, targetIds);
 		handleClose();
 	});
 
@@ -290,348 +302,368 @@ export const RuleModal: FC<RuleModalProps> = ({
 				<XrayModalHeader>{title}</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<Stack spacing={3}>
-						<XrayDialogSection title={t("pages.outbound.basicSettings")}>
-							<Stack spacing={3}>
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.type")}</FormLabel>
-									<Controller
-										control={control}
-										name="type"
-										render={({ field }) => (
-											<SearchableTagSelect
-												mode="single"
-												options={TYPE_OPTIONS}
-												value={field.value ?? ""}
-												onChange={(value) => field.onChange(value as string)}
-												placeholder={t("pages.xray.rules.type")}
-												searchPlaceholder={t("search")}
-											/>
-										)}
-									/>
-								</FormControl>
+					<Tabs isLazy lazyBehavior="keepMounted" variant="unstyled">
+						<TabList>
+							<Tab>{t("form")}</Tab>
+							<Tab>{t("pages.xray.propagate.tab")}</Tab>
+						</TabList>
+						<TabPanels>
+							<TabPanel px={0}>
+								<Stack spacing={3}>
+									<XrayDialogSection title={t("pages.outbound.basicSettings")}>
+										<Stack spacing={3}>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.type")}</FormLabel>
+												<Controller
+													control={control}
+													name="type"
+													render={({ field }) => (
+														<SearchableTagSelect
+															mode="single"
+															options={TYPE_OPTIONS}
+															value={field.value ?? ""}
+															onChange={(value) => field.onChange(value as string)}
+															placeholder={t("pages.xray.rules.type")}
+															searchPlaceholder={t("search")}
+														/>
+													)}
+												/>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.outboundTag")}</FormLabel>
-									<Controller
-										control={control}
-										name="outboundTag"
-										render={({ field }) => (
-											<HStack align="start">
-												<Box flex="1" minW={0}>
-													<SearchableTagSelect
-														mode="single"
-														options={availableOutboundTags}
-														value={field.value ?? ""}
-														onChange={(value) => {
-															const nextValue = value as string;
-															field.onChange(nextValue);
-															if (nextValue) {
-																setValue("balancerTag", "", {
-																	shouldDirty: true,
-																});
-															}
-														}}
-														placeholder={t("userDialog.flow.none")}
-														searchPlaceholder={t("search")}
-														emptyText={t("pages.xray.outbound.empty")}
-														rightElement={
-															<OutboundTestButton
-																label={t("pages.xray.routeTester.test")}
-																tag={field.value ?? ""}
-																isTesting={
-																	outboundTestingByTag[field.value ?? ""]
-																}
-																onTest={onTestOutbound}
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.outboundTag")}</FormLabel>
+												<Controller
+													control={control}
+													name="outboundTag"
+													render={({ field }) => (
+														<HStack align="start">
+															<Box flex="1" minW={0}>
+																<SearchableTagSelect
+																	mode="single"
+																	options={availableOutboundTags}
+																	value={field.value ?? ""}
+																	onChange={(value) => {
+																		const nextValue = value as string;
+																		field.onChange(nextValue);
+																		if (nextValue) {
+																			setValue("balancerTag", "", {
+																				shouldDirty: true,
+																			});
+																		}
+																	}}
+																	placeholder={t("userDialog.flow.none")}
+																	searchPlaceholder={t("search")}
+																	emptyText={t("pages.xray.outbound.empty")}
+																	rightElement={
+																		<OutboundTestButton
+																			label={t("pages.xray.routeTester.test")}
+																			tag={field.value ?? ""}
+																			isTesting={
+																				outboundTestingByTag[field.value ?? ""]
+																			}
+																			onTest={onTestOutbound}
+																		/>
+																	}
+																/>
+															</Box>
+															<IconButton
+																aria-label={t("remove")}
+																icon={<XMarkIcon />}
+																size="sm"
+																variant="ghost"
+																isDisabled={!field.value}
+																onClick={() => field.onChange("")}
 															/>
-														}
-													/>
-												</Box>
-												<IconButton
-													aria-label={t("remove")}
-													icon={<XMarkIcon />}
-													size="sm"
-													variant="ghost"
-													isDisabled={!field.value}
-													onClick={() => field.onChange("")}
+														</HStack>
+													)}
 												/>
-											</HStack>
-										)}
-									/>
-								</FormControl>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.balancer")}</FormLabel>
-									<Controller
-										control={control}
-										name="balancerTag"
-										render={({ field }) => (
-											<HStack align="start">
-												<Box flex="1" minW={0}>
-													<SearchableTagSelect
-														mode="single"
-														options={availableBalancerTags}
-														value={field.value ?? ""}
-														onChange={(value) => {
-															const nextValue = value as string;
-															field.onChange(nextValue);
-															if (nextValue) {
-																setValue("outboundTag", "", {
-																	shouldDirty: true,
-																});
-															}
-														}}
-														placeholder={t("userDialog.flow.none")}
-														searchPlaceholder={t("search")}
-														emptyText={t("pages.xray.balancer.empty")}
-													/>
-												</Box>
-												<IconButton
-													aria-label={t("remove")}
-													icon={<XMarkIcon />}
-													size="sm"
-													variant="ghost"
-													isDisabled={!field.value}
-													onClick={() => field.onChange("")}
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.balancer")}</FormLabel>
+												<Controller
+													control={control}
+													name="balancerTag"
+													render={({ field }) => (
+														<HStack align="start">
+															<Box flex="1" minW={0}>
+																<SearchableTagSelect
+																	mode="single"
+																	options={availableBalancerTags}
+																	value={field.value ?? ""}
+																	onChange={(value) => {
+																		const nextValue = value as string;
+																		field.onChange(nextValue);
+																		if (nextValue) {
+																			setValue("outboundTag", "", {
+																				shouldDirty: true,
+																			});
+																		}
+																	}}
+																	placeholder={t("userDialog.flow.none")}
+																	searchPlaceholder={t("search")}
+																	emptyText={t("pages.xray.balancer.empty")}
+																/>
+															</Box>
+															<IconButton
+																aria-label={t("remove")}
+																icon={<XMarkIcon />}
+																size="sm"
+																variant="ghost"
+																isDisabled={!field.value}
+																onClick={() => field.onChange("")}
+															/>
+														</HStack>
+													)}
 												/>
-											</HStack>
-										)}
-									/>
-								</FormControl>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.inboundTag")}</FormLabel>
-									<Controller
-										control={control}
-										name="inboundTags"
-										render={({ field }) => (
-											<SearchableTagSelect
-												mode="multiple"
-												options={availableInboundTags}
-												value={field.value ?? []}
-												onChange={(value) => field.onChange(value as string[])}
-												placeholder={t("pages.xray.rules.inboundTag")}
-												searchPlaceholder={t("search")}
-												emptyText={t("pages.inbounds.empty")}
-											/>
-										)}
-									/>
-								</FormControl>
-							</Stack>
-						</XrayDialogSection>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.inboundTag")}</FormLabel>
+												<Controller
+													control={control}
+													name="inboundTags"
+													render={({ field }) => (
+														<SearchableTagSelect
+															mode="multiple"
+															options={availableInboundTags}
+															value={field.value ?? []}
+															onChange={(value) => field.onChange(value as string[])}
+															placeholder={t("pages.xray.rules.inboundTag")}
+															searchPlaceholder={t("search")}
+															emptyText={t("pages.inbounds.empty")}
+														/>
+													)}
+												/>
+											</FormControl>
+										</Stack>
+									</XrayDialogSection>
 
-						<XrayDialogSection title={t("pages.xray.Routings")}>
-							<Stack spacing={3}>
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.domainMatcher")}</FormLabel>
-									<Controller
-										control={control}
-										name="domainMatcher"
-										render={({ field }) => (
-											<SearchableTagSelect
-												mode="single"
-												options={DOMAIN_MATCHER_OPTIONS.map((option) => ({
-													value: option,
-													label: option || t("common.default"),
-												}))}
-												value={field.value ?? ""}
-												onChange={(value) => field.onChange(value as string)}
-												placeholder={t("common.default")}
-												searchPlaceholder={t("search")}
-											/>
-										)}
-									/>
-								</FormControl>
+									<XrayDialogSection title={t("pages.xray.Routings")}>
+										<Stack spacing={3}>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.domainMatcher")}</FormLabel>
+												<Controller
+													control={control}
+													name="domainMatcher"
+													render={({ field }) => (
+														<SearchableTagSelect
+															mode="single"
+															options={DOMAIN_MATCHER_OPTIONS.map((option) => ({
+																value: option,
+																label: option || t("common.default"),
+															}))}
+															value={field.value ?? ""}
+															onChange={(value) => field.onChange(value as string)}
+															placeholder={t("common.default")}
+															searchPlaceholder={t("search")}
+														/>
+													)}
+												/>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.network")}</FormLabel>
-									<Controller
-										control={control}
-										name="networks"
-										render={({ field }) => (
-											<CheckboxGroup {...field}>
-												<Wrap spacing={3}>
-													{NETWORK_OPTIONS.map((network) => (
-														<WrapItem key={network}>
-															<Checkbox value={network}>{network}</Checkbox>
-														</WrapItem>
-													))}
-												</Wrap>
-											</CheckboxGroup>
-										)}
-									/>
-								</FormControl>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.network")}</FormLabel>
+												<Controller
+													control={control}
+													name="networks"
+													render={({ field }) => (
+														<CheckboxGroup {...field}>
+															<Wrap spacing={3}>
+																{NETWORK_OPTIONS.map((network) => (
+																	<WrapItem key={network}>
+																		<Checkbox value={network}>{network}</Checkbox>
+																	</WrapItem>
+																))}
+															</Wrap>
+														</CheckboxGroup>
+													)}
+												/>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.protocol")}</FormLabel>
-									<Controller
-										control={control}
-										name="protocols"
-										render={({ field }) => (
-											<CheckboxGroup {...field}>
-												<Wrap spacing={3}>
-													{PROTOCOL_OPTIONS.map((protocol) => (
-														<WrapItem key={protocol}>
-															<Checkbox value={protocol}>{protocol}</Checkbox>
-														</WrapItem>
-													))}
-												</Wrap>
-											</CheckboxGroup>
-										)}
-									/>
-								</FormControl>
-							</Stack>
-						</XrayDialogSection>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.protocol")}</FormLabel>
+												<Controller
+													control={control}
+													name="protocols"
+													render={({ field }) => (
+														<CheckboxGroup {...field}>
+															<Wrap spacing={3}>
+																{PROTOCOL_OPTIONS.map((protocol) => (
+																	<WrapItem key={protocol}>
+																		<Checkbox value={protocol}>{protocol}</Checkbox>
+																	</WrapItem>
+																))}
+															</Wrap>
+														</CheckboxGroup>
+													)}
+												/>
+											</FormControl>
+										</Stack>
+									</XrayDialogSection>
 
-						<XrayDialogSection title={t("pages.xray.rules.sourceGroup")}>
-							<XrayFieldGrid>
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.source")}</FormLabel>
-									<Controller
-										control={control}
-										name="sourceIps"
-										render={({ field }) => (
-											<MultiValueAutocomplete
-												value={field.value ?? ""}
-												onChange={field.onChange}
-												placeholder={t("pages.xray.rules.useComma")}
-											/>
-										)}
-									/>
-								</FormControl>
+									<XrayDialogSection title={t("pages.xray.rules.sourceGroup")}>
+										<XrayFieldGrid>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.source")}</FormLabel>
+												<Controller
+													control={control}
+													name="sourceIps"
+													render={({ field }) => (
+														<MultiValueAutocomplete
+															value={field.value ?? ""}
+															onChange={field.onChange}
+															placeholder={t("pages.xray.rules.useComma")}
+														/>
+													)}
+												/>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.sourcePort")}</FormLabel>
-									<Controller
-										control={control}
-										name="sourcePort"
-										render={({ field }) => (
-											<MultiValueAutocomplete
-												value={field.value ?? ""}
-												onChange={field.onChange}
-												placeholder="80, 443, 1000-2000"
-											/>
-										)}
-									/>
-								</FormControl>
-								<FormControl>
-									<FormLabel>Node OS (Xray 26.9.8+)</FormLabel>
-									<Input
-										size="sm"
-										placeholder="linux, windows, darwin"
-										{...register("localOS")}
-									/>
-								</FormControl>
-							</XrayFieldGrid>
-						</XrayDialogSection>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.sourcePort")}</FormLabel>
+												<Controller
+													control={control}
+													name="sourcePort"
+													render={({ field }) => (
+														<MultiValueAutocomplete
+															value={field.value ?? ""}
+															onChange={field.onChange}
+															placeholder="80, 443, 1000-2000"
+														/>
+													)}
+												/>
+											</FormControl>
+											<FormControl>
+												<FormLabel>Node OS (Xray 26.9.8+)</FormLabel>
+												<Input
+													size="sm"
+													placeholder="linux, windows, darwin"
+													{...register("localOS")}
+												/>
+											</FormControl>
+										</XrayFieldGrid>
+									</XrayDialogSection>
 
-						<XrayDialogSection title={t("pages.xray.rules.destinationGroup")}>
-							<XrayFieldGrid>
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.ip")}</FormLabel>
-									<Controller
-										control={control}
-										name="ip"
-										render={({ field }) => (
-											<MultiValueAutocomplete
-												value={field.value ?? ""}
-												onChange={field.onChange}
-												placeholder="8.8.8.8, geoip:private"
-											/>
-										)}
-									/>
-								</FormControl>
+									<XrayDialogSection title={t("pages.xray.rules.destinationGroup")}>
+										<XrayFieldGrid>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.ip")}</FormLabel>
+												<Controller
+													control={control}
+													name="ip"
+													render={({ field }) => (
+														<MultiValueAutocomplete
+															value={field.value ?? ""}
+															onChange={field.onChange}
+															placeholder="8.8.8.8, geoip:private"
+														/>
+													)}
+												/>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.domain")}</FormLabel>
-									<Controller
-										control={control}
-										name="domain"
-										render={({ field }) => (
-											<MultiValueAutocomplete
-												value={field.value ?? ""}
-												onChange={field.onChange}
-												placeholder="domain:example.com, geosite:category-ads"
-											/>
-										)}
-									/>
-								</FormControl>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.domain")}</FormLabel>
+												<Controller
+													control={control}
+													name="domain"
+													render={({ field }) => (
+														<MultiValueAutocomplete
+															value={field.value ?? ""}
+															onChange={field.onChange}
+															placeholder="domain:example.com, geosite:category-ads"
+														/>
+													)}
+												/>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("users")}</FormLabel>
-									<Controller
-										control={control}
-										name="user"
-										render={({ field }) => (
-											<MultiValueAutocomplete
-												value={field.value ?? ""}
-												onChange={field.onChange}
-												placeholder="email@example.com, user-tag"
-											/>
-										)}
-									/>
-								</FormControl>
+											<FormControl>
+												<FormLabel>{t("users")}</FormLabel>
+												<Controller
+													control={control}
+													name="user"
+													render={({ field }) => (
+														<MultiValueAutocomplete
+															value={field.value ?? ""}
+															onChange={field.onChange}
+															placeholder="email@example.com, user-tag"
+														/>
+													)}
+												/>
+											</FormControl>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.rules.port")}</FormLabel>
-									<Controller
-										control={control}
-										name="port"
-										render={({ field }) => (
-											<MultiValueAutocomplete
-												value={field.value ?? ""}
-												onChange={field.onChange}
-												placeholder="80, 443, 1000-2000"
-											/>
-										)}
-									/>
-								</FormControl>
-							</XrayFieldGrid>
-						</XrayDialogSection>
+											<FormControl>
+												<FormLabel>{t("pages.xray.rules.port")}</FormLabel>
+												<Controller
+													control={control}
+													name="port"
+													render={({ field }) => (
+														<MultiValueAutocomplete
+															value={field.value ?? ""}
+															onChange={field.onChange}
+															placeholder="80, 443, 1000-2000"
+														/>
+													)}
+												/>
+											</FormControl>
+										</XrayFieldGrid>
+									</XrayDialogSection>
 
-						<XrayDialogSection title={t("pages.xray.rules.attrs")}>
-							<FormControl>
-								<FormLabel>{t("pages.xray.rules.attrs")}</FormLabel>
-								<Button
-									onClick={onAddAttribute}
-									size="xs"
-									leftIcon={<PlusIcon width={16} />}
-									variant="outline"
-									colorScheme="primary"
-								>
-									{t("add")}
-								</Button>
-							</FormControl>
-							<Stack spacing={2} mt={3}>
-								{fields.length === 0 && (
-									<Text fontSize="sm" color="gray.500">
-										{t("pages.xray.rules.attrsHelper")}
-									</Text>
-								)}
-								{fields.map((field, index) => (
-									<HStack key={field.id} spacing={2} align="flex-start">
-										<Input
-											size="sm"
-											placeholder={t("myaccount.apiKeyMasked")}
-											{...register(`attrs.${index}.key` as const)}
-										/>
-										<Input
-											size="sm"
-											placeholder={t("value")}
-											{...register(`attrs.${index}.value` as const)}
-										/>
-										<IconButton
-											aria-label={t("a11y.removeAttribute")}
-											icon={<XMarkIcon width={16} />}
-											size="sm"
-											variant="ghost"
-											onClick={() => remove(index)}
-										/>
-									</HStack>
-								))}
-							</Stack>
-						</XrayDialogSection>
-					</Stack>
+									<XrayDialogSection title={t("pages.xray.rules.attrs")}>
+										<FormControl>
+											<FormLabel>{t("pages.xray.rules.attrs")}</FormLabel>
+											<Button
+												onClick={onAddAttribute}
+												size="xs"
+												leftIcon={<PlusIcon width={16} />}
+												variant="outline"
+												colorScheme="primary"
+											>
+												{t("add")}
+											</Button>
+										</FormControl>
+										<Stack spacing={2} mt={3}>
+											{fields.length === 0 && (
+												<Text fontSize="sm" color="gray.500">
+													{t("pages.xray.rules.attrsHelper")}
+												</Text>
+											)}
+											{fields.map((field, index) => (
+												<HStack key={field.id} spacing={2} align="flex-start">
+													<Input
+														size="sm"
+														placeholder={t("myaccount.apiKeyMasked")}
+														{...register(`attrs.${index}.key` as const)}
+													/>
+													<Input
+														size="sm"
+														placeholder={t("value")}
+														{...register(`attrs.${index}.value` as const)}
+													/>
+													<IconButton
+														aria-label={t("a11y.removeAttribute")}
+														icon={<XMarkIcon width={16} />}
+														size="sm"
+														variant="ghost"
+														onClick={() => remove(index)}
+													/>
+												</HStack>
+											))}
+										</Stack>
+									</XrayDialogSection>
+								</Stack>
+							</TabPanel>
+							<TabPanel px={0}>
+								<PropagationTargets
+									source={sourceTarget}
+									section="routing.rules"
+									before={propagationBase}
+									after={null}
+									selectedIds={targetIds}
+									onChange={setTargetIds}
+								/>
+							</TabPanel>
+						</TabPanels>
+					</Tabs>
 				</XrayModalBody>
 				<XrayModalFooter justifyContent="flex-end">
 					<Button variant="outline" onClick={handleClose}>

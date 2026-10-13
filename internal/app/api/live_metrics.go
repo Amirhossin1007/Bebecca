@@ -120,7 +120,7 @@ func (s *Server) sendNodesMetricsSnapshot(parent context.Context, conn *websocke
 		go func() {
 			defer wg.Done()
 			for nodeID := range jobs {
-				item, err := s.nodeController.Get(ctx, nodecontroller.Request{NodeID: nodeID})
+				item, err := s.nodeController.Get(ctx, nodecontroller.Request{NodeID: nodeID, MetricsMaxAge: interval})
 				update := nodeUpdate{node: flattenNodeLiveItem(item)}
 				if err != nil {
 					update = nodeUpdate{error: err.Error()}

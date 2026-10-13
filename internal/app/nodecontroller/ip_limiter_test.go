@@ -43,6 +43,7 @@ func TestStoreNodeOnlineIPsHandlesConcurrentThreeThousandSampleCycle(t *testing.
 		user_id INTEGER NOT NULL,
 		protocol TEXT NOT NULL,
 		ip TEXT NOT NULL,
+		first_seen_at DATETIME NULL,
 		last_seen_at DATETIME NOT NULL,
 		UNIQUE(node_id, user_id, protocol, ip)
 	)`); err != nil {
@@ -182,6 +183,7 @@ CREATE TABLE user_online_ips (
 	user_id INTEGER NOT NULL,
 	protocol TEXT NOT NULL,
 	ip TEXT NOT NULL,
+	first_seen_at DATETIME NULL,
 	last_seen_at DATETIME NOT NULL,
 	UNIQUE(node_id, user_id, protocol, ip)
 );
@@ -193,6 +195,7 @@ CREATE TABLE vpn_user_sessions (
 	session_id TEXT NOT NULL,
 	assigned_ip TEXT NULL,
 	client_ip TEXT NULL,
+	started_at DATETIME NULL,
 	last_seen_at DATETIME NOT NULL,
 	ended_at DATETIME NULL,
 	UNIQUE(node_id, session_id)
@@ -206,14 +209,15 @@ CREATE TABLE vpn_user_sessions (
 	}
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO users (id, ip_limit) VALUES (42, 2), (99, 1);
-INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at) VALUES
-	(7, 42, 'xray', '203.0.113.20', ?),
-	(8, 99, 'xray', '203.0.113.99', ?);
-INSERT INTO vpn_user_sessions (node_id, user_id, protocol, session_id, assigned_ip, client_ip, last_seen_at, ended_at) VALUES
-	(70, 42, 'wg', 'wg-one', '10.1.0.2', '198.51.100.10', ?, NULL),
-	(71, 42, 'ov', 'ov-two', '10.2.0.2', '198.51.100.11', ?, NULL),
-	(72, 99, 'wg', 'wg-other-user', '10.3.0.2', '198.51.100.99', ?, NULL);`,
-		ts(0), ts(0), ts(-2*time.Second), ts(-1*time.Second), ts(-1*time.Second)); err != nil {
+INSERT INTO user_online_ips (node_id, user_id, protocol, ip, first_seen_at, last_seen_at) VALUES
+	(7, 42, 'xray', '203.0.113.20', ?, ?),
+	(8, 99, 'xray', '203.0.113.99', ?, ?);
+INSERT INTO vpn_user_sessions (node_id, user_id, protocol, session_id, assigned_ip, client_ip, started_at, last_seen_at, ended_at) VALUES
+	(70, 42, 'wg', 'wg-one', '10.1.0.2', '198.51.100.10', ?, ?, NULL),
+	(71, 42, 'ov', 'ov-two', '10.2.0.2', '198.51.100.11', ?, ?, NULL),
+	(72, 99, 'wg', 'wg-other-user', '10.3.0.2', '198.51.100.99', ?, ?, NULL);`,
+		ts(0), ts(0), ts(0), ts(0),
+		ts(-2*time.Second), ts(-2*time.Second), ts(-1*time.Second), ts(-1*time.Second), ts(-1*time.Second), ts(-1*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 

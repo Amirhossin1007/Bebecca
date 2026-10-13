@@ -50,3 +50,18 @@ func TestRuntimeResultMapsProtocolAndXrayMetrics(t *testing.T) {
 		t.Fatalf("xray metrics were not mapped: %#v", result.XrayMetrics)
 	}
 }
+
+func TestRemoteOperationIDIsNotReusedAcrossRows(t *testing.T) {
+	first := OperationRow{ID: 1, OperationType: "restart_node", IdempotencyKey: "aaa"}
+	reused := OperationRow{ID: 1, OperationType: "restart_node", IdempotencyKey: "bbb"}
+	if first.remoteOperationID(first.OperationType) == reused.remoteOperationID(reused.OperationType) {
+		t.Fatal("a reused row id must not map to the same node operation id")
+	}
+	if got := first.remoteOperationID("reboot_node"); got != "reboot_node-aaa" {
+		t.Fatalf("unexpected operation id: %s", got)
+	}
+	legacy := OperationRow{ID: 7, OperationType: "sync_config"}
+	if got := legacy.remoteOperationID(legacy.OperationType); got != "sync_config-7" {
+		t.Fatalf("rows without a key keep the row id: %s", got)
+	}
+}

@@ -2,7 +2,7 @@ package system
 
 import dashboardapp "github.com/rebeccapanel/rebecca/internal/app/dashboard"
 
-const DefaultVersion = "1.6.0"
+const DefaultVersion = "1.7.1"
 
 type UsageStats struct {
 	Current int64   `json:"current"`

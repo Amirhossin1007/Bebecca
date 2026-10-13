@@ -35,6 +35,11 @@ import {
 	VStack,
 } from "@chakra-ui/react";
 import {
+	ExpandedDetails,
+	ExpandedHeading,
+	ExpandedMeta,
+} from "components/ui/ExpandedPanel";
+import {
 	PlusIcon as AddIcon,
 	ArrowDownTrayIcon,
 	ArrowPathIcon,
@@ -259,22 +264,6 @@ const ProtocolStatusList = ({
 			</Text>
 		)}
 	</Flex>
-);
-
-const NodeDetail = ({ label, value }: { label: string; value: string }) => (
-	<Box minW={0}>
-		<Text fontSize="xs" color="panel.textMuted" mb={1}>
-			{label}
-		</Text>
-		<Text
-			fontSize="sm"
-			color="panel.text"
-			fontWeight="medium"
-			overflowWrap="anywhere"
-		>
-			{value}
-		</Text>
-	</Box>
 );
 
 const formatNodeLimit = (value?: number | null) =>
@@ -2496,87 +2485,67 @@ export const NodesPage: FC = () => {
 		],
 	);
 
-	const renderExpandedNode = (node: NodeType) => (
-		<Stack className="rb-resource-expanded" spacing={4}>
-			<Box>
-				<Text fontSize="sm" fontWeight="semibold" mb={2}>
-					{t("nodes.protocolHealth")}
-				</Text>
-				<ProtocolStatusList statuses={node.protocol_statuses} />
+	const renderExpandedNode = (node: NodeType) => {
+		const actions = nodeRowActions(node).filter(Boolean);
+		return (
+			<Box className="rb-resource-expanded">
+				<ExpandedDetails>
+					<ExpandedHeading title={t("nodes.sections.health")} first />
+					<ExpandedMeta label={t("nodes.agentHealth")} value={node.agent_status || "unknown"} />
+					<ExpandedMeta label={t("nodes.xrayHealth")} value={node.xray_status || "unknown"} />
+					<ExpandedMeta label={t("nodes.nodeAddress")} value={`${node.address}:${node.port}`} />
+					<ExpandedMeta label={t("nodes.installMode.label")} value={node.node_install_mode || "-"} />
+					<ExpandedMeta label={t("nodes.updateChannel")} value={node.node_update_channel || "-"} />
+					<ExpandedMeta label={t("nodes.revisions")} value={`${node.applied_revision ?? 0} / ${node.desired_revision ?? 0}`} />
+					<ExpandedHeading title={t("nodes.sections.resources")} />
+					<ExpandedMeta label={t("nodes.cpu")} value={`${formatNodePercent(node.cpu_usage_percent)} · ${formatCPUFrequency(node.cpu_frequency_hz) || "-"}`} />
+					<ExpandedMeta label={t("nodes.ram")} value={`${formatNodeBytes(node.memory_used)} / ${formatNodeBytes(node.memory_total)}`} />
+					<ExpandedMeta label={t("nodes.bandwidthSpeed")} value={`↑ ${formatNodeSpeed(node.upload_speed)} · ↓ ${formatNodeSpeed(node.download_speed)}`} />
+					<ExpandedMeta label={t("nodes.xrayCPU")} value={formatNodePercent(node.xray_cpu_usage_percent)} />
+					<ExpandedMeta label={t("nodes.xrayMemory")} value={formatNodeBytes(node.xray_memory_used)} />
+					<ExpandedMeta label={t("redisUptime")} value={formatNodeUptime(node.uptime_seconds)} />
+					<ExpandedHeading title={t("nodes.runtime")} />
+					<ExpandedMeta label={t("nodes.columns.nodeRuntime")} value={getNodeRuntimeDisplayVersion(node) || "-"} />
+					<ExpandedMeta label={t("nodes.xrayProcess")} value={node.xray_pid ? `PID ${node.xray_pid}` : "-"} />
+					<ExpandedMeta label={t("nodes.xrayUptime")} value={formatNodeUptime(node.xray_uptime_seconds)} />
+					<ExpandedMeta label={t("nodes.capabilities")} value={node.capabilities?.join(", ") || "-"} />
+					<ExpandedMeta label={t("nodes.note")} value={node.note || "-"} />
+					<ExpandedMeta label={t("nodes.lastMessage")} value={node.message || "-"} />
+					<ExpandedHeading title={t("nodes.protocolHealth")} />
+					<Box gridColumn="1 / -1">
+						<ProtocolStatusList statuses={node.protocol_statuses} />
+					</Box>
+				</ExpandedDetails>
+				<Flex
+					className="rb-resource-expanded-actions"
+					align="center"
+					justify="flex-end"
+					gap={1}
+					flexWrap="wrap"
+					onClick={(event) => event.stopPropagation()}
+				>
+					<HStack className="rb-inline-actions" spacing={1} flexWrap="wrap">
+						{actions.map((action) => (
+							<Tooltip key={action.id} label={action.label}>
+								<span>
+									<IconButton
+										aria-label={String(action.label)}
+										icon={action.icon}
+										variant="ghost"
+										size="sm"
+										minW="30px"
+										h="30px"
+										isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(node) : action.isDisabled}
+										onClick={() => action.onClick?.(node)}
+									/>
+								</span>
+							</Tooltip>
+						))}
+					</HStack>
+				</Flex>
 			</Box>
-			<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3}>
-				<NodeDetail
-					label={t("nodes.agentHealth")}
-					value={node.agent_status || "unknown"}
-				/>
-				<NodeDetail
-					label={t("nodes.xrayHealth")}
-					value={node.xray_status || "unknown"}
-				/>
-				<NodeDetail
-					label={t("nodes.nodeAddress")}
-					value={`${node.address}:${node.port}`}
-				/>
-				<NodeDetail
-					label={t("nodes.columns.nodeRuntime")}
-					value={getNodeRuntimeDisplayVersion(node) || "-"}
-				/>
-				<NodeDetail
-					label={t("nodes.installMode.label")}
-					value={node.node_install_mode || "-"}
-				/>
-				<NodeDetail
-					label={t("nodes.updateChannel")}
-					value={node.node_update_channel || "-"}
-				/>
-				<NodeDetail
-					label={t("nodes.xrayProcess")}
-					value={node.xray_pid ? `PID ${node.xray_pid}` : "-"}
-				/>
-				<NodeDetail
-					label={t("nodes.xrayCPU")}
-					value={formatNodePercent(node.xray_cpu_usage_percent)}
-				/>
-				<NodeDetail
-					label={t("nodes.xrayMemory")}
-					value={formatNodeBytes(node.xray_memory_used)}
-				/>
-				<NodeDetail
-					label={t("nodes.xrayUptime")}
-					value={formatNodeUptime(node.xray_uptime_seconds)}
-				/>
-				<NodeDetail
-					label={t("nodes.cpu")}
-					value={`${formatNodePercent(node.cpu_usage_percent)} · ${formatCPUFrequency(node.cpu_frequency_hz) || "-"}`}
-				/>
-				<NodeDetail
-					label={t("nodes.ram")}
-					value={`${formatNodeBytes(node.memory_used)} / ${formatNodeBytes(node.memory_total)}`}
-				/>
-				<NodeDetail
-					label={t("nodes.bandwidthSpeed")}
-					value={`↑ ${formatNodeSpeed(node.upload_speed)} · ↓ ${formatNodeSpeed(node.download_speed)}`}
-				/>
-				<NodeDetail
-					label={t("redisUptime")}
-					value={formatNodeUptime(node.uptime_seconds)}
-				/>
-				<NodeDetail
-					label={t("nodes.revisions")}
-					value={`${node.applied_revision ?? 0} / ${node.desired_revision ?? 0}`}
-				/>
-				<NodeDetail
-					label={t("nodes.capabilities")}
-					value={node.capabilities?.join(", ") || "-"}
-				/>
-				<NodeDetail label={t("nodes.note")} value={node.note || "-"} />
-				<NodeDetail
-					label={t("nodes.lastMessage")}
-					value={node.message || "-"}
-				/>
-			</SimpleGrid>
-		</Stack>
-	);
+		);
+	};
 
 	const nodeRowActions = (node: NodeType): DataTableRowAction<NodeType>[] => {
 		const nodeId = node.id as number | undefined;
@@ -3019,209 +2988,211 @@ export const NodesPage: FC = () => {
 				</Alert>
 			)}
 
-			<DataTable
-				ariaLabel={t("nodes.manageNodesHeader")}
-				data={paginatedNodes}
-				columns={nodeColumns}
-				getRowId={(node, index) => String(node.id ?? node.name ?? index)}
-				isLoading={isLoading}
-				loadingRows={Math.min(pageSize, 8)}
-				emptyState={
-					<Text fontSize="sm" color="panel.textMuted" textAlign="center">
-						{t("nodes.noNodesFound")}
-					</Text>
-				}
-				enableSelection
-				selectedRowIds={selectedNodeIds.map(String)}
-				selectedRows={selectedNodes}
-				selectedCount={selectedNodeIds.length}
-				onSelectionChange={(rowIds) => {
-					setSelectedNodeIds(
-						rowIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
-					);
-				}}
-				getRowCanSelect={(node) => node.id != null}
-				rowActions={nodeRowActions}
-				actionsDisplay="menu"
-				actionsPlacement="end"
-				actionsColumnWidth="44px"
-				showActionsOnHover
-				onRowClick={(node) =>
-					setExpandedNodeID((current) =>
-						current === node.id ? null : (node.id ?? null),
-					)
-				}
-				isRowExpanded={(node) => expandedNodeID === node.id}
-				renderExpandedRow={renderExpandedNode}
-				sorting={nodeSorting}
-				onSortingChange={handleNodeTableSorting}
-				manualSorting
-				pagination={nodesPagination}
-				selectedLabel={t("nodes.selectedCount", {
-					count: selectedNodeIds.length,
-				})}
-				renderBulkActions={() => (
-					<>
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={selectAllFilteredNodes}
-							isDisabled={allFilteredSelected}
-						>
-							{t("nodes.selectAllFiltered")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<EnableIconStyled />}
-							onClick={selectOnlyActiveNodes}
-							isDisabled={
-								activeFilteredNodeIds.length === 0 || onlyActiveFilteredSelected
-							}
-						>
-							{t("nodes.selectOnlyActive")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<EnableIconStyled />}
-							onClick={() =>
-								openBulkActionConfirm("bulk-enable", selectableSelectedNodes())
-							}
-							isDisabled={Boolean(bulkNodeActionLoading)}
-						>
-							{t("nodes.enableNode")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<DisableIconStyled />}
-							onClick={() =>
-								openBulkActionConfirm("bulk-disable", selectableSelectedNodes())
-							}
-							isDisabled={Boolean(bulkNodeActionLoading)}
-						>
-							{t("nodes.disableNode")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<ArrowPathIconStyled />}
-							onClick={() =>
-								openBulkActionConfirm("bulk-reset", selectableSelectedNodes())
-							}
-							isDisabled={Boolean(bulkNodeActionLoading)}
-						>
-							{t("nodes.resetUsage")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<ServiceIconStyled />}
-							onClick={() =>
-								openBulkActionConfirm(
-									"bulk-restart",
-									selectedConnectedBinaryNodes(),
-								)
-							}
-							isDisabled={
-								Boolean(bulkNodeActionLoading) ||
-								selectedConnectedBinaryNodes().length === 0
-							}
-						>
-							{t("nodes.restartServiceAction")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<DownloadIconStyled />}
-							onClick={() =>
-								openBulkActionConfirm("bulk-update", selectedBinaryNodes())
-							}
-							isDisabled={
-								Boolean(bulkNodeActionLoading) ||
-								selectedBinaryNodes().length === 0
-							}
-						>
-							{t("nodes.updateServiceAction")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<CoreIconStyled />}
-							onClick={() =>
-								setVersionDialogTarget({
-									type: "bulk",
-									nodes: selectedConnectedBinaryNodes(),
-								})
-							}
-							isDisabled={
-								Boolean(bulkNodeActionLoading) ||
-								selectedConnectedBinaryNodes().length === 0
-							}
-						>
-							{t("nodes.updateCoreAction")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<GeoIconStyled />}
-							onClick={() =>
-								setGeoDialogTarget({
-									type: "bulk",
-									nodes: selectedConnectedBinaryNodes(),
-								})
-							}
-							isDisabled={
-								Boolean(bulkNodeActionLoading) ||
-								selectedConnectedBinaryNodes().length === 0
-							}
-						>
-							{t("nodes.updateGeoAction")}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<ArrowPathIconStyled />}
-							onClick={() =>
-								openBulkActionConfirm(
-									"bulk-reboot",
-									selectedConnectedBinaryNodes(),
-								)
-							}
-							isDisabled={
-								Boolean(bulkNodeActionLoading) ||
-								selectedConnectedBinaryNodes().length === 0
-							}
-						>
-							{t("nodes.rebootHostAction")}
-						</Button>
-						<Button
-							size="sm"
-							colorScheme="red"
-							variant="outline"
-							leftIcon={<DeleteIconStyled />}
-							onClick={() =>
-								openBulkActionConfirm("bulk-delete", selectableSelectedNodes())
-							}
-							isDisabled={Boolean(bulkNodeActionLoading)}
-						>
-							{t("delete")}
-						</Button>
-					</>
-				)}
-				tableProps={{
-					w: "full",
-					sx: {
-						tableLayout: "auto",
-						"& th, & td": {
-							px: { base: 1.5, xl: 2 },
-							py: 2,
-							verticalAlign: "middle",
+			<Box className="rb-nodes-section">
+				<DataTable
+					ariaLabel={t("nodes.manageNodesHeader")}
+					data={paginatedNodes}
+					columns={nodeColumns}
+					getRowId={(node, index) => String(node.id ?? node.name ?? index)}
+					isLoading={isLoading}
+					loadingRows={Math.min(pageSize, 8)}
+					emptyState={
+						<Text fontSize="sm" color="panel.textMuted" textAlign="center">
+							{t("nodes.noNodesFound")}
+						</Text>
+					}
+					enableSelection
+					selectedRowIds={selectedNodeIds.map(String)}
+					selectedRows={selectedNodes}
+					selectedCount={selectedNodeIds.length}
+					onSelectionChange={(rowIds) => {
+						setSelectedNodeIds(
+							rowIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+						);
+					}}
+					getRowCanSelect={(node) => node.id != null}
+					rowActions={nodeRowActions}
+					actionsDisplay="menu"
+					actionsPlacement="end"
+					actionsColumnWidth="44px"
+					showActionsOnHover
+					onRowClick={(node) =>
+						setExpandedNodeID((current) =>
+							current === node.id ? null : (node.id ?? null),
+						)
+					}
+					isRowExpanded={(node) => expandedNodeID === node.id}
+					renderExpandedRow={renderExpandedNode}
+					sorting={nodeSorting}
+					onSortingChange={handleNodeTableSorting}
+					manualSorting
+					pagination={nodesPagination}
+					selectedLabel={t("nodes.selectedCount", {
+						count: selectedNodeIds.length,
+					})}
+					renderBulkActions={() => (
+						<>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={selectAllFilteredNodes}
+								isDisabled={allFilteredSelected}
+							>
+								{t("nodes.selectAllFiltered")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<EnableIconStyled />}
+								onClick={selectOnlyActiveNodes}
+								isDisabled={
+									activeFilteredNodeIds.length === 0 || onlyActiveFilteredSelected
+								}
+							>
+								{t("nodes.selectOnlyActive")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<EnableIconStyled />}
+								onClick={() =>
+									openBulkActionConfirm("bulk-enable", selectableSelectedNodes())
+								}
+								isDisabled={Boolean(bulkNodeActionLoading)}
+							>
+								{t("nodes.enableNode")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<DisableIconStyled />}
+								onClick={() =>
+									openBulkActionConfirm("bulk-disable", selectableSelectedNodes())
+								}
+								isDisabled={Boolean(bulkNodeActionLoading)}
+							>
+								{t("nodes.disableNode")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<ArrowPathIconStyled />}
+								onClick={() =>
+									openBulkActionConfirm("bulk-reset", selectableSelectedNodes())
+								}
+								isDisabled={Boolean(bulkNodeActionLoading)}
+							>
+								{t("nodes.resetUsage")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<ServiceIconStyled />}
+								onClick={() =>
+									openBulkActionConfirm(
+										"bulk-restart",
+										selectedConnectedBinaryNodes(),
+									)
+								}
+								isDisabled={
+									Boolean(bulkNodeActionLoading) ||
+									selectedConnectedBinaryNodes().length === 0
+								}
+							>
+								{t("nodes.restartServiceAction")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<DownloadIconStyled />}
+								onClick={() =>
+									openBulkActionConfirm("bulk-update", selectedBinaryNodes())
+								}
+								isDisabled={
+									Boolean(bulkNodeActionLoading) ||
+									selectedBinaryNodes().length === 0
+								}
+							>
+								{t("nodes.updateServiceAction")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<CoreIconStyled />}
+								onClick={() =>
+									setVersionDialogTarget({
+										type: "bulk",
+										nodes: selectedConnectedBinaryNodes(),
+									})
+								}
+								isDisabled={
+									Boolean(bulkNodeActionLoading) ||
+									selectedConnectedBinaryNodes().length === 0
+								}
+							>
+								{t("nodes.updateCoreAction")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<GeoIconStyled />}
+								onClick={() =>
+									setGeoDialogTarget({
+										type: "bulk",
+										nodes: selectedConnectedBinaryNodes(),
+									})
+								}
+								isDisabled={
+									Boolean(bulkNodeActionLoading) ||
+									selectedConnectedBinaryNodes().length === 0
+								}
+							>
+								{t("nodes.updateGeoAction")}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								leftIcon={<ArrowPathIconStyled />}
+								onClick={() =>
+									openBulkActionConfirm(
+										"bulk-reboot",
+										selectedConnectedBinaryNodes(),
+									)
+								}
+								isDisabled={
+									Boolean(bulkNodeActionLoading) ||
+									selectedConnectedBinaryNodes().length === 0
+								}
+							>
+								{t("nodes.rebootHostAction")}
+							</Button>
+							<Button
+								size="sm"
+								colorScheme="red"
+								variant="outline"
+								leftIcon={<DeleteIconStyled />}
+								onClick={() =>
+									openBulkActionConfirm("bulk-delete", selectableSelectedNodes())
+								}
+								isDisabled={Boolean(bulkNodeActionLoading)}
+							>
+								{t("delete")}
+							</Button>
+						</>
+					)}
+					tableProps={{
+						w: "full",
+						sx: {
+							tableLayout: "auto",
+							"& th, & td": {
+								px: { base: 1.5, xl: 2 },
+								py: 2,
+								verticalAlign: "middle",
+							},
 						},
-					},
-				}}
-			/>
+					}}
+				/>
+			</Box>
 			<CoreVersionDialog
 				isOpen={Boolean(versionDialogTarget)}
 				onClose={closeVersionDialog}

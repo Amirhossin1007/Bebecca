@@ -69,6 +69,12 @@ func (s *Server) handleMyAccountChangePassword(w http.ResponseWriter, r *http.Re
 		writeError(w, http.StatusForbidden, "Forbidden")
 		return
 	}
+	if principal.Context.Session != nil {
+		if err := s.checkDeviceCanManageAccount(r.Context(), principal.Context.Session); err != nil {
+			writeStatusError(w, err)
+			return
+		}
+	}
 	var payload changePasswordPayload
 	if err := decodeOptionalJSON(r, &payload); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

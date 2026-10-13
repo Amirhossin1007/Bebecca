@@ -2,6 +2,7 @@ package nodecontroller
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"sort"
 	"strconv"
@@ -9,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,6 +26,51 @@ const (
 // ponytail: Rebecca runs one master writer; split this into a dedicated DB
 // writer only if multiple master processes become supported.
 var onlineIPWriteMu sync.Mutex
+
+const onlineIPDBRefreshInterval = 10 * time.Second
+
+var onlineIPClock = func() time.Time { return time.Now().UTC() }
+
+type onlineIPWriteTracker struct {
+	mu      sync.Mutex
+	written map[int64]map[onlineIPSampleKey]time.Time
+}
+
+var onlineIPWrites = &onlineIPWriteTracker{written: map[int64]map[onlineIPSampleKey]time.Time{}}
+
+func (t *onlineIPWriteTracker) due(nodeID int64, samples []OnlineIPSample, now time.Time) []OnlineIPSample {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	written := t.written[nodeID]
+	if written == nil {
+		written = map[onlineIPSampleKey]time.Time{}
+		t.written[nodeID] = written
+	}
+	for key, last := range written {
+		if now.Sub(last) > 2*online.ActiveWindow {
+			delete(written, key)
+		}
+	}
+	due := make([]OnlineIPSample, 0, len(samples))
+	for _, sample := range samples {
+		key := onlineIPSampleKey{userID: sample.UserID, protocol: sample.Protocol, ip: sample.IP}
+		if last, ok := written[key]; ok && now.Sub(last) < onlineIPDBRefreshInterval {
+			continue
+		}
+		written[key] = now
+		due = append(due, sample)
+	}
+	return due
+}
+
+func (t *onlineIPWriteTracker) forget(nodeID int64, samples []OnlineIPSample) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	written := t.written[nodeID]
+	for _, sample := range samples {
+		delete(written, onlineIPSampleKey{userID: sample.UserID, protocol: sample.Protocol, ip: sample.IP})
+	}
+}
 
 type OnlineIPSample struct {
 	UserID     int64
@@ -65,15 +111,38 @@ type UserOnlineIPRecord struct {
 }
 
 type limiterEndpoint struct {
-	NodeID     int64
-	UserID     int64
-	Limit      int64
-	Protocol   string
-	IP         string
-	AssignedIP string
-	SessionID  string
-	LastSeenAt time.Time
+	NodeID      int64
+	UserID      int64
+	Limit       int64
+	Protocol    string
+	IP          string
+	AssignedIP  string
+	SessionID   string
+	FirstSeenAt time.Time
+	LastSeenAt  time.Time
 }
+
+type limiterDevice struct {
+	key       string
+	isVPN     bool
+	ip        string
+	firstSeen time.Time
+	nodes     map[int64]struct{}
+}
+
+var ipLimitUnsupportedLogAt sync.Map
+
+type ipBlockHold struct {
+	userUID   string
+	ip        string
+	expiresAt time.Time
+	nodes     map[int64]struct{}
+}
+
+var ipBlockHolds = struct {
+	sync.Mutex
+	items map[string]*ipBlockHold
+}{items: map[string]*ipBlockHold{}}
 
 func onlineIPActiveCutoff() time.Time {
 	return online.Cutoff(time.Now())
@@ -162,7 +231,16 @@ func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, sample
 	if ok, err := r.tableExists(ctx, "user_online_ips"); err != nil || !ok {
 		return err
 	}
-	normalized := normalizedOnlineIPSamples(samples)
+	now := onlineIPClock()
+	due := onlineIPWrites.due(nodeID, normalizedOnlineIPSamples(samples), now)
+	if err := r.writeOnlineIPRows(ctx, nodeID, due, now); err != nil {
+		onlineIPWrites.forget(nodeID, due)
+		return err
+	}
+	return nil
+}
+
+func (r Repository) writeOnlineIPRows(ctx context.Context, nodeID int64, rows []OnlineIPSample, now time.Time) error {
 	batchSize := onlineIPWriteBatchSize
 	if r.dialect == "sqlite" {
 		batchSize = 100
@@ -176,17 +254,18 @@ func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, sample
 	}
 	defer tx.Rollback()
 
-	for start := 0; start < len(normalized); start += batchSize {
-		end := min(start+batchSize, len(normalized))
+	for start := 0; start < len(rows); start += batchSize {
+		end := min(start+batchSize, len(rows))
 		var query strings.Builder
-		query.WriteString("INSERT INTO user_online_ips (node_id, user_id, protocol, ip, last_seen_at) VALUES ")
-		args := make([]any, 0, (end-start)*5)
-		for index, sample := range normalized[start:end] {
+		query.WriteString("INSERT INTO user_online_ips (node_id, user_id, protocol, ip, first_seen_at, last_seen_at) VALUES ")
+		args := make([]any, 0, (end-start)*6)
+		for index, sample := range rows[start:end] {
 			if index > 0 {
 				query.WriteByte(',')
 			}
-			query.WriteString("(?, ?, ?, ?, ?)")
-			args = append(args, nodeID, sample.UserID, sample.Protocol, sample.IP, r.timeArg(sample.LastSeenAt.UTC()))
+			query.WriteString("(?, ?, ?, ?, ?, ?)")
+			seenAt := r.timeArg(sample.LastSeenAt.UTC())
+			args = append(args, nodeID, sample.UserID, sample.Protocol, sample.IP, seenAt, seenAt)
 		}
 		if r.dialect == "mysql" || r.dialect == "mariadb" {
 			query.WriteString(" ON DUPLICATE KEY UPDATE last_seen_at = GREATEST(last_seen_at, VALUES(last_seen_at))")
@@ -199,7 +278,7 @@ func (r Repository) StoreNodeOnlineIPs(ctx context.Context, nodeID int64, sample
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM user_online_ips WHERE node_id = ? AND last_seen_at < ?`,
 		nodeID,
-		r.timeArg(time.Now().UTC().Add(-online.ActiveWindow*2)),
+		r.timeArg(now.Add(-online.ActiveWindow*2)),
 	); err != nil {
 		return err
 	}
@@ -301,20 +380,54 @@ func (c Controller) OnlineAccessUserTotal(ctx context.Context, query OnlineAcces
 	return c.repo.OnlineAccessUserTotal(ctx, query)
 }
 
-func (c Controller) applyIPLimitBlocksForNode(ctx context.Context, client *nodeclient.Client, node NodeRow) error {
-	if client == nil || node.ID <= 0 {
-		return nil
+const ipBlockApplyRefreshInterval = 60 * time.Second
+
+type ipBlockApplyRecord struct {
+	signature string
+	appliedAt time.Time
+}
+
+var ipBlockApplied = struct {
+	sync.Mutex
+	byNode map[int64]ipBlockApplyRecord
+}{byNode: map[int64]ipBlockApplyRecord{}}
+
+func (c Controller) applyIPLimitBlocks(ctx context.Context, nodes []NodeRow) []string {
+	endpoints, err := c.repo.activeLimiterEndpoints(ctx, 0, onlineIPActiveCutoff())
+	if err != nil {
+		return []string{"IP limiter: " + err.Error()}
 	}
-	endpoints, err := c.repo.activeLimiterEndpointsForNode(ctx, node.ID, onlineIPActiveCutoff())
+	now := onlineIPClock()
+	errs := []string{}
+	for _, node := range nodes {
+		if node.ID <= 0 {
+			continue
+		}
+		blocks := holdIPBlocks(node.ID, xrayIPBlocksForNode(endpoints, node.ID), now)
+		if !ipBlockApplyDue(node.ID, blocks, now) {
+			continue
+		}
+		if err := c.applyIPBlocksToNode(ctx, node, blocks); err != nil {
+			errs = append(errs, fmt.Sprintf("node %d IP limiter: %s", node.ID, err.Error()))
+			continue
+		}
+		recordIPBlockApply(node.ID, blocks, now)
+	}
+	return errs
+}
+
+func (c Controller) applyIPBlocksToNode(ctx context.Context, node NodeRow, blocks []*nodev1.IPBlockEntry) error {
+	rpcCtx, cancel := WithDefaultTimeout(ctx)
+	defer cancel()
+	client, _, err := c.dial(rpcCtx, node.ID)
 	if err != nil {
 		return err
 	}
-	blocks := xrayIPBlocksForLimiterEndpoints(endpoints)
 	req := &nodev1.IPBlockRequest{
 		OperationId: "ip-limit-" + strconv.FormatInt(node.ID, 10) + "-" + strconv.FormatInt(time.Now().UTC().UnixNano(), 10),
 		Blocks:      blocks,
 	}
-	_, err = client.Runtime().ApplyIPBlocks(ctx, req)
+	_, err = client.Runtime().ApplyIPBlocks(rpcCtx, req)
 	if err == nil {
 		return nil
 	}
@@ -322,78 +435,177 @@ func (c Controller) applyIPLimitBlocksForNode(ctx context.Context, client *nodec
 		return nil
 	}
 	if strings.Contains(strings.ToLower(err.Error()), "supported only for binary") {
+		logIPLimitUnsupported(node.ID)
 		return nil
 	}
 	return err
 }
 
+func blockSetSignature(blocks []*nodev1.IPBlockEntry) string {
+	parts := make([]string, 0, len(blocks))
+	for _, block := range blocks {
+		parts = append(parts, block.GetUserUid()+"|"+block.GetIp())
+	}
+	return strings.Join(parts, ",")
+}
+
+func ipBlockApplyDue(nodeID int64, blocks []*nodev1.IPBlockEntry, now time.Time) bool {
+	signature := blockSetSignature(blocks)
+	ipBlockApplied.Lock()
+	defer ipBlockApplied.Unlock()
+	record, ok := ipBlockApplied.byNode[nodeID]
+	if !ok {
+		return true
+	}
+	if record.signature != signature {
+		return true
+	}
+	if signature == "" {
+		return false
+	}
+	return now.Sub(record.appliedAt) >= ipBlockApplyRefreshInterval
+}
+
+func recordIPBlockApply(nodeID int64, blocks []*nodev1.IPBlockEntry, now time.Time) {
+	ipBlockApplied.Lock()
+	defer ipBlockApplied.Unlock()
+	ipBlockApplied.byNode[nodeID] = ipBlockApplyRecord{signature: blockSetSignature(blocks), appliedAt: now}
+}
+
+func holdIPBlocks(nodeID int64, blocks []*nodev1.IPBlockEntry, now time.Time) []*nodev1.IPBlockEntry {
+	ttl := time.Duration(ipBlockTTLSeconds) * time.Second
+	ipBlockHolds.Lock()
+	defer ipBlockHolds.Unlock()
+	for _, block := range blocks {
+		key := block.GetUserUid() + "|" + block.GetIp()
+		hold := ipBlockHolds.items[key]
+		if hold == nil {
+			hold = &ipBlockHold{userUID: block.GetUserUid(), ip: block.GetIp(), nodes: map[int64]struct{}{}}
+			ipBlockHolds.items[key] = hold
+		}
+		hold.expiresAt = now.Add(ttl)
+		hold.nodes[nodeID] = struct{}{}
+	}
+	result := append([]*nodev1.IPBlockEntry{}, blocks...)
+	fresh := map[string]struct{}{}
+	for _, block := range blocks {
+		fresh[block.GetUserUid()+"|"+block.GetIp()] = struct{}{}
+	}
+	for key, hold := range ipBlockHolds.items {
+		if !now.Before(hold.expiresAt) {
+			delete(ipBlockHolds.items, key)
+			continue
+		}
+		if _, ok := hold.nodes[nodeID]; !ok {
+			continue
+		}
+		if _, ok := fresh[key]; ok {
+			continue
+		}
+		result = append(result, &nodev1.IPBlockEntry{
+			Ip:         hold.ip,
+			TtlSeconds: ipBlockTTLSeconds,
+			UserUid:    hold.userUID,
+			Reason:     "device_limit",
+		})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].GetUserUid() == result[j].GetUserUid() {
+			return result[i].GetIp() < result[j].GetIp()
+		}
+		return result[i].GetUserUid() < result[j].GetUserUid()
+	})
+	return result
+}
+
+func logIPLimitUnsupported(nodeID int64) {
+	if last, ok := ipLimitUnsupportedLogAt.Load(nodeID); ok && time.Since(last.(time.Time)) < 10*time.Minute {
+		return
+	}
+	ipLimitUnsupportedLogAt.Store(nodeID, time.Now())
+	logging.Warnf(logging.ComponentNode, "IP limit is exceeded but node %d cannot block Xray source IPs: source IP blocking requires a binary node install", nodeID)
+}
+
 func (r Repository) activeLimiterEndpointsForNode(ctx context.Context, nodeID int64, cutoff time.Time) ([]limiterEndpoint, error) {
+	return r.activeLimiterEndpoints(ctx, nodeID, cutoff)
+}
+
+func (r Repository) activeLimiterEndpoints(ctx context.Context, nodeID int64, cutoff time.Time) ([]limiterEndpoint, error) {
 	result := []limiterEndpoint{}
 	hasOnlineIPs, err := r.tableExists(ctx, "user_online_ips")
 	if err != nil {
 		return nil, err
 	}
-	if hasOnlineIPs {
-		rows, err := r.db.QueryContext(ctx, `
-SELECT uoi.node_id, uoi.user_id, COALESCE(u.ip_limit, 0), uoi.protocol, uoi.ip, uoi.last_seen_at
+	if !hasOnlineIPs {
+		return result, nil
+	}
+	cutoffArg := r.timeArg(cutoff.UTC())
+	scope := ""
+	onlineArgs := []any{cutoffArg}
+	if nodeID > 0 {
+		scope = " AND node_id = ?"
+		onlineArgs = append(onlineArgs, nodeID)
+	}
+	onlineUsers := `SELECT DISTINCT user_id FROM user_online_ips WHERE protocol = 'xray' AND last_seen_at >= ?` + scope
+	xrayArgs := append([]any{cutoffArg}, onlineArgs...)
+	rows, err := r.db.QueryContext(ctx, `
+SELECT uoi.node_id, uoi.user_id, COALESCE(u.ip_limit, 0), uoi.protocol, uoi.ip, uoi.first_seen_at, uoi.last_seen_at
 FROM user_online_ips uoi
 JOIN users u ON u.id = uoi.user_id
-WHERE uoi.node_id = ? AND uoi.protocol = 'xray' AND uoi.last_seen_at >= ?`,
-			nodeID,
-			r.timeArg(cutoff.UTC()),
-		)
-		if err != nil {
-			return nil, err
-		}
-		for rows.Next() {
-			var item limiterEndpoint
-			var seen any
-			if err := rows.Scan(&item.NodeID, &item.UserID, &item.Limit, &item.Protocol, &item.IP, &seen); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			if parsed := usageDBTime(seen); parsed != nil {
-				item.LastSeenAt = *parsed
-			}
-			result = append(result, item)
-		}
-		if err := rows.Close(); err != nil {
-			return nil, err
-		}
+WHERE uoi.protocol = 'xray' AND uoi.last_seen_at >= ? AND COALESCE(u.ip_limit, 0) > 0
+  AND uoi.user_id IN (`+onlineUsers+`)`,
+		xrayArgs...,
+	)
+	if err != nil {
+		return nil, err
 	}
+	for rows.Next() {
+		var item limiterEndpoint
+		var first, seen any
+		if err := rows.Scan(&item.NodeID, &item.UserID, &item.Limit, &item.Protocol, &item.IP, &first, &seen); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if parsed := usageDBTime(first); parsed != nil {
+			item.FirstSeenAt = *parsed
+		}
+		if parsed := usageDBTime(seen); parsed != nil {
+			item.LastSeenAt = *parsed
+		}
+		result = append(result, item)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
 	if ok, err := r.tableExists(ctx, "vpn_user_sessions"); err != nil {
 		return nil, err
-	} else if ok && hasOnlineIPs {
+	} else if ok {
 		hasClientIP, _ := r.tableHasColumn(ctx, "vpn_user_sessions", "client_ip")
 		clientExpr := "''"
 		if hasClientIP {
 			clientExpr = "COALESCE(vus.client_ip, '')"
 		}
 		rows, err := r.db.QueryContext(ctx, `
-SELECT vus.node_id, vus.user_id, COALESCE(u.ip_limit, 0), vus.protocol, `+clientExpr+`, COALESCE(vus.assigned_ip, ''), vus.session_id, vus.last_seen_at
+SELECT vus.node_id, vus.user_id, COALESCE(u.ip_limit, 0), vus.protocol, `+clientExpr+`, COALESCE(vus.assigned_ip, ''), vus.session_id, vus.started_at, vus.last_seen_at
 FROM vpn_user_sessions vus
 JOIN users u ON u.id = vus.user_id
-WHERE vus.ended_at IS NULL
-  AND EXISTS (
-    SELECT 1
-    FROM user_online_ips uoi
-    WHERE uoi.node_id = ?
-      AND uoi.user_id = vus.user_id
-      AND uoi.protocol = 'xray'
-      AND uoi.last_seen_at >= ?
-  )`,
-			nodeID,
-			r.timeArg(cutoff.UTC()),
+WHERE vus.ended_at IS NULL AND COALESCE(u.ip_limit, 0) > 0
+  AND vus.user_id IN (`+onlineUsers+`)`,
+			onlineArgs...,
 		)
 		if err != nil {
 			return nil, err
 		}
 		for rows.Next() {
 			var item limiterEndpoint
-			var seen any
-			if err := rows.Scan(&item.NodeID, &item.UserID, &item.Limit, &item.Protocol, &item.IP, &item.AssignedIP, &item.SessionID, &seen); err != nil {
+			var first, seen any
+			if err := rows.Scan(&item.NodeID, &item.UserID, &item.Limit, &item.Protocol, &item.IP, &item.AssignedIP, &item.SessionID, &first, &seen); err != nil {
 				rows.Close()
 				return nil, err
+			}
+			if parsed := usageDBTime(first); parsed != nil {
+				item.FirstSeenAt = *parsed
 			}
 			if parsed := usageDBTime(seen); parsed != nil {
 				item.LastSeenAt = *parsed
@@ -408,44 +620,33 @@ WHERE vus.ended_at IS NULL
 }
 
 func xrayIPBlocksForLimiterEndpoints(endpoints []limiterEndpoint) []*nodev1.IPBlockEntry {
+	return xrayIPBlocks(endpoints, 0)
+}
+
+func xrayIPBlocksForNode(endpoints []limiterEndpoint, nodeID int64) []*nodev1.IPBlockEntry {
+	return xrayIPBlocks(endpoints, nodeID)
+}
+
+func xrayIPBlocks(endpoints []limiterEndpoint, nodeID int64) []*nodev1.IPBlockEntry {
 	byUser := map[int64][]limiterEndpoint{}
+	limits := map[int64]int64{}
 	for _, endpoint := range endpoints {
 		if endpoint.UserID <= 0 || endpoint.Limit <= 0 {
 			continue
 		}
 		byUser[endpoint.UserID] = append(byUser[endpoint.UserID], endpoint)
+		limits[endpoint.UserID] = endpoint.Limit
 	}
 	blocks := []*nodev1.IPBlockEntry{}
 	for userID, items := range byUser {
-		items = withoutTunneledXrayEndpoints(items)
-		seenDevices := map[string]limiterEndpoint{}
-		for _, item := range items {
-			key := limiterDeviceKey(item)
-			if key == "" {
-				continue
-			}
-			if current, ok := seenDevices[key]; !ok || preferLimiterEndpoint(item, current) {
-				seenDevices[key] = item
-			}
-		}
-		devices := make([]limiterEndpoint, 0, len(seenDevices))
-		for _, item := range seenDevices {
-			devices = append(devices, item)
-		}
-		sort.Slice(devices, func(i, j int) bool {
-			iVPN := !strings.EqualFold(devices[i].Protocol, "xray")
-			jVPN := !strings.EqualFold(devices[j].Protocol, "xray")
-			if iVPN != jVPN {
-				return iVPN
-			}
-			return devices[i].LastSeenAt.Before(devices[j].LastSeenAt)
-		})
-		for index, item := range devices {
-			if int64(index) < item.Limit || !strings.EqualFold(item.Protocol, "xray") || !usableOnlineIP(item.IP) {
-				continue
+		for _, device := range excessLimiterDevices(limits[userID], limiterDevicesForUser(items)) {
+			if nodeID > 0 {
+				if _, ok := device.nodes[nodeID]; !ok {
+					continue
+				}
 			}
 			blocks = append(blocks, &nodev1.IPBlockEntry{
-				Ip:         item.IP,
+				Ip:         device.ip,
 				TtlSeconds: ipBlockTTLSeconds,
 				UserUid:    strconv.FormatInt(userID, 10),
 				Reason:     "device_limit",
@@ -459,6 +660,64 @@ func xrayIPBlocksForLimiterEndpoints(endpoints []limiterEndpoint) []*nodev1.IPBl
 		return blocks[i].GetUserUid() < blocks[j].GetUserUid()
 	})
 	return blocks
+}
+
+func limiterDevicesForUser(items []limiterEndpoint) []limiterDevice {
+	items = withoutTunneledXrayEndpoints(items)
+	byKey := map[string]*limiterDevice{}
+	keys := []string{}
+	for _, item := range items {
+		key := limiterDeviceKey(item)
+		if key == "" {
+			continue
+		}
+		device := byKey[key]
+		if device == nil {
+			device = &limiterDevice{key: key, nodes: map[int64]struct{}{}}
+			byKey[key] = device
+			keys = append(keys, key)
+		}
+		seenAt := item.FirstSeenAt
+		if seenAt.IsZero() {
+			seenAt = item.LastSeenAt
+		}
+		if device.firstSeen.IsZero() || seenAt.Before(device.firstSeen) {
+			device.firstSeen = seenAt
+		}
+		if strings.EqualFold(normalizedOnlineProtocol(item.Protocol), "xray") {
+			if ip, ok := normalizedUsableIP(item.IP); ok {
+				device.ip = ip
+			}
+			device.nodes[item.NodeID] = struct{}{}
+		} else {
+			device.isVPN = true
+		}
+	}
+	devices := make([]limiterDevice, 0, len(keys))
+	for _, key := range keys {
+		devices = append(devices, *byKey[key])
+	}
+	sort.SliceStable(devices, func(i, j int) bool {
+		if devices[i].isVPN != devices[j].isVPN {
+			return devices[i].isVPN
+		}
+		if !devices[i].firstSeen.Equal(devices[j].firstSeen) {
+			return devices[i].firstSeen.Before(devices[j].firstSeen)
+		}
+		return devices[i].key < devices[j].key
+	})
+	return devices
+}
+
+func excessLimiterDevices(limit int64, devices []limiterDevice) []limiterDevice {
+	result := []limiterDevice{}
+	for index, device := range devices {
+		if int64(index) < limit || device.isVPN || device.ip == "" {
+			continue
+		}
+		result = append(result, device)
+	}
+	return result
 }
 
 func withoutTunneledXrayEndpoints(items []limiterEndpoint) []limiterEndpoint {
@@ -486,15 +745,6 @@ func withoutTunneledXrayEndpoints(items []limiterEndpoint) []limiterEndpoint {
 		result = append(result, item)
 	}
 	return result
-}
-
-func preferLimiterEndpoint(candidate limiterEndpoint, current limiterEndpoint) bool {
-	candidateVPN := !strings.EqualFold(normalizedOnlineProtocol(candidate.Protocol), "xray")
-	currentVPN := !strings.EqualFold(normalizedOnlineProtocol(current.Protocol), "xray")
-	if candidateVPN != currentVPN {
-		return candidateVPN
-	}
-	return candidate.LastSeenAt.After(current.LastSeenAt)
 }
 
 func limiterDeviceKey(item limiterEndpoint) string {

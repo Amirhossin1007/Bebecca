@@ -106,8 +106,8 @@ func (r Repository) ListSessions(ctx context.Context, adminID int64, currentID i
 	rows, err := r.db.QueryContext(ctx, `
 SELECT id, admin_id, state, created_at, last_seen_at, expires_at, ip_address, user_agent
 FROM admin_sessions
-WHERE admin_id = ? AND revoked_at IS NULL AND expires_at > ? AND last_seen_at > ? AND state = ?
-ORDER BY last_seen_at DESC`, adminID, dbTime(time.Now().UTC()), dbTime(time.Now().UTC().Add(-24*time.Hour)), string(SessionActive))
+WHERE admin_id = ? AND revoked_at IS NULL AND expires_at > ? AND state = ?
+ORDER BY last_seen_at DESC`, adminID, dbTime(time.Now().UTC()), string(SessionActive))
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +131,21 @@ ORDER BY last_seen_at DESC`, adminID, dbTime(time.Now().UTC()), dbTime(time.Now(
 		sessions = append(sessions, session)
 	}
 	return sessions, rows.Err()
+}
+
+func (r Repository) CountOtherActiveSessions(ctx context.Context, adminID int64, sessionID int64, now time.Time) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM admin_sessions
+WHERE admin_id = ? AND id != ? AND revoked_at IS NULL AND expires_at > ? AND state = ?`,
+		adminID, sessionID, dbTime(now), string(SessionActive)).Scan(&count)
+	return count, err
+}
+
+const NewDeviceWaitPeriod = 24 * time.Hour
+
+func DeviceMayManageAccount(sessionCreatedAt time.Time, otherActiveSessions int, now time.Time) bool {
+	return otherActiveSessions == 0 || !sessionCreatedAt.After(now.Add(-NewDeviceWaitPeriod))
 }
 
 func (r Repository) TouchSession(ctx context.Context, id int64, now time.Time) error {
@@ -185,7 +200,7 @@ func (a Authenticator) SessionContext(ctx context.Context, token string) (Effect
 		return EffectiveAdminContext{}, ErrInvalidToken
 	}
 	now := a.now()
-	if !session.ExpiresAt.After(now) || session.LastSeenAt.Before(now.Add(-24*time.Hour)) {
+	if !session.ExpiresAt.After(now) {
 		return EffectiveAdminContext{}, ErrSessionExpired
 	}
 	dbadmin, found, err := a.repo.AdminByID(ctx, session.AdminID)

@@ -213,17 +213,28 @@ export const DashboardMaintenanceControls = ({
 	const startPanelReturnPolling = useCallback(() => {
 		if (panelReturnPollRef.current !== null) return;
 		const startedAt = Date.now();
+		let readyChecks = 0;
 		panelReturnSawOfflineRef.current = false;
 		setWaitingForAPI(true);
 		panelReturnPollRef.current = window.setInterval(async () => {
+			let up = true;
 			try {
-				await fetch<MaintenanceInfo>("/maintenance/info", { timeout: 2500 });
-				if (panelReturnSawOfflineRef.current || Date.now() - startedAt > 7000) {
-					clearPanelReturnPolling();
-					window.location.reload();
-				}
-			} catch {
+				await fetch("/auth/session", { timeout: 2500 });
+			} catch (error) {
+				const status = (error as { response?: { status?: number } })?.response?.status;
+				up = status === 401 || status === 403;
+			}
+			if (!up) {
 				panelReturnSawOfflineRef.current = true;
+				readyChecks = 0;
+				return;
+			}
+			const elapsed = Date.now() - startedAt;
+			if (!panelReturnSawOfflineRef.current && elapsed < 30000) return;
+			readyChecks += 1;
+			if (readyChecks >= 2 || elapsed > 180000) {
+				clearPanelReturnPolling();
+				window.location.reload();
 			}
 		}, 2000);
 	}, [clearPanelReturnPolling]);

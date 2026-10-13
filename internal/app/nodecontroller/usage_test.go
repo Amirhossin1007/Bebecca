@@ -104,6 +104,7 @@ CREATE TABLE inbounds (
 	tag TEXT NOT NULL UNIQUE,
 	usage_coefficient REAL NOT NULL DEFAULT 1
 );
+CREATE TABLE users (id INTEGER PRIMARY KEY, ip_limit INTEGER NULL);
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	operation_type TEXT NOT NULL,

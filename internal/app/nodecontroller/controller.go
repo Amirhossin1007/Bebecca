@@ -27,6 +27,7 @@ type Controller struct {
 	outboundSubs       outboundsubapp.Service
 	nodeLocks          *sync.Map
 	nodeClients        *sync.Map
+	metricsCache       *sync.Map
 	healthFailures     *sync.Map
 	runtimeDiagnostics *sync.Map
 	runtimeConfigPrep  chan struct{}
@@ -45,6 +46,7 @@ func NewController(repo Repository) Controller {
 		outboundSubs:       outboundsubapp.NewService(repo.db, repo.dialect),
 		nodeLocks:          &sync.Map{},
 		nodeClients:        &sync.Map{},
+		metricsCache:       &sync.Map{},
 		healthFailures:     &sync.Map{},
 		runtimeDiagnostics: &sync.Map{},
 		runtimeConfigPrep:  make(chan struct{}, 1),
@@ -160,7 +162,7 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 			return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
 		}
 	}
-	syncReq, err := c.runtimeConfigRequest(ctx, node, queuedOperationID("sync_config", supersededIDs, req.NodeID), configJSON)
+	syncReq, err := c.runtimeConfigRequest(ctx, node, newOperationID("sync_config", req.NodeID), configJSON)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
@@ -168,7 +170,7 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 	if err := c.prepareRuntimeRevision(ctx, client, node.ID, syncReq); err != nil {
 		return RuntimeResult{}, err
 	}
-	syncRes, err := client.Runtime().SyncConfig(ctx, syncReq)
+	syncRes, err := client.Runtime().SyncConfig(ctx, syncReq, client.RequestOptions(syncReq)...)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
@@ -228,7 +230,7 @@ func (c Controller) restartNow(ctx context.Context, req Request) (RuntimeResult,
 	if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
 		return RuntimeResult{}, err
 	}
-	res, err := client.Runtime().RestartRuntime(ctx, runtimeReq)
+	res, err := client.Runtime().RestartRuntime(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("restart", req.NodeID, err)
@@ -837,13 +839,13 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		var runtimeReq *nodev1.RuntimeConfigRequest
 		if prepared != nil && prepared.nodeID == node.ID && prepared.configJSON == configJSON {
 			runtimeReq = &nodev1.RuntimeConfigRequest{
-				OperationId:     fmt.Sprintf("%s-%d", operation.OperationType, operation.ID),
+				OperationId:     operation.remoteOperationID(operation.OperationType),
 				ConfigJson:      configJSON,
 				OvRuntimeJson:   prepared.ovRuntimeJSON,
 				DesiredRevision: uint64(operation.ID),
 			}
 		} else {
-			runtimeReq, err = c.runtimeConfigRequest(ctx, node, fmt.Sprintf("%s-%d", operation.OperationType, operation.ID), configJSON)
+			runtimeReq, err = c.runtimeConfigRequest(ctx, node, operation.remoteOperationID(operation.OperationType), configJSON)
 			if err != nil {
 				if !isRuntimeUserOperation(operation.OperationType) {
 					_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
@@ -854,7 +856,7 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
 			return err
 		}
-		res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
+		res, err := client.Runtime().SyncConfig(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 		if err != nil {
 			if !isRuntimeUserOperation(operation.OperationType) {
 				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
@@ -869,7 +871,7 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 			return err
 		}
 		req.NodeID = operation.NodeID.Int64
-		req.OperationID = fmt.Sprintf("%s-%d", operation.OperationType, operation.ID)
+		req.OperationID = operation.remoteOperationID(operation.OperationType)
 		switch operation.OperationType {
 		case "update_runtime":
 			_, err := c.updateRuntimeNow(ctx, req)
@@ -909,10 +911,10 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 				return err
 			}
 		}
-		_, err := c.restartNow(ctx, Request{NodeID: operation.NodeID.Int64, ConfigJSON: configJSON, OperationID: fmt.Sprintf("restart_node-%d", operation.ID)})
+		_, err := c.restartNow(ctx, Request{NodeID: operation.NodeID.Int64, ConfigJSON: configJSON, OperationID: operation.remoteOperationID("restart_node")})
 		return err
 	case "reboot_node":
-		_, err := c.rebootHostNow(ctx, Request{NodeID: operation.NodeID.Int64, OperationID: fmt.Sprintf("reboot_node-%d", operation.ID)})
+		_, err := c.rebootHostNow(ctx, Request{NodeID: operation.NodeID.Int64, OperationID: operation.remoteOperationID("reboot_node")})
 		return err
 	default:
 		return fmt.Errorf("unsupported node operation: %s", operation.OperationType)
@@ -1027,6 +1029,9 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 			cached := value.(cachedNodeClient)
 			state := cached.client.State()
 			if cached.key == cacheKey && state != connectivity.TransientFailure && state != connectivity.Shutdown {
+				if cached.client.HandshakeDue(nodeHandshakeRefreshInterval) {
+					refreshNodeHandshake(ctx, cached.client)
+				}
 				return cached.client, node, nil
 			}
 			c.nodeClients.Delete(nodeID)
@@ -1064,6 +1069,17 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 		errors = append(errors, address+": "+err.Error())
 	}
 	return nil, node, fmt.Errorf("node gRPC dial failed: %s", strings.Join(errors, "; "))
+}
+
+func refreshNodeHandshake(ctx context.Context, client *nodeclient.Client) {
+	helloCtx, cancel := withNodeDialAttemptTimeout(ctx)
+	defer cancel()
+	hello, err := client.Control().Hello(helloCtx, &nodev1.HelloRequest{MasterId: "rebecca-master"})
+	if err != nil {
+		client.DeferHandshake()
+		return
+	}
+	client.SetHandshake(hello.GetNodeVersion(), hello.GetRuntime().GetCapabilities())
 }
 
 type cachedNodeClient struct {
@@ -1193,17 +1209,11 @@ func newOperationID(action string, nodeID int64) string {
 	return fmt.Sprintf("%s-%d-%d", action, nodeID, time.Now().UTC().UnixNano())
 }
 
-func queuedOperationID(action string, ids []int64, nodeID int64) string {
-	var latest int64
-	for _, id := range ids {
-		if id > latest {
-			latest = id
-		}
+func (operation OperationRow) remoteOperationID(prefix string) string {
+	if key := strings.TrimSpace(operation.IdempotencyKey); key != "" {
+		return prefix + "-" + key
 	}
-	if latest > 0 {
-		return fmt.Sprintf("%s-%d", action, latest)
-	}
-	return newOperationID(action, nodeID)
+	return fmt.Sprintf("%s-%d", prefix, operation.ID)
 }
 
 func WithDefaultTimeout(parent context.Context) (context.Context, context.CancelFunc) {
@@ -1211,6 +1221,8 @@ func WithDefaultTimeout(parent context.Context) (context.Context, context.Cancel
 }
 
 const nodeDialAttemptTimeout = 6 * time.Second
+
+const nodeHandshakeRefreshInterval = time.Minute
 
 func withNodeDialAttemptTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	if deadline, ok := parent.Deadline(); ok {

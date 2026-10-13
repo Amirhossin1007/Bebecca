@@ -78,7 +78,7 @@ func (c Controller) Get(ctx context.Context, req Request) (NodeListItem, error) 
 	enrichCertificateFields(&item, defaultCert, defaultKey)
 	if !skipNodeMetrics(&item) {
 		metricsCtx, cancel := withListMetricsTimeout(ctx)
-		runtime, err := c.Metrics(metricsCtx, Request{NodeID: item.ID})
+		runtime, err := c.cachedMetrics(metricsCtx, Request{NodeID: item.ID, MetricsMaxAge: req.MetricsMaxAge})
 		cancel()
 		if err != nil {
 			item.AgentStatus = "degraded"
@@ -129,7 +129,7 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
 	}
-	runtimeReq, err := c.runtimeConfigRequest(ctx, node, queuedOperationID("sync_config", supersededIDs, node.ID), configJSON)
+	runtimeReq, err := c.runtimeConfigRequest(ctx, node, newOperationID("sync_config", node.ID), configJSON)
 	if err != nil {
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
@@ -137,7 +137,7 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 	if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
 		return RuntimeResult{}, err
 	}
-	res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
+	res, err := client.Runtime().SyncConfig(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 	if err != nil {
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
@@ -227,4 +227,36 @@ func setCertificatePublicKey(item *NodeListItem, cert string) {
 
 func withListMetricsTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(parent, 12*time.Second)
+}
+
+type nodeMetricsEntry struct {
+	mu     sync.Mutex
+	at     time.Time
+	result RuntimeResult
+	err    error
+}
+
+func (c Controller) cachedMetrics(ctx context.Context, req Request) (RuntimeResult, error) {
+	return c.cachedNodeMetrics(ctx, req, c.Metrics)
+}
+
+func (c Controller) cachedNodeMetrics(ctx context.Context, req Request, fetch func(context.Context, Request) (RuntimeResult, error)) (RuntimeResult, error) {
+	if c.metricsCache == nil || req.MetricsMaxAge <= 0 {
+		return fetch(ctx, req)
+	}
+	value, _ := c.metricsCache.LoadOrStore(req.NodeID, &nodeMetricsEntry{})
+	entry := value.(*nodeMetricsEntry)
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if !entry.at.IsZero() && time.Since(entry.at) < req.MetricsMaxAge {
+		return entry.result, entry.err
+	}
+	result, err := fetch(ctx, req)
+	if err != nil && ctx.Err() != nil {
+		return RuntimeResult{}, err
+	}
+	entry.at = time.Now()
+	entry.result = result
+	entry.err = err
+	return result, err
 }

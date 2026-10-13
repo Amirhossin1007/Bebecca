@@ -145,6 +145,8 @@ func (s *Server) registerCoreRoutes(r chi.Router) {
 func (s *Server) registerConfigRoutes(r chi.Router) {
 	r.HandleFunc("/core/config/targets/*", s.requireSudo(s.handleCoreConfigTargetPath))
 	r.HandleFunc("/core/config/targets", s.requireSudo(s.handleCoreConfigTargets))
+	r.HandleFunc("/core/config/propagate/preview", s.requireSudo(s.handleCoreConfigPropagatePreview))
+	r.HandleFunc("/core/config/propagate", s.requireSudo(s.handleCoreConfigPropagate))
 	r.HandleFunc("/core/config", s.requireSudo(s.handleCoreConfig))
 }
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -34,6 +35,8 @@ type sponsorManager struct {
 	cacheDir    string
 	client      *http.Client
 	mu          sync.Mutex
+	loaded      bool
+	cache       sponsorCache
 }
 
 type sponsorCache struct {
@@ -53,6 +56,7 @@ type cachedSponsorAsset struct {
 	LocalPath   string    `json:"local_path"`
 	ContentType string    `json:"content_type"`
 	ValidUntil  time.Time `json:"valid_until"`
+	Data        []byte    `json:"-"`
 }
 
 type sponsorManifest struct {
@@ -154,20 +158,14 @@ func (m *sponsorManager) ensure(ctx context.Context) ([]cachedSponsorAsset, erro
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.restore()
 
-	cached, cacheErr := m.loadCache()
-	cacheMatchesSource := cached.ManifestURL == m.manifestURL
-	valid := m.validAssets(cached.Assets)
-	if cacheMatchesSource && len(valid) == len(cached.Assets) && len(cached.Assets) > 0 {
-		if cacheErr == nil && !cached.CheckedAt.IsZero() && time.Since(cached.CheckedAt) < sponsorCacheTTL {
-			return valid, nil
-		}
-	}
-	if cacheMatchesSource && len(cached.Assets) == 0 && cacheErr == nil && !cached.CheckedAt.IsZero() && time.Since(cached.CheckedAt) < sponsorCacheTTL {
-		return nil, nil
+	valid := m.validAssets(m.cache.Assets)
+	if m.cache.ManifestURL == m.manifestURL && len(valid) == len(m.cache.Assets) && !m.cache.CheckedAt.IsZero() && time.Since(m.cache.CheckedAt) < sponsorCacheTTL {
+		return valid, nil
 	}
 
-	refreshed, err := m.refresh(ctx, cached)
+	refreshed, err := m.refresh(ctx, m.cache)
 	if err != nil {
 		if len(valid) > 0 {
 			return valid, nil
@@ -175,6 +173,23 @@ func (m *sponsorManager) ensure(ctx context.Context) ([]cachedSponsorAsset, erro
 		return nil, err
 	}
 	return refreshed, nil
+}
+
+func (m *sponsorManager) restore() {
+	if m.loaded {
+		return
+	}
+	m.loaded = true
+	cache, err := m.loadCache()
+	if err != nil {
+		return
+	}
+	for i := range cache.Assets {
+		if m.isCachePath(cache.Assets[i].LocalPath) {
+			cache.Assets[i].Data, _ = os.ReadFile(cache.Assets[i].LocalPath)
+		}
+	}
+	m.cache = cache
 }
 
 func (m *sponsorManager) loadCache() (sponsorCache, error) {
@@ -198,12 +213,7 @@ func (m *sponsorManager) validAssets(assets []cachedSponsorAsset) []cachedSponso
 		if asset.ID == "" || !sponsorIDPattern.MatchString(asset.ID) ||
 			(asset.Placement != "header" && asset.Placement != "header_mobile" && asset.Placement != "sidebar" && asset.Placement != "sidebar_logo") ||
 			asset.ValidUntil.IsZero() || !time.Now().Before(asset.ValidUntil) ||
-			!m.isCachePath(asset.LocalPath) {
-			m.removeCachePath(asset.LocalPath)
-			continue
-		}
-		if info, err := os.Stat(asset.LocalPath); err != nil || info.Size() == 0 {
-			m.removeCachePath(asset.LocalPath)
+			len(asset.Data) == 0 {
 			continue
 		}
 		result = append(result, asset)
@@ -220,9 +230,8 @@ func (m *sponsorManager) refresh(ctx context.Context, old sponsorCache) ([]cache
 	if manifestHash == old.ManifestHash && len(validOld) == len(old.Assets) {
 		old.CheckedAt = time.Now().UTC()
 		old.ManifestURL = m.manifestURL
-		if err := m.saveCache(old); err != nil {
-			return nil, err
-		}
+		m.cache = old
+		_ = m.saveCache(old)
 		return validOld, nil
 	}
 	assets := make([]cachedSponsorAsset, 0, len(manifest))
@@ -231,13 +240,11 @@ func (m *sponsorManager) refresh(ctx context.Context, old sponsorCache) ([]cache
 		if err != nil {
 			continue
 		}
-		localPath := filepath.Join(m.cacheDir, item.ID+fileExtension(contentType))
-		if err := writeSponsorFile(localPath, data); err != nil {
-			continue
-		}
-		item.LocalPath = localPath
+		item.LocalPath = filepath.Join(m.cacheDir, item.ID+fileExtension(contentType))
 		item.ContentType = contentType
+		item.Data = data
 		assets = append(assets, item)
+		_ = writeSponsorFile(item.LocalPath, data)
 	}
 	for _, item := range old.Assets {
 		keep := false
@@ -251,9 +258,8 @@ func (m *sponsorManager) refresh(ctx context.Context, old sponsorCache) ([]cache
 			m.removeCachePath(item.LocalPath)
 		}
 	}
-	if err := m.saveCache(sponsorCache{CheckedAt: time.Now().UTC(), ManifestURL: m.manifestURL, ManifestHash: manifestHash, Assets: assets}); err != nil {
-		return nil, err
-	}
+	m.cache = sponsorCache{CheckedAt: time.Now().UTC(), ManifestURL: m.manifestURL, ManifestHash: manifestHash, Assets: assets}
+	_ = m.saveCache(m.cache)
 	return assets, nil
 }
 
@@ -596,21 +602,12 @@ func (s *Server) handleSponsorAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, asset := range assets {
-		if asset.ID != id || !s.sponsors.isCachePath(asset.LocalPath) {
+		if asset.ID != id {
 			continue
-		}
-		file, err := os.Open(asset.LocalPath)
-		if err != nil {
-			break
-		}
-		defer file.Close()
-		info, err := file.Stat()
-		if err != nil {
-			break
 		}
 		w.Header().Set("Content-Type", asset.ContentType)
 		w.Header().Set("Cache-Control", "private, max-age=3600")
-		http.ServeContent(w, r, filepath.Base(asset.LocalPath), info.ModTime(), file)
+		http.ServeContent(w, r, asset.ID, time.Time{}, bytes.NewReader(asset.Data))
 		return
 	}
 	writeError(w, http.StatusNotFound, "not found")
