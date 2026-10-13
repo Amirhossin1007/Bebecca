@@ -6,7 +6,7 @@ import {
 	Stack,
 	VStack,
 } from "@chakra-ui/react";
-import type { FC } from "react";
+import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export const PageLoadingSkeleton: FC = () => (
@@ -282,6 +282,20 @@ export const PageLoadingSkeleton: FC = () => (
 
 export const PanelLoadingSkeleton: FC = () => {
 	const { i18n } = useTranslation();
+	const [isMobileScreen, setIsMobileScreen] = useState(() => {
+		if (typeof window === "undefined") return false;
+		return window.innerWidth < 769;
+	});
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const mq = window.matchMedia("(max-width: 768.98px)");
+		const update = () => setIsMobileScreen(mq.matches);
+		update();
+		mq.addEventListener("change", update);
+		return () => mq.removeEventListener("change", update);
+	}, []);
+
 	const isRTL = i18n
 		? i18n.dir(i18n.language) === "rtl"
 		: typeof document !== "undefined"
@@ -315,18 +329,20 @@ export const PanelLoadingSkeleton: FC = () => {
 				},
 			}}
 		>
-			<Box
-				display={{ base: "none", md: "flex" }}
-				position="fixed"
-				top="12px"
-				bottom="12px"
-				right={isRTL ? "12px" : "auto"}
-				left={isRTL ? "auto" : "12px"}
-				w="var(--rb-sidebar-width, 240px)"
-				h="calc(100vh - 24px)"
-				maxH="calc(100vh - 24px)"
-				bg="panel.surface"
-				borderWidth="1px"
+			{!isMobileScreen && (
+				<Box
+					className="rb-desktop-sidebar"
+					display={{ base: "none", md: "flex" }}
+					position="fixed"
+					top="12px"
+					bottom="12px"
+					right={isRTL ? "12px" : "auto"}
+					left={isRTL ? "auto" : "12px"}
+					w="var(--rb-sidebar-width, 240px)"
+					h="calc(100vh - 24px)"
+					maxH="calc(100vh - 24px)"
+					bg="panel.surface"
+					borderWidth="1px"
 				borderColor="panel.border"
 				borderRadius="20px"
 				boxShadow="0 1px 2px rgba(0, 0, 0, 0.03)"
@@ -726,6 +742,7 @@ export const PanelLoadingSkeleton: FC = () => {
 					</Box>
 				</Flex>
 			</Box>
+		)}
 
 			<Flex
 				flex="1"
@@ -892,16 +909,18 @@ export const PanelLoadingSkeleton: FC = () => {
 				</Box>
 			</Flex>
 
-			<Box
-				display={{ base: "block", md: "none" }}
-				position="fixed"
-				bottom="calc(env(safe-area-inset-bottom, 0px) + 12px)"
-				left="0"
-				right="0"
-				zIndex={1500}
-				px="3"
-				pointerEvents="none"
-			>
+			{isMobileScreen && (
+				<Box
+					className="rb-mobile-dock"
+					display={{ base: "block", md: "none" }}
+					position="fixed"
+					bottom="calc(env(safe-area-inset-bottom, 0px) + 12px)"
+					left="0"
+					right="0"
+					zIndex={1500}
+					px="3"
+					pointerEvents="none"
+				>
 				<Box
 					maxW="min(440px, calc(100vw - 20px))"
 					mx="auto"
@@ -972,6 +991,7 @@ export const PanelLoadingSkeleton: FC = () => {
 					</SimpleGrid>
 				</Box>
 			</Box>
-		</Box>
-	);
+		)}
+	</Box>
+);
 };

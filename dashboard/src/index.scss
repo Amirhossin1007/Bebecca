@@ -2215,7 +2215,18 @@ img.apple-emoji {
   }
 }
 
-/* skeleton loading rows: match the rounded look */
 .rb-users-section .chakra-skeleton {
   border-radius: 8px;
+}
+
+@media (min-width: 769px) {
+  .rb-mobile-dock {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768.98px) {
+  .rb-desktop-sidebar {
+    display: none !important;
+  }
 }

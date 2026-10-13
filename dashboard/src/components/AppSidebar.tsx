@@ -204,7 +204,7 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 		>
 			<Box
 				w="full"
-				maxW={inDrawer ? "min(210px, calc(100% - 28px))" : "full"}
+				maxW={inDrawer ? "min(380px, calc(100% - 24px))" : "full"}
 				mx={inDrawer ? "auto" : undefined}
 				overflow="hidden"
 				maxH={isExpanded ? (inDrawer ? "none" : "220px") : "0px"}

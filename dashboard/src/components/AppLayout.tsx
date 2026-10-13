@@ -240,7 +240,20 @@ const measureBreadcrumbLabel = (text: string, isPage = false): number => {
 function AppLayoutContent() {
 	const { unread } = useNotificationCenter();
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const isMobile = useBreakpointValue({ base: true, md: false });
+	const [isMobile, setIsMobile] = useState(() => {
+		if (typeof window === "undefined") return false;
+		return window.innerWidth < 769;
+	});
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const mq = window.matchMedia("(max-width: 768.98px)");
+		const update = () => setIsMobile(mq.matches);
+		update();
+		mq.addEventListener("change", update);
+		return () => mq.removeEventListener("change", update);
+	}, []);
+
 	const sidebarDrawer = useDisclosure();
 	const languageMenu = useDisclosure();
 	const userMenu = useDisclosure();
@@ -1478,12 +1491,17 @@ function AppLayoutContent() {
 				}}
 			>
 				{!isMobile ? (
-					<AppSidebar
-						collapsed={sidebarCollapsed}
-						sponsors={sponsorSidebarLogoItems}
-						sidebarBanners={sponsorSidebarBanners}
-						onRequestExpand={() => setSidebarCollapsed(false)}
-					/>
+					<Box
+						className="rb-desktop-sidebar"
+						display={{ base: "none", md: "block" }}
+					>
+						<AppSidebar
+							collapsed={sidebarCollapsed}
+							sponsors={sponsorSidebarLogoItems}
+							sidebarBanners={sponsorSidebarBanners}
+							onRequestExpand={() => setSidebarCollapsed(false)}
+						/>
+					</Box>
 				) : null}
 
 				<Flex
@@ -1492,20 +1510,22 @@ function AppLayoutContent() {
 					direction="column"
 					minW="0"
 					overflow="hidden"
-					ml={
-						isMobile || isRTL
+					ml={{
+						base: "0",
+						md: isRTL
 							? "0"
 							: sidebarCollapsed
 								? "88px"
-								: "calc(var(--rb-sidebar-width, 240px) + 20px)"
-					}
-					mr={
-						isMobile || !isRTL
+								: "calc(var(--rb-sidebar-width, 240px) + 20px)",
+					}}
+					mr={{
+						base: "0",
+						md: !isRTL
 							? "0"
 							: sidebarCollapsed
 								? "88px"
-								: "calc(var(--rb-sidebar-width, 240px) + 20px)"
-					}
+								: "calc(var(--rb-sidebar-width, 240px) + 20px)",
+					}}
 					transition="margin 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
 					bg="panel.main"
 					position="relative"
@@ -2506,6 +2526,7 @@ function AppLayoutContent() {
 						isOpen={sidebarDrawer.isOpen}
 						placement={isRTL ? "right" : "left"}
 						onClose={sidebarDrawer.onClose}
+						size="full"
 						autoFocus={false}
 						returnFocusOnClose={false}
 						trapFocus={false}
@@ -2514,12 +2535,13 @@ function AppLayoutContent() {
 					>
 						<DrawerOverlay bg="blackAlpha.700" />
 						<DrawerContent
-							maxW="285px"
-							w="285px"
+							w="100vw"
+							maxW="100vw"
+							h="100dvh"
+							maxH="100dvh"
 							bg="panel.surface"
-							borderInlineEndWidth="1px"
-							borderColor="panel.border"
-							boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
+							boxShadow="none"
+							border="none"
 							sx={{
 								willChange: "transform",
 								transform: "translate3d(0, 0, 0)",
@@ -2599,6 +2621,8 @@ function AppLayoutContent() {
 							</Box>
 						)}
 						<Box
+							className="rb-mobile-dock"
+							display={{ base: "block", md: "none" }}
 							position="fixed"
 							left="0"
 							right="0"
