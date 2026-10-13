@@ -25,7 +25,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useSeasonal } from "contexts/SeasonalContext";
 import { AnimatePresence, motion } from "framer-motion";
-import { type FC, useEffect, useMemo, useState } from "react";
+import { type FC, memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const CalendarIcon = chakra(CalendarDaysIcon, { baseStyle: { w: 4, h: 4 } });
@@ -98,7 +98,7 @@ export interface HeaderCalendarProps {
 	isCompact?: boolean;
 }
 
-export const HeaderCalendar: FC<HeaderCalendarProps> = ({
+export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 	isCompact = false,
 }) => {
 	const { t, i18n } = useTranslation();
@@ -499,4 +499,4 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 			</Portal>
 		</Popover>
 	);
-};
+});

@@ -146,21 +146,35 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({ children }) 
 
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 
+	const contextValue = useMemo(
+		() => ({
+			unread,
+			items,
+			isOpen,
+			onOpen,
+			onClose,
+			markAll,
+			isMarkingAll: markAllMutation.isLoading,
+			openItem,
+			incomingNotification,
+			dismissIncomingNotification,
+		}),
+		[
+			unread,
+			items,
+			isOpen,
+			onOpen,
+			onClose,
+			markAll,
+			markAllMutation.isLoading,
+			openItem,
+			incomingNotification,
+			dismissIncomingNotification,
+		],
+	);
+
 	return (
-		<NotificationContext.Provider
-			value={{
-				unread,
-				items,
-				isOpen,
-				onOpen,
-				onClose,
-				markAll,
-				isMarkingAll: markAllMutation.isLoading,
-				openItem,
-				incomingNotification,
-				dismissIncomingNotification,
-			}}
-		>
+		<NotificationContext.Provider value={contextValue}>
 			{children}
 
 			<Portal>

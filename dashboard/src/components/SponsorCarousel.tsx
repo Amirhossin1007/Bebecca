@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
 	type FC,
 	forwardRef,
+	memo,
 	type ReactNode,
 	useEffect,
 	useMemo,
@@ -98,7 +99,7 @@ const SponsorLink = forwardRef<HTMLAnchorElement, SponsorLinkProps>(
 	},
 );
 
-export const SponsorCarousel: FC<SponsorCarouselProps> = ({
+export const SponsorCarousel: FC<SponsorCarouselProps> = memo(({
 	items,
 	variant,
 	collapsed = false,
@@ -120,24 +121,26 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 		width: number;
 		ratio: number;
 	}>({ width: 220, ratio: 5.5 });
+	const activeBannerSrc = isBanner ? stableItems[index]?.src : undefined;
 	useEffect(() => {
-		if (!isBanner) return;
-		const active = stableItems[index];
-		if (!active) return;
+		if (!isBanner || !activeBannerSrc) return;
 		const probe = new window.Image();
 		const updateDimensions = () => {
 			if (probe.naturalWidth && probe.naturalHeight) {
 				const ratio = probe.naturalWidth / probe.naturalHeight;
 				const width = Math.round(ratio * 40);
-				setBannerDimensions({ width, ratio });
+				setBannerDimensions((prev) => {
+					if (prev.width === width && prev.ratio === ratio) return prev;
+					return { width, ratio };
+				});
 			}
 		};
 		probe.onload = updateDimensions;
-		probe.src = active.src;
+		probe.src = activeBannerSrc;
 		if (probe.complete) {
 			updateDimensions();
 		}
-	}, [isBanner, index, stableItems]);
+	}, [isBanner, activeBannerSrc]);
 	useEffect(() => {
 		if (index >= stableItems.length) setIndex(0);
 	}, [index, stableItems.length]);
@@ -306,4 +309,4 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			</Box>
 		</motion.div>
 	);
-};
+});

@@ -1,8 +1,8 @@
 import { Box, Flex, HStack, Text } from "@chakra-ui/react";
 import { StarIcon } from "@heroicons/react/24/solid";
-import { type FC, useEffect, useState } from "react";
+import { type FC, memo, useEffect, useState } from "react";
 
-export const GitHubStars: FC = () => {
+export const GitHubStars: FC = memo(() => {
 	const [stars, setStars] = useState<number | null>(() => {
 		try {
 			const cached = localStorage.getItem("rb_github_stars");
@@ -134,4 +134,4 @@ export const GitHubStars: FC = () => {
 			</HStack>
 		</Box>
 	);
-};
+});

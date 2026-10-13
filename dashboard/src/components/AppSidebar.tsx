@@ -53,6 +53,7 @@ import {
 	type ElementType,
 	type FC,
 	type MouseEvent as ReactMouseEvent,
+	memo,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -260,7 +261,7 @@ interface SidebarLogoCarouselProps {
 	onRequestExpand?: () => void;
 }
 
-const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
+const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 	sponsors = [],
 	collapsed,
 	inDrawer,
@@ -336,6 +337,82 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 			}
 		}
 	};
+
+	if (items.length <= 1) {
+		return (
+			<Box
+				position="relative"
+				h="34px"
+				flex="1"
+				minW="0"
+				cursor="pointer"
+				userSelect="none"
+				onClick={handleClick}
+				transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
+				_active={{ transform: "scale(0.98)" }}
+				title="Rebecca"
+			>
+				<HStack h="34px" w="full" spacing={2.5} align="center" flexShrink={0}>
+					<Tooltip
+						label="Rebecca"
+						placement={isRTL ? "left" : "right"}
+						isDisabled={!collapsed}
+						hasArrow
+						openDelay={250}
+					>
+						<Box
+							w="30px"
+							h="30px"
+							flexShrink={0}
+							display="flex"
+							alignItems="center"
+							justifyContent="center"
+						>
+							<LogoIcon
+								src={logoUrl}
+								alt="Rebecca"
+								style={{
+									filter:
+										colorMode === "dark"
+											? "brightness(0) invert(1)"
+											: "brightness(0)",
+									transition: "filter 0.3s ease",
+								}}
+							/>
+						</Box>
+					</Tooltip>
+					<Box
+						flex="1"
+						minW="0"
+						overflow="hidden"
+						whiteSpace="nowrap"
+						opacity={collapsed ? 0 : 1}
+						maxW={collapsed ? "0px" : "full"}
+						transform={
+							collapsed
+								? isRTL
+									? "translateX(10px)"
+									: "translateX(-10px)"
+								: "translateX(0)"
+						}
+						transition="max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+						pointerEvents={collapsed ? "none" : "auto"}
+					>
+						<Text
+							fontSize="17px"
+							fontWeight="800"
+							letterSpacing="-0.02em"
+							color="panel.text"
+							pt="3px"
+							isTruncated
+						>
+							Rebecca
+						</Text>
+					</Box>
+				</HStack>
+			</Box>
+		);
+	}
 
 	return (
 		<Box
@@ -451,9 +528,9 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = ({
 			</AnimatePresence>
 		</Box>
 	);
-};
+});
 
-export const AppSidebar: FC<AppSidebarProps> = ({
+export const AppSidebar: FC<AppSidebarProps> = memo(({
 	collapsed,
 	sponsors = [],
 	sidebarBanners = [],
@@ -929,7 +1006,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			zIndex={200}
 			sx={{
 				contain: inDrawer ? undefined : "layout style",
-				willChange: inDrawer ? undefined : "width",
 				transform: inDrawer ? undefined : "translateZ(0)",
 			}}
 		>
@@ -1594,4 +1670,4 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			</Flex>
 		</Box>
 	);
-};
+});

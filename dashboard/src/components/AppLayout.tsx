@@ -306,43 +306,60 @@ function AppLayoutContent() {
 		},
 	});
 	const sponsorData = canSeeSponsors ? sponsorsQuery.data : undefined;
-	const sponsorHeaderItems = (sponsorData?.header ?? [])
-		.slice(0, 3)
-		.map((asset: SponsorAsset) => ({
-			id: asset.id,
-			src: asset.image_url,
-			alt: asset.alt || asset.label || "Sponsor",
-			href: asset.target_url,
-			label: asset.label,
-			isSponsor: true,
-		}));
-	const sponsorHeaderMobileItems = (sponsorData?.header_mobile ?? [])
-		.slice(0, 3)
-		.map((asset: SponsorAsset) => ({
-			id: asset.id,
-			src: asset.image_url,
-			alt: asset.alt || asset.label || "Sponsor",
-			href: asset.target_url,
-			label: asset.label,
-			isSponsor: true,
-		}));
-	const rawLogoList: SponsorAsset[] = [
-		...(sponsorData?.sidebar_logo ?? []),
-		...((sponsorData as unknown as { sidebarLogo?: SponsorAsset[] })?.sidebarLogo ?? []),
-		...(sponsorData?.sidebar ?? []).filter(
-			(a: SponsorAsset) => a.placement === "sidebar_logo",
-		),
-	];
-	const sponsorSidebarLogoItems = rawLogoList
-		.filter((a, i, arr) => arr.findIndex((x) => x.id === a.id) === i)
-		.slice(0, 5);
-	const sponsorSidebarBanners = (sponsorData?.sidebar ?? [])
-		.filter((a: SponsorAsset) => a.placement !== "sidebar_logo")
-		.slice(0, 5);
-	const mobileHeaderItems =
-		sponsorHeaderMobileItems.length > 0
-			? sponsorHeaderMobileItems
-			: sponsorHeaderItems;
+	const sponsorHeaderItems = useMemo(
+		() =>
+			(sponsorData?.header ?? []).slice(0, 3).map((asset: SponsorAsset) => ({
+				id: asset.id,
+				src: asset.image_url,
+				alt: asset.alt || asset.label || "Sponsor",
+				href: asset.target_url,
+				label: asset.label,
+				isSponsor: true,
+			})),
+		[sponsorData?.header],
+	);
+	const sponsorHeaderMobileItems = useMemo(
+		() =>
+			(sponsorData?.header_mobile ?? []).slice(0, 3).map((asset: SponsorAsset) => ({
+				id: asset.id,
+				src: asset.image_url,
+				alt: asset.alt || asset.label || "Sponsor",
+				href: asset.target_url,
+				label: asset.label,
+				isSponsor: true,
+			})),
+		[sponsorData?.header_mobile],
+	);
+	const sponsorSidebarLogoItems = useMemo(() => {
+		const rawLogoList: SponsorAsset[] = [
+			...(sponsorData?.sidebar_logo ?? []),
+			...((sponsorData as unknown as { sidebarLogo?: SponsorAsset[] })?.sidebarLogo ?? []),
+			...(sponsorData?.sidebar ?? []).filter(
+				(a: SponsorAsset) => a.placement === "sidebar_logo",
+			),
+		];
+		return rawLogoList
+			.filter((a, i, arr) => arr.findIndex((x) => x.id === a.id) === i)
+			.slice(0, 5);
+	}, [
+		sponsorData?.sidebar_logo,
+		(sponsorData as unknown as { sidebarLogo?: SponsorAsset[] })?.sidebarLogo,
+		sponsorData?.sidebar,
+	]);
+	const sponsorSidebarBanners = useMemo(
+		() =>
+			(sponsorData?.sidebar ?? [])
+				.filter((a: SponsorAsset) => a.placement !== "sidebar_logo")
+				.slice(0, 5),
+		[sponsorData?.sidebar],
+	);
+	const mobileHeaderItems = useMemo(
+		() =>
+			sponsorHeaderMobileItems.length > 0
+				? sponsorHeaderMobileItems
+				: sponsorHeaderItems,
+		[sponsorHeaderMobileItems, sponsorHeaderItems],
+	);
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [activeLocationHash, setActiveLocationHash] = useState(
@@ -1291,23 +1308,25 @@ function AppLayoutContent() {
 	}, [activeTabKey]);
 
 	useEffect(() => {
-		if (sponsorHeaderItems.length === 0 || !sponsorHeaderItems[0]?.src) return;
+		const firstBannerSrc = sponsorHeaderItems[0]?.src;
+		if (!firstBannerSrc) return;
 		const probe = new Image();
 		const update = () => {
 			if (probe.naturalWidth && probe.naturalHeight) {
 				const natural = Math.round(
 					(probe.naturalWidth / probe.naturalHeight) * 40,
 				);
-				setBannerDimensions({
-					natural,
-					half: Math.max(90, Math.round(natural / 2)),
+				const half = Math.max(90, Math.round(natural / 2));
+				setBannerDimensions((prev) => {
+					if (prev.natural === natural && prev.half === half) return prev;
+					return { natural, half };
 				});
 			}
 		};
 		probe.onload = update;
-		probe.src = sponsorHeaderItems[0].src;
+		probe.src = firstBannerSrc;
 		if (probe.complete) update();
-	}, [sponsorHeaderItems]);
+	}, [sponsorHeaderItems[0]?.src]);
 
 	useEffect(() => {
 		const headerEl = headerRef.current;
@@ -1422,37 +1441,55 @@ function AppLayoutContent() {
 			const stage4Needed = minimalBreadcrumbWidth + bannerWidth + buffer;
 			const stage5Needed = minimalBreadcrumbWidth + minBannerWidth + buffer;
 
+			let nextCalendarCompact = true;
+			let nextBreadcrumbMode: "full" | "compact" | "minimal" = "minimal";
+			let nextBannerShrinkable = false;
+			let nextTruncate = true;
+
 			if (spaceFullCalendar >= stage1Needed) {
-				setCalendarCompact(false);
-				setBreadcrumbMode("full");
-				setBannerShrinkable(false);
-				setCanTruncateLastCrumbState(false);
+				nextCalendarCompact = false;
+				nextBreadcrumbMode = "full";
+				nextBannerShrinkable = false;
+				nextTruncate = false;
 			} else if (spaceCompactCalendar >= stage2Needed) {
-				setCalendarCompact(true);
-				setBreadcrumbMode("full");
-				setBannerShrinkable(false);
-				setCanTruncateLastCrumbState(false);
+				nextCalendarCompact = true;
+				nextBreadcrumbMode = "full";
+				nextBannerShrinkable = false;
+				nextTruncate = false;
 			} else if (spaceCompactCalendar >= stage3Needed) {
-				setCalendarCompact(true);
-				setBreadcrumbMode("compact");
-				setBannerShrinkable(false);
-				setCanTruncateLastCrumbState(false);
+				nextCalendarCompact = true;
+				nextBreadcrumbMode = "compact";
+				nextBannerShrinkable = false;
+				nextTruncate = false;
 			} else if (spaceCompactCalendar >= stage4Needed) {
-				setCalendarCompact(true);
-				setBreadcrumbMode("minimal");
-				setBannerShrinkable(false);
-				setCanTruncateLastCrumbState(false);
+				nextCalendarCompact = true;
+				nextBreadcrumbMode = "minimal";
+				nextBannerShrinkable = false;
+				nextTruncate = false;
 			} else if (hasBanner && spaceCompactCalendar >= stage5Needed) {
-				setCalendarCompact(true);
-				setBreadcrumbMode("minimal");
-				setBannerShrinkable(true);
-				setCanTruncateLastCrumbState(false);
+				nextCalendarCompact = true;
+				nextBreadcrumbMode = "minimal";
+				nextBannerShrinkable = true;
+				nextTruncate = false;
 			} else {
-				setCalendarCompact(true);
-				setBreadcrumbMode("minimal");
-				setBannerShrinkable(hasBanner);
-				setCanTruncateLastCrumbState(true);
+				nextCalendarCompact = true;
+				nextBreadcrumbMode = "minimal";
+				nextBannerShrinkable = hasBanner;
+				nextTruncate = true;
 			}
+
+			setCalendarCompact((prev) =>
+				prev !== nextCalendarCompact ? nextCalendarCompact : prev,
+			);
+			setBreadcrumbMode((prev) =>
+				prev !== nextBreadcrumbMode ? nextBreadcrumbMode : prev,
+			);
+			setBannerShrinkable((prev) =>
+				prev !== nextBannerShrinkable ? nextBannerShrinkable : prev,
+			);
+			setCanTruncateLastCrumbState((prev) =>
+				prev !== nextTruncate ? nextTruncate : prev,
+			);
 		};
 		const timer = setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
@@ -1556,7 +1593,6 @@ function AppLayoutContent() {
 							dir={isRTL ? "rtl" : "ltr"}
 							sx={{
 								transform: "translateZ(0)",
-								contain: "paint layout",
 							}}
 						>
 						<HStack
@@ -2513,7 +2549,6 @@ function AppLayoutContent() {
 					bg="transparent"
 					sx={{
 						transform: "translateZ(0)",
-						willChange: "scroll-position",
 						overscrollBehavior: "contain",
 					}}
 				>
