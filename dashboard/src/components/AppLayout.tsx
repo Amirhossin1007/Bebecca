@@ -515,28 +515,33 @@ function AppLayoutContent() {
 	const changeLanguage = async (lang: string) => {
 		isChangingLanguageRef.current = true;
 		const nextDir = i18n.dir(lang);
+
+		const userMenuEl = document.getElementById("rb-user-menu");
+		const langMenuEl = document.querySelector(
+			'[data-language-menu-list="true"]',
+		) as HTMLElement | null;
+		if (userMenuEl) userMenuEl.style.opacity = "0";
+		if (langMenuEl) langMenuEl.style.opacity = "0";
+
 		document.documentElement.dir = nextDir;
 		document.documentElement.lang = lang;
 		if (document.body) {
 			document.body.dir = nextDir;
 		}
+
 		await i18n.changeLanguage(lang);
+
 		userMenu.onOpen();
 		languageMenu.onOpen();
 		setActiveProfileSubmenu("language");
-		window.dispatchEvent(new Event("resize"));
+
 		requestAnimationFrame(() => {
-			userMenu.onOpen();
-			languageMenu.onOpen();
-			setActiveProfileSubmenu("language");
 			window.dispatchEvent(new Event("resize"));
-			setTimeout(() => {
-				userMenu.onOpen();
-				languageMenu.onOpen();
-				setActiveProfileSubmenu("language");
-				window.dispatchEvent(new Event("resize"));
+			requestAnimationFrame(() => {
+				if (userMenuEl) userMenuEl.style.opacity = "1";
+				if (langMenuEl) langMenuEl.style.opacity = "1";
 				isChangingLanguageRef.current = false;
-			}, 300);
+			});
 		});
 	};
 
@@ -2127,17 +2132,17 @@ function AppLayoutContent() {
 
 							{getUserIsSuccess && userData.username && (
 								<Menu
-									placement={isRTL ? "bottom-start" : "bottom-end"}
+									placement="bottom-end"
 									strategy="fixed"
 									gutter={8}
 									computePositionOnMount
 									isLazy={false}
 									autoSelect={false}
 									closeOnSelect={false}
-									closeOnBlur={true}
+									closeOnBlur={false}
 									isOpen={userMenu.isOpen}
 									onOpen={userMenu.onOpen}
-									onClose={closeUserMenu}
+									onClose={handleUserMenuClose}
 								>
 									<MenuButton
 										as={Button}
@@ -2605,21 +2610,27 @@ function AppLayoutContent() {
 						isOpen={sidebarDrawer.isOpen}
 						placement={isRTL ? "right" : "left"}
 						onClose={sidebarDrawer.onClose}
-						size="xs"
 						autoFocus={false}
 						returnFocusOnClose={false}
+						trapFocus={false}
+						blockScrollOnMount={false}
+						preserveScrollBarGap={false}
 					>
 						<DrawerOverlay bg="blackAlpha.700" />
-						<DrawerContent className="rb-sidebar-drawer" bg="panel.sidebar">
-							<DrawerBody
-								p={0}
-								overflowY="auto"
-								overflowX="hidden"
-								sx={{
-									WebkitOverflowScrolling: "touch",
-									overscrollBehavior: "contain",
-								}}
-							>
+						<DrawerContent
+							maxW="285px"
+							w="285px"
+							bg="panel.surface"
+							borderInlineEndWidth="1px"
+							borderColor="panel.border"
+							boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
+							sx={{
+								willChange: "transform",
+								transform: "translate3d(0, 0, 0)",
+								backfaceVisibility: "hidden",
+							}}
+						>
+							<DrawerBody p={0} overflow="hidden">
 								<AppSidebar
 									collapsed={false}
 									sponsors={sponsorSidebarLogoItems}

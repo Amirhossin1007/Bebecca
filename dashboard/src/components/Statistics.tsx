@@ -890,19 +890,8 @@ const HistoryModal: FC<{
 								}
 								color={iconColor}
 								border="1px solid"
-								borderColor={
-									payload?.type === "cpu"
-										? "rgba(59, 130, 246, 0.25)"
-										: payload?.type === "memory"
-											? "rgba(139, 92, 246, 0.25)"
-											: payload?.type === "network"
-												? "rgba(16, 185, 129, 0.25)"
-												: payload?.type === "panel" ||
-													  payload?.type === "panelCpu" ||
-													  payload?.type === "panelMemory"
-													? "rgba(245, 158, 11, 0.25)"
-													: "rgba(37, 99, 235, 0.25)"
-								}
+								borderColor="color-mix(in srgb, var(--rb-panel-accent) 45%, transparent)"
+								boxShadow="0 0 0 1px color-mix(in srgb, var(--rb-panel-accent) 20%, transparent)"
 								flexShrink={0}
 							>
 								<MetricIcon width={18} height={18} />

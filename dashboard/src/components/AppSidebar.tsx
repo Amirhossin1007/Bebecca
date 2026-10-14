@@ -1662,7 +1662,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 						})}
 					</VStack>
 				</Box>
-				{sidebarBanners.length > 0 && !inDrawer && (
+				{sidebarBanners.length > 0 && (
 					<SidebarBannerSection
 						banners={sidebarBanners}
 						collapsed={collapsed}

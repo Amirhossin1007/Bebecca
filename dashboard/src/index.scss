@@ -879,6 +879,12 @@ body {
     transform: none !important;
   }
 
+  .chakra-button:active,
+  .chakra-icon-button:active,
+  .rb-header-btn:active {
+    transform: scale(0.96) !important;
+  }
+
   .chakra-popover__popper:has([data-maintenance-popover="true"]) {
     position: fixed !important;
     inset: 0 !important;
@@ -946,15 +952,6 @@ body {
     border-radius: 20px !important;
     margin: auto !important;
     max-height: 88dvh !important;
-  }
-
-  .chakra-modal__content.rb-sidebar-drawer {
-    width: 80% !important;
-    max-width: 80% !important;
-    height: 100% !important;
-    max-height: none !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
   }
 
   .chakra-modal__content.rb-confirm-dialog-content {
@@ -1073,6 +1070,11 @@ body {
   .chakra-popover__popper,
   .chakra-menu__menu-list {
     max-width: calc(100vw - 16px);
+  }
+
+  #rb-user-menu,
+  [data-profile-submenu="true"] {
+    transition: opacity 0.15s ease, background-color 0.15s ease;
   }
 
   .chakra-popover__popper {

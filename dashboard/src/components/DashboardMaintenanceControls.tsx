@@ -24,6 +24,7 @@ import {
 	PopoverTrigger,
 	Portal,
 	Progress,
+	SimpleGrid,
 	Spinner,
 	Stack,
 	Text,
@@ -493,8 +494,8 @@ export const DashboardMaintenanceControls = ({
 				>
 					<PopoverCloseButton
 						size="sm"
-						top={3}
-						insetInlineEnd={3}
+						top={2.5}
+						insetInlineEnd={2.5}
 						borderRadius="8px"
 						display={{ base: "flex", md: "none" }}
 					/>
@@ -503,6 +504,7 @@ export const DashboardMaintenanceControls = ({
 						fontSize="13px"
 						py={3}
 						px={4}
+						pe={{ base: "44px", md: 4 }}
 						borderColor="panel.border"
 					>
 						<Flex justify="space-between" align="center" gap={3}>
@@ -727,7 +729,7 @@ export const DashboardMaintenanceControls = ({
 			flexShrink={0}
 		>
 			<HStack
-				display={{ base: "none", sm: "flex" }}
+				display={{ base: "none", md: "flex" }}
 				spacing={2}
 				align="center"
 				justify="flex-end"
@@ -757,7 +759,11 @@ export const DashboardMaintenanceControls = ({
 						_hover={{
 							md: { bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" },
 						}}
-						_active={{ transform: "scale(0.96)" }}
+						_active={{
+							bg: "rgba(239, 68, 68, 0.16)",
+							borderColor: "red.400",
+							transform: "scale(0.96)",
+						}}
 						borderRadius="12px"
 						onClick={() => setConfirmAction("restart")}
 						isLoading={restartMutation.isLoading}
@@ -788,21 +794,25 @@ export const DashboardMaintenanceControls = ({
 			</HStack>
 
 			{!isStandardAdminOnly && (
-				<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
+				<Stack display={{ base: "flex", md: "none" }} spacing={2} w="full">
 					<Box w="full">{renderUpdatePopover("full")}</Box>
 
-					{canBackUp && (
-						<Flex gap={2} w="full" align="stretch">
-							<Box flex="1 1 0" minW={0}>
+					{(canBackUp || canMaintain) && (
+						<SimpleGrid
+							columns={canBackUp && canMaintain ? 2 : 1}
+							spacing={2}
+							w="full"
+						>
+							{canBackUp && (
 								<DashboardBackupControls
+									width="full"
 									isBinaryRuntime={hostActionsAvailable}
 									runtimeLoading={info.isLoading}
 								/>
-							</Box>
+							)}
 							{canMaintain && (
 								<Button
-									flex="1 1 0"
-									minW={0}
+									w="full"
 									size="xs"
 									h="32px"
 									px={3}
@@ -812,7 +822,17 @@ export const DashboardMaintenanceControls = ({
 									borderColor="panel.border"
 									color="red.400"
 									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-									_active={{ transform: "scale(0.96)" }}
+									_hover={{
+										md: {
+											bg: "rgba(239, 68, 68, 0.1)",
+											borderColor: "red.400",
+										},
+									}}
+									_active={{
+										bg: "rgba(239, 68, 68, 0.16)",
+										borderColor: "red.400",
+										transform: "scale(0.96)",
+									}}
 									onClick={() => setConfirmAction("restart")}
 									isLoading={restartMutation.isLoading}
 									isDisabled={info.isLoading || !hostActionsAvailable}
@@ -844,7 +864,7 @@ export const DashboardMaintenanceControls = ({
 									</HStack>
 								</Button>
 							)}
-						</Flex>
+						</SimpleGrid>
 					)}
 				</Stack>
 			)}

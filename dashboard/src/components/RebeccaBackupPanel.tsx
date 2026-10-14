@@ -53,11 +53,13 @@ const buildBackupFilename = (scope: RebeccaBackupScope) => {
 type BackupDialog = "import" | "export" | null;
 
 export const DashboardBackupControls = ({
-	isBinaryRuntime,
-	runtimeLoading,
+	isBinaryRuntime: _isBinaryRuntime = true,
+	runtimeLoading = false,
+	width,
 }: {
-	isBinaryRuntime: boolean;
-	runtimeLoading: boolean;
+	isBinaryRuntime?: boolean;
+	runtimeLoading?: boolean;
+	width?: string;
 }) => {
 	const { t } = useTranslation();
 	const toast = useToast();
@@ -67,7 +69,7 @@ export const DashboardBackupControls = ({
 		useState<RebeccaBackupScope>("database");
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
+	const backupActionsAvailable = !runtimeLoading;
 	const cardHighlight = useColorModeValue(
 		"0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)",
 		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
@@ -149,18 +151,22 @@ export const DashboardBackupControls = ({
 					<Button
 						size="xs"
 						h="32px"
-						minW={{ base: "full", sm: "115px" }}
-						w={{ base: "full", sm: "auto" }}
-						px={3.5}
+						minW={{ base: "full", sm: width ? width : "115px" }}
+						w={width ?? { base: "full", sm: "auto" }}
+						px={3}
 						variant="outline"
 						borderRadius="12px"
-						isDisabled={!backupActionsAvailable || runtimeLoading}
+						isDisabled={runtimeLoading}
 						borderColor="panel.border"
 						color="panel.text"
 						_hover={{
 							md: { bg: "panel.elevated", borderColor: "panel.borderStrong" },
 						}}
-						_active={{ transform: "scale(0.96)" }}
+						_active={{
+							bg: "panel.elevated",
+							borderColor: "panel.borderStrong",
+							transform: "scale(0.96)",
+						}}
 						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 						whiteSpace="nowrap"
 					>

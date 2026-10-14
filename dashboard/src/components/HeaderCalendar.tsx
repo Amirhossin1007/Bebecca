@@ -19,7 +19,7 @@ import {
 	useDisclosure,
 } from "@chakra-ui/react";
 import {
-	CalendarDaysIcon,
+	CalendarIcon as HeroCalendarIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	SparklesIcon,
@@ -29,7 +29,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type FC, memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-const CalendarIcon = chakra(CalendarDaysIcon, { baseStyle: { w: 4, h: 4 } });
+const CalendarIcon = chakra(HeroCalendarIcon, { baseStyle: { w: 4, h: 4 } });
 const Sparkles = chakra(SparklesIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 const ChevronLeft = chakra(ChevronLeftIcon, { baseStyle: { w: 3, h: 3 } });
 const ChevronRight = chakra(ChevronRightIcon, { baseStyle: { w: 3, h: 3 } });

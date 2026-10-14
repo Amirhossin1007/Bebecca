@@ -642,6 +642,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 			computePositionOnMount
 			modifiers={popperModifiers}
 			closeOnSelect={false}
+			closeOnBlur={false}
 		>
 			{triggerContent}
 			{portalContainer ? (

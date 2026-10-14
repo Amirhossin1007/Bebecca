@@ -568,6 +568,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 			}}
 			onClose={handleMenuClose}
 			closeOnSelect={false}
+			closeOnBlur={false}
 		>
 			<MenuButton
 				as={Button}
