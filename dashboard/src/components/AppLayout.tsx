@@ -371,7 +371,6 @@ function AppLayoutContent() {
 	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
 	const userMenuContentRef = useRef<HTMLDivElement | null>(null);
-	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
 	const tabContentRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -554,7 +553,6 @@ function AppLayoutContent() {
 
 	const handleUserMenuClose = () => {
 		if (
-			isThemeModalOpen ||
 			languageMenu.isOpen ||
 			activeProfileSubmenu !== null ||
 			isChangingLanguageRef.current
@@ -563,30 +561,38 @@ function AppLayoutContent() {
 		closeUserMenu();
 	};
 
+	const isAnyProfileMenuOpen =
+		userMenu.isOpen ||
+		languageMenu.isOpen ||
+		activeProfileSubmenu !== null;
+
 	useEffect(() => {
-		if (!userMenu.isOpen) return;
+		if (!isAnyProfileMenuOpen) return;
 		const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
-			if (isChangingLanguageRef.current || isThemeModalOpen) return;
+			if (isChangingLanguageRef.current) return;
 			const target = event.target as Element | null;
 			if (!target) return;
 			if (
 				target.closest?.(
-					'#rb-user-menu, [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], .chakra-menu__menu-list, [role="menu"], [role="menuitem"], .chakra-modal__content, .chakra-popover__content'
+					'#rb-user-menu, [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"]'
 				)
 			) {
 				return;
 			}
 			closeUserMenu();
 		};
-		document.addEventListener("mousedown", handleDocumentPointerDown);
+		document.addEventListener("pointerdown", handleDocumentPointerDown, true);
+		document.addEventListener("mousedown", handleDocumentPointerDown, true);
 		document.addEventListener("touchstart", handleDocumentPointerDown, {
 			passive: true,
+			capture: true,
 		});
 		return () => {
-			document.removeEventListener("mousedown", handleDocumentPointerDown);
-			document.removeEventListener("touchstart", handleDocumentPointerDown);
+			document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
+			document.removeEventListener("mousedown", handleDocumentPointerDown, true);
+			document.removeEventListener("touchstart", handleDocumentPointerDown, true);
 		};
-	}, [userMenu.isOpen, isThemeModalOpen, closeUserMenu]);
+	}, [isAnyProfileMenuOpen, closeUserMenu]);
 
 	const prevRTLRef = useRef(isRTL);
 	const [suppressDockTransition, setSuppressDockTransition] = useState(false);
@@ -607,9 +613,6 @@ function AppLayoutContent() {
 		languageMenu.onClose();
 		setActiveProfileSubmenu((prev) => (prev === "language" ? null : prev));
 	};
-
-	const handleThemeModalOpen = () => setIsThemeModalOpen(true);
-	const handleThemeModalClose = () => setIsThemeModalOpen(false);
 
 	useEffect(() => {
 		if (!isMobile) return;
@@ -2535,8 +2538,6 @@ function AppLayoutContent() {
 														prev === "theme" ? null : prev,
 													)
 												}
-												onModalOpen={handleThemeModalOpen}
-												onModalClose={handleThemeModalClose}
 											/>
 
 											<MenuItem

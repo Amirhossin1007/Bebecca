@@ -455,23 +455,6 @@ const HistoryModal: FC<{
 		}
 	}, [payload?.type]);
 
-	const iconColor = useMemo(() => {
-		switch (payload?.type) {
-			case "cpu":
-				return "#3b82f6";
-			case "memory":
-				return "#8b5cf6";
-			case "network":
-				return "#10b981";
-			case "panel":
-			case "panelCpu":
-			case "panelMemory":
-				return "#f59e0b";
-			default:
-				return "var(--rb-panel-accent)";
-		}
-	}, [payload?.type]);
-
 	useEffect(() => {
 		if (!isOpen) return;
 		const timer = setTimeout(() => {
@@ -875,20 +858,8 @@ const HistoryModal: FC<{
 								align="center"
 								justify="center"
 								borderRadius="10px"
-								bg={
-									payload?.type === "cpu"
-										? "rgba(59, 130, 246, 0.12)"
-										: payload?.type === "memory"
-											? "rgba(139, 92, 246, 0.12)"
-											: payload?.type === "network"
-												? "rgba(16, 185, 129, 0.12)"
-												: payload?.type === "panel" ||
-													  payload?.type === "panelCpu" ||
-													  payload?.type === "panelMemory"
-													? "rgba(245, 158, 11, 0.12)"
-													: "rgba(37, 99, 235, 0.12)"
-								}
-								color={iconColor}
+								bg="color-mix(in srgb, var(--rb-panel-accent) 14%, transparent)"
+								color="var(--rb-panel-accent)"
 								border="1px solid"
 								borderColor="color-mix(in srgb, var(--rb-panel-accent) 45%, transparent)"
 								boxShadow="0 0 0 1px color-mix(in srgb, var(--rb-panel-accent) 20%, transparent)"
