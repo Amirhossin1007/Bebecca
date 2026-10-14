@@ -278,7 +278,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	triggerLabel,
 	isOpen: controlledIsOpen,
 	onToggle: controlledOnToggle,
-	onClose: controlledOnClose,
+	onClose: _controlledOnClose,
 	onModalOpen,
 	onModalClose,
 }) => {
@@ -421,6 +421,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	const menuList = (
 		<MenuList
+			data-profile-window="true"
 			data-profile-submenu="true"
 			data-theme-menu-list="true"
 			minW={{ base: "min(300px, calc(100vw - 24px))", sm: "300px" }}
@@ -528,9 +529,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	if (trigger === "menuItem") {
 		const handleMenuClose = () => {
-			if (isControlled) {
-				controlledOnClose?.();
-			} else {
+			if (!isControlled) {
 				themeMenu.onClose();
 			}
 			onModalClose?.();

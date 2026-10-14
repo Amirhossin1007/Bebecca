@@ -300,7 +300,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	onNavigate,
 	isOpen: controlledIsOpen,
 	onToggle: controlledOnToggle,
-	onClose: controlledOnClose,
+	onClose: _controlledOnClose,
 }) => {
 	const { t, i18n } = useTranslation();
 	const navigate = useNavigate();
@@ -343,6 +343,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	const menuList = (
 		<MenuList
 			dir={isRTL ? "rtl" : "ltr"}
+			data-profile-window="true"
 			data-profile-submenu="true"
 			data-notification-menu-list="true"
 			w={{ base: "calc(100vw - 32px)", sm: "360px" }}
@@ -537,9 +538,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	);
 
 	const handleMenuClose = () => {
-		if (isControlled) {
-			controlledOnClose?.();
-		} else {
+		if (!isControlled) {
 			notifMenu.onClose();
 		}
 	};

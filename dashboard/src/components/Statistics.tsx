@@ -858,11 +858,11 @@ const HistoryModal: FC<{
 								align="center"
 								justify="center"
 								borderRadius="10px"
-								bg="color-mix(in srgb, var(--rb-panel-accent) 14%, transparent)"
-								color="var(--rb-panel-accent)"
+								bg="var(--rb-panel-accent)"
+								color="white"
 								border="1px solid"
-								borderColor="color-mix(in srgb, var(--rb-panel-accent) 45%, transparent)"
-								boxShadow="0 0 0 1px color-mix(in srgb, var(--rb-panel-accent) 20%, transparent)"
+								borderColor="color-mix(in srgb, var(--rb-panel-accent) 80%, white 20%)"
+								boxShadow="0 2px 8px color-mix(in srgb, var(--rb-panel-accent) 30%, transparent)"
 								flexShrink={0}
 							>
 								<MetricIcon width={18} height={18} />

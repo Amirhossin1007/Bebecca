@@ -551,16 +551,6 @@ function AppLayoutContent() {
 		setActiveProfileSubmenu(null);
 	}, [userMenu.onClose, languageMenu.onClose]);
 
-	const handleUserMenuClose = () => {
-		if (
-			languageMenu.isOpen ||
-			activeProfileSubmenu !== null ||
-			isChangingLanguageRef.current
-		)
-			return;
-		closeUserMenu();
-	};
-
 	const isAnyProfileMenuOpen =
 		userMenu.isOpen ||
 		languageMenu.isOpen ||
@@ -570,16 +560,36 @@ function AppLayoutContent() {
 		if (!isAnyProfileMenuOpen) return;
 		const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
 			if (isChangingLanguageRef.current) return;
-			const target = event.target as Element | null;
-			if (!target) return;
-			if (
-				target.closest?.(
-					'#rb-user-menu, [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"]'
-				)
-			) {
+			const path =
+				typeof event.composedPath === "function" ? event.composedPath() : [];
+			const isInside = path.some((node) => {
+				if (!(node instanceof Element)) return false;
+				return Boolean(
+					node.id === "rb-user-menu" ||
+						node.closest?.(
+							'#rb-user-menu, [data-profile-window="true"], [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-profile-menu="true"]',
+						),
+				);
+			});
+			const rawTarget = event.target as Node | null;
+			const el =
+				rawTarget instanceof Element
+					? rawTarget
+					: rawTarget?.parentElement;
+			const isInsideFallback = Boolean(
+				el?.closest?.(
+					'#rb-user-menu, [data-profile-window="true"], [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-profile-menu="true"]',
+				),
+			);
+			if (isInside || isInsideFallback) {
 				return;
 			}
 			closeUserMenu();
+		};
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				closeUserMenu();
+			}
 		};
 		document.addEventListener("pointerdown", handleDocumentPointerDown, true);
 		document.addEventListener("mousedown", handleDocumentPointerDown, true);
@@ -587,10 +597,12 @@ function AppLayoutContent() {
 			passive: true,
 			capture: true,
 		});
+		document.addEventListener("keydown", handleKeyDown);
 		return () => {
 			document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
 			document.removeEventListener("mousedown", handleDocumentPointerDown, true);
 			document.removeEventListener("touchstart", handleDocumentPointerDown, true);
+			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [isAnyProfileMenuOpen, closeUserMenu]);
 
@@ -607,12 +619,6 @@ function AppLayoutContent() {
 			return () => clearTimeout(timer);
 		}
 	}, [isRTL]);
-
-	const handleLanguageMenuClose = () => {
-		if (isChangingLanguageRef.current) return;
-		languageMenu.onClose();
-		setActiveProfileSubmenu((prev) => (prev === "language" ? null : prev));
-	};
 
 	useEffect(() => {
 		if (!isMobile) return;
@@ -2145,7 +2151,7 @@ function AppLayoutContent() {
 									closeOnBlur={false}
 									isOpen={userMenu.isOpen}
 									onOpen={userMenu.onOpen}
-									onClose={handleUserMenuClose}
+									onClose={() => {}}
 								>
 									<MenuButton
 										as={Button}
@@ -2232,6 +2238,8 @@ function AppLayoutContent() {
 											dir={isRTL ? "rtl" : "ltr"}
 											ref={userMenuContentRef}
 											id="rb-user-menu"
+											data-profile-window="true"
+											data-profile-menu="true"
 											w="240px"
 											minW="240px"
 											maxW="240px"
@@ -2348,7 +2356,7 @@ function AppLayoutContent() {
 
 											<NotificationMenuItem
 												placement={languagePlacement}
-												onNavigate={handleUserMenuClose}
+												onNavigate={closeUserMenu}
 												isOpen={activeProfileSubmenu === "notifications"}
 												onToggle={() => {
 													languageMenu.onClose();
@@ -2356,11 +2364,7 @@ function AppLayoutContent() {
 														prev === "notifications" ? null : "notifications",
 													);
 												}}
-												onClose={() =>
-													setActiveProfileSubmenu((prev) =>
-														prev === "notifications" ? null : prev,
-													)
-												}
+												onClose={() => {}}
 											/>
 
 											<Menu
@@ -2374,12 +2378,7 @@ function AppLayoutContent() {
 													languageMenu.onOpen();
 													setActiveProfileSubmenu("language");
 												}}
-												onClose={() => {
-													handleLanguageMenuClose();
-													setActiveProfileSubmenu((prev) =>
-														prev === "language" ? null : prev,
-													);
-												}}
+												onClose={() => {}}
 												closeOnSelect={false}
 												closeOnBlur={false}
 												isLazy={false}
@@ -2437,6 +2436,7 @@ function AppLayoutContent() {
 												<Portal>
 													<MenuList
 														dir={isRTL ? "rtl" : "ltr"}
+														data-profile-window="true"
 														data-profile-submenu="true"
 														data-language-menu-list="true"
 														minW="170px"
@@ -2533,11 +2533,7 @@ function AppLayoutContent() {
 														prev === "theme" ? null : "theme",
 													);
 												}}
-												onClose={() =>
-													setActiveProfileSubmenu((prev) =>
-														prev === "theme" ? null : prev,
-													)
-												}
+												onClose={() => {}}
 											/>
 
 											<MenuItem
