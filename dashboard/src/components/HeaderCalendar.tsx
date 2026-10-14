@@ -16,6 +16,7 @@ import {
 	Text,
 	useBreakpointValue,
 	useColorModeValue,
+	useDisclosure,
 } from "@chakra-ui/react";
 import {
 	CalendarDaysIcon,
@@ -212,13 +213,46 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 		return `${formatter.format(seasonWindow.start)} - ${formatter.format(seasonWindow.end)}`;
 	}, [i18n.language, seasonWindow]);
 
+	const { isOpen, onOpen, onClose } = useDisclosure();
+
+	useEffect(() => {
+		if (!isOpen) return;
+		const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
+			const target = event.target as Node | null;
+			if (!target) return;
+			const trigger = document.querySelector(
+				'[data-header-calendar-trigger="true"]',
+			);
+			if (trigger?.contains(target)) return;
+			const content = document.querySelector(
+				'[data-header-calendar-content="true"]',
+			);
+			if (content?.contains(target)) return;
+			onClose();
+		};
+		document.addEventListener("mousedown", handleDocumentPointerDown);
+		document.addEventListener("touchstart", handleDocumentPointerDown, {
+			passive: true,
+		});
+		return () => {
+			document.removeEventListener("mousedown", handleDocumentPointerDown);
+			document.removeEventListener("touchstart", handleDocumentPointerDown);
+		};
+	}, [isOpen, onClose]);
+
 	return (
 		<Popover
+			isOpen={isOpen}
+			onOpen={onOpen}
+			onClose={onClose}
+			closeOnBlur={true}
+			closeOnEsc={true}
 			placement={isRTL ? "bottom-start" : "bottom-end"}
 			gutter={8}
 		>
 			<PopoverTrigger>
 				<Button
+					data-header-calendar-trigger="true"
 					size="sm"
 					variant="outline"
 					h="34px"
@@ -272,6 +306,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 			</PopoverTrigger>
 			<Portal>
 				<PopoverContent
+					data-header-calendar-content="true"
 					w="fit-content"
 					minW="300px"
 					p={3.5}

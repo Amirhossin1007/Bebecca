@@ -22,6 +22,7 @@ import {
 import {
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
+	ChartBarIcon,
 	CircleStackIcon,
 	ClockIcon,
 	CpuChipIcon,
@@ -812,6 +813,7 @@ const HistoryModal: FC<{
 		>
 			<ModalOverlay bg="blackAlpha.700" />
 			<ModalContent
+				data-modal-centered="true"
 				bg="panel.surface"
 				borderWidth="1px"
 				borderColor="panel.border"
@@ -825,28 +827,59 @@ const HistoryModal: FC<{
 				overflow="hidden"
 			>
 				<ModalHeader
-					display="flex"
-					alignItems="center"
-					justifyContent="space-between"
 					px={{ base: 4, md: 6 }}
-					py={{ base: 3.5, md: 4 }}
+					pt={{ base: 4, md: 5 }}
+					pb={{ base: 3.5, md: 4 }}
 					borderBottomWidth="1px"
 					borderColor="panel.border"
-					fontSize="sm"
-					fontWeight="700"
 				>
-					<Text color="panel.text">
-						{t("dashboard.history.modalTitle", {
-							metric: payload?.title ?? "",
-						})}
-					</Text>
-					<ModalCloseButton position="static" size="sm" />
+					<Flex align="center" justify="space-between">
+						<HStack spacing={3} align="center">
+							<Flex
+								w="36px"
+								h="36px"
+								align="center"
+								justify="center"
+								borderRadius="10px"
+								bg="rgba(37, 99, 235, 0.12)"
+								color="var(--rb-panel-accent)"
+								border="1px solid"
+								borderColor="rgba(37, 99, 235, 0.25)"
+								flexShrink={0}
+							>
+								<ChartBarIcon width={18} height={18} />
+							</Flex>
+							<Box>
+								<Text
+									fontSize="15px"
+									fontWeight="700"
+									color="panel.text"
+									lineHeight="1.2"
+								>
+									{t("dashboard.history.modalTitle", {
+										metric: payload?.title ?? "",
+									})}
+								</Text>
+								<Text
+									fontSize="11px"
+									fontWeight="500"
+									color="panel.textMuted"
+									mt={0.5}
+								>
+									{payload?.metricLabel
+										? `${payload.title} (${payload.metricLabel})`
+										: payload?.title}
+								</Text>
+							</Box>
+						</HStack>
+						<ModalCloseButton position="static" size="sm" />
+					</Flex>
 				</ModalHeader>
 				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
 					<Stack spacing={4}>
 						{hasEnoughPoints && (
 							<Box
-								dir="ltr"
+								dir={isRTL ? "rtl" : "ltr"}
 								p="3px"
 								borderRadius="10px"
 								bg="panel.elevated"
@@ -1148,6 +1181,7 @@ const ResourceCard: FC<{
 		safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
 
 	const handleMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+		if (window.innerWidth <= 768) return;
 		const rect = e.currentTarget.getBoundingClientRect();
 		e.currentTarget.style.setProperty(
 			"--mouse-x",
@@ -1157,7 +1191,7 @@ const ResourceCard: FC<{
 		e.currentTarget.style.setProperty("--mouse-opacity", "1");
 
 		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap]",
+			"[data-rb-icon], [data-rb-swap], [data-rb-progress]",
 		);
 		const RADIUS = 210;
 		for (const el of swappables) {
@@ -1176,14 +1210,15 @@ const ResourceCard: FC<{
 	};
 
 	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
+		if (window.innerWidth <= 768) return;
 		e.currentTarget.style.setProperty("--mouse-opacity", "0");
 		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap]",
+			"[data-rb-icon], [data-rb-swap], [data-rb-progress]",
 		);
 		for (const el of swappables) {
 			el.style.setProperty(
 				"transition",
-				"background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
+				"background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease",
 			);
 			el.style.removeProperty("--proximity");
 			setTimeout(() => {
@@ -1259,6 +1294,22 @@ const ResourceCard: FC<{
 								? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
 								: "color-mix(in srgb, var(--rb-panel-text-secondary, #b8b8b8) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-muted, #8a8a8a)) !important",
 					},
+					"& [data-rb-progress]": {
+						bg:
+							colorMode === "light"
+								? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
+								: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
+						boxShadow:
+							colorMode === "light"
+								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
+								: "none",
+						transition: "background-color 0.2s ease, box-shadow 0.2s ease",
+					},
+					"& [data-rb-progress] > div": {
+						filter: "saturate(calc(1 + var(--proximity, 0) * 0.4)) brightness(calc(1 + var(--proximity, 0) * 0.2))",
+						boxShadow: "0 0 calc(var(--proximity, 0) * 8px) currentColor",
+						transition: "filter 0.2s ease, box-shadow 0.2s ease",
+					},
 				},
 			}}
 			_hover={{
@@ -1268,6 +1319,16 @@ const ResourceCard: FC<{
 						colorMode === "light"
 							? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
+					"& [data-rb-progress]": {
+						bg:
+							colorMode === "light"
+								? "panel.surface !important"
+								: "panel.surface !important",
+					},
+					"& [data-rb-progress] > div": {
+						filter: "brightness(1.2) saturate(1.25)",
+						boxShadow: "0 0 8px currentColor",
+					},
 				},
 			}}
 		>
@@ -1453,6 +1514,7 @@ const ResourceCard: FC<{
 					</Text>
 				</Flex>
 				<Progress
+					data-rb-progress=""
 					value={safe}
 					size="xs"
 					borderRadius="full"
@@ -1587,7 +1649,7 @@ const SectionCard: FC<{
 	const { colorMode } = useColorMode();
 
 	const handleMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if (noHover) return;
+		if (noHover || window.innerWidth <= 768) return;
 		const rect = e.currentTarget.getBoundingClientRect();
 		e.currentTarget.style.setProperty(
 			"--mouse-x",
@@ -1616,7 +1678,7 @@ const SectionCard: FC<{
 	};
 
 	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if (noHover) return;
+		if (noHover || window.innerWidth <= 768) return;
 		e.currentTarget.style.setProperty("--mouse-opacity", "0");
 		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
 			"[data-rb-icon], [data-rb-swap]",

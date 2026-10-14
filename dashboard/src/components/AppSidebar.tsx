@@ -180,7 +180,7 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 		if (inDrawer) return;
 		const timer = setTimeout(() => {
 			setIsReady(true);
-		}, 380);
+		}, 500);
 		return () => clearTimeout(timer);
 	}, [inDrawer]);
 
@@ -317,7 +317,7 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 	useEffect(() => {
 		if (isPaused || items.length < 2) return;
 		const current = items[activeIndex];
-		const delay = current?.isSponsor ? 4500 : 5500;
+		const delay = current?.isSponsor ? 4500 : 9000;
 		const timer = window.setTimeout(() => {
 			setActiveIndex((prev) => (prev + 1) % items.length);
 		}, delay);
@@ -437,9 +437,9 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 			<AnimatePresence mode="wait" initial={false}>
 				<motion.div
 					key={`${currentItem.id}-${activeIndex}`}
-					initial={{ opacity: 0, y: -6 }}
-					animate={{ opacity: 1, y: 0 }}
-					exit={{ opacity: 0, y: 6 }}
+					initial={{ opacity: 0, x: isRTL ? 14 : -14 }}
+					animate={{ opacity: 1, x: 0 }}
+					exit={{ opacity: 0, x: isRTL ? 14 : -14 }}
 					transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
 					style={{
 						display: "flex",
@@ -1660,7 +1660,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 						})}
 					</VStack>
 				</Box>
-				{sidebarBanners.length > 0 && (
+				{sidebarBanners.length > 0 && !inDrawer && (
 					<SidebarBannerSection
 						banners={sidebarBanners}
 						collapsed={collapsed}

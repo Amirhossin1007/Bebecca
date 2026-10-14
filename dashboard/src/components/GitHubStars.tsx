@@ -1,4 +1,4 @@
-import { Box, Flex, HStack, Text } from "@chakra-ui/react";
+import { Box, Flex, HStack, Text, useColorModeValue } from "@chakra-ui/react";
 import { StarIcon } from "@heroicons/react/24/solid";
 import { type FC, memo, useEffect, useState } from "react";
 
@@ -41,12 +41,17 @@ export const GitHubStars: FC = memo(() => {
 				: String(stars)
 			: null;
 
+	const starShadow = useColorModeValue(
+		"drop-shadow(0 1px 2px rgba(245, 158, 11, 0.3))",
+		"drop-shadow(0 0 6px rgba(245, 158, 11, 0.45))",
+	);
+
 	return (
 		<Box
 			as="button"
 			onClick={handleClick}
 			h="34px"
-			px={{ base: 2, sm: 2.5 }}
+			px={{ base: 2, sm: 2.75 }}
 			borderRadius="12px"
 			bg="panel.surface"
 			borderWidth="1px"
@@ -55,19 +60,27 @@ export const GitHubStars: FC = memo(() => {
 			display="inline-flex"
 			alignItems="center"
 			justifyContent="center"
-			gap={1.5}
+			gap={2}
 			cursor="pointer"
 			flexShrink={0}
-			boxShadow="sm"
-			transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+			boxShadow="0 1px 2px rgba(0, 0, 0, 0.04)"
+			transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
 			_hover={{
 				md: {
 					bg: "panel.elevated",
 					borderColor: "panel.borderStrong",
-					boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
+					boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08)",
+					transform: "translateY(-0.5px)",
+					"& [data-star-icon]": {
+						filter: "drop-shadow(0 0 8px rgba(245, 158, 11, 0.65))",
+						transform: "scale(1.08)",
+					},
+					"& [data-github-icon]": {
+						opacity: 1,
+					},
 				},
 			}}
-			_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
+			_active={{ bg: "panel.elevated", transform: "scale(0.97)" }}
 			_focusVisible={{
 				outline: "none",
 				boxShadow: "0 0 0 2px var(--chakra-colors-accent)",
@@ -76,12 +89,15 @@ export const GitHubStars: FC = memo(() => {
 		>
 			<Box
 				as="span"
+				data-github-icon=""
 				w="16px"
 				h="16px"
 				display="grid"
 				placeItems="center"
 				color="panel.text"
+				opacity={0.88}
 				flexShrink={0}
+				transition="opacity 0.18s ease"
 			>
 				<svg
 					width="15"
@@ -99,15 +115,24 @@ export const GitHubStars: FC = memo(() => {
 				</svg>
 			</Box>
 
-			<Box w="1px" h="12px" bg="panel.border" flexShrink={0} />
+			<Box w="1px" h="14px" bg="panel.border" flexShrink={0} />
 
-			<HStack spacing={1} align="center" justify="center" flexShrink={0} h="16px">
-				<Flex w="13px" h="13px" align="center" justify="center" flexShrink={0}>
+			<HStack spacing={1.5} align="center" justify="center" flexShrink={0} h="16px">
+				<Flex
+					data-star-icon=""
+					w="14px"
+					h="14px"
+					align="center"
+					justify="center"
+					flexShrink={0}
+					filter={starShadow}
+					transition="transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), filter 0.18s ease"
+				>
 					<StarIcon
 						style={{
-							width: "13px",
-							height: "13px",
-							color: "#f59e0b",
+							width: "14px",
+							height: "14px",
+							color: "#fbbf24",
 							display: "block",
 						}}
 					/>
@@ -118,6 +143,7 @@ export const GitHubStars: FC = memo(() => {
 						dir="ltr"
 						fontSize="12px"
 						fontWeight="600"
+						fontFamily="'JetBrains Mono', 'SF Pro Text', -apple-system, monospace"
 						lineHeight="1"
 						display="inline-flex"
 						alignItems="center"
@@ -125,7 +151,6 @@ export const GitHubStars: FC = memo(() => {
 						sx={{
 							unicodeBidi: "isolate",
 							fontVariantNumeric: "tabular-nums",
-							transform: "translateY(0.5px)",
 						}}
 					>
 						{formattedStars}

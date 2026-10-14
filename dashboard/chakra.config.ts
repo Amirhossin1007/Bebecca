@@ -427,12 +427,14 @@ const sharedThemeConfig = {
 					"&.interactive": {
 						cursor: "pointer",
 						_hover: {
-							"& > td": {
-								bg: "panel.elevated",
-							},
-							_dark: {
+							md: {
 								"& > td": {
 									bg: "panel.elevated",
+								},
+								_dark: {
+									"& > td": {
+										bg: "panel.elevated",
+									},
 								},
 							},
 						},

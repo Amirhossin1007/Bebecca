@@ -540,12 +540,12 @@ function AppLayoutContent() {
 		});
 	};
 
-	const closeUserMenu = () => {
+	const closeUserMenu = useCallback(() => {
 		if (isChangingLanguageRef.current) return;
 		userMenu.onClose();
 		languageMenu.onClose();
 		setActiveProfileSubmenu(null);
-	};
+	}, [userMenu.onClose, languageMenu.onClose]);
 
 	const handleUserMenuClose = () => {
 		if (
@@ -557,6 +557,52 @@ function AppLayoutContent() {
 			return;
 		closeUserMenu();
 	};
+
+	useEffect(() => {
+		if (!userMenu.isOpen) return;
+		const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
+			if (isChangingLanguageRef.current || isThemeModalOpen) return;
+			const target = event.target as Node | null;
+			if (!target) return;
+			const userMenuBtn = document.querySelector('[data-header-profile="true"]');
+			if (userMenuBtn?.contains(target)) return;
+			const userMenuList = document.getElementById("rb-user-menu");
+			if (userMenuList?.contains(target)) return;
+			const submenus = document.querySelectorAll('[data-profile-submenu="true"]');
+			for (const sub of submenus) {
+				if (sub.contains(target)) return;
+			}
+			const langList = document.querySelector('[data-language-menu-list="true"]');
+			if (langList?.contains(target)) return;
+			const notifList = document.querySelector(
+				'[data-notification-menu-list="true"]',
+			);
+			if (notifList?.contains(target)) return;
+			closeUserMenu();
+		};
+		document.addEventListener("mousedown", handleDocumentPointerDown);
+		document.addEventListener("touchstart", handleDocumentPointerDown, {
+			passive: true,
+		});
+		return () => {
+			document.removeEventListener("mousedown", handleDocumentPointerDown);
+			document.removeEventListener("touchstart", handleDocumentPointerDown);
+		};
+	}, [userMenu.isOpen, isThemeModalOpen, closeUserMenu]);
+
+	const prevRTLRef = useRef(isRTL);
+	const [suppressDockTransition, setSuppressDockTransition] = useState(false);
+
+	useEffect(() => {
+		if (prevRTLRef.current !== isRTL) {
+			prevRTLRef.current = isRTL;
+			setSuppressDockTransition(true);
+			const timer = setTimeout(() => {
+				setSuppressDockTransition(false);
+			}, 350);
+			return () => clearTimeout(timer);
+		}
+	}, [isRTL]);
 
 	const handleLanguageMenuClose = () => {
 		if (isChangingLanguageRef.current) return;
@@ -1988,8 +2034,8 @@ function AppLayoutContent() {
 										animate={{ opacity: 1 }}
 										exit={{ opacity: 0 }}
 										transition={{
-											duration: 0.5,
-											delay: 0.7,
+											duration: 0.45,
+											delay: 0.5,
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
@@ -2029,8 +2075,8 @@ function AppLayoutContent() {
 										animate={{ opacity: 1 }}
 										exit={{ opacity: 0 }}
 										transition={{
-											duration: 0.5,
-											delay: 0.7,
+											duration: 0.45,
+											delay: 0.5,
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
@@ -2094,10 +2140,10 @@ function AppLayoutContent() {
 									isLazy={false}
 									autoSelect={false}
 									closeOnSelect={false}
-									closeOnBlur={false}
+									closeOnBlur={true}
 									isOpen={userMenu.isOpen}
 									onOpen={userMenu.onOpen}
-									onClose={handleUserMenuClose}
+									onClose={closeUserMenu}
 								>
 									<MenuButton
 										as={Button}
@@ -2128,7 +2174,7 @@ function AppLayoutContent() {
 										transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 										onClick={() => {
 											if (userMenu.isOpen) {
-												handleUserMenuClose();
+												closeUserMenu();
 											} else {
 												userMenu.onOpen();
 											}
@@ -2389,6 +2435,8 @@ function AppLayoutContent() {
 												<Portal>
 													<MenuList
 														dir={isRTL ? "rtl" : "ltr"}
+														data-profile-submenu="true"
+														data-language-menu-list="true"
 														minW="170px"
 														p={1.5}
 														borderRadius="20px"
@@ -2585,7 +2633,12 @@ function AppLayoutContent() {
 								backfaceVisibility: "hidden",
 							}}
 						>
-							<DrawerBody p={0} overflow="hidden">
+							<DrawerBody
+								p={0}
+								overflowY="auto"
+								overflowX="hidden"
+								sx={{ WebkitOverflowScrolling: "touch" }}
+							>
 								<AppSidebar
 									collapsed={false}
 									sponsors={sponsorSidebarLogoItems}
@@ -2700,7 +2753,11 @@ function AppLayoutContent() {
 														? `translateX(calc(-${activeDockIndex * 100}%))`
 														: `translateX(calc(${activeDockIndex * 100}%))`
 												}
-												transition="transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
+												transition={
+													suppressDockTransition
+														? "none !important"
+														: "transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
+												}
 												p="2px"
 												pointerEvents="none"
 												zIndex={0}
@@ -3245,8 +3302,10 @@ function AppLayoutContent() {
 																		leftIcon={<LogoutIcon />}
 																		color="red.400"
 																		_hover={{
-																			bg: "rgba(239, 68, 68, 0.12)",
-																			color: "red.400",
+																			md: {
+																				bg: "rgba(239, 68, 68, 0.12)",
+																				color: "red.400",
+																			},
 																		}}
 																		_active={{ bg: "rgba(239, 68, 68, 0.18)" }}
 																		_focus={{ bg: "transparent" }}

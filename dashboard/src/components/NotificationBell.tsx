@@ -343,6 +343,8 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	const menuList = (
 		<MenuList
 			dir={isRTL ? "rtl" : "ltr"}
+			data-profile-submenu="true"
+			data-notification-menu-list="true"
 			w={{ base: "calc(100vw - 32px)", sm: "360px" }}
 			maxW="380px"
 			p={2}

@@ -97,16 +97,90 @@ const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
 
 const createRegex = (pattern: string) => new RegExp(pattern, "g");
 const ansiEscapePattern = createRegex(
-	"\\u001B|\\u009B|[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))",
+	"(?:\\u001b|\\x1b)\\[[0-9;]*[a-zA-Z]|\\[(?:\\d{1,3}(?:;\\d{1,3})*)?m|\\x08|\\x0d",
 );
-const backspacePattern = createRegex("\\x08");
 
-const cleanTerminalOutput = (logs?: string[]) =>
-	(logs || [])
-		.join("\n")
-		.replace(ansiEscapePattern, "")
-		.replace(backspacePattern, "")
-		.trimEnd();
+const isCurlNoise = (line: string): boolean => {
+	const trimmed = line.trim();
+	if (!trimmed) return false;
+	if (
+		trimmed.includes("% Total") ||
+		trimmed.includes("Dload Upload") ||
+		trimmed.includes("Dload  Upload")
+	)
+		return true;
+	if (trimmed.includes("--:--:--")) return true;
+	if (/^\d+\s+[\d.]+[kMGT]?\s+\d+\s+[\d.]+[kMGT]?\s+/.test(trimmed)) return true;
+	return false;
+};
+
+const cleanTerminalOutput = (logs?: string[]): string => {
+	if (!logs || logs.length === 0) return "";
+	const lines = logs.join("\n").split("\n");
+	const cleaned: string[] = [];
+	for (const rawLine of lines) {
+		const line = rawLine.replace(ansiEscapePattern, "").trimEnd();
+		if (isCurlNoise(line)) continue;
+		if (
+			!line.trim() &&
+			cleaned.length > 0 &&
+			!cleaned[cleaned.length - 1].trim()
+		)
+			continue;
+		cleaned.push(line);
+	}
+	return cleaned.join("\n").trim();
+};
+
+const formatTerminalLine = (line: string, index: number) => {
+	const trimmed = line.trim();
+	let color = "panel.text";
+	let fontWeight = "400";
+	if (
+		trimmed.startsWith("rebecca ") ||
+		trimmed.startsWith("$ ") ||
+		trimmed.startsWith("> ")
+	) {
+		color = "var(--rb-panel-accent)";
+		fontWeight = "600";
+	} else if (
+		trimmed.includes("successfully") ||
+		trimmed.includes("installed successfully") ||
+		trimmed.includes("updated successfully")
+	) {
+		color = "#22c55e";
+		fontWeight = "600";
+	} else if (
+		trimmed.includes("Warning") ||
+		trimmed.includes("warning") ||
+		trimmed.includes("No bundled")
+	) {
+		color = "#f59e0b";
+	} else if (
+		trimmed.includes("error") ||
+		trimmed.includes("Error") ||
+		trimmed.includes("failed")
+	) {
+		color = "#ef4444";
+		fontWeight = "600";
+	} else if (
+		trimmed.startsWith("Updating ") ||
+		trimmed.startsWith("Restarting ")
+	) {
+		color = "#38bdf8";
+	}
+	return (
+		<Text
+			as="span"
+			key={`${index}-${line.slice(0, 16)}`}
+			display="block"
+			color={color}
+			fontWeight={fontWeight}
+		>
+			{line}
+		</Text>
+	);
+};
 
 export const DashboardMaintenanceControls = ({
 	channel,
@@ -778,6 +852,7 @@ export const DashboardMaintenanceControls = ({
 			>
 				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
+					data-modal-centered="true"
 					borderRadius="20px"
 					overflow="hidden"
 					bg="panel.surface"
@@ -1043,8 +1118,8 @@ export const DashboardMaintenanceControls = ({
 
 								<Box
 									ref={logsContainerRef}
-									as="pre"
-									maxH="220px"
+									as="div"
+									h="220px"
 									overflowY="auto"
 									p={3.5}
 									fontSize="11px"
@@ -1065,8 +1140,15 @@ export const DashboardMaintenanceControls = ({
 										},
 									}}
 								>
-									{cleanTerminalOutput(operation?.logs) ||
-										t("dashboard.maintenance.waitingForOutput")}
+									{cleanTerminalOutput(operation?.logs) ? (
+										cleanTerminalOutput(operation?.logs)
+											.split("\n")
+											.map((line, index) => formatTerminalLine(line, index))
+									) : (
+										<Text color="panel.textMuted">
+											{t("dashboard.maintenance.waitingForOutput")}
+										</Text>
+									)}
 								</Box>
 							</Box>
 						</Stack>
@@ -1082,6 +1164,7 @@ export const DashboardMaintenanceControls = ({
 			>
 				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
+					data-modal-centered="true"
 					bg="panel.surface"
 					borderColor="panel.border"
 					borderWidth="1px"
