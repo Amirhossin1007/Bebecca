@@ -492,42 +492,53 @@ export const DashboardMaintenanceControls = ({
 					p={1}
 					onClick={(e) => e.stopPropagation()}
 				>
-					<PopoverCloseButton
-						size="sm"
-						top={2.5}
-						insetInlineEnd={2.5}
-						borderRadius="8px"
-						display={{ base: "flex", md: "none" }}
-					/>
 					<PopoverHeader
 						fontWeight="700"
 						fontSize="13px"
 						py={3}
 						px={4}
-						pe={{ base: "44px", md: 4 }}
 						borderColor="panel.border"
 					>
 						<Flex justify="space-between" align="center" gap={3}>
 							<Text fontSize="13px" fontWeight="700" color="panel.text">
 								{t("dashboard.maintenance.title")}
 							</Text>
-							<Button
-								size="xs"
-								variant="ghost"
-								borderRadius="8px"
-								color="panel.textMuted"
-								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-								_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
-								_active={{ transform: "scale(0.96)" }}
-								leftIcon={<ArrowPathIcon width={13} height={13} />}
-								onClick={(e) => {
-									e.stopPropagation();
-									info.refetch();
-								}}
-								isLoading={info.isFetching}
-							>
-								{t("refresh")}
-							</Button>
+							<Flex align="center" gap={2}>
+								<Button
+									size="xs"
+									variant="ghost"
+									borderRadius="8px"
+									color="panel.textMuted"
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+									_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
+									_active={{ transform: "scale(0.96)" }}
+									leftIcon={<ArrowPathIcon width={13} height={13} />}
+									onClick={(e) => {
+										e.stopPropagation();
+										info.refetch();
+									}}
+									isLoading={info.isFetching}
+								>
+									{t("refresh")}
+								</Button>
+								<PopoverCloseButton
+									position="static"
+									top="auto"
+									insetInlineEnd="auto"
+									m={0}
+									size="xs"
+									w="24px"
+									h="24px"
+									borderRadius="8px"
+									color="panel.textMuted"
+									display={{ base: "flex", md: "none" }}
+									alignItems="center"
+									justifyContent="center"
+									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+									_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
+									_active={{ transform: "scale(0.96)" }}
+								/>
+							</Flex>
 						</Flex>
 					</PopoverHeader>
 					<PopoverBody p={4}>
