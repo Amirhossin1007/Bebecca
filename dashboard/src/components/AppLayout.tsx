@@ -562,22 +562,15 @@ function AppLayoutContent() {
 		if (!userMenu.isOpen) return;
 		const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
 			if (isChangingLanguageRef.current || isThemeModalOpen) return;
-			const target = event.target as Node | null;
+			const target = event.target as Element | null;
 			if (!target) return;
-			const userMenuBtn = document.querySelector('[data-header-profile="true"]');
-			if (userMenuBtn?.contains(target)) return;
-			const userMenuList = document.getElementById("rb-user-menu");
-			if (userMenuList?.contains(target)) return;
-			const submenus = document.querySelectorAll('[data-profile-submenu="true"]');
-			for (const sub of submenus) {
-				if (sub.contains(target)) return;
+			if (
+				target.closest?.(
+					'#rb-user-menu, [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], .chakra-menu__menu-list, [role="menu"], [role="menuitem"], .chakra-modal__content, .chakra-popover__content'
+				)
+			) {
+				return;
 			}
-			const langList = document.querySelector('[data-language-menu-list="true"]');
-			if (langList?.contains(target)) return;
-			const notifList = document.querySelector(
-				'[data-notification-menu-list="true"]',
-			);
-			if (notifList?.contains(target)) return;
 			closeUserMenu();
 		};
 		document.addEventListener("mousedown", handleDocumentPointerDown);
@@ -2112,6 +2105,7 @@ function AppLayoutContent() {
 											<SponsorCarousel
 												items={sponsorHeaderItems}
 												variant="banner"
+												animateIn={false}
 											/>
 										</Box>
 									</motion.div>
@@ -2611,33 +2605,20 @@ function AppLayoutContent() {
 						isOpen={sidebarDrawer.isOpen}
 						placement={isRTL ? "right" : "left"}
 						onClose={sidebarDrawer.onClose}
-						size="full"
+						size="xs"
 						autoFocus={false}
 						returnFocusOnClose={false}
-						trapFocus={false}
-						blockScrollOnMount={false}
-						preserveScrollBarGap={false}
 					>
 						<DrawerOverlay bg="blackAlpha.700" />
-						<DrawerContent
-							w="100vw"
-							maxW="100vw"
-							h="100dvh"
-							maxH="100dvh"
-							bg="panel.surface"
-							boxShadow="none"
-							border="none"
-							sx={{
-								willChange: "transform",
-								transform: "translate3d(0, 0, 0)",
-								backfaceVisibility: "hidden",
-							}}
-						>
+						<DrawerContent className="rb-sidebar-drawer" bg="panel.sidebar">
 							<DrawerBody
 								p={0}
 								overflowY="auto"
 								overflowX="hidden"
-								sx={{ WebkitOverflowScrolling: "touch" }}
+								sx={{
+									WebkitOverflowScrolling: "touch",
+									overscrollBehavior: "contain",
+								}}
 							>
 								<AppSidebar
 									collapsed={false}
@@ -2790,7 +2771,10 @@ function AppLayoutContent() {
 										{bottomNavItems.map((item) => {
 											const isActive = resolveActive(item);
 											const isSelected = selectedTabKey === item.key;
-											const DisplayIcon = getDockIcon(item.key);
+											const isSettings = item.key === "settings";
+											const currentSettingsItem = isSettings ? activeSettingsItem : null;
+											const DisplayIcon = currentSettingsItem?.icon || getDockIcon(item.key);
+											const displayLabel = currentSettingsItem?.label || item.label;
 											const navContent = (
 												<Box
 													w="full"
@@ -2800,9 +2784,10 @@ function AppLayoutContent() {
 													justifyContent="center"
 													minW="0"
 													py="1"
-													px="1"
+													px="0.5"
 													position="relative"
 													zIndex={1}
+													overflow="hidden"
 												>
 													<Box
 														w="22px"
@@ -2844,12 +2829,13 @@ function AppLayoutContent() {
 														overflow="hidden"
 														textOverflow="ellipsis"
 														maxW="100%"
-														px="0.5"
+														px="1"
 														mt="2px"
+														title={displayLabel}
 														color={isSelected ? "panel.text" : dockInactiveText}
 														transition="color 0.2s ease"
 													>
-														{item.label}
+														{displayLabel}
 													</Text>
 												</Box>
 											);
@@ -2887,6 +2873,7 @@ function AppLayoutContent() {
 																px="0"
 																borderRadius="full"
 																position="relative"
+																overflow="hidden"
 																zIndex={1}
 																sx={{ touchAction: "manipulation" }}
 																userSelect="none"

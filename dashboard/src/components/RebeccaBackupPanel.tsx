@@ -274,6 +274,7 @@ export const DashboardBackupControls = ({
 			>
 				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
+					data-modal-centered="true"
 					borderWidth="1px"
 					borderColor="panel.border"
 					borderRadius="20px"
@@ -421,6 +422,7 @@ export const DashboardBackupControls = ({
 			>
 				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
+					data-modal-centered="true"
 					borderWidth="1px"
 					borderColor="panel.border"
 					borderRadius="20px"

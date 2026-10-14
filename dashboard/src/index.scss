@@ -872,11 +872,38 @@ body {
     box-shadow: none !important;
   }
 
-  .chakra-button:hover,
-  .chakra-icon-button:hover,
-  .rb-header-btn:hover {
+  .chakra-button:not(:active):hover,
+  .chakra-icon-button:not(:active):hover,
+  .rb-header-btn:not(:active):hover {
     box-shadow: none !important;
     transform: none !important;
+  }
+
+  .chakra-popover__popper:has([data-maintenance-popover="true"]) {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 15000 !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(4px) !important;
+    padding: 1rem !important;
+  }
+
+  [data-maintenance-popover="true"] {
+    width: calc(100vw - 32px) !important;
+    max-width: 480px !important;
+    max-height: 85dvh !important;
+    overflow-y: auto !important;
+    border-radius: 20px !important;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45) !important;
+    margin: auto !important;
   }
 
   [data-rb-iconswap] [data-rb-icon],

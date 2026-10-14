@@ -18,6 +18,7 @@ import {
 	ModalOverlay,
 	Popover,
 	PopoverBody,
+	PopoverCloseButton,
 	PopoverContent,
 	PopoverHeader,
 	PopoverTrigger,
@@ -479,6 +480,7 @@ export const DashboardMaintenanceControls = ({
 			</PopoverTrigger>
 			<Portal>
 				<PopoverContent
+					data-maintenance-popover="true"
 					w="min(480px, calc(100vw - 24px))"
 					maxW="480px"
 					borderRadius="20px"
@@ -489,6 +491,13 @@ export const DashboardMaintenanceControls = ({
 					p={1}
 					onClick={(e) => e.stopPropagation()}
 				>
+					<PopoverCloseButton
+						size="sm"
+						top={3}
+						insetInlineEnd={3}
+						borderRadius="8px"
+						display={{ base: "flex", md: "none" }}
+					/>
 					<PopoverHeader
 						fontWeight="700"
 						fontSize="13px"

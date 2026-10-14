@@ -438,6 +438,40 @@ const HistoryModal: FC<{
 		(i) => i.seconds === intervalSeconds,
 	);
 
+	const MetricIcon = useMemo(() => {
+		switch (payload?.type) {
+			case "cpu":
+				return CpuChipIcon;
+			case "memory":
+				return CircleStackIcon;
+			case "network":
+				return SignalIcon;
+			case "panel":
+			case "panelCpu":
+			case "panelMemory":
+				return ServerStackIcon;
+			default:
+				return ChartBarIcon;
+		}
+	}, [payload?.type]);
+
+	const iconColor = useMemo(() => {
+		switch (payload?.type) {
+			case "cpu":
+				return "#3b82f6";
+			case "memory":
+				return "#8b5cf6";
+			case "network":
+				return "#10b981";
+			case "panel":
+			case "panelCpu":
+			case "panelMemory":
+				return "#f59e0b";
+			default:
+				return "var(--rb-panel-accent)";
+		}
+	}, [payload?.type]);
+
 	useEffect(() => {
 		if (!isOpen) return;
 		const timer = setTimeout(() => {
@@ -841,13 +875,37 @@ const HistoryModal: FC<{
 								align="center"
 								justify="center"
 								borderRadius="10px"
-								bg="rgba(37, 99, 235, 0.12)"
-								color="var(--rb-panel-accent)"
+								bg={
+									payload?.type === "cpu"
+										? "rgba(59, 130, 246, 0.12)"
+										: payload?.type === "memory"
+											? "rgba(139, 92, 246, 0.12)"
+											: payload?.type === "network"
+												? "rgba(16, 185, 129, 0.12)"
+												: payload?.type === "panel" ||
+													  payload?.type === "panelCpu" ||
+													  payload?.type === "panelMemory"
+													? "rgba(245, 158, 11, 0.12)"
+													: "rgba(37, 99, 235, 0.12)"
+								}
+								color={iconColor}
 								border="1px solid"
-								borderColor="rgba(37, 99, 235, 0.25)"
+								borderColor={
+									payload?.type === "cpu"
+										? "rgba(59, 130, 246, 0.25)"
+										: payload?.type === "memory"
+											? "rgba(139, 92, 246, 0.25)"
+											: payload?.type === "network"
+												? "rgba(16, 185, 129, 0.25)"
+												: payload?.type === "panel" ||
+													  payload?.type === "panelCpu" ||
+													  payload?.type === "panelMemory"
+													? "rgba(245, 158, 11, 0.25)"
+													: "rgba(37, 99, 235, 0.25)"
+								}
 								flexShrink={0}
 							>
-								<ChartBarIcon width={18} height={18} />
+								<MetricIcon width={18} height={18} />
 							</Flex>
 							<Box>
 								<Text
@@ -1319,16 +1377,6 @@ const ResourceCard: FC<{
 						colorMode === "light"
 							? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
 							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
-					"& [data-rb-progress]": {
-						bg:
-							colorMode === "light"
-								? "panel.surface !important"
-								: "panel.surface !important",
-					},
-					"& [data-rb-progress] > div": {
-						filter: "brightness(1.2) saturate(1.25)",
-						boxShadow: "0 0 8px currentColor",
-					},
 				},
 			}}
 		>

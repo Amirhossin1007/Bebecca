@@ -468,12 +468,14 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 									<Image
 										src={currentItem.src}
 										alt={currentItem.alt}
-										maxW="26px"
-										maxH="26px"
+										w="30px"
+										h="30px"
+										maxW="30px"
+										maxH="30px"
 										objectFit="contain"
 										draggable={false}
 										loading="eager"
-										borderRadius="6px"
+										borderRadius="8px"
 										userSelect="none"
 										sx={{
 											WebkitUserDrag: "none",

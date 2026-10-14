@@ -421,6 +421,8 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	const menuList = (
 		<MenuList
+			data-profile-submenu="true"
+			data-theme-menu-list="true"
 			minW={{ base: "min(300px, calc(100vw - 24px))", sm: "300px" }}
 			maxW="calc(100vw - 16px)"
 			bg={menuBg}
