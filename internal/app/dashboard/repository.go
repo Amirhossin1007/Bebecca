@@ -177,12 +177,6 @@ func (r Repository) userCounts(ctx context.Context, adminID *int64) (map[string]
 		"limited":  0,
 		"on_hold":  0,
 	}
-	total, err := r.countUsers(ctx, adminID, "")
-	if err != nil {
-		return nil, err
-	}
-	result["total"] = total
-
 	clauses := []string{"status != ?"}
 	args := []any{"deleted"}
 	if adminID != nil {
@@ -201,6 +195,7 @@ func (r Repository) userCounts(ctx context.Context, adminID *int64) (map[string]
 		if err := rows.Scan(&status, &count); err != nil {
 			return nil, err
 		}
+		result["total"] += count
 		if _, ok := result[status]; ok {
 			result[status] = count
 		}
