@@ -928,7 +928,7 @@ func (r Repository) loadUsageUserMapping(ctx context.Context, tx *sql.Tx, userID
 	if len(userIDs) == 0 {
 		return map[int64]usageUserMapping{}, nil
 	}
-	query := `SELECT id, admin_id, service_id FROM users WHERE status IN ('active', 'on_hold') AND id IN (` + placeholders(len(userIDs)) + `)`
+	query := `SELECT id, admin_id, service_id FROM users WHERE COALESCE(status, '') IN ('active', 'on_hold') AND id IN (` + placeholders(len(userIDs)) + `)`
 	rows, err := tx.QueryContext(ctx, query, int64Args(userIDs)...)
 	if err != nil {
 		return nil, err
@@ -979,7 +979,7 @@ func (r Repository) batchTouchUsersOnline(ctx context.Context, exec usageExecer,
 	return forEachInt64Chunk(userIDs, usagePersistBatchSize, func(chunk []int64) error {
 		query := `INSERT INTO user_presence (user_id, online_at)
 SELECT id, ? FROM users
-WHERE status IN ('active', 'on_hold') AND id IN (` + placeholders(len(chunk)) + `)`
+WHERE COALESCE(status, '') IN ('active', 'on_hold') AND id IN (` + placeholders(len(chunk)) + `)`
 		args := make([]any, 0, 2+len(chunk))
 		args = append(args, r.timeArg(now))
 		args = append(args, int64Args(chunk)...)
