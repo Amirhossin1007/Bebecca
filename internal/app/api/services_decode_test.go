@@ -95,3 +95,12 @@ func TestServiceFlowIsNotExposedOrWritableOnMigratedDatabase(t *testing.T) {
 		t.Fatalf("service flow written count=%d err=%v", count, err)
 	}
 }
+
+func TestRoundServiceUsageCoefficientKeepsTwoDecimals(t *testing.T) {
+	cases := map[float64]float64{1.56: 1.56, 1.567: 1.57, 2.5: 2.5, 99.999: 100}
+	for input, want := range cases {
+		if got := roundServiceUsageCoefficient(input); got != want {
+			t.Fatalf("roundServiceUsageCoefficient(%v) = %v, want %v", input, got, want)
+		}
+	}
+}

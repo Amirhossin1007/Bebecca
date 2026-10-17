@@ -254,7 +254,7 @@ func (s *Server) handleServiceCreate(w http.ResponseWriter, r *http.Request) {
 		now := dbTimestamp(time.Now().UTC())
 		usageCoefficient := 1.0
 		if payload.UsageCoefficient != nil {
-			usageCoefficient = *payload.UsageCoefficient
+			usageCoefficient = roundServiceUsageCoefficient(*payload.UsageCoefficient)
 		}
 		res, err := tx.ExecContext(
 			r.Context(),
@@ -337,7 +337,7 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request, ser
 				return statusError{status: http.StatusBadRequest, detail: "usage_coefficient is required"}
 			}
 			assignments = append(assignments, "usage_coefficient = ?")
-			args = append(args, *payload.UsageCoefficient)
+			args = append(args, roundServiceUsageCoefficient(*payload.UsageCoefficient))
 		}
 		if len(assignments) > 0 {
 			assignments = append(assignments, "updated_at = ?")
@@ -599,7 +599,7 @@ func (s *Server) handleServiceAdminLimitUpdate(w http.ResponseWriter, r *http.Re
 				if err := validateServiceUsageCoefficient(*payload.UsageCoefficient); err != nil {
 					return err
 				}
-				coefficient = *payload.UsageCoefficient
+				coefficient = roundServiceUsageCoefficient(*payload.UsageCoefficient)
 			}
 			assignments = append(assignments, "usage_coefficient = ?")
 			args = append(args, coefficient)
@@ -923,6 +923,10 @@ func validateServiceUsageCoefficient(value float64) error {
 		return statusError{status: http.StatusBadRequest, detail: "usage_coefficient must be between 0.01 and 100"}
 	}
 	return nil
+}
+
+func roundServiceUsageCoefficient(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 func validateServiceWriteTx(ctx context.Context, tx *sql.Tx, payload serviceWritePayload, create bool) error {

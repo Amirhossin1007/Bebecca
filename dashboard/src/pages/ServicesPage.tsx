@@ -156,6 +156,14 @@ const parseDecimalInput = (value: string) => {
 	return sanitized && sanitized !== "0." ? Number(sanitized) : null;
 };
 
+const parseCoefficientInput = (value: string) => {
+	const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+	const parsed = Number(normalized);
+	return normalized && normalized !== "." && Number.isFinite(parsed)
+		? Math.round(parsed * 100) / 100
+		: null;
+};
+
 const parseIntegerInput = (value: string) => {
 	const sanitized = sanitizeIntegerInput(value);
 	return sanitized ? Number.parseInt(sanitized, 10) : null;
@@ -333,7 +341,9 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 		}
 
 		const coefficient =
-			usageCoefficient.trim() === "" ? 1 : parseDecimalInput(usageCoefficient);
+			usageCoefficient.trim() === ""
+				? 1
+				: parseCoefficientInput(usageCoefficient);
 		if (coefficient === null || coefficient < 0.01 || coefficient > 100) {
 			toast({
 				status: "warning",
@@ -457,6 +467,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 									min={0.01}
 									max={100}
 									step={0.01}
+									precision={2}
 									value={usageCoefficient}
 									onChange={(event) => setUsageCoefficient(event.target.value)}
 								/>
@@ -1441,7 +1452,9 @@ const ServicesPage: FC = () => {
 		const deleteUserUsageLimitMb = parseDecimalInput(
 			serviceAdminLimitForm.delete_user_usage_limit_mb,
 		);
-		const usageCoefficient = parseDecimalInput(serviceAdminLimitForm.usage_coefficient);
+		const usageCoefficient = parseCoefficientInput(
+			serviceAdminLimitForm.usage_coefficient,
+		);
 		if (usageCoefficient !== null && (usageCoefficient < 0.01 || usageCoefficient > 100)) {
 			toast({
 				status: "warning",
@@ -1715,6 +1728,7 @@ const ServicesPage: FC = () => {
 									max={100}
 									step={0.01}
 									w="90px"
+									precision={2}
 									defaultValue={coefficient}
 									disabled={savingAdminLimitId === link.id}
 									onClick={(event) => event.stopPropagation()}
@@ -1722,7 +1736,7 @@ const ServicesPage: FC = () => {
 										event.currentTarget.value = sanitizeDecimalInput(event.currentTarget.value);
 									}}
 									onBlur={(event) => {
-										const value = parseDecimalInput(event.target.value);
+										const value = parseCoefficientInput(event.target.value);
 										if (value === null || value < 0.01 || value > 100) {
 											toast({
 												status: "warning",
@@ -2145,6 +2159,7 @@ const ServicesPage: FC = () => {
 							min={0.01}
 							max={100}
 							step={0.01}
+							precision={2}
 							placeholder={String(selectedService?.usage_coefficient ?? 1)}
 							value={serviceAdminLimitForm.usage_coefficient}
 							onChange={(event) =>
