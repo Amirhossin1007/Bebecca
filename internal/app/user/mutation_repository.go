@@ -168,7 +168,7 @@ INSERT INTO users (
 	if err := tx.Commit(); err != nil {
 		return MutationResult{}, err
 	}
-	return MutationResult{UserID: userID, Username: payload.Username, Status: status}, nil
+	return MutationResult{UserID: userID, Username: payload.Username, Status: status, SpeedLimitChanged: int64OrZero(payload.SpeedLimitKbps) > 0}, nil
 }
 
 func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin, username string, payload UserModify, rawFields map[string]json.RawMessage) (MutationResult, error) {

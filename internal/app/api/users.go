@@ -350,6 +350,9 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.kickUserNodeOperationsSoon(result.UserID)
+	if result.SpeedLimitChanged {
+		s.queueUserSpeedLimitSync(r.Context())
+	}
 	createdReport := userReportForTelegram(result, principal.Context.Admin.Username, principal.Context.Admin.Username, raw)
 	s.telegramReports.UserCreated(r.Context(), createdReport)
 	s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionUserCreated, createdReport))
