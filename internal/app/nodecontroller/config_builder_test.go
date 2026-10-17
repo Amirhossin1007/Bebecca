@@ -40,6 +40,9 @@ func TestRuntimeConfigRequestUsesProvidedInbounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL, speed_limit_kbps INTEGER NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatal(err)
+	}
 	controller := NewController(NewRepository(db, "sqlite"))
 	req, err := controller.runtimeConfigRequestFromInbounds(context.Background(), NodeRow{}, "test", `{}`, []map[string]any{})
 	if err != nil {
@@ -52,6 +55,60 @@ func TestRuntimeConfigRequestUsesProvidedInbounds(t *testing.T) {
 	for _, key := range []string{"inbounds", "l2tp_inbounds", "pptp_inbounds", "wg_inbounds", "ikev2_inbounds", "anyconnect_inbounds"} {
 		if got := interfaceSlice(runtime[key]); len(got) != 0 {
 			t.Fatalf("%s = %#v, want empty", key, got)
+		}
+	}
+}
+
+func TestRuntimeUserSpeedLimitsListsLimitedUsersExceptDeleted(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL, speed_limit_kbps INTEGER NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO users (id, status, speed_limit_kbps) VALUES (1, 'active', 10000), (2, 'active', 0), (3, 'deleted', 5000), (4, 'disabled', 2000)`); err != nil {
+		t.Fatal(err)
+	}
+	limits, err := NewController(NewRepository(db, "sqlite")).runtimeUserSpeedLimits(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(limits) != 2 || limits[0].GetUserId() != 1 || limits[0].GetSpeedLimitKbps() != 10000 || limits[1].GetUserId() != 4 || limits[1].GetSpeedLimitKbps() != 2000 {
+		t.Fatalf("speed limits = %v, want users 1 and 4 only", limits)
+	}
+}
+
+func TestLimitedUserOperationRequiresConfigSync(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, service_id INTEGER NULL, status TEXT NOT NULL, speed_limit_kbps INTEGER NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO users (id, status, speed_limit_kbps) VALUES (1, 'active', 5000), (2, 'active', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	controller := NewController(NewRepository(db, "sqlite"))
+	node := NodeRow{ID: 7}
+	for _, tc := range []struct {
+		operation string
+		userID    int64
+		want      bool
+	}{
+		{"add_user", 1, true},
+		{"remove_user", 1, false},
+		{"add_user", 2, false},
+	} {
+		got, err := controller.userOperationRequiresConfigSync(context.Background(), node, OperationRow{OperationType: tc.operation, UserID: sql.NullInt64{Int64: tc.userID, Valid: true}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != tc.want {
+			t.Fatalf("%s for user %d requires config sync = %v, want %v", tc.operation, tc.userID, got, tc.want)
 		}
 	}
 }

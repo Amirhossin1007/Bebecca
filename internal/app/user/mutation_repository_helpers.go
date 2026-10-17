@@ -339,7 +339,8 @@ func (r Repository) existingUserTx(ctx context.Context, tx *sql.Tx, username str
 	err := tx.QueryRowContext(
 		ctx,
 		`SELECT id, username, status, COALESCE(used_traffic, 0), data_limit, expire, service_id, admin_id, credential_key, on_hold_expire_duration,
-(SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id)
+(SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id),
+COALESCE(speed_limit_kbps, 0)
 FROM users WHERE LOWER(username) = LOWER(?) AND status != ? LIMIT 1`,
 		username,
 		string(UserStatusDeleted),
@@ -355,6 +356,7 @@ FROM users WHERE LOWER(username) = LOWER(?) AND status != ? LIMIT 1`,
 		&credentialKey,
 		&holdDuration,
 		&onlineAt,
+		&row.SpeedLimitKbps,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

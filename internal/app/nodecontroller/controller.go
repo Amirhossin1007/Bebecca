@@ -844,6 +844,7 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 				OperationId:     operation.remoteOperationID(operation.OperationType),
 				ConfigJson:      configJSON,
 				OvRuntimeJson:   prepared.ovRuntimeJSON,
+				UserSpeedLimits: prepared.userSpeedLimits,
 				DesiredRevision: uint64(operation.ID),
 			}
 		} else {

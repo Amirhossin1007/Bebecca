@@ -11,6 +11,7 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	userread "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
 var proxyProtocols = map[string]struct{}{
@@ -49,6 +50,7 @@ type preparedRuntimeConfig struct {
 	userSyncRequired bool
 	configJSON       string
 	ovRuntimeJSON    string
+	userSpeedLimits  []*nodev1.UserSpeedLimit
 }
 
 func (p *preparedRuntimeConfig) userSyncDecision(nodeID int64) (bool, bool) {
@@ -60,6 +62,26 @@ func (p *preparedRuntimeConfig) userSyncDecision(nodeID int64) (bool, bool) {
 
 func (c Controller) runtimeInbounds(ctx context.Context) ([]map[string]any, error) {
 	return xrayconfig.NewRepository(c.repo.db, c.repo.dialect, xrayconfig.Options{}).FullInbounds(ctx)
+}
+
+func (c Controller) runtimeUserSpeedLimits(ctx context.Context) ([]*nodev1.UserSpeedLimit, error) {
+	if c.repo.db == nil {
+		return nil, nil
+	}
+	rows, err := c.repo.db.QueryContext(ctx, `SELECT id, speed_limit_kbps FROM users WHERE COALESCE(speed_limit_kbps, 0) > 0 AND status != 'deleted' ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var limits []*nodev1.UserSpeedLimit
+	for rows.Next() {
+		item := &nodev1.UserSpeedLimit{}
+		if err := rows.Scan(&item.UserId, &item.SpeedLimitKbps); err != nil {
+			return nil, err
+		}
+		limits = append(limits, item)
+	}
+	return limits, rows.Err()
 }
 
 func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation OperationRow) (*preparedRuntimeConfig, error) {
@@ -126,6 +148,7 @@ func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation
 	}
 	prepared.configJSON = configJSON
 	prepared.ovRuntimeJSON = runtimeReq.GetOvRuntimeJson()
+	prepared.userSpeedLimits = runtimeReq.GetUserSpeedLimits()
 	return prepared, nil
 }
 
@@ -331,11 +354,15 @@ func (c Controller) userOperationConfigSyncDecisionCached(ctx context.Context, n
 		return false, nil, nil
 	}
 	var serviceID sql.NullInt64
-	if err := c.repo.db.QueryRowContext(ctx, `SELECT service_id FROM users WHERE id = ?`, operation.UserID.Int64).Scan(&serviceID); err != nil {
+	var speedLimit int64
+	if err := c.repo.db.QueryRowContext(ctx, `SELECT service_id, COALESCE(speed_limit_kbps, 0) FROM users WHERE id = ?`, operation.UserID.Int64).Scan(&serviceID, &speedLimit); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil, nil
 		}
 		return false, nil, err
+	}
+	if speedLimit > 0 && operation.OperationType != "remove_user" && operation.OperationType != "disable_user" {
+		return true, nil, nil
 	}
 	if !serviceID.Valid || serviceID.Int64 <= 0 {
 		return false, nil, nil

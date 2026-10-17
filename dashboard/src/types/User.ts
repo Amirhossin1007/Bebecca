@@ -63,6 +63,7 @@ export type User = {
 	expire: number | null;
 	data_limit: number | null;
 	ip_limit: number | null;
+	speed_limit_kbps?: number | null;
 	data_limit_reset_strategy: DataLimitResetStrategy;
 	on_hold_expire_duration: number | null;
 	lifetime_used_traffic: number;
@@ -114,6 +115,7 @@ export type UserCreate = Pick<
 	| "expire"
 	| "data_limit"
 	| "ip_limit"
+	| "speed_limit_kbps"
 	| "data_limit_reset_strategy"
 	| "on_hold_expire_duration"
 	| "username"
@@ -136,6 +138,7 @@ export type UserCreateWithService = Pick<
 	| "expire"
 	| "data_limit"
 	| "ip_limit"
+	| "speed_limit_kbps"
 	| "data_limit_reset_strategy"
 	| "on_hold_expire_duration"
 	| "note"

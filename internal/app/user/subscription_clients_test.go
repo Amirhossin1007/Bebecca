@@ -785,6 +785,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			on_hold_expire_duration BIGINT NULL,
 			on_hold_timeout DATETIME NULL,
 			ip_limit INTEGER DEFAULT 0,
+			speed_limit_kbps INTEGER NOT NULL DEFAULT 0,
 			auto_delete_in_days INTEGER NULL,
 			subscription_token TEXT NULL,
 			service_id INTEGER NULL,

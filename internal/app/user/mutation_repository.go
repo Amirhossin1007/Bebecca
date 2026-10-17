@@ -19,9 +19,10 @@ const (
 )
 
 type MutationResult struct {
-	UserID   int64
-	Username string
-	Status   string
+	UserID            int64
+	Username          string
+	Status            string
+	SpeedLimitChanged bool
 }
 
 type existingUserRow struct {
@@ -37,6 +38,7 @@ type existingUserRow struct {
 	Proxies              ProxyPayload
 	OnHoldExpireDuration *int64
 	OnlineAt             *string
+	SpeedLimitKbps       int64
 }
 
 func (r Repository) createUserMutation(ctx context.Context, admin adminapp.Admin, payload UserCreate, serviceID *int64) (MutationResult, error) {
@@ -70,6 +72,7 @@ func (r Repository) createUserMutation(ctx context.Context, admin adminapp.Admin
 			AutoDeleteInDays:       payload.AutoDeleteInDays,
 			NextPlans:              payload.NextPlans,
 			IPLimit:                payload.IPLimit,
+			SpeedLimitKbps:         payload.SpeedLimitKbps,
 			Flow:                   payload.Flow,
 			CredentialKey:          payload.CredentialKey,
 		}
@@ -111,9 +114,9 @@ func (r Repository) createUserMutation(ctx context.Context, admin adminapp.Admin
 INSERT INTO users (
 	username, credential_key, subscription_token, flow, status, used_traffic, data_limit,
 	data_limit_reset_strategy, expire, admin_id, created_at, note, telegram_id,
-	contact_number, on_hold_expire_duration, on_hold_timeout, ip_limit,
+	contact_number, on_hold_expire_duration, on_hold_timeout, ip_limit, speed_limit_kbps,
 	auto_delete_in_days, last_status_change, service_id
-) VALUES (?, ?, '', ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, '', ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		payload.Username,
 		nullableStringValue(credentialKey),
 		nullableStringPtr(payload.Flow),
@@ -129,6 +132,7 @@ INSERT INTO users (
 		nilIfZero(payload.OnHoldExpireDuration),
 		nullableStringPtr(payload.OnHoldTimeout),
 		int64OrZero(payload.IPLimit),
+		int64OrZero(payload.SpeedLimitKbps),
 		nilIfZero(payload.AutoDeleteInDays),
 		dbTime(now),
 		nullableInt64Ptr(serviceID),
@@ -323,6 +327,10 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 		sets = append(sets, "ip_limit = ?")
 		args = append(args, int64OrZero(payload.IPLimit))
 	}
+	if rawFieldPresent(rawFields, "speed_limit_kbps") {
+		sets = append(sets, "speed_limit_kbps = ?")
+		args = append(args, int64OrZero(payload.SpeedLimitKbps))
+	}
 	if rawFieldPresent(rawFields, "on_hold_timeout") {
 		sets = append(sets, "on_hold_timeout = ?")
 		args = append(args, nullableStringPtr(payload.OnHoldTimeout))
@@ -385,7 +393,7 @@ func (r Repository) updateUserMutation(ctx context.Context, admin adminapp.Admin
 	if err := tx.Commit(); err != nil {
 		return MutationResult{}, err
 	}
-	return MutationResult{UserID: existing.ID, Username: existing.Username, Status: newStatus}, nil
+	return MutationResult{UserID: existing.ID, Username: existing.Username, Status: newStatus, SpeedLimitChanged: rawFieldPresent(rawFields, "speed_limit_kbps") && int64OrZero(payload.SpeedLimitKbps) != existing.SpeedLimitKbps}, nil
 }
 
 func (r Repository) deleteUserMutation(ctx context.Context, admin adminapp.Admin, username string) (MutationResult, error) {
@@ -423,7 +431,7 @@ func (r Repository) deleteUserMutation(ctx context.Context, admin adminapp.Admin
 	if err := tx.Commit(); err != nil {
 		return MutationResult{}, err
 	}
-	return MutationResult{UserID: existing.ID, Username: existing.Username, Status: string(UserStatusDeleted)}, nil
+	return MutationResult{UserID: existing.ID, Username: existing.Username, Status: string(UserStatusDeleted), SpeedLimitChanged: existing.SpeedLimitKbps > 0}, nil
 }
 
 func (r Repository) resetUserMutation(ctx context.Context, admin adminapp.Admin, username string) (MutationResult, error) {
