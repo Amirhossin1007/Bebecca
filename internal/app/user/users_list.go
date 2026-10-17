@@ -540,7 +540,7 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 	}
 	if _, ok := normalized["offline"]; ok {
 		cutoff := dbTime(online.Cutoff(now))
-		filter.add(online.OfflineUserPredicate, cutoff, cutoff, cutoff)
+		filter.add("NOT "+online.UserPredicate, cutoff, cutoff, cutoff)
 	}
 	if _, ok := normalized["finished"]; ok {
 		filter.add("u.status IN (?, ?)", "limited", "expired")
