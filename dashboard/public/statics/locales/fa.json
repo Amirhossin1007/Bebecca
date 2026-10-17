@@ -2197,7 +2197,7 @@
 	"userDialog.ipLimitLabel": "محدودیت IP",
 	"userDialog.ipLimitPlaceholder": "خالی یا «-» یعنی نامحدود",
 	"userDialog.ipLimitValidation": "لطفاً یک عدد معتبر و غیر منفی وارد کنید",
-	"userDialog.speedLimitLabel": "محدودیت سرعت (Mbps)",
+	"userDialog.speedLimitLabel": "محدودیت سرعت",
 	"userDialog.speedLimitHint": "حداکثر سرعت دانلود و آپلود این کاربر بر حسب Mbps. خالی یا «-» یعنی نامحدود.",
 	"userDialog.speedLimitValidation": "لطفاً یک عدد معتبر و غیر منفی وارد کنید",
 	"userDialog.usernameHint": "نام کاربری باید بین ۳ تا ۳۲ کاراکتر و فقط شامل حروف کوچک انگلیسی، اعداد و زیرخط باشد.",

@@ -2205,7 +2205,7 @@
 	"userDialog.ipLimitLabel": "IP limit",
 	"userDialog.ipLimitPlaceholder": "Leave empty or '-' for unlimited",
 	"userDialog.ipLimitValidation": "Enter a valid non-negative number",
-	"userDialog.speedLimitLabel": "Speed limit (Mbps)",
+	"userDialog.speedLimitLabel": "Speed limit",
 	"userDialog.speedLimitHint": "Maximum download and upload speed for this user in Mbps. Leave empty or '-' for unlimited.",
 	"userDialog.speedLimitValidation": "Enter a valid non-negative number",
 	"userDialog.usernameHint": "Username only can be 3 to 32 characters and contain a-z, 0-9, and underscores in between.",

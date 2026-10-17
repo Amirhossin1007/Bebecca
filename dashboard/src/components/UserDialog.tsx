@@ -619,6 +619,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const isMobileDialog = useBreakpointValue({ base: true, md: false }) ?? false;
 	const DATA_UNIT = "GB";
+	const SPEED_UNIT = "Mbps";
 	const DAYS_UNIT = t("userDialog.days");
 	const basePad = "0.75rem";
 	const endPadding = isRTL
@@ -2459,124 +2460,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		}}
 																	/>
 																</FormControl>
-																<FormControl
-																	flex="1"
-																	minW={0}
-																	isInvalid={Boolean(
-																		form.formState.errors.speed_limit,
-																	)}
-																>
-																	<FormLabel
-																		display="flex"
-																		alignItems="center"
-																		gap={2}
-																		justifyContent={
-																			isRTL ? "flex-end" : "flex-start"
-																		}
-																		flexDirection={
-																			isRTL ? "row-reverse" : "row"
-																		}
-																		textAlign={isRTL ? "right" : "left"}
-																	>
-																		{t("userDialog.speedLimitLabel")}
-																		<Tooltip
-																			hasArrow
-																			placement="top"
-																			label={t("userDialog.speedLimitHint")}
-																		>
-																			<chakra.span
-																				display="inline-flex"
-																				color="gray.400"
-																				cursor="help"
-																			>
-																				<QuestionMarkCircleIcon
-																					width={16}
-																					height={16}
-																				/>
-																			</chakra.span>
-																		</Tooltip>
-																	</FormLabel>
-																	<Controller
-																		control={form.control}
-																		name="speed_limit"
-																		rules={{
-																			validate: (value) => {
-																				if (
-																					value === null ||
-																					value === undefined
-																				) {
-																					return true;
-																				}
-																				if (
-																					typeof value !== "number" ||
-																					Number.isNaN(value)
-																				) {
-																					return t(
-																						"userDialog.speedLimitValidation",
-																					);
-																				}
-																				return value >= 0
-																					? true
-																					: t(
-																							"userDialog.speedLimitValidation",
-																						);
-																			},
-																		}}
-																		render={({ field }) => (
-																			<>
-																				<NumericInput
-																					sx={alwaysVisibleStepper}
-																					variant="outline"
-																					value={
-																						typeof field.value === "number" &&
-																						field.value > 0
-																							? String(field.value)
-																							: ""
-																					}
-																					min={0}
-																					step={0.1}
-																					isDisabled={disabled}
-																					isInvalid={Boolean(
-																						form.formState.errors.speed_limit,
-																					)}
-																					onChange={(valueAsString) => {
-																						const raw = valueAsString.trim();
-																						if (!raw || raw === "-") {
-																							field.onChange(null);
-																							return;
-																						}
-																						const parsed = Number(raw);
-																						if (Number.isNaN(parsed)) {
-																							return;
-																						}
-																						field.onChange(
-																							parsed < 0
-																								? 0
-																								: Math.round(parsed * 100) /
-																										100,
-																						);
-																					}}
-																					fieldProps={{
-																						placeholder: t(
-																							"userDialog.remainingDataUnlimited",
-																						),
-																						borderRadius: "6px",
-																						h: "32px",
-																						minH: "32px",
-																						dir: "ltr",
-																						textAlign: isRTL ? "right" : "left",
-																					}}
-																				/>
-																				<FormErrorMessage>
-																					{
-																						form.formState.errors.speed_limit
-																							?.message
-																					}
-																				</FormErrorMessage>
-																			</>
-																		)}
-																	/>
-																</FormControl>
 																<FormControl flex="1" minW={0} isInvalid={Boolean(form.formState.errors.ip_limit)}>
 																	<FormLabel
 																		display="flex"
@@ -2741,6 +2624,104 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	/>
 																</FormControl>
 															</Collapse>
+															<Stack direction="row" spacing={3} mb={"10px"}>
+																<FormControl
+																	flex="1"
+																	minW={0}
+																	isInvalid={Boolean(
+																		form.formState.errors.speed_limit,
+																	)}
+																>
+																	<FormLabel
+																		display="flex"
+																		alignItems="center"
+																		gap={2}
+																		justifyContent={
+																			isRTL ? "flex-end" : "flex-start"
+																		}
+																		flexDirection={
+																			isRTL ? "row-reverse" : "row"
+																		}
+																		textAlign={isRTL ? "right" : "left"}
+																	>
+																		{t("userDialog.speedLimitLabel")}
+																		<Tooltip
+																			hasArrow
+																			placement="top"
+																			label={t("userDialog.speedLimitHint")}
+																		>
+																			<chakra.span
+																				display="inline-flex"
+																				color="gray.400"
+																				cursor="help"
+																			>
+																				<QuestionMarkCircleIcon
+																					width={16}
+																					height={16}
+																				/>
+																			</chakra.span>
+																		</Tooltip>
+																	</FormLabel>
+																	<Controller
+																		control={form.control}
+																		name="speed_limit"
+																		rules={{
+																			validate: (value) => {
+																				if (
+																					value === null ||
+																					value === undefined
+																				) {
+																					return true;
+																				}
+																				if (
+																					typeof value !== "number" ||
+																					Number.isNaN(value)
+																				) {
+																					return t(
+																						"userDialog.speedLimitValidation",
+																					);
+																				}
+																				return value >= 0
+																					? true
+																					: t(
+																							"userDialog.speedLimitValidation",
+																						);
+																			},
+																		}}
+																		render={({ field }) => (
+																			<>
+																				{renderUnitInput({
+																					unit: SPEED_UNIT,
+																					value:
+																						typeof field.value === "number" &&
+																						field.value > 0
+																							? String(field.value)
+																							: "",
+																					onChange: (event) => {
+																						const parsed = Number(
+																							event.target.value.trim(),
+																						);
+																						field.onChange(
+																							Number.isFinite(parsed) &&
+																								parsed > 0
+																								? Math.round(parsed * 100) / 100
+																								: null,
+																						);
+																					},
+																					disabled,
+																				})}
+																				<FormErrorMessage>
+																					{
+																						form.formState.errors.speed_limit
+																							?.message
+																					}
+																				</FormErrorMessage>
+																			</>
+																		)}
+																	/>
+																</FormControl>
+																<Flex flex="1" />
+															</Stack>
 
 															<FormControl
 																mb="10px"
