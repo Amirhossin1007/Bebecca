@@ -98,8 +98,8 @@ func (s *Server) systemStatsForRequest(ctx context.Context, r *http.Request) (sy
 		if nodeErr != nil {
 			nodeIncoming, nodeOutgoing = 0, 0
 		}
-		stats.TotalIncomingBandwidthRate = stats.IncomingBandwidthRate + nodeIncoming
-		stats.TotalOutgoingBandwidthRate = stats.OutgoingBandwidthRate + nodeOutgoing
+		stats.TotalIncomingBandwidthRate = nodeIncoming
+		stats.TotalOutgoingBandwidthRate = nodeOutgoing
 	}
 	return stats, nil
 }

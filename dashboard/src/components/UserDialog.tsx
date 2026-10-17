@@ -2877,13 +2877,17 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					size="xs"
 																					variant="outline"
 																					isDisabled={disabled}
-																					onClick={() =>
+																					onClick={() => {
+																						form.setValue("expire", null);
 																						form.setValue(
 																							"on_hold_expire_duration",
 																							days,
-																							{ shouldDirty: true, shouldValidate: true },
-																						)
-																					}
+																							{
+																								shouldDirty: true,
+																								shouldValidate: true,
+																							},
+																						);
+																					}}
 																				>
 																					{days}D
 																				</Button>
