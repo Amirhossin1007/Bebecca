@@ -30,6 +30,7 @@ import {
 	ArrowDownIcon,
 	ArrowPathIcon,
 	ArrowUpIcon,
+	ChevronDoubleUpIcon,
 	EyeIcon,
 	PencilSquareIcon,
 	PlusIcon,
@@ -310,10 +311,15 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 		);
 	};
 
-	const moveHost = (hostId: number, direction: "up" | "down") => {
+	const moveHost = (hostId: number, direction: "up" | "down" | "top") => {
 		setSelectedHosts((prev) => {
 			const index = prev.indexOf(hostId);
 			if (index === -1) return prev;
+			if (direction === "top") {
+				return index === 0
+					? prev
+					: [hostId, ...prev.filter((id) => id !== hostId)];
+			}
 			const swapWith = direction === "up" ? index - 1 : index + 1;
 			if (swapWith < 0 || swapWith >= prev.length) {
 				return prev;
@@ -748,6 +754,16 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 														</Text>
 													</Box>
 													<HStack spacing={1} flexShrink={0}>
+														<Tooltip label={t("services.moveToTop")}>
+															<IconButton
+																aria-label="Move to top"
+																size="sm"
+																variant="ghost"
+																icon={<ChevronDoubleUpIcon width={16} />}
+																onClick={() => moveHost(hostId, "top")}
+																isDisabled={index === 0}
+															/>
+														</Tooltip>
 														<Tooltip label={t("services.moveUp")}>
 															<IconButton
 																aria-label="Move up"

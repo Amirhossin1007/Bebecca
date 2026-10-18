@@ -46,6 +46,7 @@ import {
 	ArrowUpTrayIcon,
 	BoltIcon,
 	CheckCircleIcon,
+	ChevronDoubleUpIcon,
 	CloudArrowUpIcon,
 	TrashIcon as DeleteIcon,
 	PencilIcon as EditIcon,
@@ -170,6 +171,9 @@ const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
 const EditIconStyled = chakra(EditIcon, { baseStyle: { w: 4, h: 4 } });
 const ArrowUpIconStyled = chakra(ArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
+const ChevronDoubleUpIconStyled = chakra(ChevronDoubleUpIcon, {
+	baseStyle: { w: 4, h: 4 },
+});
 const ArrowDownIconStyled = chakra(ArrowDownIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
@@ -1955,6 +1959,10 @@ export const CoreSettingsPage: FC = () => {
 
 	const moveOutboundUp = (index: number) => {
 		moveOutbound(index, index - 1);
+	};
+
+	const moveOutboundToTop = (index: number) => {
+		moveOutbound(index, 0);
 	};
 
 	const moveOutboundDown = (index: number) => {
@@ -3878,6 +3886,14 @@ export const CoreSettingsPage: FC = () => {
 			onClick: () => openRouteTest(row.originalIndex),
 		},
 		{
+			id: "move-top",
+			label: t("pages.xray.rules.top"),
+			icon: <ChevronDoubleUpIconStyled />,
+			isDisabled:
+				routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
+			onClick: () => replaceRule(row.originalIndex, 0),
+		},
+		{
 			id: "move-up",
 			label: t("pages.xray.rules.up"),
 			icon: <ArrowUpIconStyled />,
@@ -3983,6 +3999,16 @@ export const CoreSettingsPage: FC = () => {
 			label: t("edit"),
 			icon: <EditIconStyled />,
 			onClick: () => editOutbound(row.originalIndex),
+		},
+		{
+			id: "move-top",
+			label: t("pages.xray.outbound.moveToTop"),
+			icon: <ChevronDoubleUpIconStyled />,
+			isDisabled:
+				outboundSearch.trim().length > 0 ||
+				outboundTrafficSort !== "default" ||
+				row.originalIndex === 0,
+			onClick: () => moveOutboundToTop(row.originalIndex),
 		},
 		{
 			id: "move-up",
