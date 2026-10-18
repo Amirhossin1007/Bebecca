@@ -30,6 +30,7 @@ import {
 	ClockIcon,
 	GlobeAltIcon,
 	LinkIcon,
+	LinkSlashIcon,
 	NoSymbolIcon,
 	PencilIcon,
 	PlusCircleIcon,
@@ -181,7 +182,8 @@ const LockOverlayIcon = chakra(LockClosedIcon, {
 	},
 });
 const ResetIcon = chakra(ArrowPathIcon, iconProps);
-const RevokeIcon = chakra(NoSymbolIcon, iconProps);
+const DisableIcon = chakra(NoSymbolIcon, iconProps);
+const RevokeIcon = chakra(LinkSlashIcon, iconProps);
 const TrafficIcon = chakra(PlusCircleIcon, iconProps);
 const ExtendIcon = chakra(ClockIcon, iconProps);
 const UsageHistoryIcon = chakra(ChartBarIcon, iconProps);
@@ -1299,7 +1301,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			actions.push({
 				id: "disable",
 				label: t("usersTable.disableUser"),
-				icon: <RevokeIcon />,
+				icon: <DisableIcon />,
 				isDisabled: contextAction === "disable",
 				onClick: () => handleDisableUser(user),
 			});
@@ -1671,7 +1673,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 									<Button
 										size="sm"
 										variant="outline"
-										leftIcon={<RevokeIcon />}
+										leftIcon={<DisableIcon />}
 										onClick={handleBulkDisable}
 										isLoading={bulkAction === "disable"}
 										isDisabled={
