@@ -156,7 +156,10 @@ export const ExternalAppsPage = () => {
 					(certificate.status === "active" ||
 						certificate.status === "expiring"),
 			)
-			.flatMap((certificate) => [certificate.domain, ...certificate.alt_names])
+			.flatMap((certificate) => [
+				certificate.domain,
+				...(certificate.alt_names ?? []),
+			])
 			.filter((name) => {
 				const key = name.toLowerCase();
 				if (

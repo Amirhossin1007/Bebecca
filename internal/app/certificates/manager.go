@@ -1097,6 +1097,9 @@ func decodeStringArray(value string) []string {
 	}
 	var result []string
 	if json.Unmarshal([]byte(value), &result) == nil {
+		if result == nil {
+			return []string{}
+		}
 		return result
 	}
 	return strings.FieldsFunc(value, func(char rune) bool { return char == ',' || char == ' ' || char == '\n' })
