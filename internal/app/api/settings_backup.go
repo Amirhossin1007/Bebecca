@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
 )
 
-const maxBackupUploadBytes int64 = 128 << 20
+const maxBackupUploadBytes int64 = 8 << 30
 
 const backupUploadMemoryBytes int64 = 8 << 20
 
@@ -55,7 +56,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, backupapp.DisabledDetail)
 		return
 	}
-	uploadPath, cleanup, err := saveBackupUpload(w, r)
+	uploads, cleanup, err := saveBackupUploads(w, r)
 	if err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) || errors.Is(err, errBackupUploadTooLarge) {
@@ -70,7 +71,7 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer cleanup()
-	result, err := s.backup().Import(r.Context(), uploadPath)
+	result, err := s.backup().ImportUploads(r.Context(), uploads)
 	if err != nil {
 		writeBackupError(w, err)
 		return
@@ -98,20 +99,40 @@ func (s *Server) isBinaryRuntime() bool {
 
 var errBackupUploadTooLarge = errors.New("backup upload is too large")
 
-func saveBackupUpload(w http.ResponseWriter, r *http.Request) (string, func(), error) {
+func saveBackupUploads(w http.ResponseWriter, r *http.Request) ([]backupapp.PartFile, func(), error) {
 	if r.ContentLength > maxBackupUploadBytes {
-		return "", func() {}, errBackupUploadTooLarge
+		return nil, func() {}, errBackupUploadTooLarge
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBackupUploadBytes)
 	if err := r.ParseMultipartForm(backupUploadMemoryBytes); err != nil {
-		return "", func() {}, err
+		return nil, func() {}, err
 	}
 	if r.MultipartForm != nil {
 		defer r.MultipartForm.RemoveAll()
 	}
-	file, header, err := r.FormFile("file")
+	headers := r.MultipartForm.File["file"]
+	if len(headers) == 0 {
+		return nil, func() {}, http.ErrMissingFile
+	}
+	uploads := make([]backupapp.PartFile, 0, len(headers))
+	cleanup := func() {
+		for _, upload := range uploads {
+			_ = os.Remove(upload.Path)
+		}
+	}
+	for _, header := range headers {
+		if err := saveBackupUploadFile(header, &uploads); err != nil {
+			cleanup()
+			return nil, func() {}, err
+		}
+	}
+	return uploads, cleanup, nil
+}
+
+func saveBackupUploadFile(header *multipart.FileHeader, uploads *[]backupapp.PartFile) error {
+	file, err := header.Open()
 	if err != nil {
-		return "", func() {}, err
+		return err
 	}
 	defer file.Close()
 	suffix := filepath.Ext(header.Filename)
@@ -120,20 +141,14 @@ func saveBackupUpload(w http.ResponseWriter, r *http.Request) (string, func(), e
 	}
 	tempFile, err := os.CreateTemp("", "rebecca-backup-upload-*"+suffix)
 	if err != nil {
-		return "", func() {}, err
+		return err
 	}
-	path := tempFile.Name()
-	cleanup := func() { _ = os.Remove(path) }
+	*uploads = append(*uploads, backupapp.PartFile{Name: header.Filename, Path: tempFile.Name()})
 	if _, err := io.Copy(tempFile, file); err != nil {
 		_ = tempFile.Close()
-		cleanup()
-		return "", func() {}, err
+		return err
 	}
-	if err := tempFile.Close(); err != nil {
-		cleanup()
-		return "", func() {}, err
-	}
-	return path, cleanup, nil
+	return tempFile.Close()
 }
 
 func isBackupUploadTimeout(err error) bool {

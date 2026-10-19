@@ -37,6 +37,8 @@ import {
 	importRebeccaBackup,
 	type RebeccaBackupScope,
 } from "service/settings";
+import { checkBackupParts, parseBackupPartName } from "utils/backupParts";
+import { formatBytes } from "utils/formatByte";
 import {
 	generateErrorMessage,
 	generateSuccessMessage,
@@ -63,7 +65,7 @@ export const DashboardBackupControls = ({
 	const [dialog, setDialog] = useState<BackupDialog>(null);
 	const [exportScope, setExportScope] =
 		useState<RebeccaBackupScope>("database");
-	const [selectedFile, setSelectedFile] = useState<File | null>(null);
+	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 	const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
 
@@ -86,7 +88,7 @@ export const DashboardBackupControls = ({
 	});
 
 	const importMutation = useMutation(
-		(file: File) => importRebeccaBackup(file, setUploadProgress),
+		(files: File[]) => importRebeccaBackup(files, setUploadProgress),
 		{
 			onMutate: () => setUploadProgress(0),
 			onSuccess: (result) => {
@@ -106,7 +108,7 @@ export const DashboardBackupControls = ({
 						isClosable: true,
 					});
 				}
-				setSelectedFile(null);
+				setSelectedFiles([]);
 				setDialog(null);
 			},
 			onError: (error) => {
@@ -121,12 +123,51 @@ export const DashboardBackupControls = ({
 		setDialog(nextDialog);
 	};
 
+	const partCheck = checkBackupParts(selectedFiles.map((file) => file.name));
+	const canImport =
+		partCheck.status === "single" || partCheck.status === "complete";
+	const partStatusText =
+		partCheck.status === "complete"
+			? t("dashboard.backup.partsComplete", { total: partCheck.total })
+			: partCheck.status === "incomplete"
+				? t("dashboard.backup.partsMissing", {
+						total: partCheck.total,
+						missing: partCheck.missing.join(", "),
+					})
+				: partCheck.status === "invalid"
+					? t("dashboard.backup.partsInvalid")
+					: null;
+
+	const displayFiles = [...selectedFiles].sort(
+		(left, right) =>
+			(parseBackupPartName(left.name)?.index ?? 0) -
+			(parseBackupPartName(right.name)?.index ?? 0),
+	);
+
+	const addFiles = (files: File[]) => {
+		setSelectedFiles((current) => {
+			const next = [...current];
+			for (const file of files) {
+				if (
+					!next.some(
+						(item) => item.name === file.name && item.size === file.size,
+					)
+				) {
+					next.push(file);
+				}
+			}
+			return next;
+		});
+	};
+
 	const handleImport = () => {
-		if (!selectedFile) {
+		if (partCheck.status === "empty") {
 			toast({ status: "warning", title: t("dashboard.backup.fileRequired") });
 			return;
 		}
-		importMutation.mutate(selectedFile);
+		if (canImport) {
+			importMutation.mutate(selectedFiles);
+		}
 	};
 
 	return (
@@ -244,13 +285,55 @@ export const DashboardBackupControls = ({
 									isDisabled={
 										!backupActionsAvailable || importMutation.isLoading
 									}
-									selectedFile={selectedFile}
+									multiple
+								selectedFiles={selectedFiles}
 									title={t("dashboard.backup.dropTitle")}
 									description={t("dashboard.backup.dropHint")}
 									emptyText={t("dashboard.backup.selectFile")}
-									onFileSelect={setSelectedFile}
+									onFilesSelect={addFiles}
 								/>
 							</FormControl>
+							<Text fontSize="12px" color="panel.textMuted">
+								{t("dashboard.backup.multiPartHint")}
+							</Text>
+							{selectedFiles.length > 0 && (
+								<Stack spacing={2}>
+									{displayFiles.map((file) => (
+										<HStack
+											key={`${file.name}-${file.size}`}
+											justify="space-between"
+											spacing={3}
+										>
+											<Text fontSize="12px" noOfLines={1}>
+												{file.name}
+											</Text>
+											<Text
+												fontSize="12px"
+												color="panel.textMuted"
+												whiteSpace="nowrap"
+											>
+												{formatBytes(file.size, 2)}
+											</Text>
+										</HStack>
+									))}
+									{partStatusText && (
+										<Text
+											fontSize="12px"
+											color={canImport ? "panel.textMuted" : "red.300"}
+										>
+											{partStatusText}
+										</Text>
+									)}
+									<Button
+										size="xs"
+										variant="ghost"
+										alignSelf="start"
+										onClick={() => setSelectedFiles([])}
+									>
+										{t("dashboard.backup.clearFiles")}
+									</Button>
+								</Stack>
+							)}
 							{importMutation.isLoading && uploadProgress !== null && (
 								<Stack spacing={2} aria-live="polite">
 									<Text fontSize="12px" fontWeight="600">
@@ -289,6 +372,7 @@ export const DashboardBackupControls = ({
 							px={5}
 							leftIcon={<ArrowUpTrayIcon width={15} height={15} />}
 							onClick={handleImport}
+							isDisabled={!canImport}
 							isLoading={importMutation.isLoading}
 						>
 							{t("dashboard.backup.import")}

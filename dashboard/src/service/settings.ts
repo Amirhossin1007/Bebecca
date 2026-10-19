@@ -691,7 +691,7 @@ export const exportRebeccaBackup = async (
 };
 
 export const importRebeccaBackup = async (
-	file: File,
+	files: File | File[],
 	onProgress?: (percent: number) => void,
 ): Promise<RebeccaBackupImportResponse> => {
 	return new Promise((resolve, reject) => {
@@ -701,7 +701,9 @@ export const importRebeccaBackup = async (
 			reject(error);
 		};
 		const body = new FormData();
-		body.append("file", file);
+		for (const file of Array.isArray(files) ? files : [files]) {
+			body.append("file", file);
+		}
 		const xhr = new XMLHttpRequest();
 		const baseURL = (apiBaseURL || "/api").replace(/\/$/, "");
 		xhr.open("POST", `${baseURL}/settings/backup/import`);

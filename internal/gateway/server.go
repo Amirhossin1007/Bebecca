@@ -147,7 +147,7 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 		ReadHeaderTimeout: 15 * time.Second,
 		// Backup imports are multipart uploads and may legitimately take several
 		// minutes on a slow connection. Keep a finite deadline while allowing the
-		// 128 MiB API upload limit to be reached without a spurious i/o timeout.
+		// API upload limit to be reached without a spurious i/o timeout.
 		ReadTimeout: 15 * time.Minute,
 		IdleTimeout: 2 * time.Minute,
 		// WriteTimeout stays unset because dashboard WebSocket streams can be long-lived.
