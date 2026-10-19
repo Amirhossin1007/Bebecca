@@ -147,7 +147,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(({
 
 	useEffect(() => {
 		if (paused || itemCount < 2 || !currentItemId) return;
-		const delay = variant === "logo" ? (currentIsSponsor ? 5000 : 10000) : 6000;
+		const delay = variant === "logo" ? (currentIsSponsor ? 7000 : 10000) : 5000;
 		const timer = window.setTimeout(() => {
 			setIndex((current) => (current + 1) % itemCount);
 		}, delay);
@@ -163,7 +163,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(({
 			transition={{
 				duration: 0.45,
 				ease: [0.16, 1, 0.3, 1],
-				delay: animateIn && isInitial ? 0.5 : 0,
+				delay: animateIn && isInitial ? 1.0 : 0,
 			}}
 			style={{
 				display: isBanner ? "inline-flex" : "block",

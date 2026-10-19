@@ -562,6 +562,52 @@ function AppLayoutContent() {
 			if (isChangingLanguageRef.current) return;
 			const path =
 				typeof event.composedPath === "function" ? event.composedPath() : [];
+			const rawTarget = event.target as Node | null;
+			const el =
+				rawTarget instanceof Element
+					? rawTarget
+					: rawTarget?.parentElement;
+
+			const isSubmenuNode = (node: Element) =>
+				Boolean(
+					node.closest?.(
+						'[data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"]',
+					),
+				);
+
+			const isUserMenuNode = (node: Element) =>
+				Boolean(
+					node.id === "rb-user-menu" ||
+						node.closest?.('#rb-user-menu, [data-profile-menu="true"]'),
+				);
+
+			const isSubmenuTrigger = (node: Element) =>
+				Boolean(
+					node.closest?.(
+						'[data-submenu-trigger="true"], [data-theme-trigger="true"]',
+					),
+				);
+
+			const clickedInSubmenu =
+				path.some((n) => n instanceof Element && isSubmenuNode(n)) ||
+				Boolean(el && isSubmenuNode(el));
+
+			const clickedInUserMenu =
+				path.some((n) => n instanceof Element && isUserMenuNode(n)) ||
+				Boolean(el && isUserMenuNode(el));
+
+			const clickedInSubmenuTrigger =
+				path.some((n) => n instanceof Element && isSubmenuTrigger(n)) ||
+				Boolean(el && isSubmenuTrigger(el));
+
+			if (clickedInUserMenu && !clickedInSubmenu && !clickedInSubmenuTrigger) {
+				if (activeProfileSubmenu !== null) {
+					languageMenu.onClose();
+					setActiveProfileSubmenu(null);
+				}
+				return;
+			}
+
 			const isInside = path.some((node) => {
 				if (!(node instanceof Element)) return false;
 				return Boolean(
@@ -571,11 +617,6 @@ function AppLayoutContent() {
 						),
 				);
 			});
-			const rawTarget = event.target as Node | null;
-			const el =
-				rawTarget instanceof Element
-					? rawTarget
-					: rawTarget?.parentElement;
 			const isInsideFallback = Boolean(
 				el?.closest?.(
 					'#rb-user-menu, [data-profile-window="true"], [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-profile-menu="true"]',
@@ -604,7 +645,12 @@ function AppLayoutContent() {
 			document.removeEventListener("touchstart", handleDocumentPointerDown, true);
 			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [isAnyProfileMenuOpen, closeUserMenu]);
+	}, [
+		isAnyProfileMenuOpen,
+		closeUserMenu,
+		activeProfileSubmenu,
+		languageMenu.onClose,
+	]);
 
 	const prevRTLRef = useRef(isRTL);
 	const [suppressDockTransition, setSuppressDockTransition] = useState(false);
@@ -2037,12 +2083,12 @@ function AppLayoutContent() {
 								{mobileHeaderItems.length > 0 && (
 									<motion.div
 										key={mobileHeaderItems[0]?.id || "mobile-banner"}
-										initial={{ opacity: 0 }}
-										animate={{ opacity: 1 }}
-										exit={{ opacity: 0 }}
+										initial={{ opacity: 0, y: -24 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={{ opacity: 0, y: -24 }}
 										transition={{
 											duration: 0.45,
-											delay: 0.5,
+											delay: 1.0,
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
@@ -2078,12 +2124,12 @@ function AppLayoutContent() {
 								{sponsorHeaderItems.length > 0 && (
 									<motion.div
 										key={sponsorHeaderItems[0]?.id || "desktop-banner"}
-										initial={{ opacity: 0 }}
-										animate={{ opacity: 1 }}
-										exit={{ opacity: 0 }}
+										initial={{ opacity: 0, y: -24 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={{ opacity: 0, y: -24 }}
 										transition={{
 											duration: 0.45,
-											delay: 0.5,
+											delay: 1.0,
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
@@ -2182,6 +2228,11 @@ function AppLayoutContent() {
 										transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 										onClick={() => {
 											if (userMenu.isOpen) {
+												if (activeProfileSubmenu !== null) {
+													languageMenu.onClose();
+													setActiveProfileSubmenu(null);
+													return;
+												}
 												closeUserMenu();
 											} else {
 												userMenu.onOpen();
@@ -2388,6 +2439,7 @@ function AppLayoutContent() {
 													as={Button}
 													leftIcon={<LanguageIconStyled />}
 													variant="ghost"
+													data-submenu-trigger="true"
 													w="full"
 													h="38px"
 													justifyContent="flex-start"
@@ -2607,6 +2659,7 @@ function AppLayoutContent() {
 						isOpen={sidebarDrawer.isOpen}
 						placement={isRTL ? "right" : "left"}
 						onClose={sidebarDrawer.onClose}
+						size="full"
 						autoFocus={false}
 						returnFocusOnClose={false}
 						trapFocus={false}
@@ -2615,12 +2668,13 @@ function AppLayoutContent() {
 					>
 						<DrawerOverlay bg="blackAlpha.700" />
 						<DrawerContent
-							maxW="285px"
-							w="285px"
+							maxW="100vw"
+							w="100vw"
+							h="100dvh"
+							maxH="100dvh"
 							bg="panel.surface"
-							borderInlineEndWidth="1px"
-							borderColor="panel.border"
-							boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
+							boxShadow="none"
+							borderRadius="0"
 							sx={{
 								willChange: "transform",
 								transform: "translate3d(0, 0, 0)",

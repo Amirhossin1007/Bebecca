@@ -857,12 +857,12 @@ const HistoryModal: FC<{
 								h="36px"
 								align="center"
 								justify="center"
-								borderRadius="10px"
-								bg="var(--rb-panel-accent)"
-								color="white"
+								borderRadius="12px"
+								bg="color-mix(in srgb, var(--rb-panel-accent) 12%, transparent)"
+								color="var(--rb-panel-accent)"
 								border="1px solid"
-								borderColor="color-mix(in srgb, var(--rb-panel-accent) 80%, white 20%)"
-								boxShadow="0 2px 8px color-mix(in srgb, var(--rb-panel-accent) 30%, transparent)"
+								borderColor="color-mix(in srgb, var(--rb-panel-accent) 25%, transparent)"
+								boxShadow="0 2px 8px color-mix(in srgb, var(--rb-panel-accent) 15%, transparent)"
 								flexShrink={0}
 							>
 								<MetricIcon width={18} height={18} />

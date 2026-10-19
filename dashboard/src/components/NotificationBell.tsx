@@ -572,6 +572,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 			<MenuButton
 				as={Button}
 				variant="ghost"
+				data-submenu-trigger="true"
 				w="full"
 				h="38px"
 				justifyContent="flex-start"

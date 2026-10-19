@@ -180,7 +180,7 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 		if (inDrawer) return;
 		const timer = setTimeout(() => {
 			setIsReady(true);
-		}, 500);
+		}, 1000);
 		return () => clearTimeout(timer);
 	}, [inDrawer]);
 
@@ -317,7 +317,7 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 	useEffect(() => {
 		if (isPaused || items.length < 2) return;
 		const current = items[activeIndex];
-		const delay = current?.isSponsor ? 4500 : 9000;
+		const delay = current?.isSponsor ? 7000 : 10000;
 		const timer = window.setTimeout(() => {
 			setActiveIndex((prev) => (prev + 1) % items.length);
 		}, delay);
@@ -437,10 +437,10 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 			<AnimatePresence mode="wait" initial={false}>
 				<motion.div
 					key={`${currentItem.id}-${activeIndex}`}
-					initial={{ opacity: 0, x: isRTL ? 14 : -14 }}
+					initial={{ opacity: 0, x: isRTL ? 48 : -48 }}
 					animate={{ opacity: 1, x: 0 }}
-					exit={{ opacity: 0, x: isRTL ? 14 : -14 }}
-					transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+					exit={{ opacity: 0, x: isRTL ? 48 : -48 }}
+					transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
 					style={{
 						display: "flex",
 						alignItems: "center",
@@ -457,8 +457,8 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 							openDelay={250}
 						>
 							<Box
-								w="30px"
-								h="30px"
+								w="34px"
+								h="34px"
 								flexShrink={0}
 								display="flex"
 								alignItems="center"
@@ -468,10 +468,10 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 									<Image
 										src={currentItem.src}
 										alt={currentItem.alt}
-										w="30px"
-										h="30px"
-										maxW="30px"
-										maxH="30px"
+										w="34px"
+										h="34px"
+										maxW="34px"
+										maxH="34px"
 										objectFit="contain"
 										draggable={false}
 										loading="eager"
@@ -1121,7 +1121,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 														align="center"
 														justify="flex-start"
 														w="full"
-														h="38px"
+														h={inDrawer ? "42px" : "38px"}
 														px={collapsed ? "7px" : "11px"}
 														borderRadius="10px"
 														bg={isCurrent ? activeItemBg : "transparent"}
@@ -1288,7 +1288,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 													align="center"
 													justify="flex-start"
 													w="full"
-													h="38px"
+													h={inDrawer ? "42px" : "38px"}
 													px={collapsed ? "7px" : "11px"}
 													borderRadius="10px"
 													bg={
@@ -1471,7 +1471,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 																							gap={2}
 																							px={2}
 																							py={1.5}
-																							h="30px"
+																							h={inDrawer ? "34px" : "30px"}
 																							borderRadius="8px"
 																							fontSize="11.5px"
 																							fontWeight={

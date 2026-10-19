@@ -564,6 +564,8 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 				<MenuButton
 					as={Button}
 					variant="ghost"
+					data-submenu-trigger="true"
+					data-theme-trigger="true"
 					w="full"
 					h="38px"
 					justifyContent="flex-start"
