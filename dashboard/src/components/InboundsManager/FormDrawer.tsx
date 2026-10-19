@@ -64,6 +64,7 @@ import {
 } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { EntityNotePanel } from "components/EntityNotePanel";
 import {
 	generateAnyConnectSelfSigned,
 	generateEchCert,
@@ -7549,6 +7550,9 @@ export const InboundFormModal: FC<Props> = ({
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
+					{isEditMode && initialValue?.tag ? (
+						<EntityNotePanel entityType="inbound" entityKey={initialValue.tag} />
+					) : null}
 				</XrayModalBody>
 				<XrayModalFooter
 					justifyContent={isEditMode && onDelete ? "space-between" : "flex-end"}

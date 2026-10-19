@@ -75,6 +75,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { EntityNotePanel } from "components/EntityNotePanel";
 import { fetch as apiFetch } from "service/http";
 import {
 	cloneFinalMask,
@@ -1670,6 +1671,9 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
+					{!isCloneMode && host?.data.id ? (
+						<EntityNotePanel entityType="host" entityKey={host.data.id} />
+					) : null}
 				</XrayModalBody>
 				<XrayModalFooter justifyContent="space-between">
 					{isCloneMode ? (

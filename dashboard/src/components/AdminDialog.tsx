@@ -48,6 +48,7 @@ import {
 } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { EntityNotePanel } from "components/EntityNotePanel";
 import { fetch } from "service/http";
 import type {
 	AdminCreatePayload,
@@ -990,6 +991,9 @@ export const AdminDialog: FC = () => {
 							<FormLabel>{t("status")}</FormLabel>
 							<Input value={statusLabel} isReadOnly />
 						</FormControl>
+					)}
+					{mode === "edit" && admin?.id !== undefined && (
+						<EntityNotePanel entityType="admin" entityKey={admin.id} />
 					)}
 					<FormControl isInvalid={!!errors.username}>
 						<FormLabel>{t("username")}</FormLabel>
