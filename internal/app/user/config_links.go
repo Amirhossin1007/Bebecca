@@ -1172,6 +1172,177 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	return "vless://" + jsonvalue.String(settings["id"]) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
 }
 
+var shadowrocketVLESSParams = map[string]bool{
+	"security": true, "type": true, "headerType": true, "encryption": true, "path": true, "host": true,
+	"mode": true, "extra": true, "sni": true, "fp": true, "alpn": true, "pcs": true, "allowInsecure": true,
+}
+
+func shadowrocketVLESSShareLink(link string) string {
+	u, err := url.Parse(link)
+	if err != nil || u.Scheme != "vless" {
+		return link
+	}
+	query := u.Query()
+	for key := range query {
+		if !shadowrocketVLESSParams[key] {
+			return link
+		}
+	}
+	security, network := query.Get("security"), query.Get("type")
+	host, path := query.Get("host"), query.Get("path")
+	if security != "" && security != "none" && security != "tls" {
+		return link
+	}
+	if headerType := query.Get("headerType"); headerType != "" && headerType != "none" {
+		return link
+	}
+	if encryption := query.Get("encryption"); encryption != "" && encryption != "none" {
+		return link
+	}
+	params := []queryParam{{"remarks", u.Fragment}}
+	switch network {
+	case "tcp", "raw":
+		if host != "" {
+			return link
+		}
+	case "ws":
+		params = append(params, queryParam{"obfs", "websocket"})
+		if host != "" {
+			params = append(params, queryParam{"obfsParam", host})
+		}
+	case "xhttp", "splithttp":
+		params = append(params, queryParam{"obfs", "xhttp"}, queryParam{"obfsParam", shadowrocketXHTTPObfsParam(query.Get("extra"), host)})
+		if mode := query.Get("mode"); mode != "" {
+			params = append(params, queryParam{"mode", mode})
+		}
+	default:
+		return link
+	}
+	if path != "" {
+		params = append(params, queryParam{"path", path})
+	}
+	if security == "tls" {
+		params = append(params, queryParam{"tls", "1"})
+		for _, pair := range [][2]string{{"sni", "peer"}, {"alpn", "alpn"}, {"fp", "fingerprint"}, {"pcs", "hpkp"}, {"allowInsecure", "allowInsecure"}} {
+			if value := query.Get(pair[0]); value != "" {
+				params = append(params, queryParam{pair[1], value})
+			}
+		}
+	}
+	params = append(params, queryParam{"udp", "1"})
+	encryption := query.Get("encryption")
+	if encryption == "" {
+		encryption = "none"
+	}
+	authority := base64.RawURLEncoding.EncodeToString([]byte(encryption + ":" + u.User.Username() + "@" + u.Host))
+	return "vless://" + authority + "?" + shadowrocketQuery(params)
+}
+
+var shadowrocketVMessKeys = map[string]bool{
+	"add": true, "aid": true, "alpn": true, "allowInsecure": true, "fp": true, "host": true, "id": true, "net": true,
+	"path": true, "pinSHA256": true, "port": true, "ps": true, "scy": true, "sni": true, "tls": true, "type": true, "v": true,
+}
+
+func shadowrocketVMessShareLink(link string) string {
+	encoded, ok := strings.CutPrefix(link, "vmess://")
+	if !ok {
+		return link
+	}
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return link
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return link
+	}
+	for key := range payload {
+		if !shadowrocketVMessKeys[key] {
+			return link
+		}
+	}
+	str := func(key string) string { return jsonvalue.String(payload[key]) }
+	network, path := str("net"), str("path")
+	params := []queryParam{{"remarks", str("ps")}, {"tfo", "1"}, {"alterId", jsonvalue.FirstNonEmpty(payload["aid"], "0")}}
+	switch network {
+	case "tcp":
+		if (str("type") != "" && str("type") != "none") || path != "" {
+			return link
+		}
+	case "ws":
+		params = append(params, queryParam{"obfs", "websocket"})
+		if host := str("host"); host != "" {
+			params = append(params, queryParam{"obfsParam", host})
+		}
+		if path != "" {
+			params = append(params, queryParam{"path", path})
+		}
+	default:
+		return link
+	}
+	switch str("tls") {
+	case "", "none":
+	case "tls":
+		params = append(params, queryParam{"tls", "1"})
+		for _, pair := range [][2]string{{"sni", "peer"}, {"alpn", "alpn"}, {"fp", "fingerprint"}, {"pinSHA256", "hpkp"}, {"allowInsecure", "allowInsecure"}} {
+			if value := str(pair[0]); value != "" {
+				params = append(params, queryParam{pair[1], value})
+			}
+		}
+	default:
+		return link
+	}
+	security := jsonvalue.FirstNonEmpty(payload["scy"], "auto")
+	authority := base64.StdEncoding.EncodeToString([]byte(security + ":" + str("id") + "@" + formatIPForURL(str("add")) + ":" + str("port")))
+	return "vmess://" + authority + "?" + shadowrocketQuery(params)
+}
+
+func shadowrocketShareLink(link string) string {
+	switch {
+	case strings.HasPrefix(link, "vless://"):
+		return shadowrocketVLESSShareLink(link)
+	case strings.HasPrefix(link, "trojan://"):
+		return shadowrocketTrojanShareLink(link)
+	case strings.HasPrefix(link, "vmess://"):
+		return shadowrocketVMessShareLink(link)
+	}
+	return link
+}
+
+func shadowrocketTrojanShareLink(link string) string {
+	u, err := url.Parse(link)
+	if err != nil || u.Scheme != "trojan" {
+		return link
+	}
+	query := u.Query()
+	if sni := query.Get("sni"); sni == "" || query.Has("peer") {
+		return link
+	}
+	query.Set("peer", query.Get("sni"))
+	u.RawQuery = query.Encode()
+	return u.String()
+}
+
+func shadowrocketXHTTPObfsParam(extra string, host string) string {
+	if extra == "" {
+		extra = "{}"
+	}
+	obfsParam := `{"":` + extra
+	if host != "" {
+		encodedHost, _ := json.Marshal(host)
+		obfsParam += `,"Host":` + string(encodedHost)
+	}
+	return obfsParam + "}"
+}
+
+func shadowrocketQuery(params []queryParam) string {
+	parts := make([]string, 0, len(params))
+	for _, param := range params {
+		parts = append(parts, param.key+"="+percentEncode(pythonStringValue(param.value), "", false))
+	}
+	return strings.Join(parts, "&")
+}
+
 func trojanShareLink(remark string, address string, path string, inbound ResolvedInbound, settings map[string]any) string {
 	params := []queryParam{
 		{"security", jsonvalue.String(inbound["tls"])},

@@ -23,6 +23,8 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
+const subscriptionDialectShadowrocket = "shadowrocket"
+
 type SubscriptionClientConfig struct {
 	Format      string
 	Media       string
@@ -30,6 +32,7 @@ type SubscriptionClientConfig struct {
 	Reverse     bool
 	TemplateKey string
 	AutoCurrent bool
+	Dialect     string
 }
 
 const maxMKCPMTU int64 = 1<<32 - 1
@@ -74,7 +77,7 @@ var subscriptionClientConfigs = map[string]SubscriptionClientConfig{
 	"happ":         {Format: "v2ray-json", Media: "application/json", TemplateKey: "happ_subscription_template"},
 	"v2raytun":     {Format: "v2ray", Media: "text/plain", Base64: true},
 	"throne":       {Format: "v2ray", Media: "text/plain", Base64: true},
-	"shadowrocket": {Format: "v2ray", Media: "text/plain", Base64: true},
+	"shadowrocket": {Format: "v2ray", Media: "text/plain", Base64: true, Dialect: subscriptionDialectShadowrocket},
 	"karing":       {Format: "v2ray", Media: "text/plain", Base64: true},
 	"hiddify":      {Format: "v2ray", Media: "text/plain", Base64: true},
 	"clash-mi":     {Format: "clash-meta", Media: "text/yaml"},
@@ -472,6 +475,11 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 	raw := connectable.Links
 	switch config.Format {
 	case "v2ray":
+		if config.Dialect == subscriptionDialectShadowrocket {
+			for i, link := range raw {
+				raw[i] = shadowrocketShareLink(link)
+			}
+		}
 		content := strings.Join(raw, "\n")
 		if config.Base64 {
 			return base64.StdEncoding.EncodeToString([]byte(content)), nil
