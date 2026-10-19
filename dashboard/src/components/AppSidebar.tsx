@@ -189,10 +189,11 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 
 	return (
 		<motion.div
-			initial={inDrawer ? false : { y: "120%", opacity: 0 }}
+			initial={inDrawer ? false : { opacity: 0, y: 24, height: 0 }}
 			animate={{
-				y: isExpanded ? "0%" : "120%",
 				opacity: isExpanded ? 1 : 0,
+				y: isExpanded ? 0 : 24,
+				height: isExpanded ? "auto" : 0,
 			}}
 			transition={{
 				duration: animDuration,
@@ -201,20 +202,17 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 			onAnimationComplete={() => {
 				if (isInitialMount && isReady) setIsInitialMount(false);
 			}}
-			style={{ width: "100%", flexShrink: 0 }}
+			style={{ width: "100%", flexShrink: 0, overflow: "hidden" }}
 		>
 			<Box
 				w="full"
 				maxW={inDrawer ? "min(380px, calc(100% - 24px))" : "full"}
 				mx={inDrawer ? "auto" : undefined}
-				overflow="hidden"
-				maxH={isExpanded ? (inDrawer ? "none" : "220px") : "0px"}
-				transition={`max-height ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1), padding ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1), border-color ${animDuration}s cubic-bezier(0.16, 1, 0.3, 1)`}
-				pt={isExpanded ? 2 : 0}
+				pt={2}
 				pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
 				pointerEvents={isExpanded ? "auto" : "none"}
 				borderTopWidth="1px"
-				borderColor={isExpanded ? "panel.border" : "transparent"}
+				borderColor="panel.border"
 			>
 				<SponsorCarousel
 					items={banners.map((asset) => ({
