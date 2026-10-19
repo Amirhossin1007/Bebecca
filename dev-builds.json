@@ -1,9 +1,25 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "dev-a7d0903",
-  "updated_at": "2026-10-14T14:19:27Z",
+  "latest": "dev-294b7a5",
+  "updated_at": "2026-10-19T20:24:34Z",
   "builds": [
+    {
+      "tag": "dev-294b7a5",
+      "sha": "294b7a54e9a1b1045af45ddb8a1ab3e2f7a94f9b",
+      "branch": "dev",
+      "workflow": "Binary Build",
+      "run_id": "39318576179",
+      "run_number": "476",
+      "created_at": "2026-10-19T20:24:34Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-294b7a5.tar.gz",
+          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-294b7a5.tar.gz"
+        }
+      }
+    },
     {
       "tag": "dev-a7d0903",
       "sha": "a7d0903eb4d540caefde20583a4a927114be8579",
@@ -873,26 +889,6 @@
         "windows-amd64": {
           "name": "rebecca-windows-amd64-dev-fd30b87.zip",
           "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-windows-amd64-dev-fd30b87.zip"
-        }
-      }
-    },
-    {
-      "tag": "dev-523d1d9",
-      "sha": "523d1d9e336b4b6f5bce2e577f3d42533035dba4",
-      "branch": "dev",
-      "workflow": "Binary Build",
-      "run_id": "37249584335",
-      "run_number": "424",
-      "created_at": "2026-10-05T01:02:48Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "windows-amd64": {
-          "name": "rebecca-windows-amd64-dev-523d1d9.zip",
-          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-windows-amd64-dev-523d1d9.zip"
-        },
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-dev-523d1d9.tar.gz",
-          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-523d1d9.tar.gz"
         }
       }
     }
