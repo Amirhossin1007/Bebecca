@@ -268,7 +268,8 @@ const ServiceLimitPanel: React.FC<{
 	service: MyAccountServiceLimit;
 	colorMode: string;
 	t: (key: string, fallback?: string) => string;
-}> = ({ service, colorMode, t }) => {
+	expiryText: string | null;
+}> = ({ service, colorMode, t, expiryText }) => {
 	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
 	const bg = useColorModeValue("white", "whiteAlpha.50");
 	const subBg = useColorModeValue("gray.50", "whiteAlpha.100");
@@ -308,14 +309,21 @@ const ServiceLimitPanel: React.FC<{
 					</Text>
 				</Box>
 				<Box px={4} pt={4}>
-					<Badge
-						borderRadius="md"
-						colorScheme={
-							service.traffic_basis === "created_traffic" ? "purple" : "blue"
-						}
-					>
-						{labels.modeLabel}
-					</Badge>
+					<HStack spacing={2} justify="end" flexWrap="wrap">
+						{expiryText && (
+							<Badge borderRadius="md" colorScheme="orange">
+								{t("myaccount.remainingDays")}: {expiryText}
+							</Badge>
+						)}
+						<Badge
+							borderRadius="md"
+							colorScheme={
+								service.traffic_basis === "created_traffic" ? "purple" : "blue"
+							}
+						>
+							{labels.modeLabel}
+						</Badge>
+					</HStack>
 				</Box>
 			</HStack>
 
@@ -387,7 +395,8 @@ const ServiceLimitPanel: React.FC<{
 const ServiceBalanceCard: React.FC<{
 	service: MyAccountServiceLimit;
 	t: (key: string, fallback?: string) => string;
-}> = ({ service, t }) => {
+	expiryText: string | null;
+}> = ({ service, t, expiryText }) => {
 	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
 	const bg = useColorModeValue("white", "whiteAlpha.50");
 	const labelColor = useColorModeValue("gray.500", "gray.400");
@@ -412,7 +421,14 @@ const ServiceBalanceCard: React.FC<{
 			p={4}
 			bg={bg}
 		>
-			<HStack justify="space-between" align="start" spacing={3} mb={3}>
+			<HStack
+				justify="space-between"
+				align="start"
+				spacing={3}
+				rowGap={2}
+				flexWrap="wrap"
+				mb={3}
+			>
 				<Box minW={0}>
 					<Text fontSize="xs" color={labelColor} fontWeight="semibold">
 						{t("myaccount.service")}
@@ -421,14 +437,21 @@ const ServiceBalanceCard: React.FC<{
 						{service.service_name}
 					</Text>
 				</Box>
-				<Badge
-					borderRadius="md"
-					colorScheme={
-						service.traffic_basis === "created_traffic" ? "purple" : "blue"
-					}
-				>
-					{labels.modeLabel}
-				</Badge>
+				<HStack spacing={2} flexWrap="wrap" justify="end">
+					{expiryText && (
+						<Badge borderRadius="md" colorScheme="orange">
+							{t("myaccount.remainingDays")}: {expiryText}
+						</Badge>
+					)}
+					<Badge
+						borderRadius="md"
+						colorScheme={
+							service.traffic_basis === "created_traffic" ? "purple" : "blue"
+						}
+					>
+						{labels.modeLabel}
+					</Badge>
+				</HStack>
 			</HStack>
 			<Text fontSize="2xl" fontWeight="bold">
 				{remainingText}
@@ -906,6 +929,13 @@ export const MyAccountPage: React.FC = () => {
 	const serviceLimits = normalizeArray<MyAccountServiceLimit>(
 		data.service_limits,
 	);
+	const expiryLeftMs = data.expire ? data.expire * 1000 - Date.now() : null;
+	const expiryText =
+		expiryLeftMs === null
+			? null
+			: expiryLeftMs <= 0
+				? t("status.expired")
+				: `${Math.ceil(expiryLeftMs / 86400000)}`;
 	const trafficLabels = getTrafficLabels(t, trafficBasis);
 	const usageSectionTitle = isPerServiceLimits
 		? t("myaccount.serviceTrafficOverview")
@@ -1105,6 +1135,7 @@ export const MyAccountPage: React.FC = () => {
 														key={service.service_id}
 														service={service}
 														t={t}
+														expiryText={expiryText}
 													/>
 												))}
 											</SimpleGrid>
@@ -1192,6 +1223,7 @@ export const MyAccountPage: React.FC = () => {
 													service={service}
 													colorMode={colorMode}
 													t={t}
+													expiryText={expiryText}
 												/>
 											))}
 										</SimpleGrid>

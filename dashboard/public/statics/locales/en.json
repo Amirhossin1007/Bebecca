@@ -2431,6 +2431,7 @@
 	"myaccount.serviceBalancesHint": "Remaining traffic is shown separately for each assigned service.",
 	"myaccount.service": "Service",
 	"myaccount.remainingFromService": "remaining from this service",
+	"myaccount.remainingDays": "Days remaining",
 	"myaccount.serviceModeCreated": "Created traffic",
 	"myaccount.serviceModeUsed": "Used traffic",
 	"myaccount.apiKeyCreated": "API key created",

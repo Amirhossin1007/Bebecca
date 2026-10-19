@@ -2424,6 +2424,7 @@
 	"myaccount.serviceBalancesHint": "حجم باقی‌مانده برای هر سرویس اختصاص‌داده‌شده جداگانه نمایش داده می‌شود.",
 	"myaccount.service": "سرویس",
 	"myaccount.remainingFromService": "باقی‌مانده از این سرویس",
+	"myaccount.remainingDays": "روز باقی‌مانده",
 	"myaccount.serviceModeCreated": "حجم ساخته‌شده",
 	"myaccount.serviceModeUsed": "حجم مصرف‌شده",
 	"myaccount.apiKeyCreated": "کلید API ساخته شد",

@@ -330,6 +330,7 @@ func (s *Server) myAccountSummary(ctx context.Context, dbadmin adminapp.Admin) (
 		"daily_usage":                []any{},
 		"node_usages":                []any{},
 		"service_limits":             serviceLimitSummary(dbadmin.ServiceLimits),
+		"expire":                     dbadmin.Expire,
 	}
 	return response, nil
 }
