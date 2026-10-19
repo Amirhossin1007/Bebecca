@@ -32,10 +32,32 @@ export const useSheetSwipeToClose = () => {
 			if (!sheet) return;
 			const dialog = sheet;
 			sheet = null;
-			dialog.style.transition = "";
-			dialog.style.transform = "";
 			if (offset > CLOSE_DISTANCE_PX) {
-				dialog.querySelector<HTMLElement>(".chakra-modal__close-btn")?.click();
+				dialog.style.transition =
+					"transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out";
+				dialog.style.transform = "translateY(100%)";
+				dialog.style.opacity = "0";
+				const closeBtn = dialog.querySelector<HTMLElement>(
+					".chakra-modal__close-btn",
+				);
+				if (closeBtn) {
+					closeBtn.click();
+				} else {
+					window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+				}
+				window.setTimeout(() => {
+					dialog.style.transition = "";
+					dialog.style.transform = "";
+					dialog.style.opacity = "";
+				}, 300);
+			} else {
+				dialog.style.transition =
+					"transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
+				dialog.style.transform = "translateY(0px)";
+				window.setTimeout(() => {
+					dialog.style.transition = "";
+					dialog.style.transform = "";
+				}, 220);
 			}
 		};
 

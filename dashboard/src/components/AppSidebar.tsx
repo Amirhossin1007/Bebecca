@@ -189,11 +189,10 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 
 	return (
 		<motion.div
-			initial={inDrawer ? false : { opacity: 0, y: 24, height: 0 }}
+			initial={inDrawer ? false : { opacity: 0, y: 24 }}
 			animate={{
 				opacity: isExpanded ? 1 : 0,
 				y: isExpanded ? 0 : 24,
-				height: isExpanded ? "auto" : 0,
 			}}
 			transition={{
 				duration: animDuration,
@@ -202,11 +201,16 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 			onAnimationComplete={() => {
 				if (isInitialMount && isReady) setIsInitialMount(false);
 			}}
-			style={{ width: "100%", flexShrink: 0, overflow: "hidden" }}
+			style={{
+				width: "100%",
+				flexShrink: 0,
+				overflow: "hidden",
+				display: isExpanded ? "block" : "none",
+			}}
 		>
 			<Box
 				w="full"
-				maxW={inDrawer ? "min(380px, calc(100% - 24px))" : "full"}
+				maxW={inDrawer ? "min(220px, calc(100% - 48px))" : "full"}
 				mx={inDrawer ? "auto" : undefined}
 				pt={2}
 				pb={inDrawer ? "calc(env(safe-area-inset-bottom, 0px) + 8px)" : 0}
@@ -343,6 +347,8 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 				h="34px"
 				flex="1"
 				minW="0"
+				marginInlineStart={collapsed ? 0 : "-22px"}
+				paddingInlineStart={collapsed ? 0 : "22px"}
 				cursor="pointer"
 				userSelect="none"
 				onClick={handleClick}
@@ -419,6 +425,8 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 			overflow="hidden"
 			flex="1"
 			minW="0"
+			marginInlineStart={collapsed ? 0 : "-22px"}
+			paddingInlineStart={collapsed ? 0 : "22px"}
 			cursor={currentItem.isSponsor && currentItem.href ? "pointer" : "default"}
 			userSelect="none"
 			onMouseEnter={() => {
@@ -435,10 +443,10 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 			<AnimatePresence mode="wait" initial={false}>
 				<motion.div
 					key={`${currentItem.id}-${activeIndex}`}
-					initial={{ opacity: 0, x: isRTL ? 48 : -48 }}
-					animate={{ opacity: 1, x: 0 }}
-					exit={{ opacity: 0, x: isRTL ? 48 : -48 }}
-					transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+					initial={{ x: isRTL ? 180 : -180 }}
+					animate={{ x: 0 }}
+					exit={{ x: isRTL ? 180 : -180 }}
+					transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
 					style={{
 						display: "flex",
 						alignItems: "center",
@@ -502,14 +510,6 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 							whiteSpace="nowrap"
 							opacity={collapsed ? 0 : 1}
 							maxW={collapsed ? "0px" : "full"}
-							transform={
-								collapsed
-									? isRTL
-										? "translateX(10px)"
-										: "translateX(-10px)"
-									: "translateX(0)"
-							}
-							transition="max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
 							pointerEvents={collapsed ? "none" : "auto"}
 						>
 							<Text
@@ -642,14 +642,12 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 	};
 
 	const handleNavigate = (url: string, event?: ReactMouseEvent) => {
+		event?.preventDefault();
+		const defaultTab = defaultTabByPath[url];
+		const normalized = url.startsWith("/") ? url : `/${url}`;
+		navigate(defaultTab ? `${normalized}#${defaultTab}` : normalized);
 		if (inDrawer && onRequestExpand) {
 			onRequestExpand();
-		}
-		const defaultTab = defaultTabByPath[url];
-		if (defaultTab) {
-			event?.preventDefault();
-			const normalized = url.startsWith("/") ? url : `/${url}`;
-			navigate(`${normalized}#${defaultTab}`);
 		}
 	};
 
@@ -1003,10 +1001,11 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 			overflow="hidden"
 			flexShrink={0}
 			userSelect="none"
-			zIndex={200}
+			zIndex={inDrawer ? "auto" : 200}
 			sx={{
 				contain: inDrawer ? undefined : "layout style",
 				transform: inDrawer ? undefined : "translateZ(0)",
+				touchAction: "manipulation",
 			}}
 		>
 			<Flex

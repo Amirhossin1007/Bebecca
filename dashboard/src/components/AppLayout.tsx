@@ -241,6 +241,7 @@ const measureBreadcrumbLabel = (text: string, isPage = false): number => {
 function AppLayoutContent() {
 	const { unread } = useNotificationCenter();
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const handleSidebarExpand = useCallback(() => setSidebarCollapsed(false), []);
 	const [isMobile, setIsMobile] = useState(() => {
 		if (typeof window === "undefined") return false;
 		return window.innerWidth < 769;
@@ -256,6 +257,10 @@ function AppLayoutContent() {
 	}, []);
 
 	const sidebarDrawer = useDisclosure();
+	const handleDrawerClose = useCallback(
+		() => sidebarDrawer.onClose(),
+		[sidebarDrawer.onClose],
+	);
 	useSheetSwipeToClose();
 	const languageMenu = useDisclosure();
 	const userMenu = useDisclosure();
@@ -632,17 +637,23 @@ function AppLayoutContent() {
 				closeUserMenu();
 			}
 		};
-		document.addEventListener("pointerdown", handleDocumentPointerDown, true);
-		document.addEventListener("mousedown", handleDocumentPointerDown, true);
-		document.addEventListener("touchstart", handleDocumentPointerDown, {
-			passive: true,
-			capture: true,
-		});
+		if (typeof window !== "undefined" && "PointerEvent" in window) {
+			document.addEventListener("pointerdown", handleDocumentPointerDown, true);
+		} else {
+			document.addEventListener("mousedown", handleDocumentPointerDown, true);
+			document.addEventListener("touchstart", handleDocumentPointerDown, {
+				passive: true,
+				capture: true,
+			});
+		}
 		document.addEventListener("keydown", handleKeyDown);
 		return () => {
-			document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
-			document.removeEventListener("mousedown", handleDocumentPointerDown, true);
-			document.removeEventListener("touchstart", handleDocumentPointerDown, true);
+			if (typeof window !== "undefined" && "PointerEvent" in window) {
+				document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
+			} else {
+				document.removeEventListener("mousedown", handleDocumentPointerDown, true);
+				document.removeEventListener("touchstart", handleDocumentPointerDown, true);
+			}
 			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [
@@ -1637,7 +1648,7 @@ function AppLayoutContent() {
 							collapsed={sidebarCollapsed}
 							sponsors={sponsorSidebarLogoItems}
 							sidebarBanners={sponsorSidebarBanners}
-							onRequestExpand={() => setSidebarCollapsed(false)}
+							onRequestExpand={handleSidebarExpand}
 						/>
 					</Box>
 				) : null}
@@ -2083,9 +2094,9 @@ function AppLayoutContent() {
 								{mobileHeaderItems.length > 0 && (
 									<motion.div
 										key={mobileHeaderItems[0]?.id || "mobile-banner"}
-										initial={{ opacity: 0, y: -24 }}
+										initial={{ opacity: 0, y: -80 }}
 										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: -24 }}
+										exit={{ opacity: 0, y: -80 }}
 										transition={{
 											duration: 0.45,
 											delay: 1.0,
@@ -2098,7 +2109,6 @@ function AppLayoutContent() {
 											alignItems: "center",
 											justifyContent: "flex-start",
 											flexShrink: 1,
-											overflow: "hidden",
 										}}
 									>
 										<Box
@@ -2115,6 +2125,7 @@ function AppLayoutContent() {
 											<SponsorCarousel
 												items={mobileHeaderItems}
 												variant="banner"
+												animateIn={false}
 											/>
 										</Box>
 									</motion.div>
@@ -2124,9 +2135,9 @@ function AppLayoutContent() {
 								{sponsorHeaderItems.length > 0 && (
 									<motion.div
 										key={sponsorHeaderItems[0]?.id || "desktop-banner"}
-										initial={{ opacity: 0, y: -24 }}
+										initial={{ opacity: 0, y: -80 }}
 										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: -24 }}
+										exit={{ opacity: 0, y: -80 }}
 										transition={{
 											duration: 0.45,
 											delay: 1.0,
@@ -2139,7 +2150,6 @@ function AppLayoutContent() {
 											flexShrink: bannerShrinkable ? 1 : 0,
 											display: isMobile ? "none" : "flex",
 											alignItems: "center",
-											overflow: "hidden",
 										}}
 									>
 										<Box
@@ -2666,7 +2676,7 @@ function AppLayoutContent() {
 						blockScrollOnMount={false}
 						preserveScrollBarGap={false}
 					>
-						<DrawerOverlay bg="blackAlpha.700" />
+						<DrawerOverlay pointerEvents="none" opacity={0} />
 						<DrawerContent
 							maxW="100vw"
 							w="100vw"
@@ -2675,11 +2685,7 @@ function AppLayoutContent() {
 							bg="panel.surface"
 							boxShadow="none"
 							borderRadius="0"
-							sx={{
-								willChange: "transform",
-								transform: "translate3d(0, 0, 0)",
-								backfaceVisibility: "hidden",
-							}}
+							zIndex={2500}
 						>
 							<DrawerBody p={0} overflow="hidden">
 								<AppSidebar
@@ -2687,7 +2693,7 @@ function AppLayoutContent() {
 									sponsors={sponsorSidebarLogoItems}
 									sidebarBanners={sponsorSidebarBanners}
 									inDrawer
-									onRequestExpand={sidebarDrawer.onClose}
+									onRequestExpand={handleDrawerClose}
 								/>
 							</DrawerBody>
 						</DrawerContent>
