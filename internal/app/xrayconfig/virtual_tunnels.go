@@ -3,6 +3,7 @@ package xrayconfig
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"net/netip"
 	"strings"
 )
@@ -68,7 +69,7 @@ func IsVirtualTunnelInboundProtocol(protocol string) bool {
 
 func normalizeVirtualTunnelInbound(inbound map[string]any) map[string]any {
 	normalized := deepCopyMap(inbound)
-	protocol := normalizeProxyProtocol(stringValue(normalized["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(normalized["protocol"]))
 	normalized["protocol"] = protocol
 	if !isVirtualTunnelProtocol(protocol) {
 		return normalized
@@ -106,7 +107,7 @@ func normalizeVirtualTunnelSettings(protocol string, settings map[string]any) ma
 func normalizeSSTPSettings(settings map[string]any) map[string]any {
 	out := normalizeRemoteAccessSettings(settings, defaultSSTPPoolCIDR)
 	for _, key := range []string{"server_certificate", "server_key"} {
-		if value := strings.TrimSpace(stringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)
@@ -125,7 +126,7 @@ func normalizeAWGSettings(settings map[string]any) map[string]any {
 	for key, value := range settings {
 		copy[key] = value
 	}
-	if strings.TrimSpace(firstNonEmptyString(copy["address_pool"], copy["ipv4_pool_cidr"], copy["ipv4PoolCidr"])) == "" {
+	if strings.TrimSpace(jsonvalue.FirstNonEmpty(copy["address_pool"], copy["ipv4_pool_cidr"], copy["ipv4PoolCidr"])) == "" {
 		copy["address_pool"] = defaultAWGPoolCIDR
 	}
 	out := normalizeWGSettings(copy)
@@ -153,7 +154,7 @@ func normalizeGRESettings(settings map[string]any) map[string]any {
 			out[key] = fallback
 		}
 	}
-	if value := strings.TrimSpace(stringValue(out["local_address"])); value != "" {
+	if value := strings.TrimSpace(jsonvalue.String(out["local_address"])); value != "" {
 		out["local_address"] = value
 	} else {
 		delete(out, "local_address")
@@ -165,7 +166,7 @@ func normalizeIKEv2Settings(settings map[string]any) map[string]any {
 	out := normalizeRemoteAccessSettings(settings, defaultIKEv2PoolCIDR)
 	out["ike_port"] = 500
 	out["nat_port"] = 4500
-	authMode := strings.ToLower(strings.TrimSpace(stringValue(out["auth_mode"])))
+	authMode := strings.ToLower(strings.TrimSpace(jsonvalue.String(out["auth_mode"])))
 	if authMode != "certificate" && authMode != "password+certificate" {
 		authMode = "password"
 	}
@@ -176,7 +177,7 @@ func normalizeIKEv2Settings(settings map[string]any) map[string]any {
 		"esp_proposals":   "aes256-sha256,aes256gcm16-ecp384",
 		"fragmentation":   "yes",
 	} {
-		value := strings.TrimSpace(stringValue(out[key]))
+		value := strings.TrimSpace(jsonvalue.String(out[key]))
 		if value == "" {
 			value = fallback
 		}
@@ -186,7 +187,7 @@ func normalizeIKEv2Settings(settings map[string]any) map[string]any {
 		if _, ok := out[key]; !ok {
 			out[key] = fallback
 		} else {
-			out[key] = boolValue(out[key])
+			out[key] = jsonvalue.Bool(out[key])
 		}
 	}
 	for key, fallback := range map[string]int{"ike_lifetime": 10800, "child_lifetime": 3600, "rekey_time": 3000, "dpd_delay": 30} {
@@ -197,7 +198,7 @@ func normalizeIKEv2Settings(settings map[string]any) map[string]any {
 		}
 	}
 	for _, key := range []string{"ca_certificate", "server_certificate", "server_key"} {
-		if value := strings.TrimSpace(stringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)
@@ -209,7 +210,7 @@ func normalizeIKEv2Settings(settings map[string]any) map[string]any {
 
 func normalizeAnyConnectSettings(settings map[string]any) map[string]any {
 	out := normalizeRemoteAccessSettings(settings, defaultAnyConnectPoolCIDR)
-	authMode := strings.ToLower(strings.TrimSpace(stringValue(out["auth_mode"])))
+	authMode := strings.ToLower(strings.TrimSpace(jsonvalue.String(out["auth_mode"])))
 	if authMode != "certificate" && authMode != "password+certificate" {
 		authMode = "password"
 	}
@@ -225,7 +226,7 @@ func normalizeAnyConnectSettings(settings map[string]any) map[string]any {
 		if _, ok := out[key]; !ok {
 			out[key] = fallback
 		} else {
-			out[key] = boolValue(out[key])
+			out[key] = jsonvalue.Bool(out[key])
 		}
 	}
 	for key, fallback := range map[string]int{
@@ -249,14 +250,14 @@ func normalizeAnyConnectSettings(settings map[string]any) map[string]any {
 		"tls_priorities": "NORMAL:%SERVER_PRECEDENCE:%COMPAT:-VERS-SSL3.0:-VERS-TLS1.0:-VERS-TLS1.1",
 		"cert_user_oid":  "2.5.4.3",
 	} {
-		value := strings.TrimSpace(stringValue(out[key]))
+		value := strings.TrimSpace(jsonvalue.String(out[key]))
 		if value == "" {
 			value = fallback
 		}
 		out[key] = value
 	}
 	for _, key := range []string{"ca_certificate", "server_certificate", "server_key", "banner", "pre_login_banner", "default_domain", "listen_host", "udp_listen_host", "restrict_user_to_ports"} {
-		if value := strings.TrimSpace(stringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)
@@ -275,19 +276,19 @@ func normalizeRemoteAccessSettings(settings map[string]any, defaultPool string) 
 	for key, value := range settings {
 		out[key] = value
 	}
-	pool := strings.TrimSpace(firstNonEmptyString(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
+	pool := strings.TrimSpace(jsonvalue.FirstNonEmpty(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
 	if pool == "" {
 		pool = defaultPool
 	}
 	out["ipv4_pool_cidr"] = pool
 	delete(out, "ipv4PoolCidr")
-	out["dns_servers"] = normalizeStringAnyList(firstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
+	out["dns_servers"] = normalizeStringAnyList(jsonvalue.FirstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
 	delete(out, "dnsServers")
 	for key, fallback := range map[string]bool{"tproxy_enabled": true, "accounting_enabled": true, "redirect_gateway": true} {
 		if _, ok := out[key]; !ok {
 			out[key] = fallback
 		} else {
-			out[key] = boolValue(out[key])
+			out[key] = jsonvalue.Bool(out[key])
 		}
 	}
 	if port, ok := normalizedOptionalPort(out["tunnel_port"]); ok {
@@ -304,7 +305,7 @@ func normalizeWGSettings(settings map[string]any) map[string]any {
 	for key, value := range settings {
 		out[key] = value
 	}
-	pool := strings.TrimSpace(firstNonEmptyString(out["address_pool"], out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
+	pool := strings.TrimSpace(jsonvalue.FirstNonEmpty(out["address_pool"], out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
 	if pool == "" {
 		pool = defaultWGPoolCIDR
 	}
@@ -316,12 +317,12 @@ func normalizeWGSettings(settings map[string]any) map[string]any {
 	if _, ok := out["tproxy_enabled"]; !ok {
 		out["tproxy_enabled"] = true
 	} else {
-		out["tproxy_enabled"] = boolValue(out["tproxy_enabled"])
+		out["tproxy_enabled"] = jsonvalue.Bool(out["tproxy_enabled"])
 	}
 	if _, ok := out["nat_enabled"]; !ok {
 		out["nat_enabled"] = false
 	} else {
-		out["nat_enabled"] = boolValue(out["nat_enabled"])
+		out["nat_enabled"] = jsonvalue.Bool(out["nat_enabled"])
 	}
 	if _, ok := out["accounting_enabled"]; !ok {
 		out["accounting_enabled"] = true
@@ -334,7 +335,7 @@ func normalizeWGSettings(settings map[string]any) map[string]any {
 		}
 	}
 	for _, key := range []string{"private_key", "server_address", "public_key"} {
-		if value := strings.TrimSpace(stringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)
@@ -363,28 +364,28 @@ func normalizeOVSettings(settings map[string]any) map[string]any {
 	for key, value := range settings {
 		out[key] = value
 	}
-	transport := strings.ToLower(strings.TrimSpace(firstNonEmptyString(out["transport"], out["proto"])))
+	transport := strings.ToLower(strings.TrimSpace(jsonvalue.FirstNonEmpty(out["transport"], out["proto"])))
 	if transport != "tcp" && transport != "udp" {
 		transport = "udp"
 	}
 	out["transport"] = transport
 	delete(out, "proto")
-	device := strings.ToLower(strings.TrimSpace(stringValue(out["device"])))
+	device := strings.ToLower(strings.TrimSpace(jsonvalue.String(out["device"])))
 	if device != "tap" {
 		device = "tun"
 	}
 	out["device"] = device
-	pool := strings.TrimSpace(firstNonEmptyString(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
+	pool := strings.TrimSpace(jsonvalue.FirstNonEmpty(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
 	if pool == "" {
 		pool = defaultOVPoolCIDR
 	}
 	out["ipv4_pool_cidr"] = pool
 	delete(out, "ipv4PoolCidr")
-	out["dns_servers"] = normalizeStringAnyList(firstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
+	out["dns_servers"] = normalizeStringAnyList(jsonvalue.FirstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
 	delete(out, "dnsServers")
-	out["server_certificate"] = firstNonEmptyString(out["server_certificate"], out["serverCertificate"])
+	out["server_certificate"] = jsonvalue.FirstNonEmpty(out["server_certificate"], out["serverCertificate"])
 	delete(out, "serverCertificate")
-	out["server_key"] = firstNonEmptyString(out["server_key"], out["serverKey"])
+	out["server_key"] = jsonvalue.FirstNonEmpty(out["server_key"], out["serverKey"])
 	delete(out, "serverKey")
 	if _, ok := out["redirect_gateway"]; !ok {
 		out["redirect_gateway"] = true
@@ -395,12 +396,12 @@ func normalizeOVSettings(settings map[string]any) map[string]any {
 	if _, ok := out["tproxy_enabled"]; !ok {
 		out["tproxy_enabled"] = true
 	} else {
-		out["tproxy_enabled"] = boolValue(out["tproxy_enabled"])
+		out["tproxy_enabled"] = jsonvalue.Bool(out["tproxy_enabled"])
 	}
 	if _, ok := out["require_dco"]; !ok {
 		out["require_dco"] = false
 	} else {
-		out["require_dco"] = boolValue(out["require_dco"])
+		out["require_dco"] = jsonvalue.Bool(out["require_dco"])
 	}
 	for _, item := range []struct {
 		key      string
@@ -416,7 +417,7 @@ func normalizeOVSettings(settings map[string]any) map[string]any {
 		if _, ok := out[item.key]; !ok {
 			out[item.key] = item.fallback
 		} else {
-			out[item.key] = boolValue(out[item.key])
+			out[item.key] = jsonvalue.Bool(out[item.key])
 		}
 	}
 	for _, key := range []string{"tunnel_port", "xray_tunnel_port", "tproxy_port", "management_port"} {
@@ -426,11 +427,11 @@ func normalizeOVSettings(settings map[string]any) map[string]any {
 			delete(out, key)
 		}
 	}
-	if boolValue(out["require_dco"]) {
+	if jsonvalue.Bool(out["require_dco"]) {
 		out["data_ciphers"] = OVDCODataCiphers
 	}
 	for _, key := range []string{"cipher", "auth", "ca", "server_certificate", "server_key", "dh", "tls_crypt", "tls_auth", "extra_client_config", "data_ciphers"} {
-		if value := strings.TrimSpace(stringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)
@@ -445,13 +446,13 @@ func normalizeL2TPSettings(settings map[string]any) map[string]any {
 	for key, value := range settings {
 		out[key] = value
 	}
-	pool := strings.TrimSpace(firstNonEmptyString(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
+	pool := strings.TrimSpace(jsonvalue.FirstNonEmpty(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
 	if pool == "" {
 		pool = defaultL2TPPoolCIDR
 	}
 	out["ipv4_pool_cidr"] = pool
 	delete(out, "ipv4PoolCidr")
-	out["dns_servers"] = normalizeStringAnyList(firstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
+	out["dns_servers"] = normalizeStringAnyList(jsonvalue.FirstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
 	delete(out, "dnsServers")
 	if _, ok := out["redirect_gateway"]; !ok {
 		out["redirect_gateway"] = true
@@ -462,7 +463,7 @@ func normalizeL2TPSettings(settings map[string]any) map[string]any {
 	if _, ok := out["tproxy_enabled"]; !ok {
 		out["tproxy_enabled"] = true
 	} else {
-		out["tproxy_enabled"] = boolValue(out["tproxy_enabled"])
+		out["tproxy_enabled"] = jsonvalue.Bool(out["tproxy_enabled"])
 	}
 	out["ipsec_ike_port"] = L2TPIPSecIKEPort
 	out["ipsec_nat_port"] = L2TPIPSecNATPort
@@ -496,7 +497,7 @@ func normalizeL2TPSettings(settings map[string]any) map[string]any {
 	delete(out, "tproxy_port")
 	delete(out, "management_port")
 	for _, key := range []string{"ipsec_psk"} {
-		if value := strings.TrimSpace(stringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)
@@ -508,7 +509,7 @@ func normalizeL2TPSettings(settings map[string]any) map[string]any {
 
 func normalizePPTPSettings(settings map[string]any) map[string]any {
 	out := normalizeL2TPSettings(settings)
-	pool := strings.TrimSpace(firstNonEmptyString(settings["ipv4_pool_cidr"], settings["ipv4PoolCidr"]))
+	pool := strings.TrimSpace(jsonvalue.FirstNonEmpty(settings["ipv4_pool_cidr"], settings["ipv4PoolCidr"]))
 	if pool == "" {
 		pool = defaultPPTPPoolCIDR
 	}
@@ -532,7 +533,7 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 	if port < 1 || port > 65535 {
 		return fmt.Errorf("invalid inbound %q: port must be between 1 and 65535", tag)
 	}
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	if !isVirtualTunnelProtocol(protocol) {
 		return fmt.Errorf("invalid inbound %q: unsupported virtual tunnel protocol %q", tag, protocol)
 	}
@@ -554,7 +555,7 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 			return fmt.Errorf("invalid inbound %q: %s tunnel_port must be different from port", tag, strings.ToUpper(protocol))
 		}
 	}
-	poolPrefix, err := netip.ParsePrefix(stringValue(settings["ipv4_pool_cidr"]))
+	poolPrefix, err := netip.ParsePrefix(jsonvalue.String(settings["ipv4_pool_cidr"]))
 	if err != nil || !poolPrefix.Addr().Is4() {
 		return fmt.Errorf("invalid inbound %q: %s IPv4 pool CIDR is invalid", tag, strings.ToUpper(protocol))
 	}
@@ -562,13 +563,13 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		return fmt.Errorf("invalid inbound %q: PPTP IPv4 pool must be /24 or narrower", tag)
 	}
 	for _, server := range normalizeStringAnyList(settings["dns_servers"]) {
-		addr, err := netip.ParseAddr(stringValue(server))
+		addr, err := netip.ParseAddr(jsonvalue.String(server))
 		if err != nil || !addr.Is4() {
 			return fmt.Errorf("invalid inbound %q: %s DNS servers must be IPv4 addresses", tag, strings.ToUpper(protocol))
 		}
 	}
 	for _, server := range normalizeStringAnyList(settings["nbns_servers"]) {
-		addr, err := netip.ParseAddr(stringValue(server))
+		addr, err := netip.ParseAddr(jsonvalue.String(server))
 		if err != nil || !addr.Is4() {
 			return fmt.Errorf("invalid inbound %q: %s NBNS servers must be IPv4 addresses", tag, strings.ToUpper(protocol))
 		}
@@ -583,20 +584,20 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		}
 	}
 	if protocol == OVProtocol {
-		transport := stringValue(settings["transport"])
+		transport := jsonvalue.String(settings["transport"])
 		if transport != "tcp" && transport != "udp" {
 			return fmt.Errorf("invalid inbound %q: OV transport must be udp or tcp", tag)
 		}
 		for _, key := range []string{"ca", "server_certificate", "server_key"} {
-			if strings.TrimSpace(stringValue(settings[key])) == "" {
+			if strings.TrimSpace(jsonvalue.String(settings[key])) == "" {
 				return fmt.Errorf("invalid inbound %q: OV %s is required", tag, key)
 			}
 		}
-		if boolValue(settings["require_dco"]) {
-			if cipher := strings.TrimSpace(stringValue(settings["cipher"])); cipher != "" && !ovDCOCipherAllowed(cipher) {
+		if jsonvalue.Bool(settings["require_dco"]) {
+			if cipher := strings.TrimSpace(jsonvalue.String(settings["cipher"])); cipher != "" && !ovDCOCipherAllowed(cipher) {
 				return fmt.Errorf("invalid inbound %q: OV cipher %s is not DCO-compatible", tag, cipher)
 			}
-			for _, cipher := range strings.Split(strings.TrimSpace(stringValue(settings["data_ciphers"])), ":") {
+			for _, cipher := range strings.Split(strings.TrimSpace(jsonvalue.String(settings["data_ciphers"])), ":") {
 				if !ovDCOCipherAllowed(cipher) {
 					return fmt.Errorf("invalid inbound %q: OV data cipher %s is not DCO-compatible", tag, strings.TrimSpace(cipher))
 				}
@@ -608,13 +609,13 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		if protocol == AWGProtocol {
 			label = "AmneziaWG"
 		}
-		if strings.TrimSpace(stringValue(settings["private_key"])) == "" {
+		if strings.TrimSpace(jsonvalue.String(settings["private_key"])) == "" {
 			return fmt.Errorf("invalid inbound %q: %s private_key is required", tag, label)
 		}
-		if privateKey, err := base64.StdEncoding.DecodeString(strings.TrimSpace(stringValue(settings["private_key"]))); err != nil || len(privateKey) != 32 {
+		if privateKey, err := base64.StdEncoding.DecodeString(strings.TrimSpace(jsonvalue.String(settings["private_key"]))); err != nil || len(privateKey) != 32 {
 			return fmt.Errorf("invalid inbound %q: %s private_key must be a 32-byte base64 key", tag, label)
 		}
-		serverAddress := strings.TrimSpace(stringValue(settings["server_address"]))
+		serverAddress := strings.TrimSpace(jsonvalue.String(settings["server_address"]))
 		if serverAddress == "" {
 			return fmt.Errorf("invalid inbound %q: %s server_address is required", tag, label)
 		}
@@ -631,7 +632,7 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 			{"persistent_keepalive", 0, 3600},
 		} {
 			rawValue, exists := rawSettings[item.key]
-			if !exists || strings.TrimSpace(stringValue(rawValue)) == "" {
+			if !exists || strings.TrimSpace(jsonvalue.String(rawValue)) == "" {
 				continue
 			}
 			value, ok := normalizedOptionalInt(rawValue, item.min, item.max)
@@ -647,14 +648,14 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 			}); err != nil {
 				return err
 			}
-			if intValue(settings["jmin"]) > intValue(settings["jmax"]) {
+			if jsonvalue.Int(settings["jmin"]) > jsonvalue.Int(settings["jmax"]) {
 				return fmt.Errorf("invalid inbound %q: AmneziaWG jmin must not exceed jmax", tag)
 			}
 		}
 	}
 	if protocol == SSTPProtocol {
 		for _, key := range []string{"server_certificate", "server_key"} {
-			if strings.TrimSpace(stringValue(settings[key])) == "" {
+			if strings.TrimSpace(jsonvalue.String(settings[key])) == "" {
 				return fmt.Errorf("invalid inbound %q: SSTP %s is required", tag, key)
 			}
 		}
@@ -666,7 +667,7 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		if port != 47 {
 			return fmt.Errorf("invalid inbound %q: GRE protocol number must be 47", tag)
 		}
-		if value := strings.TrimSpace(stringValue(settings["local_address"])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(settings["local_address"])); value != "" {
 			if address, err := netip.ParseAddr(value); err != nil || !address.Is4() {
 				return fmt.Errorf("invalid inbound %q: GRE local_address must be an IPv4 address", tag)
 			}
@@ -682,16 +683,16 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		if tunnelPort, ok := virtualTunnelPort(settings); requiresTunnel && (!ok || tunnelPort != L2TPTunnelPort) {
 			return fmt.Errorf("invalid inbound %q: L2TP tunnel_port must be %d", tag, L2TPTunnelPort)
 		}
-		if intValue(settings["ipsec_ike_port"]) != L2TPIPSecIKEPort {
+		if jsonvalue.Int(settings["ipsec_ike_port"]) != L2TPIPSecIKEPort {
 			return fmt.Errorf("invalid inbound %q: L2TP ipsec_ike_port must be %d", tag, L2TPIPSecIKEPort)
 		}
-		if intValue(settings["ipsec_nat_port"]) != L2TPIPSecNATPort {
+		if jsonvalue.Int(settings["ipsec_nat_port"]) != L2TPIPSecNATPort {
 			return fmt.Errorf("invalid inbound %q: L2TP ipsec_nat_port must be %d", tag, L2TPIPSecNATPort)
 		}
-		if intValue(settings["l2tp_port"]) != L2TPPort {
+		if jsonvalue.Int(settings["l2tp_port"]) != L2TPPort {
 			return fmt.Errorf("invalid inbound %q: L2TP l2tp_port must be %d", tag, L2TPPort)
 		}
-		if strings.TrimSpace(stringValue(settings["ipsec_psk"])) == "" {
+		if strings.TrimSpace(jsonvalue.String(settings["ipsec_psk"])) == "" {
 			return fmt.Errorf("invalid inbound %q: L2TP ipsec_psk is required", tag)
 		}
 	}
@@ -699,33 +700,33 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		if port != 500 {
 			return fmt.Errorf("invalid inbound %q: IKEv2 port must be 500", tag)
 		}
-		authMode := stringValue(settings["auth_mode"])
+		authMode := jsonvalue.String(settings["auth_mode"])
 		if authMode != "password" && authMode != "certificate" && authMode != "password+certificate" {
 			return fmt.Errorf("invalid inbound %q: IKEv2 auth_mode is invalid", tag)
 		}
 		for _, key := range []string{"ca_certificate", "server_certificate", "server_key"} {
-			if strings.TrimSpace(stringValue(settings[key])) == "" {
+			if strings.TrimSpace(jsonvalue.String(settings[key])) == "" {
 				return fmt.Errorf("invalid inbound %q: IKEv2 %s is required", tag, key)
 			}
 		}
-		identity := strings.TrimSpace(stringValue(settings["server_identity"]))
+		identity := strings.TrimSpace(jsonvalue.String(settings["server_identity"]))
 		if identity == "" || strings.ContainsAny(identity, " \t\r\n") {
 			return fmt.Errorf("invalid inbound %q: IKEv2 server_identity is invalid", tag)
 		}
 		for _, key := range []string{"ike_proposals", "esp_proposals"} {
-			if !validIPSecProposal(stringValue(settings[key])) {
+			if !validIPSecProposal(jsonvalue.String(settings[key])) {
 				return fmt.Errorf("invalid inbound %q: IKEv2 %s contains unsupported characters", tag, key)
 			}
 		}
-		if fragmentation := stringValue(settings["fragmentation"]); fragmentation != "yes" && fragmentation != "accept" && fragmentation != "no" {
+		if fragmentation := jsonvalue.String(settings["fragmentation"]); fragmentation != "yes" && fragmentation != "accept" && fragmentation != "no" {
 			return fmt.Errorf("invalid inbound %q: IKEv2 fragmentation must be yes, accept, or no", tag)
 		}
 		for _, route := range normalizeStringAnyList(settings["routes"]) {
-			if _, err := netip.ParsePrefix(stringValue(route)); err != nil {
+			if _, err := netip.ParsePrefix(jsonvalue.String(route)); err != nil {
 				return fmt.Errorf("invalid inbound %q: IKEv2 routes must contain CIDRs", tag)
 			}
 		}
-		if !boolValue(settings["redirect_gateway"]) && len(normalizeStringAnyList(settings["routes"])) == 0 {
+		if !jsonvalue.Bool(settings["redirect_gateway"]) && len(normalizeStringAnyList(settings["routes"])) == 0 {
 			return fmt.Errorf("invalid inbound %q: IKEv2 routes are required when redirect_gateway is disabled", tag)
 		}
 		if err := validateRemoteAccessNumbers(tag, protocol, rawSettings, []remoteAccessNumberRule{{"ike_lifetime", 60, 2592000}, {"child_lifetime", 60, 2592000}, {"rekey_time", 0, 2592000}, {"dpd_delay", 0, 86400}}); err != nil {
@@ -733,35 +734,35 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 		}
 	}
 	if protocol == AnyConnectProtocol {
-		authMode := stringValue(settings["auth_mode"])
+		authMode := jsonvalue.String(settings["auth_mode"])
 		if authMode != "password" && authMode != "certificate" && authMode != "password+certificate" {
 			return fmt.Errorf("invalid inbound %q: AnyConnect auth_mode is invalid", tag)
 		}
 		for _, key := range []string{"server_certificate", "server_key"} {
-			if strings.TrimSpace(stringValue(settings[key])) == "" {
+			if strings.TrimSpace(jsonvalue.String(settings[key])) == "" {
 				return fmt.Errorf("invalid inbound %q: AnyConnect %s is required", tag, key)
 			}
 		}
-		if authMode != "password" && strings.TrimSpace(stringValue(settings["ca_certificate"])) == "" {
+		if authMode != "password" && strings.TrimSpace(jsonvalue.String(settings["ca_certificate"])) == "" {
 			return fmt.Errorf("invalid inbound %q: AnyConnect ca_certificate is required for certificate authentication", tag)
 		}
 		for _, key := range []string{"routes", "no_routes"} {
 			for _, route := range normalizeStringAnyList(settings[key]) {
-				if _, err := netip.ParsePrefix(stringValue(route)); err != nil {
+				if _, err := netip.ParsePrefix(jsonvalue.String(route)); err != nil {
 					return fmt.Errorf("invalid inbound %q: AnyConnect %s must contain CIDRs", tag, key)
 				}
 			}
 		}
-		if domain := stringValue(settings["default_domain"]); strings.ContainsAny(domain, " \t\r\n") {
+		if domain := jsonvalue.String(settings["default_domain"]); strings.ContainsAny(domain, " \t\r\n") {
 			return fmt.Errorf("invalid inbound %q: AnyConnect default_domain is invalid", tag)
 		}
 		for _, key := range []string{"listen_host", "udp_listen_host"} {
-			if value := strings.TrimSpace(stringValue(settings[key])); value != "" && !validRemoteAccessHost(value) {
+			if value := strings.TrimSpace(jsonvalue.String(settings[key])); value != "" && !validRemoteAccessHost(value) {
 				return fmt.Errorf("invalid inbound %q: AnyConnect %s is invalid", tag, key)
 			}
 		}
 		for _, value := range normalizeStringAnyList(settings["split_dns"]) {
-			domain := stringValue(value)
+			domain := jsonvalue.String(value)
 			if _, err := netip.ParseAddr(domain); err == nil {
 				return fmt.Errorf("invalid inbound %q: AnyConnect split_dns entries must be domain names", tag)
 			}
@@ -770,28 +771,28 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 			}
 		}
 		for _, value := range normalizeStringAnyList(settings["certificate_names"]) {
-			if !validRemoteAccessHost(stringValue(value)) {
+			if !validRemoteAccessHost(jsonvalue.String(value)) {
 				return fmt.Errorf("invalid inbound %q: AnyConnect certificate_names contains an invalid name", tag)
 			}
 		}
-		if method := stringValue(settings["rekey_method"]); method != "ssl" && method != "new-tunnel" {
+		if method := jsonvalue.String(settings["rekey_method"]); method != "ssl" && method != "new-tunnel" {
 			return fmt.Errorf("invalid inbound %q: AnyConnect rekey_method must be ssl or new-tunnel", tag)
 		}
-		if oid := stringValue(settings["cert_user_oid"]); !validOID(oid) {
+		if oid := jsonvalue.String(settings["cert_user_oid"]); !validOID(oid) {
 			return fmt.Errorf("invalid inbound %q: AnyConnect cert_user_oid is invalid", tag)
 		}
 		for _, key := range []string{"tls_priorities", "restrict_user_to_ports", "banner", "pre_login_banner"} {
-			value := stringValue(settings[key])
+			value := jsonvalue.String(settings[key])
 			if len(value) > 1024 || strings.ContainsAny(value, "\r\n") {
 				return fmt.Errorf("invalid inbound %q: AnyConnect %s is invalid", tag, key)
 			}
 		}
-		if value := stringValue(settings["restrict_user_to_ports"]); value != "" && strings.IndexFunc(value, func(r rune) bool {
+		if value := jsonvalue.String(settings["restrict_user_to_ports"]); value != "" && strings.IndexFunc(value, func(r rune) bool {
 			return !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || strings.ContainsRune("!(),- \t", r))
 		}) >= 0 {
 			return fmt.Errorf("invalid inbound %q: AnyConnect restrict_user_to_ports contains unsupported characters", tag)
 		}
-		if boolValue(settings["udp_enabled"]) {
+		if jsonvalue.Bool(settings["udp_enabled"]) {
 			if raw, exists := rawSettings["udp_port"]; exists {
 				udpPort, ok := normalizedOptionalPort(raw)
 				if !ok || udpPort < 1 || udpPort > 65535 {
@@ -827,7 +828,7 @@ func validateVirtualTunnelInbound(tag string, inbound map[string]any) error {
 			{"lcp_echo_failure", 1, 20},
 		} {
 			rawValue, exists := rawSettings[item.key]
-			if !exists || strings.TrimSpace(stringValue(rawValue)) == "" {
+			if !exists || strings.TrimSpace(jsonvalue.String(rawValue)) == "" {
 				continue
 			}
 			value, ok := normalizedOptionalInt(rawValue, item.min, item.max)
@@ -847,7 +848,7 @@ type remoteAccessNumberRule struct {
 func validateRemoteAccessNumbers(tag, protocol string, settings map[string]any, rules []remoteAccessNumberRule) error {
 	for _, rule := range rules {
 		raw, exists := settings[rule.key]
-		if !exists || strings.TrimSpace(stringValue(raw)) == "" {
+		if !exists || strings.TrimSpace(jsonvalue.String(raw)) == "" {
 			continue
 		}
 		value, ok := normalizedOptionalInt(raw, rule.min, rule.max)
@@ -909,15 +910,15 @@ func validOID(value string) bool {
 }
 
 func applyVirtualTunnelResolvedSettings(resolved ResolvedInbound, inbound map[string]any) {
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	settings := normalizeVirtualTunnelSettings(protocol, mapValue(inbound["settings"]))
-	switch normalizeProxyProtocol(stringValue(inbound["protocol"])) {
+	switch normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) {
 	case OVProtocol:
-		resolved["network"] = stringValue(settings["transport"])
+		resolved["network"] = jsonvalue.String(settings["transport"])
 		resolved["tls"] = "none"
 		resolved["settings"] = settings
-		resolved["ipv4_pool_cidr"] = stringValue(settings["ipv4_pool_cidr"])
-		resolved["tunnel_tag"] = RuntimeTunnelTag(stringValue(inbound["tag"]))
+		resolved["ipv4_pool_cidr"] = jsonvalue.String(settings["ipv4_pool_cidr"])
+		resolved["tunnel_tag"] = RuntimeTunnelTag(jsonvalue.String(inbound["tag"]))
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
@@ -925,8 +926,8 @@ func applyVirtualTunnelResolvedSettings(resolved ResolvedInbound, inbound map[st
 		resolved["network"] = "udp"
 		resolved["tls"] = "none"
 		resolved["settings"] = settings
-		resolved["ipv4_pool_cidr"] = stringValue(settings["ipv4_pool_cidr"])
-		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(protocol, stringValue(inbound["tag"]))
+		resolved["ipv4_pool_cidr"] = jsonvalue.String(settings["ipv4_pool_cidr"])
+		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(protocol, jsonvalue.String(inbound["tag"]))
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
@@ -934,8 +935,8 @@ func applyVirtualTunnelResolvedSettings(resolved ResolvedInbound, inbound map[st
 		resolved["network"] = "udp"
 		resolved["tls"] = "none"
 		resolved["settings"] = settings
-		resolved["ipv4_pool_cidr"] = stringValue(settings["ipv4_pool_cidr"])
-		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(L2TPProtocol, stringValue(inbound["tag"]))
+		resolved["ipv4_pool_cidr"] = jsonvalue.String(settings["ipv4_pool_cidr"])
+		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(L2TPProtocol, jsonvalue.String(inbound["tag"]))
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
@@ -943,8 +944,8 @@ func applyVirtualTunnelResolvedSettings(resolved ResolvedInbound, inbound map[st
 		resolved["network"] = "tcp"
 		resolved["tls"] = "none"
 		resolved["settings"] = settings
-		resolved["ipv4_pool_cidr"] = stringValue(settings["ipv4_pool_cidr"])
-		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(PPTPProtocol, stringValue(inbound["tag"]))
+		resolved["ipv4_pool_cidr"] = jsonvalue.String(settings["ipv4_pool_cidr"])
+		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(PPTPProtocol, jsonvalue.String(inbound["tag"]))
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
@@ -958,8 +959,8 @@ func applyVirtualTunnelResolvedSettings(resolved ResolvedInbound, inbound map[st
 		}
 		resolved["tls"] = "none"
 		resolved["settings"] = settings
-		resolved["ipv4_pool_cidr"] = stringValue(settings["ipv4_pool_cidr"])
-		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(protocol, stringValue(inbound["tag"]))
+		resolved["ipv4_pool_cidr"] = jsonvalue.String(settings["ipv4_pool_cidr"])
+		resolved["tunnel_tag"] = RuntimeTunnelTagForProtocol(protocol, jsonvalue.String(inbound["tag"]))
 		if port, ok := virtualTunnelPort(settings); ok {
 			resolved["tunnel_port"] = port
 		}
@@ -1012,9 +1013,9 @@ func TranslateVirtualTunnelInboundsForRuntime(raw map[string]any) map[string]any
 	skippedTags := map[string]struct{}{}
 	next := make([]any, 0, len(inbounds))
 	for _, inbound := range inbounds {
-		protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+		protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 		if IsAuxiliaryInboundProtocol(protocol) {
-			if tag := stringValue(inbound["tag"]); tag != "" {
+			if tag := jsonvalue.String(inbound["tag"]); tag != "" {
 				skippedTags[tag] = struct{}{}
 			}
 			continue
@@ -1023,7 +1024,7 @@ func TranslateVirtualTunnelInboundsForRuntime(raw map[string]any) map[string]any
 			next = append(next, inbound)
 			continue
 		}
-		originalTag := stringValue(inbound["tag"])
+		originalTag := jsonvalue.String(inbound["tag"])
 		settings := normalizeVirtualTunnelSettings(protocol, mapValue(inbound["settings"]))
 		if !virtualTunnelRoutesToXray(settings) {
 			if originalTag != "" {
@@ -1032,7 +1033,7 @@ func TranslateVirtualTunnelInboundsForRuntime(raw map[string]any) map[string]any
 			continue
 		}
 		runtimeInbound := runtimeTunnelInbound(inbound, usedPorts)
-		tunnelTag := stringValue(runtimeInbound["tag"])
+		tunnelTag := jsonvalue.String(runtimeInbound["tag"])
 		if originalTag != "" && tunnelTag != "" {
 			tagMap[originalTag] = tunnelTag
 		}
@@ -1052,11 +1053,11 @@ func runtimeTunnelInbound(inbound map[string]any, usedPorts map[int]struct{}) ma
 	if tunnelPort < 1 {
 		tunnelPort = 41940
 	}
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	settings := normalizeVirtualTunnelSettings(protocol, mapValue(inbound["settings"]))
 	return map[string]any{
-		"tag":      RuntimeTunnelTagForProtocol(protocol, stringValue(inbound["tag"])),
-		"listen":   firstNonEmptyString(settings["tunnel_listen"], settings["tproxy_listen"], "127.0.0.1"),
+		"tag":      RuntimeTunnelTagForProtocol(protocol, jsonvalue.String(inbound["tag"])),
+		"listen":   jsonvalue.FirstNonEmpty(settings["tunnel_listen"], settings["tproxy_listen"], "127.0.0.1"),
 		"port":     tunnelPort,
 		"protocol": "tunnel",
 		"settings": map[string]any{
@@ -1077,7 +1078,7 @@ func runtimeTunnelInbound(inbound map[string]any, usedPorts map[int]struct{}) ma
 }
 
 func RuntimeTunnelPortForInbound(inbound map[string]any, usedPorts map[int]struct{}) int {
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	settings := normalizeVirtualTunnelSettings(protocol, mapValue(inbound["settings"]))
 	if !virtualTunnelRoutesToXray(settings) {
 		return 0
@@ -1098,7 +1099,7 @@ func virtualTunnelRoutesToXray(settings map[string]any) bool {
 	if !ok {
 		return true
 	}
-	return boolValue(value)
+	return jsonvalue.Bool(value)
 }
 
 func ovDCOCipherAllowed(cipher string) bool {
@@ -1203,7 +1204,7 @@ func pruneInboundTagValue(value any, skippedTags map[string]struct{}) (any, bool
 	case []any:
 		out := make([]any, 0, len(typed))
 		for _, item := range typed {
-			if _, skipped := skippedTags[stringValue(item)]; !skipped {
+			if _, skipped := skippedTags[jsonvalue.String(item)]; !skipped {
 				out = append(out, item)
 			}
 		}
@@ -1233,7 +1234,7 @@ func translateInboundTagValue(value any, tagMap map[string]string) any {
 	case []any:
 		out := make([]any, 0, len(typed))
 		for _, item := range typed {
-			text := stringValue(item)
+			text := jsonvalue.String(item)
 			if mapped := tagMap[text]; mapped != "" {
 				out = append(out, mapped)
 			} else {
@@ -1318,25 +1319,6 @@ func normalizeStringAnyList(value any) []any {
 		out = append(out, cleaned)
 	}
 	return out
-}
-
-func firstNonEmptyAny(values ...any) any {
-	for _, value := range values {
-		if value == nil {
-			continue
-		}
-		if text, ok := value.(string); ok && strings.TrimSpace(text) == "" {
-			continue
-		}
-		if values, ok := value.([]any); ok && len(values) == 0 {
-			continue
-		}
-		if values, ok := value.([]string); ok && len(values) == 0 {
-			continue
-		}
-		return value
-	}
-	return nil
 }
 
 func interfaceSlice(value any) []any {

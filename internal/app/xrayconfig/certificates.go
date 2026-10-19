@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ func StreamCertificateError(item map[string]any, now time.Time) error {
 		return err
 	}
 	for _, certificate := range certificateMapList(mapValue(mapValue(item["streamSettings"])["tlsSettings"])["certificates"]) {
-		usage := stringValue(certificate["usage"])
+		usage := jsonvalue.String(certificate["usage"])
 		if usage != "" && usage != "encipherment" {
 			continue
 		}
@@ -83,7 +84,7 @@ func ValidateCertificateFiles(payload map[string]any) error {
 	for _, section := range []string{"inbounds", "outbounds"} {
 		for _, item := range listOfMaps(payload[section]) {
 			if err := validateStreamCertificateFiles(item); err != nil {
-				tag := stringValue(item["tag"])
+				tag := jsonvalue.String(item["tag"])
 				if tag == "" {
 					tag = "<untagged>"
 				}
@@ -170,7 +171,7 @@ func hasCertificateContent(value any) bool {
 		return false
 	case []any:
 		for _, item := range typed {
-			if strings.TrimSpace(stringValue(item)) != "" {
+			if strings.TrimSpace(jsonvalue.String(item)) != "" {
 				return true
 			}
 		}
@@ -184,7 +185,7 @@ func hasCertificateContent(value any) bool {
 
 func firstNonEmptyCertificatePath(certificate map[string]any, pathKeys []string) string {
 	for _, key := range pathKeys {
-		if path := strings.TrimSpace(stringValue(certificate[key])); path != "" {
+		if path := strings.TrimSpace(jsonvalue.String(certificate[key])); path != "" {
 			return path
 		}
 	}

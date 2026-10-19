@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"strconv"
 	"strings"
 	"sync"
@@ -150,26 +151,26 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 		return result, nil
 	}
 
-	if value := stringValue(row["subscription_url_prefix"]); value != "" {
+	if value := jsonvalue.String(row["subscription_url_prefix"]); value != "" {
 		result.SubscriptionURLPrefix = normalizePrefix(value)
 	}
-	if value := stringValue(row["subscription_path"]); value != "" {
+	if value := jsonvalue.String(row["subscription_path"]); value != "" {
 		result.SubscriptionPath = normalizePath(value)
 	}
-	if value := stringValue(row["subscription_profile_title"]); value != "" {
+	if value := jsonvalue.String(row["subscription_profile_title"]); value != "" {
 		result.SubscriptionProfileTitle = value
 	}
-	if value := stringValue(row["subscription_support_url"]); value != "" {
+	if value := jsonvalue.String(row["subscription_support_url"]); value != "" {
 		result.SubscriptionSupportURL = ensureScheme(value)
 	}
-	if value := stringValue(row["subscription_update_interval"]); value != "" {
+	if value := jsonvalue.String(row["subscription_update_interval"]); value != "" {
 		result.SubscriptionUpdateInterval = value
 	}
 	result.SubscriptionPorts = normalizePorts(row["subscription_ports"])
 	result.SubscriptionAliases = normalizeAliases(row["subscription_aliases"])
 	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])
 	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
-	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
+	result.SubscriptionPlaceholderRemark = jsonvalue.FirstNonEmpty(jsonvalue.String(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
 	return result, nil
 }
@@ -318,8 +319,8 @@ func (r Repository) ResolvedInboundsByTag(ctx context.Context) (map[string]Resol
 	for _, raw := range rawConfigs {
 		inbounds := listOfMaps(raw["inbounds"])
 		for _, inbound := range inbounds {
-			tag := stringValue(inbound["tag"])
-			protocol := stringValue(inbound["protocol"])
+			tag := jsonvalue.String(inbound["tag"])
+			protocol := jsonvalue.String(inbound["protocol"])
 			if tag == "" || protocol == "" {
 				continue
 			}
@@ -912,7 +913,7 @@ func normalizeAliases(raw any) []string {
 	result := make([]string, 0, len(values))
 	seen := map[string]struct{}{}
 	for _, value := range values {
-		alias := strings.TrimSpace(stringValue(value))
+		alias := strings.TrimSpace(jsonvalue.String(value))
 		if alias == "" {
 			continue
 		}

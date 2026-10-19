@@ -1355,7 +1355,7 @@ func adminCanDeleteUsersTx(ctx context.Context, tx *sql.Tx, adminID int64) (bool
 	if err != nil {
 		return false, false, err
 	}
-	permissions, err := adminapp.BuildPermissions(role, jsonTextFromDB(rawPermissions))
+	permissions, err := adminapp.BuildPermissions(role, adminapp.JSONText(rawPermissions))
 	if err != nil {
 		return false, false, err
 	}

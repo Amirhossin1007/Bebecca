@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -53,7 +54,7 @@ func (r Repository) l2tpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 	target := xrayconfig.NodeTargetID(nodeID)
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
-		if port := OVIntValue(inbound["port"]); port > 0 {
+		if port := jsonvalue.Int(inbound["port"]); port > 0 {
 			usedPorts[port] = struct{}{}
 		}
 	}
@@ -68,13 +69,13 @@ func (r Repository) l2tpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 		runtimeConfig.SessionCallback = callback
 	}
 	for _, inbound := range inbounds {
-		if strings.ToLower(OVStringValue(inbound["protocol"])) != xrayconfig.L2TPProtocol {
+		if strings.ToLower(jsonvalue.String(inbound["protocol"])) != xrayconfig.L2TPProtocol {
 			continue
 		}
 		if !OVInboundMatchesTarget(inbound, target) {
 			continue
 		}
-		tag := OVStringValue(inbound["tag"])
+		tag := jsonvalue.String(inbound["tag"])
 		if tag == "" {
 			continue
 		}
@@ -83,7 +84,7 @@ func (r Repository) l2tpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 		if err != nil {
 			return L2TPRuntime{}, err
 		}
-		users, err := r.L2TPUsersForServices(ctx, serviceIDs, OVStringValue(settings["ipv4_pool_cidr"]))
+		users, err := r.L2TPUsersForServices(ctx, serviceIDs, jsonvalue.String(settings["ipv4_pool_cidr"]))
 		if err != nil {
 			return L2TPRuntime{}, err
 		}
@@ -97,7 +98,7 @@ func (r Repository) l2tpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 		runtimeConfig.Inbounds = append(runtimeConfig.Inbounds, L2TPRuntimeInbound{
 			Tag:        tag,
 			TunnelTag:  xrayconfig.RuntimeTunnelTagForProtocol(xrayconfig.L2TPProtocol, tag),
-			Port:       OVIntValue(inbound["port"]),
+			Port:       jsonvalue.Int(inbound["port"]),
 			TunnelPort: tunnelPort,
 			Settings:   settings,
 			Users:      users,
@@ -185,14 +186,14 @@ func L2TPRuntimeSettings(inbound map[string]any) map[string]any {
 		{"lcp_echo_interval", 30, 1, 3600},
 		{"lcp_echo_failure", 4, 1, 20},
 	} {
-		value := OVIntValue(out[item.key])
+		value := jsonvalue.Int(out[item.key])
 		if value < item.min || value > item.max {
 			value = item.fallback
 		}
 		out[item.key] = value
 	}
 	for _, key := range []string{"ipsec_psk"} {
-		if value := strings.TrimSpace(OVStringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)

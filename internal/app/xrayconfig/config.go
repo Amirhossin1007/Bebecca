@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"math/big"
 	"net"
 	"net/netip"
@@ -239,7 +240,7 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 	vlessDefaultFlowTags := vlessDefaultFlowEndpointTags(inbounds)
 	for index, inbound := range inbounds {
 		inheritVLESSInboundFlow(inbound)
-		if knownVersion && !atLeast25829 && strings.EqualFold(stringValue(inbound["protocol"]), "vless") {
+		if knownVersion && !atLeast25829 && strings.EqualFold(jsonvalue.String(inbound["protocol"]), "vless") {
 			delete(mapValue(inbound["settings"]), "flow")
 		}
 		stream := mapValue(inbound["streamSettings"])
@@ -285,14 +286,14 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 	for index, outbound := range outbounds {
 		stream := mapValue(outbound["streamSettings"])
 		label := configEndpointLabel(outbound, index)
-		if !atLeast2698 && strings.EqualFold(stringValue(outbound["protocol"]), "wireguard") {
+		if !atLeast2698 && strings.EqualFold(jsonvalue.String(outbound["protocol"]), "wireguard") {
 			settings := mapValue(outbound["settings"])
 			if _, exists := settings["remoteDNS"]; exists {
 				delete(settings, "remoteDNS")
 				unsupportedRemoteDNSTags = append(unsupportedRemoteDNSTags, label)
 			}
 		}
-		if atLeast26930 && strings.EqualFold(stringValue(outbound["protocol"]), "wireguard") {
+		if atLeast26930 && strings.EqualFold(jsonvalue.String(outbound["protocol"]), "wireguard") {
 			if dropUnsupportedWireGuardRemoteDNS(mapValue(outbound["settings"])) {
 				unsupportedWireGuardDNSTags = append(unsupportedWireGuardDNSTags, label)
 			}
@@ -300,9 +301,9 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 		if atLeast26930 && normalizeXDNSFinalMaskForXrayVersion(stream, false, atLeast261010) {
 			xdnsAdaptedTags = append(xdnsAdaptedTags, label)
 		}
-		if !atLeast2698 && strings.EqualFold(stringValue(outbound["protocol"]), "blackhole") {
+		if !atLeast2698 && strings.EqualFold(jsonvalue.String(outbound["protocol"]), "blackhole") {
 			response := mapValue(mapValue(outbound["settings"])["response"])
-			if strings.EqualFold(stringValue(response["type"]), "custom") {
+			if strings.EqualFold(jsonvalue.String(response["type"]), "custom") {
 				response["type"] = "none"
 				delete(response, "customResponseData")
 				unsupportedCustomResponseTags = append(unsupportedCustomResponseTags, label)
@@ -509,19 +510,19 @@ func normalizeModernOutbound(outbound map[string]any) bool {
 	stream := mapValue(outbound["streamSettings"])
 	sockopt := mapValue(stream["sockopt"])
 	if proxy, ok := outbound["proxySettings"]; ok && proxy != nil {
-		if tag := strings.TrimSpace(stringValue(mapValue(proxy)["tag"])); tag != "" && strings.TrimSpace(stringValue(sockopt["dialerProxy"])) == "" {
+		if tag := strings.TrimSpace(jsonvalue.String(mapValue(proxy)["tag"])); tag != "" && strings.TrimSpace(jsonvalue.String(sockopt["dialerProxy"])) == "" {
 			sockopt["dialerProxy"] = tag
 		}
 		delete(outbound, "proxySettings")
 		changed = true
 	}
-	if strings.EqualFold(stringValue(outbound["protocol"]), "freedom") {
+	if strings.EqualFold(jsonvalue.String(outbound["protocol"]), "freedom") {
 		if _, ok := sockopt["addressPortStrategy"]; ok {
 			delete(sockopt, "addressPortStrategy")
 			changed = true
 		}
 		settings := mapValue(outbound["settings"])
-		strategy := firstNonEmptyString(outbound["targetStrategy"], settings["targetStrategy"], settings["domainStrategy"])
+		strategy := jsonvalue.FirstNonEmpty(outbound["targetStrategy"], settings["targetStrategy"], settings["domainStrategy"])
 		if strategy != "" && !strings.EqualFold(strategy, "asis") {
 			sockopt["domainStrategy"] = strategy
 		}
@@ -540,7 +541,7 @@ func normalizeModernOutbound(outbound map[string]any) bool {
 		stream["sockopt"] = sockopt
 		outbound["streamSettings"] = stream
 	}
-	if strings.EqualFold(stringValue(outbound["protocol"]), "dns") && normalizeLegacyDNSOutbound(mapValue(outbound["settings"])) {
+	if strings.EqualFold(jsonvalue.String(outbound["protocol"]), "dns") && normalizeLegacyDNSOutbound(mapValue(outbound["settings"])) {
 		changed = true
 	}
 	return changed
@@ -553,7 +554,7 @@ func normalizeLegacyDNSOutbound(settings map[string]any) bool {
 		return false
 	}
 	if settings["rules"] == nil {
-		policy := strings.TrimSpace(stringValue(mode))
+		policy := strings.TrimSpace(jsonvalue.String(mode))
 		if policy == "" {
 			policy = "reject"
 		}
@@ -598,12 +599,12 @@ func normalizeLegacyUDPHop(stream map[string]any) int {
 	quic := mapValue(finalMask["quicParams"])
 	hop := mapValue(quic["udpHop"])
 	ports := hop["ports"]
-	if strings.TrimSpace(stringValue(ports)) == "" {
+	if strings.TrimSpace(jsonvalue.String(ports)) == "" {
 		return 0
 	}
 	masks, _ := finalMask["udp"].([]any)
 	for _, mask := range masks {
-		typeName := strings.ToLower(stringValue(mapValue(mask)["type"]))
+		typeName := strings.ToLower(jsonvalue.String(mapValue(mask)["type"]))
 		if typeName == "udphop" {
 			delete(quic, "udpHop")
 			return 1
@@ -613,7 +614,7 @@ func normalizeLegacyUDPHop(stream map[string]any) int {
 		}
 	}
 	interval := hop["interval"]
-	if interval == nil || stringValue(interval) == "" || stringValue(interval) == "0" {
+	if interval == nil || jsonvalue.String(interval) == "" || jsonvalue.String(interval) == "0" {
 		interval = "30"
 	}
 	mask := map[string]any{"type": "udphop", "settings": map[string]any{
@@ -650,7 +651,7 @@ func normalizeOutboundAllowInsecureForXrayVersion(stream map[string]any, atLeast
 		tlsSettings["allowInsecure"] = allow
 	}
 	stream["tlsSettings"] = tlsSettings
-	return boolValue(allow)
+	return jsonvalue.Bool(allow)
 }
 
 func normalizeTLSFieldsForXrayVersion(stream map[string]any, atLeast26131 bool, knownVersion bool) (invalidPin bool, versionSensitive bool) {
@@ -750,17 +751,17 @@ func normalizeLegacyMKCPForXrayVersion(stream map[string]any, atLeast26131, atLe
 	headerDomain := ""
 	if headerExists {
 		header := mapValue(headerValue)
-		headerType = strings.ToLower(strings.TrimSpace(stringValue(header["type"])))
+		headerType = strings.ToLower(strings.TrimSpace(jsonvalue.String(header["type"])))
 		if headerType == "" {
 			headerType = "none"
 		}
-		headerDomain = strings.TrimSpace(stringValue(header["domain"]))
+		headerDomain = strings.TrimSpace(jsonvalue.String(header["domain"]))
 	}
 	headerType = normalizeLegacyMKCPHeader(headerType)
 	if headerType == "invalid" {
 		return mkcpIncompatible
 	}
-	seed := stringValue(seedValue)
+	seed := jsonvalue.String(seedValue)
 	masks := make([]any, 0, 2)
 	if atLeast2661 {
 		masks = append(masks, map[string]any{"type": "mkcp-legacy", "settings": map[string]any{"header": "", "value": seed}})
@@ -788,7 +789,7 @@ func normalizeLegacyMKCPForXrayVersion(stream map[string]any, atLeast26131, atLe
 	finalMask := mapValue(stream["finalmask"])
 	if existing, ok := finalMask["udp"].([]any); ok {
 		if len(existing) > 0 {
-			outerType := strings.ToLower(strings.TrimSpace(stringValue(mapValue(existing[0])["type"])))
+			outerType := strings.ToLower(strings.TrimSpace(jsonvalue.String(mapValue(existing[0])["type"])))
 			if outerType == "realm" || outerType == "xicmp" {
 				masks = append(append([]any{existing[0]}, masks...), existing[1:]...)
 			} else {
@@ -836,7 +837,7 @@ func incompatibleMKCPTTI(stream map[string]any, maximum int, knownVersion bool) 
 	if streamNetwork(stream) != "kcp" {
 		return false, false
 	}
-	tti := intValue(mapValue(stream["kcpSettings"])["tti"])
+	tti := jsonvalue.Int(mapValue(stream["kcpSettings"])["tti"])
 	if tti <= 100 {
 		return false, false
 	}
@@ -850,7 +851,7 @@ func incompatibleMKCPMTU(stream map[string]any, atLeast26131, knownVersion bool)
 	if streamNetwork(stream) != "kcp" {
 		return false, false
 	}
-	mtu, err := strconv.ParseInt(strings.TrimSpace(stringValue(mapValue(stream["kcpSettings"])["mtu"])), 10, 64)
+	mtu, err := strconv.ParseInt(strings.TrimSpace(jsonvalue.String(mapValue(stream["kcpSettings"])["mtu"])), 10, 64)
 	if err != nil || mtu == 0 || (mtu >= 576 && mtu <= 1460) {
 		return false, false
 	}
@@ -880,7 +881,7 @@ func normalizeFragmentFinalMaskForXrayVersion(stream map[string]any, usePlural, 
 	}
 	changed := false
 	for _, mask := range tcpMasks {
-		if !strings.EqualFold(stringValue(mask["type"]), "fragment") {
+		if !strings.EqualFold(jsonvalue.String(mask["type"]), "fragment") {
 			continue
 		}
 		settings := mapValue(mask["settings"])
@@ -916,7 +917,7 @@ func normalizeFragmentFinalMaskForXrayVersion(stream map[string]any, usePlural, 
 
 func fragmentFinalMaskCompatibility(tcpMasks []map[string]any, usePlural, knownVersion bool) fragmentNormalization {
 	for _, mask := range tcpMasks {
-		if !strings.EqualFold(stringValue(mask["type"]), "fragment") {
+		if !strings.EqualFold(jsonvalue.String(mask["type"]), "fragment") {
 			continue
 		}
 		settings := mapValue(mask["settings"])
@@ -927,12 +928,12 @@ func fragmentFinalMaskCompatibility(tcpMasks []map[string]any, usePlural, knownV
 			values, hasValues := anyList(settings[pair[0]])
 			singularValue, hasSingular := settings[pair[1]]
 			if usePlural {
-				if hasValues && hasSingular && (len(values) != 1 || stringValue(values[0]) != stringValue(singularValue)) {
+				if hasValues && hasSingular && (len(values) != 1 || jsonvalue.String(values[0]) != jsonvalue.String(singularValue)) {
 					return fragmentIncompatible
 				}
 				continue
 			}
-			if hasValues && (len(values) != 1 || (hasSingular && stringValue(values[0]) != stringValue(singularValue))) {
+			if hasValues && (len(values) != 1 || (hasSingular && jsonvalue.String(values[0]) != jsonvalue.String(singularValue))) {
 				return fragmentIncompatible
 			}
 		}
@@ -969,7 +970,7 @@ func removedTransportEndpointTags(endpoints []map[string]any) []string {
 func hysteriaEndpointTags(endpoints []map[string]any) []string {
 	tags := make([]string, 0)
 	for index, endpoint := range endpoints {
-		if strings.EqualFold(stringValue(endpoint["protocol"]), "hysteria") {
+		if strings.EqualFold(jsonvalue.String(endpoint["protocol"]), "hysteria") {
 			tags = append(tags, configEndpointLabel(endpoint, index))
 		}
 	}
@@ -978,7 +979,7 @@ func hysteriaEndpointTags(endpoints []map[string]any) []string {
 
 func normalizeCompatibleHysteria2(endpoints []map[string]any) (normalized []string, incompatible []string) {
 	for index, endpoint := range endpoints {
-		if !strings.EqualFold(stringValue(endpoint["protocol"]), "hysteria") {
+		if !strings.EqualFold(jsonvalue.String(endpoint["protocol"]), "hysteria") {
 			continue
 		}
 		label := configEndpointLabel(endpoint, index)
@@ -986,13 +987,13 @@ func normalizeCompatibleHysteria2(endpoints []map[string]any) (normalized []stri
 		stream := mapValue(endpoint["streamSettings"])
 		hysteria := mapValue(stream["hysteriaSettings"])
 		if !hysteria2ProtocolShapeCompatible(settings) || len(hysteria) == 0 ||
-			!strings.EqualFold(firstNonEmptyString(stream["method"], stream["network"]), "hysteria") ||
-			!strings.EqualFold(stringValue(stream["security"]), "tls") ||
+			!strings.EqualFold(jsonvalue.FirstNonEmpty(stream["method"], stream["network"]), "hysteria") ||
+			!strings.EqualFold(jsonvalue.String(stream["security"]), "tls") ||
 			!hysteriaVersionCompatible(settings["version"]) || !hysteriaVersionCompatible(hysteria["version"]) {
 			incompatible = append(incompatible, label)
 			continue
 		}
-		changed := intValue(settings["version"]) != 2 || intValue(hysteria["version"]) != 2
+		changed := jsonvalue.Int(settings["version"]) != 2 || jsonvalue.Int(hysteria["version"]) != 2
 		settings["version"] = 2
 		hysteria["version"] = 2
 		if changed {
@@ -1006,11 +1007,11 @@ func hysteria2ProtocolShapeCompatible(settings map[string]any) bool {
 	if _, hasClients := settings["clients"]; hasClients {
 		return true
 	}
-	return strings.TrimSpace(stringValue(settings["address"])) != "" && intValue(settings["port"]) > 0
+	return strings.TrimSpace(jsonvalue.String(settings["address"])) != "" && jsonvalue.Int(settings["port"]) > 0
 }
 
 func hysteriaVersionCompatible(value any) bool {
-	version := intValue(value)
+	version := jsonvalue.Int(value)
 	return version == 0 || version == 2
 }
 
@@ -1022,7 +1023,7 @@ func hysteriaGeckoEndpointTags(endpoints []map[string]any) []string {
 			continue
 		}
 		for _, mask := range listOfMaps(mapValue(stream["finalmask"])["udp"]) {
-			if strings.EqualFold(stringValue(mask["type"]), "salamander") && stringValue(mapValue(mask["settings"])["packetSize"]) != "" {
+			if strings.EqualFold(jsonvalue.String(mask["type"]), "salamander") && jsonvalue.String(mapValue(mask["settings"])["packetSize"]) != "" {
 				tags = append(tags, configEndpointLabel(endpoint, index))
 				break
 			}
@@ -1032,7 +1033,7 @@ func hysteriaGeckoEndpointTags(endpoints []map[string]any) []string {
 }
 
 func configEndpointLabel(endpoint map[string]any, index int) string {
-	if tag := strings.TrimSpace(stringValue(endpoint["tag"])); tag != "" {
+	if tag := strings.TrimSpace(jsonvalue.String(endpoint["tag"])); tag != "" {
 		return tag
 	}
 	return fmt.Sprintf("endpoint #%d", index+1)
@@ -1040,11 +1041,11 @@ func configEndpointLabel(endpoint map[string]any, index int) string {
 
 func insecurePublicOutboundTags(outbounds []map[string]any) (flatTags, nestedTags []string) {
 	for index, outbound := range outbounds {
-		protocol := strings.ToLower(stringValue(outbound["protocol"]))
+		protocol := strings.ToLower(jsonvalue.String(outbound["protocol"]))
 		if protocol != "vless" && protocol != "trojan" {
 			continue
 		}
-		security := strings.ToLower(stringValue(mapValue(outbound["streamSettings"])["security"]))
+		security := strings.ToLower(jsonvalue.String(mapValue(outbound["streamSettings"])["security"]))
 		if security != "" && security != "none" {
 			continue
 		}
@@ -1053,7 +1054,7 @@ func insecurePublicOutboundTags(outbounds []map[string]any) (flatTags, nestedTag
 		if !flat && !nested {
 			continue
 		}
-		tag := stringValue(outbound["tag"])
+		tag := jsonvalue.String(outbound["tag"])
 		if tag == "" {
 			tag = fmt.Sprintf("outbound #%d", index+1)
 		}
@@ -1069,11 +1070,11 @@ func insecurePublicOutboundTags(outbounds []map[string]any) (flatTags, nestedTag
 
 func unencryptedPublicDestinationShapes(protocol string, settings map[string]any) (flat, nested bool) {
 	if protocol == "trojan" {
-		if isXrayPublicDestination(stringValue(settings["address"])) {
+		if isXrayPublicDestination(jsonvalue.String(settings["address"])) {
 			flat = true
 		}
 		for _, server := range listOfMaps(settings["servers"]) {
-			if isXrayPublicDestination(stringValue(server["address"])) {
+			if isXrayPublicDestination(jsonvalue.String(server["address"])) {
 				nested = true
 				break
 			}
@@ -1081,11 +1082,11 @@ func unencryptedPublicDestinationShapes(protocol string, settings map[string]any
 		return flat, nested
 	}
 
-	if isXrayPublicDestination(stringValue(settings["address"])) && !vlessEncryptionEnabled(settings["encryption"]) {
+	if isXrayPublicDestination(jsonvalue.String(settings["address"])) && !vlessEncryptionEnabled(settings["encryption"]) {
 		flat = true
 	}
 	for _, server := range listOfMaps(settings["vnext"]) {
-		if !isXrayPublicDestination(stringValue(server["address"])) {
+		if !isXrayPublicDestination(jsonvalue.String(server["address"])) {
 			continue
 		}
 		users := listOfMaps(server["users"])
@@ -1104,14 +1105,14 @@ func unencryptedPublicDestinationShapes(protocol string, settings map[string]any
 }
 
 func vlessEncryptionEnabled(value any) bool {
-	encryption := strings.ToLower(stringValue(value))
+	encryption := strings.ToLower(jsonvalue.String(value))
 	return encryption != "" && encryption != "none"
 }
 
 func vlessEncryptionEndpointTags(endpoints []map[string]any) []string {
 	tags := make([]string, 0)
 	for index, endpoint := range endpoints {
-		if !strings.EqualFold(stringValue(endpoint["protocol"]), "vless") {
+		if !strings.EqualFold(jsonvalue.String(endpoint["protocol"]), "vless") {
 			continue
 		}
 		settings := mapValue(endpoint["settings"])
@@ -1131,11 +1132,11 @@ func vlessEncryptionEndpointTags(endpoints []map[string]any) []string {
 func vlessDefaultFlowEndpointTags(inbounds []map[string]any) []string {
 	tags := make([]string, 0)
 	for index, inbound := range inbounds {
-		if !strings.EqualFold(stringValue(inbound["protocol"]), "vless") {
+		if !strings.EqualFold(jsonvalue.String(inbound["protocol"]), "vless") {
 			continue
 		}
 		settings := mapValue(inbound["settings"])
-		flow := firstNonEmptyString(settings["flow"])
+		flow := jsonvalue.FirstNonEmpty(settings["flow"])
 		if flow != "" {
 			tags = append(tags, configEndpointLabel(inbound, index))
 		}
@@ -1144,16 +1145,16 @@ func vlessDefaultFlowEndpointTags(inbounds []map[string]any) []string {
 }
 
 func inheritVLESSInboundFlow(inbound map[string]any) {
-	if !strings.EqualFold(stringValue(inbound["protocol"]), "vless") {
+	if !strings.EqualFold(jsonvalue.String(inbound["protocol"]), "vless") {
 		return
 	}
 	settings := mapValue(inbound["settings"])
-	flow := stringValue(settings["flow"])
+	flow := jsonvalue.String(settings["flow"])
 	if flow == "" {
 		return
 	}
 	for _, client := range listOfMaps(settings["clients"]) {
-		if stringValue(client["flow"]) == "" {
+		if jsonvalue.String(client["flow"]) == "" {
 			client["flow"] = flow
 		}
 	}
@@ -1166,8 +1167,8 @@ func VLESSFlowSupported(inbound map[string]any) bool {
 	}
 	stream := mapValue(inbound["streamSettings"])
 	network := streamNetwork(stream)
-	security := strings.ToLower(stringValue(stream["security"]))
-	headerType := strings.ToLower(stringValue(mapValue(mapValue(stream[networkSettingsKey(network)])["header"])["type"]))
+	security := strings.ToLower(jsonvalue.String(stream["security"]))
+	headerType := strings.ToLower(jsonvalue.String(mapValue(mapValue(stream[NetworkSettingsKey(network)])["header"])["type"]))
 	return (security == "tls" || security == "reality") && (network == "tcp" || network == "raw") && headerType != "http"
 }
 
@@ -1214,7 +1215,7 @@ func normalizeStreamTransportMethod(stream map[string]any, useMethod bool) {
 	if len(stream) == 0 {
 		return
 	}
-	transport := firstNonEmptyString(stream["method"], stream["network"])
+	transport := jsonvalue.FirstNonEmpty(stream["method"], stream["network"])
 	if transport == "" {
 		return
 	}
@@ -1228,8 +1229,8 @@ func normalizeStreamTransportMethod(stream map[string]any, useMethod bool) {
 }
 
 func normalizeXHTTPSessionFields(settings map[string]any, useSessionIDFields, knownVersion bool) {
-	placement := firstNonEmptyString(settings["sessionIDPlacement"], settings["sessionPlacement"])
-	key := firstNonEmptyString(settings["sessionIDKey"], settings["sessionKey"])
+	placement := jsonvalue.FirstNonEmpty(settings["sessionIDPlacement"], settings["sessionPlacement"])
+	key := jsonvalue.FirstNonEmpty(settings["sessionIDKey"], settings["sessionKey"])
 	table, hasTable := firstXHTTPAliasValue(settings, "sessionIDTable", "sessionTable")
 	length, hasLength := firstXHTTPAliasValue(settings, "sessionIDLength", "sessionLength")
 	if !knownVersion {
@@ -1289,10 +1290,10 @@ func normalizeXHTTPSessionFields(settings map[string]any, useSessionIDFields, kn
 }
 
 func firstXHTTPAliasValue(settings map[string]any, current, legacy string) (any, bool) {
-	if value, ok := settings[current]; ok && value != nil && strings.TrimSpace(stringValue(value)) != "" {
+	if value, ok := settings[current]; ok && value != nil && strings.TrimSpace(jsonvalue.String(value)) != "" {
 		return value, true
 	}
-	if value, ok := settings[legacy]; ok && value != nil && strings.TrimSpace(stringValue(value)) != "" {
+	if value, ok := settings[legacy]; ok && value != nil && strings.TrimSpace(jsonvalue.String(value)) != "" {
 		return value, true
 	}
 	return nil, false
@@ -1323,7 +1324,7 @@ func dropUnsupportedWireGuardRemoteDNS(settings map[string]any) bool {
 func normalizeXDNSFinalMaskForXrayVersion(stream map[string]any, inbound bool, namedSchema bool) bool {
 	changed := false
 	for _, mask := range listOfMaps(mapValue(stream["finalmask"])["udp"]) {
-		if !strings.EqualFold(stringValue(mask["type"]), "xdns") {
+		if !strings.EqualFold(jsonvalue.String(mask["type"]), "xdns") {
 			continue
 		}
 		settings := mapValue(mask["settings"])
@@ -1533,8 +1534,8 @@ func (c *Config) GetInbound(tag string) (map[string]any, bool) {
 }
 
 func IsManageableInbound(inbound map[string]any) bool {
-	tag := stringValue(inbound["tag"])
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	tag := jsonvalue.String(inbound["tag"])
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	if tag == "" || protocol == "" {
 		return false
 	}
@@ -1556,7 +1557,7 @@ func (c *Config) validate() error {
 
 	seenInboundTags := map[string]struct{}{}
 	for _, inbound := range inbounds {
-		tag := stringValue(inbound["tag"])
+		tag := jsonvalue.String(inbound["tag"])
 		if tag == "" {
 			return errors.New("all inbounds must have a unique tag")
 		}
@@ -1574,7 +1575,7 @@ func (c *Config) validate() error {
 
 	seenOutboundTags := map[string]struct{}{}
 	for _, outbound := range outbounds {
-		tag := stringValue(outbound["tag"])
+		tag := jsonvalue.String(outbound["tag"])
 		if tag == "" {
 			return errors.New("all outbounds must have a unique tag")
 		}
@@ -1587,8 +1588,8 @@ func (c *Config) validate() error {
 }
 
 func validateExecutableInbound(inbound map[string]any) error {
-	tag := stringValue(inbound["tag"])
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	tag := jsonvalue.String(inbound["tag"])
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	if isVirtualTunnelProtocol(protocol) {
 		return validateVirtualTunnelInbound(tag, inbound)
 	}
@@ -1610,7 +1611,7 @@ func validateExecutableInbound(inbound map[string]any) error {
 	}
 	if protocol == "vless" {
 		settings := mapValue(inbound["settings"])
-		flow := firstNonEmptyString(settings["flow"])
+		flow := jsonvalue.FirstNonEmpty(settings["flow"])
 
 		if flow != "" {
 			if flow != "xtls-rprx-vision" {
@@ -1623,7 +1624,7 @@ func validateExecutableInbound(inbound map[string]any) error {
 	}
 	if protocol == "shadowsocks" {
 		settings := mapValue(inbound["settings"])
-		method := stringValue(settings["method"])
+		method := jsonvalue.String(settings["method"])
 		if strings.HasPrefix(method, "2022-") {
 			keyLength := map[string]int{
 				"2022-blake3-aes-128-gcm":       16,
@@ -1633,7 +1634,7 @@ func validateExecutableInbound(inbound map[string]any) error {
 			if keyLength == 0 {
 				return fmt.Errorf("invalid inbound %q: unsupported multi-user Shadowsocks 2022 method %q", tag, method)
 			}
-			key, err := base64.StdEncoding.DecodeString(stringValue(settings["password"]))
+			key, err := base64.StdEncoding.DecodeString(jsonvalue.String(settings["password"]))
 			if err != nil || len(key) != keyLength {
 				return fmt.Errorf("invalid inbound %q: Shadowsocks 2022 server password must be a base64-encoded %d-byte key", tag, keyLength)
 			}
@@ -1657,12 +1658,12 @@ func validateExecutableInbound(inbound map[string]any) error {
 	if protocol == "hysteria" && network != "hysteria" {
 		return fmt.Errorf("invalid inbound %q: hysteria protocol requires hysteria stream network", tag)
 	}
-	networkSettings := mapValue(stream[networkSettingsKey(network)])
+	networkSettings := mapValue(stream[NetworkSettingsKey(network)])
 	if err := validateNetworkSettings(tag, network, networkSettings); err != nil {
 		return err
 	}
 
-	security := strings.ToLower(strings.TrimSpace(stringValue(stream["security"])))
+	security := strings.ToLower(strings.TrimSpace(jsonvalue.String(stream["security"])))
 	switch security {
 	case "", "none":
 		if protocol == "hysteria" {
@@ -1686,11 +1687,11 @@ func validateAuxiliaryInbound(tag, protocol string, inbound map[string]any) erro
 	settings := mapValue(inbound["settings"])
 	switch protocol {
 	case "ssh":
-		limit := intValue(settings["user_limit"])
+		limit := jsonvalue.Int(settings["user_limit"])
 		if limit < 0 || limit > 64 {
 			return fmt.Errorf("invalid inbound %q: SSH user limit must be between 0 and 64", tag)
 		}
-		idle := intValue(settings["idle_timeout"])
+		idle := jsonvalue.Int(settings["idle_timeout"])
 		if idle != 0 && (idle < 30 || idle > 86400) {
 			return fmt.Errorf("invalid inbound %q: SSH idle timeout must be between 30 and 86400 seconds", tag)
 		}
@@ -1698,18 +1699,18 @@ func validateAuxiliaryInbound(tag, protocol string, inbound map[string]any) erro
 		if err := validateProxySecret(settings["secret"], false); err != nil {
 			return fmt.Errorf("invalid inbound %q: %w", tag, err)
 		}
-		publicHost := strings.TrimSpace(stringValue(settings["public_host"]))
+		publicHost := strings.TrimSpace(jsonvalue.String(settings["public_host"]))
 		if net.ParseIP(publicHost) == nil && !isValidPublicHostname(strings.ToLower(publicHost)) {
 			return fmt.Errorf("invalid inbound %q: MTProxy requires a public hostname or IP", tag)
 		}
-		classic, secure, fakeTLS := boolValue(settings["mode_classic"]), boolValue(settings["mode_secure"]), boolValue(settings["mode_tls"])
+		classic, secure, fakeTLS := jsonvalue.Bool(settings["mode_classic"]), jsonvalue.Bool(settings["mode_secure"]), jsonvalue.Bool(settings["mode_tls"])
 		if !classic && !secure && !fakeTLS {
 			return fmt.Errorf("invalid inbound %q: at least one MTProxy connection mode is required", tag)
 		}
-		if fakeTLS && !isValidPublicHostname(strings.ToLower(strings.TrimSpace(stringValue(settings["tls_domain"])))) {
+		if fakeTLS && !isValidPublicHostname(strings.ToLower(strings.TrimSpace(jsonvalue.String(settings["tls_domain"])))) {
 			return fmt.Errorf("invalid inbound %q: MTProxy FakeTLS requires a public TLS domain", tag)
 		}
-		if sponsor := strings.TrimSpace(stringValue(settings["sponsor_tag"])); sponsor != "" {
+		if sponsor := strings.TrimSpace(jsonvalue.String(settings["sponsor_tag"])); sponsor != "" {
 			if len(sponsor) != 32 {
 				return fmt.Errorf("invalid inbound %q: MTProxy sponsor tag must contain 32 hexadecimal characters", tag)
 			}
@@ -1717,11 +1718,11 @@ func validateAuxiliaryInbound(tag, protocol string, inbound map[string]any) erro
 				return fmt.Errorf("invalid inbound %q: MTProxy sponsor tag must contain 32 hexadecimal characters", tag)
 			}
 		}
-		limit := intValue(settings["user_limit"])
+		limit := jsonvalue.Int(settings["user_limit"])
 		if limit < 0 || limit > 64 {
 			return fmt.Errorf("invalid inbound %q: MTProxy unique IP limit must be between 0 and 64", tag)
 		}
-		connections := intValue(settings["max_connections"])
+		connections := jsonvalue.Int(settings["max_connections"])
 		if connections < 0 || connections > 1000000 {
 			return fmt.Errorf("invalid inbound %q: MTProxy maximum connections must be between 0 and 1000000", tag)
 		}
@@ -1729,18 +1730,18 @@ func validateAuxiliaryInbound(tag, protocol string, inbound map[string]any) erro
 		if port != 443 {
 			return fmt.Errorf("invalid inbound %q: Telegram WEB proxy requires public port 443", tag)
 		}
-		hostname := strings.ToLower(strings.TrimSpace(stringValue(settings["hostname"])))
+		hostname := strings.ToLower(strings.TrimSpace(jsonvalue.String(settings["hostname"])))
 		if !isValidPublicHostname(hostname) {
 			return fmt.Errorf("invalid inbound %q: Web proxy hostname must be a public DNS name", tag)
 		}
-		email := strings.TrimSpace(stringValue(settings["acme_email"]))
+		email := strings.TrimSpace(jsonvalue.String(settings["acme_email"]))
 		if !strings.Contains(email, "@") || strings.ContainsAny(email, "\r\n") {
 			return fmt.Errorf("invalid inbound %q: a valid ACME email is required", tag)
 		}
 		if err := validateProxySecret(settings["secret"], true); err != nil {
 			return fmt.Errorf("invalid inbound %q: Web proxy %w", tag, err)
 		}
-		if upstream := strings.TrimSpace(stringValue(settings["site_upstream"])); upstream != "" {
+		if upstream := strings.TrimSpace(jsonvalue.String(settings["site_upstream"])); upstream != "" {
 			parsed, err := url.Parse(upstream)
 			if err != nil || parsed.Scheme != "http" || parsed.Hostname() == "" || parsed.Port() == "" {
 				return fmt.Errorf("invalid inbound %q: Web proxy site upstream must be a loopback HTTP URL with a port", tag)
@@ -1755,7 +1756,7 @@ func validateAuxiliaryInbound(tag, protocol string, inbound map[string]any) erro
 }
 
 func validateProxySecret(value any, allowDDPrefix bool) error {
-	secret := strings.ToLower(strings.TrimSpace(stringValue(value)))
+	secret := strings.ToLower(strings.TrimSpace(jsonvalue.String(value)))
 	if allowDDPrefix && strings.HasPrefix(secret, "dd") {
 		secret = secret[2:]
 	}
@@ -1788,15 +1789,15 @@ func isValidPublicHostname(value string) bool {
 func validateNetworkSettings(tag string, network string, settings map[string]any) error {
 	switch network {
 	case "ws":
-		if path := strings.TrimSpace(stringValue(settings["path"])); path != "" && !strings.HasPrefix(path, "/") {
+		if path := strings.TrimSpace(jsonvalue.String(settings["path"])); path != "" && !strings.HasPrefix(path, "/") {
 			return fmt.Errorf("invalid inbound %q: WebSocket path must start with /", tag)
 		}
 	case "httpupgrade":
-		if path := strings.TrimSpace(stringValue(settings["path"])); path != "" && !strings.HasPrefix(path, "/") {
+		if path := strings.TrimSpace(jsonvalue.String(settings["path"])); path != "" && !strings.HasPrefix(path, "/") {
 			return fmt.Errorf("invalid inbound %q: HTTPUpgrade path must start with /", tag)
 		}
 	case "splithttp", "xhttp":
-		if path := strings.TrimSpace(stringValue(settings["path"])); path != "" && !strings.HasPrefix(path, "/") {
+		if path := strings.TrimSpace(jsonvalue.String(settings["path"])); path != "" && !strings.HasPrefix(path, "/") {
 			return fmt.Errorf("invalid inbound %q: %s path must start with /", tag, network)
 		}
 		if err := validateInt32RangeSetting(tag, "xPaddingBytes", settings["xPaddingBytes"], true); err != nil {
@@ -1805,40 +1806,40 @@ func validateNetworkSettings(tag string, network string, settings map[string]any
 		if err := validateInt32RangeSetting(tag, "uplinkChunkSize", settings["uplinkChunkSize"], false); err != nil {
 			return err
 		}
-		mode := strings.TrimSpace(stringValue(settings["mode"]))
+		mode := strings.TrimSpace(jsonvalue.String(settings["mode"]))
 		if mode == "" {
 			mode = "auto"
 		}
 		if !oneOf(mode, "auto", "packet-up", "stream-up", "stream-one") {
 			return fmt.Errorf("invalid inbound %q: unsupported XHTTP mode %q", tag, mode)
 		}
-		paddingPlacement := strings.TrimSpace(stringValue(settings["xPaddingPlacement"]))
+		paddingPlacement := strings.TrimSpace(jsonvalue.String(settings["xPaddingPlacement"]))
 		if paddingPlacement != "" && !oneOf(paddingPlacement, "queryInHeader", "query", "header", "cookie") {
 			return fmt.Errorf("invalid inbound %q: unsupported xPaddingPlacement %q", tag, paddingPlacement)
 		}
-		paddingMethod := strings.TrimSpace(stringValue(settings["xPaddingMethod"]))
+		paddingMethod := strings.TrimSpace(jsonvalue.String(settings["xPaddingMethod"]))
 		if paddingMethod != "" && !oneOf(paddingMethod, "repeat-x", "tokenish") {
 			return fmt.Errorf("invalid inbound %q: unsupported xPaddingMethod %q", tag, paddingMethod)
 		}
-		sessionPlacement := firstNonEmptyString(settings["sessionIDPlacement"], settings["sessionPlacement"])
+		sessionPlacement := jsonvalue.FirstNonEmpty(settings["sessionIDPlacement"], settings["sessionPlacement"])
 		if sessionPlacement != "" && !oneOf(sessionPlacement, "path", "query", "header", "cookie") {
 			return fmt.Errorf("invalid inbound %q: unsupported sessionIDPlacement %q", tag, sessionPlacement)
 		}
 		if err := validateXHTTPSessionID(tag, settings); err != nil {
 			return err
 		}
-		seqPlacement := strings.TrimSpace(stringValue(settings["seqPlacement"]))
+		seqPlacement := strings.TrimSpace(jsonvalue.String(settings["seqPlacement"]))
 		if seqPlacement != "" && !oneOf(seqPlacement, "path", "query", "header", "cookie") {
 			return fmt.Errorf("invalid inbound %q: unsupported seqPlacement %q", tag, seqPlacement)
 		}
-		uplinkDataPlacement := strings.TrimSpace(stringValue(settings["uplinkDataPlacement"]))
+		uplinkDataPlacement := strings.TrimSpace(jsonvalue.String(settings["uplinkDataPlacement"]))
 		if uplinkDataPlacement != "" && !oneOf(uplinkDataPlacement, "auto", "body", "header", "cookie") {
 			return fmt.Errorf("invalid inbound %q: unsupported uplinkDataPlacement %q", tag, uplinkDataPlacement)
 		}
 		if oneOf(uplinkDataPlacement, "header", "cookie") && mode != "packet-up" {
 			return fmt.Errorf("invalid inbound %q: uplinkDataPlacement %q requires packet-up mode", tag, uplinkDataPlacement)
 		}
-		method := strings.TrimSpace(stringValue(settings["uplinkHTTPMethod"]))
+		method := strings.TrimSpace(jsonvalue.String(settings["uplinkHTTPMethod"]))
 		if err := validateHTTPTokenSetting(tag, "uplinkHTTPMethod", method); err != nil {
 			return err
 		}
@@ -1851,22 +1852,22 @@ func validateNetworkSettings(tag string, network string, settings map[string]any
 		}{
 			{"xPaddingKey", settings["xPaddingKey"]},
 			{"xPaddingHeader", settings["xPaddingHeader"]},
-			{"sessionIDKey", firstNonEmptyString(settings["sessionIDKey"], settings["sessionKey"])},
+			{"sessionIDKey", jsonvalue.FirstNonEmpty(settings["sessionIDKey"], settings["sessionKey"])},
 			{"seqKey", settings["seqKey"]},
 			{"uplinkDataKey", settings["uplinkDataKey"]},
 		} {
-			if err := validateHTTPTokenSetting(tag, field.name, stringValue(field.value)); err != nil {
+			if err := validateHTTPTokenSetting(tag, field.name, jsonvalue.String(field.value)); err != nil {
 				return err
 			}
 		}
-		if value, ok := settings["serverMaxHeaderBytes"]; ok && value != nil && stringValue(value) != "" {
+		if value, ok := settings["serverMaxHeaderBytes"]; ok && value != nil && jsonvalue.String(value) != "" {
 			parsed, err := parseConfigInt32(value)
 			if err != nil || parsed < 0 {
 				return fmt.Errorf("invalid inbound %q: serverMaxHeaderBytes must be a non-negative 32-bit integer", tag)
 			}
 		}
 	case "grpc", "gun":
-		if value := strings.TrimSpace(stringValue(settings["serviceName"])); strings.Contains(value, "/") {
+		if value := strings.TrimSpace(jsonvalue.String(settings["serviceName"])); strings.Contains(value, "/") {
 			return fmt.Errorf("invalid inbound %q: gRPC serviceName must not contain /", tag)
 		}
 	case "kcp":
@@ -1881,10 +1882,10 @@ func validateNetworkSettings(tag string, network string, settings map[string]any
 }
 
 func validateMKCPNumber(tag, field string, value any, minimum, maximum int64) error {
-	if value == nil || strings.TrimSpace(stringValue(value)) == "" {
+	if value == nil || strings.TrimSpace(jsonvalue.String(value)) == "" {
 		return nil
 	}
-	parsed, err := strconv.ParseInt(strings.TrimSpace(stringValue(value)), 10, 64)
+	parsed, err := strconv.ParseInt(strings.TrimSpace(jsonvalue.String(value)), 10, 64)
 	if err != nil || parsed < minimum || parsed > maximum {
 		return fmt.Errorf("invalid inbound %q: mKCP %s must be an integer between %d and %d", tag, field, minimum, maximum)
 	}
@@ -1892,7 +1893,7 @@ func validateMKCPNumber(tag, field string, value any, minimum, maximum int64) er
 }
 
 func validateInt32RangeSetting(tag string, key string, value any, requirePositive bool) error {
-	text := strings.TrimSpace(stringValue(value))
+	text := strings.TrimSpace(jsonvalue.String(value))
 	if text == "" {
 		return nil
 	}
@@ -1915,7 +1916,7 @@ func validateInt32RangeSetting(tag string, key string, value any, requirePositiv
 }
 
 func validateXHTTPSessionID(tag string, settings map[string]any) error {
-	table := firstNonEmptyString(settings["sessionIDTable"], settings["sessionTable"])
+	table := jsonvalue.FirstNonEmpty(settings["sessionIDTable"], settings["sessionTable"])
 	if table == "" {
 		return nil
 	}
@@ -1927,7 +1928,7 @@ func validateXHTTPSessionID(tag string, settings map[string]any) error {
 			return fmt.Errorf("invalid inbound %q: sessionIDTable must contain only ASCII characters", tag)
 		}
 	}
-	minimum, maximum, err := parsePositiveInt32Range(firstNonEmptyString(settings["sessionIDLength"], settings["sessionLength"]))
+	minimum, maximum, err := parsePositiveInt32Range(jsonvalue.FirstNonEmpty(settings["sessionIDLength"], settings["sessionLength"]))
 	if err != nil {
 		return fmt.Errorf("invalid inbound %q: sessionIDLength must be a positive integer or range", tag)
 	}
@@ -1938,7 +1939,7 @@ func validateXHTTPSessionID(tag string, settings map[string]any) error {
 }
 
 func parsePositiveInt32Range(value any) (int64, int64, error) {
-	text := strings.TrimSpace(stringValue(value))
+	text := strings.TrimSpace(jsonvalue.String(value))
 	if text == "" || !xPaddingBytesPattern.MatchString(text) {
 		return 0, 0, fmt.Errorf("invalid range")
 	}
@@ -1998,7 +1999,7 @@ func validateHTTPTokenSetting(tag string, key string, value string) error {
 }
 
 func parseConfigInt32(value any) (int64, error) {
-	text := strings.TrimSpace(stringValue(value))
+	text := strings.TrimSpace(jsonvalue.String(value))
 	if text == "" {
 		return 0, fmt.Errorf("value is required")
 	}
@@ -2027,11 +2028,11 @@ func validateRealitySettings(tag string, protocol string, network string, realit
 		return fmt.Errorf("invalid inbound %q: realitySettings is required", tag)
 	}
 	settings := mapValue(reality["settings"])
-	target := firstNonEmptyString(reality["target"], reality["dest"], settings["target"], settings["dest"])
+	target := jsonvalue.FirstNonEmpty(reality["target"], reality["dest"], settings["target"], settings["dest"])
 	if err := validateHostPortTarget(target); err != nil {
 		return fmt.Errorf("invalid inbound %q: realitySettings target %w", tag, err)
 	}
-	privateKey := firstNonEmptyString(reality["privateKey"], settings["privateKey"])
+	privateKey := jsonvalue.FirstNonEmpty(reality["privateKey"], settings["privateKey"])
 	if strings.TrimSpace(privateKey) == "" {
 		return fmt.Errorf("invalid inbound %q: realitySettings privateKey is required", tag)
 	}
@@ -2040,7 +2041,7 @@ func validateRealitySettings(tag string, protocol string, network string, realit
 	}
 	serverNames := stringList(reality["serverNames"])
 	if len(serverNames) == 0 {
-		serverNames = nonEmptyStrings(firstNonEmptyString(reality["serverName"], settings["serverName"], settings["sni"]))
+		serverNames = jsonvalue.NonEmptyStrings(jsonvalue.FirstNonEmpty(reality["serverName"], settings["serverName"], settings["sni"]))
 	}
 	if len(serverNames) == 0 {
 		return fmt.Errorf("invalid inbound %q: realitySettings serverNames is required", tag)
@@ -2151,8 +2152,8 @@ func (c *Config) migrateDeprecated() {
 
 func (c *Config) resolveInbounds() error {
 	for _, inbound := range listOfMaps(c.raw["inbounds"]) {
-		tag := stringValue(inbound["tag"])
-		protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+		tag := jsonvalue.String(inbound["tag"])
+		protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 		if tag == "" || protocol == "" {
 			continue
 		}
@@ -2171,8 +2172,8 @@ func (c *Config) resolveInbounds() error {
 }
 
 func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
-	tag := stringValue(inbound["tag"])
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	tag := jsonvalue.String(inbound["tag"])
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	resolved := ResolvedInbound{
 		"tag":         tag,
 		"protocol":    protocol,
@@ -2192,11 +2193,11 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 		resolved["port"] = inbound["port"]
 	}
 	if protocol == "vless" {
-		if encryption := firstNonEmptyString(settings["encryption"]); encryption != "" {
+		if encryption := jsonvalue.FirstNonEmpty(settings["encryption"]); encryption != "" {
 			resolved["encryption"] = encryption
 		}
 		if flow, configured := settings["flow"]; configured {
-			resolved["flow"] = stringValue(flow)
+			resolved["flow"] = jsonvalue.String(flow)
 		} else {
 			delete(resolved, "flow")
 		}
@@ -2214,7 +2215,7 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 		resolved["network"] = "tcp"
 		if protocol == "web" {
 			resolved["tls"] = "tls"
-			resolved["sni"] = []string{stringValue(settings["hostname"])}
+			resolved["sni"] = []string{jsonvalue.String(settings["hostname"])}
 		}
 		return resolved, nil
 	}
@@ -2224,8 +2225,8 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 		return resolved, nil
 	}
 	network := streamNetwork(stream)
-	networkSettings := mapValue(stream[networkSettingsKey(network)])
-	security := strings.ToLower(stringValue(stream["security"]))
+	networkSettings := mapValue(stream[NetworkSettingsKey(network)])
+	security := strings.ToLower(jsonvalue.String(stream["security"]))
 	securitySettings := mapValue(stream[security+"Settings"])
 	securityMeta := mapValue(securitySettings["settings"])
 
@@ -2234,30 +2235,30 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 	switch security {
 	case "tls":
 		resolved["tls"] = "tls"
-		if fp := firstNonEmptyString(securityMeta["fingerprint"], securitySettings["fingerprint"]); fp != "" {
+		if fp := jsonvalue.FirstNonEmpty(securityMeta["fingerprint"], securitySettings["fingerprint"]); fp != "" {
 			resolved["fp"] = fp
 		}
 		if allow, ok := firstPresent(securityMeta, securitySettings, "allowInsecure"); ok {
-			resolved["ais"] = boolValue(allow)
-			resolved["allowinsecure"] = boolValue(allow)
+			resolved["ais"] = jsonvalue.Bool(allow)
+			resolved["allowinsecure"] = jsonvalue.Bool(allow)
 		}
 		if alpn := joinStringList(securitySettings["alpn"]); alpn != "" {
 			resolved["alpn"] = alpn
 		}
-		if sni := firstNonEmptyString(securitySettings["serverName"], securitySettings["sni"], securityMeta["serverName"], securityMeta["sni"]); sni != "" {
+		if sni := jsonvalue.FirstNonEmpty(securitySettings["serverName"], securitySettings["sni"], securityMeta["serverName"], securityMeta["sni"]); sni != "" {
 			resolved["sni"] = []string{sni}
 		}
 	case "reality":
 		resolved["tls"] = "reality"
-		resolved["fp"] = firstNonEmptyString(securityMeta["fingerprint"], securitySettings["fingerprint"], "chrome")
+		resolved["fp"] = jsonvalue.FirstNonEmpty(securityMeta["fingerprint"], securitySettings["fingerprint"], "chrome")
 		sni := stringList(securitySettings["serverNames"])
 		if len(sni) == 0 {
-			sni = nonEmptyStrings(firstNonEmptyString(securityMeta["serverName"], securitySettings["serverName"], securityMeta["sni"], securitySettings["sni"]))
+			sni = jsonvalue.NonEmptyStrings(jsonvalue.FirstNonEmpty(securityMeta["serverName"], securitySettings["serverName"], securityMeta["sni"], securitySettings["sni"]))
 		}
 		resolved["sni"] = sni
-		pbk := firstNonEmptyString(securityMeta["publicKey"], securitySettings["publicKey"], securityMeta["public_key"], securitySettings["public_key"])
+		pbk := jsonvalue.FirstNonEmpty(securityMeta["publicKey"], securitySettings["publicKey"], securityMeta["public_key"], securitySettings["public_key"])
 		if pbk == "" {
-			privateKey := firstNonEmptyString(securitySettings["privateKey"], securityMeta["privateKey"])
+			privateKey := jsonvalue.FirstNonEmpty(securitySettings["privateKey"], securityMeta["privateKey"])
 			if privateKey == "" {
 				return nil, fmt.Errorf("You need to provide privateKey in realitySettings of %s", tag)
 			}
@@ -2282,7 +2283,7 @@ func (c *Config) resolveInbound(inbound map[string]any) (ResolvedInbound, error)
 		if len(sids) > 0 {
 			resolved["sid"] = sids[0]
 		}
-		resolved["spx"] = firstNonEmptyString(securityMeta["spiderX"], securitySettings["SpiderX"], securitySettings["spiderX"])
+		resolved["spx"] = jsonvalue.FirstNonEmpty(securityMeta["spiderX"], securitySettings["SpiderX"], securitySettings["spiderX"])
 	}
 
 	if err := applyNetworkSettings(resolved, network, networkSettings); err != nil {
@@ -2309,7 +2310,7 @@ func (c *Config) rawInbound(tag string) map[string]any {
 		return nil
 	}
 	for _, inbound := range listOfMaps(c.raw["inbounds"]) {
-		if stringValue(inbound["tag"]) == tag {
+		if jsonvalue.String(inbound["tag"]) == tag {
 			return inbound
 		}
 	}
@@ -2367,7 +2368,7 @@ func jsonMapStrict(raw []byte) (map[string]any, error) {
 }
 
 func normalizeLogCleanupInterval(value any) int {
-	parsed := intValue(value)
+	parsed := jsonvalue.Int(value)
 	switch parsed {
 	case 0, 3600, 10800, 21600, 86400:
 		return parsed
@@ -2384,7 +2385,7 @@ func migrateStreamSettings(stream map[string]any, useVerifyPeerCertByName bool) 
 	case "ws":
 		ws := mapValue(stream["wsSettings"])
 		headers := mapValue(ws["headers"])
-		if host := stringValue(headers["Host"]); host != "" && stringValue(ws["host"]) == "" {
+		if host := jsonvalue.String(headers["Host"]); host != "" && jsonvalue.String(ws["host"]) == "" {
 			ws["host"] = host
 			delete(headers, "Host")
 			if len(headers) == 0 {
@@ -2395,12 +2396,12 @@ func migrateStreamSettings(stream map[string]any, useVerifyPeerCertByName bool) 
 			stream["wsSettings"] = ws
 		}
 	case "tcp", "raw":
-		key := networkSettingsKey(streamNetwork(stream))
+		key := NetworkSettingsKey(streamNetwork(stream))
 		tcp := mapValue(stream[key])
 		header := mapValue(tcp["header"])
 		request := mapValue(header["request"])
 		headers := mapValue(request["headers"])
-		if host := stringValue(headers["Host"]); host != "" {
+		if host := jsonvalue.String(headers["Host"]); host != "" {
 			headers["Host"] = []any{host}
 			request["headers"] = headers
 			header["request"] = request
@@ -2414,7 +2415,7 @@ func migrateStreamSettings(stream map[string]any, useVerifyPeerCertByName bool) 
 }
 
 func streamNetwork(stream map[string]any) string {
-	return normalizeNetwork(firstNonEmptyString(stream["method"], stream["network"]))
+	return normalizeNetwork(jsonvalue.FirstNonEmpty(stream["method"], stream["network"]))
 }
 
 func normalizeRemovedTLSFields(stream map[string]any, preserveMetadata bool) {
@@ -2435,7 +2436,7 @@ func normalizeRemovedTLSFields(stream map[string]any, preserveMetadata bool) {
 	delete(tlsSettings, "allowInsecure")
 	delete(tlsSettings, "echForceQuery")
 
-	if oldNames := stringList(tlsSettings["verifyPeerCertInNames"]); stringValue(tlsSettings["verifyPeerCertByName"]) == "" && len(oldNames) > 0 {
+	if oldNames := stringList(tlsSettings["verifyPeerCertInNames"]); jsonvalue.String(tlsSettings["verifyPeerCertByName"]) == "" && len(oldNames) > 0 {
 		tlsSettings["verifyPeerCertByName"] = strings.Join(oldNames, ",")
 	}
 	delete(tlsSettings, "verifyPeerCertInNames")
@@ -2463,7 +2464,7 @@ func normalizeRemovedTLSFields(stream map[string]any, preserveMetadata bool) {
 
 func normalizeTLSVerifyPeerFields(settings map[string]any, useVerifyPeerCertByName bool) map[string]any {
 	normalized := deepCopyMap(settings)
-	byName := firstNonEmptyString(normalized["verifyPeerCertByName"])
+	byName := jsonvalue.FirstNonEmpty(normalized["verifyPeerCertByName"])
 	inNames := stringList(normalized["verifyPeerCertInNames"])
 	if byName == "" && len(inNames) > 0 {
 		byName = inNames[0]
@@ -2497,7 +2498,7 @@ func applyNetworkSettings(resolved ResolvedInbound, network string, settings map
 		pathRaw := request["path"]
 		headers := mapValue(request["headers"])
 		hostRaw := headers["Host"]
-		resolved["header_type"] = stringValue(header["type"])
+		resolved["header_type"] = jsonvalue.String(header["type"])
 		if isString(pathRaw) || isString(hostRaw) {
 			return errors.New("for path and host must be list, not str")
 		}
@@ -2505,33 +2506,33 @@ func applyNetworkSettings(resolved ResolvedInbound, network string, settings map
 		resolved["host"] = stringList(hostRaw)
 	case "ws":
 		pathRaw := settings["path"]
-		hostRaw := firstNonEmptyString(settings["host"])
+		hostRaw := jsonvalue.FirstNonEmpty(settings["host"])
 		headers := mapValue(settings["headers"])
 		if hostRaw == "" {
-			hostRaw = firstNonEmptyString(headers["Host"])
+			hostRaw = jsonvalue.FirstNonEmpty(headers["Host"])
 		}
 		if isList(pathRaw) || isList(settings["host"]) || isList(headers["Host"]) {
 			return errors.New("for path and host must be str, not list")
 		}
 		resolved["header_type"] = ""
-		resolved["path"] = stringValue(pathRaw)
-		resolved["host"] = nonEmptyStrings(hostRaw)
+		resolved["path"] = jsonvalue.String(pathRaw)
+		resolved["host"] = jsonvalue.NonEmptyStrings(hostRaw)
 		copyOptional(resolved, "heartbeatPeriod", settings)
 	case "grpc", "gun":
 		resolved["header_type"] = ""
-		resolved["path"] = stringValue(settings["serviceName"])
-		resolved["host"] = nonEmptyStrings(stringValue(settings["authority"]))
+		resolved["path"] = jsonvalue.String(settings["serviceName"])
+		resolved["host"] = jsonvalue.NonEmptyStrings(jsonvalue.String(settings["authority"]))
 		copyOptional(resolved, "multiMode", settings)
 	case "quic":
 		header := mapValue(settings["header"])
-		resolved["header_type"] = stringValue(header["type"])
-		resolved["path"] = stringValue(settings["key"])
-		resolved["host"] = nonEmptyStrings(stringValue(settings["security"]))
+		resolved["header_type"] = jsonvalue.String(header["type"])
+		resolved["path"] = jsonvalue.String(settings["key"])
+		resolved["host"] = jsonvalue.NonEmptyStrings(jsonvalue.String(settings["security"]))
 	case "httpupgrade":
-		resolved["path"] = stringValue(settings["path"])
+		resolved["path"] = jsonvalue.String(settings["path"])
 		resolved["host"] = stringList(settings["host"])
 	case "splithttp", "xhttp":
-		resolved["path"] = stringValue(settings["path"])
+		resolved["path"] = jsonvalue.String(settings["path"])
 		resolved["host"] = stringList(settings["host"])
 		for _, key := range []string{
 			"scMaxBufferedPosts", "scMaxEachPostBytes", "scMaxConcurrentPosts", "scMinPostsIntervalMs",
@@ -2542,25 +2543,25 @@ func applyNetworkSettings(resolved ResolvedInbound, network string, settings map
 		} {
 			copyOptional(resolved, key, settings)
 		}
-		copyOptionalAlias(resolved, "sessionIDPlacement", settings, "sessionPlacement")
-		copyOptionalAlias(resolved, "sessionIDKey", settings, "sessionKey")
+		jsonvalue.CopyOptional(resolved, "sessionIDPlacement", settings, "sessionPlacement")
+		jsonvalue.CopyOptional(resolved, "sessionIDKey", settings, "sessionKey")
 	case "kcp":
 		header := mapValue(settings["header"])
-		resolved["header_type"] = stringValue(header["type"])
-		resolved["path"] = stringValue(settings["seed"])
-		resolved["host"] = nonEmptyStrings(stringValue(header["domain"]))
+		resolved["header_type"] = jsonvalue.String(header["type"])
+		resolved["path"] = jsonvalue.String(settings["seed"])
+		resolved["host"] = jsonvalue.NonEmptyStrings(jsonvalue.String(header["domain"]))
 	case "http", "h2", "h3":
-		resolved["path"] = stringValue(settings["path"])
+		resolved["path"] = jsonvalue.String(settings["path"])
 		resolved["host"] = stringList(settings["host"])
 	default:
-		resolved["path"] = stringValue(settings["path"])
+		resolved["path"] = jsonvalue.String(settings["path"])
 		host := settings["host"]
-		if stringValue(host) == "" {
+		if jsonvalue.String(host) == "" {
 			host = settings["Host"]
 		}
 		if isList(host) {
 			resolved["host"] = firstStringList(host)
-		} else if text := stringValue(host); text != "" {
+		} else if text := jsonvalue.String(host); text != "" {
 			resolved["host"] = text
 		}
 	}
@@ -2594,7 +2595,7 @@ func mergePolicy(runtime map[string]any) {
 func ensureAPIInbound(runtime map[string]any, host string, port int) {
 	inbounds := listOfMaps(runtime["inbounds"])
 	for _, inbound := range inbounds {
-		if stringValue(inbound["tag"]) != "API_INBOUND" {
+		if jsonvalue.String(inbound["tag"]) != "API_INBOUND" {
 			continue
 		}
 		if listen := mapValue(inbound["listen"]); len(listen) > 0 {
@@ -2635,7 +2636,7 @@ func ensureAPIRoutingRule(runtime map[string]any) {
 	}
 	for _, item := range rules {
 		rule := mapValue(item)
-		if stringValue(rule["type"]) != "field" || stringValue(rule["outboundTag"]) != "API" {
+		if jsonvalue.String(rule["type"]) != "field" || jsonvalue.String(rule["outboundTag"]) != "API" {
 			continue
 		}
 		for _, tag := range stringList(rule["inboundTag"]) {
@@ -2673,7 +2674,7 @@ func mapsToAnySlice(items []map[string]any) []any {
 	return result
 }
 
-func networkSettingsKey(network string) string {
+func NetworkSettingsKey(network string) string {
 	switch network {
 	case "raw":
 		return "rawSettings"
@@ -2707,19 +2708,6 @@ func normalizeProxyProtocol(value string) string {
 func copyOptional(target map[string]any, key string, source map[string]any) {
 	if value, ok := source[key]; ok {
 		target[key] = value
-	}
-}
-
-func copyOptionalAlias(target map[string]any, key string, source map[string]any, aliases ...string) {
-	if value, ok := source[key]; ok {
-		target[key] = value
-		return
-	}
-	for _, alias := range aliases {
-		if value, ok := source[alias]; ok {
-			target[key] = value
-			return
-		}
 	}
 }
 
@@ -2793,7 +2781,7 @@ func stringList(value any) []string {
 	case []any:
 		result := make([]string, 0, len(typed))
 		for _, item := range typed {
-			if text := stringValue(item); text != "" {
+			if text := jsonvalue.String(item); text != "" {
 				result = append(result, text)
 			}
 		}
@@ -2812,21 +2800,11 @@ func stringList(value any) []string {
 		}
 		return result
 	default:
-		if text := stringValue(value); text != "" {
+		if text := jsonvalue.String(value); text != "" {
 			return []string{text}
 		}
 		return nil
 	}
-}
-
-func nonEmptyStrings(values ...string) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if value != "" {
-			result = append(result, value)
-		}
-	}
-	return result
 }
 
 func firstStringList(value any) string {
@@ -2843,76 +2821,6 @@ func joinStringList(value any) string {
 		return ""
 	}
 	return strings.Join(values, ",")
-}
-
-func firstNonEmptyString(values ...any) string {
-	for _, value := range values {
-		if text := stringValue(value); text != "" {
-			return text
-		}
-	}
-	return ""
-}
-
-func stringValue(value any) string {
-	switch typed := value.(type) {
-	case nil:
-		return ""
-	case string:
-		return strings.TrimSpace(typed)
-	case []byte:
-		return strings.TrimSpace(string(typed))
-	case int:
-		return strconv.Itoa(typed)
-	case int64:
-		return strconv.FormatInt(typed, 10)
-	case float64:
-		if float64(int64(typed)) == typed {
-			return strconv.FormatInt(int64(typed), 10)
-		}
-		return strconv.FormatFloat(typed, 'f', -1, 64)
-	case bool:
-		if typed {
-			return "true"
-		}
-		return "false"
-	default:
-		return strings.TrimSpace(fmt.Sprint(typed))
-	}
-}
-
-func boolValue(value any) bool {
-	switch typed := value.(type) {
-	case bool:
-		return typed
-	case string:
-		cleaned := strings.ToLower(strings.TrimSpace(typed))
-		return cleaned == "true" || cleaned == "1" || cleaned == "yes"
-	case int:
-		return typed != 0
-	case int64:
-		return typed != 0
-	case float64:
-		return typed != 0
-	default:
-		return false
-	}
-}
-
-func intValue(value any) int {
-	switch typed := value.(type) {
-	case int:
-		return typed
-	case int64:
-		return int(typed)
-	case float64:
-		return int(typed)
-	case string:
-		parsed, _ := strconv.Atoi(strings.TrimSpace(typed))
-		return parsed
-	default:
-		return 0
-	}
 }
 
 func deepCopyMap(source map[string]any) map[string]any {

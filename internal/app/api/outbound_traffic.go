@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
@@ -421,14 +422,14 @@ func outboundAddressPort(protocol string, outbound map[string]any) (string, *int
 	settings, _ := outbound["settings"].(map[string]any)
 	switch strings.ToLower(strings.TrimSpace(protocol)) {
 	case "vmess", "vless":
-		items := anySlice(settings["vnext"])
+		items := jsonvalue.ListAny(settings["vnext"])
 		if len(items) == 0 {
 			return "", nil
 		}
 		item, _ := items[0].(map[string]any)
 		return stringFromAny(item["address"]), int64PtrFromAny(item["port"])
 	case "trojan", "shadowsocks", "socks", "http":
-		items := anySlice(settings["servers"])
+		items := jsonvalue.ListAny(settings["servers"])
 		if len(items) == 0 {
 			return "", nil
 		}
@@ -442,7 +443,7 @@ func outboundAddressPort(protocol string, outbound map[string]any) (string, *int
 }
 
 func outboundMaps(value any) []map[string]any {
-	items := anySlice(value)
+	items := jsonvalue.ListAny(value)
 	result := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		if mapped, ok := item.(map[string]any); ok {
@@ -450,21 +451,6 @@ func outboundMaps(value any) []map[string]any {
 		}
 	}
 	return result
-}
-
-func anySlice(value any) []any {
-	switch typed := value.(type) {
-	case []any:
-		return typed
-	case []map[string]any:
-		result := make([]any, 0, len(typed))
-		for _, item := range typed {
-			result = append(result, item)
-		}
-		return result
-	default:
-		return nil
-	}
 }
 
 func int64PtrFromAny(value any) *int64 {

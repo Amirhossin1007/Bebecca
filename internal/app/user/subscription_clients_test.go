@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 )
 
 func TestStoredHostClientSettingsReachSubscription(t *testing.T) {
@@ -475,11 +477,11 @@ func TestV2rayNGSubscriptionsKeepAddressAndPort(t *testing.T) {
 		outbound := config["outbounds"].([]any)[0].(map[string]any)
 		settings := outbound["settings"].(map[string]any)
 		serverKey := "servers"
-		if protocol := stringValue(outbound["protocol"]); protocol == "vless" || protocol == "vmess" {
+		if protocol := jsonvalue.String(outbound["protocol"]); protocol == "vless" || protocol == "vmess" {
 			serverKey = "vnext"
 		}
 		server := settings[serverKey].([]any)[0].(map[string]any)
-		if stringValue(server["address"]) == "" || intValue(server["port"]) <= 0 {
+		if jsonvalue.String(server["address"]) == "" || jsonvalue.Int(server["port"]) <= 0 {
 			t.Fatalf("v2rayNG JSON subscription lost address or port: %#v", outbound)
 		}
 	}
@@ -511,7 +513,7 @@ func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T
 		}
 		for _, config := range configs {
 			outbound := config["outbounds"].([]any)[0].(map[string]any)
-			if stringValue(outbound["protocol"]) == "vless" {
+			if jsonvalue.String(outbound["protocol"]) == "vless" {
 				return outbound
 			}
 		}
@@ -533,7 +535,7 @@ func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T
 	if len(tcp) != 1 {
 		t.Fatalf("updated FinalMask was not rendered: %#v", finalMask)
 	}
-	lengths := listAny(mapValue(tcp[0]["settings"])["lengths"])
+	lengths := jsonvalue.ListAny(mapValue(tcp[0]["settings"])["lengths"])
 	if len(lengths) != 2 || lengths[0] != "3-5" || lengths[1] != "6-8" {
 		t.Fatalf("current fragment ranges were not refreshed: %#v", finalMask)
 	}
@@ -622,7 +624,7 @@ func TestSubscriptionClientsPreserveShadowsocksTLS(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, raw := range listOfMaps(config["inbounds"]) {
-		if stringValue(raw["tag"]) != "ss-http" {
+		if jsonvalue.String(raw["tag"]) != "ss-http" {
 			continue
 		}
 		raw["streamSettings"] = map[string]any{

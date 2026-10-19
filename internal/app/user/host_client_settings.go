@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	"math"
 	"net/url"
 	"strings"
@@ -99,7 +101,7 @@ func validateHostClientGroup(group string, value any) error {
 		case "integer":
 			valid = hostClientInteger(value, -1)
 		case "mux-concurrency":
-			valid = hostClientInteger(value, -1) && intValue(value) <= math.MaxInt16
+			valid = hostClientInteger(value, -1) && jsonvalue.Int(value) <= math.MaxInt16
 		case "nonnegative":
 			valid = hostClientInteger(value, 0)
 		case "positive":
@@ -145,7 +147,7 @@ func validateHostClientGroup(group string, value any) error {
 		}
 	}
 	if group == "tlsSettings" {
-		min, max := stringValue(object["minVersion"]), stringValue(object["maxVersion"])
+		min, max := jsonvalue.String(object["minVersion"]), jsonvalue.String(object["maxVersion"])
 		if min != "" && max != "" && min > max {
 			return fmt.Errorf("client TLS minVersion cannot exceed maxVersion")
 		}
@@ -234,7 +236,7 @@ func validHostClientHeaders(value any, list bool) bool {
 
 func applyHostClientSettings(outbound map[string]any, settings map[string]any) {
 	stream := mapValue(outbound["streamSettings"])
-	network := normalizeNetwork(stringValue(stream["network"]))
+	network := normalizeNetwork(jsonvalue.String(stream["network"]))
 	for group, value := range settings {
 		switch group {
 		case "tlsSettings":
@@ -245,7 +247,7 @@ func applyHostClientSettings(outbound map[string]any, settings map[string]any) {
 			stream[group] = mergeSingBoxObjects(mapValue(stream[group]), mapValue(value))
 		case "xhttpSettings":
 			if network == "xhttp" || network == "splithttp" {
-				key := networkSettingsKey(network)
+				key := xrayconfig.NetworkSettingsKey(network)
 				transport := mapValue(stream[key])
 				if extra := mapValue(transport["extra"]); len(extra) > 0 {
 					// Xray replaces the top-level tuning with extra when it exists.
@@ -257,11 +259,11 @@ func applyHostClientSettings(outbound map[string]any, settings map[string]any) {
 			}
 		case "wsSettings", "httpupgradeSettings", "grpcSettings", "tcpSettings", "kcpSettings":
 			if settingsGroup := map[string]string{"tcp": "tcpSettings", "raw": "tcpSettings", "ws": "wsSettings", "httpupgrade": "httpupgradeSettings", "grpc": "grpcSettings", "kcp": "kcpSettings"}[network]; group == settingsGroup {
-				key := networkSettingsKey(network)
+				key := xrayconfig.NetworkSettingsKey(network)
 				stream[key] = mergeSingBoxObjects(mapValue(stream[key]), mapValue(value))
 			}
 		case "mux":
-			if boolValue(mapValue(outbound["mux"])["enabled"]) && !v2rayOutboundUsesVision(outbound) {
+			if jsonvalue.Bool(mapValue(outbound["mux"])["enabled"]) && !v2rayOutboundUsesVision(outbound) {
 				outbound[group] = mergeSingBoxObjects(mapValue(outbound[group]), mapValue(value))
 			}
 		case "vmessSecurity":

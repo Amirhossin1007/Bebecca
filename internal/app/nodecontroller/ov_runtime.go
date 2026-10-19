@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -52,31 +52,44 @@ func (r Repository) OVRuntime(ctx context.Context, nodeID int64) (OVRuntime, err
 }
 
 func (r Repository) ovRuntime(ctx context.Context, nodeID int64, inbounds []map[string]any) (OVRuntime, error) {
-	target := xrayconfig.NodeTargetID(nodeID)
-	usedPorts := map[int]struct{}{}
-	for _, inbound := range inbounds {
-		if port := OVIntValue(inbound["port"]); port > 0 {
-			usedPorts[port] = struct{}{}
-		}
+	return r.ovRuntimeForTarget(ctx, xrayconfig.NodeTargetID(nodeID), &nodeID, inbounds)
+}
+
+func (r Repository) OVRuntimeForTarget(ctx context.Context, target string, inbounds []map[string]any) (OVRuntime, error) {
+	_, nodeID, err := xrayconfig.ParseTargetID(target)
+	if err != nil {
+		return OVRuntime{}, err
 	}
+	return r.ovRuntimeForTarget(ctx, target, nodeID, inbounds)
+}
+
+func (r Repository) ovRuntimeForTarget(ctx context.Context, target string, nodeID *int64, inbounds []map[string]any) (OVRuntime, error) {
 	runtimeConfig := OVRuntime{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		Target:      target,
 		Inbounds:    []OVRuntimeInbound{},
 	}
-	if callback, err := r.RuntimeSessionCallback(ctx, NodeRow{ID: nodeID}); err != nil {
-		return OVRuntime{}, err
-	} else {
+	if nodeID != nil {
+		callback, err := r.RuntimeSessionCallback(ctx, NodeRow{ID: *nodeID})
+		if err != nil {
+			return OVRuntime{}, err
+		}
 		runtimeConfig.SessionCallback = callback
 	}
+	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
-		if strings.ToLower(OVStringValue(inbound["protocol"])) != xrayconfig.OVProtocol {
+		if port := jsonvalue.Int(inbound["port"]); port > 0 {
+			usedPorts[port] = struct{}{}
+		}
+	}
+	for _, inbound := range inbounds {
+		if strings.ToLower(jsonvalue.String(inbound["protocol"])) != xrayconfig.OVProtocol {
 			continue
 		}
-		if !OVInboundMatchesTarget(inbound, target) {
+		if target != "" && !OVInboundMatchesTarget(inbound, target) {
 			continue
 		}
-		tag := OVStringValue(inbound["tag"])
+		tag := jsonvalue.String(inbound["tag"])
 		if tag == "" {
 			continue
 		}
@@ -85,7 +98,7 @@ func (r Repository) ovRuntime(ctx context.Context, nodeID int64, inbounds []map[
 		if err != nil {
 			return OVRuntime{}, err
 		}
-		users, err := r.OVUsersForServices(ctx, tag, serviceIDs, OVStringValue(settings["ipv4_pool_cidr"]))
+		users, err := r.OVUsersForServices(ctx, tag, serviceIDs, jsonvalue.String(settings["ipv4_pool_cidr"]))
 		if err != nil {
 			return OVRuntime{}, err
 		}
@@ -96,14 +109,18 @@ func (r Repository) ovRuntime(ctx context.Context, nodeID int64, inbounds []map[
 		runtimeConfig.Inbounds = append(runtimeConfig.Inbounds, OVRuntimeInbound{
 			Tag:        tag,
 			TunnelTag:  xrayconfig.RuntimeTunnelTag(tag),
-			Port:       OVIntValue(inbound["port"]),
-			Transport:  OVStringValue(settings["transport"]),
+			Port:       jsonvalue.Int(inbound["port"]),
+			Transport:  jsonvalue.String(settings["transport"]),
 			TunnelPort: tunnelPort,
 			Settings:   settings,
 			Users:      users,
 		})
 	}
 	return runtimeConfig, nil
+}
+
+func (c Controller) OVRuntimeForTarget(ctx context.Context, target string, inbounds []map[string]any) (OVRuntime, error) {
+	return c.repo.OVRuntimeForTarget(ctx, target, inbounds)
 }
 
 func (r Repository) OVServiceIDsForInbound(ctx context.Context, tag string) ([]int64, error) {
@@ -242,7 +259,7 @@ func OVRuntimeSettings(inbound map[string]any) map[string]any {
 		}
 	}
 	for _, key := range []string{"cipher", "auth", "ca", "server_certificate", "server_key", "dh", "tls_crypt", "tls_auth", "extra_client_config"} {
-		if value := strings.TrimSpace(OVStringValue(out[key])); value != "" {
+		if value := strings.TrimSpace(jsonvalue.String(out[key])); value != "" {
 			out[key] = value
 		} else {
 			delete(out, key)
@@ -279,7 +296,7 @@ func OVTargetIDs(value any) []string {
 				result = append(result, text)
 			}
 		case map[string]any:
-			if text := OVStringValue(typed["id"]); text != "" {
+			if text := jsonvalue.String(typed["id"]); text != "" {
 				result = append(result, text)
 			}
 		}
@@ -299,47 +316,6 @@ func OVMapValue(value any) map[string]any {
 		return out
 	default:
 		return map[string]any{}
-	}
-}
-
-func OVStringValue(value any) string {
-	switch typed := value.(type) {
-	case nil:
-		return ""
-	case string:
-		return strings.TrimSpace(typed)
-	case int:
-		return strconv.Itoa(typed)
-	case int64:
-		return strconv.FormatInt(typed, 10)
-	case float64:
-		if float64(int64(typed)) == typed {
-			return strconv.FormatInt(int64(typed), 10)
-		}
-		return strconv.FormatFloat(typed, 'f', -1, 64)
-	case bool:
-		if typed {
-			return "true"
-		}
-		return "false"
-	default:
-		return strings.TrimSpace(fmt.Sprint(typed))
-	}
-}
-
-func OVIntValue(value any) int {
-	switch typed := value.(type) {
-	case int:
-		return typed
-	case int64:
-		return int(typed)
-	case float64:
-		return int(typed)
-	case string:
-		parsed, _ := strconv.Atoi(strings.TrimSpace(typed))
-		return parsed
-	default:
-		return 0
 	}
 }
 
@@ -368,7 +344,7 @@ func OVStringList(value any) []string {
 	case []any:
 		out := make([]string, 0, len(typed))
 		for _, item := range typed {
-			if text := OVStringValue(item); text != "" {
+			if text := jsonvalue.String(item); text != "" {
 				out = append(out, text)
 			}
 		}
@@ -385,7 +361,7 @@ func OVStringList(value any) []string {
 		}
 		return out
 	default:
-		if text := OVStringValue(value); text != "" {
+		if text := jsonvalue.String(value); text != "" {
 			return []string{text}
 		}
 		return nil
@@ -394,7 +370,7 @@ func OVStringList(value any) []string {
 
 func firstNonEmptyOVString(values ...any) string {
 	for _, value := range values {
-		if text := OVStringValue(value); text != "" {
+		if text := jsonvalue.String(value); text != "" {
 			return text
 		}
 	}

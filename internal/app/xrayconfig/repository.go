@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"strconv"
 	"strings"
 	"time"
@@ -297,7 +298,7 @@ func (r Repository) CollectInboundTags(ctx context.Context) (map[string]struct{}
 	result := map[string]struct{}{}
 	for _, config := range configs {
 		for _, inbound := range listOfMaps(config.Config["inbounds"]) {
-			if tag := stringValue(inbound["tag"]); tag != "" {
+			if tag := jsonvalue.String(inbound["tag"]); tag != "" {
 				result[tag] = struct{}{}
 			}
 		}
@@ -437,7 +438,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 			return nil
 		}
 	}
-	payload = operationPayloadWithQueuedAt(payload, nowTime)
+	payload = OperationPayloadWithQueuedAt(payload, nowTime)
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -453,7 +454,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	if err != sql.ErrNoRows {
 		return err
 	}
-	if nodeID != nil && userID != nil && isRuntimeUserNodeOperationType(operationType) {
+	if nodeID != nil && userID != nil && IsRuntimeUserNodeOperationType(operationType) {
 		if err := compactPendingRuntimeUserOperationsTx(ctx, tx, *nodeID, *userID, nowTime); err != nil {
 			return err
 		}
@@ -473,7 +474,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	return err
 }
 
-func isRuntimeUserNodeOperationType(operationType string) bool {
+func IsRuntimeUserNodeOperationType(operationType string) bool {
 	switch operationType {
 	case "add_user", "update_user", "remove_user", "disable_user", "enable_user":
 		return true
@@ -500,7 +501,7 @@ WHERE node_id = ?
 	return err
 }
 
-func operationPayloadWithQueuedAt(payload any, now time.Time) any {
+func OperationPayloadWithQueuedAt(payload any, now time.Time) any {
 	queuedAt := now.Format(time.RFC3339Nano)
 	if payload == nil {
 		return map[string]any{"queued_at": queuedAt}

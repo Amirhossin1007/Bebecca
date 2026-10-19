@@ -17,6 +17,7 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -482,7 +483,7 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 	globalCoalesced := []OperationRow{}
 	runtimeUserOperations := []OperationRow{}
 	for _, operation := range operations {
-		if operation.NodeID.Valid && operation.UserID.Valid && isRuntimeUserOperation(operation.OperationType) {
+		if operation.NodeID.Valid && operation.UserID.Valid && xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 			runtimeUserOperations = append(runtimeUserOperations, operation)
 			continue
 		}
@@ -751,13 +752,13 @@ func operationCoalesceKey(operation OperationRow) string {
 
 func (c Controller) runOperation(ctx context.Context, operation OperationRow) error {
 	unlock := func() {}
-	if operation.NodeID.Valid && (isRuntimeSyncOperation(operation.OperationType) || isRuntimeUserOperation(operation.OperationType)) {
+	if operation.NodeID.Valid && (isRuntimeSyncOperation(operation.OperationType) || xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType)) {
 		unlock = c.lockNode(operation.NodeID.Int64)
 	}
 	defer unlock()
 	prepared, err := c.prepareRuntimeConfigOperation(ctx, operation)
 	if err != nil {
-		if operation.NodeID.Valid && !isRuntimeUserOperation(operation.OperationType) {
+		if operation.NodeID.Valid && !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 			_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 		}
 		return err
@@ -807,12 +808,12 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user":
 		client, node, err := c.dial(ctx, operation.NodeID.Int64)
 		if err != nil {
-			if !isRuntimeUserOperation(operation.OperationType) {
+			if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 			}
 			return err
 		}
-		if isRuntimeUserOperation(operation.OperationType) && operation.UserID.Valid {
+		if xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) && operation.UserID.Valid {
 			syncConfig, decided := prepared.userSyncDecision(node.ID)
 			if !decided {
 				syncConfig, err = c.userOperationRequiresConfigSync(ctx, node, operation)
@@ -850,7 +851,7 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		} else {
 			runtimeReq, err = c.runtimeConfigRequest(ctx, node, operation.remoteOperationID(operation.OperationType), configJSON)
 			if err != nil {
-				if !isRuntimeUserOperation(operation.OperationType) {
+				if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 					_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 				}
 				return err
@@ -861,7 +862,7 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		}
 		res, err := client.Runtime().SyncConfig(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 		if err != nil {
-			if !isRuntimeUserOperation(operation.OperationType) {
+			if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 			}
 			return err
@@ -927,15 +928,6 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 func isRuntimeSyncOperation(operationType string) bool {
 	switch operationType {
 	case "sync_config":
-		return true
-	default:
-		return false
-	}
-}
-
-func isRuntimeUserOperation(operationType string) bool {
-	switch operationType {
-	case "add_user", "update_user", "remove_user", "disable_user", "enable_user":
 		return true
 	default:
 		return false

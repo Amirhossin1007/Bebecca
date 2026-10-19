@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"net/netip"
 	"sort"
 	"strings"
@@ -197,7 +198,7 @@ func (r Repository) populateTunnelAddresses(ctx context.Context, item *ConfigLin
 	for _, selected := range selectConfigHosts(item.Hosts, item.ServiceID) {
 		tag := selected.host.InboundTag
 		inbound, ok := inbounds[tag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol || item.WireGuardAddresses[tag] != "" {
+		if !ok || normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != protocol || item.WireGuardAddresses[tag] != "" {
 			continue
 		}
 		settings := normalizeWGProfileSettings(mapValue(inbound["settings"]))
@@ -205,7 +206,7 @@ func (r Repository) populateTunnelAddresses(ctx context.Context, item *ConfigLin
 		if protocol != "wireguard" {
 			addressTag = protocol + ":" + tag
 		}
-		addresses, err := r.WGIPv4Addresses(ctx, addressTag, []int64{item.ID}, stringValue(settings["address_pool"]), stringValue(settings["server_address"]))
+		addresses, err := r.WGIPv4Addresses(ctx, addressTag, []int64{item.ID}, jsonvalue.String(settings["address_pool"]), jsonvalue.String(settings["server_address"]))
 		if err != nil {
 			return err
 		}

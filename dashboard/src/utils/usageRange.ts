@@ -1,3 +1,4 @@
+import type { DateRangeValue } from "components/common/DateRangePicker";
 import dayjs, { type ManipulateType } from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -52,5 +53,41 @@ export const normalizeCustomRange = (
 		start: startAligned.toDate(),
 		end: endAligned.toDate(),
 		unit: isSingleDay ? "hour" : "day",
+	};
+};
+
+export type UsageRangeKey = "24h" | "7d" | "30d" | "90d" | "custom";
+export type UsageRangePresetKey = Exclude<UsageRangeKey, "custom">;
+export type UsageRangePreset = UsagePreset<UsageRangePresetKey>;
+export type UsageRange = RangeState<UsageRangeKey>;
+
+export const usageRangeToDateRangeValue = (
+	range: UsageRange,
+): DateRangeValue => ({
+	start: range.start,
+	end: range.end,
+	presetKey: range.key,
+	key: range.key,
+	unit: range.unit,
+});
+
+export const dateRangeValueToUsageRange = (
+	value: DateRangeValue,
+): UsageRange => {
+	const unit: RangeUnit = value.unit === "hour" ? "hour" : "day";
+	const key = (value.presetKey || value.key || "custom") as UsageRangeKey;
+	if (key !== "custom") {
+		return {
+			key,
+			start: value.start,
+			end: value.end,
+			unit,
+		};
+	}
+	return {
+		key: "custom",
+		start: value.start,
+		end: value.end,
+		unit,
 	};
 };

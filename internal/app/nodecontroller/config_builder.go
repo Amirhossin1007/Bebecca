@@ -113,7 +113,7 @@ func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation
 	defer unlock()
 	prepared := &preparedRuntimeConfig{nodeID: node.ID}
 	var inbounds []map[string]any
-	if isRuntimeUserOperation(operation.OperationType) {
+	if xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 		required, loadedInbounds, err := c.userOperationConfigSyncDecision(ctx, node, operation)
 		if err != nil {
 			return nil, err
@@ -344,7 +344,7 @@ func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node No
 }
 
 func (c Controller) userOperationConfigSyncDecisionCached(ctx context.Context, node NodeRow, operation OperationRow, cache *runtimeSyncCache) (bool, []map[string]any, error) {
-	if !isRuntimeUserOperation(operation.OperationType) || !operation.UserID.Valid {
+	if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) || !operation.UserID.Valid {
 		return false, nil, nil
 	}
 	// A nil repository is only possible in lightweight unit tests. Production

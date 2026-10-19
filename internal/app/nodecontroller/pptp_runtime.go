@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -52,7 +53,7 @@ func (r Repository) pptpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 	target := xrayconfig.NodeTargetID(nodeID)
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
-		if port := OVIntValue(inbound["port"]); port > 0 {
+		if port := jsonvalue.Int(inbound["port"]); port > 0 {
 			usedPorts[port] = struct{}{}
 		}
 	}
@@ -62,13 +63,13 @@ func (r Repository) pptpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 		Inbounds:    []PPTPRuntimeInbound{},
 	}
 	for _, inbound := range inbounds {
-		if strings.ToLower(OVStringValue(inbound["protocol"])) != xrayconfig.PPTPProtocol {
+		if strings.ToLower(jsonvalue.String(inbound["protocol"])) != xrayconfig.PPTPProtocol {
 			continue
 		}
 		if !OVInboundMatchesTarget(inbound, target) {
 			continue
 		}
-		tag := OVStringValue(inbound["tag"])
+		tag := jsonvalue.String(inbound["tag"])
 		if tag == "" {
 			continue
 		}
@@ -77,7 +78,7 @@ func (r Repository) pptpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 		if err != nil {
 			return PPTPRuntime{}, err
 		}
-		users, err := r.PPTPUsersForServices(ctx, serviceIDs, OVStringValue(settings["ipv4_pool_cidr"]))
+		users, err := r.PPTPUsersForServices(ctx, serviceIDs, jsonvalue.String(settings["ipv4_pool_cidr"]))
 		if err != nil {
 			return PPTPRuntime{}, err
 		}
@@ -88,7 +89,7 @@ func (r Repository) pptpRuntime(ctx context.Context, nodeID int64, inbounds []ma
 		runtimeConfig.Inbounds = append(runtimeConfig.Inbounds, PPTPRuntimeInbound{
 			Tag:        tag,
 			TunnelTag:  xrayconfig.RuntimeTunnelTagForProtocol(xrayconfig.PPTPProtocol, tag),
-			Port:       OVIntValue(inbound["port"]),
+			Port:       jsonvalue.Int(inbound["port"]),
 			TunnelPort: tunnelPort,
 			Settings:   settings,
 			Users:      users,
@@ -141,7 +142,7 @@ ORDER BY id`, args...)
 
 func PPTPRuntimeSettings(inbound map[string]any) map[string]any {
 	out := L2TPRuntimeSettings(inbound)
-	if strings.TrimSpace(OVStringValue(out["ipv4_pool_cidr"])) == "" || OVStringValue(out["ipv4_pool_cidr"]) == "10.67.0.0/16" {
+	if strings.TrimSpace(jsonvalue.String(out["ipv4_pool_cidr"])) == "" || jsonvalue.String(out["ipv4_pool_cidr"]) == "10.67.0.0/16" {
 		out["ipv4_pool_cidr"] = "10.68.0.0/24"
 	}
 	delete(out, "ipsec_psk")

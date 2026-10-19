@@ -9,14 +9,14 @@ import {
 	useToast,
 	VStack,
 } from "@chakra-ui/react";
+import { InfoIcon } from "components/common/InfoIcon";
 import { PanelSelect as Select } from "components/common/PanelSelect";
-import { InformationCircleIcon } from "@heroicons/react/24/outline";
-import type { ApexOptions } from "apexcharts";
 import { ChartBox } from "components/common/ChartBox";
 import {
 	DateRangePicker,
 	type DateRangeValue,
 } from "components/common/DateRangePicker";
+import { buildUsageAreaOptions } from "components/usage/usageChartOptions";
 import { useNodes, useNodesQuery } from "contexts/NodesContext";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -29,20 +29,14 @@ import { AdminManagementPermission, AdminRole } from "types/Admin";
 import { formatBytes } from "utils/formatByte";
 import {
 	buildRangeFromPreset,
-	type RangeState as SharedRangeState,
-	type UsagePreset as SharedUsagePreset,
+	dateRangeValueToUsageRange as dateRangeValueToRangeState,
+	usageRangeToDateRangeValue as rangeStateToDateRangeValue,
+	type UsageRange as RangeState,
+	type UsageRangePreset as UsagePreset,
 } from "utils/usageRange";
 import { createUsageConfig } from "./UsageFilter";
 
 dayjs.extend(utc);
-
-const InfoIcon = chakra(InformationCircleIcon, { baseStyle: { w: 4, h: 4 } });
-
-type RangeKey = "24h" | "7d" | "30d" | "90d" | "custom";
-type PresetRangeKey = Exclude<RangeKey, "custom">;
-
-type UsagePreset = SharedUsagePreset<PresetRangeKey>;
-type RangeState = SharedRangeState<RangeKey>;
 
 type NodeUsageSlice = {
 	nodeId: number;
@@ -79,74 +73,6 @@ const formatApiStart = (date: Date) =>
 	dayjs(date).utc().format("YYYY-MM-DDTHH:mm:ss");
 const formatApiEnd = (date: Date) =>
 	dayjs(date).utc().format("YYYY-MM-DDTHH:mm:ss");
-
-const buildDailyUsageOptions = (
-	colorMode: string,
-	categories: string[],
-): ApexOptions => {
-	const axisColor = colorMode === "dark" ? "#d8dee9" : "#1a202c";
-	return {
-		chart: { type: "area", toolbar: { show: false }, zoom: { enabled: false } },
-		dataLabels: { enabled: false },
-		stroke: { curve: "smooth", width: 2 },
-		fill: {
-			type: "gradient",
-			gradient: {
-				shadeIntensity: 1,
-				opacityFrom: 0.35,
-				opacityTo: 0.05,
-				stops: [0, 80, 100],
-			},
-		},
-		grid: { borderColor: colorMode === "dark" ? "#2D3748" : "#E2E8F0" },
-		xaxis: {
-			categories,
-			labels: { style: { colors: categories.map(() => axisColor) } },
-			axisBorder: { show: false },
-			axisTicks: { show: false },
-		},
-		yaxis: {
-			labels: {
-				formatter: (value: number) => formatBytes(Number(value) || 0, 1),
-				style: { colors: [axisColor] },
-			},
-		},
-		tooltip: {
-			theme: colorMode === "dark" ? "dark" : "light",
-			shared: true,
-			fillSeriesColor: false,
-			y: { formatter: (value: number) => formatBytes(Number(value) || 0, 2) },
-		},
-		colors: [colorMode === "dark" ? "#63B3ED" : "#3182CE"],
-	};
-};
-
-const rangeStateToDateRangeValue = (range: RangeState): DateRangeValue => ({
-	start: range.start,
-	end: range.end,
-	presetKey: range.key,
-	key: range.key,
-	unit: range.unit,
-});
-
-const dateRangeValueToRangeState = (value: DateRangeValue): RangeState => {
-	const unit: "day" | "hour" = value.unit === "hour" ? "hour" : "day";
-	const key = (value.presetKey || value.key || "custom") as RangeKey;
-	if (key !== "custom") {
-		return {
-			key,
-			start: value.start,
-			end: value.end,
-			unit,
-		};
-	}
-	return {
-		key: "custom",
-		start: value.start,
-		end: value.end,
-		unit,
-	};
-};
 
 const NodesUsageAnalytics: FC = () => {
 	const { t } = useTranslation();
@@ -312,7 +238,7 @@ const NodesUsageAnalytics: FC = () => {
 
 	const nodeDailyChartConfig = useMemo(
 		() => ({
-			options: buildDailyUsageOptions(colorMode, nodeDailyCategories),
+			options: buildUsageAreaOptions(colorMode, nodeDailyCategories),
 			series: nodeDailySeries,
 		}),
 		[colorMode, nodeDailyCategories, nodeDailySeries],
@@ -356,7 +282,7 @@ const NodesUsageAnalytics: FC = () => {
 
 	const adminDailyChartConfig = useMemo(
 		() => ({
-			options: buildDailyUsageOptions(colorMode, adminDailyCategories),
+			options: buildUsageAreaOptions(colorMode, adminDailyCategories),
 			series: adminDailySeries,
 		}),
 		[colorMode, adminDailyCategories, adminDailySeries],
@@ -812,9 +738,7 @@ const NodesUsageAnalytics: FC = () => {
 						fontSize="sm"
 					>
 						<HStack spacing={2} align="center">
-							<Text fontWeight="semibold">
-								{t("nodes.trafficOverview")}
-							</Text>
+							<Text fontWeight="semibold">{t("nodes.trafficOverview")}</Text>
 							<InfoIcon
 								color="gray.500"
 								_dark={{ color: "gray.400" }}
@@ -874,9 +798,7 @@ const NodesUsageAnalytics: FC = () => {
 						fontSize="sm"
 					>
 						<HStack spacing={2} align="center">
-							<Text fontWeight="semibold">
-								{t("nodes.perDayUsage")}
-							</Text>
+							<Text fontWeight="semibold">{t("nodes.perDayUsage")}</Text>
 							<InfoIcon
 								color="gray.500"
 								_dark={{ color: "gray.400" }}
@@ -972,9 +894,7 @@ const NodesUsageAnalytics: FC = () => {
 						fontSize="sm"
 					>
 						<HStack spacing={2} align="center">
-							<Text fontWeight="semibold">
-								{t("nodes.adminUsageChart")}
-							</Text>
+							<Text fontWeight="semibold">{t("nodes.adminUsageChart")}</Text>
 							<InfoIcon
 								color="gray.500"
 								_dark={{ color: "gray.400" }}
@@ -1088,9 +1008,7 @@ const NodesUsageAnalytics: FC = () => {
 						fontSize="sm"
 					>
 						<HStack spacing={2} align="center">
-							<Text fontWeight="semibold">
-								{t("nodes.perAdminUsage")}
-							</Text>
+							<Text fontWeight="semibold">{t("nodes.perAdminUsage")}</Text>
 							<InfoIcon
 								color="gray.500"
 								_dark={{ color: "gray.400" }}

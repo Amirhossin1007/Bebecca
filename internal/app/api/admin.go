@@ -19,6 +19,7 @@ import (
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 	webhookapp "github.com/rebeccapanel/rebecca/internal/app/webhook"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
 const (
@@ -926,7 +927,7 @@ func (s *Server) handleBulkStandardPermissions(w http.ResponseWriter, r *http.Re
 			if err := rows.Scan(&id, &raw); err != nil {
 				return err
 			}
-			perms, err := adminapp.BuildPermissions(adminapp.RoleStandard, jsonTextFromDB(raw))
+			perms, err := adminapp.BuildPermissions(adminapp.RoleStandard, adminapp.JSONText(raw))
 			if err != nil {
 				return err
 			}
@@ -1160,7 +1161,7 @@ func scanAdminFromRow(ctx context.Context, tx *sql.Tx, row scanner) (adminapp.Ad
 	dbadmin.Role = role
 	dbadmin.Status = adminapp.AdminStatus(statusText)
 	dbadmin.PasswordResetAt = parseDBTime(resetRaw)
-	dbadmin.Permissions, err = adminapp.BuildPermissions(role, jsonTextFromDB(rawPermissions))
+	dbadmin.Permissions, err = adminapp.BuildPermissions(role, adminapp.JSONText(rawPermissions))
 	if err != nil {
 		return adminapp.Admin{}, err
 	}
@@ -1168,7 +1169,7 @@ func scanAdminFromRow(ctx context.Context, tx *sql.Tx, row scanner) (adminapp.Ad
 	dbadmin.TelegramID = nullInt64PtrLocal(telegramID)
 	dbadmin.SubscriptionDomain = nullStringPtrLocal(subscriptionDomain)
 	dbadmin.SubscriptionSettings = map[string]any{}
-	_ = json.Unmarshal([]byte(jsonTextFromDB(rawSubscriptionSettings)), &dbadmin.SubscriptionSettings)
+	_ = json.Unmarshal([]byte(adminapp.JSONText(rawSubscriptionSettings)), &dbadmin.SubscriptionSettings)
 	dbadmin.DataLimit = nullInt64PtrLocal(dataLimit)
 	dbadmin.TrafficLimitMode = adminapp.AdminTrafficLimitMode(trafficLimitMode)
 	if dbadmin.TrafficLimitMode == "" {
@@ -1417,7 +1418,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 			return nil
 		}
 	}
-	payload = operationPayloadWithQueuedAt(payload, now)
+	payload = xrayconfig.OperationPayloadWithQueuedAt(payload, now)
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -1433,7 +1434,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	if err != sql.ErrNoRows {
 		return err
 	}
-	if nodeID != nil && userID != nil && isRuntimeUserNodeOperationType(operationType) {
+	if nodeID != nil && userID != nil && xrayconfig.IsRuntimeUserNodeOperationType(operationType) {
 		if err := compactPendingRuntimeUserOperationsTx(ctx, tx, *nodeID, *userID, now); err != nil {
 			return err
 		}
@@ -1452,15 +1453,6 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	return err
 }
 
-func isRuntimeUserNodeOperationType(operationType string) bool {
-	switch operationType {
-	case "add_user", "update_user", "remove_user", "disable_user", "enable_user":
-		return true
-	default:
-		return false
-	}
-}
-
 func compactPendingRuntimeUserOperationsTx(ctx context.Context, tx *sql.Tx, nodeID int64, userID int64, now time.Time) error {
 	if nodeID <= 0 || userID <= 0 {
 		return nil
@@ -1477,25 +1469,6 @@ WHERE node_id = ?
 		userID,
 	)
 	return err
-}
-
-func operationPayloadWithQueuedAt(payload any, now time.Time) any {
-	queuedAt := now.Format(time.RFC3339Nano)
-	if payload == nil {
-		return map[string]any{"queued_at": queuedAt}
-	}
-	mapped, ok := payload.(map[string]any)
-	if !ok {
-		return payload
-	}
-	cloned := make(map[string]any, len(mapped)+1)
-	for key, value := range mapped {
-		cloned[key] = value
-	}
-	if _, exists := cloned["queued_at"]; !exists {
-		cloned["queued_at"] = queuedAt
-	}
-	return cloned
 }
 
 func setUserPermission(perms *adminapp.AdminPermissions, key string, mode string, defaults adminapp.AdminPermissions) {
@@ -1571,29 +1544,6 @@ func normalizeJSONPayload(raw json.RawMessage, fallback string) string {
 		return fallback
 	}
 	return text
-}
-
-func jsonTextFromDB(value any) string {
-	switch typed := value.(type) {
-	case nil:
-		return "{}"
-	case []byte:
-		if strings.TrimSpace(string(typed)) == "" {
-			return "{}"
-		}
-		return string(typed)
-	case string:
-		if strings.TrimSpace(typed) == "" {
-			return "{}"
-		}
-		return typed
-	default:
-		encoded, err := json.Marshal(typed)
-		if err != nil {
-			return "{}"
-		}
-		return string(encoded)
-	}
 }
 
 func parseDBTime(value any) *time.Time {

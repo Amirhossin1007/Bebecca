@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 )
 
 func rollbackQuiet(tx *sql.Tx) {
@@ -534,8 +535,8 @@ func (r Repository) resolvedInboundsByTagTx(ctx context.Context, tx *sql.Tx) (ma
 	for _, raw := range rawConfigs {
 		inbounds := listOfMaps(raw["inbounds"])
 		for _, inbound := range inbounds {
-			tag := stringValue(inbound["tag"])
-			protocol := stringValue(inbound["protocol"])
+			tag := jsonvalue.String(inbound["tag"])
+			protocol := jsonvalue.String(inbound["protocol"])
 			if tag == "" || protocol == "" {
 				continue
 			}

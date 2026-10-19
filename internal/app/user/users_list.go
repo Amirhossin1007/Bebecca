@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"github.com/rebeccapanel/rebecca/internal/app/online"
+	"github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 )
 
@@ -688,7 +690,7 @@ func extractConfigIdentifiers(value string) (map[string]struct{}, map[string]str
 		if decoded, err := decodeBase64Flexible(payload); err == nil {
 			var data map[string]any
 			if json.Unmarshal([]byte(decoded), &data) == nil {
-				if id, ok := sanitizeUUID(firstNonEmptyString(data["id"], data["uuid"])); ok {
+				if id, ok := sanitizeUUID(jsonvalue.FirstNonEmpty(data["id"], data["uuid"])); ok {
 					uuids[id] = struct{}{}
 				}
 			}
@@ -699,7 +701,7 @@ func extractConfigIdentifiers(value string) (map[string]struct{}, map[string]str
 	if err != nil {
 		return uuids, passwords
 	}
-	userInfo := decodedURLUserInfo(parsed.User)
+	userInfo := outboundsub.DecodedURLUserInfo(parsed.User)
 	if lowerHasScheme(lower, "ss") {
 		if userInfo != "" && !strings.Contains(userInfo, ":") {
 			if decoded, err := decodeBase64Flexible(userInfo); err == nil {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
@@ -1010,7 +1011,7 @@ WHERE status IN ('pending', 'retrying', 'running')
 			ids = append(ids, row.ID)
 			continue
 		}
-		if canCoalesceRuntimeSyncOperation(representative) && isRuntimeUserOperation(row.OperationType) && row.ID <= representative.ID {
+		if canCoalesceRuntimeSyncOperation(representative) && xrayconfig.IsRuntimeUserNodeOperationType(row.OperationType) && row.ID <= representative.ID {
 			ids = append(ids, row.ID)
 		}
 	}
@@ -1296,7 +1297,7 @@ func (r Repository) QueueNodeSpecificRetry(ctx context.Context, nodeID int64, op
 	if err != nil {
 		return err
 	}
-	if status == "deleted" || (isRuntimeUserOperation(operation.OperationType) && status != "connected") {
+	if status == "deleted" || (xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) && status != "connected") {
 		return nil
 	}
 	operationType := strings.TrimSpace(operation.OperationType)

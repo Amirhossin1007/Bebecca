@@ -4,6 +4,7 @@ package xrayconfig
 
 import (
 	"context"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"testing"
 )
 
@@ -28,13 +29,13 @@ func TestConfigPatchPreservesIndependentChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stringValue(mapValue(restored.StoredConfig["log"])["loglevel"]); got != "warning" {
+	if got := jsonvalue.String(mapValue(restored.StoredConfig["log"])["loglevel"]); got != "warning" {
 		t.Fatalf("rolled back log level = %q, want warning", got)
 	}
-	if got := stringValue(mapValue(restored.StoredConfig["routing"])["domainStrategy"]); got != "IPIfNonMatch" {
+	if got := jsonvalue.String(mapValue(restored.StoredConfig["routing"])["domainStrategy"]); got != "IPIfNonMatch" {
 		t.Fatalf("independent routing change was overwritten: %q", got)
 	}
-	if got := intValue(listOfMaps(restored.StoredConfig["inbounds"])[1]["port"]); got != 9444 {
+	if got := jsonvalue.Int(listOfMaps(restored.StoredConfig["inbounds"])[1]["port"]); got != 9444 {
 		t.Fatalf("independent tagged inbound change was overwritten: %d", got)
 	}
 }
@@ -95,10 +96,10 @@ func TestRestoreConfigPatchesAllowsOlderIndependentRollbacks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stringValue(mapValue(afterFirstRollback["log"])["loglevel"]); got != "warning" {
+	if got := jsonvalue.String(mapValue(afterFirstRollback["log"])["loglevel"]); got != "warning" {
 		t.Fatalf("first rollback log level = %q", got)
 	}
-	if got := stringValue(mapValue(afterFirstRollback["routing"])["domainStrategy"]); got != "IPIfNonMatch" {
+	if got := jsonvalue.String(mapValue(afterFirstRollback["routing"])["domainStrategy"]); got != "IPIfNonMatch" {
 		t.Fatalf("first rollback overwrote second change: %q", got)
 	}
 	if err := repo.RestoreMutationSnapshot(ctx, 2, emptyHash, emptySnapshot, []ConfigPatch{secondPatch}); err != nil {
@@ -108,10 +109,10 @@ func TestRestoreConfigPatchesAllowsOlderIndependentRollbacks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stringValue(mapValue(finalConfig["log"])["loglevel"]); got != "warning" {
+	if got := jsonvalue.String(mapValue(finalConfig["log"])["loglevel"]); got != "warning" {
 		t.Fatalf("final log level = %q", got)
 	}
-	if got := stringValue(mapValue(finalConfig["routing"])["domainStrategy"]); got != "AsIs" {
+	if got := jsonvalue.String(mapValue(finalConfig["routing"])["domainStrategy"]); got != "AsIs" {
 		t.Fatalf("final routing strategy = %q", got)
 	}
 }
