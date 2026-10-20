@@ -185,6 +185,15 @@ const SYSTEM: SystemStats = {
     incoming: (6 + Math.sin(index / 3) * 3) * 1024 ** 2,
     outgoing: (2 + Math.cos(index / 4) * 1.5) * 1024 ** 2,
   })),
+  personal_usage: { total_users: 137, consumed_bytes: 412 * GB, built_bytes: 640 * GB, reset_bytes: 22 * GB, traffic_basis: "used_traffic" },
+  admin_overview: {
+    total_admins: ADMINS.length,
+    sudo_admins: 1,
+    full_access_admins: 1,
+    standard_admins: 0,
+    top_admin_username: "owner",
+    top_admin_usage: 412 * GB,
+  },
   last_xray_error: null,
 }
 

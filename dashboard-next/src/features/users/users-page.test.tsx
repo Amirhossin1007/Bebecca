@@ -112,6 +112,11 @@ describe("UsersPage", () => {
 
     const requested: URL[] = []
     mockFetch((request) => {
+      // The screen probes the session first; treat the operator as signed out so
+      // the admin/service filters stay disabled and only /api/users is fetched.
+      if (request.url.pathname !== "/api/users") {
+        return jsonResponse({ detail: "Could not validate credentials" }, 401)
+      }
       requested.push(request.url)
       return pending
     })
@@ -165,8 +170,13 @@ describe("UsersPage", () => {
 
   it("shows the retry affordance after an error and refetches when clicked", async () => {
     let attempts = 0
-    const mock = mockFetch(() => {
+    let userRequests = 0
+    mockFetch((request) => {
+      if (request.url.pathname !== "/api/users") {
+        return jsonResponse({ detail: "Could not validate credentials" }, 401)
+      }
       attempts += 1
+      userRequests += 1
       return attempts === 1
         ? jsonResponse({ detail: "panel exploded" }, 500)
         : jsonResponse(USERS_RESPONSE)
@@ -176,13 +186,13 @@ describe("UsersPage", () => {
 
     // Error state comes from DataTable, not from a raw error string.
     expect(await screen.findByText("Could not load users")).toBeInTheDocument()
-    expect(mock.fetchMock).toHaveBeenCalledTimes(1)
+    expect(userRequests).toBe(1)
 
     const user = userEvent.setup({ delay: null })
     await user.click(screen.getByRole("button", { name: "Retry" }))
 
     // Retrying issues a second request and the recovered data replaces the error.
     expect(await screen.findByText("sara.ahmadi")).toBeInTheDocument()
-    await waitFor(() => expect(mock.fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(userRequests).toBe(2))
   })
 })

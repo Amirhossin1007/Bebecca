@@ -37,11 +37,8 @@ export function LanguageSwitcher() {
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup value={current} onValueChange={(value) => void i18n.changeLanguage(value)}>
           {SUPPORTED_LOCALES.map((locale) => (
-            <DropdownMenuRadioItem key={locale.code} value={locale.code} className="gap-2">
-              <span className="flex-1">{locale.native}</span>
-              <span className="text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
-                {locale.code}
-              </span>
+            <DropdownMenuRadioItem key={locale.code} value={locale.code}>
+              {locale.native}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

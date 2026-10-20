@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
+import { Checkbox } from "@/components/ui/checkbox"
 import { UserStatusBadge } from "@/features/users/user-status-badge"
 import { UserRowActions } from "@/features/users/user-row-actions"
 import { UsageMeter } from "@/features/users/usage-meter"
@@ -23,6 +24,38 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
 
   return useMemo<ColumnDef<UserListItem, unknown>[]>(
     () => [
+      // Selection lives in TanStack Table's `rowSelection` state, owned by the
+      // page. The header toggles every row currently loaded (this page's rows
+      // only — the table never holds more than the server page).
+      {
+        id: "select",
+        size: 32,
+        enableSorting: false,
+        enableHiding: false,
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected()
+                ? true
+                : table.getIsSomePageRowsSelected()
+                  ? "indeterminate"
+                  : false
+            }
+            onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked === true)}
+            aria-label={t("next.users.selectAll")}
+            className="translate-y-px"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            disabled={!row.getCanSelect()}
+            onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+            aria-label={t("next.users.selectRow", { username: row.original.username })}
+            className="translate-y-px"
+          />
+        ),
+      },
       {
         id: "username",
         accessorKey: "username",

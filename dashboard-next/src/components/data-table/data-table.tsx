@@ -4,6 +4,8 @@ import {
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type OnChangeFn,
+  type RowSelectionState,
   type SortingState,
   type Updater,
 } from "@tanstack/react-table"
@@ -38,6 +40,10 @@ type DataTableProps<TData> = {
   sorting?: SortingState
   onSortingChange?: (updater: Updater<SortingState>) => void
   getRowId?: (row: TData) => string
+  /** Opt-in row selection; `rowSelection` is keyed by the row id from `getRowId`. */
+  rowSelection?: RowSelectionState
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>
+  enableRowSelection?: boolean
 }
 
 /**
@@ -59,8 +65,16 @@ export function DataTable<TData>({
   sorting,
   onSortingChange,
   getRowId,
+  rowSelection,
+  onRowSelectionChange,
+  enableRowSelection,
 }: DataTableProps<TData>) {
   const { t } = useTranslation()
+  // Only include the state slices the caller actually controls, so a table that
+  // never opts into row selection keeps its previous uncontrolled behaviour.
+  const tableState: { sorting?: SortingState; rowSelection?: RowSelectionState } = {}
+  if (sorting) tableState.sorting = sorting
+  if (rowSelection) tableState.rowSelection = rowSelection
   // TanStack Table v8 owns mutable table state internally; the React Compiler
   // cannot model that, so this hook legitimately opts out of memoisation.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -73,7 +87,9 @@ export function DataTable<TData>({
     manualSorting: Boolean(onSortingChange),
     getSortedRowModel: onSortingChange ? undefined : getSortedRowModel(),
     onSortingChange,
-    state: sorting ? { sorting } : undefined,
+    enableRowSelection: enableRowSelection ?? Boolean(onRowSelectionChange),
+    onRowSelectionChange,
+    state: Object.keys(tableState).length > 0 ? tableState : undefined,
   })
 
   if (isError) {
@@ -96,12 +112,17 @@ export function DataTable<TData>({
   }
 
   return (
-    <div className={cn("relative w-full overflow-x-auto", className)}>
+    <div className={cn(
+      // This wrapper is the only scroll box; shadcn's inner table container must not
+      // become a second one, or `position: sticky` on the header would resolve to it.
+      "relative max-h-[min(56svh,42rem)] w-full overflow-auto [&>[data-slot=table-container]]:overflow-visible",
+      className,
+    )}>
       <span role="status" aria-live="polite" className="sr-only">
         {isLoading ? t("next.table.loading") : `${rowCount ?? table.getRowModel().rows.length}`}
       </span>
       <Table aria-busy={isLoading ? true : undefined}>
-        <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <TableHeader className="bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="border-b border-border hover:bg-transparent">
               {headerGroup.headers.map((header) => {
@@ -110,9 +131,13 @@ export function DataTable<TData>({
                 return (
                   <TableHead
                     key={header.id}
+                    aria-sort={
+                      sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
+                    }
                     style={{ width: header.getSize() === 150 ? undefined : header.getSize() }}
                     className={cn(
-                      "h-9 text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground",
+                      // Sticky belongs on the cell: a sticky <thead> is unreliable in Chrome.
+                      "sticky top-0 z-10 h-9 border-b border-border bg-card text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground",
                       canSort && "select-none",
                     )}
                   >

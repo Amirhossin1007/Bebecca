@@ -1,7 +1,14 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { api } from "@/lib/api"
-import type { UserStatus, UsersResponse } from "@/types/api"
+import type {
+  Admin,
+  AdminsResponse,
+  Service,
+  ServicesResponse,
+  UserStatus,
+  UsersResponse,
+} from "@/types/api"
 
 export type SortField = "username" | "used_traffic" | "data_limit" | "expire" | "created_at"
 
@@ -13,6 +20,10 @@ export type UsersQuery = {
   /** `field` ascending, `-field` descending — the API's own convention. */
   sort?: string | null
   admin?: string[]
+  /** `service_id` on the wire; the list handler rejects non-numeric values. */
+  serviceId?: number
+  matchCase?: boolean
+  matchWholeWord?: boolean
 }
 
 export const usersKeys = {
@@ -33,10 +44,84 @@ export function useUsers(query: UsersQuery) {
           status: query.status,
           sort: query.sort ?? undefined,
           admin: query.admin,
+          service_id: query.serviceId,
+          match_case: query.matchCase ? "1" : undefined,
+          match_whole_word: query.matchWholeWord ? "1" : undefined,
         },
       }),
     placeholderData: keepPreviousData,
     staleTime: 10_000,
+  })
+}
+
+/** Filter-option queries live outside `usersKeys.all` so user mutations do not refetch them. */
+const filterOptionsKeys = {
+  admins: ["users-filter-options", "admins"] as const,
+  services: ["users-filter-options", "services"] as const,
+}
+
+/**
+ * Admins that can own users, for the owner filter. Callers pass `enabled` from
+ * the session: `GET /admins` is 403 unless the caller is full_access or holds
+ * `admin_management.can_view`.
+ */
+export function useUserAdminOptions(enabled: boolean) {
+  return useQuery({
+    queryKey: filterOptionsKeys.admins,
+    queryFn: ({ signal }) =>
+      api.get<AdminsResponse>("/admins", { params: { limit: 100 }, signal }),
+    enabled,
+    retry: false,
+    staleTime: 5 * 60_000,
+    select: (data): Admin[] => data.admins,
+  })
+}
+
+/**
+ * Services for the service filter; `limit=none` asks for the whole list. Gated
+ * by the caller so the filter does not probe the API before a session exists.
+ */
+export function useUserServiceOptions(enabled: boolean) {
+  return useQuery({
+    queryKey: filterOptionsKeys.services,
+    queryFn: ({ signal }) =>
+      api.get<ServicesResponse>("/v2/services", { params: { limit: "none" }, signal }),
+    enabled,
+    retry: false,
+    staleTime: 5 * 60_000,
+    select: (data): Service[] => data.services,
+  })
+}
+
+export type BulkUsersAction = "activate_users" | "disable_users" | "delete_users"
+
+export type BulkUsersResponse = { detail: string; count: number }
+
+/** `POST /users/actions` — the API's bulk endpoint for status and delete. */
+export function useBulkUsersAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ action, usernames }: { action: BulkUsersAction; usernames: string[] }) =>
+      api.post<BulkUsersResponse>("/users/actions", { action, usernames }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
+  })
+}
+
+/**
+ * Reset is not one of the bulk actions in `POST /users/actions`, so it loops the
+ * single-user endpoint once per selected username. The caller caps the list at
+ * the current selection.
+ */
+export function useResetUsersUsage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (usernames: string[]) =>
+      Promise.all(
+        usernames.map((username) =>
+          api.post<void>(`/user/${encodeURIComponent(username)}/reset`),
+        ),
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
   })
 }
 

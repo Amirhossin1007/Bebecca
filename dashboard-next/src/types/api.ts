@@ -210,5 +210,21 @@ export type SystemStats = {
   cpu_history: HistoryPoint[]
   memory_history: HistoryPoint[]
   network_history: NetworkPoint[]
+  personal_usage?: {
+    total_users: number
+    consumed_bytes: number
+    built_bytes: number
+    reset_bytes: number
+    traffic_basis?: string
+  }
+  admin_overview?: {
+    total_admins: number
+    sudo_admins: number
+    full_access_admins: number
+    standard_admins: number
+    top_admin_username: string | null
+    top_admin_usage: number
+  }
   last_xray_error?: string | null
+  last_telegram_error?: string | null
 }

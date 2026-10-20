@@ -3170,7 +3170,7 @@
 	"usersFilter.clearSearch": "Clear search",
 	"usersTable.addTrafficSuccess": "Traffic updated",
 	"usersTable.extendExpireSuccess": "Expiration extended",
-	"usersTable.enableUser": "Enable user",
+	"usersTable.enableUser": "فعال‌سازی کاربر",
 	"usersTable.noOnlineIps": "No online IPs found.",
 	"usersTable.bulkActionCount": "{{count}} users updated",
 	"usersTable.qrCode": "QR Code",
@@ -3941,5 +3941,11 @@
 	"next.hosts.allHosts": "همه هاست‌ها",
 	"next.services.total": "کل سرویس‌ها",
 	"next.services.columnCoefficient": "ضریب",
-	"status.deleted": "حذف‌شده"
+	"status.deleted": "حذف‌شده",
+	"next.stat.share": "{{percent}}٪ از کل",
+	"next.users.exportCsv": "خروجی CSV",
+	"next.users.exportCsvHint": "فقط {{count}} سطر بارگذاری‌شده در همین صفحه خروجی گرفته می‌شود؛ صفحه‌های دیگر نتیجهٔ فیلترشده شامل نمی‌شوند.",
+	"next.users.toggleColumns": "ستون‌ها",
+	"next.users.selectAll": "انتخاب همه سطرهای این صفحه",
+	"next.users.selectRow": "انتخاب {{username}}"
 }

@@ -43,7 +43,7 @@ pins the palette.
 |---|---|---|
 | Sign in (+2FA/disabled states) | `/login` | done |
 | Dashboard (live stats, CPU/memory/network sparklines, status mix) | `/` | done |
-| Users (server paging, sort, search, status filter, row actions) | `/users` | done |
+| Users (server paging/sort, faceted filters + chips, bulk actions, CSV export, column visibility) | `/users` | done |
 | Admins (paging, role/status filters, budgets) | `/admins` | done |
 | Hosts (grouped by inbound, client-side filter) | `/hosts` | done |
 | Nodes (fleet health, CPU/memory pressure) | `/nodes` | done |
@@ -83,6 +83,18 @@ Conventions worth keeping:
   dates and Persian digits from `Intl` with no extra dependency.
 - **No hardcoded colours.** Everything resolves to the semantic tokens declared
   in `src/index.css`.
+
+## UI references
+
+`docs/ui-references.md` is a verified shortlist of open-source admin dashboards we
+borrow patterns from, with licenses and the exact widgets to copy. The shortlist
+of record: [satnaing/shadcn-admin](https://github.com/satnaing/shadcn-admin) (MIT,
+same stack and the only one with a working RTL implementation),
+[shadcnstore dashboard](https://github.com/shadcnstore/shadcn-dashboard-landing-template)
+(MIT, richest widget cards), [Kiranism's starter](https://github.com/Kiranism/next-shadcn-dashboard-starter)
+(MIT, best filter architecture), [TailAdmin React](https://github.com/TailAdmin/free-react-tailwind-admin-dashboard)
+(MIT, gauges and chart tabs), [FarsiUI](https://github.com/MiladJoodi/FarsiUI) (MIT, Persian primitives).
+Marzban (AGPL-3.0) and 3x-ui (GPL-3.0) are reference-only: never copy their code.
 
 ## API contract
 

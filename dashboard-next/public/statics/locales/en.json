@@ -3942,5 +3942,11 @@
 	"next.hosts.allHosts": "All hosts",
 	"next.services.total": "Total services",
 	"next.services.columnCoefficient": "Coefficient",
-	"status.deleted": "Deleted"
+	"status.deleted": "Deleted",
+	"next.stat.share": "{{percent}}% of total",
+	"next.users.exportCsv": "Export CSV",
+	"next.users.exportCsvHint": "Exports only the {{count}} rows loaded on this page. Other pages of the filtered result are not included.",
+	"next.users.toggleColumns": "Columns",
+	"next.users.selectAll": "Select all rows on this page",
+	"next.users.selectRow": "Select {{username}}"
 }

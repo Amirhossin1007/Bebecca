@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, type RenderResult } from "@testing-library/react"
 import type { ReactElement } from "react"
 import { I18nextProvider } from "react-i18next"
+
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { MemoryRouter } from "react-router-dom"
 import { vi, type Mock } from "vitest"
 
@@ -39,7 +41,9 @@ export function renderWithProviders(
   const result = render(
     <I18nextProvider i18n={testI18n}>
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+        <TooltipProvider delayDuration={0}>
+          <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+        </TooltipProvider>
       </QueryClientProvider>
     </I18nextProvider>
   )
