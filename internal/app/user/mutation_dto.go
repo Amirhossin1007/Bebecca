@@ -158,21 +158,24 @@ type ServiceInfo struct {
 }
 
 type UserSnapshot struct {
-	ID          int64
-	Username    string
-	Status      UserStatus
-	UsedTraffic int64
-	DataLimit   *int64
-	ServiceID   *int64
-	AdminID     *int64
+	ID             int64
+	Username       string
+	Status         UserStatus
+	UsedTraffic    int64
+	DataLimit      *int64
+	ServiceID      *int64
+	AdminID        *int64
+	SpeedLimitKbps int64
+	IPLimit        int64
 }
 
 type MutationContext struct {
-	ActiveUsers        int64
-	ServiceActiveUsers map[int64]int64
-	Services           map[int64]ServiceInfo
-	Inbounds           map[string]InboundInfo
-	ExistingUser       *UserSnapshot
+	ActiveUsers           int64
+	ServiceActiveUsers    map[int64]int64
+	Services              map[int64]ServiceInfo
+	Inbounds              map[string]InboundInfo
+	ExistingUser          *UserSnapshot
+	UserSpeedLimitEnabled bool
 }
 
 func (p UserServiceCreate) ToUserCreate(service ServiceInfo) UserCreate {

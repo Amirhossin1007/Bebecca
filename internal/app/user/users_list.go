@@ -479,12 +479,19 @@ func numericUserIDSearch(search string) (int64, bool) {
 
 func usersOrderSQL(sortOptions []SortOption) string {
 	columns := map[string]string{
-		"username":     "u.username",
-		"used_traffic": "u.used_traffic",
-		"data_limit":   "u.data_limit",
-		"expire":       "u.expire",
-		"created_at":   "u.created_at",
-		"id":           "u.id",
+		"username":              "u.username",
+		"used_traffic":          "u.used_traffic",
+		"data_limit":            "u.data_limit",
+		"expire":                "u.expire",
+		"created_at":            "u.created_at",
+		"id":                    "u.id",
+		"status":                "u.status",
+		"service":               "s.name",
+		"admin":                 "a.username",
+		"lifetime_used_traffic": "(COALESCE(u.used_traffic, 0) + COALESCE((SELECT SUM(uul.used_traffic_at_reset) FROM user_usage_logs uul WHERE uul.user_id = u.id), 0))",
+		"remaining_traffic":     "(CASE WHEN COALESCE(u.data_limit, 0) <= 0 THEN 9223372036854775807 WHEN COALESCE(u.data_limit, 0) - COALESCE(u.used_traffic, 0) < 0 THEN 0 ELSE COALESCE(u.data_limit, 0) - COALESCE(u.used_traffic, 0) END)",
+		"online":                "(SELECT up.online_at FROM user_presence up WHERE up.user_id = u.id)",
+		"last_connection":       "(SELECT up.online_at FROM user_presence up WHERE up.user_id = u.id)",
 	}
 	if len(sortOptions) == 0 {
 		return defaultUsersOrder
