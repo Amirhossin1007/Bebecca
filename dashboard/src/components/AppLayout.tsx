@@ -268,7 +268,7 @@ function AppLayoutContent() {
 	const accountMenu = useDisclosure();
 	const settingsMenu = useDisclosure();
 	const [activeProfileSubmenu, setActiveProfileSubmenu] = useState<
-		"notifications" | "language" | "theme" | null
+		"notifications" | "language" | "theme" | "calendar" | null
 	>(null);
 	const { t, i18n } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
@@ -590,7 +590,7 @@ function AppLayoutContent() {
 			const isSubmenuNode = (node: Element) =>
 				Boolean(
 					node.closest?.(
-						'[data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"]',
+						'[data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-calendar-menu-list="true"]',
 					),
 				);
 
@@ -603,7 +603,7 @@ function AppLayoutContent() {
 			const isSubmenuTrigger = (node: Element) =>
 				Boolean(
 					node.closest?.(
-						'[data-submenu-trigger="true"], [data-theme-trigger="true"]',
+						'[data-submenu-trigger="true"], [data-theme-trigger="true"], [data-calendar-trigger="true"]',
 					),
 				);
 
@@ -632,7 +632,7 @@ function AppLayoutContent() {
 				return Boolean(
 					node.id === "rb-user-menu" ||
 						node.closest?.(
-							'#rb-user-menu, [data-profile-window="true"], [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-profile-menu="true"]',
+							'#rb-user-menu, [data-profile-window="true"], [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-calendar-menu-list="true"], [data-profile-menu="true"]',
 						),
 				);
 			});
@@ -2441,9 +2441,22 @@ function AppLayoutContent() {
 												</VStack>
 											</Flex>
 
-											{isMobile && (
-												<HeaderCalendar inMenu={true} placement={languagePlacement} />
-											)}
+											<HeaderCalendar
+												inMenu={true}
+												placement={languagePlacement}
+												isOpen={activeProfileSubmenu === "calendar"}
+												onToggle={() => {
+													languageMenu.onClose();
+													setActiveProfileSubmenu((prev) =>
+														prev === "calendar" ? null : "calendar",
+													);
+												}}
+												onClose={() => {
+													if (activeProfileSubmenu === "calendar") {
+														setActiveProfileSubmenu(null);
+													}
+												}}
+											/>
 
 											<NotificationMenuItem
 												placement={languagePlacement}

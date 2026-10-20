@@ -918,6 +918,28 @@ body {
     border-radius: 16px 16px 0 0 !important;
     display: flex;
     flex-direction: column;
+    position: relative !important;
+  }
+
+  .chakra-modal__content:not(.chakra-slide):not([data-modal-centered="true"]):not(.rb-confirm-dialog-content)::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4.5px;
+    margin: 8px auto 4px;
+    background: var(--rb-panel-border-strong, rgba(255, 255, 255, 0.22));
+    border-radius: 9999px;
+    flex-shrink: 0;
+    pointer-events: auto;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .chakra-modal__content:not(.chakra-slide):not([data-modal-centered="true"]):not(.rb-confirm-dialog-content) > .chakra-modal__header,
+  .chakra-modal__content:not(.chakra-slide):not([data-modal-centered="true"]):not(.rb-confirm-dialog-content) form > .chakra-modal__header {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .chakra-modal__content-container:has([data-modal-centered="true"]),
