@@ -45,6 +45,8 @@ export type DataTableColumn<TData> = {
 	hideOnMobile?: boolean;
 	mobilePriority?: number;
 	mobileLabel?: ReactNode;
+	/** Human label for the column-visibility menu. */
+	menuLabel?: string;
 	isPrimary?: boolean;
 	isMeta?: boolean;
 	meta?: Record<string, unknown>;
@@ -112,4 +114,6 @@ export type DataTableProps<TData> = {
 	containerProps?: BoxProps;
 	mobileBreakpoint?: "md" | "lg";
 	ariaLabel?: string;
+	/** `{ [columnId]: false }` hides a column. Columns default to visible. */
+	columnVisibility?: Record<string, boolean>;
 };

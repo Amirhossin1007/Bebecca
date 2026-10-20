@@ -509,6 +509,7 @@ export function DataTable<TData>({
 	containerProps,
 	mobileBreakpoint = "md",
 	ariaLabel,
+	columnVisibility,
 }: DataTableProps<TData>) {
 	const { t } = useTranslation();
 	const actionsLabel = t("actions");
@@ -541,12 +542,21 @@ export function DataTable<TData>({
 			"2xl": "xl",
 		}) ?? "base";
 	const isMobile = isBelowBreakpoint(activeBreakpoint, mobileBreakpoint);
+	// Visibility first, then the responsive rules: a hidden column must not come
+	// back at a wider breakpoint.
+	const activeColumns = useMemo(
+		() =>
+			columnVisibility
+				? columns.filter((column) => columnVisibility[column.id] !== false)
+				: columns,
+		[columns, columnVisibility],
+	);
 	const visibleDesktopColumns = useMemo(
 		() =>
-			columns.filter((column) =>
+			activeColumns.filter((column) =>
 				shouldShowDesktopColumn(column, activeBreakpoint),
 			),
-		[activeBreakpoint, columns],
+		[activeBreakpoint, activeColumns],
 	);
 	const getResolvedRowActions = useCallback(
 		(row: TData): RowActionItem[] =>
@@ -655,7 +665,7 @@ export function DataTable<TData>({
 	);
 	const rowSelection = controlledSelection ?? internalSelection;
 	const sortingState = sorting ?? internalSorting;
-	const sortOptions = useMemo(() => buildSortOptions(columns, data), [columns, data]);
+	const sortOptions = useMemo(() => buildSortOptions(activeColumns, data), [activeColumns, data]);
 
 	const tableColumns = useMemo<ColumnDef<TData, unknown>[]>(() => {
 		const dataColumns = visibleDesktopColumns.map<ColumnDef<TData, unknown>>((column) => ({
@@ -821,12 +831,12 @@ export function DataTable<TData>({
 			.filter(Boolean) as TData[]);
 	const selectedCount = selectedCountOverride ?? selectedRows.length;
 	const mobileVisibleColumns = useMemo(() => {
-		const mobileColumns = columns.filter(shouldShowMobileColumn);
+		const mobileColumns = activeColumns.filter(shouldShowMobileColumn);
 		const primary =
 			mobileColumns.find((column) => column.isPrimary) ??
 			mobileColumns.find((column) => column.priority === "primary") ??
 			mobileColumns[0] ??
-			columns[0];
+			activeColumns[0];
 		const rest = mobileColumns
 			.filter((column) => column.id !== primary?.id)
 			.sort((a, b) => (a.mobilePriority ?? 99) - (b.mobilePriority ?? 99));
@@ -835,7 +845,7 @@ export function DataTable<TData>({
 			rest.find((column) => column.priority === "high") ??
 			rest[0];
 		return { primary, rest, summary };
-	}, [columns]);
+	}, [activeColumns]);
 	const visibleColumnCount = table.getVisibleFlatColumns().length || 1;
 	const loadingRowKeys = useMemo(
 		() =>

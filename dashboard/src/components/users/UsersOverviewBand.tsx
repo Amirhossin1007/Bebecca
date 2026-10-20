@@ -25,6 +25,8 @@ export type UsersOverviewBandProps = {
 	usageLabel?: string;
 	breakdown: Partial<Record<OverviewStatusKey, number>>;
 	locale: string;
+	/** Rendered inside a parent card: drops its own border and surface. */
+	bare?: boolean;
 };
 
 const STATUS_ORDER: OverviewStatusKey[] = [
@@ -69,6 +71,7 @@ export function UsersOverviewBand({
 	usageLabel,
 	breakdown,
 	locale,
+	bare = false,
 }: UsersOverviewBandProps) {
 	const { t } = useTranslation();
 	const totals = STATUS_ORDER.reduce((sum, key) => sum + (breakdown[key] ?? 0), 0);
@@ -78,7 +81,11 @@ export function UsersOverviewBand({
 
 	return (
 		<section
-			className="grid gap-4 rounded-xl border border-panel-border bg-panel-surface p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
+			className={
+				bare
+					? "grid gap-4 p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
+					: "grid gap-4 rounded-xl border border-panel-border bg-panel-surface p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
+			}
 			aria-label={t("usersStatusBreakdown")}
 		>
 			{/* Total, against the admin's user cap when the panel reports one. */}

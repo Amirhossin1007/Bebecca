@@ -911,5 +911,6 @@
 	"settings.telegram.backupScope": "Область резервного копирования",
 	"total": "Всего",
 	"loadAverage": "Средняя загрузка",
-	"sponsors.sponsoredBy": "При поддержке"
+	"sponsors.sponsoredBy": "При поддержке",
+	"next.table.toggleColumns": "Столбцы"
 }

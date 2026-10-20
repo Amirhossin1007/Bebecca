@@ -912,5 +912,6 @@
 	"settings.telegram.backupScope": "备份范围",
 	"total": "总计",
 	"loadAverage": "平均负载",
-	"sponsors.sponsoredBy": "赞助商"
+	"sponsors.sponsoredBy": "赞助商",
+	"next.table.toggleColumns": "列"
 }

@@ -3786,5 +3786,6 @@
 	"admins.filters.statusActive": "فعال",
 	"admins.filters.statusDisabled": "غیرفعال",
 	"admins.filters.statusExpired": "منقضی",
-	"admins.filters.statusLimited": "محدود"
+	"admins.filters.statusLimited": "محدود",
+	"next.table.toggleColumns": "ستون‌ها"
 }

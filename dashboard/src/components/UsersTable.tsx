@@ -65,6 +65,7 @@ import {
 } from "utils/adminTraffic";
 import { copyTextToClipboard } from "utils/clipboard";
 import { formatBytes } from "utils/formatByte";
+import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
 import { UsersOverviewBand } from "components/users/UsersOverviewBand";
 import { generateUserLinks } from "utils/userLinks";
 import { AppDialog } from "./dialogs/AppDialog";
@@ -918,6 +919,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		const columns: DataTableColumn<UserListItem>[] = [
 			{
 				id: "online",
+				menuLabel: t("usersTable.online"),
 				header: t("usersTable.online"),
 				priority: "high",
 				width: "76px",
@@ -932,6 +934,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			},
 			{
 				id: "username",
+				menuLabel: t("username"),
 				header: t("username"),
 				accessor: "username",
 				sortable: true,
@@ -980,6 +983,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			},
 			{
 				id: "id",
+				menuLabel: t("usersTable.userId"),
 				header: t("usersTable.userId"),
 				accessor: (user) => user.id,
 				sortable: true,
@@ -996,6 +1000,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			},
 			{
 				id: "status",
+				menuLabel: t("status"),
 				header: t("usersTable.status"),
 				priority: "high",
 				width: "112px",
@@ -1018,6 +1023,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			},
 			{
 				id: "service",
+				menuLabel: t("usersTable.service"),
 				header: t("usersTable.service"),
 				accessor: (user) => user.service_name ?? t("usersTable.defaultService"),
 				priority: "high",
@@ -1045,6 +1051,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		if (canViewTraffic) {
 			columns.push({
 				id: "used_traffic",
+				menuLabel: t("usersTable.traffic"),
 				header: t("usersTable.traffic"),
 				sortable: true,
 				priority: "high",
@@ -1070,6 +1077,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 			columns.push({
 				id: "speed",
+				menuLabel: t("usersTable.speed"),
 				header: t("usersTable.speed"),
 				priority: "high",
 				width: "120px",
@@ -1084,6 +1092,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 			columns.push({
 				id: "remaining_traffic",
+				menuLabel: t("usersTable.remainingTraffic"),
 				header: t("usersTable.remainingTraffic"),
 				priority: "high",
 				width: "132px",
@@ -1111,6 +1120,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 			columns.push({
 				id: "lifetime_used_traffic",
+				menuLabel: t("usersTable.lifetimeUsage"),
 				header: t("usersTable.lifetimeUsage"),
 				priority: "high",
 				width: "132px",
@@ -1129,6 +1139,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 		columns.push({
 			id: "expire",
+			menuLabel: t("usersTable.expire"),
 			header: t("usersTable.expire"),
 			sortable: true,
 			priority: "high",
@@ -1150,6 +1161,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 		if (hasPrivilegedRole) {
 			columns.push({
 				id: "admin",
+				menuLabel: t("usersTable.admin"),
 				header: t("usersTable.admin"),
 				desktopVisible: false,
 				mobileVisible: true,
@@ -1410,6 +1422,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 		return actions;
 	};
 
+	const [columnVisibility, setColumnVisibility] = useState<
+		Record<string, boolean>
+	>({});
 	const filteredUsageTotal = usersResponse.usage_total ?? null;
 	const activeUsersCount =
 		statusBreakdown.active ?? usersResponse.active_total ?? 0;
@@ -1516,29 +1531,49 @@ export const UsersTable: FC<UsersTableProps> = ({
 			pb={selectedUsers.length > 0 ? { base: 32, md: 24 } : 0}
 			{...props}
 		>
-			{/* Overview band: rebuilt with Tailwind, no Chakra. */}
-			<UsersOverviewBand
-				total={usersResponse.total}
-				usersLimit={usersResponse.users_limit ?? null}
-				active={activeUsersCount}
-				online={usersResponse.online_total ?? 0}
-				usage={usageForSummary}
-				usageLabel={
-					hasUsageScopeFilter
-						? t("usersTable.filteredUsage")
-						: t("usersTable.listUsage")
-				}
-				breakdown={statusBreakdown as Partial<Record<"active" | "expired" | "limited" | "on_hold" | "disabled", number>>}
-				locale={locale}
-			/>
-
-			{/* Header card: title, actions and the filter/search toolbar. */}
-			<ResourceListCard
-				title={t("usersTable.listHeader")}
-				actions={headerActions}
+			{/* One header card: the overview band, then the toolbar row. */}
+			<Box
+				className="rb-users-header-card"
+				borderWidth="1px"
+				borderColor="panel.border"
+				bg="panel.surface"
+				borderRadius="xl"
+				overflow="hidden"
 			>
-				{toolbar}
-			</ResourceListCard>
+				<UsersOverviewBand
+					bare
+					total={usersResponse.total}
+					usersLimit={usersResponse.users_limit ?? null}
+					active={activeUsersCount}
+					online={usersResponse.online_total ?? 0}
+					usage={usageForSummary}
+					usageLabel={
+						hasUsageScopeFilter
+							? t("usersTable.filteredUsage")
+							: t("usersTable.listUsage")
+					}
+					breakdown={statusBreakdown as Partial<Record<"active" | "expired" | "limited" | "on_hold" | "disabled", number>>}
+					locale={locale}
+				/>
+
+				{/* Toolbar: search, sort, filters and create on the start side; refresh,
+				    auto-refresh and the column chooser on the end side. */}
+				<Box className="rb-users-toolbar" borderTopWidth="1px" borderColor="panel.border" p={3}>
+					<Flex align="center" gap={2} wrap="wrap">
+						<Box flex="1 1 240px" minW={0}>
+							{toolbar}
+						</Box>
+						<HStack spacing={1} flexShrink={0}>
+							{headerActions}
+							<DataTableColumnMenu
+								columns={userColumns}
+								visibility={columnVisibility}
+								onChange={setColumnVisibility}
+							/>
+						</HStack>
+					</Flex>
+				</Box>
+			</Box>
 
 			<Box position="relative">
 				<Stack
@@ -1563,6 +1598,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 							/>
 						}
 						enableSelection
+						columnVisibility={columnVisibility}
 						selectedRowIds={selectedUsernames}
 						selectedRows={selectedUsers}
 						selectedCount={selectedUsers.length}

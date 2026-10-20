@@ -3787,5 +3787,6 @@
 	"admins.filters.statusActive": "Active",
 	"admins.filters.statusDisabled": "Disabled",
 	"admins.filters.statusExpired": "Expired",
-	"admins.filters.statusLimited": "Limited"
+	"admins.filters.statusLimited": "Limited",
+	"next.table.toggleColumns": "Columns"
 }
