@@ -1,18 +1,12 @@
-import {
-  RefreshCw,
-  Search,
-  ShieldAlert,
-  SlidersHorizontal,
-  X,
-} from "lucide-react"
+import { RefreshCw, ShieldAlert, SlidersHorizontal, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { DataTable } from "@/components/data-table/data-table"
+import { SearchField } from "@/components/search-field"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -27,6 +21,7 @@ import {
   nodeStatusLabelKey,
   useNodeColumns,
 } from "@/features/nodes/columns"
+import { matchesAny } from "@/lib/search"
 import { useFormat } from "@/lib/use-format"
 import { cn } from "@/lib/utils"
 
@@ -88,6 +83,7 @@ export function NodesPage() {
   const query = useNodes()
 
   const [search, setSearch] = useState("")
+  const [matchOptions, setMatchOptions] = useState({ matchCase: false, matchWholeWord: false })
   const [status, setStatus] = useState("all")
 
   const nodes = useMemo(() => query.data ?? [], [query.data])
@@ -109,16 +105,11 @@ export function NodesPage() {
   const downlink = nodes.reduce((sum, node) => sum + (node.downlink ?? 0), 0)
 
   const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase()
     return nodes.filter((node) => {
       if (status !== "all" && node.status !== status) return false
-      if (!needle) return true
-      return (
-        node.name.toLowerCase().includes(needle) ||
-        node.address.toLowerCase().includes(needle)
-      )
+      return matchesAny([node.name, node.address], search, matchOptions)
     })
-  }, [nodes, search, status])
+  }, [nodes, search, status, matchOptions])
 
   const hasFilters = search.trim().length > 0 || status !== "all"
   const empty = (value: string) => (failed ? "—" : value)
@@ -191,26 +182,14 @@ export function NodesPage() {
 
           <Card className="overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-b border-border p-2.5">
-              <div className="relative min-w-0 flex-1 sm:max-w-xs">
-                <Search className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={t("next.nodes.searchPlaceholder")}
-                  className="h-8 ps-8 pe-8 text-[0.8125rem]"
-                  aria-label={t("next.nodes.searchPlaceholder")}
-                />
-                {search ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={t("next.users.clear")}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                ) : null}
-              </div>
+              <SearchField
+                value={search}
+                onChange={setSearch}
+                placeholder={t("next.nodes.searchPlaceholder")}
+                matchCase={matchOptions.matchCase}
+                matchWholeWord={matchOptions.matchWholeWord}
+                onMatchChange={(next) => setMatchOptions((current) => ({ ...current, ...next }))}
+              />
 
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger

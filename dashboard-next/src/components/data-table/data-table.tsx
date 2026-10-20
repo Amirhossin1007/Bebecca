@@ -170,7 +170,7 @@ export function DataTable<TData>({
                     style={{ width: header.getSize() === 150 ? undefined : header.getSize() }}
                     className={cn(
                       // Sticky belongs on the cell: a sticky <thead> is unreliable in Chrome.
-                      "sticky top-0 z-10 h-9 border-b border-border bg-card text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground",
+                      "sticky top-0 z-10 h-8 border-b border-border bg-card text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground",
                       canSort && "select-none",
                     )}
                   >
@@ -229,9 +229,13 @@ export function DataTable<TData>({
             </TableRow>
           ) : (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className="group/row border-b border-border/70 transition-colors hover:bg-muted/40">
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() ? "selected" : undefined}
+                className="group/row border-b border-border/70 transition-colors hover:bg-muted/40 data-[state=selected]:bg-primary/[0.06]"
+              >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="py-2.5 align-middle">
+                  <TableCell key={cell.id} className="py-2 align-middle">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

@@ -1,15 +1,15 @@
 import type { SortingState } from "@tanstack/react-table"
-import { CircleDot, RefreshCw, Search, ShieldAlert, ShieldCheck, X } from "lucide-react"
+import { CircleDot, RefreshCw, ShieldAlert, ShieldCheck, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePagination } from "@/components/data-table/table-pagination"
+import { SearchField } from "@/components/search-field"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -79,6 +79,8 @@ export function AdminsPage() {
   const [params, setParams] = useSearchParams()
 
   const search = params.get("search") ?? ""
+  const matchCase = params.get("match_case") === "1"
+  const matchWholeWord = params.get("match_whole_word") === "1"
   const role = params.get("role") ?? ""
   const status = params.get("status") ?? ""
   const page = Math.max(0, Number(params.get("page") ?? 0) || 0)
@@ -211,26 +213,19 @@ export function AdminsPage() {
 
           <Card className="overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-b border-border p-2.5">
-              <div className="relative min-w-0 flex-1 sm:max-w-xs">
-                <Search className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder={t("next.admins.searchPlaceholder")}
-                  className="h-8 pe-8 ps-8 text-[0.8125rem]"
-                  aria-label={t("next.admins.searchPlaceholder")}
-                />
-                {searchInput ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearchInput("")}
-                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={t("clear")}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                ) : null}
-              </div>
+              <SearchField
+                value={searchInput}
+                onChange={setSearchInput}
+                placeholder={t("next.admins.searchPlaceholder")}
+                matchCase={matchCase}
+                matchWholeWord={matchWholeWord}
+                loading={query.isFetching && !query.isPending}
+                onMatchChange={(next) => {
+                  if (next.matchCase !== undefined) update({ match_case: next.matchCase ? "1" : null })
+                  if (next.matchWholeWord !== undefined)
+                    update({ match_whole_word: next.matchWholeWord ? "1" : null })
+                }}
+              />
 
               <Select
                 value={role || "all"}

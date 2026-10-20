@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { api, ApiError } from "@/lib/api"
 import type { Node } from "@/types/api"
@@ -27,5 +27,46 @@ export function useNodes() {
       isForbidden(query.state.error) ? false : 15_000,
     staleTime: 10_000,
     retry: (failureCount, error) => !isForbidden(error) && failureCount < 2,
+  })
+}
+
+/** Sudo-only node operations; each refreshes the whole node list on settle. */
+export function useReconnectNode() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.post<void>(`/node/${id}/reconnect`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: nodesKeys.all }),
+  })
+}
+
+export function useRestartNodeCore() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.post<void>(`/node/${id}/restart`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: nodesKeys.all }),
+  })
+}
+
+export function useUpdateNodeXray() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.post<void>(`/node/${id}/xray/update`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: nodesKeys.all }),
+  })
+}
+
+export function useSyncNodeConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.post<void>(`/node/${id}/sync`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: nodesKeys.all }),
+  })
+}
+
+export function useDeleteNode() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.delete<void>(`/node/${id}`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: nodesKeys.all }),
   })
 }

@@ -4,8 +4,6 @@ import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
@@ -44,15 +42,12 @@ export type UserFilterDraft = {
 type UsersFiltersProps = {
   draft: UserFilterDraft
   activeCount: number
-  matchCase: boolean
-  matchWholeWord: boolean
   admins: Admin[]
   services: Service[]
   showAdmin: boolean
   showService: boolean
   onApply: (draft: UserFilterDraft) => void
   onClear: () => void
-  onMatchChange: (key: "match_case" | "match_whole_word", value: boolean) => void
 }
 
 /**
@@ -73,15 +68,12 @@ const STATUS_DOT: Record<string, string> = {
 export function UsersFilters({
   draft,
   activeCount,
-  matchCase,
-  matchWholeWord,
   admins,
   services,
   showAdmin,
   showService,
   onApply,
   onClear,
-  onMatchChange,
 }: UsersFiltersProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -205,29 +197,6 @@ export function UsersFilters({
           </div>
         ) : null}
 
-        <div className="space-y-2.5 border-t border-border pt-3">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="filter-match-case"
-              checked={matchCase}
-              onCheckedChange={(checked) => onMatchChange("match_case", checked === true)}
-            />
-            <Label htmlFor="filter-match-case" className="text-xs font-normal">
-              {t("search.matchCase")}
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="filter-match-whole-word"
-              checked={matchWholeWord}
-              onCheckedChange={(checked) => onMatchChange("match_whole_word", checked === true)}
-            />
-            <Label htmlFor="filter-match-whole-word" className="text-xs font-normal">
-              {t("search.matchWholeWord")}
-            </Label>
-          </div>
-        </div>
-
         <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
           <Button
             variant="ghost"
@@ -262,8 +231,6 @@ type ActiveFilterChipsProps = {
   admin: string
   service: string
   serviceName: string | undefined
-  matchCase: boolean
-  matchWholeWord: boolean
   onRemove: (key: UserFilterKey) => void
   onClearAll: () => void
 }
@@ -275,8 +242,6 @@ export function ActiveFilterChips({
   admin,
   service,
   serviceName,
-  matchCase,
-  matchWholeWord,
   onRemove,
   onClearAll,
 }: ActiveFilterChipsProps) {
@@ -292,8 +257,6 @@ export function ActiveFilterChips({
       label: t("filters.advanced.serviceTag", { name: serviceName ?? service }),
     })
   }
-  if (matchCase) chips.push({ key: "match_case", label: t("search.matchCase") })
-  if (matchWholeWord) chips.push({ key: "match_whole_word", label: t("search.matchWholeWord") })
 
   if (chips.length === 0) return null
 

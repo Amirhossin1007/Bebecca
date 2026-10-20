@@ -1,23 +1,16 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, Copy, Info, MoreHorizontal } from "lucide-react"
+import { ArrowDown, ArrowUp, Info } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { NodeRowActions } from "@/features/nodes/nodes-row-actions"
 import { useFormat } from "@/lib/use-format"
 import { cn } from "@/lib/utils"
 import type { Node } from "@/types/api"
@@ -85,43 +78,6 @@ function NodeStatusBadge({ status }: { status: string }) {
       />
       {t(nodeStatusLabelKey(status))}
     </Badge>
-  )
-}
-
-function NodeRowActions({ node }: { node: Node }) {
-  const { t } = useTranslation()
-  const endpoint = `${node.address}:${node.port}`
-
-  const copyAddress = async () => {
-    try {
-      await navigator.clipboard.writeText(endpoint)
-      toast.success(t("next.toast.copied"))
-    } catch {
-      toast.error(t("next.toast.copyFailed"))
-    }
-  }
-
-  return (
-    <div className="flex justify-end">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground opacity-60 transition-opacity group-hover/row:opacity-100 data-[state=open]:opacity-100"
-            aria-label={t("actions")}
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem onSelect={() => void copyAddress()}>
-            <Copy className="size-4" />
-            {t("copy")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
   )
 }
 

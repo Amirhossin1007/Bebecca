@@ -30,7 +30,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
       // only — the table never holds more than the server page).
       {
         id: "select",
-        size: 32,
+        size: 36,
         enableSorting: false,
         enableHiding: false,
         meta: { label: t("next.users.selectColumn", { defaultValue: "Select" }) },
@@ -45,7 +45,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
             }
             onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked === true)}
             aria-label={t("next.users.selectAll")}
-            className="translate-y-px"
+            className="ms-0.5"
           />
         ),
         cell: ({ row }) => (
@@ -54,7 +54,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
             disabled={!row.getCanSelect()}
             onCheckedChange={(checked) => row.toggleSelected(checked === true)}
             aria-label={t("next.users.selectRow", { username: row.original.username })}
-            className="translate-y-px"
+            className="ms-0.5"
           />
         ),
       },

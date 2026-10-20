@@ -1,14 +1,16 @@
-import { RefreshCw, Search, X } from "lucide-react"
+import { RefreshCw, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 
+import { matchesSearch } from "@/lib/search"
+
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePagination } from "@/components/data-table/table-pagination"
+import { SearchField } from "@/components/search-field"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useServices } from "@/features/services/api"
 import { useServiceColumns } from "@/features/services/columns"
@@ -54,6 +56,12 @@ export function ServicesPage() {
   const size = [20, 50, 100].includes(Number(params.get("size"))) ? Number(params.get("size")) : 20
 
   const [searchInput, setSearchInput] = useState(search)
+  // The services endpoint has no match_mode parameters, so the toggles refine
+  // the rows the server already returned for this page.
+  const [matchOptions, setMatchOptions] = useState<{ matchCase: boolean; matchWholeWord: boolean }>({
+    matchCase: false,
+    matchWholeWord: false,
+  })
   const [syncedSearch, setSyncedSearch] = useState(search)
 
   // Adjust the input during render when the URL changes from elsewhere.
@@ -83,15 +91,23 @@ export function ServicesPage() {
   const query = useServices({ offset: page * size, limit: size, name: search })
   const data = query.data
 
+  // Refine the loaded page with the search-field toggles (the endpoint has no
+  // match options); the summary band reflects the same rows.
+  const visibleServices = useMemo(() => {
+    const rows = data?.services ?? []
+    if (!search || (!matchOptions.matchCase && !matchOptions.matchWholeWord)) return rows
+    return rows.filter((service) => matchesSearch(service.name, search, matchOptions))
+  }, [data, search, matchOptions])
+
   const summary = useMemo(() => {
-    const services = data?.services ?? []
+    const services = visibleServices
     return {
       total: data?.total ?? 0,
       broken: services.filter((service) => service.broken).length,
       users: services.reduce((sum, service) => sum + service.user_count, 0),
       traffic: services.reduce((sum, service) => sum + service.used_traffic, 0),
     }
-  }, [data])
+  }, [data, visibleServices])
 
   const total = data?.total ?? 0
   const hasFilters = Boolean(search)
@@ -154,26 +170,14 @@ export function ServicesPage() {
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-2.5">
-          <div className="relative min-w-0 flex-1 sm:max-w-xs">
-            <Search className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder={t("next.services.searchPlaceholder")}
-              className="h-8 pe-8 ps-8 text-[0.8125rem]"
-              aria-label={t("next.services.searchPlaceholder")}
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                onClick={() => setSearchInput("")}
-                className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={t("clear")}
-              >
-                <X className="size-3.5" />
-              </button>
-            ) : null}
-          </div>
+          <SearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder={t("next.services.searchPlaceholder")}
+            matchCase={matchOptions.matchCase}
+            matchWholeWord={matchOptions.matchWholeWord}
+            onMatchChange={(next) => setMatchOptions((current) => ({ ...current, ...next }))}
+          />
 
           {hasFilters ? (
             <Button
@@ -201,7 +205,7 @@ export function ServicesPage() {
 
         <DataTable
           columns={columns}
-          data={data?.services}
+          data={visibleServices}
           isLoading={query.isPending}
           isError={query.isError}
           onRetry={() => query.refetch()}

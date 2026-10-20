@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { api } from "@/lib/api"
 import type { ServicesResponse } from "@/types/api"
@@ -30,5 +30,26 @@ export function useServices(query: ServicesQuery) {
       }),
     placeholderData: keepPreviousData,
     staleTime: 10_000,
+  })
+}
+
+/** `POST /api/v2/services/{id}/reset-usage` — sudo-only, returns the service detail. */
+export function useResetServiceUsage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.post<void>(`/v2/services/${id}/reset-usage`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: servicesKeys.all }),
+  })
+}
+
+/** `DELETE /api/v2/services/{id}` — sudo-only, 204 on success. */
+export function useDeleteService() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    // `handleServiceDelete` decodes a body: without `unlink_admins` a linked
+    // admin blocks the delete, and users can only be moved, never detached.
+    mutationFn: (id: number) =>
+      api.delete<void>(`/v2/services/${id}`, { unlink_admins: true }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: servicesKeys.all }),
   })
 }

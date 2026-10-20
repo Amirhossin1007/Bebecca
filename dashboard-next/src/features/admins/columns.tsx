@@ -1,18 +1,10 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { Copy, MoreHorizontal } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
 
 import { ColumnHeader } from "@/components/data-table/column-header"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { AdminsRowActions } from "@/features/admins/admins-row-actions"
 import { UsageMeter } from "@/features/users/usage-meter"
 import { useFormat } from "@/lib/use-format"
 import { cn } from "@/lib/utils"
@@ -73,46 +65,6 @@ function AdminStatusBadge({ status }: { status: AdminStatus }) {
       <span className={cn("size-1.5 rounded-full", STATUS_DOT[status] ?? "bg-muted-foreground/60")} />
       {t(`status.${status}`, { defaultValue: status })}
     </Badge>
-  )
-}
-
-/** Only a safe, read-only action is offered here: copying the username. */
-function AdminRowActions({ admin }: { admin: Admin }) {
-  const { t } = useTranslation()
-
-  const copyUsername = async () => {
-    try {
-      await navigator.clipboard.writeText(admin.username)
-      toast.success(t("next.toast.copied"))
-    } catch {
-      toast.error(t("next.toast.copyFailed"))
-    }
-  }
-
-  return (
-    <div className="flex justify-end">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground opacity-60 transition-opacity group-hover/row:opacity-100 data-[state=open]:opacity-100"
-            aria-label={t("actions")}
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onSelect={() => void copyUsername()}>
-            <Copy className="size-4" />
-            {t("copy")}
-            <span className="ms-auto max-w-24 truncate text-[0.6875rem] text-muted-foreground" dir="ltr">
-              {admin.username}
-            </span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
   )
 }
 
@@ -227,7 +179,7 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
         header: "",
         size: 44,
         enableSorting: false,
-        cell: ({ row }) => <AdminRowActions admin={row.original} />,
+        cell: ({ row }) => <AdminsRowActions admin={row.original} />,
       },
     ],
     [t, format],

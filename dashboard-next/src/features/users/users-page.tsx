@@ -5,20 +5,20 @@ import type {
   Table,
   VisibilityState,
 } from "@tanstack/react-table"
-import { Download, RefreshCw, Search, X } from "lucide-react"
+import { Download, RefreshCw } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Num } from "@/components/num"
+import { SearchField } from "@/components/search-field"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePagination } from "@/components/data-table/table-pagination"
 import { ViewOptions } from "@/components/data-table/view-options"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
@@ -375,39 +375,28 @@ export function UsersPage() {
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-2.5">
-          <div className="relative min-w-0 flex-1 sm:max-w-xs">
-            <Search className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder={t("next.users.searchPlaceholder")}
-              className="pe-8 ps-8"
-              aria-label={t("next.users.searchPlaceholder")}
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                onClick={() => setSearchInput("")}
-                className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={t("next.users.clear")}
-              >
-                <X className="size-3.5" />
-              </button>
-            ) : null}
-          </div>
+          <SearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder={t("next.users.searchPlaceholder")}
+            matchCase={matchCase}
+            matchWholeWord={matchWholeWord}
+            loading={query.isFetching && !query.isPending}
+            onMatchChange={(next) => {
+              if (next.matchCase !== undefined) onMatchChange("match_case", next.matchCase)
+              if (next.matchWholeWord !== undefined) onMatchChange("match_whole_word", next.matchWholeWord)
+            }}
+          />
 
           <UsersFilters
             draft={filterDraft}
             activeCount={activeFilterCount}
-            matchCase={matchCase}
-            matchWholeWord={matchWholeWord}
             admins={adminsQuery.data ?? []}
             services={serviceOptions}
             showAdmin={showAdmin}
             showService={showService}
             onApply={applyFilters}
             onClear={clearAllFilters}
-            onMatchChange={onMatchChange}
           />
 
           <Tooltip>
@@ -443,8 +432,6 @@ export function UsersPage() {
           admin={admin}
           service={service}
           serviceName={serviceName}
-          matchCase={matchCase}
-          matchWholeWord={matchWholeWord}
           onRemove={removeFilter}
           onClearAll={clearAllFilters}
         />

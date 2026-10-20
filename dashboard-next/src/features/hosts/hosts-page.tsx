@@ -1,12 +1,12 @@
-import { Search, ShieldAlert, SlidersHorizontal, X } from "lucide-react"
+import { ShieldAlert, SlidersHorizontal, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { DataTable } from "@/components/data-table/data-table"
+import { SearchField } from "@/components/search-field"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { isForbidden, useHosts } from "@/features/hosts/api"
 import { useHostColumns, type HostRow } from "@/features/hosts/columns"
+import { matchesAny } from "@/lib/search"
 import { useFormat } from "@/lib/use-format"
 
 type EnabledFilter = "all" | "enabled" | "disabled"
@@ -79,6 +80,7 @@ export function HostsPage() {
   const query = useHosts()
 
   const [search, setSearch] = useState("")
+  const [matchOptions, setMatchOptions] = useState({ matchCase: false, matchWholeWord: false })
   const [stateFilter, setStateFilter] = useState<EnabledFilter>("all")
 
   const data = query.data
@@ -99,16 +101,12 @@ export function HostsPage() {
   const disabled = rows.length - active
 
   const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase()
     return rows.filter(({ host }) => {
       if (stateFilter === "enabled" && host.is_disabled) return false
       if (stateFilter === "disabled" && !host.is_disabled) return false
-      if (!needle) return true
-      return [host.remark, host.address, host.sni].some((value) =>
-        value?.toLowerCase().includes(needle)
-      )
+      return matchesAny([host.remark, host.address, host.sni], search, matchOptions)
     })
-  }, [rows, search, stateFilter])
+  }, [rows, search, stateFilter, matchOptions])
 
   const hasFilters = search.trim().length > 0 || stateFilter !== "all"
   const empty = (value: string) => (failed ? "—" : value)
@@ -151,26 +149,14 @@ export function HostsPage() {
 
           <Card className="overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-b border-border p-2.5">
-              <div className="relative min-w-0 flex-1 sm:max-w-xs">
-                <Search className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={t("next.hosts.searchPlaceholder")}
-                  className="h-8 ps-8 pe-8 text-[0.8125rem]"
-                  aria-label={t("next.hosts.searchPlaceholder")}
-                />
-                {search ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={t("next.users.clear")}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                ) : null}
-              </div>
+              <SearchField
+                value={search}
+                onChange={setSearch}
+                placeholder={t("next.hosts.searchPlaceholder")}
+                matchCase={matchOptions.matchCase}
+                matchWholeWord={matchOptions.matchWholeWord}
+                onMatchChange={(next) => setMatchOptions((current) => ({ ...current, ...next }))}
+              />
 
               <Select
                 value={stateFilter}

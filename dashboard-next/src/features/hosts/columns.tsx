@@ -3,6 +3,7 @@ import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
+import { HostRowActions } from "@/features/hosts/hosts-row-actions"
 import { cn } from "@/lib/utils"
 import type { Host } from "@/types/api"
 
@@ -164,6 +165,13 @@ export function useHostColumns(): ColumnDef<HostRow, unknown>[] {
         cell: ({ row }) => (
           <HostStatusBadge isDisabled={row.original.host.is_disabled} />
         ),
+      },
+      {
+        id: "actions",
+        header: "",
+        size: 44,
+        enableSorting: false,
+        cell: ({ row }) => <HostRowActions host={row.original.host} />,
       },
     ],
     [t]

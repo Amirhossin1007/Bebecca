@@ -142,11 +142,80 @@ export function useSetUserStatus() {
   })
 }
 
+/**
+ * `PUT /user/{username}` accepts a partial body, so data-limit and expiry
+ * changes are their own mutations instead of a full user update.
+ */
+export function useSetUserDataLimit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ username, dataLimit }: { username: string; dataLimit: number }) =>
+      api.put<void>(`/user/${encodeURIComponent(username)}`, { data_limit: dataLimit }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
+  })
+}
+
+export function useSetUserExpiry() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ username, expire }: { username: string; expire: number }) =>
+      api.put<void>(`/user/${encodeURIComponent(username)}`, { expire }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
+  })
+}
+
+/** `POST /user/{username}/revoke_sub` — rotates the subscription token. */
+export function useRevokeUserSubscription() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (username: string) =>
+      api.post<void>(`/user/${encodeURIComponent(username)}/revoke_sub`),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
+  })
+}
+
 export function useDeleteUser() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (username: string) => api.delete<void>(`/user/${encodeURIComponent(username)}`),
     onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
+  })
+}
+
+/**
+ * Online IP record from `GET /user/{username}/ips`. The contract documents
+ * `{username, ips: UserOnlineIPRecord[]}`, but older panel builds answer with a
+ * bare list of address strings, so readers accept both shapes.
+ */
+export type UserOnlineIPRecord = {
+  ip?: string
+  assigned_ip?: string
+  assigned_ips?: string[]
+}
+
+export type UserIPsResponse = {
+  username?: string
+  ips: Array<string | UserOnlineIPRecord>
+}
+
+const userIpsKeys = {
+  all: ["users", "ips"] as const,
+  one: (username: string) => [...userIpsKeys.all, username] as const,
+}
+
+/**
+ * `GET /user/{username}/ips` — fetched only while the IPs dialog is open.
+ * `staleTime: 0` makes every open a fresh read of the live connection list.
+ */
+export function useUserIps(username: string, enabled: boolean) {
+  return useQuery({
+    queryKey: userIpsKeys.one(username),
+    queryFn: ({ signal }) =>
+      api.get<UserIPsResponse>(`/user/${encodeURIComponent(username)}/ips`, { signal }),
+    enabled,
+    retry: false,
+    staleTime: 0,
+    gcTime: 60_000,
   })
 }
 
