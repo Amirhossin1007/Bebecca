@@ -647,9 +647,9 @@ export const DashboardMaintenanceControls = ({
 				<Button
 					size="xs"
 					h="32px"
-					minW={{ base: "full", sm: "115px" }}
+					minW={{ base: "full", sm: width ? width : "auto" }}
 					w={width ?? { base: "full", sm: "auto" }}
-					px={3.5}
+					px={{ base: 3.5, md: 2.5, lg: 3.5 }}
 					colorScheme={update?.available ? "primary" : "gray"}
 					variant={update?.available ? "solid" : "outline"}
 					bg={update?.available ? "var(--rb-panel-accent)" : "transparent"}
@@ -754,8 +754,8 @@ export const DashboardMaintenanceControls = ({
 			size="xs"
 			h="32px"
 			w={isFullWidth ? "full" : { base: "full", sm: "auto" }}
-			minW={isFullWidth ? undefined : { base: "full", sm: "115px" }}
-			px={3.5}
+			minW={isFullWidth ? undefined : { base: "full", sm: "auto" }}
+			px={{ base: 3.5, md: 2.5, lg: 3.5 }}
 			colorScheme="red"
 			variant="outline"
 			borderColor="panel.border"
@@ -916,26 +916,23 @@ export const DashboardMaintenanceControls = ({
 			<Modal
 				isOpen={isMobileMaintenanceOpen}
 				onClose={() => setIsMobileMaintenanceOpen(false)}
-				isCentered={false}
+				isCentered
 			>
 				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
+					data-modal-centered="true"
 					bg="panel.surface"
 					borderColor="panel.border"
 					borderWidth="1px"
-					borderRadius={{ base: "16px 16px 0 0", md: "20px" }}
-					maxH="90dvh"
+					borderRadius="20px"
+					boxShadow={cardHighlight}
+					mx="auto"
+					my="auto"
+					w={{ base: "calc(100vw - 32px)", sm: "480px" }}
+					maxW="480px"
+					maxH="88dvh"
 					overflow="hidden"
 				>
-					<Box
-						w="36px"
-						h="4px"
-						borderRadius="full"
-						bg="panel.border"
-						mx="auto"
-						mt={3}
-						mb={1}
-					/>
 					<ModalHeader py={3} px={4} borderBottomWidth="1px" borderColor="panel.border">
 						<Flex justify="space-between" align="center" gap={3}>
 							<Text fontSize="13px" fontWeight="700" color="panel.text">
@@ -959,13 +956,20 @@ export const DashboardMaintenanceControls = ({
 								>
 									{t("refresh")}
 								</Button>
-								<ModalCloseButton
+								<IconButton
+									aria-label="Close"
+									icon={<XMarkIcon width={16} height={16} />}
 									className="chakra-modal__close-btn"
-									position="static"
 									size="xs"
+									variant="ghost"
+									borderRadius="8px"
 									w="28px"
 									h="28px"
-									borderRadius="8px"
+									minW="28px"
+									onClick={() => setIsMobileMaintenanceOpen(false)}
+									color="panel.textMuted"
+									_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
+									_active={{ transform: "scale(0.96)" }}
 								/>
 							</Flex>
 						</Flex>

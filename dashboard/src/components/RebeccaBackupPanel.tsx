@@ -151,9 +151,9 @@ export const DashboardBackupControls = ({
 					<Button
 						size="xs"
 						h="32px"
-						minW={{ base: "full", sm: width ? width : "115px" }}
+						minW={{ base: "full", sm: width ? width : "auto" }}
 						w={width ?? { base: "full", sm: "auto" }}
-						px={3}
+						px={{ base: 3.5, md: 2.5, lg: 3 }}
 						variant="outline"
 						borderRadius="12px"
 						isDisabled={runtimeLoading}

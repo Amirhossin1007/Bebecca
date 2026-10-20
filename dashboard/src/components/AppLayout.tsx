@@ -5,7 +5,6 @@ import {
 	Drawer,
 	DrawerBody,
 	DrawerContent,
-	DrawerOverlay,
 	Flex,
 	HStack,
 	IconButton,
@@ -445,7 +444,6 @@ function AppLayoutContent() {
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
 	const dockBg = useColorModeValue("panel.surface", "panel.surface");
 	const dockBorder = useColorModeValue("panel.border", "panel.border");
-	const drawerBg = useColorModeValue("#ffffff", "#1e1e1e");
 	const menuShadow = useColorModeValue(
 		"0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)",
 		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
@@ -2444,9 +2442,7 @@ function AppLayoutContent() {
 											</Flex>
 
 											{isMobile && (
-												<Box px={1} pb={1}>
-													<HeaderCalendar inMenu={true} placement={languagePlacement} />
-												</Box>
+												<HeaderCalendar inMenu={true} placement={languagePlacement} />
 											)}
 
 											<NotificationMenuItem
@@ -2710,18 +2706,17 @@ function AppLayoutContent() {
 						blockScrollOnMount={false}
 						preserveScrollBarGap={false}
 					>
-						<DrawerOverlay pointerEvents="none" opacity={0} zIndex={2999} />
 						<DrawerContent
 							maxW="100vw"
 							w="100vw"
 							h="100dvh"
 							maxH="100dvh"
-							bg={drawerBg}
+							bg="panel.surface"
 							boxShadow="none"
 							borderRadius="0"
-							zIndex={3000}
+							zIndex={17000}
 						>
-							<DrawerBody p={0} overflow="hidden">
+							<DrawerBody p={0} overflow="hidden" bg="panel.surface">
 								<AppSidebar
 									collapsed={false}
 									sponsors={sponsorSidebarLogoItems}

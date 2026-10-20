@@ -588,10 +588,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 		users_hub: true,
 	});
 
-	const sidebarBg = useColorModeValue(
-		inDrawer ? "#ffffff" : "panel.surface",
-		inDrawer ? "#1e1e1e" : "panel.surface",
-	);
+	const sidebarBg = "panel.surface";
 	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
 	const activeItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const activeItemColor = "var(--rb-panel-accent)";

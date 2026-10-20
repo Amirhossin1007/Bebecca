@@ -268,35 +268,32 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 				{inMenu ? (
 					<Button
 						data-header-calendar-trigger="true"
-						size="sm"
 						variant="ghost"
 						w="full"
-						h="36px"
-						borderRadius="10px"
-						px={2.5}
-						justifyContent="space-between"
+						h="38px"
+						borderRadius="12px"
+						px={3}
+						justifyContent="flex-start"
+						bg="transparent"
 						color="panel.text"
-						_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
-						_active={{ bg: "panel.elevated" }}
+						fontWeight="500"
+						fontSize="13px"
 						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+						_hover={{ md: { bg: "panel.elevated" } }}
+						_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
+						_focusVisible={{ bg: "panel.elevated" }}
 					>
-						<HStack spacing={2} align="center" minW={0}>
-							<Flex
-								w="24px"
-								h="24px"
-								align="center"
-								justify="center"
-								borderRadius="6px"
-								bg="panel.elevated"
-								color="panel.text"
-								flexShrink={0}
-							>
-								<CalendarIcon style={{ width: "14px", height: "14px" }} />
-							</Flex>
+						<HStack justify="space-between" w="full" minW={0} spacing={2.5}>
+							<HStack spacing={2.5} minW={0}>
+								<CalendarIcon style={{ width: "18px", height: "18px" }} />
+								<Text noOfLines={1} color="panel.text" fontSize="13px" fontWeight="500">
+									{t("header.calendar", "Calendar")}
+								</Text>
+							</HStack>
 							<Text
-								fontSize="12px"
+								fontSize="11px"
 								fontWeight="600"
-								color="panel.text"
+								color="panel.textMuted"
 								isTruncated
 							>
 								{formattedDate}

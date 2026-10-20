@@ -2709,30 +2709,34 @@ export const Statistics: FC<BoxProps> = (props) => {
 				flexWrap="wrap"
 				gap={3}
 				px={1}
+				sx={{
+					"@media screen and (min-width: 768px) and (max-width: 939.98px)": {
+						"body:has([data-sidebar-collapsed='true']) &": {
+							flexWrap: "nowrap !important",
+							alignItems: "center !important",
+						},
+						"body:not(:has([data-sidebar-collapsed='true'])) &": {
+							flexWrap: "wrap !important",
+						},
+					},
+					"@media screen and (min-width: 940px)": {
+						flexWrap: "nowrap !important",
+						alignItems: "center !important",
+					},
+				}}
 			>
 				<Flex
-					wrap="wrap"
-					gap={{ base: 2.5, md: 1 }}
+					gap={{ base: 1.5, md: 2 }}
 					sx={{
 						flexDirection: "column",
 						alignItems: "flex-start",
-						"@media screen and (max-width: 767px)": {
-							flexDirection: "row",
-							alignItems: "center",
+						"@media screen and (max-width: 750px)": {
+							flexDirection: "column !important",
+							alignItems: "flex-start !important",
 						},
-						"@media screen and (min-width: 768px) and (max-width: 991px)": {
-							"body:has([data-sidebar-collapsed='true']) &": {
-								flexDirection: "row",
-								alignItems: "center",
-							},
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								flexDirection: "column",
-								alignItems: "flex-start",
-							},
-						},
-						"@media screen and (min-width: 992px)": {
-							flexDirection: "column",
-							alignItems: "flex-start",
+						"@media screen and (min-width: 750.02px)": {
+							flexDirection: "row !important",
+							alignItems: "center !important",
 						},
 					}}
 				>
@@ -2741,10 +2745,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 						fontWeight="700"
 						color="panel.text"
 						letterSpacing="-0.02em"
+						whiteSpace="nowrap"
+						flexShrink={0}
 					>
 						{t("dashboard.system.overview")}
 					</Text>
-					<Flex align="center" gap={2} direction="row">
+					<Flex align="center" gap={2} direction="row" flexWrap="nowrap" flexShrink={0}>
 						<Box
 							w="7px"
 							h="7px"

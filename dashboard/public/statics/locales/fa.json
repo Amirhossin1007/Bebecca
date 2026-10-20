@@ -2762,6 +2762,7 @@
 	"admins.quickPasswordAction": "ایجاد",
 	"admins.dailyCreatedTrafficTooltip": "مجموع ترافیک ساخته‌شده در هر روز برای مدیر و بازه زمانی انتخاب‌شده",
 	"header.language": "زبان",
+	"header.calendar": "تقویم",
 	"sidebar.sections.dashboard": "داشبورد",
 	"sidebar.sections.users": "کاربران",
 	"sidebar.sections.trafficAndAdmins": "ترافیک و مدیران",
