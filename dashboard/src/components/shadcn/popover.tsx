@@ -28,7 +28,7 @@ export function PopoverContent({
 				sideOffset={sideOffset}
 				collisionPadding={collisionPadding}
 				className={cn(
-					"z-[1900] rounded-md border border-panel-border bg-panel-surface text-panel-text shadow-lg shadow-black/30 outline-none",
+					"z-[1900] rounded-md border-panel-border! bg-panel-surface text-panel-text shadow-lg shadow-black/30 outline-none",
 					className,
 				)}
 				{...props}

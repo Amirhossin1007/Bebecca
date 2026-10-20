@@ -1,32 +1,4 @@
 import {
-	Box,
-	Button,
-	chakra,
-	Drawer,
-	DrawerBody,
-	DrawerContent,
-	DrawerOverlay,
-	Flex,
-	HStack,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuDivider,
-	MenuItem,
-	MenuList,
-	type PlacementWithLogical,
-	Popover,
-	PopoverBody,
-	PopoverContent,
-	PopoverTrigger,
-	Portal,
-	Text,
-	useBreakpointValue,
-	useColorModeValue,
-	useDisclosure,
-	VStack,
-} from "@chakra-ui/react";
-import {
 	ArrowLeftOnRectangleIcon,
 	ArrowsRightLeftIcon,
 	ArrowUpOnSquareIcon,
@@ -64,6 +36,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { useQuery } from "react-query";
 import {
+	type CSSProperties,
 	type ElementType,
 	type MouseEvent as ReactMouseEvent,
 	type PointerEvent as ReactPointerEvent,
@@ -83,46 +56,64 @@ import { getSponsors, type SponsorAsset } from "service/sponsors";
 import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
 import { AppSidebar } from "./AppSidebar";
 import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
+import { useDisclosure } from "hooks/useDisclosure";
+import { useMediaQuery } from "hooks/useMediaQuery";
+import { Button } from "components/shadcn/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "components/shadcn/dropdown-menu";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "components/shadcn/popover";
+import { Sheet, SheetContent, SheetTitle } from "components/shadcn/sheet";
+import { cn } from "lib/cn";
 import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
 import { NotificationBell } from "./NotificationBell";
 import ThemeSelector from "./ThemeSelector";
 import { SponsorCarousel } from "./SponsorCarousel";
 
-const iconProps = {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-};
-
-const LogoutIcon = chakra(ArrowLeftOnRectangleIcon, iconProps);
-const MenuIcon = chakra(Bars3Icon, iconProps);
-const LanguageIconStyled = chakra(LanguageIcon, iconProps);
-const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
-const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
-const ExternalAppsIcon = chakra(CommandLineIcon, iconProps);
-const PlaceholderIcon = chakra(DocumentDuplicateIcon, iconProps);
-const PersonIcon = chakra(UserIcon, iconProps);
-const MasterSettingsIcon = chakra(Cog8ToothIcon, iconProps);
-const XraySettingsIcon = chakra(WrenchScrewdriverIcon, iconProps);
-const tabIconStyle = { baseStyle: { w: "22px", h: "22px" } };
+/** Icons are sized by the call site with `size-*` classes now, not by a Chakra wrapper. */
+const LogoutIcon = ArrowLeftOnRectangleIcon;
+const MenuIcon = Bars3Icon;
+const LanguageIconStyled = LanguageIcon;
+const DocsIcon = CodeBracketSquareIcon;
+const PHPMyAdminIcon = CircleStackIcon;
+const ExternalAppsIcon = CommandLineIcon;
+const PlaceholderIcon = DocumentDuplicateIcon;
+const PersonIcon = UserIcon;
+const MasterSettingsIcon = Cog8ToothIcon;
+const XraySettingsIcon = WrenchScrewdriverIcon;
 const TAB_ICONS: Record<string, [ElementType, ElementType]> = {
-	dashboard: [chakra(HeroHomeIcon, tabIconStyle), chakra(HomeSolidIcon, tabIconStyle)],
-	users: [chakra(UserGroupIcon, tabIconStyle), chakra(UserGroupSolidIcon, tabIconStyle)],
-	admins: [chakra(BriefcaseIcon, tabIconStyle), chakra(BriefcaseSolidIcon, tabIconStyle)],
-	settings: [chakra(Cog6ToothIcon, tabIconStyle), chakra(Cog6ToothSolidIcon, tabIconStyle)],
-	myaccount: [chakra(UserIcon, tabIconStyle), chakra(UserSolidIcon, tabIconStyle)],
-	notifications: [chakra(BellIcon, tabIconStyle), chakra(BellSolidIcon, tabIconStyle)],
+	dashboard: [HeroHomeIcon, HomeSolidIcon],
+	users: [UserGroupIcon, UserGroupSolidIcon],
+	admins: [BriefcaseIcon, BriefcaseSolidIcon],
+	settings: [Cog6ToothIcon, Cog6ToothSolidIcon],
+	myaccount: [UserIcon, UserSolidIcon],
+	notifications: [BellIcon, BellSolidIcon],
 };
-const ServicesIcon = chakra(Squares2X2Icon, iconProps);
-const HostsIcon = chakra(LinkIcon, iconProps);
-const HAProxyIcon = chakra(ArrowsRightLeftIcon, iconProps);
-const NodesIcon = chakra(ServerStackIcon, iconProps);
-const InsightsIcon = chakra(EyeIcon, iconProps);
-const RecentActionsIcon = chakra(ClockIcon, iconProps);
-const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
-const TutorialIcon = chakra(BookOpenIcon, iconProps);
+const ServicesIcon = Squares2X2Icon;
+const HostsIcon = LinkIcon;
+const HAProxyIcon = ArrowsRightLeftIcon;
+const NodesIcon = ServerStackIcon;
+const InsightsIcon = EyeIcon;
+const RecentActionsIcon = ClockIcon;
+const ShareIcon = ArrowUpOnSquareIcon;
+const TutorialIcon = BookOpenIcon;
+
+/** Primary tint for avatars and the active tab, per color mode. */
+const TINT_CLASS =
+	"bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] text-[var(--primary-500)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)] dark:text-[var(--primary-300)]";
+
+/** The frosted dock surface, shared by the bottom bar and its popovers. */
+const DOCK_CLASS =
+	"border-[rgba(15,23,42,0.08)]! bg-[color-mix(in_srgb,var(--rb-panel-surface)_78%,transparent)] shadow-[0_12px_32px_rgba(15,23,42,0.14),0_1px_3px_rgba(15,23,42,0.08)] [backdrop-filter:saturate(180%)_blur(20px)] dark:border-[rgba(255,255,255,0.09)]! dark:bg-[color-mix(in_srgb,var(--rb-panel-surface)_72%,transparent)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)]";
 
 type SettingsMenuItem = {
 	key: string;
@@ -140,7 +131,7 @@ type BottomNavItem = {
 
 export function AppLayout() {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const isMobile = useBreakpointValue({ base: true, md: false });
+	const isMobile = !useMediaQuery("(min-width: 48em)");
 	const sidebarDrawer = useDisclosure();
 	useSheetSwipeToClose();
 	const languageMenu = useDisclosure();
@@ -223,36 +214,6 @@ export function AppLayout() {
 	const previewTabKeyRef = useRef<string | null>(null);
 	const [isNavDragging, setIsNavDragging] = useState(false);
 	const [pendingTabKey, setPendingTabKey] = useState<string | null>(null);
-	const languagePlacement =
-		useBreakpointValue<PlacementWithLogical>({
-			base: "bottom-start",
-			md: isRTL ? "left-start" : "right-start",
-		}) ?? "bottom-start";
-
-	const menuBg = useColorModeValue("panel.surface", "panel.surface");
-	const menuBorder = useColorModeValue("panel.border", "panel.border");
-	const menuHover = useColorModeValue("panel.elevated", "panel.elevated");
-	const textColor = useColorModeValue("panel.text", "panel.text");
-	const secondaryTextColor = useColorModeValue(
-		"panel.textSecondary",
-		"panel.textSecondary",
-	);
-	const primaryTint = useColorModeValue(
-		"color-mix(in srgb, var(--primary-500) 12%, transparent)",
-		"color-mix(in srgb, var(--primary-300) 20%, transparent)",
-	);
-	const dockBg = useColorModeValue(
-		"color-mix(in srgb, var(--rb-panel-surface) 78%, transparent)",
-		"color-mix(in srgb, var(--rb-panel-surface) 72%, transparent)",
-	);
-	const dockBorder = useColorModeValue(
-		"rgba(15, 23, 42, 0.08)",
-		"rgba(255, 255, 255, 0.09)",
-	);
-	const dockShadow = useColorModeValue(
-		"0 12px 32px rgba(15, 23, 42, 0.14), 0 1px 3px rgba(15, 23, 42, 0.08)",
-		"0 12px 32px rgba(0, 0, 0, 0.5)",
-	);
 	const reduceMotion = useReducedMotion();
 	const navSpring = reduceMotion
 		? { duration: 0 }
@@ -260,18 +221,6 @@ export function AppLayout() {
 	const tapSpring = reduceMotion
 		? { duration: 0 }
 		: { type: "spring" as const, stiffness: 520, damping: 32, mass: 0.6 };
-	const shellBorder = useColorModeValue("panel.border", "panel.border");
-	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
-	const shellHeaderShadow = useColorModeValue(
-		"0 18px 48px rgba(15, 23, 42, 0.10)",
-		"0 18px 48px rgba(0, 0, 0, 0.32)",
-	);
-	const shellMainBg = useColorModeValue("panel.main", "panel.main");
-	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const headerButtonHoverBg = useColorModeValue(
-		"panel.borderStrong",
-		"panel.borderStrong",
-	);
 
 	useEffect(() => {
 		const syncHash = () => setActiveLocationHash(window.location.hash);
@@ -577,25 +526,6 @@ export function AppLayout() {
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
 	const activeSettingsKey = activeSettingsItem?.key ?? null;
-	const popoverModifiers = useMemo(
-		() => [
-			{
-				name: "preventOverflow",
-				options: {
-					boundary: "viewport",
-					padding: 12,
-				},
-			},
-			{
-				name: "flip",
-				options: {
-					boundary: "viewport",
-					padding: 12,
-				},
-			},
-		],
-		[],
-	);
 
 	const resolveActive = useCallback(
 		(item: BottomNavItem) => {
@@ -868,23 +798,24 @@ export function AppLayout() {
 
 	return (
 		<>
-			<Box display="none" aria-hidden="true">
+			<div aria-hidden="true" className="hidden">
 				<ThemeSelector minimal trigger="icon" />
-			</Box>
-			<Flex
-				minH="100vh"
-				maxH="100vh"
-				overflow="hidden"
-				direction={isRTL ? "row-reverse" : "row"}
+			</div>
+			<div
 				dir={isRTL ? "rtl" : "ltr"}
-				bg="panel.app"
-				sx={{
-					"--rb-sidebar-offset": isMobile
-						? "0px"
-						: sidebarCollapsed
-							? "88px"
-							: "248px",
-				}}
+				className={cn(
+					"flex min-h-[100vh] max-h-[100vh] overflow-hidden bg-panel-app",
+					isRTL ? "flex-row-reverse" : "flex-row",
+				)}
+				style={
+					{
+						"--rb-sidebar-offset": isMobile
+							? "0px"
+							: sidebarCollapsed
+								? "88px"
+								: "248px",
+					} as CSSProperties
+				}
 			>
 				{/* persistent sidebar on md+; drawer on mobile */}
 				{!isMobile ? (
@@ -896,438 +827,249 @@ export function AppLayout() {
 					/>
 				) : null}
 
-				<Flex
+				<div
 					ref={contentRef}
-					flex="1"
-					direction="column"
-					minW="0"
-					overflow="hidden"
-					ml={isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
-					mr={isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "248px"}
-					transition="margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+					className="flex min-w-0 flex-1 flex-col overflow-hidden"
+					style={{
+						marginLeft: isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "248px",
+						marginRight: isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "248px",
+						transition: "margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+					}}
 				>
-					<Box
-						as="header"
-						h="14"
-						minH="14"
-						borderWidth="1px"
-						borderColor={shellBorder}
-						borderRadius="2xl"
-						bg={shellHeaderBg}
-						boxShadow={shellHeaderShadow}
-						mt="3"
-						mx={{ base: "3", md: "4" }}
-						display="flex"
-						alignItems="center"
-						px={{ base: 3, md: 5 }}
-						justifyContent="space-between"
-						flexShrink={0}
-						position="sticky"
-						top="3"
-						zIndex={100}
-						userSelect="none"
-						gap={4}
-					>
-						<HStack spacing={3} alignItems="center" flex="1" minW="0">
-							<IconButton
-								size="sm"
+					<header className="sticky top-3 z-[100] mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-2xl border border-panel-border! bg-panel-surface px-3 shadow-[0_18px_48px_rgba(15,23,42,0.10)] md:mx-4 md:px-5 dark:shadow-[0_18px_48px_rgba(0,0,0,0.32)]">
+						<div className="flex min-w-0 flex-1 items-center gap-3">
+							<Button
 								variant="outline"
+								size="icon-sm"
 								aria-label={t("a11y.toggleSidebar")}
 								onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
 									else setSidebarCollapsed(!sidebarCollapsed);
 								}}
-								icon={<MenuIcon />}
-								flexShrink={0}
-								bg={headerButtonBg}
-								borderColor={shellBorder}
-								_hover={{ bg: headerButtonHoverBg }}
-							/>
-							<HStack
-								aria-label="Current location"
-								spacing="1"
-								minW="0"
-								flexShrink={1}
-								overflow="hidden"
-								dir="ltr"
-								display={{ base: "none", md: "flex" }}
+								className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong"
 							>
-								<Button
-									variant="link"
-									fontSize={{ base: "xs", md: "sm" }}
-									fontWeight="semibold"
-									color="panel.textSecondary"
-									flexShrink={0}
+								<MenuIcon className="size-4" />
+							</Button>
+
+							<nav
+								aria-label="Current location"
+								dir="ltr"
+								className="hidden min-w-0 shrink items-center gap-1 overflow-hidden md:flex"
+							>
+								<button
+									type="button"
 									onClick={() => navigate("/")}
-									_hover={{ color: "panel.text" }}
+									className="shrink-0 text-xs font-semibold text-panel-text-secondary transition-colors hover:text-panel-text md:text-sm"
 								>
 									dashboard
-								</Button>
+								</button>
 								{locationTrail.length > 1 && (
 									<>
-										<Text color="panel.textSecondary">→</Text>
-										<Button
-											variant="link"
-											fontSize={{ base: "xs", md: "sm" }}
-											fontWeight="semibold"
-											color="panel.textSecondary"
-											flexShrink={0}
+										<span className="text-panel-text-secondary">→</span>
+										<button
+											type="button"
 											onClick={openCurrentPage}
-											_hover={{ color: "panel.text" }}
+											className="shrink-0 text-xs font-semibold text-panel-text-secondary transition-colors hover:text-panel-text md:text-sm"
 										>
 											{locationTrail[1]}
-										</Button>
+										</button>
 									</>
 								)}
 								{locationTrail.length > 2 && (
-									<Text
-										fontSize={{ base: "xs", md: "sm" }}
-										fontWeight="semibold"
-										color="panel.textSecondary"
-										whiteSpace="nowrap"
-										overflow="hidden"
-										textOverflow="ellipsis"
-									>
+									<span className="truncate whitespace-nowrap text-xs font-semibold text-panel-text-secondary md:text-sm">
 										→ {locationTrail.slice(2).join(" → ")}
-									</Text>
+									</span>
 								)}
-							</HStack>
+							</nav>
 							{mobileHeaderItems.length > 0 && (
-								<Box
-									w={{ base: "160px", sm: "220px", md: "360px" }}
-									minW="0"
-									flexShrink={1}
-									display={{ base: "block", md: "none" }}
-								>
-									<SponsorCarousel
-										items={mobileHeaderItems}
-										variant="banner"
-									/>
-								</Box>
+								<div className="block w-[160px] min-w-0 shrink sm:w-[220px] md:hidden md:w-[360px]">
+									<SponsorCarousel items={mobileHeaderItems} variant="banner" />
+								</div>
 							)}
 							{sponsorHeaderItems.length > 0 && (
-								<Box
-									w={{ base: "160px", sm: "220px", md: "360px" }}
-									minW="0"
-									flexShrink={1}
-									display={{ base: "none", md: "block" }}
-								>
-									<SponsorCarousel
-										items={sponsorHeaderItems}
-										variant="banner"
-									/>
-								</Box>
+								<div className="hidden w-[160px] min-w-0 shrink sm:w-[220px] md:block md:w-[360px]">
+									<SponsorCarousel items={sponsorHeaderItems} variant="banner" />
+								</div>
 							)}
-						</HStack>
-						<HStack spacing={2} alignItems="center" flexShrink={0}>
-							<HStack
-								spacing={0}
-								px={1}
-								h="34px"
-								borderRadius="full"
-								borderWidth="1px"
-								borderColor={shellBorder}
-								bg={headerButtonBg}
-							>
+						</div>
+
+						<div className="flex shrink-0 items-center gap-2">
+							<div className="flex h-[34px] items-center rounded-full border border-panel-border! bg-panel-elevated px-1">
 								<HeaderCalendar />
 								{getUserIsSuccess && userData.username && <NotificationBell />}
 								<GitHubStars />
-							</HStack>
+							</div>
 
-							{/* User Menu */}
+							{/* User menu */}
 							{getUserIsSuccess && userData.username && (
-								<Menu
-									placement="bottom-end"
-									isLazy
-									autoSelect={false}
-									closeOnSelect={false}
-									isOpen={userMenu.isOpen}
-									onOpen={userMenu.onOpen}
-									onClose={handleUserMenuClose}
+								<DropdownMenu
+									open={userMenu.isOpen}
+									onOpenChange={(open) => {
+										if (open) userMenu.onOpen();
+										else handleUserMenuClose();
+									}}
 								>
-									<MenuButton
-										as={Button}
-										variant="outline"
-										h="34px"
-										minW="34px"
-										borderRadius="full"
-										pl={1}
-										pr={{ base: 1, sm: 3 }}
-										aria-label={t("a11y.userMenu")}
-										fontSize="sm"
-										fontWeight="semibold"
-										bg={headerButtonBg}
-										borderColor={shellBorder}
-										_hover={{ bg: headerButtonHoverBg }}
-										onClick={() => {
-											if (userMenu.isOpen) {
-												handleUserMenuClose();
-											} else {
-												userMenu.onOpen();
-											}
-										}}
-									>
-										<HStack spacing={2}>
-											<Flex
-												w="24px"
-												h="24px"
-												flexShrink={0}
-												align="center"
-												justify="center"
-												borderRadius="full"
-												bg={primaryTint}
-												color="primary.500"
-												_dark={{ color: "primary.300" }}
-											>
-												<PersonIcon w="3.5" h="3.5" />
-											</Flex>
-											<Text
-												display={{ base: "none", sm: "inline" }}
-												maxW={{ base: "100px", sm: "130px" }}
-												isTruncated
-											>
-												{userData.username}
-											</Text>
-										</HStack>
-									</MenuButton>
-									<MenuList
-										dir={isRTL ? "rtl" : "ltr"}
-										ref={userMenuContentRef}
-										minW="236px"
-										borderRadius="xl"
-										p={1.5}
-										boxShadow="xl"
-										bg={menuBg}
-										borderColor={menuBorder}
-										color={textColor}
-										zIndex={9999}
-										userSelect="none"
-										sx={{
-											".chakra-menu__menuitem": {
-												bg: "transparent !important",
-												"&:hover": {
-													bg: `${menuHover} !important`,
-												},
-												"&:active, &:focus-visible": {
-													bg: `${menuHover} !important`,
-												},
-												"&:focus:not(:focus-visible)": {
-													bg: "transparent !important",
-												},
-											},
-											".rb-logout-menu-item:hover, .rb-logout-menu-item:focus-visible": {
-												bg: "color-mix(in srgb, #ef4444 12%, transparent) !important",
-											},
-											".rb-logout-menu-item[data-focus]:not(:hover):not(:focus-visible)":
-												{
-													bg: "transparent !important",
-												},
-										}}
-									>
-										{/* User Info */}
-										<HStack
-											mx={1.5}
-											mt={1}
-											mb={1.5}
-											px={3}
-											py={2.5}
-											spacing={3}
-											borderRadius="lg"
-											bg="panel.main"
+									<DropdownMenuTrigger asChild>
+										<Button
+											variant="outline"
+											aria-label={t("a11y.userMenu")}
+											className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3"
 										>
-											<Flex
-												w="36px"
-												h="36px"
-												flexShrink={0}
-												align="center"
-												justify="center"
-												borderRadius="full"
-												bg={primaryTint}
-												color="primary.500"
-												_dark={{ color: "primary.300" }}
-											>
-												<PersonIcon w="5" h="5" />
-											</Flex>
-											<VStack align="flex-start" spacing={0} minW={0}>
-												<Text fontWeight="semibold" fontSize="sm" isTruncated maxW="160px">
+											<span className="flex items-center gap-2">
+												<span
+													className={cn(
+														"flex size-6 shrink-0 items-center justify-center rounded-full",
+														TINT_CLASS,
+													)}
+												>
+													<PersonIcon className="size-3.5" />
+												</span>
+												<span className="hidden max-w-[100px] truncate sm:inline sm:max-w-[130px]">
 													{userData.username}
-												</Text>
-												<Text fontSize="xs" color={secondaryTextColor}>
-													{roleLabel}
-												</Text>
-											</VStack>
-										</HStack>
+												</span>
+											</span>
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent
+										align={isRTL ? "start" : "end"}
+										sideOffset={8}
+										className="min-w-[236px]! rounded-xl border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none"
+									>
+										<div ref={userMenuContentRef}>
+											{/* User info */}
+											<div className="mx-1.5 mt-1 mb-1.5 flex items-center gap-3 rounded-lg bg-panel-main px-3 py-2.5">
+												<span
+													className={cn(
+														"flex size-9 shrink-0 items-center justify-center rounded-full",
+														TINT_CLASS,
+													)}
+												>
+													<PersonIcon className="size-5" />
+												</span>
+												<div className="flex min-w-0 flex-col">
+													<span className="max-w-[160px] truncate text-sm font-semibold">
+														{userData.username}
+													</span>
+													<span className="text-xs text-panel-text-secondary">
+														{roleLabel}
+													</span>
+												</div>
+											</div>
 
-										{/* Language Selector */}
-										<Menu
-											placement={languagePlacement}
-											strategy="fixed"
-											isOpen={languageMenu.isOpen}
-											onOpen={languageMenu.onOpen}
-											onClose={languageMenu.onClose}
-											closeOnSelect={false}
-											isLazy
-											autoSelect={false}
-										>
-											<MenuButton
-												as={Button}
-												leftIcon={<LanguageIconStyled />}
-												variant="ghost"
-												w="full"
-												h="40px"
-												justifyContent="flex-start"
-												fontWeight="500"
-												borderRadius="md"
-												px={3}
-												bg="transparent"
-												_hover={{ bg: menuHover }}
-												_active={{ bg: menuHover }}
-												_focusVisible={{ bg: menuHover }}
-												onClick={(e: ReactMouseEvent) => {
-													e.stopPropagation();
-													languageMenu.isOpen
-														? languageMenu.onClose()
-														: languageMenu.onOpen();
-												}}
+											{/* Language selector */}
+											<Popover
+												open={languageMenu.isOpen}
+												onOpenChange={(open) =>
+													open ? languageMenu.onOpen() : languageMenu.onClose()
+												}
 											>
-												<HStack justify="space-between" w="full" minW={0}>
-													<Text>{t("header.language")}</Text>
-													<Text fontSize="xs" color={secondaryTextColor}>
-														{languageItems.find(
-															(item) => item.code === i18n.language,
-														)?.label || "English"}
-													</Text>
-												</HStack>
-											</MenuButton>
-											<Portal containerRef={userMenuContentRef}>
-												<MenuList
-													dir={isRTL ? "rtl" : "ltr"}
-													minW="160px"
-													bg={menuBg}
-													borderColor={menuBorder}
-													color={textColor}
-													zIndex={9999}
-													userSelect="none"
-													sx={{
-														".chakra-menu__menuitem": {
-															bg: "transparent !important",
-															"&:hover": {
-																bg: `${menuHover} !important`,
-															},
-															"&:active, &:focus-visible": {
-																bg: `${menuHover} !important`,
-															},
-															"&:focus:not(:focus-visible)": {
-																bg: "transparent !important",
-															},
-														},
-													}}
+												<PopoverTrigger asChild>
+													<Button
+														variant="ghost"
+														onClick={(event: ReactMouseEvent) => event.stopPropagation()}
+														className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated"
+													>
+														<LanguageIconStyled className="size-4 shrink-0" />
+														<span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+															<span>{t("header.language")}</span>
+															<span className="text-xs text-panel-text-secondary">
+																{languageItems.find(
+																	(item) => item.code === i18n.language,
+																)?.label || "English"}
+															</span>
+														</span>
+													</Button>
+												</PopoverTrigger>
+												<PopoverContent
+													container={userMenuContentRef.current}
+													side={isMobile ? "bottom" : isRTL ? "left" : "right"}
+													align="start"
+													className="min-w-[160px]! rounded-md border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none"
 												>
 													{languageItems.map(({ code, label, flag }) => {
 														const isActiveLang = i18n.language === code;
 														return (
-															<MenuItem
+															<button
 																key={code}
+																type="button"
 																onClick={() => {
 																	changeLanguage(code);
 																	languageMenu.onClose();
 																}}
+																className="flex w-full items-center justify-between gap-3 px-3 py-2 text-sm text-panel-text transition-colors hover:bg-panel-elevated focus-visible:bg-panel-elevated focus-visible:outline-none"
 															>
-																<HStack justify="space-between" w="full">
-																	<HStack spacing={2}>
-																		{code === "fa" ? (
-																			<ImperialIranFlag
-																				style={{
-																					width: "16px",
-																					height: "12px",
-																				}}
-																			/>
-																		) : (
-																			<ReactCountryFlag
-																				countryCode={flag}
-																				svg
-																				style={{
-																					width: "16px",
-																					height: "12px",
-																				}}
-																			/>
-																		)}
-																		<Text>{label}</Text>
-																	</HStack>
-																	{isActiveLang && <CheckIcon width={16} />}
-																</HStack>
-															</MenuItem>
+																<span className="flex items-center gap-2">
+																	{code === "fa" ? (
+																		<ImperialIranFlag
+																			style={{ width: "16px", height: "12px" }}
+																		/>
+																	) : (
+																		<ReactCountryFlag
+																			countryCode={flag}
+																			svg
+																			style={{ width: "16px", height: "12px" }}
+																		/>
+																	)}
+																	<span>{label}</span>
+																</span>
+																{isActiveLang && <CheckIcon width={16} />}
+															</button>
 														);
 													})}
-												</MenuList>
-											</Portal>
-										</Menu>
+												</PopoverContent>
+											</Popover>
 
-										{/* Theme Selector */}
-										<ThemeSelector
-											trigger="menuItem"
-											triggerLabel={t("header.theme")}
-											portalContainer={userMenuContentRef}
-											onModalOpen={handleThemeModalOpen}
-											onModalClose={handleThemeModalClose}
-										/>
+											{/* Theme selector */}
+											<ThemeSelector
+												trigger="menuItem"
+												triggerLabel={t("header.theme")}
+												portalContainer={userMenuContentRef}
+												onModalOpen={handleThemeModalOpen}
+												onModalClose={handleThemeModalClose}
+											/>
 
-										<MenuDivider />
-										{/* Logout */}
-										<MenuItem
-											className="rb-logout-menu-item"
-											icon={<LogoutIcon />}
-											color="red.500"
-											bg="transparent"
-											_hover={{ bg: menuHover }}
-											_active={{ bg: "transparent" }}
-											_focus={{ bg: "transparent" }}
-											_focusVisible={{ bg: menuHover }}
-											sx={{
-												"&[data-focus]:not(:hover):not(:focus-visible)": {
-													bg: "transparent !important",
-												},
-											}}
-											onClick={async () => {
-												try {
-													await logoutSession();
-												} finally {
-													clearClientSession();
-													navigate("/login");
-												}
-											}}
-										>
-											{t("header.logout")}
-										</MenuItem>
-									</MenuList>
-								</Menu>
+											<DropdownMenuSeparator className="my-2 opacity-60" />
+											{/* Logout */}
+											<DropdownMenuItem
+												onSelect={async () => {
+													try {
+														await logoutSession();
+													} finally {
+														clearClientSession();
+														navigate("/login");
+													}
+												}}
+												className="px-3 py-1.5 text-sm text-[#E53E3E] focus:bg-[color-mix(in_srgb,#ef4444_12%,transparent)] focus:text-[#E53E3E]"
+											>
+												<LogoutIcon className="size-4" />
+												{t("header.logout")}
+											</DropdownMenuItem>
+										</div>
+									</DropdownMenuContent>
+								</DropdownMenu>
 							)}
-						</HStack>
-					</Box>
-					<Box
-						as="main"
-						flex="1"
-						p={{ base: 3, md: 4 }}
-						pb={{ base: "40", md: "4" }}
-						overflow="auto"
-						minH="0"
-						bg={shellMainBg}
-					>
+						</div>
+					</header>
+
+					<main className="min-h-0 flex-1 overflow-auto bg-panel-main p-3 pb-40 md:p-4 md:pb-4">
 						<Outlet />
-					</Box>
-				</Flex>
+					</main>
+				</div>
 
 				{/* mobile drawer */}
 				{isMobile && (
-					<Drawer
-						isOpen={sidebarDrawer.isOpen}
-						placement={isRTL ? "right" : "left"}
-						onClose={sidebarDrawer.onClose}
-						size="xs"
+					<Sheet
+						open={sidebarDrawer.isOpen}
+						onOpenChange={(open) =>
+							open ? sidebarDrawer.onOpen() : sidebarDrawer.onClose()
+						}
 					>
-						<DrawerOverlay />
-						<DrawerContent className="rb-sidebar-drawer" bg="panel.sidebar">
-							<DrawerBody p={0}>
+						<SheetContent
+							side={isRTL ? "right" : "left"}
+							className="rb-sidebar-drawer w-[312px] max-w-[100vw] bg-panel-sidebar"
+						>
+							<SheetTitle className="sr-only">{t("a11y.toggleSidebar")}</SheetTitle>
+							<div className="h-full overflow-y-auto">
 								<AppSidebar
 									collapsed={false}
 									sponsors={sponsorSidebarLogoItems}
@@ -1335,59 +1077,27 @@ export function AppLayout() {
 									inDrawer
 									onRequestExpand={sidebarDrawer.onClose}
 								/>
-							</DrawerBody>
-						</DrawerContent>
-					</Drawer>
+							</div>
+						</SheetContent>
+					</Sheet>
 				)}
+
 				{isMobile && (
 					<>
 						{showIosPrompt && (
-							<Box
-								position="fixed"
-								left="0"
-								right="0"
-								bottom={{ base: "86px", sm: "90px" }}
-								px="4"
-								zIndex={2000}
-							>
-								<Box
-									bg={menuBg}
-									borderRadius="20px"
-									borderWidth="1px"
-									borderColor={menuBorder}
-									px="4"
-									py="3"
-									display="flex"
-									alignItems="center"
-									gap="3"
-									boxShadow="lg"
-								>
-									<Box
-										w="8"
-										h="8"
-										borderRadius="full"
-										bg="whiteAlpha.600"
-										_dark={{ bg: "whiteAlpha.300" }}
-										display="flex"
-										alignItems="center"
-										justifyContent="center"
-									>
-										<ShareIcon />
-									</Box>
-									<Box flex="1">
-										<Text fontWeight="semibold" fontSize="sm">
-											{t("pwa.ios.title")}
-										</Text>
-										<Text
-											fontSize="xs"
-											color="gray.600"
-											_dark={{ color: "gray.300" }}
-										>
+							<div className="fixed inset-x-0 bottom-[86px] z-[2000] px-4 sm:bottom-[90px]">
+								<div className="flex items-center gap-3 rounded-[20px] border border-panel-border! bg-panel-surface px-4 py-3 shadow-lg">
+									<span className="flex size-8 items-center justify-center rounded-full bg-[rgba(255,255,255,0.48)] dark:bg-[rgba(255,255,255,0.16)]">
+										<ShareIcon className="size-4" />
+									</span>
+									<div className="flex-1">
+										<p className="text-sm font-semibold">{t("pwa.ios.title")}</p>
+										<p className="text-xs text-[#4A5568] dark:text-[#CBD5E0]">
 											{t("pwa.ios.body")}
-										</Text>
-									</Box>
+										</p>
+									</div>
 									<Button
-										size="sm"
+										size="xs" className="text-sm"
 										variant="ghost"
 										onClick={() => {
 											setShowIosPrompt(false);
@@ -1396,44 +1106,26 @@ export function AppLayout() {
 									>
 										{t("pwa.ios.dismiss")}
 									</Button>
-								</Box>
-							</Box>
+								</div>
+							</div>
 						)}
-						<Box
-							position="fixed"
-							left="0"
-							right="0"
-							bottom="0"
-							zIndex={1500}
-							px="3"
-							pb="calc(env(safe-area-inset-bottom) + 8px)"
-							pointerEvents="none"
-						>
-							<Box
-								mx="auto"
-								maxW="min(480px, 100%)"
-								p="1.5"
-								bg={dockBg}
-								borderColor={dockBorder}
-								borderWidth="1px"
-								borderRadius="30px"
-								boxShadow={dockShadow}
-								backdropFilter="saturate(180%) blur(20px)"
-								pointerEvents="auto"
+
+						{/* Mobile bottom dock */}
+						<div className="pointer-events-none fixed inset-x-0 bottom-0 z-[1500] px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+							<div
+								className={cn(
+									"pointer-events-auto mx-auto max-w-[min(480px,100%)] rounded-[30px] border p-1.5",
+									DOCK_CLASS,
+								)}
 							>
-								<HStack
-									justify="space-between"
-									position="relative"
-									align="center"
-									spacing={0}
+								<div
+									className="relative flex items-center justify-between"
 									dir={isRTL ? "rtl" : "ltr"}
 									onPointerDown={handleNavPointerDown}
 									onPointerMove={handleNavPointerMove}
 									onPointerUp={handleNavPointerUp}
 									onPointerCancel={handleNavPointerCancel}
-									sx={{
-										touchAction: "pan-y",
-									}}
+									style={{ touchAction: "pan-y" }}
 								>
 									{bottomNavItems.map((item) => {
 										const isActive = resolveActive(item);
@@ -1447,74 +1139,70 @@ export function AppLayout() {
 										const [OutlineTabIcon, SolidTabIcon] = customIcon
 											? [customIcon, customIcon]
 											: (TAB_ICONS[item.key] ?? TAB_ICONS.myaccount);
-										const tabColor = isSelected ? "primary.500" : "panel.textSecondary";
-										const tabColorDark = isSelected ? "primary.300" : "panel.textSecondary";
+										const tabLabelClass = isSelected
+											? "text-[var(--primary-500)] dark:text-[var(--primary-300)]"
+											: "text-panel-text-secondary";
+										const tabButtonClass = cn(
+											"relative z-[1] h-auto min-h-12 min-w-0 flex-1 select-none rounded-md px-0 hover:bg-transparent focus:bg-transparent active:bg-transparent",
+											isActive
+												? "text-[var(--primary-500)] dark:text-[var(--primary-300)]"
+												: "text-[#4A5568] dark:text-[#CBD5E0]",
+										);
 										const navContent = (
 											<motion.div
 												whileTap={reduceMotion ? undefined : { scale: 0.88 }}
 												transition={tapSpring}
-												style={{ width: "100%" }}
+												className="w-full"
 											>
-												<Flex direction="column" align="center" gap="1" py="1" w="full">
-													<Box
-														position="relative"
-														w="56px"
-														h="32px"
-														display="grid"
-														placeItems="center"
-													>
+												<div className="flex w-full flex-col items-center gap-1 py-1">
+													<div className="relative grid h-8 w-14 place-items-center">
 														{isSelected && (
 															<motion.span
 																layoutId="mobile-bottom-nav-indicator"
 																transition={navSpring}
-																style={{
-																	position: "absolute",
-																	inset: 0,
-																	borderRadius: 16,
-																	background: primaryTint,
-																}}
+																className="absolute inset-0 rounded-2xl bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)]"
 															/>
 														)}
-														<Box
-															position="relative"
-															display="grid"
-															placeItems="center"
-															color={tabColor}
-															_dark={{ color: tabColorDark }}
+														<div
+															className={cn(
+																"relative grid place-items-center",
+																tabLabelClass,
+															)}
 														>
 															<motion.span
 																initial={false}
-																animate={{ opacity: isSelected ? 0 : 1, scale: isSelected ? 0.8 : 1 }}
+																animate={{
+																	opacity: isSelected ? 0 : 1,
+																	scale: isSelected ? 0.8 : 1,
+																}}
 																transition={navSpring}
-																style={{ gridArea: "1 / 1", display: "grid", placeItems: "center" }}
+																className="grid place-items-center [grid-area:1/1]"
 															>
-																<OutlineTabIcon />
+																<OutlineTabIcon className="size-[22px]" />
 															</motion.span>
 															<motion.span
 																initial={false}
-																animate={{ opacity: isSelected ? 1 : 0, scale: isSelected ? 1 : 0.8 }}
+																animate={{
+																	opacity: isSelected ? 1 : 0,
+																	scale: isSelected ? 1 : 0.8,
+																}}
 																transition={navSpring}
-																style={{ gridArea: "1 / 1", display: "grid", placeItems: "center" }}
+																className="grid place-items-center [grid-area:1/1]"
 															>
-																<SolidTabIcon />
+																<SolidTabIcon className="size-[22px]" />
 															</motion.span>
-														</Box>
-													</Box>
-													<Text
-														fontSize="10px"
-														lineHeight="1.1"
-														fontWeight={isSelected ? "semibold" : "medium"}
-														color={tabColor}
-														_dark={{ color: tabColorDark }}
-														textAlign="center"
-														noOfLines={1}
-														maxW="100%"
-														px="1"
-														transition="color 0.25s ease"
+														</div>
+													</div>
+													<span
+														className={cn(
+															"max-w-full truncate px-1 text-center text-[10px] leading-[1.1] transition-colors duration-[250ms]",
+															tabLabelClass,
+															isSelected ? "font-semibold" : "font-medium",
+														)}
 													>
 														{settingsLabel}
-													</Text>
-												</Flex>
+													</span>
+												</div>
 											</motion.div>
 										);
 
@@ -1522,22 +1210,23 @@ export function AppLayout() {
 											return (
 												<Popover
 													key={item.key}
-													isOpen={settingsMenu.isOpen}
-													onClose={handleSettingsMenuClose}
-													placement="top"
-													gutter={12}
-													closeOnBlur
-													modifiers={popoverModifiers}
-													strategy="fixed"
+													open={settingsMenu.isOpen}
+													onOpenChange={(open) => {
+														if (open) openSettingsMenu();
+														else handleSettingsMenuClose();
+													}}
 												>
-													<PopoverTrigger>
+													<PopoverTrigger asChild>
 														<Button
 															variant="ghost"
 															size="sm"
 															ref={(node) => {
 																tabContentRefs.current[item.key] = node;
 															}}
-															onClick={() => {
+															onClick={(event) => {
+																// The click only toggles through handleSettingsMenuToggle, so
+																// stop the trigger from toggling on its own.
+																event.preventDefault();
 																if (settingsHoldOpened.current) return;
 																handleSettingsMenuToggle();
 															}}
@@ -1551,10 +1240,7 @@ export function AppLayout() {
 															}}
 															onPointerMove={(event) => {
 																if (event.pointerType === "mouse") return;
-																handleSettingsHoldMove(
-																	event.clientX,
-																	event.clientY,
-																);
+																handleSettingsHoldMove(event.clientX, event.clientY);
 															}}
 															onPointerUp={handleSettingsHoldEnd}
 															onPointerCancel={handleSettingsHoldEnd}
@@ -1562,85 +1248,53 @@ export function AppLayout() {
 															onContextMenu={(event) => {
 																if (isMobile) event.preventDefault();
 															}}
-															color={isActive ? "primary.500" : "gray.600"}
-															_dark={{
-																color: isActive ? "primary.300" : "gray.300",
-															}}
-															flex="1"
-															minW="0"
-															minH="48px"
-															h="auto"
-															px="0"
-															position="relative"
-															zIndex={1}
-															sx={{ touchAction: "manipulation" }}
-															userSelect="none"
-															_hover={{ bg: "transparent" }}
-															_active={{ bg: "transparent" }}
-															_focus={{ bg: "transparent" }}
+															className={tabButtonClass}
 														>
 															{navContent}
 														</Button>
 													</PopoverTrigger>
-													<Portal>
-														<PopoverContent
-															w="min(210px, calc(100vw - 24px))"
-															maxW="calc(100vw - 24px)"
-															maxH="calc(100vh - 160px)"
-															overflowY="auto"
-															borderRadius="22px"
-															backdropFilter="saturate(180%) blur(20px)"
-															bg={dockBg}
-															borderColor={dockBorder}
-															borderWidth="1px"
-															boxShadow={dockShadow}
-														>
-															<PopoverBody position="relative" zIndex={1} p="2">
-																<VStack align="stretch" spacing={1}>
-																	{settingsMenuItems.map((entry) => {
-																		const ItemIcon = entry.icon;
-																		const isSelected =
-																			activeSettingsKey === entry.key;
-																		return (
-																			<Button
-																				key={entry.key}
-																				variant="ghost"
-																				size="sm"
-																				w="full"
-																				justifyContent="flex-start"
-																				leftIcon={
-																					ItemIcon ? <ItemIcon /> : undefined
-																				}
-																				bg={
-																					isSelected ? menuHover : "transparent"
-																				}
-																				fontWeight={
-																					isSelected ? "semibold" : "normal"
-																				}
-																				aria-current={
-																					isSelected ? "page" : undefined
-																				}
-																				_hover={{
-																					bg:
-																						isSelected || activeSettingsKey
-																							? menuHover
-																							: "transparent",
-																				}}
-																				_active={{ bg: menuHover }}
-																				_focusVisible={{ boxShadow: "outline" }}
-																				onClick={() => {
-																					handleSettingsMenuClose();
-																					navigateToSettingsItem(entry.to);
-																				}}
-																			>
-																				{entry.label}
-																			</Button>
-																		);
-																	})}
-																</VStack>
-															</PopoverBody>
-														</PopoverContent>
-													</Portal>
+													<PopoverContent
+														side="top"
+														align="center"
+														sideOffset={12}
+														collisionPadding={12}
+														className={cn(
+															"w-[min(210px,calc(100vw_-_24px))] max-w-[calc(100vw_-_24px)] max-h-[calc(100vh_-_160px)] overflow-y-auto rounded-[22px] p-2",
+															DOCK_CLASS,
+														)}
+													>
+														<div className="flex flex-col gap-1">
+															{settingsMenuItems.map((entry) => {
+																const ItemIcon = entry.icon;
+																const isSelected = activeSettingsKey === entry.key;
+																return (
+																	<Button
+																		key={entry.key}
+																		variant="ghost"
+																		size="xs"
+																		aria-current={isSelected ? "page" : undefined}
+																		className={cn(
+																			"w-full justify-start text-sm",
+																			isSelected
+																				? "bg-panel-elevated font-semibold"
+																				: "bg-transparent font-normal",
+																			isSelected || activeSettingsKey
+																				? "hover:bg-panel-elevated"
+																				: "hover:bg-transparent",
+																			"active:bg-panel-elevated focus-visible:shadow-[0_0_0_2px_var(--primary-200)]",
+																		)}
+																		onClick={() => {
+																			handleSettingsMenuClose();
+																			navigateToSettingsItem(entry.to);
+																		}}
+																	>
+																		{ItemIcon ? <ItemIcon className="size-4" /> : null}
+																		{entry.label}
+																	</Button>
+																);
+															})}
+														</div>
+													</PopoverContent>
 												</Popover>
 											);
 										}
@@ -1649,23 +1303,21 @@ export function AppLayout() {
 											return (
 												<Popover
 													key={item.key}
-													isOpen={accountMenu.isOpen}
-													onClose={handleAccountMenuClose}
-													autoFocus={false}
-													placement="top"
-													gutter={12}
-													closeOnBlur
-													modifiers={popoverModifiers}
-													strategy="fixed"
+													open={accountMenu.isOpen}
+													onOpenChange={(open) => {
+														if (!open) handleAccountMenuClose();
+													}}
 												>
-													<PopoverTrigger>
+													<PopoverTrigger asChild>
 														<Button
 															variant="ghost"
 															size="sm"
 															ref={(node) => {
 																tabContentRefs.current[item.key] = node;
 															}}
-															onClick={() => {
+															onClick={(event) => {
+																// Same as the settings tab: the click is handled below only.
+																event.preventDefault();
 																if (accountHoldOpened.current) return;
 																handleAccountMenuClose();
 																handleNavClick(item.to);
@@ -1680,10 +1332,7 @@ export function AppLayout() {
 															}}
 															onPointerMove={(event) => {
 																if (event.pointerType === "mouse") return;
-																handleAccountHoldMove(
-																	event.clientX,
-																	event.clientY,
-																);
+																handleAccountHoldMove(event.clientX, event.clientY);
 															}}
 															onPointerUp={handleAccountHoldEnd}
 															onPointerCancel={handleAccountHoldEnd}
@@ -1691,66 +1340,40 @@ export function AppLayout() {
 															onContextMenu={(event) => {
 																if (isMobile) event.preventDefault();
 															}}
-															color={isActive ? "primary.500" : "gray.600"}
-															_dark={{
-																color: isActive ? "primary.300" : "gray.300",
-															}}
-															flex="1"
-															minW="0"
-															minH="48px"
-															h="auto"
-															px="0"
-															position="relative"
-															zIndex={1}
-															sx={{ touchAction: "manipulation" }}
-															userSelect="none"
-															_hover={{ bg: "transparent" }}
-															_active={{ bg: "transparent" }}
-															_focus={{ bg: "transparent" }}
+															className={tabButtonClass}
 														>
 															{navContent}
 														</Button>
 													</PopoverTrigger>
-													<Portal>
-														<PopoverContent
-															w="min(180px, calc(100vw - 24px))"
-															maxW="calc(100vw - 24px)"
-															maxH="calc(100vh - 160px)"
-															overflowY="auto"
-															borderRadius="22px"
-															backdropFilter="saturate(180%) blur(20px)"
-															bg={dockBg}
-															borderColor={dockBorder}
-															borderWidth="1px"
-															boxShadow={dockShadow}
+													<PopoverContent
+														side="top"
+														align="center"
+														sideOffset={12}
+														collisionPadding={12}
+														onOpenAutoFocus={(event) => event.preventDefault()}
+														className={cn(
+															"w-[min(180px,calc(100vw_-_24px))] max-w-[calc(100vw_-_24px)] max-h-[calc(100vh_-_160px)] overflow-y-auto rounded-[22px] p-2",
+															DOCK_CLASS,
+														)}
+													>
+														<Button
+															variant="ghost"
+															size="xs"
+															className="w-full justify-start text-sm text-[#E53E3E] hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated"
+															onClick={async () => {
+																try {
+																	await logoutSession();
+																} finally {
+																	clearClientSession();
+																	handleAccountMenuClose();
+																	navigate("/login");
+																}
+															}}
 														>
-															<PopoverBody position="relative" zIndex={1} p="2">
-																<Button
-																	variant="ghost"
-																	size="sm"
-																	w="full"
-																	justifyContent="flex-start"
-																	leftIcon={<LogoutIcon />}
-																	color="red.500"
-																	_hover={{ bg: menuHover }}
-																	_active={{ bg: menuHover }}
-																	_focus={{ bg: "transparent" }}
-																	_focusVisible={{ bg: menuHover }}
-																	onClick={async () => {
-																		try {
-																			await logoutSession();
-																		} finally {
-																			clearClientSession();
-																			handleAccountMenuClose();
-																			navigate("/login");
-																		}
-																	}}
-																>
-																	{t("header.logout")}
-																</Button>
-															</PopoverBody>
-														</PopoverContent>
-													</Portal>
+															<LogoutIcon className="size-4" />
+															{t("header.logout")}
+														</Button>
+													</PopoverContent>
 												</Popover>
 											);
 										}
@@ -1768,30 +1391,18 @@ export function AppLayout() {
 														handleNavClick(item.to);
 													}
 												}}
-												color={isActive ? "primary.500" : "gray.600"}
-												_dark={{ color: isActive ? "primary.300" : "gray.300" }}
-												flex="1"
-												minW="0"
-												minH="48px"
-												h="auto"
-												px="0"
-												position="relative"
-												zIndex={1}
-												userSelect="none"
-												_hover={{ bg: "transparent" }}
-												_active={{ bg: "transparent" }}
-												_focus={{ bg: "transparent" }}
+												className={tabButtonClass}
 											>
 												{navContent}
 											</Button>
 										);
 									})}
-								</HStack>
-							</Box>
-						</Box>
+								</div>
+							</div>
+						</div>
 					</>
 				)}
-			</Flex>
+			</div>
 		</>
 	);
 }
