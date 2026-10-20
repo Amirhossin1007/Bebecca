@@ -1,4 +1,4 @@
-import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import type * as React from "react";
 

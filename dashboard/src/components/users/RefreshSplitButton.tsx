@@ -12,6 +12,14 @@ import {
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { ReloadIcon } from "components/Filters";
 import { Button } from "components/shadcn/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "components/shadcn/dropdown-menu";
 import { cn } from "lib/cn";
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
@@ -84,75 +92,43 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 				</span>
 			</Button>
 
-			<Menu placement={i18n.dir() === "rtl" ? "bottom-start" : "bottom-end"} isLazy>
-				<Tooltip
-					label={`${labels.autoRefresh}: ${intervalLabel}`}
-					placement="top"
-					hasArrow
-					openDelay={300}
-				>
-					<MenuButton
-						as={IconButton}
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button
+						type="button"
+						variant="outline"
+						size="icon-sm"
 						aria-label={`${labels.autoRefresh}: ${intervalLabel}`}
-						icon={
-							<span style={{ position: "relative", display: "inline-flex" }}>
-								<ChevronDownIcon width={14} />
-								{active ? (
-									<span
-										aria-hidden="true"
-										style={{
-											position: "absolute",
-											insetInlineEnd: 0,
-											top: 0,
-											width: 6,
-											height: 6,
-											borderRadius: "999px",
-											background: "var(--rb-panel-accent)",
-											boxShadow: "0 0 0 2px var(--rb-panel-surface)",
-										}}
-									/>
-								) : null}
-							</span>
-						}
-						isDisabled={isLoading}
-						borderStartRadius={0}
-						borderEndRadius="full"
-						px={1.5}
-						h="32px"
-						minW="30px"
-					/>
-				</Tooltip>
-				<Portal>
-					<MenuList zIndex={1800} minW="200px" bg="panel.surface" borderColor="panel.border">
-						<Text
-							px={3}
-							pt={2}
-							pb={1}
-							fontSize="xs"
-							color="panel.textMuted"
-							textTransform="uppercase"
-							letterSpacing="0.08em"
+						title={`${labels.autoRefresh}: ${intervalLabel}`}
+						className="relative rounded-s-none px-1.5"
+						style={{ height: 32, width: 30 }}
+					>
+						<ChevronDownIcon width={14} />
+						{active ? (
+							<span
+								aria-hidden="true"
+								className="absolute end-1 top-1 size-1.5 rounded-full bg-panel-accent ring-2 ring-panel-surface"
+							/>
+						) : null}
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align={i18n.dir() === "rtl" ? "start" : "end"} className="min-w-52">
+					<DropdownMenuLabel>{labels.autoRefresh}</DropdownMenuLabel>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onSelect={() => onIntervalChange(0)} className={cn(!active && "font-semibold")}>
+						{labels.off}
+					</DropdownMenuItem>
+					{intervals.map((value) => (
+						<DropdownMenuItem
+							key={value}
+							onSelect={() => onIntervalChange(value)}
+							className={cn(interval === value && "font-semibold text-panel-text")}
 						>
-							{labels.autoRefresh}
-						</Text>
-						<MenuItem
-							onClick={() => onIntervalChange(0)}
-							fontWeight={!active ? "semibold" : "normal"}
-						>
-							{labels.off}
-						</MenuItem>
-						{intervals.map((value) => (
-							<MenuItem
-								key={value}
-								onClick={() => onIntervalChange(value)}
-								fontWeight={interval === value ? "semibold" : "normal"}
-							>
-								{labels.every(value / 1000)}
-							</MenuItem>
-						))}
-					</MenuList>
-				</Portal>
-			</Menu>
+							{labels.every(value / 1000)}
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuContent>
+			</DropdownMenu>
 		</ButtonGroup>
 	);
 };

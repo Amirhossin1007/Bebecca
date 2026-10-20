@@ -1,6 +1,6 @@
-import { Slot } from "radix-ui";
+import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import type * as React from "react";
+import * as React from "react";
 
 import { cn } from "lib/cn";
 
@@ -43,23 +43,23 @@ export type ButtonProps = React.ComponentProps<"button"> &
 		asChild?: boolean;
 	};
 
-export function Button({
-	className,
-	variant,
-	size,
-	asChild = false,
-	...props
-}: ButtonProps) {
-	const classes = cn(buttonVariants({ variant, size }), className);
+/**
+ * `forwardRef` is required, not optional: Radix triggers (DropdownMenu,
+ * Dialog, Tooltip) measure their child through a ref. React 18 does not pass
+ * `ref` to plain function components, and without it the popper never
+ * positions — which is exactly how this bug showed up.
+ */
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+	function Button({ className, variant, size, asChild = false, ...props }, ref) {
+		const classes = cn(buttonVariants({ variant, size }), className);
+		// Slot.Element and "button" accept the same DOM props; their ref types are
+		// the one thing TypeScript cannot unify, so the component type is widened.
+		const Comp = (asChild ? Slot : "button") as React.ElementType;
 
-	if (asChild) {
-		// Slot forwards to whatever the caller renders; its ref type is the generic
-		// element, so the button props are cast once here instead of at every call.
-		const SlotComp = Slot.Root as React.ElementType;
-		return <SlotComp data-slot="button" className={classes} {...props} />;
-	}
-
-	return <button data-slot="button" className={classes} {...props} />;
-}
+		return (
+			<Comp data-slot="button" ref={ref} className={classes} {...props} />
+		);
+	},
+);
 
 export { buttonVariants };
