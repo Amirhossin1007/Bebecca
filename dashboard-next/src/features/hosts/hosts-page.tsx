@@ -174,6 +174,7 @@ export function HostsPage() {
                   <SelectValue placeholder="All hosts" />
                 </SelectTrigger>
                 <SelectContent align="start">
+                  <div className="px-2 pb-1 pt-1.5 text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("status")}</div>
                   <SelectItem value="all">
                     {t("next.hosts.allHosts")}
                   </SelectItem>

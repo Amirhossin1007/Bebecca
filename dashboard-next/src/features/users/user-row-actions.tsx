@@ -1,5 +1,6 @@
 import {
   Ban,
+  Pencil,
   CalendarPlus,
   CircleCheck,
   Copy,
@@ -46,7 +47,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  useDeleteUser,
   useResetUserUsage,
   useRevokeUserSubscription,
   useSetUserDataLimit,
@@ -88,16 +88,22 @@ function ipAddresses(response: UserIPsResponse | undefined): string[] {
   return addresses
 }
 
-export function UserRowActions({ user }: { user: UserListItem }) {
+export function UserRowActions({
+  user,
+  onEdit,
+  onDelete,
+}: {
+  user: UserListItem
+  onEdit: (user: UserListItem) => void
+  onDelete: (user: UserListItem) => void
+}) {
   const { t } = useTranslation()
   const reset = useResetUserUsage()
   const setStatus = useSetUserStatus()
   const setDataLimit = useSetUserDataLimit()
   const setExpiry = useSetUserExpiry()
   const revoke = useRevokeUserSubscription()
-  const remove = useDeleteUser()
 
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmRevoke, setConfirmRevoke] = useState(false)
   const [ipsOpen, setIpsOpen] = useState(false)
 
@@ -166,10 +172,6 @@ export function UserRowActions({ user }: { user: UserListItem }) {
       }),
       label,
     )
-  }
-
-  const deleteUser = () => {
-    run(remove.mutateAsync(user.username), t("next.users.delete"))
   }
 
   return (
@@ -265,7 +267,12 @@ export function UserRowActions({ user }: { user: UserListItem }) {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
+          <DropdownMenuItem onSelect={() => onEdit(user)}>
+            <Pencil className="size-4" />
+            {t("userDialog.editUser")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={() => onDelete(user)}>
             <Trash2 className="size-4" />
             {t("next.users.delete")}
           </DropdownMenuItem>
@@ -331,23 +338,6 @@ export function UserRowActions({ user }: { user: UserListItem }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("next.users.delete")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("next.users.deleteConfirm", { username: user.username })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={deleteUser}>
-              {remove.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-              {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

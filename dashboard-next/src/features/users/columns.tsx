@@ -1,15 +1,58 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import { Link2, Pencil, Trash2 } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { ColumnHeader } from "@/components/data-table/column-header"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { UserQrDialog } from "@/features/users/user-qr-dialog"
 import { UserStatusBadge } from "@/features/users/user-status-badge"
 import { UserRowActions } from "@/features/users/user-row-actions"
 import { UsageMeter } from "@/features/users/usage-meter"
 import { useFormat } from "@/lib/use-format"
 import { cn } from "@/lib/utils"
 import type { UserListItem } from "@/types/api"
+
+function QuickAction({
+  label,
+  icon: Icon,
+  onSelect,
+  destructive,
+}: {
+  label: string
+  icon: typeof Pencil
+  onSelect: () => void
+  destructive?: boolean
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={label}
+          onClick={(event: React.MouseEvent) => {
+            event.stopPropagation()
+            onSelect()
+          }}
+          className={cn(
+            "size-7 text-muted-foreground hover:text-foreground",
+            destructive && "hover:bg-destructive/10 hover:text-destructive",
+          )}
+        >
+          <Icon className="size-3.5" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+
 
 function initials(username: string): string {
   const clean = username.replace(/[^\p{L}\p{N}]+/gu, " ").trim()
@@ -19,7 +62,12 @@ function initials(username: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
-export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
+export type UserColumnActions = {
+  onEdit: (user: UserListItem) => void
+  onDelete: (user: UserListItem) => void
+}
+
+export function useUserColumns({ onEdit, onDelete }: UserColumnActions): ColumnDef<UserListItem, unknown>[] {
   const { t } = useTranslation()
   const format = useFormat()
 
@@ -192,11 +240,41 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
         id: "actions",
         header: "",
         meta: { label: t("actions") },
-        size: 44,
+        size: 148,
         enableSorting: false,
-        cell: ({ row }) => <UserRowActions user={row.original} />,
+        cell: ({ row }) => {
+          const user = row.original
+          return (
+            <div className="flex items-center justify-end gap-0.5">
+              <QuickAction
+                label={t("next.users.copySubscription")}
+                icon={Link2}
+                onSelect={() => {
+                  void navigator.clipboard
+                    .writeText(user.subscription_url)
+                    .then(() => toast.success(t("next.toast.copied")))
+                    .catch(() => toast.error(t("next.toast.copyFailed")))
+                }}
+              />
+              <UserQrDialog
+                compact
+                username={user.username}
+                subscriptionUrl={user.subscription_url}
+                links={user.links}
+              />
+              <QuickAction label={t("userDialog.editUser")} icon={Pencil} onSelect={() => onEdit(user)} />
+              <QuickAction
+                label={t("next.users.delete")}
+                icon={Trash2}
+                destructive
+                onSelect={() => onDelete(user)}
+              />
+              <UserRowActions user={user} onEdit={onEdit} onDelete={onDelete} />
+            </div>
+          )
+        },
       },
     ],
-    [t, format],
+    [t, format, onEdit, onDelete],
   )
 }

@@ -1,32 +1,57 @@
-import type { SortingState } from "@tanstack/react-table"
-import { CircleDot, RefreshCw, ShieldAlert, ShieldCheck, X } from "lucide-react"
+import type {
+  OnChangeFn,
+  RowSelectionState,
+  SortingState,
+  Table,
+  VisibilityState,
+} from "@tanstack/react-table"
+import { RefreshCw, ShieldAlert } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
+import { toast } from "sonner"
 
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePagination } from "@/components/data-table/table-pagination"
-import { SearchField } from "@/components/search-field"
+import { ViewOptions } from "@/components/data-table/view-options"
 import { PageHeader } from "@/components/layout/page-header"
+import { SearchField } from "@/components/search-field"
+import { AdminsBulkActionBar } from "@/features/admins/admins-bulk-action-bar"
+import {
+  AdminFilterChips,
+  AdminsFilters,
+  type AdminFilterDraft,
+  type AdminFilterKey,
+} from "@/features/admins/admins-filters"
+import {
+  isAdminsForbidden,
+  useAdmins,
+  useBulkDeleteAdmins,
+  useBulkSetAdminStatus,
+} from "@/features/admins/api"
+import { useAdminColumns } from "@/features/admins/columns"
+import { useCurrentAdmin } from "@/features/auth/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { isAdminsForbidden, useAdmins } from "@/features/admins/api"
-import { useAdminColumns } from "@/features/admins/columns"
+import { errorMessage } from "@/lib/api"
 import { useFormat } from "@/lib/use-format"
 import { cn } from "@/lib/utils"
+import type { Admin } from "@/types/api"
 
-const ROLE_FILTERS = ["standard", "reseller", "sudo", "full_access"] as const
-const STATUS_FILTERS = ["active", "disabled"] as const
+const ROLE_VALUES = new Set(["standard", "reseller", "sudo", "full_access"])
+const STATUS_VALUES = new Set(["active", "disabled", "expired", "limited"])
 // The endpoint sorts server-side; `username` is not in its whitelist.
 const SORTABLE = new Set(["role", "status", "users_count", "users_usage", "expire"])
+
+/**
+ * The locale files carry no bulk-admin strings and this task may not add keys,
+ * so the bulk toasts use English literals.
+ */
+function bulkCountMessage(count: number, verb: "enabled" | "disabled" | "deleted"): string {
+  return `${count} ${count === 1 ? "admin" : "admins"} ${verb}`
+}
+const SELF_SKIP_DESCRIPTION = "Your own account was skipped."
 
 function SummaryStat({
   label,
@@ -77,18 +102,42 @@ export function AdminsPage() {
   const format = useFormat()
   const columns = useAdminColumns()
   const [params, setParams] = useSearchParams()
+  const currentAdmin = useCurrentAdmin()
 
   const search = params.get("search") ?? ""
   const matchCase = params.get("match_case") === "1"
   const matchWholeWord = params.get("match_whole_word") === "1"
-  const role = params.get("role") ?? ""
-  const status = params.get("status") ?? ""
+  // Ignore unrecognized URL values instead of sending them to the API, which
+  // answers 400 for an invalid role or status.
+  const roleParam = params.get("role") ?? ""
+  const role = ROLE_VALUES.has(roleParam) ? roleParam : ""
+  const statusParam = params.get("status") ?? ""
+  const status = STATUS_VALUES.has(statusParam) ? statusParam : ""
   const page = Math.max(0, Number(params.get("page") ?? 0) || 0)
   const size = [20, 50, 100].includes(Number(params.get("size"))) ? Number(params.get("size")) : 20
   const sortParam = params.get("sort")
 
   const [searchInput, setSearchInput] = useState(search)
   const [syncedSearch, setSyncedSearch] = useState(search)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  // The page needs the table instance itself to render `ViewOptions`, so
+  // DataTable hands it over once it exists. Visibility stays controlled here so
+  // toggling a column re-renders the menu that opened it.
+  const [table, setTable] = useState<Table<Admin> | null>(null)
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+
+  // Visibility is owned here, but the menu renders above `DataTable` — the only
+  // component that feeds new options to the instance — so a plain state update
+  // would leave the open menu reading the previous visibility for one render.
+  // Syncing the instance in the same handler keeps both views in lockstep.
+  const onColumnVisibilityChange: OnChangeFn<VisibilityState> = (updater) => {
+    const next = typeof updater === "function" ? updater(columnVisibility) : updater
+    table?.setOptions((previous) => ({
+      ...previous,
+      state: { ...previous.state, columnVisibility: next },
+    }))
+    setColumnVisibility(next)
+  }
 
   // Adjust the input during render when the URL changes from elsewhere.
   if (search !== syncedSearch) {
@@ -123,6 +172,7 @@ export function AdminsPage() {
     sort: sortParam,
   })
   const data = query.data
+  const rows = useMemo(() => data?.admins ?? [], [data])
   const forbidden = isAdminsForbidden(query.error)
 
   const sorting = useMemo<SortingState>(() => {
@@ -138,18 +188,107 @@ export function AdminsPage() {
     update({ sort: first ? `${first.desc ? "-" : ""}${first.id}` : null })
   }
 
-  const summary = useMemo(() => {
-    const admins = data?.admins ?? []
-    return {
-      total: data?.total ?? 0,
-      fullAccess: admins.filter((admin) => admin.role === "full_access").length,
-      sudo: admins.filter((admin) => admin.role === "sudo").length,
-      traffic: admins.reduce((sum, admin) => sum + admin.users_usage, 0),
+  // Selection is page-local: every query change drops it, and a page change is
+  // part of the signature, so a selection can never leak across pages. The
+  // signature is tracked as state and adjusted during render — the same React
+  // pattern used above for the search box — instead of in an effect.
+  const selectionSignature = [
+    search,
+    role,
+    status,
+    matchCase,
+    matchWholeWord,
+    page,
+    size,
+    sortParam ?? "",
+  ].join("\u241f")
+  const [syncedSelectionSignature, setSyncedSelectionSignature] = useState(selectionSignature)
+  if (selectionSignature !== syncedSelectionSignature) {
+    setSyncedSelectionSignature(selectionSignature)
+    setRowSelection({})
+  }
+
+  const selectedAdmins = useMemo(
+    () => rows.filter((admin) => rowSelection[String(admin.id)]),
+    [rows, rowSelection],
+  )
+  const selfUsername = currentAdmin?.username ?? null
+
+  const bulkStatus = useBulkSetAdminStatus()
+  const bulkDelete = useBulkDeleteAdmins()
+  const bulkPending = bulkStatus.isPending || bulkDelete.isPending
+
+  const clearSelection = () => setRowSelection({})
+
+  const runBulkStatus = (nextStatus: "active" | "disabled") => {
+    const usernames = selectedAdmins.map((admin) => admin.username).slice(0, size)
+    if (usernames.length === 0) return
+    bulkStatus.mutate(
+      { usernames, status: nextStatus },
+      {
+        onSuccess: () => {
+          toast.success(
+            bulkCountMessage(usernames.length, nextStatus === "active" ? "enabled" : "disabled"),
+          )
+          clearSelection()
+        },
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    )
+  }
+
+  const runBulkDelete = () => {
+    // Never include the signed-in admin in a delete loop, and say so when the
+    // selection had to drop that row.
+    const usernames = selectedAdmins
+      .filter((admin) => admin.username !== selfUsername)
+      .map((admin) => admin.username)
+      .slice(0, size)
+    const skippedSelf = selectedAdmins.some((admin) => admin.username === selfUsername)
+    if (usernames.length === 0) {
+      toast.error(SELF_SKIP_DESCRIPTION)
+      return
     }
-  }, [data])
+    bulkDelete.mutate(usernames, {
+      onSuccess: () => {
+        const message = bulkCountMessage(usernames.length, "deleted")
+        if (skippedSelf) toast.success(message, { description: SELF_SKIP_DESCRIPTION })
+        else toast.success(message)
+        clearSelection()
+      },
+      onError: (error) => toast.error(errorMessage(error)),
+    })
+  }
+
+  const summary = useMemo(
+    () => ({
+      total: data?.total ?? 0,
+      fullAccess: rows.filter((admin) => admin.role === "full_access").length,
+      sudo: rows.filter((admin) => admin.role === "sudo").length,
+      traffic: rows.reduce((sum, admin) => sum + admin.users_usage, 0),
+    }),
+    [data, rows],
+  )
+
+  const activeFilterCount =
+    (role ? 1 : 0) + (status ? 1 : 0) + (matchCase ? 1 : 0) + (matchWholeWord ? 1 : 0)
+  const filterDraft: AdminFilterDraft = { role, status }
+
+  const applyFilters = (draft: AdminFilterDraft) => {
+    update({ role: draft.role || null, status: draft.status || null })
+  }
+
+  const removeFilter = (key: AdminFilterKey) => {
+    if (key === "search") setSearchInput("")
+    update({ [key]: null })
+  }
+
+  const clearAllFilters = () => {
+    setSearchInput("")
+    update({ search: null, role: null, status: null, match_case: null, match_whole_word: null })
+  }
 
   const total = data?.total ?? 0
-  const hasFilters = Boolean(search || role || status)
 
   return (
     <div className="flex flex-col gap-5">
@@ -227,55 +366,21 @@ export function AdminsPage() {
                 }}
               />
 
-              <Select
-                value={role || "all"}
-                onValueChange={(value) => update({ role: value === "all" ? null : value })}
-              >
-                <SelectTrigger size="sm" className="h-8 w-40 gap-1.5 text-[0.75rem]">
-                  <ShieldCheck className="size-3.5 text-muted-foreground" />
-                  <SelectValue placeholder="All roles" />
-                </SelectTrigger>
-                <SelectContent align="start">
-                  <SelectItem value="all">{t("next.admins.allRoles")}</SelectItem>
-                  {ROLE_FILTERS.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {t(`next.role.${value}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AdminsFilters
+                draft={filterDraft}
+                activeCount={activeFilterCount}
+                onApply={applyFilters}
+                onClear={clearAllFilters}
+              />
 
-              <Select
-                value={status || "all"}
-                onValueChange={(value) => update({ status: value === "all" ? null : value })}
-              >
-                <SelectTrigger size="sm" className="h-8 w-36 gap-1.5 text-[0.75rem]">
-                  <CircleDot className="size-3.5 text-muted-foreground" />
-                  <SelectValue placeholder={t("next.users.allStatuses")} />
-                </SelectTrigger>
-                <SelectContent align="start">
-                  <SelectItem value="all">{t("next.users.allStatuses")}</SelectItem>
-                  {STATUS_FILTERS.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {t(`status.${value}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {hasFilters ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1.5 px-2 text-[0.75rem] text-muted-foreground"
-                  onClick={() => {
-                    setSearchInput("")
-                    setParams({}, { replace: true })
+              {table ? (
+                <ViewOptions
+                  table={table}
+                  labels={{
+                    title: t("next.users.toggleColumns"),
+                    toggle: t("next.users.toggleColumns"),
                   }}
-                >
-                  <X className="size-3.5" />
-                  {t("next.users.clear")}
-                </Button>
+                />
               ) : null}
 
               <span className="ms-auto text-[0.6875rem] text-muted-foreground tabular">
@@ -286,6 +391,23 @@ export function AdminsPage() {
                 }) : null}
               </span>
             </div>
+
+            <AdminFilterChips
+              search={search}
+              role={role}
+              status={status}
+              onRemove={removeFilter}
+              onClearAll={clearAllFilters}
+            />
+
+            <AdminsBulkActionBar
+              count={selectedAdmins.length}
+              isPending={bulkPending}
+              onClear={clearSelection}
+              onEnable={() => runBulkStatus("active")}
+              onDisable={() => runBulkStatus("disabled")}
+              onDelete={runBulkDelete}
+            />
 
             <DataTable
               columns={columns}
@@ -299,6 +421,12 @@ export function AdminsPage() {
               sorting={sorting}
               onSortingChange={onSortingChange}
               getRowId={(row) => String(row.id)}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+              enableRowSelection
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={onColumnVisibilityChange}
+              onTableReady={setTable}
               skeletonRows={size > 20 ? 12 : 8}
             />
 

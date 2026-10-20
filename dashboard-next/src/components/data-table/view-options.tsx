@@ -1,4 +1,4 @@
-import type { RowData, Table } from "@tanstack/react-table"
+import type { Table } from "@tanstack/react-table"
 import { Columns3 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -12,15 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-declare module "@tanstack/react-table" {
-  // The unused type parameters are required to merge with TanStack's declaration.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
-    /** Human-readable column name, used by the column visibility menu. */
-    label?: string
-  }
-}
-
+// `ColumnMeta.label` is declared once in `./types`, which `DataTable` imports, so
+// the augmentation is part of every compilation that consumes these tables.
 type ViewOptionsLabels = {
   /** Heading of the dropdown. */
   title: string

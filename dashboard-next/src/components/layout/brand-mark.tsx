@@ -1,28 +1,22 @@
 import { cn } from "@/lib/utils"
 
 /**
- * The panel mark: a rounded tile with a signal trace. Drawn inline so it
- * inherits the theme and stays crisp at 20–40px.
+ * The panel's own mark (a stylised bird) from the legacy dashboard's favicon
+ * set. It is a raster asset, so it is served from `public/brand` instead of
+ * being inlined into the bundle; the dark theme inverts it so the black bird
+ * stays legible on the sidebar.
  */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <span
+    <img
+      src="/brand/rebecca-mark.png"
+      alt=""
+      aria-hidden="true"
+      draggable={false}
       className={cn(
-        "relative grid place-items-center overflow-hidden rounded-[0.6rem] bg-linear-to-br from-primary/90 to-primary/55 text-primary-foreground shadow-sm ring-1 ring-inset ring-white/15",
+        "size-8 shrink-0 rounded-[0.55rem] object-contain p-0.5 ring-1 ring-inset ring-border/60 dark:invert",
         className,
       )}
-      aria-hidden="true"
-    >
-      <svg viewBox="0 0 24 24" fill="none" className="size-[62%]">
-        <path
-          d="M4 15.5 8.2 9.9l3.4 3.1L15 5.8l5 8.6"
-          stroke="currentColor"
-          strokeWidth="2.1"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="9.6" cy="17.8" r="1.5" fill="currentColor" />
-      </svg>
-    </span>
+    />
   )
 }

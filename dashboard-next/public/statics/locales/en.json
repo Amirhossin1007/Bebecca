@@ -4001,5 +4001,15 @@
 	"next.actions.ipsCopyAll": "Copy all",
 	"next.actions.daysCount": "{{count}} days",
 	"next.actions.gbCount": "{{count}} GB",
-	"next.actions.confirmDeleteService": "Deleting {{name}} cannot be undone. A service that still has users or linked admins is refused by the panel — move them first."
+	"next.actions.confirmDeleteService": "Deleting {{name}} cannot be undone. A service that still has users or linked admins is refused by the panel — move them first.",
+	"next.band.ofLimit": "{{percent}}% of {{limit}}",
+	"next.band.avgTraffic": "avg {{value}} per user",
+	"next.band.percentOfTotal": "{{percent}}% of users",
+	"next.band.users": "users",
+	"next.qr.single": "Scan to import this subscription.",
+	"next.qr.multiple": "{{count}} links available — pick one to show its code.",
+	"next.qr.hint": "The link carries the account credentials; share it only with its owner.",
+	"next.userEdit.general": "General",
+	"next.userEdit.limits": "Limits",
+	"next.userEdit.advanced": "Advanced"
 }

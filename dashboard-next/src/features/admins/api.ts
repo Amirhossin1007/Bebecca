@@ -87,3 +87,36 @@ export function useDeleteAdmin() {
     onSettled: invalidateAdmins(queryClient),
   })
 }
+
+/**
+ * Bulk enable/disable. The API has no bulk admin endpoint, so this loops the
+ * single-admin calls; the page caps the list at the current page size.
+ */
+export function useBulkSetAdminStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ usernames, status }: { usernames: string[]; status: "active" | "disabled" }) =>
+      Promise.all(
+        usernames.map((username) =>
+          api.post<void>(
+            `/admin/${encodeURIComponent(username)}/${status === "active" ? "enable" : "disable"}`,
+          ),
+        ),
+      ),
+    onSettled: invalidateAdmins(queryClient),
+  })
+}
+
+/** Bulk delete, likewise a loop over `DELETE /admin/{username}`. */
+export function useBulkDeleteAdmins() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (usernames: string[]) =>
+      Promise.all(
+        usernames.map((username) =>
+          api.delete<void>(`/admin/${encodeURIComponent(username)}`),
+        ),
+      ),
+    onSettled: invalidateAdmins(queryClient),
+  })
+}

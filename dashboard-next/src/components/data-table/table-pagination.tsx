@@ -51,12 +51,13 @@ export function TablePagination({
         <div className="hidden items-center gap-1.5 sm:flex">
           <span className="text-[0.75rem] text-muted-foreground">{t("next.users.rowsPerPage")}</span>
           <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
-            <SelectTrigger size="sm" className="h-7 w-16 text-[0.75rem]">
+            <SelectTrigger size="sm" className="h-7 w-[4.5rem] text-[0.75rem]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent align="end" className="min-w-16">
+            <SelectContent align="end" className="min-w-40">
+              <div className="px-2 pb-1 pt-1.5 text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("next.users.rowsPerPage")}</div>
               {PAGE_SIZES.map((size) => (
-                <SelectItem key={size} value={String(size)} className="text-[0.75rem]">
+                <SelectItem key={size} value={String(size)} className="text-[0.8125rem]">
                   {format.number(size)}
                 </SelectItem>
               ))}

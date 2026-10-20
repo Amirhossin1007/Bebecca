@@ -269,6 +269,27 @@ async function handle(url: URL, init?: RequestInit): Promise<Response | null> {
   if (path === "/api/auth/logout") return new Response(null, { status: 204 })
 
   if (path === "/api/users") return json(usersResponse(url))
+  if (path.startsWith("/api/user/") && method === "GET") {
+    const username = decodeURIComponent(path.replace("/api/user/", ""))
+    const base = USERS.find((user) => user.username === username) ?? USERS[0]
+    return json({
+      ...base,
+      note: "Imported from the reseller migration.",
+      telegram_id: null,
+      contact_number: null,
+      ip_limit: 2,
+      speed_limit_kbps: 0,
+      on_hold_expire_duration: null,
+      on_hold_timeout: null,
+      auto_delete_in_days: null,
+      flow: null,
+      excluded_inbounds: {},
+      inbounds: {},
+      next_plans: [],
+      proxies: {},
+      link_data: [],
+    })
+  }
   if (path === "/api/system") return json(SYSTEM)
   if (path === "/api/admins") {
     const username = (url.searchParams.get("username") ?? "").toLowerCase()

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 
 import { ColumnHeader } from "@/components/data-table/column-header"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { AdminsRowActions } from "@/features/admins/admins-row-actions"
 import { UsageMeter } from "@/features/users/usage-meter"
 import { useFormat } from "@/lib/use-format"
@@ -74,11 +75,44 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
 
   return useMemo<ColumnDef<Admin, unknown>[]>(
     () => [
+      // Selection lives in TanStack Table's `rowSelection` state, owned by the
+      // page. The header toggles every row currently loaded (this page's rows
+      // only — the table never holds more than the server page).
+      {
+        id: "select",
+        size: 36,
+        enableSorting: false,
+        enableHiding: false,
+        meta: { label: t("next.users.selectColumn", { defaultValue: "Select" }) },
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected()
+                ? true
+                : table.getIsSomePageRowsSelected()
+                  ? "indeterminate"
+                  : false
+            }
+            onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked === true)}
+            aria-label={t("next.users.selectAll")}
+            className="ms-0.5"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            disabled={!row.getCanSelect()}
+            onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+            aria-label={t("next.users.selectRow", { username: row.original.username })}
+            className="ms-0.5"
+          />
+        ),
+      },
       {
         id: "username",
         accessorKey: "username",
         header: t("next.admins.columnAdmin"),
-        enableHiding: false,
+        meta: { label: t("next.admins.columnAdmin") },
         size: 300,
         // `username` is not in the endpoint's sort whitelist.
         enableSorting: false,
@@ -107,31 +141,31 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
       },
       {
         id: "role",
-        enableHiding: false,
         accessorKey: "role",
         header: ({ column }) => (
           <ColumnHeader column={column} title={t("next.admins.columnRole")} />
         ),
+        meta: { label: t("next.admins.columnRole") },
         size: 130,
         cell: ({ row }) => <AdminRoleBadge role={row.original.role} />,
       },
       {
         id: "status",
-        enableHiding: false,
         accessorKey: "status",
         header: ({ column }) => (
           <ColumnHeader column={column} title={t("status")} />
         ),
+        meta: { label: t("status") },
         size: 120,
         cell: ({ row }) => <AdminStatusBadge status={row.original.status} />,
       },
       {
         id: "users_count",
-        enableHiding: false,
         accessorKey: "users_count",
         header: ({ column }) => (
           <ColumnHeader column={column} title={t("next.admins.columnUsers")} />
         ),
+        meta: { label: t("next.admins.columnUsers") },
         size: 130,
         cell: ({ row }) => {
           const admin = row.original
@@ -149,11 +183,11 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
       },
       {
         id: "users_usage",
-        enableHiding: false,
         accessorKey: "users_usage",
         header: ({ column }) => (
           <ColumnHeader column={column} title={t("next.admins.columnTraffic")} />
         ),
+        meta: { label: t("next.admins.columnTraffic") },
         size: 200,
         cell: ({ row }) => (
           <UsageMeter used={row.original.users_usage} limit={row.original.data_limit} />
@@ -161,11 +195,11 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
       },
       {
         id: "expire",
-        enableHiding: false,
         accessorKey: "expire",
         header: ({ column }) => (
           <ColumnHeader column={column} title={t("expire")} />
         ),
+        meta: { label: t("expire") },
         size: 140,
         cell: ({ row }) => (
           <span className="text-[0.8125rem] tabular">
@@ -177,6 +211,7 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
         id: "actions",
         enableHiding: false,
         header: "",
+        meta: { label: t("actions") },
         size: 44,
         enableSorting: false,
         cell: ({ row }) => <AdminsRowActions admin={row.original} />,

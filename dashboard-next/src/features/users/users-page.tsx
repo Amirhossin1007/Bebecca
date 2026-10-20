@@ -5,13 +5,23 @@ import type {
   Table,
   VisibilityState,
 } from "@tanstack/react-table"
-import { Download, RefreshCw } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { Download, Link2, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Num } from "@/components/num"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { SearchField } from "@/components/search-field"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePagination } from "@/components/data-table/table-pagination"
@@ -30,6 +40,8 @@ import {
   type BulkUsersAction,
 } from "@/features/users/api"
 import { BulkActionBar } from "@/features/users/bulk-action-bar"
+import { UserEditDialog, type UserEditTarget } from "@/features/users/user-edit-dialog"
+import { useDeleteUser, useResetUserUsage, useSetUserStatus } from "@/features/users/api"
 import { useUserColumns } from "@/features/users/columns"
 import { downloadUsersCsv } from "@/features/users/export-csv"
 import {
@@ -68,7 +80,19 @@ const BREAKDOWN_TONE: Record<string, string> = {
 export function UsersPage() {
   const { t } = useTranslation()
   const format = useFormat()
-  const columns = useUserColumns()
+  const [editTarget, setEditTarget] = useState<UserEditTarget | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null)
+  const removeUser = useDeleteUser()
+  const resetUsage = useResetUserUsage()
+  const setStatus = useSetUserStatus()
+  // Stable callbacks: the column factory memoises on them, and a new identity
+  // per render would rebuild the columns (and remount every row).
+  const handleEdit = useCallback(
+    (user: UserListItem) => setEditTarget({ username: user.username, mode: "edit" }),
+    [],
+  )
+  const handleDelete = useCallback((user: UserListItem) => setDeleteTarget(user), [])
+  const columns = useUserColumns({ onEdit: handleEdit, onDelete: handleDelete })
   const [params, setParams] = useSearchParams()
   const currentAdmin = useCurrentAdmin()
 
@@ -96,7 +120,9 @@ export function UsersPage() {
   // DataTable hands it over once it exists. Visibility stays controlled here so
   // toggling a column re-renders the menu that opened it.
   const [table, setTable] = useState<Table<UserListItem> | null>(null)
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  // The row actions must stay reachable without horizontal scrolling, so the two
+  // least operational columns start hidden. Both are one click away in Columns.
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({ created_at: false, admin: false })
 
   // Visibility is owned here, but the menu renders above `DataTable` — the only
   // component that feeds new options to the instance — so a plain state update
@@ -277,47 +303,103 @@ export function UsersPage() {
         title={t("next.nav.users")}
         description={t("next.page.users.desc")}
         actions={
-          <Button
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() => setEditTarget({ username: "", mode: "create" })}
+            >
+              <Plus className="size-3.5" />
+              {t("createUser")}
+            </Button>
+            <Button
             variant="outline"
             size="sm"
-            className="h-8 gap-1.5"
-            onClick={() => query.refetch()}
-            disabled={query.isFetching}
-          >
-            <RefreshCw className={cn("size-3.5", query.isFetching && "animate-spin")} />
-            {t("refresh")}
-          </Button>
+              className="h-8 gap-1.5"
+              onClick={() => query.refetch()}
+              disabled={query.isFetching}
+            >
+              <RefreshCw className={cn("size-3.5", query.isFetching && "animate-spin")} />
+              {t("refresh")}
+            </Button>
+          </>
         }
       />
 
       {/* Summary band: totals, status distribution and traffic in one dense card. */}
       <Card className="overflow-hidden">
-        <CardContent className="grid gap-5 p-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,12rem)] md:items-center md:gap-7 md:divide-x md:divide-border">
-          <div className="md:pe-7">
+        <CardContent className="grid gap-5 p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:items-stretch md:divide-x md:divide-border">
+          {/* Total, against the admin's user cap when the panel reports one. */}
+          <div className="flex flex-col justify-between md:pe-6">
             <span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-muted-foreground">
               {t("next.stat.total")}
             </span>
-            <div className="mt-1.5 flex items-baseline gap-2">
-              {query.isPending ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <span className="text-2xl font-semibold tracking-tight tabular">{format.number(total)}</span>
-              )}
+            <div>
+              <div className="flex items-baseline gap-2">
+                {query.isPending ? (
+                  <Skeleton className="h-8 w-20" />
+                ) : (
+                  <span className="text-[1.75rem] font-semibold leading-none tracking-tight tabular">
+                    {format.number(total)}
+                  </span>
+                )}
+                {data?.users_limit ? (
+                  <span className="text-[0.75rem] text-muted-foreground tabular">
+                    / {format.number(data.users_limit)}
+                  </span>
+                ) : null}
+              </div>
               {data?.users_limit ? (
-                <span className="text-[0.75rem] text-muted-foreground tabular">
-                  / {format.number(data.users_limit)}
-                </span>
-              ) : null}
+                <div className="mt-2 space-y-1">
+                  <div className="h-1 overflow-hidden rounded-full bg-foreground/10">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-500"
+                      style={{ width: `${Math.min(100, (total / data.users_limit) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[0.625rem] text-muted-foreground tabular">
+                    {t("next.band.ofLimit", {
+                      percent: format.number(Math.round((total / data.users_limit) * 100)),
+                      limit: format.number(data.users_limit),
+                    })}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-[0.625rem] text-muted-foreground">
+                  {t("next.band.users")}
+                </p>
+              )}
             </div>
-            <p className="mt-1 text-[0.6875rem] text-muted-foreground">
-              {t("next.stat.online")}:{" "}
-              <span className="font-medium text-foreground tabular">
-                {format.number(data?.online_total ?? 0)}
-              </span>
-            </p>
           </div>
 
-          <div className="md:px-7">
+          {/* Live state: online now and active, each against the filtered set. */}
+          <div className="flex flex-col justify-between gap-3 md:px-6">
+            {[
+              { key: "next.stat.online", value: data?.online_total ?? 0, tone: "bg-primary" },
+              { key: "next.stat.active", value: breakdown.active ?? 0, tone: "bg-success" },
+            ].map((row) => (
+              <div key={row.key}>
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("size-1.5 rounded-full", row.tone)} />
+                  <span className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                    {t(row.key)}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-lg font-semibold leading-none tabular">{format.number(row.value)}</span>
+                  <span className="text-[0.625rem] text-muted-foreground tabular">
+                    {t("next.band.percentOfTotal", {
+                      percent: format.number(Math.round((row.value / Math.max(breakdownTotal, 1)) * 100)),
+                    })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Distribution across statuses. */}
+          <div className="flex flex-col justify-center md:px-6">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-muted-foreground">
                 {t("usersStatusBreakdown")}
@@ -344,31 +426,40 @@ export function UsersPage() {
                 })}
               </div>
             )}
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <div className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1">
               {BREAKDOWN_ORDER.map((key) => (
                 <span key={key} className="inline-flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
                   <span className={cn("size-1.5 rounded-full", BREAKDOWN_TONE[key])} />
                   {t(`status.${key}`)}
-                  <span className="font-medium text-foreground tabular">{format.number(breakdown[key] ?? 0)}</span>
+                  <span className="ms-auto font-medium text-foreground tabular">
+                    {format.number(breakdown[key] ?? 0)}
+                  </span>
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="md:ps-7">
+          {/* Traffic: total plus the per-user average. */}
+          <div className="flex flex-col justify-between md:ps-6">
             <span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-muted-foreground">
               {t("next.stat.traffic")}
             </span>
-            <div className="mt-1.5">
+            <div>
               {query.isPending ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
-                <Num className="text-2xl font-semibold tracking-tight">
+                <Num className="text-[1.75rem] font-semibold leading-none tracking-tight">
                   {format.bytes(data?.usage_total ?? 0)}
                 </Num>
               )}
+              <p className="mt-2 text-[0.625rem] text-muted-foreground">
+                {t("next.band.avgTraffic", {
+                  value: format.bytes(
+                    (data?.usage_total ?? 0) / Math.max(1, data?.total ?? 1),
+                  ),
+                })}
+              </p>
             </div>
-            <p className="mt-1 text-[0.6875rem] text-muted-foreground">{t("next.users.remaining")}</p>
           </div>
         </CardContent>
       </Card>
@@ -461,6 +552,57 @@ export function UsersPage() {
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
           enableRowSelection
+          getRowActions={(user) => [
+            {
+              id: "copy",
+              label: t("next.users.copySubscription"),
+              icon: Link2,
+              onSelect: () => {
+                void navigator.clipboard
+                  .writeText(user.subscription_url)
+                  .then(() => toast.success(t("next.toast.copied")))
+                  .catch(() => toast.error(t("next.toast.copyFailed")))
+              },
+            },
+            {
+              id: "edit",
+              label: t("userDialog.editUser"),
+              icon: Pencil,
+              separatorBefore: true,
+              onSelect: () => setEditTarget({ username: user.username, mode: "edit" }),
+            },
+            {
+              id: "reset",
+              label: t("next.users.resetUsage"),
+              icon: RotateCcw,
+              onSelect: () => {
+                void resetUsage
+                  .mutateAsync(user.username)
+                  .then(() => toast.success(`${t("next.actions.done")} · ${t("next.users.resetUsage")}`))
+                  .catch((error) => toast.error(errorMessage(error)))
+              },
+            },
+            {
+              id: "status",
+              label: user.status === "disabled" ? t("next.users.enable") : t("next.users.disable"),
+              onSelect: () => {
+                void setStatus
+                  .mutateAsync({
+                    username: user.username,
+                    status: user.status === "disabled" ? "active" : "disabled",
+                  })
+                  .catch((error) => toast.error(errorMessage(error)))
+              },
+            },
+            {
+              id: "delete",
+              label: t("next.users.delete"),
+              icon: Trash2,
+              destructive: true,
+              separatorBefore: true,
+              onSelect: () => setDeleteTarget(user),
+            },
+          ]}
           columnVisibility={columnVisibility}
           onColumnVisibilityChange={onColumnVisibilityChange}
           onTableReady={setTable}
@@ -481,6 +623,42 @@ export function UsersPage() {
           }}
         />
       </Card>
+
+      <UserEditDialog
+        target={editTarget}
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null)
+        }}
+      />
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("next.actions.deleteUser")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("next.actions.confirmDelete", { name: deleteTarget?.username ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTarget) {
+                  removeUser.mutate(deleteTarget.username, {
+                    onSuccess: () => toast.success(`${t("next.actions.done")} · ${t("next.users.delete")}`),
+                    onError: (error) => toast.error(errorMessage(error)),
+                  })
+                }
+                setDeleteTarget(null)
+              }}
+            >
+              {t("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

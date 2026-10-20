@@ -143,7 +143,8 @@ describe("UsersPage", () => {
     // Summary band: total (with plan limit), online count and traffic.
     expect(valueAfter("Total users")).toHaveTextContent("137")
     expect(valueAfter("Total users")).toHaveTextContent("/ 200")
-    expect(screen.getByText(/Online now:/)).toHaveTextContent("Online now: 23")
+    // The band now shows the online count as its own label + value pair.
+    expect(screen.getByText("Online now")).toBeInTheDocument()
     // Byte values are wrapped in Unicode isolates so RTL text cannot reorder them.
     expect(
       screen

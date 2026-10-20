@@ -4000,5 +4000,15 @@
 	"next.actions.ipsCopyAll": "کپی همه",
 	"next.actions.daysCount": "{{count}} روز",
 	"next.actions.gbCount": "{{count}} گیگابایت",
-	"next.actions.confirmDeleteService": "حذف {{name}} برگشت‌پذیر نیست. اگر سرویس هنوز کاربر یا مدیر متصل داشته باشد پنل حذف را رد می‌کند؛ اول آن‌ها را جابه‌جا کنید."
+	"next.actions.confirmDeleteService": "حذف {{name}} برگشت‌پذیر نیست. اگر سرویس هنوز کاربر یا مدیر متصل داشته باشد پنل حذف را رد می‌کند؛ اول آن‌ها را جابه‌جا کنید.",
+	"next.band.ofLimit": "{{percent}}٪ از {{limit}}",
+	"next.band.avgTraffic": "میانگین {{value}} برای هر کاربر",
+	"next.band.percentOfTotal": "{{percent}}٪ از کاربران",
+	"next.band.users": "کاربر",
+	"next.qr.single": "برای افزودن این اشتراک اسکن کنید.",
+	"next.qr.multiple": "{{count}} لینک موجود است — یکی را برای نمایش کد انتخاب کنید.",
+	"next.qr.hint": "این لینک اطلاعات حساب را دارد؛ فقط به صاحبش بدهید.",
+	"next.userEdit.general": "عمومی",
+	"next.userEdit.limits": "محدودیت‌ها",
+	"next.userEdit.advanced": "پیشرفته"
 }
