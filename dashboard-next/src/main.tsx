@@ -8,6 +8,8 @@ import { installMockApi } from "@/dev/mock-api"
 import "@/i18n"
 import "./index.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { LayoutProvider } from "@/context/layout-provider"
+import { SearchProvider } from "@/context/search-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { UNAUTHORIZED_EVENT } from "@/lib/api"
@@ -42,8 +44,12 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider defaultTheme="dark" storageKey="rebecca.theme">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider delayDuration={200}>
-          <RouterProvider router={router} />
-          <Toaster />
+          <LayoutProvider>
+            <SearchProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+            </SearchProvider>
+          </LayoutProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

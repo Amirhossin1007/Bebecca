@@ -1,15 +1,16 @@
 import { Suspense } from "react"
 import { Outlet } from "react-router-dom"
 
+import { CommandMenu } from "@/components/command-menu"
 import { AppHeader } from "@/components/layout/app-header"
-import { PageFallback } from "@/components/layout/page-fallback"
 import { AppSidebar } from "@/components/layout/app-sidebar"
+import { PageFallback } from "@/components/layout/page-fallback"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 /**
- * Application shell: a persistent sidebar plus a scrollable content inset.
- * The header stays fixed while only the page area scrolls, so tables keep a
- * stable header even with hundreds of rows.
+ * Application shell. The sidebar shape comes from the persisted layout
+ * preference (read by `AppSidebar`); only the page area scrolls, so tables keep
+ * a stable header.
  */
 export function AppLayout() {
   return (
@@ -25,6 +26,7 @@ export function AppLayout() {
           </div>
         </main>
       </SidebarInset>
+      <CommandMenu />
     </SidebarProvider>
   )
 }

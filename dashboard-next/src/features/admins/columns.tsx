@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { ColumnHeader } from "@/components/data-table/column-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -125,6 +126,7 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
         id: "username",
         accessorKey: "username",
         header: t("next.admins.columnAdmin"),
+        enableHiding: false,
         size: 300,
         // `username` is not in the endpoint's sort whitelist.
         enableSorting: false,
@@ -153,22 +155,31 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
       },
       {
         id: "role",
+        enableHiding: false,
         accessorKey: "role",
-        header: t("next.admins.columnRole"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.admins.columnRole")} />
+        ),
         size: 130,
         cell: ({ row }) => <AdminRoleBadge role={row.original.role} />,
       },
       {
         id: "status",
+        enableHiding: false,
         accessorKey: "status",
-        header: t("status"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("status")} />
+        ),
         size: 120,
         cell: ({ row }) => <AdminStatusBadge status={row.original.status} />,
       },
       {
         id: "users_count",
+        enableHiding: false,
         accessorKey: "users_count",
-        header: t("next.admins.columnUsers"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.admins.columnUsers")} />
+        ),
         size: 130,
         cell: ({ row }) => {
           const admin = row.original
@@ -186,8 +197,11 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
       },
       {
         id: "users_usage",
+        enableHiding: false,
         accessorKey: "users_usage",
-        header: t("next.admins.columnTraffic"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.admins.columnTraffic")} />
+        ),
         size: 200,
         cell: ({ row }) => (
           <UsageMeter used={row.original.users_usage} limit={row.original.data_limit} />
@@ -195,8 +209,11 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
       },
       {
         id: "expire",
+        enableHiding: false,
         accessorKey: "expire",
-        header: t("expire"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("expire")} />
+        ),
         size: 140,
         cell: ({ row }) => (
           <span className="text-[0.8125rem] tabular">
@@ -206,6 +223,7 @@ export function useAdminColumns(): ColumnDef<Admin, unknown>[] {
       },
       {
         id: "actions",
+        enableHiding: false,
         header: "",
         size: 44,
         enableSorting: false,

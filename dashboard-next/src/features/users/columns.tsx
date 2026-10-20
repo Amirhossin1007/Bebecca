@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
+import { ColumnHeader } from "@/components/data-table/column-header"
 import { Checkbox } from "@/components/ui/checkbox"
 import { UserStatusBadge } from "@/features/users/user-status-badge"
 import { UserRowActions } from "@/features/users/user-row-actions"
@@ -32,6 +33,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
         size: 32,
         enableSorting: false,
         enableHiding: false,
+        meta: { label: t("next.users.selectColumn", { defaultValue: "Select" }) },
         header: ({ table }) => (
           <Checkbox
             checked={
@@ -59,7 +61,10 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
       {
         id: "username",
         accessorKey: "username",
-        header: t("next.users.columnUser"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.users.columnUser")} />
+        ),
+        meta: { label: t("next.users.columnUser") },
         size: 300,
         cell: ({ row }) => {
           const user = row.original
@@ -96,6 +101,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
         id: "status",
         accessorKey: "status",
         header: t("next.users.columnStatus"),
+        meta: { label: t("next.users.columnStatus") },
         size: 110,
         enableSorting: false,
         cell: ({ row }) => <UserStatusBadge status={row.original.status} />,
@@ -103,7 +109,10 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
       {
         id: "used_traffic",
         accessorKey: "used_traffic",
-        header: t("next.users.columnUsage"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.users.columnUsage")} />
+        ),
+        meta: { label: t("next.users.columnUsage") },
         size: 190,
         cell: ({ row }) => (
           <UsageMeter used={row.original.used_traffic} limit={row.original.data_limit} />
@@ -112,7 +121,10 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
       {
         id: "expire",
         accessorKey: "expire",
-        header: t("next.users.columnExpiry"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.users.columnExpiry")} />
+        ),
+        meta: { label: t("next.users.columnExpiry") },
         size: 140,
         cell: ({ row }) => {
           const expire = row.original.expire
@@ -140,6 +152,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
         id: "service",
         accessorKey: "service_name",
         header: t("next.users.columnService"),
+        meta: { label: t("next.users.columnService") },
         size: 130,
         enableSorting: false,
         cell: ({ row }) => (
@@ -152,6 +165,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
         id: "admin",
         accessorKey: "admin_username",
         header: t("next.users.columnOwner"),
+        meta: { label: t("next.users.columnOwner") },
         size: 120,
         enableSorting: false,
         cell: ({ row }) => (
@@ -163,7 +177,10 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
       {
         id: "created_at",
         accessorKey: "created_at",
-        header: t("next.users.columnCreated"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.users.columnCreated")} />
+        ),
+        meta: { label: t("next.users.columnCreated") },
         size: 120,
         cell: ({ row }) => (
           <span className="text-[0.75rem] text-muted-foreground tabular">
@@ -174,6 +191,7 @@ export function useUserColumns(): ColumnDef<UserListItem, unknown>[] {
       {
         id: "actions",
         header: "",
+        meta: { label: t("actions") },
         size: 44,
         enableSorting: false,
         cell: ({ row }) => <UserRowActions user={row.original} />,

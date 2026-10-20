@@ -7,9 +7,12 @@ import {
   type OnChangeFn,
   type RowSelectionState,
   type SortingState,
+  type Table as TableInstance,
   type Updater,
+  type VisibilityState,
 } from "@tanstack/react-table"
 import { ArrowDown, ArrowUp, ChevronsUpDown, Inbox, RefreshCw } from "lucide-react"
+import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -44,6 +47,22 @@ type DataTableProps<TData> = {
   rowSelection?: RowSelectionState
   onRowSelectionChange?: OnChangeFn<RowSelectionState>
   enableRowSelection?: boolean
+  /**
+   * Controlled column visibility. Optional so tables that never expose a
+   * visibility menu keep letting TanStack own (and hide) the state internally.
+   */
+  columnVisibility?: VisibilityState
+  onColumnVisibilityChange?: OnChangeFn<VisibilityState>
+  /**
+   * Hands the table instance to the caller, because a menu such as
+   * `ViewOptions` has to read and toggle columns from outside the table shell.
+   * The v8 instance is stable for the component's lifetime, so this runs once.
+   *
+   * Chosen over exposing `columnVisibility` only: `ViewOptions` takes the table
+   * instance itself, so the instance is the smaller addition — while the
+   * controlled visibility props above keep the caller's menu in sync.
+   */
+  onTableReady?: (table: TableInstance<TData>) => void
 }
 
 /**
@@ -68,13 +87,21 @@ export function DataTable<TData>({
   rowSelection,
   onRowSelectionChange,
   enableRowSelection,
+  columnVisibility,
+  onColumnVisibilityChange,
+  onTableReady,
 }: DataTableProps<TData>) {
   const { t } = useTranslation()
   // Only include the state slices the caller actually controls, so a table that
   // never opts into row selection keeps its previous uncontrolled behaviour.
-  const tableState: { sorting?: SortingState; rowSelection?: RowSelectionState } = {}
+  const tableState: {
+    sorting?: SortingState
+    rowSelection?: RowSelectionState
+    columnVisibility?: VisibilityState
+  } = {}
   if (sorting) tableState.sorting = sorting
   if (rowSelection) tableState.rowSelection = rowSelection
+  if (columnVisibility) tableState.columnVisibility = columnVisibility
   // TanStack Table v8 owns mutable table state internally; the React Compiler
   // cannot model that, so this hook legitimately opts out of memoisation.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -89,8 +116,14 @@ export function DataTable<TData>({
     onSortingChange,
     enableRowSelection: enableRowSelection ?? Boolean(onRowSelectionChange),
     onRowSelectionChange,
+    onColumnVisibilityChange,
     state: Object.keys(tableState).length > 0 ? tableState : undefined,
   })
+
+  // The instance is stable, so the caller learns about the table exactly once.
+  useEffect(() => {
+    onTableReady?.(table)
+  }, [onTableReady, table])
 
   if (isError) {
     return (
@@ -141,7 +174,11 @@ export function DataTable<TData>({
                       canSort && "select-none",
                     )}
                   >
-                    {header.isPlaceholder ? null : canSort ? (
+                    {header.isPlaceholder ? null : canSort &&
+                      typeof header.column.columnDef.header === "string" ? (
+                      // Plain string headers keep the lightweight inline sort toggle.
+                      // A header that renders a component (e.g. ColumnHeader) owns its
+                      // own sort affordance, so wrapping it would nest buttons.
                       <button
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
@@ -169,8 +206,8 @@ export function DataTable<TData>({
           {isLoading ? (
             Array.from({ length: skeletonRows }).map((_, index) => (
               <TableRow key={`skeleton-${index}`} className="hover:bg-transparent">
-                {columns.map((_column, columnIndex) => (
-                  <TableCell key={`skeleton-cell-${columnIndex}`} className="py-2.5">
+                {table.getVisibleLeafColumns().map((column, columnIndex) => (
+                  <TableCell key={`skeleton-cell-${column.id}`} className="py-2.5">
                     <Skeleton className={cn("h-4 rounded-sm", columnIndex === 0 ? "w-32" : "w-16")} />
                   </TableCell>
                 ))}
@@ -178,7 +215,7 @@ export function DataTable<TData>({
             ))
           ) : table.getRowModel().rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={columns.length} className="py-0">
+              <TableCell colSpan={table.getVisibleLeafColumns().length} className="py-0">
                 <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-14 text-center">
                   <div className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
                     <Inbox className="size-4" />

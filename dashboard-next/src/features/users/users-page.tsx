@@ -1,5 +1,11 @@
-import type { RowSelectionState, SortingState } from "@tanstack/react-table"
-import { Columns3, Download, RefreshCw, Search, X } from "lucide-react"
+import type {
+  OnChangeFn,
+  RowSelectionState,
+  SortingState,
+  Table,
+  VisibilityState,
+} from "@tanstack/react-table"
+import { Download, RefreshCw, Search, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
@@ -8,15 +14,10 @@ import { toast } from "sonner"
 import { Num } from "@/components/num"
 import { DataTable } from "@/components/data-table/data-table"
 import { TablePagination } from "@/components/data-table/table-pagination"
+import { ViewOptions } from "@/components/data-table/view-options"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -41,21 +42,10 @@ import { useCurrentAdmin } from "@/features/auth/api"
 import { ApiError, errorMessage } from "@/lib/api"
 import { useFormat } from "@/lib/use-format"
 import { cn } from "@/lib/utils"
-import type { Admin } from "@/types/api"
+import type { Admin, UserListItem } from "@/types/api"
 
 const SORTABLE = new Set(["username", "used_traffic", "expire", "created_at"])
 const STATUS_VALUES = new Set(["active", "disabled", "limited", "expired", "on_hold"])
-
-const VISIBILITY_COLUMNS = [
-  { id: "service", labelKey: "next.users.columnService" },
-  { id: "admin", labelKey: "next.users.columnOwner" },
-  { id: "created_at", labelKey: "next.users.columnCreated" },
-] as const
-type VisibilityColumnId = (typeof VISIBILITY_COLUMNS)[number]["id"]
-
-function isVisibilityColumn(id: string | undefined): id is VisibilityColumnId {
-  return id === "service" || id === "admin" || id === "created_at"
-}
 
 function canViewAdmins(admin: Admin | null): boolean {
   if (!admin) return false
@@ -102,11 +92,24 @@ export function UsersPage() {
   const [searchInput, setSearchInput] = useState(search)
   const [syncedSearch, setSyncedSearch] = useState(search)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [columnVisibility, setColumnVisibility] = useState<Record<VisibilityColumnId, boolean>>({
-    service: true,
-    admin: true,
-    created_at: true,
-  })
+  // The users page needs the table instance itself to render `ViewOptions`, so
+  // DataTable hands it over once it exists. Visibility stays controlled here so
+  // toggling a column re-renders the menu that opened it.
+  const [table, setTable] = useState<Table<UserListItem> | null>(null)
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+
+  // Visibility is owned here, but the menu renders above `DataTable` — the only
+  // component that feeds new options to the instance — so a plain state update
+  // would leave the open menu reading the previous visibility for one render.
+  // Syncing the instance in the same handler keeps both views in lockstep.
+  const onColumnVisibilityChange: OnChangeFn<VisibilityState> = (updater) => {
+    const next = typeof updater === "function" ? updater(columnVisibility) : updater
+    table?.setOptions((previous) => ({
+      ...previous,
+      state: { ...previous.state, columnVisibility: next },
+    }))
+    setColumnVisibility(next)
+  }
 
   // When the URL changes from elsewhere (the header search box), adopt it during
   // render — React's supported alternative to a synchronising effect.
@@ -262,14 +265,6 @@ export function UsersPage() {
   const serviceName = useMemo(
     () => serviceOptions.find((option) => String(option.id) === service)?.name,
     [serviceOptions, service],
-  )
-
-  const visibleColumns = useMemo(
-    () =>
-      columns.filter(
-        (column) => !isVisibilityColumn(column.id) || columnVisibility[column.id],
-      ),
-    [columns, columnVisibility],
   )
 
   const breakdown = data?.status_breakdown ?? {}
@@ -431,27 +426,15 @@ export function UsersPage() {
             </TooltipContent>
           </Tooltip>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" aria-label={t("next.users.toggleColumns")}>
-                <Columns3 className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {VISIBILITY_COLUMNS.map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  checked={columnVisibility[column.id]}
-                  onCheckedChange={(checked) =>
-                    setColumnVisibility((current) => ({ ...current, [column.id]: checked === true }))
-                  }
-                  onSelect={(event) => event.preventDefault()}
-                >
-                  {t(column.labelKey)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {table ? (
+            <ViewOptions
+              table={table}
+              labels={{
+                title: t("next.users.toggleColumns"),
+                toggle: t("next.users.toggleColumns"),
+              }}
+            />
+          ) : null}
         </div>
 
         <ActiveFilterChips
@@ -477,7 +460,7 @@ export function UsersPage() {
         />
 
         <DataTable
-          columns={visibleColumns}
+          columns={columns}
           data={data?.users}
           isLoading={query.isPending}
           isError={query.isError}
@@ -491,6 +474,9 @@ export function UsersPage() {
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
           enableRowSelection
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={onColumnVisibilityChange}
+          onTableReady={setTable}
           skeletonRows={size > 20 ? 12 : 8}
         />
 

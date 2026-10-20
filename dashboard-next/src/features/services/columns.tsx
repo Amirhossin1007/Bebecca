@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { ColumnHeader } from "@/components/data-table/column-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -63,7 +64,9 @@ export function useServiceColumns(): ColumnDef<Service, unknown>[] {
       {
         id: "name",
         accessorKey: "name",
-        header: t("next.services.columnService"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.services.columnService")} />
+        ),
         size: 340,
         // Services have a fixed server-side order (`created_at DESC, id DESC`).
         enableSorting: false,
@@ -84,7 +87,9 @@ export function useServiceColumns(): ColumnDef<Service, unknown>[] {
       {
         id: "host_count",
         accessorKey: "host_count",
-        header: t("next.services.columnHosts"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.services.columnHosts")} />
+        ),
         size: 110,
         enableSorting: false,
         cell: ({ row }) => {
@@ -105,7 +110,9 @@ export function useServiceColumns(): ColumnDef<Service, unknown>[] {
       {
         id: "user_count",
         accessorKey: "user_count",
-        header: t("next.services.columnUsers"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.services.columnUsers")} />
+        ),
         size: 110,
         enableSorting: false,
         cell: ({ row }) => (
@@ -115,7 +122,9 @@ export function useServiceColumns(): ColumnDef<Service, unknown>[] {
       {
         id: "used_traffic",
         accessorKey: "used_traffic",
-        header: t("next.services.columnUsage"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.services.columnUsage")} />
+        ),
         size: 200,
         enableSorting: false,
         cell: ({ row }) => {
@@ -138,7 +147,9 @@ export function useServiceColumns(): ColumnDef<Service, unknown>[] {
       {
         id: "usage_coefficient",
         accessorKey: "usage_coefficient",
-        header: t("next.services.columnCoefficient"),
+        header: ({ column }) => (
+          <ColumnHeader column={column} title={t("next.services.columnCoefficient")} />
+        ),
         size: 110,
         enableSorting: false,
         cell: ({ row }) => {

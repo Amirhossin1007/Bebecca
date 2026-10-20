@@ -84,6 +84,28 @@ Conventions worth keeping:
 - **No hardcoded colours.** Everything resolves to the semantic tokens declared
   in `src/index.css`.
 
+## Shell (ported from shadcn-admin)
+
+The application shell follows [satnaing/shadcn-admin](https://github.com/satnaing/shadcn-admin)
+(MIT) rather than a hand-rolled layout:
+
+- `config/nav.ts` — declarative nav tree; parents with `items` render as
+  collapsible groups and as flyout menus when the sidebar is an icon rail
+  (`components/layout/nav-group.tsx`).
+- `components/layout/app-title.tsx` / `nav-user.tsx` — brand block and the
+  operator menu (theme, sidebar variant, sign out).
+- `context/layout-provider.tsx` — sidebar `collapsible`/`variant`, persisted in a
+  cookie, so `inset` / `classic` / `floating` survive a reload.
+- `context/search-provider.tsx` + `components/command-menu.tsx` — ⌘K / Ctrl+K
+  palette over nav, theme and language.
+- `components/data-table/column-header.tsx` / `view-options.tsx` — the sort
+  dropdown and column visibility menu from the same project.
+- `components/layout/app-header.tsx` — sticky header that only gains its blur
+  and hairline after scroll.
+
+The previous hand-built shell is preserved for reference on the tag
+`ui-custom-v1` (branch `feat/dashboard-next`).
+
 ## UI references
 
 `docs/ui-references.md` is a verified shortlist of open-source admin dashboards we
