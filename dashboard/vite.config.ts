@@ -48,6 +48,9 @@ const getApiProxyConfig = (baseAPI?: string) => {
 				target,
 				changeOrigin: true,
 				secure: true,
+				// The panel's auth routes reject cross-origin POSTs, and the browser
+				// always reports our own dev origin: rewrite it to the target's.
+				headers: { Origin: `${parsed.protocol}//${parsed.host}` },
 				rewrite,
 			},
 		};

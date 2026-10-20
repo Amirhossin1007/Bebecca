@@ -1,0 +1,45 @@
+/**
+ * Tailwind v4 for the dashboard, layered under the existing stylesheet.
+ *
+ * Preflight is intentionally NOT imported: Chakra already ships a reset, and a
+ * second one would fight it while the migration is in progress. Utilities are
+ * emitted into their own cascade layer, so unlayered `.scss` rules keep
+ * precedence and the legacy screens cannot regress.
+ */
+/* The full entry point, with its content scan rooted at our sources. Preflight
+   lands in the `base` layer, which loses to Chakra's unlayered reset, so the
+   legacy screens keep their own baseline while the migration runs. */
+@import "tailwindcss" source("../src");
+
+/* `dark:` follows the panel's own theme class, not the OS preference. */
+@custom-variant dark (&:where(.rb-theme-dark, .rb-theme-dark *));
+
+@theme inline {
+  --font-sans: var(--rb-font-stack);
+
+  --color-panel-app: var(--rb-panel-bg);
+  --color-panel-main: var(--rb-panel-main);
+  --color-panel-sidebar: var(--rb-panel-sidebar);
+  --color-panel-surface: var(--rb-panel-surface);
+  --color-panel-elevated: var(--rb-panel-elevated);
+  --color-panel-border: var(--rb-panel-border);
+  --color-panel-border-strong: var(--rb-panel-border-strong);
+  --color-panel-text: var(--rb-panel-text);
+  --color-panel-text-secondary: var(--rb-panel-text-secondary);
+  --color-panel-text-muted: var(--rb-panel-text-muted);
+  --color-panel-accent: var(--rb-panel-accent);
+  --color-panel-accent-hover: var(--rb-panel-accent-hover);
+  --color-panel-row-hover: var(--rb-panel-row-hover);
+  --color-panel-success: #22c55e;
+  --color-panel-warning: #f59e0b;
+  --color-panel-danger: #ef4444;
+  --color-panel-info: #38bdf8;
+}
+
+@layer utilities {
+  /* Numerals in tables and stat blocks must align across scripts. */
+  .rb-tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}

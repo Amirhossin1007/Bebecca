@@ -65,6 +65,7 @@ import {
 } from "utils/adminTraffic";
 import { copyTextToClipboard } from "utils/clipboard";
 import { formatBytes } from "utils/formatByte";
+import { UsersOverviewBand } from "components/users/UsersOverviewBand";
 import { generateUserLinks } from "utils/userLinks";
 import { AppDialog } from "./dialogs/AppDialog";
 import { ConfirmDialog, DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
@@ -1412,53 +1413,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const filteredUsageTotal = usersResponse.usage_total ?? null;
 	const activeUsersCount =
 		statusBreakdown.active ?? usersResponse.active_total ?? 0;
-	const summaryItems: ResourceSummaryItem[] = [
-		{
-			label: t("usersTable.total"),
-			value: formatCount(usersResponse.total, locale),
-			colorScheme: isUserLimitReached ? "red" : "gray",
-		},
-		{
-			label: t("status.active"),
-			value: formatCount(activeUsersCount, locale),
-			colorScheme: "green",
-		},
-		{
-			label: t("status.on_hold"),
-			value: formatCount(statusBreakdown.on_hold ?? 0, locale),
-			colorScheme: "orange",
-		},
-		{
-			label: t("status.limited"),
-			value: formatCount(statusBreakdown.limited ?? 0, locale),
-			colorScheme: "yellow",
-		},
-		{
-			label: t("status.expired"),
-			value: formatCount(statusBreakdown.expired ?? 0, locale),
-			colorScheme: "red",
-		},
-		{
-			label: t("onlineStatus.online"),
-			value: formatCount(usersResponse.online_total ?? 0, locale),
-			colorScheme: "teal",
-		},
-	];
-
 	const usageForSummary = canViewTraffic ? filteredUsageTotal : null;
-
-	if (usageForSummary !== null) {
-		summaryItems.push({
-			label: hasUsageScopeFilter
-				? t("usersTable.filteredUsage")
-				: t("usersTable.listUsage"),
-			value: formatBytes(usageForSummary),
-			colorScheme: "blue",
-			helper: hasUsageScopeFilter
-				? t("usersTable.filteredUsageHelper")
-				: t("usersTable.listUsageHelper"),
-		});
-	}
 
 	const renderExpandedUser = (user: UserListItem) => {
 		const detailColumns = userColumns.filter(
@@ -1561,10 +1516,25 @@ export const UsersTable: FC<UsersTableProps> = ({
 			pb={selectedUsers.length > 0 ? { base: 32, md: 24 } : 0}
 			{...props}
 		>
-			{/* One unified header card: stats on top, search + quick filters below. */}
+			{/* Overview band: rebuilt with Tailwind, no Chakra. */}
+			<UsersOverviewBand
+				total={usersResponse.total}
+				usersLimit={usersResponse.users_limit ?? null}
+				active={activeUsersCount}
+				online={usersResponse.online_total ?? 0}
+				usage={usageForSummary}
+				usageLabel={
+					hasUsageScopeFilter
+						? t("usersTable.filteredUsage")
+						: t("usersTable.listUsage")
+				}
+				breakdown={statusBreakdown as Partial<Record<"active" | "expired" | "limited" | "on_hold" | "disabled", number>>}
+				locale={locale}
+			/>
+
+			{/* Header card: title, actions and the filter/search toolbar. */}
 			<ResourceListCard
 				title={t("usersTable.listHeader")}
-				summaryItems={summaryItems}
 				actions={headerActions}
 			>
 				{toolbar}

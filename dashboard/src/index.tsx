@@ -14,6 +14,7 @@ import { updateThemeColor } from "utils/themeColor";
 import { theme } from "../chakra.config";
 import App from "./App";
 import "index.scss";
+import "tailwind.css";
 
 dayjs.extend(Timezone);
 dayjs.extend(LocalizedFormat);
