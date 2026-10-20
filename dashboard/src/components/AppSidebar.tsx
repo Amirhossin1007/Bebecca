@@ -1,13 +1,4 @@
 import {
-	Box,
-	chakra,
-	HStack,
-	Text,
-	Tooltip,
-	useColorModeValue,
-	VStack,
-} from "@chakra-ui/react";
-import {
 	ArrowsRightLeftIcon,
 	BellAlertIcon,
 	BoltIcon,
@@ -54,41 +45,35 @@ import {
 	normalizeTutorialLang,
 } from "utils/tutorials";
 
-const iconProps = {
-	baseStyle: {
-		w: 5,
-		h: 5,
-	},
-};
+/** Icons keep the sidebar's size without a styled-system wrapper. */
+const iconClass = "size-5 shrink-0";
 
-const HomeIconStyled = chakra(HomeIcon, iconProps);
-const UsersIconStyled = chakra(UserGroupIcon, iconProps);
-const BulkActionsIconStyled = chakra(BoltIcon, iconProps);
-const RecentActionsIconStyled = chakra(ClockIcon, iconProps);
-const SettingsIconStyled = chakra(Cog6ToothIcon, iconProps);
-const MasterSettingsIconStyled = chakra(Cog8ToothIcon, iconProps);
-const NodeIconStyled = chakra(ServerStackIcon, iconProps);
-const AdminIconStyled = chakra(BriefcaseIcon, iconProps);
-const ServicesIconStyled = chakra(Squares2X2Icon, iconProps);
-const HostsIconStyled = chakra(LinkIcon, iconProps);
-const HAProxyIconStyled = chakra(ArrowsRightLeftIcon, iconProps);
-const UsageIconStyled = chakra(ChartBarIcon, iconProps);
-const MyAccountIconStyled = chakra(UserCircleIcon, iconProps);
-const NotificationIconStyled = chakra(BellIcon, iconProps);
-const InsightsIconStyled = chakra(EyeIcon, iconProps);
-const TutorialIconStyled = chakra(BookOpenIcon, iconProps);
-const XraySettingsIconStyled = chakra(WrenchScrewdriverIcon, iconProps);
-const XrayLogsIconStyled = chakra(DocumentTextIcon, iconProps);
-const ApiDocsIconStyled = chakra(CodeBracketSquareIcon, iconProps);
-const PHPMyAdminIconStyled = chakra(CircleStackIcon, iconProps);
-const ExternalAppsIconStyled = chakra(CommandLineIcon, iconProps);
-const PlaceholderIconStyled = chakra(DocumentDuplicateIcon, iconProps);
-const TutorialUpdateIconStyled = chakra(BellAlertIcon, {
-	baseStyle: {
-		w: 3,
-		h: 3,
-	},
-});
+const HomeIconStyled = () => <HomeIcon className={iconClass} />;
+const UsersIconStyled = () => <UserGroupIcon className={iconClass} />;
+const BulkActionsIconStyled = () => <BoltIcon className={iconClass} />;
+const RecentActionsIconStyled = () => <ClockIcon className={iconClass} />;
+const SettingsIconStyled = () => <Cog6ToothIcon className={iconClass} />;
+const MasterSettingsIconStyled = () => <Cog8ToothIcon className={iconClass} />;
+const NodeIconStyled = () => <ServerStackIcon className={iconClass} />;
+const AdminIconStyled = () => <BriefcaseIcon className={iconClass} />;
+const ServicesIconStyled = () => <Squares2X2Icon className={iconClass} />;
+const HostsIconStyled = () => <LinkIcon className={iconClass} />;
+const HAProxyIconStyled = () => <ArrowsRightLeftIcon className={iconClass} />;
+const UsageIconStyled = () => <ChartBarIcon className={iconClass} />;
+const MyAccountIconStyled = () => <UserCircleIcon className={iconClass} />;
+const NotificationIconStyled = () => <BellIcon className={iconClass} />;
+const InsightsIconStyled = () => <EyeIcon className={iconClass} />;
+const TutorialIconStyled = () => <BookOpenIcon className={iconClass} />;
+const XraySettingsIconStyled = () => (
+	<WrenchScrewdriverIcon className={iconClass} />
+);
+const XrayLogsIconStyled = () => <DocumentTextIcon className={iconClass} />;
+const ApiDocsIconStyled = () => <CodeBracketSquareIcon className={iconClass} />;
+const PHPMyAdminIconStyled = () => <CircleStackIcon className={iconClass} />;
+const ExternalAppsIconStyled = () => <CommandLineIcon className={iconClass} />;
+const PlaceholderIconStyled = () => <DocumentDuplicateIcon className={iconClass} />;
+const TutorialUpdateIconStyled = () => <BellAlertIcon className="size-3" />;
+
 interface AppSidebarProps {
 	collapsed: boolean;
 	sponsors?: SponsorAsset[];
@@ -128,22 +113,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const sectionAccess = userData.permissions?.sections;
 	const isFullAccess = userData.role === AdminRole.FullAccess;
 	const isPrivilegedAdmin = isFullAccess || userData.role === AdminRole.Sudo;
-	const sidebarBg = useColorModeValue("panel.sidebar", "panel.sidebar");
-	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
-	const sidebarPanelBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const sidebarPanelBorder = useColorModeValue("panel.border", "panel.border");
-	const sidebarShadow = useColorModeValue(
-		"0 18px 48px rgba(15, 23, 42, 0.10)",
-		"0 18px 48px rgba(0, 0, 0, 0.32)",
-	);
-	const itemColor = useColorModeValue(
-		"panel.textSecondary",
-		"panel.textSecondary",
-	);
-	const activeItemBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const activeItemColor = useColorModeValue("panel.text", "panel.text");
-	const hoverItemBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const subNavBorder = useColorModeValue("panel.border", "panel.border");
 	const defaultSelfPermissions = {
 		self_myaccount: false,
 		self_change_password: false,
@@ -467,83 +436,49 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	];
 
 	return (
-		<Box
-			w={inDrawer ? "full" : collapsed ? "16" : "56"}
-			h={inDrawer ? "100%" : "calc(100vh - 24px)"}
-			maxH={inDrawer ? "100%" : "calc(100vh - 24px)"}
-			bg={sidebarBg}
-			borderWidth={inDrawer ? undefined : "1px"}
-			borderColor={inDrawer ? undefined : sidebarBorderColor}
-			borderRadius={inDrawer ? undefined : "2xl"}
-			boxShadow={inDrawer ? undefined : sidebarShadow}
-			transition="width 0.3s ease"
-			position={inDrawer ? "relative" : "fixed"}
-			top={inDrawer ? undefined : "12px"}
-			left={inDrawer || isRTL ? undefined : "12px"}
-			right={inDrawer || !isRTL ? undefined : "12px"}
-			overflow="hidden"
-			flexShrink={0}
-			userSelect="none"
+		<aside
+			dir={isRTL ? "rtl" : "ltr"}
+			data-dir={isRTL ? "rtl" : "ltr"}
+			data-collapsed={collapsed ? "true" : "false"}
+			className={[
+				"flex shrink-0 select-none overflow-hidden bg-panel-sidebar transition-[width] duration-300 ease-out",
+				inDrawer
+					? "relative h-full w-full"
+					: "fixed top-3 h-[calc(100vh-24px)] rounded-2xl border border-panel-border shadow-[0_18px_48px_rgba(15,23,42,0.10)] dark:shadow-[0_18px_48px_rgba(0,0,0,0.32)]",
+			].join(" ")}
+			style={{
+				width: inDrawer ? "100%" : collapsed ? 64 : 224,
+				...(inDrawer ? {} : { [isRTL ? "right" : "left"]: 12 }),
+			}}
 		>
-			<VStack
-				spacing={2}
-				p={collapsed ? 2 : 4}
-				align="stretch"
-				h="100%"
-				minH={0}
-				justify="space-between"
+			<div
+				className={[
+					"flex h-full min-h-0 w-full flex-col justify-between gap-2",
+					collapsed ? "p-2" : "p-4",
+				].join(" ")}
 			>
-				<Box
-					flex="1"
-					minH={0}
-					overflowY="auto"
-					overflowX="hidden"
-					className="rb-sidebar-scroll"
-					data-dir={isRTL ? "rtl" : "ltr"}
-					data-collapsed={collapsed ? "true" : "false"}
-					dir={isRTL ? "rtl" : "ltr"}
-				>
-					<Box
-						borderWidth="1px"
-						borderColor={sidebarPanelBorder}
-						borderRadius="md"
-						bg={sidebarPanelBg}
-						mb={3}
-						px={2}
-						py={collapsed ? 1.5 : 2}
-					>
+				<div className="rb-sidebar-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+					{/* Sponsor strip, hidden while collapsed. */}
+					<div className="mb-3 rounded-md border border-panel-border bg-panel-elevated px-2 py-2">
 						<SponsorCarousel
 							items={sponsorItems}
 							variant="logo"
 							collapsed={collapsed}
 						/>
-					</Box>
-					<VStack align="stretch" spacing={collapsed ? 1 : 2}>
+					</div>
+
+					<div className={collapsed ? "flex flex-col gap-1" : "flex flex-col gap-2"}>
 						{compactGroups.map((group) => {
 							if (group.items.length === 0) return null;
 							const isOpen = collapsed || groupIsOpen(group);
 
 							return (
-								<Box key={group.title}>
+								<div key={group.title}>
 									{collapsed ? (
-										<Box
-											borderTopWidth="1px"
-											borderColor={subNavBorder}
-											my={2}
-											mx={2}
-										/>
+										<div className="mx-2 my-2 border-t border-panel-border" />
 									) : (
-										<HStack
-											as="button"
+										<button
 											type="button"
-											w="full"
-											px={3}
-											py={1}
-											mb={1}
-											justify="space-between"
-											color="panel.textMuted"
-											borderRadius="4px"
-											_hover={{ color: "panel.text" }}
 											aria-expanded={isOpen}
 											onClick={() =>
 												setOpenGroups((prev) => ({
@@ -551,14 +486,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													[group.title]: !isOpen,
 												}))
 											}
+											className="mb-1 flex w-full items-center justify-between rounded-[4px] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-panel-text-muted transition-colors hover:text-panel-text"
 										>
-											<Text
-												fontSize="11px"
-												fontWeight="700"
-												textTransform="uppercase"
-											>
-												{group.title}
-											</Text>
+											<span>{group.title}</span>
 											<ChevronDownIcon
 												width={14}
 												height={14}
@@ -567,12 +497,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													transition: "transform 0.15s ease",
 												}}
 											/>
-										</HStack>
+										</button>
 									)}
-									<VStack
-										align="stretch"
-										spacing={0.5}
-										display={isOpen ? "flex" : "none"}
+
+									<div
+										className={[
+											"flex flex-col gap-0.5",
+											isOpen ? "" : "hidden",
+										].join(" ")}
 									>
 										{group.items.map((item) => {
 											if (!item.url) return null;
@@ -581,113 +513,63 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 											const Icon = item.icon;
 											const showTutorialBadge =
 												itemUrl === tutorialsUrl && hasNewTutorials;
-											const navItem = (
-												<Tooltip
-													key={itemUrl}
-													label={collapsed ? item.title : ""}
-													placement={isRTL ? "left" : "right"}
-													hasArrow
-												>
-													<HStack
-														spacing={3}
-														px={collapsed ? 2 : 3}
-														py={1.5}
-														minH={{ base: "44px", md: "36px" }}
-														borderRadius="4px"
-														cursor="pointer"
-														bg={isActive ? activeItemBg : "transparent"}
-														color={isActive ? activeItemColor : itemColor}
-														borderInlineStartWidth="3px"
-														borderInlineStartColor={
-															isActive ? "panel.accent" : "transparent"
-														}
-														_hover={{
-															bg: isActive ? activeItemBg : hoverItemBg,
-															color: activeItemColor,
-														}}
-														transition="background 0.15s ease, color 0.15s ease"
-														justifyContent={collapsed ? "center" : "flex-start"}
-													>
-														{showTutorialBadge && collapsed ? (
-															<Box position="relative" display="inline-flex">
-																<Icon
-																	w={collapsed ? 5 : undefined}
-																	h={collapsed ? 5 : undefined}
-																/>
-																<Box
-																	position="absolute"
-																	top="-6px"
-																	left={isRTL ? "-7px" : undefined}
-																	right={isRTL ? undefined : "-7px"}
-																	w="4"
-																	h="4"
-																	borderRadius="full"
-																	bg="panel.accent"
-																	color="white"
-																	border="2px solid"
-																	borderColor={sidebarBg}
-																	display="inline-flex"
-																	alignItems="center"
-																	justifyContent="center"
-																>
-																	<TutorialUpdateIconStyled />
-																</Box>
-															</Box>
-														) : (
-															<Icon
-																w={collapsed ? 5 : undefined}
-																h={collapsed ? 5 : undefined}
-															/>
-														)}
-														{!collapsed && (
-															<>
-																<Text
-																	fontSize="sm"
-																	fontWeight={isActive ? "700" : "600"}
-																	noOfLines={1}
-																>
-																	{item.title}
-																</Text>
-																{showTutorialBadge ? (
-																	<Box
-																		ml={isRTL ? undefined : "auto"}
-																		mr={isRTL ? "auto" : undefined}
-																		w="5"
-																		h="5"
-																		borderRadius="full"
-																		bg="panel.accent"
-																		color="white"
-																		display="inline-flex"
-																		alignItems="center"
-																		justifyContent="center"
-																	>
-																		<TutorialUpdateIconStyled />
-																	</Box>
-																) : null}
-															</>
-														)}
-													</HStack>
-												</Tooltip>
-											);
 
 											return (
 												<NavLink
 													key={itemUrl}
 													to={itemUrl}
 													onClick={(e) => handleNavClick(e, itemUrl)}
+													className={[
+														"group relative flex min-h-[44px] items-center gap-3 rounded-[4px] border-s-[3px] py-1.5 transition-colors md:min-h-[36px]",
+														collapsed ? "justify-center px-2" : "px-3",
+														isActive
+															? "border-s-panel-accent bg-panel-elevated text-panel-text"
+															: "border-s-transparent text-panel-text-secondary hover:bg-panel-elevated hover:text-panel-text",
+													].join(" ")}
 												>
-													{navItem}
+													<span className="relative inline-flex">
+														<Icon />
+														{showTutorialBadge && collapsed ? (
+															<span className="absolute -end-2 -top-1.5 inline-flex size-4 items-center justify-center rounded-full bg-panel-accent text-white ring-2 ring-panel-sidebar">
+																<TutorialUpdateIconStyled />
+															</span>
+														) : null}
+													</span>
+													{!collapsed ? (
+														<>
+															<span
+																className={[
+																	"truncate text-sm",
+																	isActive ? "font-bold" : "font-semibold",
+																].join(" ")}
+															>
+																{item.title}
+															</span>
+															{showTutorialBadge ? (
+																<span className="ms-auto inline-flex size-5 items-center justify-center rounded-full bg-panel-accent text-white">
+																	<TutorialUpdateIconStyled />
+																</span>
+															) : null}
+														</>
+													) : (
+														/* Collapsed rail: the label appears on hover, like
+														   the old Tooltip did. */
+														<span className="pointer-events-none absolute start-full top-1/2 z-20 ms-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-panel-border bg-panel-elevated px-2 py-1 text-xs text-panel-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+															{item.title}
+														</span>
+													)}
 												</NavLink>
 											);
 										})}
-									</VStack>
-								</Box>
+									</div>
+								</div>
 							);
 						})}
-					</VStack>
-				</Box>
-				{!collapsed && sidebarBanners.length > 0 && (
-					<Box flexShrink={0} w="full">
+					</div>
+				</div>
+
+				{!collapsed && sidebarBanners.length > 0 ? (
+					<div className="w-full shrink-0">
 						<SponsorCarousel
 							items={sidebarBanners.map((asset) => ({
 								id: asset.id,
@@ -699,9 +581,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							}))}
 							variant="sidebar"
 						/>
-					</Box>
-				)}
-			</VStack>
-		</Box>
+					</div>
+				) : null}
+			</div>
+		</aside>
 	);
 };
