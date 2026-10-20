@@ -29,6 +29,7 @@ import {
 	ResourceRefreshButton,
 } from "components/ui";
 import { UsersFilterBar } from "components/users";
+import { RefreshSplitButton } from "components/users/RefreshSplitButton";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import {
@@ -362,60 +363,24 @@ export const UsersPage: FC = () => {
 			<UsersTable
 				toolbar={<UsersFilterBar />}
 				headerActions={
-					<HStack spacing={1}>
-						<ResourceRefreshButton
-							aria-label={t("refresh")}
-							label={t("refresh")}
-							icon={<ReloadIcon />}
-							onClick={() => {
-								refetchUsers(true);
-								void refreshOnlineUsers();
-							}}
-							isLoading={loading}
-						/>
-						<Menu placement={isRTL ? "bottom-start" : "bottom-end"} isLazy>
-							<MenuButton
-								as={Button}
-								size="sm"
-								variant="ghost"
-								rightIcon={<ChevronDownIcon width={14} />}
-								aria-label={t("usersTable.autoRefresh")}
-								px={2}
-							>
-								{autoRefreshInterval
-									? `${t("usersTable.autoRefresh")} · ${autoRefreshInterval / 1000}s`
-									: t("usersTable.autoRefreshOff")}
-							</MenuButton>
-							<Portal>
-								<MenuList
-									zIndex={1800}
-									minW="170px"
-									bg="panel.surface"
-									borderColor="panel.border"
-								>
-									<MenuItem
-										onClick={() => setAutoRefreshInterval(0)}
-										fontWeight={autoRefreshInterval === 0 ? "bold" : "normal"}
-									>
-										{t("usersTable.autoRefreshOff")}
-									</MenuItem>
-									{AUTO_REFRESH_INTERVALS.map((interval) => (
-										<MenuItem
-											key={interval}
-											onClick={() => setAutoRefreshInterval(interval)}
-											fontWeight={
-												autoRefreshInterval === interval ? "bold" : "normal"
-											}
-										>
-											{t("usersTable.autoRefreshEvery", {
-												seconds: interval / 1000,
-											})}
-										</MenuItem>
-									))}
-								</MenuList>
-							</Portal>
-						</Menu>
-					</HStack>
+					<RefreshSplitButton
+						// One control: the icon refreshes now, the chevron opens the interval menu.
+						onRefresh={() => {
+							refetchUsers(true);
+							void refreshOnlineUsers();
+						}}
+						isLoading={loading}
+						interval={autoRefreshInterval}
+						onIntervalChange={setAutoRefreshInterval}
+						intervals={AUTO_REFRESH_INTERVALS}
+						labels={{
+							refresh: t("refresh"),
+							autoRefresh: t("usersTable.autoRefresh"),
+							off: t("usersTable.autoRefreshOff"),
+							every: (seconds: number) =>
+								t("usersTable.autoRefreshEvery", { seconds }),
+						}}
+					/>
 				}
 			/>
 			<Pagination />

@@ -63,7 +63,9 @@ applyInitialThemeMode(getInitialThemeMode());
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
-		<ChakraProvider theme={theme} colorModeManager={localStorageManager}>
+		{/* `resetCSS={false}`: Tailwind's preflight now provides the reset, so utility
+		    classes are no longer overridden by Chakra's unlayered reset. */}
+		<ChakraProvider theme={theme} colorModeManager={localStorageManager} resetCSS={false}>
 			<QueryClientProvider client={queryClient}>
 				<App />
 			</QueryClientProvider>
