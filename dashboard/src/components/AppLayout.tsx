@@ -46,6 +46,7 @@ import {
 	DocumentDuplicateIcon,
 	DocumentTextIcon,
 	EyeIcon,
+	ExclamationTriangleIcon,
 	HomeIcon as HeroHomeIcon,
 	LanguageIcon,
 	LinkIcon,
@@ -117,6 +118,7 @@ const HostsIcon = chakra(LinkIcon, iconProps);
 const HAProxyIcon = chakra(ArrowsRightLeftIcon, iconProps);
 const NodesIcon = chakra(ServerStackIcon, iconProps);
 const InsightsIcon = chakra(EyeIcon, iconProps);
+const SystemErrorsIcon = chakra(ExclamationTriangleIcon, iconProps);
 const RecentActionsIcon = chakra(ClockIcon, iconProps);
 const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
 const TutorialIcon = chakra(BookOpenIcon, iconProps);
@@ -406,6 +408,7 @@ function AppLayoutContent() {
 		system_tools: false,
 		observability: false,
 	});
+	const dockSettingsScrollRef = useRef<HTMLDivElement | null>(null);
 
 	useEffect(() => {
 		const dir = i18n.dir(i18n.language);
@@ -420,6 +423,18 @@ function AppLayoutContent() {
 		});
 		return () => cancelAnimationFrame(raf);
 	}, [i18n.language, i18n]);
+	useEffect(() => {
+		if (!isMobile) return;
+		const resetScroll = () => {
+			if (window.scrollY !== 0 || window.scrollX !== 0) {
+				window.scrollTo(0, 0);
+			}
+		};
+		window.addEventListener("scroll", resetScroll, { passive: true });
+		resetScroll();
+		return () => window.removeEventListener("scroll", resetScroll);
+	}, [isMobile]);
+
 	const languagePlacement =
 		useBreakpointValue<PlacementWithLogical>({
 			base: "bottom-start",
@@ -430,6 +445,7 @@ function AppLayoutContent() {
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
 	const dockBg = useColorModeValue("panel.surface", "panel.surface");
 	const dockBorder = useColorModeValue("panel.border", "panel.border");
+	const drawerBg = useColorModeValue("#ffffff", "#1e1e1e");
 	const menuShadow = useColorModeValue(
 		"0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)",
 		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
@@ -1029,7 +1045,7 @@ function AppLayoutContent() {
 											id: "errors",
 											title: t("errors.title", "Errors"),
 											to: "/errors",
-											icon: InsightsIcon,
+											icon: SystemErrorsIcon,
 										}
 									: null,
 								sectionAccess?.[AdminSection.Xray] &&
@@ -1463,7 +1479,9 @@ function AppLayoutContent() {
 				}
 			}
 			const bannerWidth = hasBanner ? naturalBannerWidth + 2 : 0;
-			const minBannerWidth = hasBanner ? 42 : 0;
+			const minBannerWidth = hasBanner
+				? Math.max(Math.round(naturalBannerWidth * 0.5), 60)
+				: 0;
 
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
@@ -1625,8 +1643,9 @@ function AppLayoutContent() {
 				<ThemeSelector minimal trigger="icon" />
 			</Box>
 			<Flex
-				minH="100vh"
-				maxH="100vh"
+				minH={{ base: "100dvh", md: "100vh" }}
+				maxH={{ base: "100dvh", md: "100vh" }}
+				h={{ base: "100dvh", md: "100vh" }}
 				overflow="hidden"
 				direction={isRTL ? "row-reverse" : "row"}
 				dir={isRTL ? "rtl" : "ltr"}
@@ -1658,6 +1677,7 @@ function AppLayoutContent() {
 					flex="1"
 					direction="column"
 					minW="0"
+					h="full"
 					overflow="hidden"
 					ml={{
 						base: "0",
@@ -2144,7 +2164,12 @@ function AppLayoutContent() {
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
-											minWidth: bannerShrinkable ? 40 : bannerDimensions.natural,
+											minWidth: bannerShrinkable
+												? Math.max(
+														Math.round(bannerDimensions.natural * 0.5),
+														60,
+													)
+												: bannerDimensions.natural,
 											maxWidth: bannerDimensions.natural,
 											width: bannerShrinkable ? "100%" : bannerDimensions.natural,
 											flexShrink: bannerShrinkable ? 1 : 0,
@@ -2162,7 +2187,10 @@ function AppLayoutContent() {
 											maxW={`${bannerDimensions.natural}px`}
 											minW={
 												bannerShrinkable
-													? "40px"
+													? `${Math.max(
+															Math.round(bannerDimensions.natural * 0.5),
+															60,
+														)}px`
 													: `${bannerDimensions.natural}px`
 											}
 											maxH="40px"
@@ -2414,6 +2442,12 @@ function AppLayoutContent() {
 													</Text>
 												</VStack>
 											</Flex>
+
+											{isMobile && (
+												<Box px={1} pb={1}>
+													<HeaderCalendar inMenu={true} placement={languagePlacement} />
+												</Box>
+											)}
 
 											<NotificationMenuItem
 												placement={languagePlacement}
@@ -2676,16 +2710,16 @@ function AppLayoutContent() {
 						blockScrollOnMount={false}
 						preserveScrollBarGap={false}
 					>
-						<DrawerOverlay pointerEvents="none" opacity={0} />
+						<DrawerOverlay pointerEvents="none" opacity={0} zIndex={2999} />
 						<DrawerContent
 							maxW="100vw"
 							w="100vw"
 							h="100dvh"
 							maxH="100dvh"
-							bg="panel.surface"
+							bg={drawerBg}
 							boxShadow="none"
 							borderRadius="0"
-							zIndex={2500}
+							zIndex={3000}
 						>
 							<DrawerBody p={0} overflow="hidden">
 								<AppSidebar
@@ -2761,7 +2795,10 @@ function AppLayoutContent() {
 						)}
 						<Box
 							className="rb-mobile-dock"
-							display={{ base: "block", md: "none" }}
+							display={{
+								base: sidebarDrawer.isOpen ? "none" : "block",
+								md: "none",
+							}}
 							position="fixed"
 							left="0"
 							right="0"
@@ -2958,6 +2995,7 @@ function AppLayoutContent() {
 														</PopoverTrigger>
 														<Portal>
 															<PopoverContent
+																ref={dockSettingsScrollRef}
 																w="min(270px, calc(100vw - 24px))"
 																maxW="calc(100vw - 24px)"
 																maxH="calc(100vh - 130px)"
@@ -3116,13 +3154,23 @@ function AppLayoutContent() {
 																									}
 																									borderInlineStartColor="var(--rb-panel-accent)"
 																									onClick={() => {
-																										setMobileDockOpenGroups(
-																											(prev) => ({
+																										const willOpen = !mobileDockOpenGroups[entry.id];
+																										if (willOpen && dockSettingsScrollRef.current) {
+																											const scrollEl = dockSettingsScrollRef.current;
+																											const addedHeight = entry.subItems.length * 36 + 6;
+																											setMobileDockOpenGroups((prev) => ({
 																												...prev,
-																												[entry.id]:
-																													!prev[entry.id],
-																											}),
-																										);
+																												[entry.id]: true,
+																											}));
+																											requestAnimationFrame(() => {
+																												scrollEl.scrollBy({ top: addedHeight, behavior: "smooth" });
+																											});
+																										} else {
+																											setMobileDockOpenGroups((prev) => ({
+																												...prev,
+																												[entry.id]: willOpen,
+																											}));
+																										}
 																									}}
 																									_hover={{
 																										md: {

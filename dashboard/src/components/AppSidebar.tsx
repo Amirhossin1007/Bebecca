@@ -36,6 +36,7 @@ import {
 	BellIcon,
 	DocumentTextIcon,
 	EyeIcon,
+	ExclamationTriangleIcon,
 	HomeIcon,
 	LinkIcon,
 	ServerStackIcon,
@@ -57,6 +58,7 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -101,6 +103,7 @@ const UsageIconStyled = chakra(ChartBarIcon, iconProps);
 const MyAccountIconStyled = chakra(UserCircleIcon, iconProps);
 const NotificationSubIconStyled = chakra(BellIcon, subIconProps);
 const InsightsIconStyled = chakra(EyeIcon, subIconProps);
+const SystemErrorsIconStyled = chakra(ExclamationTriangleIcon, subIconProps);
 const TutorialIconStyled = chakra(BookOpenIcon, iconProps);
 const XraySettingsIconStyled = chakra(WrenchScrewdriverIcon, subIconProps);
 const XrayLogsIconStyled = chakra(DocumentTextIcon, subIconProps);
@@ -443,10 +446,10 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(({
 			<AnimatePresence mode="wait" initial={false}>
 				<motion.div
 					key={`${currentItem.id}-${activeIndex}`}
-					initial={{ x: isRTL ? 180 : -180 }}
+					initial={{ x: isRTL ? 150 : -150 }}
 					animate={{ x: 0 }}
-					exit={{ x: isRTL ? 180 : -180 }}
-					transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+					exit={{ x: isRTL ? 150 : -150 }}
+					transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
 					style={{
 						display: "flex",
 						alignItems: "center",
@@ -585,7 +588,10 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 		users_hub: true,
 	});
 
-	const sidebarBg = useColorModeValue("panel.surface", "panel.surface");
+	const sidebarBg = useColorModeValue(
+		inDrawer ? "#ffffff" : "panel.surface",
+		inDrawer ? "#1e1e1e" : "panel.surface",
+	);
 	const sidebarBorderColor = useColorModeValue("panel.border", "panel.border");
 	const activeItemBg = useColorModeValue("panel.elevated", "panel.elevated");
 	const activeItemColor = "var(--rb-panel-accent)";
@@ -850,7 +856,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 								id: "system_errors",
 								title: t("errors.title", "Errors"),
 								url: "/errors",
-								icon: InsightsIconStyled,
+								icon: SystemErrorsIconStyled,
 								visible:
 									Boolean(sectionAccess?.[AdminSection.Xray]) ||
 									isPrivilegedAdmin,
@@ -939,9 +945,21 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 		}
 	}, [location.pathname]);
 
+	const navScrollRef = useRef<HTMLDivElement | null>(null);
+
 	const handleGroupClick = (group: GroupNavItem) => {
 		const isCurrentlyOpen = Boolean(openGroups[group.id]);
-		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
+		if (!isCurrentlyOpen && navScrollRef.current) {
+			const scrollEl = navScrollRef.current;
+			const subCount = group.subItems.filter((s) => s.visible).length;
+			const addedHeight = subCount * (inDrawer ? 36 : 32) + 6;
+			setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
+			requestAnimationFrame(() => {
+				scrollEl.scrollBy({ top: addedHeight, behavior: "smooth" });
+			});
+		} else {
+			setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
+		}
 	};
 
 	const dynamicSidebarWidth = useMemo(() => {
@@ -1054,6 +1072,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 				</Flex>
 
 				<Box
+					ref={navScrollRef}
 					flex="1"
 					minH={0}
 					overflowY="auto"

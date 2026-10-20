@@ -307,7 +307,9 @@ export const PanelLoadingSkeleton: FC = () => {
 
 	return (
 		<Box
-			minH="100vh"
+			minH={{ base: "100dvh", md: "100vh" }}
+			maxH={{ base: "100dvh", md: "100vh" }}
+			h={{ base: "100dvh", md: "100vh" }}
 			w="full"
 			bg="panel.app"
 			dir={isRTL ? "rtl" : "ltr"}
@@ -346,7 +348,6 @@ export const PanelLoadingSkeleton: FC = () => {
 				borderColor="panel.border"
 				borderRadius="20px"
 				boxShadow="0 1px 2px rgba(0, 0, 0, 0.03)"
-				backdropFilter="blur(16px)"
 				zIndex={200}
 				flexDirection="column"
 				overflow="hidden"
@@ -901,11 +902,24 @@ export const PanelLoadingSkeleton: FC = () => {
 					px={{ base: "3", md: "4" }}
 					pt="3"
 					pb={{ base: "40", md: "4" }}
-					overflow="auto"
 					minH="0"
-					bg="transparent"
+					w="full"
+					h="full"
+					display="flex"
+					flexDirection="column"
+					gap={3}
 				>
-					<PageLoadingSkeleton />
+					<Box
+						w="full"
+						h="calc(100vh - 120px)"
+						maxH="calc(100dvh - 120px)"
+						borderRadius="20px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.surface"
+						boxShadow="0 1px 2px rgba(0, 0, 0, 0.03)"
+						className="rb-glass-item"
+					/>
 				</Box>
 			</Flex>
 
@@ -928,7 +942,6 @@ export const PanelLoadingSkeleton: FC = () => {
 					borderWidth="1px"
 					borderColor="panel.border"
 					bg="panel.surface"
-					backdropFilter="blur(16px)"
 					boxShadow="0 20px 48px rgba(0, 0, 0, 0.4)"
 					px="2"
 					py="1.5"

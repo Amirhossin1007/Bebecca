@@ -39,6 +39,7 @@ import {
 	CheckIcon,
 	ClipboardIcon,
 	CommandLineIcon,
+	XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
@@ -846,10 +847,10 @@ export const DashboardMaintenanceControls = ({
 			justify={{ base: "center", sm: "flex-end" }}
 			w="full"
 			sx={{
-				"@media screen and (min-width: 665px)": {
+				"@media screen and (min-width: 600px)": {
 					width: "auto !important",
 				},
-				"@media screen and (max-width: 664.98px)": {
+				"@media screen and (max-width: 599.98px)": {
 					width: "100% !important",
 				},
 			}}
@@ -863,7 +864,7 @@ export const DashboardMaintenanceControls = ({
 				flexShrink={0}
 				display="none"
 				sx={{
-					"@media screen and (min-width: 665px)": {
+					"@media screen and (min-width: 600px)": {
 						display: "flex !important",
 					},
 				}}
@@ -886,7 +887,7 @@ export const DashboardMaintenanceControls = ({
 					w="full"
 					display="none"
 					sx={{
-						"@media screen and (max-width: 664.98px)": {
+						"@media screen and (max-width: 599.98px)": {
 							display: "flex !important",
 						},
 					}}
@@ -1300,29 +1301,31 @@ export const DashboardMaintenanceControls = ({
 				<ModalOverlay bg="blackAlpha.700" />
 				<ModalContent
 					data-modal-centered="true"
+					className="rb-confirm-dialog-content"
 					bg="panel.surface"
 					borderColor="panel.border"
 					borderWidth="1px"
 					borderRadius="20px"
 					boxShadow={cardHighlight}
-					mx={4}
+					mx="auto"
+					my="auto"
+					w={{ base: "calc(100vw - 32px)", sm: "440px" }}
+					maxW="440px"
 					overflow="hidden"
 				>
 					<ModalHeader
-						px={6}
+						px={5}
 						pt={5}
-						pb={4}
-						borderBottomWidth="1px"
-						borderColor="panel.border"
+						pb={3}
 					>
-						<Flex align="center" justify="space-between">
-							<HStack spacing={3}>
+						<Flex align="center" justify="space-between" w="full">
+							<HStack spacing={3} flex="1" minW="0">
 								<Flex
-									w="40px"
-									h="40px"
+									w="36px"
+									h="36px"
 									align="center"
 									justify="center"
-									borderRadius="12px"
+									borderRadius="10px"
 									bg={
 										confirmAction === "restart"
 											? "rgba(239, 68, 68, 0.12)"
@@ -1348,14 +1351,14 @@ export const DashboardMaintenanceControls = ({
 									flexShrink={0}
 								>
 									{confirmAction === "restart" ? (
-										<ArrowsRightLeftIcon width={20} height={20} />
+										<ArrowsRightLeftIcon width={18} height={18} />
 									) : confirmAction === "soft-reload" ? (
-										<ArrowPathIcon width={20} height={20} />
+										<ArrowPathIcon width={18} height={18} />
 									) : (
-										<ArrowUpTrayIcon width={20} height={20} />
+										<ArrowUpTrayIcon width={18} height={18} />
 									)}
 								</Flex>
-								<Box minW={0}>
+								<Box minW={0} flex="1">
 									<Text fontSize="15px" fontWeight="700" color="panel.text">
 										{confirmAction === "restart"
 											? t("dashboard.maintenance.restartConfirmTitle")
@@ -1376,7 +1379,20 @@ export const DashboardMaintenanceControls = ({
 									</Text>
 								</Box>
 							</HStack>
-							<ModalCloseButton position="static" />
+							<IconButton
+								aria-label="Close"
+								icon={<XMarkIcon width={16} height={16} />}
+								size="xs"
+								variant="ghost"
+								borderRadius="8px"
+								w="28px"
+								h="28px"
+								minW="28px"
+								onClick={() => setConfirmAction(null)}
+								color="panel.textMuted"
+								_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
+								_active={{ transform: "scale(0.96)" }}
+							/>
 						</Flex>
 					</ModalHeader>
 					<ModalBody px={6} py={5}>

@@ -17,6 +17,7 @@ import {
 	useBreakpointValue,
 	useColorModeValue,
 	useDisclosure,
+	type PlacementWithLogical,
 } from "@chakra-ui/react";
 import {
 	CalendarIcon as HeroCalendarIcon,
@@ -97,10 +98,14 @@ const DORAN_GREGORIAN_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 export interface HeaderCalendarProps {
 	isCompact?: boolean;
+	inMenu?: boolean;
+	placement?: PlacementWithLogical;
 }
 
 export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 	isCompact = false,
+	inMenu = false,
+	placement,
 }) => {
 	const { t, i18n } = useTranslation();
 	const [today, setToday] = useState(() => new Date());
@@ -247,62 +252,111 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 			onClose={onClose}
 			closeOnBlur={true}
 			closeOnEsc={true}
-			placement={isRTL ? "bottom-start" : "bottom-end"}
+			placement={
+				placement ??
+				(isRTL
+					? inMenu
+						? "left-start"
+						: "bottom-start"
+					: inMenu
+						? "right-start"
+						: "bottom-end")
+			}
 			gutter={8}
 		>
 			<PopoverTrigger>
-				<Button
-					data-header-calendar-trigger="true"
-					size="sm"
-					variant="outline"
-					h="34px"
-					w={showText ? "auto" : "34px"}
-					minW={showText ? "auto" : "34px"}
-					px={showText ? 3 : 0}
-					borderRadius={isCircle ? "full" : "12px"}
-					borderColor={headerBtnBorder}
-					bg={headerBtnBg}
-					color="panel.text"
-					boxShadow="sm"
-					display="inline-flex"
-					alignItems="center"
-					justifyContent="center"
-					gap={showText ? 2 : 0}
-					title={formattedDate}
-					aria-label={formattedDate}
-					_hover={{
-						md: {
-							bg: "panel.elevated",
-							borderColor: "panel.borderStrong",
-							boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
-						},
-					}}
-					_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
-					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-				>
-					<Flex
-						w="16px"
-						h="16px"
-						align="center"
-						justify="center"
+				{inMenu ? (
+					<Button
+						data-header-calendar-trigger="true"
+						size="sm"
+						variant="ghost"
+						w="full"
+						h="36px"
+						borderRadius="10px"
+						px={2.5}
+						justifyContent="space-between"
 						color="panel.text"
-						flexShrink={0}
+						_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
+						_active={{ bg: "panel.elevated" }}
+						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
 					>
-						<CalendarIcon style={{ width: "15px", height: "15px" }} />
-					</Flex>
-					{showText && (
-						<Text
-							noOfLines={1}
-							maxW="320px"
-							fontWeight="600"
-							fontSize="12px"
-							lineHeight="normal"
+						<HStack spacing={2} align="center" minW={0}>
+							<Flex
+								w="24px"
+								h="24px"
+								align="center"
+								justify="center"
+								borderRadius="6px"
+								bg="panel.elevated"
+								color="panel.text"
+								flexShrink={0}
+							>
+								<CalendarIcon style={{ width: "14px", height: "14px" }} />
+							</Flex>
+							<Text
+								fontSize="12px"
+								fontWeight="600"
+								color="panel.text"
+								isTruncated
+							>
+								{formattedDate}
+							</Text>
+						</HStack>
+					</Button>
+				) : (
+					<Button
+						data-header-calendar-trigger="true"
+						size="sm"
+						variant="outline"
+						h="34px"
+						w={showText ? "auto" : "34px"}
+						minW={showText ? "auto" : "34px"}
+						px={showText ? 3 : 0}
+						borderRadius={isCircle ? "full" : "12px"}
+						borderColor={headerBtnBorder}
+						bg={headerBtnBg}
+						color="panel.text"
+						boxShadow="sm"
+						display="inline-flex"
+						alignItems="center"
+						justifyContent="center"
+						gap={showText ? 2 : 0}
+						title={formattedDate}
+						aria-label={formattedDate}
+						_hover={{
+							md: {
+								bg: "panel.elevated",
+								borderColor: "panel.borderStrong",
+								boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
+							},
+						}}
+						_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
+						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+					>
+						<Flex
+							w="16px"
+							h="16px"
+							align="center"
+							justify="center"
 							color="panel.text"
+							flexShrink={0}
 						>
-							{formattedDate}
-						</Text>
-					)}
-				</Button>
+							<CalendarIcon style={{ width: "15px", height: "15px" }} />
+						</Flex>
+						{showText && (
+							<Text
+								noOfLines={1}
+								maxW="320px"
+								fontWeight="600"
+								fontSize="12px"
+								lineHeight="normal"
+								color="panel.text"
+							>
+								{formattedDate}
+							</Text>
+						)}
+					</Button>
+				)}
 			</PopoverTrigger>
 			<Portal>
 				<PopoverContent

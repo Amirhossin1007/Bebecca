@@ -307,7 +307,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	const notifMenu = useDisclosure();
 	const isControlled = controlledIsOpen !== undefined;
 	const isMenuOpen = isControlled ? controlledIsOpen : notifMenu.isOpen;
-	const { unread, items, markAll, isMarkingAll, openItem } = useNotificationCenter();
+	const { unread, items, openItem } = useNotificationCenter();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const popperModifiers = useMemo(
 		() => [
@@ -358,50 +358,6 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 			overflow="hidden"
 			userSelect="none"
 		>
-			<HStack
-				justify="space-between"
-				align="center"
-				p={2.5}
-				borderBottomWidth="1px"
-				borderColor="panel.border"
-			>
-				<HStack spacing={2}>
-					<Text fontSize="13px" fontWeight="700" color="panel.text">
-						{t("notifications.menu")}
-					</Text>
-					{unread > 0 && (
-						<Badge
-							borderRadius="full"
-							px={1.5}
-							py={0.2}
-							fontSize="10px"
-							fontWeight="700"
-							bg="var(--chakra-colors-accent)"
-							color="white"
-						>
-							{unread}
-						</Badge>
-					)}
-				</HStack>
-				{unread > 0 && (
-					<Button
-						size="xs"
-						variant="ghost"
-						fontSize="11px"
-						fontWeight="600"
-						color="panel.textSecondary"
-						_hover={{ md: { bg: "panel.elevated", color: "panel.text" } }}
-						onClick={(e: ReactMouseEvent) => {
-							e.stopPropagation();
-							markAll();
-						}}
-						isLoading={isMarkingAll}
-					>
-						{t("notifications.inbox.markAllRead")}
-					</Button>
-				)}
-			</HStack>
-
 			<Box p={1.5} overflowY="auto" maxH="280px" sx={{ overscrollBehavior: "contain" }}>
 				{items.length === 0 ? (
 					<Flex

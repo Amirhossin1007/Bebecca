@@ -118,14 +118,13 @@ export const GitHubStars: FC = memo(() => {
 						dir="ltr"
 						fontSize="12px"
 						fontWeight="600"
-						lineHeight="1"
+						lineHeight="normal"
 						display="inline-flex"
 						alignItems="center"
 						color="panel.text"
 						sx={{
 							unicodeBidi: "isolate",
 							fontVariantNumeric: "tabular-nums",
-							transform: "translateY(0.5px)",
 						}}
 					>
 						{formattedStars}

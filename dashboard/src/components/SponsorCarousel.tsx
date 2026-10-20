@@ -147,7 +147,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(({
 
 	useEffect(() => {
 		if (paused || itemCount < 2 || !currentItemId) return;
-		const delay = variant === "logo" ? (currentIsSponsor ? 7000 : 10000) : 5000;
+		const delay = variant === "logo" ? (currentIsSponsor ? 7000 : 10000) : 7000;
 		const timer = window.setTimeout(() => {
 			setIndex((current) => (current + 1) % itemCount);
 		}, delay);
