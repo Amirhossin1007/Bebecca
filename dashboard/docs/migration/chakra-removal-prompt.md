@@ -27,7 +27,7 @@ Branch: work on a branch off `refactor/legacy-tailwind`. Never push.
    `pl-*/pr-*`, `left-*/right-*`. Test with `?lang=fa`.
 6. **Numbers keep their alignment.** Add `rb-tabular` (tabular numerals) to numeric
    cells and stat values.
-7. **`tsc`, `eslint` and `vite build` must pass** before you report a file done.
+7. **`tsc`, `biome lint` and `vite build` must pass** before you report a file done.
 
 ---
 
@@ -182,9 +182,28 @@ Fonts: `--rb-font-stack` is already the Tailwind `font-sans`.
    (requires forwardRef) or keep the Chakra trigger and style it with Chakra props.
 3. Radix portals render into `document.body`; their content inherits the panel's
    `.rb-theme-dark`, so `dark:` works inside them.
-4. `ChakraProvider` runs with `resetCSS={false}` — Tailwind's preflight owns the
-   reset now. Do not re-enable it; utilities would lose to Chakra's unlayered
-   reset again (that is why borders silently disappeared before).
+4. `ChakraProvider` runs with `resetCSS={false}`. Tailwind's preflight is **not**
+   imported either (see `src/tailwind.css`), so Chakra's global styles are still
+   the only reset. Do not re-enable Chakra's reset; utilities would lose to it
+   again (that is why borders silently disappeared before).
+5. **Legacy `src/index.scss` sets `* { min-width: 0 }` without a layer.** Unlayered
+   CSS beats Tailwind's layered utilities, so every `min-w-*` class is silently
+   ignored. Add the important suffix: `min-w-[…]!`, `sm:min-w-[…]!`.
+6. **Chakra's global style sets `border-color` on `*`, also unlayered.** Every
+   Tailwind border-colour class (`border-panel-border`, `border-panel-accent`, …)
+   is overridden, and the element shows Chakra's `rgba(255,255,255,0.16)`. Use the
+   suffix form: `border-panel-border!`, `hover:border-panel-accent!`. This applies
+   to shadcn components too, so the shared `DropdownMenuContent` base still needs it.
+   Login uses these classes without the suffix and may have the same problem; check
+   it before trusting its borders.
+7. **Radix portals and Chakra's transformed containers.** Chakra's `MenuList`
+   carries a transform, and a `fixed` popper inside it is offset by about 24px. Pass
+   `container` to nested popovers so they stay inside the open menu, and expect the
+   offset until the parent menu is off Chakra. `AppLayout` is now off Chakra.
+8. **Placement follows direction, not Chakra's logical names.** Chakra's
+   `bottom-end` flips in RTL, so the menu aligns to the start edge. Radix's `end` is
+   physical. Use `align={isRTL ? "start" : "end"}`. A checkmark or inset that Chakra
+   placed physically (`right`) should stay physical, not logical.
 
 ---
 
@@ -258,7 +277,7 @@ tail of ~60 small modals (`DnsModal`, `WarpModal`, `NordVPNModal`, …).
 1. No `@chakra-ui/react` import left (except the documented `useColorMode` case).
 2. No `sx`, no `useColorModeValue`, no `chakra(…)`, no Chakra prop names.
 3. Visual parity checked at 1440×1000 **and** 390×844, in `en` and `fa`.
-4. `npx tsc --noEmit`, `npx eslint <file>`, `npm run build` all pass.
+4. `npx tsc --noEmit`, `npx biome lint <file>`, `npm run build` all pass (this project uses Biome, not ESLint).
 5. Commit with the message `refactor(dashboard): port <file> to tailwind`
    and paste the before/after screenshot paths in the commit body.
 6. Update the table in `docs/migration/chakra-inventory.md` (add the file, mark it
