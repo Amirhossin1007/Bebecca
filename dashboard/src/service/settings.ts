@@ -294,6 +294,7 @@ export interface RuntimeSettingsResponse {
 	record_node_user_usages: boolean;
 	subscription_read_only: boolean;
 	api_docs_enabled: boolean;
+	user_speed_limit_enabled: boolean;
 	phpmyadmin_enabled: boolean;
 	phpmyadmin_port: number;
 	phpmyadmin_path: string;

@@ -29,6 +29,8 @@ export enum UserPermissionToggle {
 	AdvancedActions = "advanced_actions",
 	SetFlow = "set_flow",
 	AllowCustomKey = "allow_custom_key",
+	ManageSpeedLimit = "manage_speed_limit",
+	ManageIPLimit = "manage_ip_limit",
 }
 
 export enum AdminManagementPermission {
@@ -66,10 +68,13 @@ export enum AdminSudoScope {
 	Backups = "backups",
 	Maintenance = "maintenance",
 	PHPMyAdmin = "phpmyadmin",
+	Notes = "notes",
 }
 
 export type UserPermissionSettings = Record<UserPermissionToggle, boolean> & {
 	max_data_limit_per_user: number | null;
+	max_speed_limit_per_user: number | null;
+	max_ip_limit_per_user: number | null;
 };
 
 export type AdminManagementPermissions = Record<

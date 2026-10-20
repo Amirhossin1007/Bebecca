@@ -39,6 +39,7 @@ import {
 	ExpandedHeading,
 	ExpandedMeta,
 } from "components/ui/ExpandedPanel";
+import { DataTableSortMenu, type SortOption } from "components/ui/DataTableSortMenu";
 import {
 	PlusIcon as AddIcon,
 	ArrowDownTrayIcon,
@@ -2133,6 +2134,7 @@ export const NodesPage: FC = () => {
 			},
 			{
 				id: "address",
+				sortable: false,
 				header: t("nodes.nodeAddress"),
 				accessor: "address",
 				priority: "high",
@@ -2203,6 +2205,7 @@ export const NodesPage: FC = () => {
 			},
 			{
 				id: "runtime",
+				sortable: false,
 				header: t("nodes.columns.nodeRuntime"),
 				accessor: (node) =>
 					[node.node_install_mode, node.node_update_channel]
@@ -2486,6 +2489,7 @@ export const NodesPage: FC = () => {
 			},
 			{
 				id: "certificate",
+				sortable: false,
 				header: t("nodes.certificate"),
 				accessor: getNodeInstallBundle,
 				priority: "low",
@@ -2712,10 +2716,27 @@ export const NodesPage: FC = () => {
 		() => [{ id: sortKey, desc: sortDirection === "desc" }],
 		[sortDirection, sortKey],
 	);
+	const nodeSortOptions = useMemo<SortOption[]>(
+		() => [
+			{ id: "name", label: t("nodes.nodeName"), type: "text" },
+			{ id: "status", label: t("status"), type: "text" },
+			{ id: "uptime", label: t("redisUptime"), type: "number" },
+			{ id: "usage", label: t("nodes.trafficLimit"), type: "number" },
+			{ id: "bandwidth", label: t("nodes.bandwidthSpeed"), type: "number" },
+			{ id: "cpu", label: t("nodes.cpu"), type: "number" },
+			{ id: "ram", label: t("nodes.ram"), type: "number" },
+		],
+		[t],
+	);
 
 	const handleNodeTableSorting = (nextSorting: SortingState) => {
 		const next = nextSorting[0];
-		if (!next || !isNodeSortKey(next.id)) return;
+		if (!next) {
+			setSortKey("name");
+			setSortDirection("asc");
+			return;
+		}
+		if (!isNodeSortKey(next.id)) return;
 		setSortKey(next.id);
 		setSortDirection(next.desc ? "desc" : "asc");
 	};
@@ -2968,33 +2989,11 @@ export const NodesPage: FC = () => {
 							<option value="docker">{t("nodes.installMode.docker")}</option>
 							<option value="unknown">{t("status.unknown")}</option>
 						</Select>
-						<Select
-							size="sm"
-							value={`${sortKey}.${sortDirection}`}
-							onChange={(event) => {
-								const [nextKey, nextDirection] = event.target.value.split(".");
-								setSortKey(nextKey as NodeSortKey);
-								setSortDirection(nextDirection as NodeSortDirection);
-							}}
-							w={{ base: "calc(50% - 4px)", md: "170px" }}
-						>
-							<option value="name.asc">{t("nodes.sort.nameAsc")}</option>
-							<option value="name.desc">{t("nodes.sort.nameDesc")}</option>
-							<option value="usage.asc">{t("nodes.sort.usageAsc")}</option>
-							<option value="usage.desc">{t("nodes.sort.usageDesc")}</option>
-							<option value="status.asc">{t("nodes.sort.statusAsc")}</option>
-							<option value="status.desc">{t("nodes.sort.statusDesc")}</option>
-							<option value="bandwidth.asc">
-								{t("nodes.sort.bandwidthAsc")}
-							</option>
-							<option value="bandwidth.desc">
-								{t("nodes.sort.bandwidthDesc")}
-							</option>
-							<option value="cpu.asc">{t("nodes.sort.cpuAsc")}</option>
-							<option value="cpu.desc">{t("nodes.sort.cpuDesc")}</option>
-							<option value="ram.asc">{t("nodes.sort.ramAsc")}</option>
-							<option value="ram.desc">{t("nodes.sort.ramDesc")}</option>
-						</Select>
+						<DataTableSortMenu
+							options={nodeSortOptions}
+							sorting={nodeSorting}
+							onSortingChange={handleNodeTableSorting}
+						/>
 						<Box
 							w={{ base: "calc(50% - 4px)", md: "auto" }}
 							display="flex"
@@ -3061,6 +3060,7 @@ export const NodesPage: FC = () => {
 					renderExpandedRow={renderExpandedNode}
 					sorting={nodeSorting}
 					onSortingChange={handleNodeTableSorting}
+					showSortMenu={false}
 					manualSorting
 					pagination={nodesPagination}
 					selectedLabel={t("nodes.selectedCount", {

@@ -221,7 +221,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const loading = useAdminsStore((state) => state.loading);
 	const total = useAdminsStore((state) => state.total);
 	const filters = useAdminsStore((state) => state.filters);
-	const onFilterChange = useAdminsStore((state) => state.onFilterChange);
 	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
 	const deleteAdmin = useAdminsStore((state) => state.deleteAdmin);
 	const resetUsage = useAdminsStore((state) => state.resetUsage);
@@ -834,22 +833,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		return id ? [{ id, desc }] : [];
 	}, [filters.sort]);
 
-	const handleAdminTableSorting = (nextSorting: SortingState) => {
-		const next = nextSorting[0];
-		if (!next) return;
-		const allowedSorts = new Set([
-			"username",
-			"users_count",
-			"data_usage",
-			"data_limit",
-		]);
-		if (!allowedSorts.has(next.id)) return;
-		onFilterChange({
-			sort: next.desc ? `-${next.id}` : next.id,
-			offset: 0,
-		});
-	};
-
 	const isWide = useBreakpointValue({ base: false, xl: true }) ?? false;
 	const [adminSpeeds, setAdminSpeeds] = useState<AdminSpeedMap>({});
 	useEffect(() => {
@@ -1317,8 +1300,8 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 									isRowExpanded={isDesktop ? (admin) => expandedAdminUsername === admin.username : undefined}
 									renderExpandedRow={isDesktop ? renderExpandedAdmin : undefined}
 					sorting={adminSorting}
-					onSortingChange={handleAdminTableSorting}
 					manualSorting
+					showSortMenu={false}
 					dir={isRTL ? "rtl" : "ltr"}
 					mobileBreakpoint="md"
 					tableProps={tableProps}

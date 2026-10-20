@@ -1546,6 +1546,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "usage",
+				sortValue: (link) => (link.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic ? link.created_traffic : link.used_traffic) ?? 0,
 				header: t("services.columns.usage"),
 				priority: "high",
 				width: "170px",
@@ -1569,6 +1570,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "mode",
+				sortValue: (link) => link.traffic_limit_mode ?? "",
 				header: t("admins.trafficMode"),
 				priority: "medium",
 				hideBelow: "xl",
@@ -1599,6 +1601,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "data_limit",
+				sortValue: (link) => link.data_limit ?? 0,
 				header: t("admins.dataLimit"),
 				priority: "medium",
 				hideBelow: "xl",
@@ -1633,6 +1636,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "users_limit",
+				sortValue: (link) => link.users_limit ?? 0,
 				header: t("admins.usersLimit"),
 				priority: "low",
 				hideBelow: "xl",
@@ -1665,6 +1669,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "delete_cap",
+				sortValue: (link) => link.delete_user_usage_limit ?? 0,
 				header: t("admins.deleteUserUsageLimit"),
 				priority: "low",
 				hideBelow: "xl",
@@ -1706,6 +1711,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "usage_coefficient",
+				sortValue: (link) => link.usage_coefficient ?? 0,
 				header: t("services.usageCoefficientColumn"),
 				priority: "low",
 				hideBelow: "xl",
@@ -1773,6 +1779,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "flags",
+				sortValue: (link) => (link.show_user_traffic ? 1 : 0) + (link.delete_user_usage_limit_enabled ? 2 : 0),
 				header: t("admins.permissionsTabLabel"),
 				priority: "low",
 				hideBelow: "xl",
@@ -1857,6 +1864,7 @@ const ServicesPage: FC = () => {
 			},
 			{
 				id: "inbound",
+				sortValue: (host) => host.inbound_tag ?? "",
 				header: t("inbound"),
 				priority: "high",
 				width: "180px",

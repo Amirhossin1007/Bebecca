@@ -9,6 +9,8 @@ export type DataTableColumnSize =
 	| number
 	| Partial<Record<"base" | "sm" | "md" | "lg" | "xl", string | number>>;
 
+export type DataTableSortType = "number" | "text" | "date" | "boolean";
+
 export type DataTableColumn<TData> = {
 	id: string;
 	header: ReactNode;
@@ -17,6 +19,7 @@ export type DataTableColumn<TData> = {
 	mobileDetailCell?: (row: TData) => ReactNode;
 	sortValue?: (row: TData) => unknown;
 	sortable?: boolean;
+	sortType?: DataTableSortType;
 	size?: DataTableColumnSize;
 	minSize?: DataTableColumnSize;
 	maxSize?: DataTableColumnSize;
@@ -102,6 +105,7 @@ export type DataTableProps<TData> = {
 	sorting?: SortingState;
 	onSortingChange?: (sorting: SortingState) => void;
 	manualSorting?: boolean;
+	showSortMenu?: boolean;
 	pagination?: ReactNode;
 	dir?: "ltr" | "rtl";
 	tableProps?: TableProps;

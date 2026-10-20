@@ -155,6 +155,7 @@ export type UserCreateWithService = Pick<
 export type UserApi = {
 	role: AdminRole;
 	permissions: AdminPermissions;
+	user_speed_limit_enabled?: boolean;
 	telegram_id: number | string;
 	username: string;
 	users_usage?: number | null;

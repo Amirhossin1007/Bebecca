@@ -969,6 +969,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const canRevokeSubscription =
 		hasFullAccess ||
 		Boolean(userData.permissions?.users?.[UserPermissionToggle.Revoke]);
+	const speedLimitEditable =
+		userData.user_speed_limit_enabled !== false &&
+		(userData.role === AdminRole.FullAccess ||
+			Boolean(userData.permissions?.users?.[UserPermissionToggle.ManageSpeedLimit]));
+	const ipLimitEditable =
+		userData.role === AdminRole.FullAccess ||
+		Boolean(userData.permissions?.users?.[UserPermissionToggle.ManageIPLimit]);
 	const requiresServiceScope = Boolean(
 		userData.use_service_traffic_limits && !hasPrivilegedRole,
 	);
@@ -2527,7 +2534,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					}
 																					min={0}
 																					step={1}
-																					isDisabled={disabled}
+																					isDisabled={disabled || !ipLimitEditable}
 																					isInvalid={Boolean(form.formState.errors.ip_limit)}
 																					onChange={(valueAsString) => {
 																						const raw = valueAsString.trim();
@@ -2708,7 +2715,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																								: null,
 																						);
 																					},
-																					disabled,
+																					disabled: disabled || !speedLimitEditable,
 																				})}
 																				<FormErrorMessage>
 																					{

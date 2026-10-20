@@ -28,6 +28,12 @@ type AdminPermissionsEditorProps = {
 	maxDataLimitValue?: string;
 	onMaxDataLimitChange?: (value: string) => void;
 	maxDataLimitError?: string;
+	maxSpeedLimitValue?: string;
+	onMaxSpeedLimitChange?: (value: string) => void;
+	maxSpeedLimitError?: string;
+	maxIPLimitValue?: string;
+	onMaxIPLimitChange?: (value: string) => void;
+	maxIPLimitError?: string;
 	showReset?: boolean;
 	onReset?: () => void;
 	hideExtendedSections?: boolean;
@@ -81,6 +87,14 @@ const userPermissionKeys: Array<{ key: UserPermissionToggle; label: string }> =
 		{
 			key: UserPermissionToggle.AllowCustomKey,
 			label: "admins.permissions.customKey",
+		},
+		{
+			key: UserPermissionToggle.ManageSpeedLimit,
+			label: "admins.permissions.manageSpeedLimit",
+		},
+		{
+			key: UserPermissionToggle.ManageIPLimit,
+			label: "admins.permissions.manageIPLimit",
 		},
 	];
 
@@ -144,6 +158,7 @@ const sudoPermissionKeys: Array<{ key: AdminSudoScope; label: string }> = [
 	{ key: AdminSudoScope.Backups, label: "admins.sudo.backups" },
 	{ key: AdminSudoScope.Maintenance, label: "admins.sudo.maintenance" },
 	{ key: AdminSudoScope.PHPMyAdmin, label: "admins.sudo.phpmyadmin" },
+	{ key: AdminSudoScope.Notes, label: "admins.sudo.notes" },
 ];
 
 type PermissionKeyMap = {
@@ -160,6 +175,12 @@ export const AdminPermissionsEditor = ({
 	maxDataLimitValue,
 	onMaxDataLimitChange,
 	maxDataLimitError,
+	maxSpeedLimitValue,
+	onMaxSpeedLimitChange,
+	maxSpeedLimitError,
+	maxIPLimitValue,
+	onMaxIPLimitChange,
+	maxIPLimitError,
 	showReset = false,
 	onReset,
 	hideExtendedSections = false,
@@ -274,7 +295,39 @@ export const AdminPermissionsEditor = ({
 					</FormHelperText>
 				)}
 			</FormControl>
-			{!hideExtendedSections && (
+							<FormControl isInvalid={Boolean(maxSpeedLimitError)}>
+					<FormLabel>{t("admins.permissions.maxSpeedPerUser")}</FormLabel>
+					<NumericInput
+						min={0}
+						step={1}
+						placeholder={t("admins.permissions.maxSpeedHint")}
+						value={maxSpeedLimitValue ?? ""}
+						onChange={(nextValue) => onMaxSpeedLimitChange?.(nextValue)}
+						isDisabled={!value.users.manage_speed_limit || isReadOnly}
+					/>
+					{maxSpeedLimitError ? (
+						<FormErrorMessage>{maxSpeedLimitError}</FormErrorMessage>
+					) : (
+						<FormHelperText>{t("admins.permissions.maxSpeedDescription")}</FormHelperText>
+					)}
+				</FormControl>
+				<FormControl isInvalid={Boolean(maxIPLimitError)}>
+					<FormLabel>{t("admins.permissions.maxIPPerUser")}</FormLabel>
+					<NumericInput
+						min={0}
+						step={1}
+						placeholder={t("admins.permissions.maxIPHint")}
+						value={maxIPLimitValue ?? ""}
+						onChange={(nextValue) => onMaxIPLimitChange?.(nextValue)}
+						isDisabled={!value.users.manage_ip_limit || isReadOnly}
+					/>
+					{maxIPLimitError ? (
+						<FormErrorMessage>{maxIPLimitError}</FormErrorMessage>
+					) : (
+						<FormHelperText>{t("admins.permissions.maxIPDescription")}</FormHelperText>
+					)}
+				</FormControl>
+{!hideExtendedSections && (
 				<Stack spacing={3}>
 					<Text fontWeight="semibold">{t("admins.sudo.title")}</Text>
 					<SimpleGrid columns={gridColumns} spacing={3}>

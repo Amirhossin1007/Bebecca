@@ -1,3 +1,5 @@
+import type { SortingState } from "@tanstack/react-table";
+import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
 import {
 	Alert,
 	AlertIcon,
@@ -221,6 +223,7 @@ const defaultRuntimeSettings: RuntimeSettingsResponse = {
 	record_node_user_usages: true,
 	subscription_read_only: false,
 	api_docs_enabled: false,
+	user_speed_limit_enabled: true,
 	phpmyadmin_enabled: false,
 	phpmyadmin_port: 8080,
 	phpmyadmin_path: "/phpmyadmin/",
@@ -1621,12 +1624,14 @@ export const IntegrationSettingsPage = () => {
 		certificateSearchMatch,
 		certificates,
 	]);
+	const [certificateSorting, setCertificateSorting] = useState<SortingState>([]);
 	const certificateColumns = useMemo<
 		DataTableColumn<SubscriptionCertificate>[]
 	>(
 		() => [
 			{
 				id: "domain",
+				sortValue: (certificate) => certificate.domain ?? "",
 				header: t("settings.subscriptions.domain"),
 				isPrimary: true,
 				priority: "primary",
@@ -1651,6 +1656,7 @@ export const IntegrationSettingsPage = () => {
 			},
 			{
 				id: "status",
+				sortValue: (certificate) => certificate.status ?? "",
 				header: t("status"),
 				priority: "high",
 				mobilePriority: 1,
@@ -1681,6 +1687,7 @@ export const IntegrationSettingsPage = () => {
 			},
 			{
 				id: "expires",
+				sortValue: (certificate) => Date.parse(certificate.not_after ?? "") || 0,
 				header: t("settings.subscriptions.expiresAt"),
 				priority: "high",
 				mobilePriority: 2,
@@ -1695,6 +1702,7 @@ export const IntegrationSettingsPage = () => {
 			},
 			{
 				id: "updated",
+				sortValue: (certificate) => Date.parse(certificate.last_renewed_at ?? "") || 0,
 				header: t("settings.subscriptions.lastRenewed"),
 				priority: "low",
 				hideBelow: "xl",
@@ -1717,6 +1725,7 @@ export const IntegrationSettingsPage = () => {
 			},
 			{
 				id: "serving",
+				sortValue: (certificate) => (certificate.serve_tls !== false ? 1 : 0),
 				header: t("settings.subscriptions.serveTLS"),
 				priority: "high",
 				mobilePriority: 3,
@@ -1838,6 +1847,11 @@ export const IntegrationSettingsPage = () => {
 						onMatchOptionsChange={setCertificateSearchMatch}
 						onClear={() => setCertificateSearch("")}
 						/>
+					<DataTableSortMenu
+						options={buildSortOptions(certificateColumns, filteredCertificates)}
+						sorting={certificateSorting}
+						onSortingChange={setCertificateSorting}
+					/>
 					<Select
 						showSearch={false}
 						value={certificateFilter}
@@ -1858,6 +1872,9 @@ export const IntegrationSettingsPage = () => {
 					ariaLabel={t("settings.subscriptions.certificateList")}
 					data={filteredCertificates}
 					columns={certificateColumns}
+					sorting={certificateSorting}
+					onSortingChange={setCertificateSorting}
+					showSortMenu={false}
 					getRowId={(certificate) => certificate.domain}
 					isLoading={isSubscriptionLoading}
 					emptyState={
@@ -2177,6 +2194,22 @@ export const IntegrationSettingsPage = () => {
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													record_node_user_usages: event.target.checked,
+												}))
+											}
+											isDisabled={saveAllMutation.isLoading}
+										/>
+									}
+								/>
+								<TelegramSwitchRow
+									title={t("settings.runtime.userSpeedLimit")}
+									description={t("settings.runtime.userSpeedLimitHint")}
+									control={
+										<Switch
+											isChecked={runtimeSettingsForm.user_speed_limit_enabled}
+											onChange={(event) =>
+												setRuntimeSettingsForm((prev) => ({
+													...prev,
+													user_speed_limit_enabled: event.target.checked,
 												}))
 											}
 											isDisabled={saveAllMutation.isLoading}

@@ -241,6 +241,7 @@ export default function HAProxyPage() {
 		},
 		{
 			id: "enabled",
+			sortValue: (config) => (config.enabled ? 1 : 0),
 			header: t("haproxy.enabled"),
 			priority: "high",
 			width: "120px",

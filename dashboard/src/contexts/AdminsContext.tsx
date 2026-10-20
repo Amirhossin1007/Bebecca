@@ -17,6 +17,8 @@ export type AdminFilters = {
 	limit: number;
 	offset: number;
 	sort: string;
+	roleFilter: string;
+	statusFilter: string;
 };
 
 type AdminsStore = {
@@ -66,6 +68,8 @@ const createDefaultFilters = (): AdminFilters => ({
 	limit: getAdminsPerPageLimitSize(),
 	offset: 0,
 	sort: "username",
+	roleFilter: "",
+	statusFilter: "",
 });
 
 const isAbortError = (error: unknown): boolean => {
@@ -179,14 +183,14 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 		if (filters.limit !== undefined) {
 			query.limit = filters.limit;
 		}
+		if (filters.roleFilter) {
+			query.role = filters.roleFilter;
+		}
+		if (filters.statusFilter) {
+			query.status = filters.statusFilter;
+		}
 		if (filters.sort) {
-			if (filters.sort === "data_usage") {
-				query.sort = "users_usage";
-			} else if (filters.sort === "data_limit") {
-				query.sort = "data_limit";
-			} else {
-				query.sort = filters.sort;
-			}
+			query.sort = filters.sort;
 		}
 
 		const requestKey = JSON.stringify(query);
@@ -275,6 +279,8 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 			limit: 1000,
 			offset: 0,
 			sort: "username",
+			roleFilter: "",
+			statusFilter: "",
 			...overrides,
 		};
 		const query: Record<string, string | number> = {};

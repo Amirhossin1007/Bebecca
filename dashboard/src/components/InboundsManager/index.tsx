@@ -1,3 +1,5 @@
+import type { SortingState } from "@tanstack/react-table";
+import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
 import {
 	Alert,
 	AlertIcon,
@@ -526,6 +528,7 @@ export const InboundsManager: FC = () => {
 		];
 	}, [filtered, inbounds, speeds, t]);
 
+	const [inboundSorting, setInboundSorting] = useState<SortingState>([]);
 	const inboundColumns = useMemo<DataTableColumn<RawInbound>[]>(
 		() => [
 			{
@@ -594,6 +597,7 @@ export const InboundsManager: FC = () => {
 			},
 			{
 				id: "network",
+				sortValue: (inbound) => String(inbound.streamSettings?.network ?? ""),
 				header: t("inbounds.network"),
 				priority: "medium",
 				width: "110px",
@@ -604,6 +608,7 @@ export const InboundsManager: FC = () => {
 			},
 			{
 				id: "security",
+				sortValue: (inbound) => String(inbound.streamSettings?.security ?? ""),
 				header: t("inbounds.security"),
 				priority: "medium",
 				width: "120px",
@@ -623,6 +628,7 @@ export const InboundsManager: FC = () => {
 			},
 			{
 				id: "traffic",
+				sortValue: (inbound) => getInboundTraffic(inbound).total,
 				header: t("inbounds.traffic"),
 				priority: "medium",
 				width: "175px",
@@ -654,6 +660,10 @@ export const InboundsManager: FC = () => {
 			},
 			{
 				id: "speed",
+				sortValue: (inbound) => {
+					const speed = speeds[inbound.tag];
+					return (speed?.upload_speed ?? 0) + (speed?.download_speed ?? 0);
+				},
 				header: t("inbounds.speed"),
 				priority: "medium",
 				width: "175px",
@@ -685,6 +695,7 @@ export const InboundsManager: FC = () => {
 			},
 			{
 				id: "sniffing",
+				sortValue: (inbound) => (inbound.sniffing?.enabled ? 1 : 0),
 				header: t("inbounds.sniffing"),
 				priority: "low",
 				hideBelow: "xl",
@@ -705,6 +716,7 @@ export const InboundsManager: FC = () => {
 			},
 			{
 				id: "targets",
+				sortValue: (inbound) => getInboundTargetIds(inbound).length,
 				header: t("inbounds.targets"),
 				priority: "low",
 				hideBelow: "lg",
@@ -844,6 +856,11 @@ export const InboundsManager: FC = () => {
 						matchOptions={searchMatch}
 						onMatchOptionsChange={setSearchMatch}
 					/>
+					<DataTableSortMenu
+						options={buildSortOptions(inboundColumns, filtered)}
+						sorting={inboundSorting}
+						onSortingChange={setInboundSorting}
+					/>
 					<SearchableTagSelect
 						size="sm"
 						width="190px"
@@ -894,6 +911,9 @@ export const InboundsManager: FC = () => {
 				ariaLabel={t("hostsPage.tabInbounds")}
 				data={filtered}
 				columns={inboundColumns}
+				sorting={inboundSorting}
+				onSortingChange={setInboundSorting}
+				showSortMenu={false}
 				getRowId={(inbound) => inbound.tag}
 				isLoading={isLoading}
 				loadingRows={5}

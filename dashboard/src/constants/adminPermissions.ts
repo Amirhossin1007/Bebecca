@@ -27,6 +27,10 @@ const USER_ONLY_TEMPLATE: PermissionTemplate = {
 		[UserPermissionToggle.SetFlow]: false,
 		[UserPermissionToggle.AllowCustomKey]: false,
 		max_data_limit_per_user: null,
+		[UserPermissionToggle.ManageSpeedLimit]: true,
+		[UserPermissionToggle.ManageIPLimit]: true,
+		max_speed_limit_per_user: null,
+		max_ip_limit_per_user: null,
 	},
 	admin_management: {
 		[AdminManagementPermission.View]: false,
@@ -60,6 +64,7 @@ const USER_ONLY_TEMPLATE: PermissionTemplate = {
 		[AdminSudoScope.Backups]: false,
 		[AdminSudoScope.Maintenance]: false,
 		[AdminSudoScope.PHPMyAdmin]: false,
+		[AdminSudoScope.Notes]: false,
 	},
 };
 
@@ -78,6 +83,10 @@ const SUDO_TEMPLATE: PermissionTemplate = {
 		[UserPermissionToggle.SetFlow]: true,
 		[UserPermissionToggle.AllowCustomKey]: true,
 		max_data_limit_per_user: null,
+		[UserPermissionToggle.ManageSpeedLimit]: true,
+		[UserPermissionToggle.ManageIPLimit]: true,
+		max_speed_limit_per_user: null,
+		max_ip_limit_per_user: null,
 	},
 	admin_management: {
 		[AdminManagementPermission.View]: true,
@@ -111,6 +120,7 @@ const SUDO_TEMPLATE: PermissionTemplate = {
 		[AdminSudoScope.Backups]: true,
 		[AdminSudoScope.Maintenance]: true,
 		[AdminSudoScope.PHPMyAdmin]: true,
+		[AdminSudoScope.Notes]: true,
 	},
 };
 
@@ -129,6 +139,10 @@ const FULL_ACCESS_TEMPLATE: PermissionTemplate = {
 		[UserPermissionToggle.SetFlow]: true,
 		[UserPermissionToggle.AllowCustomKey]: true,
 		max_data_limit_per_user: null,
+		[UserPermissionToggle.ManageSpeedLimit]: true,
+		[UserPermissionToggle.ManageIPLimit]: true,
+		max_speed_limit_per_user: null,
+		max_ip_limit_per_user: null,
 	},
 	admin_management: {
 		[AdminManagementPermission.View]: true,
@@ -162,6 +176,7 @@ const FULL_ACCESS_TEMPLATE: PermissionTemplate = {
 		[AdminSudoScope.Backups]: true,
 		[AdminSudoScope.Maintenance]: true,
 		[AdminSudoScope.PHPMyAdmin]: true,
+		[AdminSudoScope.Notes]: true,
 	},
 };
 

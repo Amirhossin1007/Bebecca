@@ -1,3 +1,5 @@
+import type { SortingState } from "@tanstack/react-table";
+import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
 import {
 	Alert,
 	AlertIcon,
@@ -615,10 +617,12 @@ export const RecentActionsPage: FC = () => {
 		setRecentActionsPerPageLimitSize(String(next));
 		resetPagination();
 	};
+	const [recentSorting, setRecentSorting] = useState<SortingState>([]);
 	const columns = useMemo<DataTableColumn<RecentAction>[]>(
 		() => [
 			{
 				id: "action",
+				sortValue: (action) => action.action_type ?? "",
 				header: t("recentActions.columns.action"),
 				isPrimary: true,
 				priority: "primary",
@@ -649,6 +653,7 @@ export const RecentActionsPage: FC = () => {
 			},
 			{
 				id: "resource",
+				sortValue: (action) => action.resource_key ?? "",
 				header: t("recentActions.columns.resource"),
 				priority: "high",
 				minWidth: "180px",
@@ -673,6 +678,7 @@ export const RecentActionsPage: FC = () => {
 			},
 			{
 				id: "preview",
+				sortValue: (action) => action.preview ?? "",
 				header: t("recentActions.columns.preview"),
 				priority: "high",
 				minWidth: "220px",
@@ -681,6 +687,7 @@ export const RecentActionsPage: FC = () => {
 			},
 			{
 				id: "status",
+				sortValue: (action) => action.rollback_status ?? "",
 				header: t("recentActions.columns.status"),
 				priority: "medium",
 				minWidth: "140px",
@@ -692,6 +699,7 @@ export const RecentActionsPage: FC = () => {
 			},
 			{
 				id: "actor",
+				sortValue: (action) => action.actor_username ?? "",
 				header: t("recentActions.columns.actor"),
 				priority: "medium",
 				minWidth: "140px",
@@ -987,6 +995,11 @@ export const RecentActionsPage: FC = () => {
 						aria-label={t("recentActions.filters.action")}
 						w={{ base: "full", xl: "240px" }}
 					/>
+					<DataTableSortMenu
+						options={buildSortOptions(columns, actions)}
+						sorting={recentSorting}
+						onSortingChange={setRecentSorting}
+					/>
 					<Select
 						mode="multiple"
 						size="sm"
@@ -1043,6 +1056,9 @@ export const RecentActionsPage: FC = () => {
 				ariaLabel={t("recentActions.title")}
 				data={actions}
 				columns={columns}
+				sorting={recentSorting}
+				onSortingChange={setRecentSorting}
+				showSortMenu={false}
 				getRowId={(action) => String(action.id)}
 				isLoading={actionsQuery.isLoading}
 				loadingRows={8}

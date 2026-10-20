@@ -105,6 +105,10 @@ const adminPermissionsSchema: z.ZodType<AdminPermissions> = z.object({
 		set_flow: z.boolean(),
 		allow_custom_key: z.boolean(),
 		max_data_limit_per_user: z.number().nullable(),
+		manage_speed_limit: z.boolean(),
+		manage_ip_limit: z.boolean(),
+		max_speed_limit_per_user: z.number().nullable(),
+		max_ip_limit_per_user: z.number().nullable(),
 	}),
 	admin_management: z.object({
 		can_view: z.boolean(),
@@ -138,6 +142,7 @@ const adminPermissionsSchema: z.ZodType<AdminPermissions> = z.object({
 		backups: z.boolean(),
 		maintenance: z.boolean(),
 		phpmyadmin: z.boolean(),
+		notes: z.boolean(),
 	}),
 });
 
@@ -154,6 +159,8 @@ type AdminFormValues = {
 	delete_user_usage_limit?: string;
 	permissions: AdminPermissions;
 	maxDataLimitPerUserGb?: string;
+	maxSpeedLimitPerUserMbps?: string;
+	maxIPLimitPerUser?: string;
 	data_limit?: string;
 	users_limit?: string;
 	services?: number[];
@@ -294,6 +301,16 @@ export const AdminDialog: FC = () => {
 						(value) => value === undefined || /^\d+$/.test(value),
 						t("admins.validation.usersLimitNumeric"),
 					),
+				maxSpeedLimitPerUserMbps: z
+					.string()
+					.trim()
+					.optional()
+					.transform((value) => (value === "" ? undefined : value)),
+				maxIPLimitPerUser: z
+					.string()
+					.trim()
+					.optional()
+					.transform((value) => (value === "" ? undefined : value)),
 				maxDataLimitPerUserGb: z
 					.string()
 					.trim()
@@ -330,6 +347,8 @@ export const AdminDialog: FC = () => {
 			delete_user_usage_limit: "",
 			permissions: clonePermissions(AdminRole.Standard),
 			maxDataLimitPerUserGb: "",
+			maxSpeedLimitPerUserMbps: "",
+			maxIPLimitPerUser: "",
 			data_limit: "",
 			users_limit: "",
 			services: [],
@@ -487,6 +506,8 @@ export const AdminDialog: FC = () => {
 		parsedGlobalDataLimit > 0;
 	const usersLimitValue = watch("users_limit") ?? "";
 	const maxDataLimitValue = watch("maxDataLimitPerUserGb") ?? "";
+	const maxSpeedLimitValue = watch("maxSpeedLimitPerUserMbps") ?? "";
+	const maxIPLimitValue = watch("maxIPLimitPerUser") ?? "";
 	const isFullAccessRole = watchRole === AdminRole.FullAccess;
 	const isCreatedTrafficMode =
 		watchTrafficLimitMode === AdminTrafficLimitMode.CreatedTraffic;
@@ -534,6 +555,8 @@ export const AdminDialog: FC = () => {
 		const role = watchRole ?? AdminRole.Standard;
 		setValue("permissions", clonePermissions(role), { shouldDirty: true });
 		setValue("maxDataLimitPerUserGb", "", { shouldDirty: true });
+		setValue("maxSpeedLimitPerUserMbps", "", { shouldDirty: true });
+		setValue("maxIPLimitPerUser", "", { shouldDirty: true });
 	}, [setValue, watchRole]);
 
 	const handlePermissionsChange = useCallback(
@@ -560,6 +583,20 @@ export const AdminDialog: FC = () => {
 		[permissionsValue, setValue],
 	);
 
+	const handleMaxSpeedLimitChange = useCallback(
+		(value: string) => {
+			setValue("maxSpeedLimitPerUserMbps", value, { shouldDirty: true });
+		},
+		[setValue],
+	);
+
+	const handleMaxIPLimitChange = useCallback(
+		(value: string) => {
+			setValue("maxIPLimitPerUser", value, { shouldDirty: true });
+		},
+		[setValue],
+	);
+
 	const handleMaxDataLimitChange = useCallback(
 		(value: string) => {
 			setValue("maxDataLimitPerUserGb", value, { shouldDirty: true });
@@ -569,6 +606,8 @@ export const AdminDialog: FC = () => {
 
 	useEffect(() => {
 		register("maxDataLimitPerUserGb");
+		register("maxSpeedLimitPerUserMbps");
+		register("maxIPLimitPerUser");
 		register("permissions");
 		register("services");
 		register("service_limits");
@@ -633,6 +672,12 @@ export const AdminDialog: FC = () => {
 						? String(Math.floor(admin.delete_user_usage_limit / MB_IN_BYTES))
 						: "",
 				permissions: nextPermissions,
+				maxSpeedLimitPerUserMbps: nextPermissions.users.max_speed_limit_per_user
+					? String(nextPermissions.users.max_speed_limit_per_user / 1000)
+					: "",
+				maxIPLimitPerUser: nextPermissions.users.max_ip_limit_per_user
+					? String(nextPermissions.users.max_ip_limit_per_user)
+					: "",
 				maxDataLimitPerUserGb: formatBytesToGbString(
 					nextPermissions.users.max_data_limit_per_user,
 				),
@@ -754,6 +799,38 @@ export const AdminDialog: FC = () => {
 				} else {
 					computedPermissions.users.max_data_limit_per_user = null;
 				}
+				const speedInput = values.maxSpeedLimitPerUserMbps?.trim();
+				if (speedInput) {
+					const parsedSpeed = Number(speedInput);
+					if (Number.isNaN(parsedSpeed) || parsedSpeed < 0) {
+						setError("maxSpeedLimitPerUserMbps", {
+							type: "manual",
+							message: t("admins.validation.invalidMaxSpeedLimit"),
+						});
+						showSubmitError();
+						throw new Error("invalid_max_speed_limit");
+					}
+					computedPermissions.users.max_speed_limit_per_user =
+						parsedSpeed === 0 ? null : Math.round(parsedSpeed * 1000);
+				} else {
+					computedPermissions.users.max_speed_limit_per_user = null;
+				}
+				const ipInput = values.maxIPLimitPerUser?.trim();
+				if (ipInput) {
+					const parsedIP = Number(ipInput);
+					if (Number.isNaN(parsedIP) || parsedIP < 0) {
+						setError("maxIPLimitPerUser", {
+							type: "manual",
+							message: t("admins.validation.invalidMaxIPLimit"),
+						});
+						showSubmitError();
+						throw new Error("invalid_max_ip_limit");
+					}
+					computedPermissions.users.max_ip_limit_per_user =
+						parsedIP === 0 ? null : Math.floor(parsedIP);
+				} else {
+					computedPermissions.users.max_ip_limit_per_user = null;
+				}
 				return computedPermissions;
 			};
 
@@ -761,7 +838,13 @@ export const AdminDialog: FC = () => {
 				try {
 					permissionPayload = buildPermissionsPayload();
 				} catch (error) {
-					if ((error as Error).message === "invalid_max_data_limit") {
+					if (
+						[
+							"invalid_max_data_limit",
+							"invalid_max_speed_limit",
+							"invalid_max_ip_limit",
+						].includes((error as Error).message)
+					) {
 						return;
 					}
 					throw error;
@@ -1647,6 +1730,16 @@ export const AdminDialog: FC = () => {
 				onMaxDataLimitChange={handleMaxDataLimitChange}
 				maxDataLimitError={
 					errors.maxDataLimitPerUserGb?.message as string | undefined
+				}
+				maxSpeedLimitValue={maxSpeedLimitValue}
+				onMaxSpeedLimitChange={handleMaxSpeedLimitChange}
+				maxSpeedLimitError={
+					errors.maxSpeedLimitPerUserMbps?.message as string | undefined
+				}
+				maxIPLimitValue={maxIPLimitValue}
+				onMaxIPLimitChange={handleMaxIPLimitChange}
+				maxIPLimitError={
+					errors.maxIPLimitPerUser?.message as string | undefined
 				}
 				hideExtendedSections={watchRole === AdminRole.Standard}
 				isReadOnly={watchRole === AdminRole.FullAccess}

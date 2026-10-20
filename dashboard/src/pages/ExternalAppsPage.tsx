@@ -378,6 +378,7 @@ export const ExternalAppsPage = () => {
 		() => [
 			{
 				id: "name",
+				sortValue: (app) => app.name ?? "",
 				header: t("externalApps.name"),
 				isPrimary: true,
 				priority: "primary",
@@ -401,6 +402,7 @@ export const ExternalAppsPage = () => {
 			},
 			{
 				id: "url",
+				sortValue: (app) => app.domain ?? "",
 				header: t("externalApps.domainCertificate"),
 				priority: "high",
 				mobilePriority: 1,
@@ -414,6 +416,7 @@ export const ExternalAppsPage = () => {
 			},
 			{
 				id: "runtime",
+				sortValue: (app) => app.runtime ?? "",
 				header: t("externalApps.runtime"),
 				priority: "medium",
 				mobilePriority: 2,
@@ -438,6 +441,7 @@ export const ExternalAppsPage = () => {
 			},
 			{
 				id: "status",
+				sortValue: (app) => (app.enabled ? 1 : 0),
 				header: t("status"),
 				priority: "high",
 				mobilePriority: 3,
@@ -452,6 +456,7 @@ export const ExternalAppsPage = () => {
 			},
 			{
 				id: "installed_at",
+				sortValue: (app) => Date.parse(app.installed_at ?? "") || 0,
 				header: t("externalApps.installedAt"),
 				priority: "low",
 				hideBelow: "xl",

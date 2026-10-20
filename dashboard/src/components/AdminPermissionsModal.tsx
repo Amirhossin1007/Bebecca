@@ -38,6 +38,8 @@ export const AdminPermissionsModal = ({
 		admin?.permissions ?? DEFAULT_ADMIN_PERMISSIONS,
 	);
 	const [maxDataLimitValue, setMaxDataLimitValue] = useState<string>("");
+	const [maxSpeedLimitValue, setMaxSpeedLimitValue] = useState<string>("");
+	const [maxIPLimitValue, setMaxIPLimitValue] = useState<string>("");
 	const [saving, setSaving] = useState(false);
 	const [require2FA, setRequire2FA] = useState(false);
 	const isFullAccess = admin?.role === AdminRole.FullAccess;
@@ -48,6 +50,16 @@ export const AdminPermissionsModal = ({
 	useEffect(() => {
 		if (admin) {
 			setRequire2FA(Boolean(admin.require_2fa));
+			setMaxSpeedLimitValue(
+				admin.permissions.users.max_speed_limit_per_user
+					? String(admin.permissions.users.max_speed_limit_per_user / 1000)
+					: "",
+			);
+			setMaxIPLimitValue(
+				admin.permissions.users.max_ip_limit_per_user
+					? String(admin.permissions.users.max_ip_limit_per_user)
+					: "",
+			);
 			setPermissionsDraft(admin.permissions ?? DEFAULT_ADMIN_PERMISSIONS);
 			setMaxDataLimitValue(
 				admin.permissions.users.max_data_limit_per_user
@@ -142,6 +154,36 @@ export const AdminPermissionsModal = ({
 										!value || Number.isNaN(parsed)
 											? null
 											: Math.max(0, parsed) * 1024 * 1024 * 1024,
+								},
+							}));
+						}}
+						maxSpeedLimitValue={maxSpeedLimitValue}
+						onMaxSpeedLimitChange={(value) => {
+							setMaxSpeedLimitValue(value);
+							const parsed = Number(value);
+							setPermissionsDraft((prev) => ({
+								...prev,
+								users: {
+									...prev.users,
+									max_speed_limit_per_user:
+										!value || Number.isNaN(parsed)
+											? null
+											: Math.max(0, Math.round(parsed * 1000)),
+								},
+							}));
+						}}
+						maxIPLimitValue={maxIPLimitValue}
+						onMaxIPLimitChange={(value) => {
+							setMaxIPLimitValue(value);
+							const parsed = Number(value);
+							setPermissionsDraft((prev) => ({
+								...prev,
+								users: {
+									...prev.users,
+									max_ip_limit_per_user:
+										!value || Number.isNaN(parsed)
+											? null
+											: Math.max(0, Math.floor(parsed)),
 								},
 							}));
 						}}

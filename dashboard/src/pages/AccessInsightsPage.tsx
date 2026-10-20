@@ -1,3 +1,5 @@
+import type { SortingState } from "@tanstack/react-table";
+import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
 import {
 	Alert,
 	AlertIcon,
@@ -208,6 +210,7 @@ const AccessInsightsPage: FC = () => {
 		setPage((current) => Math.min(current, totalPages - 1));
 	}, [totalPages]);
 
+	const [accessSorting, setAccessSorting] = useState<SortingState>([]);
 	const columns = useMemo<DataTableColumn<AccessInsightClient>[]>(
 		() => [
 			{
@@ -486,6 +489,11 @@ const AccessInsightsPage: FC = () => {
 								setPage(0);
 							}}
 						/>
+						<DataTableSortMenu
+							options={buildSortOptions(columns, visibleItems)}
+							sorting={accessSorting}
+							onSortingChange={setAccessSorting}
+						/>
 						<Select
 							value={protocolFilter}
 							onChange={(event) => {
@@ -525,6 +533,9 @@ const AccessInsightsPage: FC = () => {
 					ariaLabel={t("pages.accessInsights.onlineSessions")}
 					data={visibleItems}
 					columns={columns}
+					sorting={accessSorting}
+					onSortingChange={setAccessSorting}
+					showSortMenu={false}
 					getRowId={(client) => client.user_key}
 					isLoading={loading}
 					loadingRows={8}

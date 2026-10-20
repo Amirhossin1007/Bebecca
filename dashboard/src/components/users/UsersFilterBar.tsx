@@ -25,11 +25,13 @@ import {
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
+import { DataTableSortMenu, type SortOption } from "components/ui/DataTableSortMenu";
 import { ADVANCED_FILTER_OPTIONS } from "components/Filters";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { useServicesStore } from "contexts/ServicesContext";
 import useGetUser from "hooks/useGetUser";
+import type { SortingState } from "@tanstack/react-table";
 import debounce from "lodash.debounce";
 import type React from "react";
 import { type FC, useEffect, useMemo, useState } from "react";
@@ -78,6 +80,33 @@ export const UsersFilterBar: FC = () => {
 		canCreateUsers && !isCurrentAdminDisabled && !userManagementLocked;
 	const canViewTraffic = canViewUserTraffic(userData);
 
+	const userSortOptions = useMemo<SortOption[]>(
+		() => [
+			{ id: "username", label: t("username"), type: "text" },
+			{ id: "id", label: t("usersTable.userId"), type: "number" },
+			{ id: "status", label: t("usersTable.status"), type: "text" },
+			{ id: "service", label: t("usersTable.service"), type: "text" },
+			{ id: "admin", label: t("usersTable.admin"), type: "text" },
+			{ id: "used_traffic", label: t("usersTable.traffic"), type: "number" },
+			{ id: "remaining_traffic", label: t("usersTable.remainingTraffic"), type: "number" },
+			{ id: "lifetime_used_traffic", label: t("usersTable.lifetimeUsage"), type: "number" },
+			{ id: "expire", label: t("usersTable.expire"), type: "date" },
+			{ id: "online", label: t("usersTable.online"), type: "date" },
+			{ id: "last_connection", label: t("bulkActions.delete.lastOnline"), type: "date" },
+		],
+		[t],
+	);
+	const userSortKey = (filters.sort ?? "").replace(/^-/, "");
+	const userSorting: SortingState = userSortOptions.some((option) => option.id === userSortKey)
+		? [{ id: userSortKey, desc: (filters.sort ?? "").startsWith("-") }]
+		: [];
+	const handleUserSortChange = (next: SortingState) => {
+		const item = next[0];
+		onFilterChange({
+			sort: item ? `${item.desc ? "-" : ""}${item.id}` : "-created_at",
+			offset: 0,
+		});
+	};
 	const activeFilters = filters.advancedFilters ?? [];
 	const serviceId = filters.serviceId;
 	const ownerFilter = filters.owner;
@@ -237,6 +266,12 @@ export const UsersFilterBar: FC = () => {
 						</Box>
 					</Tooltip>
 				}
+			/>
+
+			<DataTableSortMenu
+				options={userSortOptions}
+				sorting={userSorting}
+				onSortingChange={handleUserSortChange}
 			/>
 
 			<Popover placement="bottom-end">

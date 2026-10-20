@@ -30,9 +30,11 @@ import {
 	PlusIcon,
 	QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
+import type { SortingState } from "@tanstack/react-table";
 import classNames from "classnames";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
+import { DataTableSortMenu, type SortOption } from "components/ui/DataTableSortMenu";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { useServicesStore } from "contexts/ServicesContext";
@@ -192,6 +194,37 @@ export const Filters: FC<FilterProps> = ({
 	const activeFilters: string[] = userFiltersOnly?.advancedFilters ?? [];
 	const serviceId = userFiltersOnly?.serviceId;
 	const ownerFilter = userFiltersOnly?.owner;
+	const adminActiveFilterCount =
+		(adminFilters.roleFilter ? 1 : 0) + (adminFilters.statusFilter ? 1 : 0);
+	const adminSortOptions = useMemo<SortOption[]>(
+		() => [
+			{ id: "username", label: t("username"), type: "text" },
+			{ id: "status", label: t("status"), type: "text" },
+			{ id: "role", label: t("core.role"), type: "text" },
+			{ id: "users_count", label: t("admins.details.activeLabel"), type: "number" },
+			{ id: "online", label: t("admins.details.onlineLabel"), type: "number" },
+			{ id: "services", label: t("services.title"), type: "number" },
+			{ id: "data_usage", label: t("usersTable.traffic"), type: "number" },
+			{ id: "remaining_traffic", label: t("usersTable.remainingTraffic"), type: "number" },
+			{ id: "expire", label: t("expire"), type: "date" },
+		],
+		[t],
+	);
+	const adminSorting: SortingState = adminFilters.sort
+		? [
+				{
+					id: adminFilters.sort.replace(/^-/, ""),
+					desc: adminFilters.sort.startsWith("-"),
+				},
+			]
+		: [];
+	const handleAdminSortChange = (next: SortingState) => {
+		const item = next[0];
+		onAdminFilterChange({
+			sort: item ? `${item.desc ? "-" : ""}${item.id}` : "username",
+			offset: 0,
+		});
+	};
 	const rawServiceOptions = useServicesStore((state) => state.serviceOptions);
 	const fetchServiceOptions = useServicesStore(
 		(state) => state.fetchServiceOptions,
@@ -388,6 +421,92 @@ export const Filters: FC<FilterProps> = ({
 							isLoading={loading}
 							onClear={clear}
 							/>
+						{!isUserFilters && (
+							<Popover placement="bottom-start">
+								<PopoverTrigger>
+									<Button
+										leftIcon={<FilterIcon />}
+										size={isMobile ? "sm" : "md"}
+										variant="outline"
+										minW={isMobile ? "auto" : "8rem"}
+										h={isMobile ? "36px" : undefined}
+										fontSize={isMobile ? "xs" : "sm"}
+										flex={{ base: "1 1 auto", sm: "0 1 auto" }}
+									>
+										{t("admins.filters.title")}
+										{adminActiveFilterCount > 0 ? ` (${adminActiveFilterCount})` : ""}
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent borderColor="light-border" minW="250px">
+									<PopoverArrow />
+									<PopoverCloseButton />
+									<PopoverHeader fontWeight="semibold">
+										{t("admins.filters.title")}
+									</PopoverHeader>
+									<PopoverBody>
+										<Stack spacing={3}>
+											<Box>
+												<Text fontSize="sm" fontWeight="semibold" mb={1}>
+													{t("admins.filters.role")}
+												</Text>
+												<Select
+													value={adminFilters.roleFilter}
+													onChange={(event) =>
+														onAdminFilterChange({ roleFilter: event.target.value, offset: 0 })
+													}
+													portalled={false}
+													size="sm"
+												>
+													<option value="">{t("admins.filters.all")}</option>
+													<option value="full_access">{t("admins.filters.roleFullAccess")}</option>
+													<option value="sudo">{t("admins.filters.roleSudo")}</option>
+													<option value="reseller">{t("admins.filters.roleReseller")}</option>
+													<option value="standard">{t("admins.filters.roleStandard")}</option>
+												</Select>
+											</Box>
+											<Box>
+												<Text fontSize="sm" fontWeight="semibold" mb={1}>
+													{t("admins.filters.status")}
+												</Text>
+												<Select
+													value={adminFilters.statusFilter}
+													onChange={(event) =>
+														onAdminFilterChange({ statusFilter: event.target.value, offset: 0 })
+													}
+													portalled={false}
+													size="sm"
+												>
+													<option value="">{t("admins.filters.all")}</option>
+													<option value="active">{t("admins.filters.statusActive")}</option>
+													<option value="disabled">{t("admins.filters.statusDisabled")}</option>
+													<option value="expired">{t("admins.filters.statusExpired")}</option>
+													<option value="limited">{t("admins.filters.statusLimited")}</option>
+												</Select>
+											</Box>
+										</Stack>
+										<Button
+											variant="ghost"
+											size="sm"
+											mt={3}
+											w="full"
+											onClick={() =>
+												onAdminFilterChange({ roleFilter: "", statusFilter: "", offset: 0 })
+											}
+											isDisabled={adminActiveFilterCount === 0}
+										>
+											{t("admins.filters.clear")}
+										</Button>
+									</PopoverBody>
+								</PopoverContent>
+							</Popover>
+						)}
+						{!isUserFilters && (
+							<DataTableSortMenu
+								options={adminSortOptions}
+								sorting={adminSorting}
+								onSortingChange={handleAdminSortChange}
+							/>
+						)}
 						{showAdvancedFilters && (
 							<Popover placement="bottom-start">
 								<PopoverTrigger>

@@ -33,7 +33,7 @@ export const EntityNotePanel: FC<{
 	const queryClient = useQueryClient();
 	const { userData } = useGetUser();
 	const canView =
-		userData?.role === AdminRole.Sudo ||
+		(userData?.role === AdminRole.Sudo && Boolean(userData?.permissions?.sudo?.notes)) ||
 		userData?.role === AdminRole.FullAccess;
 	const key = String(entityKey);
 	const path = `/notes/${entityType}/${encodeURIComponent(key)}`;

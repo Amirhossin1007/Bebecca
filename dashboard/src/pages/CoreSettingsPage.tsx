@@ -3803,6 +3803,7 @@ export const CoreSettingsPage: FC = () => {
 	const routingRuleColumns: DataTableColumn<RoutingRuleDisplayRow>[] = [
 		{
 			id: "rule",
+			sortValue: ({ originalIndex }) => originalIndex,
 			header: t("pages.xray.Routings"),
 			isPrimary: true,
 			priority: "primary",
@@ -3839,6 +3840,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "source",
+			sortValue: ({ rule }) => String(rule.source ?? ""),
 			header: t("pages.xray.rules.sourceGroup"),
 			priority: "medium",
 			hideBelow: "xl",
@@ -3852,6 +3854,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "network",
+			sortValue: ({ rule }) => String(rule.network ?? ""),
 			header: t("pages.xray.rules.networkGroup"),
 			priority: "high",
 			cell: ({ rule }) => (
@@ -3865,6 +3868,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "destination",
+			sortValue: ({ rule }) => String(rule.domain ?? rule.ip ?? ""),
 			header: t("pages.xray.rules.destinationGroup"),
 			priority: "high",
 			minSize: "180px",
@@ -3879,6 +3883,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "inbound",
+			sortValue: ({ rule }) => String(rule.inboundTag ?? ""),
 			header: t("inbound"),
 			priority: "medium",
 			hideBelow: "lg",
@@ -3892,6 +3897,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "target",
+			sortValue: ({ rule }) => String(rule.outboundTag ?? rule.balancerTag ?? ""),
 			header: t("pages.xray.rules.outbound"),
 			priority: "high",
 			mobileSummary: true,
@@ -3957,6 +3963,7 @@ export const CoreSettingsPage: FC = () => {
 	const outboundColumns: DataTableColumn<OutboundDisplayRow>[] = [
 		{
 			id: "tag",
+			sortValue: ({ outbound }) => outbound.tag ?? "",
 			header: t("pages.xray.outbound.tag"),
 			isPrimary: true,
 			priority: "primary",
@@ -3982,6 +3989,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "address",
+			sortValue: ({ outbound }) => findOutboundAddress(outbound).join(", "),
 			header: t("pages.xray.outbound.address"),
 			priority: "high",
 			minSize: "190px",
@@ -3990,6 +3998,10 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "traffic",
+			sortValue: ({ outbound, originalIndex }) => {
+				const traffic = findOutboundTraffic(outbound, originalIndex);
+				return (traffic?.up ?? 0) + (traffic?.down ?? 0);
+			},
 			header: t("pages.inbounds.traffic"),
 			priority: "high",
 			mobileSummary: true,
@@ -3998,6 +4010,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "latency",
+			sortValue: ({ originalIndex }) => outboundTestStates[originalIndex]?.result?.delay ?? Number.POSITIVE_INFINITY,
 			header: t("pages.xray.outbound.testTypeLatency"),
 			priority: "high",
 			cell: ({ originalIndex }) =>
@@ -4120,6 +4133,7 @@ export const CoreSettingsPage: FC = () => {
 		[
 			{
 				id: "tag",
+				sortValue: ({ outbound }) => outbound.tag ?? "",
 				header: t("pages.xray.outbound.tag"),
 				isPrimary: true,
 				priority: "primary",
@@ -4136,6 +4150,7 @@ export const CoreSettingsPage: FC = () => {
 			},
 			{
 				id: "protocol",
+				sortValue: ({ outbound }) => outbound.protocol ?? "",
 				header: t("protocol"),
 				priority: "high",
 				cell: ({ outbound }) => renderOutboundBadges(outbound),
@@ -4143,6 +4158,7 @@ export const CoreSettingsPage: FC = () => {
 			},
 			{
 				id: "address",
+				sortValue: ({ outbound }) => findOutboundAddress(outbound).join(", "),
 				header: t("pages.xray.outbound.address"),
 				priority: "medium",
 				hideBelow: "lg",
@@ -4152,6 +4168,10 @@ export const CoreSettingsPage: FC = () => {
 			},
 			{
 				id: "traffic",
+				sortValue: ({ outbound }) => {
+					const traffic = findSubscriptionOutboundTraffic(outbound);
+					return (traffic?.up ?? 0) + (traffic?.down ?? 0);
+				},
 				header: t("pages.inbounds.traffic"),
 				priority: "high",
 				mobileSummary: true,
@@ -4160,6 +4180,7 @@ export const CoreSettingsPage: FC = () => {
 			},
 			{
 				id: "latency",
+				sortValue: ({ stateKey }) => subscriptionOutboundTestStates[stateKey]?.result?.delay ?? Number.POSITIVE_INFINITY,
 				header: t("pages.xray.outbound.testTypeLatency"),
 				priority: "high",
 				cell: ({ stateKey }) =>
@@ -4184,6 +4205,7 @@ export const CoreSettingsPage: FC = () => {
 	const reverseColumns: DataTableColumn<ReverseRow>[] = [
 		{
 			id: "type",
+			sortValue: (reverse) => reverse.type ?? "",
 			header: t("pages.xray.reverse.type"),
 			isPrimary: true,
 			priority: "primary",
@@ -4200,6 +4222,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "tag",
+			sortValue: (reverse) => reverse.tag ?? "",
 			header: t("pages.xray.reverse.tag"),
 			priority: "high",
 			cell: (reverse) => renderTextValue(reverse.tag),
@@ -4207,12 +4230,14 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "connection",
+			sortValue: (reverse) => reverse.connectionTag ?? "",
 			header: t("pages.xray.reverse.connection"),
 			priority: "high",
 			cell: (reverse) => renderTextValue(reverse.connectionTag),
 		},
 		{
 			id: "target",
+			sortValue: (reverse) => (reverse.type === "internal" ? reverse.targetTag ?? "" : String(reverse.inboundTags ?? "")),
 			header: t("pages.xray.reverse.target"),
 			priority: "medium",
 			hideBelow: "lg",
@@ -4244,6 +4269,7 @@ export const CoreSettingsPage: FC = () => {
 	const balancerColumns: DataTableColumn<BalancerRow>[] = [
 		{
 			id: "tag",
+			sortValue: (balancer) => balancer.tag ?? "",
 			header: t("pages.xray.balancer.tag"),
 			isPrimary: true,
 			priority: "primary",
@@ -4251,6 +4277,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "strategy",
+			sortValue: (balancer) => balancer.strategy ?? "",
 			header: t("pages.xray.balancer.balancerStrategy"),
 			priority: "high",
 			mobileSummary: true,
@@ -4271,6 +4298,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "selector",
+			sortValue: (balancer) => String(balancer.selector ?? ""),
 			header: t("pages.xray.balancer.balancerSelectors"),
 			priority: "high",
 			cell: (balancer) => renderChipList(balancer.selector, "blue"),
@@ -4302,6 +4330,7 @@ export const CoreSettingsPage: FC = () => {
 	const dnsColumns: DataTableColumn<DnsDisplayRow>[] = [
 		{
 			id: "address",
+			sortValue: ({ dns }) => String(typeof dns === "object" ? dns.address : dns),
 			header: t("pages.xray.outbound.address"),
 			isPrimary: true,
 			priority: "primary",
@@ -4310,6 +4339,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "domains",
+			sortValue: ({ dns }) => (typeof dns === "object" ? String(dns.domains ?? "") : ""),
 			header: t("pages.xray.dns.domains"),
 			priority: "high",
 			cell: ({ dns }) =>
@@ -4318,6 +4348,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "expectIPs",
+			sortValue: ({ dns }) => (typeof dns === "object" ? String(dns.expectIPs ?? "") : ""),
 			header: t("pages.xray.dns.expectIPs"),
 			priority: "medium",
 			hideBelow: "lg",
@@ -4350,6 +4381,7 @@ export const CoreSettingsPage: FC = () => {
 	const fakeDnsColumns: DataTableColumn<FakeDnsDisplayRow>[] = [
 		{
 			id: "ipPool",
+			sortValue: ({ fake }) => String(fake.ipPool ?? ""),
 			header: t("pages.xray.fakedns.ipPool"),
 			isPrimary: true,
 			priority: "primary",
@@ -4357,6 +4389,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "poolSize",
+			sortValue: ({ fake }) => Number(fake.poolSize) || 0,
 			header: t("pages.xray.fakedns.poolSize"),
 			priority: "high",
 			mobileSummary: true,
