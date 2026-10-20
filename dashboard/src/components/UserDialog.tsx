@@ -1611,6 +1611,24 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			}
 		}
 
+		const minDataLimitPerUser =
+			userData?.permissions?.users?.min_data_limit_per_user;
+		const dataLimitUnchanged =
+			isEditing && (editingUser?.data_limit ?? 0) === dataLimitBytes;
+		if (
+			minDataLimitPerUser &&
+			dataLimitBytes > 0 &&
+			dataLimitBytes < minDataLimitPerUser &&
+			!dataLimitUnchanged
+		) {
+			setDataLimitError(
+				t("userDialog.dataLimitBelowMin", {
+					min: (minDataLimitPerUser / BYTES_PER_GB).toFixed(2),
+				}),
+			);
+			return;
+		}
+
 		// Validate next_plan data_limit (don't auto-normalize, show error instead)
 		const normalizedNextPlanDataLimit =
 			next_plan_enabled && next_plan_data_limit && next_plan_data_limit > 0
@@ -1640,6 +1658,23 @@ export const UserDialog: FC<UserDialogProps> = () => {
 				});
 				return;
 			}
+		}
+		if (
+			minDataLimitPerUser &&
+			normalizedNextPlanDataLimit > 0 &&
+			normalizedNextPlanDataLimit < minDataLimitPerUser
+		) {
+			const errorMessage = t("userDialog.nextPlanDataLimitBelowMin", {
+				min: (minDataLimitPerUser / BYTES_PER_GB).toFixed(2),
+			});
+			setError(errorMessage);
+			setLoading(false);
+			showSubmitError();
+			form.setError("next_plan_data_limit", {
+				type: "manual",
+				message: errorMessage,
+			});
+			return;
 		}
 		// If unlimited (0) is requested but not allowed, show error
 		if (

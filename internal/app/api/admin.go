@@ -1018,6 +1018,9 @@ func validateAdminPermissions(perms adminapp.AdminPermissions) error {
 	if perms.Users.AllowUnlimitedData && perms.Users.MaxDataLimitPerUser != nil {
 		return errors.New("Cannot set max_data_limit_per_user when allow_unlimited_data is enabled. Disable unlimited data first to set a maximum limit.")
 	}
+	if perms.Users.MinDataLimitPerUser != nil && perms.Users.MaxDataLimitPerUser != nil && *perms.Users.MinDataLimitPerUser > *perms.Users.MaxDataLimitPerUser {
+		return errors.New("min_data_limit_per_user cannot be greater than max_data_limit_per_user.")
+	}
 	return nil
 }
 

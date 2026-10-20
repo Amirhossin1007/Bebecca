@@ -73,6 +73,7 @@ export enum AdminSudoScope {
 
 export type UserPermissionSettings = Record<UserPermissionToggle, boolean> & {
 	max_data_limit_per_user: number | null;
+	min_data_limit_per_user: number | null;
 	max_speed_limit_per_user: number | null;
 	max_ip_limit_per_user: number | null;
 };
