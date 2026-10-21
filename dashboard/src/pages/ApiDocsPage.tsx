@@ -47,7 +47,7 @@ export const ApiDocsPage = () => {
 				<p className={cn(mutedColor)}>
 					{t("apiDocs.disabledDescription")}
 				</p>
-				<a href="/docs/" className={buttonVariants({ variant: "outline", size: "md" })}>
+				<a href="/docs/" className={buttonVariants({ variant: "outline" })}>
 					{t("apiDocs.openRoute")}
 				</a>
 			</div>

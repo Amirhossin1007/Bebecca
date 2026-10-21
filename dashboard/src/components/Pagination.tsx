@@ -1,3 +1,4 @@
+import { Button as KitButton } from "components/ui/button";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
 import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
 import { Button, ButtonGroup } from "components/shadcn/button";
@@ -187,32 +188,46 @@ export const Pagination: FC<PaginationProps> = ({
 			</div>
 
 			{noPages > 1 && (
-				<ButtonGroup size="sm" isAttached variant="outline" className="order-1 md:order-2 w-full md:w-auto max-w-full">
-					<Button variant="solid" size="md" onClick={() => changePage(page - 1)} disabled={!canPrev} className="flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">{isRTL ? <NextIcon /> : <PrevIcon />}
+				/* Pagination controls: the panel's own button row (Previous, numbered
+				   pages, Next), separated by the attached group's seams. */
+				<div className="order-1 md:order-2 w-full md:w-auto max-w-full inline-flex items-center gap-1">
+					<KitButton variant="outline" size="sm" onClick={() => changePage(page - 1)} disabled={!canPrev} className="rounded-md flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">
+						{isRTL ? <NextIcon /> : <PrevIcon />}
 						{t("previous")}
-					</Button>
+					</KitButton>
 
 					{isCompactPagination ? (
-						<Button variant="solid" size="md" disabled className="flex-[0_0_auto] md:flex-[0_0_auto] px-3 md:px-3">
+						<KitButton variant="outline" size="sm" disabled className="rounded-md flex-[0_0_auto] px-3">
 							{page + 1} / {noPages}
-						</Button>
+						</KitButton>
 					) : (
-						pages.map((pageIndex) => {
-							if (typeof pageIndex === "string")
-								return <Button variant="solid" size="md" key={pageIndex}>...</Button>;
-							return (
-								<Button size="md" key={pageIndex} variant={pageIndex === page ? "solid" : "outline"} onClick={() => changePage(pageIndex)}>
+						pages.map((pageIndex) =>
+							typeof pageIndex === "string" ? (
+								<KitButton variant="outline" size="sm" key={pageIndex} className="rounded-md" disabled>
+									…
+								</KitButton>
+							) : (
+								<KitButton
+									size="sm"
+									key={pageIndex}
+									variant={pageIndex === page ? "solid" : "outline"}
+									colorScheme="primary"
+									onClick={() => changePage(pageIndex)}
+									className="rounded-md"
+								>
 									{pageIndex + 1}
-								</Button>
-							);
-						})
+								</KitButton>
+							),
+						)
 					)}
 
-					<Button variant="solid" size="md" onClick={() => changePage(page + 1)} disabled={!canNext} className="flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">
+					<KitButton variant="outline" size="sm" onClick={() => changePage(page + 1)} disabled={!canNext} className="rounded-md flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">
 						{t("next")}
-					{isRTL ? <PrevIcon /> : <NextIcon />}</Button>
-				</ButtonGroup>
+						{isRTL ? <PrevIcon /> : <NextIcon />}
+					</KitButton>
+				</div>
 			)}
+
 		</div>
 	);
 };
