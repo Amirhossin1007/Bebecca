@@ -241,17 +241,17 @@ const Results = ({
 				</div>
 				<div className="flex flex-row items-center gap-2 flex-wrap">
 					{allLinks && (
-						<Button size="xs" variant="outline" onClick={() => void copy(allLinks)}>{<LinkIcon className="w-14" />}
+						<Button size="xs" variant="outline" onClick={() => void copy(allLinks)}>{<LinkIcon className="w-[14px]" />}
 							{t("bulkActions.results.copyAllLinks")}
 						</Button>
 					)}
 					{allConfigs && (
-						<Button size="xs" variant="outline" onClick={() => void copy(allConfigs)}>{<ClipboardIcon className="w-14" />}
+						<Button size="xs" variant="outline" onClick={() => void copy(allConfigs)}>{<ClipboardIcon className="w-[14px]" />}
 							{t("bulkActions.results.copyAllConfigs")}
 						</Button>
 					)}
 					{canDelete && createdNames.length > 0 && (
-						<Button size="xs" variant="outline" colorScheme="red" loading={deleting} onClick={() => setConfirmDelete(true)}>{<TrashIcon className="w-14" />}
+						<Button size="xs" variant="outline" colorScheme="red" loading={deleting} onClick={() => setConfirmDelete(true)}>{<TrashIcon className="w-[14px]" />}
 							{t("bulkActions.results.deleteCreated")}
 						</Button>
 					)}
@@ -270,11 +270,11 @@ const Results = ({
 							<div className="flex flex-row items-center gap-2 min-w-0!">
 								<div className={cn("shrink-0", result.deleted ? "text-panel-text-secondary" : (result.ok ? "text-green-400" : "text-red-400"))}>
 									{result.deleted ? (
-										<TrashIcon className="w-18" />
+										<TrashIcon className="w-[18px]" />
 									) : result.ok ? (
-										<CheckCircleIcon className="w-18" />
+										<CheckCircleIcon className="w-[18px]" />
 									) : (
-										<ExclamationCircleIcon className="w-18" />
+										<ExclamationCircleIcon className="w-[18px]" />
 									)}
 								</div>
 								<code className="truncate rounded-xs px-[0.2em] py-[0.1em] font-mono text-[0.875em] dark:bg-whiteAlpha-200 bg-transparent text-inherit">
@@ -285,19 +285,19 @@ const Results = ({
 								<div className="flex flex-row items-center gap-1">
 									<ResultAction
 										label={t("usersTable.copyLink")}
-										icon={<LinkIcon className="w-18" />}
+										icon={<LinkIcon className="w-[18px]" />}
 										disabled={!result.subscription}
 										onClick={() => void copy(result.subscription ?? "")}
 									/>
 									<ResultAction
 										label={t("usersTable.copyConfigs")}
-										icon={<ClipboardIcon className="w-18" />}
+										icon={<ClipboardIcon className="w-[18px]" />}
 										disabled={!result.links?.length}
 										onClick={() => void copy((result.links ?? []).join("\n"))}
 									/>
 									<ResultAction
 										label={t("usersTable.qrCode")}
-										icon={<QrCodeIcon className="w-18" />}
+										icon={<QrCodeIcon className="w-[18px]" />}
 										onClick={() => {
 											setQRCode(result.links ?? [], result.username);
 											setSubLink(result.subscription || null);
@@ -701,7 +701,7 @@ const BulkCreatePanel = ({
 							</p>
 						)}
 					</div>
-					<Button size="md" colorScheme="primary" onClick={handleCreate} loading={isRunning} disabled={!canSubmit}>{<PlusIcon className="w-18" />}
+					<Button size="md" colorScheme="primary" onClick={handleCreate} loading={isRunning} disabled={!canSubmit}>{<PlusIcon className="w-[18px]" />}
 						{t("bulkActions.create.submit", { count: usernames.length })}
 					</Button>
 				</div>
@@ -918,7 +918,7 @@ const BulkDeletePanel = () => {
 														? t("bulkActions.delete.statusAge")
 														: t("bulkActions.delete.createdBefore")}
 											</p>
-											<Button size="xs" variant="ghost" onClick={() => toggleCondition(condition)}>{<TrashIcon className="w-14" />}
+											<Button size="xs" variant="ghost" onClick={() => toggleCondition(condition)}>{<TrashIcon className="w-[14px]" />}
 												{t("remove")}
 											</Button>
 										</div>
@@ -1027,7 +1027,7 @@ const BulkDeletePanel = () => {
 							previewCount === 0 ||
 							previewCount > MAX_BATCH_SIZE ||
 							!payload
-						} onClick={handleDelete} className="self-start">{<TrashIcon className="w-18" />}
+						} onClick={handleDelete} className="self-start">{<TrashIcon className="w-[18px]" />}
 						{t("bulkActions.delete.submit", { count: previewCount ?? 0 })}
 					</Button>
 				</div>

@@ -292,9 +292,9 @@ export const ExternalAppFilesModal = ({
 				<ModalHeader className="px-3 md:px-6 py-3 md:py-4">
 					<div className="flex items-center gap-3 pe-10 min-w-0!">
 						{isPHPConfigView ? (
-							<CodeBracketIcon className="w-22" />
+							<CodeBracketIcon className="w-[22px]" />
 						) : (
-							<FolderOpenIcon className="w-22" />
+							<FolderOpenIcon className="w-[22px]" />
 						)}
 						<p className="truncate min-w-0!">
 							{t(
@@ -317,7 +317,7 @@ export const ExternalAppFilesModal = ({
 						{!isPHPConfigView ? (
 							<div className={cn("flex-1 min-w-0! min-h-0 lg:flex flex-col", document ? "hidden" : "flex")}>
 								<div className="flex-1 min-h-0 min-w-0! external-app-files-shell">
-									<Button size="sm" variant="ghost" title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} disabled={fileMutation.isLoading} onClick={createFile} className="external-app-files-new-file">{<DocumentPlusIcon className="w-18" />}
+									<Button size="sm" variant="ghost" title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} disabled={fileMutation.isLoading} onClick={createFile} className="external-app-files-new-file">{<DocumentPlusIcon className="w-[18px]" />}
 										<span className="external-app-files-new-file-label">
 											{t("externalApps.files.newFile")}
 										</span>
@@ -385,7 +385,7 @@ export const ExternalAppFilesModal = ({
 							) : null}
 							<div className="flex justify-between items-center gap-2 mb-2 min-h-[32px]">
 								{!isPHPConfigView ? (
-									<Button variant="solid" size="sm" onClick={closeDocument} className="inline-flex lg:hidden">{<ArrowLeftIcon className="w-16" />}
+									<Button variant="solid" size="sm" onClick={closeDocument} className="inline-flex lg:hidden">{<ArrowLeftIcon className="w-[16px]" />}
 										{t("externalApps.files.backToFiles")}
 									</Button>
 								) : null}

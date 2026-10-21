@@ -3670,7 +3670,7 @@ export const CoreSettingsPage: FC = () => {
 				<IconButton aria-label={t("pages.xray.outbound.healthCheck")} size="sm" isRound variant="outline" colorScheme="green" loading={Boolean(state?.testing)} disabled={isMasterTarget} onClick={(event) => {
 						event.stopPropagation();
 						onCheck();
-					}} >{<CheckCircleIcon className="w-18 h-18" />}</IconButton>
+					}} >{<CheckCircleIcon className="w-[18px] h-[18px]" />}</IconButton>
 			</Tooltip>
 		);
 	};
@@ -4920,7 +4920,7 @@ export const CoreSettingsPage: FC = () => {
 										<Button {...compactActionButtonProps} onClick={addOutbound}>{<AddIconStyled />}
 											{t("pages.xray.outbound.addOutbound")}
 										</Button>
-										<Button size="xs" variant="ghost" onClick={onOutboundSubsOpen}>{<CloudArrowUpIcon className="w-14" />}
+										<Button size="xs" variant="ghost" onClick={onOutboundSubsOpen}>{<CloudArrowUpIcon className="w-[14px]" />}
 											{t("pages.xray.outboundSub.title")}
 										</Button>
 										<Menu placement="bottom-end" isLazy>

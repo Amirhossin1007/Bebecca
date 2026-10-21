@@ -313,7 +313,7 @@ const AccessInsightsPage: FC = () => {
 				minWidth: "86px",
 				mobilePriority: 4,
 				cell: (client) => (
-					<Button size="xs" variant="ghost" onClick={() => setSelectedClient(client)}>{<EyeIcon className="w-15" />}
+					<Button size="xs" variant="ghost" onClick={() => setSelectedClient(client)}>{<EyeIcon className="w-[15px]" />}
 						{t("details")}
 					</Button>
 				),
@@ -404,7 +404,7 @@ const AccessInsightsPage: FC = () => {
 							<ResourceRefreshButton
 								aria-label={t("refresh")}
 								label={t("refresh")}
-								icon={<ArrowPathIcon className="w-18" />}
+								icon={<ArrowPathIcon className="w-[18px]" />}
 								onClick={() => void load()}
 								loading={loading}
 							/>

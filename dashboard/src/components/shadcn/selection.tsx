@@ -9,6 +9,8 @@ import {
 	type ComponentPropsWithoutRef,
 	type ReactNode,
 } from "react";
+import { CheckIcon, MinusIcon } from "@heroicons/react/24/outline";
+import type { CSSProperties } from "react";
 import { cn } from "lib/cn";
 
 type Size = "sm" | "md" | "lg";
@@ -17,6 +19,38 @@ const CHECKBOX_SIZE: Record<Size, string> = {
 	sm: "size-3.5",
 	md: "size-4",
 	lg: "size-5",
+};
+
+/** Chakra's checkbox box: 16 / 20 / 24 px. */
+const BOX_SIZE: Record<Size, string> = {
+	sm: "size-4",
+	md: "size-5",
+	lg: "size-6",
+};
+
+const BOX_ICON: Record<Size, string> = {
+	sm: "size-2.5",
+	md: "size-3",
+	lg: "size-3.5",
+};
+
+/**
+ * `colorScheme` mapped onto the panel tokens. The value is a CSS variable, so
+ * the checked / indeterminate styling can live in one stylesheet rule instead
+ * of a dozen generated variants.
+ */
+const CHECKBOX_TONE: Record<string, string> = {
+	primary: "var(--rb-panel-accent)",
+	blue: "var(--rb-panel-info)",
+	teal: "var(--rb-panel-info)",
+	cyan: "var(--rb-panel-info)",
+	green: "var(--rb-panel-success)",
+	red: "var(--rb-panel-danger)",
+	orange: "var(--rb-panel-warning)",
+	yellow: "var(--rb-panel-warning)",
+	gray: "var(--rb-panel-text-secondary)",
+	purple: "var(--rb-panel-accent)",
+	pink: "var(--rb-panel-accent)",
 };
 
 const TRACK_SIZE: Record<Size, string> = {
@@ -58,7 +92,7 @@ export const Checkbox = forwardRef<
 >(function Checkbox(
 	{
 		size = "md",
-		colorScheme = "blue",
+		colorScheme = "primary",
 		checked: isChecked,
 		isIndeterminate,
 		disabled: isDisabled,
@@ -85,16 +119,21 @@ export const Checkbox = forwardRef<
 	const groupChecked =
 		group && value !== undefined ? group.value.includes(String(value)) : undefined;
 	const checked = groupChecked ?? isChecked;
+	const isOff = disabled ?? isDisabled;
+	const tone = CHECKBOX_TONE[colorScheme] ?? CHECKBOX_TONE.primary;
+	const state = isIndeterminate ? "indeterminate" : checked ? "checked" : "unchecked";
 
 	return (
 		<label
 			htmlFor={inputId}
 			className={cn(
-				"inline-flex cursor-pointer items-center gap-2 text-sm",
-				(disabled ?? isDisabled) && "cursor-not-allowed opacity-50",
+				"group/checkbox inline-flex cursor-pointer select-none items-center gap-2 text-sm",
+				isOff && "cursor-not-allowed opacity-50",
 				className,
 			)}
 		>
+			{/* The native input stays for behaviour and a11y, but is visually replaced
+			    by the box below: the browser's own tick cannot be themed. */}
 			<input
 				ref={(node) => {
 					inner.current = node;
@@ -104,20 +143,35 @@ export const Checkbox = forwardRef<
 				id={inputId}
 				type="checkbox"
 				value={value}
-				disabled={disabled ?? isDisabled}
+				disabled={isOff}
 				checked={checked}
 				defaultChecked={checked === undefined ? defaultChecked : undefined}
 				onChange={(event) => {
 					if (group && value !== undefined) group.toggle(String(value));
 					onChange?.(event);
 				}}
-				className={cn(
-					"cursor-pointer rounded-sm",
-					CHECKBOX_SIZE[size],
-					`accent-${colorScheme}-500`,
-				)}
+				className="peer sr-only"
 				{...props}
 			/>
+			<span
+				aria-hidden="true"
+				data-slot="checkbox"
+				data-state={state}
+				style={{ "--rb-checkbox-accent": tone } as CSSProperties}
+				className={cn(
+					"rb-checkbox relative inline-flex shrink-0 items-center justify-center rounded-[4px] border border-panel-border-strong bg-panel-main text-white",
+					BOX_SIZE[size],
+				)}
+			>
+				<CheckIcon
+					className={cn("rb-checkbox-check", BOX_ICON[size])}
+					strokeWidth={3}
+				/>
+				<MinusIcon
+					className={cn("rb-checkbox-dash absolute", BOX_ICON[size])}
+					strokeWidth={3}
+				/>
+			</span>
 			{children ? <span>{children}</span> : null}
 		</label>
 	);

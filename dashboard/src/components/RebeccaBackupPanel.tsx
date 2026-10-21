@@ -160,7 +160,7 @@ export const DashboardBackupControls = ({
 					<Button size="xs" variant="outline" disabled={!backupActionsAvailable || runtimeLoading} className="h-[32px] w-full sm:w-auto px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! [transition:border-color_0.25s_ease,_background-color_0.25s_ease] whitespace-nowrap">
 						<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 							<span className="inline-flex items-center justify-center shrink-0">
-								<ArchiveBoxIcon className="w-15 h-15" />
+								<ArchiveBoxIcon className="w-[15px] h-[15px]" />
 							</span>
 							<span className="text-[12px] font-semibold leading-none">
 								{t("dashboard.backup.tabTitle")}
@@ -174,10 +174,10 @@ export const DashboardBackupControls = ({
 					</PopoverHeader>
 					<PopoverBody className="p-2">
 						<div className="flex flex-col gap-1">
-							<Button size="md" variant="ghost" onClick={() => openDialog("import")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">{<ArrowUpTrayIcon className="w-16 h-16" />}
+							<Button size="md" variant="ghost" onClick={() => openDialog("import")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">{<ArrowUpTrayIcon className="w-[16px] h-[16px]" />}
 								{t("dashboard.backup.import")}
 							</Button>
-							<Button size="md" variant="ghost" onClick={() => openDialog("export")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">{<ArrowDownTrayIcon className="w-16 h-16" />}
+							<Button size="md" variant="ghost" onClick={() => openDialog("export")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">{<ArrowDownTrayIcon className="w-[16px] h-[16px]" />}
 								{t("dashboard.backup.exportTitle")}
 							</Button>
 						</div>
@@ -259,7 +259,7 @@ export const DashboardBackupControls = ({
 						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={importMutation.isLoading} className="rounded-full">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme="red" size="sm" onClick={handleImport} disabled={!canImport} loading={importMutation.isLoading} className="rounded-full px-5">{<ArrowUpTrayIcon className="w-15 h-15" />}
+						<Button colorScheme="red" size="sm" onClick={handleImport} disabled={!canImport} loading={importMutation.isLoading} className="rounded-full px-5">{<ArrowUpTrayIcon className="w-[15px] h-[15px]" />}
 							{t("dashboard.backup.import")}
 						</Button>
 					</ModalFooter>
@@ -297,7 +297,7 @@ export const DashboardBackupControls = ({
 						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={exportMutation.isLoading} className="rounded-full">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme="primary" size="sm" onClick={() => exportMutation.mutate(exportScope)} loading={exportMutation.isLoading} className="rounded-full px-5">{<ArrowDownTrayIcon className="w-15 h-15" />}
+						<Button colorScheme="primary" size="sm" onClick={() => exportMutation.mutate(exportScope)} loading={exportMutation.isLoading} className="rounded-full px-5">{<ArrowDownTrayIcon className="w-[15px] h-[15px]" />}
 							{t("dashboard.backup.download")}
 						</Button>
 					</ModalFooter>

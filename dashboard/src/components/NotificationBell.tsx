@@ -42,7 +42,7 @@ export const NotificationBell = () => {
 		<Popover placement="bottom-end" isLazy>
 			<PopoverTrigger>
 				<div className="relative inline-flex">
-					<IconButton aria-label={t("notifications.bell.label")} size="sm" variant="ghost" className="rounded-full" >{<BellIcon className="w-18 h-18" />}</IconButton>
+					<IconButton aria-label={t("notifications.bell.label")} size="sm" variant="ghost" className="rounded-full" >{<BellIcon className="w-[18px] h-[18px]" />}</IconButton>
 					{unread > 0 && (
 						<Badge colorScheme="red" className="absolute top--1 right--1 rounded-full text-[0.625rem] px-1.5">
 							{unread > 99 ? "99+" : unread}

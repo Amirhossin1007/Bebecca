@@ -380,7 +380,7 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 										{t("pages.xray.outboundSub.restartHint")}
 									</p>
 								</div>
-								<Button size="xs" variant="ghost" loading={loading} onClick={load}>{<ArrowPathIcon className="w-14" />}
+								<Button size="xs" variant="ghost" loading={loading} onClick={load}>{<ArrowPathIcon className="w-[14px]" />}
 									{t("refresh")}
 								</Button>
 							</div>
@@ -410,8 +410,8 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 											<tr key={item.id}>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													<div className="flex flex-row items-center gap-0">
-														<IconButton aria-label={t("a11y.moveUp")} size="xs" variant="ghost" disabled={index === 0 || busyID === item.id} onClick={() => move(item.id, "up")} >{<ArrowUpIcon className="w-14" />}</IconButton>
-														<IconButton aria-label={t("a11y.moveDown")} size="xs" variant="ghost" disabled={index === items.length - 1 || busyID === item.id} onClick={() => move(item.id, "down")} >{<ArrowDownIcon className="w-14" />}</IconButton>
+														<IconButton aria-label={t("a11y.moveUp")} size="xs" variant="ghost" disabled={index === 0 || busyID === item.id} onClick={() => move(item.id, "up")} >{<ArrowUpIcon className="w-[14px]" />}</IconButton>
+														<IconButton aria-label={t("a11y.moveDown")} size="xs" variant="ghost" disabled={index === items.length - 1 || busyID === item.id} onClick={() => move(item.id, "down")} >{<ArrowDownIcon className="w-[14px]" />}</IconButton>
 													</div>
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text max-w-[260px]">
@@ -448,8 +448,8 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 														<Button size="xs" variant="ghost" onClick={() => edit(item)}>
 															{t("edit")}
 														</Button>
-														<IconButton aria-label={t("refresh")} size="xs" variant="ghost" loading={busyID === item.id} onClick={() => refreshOne(item.id)} >{<ArrowPathIcon className="w-14" />}</IconButton>
-														<IconButton aria-label={t("delete")} size="xs" variant="ghost" colorScheme="red" disabled={busyID === item.id} onClick={() => deleteOne(item.id)} >{<TrashIcon className="w-14" />}</IconButton>
+														<IconButton aria-label={t("refresh")} size="xs" variant="ghost" loading={busyID === item.id} onClick={() => refreshOne(item.id)} >{<ArrowPathIcon className="w-[14px]" />}</IconButton>
+														<IconButton aria-label={t("delete")} size="xs" variant="ghost" colorScheme="red" disabled={busyID === item.id} onClick={() => deleteOne(item.id)} >{<TrashIcon className="w-[14px]" />}</IconButton>
 													</div>
 												</td>
 											</tr>
@@ -470,10 +470,10 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 							)}
 						</div>
 						<div className="flex flex-row items-center gap-2 flex-wrap">
-							<Button size="sm" variant="ghost" loading={previewing} onClick={previewURL}>{<EyeIcon className="w-16" />}
+							<Button size="sm" variant="ghost" loading={previewing} onClick={previewURL}>{<EyeIcon className="w-[16px]" />}
 								{t("bulkActions.preview")}
 							</Button>
-							<Button size="sm" colorScheme="primary" loading={saving} onClick={save}>{<PlusIcon className="w-16" />}
+							<Button size="sm" colorScheme="primary" loading={saving} onClick={save}>{<PlusIcon className="w-[16px]" />}
 								{editingID === null ? t("add") : t("save")}
 							</Button>
 							<Button size="sm" variant="ghost" onClick={onClose}>

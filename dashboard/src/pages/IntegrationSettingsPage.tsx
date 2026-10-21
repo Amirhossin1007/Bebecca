@@ -1703,7 +1703,7 @@ export const IntegrationSettingsPage = () => {
 			actions.push({
 				id: "renew",
 				label: t("settings.subscriptions.renewAction"),
-				icon: <ArrowPathIcon className="w-16 h-16" />,
+				icon: <ArrowPathIcon className="w-[16px] h-[16px]" />,
 				onClick: () => handleRenewCertificate(certificate.domain),
 				disabled:
 					renewCertificateMutation.isLoading &&
@@ -1714,7 +1714,7 @@ export const IntegrationSettingsPage = () => {
 			actions.push({
 				id: "revoke",
 				label: t("settings.subscriptions.revokeAction"),
-				icon: <NoSymbolIcon className="w-16 h-16" />,
+				icon: <NoSymbolIcon className="w-[16px] h-[16px]" />,
 				onClick: () =>
 					setCertificateAction({ type: "revoke", domain: certificate.domain }),
 				isDanger: true,
@@ -1723,7 +1723,7 @@ export const IntegrationSettingsPage = () => {
 		actions.push({
 			id: "delete",
 			label: t("delete"),
-			icon: <TrashIcon className="w-16 h-16" />,
+			icon: <TrashIcon className="w-[16px] h-[16px]" />,
 			onClick: () =>
 				setCertificateAction({ type: "delete", domain: certificate.domain }),
 			isDanger: true,
@@ -1765,7 +1765,7 @@ export const IntegrationSettingsPage = () => {
 					},
 				]}
 				actions={
-					<Button size="md" colorScheme="primary" onClick={() => setCertificateDialogOpen(true)}>{<PlusIcon className="w-16 h-16" />}
+					<Button size="md" colorScheme="primary" onClick={() => setCertificateDialogOpen(true)}>{<PlusIcon className="w-[16px] h-[16px]" />}
 						{t("settings.subscriptions.getNewSSL")}
 					</Button>
 				}
@@ -1895,7 +1895,7 @@ export const IntegrationSettingsPage = () => {
 								<Button variant="outline" size="sm" onClick={() => {
 										void refetchRuntimeSettings();
 										void refetchPanelSettings();
-									}} loading={isRuntimeSettingsLoading || isPanelLoading}>{<ArrowPathIcon className="w-16 h-16" />}
+									}} loading={isRuntimeSettingsLoading || isPanelLoading}>{<ArrowPathIcon className="w-[16px] h-[16px]" />}
 									{t("refresh")}
 								</Button>
 							</div>
@@ -2415,7 +2415,7 @@ export const IntegrationSettingsPage = () => {
 									<div className="flex mt-4 master-settings-action-row">
 										<Button size="sm" variant="outline" loading={telegramBackupMutation.isLoading} onClick={() =>
 												telegramBackupMutation.mutate(telegramBackupScope)
-											}>{<ArrowUpTrayIcon className="w-16" />}
+											}>{<ArrowUpTrayIcon className="w-[16px]" />}
 											{t("settings.telegram.backupSendNow")}
 										</Button>
 									</div>
@@ -2782,7 +2782,7 @@ export const IntegrationSettingsPage = () => {
 													shouldDirty: true,
 													shouldValidate: true,
 												});
-											}}>{<ArrowPathIcon className="w-14 h-14" />}
+											}}>{<ArrowPathIcon className="w-[14px] h-[14px]" />}
 											{t("settings.subscriptions.resetToDefault")}
 										</Button>
 									</div>
@@ -2813,14 +2813,14 @@ export const IntegrationSettingsPage = () => {
 												/>
 
 												<div className="flex flex-row items-center gap-1 justify-end">
-													<IconButton aria-label="Move Up" size="sm" variant="ghost" disabled={index === 0} onClick={() => moveRoutingRule(index, index - 1)} >{<ChevronUpIcon className="w-16" />}</IconButton>
-													<IconButton aria-label="Move Down" size="sm" variant="ghost" disabled={index === routingRules.length - 1} onClick={() => moveRoutingRule(index, index + 1)} >{<HeroChevronDownIcon className="w-16" />}</IconButton>
-													<IconButton aria-label="Delete" size="sm" colorScheme="red" variant="ghost" onClick={() => removeRoutingRule(index)} >{<TrashIcon className="w-16" />}</IconButton>
+													<IconButton aria-label="Move Up" size="sm" variant="ghost" disabled={index === 0} onClick={() => moveRoutingRule(index, index - 1)} >{<ChevronUpIcon className="w-[16px]" />}</IconButton>
+													<IconButton aria-label="Move Down" size="sm" variant="ghost" disabled={index === routingRules.length - 1} onClick={() => moveRoutingRule(index, index + 1)} >{<HeroChevronDownIcon className="w-[16px]" />}</IconButton>
+													<IconButton aria-label="Delete" size="sm" colorScheme="red" variant="ghost" onClick={() => removeRoutingRule(index)} >{<TrashIcon className="w-[16px]" />}</IconButton>
 												</div>
 											</div>
 										))}
 										
-										<Button size="sm" variant="outline" onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })} className="self-start">{<PlusIcon className="w-16" />}
+										<Button size="sm" variant="outline" onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })} className="self-start">{<PlusIcon className="w-[16px]" />}
 											{t("settings.subscriptions.addRule")}
 										</Button>
 									</div>

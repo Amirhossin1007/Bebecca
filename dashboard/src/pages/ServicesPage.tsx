@@ -626,16 +626,16 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 													</div>
 													<div className="flex flex-row items-center gap-1 shrink-0">
 														<Tooltip label={t("services.moveToTop")}>
-															<IconButton aria-label="Move to top" size="sm" variant="ghost" onClick={() => moveHost(hostId, "top")} disabled={index === 0} >{<ChevronDoubleUpIcon className="w-16" />}</IconButton>
+															<IconButton aria-label="Move to top" size="sm" variant="ghost" onClick={() => moveHost(hostId, "top")} disabled={index === 0} >{<ChevronDoubleUpIcon className="w-[16px]" />}</IconButton>
 														</Tooltip>
 														<Tooltip label={t("services.moveUp")}>
-															<IconButton aria-label="Move up" size="sm" variant="ghost" onClick={() => moveHost(hostId, "up")} disabled={index === 0} >{<ArrowUpIcon className="w-16" />}</IconButton>
+															<IconButton aria-label="Move up" size="sm" variant="ghost" onClick={() => moveHost(hostId, "up")} disabled={index === 0} >{<ArrowUpIcon className="w-[16px]" />}</IconButton>
 														</Tooltip>
 														<Tooltip label={t("services.moveDown")}>
-															<IconButton aria-label="Move down" size="sm" variant="ghost" onClick={() => moveHost(hostId, "down")} disabled={index === selectedHosts.length - 1} >{<ArrowDownIcon className="w-16" />}</IconButton>
+															<IconButton aria-label="Move down" size="sm" variant="ghost" onClick={() => moveHost(hostId, "down")} disabled={index === selectedHosts.length - 1} >{<ArrowDownIcon className="w-[16px]" />}</IconButton>
 														</Tooltip>
 														<Tooltip label={t("services.removeHost")}>
-															<IconButton aria-label="Remove" size="sm" variant="ghost" onClick={() => handleHostToggle(hostId)} >{<TrashIcon className="w-16" />}</IconButton>
+															<IconButton aria-label="Remove" size="sm" variant="ghost" onClick={() => handleHostToggle(hostId)} >{<TrashIcon className="w-[16px]" />}</IconButton>
 														</Tooltip>
 													</div>
 												</div>
@@ -1187,7 +1187,7 @@ const ServicesPage: FC = () => {
 			{
 				id: "view",
 				label: t("services.view"),
-				icon: <EyeIcon className="w-16" />,
+				icon: <EyeIcon className="w-[16px]" />,
 				onClick: () => {
 					void openServiceDetail(service.id, "admins");
 				},
@@ -1199,19 +1199,19 @@ const ServicesPage: FC = () => {
 				{
 					id: "edit",
 					label: t("edit"),
-					icon: <PencilSquareIcon className="w-16" />,
+					icon: <PencilSquareIcon className="w-[16px]" />,
 					onClick: () => openEditDialog(service.id),
 				},
 				{
 					id: "reset",
 					label: t("services.resetUsage"),
-					icon: <ArrowPathIcon className="w-16" />,
+					icon: <ArrowPathIcon className="w-[16px]" />,
 					onClick: () => openResetConfirmation(service.id),
 				},
 				{
 					id: "delete",
 					label: t("delete"),
-					icon: <TrashIcon className="w-16" />,
+					icon: <TrashIcon className="w-[16px]" />,
 					onClick: () => beginDeleteService(service.id),
 					isDanger: true,
 				},
@@ -1640,14 +1640,14 @@ const ServicesPage: FC = () => {
 		{
 			id: "editLimits",
 			label: t("services.editAdminLimits"),
-			icon: <PencilSquareIcon className="w-16" />,
+			icon: <PencilSquareIcon className="w-[16px]" />,
 			onClick: () => openServiceAdminLimitEditor(link),
 			disabled: savingAdminLimitId === link.id,
 		},
 		{
 			id: "resetDeleted",
 			label: t("admins.resetDeletedUsage"),
-			icon: <ArrowPathIcon className="w-16" />,
+			icon: <ArrowPathIcon className="w-[16px]" />,
 			onClick: () => resetServiceDeletedUsersUsage(link),
 			disabled:
 				link.deleted_users_usage <= 0 || savingAdminLimitId === link.id,
@@ -1757,7 +1757,7 @@ const ServicesPage: FC = () => {
 				title={t("services.listHeader")}
 				summaryItems={serviceSummaryItems}
 				actions={
-					<Button colorScheme="primary" onClick={openCreateDialog} size="sm" className="h-[36px] px-3 rounded-[4px]">{<PlusIcon className="w-18" />}
+					<Button colorScheme="primary" onClick={openCreateDialog} size="sm" className="h-[36px] px-3 rounded-[4px]">{<PlusIcon className="w-[18px]" />}
 						{t("services.addService")}
 					</Button>
 				}

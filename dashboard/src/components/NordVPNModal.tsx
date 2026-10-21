@@ -406,7 +406,7 @@ export const NordVPNModal: FC<Props> = ({
 												{t("pages.xray.nord.tokenHelp")}
 											</FormHelperText>
 										</FormControl>
-										<Button size="md" loading={loading} onClick={register} colorScheme="primary">{<KeyIcon className="w-16" />}
+										<Button size="md" loading={loading} onClick={register} colorScheme="primary">{<KeyIcon className="w-[16px]" />}
 											{t("login")}
 										</Button>
 									</div>
@@ -422,7 +422,7 @@ export const NordVPNModal: FC<Props> = ({
 											</FormLabel>
 											<Input value={manualKey} onChange={(event) => setManualKey(event.target.value)} placeholder="NordLynx private key" />
 										</FormControl>
-										<Button variant="solid" size="md" loading={loading} onClick={saveManualKey}>{<CloudArrowDownIcon className="w-16" />}
+										<Button variant="solid" size="md" loading={loading} onClick={saveManualKey}>{<CloudArrowDownIcon className="w-[16px]" />}
 											{t("save")}
 										</Button>
 									</div>
@@ -464,7 +464,7 @@ export const NordVPNModal: FC<Props> = ({
 										</tr>
 									</tbody>
 								</table>
-								<Button size="md" colorScheme="red" variant="outline" loading={loading} onClick={deleteData} className="self-start">{<TrashIcon className="w-16" />}
+								<Button size="md" colorScheme="red" variant="outline" loading={loading} onClick={deleteData} className="self-start">{<TrashIcon className="w-[16px]" />}
 									{t("logout.variant2")}
 								</Button>
 								<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
@@ -538,7 +538,7 @@ export const NordVPNModal: FC<Props> = ({
 					</Button>
 					{nordData?.private_key && (
 						<>
-							<Button size="md" disabled={!serverID} onClick={saveOutbound} colorScheme="primary">{<ArrowPathIcon className="w-16" />}
+							<Button size="md" disabled={!serverID} onClick={saveOutbound} colorScheme="primary">{<ArrowPathIcon className="w-[16px]" />}
 								{nordOutboundIndex >= 0
 									? t("pages.xray.nord.updateOutbound")
 									: t("pages.xray.nord.addOutbound")}

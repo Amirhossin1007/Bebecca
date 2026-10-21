@@ -113,7 +113,7 @@ export const PropagationTargets: FC<PropagationTargetsProps> = ({
 										],
 									)}>
 									<span className="text-panel-text-muted cursor-help">
-										<QuestionMarkCircleIcon className="w-16 h-16" />
+										<QuestionMarkCircleIcon className="w-[16px] h-[16px]" />
 									</span>
 								</Tooltip>
 							)}

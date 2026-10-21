@@ -534,7 +534,7 @@ const CertificateFingerprintField: FC<{
 			<FormLabel>{t("hostsDialog.pinnedPeerCertSha256")}</FormLabel>
 			<div className="flex flex-row items-stretch gap-2">
 				<Input dir="ltr" value={value} placeholder={t("hostsDialog.pinnedPeerCertSha256Hint")} onChange={(event) => onChange(event.target.value)} className="min-w-0!" />
-				<Button size="sm" variant="outline" disabled={!address} loading={isGenerating} onClick={generate} className="shrink-0 self-center">{<ArrowPathIcon className="w-14" />}
+				<Button size="sm" variant="outline" disabled={!address} loading={isGenerating} onClick={generate} className="shrink-0 self-center">{<ArrowPathIcon className="w-[14px]" />}
 					{t("hostsDialog.generateCertificateFingerprint")}
 				</Button>
 			</div>
@@ -2623,9 +2623,9 @@ export const HostsManager: FC = () => {
 				id: "toggle",
 				label: isActive ? t("phpmyadmin.disableAction") : t("hostsPage.enable"),
 				icon: isActive ? (
-					<XCircleIcon className="w-16" />
+					<XCircleIcon className="w-[16px]" />
 				) : (
-					<CheckCircleIcon className="w-16" />
+					<CheckCircleIcon className="w-[16px]" />
 				),
 				onClick: () => toggleActive(host.uid, !isActive),
 				disabled: isPostLoading,
@@ -2633,7 +2633,7 @@ export const HostsManager: FC = () => {
 			{
 				id: "delete",
 				label: t("delete"),
-				icon: <TrashIcon className="w-16" />,
+				icon: <TrashIcon className="w-[16px]" />,
 				isDanger: true,
 				render: (_row, onMenuClose) => (
 					<DeleteConfirmDialog
@@ -2644,7 +2644,7 @@ export const HostsManager: FC = () => {
 							onMenuClose();
 						}}
 					>
-						<MenuItem icon={<TrashIcon className="w-16" />} disabled={isPostLoading} onClick={(event) => event.stopPropagation()} className="text-red-400">
+						<MenuItem icon={<TrashIcon className="w-[16px]" />} disabled={isPostLoading} onClick={(event) => event.stopPropagation()} className="text-red-400">
 							{t("delete")}
 						</MenuItem>
 					</DeleteConfirmDialog>
@@ -2667,7 +2667,7 @@ export const HostsManager: FC = () => {
 					<ResourceRefreshButton
 						aria-label={t("hostsPage.refresh")}
 						label={t("hostsPage.refresh")}
-						icon={<ArrowPathIcon className="w-16" />}
+						icon={<ArrowPathIcon className="w-[16px]" />}
 						loading={isRefreshing}
 						onClick={fetchHosts}
 					/>
@@ -2728,14 +2728,14 @@ export const HostsManager: FC = () => {
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									enableTargets.length === 0
-								} onClick={() => handleBulkToggleHosts(enableTargets, true)}>{<CheckCircleIcon className="w-16" />}
+								} onClick={() => handleBulkToggleHosts(enableTargets, true)}>{<CheckCircleIcon className="w-[16px]" />}
 								{t("hostsPage.enable")}
 							</Button>
 							<Button size="sm" variant="outline" loading={bulkAction === "disable"} disabled={
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									disableTargets.length === 0
-								} onClick={() => handleBulkToggleHosts(disableTargets, false)}>{<XCircleIcon className="w-16" />}
+								} onClick={() => handleBulkToggleHosts(disableTargets, false)}>{<XCircleIcon className="w-[16px]" />}
 								{t("phpmyadmin.disableAction")}
 							</Button>
 							<DeleteConfirmDialog
@@ -2750,7 +2750,7 @@ export const HostsManager: FC = () => {
 										Boolean(bulkAction) ||
 										isPostLoading ||
 										selectedRows.length === 0
-									}>{<TrashIcon className="w-16" />}
+									}>{<TrashIcon className="w-[16px]" />}
 									{t("delete")}
 								</Button>
 							</DeleteConfirmDialog>

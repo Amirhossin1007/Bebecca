@@ -300,7 +300,7 @@ const TrafficSubmenu: FC<{
 					<ChevronRightIcon style={{
 							flexShrink: 0,
 							transform: isRTL ? "rotate(180deg)" : undefined,
-						}} className="w-14" />
+						}} className="w-[14px]" />
 				</div>
 			</MenuButton>
 			<Portal>
@@ -1162,7 +1162,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			actions.push({
 				id: "enable",
 				label: t("usersTable.enableUser"),
-				icon: <CheckIcon className="w-16" />,
+				icon: <CheckIcon className="w-[16px]" />,
 				disabled: contextAction === "enable",
 				onClick: () => handleEnableUser(user),
 			});
@@ -1476,7 +1476,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkEnableTargets.length === 0
-										}>{<CheckIcon className="w-16" />}
+										}>{<CheckIcon className="w-[16px]" />}
 										{t("usersTable.enableUser")}
 									</Button>
 								)}
@@ -1618,7 +1618,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 													{ip}
 												</p>
 												<div className="flex flex-row items-center mt-0.5 gap-1 justify-start sm:justify-end text-panel-text-secondary text-[0.75rem]">
-													<SignalIcon aria-hidden="true" className="w-14" />
+													<SignalIcon aria-hidden="true" className="w-[14px]" />
 													<p>
 														{t("usersTable.ipConnections_other", {
 															count: connections,
@@ -1631,25 +1631,25 @@ export const UsersTable: FC<UsersTableProps> = ({
 										<div className="flex flex-row items-center mt-3 gap-3 flex-wrap text-panel-text-muted text-[0.75rem]">
 											{protocols.length > 0 && (
 												<div className="flex flex-row items-center gap-1">
-													<GlobeAltIcon aria-hidden="true" className="w-14" />
+													<GlobeAltIcon aria-hidden="true" className="w-[14px]" />
 													<p>{protocols.join(", ")}</p>
 												</div>
 											)}
 											{inbounds.length > 0 && (
 												<div className="flex flex-row items-center gap-1">
-													<LinkIcon aria-hidden="true" className="w-14" />
+													<LinkIcon aria-hidden="true" className="w-[14px]" />
 													<p>{inbounds.join(", ")}</p>
 												</div>
 											)}
 											{nodes.length > 0 && (
 												<div className="flex flex-row items-center gap-1">
-													<ServerStackIcon aria-hidden="true" className="w-14" />
+													<ServerStackIcon aria-hidden="true" className="w-[14px]" />
 													<p>{nodes.join(", ")}</p>
 												</div>
 											)}
 											{record.last_seen_at && (
 												<div className="flex flex-row items-center gap-1">
-													<ClockIcon aria-hidden="true" className="w-14" />
+													<ClockIcon aria-hidden="true" className="w-[14px]" />
 													<p dir="ltr">
 														{dayjs(record.last_seen_at).format(
 															"YYYY-MM-DD HH:mm",

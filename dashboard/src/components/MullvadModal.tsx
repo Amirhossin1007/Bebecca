@@ -333,7 +333,7 @@ export const MullvadModal: FC<Props> = ({
 								{t("pages.xray.mullvad.configHelp")}
 							</FormHelperText>
 						</FormControl>
-						<Button variant="solid" size="md" disabled={!configText.trim()} onClick={fillFromConfig} className="self-start">{<ArrowDownTrayIcon className="w-16" />}
+						<Button variant="solid" size="md" disabled={!configText.trim()} onClick={fillFromConfig} className="self-start">{<ArrowDownTrayIcon className="w-[16px]" />}
 							{t("pages.xray.mullvad.fill")}
 						</Button>
 						<FileDropzone
@@ -365,10 +365,10 @@ export const MullvadModal: FC<Props> = ({
 										onChange={(event) => selectServer(event.target.value)}
 									/>
 									<div className="flex flex-row items-center gap-2 mt-2">
-										<Button variant="solid" size="xs" disabled={!canPing || !serverName || pinging} onClick={() => void pingServers([serverName])}>{<SignalIcon className="w-14" />}
+										<Button variant="solid" size="xs" disabled={!canPing || !serverName || pinging} onClick={() => void pingServers([serverName])}>{<SignalIcon className="w-[14px]" />}
 											{t("pages.xray.mullvad.ping")}
 										</Button>
-										<Button variant="solid" size="xs" disabled={!canPing || !country || pinging} loading={pinging} onClick={() => void pingServers(countryServerNames)}>{<SignalIcon className="w-14" />}
+										<Button variant="solid" size="xs" disabled={!canPing || !country || pinging} loading={pinging} onClick={() => void pingServers(countryServerNames)}>{<SignalIcon className="w-[14px]" />}
 											{t("pages.xray.mullvad.pingAll")}
 										</Button>
 									</div>
@@ -412,7 +412,7 @@ export const MullvadModal: FC<Props> = ({
 					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("close")}
 					</Button>
-					<Button size="md" disabled={!tag.trim() || tagTaken || !isMullvadFormValid(form)} onClick={saveOutbound} colorScheme="primary">{<ArrowPathIcon className="w-16" />}
+					<Button size="md" disabled={!tag.trim() || tagTaken || !isMullvadFormValid(form)} onClick={saveOutbound} colorScheme="primary">{<ArrowPathIcon className="w-[16px]" />}
 						{editingIndex >= 0
 							? t("pages.xray.nord.updateOutbound")
 							: t("pages.xray.outbound.addOutbound")}

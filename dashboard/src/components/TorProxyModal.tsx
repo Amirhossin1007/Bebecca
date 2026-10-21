@@ -190,10 +190,10 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 											control={form.control}
 											render={({ field }) => (
 												<ButtonGroup isAttached size="sm" className="w-full">
-													<Button size="md" type="button" variant={field.value === "up" ? "solid" : "outline"} colorScheme={field.value === "up" ? "primary" : "gray"} aria-pressed={field.value === "up"} onClick={() => field.onChange("up")} className="flex-1">{<ArrowUpIcon className="w-14" />}
+													<Button size="md" type="button" variant={field.value === "up" ? "solid" : "outline"} colorScheme={field.value === "up" ? "primary" : "gray"} aria-pressed={field.value === "up"} onClick={() => field.onChange("up")} className="flex-1">{<ArrowUpIcon className="w-[14px]" />}
 														{t("pages.xray.tor.directionUp")}
 													</Button>
-													<Button size="md" type="button" variant={field.value === "down" ? "solid" : "outline"} colorScheme={field.value === "down" ? "primary" : "gray"} aria-pressed={field.value === "down"} onClick={() => field.onChange("down")} className="flex-1">{<ArrowDownIcon className="w-14" />}
+													<Button size="md" type="button" variant={field.value === "down" ? "solid" : "outline"} colorScheme={field.value === "down" ? "primary" : "gray"} aria-pressed={field.value === "down"} onClick={() => field.onChange("down")} className="flex-1">{<ArrowDownIcon className="w-[14px]" />}
 														{t("pages.xray.tor.directionDown")}
 													</Button>
 												</ButtonGroup>

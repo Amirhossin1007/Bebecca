@@ -164,9 +164,9 @@ const OrderButtons: FC<{
 	disableDown = false,
 }) => (
 	<div className="flex flex-row items-center gap-1">
-		<IconButton size="xs" variant="ghost" aria-label="Move up" disabled={index === 0 || disableUp} onClick={() => onMove(index, index - 1)} >{<ArrowUpIcon className="w-14" />}</IconButton>
-		<IconButton size="xs" variant="ghost" aria-label="Move down" disabled={index === length - 1 || disableDown} onClick={() => onMove(index, index + 1)} >{<ArrowDownIcon className="w-14" />}</IconButton>
-		<IconButton size="xs" variant="ghost" colorScheme="red" aria-label="Remove" onClick={onRemove} >{<TrashIcon className="w-14" />}</IconButton>
+		<IconButton size="xs" variant="ghost" aria-label="Move up" disabled={index === 0 || disableUp} onClick={() => onMove(index, index - 1)} >{<ArrowUpIcon className="w-[14px]" />}</IconButton>
+		<IconButton size="xs" variant="ghost" aria-label="Move down" disabled={index === length - 1 || disableDown} onClick={() => onMove(index, index + 1)} >{<ArrowDownIcon className="w-[14px]" />}</IconButton>
+		<IconButton size="xs" variant="ghost" colorScheme="red" aria-label="Remove" onClick={onRemove} >{<TrashIcon className="w-[14px]" />}</IconButton>
 	</div>
 );
 
@@ -263,7 +263,7 @@ const NumberArrayField: FC<{
 				<p className="text-[0.875rem] font-medium">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...items, 0])}>{<PlusIcon className="w-13" />}
+				<Button size="xs" variant="outline" onClick={() => update([...items, 0])}>{<PlusIcon className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -454,7 +454,7 @@ const PacketListEditor: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...items, {}])}>{<PlusIcon className="w-13" />}
+				<Button size="xs" variant="outline" onClick={() => update([...items, {}])}>{<PlusIcon className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -504,7 +504,7 @@ const TcpHeaderVariants: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...variants, [{}]])}>{<PlusIcon className="w-13" />}
+				<Button size="xs" variant="outline" onClick={() => update([...variants, [{}]])}>{<PlusIcon className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -696,7 +696,7 @@ const CertificateList: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					Certificates
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...certificates, {}])}>{<PlusIcon className="w-13" />}
+				<Button size="xs" variant="outline" onClick={() => update([...certificates, {}])}>{<PlusIcon className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -1123,7 +1123,7 @@ const LayerCollection: FC<{
 					</div>
 					<Button variant="solid" size="sm" disabled={!selectedType} onClick={() =>
 							emit([...value, createFinalMaskLayer(direction, selectedType)])
-						}>{<PlusIcon className="w-14" />}
+						}>{<PlusIcon className="w-[14px]" />}
 						{t("add")}
 					</Button>
 				</div>

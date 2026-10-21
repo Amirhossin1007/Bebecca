@@ -1063,7 +1063,7 @@ export const AdminDialog: FC = () => {
 							<Input placeholder={t("admins.usernamePlaceholder")} {...register("username")} disabled={mode === "edit"} {...(mode === "create" ? endPadding : {})} />
 							{mode === "create" && (
 								<InputRightElement style={{ insetInlineEnd: endAdornmentProps.insetInlineEnd, insetInlineStart: endAdornmentProps.insetInlineStart, right: endAdornmentProps.right, left: endAdornmentProps.left }}>
-									<IconButton aria-label={t("admins.generateUsername")} size="sm" variant="ghost" onClick={handleGenerateUsername} >{<SparklesIcon className="w-20" />}</IconButton>
+									<IconButton aria-label={t("admins.generateUsername")} size="sm" variant="ghost" onClick={handleGenerateUsername} >{<SparklesIcon className="w-[20px]" />}</IconButton>
 								</InputRightElement>
 							)}
 						</InputGroup>
@@ -1082,13 +1082,13 @@ export const AdminDialog: FC = () => {
 												? t("admins.hidePassword")
 												: t("admins.showPassword")
 										} size="sm" variant="ghost" onClick={() => setShowPassword(!showPassword)} >{showPassword ? (
-												<EyeSlashIcon className="w-16" />
+												<EyeSlashIcon className="w-[16px]" />
 											) : (
-												<EyeIcon className="w-16" />
+												<EyeIcon className="w-[16px]" />
 											)}</IconButton>
 								</InputRightElement>
 							</InputGroup>
-							<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" onClick={handleGeneratePassword} >{<SparklesIcon className="w-20" />}</IconButton>
+							<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" onClick={handleGeneratePassword} >{<SparklesIcon className="w-[20px]" />}</IconButton>
 						</div>
 						<FormErrorMessage>
 							{errors.password?.message as string}

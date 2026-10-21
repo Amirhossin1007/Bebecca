@@ -138,7 +138,7 @@ const PlaceholderSettingsPage = () => {
 							<CardBody className="p-4 md:p-7">
 								{!draft ? (
 									<div className="text-center py-14">
-										<DocumentDuplicateIcon style={{ margin: "0 auto" }} className="w-42" />
+										<DocumentDuplicateIcon style={{ margin: "0 auto" }} className="w-[42px]" />
 										<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mt-4">
 											{t("placeholders.noServices")}
 										</h2>

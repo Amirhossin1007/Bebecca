@@ -515,9 +515,9 @@ const ChangePasswordModal: React.FC<{
 										? t("admins.hidePassword")
 										: t("admins.showPassword")
 								} size="sm" variant="ghost" onClick={() => setShowCurrent(!showCurrent)} >{showCurrent ? (
-										<EyeSlashIcon className="w-16" />
+										<EyeSlashIcon className="w-[16px]" />
 									) : (
-										<EyeIcon className="w-16" />
+										<EyeIcon className="w-[16px]" />
 									)}</IconButton>
 						</InputRightElement>
 					</InputGroup>
@@ -532,13 +532,13 @@ const ChangePasswordModal: React.FC<{
 											? t("admins.hidePassword")
 											: t("admins.showPassword")
 									} size="sm" variant="ghost" onClick={() => setShowNew(!showNew)} >{showNew ? (
-											<EyeSlashIcon className="w-16" />
+											<EyeSlashIcon className="w-[16px]" />
 										) : (
-											<EyeIcon className="w-16" />
+											<EyeIcon className="w-[16px]" />
 										)}</IconButton>
 							</InputRightElement>
 						</InputGroup>
-						<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" onClick={handleGeneratePassword} >{<SparklesIcon className="w-20" />}</IconButton>
+						<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" onClick={handleGeneratePassword} >{<SparklesIcon className="w-[20px]" />}</IconButton>
 					</div>
 				</div>
 			</div>
@@ -1093,7 +1093,7 @@ export const MyAccountPage: React.FC = () => {
 												<article key={key.id} className="flex items-center justify-between gap-3 py-2.5">
 													<div className="flex flex-row min-w-0! gap-3 items-start">
 														<div aria-hidden="true" className="flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated text-panel-accent">
-															<KeyIcon className="w-18" />
+															<KeyIcon className="w-[18px]" />
 														</div>
 														<div className="min-w-0!">
 															<p className="font-mono font-semibold text-[0.875rem] break-all">
@@ -1250,9 +1250,9 @@ export const MyAccountPage: React.FC = () => {
 											? t("admins.hidePassword")
 											: t("admins.showPassword")
 									} size="sm" variant="ghost" onClick={() => setShowDeletePassword(!showDeletePassword)} >{showDeletePassword ? (
-											<EyeSlashIcon className="w-16" />
+											<EyeSlashIcon className="w-[16px]" />
 										) : (
-											<EyeIcon className="w-16" />
+											<EyeIcon className="w-[16px]" />
 										)}</IconButton>
 							</InputRightElement>
 						</InputGroup>

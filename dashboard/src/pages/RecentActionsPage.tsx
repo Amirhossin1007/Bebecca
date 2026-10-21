@@ -170,22 +170,22 @@ const actionOperationVisual = (
 	actionType: string,
 ) => {
 	if (nodeRuntimeActionTypes.has(actionType))
-		return { color: "var(--color-blue-400)", icon: <ArrowPathIcon className="w-18" /> };
+		return { color: "var(--color-blue-400)", icon: <ArrowPathIcon className="w-[18px]" /> };
 	switch (operation) {
 		case "created":
-			return { color: "var(--color-green-400)", icon: <PlusCircleIcon className="w-18" /> };
+			return { color: "var(--color-green-400)", icon: <PlusCircleIcon className="w-[18px]" /> };
 		case "deleted":
-			return { color: "var(--color-red-400)", icon: <TrashIcon className="w-18" /> };
+			return { color: "var(--color-red-400)", icon: <TrashIcon className="w-[18px]" /> };
 		case "disabled":
-			return { color: "var(--color-orange-400)", icon: <NoSymbolIcon className="w-18" /> };
+			return { color: "var(--color-orange-400)", icon: <NoSymbolIcon className="w-[18px]" /> };
 		case "enabled":
-			return { color: "var(--color-green-400)", icon: <CheckCircleIcon className="w-18" /> };
+			return { color: "var(--color-green-400)", icon: <CheckCircleIcon className="w-[18px]" /> };
 		case "reset":
-			return { color: "var(--color-orange-400)", icon: <ArrowPathIcon className="w-18" /> };
+			return { color: "var(--color-orange-400)", icon: <ArrowPathIcon className="w-[18px]" /> };
 		case "regenerated":
-			return { color: "var(--color-blue-400)", icon: <KeyIcon className="w-18" /> };
+			return { color: "var(--color-blue-400)", icon: <KeyIcon className="w-[18px]" /> };
 		default:
-			return { color: "var(--color-blue-400)", icon: <PencilSquareIcon className="w-18" /> };
+			return { color: "var(--color-blue-400)", icon: <PencilSquareIcon className="w-[18px]" /> };
 	}
 };
 
@@ -702,7 +702,7 @@ export const RecentActionsPage: FC = () => {
 		{
 			id: "details",
 			label: t("recentActions.details"),
-			icon: <EyeIcon className="w-16" />,
+			icon: <EyeIcon className="w-[16px]" />,
 			onClick: () => toggleDetails(action.id),
 		},
 		...(action.rollback_status === "available"
@@ -710,7 +710,7 @@ export const RecentActionsPage: FC = () => {
 					{
 						id: "rollback",
 						label: t("recentActions.rollback"),
-						icon: <ArrowUturnLeftIcon className="w-16" />,
+						icon: <ArrowUturnLeftIcon className="w-[16px]" />,
 						isDanger: true,
 						onClick: () => rollback(action),
 					},
@@ -905,7 +905,7 @@ export const RecentActionsPage: FC = () => {
 					},
 				]}
 				actions={
-					<Button size="md" variant="outline" onClick={() => void actionsQuery.refetch()} loading={actionsQuery.isFetching}>{<ArrowPathIcon className="w-16" />}
+					<Button size="md" variant="outline" onClick={() => void actionsQuery.refetch()} loading={actionsQuery.isFetching}>{<ArrowPathIcon className="w-[16px]" />}
 						{t("recentActions.refresh")}
 					</Button>
 				}
@@ -978,14 +978,14 @@ export const RecentActionsPage: FC = () => {
 				rowActions={rowActions}
 				renderRowActions={(action) => (
 					<div className="flex flex-row items-center gap-2 justify-end">
-						<Button size="sm" variant="outline" onClick={() => toggleDetails(action.id)}>{<EyeIcon className="w-16" />}
+						<Button size="sm" variant="outline" onClick={() => toggleDetails(action.id)}>{<EyeIcon className="w-[16px]" />}
 							{t("recentActions.details")}
 						</Button>
 						{action.rollback_status === "available" && (
 							<Button size="sm" colorScheme="orange" onClick={() => rollback(action)} loading={
 									rollbackMutation.isLoading &&
 									rollbackMutation.variables === action.id
-								}>{<ArrowUturnLeftIcon className="w-16" />}
+								}>{<ArrowUturnLeftIcon className="w-[16px]" />}
 								{t("recentActions.rollback")}
 							</Button>
 						)}

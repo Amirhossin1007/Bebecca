@@ -141,7 +141,16 @@ export const Select = forwardRef<
 				required={required ?? field?.required}
 				disabled={disabled ?? isDisabled ?? field?.disabled}
 				aria-invalid={invalid || undefined}
-				className={cn(FIELD_BASE, FIELD_SIZE[size], "appearance-none pe-9", invalid && INVALID, className)}
+				className={cn(
+					FIELD_BASE,
+					FIELD_SIZE[size],
+					// A select is a control of its own: same surface, radius and focus
+					// treatment as the panel's other inputs, without the browser chrome.
+					"rb-select h-9 cursor-pointer appearance-none bg-panel-surface pe-9 ps-3 text-sm",
+					"hover:border-panel-border-strong",
+					invalid && INVALID,
+					className,
+				)}
 				{...props}
 			>
 				{placeholder !== undefined ? <option value="">{placeholder}</option> : null}
@@ -149,7 +158,7 @@ export const Select = forwardRef<
 			</select>
 			<ChevronDownIcon
 				aria-hidden
-				className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-panel-text-secondary"
+				className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-panel-text-muted"
 			/>
 		</div>
 	);

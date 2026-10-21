@@ -191,8 +191,8 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 				{/* Month Navigation */}
 				<div className="flex justify-between items-center mb-2">
 					<div className="flex flex-row items-center gap-1">
-						<IconButton aria-label={t("dateTimePicker.previousMonth")} size="xs" variant="ghost" onClick={prevMonth} className={cn(quickSelectHoverBg)} >{<ChevronLeftIcon className="w-14 h-14" />}</IconButton>
-						<IconButton aria-label={t("dateTimePicker.nextMonth")} size="xs" variant="ghost" onClick={nextMonth} className={cn(quickSelectHoverBg)} >{<ChevronRightIcon className="w-14 h-14" />}</IconButton>
+						<IconButton aria-label={t("dateTimePicker.previousMonth")} size="xs" variant="ghost" onClick={prevMonth} className={cn(quickSelectHoverBg)} >{<ChevronLeftIcon className="w-[14px] h-[14px]" />}</IconButton>
+						<IconButton aria-label={t("dateTimePicker.nextMonth")} size="xs" variant="ghost" onClick={nextMonth} className={cn(quickSelectHoverBg)} >{<ChevronRightIcon className="w-[14px] h-[14px]" />}</IconButton>
 					</div>
 					<p className="text-[0.75rem] font-semibold">
 						{displayMonth.format("MMMM YYYY")}

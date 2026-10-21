@@ -461,7 +461,7 @@ export const ExternalAppsPage = () => {
 			actions.push({
 				id: "update",
 				label: t("externalApps.update"),
-				icon: <ArrowPathIcon className="w-16" />,
+				icon: <ArrowPathIcon className="w-[16px]" />,
 				onClick: () => setUpdateTarget(app),
 			});
 		}
@@ -469,7 +469,7 @@ export const ExternalAppsPage = () => {
 			actions.push({
 				id: "database-backup",
 				label: t("externalApps.downloadDatabaseBackup"),
-				icon: <ArrowDownTrayIcon className="w-16" />,
+				icon: <ArrowDownTrayIcon className="w-[16px]" />,
 				onClick: () => databaseBackupMutation.mutate(app),
 				disabled: databaseBackupMutation.isLoading,
 			});
@@ -478,7 +478,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "files",
 				label: t("externalApps.files.button"),
-				icon: <FolderOpenIcon className="w-16" />,
+				icon: <FolderOpenIcon className="w-[16px]" />,
 				onClick: () => openManager(app, "file"),
 			},
 			...(app.runtime === "php"
@@ -486,7 +486,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "php-settings",
 							label: t("externalApps.files.phpConfig"),
-							icon: <CodeBracketIcon className="w-16" />,
+							icon: <CodeBracketIcon className="w-[16px]" />,
 							onClick: () => openManager(app, "php-config"),
 						},
 					]
@@ -496,7 +496,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "settings",
 							label: t("externalApps.settings"),
-							icon: <Cog6ToothIcon className="w-16" />,
+							icon: <Cog6ToothIcon className="w-[16px]" />,
 							onClick: () => openSettings(app),
 						},
 					]
@@ -504,7 +504,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "open",
 				label: t("externalApps.open"),
-				icon: <ArrowTopRightOnSquareIcon className="w-16" />,
+				icon: <ArrowTopRightOnSquareIcon className="w-[16px]" />,
 				onClick: () =>
 					window.open(app.public_url, "_blank", "noopener,noreferrer"),
 			},
@@ -513,7 +513,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "open-bot",
 							label: t("externalApps.openBot"),
-							icon: <PaperAirplaneIcon className="w-16" />,
+							icon: <PaperAirplaneIcon className="w-[16px]" />,
 							onClick: () =>
 								window.open(
 									`https://t.me/${encodeURIComponent(botUsername)}`,
@@ -529,9 +529,9 @@ export const ExternalAppsPage = () => {
 					? t("externalApps.disable")
 					: t("externalApps.enable"),
 				icon: app.enabled ? (
-					<NoSymbolIcon className="w-16" />
+					<NoSymbolIcon className="w-[16px]" />
 				) : (
-					<PlayIcon className="w-16" />
+					<PlayIcon className="w-[16px]" />
 				),
 				onClick: () =>
 					toggleMutation.mutate({ id: app.id, enabled: !app.enabled }),
@@ -540,7 +540,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "delete",
 				label: t("externalApps.delete"),
-				icon: <TrashIcon className="w-16" />,
+				icon: <TrashIcon className="w-[16px]" />,
 				onClick: () => confirmDelete(app),
 				disabled: deleteMutation.isLoading,
 				isDanger: true,
@@ -757,7 +757,7 @@ export const ExternalAppsPage = () => {
 												? "externalApps.latestFaoximaRelease"
 												: "externalApps.latestRelease",
 										)}
-										<ArrowTopRightOnSquareIcon className="w-14" />
+										<ArrowTopRightOnSquareIcon className="w-[14px]" />
 									</a>
 								) : null}
 							</FormControl>
@@ -861,12 +861,12 @@ export const ExternalAppsPage = () => {
 									<div className={cn("border rounded-md p-4", borderColor)}>
 										<div className="flex flex-row items-center justify-between mb-4 flex-wrap gap-2">
 											<div className="flex flex-row items-center gap-2">
-												<CircleStackIcon className="w-18" />
+												<CircleStackIcon className="w-[18px]" />
 												<p className="font-semibold">
 													{t("externalApps.databaseSettings")}
 												</p>
 											</div>
-											<Button size="sm" variant="outline" onClick={generateDatabaseCredentials}>{<SparklesIcon className="w-16" />}
+											<Button size="sm" variant="outline" onClick={generateDatabaseCredentials}>{<SparklesIcon className="w-[16px]" />}
 												{t("externalApps.generateDatabaseCredentials")}
 											</Button>
 										</div>
@@ -903,7 +903,7 @@ export const ExternalAppsPage = () => {
 								selectedTemplate?.supported === false ||
 								!domain ||
 								(template === "archive" && !name.trim())
-							} onClick={() => installMutation.mutate()} className="mt-5">{<ArrowUpTrayIcon className="w-18" />}
+							} onClick={() => installMutation.mutate()} className="mt-5">{<ArrowUpTrayIcon className="w-[18px]" />}
 							{t("externalApps.install")}
 						</Button>
 						{selectedTemplate?.detail ? (
@@ -931,7 +931,7 @@ export const ExternalAppsPage = () => {
 						},
 					]}
 					actions={
-						<Button size="md" colorScheme="primary" onClick={() => setCreateDialogOpen(true)}>{<PlusIcon className="w-16 h-16" />}
+						<Button size="md" colorScheme="primary" onClick={() => setCreateDialogOpen(true)}>{<PlusIcon className="w-[16px] h-[16px]" />}
 							{t("externalApps.create")}
 						</Button>
 					}

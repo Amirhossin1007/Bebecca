@@ -571,7 +571,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 									<XrayDialogSection title={t("pages.xray.rules.attrs")}>
 										<FormControl>
 											<FormLabel>{t("pages.xray.rules.attrs")}</FormLabel>
-											<Button onClick={onAddAttribute} size="xs" variant="outline" colorScheme="primary">{<PlusIcon className="w-16" />}
+											<Button onClick={onAddAttribute} size="xs" variant="outline" colorScheme="primary">{<PlusIcon className="w-[16px]" />}
 												{t("add")}
 											</Button>
 										</FormControl>
@@ -585,7 +585,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 												<div key={field.id} className="flex flex-row gap-2 items-start">
 													<Input size="sm" placeholder={t("myaccount.apiKeyMasked")} {...register(`attrs.${index}.key` as const)} />
 													<Input size="sm" placeholder={t("value")} {...register(`attrs.${index}.value` as const)} />
-													<IconButton aria-label={t("a11y.removeAttribute")} size="sm" variant="ghost" onClick={() => remove(index)} >{<XMarkIcon className="w-16" />}</IconButton>
+													<IconButton aria-label={t("a11y.removeAttribute")} size="sm" variant="ghost" onClick={() => remove(index)} >{<XMarkIcon className="w-[16px]" />}</IconButton>
 												</div>
 											))}
 										</div>

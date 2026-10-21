@@ -278,21 +278,21 @@ export default function HAProxyPage() {
 			label: t(
 				config.enabled ? "haproxy.disableAction" : "haproxy.enableAction",
 			),
-			icon: <PowerIcon className="w-16" />,
+			icon: <PowerIcon className="w-[16px]" />,
 			disabled: toggleEnabled.isLoading,
 			onClick: () => toggleEnabled.mutate({ config, enabled: !config.enabled }),
 		},
 		{
 			id: "edit",
 			label: t("edit"),
-			icon: <PencilSquareIcon className="w-16" />,
+			icon: <PencilSquareIcon className="w-[16px]" />,
 			onClick: () => openEdit(config),
 		},
 		{
 			id: "delete",
 			label:
 				deleteArmed === config.id ? t("haproxy.confirmDelete") : t("delete"),
-			icon: <TrashIcon className="w-16" />,
+			icon: <TrashIcon className="w-[16px]" />,
 			isDanger: true,
 			disabled: remove.isLoading,
 			onClick: () =>
@@ -323,10 +323,10 @@ export default function HAProxyPage() {
 								navigate(
 									`/tutorials?doc=${encodeURIComponent("admin/haproxy/")}`,
 								)
-							}>{<BookOpenIcon className="w-17" />}
+							}>{<BookOpenIcon className="w-[17px]" />}
 							{t("haproxy.tutorial")}
 						</Button>
-						<Button size="md" colorScheme="pink" onClick={openCreate}>{<PlusIcon className="w-17" />}
+						<Button size="md" colorScheme="pink" onClick={openCreate}>{<PlusIcon className="w-[17px]" />}
 							{t("haproxy.create")}
 						</Button>
 					</div>
@@ -618,7 +618,7 @@ function HAProxyDialog({
 													placeholder={t("haproxy.selectNode")}
 												/>
 											</FormControl>
-											<Button variant="solid" size="md" onClick={addTarget} disabled={!targetOption}>{<PlusIcon className="w-16" />}
+											<Button variant="solid" size="md" onClick={addTarget} disabled={!targetOption}>{<PlusIcon className="w-[16px]" />}
 												{t("haproxy.addTarget")}
 											</Button>
 										</div>
@@ -685,7 +685,7 @@ function HAProxyDialog({
 															setArchive(event.target.files?.[0] ?? null)
 														} className="p-1" />
 												</FormControl>
-												<Button variant="solid" size="md" disabled={!archive} loading={upload.isLoading} onClick={() => upload.mutate()}>{<ArrowUpTrayIcon className="w-16" />}
+												<Button variant="solid" size="md" disabled={!archive} loading={upload.isLoading} onClick={() => upload.mutate()}>{<ArrowUpTrayIcon className="w-[16px]" />}
 													{t("upload")}
 												</Button>
 											</div>
@@ -806,7 +806,7 @@ function HAProxyDialog({
 										? cloneCandidates.map((node) => node.id)
 										: [...cloneNodeIDs],
 								)
-							}>{<DocumentDuplicateIcon className="w-16" />}
+							}>{<DocumentDuplicateIcon className="w-[16px]" />}
 							{t("haproxy.clone")}
 						</Button>
 					</ModalFooter>
@@ -866,17 +866,17 @@ function TargetEditor({
 					</p>
 				</div>
 				<div className="flex flex-col md:flex-row md:items-center gap-3">
-					<Button size="sm" variant="outline" onClick={onClone} loading={isCloning} disabled={!canClone}>{<DocumentDuplicateIcon className="w-16" />}
+					<Button size="sm" variant="outline" onClick={onClone} loading={isCloning} disabled={!canClone}>{<DocumentDuplicateIcon className="w-[16px]" />}
 						{t("haproxy.clone")}
 					</Button>
 					<IconButton aria-label={t(
 							expanded ? "haproxy.collapseSettings" : "haproxy.expandSettings",
 						)} size="sm" variant="ghost" onClick={() => onExpandedChange(!expanded)} >{expanded ? (
-								<ChevronUpIcon className="w-17" />
+								<ChevronUpIcon className="w-[17px]" />
 							) : (
-								<ChevronDownIcon className="w-17" />
+								<ChevronDownIcon className="w-[17px]" />
 							)}</IconButton>
-					<IconButton size="md" aria-label={t("haproxy.removeTarget")} variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-17" />}</IconButton>
+					<IconButton size="md" aria-label={t("haproxy.removeTarget")} variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-[17px]" />}</IconButton>
 				</div>
 			</div>
 			<Collapse in={expanded} animateOpacity>
@@ -915,7 +915,7 @@ function TargetEditor({
 									emptyListener(target.listeners.length),
 								],
 							})
-						}>{<PlusIcon className="w-16" />}
+						}>{<PlusIcon className="w-[16px]" />}
 						{t("haproxy.addListener")}
 					</Button>
 				</div>
@@ -1013,11 +1013,11 @@ function ListenerEditor({
 					<IconButton aria-label={t(
 							expanded ? "haproxy.collapseSettings" : "haproxy.expandSettings",
 						)} size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} >{expanded ? (
-								<ChevronUpIcon className="w-16" />
+								<ChevronUpIcon className="w-[16px]" />
 							) : (
-								<ChevronDownIcon className="w-16" />
+								<ChevronDownIcon className="w-[16px]" />
 							)}</IconButton>
-					<IconButton aria-label={t("haproxy.removeListener")} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-16" />}</IconButton>
+					<IconButton aria-label={t("haproxy.removeListener")} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-[16px]" />}</IconButton>
 				</div>
 			</div>
 			<Collapse in={expanded} animateOpacity>
@@ -1065,7 +1065,7 @@ function ListenerEditor({
 										(option) =>
 											option.value === candidateOption && option.disabled,
 									)
-								}>{<PlusIcon className="w-16" />}
+								}>{<PlusIcon className="w-[16px]" />}
 								{t("haproxy.addInbound")}
 							</Button>
 							<Button size="md" variant="outline" onClick={() =>
@@ -1124,7 +1124,7 @@ function ListenerEditor({
 									sites: [...sites, emptySite(sites.length)],
 									site: undefined,
 								})
-							}>{<PlusIcon className="w-15" />}
+							}>{<PlusIcon className="w-[15px]" />}
 							{t("haproxy.addWebsite")}
 						</Button>
 					</div>
@@ -1232,11 +1232,11 @@ function SiteEditor({
 								? "haproxy.collapseSettings"
 								: "haproxy.expandSettings",
 						)} size="sm" variant="ghost" disabled={!site.enabled} onClick={() => setExpanded(!expanded)} >{site.enabled && expanded ? (
-								<ChevronUpIcon className="w-15" />
+								<ChevronUpIcon className="w-[15px]" />
 							) : (
-								<ChevronDownIcon className="w-15" />
+								<ChevronDownIcon className="w-[15px]" />
 							)}</IconButton>
-					<IconButton aria-label={t("haproxy.removeWebsite")} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-15" />}</IconButton>
+					<IconButton aria-label={t("haproxy.removeWebsite")} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-[15px]" />}</IconButton>
 				</div>
 			</div>
 			<Collapse in={site.enabled && expanded} animateOpacity>
@@ -1426,7 +1426,7 @@ function SiteEditor({
 					{previewURL && (
 						<a href={previewURL} target="_blank" rel="noopener noreferrer" className="text-blue-300 text-[0.875rem]">
 							<div className="flex flex-row items-center gap-2">
-								<ArrowTopRightOnSquareIcon className="w-15" />
+								<ArrowTopRightOnSquareIcon className="w-[15px]" />
 								<p>{t("haproxy.previewTemplate")}</p>
 							</div>
 						</a>
@@ -1486,7 +1486,7 @@ function RouteEditor({
 							127.0.0.1:{route.backend_port} · {route.protocol}
 						</p>
 					</div>
-					<IconButton aria-label={t("haproxy.removeRoute")} size="sm" variant="ghost" onClick={onRemove} >{<TrashIcon className="w-15" />}</IconButton>
+					<IconButton aria-label={t("haproxy.removeRoute")} size="sm" variant="ghost" onClick={onRemove} >{<TrashIcon className="w-[15px]" />}</IconButton>
 				</div>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
 					<FormControl>
@@ -1578,7 +1578,7 @@ function RouteEditor({
 								onChange({ ...route, match_value: event.target.value })
 							} />
 					</FormControl>
-					<IconButton aria-label={t("haproxy.removeRoute")} size="sm" variant="ghost" onClick={onRemove} >{<TrashIcon className="w-15" />}</IconButton>
+					<IconButton aria-label={t("haproxy.removeRoute")} size="sm" variant="ghost" onClick={onRemove} >{<TrashIcon className="w-[15px]" />}</IconButton>
 				</div>
 			</div>
 		</div>

@@ -2029,7 +2029,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		<p>{t("username")}</p>
 																		<Tooltip hasArrow placement="top" label={t("userDialog.usernameHint")}>
 																			<span className="inline-flex text-gray-400 cursor-help">
-																				<QuestionMarkCircleIcon className="w-16 h-16" />
+																				<QuestionMarkCircleIcon className="w-[16px] h-[16px]" />
 																			</span>
 																		</Tooltip>
 																	</FormLabel>
@@ -2058,7 +2058,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																										false,
 																									);
 																								}, 350);
-																							}} loading={randomUsernameLoading} disabled={disabled} className="h-[32px] min-w-[32px]! w-[32px]" >{<SparklesIcon className="w-18" />}</IconButton>
+																							}} loading={randomUsernameLoading} disabled={disabled} className="h-[32px] min-w-[32px]! w-[32px]" >{<SparklesIcon className="w-[18px]" />}</IconButton>
 																					</InputRightElement>
 																				)}
 																			</InputGroup>
@@ -2157,7 +2157,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		{t("userDialog.ipLimitLabel")}
 																		<Tooltip hasArrow placement="top" label={t("userDialog.ipLimitHint")}>
 																			<span className="inline-flex text-gray-400 cursor-help">
-																				<QuestionMarkCircleIcon className="w-16 h-16" />
+																				<QuestionMarkCircleIcon className="w-[16px] h-[16px]" />
 																			</span>
 																		</Tooltip>
 																	</FormLabel>
@@ -2265,7 +2265,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		{t("userDialog.speedLimitLabel")}
 																		<Tooltip hasArrow placement="top" label={t("userDialog.speedLimitHint")}>
 																			<span className="inline-flex text-gray-400 cursor-help">
-																				<QuestionMarkCircleIcon className="w-16 h-16" />
+																				<QuestionMarkCircleIcon className="w-[16px] h-[16px]" />
 																			</span>
 																		</Tooltip>
 																	</FormLabel>
@@ -2780,7 +2780,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																								<IconButton size="sm" aria-label={t("edit")} variant="ghost" onClick={() =>
 																										startEditAutoRenew(idx)
 																									} disabled={disabled}>
-																									<PencilIcon className="w-16" />
+																									<PencilIcon className="w-[16px]" />
 																								</IconButton>
 																								<IconButton size="sm" aria-label={t("delete")} variant="ghost" onClick={() =>
 																										handleDeleteAutoRenewRule(

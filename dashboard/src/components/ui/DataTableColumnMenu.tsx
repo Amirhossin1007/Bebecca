@@ -39,7 +39,7 @@ export function DataTableColumnMenu<TData>({
 	return (
 		<Menu placement="bottom-end" isLazy closeOnSelect={false}>
 			<Tooltip label={t("next.table.toggleColumns")} placement="top" hasArrow>
-				<MenuButton as={IconButton} aria-label={t("next.table.toggleColumns")} icon={<AdjustmentsHorizontalIcon className="w-16" />} size="sm" variant="outline" className="rounded-full" />
+				<MenuButton as={IconButton} aria-label={t("next.table.toggleColumns")} icon={<AdjustmentsHorizontalIcon className="w-[16px]" />} size="sm" variant="outline" className="rounded-full" />
 			</Tooltip>
 			<Portal>
 				<MenuList className="z-[1800] min-w-[220px]! bg-panel-surface border-panel-border!">

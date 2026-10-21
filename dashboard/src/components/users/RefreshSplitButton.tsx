@@ -93,7 +93,7 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 						className="relative rounded-s-none px-1.5"
 						style={{ height: 32, width: 30 }}
 					>
-						<ChevronDownIcon className="w-14" />
+						<ChevronDownIcon className="w-[14px]" />
 						{active ? (
 							<span
 								aria-hidden="true"

@@ -1562,7 +1562,7 @@ export const InboundFormModal: FC<Props> = ({
 															currentProtocol === "ikev2" ||
 															currentProtocol === "gre" ||
 															currentProtocol === "web"
-														}>{<SparklesIcon className="w-16 h-16" />}
+														}>{<SparklesIcon className="w-[16px] h-[16px]" />}
 														{t("inbounds.randomPort")}
 													</Button>
 												</div>
@@ -2125,7 +2125,7 @@ export const InboundFormModal: FC<Props> = ({
 																		shouldDirty: true,
 																		shouldValidate: true,
 																	})
-																} >{<SparklesIcon className="w-16" />}</IconButton>
+																} >{<SparklesIcon className="w-[16px]" />}</IconButton>
 														</div>
 														<FormErrorMessage>
 															{fieldValidationErrors.mtSecret}
@@ -2286,7 +2286,7 @@ export const InboundFormModal: FC<Props> = ({
 																		shouldDirty: true,
 																		shouldValidate: true,
 																	})
-																} >{<SparklesIcon className="w-16" />}</IconButton>
+																} >{<SparklesIcon className="w-[16px]" />}</IconButton>
 														</div>
 														<FormErrorMessage>
 															{fieldValidationErrors.webSecret}
@@ -2553,7 +2553,7 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 												</FormControl>
 												<div>
-													<Button variant="solid" size="sm" onClick={handleGenerateOVSelfSigned} loading={ovCertLoading}>{<SparklesIcon className="w-16" />}
+													<Button variant="solid" size="sm" onClick={handleGenerateOVSelfSigned} loading={ovCertLoading}>{<SparklesIcon className="w-[16px]" />}
 														{t("inbounds.openvpn.generateSelfSigned")}
 													</Button>
 												</div>
@@ -2811,7 +2811,7 @@ export const InboundFormModal: FC<Props> = ({
 													</FormControl>
 												</div>
 												<div>
-													<Button variant="solid" size="sm" onClick={handleGenerateWGKeypair} loading={wgKeyLoading}>{<SparklesIcon className="w-16" />}
+													<Button variant="solid" size="sm" onClick={handleGenerateWGKeypair} loading={wgKeyLoading}>{<SparklesIcon className="w-[16px]" />}
 														{t("inbounds.wireguard.generateKeys")}
 													</Button>
 												</div>
@@ -3180,7 +3180,7 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														</FormControl>
 														<div>
-															<Button variant="solid" size="sm" onClick={handleGenerateAnyConnectSelfSigned} loading={anyConnectCertLoading}>{<SparklesIcon className="w-16" />}
+															<Button variant="solid" size="sm" onClick={handleGenerateAnyConnectSelfSigned} loading={anyConnectCertLoading}>{<SparklesIcon className="w-[16px]" />}
 																{t("inbounds.anyconnect.generateSelfSigned")}
 															</Button>
 														</div>
@@ -5440,7 +5440,7 @@ export const InboundFormModal: FC<Props> = ({
 																	appendHysteriaUdpMask(
 																		createDefaultHysteriaUdpMask(),
 																	)
-																}>{<SparklesIcon className="w-14 h-14" />}
+																}>{<SparklesIcon className="w-[14px] h-[14px]" />}
 																{t("inbounds.hysteria.addUdpMask")}
 															</Button>
 														</div>
@@ -5551,7 +5551,7 @@ export const InboundFormModal: FC<Props> = ({
 																								shouldValidate: true,
 																							},
 																						)
-																					} >{<ArrowPathIcon className="w-16 h-16" />}</IconButton>
+																					} >{<ArrowPathIcon className="w-[16px] h-[16px]" />}</IconButton>
 																			</div>
 																		</FormControl>
 																		{maskMode === "gecko" && (
@@ -6372,7 +6372,7 @@ export const InboundFormModal: FC<Props> = ({
 													<div className="flex flex-row items-center gap-2">
 														<p>{t("pages.xray.routeTester.target")}</p>
 														<Tooltip label={t("common.randomize")}>
-															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityTarget} >{<ArrowPathIcon className="w-14 h-14" />}</IconButton>
+															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityTarget} >{<ArrowPathIcon className="w-[14px] h-[14px]" />}</IconButton>
 														</Tooltip>
 													</div>
 												</FormLabel>
@@ -6396,7 +6396,7 @@ export const InboundFormModal: FC<Props> = ({
 													<div className="flex flex-row items-center gap-2">
 														<p>{t("inbounds.reality.serverNames")}</p>
 														<Tooltip label={t("common.randomize")}>
-															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityTarget} >{<ArrowPathIcon className="w-14 h-14" />}</IconButton>
+															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityTarget} >{<ArrowPathIcon className="w-[14px] h-[14px]" />}</IconButton>
 														</Tooltip>
 													</div>
 												</FormLabel>
@@ -6461,7 +6461,7 @@ export const InboundFormModal: FC<Props> = ({
 													<div className="flex flex-row items-center gap-2">
 														<p>{t("inbounds.reality.shortIds")}</p>
 														<Tooltip label={t("common.randomize")}>
-															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityShortIds} >{<ArrowPathIcon className="w-14 h-14" />}</IconButton>
+															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityShortIds} >{<ArrowPathIcon className="w-[14px] h-[14px]" />}</IconButton>
 														</Tooltip>
 													</div>
 												</FormLabel>
@@ -6678,7 +6678,7 @@ export const InboundFormModal: FC<Props> = ({
 															{t("inbounds.sniffing")}
 														</div>
 													<Tooltip label={t("inbounds.sniffingHint")}>
-															<QuestionMarkCircleIcon className="w-16 h-16" />
+															<QuestionMarkCircleIcon className="w-[16px] h-[16px]" />
 														</Tooltip>
 													</div>
 													<Switch {...register("sniffingEnabled")} />

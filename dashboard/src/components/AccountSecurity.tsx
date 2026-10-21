@@ -262,7 +262,7 @@ export const AccountSecurity = ({
 							<div className="flex-col sm:flex-row flex items-stretch sm:items-center justify-between gap-3 py-2">
 								<div className="flex flex-row min-w-0! gap-3 items-start">
 									<div aria-hidden="true" className="flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated text-panel-accent">
-										<KeyIcon className="w-18" />
+										<KeyIcon className="w-[18px]" />
 									</div>
 									<div className="min-w-0!">
 										<p className="font-semibold text-[0.875rem]">
@@ -283,7 +283,7 @@ export const AccountSecurity = ({
 							<div className="flex-col sm:flex-row flex items-stretch sm:items-center justify-between gap-3 py-2">
 								<div className="flex flex-row min-w-0! gap-3 items-start">
 									<div aria-hidden="true" className={cn("flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated", totpEnabled ? "text-green-400" : "text-panel-text-muted")}>
-										<ShieldCheckIcon className="w-18" />
+										<ShieldCheckIcon className="w-[18px]" />
 									</div>
 									<div className="min-w-0!">
 										<div className="flex flex-row items-center gap-2 flex-wrap">
@@ -370,7 +370,7 @@ export const AccountSecurity = ({
 										</div>
 										<Button colorScheme="red" loading={
 												revoke.isLoading && revoke.variables === session.id
-											} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" aria-label={`${t("header.logout")} ${browserLabel}`} className="self-end sm:self-center">{<ArrowRightStartOnRectangleIcon className="w-16" />}
+											} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" aria-label={`${t("header.logout")} ${browserLabel}`} className="self-end sm:self-center">{<ArrowRightStartOnRectangleIcon className="w-[16px]" />}
 											{t("header.logout")}
 										</Button>
 									</div>

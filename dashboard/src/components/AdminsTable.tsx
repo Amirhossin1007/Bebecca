@@ -586,7 +586,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 										? "rotate(180deg)"
 										: undefined,
 								transition: "transform 0.15s ease",
-							}} className="w-14" />
+							}} className="w-[14px]" />
 					</div>
 				</Button>
 				<Collapse in={isOpen} unmountOnExit>
@@ -986,13 +986,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				{
 					id: "edit",
 					label: t("edit"),
-					icon: <PencilIcon className="w-16" />,
+					icon: <PencilIcon className="w-[16px]" />,
 					onClick: () => openAdminDialog(admin),
 				},
 				{
 					id: "permissions",
 					label: t("admins.editPermissionsButton"),
-					icon: <AdjustmentsHorizontalIcon className="w-16" />,
+					icon: <AdjustmentsHorizontalIcon className="w-[16px]" />,
 					onClick: () => handleOpenPermissionsModal(admin),
 				},
 				{
@@ -1011,7 +1011,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push({
 				id: "security",
 				label: t("admins.security.action"),
-				icon: <ShieldCheckIcon className="w-16" />,
+				icon: <ShieldCheckIcon className="w-[16px]" />,
 				onClick: () => {
 					setSecurityAdmin(admin);
 					securityDialog.onOpen();
@@ -1023,7 +1023,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push({
 				id: "apiKeys",
 				label: t("admins.apiKeys.action"),
-				icon: <KeyIcon className="w-16" />,
+				icon: <KeyIcon className="w-[16px]" />,
 				onClick: () => {
 					setAPIKeysAdmin(admin);
 					apiKeysDialog.onOpen();

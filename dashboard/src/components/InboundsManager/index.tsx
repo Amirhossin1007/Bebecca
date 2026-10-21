@@ -740,13 +740,13 @@ export const InboundsManager: FC = () => {
 		{
 			id: "edit",
 			label: t("edit"),
-			icon: <PencilIcon className="w-16" />,
+			icon: <PencilIcon className="w-[16px]" />,
 			onClick: () => openEdit(inbound),
 		},
 		{
 			id: "reset-usage",
 			label: t("inbounds.resetUsage"),
-			icon: <ArrowPathIcon className="w-16" />,
+			icon: <ArrowPathIcon className="w-[16px]" />,
 			onClick: () => {
 				setResetTarget(inbound);
 				resetDialog.onOpen();
@@ -756,7 +756,7 @@ export const InboundsManager: FC = () => {
 		{
 			id: "delete",
 			label: t("delete"),
-			icon: <TrashIcon className="w-16" />,
+			icon: <TrashIcon className="w-[16px]" />,
 			isDanger: true,
 			render: (_row, onMenuClose) => (
 				<DeleteConfirmDialog
@@ -769,7 +769,7 @@ export const InboundsManager: FC = () => {
 						onMenuClose();
 					}}
 				>
-					<MenuItem icon={<TrashIcon className="w-16" />} disabled={isMutating} onClick={(event) => event.stopPropagation()} className="text-red-400">
+					<MenuItem icon={<TrashIcon className="w-[16px]" />} disabled={isMutating} onClick={(event) => event.stopPropagation()} className="text-red-400">
 						{t("delete")}
 					</MenuItem>
 				</DeleteConfirmDialog>
@@ -783,7 +783,7 @@ export const InboundsManager: FC = () => {
 				title={t("inbounds.listHeader")}
 				summaryItems={inboundSummaryItems}
 				actions={
-					<Button onClick={openCreate} colorScheme="primary" size="sm" className="h-[36px] px-3 rounded-[4px]">{<PlusIcon className="w-18 h-18" />}
+					<Button onClick={openCreate} colorScheme="primary" size="sm" className="h-[36px] px-3 rounded-[4px]">{<PlusIcon className="w-[18px] h-[18px]" />}
 						{t("inbounds.add")}
 					</Button>
 				}
@@ -791,7 +791,7 @@ export const InboundsManager: FC = () => {
 					<ResourceRefreshButton
 						aria-label={t("inbounds.refresh")}
 						label={t("inbounds.refresh")}
-						icon={<ArrowPathIcon className="w-16" />}
+						icon={<ArrowPathIcon className="w-[16px]" />}
 						loading={isLoading}
 						onClick={loadInbounds}
 					/>
@@ -874,7 +874,7 @@ export const InboundsManager: FC = () => {
 						disabled={selectedRows.length === 0}
 						onConfirm={() => handleBulkDelete(selectedRows)}
 					>
-						<Button size="sm" variant="outline" colorScheme="red" loading={isMutating} disabled={selectedRows.length === 0}>{<TrashIcon className="w-16" />}
+						<Button size="sm" variant="outline" colorScheme="red" loading={isMutating} disabled={selectedRows.length === 0}>{<TrashIcon className="w-[16px]" />}
 							{t("delete")}
 						</Button>
 					</DeleteConfirmDialog>

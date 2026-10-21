@@ -2561,3 +2561,50 @@ img.apple-emoji {
 .page-skeleton {
   animation: pageSkeletonPulse 1.8s ease-in-out infinite;
 }
+
+/* Native select popups (drawn by the browser) follow the panel surface instead of
+   the OS theme, so an open dropdown never flashes a white list in dark mode. */
+select.rb-select option {
+  background-color: var(--rb-panel-elevated);
+  color: var(--rb-panel-text);
+}
+
+select.rb-select optgroup {
+  background-color: var(--rb-panel-surface);
+  color: var(--rb-panel-text-secondary);
+}
+
+/* The kit checkbox keeps a native input for behaviour and draws its own box:
+   Chakra's checked/indeterminate look, driven by data-state. */
+.rb-checkbox {
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.rb-checkbox-check,
+.rb-checkbox-dash {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.rb-checkbox[data-state="checked"],
+.rb-checkbox[data-state="indeterminate"] {
+  background-color: var(--rb-checkbox-accent, var(--rb-panel-accent));
+  border-color: transparent;
+}
+
+.rb-checkbox[data-state="checked"] .rb-checkbox-check,
+.rb-checkbox[data-state="indeterminate"] .rb-checkbox-dash {
+  opacity: 1;
+}
+
+label:hover > .rb-checkbox[data-state="unchecked"] {
+  border-color: var(--rb-panel-text-muted);
+}
+
+input:focus-visible + .rb-checkbox {
+  box-shadow: 0 0 0 2px var(--rb-panel-surface), 0 0 0 4px var(--rb-checkbox-accent, var(--rb-panel-accent));
+}
+
+input:disabled + .rb-checkbox {
+  cursor: not-allowed;
+}

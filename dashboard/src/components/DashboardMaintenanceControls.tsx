@@ -339,7 +339,7 @@ export const DashboardMaintenanceControls = ({
 				<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} variant={update?.available ? "solid" : "outline"} disabled={!canMaintain || !hostActionsAvailable || info.isLoading} className={cn("h-[32px] w-full sm:w-auto px-3.5 border-panel-border! rounded-full whitespace-nowrap", update?.available ? "bg-[var(--rb-panel-accent)]" : "bg-transparent", update?.available ? "text-white" : "text-panel-text")}>
 					<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 						<span className="inline-flex items-center justify-center shrink-0">
-							<ArrowUpTrayIcon className="w-15 h-15" />
+							<ArrowUpTrayIcon className="w-[15px] h-[15px]" />
 						</span>
 						<span className="text-[12px] font-semibold leading-none">
 							{update?.available
@@ -353,7 +353,7 @@ export const DashboardMaintenanceControls = ({
 				<PopoverHeader className="font-bold text-[13px] py-3 px-4 border-panel-border!">
 					<div className="flex justify-between items-center gap-3">
 						<p className="text-[13px] font-bold text-panel-text">{t("dashboard.maintenance.title")}</p>
-						<Button size="xs" variant="ghost" onClick={() => info.refetch()} loading={info.isFetching} className="rounded-full text-panel-text-muted hover:text-panel-text hover:bg-panel-elevated">{<ArrowPathIcon className="w-13 h-13" />}
+						<Button size="xs" variant="ghost" onClick={() => info.refetch()} loading={info.isFetching} className="rounded-full text-panel-text-muted hover:text-panel-text hover:bg-panel-elevated">{<ArrowPathIcon className="w-[13px] h-[13px]" />}
 							{t("refresh")}
 						</Button>
 					</div>
@@ -498,7 +498,7 @@ export const DashboardMaintenanceControls = ({
 					<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isLoading} disabled={info.isLoading || !hostActionsAvailable} className="h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
 						<div className="flex flex-row gap-1.5 items-center justify-center">
 							<span className="inline-flex items-center justify-center shrink-0">
-								<ArrowsRightLeftIcon className="w-15 h-15" />
+								<ArrowsRightLeftIcon className="w-[15px] h-[15px]" />
 							</span>
 							<span className="text-[12px] font-semibold leading-none">
 								{t("dashboard.maintenance.restartAction")}
@@ -518,7 +518,7 @@ export const DashboardMaintenanceControls = ({
 						<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isLoading} disabled={info.isLoading || !hostActionsAvailable} className="flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
 							<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 								<span className="inline-flex items-center justify-center shrink-0">
-									<ArrowsRightLeftIcon className="w-15 h-15" />
+									<ArrowsRightLeftIcon className="w-[15px] h-[15px]" />
 								</span>
 								<span className="text-[12px] font-semibold leading-none">
 									{t("dashboard.maintenance.restartAction")}
@@ -548,16 +548,16 @@ export const DashboardMaintenanceControls = ({
 							<div className="flex flex-row items-center gap-3">
 								<div className="flex w-[36px] h-[36px] items-center justify-center rounded-[12px] bg-panel-elevated text-[var(--rb-panel-accent)] border border-panel-border!">
 									{operation?.error ? (
-										<ArrowPathIcon className="w-18" />
+										<ArrowPathIcon className="w-[18px]" />
 									) : operation?.phase === "completed" ? (
-										<CheckIcon className="w-18" />
+										<CheckIcon className="w-[18px]" />
 									) : (
 										<motion.div
 											animate={{ rotate: 360 }}
 											transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
 											style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
 										>
-											<ArrowPathIcon className="w-18" />
+											<ArrowPathIcon className="w-[18px]" />
 										</motion.div>
 									)}
 								</div>
@@ -625,7 +625,7 @@ export const DashboardMaintenanceControls = ({
 							<div className={cn("rounded-[16px] border overflow-hidden", outputBg, outputBorder)}>
 								<div className={cn("flex items-center justify-between px-3.5 py-2 border-b bg-panel-elevated", outputBorder)}>
 									<div className="flex items-center gap-2">
-										<CommandLineIcon className="w-14 h-14 text-[var(--rb-panel-accent)]" />
+										<CommandLineIcon className="w-[14px] h-[14px] text-[var(--rb-panel-accent)]" />
 										<p className="text-[11px] font-semibold text-panel-text-secondary leading-[1]">
 											{t("dashboard.maintenance.liveLogs")}
 										</p>
@@ -638,7 +638,7 @@ export const DashboardMaintenanceControls = ({
 													setLogsCopied(true);
 													setTimeout(() => setLogsCopied(false), 2000);
 												}
-											}} className={cn("h-[22px] w-[22px] min-w-[22px]! rounded-[6px] hover:text-panel-text", logsCopied ? "text-green-500" : "text-panel-text-muted")} >{logsCopied ? <CheckIcon className="w-13" /> : <ClipboardIcon className="w-13" />}</IconButton>
+											}} className={cn("h-[22px] w-[22px] min-w-[22px]! rounded-[6px] hover:text-panel-text", logsCopied ? "text-green-500" : "text-panel-text-muted")} >{logsCopied ? <CheckIcon className="w-[13px]" /> : <ClipboardIcon className="w-[13px]" />}</IconButton>
 									</Tooltip>
 								</div>
 

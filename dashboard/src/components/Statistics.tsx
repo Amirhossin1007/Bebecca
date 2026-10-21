@@ -1413,7 +1413,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
-					icon={<CpuChipIcon className="w-16" />}
+					icon={<CpuChipIcon className="w-[16px]" />}
 					value={formatPercent(systemData.cpu_usage, false)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
@@ -1443,7 +1443,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.memoryUsage")}
-					icon={<ServerStackIcon className="w-16" />}
+					icon={<ServerStackIcon className="w-[16px]" />}
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
@@ -1462,7 +1462,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.swapUsage")}
-					icon={<CircleStackIcon className="w-16" />}
+					icon={<CircleStackIcon className="w-[16px]" />}
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
@@ -1472,7 +1472,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.diskUsage")}
-					icon={<CircleStackIcon className="w-16" />}
+					icon={<CircleStackIcon className="w-[16px]" />}
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
@@ -1487,7 +1487,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					title={
 						<div className="flex flex-row items-center gap-2.5">
 							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-								<SignalIcon className="w-14" />
+								<SignalIcon className="w-[14px]" />
 							</div>
 							<span>{t("dashboard.system.bandwidthSpeed")}</span>
 						</div>
@@ -1538,12 +1538,12 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				>
 					<div className="flex flex-col gap-3">
 						<SpeedItem
-							icon={<ArrowDownTrayIcon className="w-13" />}
+							icon={<ArrowDownTrayIcon className="w-[13px]" />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_incoming_bandwidth_speed ?? 0) : systemData.incoming_bandwidth_speed)}/s`}
 						/>
 						<SpeedItem
-							icon={<ArrowUpTrayIcon className="w-13" />}
+							icon={<ArrowUpTrayIcon className="w-[13px]" />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_outgoing_bandwidth_speed ?? 0) : systemData.outgoing_bandwidth_speed)}/s`}
 						/>
@@ -1554,7 +1554,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					title={
 						<div className="flex flex-row items-center gap-2.5">
 							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-								<ClockIcon className="w-14" />
+								<ClockIcon className="w-[14px]" />
 							</div>
 							<span>{t("dashboard.system.uptime")}</span>
 						</div>
@@ -1564,7 +1564,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
 								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
-									<ServerStackIcon className="w-13" />
+									<ServerStackIcon className="w-[13px]" />
 								</div>
 								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.systemUptime")}
@@ -1575,7 +1575,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
 								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
-									<CircleStackIcon className="w-13" />
+									<CircleStackIcon className="w-[13px]" />
 								</div>
 								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.panelUptime")}
@@ -1593,7 +1593,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				title={
 					<div className="flex flex-row items-center gap-2.5">
 						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-							<CpuChipIcon className="w-14" />
+							<CpuChipIcon className="w-[14px]" />
 						</div>
 						<span>{t("dashboard.system.panelUsage")}</span>
 					</div>
@@ -1614,7 +1614,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
 					<ResourceCard
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
-						icon={<CpuChipIcon className="w-16" />}
+						icon={<CpuChipIcon className="w-[16px]" />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
@@ -1625,7 +1625,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					/>
 					<ResourceCard
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
-						icon={<ServerStackIcon className="w-16" />}
+						icon={<ServerStackIcon className="w-[16px]" />}
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
@@ -1640,7 +1640,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				title={
 					<div className="flex flex-row items-center gap-2.5">
 						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-							<UserGroupIcon className="w-14" />
+							<UserGroupIcon className="w-[14px]" />
 						</div>
 						<span>{t("dashboard.users")}</span>
 					</div>
@@ -1766,7 +1766,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					title={
 						<div className="flex flex-row items-center gap-2.5">
 							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-								<ShieldCheckIcon className="w-14" />
+								<ShieldCheckIcon className="w-[14px]" />
 							</div>
 							<span>{t("dashboard.admins")}</span>
 						</div>
