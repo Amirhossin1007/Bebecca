@@ -238,7 +238,8 @@ const REALITY_TARGETS = [
 ];
 const REALITY_SHORT_ID_LENGTHS = [2, 4, 6, 8, 10, 12, 14, 16];
 
-const fillRandomValues = (buffer: Uint8Array) => {
+// TS 7 (lib.dom) wants an ArrayBuffer-backed view for getRandomValues.
+const fillRandomValues = (buffer: Uint8Array<ArrayBuffer>) => {
 	if (globalThis.crypto?.getRandomValues) {
 		globalThis.crypto.getRandomValues(buffer);
 		return;
