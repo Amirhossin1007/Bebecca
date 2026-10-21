@@ -45,9 +45,11 @@ const buttonVariants = cva(
 function schemeClasses(variant: string, scheme: string): string | undefined {
 	switch (variant) {
 		case "solid":
-			return `bg-${scheme}-500 text-white hover:bg-${scheme}-600 active:bg-${scheme}-700 dark:bg-${scheme}-200 dark:text-gray-800 dark:hover:bg-${scheme}-300 dark:active:bg-${scheme}-400`;
+			// Chakra keeps a solid button solid in dark mode; the old dark:bg-*-200 made
+			// solid buttons look like unstyled white chips.
+			return `bg-${scheme}-500 text-white! hover:bg-${scheme}-600 active:bg-${scheme}-700`;
 		case "outline":
-			return `text-${scheme}-600 dark:text-${scheme}-200`;
+			return `text-${scheme}-600! dark:text-${scheme}-200!`;
 		case "ghost":
 			return `text-${scheme}-600 hover:bg-${scheme}-50 active:bg-${scheme}-100 dark:text-${scheme}-200 dark:hover:bg-${scheme}-200/12 dark:active:bg-${scheme}-200/24`;
 		case "subtle":
