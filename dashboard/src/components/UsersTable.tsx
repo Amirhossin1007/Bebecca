@@ -30,7 +30,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
 import type { SortingState } from "@tanstack/react-table";
-import { ReactComponent as AddFileIcon } from "assets/add_file.svg";
+import AddFileIcon from "assets/add_file.svg?react";
 import { useDashboard } from "contexts/DashboardContext";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";

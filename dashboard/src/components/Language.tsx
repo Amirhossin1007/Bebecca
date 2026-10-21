@@ -7,7 +7,7 @@ import { CheckIcon, LanguageIcon } from "@heroicons/react/24/outline";
 import type { FC, MutableRefObject, ReactNode } from "react";
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
-import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
+import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
 
 type HeaderProps = {
 	actions?: ReactNode;

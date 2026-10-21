@@ -53,7 +53,7 @@ import { logout as logoutSession } from "service/auth";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
 import { getSponsors, type SponsorAsset } from "service/sponsors";
-import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
+import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
 import { AppSidebar } from "./AppSidebar";
 import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
 import { useDisclosure } from "hooks/useDisclosure";

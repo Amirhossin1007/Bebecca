@@ -1,11 +1,6 @@
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
-import {
-	defineConfig,
-	loadEnv,
-	type Plugin,
-	splitVendorChunkPlugin,
-} from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import svgr from "vite-plugin-svgr";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -73,7 +68,6 @@ export default defineConfig(({ mode }) => {
 			}),
 			svgr(),
 			...(env.ANALYZE === "true" ? [visualizer()] : []),
-			splitVendorChunkPlugin(),
 		],
 		server: apiProxy
 			? {
