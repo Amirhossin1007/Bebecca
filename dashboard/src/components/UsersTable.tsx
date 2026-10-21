@@ -2,12 +2,26 @@ import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
 import { Portal } from "components/shadcn/portal";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
 import { useToast } from "components/shadcn/toast";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Button, IconButton } from "components/shadcn/button";
+import { Button as KitButton, IconButton } from "components/shadcn/button";
+import { Tooltip as KitTooltip } from "components/shadcn/tooltip";
+import { Button } from "components/ui/button";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "components/ui/tooltip";
 import { Spinner } from "components/shadcn/feedback";
 import { withClass } from "components/shadcn/icon";
 import type { ComponentPropsWithoutRef, MouseEvent as ReactMouseEvent } from "react";
 import { cn } from "lib/cn";
+import {
+	Check,
+	Clipboard,
+	Pencil,
+	Plus,
+	QrCode,
+	Trash2,
+} from "lucide-react";
 import {
 	ArrowPathIcon,
 	CalendarDaysIcon,
@@ -126,12 +140,12 @@ const MobileUserOnlineDot: FC<{ user: UserListItem }> = ({ user }) => {
 	);
 };
 
-const CopyIcon = withClass(ClipboardIcon, "w-4 md:w-5 h-4 md:h-5");
+const CopyIcon = () => <Clipboard className="size-4 md:size-[18px]" />;
 const SubscriptionLinkIcon = withClass(LinkIcon, "w-4 md:w-5 h-4 md:h-5");
-const QRIcon = withClass(QrCodeIcon, "w-4 md:w-5 h-4 md:h-5");
+const QRIcon = () => <QrCode className="size-4 md:size-[18px]" />;
 const CopiedIcon = withClass(CheckIcon, "w-4 md:w-5 h-4 md:h-5");
-const EditIcon = withClass(PencilIcon, "w-4 md:w-5 h-4 md:h-5");
-const DeleteIcon = withClass(TrashIcon, "w-[18px] h-[18px]");
+const EditIcon = () => <Pencil className="size-4 md:size-[18px]" />;
+const DeleteIcon = () => <Trash2 className="size-[18px]" />;
 const LockOverlayIcon = withClass(LockClosedIcon, "w-16 md:w-20 h-16 md:h-20");
 const ResetIcon = withClass(ArrowPathIcon, "w-4 md:w-5 h-4 md:h-5");
 const DisableIcon = withClass(NoSymbolIcon, "w-4 md:w-5 h-4 md:h-5");
@@ -1326,11 +1340,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
 					<div className="flex flex-row items-center gap-1 rb-expanded-user-actions">
 						{expandedActions.map((action) => (
-							<Tooltip key={action.id} label={action.label}>
+							<KitTooltip key={action.id} label={action.label}>
 								<span>
 									<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={action.disabled} onClick={() => action.onClick?.()} className="min-w-[30px]! h-[30px]" >{action.icon}</IconButton>
 								</span>
-							</Tooltip>
+							</KitTooltip>
 						))}
 					</div>
 					<ActionButtons
@@ -1463,51 +1477,51 @@ export const UsersTable: FC<UsersTableProps> = ({
 						renderBulkActions={() => (
 							<>
 								{canToggleUserStatus && (
-									<Button size="sm" variant="outline" onClick={handleBulkDisable} loading={bulkAction === "disable"} disabled={
+									<KitButton size="sm" variant="outline" onClick={handleBulkDisable} loading={bulkAction === "disable"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkDisableTargets.length === 0
 										}>{<DisableIcon />}
 										{t("usersTable.disableUser")}
-									</Button>
+									</KitButton>
 								)}
 								{canToggleUserStatus && (
-									<Button size="sm" variant="outline" onClick={handleBulkEnable} loading={bulkAction === "enable"} disabled={
+									<KitButton size="sm" variant="outline" onClick={handleBulkEnable} loading={bulkAction === "enable"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkEnableTargets.length === 0
 										}>{<CheckIcon className="w-[16px]" />}
 										{t("usersTable.enableUser")}
-									</Button>
+									</KitButton>
 								)}
 								{canResetUsageActions && (
-									<Button size="sm" variant="outline" onClick={() => setIsBulkResetOpen(true)} loading={bulkAction === "reset"} disabled={
+									<KitButton size="sm" variant="outline" onClick={() => setIsBulkResetOpen(true)} loading={bulkAction === "reset"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
 										}>{<ResetIcon />}
 										{t("usersTable.resetUsage")}
-									</Button>
+									</KitButton>
 								)}
 								{canRevokeSubActions && (
-									<Button size="sm" variant="outline" onClick={handleBulkRevoke} loading={bulkAction === "revoke"} disabled={
+									<KitButton size="sm" variant="outline" onClick={handleBulkRevoke} loading={bulkAction === "revoke"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
 										}>{<RevokeIcon />}
 										{t("usersTable.revokeSub")}
-									</Button>
+									</KitButton>
 								)}
 								{canDeleteUserActions && (
 									<DeleteConfirmDialog
 										description={t("usersTable.bulkDeletePrompt")}
 										onConfirm={handleBulkDelete}
 									>
-										<Button size="sm" colorScheme="red" variant="outline" loading={bulkAction === "delete"} disabled={
+										<KitButton size="sm" colorScheme="red" variant="outline" loading={bulkAction === "delete"} disabled={
 												Boolean(bulkAction) || bulkDeleteTargets.length === 0
 											}>{<DeleteIcon />}
 											{t("delete")}
-										</Button>
+										</KitButton>
 									</DeleteConfirmDialog>
 								)}
 							</>
@@ -1529,16 +1543,16 @@ export const UsersTable: FC<UsersTableProps> = ({
 			</div>
 			<AppDialog open={ipDialog !== null} onClose={() => setIPDialog(null)} title={t("usersTable.ipsDialogTitle")} isCentered size="lg" scrollBehavior="inside" contentProps={{ className: "bg-panel-surface border-panel-border! border rounded-lg overflow-hidden" }} bodyProps={{ className: "pb-5" }} footer={
 					<div className="flex flex-row items-center w-full justify-end gap-2">
-						<Button variant="solid" size="sm" onClick={() => setIPDialog(null)}>
+						<KitButton variant="solid" size="sm" onClick={() => setIPDialog(null)}>
 							{t("close")}
-						</Button>
-						<Button size="sm" colorScheme="primary" onClick={handleCopyIPs} disabled={
+						</KitButton>
+						<KitButton size="sm" colorScheme="primary" onClick={handleCopyIPs} disabled={
 								contextAction === "ips" ||
 								Boolean(ipDialog?.error) ||
 								!ipDialog?.records.length
 							}>{<CopyIcon />}
 							{t("usersTable.copyIps")}
-						</Button>
+						</KitButton>
 					</div>
 				}>
 				<div className="flex flex-col gap-4">
@@ -1745,36 +1759,79 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 				e.preventDefault();
 				e.stopPropagation();
 			}} className={cn("flex flex-row items-center gap-1 flex-nowrap", isRTL ? "justify-start" : "justify-end")}>
-			<Tooltip label={copied ? t("copied") : t("usersTable.copyLink")}>
-				<span>
-					<IconButton aria-label={t("usersTable.copyLink")} variant="ghost" size="sm" disabled={!subscriptionLink} onClick={() => {
+			{/* Row actions: stock shadcn Button + Tooltip, same size and colours as before. */}
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						aria-label={t("usersTable.copyLink")}
+						variant="ghost"
+						size="icon-sm"
+						disabled={!subscriptionLink}
+						className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
+						onClick={() => {
 							void copyTextToClipboard(subscriptionLink)
 								.then(() => {
 									setCopied(true);
 								})
 								.catch(() => undefined);
-						}} className="min-w-[30px]! h-[30px]" >{copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}</IconButton>
-				</span>
+						}}
+					>
+						{copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>{copied ? t("copied") : t("usersTable.copyLink")}</TooltipContent>
 			</Tooltip>
-			<Tooltip label={copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}>
-				<span>
-					<IconButton aria-label={t("usersTable.copyConfigs")} variant="ghost" size="sm" disabled={!hasConfigLinks} onClick={() => {
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						aria-label={t("usersTable.copyConfigs")}
+						variant="ghost"
+						size="icon-sm"
+						disabled={!hasConfigLinks}
+						className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
+						onClick={() => {
 							void copyTextToClipboard(configLinksText)
 								.then(() => setCopiedConfigs(true))
 								.catch(() => undefined);
-						}} className="min-w-[30px]! h-[30px]" >{copiedConfigs ? <CopiedIcon /> : <CopyIcon />}</IconButton>
-				</span>
+						}}
+					>
+						{copiedConfigs ? <CopiedIcon /> : <CopyIcon />}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>{copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}</TooltipContent>
 			</Tooltip>
-			<Tooltip label={t("usersTable.qrCode")}>
-				<IconButton aria-label={t("usersTable.qrCode")} variant="ghost" size="sm" onClick={() => {
-						const links = generateUserLinks(user, linkTemplates);
-						setQRCode(links, user.username);
-						setSubLink(subscriptionLink);
-					}} className="min-w-[30px]! h-[30px]" >{<QRIcon />}</IconButton>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						aria-label={t("usersTable.qrCode")}
+						variant="ghost"
+						size="icon-sm"
+						className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
+						onClick={() => {
+							const links = generateUserLinks(user, linkTemplates);
+							setQRCode(links, user.username);
+							setSubLink(subscriptionLink);
+						}}
+					>
+						<QRIcon />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>{t("usersTable.qrCode")}</TooltipContent>
 			</Tooltip>
 			{onEdit && (
-				<Tooltip label={t("userDialog.editUser")}>
-					<IconButton aria-label={t("userDialog.editUser")} variant="ghost" size="sm" onClick={onEdit} className="min-w-[30px]! h-[30px]" >{<EditIcon />}</IconButton>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							aria-label={t("userDialog.editUser")}
+							variant="ghost"
+							size="icon-sm"
+							className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
+							onClick={onEdit}
+						>
+							<EditIcon />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>{t("userDialog.editUser")}</TooltipContent>
 				</Tooltip>
 			)}
 			{onDelete && (
@@ -1782,7 +1839,14 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 					description={t("deleteUser.prompt", { username: user.username })}
 					onConfirm={onDelete}
 				>
-					<IconButton aria-label={t("deleteUser.title")} variant="ghost" size="sm" className="min-w-[30px]! h-[30px] text-red-400 hover:text-red-300 hover:bg-whiteAlpha-100" >{<DeleteIcon />}</IconButton>
+					<Button
+						aria-label={t("deleteUser.title")}
+						variant="ghost"
+						size="icon-sm"
+						className="size-[30px] text-panel-danger hover:bg-panel-danger/10 hover:text-panel-danger"
+					>
+						<DeleteIcon />
+					</Button>
 				</DeleteConfirmDialog>
 			)}
 			{menuActions && menuActions.length > 0 && (
@@ -1816,9 +1880,9 @@ const EmptySection: FC<EmptySectionProps> = ({
 				{isFiltered ? t("usersTable.noUserMatched") : t("usersTable.noUser")}
 			</p>
 			{!isFiltered && !isCreateDisabled && (
-				<Button size="sm" colorScheme="primary" onClick={handleCreate}>
+				<KitButton size="sm" colorScheme="primary" onClick={handleCreate}>
 					{t("createUser")}
-				</Button>
+				</KitButton>
 			)}
 		</div>
 	);
