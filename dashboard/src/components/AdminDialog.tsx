@@ -25,7 +25,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { useForm } from "react-hook-form";
+import { type Resolver,  useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { EntityNotePanel } from "components/EntityNotePanel";
 import { fetch } from "service/http";
@@ -297,7 +297,7 @@ export const AdminDialog: FC = () => {
 					.transform((value) => (value === "" ? undefined : value)),
 				permissions: adminPermissionsSchema,
 				services: z.array(z.number()).optional(),
-				service_limits: z.record(z.any()).optional(),
+				service_limits: z.record(z.string(), z.any()).optional(),
 			})
 			.superRefine((values, ctx) => {
 				if (mode === "create" && !values.password) {
@@ -312,7 +312,7 @@ export const AdminDialog: FC = () => {
 	}, [mode, t]);
 
 	const form = useForm<AdminFormValues>({
-		resolver: zodResolver(schema),
+		resolver: zodResolver(schema as unknown as Parameters<typeof zodResolver>[0]) as unknown as Resolver<AdminFormValues>,
 		defaultValues: {
 			username: "",
 			password: "",

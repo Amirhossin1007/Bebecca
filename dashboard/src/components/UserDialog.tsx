@@ -46,7 +46,7 @@ import {
 	type ReactNode,
 } from "react";
 import ReactApexChart from "react-apexcharts";
-import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
+import { type Resolver,  Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
 import { fetch as apiFetch } from "service/http";
@@ -627,7 +627,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const form = useForm<FormType>({
 		defaultValues: getDefaultValues(),
 
-		resolver: zodResolver(formSchema),
+		resolver: zodResolver(formSchema as unknown as Parameters<typeof zodResolver>[0]) as unknown as Resolver<FormType>,
 		mode: "onChange",
 		reValidateMode: "onChange",
 	});

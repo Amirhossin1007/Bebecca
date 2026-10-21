@@ -24,7 +24,7 @@ const configSchema = z
 					return z.NEVER;
 				}
 			}),
-		z.record(z.any()),
+		z.record(z.string(), z.any()),
 		z.null(),
 	])
 	.nullish();

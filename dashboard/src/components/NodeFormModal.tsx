@@ -22,7 +22,7 @@ import {
 	type NodeType,
 } from "contexts/NodesContext";
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { type Resolver, Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import {
@@ -208,8 +208,11 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 				...node,
 			};
 
-	const form = useForm({
-		resolver: zodResolver(isAddMode ? NodeSchema : EditableNodeSchema),
+	// The submit handler builds a NodeType payload, so that is the form's value type;
+	// zod's input type is unknown and needs the bridge through the resolver cast.
+	type NodeFormValues = Parameters<typeof buildMutationPayload>[0];
+	const form = useForm<NodeFormValues>({
+		resolver: zodResolver((isAddMode ? NodeSchema : EditableNodeSchema) as unknown as Parameters<typeof zodResolver>[0]) as unknown as Resolver<NodeFormValues>,
 		defaultValues: {
 			...baseDefaults,
 			data_limit: formatDataLimitForInput(baseDefaults.data_limit ?? null),
