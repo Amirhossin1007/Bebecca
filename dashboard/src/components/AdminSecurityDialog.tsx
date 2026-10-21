@@ -19,7 +19,7 @@ import { generateErrorMessage } from "utils/toastHandler";
 
 type Props = {
 	admin: Admin | null;
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	canManageSessions: boolean;
 	canManage2FA: boolean;
@@ -28,7 +28,7 @@ type Props = {
 
 export const AdminSecurityDialog = ({
 	admin,
-	isOpen,
+	open: isOpen,
 	onClose,
 	canManageSessions,
 	canManage2FA,
@@ -91,7 +91,7 @@ export const AdminSecurityDialog = ({
 
 	return (
 		<AppDialog
-			isOpen={isOpen}
+			open={isOpen}
 			onClose={onClose}
 			title={t("admins.security.title", { username: admin?.username ?? "" })}
 			footer={<Button variant="solid" size="md" onClick={onClose}>{t("close")}</Button>}
@@ -109,7 +109,7 @@ export const AdminSecurityDialog = ({
 									: t("disabled")}
 							</Badge>
 						</div>
-						<Button colorScheme={admin?.totp_enabled ? "red" : "primary"} isLoading={loading} onClick={admin?.totp_enabled ? remove2FA : enable2FA} size="sm">
+						<Button colorScheme={admin?.totp_enabled ? "red" : "primary"} loading={loading} onClick={admin?.totp_enabled ? remove2FA : enable2FA} size="sm">
 							{admin?.totp_enabled
 								? t("admins.security.remove2FA")
 								: t("admins.security.setup2FA")}
@@ -148,7 +148,7 @@ export const AdminSecurityDialog = ({
 											{dayjs(session.last_seen_at).format("YYYY-MM-DD HH:mm")}
 										</p>
 									</div>
-									<Button colorScheme="red" isLoading={loading} onClick={() => revoke(session.id)} size="xs" variant="ghost">
+									<Button colorScheme="red" loading={loading} onClick={() => revoke(session.id)} size="xs" variant="ghost">
 										{t("header.logout")}
 									</Button>
 								</div>

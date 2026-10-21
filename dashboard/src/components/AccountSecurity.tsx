@@ -303,7 +303,7 @@ export const AccountSecurity = ({
 										</p>
 									</div>
 								</div>
-								<Button size="sm" variant="outline" colorScheme={totpEnabled ? "red" : "primary"} isLoading={twoFactorLoading} onClick={totpEnabled ? disableDialog.onOpen : beginSetup} className="h-10 sm:min-w-[112px]! self-end sm:self-center">
+								<Button size="sm" variant="outline" colorScheme={totpEnabled ? "red" : "primary"} loading={twoFactorLoading} onClick={totpEnabled ? disableDialog.onOpen : beginSetup} className="h-10 sm:min-w-[112px]! self-end sm:self-center">
 									{totpEnabled
 										? t("myaccount.disableTwoFactor")
 										: t("myaccount.enableTwoFactor")}
@@ -368,9 +368,9 @@ export const AccountSecurity = ({
 												</p>
 											</div>
 										</div>
-										<Button colorScheme="red" isLoading={
+										<Button colorScheme="red" loading={
 												revoke.isLoading && revoke.variables === session.id
-											} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" leftIcon={<ArrowRightStartOnRectangleIcon className="w-16" />} aria-label={`${t("header.logout")} ${browserLabel}`} className="self-end sm:self-center">
+											} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" aria-label={`${t("header.logout")} ${browserLabel}`} className="self-end sm:self-center">{<ArrowRightStartOnRectangleIcon className="w-16" />}
 											{t("header.logout")}
 										</Button>
 									</div>
@@ -385,11 +385,11 @@ export const AccountSecurity = ({
 			)}
 
 			<AppDialog
-				isOpen={setupDialog.isOpen}
+				open={setupDialog.isOpen}
 				onClose={setupDialog.onClose}
 				title={t("myaccount.enableTwoFactor")}
 				footer={
-					<Button size="md" colorScheme="primary" isDisabled={code.length !== 6} isLoading={twoFactorLoading} onClick={confirmSetup}>
+					<Button size="md" colorScheme="primary" disabled={code.length !== 6} loading={twoFactorLoading} onClick={confirmSetup}>
 						{t("confirm")}
 					</Button>
 				}
@@ -408,11 +408,11 @@ export const AccountSecurity = ({
 			</AppDialog>
 
 			<AppDialog
-				isOpen={disableDialog.isOpen}
+				open={disableDialog.isOpen}
 				onClose={disableDialog.onClose}
 				title={t("myaccount.disableTwoFactor")}
 				footer={
-					<Button size="md" colorScheme="red" isDisabled={!password || code.length !== 6} isLoading={twoFactorLoading} onClick={confirmDisable}>
+					<Button size="md" colorScheme="red" disabled={!password || code.length !== 6} loading={twoFactorLoading} onClick={confirmDisable}>
 						{t("phpmyadmin.disableAction")}
 					</Button>
 				}

@@ -181,7 +181,7 @@ const PlaceholderSettingsPage = () => {
 													<p className="font-semibold">{t("placeholders.inherit")}</p>
 													<p className="text-[0.875rem] text-panel-text-secondary mt-1">{t("placeholders.inheritHint")}</p>
 												</div>
-												<Switch colorScheme="pink" isChecked={draft.inherited} onChange={(event) => updateDraft("inherited", event.target.checked)} />
+												<Switch colorScheme="pink" checked={draft.inherited} onChange={(event) => updateDraft("inherited", event.target.checked)} />
 											</div>
 										)}
 
@@ -194,19 +194,19 @@ const PlaceholderSettingsPage = () => {
 													{t("placeholders.enabledHint")}
 												</p>
 											</div>
-											<Switch colorScheme="pink" isChecked={draft.enabled} isDisabled={draft.inherited} onChange={(event) =>
+											<Switch colorScheme="pink" checked={draft.enabled} disabled={draft.inherited} onChange={(event) =>
 													updateDraft("enabled", event.target.checked)
 												} />
 										</div>
 
 										<div className="flex flex-col gap-5">
-											<PlaceholderField label={t("placeholders.expired")} hint={t("placeholders.expiredHint")} value={draft.expired_remark} isDisabled={draft.inherited} onChange={(value) =>
+											<PlaceholderField label={t("placeholders.expired")} hint={t("placeholders.expiredHint")} value={draft.expired_remark} disabled={draft.inherited} onChange={(value) =>
 													updateDraft("expired_remark", value)
 												} className="text-orange-400" />
-											<PlaceholderField label={t("placeholders.limited")} hint={t("placeholders.limitedHint")} value={draft.limited_remark} isDisabled={draft.inherited} onChange={(value) =>
+											<PlaceholderField label={t("placeholders.limited")} hint={t("placeholders.limitedHint")} value={draft.limited_remark} disabled={draft.inherited} onChange={(value) =>
 													updateDraft("limited_remark", value)
 												} className="text-red-400" />
-											<PlaceholderField label={t("placeholders.disabled")} hint={t("placeholders.disabledHint")} value={draft.disabled_remark} isDisabled={draft.inherited} onChange={(value) =>
+											<PlaceholderField label={t("placeholders.disabled")} hint={t("placeholders.disabledHint")} value={draft.disabled_remark} disabled={draft.inherited} onChange={(value) =>
 													updateDraft("disabled_remark", value)
 												} className="text-gray-400" />
 										</div>
@@ -236,7 +236,7 @@ const PlaceholderSettingsPage = () => {
 										</div>
 
 										<div className="flex flex-row items-center gap-2 justify-end">
-											<Button size="md" colorScheme="pink" isLoading={save.isLoading} onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}>
+											<Button size="md" colorScheme="pink" loading={save.isLoading} onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}>
 												{t("placeholders.save")}
 											</Button>
 										</div>
@@ -256,14 +256,14 @@ const PlaceholderField = ({
 	hint,
 	className,
 	value,
-	isDisabled,
+	disabled: isDisabled,
 	onChange,
 }: {
 	label: string;
 	hint: string;
 	className?: string;
 	value: string;
-	isDisabled?: boolean;
+	disabled?: boolean;
 	onChange: (value: string) => void;
 }) => (
 	<FormControl>
@@ -271,7 +271,7 @@ const PlaceholderField = ({
 			<div className={cn("size-[8px] rounded-full bg-current", className)} />
 			<FormLabel className="mb-0">{label}</FormLabel>
 		</div>
-		<Input value={value} isDisabled={isDisabled} maxLength={255} onChange={(event) => onChange(event.target.value)} />
+		<Input value={value} disabled={isDisabled} maxLength={255} onChange={(event) => onChange(event.target.value)} />
 		<FormHelperText>{hint}</FormHelperText>
 	</FormControl>
 );

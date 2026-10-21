@@ -30,7 +30,7 @@ export type BalancerFormValues = {
 };
 
 interface BalancerModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	mode: "create" | "edit";
 	initialBalancer?: BalancerFormValues | null;
@@ -56,7 +56,7 @@ const uniq = (values: string[]) => Array.from(new Set(values));
 const normalizeBalancerOutboundTag = (tag: string) => tag.trim().toLowerCase();
 
 export const BalancerModal: FC<BalancerModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	mode,
 	initialBalancer,
@@ -169,7 +169,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 	);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
@@ -315,7 +315,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 						<Button size="md" variant="outline" onClick={onClose}>
 							{t("cancel")}
 						</Button>
-						<Button type="submit" colorScheme="primary" size="sm" isDisabled={!isValid}>
+						<Button type="submit" colorScheme="primary" size="sm" disabled={!isValid}>
 							{mode === "edit"
 								? t("pages.xray.balancer.editBalancer")
 								: t("pages.xray.balancer.addBalancer")}

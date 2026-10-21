@@ -275,10 +275,10 @@ const DataTableCellContent = <TData,>({
 				{children}
 			</div>
 			{shouldCopy && (
-				<IconButton aria-label={t("a11y.copyValue")} icon={<DocumentDuplicateIcon className="w-3.5 h-3.5" />} size="xs" variant="ghost" onClick={(event) => {
+				<IconButton aria-label={t("a11y.copyValue")} size="xs" variant="ghost" onClick={(event) => {
 						event.stopPropagation();
 						void copyTextToClipboard(fullText);
-					}} className="shrink-0 rb-cell-copy" />
+					}} className="shrink-0 rb-cell-copy" >{<DocumentDuplicateIcon className="w-3.5 h-3.5" />}</IconButton>
 			)}
 		</div>
 	);
@@ -318,7 +318,7 @@ const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 							{({ onClose }) => (
 								<>
 									<Tooltip label={action.label}>
-										<MenuButton as={IconButton} aria-label={label} icon={action.icon ?? <DocumentDuplicateIcon />} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} isDisabled={action.isDisabled} onClick={(event: ReactMouseEvent<HTMLElement>) => event.stopPropagation()} className={cn(toneClass(action.color), "rb-inline-action")} />
+										<MenuButton as={IconButton} aria-label={label} icon={action.icon ?? <DocumentDuplicateIcon />} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} disabled={action.disabled} onClick={(event: ReactMouseEvent<HTMLElement>) => event.stopPropagation()} className={cn(toneClass(action.color), "rb-inline-action")} />
 									</Tooltip>
 									<Portal>
 										<MenuList className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto z-[2500] rounded-lg shadow-2xl">
@@ -332,13 +332,13 @@ const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 				}
 				return action.icon ? (
 					<Tooltip key={action.id} label={action.label}>
-						<IconButton aria-label={label} icon={action.icon} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} isDisabled={action.isDisabled} onClick={(event) => {
+						<IconButton aria-label={label} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} disabled={action.disabled} onClick={(event) => {
 								event.stopPropagation();
 								action.onClick?.();
-							}} className={cn(toneClass(action.color), "rb-inline-action")} />
+							}} className={cn(toneClass(action.color), "rb-inline-action")} >{action.icon}</IconButton>
 					</Tooltip>
 				) : (
-					<Button key={action.id} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} isDisabled={action.isDisabled} onClick={(event) => {
+					<Button key={action.id} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} disabled={action.disabled} onClick={(event) => {
 							event.stopPropagation();
 							action.onClick?.();
 						}} className={cn(toneClass(action.color), "rb-inline-action")}>
@@ -379,7 +379,7 @@ export function DataTable<TData>({
 	data,
 	columns,
 	getRowId,
-	isLoading = false,
+	loading: isLoading,
 	loadingRows = 5,
 	error,
 	emptyState,
@@ -470,10 +470,10 @@ export function DataTable<TData>({
 				render: action.render
 					? (onClose: () => void) => action.render?.(row, onClose)
 					: undefined,
-				isDisabled:
-					typeof action.isDisabled === "function"
-						? action.isDisabled(row)
-						: action.isDisabled,
+				disabled:
+					typeof action.disabled === "function"
+						? action.disabled(row)
+						: action.disabled,
 			})) ?? [],
 		[],
 	);
@@ -597,10 +597,10 @@ export function DataTable<TData>({
 			dataColumns.unshift({
 				id: "__select",
 				header: ({ table }) => (
-					<Checkbox size="sm" isChecked={table.getIsAllRowsSelected()} isIndeterminate={table.getIsSomeRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} aria-label={selectAllLabel} />
+					<Checkbox size="sm" checked={table.getIsAllRowsSelected()} isIndeterminate={table.getIsSomeRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} aria-label={selectAllLabel} />
 				),
 				cell: ({ row }) => (
-					<Checkbox size="sm" isChecked={row.getIsSelected()} isDisabled={!row.getCanSelect()} onChange={row.getToggleSelectedHandler()} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
+					<Checkbox size="sm" checked={row.getIsSelected()} disabled={!row.getCanSelect()} onChange={row.getToggleSelectedHandler()} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
 				),
 				enableSorting: false,
 			});
@@ -755,11 +755,11 @@ export function DataTable<TData>({
 		renderBulkActions?.(selectedRows, selectedIds) ??
 		bulkActions?.map((action) => {
 			const isDisabled =
-				typeof action.isDisabled === "function"
-					? action.isDisabled(selectedRows, selectedIds)
-					: action.isDisabled;
+				typeof action.disabled === "function"
+					? action.disabled(selectedRows, selectedIds)
+					: action.disabled;
 			return (
-				<Button key={action.id} size="sm" variant={action.variant ?? "outline"} leftIcon={action.icon} colorScheme={action.isDanger ? "red" : undefined} isLoading={action.isLoading} isDisabled={isDisabled} onClick={() => action.onClick?.(selectedRows, selectedIds)}>
+				<Button key={action.id} size="sm" variant={action.variant ?? "outline"} colorScheme={action.isDanger ? "red" : undefined} loading={action.loading} disabled={isDisabled} onClick={() => action.onClick?.(selectedRows, selectedIds)}>{action.icon}
 					{action.label}
 				</Button>
 			);
@@ -839,7 +839,7 @@ export function DataTable<TData>({
 						<div className="flex flex-row items-center gap-2.5 min-w-0! rb-resource-mobile-head">
 							{enableSelection && (
 								<div className="flex items-center shrink-0 rb-resource-mobile-head-select">
-									<Checkbox isChecked={table.getIsAllRowsSelected()} isIndeterminate={table.getIsSomeRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} aria-label={selectAllLabel} />
+									<Checkbox checked={table.getIsAllRowsSelected()} isIndeterminate={table.getIsSomeRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} aria-label={selectAllLabel} />
 								</div>
 							)}
 							<div className="min-w-0! flex-1">
@@ -900,7 +900,7 @@ export function DataTable<TData>({
 										<div className="flex flex-row items-center gap-2.5 min-w-0! rb-resource-card-main">
 											{enableSelection && (
 												<div className="flex items-center shrink-0">
-													<Checkbox isChecked={row.getIsSelected()} isDisabled={!row.getCanSelect()} onChange={row.getToggleSelectedHandler()} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
+													<Checkbox checked={row.getIsSelected()} disabled={!row.getCanSelect()} onChange={row.getToggleSelectedHandler()} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
 												</div>
 											)}
 											<div className="min-w-0! flex-1">
@@ -1178,7 +1178,7 @@ export function DataTable<TData>({
 				</BulkActionBar>
 			)}
 			{contextMenu.row && contextMenuActions.length > 0 && (
-				<Menu isOpen autoSelect={false} placement="bottom-start" strategy="fixed" onClose={closeContextMenu}>
+				<Menu open autoSelect={false} placement="bottom-start" strategy="fixed" onClose={closeContextMenu}>
 					<MenuButton as="div" style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }} className="fixed w-[1px] h-[1px] opacity-0 pointer-events-none" />
 					<Portal>
 						<MenuList data-rb-context-menu="" onClick={(event) => event.stopPropagation()} onContextMenu={(event) => {
@@ -1191,7 +1191,7 @@ export function DataTable<TData>({
 										{action.render(closeContextMenu)}
 									</Fragment>
 								) : (
-									<MenuItem key={action.id} icon={action.icon} isDisabled={action.isDisabled} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))} onClick={(event) => {
+									<MenuItem key={action.id} icon={action.icon} disabled={action.disabled} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))} onClick={(event) => {
 											event.stopPropagation();
 											closeContextMenu();
 											action.onClick?.();

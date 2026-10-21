@@ -79,11 +79,11 @@ type HostOption = {
 	label: string;
 	inboundTag: string;
 	protocol: string;
-	isDisabled: boolean;
+	disabled: boolean;
 };
 
 type ServiceDialogProps = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	onSubmit: (
 		payload: ServiceCreatePayload,
@@ -164,7 +164,7 @@ const withDeleteUserPermission = (permissions: AdminPermissions) => ({
 });
 
 const ServiceDialog: FC<ServiceDialogProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	onSubmit,
 	isSaving,
@@ -239,7 +239,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 
 	const availableHosts = useMemo(() => {
 		return allHosts.filter(
-			(host) => !selectedHosts.includes(host.id) && !host.isDisabled,
+			(host) => !selectedHosts.includes(host.id) && !host.disabled,
 		);
 	}, [allHosts, selectedHosts]);
 
@@ -408,7 +408,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
@@ -427,7 +427,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 									value={name}
 									onChange={(event) => setName(event.target.value)}
 									maxLength={128}
-									isRequired
+									required
 								/>
 								<Input
 									label={t("services.fields.description")}
@@ -459,10 +459,10 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 								</Badge>
 							</div>
 							<div className="flex flex-col gap-2">
-								<Checkbox isChecked={
+								<Checkbox checked={
 										selectedAdmins.length === allAdmins.length &&
 										allAdmins.length > 0
-									} onChange={handleToggleAllAdmins} isDisabled={allAdmins.length === 0}>
+									} onChange={handleToggleAllAdmins} disabled={allAdmins.length === 0}>
 									{t("services.selectAllAdmins")}
 								</Checkbox>
 								<SearchInput
@@ -531,14 +531,14 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 								</Badge>
 							</div>
 							<div className="flex flex-row items-center gap-2 flex-wrap">
-								<Button variant="solid" size="sm" onClick={handleCreateAutoInbound} isDisabled={
+								<Button variant="solid" size="sm" onClick={handleCreateAutoInbound} disabled={
 										!initialService?.id || autoInboundExists || autoInboundBusy
-									} isLoading={autoInboundBusy}>
+									} loading={autoInboundBusy}>
 									{t("services.autoInbound.create")}
 								</Button>
-								<Button size="sm" variant="outline" colorScheme="red" onClick={handleDeleteAutoInbound} isDisabled={
+								<Button size="sm" variant="outline" colorScheme="red" onClick={handleDeleteAutoInbound} disabled={
 										!initialService?.id || !autoInboundExists || autoInboundBusy
-									} isLoading={autoInboundBusy}>
+									} loading={autoInboundBusy}>
 									{t("services.autoInbound.delete")}
 								</Button>
 							</div>
@@ -614,7 +614,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 															<p className="font-medium truncate">
 																<AppleEmojiText>{host.label}</AppleEmojiText>
 															</p>
-															{host.isDisabled && (
+															{host.disabled && (
 																<Badge colorScheme="red" className="rounded-md">
 																	{t("services.hostDisabled")}
 																</Badge>
@@ -626,16 +626,16 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 													</div>
 													<div className="flex flex-row items-center gap-1 shrink-0">
 														<Tooltip label={t("services.moveToTop")}>
-															<IconButton aria-label="Move to top" size="sm" variant="ghost" icon={<ChevronDoubleUpIcon className="w-16" />} onClick={() => moveHost(hostId, "top")} isDisabled={index === 0} />
+															<IconButton aria-label="Move to top" size="sm" variant="ghost" onClick={() => moveHost(hostId, "top")} disabled={index === 0} >{<ChevronDoubleUpIcon className="w-16" />}</IconButton>
 														</Tooltip>
 														<Tooltip label={t("services.moveUp")}>
-															<IconButton aria-label="Move up" size="sm" variant="ghost" icon={<ArrowUpIcon className="w-16" />} onClick={() => moveHost(hostId, "up")} isDisabled={index === 0} />
+															<IconButton aria-label="Move up" size="sm" variant="ghost" onClick={() => moveHost(hostId, "up")} disabled={index === 0} >{<ArrowUpIcon className="w-16" />}</IconButton>
 														</Tooltip>
 														<Tooltip label={t("services.moveDown")}>
-															<IconButton aria-label="Move down" size="sm" variant="ghost" icon={<ArrowDownIcon className="w-16" />} onClick={() => moveHost(hostId, "down")} isDisabled={index === selectedHosts.length - 1} />
+															<IconButton aria-label="Move down" size="sm" variant="ghost" onClick={() => moveHost(hostId, "down")} disabled={index === selectedHosts.length - 1} >{<ArrowDownIcon className="w-16" />}</IconButton>
 														</Tooltip>
 														<Tooltip label={t("services.removeHost")}>
-															<IconButton aria-label="Remove" size="sm" variant="ghost" icon={<TrashIcon className="w-16" />} onClick={() => handleHostToggle(hostId)} />
+															<IconButton aria-label="Remove" size="sm" variant="ghost" onClick={() => handleHostToggle(hostId)} >{<TrashIcon className="w-16" />}</IconButton>
 														</Tooltip>
 													</div>
 												</div>
@@ -651,7 +651,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={submit} isLoading={isSaving}>
+					<Button size="md" colorScheme="primary" onClick={submit} loading={isSaving}>
 						{initialService ? t("saveChanges") : t("create")}
 					</Button>
 				</XrayModalFooter>
@@ -678,7 +678,7 @@ const ServicesPage: FC = () => {
 	>({ limit: 20, offset: 0, name: "" });
 	const [serviceSearch, setServiceSearch] = useState("");
 	const serviceDetail = useServicesStore((state) => state.serviceDetail);
-	const isServicesLoading = useServicesStore((state) => state.isLoading);
+	const isServicesLoading = useServicesStore((state) => state.loading);
 	const isServiceSaving = useServicesStore((state) => state.isSaving);
 	const fetchServices = useServicesStore((state) => state.fetchServices);
 	const fetchServiceDetail = useServicesStore(
@@ -801,7 +801,7 @@ const ServicesPage: FC = () => {
 					label: host.remark,
 					inboundTag: tag,
 					protocol,
-					isDisabled: Boolean(host.is_disabled),
+					disabled: Boolean(host.is_disabled),
 				});
 			});
 		}
@@ -1613,14 +1613,14 @@ const ServicesPage: FC = () => {
 				mobileMetaLabel: t("admins.permissionsTabLabel"),
 				cell: (link) => (
 					<div className="flex flex-row items-center gap-3 justify-center flex-wrap">
-						<Checkbox size="sm" isChecked={link.show_user_traffic} isDisabled={savingAdminLimitId === link.id} onClick={(event) => event.stopPropagation()} onChange={(event) =>
+						<Checkbox size="sm" checked={link.show_user_traffic} disabled={savingAdminLimitId === link.id} onClick={(event) => event.stopPropagation()} onChange={(event) =>
 								saveServiceAdminLimit(link.id, {
 									show_user_traffic: event.target.checked,
 								})
 							}>
 							{t("admins.showUserTraffic")}
 						</Checkbox>
-						<Checkbox size="sm" isChecked={link.delete_user_usage_limit_enabled} isDisabled={savingAdminLimitId === link.id} onClick={(event) => event.stopPropagation()} onChange={(event) =>
+						<Checkbox size="sm" checked={link.delete_user_usage_limit_enabled} disabled={savingAdminLimitId === link.id} onClick={(event) => event.stopPropagation()} onChange={(event) =>
 								saveServiceAdminLimit(link.id, {
 									delete_user_usage_limit_enabled: event.target.checked,
 								})
@@ -1642,14 +1642,14 @@ const ServicesPage: FC = () => {
 			label: t("services.editAdminLimits"),
 			icon: <PencilSquareIcon className="w-16" />,
 			onClick: () => openServiceAdminLimitEditor(link),
-			isDisabled: savingAdminLimitId === link.id,
+			disabled: savingAdminLimitId === link.id,
 		},
 		{
 			id: "resetDeleted",
 			label: t("admins.resetDeletedUsage"),
 			icon: <ArrowPathIcon className="w-16" />,
 			onClick: () => resetServiceDeletedUsersUsage(link),
-			isDisabled:
+			disabled:
 				link.deleted_users_usage <= 0 || savingAdminLimitId === link.id,
 		},
 	];
@@ -1757,7 +1757,7 @@ const ServicesPage: FC = () => {
 				title={t("services.listHeader")}
 				summaryItems={serviceSummaryItems}
 				actions={
-					<Button leftIcon={<PlusIcon className="w-18" />} colorScheme="primary" onClick={openCreateDialog} size="sm" className="h-[36px] px-3 rounded-[4px]">
+					<Button colorScheme="primary" onClick={openCreateDialog} size="sm" className="h-[36px] px-3 rounded-[4px]">{<PlusIcon className="w-18" />}
 						{t("services.addService")}
 					</Button>
 				}
@@ -1770,7 +1770,7 @@ const ServicesPage: FC = () => {
 					data={services}
 				columns={serviceColumns}
 				getRowId={(service) => String(service.id)}
-					isLoading={isServicesLoading}
+					loading={isServicesLoading}
 				loadingRows={5}
 				emptyState={
 					<div className="text-center">
@@ -1868,7 +1868,7 @@ const ServicesPage: FC = () => {
 				</div>
 			)}
 
-			<AppDialog isOpen={Boolean(editingServiceAdminLimit)} onClose={closeServiceAdminLimitEditor} size="lg" scrollBehavior="inside" isCentered title={`${t("services.editAdminLimits")}${
+			<AppDialog open={Boolean(editingServiceAdminLimit)} onClose={closeServiceAdminLimitEditor} size="lg" scrollBehavior="inside" isCentered title={`${t("services.editAdminLimits")}${
 					editingServiceAdminLimit
 						? ` - ${editingServiceAdminLimit.username}`
 						: ""
@@ -1877,7 +1877,7 @@ const ServicesPage: FC = () => {
 						<Button size="md" variant="ghost" onClick={closeServiceAdminLimitEditor}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" colorScheme="primary" onClick={submitServiceAdminLimitEditor} isLoading={
+						<Button size="md" colorScheme="primary" onClick={submitServiceAdminLimitEditor} loading={
 								editingServiceAdminLimit
 									? savingAdminLimitId === editingServiceAdminLimit.id
 									: false
@@ -1968,7 +1968,7 @@ const ServicesPage: FC = () => {
 						</FormControl>
 					</div>
 					<div className="flex flex-col gap-3">
-						<Checkbox isChecked={serviceAdminLimitForm.show_user_traffic} onChange={(event) =>
+						<Checkbox checked={serviceAdminLimitForm.show_user_traffic} onChange={(event) =>
 								setServiceAdminLimitForm((current) => ({
 									...current,
 									show_user_traffic: event.target.checked,
@@ -1976,7 +1976,7 @@ const ServicesPage: FC = () => {
 							}>
 							{t("admins.showUserTraffic")}
 						</Checkbox>
-						<Checkbox isChecked={serviceAdminLimitForm.delete_user_usage_limit_enabled} onChange={(event) =>
+						<Checkbox checked={serviceAdminLimitForm.delete_user_usage_limit_enabled} onChange={(event) =>
 								setServiceAdminLimitForm((current) => ({
 									...current,
 									delete_user_usage_limit_enabled: event.target.checked,
@@ -1984,7 +1984,7 @@ const ServicesPage: FC = () => {
 							}>
 							{t("admins.deleteUserUsageCap")}
 						</Checkbox>
-						<FormControl isDisabled={
+						<FormControl disabled={
 								!serviceAdminLimitForm.delete_user_usage_limit_enabled
 							}>
 							<FormLabel>{t("admins.deleteUserUsageLimit")}</FormLabel>
@@ -2009,7 +2009,7 @@ const ServicesPage: FC = () => {
 			</AppDialog>
 
 			<ConfirmDialog
-				isOpen={isResetDialogOpen}
+				open={isResetDialogOpen}
 				onClose={closeResetDialog}
 				onConfirm={confirmResetUsage}
 				title={t("services.resetUsage")}
@@ -2018,18 +2018,18 @@ const ServicesPage: FC = () => {
 				})}
 				confirmLabel={t("services.resetUsage")}
 				colorScheme="primary"
-				isLoading={isResetting}
+				loading={isResetting}
 				isConfirmDisabled={resetServiceId == null}
 			/>
 
-			<AppDialog isOpen={isDeleteDialogOpen} onClose={handleCloseDeleteDialog} size="lg" title={`${t("services.deleteDialogTitle")}${
+			<AppDialog open={isDeleteDialogOpen} onClose={handleCloseDeleteDialog} size="lg" title={`${t("services.deleteDialogTitle")}${
 					servicePendingDelete ? ` – ${servicePendingDelete.name}` : ""
 				}`} overlayProps={{ className: "bg-blackAlpha-300" }} footerProps={{ className: "gap-3" }} footer={
 					<>
 						<Button size="md" variant="ghost" onClick={handleCloseDeleteDialog}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" colorScheme="red" onClick={confirmDeleteService} isLoading={isDeleting} isDisabled={
+						<Button size="md" colorScheme="red" onClick={confirmDeleteService} loading={isDeleting} disabled={
 								!servicePendingDelete ||
 								(deleteMode === "transfer_users" &&
 									servicePendingDelete.user_count > 0 &&
@@ -2047,7 +2047,7 @@ const ServicesPage: FC = () => {
 							})}
 						</p>
 						{servicePendingDelete.admin_ids.length > 0 ? (
-							<Checkbox isChecked={unlinkAdmins} onChange={(event) => setUnlinkAdmins(event.target.checked)}>
+							<Checkbox checked={unlinkAdmins} onChange={(event) => setUnlinkAdmins(event.target.checked)}>
 								{t("services.unlinkAdminsOption")}
 							</Checkbox>
 						) : (
@@ -2119,7 +2119,7 @@ const ServicesPage: FC = () => {
 
 			{dialogDisclosure.isOpen && (
 				<ServiceDialog
-					isOpen={dialogDisclosure.isOpen}
+					open={dialogDisclosure.isOpen}
 					onClose={dialogDisclosure.onClose}
 					onSubmit={handleSubmit}
 						isSaving={isServiceSaving}

@@ -163,7 +163,7 @@ interface OutboundFormValues {
 }
 
 interface OutboundModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	mode: "create" | "edit";
 	initialOutbound?: Record<string, unknown> | null;
@@ -558,7 +558,7 @@ const buildOutboundJson = (values: OutboundFormValues) => {
 };
 
 export const OutboundModal: FC<OutboundModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	mode,
 	initialOutbound,
@@ -1311,7 +1311,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 	};
 
 	return (
-		<Modal size="4xl" isOpen={isOpen} onClose={handleClose} scrollBehavior="inside">
+		<Modal size="4xl" open={isOpen} onClose={handleClose} scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent as="form" onSubmit={onSubmit}>
 				<XrayModalHeader>
@@ -1335,7 +1335,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 											{t("pages.outbound.basicSettings")}
 										</p>
 										<div className="flex flex-col gap-3 items-stretch">
-											<FormControl isRequired isInvalid={Boolean(errors.tag)}>
+											<FormControl required isInvalid={Boolean(errors.tag)}>
 												<FormLabel>{t("pages.xray.outbound.tag")}</FormLabel>
 												<Input
 													size="sm"
@@ -1360,7 +1360,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 												</FormErrorMessage>
 											</FormControl>
 											<XrayFieldGrid>
-												<FormControl isRequired>
+												<FormControl required>
 													<FormLabel>{t("protocol")}</FormLabel>
 													<Controller
 														control={control}
@@ -1399,7 +1399,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 												{t("pages.outbound.endpoint")}
 											</p>
 											<div className="flex flex-col gap-3 items-stretch">
-												<FormControl isRequired={requiresEndpoint}>
+												<FormControl required={requiresEndpoint}>
 													<FormLabel>{t("pages.outbound.address")}</FormLabel>
 													<Input
 														size="sm"
@@ -1412,7 +1412,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													/>
 												</FormControl>
 												<div className="flex flex-row flex-wrap gap-3 items-end">
-													<FormControl isRequired={requiresEndpoint}>
+													<FormControl required={requiresEndpoint}>
 														<FormLabel>{t("port")}</FormLabel>
 														<Input
 															size="sm"
@@ -1433,7 +1433,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														/>
 													</FormControl>
 													{requiresId ? (
-														<FormControl isRequired={requiresId}>
+														<FormControl required={requiresId}>
 															<FormLabel>ID</FormLabel>
 															<Input
 																size="sm"
@@ -1446,7 +1446,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 															/>
 														</FormControl>
 													) : requiresPassword ? (
-														<FormControl isRequired={requiresPassword}>
+														<FormControl required={requiresPassword}>
 															<FormLabel>{t("password")}</FormLabel>
 															<Input
 																size="sm"
@@ -1501,7 +1501,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 												</div>
 												{typedProtocol === Protocols.Shadowsocks && (
 													<>
-														<FormControl isRequired={requiresMethod}>
+														<FormControl required={requiresMethod}>
 															<FormLabel>
 																{t("pages.outbound.method")}
 															</FormLabel>
@@ -1630,7 +1630,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														)}
 													/>
 												</FormControl>
-												<FormControl isRequired={requiresDnsServer}>
+												<FormControl required={requiresDnsServer}>
 													<FormLabel>{t("port")}</FormLabel>
 													<Input
 														size="sm"
@@ -1651,7 +1651,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													/>
 												</FormControl>
 											</XrayFieldGrid>
-											<FormControl isRequired={requiresDnsServer} className="mt-3">
+											<FormControl required={requiresDnsServer} className="mt-3">
 												<FormLabel>{t("pages.outbound.address")}</FormLabel>
 												<Input
 													size="sm"
@@ -1810,7 +1810,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														<p className="font-semibold">
 															{t("pages.outbound.peer")}
 														</p>
-														<IconButton variant="solid" size="sm" aria-label={t("add")} icon={<AddIcon className="size-3" />} onClick={() =>
+														<IconButton variant="solid" size="sm" aria-label={t("add")} onClick={() =>
 																append({
 																	publicKey: "",
 																	allowedIPs: "0.0.0.0/0,::/0",
@@ -1818,7 +1818,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	keepAlive: 0,
 																	presharedKey: "",
 																})
-															} />
+															} >{<AddIcon className="size-3" />}</IconButton>
 													</div>
 													{fields.map((field, index) => (
 														<div key={field.id} className={cn("border rounded-md p-3", bgSubtle)}>
@@ -1835,7 +1835,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	/>
 																</FormControl>
 																{fields.length > 1 && (
-																	<IconButton variant="solid" size="sm" aria-label={t("delete")} icon={<MinusIcon className="size-3" />} onClick={() => remove(index)} className="mt-6" />
+																	<IconButton variant="solid" size="sm" aria-label={t("delete")} onClick={() => remove(index)} className="mt-6" >{<MinusIcon className="size-3" />}</IconButton>
 																)}
 															</div>
 															<div className="flex flex-row items-center gap-2 mt-2">
@@ -2512,7 +2512,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 					<Button size="md" variant="outline" onClick={handleClose}>
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" type="submit" isDisabled={!isValid}>
+					<Button size="md" colorScheme="primary" type="submit" disabled={!isValid}>
 						{mode === "edit" ? t("save") : t("add")}
 					</Button>
 				</XrayModalFooter>

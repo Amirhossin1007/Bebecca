@@ -73,7 +73,7 @@ type WarpRemoteConfig = {
 type OutboundJson = Record<string, any>;
 
 interface WarpModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	initialOutbound?: OutboundJson | null;
 	onSave: (outbound: OutboundJson) => void;
@@ -285,7 +285,7 @@ const InfoItem: FC<{ label: string; value: string }> = ({ label, value }) => {
 };
 
 export const WarpModal: FC<WarpModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	initialOutbound,
 	onSave,
@@ -591,7 +591,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 	);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-300" />
 			<XrayModalContent>
 				<XrayModalHeader>
@@ -637,10 +637,10 @@ export const WarpModal: FC<WarpModalProps> = ({
 										/>
 									</div>
 									<div className="flex flex-row items-center gap-3 flex-wrap">
-										<Button size="md" variant="outline" onClick={handleFetchInfo} isLoading={isFetchingInfo}>
+										<Button size="md" variant="outline" onClick={handleFetchInfo} loading={isFetchingInfo}>
 											{t("pages.xray.warp.fetchInfo")}
 										</Button>
-										<Button size="md" variant="ghost" colorScheme="red" onClick={handleDeleteAccount} isLoading={isDeletingAccount}>
+										<Button size="md" variant="ghost" colorScheme="red" onClick={handleDeleteAccount} loading={isDeletingAccount}>
 											{t("pages.xray.warp.removeAccount")}
 										</Button>
 									</div>
@@ -650,7 +650,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 									<p className={cn("text-[0.875rem]", helperColor)}>
 										{t("pages.xray.warp.registerDescription")}
 									</p>
-									<Button size="md" colorScheme="primary" onClick={handleRegister} isLoading={isRegistering || isAccountLoading}>
+									<Button size="md" colorScheme="primary" onClick={handleRegister} loading={isRegistering || isAccountLoading}>
 										{t("pages.xray.warp.registerAction")}
 									</Button>
 								</div>
@@ -664,7 +664,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 								</p>
 								<div className="flex flex-row gap-3 items-stretch flex-wrap">
 									<Input value={licenseInput} onChange={(event) => setLicenseInput(event.target.value)} placeholder="ABCD-1234..." size="sm" />
-									<Button size="md" colorScheme="primary" onClick={handleUpdateLicense} isLoading={isUpdatingLicense} isDisabled={!licenseInput.trim()}>
+									<Button size="md" colorScheme="primary" onClick={handleUpdateLicense} loading={isUpdatingLicense} disabled={!licenseInput.trim()}>
 										{t("pages.xray.warp.updateLicense")}
 									</Button>
 								</div>
@@ -741,7 +741,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 										</>
 									)}
 									<div className="flex flex-row items-center gap-3 flex-wrap">
-										<Button size="md" colorScheme="primary" onClick={applyOutboundCandidate} isDisabled={!warpOutboundCandidate}>
+										<Button size="md" colorScheme="primary" onClick={applyOutboundCandidate} disabled={!warpOutboundCandidate}>
 											{t("pages.xray.warp.applyGenerated")}
 										</Button>
 										<Button size="md" variant="ghost" onClick={() => setWarpRemote(null)}>
@@ -761,21 +761,21 @@ export const WarpModal: FC<WarpModalProps> = ({
 								{t("pages.xray.warp.manualTitle")}
 							</p>
 							<div className="flex flex-col gap-4">
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel>{t("pages.xray.outbound.tag")}</FormLabel>
 									<Input size="sm" value={form.tag} onChange={(event) =>
 											updateFormField("tag", event.target.value)
 										} placeholder="warp" />
 								</FormControl>
 
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel>{t("pages.xray.warp.privateKey")}</FormLabel>
 									<Textarea size="sm" value={form.privateKey} onChange={(event) =>
 											updateFormField("privateKey", event.target.value)
 										} rows={2} />
 								</FormControl>
 
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel>{t("pages.xray.warp.publicKey")}</FormLabel>
 									<Textarea size="sm" value={form.publicKey} onChange={(event) =>
 											updateFormField("publicKey", event.target.value)
@@ -791,7 +791,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 									</p>
 								</FormControl>
 
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel>{t("pages.xray.warp.endpoint")}</FormLabel>
 									<Input size="sm" value={form.endpoint} onChange={(event) =>
 											updateFormField("endpoint", event.target.value)

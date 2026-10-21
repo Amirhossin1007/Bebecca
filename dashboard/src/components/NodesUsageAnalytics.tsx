@@ -843,7 +843,7 @@ const NodesUsageAnalytics: FC = () => {
 					<div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-end w-full">
 						<Select size="sm" value={selectedAdminDaily ?? ""} onChange={(event) =>
 								setSelectedAdminDaily(event.target.value || null)
-							} isDisabled={adminSelectOptions.length === 0} className="md:min-w-[160px]! w-full md:w-auto">
+							} disabled={adminSelectOptions.length === 0} className="md:min-w-[160px]! w-full md:w-auto">
 							{adminSelectOptions.map((option) => (
 								<option key={option.value} value={option.value}>
 									{option.label}
@@ -919,7 +919,7 @@ const NodesUsageAnalytics: FC = () => {
 					<div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-end w-full">
 						<Select size="sm" value={selectedAdminTotals ?? ""} onChange={(event) =>
 								setSelectedAdminTotals(event.target.value || null)
-							} isDisabled={adminSelectOptions.length === 0} className="md:min-w-[160px]! w-full md:w-auto">
+							} disabled={adminSelectOptions.length === 0} className="md:min-w-[160px]! w-full md:w-auto">
 							{adminSelectOptions.map((option) => (
 								<option key={option.value} value={option.value}>
 									{option.label}

@@ -142,17 +142,17 @@ const Surface = ({ children }: { children: React.ReactNode }) => (
 const ResultAction = ({
 	label,
 	icon,
-	isDisabled,
+	disabled: isDisabled,
 	onClick,
 }: {
 	label: string;
 	icon: React.ReactElement;
-	isDisabled?: boolean;
+	disabled?: boolean;
 	onClick: () => void;
 }) => (
 	<Tooltip label={label}>
 		<span>
-			<IconButton aria-label={label} icon={icon} variant="ghost" size="sm" isDisabled={isDisabled} onClick={onClick} className="min-w-[30px]! h-[30px]" />
+			<IconButton aria-label={label} variant="ghost" size="sm" disabled={isDisabled} onClick={onClick} className="min-w-[30px]! h-[30px]" >{icon}</IconButton>
 		</span>
 	</Tooltip>
 );
@@ -241,17 +241,17 @@ const Results = ({
 				</div>
 				<div className="flex flex-row items-center gap-2 flex-wrap">
 					{allLinks && (
-						<Button size="xs" variant="outline" leftIcon={<LinkIcon className="w-14" />} onClick={() => void copy(allLinks)}>
+						<Button size="xs" variant="outline" onClick={() => void copy(allLinks)}>{<LinkIcon className="w-14" />}
 							{t("bulkActions.results.copyAllLinks")}
 						</Button>
 					)}
 					{allConfigs && (
-						<Button size="xs" variant="outline" leftIcon={<ClipboardIcon className="w-14" />} onClick={() => void copy(allConfigs)}>
+						<Button size="xs" variant="outline" onClick={() => void copy(allConfigs)}>{<ClipboardIcon className="w-14" />}
 							{t("bulkActions.results.copyAllConfigs")}
 						</Button>
 					)}
 					{canDelete && createdNames.length > 0 && (
-						<Button size="xs" variant="outline" colorScheme="red" leftIcon={<TrashIcon className="w-14" />} isLoading={deleting} onClick={() => setConfirmDelete(true)}>
+						<Button size="xs" variant="outline" colorScheme="red" loading={deleting} onClick={() => setConfirmDelete(true)}>{<TrashIcon className="w-14" />}
 							{t("bulkActions.results.deleteCreated")}
 						</Button>
 					)}
@@ -286,13 +286,13 @@ const Results = ({
 									<ResultAction
 										label={t("usersTable.copyLink")}
 										icon={<LinkIcon className="w-18" />}
-										isDisabled={!result.subscription}
+										disabled={!result.subscription}
 										onClick={() => void copy(result.subscription ?? "")}
 									/>
 									<ResultAction
 										label={t("usersTable.copyConfigs")}
 										icon={<ClipboardIcon className="w-18" />}
-										isDisabled={!result.links?.length}
+										disabled={!result.links?.length}
 										onClick={() => void copy((result.links ?? []).join("\n"))}
 									/>
 									<ResultAction
@@ -314,10 +314,10 @@ const Results = ({
 				})}
 			</div>
 			<ConfirmDialog
-				isOpen={confirmDelete}
+				open={confirmDelete}
 				onClose={() => setConfirmDelete(false)}
 				onConfirm={deleteCreated}
-				isLoading={deleting}
+				loading={deleting}
 				colorScheme="red"
 				confirmLabel={t("bulkActions.results.deleteCreated")}
 				title={t("bulkActions.results.deleteCreatedTitle", {
@@ -574,12 +574,12 @@ const BulkCreatePanel = ({
 						</p>
 					</div>
 					<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-						<FormControl isRequired>
+						<FormControl required>
 							<FormLabel>{t("bulkActions.create.service")}</FormLabel>
 							<Select
 								value={serviceID}
 								onChange={(event) => setServiceID(event.target.value)}
-								isDisabled={isOptionsLoading}
+								disabled={isOptionsLoading}
 							>
 								<option value="">
 									{t("bulkActions.create.selectService")}
@@ -633,7 +633,7 @@ const BulkCreatePanel = ({
 								onChange={(event) =>
 									setResetStrategy(event.target.value as DataLimitResetStrategy)
 								}
-								isDisabled={
+								disabled={
 									Number(dataLimit) <= 0 || !canConfigurePeriodicUsageReset
 								}
 							>
@@ -701,7 +701,7 @@ const BulkCreatePanel = ({
 							</p>
 						)}
 					</div>
-					<Button size="md" colorScheme="primary" leftIcon={<PlusIcon className="w-18" />} onClick={handleCreate} isLoading={isRunning} isDisabled={!canSubmit}>
+					<Button size="md" colorScheme="primary" onClick={handleCreate} loading={isRunning} disabled={!canSubmit}>{<PlusIcon className="w-18" />}
 						{t("bulkActions.create.submit", { count: usernames.length })}
 					</Button>
 				</div>
@@ -918,7 +918,7 @@ const BulkDeletePanel = () => {
 														? t("bulkActions.delete.statusAge")
 														: t("bulkActions.delete.createdBefore")}
 											</p>
-											<Button size="xs" variant="ghost" leftIcon={<TrashIcon className="w-14" />} onClick={() => toggleCondition(condition)}>
+											<Button size="xs" variant="ghost" onClick={() => toggleCondition(condition)}>{<TrashIcon className="w-14" />}
 												{t("remove")}
 											</Button>
 										</div>
@@ -952,7 +952,7 @@ const BulkDeletePanel = () => {
 												</p>
 												<div className="flex flex-row items-center gap-3 flex-wrap">
 													{deleteStatusOptions.map((status) => (
-														<Checkbox key={status} isChecked={statuses.includes(status)} onChange={() => toggleStatus(status)}>
+														<Checkbox key={status} checked={statuses.includes(status)} onChange={() => toggleStatus(status)}>
 															{t(
 																`filters.advancedActions.scopeStatuses.${status}`,
 																status,
@@ -1010,24 +1010,24 @@ const BulkDeletePanel = () => {
 						</Alert>
 					)}
 					<div className="flex flex-row items-center gap-3 flex-wrap">
-						<Button size="md" variant="outline" onClick={handlePreview} isLoading={isRunning} isDisabled={!payload}>
+						<Button size="md" variant="outline" onClick={handlePreview} loading={isRunning} disabled={!payload}>
 							{t("bulkActions.delete.previewAction")}
 						</Button>
 						{previewCount !== null &&
 							previewCount > 0 &&
 							previewCount <= MAX_BATCH_SIZE && (
-								<Checkbox isChecked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}>
+								<Checkbox checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}>
 									{t("bulkActions.delete.confirm", { count: previewCount })}
 								</Checkbox>
 							)}
 					</div>
-					<Button size="md" colorScheme="red" leftIcon={<TrashIcon className="w-18" />} isLoading={isRunning} isDisabled={
+					<Button size="md" colorScheme="red" loading={isRunning} disabled={
 							!confirmed ||
 							previewCount === null ||
 							previewCount === 0 ||
 							previewCount > MAX_BATCH_SIZE ||
 							!payload
-						} onClick={handleDelete} className="self-start">
+						} onClick={handleDelete} className="self-start">{<TrashIcon className="w-18" />}
 						{t("bulkActions.delete.submit", { count: previewCount ?? 0 })}
 					</Button>
 				</div>
@@ -1157,10 +1157,10 @@ const BulkPermissionsPanel = () => {
 						</div>
 					</CheckboxGroup>
 					<div className="flex flex-row items-center gap-3 flex-wrap">
-						<Button size="md" colorScheme="red" onClick={() => apply("disable")} isLoading={isRunning} isDisabled={!permissions.length}>
+						<Button size="md" colorScheme="red" onClick={() => apply("disable")} loading={isRunning} disabled={!permissions.length}>
 							{t("admins.bulkPermissions.disable")}
 						</Button>
-						<Button size="md" variant="outline" onClick={() => apply("restore")} isLoading={isRunning} isDisabled={!permissions.length}>
+						<Button size="md" variant="outline" onClick={() => apply("restore")} loading={isRunning} disabled={!permissions.length}>
 							{t("admins.bulkPermissions.restore")}
 						</Button>
 					</div>

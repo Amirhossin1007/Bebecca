@@ -16,7 +16,7 @@ const ClearIcon = withClass(XMarkIcon, "w-3.5 h-3.5");
 type SearchInputProps = Omit<ComponentPropsWithoutRef<"input">, "size"> & {
 	size?: "xs" | "sm" | "md" | "lg";
 	containerProps?: ComponentPropsWithoutRef<"div">;
-	isLoading?: boolean;
+	loading?: boolean;
 	matchOptions: SearchMatchOptions;
 	onClear?: () => void;
 	onMatchOptionsChange: (options: SearchMatchOptions) => void;
@@ -25,7 +25,7 @@ type SearchInputProps = Omit<ComponentPropsWithoutRef<"input">, "size"> & {
 
 export const SearchInput: FC<SearchInputProps> = ({
 	containerProps,
-	isLoading = false,
+	loading: isLoading,
 	matchOptions,
 	onClear,
 	onMatchOptionsChange,
@@ -48,18 +48,16 @@ export const SearchInput: FC<SearchInputProps> = ({
 				<div className="flex flex-row items-center gap-0.5">
 					{isLoading && <Spinner size="xs" className="text-panel-text-muted" />}
 					<Tooltip label={t("search.matchCase")} hasArrow>
-						<IconButton aria-label={t("search.matchCase")} aria-pressed={matchOptions.matchCase} icon={<p className="text-[0.75rem]">Aa</p>} onClick={() => toggle("matchCase")} type="button" size="xs" variant="ghost" className={cn(matchOptions.matchCase ? "text-primary-400" : "text-panel-text-muted", matchOptions.matchCase ? "bg-panel-hover" : "bg-transparent")} />
+						<IconButton aria-label={t("search.matchCase")} aria-pressed={matchOptions.matchCase} onClick={() => toggle("matchCase")} type="button" size="xs" variant="ghost" className={cn(matchOptions.matchCase ? "text-primary-400" : "text-panel-text-muted", matchOptions.matchCase ? "bg-panel-hover" : "bg-transparent")} >{<p className="text-[0.75rem]">Aa</p>}</IconButton>
 					</Tooltip>
 					<Tooltip label={t("search.matchWholeWord")} hasArrow>
-						<IconButton aria-label={t("search.matchWholeWord")} aria-pressed={matchOptions.matchWholeWord} icon={
-								<p className="text-[0.75rem] underline">
+						<IconButton aria-label={t("search.matchWholeWord")} aria-pressed={matchOptions.matchWholeWord} onClick={() => toggle("matchWholeWord")} type="button" size="xs" variant="ghost" className={cn(matchOptions.matchWholeWord ? "text-primary-400" : "text-panel-text-muted", matchOptions.matchWholeWord ? "bg-panel-hover" : "bg-transparent")} >{<p className="text-[0.75rem] underline">
 									ab
-								</p>
-							} onClick={() => toggle("matchWholeWord")} type="button" size="xs" variant="ghost" className={cn(matchOptions.matchWholeWord ? "text-primary-400" : "text-panel-text-muted", matchOptions.matchWholeWord ? "bg-panel-hover" : "bg-transparent")} />
+								</p>}</IconButton>
 					</Tooltip>
 					{rightElement}
 					{onClear && String(value ?? "").length > 0 && (
-						<IconButton aria-label={t("clear")} icon={<ClearIcon />} onClick={onClear} type="button" size="xs" variant="ghost" />
+						<IconButton aria-label={t("clear")} onClick={onClear} type="button" size="xs" variant="ghost" >{<ClearIcon />}</IconButton>
 					)}
 				</div>
 			</InputRightElement>

@@ -50,9 +50,8 @@ export type InputProps = PropsWithChildren<
 		clearable?: boolean;
 		precision?: number;
 		size?: FieldSize;
-		isDisabled?: boolean;
-		isReadOnly?: boolean;
-		isRequired?: boolean;
+		readOnly?: boolean;
+		required?: boolean;
 	} & Omit<ComponentPropsWithoutRef<"input">, "size">
 >;
 
@@ -60,9 +59,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 	(
 		{
 			disabled: disabledProp,
-			isDisabled,
-			isReadOnly,
-			isRequired,
+			disabled: isDisabled,
+			readOnly: isReadOnly,
+			required: isRequired,
 			step,
 			label,
 			className,
@@ -110,7 +109,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 				max={typeof props.max === "number" ? props.max : undefined}
 				step={step}
 				precision={precision}
-				isDisabled={disabled}
+				disabled={disabled}
 				className="flex-grow"
 				onChange={(valueAsString: string, valueAsNumber: number) => {
 					if (!onChange) return;

@@ -164,9 +164,9 @@ export const Pagination: FC<PaginationProps> = ({
 			<div className="order-2 md:order-1 w-full md:w-auto">
 				<div className="flex flex-row items-center gap-2 justify-center md:justify-start min-w-0!">
 					<Menu placement={isRTL ? "top-end" : "top-start"} strategy="fixed" gutter={8} isLazy>
-						<MenuButton as={Button} size="sm" variant="outline" rightIcon={<ChevronIcon />} className="min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] justify-between px-3">
+						<MenuButton as={Button} size="sm" variant="outline" className="min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] justify-between px-3">
 							{perPageNum}
-						</MenuButton>
+						{<ChevronIcon />}</MenuButton>
 						<Portal>
 							<MenuList dir={direction} className="z-[1800] min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] py-1 rounded-lg shadow-2xl bg-panel-surface border-panel-border! overflow-hidden">
 								{PAGE_SIZE_OPTIONS.map((option) => {
@@ -188,12 +188,12 @@ export const Pagination: FC<PaginationProps> = ({
 
 			{noPages > 1 && (
 				<ButtonGroup size="sm" isAttached variant="outline" className="order-1 md:order-2 w-full md:w-auto max-w-full">
-					<Button variant="solid" size="md" leftIcon={isRTL ? <NextIcon /> : <PrevIcon />} onClick={() => changePage(page - 1)} isDisabled={!canPrev} className="flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">
+					<Button variant="solid" size="md" onClick={() => changePage(page - 1)} disabled={!canPrev} className="flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">{isRTL ? <NextIcon /> : <PrevIcon />}
 						{t("previous")}
 					</Button>
 
 					{isCompactPagination ? (
-						<Button variant="solid" size="md" isDisabled className="flex-[0_0_auto] md:flex-[0_0_auto] px-3 md:px-3">
+						<Button variant="solid" size="md" disabled className="flex-[0_0_auto] md:flex-[0_0_auto] px-3 md:px-3">
 							{page + 1} / {noPages}
 						</Button>
 					) : (
@@ -208,9 +208,9 @@ export const Pagination: FC<PaginationProps> = ({
 						})
 					)}
 
-					<Button variant="solid" size="md" rightIcon={isRTL ? <PrevIcon /> : <NextIcon />} onClick={() => changePage(page + 1)} isDisabled={!canNext} className="flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">
+					<Button variant="solid" size="md" onClick={() => changePage(page + 1)} disabled={!canNext} className="flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3">
 						{t("next")}
-					</Button>
+					{isRTL ? <PrevIcon /> : <NextIcon />}</Button>
 				</ButtonGroup>
 			)}
 		</div>

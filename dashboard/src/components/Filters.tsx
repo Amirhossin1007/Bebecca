@@ -366,11 +366,11 @@ export const Filters: FC<FilterProps> = ({
 								} else {
 									onAdminFilterChange({ ...options, offset: 0 });
 								}
-							}} isLoading={loading} onClear={clear} className="border-light-border!" />
+							}} loading={loading} onClear={clear} className="border-light-border!" />
 						{!isUserFilters && (
 							<Popover placement="bottom-start">
 								<PopoverTrigger>
-									<Button leftIcon={<FilterIcon />} size={isMobile ? "sm" : "md"} variant="outline" className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
+									<Button size={isMobile ? "sm" : "md"} variant="outline" className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>{<FilterIcon />}
 										{t("admins.filters.title")}
 										{adminActiveFilterCount > 0 ? ` (${adminActiveFilterCount})` : ""}
 									</Button>
@@ -424,7 +424,7 @@ export const Filters: FC<FilterProps> = ({
 										</div>
 										<Button variant="ghost" size="sm" onClick={() =>
 												onAdminFilterChange({ roleFilter: "", statusFilter: "", offset: 0 })
-											} isDisabled={adminActiveFilterCount === 0} className="mt-3 w-full">
+											} disabled={adminActiveFilterCount === 0} className="mt-3 w-full">
 											{t("admins.filters.clear")}
 										</Button>
 									</PopoverBody>
@@ -441,7 +441,7 @@ export const Filters: FC<FilterProps> = ({
 						{showAdvancedFilters && (
 							<Popover placement="bottom-start">
 								<PopoverTrigger>
-									<Button leftIcon={<FilterIcon />} size={isMobile ? "sm" : "md"} variant="outline" className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
+									<Button size={isMobile ? "sm" : "md"} variant="outline" className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>{<FilterIcon />}
 										{t("filters.advancedButton")}
 									</Button>
 								</PopoverTrigger>
@@ -456,7 +456,7 @@ export const Filters: FC<FilterProps> = ({
 											{ADVANCED_FILTER_OPTIONS.filter(
 												(option) => option.key !== "top_speed" || canViewTraffic,
 											).map((option) => (
-												<Checkbox key={option.key} isChecked={activeFilters.includes(option.key)} onChange={() => toggleAdvancedFilter(option.key)}>
+												<Checkbox key={option.key} checked={activeFilters.includes(option.key)} onChange={() => toggleAdvancedFilter(option.key)}>
 													{getFilterLabel(option.key)}
 												</Checkbox>
 											))}
@@ -513,7 +513,7 @@ export const Filters: FC<FilterProps> = ({
 												</div>
 											)}
 										</div>
-										<Button variant="ghost" size="sm" onClick={clearAdvancedFilters} isDisabled={activeFilters.length === 0} className="mt-3 w-full">
+										<Button variant="ghost" size="sm" onClick={clearAdvancedFilters} disabled={activeFilters.length === 0} className="mt-3 w-full">
 											{t("filters.advancedClear")}
 										</Button>
 									</PopoverBody>
@@ -521,11 +521,9 @@ export const Filters: FC<FilterProps> = ({
 							</Popover>
 						)}
 						{showRefresh && (
-							<Button aria-label={t("refresh")} isDisabled={loading} onClick={handleRefresh} size={isMobile ? "sm" : "md"} variant="outline" leftIcon={
-									<ReloadIcon className={cn(classNames({
+							<Button aria-label={t("refresh")} disabled={loading} onClick={handleRefresh} size={isMobile ? "sm" : "md"} variant="outline" className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>{<ReloadIcon className={cn(classNames({
 											"animate-spin": loading,
-										}))} />
-								} className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
+										}))} />}
 								{t("refresh")}
 							</Button>
 						)}
@@ -584,7 +582,7 @@ export const Filters: FC<FilterProps> = ({
 				<div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-start md:justify-end items-stretch sm:items-center w-full flex-wrap">
 					{actionsSlot}
 					{showCreateButton && (
-						<Button colorScheme="primary" size="sm" onClick={handleCreate} isDisabled={target === "admins" && !canManageAdmins} leftIcon={isMobile ? undefined : <PlusIconStyled />} className={cn("h-[36px] px-3 rounded-[4px] font-semibold whitespace-nowrap w-full sm:w-auto", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
+						<Button colorScheme="primary" size="sm" onClick={handleCreate} disabled={target === "admins" && !canManageAdmins} className={cn("h-[36px] px-3 rounded-[4px] font-semibold whitespace-nowrap w-full sm:w-auto", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>{isMobile ? undefined : <PlusIconStyled />}
 							{target === "users" ? t("createUser") : t("admins.addAdmin")}
 						</Button>
 					)}

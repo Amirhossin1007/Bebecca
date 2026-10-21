@@ -144,7 +144,7 @@ const BooleanField: FC<{
 		<FormLabel className="text-[0.875rem] mb-0 cursor-pointer">
 			{label}
 		</FormLabel>
-		<Switch size="sm" aria-label={typeof label === "string" ? label : undefined} isChecked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
+		<Switch size="sm" aria-label={typeof label === "string" ? label : undefined} checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
 	</FormControl>
 );
 
@@ -164,9 +164,9 @@ const OrderButtons: FC<{
 	disableDown = false,
 }) => (
 	<div className="flex flex-row items-center gap-1">
-		<IconButton size="xs" variant="ghost" aria-label="Move up" icon={<ArrowUpIcon className="w-14" />} isDisabled={index === 0 || disableUp} onClick={() => onMove(index, index - 1)} />
-		<IconButton size="xs" variant="ghost" aria-label="Move down" icon={<ArrowDownIcon className="w-14" />} isDisabled={index === length - 1 || disableDown} onClick={() => onMove(index, index + 1)} />
-		<IconButton size="xs" variant="ghost" colorScheme="red" aria-label="Remove" icon={<TrashIcon className="w-14" />} onClick={onRemove} />
+		<IconButton size="xs" variant="ghost" aria-label="Move up" disabled={index === 0 || disableUp} onClick={() => onMove(index, index - 1)} >{<ArrowUpIcon className="w-14" />}</IconButton>
+		<IconButton size="xs" variant="ghost" aria-label="Move down" disabled={index === length - 1 || disableDown} onClick={() => onMove(index, index + 1)} >{<ArrowDownIcon className="w-14" />}</IconButton>
+		<IconButton size="xs" variant="ghost" colorScheme="red" aria-label="Remove" onClick={onRemove} >{<TrashIcon className="w-14" />}</IconButton>
 	</div>
 );
 
@@ -263,7 +263,7 @@ const NumberArrayField: FC<{
 				<p className="text-[0.875rem] font-medium">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...items, 0])}>
+				<Button size="xs" variant="outline" onClick={() => update([...items, 0])}>{<PlusIcon className="w-13" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -454,7 +454,7 @@ const PacketListEditor: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...items, {}])}>
+				<Button size="xs" variant="outline" onClick={() => update([...items, {}])}>{<PlusIcon className="w-13" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -504,7 +504,7 @@ const TcpHeaderVariants: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...variants, [{}]])}>
+				<Button size="xs" variant="outline" onClick={() => update([...variants, [{}]])}>{<PlusIcon className="w-13" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -696,7 +696,7 @@ const CertificateList: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					Certificates
 				</p>
-				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...certificates, {}])}>
+				<Button size="xs" variant="outline" onClick={() => update([...certificates, {}])}>{<PlusIcon className="w-13" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -1121,9 +1121,9 @@ const LayerCollection: FC<{
 							onChange={(next) => setPendingType(String(next))}
 						/>
 					</div>
-					<Button variant="solid" size="sm" leftIcon={<PlusIcon className="w-14" />} isDisabled={!selectedType} onClick={() =>
+					<Button variant="solid" size="sm" disabled={!selectedType} onClick={() =>
 							emit([...value, createFinalMaskLayer(direction, selectedType)])
-						}>
+						}>{<PlusIcon className="w-14" />}
 						{t("add")}
 					</Button>
 				</div>
@@ -1288,7 +1288,7 @@ const QuicParamsEditor: FC<{
 						Used by Hysteria and XHTTP H3.
 					</p>
 				</div>
-				<Switch aria-label="Enable QUIC parameters" isChecked={enabled} onChange={(event) => {
+				<Switch aria-label="Enable QUIC parameters" checked={enabled} onChange={(event) => {
 						const activeHop = Boolean(
 							typeof udpHop.ports === "string" && udpHop.ports.trim(),
 						);

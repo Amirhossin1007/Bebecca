@@ -281,8 +281,8 @@ const TrafficSubmenu: FC<{
 	);
 
 	return (
-		<Menu isOpen={isOpen} isLazy onClose={closeMenu} placement={isRTL ? "left-start" : "right-start"} strategy="fixed" autoSelect={false} closeOnSelect={false} gutter={4}>
-			<MenuButton as={MenuItem} icon={<TrafficIcon />} isDisabled={activeAction?.startsWith("traffic-")} closeOnSelect={false} onMouseEnter={openMenu} onMouseLeave={scheduleClose} onClick={(event: ReactMouseEvent<HTMLElement>) => {
+		<Menu open={isOpen} isLazy onClose={closeMenu} placement={isRTL ? "left-start" : "right-start"} strategy="fixed" autoSelect={false} closeOnSelect={false} gutter={4}>
+			<MenuButton as={MenuItem} icon={<TrafficIcon />} disabled={activeAction?.startsWith("traffic-")} closeOnSelect={false} onMouseEnter={openMenu} onMouseLeave={scheduleClose} onClick={(event: ReactMouseEvent<HTMLElement>) => {
 					event.preventDefault();
 					event.stopPropagation();
 					openMenu();
@@ -306,7 +306,7 @@ const TrafficSubmenu: FC<{
 			<Portal>
 				<MenuList data-rb-context-menu="" onMouseEnter={openMenu} onMouseLeave={scheduleClose} onClick={(event) => event.stopPropagation()} className="min-w-[152px]! max-h-[min(70vh,_320px)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg shadow-2xl z-[2600]">
 					{TRAFFIC_AMOUNTS.map((gigabytes) => (
-						<MenuItem key={gigabytes} isDisabled={activeAction === `traffic-${gigabytes}`} onClick={(event) => {
+						<MenuItem key={gigabytes} disabled={activeAction === `traffic-${gigabytes}`} onClick={(event) => {
 								event.stopPropagation();
 								closeMenu();
 								onClose();
@@ -358,10 +358,10 @@ const toMenuItems = (
 		icon: action.icon,
 		color: action.color,
 		isDanger: action.isDanger,
-		isDisabled:
-			typeof action.isDisabled === "function"
-				? action.isDisabled(row)
-				: action.isDisabled,
+		disabled:
+			typeof action.disabled === "function"
+				? action.disabled(row)
+				: action.disabled,
 		onClick: action.onClick ? () => action.onClick?.(row) : undefined,
 		render: action.render
 			? (onClose: () => void) => action.render?.(row, onClose)
@@ -1093,14 +1093,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "copy-subscription",
 				label: t("usersTable.copyLink"),
 				icon: <SubscriptionLinkIcon />,
-				isDisabled: !subscriptionLink,
+				disabled: !subscriptionLink,
 				onClick: () => copyUserText(subscriptionLink, t("copied")),
 			},
 			{
 				id: "copy-configs",
 				label: t("usersTable.copyConfigs"),
 				icon: <CopyIcon />,
-				isDisabled: configLinks.length === 0,
+				disabled: configLinks.length === 0,
 				onClick: () => copyUserText(configLinksText, t("copied")),
 			},
 			{
@@ -1116,7 +1116,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "get-ips",
 				label: t("usersTable.getIps"),
 				icon: <IPsIcon />,
-				isDisabled: contextAction === "ips",
+				disabled: contextAction === "ips",
 				onClick: () => handleGetIPs(user),
 			},
 		];
@@ -1149,7 +1149,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "disable",
 				label: t("usersTable.disableUser"),
 				icon: <DisableIcon />,
-				isDisabled: contextAction === "disable",
+				disabled: contextAction === "disable",
 				onClick: () => handleDisableUser(user),
 			});
 		}
@@ -1163,7 +1163,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "enable",
 				label: t("usersTable.enableUser"),
 				icon: <CheckIcon className="w-16" />,
-				isDisabled: contextAction === "enable",
+				disabled: contextAction === "enable",
 				onClick: () => handleEnableUser(user),
 			});
 		}
@@ -1173,7 +1173,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "reset",
 				label: t("usersTable.resetUsage"),
 				icon: <ResetIcon />,
-				isDisabled: contextAction === "reset",
+				disabled: contextAction === "reset",
 				onClick: () => handleResetUsage(user),
 			});
 		}
@@ -1183,7 +1183,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "revoke",
 				label: t("usersTable.revokeSub"),
 				icon: <RevokeIcon />,
-				isDisabled: contextAction === "revoke",
+				disabled: contextAction === "revoke",
 				onClick: () => handleRevokeSub(user),
 			});
 		}
@@ -1234,7 +1234,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "extend-expire",
 				label: t("usersTable.add30Days"),
 				icon: <ExtendIcon />,
-				isDisabled: contextAction === "expire",
+				disabled: contextAction === "expire",
 				onClick: () => handleExtendExpire(user, 30),
 			});
 		}
@@ -1328,7 +1328,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 						{expandedActions.map((action) => (
 							<Tooltip key={action.id} label={action.label}>
 								<span>
-									<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={action.isDisabled} onClick={() => action.onClick?.()} className="min-w-[30px]! h-[30px]" />
+									<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={action.disabled} onClick={() => action.onClick?.()} className="min-w-[30px]! h-[30px]" >{action.icon}</IconButton>
 								</span>
 							</Tooltip>
 						))}
@@ -1399,7 +1399,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 						data={usersResponse.users}
 						columns={userColumns}
 						getRowId={(user) => user.username}
-						isLoading={loading}
+						loading={loading}
 						loadingRows={rowsToRender}
 						emptyState={
 							<EmptySection
@@ -1463,38 +1463,38 @@ export const UsersTable: FC<UsersTableProps> = ({
 						renderBulkActions={() => (
 							<>
 								{canToggleUserStatus && (
-									<Button size="sm" variant="outline" leftIcon={<DisableIcon />} onClick={handleBulkDisable} isLoading={bulkAction === "disable"} isDisabled={
+									<Button size="sm" variant="outline" onClick={handleBulkDisable} loading={bulkAction === "disable"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkDisableTargets.length === 0
-										}>
+										}>{<DisableIcon />}
 										{t("usersTable.disableUser")}
 									</Button>
 								)}
 								{canToggleUserStatus && (
-									<Button size="sm" variant="outline" leftIcon={<CheckIcon className="w-16" />} onClick={handleBulkEnable} isLoading={bulkAction === "enable"} isDisabled={
+									<Button size="sm" variant="outline" onClick={handleBulkEnable} loading={bulkAction === "enable"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkEnableTargets.length === 0
-										}>
+										}>{<CheckIcon className="w-16" />}
 										{t("usersTable.enableUser")}
 									</Button>
 								)}
 								{canResetUsageActions && (
-									<Button size="sm" variant="outline" leftIcon={<ResetIcon />} onClick={() => setIsBulkResetOpen(true)} isLoading={bulkAction === "reset"} isDisabled={
+									<Button size="sm" variant="outline" onClick={() => setIsBulkResetOpen(true)} loading={bulkAction === "reset"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										}>
+										}>{<ResetIcon />}
 										{t("usersTable.resetUsage")}
 									</Button>
 								)}
 								{canRevokeSubActions && (
-									<Button size="sm" variant="outline" leftIcon={<RevokeIcon />} onClick={handleBulkRevoke} isLoading={bulkAction === "revoke"} isDisabled={
+									<Button size="sm" variant="outline" onClick={handleBulkRevoke} loading={bulkAction === "revoke"} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										}>
+										}>{<RevokeIcon />}
 										{t("usersTable.revokeSub")}
 									</Button>
 								)}
@@ -1503,9 +1503,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 										description={t("usersTable.bulkDeletePrompt")}
 										onConfirm={handleBulkDelete}
 									>
-										<Button size="sm" colorScheme="red" variant="outline" leftIcon={<DeleteIcon />} isLoading={bulkAction === "delete"} isDisabled={
+										<Button size="sm" colorScheme="red" variant="outline" loading={bulkAction === "delete"} disabled={
 												Boolean(bulkAction) || bulkDeleteTargets.length === 0
-											}>
+											}>{<DeleteIcon />}
 											{t("delete")}
 										</Button>
 									</DeleteConfirmDialog>
@@ -1527,16 +1527,16 @@ export const UsersTable: FC<UsersTableProps> = ({
 					</div>
 				)}
 			</div>
-			<AppDialog isOpen={ipDialog !== null} onClose={() => setIPDialog(null)} title={t("usersTable.ipsDialogTitle")} isCentered size="lg" scrollBehavior="inside" contentProps={{ className: "bg-panel-surface border-panel-border! border rounded-lg overflow-hidden" }} bodyProps={{ className: "pb-5" }} footer={
+			<AppDialog open={ipDialog !== null} onClose={() => setIPDialog(null)} title={t("usersTable.ipsDialogTitle")} isCentered size="lg" scrollBehavior="inside" contentProps={{ className: "bg-panel-surface border-panel-border! border rounded-lg overflow-hidden" }} bodyProps={{ className: "pb-5" }} footer={
 					<div className="flex flex-row items-center w-full justify-end gap-2">
 						<Button variant="solid" size="sm" onClick={() => setIPDialog(null)}>
 							{t("close")}
 						</Button>
-						<Button size="sm" colorScheme="primary" leftIcon={<CopyIcon />} onClick={handleCopyIPs} isDisabled={
+						<Button size="sm" colorScheme="primary" onClick={handleCopyIPs} disabled={
 								contextAction === "ips" ||
 								Boolean(ipDialog?.error) ||
 								!ipDialog?.records.length
-							}>
+							}>{<CopyIcon />}
 							{t("usersTable.copyIps")}
 						</Button>
 					</div>
@@ -1674,7 +1674,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				</div>
 			</AppDialog>
 			<ConfirmDialog
-				isOpen={isBulkResetOpen}
+				open={isBulkResetOpen}
 				onClose={() => setIsBulkResetOpen(false)}
 				onConfirm={handleBulkReset}
 				title={t("usersTable.resetUsage")}
@@ -1682,7 +1682,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 					count: selectedUsers.length,
 				})}
 				confirmLabel={t("reset")}
-				isLoading={bulkAction === "reset"}
+				loading={bulkAction === "reset"}
 				isConfirmDisabled={selectedUsers.length === 0}
 			/>
 		</div>
@@ -1747,34 +1747,34 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 			}} className={cn("flex flex-row items-center gap-1 flex-nowrap", isRTL ? "justify-start" : "justify-end")}>
 			<Tooltip label={copied ? t("copied") : t("usersTable.copyLink")}>
 				<span>
-					<IconButton aria-label={t("usersTable.copyLink")} icon={copied ? <CopiedIcon /> : <SubscriptionLinkIcon />} variant="ghost" size="sm" isDisabled={!subscriptionLink} onClick={() => {
+					<IconButton aria-label={t("usersTable.copyLink")} variant="ghost" size="sm" disabled={!subscriptionLink} onClick={() => {
 							void copyTextToClipboard(subscriptionLink)
 								.then(() => {
 									setCopied(true);
 								})
 								.catch(() => undefined);
-						}} className="min-w-[30px]! h-[30px]" />
+						}} className="min-w-[30px]! h-[30px]" >{copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}</IconButton>
 				</span>
 			</Tooltip>
 			<Tooltip label={copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}>
 				<span>
-					<IconButton aria-label={t("usersTable.copyConfigs")} icon={copiedConfigs ? <CopiedIcon /> : <CopyIcon />} variant="ghost" size="sm" isDisabled={!hasConfigLinks} onClick={() => {
+					<IconButton aria-label={t("usersTable.copyConfigs")} variant="ghost" size="sm" disabled={!hasConfigLinks} onClick={() => {
 							void copyTextToClipboard(configLinksText)
 								.then(() => setCopiedConfigs(true))
 								.catch(() => undefined);
-						}} className="min-w-[30px]! h-[30px]" />
+						}} className="min-w-[30px]! h-[30px]" >{copiedConfigs ? <CopiedIcon /> : <CopyIcon />}</IconButton>
 				</span>
 			</Tooltip>
 			<Tooltip label={t("usersTable.qrCode")}>
-				<IconButton aria-label={t("usersTable.qrCode")} icon={<QRIcon />} variant="ghost" size="sm" onClick={() => {
+				<IconButton aria-label={t("usersTable.qrCode")} variant="ghost" size="sm" onClick={() => {
 						const links = generateUserLinks(user, linkTemplates);
 						setQRCode(links, user.username);
 						setSubLink(subscriptionLink);
-					}} className="min-w-[30px]! h-[30px]" />
+					}} className="min-w-[30px]! h-[30px]" >{<QRIcon />}</IconButton>
 			</Tooltip>
 			{onEdit && (
 				<Tooltip label={t("userDialog.editUser")}>
-					<IconButton aria-label={t("userDialog.editUser")} icon={<EditIcon />} variant="ghost" size="sm" onClick={onEdit} className="min-w-[30px]! h-[30px]" />
+					<IconButton aria-label={t("userDialog.editUser")} variant="ghost" size="sm" onClick={onEdit} className="min-w-[30px]! h-[30px]" >{<EditIcon />}</IconButton>
 				</Tooltip>
 			)}
 			{onDelete && (
@@ -1782,7 +1782,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 					description={t("deleteUser.prompt", { username: user.username })}
 					onConfirm={onDelete}
 				>
-					<IconButton aria-label={t("deleteUser.title")} icon={<DeleteIcon />} variant="ghost" size="sm" className="min-w-[30px]! h-[30px] text-red-400 hover:text-red-300 hover:bg-whiteAlpha-100" />
+					<IconButton aria-label={t("deleteUser.title")} variant="ghost" size="sm" className="min-w-[30px]! h-[30px] text-red-400 hover:text-red-300 hover:bg-whiteAlpha-100" >{<DeleteIcon />}</IconButton>
 				</DeleteConfirmDialog>
 			)}
 			{menuActions && menuActions.length > 0 && (

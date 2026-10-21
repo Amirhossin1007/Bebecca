@@ -36,7 +36,7 @@ type RouteTestResult = {
 };
 
 type RouteTestModalProps = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	rule: RoutingRule | null;
 	target: string;
@@ -63,7 +63,7 @@ const formatBytes = (value: number) => {
 };
 
 export const RouteTestModal: FC<RouteTestModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	rule,
 	target,
@@ -118,7 +118,7 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} isCentered size="lg">
+		<Modal open={isOpen} onClose={onClose} isCentered size="lg">
 			<ModalOverlay />
 			<XrayModalContent>
 				<XrayModalHeader>{t("pages.xray.routeTest.title")}</XrayModalHeader>
@@ -132,7 +132,7 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 									: t("pages.xray.routeTest.description", { target: targetName })}
 							</p>
 						</XrayDialogSection>
-						<FormControl isRequired>
+						<FormControl required>
 							<FormLabel>{t("pages.xray.routeTest.url")}</FormLabel>
 							<Input value={testURL} placeholder="https://example.com/" onChange={(event) => setTestURL(event.target.value)} />
 							<FormHelperText>{t("pages.xray.routeTest.urlHint")}</FormHelperText>
@@ -176,7 +176,7 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 				</XrayModalBody>
 				<XrayModalFooter>
 					<Button size="md" variant="ghost" onClick={onClose}>{t("close")}</Button>
-					<Button size="md" leftIcon={isTesting ? <Spinner size="xs" /> : <BoltIcon />} colorScheme="primary" onClick={runTest} isDisabled={isTesting || isMasterTarget || !testURL.trim()}>
+					<Button size="md" colorScheme="primary" onClick={runTest} disabled={isTesting || isMasterTarget || !testURL.trim()}>{isTesting ? <Spinner size="xs" /> : <BoltIcon />}
 						{t("pages.xray.routeTester.test")}
 					</Button>
 				</XrayModalFooter>

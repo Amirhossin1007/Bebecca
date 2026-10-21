@@ -59,7 +59,7 @@ export type DataTableRowAction<TData> = {
 	icon?: ReactElement;
 	onClick?: (row: TData) => void;
 	render?: (row: TData, onClose: () => void) => ReactNode;
-	isDisabled?: boolean | ((row: TData) => boolean);
+	disabled?: boolean | ((row: TData) => boolean);
 	isDanger?: boolean;
 	color?: string;
 };
@@ -69,8 +69,8 @@ export type DataTableBulkAction<TData> = {
 	label: ReactNode;
 	icon?: ReactElement;
 	onClick?: (rows: TData[], rowIds: string[]) => void;
-	isDisabled?: boolean | ((rows: TData[], rowIds: string[]) => boolean);
-	isLoading?: boolean;
+	disabled?: boolean | ((rows: TData[], rowIds: string[]) => boolean);
+	loading?: boolean;
 	isDanger?: boolean;
 	variant?: string;
 };
@@ -79,7 +79,7 @@ export type DataTableProps<TData> = {
 	data: TData[];
 	columns: DataTableColumn<TData>[];
 	getRowId: (row: TData, index: number) => string;
-	isLoading?: boolean;
+	loading?: boolean;
 	loadingRows?: number;
 	error?: ReactNode;
 	emptyState?: ReactNode;

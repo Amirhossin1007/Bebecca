@@ -389,7 +389,7 @@ const AdminsUsage: FC = () => {
 						<Select value={selectedServiceId ?? ""} onChange={(event: ChangeEvent<HTMLSelectElement>) => {
 								const value = Number(event.target.value);
 								setSelectedServiceId(Number.isNaN(value) ? null : value);
-							}} placeholder={t("admins.selectService")} isDisabled={!serviceOptions.length} className="sm:min-w-[220px]!">
+							}} placeholder={t("admins.selectService")} disabled={!serviceOptions.length} className="sm:min-w-[220px]!">
 							{serviceOptions.map((service) => (
 								<option key={service.id} value={service.id}>
 									{service.name}
@@ -446,7 +446,7 @@ const AdminsUsage: FC = () => {
 											if (isSelectable && item.username) {
 												setSelectedAdmin(item.username);
 											}
-										}} isDisabled={!isSelectable} className="justify-between">
+										}} disabled={!isSelectable} className="justify-between">
 										<div className="flex flex-row items-center gap-2 justify-between w-full">
 											<p>{username}</p>
 											<p className="text-[0.875rem] text-gray-500 dark:text-gray-300">
@@ -491,7 +491,7 @@ const AdminsUsage: FC = () => {
 						/>
 						<Select value={selectedAdmin ?? ""} onChange={(e: ChangeEvent<HTMLSelectElement>) =>
 								setSelectedAdmin(e.target.value || null)
-							} isDisabled={!filteredAdmins.length} className="w-full sm:w-auto md:w-[220px] md:min-w-[200px]!">
+							} disabled={!filteredAdmins.length} className="w-full sm:w-auto md:w-[220px] md:min-w-[200px]!">
 							{filteredAdmins.map((a) => (
 								<option key={a.username} value={a.username}>
 									{a.username}

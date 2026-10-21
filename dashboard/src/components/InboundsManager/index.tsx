@@ -711,7 +711,7 @@ export const InboundsManager: FC = () => {
 					);
 
 					return (
-						<Tooltip label={targetLabels.join(", ")} isDisabled={targetLabels.length <= 3} hasArrow placement="top">
+						<Tooltip label={targetLabels.join(", ")} disabled={targetLabels.length <= 3} hasArrow placement="top">
 							<div className="flex flex-row items-center gap-1 flex-wrap max-w-full">
 								{visibleTargets.map((targetId) => (
 									<Tag key={targetId} size="sm" className="max-w-[80px]">
@@ -751,7 +751,7 @@ export const InboundsManager: FC = () => {
 				setResetTarget(inbound);
 				resetDialog.onOpen();
 			},
-			isDisabled: isMutating,
+			disabled: isMutating,
 		},
 		{
 			id: "delete",
@@ -763,13 +763,13 @@ export const InboundsManager: FC = () => {
 					description={t("inbounds.confirmDelete", {
 						tag: inbound.tag,
 					})}
-					isLoading={isMutating}
+					loading={isMutating}
 					onConfirm={async () => {
 						await handleDelete(inbound);
 						onMenuClose();
 					}}
 				>
-					<MenuItem icon={<TrashIcon className="w-16" />} isDisabled={isMutating} onClick={(event) => event.stopPropagation()} className="text-red-400">
+					<MenuItem icon={<TrashIcon className="w-16" />} disabled={isMutating} onClick={(event) => event.stopPropagation()} className="text-red-400">
 						{t("delete")}
 					</MenuItem>
 				</DeleteConfirmDialog>
@@ -783,7 +783,7 @@ export const InboundsManager: FC = () => {
 				title={t("inbounds.listHeader")}
 				summaryItems={inboundSummaryItems}
 				actions={
-					<Button leftIcon={<PlusIcon className="w-18 h-18" />} onClick={openCreate} colorScheme="primary" size="sm" className="h-[36px] px-3 rounded-[4px]">
+					<Button onClick={openCreate} colorScheme="primary" size="sm" className="h-[36px] px-3 rounded-[4px]">{<PlusIcon className="w-18 h-18" />}
 						{t("inbounds.add")}
 					</Button>
 				}
@@ -792,7 +792,7 @@ export const InboundsManager: FC = () => {
 						aria-label={t("inbounds.refresh")}
 						label={t("inbounds.refresh")}
 						icon={<ArrowPathIcon className="w-16" />}
-						isLoading={isLoading}
+						loading={isLoading}
 						onClick={loadInbounds}
 					/>
 				}
@@ -846,7 +846,7 @@ export const InboundsManager: FC = () => {
 				onSortingChange={setInboundSorting}
 				showSortMenu={false}
 				getRowId={(inbound) => inbound.tag}
-				isLoading={isLoading}
+				loading={isLoading}
 				loadingRows={5}
 				emptyState={
 					<div className="text-center text-panel-text-muted">
@@ -870,11 +870,11 @@ export const InboundsManager: FC = () => {
 						description={t("inbounds.confirmBulkDelete", {
 							count: selectedRows.length,
 						})}
-						isLoading={isMutating}
-						isDisabled={selectedRows.length === 0}
+						loading={isMutating}
+						disabled={selectedRows.length === 0}
 						onConfirm={() => handleBulkDelete(selectedRows)}
 					>
-						<Button size="sm" variant="outline" colorScheme="red" leftIcon={<TrashIcon className="w-16" />} isLoading={isMutating} isDisabled={selectedRows.length === 0}>
+						<Button size="sm" variant="outline" colorScheme="red" loading={isMutating} disabled={selectedRows.length === 0}>{<TrashIcon className="w-16" />}
 							{t("delete")}
 						</Button>
 					</DeleteConfirmDialog>
@@ -885,7 +885,7 @@ export const InboundsManager: FC = () => {
 
 			{isOpen && (
 				<InboundFormModal
-					isOpen={isOpen}
+					open={isOpen}
 					mode={drawerMode}
 					initialValue={selected}
 					isSubmitting={isMutating}
@@ -900,7 +900,7 @@ export const InboundsManager: FC = () => {
 			)}
 			{cloneDrawer.isOpen && (
 				<InboundFormModal
-					isOpen={cloneDrawer.isOpen}
+					open={cloneDrawer.isOpen}
 					mode="clone"
 					initialValue={cloneTarget}
 					isSubmitting={isMutating}
@@ -914,7 +914,7 @@ export const InboundsManager: FC = () => {
 				/>
 			)}
 			<ConfirmDialog
-				isOpen={resetDialog.isOpen}
+				open={resetDialog.isOpen}
 				onClose={() => {
 					if (isMutating) return;
 					setResetTarget(null);
@@ -927,7 +927,7 @@ export const InboundsManager: FC = () => {
 				})}
 				confirmLabel={t("inbounds.resetUsage")}
 				colorScheme="red"
-				isLoading={isMutating}
+				loading={isMutating}
 				isConfirmDisabled={!resetTarget}
 			/>
 		</div>

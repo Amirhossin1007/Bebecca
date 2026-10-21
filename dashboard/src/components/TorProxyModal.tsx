@@ -30,8 +30,8 @@ export type TorProxyFormValues = {
 };
 
 type TorProxyModalProps = {
-	isOpen: boolean;
-	isLoading: boolean;
+	open: boolean;
+	loading: boolean;
 	isMasterTarget: boolean;
 	existingTags: string[];
 	onClose: () => void;
@@ -54,8 +54,8 @@ const parseLocations = (value: string) =>
 		.filter(Boolean);
 
 export const TorProxyModal: FC<TorProxyModalProps> = ({
-	isOpen,
-	isLoading,
+	open: isOpen,
+	loading: isLoading,
 	isMasterTarget,
 	existingTags,
 	onClose,
@@ -93,7 +93,7 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 	}, [form, isOpen]);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading} closeOnOverlayClick={!isLoading}>
+		<Modal open={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading} closeOnOverlayClick={!isLoading}>
 			<ModalOverlay />
 			<XrayModalContent>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0 overflow-hidden">
@@ -106,7 +106,7 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 					>
 						{t("pages.xray.tor.title")}
 					</XrayModalHeader>
-					<ModalCloseButton isDisabled={isLoading} />
+					<ModalCloseButton disabled={isLoading} />
 					<XrayModalBody className="flex-1 min-h-0 overflow-y-auto">
 						<div className="flex flex-col gap-3 items-stretch">
 							<XrayDialogSection>
@@ -190,10 +190,10 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 											control={form.control}
 											render={({ field }) => (
 												<ButtonGroup isAttached size="sm" className="w-full">
-													<Button size="md" type="button" leftIcon={<ArrowUpIcon className="w-14" />} variant={field.value === "up" ? "solid" : "outline"} colorScheme={field.value === "up" ? "primary" : "gray"} aria-pressed={field.value === "up"} onClick={() => field.onChange("up")} className="flex-1">
+													<Button size="md" type="button" variant={field.value === "up" ? "solid" : "outline"} colorScheme={field.value === "up" ? "primary" : "gray"} aria-pressed={field.value === "up"} onClick={() => field.onChange("up")} className="flex-1">{<ArrowUpIcon className="w-14" />}
 														{t("pages.xray.tor.directionUp")}
 													</Button>
-													<Button size="md" type="button" leftIcon={<ArrowDownIcon className="w-14" />} variant={field.value === "down" ? "solid" : "outline"} colorScheme={field.value === "down" ? "primary" : "gray"} aria-pressed={field.value === "down"} onClick={() => field.onChange("down")} className="flex-1">
+													<Button size="md" type="button" variant={field.value === "down" ? "solid" : "outline"} colorScheme={field.value === "down" ? "primary" : "gray"} aria-pressed={field.value === "down"} onClick={() => field.onChange("down")} className="flex-1">{<ArrowDownIcon className="w-14" />}
 														{t("pages.xray.tor.directionDown")}
 													</Button>
 												</ButtonGroup>
@@ -269,17 +269,17 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 									name="strict"
 									control={form.control}
 									render={({ field }) => (
-										<Switch isChecked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+										<Switch checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
 									)}
 								/>
 							</FormControl>
 						</div>
 					</XrayModalBody>
 					<XrayModalFooter className="justify-end">
-						<Button size="md" variant="outline" onClick={onClose} isDisabled={isLoading}>
+						<Button size="md" variant="outline" onClick={onClose} disabled={isLoading}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" type="submit" colorScheme="primary" isLoading={isLoading} isDisabled={Boolean(duplicateTag)}>
+						<Button size="md" type="submit" colorScheme="primary" loading={isLoading} disabled={Boolean(duplicateTag)}>
 							{t("pages.xray.tor.start")}
 						</Button>
 					</XrayModalFooter>

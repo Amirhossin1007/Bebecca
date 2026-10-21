@@ -36,8 +36,8 @@ type WindscribeLocation = {
 };
 
 type Props = {
-	isOpen: boolean;
-	isLoading: boolean;
+	open: boolean;
+	loading: boolean;
 	isMasterTarget: boolean;
 	targetID: string;
 	existingTags: string[];
@@ -73,8 +73,8 @@ const outboundTag = (prefix: string, location: string) => {
 };
 
 export const WindscribeProxyModal: FC<Props> = ({
-	isOpen,
-	isLoading,
+	open: isOpen,
+	loading: isLoading,
 	isMasterTarget,
 	targetID,
 	existingTags,
@@ -153,14 +153,14 @@ export const WindscribeProxyModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading && !isLoadingLocations} closeOnOverlayClick={!isLoading && !isLoadingLocations}>
+		<Modal open={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading && !isLoadingLocations} closeOnOverlayClick={!isLoading && !isLoadingLocations}>
 			<ModalOverlay />
 			<XrayModalContent>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0 overflow-hidden">
 					<XrayModalHeader subtitle={t("pages.xray.windscribe.description")}>
 						{t("pages.xray.windscribe.title")}
 					</XrayModalHeader>
-					<ModalCloseButton isDisabled={isLoading || isLoadingLocations} />
+					<ModalCloseButton disabled={isLoading || isLoadingLocations} />
 					<XrayModalBody className="flex-1 min-h-0 overflow-y-auto">
 						<div className="flex flex-col gap-3 items-stretch">
 							{isMasterTarget && (
@@ -202,7 +202,7 @@ export const WindscribeProxyModal: FC<Props> = ({
 										</FormErrorMessage>
 									</FormControl>
 								</XrayFieldGrid>
-								<Button size="sm" type="button" variant="outline" isLoading={isLoadingLocations} isDisabled={isMasterTarget || isLoading} onClick={loadLocations} className="mt-3">
+								<Button size="sm" type="button" variant="outline" loading={isLoadingLocations} disabled={isMasterTarget || isLoading} onClick={loadLocations} className="mt-3">
 									{t("pages.xray.windscribe.loadLocations")}
 								</Button>
 								{loadError && (
@@ -231,7 +231,7 @@ export const WindscribeProxyModal: FC<Props> = ({
 										render={({ field }) => (
 											<MultiValueAutocomplete
 												allowCustom={false}
-												isDisabled={locationOptions.length === 0}
+												disabled={locationOptions.length === 0}
 												maxValues={1}
 												options={locationOptions}
 												placeholder={t("pages.xray.windscribe.selectLocation")}
@@ -296,10 +296,10 @@ export const WindscribeProxyModal: FC<Props> = ({
 						</div>
 					</XrayModalBody>
 					<XrayModalFooter className="justify-end">
-						<Button size="md" variant="outline" onClick={onClose} isDisabled={isLoading || isLoadingLocations}>
+						<Button size="md" variant="outline" onClick={onClose} disabled={isLoading || isLoadingLocations}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" type="submit" colorScheme="primary" isLoading={isLoading} isDisabled={
+						<Button size="md" type="submit" colorScheme="primary" loading={isLoading} disabled={
 								isMasterTarget ||
 								locationOptions.length === 0 ||
 								isLoadingLocations ||

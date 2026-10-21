@@ -118,7 +118,7 @@ export const QRCodeDialog: FC = () => {
 	}, [copiedConfigIndex]);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose}>
+		<Modal open={isOpen} onClose={onClose}>
 			<ModalOverlay className="bg-blackAlpha-300" />
 			<ModalContent className="mx-3 md:mx-4 w-full max-w-[48rem] max-h-[92vh] overflow-hidden">
 				<ModalHeader className="pt-6">
@@ -167,7 +167,7 @@ export const QRCodeDialog: FC = () => {
 						)}
 						{configItems.length > 0 && (
 							<div className="w-full lg:w-(--qr-size)" style={{ "--qr-size": `${qrSize}px` } as CSSProperties}>
-								<Button size="sm" variant="outline" leftIcon={<QRIcon />} onClick={() => setShowConfigQrs((prev) => !prev)} className="w-full">
+								<Button size="sm" variant="outline" onClick={() => setShowConfigQrs((prev) => !prev)} className="w-full">{<QRIcon />}
 									{showConfigQrs
 										? t("qrcodeDialog.hideConfigs")
 										: t("qrcodeDialog.showConfigs")}
@@ -199,7 +199,7 @@ export const QRCodeDialog: FC = () => {
 											}} onTouchCancel={() => {
 												touchStartX.current = null;
 											}} className="relative">
-											<IconButton variant="solid" size="sm" aria-label={t("a11y.previous")} isDisabled={configItems.length < 2} onClick={() =>
+											<IconButton variant="solid" size="sm" aria-label={t("a11y.previous")} disabled={configItems.length < 2} onClick={() =>
 													setIndex((current) =>
 														(current - 1 + configItems.length) % configItems.length,
 													)
@@ -227,7 +227,7 @@ export const QRCodeDialog: FC = () => {
 													<QRCode size={qrSize} level="L" includeMargin={false} value={activeConfig.link} className="mx-auto max-w-[100%] p-2 bg-white" />
 												</div>
 											)}
-											<IconButton variant="solid" size="sm" aria-label={t("a11y.next")} isDisabled={configItems.length < 2} onClick={() =>
+											<IconButton variant="solid" size="sm" aria-label={t("a11y.next")} disabled={configItems.length < 2} onClick={() =>
 													setIndex((current) => (current + 1) % configItems.length)
 												} className="absolute right-0 top-[calc(100%_+_4px)] z-[1]">
 												<NextIcon />

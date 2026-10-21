@@ -336,7 +336,7 @@ export const DashboardMaintenanceControls = ({
 	const renderUpdatePopover = () => (
 		<Popover placement="bottom-end" closeOnBlur={true} closeOnEsc={true} isLazy>
 			<PopoverTrigger>
-				<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} variant={update?.available ? "solid" : "outline"} isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading} className={cn("h-[32px] w-full sm:w-auto px-3.5 border-panel-border! rounded-full whitespace-nowrap", update?.available ? "bg-[var(--rb-panel-accent)]" : "bg-transparent", update?.available ? "text-white" : "text-panel-text")}>
+				<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} variant={update?.available ? "solid" : "outline"} disabled={!canMaintain || !hostActionsAvailable || info.isLoading} className={cn("h-[32px] w-full sm:w-auto px-3.5 border-panel-border! rounded-full whitespace-nowrap", update?.available ? "bg-[var(--rb-panel-accent)]" : "bg-transparent", update?.available ? "text-white" : "text-panel-text")}>
 					<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 						<span className="inline-flex items-center justify-center shrink-0">
 							<ArrowUpTrayIcon className="w-15 h-15" />
@@ -353,7 +353,7 @@ export const DashboardMaintenanceControls = ({
 				<PopoverHeader className="font-bold text-[13px] py-3 px-4 border-panel-border!">
 					<div className="flex justify-between items-center gap-3">
 						<p className="text-[13px] font-bold text-panel-text">{t("dashboard.maintenance.title")}</p>
-						<Button size="xs" variant="ghost" leftIcon={<ArrowPathIcon className="w-13 h-13" />} onClick={() => info.refetch()} isLoading={info.isFetching} className="rounded-full text-panel-text-muted hover:text-panel-text hover:bg-panel-elevated">
+						<Button size="xs" variant="ghost" onClick={() => info.refetch()} loading={info.isFetching} className="rounded-full text-panel-text-muted hover:text-panel-text hover:bg-panel-elevated">{<ArrowPathIcon className="w-13 h-13" />}
 							{t("refresh")}
 						</Button>
 					</div>
@@ -467,10 +467,10 @@ export const DashboardMaintenanceControls = ({
 							</Alert>
 						)}
 						<div className="flex gap-2 flex-wrap justify-end pt-2 border-t border-panel-border!">
-							<Button size="xs" variant="outline" onClick={() => setConfirmAction("soft-reload")} isLoading={reloadMutation.isLoading} isDisabled={!hostActionsAvailable} className="h-[30px] px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! text-[12px] font-semibold">
+							<Button size="xs" variant="outline" onClick={() => setConfirmAction("soft-reload")} loading={reloadMutation.isLoading} disabled={!hostActionsAvailable} className="h-[30px] px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! text-[12px] font-semibold">
 								{t("dashboard.maintenance.softReloadAction")}
 							</Button>
-							<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} onClick={startUpdate} isLoading={updateMutation.isLoading} isDisabled={!hostActionsAvailable} className="h-[30px] px-4 rounded-full text-[12px] font-semibold">
+							<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} onClick={startUpdate} loading={updateMutation.isLoading} disabled={!hostActionsAvailable} className="h-[30px] px-4 rounded-full text-[12px] font-semibold">
 								{t("dashboard.maintenance.updateAction")}
 							</Button>
 						</div>
@@ -495,7 +495,7 @@ export const DashboardMaintenanceControls = ({
 				)}
 
 				{canMaintain && (
-					<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} isLoading={restartMutation.isLoading} isDisabled={info.isLoading || !hostActionsAvailable} className="h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
+					<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isLoading} disabled={info.isLoading || !hostActionsAvailable} className="h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
 						<div className="flex flex-row gap-1.5 items-center justify-center">
 							<span className="inline-flex items-center justify-center shrink-0">
 								<ArrowsRightLeftIcon className="w-15 h-15" />
@@ -515,7 +515,7 @@ export const DashboardMaintenanceControls = ({
 					</div>
 
 					<div className="flex gap-2 w-full items-center">
-						<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} isLoading={restartMutation.isLoading} isDisabled={info.isLoading || !hostActionsAvailable} className="flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
+						<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isLoading} disabled={info.isLoading || !hostActionsAvailable} className="flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
 							<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 								<span className="inline-flex items-center justify-center shrink-0">
 									<ArrowsRightLeftIcon className="w-15 h-15" />
@@ -538,7 +538,7 @@ export const DashboardMaintenanceControls = ({
 				</div>
 			)}
 
-			<Modal isOpen={isUpdateDialogOpen} onClose={() => {
+			<Modal open={isUpdateDialogOpen} onClose={() => {
 					if (operation?.error) setUpdateDialogOpen(false);
 				}} closeOnEsc={Boolean(operation?.error)} closeOnOverlayClick={false} isCentered size="xl">
 				<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(16px)]" />
@@ -630,15 +630,15 @@ export const DashboardMaintenanceControls = ({
 											{t("dashboard.maintenance.liveLogs")}
 										</p>
 									</div>
-									<Tooltip label={logsCopied ? t("dashboard.maintenance.logsCopied") : t("dashboard.maintenance.copyLogs")} openDelay={300} closeOnClick={false} closeOnMouseDown className="text-[10px]">
-										<IconButton aria-label={t("dashboard.maintenance.copyLogs")} tabIndex={-1} icon={logsCopied ? <CheckIcon className="w-13" /> : <ClipboardIcon className="w-13" />} size="xs" variant="ghost" onClick={() => {
+									<Tooltip label={logsCopied ? t("dashboard.maintenance.logsCopied") : t("dashboard.maintenance.copyLogs")} openDelay={300} className="text-[10px]">
+										<IconButton aria-label={t("dashboard.maintenance.copyLogs")} tabIndex={-1} size="xs" variant="ghost" onClick={() => {
 												const logs = cleanTerminalOutput(operation?.logs);
 												if (logs) {
 													navigator.clipboard.writeText(logs);
 													setLogsCopied(true);
 													setTimeout(() => setLogsCopied(false), 2000);
 												}
-											}} className={cn("h-[22px] w-[22px] min-w-[22px]! rounded-[6px] hover:text-panel-text", logsCopied ? "text-green-500" : "text-panel-text-muted")} />
+											}} className={cn("h-[22px] w-[22px] min-w-[22px]! rounded-[6px] hover:text-panel-text", logsCopied ? "text-green-500" : "text-panel-text-muted")} >{logsCopied ? <CheckIcon className="w-13" /> : <ClipboardIcon className="w-13" />}</IconButton>
 									</Tooltip>
 								</div>
 
@@ -651,7 +651,7 @@ export const DashboardMaintenanceControls = ({
 				</ModalContent>
 			</Modal>
 
-			<Modal isOpen={confirmAction !== null} onClose={() => setConfirmAction(null)} isCentered size="md">
+			<Modal open={confirmAction !== null} onClose={() => setConfirmAction(null)} isCentered size="md">
 				<ModalOverlay className="bg-blackAlpha-600 [backdrop-filter:blur(6px)]" />
 				<ModalContent className="bg-panel-surface border-panel-border! border rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.4)] mx-4">
 					<ModalHeader className="text-[1rem] font-bold text-panel-text pb-2">
@@ -687,7 +687,7 @@ export const DashboardMaintenanceControls = ({
 						<Button variant="ghost" size="sm" onClick={() => setConfirmAction(null)} className="rounded-full text-panel-text-muted">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"} size="sm" isLoading={restartMutation.isLoading || reloadMutation.isLoading || updateMutation.isLoading} onClick={() => {
+						<Button colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"} size="sm" loading={restartMutation.isLoading || reloadMutation.isLoading || updateMutation.isLoading} onClick={() => {
 								const act = confirmAction;
 								setConfirmAction(null);
 								if (act === "restart") restartMutation.mutate();

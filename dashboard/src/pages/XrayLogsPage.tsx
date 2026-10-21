@@ -343,14 +343,14 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 						<Tag size="sm" colorScheme={autoScroll ? "green" : "gray"} variant="subtle">
 							{autoScroll ? t("core.autoScrollOn") : t("core.autoScrollOff")}
 						</Tag>
-						<Button size="sm" variant="outline" isDisabled={logs.length === 0} onClick={clearLogs} className="h-[36px] px-3">
+						<Button size="sm" variant="outline" disabled={logs.length === 0} onClick={clearLogs} className="h-[36px] px-3">
 							{t("clear")}
 						</Button>
 					</div>
 				}
 			>
 				<div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center flex-wrap">
-					<CompactLogSelect onChange={(e) => handleLog(e.target.value)} value={selectedNode} isDisabled={!nodes?.length} className="w-full sm:w-[220px]">
+					<CompactLogSelect onChange={(e) => handleLog(e.target.value)} value={selectedNode} disabled={!nodes?.length} className="w-full sm:w-[220px]">
 						{nodes?.length ? (
 							nodes.map((node) => (
 								<option key={node.id} value={String(node.id)}>
@@ -361,7 +361,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							<option value="">{t("nodes.noNodes")}</option>
 						)}
 					</CompactLogSelect>
-					<CompactLogSelect onChange={(e) => setSelectedInbound(e.target.value)} value={selectedInbound} isDisabled={inboundsLoading || inbounds.length === 0} className="w-full sm:w-[220px]">
+					<CompactLogSelect onChange={(e) => setSelectedInbound(e.target.value)} value={selectedInbound} disabled={inboundsLoading || inbounds.length === 0} className="w-full sm:w-[220px]">
 						<option value="">{t("xrayLogs.allInbounds")}</option>
 						{inbounds.map((inbound) => (
 							<option key={inbound.tag} value={inbound.tag}>

@@ -95,7 +95,7 @@ export const PropagationTargets: FC<PropagationTargetsProps> = ({
 			<p className="text-[0.875rem] text-panel-text-muted">
 				{t("pages.xray.propagate.hint")}
 			</p>
-			<Checkbox isDisabled={!enabledIds.length} isChecked={allSelected} isIndeterminate={someSelected} onChange={() => onChange(allSelected ? [] : enabledIds)}>
+			<Checkbox disabled={!enabledIds.length} checked={allSelected} isIndeterminate={someSelected} onChange={() => onChange(allSelected ? [] : enabledIds)}>
 				{t("pages.xray.propagate.selectAll")}
 			</Checkbox>
 			<div className="flex flex-col gap-2">
@@ -103,7 +103,7 @@ export const PropagationTargets: FC<PropagationTargetsProps> = ({
 					const disabled = target.status !== "ok";
 					return (
 						<div key={target.id} className="flex flex-row items-center gap-2 justify-between">
-							<Checkbox isDisabled={disabled} isChecked={selectedIds.includes(target.id)} onChange={(event) => toggle(target.id, event.target.checked)}>
+							<Checkbox disabled={disabled} checked={selectedIds.includes(target.id)} onChange={(event) => toggle(target.id, event.target.checked)}>
 								{target.name || target.id}
 							</Checkbox>
 							{disabled && (

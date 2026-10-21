@@ -66,7 +66,7 @@ const ModalContext = createContext<ModalContextValue>({
  * names so the call sites only change their import.
  */
 export function Modal({
-	isOpen,
+	open: isOpen,
 	onClose,
 	size = "md",
 	isCentered = false,
@@ -77,7 +77,7 @@ export function Modal({
 	finalFocusRef,
 	children,
 }: {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	size?: ModalSize;
 	isCentered?: boolean;
@@ -194,7 +194,7 @@ export function ModalContent({
 	);
 }
 
-export function ModalCloseButton({ className, isDisabled, ...props }: ComponentPropsWithoutRef<"button"> & { isDisabled?: boolean }) {
+export function ModalCloseButton({ className, disabled: isDisabled, ...props }: ComponentPropsWithoutRef<"button"> & { disabled?: boolean }) {
 	return (
 		<DialogPrimitive.Close asChild>
 			<button
@@ -243,12 +243,12 @@ export function ModalFooter({ className, ...props }: ComponentPropsWithoutRef<"d
 
 /** Chakra's AlertDialog: a modal that asks for a confirmation and focuses the least destructive action. */
 export function AlertDialog({
-	isOpen,
+	open: isOpen,
 	onClose,
 	leastDestructiveRef,
 	children,
 }: {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	leastDestructiveRef?: RefObject<HTMLElement | null>;
 	children?: ReactNode;

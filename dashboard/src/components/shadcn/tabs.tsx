@@ -100,11 +100,11 @@ export const TabList = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<"div"
 
 type TabProps = Omit<ComponentPropsWithoutRef<"button">, "color"> & {
 	index?: number;
-	isDisabled?: boolean;
+	disabled?: boolean;
 };
 
 export const Tab = forwardRef<HTMLButtonElement, TabProps>(function Tab(
-	{ index = 0, isDisabled, className, children, ...props },
+	{ index = 0, disabled: isDisabled, className, children, ...props },
 	ref,
 ) {
 	const ctx = useContext(TabsContext);

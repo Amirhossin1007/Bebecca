@@ -63,7 +63,7 @@ type NordServer = {
 };
 
 type Props = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	initialOutbounds: OutboundJson[];
 	onSave: (outbound: OutboundJson, replaceIndex: number | null) => void;
@@ -92,7 +92,7 @@ const loadColor = (load: number) => {
 };
 
 export const NordVPNModal: FC<Props> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	initialOutbounds,
 	onSave,
@@ -377,7 +377,7 @@ export const NordVPNModal: FC<Props> = ({
 	const selectedServer = servers.find((item) => String(item.id) === serverID);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="3xl" isCentered>
+		<Modal open={isOpen} onClose={onClose} size="3xl" isCentered>
 			<ModalOverlay />
 			<XrayModalContent>
 				<XrayModalHeader>NordVPN NordLynx</XrayModalHeader>
@@ -406,7 +406,7 @@ export const NordVPNModal: FC<Props> = ({
 												{t("pages.xray.nord.tokenHelp")}
 											</FormHelperText>
 										</FormControl>
-										<Button size="md" leftIcon={<KeyIcon className="w-16" />} isLoading={loading} onClick={register} colorScheme="primary">
+										<Button size="md" loading={loading} onClick={register} colorScheme="primary">{<KeyIcon className="w-16" />}
 											{t("login")}
 										</Button>
 									</div>
@@ -422,7 +422,7 @@ export const NordVPNModal: FC<Props> = ({
 											</FormLabel>
 											<Input value={manualKey} onChange={(event) => setManualKey(event.target.value)} placeholder="NordLynx private key" />
 										</FormControl>
-										<Button variant="solid" size="md" leftIcon={<CloudArrowDownIcon className="w-16" />} isLoading={loading} onClick={saveManualKey}>
+										<Button variant="solid" size="md" loading={loading} onClick={saveManualKey}>{<CloudArrowDownIcon className="w-16" />}
 											{t("save")}
 										</Button>
 									</div>
@@ -464,7 +464,7 @@ export const NordVPNModal: FC<Props> = ({
 										</tr>
 									</tbody>
 								</table>
-								<Button size="md" leftIcon={<TrashIcon className="w-16" />} colorScheme="red" variant="outline" isLoading={loading} onClick={deleteData} className="self-start">
+								<Button size="md" colorScheme="red" variant="outline" loading={loading} onClick={deleteData} className="self-start">{<TrashIcon className="w-16" />}
 									{t("logout.variant2")}
 								</Button>
 								<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
@@ -486,7 +486,7 @@ export const NordVPNModal: FC<Props> = ({
 											))}
 										</Select>
 									</FormControl>
-									<FormControl isDisabled={cities.length === 0}>
+									<FormControl disabled={cities.length === 0}>
 										<FormLabel>{t("pages.xray.outbound.city")}</FormLabel>
 										<Select
 											value={cityID}
@@ -502,7 +502,7 @@ export const NordVPNModal: FC<Props> = ({
 											))}
 										</Select>
 									</FormControl>
-									<FormControl isDisabled={filteredServers.length === 0}>
+									<FormControl disabled={filteredServers.length === 0}>
 										<FormLabel>{t("pages.xray.outbound.server")}</FormLabel>
 										<Select
 											value={serverID}
@@ -538,7 +538,7 @@ export const NordVPNModal: FC<Props> = ({
 					</Button>
 					{nordData?.private_key && (
 						<>
-							<Button size="md" leftIcon={<ArrowPathIcon className="w-16" />} isDisabled={!serverID} onClick={saveOutbound} colorScheme="primary">
+							<Button size="md" disabled={!serverID} onClick={saveOutbound} colorScheme="primary">{<ArrowPathIcon className="w-16" />}
 								{nordOutboundIndex >= 0
 									? t("pages.xray.nord.updateOutbound")
 									: t("pages.xray.nord.addOutbound")}

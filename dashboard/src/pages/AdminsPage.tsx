@@ -55,7 +55,7 @@ export const AdminsPage: FC = () => {
 						label={t("refresh")}
 						icon={<ReloadIcon />}
 						onClick={() => fetchAdmins(undefined, { force: true })}
-						isLoading={adminsLoading}
+						loading={adminsLoading}
 					/>
 				}
 			/>

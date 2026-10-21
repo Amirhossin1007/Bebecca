@@ -429,10 +429,10 @@ const ServiceBalanceCard: React.FC<{
 };
 
 const ChangePasswordModal: React.FC<{
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	onSubmit: (current: string, next: string) => Promise<void>;
-}> = ({ isOpen, onClose, onSubmit }) => {
+}> = ({ open: isOpen, onClose, onSubmit }) => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.language === "fa";
 	const toast = useToast();
@@ -490,7 +490,7 @@ const ChangePasswordModal: React.FC<{
 
 	return (
 		<AppDialog
-			isOpen={isOpen}
+			open={isOpen}
 			onClose={onClose}
 			isCentered
 			title={t("myaccount.changePassword")}
@@ -499,7 +499,7 @@ const ChangePasswordModal: React.FC<{
 					<Button size="md" onClick={onClose} variant="ghost" className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!newPassword}>
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} loading={isSubmitting} disabled={!newPassword}>
 						{t("save")}
 					</Button>
 				</>
@@ -514,13 +514,11 @@ const ChangePasswordModal: React.FC<{
 									showCurrent
 										? t("admins.hidePassword")
 										: t("admins.showPassword")
-								} size="sm" variant="ghost" icon={
-									showCurrent ? (
+								} size="sm" variant="ghost" onClick={() => setShowCurrent(!showCurrent)} >{showCurrent ? (
 										<EyeSlashIcon className="w-16" />
 									) : (
 										<EyeIcon className="w-16" />
-									)
-								} onClick={() => setShowCurrent(!showCurrent)} />
+									)}</IconButton>
 						</InputRightElement>
 					</InputGroup>
 				</div>
@@ -533,16 +531,14 @@ const ChangePasswordModal: React.FC<{
 										showNew
 											? t("admins.hidePassword")
 											: t("admins.showPassword")
-									} size="sm" variant="ghost" icon={
-										showNew ? (
+									} size="sm" variant="ghost" onClick={() => setShowNew(!showNew)} >{showNew ? (
 											<EyeSlashIcon className="w-16" />
 										) : (
 											<EyeIcon className="w-16" />
-										)
-									} onClick={() => setShowNew(!showNew)} />
+										)}</IconButton>
 							</InputRightElement>
 						</InputGroup>
-						<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" icon={<SparklesIcon className="w-20" />} onClick={handleGeneratePassword} />
+						<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" onClick={handleGeneratePassword} >{<SparklesIcon className="w-20" />}</IconButton>
 					</div>
 				</div>
 			</div>
@@ -1125,7 +1121,7 @@ export const MyAccountPage: React.FC = () => {
 															</div>
 														</div>
 													</div>
-													<IconButton aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} icon={<DeleteIcon />} size="sm" variant="ghost" colorScheme="red" isLoading={
+													<IconButton aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} size="sm" variant="ghost" colorScheme="red" loading={
 															deleteKeyMutation.isLoading &&
 															deleteKeyMutation.variables?.id === key.id
 														} onClick={() => {
@@ -1133,7 +1129,7 @@ export const MyAccountPage: React.FC = () => {
 															setDeletePassword("");
 															setShowDeletePassword(false);
 															deleteModal.onOpen();
-														}} />
+														}} >{<DeleteIcon />}</IconButton>
 												</article>
 											))}
 										</div>
@@ -1147,7 +1143,7 @@ export const MyAccountPage: React.FC = () => {
 
 			{selfPermissions.self_api_keys && (
 				<AppDialog
-					isOpen={apiKeyModal.isOpen}
+					open={apiKeyModal.isOpen}
 					onClose={closeApiKeyDialog}
 					isCentered
 					title={t("myaccount.createApiKey")}
@@ -1161,7 +1157,7 @@ export const MyAccountPage: React.FC = () => {
 								<Button size="md" variant="ghost" onClick={closeApiKeyDialog} className="mr-3">
 									{t("cancel")}
 								</Button>
-								<Button size="md" colorScheme="primary" isLoading={createKeyMutation.isLoading} onClick={() => createKeyMutation.mutate(selectedLifetime)} isDisabled={hasGeneratedKey}>
+								<Button size="md" colorScheme="primary" loading={createKeyMutation.isLoading} onClick={() => createKeyMutation.mutate(selectedLifetime)} disabled={hasGeneratedKey}>
 									{t("create")}
 								</Button>
 							</>
@@ -1194,8 +1190,8 @@ export const MyAccountPage: React.FC = () => {
 									{t("myaccount.yourApiKey")}
 								</p>
 								<div className="flex flex-row items-center gap-2">
-									<Input value={generatedKey} isReadOnly />
-									<IconButton variant="solid" size="md" aria-label={t("copy")} icon={<CopyIcon />} onClick={() => {
+									<Input value={generatedKey} readOnly />
+									<IconButton variant="solid" size="md" aria-label={t("copy")} onClick={() => {
 											setClipboardValue(generatedKey);
 											onCopy();
 											toast({
@@ -1203,7 +1199,7 @@ export const MyAccountPage: React.FC = () => {
 												status: "success",
 												duration: 1200,
 											});
-										}} />
+										}} >{<CopyIcon />}</IconButton>
 								</div>
 								<p className="text-[0.75rem] text-orange-500 mt-2">
 									{t("myaccount.apiKeyWarning")}
@@ -1215,14 +1211,14 @@ export const MyAccountPage: React.FC = () => {
 			)}
 
 			<ChangePasswordModal
-				isOpen={modal.isOpen}
+				open={modal.isOpen}
 				onClose={modal.onClose}
 				onSubmit={handlePasswordChange}
 			/>
 
 			{selfPermissions.self_api_keys && (
 				<AppDialog
-					isOpen={deleteModal.isOpen}
+					open={deleteModal.isOpen}
 					onClose={closeDeleteKeyDialog}
 					isCentered
 					title={t("myaccount.deleteApiKey")}
@@ -1231,7 +1227,7 @@ export const MyAccountPage: React.FC = () => {
 							<Button size="md" variant="ghost" onClick={closeDeleteKeyDialog} className="mr-3">
 								{t("cancel")}
 							</Button>
-							<Button size="md" colorScheme="red" isLoading={deleteKeyMutation.isLoading} isDisabled={!deletePassword || deleteKeyId === null} onClick={() => {
+							<Button size="md" colorScheme="red" loading={deleteKeyMutation.isLoading} disabled={!deletePassword || deleteKeyId === null} onClick={() => {
 									if (deleteKeyId !== null) {
 										deleteKeyMutation.mutate({
 											id: deleteKeyId,
@@ -1253,13 +1249,11 @@ export const MyAccountPage: React.FC = () => {
 										showDeletePassword
 											? t("admins.hidePassword")
 											: t("admins.showPassword")
-									} size="sm" variant="ghost" icon={
-										showDeletePassword ? (
+									} size="sm" variant="ghost" onClick={() => setShowDeletePassword(!showDeletePassword)} >{showDeletePassword ? (
 											<EyeSlashIcon className="w-16" />
 										) : (
 											<EyeIcon className="w-16" />
-										)
-									} onClick={() => setShowDeletePassword(!showDeletePassword)} />
+										)}</IconButton>
 							</InputRightElement>
 						</InputGroup>
 						{deleteKeyMutation.isError && (

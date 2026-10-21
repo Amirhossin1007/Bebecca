@@ -24,11 +24,11 @@ import {
 
 type Props = {
 	admin: Admin | null;
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 };
 
-export const AdminApiKeysDialog = ({ admin, isOpen, onClose }: Props) => {
+export const AdminApiKeysDialog = ({ admin, open: isOpen, onClose }: Props) => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const [keys, setKeys] = useState<AdminApiKey[]>([]);
@@ -109,7 +109,7 @@ export const AdminApiKeysDialog = ({ admin, isOpen, onClose }: Props) => {
 	return (
 		<>
 			<AppDialog
-				isOpen={isOpen}
+				open={isOpen}
 				onClose={close}
 				isCentered
 				size="xl"
@@ -139,7 +139,7 @@ export const AdminApiKeysDialog = ({ admin, isOpen, onClose }: Props) => {
 								</option>
 							</Select>
 						</div>
-						<Button size="md" colorScheme="primary" isLoading={creating} isDisabled={Boolean(generatedKey)} onClick={create} leftIcon={<KeyIcon className="w-17" />}>
+						<Button size="md" colorScheme="primary" loading={creating} disabled={Boolean(generatedKey)} onClick={create}>{<KeyIcon className="w-17" />}
 							{t("admins.apiKeys.create")}
 						</Button>
 					</div>
@@ -152,11 +152,11 @@ export const AdminApiKeysDialog = ({ admin, isOpen, onClose }: Props) => {
 								})}
 							</p>
 							<div className="flex flex-row items-center gap-2">
-								<Input value={generatedKey} isReadOnly className="bg-panel-elevated font-mono" />
-								<IconButton variant="solid" size="md" aria-label={t("copy")} icon={<ClipboardIcon className="w-18" />} onClick={async () => {
+								<Input value={generatedKey} readOnly className="bg-panel-elevated font-mono" />
+								<IconButton variant="solid" size="md" aria-label={t("copy")} onClick={async () => {
 										await copyTextToClipboard(generatedKey);
 										generateSuccessMessage(t("copied"), toast);
-									}} />
+									}} >{<ClipboardIcon className="w-18" />}</IconButton>
 							</div>
 							<p className="text-orange-700 dark:text-orange-200 text-[0.75rem] mt-2">
 								{t("myaccount.apiKeyWarning")}
@@ -197,7 +197,7 @@ export const AdminApiKeysDialog = ({ admin, isOpen, onClose }: Props) => {
 													: t("myaccount.neverUsed")}
 											</p>
 										</div>
-										<IconButton aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} icon={<TrashIcon className="w-17" />} colorScheme="red" variant="ghost" size="sm" isLoading={deletingID === key.id} onClick={() => setKeyToDelete(key)} />
+										<IconButton aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} colorScheme="red" variant="ghost" size="sm" loading={deletingID === key.id} onClick={() => setKeyToDelete(key)} >{<TrashIcon className="w-17" />}</IconButton>
 									</div>
 								))}
 							</div>
@@ -207,7 +207,7 @@ export const AdminApiKeysDialog = ({ admin, isOpen, onClose }: Props) => {
 			</AppDialog>
 
 			<ConfirmDialog
-				isOpen={Boolean(keyToDelete)}
+				open={Boolean(keyToDelete)}
 				onClose={() => setKeyToDelete(null)}
 				onConfirm={remove}
 				title={t("myaccount.deleteApiKey")}
@@ -217,7 +217,7 @@ export const AdminApiKeysDialog = ({ admin, isOpen, onClose }: Props) => {
 				})}
 				confirmLabel={t("delete")}
 				colorScheme="red"
-				isLoading={deletingID !== null}
+				loading={deletingID !== null}
 			/>
 		</>
 	);

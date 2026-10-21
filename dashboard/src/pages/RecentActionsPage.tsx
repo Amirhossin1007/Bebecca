@@ -905,7 +905,7 @@ export const RecentActionsPage: FC = () => {
 					},
 				]}
 				actions={
-					<Button size="md" leftIcon={<ArrowPathIcon className="w-16" />} variant="outline" onClick={() => void actionsQuery.refetch()} isLoading={actionsQuery.isFetching}>
+					<Button size="md" variant="outline" onClick={() => void actionsQuery.refetch()} loading={actionsQuery.isFetching}>{<ArrowPathIcon className="w-16" />}
 						{t("recentActions.refresh")}
 					</Button>
 				}
@@ -965,7 +965,7 @@ export const RecentActionsPage: FC = () => {
 				onSortingChange={setRecentSorting}
 				showSortMenu={false}
 				getRowId={(action) => String(action.id)}
-				isLoading={actionsQuery.isLoading}
+				loading={actionsQuery.isLoading}
 				loadingRows={8}
 				error={actionsQuery.isError ? t("recentActions.loadFailed") : undefined}
 				emptyState={
@@ -978,14 +978,14 @@ export const RecentActionsPage: FC = () => {
 				rowActions={rowActions}
 				renderRowActions={(action) => (
 					<div className="flex flex-row items-center gap-2 justify-end">
-						<Button size="sm" variant="outline" leftIcon={<EyeIcon className="w-16" />} onClick={() => toggleDetails(action.id)}>
+						<Button size="sm" variant="outline" onClick={() => toggleDetails(action.id)}>{<EyeIcon className="w-16" />}
 							{t("recentActions.details")}
 						</Button>
 						{action.rollback_status === "available" && (
-							<Button size="sm" colorScheme="orange" leftIcon={<ArrowUturnLeftIcon className="w-16" />} onClick={() => rollback(action)} isLoading={
+							<Button size="sm" colorScheme="orange" onClick={() => rollback(action)} loading={
 									rollbackMutation.isLoading &&
 									rollbackMutation.variables === action.id
-								}>
+								}>{<ArrowUturnLeftIcon className="w-16" />}
 								{t("recentActions.rollback")}
 							</Button>
 						)}

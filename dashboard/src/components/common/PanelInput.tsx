@@ -5,7 +5,7 @@ import { NumericInput } from "./NumericInput";
 
 export type PanelInputProps = Omit<ComponentPropsWithoutRef<"input">, "size"> & {
 	size?: "xs" | "sm" | "md" | "lg";
-	isDisabled?: boolean;
+	disabled?: boolean;
 };
 
 export const PanelInput = forwardRef<HTMLInputElement, PanelInputProps>(
@@ -19,14 +19,14 @@ export const PanelInput = forwardRef<HTMLInputElement, PanelInputProps>(
 			max,
 			step,
 			size,
-			isDisabled,
+			disabled: isDisabled,
 			...props
 		},
 		ref,
 	) => {
 		if (type !== "number") {
 			return (
-				<FieldInput ref={ref} type={type} onChange={onChange} value={value} defaultValue={defaultValue} min={min} max={max} step={step} size={size} isDisabled={isDisabled} {...props} />
+				<FieldInput ref={ref} type={type} onChange={onChange} value={value} defaultValue={defaultValue} min={min} max={max} step={step} size={size} disabled={isDisabled} {...props} />
 			);
 		}
 
@@ -45,7 +45,7 @@ export const PanelInput = forwardRef<HTMLInputElement, PanelInputProps>(
 				max={numericMax}
 				step={numericStep}
 				size={size}
-				isDisabled={isDisabled}
+				disabled={isDisabled}
 				fieldRef={ref}
 				fieldProps={{
 					...props,

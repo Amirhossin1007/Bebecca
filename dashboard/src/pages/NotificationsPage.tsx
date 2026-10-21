@@ -54,7 +54,7 @@ const InboxPanel = () => {
 						total: inbox.data?.total ?? 0,
 					})}
 				</p>
-				<Button size="sm" variant="outline" isDisabled={!inbox.data?.unread} isLoading={markAll.isLoading} onClick={() => markAll.mutate()}>
+				<Button size="sm" variant="outline" disabled={!inbox.data?.unread} loading={markAll.isLoading} onClick={() => markAll.mutate()}>
 					{t("notifications.inbox.markAllRead")}
 				</Button>
 			</div>
@@ -141,11 +141,11 @@ const SendPanel = () => {
 	return (
 		<div className="flex flex-col gap-6">
 			<div className="flex flex-col gap-4 max-w-[42rem]">
-				<FormControl isRequired>
+				<FormControl required>
 					<FormLabel>{t("notifications.send.title")}</FormLabel>
 					<Input value={title} onChange={(e) => setTitle(e.target.value)} />
 				</FormControl>
-				<FormControl isRequired>
+				<FormControl required>
 					<FormLabel>{t("notifications.send.body")}</FormLabel>
 					<Textarea value={body} rows={4} onChange={(e) => setBody(e.target.value)} />
 				</FormControl>
@@ -163,7 +163,7 @@ const SendPanel = () => {
 				{audience === "selected" && (
 					<div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto">
 						{(recipients.data?.items ?? []).map((admin) => (
-							<Checkbox key={admin.id} isChecked={selected.includes(admin.id)} onChange={() => toggle(admin.id)}>
+							<Checkbox key={admin.id} checked={selected.includes(admin.id)} onChange={() => toggle(admin.id)}>
 								{admin.username}
 								<span className="text-[0.75rem] text-gray-500 ms-2">
 									{admin.role}
@@ -173,7 +173,7 @@ const SendPanel = () => {
 					</div>
 				)}
 				<div className="flex flex-row items-center gap-2">
-					<Button size="md" colorScheme="blue" isLoading={mutation.isLoading} isDisabled={
+					<Button size="md" colorScheme="blue" loading={mutation.isLoading} disabled={
 							!title.trim() ||
 							!body.trim() ||
 							(audience === "selected" && selected.length === 0)
@@ -279,7 +279,7 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 				</p>
 				<div className="flex flex-row items-center gap-2">
 					<p className="text-[0.875rem]">{t("notifications.rules.enabled")}</p>
-					<Switch isChecked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+					<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
 				</div>
 			</div>
 			<div className="flex flex-col gap-3">
@@ -316,7 +316,7 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 					)}
 				</p>
 				<div className="flex flex-row items-center gap-2">
-					<Button size="sm" colorScheme="blue" isLoading={save.isLoading} onClick={submit}>
+					<Button size="sm" colorScheme="blue" loading={save.isLoading} onClick={submit}>
 						{t("notifications.rules.save")}
 					</Button>
 					<Button size="sm" variant="outline" onClick={resetToDefaults}>

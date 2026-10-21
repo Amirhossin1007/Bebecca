@@ -51,7 +51,7 @@ export function DataTableColumnMenu<TData>({
 							const id = `column-${column.id}`;
 							const checked = visibility[column.id] !== false;
 							return (
-								<Checkbox key={column.id} id={id} size="sm" isChecked={checked} onChange={(event) =>
+								<Checkbox key={column.id} id={id} size="sm" checked={checked} onChange={(event) =>
 										onChange({
 											...visibility,
 											[column.id]: event.target.checked,

@@ -63,7 +63,6 @@ export type PanelSelectProps = Omit<
 	disabled?: boolean;
 	emptyText?: string;
 	id?: string;
-	isDisabled?: boolean;
 	isInvalid?: boolean;
 	mode?: "single" | "multiple";
 	name?: string;
@@ -211,7 +210,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			disabled,
 			emptyText,
 			id,
-			isDisabled = false,
+			disabled: isDisabled,
 			isInvalid = false,
 			mode = "single",
 			name,
@@ -478,7 +477,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 
 			if (mode === "single") {
 				return (
-					<MenuItem key={key} className={rowClass} isDisabled={opts.disabled} onClick={() => {
+					<MenuItem key={key} className={rowClass} disabled={opts.disabled} onClick={() => {
 							if (!opts.disabled) onSelect();
 						}}>
 						{content}
@@ -599,7 +598,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 											: placeholder
 									} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" data-form-type="other" onFocus={() => setMultiOpen(true)} onChange={(event) =>
 										handleCustomInputChange(event.target.value)
-									} onKeyDown={handleCustomKeyDown} isDisabled={disabledState} className="h-[24px] text-[0.875rem] bg-transparent! border-0! rounded-[0px]! [outline:0]! shadow-none! min-h-[24px]! px-0! py-0! focus:shadow-none! focus-visible:shadow-none!" />
+									} onKeyDown={handleCustomKeyDown} disabled={disabledState} className="h-[24px] text-[0.875rem] bg-transparent! border-0! rounded-[0px]! [outline:0]! shadow-none! min-h-[24px]! px-0! py-0! focus:shadow-none! focus-visible:shadow-none!" />
 							</div>
 						</div>
 						{rightElement && (
@@ -640,7 +639,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					value={selectedValues[0] ?? ""}
 					readOnly
 				/>
-				<Menu autoSelect={false} closeOnSelect={closeOnSelect ?? true} isOpen={disabledState ? false : undefined} isLazy matchWidth placement={isRTL ? "bottom-end" : "bottom-start"} strategy="fixed" onOpen={() => {
+				<Menu autoSelect={false} closeOnSelect={closeOnSelect ?? true} open={disabledState ? false : undefined} isLazy matchWidth placement={isRTL ? "bottom-end" : "bottom-start"} strategy="fixed" onOpen={() => {
 						if (!portalled) {
 							nestedMenuScrollRef.current = {
 								left: window.scrollX,
@@ -658,11 +657,11 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 							);
 						}
 					}}>
-					<MenuButton as={Button} rightIcon={<ChevronDown />} size={size} isDisabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-md justify-between text-start", rightElement ? "pr-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
+					<MenuButton as={Button} size={size} disabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-md justify-between text-start", rightElement ? "pr-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
 						<span className={cn("truncate", selectedValues.length ? "" : (mutedColor))}>
 							{renderLabel(buttonText)}
 						</span>
-					</MenuButton>
+					{<ChevronDown />}</MenuButton>
 					{portalled ? <Portal>{singleMenuList}</Portal> : singleMenuList}
 				</Menu>
 				{rightElement && (

@@ -163,7 +163,7 @@ export const HeaderCalendar: FC = () => {
 	return (
 		<Popover placement="bottom-start">
 			<PopoverTrigger>
-				<Button variant="ghost" size="sm" leftIcon={<CalendarIcon />} className="hidden md:inline-flex px-3">
+				<Button variant="ghost" size="sm" className="hidden md:inline-flex px-3">{<CalendarIcon />}
 					<p className="truncate max-w-[320px] font-semibold text-[0.875rem]">
 						{formattedDate}
 					</p>
@@ -175,11 +175,11 @@ export const HeaderCalendar: FC = () => {
 					<div className="flex flex-col gap-3">
 						<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-row gap-2 justify-between items-center">
 							<div className="flex flex-row items-center gap-2">
-								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.previousMonth")} icon={prevIcon} onClick={() => {
+								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.previousMonth")} onClick={() => {
 										const next = new Date(displayDate);
 										next.setMonth(displayDate.getMonth() - 1);
 										setDisplayDate(next);
-									}} />
+									}} >{prevIcon}</IconButton>
 								<p className="font-semibold">{monthLabel}</p>
 								{isChristmas && (
 									<Badge colorScheme="red" className="inline-flex items-center gap-1">
@@ -187,11 +187,11 @@ export const HeaderCalendar: FC = () => {
 										{t("season.christmas")}
 									</Badge>
 								)}
-								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.nextMonth")} icon={nextIcon} onClick={() => {
+								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.nextMonth")} onClick={() => {
 										const next = new Date(displayDate);
 										next.setMonth(displayDate.getMonth() + 1);
 										setDisplayDate(next);
-									}} />
+									}} >{nextIcon}</IconButton>
 							</div>
 						</div>
 						<div className="grid grid-cols-7 gap-1">

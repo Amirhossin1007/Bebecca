@@ -213,7 +213,7 @@ export const UsersFilterBar: FC = () => {
 						matchWholeWord: options.matchWholeWord,
 						offset: 0,
 					})
-				} isLoading={loading} onClear={clearSearch} rightElement={
+				} loading={loading} onClear={clearSearch} rightElement={
 					<Tooltip label={t("users.searchHelp")} placement="top" hasArrow>
 						<div className="inline-flex items-center text-panel-text-muted px-1">
 							<HelpIcon />
@@ -230,7 +230,7 @@ export const UsersFilterBar: FC = () => {
 			<Popover placement="bottom-end">
 				<PopoverTrigger>
 					<div className="relative shrink-0">
-						<IconButton size="md" aria-label={t("filters.advancedButton")} icon={<FilterIcon />} variant="outline" className="rounded-full w-[40px] h-[40px]" />
+						<IconButton size="md" aria-label={t("filters.advancedButton")} variant="outline" className="rounded-full w-[40px] h-[40px]" >{<FilterIcon />}</IconButton>
 						{hasClearableFilters && (
 							<Badge colorScheme="primary" variant="solid" className="top-[-4px] rounded-full absolute end-[-4px] text-[0.6rem] px-1.5 pointer-events-none rb-users-filter-badge">
 								{formatChipCount(activeFilterTotal, locale)}
@@ -249,7 +249,7 @@ export const UsersFilterBar: FC = () => {
 							{ADVANCED_FILTER_OPTIONS.filter(
 								(option) => option.key !== "top_speed" || canViewTraffic,
 							).map((option) => (
-								<Checkbox key={option.key} isChecked={activeFilters.includes(option.key)} onChange={() => toggleAdvancedFilter(option.key)}>
+								<Checkbox key={option.key} checked={activeFilters.includes(option.key)} onChange={() => toggleAdvancedFilter(option.key)}>
 									{getFilterLabel(option.key)}
 								</Checkbox>
 							))}
@@ -297,7 +297,7 @@ export const UsersFilterBar: FC = () => {
 								</div>
 							)}
 						</div>
-						<Button variant="ghost" size="sm" onClick={clearAdvancedFilters} isDisabled={!hasClearableFilters} className="mt-3 w-full">
+						<Button variant="ghost" size="sm" onClick={clearAdvancedFilters} disabled={!hasClearableFilters} className="mt-3 w-full">
 							{t("filters.advancedClear")}
 						</Button>
 					</PopoverBody>
@@ -309,9 +309,9 @@ export const UsersFilterBar: FC = () => {
 			{!isMobile && <div className="flex-[1_1_auto] min-w-0!" />}
 			{showCreateButton &&
 				(isMobile ? (
-					<IconButton size="md" aria-label={t("createUser")} icon={<PlusIconStyled className="w-5 h-5" />} colorScheme="primary" onClick={handleCreate} className="rounded-full w-[40px] h-[40px] shrink-0 rb-users-create-btn" />
+					<IconButton size="md" aria-label={t("createUser")} colorScheme="primary" onClick={handleCreate} className="rounded-full w-[40px] h-[40px] shrink-0 rb-users-create-btn" >{<PlusIconStyled className="w-5 h-5" />}</IconButton>
 				) : (
-					<Button size="md" colorScheme="primary" leftIcon={<PlusIconStyled />} onClick={handleCreate} className="rounded-full h-[40px] px-5 text-[0.875rem] font-semibold whitespace-nowrap shrink-0 rb-users-create-btn">
+					<Button size="md" colorScheme="primary" onClick={handleCreate} className="rounded-full h-[40px] px-5 text-[0.875rem] font-semibold whitespace-nowrap shrink-0 rb-users-create-btn">{<PlusIconStyled />}
 						{t("createUser")}
 					</Button>
 				))}

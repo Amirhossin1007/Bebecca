@@ -37,7 +37,7 @@ import {
 type OutboundJson = Record<string, any>;
 
 type Props = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	initialOutbounds: OutboundJson[];
 	onSave: (outbound: OutboundJson, replaceIndex: number | null) => void;
@@ -60,7 +60,7 @@ const pingText = (ping?: PingResult) => {
 };
 
 export const MullvadModal: FC<Props> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	initialOutbounds,
 	onSave,
@@ -282,7 +282,7 @@ export const MullvadModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="3xl" isCentered>
+		<Modal open={isOpen} onClose={onClose} size="3xl" isCentered>
 			<ModalOverlay />
 			<XrayModalContent>
 				<XrayModalHeader
@@ -333,7 +333,7 @@ export const MullvadModal: FC<Props> = ({
 								{t("pages.xray.mullvad.configHelp")}
 							</FormHelperText>
 						</FormControl>
-						<Button variant="solid" size="md" leftIcon={<ArrowDownTrayIcon className="w-16" />} isDisabled={!configText.trim()} onClick={fillFromConfig} className="self-start">
+						<Button variant="solid" size="md" disabled={!configText.trim()} onClick={fillFromConfig} className="self-start">{<ArrowDownTrayIcon className="w-16" />}
 							{t("pages.xray.mullvad.fill")}
 						</Button>
 						<FileDropzone
@@ -355,20 +355,20 @@ export const MullvadModal: FC<Props> = ({
 										onChange={(event) => selectCountry(event.target.value)}
 									/>
 								</FormControl>
-								<FormControl isDisabled={!country}>
+								<FormControl disabled={!country}>
 									<FormLabel>{t("pages.xray.mullvad.server")}</FormLabel>
 									<Select
 										value={serverName}
 										options={serverOptions}
 										placeholder={t("pages.xray.mullvad.chooseServer")}
-										isDisabled={!country}
+										disabled={!country}
 										onChange={(event) => selectServer(event.target.value)}
 									/>
 									<div className="flex flex-row items-center gap-2 mt-2">
-										<Button variant="solid" size="xs" leftIcon={<SignalIcon className="w-14" />} isDisabled={!canPing || !serverName || pinging} onClick={() => void pingServers([serverName])}>
+										<Button variant="solid" size="xs" disabled={!canPing || !serverName || pinging} onClick={() => void pingServers([serverName])}>{<SignalIcon className="w-14" />}
 											{t("pages.xray.mullvad.ping")}
 										</Button>
-										<Button variant="solid" size="xs" leftIcon={<SignalIcon className="w-14" />} isDisabled={!canPing || !country || pinging} isLoading={pinging} onClick={() => void pingServers(countryServerNames)}>
+										<Button variant="solid" size="xs" disabled={!canPing || !country || pinging} loading={pinging} onClick={() => void pingServers(countryServerNames)}>{<SignalIcon className="w-14" />}
 											{t("pages.xray.mullvad.pingAll")}
 										</Button>
 									</div>
@@ -412,7 +412,7 @@ export const MullvadModal: FC<Props> = ({
 					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("close")}
 					</Button>
-					<Button size="md" leftIcon={<ArrowPathIcon className="w-16" />} isDisabled={!tag.trim() || tagTaken || !isMullvadFormValid(form)} onClick={saveOutbound} colorScheme="primary">
+					<Button size="md" disabled={!tag.trim() || tagTaken || !isMullvadFormValid(form)} onClick={saveOutbound} colorScheme="primary">{<ArrowPathIcon className="w-16" />}
 						{editingIndex >= 0
 							? t("pages.xray.nord.updateOutbound")
 							: t("pages.xray.outbound.addOutbound")}

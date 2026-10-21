@@ -21,7 +21,7 @@ export const OutboundTestButton: FC<OutboundTestButtonProps> = ({
 
 	return (
 		<Tooltip hasArrow label={label}>
-			<IconButton aria-label={label} icon={isTesting ? <Spinner size="xs" /> : <BoltIcon />} size="xs" variant="ghost" isDisabled={isTesting} onClick={() => onTest(tag)} />
+			<IconButton aria-label={label} size="xs" variant="ghost" disabled={isTesting} onClick={() => onTest(tag)} >{isTesting ? <Spinner size="xs" /> : <BoltIcon />}</IconButton>
 		</Tooltip>
 	);
 };

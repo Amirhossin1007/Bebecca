@@ -15,7 +15,7 @@ type FileDropzoneProps = {
 	accept?: string;
 	description?: ReactNode;
 	emptyText: ReactNode;
-	isDisabled?: boolean;
+	disabled?: boolean;
 	multiple?: boolean;
 	onFileSelect?: (file: File | null) => void;
 	onFilesSelect?: (files: File[]) => void;
@@ -42,7 +42,7 @@ export const FileDropzone = ({
 	accept,
 	description,
 	emptyText,
-	isDisabled = false,
+	disabled: isDisabled,
 	multiple = false,
 	onFileSelect,
 	onFilesSelect,

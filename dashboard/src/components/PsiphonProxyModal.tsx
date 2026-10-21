@@ -31,8 +31,8 @@ export type PsiphonProxyFormValues = {
 };
 
 type Props = {
-	isOpen: boolean;
-	isLoading: boolean;
+	open: boolean;
+	loading: boolean;
 	isMasterTarget: boolean;
 	targetID: string;
 	existingTags: string[];
@@ -48,8 +48,8 @@ const defaults: PsiphonProxyFormValues = {
 };
 
 export const PsiphonProxyModal: FC<Props> = ({
-	isOpen,
-	isLoading,
+	open: isOpen,
+	loading: isLoading,
 	isMasterTarget,
 	targetID,
 	existingTags,
@@ -131,14 +131,14 @@ export const PsiphonProxyModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading && !isLoadingLocations} closeOnOverlayClick={!isLoading && !isLoadingLocations}>
+		<Modal open={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading && !isLoadingLocations} closeOnOverlayClick={!isLoading && !isLoadingLocations}>
 			<ModalOverlay />
 			<XrayModalContent>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0 overflow-hidden">
 					<XrayModalHeader subtitle={t("pages.xray.psiphon.description")}>
 						{t("pages.xray.psiphon.title")}
 					</XrayModalHeader>
-					<ModalCloseButton isDisabled={isLoading || isLoadingLocations} />
+					<ModalCloseButton disabled={isLoading || isLoadingLocations} />
 					<XrayModalBody className="flex-1 min-h-0 overflow-y-auto">
 						<div className="flex flex-col gap-3 items-stretch">
 							{isMasterTarget && (
@@ -174,7 +174,7 @@ export const PsiphonProxyModal: FC<Props> = ({
 									<FormErrorMessage>
 										{form.formState.errors.config?.message}
 									</FormErrorMessage>
-									<Button size="sm" type="button" variant="outline" isLoading={isLoadingLocations} isDisabled={isMasterTarget || isLoading} onClick={loadLocations} className="mt-3">
+									<Button size="sm" type="button" variant="outline" loading={isLoadingLocations} disabled={isMasterTarget || isLoading} onClick={loadLocations} className="mt-3">
 										{t("pages.xray.psiphon.loadLocations")}
 									</Button>
 									{loadError && (
@@ -219,7 +219,7 @@ export const PsiphonProxyModal: FC<Props> = ({
 										render={({ field }) => (
 											<MultiValueAutocomplete
 												allowCustom={false}
-												isDisabled={!locationsReady || isLoadingLocations}
+												disabled={!locationsReady || isLoadingLocations}
 												options={locationOptions}
 												placeholder={t("pages.xray.psiphon.selectLocations")}
 												value={field.value}
@@ -288,10 +288,10 @@ export const PsiphonProxyModal: FC<Props> = ({
 						</div>
 					</XrayModalBody>
 					<XrayModalFooter className="justify-end">
-						<Button size="md" variant="outline" onClick={onClose} isDisabled={isLoading || isLoadingLocations}>
+						<Button size="md" variant="outline" onClick={onClose} disabled={isLoading || isLoadingLocations}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" type="submit" colorScheme="primary" isLoading={isLoading} isDisabled={
+						<Button size="md" type="submit" colorScheme="primary" loading={isLoading} disabled={
 								isMasterTarget ||
 								!locationsReady ||
 								isLoadingLocations ||

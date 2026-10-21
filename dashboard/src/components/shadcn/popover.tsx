@@ -27,7 +27,7 @@ const PopoverContext = createContext<PopoverContextValue>({
 export function Popover({
 	open,
 	onOpenChange,
-	isOpen,
+	open: isOpen,
 	onOpen,
 	onClose,
 	defaultOpen,
@@ -47,7 +47,6 @@ export function Popover({
 	closeDelay?: number;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
-	isOpen?: boolean;
 	onOpen?: () => void;
 	onClose?: () => void;
 	defaultOpen?: boolean;

@@ -286,7 +286,7 @@ export const ExternalAppFilesModal = ({
 	};
 
 	return (
-		<Modal isOpen={Boolean(app)} onClose={close} size="full">
+		<Modal open={Boolean(app)} onClose={close} size="full">
 			<ModalOverlay />
 			<ModalContent className={cn("h-[100dvh] max-h-[100dvh]", modalBg)}>
 				<ModalHeader className="px-3 md:px-6 py-3 md:py-4">
@@ -317,7 +317,7 @@ export const ExternalAppFilesModal = ({
 						{!isPHPConfigView ? (
 							<div className={cn("flex-1 min-w-0! min-h-0 lg:flex flex-col", document ? "hidden" : "flex")}>
 								<div className="flex-1 min-h-0 min-w-0! external-app-files-shell">
-									<Button size="sm" variant="ghost" leftIcon={<DocumentPlusIcon className="w-18" />} title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} isDisabled={fileMutation.isLoading} onClick={createFile} className="external-app-files-new-file">
+									<Button size="sm" variant="ghost" title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} disabled={fileMutation.isLoading} onClick={createFile} className="external-app-files-new-file">{<DocumentPlusIcon className="w-18" />}
 										<span className="external-app-files-new-file-label">
 											{t("externalApps.files.newFile")}
 										</span>
@@ -326,7 +326,7 @@ export const ExternalAppFilesModal = ({
 											url: externalAppFileUploadURL(appID),
 											method: "POST",
 											withCredentials: true,
-										}} isLoading={filesQuery.isLoading || fileMutation.isLoading} language={
+										}} loading={filesQuery.isLoading || fileMutation.isLoading} language={
 											i18n.language.startsWith("fa") ? "fa-IR" : "en-US"
 										} layout="list" maxFileSize={32 << 20} onCreateFolder={(name, parent) =>
 											fileMutation.mutate(() =>
@@ -385,14 +385,14 @@ export const ExternalAppFilesModal = ({
 							) : null}
 							<div className="flex justify-between items-center gap-2 mb-2 min-h-[32px]">
 								{!isPHPConfigView ? (
-									<Button variant="solid" size="sm" leftIcon={<ArrowLeftIcon className="w-16" />} onClick={closeDocument} className="inline-flex lg:hidden">
+									<Button variant="solid" size="sm" onClick={closeDocument} className="inline-flex lg:hidden">{<ArrowLeftIcon className="w-16" />}
 										{t("externalApps.files.backToFiles")}
 									</Button>
 								) : null}
 								<p className="flex-1 min-w-0! text-[0.875rem] text-panel-text-secondary truncate">
 									{document?.path || t("externalApps.files.openHint")}
 								</p>
-								<Button size="sm" colorScheme="blue" isDisabled={!document || !isDirty} isLoading={saveMutation.isLoading} onClick={() => saveMutation.mutate()}>
+								<Button size="sm" colorScheme="blue" disabled={!document || !isDirty} loading={saveMutation.isLoading} onClick={() => saveMutation.mutate()}>
 									{t("externalApps.files.save")}
 								</Button>
 							</div>

@@ -73,7 +73,7 @@ export const EntityNotePanel: FC<{
 	return (
 		<FormControl>
 			<FormLabel>{t("entityNote.label")}</FormLabel>
-			<Textarea rows={3} maxLength={NOTE_MAX_LENGTH} value={draft} isDisabled={isLoading} placeholder={t("entityNote.placeholder")} onChange={(event) => setDraft(event.target.value)} />
+			<Textarea rows={3} maxLength={NOTE_MAX_LENGTH} value={draft} disabled={isLoading} placeholder={t("entityNote.placeholder")} onChange={(event) => setDraft(event.target.value)} />
 			<FormHelperText>{t("entityNote.hint")}</FormHelperText>
 			{data?.updated_by ? (
 				<FormHelperText>
@@ -81,7 +81,7 @@ export const EntityNotePanel: FC<{
 				</FormHelperText>
 			) : null}
 			<div className="flex flex-row items-center gap-2 justify-end mt-2">
-				<Button variant="solid" size="sm" isDisabled={!dirty || isLoading} isLoading={isSaving} onClick={() => save(draft.trim())}>
+				<Button variant="solid" size="sm" disabled={!dirty || isLoading} loading={isSaving} onClick={() => save(draft.trim())}>
 					{t("entityNote.save")}
 				</Button>
 			</div>

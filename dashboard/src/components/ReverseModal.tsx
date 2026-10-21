@@ -33,7 +33,7 @@ export type ReverseFormValues = {
 };
 
 interface ReverseModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	mode: "create" | "edit";
 	initialReverse?: ReverseFormValues | null;
@@ -69,7 +69,7 @@ const defaultValues = (reverseCount: number): ReverseFormValues => ({
 });
 
 export const ReverseModal: FC<ReverseModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	mode,
 	initialReverse,
@@ -131,7 +131,7 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 	});
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
@@ -265,7 +265,7 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 													<FormLabel>
 														{t("pages.xray.reverse.credentialId")}
 													</FormLabel>
-													<Input value={connectionDetails.credentialId} isReadOnly size="sm" className="font-mono" />
+													<Input value={connectionDetails.credentialId} readOnly size="sm" className="font-mono" />
 													<FormHelperText>
 														{t("pages.xray.reverse.pairingHint")}
 													</FormHelperText>
@@ -275,7 +275,7 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 													<Input value={
 															connectionDetails.flow ||
 															t("userDialog.flow.none")
-														} isReadOnly size="sm" />
+														} readOnly size="sm" />
 												</FormControl>
 											</>
 										)}
@@ -372,7 +372,7 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 						<Button size="md" variant="outline" onClick={onClose}>
 							{t("cancel")}
 						</Button>
-						<Button type="submit" colorScheme="primary" size="sm" isDisabled={!isValid}>
+						<Button type="submit" colorScheme="primary" size="sm" disabled={!isValid}>
 							{mode === "edit" ? t("save") : t("add")}
 						</Button>
 					</XrayModalFooter>

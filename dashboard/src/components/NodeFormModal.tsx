@@ -132,7 +132,7 @@ const EditableNodeSchema = z
 		}
 	});
 interface NodeFormModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	node?: NodeType;
 	mutate: (
@@ -142,17 +142,17 @@ interface NodeFormModalProps {
 			onSuccess?: (data: NodeType) => void;
 		},
 	) => void;
-	isLoading: boolean;
+	loading: boolean;
 	isAddMode?: boolean;
 	onSubmitSuccess?: (node: NodeType) => void;
 }
 
 export const NodeFormModal: FC<NodeFormModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	node,
 	mutate,
-	isLoading,
+	loading: isLoading,
 	isAddMode = false,
 	onSubmitSuccess,
 }) => {
@@ -354,7 +354,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	}
 
 	return (
-		<Modal isOpen={isOpen} onClose={handleClose} size="2xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={handleClose} size="2xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent as="form" onSubmit={handleSubmit} className={"[.node-form-section_.chakra-simple-grid]:grid-cols-[1fr] [.node-form-section_.chakra-simple-grid]:md:grid-cols-[repeat(2,_minmax(0,_1fr))] [.node-form-section_.chakra-form-control]:block [.node-form-section_.node-switch-control]:flex [.node-form-section_.node-switch-control]:items-center [.node-form-section_.node-switch-control]:justify-between [.node-form-section_.node-switch-control]:gap-3 [.node-form-section_.chakra-form__label]:mb-1 [.node-form-section_.chakra-input__group,_.node-form-section_.chakra-numberinput,_.node-form-section_input,_.node-form-section_select]:w-full [.node-form-section_.chakra-form-control_>_.chakra-form__helper-text,_.node-form-section_.chakra-form-control_>_.chakra-form__error-message]:[grid-column:auto] mx-3"}>
 				<XrayModalHeader>
@@ -370,10 +370,10 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 										{t("nodes.certificate")}
 									</p>
 									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
-										<Button size="xs" variant="outline" leftIcon={<CopyIconStyled />} onClick={handleCopyNodeCertificate}>
+										<Button size="xs" variant="outline" onClick={handleCopyNodeCertificate}>{<CopyIconStyled />}
 											{nodeCertificateCopied ? t("copied") : t("copy")}
 										</Button>
-										<Button size="xs" variant="outline" leftIcon={<DownloadIconStyled />} onClick={handleDownloadNodeCertificate}>
+										<Button size="xs" variant="outline" onClick={handleDownloadNodeCertificate}>{<DownloadIconStyled />}
 											{t("nodes.download-certificate")}
 										</Button>
 										<Tooltip placement="top" label={t(
@@ -408,7 +408,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 								{t("nodes.connectionSettings")}
 							</p>
 							{isAddMode && (
-								<Checkbox isChecked isDisabled className="pointer-events-none">
+								<Checkbox checked disabled className="pointer-events-none">
 									{t("nodes.certInfoOption")}
 								</Checkbox>
 							)}
@@ -498,7 +498,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 									control={form.control}
 									name="proxy_enabled"
 									render={({ field }) => (
-										<Switch isChecked={Boolean(field.value)} onChange={(event) => field.onChange(event.target.checked)} />
+										<Switch checked={Boolean(field.value)} onChange={(event) => field.onChange(event.target.checked)} />
 									)}
 								/>
 							</FormControl>
@@ -599,7 +599,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 					<Button variant="outline" size="sm" onClick={handleClose}>
 						{t("cancel")}
 					</Button>
-					<AnimatedSubmitButton status={submitStatus} idleContent={isAddMode ? t("nodes.addNode") : t("nodes.editNode")} successLabel={t("userDialog.submitSuccess")} isDisabled={isLoading} type="submit" containerProps={{ className: "w-full sm:w-[180px]" }} />
+					<AnimatedSubmitButton status={submitStatus} idleContent={isAddMode ? t("nodes.addNode") : t("nodes.editNode")} successLabel={t("userDialog.submitSuccess")} disabled={isLoading} type="submit" containerProps={{ className: "w-full sm:w-[180px]" }} />
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>

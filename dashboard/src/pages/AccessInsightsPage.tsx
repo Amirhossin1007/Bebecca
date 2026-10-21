@@ -313,7 +313,7 @@ const AccessInsightsPage: FC = () => {
 				minWidth: "86px",
 				mobilePriority: 4,
 				cell: (client) => (
-					<Button size="xs" variant="ghost" leftIcon={<EyeIcon className="w-15" />} onClick={() => setSelectedClient(client)}>
+					<Button size="xs" variant="ghost" onClick={() => setSelectedClient(client)}>{<EyeIcon className="w-15" />}
 						{t("details")}
 					</Button>
 				),
@@ -344,12 +344,12 @@ const AccessInsightsPage: FC = () => {
 					{page + 1} / {totalPages}
 				</p>
 				<ButtonGroup size="sm" isAttached variant="outline">
-					<Button variant="solid" size="md" onClick={() => setPage((current) => Math.max(0, current - 1))} isDisabled={page === 0}>
+					<Button variant="solid" size="md" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0}>
 						{t("previous")}
 					</Button>
 					<Button variant="solid" size="md" onClick={() =>
 							setPage((current) => Math.min(totalPages - 1, current + 1))
-						} isDisabled={page >= totalPages - 1}>
+						} disabled={page >= totalPages - 1}>
 						{t("next")}
 					</Button>
 				</ButtonGroup>
@@ -396,7 +396,7 @@ const AccessInsightsPage: FC = () => {
 					actions={
 						<div className="flex flex-row items-center gap-3 justify-between xl:justify-end">
 							<div className="flex flex-row items-center gap-2">
-								<Switch isChecked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} aria-label={t("pages.accessInsights.autoRefresh")} />
+								<Switch checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} aria-label={t("pages.accessInsights.autoRefresh")} />
 								<p className="text-[0.875rem]">
 									{t("pages.accessInsights.autoRefresh")}
 								</p>
@@ -406,7 +406,7 @@ const AccessInsightsPage: FC = () => {
 								label={t("refresh")}
 								icon={<ArrowPathIcon className="w-18" />}
 								onClick={() => void load()}
-								isLoading={loading}
+								loading={loading}
 							/>
 						</div>
 					}
@@ -468,7 +468,7 @@ const AccessInsightsPage: FC = () => {
 					onSortingChange={setAccessSorting}
 					showSortMenu={false}
 					getRowId={(client) => client.user_key}
-					isLoading={loading}
+					loading={loading}
 					loadingRows={8}
 					error={error || undefined}
 					emptyState={
@@ -484,7 +484,7 @@ const AccessInsightsPage: FC = () => {
 				/>
 			</div>
 
-			<AppDialog isOpen={selectedClient !== null} onClose={() => setSelectedClient(null)} isCentered size="xl" title={`${t("details")}: ${selectedClient?.user_label || ""}`} contentProps={{ className: "max-h-[min(760px,_calc(100dvh_-_2rem))]" }} bodyProps={{ className: "pb-6" }}>
+			<AppDialog open={selectedClient !== null} onClose={() => setSelectedClient(null)} isCentered size="xl" title={`${t("details")}: ${selectedClient?.user_label || ""}`} contentProps={{ className: "max-h-[min(760px,_calc(100dvh_-_2rem))]" }} bodyProps={{ className: "pb-6" }}>
 				{selectedClient ? (
 					<div className="flex flex-col gap-5">
 						<div className="grid grid-cols-2 md:grid-cols-4 gap-3">

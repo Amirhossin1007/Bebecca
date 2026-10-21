@@ -36,7 +36,7 @@ const MenuContext = createContext<MenuContextValue>({
 });
 
 export function Menu({
-	isOpen,
+	open: isOpen,
 	onOpen,
 	onClose,
 	placement = "bottom-start",
@@ -44,7 +44,7 @@ export function Menu({
 	closeOnSelect = true,
 	children,
 }: {
-	isOpen?: boolean;
+	open?: boolean;
 	onOpen?: () => void;
 	onClose?: () => void;
 	placement?: string;
@@ -119,10 +119,10 @@ export const MenuItem = forwardRef<
 	Omit<ComponentPropsWithoutRef<"div">, "color" | "onSelect"> & {
 		icon?: ReactNode;
 		command?: ReactNode;
-		isDisabled?: boolean;
+		disabled?: boolean;
 		closeOnSelect?: boolean;
 	}
->(function MenuItem({ icon, command, children, isDisabled, closeOnSelect, className, onClick, ...props }, ref) {
+>(function MenuItem({ icon, command, children, disabled: isDisabled, closeOnSelect, className, onClick, ...props }, ref) {
 	const ctx = useContext(MenuContext);
 	const keepOpen = closeOnSelect === false || (closeOnSelect === undefined && !ctx.closeOnSelect);
 	return (

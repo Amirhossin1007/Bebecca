@@ -66,7 +66,7 @@ export type RoutingRule = {
 };
 
 export interface RuleModalProps {
-	isOpen: boolean;
+	open: boolean;
 	mode: "create" | "edit";
 	initialRule?: RoutingRule | null;
 	availableInboundTags: string[];
@@ -216,7 +216,7 @@ const formValuesToRule = (values: RuleFormValues): RoutingRule => {
 };
 
 export const RuleModal: FC<RuleModalProps> = ({
-	isOpen,
+	open: isOpen,
 	mode,
 	initialRule,
 	availableInboundTags,
@@ -274,7 +274,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 	);
 
 	return (
-		<Modal isOpen={isOpen} onClose={handleClose} size="3xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={handleClose} size="3xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent as="form" onSubmit={handleSave}>
 				<XrayModalHeader>{title}</XrayModalHeader>
@@ -344,7 +344,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 																	}
 																/>
 															</div>
-															<IconButton aria-label={t("remove")} icon={<XMarkIcon />} size="sm" variant="ghost" isDisabled={!field.value} onClick={() => field.onChange("")} />
+															<IconButton aria-label={t("remove")} size="sm" variant="ghost" disabled={!field.value} onClick={() => field.onChange("")} >{<XMarkIcon />}</IconButton>
 														</div>
 													)}
 												/>
@@ -376,7 +376,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 																	emptyText={t("pages.xray.balancer.empty")}
 																/>
 															</div>
-															<IconButton aria-label={t("remove")} icon={<XMarkIcon />} size="sm" variant="ghost" isDisabled={!field.value} onClick={() => field.onChange("")} />
+															<IconButton aria-label={t("remove")} size="sm" variant="ghost" disabled={!field.value} onClick={() => field.onChange("")} >{<XMarkIcon />}</IconButton>
 														</div>
 													)}
 												/>
@@ -571,7 +571,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 									<XrayDialogSection title={t("pages.xray.rules.attrs")}>
 										<FormControl>
 											<FormLabel>{t("pages.xray.rules.attrs")}</FormLabel>
-											<Button onClick={onAddAttribute} size="xs" leftIcon={<PlusIcon className="w-16" />} variant="outline" colorScheme="primary">
+											<Button onClick={onAddAttribute} size="xs" variant="outline" colorScheme="primary">{<PlusIcon className="w-16" />}
 												{t("add")}
 											</Button>
 										</FormControl>
@@ -585,7 +585,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 												<div key={field.id} className="flex flex-row gap-2 items-start">
 													<Input size="sm" placeholder={t("myaccount.apiKeyMasked")} {...register(`attrs.${index}.key` as const)} />
 													<Input size="sm" placeholder={t("value")} {...register(`attrs.${index}.value` as const)} />
-													<IconButton aria-label={t("a11y.removeAttribute")} icon={<XMarkIcon className="w-16" />} size="sm" variant="ghost" onClick={() => remove(index)} />
+													<IconButton aria-label={t("a11y.removeAttribute")} size="sm" variant="ghost" onClick={() => remove(index)} >{<XMarkIcon className="w-16" />}</IconButton>
 												</div>
 											))}
 										</div>
@@ -609,7 +609,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 					<Button size="md" variant="outline" onClick={handleClose}>
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" type="submit" isLoading={isSubmitting}>
+					<Button size="md" colorScheme="primary" type="submit" loading={isSubmitting}>
 						{mode === "edit"
 							? t("pages.xray.rules.edit")
 							: t("pages.xray.rules.add")}

@@ -16,13 +16,13 @@ import {
 import AdminPermissionsEditor from "./AdminPermissionsEditor";
 
 type AdminPermissionsModalProps = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	admin: Admin | null;
 };
 
 export const AdminPermissionsModal = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	admin,
 }: AdminPermissionsModalProps) => {
@@ -95,14 +95,14 @@ export const AdminPermissionsModal = ({
 	};
 
 	return (
-		<AppDialog isOpen={isOpen} onClose={onClose} size="4xl" title={t("admins.permissions.modalTitle", {
+		<AppDialog open={isOpen} onClose={onClose} size="4xl" title={t("admins.permissions.modalTitle", {
 				username: admin?.username ?? "",
 			})} contentProps={{ className: "max-w-[100vw] md:max-w-[calc(100vw_-_24px)] lg:max-w-[960px] h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[calc(100dvh_-_7.5rem)] my-0 md:my-[3.75rem] rounded-[0px] md:rounded-md" }} headerProps={{ className: "pr-12 text-[1.25rem] md:text-[1.5rem]" }} bodyProps={{ className: "overflow-x-hidden overflow-y-auto" }} footerProps={{ className: "gap-3" }} footer={
 				<>
 					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSave} isLoading={saving} isDisabled={!admin || (isFullAccess && !canManage2FA)}>
+					<Button size="md" colorScheme="primary" onClick={handleSave} loading={saving} disabled={!admin || (isFullAccess && !canManage2FA)}>
 						{t("save")}
 					</Button>
 				</>
@@ -163,11 +163,11 @@ export const AdminPermissionsModal = ({
 							}));
 						}}
 						hideExtendedSections={false}
-						isReadOnly={isFullAccess}
+						readOnly={isFullAccess}
 					/>
 					<div className="flex flex-row items-center gap-2 border rounded-md justify-between mt-5 p-3">
 						<p>{t("admins.security.require2FA")}</p>
-						<Switch isChecked={require2FA} isDisabled={!canManage2FA} onChange={(event) => setRequire2FA(event.target.checked)} />
+						<Switch checked={require2FA} disabled={!canManage2FA} onChange={(event) => setRequire2FA(event.target.checked)} />
 					</div>
 		</AppDialog>
 	);

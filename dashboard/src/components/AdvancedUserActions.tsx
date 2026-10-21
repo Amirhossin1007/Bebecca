@@ -536,7 +536,7 @@ const AdvancedUserActions = ({
 										</option>
 									))}
 								</Select>
-								<Button colorScheme="primary" size="sm" isLoading={isChangingService} onClick={handleChangeService} className="self-start">
+								<Button colorScheme="primary" size="sm" loading={isChangingService} onClick={handleChangeService} className="self-start">
 									{t("filters.advancedActions.serviceChange.button")}
 								</Button>
 							</div>
@@ -597,7 +597,7 @@ const AdvancedUserActions = ({
 					</p>
 					<div className="flex flex-row items-center gap-3 flex-wrap">
 						{scopeStatusOptions.map((status) => (
-							<Checkbox key={status} isChecked={selectedScopeStatuses.includes(status)} onChange={() => toggleScopeStatus(status)}>
+							<Checkbox key={status} checked={selectedScopeStatuses.includes(status)} onChange={() => toggleScopeStatus(status)}>
 								{t(
 									`filters.advancedActions.scopeStatuses.${status}`,
 									status.replace("_", " "),
@@ -627,10 +627,10 @@ const AdvancedUserActions = ({
 							</FormHelperText>
 						</FormControl>
 						<div className="flex flex-row items-center gap-2 flex-wrap">
-							<Button size="md" colorScheme="primary" isLoading={isExtending} onClick={() => handleExpireAction("extend_expire")} className="flex-1 min-w-[150px]!">
+							<Button size="md" colorScheme="primary" loading={isExtending} onClick={() => handleExpireAction("extend_expire")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.expireSection.addButton")}
 							</Button>
-							<Button size="md" colorScheme="gray" variant="outline" isLoading={isReducing} onClick={() => handleExpireAction("reduce_expire")} className="flex-1 min-w-[150px]!">
+							<Button size="md" colorScheme="gray" variant="outline" loading={isReducing} onClick={() => handleExpireAction("reduce_expire")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.expireSection.removeButton")}
 							</Button>
 						</div>
@@ -652,10 +652,10 @@ const AdvancedUserActions = ({
 							<NumericInput value={trafficGb} onChange={(value) => setTrafficGb(value)} min={0.01} step={0.1} className="w-full" />
 						</FormControl>
 						<div className="flex flex-row items-center gap-2 flex-wrap">
-							<Button size="md" colorScheme="primary" isLoading={isIncreasingTraffic} onClick={() => handleTrafficAction("increase_traffic")} className="flex-1 min-w-[150px]!">
+							<Button size="md" colorScheme="primary" loading={isIncreasingTraffic} onClick={() => handleTrafficAction("increase_traffic")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.trafficSection.addButton")}
 							</Button>
-							<Button size="md" colorScheme="gray" variant="outline" isLoading={isDecreasingTraffic} onClick={() => handleTrafficAction("decrease_traffic")} className="flex-1 min-w-[150px]!">
+							<Button size="md" colorScheme="gray" variant="outline" loading={isDecreasingTraffic} onClick={() => handleTrafficAction("decrease_traffic")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.trafficSection.removeButton")}
 							</Button>
 						</div>
@@ -678,7 +678,7 @@ const AdvancedUserActions = ({
 						</FormControl>
 						<div className="flex flex-row items-center gap-3">
 							{cleanupOptions.map((status) => (
-								<Checkbox key={status} isChecked={selectedStatuses.includes(status)} onChange={() => toggleStatus(status)}>
+								<Checkbox key={status} checked={selectedStatuses.includes(status)} onChange={() => toggleStatus(status)}>
 									{t(
 										`filters.advancedActions.cleanupSection.statuses.${status}`,
 										status.charAt(0).toUpperCase() + status.slice(1),
@@ -686,7 +686,7 @@ const AdvancedUserActions = ({
 								</Checkbox>
 							))}
 						</div>
-						<Button size="md" colorScheme="primary" isLoading={isCleaning} onClick={handleCleanup} className="w-full">
+						<Button size="md" colorScheme="primary" loading={isCleaning} onClick={handleCleanup} className="w-full">
 							{t("filters.advancedActions.cleanupSection.button")}
 						</Button>
 					</div>
@@ -703,16 +703,16 @@ const AdvancedUserActions = ({
 		<>
 			{compact ? (
 				<Tooltip label={t("filters.advancedActions.button")}>
-					<IconButton size="md" aria-label={t("filters.advancedActions.button")} icon={<AdvancedActionsIcon />} onClick={onOpen} variant="outline" className="rounded-full w-[40px] h-[40px] shrink-0" />
+					<IconButton size="md" aria-label={t("filters.advancedActions.button")} onClick={onOpen} variant="outline" className="rounded-full w-[40px] h-[40px] shrink-0" >{<AdvancedActionsIcon />}</IconButton>
 				</Tooltip>
 			) : (
-				<Button leftIcon={<AdvancedActionsIcon />} onClick={onOpen} size={isMobile ? "sm" : "md"} variant="outline" className={cn("font-semibold whitespace-nowrap", isMobile ? "h-[36px]" : "", isMobile ? "min-w-[auto]!" : "min-w-[8.5rem]!", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
+				<Button onClick={onOpen} size={isMobile ? "sm" : "md"} variant="outline" className={cn("font-semibold whitespace-nowrap", isMobile ? "h-[36px]" : "", isMobile ? "min-w-[auto]!" : "min-w-[8.5rem]!", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>{<AdvancedActionsIcon />}
 					{t("filters.advancedActions.button")}
 				</Button>
 			)}
 
 			<AppDialog
-				isOpen={isOpen}
+				open={isOpen}
 				onClose={onClose}
 				size="lg"
 				title={t("filters.advancedActions.modalTitle")}

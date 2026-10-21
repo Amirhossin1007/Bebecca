@@ -330,14 +330,14 @@ const expandShortData = <T extends { timestamp: number }>(entries: T[]): T[] => 
 };
 
 const HistoryModal: FC<{
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	payload: HistoryModalPayload | null;
 	intervalSeconds: number;
 	onIntervalChange: (value: number) => void;
 	t: TFunction;
 	isRTL?: boolean;
-}> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
+}> = ({ open: isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
 	const { colorMode } = useColorMode();
 	const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
 	const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -665,7 +665,7 @@ const HistoryModal: FC<{
 	);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
+		<Modal open={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
 			<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(16px)]" />
 			<ModalContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 overflow-hidden">
 				<ModalHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
@@ -1790,7 +1790,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 			)}
 
 			<HistoryModal
-				isOpen={Boolean(historyPayload)}
+				open={Boolean(historyPayload)}
 				onClose={() => setHistoryPayload(null)}
 				payload={historyPayload}
 				intervalSeconds={historyInterval}

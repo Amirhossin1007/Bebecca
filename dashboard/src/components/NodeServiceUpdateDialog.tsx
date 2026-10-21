@@ -13,7 +13,7 @@ import {
 export type NodeServiceUpdateChannel = "current" | "latest" | "dev";
 
 type NodeServiceUpdateDialogProps = {
-	isOpen: boolean;
+	open: boolean;
 	title: string;
 	description?: string;
 	currentChannel?: string;
@@ -27,7 +27,7 @@ type NodeServiceUpdateDialogProps = {
 };
 
 export const NodeServiceUpdateDialog = ({
-	isOpen,
+	open: isOpen,
 	title,
 	description,
 	currentChannel,
@@ -65,17 +65,17 @@ export const NodeServiceUpdateDialog = ({
 
 	return (
 		<AppDialog
-			isOpen={isOpen}
+			open={isOpen}
 			onClose={onClose}
 			isCentered
 			size="md"
 			title={title}
 			footer={
 				<>
-					<Button size="md" variant="ghost" onClick={onClose} isDisabled={isSubmitting} className="mr-3">
+					<Button size="md" variant="ghost" onClick={onClose} disabled={isSubmitting} className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={() => onSubmit(channel, version || undefined)} isLoading={isSubmitting}>
+					<Button size="md" colorScheme="primary" onClick={() => onSubmit(channel, version || undefined)} loading={isSubmitting}>
 						{t("nodes.updateServiceAction")}
 					</Button>
 				</>

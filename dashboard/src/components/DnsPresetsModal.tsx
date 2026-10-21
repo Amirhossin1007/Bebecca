@@ -69,20 +69,20 @@ const DNS_PRESETS: DnsPreset[] = [
 ];
 
 interface DnsPresetsModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	onSelectPreset: (servers: string[]) => void;
 }
 
 export const DnsPresetsModal: FC<DnsPresetsModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	onSelectPreset,
 }) => {
 	const { t } = useTranslation();
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="md">
+		<Modal open={isOpen} onClose={onClose} size="md">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>

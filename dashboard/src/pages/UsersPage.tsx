@@ -112,7 +112,7 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 	};
 
 	return (
-		<AppDialog isCentered isOpen={Boolean(user)} onClose={onClose} size="sm" title={
+		<AppDialog isCentered open={Boolean(user)} onClose={onClose} size="sm" title={
 				<Icon color="blue">
 					<ResetIcon />
 				</Icon>
@@ -121,7 +121,7 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 					<Button size="sm" onClick={onClose} variant="outline" className="mr-3 w-full">
 						{t("cancel")}
 					</Button>
-					<Button size="sm" colorScheme="blue" onClick={onSubmit} leftIcon={loading ? <Spinner size="xs" /> : undefined} className="w-full">
+					<Button size="sm" colorScheme="blue" onClick={onSubmit} className="w-full">{loading ? <Spinner size="xs" /> : undefined}
 						{t(isRevoke ? "revoke" : "reset")}
 					</Button>
 				</>
@@ -312,7 +312,7 @@ export const UsersPage: FC = () => {
 							refetchUsers(true);
 							void refreshOnlineUsers();
 						}}
-						isLoading={loading}
+						loading={loading}
 						interval={autoRefreshInterval}
 						onIntervalChange={setAutoRefreshInterval}
 						intervals={AUTO_REFRESH_INTERVALS}

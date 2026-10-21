@@ -2148,26 +2148,26 @@ export const NodesPage: FC = () => {
 								{nodeInstallLabel}
 							</p>
 							{nodeServiceUpdateAvailable && (
-								<Button size="xs" variant="link" colorScheme="orange" leftIcon={<DownloadIconStyled />} onClick={(event) => {
+								<Button size="xs" variant="link" colorScheme="orange" onClick={(event) => {
 										event.stopPropagation();
 										handleUpdateNodeService(node);
-									}} isLoading={
+									}} loading={
 										isUpdatingService &&
 										nodeId != null &&
 										updatingServiceNodeId === nodeId
-									} isDisabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">
+									} disabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">{<DownloadIconStyled />}
 									{t("nodes.nodeUpdateAvailable")}
 								</Button>
 							)}
 							{rebootRequired && (
-								<Button size="xs" variant="link" colorScheme="red" leftIcon={<ArrowPathIconStyled />} onClick={(event) => {
+								<Button size="xs" variant="link" colorScheme="red" onClick={(event) => {
 										event.stopPropagation();
 										handleRebootNodeHost(node);
-									}} isLoading={
+									}} loading={
 										isRebootingHost &&
 										nodeId != null &&
 										rebootingHostNodeId === nodeId
-									} isDisabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">
+									} disabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">{<ArrowPathIconStyled />}
 									{t("nodes.rebootRequired")}
 								</Button>
 							)}
@@ -2351,10 +2351,10 @@ export const NodesPage: FC = () => {
 				cell: (node) => {
 					const certificateBundle = getNodeInstallBundle(node);
 					return (
-						<IconButton aria-label={t("nodes.copyCertificate")} icon={<CopyIconStyled />} size="sm" variant="ghost" isDisabled={!certificateBundle} onClick={(event) => {
+						<IconButton aria-label={t("nodes.copyCertificate")} size="sm" variant="ghost" disabled={!certificateBundle} onClick={(event) => {
 								event.stopPropagation();
 								copyToClipboard(certificateBundle, t("nodes.certificate"));
-							}} className="text-panel-text-muted" />
+							}} className="text-panel-text-muted" >{<CopyIconStyled />}</IconButton>
 					);
 				},
 			},
@@ -2411,7 +2411,7 @@ export const NodesPage: FC = () => {
 						{actions.map((action) => (
 							<Tooltip key={action.id} label={action.label}>
 								<span>
-									<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(node) : action.isDisabled} onClick={() => action.onClick?.(node)} className="min-w-[30px]! h-[30px]" />
+									<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={typeof action.disabled === "function" ? action.disabled(node) : action.disabled} onClick={() => action.onClick?.(node)} className="min-w-[30px]! h-[30px]" >{action.icon}</IconButton>
 								</span>
 							</Tooltip>
 						))}
@@ -2454,7 +2454,7 @@ export const NodesPage: FC = () => {
 				label: displayEnabled ? t("nodes.disableNode") : t("nodes.enableNode"),
 				icon: displayEnabled ? <DisableIconStyled /> : <EnableIconStyled />,
 				onClick: () => handleToggleNode(node),
-				isDisabled: !nodeId || isToggleLoading,
+				disabled: !nodeId || isToggleLoading,
 			},
 			status === "error"
 				? {
@@ -2462,7 +2462,7 @@ export const NodesPage: FC = () => {
 						label: t("nodes.reconnect"),
 						icon: <ArrowPathIconStyled />,
 						onClick: () => reconnect(node),
-						isDisabled: isReconnecting,
+						disabled: isReconnecting,
 					}
 				: null,
 			{
@@ -2470,21 +2470,21 @@ export const NodesPage: FC = () => {
 				label: t("nodes.updateCoreAction"),
 				icon: <CoreIconStyled />,
 				onClick: () => nodeId && setVersionDialogTarget({ type: "node", node }),
-				isDisabled: !nodeId || !nodeHostActionsAvailable || isCoreUpdating,
+				disabled: !nodeId || !nodeHostActionsAvailable || isCoreUpdating,
 			},
 			{
 				id: "geo",
 				label: t("nodes.updateGeoAction"),
 				icon: <GeoIconStyled />,
 				onClick: () => nodeId && setGeoDialogTarget({ type: "node", node }),
-				isDisabled: !nodeId || !nodeHostActionsAvailable || isGeoUpdating,
+				disabled: !nodeId || !nodeHostActionsAvailable || isGeoUpdating,
 			},
 			{
 				id: "restart-service",
 				label: t("nodes.restartServiceAction"),
 				icon: <ServiceIconStyled />,
 				onClick: () => handleRestartNodeService(node),
-				isDisabled:
+				disabled:
 					!nodeId || !nodeHostActionsAvailable || isRestartingMaintenance,
 			},
 			{
@@ -2492,7 +2492,7 @@ export const NodesPage: FC = () => {
 				label: t("nodes.updateServiceAction"),
 				icon: <DownloadIconStyled />,
 				onClick: () => handleUpdateNodeService(node),
-				isDisabled:
+				disabled:
 					!nodeId || !nodeHostActionsAvailable || isUpdatingMaintenance,
 			},
 			{
@@ -2500,7 +2500,7 @@ export const NodesPage: FC = () => {
 				label: t("nodes.rebootHostAction"),
 				icon: <ArrowPathIconStyled />,
 				onClick: () => handleRebootNodeHost(node),
-				isDisabled:
+				disabled:
 					!nodeId || !nodeHostActionsAvailable || isRebootingMaintenance,
 				isDanger: true,
 			},
@@ -2509,7 +2509,7 @@ export const NodesPage: FC = () => {
 				label: t("nodes.resetUsage"),
 				icon: <ArrowPathIconStyled />,
 				onClick: () => handleResetNodeUsage(node),
-				isDisabled: !nodeId,
+				disabled: !nodeId,
 				isDanger: true,
 			},
 			node.uses_default_certificate
@@ -2518,7 +2518,7 @@ export const NodesPage: FC = () => {
 						label: t("nodes.generatePrivateCert"),
 						icon: <CertificateIconStyled />,
 						onClick: () => nodeId && regenerateNodeCertMutate(node),
-						isDisabled:
+						disabled:
 							!nodeId ||
 							(isRegenerating &&
 								nodeId != null &&
@@ -2530,7 +2530,7 @@ export const NodesPage: FC = () => {
 				label: t("delete"),
 				icon: <DeleteIconStyled />,
 				onClick: () => handleDeleteNodeRequest(node),
-				isDisabled: isDeletingNode,
+				disabled: isDeletingNode,
 				isDanger: true,
 			},
 		].filter(Boolean) as DataTableRowAction<NodeType>[];
@@ -2584,15 +2584,15 @@ export const NodesPage: FC = () => {
 						<option value={100}>100</option>
 					</Select>
 					<ButtonGroup size="sm" isAttached variant="outline">
-						<Button variant="solid" size="md" onClick={() => setPage((value) => Math.max(1, value - 1))} isDisabled={currentPage <= 1}>
+						<Button variant="solid" size="md" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage <= 1}>
 							{t("previous")}
 						</Button>
-						<Button variant="solid" size="md" isDisabled>
+						<Button variant="solid" size="md" disabled>
 							{currentPage} / {totalPages}
 						</Button>
 						<Button variant="solid" size="md" onClick={() =>
 								setPage((value) => Math.min(totalPages, value + 1))
-							} isDisabled={currentPage >= totalPages}>
+							} disabled={currentPage >= totalPages}>
 							{t("next")}
 						</Button>
 					</ButtonGroup>
@@ -2637,24 +2637,24 @@ export const NodesPage: FC = () => {
 						<ResourceSummaryPills items={nodeSummaryItems} />
 					</div>
 					<div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full xl:w-auto min-w-0! max-w-full">
-						<Button leftIcon={<TutorialIconStyled />} variant="outline" size="sm" onClick={() =>
+						<Button variant="outline" size="sm" onClick={() =>
 								navigate(
 									`/tutorials?doc=${encodeURIComponent(
 										"admin/nodes/#section-nodes-admin-guide",
 									)}`,
 								)
-							} className="h-[36px] px-3 min-w-0! w-full">
+							} className="h-[36px] px-3 min-w-0! w-full">{<TutorialIconStyled />}
 							{t("nodes.toolbarTutorial")}
 						</Button>
-						<Button variant="outline" size="sm" leftIcon={<CoreIconStyled />} onClick={() => setVersionDialogTarget({ type: "bulk" })} isDisabled={!hasConnectedNodes || !hostActionsAvailable} className="h-[36px] px-3 min-w-0! w-full">
+						<Button variant="outline" size="sm" onClick={() => setVersionDialogTarget({ type: "bulk" })} disabled={!hasConnectedNodes || !hostActionsAvailable} className="h-[36px] px-3 min-w-0! w-full">{<CoreIconStyled />}
 							{t("nodes.toolbarUpdateCore")}
 						</Button>
-						<Button variant="outline" size="sm" leftIcon={<DownloadIconStyled />} onClick={handleUpdateAllNodeServices} isLoading={updatingBulkService} isDisabled={
+						<Button variant="outline" size="sm" onClick={handleUpdateAllNodeServices} loading={updatingBulkService} disabled={
 								!hostActionsAvailable || !hasBinaryNodes || updatingBulkService
-							} className="h-[36px] px-3 min-w-0! w-full">
+							} className="h-[36px] px-3 min-w-0! w-full">{<DownloadIconStyled />}
 							{t("nodes.toolbarUpdateServices")}
 						</Button>
-						<Button leftIcon={<AddIconStyled />} colorScheme="primary" size="sm" onClick={() => setAddNodeOpen(true)} className="h-[36px] px-3 min-w-0! w-full">
+						<Button colorScheme="primary" size="sm" onClick={() => setAddNodeOpen(true)} className="h-[36px] px-3 min-w-0! w-full">{<AddIconStyled />}
 							{t("nodes.addNode")}
 						</Button>
 					</div>
@@ -2688,7 +2688,7 @@ export const NodesPage: FC = () => {
 						/>
 						<div className="w-[calc(50%_-_4px)] md:w-auto flex justify-end md:justify-start">
 							<Tooltip label={t("nodes.refreshNodes")}>
-								<IconButton aria-label={t("nodes.refreshNodes")} icon={<ArrowPathIconStyled />} variant="ghost" size="sm" onClick={() => refetchNodes()} isLoading={isFetching} />
+								<IconButton aria-label={t("nodes.refreshNodes")} variant="ghost" size="sm" onClick={() => refetchNodes()} loading={isFetching} >{<ArrowPathIconStyled />}</IconButton>
 							</Tooltip>
 						</div>
 					</div>
@@ -2710,7 +2710,7 @@ export const NodesPage: FC = () => {
 					data={paginatedNodes}
 					columns={nodeColumns}
 					getRowId={(node, index) => String(node.id ?? node.name ?? index)}
-					isLoading={isLoading}
+					loading={isLoading}
 					loadingRows={Math.min(pageSize, 8)}
 					emptyState={
 						<p className="text-[0.875rem] text-panel-text-muted text-center">
@@ -2749,84 +2749,84 @@ export const NodesPage: FC = () => {
 					})}
 					renderBulkActions={() => (
 						<>
-							<Button size="sm" variant="outline" onClick={selectAllFilteredNodes} isDisabled={allFilteredSelected}>
+							<Button size="sm" variant="outline" onClick={selectAllFilteredNodes} disabled={allFilteredSelected}>
 								{t("nodes.selectAllFiltered")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<EnableIconStyled />} onClick={selectOnlyActiveNodes} isDisabled={
+							<Button size="sm" variant="outline" onClick={selectOnlyActiveNodes} disabled={
 									activeFilteredNodeIds.length === 0 || onlyActiveFilteredSelected
-								}>
+								}>{<EnableIconStyled />}
 								{t("nodes.selectOnlyActive")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<EnableIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									openBulkActionConfirm("bulk-enable", selectableSelectedNodes())
-								} isDisabled={Boolean(bulkNodeActionLoading)}>
+								} disabled={Boolean(bulkNodeActionLoading)}>{<EnableIconStyled />}
 								{t("nodes.enableNode")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<DisableIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									openBulkActionConfirm("bulk-disable", selectableSelectedNodes())
-								} isDisabled={Boolean(bulkNodeActionLoading)}>
+								} disabled={Boolean(bulkNodeActionLoading)}>{<DisableIconStyled />}
 								{t("nodes.disableNode")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<ArrowPathIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									openBulkActionConfirm("bulk-reset", selectableSelectedNodes())
-								} isDisabled={Boolean(bulkNodeActionLoading)}>
+								} disabled={Boolean(bulkNodeActionLoading)}>{<ArrowPathIconStyled />}
 								{t("nodes.resetUsage")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<ServiceIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									openBulkActionConfirm(
 										"bulk-restart",
 										selectedConnectedBinaryNodes(),
 									)
-								} isDisabled={
+								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>
+								}>{<ServiceIconStyled />}
 								{t("nodes.restartServiceAction")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<DownloadIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									openBulkActionConfirm("bulk-update", selectedBinaryNodes())
-								} isDisabled={
+								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedBinaryNodes().length === 0
-								}>
+								}>{<DownloadIconStyled />}
 								{t("nodes.updateServiceAction")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<CoreIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									setVersionDialogTarget({
 										type: "bulk",
 										nodes: selectedConnectedBinaryNodes(),
 									})
-								} isDisabled={
+								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>
+								}>{<CoreIconStyled />}
 								{t("nodes.updateCoreAction")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<GeoIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									setGeoDialogTarget({
 										type: "bulk",
 										nodes: selectedConnectedBinaryNodes(),
 									})
-								} isDisabled={
+								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>
+								}>{<GeoIconStyled />}
 								{t("nodes.updateGeoAction")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<ArrowPathIconStyled />} onClick={() =>
+							<Button size="sm" variant="outline" onClick={() =>
 									openBulkActionConfirm(
 										"bulk-reboot",
 										selectedConnectedBinaryNodes(),
 									)
-								} isDisabled={
+								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>
+								}>{<ArrowPathIconStyled />}
 								{t("nodes.rebootHostAction")}
 							</Button>
-							<Button size="sm" colorScheme="red" variant="outline" leftIcon={<DeleteIconStyled />} onClick={() =>
+							<Button size="sm" colorScheme="red" variant="outline" onClick={() =>
 									openBulkActionConfirm("bulk-delete", selectableSelectedNodes())
-								} isDisabled={Boolean(bulkNodeActionLoading)}>
+								} disabled={Boolean(bulkNodeActionLoading)}>{<DeleteIconStyled />}
 								{t("delete")}
 							</Button>
 						</>
@@ -2835,7 +2835,7 @@ export const NodesPage: FC = () => {
 				/>
 			</div>
 			<CoreVersionDialog
-				isOpen={Boolean(versionDialogTarget)}
+				open={Boolean(versionDialogTarget)}
 				onClose={closeVersionDialog}
 				onSubmit={handleVersionSubmit}
 				currentVersion={versionDialogCurrentVersion}
@@ -2845,7 +2845,7 @@ export const NodesPage: FC = () => {
 				isSubmitting={versionDialogLoading}
 			/>
 			<NodeServiceUpdateDialog
-				isOpen={Boolean(serviceUpdateTarget)}
+				open={Boolean(serviceUpdateTarget)}
 				onClose={closeServiceUpdateDialog}
 				onSubmit={handleServiceUpdateSubmit}
 				title={serviceUpdateDialogTitle}
@@ -2861,7 +2861,7 @@ export const NodesPage: FC = () => {
 				isSubmitting={updatingServiceNodeId !== null || updatingBulkService}
 			/>
 			<GeoUpdateDialog
-				isOpen={Boolean(geoDialogTarget)}
+				open={Boolean(geoDialogTarget)}
 				onClose={closeGeoDialog}
 				onSubmit={handleGeoSubmit}
 				title={geoDialogTitle}
@@ -2869,7 +2869,7 @@ export const NodesPage: FC = () => {
 				isSubmitting={geoDialogLoading}
 			/>
 			<ConfirmDialog
-				isOpen={Boolean(serviceActionConfirm)}
+				open={Boolean(serviceActionConfirm)}
 				onClose={closeServiceActionConfirm}
 				onConfirm={confirmServiceAction}
 				title={serviceActionConfirmTitle}
@@ -2886,10 +2886,10 @@ export const NodesPage: FC = () => {
 								? "red"
 								: "blue"
 				}
-				isLoading={serviceActionConfirmLoading}
+				loading={serviceActionConfirmLoading}
 			/>
 			<ConfirmDialog
-				isOpen={isDeleteConfirmOpen}
+				open={isDeleteConfirmOpen}
 				onClose={handleCloseDeleteConfirm}
 				onConfirm={confirmDeleteNode}
 				title={t("delete")}
@@ -2901,12 +2901,12 @@ export const NodesPage: FC = () => {
 				})}
 				confirmLabel={t("delete")}
 				colorScheme="red"
-				isLoading={isDeletingNode}
+				loading={isDeletingNode}
 				isConfirmDisabled={!deleteCandidate}
 			/>
 
 			<ConfirmDialog
-				isOpen={isResetConfirmOpen}
+				open={isResetConfirmOpen}
 				onClose={handleCloseResetConfirm}
 				onConfirm={confirmResetUsage}
 				title={t("nodes.resetUsage")}
@@ -2918,15 +2918,15 @@ export const NodesPage: FC = () => {
 				})}
 				confirmLabel={t("nodes.resetUsage")}
 				colorScheme="red"
-				isLoading={isResettingUsage}
+				loading={isResettingUsage}
 				isConfirmDisabled={!resetCandidate}
 			/>
 
 			<NodeFormModal
-				isOpen={isAddNodeOpen}
+				open={isAddNodeOpen}
 				onClose={() => setAddNodeOpen(false)}
 				mutate={addNodeMutate}
-				isLoading={isAdding}
+				loading={isAdding}
 				isAddMode
 				onSubmitSuccess={(createdNode) => {
 					if (createdNode?.node_certificate) {
@@ -2939,14 +2939,14 @@ export const NodesPage: FC = () => {
 				}}
 			/>
 			<NodeFormModal
-				isOpen={!!editingNode}
+				open={!!editingNode}
 				onClose={() => setEditingNode(null)}
 				node={editingNode || undefined}
 				mutate={updateNodeMutate}
-				isLoading={isUpdating}
+				loading={isUpdating}
 			/>
 			{newNodeCertificate && (
-				<Modal isOpen onClose={() => setNewNodeCertificate(null)} size="md">
+				<Modal open onClose={() => setNewNodeCertificate(null)} size="md">
 					<ModalOverlay className="bg-blackAlpha-500" />
 					<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[520px]", nodePanelBg, nodePanelBorder)}>
 						<ModalHeader className="px-6 pt-6 pb-2">
@@ -2976,7 +2976,7 @@ export const NodesPage: FC = () => {
 											)}
 										</div>
 										<div className="flex flex-row items-center gap-2">
-											<Button size="sm" variant="outline" leftIcon={<CopyIconStyled />} onClick={() => {
+											<Button size="sm" variant="outline" onClick={() => {
 													if (!generatedCertificateBundleValue) return;
 													copyGeneratedCertificateBundle();
 													toast({
@@ -2986,12 +2986,12 @@ export const NodesPage: FC = () => {
 														position: "top",
 														duration: 2000,
 													});
-												}} isDisabled={!generatedCertificateBundleValue}>
+												}} disabled={!generatedCertificateBundleValue}>{<CopyIconStyled />}
 												{generatedCertificateBundleCopied
 													? t("copied")
 													: t("copy")}
 											</Button>
-											<Button size="sm" variant="outline" leftIcon={<DownloadIconStyled />} onClick={() => {
+											<Button size="sm" variant="outline" onClick={() => {
 													if (!generatedCertificateBundleValue) return;
 													const blob = new Blob(
 														[generatedCertificateBundleValue],
@@ -3005,7 +3005,7 @@ export const NodesPage: FC = () => {
 													anchor.download = "node_install_bundle.pem";
 													anchor.click();
 													URL.revokeObjectURL(url);
-												}} isDisabled={!generatedCertificateBundleValue}>
+												}} disabled={!generatedCertificateBundleValue}>{<DownloadIconStyled />}
 												{t("nodes.download-node-install-bundle")}
 											</Button>
 										</div>

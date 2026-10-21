@@ -471,7 +471,7 @@ export const ExternalAppsPage = () => {
 				label: t("externalApps.downloadDatabaseBackup"),
 				icon: <ArrowDownTrayIcon className="w-16" />,
 				onClick: () => databaseBackupMutation.mutate(app),
-				isDisabled: databaseBackupMutation.isLoading,
+				disabled: databaseBackupMutation.isLoading,
 			});
 		}
 		actions.push(
@@ -535,14 +535,14 @@ export const ExternalAppsPage = () => {
 				),
 				onClick: () =>
 					toggleMutation.mutate({ id: app.id, enabled: !app.enabled }),
-				isDisabled: toggleMutation.isLoading,
+				disabled: toggleMutation.isLoading,
 			},
 			{
 				id: "delete",
 				label: t("externalApps.delete"),
 				icon: <TrashIcon className="w-16" />,
 				onClick: () => confirmDelete(app),
-				isDisabled: deleteMutation.isLoading,
+				disabled: deleteMutation.isLoading,
 				isDanger: true,
 			},
 		);
@@ -572,20 +572,20 @@ export const ExternalAppsPage = () => {
 	return (
 		<div className="flex flex-col gap-5">
 			<ConfirmDialog
-				isOpen={Boolean(updateTarget)}
+				open={Boolean(updateTarget)}
 				title={t("externalApps.update")}
 				description={t("externalApps.updateConfirm", {
 					version: updateTarget?.latest_version,
 				})}
 				confirmLabel={t("externalApps.update")}
-				isLoading={updateMutation.isLoading}
+				loading={updateMutation.isLoading}
 				onClose={() => setUpdateTarget(null)}
 				onConfirm={async () => {
 					if (updateTarget) await updateMutation.mutateAsync(updateTarget.id);
 				}}
 			/>
 			<ConfirmDialog
-				isOpen={Boolean(deleteTarget)}
+				open={Boolean(deleteTarget)}
 				title={t("externalApps.delete")}
 				description={
 					<div className="flex flex-col gap-3">
@@ -595,7 +595,7 @@ export const ExternalAppsPage = () => {
 							})}
 						</p>
 						{deleteTarget?.has_database ? (
-							<Checkbox isChecked={keepDatabase} onChange={(event) => setKeepDatabase(event.target.checked)}>
+							<Checkbox checked={keepDatabase} onChange={(event) => setKeepDatabase(event.target.checked)}>
 								{t("externalApps.keepDatabase")}
 							</Checkbox>
 						) : null}
@@ -603,7 +603,7 @@ export const ExternalAppsPage = () => {
 				}
 				confirmLabel={t("externalApps.delete")}
 				colorScheme="red"
-				isLoading={deleteMutation.isLoading}
+				loading={deleteMutation.isLoading}
 				onClose={() => setDeleteTarget(null)}
 				onConfirm={async () => {
 					if (!deleteTarget) return;
@@ -622,7 +622,7 @@ export const ExternalAppsPage = () => {
 					/>
 				</Suspense>
 			)}
-			<Modal isOpen={Boolean(settingsTarget)} onClose={() => setSettingsTarget(null)} size="xl">
+			<Modal open={Boolean(settingsTarget)} onClose={() => setSettingsTarget(null)} size="xl">
 				<ModalOverlay className="bg-blackAlpha-500" />
 				<ModalContent className={cn(panelBg)}>
 					<ModalHeader>{t("externalApps.settingsTitle")}</ModalHeader>
@@ -630,14 +630,14 @@ export const ExternalAppsPage = () => {
 					<ModalBody>
 						<div className="flex flex-col gap-4">
 							<h2 className="font-heading font-bold text-[0.875rem] leading-[1.2]">{t("externalApps.routingSettings")}</h2>
-							<FormControl isRequired>
+							<FormControl required>
 								<FormLabel>{t("externalApps.indexFile")}</FormLabel>
 								<Input value={indexFile} onChange={(event) => setIndexFile(event.target.value)} placeholder="index.php" autoComplete="off" />
 								<FormHelperText>
 									{t("externalApps.indexFileHint")}
 								</FormHelperText>
 							</FormControl>
-							<Checkbox isChecked={fallbackToIndex} onChange={(event) => setFallbackToIndex(event.target.checked)}>
+							<Checkbox checked={fallbackToIndex} onChange={(event) => setFallbackToIndex(event.target.checked)}>
 								<div className="flex flex-col gap-0">
 									<p>{t("externalApps.fallbackToIndex")}</p>
 									<p className={cn(mutedColor, "text-[0.875rem]")}>
@@ -656,7 +656,7 @@ export const ExternalAppsPage = () => {
 								{t("externalApps.performanceSettings")}
 							</h2>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel>{t("externalApps.maxRequestBody")}</FormLabel>
 									<Input type="number" min={1} max={32} value={maxRequestBodyMB} onChange={(event) =>
 											setMaxRequestBodyMB(Number(event.target.value))
@@ -665,7 +665,7 @@ export const ExternalAppsPage = () => {
 										{t("externalApps.maxRequestBodyHint")}
 									</FormHelperText>
 								</FormControl>
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel>{t("externalApps.staticCache")}</FormLabel>
 									<Input type="number" min={0} max={31536000} value={staticCacheSeconds} onChange={(event) =>
 											setStaticCacheSeconds(Number(event.target.value))
@@ -681,7 +681,7 @@ export const ExternalAppsPage = () => {
 						<Button size="md" variant="ghost" onClick={() => setSettingsTarget(null)}>
 							{t("close")}
 						</Button>
-						<Button size="md" colorScheme="blue" isLoading={settingsMutation.isLoading} isDisabled={
+						<Button size="md" colorScheme="blue" loading={settingsMutation.isLoading} disabled={
 								!indexFile.trim() ||
 								maxRequestBodyMB < 1 ||
 								maxRequestBodyMB > 32 ||
@@ -715,10 +715,10 @@ export const ExternalAppsPage = () => {
 				<p className="text-[0.875rem]">{t("externalApps.resourceHint")}</p>
 			</Alert>
 
-			<Modal isOpen={createDialogOpen} onClose={() => setCreateDialogOpen(false)} size="3xl" isCentered scrollBehavior="inside" closeOnOverlayClick={!installMutation.isLoading}>
+			<Modal open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} size="3xl" isCentered scrollBehavior="inside" closeOnOverlayClick={!installMutation.isLoading}>
 				<ModalOverlay className="bg-blackAlpha-500" />
 				<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0", panelBg, borderColor)}>
-					<ModalCloseButton isDisabled={installMutation.isLoading} />
+					<ModalCloseButton disabled={installMutation.isLoading} />
 					<div className="p-5 md:p-6">
 						<h2 className="font-heading font-bold text-[1.25rem] leading-[1.2] mb-4">
 							{t("externalApps.newApp")}
@@ -761,7 +761,7 @@ export const ExternalAppsPage = () => {
 									</a>
 								) : null}
 							</FormControl>
-							<FormControl isRequired>
+							<FormControl required>
 								<FormLabel>{t("externalApps.domainCertificate")}</FormLabel>
 								<Select
 									value={domain}
@@ -783,16 +783,16 @@ export const ExternalAppsPage = () => {
 						{template !== "archive" ? (
 							<div className="flex flex-col mt-4 gap-3">
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>{t("externalApps.botToken")}</FormLabel>
 										<Input type="password" value={botToken} onChange={(event) => setBotToken(event.target.value)} autoComplete="off" />
 									</FormControl>
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
 										<Input value={adminID} onChange={(event) => setAdminID(event.target.value)} inputMode="numeric" />
 									</FormControl>
 								</div>
-								<Checkbox isChecked={hasDatabaseBackup} onChange={(event) => {
+								<Checkbox checked={hasDatabaseBackup} onChange={(event) => {
 										setHasDatabaseBackup(event.target.checked);
 										if (!event.target.checked) setDatabaseBackup(null);
 									}}>
@@ -803,7 +803,7 @@ export const ExternalAppsPage = () => {
 									)}
 								</Checkbox>
 								{hasDatabaseBackup ? (
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>{t("externalApps.databaseBackup")}</FormLabel>
 										<Input type="file" accept=".sql,application/sql,text/sql,text/plain" onChange={(event) =>
 												setDatabaseBackup(event.target.files?.[0] ?? null)
@@ -817,15 +817,15 @@ export const ExternalAppsPage = () => {
 						) : (
 							<div className="flex flex-col mt-4 gap-4">
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>{t("externalApps.name")}</FormLabel>
 										<Input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
 									</FormControl>
-									<FormControl isDisabled={Boolean(archive)}>
+									<FormControl disabled={Boolean(archive)}>
 										<FormLabel>{t("externalApps.runtime")}</FormLabel>
 										<Select
 											value={archiveRuntime}
-											isDisabled={Boolean(archive)}
+											disabled={Boolean(archive)}
 											onValueChange={(value) =>
 												setArchiveRuntime(value as ArchiveRuntime)
 											}
@@ -854,7 +854,7 @@ export const ExternalAppsPage = () => {
 										{t("externalApps.archiveHint")}
 									</FormHelperText>
 								</FormControl>
-								<Checkbox isChecked={createDatabase} onChange={(event) => setCreateDatabase(event.target.checked)}>
+								<Checkbox checked={createDatabase} onChange={(event) => setCreateDatabase(event.target.checked)}>
 									{t("externalApps.createDatabase")}
 								</Checkbox>
 								{createDatabase ? (
@@ -866,22 +866,22 @@ export const ExternalAppsPage = () => {
 													{t("externalApps.databaseSettings")}
 												</p>
 											</div>
-											<Button size="sm" variant="outline" leftIcon={<SparklesIcon className="w-16" />} onClick={generateDatabaseCredentials}>
+											<Button size="sm" variant="outline" onClick={generateDatabaseCredentials}>{<SparklesIcon className="w-16" />}
 												{t("externalApps.generateDatabaseCredentials")}
 											</Button>
 										</div>
 										<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-											<FormControl isRequired>
+											<FormControl required>
 												<FormLabel>{t("externalApps.databaseName")}</FormLabel>
 												<Input value={database} maxLength={64} autoComplete="off" onChange={(event) => setDatabase(event.target.value)} />
 											</FormControl>
-											<FormControl isRequired>
+											<FormControl required>
 												<FormLabel>{t("externalApps.databaseUser")}</FormLabel>
 												<Input value={databaseUser} maxLength={32} autoComplete="off" onChange={(event) =>
 														setDatabaseUser(event.target.value)
 													} />
 											</FormControl>
-											<FormControl isRequired>
+											<FormControl required>
 												<FormLabel>
 													{t("externalApps.databasePassword")}
 												</FormLabel>
@@ -898,12 +898,12 @@ export const ExternalAppsPage = () => {
 							</div>
 						)}
 
-						<Button size="md" colorScheme="blue" leftIcon={<ArrowUpTrayIcon className="w-18" />} isLoading={installMutation.isLoading} isDisabled={
+						<Button size="md" colorScheme="blue" loading={installMutation.isLoading} disabled={
 								!appsQuery.data?.supported ||
 								selectedTemplate?.supported === false ||
 								!domain ||
 								(template === "archive" && !name.trim())
-							} onClick={() => installMutation.mutate()} className="mt-5">
+							} onClick={() => installMutation.mutate()} className="mt-5">{<ArrowUpTrayIcon className="w-18" />}
 							{t("externalApps.install")}
 						</Button>
 						{selectedTemplate?.detail ? (
@@ -931,7 +931,7 @@ export const ExternalAppsPage = () => {
 						},
 					]}
 					actions={
-						<Button size="md" colorScheme="primary" leftIcon={<PlusIcon className="w-16 h-16" />} onClick={() => setCreateDialogOpen(true)}>
+						<Button size="md" colorScheme="primary" onClick={() => setCreateDialogOpen(true)}>{<PlusIcon className="w-16 h-16" />}
 							{t("externalApps.create")}
 						</Button>
 					}
@@ -941,7 +941,7 @@ export const ExternalAppsPage = () => {
 					data={apps}
 					columns={appColumns}
 					getRowId={(app) => app.id}
-					isLoading={appsQuery.isLoading}
+					loading={appsQuery.isLoading}
 					emptyState={<p className={mutedColor}>{t("externalApps.empty")}</p>}
 					rowActions={appRowActions}
 					actionsDisplay="menu"

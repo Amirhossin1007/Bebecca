@@ -603,7 +603,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					<NumericInput
 						className={alwaysVisibleStepper}
 						value={args.value}
-						isDisabled={args.disabled}
+						disabled={args.disabled}
 						min={0}
 						step={1}
 						onChange={(valueAsString) => {
@@ -1915,7 +1915,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"} scrollBehavior="inside">
+		<Modal open={isOpen} onClose={onClose} size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"} scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-300" />
 
 			<FormProvider {...form}>
@@ -2036,12 +2036,12 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	<div className="flex flex-row gap-2 items-center">
 																		<div className="flex-1 min-w-0!">
 																			<InputGroup size="sm" dir={isRTL ? "rtl" : "ltr"}>
-																				<ChakraInput type="text" isDisabled={disabled || isEditing} {...(!isEditing ? endPadding : {})} {...form.register("username")} className="rounded-[6px]" />
+																				<ChakraInput type="text" disabled={disabled || isEditing} {...(!isEditing ? endPadding : {})} {...form.register("username")} className="rounded-[6px]" />
 																				{!isEditing && (
 																					<InputRightElement style={{ insetInlineEnd: endAdornmentProps.insetInlineEnd, insetInlineStart: endAdornmentProps.insetInlineStart, right: endAdornmentProps.right, left: endAdornmentProps.left }} className="w-auto h-full">
 																						<IconButton aria-label={t(
 																								"userDialog.generateUsername",
-																							)} size="sm" variant="ghost" icon={<SparklesIcon className="w-18" />} onClick={() => {
+																							)} size="sm" variant="ghost" onClick={() => {
 																								const randomUsername =
 																									createRandomUsername();
 																								form.setValue(
@@ -2058,7 +2058,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																										false,
 																									);
 																								}, 350);
-																							}} isLoading={randomUsernameLoading} isDisabled={disabled} className="h-[32px] min-w-[32px]! w-[32px]" />
+																							}} loading={randomUsernameLoading} disabled={disabled} className="h-[32px] min-w-[32px]! w-[32px]" >{<SparklesIcon className="w-18" />}</IconButton>
 																					</InputRightElement>
 																				)}
 																			</InputGroup>
@@ -2075,7 +2075,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																									t(`status.${field.value}`)
 																								} className="capitalize">
 																								<div>
-																									<Switch colorScheme="primary" isChecked={
+																									<Switch colorScheme="primary" checked={
 																											field.value === "active"
 																										} onChange={(e) => {
 																											if (e.target.checked) {
@@ -2196,7 +2196,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					}
 																					min={0}
 																					step={1}
-																					isDisabled={disabled || !ipLimitEditable}
+																					disabled={disabled || !ipLimitEditable}
 																					isInvalid={Boolean(form.formState.errors.ip_limit)}
 																					onChange={(valueAsString) => {
 																						const raw = valueAsString.trim();
@@ -2457,7 +2457,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	{isOnHold ? (
 																		<div className="flex flex-row items-center [grid-area:helper] gap-2 flex-wrap">
 																			{[7, 30, 60, 90, 180, 365].map((days) => (
-																				<Button key={days} size="xs" variant="outline" isDisabled={disabled} onClick={() => {
+																				<Button key={days} size="xs" variant="outline" disabled={disabled} onClick={() => {
 																						form.setValue("expire", null);
 																						form.setValue(
 																							"on_hold_expire_duration",
@@ -2493,7 +2493,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					shouldDirty: true,
 																				});
 																			}
-																		}} isDisabled={disabled} className="[grid-area:button] min-w-[100%]! md:min-w-[auto]! self-stretch md:self-end justify-self-stretch md:justify-self-start shrink-0 h-[32px]">
+																		}} disabled={disabled} className="[grid-area:button] min-w-[100%]! md:min-w-[auto]! self-stretch md:self-end justify-self-stretch md:justify-self-start shrink-0 h-[32px]">
 																		{t("onHold.button")}
 																	</Button>
 																</div>
@@ -2526,7 +2526,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				onChange={(event) =>
 																					field.onChange(event.target.value)
 																				}
-																				isDisabled={disabled}
+																				disabled={disabled}
 																			>
 																				<option value="">
 																					{t("userDialog.flow.none")}
@@ -2560,7 +2560,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 												{showServiceSelector && (
 													<div className={cn(useTwoColumns ? "mt-0" : "mt-4")}>
-														<FormControl isRequired>
+														<FormControl required>
 															<FormLabel>
 																{t("userDialog.selectServiceLabel")}
 															</FormLabel>
@@ -2676,9 +2676,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	name="manual_key_entry"
 																	control={form.control}
 																	render={({ field }) => (
-																		<Switch size="sm" colorScheme="primary" isChecked={field.value} onChange={(event) =>
+																		<Switch size="sm" colorScheme="primary" checked={field.value} onChange={(event) =>
 																				field.onChange(event.target.checked)
-																			} isDisabled={disabled} />
+																			} disabled={disabled} />
 																	)}
 																/>
 															</FormControl>
@@ -2695,7 +2695,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		render={({ field }) => (
 																			<ChakraInput placeholder="35e4e39c7d5c4f4b8b71558e4f37ff53" maxLength={32} value={field.value ?? ""} onChange={(event) =>
 																					field.onChange(event.target.value)
-																				} isDisabled={disabled} dir="ltr" className="text-left" />
+																				} disabled={disabled} dir="ltr" className="text-left" />
 																		)}
 																	/>
 																	<FormHelperText>
@@ -2741,7 +2741,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		<p className="text-center text-gray-400 text-[0.875rem]">
 																			{t("autoRenew.empty")}
 																		</p>
-																		<Button size="md" variant="outline" onClick={startAddAutoRenew} isDisabled={disabled} className="w-full">
+																		<Button size="md" variant="outline" onClick={startAddAutoRenew} disabled={disabled} className="w-full">
 																			{t("add")}
 																		</Button>
 																	</div>
@@ -2779,14 +2779,14 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																							<div className="flex flex-row items-center gap-2 justify-end">
 																								<IconButton size="sm" aria-label={t("edit")} variant="ghost" onClick={() =>
 																										startEditAutoRenew(idx)
-																									} isDisabled={disabled}>
+																									} disabled={disabled}>
 																									<PencilIcon className="w-16" />
 																								</IconButton>
 																								<IconButton size="sm" aria-label={t("delete")} variant="ghost" onClick={() =>
 																										handleDeleteAutoRenewRule(
 																											idx,
 																										)
-																									} isDisabled={disabled}>
+																									} disabled={disabled}>
 																									<DeleteIcon />
 																								</IconButton>
 																							</div>
@@ -2800,7 +2800,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				);
 																			})}
 																		</div>
-																		<Button size="md" variant="outline" onClick={startAddAutoRenew} isDisabled={disabled}>
+																		<Button size="md" variant="outline" onClick={startAddAutoRenew} disabled={disabled}>
 																			{t("add")}
 																		</Button>
 																	</>
@@ -2853,7 +2853,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					setAutoRenewAddRemainingValue(
 																						(prev) => !prev,
 																					)
-																				} isDisabled={disabled} className="w-full md:w-auto max-w-[220px] whitespace-nowrap shrink-0">
+																				} disabled={disabled} className="w-full md:w-auto max-w-[220px] whitespace-nowrap shrink-0">
 																				{autoRenewAddRemainingValue
 																					? t(
 																							"userDialog.nextPlanAddRemainingTraffic",
@@ -2901,17 +2901,17 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					setAutoRenewFireOnEitherValue(
 																						(prev) => !prev,
 																					)
-																				} isDisabled={disabled} className="w-full md:w-auto max-w-[220px] whitespace-nowrap shrink-0">
+																				} disabled={disabled} className="w-full md:w-auto max-w-[220px] whitespace-nowrap shrink-0">
 																				{t("userDialog.nextPlanFireOnEither")}
 																			</Button>
 																		</div>
 
 																		<div className={cn("flex flex-row items-center gap-3 w-full flex-wrap", isRTL ? "justify-start" : "justify-end", isRTL ? "flex-row-reverse" : "flex-row")}>
-																			<Button size="sm" variant="outline" onClick={handleCancelAutoRenewForm} isDisabled={disabled}>
+																			<Button size="sm" variant="outline" onClick={handleCancelAutoRenewForm} disabled={disabled}>
 																				{t("cancel")}
 																			</Button>
 
-																			<Button size="sm" colorScheme="primary" onClick={handleSaveAutoRenewRule} isDisabled={disabled}>
+																			<Button size="sm" colorScheme="primary" onClick={handleSaveAutoRenewRule} disabled={disabled}>
 																				{autoRenewFormMode === "edit"
 																					? t("save")
 																					: t("add")}
@@ -3089,18 +3089,16 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															<p className="font-semibold">
 																{t("userDialog.links.configs")}
 															</p>
-															<Button size="sm" variant="outline" type="button" isDisabled={configItems.length === 0} leftIcon={
-																	copiedAllConfigs ? (
-																		<CopiedActionIcon />
-																	) : (
-																		<CopyActionIcon />
-																	)
-																} onClick={() => {
+															<Button size="sm" variant="outline" type="button" disabled={configItems.length === 0} onClick={() => {
 																	if (configItems.length === 0) return;
 																	void copyTextToClipboard(
 																		configLinksText,
 																	).then(() => setCopiedAllConfigs(true));
-																}}>
+																}}>{copiedAllConfigs ? (
+																		<CopiedActionIcon />
+																	) : (
+																		<CopyActionIcon />
+																	)}
 																{copiedAllConfigs
 																	? t("copied")
 																	: t("userDialog.links.copyAllConfigs")}
@@ -3174,7 +3172,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 														description={t("deleteUser.prompt", {
 															username: editingUser?.username ?? "",
 														})}
-														isLoading={deleteLoading}
+														loading={deleteLoading}
 														onConfirm={handleDeleteUser}
 													>
 														<Tooltip label={t("delete")} placement="top">
@@ -3207,7 +3205,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 												isEditing ? t("userDialog.editUser") : t("createUser")
 											}
 											successLabel={t("userDialog.submitSuccess")}
-											isDisabled={submitDisabled}
+											disabled={submitDisabled}
 											type="submit"
 										/>
 									</div>

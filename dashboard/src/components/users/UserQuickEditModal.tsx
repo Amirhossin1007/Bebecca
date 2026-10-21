@@ -91,16 +91,16 @@ export const UserQuickEditModal: FC = () => {
 	const isDataLimit = field === "data_limit";
 
 	return (
-		<AppDialog isCentered isOpen={Boolean(quickEditUser)} onClose={onClose} size="sm" title={
+		<AppDialog isCentered open={Boolean(quickEditUser)} onClose={onClose} size="sm" title={
 				isDataLimit
 					? t("usersTable.setDataLimit")
 					: t("usersTable.setExpiry")
 			} overlayProps={{ className: "bg-blackAlpha-300" }} contentProps={{ className: "mx-3" }} footerProps={{ className: "gap-3" }} footer={
 				<>
-					<Button size="sm" variant="outline" onClick={onClose} isDisabled={loading}>
+					<Button size="sm" variant="outline" onClick={onClose} disabled={loading}>
 						{t("cancel")}
 					</Button>
-					<Button size="sm" colorScheme="primary" onClick={save} isLoading={loading}>
+					<Button size="sm" colorScheme="primary" onClick={save} loading={loading}>
 						{t("save")}
 					</Button>
 				</>

@@ -68,7 +68,7 @@ const blankForm: OutboundSubForm = {
 };
 
 type Props = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	onChanged?: () => void | Promise<void>;
 };
@@ -82,7 +82,7 @@ const parseAPIError = (error: any, fallback: string) =>
 const responseOK = (response: any) => response?.success !== false;
 
 export const OutboundSubscriptionsModal: FC<Props> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	onChanged,
 }) => {
@@ -292,7 +292,7 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
@@ -309,7 +309,7 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 											setForm((prev) => ({ ...prev, remark: event.target.value }))
 										} placeholder={t("pages.xray.outboundSub.remarkPlaceholder")} />
 								</FormControl>
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel>{t("pages.xray.outboundSub.url")}</FormLabel>
 									<Input size="sm" value={form.url} onChange={(event) =>
 											setForm((prev) => ({ ...prev, url: event.target.value }))
@@ -339,19 +339,19 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 							</div>
 							<div className="flex flex-row items-center mt-3 gap-5 flex-wrap">
 								<div className="flex flex-row items-center gap-2">
-									<Switch size="sm" isChecked={form.enabled} onChange={(event) =>
+									<Switch size="sm" checked={form.enabled} onChange={(event) =>
 											setForm((prev) => ({ ...prev, enabled: event.target.checked }))
 										} />
 									<p className="text-[0.875rem]">{t("nodes.enabled")}</p>
 								</div>
 								<div className="flex flex-row items-center gap-2">
-									<Switch size="sm" isChecked={form.prepend} onChange={(event) =>
+									<Switch size="sm" checked={form.prepend} onChange={(event) =>
 											setForm((prev) => ({ ...prev, prepend: event.target.checked }))
 										} />
 									<p className="text-[0.875rem]">{t("pages.xray.outboundSub.prepend")}</p>
 								</div>
 								<div className="flex flex-row items-center gap-2">
-									<Switch size="sm" isChecked={form.allowPrivate} onChange={(event) =>
+									<Switch size="sm" checked={form.allowPrivate} onChange={(event) =>
 											setForm((prev) => ({ ...prev, allowPrivate: event.target.checked }))
 										} />
 									<p className="text-[0.875rem]">{t("pages.xray.outboundSub.allowPrivate")}</p>
@@ -380,7 +380,7 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 										{t("pages.xray.outboundSub.restartHint")}
 									</p>
 								</div>
-								<Button size="xs" variant="ghost" leftIcon={<ArrowPathIcon className="w-14" />} isLoading={loading} onClick={load}>
+								<Button size="xs" variant="ghost" loading={loading} onClick={load}>{<ArrowPathIcon className="w-14" />}
 									{t("refresh")}
 								</Button>
 							</div>
@@ -410,8 +410,8 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 											<tr key={item.id}>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													<div className="flex flex-row items-center gap-0">
-														<IconButton aria-label={t("a11y.moveUp")} size="xs" variant="ghost" icon={<ArrowUpIcon className="w-14" />} isDisabled={index === 0 || busyID === item.id} onClick={() => move(item.id, "up")} />
-														<IconButton aria-label={t("a11y.moveDown")} size="xs" variant="ghost" icon={<ArrowDownIcon className="w-14" />} isDisabled={index === items.length - 1 || busyID === item.id} onClick={() => move(item.id, "down")} />
+														<IconButton aria-label={t("a11y.moveUp")} size="xs" variant="ghost" disabled={index === 0 || busyID === item.id} onClick={() => move(item.id, "up")} >{<ArrowUpIcon className="w-14" />}</IconButton>
+														<IconButton aria-label={t("a11y.moveDown")} size="xs" variant="ghost" disabled={index === items.length - 1 || busyID === item.id} onClick={() => move(item.id, "down")} >{<ArrowDownIcon className="w-14" />}</IconButton>
 													</div>
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text max-w-[260px]">
@@ -441,15 +441,15 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 													)}
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
-													<Switch size="sm" isChecked={!!item.enabled} isDisabled={busyID === item.id} onChange={() => toggle(item)} />
+													<Switch size="sm" checked={!!item.enabled} disabled={busyID === item.id} onChange={() => toggle(item)} />
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													<div className="flex flex-row items-center gap-1">
 														<Button size="xs" variant="ghost" onClick={() => edit(item)}>
 															{t("edit")}
 														</Button>
-														<IconButton aria-label={t("refresh")} size="xs" variant="ghost" icon={<ArrowPathIcon className="w-14" />} isLoading={busyID === item.id} onClick={() => refreshOne(item.id)} />
-														<IconButton aria-label={t("delete")} size="xs" variant="ghost" colorScheme="red" icon={<TrashIcon className="w-14" />} isDisabled={busyID === item.id} onClick={() => deleteOne(item.id)} />
+														<IconButton aria-label={t("refresh")} size="xs" variant="ghost" loading={busyID === item.id} onClick={() => refreshOne(item.id)} >{<ArrowPathIcon className="w-14" />}</IconButton>
+														<IconButton aria-label={t("delete")} size="xs" variant="ghost" colorScheme="red" disabled={busyID === item.id} onClick={() => deleteOne(item.id)} >{<TrashIcon className="w-14" />}</IconButton>
 													</div>
 												</td>
 											</tr>
@@ -470,10 +470,10 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 							)}
 						</div>
 						<div className="flex flex-row items-center gap-2 flex-wrap">
-							<Button size="sm" variant="ghost" leftIcon={<EyeIcon className="w-16" />} isLoading={previewing} onClick={previewURL}>
+							<Button size="sm" variant="ghost" loading={previewing} onClick={previewURL}>{<EyeIcon className="w-16" />}
 								{t("bulkActions.preview")}
 							</Button>
-							<Button size="sm" colorScheme="primary" leftIcon={<PlusIcon className="w-16" />} isLoading={saving} onClick={save}>
+							<Button size="sm" colorScheme="primary" loading={saving} onClick={save}>{<PlusIcon className="w-16" />}
 								{editingID === null ? t("add") : t("save")}
 							</Button>
 							<Button size="sm" variant="ghost" onClick={onClose}>

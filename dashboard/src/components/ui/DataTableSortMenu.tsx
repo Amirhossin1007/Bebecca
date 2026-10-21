@@ -98,7 +98,7 @@ export const DataTableSortMenu = ({
 		<Popover placement="bottom-end" isLazy>
 			<PopoverTrigger>
 				<div className="relative inline-flex shrink-0">
-					<IconButton aria-label={t("dataTable.sortOptions", "Sort options")} icon={<Icon as={ArrowsUpDownIcon} className="size-4" />} variant="outline" size="sm" className="rounded-lg" />
+					<IconButton aria-label={t("dataTable.sortOptions", "Sort options")} variant="outline" size="sm" className="rounded-lg" >{<Icon as={ArrowsUpDownIcon} className="size-4" />}</IconButton>
 					{activeSort ? (
 						<div className="top-[-2px] absolute end-[-2px] w-[8px] h-[8px] rounded-full bg-primary-400 pointer-events-none" />
 					) : null}
@@ -123,9 +123,7 @@ export const DataTableSortMenu = ({
 											{[false, true].map((desc) => {
 												const selected = isActive && activeSort?.desc === desc;
 												return (
-													<Button key={String(desc)} size="xs" variant={selected ? "solid" : "outline"} colorScheme={selected ? "primary" : undefined} aria-pressed={selected} leftIcon={
-															<Icon as={desc ? ArrowDownIcon : ArrowUpIcon} className="size-3" />
-														} onClick={() => applySort(option.id, desc)} className="h-[22px] px-2 text-[0.75rem] font-medium rounded-full">
+													<Button key={String(desc)} size="xs" variant={selected ? "solid" : "outline"} colorScheme={selected ? "primary" : undefined} aria-pressed={selected} onClick={() => applySort(option.id, desc)} className="h-[22px] px-2 text-[0.75rem] font-medium rounded-full">{<Icon as={desc ? ArrowDownIcon : ArrowUpIcon} className="size-3" />}
 														{desc ? descLabel : ascLabel}
 													</Button>
 												);
@@ -136,7 +134,7 @@ export const DataTableSortMenu = ({
 							})}
 						</div>
 						{activeSort ? (
-							<Button size="xs" variant="ghost" leftIcon={<Icon as={XMarkIcon} className="size-3.5" />} onClick={() => onSortingChange([])} className="w-full mt-2">
+							<Button size="xs" variant="ghost" onClick={() => onSortingChange([])} className="w-full mt-2">{<Icon as={XMarkIcon} className="size-3.5" />}
 								{t("sort.clear", "Clear sort")}
 							</Button>
 						) : null}

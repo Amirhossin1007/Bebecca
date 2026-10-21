@@ -347,7 +347,7 @@ const RotationControls: FC<RotationControlsProps> = ({
 				<FormLabel className="text-[0.75rem] text-gray-500 mb-1">
 					{t("hostsDialog.rotationTTLSeconds")}
 				</FormLabel>
-				<NumericInput size="sm" value={ttl ?? ""} min={1} max={2592000} fieldProps={{ className: "[placeholder:120]" }} isDisabled={mode !== "ttl"} onChange={(_, num) => onTTLChange(Number.isNaN(num) ? null : num)} />
+				<NumericInput size="sm" value={ttl ?? ""} min={1} max={2592000} fieldProps={{ className: "[placeholder:120]" }} disabled={mode !== "ttl"} onChange={(_, num) => onTTLChange(Number.isNaN(num) ? null : num)} />
 			</FormControl>
 		</div>
 	);
@@ -534,7 +534,7 @@ const CertificateFingerprintField: FC<{
 			<FormLabel>{t("hostsDialog.pinnedPeerCertSha256")}</FormLabel>
 			<div className="flex flex-row items-stretch gap-2">
 				<Input dir="ltr" value={value} placeholder={t("hostsDialog.pinnedPeerCertSha256Hint")} onChange={(event) => onChange(event.target.value)} className="min-w-0!" />
-				<Button size="sm" variant="outline" leftIcon={<ArrowPathIcon className="w-14" />} isDisabled={!address} isLoading={isGenerating} onClick={generate} className="shrink-0 self-center">
+				<Button size="sm" variant="outline" disabled={!address} loading={isGenerating} onClick={generate} className="shrink-0 self-center">{<ArrowPathIcon className="w-14" />}
 					{t("hostsDialog.generateCertificateFingerprint")}
 				</Button>
 			</div>
@@ -902,10 +902,10 @@ const HostAdvancedSection: FC<{
 const HostToggle: FC<{
 	label: string;
 	description: string;
-	isChecked: boolean;
+	checked: boolean;
 	onChange: (checked: boolean) => void;
 	danger?: boolean;
-}> = ({ label, description, isChecked, onChange, danger = false }) => (
+}> = ({ label, description, checked: isChecked, onChange, danger = false }) => (
 	<div className={cn("border rounded-lg px-4 py-3", danger && isChecked ? "border-orange-400!" : "")}>
 		<div className="flex items-center justify-between gap-4">
 			<div className="min-w-0!">
@@ -916,7 +916,7 @@ const HostToggle: FC<{
 					{description}
 				</p>
 			</div>
-			<Switch aria-label={label} isChecked={isChecked} onChange={(event) => onChange(event.target.checked)} className="shrink-0" />
+			<Switch aria-label={label} checked={isChecked} onChange={(event) => onChange(event.target.checked)} className="shrink-0" />
 		</div>
 	</div>
 );
@@ -1024,7 +1024,7 @@ const HostForm: FC<HostFormProps> = ({
 			>
 				<div className="flex flex-col items-stretch gap-4">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<FormControl isRequired>
+						<FormControl required>
 							<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
 							<SearchableTagSelect
 								value={inboundTag}
@@ -1034,7 +1034,7 @@ const HostForm: FC<HostFormProps> = ({
 							/>
 							<FormHelperText>{t("hostsPage.inboundHint")}</FormHelperText>
 						</FormControl>
-						<FormControl isRequired isInvalid={Boolean(remarkError)}>
+						<FormControl required isInvalid={Boolean(remarkError)}>
 							<FormLabel>{t("hostsDialog.remark")}</FormLabel>
 							<InputGroup>
 								<Input ref={initialFocusRef} value={data.remark} maxLength={isWireGuardInbound ? 15 : undefined} placeholder={t("hostsPage.remarkPlaceholder")} onChange={(event) => onChange("remark", event.target.value)} />
@@ -1051,7 +1051,7 @@ const HostForm: FC<HostFormProps> = ({
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<FormControl isRequired className={cn(isVirtualTunnelInbound ? "md:[grid-column:1_/_-1]" : "md:[grid-column:auto]")}>
+						<FormControl required className={cn(isVirtualTunnelInbound ? "md:[grid-column:1_/_-1]" : "md:[grid-column:auto]")}>
 							<FormLabel>{t("hostsDialog.address")}</FormLabel>
 							<MultiValueAutocomplete
 								value={data.address}
@@ -1095,13 +1095,13 @@ const HostForm: FC<HostFormProps> = ({
 
 					{isWireGuardInbound && (
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<FormControl isRequired>
+							<FormControl required>
 								<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
 								<Input value={data.dns_primary} placeholder="1.1.1.1" onChange={(event) =>
 										onChange("dns_primary", event.target.value)
 									} />
 							</FormControl>
-							<FormControl isRequired>
+							<FormControl required>
 								<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
 								<Input value={data.dns_secondary} placeholder="8.8.8.8" onChange={(event) =>
 										onChange("dns_secondary", event.target.value)
@@ -1278,7 +1278,7 @@ const HostForm: FC<HostFormProps> = ({
 								<HostToggle
 									label={t("hostsDialog.allowinsecure")}
 									description={t("hostsPage.allowInsecureHint")}
-									isChecked={data.allowinsecure}
+									checked={data.allowinsecure}
 									danger
 									onChange={(checked) => onChange("allowinsecure", checked)}
 								/>
@@ -1287,7 +1287,7 @@ const HostForm: FC<HostFormProps> = ({
 								<HostToggle
 									label={t("hostsDialog.muxEnable")}
 									description={t("hostsPage.muxHint")}
-									isChecked={data.mux_enable}
+									checked={data.mux_enable}
 									onChange={(checked) => onChange("mux_enable", checked)}
 								/>
 							)}
@@ -1295,7 +1295,7 @@ const HostForm: FC<HostFormProps> = ({
 								<HostToggle
 									label={t("hostsDialog.randomUserAgent")}
 									description={t("hostsPage.randomUserAgentHint")}
-									isChecked={data.random_user_agent}
+									checked={data.random_user_agent}
 									onChange={(checked) => onChange("random_user_agent", checked)}
 								/>
 							)}
@@ -1303,7 +1303,7 @@ const HostForm: FC<HostFormProps> = ({
 								<HostToggle
 									label={t("hostsDialog.useSniAsHost")}
 									description={t("hostsPage.useSniAsHostHint")}
-									isChecked={data.use_sni_as_host}
+									checked={data.use_sni_as_host}
 									onChange={(checked) => onChange("use_sni_as_host", checked)}
 								/>
 							)}
@@ -1323,7 +1323,7 @@ const HostForm: FC<HostFormProps> = ({
 type HostDetailModalProps = {
 	host: HostState | null;
 	inboundOptions: InboundOption[];
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	onChange: <Key extends keyof HostData>(
 		uid: string,
@@ -1344,7 +1344,7 @@ type HostDetailModalProps = {
 const HostDetailModal: FC<HostDetailModalProps> = ({
 	host,
 	inboundOptions,
-	isOpen,
+	open: isOpen,
 	onClose,
 	onChange,
 	onChangeInbound,
@@ -1473,7 +1473,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 	}
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside" isCentered returnFocusOnClose={false}>
+		<Modal open={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside" isCentered returnFocusOnClose={false}>
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3 [&_.xray-dialog-section_label]:whitespace-nowrap [&_.xray-dialog-section_label]:mb-1.5">
 				<ModalCloseButton />
@@ -1532,24 +1532,24 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 					) : (
 						<DeleteConfirmDialog
 							description={t("hostsPage.deleteConfirmation")}
-							isLoading={deleting}
+							loading={deleting}
 							onConfirm={() => onDelete(host.uid)}
 						>
-							<Button size="sm" variant="ghost" colorScheme="red" leftIcon={<DeleteIcon />}>
+							<Button size="sm" variant="ghost" colorScheme="red">{<DeleteIcon />}
 								{t("delete")}
 							</Button>
 						</DeleteConfirmDialog>
 					)}
 					<div className="flex flex-row items-center gap-3">
 						{!isCloneMode && onClone && (
-							<Button size="sm" variant="outline" onClick={() => onClone(host.uid)} isDisabled={saving || deleting}>
+							<Button size="sm" variant="outline" onClick={() => onClone(host.uid)} disabled={saving || deleting}>
 								{t("hostsPage.clone")}
 							</Button>
 						)}
-						<Button size="sm" variant="outline" onClick={() => onReset(host.uid)} isDisabled={!dirty || saving}>
+						<Button size="sm" variant="outline" onClick={() => onReset(host.uid)} disabled={!dirty || saving}>
 							{t("reset")}
 						</Button>
-						<Button size="sm" colorScheme="primary" onClick={() => onSave(host.uid)} isDisabled={primaryDisabled} isLoading={saving}>
+						<Button size="sm" colorScheme="primary" onClick={() => onSave(host.uid)} disabled={primaryDisabled} loading={saving}>
 							{primaryLabel}
 						</Button>
 					</div>
@@ -1560,7 +1560,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 };
 
 type CreateHostModalProps = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	inboundOptions: InboundOption[];
 	onSubmit: (values: CreateHostValues) => void;
@@ -1569,7 +1569,7 @@ type CreateHostModalProps = {
 };
 
 const CreateHostModal: FC<CreateHostModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	inboundOptions,
 	onSubmit,
@@ -1694,7 +1694,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="4xl" initialFocusRef={initialRef} scrollBehavior="inside" isCentered returnFocusOnClose={false}>
+		<Modal open={isOpen} onClose={onClose} size="4xl" initialFocusRef={initialRef} scrollBehavior="inside" isCentered returnFocusOnClose={false}>
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3 [&_.xray-dialog-section_label]:whitespace-nowrap [&_.xray-dialog-section_label]:mb-1.5">
 				<XrayModalHeader subtitle={t("hostsPage.create.description")}>
@@ -1748,7 +1748,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("hostsPage.cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} loading={isSubmitting} disabled={
 							Boolean(jsonError) ||
 							!finalMaskValid ||
 							Boolean(hostClientSettingsError(formState.client_settings)) ||
@@ -1773,7 +1773,7 @@ export const HostsManager: FC = () => {
 	const toast = useToast();
 	const hosts = useHosts((state) => state.hosts);
 	const fetchHosts = useHosts((state) => state.fetchHosts);
-	const isLoading = useHosts((state) => state.isLoading);
+	const isLoading = useHosts((state) => state.loading);
 	const isPostLoading = useHosts((state) => state.isPostLoading);
 	const setHosts = useHosts((state) => state.setHosts);
 	const setHostStatus = useHosts((state) => state.setHostStatus);
@@ -2418,7 +2418,7 @@ export const HostsManager: FC = () => {
 			const visible = values.slice(0, 2);
 			const hiddenCount = values.length - visible.length;
 			return (
-				<Tooltip label={values.join(", ")} isDisabled={values.length <= visible.length} hasArrow placement="top">
+				<Tooltip label={values.join(", ")} disabled={values.length <= visible.length} hasArrow placement="top">
 					<div className="flex flex-row items-center gap-1 flex-wrap max-w-full">
 						{visible.map((item) => (
 							<Tag key={item} size="sm" className="max-w-[120px]">
@@ -2458,7 +2458,7 @@ export const HostsManager: FC = () => {
 					const hostName = host.data.remark || t("hostsPage.untitledHost");
 					return (
 						<div className="flex flex-col gap-0.5 min-w-0!">
-							<Tooltip label={<AppleEmojiText>{hostName}</AppleEmojiText>} isDisabled={hostName.length <= 24}>
+							<Tooltip label={<AppleEmojiText>{hostName}</AppleEmojiText>} disabled={hostName.length <= 24}>
 								<p className="font-semibold truncate">
 									<AppleEmojiText>{hostName}</AppleEmojiText>
 								</p>
@@ -2628,7 +2628,7 @@ export const HostsManager: FC = () => {
 					<CheckCircleIcon className="w-16" />
 				),
 				onClick: () => toggleActive(host.uid, !isActive),
-				isDisabled: isPostLoading,
+				disabled: isPostLoading,
 			},
 			{
 				id: "delete",
@@ -2638,13 +2638,13 @@ export const HostsManager: FC = () => {
 				render: (_row, onMenuClose) => (
 					<DeleteConfirmDialog
 						description={t("hostsPage.deleteConfirmation")}
-						isLoading={deletingUid === host.uid && isPostLoading}
+						loading={deletingUid === host.uid && isPostLoading}
 						onConfirm={async () => {
 							await handleDeleteHost(host.uid);
 							onMenuClose();
 						}}
 					>
-						<MenuItem icon={<TrashIcon className="w-16" />} isDisabled={isPostLoading} onClick={(event) => event.stopPropagation()} className="text-red-400">
+						<MenuItem icon={<TrashIcon className="w-16" />} disabled={isPostLoading} onClick={(event) => event.stopPropagation()} className="text-red-400">
 							{t("delete")}
 						</MenuItem>
 					</DeleteConfirmDialog>
@@ -2659,7 +2659,7 @@ export const HostsManager: FC = () => {
 				title={t("hostsPage.listHeader")}
 				summaryItems={hostSummaryItems}
 				actions={
-					<Button colorScheme="primary" size="sm" onClick={() => setCreateOpen(true)} leftIcon={<AddIcon />} isDisabled={!inboundOptions.length} className="h-[36px] px-3 rounded-[4px]">
+					<Button colorScheme="primary" size="sm" onClick={() => setCreateOpen(true)} disabled={!inboundOptions.length} className="h-[36px] px-3 rounded-[4px]">{<AddIcon />}
 						{t("hostsPage.addHost")}
 					</Button>
 				}
@@ -2668,7 +2668,7 @@ export const HostsManager: FC = () => {
 						aria-label={t("hostsPage.refresh")}
 						label={t("hostsPage.refresh")}
 						icon={<ArrowPathIcon className="w-16" />}
-						isLoading={isRefreshing}
+						loading={isRefreshing}
 						onClick={fetchHosts}
 					/>
 				}
@@ -2680,7 +2680,7 @@ export const HostsManager: FC = () => {
 						sorting={hostSorting}
 						onSortingChange={setHostSorting}
 					/>
-					<Checkbox isChecked={includeDisabled} onChange={(event) => setIncludeDisabled(event.target.checked)}>
+					<Checkbox checked={includeDisabled} onChange={(event) => setIncludeDisabled(event.target.checked)}>
 						{t("hostsPage.showDisabled")}
 					</Checkbox>
 				</div>
@@ -2694,7 +2694,7 @@ export const HostsManager: FC = () => {
 				onSortingChange={setHostSorting}
 				showSortMenu={false}
 				getRowId={(host) => host.uid}
-				isLoading={isInitialLoading}
+				loading={isInitialLoading}
 				loadingRows={5}
 				emptyState={
 					<div className="text-center text-panel-text-muted">
@@ -2724,33 +2724,33 @@ export const HostsManager: FC = () => {
 					);
 					return (
 						<>
-							<Button size="sm" variant="outline" leftIcon={<CheckCircleIcon className="w-16" />} isLoading={bulkAction === "enable"} isDisabled={
+							<Button size="sm" variant="outline" loading={bulkAction === "enable"} disabled={
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									enableTargets.length === 0
-								} onClick={() => handleBulkToggleHosts(enableTargets, true)}>
+								} onClick={() => handleBulkToggleHosts(enableTargets, true)}>{<CheckCircleIcon className="w-16" />}
 								{t("hostsPage.enable")}
 							</Button>
-							<Button size="sm" variant="outline" leftIcon={<XCircleIcon className="w-16" />} isLoading={bulkAction === "disable"} isDisabled={
+							<Button size="sm" variant="outline" loading={bulkAction === "disable"} disabled={
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									disableTargets.length === 0
-								} onClick={() => handleBulkToggleHosts(disableTargets, false)}>
+								} onClick={() => handleBulkToggleHosts(disableTargets, false)}>{<XCircleIcon className="w-16" />}
 								{t("phpmyadmin.disableAction")}
 							</Button>
 							<DeleteConfirmDialog
 								description={t("hostsPage.confirmBulkDelete", {
 									count: selectedRows.length,
 								})}
-								isLoading={bulkAction === "delete"}
-								isDisabled={selectedRows.length === 0}
+								loading={bulkAction === "delete"}
+								disabled={selectedRows.length === 0}
 								onConfirm={() => handleBulkDeleteHosts(selectedRows)}
 							>
-								<Button size="sm" variant="outline" colorScheme="red" leftIcon={<TrashIcon className="w-16" />} isLoading={bulkAction === "delete"} isDisabled={
+								<Button size="sm" variant="outline" colorScheme="red" loading={bulkAction === "delete"} disabled={
 										Boolean(bulkAction) ||
 										isPostLoading ||
 										selectedRows.length === 0
-									}>
+									}>{<TrashIcon className="w-16" />}
 									{t("delete")}
 								</Button>
 							</DeleteConfirmDialog>
@@ -2763,7 +2763,7 @@ export const HostsManager: FC = () => {
 
 			{createOpen && (
 				<CreateHostModal
-					isOpen={createOpen}
+					open={createOpen}
 					onClose={() => setCreateOpen(false)}
 					inboundOptions={inboundOptions}
 					onSubmit={handleCreateHost}
@@ -2776,7 +2776,7 @@ export const HostsManager: FC = () => {
 				<HostDetailModal
 					host={selectedHost}
 					inboundOptions={inboundOptions}
-					isOpen={Boolean(selectedHost)}
+					open={Boolean(selectedHost)}
 					onClose={() => setSelectedHostUid(null)}
 					onChange={updateHost}
 					onChangeInbound={updateHostInbound}
@@ -2800,7 +2800,7 @@ export const HostsManager: FC = () => {
 				<HostDetailModal
 					host={cloneHost}
 					inboundOptions={inboundOptions}
-					isOpen={Boolean(cloneHost)}
+					open={Boolean(cloneHost)}
 					onClose={() => setCloneHost(null)}
 					onChange={updateCloneHost}
 					onChangeInbound={updateCloneInbound}

@@ -205,9 +205,9 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 						{preset.label}
 					</Button>
 				))}
-			<Popover isOpen={isOpen} onClose={onClose} placement="auto-end" closeOnBlur={false}>
+			<Popover open={isOpen} onClose={onClose} placement="auto-end" closeOnBlur={false}>
 				<PopoverTrigger>
-					<Button size="sm" variant="outline" leftIcon={<CalendarIconStyled />} onClick={onOpen} className={cn("min-w-[200px]! md:min-w-[240px]! max-w-[100%] rounded-md overflow-hidden text-ellipsis whitespace-nowrap", controlBg, borderColor)}>
+					<Button size="sm" variant="outline" onClick={onOpen} className={cn("min-w-[200px]! md:min-w-[240px]! max-w-[100%] rounded-md overflow-hidden text-ellipsis whitespace-nowrap", controlBg, borderColor)}>{<CalendarIconStyled />}
 						{rangeLabel}
 					</Button>
 				</PopoverTrigger>

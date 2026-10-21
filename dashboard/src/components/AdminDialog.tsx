@@ -1045,13 +1045,13 @@ export const AdminDialog: FC = () => {
 					{mode === "edit" && admin?.id !== undefined && (
 						<FormControl>
 							<FormLabel>{t("admins.idLabel")}</FormLabel>
-							<Input value={String(admin.id)} isReadOnly />
+							<Input value={String(admin.id)} readOnly />
 						</FormControl>
 					)}
 					{mode === "edit" && (
 						<FormControl>
 							<FormLabel>{t("status")}</FormLabel>
-							<Input value={statusLabel} isReadOnly />
+							<Input value={statusLabel} readOnly />
 						</FormControl>
 					)}
 					{mode === "edit" && admin?.id !== undefined && (
@@ -1060,10 +1060,10 @@ export const AdminDialog: FC = () => {
 					<FormControl isInvalid={!!errors.username}>
 						<FormLabel>{t("username")}</FormLabel>
 						<InputGroup dir={isRTL ? "rtl" : "ltr"}>
-							<Input placeholder={t("admins.usernamePlaceholder")} {...register("username")} isDisabled={mode === "edit"} {...(mode === "create" ? endPadding : {})} />
+							<Input placeholder={t("admins.usernamePlaceholder")} {...register("username")} disabled={mode === "edit"} {...(mode === "create" ? endPadding : {})} />
 							{mode === "create" && (
 								<InputRightElement style={{ insetInlineEnd: endAdornmentProps.insetInlineEnd, insetInlineStart: endAdornmentProps.insetInlineStart, right: endAdornmentProps.right, left: endAdornmentProps.left }}>
-									<IconButton aria-label={t("admins.generateUsername")} size="sm" variant="ghost" icon={<SparklesIcon className="w-20" />} onClick={handleGenerateUsername} />
+									<IconButton aria-label={t("admins.generateUsername")} size="sm" variant="ghost" onClick={handleGenerateUsername} >{<SparklesIcon className="w-20" />}</IconButton>
 								</InputRightElement>
 							)}
 						</InputGroup>
@@ -1081,16 +1081,14 @@ export const AdminDialog: FC = () => {
 											showPassword
 												? t("admins.hidePassword")
 												: t("admins.showPassword")
-										} size="sm" variant="ghost" icon={
-											showPassword ? (
+										} size="sm" variant="ghost" onClick={() => setShowPassword(!showPassword)} >{showPassword ? (
 												<EyeSlashIcon className="w-16" />
 											) : (
 												<EyeIcon className="w-16" />
-											)
-										} onClick={() => setShowPassword(!showPassword)} />
+											)}</IconButton>
 								</InputRightElement>
 							</InputGroup>
-							<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" icon={<SparklesIcon className="w-20" />} onClick={handleGeneratePassword} />
+							<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" onClick={handleGeneratePassword} >{<SparklesIcon className="w-20" />}</IconButton>
 						</div>
 						<FormErrorMessage>
 							{errors.password?.message as string}
@@ -1136,7 +1134,7 @@ export const AdminDialog: FC = () => {
 										{t("admins.roles.standardDescription")}
 									</FormHelperText>
 								</Radio>
-								<Radio value={AdminRole.Reseller} isDisabled>
+								<Radio value={AdminRole.Reseller} disabled>
 									<p className="font-medium">
 										{t("admins.roles.reseller")}
 										<span className="ml-2 text-[0.75rem] text-orange-500">
@@ -1175,7 +1173,7 @@ export const AdminDialog: FC = () => {
 				<div className="flex flex-col gap-4 items-stretch">
 					{!isFullAccessRole && (
 						<div className="flex flex-col items-stretch gap-3">
-							<Checkbox isChecked={usePerServiceTrafficLimits} onChange={(event) =>
+							<Checkbox checked={usePerServiceTrafficLimits} onChange={(event) =>
 									setValue("use_service_traffic_limits", event.target.checked, {
 										shouldDirty: true,
 									})
@@ -1190,7 +1188,7 @@ export const AdminDialog: FC = () => {
 							<NumericInput
 								value={dataLimitValue}
 								precision={0}
-								isDisabled={usePerServiceTrafficLimits}
+								disabled={usePerServiceTrafficLimits}
 								onChange={(value) =>
 									setValue("data_limit", value, {
 										shouldDirty: true,
@@ -1210,7 +1208,7 @@ export const AdminDialog: FC = () => {
 							<NumericInput
 								value={usersLimitValue}
 								precision={0}
-								isDisabled={usePerServiceTrafficLimits}
+								disabled={usePerServiceTrafficLimits}
 								onChange={(value) =>
 									setValue("users_limit", value, {
 										shouldDirty: true,
@@ -1230,7 +1228,7 @@ export const AdminDialog: FC = () => {
 						!usePerServiceTrafficLimits &&
 						(hasGlobalDataLimit || isCreatedTrafficMode) && (
 							<div className="flex flex-col items-stretch gap-3">
-								<Checkbox isChecked={isCreatedTrafficMode} onChange={(event) =>
+								<Checkbox checked={isCreatedTrafficMode} onChange={(event) =>
 										setValue(
 											"traffic_limit_mode",
 											event.target.checked
@@ -1243,14 +1241,14 @@ export const AdminDialog: FC = () => {
 								</Checkbox>
 								{isCreatedTrafficMode && (
 									<div className="flex flex-col gap-2 pl-1">
-										<Checkbox isChecked={Boolean(showUserTrafficValue)} onChange={(event) =>
+										<Checkbox checked={Boolean(showUserTrafficValue)} onChange={(event) =>
 												setValue("show_user_traffic", event.target.checked, {
 													shouldDirty: true,
 												})
 											}>
 											{t("admins.showUserTraffic")}
 										</Checkbox>
-										<Checkbox isChecked={Boolean(permissionsValue.users.delete)} onChange={(event) =>
+										<Checkbox checked={Boolean(permissionsValue.users.delete)} onChange={(event) =>
 												handleUserPermissionToggle(
 													"delete",
 													event.target.checked,
@@ -1258,7 +1256,7 @@ export const AdminDialog: FC = () => {
 											}>
 											{t("admins.permissions.deleteUser")}
 										</Checkbox>
-										<Checkbox isChecked={Boolean(deleteUserUsageLimitEnabled)} isDisabled={!permissionsValue.users.delete} onChange={(event) =>
+										<Checkbox checked={Boolean(deleteUserUsageLimitEnabled)} disabled={!permissionsValue.users.delete} onChange={(event) =>
 												setValue(
 													"delete_user_usage_limit_enabled",
 													event.target.checked,
@@ -1287,7 +1285,7 @@ export const AdminDialog: FC = () => {
 												</FormErrorMessage>
 											</FormControl>
 										)}
-										<Checkbox isChecked={Boolean(permissionsValue.users.reset_usage)} onChange={(event) =>
+										<Checkbox checked={Boolean(permissionsValue.users.reset_usage)} onChange={(event) =>
 												handleUserPermissionToggle(
 													"reset_usage",
 													event.target.checked,
@@ -1328,13 +1326,13 @@ export const AdminDialog: FC = () => {
 					<FormControl>
 						<div className="flex flex-col items-stretch gap-2">
 							<div className="flex flex-row justify-between items-start sm:items-center gap-3 flex-wrap">
-								<Checkbox isChecked={
+								<Checkbox checked={
 										selectedServices.length === serviceOptions.length &&
 										serviceOptions.length > 0
 									} isIndeterminate={
 										selectedServices.length > 0 &&
 										selectedServices.length < serviceOptions.length
-									} onChange={handleToggleAllServices} isDisabled={serviceOptions.length === 0}>
+									} onChange={handleToggleAllServices} disabled={serviceOptions.length === 0}>
 									{t("admins.selectAllServices")}
 								</Checkbox>
 								<Badge variant="subtle" colorScheme="primary" className="rounded-md">
@@ -1453,7 +1451,7 @@ export const AdminDialog: FC = () => {
 																</span>
 															</p>
 														</div>
-														<Checkbox isChecked={isServiceCreatedMode} onChange={(event) =>
+														<Checkbox checked={isServiceCreatedMode} onChange={(event) =>
 																setServiceLimitValue(serviceId, {
 																	traffic_limit_mode: event.target.checked
 																		? AdminTrafficLimitMode.CreatedTraffic
@@ -1492,17 +1490,17 @@ export const AdminDialog: FC = () => {
 														</div>
 														{isServiceCreatedMode && (
 															<div className="flex flex-col gap-1.5">
-																<Checkbox isChecked={item.show_user_traffic} onChange={(event) =>
+																<Checkbox checked={item.show_user_traffic} onChange={(event) =>
 																		setServiceLimitValue(serviceId, {
 																			show_user_traffic: event.target.checked,
 																		})
 																	}>
 																	{t("admins.showUserTraffic")}
 																</Checkbox>
-																<Checkbox isChecked={
+																<Checkbox checked={
 																		permissionsValue.users.delete &&
 																		item.delete_user_usage_limit_enabled
-																	} isDisabled={!permissionsValue.users.delete} onChange={(event) =>
+																	} disabled={!permissionsValue.users.delete} onChange={(event) =>
 																		setServiceLimitValue(serviceId, {
 																			delete_user_usage_limit_enabled:
 																				event.target.checked,
@@ -1569,11 +1567,11 @@ export const AdminDialog: FC = () => {
 					errors.maxIPLimitPerUser?.message as string | undefined
 				}
 				hideExtendedSections={watchRole === AdminRole.Standard}
-				isReadOnly={watchRole === AdminRole.FullAccess}
+				readOnly={watchRole === AdminRole.FullAccess}
 			/>
 			{canManage2FA && (
 				<div className="xray-dialog-section">
-					<Checkbox isChecked={watch("require_2fa")} onChange={(event) =>
+					<Checkbox checked={watch("require_2fa")} onChange={(event) =>
 							setValue("require_2fa", event.target.checked, {
 								shouldDirty: true,
 							})
@@ -1587,7 +1585,7 @@ export const AdminDialog: FC = () => {
 
 	return (
 		<>
-			<Modal isOpen={isOpen} onClose={handleCloseAdminDialog} size="3xl" scrollBehavior="inside">
+			<Modal open={isOpen} onClose={handleCloseAdminDialog} size="3xl" scrollBehavior="inside">
 				<ModalOverlay className="bg-blackAlpha-400" />
 				<XrayModalContent className="[.admin-services-section_.chakra-form-control]:block [.admin-services-section_.chakra-form-control]:grid-cols-none [.admin-services-section_.chakra-form__label]:mb-1 [.admin-services-section_.chakra-form__helper-text,_.admin-services-section_.chakra-form__error-message]:[grid-column:auto] [.admin-services-section_.chakra-simple-grid]:grid-cols-[1fr] [.admin-services-section_.chakra-simple-grid]:md:grid-cols-[repeat(2,_minmax(0,_1fr))] [.admin-services-section_.chakra-checkbox__label]:text-[13px] [.admin-service-limit-card_.chakra-form-control]:block [.admin-service-limit-card_.chakra-form-control]:grid-cols-none mx-3">
 					<XrayModalHeader dir={isRTL ? "rtl" : "ltr"}>
@@ -1615,13 +1613,13 @@ export const AdminDialog: FC = () => {
 							</Button>
 							<AnimatedSubmitButton onClick={handleFormSubmit} status={submitStatus} idleContent={
 									mode === "create" ? t("admins.addAdmin") : t("save")
-								} successLabel={t("userDialog.submitSuccess")} isDisabled={isSubmitting} containerProps={{ className: "w-full sm:w-[180px]" }} />
+								} successLabel={t("userDialog.submitSuccess")} disabled={isSubmitting} containerProps={{ className: "w-full sm:w-[180px]" }} />
 						</div>
 					</XrayModalFooter>
 				</XrayModalContent>
 			</Modal>
 			<AdminPermissionsModal
-				isOpen={permissionsModalOpen}
+				open={permissionsModalOpen}
 				onClose={() => setPermissionsModalOpen(false)}
 				admin={admin}
 			/>

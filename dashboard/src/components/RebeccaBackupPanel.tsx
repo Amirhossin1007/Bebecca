@@ -155,9 +155,9 @@ export const DashboardBackupControls = ({
 
 	return (
 		<>
-			<Popover isOpen={isMenuOpen} onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)} placement="bottom-end" closeOnBlur={true} isLazy>
+			<Popover open={isMenuOpen} onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)} placement="bottom-end" closeOnBlur={true} isLazy>
 				<PopoverTrigger>
-					<Button size="xs" variant="outline" isDisabled={!backupActionsAvailable || runtimeLoading} className="h-[32px] w-full sm:w-auto px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! [transition:border-color_0.25s_ease,_background-color_0.25s_ease] whitespace-nowrap">
+					<Button size="xs" variant="outline" disabled={!backupActionsAvailable || runtimeLoading} className="h-[32px] w-full sm:w-auto px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! [transition:border-color_0.25s_ease,_background-color_0.25s_ease] whitespace-nowrap">
 						<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 							<span className="inline-flex items-center justify-center shrink-0">
 								<ArchiveBoxIcon className="w-15 h-15" />
@@ -174,10 +174,10 @@ export const DashboardBackupControls = ({
 					</PopoverHeader>
 					<PopoverBody className="p-2">
 						<div className="flex flex-col gap-1">
-							<Button size="md" variant="ghost" leftIcon={<ArrowUpTrayIcon className="w-16 h-16" />} onClick={() => openDialog("import")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">
+							<Button size="md" variant="ghost" onClick={() => openDialog("import")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">{<ArrowUpTrayIcon className="w-16 h-16" />}
 								{t("dashboard.backup.import")}
 							</Button>
-							<Button size="md" variant="ghost" leftIcon={<ArrowDownTrayIcon className="w-16 h-16" />} onClick={() => openDialog("export")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">
+							<Button size="md" variant="ghost" onClick={() => openDialog("export")} className="justify-start text-[13px] rounded-xl h-[36px] hover:bg-panel-elevated [transition:background-color_0.2s_ease]">{<ArrowDownTrayIcon className="w-16 h-16" />}
 								{t("dashboard.backup.exportTitle")}
 							</Button>
 						</div>
@@ -185,11 +185,11 @@ export const DashboardBackupControls = ({
 				</PopoverContent>
 			</Popover>
 
-			<Modal isOpen={dialog === "import"} onClose={() => setDialog(null)} isCentered size="xl" closeOnOverlayClick={!importMutation.isLoading}>
+			<Modal open={dialog === "import"} onClose={() => setDialog(null)} isCentered size="xl" closeOnOverlayClick={!importMutation.isLoading}>
 				<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(8px)]" />
 				<ModalContent className="border border-panel-border! rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] bg-panel-surface mx-4 sm:mx-0">
 					<ModalHeader className="text-[1rem] font-bold text-panel-text">{t("dashboard.backup.import")}</ModalHeader>
-					<ModalCloseButton isDisabled={importMutation.isLoading} />
+					<ModalCloseButton disabled={importMutation.isLoading} />
 					<ModalBody className="py-4">
 						<div className="flex flex-col gap-4">
 							<p className="text-[13px] text-panel-text-muted">
@@ -201,11 +201,11 @@ export const DashboardBackupControls = ({
 									{t("dashboard.backup.autoDetectImportWarning")}
 								</p>
 							</Alert>
-							<FormControl isRequired>
+							<FormControl required>
 								<FormLabel className="text-[13px] font-semibold text-panel-text-secondary">{t("dashboard.backup.file")}</FormLabel>
 								<FileDropzone
 									accept=".rbbackup,.tar.gz,.tgz,.zip,application/vnd.rebecca.backup,application/gzip,application/x-gzip,application/zip,application/x-tar,application/octet-stream"
-									isDisabled={
+									disabled={
 										!backupActionsAvailable || importMutation.isLoading
 									}
 									multiple
@@ -256,21 +256,21 @@ export const DashboardBackupControls = ({
 						</div>
 					</ModalBody>
 					<ModalFooter className="gap-2 border-t border-panel-border!">
-						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} isDisabled={importMutation.isLoading} className="rounded-full">
+						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={importMutation.isLoading} className="rounded-full">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme="red" size="sm" leftIcon={<ArrowUpTrayIcon className="w-15 h-15" />} onClick={handleImport} isDisabled={!canImport} isLoading={importMutation.isLoading} className="rounded-full px-5">
+						<Button colorScheme="red" size="sm" onClick={handleImport} disabled={!canImport} loading={importMutation.isLoading} className="rounded-full px-5">{<ArrowUpTrayIcon className="w-15 h-15" />}
 							{t("dashboard.backup.import")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
 			</Modal>
 
-			<Modal isOpen={dialog === "export"} onClose={() => setDialog(null)} isCentered size="md" closeOnOverlayClick={!exportMutation.isLoading}>
+			<Modal open={dialog === "export"} onClose={() => setDialog(null)} isCentered size="md" closeOnOverlayClick={!exportMutation.isLoading}>
 				<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(8px)]" />
 				<ModalContent className="border border-panel-border! rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] bg-panel-surface mx-4 sm:mx-0">
 					<ModalHeader className="text-[1rem] font-bold text-panel-text">{t("dashboard.backup.exportTitle")}</ModalHeader>
-					<ModalCloseButton isDisabled={exportMutation.isLoading} />
+					<ModalCloseButton disabled={exportMutation.isLoading} />
 					<ModalBody className="py-4">
 						<div className="flex flex-col gap-4">
 							<p className="text-[13px] text-panel-text-muted">
@@ -294,10 +294,10 @@ export const DashboardBackupControls = ({
 						</div>
 					</ModalBody>
 					<ModalFooter className="gap-2 border-t border-panel-border!">
-						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} isDisabled={exportMutation.isLoading} className="rounded-full">
+						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={exportMutation.isLoading} className="rounded-full">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme="primary" size="sm" leftIcon={<ArrowDownTrayIcon className="w-15 h-15" />} onClick={() => exportMutation.mutate(exportScope)} isLoading={exportMutation.isLoading} className="rounded-full px-5">
+						<Button colorScheme="primary" size="sm" onClick={() => exportMutation.mutate(exportScope)} loading={exportMutation.isLoading} className="rounded-full px-5">{<ArrowDownTrayIcon className="w-15 h-15" />}
 							{t("dashboard.backup.download")}
 						</Button>
 					</ModalFooter>

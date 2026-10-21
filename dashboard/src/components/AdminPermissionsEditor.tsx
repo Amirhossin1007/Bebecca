@@ -29,7 +29,7 @@ type AdminPermissionsEditorProps = {
 	showReset?: boolean;
 	onReset?: () => void;
 	hideExtendedSections?: boolean;
-	isReadOnly?: boolean;
+	readOnly?: boolean;
 	forceDesktopLayout?: boolean;
 };
 
@@ -176,7 +176,7 @@ export const AdminPermissionsEditor = ({
 	showReset = false,
 	onReset,
 	hideExtendedSections = false,
-	isReadOnly = false,
+	readOnly: isReadOnly,
 	forceDesktopLayout = false,
 }: AdminPermissionsEditorProps) => {
 	const { t } = useTranslation();
@@ -221,7 +221,7 @@ export const AdminPermissionsEditor = ({
 					{t("admins.permissions.userCapabilities")}
 				</p>
 				{showReset && onReset && (
-					<Button size="xs" variant="ghost" onClick={onReset} isDisabled={isReadOnly}>
+					<Button size="xs" variant="ghost" onClick={onReset} disabled={isReadOnly}>
 						{t("admins.permissions.resetToDefaults")}
 					</Button>
 				)}
@@ -232,7 +232,7 @@ export const AdminPermissionsEditor = ({
 						<p className="text-[0.875rem] flex-1 min-w-0! leading-[1.375]">
 							{t(label)}
 						</p>
-						<Switch isChecked={Boolean(value.users[key])} isDisabled={isReadOnly} onChange={(event) =>
+						<Switch checked={Boolean(value.users[key])} disabled={isReadOnly} onChange={(event) =>
 								updatePermissions("users", key, event.target.checked)
 							} className="shrink-0" />
 					</div>
@@ -240,13 +240,13 @@ export const AdminPermissionsEditor = ({
 			</div>
 			<FormControl isInvalid={Boolean(maxDataLimitError)}>
 				<FormLabel>{t("admins.permissions.maxDataPerUser")}</FormLabel>
-				<Tooltip label={t("admins.permissions.unlimitedEnabledHint")} isDisabled={!value.users.allow_unlimited_data} hasArrow openDelay={200} placement="top">
+				<Tooltip label={t("admins.permissions.unlimitedEnabledHint")} disabled={!value.users.allow_unlimited_data} hasArrow openDelay={200} placement="top">
 					<NumericInput
 						min={0}
 						step={1}
 						value={maxDataLimitValue}
 						onChange={handleMaxDataLimitChange}
-						isDisabled={value.users.allow_unlimited_data || isReadOnly}
+						disabled={value.users.allow_unlimited_data || isReadOnly}
 					/>
 				</Tooltip>
 				{maxDataLimitError ? (
@@ -266,7 +266,7 @@ export const AdminPermissionsEditor = ({
 						step={1}
 						value={maxSpeedLimitValue ?? ""}
 						onChange={(nextValue) => onMaxSpeedLimitChange?.(nextValue)}
-						isDisabled={!value.users.manage_speed_limit || isReadOnly}
+						disabled={!value.users.manage_speed_limit || isReadOnly}
 					/>
 					{maxSpeedLimitError ? (
 						<FormErrorMessage>{maxSpeedLimitError}</FormErrorMessage>
@@ -281,7 +281,7 @@ export const AdminPermissionsEditor = ({
 						step={1}
 						value={maxIPLimitValue ?? ""}
 						onChange={(nextValue) => onMaxIPLimitChange?.(nextValue)}
-						isDisabled={!value.users.manage_ip_limit || isReadOnly}
+						disabled={!value.users.manage_ip_limit || isReadOnly}
 					/>
 					{maxIPLimitError ? (
 						<FormErrorMessage>{maxIPLimitError}</FormErrorMessage>
@@ -298,7 +298,7 @@ export const AdminPermissionsEditor = ({
 								<p className="text-[0.875rem] flex-1 min-w-0!">
 									{t(label)}
 								</p>
-								<Switch isChecked={Boolean(value.sudo?.[key])} isDisabled={isReadOnly} onChange={(event) =>
+								<Switch checked={Boolean(value.sudo?.[key])} disabled={isReadOnly} onChange={(event) =>
 										updatePermissions("sudo", key, event.target.checked)
 									} />
 							</div>
@@ -317,7 +317,7 @@ export const AdminPermissionsEditor = ({
 								<p className="text-[0.875rem] flex-1 min-w-0! leading-[1.375]">
 									{t(label)}
 								</p>
-								<Switch isChecked={Boolean(value.admin_management[key])} isDisabled={isReadOnly} onChange={(event) =>
+								<Switch checked={Boolean(value.admin_management[key])} disabled={isReadOnly} onChange={(event) =>
 										updatePermissions(
 											"admin_management",
 											key,
@@ -340,7 +340,7 @@ export const AdminPermissionsEditor = ({
 								<p className="text-[0.875rem] flex-1 min-w-0! leading-[1.375]">
 									{t(label)}
 								</p>
-								<Switch isChecked={Boolean(value.sections[key])} isDisabled={isReadOnly} onChange={(event) =>
+								<Switch checked={Boolean(value.sections[key])} disabled={isReadOnly} onChange={(event) =>
 										updatePermissions("sections", key, event.target.checked)
 									} className="shrink-0" />
 							</div>
@@ -356,7 +356,7 @@ export const AdminPermissionsEditor = ({
 							<p className="text-[0.875rem] flex-1 min-w-0! leading-[1.375]">
 								{t(label)}
 							</p>
-							<Switch isChecked={Boolean(value.self_permissions?.[key])} isDisabled={isReadOnly} onChange={(event) =>
+							<Switch checked={Boolean(value.self_permissions?.[key])} disabled={isReadOnly} onChange={(event) =>
 									updatePermissions(
 										"self_permissions",
 										key,

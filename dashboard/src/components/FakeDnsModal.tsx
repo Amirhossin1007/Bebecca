@@ -26,7 +26,7 @@ type FakeDnsConfig = {
 };
 
 interface FakeDnsModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	form: UseFormReturn<any>;
 	setFakeDns: (data: FakeDnsConfig[]) => void;
@@ -35,7 +35,7 @@ interface FakeDnsModalProps {
 }
 
 export const FakeDnsModal: FC<FakeDnsModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	form,
 	setFakeDns,
@@ -97,7 +97,7 @@ export const FakeDnsModal: FC<FakeDnsModalProps> = ({
 	});
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="lg">
+		<Modal open={isOpen} onClose={onClose} size="lg">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>

@@ -3646,10 +3646,10 @@ export const CoreSettingsPage: FC = () => {
 		const testLabel = `${t("pages.xray.routeTester.test")} · ${outboundTestTypeLabels[outboundTestType]}`;
 		return (
 			<Tooltip hasArrow label={disabledReason || testLabel}>
-				<IconButton aria-label={testLabel} icon={<BoltIconStyled />} size="sm" isRound variant="solid" colorScheme="primary" isLoading={Boolean(state?.testing)} isDisabled={Boolean(disabledReason) || isBlocked} onClick={(event) => {
+				<IconButton aria-label={testLabel} size="sm" isRound variant="solid" colorScheme="primary" loading={Boolean(state?.testing)} disabled={Boolean(disabledReason) || isBlocked} onClick={(event) => {
 						event.stopPropagation();
 						onTest();
-					}} />
+					}} >{<BoltIconStyled />}</IconButton>
 			</Tooltip>
 		);
 	};
@@ -3667,10 +3667,10 @@ export const CoreSettingsPage: FC = () => {
 			: t("pages.xray.outbound.healthCheck");
 		return (
 			<Tooltip hasArrow label={resultLabel}>
-				<IconButton aria-label={t("pages.xray.outbound.healthCheck")} icon={<CheckCircleIcon className="w-18 h-18" />} size="sm" isRound variant="outline" colorScheme="green" isLoading={Boolean(state?.testing)} isDisabled={isMasterTarget} onClick={(event) => {
+				<IconButton aria-label={t("pages.xray.outbound.healthCheck")} size="sm" isRound variant="outline" colorScheme="green" loading={Boolean(state?.testing)} disabled={isMasterTarget} onClick={(event) => {
 						event.stopPropagation();
 						onCheck();
-					}} />
+					}} >{<CheckCircleIcon className="w-18 h-18" />}</IconButton>
 			</Tooltip>
 		);
 	};
@@ -3802,7 +3802,7 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-top",
 			label: t("pages.xray.rules.top"),
 			icon: <ChevronDoubleUpIconStyled />,
-			isDisabled:
+			disabled:
 				routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
 			onClick: () => replaceRule(row.originalIndex, 0),
 		},
@@ -3810,7 +3810,7 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-up",
 			label: t("pages.xray.rules.up"),
 			icon: <ArrowUpIconStyled />,
-			isDisabled:
+			disabled:
 				routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
 			onClick: () => replaceRule(row.originalIndex, row.originalIndex - 1),
 		},
@@ -3818,7 +3818,7 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-down",
 			label: t("pages.xray.rules.down"),
 			icon: <ArrowDownIconStyled />,
-			isDisabled:
+			disabled:
 				routingRuleSearch.trim().length > 0 ||
 				row.originalIndex === routingRuleData.length - 1,
 			onClick: () => replaceRule(row.originalIndex, row.originalIndex + 1),
@@ -3939,7 +3939,7 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-top",
 			label: t("pages.xray.outbound.moveToTop"),
 			icon: <ChevronDoubleUpIconStyled />,
-			isDisabled:
+			disabled:
 				outboundSearch.trim().length > 0 ||
 				outboundTrafficSort !== "default" ||
 				row.originalIndex === 0,
@@ -3949,7 +3949,7 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-up",
 			label: t("pages.xray.outbound.moveUp"),
 			icon: <ArrowUpIconStyled />,
-			isDisabled:
+			disabled:
 				outboundSearch.trim().length > 0 ||
 				outboundTrafficSort !== "default" ||
 				row.originalIndex === 0,
@@ -3959,7 +3959,7 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-down",
 			label: t("pages.xray.outbound.moveDown"),
 			icon: <ArrowDownIconStyled />,
-			isDisabled:
+			disabled:
 				outboundSearch.trim().length > 0 ||
 				outboundTrafficSort !== "default" ||
 				row.originalIndex === outboundData.length - 1,
@@ -4359,10 +4359,10 @@ export const CoreSettingsPage: FC = () => {
 						</p>
 					</div>
 					<div className="flex flex-row items-center gap-2 flex-wrap justify-stretch lg:justify-end">
-						<Button size="sm" colorScheme="primary" isLoading={isPostLoading} isDisabled={!hasConfigChanges || isPostLoading} onClick={handleOnSave} className="w-full sm:w-auto">
+						<Button size="sm" colorScheme="primary" loading={isPostLoading} disabled={!hasConfigChanges || isPostLoading} onClick={handleOnSave} className="w-full sm:w-auto">
 							{t("save")}
 						</Button>
-						<Button size="sm" leftIcon={<ReloadIconStyled />} isLoading={isRestarting} onClick={() => handleRestartCore(selectedTarget)} variant="outline" className="w-full sm:w-auto">
+						<Button size="sm" loading={isRestarting} onClick={() => handleRestartCore(selectedTarget)} variant="outline" className="w-full sm:w-auto">{<ReloadIconStyled />}
 							{t(isRestarting ? "core.restarting" : "core.restartCore")}
 						</Button>
 					</div>
@@ -4401,7 +4401,7 @@ export const CoreSettingsPage: FC = () => {
 								<FormLabel className="mb-0 text-[0.875rem]">
 									{t("core.customNodeConfig")}
 								</FormLabel>
-								<Switch size="sm" isChecked={selectedTargetInfo.mode === "custom"} isDisabled={isChangingTargetMode} onChange={(event) =>
+								<Switch size="sm" checked={selectedTargetInfo.mode === "custom"} disabled={isChangingTargetMode} onChange={(event) =>
 										handleTargetModeChange(event.target.checked)
 									} />
 							</FormControl>
@@ -4517,7 +4517,7 @@ export const CoreSettingsPage: FC = () => {
 										{(id) => (
 											<Select id={id} size="sm" value={freedomDomainStrategy} onChange={(event) =>
 													handleFreedomDomainStrategyChange(event.target.value)
-												} isDisabled={freedomOutboundIndex === -1} className="max-w-[220px]">
+												} disabled={freedomOutboundIndex === -1} className="max-w-[220px]">
 												<option value="">{t("common.default")}</option>
 												{[
 													"AsIs",
@@ -4562,7 +4562,7 @@ export const CoreSettingsPage: FC = () => {
 												<p className={cn("text-[0.875rem]", warpDomainHelper)}>
 													{t("pages.xray.warpRoutingDesc")}
 												</p>
-												<Button variant="outline" size="sm" leftIcon={<WarpIconStyled />} onClick={onWarpOpen} className="shrink-0">
+												<Button variant="outline" size="sm" onClick={onWarpOpen} className="shrink-0">{<WarpIconStyled />}
 													{warpExists
 														? t("pages.xray.warp.manage")
 														: t("pages.xray.warp.create")}
@@ -4592,7 +4592,7 @@ export const CoreSettingsPage: FC = () => {
 															handleWarpDomainAdd(value);
 														}
 														setWarpOptionValue("");
-													}} isDisabled={availableWarpOptions.length === 0} className="max-w-[240px]">
+													}} disabled={availableWarpOptions.length === 0} className="max-w-[240px]">
 													{availableWarpOptions.map((option) => (
 														<option key={option.value} value={option.value}>
 															{option.label}
@@ -4606,7 +4606,7 @@ export const CoreSettingsPage: FC = () => {
 													<Button size="sm" colorScheme="primary" onClick={() => {
 															handleWarpDomainAdd(warpCustomDomain);
 															setWarpCustomDomain("");
-														}} isDisabled={!warpCustomDomain.trim()}>
+														}} disabled={!warpCustomDomain.trim()}>
 														{t("add")}
 													</Button>
 												</div>
@@ -4624,7 +4624,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsInboundUplink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
+													<Switch id={id} checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4638,7 +4638,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsInboundDownlink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
+													<Switch id={id} checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4652,7 +4652,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsOutboundUplink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
+													<Switch id={id} checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4666,7 +4666,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsOutboundDownlink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
+													<Switch id={id} checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4819,7 +4819,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.log.dnsLog"
 												control={form.control}
 												render={({ field }) => (
-													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
+													<Switch id={id} checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4847,7 +4847,7 @@ export const CoreSettingsPage: FC = () => {
 								]}
 								actions={
 									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
-										<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} size="xs" onClick={addRule}>
+										<Button {...compactActionButtonProps} size="xs" onClick={addRule}>{<AddIconStyled />}
 											{t("pages.xray.rules.add")}
 										</Button>
 									</div>
@@ -4917,14 +4917,14 @@ export const CoreSettingsPage: FC = () => {
 								]}
 								actions={
 									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
-										<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addOutbound}>
+										<Button {...compactActionButtonProps} onClick={addOutbound}>{<AddIconStyled />}
 											{t("pages.xray.outbound.addOutbound")}
 										</Button>
-										<Button leftIcon={<CloudArrowUpIcon className="w-14" />} size="xs" variant="ghost" onClick={onOutboundSubsOpen}>
+										<Button size="xs" variant="ghost" onClick={onOutboundSubsOpen}>{<CloudArrowUpIcon className="w-14" />}
 											{t("pages.xray.outboundSub.title")}
 										</Button>
 										<Menu placement="bottom-end" isLazy>
-											<MenuButton as={Button} leftIcon={<MoreIconStyled />} size="xs" variant="ghost">
+											<MenuButton as={Button} size="xs" variant="ghost">{<MoreIconStyled />}
 												{t("more")}
 											</MenuButton>
 											<Portal>
@@ -4940,13 +4940,13 @@ export const CoreSettingsPage: FC = () => {
 													<MenuItem icon={<MullvadIconStyled />} onClick={() => openMullvad()}>
 														Mullvad
 													</MenuItem>
-													<MenuItem icon={<TorIconStyled />} isDisabled={isApplyingTorProxy} onClick={onTorProxyOpen}>
+													<MenuItem icon={<TorIconStyled />} disabled={isApplyingTorProxy} onClick={onTorProxyOpen}>
 														{t("pages.xray.tor.setup")}
 													</MenuItem>
-													<MenuItem icon={<WindscribeIconStyled />} isDisabled={isApplyingWindscribeProxy} onClick={onWindscribeProxyOpen}>
+													<MenuItem icon={<WindscribeIconStyled />} disabled={isApplyingWindscribeProxy} onClick={onWindscribeProxyOpen}>
 														Windscribe
 													</MenuItem>
-													<MenuItem icon={<PsiphonIconStyled />} isDisabled={isApplyingPsiphonProxy} onClick={onPsiphonProxyOpen}>
+													<MenuItem icon={<PsiphonIconStyled />} disabled={isApplyingPsiphonProxy} onClick={onPsiphonProxyOpen}>
 														Psiphon
 													</MenuItem>
 												</MenuList>
@@ -4956,7 +4956,7 @@ export const CoreSettingsPage: FC = () => {
 								}
 								footerActions={
 									<>
-										<Button leftIcon={<ReloadIconStyled />} size="xs" variant="ghost" onClick={fetchOutboundsTraffic}>
+										<Button size="xs" variant="ghost" onClick={fetchOutboundsTraffic}>{<ReloadIconStyled />}
 											{t("refresh")}
 										</Button>
 										<Button size="xs" variant="ghost" onClick={() =>
@@ -4969,7 +4969,7 @@ export const CoreSettingsPage: FC = () => {
 											}>
 											{t("pages.xray.outbound.resetAll")}
 										</Button>
-										<Button leftIcon={<BoltIconStyled />} {...compactActionButtonProps} isLoading={testingAllOutbounds} isDisabled={isMasterTarget} onClick={testAllOutbounds}>
+										<Button {...compactActionButtonProps} loading={testingAllOutbounds} disabled={isMasterTarget} onClick={testAllOutbounds}>{<BoltIconStyled />}
 											{t("pages.xray.outbound.testAll")}
 										</Button>
 									</>
@@ -5077,7 +5077,7 @@ export const CoreSettingsPage: FC = () => {
 									},
 								]}
 								actions={
-									<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addReverse}>
+									<Button {...compactActionButtonProps} onClick={addReverse}>{<AddIconStyled />}
 										{t("pages.xray.reverse.add")}
 									</Button>
 								}
@@ -5115,7 +5115,7 @@ export const CoreSettingsPage: FC = () => {
 									},
 								]}
 								actions={
-									<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addBalancer}>
+									<Button {...compactActionButtonProps} onClick={addBalancer}>{<AddIconStyled />}
 										{t("pages.xray.balancer.addBalancer")}
 									</Button>
 								}
@@ -5173,7 +5173,7 @@ export const CoreSettingsPage: FC = () => {
 									controlId="dns-enable"
 								>
 									{(id) => (
-										<Switch id={id} isChecked={dnsEnabled} onChange={(e) => {
+										<Switch id={id} checked={dnsEnabled} onChange={(e) => {
 												const checked = e.target.checked;
 												const newConfig = {
 													...form.getValues("config"),
@@ -5268,7 +5268,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableCache"
 													control={form.control}
 													render={({ field }) => (
-														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
+														<Switch id={id} checked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -5285,7 +5285,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableFallback"
 													control={form.control}
 													render={({ field }) => (
-														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
+														<Switch id={id} checked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -5304,7 +5304,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableFallbackIfMatch"
 													control={form.control}
 													render={({ field }) => (
-														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
+														<Switch id={id} checked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -5321,7 +5321,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.enableParallelQuery"
 													control={form.control}
 													render={({ field }) => (
-														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
+														<Switch id={id} checked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -5338,7 +5338,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.useSystemHosts"
 													control={form.control}
 													render={({ field }) => (
-														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
+														<Switch id={id} checked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -5372,7 +5372,7 @@ export const CoreSettingsPage: FC = () => {
 										]}
 										actions={
 											<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
-												<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addDnsServer}>
+												<Button {...compactActionButtonProps} onClick={addDnsServer}>{<AddIconStyled />}
 													{t("pages.xray.dns.add")}
 												</Button>
 												<Button size="xs" variant="outline" onClick={onDnsPresetsOpen}>
@@ -5404,7 +5404,7 @@ export const CoreSettingsPage: FC = () => {
 											},
 										]}
 										actions={
-											<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addFakeDns}>
+											<Button {...compactActionButtonProps} onClick={addFakeDns}>{<AddIconStyled />}
 												{t("pages.xray.fakedns.add")}
 											</Button>
 										}
@@ -5472,13 +5472,11 @@ export const CoreSettingsPage: FC = () => {
 											toolbarActions={
 												<IconButton aria-label={
 														isFullScreen ? "Exit Full Screen" : "Full Screen"
-													} icon={
-														isFullScreen ? (
+													} onClick={toggleFullScreen} size="xs" variant="outline" >{isFullScreen ? (
 															<ExitFullScreenIconStyled />
 														) : (
 															<FullScreenIconStyled />
-														)
-													} onClick={toggleFullScreen} size="xs" variant="outline" />
+														)}</IconButton>
 											}
 											onChange={(value) => {
 												setAdvancedJson(value);
@@ -5499,7 +5497,7 @@ export const CoreSettingsPage: FC = () => {
 			<Suspense fallback={null}>
 				{isOutboundOpen && (
 					<OutboundModal
-						isOpen={isOutboundOpen}
+						open={isOutboundOpen}
 						onClose={handleOutboundModalClose}
 						mode={editingOutboundIndex !== null ? "edit" : "create"}
 						initialOutbound={
@@ -5522,7 +5520,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isRuleOpen && (
 					<RuleModal
-						isOpen={isRuleOpen}
+						open={isRuleOpen}
 						mode={editingRuleIndex !== null ? "edit" : "create"}
 						initialRule={
 							editingRuleIndex !== null
@@ -5549,7 +5547,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isRouteTestOpen && (
 					<RouteTestModal
-						isOpen={isRouteTestOpen}
+						open={isRouteTestOpen}
 						onClose={onRouteTestClose}
 						rule={routeTestRule}
 						target={selectedTarget}
@@ -5560,7 +5558,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isReverseOpen && (
 					<ReverseModal
-						isOpen={isReverseOpen}
+						open={isReverseOpen}
 						onClose={handleReverseModalClose}
 						mode={editingReverseIndex !== null ? "edit" : "create"}
 						initialReverse={editingReverseInitial}
@@ -5580,7 +5578,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isWarpOpen && (
 					<WarpModal
-						isOpen={isWarpOpen}
+						open={isWarpOpen}
 						onClose={handleWarpModalClose}
 						initialOutbound={warpOutbound}
 						onSave={handleWarpSave}
@@ -5589,7 +5587,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isNordOpen && (
 					<NordVPNModal
-						isOpen={isNordOpen}
+						open={isNordOpen}
 						onClose={handleNordModalClose}
 						initialOutbounds={getOutbounds()}
 						onSave={handleNordSave}
@@ -5598,7 +5596,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isMullvadOpen && (
 					<MullvadModal
-						isOpen={isMullvadOpen}
+						open={isMullvadOpen}
 						onClose={onMullvadClose}
 						initialTag={mullvadEditTag}
 						targetID={selectedTarget}
@@ -5610,7 +5608,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isOutboundSubsOpen && (
 					<OutboundSubscriptionsModal
-						isOpen={isOutboundSubsOpen}
+						open={isOutboundSubsOpen}
 						onClose={onOutboundSubsClose}
 						onChanged={async () => {
 							await fetchActiveSubscriptionOutbounds();
@@ -5620,8 +5618,8 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isTorProxyOpen && (
 					<TorProxyModal
-						isOpen={isTorProxyOpen}
-						isLoading={isApplyingTorProxy}
+						open={isTorProxyOpen}
+						loading={isApplyingTorProxy}
 						isMasterTarget={isMasterTarget}
 						existingTags={availableOutboundTags}
 						onClose={onTorProxyClose}
@@ -5630,8 +5628,8 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isWindscribeProxyOpen && (
 					<WindscribeProxyModal
-						isOpen={isWindscribeProxyOpen}
-						isLoading={isApplyingWindscribeProxy}
+						open={isWindscribeProxyOpen}
+						loading={isApplyingWindscribeProxy}
 						isMasterTarget={isMasterTarget}
 						targetID={selectedTarget}
 						existingTags={availableOutboundTags}
@@ -5641,8 +5639,8 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isPsiphonProxyOpen && (
 					<PsiphonProxyModal
-						isOpen={isPsiphonProxyOpen}
-						isLoading={isApplyingPsiphonProxy}
+						open={isPsiphonProxyOpen}
+						loading={isApplyingPsiphonProxy}
 						isMasterTarget={isMasterTarget}
 						targetID={selectedTarget}
 						existingTags={availableOutboundTags}
@@ -5652,7 +5650,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isBalancerOpen && (
 					<BalancerModal
-						isOpen={isBalancerOpen}
+						open={isBalancerOpen}
 						onClose={handleBalancerModalClose}
 						mode={editingBalancerIndex !== null ? "edit" : "create"}
 						initialBalancer={
@@ -5697,7 +5695,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isDnsOpen && (
 					<DnsModal
-						isOpen={isDnsOpen}
+						open={isDnsOpen}
 						onClose={handleDnsModalClose}
 						form={form}
 						setDnsServers={setDnsServers}
@@ -5709,14 +5707,14 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isDnsPresetsOpen && (
 					<DnsPresetsModal
-						isOpen={isDnsPresetsOpen}
+						open={isDnsPresetsOpen}
 						onClose={onDnsPresetsClose}
 						onSelectPreset={applyDnsPreset}
 					/>
 				)}
 				{isFakeDnsOpen && (
 					<FakeDnsModal
-						isOpen={isFakeDnsOpen}
+						open={isFakeDnsOpen}
 						onClose={handleFakeDnsModalClose}
 						form={form}
 						setFakeDns={setFakeDns}
@@ -5728,7 +5726,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 			</Suspense>
 			<ConfirmDialog
-				isOpen={Boolean(deleteWarning)}
+				open={Boolean(deleteWarning)}
 				onClose={() => setDeleteWarning(null)}
 				onConfirm={() => {
 					deleteWarning?.onConfirm();
@@ -5739,7 +5737,7 @@ export const CoreSettingsPage: FC = () => {
 				colorScheme="red"
 			/>
 			<ConfirmDialog
-				isOpen={Boolean(outboundReset)}
+				open={Boolean(outboundReset)}
 				onClose={() => setOutboundReset(null)}
 				onConfirm={confirmOutboundTrafficReset}
 				title={t("pages.xray.outbound.resetTraffic")}

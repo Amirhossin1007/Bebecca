@@ -50,18 +50,18 @@ export const Checkbox = forwardRef<
 	Omit<ComponentPropsWithoutRef<"input">, "size"> & {
 		size?: Size;
 		colorScheme?: string;
-		isChecked?: boolean;
+		checked?: boolean;
 		isIndeterminate?: boolean;
-		isDisabled?: boolean;
+		disabled?: boolean;
 		children?: ReactNode;
 	}
 >(function Checkbox(
 	{
 		size = "md",
 		colorScheme = "blue",
-		isChecked,
+		checked: isChecked,
 		isIndeterminate,
-		isDisabled,
+		disabled: isDisabled,
 		children,
 		className,
 		value,
@@ -164,12 +164,12 @@ export const Switch = forwardRef<
 	Omit<ComponentPropsWithoutRef<"input">, "size"> & {
 		size?: Size;
 		colorScheme?: string;
-		isChecked?: boolean;
-		isDisabled?: boolean;
+		checked?: boolean;
+		disabled?: boolean;
 		children?: ReactNode;
 	}
 >(function Switch(
-	{ size = "md", colorScheme = "primary", isChecked, isDisabled, children, className, disabled, defaultChecked, ...props },
+	{ size = "md", colorScheme = "primary", checked: isChecked, disabled: isDisabled, children, className, disabled, defaultChecked, ...props },
 	ref,
 ) {
 	return (
@@ -257,14 +257,14 @@ export function Radio({
 	value,
 	size = "md",
 	colorScheme = "blue",
-	isDisabled,
+	disabled: isDisabled,
 	children,
 	className,
 }: {
 	value: string;
 	size?: Size;
 	colorScheme?: string;
-	isDisabled?: boolean;
+	disabled?: boolean;
 	children?: ReactNode;
 	className?: string;
 }) {

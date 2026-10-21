@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 
 type RefreshSplitButtonProps = {
 	onRefresh: () => void;
-	isLoading?: boolean;
+	loading?: boolean;
 	/** Current auto-refresh interval in ms; `0` means off. */
 	interval: number;
 	onIntervalChange: (interval: number) => void;
@@ -51,7 +51,7 @@ const ensureKeyframes = () => {
  */
 export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 	onRefresh,
-	isLoading = false,
+	loading: isLoading,
 	interval,
 	onIntervalChange,
 	intervals,

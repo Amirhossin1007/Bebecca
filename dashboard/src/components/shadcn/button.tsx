@@ -81,8 +81,8 @@ export type ButtonProps = Omit<React.ComponentPropsWithoutRef<"button">, "color"
 		asChild?: boolean;
 		as?: React.ElementType;
 		colorScheme?: string;
-		isDisabled?: boolean;
-		isLoading?: boolean;
+		disabled?: boolean;
+		loading?: boolean;
 		leftIcon?: React.ReactElement;
 		rightIcon?: React.ReactElement;
 	};
@@ -101,8 +101,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 			asChild = false,
 			as: As,
 			colorScheme,
-			isDisabled,
-			isLoading,
+			disabled: isDisabled,
+			loading: isLoading,
 			leftIcon,
 			rightIcon,
 			children,

@@ -1673,7 +1673,7 @@ export const IntegrationSettingsPage = () => {
 				mobileMetaLabel: t("settings.subscriptions.serveTLS"),
 				cell: (certificate) => (
 					<div className="flex flex-row items-center gap-2">
-						<Switch aria-label={t("settings.subscriptions.serveTLS")} isChecked={certificate.serve_tls !== false} isDisabled={
+						<Switch aria-label={t("settings.subscriptions.serveTLS")} checked={certificate.serve_tls !== false} disabled={
 								certificateServingMutation.isLoading ||
 								(certificate.serve_tls === false &&
 									certificate.status !== "active" &&
@@ -1705,7 +1705,7 @@ export const IntegrationSettingsPage = () => {
 				label: t("settings.subscriptions.renewAction"),
 				icon: <ArrowPathIcon className="w-16 h-16" />,
 				onClick: () => handleRenewCertificate(certificate.domain),
-				isDisabled:
+				disabled:
 					renewCertificateMutation.isLoading &&
 					renewingDomain === certificate.domain,
 			});
@@ -1765,7 +1765,7 @@ export const IntegrationSettingsPage = () => {
 					},
 				]}
 				actions={
-					<Button size="md" colorScheme="primary" leftIcon={<PlusIcon className="w-16 h-16" />} onClick={() => setCertificateDialogOpen(true)}>
+					<Button size="md" colorScheme="primary" onClick={() => setCertificateDialogOpen(true)}>{<PlusIcon className="w-16 h-16" />}
 						{t("settings.subscriptions.getNewSSL")}
 					</Button>
 				}
@@ -1808,7 +1808,7 @@ export const IntegrationSettingsPage = () => {
 					onSortingChange={setCertificateSorting}
 					showSortMenu={false}
 					getRowId={(certificate) => certificate.domain}
-					isLoading={isSubscriptionLoading}
+					loading={isSubscriptionLoading}
 					emptyState={
 						<p className="text-panel-text-muted">
 							{certificateSearch || certificateFilter !== "all"
@@ -1870,7 +1870,7 @@ export const IntegrationSettingsPage = () => {
 							label: t("settings.ssl.tabTitle"),
 						},
 					]} className="overflow-x-auto overflow-y-hidden max-w-full flex-1 master-settings-tabs" />
-				<Button size="md" colorScheme="primary" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={saveAllMutation.isLoading} isDisabled={!hasUnsavedChanges || saveAllMutation.isLoading} className="shrink-0 self-end md:self-center">
+				<Button size="md" colorScheme="primary" onClick={handleSaveAll} loading={saveAllMutation.isLoading} disabled={!hasUnsavedChanges || saveAllMutation.isLoading} className="shrink-0 self-end md:self-center">{<SaveIcon />}
 					{t("settings.save")}
 				</Button>
 			</div>
@@ -1892,10 +1892,10 @@ export const IntegrationSettingsPage = () => {
 										{t("settings.runtime.description")}
 									</p>
 								</div>
-								<Button variant="outline" size="sm" leftIcon={<ArrowPathIcon className="w-16 h-16" />} onClick={() => {
+								<Button variant="outline" size="sm" onClick={() => {
 										void refetchRuntimeSettings();
 										void refetchPanelSettings();
-									}} isLoading={isRuntimeSettingsLoading || isPanelLoading}>
+									}} loading={isRuntimeSettingsLoading || isPanelLoading}>{<ArrowPathIcon className="w-16 h-16" />}
 									{t("refresh")}
 								</Button>
 							</div>
@@ -1916,7 +1916,7 @@ export const IntegrationSettingsPage = () => {
 													| "key-username",
 											)
 										}
-										isDisabled={saveAllMutation.isLoading || isPanelLoading}
+										disabled={saveAllMutation.isLoading || isPanelLoading}
 									>
 										<option value="username-key">
 											{t("settings.panel.link.usernameKey")}
@@ -1948,7 +1948,7 @@ export const IntegrationSettingsPage = () => {
 												dashboard_path: event.target.value,
 											}))
 										}
-										isDisabled={saveAllMutation.isLoading}
+										disabled={saveAllMutation.isLoading}
 									/>
 									<FormHelperText>
 										{t("settings.runtime.dashboardPathHint")}
@@ -1958,60 +1958,60 @@ export const IntegrationSettingsPage = () => {
 									title={t("settings.runtime.subscriptionReadOnlyTitle")}
 									description={t("settings.runtime.subscriptionReadOnlyHint")}
 									control={
-										<Switch isChecked={runtimeSettingsForm.subscription_read_only} onChange={(event) =>
+										<Switch checked={runtimeSettingsForm.subscription_read_only} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													subscription_read_only: event.target.checked,
 												}))
-											} isDisabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.recordNodeUsage")}
 									description={t("settings.runtime.recordNodeUsageHint")}
 									control={
-										<Switch isChecked={runtimeSettingsForm.record_node_usage} onChange={(event) =>
+										<Switch checked={runtimeSettingsForm.record_node_usage} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													record_node_usage: event.target.checked,
 												}))
-											} isDisabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.recordNodeUserUsages")}
 									description={t("settings.runtime.recordNodeUserUsagesHint")}
 									control={
-										<Switch isChecked={runtimeSettingsForm.record_node_user_usages} onChange={(event) =>
+										<Switch checked={runtimeSettingsForm.record_node_user_usages} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													record_node_user_usages: event.target.checked,
 												}))
-											} isDisabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.userSpeedLimit")}
 									description={t("settings.runtime.userSpeedLimitHint")}
 									control={
-										<Switch isChecked={runtimeSettingsForm.user_speed_limit_enabled} onChange={(event) =>
+										<Switch checked={runtimeSettingsForm.user_speed_limit_enabled} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													user_speed_limit_enabled: event.target.checked,
 												}))
-											} isDisabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.apiDocs")}
 									description={t("settings.runtime.apiDocsHint")}
 									control={
-										<Switch isChecked={runtimeSettingsForm.api_docs_enabled} onChange={(event) =>
+										<Switch checked={runtimeSettingsForm.api_docs_enabled} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													api_docs_enabled: event.target.checked,
 												}))
-											} isDisabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<div className="border border-whiteAlpha-200! rounded-md p-4 [grid-column:auto] md:[grid-column:1_/_-1]">
@@ -2025,13 +2025,13 @@ export const IntegrationSettingsPage = () => {
 											</p>
 										</div>
 										<div className="flex flex-row items-center gap-2 flex-wrap">
-											<Button asChild size="sm" variant="outline" isDisabled={
+											<Button asChild size="sm" variant="outline" disabled={
 													!runtimeSettingsForm.phpmyadmin_enabled ||
 													!phpMyAdminSupported
 												}>
 																<RouterLink to="/phpmyadmin">{t("phpmyadmin.openPanel")}</RouterLink>
 															</Button>
-											<Button size="sm" variant="outline" onClick={openPHPMyAdminExternal} isLoading={isOpeningPHPMyAdminExternal} isDisabled={
+											<Button size="sm" variant="outline" onClick={openPHPMyAdminExternal} loading={isOpeningPHPMyAdminExternal} disabled={
 													!runtimeSettingsForm.phpmyadmin_enabled ||
 													!phpMyAdminSupported
 												}>
@@ -2045,10 +2045,10 @@ export const IntegrationSettingsPage = () => {
 													runtimeSettingsForm.phpmyadmin_enabled
 														? phpMyAdminDisableMutation.mutate()
 														: phpMyAdminEnableMutation.mutate()
-												} isLoading={
+												} loading={
 													phpMyAdminEnableMutation.isLoading ||
 													phpMyAdminDisableMutation.isLoading
-												} isDisabled={
+												} disabled={
 													isPHPMyAdminStatusLoading ||
 													(!runtimeSettingsForm.phpmyadmin_enabled &&
 														!phpMyAdminSupported)
@@ -2077,7 +2077,7 @@ export const IntegrationSettingsPage = () => {
 														phpmyadmin_path: event.target.value,
 													}))
 												}
-												isDisabled={
+												disabled={
 													phpMyAdminEnableMutation.isLoading ||
 													phpMyAdminDisableMutation.isLoading
 												}
@@ -2100,7 +2100,7 @@ export const IntegrationSettingsPage = () => {
 															| "custom",
 													}))
 												}
-												isDisabled={
+												disabled={
 													phpMyAdminEnableMutation.isLoading ||
 													phpMyAdminDisableMutation.isLoading
 												}
@@ -2116,7 +2116,7 @@ export const IntegrationSettingsPage = () => {
 												{t("phpmyadmin.loginModeHint")}
 											</FormHelperText>
 										</FormControl>
-										<FormControl isDisabled={
+										<FormControl disabled={
 												runtimeSettingsForm.phpmyadmin_login_mode !==
 													"custom" ||
 												phpMyAdminEnableMutation.isLoading ||
@@ -2136,7 +2136,7 @@ export const IntegrationSettingsPage = () => {
 												}
 											/>
 										</FormControl>
-										<FormControl isDisabled={
+										<FormControl disabled={
 												runtimeSettingsForm.phpmyadmin_login_mode !==
 													"custom" ||
 												phpMyAdminEnableMutation.isLoading ||
@@ -2196,7 +2196,7 @@ export const IntegrationSettingsPage = () => {
 										control={control}
 										name="use_telegram"
 										render={({ field }) => (
-											<Switch isChecked={field.value} onChange={(event) =>
+											<Switch checked={field.value} onChange={(event) =>
 													field.onChange(event.target.checked)
 												} />
 										)}
@@ -2253,7 +2253,7 @@ export const IntegrationSettingsPage = () => {
 													control={control}
 													name="logs_chat_is_forum"
 													render={({ field }) => (
-														<Switch isChecked={field.value} onChange={(event) =>
+														<Switch checked={field.value} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -2271,7 +2271,7 @@ export const IntegrationSettingsPage = () => {
 										</FormControl>
 									</div>
 									<div className="flex mt-4 master-settings-action-row">
-										<Button size="sm" variant="outline" leftIcon={<SaveIcon />} isLoading={telegramTestMutation.isLoading} onClick={() => telegramTestMutation.mutate()}>
+										<Button size="sm" variant="outline" loading={telegramTestMutation.isLoading} onClick={() => telegramTestMutation.mutate()}>{<SaveIcon />}
 											{t("settings.telegram.testMessage")}
 										</Button>
 									</div>
@@ -2296,7 +2296,7 @@ export const IntegrationSettingsPage = () => {
 													control={control}
 													name="backup_enabled"
 													render={({ field }) => (
-														<Switch isChecked={field.value} onChange={(event) =>
+														<Switch checked={field.value} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -2325,7 +2325,7 @@ export const IntegrationSettingsPage = () => {
 													control={control}
 													name="backup_chat_is_forum"
 													render={({ field }) => (
-														<Switch isChecked={field.value} onChange={(event) =>
+														<Switch checked={field.value} onChange={(event) =>
 																field.onChange(event.target.checked)
 															} />
 													)}
@@ -2369,7 +2369,7 @@ export const IntegrationSettingsPage = () => {
 																	: 1,
 															)
 														}
-														isDisabled={!isTelegramBackupEnabled}
+														disabled={!isTelegramBackupEnabled}
 													/>
 												)}
 											/>
@@ -2384,7 +2384,7 @@ export const IntegrationSettingsPage = () => {
 												render={({ field }) => (
 													<Select
 														{...field}
-														isDisabled={!isTelegramBackupEnabled}
+														disabled={!isTelegramBackupEnabled}
 													>
 														<option value="minutes">
 															{t("settings.telegram.backupIntervalMinutes")}
@@ -2413,9 +2413,9 @@ export const IntegrationSettingsPage = () => {
 										)}
 									</div>
 									<div className="flex mt-4 master-settings-action-row">
-										<Button size="sm" variant="outline" leftIcon={<ArrowUpTrayIcon className="w-16" />} isLoading={telegramBackupMutation.isLoading} onClick={() =>
+										<Button size="sm" variant="outline" loading={telegramBackupMutation.isLoading} onClick={() =>
 												telegramBackupMutation.mutate(telegramBackupScope)
-											}>
+											}>{<ArrowUpTrayIcon className="w-16" />}
 											{t("settings.telegram.backupSendNow")}
 										</Button>
 									</div>
@@ -2522,7 +2522,7 @@ export const IntegrationSettingsPage = () => {
 																		`event_toggles.${encodeToggleKey(event.key)}` as const
 																	}
 																	render={({ field }) => (
-																		<Switch isChecked={Boolean(field.value)} onChange={(e) =>
+																		<Switch checked={Boolean(field.value)} onChange={(e) =>
 																				field.onChange(e.target.checked)
 																			} />
 																	)}
@@ -2538,7 +2538,7 @@ export const IntegrationSettingsPage = () => {
 							</DisabledCard>
 
 							<div className="flex master-settings-action-row">
-								<Button size="md" variant="outline" leftIcon={<RefreshIcon />} onClick={() => refetch()} isDisabled={saveAllMutation.isLoading}>
+								<Button size="md" variant="outline" onClick={() => refetch()} disabled={saveAllMutation.isLoading}>{<RefreshIcon />}
 									{t("refresh")}
 								</Button>
 							</div>
@@ -2567,7 +2567,7 @@ export const IntegrationSettingsPage = () => {
 										</p>
 									</div>
 									<div className="flex flex-row items-center gap-2">
-										<Button variant="outline" size="sm" leftIcon={<RefreshIcon />} type="button" onClick={() => refetchSubscriptionSettings()} isDisabled={saveAllMutation.isLoading}>
+										<Button variant="outline" size="sm" type="button" onClick={() => refetchSubscriptionSettings()} disabled={saveAllMutation.isLoading}>{<RefreshIcon />}
 											{t("refresh")}
 										</Button>
 									</div>
@@ -2777,12 +2777,12 @@ export const IntegrationSettingsPage = () => {
 											<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">{t("settings.subscriptions.routingRulesTitle")}</h2>
 											<p className="text-[0.875rem] text-gray-500">{t("settings.subscriptions.routingRulesDesc")}</p>
 										</div>
-										<Button size="xs" variant="outline" colorScheme="orange" leftIcon={<ArrowPathIcon className="w-14 h-14" />} onClick={() => {
+										<Button size="xs" variant="outline" colorScheme="orange" onClick={() => {
 												setSubscriptionValue("client_routing_rules", DEFAULT_CLIENT_ROUTING_RULES, {
 													shouldDirty: true,
 													shouldValidate: true,
 												});
-											}}>
+											}}>{<ArrowPathIcon className="w-14 h-14" />}
 											{t("settings.subscriptions.resetToDefault")}
 										</Button>
 									</div>
@@ -2813,14 +2813,14 @@ export const IntegrationSettingsPage = () => {
 												/>
 
 												<div className="flex flex-row items-center gap-1 justify-end">
-													<IconButton aria-label="Move Up" icon={<ChevronUpIcon className="w-16" />} size="sm" variant="ghost" isDisabled={index === 0} onClick={() => moveRoutingRule(index, index - 1)} />
-													<IconButton aria-label="Move Down" icon={<HeroChevronDownIcon className="w-16" />} size="sm" variant="ghost" isDisabled={index === routingRules.length - 1} onClick={() => moveRoutingRule(index, index + 1)} />
-													<IconButton aria-label="Delete" icon={<TrashIcon className="w-16" />} size="sm" colorScheme="red" variant="ghost" onClick={() => removeRoutingRule(index)} />
+													<IconButton aria-label="Move Up" size="sm" variant="ghost" disabled={index === 0} onClick={() => moveRoutingRule(index, index - 1)} >{<ChevronUpIcon className="w-16" />}</IconButton>
+													<IconButton aria-label="Move Down" size="sm" variant="ghost" disabled={index === routingRules.length - 1} onClick={() => moveRoutingRule(index, index + 1)} >{<HeroChevronDownIcon className="w-16" />}</IconButton>
+													<IconButton aria-label="Delete" size="sm" colorScheme="red" variant="ghost" onClick={() => removeRoutingRule(index)} >{<TrashIcon className="w-16" />}</IconButton>
 												</div>
 											</div>
 										))}
 										
-										<Button leftIcon={<PlusIcon className="w-16" />} size="sm" variant="outline" onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })} className="self-start">
+										<Button size="sm" variant="outline" onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })} className="self-start">{<PlusIcon className="w-16" />}
 											{t("settings.subscriptions.addRule")}
 										</Button>
 									</div>
@@ -2844,7 +2844,7 @@ export const IntegrationSettingsPage = () => {
 												{t("settings.subscriptions.selectAdmin")}
 											</FormLabel>
 											<Menu>
-												<MenuButton as={Button} variant="outline" size="sm" rightIcon={<ChevronDownIcon />} className="w-full h-[36px] px-3 text-[13px] font-semibold justify-between text-start rounded-md">
+												<MenuButton as={Button} variant="outline" size="sm" className="w-full h-[36px] px-3 text-[13px] font-semibold justify-between text-start rounded-md">
 													<span className="truncate flex-1 min-w-0! text-start">
 														{selectedAdminId && adminOverrides[selectedAdminId]
 															? adminOverrides[selectedAdminId].username
@@ -2852,7 +2852,7 @@ export const IntegrationSettingsPage = () => {
 																	"settings.subscriptions.selectAdminPlaceholder",
 																)}
 													</span>
-												</MenuButton>
+												{<ChevronDownIcon />}</MenuButton>
 												<MenuList className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-w-[calc(100vw_-_48px)]! md:min-w-[280px]! max-w-[calc(100vw_-_48px)] md:max-w-[280px] max-h-[280px] overflow-y-auto shadow-xl border-blackAlpha-200! dark:border-whiteAlpha-200!">
 													<div className="p-2 border-b border-gray-200!">
 														<SearchInput placeholder={t(
@@ -2915,7 +2915,7 @@ export const IntegrationSettingsPage = () => {
 																			{admin.subscription_domain}
 																		</Badge>
 																	) : null}
-																	<Button size="sm" variant="ghost" onClick={() => handleAdminReset(admin.id)} isDisabled={saveAllMutation.isLoading}>
+																	<Button size="sm" variant="ghost" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isLoading}>
 																		{t("reset")}
 																	</Button>
 																</div>
@@ -3262,7 +3262,7 @@ export const IntegrationSettingsPage = () => {
 															<hr className="my-4 w-full border-0 border-b border-panel-border! opacity-60" />
 
 															<div className="flex mt-4 master-settings-action-row">
-																<Button size="md" variant="outline" leftIcon={<RefreshIcon />} onClick={() => handleAdminReset(admin.id)} isDisabled={saveAllMutation.isLoading}>
+																<Button size="md" variant="outline" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isLoading}>{<RefreshIcon />}
 																	{t("settings.subscriptions.resetOverrides")}
 																</Button>
 															</div>
@@ -3279,7 +3279,7 @@ export const IntegrationSettingsPage = () => {
 				)}
 				</div>
 			)}
-			<Modal isOpen={isCertificateDialogOpen} onClose={() => setCertificateDialogOpen(false)} size={certificateForm.provider === "manual" ? "3xl" : "xl"} isCentered scrollBehavior="inside" closeOnOverlayClick={!isCertificateMutationLoading}>
+			<Modal open={isCertificateDialogOpen} onClose={() => setCertificateDialogOpen(false)} size={certificateForm.provider === "manual" ? "3xl" : "xl"} isCentered scrollBehavior="inside" closeOnOverlayClick={!isCertificateMutationLoading}>
 				<ModalOverlay className="bg-blackAlpha-500" />
 				<ModalContent as="form" onSubmit={(event) => {
 						event.preventDefault();
@@ -3288,7 +3288,7 @@ export const IntegrationSettingsPage = () => {
 					<ModalHeader className="px-6 pt-6 pb-2">
 						{t("settings.subscriptions.getNewSSL")}
 					</ModalHeader>
-					<ModalCloseButton isDisabled={isCertificateMutationLoading} />
+					<ModalCloseButton disabled={isCertificateMutationLoading} />
 					<ModalBody className="px-6 pb-6">
 						<div className="flex flex-col items-stretch gap-4">
 							<Alert status="info" variant="left-accent" className="rounded-lg">
@@ -3330,7 +3330,7 @@ export const IntegrationSettingsPage = () => {
 									) : null}
 								</FormControl>
 								{certificateForm.provider !== "manual" ? (
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>{t("settings.subscriptions.email")}</FormLabel>
 										<Input
 											type="email"
@@ -3346,7 +3346,7 @@ export const IntegrationSettingsPage = () => {
 									</FormControl>
 								) : null}
 								{certificateForm.provider === "node" ? (
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>{t("settings.subscriptions.nodeCertificateNode")}</FormLabel>
 										<Select
 											value={certificateForm.nodeId}
@@ -3386,7 +3386,7 @@ export const IntegrationSettingsPage = () => {
 										<FormHelperText>{t("settings.subscriptions.nodeDomainHint")}</FormHelperText>
 									</FormControl>
 								) : null}
-								<FormControl isRequired={certificateForm.provider !== "node"} className={cn(certificateForm.provider === "node" ? "hidden" : "")}>
+								<FormControl required={certificateForm.provider !== "node"} className={cn(certificateForm.provider === "node" ? "hidden" : "")}>
 									<FormLabel>
 										{certificateForm.provider === "manual"
 											? t("settings.subscriptions.domain")
@@ -3415,7 +3415,7 @@ export const IntegrationSettingsPage = () => {
 							</div>
 							{certificateForm.provider === "manual" ? (
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>fullchain.pem</FormLabel>
 										<Textarea dir="ltr" value={certificateForm.fullchain} onChange={(event) =>
 												setCertificateForm((previous) => ({
@@ -3424,7 +3424,7 @@ export const IntegrationSettingsPage = () => {
 												}))
 											} className="font-mono min-h-[180px]" />
 									</FormControl>
-									<FormControl isRequired>
+									<FormControl required>
 										<FormLabel>privkey.pem</FormLabel>
 										<Textarea dir="ltr" value={certificateForm.privateKey} onChange={(event) =>
 												setCertificateForm((previous) => ({
@@ -3438,10 +3438,10 @@ export const IntegrationSettingsPage = () => {
 						</div>
 					</ModalBody>
 					<ModalFooter className="gap-2 border-t border-blackAlpha-200! dark:border-whiteAlpha-200!">
-						<Button size="md" variant="ghost" onClick={() => setCertificateDialogOpen(false)} isDisabled={isCertificateMutationLoading}>
+						<Button size="md" variant="ghost" onClick={() => setCertificateDialogOpen(false)} disabled={isCertificateMutationLoading}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" type="submit" colorScheme="primary" isLoading={isCertificateMutationLoading}>
+						<Button size="md" type="submit" colorScheme="primary" loading={isCertificateMutationLoading}>
 							{certificateForm.provider === "manual"
 								? t("settings.subscriptions.importAction")
 								: t("settings.subscriptions.issueAction")}
@@ -3450,7 +3450,7 @@ export const IntegrationSettingsPage = () => {
 				</ModalContent>
 			</Modal>
 			<ConfirmDialog
-				isOpen={Boolean(certificateAction)}
+				open={Boolean(certificateAction)}
 				onClose={() => setCertificateAction(null)}
 				onConfirm={() => {
 					if (!certificateAction) return;
@@ -3472,7 +3472,7 @@ export const IntegrationSettingsPage = () => {
 						: t("delete")
 				}
 				colorScheme={certificateAction?.type === "revoke" ? "orange" : "red"}
-				isLoading={
+				loading={
 					revokeCertificateMutation.isLoading ||
 					deleteCertificateMutation.isLoading
 				}

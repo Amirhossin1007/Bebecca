@@ -53,10 +53,10 @@ export const HostClientSettingsEditor = ({ value, onChange, usesTLS, protocol, n
 			{usesTLS && (
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 					{TLS_FIELDS.map(([key, label, placeholder]) => (
-						<FormControl key={key} isDisabled={Boolean(error)} className={cn(key === "echConfigList" ? "[grid-column:1_/_-1]" : "")}>
+						<FormControl key={key} disabled={Boolean(error)} className={cn(key === "echConfigList" ? "[grid-column:1_/_-1]" : "")}>
 							<div className="flex flex-row items-center gap-2 justify-between">
 								<FormLabel>{label}</FormLabel>
-								<Button size="xs" variant="ghost" isDisabled={Boolean(error)} onClick={() => update("tlsSettings", key, undefined)}>{t("hostsDialog.clientInherit")}</Button>
+								<Button size="xs" variant="ghost" disabled={Boolean(error)} onClick={() => update("tlsSettings", key, undefined)}>{t("hostsDialog.clientInherit")}</Button>
 							</div>
 							<Input dir="ltr" value={String(object("tlsSettings")[key] ?? "")} placeholder={placeholder} onChange={(event) => update("tlsSettings", key, key === "curvePreferences" ? event.target.value ? event.target.value.split(",").map((item) => item.trim()) : [] : event.target.value.trim())} onBlur={() => {
 									if (key === "curvePreferences" && Array.isArray(object("tlsSettings")[key])) {
@@ -68,7 +68,7 @@ export const HostClientSettingsEditor = ({ value, onChange, usesTLS, protocol, n
 					))}
 					{["minVersion", "maxVersion", "enableSessionResumption", "disableSystemRoot"].map((key) => {
 						const bool = key === "enableSessionResumption" || key === "disableSystemRoot";
-						return <FormControl key={key} isDisabled={Boolean(error)}>
+						return <FormControl key={key} disabled={Boolean(error)}>
 							<FormLabel>{key}</FormLabel>
 							<Select value={String(object("tlsSettings")[key] ?? "")} onChange={(event) => update("tlsSettings", key, event.target.value === "" ? undefined : bool ? event.target.value === "true" : event.target.value)}>
 								<option value="">{t("hostsDialog.clientInherit")}</option>
@@ -78,7 +78,7 @@ export const HostClientSettingsEditor = ({ value, onChange, usesTLS, protocol, n
 					})}
 				</div>
 			)}
-			{protocol === "vmess" && <FormControl isDisabled={Boolean(error)}>
+			{protocol === "vmess" && <FormControl disabled={Boolean(error)}>
 				<FormLabel>VMess Client Encryption</FormLabel>
 				<Select value={String(settings.vmessSecurity ?? "")} onChange={(event) => {
 					const next = { ...settings };
@@ -99,7 +99,7 @@ export const HostClientSettingsEditor = ({ value, onChange, usesTLS, protocol, n
 								<div key={group} className="flex flex-col gap-2">
 									<p className="font-semibold">{group}</p>
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-										{(PERFORMANCE_FIELDS[group] ?? []).map((key) => <FormControl key={key} isDisabled={Boolean(error)}>
+										{(PERFORMANCE_FIELDS[group] ?? []).map((key) => <FormControl key={key} disabled={Boolean(error)}>
 											<FormLabel className="text-[0.875rem]">{key}</FormLabel>
 											{BOOL_FIELDS.has(key) ? <Select value={String(object(group)[key] ?? "")} onChange={(event) => update(group, key, event.target.value === "" ? undefined : event.target.value === "true")}>
 												<option value="">{t("hostsDialog.clientInherit")}</option><option value="true">true</option><option value="false">false</option>

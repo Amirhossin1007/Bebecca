@@ -10,9 +10,9 @@ import { cn } from "lib/cn";
 type FieldContextValue = {
 	id: string;
 	isInvalid?: boolean;
-	isRequired?: boolean;
-	isDisabled?: boolean;
-	isReadOnly?: boolean;
+	required?: boolean;
+	disabled?: boolean;
+	readOnly?: boolean;
 };
 
 const FieldContext = createContext<FieldContextValue | null>(null);
@@ -27,9 +27,9 @@ export function FormControl({
 	as: Tag = "div",
 	id,
 	isInvalid,
-	isRequired,
-	isDisabled,
-	isReadOnly,
+	required: isRequired,
+	disabled: isDisabled,
+	readOnly: isReadOnly,
 	className,
 	children,
 	...props
@@ -37,15 +37,15 @@ export function FormControl({
 	as?: ElementType;
 	id?: string;
 	isInvalid?: boolean;
-	isRequired?: boolean;
-	isDisabled?: boolean;
-	isReadOnly?: boolean;
+	required?: boolean;
+	disabled?: boolean;
+	readOnly?: boolean;
 }) {
 	const generated = useId();
 	const fieldId = id ?? `field-${generated.replace(/:/g, "")}`;
 	return (
 		<FieldContext.Provider
-			value={{ id: fieldId, isInvalid, isRequired, isDisabled, isReadOnly }}
+			value={{ id: fieldId, isInvalid, required: isRequired, disabled: isDisabled, readOnly: isReadOnly }}
 		>
 			<Tag role="group" className={cn("relative w-full", className)} {...props}>
 				{children}
@@ -68,7 +68,7 @@ export function FormLabel({
 			htmlFor={htmlFor ?? field?.id}
 			className={cn(
 				"mb-1 block text-sm font-medium dark:text-panel-text-secondary",
-				field?.isRequired &&
+				field?.required &&
 					"after:ms-1 after:text-red-500 after:content-['*']",
 				className,
 			)}

@@ -156,7 +156,7 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 
 			days.push(
 				<div key={day}>
-					<Button size="xs" variant="ghost" onClick={() => !isPast && handleDateSelect(day)} isDisabled={!!isPast} className={cn("w-full h-[34px] md:h-[28px] min-w-[34px]! md:min-w-[28px]! text-[0.75rem]", isToday ? "font-bold" : "font-normal", isSelected ? "bg-primary-500" : "bg-transparent", isSelected ? "text-white" : (isPast ? (disabledDayColor) : "text-inherit"), isToday ? "border" : "border" + " " + "border-none", todayBorderColor, isPast ? "hover:bg-transparent" : (isSelected ? "hover:bg-primary-600" : (dayHoverBg)), isPast ? "cursor-not-allowed" : "cursor-pointer")}>
+					<Button size="xs" variant="ghost" onClick={() => !isPast && handleDateSelect(day)} disabled={!!isPast} className={cn("w-full h-[34px] md:h-[28px] min-w-[34px]! md:min-w-[28px]! text-[0.75rem]", isToday ? "font-bold" : "font-normal", isSelected ? "bg-primary-500" : "bg-transparent", isSelected ? "text-white" : (isPast ? (disabledDayColor) : "text-inherit"), isToday ? "border" : "border" + " " + "border-none", todayBorderColor, isPast ? "hover:bg-transparent" : (isSelected ? "hover:bg-primary-600" : (dayHoverBg)), isPast ? "cursor-not-allowed" : "cursor-pointer")}>
 						{day}
 					</Button>
 				</div>,
@@ -168,7 +168,7 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 
 	const displayValue = value ? dayjs(value).format("YYYY/MM/DD HH:mm") : "";
 	const mobileTrigger = (
-		<Button type="button" variant="outline" size="sm" isDisabled={disabled} onClick={onOpen} className="w-full h-[32px] justify-start font-normal px-3 bg-transparent dark:bg-transparent">
+		<Button type="button" variant="outline" size="sm" disabled={disabled} onClick={onOpen} className="w-full h-[32px] justify-start font-normal px-3 bg-transparent dark:bg-transparent">
 			<span className={cn("truncate", displayValue ? "text-inherit" : "text-gray-500")}>
 				{displayValue || inputPlaceholder}
 			</span>
@@ -191,8 +191,8 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 				{/* Month Navigation */}
 				<div className="flex justify-between items-center mb-2">
 					<div className="flex flex-row items-center gap-1">
-						<IconButton aria-label={t("dateTimePicker.previousMonth")} size="xs" variant="ghost" icon={<ChevronLeftIcon className="w-14 h-14" />} onClick={prevMonth} className={cn(quickSelectHoverBg)} />
-						<IconButton aria-label={t("dateTimePicker.nextMonth")} size="xs" variant="ghost" icon={<ChevronRightIcon className="w-14 h-14" />} onClick={nextMonth} className={cn(quickSelectHoverBg)} />
+						<IconButton aria-label={t("dateTimePicker.previousMonth")} size="xs" variant="ghost" onClick={prevMonth} className={cn(quickSelectHoverBg)} >{<ChevronLeftIcon className="w-14 h-14" />}</IconButton>
+						<IconButton aria-label={t("dateTimePicker.nextMonth")} size="xs" variant="ghost" onClick={nextMonth} className={cn(quickSelectHoverBg)} >{<ChevronRightIcon className="w-14 h-14" />}</IconButton>
 					</div>
 					<p className="text-[0.75rem] font-semibold">
 						{displayMonth.format("MMMM YYYY")}
@@ -250,7 +250,7 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 		return (
 			<>
 				{mobileTrigger}
-				<Modal isOpen={isOpen} onClose={handleClose}>
+				<Modal open={isOpen} onClose={handleClose}>
 					<ModalOverlay />
 					<ModalContent className={cn(popoverBg, popoverText)}>
 						<ModalHeader className="text-[0.875rem] py-3 pe-12">
@@ -267,7 +267,7 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 	}
 
 	return (
-		<Popover isOpen={isOpen} onOpen={onOpen} onClose={handleClose} placement={isMobile ? "bottom" : "bottom-start"} isLazy strategy="fixed" modifiers={[
+		<Popover open={isOpen} onOpen={onOpen} onClose={handleClose} placement={isMobile ? "bottom" : "bottom-start"} isLazy strategy="fixed" modifiers={[
 				{ name: "preventOverflow", options: { padding: 8 } },
 				{
 					name: "flip",
@@ -277,7 +277,7 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 				},
 			]}>
 			<PopoverTrigger>
-				<Input value={displayValue} placeholder={inputPlaceholder} size="sm" isReadOnly isDisabled={disabled} onClick={onOpen} className="cursor-pointer bg-transparent dark:bg-transparent" />
+				<Input value={displayValue} placeholder={inputPlaceholder} size="sm" readOnly disabled={disabled} onClick={onOpen} className="cursor-pointer bg-transparent dark:bg-transparent" />
 			</PopoverTrigger>
 			<Portal appendToParentPortal={false}>
 				<PopoverContent className={cn("w-[calc(100vw_-_16px)] sm:w-[min(420px,_calc(100vw_-_16px))] md:w-auto max-w-[calc(100vw_-_16px)] max-h-[min(82svh,_640px)] md:max-h-[calc(100vh_-_24px)] overflow-hidden z-[17020] focus:shadow-none", popoverBg, popoverBorderColor, popoverText, "date-time-picker-popover")}>

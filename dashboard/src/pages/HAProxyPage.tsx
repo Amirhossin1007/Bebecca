@@ -279,7 +279,7 @@ export default function HAProxyPage() {
 				config.enabled ? "haproxy.disableAction" : "haproxy.enableAction",
 			),
 			icon: <PowerIcon className="w-16" />,
-			isDisabled: toggleEnabled.isLoading,
+			disabled: toggleEnabled.isLoading,
 			onClick: () => toggleEnabled.mutate({ config, enabled: !config.enabled }),
 		},
 		{
@@ -294,7 +294,7 @@ export default function HAProxyPage() {
 				deleteArmed === config.id ? t("haproxy.confirmDelete") : t("delete"),
 			icon: <TrashIcon className="w-16" />,
 			isDanger: true,
-			isDisabled: remove.isLoading,
+			disabled: remove.isLoading,
 			onClick: () =>
 				deleteArmed === config.id
 					? remove.mutate(config.id)
@@ -319,14 +319,14 @@ export default function HAProxyPage() {
 				]}
 				actions={
 					<div className="flex flex-row items-center gap-2">
-						<Button size="md" variant="outline" leftIcon={<BookOpenIcon className="w-17" />} onClick={() =>
+						<Button size="md" variant="outline" onClick={() =>
 								navigate(
 									`/tutorials?doc=${encodeURIComponent("admin/haproxy/")}`,
 								)
-							}>
+							}>{<BookOpenIcon className="w-17" />}
 							{t("haproxy.tutorial")}
 						</Button>
-						<Button size="md" colorScheme="pink" leftIcon={<PlusIcon className="w-17" />} onClick={openCreate}>
+						<Button size="md" colorScheme="pink" onClick={openCreate}>{<PlusIcon className="w-17" />}
 							{t("haproxy.create")}
 						</Button>
 					</div>
@@ -340,7 +340,7 @@ export default function HAProxyPage() {
 				data={overview.data?.configs ?? []}
 				columns={tableColumns}
 				getRowId={(config) => String(config.id)}
-				isLoading={overview.isLoading}
+				loading={overview.isLoading}
 				loadingRows={5}
 				error={overview.isError ? errorText(overview.error) : undefined}
 				emptyState={
@@ -358,7 +358,7 @@ export default function HAProxyPage() {
 
 			{overview.data && (
 				<HAProxyDialog
-					isOpen={dialog.isOpen}
+					open={dialog.isOpen}
 					onClose={dialog.onClose}
 					draft={draft}
 					setDraft={setDraft}
@@ -375,7 +375,7 @@ export default function HAProxyPage() {
 }
 
 type DialogProps = {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	draft: HAProxyConfig;
 	setDraft: (config: HAProxyConfig) => void;
@@ -388,7 +388,7 @@ type DialogProps = {
 };
 
 function HAProxyDialog({
-	isOpen,
+	open: isOpen,
 	onClose,
 	draft,
 	setDraft,
@@ -545,7 +545,7 @@ function HAProxyDialog({
 
 	return (
 		<>
-			<Modal isOpen={isOpen} onClose={onClose} size="6xl" isCentered scrollBehavior="inside">
+			<Modal open={isOpen} onClose={onClose} size="6xl" isCentered scrollBehavior="inside">
 				<ModalOverlay className="bg-blackAlpha-600" />
 				<ModalContent className="bg-panel-surface border border-panel-border! max-h-[92vh]">
 					<ModalHeader>
@@ -564,7 +564,7 @@ function HAProxyDialog({
 								<TabPanel className="px-0">
 									<div className="flex flex-col items-stretch gap-5">
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-											<FormControl isRequired>
+											<FormControl required>
 												<FormLabel>{t("haproxy.name")}</FormLabel>
 												<Input value={draft.name} onChange={(event) =>
 														setDraft({ ...draft, name: event.target.value })
@@ -573,7 +573,7 @@ function HAProxyDialog({
 											<FormControl>
 												<FormLabel>{t("haproxy.enabled")}</FormLabel>
 												<div className="flex flex-row items-center gap-2 h-[40px]">
-													<Switch isChecked={draft.enabled} onChange={(event) =>
+													<Switch checked={draft.enabled} onChange={(event) =>
 															setDraft({
 																...draft,
 																enabled: event.target.checked,
@@ -618,7 +618,7 @@ function HAProxyDialog({
 													placeholder={t("haproxy.selectNode")}
 												/>
 											</FormControl>
-											<Button variant="solid" size="md" leftIcon={<PlusIcon className="w-16" />} onClick={addTarget} isDisabled={!targetOption}>
+											<Button variant="solid" size="md" onClick={addTarget} disabled={!targetOption}>{<PlusIcon className="w-16" />}
 												{t("haproxy.addTarget")}
 											</Button>
 										</div>
@@ -685,7 +685,7 @@ function HAProxyDialog({
 															setArchive(event.target.files?.[0] ?? null)
 														} className="p-1" />
 												</FormControl>
-												<Button variant="solid" size="md" leftIcon={<ArrowUpTrayIcon className="w-16" />} isDisabled={!archive} isLoading={upload.isLoading} onClick={() => upload.mutate()}>
+												<Button variant="solid" size="md" disabled={!archive} loading={upload.isLoading} onClick={() => upload.mutate()}>{<ArrowUpTrayIcon className="w-16" />}
 													{t("upload")}
 												</Button>
 											</div>
@@ -707,7 +707,7 @@ function HAProxyDialog({
 											<p className="text-panel-text-secondary">
 												{t("haproxy.editorHelp")}
 											</p>
-											<Button variant="solid" size="sm" onClick={() => previewMutation.mutate(draft)} isLoading={previewMutation.isLoading}>
+											<Button variant="solid" size="sm" onClick={() => previewMutation.mutate(draft)} loading={previewMutation.isLoading}>
 												{t("refresh")}
 											</Button>
 										</div>
@@ -742,26 +742,26 @@ function HAProxyDialog({
 						<Button size="md" variant="ghost" onClick={onClose}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" colorScheme="pink" onClick={onSave} isLoading={isSaving} isDisabled={!draft.name.trim() || draft.targets.length === 0}>
+						<Button size="md" colorScheme="pink" onClick={onSave} loading={isSaving} disabled={!draft.name.trim() || draft.targets.length === 0}>
 							{t("save")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
 			</Modal>
-			<Modal isOpen={Boolean(cloneSource)} onClose={() => !cloningNodeID && setCloneSource(null)} size="lg" isCentered>
+			<Modal open={Boolean(cloneSource)} onClose={() => !cloningNodeID && setCloneSource(null)} size="lg" isCentered>
 				<ModalOverlay className="bg-blackAlpha-600" />
 				<ModalContent className="bg-panel-surface border border-panel-border!">
 					<ModalHeader>{t("haproxy.cloneDialogTitle")}</ModalHeader>
-					<ModalCloseButton isDisabled={Boolean(cloningNodeID)} />
+					<ModalCloseButton disabled={Boolean(cloningNodeID)} />
 					<ModalBody>
 						<div className="flex flex-col items-stretch gap-4">
-							<Checkbox isChecked={randomizeTemplates} onChange={(event) =>
+							<Checkbox checked={randomizeTemplates} onChange={(event) =>
 									setRandomizeTemplates(event.target.checked)
 								}>
 								{t("haproxy.randomizeTemplates")}
 							</Checkbox>
 							<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
-							<Checkbox isChecked={cloneAllNodes} onChange={(event) => setCloneAllNodes(event.target.checked)}>
+							<Checkbox checked={cloneAllNodes} onChange={(event) => setCloneAllNodes(event.target.checked)}>
 								{t("haproxy.cloneAllAvailableNodes")}
 							</Checkbox>
 							{!cloneAllNodes && (
@@ -771,7 +771,7 @@ function HAProxyDialog({
 									</p>
 									<div className="flex flex-col gap-2 items-stretch">
 										{cloneCandidates.map((node) => (
-											<Checkbox key={node.id} isChecked={cloneNodeIDs.has(node.id)} onChange={(event) =>
+											<Checkbox key={node.id} checked={cloneNodeIDs.has(node.id)} onChange={(event) =>
 													setCloneNodeIDs((current) => {
 														const next = new Set(current);
 														event.target.checked
@@ -790,10 +790,10 @@ function HAProxyDialog({
 						</div>
 					</ModalBody>
 					<ModalFooter className="gap-3">
-						<Button size="md" variant="ghost" onClick={() => setCloneSource(null)} isDisabled={Boolean(cloningNodeID)}>
+						<Button size="md" variant="ghost" onClick={() => setCloneSource(null)} disabled={Boolean(cloningNodeID)}>
 							{t("cancel")}
 						</Button>
-						<Button size="md" colorScheme="pink" leftIcon={<DocumentDuplicateIcon className="w-16" />} isLoading={Boolean(cloningNodeID)} isDisabled={
+						<Button size="md" colorScheme="pink" loading={Boolean(cloningNodeID)} disabled={
 								!cloneSource ||
 								cloneCandidates.length === 0 ||
 								(!cloneAllNodes && cloneNodeIDs.size === 0)
@@ -806,7 +806,7 @@ function HAProxyDialog({
 										? cloneCandidates.map((node) => node.id)
 										: [...cloneNodeIDs],
 								)
-							}>
+							}>{<DocumentDuplicateIcon className="w-16" />}
 							{t("haproxy.clone")}
 						</Button>
 					</ModalFooter>
@@ -866,19 +866,17 @@ function TargetEditor({
 					</p>
 				</div>
 				<div className="flex flex-col md:flex-row md:items-center gap-3">
-					<Button size="sm" variant="outline" leftIcon={<DocumentDuplicateIcon className="w-16" />} onClick={onClone} isLoading={isCloning} isDisabled={!canClone}>
+					<Button size="sm" variant="outline" onClick={onClone} loading={isCloning} disabled={!canClone}>{<DocumentDuplicateIcon className="w-16" />}
 						{t("haproxy.clone")}
 					</Button>
 					<IconButton aria-label={t(
 							expanded ? "haproxy.collapseSettings" : "haproxy.expandSettings",
-						)} icon={
-							expanded ? (
+						)} size="sm" variant="ghost" onClick={() => onExpandedChange(!expanded)} >{expanded ? (
 								<ChevronUpIcon className="w-17" />
 							) : (
 								<ChevronDownIcon className="w-17" />
-							)
-						} size="sm" variant="ghost" onClick={() => onExpandedChange(!expanded)} />
-					<IconButton size="md" aria-label={t("haproxy.removeTarget")} icon={<TrashIcon className="w-17" />} variant="ghost" colorScheme="red" onClick={onRemove} />
+							)}</IconButton>
+					<IconButton size="md" aria-label={t("haproxy.removeTarget")} variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-17" />}</IconButton>
 				</div>
 			</div>
 			<Collapse in={expanded} animateOpacity>
@@ -909,7 +907,7 @@ function TargetEditor({
 							}
 						/>
 					))}
-					<Button size="md" variant="outline" leftIcon={<PlusIcon className="w-16" />} onClick={() =>
+					<Button size="md" variant="outline" onClick={() =>
 							onChange({
 								...target,
 								listeners: [
@@ -917,7 +915,7 @@ function TargetEditor({
 									emptyListener(target.listeners.length),
 								],
 							})
-						}>
+						}>{<PlusIcon className="w-16" />}
 						{t("haproxy.addListener")}
 					</Button>
 				</div>
@@ -1014,14 +1012,12 @@ function ListenerEditor({
 				<div className="flex flex-row items-center gap-2">
 					<IconButton aria-label={t(
 							expanded ? "haproxy.collapseSettings" : "haproxy.expandSettings",
-						)} icon={
-							expanded ? (
+						)} size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} >{expanded ? (
 								<ChevronUpIcon className="w-16" />
 							) : (
 								<ChevronDownIcon className="w-16" />
-							)
-						} size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} />
-					<IconButton aria-label={t("haproxy.removeListener")} icon={<TrashIcon className="w-16" />} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} />
+							)}</IconButton>
+					<IconButton aria-label={t("haproxy.removeListener")} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-16" />}</IconButton>
 				</div>
 			</div>
 			<Collapse in={expanded} animateOpacity>
@@ -1050,7 +1046,7 @@ function ListenerEditor({
 						</FormControl>
 					</div>
 					<div className="flex flex-row items-center gap-2 my-3">
-						<Switch isChecked={listener.accept_proxy_protocol} onChange={(event) =>
+						<Switch checked={listener.accept_proxy_protocol} onChange={(event) =>
 								onChange({
 									...listener,
 									accept_proxy_protocol: event.target.checked,
@@ -1063,13 +1059,13 @@ function ListenerEditor({
 						<FormLabel>{t("haproxy.compatibleInbound")}</FormLabel>
 						<div className="flex flex-col lg:flex-row lg:items-center gap-3">
 							<PanelSelect showSearch value={candidateOption} onValueChange={(value) => setCandidateOption(String(value))} options={candidateOptions} placeholder={t("haproxy.selectInbound")} className="flex-1" />
-							<Button variant="solid" size="md" onClick={addCandidate} isDisabled={
+							<Button variant="solid" size="md" onClick={addCandidate} disabled={
 									!candidateOption ||
 									candidateOptions.some(
 										(option) =>
 											option.value === candidateOption && option.disabled,
 									)
-								} leftIcon={<PlusIcon className="w-16" />}>
+								}>{<PlusIcon className="w-16" />}
 								{t("haproxy.addInbound")}
 							</Button>
 							<Button size="md" variant="outline" onClick={() =>
@@ -1122,13 +1118,13 @@ function ListenerEditor({
 								{t("haproxy.websitesHelp")}
 							</p>
 						</div>
-						<Button variant="solid" size="sm" leftIcon={<PlusIcon className="w-15" />} onClick={() =>
+						<Button variant="solid" size="sm" onClick={() =>
 								onChange({
 									...listener,
 									sites: [...sites, emptySite(sites.length)],
 									site: undefined,
 								})
-							}>
+							}>{<PlusIcon className="w-15" />}
 							{t("haproxy.addWebsite")}
 						</Button>
 					</div>
@@ -1205,7 +1201,7 @@ function SiteEditor({
 		<div className="border border-panel-border! rounded-xl p-3">
 			<div className={cn("flex flex-col md:flex-row justify-between md:items-center gap-3", site.enabled && expanded ? "mb-3" : "mb-0")}>
 				<div className="flex flex-row items-center gap-2">
-					<Switch isChecked={site.enabled} onChange={(event) =>
+					<Switch checked={site.enabled} onChange={(event) =>
 							onChange({
 								...site,
 								enabled: event.target.checked,
@@ -1223,7 +1219,7 @@ function SiteEditor({
 				</div>
 				<div className="flex flex-row items-center gap-4">
 					{isFirst && (
-						<Checkbox isChecked={Boolean(site.is_default)} isDisabled={!site.enabled || defaultUnavailable} title={
+						<Checkbox checked={Boolean(site.is_default)} disabled={!site.enabled || defaultUnavailable} title={
 								defaultUnavailable ? t("haproxy.defaultAlreadyUsed") : undefined
 							} onChange={(event) =>
 								onChange({ ...site, is_default: event.target.checked })
@@ -1235,14 +1231,12 @@ function SiteEditor({
 							site.enabled && expanded
 								? "haproxy.collapseSettings"
 								: "haproxy.expandSettings",
-						)} icon={
-							site.enabled && expanded ? (
+						)} size="sm" variant="ghost" disabled={!site.enabled} onClick={() => setExpanded(!expanded)} >{site.enabled && expanded ? (
 								<ChevronUpIcon className="w-15" />
 							) : (
 								<ChevronDownIcon className="w-15" />
-							)
-						} size="sm" variant="ghost" isDisabled={!site.enabled} onClick={() => setExpanded(!expanded)} />
-					<IconButton aria-label={t("haproxy.removeWebsite")} icon={<TrashIcon className="w-15" />} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} />
+							)}</IconButton>
+					<IconButton aria-label={t("haproxy.removeWebsite")} size="sm" variant="ghost" colorScheme="red" onClick={onRemove} >{<TrashIcon className="w-15" />}</IconButton>
 				</div>
 			</div>
 			<Collapse in={site.enabled && expanded} animateOpacity>
@@ -1254,7 +1248,7 @@ function SiteEditor({
 									onChange({ ...site, name: event.target.value })
 								} />
 						</FormControl>
-						<FormControl isRequired={
+						<FormControl required={
 								(tlsMode !== "none" && !site.is_default) || hostnameRequired
 							}>
 							<FormLabel>{t("haproxy.hostname")}</FormLabel>
@@ -1282,7 +1276,7 @@ function SiteEditor({
 						</FormControl>
 					</div>
 					{tlsMode === "managed" && (
-						<FormControl isRequired>
+						<FormControl required>
 							<FormLabel>{t("haproxy.managedCertificate")}</FormLabel>
 							<PanelSelect
 								showSearch
@@ -1302,13 +1296,13 @@ function SiteEditor({
 					)}
 					{tlsMode === "custom" && (
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-							<FormControl isRequired>
+							<FormControl required>
 								<FormLabel>{t("haproxy.certificatePath")}</FormLabel>
 								<Input value={site.certificate_path || ""} placeholder="/etc/ssl/fullchain.pem" onChange={(event) =>
 										onChange({ ...site, certificate_path: event.target.value })
 									} />
 							</FormControl>
-							<FormControl isRequired>
+							<FormControl required>
 								<FormLabel>{t("haproxy.privateKeyPath")}</FormLabel>
 								<Input value={site.private_key_path || ""} placeholder="/etc/ssl/privkey.pem" onChange={(event) =>
 										onChange({ ...site, private_key_path: event.target.value })
@@ -1492,7 +1486,7 @@ function RouteEditor({
 							127.0.0.1:{route.backend_port} · {route.protocol}
 						</p>
 					</div>
-					<IconButton aria-label={t("haproxy.removeRoute")} icon={<TrashIcon className="w-15" />} size="sm" variant="ghost" onClick={onRemove} />
+					<IconButton aria-label={t("haproxy.removeRoute")} size="sm" variant="ghost" onClick={onRemove} >{<TrashIcon className="w-15" />}</IconButton>
 				</div>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
 					<FormControl>
@@ -1519,7 +1513,7 @@ function RouteEditor({
 							}))}
 						/>
 					</FormControl>
-					<FormControl isDisabled={values.length <= 1}>
+					<FormControl disabled={values.length <= 1}>
 						<FormLabel>{t("haproxy.matchValue")}</FormLabel>
 						{values.length > 1 ? (
 							<PanelSelect
@@ -1578,13 +1572,13 @@ function RouteEditor({
 					/>
 				</FormControl>
 				<div className="flex flex-row gap-2 items-end">
-					<FormControl isDisabled={route.match_type === "default"}>
+					<FormControl disabled={route.match_type === "default"}>
 						<FormLabel>{t("haproxy.matchValue")}</FormLabel>
 						<Input size="sm" value={route.match_value || ""} onChange={(event) =>
 								onChange({ ...route, match_value: event.target.value })
 							} />
 					</FormControl>
-					<IconButton aria-label={t("haproxy.removeRoute")} icon={<TrashIcon className="w-15" />} size="sm" variant="ghost" onClick={onRemove} />
+					<IconButton aria-label={t("haproxy.removeRoute")} size="sm" variant="ghost" onClick={onRemove} >{<TrashIcon className="w-15" />}</IconButton>
 				</div>
 			</div>
 		</div>
@@ -1652,7 +1646,7 @@ function AdvancedSettings({
 					{t("haproxy.healthChecks")}
 				</h2>
 				<div className="flex flex-row items-center gap-2 mb-4">
-					<Switch isChecked={settings.health_check} onChange={(event) => update("health_check", event.target.checked)} />
+					<Switch checked={settings.health_check} onChange={(event) => update("health_check", event.target.checked)} />
 					<p>{t("haproxy.healthCheck")}</p>
 				</div>
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1685,13 +1679,13 @@ function AdvancedSettings({
 						/>
 					</FormControl>
 					<div className="flex flex-row items-center gap-2">
-						<Switch isChecked={settings.tcp_keep_alive} onChange={(event) =>
+						<Switch checked={settings.tcp_keep_alive} onChange={(event) =>
 								update("tcp_keep_alive", event.target.checked)
 							} />
 						<p>{t("haproxy.tcpKeepAlive")}</p>
 					</div>
 					<div className="flex flex-row items-center gap-2">
-						<Switch isChecked={settings.dont_log_null} onChange={(event) =>
+						<Switch checked={settings.dont_log_null} onChange={(event) =>
 								update("dont_log_null", event.target.checked)
 							} />
 						<p>{t("haproxy.dontLogNull")}</p>

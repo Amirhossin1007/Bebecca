@@ -532,7 +532,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 								}
 								const parsed = Number(value);
 								setSelectedAdminId(Number.isNaN(parsed) ? null : parsed);
-							}} isDisabled={adminSelectOptions.length === 0} className="md:min-w-[200px]!">
+							}} disabled={adminSelectOptions.length === 0} className="md:min-w-[200px]!">
 							{adminSelectOptions.map((option) => (
 								<option key={option.value} value={option.value}>
 									{option.label}

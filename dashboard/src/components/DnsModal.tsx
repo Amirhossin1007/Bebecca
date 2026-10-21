@@ -46,7 +46,7 @@ type DnsConfig = {
 type DnsServerConfig = DnsConfig | string;
 
 interface DnsModalProps {
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	form: UseFormReturn<any>;
 	setDnsServers: (data: DnsServerConfig[]) => void;
@@ -76,7 +76,7 @@ const joinCsvList = (value?: string[] | null) =>
 	Array.isArray(value) ? value.join(",") : "";
 
 export const DnsModal: FC<DnsModalProps> = ({
-	isOpen,
+	open: isOpen,
 	onClose,
 	form,
 	setDnsServers,
@@ -175,7 +175,7 @@ export const DnsModal: FC<DnsModalProps> = ({
 	});
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
+		<Modal open={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
 			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
@@ -269,7 +269,7 @@ export const DnsModal: FC<DnsModalProps> = ({
 											name="skipFallback"
 											control={modalForm.control}
 											render={({ field }) => (
-												<Switch isChecked={field.value} onChange={(event) =>
+												<Switch checked={field.value} onChange={(event) =>
 														field.onChange(event.target.checked)
 													} />
 											)}
@@ -283,7 +283,7 @@ export const DnsModal: FC<DnsModalProps> = ({
 											name="disableCache"
 											control={modalForm.control}
 											render={({ field }) => (
-												<Switch isChecked={field.value} onChange={(event) =>
+												<Switch checked={field.value} onChange={(event) =>
 														field.onChange(event.target.checked)
 													} />
 											)}
@@ -297,7 +297,7 @@ export const DnsModal: FC<DnsModalProps> = ({
 											name="finalQuery"
 											control={modalForm.control}
 											render={({ field }) => (
-												<Switch isChecked={field.value} onChange={(event) =>
+												<Switch checked={field.value} onChange={(event) =>
 														field.onChange(event.target.checked)
 													} />
 											)}

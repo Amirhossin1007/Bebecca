@@ -88,7 +88,7 @@ export const CompactTextWithCopy: React.FC<{
 			<CompactPopover triggerLabel={display} title={label}>
 				<div className="flex flex-row items-start gap-2">
 					<Tooltip label={hasCopied ? "Copied" : "Copy"} hasArrow>
-						<IconButton variant="solid" aria-label={hasCopied ? "Copied" : "Copy"} size="sm" icon={<CopyIcon />} onClick={onCopy} />
+						<IconButton variant="solid" aria-label={hasCopied ? "Copied" : "Copy"} size="sm" onClick={onCopy} >{<CopyIcon />}</IconButton>
 					</Tooltip>
 					<p className="break-all pt-1.5">{text}</p>
 				</div>

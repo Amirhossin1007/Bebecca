@@ -55,7 +55,7 @@ export default function ErrorsPage() {
 				}))}
 				actions={
 					canSeeGlobal ? (
-						<Button variant="solid" size="sm" onClick={() => query.refetch()} isLoading={query.isFetching}>
+						<Button variant="solid" size="sm" onClick={() => query.refetch()} loading={query.isFetching}>
 							{t("diagnostics.refresh")}
 						</Button>
 					) : undefined

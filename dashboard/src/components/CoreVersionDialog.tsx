@@ -12,7 +12,7 @@ import { useQuery } from "react-query";
 import { fetch as apiFetch } from "service/http";
 
 type CoreVersionDialogProps = {
-	isOpen: boolean;
+	open: boolean;
 	title: string;
 	description?: string;
 	currentVersion?: string | null;
@@ -25,7 +25,7 @@ type CoreVersionDialogProps = {
 const RELEASE_LIMIT = 10;
 
 export const CoreVersionDialog = ({
-	isOpen,
+	open: isOpen,
 	title,
 	description,
 	currentVersion,
@@ -93,7 +93,7 @@ export const CoreVersionDialog = ({
 
 	return (
 		<AppDialog
-			isOpen={isOpen}
+			open={isOpen}
 			onClose={onClose}
 			isCentered
 			size="lg"
@@ -103,7 +103,7 @@ export const CoreVersionDialog = ({
 					<Button size="md" variant="ghost" onClick={onClose} className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting}>
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} loading={isSubmitting}>
 						{t("nodes.coreVersionDialog.confirmUpdate")}
 					</Button>
 				</>
@@ -129,7 +129,7 @@ export const CoreVersionDialog = ({
 									version && releaseOptions.includes(version) ? version : ""
 								}
 								onChange={handleSelectChange}
-								isDisabled={isLoadingReleases || releaseOptions.length === 0}
+								disabled={isLoadingReleases || releaseOptions.length === 0}
 								size="sm"
 							>
 								{releaseOptions.map((item) => (
@@ -152,7 +152,7 @@ export const CoreVersionDialog = ({
 								</p>
 							)}
 						</FormControl>
-						<FormControl isRequired>
+						<FormControl required>
 							<FormLabel>
 								{t("nodes.coreVersionDialog.customVersionLabel")}
 							</FormLabel>
@@ -164,7 +164,7 @@ export const CoreVersionDialog = ({
 							</p>
 						</FormControl>
 						{allowPersist && (
-							<Checkbox isChecked={persist} onChange={(event) => setPersist(event.target.checked)}>
+							<Checkbox checked={persist} onChange={(event) => setPersist(event.target.checked)}>
 								{t("nodes.coreVersionDialog.persistExecutable")}
 							</Checkbox>
 						)}

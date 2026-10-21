@@ -39,8 +39,8 @@ type InputProps = Omit<ComponentPropsWithoutRef<"input">, "size"> & {
 	size?: FieldSize;
 	variant?: "outline" | "unstyled";
 	isInvalid?: boolean;
-	isDisabled?: boolean;
-	isReadOnly?: boolean;
+	disabled?: boolean;
+	readOnly?: boolean;
 };
 
 /** Chakra's Input, on the panel tokens. It takes id, required and invalid state from FormControl. */
@@ -49,8 +49,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 		size = "md",
 		variant = "outline",
 		isInvalid,
-		isDisabled,
-		isReadOnly,
+		disabled: isDisabled,
+		readOnly: isReadOnly,
 		className,
 		id,
 		required,
@@ -67,9 +67,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 		<input
 			ref={ref}
 			id={id ?? field?.id}
-			required={required ?? field?.isRequired}
-			disabled={disabled ?? isDisabled ?? field?.isDisabled}
-			readOnly={readOnly ?? isReadOnly ?? field?.isReadOnly}
+			required={required ?? field?.required}
+			disabled={disabled ?? isDisabled ?? field?.disabled}
+			readOnly={readOnly ?? isReadOnly ?? field?.readOnly}
 			aria-invalid={invalid || undefined}
 			className={cn(
 				FIELD_BASE,
@@ -88,12 +88,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 type TextareaProps = ComponentPropsWithoutRef<"textarea"> & {
 	size?: FieldSize;
 	isInvalid?: boolean;
-	isDisabled?: boolean;
-	isReadOnly?: boolean;
+	disabled?: boolean;
+	readOnly?: boolean;
 };
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-	{ size = "md", isInvalid, isDisabled, isReadOnly, className, id, required, disabled, readOnly, ...props },
+	{ size = "md", isInvalid, disabled: isDisabled, readOnly: isReadOnly, className, id, required, disabled, readOnly, ...props },
 	ref,
 ) {
 	const field = useFormControl();
@@ -102,9 +102,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 		<textarea
 			ref={ref}
 			id={id ?? field?.id}
-			required={required ?? field?.isRequired}
-			disabled={disabled ?? isDisabled ?? field?.isDisabled}
-			readOnly={readOnly ?? isReadOnly ?? field?.isReadOnly}
+			required={required ?? field?.required}
+			disabled={disabled ?? isDisabled ?? field?.disabled}
+			readOnly={readOnly ?? isReadOnly ?? field?.readOnly}
 			aria-invalid={invalid || undefined}
 			className={cn(
 				FIELD_BASE,
@@ -124,11 +124,11 @@ export const Select = forwardRef<
 	Omit<ComponentPropsWithoutRef<"select">, "size"> & {
 		size?: FieldSize;
 		isInvalid?: boolean;
-		isDisabled?: boolean;
+		disabled?: boolean;
 		placeholder?: string;
 	}
 >(function Select(
-	{ size = "md", isInvalid, isDisabled, placeholder, className, children, id, required, disabled, ...props },
+	{ size = "md", isInvalid, disabled: isDisabled, placeholder, className, children, id, required, disabled, ...props },
 	ref,
 ) {
 	const field = useFormControl();
@@ -138,8 +138,8 @@ export const Select = forwardRef<
 			<select
 				ref={ref}
 				id={id ?? field?.id}
-				required={required ?? field?.isRequired}
-				disabled={disabled ?? isDisabled ?? field?.isDisabled}
+				required={required ?? field?.required}
+				disabled={disabled ?? isDisabled ?? field?.disabled}
 				aria-invalid={invalid || undefined}
 				className={cn(FIELD_BASE, FIELD_SIZE[size], "appearance-none pe-9", invalid && INVALID, className)}
 				{...props}
@@ -238,7 +238,7 @@ type NumberInputContextValue = {
 	emit: (text: string) => void;
 	bump: (direction: 1 | -1) => void;
 	commit: () => void;
-	isDisabled: boolean;
+	disabled?: boolean;
 	size: FieldSize;
 	isInvalid?: boolean;
 };
@@ -259,7 +259,7 @@ export function NumberInput({
 	max,
 	step = 1,
 	precision,
-	isDisabled = false,
+	disabled: isDisabled,
 	clampValueOnBlur = true,
 	allowMouseWheel = false,
 	isInvalid,
@@ -274,7 +274,7 @@ export function NumberInput({
 	max?: number;
 	step?: number;
 	precision?: number;
-	isDisabled?: boolean;
+	disabled?: boolean;
 	clampValueOnBlur?: boolean;
 	allowMouseWheel?: boolean;
 	isInvalid?: boolean;
@@ -322,7 +322,7 @@ export function NumberInput({
 	};
 
 	return (
-		<NumberInputContext.Provider value={{ value, emit, bump, commit, isDisabled, size, isInvalid }}>
+		<NumberInputContext.Provider value={{ value, emit, bump, commit, disabled: isDisabled, size, isInvalid }}>
 			{/* biome-ignore lint/a11y/useSemanticElements: field group: role=group is the hook the group's styles use for the stepper hover reveal */}
 			<div ref={rootRef} role="group" className={cn("relative w-full", className)}>
 				{children}
@@ -342,7 +342,7 @@ export const NumberInputField = forwardRef<HTMLInputElement, ComponentPropsWitho
 				type="text"
 				inputMode="decimal"
 				value={ctx.value}
-				disabled={ctx.isDisabled}
+				disabled={ctx.disabled}
 				onChange={(event) => ctx.emit(event.target.value)}
 				onBlur={(event) => {
 					ctx.commit();
@@ -368,7 +368,7 @@ export function NumberIncrementStepper({ className, ...props }: ComponentPropsWi
 		<button
 			type="button"
 			aria-label="Increase"
-			disabled={ctx.isDisabled}
+			disabled={ctx.disabled}
 			onClick={() => ctx.bump(1)}
 			className={cn("flex flex-1 items-center justify-center text-panel-text-secondary hover:bg-panel-elevated", className)}
 			{...props}
@@ -384,7 +384,7 @@ export function NumberDecrementStepper({ className, ...props }: ComponentPropsWi
 		<button
 			type="button"
 			aria-label="Decrease"
-			disabled={ctx.isDisabled}
+			disabled={ctx.disabled}
 			onClick={() => ctx.bump(-1)}
 			className={cn("flex flex-1 items-center justify-center text-panel-text-secondary hover:bg-panel-elevated", className)}
 			{...props}

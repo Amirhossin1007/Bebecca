@@ -36,7 +36,7 @@ export const AnimatedSubmitButton: FC<AnimatedSubmitButtonProps> = ({
 	containerProps,
 	h = "44px",
 	idleContent,
-	isDisabled,
+	disabled: isDisabled,
 	px,
 	status,
 	successContent,
@@ -83,7 +83,7 @@ export const AnimatedSubmitButton: FC<AnimatedSubmitButtonProps> = ({
 				initial={false}
 				style={{ display: "flex", justifyContent: "center", width: targetWidth }}
 			>
-				<Button variant="solid" size="md" aria-disabled={Boolean(isDisabled || isFeedbackState)} isDisabled={Boolean(isDisabled)} {...buttonProps} style={{ height: h, minHeight: h, paddingInline: px === undefined ? (status === "success" ? "1rem" : isCompact ? "0" : "2rem") : typeof px === "number" ? `${px * 0.25}rem` : px }} className={cn(cn("text-white overflow-hidden w-full disabled:cursor-not-allowed disabled:shadow-none", buttonBg, status === "idle" ? "rounded-[8px]" : "rounded-[999px]", isDisabled ? "cursor-not-allowed" : "cursor-pointer", isDisabled && status === "idle" ? "opacity-65" : "opacity-100", isFeedbackState ? "pointer-events-none" : "pointer-events-auto", buttonHoverBg, status === "idle" ? "active:[transform:scale(0.97)]" : "active:[transform:none]", isDisabled && status === "idle" ? "disabled:opacity-65" : "disabled:opacity-100"))}>
+				<Button variant="solid" size="md" aria-disabled={Boolean(isDisabled || isFeedbackState)} disabled={Boolean(isDisabled)} {...buttonProps} style={{ height: h, minHeight: h, paddingInline: px === undefined ? (status === "success" ? "1rem" : isCompact ? "0" : "2rem") : typeof px === "number" ? `${px * 0.25}rem` : px }} className={cn(cn("text-white overflow-hidden w-full disabled:cursor-not-allowed disabled:shadow-none", buttonBg, status === "idle" ? "rounded-[8px]" : "rounded-[999px]", isDisabled ? "cursor-not-allowed" : "cursor-pointer", isDisabled && status === "idle" ? "opacity-65" : "opacity-100", isFeedbackState ? "pointer-events-none" : "pointer-events-auto", buttonHoverBg, status === "idle" ? "active:[transform:scale(0.97)]" : "active:[transform:none]", isDisabled && status === "idle" ? "disabled:opacity-65" : "disabled:opacity-100"))}>
 					<AnimatePresence initial={false} mode="wait">
 						<motion.span
 							animate={{

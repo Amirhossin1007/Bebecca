@@ -17,26 +17,26 @@ import { useTranslation } from "react-i18next";
 const WarningIcon = withClass(ExclamationTriangleIcon, "w-6 h-6");
 
 export type ConfirmDialogProps = {
-	isOpen: boolean;
+	open: boolean;
 	title: ReactNode;
 	description: ReactNode;
 	confirmLabel?: string;
 	cancelLabel?: string;
 	colorScheme?: string;
-	isLoading?: boolean;
+	loading?: boolean;
 	isConfirmDisabled?: boolean;
 	onClose: () => void;
 	onConfirm: () => void | Promise<void>;
 };
 
 export const ConfirmDialog = ({
-	isOpen,
+	open: isOpen,
 	title,
 	description,
 	confirmLabel,
 	cancelLabel,
 	colorScheme = "primary",
-	isLoading = false,
+	loading: isLoading,
 	isConfirmDisabled = false,
 	onClose,
 	onConfirm,
@@ -50,7 +50,7 @@ export const ConfirmDialog = ({
 	const iconColor = `text-${colorScheme}-600 dark:text-${colorScheme}-200`;
 
 	return (
-		<AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose} isCentered>
+		<AlertDialog open={isOpen} leastDestructiveRef={cancelRef} onClose={onClose} isCentered>
 			<AlertDialogOverlay className="bg-blackAlpha-500">
 				<AlertDialogContent onKeyDown={(event) => {
 						if (event.key !== "Enter" || isLoading || isConfirmDisabled) {
@@ -79,10 +79,10 @@ export const ConfirmDialog = ({
 						</div>
 					</div>
 					<AlertDialogFooter className="p-0 pt-1.5 sm:pt-2 gap-1.5 flex-wrap justify-end rb-confirm-dialog-actions">
-						<Button variant="solid" ref={cancelRef} onClick={onClose} isDisabled={isLoading} size="sm" className="min-w-[76px]! h-[34px] min-h-[34px] px-3 text-[0.875rem]">
+						<Button variant="solid" ref={cancelRef} onClick={onClose} disabled={isLoading} size="sm" className="min-w-[76px]! h-[34px] min-h-[34px] px-3 text-[0.875rem]">
 							{cancelLabel ?? t("cancel")}
 						</Button>
-						<Button colorScheme={colorScheme} onClick={onConfirm} isLoading={isLoading} isDisabled={isConfirmDisabled} size="sm" className="min-w-[76px]! h-[34px] min-h-[34px] px-3 text-[0.875rem]">
+						<Button colorScheme={colorScheme} onClick={onConfirm} loading={isLoading} disabled={isConfirmDisabled} size="sm" className="min-w-[76px]! h-[34px] min-h-[34px] px-3 text-[0.875rem]">
 							{confirmLabel ?? t("confirm")}
 						</Button>
 					</AlertDialogFooter>
@@ -99,8 +99,8 @@ export type DeleteConfirmDialogProps = {
 	description?: ReactNode;
 	confirmLabel?: string;
 	cancelLabel?: string;
-	isLoading?: boolean;
-	isDisabled?: boolean;
+	loading?: boolean;
+	disabled?: boolean;
 	onConfirm: () => void | Promise<void>;
 	onCancel?: () => void;
 };
@@ -110,8 +110,8 @@ export const DeleteConfirmDialog = ({
 	description,
 	confirmLabel,
 	cancelLabel,
-	isLoading,
-	isDisabled,
+	loading: isLoading,
+	disabled: isDisabled,
 	onConfirm,
 	onCancel,
 }: DeleteConfirmDialogProps) => {
@@ -160,7 +160,7 @@ export const DeleteConfirmDialog = ({
 		<>
 			{trigger}
 			<ConfirmDialog
-				isOpen={isOpen}
+				open={isOpen}
 				onClose={handleClose}
 				onConfirm={handleConfirm}
 				title={t("common.confirmAction")}
@@ -168,7 +168,7 @@ export const DeleteConfirmDialog = ({
 				confirmLabel={confirmLabel ?? t("delete")}
 				cancelLabel={cancelLabel ?? t("cancel")}
 				colorScheme="red"
-				isLoading={busy}
+				loading={busy}
 				isConfirmDisabled={Boolean(isDisabled)}
 			/>
 		</>

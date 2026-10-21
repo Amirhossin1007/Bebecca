@@ -564,7 +564,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		};
 		return (
 			<div>
-				<Button size="md" variant="ghost" isLoading={contextAction?.startsWith("addData-")} isDisabled={contextAction?.startsWith("addData-")} aria-expanded={isOpen} onClick={(event) => {
+				<Button size="md" variant="ghost" loading={contextAction?.startsWith("addData-")} disabled={contextAction?.startsWith("addData-")} aria-expanded={isOpen} onClick={(event) => {
 						event.preventDefault();
 						event.stopPropagation();
 						setOpenTrafficMenuFor((current) =>
@@ -599,7 +599,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 										option.gigabytes,
 										closeAfterSelection,
 									);
-								}} isLoading={contextAction === `addData-${option.gigabytes}`} isDisabled={contextAction?.startsWith("addData-")} className="justify-center">
+								}} loading={contextAction === `addData-${option.gigabytes}`} disabled={contextAction?.startsWith("addData-")} className="justify-center">
 								{option.label}
 							</Button>
 						))}
@@ -962,11 +962,11 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 							.map((action) => (
 								<Tooltip key={action.id} label={action.label}>
 									<span>
-										<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={
-												typeof action.isDisabled === "function"
-													? action.isDisabled(admin)
-													: action.isDisabled
-											} onClick={() => action.onClick?.(admin)} className={cn("min-w-[28px]! h-[28px] rb-row-action", action.isDanger && "hover:text-red-400!")} />
+										<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={
+												typeof action.disabled === "function"
+													? action.disabled(admin)
+													: action.disabled
+											} onClick={() => action.onClick?.(admin)} className={cn("min-w-[28px]! h-[28px] rb-row-action", action.isDanger && "hover:text-red-400!")} >{action.icon}</IconButton>
 									</span>
 								</Tooltip>
 							))}
@@ -1000,7 +1000,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					label: t("admins.resetUsage"),
 					icon: <ResetIcon />,
 					onClick: () => setResetConfirmation({ admin, type: "usage" }),
-					isDisabled:
+					disabled:
 						actionState?.username === admin.username &&
 						actionState?.type === "reset",
 				},
@@ -1037,7 +1037,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				label: t("admins.resetDeletedUsage"),
 				icon: <QuickPassIcon />,
 				onClick: () => setResetConfirmation({ admin, type: "deleted" }),
-				isDisabled:
+				disabled:
 					actionState?.username === admin.username &&
 					actionState?.type === "resetDeleted",
 			});
@@ -1049,7 +1049,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				label: t("admins.enableAdmin"),
 				icon: <EnableIcon />,
 				onClick: () => handleEnableAdmin(admin),
-				isDisabled:
+				disabled:
 					actionState?.username === admin.username &&
 					actionState?.type === "enableAdmin",
 			});
@@ -1061,7 +1061,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				label: t("admins.disableAdmin"),
 				icon: <DisableIcon />,
 				onClick: () => startDisableAdmin(admin),
-				isDisabled:
+				disabled:
 					actionState?.username === admin.username &&
 					actionState?.type === "disableAdmin",
 			});
@@ -1081,7 +1081,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				label: t("admins.quickPassword"),
 				icon: <QuickPassIcon />,
 				onClick: () => handleQuickPassword(admin),
-				isDisabled: contextAction === "quickPassword",
+				disabled: contextAction === "quickPassword",
 			});
 		}
 
@@ -1091,7 +1091,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				label: t("delete"),
 				icon: <DeleteIcon />,
 				onClick: () => startDeleteAdmin(admin),
-				isDisabled:
+				disabled:
 					actionState?.username === admin.username &&
 					actionState?.type === "deleteAdmin",
 				isDanger: true,
@@ -1118,7 +1118,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 								{actions.map((action) => (
 									<Tooltip key={action.id} label={action.label}>
 										<span>
-											<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(admin) : action.isDisabled} onClick={() => action.onClick?.(admin)} className="min-w-[30px]! h-[30px]" />
+											<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={typeof action.disabled === "function" ? action.disabled(admin) : action.disabled} onClick={() => action.onClick?.(admin)} className="min-w-[30px]! h-[30px]" >{action.icon}</IconButton>
 										</span>
 									</Tooltip>
 								))}
@@ -1147,7 +1147,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					data={admins}
 					columns={adminColumns}
 					getRowId={(admin) => admin.username}
-					isLoading={loading}
+					loading={loading}
 					loadingRows={skeletonCount}
 					emptyState={
 						<p className="text-[0.875rem] text-panel-text-muted text-center">
@@ -1181,7 +1181,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			</div>
 
 			<ConfirmDialog
-				isOpen={Boolean(resetConfirmation)}
+				open={Boolean(resetConfirmation)}
 				onClose={() => setResetConfirmation(null)}
 				onConfirm={confirmUsageReset}
 				title={t(
@@ -1194,13 +1194,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					username: resetConfirmation?.admin.username ?? "",
 				})}
 				confirmLabel={t("reset")}
-				isLoading={
+				loading={
 					actionState?.type === "reset" || actionState?.type === "resetDeleted"
 				}
 			/>
 
 			<ConfirmDialog
-				isOpen={isDeleteDialogOpen}
+				open={isDeleteDialogOpen}
 				onClose={closeDeleteDialogAndReset}
 				onConfirm={confirmDeleteAdmin}
 				title={t("delete")}
@@ -1209,12 +1209,12 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				})}
 				confirmLabel={t("delete")}
 				colorScheme="red"
-				isLoading={actionState?.type === "deleteAdmin"}
+				loading={actionState?.type === "deleteAdmin"}
 				isConfirmDisabled={!adminToDelete}
 			/>
 
 			<ConfirmDialog
-				isOpen={isQuickPassConfirmOpen}
+				open={isQuickPassConfirmOpen}
 				onClose={() => {
 					if (contextAction === "quickPassword") return;
 					closeQuickPassConfirm();
@@ -1227,10 +1227,10 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				})}
 				confirmLabel={t("admins.quickPasswordAction")}
 				colorScheme="primary"
-				isLoading={contextAction === "quickPassword"}
+				loading={contextAction === "quickPassword"}
 			/>
 
-			<Modal isOpen={isQuickPassOpen} onClose={handleCloseQuickPass} isCentered>
+			<Modal open={isQuickPassOpen} onClose={handleCloseQuickPass} isCentered>
 				<ModalOverlay className="bg-blackAlpha-500" />
 				<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[440px]", dialogBg, dialogBorderColor)}>
 					<ModalHeader className="px-6 pt-6 pb-2">
@@ -1248,14 +1248,14 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 								<p className="text-[0.875rem] text-gray-500">
 									{t("username")}
 								</p>
-								<Input value={quickPassInfo?.username ?? ""} isReadOnly />
+								<Input value={quickPassInfo?.username ?? ""} readOnly />
 							</div>
 							<div>
 								<p className="text-[0.875rem] text-gray-500">
 									{t("admins.quickPasswordModal.password")}
 								</p>
 								<InputGroup>
-									<Input value={quickPassInfo?.password ?? ""} isReadOnly />
+									<Input value={quickPassInfo?.password ?? ""} readOnly />
 									<InputRightElement>
 										<Button size="sm" variant="ghost" onClick={async () => {
 												if (quickPassInfo?.password) {
@@ -1289,7 +1289,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				</ModalContent>
 			</Modal>
 			<ConfirmDialog
-				isOpen={isDisableDialogOpen}
+				open={isDisableDialogOpen}
 				onClose={closeDisableDialogAndReset}
 				onConfirm={confirmDisableAdmin}
 				title={t("admins.disableAdminTitle")}
@@ -1306,19 +1306,19 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				confirmLabel={t("admins.disableAdminConfirm")}
 				colorScheme="red"
 				isConfirmDisabled={disableReason.trim().length < 3}
-				isLoading={
+				loading={
 					actionState?.type === "disableAdmin" &&
 					actionState?.username === adminToDisable?.username
 				}
 			/>
 			<AdminPermissionsModal
-				isOpen={isPermissionsModalOpen}
+				open={isPermissionsModalOpen}
 				onClose={handleClosePermissionsModal}
 				admin={adminForPermissions}
 			/>
 			<AdminSecurityDialog
 				admin={securityAdmin}
-				isOpen={securityDialog.isOpen}
+				open={securityDialog.isOpen}
 				onClose={() => {
 					securityDialog.onClose();
 					setSecurityAdmin(null);
@@ -1329,7 +1329,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			/>
 			<AdminApiKeysDialog
 				admin={apiKeysAdmin}
-				isOpen={apiKeysDialog.isOpen}
+				open={apiKeysDialog.isOpen}
 				onClose={() => {
 					apiKeysDialog.onClose();
 					setAPIKeysAdmin(null);

@@ -47,7 +47,7 @@ export function Tooltip({
 	children,
 	placement = "top",
 	hasArrow = false,
-	isDisabled = false,
+	disabled: isDisabled,
 	openDelay,
 	closeDelay,
 	// Chakra closes on click and mousedown; Radix already closes a tooltip on click.
@@ -62,7 +62,7 @@ export function Tooltip({
 	label?: ReactNode;
 	placement?: string;
 	hasArrow?: boolean;
-	isDisabled?: boolean;
+	disabled?: boolean;
 	openDelay?: number;
 	closeDelay?: number;
 }) {

@@ -27,7 +27,7 @@ type GeoTemplate = {
 };
 
 type GeoUpdateDialogProps = {
-	isOpen: boolean;
+	open: boolean;
 	title: string;
 	isSubmitting?: boolean;
 	showMasterOptions?: boolean;
@@ -60,7 +60,7 @@ const createGeoFile = (name: string, url: string): GeoFile => ({
 });
 
 export const GeoUpdateDialog = ({
-	isOpen,
+	open: isOpen,
 	title,
 	isSubmitting,
 	showMasterOptions = false,
@@ -199,7 +199,7 @@ export const GeoUpdateDialog = ({
 			{manualFiles.map((file, index) => (
 				<div key={file.id} className="border rounded-md p-3">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-						<FormControl isRequired>
+						<FormControl required>
 							<FormLabel className="text-[0.875rem]">
 								{t("nodes.geoDialog.fileNameLabel")}
 							</FormLabel>
@@ -207,7 +207,7 @@ export const GeoUpdateDialog = ({
 									updateManualFile(index, "name", event.target.value)
 								} />
 						</FormControl>
-						<FormControl isRequired>
+						<FormControl required>
 							<FormLabel className="text-[0.875rem]">
 								{t("nodes.geoDialog.fileUrlLabel")}
 							</FormLabel>
@@ -218,12 +218,12 @@ export const GeoUpdateDialog = ({
 					</div>
 					<div className="flex flex-row items-center gap-2 justify-end mt-3">
 						<Tooltip label={t("remove")}>
-							<IconButton aria-label={t("a11y.removeFile")} icon={<IconMinus />} variant="ghost" size="sm" onClick={() => removeManualFile(index)} isDisabled={manualFiles.length <= 1} />
+							<IconButton aria-label={t("a11y.removeFile")} variant="ghost" size="sm" onClick={() => removeManualFile(index)} disabled={manualFiles.length <= 1} >{<IconMinus />}</IconButton>
 						</Tooltip>
 					</div>
 				</div>
 			))}
-			<Button onClick={addManualFile} leftIcon={<IconPlus />} size="sm" variant="outline" className="self-start">
+			<Button onClick={addManualFile} size="sm" variant="outline" className="self-start">{<IconPlus />}
 				{t("nodes.geoDialog.addFile")}
 			</Button>
 		</div>
@@ -231,7 +231,7 @@ export const GeoUpdateDialog = ({
 
 	return (
 		<AppDialog
-			isOpen={isOpen}
+			open={isOpen}
 			onClose={onClose}
 			isCentered
 			size="xl"
@@ -241,7 +241,7 @@ export const GeoUpdateDialog = ({
 					<Button size="md" variant="ghost" onClick={onClose} className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting}>
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} loading={isSubmitting}>
 						{t("nodes.geoDialog.confirmUpdate")}
 					</Button>
 				</>
@@ -266,7 +266,7 @@ export const GeoUpdateDialog = ({
 
 						{mode === "template" ? (
 							<div className="flex flex-col gap-3">
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel className="text-[0.875rem]">
 										{t("nodes.geoDialog.templateIndexLabel")}
 									</FormLabel>
@@ -274,14 +274,14 @@ export const GeoUpdateDialog = ({
 											setTemplateIndexUrl(event.target.value)
 										} />
 								</FormControl>
-								<FormControl isRequired>
+								<FormControl required>
 									<FormLabel className="text-[0.875rem]">
 										{t("nodes.geoDialog.templateNameLabel")}
 									</FormLabel>
 									<div className="flex flex-row items-center gap-2">
 										<Select size="sm" value={selectedTemplate} onChange={(event) =>
 												setSelectedTemplate(event.target.value)
-											} isDisabled={templatesQuery.isLoading || !templates.length} placeholder={
+											} disabled={templatesQuery.isLoading || !templates.length} placeholder={
 												templatesQuery.isLoading
 													? t("nodes.geoDialog.loadingTemplates")
 													: t("nodes.geoDialog.selectTemplatePlaceholder")
@@ -293,7 +293,7 @@ export const GeoUpdateDialog = ({
 											))}
 										</Select>
 										<Tooltip label={t("nodes.geoDialog.refreshTemplates")}>
-											<IconButton aria-label={t("a11y.refreshTemplates")} icon={<IconRefresh />} size="sm" variant="outline" onClick={() => templatesQuery.refetch()} isLoading={templatesQuery.isFetching} isDisabled={!templateIndexUrl.trim()} />
+											<IconButton aria-label={t("a11y.refreshTemplates")} size="sm" variant="outline" onClick={() => templatesQuery.refetch()} loading={templatesQuery.isFetching} disabled={!templateIndexUrl.trim()} >{<IconRefresh />}</IconButton>
 										</Tooltip>
 									</div>
 								</FormControl>
@@ -312,10 +312,10 @@ export const GeoUpdateDialog = ({
 
 						{showMasterOptions && (
 							<div className="flex flex-col gap-2">
-								<Checkbox isChecked={persistEnv} onChange={(event) => setPersistEnv(event.target.checked)}>
+								<Checkbox checked={persistEnv} onChange={(event) => setPersistEnv(event.target.checked)}>
 									{t("nodes.geoDialog.persistAssets")}
 								</Checkbox>
-								<Checkbox isChecked={applyToNodes} onChange={(event) => setApplyToNodes(event.target.checked)}>
+								<Checkbox checked={applyToNodes} onChange={(event) => setApplyToNodes(event.target.checked)}>
 									{t("nodes.geoDialog.applyToNodes")}
 								</Checkbox>
 								<p className="text-[0.75rem] text-gray-500 dark:text-gray-400">

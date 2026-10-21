@@ -99,11 +99,11 @@ export const ResourceRefreshButton: FC<{
 	"aria-label": string;
 	icon: ReactElement;
 	label?: ReactNode;
-	isLoading?: boolean;
+	loading?: boolean;
 	onClick: () => void;
 }> = ({ icon, label, ...props }) => {
 	const button = (
-		<IconButton variant="ghost" size="sm" icon={icon} {...props} className="rounded-md" />
+		<IconButton variant="ghost" size="sm" {...props} className="rounded-md" >{icon}</IconButton>
 	);
 
 	return label ? (

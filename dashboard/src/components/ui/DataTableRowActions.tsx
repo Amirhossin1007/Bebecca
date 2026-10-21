@@ -17,7 +17,7 @@ export type RowActionItem = {
 	icon?: ReactElement;
 	onClick?: () => void;
 	render?: (onClose: () => void) => ReactNode;
-	isDisabled?: boolean;
+	disabled?: boolean;
 	isDanger?: boolean;
 	color?: string;
 };
@@ -74,7 +74,7 @@ export const RowActionsMenu: FC<RowActionsMenuProps> = ({
 									<MenuItem key={action.id} icon={action.icon} onClick={(event) => {
 											event.stopPropagation();
 											action.onClick?.();
-										}} isDisabled={action.isDisabled} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}>
+										}} disabled={action.disabled} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}>
 										{action.label}
 									</MenuItem>
 								),
