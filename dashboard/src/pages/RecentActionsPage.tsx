@@ -1,20 +1,10 @@
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import {
-	Alert,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Divider,
-	HStack,
-	Input,
-	SimpleGrid,
-	Spinner,
-	Stack,
-	Text,
-	VStack,
-} from "@chakra-ui/react";
+import { Badge } from "components/shadcn/badge";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Spinner } from "components/shadcn/feedback";
+import { Button } from "components/shadcn/button";
+import { Input } from "components/shadcn/input";
 import {
 	ArrowPathIcon,
 	ArrowUturnLeftIcon,
@@ -180,22 +170,22 @@ const actionOperationVisual = (
 	actionType: string,
 ) => {
 	if (nodeRuntimeActionTypes.has(actionType))
-		return { color: "blue.400", icon: <ArrowPathIcon width={18} /> };
+		return { color: "blue.400", icon: <ArrowPathIcon className="w-18" /> };
 	switch (operation) {
 		case "created":
-			return { color: "green.400", icon: <PlusCircleIcon width={18} /> };
+			return { color: "green.400", icon: <PlusCircleIcon className="w-18" /> };
 		case "deleted":
-			return { color: "red.400", icon: <TrashIcon width={18} /> };
+			return { color: "red.400", icon: <TrashIcon className="w-18" /> };
 		case "disabled":
-			return { color: "orange.400", icon: <NoSymbolIcon width={18} /> };
+			return { color: "orange.400", icon: <NoSymbolIcon className="w-18" /> };
 		case "enabled":
-			return { color: "green.400", icon: <CheckCircleIcon width={18} /> };
+			return { color: "green.400", icon: <CheckCircleIcon className="w-18" /> };
 		case "reset":
-			return { color: "orange.400", icon: <ArrowPathIcon width={18} /> };
+			return { color: "orange.400", icon: <ArrowPathIcon className="w-18" /> };
 		case "regenerated":
-			return { color: "blue.400", icon: <KeyIcon width={18} /> };
+			return { color: "blue.400", icon: <KeyIcon className="w-18" /> };
 		default:
-			return { color: "blue.400", icon: <PencilSquareIcon width={18} /> };
+			return { color: "blue.400", icon: <PencilSquareIcon className="w-18" /> };
 	}
 };
 
@@ -407,73 +397,55 @@ const JsonDiffEditors: FC<{ before: unknown; after: unknown }> = ({
 	);
 
 	return (
-		<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} dir="ltr">
-			<Box minW={0}>
-				<Text fontWeight="medium" mb={2}>
+		<div dir="ltr" className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+			<div className="min-w-0!">
+				<p className="font-medium mb-2">
 					{t("recentActions.before")}
-				</Text>
-				<Box h={{ base: "360px", xl: "440px" }}>
-					<JsonEditor
-						json={before}
-						onChange={() => undefined}
-						readOnly
-						showToolbar={false}
-						minHeight={0}
-						highlightLines={beforeChangedLines}
-						highlightVariant="removed"
-						highlightRanges={beforeHighlightRanges}
-					/>
-				</Box>
-			</Box>
-			<Box minW={0}>
-				<Text fontWeight="medium" mb={2}>
+				</p>
+				<div className="h-[360px] xl:h-[440px]">
+					<JsonEditor json={before} onChange={() => undefined} readOnly showToolbar={false} highlightLines={beforeChangedLines} highlightVariant="removed" highlightRanges={beforeHighlightRanges} />
+				</div>
+			</div>
+			<div className="min-w-0!">
+				<p className="font-medium mb-2">
 					{t("recentActions.after")}
-				</Text>
-				<Box h={{ base: "360px", xl: "440px" }}>
-					<JsonEditor
-						json={after}
-						onChange={() => undefined}
-						readOnly
-						showToolbar={false}
-						minHeight={0}
-						highlightLines={afterChangedLines}
-						highlightVariant="added"
-						highlightRanges={afterHighlightRanges}
-					/>
-				</Box>
-			</Box>
-		</SimpleGrid>
+				</p>
+				<div className="h-[360px] xl:h-[440px]">
+					<JsonEditor json={after} onChange={() => undefined} readOnly showToolbar={false} highlightLines={afterChangedLines} highlightVariant="added" highlightRanges={afterHighlightRanges} />
+				</div>
+			</div>
+		</div>
 	);
 };
 
 const ActionPreview: FC<{ preview?: RecentActionPreview }> = ({ preview }) => {
 	const { t } = useTranslation();
 	if (!preview || preview.operation) {
-		return <Text color="panel.textMuted">—</Text>;
+		return <p className="text-panel-text-muted">—</p>;
 	}
 	const field = changedFieldTranslationKey(preview.field);
 	return (
-		<VStack align="start" spacing={0.5} minW={0}>
+		<div className="flex flex-col items-start gap-0.5 min-w-0!">
 			{field && (
-				<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+				<p className="text-[0.75rem] text-panel-text-muted truncate">
 					{t(field)}
-				</Text>
+				</p>
 			)}
-			<HStack spacing={1.5} minW={0} maxW="full">
-				<Text color="red.300" textDecoration="line-through" noOfLines={1}>
+			<div className="flex flex-row items-center gap-1.5 min-w-0! max-w-full">
+				<p className="text-red-300 line-through truncate">
 					{preview.before}
-				</Text>
-				<Text color="panel.textMuted">→</Text>
-				<Text color="green.300" noOfLines={1}>
+				</p>
+				<p className="text-panel-text-muted">→</p>
+				<p className="text-green-300 truncate">
 					{preview.after}
-				</Text>
+				</p>
 				{preview.delta && (
-					<Text color="panel.textMuted" noOfLines={1}>
+					<p className="text-panel-text-muted truncate">
 						({preview.delta})
-					</Text>
+					</p>
 				)}
-			</HStack>
-		</VStack>
+			</div>
+		</div>
 	);
 };
 
@@ -638,16 +610,16 @@ export const RecentActionsPage: FC = () => {
 							? action.summary
 							: actionTypeLabel(action.action_type);
 					return (
-						<HStack align="start" spacing={2.5} minW={0}>
-							<Box color={visual.color} mt={0.5} flexShrink={0}>
+						<div className="flex flex-row items-start gap-2.5 min-w-0!">
+							<div color={visual.color} className="mt-0.5 shrink-0">
 								{visual.icon}
-							</Box>
-							<VStack align="start" spacing={0} minW={0}>
-								<Text fontWeight="semibold" noOfLines={1} maxW="full">
+							</div>
+							<div className="flex flex-col items-start gap-0 min-w-0!">
+								<p className="font-semibold truncate max-w-full">
 									{label}
-								</Text>
-							</VStack>
-						</HStack>
+								</p>
+							</div>
+						</div>
 					);
 				},
 			},
@@ -660,19 +632,14 @@ export const RecentActionsPage: FC = () => {
 				cell: (action) => {
 					const resourceType = actionLifecycle(action).resource;
 					return (
-						<VStack align="start" spacing={1} minW={0}>
+						<div className="flex flex-col items-start gap-1 min-w-0!">
 							<Badge variant="subtle">
 								{t(resourceTranslationKey(resourceType))}
 							</Badge>
-							<Text
-								fontFamily="mono"
-								fontSize="xs"
-								color="panel.textMuted"
-								noOfLines={1}
-							>
+							<p className="font-mono text-[0.75rem] text-panel-text-muted truncate">
 								{action.resource_key}
-							</Text>
-						</VStack>
+							</p>
+						</div>
 					);
 				},
 			},
@@ -704,12 +671,12 @@ export const RecentActionsPage: FC = () => {
 				priority: "medium",
 				minWidth: "140px",
 				cell: (action) => (
-					<VStack align="start" spacing={0}>
-						<Text fontWeight="medium">{action.actor_username}</Text>
-						<Text fontSize="xs" color="panel.textMuted">
+					<div className="flex flex-col items-start gap-0">
+						<p className="font-medium">{action.actor_username}</p>
+						<p className="text-[0.75rem] text-panel-text-muted">
 							{action.auth_source}
-						</Text>
-					</VStack>
+						</p>
+					</div>
 				),
 			},
 			{
@@ -721,9 +688,9 @@ export const RecentActionsPage: FC = () => {
 				accessor: "created_at",
 				sortable: true,
 				cell: (action) => (
-					<Text fontSize="sm" dir="ltr">
+					<p dir="ltr" className="text-[0.875rem]">
 						{dayjs(action.created_at).format("YYYY-MM-DD HH:mm")}
-					</Text>
+					</p>
 				),
 			},
 		],
@@ -735,7 +702,7 @@ export const RecentActionsPage: FC = () => {
 		{
 			id: "details",
 			label: t("recentActions.details"),
-			icon: <EyeIcon width={16} />,
+			icon: <EyeIcon className="w-16" />,
 			onClick: () => toggleDetails(action.id),
 		},
 		...(action.rollback_status === "available"
@@ -743,7 +710,7 @@ export const RecentActionsPage: FC = () => {
 					{
 						id: "rollback",
 						label: t("recentActions.rollback"),
-						icon: <ArrowUturnLeftIcon width={16} />,
+						icon: <ArrowUturnLeftIcon className="w-16" />,
 						isDanger: true,
 						onClick: () => rollback(action),
 					},
@@ -753,7 +720,7 @@ export const RecentActionsPage: FC = () => {
 
 	if (!canView) {
 		return (
-			<Alert status="error" borderRadius="md">
+			<Alert status="error" className="rounded-md">
 				<AlertIcon />
 				{t("recentActions.noPermission")}
 			</Alert>
@@ -790,78 +757,78 @@ export const RecentActionsPage: FC = () => {
 		rollbackError?.data?.detail || rollbackError?.message;
 	const rollbackConflictPaths = rollbackError?.data?.conflict_paths ?? [];
 	const renderDetailPanel = () => (
-		<Box borderTopWidth="1px" borderColor="panel.border" pt={4}>
-			<Text fontWeight="semibold" mb={4}>
+		<div className="border-t border-panel-border! pt-4">
+			<p className="font-semibold mb-4">
 				{t("recentActions.changePreview")}
-			</Text>
+			</p>
 			{detailQuery.isLoading ? (
-				<HStack justify="center" py={10}>
+				<div className="flex flex-row items-center gap-2 justify-center py-10">
 					<Spinner />
-				</HStack>
+				</div>
 			) : detailQuery.isError ? (
 				<Alert status="error">
 					<AlertIcon />
 					{t("recentActions.loadFailed")}
 				</Alert>
 			) : detail?.snapshot_available || affectedResources.length > 0 ? (
-				<Stack spacing={4}>
+				<div className="flex flex-col gap-4">
 					{eventChanges.length > 0 && (
-						<Stack spacing={2}>
-							<Text fontSize="sm" color="panel.textSecondary">
+						<div className="flex flex-col gap-2">
+							<p className="text-[0.875rem] text-panel-text-secondary">
 								{t("recentActions.changedValues")}
-							</Text>
+							</p>
 							{eventChanges.map((change) => {
 								const labelKey = changedFieldTranslationKey(change.field);
 								return (
-									<HStack key={change.field} spacing={2} flexWrap="wrap">
-										<Text fontSize="sm" minW="140px" color="panel.textMuted">
+									<div key={change.field} className="flex flex-row items-center gap-2 flex-wrap">
+										<p className="text-[0.875rem] min-w-[140px]! text-panel-text-muted">
 											{labelKey
 												? t(labelKey)
 												: change.field.replaceAll("_", " ")}
-										</Text>
-										<Text color="red.300" textDecoration="line-through">
+										</p>
+										<p className="text-red-300 line-through">
 											{change.before}
-										</Text>
-										<Text color="panel.textMuted">→</Text>
-										<Text color="green.300">{change.after}</Text>
+										</p>
+										<p className="text-panel-text-muted">→</p>
+										<p className="text-green-300">{change.after}</p>
 										{change.delta && (
-											<Text color="panel.textMuted">({change.delta})</Text>
+											<p className="text-panel-text-muted">({change.delta})</p>
 										)}
-									</HStack>
+									</div>
 								);
 							})}
-						</Stack>
+						</div>
 					)}
 					{affectedResources.length > 0 && (
-						<Box>
-							<Text fontSize="sm" color="panel.textSecondary" mb={2}>
+						<div>
+							<p className="text-[0.875rem] text-panel-text-secondary mb-2">
 								{t("recentActions.affectedResources")}
-							</Text>
-							<HStack spacing={2} flexWrap="wrap">
+							</p>
+							<div className="flex flex-row items-center gap-2 flex-wrap">
 								{affectedResources.map((resource) => (
 									<Badge key={resource} variant="subtle">
 										{resource}
 									</Badge>
 								))}
-							</HStack>
-						</Box>
+							</div>
+						</div>
 					)}
 					{diffPathLabels.length > 0 && (
-						<Box>
-							<Text fontSize="sm" color="panel.textSecondary" mb={2}>
+						<div>
+							<p className="text-[0.875rem] text-panel-text-secondary mb-2">
 								{t("recentActions.changedPaths")}
-							</Text>
-							<HStack spacing={2} flexWrap="wrap">
+							</p>
+							<div className="flex flex-row items-center gap-2 flex-wrap">
 								{diffPathLabels.map((label) => (
 									<Badge key={label} colorScheme="orange">
 										{t(label)}
 									</Badge>
 								))}
-							</HStack>
-						</Box>
+							</div>
+						</div>
 					)}
 					{displayConfigChanges.length > 0 ? (
-						<Stack spacing={4}>
+						<div className="flex flex-col gap-4">
 							{displayConfigChanges.map((change, index) => {
 								const paths = configChangePaths(change);
 								const labels = Array.from(
@@ -872,30 +839,24 @@ export const RecentActionsPage: FC = () => {
 									),
 								);
 								return (
-									<Box
-										key={`${change.target_id}-${change.path}-${index}`}
-										borderWidth="1px"
-										borderColor="panel.border"
-										borderRadius="md"
-										p={3}
-									>
+									<div key={`${change.target_id}-${change.path}-${index}`} className="border border-panel-border! rounded-md p-3">
 										{labels.length > 0 && (
-											<Text fontSize="sm" color="panel.textSecondary" mb={3}>
+											<p className="text-[0.875rem] text-panel-text-secondary mb-3">
 												{labels.map((label) => t(label)).join(" · ")}
-											</Text>
+											</p>
 										)}
 										<JsonDiffEditors
 											before={change.before_exists ? change.before : undefined}
 											after={change.after_exists ? change.after : undefined}
 										/>
-									</Box>
+									</div>
 								);
 							})}
-						</Stack>
+						</div>
 					) : eventChanges.length === 0 && affectedResources.length === 0 ? (
 						<JsonDiffEditors before={detail?.before} after={detail?.after} />
 					) : null}
-				</Stack>
+				</div>
 			) : (
 				<Alert status="info">
 					<AlertIcon />
@@ -908,36 +869,31 @@ export const RecentActionsPage: FC = () => {
 			)}
 			{rollbackMutation.isError && (
 				<>
-					<Divider my={4} />
+					<hr className="my-4 w-full border-0 border-b border-panel-border! opacity-60" />
 					<Alert status="error">
 						<AlertIcon />
-						<Stack spacing={2}>
-							<Text>
+						<div className="flex flex-col gap-2">
+							<p>
 								{rollbackErrorDetail || t("recentActions.rollbackFailed")}
-							</Text>
+							</p>
 							{rollbackConflictPaths.length > 0 && (
-								<HStack spacing={2} flexWrap="wrap">
+								<div className="flex flex-row items-center gap-2 flex-wrap">
 									{rollbackConflictPaths.map((path) => (
 										<Badge key={path} colorScheme="red">
 											{path}
 										</Badge>
 									))}
-								</HStack>
+								</div>
 							)}
-						</Stack>
+						</div>
 					</Alert>
 				</>
 			)}
-		</Box>
+		</div>
 	);
 
 	return (
-		<VStack
-			spacing={4}
-			align="stretch"
-			dir={i18n.dir(i18n.language)}
-			pb={{ base: 8, md: 16 }}
-		>
+		<div dir={i18n.dir(i18n.language)} className="flex flex-col gap-4 items-stretch pb-8 md:pb-16">
 			<ResourceListCard
 				title={t("recentActions.title")}
 				summaryItems={[
@@ -949,82 +905,42 @@ export const RecentActionsPage: FC = () => {
 					},
 				]}
 				actions={
-					<Button
-						leftIcon={<ArrowPathIcon width={16} />}
-						variant="outline"
-						onClick={() => void actionsQuery.refetch()}
-						isLoading={actionsQuery.isFetching}
-					>
+					<Button size="md" leftIcon={<ArrowPathIcon className="w-16" />} variant="outline" onClick={() => void actionsQuery.refetch()} isLoading={actionsQuery.isFetching}>
 						{t("recentActions.refresh")}
 					</Button>
 				}
 			>
-				<Stack
-					direction={{ base: "column", xl: "row" }}
-					spacing={2}
-					align="stretch"
-				>
-					<SearchInput
-						containerProps={{ w: { base: "full", md: "340px" } }}
-							value={search}
-							onChange={(event) => {
+				<div className="flex flex-col xl:flex-row gap-2 items-stretch">
+					<SearchInput containerProps={{ className: "w-full md:w-[340px]" }} value={search} onChange={(event) => {
 								setSearch(event.target.value);
 								debouncedSearchChange(event.target.value);
-							}}
-							placeholder={t("recentActions.searchPlaceholder")}
-							aria-label={t("recentActions.searchPlaceholder")}
-						matchOptions={searchMatch}
-						onMatchOptionsChange={(options) => {
+							}} placeholder={t("recentActions.searchPlaceholder")} aria-label={t("recentActions.searchPlaceholder")} matchOptions={searchMatch} onMatchOptionsChange={(options) => {
 							setSearchMatch(options);
 							resetPagination();
-						}}
-						/>
-					<Select
-						mode="multiple"
-						size="sm"
-						value={actionTypesFilter}
-						onValueChange={(value) => {
+						}} />
+					<Select mode="multiple" size="sm" value={actionTypesFilter} onValueChange={(value) => {
 							setActionTypesFilter(Array.isArray(value) ? value : [value]);
 							resetPagination();
-						}}
-						options={actionTypes.map((type) => ({
+						}} options={actionTypes.map((type) => ({
 							label: actionTypeLabel(type),
 							value: type,
-						}))}
-						placeholder={t("recentActions.filters.allActions")}
-						aria-label={t("recentActions.filters.action")}
-						w={{ base: "full", xl: "240px" }}
-					/>
+						}))} placeholder={t("recentActions.filters.allActions")} aria-label={t("recentActions.filters.action")} className="w-full xl:w-[240px]" />
 					<DataTableSortMenu
 						options={buildSortOptions(columns, actions)}
 						sorting={recentSorting}
 						onSortingChange={setRecentSorting}
 					/>
-					<Select
-						mode="multiple"
-						size="sm"
-						value={resourceTypesFilter}
-						onValueChange={(value) => {
+					<Select mode="multiple" size="sm" value={resourceTypesFilter} onValueChange={(value) => {
 							setResourceTypesFilter(Array.isArray(value) ? value : [value]);
 							resetPagination();
-						}}
-						options={resourceTypes.map((type) => ({
+						}} options={resourceTypes.map((type) => ({
 							label: t(resourceTranslationKey(type)),
 							value: type,
-						}))}
-						placeholder={t("recentActions.filters.allResources")}
-						aria-label={t("recentActions.filters.resource")}
-						w={{ base: "full", xl: "220px" }}
-					/>
-					<Select
-						mode="multiple"
-						size="sm"
-						value={statusesFilter}
-						onValueChange={(value) => {
+						}))} placeholder={t("recentActions.filters.allResources")} aria-label={t("recentActions.filters.resource")} className="w-full xl:w-[220px]" />
+					<Select mode="multiple" size="sm" value={statusesFilter} onValueChange={(value) => {
 							setStatusesFilter(Array.isArray(value) ? value : [value]);
 							resetPagination();
-						}}
-						options={[
+						}} options={[
 							"available",
 							"undone",
 							"expired",
@@ -1033,23 +949,12 @@ export const RecentActionsPage: FC = () => {
 						].map((value) => ({
 							label: t(`recentActions.status.${value}`),
 							value,
-						}))}
-						placeholder={t("recentActions.filters.allStatuses")}
-						aria-label={t("recentActions.filters.status")}
-						w={{ base: "full", xl: "190px" }}
-					/>
-					<Input
-						type="date"
-						size="sm"
-						value={dayFilter}
-						onChange={(event) => {
+						}))} placeholder={t("recentActions.filters.allStatuses")} aria-label={t("recentActions.filters.status")} className="w-full xl:w-[190px]" />
+					<Input type="date" size="sm" value={dayFilter} onChange={(event) => {
 							setDayFilter(event.target.value);
 							resetPagination();
-						}}
-						aria-label={t("recentActions.filters.day")}
-						w={{ base: "full", xl: "170px" }}
-					/>
-				</Stack>
+						}} aria-label={t("recentActions.filters.day")} className="w-full xl:w-[170px]" />
+				</div>
 			</ResourceListCard>
 
 			<DataTable
@@ -1064,38 +969,27 @@ export const RecentActionsPage: FC = () => {
 				loadingRows={8}
 				error={actionsQuery.isError ? t("recentActions.loadFailed") : undefined}
 				emptyState={
-					<Text fontSize="sm" color="panel.textMuted" textAlign="center">
+					<p className="text-[0.875rem] text-panel-text-muted text-center">
 						{actions.length
 							? t("recentActions.noMatching")
 							: t("recentActions.empty")}
-					</Text>
+					</p>
 				}
 				rowActions={rowActions}
 				renderRowActions={(action) => (
-					<HStack spacing={2} justify="flex-end">
-						<Button
-							size="sm"
-							variant="outline"
-							leftIcon={<EyeIcon width={16} />}
-							onClick={() => toggleDetails(action.id)}
-						>
+					<div className="flex flex-row items-center gap-2 justify-end">
+						<Button size="sm" variant="outline" leftIcon={<EyeIcon className="w-16" />} onClick={() => toggleDetails(action.id)}>
 							{t("recentActions.details")}
 						</Button>
 						{action.rollback_status === "available" && (
-							<Button
-								size="sm"
-								colorScheme="orange"
-								leftIcon={<ArrowUturnLeftIcon width={16} />}
-								onClick={() => rollback(action)}
-								isLoading={
+							<Button size="sm" colorScheme="orange" leftIcon={<ArrowUturnLeftIcon className="w-16" />} onClick={() => rollback(action)} isLoading={
 									rollbackMutation.isLoading &&
 									rollbackMutation.variables === action.id
-								}
-							>
+								}>
 								{t("recentActions.rollback")}
 							</Button>
 						)}
-					</HStack>
+					</div>
 				)}
 				actionsDisplay="inline"
 				actionsColumnWidth="210px"
@@ -1117,6 +1011,6 @@ export const RecentActionsPage: FC = () => {
 					/>
 				}
 			/>
-		</VStack>
+		</div>
 	);
 };

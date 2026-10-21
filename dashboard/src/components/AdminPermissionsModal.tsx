@@ -1,10 +1,6 @@
-import {
-	Button,
-	HStack,
-	Switch,
-	Text,
-	useToast,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { Button } from "components/shadcn/button";
+import { Switch } from "components/shadcn/selection";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { DEFAULT_ADMIN_PERMISSIONS } from "constants/adminPermissions";
 import { useAdminsStore } from "contexts/AdminsContext";
@@ -99,43 +95,22 @@ export const AdminPermissionsModal = ({
 	};
 
 	return (
-		<AppDialog
-			isOpen={isOpen}
-			onClose={onClose}
-			size="4xl"
-			title={t("admins.permissions.modalTitle", {
+		<AppDialog isOpen={isOpen} onClose={onClose} size="4xl" title={t("admins.permissions.modalTitle", {
 				username: admin?.username ?? "",
-			})}
-			contentProps={{
-				maxW: { base: "100vw", md: "calc(100vw - 24px)", lg: "960px" },
-				h: { base: "100dvh", md: "auto" },
-				maxH: { base: "100dvh", md: "calc(100dvh - 7.5rem)" },
-				my: { base: 0, md: "3.75rem" },
-				borderRadius: { base: 0, md: "md" },
-			}}
-			headerProps={{ pr: 12, fontSize: { base: "xl", md: "2xl" } }}
-			bodyProps={{ overflowX: "hidden", overflowY: "auto" }}
-			footerProps={{ gap: 3 }}
-			footer={
+			})} contentProps={{ className: "max-w-[100vw] md:max-w-[calc(100vw_-_24px)] lg:max-w-[960px] h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[calc(100dvh_-_7.5rem)] my-0 md:my-[3.75rem] rounded-[0px] md:rounded-md" }} headerProps={{ className: "pr-12 text-[1.25rem] md:text-[1.5rem]" }} bodyProps={{ className: "overflow-x-hidden overflow-y-auto" }} footerProps={{ className: "gap-3" }} footer={
 				<>
-					<Button variant="ghost" onClick={onClose}>
+					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("cancel")}
 					</Button>
-					<Button
-						colorScheme="primary"
-						onClick={handleSave}
-						isLoading={saving}
-						isDisabled={!admin || (isFullAccess && !canManage2FA)}
-					>
+					<Button size="md" colorScheme="primary" onClick={handleSave} isLoading={saving} isDisabled={!admin || (isFullAccess && !canManage2FA)}>
 						{t("save")}
 					</Button>
 				</>
-			}
-		>
+			}>
 					{isFullAccess && (
-						<Text color="gray.500" mb={3}>
+						<p className="text-gray-500 mb-3">
 							{t("admins.permissions.fullAccessLocked")}
-						</Text>
+						</p>
 					)}
 					<AdminPermissionsEditor
 						value={permissionsDraft}
@@ -190,10 +165,10 @@ export const AdminPermissionsModal = ({
 						hideExtendedSections={false}
 						isReadOnly={isFullAccess}
 					/>
-					<HStack borderWidth="1px" borderRadius="md" justify="space-between" mt={5} p={3}>
-						<Text>{t("admins.security.require2FA")}</Text>
+					<div className="flex flex-row items-center gap-2 border rounded-md justify-between mt-5 p-3">
+						<p>{t("admins.security.require2FA")}</p>
 						<Switch isChecked={require2FA} isDisabled={!canManage2FA} onChange={(event) => setRequire2FA(event.target.checked)} />
-					</HStack>
+					</div>
 		</AppDialog>
 	);
 };

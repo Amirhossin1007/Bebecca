@@ -1,12 +1,7 @@
-import {
-	Button,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	Textarea,
-	useToast,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Textarea } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
 import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
@@ -78,30 +73,18 @@ export const EntityNotePanel: FC<{
 	return (
 		<FormControl>
 			<FormLabel>{t("entityNote.label")}</FormLabel>
-			<Textarea
-				rows={3}
-				maxLength={NOTE_MAX_LENGTH}
-				value={draft}
-				isDisabled={isLoading}
-				placeholder={t("entityNote.placeholder")}
-				onChange={(event) => setDraft(event.target.value)}
-			/>
+			<Textarea rows={3} maxLength={NOTE_MAX_LENGTH} value={draft} isDisabled={isLoading} placeholder={t("entityNote.placeholder")} onChange={(event) => setDraft(event.target.value)} />
 			<FormHelperText>{t("entityNote.hint")}</FormHelperText>
 			{data?.updated_by ? (
 				<FormHelperText>
 					{t("entityNote.lastEdited", { name: data.updated_by })}
 				</FormHelperText>
 			) : null}
-			<HStack justify="flex-end" mt={2}>
-				<Button
-					size="sm"
-					isDisabled={!dirty || isLoading}
-					isLoading={isSaving}
-					onClick={() => save(draft.trim())}
-				>
+			<div className="flex flex-row items-center gap-2 justify-end mt-2">
+				<Button variant="solid" size="sm" isDisabled={!dirty || isLoading} isLoading={isSaving} onClick={() => save(draft.trim())}>
 					{t("entityNote.save")}
 				</Button>
-			</HStack>
+			</div>
 		</FormControl>
 	);
 };

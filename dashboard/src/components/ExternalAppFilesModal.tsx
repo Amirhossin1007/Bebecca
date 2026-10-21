@@ -1,22 +1,11 @@
-import {
-	Alert,
-	AlertIcon,
-	Box,
-	Button,
-	Code,
-	Flex,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalHeader,
-	ModalOverlay,
-	Spinner,
-	Text,
-	useColorMode,
-	useColorModeValue,
-	useToast,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useColorMode } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { Button } from "components/shadcn/button";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Spinner } from "components/shadcn/feedback";
+import { cn } from "lib/cn";
 import {
 	ArrowLeftIcon,
 	CodeBracketIcon,
@@ -127,7 +116,7 @@ export const ExternalAppFilesModal = ({
 }: Props) => {
 	const { t, i18n } = useTranslation();
 	const { colorMode } = useColorMode();
-	const modalBg = useColorModeValue("white", "gray.900");
+	const modalBg = useColorModeValue("bg-white", "bg-gray-900");
 	const toast = useToast();
 	const [folder, setFolder] = useState("/");
 	const [document, setDocument] = useState<EditorDocument | null>(null);
@@ -300,117 +289,65 @@ export const ExternalAppFilesModal = ({
 	return (
 		<Modal isOpen={Boolean(app)} onClose={close} size="full">
 			<ModalOverlay />
-			<ModalContent bg={modalBg} h="100dvh" maxH="100dvh">
-				<ModalHeader px={{ base: 3, md: 6 }} py={{ base: 3, md: 4 }}>
-					<Flex align="center" gap={3} pe={10} minW={0}>
+			<ModalContent className={cn("h-[100dvh] max-h-[100dvh]", modalBg)}>
+				<ModalHeader className="px-3 md:px-6 py-3 md:py-4">
+					<div className="flex items-center gap-3 pe-10 min-w-0!">
 						{isPHPConfigView ? (
-							<CodeBracketIcon width={22} />
+							<CodeBracketIcon className="w-22" />
 						) : (
-							<FolderOpenIcon width={22} />
+							<FolderOpenIcon className="w-22" />
 						)}
-						<Text noOfLines={1} minW={0}>
+						<p className="truncate min-w-0!">
 							{t(
 								isPHPConfigView
 									? "externalApps.files.phpConfigTitle"
 									: "externalApps.files.title",
 								{ domain },
 							)}
-						</Text>
+						</p>
 						{document ? (
-							<Code
-								fontSize="xs"
-								maxW="45%"
-								noOfLines={1}
-								display={{ base: "none", md: "block" }}
-							>
+							<code className="truncate rounded-xs bg-gray-100 px-[0.2em] py-[0.1em] font-mono dark:bg-whiteAlpha-200 text-[0.75rem] max-w-[45%] hidden md:block">
 								{document.path}
-							</Code>
+							</code>
 						) : null}
-					</Flex>
+					</div>
 				</ModalHeader>
 				<ModalCloseButton />
-				<ModalBody
-					display="flex"
-					minH={0}
-					overflow="hidden"
-					px={{ base: 2, md: 4 }}
-					pb={{ base: 2, md: 4 }}
-				>
-					<Flex gap={4} flex="1" minH={0} minW={0} w="full">
+				<ModalBody className="flex min-h-0 overflow-hidden px-2 md:px-4 pb-2 md:pb-4">
+					<div className="flex gap-4 flex-1 min-h-0 min-w-0! w-full">
 						{!isPHPConfigView ? (
-							<Box
-								flex="1"
-								minW={0}
-								minH={0}
-								display={{ base: document ? "none" : "flex", lg: "flex" }}
-								flexDirection="column"
-							>
-								<Box
-									className="external-app-files-shell"
-									flex="1"
-									minH={0}
-									minW={0}
-								>
-									<Button
-										className="external-app-files-new-file"
-										size="sm"
-										variant="ghost"
-										leftIcon={<DocumentPlusIcon width={18} />}
-										title={t("externalApps.files.newFile")}
-										aria-label={t("externalApps.files.newFile")}
-										isDisabled={fileMutation.isLoading}
-										onClick={createFile}
-									>
+							<div className={cn("flex-1 min-w-0! min-h-0 lg:flex flex-col", document ? "hidden" : "flex")}>
+								<div className="flex-1 min-h-0 min-w-0! external-app-files-shell">
+									<Button size="sm" variant="ghost" leftIcon={<DocumentPlusIcon className="w-18" />} title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} isDisabled={fileMutation.isLoading} onClick={createFile} className="external-app-files-new-file">
 										<span className="external-app-files-new-file-label">
 											{t("externalApps.files.newFile")}
 										</span>
 									</Button>
-									<FileManager
-										files={filesQuery.data?.files ?? []}
-										className={`external-app-files external-app-files--new-file-visible${
-											colorMode === "dark" ? " external-app-files--dark" : ""
-										}`}
-										collapsibleNav
-										enableFilePreview={false}
-										fileUploadConfig={{
+									<FileManager files={filesQuery.data?.files ?? []} collapsibleNav enableFilePreview={false} fileUploadConfig={{
 											url: externalAppFileUploadURL(appID),
 											method: "POST",
 											withCredentials: true,
-										}}
-										height="100%"
-										isLoading={filesQuery.isLoading || fileMutation.isLoading}
-										language={
+										}} isLoading={filesQuery.isLoading || fileMutation.isLoading} language={
 											i18n.language.startsWith("fa") ? "fa-IR" : "en-US"
-										}
-										layout="list"
-										maxFileSize={32 << 20}
-										onCreateFolder={(name, parent) =>
+										} layout="list" maxFileSize={32 << 20} onCreateFolder={(name, parent) =>
 											fileMutation.mutate(() =>
 												createExternalAppFolder({
 													domain: appID,
 													path: joinPath(parent?.path || "/", name),
 												}),
 											)
-										}
-										onDelete={(files) =>
+										} onDelete={(files) =>
 											fileMutation.mutate(() =>
 												deleteExternalAppFiles({
 													domain: appID,
 													paths: files.map((file) => file.path),
 												}),
 											)
-										}
-										onDownload={downloadFiles}
-										onError={(error) => showError(new Error(error.message))}
-										onFileOpen={(file) => {
+										} onDownload={downloadFiles} onError={(error) => showError(new Error(error.message))} onFileOpen={(file) => {
 											if (!file.isDirectory) void openFile(file.path);
-										}}
-										onFileUploaded={() => void refreshFiles()}
-										onFileUploading={(_file, parent) => ({
+										}} onFileUploaded={() => void refreshFiles()} onFileUploading={(_file, parent) => ({
 											parent: parent?.path || "/",
-										})}
-										onFolderChange={(path) => setFolder(path || "/")}
-										onPaste={(files, destination, operation) => {
+										})} onFolderChange={(path) => setFolder(path || "/")} onPaste={(files, destination, operation) => {
 											if (operation !== "move") return;
 											fileMutation.mutate(async () => {
 												for (const file of files) {
@@ -424,9 +361,7 @@ export const ExternalAppFilesModal = ({
 													});
 												}
 											});
-										}}
-										onRefresh={() => void refreshFiles()}
-										onRename={(file, newName) =>
+										}} onRefresh={() => void refreshFiles()} onRename={(file, newName) =>
 											fileMutation.mutate(() =>
 												moveExternalAppFile({
 													domain: appID,
@@ -434,116 +369,65 @@ export const ExternalAppFilesModal = ({
 													new_path: joinPath(parentPath(file.path), newName),
 												}),
 											)
-										}
-										permissions={{ copy: false }}
-										primaryColor="#4299e1"
-									/>
-								</Box>
-							</Box>
+										} permissions={{ copy: false }} primaryColor="#4299e1" className={cn("h-full", `external-app-files external-app-files--new-file-visible${
+											colorMode === "dark" ? " external-app-files--dark" : ""
+										}`)} />
+								</div>
+							</div>
 						) : null}
-						<Box
-							flex="1"
-							minW={0}
-							minH={0}
-							display={
-								isPHPConfigView
-									? "flex"
-									: { base: document ? "flex" : "none", lg: "flex" }
-							}
-							flexDirection="column"
-						>
+						<div className={cn("flex-1 min-w-0! min-h-0 flex-col", isPHPConfigView ? "flex" : `${document ? "flex" : "hidden"} lg:flex`)}>
 							{document?.kind === "php-config" ? (
-								<Alert status="warning" mb={2} borderRadius="md" py={2}>
+								<Alert status="warning" className="mb-2 rounded-md py-2">
 									<AlertIcon />
-									<Text fontSize="sm">
+									<p className="text-[0.875rem]">
 										{t("externalApps.files.phpConfigHint")}
-									</Text>
+									</p>
 								</Alert>
 							) : null}
-							<Flex
-								justify="space-between"
-								align="center"
-								gap={2}
-								mb={2}
-								minH="32px"
-							>
+							<div className="flex justify-between items-center gap-2 mb-2 min-h-[32px]">
 								{!isPHPConfigView ? (
-									<Button
-										display={{ base: "inline-flex", lg: "none" }}
-										size="sm"
-										leftIcon={<ArrowLeftIcon width={16} />}
-										onClick={closeDocument}
-									>
+									<Button variant="solid" size="sm" leftIcon={<ArrowLeftIcon className="w-16" />} onClick={closeDocument} className="inline-flex lg:hidden">
 										{t("externalApps.files.backToFiles")}
 									</Button>
 								) : null}
-								<Text
-									flex="1"
-									minW={0}
-									fontSize="sm"
-									color="panel.textSecondary"
-									noOfLines={1}
-								>
+								<p className="flex-1 min-w-0! text-[0.875rem] text-panel-text-secondary truncate">
 									{document?.path || t("externalApps.files.openHint")}
-								</Text>
-								<Button
-									size="sm"
-									colorScheme="blue"
-									isDisabled={!document || !isDirty}
-									isLoading={saveMutation.isLoading}
-									onClick={() => saveMutation.mutate()}
-								>
+								</p>
+								<Button size="sm" colorScheme="blue" isDisabled={!document || !isDirty} isLoading={saveMutation.isLoading} onClick={() => saveMutation.mutate()}>
 									{t("externalApps.files.save")}
 								</Button>
-							</Flex>
-							<Box flex="1" minH={0} position="relative">
+							</div>
+							<div className="flex-1 min-h-0 relative">
 								{loadingDocument ? (
-									<Flex
-										position="absolute"
-										inset={0}
-										align="center"
-										justify="center"
-										zIndex={1}
-										bg="blackAlpha.400"
-									>
+									<div className="flex absolute inset-0 items-center justify-center z-[1] bg-blackAlpha-400">
 										<Spinner />
-									</Flex>
+									</div>
 								) : null}
 								{document ? (
-									<AceEditor
-										name={
+									<AceEditor name={
 											isPHPConfigView
 												? "external-app-php-editor"
 												: "external-app-editor"
-										}
-										mode={
+										} mode={
 											document.kind === "php-config"
 												? "ini"
 												: editorModeForPath(document.path)
-										}
-										theme={colorMode === "dark" ? "monokai" : "github"}
-										value={draft}
-										onChange={setDraft}
-										width="100%"
-										height="100%"
-										fontSize={14}
-										setOptions={{
+										} theme={colorMode === "dark" ? "monokai" : "github"} value={draft} onChange={setDraft} setOptions={{
 											enableBasicAutocompletion: true,
 											enableLiveAutocompletion: true,
 											showPrintMargin: false,
 											useWorker: false,
-										}}
-									/>
+										}} className="w-full h-full text-[14px]" />
 								) : (
-									<Flex h="full" align="center" justify="center" px={6}>
-										<Text color="panel.textSecondary" textAlign="center">
+									<div className="flex h-full items-center justify-center px-6">
+										<p className="text-panel-text-secondary text-center">
 											{t("externalApps.files.openHint")}
-										</Text>
-									</Flex>
+										</p>
+									</div>
 								)}
-							</Box>
-						</Box>
-					</Flex>
+							</div>
+						</div>
+					</div>
 				</ModalBody>
 			</ModalContent>
 		</Modal>

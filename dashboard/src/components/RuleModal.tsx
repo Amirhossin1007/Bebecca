@@ -1,26 +1,9 @@
-import {
-	Box,
-	Button,
-	Checkbox,
-	CheckboxGroup,
-	FormControl,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Stack,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Text,
-	Wrap,
-	WrapItem,
-} from "@chakra-ui/react";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { Button, IconButton } from "components/shadcn/button";
+import { Checkbox, CheckboxGroup } from "components/shadcn/selection";
+import { Input } from "components/shadcn/input";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
@@ -291,13 +274,8 @@ export const RuleModal: FC<RuleModalProps> = ({
 	);
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={handleClose}
-			size="3xl"
-			scrollBehavior="inside"
-		>
-			<ModalOverlay bg="blackAlpha.400" />
+		<Modal isOpen={isOpen} onClose={handleClose} size="3xl" scrollBehavior="inside">
+			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent as="form" onSubmit={handleSave}>
 				<XrayModalHeader>{title}</XrayModalHeader>
 				<ModalCloseButton />
@@ -308,10 +286,10 @@ export const RuleModal: FC<RuleModalProps> = ({
 							<Tab>{t("pages.xray.propagate.tab")}</Tab>
 						</TabList>
 						<TabPanels>
-							<TabPanel px={0}>
-								<Stack spacing={3}>
+							<TabPanel className="px-0">
+								<div className="flex flex-col gap-3">
 									<XrayDialogSection title={t("pages.outbound.basicSettings")}>
-										<Stack spacing={3}>
+										<div className="flex flex-col gap-3">
 											<FormControl>
 												<FormLabel>{t("pages.xray.rules.type")}</FormLabel>
 												<Controller
@@ -336,8 +314,8 @@ export const RuleModal: FC<RuleModalProps> = ({
 													control={control}
 													name="outboundTag"
 													render={({ field }) => (
-														<HStack align="start">
-															<Box flex="1" minW={0}>
+														<div className="flex flex-row gap-2 items-start">
+															<div className="flex-1 min-w-0!">
 																<SearchableTagSelect
 																	mode="single"
 																	options={availableOutboundTags}
@@ -365,16 +343,9 @@ export const RuleModal: FC<RuleModalProps> = ({
 																		/>
 																	}
 																/>
-															</Box>
-															<IconButton
-																aria-label={t("remove")}
-																icon={<XMarkIcon />}
-																size="sm"
-																variant="ghost"
-																isDisabled={!field.value}
-																onClick={() => field.onChange("")}
-															/>
-														</HStack>
+															</div>
+															<IconButton aria-label={t("remove")} icon={<XMarkIcon />} size="sm" variant="ghost" isDisabled={!field.value} onClick={() => field.onChange("")} />
+														</div>
 													)}
 												/>
 											</FormControl>
@@ -385,8 +356,8 @@ export const RuleModal: FC<RuleModalProps> = ({
 													control={control}
 													name="balancerTag"
 													render={({ field }) => (
-														<HStack align="start">
-															<Box flex="1" minW={0}>
+														<div className="flex flex-row gap-2 items-start">
+															<div className="flex-1 min-w-0!">
 																<SearchableTagSelect
 																	mode="single"
 																	options={availableBalancerTags}
@@ -404,16 +375,9 @@ export const RuleModal: FC<RuleModalProps> = ({
 																	searchPlaceholder={t("search")}
 																	emptyText={t("pages.xray.balancer.empty")}
 																/>
-															</Box>
-															<IconButton
-																aria-label={t("remove")}
-																icon={<XMarkIcon />}
-																size="sm"
-																variant="ghost"
-																isDisabled={!field.value}
-																onClick={() => field.onChange("")}
-															/>
-														</HStack>
+															</div>
+															<IconButton aria-label={t("remove")} icon={<XMarkIcon />} size="sm" variant="ghost" isDisabled={!field.value} onClick={() => field.onChange("")} />
+														</div>
 													)}
 												/>
 											</FormControl>
@@ -436,11 +400,11 @@ export const RuleModal: FC<RuleModalProps> = ({
 													)}
 												/>
 											</FormControl>
-										</Stack>
+										</div>
 									</XrayDialogSection>
 
 									<XrayDialogSection title={t("pages.xray.Routings")}>
-										<Stack spacing={3}>
+										<div className="flex flex-col gap-3">
 											<FormControl>
 												<FormLabel>{t("pages.xray.rules.domainMatcher")}</FormLabel>
 												<Controller
@@ -469,13 +433,13 @@ export const RuleModal: FC<RuleModalProps> = ({
 													name="networks"
 													render={({ field }) => (
 														<CheckboxGroup {...field}>
-															<Wrap spacing={3}>
+															<div className="flex flex-wrap gap-3">
 																{NETWORK_OPTIONS.map((network) => (
-																	<WrapItem key={network}>
+																	<div key={network}>
 																		<Checkbox value={network}>{network}</Checkbox>
-																	</WrapItem>
+																	</div>
 																))}
-															</Wrap>
+															</div>
 														</CheckboxGroup>
 													)}
 												/>
@@ -488,18 +452,18 @@ export const RuleModal: FC<RuleModalProps> = ({
 													name="protocols"
 													render={({ field }) => (
 														<CheckboxGroup {...field}>
-															<Wrap spacing={3}>
+															<div className="flex flex-wrap gap-3">
 																{PROTOCOL_OPTIONS.map((protocol) => (
-																	<WrapItem key={protocol}>
+																	<div key={protocol}>
 																		<Checkbox value={protocol}>{protocol}</Checkbox>
-																	</WrapItem>
+																	</div>
 																))}
-															</Wrap>
+															</div>
 														</CheckboxGroup>
 													)}
 												/>
 											</FormControl>
-										</Stack>
+										</div>
 									</XrayDialogSection>
 
 									<XrayDialogSection title={t("pages.xray.rules.sourceGroup")}>
@@ -535,11 +499,7 @@ export const RuleModal: FC<RuleModalProps> = ({
 											</FormControl>
 											<FormControl>
 												<FormLabel>Node OS (Xray 26.9.8+)</FormLabel>
-												<Input
-													size="sm"
-													placeholder="linux, windows, darwin"
-													{...register("localOS")}
-												/>
+												<Input size="sm" placeholder="linux, windows, darwin" {...register("localOS")} />
 											</FormControl>
 										</XrayFieldGrid>
 									</XrayDialogSection>
@@ -611,48 +571,28 @@ export const RuleModal: FC<RuleModalProps> = ({
 									<XrayDialogSection title={t("pages.xray.rules.attrs")}>
 										<FormControl>
 											<FormLabel>{t("pages.xray.rules.attrs")}</FormLabel>
-											<Button
-												onClick={onAddAttribute}
-												size="xs"
-												leftIcon={<PlusIcon width={16} />}
-												variant="outline"
-												colorScheme="primary"
-											>
+											<Button onClick={onAddAttribute} size="xs" leftIcon={<PlusIcon className="w-16" />} variant="outline" colorScheme="primary">
 												{t("add")}
 											</Button>
 										</FormControl>
-										<Stack spacing={2} mt={3}>
+										<div className="flex flex-col gap-2 mt-3">
 											{fields.length === 0 && (
-												<Text fontSize="sm" color="gray.500">
+												<p className="text-[0.875rem] text-gray-500">
 													{t("pages.xray.rules.attrsHelper")}
-												</Text>
+												</p>
 											)}
 											{fields.map((field, index) => (
-												<HStack key={field.id} spacing={2} align="flex-start">
-													<Input
-														size="sm"
-														placeholder={t("myaccount.apiKeyMasked")}
-														{...register(`attrs.${index}.key` as const)}
-													/>
-													<Input
-														size="sm"
-														placeholder={t("value")}
-														{...register(`attrs.${index}.value` as const)}
-													/>
-													<IconButton
-														aria-label={t("a11y.removeAttribute")}
-														icon={<XMarkIcon width={16} />}
-														size="sm"
-														variant="ghost"
-														onClick={() => remove(index)}
-													/>
-												</HStack>
+												<div key={field.id} className="flex flex-row gap-2 items-start">
+													<Input size="sm" placeholder={t("myaccount.apiKeyMasked")} {...register(`attrs.${index}.key` as const)} />
+													<Input size="sm" placeholder={t("value")} {...register(`attrs.${index}.value` as const)} />
+													<IconButton aria-label={t("a11y.removeAttribute")} icon={<XMarkIcon className="w-16" />} size="sm" variant="ghost" onClick={() => remove(index)} />
+												</div>
 											))}
-										</Stack>
+										</div>
 									</XrayDialogSection>
-								</Stack>
+								</div>
 							</TabPanel>
-							<TabPanel px={0}>
+							<TabPanel className="px-0">
 								<PropagationTargets
 									source={sourceTarget}
 									section="routing.rules"
@@ -665,11 +605,11 @@ export const RuleModal: FC<RuleModalProps> = ({
 						</TabPanels>
 					</Tabs>
 				</XrayModalBody>
-				<XrayModalFooter justifyContent="flex-end">
-					<Button variant="outline" onClick={handleClose}>
+				<XrayModalFooter className="justify-end">
+					<Button size="md" variant="outline" onClick={handleClose}>
 						{t("cancel")}
 					</Button>
-					<Button colorScheme="primary" type="submit" isLoading={isSubmitting}>
+					<Button size="md" colorScheme="primary" type="submit" isLoading={isSubmitting}>
 						{mode === "edit"
 							? t("pages.xray.rules.edit")
 							: t("pages.xray.rules.add")}

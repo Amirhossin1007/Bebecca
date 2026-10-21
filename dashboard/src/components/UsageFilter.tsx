@@ -1,7 +1,4 @@
-import {
-	type ColorMode,
-	Box,
-} from "@chakra-ui/react";
+import type { ColorMode } from "lib/color-mode";
 import type { ApexOptions } from "apexcharts";
 import {
 	DateRangePicker,
@@ -78,7 +75,7 @@ export const UsageFilter: FC<UsageFilterProps> = ({
 	const [range, setRange] = useState<DateRangeValue>(initialRange);
 
 	return (
-		<Box {...props}>
+		<div {...props}>
 			<DateRangePicker
 				value={range}
 				presets={usagePresets}
@@ -88,7 +85,7 @@ export const UsageFilter: FC<UsageFilterProps> = ({
 					onChange(nextRange.key || nextRange.presetKey || "custom", toFilterQuery(nextRange));
 				}}
 			/>
-		</Box>
+		</div>
 	);
 };
 
@@ -115,9 +112,9 @@ export function createUsageConfig(
 				text: `${title}${total}`,
 				align: "center",
 				style: {
-					fontWeight: "var(--chakra-fontWeights-medium)",
+					fontWeight: "500",
 					color:
-						colorMode === "dark" ? "var(--chakra-colors-gray-300)" : undefined,
+						colorMode === "dark" ? "var(--color-gray-300)" : undefined,
 				},
 			},
 			legend: {

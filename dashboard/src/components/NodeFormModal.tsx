@@ -1,26 +1,13 @@
-import {
-	Box,
-	Button,
-	Checkbox,
-	Collapse,
-	chakra,
-	FormControl,
-	FormErrorMessage,
-	FormLabel,
-	HStack,
-	IconButton,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	SimpleGrid,
-	Stack,
-	Switch,
-	Text,
-	Textarea,
-	Tooltip,
-	useClipboard,
-	useToast,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { useClipboard } from "hooks/useClipboard";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Button, IconButton } from "components/shadcn/button";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Collapse } from "components/shadcn/collapse";
+import { Checkbox, Switch } from "components/shadcn/selection";
+import { FormControl, FormErrorMessage, FormLabel } from "components/shadcn/field";
+import { Textarea } from "components/shadcn/input";
+import { withClass } from "components/shadcn/icon";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	ArrowDownTrayIcon,
@@ -50,14 +37,10 @@ import {
 	XrayModalHeader,
 } from "./xray/XrayDialog";
 
-const EyeIconStyled = chakra(EyeIcon, { baseStyle: { w: 4, h: 4 } });
-const EyeSlashIconStyled = chakra(EyeSlashIcon, { baseStyle: { w: 4, h: 4 } });
-const CopyIconStyled = chakra(DocumentDuplicateIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const DownloadIconStyled = chakra(ArrowDownTrayIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
+const EyeIconStyled = withClass(EyeIcon, "w-4 h-4");
+const EyeSlashIconStyled = withClass(EyeSlashIcon, "w-4 h-4");
+const CopyIconStyled = withClass(DocumentDuplicateIcon, "w-4 h-4");
+const DownloadIconStyled = withClass(ArrowDownTrayIcon, "w-4 h-4");
 
 const BYTES_IN_GB = 1024 * 1024 * 1024;
 const getInputError = (error: unknown): string | undefined => {
@@ -371,99 +354,38 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	}
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={handleClose}
-			size="2xl"
-			scrollBehavior="inside"
-		>
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent
-				mx="3"
-				as="form"
-				onSubmit={handleSubmit}
-				sx={{
-					".node-form-section .chakra-simple-grid": {
-						gridTemplateColumns: {
-							base: "1fr",
-							md: "repeat(2, minmax(0, 1fr))",
-						},
-					},
-					".node-form-section .chakra-form-control": {
-						display: "block",
-					},
-					".node-form-section .node-switch-control": {
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-						gap: 3,
-					},
-					".node-form-section .chakra-form__label": {
-						mb: 1,
-					},
-					".node-form-section .chakra-input__group, .node-form-section .chakra-numberinput, .node-form-section input, .node-form-section select":
-						{
-							w: "full",
-							width: "100%",
-						},
-					".node-form-section .chakra-form-control > .chakra-form__helper-text, .node-form-section .chakra-form-control > .chakra-form__error-message":
-						{
-							gridColumn: "auto",
-						},
-				}}
-			>
+		<Modal isOpen={isOpen} onClose={handleClose} size="2xl" scrollBehavior="inside">
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent as="form" onSubmit={handleSubmit} className={"[.node-form-section_.chakra-simple-grid]:grid-cols-[1fr] [.node-form-section_.chakra-simple-grid]:md:grid-cols-[repeat(2,_minmax(0,_1fr))] [.node-form-section_.chakra-form-control]:block [.node-form-section_.node-switch-control]:flex [.node-form-section_.node-switch-control]:items-center [.node-form-section_.node-switch-control]:justify-between [.node-form-section_.node-switch-control]:gap-3 [.node-form-section_.chakra-form__label]:mb-1 [.node-form-section_.chakra-input__group,_.node-form-section_.chakra-numberinput,_.node-form-section_input,_.node-form-section_select]:w-full [.node-form-section_.chakra-form-control_>_.chakra-form__helper-text,_.node-form-section_.chakra-form-control_>_.chakra-form__error-message]:[grid-column:auto] mx-3"}>
 				<XrayModalHeader>
 					{isAddMode ? t("nodes.addNewRebeccaNode") : t("nodes.editNode")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<Stack spacing={4}>
+					<div className="flex flex-col gap-4">
 						{!isAddMode && nodeCertificateValue && (
-							<Stack className="xray-dialog-section" spacing={3}>
-								<Stack
-									direction={{ base: "column", sm: "row" }}
-									justify="space-between"
-									align={{ base: "stretch", sm: "center" }}
-									spacing={2}
-								>
-									<Text fontWeight="medium" minW={0}>
+							<div className="flex flex-col gap-3 xray-dialog-section">
+								<div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
+									<p className="font-medium min-w-0!">
 										{t("nodes.certificate")}
-									</Text>
-									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-										<Button
-											size="xs"
-											variant="outline"
-											leftIcon={<CopyIconStyled />}
-											onClick={handleCopyNodeCertificate}
-										>
+									</p>
+									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
+										<Button size="xs" variant="outline" leftIcon={<CopyIconStyled />} onClick={handleCopyNodeCertificate}>
 											{nodeCertificateCopied ? t("copied") : t("copy")}
 										</Button>
-										<Button
-											size="xs"
-											variant="outline"
-											leftIcon={<DownloadIconStyled />}
-											onClick={handleDownloadNodeCertificate}
-										>
+										<Button size="xs" variant="outline" leftIcon={<DownloadIconStyled />} onClick={handleDownloadNodeCertificate}>
 											{t("nodes.download-certificate")}
 										</Button>
-										<Tooltip
-											placement="top"
-											label={t(
+										<Tooltip placement="top" label={t(
 												showCertificate
 													? "nodes.hide-certificate"
 													: "nodes.show-certificate",
-											)}
-										>
-											<IconButton
-												aria-label={t(
+											)}>
+											<IconButton aria-label={t(
 													showCertificate
 														? "nodes.hide-certificate"
 														: "nodes.show-certificate",
-												)}
-												onClick={() => setShowCertificate((prev) => !prev)}
-												size="xs"
-												variant="ghost"
-											>
+												)} onClick={() => setShowCertificate((prev) => !prev)} size="xs" variant="ghost">
 												{showCertificate ? (
 													<EyeSlashIconStyled />
 												) : (
@@ -471,39 +393,26 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 												)}
 											</IconButton>
 										</Tooltip>
-									</HStack>
-								</Stack>
+									</div>
+								</div>
 								<Collapse in={showCertificate} animateOpacity>
-									<Box
-										borderWidth="1px"
-										borderRadius="md"
-										p={3}
-										fontFamily="mono"
-										fontSize="xs"
-										maxH="220px"
-										overflow="auto"
-										bg="gray.50"
-										_dark={{ bg: "whiteAlpha.100" }}
-									>
+									<div className="border rounded-md p-3 font-mono text-[0.75rem] max-h-[220px] overflow-auto bg-gray-50 dark:bg-whiteAlpha-100">
 										{nodeCertificateValue}
-									</Box>
+									</div>
 								</Collapse>
-							</Stack>
+							</div>
 						)}
 
-						<Stack
-							className="xray-dialog-section node-form-section"
-							spacing={3}
-						>
-							<Text fontSize="sm" fontWeight="semibold">
+						<div className="flex flex-col gap-3 xray-dialog-section node-form-section">
+							<p className="text-[0.875rem] font-semibold">
 								{t("nodes.connectionSettings")}
-							</Text>
+							</p>
 							{isAddMode && (
-								<Checkbox isChecked isReadOnly isDisabled pointerEvents="none">
+								<Checkbox isChecked isDisabled className="pointer-events-none">
 									{t("nodes.certInfoOption")}
 								</Checkbox>
 							)}
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<Input
 									label={t("nodes.nodeName")}
 									size="sm"
@@ -519,21 +428,15 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 									{...form.register("address")}
 									error={getInputError(form.formState?.errors?.address)}
 								/>
-							</SimpleGrid>
+							</div>
 							<FormControl isInvalid={Boolean(form.formState?.errors?.note)}>
 								<FormLabel>{t("fields.note")}</FormLabel>
-								<Textarea
-									size="sm"
-									maxLength={500}
-									rows={3}
-									placeholder={t("nodes.notePlaceholder")}
-									{...form.register("note")}
-								/>
+								<Textarea size="sm" maxLength={500} rows={3} placeholder={t("nodes.notePlaceholder")} {...form.register("note")} />
 								<FormErrorMessage>
 									{getInputError(form.formState?.errors?.note)}
 								</FormErrorMessage>
 							</FormControl>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<Input
 									label={t("nodes.controlPort")}
 									size="sm"
@@ -541,8 +444,8 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 									{...form.register("port")}
 									error={getInputError(form.formState?.errors?.port)}
 								/>
-							</SimpleGrid>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							</div>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<Input
 									label={t("nodes.usageCoefficient")}
 									size="sm"
@@ -584,38 +487,29 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 										})}
 										error={getInputError(form.formState?.errors?.data_limit)}
 									/>
-									<Text fontSize="xs" color="gray.500" mt={1}>
+									<p className="text-[0.75rem] text-gray-500 mt-1">
 										{t("nodes.dataLimitHint")}
-									</Text>
+									</p>
 								</FormControl>
-							</SimpleGrid>
+							</div>
 							<FormControl className="node-switch-control rb-dialog-switch-row">
-								<FormLabel mb={0}>{t("nodes.useProxy")}</FormLabel>
+								<FormLabel className="mb-0">{t("nodes.useProxy")}</FormLabel>
 								<Controller
 									control={form.control}
 									name="proxy_enabled"
 									render={({ field }) => (
-										<Switch
-											isChecked={Boolean(field.value)}
-											onChange={(event) => field.onChange(event.target.checked)}
-										/>
+										<Switch isChecked={Boolean(field.value)} onChange={(event) => field.onChange(event.target.checked)} />
 									)}
 								/>
 							</FormControl>
 							<Collapse in={Boolean(proxyEnabled)} animateOpacity>
-								<Stack
-									className="xray-dialog-section node-form-section"
-									spacing={3}
-									mt={2}
-								>
-									<Text fontSize="sm" fontWeight="semibold">
+								<div className="flex flex-col gap-3 mt-2 xray-dialog-section node-form-section">
+									<p className="text-[0.875rem] font-semibold">
 										{t("nodes.proxySettings")}
-									</Text>
-									<FormControl
-										isInvalid={
+									</p>
+									<FormControl isInvalid={
 											!!getInputError(form.formState?.errors?.proxy_type)
-										}
-									>
+										}>
 										<FormLabel>{t("nodes.proxyType")}</FormLabel>
 										<Controller
 											control={form.control}
@@ -641,7 +535,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 											{getInputError(form.formState?.errors?.proxy_type)}
 										</FormErrorMessage>
 									</FormControl>
-									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<Input
 											label={t("nodes.proxyHost")}
 											size="sm"
@@ -671,8 +565,8 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 											})}
 											error={getInputError(form.formState?.errors?.proxy_port)}
 										/>
-									</SimpleGrid>
-									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									</div>
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<Input
 											label={t("nodes.proxyUsername")}
 											size="sm"
@@ -692,27 +586,20 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 												form.formState?.errors?.proxy_password,
 											)}
 										/>
-									</SimpleGrid>
-									<Text fontSize="xs" color="gray.500">
+									</div>
+									<p className="text-[0.75rem] text-gray-500">
 										{t("nodes.proxyHint")}
-									</Text>
-								</Stack>
+									</p>
+								</div>
 							</Collapse>
-						</Stack>
-					</Stack>
+						</div>
+					</div>
 				</XrayModalBody>
-				<XrayModalFooter justifyContent="flex-end">
+				<XrayModalFooter className="justify-end">
 					<Button variant="outline" size="sm" onClick={handleClose}>
 						{t("cancel")}
 					</Button>
-					<AnimatedSubmitButton
-						status={submitStatus}
-						idleContent={isAddMode ? t("nodes.addNode") : t("nodes.editNode")}
-						successLabel={t("userDialog.submitSuccess")}
-						isDisabled={isLoading}
-						type="submit"
-						containerProps={{ w: { base: "full", sm: "180px" } }}
-					/>
+					<AnimatedSubmitButton status={submitStatus} idleContent={isAddMode ? t("nodes.addNode") : t("nodes.editNode")} successLabel={t("userDialog.submitSuccess")} isDisabled={isLoading} type="submit" containerProps={{ className: "w-full sm:w-[180px]" }} />
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>

@@ -1,7 +1,6 @@
 import type { SortingState } from "@tanstack/react-table";
-import type { BoxProps, TableProps, Td, Th } from "@chakra-ui/react";
+import type { ComponentPropsWithoutRef } from "react";
 import type { ReactElement, ReactNode } from "react";
-import type { ComponentProps } from "react";
 
 export type DataTableColumnAlign = "start" | "center" | "end";
 export type DataTableColumnSize =
@@ -50,8 +49,8 @@ export type DataTableColumn<TData> = {
 	isPrimary?: boolean;
 	isMeta?: boolean;
 	meta?: Record<string, unknown>;
-	headerProps?: ComponentProps<typeof Th>;
-	cellProps?: ComponentProps<typeof Td>;
+	headerProps?: ComponentPropsWithoutRef<"th">;
+	cellProps?: ComponentPropsWithoutRef<"td">;
 };
 
 export type DataTableRowAction<TData> = {
@@ -110,8 +109,8 @@ export type DataTableProps<TData> = {
 	showSortMenu?: boolean;
 	pagination?: ReactNode;
 	dir?: "ltr" | "rtl";
-	tableProps?: TableProps;
-	containerProps?: BoxProps;
+	tableProps?: ComponentPropsWithoutRef<"table">;
+	containerProps?: ComponentPropsWithoutRef<"div">;
 	mobileBreakpoint?: "md" | "lg";
 	ariaLabel?: string;
 	/** `{ [columnId]: false }` hides a column. Columns default to visible. */

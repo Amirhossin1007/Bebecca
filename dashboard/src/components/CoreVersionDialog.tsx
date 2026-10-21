@@ -1,16 +1,9 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Button,
-	Checkbox,
-	FormControl,
-	FormLabel,
-	Input,
-	Spinner,
-	Stack,
-	Text,
-} from "@chakra-ui/react";
+import { Button } from "components/shadcn/button";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { Spinner } from "components/shadcn/feedback";
+import { Input } from "components/shadcn/input";
+import { Checkbox } from "components/shadcn/selection";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { useEffect, useMemo, useState } from "react";
@@ -107,28 +100,20 @@ export const CoreVersionDialog = ({
 			title={title}
 			footer={
 				<>
-					<Button variant="ghost" mr={3} onClick={onClose}>
+					<Button size="md" variant="ghost" onClick={onClose} className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button
-						colorScheme="primary"
-						onClick={handleSubmit}
-						isLoading={isSubmitting}
-					>
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting}>
 						{t("nodes.coreVersionDialog.confirmUpdate")}
 					</Button>
 				</>
 			}
 		>
-					<Stack spacing={4}>
+					<div className="flex flex-col gap-4">
 						{description && (
-							<Text
-								fontSize="sm"
-								color="gray.600"
-								_dark={{ color: "gray.300" }}
-							>
+							<p className="text-[0.875rem] text-gray-600 dark:text-gray-300">
 								{description}
-							</Text>
+							</p>
 						)}
 						<FormControl>
 							<FormLabel>
@@ -154,59 +139,42 @@ export const CoreVersionDialog = ({
 								))}
 							</Select>
 							{isLoadingReleases && (
-								<Stack direction="row" align="center" spacing={2} mt={2}>
+								<div className="flex flex-row items-center gap-2 mt-2">
 									<Spinner size="sm" />
-									<Text
-										fontSize="xs"
-										color="gray.500"
-										_dark={{ color: "gray.400" }}
-									>
+									<p className="text-[0.75rem] text-gray-500 dark:text-gray-400">
 										{t("nodes.coreVersionDialog.fetchingFromGithub")}
-									</Text>
-								</Stack>
+									</p>
+								</div>
 							)}
 							{releasesQuery.isError && (
-								<Text fontSize="xs" color="red.500" mt={1}>
+								<p className="text-[0.75rem] text-red-500 mt-1">
 									{t("nodes.coreVersionDialog.failedToLoadReleases")}
-								</Text>
+								</p>
 							)}
 						</FormControl>
 						<FormControl isRequired>
 							<FormLabel>
 								{t("nodes.coreVersionDialog.customVersionLabel")}
 							</FormLabel>
-							<Input
-								value={version}
-								placeholder={t(
+							<Input value={version} placeholder={t(
 									"nodes.coreVersionDialog.customVersionPlaceholder",
-								)}
-								onChange={handleInputChange}
-								size="sm"
-							/>
-							<Text
-								fontSize="xs"
-								color="gray.500"
-								_dark={{ color: "gray.400" }}
-								mt={1}
-							>
+								)} onChange={handleInputChange} size="sm" />
+							<p className="text-[0.75rem] text-gray-500 dark:text-gray-400 mt-1">
 								{t("nodes.coreVersionDialog.customVersionHelper")}
-							</Text>
+							</p>
 						</FormControl>
 						{allowPersist && (
-							<Checkbox
-								isChecked={persist}
-								onChange={(event) => setPersist(event.target.checked)}
-							>
+							<Checkbox isChecked={persist} onChange={(event) => setPersist(event.target.checked)}>
 								{t("nodes.coreVersionDialog.persistExecutable")}
 							</Checkbox>
 						)}
 						{submissionError && (
-							<Alert status="error" borderRadius="md" fontSize="sm">
+							<Alert status="error" className="rounded-md text-[0.875rem]">
 								<AlertIcon />
 								<AlertDescription>{submissionError}</AlertDescription>
 							</Alert>
 						)}
-					</Stack>
+					</div>
 		</AppDialog>
 	);
 };

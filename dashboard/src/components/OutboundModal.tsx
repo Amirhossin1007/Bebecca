@@ -1,27 +1,13 @@
-import {
-	Box,
-	Button,
-	chakra,
-	FormControl,
-	FormErrorMessage,
-	FormLabel,
-	HStack,
-	IconButton,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Switch,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Text,
-	Textarea,
-	useColorModeValue,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { FormControl, FormErrorMessage, FormLabel } from "components/shadcn/field";
+import { Switch } from "components/shadcn/selection";
+import { Button, IconButton } from "components/shadcn/button";
+import { Textarea } from "components/shadcn/input";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import {
 	MinusIcon as MinusIconOutline,
 	PlusIcon,
@@ -69,8 +55,8 @@ import {
 } from "./xray/XrayDialog";
 import { PropagationTargets } from "./xray/PropagationTargets";
 
-const AddIcon = chakra(PlusIcon);
-const MinusIcon = chakra(MinusIconOutline);
+const AddIcon = withClass(PlusIcon, "");
+const MinusIcon = withClass(MinusIconOutline, "");
 
 type ProtocolValue = (typeof Protocols)[keyof typeof Protocols];
 type StreamNetworkValue =
@@ -585,7 +571,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 	const { t } = useTranslation();
 	const toast = useToast();
 	const [targetIds, setTargetIds] = useState<string[]>([]);
-	const bgSubtle = useColorModeValue("gray.50", "whiteAlpha.100");
+	const bgSubtle = useColorModeValue("bg-gray-50", "bg-whiteAlpha-100");
 	const {
 		control,
 		register,
@@ -1326,13 +1312,8 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 	};
 
 	return (
-		<Modal
-			size="4xl"
-			isOpen={isOpen}
-			onClose={handleClose}
-			scrollBehavior="inside"
-		>
-			<ModalOverlay bg="blackAlpha.400" />
+		<Modal size="4xl" isOpen={isOpen} onClose={handleClose} scrollBehavior="inside">
+			<ModalOverlay className="bg-blackAlpha-400" />
 			<XrayModalContent as="form" onSubmit={onSubmit}>
 				<XrayModalHeader>
 					{mode === "edit"
@@ -1341,14 +1322,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<Tabs
-						isLazy
-						lazyBehavior="keepMounted"
-						className="xray-dialog-auto-sections"
-						variant="unstyled"
-						index={activeTab}
-						onChange={handleTabChange}
-					>
+					<Tabs isLazy lazyBehavior="keepMounted" variant="unstyled" index={activeTab} onChange={handleTabChange} className="xray-dialog-auto-sections">
 						<TabList>
 							<Tab>{t("form")}</Tab>
 							<Tab>{t("json")}</Tab>
@@ -1356,12 +1330,12 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 						</TabList>
 						<TabPanels>
 							<TabPanel>
-								<VStack spacing={6} align="stretch">
-									<Box>
-										<Text fontWeight="semibold" mb={3}>
+								<div className="flex flex-col gap-6 items-stretch">
+									<div>
+										<p className="font-semibold mb-3">
 											{t("pages.outbound.basicSettings")}
-										</Text>
-										<VStack spacing={3} align="stretch">
+										</p>
+										<div className="flex flex-col gap-3 items-stretch">
 											<FormControl isRequired isInvalid={Boolean(errors.tag)}>
 												<FormLabel>{t("pages.xray.outbound.tag")}</FormLabel>
 												<Input
@@ -1417,15 +1391,15 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													/>
 												</FormControl>
 											</XrayFieldGrid>
-										</VStack>
-									</Box>
+										</div>
+									</div>
 
 									{requiresEndpoint && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.endpoint")}
-											</Text>
-											<VStack spacing={3} align="stretch">
+											</p>
+											<div className="flex flex-col gap-3 items-stretch">
 												<FormControl isRequired={requiresEndpoint}>
 													<FormLabel>{t("pages.outbound.address")}</FormLabel>
 													<Input
@@ -1438,11 +1412,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														})}
 													/>
 												</FormControl>
-												<HStack
-													flexWrap="wrap"
-													spacing={3}
-													alignItems="flex-end"
-												>
+												<div className="flex flex-row flex-wrap gap-3 items-end">
 													<FormControl isRequired={requiresEndpoint}>
 														<FormLabel>{t("port")}</FormLabel>
 														<Input
@@ -1501,8 +1471,8 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 															/>
 														</FormControl>
 													) : supportsUserPass ? (
-														<HStack flex="1" spacing={3} flexWrap="wrap">
-															<FormControl minW="180px">
+														<div className="flex flex-row items-center flex-1 gap-3 flex-wrap">
+															<FormControl className="min-w-[180px]!">
 																<FormLabel>{t("username")}</FormLabel>
 																<Input
 																	size="sm"
@@ -1510,7 +1480,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	{...register("user")}
 																/>
 															</FormControl>
-															<FormControl minW="180px">
+															<FormControl className="min-w-[180px]!">
 																<FormLabel>{t("password")}</FormLabel>
 																<Input
 																	size="sm"
@@ -1518,7 +1488,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	{...register("pass")}
 																/>
 															</FormControl>
-														</HStack>
+														</div>
 													) : (
 														<FormControl>
 															<FormLabel>{t("username")}</FormLabel>
@@ -1529,7 +1499,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 															/>
 														</FormControl>
 													)}
-												</HStack>
+												</div>
 												{typedProtocol === Protocols.Shadowsocks && (
 													<>
 														<FormControl isRequired={requiresMethod}>
@@ -1558,21 +1528,17 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																)}
 															/>
 														</FormControl>
-														<FormControl
-															display="flex"
-															alignItems="center"
-															gap={2}
-														>
+														<FormControl className="flex items-center gap-2">
 															<Switch size="sm" {...register("ssIvCheck")} />
-															<FormLabel mb="0">
+															<FormLabel className="mb-0">
 																{t("pages.outbound.ivCheck")}
 															</FormLabel>
 														</FormControl>
 													</>
 												)}
 												{typedProtocol === Protocols.Hysteria && (
-													<HStack spacing={3} flexWrap="wrap">
-														<FormControl minW="180px">
+													<div className="flex flex-row items-center gap-3 flex-wrap">
+														<FormControl className="min-w-[180px]!">
 															<FormLabel>{t("redisVersion")}</FormLabel>
 															<Input
 																size="sm"
@@ -1584,7 +1550,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																})}
 															/>
 														</FormControl>
-														<FormControl minW="180px">
+														<FormControl className="min-w-[180px]!">
 															<FormLabel>
 																{t("inbounds.hysteria.udpIdleTimeout")}
 															</FormLabel>
@@ -1598,7 +1564,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																})}
 															/>
 														</FormControl>
-													</HStack>
+													</div>
 												)}
 												{typedProtocol === Protocols.VLESS && (
 													<>
@@ -1636,15 +1602,15 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														/>
 													</FormControl>
 												)}
-											</VStack>
-										</Box>
+											</div>
+										</div>
 									)}
 
 									{typedProtocol === Protocols.DNS && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.dnsSettings")}
-											</Text>
+											</p>
 											<XrayFieldGrid>
 												<FormControl>
 													<FormLabel>{t("pages.outbound.network")}</FormLabel>
@@ -1686,7 +1652,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													/>
 												</FormControl>
 											</XrayFieldGrid>
-											<FormControl mt={3} isRequired={requiresDnsServer}>
+											<FormControl isRequired={requiresDnsServer} className="mt-3">
 												<FormLabel>{t("pages.outbound.address")}</FormLabel>
 												<Input
 													size="sm"
@@ -1698,14 +1664,14 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													})}
 												/>
 											</FormControl>
-										</Box>
+										</div>
 									)}
 
 									{typedProtocol === Protocols.Freedom && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.freedom")}
-											</Text>
+											</p>
 											<FormControl>
 												<FormLabel>{t("pages.outbound.strategy")}</FormLabel>
 												<Input
@@ -1714,14 +1680,14 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													{...register("freedomStrategy")}
 												/>
 											</FormControl>
-										</Box>
+										</div>
 									)}
 
 									{typedProtocol === Protocols.Blackhole && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.blackhole")}
-											</Text>
+											</p>
 											<FormControl>
 												<FormLabel>{t("pages.outbound.response")}</FormLabel>
 												<Input
@@ -1732,12 +1698,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 											</FormControl>
 											{(watch("blackholeResponse") || "").toLowerCase() ===
 												"custom" && (
-												<FormControl
-													mt={3}
-													isInvalid={Boolean(
+												<FormControl isInvalid={Boolean(
 														errors.blackholeCustomResponseData,
-													)}
-												>
+													)} className="mt-3">
 													<FormLabel>
 														Custom response data (Base64, Xray 26.9.8+)
 													</FormLabel>
@@ -1755,15 +1718,15 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													</FormErrorMessage>
 												</FormControl>
 											)}
-										</Box>
+										</div>
 									)}
 
 									{typedProtocol === Protocols.Wireguard && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.wireguard")}
-											</Text>
-											<VStack spacing={3} align="stretch">
+											</p>
+											<div className="flex flex-col gap-3 items-stretch">
 												<FormControl>
 													<FormLabel>{t("pages.outbound.secretKey")}</FormLabel>
 													<Input size="sm" {...register("wireguardSecret")} />
@@ -1776,7 +1739,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														{...register("wireguardAddress")}
 													/>
 												</FormControl>
-												<HStack align="flex-end">
+												<div className="flex flex-row gap-2 items-end">
 													<FormControl>
 														<FormLabel>MTU</FormLabel>
 														<Input
@@ -1797,7 +1760,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 															})}
 														/>
 													</FormControl>
-												</HStack>
+												</div>
 												<FormControl>
 													<FormLabel>Domain Strategy</FormLabel>
 													<Controller
@@ -1839,23 +1802,16 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														{...register("wireguardReserved")}
 													/>
 												</FormControl>
-												<FormControl display="flex" alignItems="center" gap={2}>
-													<Switch
-														size="sm"
-														{...register("wireguardNoKernelTun")}
-													/>
-													<FormLabel mb="0">No Kernel Tun</FormLabel>
+												<FormControl className="flex items-center gap-2">
+													<Switch size="sm" {...register("wireguardNoKernelTun")} />
+													<FormLabel className="mb-0">No Kernel Tun</FormLabel>
 												</FormControl>
-												<VStack spacing={3} align="stretch">
-													<HStack justify="space-between">
-														<Text fontWeight="semibold">
+												<div className="flex flex-col gap-3 items-stretch">
+													<div className="flex flex-row items-center gap-2 justify-between">
+														<p className="font-semibold">
 															{t("pages.outbound.peer")}
-														</Text>
-														<IconButton
-															size="sm"
-															aria-label={t("add")}
-															icon={<AddIcon boxSize={3} />}
-															onClick={() =>
+														</p>
+														<IconButton variant="solid" size="sm" aria-label={t("add")} icon={<AddIcon className="size-3" />} onClick={() =>
 																append({
 																	publicKey: "",
 																	allowedIPs: "0.0.0.0/0,::/0",
@@ -1863,18 +1819,11 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	keepAlive: 0,
 																	presharedKey: "",
 																})
-															}
-														/>
-													</HStack>
+															} />
+													</div>
 													{fields.map((field, index) => (
-														<Box
-															key={field.id}
-															borderWidth="1px"
-															borderRadius="md"
-															p={3}
-															bg={bgSubtle}
-														>
-															<HStack>
+														<div key={field.id} className={cn("border rounded-md p-3", bgSubtle)}>
+															<div className="flex flex-row items-center gap-2">
 																<FormControl>
 																	<FormLabel>
 																		{t("pages.outbound.publicKey")}
@@ -1887,16 +1836,10 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	/>
 																</FormControl>
 																{fields.length > 1 && (
-																	<IconButton
-																		mt={6}
-																		size="sm"
-																		aria-label={t("delete")}
-																		icon={<MinusIcon boxSize={3} />}
-																		onClick={() => remove(index)}
-																	/>
+																	<IconButton variant="solid" size="sm" aria-label={t("delete")} icon={<MinusIcon className="size-3" />} onClick={() => remove(index)} className="mt-6" />
 																)}
-															</HStack>
-															<HStack mt={2}>
+															</div>
+															<div className="flex flex-row items-center gap-2 mt-2">
 																<FormControl>
 																	<FormLabel>
 																		{t("pages.outbound.allowedIPs")}
@@ -1919,8 +1862,8 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																		)}
 																	/>
 																</FormControl>
-															</HStack>
-															<FormControl mt={2}>
+															</div>
+															<FormControl className="mt-2">
 																<FormLabel>
 																	{t("pages.outbound.keepAlive")}
 																</FormLabel>
@@ -1933,7 +1876,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	)}
 																/>
 															</FormControl>
-															<FormControl mt={2}>
+															<FormControl className="mt-2">
 																<FormLabel>
 																	{t("pages.outbound.presharedKey")}
 																</FormLabel>
@@ -1944,19 +1887,19 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																	)}
 																/>
 															</FormControl>
-														</Box>
+														</div>
 													))}
-												</VStack>
-											</VStack>
-										</Box>
+												</div>
+											</div>
+										</div>
 									)}
 
 									{canStream && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.transport")}
-											</Text>
-											<VStack spacing={3} align="stretch">
+											</p>
+											<div className="flex flex-col gap-3 items-stretch">
 												<XrayFieldGrid>
 													<FormControl>
 														<FormLabel>{t("pages.outbound.network")}</FormLabel>
@@ -2101,16 +2044,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																/>
 															</FormControl>
 														</XrayFieldGrid>
-														<FormControl
-															display="flex"
-															alignItems="center"
-															gap={2}
-														>
-															<Switch
-																size="sm"
-																{...register("grpcMultiMode")}
-															/>
-															<FormLabel mb="0">
+														<FormControl className="flex items-center gap-2">
+															<Switch size="sm" {...register("grpcMultiMode")} />
+															<FormLabel className="mb-0">
 																{t("inbounds.grpc.multiMode")}
 															</FormLabel>
 														</FormControl>
@@ -2135,7 +2071,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													</XrayFieldGrid>
 												)}
 												{network === "xhttp" && (
-													<VStack spacing={3} align="stretch">
+													<div className="flex flex-col gap-3 items-stretch">
 														<XrayFieldGrid>
 															<FormControl>
 																<FormLabel>{t("host")}</FormLabel>
@@ -2148,16 +2084,9 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														</XrayFieldGrid>
 														{(formValues?.xhttpMode === "stream-up" ||
 															formValues?.xhttpMode === "stream-one") && (
-															<FormControl
-																display="flex"
-																alignItems="center"
-																gap={2}
-															>
-																<Switch
-																	size="sm"
-																	{...register("xhttpNoGRPCHeader")}
-																/>
-																<FormLabel mb="0">No gRPC Header</FormLabel>
+															<FormControl className="flex items-center gap-2">
+																<Switch size="sm" {...register("xhttpNoGRPCHeader")} />
+																<FormLabel className="mb-0">No gRPC Header</FormLabel>
 															</FormControl>
 														)}
 														{formValues?.xhttpMode === "packet-up" && (
@@ -2226,19 +2155,19 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 																/>
 															</FormControl>
 														</XrayFieldGrid>
-													</VStack>
+													</div>
 												)}
-											</VStack>
-										</Box>
+											</div>
+										</div>
 									)}
 
 									{canAnySecurity && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.security")}
-											</Text>
-											<FormControl maxW="260px">
-												<FormLabel mb={1}>
+											</p>
+											<FormControl className="max-w-[260px]">
+												<FormLabel className="mb-1">
 													{t("pages.outbound.security")}
 												</FormLabel>
 												<SearchableTagSelect
@@ -2285,7 +2214,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 												/>
 											</FormControl>
 											{tlsEnabled && canTls && (
-												<VStack spacing={3} align="stretch" mt={3}>
+												<div className="flex flex-col gap-3 items-stretch mt-3">
 													<FormControl>
 														<FormLabel>SNI</FormLabel>
 														<Input
@@ -2349,10 +2278,10 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 															{...register("tlsVerifyPeerCertByName")}
 														/>
 													</FormControl>
-												</VStack>
+												</div>
 											)}
 											{realityEnabled && canReality && (
-												<VStack spacing={3} align="stretch" mt={3}>
+												<div className="flex flex-col gap-3 items-stretch mt-3">
 													<FormControl>
 														<FormLabel>SNI</FormLabel>
 														<Input
@@ -2404,30 +2333,26 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 													</FormControl>
 													<FormControl>
 														<FormLabel>mldsa65 Verify</FormLabel>
-														<Textarea
-															size="sm"
-															rows={3}
-															{...register("realityMldsa65Verify")}
-														/>
+														<Textarea size="sm" rows={3} {...register("realityMldsa65Verify")} />
 													</FormControl>
-												</VStack>
+												</div>
 											)}
-										</Box>
+										</div>
 									)}
 
 									{canMux && (
-										<Box>
-											<Text fontWeight="semibold" mb={3}>
+										<div>
+											<p className="font-semibold mb-3">
 												{t("pages.outbound.mux")}
-											</Text>
-											<FormControl display="flex" alignItems="center">
-												<FormLabel mb="0">
+											</p>
+											<FormControl className="flex items-center">
+												<FormLabel className="mb-0">
 													{t("pages.outbound.enableMux")}
 												</FormLabel>
 												<Switch size="sm" {...register("muxEnabled")} />
 											</FormControl>
 											{muxEnabled && (
-												<VStack align="stretch" spacing={3} mt={3}>
+												<div className="flex flex-col items-stretch gap-3 mt-3">
 													<FormControl>
 														<FormLabel>
 															{t("pages.outbound.concurrency")}
@@ -2469,40 +2394,37 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 															)}
 														/>
 													</FormControl>
-												</VStack>
+												</div>
 											)}
-										</Box>
+										</div>
 									)}
 
-									<Box>
-										<Text fontWeight="semibold" mb={3}>
+									<div>
+										<p className="font-semibold mb-3">
 											Sockopt
-										</Text>
-										<FormControl display="flex" alignItems="center">
-											<FormLabel mb="0">
+										</p>
+										<FormControl className="flex items-center">
+											<FormLabel className="mb-0">
 												{t("inbounds.sockopt.enable")}
 											</FormLabel>
 											<Switch size="sm" {...register("sockoptEnabled")} />
 										</FormControl>
 										{sockoptEnabled && (
-											<VStack align="stretch" spacing={3} mt={3}>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb="0">
+											<div className="flex flex-col items-stretch gap-3 mt-3">
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.sockopt.tcpFastOpen")}
 													</FormLabel>
-													<Switch
-														size="sm"
-														{...register("sockoptTcpFastOpen")}
-													/>
+													<Switch size="sm" {...register("sockoptTcpFastOpen")} />
 												</FormControl>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb="0">
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.sockopt.tcpMptcp")}
 													</FormLabel>
 													<Switch size="sm" {...register("sockoptTcpMptcp")} />
 												</FormControl>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb="0">
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.sockopt.penetrate")}
 													</FormLabel>
 													<Switch size="sm" {...register("sockoptPenetrate")} />
@@ -2544,48 +2466,35 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 														)}
 													/>
 												</FormControl>
-											</VStack>
+											</div>
 										)}
-									</Box>
-								</VStack>
+									</div>
+								</div>
 							</TabPanel>
 							<TabPanel>
-								<VStack align="stretch" spacing={3}>
+								<div className="flex flex-col items-stretch gap-3">
 									<FormControl>
 										<FormLabel>{t("pages.outbound.configToJson")}</FormLabel>
-										<HStack align="start" spacing={3}>
-											<Textarea
-												value={configInput}
-												onChange={(e) => setConfigInput(e.target.value)}
-												placeholder={t("pages.outbound.configPlaceholder")}
-												rows={3}
-												fontFamily="mono"
-												fontSize="sm"
-												spellCheck={false}
-												flex="1"
-											/>
-											<Button
-												size="sm"
-												colorScheme="primary"
-												onClick={handleConfigToJson}
-											>
+										<div className="flex flex-row items-start gap-3">
+											<Textarea value={configInput} onChange={(e) => setConfigInput(e.target.value)} placeholder={t("pages.outbound.configPlaceholder")} rows={3} spellCheck={false} className="font-mono text-[0.875rem] flex-1" />
+											<Button size="sm" colorScheme="primary" onClick={handleConfigToJson}>
 												{t("pages.outbound.convertConfig")}
 											</Button>
-										</HStack>
+										</div>
 									</FormControl>
-									<Box height="420px">
+									<div className="h-[420px]">
 										<JsonEditor
 											json={jsonData}
 											canonicalContext="outbound"
 											onChange={handleJsonEditorChange}
 										/>
-									</Box>
+									</div>
 									{jsonError && (
-										<Text fontSize="sm" color="red.500">
+										<p className="text-[0.875rem] text-red-500">
 											{jsonError}
-										</Text>
+										</p>
 									)}
-								</VStack>
+								</div>
 							</TabPanel>
 							<TabPanel>
 								<PropagationTargets
@@ -2600,11 +2509,11 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 						</TabPanels>
 					</Tabs>
 				</XrayModalBody>
-				<XrayModalFooter justifyContent="flex-end">
-					<Button variant="outline" onClick={handleClose}>
+				<XrayModalFooter className="justify-end">
+					<Button size="md" variant="outline" onClick={handleClose}>
 						{t("cancel")}
 					</Button>
-					<Button colorScheme="primary" type="submit" isDisabled={!isValid}>
+					<Button size="md" colorScheme="primary" type="submit" isDisabled={!isValid}>
 						{mode === "edit" ? t("save") : t("add")}
 					</Button>
 				</XrayModalFooter>

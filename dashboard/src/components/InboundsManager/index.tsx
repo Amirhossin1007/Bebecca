@@ -1,19 +1,12 @@
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import {
-	Alert,
-	AlertIcon,
-	Box,
-	Button,
-	HStack,
-	MenuItem,
-	Stack,
-	Tag,
-	Text,
-	Tooltip,
-	useDisclosure,
-	useToast,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { useDisclosure } from "hooks/useDisclosure";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Tag } from "components/shadcn/badge";
+import { MenuItem } from "components/shadcn/menu";
+import { Button } from "components/shadcn/button";
+import { Alert, AlertIcon } from "components/shadcn/alert";
 import {
 	ArrowPathIcon,
 	PencilIcon,
@@ -545,24 +538,24 @@ export const InboundsManager: FC = () => {
 				mobilePriority: 0,
 				mobileMetaLabel: t("inbounds.tag"),
 				cell: (inbound) => (
-					<Stack spacing={0.5} minW={0}>
-						<Text fontWeight="semibold" noOfLines={1}>
+					<div className="flex flex-col gap-0.5 min-w-0!">
+						<p className="font-semibold truncate">
 							{inbound.tag}
-						</Text>
+						</p>
 						{inbound.validation_error && (
 							<Tooltip label={inbound.validation_error} hasArrow>
-								<Stack spacing={1} align="start">
+								<div className="flex flex-col gap-1 items-start">
 									<Tag size="sm" colorScheme="red">{t("diagnostics.broken")}</Tag>
-									<Text fontSize="xs" color="red.400" noOfLines={2}>{inbound.validation_error}</Text>
-								</Stack>
+									<p className="text-[0.75rem] text-red-400 line-clamp-2">{inbound.validation_error}</p>
+								</div>
 							</Tooltip>
 						)}
 						{inbound.listen && (
-							<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+							<p className="text-[0.75rem] text-panel-text-muted truncate">
 								{inbound.listen}
-							</Text>
+							</p>
 						)}
-					</Stack>
+					</div>
 				),
 			},
 			{
@@ -575,7 +568,7 @@ export const InboundsManager: FC = () => {
 				mobilePriority: 1,
 				mobileMetaLabel: t("protocol"),
 				cell: (inbound) => (
-					<Tag size="sm" colorScheme="purple" textTransform="uppercase">
+					<Tag size="sm" colorScheme="purple" className="uppercase">
 						{inbound.protocol}
 					</Tag>
 				),
@@ -590,9 +583,9 @@ export const InboundsManager: FC = () => {
 				mobilePriority: 2,
 				mobileMetaLabel: t("port"),
 				cell: (inbound) => (
-					<Text fontWeight="semibold" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+					<p dir="ltr" className="font-semibold [unicode-bidi:isolate]">
 						{inbound.port}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -622,7 +615,7 @@ export const InboundsManager: FC = () => {
 							{security}
 						</Tag>
 					) : (
-						<Text color="panel.textMuted">-</Text>
+						<p className="text-panel-text-muted">-</p>
 					);
 				},
 			},
@@ -638,23 +631,14 @@ export const InboundsManager: FC = () => {
 				cell: (inbound) => {
 					const traffic = getInboundTraffic(inbound);
 					return (
-						<HStack
-							spacing={3}
-							whiteSpace="nowrap"
-							fontSize="xs"
-							dir="ltr"
-							sx={{
-								fontVariantNumeric: "tabular-nums",
-								unicodeBidi: "isolate",
-							}}
-						>
-							<Text color="teal.400">
+						<div dir="ltr" className="flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
+							<p className="text-teal-400">
 								↑ {SizeFormatter.sizeFormat(traffic.upload)}
-							</Text>
-							<Text color="blue.400">
+							</p>
+							<p className="text-blue-400">
 								↓ {SizeFormatter.sizeFormat(traffic.download)}
-							</Text>
-						</HStack>
+							</p>
+						</div>
 					);
 				},
 			},
@@ -673,23 +657,14 @@ export const InboundsManager: FC = () => {
 				cell: (inbound) => {
 					const speed = speeds[inbound.tag];
 					return (
-						<HStack
-							spacing={3}
-							whiteSpace="nowrap"
-							fontSize="xs"
-							dir="ltr"
-							sx={{
-								fontVariantNumeric: "tabular-nums",
-								unicodeBidi: "isolate",
-							}}
-						>
-							<Text color="teal.400">
+						<div dir="ltr" className="flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
+							<p className="text-teal-400">
 								↑ {SizeFormatter.sizeFormat(speed?.upload_speed ?? 0)}/s
-							</Text>
-							<Text color="blue.400">
+							</p>
+							<p className="text-blue-400">
 								↓ {SizeFormatter.sizeFormat(speed?.download_speed ?? 0)}/s
-							</Text>
-						</HStack>
+							</p>
+						</div>
 					);
 				},
 			},
@@ -736,18 +711,13 @@ export const InboundsManager: FC = () => {
 					);
 
 					return (
-						<Tooltip
-							label={targetLabels.join(", ")}
-							isDisabled={targetLabels.length <= 3}
-							hasArrow
-							placement="top"
-						>
-							<HStack spacing={1} flexWrap="wrap" maxW="full">
+						<Tooltip label={targetLabels.join(", ")} isDisabled={targetLabels.length <= 3} hasArrow placement="top">
+							<div className="flex flex-row items-center gap-1 flex-wrap max-w-full">
 								{visibleTargets.map((targetId) => (
-									<Tag key={targetId} size="sm" maxW="80px">
-										<Text as="span" noOfLines={1}>
+									<Tag key={targetId} size="sm" className="max-w-[80px]">
+										<span className="truncate">
 											{targetNameById[targetId] || targetId}
-										</Text>
+										</span>
 									</Tag>
 								))}
 								{hiddenCount > 0 && (
@@ -755,7 +725,7 @@ export const InboundsManager: FC = () => {
 										+{hiddenCount}
 									</Tag>
 								)}
-							</HStack>
+							</div>
 						</Tooltip>
 					);
 				},
@@ -770,13 +740,13 @@ export const InboundsManager: FC = () => {
 		{
 			id: "edit",
 			label: t("edit"),
-			icon: <PencilIcon width={16} />,
+			icon: <PencilIcon className="w-16" />,
 			onClick: () => openEdit(inbound),
 		},
 		{
 			id: "reset-usage",
 			label: t("inbounds.resetUsage"),
-			icon: <ArrowPathIcon width={16} />,
+			icon: <ArrowPathIcon className="w-16" />,
 			onClick: () => {
 				setResetTarget(inbound);
 				resetDialog.onOpen();
@@ -786,7 +756,7 @@ export const InboundsManager: FC = () => {
 		{
 			id: "delete",
 			label: t("delete"),
-			icon: <TrashIcon width={16} />,
+			icon: <TrashIcon className="w-16" />,
 			isDanger: true,
 			render: (_row, onMenuClose) => (
 				<DeleteConfirmDialog
@@ -799,12 +769,7 @@ export const InboundsManager: FC = () => {
 						onMenuClose();
 					}}
 				>
-					<MenuItem
-						icon={<TrashIcon width={16} />}
-						color="red.400"
-						isDisabled={isMutating}
-						onClick={(event) => event.stopPropagation()}
-					>
+					<MenuItem icon={<TrashIcon className="w-16" />} isDisabled={isMutating} onClick={(event) => event.stopPropagation()} className="text-red-400">
 						{t("delete")}
 					</MenuItem>
 				</DeleteConfirmDialog>
@@ -813,20 +778,12 @@ export const InboundsManager: FC = () => {
 	];
 
 	return (
-		<Stack spacing={4}>
+		<div className="flex flex-col gap-4">
 			<ResourceListCard
 				title={t("inbounds.listHeader")}
 				summaryItems={inboundSummaryItems}
 				actions={
-					<Button
-						leftIcon={<PlusIcon width={18} height={18} />}
-						onClick={openCreate}
-						colorScheme="primary"
-						size="sm"
-						h="36px"
-						px={3}
-						borderRadius="4px"
-					>
+					<Button leftIcon={<PlusIcon className="w-18 h-18" />} onClick={openCreate} colorScheme="primary" size="sm" className="h-[36px] px-3 rounded-[4px]">
 						{t("inbounds.add")}
 					</Button>
 				}
@@ -834,38 +791,22 @@ export const InboundsManager: FC = () => {
 					<ResourceRefreshButton
 						aria-label={t("inbounds.refresh")}
 						label={t("inbounds.refresh")}
-						icon={<ArrowPathIcon width={16} />}
+						icon={<ArrowPathIcon className="w-16" />}
 						isLoading={isLoading}
 						onClick={loadInbounds}
 					/>
 				}
 			>
-				<Stack
-					direction={{ base: "column", md: "row" }}
-					spacing={2}
-					align={{ base: "stretch", md: "center" }}
-					flexWrap="wrap"
-				>
-					<SearchInput
-						containerProps={{ w: { base: "full", md: "320px" } }}
-						placeholder={t("inbounds.searchPlaceholder")}
-						value={filter.search}
-						onChange={(event) =>
+				<div className="flex flex-col md:flex-row gap-2 items-stretch md:items-center flex-wrap">
+					<SearchInput containerProps={{ className: "w-full md:w-[320px]" }} placeholder={t("inbounds.searchPlaceholder")} value={filter.search} onChange={(event) =>
 							setFilter((prev) => ({ ...prev, search: event.target.value }))
-						}
-						matchOptions={searchMatch}
-						onMatchOptionsChange={setSearchMatch}
-					/>
+						} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} />
 					<DataTableSortMenu
 						options={buildSortOptions(inboundColumns, filtered)}
 						sorting={inboundSorting}
 						onSortingChange={setInboundSorting}
 					/>
-					<SearchableTagSelect
-						size="sm"
-						width="190px"
-						value={filter.protocol}
-						options={[
+					<SearchableTagSelect size="sm" value={filter.protocol} options={[
 							{
 								value: "all",
 								label: t("inbounds.filterProtocol"),
@@ -874,30 +815,20 @@ export const InboundsManager: FC = () => {
 								value: option,
 								label: option.toUpperCase(),
 							})),
-						]}
-						placeholder={t("inbounds.filterProtocol")}
-						onChange={(value) =>
+						]} placeholder={t("inbounds.filterProtocol")} onChange={(value) =>
 							setFilter((prev) => ({ ...prev, protocol: String(value) }))
-						}
-					/>
-					<SearchableTagSelect
-						size="sm"
-						width="190px"
-						value={filter.traffic}
-						options={[
+						} className="w-[190px]" />
+					<SearchableTagSelect size="sm" value={filter.traffic} options={[
 							{ value: "default", label: t("trafficSort.default") },
 							{ value: "highest", label: t("trafficSort.highest") },
 							{ value: "lowest", label: t("trafficSort.lowest") },
-						]}
-						placeholder={t("trafficSort.label")}
-						onChange={(value) =>
+						]} placeholder={t("trafficSort.label")} onChange={(value) =>
 							setFilter((prev) => ({
 								...prev,
 								traffic: String(value) as TrafficSortOrder,
 							}))
-						}
-					/>
-				</Stack>
+						} className="w-[190px]" />
+				</div>
 			</ResourceListCard>
 
 			{error && (
@@ -918,9 +849,9 @@ export const InboundsManager: FC = () => {
 				isLoading={isLoading}
 				loadingRows={5}
 				emptyState={
-					<Box textAlign="center" color="panel.textMuted">
+					<div className="text-center text-panel-text-muted">
 						{t("inbounds.emptyState")}
-					</Box>
+					</div>
 				}
 				rowActions={inboundRowActions}
 				actionsDisplay="menu"
@@ -943,30 +874,13 @@ export const InboundsManager: FC = () => {
 						isDisabled={selectedRows.length === 0}
 						onConfirm={() => handleBulkDelete(selectedRows)}
 					>
-						<Button
-							size="sm"
-							variant="outline"
-							colorScheme="red"
-							leftIcon={<TrashIcon width={16} />}
-							isLoading={isMutating}
-							isDisabled={selectedRows.length === 0}
-						>
+						<Button size="sm" variant="outline" colorScheme="red" leftIcon={<TrashIcon className="w-16" />} isLoading={isMutating} isDisabled={selectedRows.length === 0}>
 							{t("delete")}
 						</Button>
 					</DeleteConfirmDialog>
 				)}
 				mobileBreakpoint="md"
-				tableProps={{
-					w: "full",
-					sx: {
-						tableLayout: "fixed",
-						"& th, & td": {
-							px: { base: 2, xl: 2.5 },
-							py: 2.5,
-							verticalAlign: "middle",
-						},
-					},
-				}}
+				tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }}
 			/>
 
 			{isOpen && (
@@ -1016,6 +930,6 @@ export const InboundsManager: FC = () => {
 				isLoading={isMutating}
 				isConfirmDisabled={!resetTarget}
 			/>
-		</Stack>
+		</div>
 	);
 };

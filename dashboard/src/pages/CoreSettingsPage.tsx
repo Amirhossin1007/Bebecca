@@ -1,40 +1,19 @@
-import {
-	Accordion,
-	AccordionButton,
-	AccordionIcon,
-	AccordionItem,
-	AccordionPanel,
-	Box,
-	Button,
-	chakra,
-	FormControl,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-	Radio,
-	RadioGroup,
-	Spinner,
-	Stack,
-	Switch,
-	Tag,
-	TagCloseButton,
-	TagLabel,
-	Text,
-	Tooltip,
-	useBreakpointValue,
-	useColorModeValue,
-	useDisclosure,
-	useToast,
-	VStack,
-	Wrap,
-	WrapItem,
-} from "@chakra-ui/react";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Accordion, AccordionButton, AccordionIcon, AccordionItem, AccordionPanel } from "components/shadcn/accordion";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { useToast } from "components/shadcn/toast";
+import { useDisclosure } from "hooks/useDisclosure";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { useColorModeValue } from "lib/color-mode";
+import { Tag, TagCloseButton, TagLabel } from "components/shadcn/badge";
+import { Spinner } from "components/shadcn/feedback";
+import { Button, IconButton } from "components/shadcn/button";
+import { Radio, RadioGroup, Switch } from "components/shadcn/selection";
+import { Input } from "components/shadcn/input";
+import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
+import { Portal } from "components/shadcn/portal";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import {
 	PlusIcon as AddIcon,
 	AdjustmentsHorizontalIcon,
@@ -171,80 +150,46 @@ const WindscribeProxyModal = lazy(async () => ({
 		.WindscribeProxyModal,
 }));
 
-const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
-const EditIconStyled = chakra(EditIcon, { baseStyle: { w: 4, h: 4 } });
-const ArrowUpIconStyled = chakra(ArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
-const ChevronDoubleUpIconStyled = chakra(ChevronDoubleUpIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const ArrowDownIconStyled = chakra(ArrowDownIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const ReloadIconStyled = chakra(ReloadIcon, { baseStyle: { w: 4, h: 4 } });
-const FullScreenIconStyled = chakra(ArrowsPointingOutIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const ExitFullScreenIconStyled = chakra(ArrowsPointingInIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const BasicTabIcon = chakra(AdjustmentsHorizontalIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const RoutingTabIcon = chakra(ArrowsRightLeftIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const OutboundTabIcon = chakra(ArrowUpTrayIcon, { baseStyle: { w: 4, h: 4 } });
-const BalancerTabIcon = chakra(ScaleIcon, { baseStyle: { w: 4, h: 4 } });
-const DnsTabIcon = chakra(GlobeAltIcon, { baseStyle: { w: 4, h: 4 } });
-const AdvancedTabIcon = chakra(WrenchScrewdriverIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const WarpIconStyled = chakra(CloudArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
-const BoltIconStyled = chakra(BoltIcon, { baseStyle: { w: 4, h: 4 } });
-const CheckCircleIconStyled = chakra(CheckCircleIcon, {
-	baseStyle: { w: 3.5, h: 3.5 },
-});
-const XCircleIconStyled = chakra(XCircleIcon, {
-	baseStyle: { w: 3.5, h: 3.5 },
-});
-const MoreIconStyled = chakra(EllipsisHorizontalIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
+const AddIconStyled = withClass(AddIcon, "w-3.5 h-3.5");
+const DeleteIconStyled = withClass(DeleteIcon, "w-4 h-4");
+const EditIconStyled = withClass(EditIcon, "w-4 h-4");
+const ArrowUpIconStyled = withClass(ArrowUpIcon, "w-4 h-4");
+const ChevronDoubleUpIconStyled = withClass(ChevronDoubleUpIcon, "w-4 h-4");
+const ArrowDownIconStyled = withClass(ArrowDownIcon, "w-4 h-4");
+const ReloadIconStyled = withClass(ReloadIcon, "w-4 h-4");
+const FullScreenIconStyled = withClass(ArrowsPointingOutIcon, "w-4 h-4");
+const ExitFullScreenIconStyled = withClass(ArrowsPointingInIcon, "w-4 h-4");
+const BasicTabIcon = withClass(AdjustmentsHorizontalIcon, "w-4 h-4");
+const RoutingTabIcon = withClass(ArrowsRightLeftIcon, "w-4 h-4");
+const OutboundTabIcon = withClass(ArrowUpTrayIcon, "w-4 h-4");
+const BalancerTabIcon = withClass(ScaleIcon, "w-4 h-4");
+const DnsTabIcon = withClass(GlobeAltIcon, "w-4 h-4");
+const AdvancedTabIcon = withClass(WrenchScrewdriverIcon, "w-4 h-4");
+const WarpIconStyled = withClass(CloudArrowUpIcon, "w-4 h-4");
+const BoltIconStyled = withClass(BoltIcon, "w-4 h-4");
+const CheckCircleIconStyled = withClass(CheckCircleIcon, "w-3.5 h-3.5");
+const XCircleIconStyled = withClass(XCircleIcon, "w-3.5 h-3.5");
+const MoreIconStyled = withClass(EllipsisHorizontalIcon, "w-4 h-4");
 const NordVPNIconStyled = () => (
-	<Box as="span" display="inline-flex" color="#4687ff">
+	<span className="inline-flex text-[#4687ff]">
 		{SiNordvpn({ size: 16, "aria-hidden": true })}
-	</Box>
+	</span>
 );
 const MullvadIconStyled = () => (
-	<Box as="span" display="inline-flex">
+	<span className="inline-flex">
 		{SiMullvad({ size: 16, "aria-hidden": true })}
-	</Box>
+	</span>
 );
 const TorIconStyled: FC<{ size?: number }> = ({ size = 16 }) => (
-	<Box as="span" display="inline-flex" color="#7d4698">
+	<span className="inline-flex text-[#7d4698]">
 		{SiTorproject({ size, "aria-hidden": true })}
-	</Box>
+	</span>
 );
 const WindscribeIconStyled = () => (
-	<Box
-		as="img"
-		src={windscribeIconUrl}
-		alt=""
-		aria-hidden="true"
-		boxSize={4}
-		objectFit="contain"
-	/>
+	<img src={windscribeIconUrl} alt="" aria-hidden="true" className="size-4 object-contain" />
 );
 const PsiphonIconStyled = () => (
-	<Box
-		as="img"
-		src={psiphonIconUrl}
-		alt=""
-		aria-hidden="true"
-		boxSize={4}
-		objectFit="contain"
-	/>
+	<img src={psiphonIconUrl} alt="" aria-hidden="true" className="size-4 object-contain" />
 );
 const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 	const meta = managedOutboundMeta(outbound);
@@ -258,23 +203,14 @@ const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 			<PsiphonIconStyled />
 		);
 	return (
-		<Tooltip
-			label={
+		<Tooltip label={
 				meta.country
 					? `${providerName} - ${meta.country.toUpperCase()}`
 					: providerName
-			}
-		>
-			<HStack
-				spacing={1}
-				px={1.5}
-				py={0.5}
-				borderRadius="sm"
-				bg="whiteAlpha.100"
-				flexShrink={0}
-			>
+			}>
+			<div className="flex flex-row items-center gap-1 px-1.5 py-0.5 rounded-xs bg-whiteAlpha-100 shrink-0">
 				{icon}
-			</HStack>
+			</div>
 		</Tooltip>
 	);
 };
@@ -662,36 +598,26 @@ const SettingsSection: FC<{
 	children: ReactNode;
 	defaultOpen?: boolean;
 }> = ({ title, children, defaultOpen = false }) => {
-	const headerBg = useColorModeValue("gray.50", "whiteAlpha.100");
-	const panelBg = useColorModeValue("white", "surface.dark");
-	const borderColor = useColorModeValue("gray.200", "whiteAlpha.300");
+	const headerBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-100");
+	const panelBg = useColorModeValue("bg-white", "bg-surface-dark");
+	const borderColor = useColorModeValue("border-gray-200!", "border-whiteAlpha-300!");
 	return (
-		<Accordion
-			allowToggle
-			defaultIndex={defaultOpen ? 0 : undefined}
-			reduceMotion
-		>
-			<AccordionItem
-				borderWidth="1px"
-				borderColor={borderColor}
-				borderRadius="md"
-				bg={panelBg}
-				overflow="hidden"
-			>
+		<Accordion allowToggle defaultIndex={defaultOpen ? 0 : undefined}>
+			<AccordionItem className={cn("border rounded-md overflow-hidden", borderColor, panelBg)}>
 				<h2>
-					<AccordionButton bg={headerBg} px={{ base: 3, md: 4 }} py={2.5}>
-						<Box flex="1" textAlign="start">
-							<Text fontWeight="semibold" fontSize={{ base: "sm", md: "md" }}>
+					<AccordionButton className={cn("px-3 md:px-4 py-2.5", headerBg)}>
+						<div className="flex-1 text-start">
+							<p className="font-semibold text-[0.875rem] md:text-[1rem]">
 								{title}
-							</Text>
-						</Box>
+							</p>
+						</div>
 						<AccordionIcon />
 					</AccordionButton>
 				</h2>
-				<AccordionPanel p={0}>
-					<VStack align="stretch" spacing={0}>
+				<AccordionPanel className="p-0">
+					<div className="flex flex-col items-stretch gap-0">
 						{children}
-					</VStack>
+					</div>
 				</AccordionPanel>
 			</AccordionItem>
 		</Accordion>
@@ -704,41 +630,25 @@ const SettingRow: FC<{
 	controlId: string;
 	children: (controlId: string) => ReactNode;
 }> = ({ label, description, controlId, children }) => {
-	const labelColor = useColorModeValue("gray.700", "whiteAlpha.800");
-	const descriptionColor = useColorModeValue("gray.500", "whiteAlpha.600");
-	const dividerColor = useColorModeValue("gray.100", "whiteAlpha.200");
+	const labelColor = useColorModeValue("text-gray-700", "text-whiteAlpha-800");
+	const descriptionColor = useColorModeValue("text-gray-500", "text-whiteAlpha-600");
+	const dividerColor = useColorModeValue("border-t-gray-100!", "border-t-whiteAlpha-200!");
 	return (
-		<Box
-			display="grid"
-			gridTemplateColumns={{ base: "1fr", md: "minmax(220px, 32%) 1fr" }}
-			gap={{ base: 2, md: 4 }}
-			px={{ base: 3, md: 4 }}
-			py={3}
-			borderTopWidth="1px"
-			borderTopColor={dividerColor}
-			_first={{ borderTopWidth: 0 }}
-			alignItems="center"
-		>
-			<Box minW={0}>
-				<FormLabel
-					htmlFor={controlId}
-					mb={description ? 1 : 0}
-					color={labelColor}
-					fontSize="sm"
-					fontWeight="semibold"
-				>
+		<div className={cn("grid grid-cols-[1fr] md:grid-cols-[minmax(220px,_32%)_1fr] gap-2 md:gap-4 px-3 md:px-4 py-3 border-t first:border-t-0 items-center", dividerColor)}>
+			<div className="min-w-0!">
+				<FormLabel htmlFor={controlId} className={cn("text-[0.875rem] font-semibold", description ? "mb-1" : "mb-0", labelColor)}>
 					{label}
 				</FormLabel>
 				{description && (
-					<Text fontSize="xs" color={descriptionColor} lineHeight="1.45">
+					<p className={cn("text-[0.75rem] leading-[1.45]", descriptionColor)}>
 						{description}
-					</Text>
+					</p>
 				)}
-			</Box>
-			<FormControl id={controlId} w="full">
+			</div>
+			<FormControl id={controlId} className="w-full">
 				{children(controlId)}
 			</FormControl>
-		</Box>
+		</div>
 	);
 };
 
@@ -1020,9 +930,10 @@ export const CoreSettingsPage: FC = () => {
 		return () => window.removeEventListener("hashchange", onHashChange);
 	}, [location.hash, readHashTab, tabKeys]);
 
-	const pageShellBg = useColorModeValue("white", "surface.dark");
-	const pageShellBorder = useColorModeValue("gray.200", "whiteAlpha.300");
-	const pageHintColor = useColorModeValue("gray.600", "gray.300");
+	const pageShellBg = useColorModeValue("bg-white", "bg-surface-dark");
+	const pageShellBorder = "border-gray-200! dark:border-whiteAlpha-300!";
+	const pageShellBorderTop = "border-t-gray-200! dark:border-t-whiteAlpha-300!";
+	const pageHintColor = useColorModeValue("text-gray-600", "text-gray-300");
 
 	const buildOutboundRows = useCallback(
 		(outbounds: OutboundJson[]) =>
@@ -2891,19 +2802,14 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const renderOutboundTraffic = (traffic?: { up?: number; down?: number }) => (
-		<HStack
-			spacing={3}
-			whiteSpace="nowrap"
-			fontSize="xs"
-			sx={{ fontVariantNumeric: "tabular-nums" }}
-		>
-			<Text color="teal.400">
+		<div className="flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums]">
+			<p className="text-teal-400">
 				↑ {SizeFormatter.sizeFormat(Number(traffic?.up) || 0)}
-			</Text>
-			<Text color="blue.400">
+			</p>
+			<p className="text-blue-400">
 				↓ {SizeFormatter.sizeFormat(Number(traffic?.down) || 0)}
-			</Text>
-		</HStack>
+			</p>
+		</div>
 	);
 
 	const canonicalOutbounds = useMemo<OutboundJson[]>(
@@ -3339,7 +3245,7 @@ export const CoreSettingsPage: FC = () => {
 		[warpDomains],
 	);
 
-	const warpDomainHelper = useColorModeValue("gray.600", "gray.300");
+	const warpDomainHelper = useColorModeValue("text-gray-600", "text-gray-300");
 
 	const handleWarpSave = (outbound: OutboundJson) => {
 		const outbounds = getOutbounds();
@@ -3592,7 +3498,7 @@ export const CoreSettingsPage: FC = () => {
 	const renderChipList = (value: unknown, colorScheme: string = "blue") => {
 		const chips = toChipList(value);
 		if (!chips.length) {
-			return <Text color="gray.400">-</Text>;
+			return <p className="text-gray-400">-</p>;
 		}
 		// use compact chips that show first item and a +N trigger on small screens
 		return <CompactChips chips={chips} color={colorScheme} />;
@@ -3605,43 +3511,43 @@ export const CoreSettingsPage: FC = () => {
 			value === "" ||
 			(typeof value === "string" && !value.trim())
 		) {
-			return <Text color="gray.400">-</Text>;
+			return <p className="text-gray-400">-</p>;
 		}
 		const str = typeof value === "string" ? value : String(value);
 		if (str.length > 30) {
 			return <CompactTextWithCopy text={str} label={t("details")} />;
 		}
-		return <Text>{str}</Text>;
+		return <p>{str}</p>;
 	};
 
 	const renderAttrsCell = (attrsValue: string | undefined) => {
 		if (!attrsValue) {
-			return <Text color="gray.400">-</Text>;
+			return <p className="text-gray-400">-</p>;
 		}
 		try {
 			const parsed = JSON.parse(attrsValue);
 			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
 				const entries = Object.entries(parsed as Record<string, unknown>);
 				if (!entries.length) {
-					return <Text color="gray.400">-</Text>;
+					return <p className="text-gray-400">-</p>;
 				}
 				return (
-					<Box display="flex" flexWrap="wrap" gap="1">
+					<div className="flex flex-wrap gap-1">
 						{entries.map(([key, value]) => (
 							<Tag key={key} colorScheme="purple" size="sm">
 								{`${key}: ${String(value)}`}
 							</Tag>
 						))}
-					</Box>
+					</div>
 				);
 			}
 		} catch (_error) {
 			// fall back to raw string rendering below
 		}
 		return (
-			<Text fontFamily="mono" fontSize="xs" whiteSpace="pre-wrap">
+			<p className="font-mono text-[0.75rem] whitespace-pre-wrap">
 				{attrsValue}
-			</Text>
+			</p>
 		);
 	};
 
@@ -3656,7 +3562,7 @@ export const CoreSettingsPage: FC = () => {
 	type FakeDnsDisplayRow = { fake: any; index: number };
 
 	const renderOutboundBadges = (outbound: any) => (
-		<HStack spacing={1} flexWrap="wrap">
+		<div className="flex flex-row items-center gap-1 flex-wrap">
 			<Tag colorScheme="purple" size="sm">
 				{String(outbound.protocol ?? "-")}
 			</Tag>
@@ -3676,47 +3582,37 @@ export const CoreSettingsPage: FC = () => {
 					)}
 				</>
 			)}
-		</HStack>
+		</div>
 	);
 
 	const renderAddressList = (addresses: string[]) =>
 		addresses.length === 0 ? (
-			<Text color="gray.400">-</Text>
+			<p className="text-gray-400">-</p>
 		) : (
-			<VStack align="start" spacing={1}>
+			<div className="flex flex-col items-start gap-1">
 				{addresses.map((addr) => (
 					<CompactTextWithCopy key={addr} text={addr} label={addr} />
 				))}
-			</VStack>
+			</div>
 		);
 
 	const renderOutboundTestResult = (state: OutboundTestState | undefined) => {
 		if (state?.testing) return <Spinner size="xs" />;
 		if (!state?.result)
 			return (
-				<Text fontSize="xs" color="gray.500">
+				<p className="text-[0.75rem] text-gray-500">
 					-
-				</Text>
+				</p>
 			);
 
 		const result = state.result;
 		return (
-			<Tooltip
-				hasArrow
-				label={
+			<Tooltip hasArrow label={
 					result.success
 						? result.output || outboundTestResultLabel(result)
 						: result.error || t("pages.xray.outbound.testFailed")
-				}
-				whiteSpace="pre-wrap"
-			>
-				<Tag
-					colorScheme={result.success ? "green" : "red"}
-					size="sm"
-					borderRadius="full"
-					gap={1}
-					sx={{ fontVariantNumeric: "tabular-nums" }}
-				>
+				} className="whitespace-pre-wrap">
+				<Tag colorScheme={result.success ? "green" : "red"} size="sm" className="[font-variant-numeric:tabular-nums] rounded-full gap-1">
 					{result.success ? <CheckCircleIconStyled /> : <XCircleIconStyled />}
 					{result.success
 						? (formatOutboundDelay(result.delay) ?? "-")
@@ -3750,21 +3646,11 @@ export const CoreSettingsPage: FC = () => {
 
 		const testLabel = `${t("pages.xray.routeTester.test")} · ${outboundTestTypeLabels[outboundTestType]}`;
 		return (
-			<Tooltip hasArrow label={disabledReason || testLabel} shouldWrapChildren>
-				<IconButton
-					aria-label={testLabel}
-					icon={<BoltIconStyled />}
-					size="sm"
-					isRound
-					variant="solid"
-					colorScheme="primary"
-					isLoading={Boolean(state?.testing)}
-					isDisabled={Boolean(disabledReason) || isBlocked}
-					onClick={(event) => {
+			<Tooltip hasArrow label={disabledReason || testLabel}>
+				<IconButton aria-label={testLabel} icon={<BoltIconStyled />} size="sm" isRound variant="solid" colorScheme="primary" isLoading={Boolean(state?.testing)} isDisabled={Boolean(disabledReason) || isBlocked} onClick={(event) => {
 						event.stopPropagation();
 						onTest();
-					}}
-				/>
+					}} />
 			</Tooltip>
 		);
 	};
@@ -3781,21 +3667,11 @@ export const CoreSettingsPage: FC = () => {
 				: `${t("pages.xray.outbound.healthFailed")}: ${state.result.error || t("unknown")}`
 			: t("pages.xray.outbound.healthCheck");
 		return (
-			<Tooltip hasArrow label={resultLabel} shouldWrapChildren>
-				<IconButton
-					aria-label={t("pages.xray.outbound.healthCheck")}
-					icon={<CheckCircleIcon width={18} height={18} />}
-					size="sm"
-					isRound
-					variant="outline"
-					colorScheme="green"
-					isLoading={Boolean(state?.testing)}
-					isDisabled={isMasterTarget}
-					onClick={(event) => {
+			<Tooltip hasArrow label={resultLabel}>
+				<IconButton aria-label={t("pages.xray.outbound.healthCheck")} icon={<CheckCircleIcon className="w-18 h-18" />} size="sm" isRound variant="outline" colorScheme="green" isLoading={Boolean(state?.testing)} isDisabled={isMasterTarget} onClick={(event) => {
 						event.stopPropagation();
 						onCheck();
-					}}
-				/>
+					}} />
 			</Tooltip>
 		);
 	};
@@ -3809,21 +3685,18 @@ export const CoreSettingsPage: FC = () => {
 			priority: "primary",
 			minSize: { base: "180px", lg: "210px" },
 			cell: ({ rule, originalIndex }) => (
-				<VStack align="start" spacing={1}>
-					<HStack spacing={2} minW={0}>
-						<Tag
-							size="sm"
-							colorScheme={rule.enabled === false ? "gray" : "green"}
-						>
+				<div className="flex flex-col items-start gap-1">
+					<div className="flex flex-row items-center gap-2 min-w-0!">
+						<Tag size="sm" colorScheme={rule.enabled === false ? "gray" : "green"}>
 							#{originalIndex + 1}
 						</Tag>
-						<Text fontWeight="semibold" noOfLines={1}>
+						<p className="font-semibold truncate">
 							{rule.outboundTag ||
 								rule.balancerTag ||
 								t("pages.xray.rules.any")}
-						</Text>
-					</HStack>
-					<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+						</p>
+					</div>
+					<p className="text-[0.75rem] text-panel-text-muted truncate">
 						{[
 							toChipList(rule.inboundTag).join(",") || "any inbound",
 							rule.outboundTag
@@ -3834,8 +3707,8 @@ export const CoreSettingsPage: FC = () => {
 						]
 							.filter(Boolean)
 							.join(" ")}
-					</Text>
-				</VStack>
+					</p>
+				</div>
 			),
 		},
 		{
@@ -3845,10 +3718,10 @@ export const CoreSettingsPage: FC = () => {
 			priority: "medium",
 			hideBelow: "xl",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.source, "blue")}
 					{renderTextValue(rule.sourcePort)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.sourceGroup"),
 		},
@@ -3858,11 +3731,11 @@ export const CoreSettingsPage: FC = () => {
 			header: t("pages.xray.rules.networkGroup"),
 			priority: "high",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.network, "purple")}
 					{renderChipList(rule.protocol, "green")}
 					{renderAttrsCell(rule.attrs)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.networkGroup"),
 		},
@@ -3873,11 +3746,11 @@ export const CoreSettingsPage: FC = () => {
 			priority: "high",
 			minSize: "180px",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.ip, "blue")}
 					{renderChipList(rule.domain, "blue")}
 					{renderTextValue(rule.port)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.destinationGroup"),
 		},
@@ -3888,10 +3761,10 @@ export const CoreSettingsPage: FC = () => {
 			priority: "medium",
 			hideBelow: "lg",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.inboundTag, "teal")}
 					{renderChipList(rule.user, "cyan")}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("inbound"),
 		},
@@ -3902,10 +3775,10 @@ export const CoreSettingsPage: FC = () => {
 			priority: "high",
 			mobileSummary: true,
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderTextValue(rule.outboundTag)}
 					{renderTextValue(rule.balancerTag)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.outbound"),
 		},
@@ -3969,22 +3842,22 @@ export const CoreSettingsPage: FC = () => {
 			priority: "primary",
 			minSize: { base: "170px", lg: "210px" },
 			cell: ({ outbound }) => (
-				<VStack align="start" spacing={1}>
-					<HStack spacing={1.5} maxW="full" minW={0}>
+				<div className="flex flex-col items-start gap-1">
+					<div className="flex flex-row items-center gap-1.5 max-w-full min-w-0!">
 						{managedOutboundMeta(outbound)?.provider === "tor" && (
 							<Tooltip label="Tor">
-								<Box display="inline-flex" flexShrink={0}>
+								<div className="inline-flex shrink-0">
 									<TorIconStyled size={20} />
-								</Box>
+								</div>
 							</Tooltip>
 						)}
-						<Text fontWeight="semibold" noOfLines={1}>
+						<p className="font-semibold truncate">
 							{String(outbound.tag ?? "-")}
-						</Text>
+						</p>
 						<ManagedOutboundBadge outbound={outbound} />
-					</HStack>
+					</div>
 					{renderOutboundBadges(outbound)}
-				</VStack>
+				</div>
 			),
 		},
 		{
@@ -4023,7 +3896,7 @@ export const CoreSettingsPage: FC = () => {
 			priority: "medium",
 			hideBelow: "lg",
 			cell: ({ outbound, originalIndex }) =>
-				<HStack spacing={1}>
+				<div className="flex flex-row items-center gap-1">
 					{renderOutboundTestButton(
 						outbound,
 						outboundTestStates[originalIndex],
@@ -4034,7 +3907,7 @@ export const CoreSettingsPage: FC = () => {
 						outboundHealthStates[originalIndex],
 						() => checkOutboundHealth(originalIndex),
 					)}
-				</HStack>,
+				</div>,
 			mobileMetaLabel: t("pages.xray.routeTester.test"),
 		},
 	];
@@ -4138,14 +4011,14 @@ export const CoreSettingsPage: FC = () => {
 				isPrimary: true,
 				priority: "primary",
 				cell: ({ outbound }) => (
-					<VStack align="start" spacing={1}>
-						<Text fontWeight="semibold" noOfLines={1}>
+					<div className="flex flex-col items-start gap-1">
+						<p className="font-semibold truncate">
 							{String(outbound.tag ?? "-")}
-						</Text>
+						</p>
 						<Tag size="sm" colorScheme="green">
 							{t("pages.xray.outboundSub.sourceBadge")}
 						</Tag>
-					</VStack>
+					</div>
 				),
 			},
 			{
@@ -4210,10 +4083,7 @@ export const CoreSettingsPage: FC = () => {
 			isPrimary: true,
 			priority: "primary",
 			cell: (reverse) => (
-				<Tag
-					colorScheme={reverse.type === "internal" ? "blue" : "purple"}
-					size="sm"
-				>
+				<Tag colorScheme={reverse.type === "internal" ? "blue" : "purple"} size="sm">
 					{reverse.type === "internal"
 						? t("pages.xray.reverse.internal")
 						: t("pages.xray.reverse.public")}
@@ -4273,7 +4143,7 @@ export const CoreSettingsPage: FC = () => {
 			header: t("pages.xray.balancer.tag"),
 			isPrimary: true,
 			priority: "primary",
-			cell: (balancer) => <Text fontWeight="semibold">{balancer.tag}</Text>,
+			cell: (balancer) => <p className="font-semibold">{balancer.tag}</p>,
 		},
 		{
 			id: "strategy",
@@ -4282,10 +4152,7 @@ export const CoreSettingsPage: FC = () => {
 			priority: "high",
 			mobileSummary: true,
 			cell: (balancer) => (
-				<Tag
-					colorScheme={balancer.strategy === "random" ? "purple" : "green"}
-					size="sm"
-				>
+				<Tag colorScheme={balancer.strategy === "random" ? "purple" : "green"} size="sm">
 					{balancer.strategy === "random"
 						? "Random"
 						: balancer.strategy === "roundRobin"
@@ -4420,14 +4287,14 @@ export const CoreSettingsPage: FC = () => {
 
 	if (!canManageXraySettings) {
 		return (
-			<VStack spacing={4} align="stretch">
-				<Text as="h1" fontWeight="semibold" fontSize="2xl">
+			<div className="flex flex-col gap-4 items-stretch">
+				<h1 className="font-semibold text-[1.5rem]">
 					{t("header.xraySettings")}
-				</Text>
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+				</h1>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("xraySettings.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
@@ -4481,154 +4348,78 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch">
-			<Box
-				borderWidth="1px"
-				borderColor={pageShellBorder}
-				borderRadius="2xl"
-				bg={pageShellBg}
-				p={{ base: 4, md: 5 }}
-				transition="box-shadow 0.2s ease, border-color 0.2s ease"
-				_hover={{
-					"@media (min-width: 768px)": {
-						boxShadow: "sm",
-						borderColor: "panel.borderStrong",
-					},
-				}}
-			>
-				<Stack
-					direction={{ base: "column", lg: "row" }}
-					spacing={4}
-					align={{ base: "stretch", lg: "flex-end" }}
-					justify="space-between"
-				>
-					<Box minW={0}>
-						<Text as="h1" fontWeight="semibold" fontSize="2xl">
+		<div className="flex flex-col gap-4 items-stretch">
+			<div className={cn(pageShellBorder, "hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("border rounded-2xl p-4 md:p-5 [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", pageShellBg))}>
+				<div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-end justify-between">
+					<div className="min-w-0!">
+						<h1 className="font-semibold text-[1.5rem]">
 							{t("header.coreSettings")}
-						</Text>
-						<Text color={pageHintColor} fontSize="sm" mt={1}>
+						</h1>
+						<p className={cn("text-[0.875rem] mt-1", pageHintColor)}>
 							{t("pages.xray.coreDescription")}
-						</Text>
-					</Box>
-					<HStack
-						spacing={2}
-						flexWrap="wrap"
-						justify={{ base: "stretch", lg: "flex-end" }}
-					>
-						<Button
-							size="sm"
-							colorScheme="primary"
-							isLoading={isPostLoading}
-							isDisabled={!hasConfigChanges || isPostLoading}
-							onClick={handleOnSave}
-							w={{ base: "full", sm: "auto" }}
-						>
+						</p>
+					</div>
+					<div className="flex flex-row items-center gap-2 flex-wrap justify-stretch lg:justify-end">
+						<Button size="sm" colorScheme="primary" isLoading={isPostLoading} isDisabled={!hasConfigChanges || isPostLoading} onClick={handleOnSave} className="w-full sm:w-auto">
 							{t("save")}
 						</Button>
-						<Button
-							size="sm"
-							leftIcon={<ReloadIconStyled />}
-							isLoading={isRestarting}
-							onClick={() => handleRestartCore(selectedTarget)}
-							variant="outline"
-							w={{ base: "full", sm: "auto" }}
-						>
+						<Button size="sm" leftIcon={<ReloadIconStyled />} isLoading={isRestarting} onClick={() => handleRestartCore(selectedTarget)} variant="outline" className="w-full sm:w-auto">
 							{t(isRestarting ? "core.restarting" : "core.restartCore")}
 						</Button>
-					</HStack>
-				</Stack>
+					</div>
+				</div>
 				{hasNodeTargets && (
-					<HStack
-						mt={4}
-						pt={3}
-						borderTopWidth="1px"
-						borderTopColor={pageShellBorder}
-						spacing={3}
-						align="flex-end"
-						flexWrap="wrap"
-						w="full"
-					>
-						<FormControl w={{ base: "full", sm: "260px" }}>
-							<FormLabel mb={1} fontSize="xs" color={pageHintColor}>
+					<div className={cn(pageShellBorderTop, "flex flex-row mt-4 pt-3 border-t gap-3 items-end flex-wrap w-full")}>
+						<FormControl className="w-full sm:w-[260px]">
+							<FormLabel className={cn("mb-1 text-[0.75rem]", pageHintColor)}>
 								{t("pages.xray.routeTester.target")}
 							</FormLabel>
-							<Select
-								size="sm"
-								h="32px"
-								value={selectedTarget}
-								onChange={(event) => setSelectedTarget(event.target.value)}
-								options={[
+							<Select size="sm" value={selectedTarget} onChange={(event) => setSelectedTarget(event.target.value)} options={[
 									{ label: t("core.defaultConfig"), value: "master" },
 									...configTargets
 										.filter((target) => target.type === "node")
 										.map((target) => ({
 											label: (
-												<HStack as="span" minW={0} spacing={1}>
-													<Text as="span" noOfLines={1}>
+												<span className="flex flex-row items-center min-w-0! gap-1">
+													<span className="truncate">
 														{target.name}
 														{target.address ? ` - ${target.address}` : ""}
-													</Text>
+													</span>
 													{target.mode === "custom" && (
-														<Text
-															as="span"
-															flexShrink={0}
-															fontSize="10px"
-															opacity={0.7}
-														>
+														<span className="shrink-0 text-[10px] opacity-70">
 															(custom)
-														</Text>
+														</span>
 													)}
-												</HStack>
+												</span>
 											),
 											searchLabel: target.name,
 											value: target.id,
 										})),
-								]}
-							/>
+								]} className="h-[32px]" />
 						</FormControl>
 						{selectedTargetInfo?.type === "node" && (
-							<FormControl
-								display="flex"
-								alignItems="center"
-								w={{ base: "full", sm: "auto" }}
-								minH="32px"
-							>
-								<FormLabel mb={0} fontSize="sm">
+							<FormControl className="flex items-center w-full sm:w-auto min-h-[32px]">
+								<FormLabel className="mb-0 text-[0.875rem]">
 									{t("core.customNodeConfig")}
 								</FormLabel>
-								<Switch
-									size="sm"
-									isChecked={selectedTargetInfo.mode === "custom"}
-									isDisabled={isChangingTargetMode}
-									onChange={(event) =>
+								<Switch size="sm" isChecked={selectedTargetInfo.mode === "custom"} isDisabled={isChangingTargetMode} onChange={(event) =>
 										handleTargetModeChange(event.target.checked)
-									}
-								/>
+									} />
 							</FormControl>
 						)}
-					</HStack>
+					</div>
 				)}
-			</Box>
-			<TabSystem
-				overflowX="auto"
-				overflowY="hidden"
-				maxW="full"
-				sx={{
-					WebkitOverflowScrolling: "touch",
-					scrollbarWidth: "none",
-					"&::-webkit-scrollbar": { display: "none" },
-					button: { flexShrink: 0 },
-				}}
-				tabs={[
+			</div>
+			<TabSystem tabs={[
 					{
 						value: "basic",
 						isActive: activeTab === 0,
 						onClick: () => handleTabChange(0),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<BasicTabIcon />
-								<Text as="span">{t("pages.xray.basicTemplate")}</Text>
-							</HStack>
+								<span>{t("pages.xray.basicTemplate")}</span>
+							</div>
 						),
 					},
 					{
@@ -4636,10 +4427,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 1,
 						onClick: () => handleTabChange(1),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<RoutingTabIcon />
-								<Text as="span">{t("pages.xray.Routings")}</Text>
-							</HStack>
+								<span>{t("pages.xray.Routings")}</span>
+							</div>
 						),
 					},
 					{
@@ -4647,10 +4438,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 2,
 						onClick: () => handleTabChange(2),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<OutboundTabIcon />
-								<Text as="span">{t("pages.xray.Outbounds")}</Text>
-							</HStack>
+								<span>{t("pages.xray.Outbounds")}</span>
+							</div>
 						),
 					},
 					{
@@ -4658,10 +4449,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 3,
 						onClick: () => handleTabChange(3),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<ReloadIconStyled />
-								<Text as="span">{t("pages.xray.reverse.title")}</Text>
-							</HStack>
+								<span>{t("pages.xray.reverse.title")}</span>
+							</div>
 						),
 					},
 					{
@@ -4669,10 +4460,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 4,
 						onClick: () => handleTabChange(4),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<BalancerTabIcon />
-								<Text as="span">{t("pages.xray.Balancers")}</Text>
-							</HStack>
+								<span>{t("pages.xray.Balancers")}</span>
+							</div>
 						),
 					},
 					{
@@ -4680,10 +4471,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 5,
 						onClick: () => handleTabChange(5),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<DnsTabIcon />
-								<Text as="span">{t("DNS")}</Text>
-							</HStack>
+								<span>{t("DNS")}</span>
+							</div>
 						),
 					},
 					{
@@ -4691,19 +4482,18 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 6,
 						onClick: () => handleTabChange(6),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<AdvancedTabIcon />
-								<Text as="span">{t("pages.xray.advancedTemplate")}</Text>
-							</HStack>
+								<span>{t("pages.xray.advancedTemplate")}</span>
+							</div>
 						),
 					},
-				]}
-			/>
-			<Box mt={{ base: 2, md: 3 }}>
+				]} className="overflow-x-auto overflow-y-hidden max-w-full" />
+			<div className="mt-2 md:mt-3">
 				{activeTab === 0 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
-							<VStack spacing={3} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
+							<div className="flex flex-col gap-3 items-stretch">
 								<SettingsSection title={t("pages.xray.serverIPs")} defaultOpen>
 									<SettingRow label="IPv4" controlId="server-ipv4">
 										{(_controlId) => (
@@ -4726,16 +4516,9 @@ export const CoreSettingsPage: FC = () => {
 										controlId="freedom-domain-strategy"
 									>
 										{(id) => (
-											<Select
-												id={id}
-												size="sm"
-												maxW="220px"
-												value={freedomDomainStrategy}
-												onChange={(event) =>
+											<Select id={id} size="sm" value={freedomDomainStrategy} onChange={(event) =>
 													handleFreedomDomainStrategyChange(event.target.value)
-												}
-												isDisabled={freedomOutboundIndex === -1}
-											>
+												} isDisabled={freedomOutboundIndex === -1} className="max-w-[220px]">
 												<option value="">{t("common.default")}</option>
 												{[
 													"AsIs",
@@ -4761,7 +4544,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.routing.domainStrategy"
 												control={form.control}
 												render={({ field }) => (
-													<Select {...field} id={id} size="sm" maxW="220px">
+													<Select {...field} id={id} size="sm" className="max-w-[220px]">
 														{["AsIs", "IPIfNonMatch", "IPOnDemand"].map((s) => (
 															<option key={s} value={s}>
 																{s}
@@ -4774,89 +4557,63 @@ export const CoreSettingsPage: FC = () => {
 									</SettingRow>
 								</SettingsSection>
 								<SettingsSection title={t("pages.xray.warpRouting")}>
-									<Box p={{ base: 3, md: 4 }}>
-										<VStack align="stretch" spacing={3}>
-											<HStack justify="space-between" align="center">
-												<Text fontSize="sm" color={warpDomainHelper}>
+									<div className="p-3 md:p-4">
+										<div className="flex flex-col items-stretch gap-3">
+											<div className="flex flex-row gap-2 justify-between items-center">
+												<p className={cn("text-[0.875rem]", warpDomainHelper)}>
 													{t("pages.xray.warpRoutingDesc")}
-												</Text>
-												<Button
-													variant="outline"
-													size="sm"
-													leftIcon={<WarpIconStyled />}
-													onClick={onWarpOpen}
-													flexShrink={0}
-												>
+												</p>
+												<Button variant="outline" size="sm" leftIcon={<WarpIconStyled />} onClick={onWarpOpen} className="shrink-0">
 													{warpExists
 														? t("pages.xray.warp.manage")
 														: t("pages.xray.warp.create")}
 												</Button>
-											</HStack>
-											<Wrap>
+											</div>
+											<div className="flex flex-wrap gap-2">
 												{warpDomains.length === 0 && (
-													<WrapItem>
+													<div>
 														<Tag colorScheme="gray" variant="subtle">
 															<TagLabel>{t("core.empty")}</TagLabel>
 														</Tag>
-													</WrapItem>
+													</div>
 												)}
 												{warpDomains.map((domain) => (
-													<WrapItem key={domain}>
-														<Tag colorScheme="primary" borderRadius="full">
+													<div key={domain}>
+														<Tag colorScheme="primary" className="rounded-full">
 															<TagLabel>{domain}</TagLabel>
-															<TagCloseButton
-																aria-label={t("remove")}
-																onClick={() => handleWarpDomainRemove(domain)}
-															/>
+															<TagCloseButton aria-label={t("remove")} onClick={() => handleWarpDomainRemove(domain)} />
 														</Tag>
-													</WrapItem>
+													</div>
 												))}
-											</Wrap>
-											<HStack spacing={3} flexWrap="wrap">
-												<Select
-													placeholder={t("core.select")}
-													size="sm"
-													maxW="240px"
-													value={warpOptionValue}
-													onChange={(event) => {
+											</div>
+											<div className="flex flex-row items-center gap-3 flex-wrap">
+												<Select placeholder={t("core.select")} size="sm" value={warpOptionValue} onChange={(event) => {
 														const { value } = event.target;
 														if (value) {
 															handleWarpDomainAdd(value);
 														}
 														setWarpOptionValue("");
-													}}
-													isDisabled={availableWarpOptions.length === 0}
-												>
+													}} isDisabled={availableWarpOptions.length === 0} className="max-w-[240px]">
 													{availableWarpOptions.map((option) => (
 														<option key={option.value} value={option.value}>
 															{option.label}
 														</option>
 													))}
 												</Select>
-												<HStack spacing={2} maxW="320px" flex="1">
-													<Input
-														size="sm"
-														value={warpCustomDomain}
-														onChange={(event) =>
+												<div className="flex flex-row items-center gap-2 max-w-[320px] flex-1">
+													<Input size="sm" value={warpCustomDomain} onChange={(event) =>
 															setWarpCustomDomain(event.target.value)
-														}
-														placeholder="geosite:google"
-													/>
-													<Button
-														size="sm"
-														colorScheme="primary"
-														onClick={() => {
+														} placeholder="geosite:google" />
+													<Button size="sm" colorScheme="primary" onClick={() => {
 															handleWarpDomainAdd(warpCustomDomain);
 															setWarpCustomDomain("");
-														}}
-														isDisabled={!warpCustomDomain.trim()}
-													>
+														}} isDisabled={!warpCustomDomain.trim()}>
 														{t("add")}
 													</Button>
-												</HStack>
-											</HStack>
-										</VStack>
-									</Box>
+												</div>
+											</div>
+										</div>
+									</div>
 								</SettingsSection>
 								<SettingsSection title={t("pages.xray.statistics")}>
 									<SettingRow
@@ -4868,11 +4625,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsInboundUplink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4886,11 +4639,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsInboundDownlink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4904,11 +4653,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsOutboundUplink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4922,11 +4667,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsOutboundDownlink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
@@ -4942,7 +4683,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.log.loglevel"
 												control={form.control}
 												render={({ field }) => (
-													<Select {...field} id={id} size="sm" maxW="220px">
+													<Select {...field} id={id} size="sm" className="max-w-[220px]">
 														{["none", "debug", "info", "warning", "error"].map(
 															(s) => (
 																<option key={s} value={s}>
@@ -4960,12 +4701,12 @@ export const CoreSettingsPage: FC = () => {
 										controlId="access-log"
 									>
 										{(id) => (
-											<HStack spacing={2} w="full" flexWrap="wrap">
+											<div className="flex flex-row items-center gap-2 w-full flex-wrap">
 												<Controller
 													name="config.log.access"
 													control={form.control}
 													render={({ field }) => (
-														<Select {...field} id={id} size="sm" maxW="220px">
+														<Select {...field} id={id} size="sm" className="max-w-[220px]">
 															<option value="">{t("common.empty")}</option>
 															{["none", DEFAULT_ACCESS_LOG_PATH].map((s) => (
 																<option key={s} value={s}>
@@ -4979,21 +4720,15 @@ export const CoreSettingsPage: FC = () => {
 													name="config.log.accessCleanupInterval"
 													control={form.control}
 													render={({ field }) => (
-														<Select
-															id={`${id}-cleanup`}
-															size="sm"
-															maxW="220px"
-															value={
+														<Select id={`${id}-cleanup`} size="sm" value={
 																field.value === undefined ||
 																field.value === null ||
 																field.value === ""
 																	? "0"
 																	: String(field.value)
-															}
-															onChange={(e) =>
+															} onChange={(e) =>
 																field.onChange(Number(e.target.value))
-															}
-														>
+															} className="max-w-[220px]">
 															{LOG_CLEANUP_INTERVAL_OPTIONS.map((option) => (
 																<option
 																	key={option.value}
@@ -5005,7 +4740,7 @@ export const CoreSettingsPage: FC = () => {
 														</Select>
 													)}
 												/>
-											</HStack>
+											</div>
 										)}
 									</SettingRow>
 									<SettingRow
@@ -5013,12 +4748,12 @@ export const CoreSettingsPage: FC = () => {
 										controlId="error-log"
 									>
 										{(id) => (
-											<HStack spacing={2} w="full" flexWrap="wrap">
+											<div className="flex flex-row items-center gap-2 w-full flex-wrap">
 												<Controller
 													name="config.log.error"
 													control={form.control}
 													render={({ field }) => (
-														<Select {...field} id={id} size="sm" maxW="220px">
+														<Select {...field} id={id} size="sm" className="max-w-[220px]">
 															<option value="">{t("common.empty")}</option>
 															{["none", DEFAULT_ERROR_LOG_PATH].map((s) => (
 																<option key={s} value={s}>
@@ -5032,21 +4767,15 @@ export const CoreSettingsPage: FC = () => {
 													name="config.log.errorCleanupInterval"
 													control={form.control}
 													render={({ field }) => (
-														<Select
-															id={`${id}-cleanup`}
-															size="sm"
-															maxW="220px"
-															value={
+														<Select id={`${id}-cleanup`} size="sm" value={
 																field.value === undefined ||
 																field.value === null ||
 																field.value === ""
 																	? "0"
 																	: String(field.value)
-															}
-															onChange={(e) =>
+															} onChange={(e) =>
 																field.onChange(Number(e.target.value))
-															}
-														>
+															} className="max-w-[220px]">
 															{LOG_CLEANUP_INTERVAL_OPTIONS.map((option) => (
 																<option
 																	key={option.value}
@@ -5058,7 +4787,7 @@ export const CoreSettingsPage: FC = () => {
 														</Select>
 													)}
 												/>
-											</HStack>
+											</div>
 										)}
 									</SettingRow>
 									<SettingRow
@@ -5070,7 +4799,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.log.maskAddress"
 												control={form.control}
 												render={({ field }) => (
-													<Select {...field} id={id} size="sm" maxW="220px">
+													<Select {...field} id={id} size="sm" className="max-w-[220px]">
 														<option value="">{t("common.empty")}</option>
 														{["quarter", "half", "full"].map((s) => (
 															<option key={s} value={s}>
@@ -5091,23 +4820,19 @@ export const CoreSettingsPage: FC = () => {
 												name="config.log.dnsLog"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} isChecked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />
 												)}
 											/>
 										)}
 									</SettingRow>
 								</SettingsSection>
-							</VStack>
-						</VStack>
-					</Box>
+							</div>
+						</div>
+					</div>
 				)}
 				{activeTab === 1 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
 							<ResourceListCard
 								title={t("pages.xray.Routings")}
 								summaryItems={[
@@ -5122,26 +4847,14 @@ export const CoreSettingsPage: FC = () => {
 									},
 								]}
 								actions={
-									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-										<Button
-											leftIcon={<AddIconStyled />}
-											{...compactActionButtonProps}
-											size="xs"
-											onClick={addRule}
-										>
+									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
+										<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} size="xs" onClick={addRule}>
 											{t("pages.xray.rules.add")}
 										</Button>
-									</HStack>
+									</div>
 								}
 							>
-								<SearchInput
-									containerProps={{ maxW: { base: "full", md: "320px" } }}
-									placeholder={t("search")}
-									value={routingRuleSearch}
-									onChange={(e) => setRoutingRuleSearch(e.target.value)}
-									matchOptions={routingRuleSearchMatch}
-									onMatchOptionsChange={setRoutingRuleSearchMatch}
-								/>
+								<SearchInput containerProps={{ className: "max-w-full_md:max-w-[320px]" }} placeholder={t("search")} value={routingRuleSearch} onChange={(e) => setRoutingRuleSearch(e.target.value)} matchOptions={routingRuleSearchMatch} onMatchOptionsChange={setRoutingRuleSearchMatch} />
 							</ResourceListCard>
 							<DataTable
 								data={filteredRoutingRules}
@@ -5154,7 +4867,7 @@ export const CoreSettingsPage: FC = () => {
 								ariaLabel={t("pages.xray.Routings")}
 							/>
 							{subscriptionOutbounds.length > 0 && (
-								<VStack align="stretch" spacing={3}>
+								<div className="flex flex-col items-stretch gap-3">
 									<ResourceListCard
 										title={t("pages.xray.outboundSub.fromSubsTitle")}
 										summaryItems={[
@@ -5165,9 +4878,9 @@ export const CoreSettingsPage: FC = () => {
 											},
 										]}
 									>
-										<Text color="panel.textMuted" fontSize="xs">
+										<p className="text-panel-text-muted text-[0.75rem]">
 											{t("pages.xray.outboundSub.fromSubsDesc")}
-										</Text>
+										</p>
 									</ResourceListCard>
 									<DataTable
 										data={subscriptionOutboundRows}
@@ -5177,14 +4890,14 @@ export const CoreSettingsPage: FC = () => {
 										emptyState={t("pages.xray.outbound.empty")}
 										ariaLabel={t("pages.xray.outboundSub.fromSubsTitle")}
 									/>
-								</VStack>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 2 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
 							<ResourceListCard
 								title={t("pages.xray.Outbounds")}
 								summaryItems={[
@@ -5204,165 +4917,80 @@ export const CoreSettingsPage: FC = () => {
 									},
 								]}
 								actions={
-									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-										<Button
-											leftIcon={<AddIconStyled />}
-											{...compactActionButtonProps}
-											onClick={addOutbound}
-										>
+									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
+										<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addOutbound}>
 											{t("pages.xray.outbound.addOutbound")}
 										</Button>
-										<Button
-											leftIcon={<CloudArrowUpIcon width={14} />}
-											size="xs"
-											variant="ghost"
-											onClick={onOutboundSubsOpen}
-										>
+										<Button leftIcon={<CloudArrowUpIcon className="w-14" />} size="xs" variant="ghost" onClick={onOutboundSubsOpen}>
 											{t("pages.xray.outboundSub.title")}
 										</Button>
 										<Menu placement="bottom-end" isLazy>
-											<MenuButton
-												as={Button}
-												leftIcon={<MoreIconStyled />}
-												size="xs"
-												variant="ghost"
-											>
+											<MenuButton as={Button} leftIcon={<MoreIconStyled />} size="xs" variant="ghost">
 												{t("more")}
 											</MenuButton>
 											<Portal>
-												<MenuList zIndex="popover" minW="210px">
-													<MenuItem
-														icon={<WarpIconStyled />}
-														onClick={onWarpOpen}
-													>
+												<MenuList className="z-[popover] min-w-[210px]!">
+													<MenuItem icon={<WarpIconStyled />} onClick={onWarpOpen}>
 														{warpExists
 															? t("pages.xray.warp.manage")
 															: t("pages.xray.warp.create")}
 													</MenuItem>
-													<MenuItem
-														icon={<NordVPNIconStyled />}
-														onClick={onNordOpen}
-													>
+													<MenuItem icon={<NordVPNIconStyled />} onClick={onNordOpen}>
 														NordVPN
 													</MenuItem>
-													<MenuItem
-														icon={<MullvadIconStyled />}
-														onClick={() => openMullvad()}
-													>
+													<MenuItem icon={<MullvadIconStyled />} onClick={() => openMullvad()}>
 														Mullvad
 													</MenuItem>
-													<MenuItem
-														icon={<TorIconStyled />}
-														isDisabled={isApplyingTorProxy}
-														onClick={onTorProxyOpen}
-													>
+													<MenuItem icon={<TorIconStyled />} isDisabled={isApplyingTorProxy} onClick={onTorProxyOpen}>
 														{t("pages.xray.tor.setup")}
 													</MenuItem>
-													<MenuItem
-														icon={<WindscribeIconStyled />}
-														isDisabled={isApplyingWindscribeProxy}
-														onClick={onWindscribeProxyOpen}
-													>
+													<MenuItem icon={<WindscribeIconStyled />} isDisabled={isApplyingWindscribeProxy} onClick={onWindscribeProxyOpen}>
 														Windscribe
 													</MenuItem>
-													<MenuItem
-														icon={<PsiphonIconStyled />}
-														isDisabled={isApplyingPsiphonProxy}
-														onClick={onPsiphonProxyOpen}
-													>
+													<MenuItem icon={<PsiphonIconStyled />} isDisabled={isApplyingPsiphonProxy} onClick={onPsiphonProxyOpen}>
 														Psiphon
 													</MenuItem>
 												</MenuList>
 											</Portal>
 										</Menu>
-									</HStack>
+									</div>
 								}
 								footerActions={
 									<>
-										<Button
-											leftIcon={<ReloadIconStyled />}
-											size="xs"
-											variant="ghost"
-											onClick={fetchOutboundsTraffic}
-										>
+										<Button leftIcon={<ReloadIconStyled />} size="xs" variant="ghost" onClick={fetchOutboundsTraffic}>
 											{t("refresh")}
 										</Button>
-										<Button
-											size="xs"
-											variant="ghost"
-											onClick={() =>
+										<Button size="xs" variant="ghost" onClick={() =>
 												setOutboundReset({ index: -1, scope: "target" })
-											}
-										>
+											}>
 											{t("pages.xray.outbound.resetTarget")}
 										</Button>
-										<Button
-											size="xs"
-											variant="ghost"
-											colorScheme="red"
-											onClick={() =>
+										<Button size="xs" variant="ghost" colorScheme="red" onClick={() =>
 												setOutboundReset({ index: -1, scope: "all" })
-											}
-										>
+											}>
 											{t("pages.xray.outbound.resetAll")}
 										</Button>
-										<Button
-											leftIcon={<BoltIconStyled />}
-											{...compactActionButtonProps}
-											isLoading={testingAllOutbounds}
-											isDisabled={isMasterTarget}
-											onClick={testAllOutbounds}
-										>
+										<Button leftIcon={<BoltIconStyled />} {...compactActionButtonProps} isLoading={testingAllOutbounds} isDisabled={isMasterTarget} onClick={testAllOutbounds}>
 											{t("pages.xray.outbound.testAll")}
 										</Button>
 									</>
 								}
 							>
-								<Stack
-									direction={{ base: "column", md: "row" }}
-									spacing={2}
-									align={{ base: "stretch", md: "center" }}
-								>
-									<SearchInput
-										containerProps={{ maxW: { base: "full", md: "320px" } }}
-										placeholder={t("search")}
-										value={outboundSearch}
-										onChange={(e) => setOutboundSearch(e.target.value)}
-										matchOptions={outboundSearchMatch}
-										onMatchOptionsChange={setOutboundSearchMatch}
-									/>
-									<Select
-										size="sm"
-										w={{ base: "full", md: "210px" }}
-										value={outboundTrafficSort}
-										showSearch={false}
-										options={[
+								<div className="flex flex-col md:flex-row gap-2 items-stretch md:items-center">
+									<SearchInput containerProps={{ className: "max-w-full_md:max-w-[320px]" }} placeholder={t("search")} value={outboundSearch} onChange={(e) => setOutboundSearch(e.target.value)} matchOptions={outboundSearchMatch} onMatchOptionsChange={setOutboundSearchMatch} />
+									<Select size="sm" value={outboundTrafficSort} showSearch={false} options={[
 											{ value: "default", label: t("trafficSort.default") },
 											{ value: "highest", label: t("trafficSort.highest") },
 											{ value: "lowest", label: t("trafficSort.lowest") },
-										]}
-										placeholder={t("trafficSort.label")}
-										onChange={(event) =>
+										]} placeholder={t("trafficSort.label")} onChange={(event) =>
 											setOutboundTrafficSort(
 												event.target.value as TrafficSortOrder,
 											)
-										}
-									/>
-									<RadioGroup
-										size="sm"
-										value={outboundTestType}
-										onChange={(value) =>
+										} className="w-full md:w-[210px]" />
+									<RadioGroup size="sm" value={outboundTestType} onChange={(value) =>
 											setOutboundTestType(value as OutboundTestType)
-										}
-									>
-										<HStack
-											spacing={2}
-											borderWidth="1px"
-											borderRadius="md"
-											px={2}
-											py={1}
-											flexWrap="wrap"
-										>
+										}>
+										<div className="flex flex-row items-center gap-2 border rounded-md px-2 py-1 flex-wrap">
 											{(["latency", "tcp", "icmp"] as OutboundTestType[]).map(
 												(type) => (
 													<Radio key={type} value={type} size="sm">
@@ -5370,9 +4998,9 @@ export const CoreSettingsPage: FC = () => {
 													</Radio>
 												),
 											)}
-										</HStack>
+										</div>
 									</RadioGroup>
-								</Stack>
+								</div>
 							</ResourceListCard>
 							<DataTable
 								data={standardOutboundData}
@@ -5389,7 +5017,7 @@ export const CoreSettingsPage: FC = () => {
 								ariaLabel={t("pages.xray.Outbounds")}
 							/>
 							{managedOutboundTotal > 0 && (
-								<VStack align="stretch" spacing={3}>
+								<div className="flex flex-col items-stretch gap-3">
 									<ResourceListCard
 										title={t("pages.xray.outboundManaged.title")}
 										summaryItems={[
@@ -5405,9 +5033,9 @@ export const CoreSettingsPage: FC = () => {
 											},
 										]}
 									>
-										<Text color="panel.textMuted" fontSize="xs">
+										<p className="text-panel-text-muted text-[0.75rem]">
 											{t("pages.xray.outboundManaged.description")}
-										</Text>
+										</p>
 									</ResourceListCard>
 									<DataTable
 										data={managedOutboundData}
@@ -5419,14 +5047,14 @@ export const CoreSettingsPage: FC = () => {
 										emptyState={t("pages.xray.outbound.empty")}
 										ariaLabel={t("pages.xray.outboundManaged.title")}
 									/>
-								</VStack>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 3 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
 							<ResourceListCard
 								title={t("pages.xray.reverse.title")}
 								summaryItems={[
@@ -5450,11 +5078,7 @@ export const CoreSettingsPage: FC = () => {
 									},
 								]}
 								actions={
-									<Button
-										leftIcon={<AddIconStyled />}
-										{...compactActionButtonProps}
-										onClick={addReverse}
-									>
+									<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addReverse}>
 										{t("pages.xray.reverse.add")}
 									</Button>
 								}
@@ -5469,12 +5093,12 @@ export const CoreSettingsPage: FC = () => {
 								emptyState={t("pages.xray.reverse.empty")}
 								ariaLabel={t("pages.xray.reverse.title")}
 							/>
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 4 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
 							<ResourceListCard
 								title={t("pages.xray.Balancers")}
 								summaryItems={[
@@ -5492,11 +5116,7 @@ export const CoreSettingsPage: FC = () => {
 									},
 								]}
 								actions={
-									<Button
-										leftIcon={<AddIconStyled />}
-										{...compactActionButtonProps}
-										onClick={addBalancer}
-									>
+									<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addBalancer}>
 										{t("pages.xray.balancer.addBalancer")}
 									</Button>
 								}
@@ -5514,15 +5134,12 @@ export const CoreSettingsPage: FC = () => {
 							{/* Observatory / Burst Observatory editor (if present in config) */}
 							{(form.getValues("config")?.observatory ||
 								form.getValues("config")?.burstObservatory) && (
-								<VStack spacing={3} align="stretch">
-									<RadioGroup
-										onChange={(v) => {
+								<div className="flex flex-col gap-3 items-stretch">
+									<RadioGroup onChange={(v) => {
 											setObsSettings(v);
 											setJsonKey((prev) => prev + 1);
-										}}
-										value={obsSettings}
-									>
-										<HStack spacing={3}>
+										}} value={obsSettings}>
+										<div className="flex flex-row items-center gap-3">
 											{form.getValues("config")?.observatory && (
 												<Radio value="observatory">Observatory</Radio>
 											)}
@@ -5531,9 +5148,9 @@ export const CoreSettingsPage: FC = () => {
 													Burst Observatory
 												</Radio>
 											)}
-										</HStack>
+										</div>
 									</RadioGroup>
-									<Box h="300px">
+									<div className="h-[300px]">
 										<Suspense fallback={<Spinner size="sm" />}>
 											<JsonEditor
 												key={`obs-${obsSettings}-${jsonKey}`}
@@ -5541,15 +5158,15 @@ export const CoreSettingsPage: FC = () => {
 												onChange={(value) => setObsJson(value)}
 											/>
 										</Suspense>
-									</Box>
-								</VStack>
+									</div>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 5 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
 							<SettingsSection title={t("pages.xray.generalConfigs")}>
 								<SettingRow
 									label={t("pages.xray.dns.enable")}
@@ -5557,10 +5174,7 @@ export const CoreSettingsPage: FC = () => {
 									controlId="dns-enable"
 								>
 									{(id) => (
-										<Switch
-											id={id}
-											isChecked={dnsEnabled}
-											onChange={(e) => {
+										<Switch id={id} isChecked={dnsEnabled} onChange={(e) => {
 												const checked = e.target.checked;
 												const newConfig = {
 													...form.getValues("config"),
@@ -5583,8 +5197,7 @@ export const CoreSettingsPage: FC = () => {
 												form.setValue("config", newConfig, {
 													shouldDirty: true,
 												});
-											}}
-										/>
+											}} />
 									)}
 								</SettingRow>
 								{dnsEnabled && (
@@ -5599,16 +5212,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.tag"
 													control={form.control}
 													render={({ field }) => (
-														<Input
-															id={id}
-															size="sm"
-															maxW="240px"
-															value={field.value ?? ""}
-															onChange={(event) =>
+														<Input id={id} size="sm" value={field.value ?? ""} onChange={(event) =>
 																field.onChange(event.target.value)
-															}
-															placeholder="dns_inbound"
-														/>
+															} placeholder="dns_inbound" className="max-w-[240px]" />
 													)}
 												/>
 											)}
@@ -5623,16 +5229,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.clientIp"
 													control={form.control}
 													render={({ field }) => (
-														<Input
-															id={id}
-															size="sm"
-															maxW="240px"
-															value={field.value ?? ""}
-															onChange={(event) =>
+														<Input id={id} size="sm" value={field.value ?? ""} onChange={(event) =>
 																field.onChange(event.target.value)
-															}
-															placeholder="1.1.1.1"
-														/>
+															} placeholder="1.1.1.1" className="max-w-[240px]" />
 													)}
 												/>
 											)}
@@ -5647,15 +5246,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.queryStrategy"
 													control={form.control}
 													render={({ field }) => (
-														<Select
-															id={id}
-															size="sm"
-															maxW="220px"
-															value={field.value ?? "UseIP"}
-															onChange={(event) =>
+														<Select id={id} size="sm" value={field.value ?? "UseIP"} onChange={(event) =>
 																field.onChange(event.target.value)
-															}
-														>
+															} className="max-w-[220px]">
 															{DNS_STRATEGY_OPTIONS.map((strategy) => (
 																<option key={strategy} value={strategy}>
 																	{strategy}
@@ -5676,13 +5269,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableCache"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
+														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											)}
@@ -5697,13 +5286,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableFallback"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
+														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											)}
@@ -5720,13 +5305,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableFallbackIfMatch"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
+														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											)}
@@ -5741,13 +5322,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.enableParallelQuery"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
+														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											)}
@@ -5762,13 +5339,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.useSystemHosts"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
+														<Switch id={id} isChecked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											)}
@@ -5777,7 +5350,7 @@ export const CoreSettingsPage: FC = () => {
 								)}
 							</SettingsSection>
 							{dnsEnabled && (
-								<VStack align="stretch" spacing={3}>
+								<div className="flex flex-col items-stretch gap-3">
 									<ResourceListCard
 										title={t("DNS")}
 										summaryItems={[
@@ -5799,22 +5372,14 @@ export const CoreSettingsPage: FC = () => {
 											},
 										]}
 										actions={
-											<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-												<Button
-													leftIcon={<AddIconStyled />}
-													{...compactActionButtonProps}
-													onClick={addDnsServer}
-												>
+											<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
+												<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addDnsServer}>
 													{t("pages.xray.dns.add")}
 												</Button>
-												<Button
-													size="xs"
-													variant="outline"
-													onClick={onDnsPresetsOpen}
-												>
+												<Button size="xs" variant="outline" onClick={onDnsPresetsOpen}>
 													{t("pages.xray.dns.presets")}
 												</Button>
-											</HStack>
+											</div>
 										}
 									/>
 									<DataTable
@@ -5827,10 +5392,10 @@ export const CoreSettingsPage: FC = () => {
 										emptyState={t("emptyDnsDesc")}
 										ariaLabel={t("DNS")}
 									/>
-								</VStack>
+								</div>
 							)}
 							{dnsEnabled && (
-								<VStack align="stretch" spacing={3}>
+								<div className="flex flex-col items-stretch gap-3">
 									<ResourceListCard
 										title={t("pages.xray.fakedns.title")}
 										summaryItems={[
@@ -5840,11 +5405,7 @@ export const CoreSettingsPage: FC = () => {
 											},
 										]}
 										actions={
-											<Button
-												leftIcon={<AddIconStyled />}
-												{...compactActionButtonProps}
-												onClick={addFakeDns}
-											>
+											<Button leftIcon={<AddIconStyled />} {...compactActionButtonProps} onClick={addFakeDns}>
 												{t("pages.xray.fakedns.add")}
 											</Button>
 										}
@@ -5859,14 +5420,14 @@ export const CoreSettingsPage: FC = () => {
 										emptyState={t("emptyFakeDnsDesc")}
 										ariaLabel={t("pages.xray.fakedns.title")}
 									/>
-								</VStack>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 6 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
 							<ResourceListCard
 								title={t("pages.xray.advancedJsonEditor")}
 								summaryItems={[
@@ -5884,41 +5445,23 @@ export const CoreSettingsPage: FC = () => {
 									},
 								]}
 								actions={
-									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
+									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
 										{advancedJsonModes.map((option) => {
 											const selected = advSettings === option.value;
 											return (
-												<Button
-													key={option.value}
-													size="xs"
-													variant={selected ? "solid" : "outline"}
-													colorScheme={selected ? "primary" : "gray"}
-													onClick={() => {
+												<Button key={option.value} size="xs" variant={selected ? "solid" : "outline"} colorScheme={selected ? "primary" : "gray"} onClick={() => {
 														setAdvSettings(option.value);
 														setJsonKey((prev) => prev + 1);
-													}}
-												>
+													}}>
 													{option.label}
 												</Button>
 											);
 										})}
-									</HStack>
+									</div>
 								}
 							/>
-							<Box
-								position="relative"
-								w="100%"
-								h="calc(100vh - 350px)"
-								minH="400px"
-							>
-								<Box
-									w={isFullScreen ? "100vw" : "100%"}
-									h={isFullScreen ? "100vh" : "100%"}
-									position={isFullScreen ? "fixed" : "relative"}
-									top={isFullScreen ? 0 : "auto"}
-									left={isFullScreen ? 0 : "auto"}
-									zIndex={isFullScreen ? 1000 : "auto"}
-								>
+							<div className="relative w-full h-[calc(100vh_-_350px)] min-h-[400px]">
+								<div className={cn(isFullScreen ? "w-screen" : "w-full", isFullScreen ? "h-screen" : "h-full", isFullScreen ? "fixed" : "relative", isFullScreen ? "top-0" : "top-auto", isFullScreen ? "left-0" : "left-auto", isFullScreen ? "z-[1000]" : "z-[auto]")}>
 									<Suspense fallback={<Spinner size="sm" />}>
 										<JsonEditor
 											key={`advanced-${advSettings}-${jsonKey}`}
@@ -5928,47 +5471,32 @@ export const CoreSettingsPage: FC = () => {
 											canonicalContext={advancedJsonContext}
 											onValidityChange={setAdvancedJsonValid}
 											toolbarActions={
-												<IconButton
-													aria-label={
+												<IconButton aria-label={
 														isFullScreen ? "Exit Full Screen" : "Full Screen"
-													}
-													icon={
+													} icon={
 														isFullScreen ? (
 															<ExitFullScreenIconStyled />
 														) : (
 															<FullScreenIconStyled />
 														)
-													}
-													onClick={toggleFullScreen}
-													size="xs"
-													variant="outline"
-												/>
+													} onClick={toggleFullScreen} size="xs" variant="outline" />
 											}
 											onChange={(value) => {
 												setAdvancedJson(value);
 											}}
 										/>
 									</Suspense>
-								</Box>
+								</div>
 								{isFullScreen && isMobile && (
-									<Button
-										position="fixed"
-										bottom={4}
-										left="50%"
-										transform="translateX(-50%)"
-										zIndex={1102}
-										size="sm"
-										colorScheme="primary"
-										onClick={toggleFullScreen}
-									>
+									<Button size="sm" colorScheme="primary" onClick={toggleFullScreen} className="fixed bottom-4 left-[50%] [transform:translateX(-50%)] z-[1102]">
 										{t("pages.xray.exitFullscreen")}
 									</Button>
 								)}
-							</Box>
-						</VStack>
-					</Box>
+							</div>
+						</div>
+					</div>
 				)}
-			</Box>
+			</div>
 			<Suspense fallback={null}>
 				{isOutboundOpen && (
 					<OutboundModal
@@ -6225,7 +5753,7 @@ export const CoreSettingsPage: FC = () => {
 				}
 				confirmLabel={t("reset")}
 			/>
-		</VStack>
+		</div>
 	);
 };
 

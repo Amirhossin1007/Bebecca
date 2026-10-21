@@ -1,39 +1,16 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Box,
-	Button,
-	ButtonGroup,
-	chakra,
-	Divider,
-	Flex,
-	HStack,
-	IconButton,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
-	ModalOverlay,
-	Popover,
-	PopoverArrow,
-	PopoverBody,
-	PopoverContent,
-	PopoverTrigger,
-	Progress,
-	SimpleGrid,
-	Stack,
-	Tag,
-	Text,
-	Tooltip,
-	useClipboard,
-	useColorModeValue,
-	useDisclosure,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { Tag } from "components/shadcn/badge";
+import { Progress } from "components/shadcn/feedback";
+import { useToast } from "components/shadcn/toast";
+import { useClipboard } from "hooks/useClipboard";
+import { useDisclosure } from "hooks/useDisclosure";
+import { Popover, PopoverArrow, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
+import { Button, ButtonGroup, IconButton } from "components/shadcn/button";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import {
 	ExpandedDetails,
 	ExpandedHeading,
@@ -120,39 +97,19 @@ const normalizeVersion = (value?: string | null) => {
 
 dayjs.extend(utc);
 
-const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 4, h: 4 } });
-const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
-const EditIconStyled = chakra(EditIcon, { baseStyle: { w: 4, h: 4 } });
-const ArrowPathIconStyled = chakra(ArrowPathIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const CopyIconStyled = chakra(DocumentDuplicateIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const DownloadIconStyled = chakra(ArrowDownTrayIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const TutorialIconStyled = chakra(BookOpenIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const EnableIconStyled = chakra(CheckCircleIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const DisableIconStyled = chakra(NoSymbolIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const CoreIconStyled = chakra(CpuChipIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const GeoIconStyled = chakra(GlobeAltIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const CertificateIconStyled = chakra(ShieldCheckIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const ServiceIconStyled = chakra(WrenchScrewdriverIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
+const AddIconStyled = withClass(AddIcon, "w-4 h-4");
+const DeleteIconStyled = withClass(DeleteIcon, "w-4 h-4");
+const EditIconStyled = withClass(EditIcon, "w-4 h-4");
+const ArrowPathIconStyled = withClass(ArrowPathIcon, "w-4 h-4");
+const CopyIconStyled = withClass(DocumentDuplicateIcon, "w-4 h-4");
+const DownloadIconStyled = withClass(ArrowDownTrayIcon, "w-4 h-4");
+const TutorialIconStyled = withClass(BookOpenIcon, "w-4 h-4");
+const EnableIconStyled = withClass(CheckCircleIcon, "w-4 h-4");
+const DisableIconStyled = withClass(NoSymbolIcon, "w-4 h-4");
+const CoreIconStyled = withClass(CpuChipIcon, "w-4 h-4");
+const GeoIconStyled = withClass(GlobeAltIcon, "w-4 h-4");
+const CertificateIconStyled = withClass(ShieldCheckIcon, "w-4 h-4");
+const ServiceIconStyled = withClass(WrenchScrewdriverIcon, "w-4 h-4");
 
 const EMPTY_CELL_VALUE = "-";
 
@@ -249,25 +206,20 @@ const ProtocolStatusList = ({
 }: {
 	statuses?: NodeType["protocol_statuses"];
 }) => (
-	<Flex gap={2} wrap="wrap">
+	<div className="flex-wrap flex gap-2">
 		{statuses?.length ? (
 			statuses.map((status) => (
-				<Tag
-					key={status.protocol}
-					size="sm"
-					colorScheme={protocolColorScheme(status.state)}
-					title={status.detail}
-				>
+				<Tag key={status.protocol} size="sm" colorScheme={protocolColorScheme(status.state)} title={status.detail}>
 					{status.protocol} · {status.state}
 					{status.inbounds > 0 ? ` (${status.inbounds})` : ""}
 				</Tag>
 			))
 		) : (
-			<Text fontSize="sm" color="panel.textMuted">
+			<p className="text-[0.875rem] text-panel-text-muted">
 				-
-			</Text>
+			</p>
 		)}
-	</Flex>
+	</div>
 );
 
 const formatNodeLimit = (value?: number | null) =>
@@ -331,50 +283,19 @@ const NodeMetricDisplay = ({
 }) => {
 	const progressValue = boundedPercent(percent);
 	return (
-		<VStack
-			align="center"
-			justify="center"
-			spacing={0.5}
-			minW={0}
-			maxW="full"
-			minH="34px"
-			overflow="hidden"
-			textAlign="center"
-			mx="auto"
-		>
-			<Text
-				fontWeight="semibold"
-				fontSize="xs"
-				lineHeight="short"
-				noOfLines={1}
-				maxW="full"
-			>
+		<div className="flex flex-col items-center justify-center gap-0.5 min-w-0! max-w-full min-h-[34px] overflow-hidden text-center mx-auto">
+			<p className="font-semibold text-[0.75rem] leading-[1.375] truncate max-w-full">
 				{value}
-			</Text>
+			</p>
 			{helper && helper !== "-" ? (
-				<Text
-					fontSize="xs"
-					color="gray.500"
-					lineHeight="short"
-					noOfLines={1}
-					maxW="full"
-				>
+				<p className="text-[0.75rem] text-gray-500 leading-[1.375] truncate max-w-full">
 					{helper}
-				</Text>
+				</p>
 			) : null}
 			{progressValue !== undefined && (
-				<Progress
-					value={progressValue}
-					size="xs"
-					colorScheme={colorScheme}
-					borderRadius="full"
-					w="46px"
-					mx="auto"
-					bg="blackAlpha.100"
-					_dark={{ bg: "whiteAlpha.200" }}
-				/>
+				<Progress value={progressValue} size="xs" colorScheme={colorScheme} className="rounded-full w-[46px] mx-auto bg-blackAlpha-100 dark:bg-whiteAlpha-200" />
 			)}
-		</VStack>
+		</div>
 	);
 };
 
@@ -620,8 +541,8 @@ export const NodesPage: FC = () => {
 	const queryClient = useQueryClient();
 	const toast = useToast();
 	const refreshHosts = useHosts((state) => state.fetchHosts);
-	const nodePanelBg = useColorModeValue("panel.surface", "panel.surface");
-	const nodePanelBorder = useColorModeValue("panel.border", "panel.border");
+	const nodePanelBg = useColorModeValue("bg-panel-surface", "bg-panel-surface");
+	const nodePanelBorder = useColorModeValue("border-panel-border!", "border-panel-border!");
 	const [editingNode, setEditingNode] = useState<NodeType | null>(null);
 	const [expandedNodeID, setExpandedNodeID] = useState<number | null>(null);
 	const [isAddNodeOpen, setAddNodeOpen] = useState(false);
@@ -892,23 +813,23 @@ export const NodesPage: FC = () => {
 			return remaining > 0 ? `${visible} +${remaining}` : visible;
 		};
 		return (
-			<VStack align="stretch" spacing={2}>
-				<Text>{baseMessage}</Text>
+			<div className="flex flex-col items-stretch gap-2">
+				<p>{baseMessage}</p>
 				{cleanupNames.length > 0 && (
-					<Text color="blue.300">
+					<p className="text-blue-300">
 						{t("nodes.hostAddressCleanupNotice", {
 							hosts: formatNames(cleanupNames),
 						})}
-					</Text>
+					</p>
 				)}
 				{riskyNames.length > 0 && (
-					<Text color="orange.300" fontWeight="700">
+					<p className="text-orange-300 font-bold">
 						{t("nodes.hostAddressRiskNotice", {
 							hosts: formatNames(riskyNames),
 						})}
-					</Text>
+					</p>
 				)}
-			</VStack>
+			</div>
 		);
 	};
 
@@ -2066,18 +1987,11 @@ export const NodesPage: FC = () => {
 			return statusBadge;
 		}
 		return (
-			<Popover
-				trigger="hover"
-				placement="top"
-				openDelay={250}
-				closeDelay={150}
-				isLazy
-				closeOnBlur={false}
-			>
+			<Popover trigger="hover" placement="top" openDelay={250} closeDelay={150} isLazy closeOnBlur={false}>
 				<PopoverTrigger>
-					<Box as="span">{statusBadge}</Box>
+					<span>{statusBadge}</span>
 				</PopoverTrigger>
-				<PopoverContent maxW="360px" px={2} py={1} fontSize="sm">
+				<PopoverContent className="max-w-[360px] px-2 py-1 text-[0.875rem]">
 					<PopoverArrow />
 					<PopoverBody>{node.message}</PopoverBody>
 				</PopoverContent>
@@ -2104,17 +2018,11 @@ export const NodesPage: FC = () => {
 				mobilePriority: 0,
 				mobileMetaLabel: t("nodes.nodeName"),
 				cell: (node) => (
-					<Text
-						fontWeight="semibold"
-						color="panel.text"
-						noOfLines={1}
-						maxW="full"
-						dir="auto"
-					>
+					<p dir="auto" className="font-semibold text-panel-text truncate max-w-full">
 						<AppleEmojiText>
 							{formatNodeNamePreview(node.name || t("nodes.unnamedNode"))}
 						</AppleEmojiText>
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -2146,23 +2054,12 @@ export const NodesPage: FC = () => {
 				mobilePriority: 2,
 				mobileMetaLabel: t("nodes.nodeAddress"),
 				cell: (node) => (
-					<Text
-						as="button"
-						type="button"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate" }}
-						cursor="pointer"
-						textAlign="start"
-						maxW="full"
-						noOfLines={1}
-						_hover={{ color: "primary.500", textDecoration: "underline" }}
-						onClick={(event) => {
+					<button type="button" dir="ltr" onClick={(event) => {
 							event.stopPropagation();
 							copyToClipboard(node.address, t("nodes.nodeAddress"));
-						}}
-					>
+						}} className="[unicode-bidi:isolate] cursor-pointer text-start max-w-full truncate hover:text-primary-500 hover:underline">
 						{formatCellValue(node.address)}
-					</Text>
+					</button>
 				),
 			},
 			{
@@ -2180,27 +2077,16 @@ export const NodesPage: FC = () => {
 				mobileMetaLabel: t("nodes.columns.xrayVersion"),
 				cell: (node) =>
 					node.xray_version ? (
-						<Tag
-							as="button"
-							type="button"
-							colorScheme="blue"
-							size="sm"
-							maxW="full"
-							overflow="hidden"
-							whiteSpace="nowrap"
-							cursor="pointer"
-							_hover={{ opacity: 0.82 }}
-							onClick={(event) => {
+						<Tag as="button" {...{ type: "button" }} colorScheme="blue" size="sm" onClick={(event) => {
 								event.stopPropagation();
 								if (node.id) setVersionDialogTarget({ type: "node", node });
-							}}
-						>
+							}} className="max-w-full overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-[0.82]">
 							{`Xray ${node.xray_version}`}
 						</Tag>
 					) : (
-						<Text as="span" color="panel.textMuted">
+						<span className="text-panel-text-muted">
 							-
-						</Text>
+						</span>
 					),
 			},
 			{
@@ -2247,85 +2133,46 @@ export const NodesPage: FC = () => {
 							.join(" / ") || EMPTY_CELL_VALUE;
 					const rebootRequired = /reboot/i.test(node.message ?? "");
 					return (
-						<VStack
-							align="start"
-							justify="center"
-							spacing={1}
-							minW={0}
-							maxW="full"
-							overflow="hidden"
-						>
+						<div className="flex flex-col items-start justify-center gap-1 min-w-0! max-w-full overflow-hidden">
 							{nodeRuntimeDisplayVersion ? (
-								<Tag
-									colorScheme="green"
-									size="sm"
-									maxW="full"
-									overflow="hidden"
-									whiteSpace="nowrap"
-									justifyContent="flex-start"
-								>
+								<Tag colorScheme="green" size="sm" className="max-w-full overflow-hidden whitespace-nowrap justify-start">
 									{t("nodes.nodeServiceVersionTag", {
 										version: nodeRuntimeDisplayVersion,
 									})}
 								</Tag>
 							) : (
-								<Text as="span" fontSize="sm" color="panel.textMuted">
+								<span className="text-[0.875rem] text-panel-text-muted">
 									-
-								</Text>
+								</span>
 							)}
-							<Text
-								fontSize="xs"
-								color="panel.textMuted"
-								noOfLines={1}
-								minW={0}
-								maxW="full"
-								textAlign="start"
-							>
+							<p className="text-[0.75rem] text-panel-text-muted truncate min-w-0! max-w-full text-start">
 								{nodeInstallLabel}
-							</Text>
+							</p>
 							{nodeServiceUpdateAvailable && (
-								<Button
-									size="xs"
-									variant="link"
-									colorScheme="orange"
-									flexShrink={0}
-									leftIcon={<DownloadIconStyled />}
-									onClick={(event) => {
+								<Button size="xs" variant="link" colorScheme="orange" leftIcon={<DownloadIconStyled />} onClick={(event) => {
 										event.stopPropagation();
 										handleUpdateNodeService(node);
-									}}
-									isLoading={
+									}} isLoading={
 										isUpdatingService &&
 										nodeId != null &&
 										updatingServiceNodeId === nodeId
-									}
-									isDisabled={!nodeId || !nodeHostActionsAvailable}
-								>
+									} isDisabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">
 									{t("nodes.nodeUpdateAvailable")}
 								</Button>
 							)}
 							{rebootRequired && (
-								<Button
-									size="xs"
-									variant="link"
-									colorScheme="red"
-									flexShrink={0}
-									leftIcon={<ArrowPathIconStyled />}
-									onClick={(event) => {
+								<Button size="xs" variant="link" colorScheme="red" leftIcon={<ArrowPathIconStyled />} onClick={(event) => {
 										event.stopPropagation();
 										handleRebootNodeHost(node);
-									}}
-									isLoading={
+									}} isLoading={
 										isRebootingHost &&
 										nodeId != null &&
 										rebootingHostNodeId === nodeId
-									}
-									isDisabled={!nodeId || !nodeHostActionsAvailable}
-								>
+									} isDisabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">
 									{t("nodes.rebootRequired")}
 								</Button>
 							)}
-						</VStack>
+						</div>
 					);
 				},
 			},
@@ -2344,9 +2191,9 @@ export const NodesPage: FC = () => {
 				mobilePriority: 5,
 				mobileMetaLabel: t("redisUptime"),
 				cell: (node) => (
-					<Text fontWeight="medium" fontSize="sm" lineHeight="short">
+					<p className="font-medium text-[0.875rem] leading-[1.375]">
 						{formatNodeUptime(node.uptime_seconds)}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -2429,9 +2276,9 @@ export const NodesPage: FC = () => {
 				mobilePriority: 8,
 				mobileMetaLabel: t("nodes.cpu"),
 				mobileDetailCell: (node) => (
-					<Text fontSize="sm" fontWeight="semibold" dir="ltr">
+					<p dir="ltr" className="text-[0.875rem] font-semibold">
 						{formatNodePercent(node.cpu_usage_percent)}
-					</Text>
+					</p>
 				),
 				cell: (node) => (
 					<NodeMetricDisplay
@@ -2459,10 +2306,10 @@ export const NodesPage: FC = () => {
 				mobilePriority: 9,
 				mobileMetaLabel: t("nodes.ram"),
 				mobileDetailCell: (node) => (
-					<Text fontSize="sm" fontWeight="semibold" dir="ltr">
+					<p dir="ltr" className="text-[0.875rem] font-semibold">
 						{formatNodeBytes(node.memory_used, 2)} /{" "}
 						{formatNodeBytes(node.memory_total, 2)}
-					</Text>
+					</p>
 				),
 				cell: (node) => (
 					<NodeMetricDisplay
@@ -2505,18 +2352,10 @@ export const NodesPage: FC = () => {
 				cell: (node) => {
 					const certificateBundle = getNodeInstallBundle(node);
 					return (
-						<IconButton
-							aria-label={t("nodes.copyCertificate")}
-							icon={<CopyIconStyled />}
-							size="sm"
-							variant="ghost"
-							color="panel.textMuted"
-							isDisabled={!certificateBundle}
-							onClick={(event) => {
+						<IconButton aria-label={t("nodes.copyCertificate")} icon={<CopyIconStyled />} size="sm" variant="ghost" isDisabled={!certificateBundle} onClick={(event) => {
 								event.stopPropagation();
 								copyToClipboard(certificateBundle, t("nodes.certificate"));
-							}}
-						/>
+							}} className="text-panel-text-muted" />
 					);
 				},
 			},
@@ -2538,7 +2377,7 @@ export const NodesPage: FC = () => {
 	const renderExpandedNode = (node: NodeType) => {
 		const actions = nodeRowActions(node).filter(Boolean);
 		return (
-			<Box className="rb-resource-expanded">
+			<div className="rb-resource-expanded">
 				<ExpandedDetails>
 					<ExpandedHeading title={t("nodes.sections.health")} first />
 					<ExpandedMeta label={t("nodes.agentHealth")} value={node.agent_status || "unknown"} />
@@ -2562,38 +2401,24 @@ export const NodesPage: FC = () => {
 					<ExpandedMeta label={t("nodes.note")} value={node.note || "-"} />
 					<ExpandedMeta label={t("nodes.lastMessage")} value={node.message || "-"} />
 					<ExpandedHeading title={t("nodes.protocolHealth")} />
-					<Box gridColumn="1 / -1">
+					<div className="[grid-column:1_/_-1]">
 						<ProtocolStatusList statuses={node.protocol_statuses} />
-					</Box>
+					</div>
 				</ExpandedDetails>
-				<Flex
-					className="rb-resource-expanded-actions"
-					align="center"
-					justify="flex-end"
-					gap={1}
-					flexWrap="wrap"
-					onClick={(event) => event.stopPropagation()}
-				>
-					<HStack className="rb-inline-actions" spacing={1} flexWrap="wrap">
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control */}
+				{/* biome-ignore lint/a11y/useKeyWithClickEvents: wrapper only stops row clicks, it is not a control */}
+				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
+					<div className="flex flex-row items-center gap-1 flex-wrap rb-inline-actions">
 						{actions.map((action) => (
 							<Tooltip key={action.id} label={action.label}>
 								<span>
-									<IconButton
-										aria-label={String(action.label)}
-										icon={action.icon}
-										variant="ghost"
-										size="sm"
-										minW="30px"
-										h="30px"
-										isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(node) : action.isDisabled}
-										onClick={() => action.onClick?.(node)}
-									/>
+									<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(node) : action.isDisabled} onClick={() => action.onClick?.(node)} className="min-w-[30px]! h-[30px]" />
 								</span>
 							</Tooltip>
 						))}
-					</HStack>
-				</Flex>
-			</Box>
+					</div>
+				</div>
+			</div>
 		);
 	};
 
@@ -2743,38 +2568,16 @@ export const NodesPage: FC = () => {
 
 	const nodesPagination =
 		filteredNodes.length > 0 ? (
-			<Stack
-				direction={{ base: "column", md: "row" }}
-				align={{ base: "stretch", md: "center" }}
-				justify="space-between"
-				spacing={3}
-				borderWidth="1px"
-				borderColor={nodePanelBorder}
-				borderRadius="2xl"
-				bg={nodePanelBg}
-				p={{ base: 4, md: 5 }}
-				transition="box-shadow 0.2s ease, border-color 0.2s ease"
-				_hover={{
-					"@media (min-width: 768px)": {
-						boxShadow: "sm",
-						borderColor: "panel.borderStrong",
-					},
-				}}
-			>
-				<Text fontSize="sm" color="gray.500">
+			<div className={cn("hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border rounded-2xl p-4 md:p-5 [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", nodePanelBorder, nodePanelBg))}>
+				<p className="text-[0.875rem] text-gray-500">
 					{t("nodes.paginationSummary", {
 						start: paginationStart,
 						end: paginationEnd,
 						total: filteredNodes.length,
 					})}
-				</Text>
-				<HStack spacing={2} justify={{ base: "space-between", md: "flex-end" }}>
-					<Select
-						size="sm"
-						value={pageSize}
-						onChange={(event) => setPageSize(Number(event.target.value))}
-						w="90px"
-					>
+				</p>
+				<div className="flex flex-row items-center gap-2 justify-between md:justify-end">
+					<Select size="sm" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="w-[90px]">
 						<option value={12}>12</option>
 						<option value={24}>24</option>
 						<option value={48}>48</option>
@@ -2782,26 +2585,20 @@ export const NodesPage: FC = () => {
 						<option value={100}>100</option>
 					</Select>
 					<ButtonGroup size="sm" isAttached variant="outline">
-						<Button
-							onClick={() => setPage((value) => Math.max(1, value - 1))}
-							isDisabled={currentPage <= 1}
-						>
+						<Button variant="solid" size="md" onClick={() => setPage((value) => Math.max(1, value - 1))} isDisabled={currentPage <= 1}>
 							{t("previous")}
 						</Button>
-						<Button isDisabled>
+						<Button variant="solid" size="md" isDisabled>
 							{currentPage} / {totalPages}
 						</Button>
-						<Button
-							onClick={() =>
+						<Button variant="solid" size="md" onClick={() =>
 								setPage((value) => Math.min(totalPages, value + 1))
-							}
-							isDisabled={currentPage >= totalPages}
-						>
+							} isDisabled={currentPage >= totalPages}>
 							{t("next")}
 						</Button>
 					</ButtonGroup>
-				</HStack>
-			</Stack>
+				</div>
+			</div>
 		) : null;
 
 	if (!getUserIsSuccess) {
@@ -2810,14 +2607,14 @@ export const NodesPage: FC = () => {
 
 	if (!canManageNodes) {
 		return (
-			<VStack spacing={4} align="stretch">
-				<Text as="h1" fontWeight="semibold" fontSize="2xl">
+			<div className="flex flex-col gap-4 items-stretch">
+				<h1 className="font-semibold text-[1.5rem]">
 					{t("nodes.title")}
-				</Text>
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+				</h1>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("nodes.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
@@ -2826,149 +2623,50 @@ export const NodesPage: FC = () => {
 	}
 
 	return (
-		<VStack
-			spacing={5}
-			align="stretch"
-			pb={selectedNodeIds.length > 0 ? { base: 32, md: 24 } : 0}
-		>
+		<div className={cn("flex flex-col gap-5 items-stretch", selectedNodeIds.length > 0 ? "pb-32" + " " + "md:pb-24" : "pb-0")}>
 			{hasError && (
-				<Alert status="error" borderRadius="md">
+				<Alert status="error" className="rounded-md">
 					<AlertIcon />
 					<AlertDescription>{errorMessage}</AlertDescription>
 				</Alert>
 			)}
 
-			<Stack
-				spacing={3}
-				w="full"
-				borderWidth="1px"
-				borderColor={nodePanelBorder}
-				borderRadius="2xl"
-				bg={nodePanelBg}
-				p={{ base: 4, md: 5 }}
-				transition="box-shadow 0.2s ease, border-color 0.2s ease"
-				_hover={{
-					"@media (min-width: 768px)": {
-						boxShadow: "sm",
-						borderColor: "panel.borderStrong",
-					},
-				}}
-			>
-				<Stack
-					direction={{ base: "column", xl: "row" }}
-					spacing={3}
-					align={{ base: "stretch", xl: "flex-start" }}
-					justify="space-between"
-				>
-					<VStack
-						align="flex-start"
-						spacing={1}
-						minW={{ base: "0", xl: "210px" }}
-					>
-						<Text fontWeight="semibold">{t("nodes.manageNodesHeader")}</Text>
+			<div className={cn("hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("flex flex-col gap-3 w-full border rounded-2xl p-4 md:p-5 [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", nodePanelBorder, nodePanelBg))}>
+				<div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-start justify-between">
+					<div className="flex flex-col items-start gap-1 min-w-0! xl:min-w-[210px]!">
+						<p className="font-semibold">{t("nodes.manageNodesHeader")}</p>
 						<ResourceSummaryPills items={nodeSummaryItems} />
-					</VStack>
-					<SimpleGrid
-						columns={{ base: 2, md: 4 }}
-						spacing={2}
-						w={{ base: "full", xl: "auto" }}
-						minW={0}
-						maxW="full"
-					>
-						<Button
-							leftIcon={<TutorialIconStyled />}
-							variant="outline"
-							size="sm"
-							h="36px"
-							px={3}
-							minW={0}
-							w="full"
-							onClick={() =>
+					</div>
+					<div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full xl:w-auto min-w-0! max-w-full">
+						<Button leftIcon={<TutorialIconStyled />} variant="outline" size="sm" onClick={() =>
 								navigate(
 									`/tutorials?doc=${encodeURIComponent(
 										"admin/nodes/#section-nodes-admin-guide",
 									)}`,
 								)
-							}
-						>
+							} className="h-[36px] px-3 min-w-0! w-full">
 							{t("nodes.toolbarTutorial")}
 						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							leftIcon={<CoreIconStyled />}
-							h="36px"
-							px={3}
-							minW={0}
-							w="full"
-							onClick={() => setVersionDialogTarget({ type: "bulk" })}
-							isDisabled={!hasConnectedNodes || !hostActionsAvailable}
-						>
+						<Button variant="outline" size="sm" leftIcon={<CoreIconStyled />} onClick={() => setVersionDialogTarget({ type: "bulk" })} isDisabled={!hasConnectedNodes || !hostActionsAvailable} className="h-[36px] px-3 min-w-0! w-full">
 							{t("nodes.toolbarUpdateCore")}
 						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							leftIcon={<DownloadIconStyled />}
-							h="36px"
-							px={3}
-							minW={0}
-							w="full"
-							onClick={handleUpdateAllNodeServices}
-							isLoading={updatingBulkService}
-							isDisabled={
+						<Button variant="outline" size="sm" leftIcon={<DownloadIconStyled />} onClick={handleUpdateAllNodeServices} isLoading={updatingBulkService} isDisabled={
 								!hostActionsAvailable || !hasBinaryNodes || updatingBulkService
-							}
-						>
+							} className="h-[36px] px-3 min-w-0! w-full">
 							{t("nodes.toolbarUpdateServices")}
 						</Button>
-						<Button
-							leftIcon={<AddIconStyled />}
-							colorScheme="primary"
-							size="sm"
-							h="36px"
-							px={3}
-							minW={0}
-							w="full"
-							onClick={() => setAddNodeOpen(true)}
-						>
+						<Button leftIcon={<AddIconStyled />} colorScheme="primary" size="sm" onClick={() => setAddNodeOpen(true)} className="h-[36px] px-3 min-w-0! w-full">
 							{t("nodes.addNode")}
 						</Button>
-					</SimpleGrid>
-				</Stack>
+					</div>
+				</div>
 
-				<Divider />
+				<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
 
-				<Stack
-					direction={{ base: "column", xl: "row" }}
-					spacing={3}
-					align={{ base: "stretch", xl: "center" }}
-					justify="space-between"
-				>
-					<Stack
-						direction="row"
-						spacing={2}
-						align="center"
-						flex="1"
-						flexWrap="wrap"
-					>
-						<SearchInput
-							containerProps={{
-								w: { base: "full", md: "300px", xl: "320px" },
-								flex: { base: "0 0 100%", md: "0 0 auto" },
-							}}
-							value={searchTerm}
-							onChange={(event) => setSearchTerm(event.target.value)}
-							placeholder={t("nodes.searchPlaceholder")}
-							matchOptions={searchMatch}
-							onMatchOptionsChange={setSearchMatch}
-						/>
-						<Select
-							size="sm"
-							value={statusFilter}
-							onChange={(event) => setStatusFilter(event.target.value)}
-							w={{ base: "calc(50% - 4px)", md: "150px" }}
-						>
+				<div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between">
+					<div className="flex flex-row gap-2 items-center flex-1 flex-wrap">
+						<SearchInput containerProps={{ className: "w-full md:w-[300px] xl:w-[320px] flex-[0_0_100%] md:flex-[0_0_auto]" }} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={t("nodes.searchPlaceholder")} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} />
+						<Select size="sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-[calc(50%_-_4px)] md:w-[150px]">
 							<option value="all">{t("nodes.filters.allStatuses")}</option>
 							<option value="connected">{t("status.connected")}</option>
 							<option value="connecting">
@@ -2978,12 +2676,7 @@ export const NodesPage: FC = () => {
 							<option value="disabled">{t("status.disabled")}</option>
 							<option value="limited">{t("status.limited")}</option>
 						</Select>
-						<Select
-							size="sm"
-							value={installModeFilter}
-							onChange={(event) => setInstallModeFilter(event.target.value)}
-							w={{ base: "calc(50% - 4px)", md: "150px" }}
-						>
+						<Select size="sm" value={installModeFilter} onChange={(event) => setInstallModeFilter(event.target.value)} className="w-[calc(50%_-_4px)] md:w-[150px]">
 							<option value="all">{t("nodes.filters.allModes")}</option>
 							<option value="binary">{t("nodes.installMode.binary")}</option>
 							<option value="docker">{t("nodes.installMode.docker")}</option>
@@ -2994,28 +2687,17 @@ export const NodesPage: FC = () => {
 							sorting={nodeSorting}
 							onSortingChange={handleNodeTableSorting}
 						/>
-						<Box
-							w={{ base: "calc(50% - 4px)", md: "auto" }}
-							display="flex"
-							justifyContent={{ base: "flex-end", md: "flex-start" }}
-						>
+						<div className="w-[calc(50%_-_4px)] md:w-auto flex justify-end md:justify-start">
 							<Tooltip label={t("nodes.refreshNodes")}>
-								<IconButton
-									aria-label={t("nodes.refreshNodes")}
-									icon={<ArrowPathIconStyled />}
-									variant="ghost"
-									size="sm"
-									onClick={() => refetchNodes()}
-									isLoading={isFetching}
-								/>
+								<IconButton aria-label={t("nodes.refreshNodes")} icon={<ArrowPathIconStyled />} variant="ghost" size="sm" onClick={() => refetchNodes()} isLoading={isFetching} />
 							</Tooltip>
-						</Box>
-					</Stack>
-				</Stack>
-			</Stack>
+						</div>
+					</div>
+				</div>
+			</div>
 
 			{!hostActionsAvailable && (
-				<Alert status="warning" variant="subtle" borderRadius="md">
+				<Alert status="warning" variant="subtle" className="rounded-md">
 					<AlertIcon />
 					<AlertDescription>
 						{t("nodes.binaryMigrationRequired")}
@@ -3023,7 +2705,7 @@ export const NodesPage: FC = () => {
 				</Alert>
 			)}
 
-			<Box className="rb-nodes-section">
+			<div className="rb-nodes-section">
 				<DataTable
 					ariaLabel={t("nodes.manageNodesHeader")}
 					data={paginatedNodes}
@@ -3032,9 +2714,9 @@ export const NodesPage: FC = () => {
 					isLoading={isLoading}
 					loadingRows={Math.min(pageSize, 8)}
 					emptyState={
-						<Text fontSize="sm" color="panel.textMuted" textAlign="center">
+						<p className="text-[0.875rem] text-panel-text-muted text-center">
 							{t("nodes.noNodesFound")}
-						</Text>
+						</p>
 					}
 					enableSelection
 					selectedRowIds={selectedNodeIds.map(String)}
@@ -3068,167 +2750,91 @@ export const NodesPage: FC = () => {
 					})}
 					renderBulkActions={() => (
 						<>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={selectAllFilteredNodes}
-								isDisabled={allFilteredSelected}
-							>
+							<Button size="sm" variant="outline" onClick={selectAllFilteredNodes} isDisabled={allFilteredSelected}>
 								{t("nodes.selectAllFiltered")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<EnableIconStyled />}
-								onClick={selectOnlyActiveNodes}
-								isDisabled={
+							<Button size="sm" variant="outline" leftIcon={<EnableIconStyled />} onClick={selectOnlyActiveNodes} isDisabled={
 									activeFilteredNodeIds.length === 0 || onlyActiveFilteredSelected
-								}
-							>
+								}>
 								{t("nodes.selectOnlyActive")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<EnableIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<EnableIconStyled />} onClick={() =>
 									openBulkActionConfirm("bulk-enable", selectableSelectedNodes())
-								}
-								isDisabled={Boolean(bulkNodeActionLoading)}
-							>
+								} isDisabled={Boolean(bulkNodeActionLoading)}>
 								{t("nodes.enableNode")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<DisableIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<DisableIconStyled />} onClick={() =>
 									openBulkActionConfirm("bulk-disable", selectableSelectedNodes())
-								}
-								isDisabled={Boolean(bulkNodeActionLoading)}
-							>
+								} isDisabled={Boolean(bulkNodeActionLoading)}>
 								{t("nodes.disableNode")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<ArrowPathIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<ArrowPathIconStyled />} onClick={() =>
 									openBulkActionConfirm("bulk-reset", selectableSelectedNodes())
-								}
-								isDisabled={Boolean(bulkNodeActionLoading)}
-							>
+								} isDisabled={Boolean(bulkNodeActionLoading)}>
 								{t("nodes.resetUsage")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<ServiceIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<ServiceIconStyled />} onClick={() =>
 									openBulkActionConfirm(
 										"bulk-restart",
 										selectedConnectedBinaryNodes(),
 									)
-								}
-								isDisabled={
+								} isDisabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}
-							>
+								}>
 								{t("nodes.restartServiceAction")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<DownloadIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<DownloadIconStyled />} onClick={() =>
 									openBulkActionConfirm("bulk-update", selectedBinaryNodes())
-								}
-								isDisabled={
+								} isDisabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedBinaryNodes().length === 0
-								}
-							>
+								}>
 								{t("nodes.updateServiceAction")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<CoreIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<CoreIconStyled />} onClick={() =>
 									setVersionDialogTarget({
 										type: "bulk",
 										nodes: selectedConnectedBinaryNodes(),
 									})
-								}
-								isDisabled={
+								} isDisabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}
-							>
+								}>
 								{t("nodes.updateCoreAction")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<GeoIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<GeoIconStyled />} onClick={() =>
 									setGeoDialogTarget({
 										type: "bulk",
 										nodes: selectedConnectedBinaryNodes(),
 									})
-								}
-								isDisabled={
+								} isDisabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}
-							>
+								}>
 								{t("nodes.updateGeoAction")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<ArrowPathIconStyled />}
-								onClick={() =>
+							<Button size="sm" variant="outline" leftIcon={<ArrowPathIconStyled />} onClick={() =>
 									openBulkActionConfirm(
 										"bulk-reboot",
 										selectedConnectedBinaryNodes(),
 									)
-								}
-								isDisabled={
+								} isDisabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}
-							>
+								}>
 								{t("nodes.rebootHostAction")}
 							</Button>
-							<Button
-								size="sm"
-								colorScheme="red"
-								variant="outline"
-								leftIcon={<DeleteIconStyled />}
-								onClick={() =>
+							<Button size="sm" colorScheme="red" variant="outline" leftIcon={<DeleteIconStyled />} onClick={() =>
 									openBulkActionConfirm("bulk-delete", selectableSelectedNodes())
-								}
-								isDisabled={Boolean(bulkNodeActionLoading)}
-							>
+								} isDisabled={Boolean(bulkNodeActionLoading)}>
 								{t("delete")}
 							</Button>
 						</>
 					)}
-					tableProps={{
-						w: "full",
-						sx: {
-							tableLayout: "auto",
-							"& th, & td": {
-								px: { base: 1.5, xl: 2 },
-								py: 2,
-								verticalAlign: "middle",
-							},
-						},
-					}}
+					tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }}
 				/>
-			</Box>
+			</div>
 			<CoreVersionDialog
 				isOpen={Boolean(versionDialogTarget)}
 				onClose={closeVersionDialog}
@@ -3342,74 +2948,36 @@ export const NodesPage: FC = () => {
 			/>
 			{newNodeCertificate && (
 				<Modal isOpen onClose={() => setNewNodeCertificate(null)} size="md">
-					<ModalOverlay bg="blackAlpha.500" />
-					<ModalContent
-						bg={nodePanelBg}
-						borderWidth="1px"
-						borderColor={nodePanelBorder}
-						borderRadius="2xl"
-						boxShadow="2xl"
-						overflow="hidden"
-						mx={{ base: 4, sm: 0 }}
-						maxW={{ base: "calc(100vw - 32px)", sm: "520px" }}
-					>
-						<ModalHeader px={6} pt={6} pb={2}>
-							<HStack spacing={3}>
-								<Box
-									display="inline-flex"
-									alignItems="center"
-									justifyContent="center"
-									w={10}
-									h={10}
-									borderRadius="full"
-									bg="primary.50"
-									color="primary.600"
-									_dark={{ bg: "primary.900", color: "primary.200" }}
-								>
+					<ModalOverlay className="bg-blackAlpha-500" />
+					<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[520px]", nodePanelBg, nodePanelBorder)}>
+						<ModalHeader className="px-6 pt-6 pb-2">
+							<div className="flex flex-row items-center gap-3">
+								<div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-200">
 									<CertificateIconStyled />
-								</Box>
-								<Text>{t("nodes.newNodePublicKeyTitle")}</Text>
-							</HStack>
+								</div>
+								<p>{t("nodes.newNodePublicKeyTitle")}</p>
+							</div>
 						</ModalHeader>
 						<ModalCloseButton />
-						<ModalBody px={6} pb={2}>
-							<VStack align="stretch" spacing={4}>
-								<Text
-									fontSize="sm"
-									color="gray.600"
-									_dark={{ color: "gray.300" }}
-								>
+						<ModalBody className="px-6 pb-2">
+							<div className="flex flex-col items-stretch gap-4">
+								<p className="text-[0.875rem] text-gray-600 dark:text-gray-300">
 									{t("nodes.newNodePublicKeyDesc")}
-								</Text>
-								<Box borderWidth="1px" borderRadius="lg" overflow="hidden">
-									<HStack
-										justify="space-between"
-										align="center"
-										px={4}
-										py={3}
-										bg="gray.50"
-										_dark={{ bg: "gray.800" }}
-									>
-										<VStack align="flex-start" spacing={0}>
-											<Text fontWeight="semibold">
+								</p>
+								<div className="border rounded-lg overflow-hidden">
+									<div className="flex flex-row gap-2 justify-between items-center px-4 py-3 bg-gray-50 dark:bg-gray-800">
+										<div className="flex flex-col items-start gap-0">
+											<p className="font-semibold">
 												{t("nodes.installBundleLabel")}
-											</Text>
+											</p>
 											{newNodeCertificate.name && (
-												<Text
-													fontSize="xs"
-													color="gray.500"
-													_dark={{ color: "gray.400" }}
-												>
+												<p className="text-[0.75rem] text-gray-500 dark:text-gray-400">
 													{newNodeCertificate.name}
-												</Text>
+												</p>
 											)}
-										</VStack>
-										<HStack spacing={2}>
-											<Button
-												size="sm"
-												variant="outline"
-												leftIcon={<CopyIconStyled />}
-												onClick={() => {
+										</div>
+										<div className="flex flex-row items-center gap-2">
+											<Button size="sm" variant="outline" leftIcon={<CopyIconStyled />} onClick={() => {
 													if (!generatedCertificateBundleValue) return;
 													copyGeneratedCertificateBundle();
 													toast({
@@ -3419,18 +2987,12 @@ export const NodesPage: FC = () => {
 														position: "top",
 														duration: 2000,
 													});
-												}}
-												isDisabled={!generatedCertificateBundleValue}
-											>
+												}} isDisabled={!generatedCertificateBundleValue}>
 												{generatedCertificateBundleCopied
 													? t("copied")
 													: t("copy")}
 											</Button>
-											<Button
-												size="sm"
-												variant="outline"
-												leftIcon={<DownloadIconStyled />}
-												onClick={() => {
+											<Button size="sm" variant="outline" leftIcon={<DownloadIconStyled />} onClick={() => {
 													if (!generatedCertificateBundleValue) return;
 													const blob = new Blob(
 														[generatedCertificateBundleValue],
@@ -3444,49 +3006,26 @@ export const NodesPage: FC = () => {
 													anchor.download = "node_install_bundle.pem";
 													anchor.click();
 													URL.revokeObjectURL(url);
-												}}
-												isDisabled={!generatedCertificateBundleValue}
-											>
+												}} isDisabled={!generatedCertificateBundleValue}>
 												{t("nodes.download-node-install-bundle")}
 											</Button>
-										</HStack>
-									</HStack>
-									<Box
-										px={4}
-										py={3}
-										bg="white"
-										_dark={{ bg: "gray.900" }}
-										fontFamily="mono"
-										fontSize="xs"
-										whiteSpace="pre-wrap"
-										wordBreak="break-word"
-										maxH="280px"
-										overflow="auto"
-									>
+										</div>
+									</div>
+									<div className="px-4 py-3 bg-white dark:bg-gray-900 font-mono text-[0.75rem] whitespace-pre-wrap [word-break:break-word] max-h-[280px] overflow-auto">
 										{generatedCertificateBundleValue}
-									</Box>
-								</Box>
-							</VStack>
+									</div>
+								</div>
+							</div>
 						</ModalBody>
-						<ModalFooter
-							bg="blackAlpha.50"
-							_dark={{ bg: "whiteAlpha.50" }}
-							borderTopWidth="1px"
-							borderColor={nodePanelBorder}
-							px={6}
-							py={4}
-						>
-							<Button
-								onClick={() => setNewNodeCertificate(null)}
-								colorScheme="primary"
-							>
+						<ModalFooter className={cn("bg-blackAlpha-50 dark:bg-whiteAlpha-50 border-t px-6 py-4", nodePanelBorder)}>
+							<Button size="md" onClick={() => setNewNodeCertificate(null)} colorScheme="primary">
 								{t("close")}
 							</Button>
 						</ModalFooter>
 					</ModalContent>
 				</Modal>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

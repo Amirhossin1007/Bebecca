@@ -1,29 +1,21 @@
-import {
-	chakra,
-	HStack,
-	IconButton,
-	Input,
-	InputGroup,
-	InputLeftElement,
-	InputRightElement,
-	type InputGroupProps,
-	type InputProps,
-	Spinner,
-	Text,
-	Tooltip,
-} from "@chakra-ui/react";
+import { Input, InputGroup, InputLeftElement, InputRightElement } from "components/shadcn/input";
+import { Spinner } from "components/shadcn/feedback";
+import { Tooltip } from "components/shadcn/tooltip";
+import { IconButton } from "components/shadcn/button";
+import { withClass } from "components/shadcn/icon";
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { FC, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { SearchMatchOptions } from "utils/searchMatch";
 
-const SearchIcon = chakra(MagnifyingGlassIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const ClearIcon = chakra(XMarkIcon, { baseStyle: { w: 3.5, h: 3.5 } });
+const SearchIcon = withClass(MagnifyingGlassIcon, "w-4 h-4");
+const ClearIcon = withClass(XMarkIcon, "w-3.5 h-3.5");
 
-type SearchInputProps = InputProps & {
-	containerProps?: InputGroupProps;
+type SearchInputProps = Omit<ComponentPropsWithoutRef<"input">, "size"> & {
+	size?: "xs" | "sm" | "md" | "lg";
+	containerProps?: ComponentPropsWithoutRef<"div">;
 	isLoading?: boolean;
 	matchOptions: SearchMatchOptions;
 	onClear?: () => void;
@@ -48,57 +40,28 @@ export const SearchInput: FC<SearchInputProps> = ({
 
 	return (
 		<InputGroup size={size} {...containerProps}>
-			<InputLeftElement pointerEvents="none" h="full">
-				<SearchIcon color="panel.textMuted" />
+			<InputLeftElement className="pointer-events-none h-full">
+				<SearchIcon className="text-panel-text-muted" />
 			</InputLeftElement>
-			<Input value={value} pe="116px" {...inputProps} />
-			<InputRightElement w="auto" pe={1} h="full">
-				<HStack spacing={0.5}>
-					{isLoading && <Spinner size="xs" color="panel.textMuted" />}
+			<Input value={value} {...inputProps} className="pe-[116px]" />
+			<InputRightElement className="w-auto pe-1 h-full">
+				<div className="flex flex-row items-center gap-0.5">
+					{isLoading && <Spinner size="xs" className="text-panel-text-muted" />}
 					<Tooltip label={t("search.matchCase")} hasArrow>
-						<IconButton
-							aria-label={t("search.matchCase")}
-							aria-pressed={matchOptions.matchCase}
-							icon={<Text fontSize="xs">Aa</Text>}
-							onClick={() => toggle("matchCase")}
-							type="button"
-							size="xs"
-							variant="ghost"
-							color={matchOptions.matchCase ? "primary.400" : "panel.textMuted"}
-							bg={matchOptions.matchCase ? "panel.hover" : "transparent"}
-						/>
+						<IconButton aria-label={t("search.matchCase")} aria-pressed={matchOptions.matchCase} icon={<p className="text-[0.75rem]">Aa</p>} onClick={() => toggle("matchCase")} type="button" size="xs" variant="ghost" className={cn(matchOptions.matchCase ? "text-primary-400" : "text-panel-text-muted", matchOptions.matchCase ? "bg-panel-hover" : "bg-transparent")} />
 					</Tooltip>
 					<Tooltip label={t("search.matchWholeWord")} hasArrow>
-						<IconButton
-							aria-label={t("search.matchWholeWord")}
-							aria-pressed={matchOptions.matchWholeWord}
-							icon={
-								<Text fontSize="xs" textDecoration="underline">
+						<IconButton aria-label={t("search.matchWholeWord")} aria-pressed={matchOptions.matchWholeWord} icon={
+								<p className="text-[0.75rem] underline">
 									ab
-								</Text>
-							}
-							onClick={() => toggle("matchWholeWord")}
-							type="button"
-							size="xs"
-							variant="ghost"
-							color={
-								matchOptions.matchWholeWord ? "primary.400" : "panel.textMuted"
-							}
-							bg={matchOptions.matchWholeWord ? "panel.hover" : "transparent"}
-						/>
+								</p>
+							} onClick={() => toggle("matchWholeWord")} type="button" size="xs" variant="ghost" className={cn(matchOptions.matchWholeWord ? "text-primary-400" : "text-panel-text-muted", matchOptions.matchWholeWord ? "bg-panel-hover" : "bg-transparent")} />
 					</Tooltip>
 					{rightElement}
 					{onClear && String(value ?? "").length > 0 && (
-						<IconButton
-							aria-label={t("clear")}
-							icon={<ClearIcon />}
-							onClick={onClear}
-							type="button"
-							size="xs"
-							variant="ghost"
-						/>
+						<IconButton aria-label={t("clear")} icon={<ClearIcon />} onClick={onClear} type="button" size="xs" variant="ghost" />
 					)}
-				</HStack>
+				</div>
 			</InputRightElement>
 		</InputGroup>
 	);

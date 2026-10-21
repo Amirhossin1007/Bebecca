@@ -1,13 +1,7 @@
-import {
-	Button,
-	FormControl,
-	FormLabel,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	VStack,
-} from "@chakra-ui/react";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
 import { type FC, useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Controller, useForm } from "react-hook-form";
@@ -104,8 +98,8 @@ export const FakeDnsModal: FC<FakeDnsModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="lg">
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent mx="3">
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{isEdit ? t("pages.xray.fakedns.edit") : t("pages.xray.fakedns.add")}
 				</XrayModalHeader>
@@ -115,14 +109,10 @@ export const FakeDnsModal: FC<FakeDnsModalProps> = ({
 						<XrayDialogSection
 							title={t("pages.xray.fakedns.title")}
 						>
-							<VStack spacing={4} align="stretch">
+							<div className="flex flex-col gap-4 items-stretch">
 								<FormControl>
 									<FormLabel>{t("pages.xray.fakedns.ipPool")}</FormLabel>
-									<Input
-										{...modalForm.register("ipPool")}
-										size="sm"
-										placeholder="198.18.0.0/16"
-									/>
+									<Input {...modalForm.register("ipPool")} size="sm" placeholder="198.18.0.0/16" />
 								</FormControl>
 								<FormControl>
 									<FormLabel>{t("pages.xray.fakedns.poolSize")}</FormLabel>
@@ -130,21 +120,15 @@ export const FakeDnsModal: FC<FakeDnsModalProps> = ({
 										control={modalForm.control}
 										name="poolSize"
 										render={({ field }) => (
-											<NumericInput
-												value={field.value ?? ""}
-												onChange={(value) => field.onChange(value)}
-												size="sm"
-												min={1}
-												fieldProps={{ placeholder: "100" }}
-											/>
+											<NumericInput value={field.value ?? ""} onChange={(value) => field.onChange(value)} size="sm" min={1} fieldProps={{ className: "[placeholder:100]" }} />
 										)}
 									/>
 								</FormControl>
-							</VStack>
+							</div>
 						</XrayDialogSection>
 					</XrayModalBody>
-					<XrayModalFooter justifyContent="flex-end">
-						<Button variant="outline" onClick={onClose}>
+					<XrayModalFooter className="justify-end">
+						<Button size="md" variant="outline" onClick={onClose}>
 							{t("cancel")}
 						</Button>
 						<Button type="submit" colorScheme="primary" size="sm">

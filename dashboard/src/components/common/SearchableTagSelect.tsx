@@ -22,6 +22,7 @@ type SearchableTagSelectProps = {
 	size?: "sm" | "md";
 	value: string | string[];
 	width?: string;
+	className?: string;
 };
 
 const normalizeOption = (
@@ -54,6 +55,7 @@ export const SearchableTagSelect = ({
 	size = "sm",
 	value,
 	width,
+	className,
 }: SearchableTagSelectProps) => (
 	<PanelSelect
 		mode={mode}
@@ -65,7 +67,7 @@ export const SearchableTagSelect = ({
 		emptyText={emptyText}
 		isDisabled={isDisabled}
 		size={size}
-		width={width}
+		className={className} style={{ width }}
 		onValueChange={onChange}
 	/>
 );

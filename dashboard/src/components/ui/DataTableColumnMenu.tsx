@@ -1,14 +1,8 @@
-import {
-	Checkbox,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuList,
-	Portal,
-	Stack,
-	Text,
-	Tooltip,
-} from "@chakra-ui/react";
+import { Menu, MenuButton, MenuList } from "components/shadcn/menu";
+import { Tooltip } from "components/shadcn/tooltip";
+import { IconButton } from "components/shadcn/button";
+import { Portal } from "components/shadcn/portal";
+import { Checkbox } from "components/shadcn/selection";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 import { useTranslation } from "react-i18next";
 import type { DataTableColumn } from "./DataTable.types";
@@ -45,49 +39,31 @@ export function DataTableColumnMenu<TData>({
 	return (
 		<Menu placement="bottom-end" isLazy closeOnSelect={false}>
 			<Tooltip label={t("next.table.toggleColumns")} placement="top" hasArrow>
-				<MenuButton
-					as={IconButton}
-					aria-label={t("next.table.toggleColumns")}
-					icon={<AdjustmentsHorizontalIcon width={16} />}
-					size="sm"
-					variant="outline"
-					borderRadius="full"
-				/>
+				<MenuButton as={IconButton} aria-label={t("next.table.toggleColumns")} icon={<AdjustmentsHorizontalIcon className="w-16" />} size="sm" variant="outline" className="rounded-full" />
 			</Tooltip>
 			<Portal>
-				<MenuList
-					zIndex={1800}
-					minW="220px"
-					bg="panel.surface"
-					borderColor="panel.border"
-				>
-					<Stack spacing={2} px={3} py={2}>
-						<Text fontSize="xs" color="panel.textMuted" textTransform="uppercase" letterSpacing="0.08em">
+				<MenuList className="z-[1800] min-w-[220px]! bg-panel-surface border-panel-border!">
+					<div className="flex flex-col gap-2 px-3 py-2">
+						<p className="text-[0.75rem] text-panel-text-muted uppercase tracking-[0.08em]">
 							{t("next.table.toggleColumns")} · {visibleCount}/{choosable.length}
-						</Text>
+						</p>
 						{choosable.map((column) => {
 							const id = `column-${column.id}`;
 							const checked = visibility[column.id] !== false;
 							return (
-								<Checkbox
-									key={column.id}
-									id={id}
-									size="sm"
-									isChecked={checked}
-									onChange={(event) =>
+								<Checkbox key={column.id} id={id} size="sm" isChecked={checked} onChange={(event) =>
 										onChange({
 											...visibility,
 											[column.id]: event.target.checked,
 										})
-									}
-								>
-									<Text as="span" fontSize="sm">
+									}>
+									<span className="text-[0.875rem]">
 										{column.menuLabel}
-									</Text>
+									</span>
 								</Checkbox>
 							);
 						})}
-					</Stack>
+					</div>
 				</MenuList>
 			</Portal>
 		</Menu>

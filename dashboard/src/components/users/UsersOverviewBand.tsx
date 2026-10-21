@@ -46,14 +46,6 @@ const STATUS_TONE: Record<OverviewStatusKey, string> = {
 	disabled: "bg-panel-text-muted/60",
 };
 
-const STATUS_TEXT: Record<OverviewStatusKey, string> = {
-	active: "text-panel-success",
-	expired: "text-panel-danger",
-	limited: "text-panel-warning",
-	on_hold: "text-panel-info",
-	disabled: "text-panel-text-muted",
-};
-
 /**
  * The users overview card, rebuilt with Tailwind on the panel's own tokens.
  *

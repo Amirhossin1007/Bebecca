@@ -1,21 +1,9 @@
-import {
-	Box,
-	Button,
-	chakra,
-	Collapse,
-	HStack,
-	IconButton,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalHeader,
-	ModalOverlay,
-	Text,
-	useBreakpointValue,
-	VStack,
-} from "@chakra-ui/react";
-import { keyframes } from "@emotion/react";
+import type { CSSProperties } from "react";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { Button, IconButton } from "components/shadcn/button";
+import { Collapse } from "components/shadcn/collapse";
+import { withClass } from "components/shadcn/icon";
 import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
@@ -30,40 +18,10 @@ import { getSwipeTargetIndex } from "utils/carousel";
 import { useDashboard } from "../contexts/DashboardContext";
 import { Icon } from "./Icon";
 
-const QRCode = chakra(QRCodeCanvas);
-const NextIcon = chakra(ChevronRightIcon, {
-	baseStyle: {
-		w: 6,
-		h: 6,
-		color: "gray.600",
-		_dark: {
-			color: "white",
-		},
-	},
-});
-const PrevIcon = chakra(ChevronLeftIcon, {
-	baseStyle: {
-		w: 6,
-		h: 6,
-		color: "gray.600",
-		_dark: {
-			color: "white",
-		},
-	},
-});
-const QRIcon = chakra(QrCodeIcon, {
-	baseStyle: {
-		w: 5,
-		h: 5,
-	},
-});
-
-const clickPulse = keyframes`
-	0% { transform: scale(1); }
-	40% { transform: scale(0.94); }
-	70% { transform: scale(1.04); }
-	100% { transform: scale(1); }
-`;
+const QRCode = withClass(QRCodeCanvas, "");
+const NextIcon = withClass(ChevronRightIcon, "w-6 h-6 text-gray-600 dark:text-white");
+const PrevIcon = withClass(ChevronLeftIcon, "w-6 h-6 text-gray-600 dark:text-white");
+const QRIcon = withClass(QrCodeIcon, "w-5 h-5");
 
 export const QRCodeDialog: FC = () => {
 	const QRcodeLinks = useDashboard((state) => state.QRcodeLinks);
@@ -161,147 +119,73 @@ export const QRCodeDialog: FC = () => {
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose}>
-			<ModalOverlay bg="blackAlpha.300" />
-			<ModalContent
-				mx={{ base: 3, md: 4 }}
-				w="full"
-				maxW="3xl"
-				maxH="92vh"
-				overflow="hidden"
-			>
-				<ModalHeader pt={6}>
-					<HStack spacing={3} align="center">
+			<ModalOverlay className="bg-blackAlpha-300" />
+			<ModalContent className="mx-3 md:mx-4 w-full max-w-[48rem] max-h-[92vh] overflow-hidden">
+				<ModalHeader className="pt-6">
+					<div className="flex flex-row gap-3 items-center">
 						<Icon color="primary">
-							<QRIcon color="white" />
+							<QRIcon className="text-white" />
 						</Icon>
 						{qrCodeUsername && (
-							<Box minW={0}>
-								<Text fontSize="xs" color="gray.500">
+							<div className="min-w-0!">
+								<p className="text-[0.75rem] text-gray-500">
 									{t("username")}
-								</Text>
-								<Text
-									dir="ltr"
-									fontSize="md"
-									fontWeight="semibold"
-									noOfLines={1}
-								>
+								</p>
+								<p dir="ltr" className="text-[1rem] font-semibold truncate">
 									{qrCodeUsername}
-								</Text>
-							</Box>
+								</p>
+							</div>
 						)}
-					</HStack>
+					</div>
 				</ModalHeader>
-				<ModalCloseButton mt={3} />
+				<ModalCloseButton className="mt-3" />
 				{QRcodeLinks && (
-					<ModalBody
-						gap={{ base: 4, lg: 10 }}
-						px={{ base: 4, sm: 6, lg: 10 }}
-						pb={{ base: 5, md: 6 }}
-						display="flex"
-						justifyContent="center"
-						flexDirection={{
-							base: "column",
-							lg: "row",
-						}}
-						overflowY="auto"
-					>
+					<ModalBody className="gap-4 lg:gap-10 px-4 sm:px-6 lg:px-10 pb-5 md:pb-6 flex justify-center flex-col lg:flex-row overflow-y-auto">
 						{subscribeUrl && (
-							<VStack spacing={2}>
-								<Text display="block" textAlign="center" fontWeight="semibold">
+							<div className="flex flex-col items-center gap-2">
+								<p className="block text-center font-semibold">
 									{t("qrcodeDialog.sublink")}
-								</Text>
+								</p>
 								{copiedSub && (
-									<Box
-										bg="green.500"
-										color="white"
-										fontSize="xs"
-										px={2}
-										py={0.5}
-										borderRadius="full"
-									>
+									<div className="bg-green-500 text-white text-[0.75rem] px-2 py-0.5 rounded-full">
 										{t("copied")}
-									</Box>
+									</div>
 								)}
-								<Box
-									key={`sub-qr-${subAnimSeed}`}
-									cursor="pointer"
-									role="button"
-									tabIndex={0}
-									aria-label={t("copy")}
-									animation={
-										copiedSub && subAnimSeed > 0
-											? `${clickPulse} 260ms ease-in-out`
-											: "none"
-									}
-									onClick={copySubscribeLink}
-									onKeyDown={(event) => {
+								{/* biome-ignore lint/a11y/useSemanticElements: the QR card is a block-level click target; keyboard activation is handled */}
+								<div key={`sub-qr-${subAnimSeed}`} role="button" tabIndex={0} aria-label={t("copy")} style={{ animation: copiedSub && subAnimSeed > 0 ? "rb-click-pulse 260ms ease-in-out" : "none" }} onClick={copySubscribeLink} onKeyDown={(event) => {
 										if (event.key === "Enter" || event.key === " ") {
 											event.preventDefault();
 											copySubscribeLink();
 										}
-									}}
-								>
-									<QRCode
-										mx="auto"
-										maxW="100%"
-										size={qrSize}
-										p="2"
-										level={"L"}
-										includeMargin={false}
-										value={subscribeQrLink}
-										bg="white"
-									/>
-								</Box>
-								<Text fontSize="xs" color="gray.500" textAlign="center">
+									}} className="cursor-pointer">
+									<QRCode size={qrSize} level={"L"} includeMargin={false} value={subscribeQrLink} className="mx-auto max-w-[100%] p-2 bg-white" />
+								</div>
+								<p className="text-[0.75rem] text-gray-500 text-center">
 									{t("qrcodeDialog.clickToCopy")}
-								</Text>
-							</VStack>
+								</p>
+							</div>
 						)}
 						{configItems.length > 0 && (
-							<Box w={{ base: "full", lg: `${qrSize}px` }}>
-								<Button
-									w="full"
-									size="sm"
-									variant="outline"
-									leftIcon={<QRIcon />}
-									onClick={() => setShowConfigQrs((prev) => !prev)}
-								>
+							<div className="w-full lg:w-(--qr-size)" style={{ "--qr-size": `${qrSize}px` } as CSSProperties}>
+								<Button size="sm" variant="outline" leftIcon={<QRIcon />} onClick={() => setShowConfigQrs((prev) => !prev)} className="w-full">
 									{showConfigQrs
 										? t("qrcodeDialog.hideConfigs")
 										: t("qrcodeDialog.showConfigs")}
 								</Button>
 								<Collapse in={showConfigQrs} animateOpacity>
-									<Box pt={4}>
-										<Text
-											display="block"
-											textAlign="center"
-											fontWeight="semibold"
-											mb={2}
-										>
+									<div className="pt-4">
+										<p className="block text-center font-semibold mb-2">
 											{activeConfigLabel}
-										</Text>
+										</p>
 										{copiedConfigIndex === activeIndex && (
-											<Box
-												bg="green.500"
-												color="white"
-												fontSize="xs"
-												px={2}
-												py={0.5}
-												borderRadius="full"
-												mx="auto"
-												mb={2}
-												w="fit-content"
-											>
+											<div className="bg-green-500 text-white text-[0.75rem] px-2 py-0.5 rounded-full mx-auto mb-2 w-fit">
 												{t("copied")}
-											</Box>
+											</div>
 										)}
-										<Box
-											position="relative"
-											onTouchStart={(event) => {
+										<div onTouchStart={(event) => {
 												touchStartX.current = event.touches[0]?.clientX ?? null;
 												suppressNextCopy.current = false;
-											}}
-											onTouchEnd={(event) => {
+											}} onTouchEnd={(event) => {
 												const startX = touchStartX.current;
 												touchStartX.current = null;
 												if (startX === null || configItems.length < 2) return;
@@ -312,90 +196,49 @@ export const QRCodeDialog: FC = () => {
 												setIndex((current) =>
 													getSwipeTargetIndex(current, configItems.length, delta),
 												);
-											}}
-											onTouchCancel={() => {
+											}} onTouchCancel={() => {
 												touchStartX.current = null;
-											}}
-										>
-											<IconButton
-												size="sm"
-												position="absolute"
-												left="0"
-												top="calc(100% + 4px)"
-												zIndex={1}
-												aria-label={t("a11y.previous")}
-												isDisabled={configItems.length < 2}
-												onClick={() =>
+											}} className="relative">
+											<IconButton variant="solid" size="sm" aria-label={t("a11y.previous")} isDisabled={configItems.length < 2} onClick={() =>
 													setIndex((current) =>
 														(current - 1 + configItems.length) % configItems.length,
 													)
-												}
-											>
+												} className="absolute left-0 top-[calc(100%_+_4px)] z-[1]">
 												<PrevIcon />
 											</IconButton>
 											{activeConfig && (
-												<Box
-													key={
+												// biome-ignore lint/a11y/useSemanticElements: the QR card is a block-level click target; keyboard activation is handled
+												<div key={
 														configAnimIndex === activeIndex
 															? `qr-${activeIndex}-${configAnimSeed}`
 															: `qr-${activeIndex}`
-													}
-													cursor="pointer"
-													role="button"
-													tabIndex={0}
-													aria-label={t("copy")}
-													animation={
-														configAnimIndex === activeIndex && configAnimSeed > 0
-															? `${clickPulse} 260ms ease-in-out`
-															: "none"
-													}
-													onClick={() => {
+													} role="button" tabIndex={0} aria-label={t("copy")} style={{ animation: configAnimIndex === activeIndex && configAnimSeed > 0 ? "rb-click-pulse 260ms ease-in-out" : "none" }} onClick={() => {
 														if (suppressNextCopy.current) {
 															suppressNextCopy.current = false;
 															return;
 														}
 														copyConfigLink(activeConfig.link, activeIndex);
-													}}
-													onKeyDown={(event) => {
+													}} onKeyDown={(event) => {
 														if (event.key === "Enter" || event.key === " ") {
 															event.preventDefault();
 															copyConfigLink(activeConfig.link, activeIndex);
 														}
-													}}
-												>
-													<QRCode
-														mx="auto"
-														maxW="100%"
-														size={qrSize}
-														p="2"
-														level="L"
-														includeMargin={false}
-														value={activeConfig.link}
-														bg="white"
-													/>
-												</Box>
+													}} className="cursor-pointer">
+													<QRCode size={qrSize} level="L" includeMargin={false} value={activeConfig.link} className="mx-auto max-w-[100%] p-2 bg-white" />
+												</div>
 											)}
-											<IconButton
-												size="sm"
-												position="absolute"
-												right="0"
-												top="calc(100% + 4px)"
-												zIndex={1}
-												aria-label={t("a11y.next")}
-												isDisabled={configItems.length < 2}
-												onClick={() =>
+											<IconButton variant="solid" size="sm" aria-label={t("a11y.next")} isDisabled={configItems.length < 2} onClick={() =>
 													setIndex((current) => (current + 1) % configItems.length)
-												}
-											>
+												} className="absolute right-0 top-[calc(100%_+_4px)] z-[1]">
 												<NextIcon />
 											</IconButton>
-										</Box>
-										<Text display="block" textAlign="center" pb={3} mt={1}>
+										</div>
+										<p className="block text-center pb-3 mt-1">
 											{activeIndex + 1} / {configItems.length}
-										</Text>
-									</Box>
+										</p>
+									</div>
 								</Collapse>
-							</Box>
+							</div>
 						)}
 					</ModalBody>
 				)}

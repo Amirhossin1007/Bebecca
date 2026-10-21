@@ -1,32 +1,18 @@
-import {
-	Button,
-	chakra,
-	Flex,
-	HStack,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-	Spinner,
-	Text,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { Button } from "components/shadcn/button";
+import { Spinner } from "components/shadcn/feedback";
+import { withClass } from "components/shadcn/icon";
 import {
 	ArrowPathIcon,
-	ChevronDownIcon,
 	LockClosedIcon,
 } from "@heroicons/react/24/outline";
 import { AppDialog } from "components/dialogs/AppDialog";
-import { ReloadIcon } from "components/Filters";
 import { Icon } from "components/Icon";
 import { Pagination } from "components/Pagination";
 import { UsersTable } from "components/UsersTable";
 import {
 	PageHeader,
 	PageLoadingSkeleton,
-	ResourceRefreshButton,
 } from "components/ui";
 import { UsersFilterBar } from "components/users";
 import { RefreshSplitButton } from "components/users/RefreshSplitButton";
@@ -65,13 +51,9 @@ type OnlineUsersResponse =
 			speeds: Record<string, { upload_speed: number; download_speed: number }>;
 	  };
 
-const ResetIcon = chakra(ArrowPathIcon, {
-	baseStyle: { w: 5, h: 5 },
-});
+const ResetIcon = withClass(ArrowPathIcon, "w-5 h-5");
 
-const DisabledIcon = chakra(LockClosedIcon, {
-	baseStyle: { h: 12, w: 12 },
-});
+const DisabledIcon = withClass(LockClosedIcon, "h-12 w-12");
 
 const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 	const { t } = useTranslation();
@@ -130,54 +112,31 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 	};
 
 	return (
-		<AppDialog
-			isCentered
-			isOpen={Boolean(user)}
-			onClose={onClose}
-			size="sm"
-			title={
+		<AppDialog isCentered isOpen={Boolean(user)} onClose={onClose} size="sm" title={
 				<Icon color="blue">
 					<ResetIcon />
 				</Icon>
-			}
-			overlayProps={{ bg: "blackAlpha.300" }}
-			contentProps={{ mx: "3" }}
-			headerProps={{ pt: 6 }}
-			closeButtonProps={{ mt: 3 }}
-			footerProps={{ display: "flex" }}
-			footer={
+			} overlayProps={{ className: "bg-blackAlpha-300" }} contentProps={{ className: "mx-3" }} headerProps={{ className: "pt-6" }} closeButtonProps={{ className: "mt-3" }} footerProps={{ className: "flex" }} footer={
 				<>
-					<Button size="sm" onClick={onClose} mr={3} w="full" variant="outline">
+					<Button size="sm" onClick={onClose} variant="outline" className="mr-3 w-full">
 						{t("cancel")}
 					</Button>
-					<Button
-						size="sm"
-						w="full"
-						colorScheme="blue"
-						onClick={onSubmit}
-						leftIcon={loading ? <Spinner size="xs" /> : undefined}
-					>
+					<Button size="sm" colorScheme="blue" onClick={onSubmit} leftIcon={loading ? <Spinner size="xs" /> : undefined} className="w-full">
 						{t(isRevoke ? "revoke" : "reset")}
 					</Button>
 				</>
-			}
-		>
-			<Text fontWeight="semibold" fontSize="lg">
+			}>
+			<p className="font-semibold text-[1.125rem]">
 				{t(isRevoke ? "revokeUserSub.title" : "resetUserUsage.title")}
-			</Text>
+			</p>
 			{user && (
-				<Text
-					mt={1}
-					fontSize="sm"
-					_dark={{ color: "gray.400" }}
-					color="gray.600"
-				>
+				<p className="mt-1 text-[0.875rem] dark:text-gray-400 text-gray-600">
 					<Trans components={{ b: <b /> }}>
 						{t(isRevoke ? "revokeUserSub.prompt" : "resetUserUsage.prompt", {
 							username: user.username,
 						})}
 					</Trans>
-				</Text>
+				</p>
 			)}
 		</AppDialog>
 	);
@@ -326,40 +285,24 @@ export const UsersPage: FC = () => {
 
 	if (isAdminDisabled) {
 		return (
-			<VStack spacing={5} align="stretch" dir={isRTL ? "rtl" : "ltr"}>
+			<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-5 items-stretch">
 				<PageHeader title={t("users")} />
-				<Flex
-					align="center"
-					border="1px solid"
-					borderColor="panel.border"
-					borderRadius="8px"
-					direction="column"
-					justify="center"
-					minH="420px"
-					px={6}
-					py={10}
-					textAlign="center"
-				>
-					<DisabledIcon color="red.400" mb={5} />
-					<Text fontSize="xl" fontWeight="bold" mb={2}>
+				<div className="flex-col flex items-center border border-panel-border! rounded-[8px] justify-center min-h-[420px] px-6 py-10 text-center">
+					<DisabledIcon className="text-red-400 mb-5" />
+					<p className="text-[1.25rem] font-bold mb-2">
 						{t("usersTable.adminDisabledTitle")}
-					</Text>
-					<Text color="panel.textSecondary" maxW="520px">
+					</p>
+					<p className="text-panel-text-secondary max-w-[520px]">
 						{userData.disabled_reason ||
 							t("usersTable.adminDisabledDescription")}
-					</Text>
-				</Flex>
-			</VStack>
+					</p>
+				</div>
+			</div>
 		);
 	}
 
 	return (
-		<VStack
-			className="rb-users-section"
-			spacing={4}
-			align="stretch"
-			dir={isRTL ? "rtl" : "ltr"}
-		>
+		<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-4 items-stretch rb-users-section">
 			<UsersTable
 				toolbar={<UsersFilterBar />}
 				headerActions={
@@ -401,7 +344,7 @@ export const UsersPage: FC = () => {
 					<UserQuickEditModal />
 				</Suspense>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

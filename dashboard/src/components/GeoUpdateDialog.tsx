@@ -1,24 +1,12 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Box,
-	Button,
-	Checkbox,
-	chakra,
-	FormControl,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input,
-	Radio,
-	RadioGroup,
-	SimpleGrid,
-	Stack,
-	Text,
-	Tooltip,
-	useColorModeValue,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Button, IconButton } from "components/shadcn/button";
+import { Checkbox, Radio, RadioGroup } from "components/shadcn/selection";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
 import {
@@ -59,9 +47,9 @@ type GeoUpdateDialogProps = {
 const DEFAULT_TEMPLATE_INDEX_URL =
 	"https://raw.githubusercontent.com/ppouria/geo-templates/main/index.json";
 
-const IconMinus = chakra(MinusIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const IconPlus = chakra(PlusIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const IconRefresh = chakra(ArrowPathIcon, { baseStyle: { w: 4, h: 4 } });
+const IconMinus = withClass(MinusIcon, "w-3.5 h-3.5");
+const IconPlus = withClass(PlusIcon, "w-3.5 h-3.5");
+const IconRefresh = withClass(ArrowPathIcon, "w-4 h-4");
 
 const createGeoFile = (name: string, url: string): GeoFile => ({
 	id:
@@ -135,7 +123,7 @@ export const GeoUpdateDialog = ({
 		}
 	}, [templates]);
 
-	const manualBg = useColorModeValue("gray.50", "whiteAlpha.50");
+	const manualBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-50");
 
 	const addManualFile = () => {
 		setManualFiles((prev) => [...prev, createGeoFile("", "")]);
@@ -208,61 +196,38 @@ export const GeoUpdateDialog = ({
 	};
 
 	const renderManualRows = () => (
-		<Stack spacing={3} bg={manualBg} p={4} borderRadius="md">
+		<div className={cn("flex flex-col gap-3 p-4 rounded-md", manualBg)}>
 			{manualFiles.map((file, index) => (
-				<Box key={file.id} borderWidth="1px" borderRadius="md" p={3}>
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+				<div key={file.id} className="border rounded-md p-3">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<FormControl isRequired>
-							<FormLabel fontSize="sm">
+							<FormLabel className="text-[0.875rem]">
 								{t("nodes.geoDialog.fileNameLabel")}
 							</FormLabel>
-							<Input
-								size="sm"
-								value={file.name}
-								placeholder="geosite.dat"
-								onChange={(event) =>
+							<Input size="sm" value={file.name} placeholder="geosite.dat" onChange={(event) =>
 									updateManualFile(index, "name", event.target.value)
-								}
-							/>
+								} />
 						</FormControl>
 						<FormControl isRequired>
-							<FormLabel fontSize="sm">
+							<FormLabel className="text-[0.875rem]">
 								{t("nodes.geoDialog.fileUrlLabel")}
 							</FormLabel>
-							<Input
-								size="sm"
-								value={file.url}
-								placeholder="https://example.com/geosite.dat"
-								onChange={(event) =>
+							<Input size="sm" value={file.url} placeholder="https://example.com/geosite.dat" onChange={(event) =>
 									updateManualFile(index, "url", event.target.value)
-								}
-							/>
+								} />
 						</FormControl>
-					</SimpleGrid>
-					<HStack justify="flex-end" mt={3}>
+					</div>
+					<div className="flex flex-row items-center gap-2 justify-end mt-3">
 						<Tooltip label={t("remove")}>
-							<IconButton
-											aria-label={t("a11y.removeFile")}
-								icon={<IconMinus />}
-								variant="ghost"
-								size="sm"
-								onClick={() => removeManualFile(index)}
-								isDisabled={manualFiles.length <= 1}
-							/>
+							<IconButton aria-label={t("a11y.removeFile")} icon={<IconMinus />} variant="ghost" size="sm" onClick={() => removeManualFile(index)} isDisabled={manualFiles.length <= 1} />
 						</Tooltip>
-					</HStack>
-				</Box>
+					</div>
+				</div>
 			))}
-			<Button
-				onClick={addManualFile}
-				leftIcon={<IconPlus />}
-				size="sm"
-				alignSelf="flex-start"
-				variant="outline"
-			>
+			<Button onClick={addManualFile} leftIcon={<IconPlus />} size="sm" variant="outline" className="self-start">
 				{t("nodes.geoDialog.addFile")}
 			</Button>
-		</Stack>
+		</div>
 	);
 
 	return (
@@ -274,72 +239,54 @@ export const GeoUpdateDialog = ({
 			title={title}
 			footer={
 				<>
-					<Button variant="ghost" mr={3} onClick={onClose}>
+					<Button size="md" variant="ghost" onClick={onClose} className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button
-						colorScheme="primary"
-						onClick={handleSubmit}
-						isLoading={isSubmitting}
-					>
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting}>
 						{t("nodes.geoDialog.confirmUpdate")}
 					</Button>
 				</>
 			}
 		>
-					<Stack spacing={4}>
+					<div className="flex flex-col gap-4">
 						<FormControl as="fieldset">
-							<FormLabel as="legend" fontSize="sm">
+							<FormLabel as="legend" className="text-[0.875rem]">
 								{t("nodes.geoDialog.modeLabel")}
 							</FormLabel>
-							<RadioGroup
-								value={mode}
-								onChange={(value) => setMode(value as "template" | "manual")}
-							>
-								<HStack spacing={4}>
+							<RadioGroup value={mode} onChange={(value) => setMode(value as "template" | "manual")}>
+								<div className="flex flex-row items-center gap-4">
 									<Radio value="template">
 										{t("nodes.geoDialog.modeTemplate")}
 									</Radio>
 									<Radio value="manual">
 										{t("nodes.geoDialog.modeManual")}
 									</Radio>
-								</HStack>
+								</div>
 							</RadioGroup>
 						</FormControl>
 
 						{mode === "template" ? (
-							<Stack spacing={3}>
+							<div className="flex flex-col gap-3">
 								<FormControl isRequired>
-									<FormLabel fontSize="sm">
+									<FormLabel className="text-[0.875rem]">
 										{t("nodes.geoDialog.templateIndexLabel")}
 									</FormLabel>
-									<Input
-										size="sm"
-										value={templateIndexUrl}
-										onChange={(event) =>
+									<Input size="sm" value={templateIndexUrl} onChange={(event) =>
 											setTemplateIndexUrl(event.target.value)
-										}
-									/>
+										} />
 								</FormControl>
 								<FormControl isRequired>
-									<FormLabel fontSize="sm">
+									<FormLabel className="text-[0.875rem]">
 										{t("nodes.geoDialog.templateNameLabel")}
 									</FormLabel>
-									<HStack align="center" spacing={2}>
-										<Select
-											size="sm"
-											flex={1}
-											value={selectedTemplate}
-											onChange={(event) =>
+									<div className="flex flex-row items-center gap-2">
+										<Select size="sm" value={selectedTemplate} onChange={(event) =>
 												setSelectedTemplate(event.target.value)
-											}
-											isDisabled={templatesQuery.isLoading || !templates.length}
-											placeholder={
+											} isDisabled={templatesQuery.isLoading || !templates.length} placeholder={
 												templatesQuery.isLoading
 													? t("nodes.geoDialog.loadingTemplates")
 													: t("nodes.geoDialog.selectTemplatePlaceholder")
-											}
-										>
+											} className="flex-1">
 											{templates.map((template) => (
 												<option key={template.name} value={template.name}>
 													{template.name}
@@ -347,62 +294,44 @@ export const GeoUpdateDialog = ({
 											))}
 										</Select>
 										<Tooltip label={t("nodes.geoDialog.refreshTemplates")}>
-											<IconButton
-												aria-label={t("a11y.refreshTemplates")}
-												icon={<IconRefresh />}
-												size="sm"
-												variant="outline"
-												onClick={() => templatesQuery.refetch()}
-												isLoading={templatesQuery.isFetching}
-												isDisabled={!templateIndexUrl.trim()}
-											/>
+											<IconButton aria-label={t("a11y.refreshTemplates")} icon={<IconRefresh />} size="sm" variant="outline" onClick={() => templatesQuery.refetch()} isLoading={templatesQuery.isFetching} isDisabled={!templateIndexUrl.trim()} />
 										</Tooltip>
-									</HStack>
+									</div>
 								</FormControl>
 								{templatesQuery.isError && (
-									<Alert status="error" borderRadius="md" fontSize="sm">
+									<Alert status="error" className="rounded-md text-[0.875rem]">
 										<AlertIcon />
 										<AlertDescription>
 											{t("nodes.geoDialog.failedToLoadTemplates")}
 										</AlertDescription>
 									</Alert>
 								)}
-							</Stack>
+							</div>
 						) : (
 							renderManualRows()
 						)}
 
 						{showMasterOptions && (
-							<Stack spacing={2}>
-								<Checkbox
-									isChecked={persistEnv}
-									onChange={(event) => setPersistEnv(event.target.checked)}
-								>
+							<div className="flex flex-col gap-2">
+								<Checkbox isChecked={persistEnv} onChange={(event) => setPersistEnv(event.target.checked)}>
 									{t("nodes.geoDialog.persistAssets")}
 								</Checkbox>
-								<Checkbox
-									isChecked={applyToNodes}
-									onChange={(event) => setApplyToNodes(event.target.checked)}
-								>
+								<Checkbox isChecked={applyToNodes} onChange={(event) => setApplyToNodes(event.target.checked)}>
 									{t("nodes.geoDialog.applyToNodes")}
 								</Checkbox>
-								<Text
-									fontSize="xs"
-									color="gray.500"
-									_dark={{ color: "gray.400" }}
-								>
+								<p className="text-[0.75rem] text-gray-500 dark:text-gray-400">
 									{t("nodes.geoDialog.applyToNodesHint")}
-								</Text>
-							</Stack>
+								</p>
+							</div>
 						)}
 
 						{submissionError && (
-							<Alert status="error" borderRadius="md" fontSize="sm">
+							<Alert status="error" className="rounded-md text-[0.875rem]">
 								<AlertIcon />
 								<AlertDescription>{submissionError}</AlertDescription>
 							</Alert>
 						)}
-					</Stack>
+					</div>
 		</AppDialog>
 	);
 };

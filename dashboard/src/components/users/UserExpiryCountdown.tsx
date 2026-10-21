@@ -1,4 +1,4 @@
-import { Text } from "@chakra-ui/react";
+import { cn } from "lib/cn";
 import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Status } from "types/User";
@@ -86,36 +86,19 @@ export const UserExpiryCountdown: FC<UserExpiryCountdownProps> = ({
 
 	if (status === "on_hold" || !expire || remaining === null) {
 		return (
-			<Text
-				fontSize="xl"
-				fontWeight="semibold"
-				lineHeight="1"
-				color="panel.textMuted"
-				aria-label={t("unlimited")}
-			>
-				∞
-			</Text>
+			<p className="text-[1.25rem] font-semibold leading-[1] text-panel-text-muted"><span aria-hidden="true">∞</span><span className="sr-only">{t("unlimited")}</span></p>
 		);
 	}
 
 	const urgency = status === "expired" ? "expired" : getUrgency(remaining);
 
 	return (
-		<Text
-			className="rb-user-expiry-countdown"
-			data-urgency={urgency}
-			fontSize="sm"
-			fontWeight="semibold"
-			color={URGENCY_COLORS[urgency]}
-			dir="auto"
-			noOfLines={1}
-			textTransform={urgency === "expired" ? "uppercase" : undefined}
-		>
+		<p data-urgency={urgency} color={URGENCY_COLORS[urgency]} dir="auto" className={cn("text-[0.875rem] font-semibold truncate", urgency === "expired" ? "uppercase" : "", "rb-user-expiry-countdown")}>
 			{urgency === "expired"
 				? t("status.expired")
 				: isLiveCountdown
 					? formatExpiryClock(remaining)
 					: formatExpiryDuration(remaining)}
-		</Text>
+		</p>
 	);
 };

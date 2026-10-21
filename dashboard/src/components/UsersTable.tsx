@@ -1,24 +1,13 @@
-import {
-	Box,
-	type BoxProps,
-	Button,
-	chakra,
-	Flex,
-	HStack,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-	Spinner,
-	Stack,
-	Text,
-	Tooltip,
-	useBreakpointValue,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
+import { Portal } from "components/shadcn/portal";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { useToast } from "components/shadcn/toast";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Button, IconButton } from "components/shadcn/button";
+import { Spinner } from "components/shadcn/feedback";
+import { withClass } from "components/shadcn/icon";
+import type { ComponentPropsWithoutRef, MouseEvent as ReactMouseEvent } from "react";
+import { cn } from "lib/cn";
 import {
 	ArrowPathIcon,
 	CalendarDaysIcon,
@@ -76,8 +65,6 @@ import {
 	DataTable,
 	type DataTableColumn,
 	type DataTableRowAction,
-	ResourceListCard,
-	type ResourceSummaryItem,
 	type RowActionItem,
 	RowActionsMenu,
 } from "./ui";
@@ -89,7 +76,7 @@ import {
 	UserUsageBar,
 } from "./users";
 
-const EmptySectionIcon = chakra(AddFileIcon);
+const EmptySectionIcon = withClass(AddFileIcon, "");
 
 const USER_STATUS_TEXT_COLORS: Partial<Record<UserListItem["status"], string>> =
 	{
@@ -112,17 +99,13 @@ const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
 		user.download_speed ??
 		0;
 	if (upload === 0 && download === 0) {
-		return <Text color="panel.textMuted">—</Text>;
+		return <p className="text-panel-text-muted">—</p>;
 	}
 	return (
-		<Stack spacing={0} fontSize="xs" lineHeight="short" dir="ltr">
-			<Text aria-label={t("usersTable.uploadSpeed")}>
-				↑ {formatBytes(upload)}/s
-			</Text>
-			<Text aria-label={t("usersTable.downloadSpeed")}>
-				↓ {formatBytes(download)}/s
-			</Text>
-		</Stack>
+		<div dir="ltr" className="flex flex-col gap-0 text-[0.75rem] leading-[1.375]">
+			<p><span aria-hidden="true">↑</span> <span className="sr-only">{t("usersTable.uploadSpeed")}: </span>{formatBytes(upload)}/s</p>
+			<p><span aria-hidden="true">↓</span> <span className="sr-only">{t("usersTable.downloadSpeed")}: </span>{formatBytes(download)}/s</p>
+		</div>
 	);
 };
 
@@ -139,59 +122,26 @@ const MobileUserOnlineDot: FC<{ user: UserListItem }> = ({ user }) => {
 	);
 	const isOnline = liveIsOnline ?? user.is_online;
 	return (
-		<Box
-			as="span"
-			className="rb-user-mobile-online-dot"
-			data-online={isOnline ? "true" : "false"}
-			aria-hidden="true"
-		/>
+		<span data-online={isOnline ? "true" : "false"} aria-hidden="true" className="rb-user-mobile-online-dot" />
 	);
 };
 
-const iconProps = {
-	baseStyle: {
-		w: {
-			base: 4,
-			md: 5,
-		},
-		h: {
-			base: 4,
-			md: 5,
-		},
-	},
-};
-const CopyIcon = chakra(ClipboardIcon, iconProps);
-const SubscriptionLinkIcon = chakra(LinkIcon, iconProps);
-const QRIcon = chakra(QrCodeIcon, iconProps);
-const CopiedIcon = chakra(CheckIcon, iconProps);
-const EditIcon = chakra(PencilIcon, iconProps);
-const DeleteIcon = chakra(TrashIcon, {
-	baseStyle: {
-		width: "18px",
-		height: "18px",
-	},
-});
-const LockOverlayIcon = chakra(LockClosedIcon, {
-	baseStyle: {
-		width: {
-			base: 16,
-			md: 20,
-		},
-		height: {
-			base: 16,
-			md: 20,
-		},
-	},
-});
-const ResetIcon = chakra(ArrowPathIcon, iconProps);
-const DisableIcon = chakra(NoSymbolIcon, iconProps);
-const RevokeIcon = chakra(LinkSlashIcon, iconProps);
-const TrafficIcon = chakra(PlusCircleIcon, iconProps);
-const ExtendIcon = chakra(ClockIcon, iconProps);
-const UsageHistoryIcon = chakra(ChartBarIcon, iconProps);
-const DataLimitIcon = chakra(CircleStackIcon, iconProps);
-const ExpiryIcon = chakra(CalendarDaysIcon, iconProps);
-const IPsIcon = chakra(GlobeAltIcon, iconProps);
+const CopyIcon = withClass(ClipboardIcon, "w-4 md:w-5 h-4 md:h-5");
+const SubscriptionLinkIcon = withClass(LinkIcon, "w-4 md:w-5 h-4 md:h-5");
+const QRIcon = withClass(QrCodeIcon, "w-4 md:w-5 h-4 md:h-5");
+const CopiedIcon = withClass(CheckIcon, "w-4 md:w-5 h-4 md:h-5");
+const EditIcon = withClass(PencilIcon, "w-4 md:w-5 h-4 md:h-5");
+const DeleteIcon = withClass(TrashIcon, "w-[18px] h-[18px]");
+const LockOverlayIcon = withClass(LockClosedIcon, "w-16 md:w-20 h-16 md:h-20");
+const ResetIcon = withClass(ArrowPathIcon, "w-4 md:w-5 h-4 md:h-5");
+const DisableIcon = withClass(NoSymbolIcon, "w-4 md:w-5 h-4 md:h-5");
+const RevokeIcon = withClass(LinkSlashIcon, "w-4 md:w-5 h-4 md:h-5");
+const TrafficIcon = withClass(PlusCircleIcon, "w-4 md:w-5 h-4 md:h-5");
+const ExtendIcon = withClass(ClockIcon, "w-4 md:w-5 h-4 md:h-5");
+const UsageHistoryIcon = withClass(ChartBarIcon, "w-4 md:w-5 h-4 md:h-5");
+const DataLimitIcon = withClass(CircleStackIcon, "w-4 md:w-5 h-4 md:h-5");
+const ExpiryIcon = withClass(CalendarDaysIcon, "w-4 md:w-5 h-4 md:h-5");
+const IPsIcon = withClass(GlobeAltIcon, "w-4 md:w-5 h-4 md:h-5");
 
 type UserIPRecord = {
 	node_id: number;
@@ -331,75 +281,37 @@ const TrafficSubmenu: FC<{
 	);
 
 	return (
-		<Menu
-			isOpen={isOpen}
-			isLazy
-			onClose={closeMenu}
-			placement={isRTL ? "left-start" : "right-start"}
-			strategy="fixed"
-			autoSelect={false}
-			closeOnSelect={false}
-			gutter={4}
-		>
-			<MenuButton
-				as={MenuItem}
-				icon={<TrafficIcon />}
-				isDisabled={activeAction?.startsWith("traffic-")}
-				closeOnSelect={false}
-				onMouseEnter={openMenu}
-				onMouseLeave={scheduleClose}
-				onClick={(event) => {
+		<Menu isOpen={isOpen} isLazy onClose={closeMenu} placement={isRTL ? "left-start" : "right-start"} strategy="fixed" autoSelect={false} closeOnSelect={false} gutter={4}>
+			<MenuButton as={MenuItem} icon={<TrafficIcon />} isDisabled={activeAction?.startsWith("traffic-")} closeOnSelect={false} onMouseEnter={openMenu} onMouseLeave={scheduleClose} onClick={(event: ReactMouseEvent<HTMLElement>) => {
 					event.preventDefault();
 					event.stopPropagation();
 					openMenu();
-				}}
-				onKeyDown={(event) => {
+				}} onKeyDown={(event: any) => {
 					if (event.key === (isRTL ? "ArrowLeft" : "ArrowRight")) {
 						event.preventDefault();
 						event.stopPropagation();
 						openMenu();
 					}
-				}}
-			>
-				<HStack w="full" justify="space-between" spacing={3}>
-					<Text as="span" noOfLines={1}>
+				}}>
+				<div className="flex flex-row items-center w-full justify-between gap-3">
+					<span className="truncate">
 						{label}
-					</Text>
-					<ChevronRightIcon
-						width={14}
-						style={{
+					</span>
+					<ChevronRightIcon style={{
 							flexShrink: 0,
 							transform: isRTL ? "rotate(180deg)" : undefined,
-						}}
-					/>
-				</HStack>
+						}} className="w-14" />
+				</div>
 			</MenuButton>
 			<Portal>
-				<MenuList
-					data-rb-context-menu=""
-					minW="152px"
-					maxH="min(70vh, 320px)"
-					overflowY="auto"
-					overflowX="hidden"
-					overscrollBehavior="contain"
-					borderRadius="lg"
-					boxShadow="2xl"
-					zIndex={2600}
-					onMouseEnter={openMenu}
-					onMouseLeave={scheduleClose}
-					onClick={(event) => event.stopPropagation()}
-				>
+				<MenuList data-rb-context-menu="" onMouseEnter={openMenu} onMouseLeave={scheduleClose} onClick={(event) => event.stopPropagation()} className="min-w-[152px]! max-h-[min(70vh,_320px)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg shadow-2xl z-[2600]">
 					{TRAFFIC_AMOUNTS.map((gigabytes) => (
-						<MenuItem
-							key={gigabytes}
-							isDisabled={activeAction === `traffic-${gigabytes}`}
-							onClick={(event) => {
+						<MenuItem key={gigabytes} isDisabled={activeAction === `traffic-${gigabytes}`} onClick={(event) => {
 								event.stopPropagation();
 								closeMenu();
 								onClose();
 								onSelect(gigabytes);
-							}}
-						>
+							}}>
 							{getOptionLabel(gigabytes)}
 						</MenuItem>
 					))}
@@ -409,9 +321,6 @@ const TrafficSubmenu: FC<{
 	);
 };
 
-const formatCount = (value: number | null | undefined, locale: string) =>
-	new Intl.NumberFormat(locale || "en").format(value ?? 0);
-
 const formatUsernamePreview = (username: string, maxLength = 20) =>
 	username.length > maxLength
 		? `${username.slice(0, Math.max(4, maxLength - 4))}...`
@@ -420,16 +329,9 @@ const formatUsernamePreview = (username: string, maxLength = 20) =>
 const MobileLifetimeDetail: FC<{
 	totalUsedTraffic: number;
 }> = ({ totalUsedTraffic }) => (
-	<Text
-		fontSize="sm"
-		fontWeight="semibold"
-		color="panel.text"
-		dir="ltr"
-		noOfLines={1}
-		sx={{ unicodeBidi: "isolate" }}
-	>
+	<p dir="ltr" className="text-[0.875rem] font-semibold text-panel-text truncate [unicode-bidi:isolate]">
 		{formatBytes(totalUsedTraffic)}
-	</Text>
+	</p>
 );
 
 // Plain text on purpose: the expanded card sits right under the collapsed
@@ -438,16 +340,9 @@ const MobileUsageDetail: FC<{
 	used: number;
 	total: number | null;
 }> = ({ used, total }) => (
-	<Text
-		fontSize="sm"
-		fontWeight="semibold"
-		color="panel.text"
-		dir="ltr"
-		noOfLines={1}
-		sx={{ unicodeBidi: "isolate" }}
-	>
+	<p dir="ltr" className="text-[0.875rem] font-semibold text-panel-text truncate [unicode-bidi:isolate]">
 		{formatUsagePair(used, total)}
-	</Text>
+	</p>
 );
 
 // Adapts the table's row-action descriptors into the shape the shared
@@ -473,7 +368,7 @@ const toMenuItems = (
 			: undefined,
 	}));
 
-type UsersTableProps = BoxProps & {
+type UsersTableProps = ComponentPropsWithoutRef<"div"> & {
 	toolbar?: ReactNode;
 	/** Rendered in the header of the list summary card (e.g. refresh). */
 	headerActions?: ReactNode;
@@ -489,7 +384,6 @@ export const UsersTable: FC<UsersTableProps> = ({
 		users: usersResponse,
 		onEditingUser,
 		loading,
-		isUserLimitReached,
 		deleteUser,
 		resetDataUsage,
 		revokeSubscription,
@@ -502,7 +396,6 @@ export const UsersTable: FC<UsersTableProps> = ({
 		users: useDashboard((state) => state.users),
 		onEditingUser: useDashboard((state) => state.onEditingUser),
 		loading: useDashboard((state) => state.loading),
-		isUserLimitReached: useDashboard((state) => state.isUserLimitReached),
 		deleteUser: useDashboard((state) => state.deleteUser),
 		resetDataUsage: useDashboard((state) => state.resetDataUsage),
 		revokeSubscription: useDashboard((state) => state.revokeSubscription),
@@ -950,35 +843,18 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobilePriority: 0,
 				mobileMetaLabel: t("username"),
 				cell: (user) => (
-					<Stack spacing={0.5} minW={0} align="flex-start">
-						<HStack spacing={1.5} minW={0} maxW="full">
+					<div className="flex flex-col gap-0.5 min-w-0! items-start">
+						<div className="flex flex-row items-center gap-1.5 min-w-0! max-w-full">
 							<MobileUserOnlineDot user={user} />
-							<Text
-								fontWeight="semibold"
-								noOfLines={1}
-								maxW="full"
-								minW={0}
-								color="panel.text"
-								dir="ltr"
-								sx={{ unicodeBidi: "isolate" }}
-								_hover={
-									canOpenUserDialog ? { color: "panel.accent" } : undefined
-								}
-							>
+							<p dir="ltr" className={cn(canOpenUserDialog ? "hover:text-panel-accent" : "", "font-semibold truncate max-w-full min-w-0! text-panel-text [unicode-bidi:isolate]")}>
 								{formatUsernamePreview(user.username)}
-							</Text>
-						</HStack>
+							</p>
+						</div>
 						<UserAdminChip adminUsername={user.admin_username} />
-						<Text
-							className="rb-user-card-status"
-							fontSize="xs"
-							fontWeight="semibold"
-							color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"}
-							textTransform="capitalize"
-						>
+						<p color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"} className="text-[0.75rem] font-semibold capitalize rb-user-card-status">
 							{t(`status.${user.status}`)}
-						</Text>
-					</Stack>
+						</p>
+					</div>
 				),
 			},
 			{
@@ -993,9 +869,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				cellAlign: "start",
 				mobileVisible: false,
 				cell: (user) => (
-					<Text fontSize="sm" color="panel.text" dir="ltr" fontFamily="mono">
+					<p dir="ltr" className="text-[0.875rem] text-panel-text font-mono">
 						{user.id}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1011,14 +887,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobilePriority: 2,
 				mobileMetaLabel: t("usersTable.status"),
 				cell: (user) => (
-					<Text
-						fontSize="sm"
-						fontWeight="semibold"
-						color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"}
-						textTransform="capitalize"
-					>
+					<p color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"} className="text-[0.875rem] font-semibold capitalize">
 						{t(`status.${user.status}`)}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1036,14 +907,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobileVisible: true,
 				mobileMetaLabel: t("usersTable.service"),
 				cell: (user) => (
-					<Text
-						fontSize="sm"
-						color={user.service_name ? "panel.text" : "panel.textMuted"}
-						noOfLines={1}
-						maxW="full"
-					>
+					<p className={cn("text-[0.875rem] truncate max-w-full", user.service_name ? "text-panel-text" : "text-panel-text-muted")}>
 						{user.service_name ?? t("usersTable.defaultService")}
-					</Text>
+					</p>
 				),
 			},
 		];
@@ -1104,18 +970,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobilePriority: 6,
 				mobileMetaLabel: t("usersTable.remainingTraffic"),
 				cell: (user) => (
-					<Text
-						fontSize={!user.data_limit ? "xl" : "sm"}
-						fontWeight={!user.data_limit ? "semibold" : undefined}
-						lineHeight="1"
-						color={!user.data_limit ? "panel.textMuted" : "panel.text"}
-						dir="ltr"
-						aria-label={!user.data_limit ? t("unlimited") : undefined}
-					>
+					<p dir="ltr" className={cn("leading-[1]", !user.data_limit ? "text-[1.25rem]" : "text-[0.875rem]", !user.data_limit ? "font-semibold" : "", !user.data_limit ? "text-panel-text-muted" : "text-panel-text")}>
 						{!user.data_limit
-							? "∞"
+							? <><span aria-hidden="true">∞</span><span className="sr-only">{t("unlimited")}</span></>
 							: formatBytes(Math.max(user.data_limit - user.used_traffic, 0))}
-					</Text>
+					</p>
 				),
 			});
 			columns.push({
@@ -1303,7 +1162,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			actions.push({
 				id: "enable",
 				label: t("usersTable.enableUser"),
-				icon: <CheckIcon width={16} />,
+				icon: <CheckIcon className="w-16" />,
 				isDisabled: contextAction === "enable",
 				onClick: () => handleEnableUser(user),
 			});
@@ -1407,11 +1266,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 							await handleDeleteUser(user);
 						}}
 					>
-						<MenuItem
-							icon={<DeleteIcon />}
-							color="red.400"
-							onClick={(event) => event.stopPropagation()}
-						>
+						<MenuItem icon={<DeleteIcon />} onClick={(event) => event.stopPropagation()} className="text-red-400">
 							{t("deleteUser.title")}
 						</MenuItem>
 					</DeleteConfirmDialog>
@@ -1445,63 +1300,39 @@ export const UsersTable: FC<UsersTableProps> = ({
 			return action ? [action] : [];
 		});
 		return (
-			<Box className="rb-resource-expanded">
-				<Box className="rb-resource-details" data-density="compact">
-					<Box className="rb-resource-meta">
-						<Text as="span" color="panel.textMuted">
+			<div className="rb-resource-expanded">
+				<div data-density="compact" className="rb-resource-details">
+					<div className="rb-resource-meta">
+						<span className="text-panel-text-muted">
 							{t("username")}
-						</Text>
-						<Text
-							color="panel.text"
-							minW={0}
-							className="rb-resource-meta-value"
-							dir="ltr"
-							sx={{ unicodeBidi: "isolate" }}
-						>
+						</span>
+						<p dir="ltr" className="text-panel-text min-w-0! [unicode-bidi:isolate] rb-resource-meta-value">
 							{user.username}
-						</Text>
-					</Box>
+						</p>
+					</div>
 					{detailColumns.map((column) => (
-						<Box key={column.id} className="rb-resource-meta">
-							<Text as="span" color="panel.textMuted">
+						<div key={column.id} className="rb-resource-meta">
+							<span className="text-panel-text-muted">
 								{column.mobileMetaLabel ?? column.mobileLabel ?? column.header}
-							</Text>
-							<Box
-								color="panel.text"
-								minW={0}
-								className="rb-resource-meta-value"
-							>
+							</span>
+							<div className="text-panel-text min-w-0! rb-resource-meta-value">
 								{column.mobileDetailCell?.(user) ?? column.cell?.(user)}
-							</Box>
-						</Box>
+							</div>
+						</div>
 					))}
-				</Box>
-				<Flex
-					className="rb-resource-expanded-actions"
-					align="center"
-					justify="flex-end"
-					gap={1}
-					flexWrap="wrap"
-					onClick={(event) => event.stopPropagation()}
-				>
-					<HStack className="rb-expanded-user-actions" spacing={1}>
+				</div>
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control */}
+				{/* biome-ignore lint/a11y/useKeyWithClickEvents: wrapper only stops row clicks, it is not a control */}
+				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
+					<div className="flex flex-row items-center gap-1 rb-expanded-user-actions">
 						{expandedActions.map((action) => (
 							<Tooltip key={action.id} label={action.label}>
 								<span>
-									<IconButton
-										aria-label={String(action.label)}
-										icon={action.icon}
-										variant="ghost"
-										size="sm"
-										minW="30px"
-										h="30px"
-										isDisabled={action.isDisabled}
-										onClick={() => action.onClick?.()}
-									/>
+									<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={action.isDisabled} onClick={() => action.onClick?.()} className="min-w-[30px]! h-[30px]" />
 								</span>
 							</Tooltip>
 						))}
-					</HStack>
+					</div>
 					<ActionButtons
 						user={user}
 						isRTL={isRTL}
@@ -1517,29 +1348,15 @@ export const UsersTable: FC<UsersTableProps> = ({
 								: undefined
 						}
 					/>
-				</Flex>
-			</Box>
+				</div>
+			</div>
 		);
 	};
 
 	return (
-		<VStack
-			spacing={4}
-			align="stretch"
-			dir={isRTL ? "rtl" : "ltr"}
-			data-dir={isRTL ? "rtl" : "ltr"}
-			pb={selectedUsers.length > 0 ? { base: 32, md: 24 } : 0}
-			{...props}
-		>
+		<div dir={isRTL ? "rtl" : "ltr"} data-dir={isRTL ? "rtl" : "ltr"} {...props} className={cn("flex flex-col gap-4 items-stretch", selectedUsers.length > 0 ? "pb-32" + " " + "md:pb-24" : "pb-0")}>
 			{/* One header card: the overview band, then the toolbar row. */}
-			<Box
-				className="rb-users-header-card"
-				borderWidth="1px"
-				borderColor="panel.border"
-				bg="panel.surface"
-				borderRadius="xl"
-				overflow="hidden"
-			>
+			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden rb-users-header-card">
 				<UsersOverviewBand
 					bare
 					total={usersResponse.total}
@@ -1558,30 +1375,25 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 				{/* Toolbar: search, sort, filters and create on the start side; refresh,
 				    auto-refresh and the column chooser on the end side. */}
-				<Box className="rb-users-toolbar" borderTopWidth="1px" borderColor="panel.border" p={3}>
-					<Flex align="center" gap={2} wrap="wrap">
-						<Box flex="1 1 240px" minW={0}>
+				<div className="border-t border-panel-border! p-3 rb-users-toolbar">
+					<div className="flex-wrap flex items-center gap-2">
+						<div className="flex-[1_1_240px] min-w-0!">
 							{toolbar}
-						</Box>
-						<HStack spacing={1} flexShrink={0}>
+						</div>
+						<div className="flex flex-row items-center gap-1 shrink-0">
 							{headerActions}
 							<DataTableColumnMenu
 								columns={userColumns}
 								visibility={columnVisibility}
 								onChange={setColumnVisibility}
 							/>
-						</HStack>
-					</Flex>
-				</Box>
-			</Box>
+						</div>
+					</div>
+				</div>
+			</div>
 
-			<Box position="relative">
-				<Stack
-					spacing={3}
-					filter={isAdminDisabled ? "blur(4px)" : undefined}
-					pointerEvents={isAdminDisabled ? "none" : undefined}
-					aria-hidden={isAdminDisabled ? true : undefined}
-				>
+			<div className="relative">
+				<div aria-hidden={isAdminDisabled ? true : undefined} className={cn("flex flex-col gap-3", isAdminDisabled ? "[filter:blur(4px)]" : "", isAdminDisabled ? "pointer-events-none" : "")}>
 					<DataTable
 						ariaLabel={t("users")}
 						data={usersResponse.users}
@@ -1651,66 +1463,38 @@ export const UsersTable: FC<UsersTableProps> = ({
 						renderBulkActions={() => (
 							<>
 								{canToggleUserStatus && (
-									<Button
-										size="sm"
-										variant="outline"
-										leftIcon={<DisableIcon />}
-										onClick={handleBulkDisable}
-										isLoading={bulkAction === "disable"}
-										isDisabled={
+									<Button size="sm" variant="outline" leftIcon={<DisableIcon />} onClick={handleBulkDisable} isLoading={bulkAction === "disable"} isDisabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkDisableTargets.length === 0
-										}
-									>
+										}>
 										{t("usersTable.disableUser")}
 									</Button>
 								)}
 								{canToggleUserStatus && (
-									<Button
-										size="sm"
-										variant="outline"
-										leftIcon={<CheckIcon width={16} />}
-										onClick={handleBulkEnable}
-										isLoading={bulkAction === "enable"}
-										isDisabled={
+									<Button size="sm" variant="outline" leftIcon={<CheckIcon className="w-16" />} onClick={handleBulkEnable} isLoading={bulkAction === "enable"} isDisabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkEnableTargets.length === 0
-										}
-									>
+										}>
 										{t("usersTable.enableUser")}
 									</Button>
 								)}
 								{canResetUsageActions && (
-									<Button
-										size="sm"
-										variant="outline"
-										leftIcon={<ResetIcon />}
-										onClick={() => setIsBulkResetOpen(true)}
-										isLoading={bulkAction === "reset"}
-										isDisabled={
+									<Button size="sm" variant="outline" leftIcon={<ResetIcon />} onClick={() => setIsBulkResetOpen(true)} isLoading={bulkAction === "reset"} isDisabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										}
-									>
+										}>
 										{t("usersTable.resetUsage")}
 									</Button>
 								)}
 								{canRevokeSubActions && (
-									<Button
-										size="sm"
-										variant="outline"
-										leftIcon={<RevokeIcon />}
-										onClick={handleBulkRevoke}
-										isLoading={bulkAction === "revoke"}
-										isDisabled={
+									<Button size="sm" variant="outline" leftIcon={<RevokeIcon />} onClick={handleBulkRevoke} isLoading={bulkAction === "revoke"} isDisabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										}
-									>
+										}>
 										{t("usersTable.revokeSub")}
 									</Button>
 								)}
@@ -1719,150 +1503,82 @@ export const UsersTable: FC<UsersTableProps> = ({
 										description={t("usersTable.bulkDeletePrompt")}
 										onConfirm={handleBulkDelete}
 									>
-										<Button
-											size="sm"
-											colorScheme="red"
-											variant="outline"
-											leftIcon={<DeleteIcon />}
-											isLoading={bulkAction === "delete"}
-											isDisabled={
+										<Button size="sm" colorScheme="red" variant="outline" leftIcon={<DeleteIcon />} isLoading={bulkAction === "delete"} isDisabled={
 												Boolean(bulkAction) || bulkDeleteTargets.length === 0
-											}
-										>
+											}>
 											{t("delete")}
 										</Button>
 									</DeleteConfirmDialog>
 								)}
 							</>
 						)}
-						tableProps={{
-							w: "full",
-							sx: {
-								"& th, & td": {
-									px: { base: 2, xl: 3 },
-									py: { base: 2.5, xl: 2.5 },
-									verticalAlign: "middle",
-								},
-							},
-						}}
+						tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }}
 					/>
-				</Stack>
+				</div>
 				{isAdminDisabled && (
-					<Flex
-						position="absolute"
-						inset={0}
-						align="center"
-						justify="center"
-						direction="column"
-						textAlign="center"
-						px={6}
-						py={8}
-						bg="rgba(255, 255, 255, 0.85)"
-						_dark={{ bg: "rgba(15, 23, 42, 0.9)" }}
-						zIndex="overlay"
-					>
-						<LockOverlayIcon color="red.400" mb={6} />
-						<Text fontSize="xl" fontWeight="bold" mb={3}>
+					<div className="flex-col flex absolute inset-0 items-center justify-center text-center px-6 py-8 bg-[rgba(255,_255,_255,_0.85)] dark:bg-[rgba(15,_23,_42,_0.9)] z-[overlay]">
+						<LockOverlayIcon className="text-red-400 mb-6" />
+						<p className="text-[1.25rem] font-bold mb-3">
 							{t("usersTable.adminDisabledTitle")}
-						</Text>
-						<Text maxW="480px" color="gray.600" _dark={{ color: "gray.200" }}>
+						</p>
+						<p className="max-w-[480px] text-gray-600 dark:text-gray-200">
 							{disabledReason || t("usersTable.adminDisabledDescription")}
-						</Text>
-					</Flex>
+						</p>
+					</div>
 				)}
-			</Box>
-			<AppDialog
-				isOpen={ipDialog !== null}
-				onClose={() => setIPDialog(null)}
-				title={t("usersTable.ipsDialogTitle")}
-				isCentered
-				size="lg"
-				scrollBehavior="inside"
-				contentProps={{
-					bg: "panel.surface",
-					borderColor: "panel.border",
-					borderWidth: "1px",
-					borderRadius: "lg",
-					overflow: "hidden",
-				}}
-				bodyProps={{ pb: 5 }}
-				footer={
-					<HStack w="full" justify="flex-end" spacing={2}>
-						<Button size="sm" onClick={() => setIPDialog(null)}>
+			</div>
+			<AppDialog isOpen={ipDialog !== null} onClose={() => setIPDialog(null)} title={t("usersTable.ipsDialogTitle")} isCentered size="lg" scrollBehavior="inside" contentProps={{ className: "bg-panel-surface border-panel-border! border rounded-lg overflow-hidden" }} bodyProps={{ className: "pb-5" }} footer={
+					<div className="flex flex-row items-center w-full justify-end gap-2">
+						<Button variant="solid" size="sm" onClick={() => setIPDialog(null)}>
 							{t("close")}
 						</Button>
-						<Button
-							size="sm"
-							colorScheme="primary"
-							leftIcon={<CopyIcon />}
-							onClick={handleCopyIPs}
-							isDisabled={
+						<Button size="sm" colorScheme="primary" leftIcon={<CopyIcon />} onClick={handleCopyIPs} isDisabled={
 								contextAction === "ips" ||
 								Boolean(ipDialog?.error) ||
 								!ipDialog?.records.length
-							}
-						>
+							}>
 							{t("usersTable.copyIps")}
 						</Button>
-					</HStack>
-				}
-			>
-				<Stack spacing={4}>
-					<Box>
-						<HStack justify="space-between" align="baseline" spacing={3}>
-							<Text fontWeight="700" dir="ltr" noOfLines={1}>
+					</div>
+				}>
+				<div className="flex flex-col gap-4">
+					<div>
+						<div className="flex flex-row justify-between items-baseline gap-3">
+							<p dir="ltr" className="font-bold truncate">
 								{ipDialog?.username}
-							</Text>
+							</p>
 							{contextAction !== "ips" && !ipDialog?.error && (
-								<Text fontSize="xs" color="panel.textMuted" flexShrink={0}>
+								<p className="text-[0.75rem] text-panel-text-muted shrink-0">
 									{t("usersTable.ipsDialogCount", {
 										count: ipDialog?.records.length ?? 0,
 									})}
-								</Text>
+								</p>
 							)}
-						</HStack>
-						<Text mt={1} fontSize="sm" color="panel.textMuted">
+						</div>
+						<p className="mt-1 text-[0.875rem] text-panel-text-muted">
 							{t("usersTable.ipsDialogDescription")}
-						</Text>
-					</Box>
+						</p>
+					</div>
 
 					{contextAction === "ips" ? (
-						<Flex align="center" justify="center" gap={3} py={8}>
-							<Spinner size="sm" color="panel.accent" />
-							<Text fontSize="sm" color="panel.textMuted">
+						<div className="flex items-center justify-center gap-3 py-8">
+							<Spinner size="sm" className="text-panel-accent" />
+							<p className="text-[0.875rem] text-panel-text-muted">
 								{t("usersTable.ipsDialogLoading")}
-							</Text>
-						</Flex>
+							</p>
+						</div>
 					) : ipDialog?.error ? (
-						<Box
-							role="alert"
-							borderWidth="1px"
-							borderColor="red.400"
-							borderRadius="md"
-							bg="red.50"
-							color="red.700"
-							_dark={{ bg: "rgba(127, 29, 29, 0.22)", color: "red.200" }}
-							px={3}
-							py={2.5}
-							fontSize="sm"
-						>
+						<div role="alert" className="border border-red-400! rounded-md bg-red-50 text-red-700 dark:bg-[rgba(127,_29,_29,_0.22)] dark:text-red-200 px-3 py-2.5 text-[0.875rem]">
 							{ipDialog.error}
-						</Box>
+						</div>
 					) : !ipDialog?.records.length ? (
-						<Box
-							borderWidth="1px"
-							borderColor="panel.border"
-							borderRadius="md"
-							px={4}
-							py={8}
-							textAlign="center"
-						>
-							<Text fontSize="sm" color="panel.textMuted">
+						<div className="border border-panel-border! rounded-md px-4 py-8 text-center">
+							<p className="text-[0.875rem] text-panel-text-muted">
 								{t("usersTable.ipsDialogEmpty")}
-							</Text>
-						</Box>
+							</p>
+						</div>
 					) : (
-						<Stack spacing={3}>
+						<div className="flex flex-col gap-3">
 							{ipDialog.records.map((record, index) => {
 								const nodes = uniqueIPValues([
 									...(record.node_names || []),
@@ -1891,106 +1607,71 @@ export const UsersTable: FC<UsersTableProps> = ({
 								const connections = Math.max(record.connections || 1, 1);
 
 								return (
-									<Box
-										as="article"
-										key={ip === "-" ? `${metadata}-${index}` : ip}
-										p={3}
-										borderWidth="1px"
-										borderColor="panel.border"
-										borderRadius="6px"
-									>
-										<Flex
-											justify="space-between"
-											direction={{ base: "column", sm: "row" }}
-											align={{ base: "stretch", sm: "flex-start" }}
-											gap={3}
-										>
+									<article key={ip === "-" ? `${metadata}-${index}` : ip} className="p-3 border border-panel-border! rounded-[6px]">
+										<div className="flex-col sm:flex-row flex justify-between items-stretch sm:items-start gap-3">
 											<OperatorIdentity
 												shortName={record.operator_short_name}
 												owner={record.operator_owner}
 											/>
-											<Box minW={0} textAlign={{ base: "start", sm: "end" }}>
-												<Text
-													dir="ltr"
-													fontFamily="mono"
-													fontWeight="700"
-													fontSize="sm"
-													overflowWrap="anywhere"
-												>
+											<div className="min-w-0! text-start sm:text-end">
+												<p dir="ltr" className="font-mono font-bold text-[0.875rem] [overflow-wrap:anywhere]">
 													{ip}
-												</Text>
-												<HStack
-													mt={0.5}
-													spacing={1}
-													justify={{ base: "flex-start", sm: "flex-end" }}
-													color="panel.textSecondary"
-													fontSize="xs"
-												>
-													<SignalIcon width={14} aria-hidden="true" />
-													<Text>
+												</p>
+												<div className="flex flex-row items-center mt-0.5 gap-1 justify-start sm:justify-end text-panel-text-secondary text-[0.75rem]">
+													<SignalIcon aria-hidden="true" className="w-14" />
+													<p>
 														{t("usersTable.ipConnections_other", {
 															count: connections,
 														})}
-													</Text>
-												</HStack>
-											</Box>
-										</Flex>
+													</p>
+												</div>
+											</div>
+										</div>
 
-										<HStack
-											mt={3}
-											spacing={3}
-											flexWrap="wrap"
-											color="panel.textMuted"
-											fontSize="xs"
-										>
+										<div className="flex flex-row items-center mt-3 gap-3 flex-wrap text-panel-text-muted text-[0.75rem]">
 											{protocols.length > 0 && (
-												<HStack spacing={1}>
-													<GlobeAltIcon width={14} aria-hidden="true" />
-													<Text>{protocols.join(", ")}</Text>
-												</HStack>
+												<div className="flex flex-row items-center gap-1">
+													<GlobeAltIcon aria-hidden="true" className="w-14" />
+													<p>{protocols.join(", ")}</p>
+												</div>
 											)}
 											{inbounds.length > 0 && (
-												<HStack spacing={1}>
-													<LinkIcon width={14} aria-hidden="true" />
-													<Text>{inbounds.join(", ")}</Text>
-												</HStack>
+												<div className="flex flex-row items-center gap-1">
+													<LinkIcon aria-hidden="true" className="w-14" />
+													<p>{inbounds.join(", ")}</p>
+												</div>
 											)}
 											{nodes.length > 0 && (
-												<HStack spacing={1}>
-													<ServerStackIcon width={14} aria-hidden="true" />
-													<Text>{nodes.join(", ")}</Text>
-												</HStack>
+												<div className="flex flex-row items-center gap-1">
+													<ServerStackIcon aria-hidden="true" className="w-14" />
+													<p>{nodes.join(", ")}</p>
+												</div>
 											)}
 											{record.last_seen_at && (
-												<HStack spacing={1}>
-													<ClockIcon width={14} aria-hidden="true" />
-													<Text dir="ltr">
+												<div className="flex flex-row items-center gap-1">
+													<ClockIcon aria-hidden="true" className="w-14" />
+													<p dir="ltr">
 														{dayjs(record.last_seen_at).format(
 															"YYYY-MM-DD HH:mm",
 														)}
-													</Text>
-												</HStack>
+													</p>
+												</div>
 											)}
-										</HStack>
+										</div>
 										{assignedIPs.length > 0 && (
-											<Text
-												mt={1}
-												fontSize="xs"
-												color="panel.textSecondary"
-												overflowWrap="anywhere"
-											>
+											<p className="mt-1 text-[0.75rem] text-panel-text-secondary [overflow-wrap:anywhere]">
 												{t("usersTable.assignedIp")}:{" "}
-												<chakra.span dir="ltr" display="inline-block">
+												<span dir="ltr" className="inline-block">
 													{assignedIPs.join(", ")}
-												</chakra.span>
-											</Text>
+												</span>
+											</p>
 										)}
-									</Box>
+									</article>
 								);
 							})}
-						</Stack>
+						</div>
 					)}
-				</Stack>
+				</div>
 			</AppDialog>
 			<ConfirmDialog
 				isOpen={isBulkResetOpen}
@@ -2004,7 +1685,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				isLoading={bulkAction === "reset"}
 				isConfirmDisabled={selectedUsers.length === 0}
 			/>
-		</VStack>
+		</div>
 	);
 };
 
@@ -2058,82 +1739,42 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 	}, [copiedConfigs]);
 
 	return (
-		<HStack
-			dir={isRTL ? "rtl" : "ltr"}
-			justifyContent={isRTL ? "flex-start" : "flex-end"}
-			spacing={1}
-			flexWrap="nowrap"
-			onClick={(e) => {
+		// biome-ignore lint/a11y/noStaticElementInteractions: row click target, unchanged from HEAD, where the Chakra box had no keyboard handler
+		// biome-ignore lint/a11y/useKeyWithClickEvents: row click target, unchanged from HEAD, where the Chakra box had no keyboard handler
+		<div dir={isRTL ? "rtl" : "ltr"} onClick={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
-			}}
-		>
+			}} className={cn("flex flex-row items-center gap-1 flex-nowrap", isRTL ? "justify-start" : "justify-end")}>
 			<Tooltip label={copied ? t("copied") : t("usersTable.copyLink")}>
 				<span>
-					<IconButton
-						aria-label={t("usersTable.copyLink")}
-						icon={copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}
-						variant="ghost"
-						size="sm"
-						minW="30px"
-						h="30px"
-						isDisabled={!subscriptionLink}
-						onClick={() => {
+					<IconButton aria-label={t("usersTable.copyLink")} icon={copied ? <CopiedIcon /> : <SubscriptionLinkIcon />} variant="ghost" size="sm" isDisabled={!subscriptionLink} onClick={() => {
 							void copyTextToClipboard(subscriptionLink)
 								.then(() => {
 									setCopied(true);
 								})
 								.catch(() => undefined);
-						}}
-					/>
+						}} className="min-w-[30px]! h-[30px]" />
 				</span>
 			</Tooltip>
-			<Tooltip
-				label={copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}
-			>
+			<Tooltip label={copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}>
 				<span>
-					<IconButton
-						aria-label={t("usersTable.copyConfigs")}
-						icon={copiedConfigs ? <CopiedIcon /> : <CopyIcon />}
-						variant="ghost"
-						size="sm"
-						minW="30px"
-						h="30px"
-						isDisabled={!hasConfigLinks}
-						onClick={() => {
+					<IconButton aria-label={t("usersTable.copyConfigs")} icon={copiedConfigs ? <CopiedIcon /> : <CopyIcon />} variant="ghost" size="sm" isDisabled={!hasConfigLinks} onClick={() => {
 							void copyTextToClipboard(configLinksText)
 								.then(() => setCopiedConfigs(true))
 								.catch(() => undefined);
-						}}
-					/>
+						}} className="min-w-[30px]! h-[30px]" />
 				</span>
 			</Tooltip>
 			<Tooltip label={t("usersTable.qrCode")}>
-				<IconButton
-					aria-label={t("usersTable.qrCode")}
-					icon={<QRIcon />}
-					variant="ghost"
-					size="sm"
-					minW="30px"
-					h="30px"
-					onClick={() => {
+				<IconButton aria-label={t("usersTable.qrCode")} icon={<QRIcon />} variant="ghost" size="sm" onClick={() => {
 						const links = generateUserLinks(user, linkTemplates);
 						setQRCode(links, user.username);
 						setSubLink(subscriptionLink);
-					}}
-				/>
+					}} className="min-w-[30px]! h-[30px]" />
 			</Tooltip>
 			{onEdit && (
 				<Tooltip label={t("userDialog.editUser")}>
-					<IconButton
-						aria-label={t("userDialog.editUser")}
-						icon={<EditIcon />}
-						variant="ghost"
-						size="sm"
-						minW="30px"
-						h="30px"
-						onClick={onEdit}
-					/>
+					<IconButton aria-label={t("userDialog.editUser")} icon={<EditIcon />} variant="ghost" size="sm" onClick={onEdit} className="min-w-[30px]! h-[30px]" />
 				</Tooltip>
 			)}
 			{onDelete && (
@@ -2141,22 +1782,13 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 					description={t("deleteUser.prompt", { username: user.username })}
 					onConfirm={onDelete}
 				>
-					<IconButton
-						aria-label={t("deleteUser.title")}
-						icon={<DeleteIcon />}
-						variant="ghost"
-						size="sm"
-						minW="30px"
-						h="30px"
-						color="red.400"
-						_hover={{ color: "red.300", bg: "whiteAlpha.100" }}
-					/>
+					<IconButton aria-label={t("deleteUser.title")} icon={<DeleteIcon />} variant="ghost" size="sm" className="min-w-[30px]! h-[30px] text-red-400 hover:text-red-300 hover:bg-whiteAlpha-100" />
 				</DeleteConfirmDialog>
 			)}
 			{menuActions && menuActions.length > 0 && (
 				<RowActionsMenu actions={menuActions} label={t("actions")} />
 			)}
-		</HStack>
+		</div>
 	);
 };
 
@@ -2178,51 +1810,16 @@ const EmptySection: FC<EmptySectionProps> = ({
 		onCreateUser(true);
 	};
 	return (
-		<Box
-			padding="5"
-			py="8"
-			display="flex"
-			alignItems="center"
-			flexDirection="column"
-			gap={4}
-			w="full"
-			borderWidth="1px"
-			borderColor="light-border"
-			borderRadius="lg"
-			bg="surface.light"
-			_dark={{ bg: "surface.dark", borderColor: "whiteAlpha.200" }}
-		>
-			<EmptySectionIcon
-				maxHeight="200px"
-				maxWidth="200px"
-				_dark={{
-					'path[fill="#fff"]': {
-						fill: "gray.800",
-					},
-					'path[fill="#f2f2f2"], path[fill="#e6e6e6"], path[fill="#ccc"]': {
-						fill: "gray.700",
-					},
-					'circle[fill="#3182CE"]': {
-						fill: "primary.300",
-					},
-				}}
-				_light={{
-					'path[fill="#f2f2f2"], path[fill="#e6e6e6"], path[fill="#ccc"]': {
-						fill: "gray.300",
-					},
-					'circle[fill="#3182CE"]': {
-						fill: "primary.500",
-					},
-				}}
-			/>
-			<Text fontWeight="medium" color="gray.600" _dark={{ color: "gray.400" }}>
+		<div className="p-5 py-8 flex items-center flex-col gap-4 w-full border border-light-border! rounded-lg bg-surface-light dark:bg-surface-dark dark:border-whiteAlpha-200!">
+			<EmptySectionIcon className={"dark:[&_path[fill='#fff']]:[fill:var(--color-gray-800)] dark:[&_path[fill='#f2f2f2']]:[fill:var(--color-gray-700)] dark:[&_path[fill='#e6e6e6']]:[fill:var(--color-gray-700)] dark:[&_path[fill='#ccc']]:[fill:var(--color-gray-700)] dark:[&_circle[fill='#3182CE']]:[fill:var(--color-primary-300)] light:[&_path[fill='#f2f2f2']]:[fill:var(--color-gray-300)] light:[&_path[fill='#e6e6e6']]:[fill:var(--color-gray-300)] light:[&_path[fill='#ccc']]:[fill:var(--color-gray-300)] light:[&_circle[fill='#3182CE']]:[fill:var(--color-primary-500)] max-h-[200px] max-w-[200px]"} />
+			<p className="font-medium text-gray-600 dark:text-gray-400">
 				{isFiltered ? t("usersTable.noUserMatched") : t("usersTable.noUser")}
-			</Text>
+			</p>
 			{!isFiltered && !isCreateDisabled && (
 				<Button size="sm" colorScheme="primary" onClick={handleCreate}>
 					{t("createUser")}
 				</Button>
 			)}
-		</Box>
+		</div>
 	);
 };

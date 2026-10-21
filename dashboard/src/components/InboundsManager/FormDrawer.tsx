@@ -1,48 +1,18 @@
-import type {
-	FormLabelProps,
-	InputProps,
-	TextareaProps,
-} from "@chakra-ui/react";
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	AlertTitle,
-	Box,
-	Button,
-	Input as ChakraInput,
-	Textarea as ChakraTextarea,
-	Checkbox,
-	CheckboxGroup,
-	Collapse,
-	Divider,
-	Flex,
-	FormControl,
-	FormErrorMessage,
-	FormLabel,
-	HStack,
-	IconButton,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Radio,
-	RadioGroup,
-	Select,
-	SimpleGrid,
-	Stack,
-	Switch,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Tag,
-	Text,
-	Tooltip,
-	useColorModeValue,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { Input as ChakraInput, Select, Textarea as ChakraTextarea } from "components/shadcn/input";
+import { useToast } from "components/shadcn/toast";
+import { FormControl, FormErrorMessage, FormLabel } from "components/shadcn/field";
+import { Tooltip } from "components/shadcn/tooltip";
+import { useColorModeValue } from "lib/color-mode";
+import { Checkbox, CheckboxGroup, Radio, RadioGroup, Switch } from "components/shadcn/selection";
+import { Button, IconButton } from "components/shadcn/button";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from "components/shadcn/alert";
+import { Collapse } from "components/shadcn/collapse";
+import { Tag } from "components/shadcn/badge";
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
+
 import {
 	ArrowPathIcon,
 	InformationCircleIcon,
@@ -130,14 +100,14 @@ type Props = {
 	isDeleting?: boolean;
 };
 
-const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => (
-	<ChakraInput size="sm" ref={ref} {...props} />
-));
+const Input = forwardRef<HTMLInputElement, Omit<ComponentPropsWithoutRef<"input">, "size"> & { isDisabled?: boolean; isReadOnly?: boolean }>(
+	({ isDisabled, isReadOnly, ...props }, ref) => <ChakraInput size="sm" ref={ref} isDisabled={isDisabled} isReadOnly={isReadOnly} {...props} />,
+);
 Input.displayName = "InboundFormInput";
 
-const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+const Textarea = forwardRef<HTMLTextAreaElement, ComponentPropsWithoutRef<"textarea">>(
 	(props, ref) => (
-		<ChakraTextarea size="sm" resize="vertical" ref={ref} {...props} />
+		<ChakraTextarea size="sm" ref={ref} {...props} className="resize-y" />
 	),
 );
 Textarea.displayName = "InboundFormTextarea";
@@ -342,21 +312,15 @@ export const InboundFormModal: FC<Props> = ({
 		labelFallback: string,
 		helpKey: string,
 		helpFallback: string,
-		labelProps: FormLabelProps = {},
+		labelProps: ComponentPropsWithoutRef<"label"> = {},
 	) => (
 		<FormLabel {...labelProps}>
-			<HStack spacing={1.5} align="center">
-				<Text as="span">{t(labelKey, labelFallback)}</Text>
+			<div className="flex flex-row gap-1.5 items-center">
+				<span>{t(labelKey, labelFallback)}</span>
 				<Tooltip label={t(helpKey, helpFallback)} hasArrow placement="top">
-					<Box
-						as={InformationCircleIcon}
-						boxSize={4}
-						color="gray.500"
-						cursor="help"
-						aria-label={t("myaccount.info")}
-					/>
+					<InformationCircleIcon aria-label={t("myaccount.info")} className="size-4 text-gray-500 cursor-help" />
 				</Tooltip>
-			</HStack>
+			</div>
 		</FormLabel>
 	);
 	const [vlessAuthOptions, setVlessAuthOptions] = useState<VlessEncAuthBlock[]>(
@@ -555,8 +519,6 @@ export const InboundFormModal: FC<Props> = ({
 		currentProtocol !== "ssh" &&
 		currentProtocol !== "mtproto" &&
 		currentProtocol !== "web";
-	const warningBg = useColorModeValue("yellow.50", "yellow.900");
-	const warningBorder = useColorModeValue("yellow.400", "yellow.500");
 	const defaultVlessAuthLabels = useMemo(
 		() => ["X25519, not Post-Quantum", "ML-KEM-768, Post-Quantum"],
 		[],
@@ -1032,20 +994,17 @@ export const InboundFormModal: FC<Props> = ({
 
 	const renderSockoptSwitch = useCallback(
 		(name: keyof SockoptFormValues, label: string) => (
-			<FormControl display="flex" alignItems="center">
-				<FormLabel mb={0}>{label}</FormLabel>
+			<FormControl className="flex items-center">
+				<FormLabel className="mb-0">{label}</FormLabel>
 				<Controller
 					control={control}
 					name={`sockopt.${name}` as const}
 					render={({ field }) => (
-						<Switch
-							isChecked={
+						<Switch isChecked={
 								typeof field.value === "boolean"
 									? field.value
 									: Boolean(field.value)
-							}
-							onChange={(event) => field.onChange(event.target.checked)}
-						/>
+							} onChange={(event) => field.onChange(event.target.checked)} />
 					)}
 				/>
 			</FormControl>
@@ -1069,7 +1028,7 @@ export const InboundFormModal: FC<Props> = ({
 	const supportsFallback =
 		currentProtocol === "vless" || currentProtocol === "trojan";
 
-	const sectionBorder = useColorModeValue("gray.200", "gray.700");
+	const sectionBorder = useColorModeValue("border-gray-200!", "border-gray-700!");
 
 	const submitForm = async (values: InboundFormValues) => {
 		const errors = validateInboundFormValues(values);
@@ -1456,10 +1415,10 @@ export const InboundFormModal: FC<Props> = ({
 
 	const vlessAuthenticationSection =
 		currentProtocol === "vless" ? (
-			<Stack className="xray-dialog-section" spacing={3}>
-				<Text fontSize="sm" fontWeight="semibold">
+			<div className="flex flex-col gap-3 xray-dialog-section">
+				<p className="text-[0.875rem] font-semibold">
 					{t("inbounds.vless.authentication")}
-				</Text>
+				</p>
 				<Controller
 					control={control}
 					name="vlessSelectedAuth"
@@ -1485,7 +1444,7 @@ export const InboundFormModal: FC<Props> = ({
 						</FormControl>
 					)}
 				/>
-				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<FormControl>
 						<FormLabel>{t("inbounds.vless.decryption")}</FormLabel>
 						<Input {...register("vlessDecryption")} />
@@ -1494,36 +1453,22 @@ export const InboundFormModal: FC<Props> = ({
 						<FormLabel>{t("inbounds.vless.encryption")}</FormLabel>
 						<Input {...register("vlessEncryption")} />
 					</FormControl>
-				</SimpleGrid>
-				<HStack spacing={3}>
-					<Button
-						size="sm"
-						onClick={handleFetchAuthClick}
-						isLoading={vlessAuthLoading}
-						isDisabled={!vlessSelectedAuth}
-					>
+				</div>
+				<div className="flex flex-row items-center gap-3">
+					<Button variant="solid" size="sm" onClick={handleFetchAuthClick} isLoading={vlessAuthLoading} isDisabled={!vlessSelectedAuth}>
 						{t("inbounds.vless.getKeys")}
 					</Button>
 					<Button size="sm" variant="ghost" onClick={handleClearAuth}>
 						{t("clear")}
 					</Button>
-				</HStack>
-			</Stack>
+				</div>
+			</div>
 		) : null;
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			size="5xl"
-			scrollBehavior="inside"
-			isCentered
-		>
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent
-				maxW={{ base: "95vw", md: "4xl" }}
-				className="inbound-form-modal"
-			>
+		<Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside" isCentered>
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="max-w-[95vw] md:max-w-[56rem] inbound-form-modal">
 				<XrayModalHeader>
 					{mode === "create"
 						? t("inbounds.add")
@@ -1533,52 +1478,39 @@ export const InboundFormModal: FC<Props> = ({
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<Tabs
-						isLazy
-						lazyBehavior="keepMounted"
-						className="xray-dialog-auto-sections"
-						variant="unstyled"
-						index={activeTab}
-						onChange={(index) => setActiveTab(index)}
-					>
+					<Tabs isLazy lazyBehavior="keepMounted" variant="unstyled" index={activeTab} onChange={(index) => setActiveTab(index)} className="xray-dialog-auto-sections">
 						<TabList>
 							<Tab>{t("form")}</Tab>
 							<Tab>{t("json")}</Tab>
 							<Tab>{t("inbounds.targets")}</Tab>
 						</TabList>
 						<TabPanels>
-							<TabPanel px={0}>
-								<VStack align="stretch" spacing={6}>
-									<Stack className="xray-dialog-section" spacing={3}>
-										<Text fontSize="sm" fontWeight="semibold">
+							<TabPanel className="px-0">
+								<div className="flex flex-col items-stretch gap-6">
+									<div className="flex flex-col gap-3 xray-dialog-section">
+										<p className="text-[0.875rem] font-semibold">
 											{t("pages.outbound.basicSettings")}
-										</Text>
-										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-											<FormControl
-												isRequired
-												isInvalid={!!tagError || !!fieldValidationErrors.tag}
-											>
+										</p>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<FormControl isRequired isInvalid={!!tagError || !!fieldValidationErrors.tag}>
 												<FormLabel>{t("inbounds.tag")}</FormLabel>
 												<Input
 													{...register("tag", { required: true })}
 													isDisabled={isEditMode}
 												/>
 												{(tagError || fieldValidationErrors.tag) && (
-													<Text fontSize="xs" color="red.500" mt={1}>
+													<p className="text-[0.75rem] text-red-500 mt-1">
 														{tagError || fieldValidationErrors.tag}
-													</Text>
+													</p>
 												)}
 											</FormControl>
 											<FormControl>
 												<FormLabel>{t("inbounds.listen")}</FormLabel>
 												<Input placeholder="::" {...register("listen")} />
 											</FormControl>
-											<FormControl
-												isRequired
-												isInvalid={Boolean(
+											<FormControl isRequired isInvalid={Boolean(
 													fieldValidationErrors.usageCoefficient,
-												)}
-											>
+												)}>
 												<FormLabel>{t("inbounds.usageCoefficient")}</FormLabel>
 												<Controller
 													control={control}
@@ -1593,78 +1525,57 @@ export const InboundFormModal: FC<Props> = ({
 														/>
 													)}
 												/>
-												<Text fontSize="xs" color="gray.500" mt={1}>
+												<p className="text-[0.75rem] text-gray-500 mt-1">
 													{t("inbounds.usageCoefficientHelp")}
-												</Text>
+												</p>
 												{Number(formValues.usageCoefficient) !== 1 && (
-													<Alert status="warning" mt={2} borderRadius="md">
+													<Alert status="warning" className="mt-2 rounded-md">
 														<AlertIcon />
-														<AlertDescription fontSize="xs">
+														<AlertDescription className="text-[0.75rem]">
 															{t("inbounds.usageCoefficientNodeWarning")}
 														</AlertDescription>
 													</Alert>
 												)}
 												{fieldValidationErrors.usageCoefficient && (
-													<Text fontSize="xs" color="red.500" mt={1}>
+													<p className="text-[0.75rem] text-red-500 mt-1">
 														{fieldValidationErrors.usageCoefficient}
-													</Text>
+													</p>
 												)}
 											</FormControl>
-										</SimpleGrid>
-										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-											<FormControl
-												isRequired
-												isInvalid={!!portError || !!fieldValidationErrors.port}
-											>
+										</div>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<FormControl isRequired isInvalid={!!portError || !!fieldValidationErrors.port}>
 												<FormLabel>{t("port")}</FormLabel>
-												<Input
-													placeholder="443"
-													{...register("port", { required: true })}
-													value={portValue}
-													isDisabled={
+												<Input placeholder="443" {...register("port", { required: true })} value={portValue} isDisabled={
 														currentProtocol === "l2tp" ||
 														currentProtocol === "ikev2" ||
 														currentProtocol === "gre" ||
 														currentProtocol === "web"
-													}
-													onChange={(event) => {
+													} onChange={(event) => {
 														register("port").onChange(event);
 														form.setValue("port", event.target.value, {
 															shouldDirty: true,
 														});
-													}}
-													bg={portWarning ? warningBg : undefined}
-													_dark={{
-														bg: portWarning ? warningBg : undefined,
-														color: "white",
-													}}
-													borderColor={portWarning ? warningBorder : undefined}
-												/>
-												<HStack justify="space-between" mt={1}>
-													<Button
-														size="xs"
-														variant="ghost"
-														leftIcon={<SparklesIcon width={16} height={16} />}
-														onClick={() => generateRandomPort()}
-														isDisabled={
+													}} className={cn(portWarning && "border-yellow-400! bg-yellow-50 dark:border-yellow-500! dark:bg-yellow-900", "dark:text-white")} />
+												<div className="flex flex-row items-center gap-2 justify-between mt-1">
+													<Button size="xs" variant="ghost" leftIcon={<SparklesIcon className="w-16 h-16" />} onClick={() => generateRandomPort()} isDisabled={
 															currentProtocol === "l2tp" ||
 															currentProtocol === "ikev2" ||
 															currentProtocol === "gre" ||
 															currentProtocol === "web"
-														}
-													>
+														}>
 														{t("inbounds.randomPort")}
 													</Button>
-												</HStack>
+												</div>
 												{portWarning && (
-													<Text fontSize="xs" color="yellow.600" mt={1}>
+													<p className="text-[0.75rem] text-yellow-600 mt-1">
 														{portWarning}
-													</Text>
+													</p>
 												)}
 												{(portError || fieldValidationErrors.port) && (
-													<Text fontSize="xs" color="red.500" mt={1}>
+													<p className="text-[0.75rem] text-red-500 mt-1">
 														{portError || fieldValidationErrors.port}
-													</Text>
+													</p>
 												)}
 											</FormControl>
 											<FormControl isRequired>
@@ -1887,10 +1798,10 @@ export const InboundFormModal: FC<Props> = ({
 													}}
 												/>
 											</FormControl>
-										</SimpleGrid>
+										</div>
 										{currentProtocol === "vmess" && (
-											<FormControl display="flex" alignItems="center">
-												<FormLabel mb={0}>
+											<FormControl className="flex items-center">
+												<FormLabel className="mb-0">
 													{t("inbounds.vmess.disableInsecure")}
 												</FormLabel>
 												<Switch {...register("disableInsecureEncryption")} />
@@ -1923,7 +1834,7 @@ export const InboundFormModal: FC<Props> = ({
 											</FormControl>
 										)}
 										{currentProtocol === "shadowsocks" && (
-											<Stack spacing={3}>
+											<div className="flex flex-col gap-3">
 												<FormControl>
 													<FormLabel>{t("password")}</FormLabel>
 													<Input
@@ -1932,7 +1843,7 @@ export const InboundFormModal: FC<Props> = ({
 														{...register("shadowsocksPassword")}
 													/>
 												</FormControl>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl>
 														<FormLabel>
 															{t("inbounds.shadowsocks.method")}
@@ -1975,60 +1886,39 @@ export const InboundFormModal: FC<Props> = ({
 															}
 														/>
 													</FormControl>
-												</SimpleGrid>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+												</div>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.shadowsocks.ivCheck")}
 													</FormLabel>
 													<Switch {...register("shadowsocksIvCheck")} />
 												</FormControl>
-											</Stack>
+											</div>
 										)}
 										{currentProtocol === "http" && (
-											<Stack spacing={3}>
-												<Flex justify="space-between" align="center">
-													<Text fontWeight="medium">
+											<div className="flex flex-col gap-3">
+												<div className="flex justify-between items-center">
+													<p className="font-medium">
 														{t("inbounds.http.accounts")}
-													</Text>
-													<Button
-														size="xs"
-														onClick={() =>
+													</p>
+													<Button variant="solid" size="xs" onClick={() =>
 															appendHttpAccount({ user: "", pass: "" })
-														}
-													>
+														}>
 														{t("inbounds.accounts.add")}
 													</Button>
-												</Flex>
-												<Stack spacing={3}>
+												</div>
+												<div className="flex flex-col gap-3">
 													{httpAccountFields.map((field, index) => (
-														<Box
-															key={field.id}
-															borderWidth="1px"
-															borderRadius="md"
-															borderColor={sectionBorder}
-															p={3}
-														>
-															<Flex
-																justify="space-between"
-																align="center"
-																mb={3}
-															>
-																<Text fontWeight="semibold">
+														<div key={field.id} className={cn("border rounded-md p-3", sectionBorder)}>
+															<div className="flex justify-between items-center mb-3">
+																<p className="font-semibold">
 																	{t("inbounds.accounts.label")} #{index + 1}
-																</Text>
-																<Button
-																	size="xs"
-																	variant="ghost"
-																	colorScheme="red"
-																	onClick={() => removeHttpAccount(index)}
-																>
+																</p>
+																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeHttpAccount(index)}>
 																	{t("delete")}
 																</Button>
-															</Flex>
-															<SimpleGrid
-																columns={{ base: 1, md: 2 }}
-																spacing={3}
-															>
+															</div>
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																<FormControl>
 																	<FormLabel>{t("username")}</FormLabel>
 																	<Input
@@ -2045,27 +1935,27 @@ export const InboundFormModal: FC<Props> = ({
 																		)}
 																	/>
 																</FormControl>
-															</SimpleGrid>
-														</Box>
+															</div>
+														</div>
 													))}
 													{!httpAccountFields.length && (
-														<Text fontSize="sm" color="gray.500">
+														<p className="text-[0.875rem] text-gray-500">
 															{t("inbounds.http.noAccountsHint")}
-														</Text>
+														</p>
 													)}
-												</Stack>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+												</div>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.http.allowTransparent")}
 													</FormLabel>
 													<Switch {...register("httpAllowTransparent")} />
 												</FormControl>
-											</Stack>
+											</div>
 										)}
 										{currentProtocol === "socks" && (
-											<Stack spacing={3}>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+											<div className="flex flex-col gap-3">
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.socks.udp")}
 													</FormLabel>
 													<Switch {...register("socksUdpEnabled")} />
@@ -2079,71 +1969,47 @@ export const InboundFormModal: FC<Props> = ({
 														/>
 													</FormControl>
 												)}
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.socks.auth")}
 													</FormLabel>
 													<Controller
 														control={control}
 														name="socksAuth"
 														render={({ field }) => (
-															<Switch
-																isChecked={field.value === "password"}
-																onChange={(event) =>
+															<Switch isChecked={field.value === "password"} onChange={(event) =>
 																	field.onChange(
 																		event.target.checked
 																			? "password"
 																			: "noauth",
 																	)
-																}
-															/>
+																} />
 														)}
 													/>
 												</FormControl>
 												{socksAuth === "password" && (
-													<Stack spacing={3}>
-														<Flex justify="space-between" align="center">
-															<Text fontWeight="medium">
+													<div className="flex flex-col gap-3">
+														<div className="flex justify-between items-center">
+															<p className="font-medium">
 																{t("inbounds.socks.accounts")}
-															</Text>
-															<Button
-																size="xs"
-																onClick={() =>
+															</p>
+															<Button variant="solid" size="xs" onClick={() =>
 																	appendSocksAccount({ user: "", pass: "" })
-																}
-															>
+																}>
 																{t("inbounds.accounts.add")}
 															</Button>
-														</Flex>
+														</div>
 														{socksAccountFields.map((field, index) => (
-															<Box
-																key={field.id}
-																borderWidth="1px"
-																borderRadius="md"
-																borderColor={sectionBorder}
-																p={3}
-															>
-																<Flex
-																	justify="space-between"
-																	align="center"
-																	mb={3}
-																>
-																	<Text fontWeight="semibold">
+															<div key={field.id} className={cn("border rounded-md p-3", sectionBorder)}>
+																<div className="flex justify-between items-center mb-3">
+																	<p className="font-semibold">
 																		{t("inbounds.accounts.label")} #{index + 1}
-																	</Text>
-																	<Button
-																		size="xs"
-																		variant="ghost"
-																		colorScheme="red"
-																		onClick={() => removeSocksAccount(index)}
-																	>
+																	</p>
+																	<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeSocksAccount(index)}>
 																		{t("delete")}
 																	</Button>
-																</Flex>
-																<SimpleGrid
-																	columns={{ base: 1, md: 2 }}
-																	spacing={3}
-																>
+																</div>
+																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
 																		<FormLabel>{t("username")}</FormLabel>
 																		<Input
@@ -2160,32 +2026,30 @@ export const InboundFormModal: FC<Props> = ({
 																			)}
 																		/>
 																	</FormControl>
-																</SimpleGrid>
-															</Box>
+																</div>
+															</div>
 														))}
 														{!socksAccountFields.length && (
-															<Text fontSize="sm" color="gray.500">
+															<p className="text-[0.875rem] text-gray-500">
 																{t("inbounds.socks.noAccountsHint")}
-															</Text>
+															</p>
 														)}
-													</Stack>
+													</div>
 												)}
-											</Stack>
+											</div>
 										)}
 										{currentProtocol === "ssh" && (
-											<Stack spacing={4}>
-												<Alert status="warning" borderRadius="md">
+											<div className="flex flex-col gap-4">
+												<Alert status="warning" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.ssh.securityHelp")}
 													</AlertDescription>
 												</Alert>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isInvalid={Boolean(
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.sshUserLimit,
-														)}
-													>
+														)}>
 														<FormLabel>{t("inbounds.ssh.userLimit")}</FormLabel>
 														<NumericInput
 															value={formValues.sshUserLimit}
@@ -2203,11 +2067,9 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.sshUserLimit}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.sshIdleTimeout,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.ssh.idleTimeout")}
 														</FormLabel>
@@ -2227,24 +2089,21 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.sshIdleTimeout}
 														</FormErrorMessage>
 													</FormControl>
-												</SimpleGrid>
-											</Stack>
+												</div>
+											</div>
 										)}
 										{currentProtocol === "mtproto" && (
-											<Stack spacing={4}>
-												<Alert status="info" borderRadius="md">
+											<div className="flex flex-col gap-4">
+												<Alert status="info" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.mtproto.inboundOnlyHelp")}
 													</AlertDescription>
 												</Alert>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.mtPublicHost,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.mtproto.publicHost")}
 														</FormLabel>
@@ -2256,55 +2115,37 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.mtPublicHost}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(fieldValidationErrors.mtSecret)}
-													>
+													<FormControl isRequired isInvalid={Boolean(fieldValidationErrors.mtSecret)}>
 														<FormLabel>
 															{t("inbounds.mtproto.secret")}
 														</FormLabel>
-														<HStack>
-															<Input
-																{...register("mtSecret")}
-																fontFamily="mono"
-															/>
-															<IconButton
-																aria-label={t("inbounds.generateSecret")}
-																icon={<SparklesIcon width={16} />}
-																size="sm"
-																onClick={() =>
+														<div className="flex flex-row items-center gap-2">
+															<Input {...register("mtSecret")} className="font-mono" />
+															<IconButton variant="solid" aria-label={t("inbounds.generateSecret")} icon={<SparklesIcon className="w-16" />} size="sm" onClick={() =>
 																	form.setValue("mtSecret", randomHex(32), {
 																		shouldDirty: true,
 																		shouldValidate: true,
 																	})
-																}
-															/>
-														</HStack>
+																} />
+														</div>
 														<FormErrorMessage>
 															{fieldValidationErrors.mtSecret}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtSponsorTag,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.mtproto.sponsorTag")}
 														</FormLabel>
-														<Input
-															{...register("mtSponsorTag")}
-															fontFamily="mono"
-														/>
+														<Input {...register("mtSponsorTag")} className="font-mono" />
 														<FormErrorMessage>
 															{fieldValidationErrors.mtSponsorTag}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtTLSDomain,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.mtproto.tlsDomain")}
 														</FormLabel>
@@ -2317,11 +2158,9 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.mtTLSDomain}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtUserLimit,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.mtproto.userLimit")}
 														</FormLabel>
@@ -2341,11 +2180,9 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.mtUserLimit}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtMaxConnections,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.mtproto.maxConnections")}
 														</FormLabel>
@@ -2364,16 +2201,14 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.mtMaxConnections}
 														</FormErrorMessage>
 													</FormControl>
-												</SimpleGrid>
-												<FormControl
-													isInvalid={Boolean(
+												</div>
+												<FormControl isInvalid={Boolean(
 														fieldValidationErrors.mtModeClassic,
-													)}
-												>
+													)}>
 													<FormLabel>
 														{t("inbounds.mtproto.connectionModes")}
 													</FormLabel>
-													<HStack spacing={6} flexWrap="wrap">
+													<div className="flex flex-row items-center gap-6 flex-wrap">
 														<Checkbox {...register("mtModeClassic")}>
 															{t("inbounds.mtproto.modeClassic")}
 														</Checkbox>
@@ -2383,13 +2218,13 @@ export const InboundFormModal: FC<Props> = ({
 														<Checkbox {...register("mtModeTLS")}>
 															{t("inbounds.mtproto.modeTLS")}
 														</Checkbox>
-													</HStack>
+													</div>
 													<FormErrorMessage>
 														{fieldValidationErrors.mtModeClassic}
 													</FormErrorMessage>
 												</FormControl>
 												{formValues.mtPublicHost && (
-													<Stack spacing={1}>
+													<div className="flex flex-col gap-1">
 														{[
 															[formValues.mtModeClassic, formValues.mtSecret],
 															[
@@ -2405,34 +2240,26 @@ export const InboundFormModal: FC<Props> = ({
 														]
 															.filter(([enabled]) => enabled)
 															.map(([, secret]) => (
-																<Text
-																	key={String(secret)}
-																	fontSize="xs"
-																	fontFamily="mono"
-																	wordBreak="break-all"
-																>
+																<p key={String(secret)} className="text-[0.75rem] font-mono break-all">
 																	{`https://t.me/proxy?server=${formValues.mtPublicHost}&port=${formValues.port}&secret=${secret}`}
-																</Text>
+																</p>
 															))}
-													</Stack>
+													</div>
 												)}
-											</Stack>
+											</div>
 										)}
 										{currentProtocol === "web" && (
-											<Stack spacing={4}>
-												<Alert status="warning" borderRadius="md">
+											<div className="flex flex-col gap-4">
+												<Alert status="warning" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.web.dedicatedNodeHelp")}
 													</AlertDescription>
 												</Alert>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.webHostname,
-														)}
-													>
+														)}>
 														<FormLabel>{t("inbounds.web.hostname")}</FormLabel>
 														<Input
 															{...register("webHostname")}
@@ -2442,49 +2269,33 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.webHostname}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.webACMEEmail,
-														)}
-													>
+														)}>
 														<FormLabel>{t("inbounds.web.acmeEmail")}</FormLabel>
 														<Input type="email" {...register("webACMEEmail")} />
 														<FormErrorMessage>
 															{fieldValidationErrors.webACMEEmail}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(fieldValidationErrors.webSecret)}
-													>
+													<FormControl isRequired isInvalid={Boolean(fieldValidationErrors.webSecret)}>
 														<FormLabel>{t("inbounds.web.secret")}</FormLabel>
-														<HStack>
-															<Input
-																{...register("webSecret")}
-																fontFamily="mono"
-															/>
-															<IconButton
-																aria-label={t("inbounds.generateSecret")}
-																icon={<SparklesIcon width={16} />}
-																size="sm"
-																onClick={() =>
+														<div className="flex flex-row items-center gap-2">
+															<Input {...register("webSecret")} className="font-mono" />
+															<IconButton variant="solid" aria-label={t("inbounds.generateSecret")} icon={<SparklesIcon className="w-16" />} size="sm" onClick={() =>
 																	form.setValue("webSecret", randomHex(32), {
 																		shouldDirty: true,
 																		shouldValidate: true,
 																	})
-																}
-															/>
-														</HStack>
+																} />
+														</div>
 														<FormErrorMessage>
 															{fieldValidationErrors.webSecret}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.webSiteUpstream,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.web.siteUpstream")}
 														</FormLabel>
@@ -2492,26 +2303,22 @@ export const InboundFormModal: FC<Props> = ({
 															{...register("webSiteUpstream")}
 															placeholder="http://127.0.0.1:3000"
 														/>
-														<Text fontSize="xs" color="gray.500" mt={1}>
+														<p className="text-[0.75rem] text-gray-500 mt-1">
 															{t("inbounds.web.siteUpstreamHelp")}
-														</Text>
+														</p>
 														<FormErrorMessage>
 															{fieldValidationErrors.webSiteUpstream}
 														</FormErrorMessage>
 													</FormControl>
-												</SimpleGrid>
+												</div>
 												{formValues.webHostname && (
-													<Text
-														fontSize="xs"
-														fontFamily="mono"
-														wordBreak="break-all"
-													>{`https://t.me/webproxy?server=${formValues.webHostname}&secret=${formValues.webSecret}`}</Text>
+													<p className="text-[0.75rem] font-mono break-all">{`https://t.me/webproxy?server=${formValues.webHostname}&secret=${formValues.webSecret}`}</p>
 												)}
-											</Stack>
+											</div>
 										)}
 										{currentProtocol === "openvpn" && (
-											<Stack spacing={3}>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl>
 														{ovLabel(
 															"inbounds.openvpn.transport",
@@ -2537,12 +2344,9 @@ export const InboundFormModal: FC<Props> = ({
 															}
 														/>
 													</FormControl>
-													<FormControl
-														isRequired={ovTproxyEnabled}
-														isInvalid={Boolean(
+													<FormControl isRequired={ovTproxyEnabled} isInvalid={Boolean(
 															fieldValidationErrors.ovTunnelPort,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.openvpn.tunnelPort",
 															"Tunnel port",
@@ -2555,19 +2359,16 @@ export const InboundFormModal: FC<Props> = ({
 															isDisabled={!ovTproxyEnabled}
 														/>
 														{fieldValidationErrors.ovTunnelPort && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.ovTunnelPort}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.ovIPv4Pool,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.openvpn.ipv4Pool",
 															"IPv4 pool CIDR",
@@ -2579,9 +2380,9 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="10.66.0.0/16"
 														/>
 														{fieldValidationErrors.ovIPv4Pool && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.ovIPv4Pool}
-															</Text>
+															</p>
 														)}
 													</FormControl>
 													<FormControl>
@@ -2597,11 +2398,9 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder={"1.1.1.1\n8.8.8.8"}
 														/>
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isInvalid={Boolean(fieldValidationErrors.ovCipher)}
-													>
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isInvalid={Boolean(fieldValidationErrors.ovCipher)}>
 														{ovLabel(
 															"inbounds.openvpn.cipher",
 															"Cipher",
@@ -2613,9 +2412,9 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="AES-256-GCM"
 														/>
 														{fieldValidationErrors.ovCipher && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.ovCipher}
-															</Text>
+															</p>
 														)}
 													</FormControl>
 													<FormControl>
@@ -2630,116 +2429,114 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="SHA256"
 														/>
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl display="flex" alignItems="center">
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.redirectGateway",
 															"Redirect gateway",
 															"inbounds.openvpn.help.redirectGateway",
 															"Push the default route to clients so all client traffic enters the VPN.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovRedirectGateway")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.tproxy",
 															"Route through Xray",
 															"inbounds.openvpn.help.tproxy",
 															"Forward OpenVPN client traffic into Xray so routing rules and Xray outbounds apply. Disable for direct NAT egress from the node.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovTproxyEnabled")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.requireDco",
 															"Require DCO",
 															"inbounds.openvpn.help.requireDco",
 															"Require OpenVPN data channel offload on the node. If the kernel or OpenVPN build cannot use DCO, this inbound is rejected instead of falling back.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovRequireDCO")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.accounting",
 															"Enable accounting",
 															"inbounds.openvpn.help.accounting",
 															"Record OpenVPN session traffic and report it to the same Rebecca user quota/accounting pipeline.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovAccountingEnabled")} />
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl display="flex" alignItems="center">
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.inlineCa",
 															"Embed CA in profile",
 															"inbounds.openvpn.help.inlineCa",
 															"Include the CA certificate inside generated .ovpn files. Disable only if clients will receive the CA by another secure method.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovInlineCA")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.setClientCertNone",
 															"Disable external certificate prompt",
 															"inbounds.openvpn.help.setClientCertNone",
 															"Add setenv CLIENT_CERT 0 so OpenVPN Connect does not ask for a separate client certificate.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovSetClientCertNone")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.authNoCache",
 															"Do not cache password",
 															"inbounds.openvpn.help.authNoCache",
 															"Add auth-nocache so the client does not keep the VPN password in memory after authentication.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovAuthNoCache")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.embedCredentials",
 															"Embed user credentials",
 															"inbounds.openvpn.help.embedCredentials",
 															"Include username and generated password inside the .ovpn profile. Disable to make clients ask for credentials.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovEmbedCredentials")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.routeNoPull",
 															"Ignore pushed routes",
 															"inbounds.openvpn.help.routeNoPull",
 															"Add route-nopull so clients connect but ignore routes pushed by the server.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovRouteNoPull")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.openvpn.blockOutsideDns",
 															"Block outside DNS",
 															"inbounds.openvpn.help.blockOutsideDns",
 															"Add block-outside-dns for Windows clients to reduce DNS leaks outside the VPN.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("ovBlockOutsideDNS")} />
 													</FormControl>
-												</SimpleGrid>
-												<FormControl
-													isInvalid={Boolean(
+												</div>
+												<FormControl isInvalid={Boolean(
 														fieldValidationErrors.ovManagementPort,
-													)}
-												>
+													)}>
 													{ovLabel(
 														"inbounds.openvpn.managementPort",
 														"Management port",
@@ -2751,25 +2548,17 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder="7505"
 													/>
 													{fieldValidationErrors.ovManagementPort && (
-														<Text fontSize="xs" color="red.500" mt={1}>
+														<p className="text-[0.75rem] text-red-500 mt-1">
 															{fieldValidationErrors.ovManagementPort}
-														</Text>
+														</p>
 													)}
 												</FormControl>
-												<Box>
-													<Button
-														size="sm"
-														leftIcon={<SparklesIcon width={16} />}
-														onClick={handleGenerateOVSelfSigned}
-														isLoading={ovCertLoading}
-													>
+												<div>
+													<Button variant="solid" size="sm" leftIcon={<SparklesIcon className="w-16" />} onClick={handleGenerateOVSelfSigned} isLoading={ovCertLoading}>
 														{t("inbounds.openvpn.generateSelfSigned")}
 													</Button>
-												</Box>
-												<FormControl
-													isRequired
-													isInvalid={Boolean(fieldValidationErrors.ovCA)}
-												>
+												</div>
+												<FormControl isRequired isInvalid={Boolean(fieldValidationErrors.ovCA)}>
 													{ovLabel(
 														"inbounds.openvpn.ca",
 														"CA certificate",
@@ -2778,18 +2567,15 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 													<Textarea rows={4} {...register("ovCA")} />
 													{fieldValidationErrors.ovCA && (
-														<Text fontSize="xs" color="red.500" mt={1}>
+														<p className="text-[0.75rem] text-red-500 mt-1">
 															{fieldValidationErrors.ovCA}
-														</Text>
+														</p>
 													)}
 												</FormControl>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.ovServerCertificate,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.openvpn.serverCertificate",
 															"Server certificate",
@@ -2801,17 +2587,14 @@ export const InboundFormModal: FC<Props> = ({
 															{...register("ovServerCertificate")}
 														/>
 														{fieldValidationErrors.ovServerCertificate && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.ovServerCertificate}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.ovServerKey,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.openvpn.serverKey",
 															"Server key",
@@ -2820,12 +2603,12 @@ export const InboundFormModal: FC<Props> = ({
 														)}
 														<Textarea rows={4} {...register("ovServerKey")} />
 														{fieldValidationErrors.ovServerKey && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.ovServerKey}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-												</SimpleGrid>
+												</div>
 												<FormControl>
 													{ovLabel(
 														"inbounds.openvpn.dh",
@@ -2835,7 +2618,7 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 													<Textarea rows={4} {...register("ovDH")} />
 												</FormControl>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl>
 														{ovLabel(
 															"inbounds.openvpn.tlsCrypt",
@@ -2854,7 +2637,7 @@ export const InboundFormModal: FC<Props> = ({
 														)}
 														<Textarea rows={4} {...register("ovTlsAuth")} />
 													</FormControl>
-												</SimpleGrid>
+												</div>
 												<FormControl>
 													{ovLabel(
 														"inbounds.openvpn.extraClient",
@@ -2867,18 +2650,15 @@ export const InboundFormModal: FC<Props> = ({
 														{...register("ovExtraClientConfig")}
 													/>
 												</FormControl>
-											</Stack>
+											</div>
 										)}
 										{(currentProtocol === "wireguard" ||
 											currentProtocol === "amneziawg") && (
-											<Stack spacing={3}>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isRequired={wgTproxyEnabled}
-														isInvalid={Boolean(
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isRequired={wgTproxyEnabled} isInvalid={Boolean(
 															fieldValidationErrors.wgTunnelPort,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.wireguard.tunnelPort",
 															"Tunnel port",
@@ -2891,17 +2671,14 @@ export const InboundFormModal: FC<Props> = ({
 															isDisabled={!wgTproxyEnabled}
 														/>
 														{fieldValidationErrors.wgTunnelPort && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.wgTunnelPort}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.wgIPv4Pool,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.wireguard.ipv4Pool",
 															"IPv4 pool CIDR",
@@ -2913,19 +2690,16 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="10.69.0.0/16"
 														/>
 														{fieldValidationErrors.wgIPv4Pool && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.wgIPv4Pool}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.wgServerAddress,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.wireguard.serverAddress",
 															"Server address",
@@ -2937,14 +2711,12 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="10.69.0.1/16"
 														/>
 														{fieldValidationErrors.wgServerAddress && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.wgServerAddress}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(fieldValidationErrors.wgMTU)}
-													>
+													<FormControl isInvalid={Boolean(fieldValidationErrors.wgMTU)}>
 														{ovLabel(
 															"inbounds.wireguard.mtu",
 															"MTU",
@@ -2953,17 +2725,15 @@ export const InboundFormModal: FC<Props> = ({
 														)}
 														<Input {...register("wgMTU")} placeholder="1420" />
 														{fieldValidationErrors.wgMTU && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.wgMTU}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-												</SimpleGrid>
-												<FormControl
-													isInvalid={Boolean(
+												</div>
+												<FormControl isInvalid={Boolean(
 														fieldValidationErrors.wgPersistentKeepalive,
-													)}
-												>
+													)}>
 													{ovLabel(
 														"inbounds.wireguard.persistentKeepalive",
 														"Persistent keepalive",
@@ -2975,23 +2745,20 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder="25"
 													/>
 													{fieldValidationErrors.wgPersistentKeepalive && (
-														<Text fontSize="xs" color="red.500" mt={1}>
+														<p className="text-[0.75rem] text-red-500 mt-1">
 															{fieldValidationErrors.wgPersistentKeepalive}
-														</Text>
+														</p>
 													)}
 												</FormControl>
 												{currentProtocol === "amneziawg" && (
-													<Stack spacing={3}>
-														<Alert status="info" borderRadius="md">
+													<div className="flex flex-col gap-3">
+														<Alert status="info" className="rounded-md">
 															<AlertIcon />
-															<AlertDescription fontSize="sm">
+															<AlertDescription className="text-[0.875rem]">
 																{t("inbounds.amneziawg.help")}
 															</AlertDescription>
 														</Alert>
-														<SimpleGrid
-															columns={{ base: 2, md: 3 }}
-															spacing={3}
-														>
+														<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
 															{(
 																[
 																	"awgJc",
@@ -3005,64 +2772,53 @@ export const InboundFormModal: FC<Props> = ({
 																	"awgH4",
 																] as const
 															).map((name) => (
-																<FormControl
-																	key={name}
-																	isInvalid={Boolean(
+																<FormControl key={name} isInvalid={Boolean(
 																		fieldValidationErrors[name],
-																	)}
-																>
+																	)}>
 																	<FormLabel>
 																		{t(`inbounds.amneziawg.${name}`)}
 																	</FormLabel>
 																	<Input {...register(name)} />
 																	{fieldValidationErrors[name] && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors[name]}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 															))}
-														</SimpleGrid>
-													</Stack>
+														</div>
+													</div>
 												)}
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl display="flex" alignItems="center">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.wireguard.tproxy",
 															"Route through Xray",
 															"inbounds.wireguard.help.tproxy",
 															"Forward WireGuard client traffic into Xray so routing rules and Xray outbounds apply. Disable for direct NAT egress from the node.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("wgTproxyEnabled")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.wireguard.accounting",
 															"Enable accounting",
 															"inbounds.wireguard.help.accounting",
 															"Record WireGuard peer traffic and report it to the same Rebecca user quota/accounting pipeline.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("wgAccountingEnabled")} />
 													</FormControl>
-												</SimpleGrid>
-												<Box>
-													<Button
-														size="sm"
-														leftIcon={<SparklesIcon width={16} />}
-														onClick={handleGenerateWGKeypair}
-														isLoading={wgKeyLoading}
-													>
+												</div>
+												<div>
+													<Button variant="solid" size="sm" leftIcon={<SparklesIcon className="w-16" />} onClick={handleGenerateWGKeypair} isLoading={wgKeyLoading}>
 														{t("inbounds.wireguard.generateKeys")}
 													</Button>
-												</Box>
-												<FormControl
-													isRequired
-													isInvalid={Boolean(
+												</div>
+												<FormControl isRequired isInvalid={Boolean(
 														fieldValidationErrors.wgPrivateKey,
-													)}
-												>
+													)}>
 													{ovLabel(
 														"inbounds.wireguard.privateKey",
 														"Private key",
@@ -3071,9 +2827,9 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 													<Textarea rows={2} {...register("wgPrivateKey")} />
 													{fieldValidationErrors.wgPrivateKey && (
-														<Text fontSize="xs" color="red.500" mt={1}>
+														<p className="text-[0.75rem] text-red-500 mt-1">
 															{fieldValidationErrors.wgPrivateKey}
-														</Text>
+														</p>
 													)}
 												</FormControl>
 												<FormControl>
@@ -3085,22 +2841,20 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 													<Input {...register("wgPublicKey")} isReadOnly />
 												</FormControl>
-											</Stack>
+											</div>
 										)}
 										{currentProtocol === "sstp" && (
-											<Stack spacing={4}>
-												<Alert status="info" borderRadius="md">
+											<div className="flex flex-col gap-4">
+												<Alert status="info" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.sstp.help")}
 													</AlertDescription>
 												</Alert>
-												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-													<FormControl
-														isInvalid={Boolean(
+												<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raIPv4Pool,
-														)}
-													>
+														)}>
 														<FormLabel>{t("inbounds.sstp.ipv4Pool")}</FormLabel>
 														<Input
 															{...register("raIPv4Pool")}
@@ -3110,11 +2864,9 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.raIPv4Pool}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raTunnelPort,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.sstp.tunnelPort")}
 														</FormLabel>
@@ -3130,7 +2882,7 @@ export const InboundFormModal: FC<Props> = ({
 														<FormLabel>{t("inbounds.sstp.mtu")}</FormLabel>
 														<Input {...register("raMTU")} placeholder="1400" />
 													</FormControl>
-												</SimpleGrid>
+												</div>
 												<FormControl>
 													<FormLabel>{t("inbounds.sstp.dns")}</FormLabel>
 													<Textarea
@@ -3139,26 +2891,23 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder={"1.1.1.1\n8.8.8.8"}
 													/>
 												</FormControl>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.routeThroughXray")}
 														</FormLabel>
 														<Switch {...register("raTproxyEnabled")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.enableAccounting")}
 														</FormLabel>
 														<Switch {...register("raAccountingEnabled")} />
 													</FormControl>
-												</SimpleGrid>
-												<FormControl
-													isRequired
-													isInvalid={Boolean(
+												</div>
+												<FormControl isRequired isInvalid={Boolean(
 														fieldValidationErrors.raServerCertificate,
-													)}
-												>
+													)}>
 													<FormLabel>
 														{t("inbounds.sstp.serverCertificate")}
 													</FormLabel>
@@ -3170,32 +2919,27 @@ export const InboundFormModal: FC<Props> = ({
 														{fieldValidationErrors.raServerCertificate}
 													</FormErrorMessage>
 												</FormControl>
-												<FormControl
-													isRequired
-													isInvalid={Boolean(fieldValidationErrors.raServerKey)}
-												>
+												<FormControl isRequired isInvalid={Boolean(fieldValidationErrors.raServerKey)}>
 													<FormLabel>{t("inbounds.sstp.serverKey")}</FormLabel>
 													<Textarea {...register("raServerKey")} rows={4} />
 													<FormErrorMessage>
 														{fieldValidationErrors.raServerKey}
 													</FormErrorMessage>
 												</FormControl>
-											</Stack>
+											</div>
 										)}
 										{currentProtocol === "gre" && (
-											<Stack spacing={4}>
-												<Alert status="warning" borderRadius="md">
+											<div className="flex flex-col gap-4">
+												<Alert status="warning" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.gre.help")}
 													</AlertDescription>
 												</Alert>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isInvalid={Boolean(
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raIPv4Pool,
-														)}
-													>
+														)}>
 														<FormLabel>{t("inbounds.gre.ipv4Pool")}</FormLabel>
 														<Input
 															{...register("raIPv4Pool")}
@@ -3205,11 +2949,9 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.raIPv4Pool}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raTunnelPort,
-														)}
-													>
+														)}>
 														<FormLabel>
 															{t("inbounds.gre.tunnelPort")}
 														</FormLabel>
@@ -3221,11 +2963,9 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.raTunnelPort}
 														</FormErrorMessage>
 													</FormControl>
-													<FormControl
-													isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.greLocalAddress,
-													)}
-												>
+													)}>
 														<FormLabel>
 															{t("inbounds.gre.localAddress")}
 														</FormLabel>
@@ -3237,49 +2977,45 @@ export const InboundFormModal: FC<Props> = ({
 															{fieldValidationErrors.greLocalAddress}
 														</FormErrorMessage>
 												</FormControl>
-													<SimpleGrid columns={2} spacing={3}>
-														<FormControl
-															isInvalid={Boolean(fieldValidationErrors.greMTU)}
-														>
+													<div className="grid grid-cols-2 gap-3">
+														<FormControl isInvalid={Boolean(fieldValidationErrors.greMTU)}>
 															<FormLabel>{t("inbounds.gre.mtu")}</FormLabel>
 															<Input {...register("greMTU")} />
 														</FormControl>
-														<FormControl
-															isInvalid={Boolean(fieldValidationErrors.greTTL)}
-														>
+														<FormControl isInvalid={Boolean(fieldValidationErrors.greTTL)}>
 															<FormLabel>{t("inbounds.gre.ttl")}</FormLabel>
 															<Input {...register("greTTL")} />
 														</FormControl>
-													</SimpleGrid>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+													</div>
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.routeThroughXray")}
 														</FormLabel>
 														<Switch {...register("raTproxyEnabled")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.enableAccounting")}
 														</FormLabel>
 														<Switch {...register("raAccountingEnabled")} />
 												</FormControl>
-												</SimpleGrid>
-											</Stack>
+												</div>
+											</div>
 										)}
 										{(currentProtocol === "ikev2" ||
 											currentProtocol === "anyconnect") && (
-											<Stack spacing={3}>
-												<Alert status="info" borderRadius="md">
+											<div className="flex flex-col gap-3">
+												<Alert status="info" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{currentProtocol === "ikev2"
 															? t("inbounds.ikev2.ports")
 															: t("inbounds.anyconnect.ports")}
 													</AlertDescription>
 												</Alert>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl isRequired>
 														{ovLabel(
 															"inbounds.remoteAccess.authMode",
@@ -3321,12 +3057,9 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														/>
 													</FormControl>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.raIPv4Pool,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.remoteAccess.ipv4Pool",
 															"IPv4 pool CIDR",
@@ -3342,17 +3075,14 @@ export const InboundFormModal: FC<Props> = ({
 															}
 														/>
 														{fieldValidationErrors.raIPv4Pool && (
-															<Text fontSize="xs" color="red.500">
+															<p className="text-[0.75rem] text-red-500">
 																{fieldValidationErrors.raIPv4Pool}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isRequired={raTproxyEnabled}
-														isInvalid={Boolean(
+													<FormControl isRequired={raTproxyEnabled} isInvalid={Boolean(
 															fieldValidationErrors.raTunnelPort,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.remoteAccess.tunnelPort",
 															"Xray tunnel port",
@@ -3365,9 +3095,9 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="41943"
 														/>
 														{fieldValidationErrors.raTunnelPort && (
-															<Text fontSize="xs" color="red.500">
+															<p className="text-[0.75rem] text-red-500">
 																{fieldValidationErrors.raTunnelPort}
-															</Text>
+															</p>
 														)}
 													</FormControl>
 													{currentProtocol === "anyconnect" && (
@@ -3384,7 +3114,7 @@ export const InboundFormModal: FC<Props> = ({
 															/>
 														</FormControl>
 													)}
-												</SimpleGrid>
+												</div>
 												<FormControl>
 													{ovLabel(
 														"inbounds.remoteAccess.dns",
@@ -3398,43 +3128,41 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder={"1.1.1.1\n8.8.8.8"}
 													/>
 												</FormControl>
-												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-													<FormControl display="flex" alignItems="center">
+												<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.remoteAccess.tproxy",
 															"Route through Xray",
 															"inbounds.remoteAccess.help.tproxy",
 															"Apply Xray routing and outbounds to this inbound.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("raTproxyEnabled")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.remoteAccess.accounting",
 															"Enable accounting",
 															"inbounds.remoteAccess.help.accounting",
 															"Report live usage to Rebecca quota accounting.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("raAccountingEnabled")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.remoteAccess.redirectGateway",
 															"Redirect gateway",
 															"inbounds.remoteAccess.help.redirectGateway",
 															"Route all client traffic through the tunnel.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("raRedirectGateway")} />
 													</FormControl>
-												</SimpleGrid>
+												</div>
 												{currentProtocol === "anyconnect" && (
-													<Stack spacing={2}>
-														<FormControl
-															isInvalid={Boolean(errors.raCertificateNames)}
-														>
+													<div className="flex flex-col gap-2">
+														<FormControl isInvalid={Boolean(errors.raCertificateNames)}>
 															{ovLabel(
 																"inbounds.anyconnect.certificateNames",
 																"Certificate domains / IPs",
@@ -3447,30 +3175,22 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder={"vpn.example.com\n203.0.113.10"}
 															/>
 															{errors.raCertificateNames?.message && (
-																<Text fontSize="xs" color="red.500" mt={1}>
+																<p className="text-[0.75rem] text-red-500 mt-1">
 																	{String(errors.raCertificateNames.message)}
-																</Text>
+																</p>
 															)}
 														</FormControl>
-														<Box>
-															<Button
-																size="sm"
-																leftIcon={<SparklesIcon width={16} />}
-																onClick={handleGenerateAnyConnectSelfSigned}
-																isLoading={anyConnectCertLoading}
-															>
+														<div>
+															<Button variant="solid" size="sm" leftIcon={<SparklesIcon className="w-16" />} onClick={handleGenerateAnyConnectSelfSigned} isLoading={anyConnectCertLoading}>
 																{t("inbounds.anyconnect.generateSelfSigned")}
 															</Button>
-														</Box>
-													</Stack>
+														</div>
+													</div>
 												)}
-												<FormControl
-													isRequired={
+												<FormControl isRequired={
 														currentProtocol === "ikev2" ||
 														watch("raAuthMode") !== "password"
-													}
-													isInvalid={Boolean(fieldValidationErrors.raCA)}
-												>
+													} isInvalid={Boolean(fieldValidationErrors.raCA)}>
 													{ovLabel(
 														"inbounds.remoteAccess.ca",
 														"CA certificate",
@@ -3479,17 +3199,14 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 													<Textarea rows={4} {...register("raCA")} />
 													{fieldValidationErrors.raCA && (
-														<Text fontSize="xs" color="red.500">
+														<p className="text-[0.75rem] text-red-500">
 															{fieldValidationErrors.raCA}
-														</Text>
+														</p>
 													)}
 												</FormControl>
-												<FormControl
-													isRequired
-													isInvalid={Boolean(
+												<FormControl isRequired isInvalid={Boolean(
 														fieldValidationErrors.raServerCertificate,
-													)}
-												>
+													)}>
 													{ovLabel(
 														"inbounds.remoteAccess.serverCertificate",
 														"Server certificate",
@@ -3501,15 +3218,12 @@ export const InboundFormModal: FC<Props> = ({
 														{...register("raServerCertificate")}
 													/>
 													{fieldValidationErrors.raServerCertificate && (
-														<Text fontSize="xs" color="red.500">
+														<p className="text-[0.75rem] text-red-500">
 															{fieldValidationErrors.raServerCertificate}
-														</Text>
+														</p>
 													)}
 												</FormControl>
-												<FormControl
-													isRequired
-													isInvalid={Boolean(fieldValidationErrors.raServerKey)}
-												>
+												<FormControl isRequired isInvalid={Boolean(fieldValidationErrors.raServerKey)}>
 													{ovLabel(
 														"inbounds.remoteAccess.serverKey",
 														"Server key",
@@ -3518,19 +3232,16 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 													<Textarea rows={4} {...register("raServerKey")} />
 													{fieldValidationErrors.raServerKey && (
-														<Text fontSize="xs" color="red.500">
+														<p className="text-[0.75rem] text-red-500">
 															{fieldValidationErrors.raServerKey}
-														</Text>
+														</p>
 													)}
 												</FormControl>
 												{currentProtocol === "ikev2" ? (
-													<Stack spacing={3}>
-														<FormControl
-															isRequired
-															isInvalid={Boolean(
+													<div className="flex flex-col gap-3">
+														<FormControl isRequired isInvalid={Boolean(
 																fieldValidationErrors.raServerIdentity,
-															)}
-														>
+															)}>
 															{ovLabel(
 																"inbounds.ikev2.serverIdentity",
 																"Server identity",
@@ -3542,9 +3253,9 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder="vpn.example.com"
 															/>
 															{fieldValidationErrors.raServerIdentity && (
-																<Text fontSize="xs" color="red.500">
+																<p className="text-[0.75rem] text-red-500">
 																	{fieldValidationErrors.raServerIdentity}
-																</Text>
+																</p>
 															)}
 														</FormControl>
 														<FormControl>
@@ -3565,12 +3276,9 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 															<Input {...register("ikeEspProposals")} />
 														</FormControl>
-														<FormControl
-															isRequired={!watch("raRedirectGateway")}
-															isInvalid={Boolean(
+														<FormControl isRequired={!watch("raRedirectGateway")} isInvalid={Boolean(
 																fieldValidationErrors.ikeRoutes,
-															)}
-														>
+															)}>
 															{ovLabel(
 																"inbounds.ikev2.routes",
 																"Split-tunnel routes",
@@ -3579,15 +3287,12 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 															<Textarea rows={2} {...register("ikeRoutes")} />
 															{fieldValidationErrors.ikeRoutes && (
-																<Text fontSize="xs" color="red.500">
+																<p className="text-[0.75rem] text-red-500">
 																	{fieldValidationErrors.ikeRoutes}
-																</Text>
+																</p>
 															)}
 														</FormControl>
-														<SimpleGrid
-															columns={{ base: 1, md: 4 }}
-															spacing={3}
-														>
+														<div className="grid grid-cols-1 md:grid-cols-4 gap-3">
 															<FormControl>
 																{ovLabel(
 																	"inbounds.ikev2.ikeLifetime",
@@ -3624,42 +3329,39 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 																<Input {...register("ikeDpdDelay")} />
 															</FormControl>
-														</SimpleGrid>
-														<SimpleGrid
-															columns={{ base: 1, md: 3 }}
-															spacing={3}
-														>
-															<FormControl display="flex" alignItems="center">
+														</div>
+														<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+															<FormControl className="flex items-center">
 																{ovLabel(
 																	"inbounds.ikev2.mobike",
 																	"MOBIKE",
 																	"inbounds.ikev2.help.mobike",
 																	"Allow clients to change networks without reconnecting.",
-																	{ mb: 0 },
+																	{ className: "mb-0" },
 																)}
 																<Switch {...register("ikeMobike")} />
 															</FormControl>
-															<FormControl display="flex" alignItems="center">
+															<FormControl className="flex items-center">
 																{ovLabel(
 																	"inbounds.ikev2.reauth",
 																	"Reauthenticate",
 																	"inbounds.ikev2.help.reauth",
 																	"Require full authentication when the IKE SA lifetime expires.",
-																	{ mb: 0 },
+																	{ className: "mb-0" },
 																)}
 																<Switch {...register("ikeReauth")} />
 															</FormControl>
-															<FormControl display="flex" alignItems="center">
+															<FormControl className="flex items-center">
 																{ovLabel(
 																	"inbounds.ikev2.sendCert",
 																	"Send certificate",
 																	"inbounds.ikev2.help.sendCert",
 																	"Send the server certificate during authentication.",
-																	{ mb: 0 },
+																	{ className: "mb-0" },
 																)}
 																<Switch {...register("ikeSendCert")} />
 															</FormControl>
-														</SimpleGrid>
+														</div>
 														<FormControl>
 															{ovLabel(
 																"inbounds.ikev2.fragmentation",
@@ -3697,16 +3399,13 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 															/>
 														</FormControl>
-													</Stack>
+													</div>
 												) : (
-													<Stack spacing={3}>
-														<Text fontSize="sm" fontWeight="semibold">
+													<div className="flex flex-col gap-3">
+														<p className="text-[0.875rem] font-semibold">
 															{t("inbounds.anyconnect.connection")}
-														</Text>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
+														</p>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
 																{ovLabel(
 																	"inbounds.anyconnect.transport",
@@ -3744,12 +3443,9 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																/>
 															</FormControl>
-															<FormControl
-																isRequired={watch("acUDPEnabled")}
-																isInvalid={Boolean(
+															<FormControl isRequired={watch("acUDPEnabled")} isInvalid={Boolean(
 																	fieldValidationErrors.acUDPPort,
-																)}
-															>
+																)}>
 																{ovLabel(
 																	"inbounds.anyconnect.udpPort",
 																	"UDP/DTLS port",
@@ -3761,9 +3457,9 @@ export const InboundFormModal: FC<Props> = ({
 																	isDisabled={!watch("acUDPEnabled")}
 																/>
 																{fieldValidationErrors.acUDPPort && (
-																	<Text fontSize="xs" color="red.500" mt={1}>
+																	<p className="text-[0.75rem] text-red-500 mt-1">
 																		{fieldValidationErrors.acUDPPort}
-																	</Text>
+																	</p>
 																)}
 															</FormControl>
 															<FormControl>
@@ -3787,25 +3483,22 @@ export const InboundFormModal: FC<Props> = ({
 																	isDisabled={!watch("acUDPEnabled")}
 																/>
 															</FormControl>
-														</SimpleGrid>
-														<FormControl display="flex" alignItems="center">
+														</div>
+														<FormControl className="flex items-center">
 															{ovLabel(
 																"inbounds.anyconnect.listenHostIsDynDNS",
 																"Dynamic listen hostname",
 																"inbounds.anyconnect.help.listenHostIsDynDNS",
 																"Resolve the listen hostname again when reconnecting.",
-																{ mb: 0 },
+																{ className: "mb-0" },
 															)}
 															<Switch {...register("acListenHostIsDynDNS")} />
 														</FormControl>
-														<Divider />
-														<Text fontSize="sm" fontWeight="semibold">
+														<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+														<p className="text-[0.875rem] font-semibold">
 															{t("inbounds.anyconnect.sessions")}
-														</Text>
-														<SimpleGrid
-															columns={{ base: 1, md: 3 }}
-															spacing={3}
-														>
+														</p>
+														<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 															{(
 																[
 																	[
@@ -3855,12 +3548,9 @@ export const InboundFormModal: FC<Props> = ({
 																	],
 																] as const
 															).map(([name, label, help]) => (
-																<FormControl
-																	key={name}
-																	isInvalid={Boolean(
+																<FormControl key={name} isInvalid={Boolean(
 																		fieldValidationErrors[name],
-																	)}
-																>
+																	)}>
 																	{ovLabel(
 																		`inbounds.anyconnect.${name}`,
 																		label,
@@ -3869,17 +3559,14 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																	<Input {...register(name)} />
 																	{fieldValidationErrors[name] && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors[name]}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 															))}
-														</SimpleGrid>
-														<SimpleGrid
-															columns={{ base: 1, md: 3 }}
-															spacing={3}
-														>
+														</div>
+														<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 															{(
 																[
 																	[
@@ -3924,12 +3611,9 @@ export const InboundFormModal: FC<Props> = ({
 																	],
 																] as const
 															).map(([name, label, help]) => (
-																<FormControl
-																	key={name}
-																	isInvalid={Boolean(
+																<FormControl key={name} isInvalid={Boolean(
 																		fieldValidationErrors[name],
-																	)}
-																>
+																	)}>
 																	{ovLabel(
 																		`inbounds.anyconnect.${name}`,
 																		label,
@@ -3938,13 +3622,13 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																	<Input {...register(name)} />
 																	{fieldValidationErrors[name] && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors[name]}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 															))}
-														</SimpleGrid>
+														</div>
 														<FormControl>
 															{ovLabel(
 																"inbounds.anyconnect.rekeyMethod",
@@ -3975,10 +3659,10 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 															/>
 														</FormControl>
-														<Divider />
-														<Text fontSize="sm" fontWeight="semibold">
+														<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+														<p className="text-[0.875rem] font-semibold">
 															{t("inbounds.anyconnect.networking")}
-														</Text>
+														</p>
 														<FormControl>
 															{ovLabel(
 																"inbounds.anyconnect.routes",
@@ -3997,15 +3681,10 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 															<Textarea rows={2} {...register("acNoRoutes")} />
 														</FormControl>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
-															<FormControl
-																isInvalid={Boolean(
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+															<FormControl isInvalid={Boolean(
 																	fieldValidationErrors.acNBNS,
-																)}
-															>
+																)}>
 																{ovLabel(
 																	"inbounds.anyconnect.nbns",
 																	"NBNS servers",
@@ -4014,16 +3693,14 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 																<Textarea rows={2} {...register("acNBNS")} />
 																{fieldValidationErrors.acNBNS && (
-																	<Text fontSize="xs" color="red.500" mt={1}>
+																	<p className="text-[0.75rem] text-red-500 mt-1">
 																		{fieldValidationErrors.acNBNS}
-																	</Text>
+																	</p>
 																)}
 															</FormControl>
-															<FormControl
-																isInvalid={Boolean(
+															<FormControl isInvalid={Boolean(
 																	fieldValidationErrors.acSplitDNS,
-																)}
-															>
+																)}>
 																{ovLabel(
 																	"inbounds.anyconnect.splitDNS",
 																	"Split DNS domains",
@@ -4035,17 +3712,15 @@ export const InboundFormModal: FC<Props> = ({
 																	{...register("acSplitDNS")}
 																/>
 																{fieldValidationErrors.acSplitDNS && (
-																	<Text fontSize="xs" color="red.500" mt={1}>
+																	<p className="text-[0.75rem] text-red-500 mt-1">
 																		{fieldValidationErrors.acSplitDNS}
-																	</Text>
+																	</p>
 																)}
 															</FormControl>
-														</SimpleGrid>
-														<FormControl
-															isInvalid={Boolean(
+														</div>
+														<FormControl isInvalid={Boolean(
 																fieldValidationErrors.acRestrictToPorts,
-															)}
-														>
+															)}>
 															{ovLabel(
 																"inbounds.anyconnect.restrictToPorts",
 																"Allowed destination ports",
@@ -4057,15 +3732,12 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder="tcp(80,443), udp(53)"
 															/>
 															{fieldValidationErrors.acRestrictToPorts && (
-																<Text fontSize="xs" color="red.500" mt={1}>
+																<p className="text-[0.75rem] text-red-500 mt-1">
 																	{fieldValidationErrors.acRestrictToPorts}
-																</Text>
+																</p>
 															)}
 														</FormControl>
-														<SimpleGrid
-															columns={{ base: 1, md: 3 }}
-															spacing={3}
-														>
+														<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 															{(
 																[
 																	[
@@ -4095,12 +3767,9 @@ export const InboundFormModal: FC<Props> = ({
 																	],
 																] as const
 															).map(([name, label, help]) => (
-																<FormControl
-																	key={name}
-																	isInvalid={Boolean(
+																<FormControl key={name} isInvalid={Boolean(
 																		fieldValidationErrors[name],
-																	)}
-																>
+																	)}>
 																	{ovLabel(
 																		`inbounds.anyconnect.${name}`,
 																		label,
@@ -4109,21 +3778,18 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																	<Input {...register(name)} />
 																	{fieldValidationErrors[name] && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors[name]}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 															))}
-														</SimpleGrid>
-														<Divider />
-														<Text fontSize="sm" fontWeight="semibold">
+														</div>
+														<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+														<p className="text-[0.875rem] font-semibold">
 															{t("inbounds.anyconnect.tlsCompatibility")}
-														</Text>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
+														</p>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
 																{ovLabel(
 																	"inbounds.anyconnect.banner",
@@ -4151,11 +3817,9 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 																<Input {...register("acDefaultDomain")} />
 															</FormControl>
-															<FormControl
-																isInvalid={Boolean(
+															<FormControl isInvalid={Boolean(
 																	fieldValidationErrors.acCertUserOID,
-																)}
-															>
+																)}>
 																{ovLabel(
 																	"inbounds.anyconnect.certUserOID",
 																	"Certificate username OID",
@@ -4164,17 +3828,15 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 																<Input {...register("acCertUserOID")} />
 																{fieldValidationErrors.acCertUserOID && (
-																	<Text fontSize="xs" color="red.500" mt={1}>
+																	<p className="text-[0.75rem] text-red-500 mt-1">
 																		{fieldValidationErrors.acCertUserOID}
-																	</Text>
+																	</p>
 																)}
 															</FormControl>
-														</SimpleGrid>
-														<FormControl
-															isInvalid={Boolean(
+														</div>
+														<FormControl isInvalid={Boolean(
 																fieldValidationErrors.acTLSPriorities,
-															)}
-														>
+															)}>
 															{ovLabel(
 																"inbounds.anyconnect.tlsPriorities",
 																"TLS priorities",
@@ -4183,15 +3845,12 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 															<Input {...register("acTLSPriorities")} />
 															{fieldValidationErrors.acTLSPriorities && (
-																<Text fontSize="xs" color="red.500" mt={1}>
+																<p className="text-[0.75rem] text-red-500 mt-1">
 																	{fieldValidationErrors.acTLSPriorities}
-																</Text>
+																</p>
 															)}
 														</FormControl>
-														<SimpleGrid
-															columns={{ base: 1, md: 3 }}
-															spacing={3}
-														>
+														<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 															{(
 																[
 																	[
@@ -4261,49 +3920,42 @@ export const InboundFormModal: FC<Props> = ({
 																	],
 																] as const
 															).map(([name, label, help]) => (
-																<FormControl
-																	key={name}
-																	display="flex"
-																	alignItems="center"
-																>
+																<FormControl key={name} className="flex items-center">
 																	{ovLabel(
 																		`inbounds.anyconnect.${name}`,
 																		label,
 																		`inbounds.anyconnect.help.${name}`,
 																		help,
-																		{ mb: 0 },
+																		{ className: "mb-0" },
 																	)}
 																	<Switch {...register(name)} />
 																</FormControl>
 															))}
-														</SimpleGrid>
-													</Stack>
+														</div>
+													</div>
 												)}
-											</Stack>
+											</div>
 										)}
 										{(currentProtocol === "l2tp" ||
 											currentProtocol === "pptp") && (
-											<Stack spacing={3}>
+											<div className="flex flex-col gap-3">
 												{currentProtocol === "l2tp" && (
-													<Alert status="info" borderRadius="md">
+													<Alert status="info" className="rounded-md">
 														<AlertIcon />
-														<Box>
-															<AlertTitle fontSize="sm">
+														<div>
+															<AlertTitle className="text-[0.875rem]">
 																{t("inbounds.l2tp.fixedPortsTitle")}
 															</AlertTitle>
-															<AlertDescription fontSize="sm">
+															<AlertDescription className="text-[0.875rem]">
 																{t("inbounds.l2tp.fixedPortsDescription")}
 															</AlertDescription>
-														</Box>
+														</div>
 													</Alert>
 												)}
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isRequired={l2tpTproxyEnabled}
-														isInvalid={Boolean(
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isRequired={l2tpTproxyEnabled} isInvalid={Boolean(
 															fieldValidationErrors.l2tpTunnelPort,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.l2tp.tunnelPort",
 															"Tunnel port",
@@ -4320,17 +3972,14 @@ export const InboundFormModal: FC<Props> = ({
 															}
 														/>
 														{fieldValidationErrors.l2tpTunnelPort && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.l2tpTunnelPort}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.l2tpIPv4Pool,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.l2tp.ipv4Pool",
 															"IPv4 pool CIDR",
@@ -4342,19 +3991,16 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="10.67.0.0/16"
 														/>
 														{fieldValidationErrors.l2tpIPv4Pool && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.l2tpIPv4Pool}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-												</SimpleGrid>
+												</div>
 												{currentProtocol === "l2tp" && (
-													<FormControl
-														isRequired
-														isInvalid={Boolean(
+													<FormControl isRequired isInvalid={Boolean(
 															fieldValidationErrors.l2tpIPSecPSK,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.l2tp.ipsecPsk",
 															"IPsec pre-shared key",
@@ -4366,9 +4012,9 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="change-this-secret"
 														/>
 														{fieldValidationErrors.l2tpIPSecPSK && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.l2tpIPSecPSK}
-															</Text>
+															</p>
 														)}
 													</FormControl>
 												)}
@@ -4385,10 +4031,8 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder={"1.1.1.1\n8.8.8.8"}
 													/>
 												</FormControl>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl
-														isInvalid={Boolean(fieldValidationErrors.l2tpMTU)}
-													>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl isInvalid={Boolean(fieldValidationErrors.l2tpMTU)}>
 														{ovLabel(
 															"inbounds.l2tp.mtu",
 															"MTU",
@@ -4400,14 +4044,12 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="1410"
 														/>
 														{fieldValidationErrors.l2tpMTU && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.l2tpMTU}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(fieldValidationErrors.l2tpMRU)}
-													>
+													<FormControl isInvalid={Boolean(fieldValidationErrors.l2tpMRU)}>
 														{ovLabel(
 															"inbounds.l2tp.mru",
 															"MRU",
@@ -4419,16 +4061,14 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="1410"
 														/>
 														{fieldValidationErrors.l2tpMRU && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.l2tpMRU}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.l2tpLcpEchoInterval,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.l2tp.lcpEchoInterval",
 															"LCP echo interval",
@@ -4440,16 +4080,14 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="30"
 														/>
 														{fieldValidationErrors.l2tpLcpEchoInterval && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.l2tpLcpEchoInterval}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-													<FormControl
-														isInvalid={Boolean(
+													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.l2tpLcpEchoFailure,
-														)}
-													>
+														)}>
 														{ovLabel(
 															"inbounds.l2tp.lcpEchoFailure",
 															"LCP echo failure",
@@ -4461,62 +4099,62 @@ export const InboundFormModal: FC<Props> = ({
 															placeholder="4"
 														/>
 														{fieldValidationErrors.l2tpLcpEchoFailure && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.l2tpLcpEchoFailure}
-															</Text>
+															</p>
 														)}
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-													<FormControl display="flex" alignItems="center">
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.l2tp.redirectGateway",
 															"Redirect gateway",
 															"inbounds.l2tp.help.redirectGateway",
 															"Route all client traffic through the L2TP/IPsec VPN.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("l2tpRedirectGateway")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.l2tp.tproxy",
 															"Route through Xray",
 															"inbounds.l2tp.help.tproxy",
 															"Forward VPN client traffic into Xray so routing rules and Xray outbounds apply. Disable for direct NAT egress from the node.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("l2tpTproxyEnabled")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
+													<FormControl className="flex items-center">
 														{ovLabel(
 															"inbounds.l2tp.accounting",
 															"Enable accounting",
 															"inbounds.l2tp.help.accounting",
 															"Record L2TP session traffic and report it to the same Rebecca user quota/accounting pipeline.",
-															{ mb: 0 },
+															{ className: "mb-0" },
 														)}
 														<Switch {...register("l2tpAccountingEnabled")} />
 													</FormControl>
-												</SimpleGrid>
-											</Stack>
+												</div>
+											</div>
 										)}
-									</Stack>
+									</div>
 
 									{supportsStreamSettings && (
-										<Stack className="xray-dialog-section" spacing={3}>
-											<Text fontSize="sm" fontWeight="semibold">
+										<div className="flex flex-col gap-3 xray-dialog-section">
+											<p className="text-[0.875rem] font-semibold">
 												{t("inbounds.streamSettings")}
-											</Text>
+											</p>
 											{currentProtocol === "hysteria" ? (
-												<Alert status="info" borderRadius="md">
+												<Alert status="info" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.hysteria.fixedTransport")}
 													</AlertDescription>
 												</Alert>
 											) : (
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl>
 														<FormLabel>{t("inbounds.network")}</FormLabel>
 														<SearchableTagSelect
@@ -4569,46 +4207,44 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														/>
 													</FormControl>
-												</SimpleGrid>
+												</div>
 											)}
 											{streamCompatibilityError && (
-												<Alert status="error" borderRadius="md">
+												<Alert status="error" className="rounded-md">
 													<AlertIcon />
-													<AlertDescription fontSize="sm">
+													<AlertDescription className="text-[0.875rem]">
 														{streamCompatibilityError}
 													</AlertDescription>
 												</Alert>
 											)}
 
 											{streamNetwork === "ws" && (
-												<Alert status="warning" borderRadius="md" mt={2}>
+												<Alert status="warning" className="rounded-md mt-2">
 													<AlertIcon />
-													<Box>
-														<AlertTitle fontSize="sm">
+													<div>
+														<AlertTitle className="text-[0.875rem]">
 															{t("inbounds.wsDeprecatedTitle")}
 														</AlertTitle>
-														<AlertDescription fontSize="xs">
+														<AlertDescription className="text-[0.75rem]">
 															{t("inbounds.wsDeprecatedDescription")}
 														</AlertDescription>
-													</Box>
+													</div>
 												</Alert>
 											)}
 
 											{streamNetwork === "ws" && (
-												<Stack spacing={3}>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-														<FormControl
-															isInvalid={!!fieldValidationErrors.wsPath}
-														>
+												<div className="flex flex-col gap-3">
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+														<FormControl isInvalid={!!fieldValidationErrors.wsPath}>
 															<FormLabel>{t("inbounds.ws.path")}</FormLabel>
 															<Input
 																{...register("wsPath")}
 																placeholder="/ws"
 															/>
 															{fieldValidationErrors.wsPath && (
-																<Text fontSize="xs" color="red.500" mt={1}>
+																<p className="text-[0.75rem] text-red-500 mt-1">
 																	{fieldValidationErrors.wsPath}
-																</Text>
+																</p>
 															)}
 														</FormControl>
 														<FormControl>
@@ -4618,11 +4254,9 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder="example.com"
 															/>
 														</FormControl>
-														<FormControl
-															isInvalid={
+														<FormControl isInvalid={
 																!!fieldValidationErrors.wsHeartbeatPeriod
-															}
-														>
+															}>
 															<FormLabel>Heartbeat period (seconds)</FormLabel>
 															<Input
 																{...register("wsHeartbeatPeriod")}
@@ -4635,33 +4269,26 @@ export const InboundFormModal: FC<Props> = ({
 																</FormErrorMessage>
 															)}
 														</FormControl>
-														<FormControl display="flex" alignItems="center">
-															<FormLabel mb={0}>
+														<FormControl className="flex items-center">
+															<FormLabel className="mb-0">
 																Accept PROXY protocol
 															</FormLabel>
 															<Switch {...register("wsAcceptProxyProtocol")} />
 														</FormControl>
-													</SimpleGrid>
-													<Stack spacing={2}>
-														<Flex justify="space-between" align="center">
-															<Text fontWeight="medium">
+													</div>
+													<div className="flex flex-col gap-2">
+														<div className="flex justify-between items-center">
+															<p className="font-medium">
 																{t("inbounds.ws.headers")}
-															</Text>
-															<Button
-																size="xs"
-																onClick={() =>
+															</p>
+															<Button variant="solid" size="xs" onClick={() =>
 																	appendWsHeader({ name: "", value: "" })
-																}
-															>
+																}>
 																{t("inbounds.accounts.add")}
 															</Button>
-														</Flex>
+														</div>
 														{wsHeaderFields.map((field, index) => (
-															<HStack
-																key={field.id}
-																spacing={2}
-																align="flex-start"
-															>
+															<div key={field.id} className="flex flex-row gap-2 items-start">
 																<FormControl>
 																	<Input
 																		{...register(
@@ -4678,22 +4305,17 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder={t("inbounds.ws.headerValue")}
 																	/>
 																</FormControl>
-																<Button
-																	size="xs"
-																	variant="ghost"
-																	colorScheme="red"
-																	onClick={() => removeWsHeader(index)}
-																>
+																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeWsHeader(index)}>
 																	{t("delete")}
 																</Button>
-															</HStack>
+															</div>
 														))}
-													</Stack>
-												</Stack>
+													</div>
+												</div>
 											)}
 
 											{streamNetwork === "tcp" && (
-												<Stack spacing={3}>
+												<div className="flex flex-col gap-3">
 													<FormControl>
 														<FormLabel>
 															{t("inbounds.tcp.headerType")}
@@ -4717,10 +4339,7 @@ export const InboundFormModal: FC<Props> = ({
 														/>
 													</FormControl>
 													{tcpHeaderType === "http" && (
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
 																<FormLabel>{t("inbounds.tcp.host")}</FormLabel>
 																<Textarea
@@ -4732,14 +4351,14 @@ export const InboundFormModal: FC<Props> = ({
 																<FormLabel>{t("inbounds.tcp.path")}</FormLabel>
 																<Input {...register("tcpHttpPath")} />
 															</FormControl>
-														</SimpleGrid>
+														</div>
 													)}
-												</Stack>
+												</div>
 											)}
 
 										{streamNetwork === "grpc" && (
-											<Stack spacing={3}>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 												<FormControl>
 															<FormLabel>{t("serviceName")}</FormLabel>
 														<Input {...register("grpcServiceName")} />
@@ -4750,22 +4369,20 @@ export const InboundFormModal: FC<Props> = ({
 														</FormLabel>
 														<Input {...register("grpcAuthority")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.grpc.multiMode")}
 														</FormLabel>
 													<Switch {...register("grpcMultiMode")} />
 												</FormControl>
-													<FormControl display="flex" alignItems="center">
-															<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+															<FormLabel className="mb-0">
 																Permit without stream
 															</FormLabel>
-															<Switch
-																{...register("grpcPermitWithoutStream")}
-															/>
+															<Switch {...register("grpcPermitWithoutStream")} />
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 													{(
 														[
 															["grpcIdleTimeout", "Idle timeout (seconds)"],
@@ -4779,10 +4396,7 @@ export const InboundFormModal: FC<Props> = ({
 																],
 														] as const
 													).map(([name, label]) => (
-														<FormControl
-															key={name}
-															isInvalid={!!fieldValidationErrors[name]}
-														>
+														<FormControl key={name} isInvalid={!!fieldValidationErrors[name]}>
 															<FormLabel>{label}</FormLabel>
 																<Input
 																	{...register(name)}
@@ -4799,13 +4413,13 @@ export const InboundFormModal: FC<Props> = ({
 														<FormLabel>User-Agent</FormLabel>
 														<Input {...register("grpcUserAgent")} />
 													</FormControl>
-												</SimpleGrid>
-											</Stack>
+												</div>
+											</div>
 										)}
 
 										{streamNetwork === "kcp" && (
-											<Stack spacing={3}>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 													<FormControl>
 														<FormLabel>
 															{t("inbounds.kcp.headerType")} (legacy)
@@ -4818,8 +4432,8 @@ export const InboundFormModal: FC<Props> = ({
 														</FormLabel>
 														<Input {...register("kcpSeed")} />
 													</FormControl>
-												</SimpleGrid>
-												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 													{(
 														[
 															["kcpMtu", "MTU", "1350"],
@@ -4856,10 +4470,7 @@ export const InboundFormModal: FC<Props> = ({
 																],
 														] as const
 													).map(([name, label, placeholder]) => (
-														<FormControl
-															key={name}
-															isInvalid={!!fieldValidationErrors[name]}
-														>
+														<FormControl key={name} isInvalid={!!fieldValidationErrors[name]}>
 															<FormLabel>{label}</FormLabel>
 															<Input
 																{...register(name as keyof InboundFormValues)}
@@ -4873,18 +4484,18 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														</FormControl>
 													))}
-												</SimpleGrid>
-												<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+												</div>
+												<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															Congestion control (legacy)
 														</FormLabel>
 													<Switch {...register("kcpCongestion")} />
 												</FormControl>
-											</Stack>
+											</div>
 										)}
 
 											{streamNetwork === "quic" && (
-												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+												<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 													<FormControl>
 														<FormLabel>{t("inbounds.quic.security")}</FormLabel>
 														<Input {...register("quicSecurity")} />
@@ -4899,25 +4510,23 @@ export const InboundFormModal: FC<Props> = ({
 														</FormLabel>
 														<Input {...register("quicHeaderType")} />
 													</FormControl>
-												</SimpleGrid>
+												</div>
 											)}
 
 										{streamNetwork === "httpupgrade" && (
-											<Stack spacing={3}>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-													<FormControl
-															isInvalid={
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+													<FormControl isInvalid={
 																!!fieldValidationErrors.httpupgradePath
-															}
-													>
+															}>
 														<FormLabel>
 															{t("inbounds.httpUpgrade.path")}
 														</FormLabel>
 														<Input {...register("httpupgradePath")} />
 														{fieldValidationErrors.httpupgradePath && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.httpupgradePath}
-															</Text>
+															</p>
 														)}
 													</FormControl>
 													<FormControl>
@@ -4926,36 +4535,27 @@ export const InboundFormModal: FC<Props> = ({
 														</FormLabel>
 													<Input {...register("httpupgradeHost")} />
 												</FormControl>
-													<FormControl display="flex" alignItems="center">
-															<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+															<FormLabel className="mb-0">
 																Accept PROXY protocol
 															</FormLabel>
-															<Switch
-																{...register("httpupgradeAcceptProxyProtocol")}
-															/>
+															<Switch {...register("httpupgradeAcceptProxyProtocol")} />
 													</FormControl>
-												</SimpleGrid>
-												<Stack spacing={2}>
-													<Flex justify="space-between" align="center">
-														<Text fontWeight="medium">Headers</Text>
-															<Button
-																size="xs"
-																onClick={() =>
+												</div>
+												<div className="flex flex-col gap-2">
+													<div className="flex justify-between items-center">
+														<p className="font-medium">Headers</p>
+															<Button variant="solid" size="xs" onClick={() =>
 																	appendHttpupgradeHeader({
 																		name: "",
 																		value: "",
 																	})
-																}
-															>
+																}>
 															{t("inbounds.accounts.add")}
 														</Button>
-													</Flex>
+													</div>
 													{httpupgradeHeaderFields.map((field, index) => (
-															<HStack
-																key={field.id}
-																spacing={2}
-																align="flex-start"
-															>
+															<div key={field.id} className="flex flex-row gap-2 items-start">
 																<Input
 																	{...register(
 																		`httpupgradeHeaders.${index}.name` as const,
@@ -4968,33 +4568,26 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																	placeholder={t("inbounds.ws.headerValue")}
 																/>
-																<Button
-																	size="xs"
-																	variant="ghost"
-																	colorScheme="red"
-																	onClick={() => removeHttpupgradeHeader(index)}
-																>
+																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeHttpupgradeHeader(index)}>
 																{t("delete")}
 															</Button>
-														</HStack>
+														</div>
 													))}
-												</Stack>
-											</Stack>
+												</div>
+											</div>
 										)}
 
 											{streamNetwork === "splithttp" && (
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-													<FormControl
-														isInvalid={!!fieldValidationErrors.splithttpPath}
-													>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+													<FormControl isInvalid={!!fieldValidationErrors.splithttpPath}>
 														<FormLabel>
 															{t("inbounds.splitHttp.path")}
 														</FormLabel>
 														<Input {...register("splithttpPath")} />
 														{fieldValidationErrors.splithttpPath && (
-															<Text fontSize="xs" color="red.500" mt={1}>
+															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.splithttpPath}
-															</Text>
+															</p>
 														)}
 													</FormControl>
 													<FormControl>
@@ -5003,12 +4596,12 @@ export const InboundFormModal: FC<Props> = ({
 														</FormLabel>
 														<Input {...register("splithttpHost")} />
 													</FormControl>
-												</SimpleGrid>
+												</div>
 											)}
 
 											{streamNetwork === "xhttp" && (
-												<Stack spacing={3}>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+												<div className="flex flex-col gap-3">
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
 															<FormLabel>{t("hostsPage.host")}</FormLabel>
 															<Input
@@ -5016,41 +4609,32 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder="example.com"
 															/>
 														</FormControl>
-														<FormControl
-															isInvalid={!!fieldValidationErrors.xhttpPath}
-														>
+														<FormControl isInvalid={!!fieldValidationErrors.xhttpPath}>
 															<FormLabel>{t("path")}</FormLabel>
 															<Input
 																{...register("xhttpPath")}
 																placeholder="/"
 															/>
 															{fieldValidationErrors.xhttpPath && (
-																<Text fontSize="xs" color="red.500" mt={1}>
+																<p className="text-[0.75rem] text-red-500 mt-1">
 																	{fieldValidationErrors.xhttpPath}
-																</Text>
+																</p>
 															)}
 														</FormControl>
-													</SimpleGrid>
-													<Stack spacing={2}>
-														<Flex justify="space-between" align="center">
-															<Text fontWeight="medium">
+													</div>
+													<div className="flex flex-col gap-2">
+														<div className="flex justify-between items-center">
+															<p className="font-medium">
 																{t("inbounds.ws.headers")}
-															</Text>
-															<Button
-																size="xs"
-																onClick={() =>
+															</p>
+															<Button variant="solid" size="xs" onClick={() =>
 																	appendXhttpHeader({ name: "", value: "" })
-																}
-															>
+																}>
 																{t("inbounds.accounts.add")}
 															</Button>
-														</Flex>
+														</div>
 														{xhttpHeaderFields.map((field, index) => (
-															<HStack
-																key={field.id}
-																spacing={2}
-																align="flex-start"
-															>
+															<div key={field.id} className="flex flex-row gap-2 items-start">
 																<FormControl>
 																	<Input
 																		{...register(
@@ -5067,18 +4651,13 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder={t("inbounds.ws.headerValue")}
 																	/>
 																</FormControl>
-																<Button
-																	size="xs"
-																	variant="ghost"
-																	colorScheme="red"
-																	onClick={() => removeXhttpHeader(index)}
-																>
+																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeXhttpHeader(index)}>
 																	{t("delete")}
 																</Button>
-															</HStack>
+															</div>
 														))}
-													</Stack>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													</div>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
 															<FormLabel>{t("inbounds.xhttp.mode")}</FormLabel>
 															<SearchableTagSelect
@@ -5105,11 +4684,9 @@ export const InboundFormModal: FC<Props> = ({
 																}
 															/>
 														</FormControl>
-														<FormControl
-															isInvalid={
+														<FormControl isInvalid={
 																!!fieldValidationErrors.xhttpPaddingBytes
-															}
-														>
+															}>
 															<FormLabel>
 																{t("inbounds.xhttp.paddingBytes")}
 															</FormLabel>
@@ -5118,25 +4695,20 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder="100-1000"
 															/>
 															{fieldValidationErrors.xhttpPaddingBytes && (
-																<Text fontSize="xs" color="red.500" mt={1}>
+																<p className="text-[0.75rem] text-red-500 mt-1">
 																	{fieldValidationErrors.xhttpPaddingBytes}
-																</Text>
+																</p>
 															)}
 														</FormControl>
-													</SimpleGrid>
-													<Stack className="xray-dialog-section" spacing={3}>
-														<Text fontSize="sm" fontWeight="semibold">
+													</div>
+													<div className="flex flex-col gap-3 xray-dialog-section">
+														<p className="text-[0.875rem] font-semibold">
 															Session and XMUX
-														</Text>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
-															<FormControl
-																isInvalid={
+														</p>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+															<FormControl isInvalid={
 																	!!fieldValidationErrors.xhttpSessionIDTable
-																}
-															>
+																}>
 																<FormLabel>Session ID table</FormLabel>
 																<Input
 																	{...register("xhttpSessionIDTable")}
@@ -5148,11 +4720,9 @@ export const InboundFormModal: FC<Props> = ({
 																	</FormErrorMessage>
 																)}
 															</FormControl>
-															<FormControl
-																isInvalid={
+															<FormControl isInvalid={
 																	!!fieldValidationErrors.xhttpSessionIDLength
-																}
-															>
+																}>
 																<FormLabel>Session ID length</FormLabel>
 																<Input
 																	{...register("xhttpSessionIDLength")}
@@ -5198,10 +4768,7 @@ export const InboundFormModal: FC<Props> = ({
 																	],
 																] as const
 															).map(([name, label, placeholder]) => (
-																<FormControl
-																	key={name}
-																	isInvalid={!!fieldValidationErrors[name]}
-																>
+																<FormControl key={name} isInvalid={!!fieldValidationErrors[name]}>
 																	<FormLabel>{label}</FormLabel>
 																	<Input
 																		{...register(
@@ -5216,13 +4783,10 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																</FormControl>
 															))}
-														</SimpleGrid>
-													</Stack>
+														</div>
+													</div>
 													{xhttpMode === "packet-up" && (
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
 																<FormLabel>
 																	{t("inbounds.xhttp.maxBuffered")}
@@ -5241,7 +4805,7 @@ export const InboundFormModal: FC<Props> = ({
 																	placeholder="1000000"
 																/>
 															</FormControl>
-														</SimpleGrid>
+														</div>
 													)}
 													{xhttpMode === "stream-up" && (
 														<FormControl>
@@ -5254,35 +4818,26 @@ export const InboundFormModal: FC<Props> = ({
 															/>
 														</FormControl>
 													)}
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.xhttp.noSSE")}
 														</FormLabel>
 														<Switch {...register("xhttpNoSSEHeader")} />
 													</FormControl>
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.xhttp.paddingObfsMode")}
 														</FormLabel>
 														<Switch {...register("xhttpPaddingObfsMode")} />
 													</FormControl>
-														<Stack
-															className="xray-dialog-section"
-															spacing={3}
-															mt={2}
-														>
-															<Text fontSize="sm" fontWeight="semibold">
+														<div className="flex flex-col gap-3 mt-2 xray-dialog-section">
+															<p className="text-[0.875rem] font-semibold">
 																{t("inbounds.xhttp.obfsOptions")}
-															</Text>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
-																<FormControl
-																	isInvalid={
+															</p>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingKey
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.paddingKey")}
 																	</FormLabel>
@@ -5291,17 +4846,15 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="_dc"
 																	/>
 																	{fieldValidationErrors.xhttpPaddingKey && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpPaddingKey}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingHeader
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.paddingHeader")}
 																	</FormLabel>
@@ -5310,17 +4863,15 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="Referer"
 																	/>
 																	{fieldValidationErrors.xhttpPaddingHeader && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpPaddingHeader}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingPlacement
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.paddingPlacement")}
 																	</FormLabel>
@@ -5356,19 +4907,17 @@ export const InboundFormModal: FC<Props> = ({
 																		)}
 																	/>
 																	{fieldValidationErrors.xhttpPaddingPlacement && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																		{
 																			fieldValidationErrors.xhttpPaddingPlacement
 																		}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingMethod
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.paddingMethod")}
 																	</FormLabel>
@@ -5404,17 +4953,15 @@ export const InboundFormModal: FC<Props> = ({
 																		)}
 																	/>
 																	{fieldValidationErrors.xhttpPaddingMethod && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpPaddingMethod}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkHTTPMethod
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.uplinkHTTPMethod")}
 																	</FormLabel>
@@ -5423,19 +4970,17 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="POST"
 																	/>
 																	{fieldValidationErrors.xhttpUplinkHTTPMethod && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																		{
 																			fieldValidationErrors.xhttpUplinkHTTPMethod
 																		}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpSessionPlacement
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.sessionPlacement")}
 																	</FormLabel>
@@ -5471,35 +5016,31 @@ export const InboundFormModal: FC<Props> = ({
 																		)}
 																	/>
 																	{fieldValidationErrors.xhttpSessionPlacement && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																		{
 																			fieldValidationErrors.xhttpSessionPlacement
 																		}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpSessionKey
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.sessionKey")}
 																	</FormLabel>
 																	<Input {...register("xhttpSessionKey")} />
 																	{fieldValidationErrors.xhttpSessionKey && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpSessionKey}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpSeqPlacement
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.seqPlacement")}
 																	</FormLabel>
@@ -5535,31 +5076,27 @@ export const InboundFormModal: FC<Props> = ({
 																		)}
 																	/>
 																	{fieldValidationErrors.xhttpSeqPlacement && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpSeqPlacement}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																isInvalid={!!fieldValidationErrors.xhttpSeqKey}
-																>
+																<FormControl isInvalid={!!fieldValidationErrors.xhttpSeqKey}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.seqKey")}
 																	</FormLabel>
 																	<Input {...register("xhttpSeqKey")} />
 																	{fieldValidationErrors.xhttpSeqKey && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpSeqKey}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkDataPlacement
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.uplinkDataPlacement")}
 																	</FormLabel>
@@ -5595,19 +5132,17 @@ export const InboundFormModal: FC<Props> = ({
 																		)}
 																	/>
 																	{fieldValidationErrors.xhttpUplinkDataPlacement && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																		{
 																			fieldValidationErrors.xhttpUplinkDataPlacement
 																		}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkDataKey
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.uplinkDataKey")}
 																	</FormLabel>
@@ -5616,17 +5151,15 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="X-Data"
 																	/>
 																	{fieldValidationErrors.xhttpUplinkDataKey && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpUplinkDataKey}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkChunkSize
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.uplinkChunkSize")}
 																	</FormLabel>
@@ -5635,17 +5168,15 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="3000-4000"
 																	/>
 																	{fieldValidationErrors.xhttpUplinkChunkSize && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{fieldValidationErrors.xhttpUplinkChunkSize}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpServerMaxHeaderBytes
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.xhttp.serverMaxHeaderBytes")}
 																	</FormLabel>
@@ -5654,21 +5185,21 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="0"
 																	/>
 																	{fieldValidationErrors.xhttpServerMaxHeaderBytes && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																		{
 																			fieldValidationErrors.xhttpServerMaxHeaderBytes
 																		}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
-															</SimpleGrid>
-														</Stack>
-												</Stack>
+															</div>
+														</div>
+												</div>
 											)}
 
 											{streamNetwork === "hysteria" && (
-												<Stack spacing={3}>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+												<div className="flex flex-col gap-3">
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
 															<FormLabel>
 																{t("inbounds.hysteria.version")}
@@ -5679,11 +5210,9 @@ export const InboundFormModal: FC<Props> = ({
 																isDisabled
 															/>
 														</FormControl>
-														<FormControl
-															isInvalid={
+														<FormControl isInvalid={
 																!!fieldValidationErrors.hysteriaUdpIdleTimeout
-															}
-														>
+															}>
 															<FormLabel>
 																{t("inbounds.hysteria.udpIdleTimeout")}
 															</FormLabel>
@@ -5692,35 +5221,25 @@ export const InboundFormModal: FC<Props> = ({
 																placeholder="60"
 															/>
 															{fieldValidationErrors.hysteriaUdpIdleTimeout && (
-																<Text fontSize="xs" color="red.500" mt={1}>
+																<p className="text-[0.75rem] text-red-500 mt-1">
 																	{fieldValidationErrors.hysteriaUdpIdleTimeout}
-																</Text>
+																</p>
 															)}
 														</FormControl>
-													</SimpleGrid>
+													</div>
 
-													<FormControl display="flex" alignItems="center">
-														<FormLabel mb={0}>
+													<FormControl className="flex items-center">
+														<FormLabel className="mb-0">
 															{t("inbounds.hysteria.enableMasquerade")}
 														</FormLabel>
-														<Switch
-															{...register("hysteriaMasqueradeEnabled")}
-														/>
+														<Switch {...register("hysteriaMasqueradeEnabled")} />
 													</FormControl>
-													<Collapse
-														in={Boolean(hysteriaMasqueradeEnabled)}
-														animateOpacity
-													>
-														<Stack spacing={3} mt={2}>
-															<SimpleGrid
-																columns={{ base: 1, md: 2 }}
-																spacing={3}
-															>
-																<FormControl
-																	isInvalid={
+													<Collapse in={Boolean(hysteriaMasqueradeEnabled)} animateOpacity>
+														<div className="flex flex-col gap-3 mt-2">
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.hysteriaMasqueradeType
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.hysteria.masqueradeType")}
 																	</FormLabel>
@@ -5763,11 +5282,11 @@ export const InboundFormModal: FC<Props> = ({
 																		}
 																	/>
 																	{fieldValidationErrors.hysteriaMasqueradeType && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{
 																				fieldValidationErrors.hysteriaMasqueradeType
 																			}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 																{hysteriaMasqueradeType === "string" && (
@@ -5783,15 +5302,13 @@ export const InboundFormModal: FC<Props> = ({
 																		/>
 																	</FormControl>
 																)}
-															</SimpleGrid>
+															</div>
 
 															{hysteriaMasqueradeType === "proxy" && (
-																<Stack spacing={3}>
-																	<FormControl
-																		isInvalid={
+																<div className="flex flex-col gap-3">
+																	<FormControl isInvalid={
 																			!!fieldValidationErrors.hysteriaMasqueradeUrl
-																		}
-																	>
+																		}>
 																		<FormLabel>
 																			{t("settings.telegram.proxyUrl")}
 																		</FormLabel>
@@ -5800,56 +5317,38 @@ export const InboundFormModal: FC<Props> = ({
 																			placeholder="https://example.com"
 																		/>
 																		{fieldValidationErrors.hysteriaMasqueradeUrl && (
-																			<Text
-																				fontSize="xs"
-																				color="red.500"
-																				mt={1}
-																			>
+																			<p className="text-[0.75rem] text-red-500 mt-1">
 																				{
 																					fieldValidationErrors.hysteriaMasqueradeUrl
 																				}
-																			</Text>
+																			</p>
 																		)}
 																	</FormControl>
-																	<HStack spacing={6} flexWrap="wrap">
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																			w="auto"
-																		>
-																			<FormLabel mb={0}>
+																	<div className="flex flex-row items-center gap-6 flex-wrap">
+																		<FormControl className="flex items-center w-auto">
+																			<FormLabel className="mb-0">
 																				{t("inbounds.hysteria.rewriteHost")}
 																			</FormLabel>
-																			<Switch
-																				{...register(
+																			<Switch {...register(
 																					"hysteriaMasqueradeRewriteHost",
-																				)}
-																			/>
+																				)} />
 																		</FormControl>
-																		<FormControl
-																			display="flex"
-																			alignItems="center"
-																			w="auto"
-																		>
-																			<FormLabel mb={0}>
+																		<FormControl className="flex items-center w-auto">
+																			<FormLabel className="mb-0">
 																				{t("inbounds.hysteria.insecure")}
 																			</FormLabel>
-																			<Switch
-																				{...register(
+																			<Switch {...register(
 																					"hysteriaMasqueradeInsecure",
-																				)}
-																			/>
+																				)} />
 																		</FormControl>
-																	</HStack>
-																</Stack>
+																	</div>
+																</div>
 															)}
 
 															{hysteriaMasqueradeType === "file" && (
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!fieldValidationErrors.hysteriaMasqueradeDir
-																	}
-																>
+																	}>
 																	<FormLabel>
 																		{t("inbounds.hysteria.fileDir")}
 																	</FormLabel>
@@ -5858,11 +5357,11 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="/var/www/html"
 																	/>
 																	{fieldValidationErrors.hysteriaMasqueradeDir && (
-																		<Text fontSize="xs" color="red.500" mt={1}>
+																		<p className="text-[0.75rem] text-red-500 mt-1">
 																			{
 																				fieldValidationErrors.hysteriaMasqueradeDir
 																			}
-																		</Text>
+																		</p>
 																	)}
 																</FormControl>
 															)}
@@ -5879,30 +5378,23 @@ export const InboundFormModal: FC<Props> = ({
 																</FormControl>
 															)}
 
-															<Stack spacing={2}>
-																<Flex justify="space-between" align="center">
-																	<Text fontWeight="medium">
+															<div className="flex flex-col gap-2">
+																<div className="flex justify-between items-center">
+																	<p className="font-medium">
 																		{t("inbounds.hysteria.headers")}
-																	</Text>
-																	<Button
-																		size="xs"
-																		onClick={() =>
+																	</p>
+																	<Button variant="solid" size="xs" onClick={() =>
 																			appendHysteriaMasqueradeHeader({
 																				name: "",
 																				value: "",
 																			})
-																		}
-																	>
+																		}>
 																		{t("inbounds.accounts.add")}
 																	</Button>
-																</Flex>
+																</div>
 																{hysteriaMasqueradeHeaderFields.map(
 																	(field, index) => (
-																		<HStack
-																			key={field.id}
-																			spacing={2}
-																			align="flex-start"
-																		>
+																		<div key={field.id} className="flex flex-row gap-2 items-start">
 																			<FormControl>
 																				<Input
 																					{...register(
@@ -5923,95 +5415,67 @@ export const InboundFormModal: FC<Props> = ({
 																					)}
 																				/>
 																			</FormControl>
-																			<Button
-																				size="xs"
-																				variant="ghost"
-																				colorScheme="red"
-																				onClick={() =>
+																			<Button size="xs" variant="ghost" colorScheme="red" onClick={() =>
 																					removeHysteriaMasqueradeHeader(index)
-																				}
-																			>
+																				}>
 																				{t("delete")}
 																			</Button>
-																		</HStack>
+																		</div>
 																	),
 																)}
-															</Stack>
-														</Stack>
+															</div>
+														</div>
 													</Collapse>
 
-													<Stack spacing={3} className="xray-dialog-section">
-														<Flex
-															justify="space-between"
-															align="center"
-															gap={3}
-														>
-															<Box>
-																<Text fontSize="sm" fontWeight="semibold">
+													<div className="flex flex-col gap-3 xray-dialog-section">
+														<div className="flex justify-between items-center gap-3">
+															<div>
+																<p className="text-[0.875rem] font-semibold">
 																	{t("inbounds.hysteria.udpMasks")}
-																</Text>
-																<Text fontSize="xs" color="gray.500">
+																</p>
+																<p className="text-[0.75rem] text-gray-500">
 																	{t("inbounds.hysteria.udpMasksHint")}
-																</Text>
-															</Box>
-															<Button
-																size="xs"
-																leftIcon={
-																	<SparklesIcon width={14} height={14} />
-																}
-																onClick={() =>
+																</p>
+															</div>
+															<Button variant="solid" size="xs" leftIcon={
+																	<SparklesIcon className="w-14 h-14" />
+																} onClick={() =>
 																	appendHysteriaUdpMask(
 																		createDefaultHysteriaUdpMask(),
 																	)
-																}
-															>
+																}>
 																{t("inbounds.hysteria.addUdpMask")}
 															</Button>
-														</Flex>
+														</div>
 														{fieldValidationErrors.hysteriaUdpMasks && (
-															<Text fontSize="xs" color="red.500">
+															<p className="text-[0.75rem] text-red-500">
 																{fieldValidationErrors.hysteriaUdpMasks}
-															</Text>
+															</p>
 														)}
 														{hysteriaUdpMaskFields.length === 0 && (
-															<Text fontSize="xs" color="gray.500">
+															<p className="text-[0.75rem] text-gray-500">
 																{t("inbounds.hysteria.noUdpMasks")}
-															</Text>
+															</p>
 														)}
 														{hysteriaUdpMaskFields.map((field, index) => {
 															const maskMode =
 																formValues.hysteriaUdpMasks?.[index]?.mode ||
 																"salamander";
 															return (
-																<Stack
-																	key={field.id}
-																	spacing={3}
-																	borderWidth="1px"
-																	borderColor="whiteAlpha.200"
-																	borderRadius="md"
-																	p={3}
-																>
-																	<Flex justify="space-between" align="center">
-																		<Text fontSize="sm" fontWeight="semibold">
+																<div key={field.id} className="flex flex-col gap-3 border border-whiteAlpha-200! rounded-md p-3">
+																	<div className="flex justify-between items-center">
+																		<p className="text-[0.875rem] font-semibold">
 																			{t("inbounds.hysteria.udpMaskTitle", {
 																				index: index + 1,
 																			})}
-																		</Text>
-																		<Button
-																			size="xs"
-																			variant="ghost"
-																			colorScheme="red"
-																			onClick={() =>
+																		</p>
+																		<Button size="xs" variant="ghost" colorScheme="red" onClick={() =>
 																				removeHysteriaUdpMask(index)
-																			}
-																		>
+																			}>
 																			{t("delete")}
 																		</Button>
-																	</Flex>
-																	<SimpleGrid
-																		columns={{ base: 1, md: 2 }}
-																		spacing={3}
-																	>
+																	</div>
+																	<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																		<FormControl>
 																			<FormLabel>
 																				{t("inbounds.fallbacks.type")}
@@ -6062,40 +5526,28 @@ export const InboundFormModal: FC<Props> = ({
 																					/>
 																				)}
 																			/>
-																			<Text
-																				fontSize="xs"
-																				color="gray.500"
-																				mt={1}
-																			>
+																			<p className="text-[0.75rem] text-gray-500 mt-1">
 																				{maskMode === "gecko"
 																					? t("inbounds.hysteria.geckoHint")
 																					: t(
 																							"inbounds.hysteria.salamanderHint",
 																						)}
-																			</Text>
+																			</p>
 																		</FormControl>
 																		<FormControl>
 																			<FormLabel>{t("password")}</FormLabel>
-																			<HStack>
+																			<div className="flex flex-row items-center gap-2">
 																				<Input
 																					{...register(
 																						`hysteriaUdpMasks.${index}.password` as const,
 																					)}
 																					placeholder="Obfuscation password"
 																				/>
-																				<IconButton
-																					aria-label={t(
+																				<IconButton aria-label={t(
 																						"inbounds.hysteria.generatePassword",
-																					)}
-																					icon={
-																						<ArrowPathIcon
-																							width={16}
-																							height={16}
-																						/>
-																					}
-																					size="sm"
-																					variant="outline"
-																					onClick={() =>
+																					)} icon={
+																						<ArrowPathIcon className="w-16 h-16" />
+																					} size="sm" variant="outline" onClick={() =>
 																						form.setValue(
 																							`hysteriaUdpMasks.${index}.password`,
 																							randomLowerAndNum(16),
@@ -6104,9 +5556,8 @@ export const InboundFormModal: FC<Props> = ({
 																								shouldValidate: true,
 																							},
 																						)
-																					}
-																				/>
-																			</HStack>
+																					} />
+																			</div>
 																		</FormControl>
 																		{maskMode === "gecko" && (
 																			<FormControl>
@@ -6119,43 +5570,31 @@ export const InboundFormModal: FC<Props> = ({
 																					)}
 																					placeholder="512-1200"
 																				/>
-																				<Text
-																					fontSize="xs"
-																					color="gray.500"
-																					mt={1}
-																				>
+																				<p className="text-[0.75rem] text-gray-500 mt-1">
 																					{t(
 																						"inbounds.hysteria.packetSizeHint",
 																					)}
-																				</Text>
+																				</p>
 																			</FormControl>
 																		)}
-																	</SimpleGrid>
-																</Stack>
+																	</div>
+																</div>
 															);
 														})}
-													</Stack>
+													</div>
 
-													<Stack spacing={3} className="xray-dialog-section">
-														<FormControl display="flex" alignItems="center">
-															<FormLabel mb={0}>
+													<div className="flex flex-col gap-3 xray-dialog-section">
+														<FormControl className="flex items-center">
+															<FormLabel className="mb-0">
 																{t("inbounds.hysteria.quicParams")}
 															</FormLabel>
-															<Switch
-																{...register("hysteriaQuicParams.enabled")}
-															/>
+															<Switch {...register("hysteriaQuicParams.enabled")} />
 														</FormControl>
-														<Collapse
-															in={Boolean(
+														<Collapse in={Boolean(
 																formValues.hysteriaQuicParams?.enabled,
-															)}
-															animateOpacity
-														>
-															<Stack spacing={3} mt={2}>
-																<SimpleGrid
-																	columns={{ base: 1, md: 2 }}
-																	spacing={3}
-																>
+															)} animateOpacity>
+															<div className="flex flex-col gap-3 mt-2">
+																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
 																		<FormLabel>
 																			{t("inbounds.hysteria.congestion")}
@@ -6212,15 +5651,12 @@ export const InboundFormModal: FC<Props> = ({
 																			/>
 																		</FormControl>
 																	)}
-																</SimpleGrid>
+																</div>
 																{["brutal", "force-brutal"].includes(
 																	formValues.hysteriaQuicParams?.congestion ||
 																		"",
 																) && (
-																	<SimpleGrid
-																		columns={{ base: 1, md: 2 }}
-																		spacing={3}
-																	>
+																	<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																		<FormControl>
 																			<FormLabel>Brutal Up</FormLabel>
 																			<Input
@@ -6239,42 +5675,27 @@ export const InboundFormModal: FC<Props> = ({
 																				placeholder="100 mbps"
 																			/>
 																		</FormControl>
-																	</SimpleGrid>
+																	</div>
 																)}
-																<HStack spacing={6} flexWrap="wrap">
-																	<FormControl
-																		display="flex"
-																		alignItems="center"
-																		w="auto"
-																	>
-																		<FormLabel mb={0}>
+																<div className="flex flex-row items-center gap-6 flex-wrap">
+																	<FormControl className="flex items-center w-auto">
+																		<FormLabel className="mb-0">
 																			{t("common.debug")}
 																		</FormLabel>
-																		<Switch
-																			{...register("hysteriaQuicParams.debug")}
-																		/>
+																		<Switch {...register("hysteriaQuicParams.debug")} />
 																	</FormControl>
-																	<FormControl
-																		display="flex"
-																		alignItems="center"
-																		w="auto"
-																	>
-																		<FormLabel mb={0}>
+																	<FormControl className="flex items-center w-auto">
+																		<FormLabel className="mb-0">
 																			{t("inbounds.hysteria.udpHop")}
 																		</FormLabel>
-																		<Switch
-																			{...register(
+																		<Switch {...register(
 																				"hysteriaQuicParams.udpHopEnabled",
-																			)}
-																		/>
+																			)} />
 																	</FormControl>
-																</HStack>
+																</div>
 																{formValues.hysteriaQuicParams
 																	?.udpHopEnabled && (
-																	<SimpleGrid
-																		columns={{ base: 1, md: 2 }}
-																		spacing={3}
-																	>
+																	<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																		<FormControl>
 																			<FormLabel>
 																				{t("inbounds.hysteria.hopPorts")}
@@ -6297,12 +5718,9 @@ export const InboundFormModal: FC<Props> = ({
 																				placeholder="5-10"
 																			/>
 																		</FormControl>
-																	</SimpleGrid>
+																	</div>
 																)}
-																<SimpleGrid
-																	columns={{ base: 1, md: 2 }}
-																	spacing={3}
-																>
+																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	{HYSTERIA_QUIC_INPUT_FIELDS.map(
 																		({ name, label, placeholder }) => (
 																			<FormControl key={name}>
@@ -6316,49 +5734,40 @@ export const InboundFormModal: FC<Props> = ({
 																			</FormControl>
 																		),
 																	)}
-																</SimpleGrid>
-																<FormControl display="flex" alignItems="center">
-																	<FormLabel mb={0}>
+																</div>
+																<FormControl className="flex items-center">
+																	<FormLabel className="mb-0">
 																		{t("inbounds.hysteria.disablePathMtu")}
 																	</FormLabel>
-																	<Switch
-																		{...register(
+																	<Switch {...register(
 																			"hysteriaQuicParams.disablePathMTUDiscovery",
-																		)}
-																	/>
+																		)} />
 																</FormControl>
-															</Stack>
+															</div>
 														</Collapse>
-													</Stack>
-												</Stack>
+													</div>
+												</div>
 											)}
-											<FormControl display="flex" alignItems="center">
-												<FormLabel mb={0}>
+											<FormControl className="flex items-center">
+												<FormLabel className="mb-0">
 													{t("inbounds.sockopt.enable")}
 												</FormLabel>
 												<Controller
 													control={control}
 													name="sockoptEnabled"
 													render={({ field }) => (
-														<Switch
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
+														<Switch isChecked={Boolean(field.value)} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											</FormControl>
 											<Collapse in={Boolean(sockoptEnabled)} animateOpacity>
-												<Stack
-													className="xray-dialog-section"
-													spacing={3}
-													mt={2}
-												>
-													<Text fontSize="sm" fontWeight="semibold">
+												<div className="flex flex-col gap-3 mt-2 xray-dialog-section">
+													<p className="text-[0.875rem] font-semibold">
 														{t("hostsDialog.sockopt")}
-													</Text>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													</p>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														{renderSockoptNumberInput(
 															"mark",
 															t("inbounds.sockopt.routeMark"),
@@ -6383,8 +5792,8 @@ export const InboundFormModal: FC<Props> = ({
 															"tcpWindowClamp",
 															t("inbounds.sockopt.tcpWindowClamp"),
 														)}
-													</SimpleGrid>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													</div>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														{renderSockoptTextInput(
 															"dialerProxy",
 															t("inbounds.sockopt.dialerProxy"),
@@ -6394,7 +5803,7 @@ export const InboundFormModal: FC<Props> = ({
 															"interfaceName",
 															t("inbounds.sockopt.interfaceName"),
 														)}
-													</SimpleGrid>
+													</div>
 													<FormControl>
 														<FormLabel>Trusted forwarded IP headers</FormLabel>
 														<Textarea
@@ -6402,11 +5811,11 @@ export const InboundFormModal: FC<Props> = ({
 															rows={2}
 															placeholder="X-Forwarded-For"
 														/>
-														<Text fontSize="xs" color="gray.500" mt={1}>
+														<p className="text-[0.75rem] text-gray-500 mt-1">
 															One header name per line.
-														</Text>
+														</p>
 													</FormControl>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
 															<FormLabel>
 																{t("inbounds.sockopt.domainStrategy")}
@@ -6484,8 +5893,8 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 															/>
 														</FormControl>
-													</SimpleGrid>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													</div>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														{renderSockoptSwitch(
 															"acceptProxyProtocol",
 															t("inbounds.sockopt.acceptProxyProtocol"),
@@ -6506,10 +5915,10 @@ export const InboundFormModal: FC<Props> = ({
 															"V6Only",
 															t("inbounds.sockopt.v6Only"),
 														)}
-													</SimpleGrid>
-												</Stack>
+													</div>
+												</div>
 											</Collapse>
-										</Stack>
+										</div>
 									)}
 
 									{streamSecurity !== "tls" &&
@@ -6517,11 +5926,11 @@ export const InboundFormModal: FC<Props> = ({
 										vlessAuthenticationSection}
 
 									{streamSecurity === "tls" && (
-										<Stack className="xray-dialog-section" spacing={3}>
-											<Text fontSize="sm" fontWeight="semibold">
+										<div className="flex flex-col gap-3 xray-dialog-section">
+											<p className="text-[0.875rem] font-semibold">
 												{t("inbounds.tls.title")}
-											</Text>
-											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+											</p>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormControl>
 													<FormLabel>{t("inbounds.tls.serverName")}</FormLabel>
 													<Input
@@ -6565,8 +5974,8 @@ export const InboundFormModal: FC<Props> = ({
 														/>
 													</FormControl>
 												)}
-											</SimpleGrid>
-											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+											</div>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormControl>
 													<FormLabel>{t("inbounds.tls.minVersion")}</FormLabel>
 													<SearchableTagSelect
@@ -6595,12 +6004,10 @@ export const InboundFormModal: FC<Props> = ({
 														}
 													/>
 												</FormControl>
-											</SimpleGrid>
-											<FormControl
-												isInvalid={Boolean(
+											</div>
+											<FormControl isInvalid={Boolean(
 													fieldValidationErrors.tlsFingerprint,
-												)}
-											>
+												)}>
 												<FormLabel>{t("inbounds.tls.fingerprint")}</FormLabel>
 												<SearchableTagSelect
 													value={formValues.tlsFingerprint || ""}
@@ -6647,32 +6054,32 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 												/>
 											</FormControl>
-											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.tls.allowInsecure")}
 													</FormLabel>
 													<Switch {...register("tlsAllowInsecure")} />
 												</FormControl>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.tls.rejectUnknownSni")}
 													</FormLabel>
 													<Switch {...register("tlsRejectUnknownSni")} />
 												</FormControl>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.tls.disableSystemRoot")}
 													</FormLabel>
 													<Switch {...register("tlsDisableSystemRoot")} />
 												</FormControl>
-												<FormControl display="flex" alignItems="center">
-													<FormLabel mb={0}>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0">
 														{t("inbounds.tls.enableSessionResumption")}
 													</FormLabel>
 													<Switch {...register("tlsEnableSessionResumption")} />
 												</FormControl>
-											</SimpleGrid>
+											</div>
 											<FormControl>
 												<FormLabel>
 													{t("inbounds.tls.verifyPeerCertByName")}
@@ -6686,15 +6093,13 @@ export const InboundFormModal: FC<Props> = ({
 													rows={2}
 													placeholder="X25519MLKEM768&#10;X25519"
 												/>
-												<Text fontSize="xs" color="gray.500" mt={1}>
+												<p className="text-[0.75rem] text-gray-500 mt-1">
 													One curve per line, in preference order.
-												</Text>
+												</p>
 											</FormControl>
-											<FormControl
-												isInvalid={Boolean(
+											<FormControl isInvalid={Boolean(
 													fieldValidationErrors.tlsPinnedPeerCertSha256,
-												)}
-											>
+												)}>
 												<FormLabel>
 													{t("inbounds.tls.pinnedPeerCertSha256")}
 												</FormLabel>
@@ -6710,16 +6115,16 @@ export const InboundFormModal: FC<Props> = ({
 													</FormErrorMessage>
 												)}
 											</FormControl>
-											<Divider />
-											<Stack spacing={3}>
-												<Flex align="center" justify="space-between">
-													<Box fontWeight="medium">
+											<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+											<div className="flex flex-col gap-3">
+												<div className="flex items-center justify-between">
+													<div className="font-medium">
 														{t("settings.subscriptions.certificateTitle")}
-													</Box>
-													<Button size="xs" onClick={handleAddTlsCertificate}>
+													</div>
+													<Button variant="solid" size="xs" onClick={handleAddTlsCertificate}>
 														{t("inbounds.tls.addCertificate")}
 													</Button>
-												</Flex>
+												</div>
 												{tlsCertificateFields.map((field, index) => {
 													const certConfig = tlsCertificates[index] || {
 														useFile: true,
@@ -6727,32 +6132,17 @@ export const InboundFormModal: FC<Props> = ({
 													};
 													const usage = certConfig.usage || "encipherment";
 													return (
-														<Box
-															key={field.id}
-															borderWidth="1px"
-															borderRadius="md"
-															borderColor={sectionBorder}
-															p={3}
-														>
-															<Flex
-																justify="space-between"
-																align="center"
-																mb={3}
-															>
-																<Text fontWeight="semibold">
+														<div key={field.id} className={cn("border rounded-md p-3", sectionBorder)}>
+															<div className="flex justify-between items-center mb-3">
+																<p className="font-semibold">
 																	{t("nodes.certificate")} #{index + 1}
-																</Text>
+																</p>
 																{tlsCertificateFields.length > 1 && (
-																	<Button
-																		size="xs"
-																		variant="ghost"
-																		colorScheme="red"
-																		onClick={() => removeTlsCertificate(index)}
-																	>
+																	<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeTlsCertificate(index)}>
 																		{t("delete")}
 																	</Button>
 																)}
-															</Flex>
+															</div>
 															<FormControl>
 																<FormLabel>
 																	{t("inbounds.tls.certificateSource")}
@@ -6763,18 +6153,15 @@ export const InboundFormModal: FC<Props> = ({
 																		`tlsCertificates.${index}.useFile` as const
 																	}
 																	render={({ field }) => (
-																		<RadioGroup
-																			value={field.value ? "file" : "content"}
-																			onChange={(value) =>
+																		<RadioGroup value={field.value ? "file" : "content"} onChange={(value) =>
 																				field.onChange(value === "file")
-																			}
-																		>
-																			<HStack spacing={4}>
+																			}>
+																			<div className="flex flex-row items-center gap-4">
 																				<Radio value="file">{t("path")}</Radio>
 																				<Radio value="content">
 																					{t("inbounds.tls.certificateContent")}
 																				</Radio>
-																			</HStack>
+																			</div>
 																		</RadioGroup>
 																	)}
 																/>
@@ -6782,9 +6169,7 @@ export const InboundFormModal: FC<Props> = ({
 															{certConfig.useFile ? (
 																<FormControl>
 																	<FormLabel>{t("inbounds.tls.existingCertificate")}</FormLabel>
-																	<Select
-																		placeholder={t("inbounds.tls.chooseCertificate")}
-																		onChange={(event) => {
+																	<Select placeholder={t("inbounds.tls.chooseCertificate")} onChange={(event) => {
 																			const certificate = subscriptionBundle?.certificates.find(
 																				(item) => item.path === event.target.value,
 																			);
@@ -6801,8 +6186,7 @@ export const InboundFormModal: FC<Props> = ({
 																				`${certificate.path}privkey.pem`,
 																				{ shouldDirty: true },
 																			);
-																		}}
-																	>
+																		}}>
 																		{(subscriptionBundle?.certificates ?? [])
 																			.filter(
 																				(item) =>
@@ -6820,10 +6204,7 @@ export const InboundFormModal: FC<Props> = ({
 																</FormControl>
 															) : null}
 															{certConfig.useFile ? (
-																<SimpleGrid
-																	columns={{ base: 1, md: 2 }}
-																	spacing={3}
-																>
+																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
 																		<FormLabel>
 																			{t("inbounds.tls.certFile")}
@@ -6844,12 +6225,9 @@ export const InboundFormModal: FC<Props> = ({
 																			)}
 																		/>
 																	</FormControl>
-																</SimpleGrid>
+																</div>
 															) : (
-																<SimpleGrid
-																	columns={{ base: 1, md: 2 }}
-																	spacing={3}
-																>
+																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
 																		<FormLabel>
 																			{t("nodes.certificate")}
@@ -6872,21 +6250,16 @@ export const InboundFormModal: FC<Props> = ({
 																			)}
 																		/>
 																	</FormControl>
-																</SimpleGrid>
+																</div>
 															)}
-															<SimpleGrid
-																columns={{ base: 1, md: 2 }}
-																spacing={3}
-															>
-																<FormControl display="flex" alignItems="center">
-																	<FormLabel mb={0}>
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+																<FormControl className="flex items-center">
+																	<FormLabel className="mb-0">
 																		{t("inbounds.tls.oneTimeLoading")}
 																	</FormLabel>
-																	<Switch
-																		{...register(
+																	<Switch {...register(
 																			`tlsCertificates.${index}.oneTimeLoading` as const,
-																		)}
-																	/>
+																		)} />
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
@@ -6920,25 +6293,23 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder="0"
 																	/>
 																</FormControl>
-															</SimpleGrid>
+															</div>
 															{usage === "issue" && (
-																<FormControl display="flex" alignItems="center">
-																	<FormLabel mb={0}>
+																<FormControl className="flex items-center">
+																	<FormLabel className="mb-0">
 																		{t("inbounds.tls.buildChain")}
 																	</FormLabel>
-																	<Switch
-																		{...register(
+																	<Switch {...register(
 																			`tlsCertificates.${index}.buildChain` as const,
-																		)}
-																	/>
+																		)} />
 																</FormControl>
 															)}
-														</Box>
+														</div>
 													);
 												})}
-											</Stack>
-											<Divider />
-											<Stack spacing={3}>
+											</div>
+											<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+											<div className="flex flex-col gap-3">
 												<FormControl>
 													<FormLabel>{t("inbounds.tls.echKey")}</FormLabel>
 													<Input {...register("tlsEchServerKeys")} />
@@ -6947,31 +6318,27 @@ export const InboundFormModal: FC<Props> = ({
 													<FormLabel>{t("inbounds.tls.echConfig")}</FormLabel>
 													<Input {...register("tlsEchConfigList")} />
 												</FormControl>
-												<HStack spacing={3}>
-													<Button size="xs" onClick={handleGenerateEchCert}>
+												<div className="flex flex-row items-center gap-3">
+													<Button variant="solid" size="xs" onClick={handleGenerateEchCert}>
 														{t("inbounds.tls.echGenerate")}
 													</Button>
-													<Button
-														size="xs"
-														variant="ghost"
-														onClick={handleClearEchCert}
-													>
+													<Button size="xs" variant="ghost" onClick={handleClearEchCert}>
 														{t("clear")}
 													</Button>
-												</HStack>
-											</Stack>
-										</Stack>
+												</div>
+											</div>
+										</div>
 									)}
 
 									{streamSecurity === "tls" && vlessAuthenticationSection}
 
 									{streamSecurity === "reality" && (
-										<Stack className="xray-dialog-section" spacing={3}>
-											<Text fontSize="sm" fontWeight="semibold">
+										<div className="flex flex-col gap-3 xray-dialog-section">
+											<p className="text-[0.875rem] font-semibold">
 												{t("inbounds.reality.title")}
-											</Text>
-											<FormControl display="flex" alignItems="center">
-												<FormLabel mb={0}>{t("show")}</FormLabel>
+											</p>
+											<FormControl className="flex items-center">
+												<FormLabel className="mb-0">{t("show")}</FormLabel>
 												<Switch {...register("realityShow")} />
 											</FormControl>
 											<FormControl>
@@ -7002,26 +6369,17 @@ export const InboundFormModal: FC<Props> = ({
 													}
 												/>
 											</FormControl>
-											<FormControl
-												isRequired
-												isInvalid={Boolean(
+											<FormControl isRequired isInvalid={Boolean(
 													errors.realityTarget ||
 														fieldValidationErrors.realityTarget,
-												)}
-											>
+												)}>
 												<FormLabel>
-													<HStack spacing={2}>
-														<Text>{t("pages.xray.routeTester.target")}</Text>
+													<div className="flex flex-row items-center gap-2">
+														<p>{t("pages.xray.routeTester.target")}</p>
 														<Tooltip label={t("common.randomize")}>
-															<IconButton
-																aria-label={t("common.randomize")}
-																variant="ghost"
-																size="xs"
-																icon={<ArrowPathIcon width={14} height={14} />}
-																onClick={handleRandomizeRealityTarget}
-															/>
+															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" icon={<ArrowPathIcon className="w-14 h-14" />} onClick={handleRandomizeRealityTarget} />
 														</Tooltip>
-													</HStack>
+													</div>
 												</FormLabel>
 												<Input
 													{...register("realityTarget", { required: true })}
@@ -7029,32 +6387,23 @@ export const InboundFormModal: FC<Props> = ({
 												/>
 												{(errors.realityTarget ||
 													fieldValidationErrors.realityTarget) && (
-													<Text fontSize="xs" color="red.500" mt={1}>
+													<p className="text-[0.75rem] text-red-500 mt-1">
 														{fieldValidationErrors.realityTarget ||
 															t("validation.required")}
-													</Text>
+													</p>
 												)}
 											</FormControl>
-											<FormControl
-												isRequired
-												isInvalid={Boolean(
+											<FormControl isRequired isInvalid={Boolean(
 													errors.realityServerNames ||
 														fieldValidationErrors.realityServerNames,
-												)}
-											>
+												)}>
 												<FormLabel>
-													<HStack spacing={2}>
-														<Text>{t("inbounds.reality.serverNames")}</Text>
+													<div className="flex flex-row items-center gap-2">
+														<p>{t("inbounds.reality.serverNames")}</p>
 														<Tooltip label={t("common.randomize")}>
-															<IconButton
-																aria-label={t("common.randomize")}
-																variant="ghost"
-																size="xs"
-																icon={<ArrowPathIcon width={14} height={14} />}
-																onClick={handleRandomizeRealityTarget}
-															/>
+															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" icon={<ArrowPathIcon className="w-14 h-14" />} onClick={handleRandomizeRealityTarget} />
 														</Tooltip>
-													</HStack>
+													</div>
 												</FormLabel>
 												<Input
 													{...register("realityServerNames", {
@@ -7062,15 +6411,15 @@ export const InboundFormModal: FC<Props> = ({
 													})}
 													placeholder="domain.com"
 												/>
-												<Box fontSize="sm" color="gray.500">
+												<div className="text-[0.875rem] text-gray-500">
 													{t("inbounds.serverNamesHint")}
-												</Box>
+												</div>
 												{(errors.realityServerNames ||
 													fieldValidationErrors.realityServerNames) && (
-													<Text fontSize="xs" color="red.500" mt={1}>
+													<p className="text-[0.75rem] text-red-500 mt-1">
 														{fieldValidationErrors.realityServerNames ||
 															t("validation.required")}
-													</Text>
+													</p>
 												)}
 											</FormControl>
 											<FormControl>
@@ -7089,7 +6438,7 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 												/>
 											</FormControl>
-											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormControl>
 													<FormLabel>
 														{t("inbounds.reality.minClientVer")}
@@ -7108,47 +6457,32 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder="25.9.11"
 													/>
 												</FormControl>
-											</SimpleGrid>
-											<FormControl
-												isRequired
-												isInvalid={Boolean(
+											</div>
+											<FormControl isRequired isInvalid={Boolean(
 													errors.realityShortIds ||
 														fieldValidationErrors.realityShortIds,
-												)}
-											>
+												)}>
 												<FormLabel>
-													<HStack spacing={2}>
-														<Text>{t("inbounds.reality.shortIds")}</Text>
+													<div className="flex flex-row items-center gap-2">
+														<p>{t("inbounds.reality.shortIds")}</p>
 														<Tooltip label={t("common.randomize")}>
-															<IconButton
-																aria-label={t("common.randomize")}
-																variant="ghost"
-																size="xs"
-																icon={<ArrowPathIcon width={14} height={14} />}
-																onClick={handleRandomizeRealityShortIds}
-															/>
+															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" icon={<ArrowPathIcon className="w-14 h-14" />} onClick={handleRandomizeRealityShortIds} />
 														</Tooltip>
-													</HStack>
+													</div>
 												</FormLabel>
 												<Input {...register("realityShortIds")} />
-												<Button
-													size="xs"
-													mt={2}
-													variant="outline"
-													onClick={handleGenerateShortId}
-													alignSelf="flex-start"
-												>
+												<Button size="xs" variant="outline" onClick={handleGenerateShortId} className="mt-2 self-start">
 													{t("inbounds.reality.generateShortId")}
 												</Button>
-												<Box fontSize="sm" color="gray.500">
+												<div className="text-[0.875rem] text-gray-500">
 													{t("inbounds.shortIdsHint")}
-												</Box>
+												</div>
 												{(errors.realityShortIds ||
 													fieldValidationErrors.realityShortIds) && (
-													<Text fontSize="xs" color="red.500" mt={1}>
+													<p className="text-[0.75rem] text-red-500 mt-1">
 														{fieldValidationErrors.realityShortIds ||
 															t("validation.required")}
-													</Text>
+													</p>
 												)}
 											</FormControl>
 											<FormControl>
@@ -7159,13 +6493,10 @@ export const InboundFormModal: FC<Props> = ({
 												<FormLabel>{t("inbounds.reality.publicKey")}</FormLabel>
 												<Input {...register("realityPublicKey")} />
 											</FormControl>
-											<FormControl
-												isRequired
-												isInvalid={Boolean(
+											<FormControl isRequired isInvalid={Boolean(
 													errors.realityPrivateKey ||
 														fieldValidationErrors.realityPrivateKey,
-												)}
-											>
+												)}>
 												<FormLabel>
 													{t("inbounds.reality.privateKey")}
 												</FormLabel>
@@ -7174,32 +6505,25 @@ export const InboundFormModal: FC<Props> = ({
 												/>
 												{(errors.realityPrivateKey ||
 													fieldValidationErrors.realityPrivateKey) && (
-													<Text fontSize="xs" color="red.500" mt={1}>
+													<p className="text-[0.75rem] text-red-500 mt-1">
 														{fieldValidationErrors.realityPrivateKey ||
 															t("validation.required")}
-													</Text>
+													</p>
 												)}
 											</FormControl>
-											<HStack spacing={3}>
-												<Button
-													size="xs"
-													onClick={handleGenerateRealityKeypair}
-												>
+											<div className="flex flex-row items-center gap-3">
+												<Button variant="solid" size="xs" onClick={handleGenerateRealityKeypair}>
 													{t("inbounds.reality.generateKeys")}
 												</Button>
-												<Button
-													size="xs"
-													variant="ghost"
-													onClick={handleClearRealityKeypair}
-												>
+												<Button size="xs" variant="ghost" onClick={handleClearRealityKeypair}>
 													{t("clear")}
 												</Button>
-											</HStack>
-											<Stack className="xray-dialog-section" spacing={3}>
-												<Text fontSize="sm" fontWeight="semibold">
+											</div>
+											<div className="flex flex-col gap-3 xray-dialog-section">
+												<p className="text-[0.875rem] font-semibold">
 													Fallback bandwidth limits
-												</Text>
-												<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+												</p>
+												<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 													{(
 														[
 															[
@@ -7228,10 +6552,7 @@ export const InboundFormModal: FC<Props> = ({
 															],
 														] as const
 													).map(([name, label]) => (
-														<FormControl
-															key={name}
-															isInvalid={!!fieldValidationErrors[name]}
-														>
+														<FormControl key={name} isInvalid={!!fieldValidationErrors[name]}>
 															<FormLabel>{label}</FormLabel>
 															<Input
 																{...register(name as keyof InboundFormValues)}
@@ -7245,8 +6566,8 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														</FormControl>
 													))}
-												</SimpleGrid>
-											</Stack>
+												</div>
+											</div>
 											<FormControl>
 												<FormLabel>
 													{t("inbounds.reality.mldsa65Seed")}
@@ -7259,61 +6580,43 @@ export const InboundFormModal: FC<Props> = ({
 												</FormLabel>
 												<Input {...register("realityMldsa65Verify")} />
 											</FormControl>
-											<HStack spacing={3}>
-												<Button size="xs" onClick={handleGenerateMldsa65}>
+											<div className="flex flex-row items-center gap-3">
+												<Button variant="solid" size="xs" onClick={handleGenerateMldsa65}>
 													{t("inbounds.reality.mldsa65Generate")}
 												</Button>
-												<Button
-													size="xs"
-													variant="ghost"
-													onClick={handleClearMldsa65}
-												>
+												<Button size="xs" variant="ghost" onClick={handleClearMldsa65}>
 													{t("clear")}
 												</Button>
-											</HStack>
-										</Stack>
+											</div>
+										</div>
 									)}
 
 									{streamSecurity === "reality" && vlessAuthenticationSection}
 
 									{supportsFallback && (
-										<Stack className="xray-dialog-section" spacing={3}>
-											<Flex align="center" justify="space-between">
-												<Box fontWeight="medium">{t("inbounds.fallbacks")}</Box>
-												<Button size="xs" onClick={handleAddFallback}>
+										<div className="flex flex-col gap-3 xray-dialog-section">
+											<div className="flex items-center justify-between">
+												<div className="font-medium">{t("inbounds.fallbacks")}</div>
+												<Button variant="solid" size="xs" onClick={handleAddFallback}>
 													{t("inbounds.fallbacks.add")}
 												</Button>
-											</Flex>
+											</div>
 											{fallbackFields.length === 0 ? (
-												<Text fontSize="sm" color="gray.500">
+												<p className="text-[0.875rem] text-gray-500">
 													{t("inbounds.fallbacks.empty")}
-												</Text>
+												</p>
 											) : (
 												fallbackFields.map((field, index) => (
-													<Box
-														key={field.id}
-														borderWidth="1px"
-														borderRadius="md"
-														borderColor={sectionBorder}
-														p={3}
-													>
-														<Flex justify="space-between" align="center" mb={3}>
-															<Text fontWeight="semibold">
+													<div key={field.id} className={cn("border rounded-md p-3", sectionBorder)}>
+														<div className="flex justify-between items-center mb-3">
+															<p className="font-semibold">
 																{t("inbounds.fallbacks.type")} #{index + 1}
-															</Text>
-															<Button
-																size="xs"
-																variant="ghost"
-																colorScheme="red"
-																onClick={() => removeFallback(index)}
-															>
+															</p>
+															<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeFallback(index)}>
 																{t("delete")}
 															</Button>
-														</Flex>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={3}
-														>
+														</div>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
 																<FormLabel>
 																	{t("inbounds.fallbacks.dest")}
@@ -7365,28 +6668,28 @@ export const InboundFormModal: FC<Props> = ({
 																	placeholder="0"
 																/>
 															</FormControl>
-														</SimpleGrid>
-													</Box>
+														</div>
+													</div>
 												))
 											)}
-										</Stack>
+										</div>
 									)}
 
 									{supportsStreamSettings && (
-											<Stack className="xray-dialog-section" spacing={3}>
-												<Flex align="center" justify="space-between">
-													<HStack spacing={2}>
-														<Box fontWeight="medium">
+											<div className="flex flex-col gap-3 xray-dialog-section">
+												<div className="flex items-center justify-between">
+													<div className="flex flex-row items-center gap-2">
+														<div className="font-medium">
 															{t("inbounds.sniffing")}
-														</Box>
+														</div>
 													<Tooltip label={t("inbounds.sniffingHint")}>
-															<QuestionMarkCircleIcon width={16} height={16} />
+															<QuestionMarkCircleIcon className="w-16 h-16" />
 														</Tooltip>
-													</HStack>
+													</div>
 													<Switch {...register("sniffingEnabled")} />
-												</Flex>
+												</div>
 												{sniffingEnabled && (
-													<Stack spacing={3}>
+													<div className="flex flex-col gap-3">
 														<FormControl>
 															<FormLabel>
 																{t("inbounds.sniffingDestinations")}
@@ -7395,25 +6698,19 @@ export const InboundFormModal: FC<Props> = ({
 																control={control}
 																name="sniffingDestinations"
 																render={({ field }) => (
-																	<CheckboxGroup
-																		value={field.value ?? []}
-																		onChange={field.onChange}
-																	>
-																		<HStack spacing={4}>
+																	<CheckboxGroup value={field.value ?? []} onChange={field.onChange}>
+																		<div className="flex flex-row items-center gap-4">
 																			{sniffingOptions.map((option) => (
-																				<Checkbox
-																					key={option.value}
-																					value={option.value}
-																				>
+																				<Checkbox key={option.value} value={option.value}>
 																					{option.label}
 																				</Checkbox>
 																			))}
-																		</HStack>
+																		</div>
 																	</CheckboxGroup>
 																)}
 															/>
 														</FormControl>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
 																<FormLabel>Excluded IP rules</FormLabel>
 																<Textarea
@@ -7430,43 +6727,43 @@ export const InboundFormModal: FC<Props> = ({
 																	placeholder="geosite:private"
 																/>
 															</FormControl>
-														</SimpleGrid>
-														<FormControl display="flex" alignItems="center">
-															<FormLabel mb={0}>
+														</div>
+														<FormControl className="flex items-center">
+															<FormLabel className="mb-0">
 																{t("inbounds.sniffingRouteOnly")}
 															</FormLabel>
 															<Switch {...register("sniffingRouteOnly")} />
 														</FormControl>
-														<FormControl display="flex" alignItems="center">
-															<FormLabel mb={0}>
+														<FormControl className="flex items-center">
+															<FormLabel className="mb-0">
 																{t("inbounds.sniffingMetadataOnly")}
 															</FormLabel>
 															<Switch {...register("sniffingMetadataOnly")} />
 														</FormControl>
-													</Stack>
+													</div>
 												)}
-											</Stack>
+											</div>
 										)}
-								</VStack>
+								</div>
 							</TabPanel>
-							<TabPanel px={0}>
-								<VStack align="stretch" spacing={4}>
+							<TabPanel className="px-0">
+								<div className="flex flex-col items-stretch gap-4">
 									{jsonError && (
 										<Alert status="error">
 											<AlertIcon />
 											{jsonError}
 										</Alert>
 									)}
-									<Box height="420px">
+									<div className="h-[420px]">
 										<JsonEditor
 											json={jsonText}
 											canonicalContext="inbound"
 											onChange={handleJsonEditorChange}
 										/>
-									</Box>
-								</VStack>
+									</div>
+								</div>
 							</TabPanel>
-							<TabPanel px={0}>
+							<TabPanel className="px-0">
 								<Controller
 									control={control}
 									name="targetIds"
@@ -7484,12 +6781,9 @@ export const InboundFormModal: FC<Props> = ({
 											!allCustomSelected &&
 											customTargetIds.some((id) => selectedIds.includes(id));
 										return (
-											<VStack align="stretch" spacing={3}>
+											<div className="flex flex-col items-stretch gap-3">
 												{customTargetIds.length > 0 && (
-													<Checkbox
-														isChecked={allCustomSelected}
-														isIndeterminate={someCustomSelected}
-														onChange={() =>
+													<Checkbox isChecked={allCustomSelected} isIndeterminate={someCustomSelected} onChange={() =>
 															field.onChange(
 																allCustomSelected
 																	? selectedIds.filter(
@@ -7502,48 +6796,38 @@ export const InboundFormModal: FC<Props> = ({
 																			),
 																		],
 															)
-														}
-													>
+														}>
 														{t("inbounds.selectAllCustomNodes")}
 													</Checkbox>
 												)}
-												<CheckboxGroup
-													value={selectedIds}
-													onChange={(value) => field.onChange(value)}
-												>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+												<CheckboxGroup value={selectedIds} onChange={(value) => field.onChange(value)}>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														{availableTargets.map((target) => (
-															<Box
-																key={target.id}
-																borderWidth="1px"
-																borderColor={sectionBorder}
-																borderRadius="md"
-																p={3}
-															>
+															<div key={target.id} className={cn("border rounded-md p-3", sectionBorder)}>
 																<Checkbox value={target.id}>
-																	<HStack spacing={2}>
-																		<Text>
+																	<div className="flex flex-row items-center gap-2">
+																		<p>
 																			{target.type === "master"
 																				? t("default")
 																				: target.name}
-																		</Text>
+																		</p>
 																		<Tag size="sm" colorScheme="gray">
 																			{target.type === "master"
 																				? t("default")
 																				: target.mode}
 																		</Tag>
-																	</HStack>
+																	</div>
 																</Checkbox>
-															</Box>
+															</div>
 														))}
-													</SimpleGrid>
+													</div>
 													{errors.targetIds && (
-														<Text fontSize="xs" color="red.500" mt={2}>
+														<p className="text-[0.75rem] text-red-500 mt-2">
 															{String(errors.targetIds.message)}
-														</Text>
+														</p>
 													)}
 												</CheckboxGroup>
-											</VStack>
+											</div>
 										);
 									}}
 								/>
@@ -7554,67 +6838,47 @@ export const InboundFormModal: FC<Props> = ({
 						<EntityNotePanel entityType="inbound" entityKey={initialValue.tag} />
 					) : null}
 				</XrayModalBody>
-				<XrayModalFooter
-					justifyContent={isEditMode && onDelete ? "space-between" : "flex-end"}
-				>
+				<XrayModalFooter className={cn(isEditMode && onDelete ? "justify-between" : "justify-end")}>
 					{isEditMode && onDelete && (
-						<HStack spacing={3}>
+						<div className="flex flex-row items-center gap-3">
 							<DeleteConfirmDialog
 								description={t("inbounds.confirmDelete")}
 								isLoading={isDeleting}
 								isDisabled={isSubmitting}
 								onConfirm={onDelete}
 							>
-								<Button
-									variant="ghost"
-									colorScheme="red"
-									isDisabled={isSubmitting}
-								>
+								<Button size="md" variant="ghost" colorScheme="red" isDisabled={isSubmitting}>
 									{t("delete")}
 								</Button>
 							</DeleteConfirmDialog>
 							{onClone && (
-								<Button
-									variant="outline"
-									onClick={onClone}
-									isDisabled={isSubmitting}
-								>
+								<Button size="md" variant="outline" onClick={onClone} isDisabled={isSubmitting}>
 									{t("hostsPage.clone")}
 								</Button>
 							)}
-						</HStack>
+						</div>
 					)}
-					<HStack spacing={3}>
+					<div className="flex flex-row items-center gap-3">
 						{isEditMode ? (
 							<>
-								<Button variant="ghost" onClick={onClose}>
+								<Button size="md" variant="ghost" onClick={onClose}>
 									{t("hostsPage.cancel")}
 								</Button>
-								<Button
-									colorScheme="primary"
-									isLoading={isSubmitting}
-									isDisabled={hasBlockingErrorsWithJson}
-									onClick={handleSubmit(submitForm)}
-								>
+								<Button size="md" colorScheme="primary" isLoading={isSubmitting} isDisabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
 									{t("save")}
 								</Button>
 							</>
 						) : (
 							<>
-								<Button variant="ghost" onClick={onClose}>
+								<Button size="md" variant="ghost" onClick={onClose}>
 									{t("hostsPage.cancel")}
 								</Button>
-								<Button
-									colorScheme="primary"
-									isLoading={isSubmitting}
-									isDisabled={hasBlockingErrorsWithJson}
-									onClick={handleSubmit(submitForm)}
-								>
+								<Button size="md" colorScheme="primary" isLoading={isSubmitting} isDisabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
 									{isCloneMode ? t("inbounds.cloneSubmit") : t("create")}
 								</Button>
 							</>
 						)}
-					</HStack>
+					</div>
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>

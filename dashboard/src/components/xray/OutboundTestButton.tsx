@@ -1,4 +1,6 @@
-import { IconButton, Spinner, Tooltip } from "@chakra-ui/react";
+import { Tooltip } from "components/shadcn/tooltip";
+import { IconButton } from "components/shadcn/button";
+import { Spinner } from "components/shadcn/feedback";
 import { BoltIcon } from "@heroicons/react/24/outline";
 import type { FC } from "react";
 
@@ -19,14 +21,7 @@ export const OutboundTestButton: FC<OutboundTestButtonProps> = ({
 
 	return (
 		<Tooltip hasArrow label={label}>
-			<IconButton
-				aria-label={label}
-				icon={isTesting ? <Spinner size="xs" /> : <BoltIcon />}
-				size="xs"
-				variant="ghost"
-				isDisabled={isTesting}
-				onClick={() => onTest(tag)}
-			/>
+			<IconButton aria-label={label} icon={isTesting ? <Spinner size="xs" /> : <BoltIcon />} size="xs" variant="ghost" isDisabled={isTesting} onClick={() => onTest(tag)} />
 		</Tooltip>
 	);
 };

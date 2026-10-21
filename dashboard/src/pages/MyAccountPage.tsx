@@ -1,32 +1,14 @@
-import {
-	Badge,
-	Box,
-	Button,
-	chakra,
-	Flex,
-	HStack,
-	Icon,
-	IconButton,
-	Input,
-	InputGroup,
-	InputRightElement,
-	SimpleGrid,
-	Spinner,
-	Stack,
-	StackDivider,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Text,
-	useClipboard,
-	useColorMode,
-	useColorModeValue,
-	useDisclosure,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useColorMode, useColorModeValue } from "lib/color-mode";
+import { Badge } from "components/shadcn/badge";
+import { useToast } from "components/shadcn/toast";
+import { Button, IconButton } from "components/shadcn/button";
+import { Input, InputGroup, InputRightElement } from "components/shadcn/input";
+import { useDisclosure } from "hooks/useDisclosure";
+import { useClipboard } from "hooks/useClipboard";
+import { Spinner } from "components/shadcn/feedback";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { Icon, withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import {
 	ChartBarIcon,
 	ClipboardIcon,
@@ -76,8 +58,8 @@ import { formatBytes } from "utils/formatByte";
 import { clearClientSession } from "utils/session";
 
 dayjs.extend(utc);
-const CopyIcon = chakra(ClipboardIcon, { baseStyle: { w: 4, h: 4 } });
-const DeleteIcon = chakra(TrashIcon, { baseStyle: { w: 4, h: 4 } });
+const CopyIcon = withClass(ClipboardIcon, "w-4 h-4");
+const DeleteIcon = withClass(TrashIcon, "w-4 h-4");
 type AccountSection = "info" | "security" | "api_keys";
 
 const ACCOUNT_SECTION_HASH: Record<AccountSection, string> = {
@@ -203,17 +185,17 @@ type StatsCardProps = {
 };
 
 const StatsCard: React.FC<StatsCardProps> = ({ label, value }) => {
-	const labelColor = useColorModeValue("panel.textMuted", "panel.textMuted");
+	const labelColor = useColorModeValue("text-panel-text-muted", "text-panel-text-muted");
 
 	return (
-		<Box minW={0} py={1}>
-			<Text color={labelColor} fontSize="xs" fontWeight="semibold">
+		<div className="min-w-0! py-1">
+			<p className={cn("text-[0.75rem] font-semibold", labelColor)}>
 				{label}
-			</Text>
-			<Text mt={1} fontSize="lg" lineHeight="1.2" fontWeight="semibold">
+			</p>
+			<p className="mt-1 text-[1.125rem] leading-[1.2] font-semibold">
 				{value}
-			</Text>
-		</Box>
+			</p>
+		</div>
 	);
 };
 
@@ -221,16 +203,16 @@ const MiniMetric: React.FC<{ label: string; value: string }> = ({
 	label,
 	value,
 }) => {
-	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
 	return (
-		<Box>
-			<Text fontSize="xs" color={labelColor} fontWeight="semibold">
+		<div>
+			<p className={cn("text-[0.75rem] font-semibold", labelColor)}>
 				{label}
-			</Text>
-			<Text mt={1} fontWeight="semibold">
+			</p>
+			<p className="mt-1 font-semibold">
 				{value}
-			</Text>
-		</Box>
+			</p>
+		</div>
 	);
 };
 
@@ -270,10 +252,10 @@ const ServiceLimitPanel: React.FC<{
 	t: (key: string, fallback?: string) => string;
 	expiryText: string | null;
 }> = ({ service, colorMode, t, expiryText }) => {
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const bg = useColorModeValue("white", "whiteAlpha.50");
-	const subBg = useColorModeValue("gray.50", "whiteAlpha.100");
-	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const borderColor = useColorModeValue("border-blackAlpha-200! border-t-blackAlpha-200!", "border-whiteAlpha-200! border-t-whiteAlpha-200!");
+	const bg = useColorModeValue("bg-white", "bg-whiteAlpha-50");
+	const subBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-100");
+	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
 	const labels = getTrafficLabels(t, service.traffic_basis);
 	const dailyPoints = service.daily_usage ?? [];
 	const dailyTotal = dailyPoints.reduce(
@@ -298,36 +280,33 @@ const ServiceLimitPanel: React.FC<{
 		Math.max(usersLimit - service.current_users_count, 0);
 
 	return (
-		<Box borderWidth="1px" borderColor={borderColor} borderRadius="md" bg={bg}>
-			<HStack justify="space-between" align="start" mb={4} spacing={3}>
-				<Box minW={0} px={4} pt={4}>
-					<Text fontWeight="semibold" noOfLines={1}>
+		<div className={cn(borderColor, cn("border rounded-md", bg))}>
+			<div className="flex flex-row justify-between items-start mb-4 gap-3">
+				<div className="min-w-0! px-4 pt-4">
+					<p className="font-semibold truncate">
 						{service.service_name}
-					</Text>
-					<Text fontSize="xs" color={labelColor}>
+					</p>
+					<p className={cn("text-[0.75rem]", labelColor)}>
 						{t("myaccount.serviceLimit")}
-					</Text>
-				</Box>
-				<Box px={4} pt={4}>
-					<HStack spacing={2} justify="end" flexWrap="wrap">
+					</p>
+				</div>
+				<div className="px-4 pt-4">
+					<div className="flex flex-row items-center gap-2 justify-end flex-wrap">
 						{expiryText && (
-							<Badge borderRadius="md" colorScheme="orange">
+							<Badge colorScheme="orange" className="rounded-md">
 								{t("myaccount.remainingDays")}: {expiryText}
 							</Badge>
 						)}
-						<Badge
-							borderRadius="md"
-							colorScheme={
+						<Badge colorScheme={
 								service.traffic_basis === "created_traffic" ? "purple" : "blue"
-							}
-						>
+							} className="rounded-md">
 							{labels.modeLabel}
 						</Badge>
-					</HStack>
-				</Box>
-			</HStack>
+					</div>
+				</div>
+			</div>
 
-			<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} px={4} pb={4}>
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-4 pb-4">
 				<MiniMetric
 					label={labels.usedLabel}
 					value={formatBytes(service.used_traffic, 2)}
@@ -368,27 +347,22 @@ const ServiceLimitPanel: React.FC<{
 							: `${usersLimit}`
 					}
 				/>
-			</SimpleGrid>
+			</div>
 
-			<Box borderTopWidth="1px" borderTopColor={borderColor} bg={subBg} p={4}>
-				<Text fontSize="sm" color={labelColor} mb={2}>
+			<div className={cn(borderColor, cn("border-t p-4", subBg))}>
+				<p className={cn("text-[0.875rem] mb-2", labelColor)}>
 					{labels.dailyTotalLabel}:{" "}
-					<chakra.span fontWeight="semibold">
+					<span className="font-semibold">
 						{formatBytes(dailyTotal, 2)}
-					</chakra.span>
-				</Text>
+					</span>
+				</p>
 				{series[0].data.length ? (
-					<ReactApexChart
-						options={buildDailyUsageOptions(colorMode, categories)}
-						series={series as any}
-						type="area"
-						height={220}
-					/>
+					<ReactApexChart options={buildDailyUsageOptions(colorMode, categories)} series={series as any} type="area" className="h-220" />
 				) : (
-					<Text color={labelColor}>{t("noData")}</Text>
+					<p className={cn(labelColor)}>{t("noData")}</p>
 				)}
-			</Box>
-		</Box>
+			</div>
+		</div>
 	);
 };
 
@@ -397,9 +371,9 @@ const ServiceBalanceCard: React.FC<{
 	t: (key: string, fallback?: string) => string;
 	expiryText: string | null;
 }> = ({ service, t, expiryText }) => {
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const bg = useColorModeValue("white", "whiteAlpha.50");
-	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const borderColor = useColorModeValue("border-blackAlpha-200! border-t-blackAlpha-200!", "border-whiteAlpha-200! border-t-whiteAlpha-200!");
+	const bg = useColorModeValue("bg-white", "bg-whiteAlpha-50");
+	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
 	const labels = getTrafficLabels(t, service.traffic_basis);
 	const limit = service.data_limit ?? 0;
 	const remaining =
@@ -414,59 +388,43 @@ const ServiceBalanceCard: React.FC<{
 			: formatBytes(limit, 2);
 
 	return (
-		<Box
-			borderWidth="1px"
-			borderColor={borderColor}
-			borderRadius="md"
-			p={4}
-			bg={bg}
-		>
-			<HStack
-				justify="space-between"
-				align="start"
-				spacing={3}
-				rowGap={2}
-				flexWrap="wrap"
-				mb={3}
-			>
-				<Box minW={0}>
-					<Text fontSize="xs" color={labelColor} fontWeight="semibold">
+		<div className={cn(borderColor, cn("border rounded-md p-4", bg))}>
+			<div className="flex flex-row justify-between items-start gap-3 gap-y-2 flex-wrap mb-3">
+				<div className="min-w-0!">
+					<p className={cn("text-[0.75rem] font-semibold", labelColor)}>
 						{t("myaccount.service")}
-					</Text>
-					<Text fontWeight="semibold" fontSize="lg" noOfLines={1}>
+					</p>
+					<p className="font-semibold text-[1.125rem] truncate">
 						{service.service_name}
-					</Text>
-				</Box>
-				<HStack spacing={2} flexWrap="wrap" justify="end">
+					</p>
+				</div>
+				<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
 					{expiryText && (
-						<Badge borderRadius="md" colorScheme="orange">
+						<Badge colorScheme="orange" className="rounded-md">
 							{t("myaccount.remainingDays")}: {expiryText}
 						</Badge>
 					)}
-					<Badge
-						borderRadius="md"
-						colorScheme={
+					<Badge colorScheme={
 							service.traffic_basis === "created_traffic" ? "purple" : "blue"
-						}
-					>
+						} className="rounded-md">
 						{labels.modeLabel}
 					</Badge>
-				</HStack>
-			</HStack>
-			<Text fontSize="2xl" fontWeight="bold">
+				</div>
+			</div>
+			<p className="text-[1.5rem] font-bold">
 				{remainingText}
-			</Text>
-			<Text fontSize="sm" color={labelColor}>
+			</p>
+			<p className={cn("text-[0.875rem]", labelColor)}>
 				{t("myaccount.remainingFromService")}
-			</Text>
-			<SimpleGrid columns={2} spacing={3} mt={4}>
+			</p>
+			<div className="grid grid-cols-2 gap-3 mt-4">
 				<MiniMetric
 					label={labels.usedLabel}
 					value={formatBytes(service.used_traffic, 2)}
 				/>
 				<MiniMetric label={labels.totalLabel} value={limitText} />
-			</SimpleGrid>
-		</Box>
+			</div>
+		</div>
 	);
 };
 
@@ -538,95 +496,56 @@ const ChangePasswordModal: React.FC<{
 			title={t("myaccount.changePassword")}
 			footer={
 				<>
-					<Button mr={3} onClick={onClose} variant="ghost">
+					<Button size="md" onClick={onClose} variant="ghost" className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button
-						colorScheme="primary"
-						onClick={handleSubmit}
-						isLoading={isSubmitting}
-						isDisabled={!newPassword}
-					>
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!newPassword}>
 						{t("save")}
 					</Button>
 				</>
 			}
 		>
-			<VStack spacing={4} align="stretch">
-				<Box maxW="420px">
+			<div className="flex flex-col gap-4 items-stretch">
+				<div className="max-w-[420px]">
 					<InputGroup dir={isRTL ? "rtl" : "ltr"}>
-						<Input
-							placeholder={t("myaccount.currentPassword")}
-							type={showCurrent ? "text" : "password"}
-							value={currentPassword}
-							onChange={(e) => setCurrentPassword(e.target.value)}
-							paddingInlineEnd="2.75rem"
-						/>
-						<InputRightElement insetInlineEnd="0.5rem" right="auto" left="auto">
-							<IconButton
-								aria-label={
+						<Input placeholder={t("myaccount.currentPassword")} type={showCurrent ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="pe-[2.75rem]" />
+						<InputRightElement className="end-[0.5rem] right-auto left-auto">
+							<IconButton aria-label={
 									showCurrent
 										? t("admins.hidePassword")
 										: t("admins.showPassword")
-								}
-								size="sm"
-								variant="ghost"
-								icon={
+								} size="sm" variant="ghost" icon={
 									showCurrent ? (
-										<EyeSlashIcon width={16} />
+										<EyeSlashIcon className="w-16" />
 									) : (
-										<EyeIcon width={16} />
+										<EyeIcon className="w-16" />
 									)
-								}
-								onClick={() => setShowCurrent(!showCurrent)}
-							/>
+								} onClick={() => setShowCurrent(!showCurrent)} />
 						</InputRightElement>
 					</InputGroup>
-				</Box>
-				<Box maxW="420px">
-					<HStack spacing={2}>
+				</div>
+				<div className="max-w-[420px]">
+					<div className="flex flex-row items-center gap-2">
 						<InputGroup dir={isRTL ? "rtl" : "ltr"}>
-							<Input
-								placeholder={t("myaccount.newPassword")}
-								type={showNew ? "text" : "password"}
-								value={newPassword}
-								onChange={(e) => setNewPassword(e.target.value)}
-								paddingInlineEnd="2.75rem"
-							/>
-							<InputRightElement
-								insetInlineEnd="0.5rem"
-								right="auto"
-								left="auto"
-							>
-								<IconButton
-									aria-label={
+							<Input placeholder={t("myaccount.newPassword")} type={showNew ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="pe-[2.75rem]" />
+							<InputRightElement className="end-[0.5rem] right-auto left-auto">
+								<IconButton aria-label={
 										showNew
 											? t("admins.hidePassword")
 											: t("admins.showPassword")
-									}
-									size="sm"
-									variant="ghost"
-									icon={
+									} size="sm" variant="ghost" icon={
 										showNew ? (
-											<EyeSlashIcon width={16} />
+											<EyeSlashIcon className="w-16" />
 										) : (
-											<EyeIcon width={16} />
+											<EyeIcon className="w-16" />
 										)
-									}
-									onClick={() => setShowNew(!showNew)}
-								/>
+									} onClick={() => setShowNew(!showNew)} />
 							</InputRightElement>
 						</InputGroup>
-						<IconButton
-							aria-label={t("admins.generatePassword")}
-							size="md"
-							variant="outline"
-							icon={<SparklesIcon width={20} />}
-							onClick={handleGeneratePassword}
-						/>
-					</HStack>
-				</Box>
-			</VStack>
+						<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" icon={<SparklesIcon className="w-20" />} onClick={handleGeneratePassword} />
+					</div>
+				</div>
+			</div>
 		</AppDialog>
 	);
 };
@@ -639,9 +558,9 @@ export const MyAccountPage: React.FC = () => {
 	const apiKeyModal = useDisclosure();
 	const queryClient = useQueryClient();
 	const { colorMode } = useColorMode();
-	const panelBg = useColorModeValue("gray.50", "whiteAlpha.50");
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const panelBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-50");
+	const borderColor = useColorModeValue("border-blackAlpha-200! border-t-blackAlpha-200!", "border-whiteAlpha-200! border-t-whiteAlpha-200!");
+	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
 	const { userData, getUserIsSuccess } = useGetUser();
 	const { onCopy, setValue: setClipboardValue } = useClipboard("");
 	const [range, setRange] = useState<DateRangeValue>(() => {
@@ -900,20 +819,12 @@ export const MyAccountPage: React.FC = () => {
 
 	if (!selfPermissions.self_myaccount) {
 		return (
-			<VStack
-				spacing={3}
-				align="start"
-				borderWidth="1px"
-				borderColor={borderColor}
-				borderRadius="md"
-				bg={panelBg}
-				p={4}
-			>
-				<Text fontSize="lg" fontWeight="semibold">
+			<div className={cn(borderColor, cn("flex flex-col gap-3 items-start border rounded-md p-4", panelBg))}>
+				<p className="text-[1.125rem] font-semibold">
 					{t("myaccount.forbiddenTitle")}
-				</Text>
-				<Text color={labelColor}>{t("myaccount.forbiddenDescription")}</Text>
-			</VStack>
+				</p>
+				<p className={cn(labelColor)}>{t("myaccount.forbiddenDescription")}</p>
+			</div>
 		);
 	}
 
@@ -956,102 +867,46 @@ export const MyAccountPage: React.FC = () => {
 	const showServiceBalances = isPerServiceLimits || serviceLimits.length > 0;
 
 	return (
-		<VStack spacing={4} align="stretch">
+		<div className="flex flex-col gap-4 items-stretch">
 			<PageHeader
 				title={t("myaccount.title")}
 				description={t("myaccount.subtitle")}
 				actions={
 					isFetching ? (
-						<HStack spacing={2} color={labelColor}>
+						<div className={cn("flex flex-row items-center gap-2", labelColor)}>
 							<Spinner size="sm" />
-							<Text fontSize="sm">{t("loading")}</Text>
-						</HStack>
+							<p className="text-[0.875rem]">{t("loading")}</p>
+						</div>
 					) : undefined
 				}
 			/>
 
-			<Tabs
-				index={activeSectionIndex}
-				onChange={handleAccountSectionChange}
-				isLazy
-				lazyBehavior="keepMounted"
-				variant="unstyled"
-			>
-				<Box
-					overflowX="auto"
-					overflowY="hidden"
-					maxW="full"
-					css={{
-						scrollbarWidth: "none",
-						"&::-webkit-scrollbar": { display: "none" },
-					}}
-				>
-					<TabList
-						gap={6}
-						minH="10"
-						px={{ base: 2, md: 3 }}
-						w="max-content"
-						minW="full"
-					>
+			<Tabs index={activeSectionIndex} onChange={handleAccountSectionChange} isLazy lazyBehavior="keepMounted" variant="unstyled">
+				<div className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden overflow-x-auto overflow-y-hidden max-w-full">
+					<TabList className="gap-6 min-h-10 px-2 md:px-3 w-max min-w-full!">
 						{accountSections.map((section) => (
-							<Tab
-								key={section.id}
-								flex="0 0 auto"
-								h="10"
-								px={0}
-								borderRadius="0"
-								borderBottomWidth="2px"
-								borderColor="transparent"
-								fontWeight="700"
-								color="panel.text"
-								_selected={{
-									borderColor: "panel.accent",
-									color: "panel.accent",
-								}}
-								_hover={{ bg: "transparent", color: "panel.accentHover" }}
-								_focusVisible={{
-									outline: "2px solid",
-									outlineColor: "panel.accent",
-									outlineOffset: "2px",
-								}}
-							>
+							<Tab key={section.id} className="flex-[0_0_auto] h-10 px-0 rounded-[0px] border-b-2 border-transparent! font-bold text-panel-text aria-selected:border-panel-accent! aria-selected:text-panel-accent hover:bg-transparent hover:text-panel-accent-hover focus-visible:[outline:2px_solid] focus-visible:outline-panel-accent focus-visible:[outline-offset:2px]">
 								{section.label}
 							</Tab>
 						))}
 					</TabList>
-				</Box>
+				</div>
 
-				<TabPanels mt={3} px={{ base: 0, md: 2 }}>
-					<TabPanel p={0}>
-						<VStack
-							spacing={4}
-							align="stretch"
-							w="full"
-							maxW="1200px"
-							mx="auto"
-						>
+				<TabPanels className="mt-3 px-0 md:px-2">
+					<TabPanel className="p-0">
+						<div className="flex flex-col gap-4 items-stretch w-full max-w-[1200px] mx-auto">
 							<ChartBox
 								title={t("myaccount.accountOverview")}
 							>
-								<SimpleGrid columns={{ base: 1, lg: 2 }} spacing={0}>
-									<Box
-										pe={{ lg: 4 }}
-										pb={{ base: 3, lg: 0 }}
-										borderBottomWidth={{ base: "1px", lg: "0" }}
-										borderColor="panel.border"
-									>
-										<HStack spacing={2} mb={2}>
-											<Icon
-												as={ChartBarIcon}
-												boxSize={4}
-												color="panel.accent"
-												aria-hidden="true"
-											/>
-											<Text fontSize="sm" fontWeight="semibold">
+								<div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+									<div className="lg:pe-4 pb-3 lg:pb-0 border-b lg:border-b-0 border-panel-border!">
+										<div className="flex flex-row items-center gap-2 mb-2">
+											<Icon as={ChartBarIcon} aria-hidden="true" className="size-4 text-panel-accent" />
+											<p className="text-[0.875rem] font-semibold">
 												{usageSectionTitle}
-											</Text>
-										</HStack>
-										<SimpleGrid columns={3} spacing={2}>
+											</p>
+										</div>
+										<div className="grid grid-cols-3 gap-2">
 											<StatsCard
 												label={usedLabel}
 												value={formatBytes(used, 2)}
@@ -1072,26 +927,16 @@ export const MyAccountPage: React.FC = () => {
 														: formatBytes(totalData, 2)
 												}
 											/>
-										</SimpleGrid>
-									</Box>
-									<Box
-										ps={{ lg: 4 }}
-										pt={{ base: 3, lg: 0 }}
-										borderInlineStartWidth={{ base: "0", lg: "1px" }}
-										borderColor="panel.border"
-									>
-										<HStack spacing={2} mb={2}>
-											<Icon
-												as={UserGroupIcon}
-												boxSize={4}
-												color="panel.accent"
-												aria-hidden="true"
-											/>
-											<Text fontSize="sm" fontWeight="semibold">
+										</div>
+									</div>
+									<div className="lg:ps-4 pt-3 lg:pt-0 border-s-0 lg:border-s border-panel-border!">
+										<div className="flex flex-row items-center gap-2 mb-2">
+											<Icon as={UserGroupIcon} aria-hidden="true" className="size-4 text-panel-accent" />
+											<p className="text-[0.875rem] font-semibold">
 												{t("myaccount.userLimits")}
-											</Text>
-										</HStack>
-										<SimpleGrid columns={3} spacing={2}>
+											</p>
+										</div>
+										<div className="grid grid-cols-3 gap-2">
 											<StatsCard
 												label={t("myaccount.createdUsers")}
 												value={`${data.current_users_count}`}
@@ -1112,9 +957,9 @@ export const MyAccountPage: React.FC = () => {
 														: `${usersLimit}`
 												}
 											/>
-										</SimpleGrid>
-									</Box>
-								</SimpleGrid>
+										</div>
+									</div>
+								</div>
 							</ChartBox>
 
 							{showServiceBalances && (
@@ -1123,13 +968,10 @@ export const MyAccountPage: React.FC = () => {
 								>
 									{serviceLimits.length ? (
 										<>
-											<Text fontSize="sm" color={labelColor} mb={3}>
+											<p className={cn("text-[0.875rem] mb-3", labelColor)}>
 												{t("myaccount.serviceBalancesHint")}
-											</Text>
-											<SimpleGrid
-												columns={{ base: 1, md: 2, xl: 3 }}
-												spacing={4}
-											>
+											</p>
+											<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 												{serviceLimits.map((service) => (
 													<ServiceBalanceCard
 														key={service.service_id}
@@ -1138,85 +980,65 @@ export const MyAccountPage: React.FC = () => {
 														expiryText={expiryText}
 													/>
 												))}
-											</SimpleGrid>
+											</div>
 										</>
 									) : (
-										<Text color={labelColor}>{t("noData")}</Text>
+										<p className={cn(labelColor)}>{t("noData")}</p>
 									)}
 								</ChartBox>
 							)}
 
-							<SimpleGrid
-								columns={{
-									base: 1,
-									lg: isCreatedTrafficBasis || isPerServiceLimits ? 1 : 2,
-								}}
-								spacing={4}
-							>
-								<Box minW={0}>
-									<ChartBox
-										title={dailyChartTitle}
-										headerActions={
+							<div className={cn("grid grid-cols-1 gap-4", isCreatedTrafficBasis || isPerServiceLimits ? "lg:grid-cols-1" : "lg:grid-cols-2")}>
+								<div className="min-w-0!">
+									<ChartBox title={dailyChartTitle} headerActions={
 											<DateRangePicker
 												value={range}
 												onChange={(next) => setRange(next)}
 											/>
-										}
-										minH="500px"
-									>
-										<Text fontSize="sm" color={labelColor} mb={3}>
+										} className="min-h-[500px]">
+										<p className={cn("text-[0.875rem] mb-3", labelColor)}>
 											{dailyTotalLabel}:{" "}
-											<chakra.span fontWeight="semibold">
+											<span className="font-semibold">
 												{formatBytes(dailyTotal, 2)}
-											</chakra.span>
-										</Text>
+											</span>
+										</p>
 										{dailySeries[0].data.length ? (
-											<ReactApexChart
-												options={buildDailyUsageOptions(
+											<ReactApexChart options={buildDailyUsageOptions(
 													colorMode,
 													dailyCategories,
-												)}
-												series={dailySeries as any}
-												type="area"
-												height={340}
-											/>
+												)} series={dailySeries as any} type="area" className="h-340" />
 										) : (
-											<Text color={labelColor}>{t("noData")}</Text>
+											<p className={cn(labelColor)}>{t("noData")}</p>
 										)}
 									</ChartBox>
-								</Box>
+								</div>
 								{!isCreatedTrafficBasis && !isPerServiceLimits && (
-									<Box minW={0}>
-										<ChartBox title={t("myaccount.perNodeUsage")} minH="500px">
-											<Text fontSize="sm" color={labelColor} mb={3}>
+									<div className="min-w-0!">
+										<ChartBox title={t("myaccount.perNodeUsage")} className="min-h-[500px]">
+											<p className={cn("text-[0.875rem] mb-3", labelColor)}>
 												{t("myaccount.selectedPeriodNodeUsage")}
 												:{" "}
-												<chakra.span fontWeight="semibold">
+												<span className="font-semibold">
 													{formatBytes(perNodeTotal, 2)}
-												</chakra.span>
-											</Text>
+												</span>
+											</p>
 											{perNodeUsage.length > 0 &&
 											donutSeries.some((value: number) => value > 0) ? (
-												<ReactApexChart
-													type="donut"
-													height={360}
-													options={buildDonutOptions(colorMode, donutLabels)}
-													series={donutSeries}
-												/>
+												<ReactApexChart type="donut" options={buildDonutOptions(colorMode, donutLabels)} series={donutSeries} className="h-360" />
 											) : (
-												<Text color={labelColor}>{t("noData")}</Text>
+												<p className={cn(labelColor)}>{t("noData")}</p>
 											)}
 										</ChartBox>
-									</Box>
+									</div>
 								)}
-							</SimpleGrid>
+							</div>
 
 							{isPerServiceLimits && (
 								<ChartBox
 									title={t("myaccount.serviceTrafficLimits")}
 								>
 									{serviceLimits.length ? (
-										<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4}>
+										<div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 											{serviceLimits.map((service) => (
 												<ServiceLimitPanel
 													key={service.service_id}
@@ -1226,17 +1048,17 @@ export const MyAccountPage: React.FC = () => {
 													expiryText={expiryText}
 												/>
 											))}
-										</SimpleGrid>
+										</div>
 									) : (
-										<Text color={labelColor}>{t("noData")}</Text>
+										<p className={cn(labelColor)}>{t("noData")}</p>
 									)}
 								</ChartBox>
 							)}
-						</VStack>
+						</div>
 					</TabPanel>
 
 					{canViewSecurity && (
-						<TabPanel p={0}>
+						<TabPanel className="p-0">
 							<AccountSecurity
 								totpEnabled={Boolean(userData.totp_enabled)}
 								canChangePassword={Boolean(
@@ -1250,118 +1072,74 @@ export const MyAccountPage: React.FC = () => {
 					)}
 
 					{selfPermissions.self_api_keys && (
-						<TabPanel p={0}>
-							<Stack w="full" maxW="960px" mx="auto">
+						<TabPanel className="p-0">
+							<div className="flex flex-col gap-2 w-full max-w-[960px] mx-auto">
 								<ChartBox
 									title={t("myaccount.apiKeys")}
 									headerActions={
-										<Button
-											size="sm"
-											h="10"
-											colorScheme="primary"
-											onClick={apiKeyModal.onOpen}
-										>
+										<Button size="sm" colorScheme="primary" onClick={apiKeyModal.onOpen} className="h-10">
 											{t("myaccount.createApiKey")}
 										</Button>
 									}
 								>
-									<Text color="panel.textSecondary" fontSize="sm" mb={3}>
+									<p className="text-panel-text-secondary text-[0.875rem] mb-3">
 										{t("myaccount.apiKeysHint")}
-									</Text>
+									</p>
 									{apiKeysQuery.isLoading ? (
-										<Flex justify="center" py={6}>
+										<div className="flex justify-center py-6">
 											<Spinner size="sm" />
-										</Flex>
+										</div>
 									) : apiKeys.length === 0 ? (
-										<Text color={labelColor}>{t("myaccount.noApiKeys")}</Text>
+										<p className={cn(labelColor)}>{t("myaccount.noApiKeys")}</p>
 									) : (
-										<Stack
-											spacing={0}
-											divider={<StackDivider borderColor="panel.border" />}
-										>
+										<div className="flex flex-col gap-0 divide-y divide-panel-border">
 											{apiKeys.map((key) => (
-												<Flex
-													as="article"
-													key={key.id}
-													align="center"
-													justify="space-between"
-													gap={3}
-													py={2.5}
-												>
-													<HStack minW={0} spacing={3} align="start">
-														<Flex
-															align="center"
-															justify="center"
-															w="9"
-															h="9"
-															flexShrink={0}
-															borderRadius="6px"
-															bg="panel.elevated"
-															color="panel.accent"
-															aria-hidden="true"
-														>
-															<KeyIcon width={18} />
-														</Flex>
-														<Box minW={0}>
-															<Text
-																fontFamily="mono"
-																fontWeight="semibold"
-																fontSize="sm"
-																wordBreak="break-all"
-															>
+												<article key={key.id} className="flex items-center justify-between gap-3 py-2.5">
+													<div className="flex flex-row min-w-0! gap-3 items-start">
+														<div aria-hidden="true" className="flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated text-panel-accent">
+															<KeyIcon className="w-18" />
+														</div>
+														<div className="min-w-0!">
+															<p className="font-mono font-semibold text-[0.875rem] break-all">
 																{key.masked_key ?? "****"}
-															</Text>
-															<HStack
-																spacing={2.5}
-																color="panel.textMuted"
-																fontSize="xs"
-																flexWrap="wrap"
-																mt={1}
-															>
-																<Text>
+															</p>
+															<div className="flex flex-row items-center gap-2.5 text-panel-text-muted text-[0.75rem] flex-wrap mt-1">
+																<p>
 																	{t("myaccount.apiKeyCreatedAt")}:{" "}
 																	{dayjs(key.created_at).format("YYYY-MM-DD")}
-																</Text>
-																<Text>
+																</p>
+																<p>
 																	{t("myaccount.apiKeyExpiresAt")}:{" "}
 																	{key.expires_at
 																		? dayjs(key.expires_at).format("YYYY-MM-DD")
 																		: t("myaccount.never")}
-																</Text>
-																<Text>
+																</p>
+																<p>
 																	{t("myaccount.lastUsed")}:{" "}
 																	{key.last_used_at
 																		? dayjs(key.last_used_at).format(
 																				"YYYY-MM-DD HH:mm",
 																			)
 																		: t("myaccount.neverUsed")}
-																</Text>
-															</HStack>
-														</Box>
-													</HStack>
-													<IconButton
-														aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`}
-														icon={<DeleteIcon />}
-														size="sm"
-														variant="ghost"
-														colorScheme="red"
-														isLoading={
+																</p>
+															</div>
+														</div>
+													</div>
+													<IconButton aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} icon={<DeleteIcon />} size="sm" variant="ghost" colorScheme="red" isLoading={
 															deleteKeyMutation.isLoading &&
 															deleteKeyMutation.variables?.id === key.id
-														}
-														onClick={() => {
+														} onClick={() => {
 															setDeleteKeyId(key.id);
 															setDeletePassword("");
 															setShowDeletePassword(false);
 															deleteModal.onOpen();
-														}}
-													/>
-												</Flex>
+														}} />
+												</article>
 											))}
-										</Stack>
+										</div>
 									)}
 								</ChartBox>
-							</Stack>
+							</div>
 						</TabPanel>
 					)}
 				</TabPanels>
@@ -1375,32 +1153,27 @@ export const MyAccountPage: React.FC = () => {
 					title={t("myaccount.createApiKey")}
 					footer={
 						hasGeneratedKey ? (
-							<Button colorScheme="primary" onClick={closeApiKeyDialog}>
+							<Button size="md" colorScheme="primary" onClick={closeApiKeyDialog}>
 								{t("close")}
 							</Button>
 						) : (
 							<>
-								<Button variant="ghost" mr={3} onClick={closeApiKeyDialog}>
+								<Button size="md" variant="ghost" onClick={closeApiKeyDialog} className="mr-3">
 									{t("cancel")}
 								</Button>
-								<Button
-									colorScheme="primary"
-									isLoading={createKeyMutation.isLoading}
-									onClick={() => createKeyMutation.mutate(selectedLifetime)}
-									isDisabled={hasGeneratedKey}
-								>
+								<Button size="md" colorScheme="primary" isLoading={createKeyMutation.isLoading} onClick={() => createKeyMutation.mutate(selectedLifetime)} isDisabled={hasGeneratedKey}>
 									{t("create")}
 								</Button>
 							</>
 						)
 					}
 				>
-					<VStack spacing={4} align="stretch">
+					<div className="flex flex-col gap-4 items-stretch">
 						{!hasGeneratedKey && (
-							<Box>
-								<Text fontWeight="medium" mb={2}>
+							<div>
+								<p className="font-medium mb-2">
 									{t("myaccount.apiKeyLifetime")}
-								</Text>
+								</p>
 								<Select
 									value={selectedLifetime}
 									onChange={(e) => setSelectedLifetime(e.target.value)}
@@ -1413,19 +1186,16 @@ export const MyAccountPage: React.FC = () => {
 										{t("myaccount.lifetimeForever")}
 									</option>
 								</Select>
-							</Box>
+							</div>
 						)}
 						{hasGeneratedKey && (
-							<Box>
-								<Text fontWeight="medium" mb={1}>
+							<div>
+								<p className="font-medium mb-1">
 									{t("myaccount.yourApiKey")}
-								</Text>
-								<HStack>
+								</p>
+								<div className="flex flex-row items-center gap-2">
 									<Input value={generatedKey} isReadOnly />
-									<IconButton
-										aria-label={t("copy")}
-										icon={<CopyIcon />}
-										onClick={() => {
+									<IconButton variant="solid" size="md" aria-label={t("copy")} icon={<CopyIcon />} onClick={() => {
 											setClipboardValue(generatedKey);
 											onCopy();
 											toast({
@@ -1433,15 +1203,14 @@ export const MyAccountPage: React.FC = () => {
 												status: "success",
 												duration: 1200,
 											});
-										}}
-									/>
-								</HStack>
-								<Text fontSize="xs" color="orange.500" mt={2}>
+										}} />
+								</div>
+								<p className="text-[0.75rem] text-orange-500 mt-2">
 									{t("myaccount.apiKeyWarning")}
-								</Text>
-							</Box>
+								</p>
+							</div>
 						)}
-					</VStack>
+					</div>
 				</AppDialog>
 			)}
 
@@ -1459,70 +1228,49 @@ export const MyAccountPage: React.FC = () => {
 					title={t("myaccount.deleteApiKey")}
 					footer={
 						<>
-							<Button variant="ghost" mr={3} onClick={closeDeleteKeyDialog}>
+							<Button size="md" variant="ghost" onClick={closeDeleteKeyDialog} className="mr-3">
 								{t("cancel")}
 							</Button>
-							<Button
-								colorScheme="red"
-								isLoading={deleteKeyMutation.isLoading}
-								isDisabled={!deletePassword || deleteKeyId === null}
-								onClick={() => {
+							<Button size="md" colorScheme="red" isLoading={deleteKeyMutation.isLoading} isDisabled={!deletePassword || deleteKeyId === null} onClick={() => {
 									if (deleteKeyId !== null) {
 										deleteKeyMutation.mutate({
 											id: deleteKeyId,
 											current_password: deletePassword,
 										});
 									}
-								}}
-							>
+								}}>
 								{t("delete")}
 							</Button>
 						</>
 					}
 				>
-					<VStack spacing={3} align="stretch">
-						<Text color={labelColor}>{t("myaccount.deleteApiKeyPrompt")}</Text>
+					<div className="flex flex-col gap-3 items-stretch">
+						<p className={cn(labelColor)}>{t("myaccount.deleteApiKeyPrompt")}</p>
 						<InputGroup dir={isRTL ? "rtl" : "ltr"}>
-							<Input
-								placeholder={t("myaccount.currentPassword")}
-								type={showDeletePassword ? "text" : "password"}
-								value={deletePassword}
-								onChange={(e) => setDeletePassword(e.target.value)}
-								paddingInlineEnd="2.75rem"
-							/>
-							<InputRightElement
-								insetInlineEnd="0.5rem"
-								right="auto"
-								left="auto"
-							>
-								<IconButton
-									aria-label={
+							<Input placeholder={t("myaccount.currentPassword")} type={showDeletePassword ? "text" : "password"} value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="pe-[2.75rem]" />
+							<InputRightElement className="end-[0.5rem] right-auto left-auto">
+								<IconButton aria-label={
 										showDeletePassword
 											? t("admins.hidePassword")
 											: t("admins.showPassword")
-									}
-									size="sm"
-									variant="ghost"
-									icon={
+									} size="sm" variant="ghost" icon={
 										showDeletePassword ? (
-											<EyeSlashIcon width={16} />
+											<EyeSlashIcon className="w-16" />
 										) : (
-											<EyeIcon width={16} />
+											<EyeIcon className="w-16" />
 										)
-									}
-									onClick={() => setShowDeletePassword(!showDeletePassword)}
-								/>
+									} onClick={() => setShowDeletePassword(!showDeletePassword)} />
 							</InputRightElement>
 						</InputGroup>
 						{deleteKeyMutation.isError && (
-							<Text color="red.500" fontSize="sm">
+							<p className="text-red-500 text-[0.875rem]">
 								{t("myaccount.incorrectPassword")}
-							</Text>
+							</p>
 						)}
-					</VStack>
+					</div>
 				</AppDialog>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

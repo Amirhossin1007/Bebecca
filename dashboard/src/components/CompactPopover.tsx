@@ -1,30 +1,18 @@
-import {
-	Button,
-	chakra,
-	HStack,
-	IconButton,
-	Popover,
-	PopoverArrow,
-	PopoverBody,
-	PopoverCloseButton,
-	PopoverContent,
-	PopoverHeader,
-	PopoverTrigger,
-	Tag,
-	Text,
-	Tooltip,
-	useBreakpointValue,
-	useClipboard,
-	VStack,
-} from "@chakra-ui/react";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverHeader, PopoverTrigger } from "components/shadcn/popover";
+import { Button, IconButton } from "components/shadcn/button";
+import { Tag } from "components/shadcn/badge";
+import { useClipboard } from "hooks/useClipboard";
+import { Tooltip } from "components/shadcn/tooltip";
+import { withClass } from "components/shadcn/icon";
 import {
 	ClipboardIcon,
 	InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 import type React from "react";
 
-const InfoIcon = chakra(InformationCircleIcon, { baseStyle: { w: 4, h: 4 } });
-const CopyIcon = chakra(ClipboardIcon, { baseStyle: { w: 4, h: 4 } });
+const InfoIcon = withClass(InformationCircleIcon, "w-4 h-4");
+const CopyIcon = withClass(ClipboardIcon, "w-4 h-4");
 
 interface CompactPopoverProps {
 	triggerLabel?: React.ReactNode;
@@ -48,7 +36,7 @@ export const CompactPopover: React.FC<CompactPopoverProps> = ({
 			<PopoverContent>
 				<PopoverArrow />
 				<PopoverCloseButton />
-				{title && <PopoverHeader fontWeight="semibold">{title}</PopoverHeader>}
+				{title && <PopoverHeader className="font-semibold">{title}</PopoverHeader>}
 				<PopoverBody>{children}</PopoverBody>
 			</PopoverContent>
 		</Popover>
@@ -62,29 +50,29 @@ export const CompactChips: React.FC<{ chips: string[]; color?: string }> = ({
 	const first = chips[0];
 	const rest = chips.slice(1);
 	return (
-		<HStack spacing={2} align="center">
+		<div className="flex flex-row gap-2 items-center">
 			{first ? (
 				<Tag size="sm" colorScheme={color}>
 					{first}
 				</Tag>
 			) : (
-				<Text color="gray.400">-</Text>
+				<p className="text-gray-400">-</p>
 			)}
 			{rest.length > 0 && (
 				<CompactPopover
 					triggerLabel={<Tag size="sm">+{rest.length}</Tag>}
 					title={"Details"}
 				>
-					<VStack align="stretch">
+					<div className="flex flex-col gap-2 items-stretch">
 						{chips.map((c) => (
-							<HStack key={c} justify="space-between">
-								<Text>{c}</Text>
-							</HStack>
+							<div key={c} className="flex flex-row items-center gap-2 justify-between">
+								<p>{c}</p>
+							</div>
 						))}
-					</VStack>
+					</div>
 				</CompactPopover>
 			)}
-		</HStack>
+		</div>
 	);
 };
 
@@ -96,21 +84,16 @@ export const CompactTextWithCopy: React.FC<{
 		text && text.length > 40 ? `${text.slice(0, 36)}...` : text || "-";
 	const { hasCopied, onCopy } = useClipboard(text ?? "");
 	return (
-		<HStack spacing={2} align="center">
+		<div className="flex flex-row gap-2 items-center">
 			<CompactPopover triggerLabel={display} title={label}>
-				<HStack align="start" spacing={2}>
+				<div className="flex flex-row items-start gap-2">
 					<Tooltip label={hasCopied ? "Copied" : "Copy"} hasArrow>
-						<IconButton
-							aria-label={hasCopied ? "Copied" : "Copy"}
-							size="sm"
-							icon={<CopyIcon />}
-							onClick={onCopy}
-						/>
+						<IconButton variant="solid" aria-label={hasCopied ? "Copied" : "Copy"} size="sm" icon={<CopyIcon />} onClick={onCopy} />
 					</Tooltip>
-					<Text wordBreak="break-all" pt={1.5}>{text}</Text>
-				</HStack>
+					<p className="break-all pt-1.5">{text}</p>
+				</div>
 			</CompactPopover>
-		</HStack>
+		</div>
 	);
 };
 

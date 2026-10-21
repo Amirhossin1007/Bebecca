@@ -1,34 +1,12 @@
-import {
-	Badge,
-	Box,
-	Button,
-	Divider,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	SimpleGrid,
-	Spinner,
-	Switch,
-	Table,
-	Tag,
-	Tbody,
-	Td,
-	Text,
-	Th,
-	Thead,
-	Tooltip,
-	Tr,
-	useToast,
-	VStack,
-	Wrap,
-	WrapItem,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Switch } from "components/shadcn/selection";
+import { Badge, Tag } from "components/shadcn/badge";
+import { Button, IconButton } from "components/shadcn/button";
+import { Spinner } from "components/shadcn/feedback";
+import { Tooltip } from "components/shadcn/tooltip";
 import {
 	ArrowDownIcon,
 	ArrowPathIcon,
@@ -314,200 +292,142 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			size="4xl"
-			scrollBehavior="inside"
-		>
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent mx="3">
+		<Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{t("pages.xray.outboundSub.title")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<VStack align="stretch" spacing={4}>
-						<Box className="xray-section">
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+					<div className="flex flex-col items-stretch gap-4">
+						<div className="xray-section">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<FormControl>
 									<FormLabel>{t("hostsDialog.remark")}</FormLabel>
-									<Input
-										size="sm"
-										value={form.remark}
-										onChange={(event) =>
+									<Input size="sm" value={form.remark} onChange={(event) =>
 											setForm((prev) => ({ ...prev, remark: event.target.value }))
-										}
-										placeholder={t("pages.xray.outboundSub.remarkPlaceholder")}
-									/>
+										} placeholder={t("pages.xray.outboundSub.remarkPlaceholder")} />
 								</FormControl>
 								<FormControl isRequired>
 									<FormLabel>{t("pages.xray.outboundSub.url")}</FormLabel>
-									<Input
-										size="sm"
-										value={form.url}
-										onChange={(event) =>
+									<Input size="sm" value={form.url} onChange={(event) =>
 											setForm((prev) => ({ ...prev, url: event.target.value }))
-										}
-										placeholder="https://example.com/sub"
-									/>
+										} placeholder="https://example.com/sub" />
 								</FormControl>
 								<FormControl>
 									<FormLabel>{t("pages.xray.tor.tagPrefix")}</FormLabel>
-									<Input
-										size="sm"
-										value={form.tagPrefix}
-										onChange={(event) =>
+									<Input size="sm" value={form.tagPrefix} onChange={(event) =>
 											setForm((prev) => ({ ...prev, tagPrefix: event.target.value }))
-										}
-										placeholder="sub1-"
-									/>
+										} placeholder="sub1-" />
 									<FormHelperText>
 										{t("pages.xray.outboundSub.tagPrefixHint")}
 									</FormHelperText>
 								</FormControl>
 								<FormControl>
 									<FormLabel>{t("pages.xray.outboundSub.interval")}</FormLabel>
-									<Input
-										size="sm"
-										type="number"
-										min={1}
-										value={intervalMinutes}
-										onChange={(event) =>
+									<Input size="sm" type="number" min={1} value={intervalMinutes} onChange={(event) =>
 											setForm((prev) => ({
 												...prev,
 												updateInterval: Math.max(60, Number(event.target.value || 10) * 60),
 											}))
-										}
-									/>
+										} />
 									<FormHelperText>
 										{t("pages.xray.outboundSub.intervalHint")}
 									</FormHelperText>
 								</FormControl>
-							</SimpleGrid>
-							<HStack mt={3} spacing={5} wrap="wrap">
-								<HStack>
-									<Switch
-										size="sm"
-										isChecked={form.enabled}
-										onChange={(event) =>
+							</div>
+							<div className="flex flex-row items-center mt-3 gap-5 flex-wrap">
+								<div className="flex flex-row items-center gap-2">
+									<Switch size="sm" isChecked={form.enabled} onChange={(event) =>
 											setForm((prev) => ({ ...prev, enabled: event.target.checked }))
-										}
-									/>
-									<Text fontSize="sm">{t("nodes.enabled")}</Text>
-								</HStack>
-								<HStack>
-									<Switch
-										size="sm"
-										isChecked={form.prepend}
-										onChange={(event) =>
+										} />
+									<p className="text-[0.875rem]">{t("nodes.enabled")}</p>
+								</div>
+								<div className="flex flex-row items-center gap-2">
+									<Switch size="sm" isChecked={form.prepend} onChange={(event) =>
 											setForm((prev) => ({ ...prev, prepend: event.target.checked }))
-										}
-									/>
-									<Text fontSize="sm">{t("pages.xray.outboundSub.prepend")}</Text>
-								</HStack>
-								<HStack>
-									<Switch
-										size="sm"
-										isChecked={form.allowPrivate}
-										onChange={(event) =>
+										} />
+									<p className="text-[0.875rem]">{t("pages.xray.outboundSub.prepend")}</p>
+								</div>
+								<div className="flex flex-row items-center gap-2">
+									<Switch size="sm" isChecked={form.allowPrivate} onChange={(event) =>
 											setForm((prev) => ({ ...prev, allowPrivate: event.target.checked }))
-										}
-									/>
-									<Text fontSize="sm">{t("pages.xray.outboundSub.allowPrivate")}</Text>
-								</HStack>
-							</HStack>
+										} />
+									<p className="text-[0.875rem]">{t("pages.xray.outboundSub.allowPrivate")}</p>
+								</div>
+							</div>
 							{preview.length > 0 && (
-								<Wrap mt={3} spacing={2}>
+								<div className="flex flex-wrap mt-3 gap-2">
 									{preview.map((item, index) => (
-										<WrapItem key={`${item.tag}-${index}`}>
+										<div key={`${item.tag}-${index}`}>
 											<Tag size="sm" colorScheme="green">
 												{item.tag || "-"} · {item.protocol || "-"}
 											</Tag>
-										</WrapItem>
+										</div>
 									))}
-								</Wrap>
+								</div>
 							)}
-						</Box>
+						</div>
 
-						<Box className="xray-section">
-							<HStack justify="space-between" mb={3}>
-								<Box>
-									<Text fontWeight="semibold">
+						<div className="xray-section">
+							<div className="flex flex-row items-center gap-2 justify-between mb-3">
+								<div>
+									<p className="font-semibold">
 										{t("pages.xray.outboundSub.active")}
-									</Text>
-									<Text color="gray.500" fontSize="xs">
+									</p>
+									<p className="text-gray-500 text-[0.75rem]">
 										{t("pages.xray.outboundSub.restartHint")}
-									</Text>
-								</Box>
-								<Button
-									size="xs"
-									variant="ghost"
-									leftIcon={<ArrowPathIcon width={14} />}
-									isLoading={loading}
-									onClick={load}
-								>
+									</p>
+								</div>
+								<Button size="xs" variant="ghost" leftIcon={<ArrowPathIcon className="w-14" />} isLoading={loading} onClick={load}>
 									{t("refresh")}
 								</Button>
-							</HStack>
-							<Divider mb={3} />
+							</div>
+							<hr className="mb-3 w-full border-0 border-b border-panel-border! opacity-60" />
 							{loading ? (
-								<HStack justify="center" py={6}>
+								<div className="flex flex-row items-center gap-2 justify-center py-6">
 									<Spinner size="sm" />
-								</HStack>
+								</div>
 							) : items.length === 0 ? (
-								<Text color="gray.500" fontSize="sm">
+								<p className="text-gray-500 text-[0.875rem]">
 									{t("pages.xray.outboundSub.empty")}
-								</Text>
+								</p>
 							) : (
-								<Table size="sm">
-									<Thead>
-										<Tr>
-											<Th w="70px">#</Th>
-											<Th>{t("hostsDialog.remark")}</Th>
-											<Th>{t("pages.xray.Outbounds")}</Th>
-											<Th>{t("status")}</Th>
-											<Th>{t("nodes.enabled")}</Th>
-											<Th>{t("actions")}</Th>
-										</Tr>
-									</Thead>
-									<Tbody>
+								<table className="w-full border-separate border-spacing-0">
+									<thead>
+										<tr>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text w-[70px]">#</th>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text">{t("hostsDialog.remark")}</th>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text">{t("pages.xray.Outbounds")}</th>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text">{t("status")}</th>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text">{t("nodes.enabled")}</th>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text">{t("actions")}</th>
+										</tr>
+									</thead>
+									<tbody>
 										{items.map((item, index) => (
-											<Tr key={item.id}>
-												<Td>
-													<HStack spacing={0}>
-														<IconButton
-																aria-label={t("a11y.moveUp")}
-															size="xs"
-															variant="ghost"
-															icon={<ArrowUpIcon width={14} />}
-															isDisabled={index === 0 || busyID === item.id}
-															onClick={() => move(item.id, "up")}
-														/>
-														<IconButton
-																aria-label={t("a11y.moveDown")}
-															size="xs"
-															variant="ghost"
-															icon={<ArrowDownIcon width={14} />}
-															isDisabled={index === items.length - 1 || busyID === item.id}
-															onClick={() => move(item.id, "down")}
-														/>
-													</HStack>
-												</Td>
-												<Td maxW="260px">
-													<Text fontWeight="semibold" noOfLines={1}>
+											<tr key={item.id}>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
+													<div className="flex flex-row items-center gap-0">
+														<IconButton aria-label={t("a11y.moveUp")} size="xs" variant="ghost" icon={<ArrowUpIcon className="w-14" />} isDisabled={index === 0 || busyID === item.id} onClick={() => move(item.id, "up")} />
+														<IconButton aria-label={t("a11y.moveDown")} size="xs" variant="ghost" icon={<ArrowDownIcon className="w-14" />} isDisabled={index === items.length - 1 || busyID === item.id} onClick={() => move(item.id, "down")} />
+													</div>
+												</td>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text max-w-[260px]">
+													<p className="font-semibold truncate">
 														<AppleEmojiText>
 															{item.remark || item.url || ""}
 														</AppleEmojiText>
-													</Text>
-													<Text color="gray.500" fontSize="xs" noOfLines={1}>
+													</p>
+													<p className="text-gray-500 text-[0.75rem] truncate">
 														{item.tagPrefix || "sub-"} · {item.url}
-													</Text>
-												</Td>
-												<Td>
+													</p>
+												</td>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													<Badge colorScheme="blue">{item.outboundCount ?? 0}</Badge>
-												</Td>
-												<Td>
+												</td>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													{item.lastError ? (
 														<Tooltip label={item.lastError}>
 															<Badge colorScheme="red">error</Badge>
@@ -519,80 +439,48 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 																: t("myaccount.never")}
 														</Badge>
 													)}
-												</Td>
-												<Td>
-													<Switch
-														size="sm"
-														isChecked={!!item.enabled}
-														isDisabled={busyID === item.id}
-														onChange={() => toggle(item)}
-													/>
-												</Td>
-												<Td>
-													<HStack spacing={1}>
+												</td>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
+													<Switch size="sm" isChecked={!!item.enabled} isDisabled={busyID === item.id} onChange={() => toggle(item)} />
+												</td>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
+													<div className="flex flex-row items-center gap-1">
 														<Button size="xs" variant="ghost" onClick={() => edit(item)}>
 															{t("edit")}
 														</Button>
-														<IconButton
-																aria-label={t("refresh")}
-															size="xs"
-															variant="ghost"
-															icon={<ArrowPathIcon width={14} />}
-															isLoading={busyID === item.id}
-															onClick={() => refreshOne(item.id)}
-														/>
-														<IconButton
-																aria-label={t("delete")}
-															size="xs"
-															variant="ghost"
-															colorScheme="red"
-															icon={<TrashIcon width={14} />}
-															isDisabled={busyID === item.id}
-															onClick={() => deleteOne(item.id)}
-														/>
-													</HStack>
-												</Td>
-											</Tr>
+														<IconButton aria-label={t("refresh")} size="xs" variant="ghost" icon={<ArrowPathIcon className="w-14" />} isLoading={busyID === item.id} onClick={() => refreshOne(item.id)} />
+														<IconButton aria-label={t("delete")} size="xs" variant="ghost" colorScheme="red" icon={<TrashIcon className="w-14" />} isDisabled={busyID === item.id} onClick={() => deleteOne(item.id)} />
+													</div>
+												</td>
+											</tr>
 										))}
-									</Tbody>
-								</Table>
+									</tbody>
+								</table>
 							)}
-						</Box>
-					</VStack>
+						</div>
+					</div>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<HStack w="full" justify="space-between" spacing={2} wrap="wrap">
-						<Box>
+					<div className="flex flex-row items-center w-full justify-between gap-2 flex-wrap">
+						<div>
 							{editingID !== null && (
 								<Button size="sm" variant="ghost" onClick={resetForm}>
 									{t("cancel")}
 								</Button>
 							)}
-						</Box>
-						<HStack spacing={2} wrap="wrap">
-							<Button
-								size="sm"
-								variant="ghost"
-								leftIcon={<EyeIcon width={16} />}
-								isLoading={previewing}
-								onClick={previewURL}
-							>
+						</div>
+						<div className="flex flex-row items-center gap-2 flex-wrap">
+							<Button size="sm" variant="ghost" leftIcon={<EyeIcon className="w-16" />} isLoading={previewing} onClick={previewURL}>
 								{t("bulkActions.preview")}
 							</Button>
-							<Button
-								size="sm"
-								colorScheme="primary"
-								leftIcon={<PlusIcon width={16} />}
-								isLoading={saving}
-								onClick={save}
-							>
+							<Button size="sm" colorScheme="primary" leftIcon={<PlusIcon className="w-16" />} isLoading={saving} onClick={save}>
 								{editingID === null ? t("add") : t("save")}
 							</Button>
 							<Button size="sm" variant="ghost" onClick={onClose}>
 								{t("close")}
 							</Button>
-						</HStack>
-					</HStack>
+						</div>
+					</div>
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>

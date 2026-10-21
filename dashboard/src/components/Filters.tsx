@@ -1,29 +1,12 @@
-import {
-	Box,
-	type BoxProps,
-	Button,
-	Checkbox,
-	chakra,
-	Grid,
-	GridItem,
-	HStack,
-	Popover,
-	PopoverArrow,
-	PopoverBody,
-	PopoverCloseButton,
-	PopoverContent,
-	PopoverHeader,
-	PopoverTrigger,
-	Stack,
-	Tag,
-	TagCloseButton,
-	TagLabel,
-	Text,
-	Tooltip,
-	useBreakpointValue,
-	VStack,
-	Wrap,
-} from "@chakra-ui/react";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverHeader, PopoverTrigger } from "components/shadcn/popover";
+import { Button } from "components/shadcn/button";
+import { Checkbox } from "components/shadcn/selection";
+import { Tag, TagCloseButton, TagLabel } from "components/shadcn/badge";
+import { withClass } from "components/shadcn/icon";
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
 import {
 	ArrowPathIcon,
 	FunnelIcon,
@@ -51,17 +34,10 @@ import {
 } from "types/Admin";
 import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
-const iconProps = {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-};
-
-const FilterIcon = chakra(FunnelIcon, iconProps);
-export const ReloadIcon = chakra(ArrowPathIcon, iconProps);
-const PlusIconStyled = chakra(PlusIcon, iconProps);
-const HelpIcon = chakra(QuestionMarkCircleIcon, iconProps);
+const FilterIcon = withClass(FunnelIcon, "w-4 h-4");
+export const ReloadIcon = withClass(ArrowPathIcon, "w-4 h-4");
+const PlusIconStyled = withClass(PlusIcon, "w-4 h-4");
+const HelpIcon = withClass(QuestionMarkCircleIcon, "w-4 h-4");
 
 export type AdvancedFilterOption = {
 	key: string;
@@ -136,7 +112,7 @@ export type FilterProps = {
 	for?: "users" | "admins";
 	actionsSlot?: React.ReactNode;
 	showRefresh?: boolean;
-} & BoxProps;
+} & ComponentPropsWithoutRef<"div">;
 
 export const Filters: FC<FilterProps> = ({
 	for: target = "users",
@@ -366,89 +342,51 @@ export const Filters: FC<FilterProps> = ({
 	const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
 
 	return (
-		<Grid
-			id="filters"
-			templateColumns={{
-				lg: "repeat(3, 1fr)",
-				md: "repeat(2, 1fr)",
-				base: "1fr",
-			}}
-			mx="0"
-			rowGap={4}
-			gap={{
-				lg: 4,
-				md: 4,
-				base: 4,
-			}}
-			py={4}
-			{...props}
-		>
-			<GridItem colSpan={{ base: 1, md: 1, lg: 1 }} order={{ base: 2, md: 1 }}>
-				<VStack spacing={2} align="stretch" w="full">
+		<div id="filters" {...props} className="grid lg:grid-cols-[repeat(3,_1fr)] md:grid-cols-[repeat(2,_1fr)] grid-cols-[1fr] mx-0 lg:gap-4 md:gap-4 gap-4 py-4">
+			<div className="col-span-1 md:col-span-1 lg:col-span-1 order-2 md:order-1">
+				<div className="flex flex-col gap-2 items-stretch w-full">
 					{isUserFilters && (
-						<HStack spacing={1} align="center">
-							<Text fontSize="xs" color="gray.500">
+						<div className="flex flex-row gap-1 items-center">
+							<p className="text-[0.75rem] text-gray-500">
 								{t("users.searchHelpLabel")}
-							</Text>
+							</p>
 							<Tooltip label={t("users.searchHelp")} placement="top" hasArrow>
-								<Box display="inline-flex" alignItems="center">
+								<div className="inline-flex items-center">
 									<HelpIcon />
-								</Box>
+								</div>
 							</Tooltip>
-						</HStack>
+						</div>
 					)}
-					<HStack spacing={2} align="center" w="full" flexWrap="wrap">
-						<SearchInput
-							containerProps={{
-								flex: { base: "1 1 100%", sm: "1 1 auto" },
-								minW: { base: "100%", sm: "240px" },
-								maxW: { base: "100%", sm: "none" },
-							}}
-								placeholder={
+					<div className="flex flex-row gap-2 items-center w-full flex-wrap">
+						<SearchInput containerProps={{ className: "flex-[1_1_100%] sm:flex-[1_1_auto] min-w-[100%]! sm:min-w-[240px]! max-w-[100%] sm:max-w-none" }} placeholder={
 								target === "users" ? t("search") : t("admins.searchPlaceholder")
-								}
-								value={search}
-								borderColor="light-border"
-								onChange={onChange}
-							matchOptions={matchOptions}
-							onMatchOptionsChange={(options) => {
+								} value={search} onChange={onChange} matchOptions={matchOptions} onMatchOptionsChange={(options) => {
 								if (isUserFilters) {
 									onUserFilterChange({ ...options, offset: 0 });
 								} else {
 									onAdminFilterChange({ ...options, offset: 0 });
 								}
-							}}
-							isLoading={loading}
-							onClear={clear}
-							/>
+							}} isLoading={loading} onClear={clear} className="border-light-border!" />
 						{!isUserFilters && (
 							<Popover placement="bottom-start">
 								<PopoverTrigger>
-									<Button
-										leftIcon={<FilterIcon />}
-										size={isMobile ? "sm" : "md"}
-										variant="outline"
-										minW={isMobile ? "auto" : "8rem"}
-										h={isMobile ? "36px" : undefined}
-										fontSize={isMobile ? "xs" : "sm"}
-										flex={{ base: "1 1 auto", sm: "0 1 auto" }}
-									>
+									<Button leftIcon={<FilterIcon />} size={isMobile ? "sm" : "md"} variant="outline" className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
 										{t("admins.filters.title")}
 										{adminActiveFilterCount > 0 ? ` (${adminActiveFilterCount})` : ""}
 									</Button>
 								</PopoverTrigger>
-								<PopoverContent borderColor="light-border" minW="250px">
+								<PopoverContent className="border-light-border! min-w-[250px]!">
 									<PopoverArrow />
 									<PopoverCloseButton />
-									<PopoverHeader fontWeight="semibold">
+									<PopoverHeader className="font-semibold">
 										{t("admins.filters.title")}
 									</PopoverHeader>
 									<PopoverBody>
-										<Stack spacing={3}>
-											<Box>
-												<Text fontSize="sm" fontWeight="semibold" mb={1}>
+										<div className="flex flex-col gap-3">
+											<div>
+												<p className="text-[0.875rem] font-semibold mb-1">
 													{t("admins.filters.role")}
-												</Text>
+												</p>
 												<Select
 													value={adminFilters.roleFilter}
 													onChange={(event) =>
@@ -463,11 +401,11 @@ export const Filters: FC<FilterProps> = ({
 													<option value="reseller">{t("admins.filters.roleReseller")}</option>
 													<option value="standard">{t("admins.filters.roleStandard")}</option>
 												</Select>
-											</Box>
-											<Box>
-												<Text fontSize="sm" fontWeight="semibold" mb={1}>
+											</div>
+											<div>
+												<p className="text-[0.875rem] font-semibold mb-1">
 													{t("admins.filters.status")}
-												</Text>
+												</p>
 												<Select
 													value={adminFilters.statusFilter}
 													onChange={(event) =>
@@ -482,18 +420,11 @@ export const Filters: FC<FilterProps> = ({
 													<option value="expired">{t("admins.filters.statusExpired")}</option>
 													<option value="limited">{t("admins.filters.statusLimited")}</option>
 												</Select>
-											</Box>
-										</Stack>
-										<Button
-											variant="ghost"
-											size="sm"
-											mt={3}
-											w="full"
-											onClick={() =>
+											</div>
+										</div>
+										<Button variant="ghost" size="sm" onClick={() =>
 												onAdminFilterChange({ roleFilter: "", statusFilter: "", offset: 0 })
-											}
-											isDisabled={adminActiveFilterCount === 0}
-										>
+											} isDisabled={adminActiveFilterCount === 0} className="mt-3 w-full">
 											{t("admins.filters.clear")}
 										</Button>
 									</PopoverBody>
@@ -510,43 +441,31 @@ export const Filters: FC<FilterProps> = ({
 						{showAdvancedFilters && (
 							<Popover placement="bottom-start">
 								<PopoverTrigger>
-									<Button
-										leftIcon={<FilterIcon />}
-										size={isMobile ? "sm" : "md"}
-										variant="outline"
-										minW={isMobile ? "auto" : "8rem"}
-										h={isMobile ? "36px" : undefined}
-										fontSize={isMobile ? "xs" : "sm"}
-										flex={{ base: "1 1 auto", sm: "0 1 auto" }}
-									>
+									<Button leftIcon={<FilterIcon />} size={isMobile ? "sm" : "md"} variant="outline" className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
 										{t("filters.advancedButton")}
 									</Button>
 								</PopoverTrigger>
-								<PopoverContent borderColor="light-border" minW="250px">
+								<PopoverContent className="border-light-border! min-w-[250px]!">
 									<PopoverArrow />
 									<PopoverCloseButton />
-									<PopoverHeader fontWeight="semibold">
+									<PopoverHeader className="font-semibold">
 										{t("filters.advancedTitle")}
 									</PopoverHeader>
 									<PopoverBody>
-										<Stack spacing={2}>
+										<div className="flex flex-col gap-2">
 											{ADVANCED_FILTER_OPTIONS.filter(
 												(option) => option.key !== "top_speed" || canViewTraffic,
 											).map((option) => (
-												<Checkbox
-													key={option.key}
-													isChecked={activeFilters.includes(option.key)}
-													onChange={() => toggleAdvancedFilter(option.key)}
-												>
+												<Checkbox key={option.key} isChecked={activeFilters.includes(option.key)} onChange={() => toggleAdvancedFilter(option.key)}>
 													{getFilterLabel(option.key)}
 												</Checkbox>
 											))}
-										</Stack>
-										<Stack spacing={3} mt={3}>
-											<Box>
-												<Text fontSize="sm" fontWeight="semibold" mb={1}>
+										</div>
+										<div className="flex flex-col gap-3 mt-3">
+											<div>
+												<p className="text-[0.875rem] font-semibold mb-1">
 													{t("filters.advanced.serviceLabel")}
-												</Text>
+												</p>
 												<Select
 													value={serviceId ? String(serviceId) : ""}
 													onChange={(event) =>
@@ -563,12 +482,12 @@ export const Filters: FC<FilterProps> = ({
 														</option>
 													))}
 												</Select>
-											</Box>
+											</div>
 											{hasPrivilegedRole && (
-												<Box>
-													<Text fontSize="sm" fontWeight="semibold" mb={1}>
+												<div>
+													<p className="text-[0.875rem] font-semibold mb-1">
 														{t("filters.advanced.adminLabel")}
-													</Text>
+													</p>
 													<Select
 														value={ownerFilter ?? ""}
 														onChange={(event) =>
@@ -591,17 +510,10 @@ export const Filters: FC<FilterProps> = ({
 															</option>
 														))}
 													</Select>
-												</Box>
+												</div>
 											)}
-										</Stack>
-										<Button
-											variant="ghost"
-											size="sm"
-											mt={3}
-											w="full"
-											onClick={clearAdvancedFilters}
-											isDisabled={activeFilters.length === 0}
-										>
+										</div>
+										<Button variant="ghost" size="sm" onClick={clearAdvancedFilters} isDisabled={activeFilters.length === 0} className="mt-3 w-full">
 											{t("filters.advancedClear")}
 										</Button>
 									</PopoverBody>
@@ -609,59 +521,32 @@ export const Filters: FC<FilterProps> = ({
 							</Popover>
 						)}
 						{showRefresh && (
-							<Button
-								aria-label={t("refresh")}
-								isDisabled={loading}
-								onClick={handleRefresh}
-								size={isMobile ? "sm" : "md"}
-								variant="outline"
-								leftIcon={
-									<ReloadIcon
-										className={classNames({
+							<Button aria-label={t("refresh")} isDisabled={loading} onClick={handleRefresh} size={isMobile ? "sm" : "md"} variant="outline" leftIcon={
+									<ReloadIcon className={cn(classNames({
 											"animate-spin": loading,
-										})}
-									/>
-								}
-								minW={isMobile ? "auto" : "8rem"}
-								h={isMobile ? "36px" : undefined}
-								fontSize={isMobile ? "xs" : "sm"}
-								flex={{ base: "1 1 auto", sm: "0 1 auto" }}
-							>
+										}))} />
+								} className={cn("flex-[1_1_auto] sm:flex-[0_1_auto]", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "h-[36px]" : "", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
 								{t("refresh")}
 							</Button>
 						)}
-					</HStack>
+					</div>
 					{showAdvancedFilters &&
 						(activeFilters.length > 0 ||
 							Boolean(serviceId) ||
 							Boolean(ownerFilter)) && (
-							<Wrap mt={2} spacing={2}>
+							<div className="flex flex-wrap mt-2 gap-2">
 								{activeFilters.map((filterKey) => (
-									<Tag
-										key={filterKey}
-										size="sm"
-										borderRadius="full"
-										variant="solid"
-										colorScheme="primary"
-									>
+									<Tag key={filterKey} size="sm" variant="solid" colorScheme="primary" className="rounded-full">
 										<TagLabel>{getFilterLabel(filterKey)}</TagLabel>
-										<TagCloseButton
-											onClick={(event) => {
+										<TagCloseButton onClick={(event) => {
 												event.preventDefault();
 												event.stopPropagation();
 												toggleAdvancedFilter(filterKey);
-											}}
-										/>
+											}} />
 									</Tag>
 								))}
 								{serviceId && (
-									<Tag
-										key="service"
-										size="sm"
-										borderRadius="full"
-										variant="solid"
-										colorScheme="primary"
-									>
+									<Tag key="service" size="sm" variant="solid" colorScheme="primary" className="rounded-full">
 										<TagLabel>
 											{t("filters.advanced.serviceTag", {
 												name:
@@ -670,72 +555,41 @@ export const Filters: FC<FilterProps> = ({
 													)?.name ?? serviceId,
 											})}
 										</TagLabel>
-										<TagCloseButton
-											onClick={(event) => {
+										<TagCloseButton onClick={(event) => {
 												event.preventDefault();
 												event.stopPropagation();
 												handleServiceChange("");
-											}}
-										/>
+											}} />
 									</Tag>
 								)}
 								{ownerFilter && (
-									<Tag
-										key="owner"
-										size="sm"
-										borderRadius="full"
-										variant="solid"
-										colorScheme="primary"
-									>
+									<Tag key="owner" size="sm" variant="solid" colorScheme="primary" className="rounded-full">
 										<TagLabel>
 											{ownerFilter === userData.username
 												? t("filters.advanced.adminTagMine")
 												: ownerFilter}
 										</TagLabel>
-										<TagCloseButton
-											onClick={(event) => {
+										<TagCloseButton onClick={(event) => {
 												event.preventDefault();
 												event.stopPropagation();
 												handleAdminChange("");
-											}}
-										/>
+											}} />
 									</Tag>
 								)}
-							</Wrap>
+							</div>
 						)}
-				</VStack>
-			</GridItem>
-			<GridItem colSpan={{ base: 1, md: 1, lg: 2 }} order={{ base: 1, md: 2 }}>
-				<Stack
-					direction={{ base: "column", sm: "row" }}
-					spacing={{ base: 2, sm: 3 }}
-					justifyContent={{ base: "flex-start", md: "flex-end" }}
-					alignItems={{ base: "stretch", sm: "center" }}
-					w="full"
-					flexWrap="wrap"
-				>
+				</div>
+			</div>
+			<div className="col-span-1 md:col-span-1 lg:col-span-2 order-1 md:order-2">
+				<div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-start md:justify-end items-stretch sm:items-center w-full flex-wrap">
 					{actionsSlot}
 					{showCreateButton && (
-						<Button
-							colorScheme="primary"
-							size="sm"
-							onClick={handleCreate}
-							isDisabled={target === "admins" && !canManageAdmins}
-							leftIcon={isMobile ? undefined : <PlusIconStyled />}
-							h="36px"
-							px={3}
-							borderRadius="4px"
-							minW={isMobile ? "auto" : "8rem"}
-							fontSize={isMobile ? "xs" : "sm"}
-							fontWeight="semibold"
-							whiteSpace="nowrap"
-							w={{ base: "full", sm: "auto" }}
-						>
+						<Button colorScheme="primary" size="sm" onClick={handleCreate} isDisabled={target === "admins" && !canManageAdmins} leftIcon={isMobile ? undefined : <PlusIconStyled />} className={cn("h-[36px] px-3 rounded-[4px] font-semibold whitespace-nowrap w-full sm:w-auto", isMobile ? "min-w-[auto]!" : "min-w-[8rem]!", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
 							{target === "users" ? t("createUser") : t("admins.addAdmin")}
 						</Button>
 					)}
-				</Stack>
-			</GridItem>
-		</Grid>
+				</div>
+			</div>
+		</div>
 	);
 };

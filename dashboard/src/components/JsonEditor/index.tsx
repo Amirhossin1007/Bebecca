@@ -1,15 +1,10 @@
-import {
-	Badge,
-	Box,
-	Button,
-	HStack,
-	Text,
-	Tooltip,
-	useColorMode,
-	useColorModeValue,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useColorMode } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Badge } from "components/shadcn/badge";
+import { Button } from "components/shadcn/button";
+import { cn } from "lib/cn";
 import JSONEditor, { type JSONEditorMode } from "jsoneditor";
 import "jsoneditor/dist/jsoneditor.css";
 import "ace-builds/src-noconflict/ace";
@@ -566,98 +561,49 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 			}
 		}, [validation, validationLabel]);
 
-		const borderColor = useColorModeValue(
-			"var(--rb-panel-border)",
-			"var(--rb-panel-border)",
-		);
-		const bg = useColorModeValue(
-			"var(--rb-panel-surface)",
-			"var(--rb-panel-surface)",
-		);
-		const elevatedBg = useColorModeValue(
-			"var(--rb-panel-elevated)",
-			"var(--rb-panel-elevated)",
-		);
-		const textColor = useColorModeValue(
-			"var(--rb-panel-text)",
-			"var(--rb-panel-text)",
-		);
-		const mutedColor = useColorModeValue(
-			"var(--rb-panel-text-muted)",
-			"var(--rb-panel-text-muted)",
-		);
+		const borderColor = useColorModeValue("border-[var(--rb-panel-border)]!", "border-[var(--rb-panel-border)]!");
+		const bg = useColorModeValue("bg-[var(--rb-panel-surface)]", "bg-[var(--rb-panel-surface)]");
+		const elevatedBg = useColorModeValue("bg-[var(--rb-panel-elevated)]", "bg-[var(--rb-panel-elevated)]");
+		const textColor = useColorModeValue("text-[var(--rb-panel-text)]", "text-[var(--rb-panel-text)]");
+		const mutedColor = useColorModeValue("text-[var(--rb-panel-text-muted)]", "text-[var(--rb-panel-text-muted)]");
 
 		return (
-			<VStack
-				ref={ref}
-				align="stretch"
-				bg={bg}
-				border="1px solid"
-				borderColor={borderColor}
-				borderRadius="10px"
-				className="rebecca-json-editor"
-				color={textColor}
-				h="full"
-				minH={minHeight}
-				overflow="hidden"
-				spacing={0}
-			>
+			<div ref={ref} style={{ minHeight: minHeight }} className={cn(cn("flex flex-col items-stretch border rounded-[10px] h-full overflow-hidden gap-0", bg, borderColor, textColor, "rebecca-json-editor"))}>
 				{showToolbar && (
-					<HStack
-						bg={elevatedBg}
-						borderBottom="1px solid"
-						borderColor={borderColor}
-						flexWrap="wrap"
-						justify="space-between"
-						minH="44px"
-						px={3}
-						py={2}
-						spacing={3}
-					>
-						<Box flex="1" minW="180px">
+					<div className={cn("flex flex-row items-center border-b flex-wrap justify-between min-h-[44px] px-3 py-2 gap-3", elevatedBg, borderColor)}>
+						<div className="flex-1 min-w-[180px]!">
 							{label ? (
-								<Text fontSize="sm" fontWeight="800" noOfLines={1}>
+								<p className="text-[0.875rem] font-extrabold truncate">
 									{label}
-								</Text>
+								</p>
 							) : null}
 							{description ? (
-								<Text color={mutedColor} fontSize="xs" noOfLines={2}>
+								<p className={cn("text-[0.75rem] line-clamp-2", mutedColor)}>
 									{description}
-								</Text>
+								</p>
 							) : null}
-						</Box>
-						<HStack
-							flexShrink={0}
-							flexWrap="wrap"
-							justify="flex-end"
-							maxW="100%"
-							spacing={2}
-						>
+						</div>
+						<div className="flex flex-row items-center shrink-0 flex-wrap justify-end max-w-[100%] gap-2">
 							<Tooltip label={validation.error || validationLabel} hasArrow>
-								<Badge
-									borderRadius="full"
-									colorScheme={validation.valid ? "green" : "red"}
-									px={2}
-									py={1}
-								>
+								<Badge colorScheme={validation.valid ? "green" : "red"} className="rounded-full px-2 py-1">
 									{validationLabel}
 								</Badge>
 							</Tooltip>
-							<Button flexShrink={0} size="xs" variant="outline" onClick={formatJson}>
+							<Button size="xs" variant="outline" onClick={formatJson} className="shrink-0">
 								{t("jsonEditor.format")}
 							</Button>
-							<Button flexShrink={0} size="xs" variant="outline" onClick={compactJson}>
+							<Button size="xs" variant="outline" onClick={compactJson} className="shrink-0">
 								{t("jsonEditor.compact")}
 							</Button>
-							<Button flexShrink={0} size="xs" variant="ghost" onClick={copyJson}>
+							<Button size="xs" variant="ghost" onClick={copyJson} className="shrink-0">
 								{t("copy")}
 							</Button>
 							{toolbarActions}
-						</HStack>
-					</HStack>
+						</div>
+					</div>
 				)}
-				<Box flex="1" minH={0} position="relative" ref={jsonEditorContainer} />
-			</VStack>
+				<div ref={jsonEditorContainer} className="flex-1 min-h-0 relative" />
+			</div>
 		);
 	},
 );

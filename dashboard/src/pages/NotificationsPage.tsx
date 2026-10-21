@@ -1,26 +1,11 @@
-import {
-	Badge,
-	Box,
-	Button,
-	Checkbox,
-	Divider,
-	FormControl,
-	FormLabel,
-	HStack,
-	Input,
-	Radio,
-	RadioGroup,
-	Stack,
-	Switch,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Text,
-	Textarea,
-	useToast,
-} from "@chakra-ui/react";
+import { Button } from "components/shadcn/button";
+import { Badge } from "components/shadcn/badge";
+import { useToast } from "components/shadcn/toast";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { Input, Textarea } from "components/shadcn/input";
+import { Checkbox, Radio, RadioGroup, Switch } from "components/shadcn/selection";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { cn } from "lib/cn";
 import dayjs from "dayjs";
 import { PageHeader } from "components/ui";
 import useGetUser from "hooks/useGetUser";
@@ -61,70 +46,54 @@ const InboxPanel = () => {
 	const items = inbox.data?.items ?? [];
 
 	return (
-		<Stack spacing={4}>
-			<HStack justify="space-between">
-				<Text color="gray.500" fontSize="sm">
+		<div className="flex flex-col gap-4">
+			<div className="flex flex-row items-center gap-2 justify-between">
+				<p className="text-gray-500 text-[0.875rem]">
 					{t("notifications.inbox.summary", {
 						unread: inbox.data?.unread ?? 0,
 						total: inbox.data?.total ?? 0,
 					})}
-				</Text>
-				<Button
-					size="sm"
-					variant="outline"
-					isDisabled={!inbox.data?.unread}
-					isLoading={markAll.isLoading}
-					onClick={() => markAll.mutate()}
-				>
+				</p>
+				<Button size="sm" variant="outline" isDisabled={!inbox.data?.unread} isLoading={markAll.isLoading} onClick={() => markAll.mutate()}>
 					{t("notifications.inbox.markAllRead")}
 				</Button>
-			</HStack>
+			</div>
 			{items.length === 0 && (
-				<Text color="gray.500">{t("notifications.inbox.empty")}</Text>
+				<p className="text-gray-500">{t("notifications.inbox.empty")}</p>
 			)}
 			{items.map((item) => (
-				<Box
-					key={item.id}
-					p={4}
-					borderRadius="md"
-					borderWidth="1px"
-					borderColor={item.read_at === null ? "blue.400" : undefined}
-				>
-					<HStack justify="space-between" align="start" mb={1}>
-						<HStack>
-							<Text fontWeight="semibold">{item.title}</Text>
+				<div key={item.id} className={cn("p-4 rounded-md border", item.read_at === null ? "border-blue-400!" : "")}>
+					<div className="flex flex-row gap-2 justify-between items-start mb-1">
+						<div className="flex flex-row items-center gap-2">
+							<p className="font-semibold">{item.title}</p>
 							{item.read_at === null && (
 								<Badge colorScheme="blue">
 									{t("notifications.inbox.unread")}
 								</Badge>
 							)}
-						</HStack>
-						<Text fontSize="xs" color="gray.500" whiteSpace="nowrap">
+						</div>
+						<p className="text-[0.75rem] text-gray-500 whitespace-nowrap">
 							{formatTime(item.created_at)}
-						</Text>
-					</HStack>
-					<Text whiteSpace="pre-wrap" fontSize="sm">
+						</p>
+					</div>
+					<p className="whitespace-pre-wrap text-[0.875rem]">
 						{item.body}
-					</Text>
-					<HStack justify="space-between" mt={2}>
-						<Text fontSize="xs" color="gray.500">
+					</p>
+					<div className="flex flex-row items-center gap-2 justify-between mt-2">
+						<p className="text-[0.75rem] text-gray-500">
 							{t("notifications.inbox.from", {
 								sender: item.sender_username,
 							})}
-						</Text>
+						</p>
 						{item.read_at === null && (
-							<Button
-								size="xs"
-								variant="ghost"
-								onClick={() => markOne.mutate(item.id)}
-							>
+							<Button size="xs" variant="ghost" onClick={() => markOne.mutate(item.id)}>
 								{t("notifications.inbox.markRead")}
 							</Button>
 						)}
-					</HStack>
-				</Box>
+					</div>
+				</div>
 			))}
-		</Stack>
+		</div>
 	);
 };
 
@@ -170,101 +139,85 @@ const SendPanel = () => {
 	};
 
 	return (
-		<Stack spacing={6}>
-			<Stack spacing={4} maxW="2xl">
+		<div className="flex flex-col gap-6">
+			<div className="flex flex-col gap-4 max-w-[42rem]">
 				<FormControl isRequired>
 					<FormLabel>{t("notifications.send.title")}</FormLabel>
 					<Input value={title} onChange={(e) => setTitle(e.target.value)} />
 				</FormControl>
 				<FormControl isRequired>
 					<FormLabel>{t("notifications.send.body")}</FormLabel>
-					<Textarea
-						value={body}
-						rows={4}
-						onChange={(e) => setBody(e.target.value)}
-					/>
+					<Textarea value={body} rows={4} onChange={(e) => setBody(e.target.value)} />
 				</FormControl>
 				<FormControl>
 					<FormLabel>{t("notifications.send.audience")}</FormLabel>
-					<RadioGroup
-						value={audience}
-						onChange={(value) => setAudience(value as "all" | "selected")}
-					>
-						<Stack direction="row" spacing={6}>
+					<RadioGroup value={audience} onChange={(value) => setAudience(value as "all" | "selected")}>
+						<div className="flex flex-row gap-6">
 							<Radio value="all">{t("notifications.send.audienceAll")}</Radio>
 							<Radio value="selected">
 								{t("notifications.send.audienceSelected")}
 							</Radio>
-						</Stack>
+						</div>
 					</RadioGroup>
 				</FormControl>
 				{audience === "selected" && (
-					<Stack spacing={2} maxH="240px" overflowY="auto">
+					<div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto">
 						{(recipients.data?.items ?? []).map((admin) => (
-							<Checkbox
-								key={admin.id}
-								isChecked={selected.includes(admin.id)}
-								onChange={() => toggle(admin.id)}
-							>
+							<Checkbox key={admin.id} isChecked={selected.includes(admin.id)} onChange={() => toggle(admin.id)}>
 								{admin.username}
-								<Text as="span" fontSize="xs" color="gray.500" ms={2}>
+								<span className="text-[0.75rem] text-gray-500 ms-2">
 									{admin.role}
-								</Text>
+								</span>
 							</Checkbox>
 						))}
-					</Stack>
+					</div>
 				)}
-				<HStack>
-					<Button
-						colorScheme="blue"
-						isLoading={mutation.isLoading}
-						isDisabled={
+				<div className="flex flex-row items-center gap-2">
+					<Button size="md" colorScheme="blue" isLoading={mutation.isLoading} isDisabled={
 							!title.trim() ||
 							!body.trim() ||
 							(audience === "selected" && selected.length === 0)
-						}
-						onClick={() =>
+						} onClick={() =>
 							mutation.mutate({
 								title,
 								body,
 								audience,
 								admin_ids: selected,
 							})
-						}
-					>
+						}>
 						{t("notifications.send.submit")}
 					</Button>
-				</HStack>
-			</Stack>
-			<Divider />
-			<Stack spacing={3}>
-				<Text fontWeight="semibold">{t("notifications.send.history")}</Text>
+				</div>
+			</div>
+			<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+			<div className="flex flex-col gap-3">
+				<p className="font-semibold">{t("notifications.send.history")}</p>
 				{(sent.data?.items ?? []).length === 0 && (
-					<Text color="gray.500" fontSize="sm">
+					<p className="text-gray-500 text-[0.875rem]">
 						{t("notifications.send.historyEmpty")}
-					</Text>
+					</p>
 				)}
 				{(sent.data?.items ?? []).map((item) => (
-					<Box key={item.id} p={3} borderRadius="md" borderWidth="1px">
-						<HStack justify="space-between">
-							<Text fontWeight="medium">{item.title}</Text>
-							<Text fontSize="xs" color="gray.500">
+					<div key={item.id} className="p-3 rounded-md border">
+						<div className="flex flex-row items-center gap-2 justify-between">
+							<p className="font-medium">{item.title}</p>
+							<p className="text-[0.75rem] text-gray-500">
 								{formatTime(item.created_at)}
-							</Text>
-						</HStack>
-						<Text fontSize="sm" whiteSpace="pre-wrap">
+							</p>
+						</div>
+						<p className="text-[0.875rem] whitespace-pre-wrap">
 							{item.body}
-						</Text>
-						<Text fontSize="xs" color="gray.500" mt={1}>
+						</p>
+						<p className="text-[0.75rem] text-gray-500 mt-1">
 							{t("notifications.send.readCount", {
 								read: item.read,
 								total: item.recipients,
 							})}
-						</Text>
-					</Box>
+						</p>
+					</div>
 				))}
-			</Stack>
-		</Stack>
+			</div>
+		</div>
 	);
 };
 
@@ -319,22 +272,19 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 	};
 
 	return (
-		<Box p={4} borderRadius="md" borderWidth="1px">
-			<HStack justify="space-between" mb={3}>
-				<Text fontWeight="semibold">
+		<div className="p-4 rounded-md border">
+			<div className="flex flex-row items-center gap-2 justify-between mb-3">
+				<p className="font-semibold">
 					{t(`notifications.rules.name.${rule.key}`)}
-				</Text>
-				<HStack>
-					<Text fontSize="sm">{t("notifications.rules.enabled")}</Text>
-					<Switch
-						isChecked={enabled}
-						onChange={(e) => setEnabled(e.target.checked)}
-					/>
-				</HStack>
-			</HStack>
-			<Stack spacing={3}>
+				</p>
+				<div className="flex flex-row items-center gap-2">
+					<p className="text-[0.875rem]">{t("notifications.rules.enabled")}</p>
+					<Switch isChecked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+				</div>
+			</div>
+			<div className="flex flex-col gap-3">
 				{rule.unit !== "none" && (
-					<FormControl maxW="200px">
+					<FormControl className="max-w-[200px]">
 						<FormLabel>
 							{t("notifications.rules.threshold")} (
 							{rule.unit === "percent"
@@ -342,13 +292,7 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 								: t("notifications.rules.unitDays")}
 							)
 						</FormLabel>
-						<Input
-							type="number"
-							min={1}
-							max={rule.unit === "percent" ? 100 : 365}
-							value={threshold}
-							onChange={(e) => setThreshold(e.target.value)}
-						/>
+						<Input type="number" min={1} max={rule.unit === "percent" ? 100 : 365} value={threshold} onChange={(e) => setThreshold(e.target.value)} />
 					</FormControl>
 				)}
 				<FormControl>
@@ -357,39 +301,30 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 				</FormControl>
 				<FormControl>
 					<FormLabel>{t("notifications.send.body")}</FormLabel>
-					<Textarea
-						rows={3}
-						value={body}
-						onChange={(e) => setBody(e.target.value)}
-					/>
+					<Textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} />
 				</FormControl>
-				<Text fontSize="xs" color="gray.500">
+				<p className="text-[0.75rem] text-gray-500">
 					{t("notifications.rules.placeholders", {
 						list: rule.placeholders.map((item) => `{${item}}`).join(", "),
 					})}
-				</Text>
-				<Text fontSize="xs" color="gray.500">
+				</p>
+				<p className="text-[0.75rem] text-gray-500">
 					{t(
 						rule.recipients === "admin"
 							? "notifications.rules.recipientsAdmin"
 							: "notifications.rules.recipientsOperators",
 					)}
-				</Text>
-				<HStack>
-					<Button
-						size="sm"
-						colorScheme="blue"
-						isLoading={save.isLoading}
-						onClick={submit}
-					>
+				</p>
+				<div className="flex flex-row items-center gap-2">
+					<Button size="sm" colorScheme="blue" isLoading={save.isLoading} onClick={submit}>
 						{t("notifications.rules.save")}
 					</Button>
 					<Button size="sm" variant="outline" onClick={resetToDefaults}>
 						{t("notifications.rules.reset")}
 					</Button>
-				</HStack>
-			</Stack>
-		</Box>
+				</div>
+			</div>
+		</div>
 	);
 };
 
@@ -399,14 +334,14 @@ const RulesPanel = () => {
 		getNotificationRules(),
 	);
 	return (
-		<Stack spacing={4}>
-			<Text color="gray.500" fontSize="sm">
+		<div className="flex flex-col gap-4">
+			<p className="text-gray-500 text-[0.875rem]">
 				{t("notifications.rules.description")}
-			</Text>
+			</p>
 			{(rules.data?.items ?? []).map((rule) => (
 				<RuleEditor key={rule.key} rule={rule} />
 			))}
-		</Stack>
+		</div>
 	);
 };
 
@@ -418,7 +353,7 @@ export default function NotificationsPage() {
 	const isFullAccess = userData.role === AdminRole.FullAccess;
 
 	return (
-		<Stack spacing={5}>
+		<div className="flex flex-col gap-5">
 			<PageHeader
 				title={t("notifications.menu")}
 				description={t("notifications.description")}
@@ -430,21 +365,21 @@ export default function NotificationsPage() {
 					{isFullAccess && <Tab>{t("notifications.tabs.rules")}</Tab>}
 				</TabList>
 				<TabPanels>
-					<TabPanel px={0}>
+					<TabPanel className="px-0">
 						<InboxPanel />
 					</TabPanel>
 					{canSend && (
-						<TabPanel px={0}>
+						<TabPanel className="px-0">
 							<SendPanel />
 						</TabPanel>
 					)}
 					{isFullAccess && (
-						<TabPanel px={0}>
+						<TabPanel className="px-0">
 							<RulesPanel />
 						</TabPanel>
 					)}
 				</TabPanels>
 			</Tabs>
-		</Stack>
+		</div>
 	);
 }

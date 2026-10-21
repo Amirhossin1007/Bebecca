@@ -1,52 +1,22 @@
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import {
-	Accordion,
-	AccordionButton,
-	AccordionIcon,
-	AccordionItem,
-	AccordionPanel,
-	Badge,
-	Box,
-	Button,
-	Card,
-	Checkbox,
-	chakra,
-	Flex,
-	FormControl,
-	FormErrorMessage,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	Input,
-	InputGroup,
-	InputRightElement,
-	MenuItem,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Popover,
-	PopoverArrow,
-	PopoverBody,
-	PopoverCloseButton,
-	PopoverContent,
-	PopoverTrigger,
-	Portal,
-	SimpleGrid,
-	Spinner,
-	Stack,
-	Switch,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Tag,
-	Text,
-	Tooltip,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
+import { Portal } from "components/shadcn/portal";
+import { Badge, Tag } from "components/shadcn/badge";
+import { useToast } from "components/shadcn/toast";
+import { Input, InputGroup, InputRightElement } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
+import { Accordion, AccordionButton, AccordionIcon, AccordionItem, AccordionPanel } from "components/shadcn/accordion";
+import { Card } from "components/shadcn/card";
+import { Checkbox, Switch } from "components/shadcn/selection";
+import { Spinner } from "components/shadcn/feedback";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { Tooltip } from "components/shadcn/tooltip";
+import { MenuItem } from "components/shadcn/menu";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import {
 	ArrowPathIcon,
 	CheckCircleIcon,
@@ -315,28 +285,11 @@ const emptyCreateHostValues = (inboundTag: string): CreateHostValues => ({
 	inboundTag,
 });
 
-const EditIcon = chakra(PencilIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-});
+const EditIcon = withClass(PencilIcon, "w-4 h-4");
 
-const AddIcon = chakra(PlusIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-});
+const AddIcon = withClass(PlusIcon, "w-4 h-4");
 
-const InfoIcon = chakra(InformationCircleIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-		color: "gray.400",
-		cursor: "pointer",
-	},
-});
+const InfoIcon = withClass(InformationCircleIcon, "w-4 h-4 text-gray-400 cursor-pointer");
 
 const DYNAMIC_TOKENS: Array<{ token: string; labelKey: string }> = [
 	{ token: "{SERVER_IP}", labelKey: "hostsDialog.currentServer" },
@@ -371,9 +324,9 @@ const RotationControls: FC<RotationControlsProps> = ({
 }) => {
 	const { t } = useTranslation();
 	return (
-		<SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2} mt={2}>
+		<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
 			<FormControl>
-				<FormLabel fontSize="xs" color="gray.500" mb={1}>
+				<FormLabel className="text-[0.75rem] text-gray-500 mb-1">
 					{t("hostsDialog.rotationMode")}
 				</FormLabel>
 				<SearchableTagSelect
@@ -391,20 +344,12 @@ const RotationControls: FC<RotationControlsProps> = ({
 				/>
 			</FormControl>
 			<FormControl>
-				<FormLabel fontSize="xs" color="gray.500" mb={1}>
+				<FormLabel className="text-[0.75rem] text-gray-500 mb-1">
 					{t("hostsDialog.rotationTTLSeconds")}
 				</FormLabel>
-				<NumericInput
-					size="sm"
-					value={ttl ?? ""}
-					min={1}
-					max={2592000}
-					fieldProps={{ placeholder: "120" }}
-					isDisabled={mode !== "ttl"}
-					onChange={(_, num) => onTTLChange(Number.isNaN(num) ? null : num)}
-				/>
+				<NumericInput size="sm" value={ttl ?? ""} min={1} max={2592000} fieldProps={{ className: "[placeholder:120]" }} isDisabled={mode !== "ttl"} onChange={(_, num) => onTTLChange(Number.isNaN(num) ? null : num)} />
 			</FormControl>
-		</SimpleGrid>
+		</div>
 	);
 };
 
@@ -432,16 +377,6 @@ const getNodeAddressOptions = (
 			});
 			return options;
 		}, []);
-
-const HOST_MODAL_SX = {
-	".xray-dialog-section .chakra-form-control": {
-		display: "block",
-	},
-	".xray-dialog-section .chakra-form__label": {
-		whiteSpace: "nowrap",
-		mb: 1.5,
-	},
-};
 
 const alpnAutocompleteOptions = proxyALPN
 	.map((option) => option.value)
@@ -488,24 +423,24 @@ const DynamicTokensPopover: FC = () => {
 	return (
 		<Popover isLazy placement="right">
 			<PopoverTrigger>
-				<Box mt="-1">
+				<div className="-mt-1">
 					<InfoIcon />
-				</Box>
+				</div>
 			</PopoverTrigger>
 			<Portal>
-				<PopoverContent maxW="xs" fontSize="xs">
+				<PopoverContent className="max-w-[20rem] text-[0.75rem]">
 					<PopoverArrow />
 					<PopoverCloseButton />
 					<PopoverBody>
-						<Box pr={5} lineHeight="1.4">
-							<Text mb={2}>{t("hostsDialog.desc")}</Text>
+						<div className="pr-5 leading-[1.4]">
+							<p className="mb-2">{t("hostsDialog.desc")}</p>
 							{DYNAMIC_TOKENS.map(({ token, labelKey }) => (
-								<Text key={token} mt={1}>
-									<Badge mr={2}>{token}</Badge>
+								<p key={token} className="mt-1">
+									<Badge className="mr-2">{token}</Badge>
 									<AppleEmojiText>{t(labelKey)}</AppleEmojiText>
-								</Text>
+								</p>
 							))}
-						</Box>
+						</div>
 					</PopoverBody>
 				</PopoverContent>
 			</Portal>
@@ -597,27 +532,12 @@ const CertificateFingerprintField: FC<{
 	return (
 		<FormControl isInvalid={!certificatePinsValid(value)}>
 			<FormLabel>{t("hostsDialog.pinnedPeerCertSha256")}</FormLabel>
-			<HStack align="stretch" spacing={2}>
-				<Input
-					minW={0}
-					dir="ltr"
-					value={value}
-					placeholder={t("hostsDialog.pinnedPeerCertSha256Hint")}
-					onChange={(event) => onChange(event.target.value)}
-				/>
-				<Button
-					flexShrink={0}
-					size="sm"
-					alignSelf="center"
-					variant="outline"
-					leftIcon={<ArrowPathIcon width={14} />}
-					isDisabled={!address}
-					isLoading={isGenerating}
-					onClick={generate}
-				>
+			<div className="flex flex-row items-stretch gap-2">
+				<Input dir="ltr" value={value} placeholder={t("hostsDialog.pinnedPeerCertSha256Hint")} onChange={(event) => onChange(event.target.value)} className="min-w-0!" />
+				<Button size="sm" variant="outline" leftIcon={<ArrowPathIcon className="w-14" />} isDisabled={!address} isLoading={isGenerating} onClick={generate} className="shrink-0 self-center">
 					{t("hostsDialog.generateCertificateFingerprint")}
 				</Button>
-			</HStack>
+			</div>
 		</FormControl>
 	);
 };
@@ -926,27 +846,22 @@ const HostFormSection: FC<{
 	badge?: string;
 	children: ReactNode;
 }> = ({ title, description, badge, children }) => (
-	<Box as="section">
-		<HStack mb={1.5} spacing={2} flexWrap="wrap">
-			<Text as="h3" fontSize="sm" fontWeight="semibold">
+	<section>
+		<div className="flex flex-row items-center mb-1.5 gap-2 flex-wrap">
+			<h3 className="text-[0.875rem] font-semibold">
 				{title}
-			</Text>
+			</h3>
 			{badge && (
-				<Badge
-					colorScheme="gray"
-					variant="subtle"
-					fontSize="10px"
-					textTransform="none"
-				>
+				<Badge colorScheme="gray" variant="subtle" className="text-[10px] normal-case">
 					{badge}
 				</Badge>
 			)}
-		</HStack>
-		<Text mb={5} maxW="3xl" fontSize="xs" color="panel.textMuted">
+		</div>
+		<p className="mb-5 max-w-[48rem] text-[0.75rem] text-panel-text-muted">
 			{description}
-		</Text>
+		</p>
 		{children}
-	</Box>
+	</section>
 );
 
 const HostAdvancedSection: FC<{
@@ -955,52 +870,28 @@ const HostAdvancedSection: FC<{
 	badge?: string;
 	children: ReactNode;
 }> = ({ title, description, badge, children }) => (
-	<Accordion allowToggle reduceMotion>
-		<AccordionItem border="0">
-			<Card
-				variant="outline"
-				borderColor="panel.border"
-				borderRadius="xl"
-				bg="panel.surface"
-				overflow="hidden"
-			>
+	<Accordion allowToggle>
+		<AccordionItem className="border-0">
+			<Card className="border-panel-border! rounded-xl bg-panel-surface overflow-hidden">
 				<h3>
-					<AccordionButton
-						px={{ base: 3, md: 4 }}
-						py={3}
-						minH="48px"
-						textAlign="start"
-						_hover={{ bg: "panel.surfaceMuted" }}
-						_expanded={{ bg: "panel.surfaceMuted" }}
-					>
-						<AccordionIcon me={3} flexShrink={0} />
-						<HStack flex="1" minW={0} spacing={2} flexWrap="wrap">
-							<Text fontSize="sm" fontWeight="semibold" lineHeight="short">
+					<AccordionButton className="px-3 md:px-4 py-3 min-h-[48px] text-start hover:bg-panel-surface-muted aria-expanded:bg-panel-surface-muted">
+						<AccordionIcon className="me-3 shrink-0" />
+						<div className="flex flex-row items-center flex-1 min-w-0! gap-2 flex-wrap">
+							<p className="text-[0.875rem] font-semibold leading-[1.375]">
 								{title}
-							</Text>
+							</p>
 							{badge && (
-								<Badge
-									colorScheme="gray"
-									variant="subtle"
-									fontSize="10px"
-									textTransform="none"
-								>
+								<Badge colorScheme="gray" variant="subtle" className="text-[10px] normal-case">
 									{badge}
 								</Badge>
 							)}
-						</HStack>
+						</div>
 					</AccordionButton>
 				</h3>
-				<AccordionPanel
-					px={{ base: 4, md: 5 }}
-					pt={4}
-					pb={5}
-					borderTopWidth="1px"
-					borderColor="panel.border"
-				>
-					<Text mb={5} maxW="3xl" fontSize="xs" color="panel.textMuted">
+				<AccordionPanel className="px-4 md:px-5 pt-4 pb-5 border-t border-panel-border!">
+					<p className="mb-5 max-w-[48rem] text-[0.75rem] text-panel-text-muted">
 						{description}
-					</Text>
+					</p>
 					{children}
 				</AccordionPanel>
 			</Card>
@@ -1015,30 +906,19 @@ const HostToggle: FC<{
 	onChange: (checked: boolean) => void;
 	danger?: boolean;
 }> = ({ label, description, isChecked, onChange, danger = false }) => (
-	<Box
-		borderWidth="1px"
-		borderRadius="lg"
-		px={4}
-		py={3}
-		borderColor={danger && isChecked ? "orange.400" : undefined}
-	>
-		<Flex align="center" justify="space-between" gap={4}>
-			<Box minW={0}>
-				<Text fontSize="sm" fontWeight="semibold">
+	<div className={cn("border rounded-lg px-4 py-3", danger && isChecked ? "border-orange-400!" : "")}>
+		<div className="flex items-center justify-between gap-4">
+			<div className="min-w-0!">
+				<p className="text-[0.875rem] font-semibold">
 					{label}
-				</Text>
-				<Text mt={1} fontSize="xs" color="gray.500">
+				</p>
+				<p className="mt-1 text-[0.75rem] text-gray-500">
 					{description}
-				</Text>
-			</Box>
-			<Switch
-				flexShrink={0}
-				aria-label={label}
-				isChecked={isChecked}
-				onChange={(event) => onChange(event.target.checked)}
-			/>
-		</Flex>
-	</Box>
+				</p>
+			</div>
+			<Switch aria-label={label} isChecked={isChecked} onChange={(event) => onChange(event.target.checked)} className="shrink-0" />
+		</div>
+	</div>
 );
 
 type HostFormProps = {
@@ -1136,14 +1016,14 @@ const HostForm: FC<HostFormProps> = ({
 			: "/";
 
 	return (
-		<Stack spacing={{ base: 6, md: 8 }}>
+		<div className="flex flex-col gap-6 md:gap-8">
 			<HostFormSection
 				title={t("hostsPage.section.connection")}
 				description={t("hostsPage.section.connectionDescription")}
 				badge={t("hostsPage.required")}
 			>
-				<VStack align="stretch" spacing={4}>
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+				<div className="flex flex-col items-stretch gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<FormControl isRequired>
 							<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
 							<SearchableTagSelect
@@ -1157,14 +1037,8 @@ const HostForm: FC<HostFormProps> = ({
 						<FormControl isRequired isInvalid={Boolean(remarkError)}>
 							<FormLabel>{t("hostsDialog.remark")}</FormLabel>
 							<InputGroup>
-								<Input
-									ref={initialFocusRef}
-									value={data.remark}
-									maxLength={isWireGuardInbound ? 15 : undefined}
-									placeholder={t("hostsPage.remarkPlaceholder")}
-									onChange={(event) => onChange("remark", event.target.value)}
-								/>
-								<InputRightElement width="auto" pr={2} pointerEvents="auto">
+								<Input ref={initialFocusRef} value={data.remark} maxLength={isWireGuardInbound ? 15 : undefined} placeholder={t("hostsPage.remarkPlaceholder")} onChange={(event) => onChange("remark", event.target.value)} />
+								<InputRightElement className="w-auto pr-2 pointer-events-auto">
 									{!isProfileHostInbound && <DynamicTokensPopover />}
 								</InputRightElement>
 							</InputGroup>
@@ -1174,13 +1048,10 @@ const HostForm: FC<HostFormProps> = ({
 								<FormHelperText>{t("hostsPage.remarkHint")}</FormHelperText>
 							)}
 						</FormControl>
-					</SimpleGrid>
+					</div>
 
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-						<FormControl
-							isRequired
-							gridColumn={{ md: isVirtualTunnelInbound ? "1 / -1" : "auto" }}
-						>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<FormControl isRequired className={cn(isVirtualTunnelInbound ? "md:[grid-column:1_/_-1]" : "md:[grid-column:auto]")}>
 							<FormLabel>{t("hostsDialog.address")}</FormLabel>
 							<MultiValueAutocomplete
 								value={data.address}
@@ -1209,7 +1080,7 @@ const HostForm: FC<HostFormProps> = ({
 								<FormHelperText>{t("hostsPage.portHint")}</FormHelperText>
 							</FormControl>
 						)}
-					</SimpleGrid>
+					</div>
 
 					{hasMultipleRotationValues(data.address) && (
 						<RotationControls
@@ -1223,30 +1094,22 @@ const HostForm: FC<HostFormProps> = ({
 					)}
 
 					{isWireGuardInbound && (
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<FormControl isRequired>
 								<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
-								<Input
-									value={data.dns_primary}
-									placeholder="1.1.1.1"
-									onChange={(event) =>
+								<Input value={data.dns_primary} placeholder="1.1.1.1" onChange={(event) =>
 										onChange("dns_primary", event.target.value)
-									}
-								/>
+									} />
 							</FormControl>
 							<FormControl isRequired>
 								<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
-								<Input
-									value={data.dns_secondary}
-									placeholder="8.8.8.8"
-									onChange={(event) =>
+								<Input value={data.dns_secondary} placeholder="8.8.8.8" onChange={(event) =>
 										onChange("dns_secondary", event.target.value)
-									}
-								/>
+									} />
 							</FormControl>
-						</SimpleGrid>
+						</div>
 					)}
-				</VStack>
+				</div>
 			</HostFormSection>
 
 			{supportsStreamSecurity && (
@@ -1254,8 +1117,8 @@ const HostForm: FC<HostFormProps> = ({
 					title={t("hostsPage.section.security")}
 					description={t("hostsPage.section.securityDescription")}
 				>
-					<VStack align="stretch" spacing={4}>
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+					<div className="flex flex-col items-stretch gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<FormControl>
 								<FormLabel>{t("hostsDialog.security")}</FormLabel>
 								<SearchableTagSelect
@@ -1310,13 +1173,9 @@ const HostForm: FC<HostFormProps> = ({
 										<FormLabel>
 											{t("hostsDialog.verifyPeerCertByName")}
 										</FormLabel>
-										<Input
-											dir="ltr"
-											value={data.verify_peer_cert_by_name}
-											onChange={(event) =>
+										<Input dir="ltr" value={data.verify_peer_cert_by_name} onChange={(event) =>
 												onChange("verify_peer_cert_by_name", event.target.value)
-											}
-										/>
+											} />
 									</FormControl>
 									<CertificateFingerprintField
 										data={data}
@@ -1343,22 +1202,17 @@ const HostForm: FC<HostFormProps> = ({
 							{showsRequestPath && (
 								<FormControl>
 									<FormLabel>{requestPathLabel}</FormLabel>
-									<Input
-										dir="ltr"
-										value={data.path}
-										placeholder={requestPathPlaceholder}
-										onChange={(event) => onChange("path", event.target.value)}
-									/>
+									<Input dir="ltr" value={data.path} placeholder={requestPathPlaceholder} onChange={(event) => onChange("path", event.target.value)} />
 									{!["grpc", "kcp", "quic"].includes(transport) && (
 										<FormHelperText>{t("hostsPage.pathHint")}</FormHelperText>
 									)}
 								</FormControl>
 							)}
-						</SimpleGrid>
+						</div>
 
 						{((showsSNI && hasMultipleRotationValues(data.sni)) ||
 							(showsRequestHost && hasMultipleRotationValues(data.host))) && (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								{showsSNI && hasMultipleRotationValues(data.sni) && (
 									<RotationControls
 										mode={data.sni_selection_mode}
@@ -1379,9 +1233,9 @@ const HostForm: FC<HostFormProps> = ({
 										onTTLChange={(value) => onChange("host_ttl_seconds", value)}
 									/>
 								)}
-							</SimpleGrid>
+							</div>
 						)}
-					</VStack>
+					</div>
 				</HostFormSection>
 			)}
 
@@ -1395,15 +1249,15 @@ const HostForm: FC<HostFormProps> = ({
 							: t("hostsPage.optional")
 					}
 				>
-					<VStack align="stretch" spacing={6}>
+					<div className="flex flex-col items-stretch gap-6">
 						{capabilities.supported && (
-							<Box>
-								<Text mb={1} fontSize="sm" fontWeight="semibold">
+							<div>
+								<p className="mb-1 text-[0.875rem] font-semibold">
 									{t("hostsDialog.finalMask")}
-								</Text>
-								<Text mb={4} fontSize="xs" color="panel.textMuted">
+								</p>
+								<p className="mb-4 text-[0.75rem] text-panel-text-muted">
 									{t("hostsPage.section.finalMaskDescription")}
-								</Text>
+								</p>
 								<Suspense fallback={<Spinner size="sm" />}>
 									<FinalMaskEditor
 										value={sanitizedFinalMask}
@@ -1412,14 +1266,14 @@ const HostForm: FC<HostFormProps> = ({
 									/>
 								</Suspense>
 								{finalMaskError && (
-									<Text mt={3} fontSize="sm" color="red.500">
+									<p className="mt-3 text-[0.875rem] text-red-500">
 										{finalMaskError}
-									</Text>
+									</p>
 								)}
-							</Box>
+							</div>
 						)}
 
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 							{usesTLS && (
 								<HostToggle
 									label={t("hostsDialog.allowinsecure")}
@@ -1453,8 +1307,8 @@ const HostForm: FC<HostFormProps> = ({
 									onChange={(checked) => onChange("use_sni_as_host", checked)}
 								/>
 							)}
-						</SimpleGrid>
-					</VStack>
+						</div>
+					</div>
 				</HostAdvancedSection>
 			)}
 			{supportsStreamSecurity && (
@@ -1462,7 +1316,7 @@ const HostForm: FC<HostFormProps> = ({
 					<HostClientSettingsEditor value={data.client_settings} onChange={(value) => onChange("client_settings", value)} usesTLS={usesTLS} protocol={selectedInbound?.protocol} network={selectedInbound?.network} />
 				</HostAdvancedSection>
 			)}
-		</Stack>
+		</div>
 	);
 };
 
@@ -1619,16 +1473,9 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 	}
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			size="4xl"
-			scrollBehavior="inside"
-			isCentered
-			returnFocusOnClose={false}
-		>
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
+		<Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside" isCentered returnFocusOnClose={false}>
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3 [&_.xray-dialog-section_label]:whitespace-nowrap [&_.xray-dialog-section_label]:mb-1.5">
 				<ModalCloseButton />
 				<XrayModalHeader
 					subtitle={isCloneMode ? t("hostsPage.clone.description") : undefined}
@@ -1640,13 +1487,13 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 					</AppleEmojiText>
 				</XrayModalHeader>
 				<XrayModalBody>
-					<Tabs isLazy className="xray-dialog-auto-sections" variant="unstyled">
+					<Tabs isLazy variant="unstyled" className="xray-dialog-auto-sections">
 						<TabList>
 							<Tab>{t("form")}</Tab>
 							<Tab>{t("json")}</Tab>
 						</TabList>
 						<TabPanels>
-							<TabPanel px={0}>
+							<TabPanel className="px-0">
 								<HostForm
 									data={host.data}
 									inboundTag={host.inboundTag}
@@ -1656,8 +1503,8 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 									onChangeInbound={(value) => onChangeInbound(host.uid, value)}
 								/>
 							</TabPanel>
-							<TabPanel px={0}>
-								<VStack align="stretch" spacing={3}>
+							<TabPanel className="px-0">
+								<div className="flex flex-col items-stretch gap-3">
 									<Suspense fallback={<Spinner size="sm" />}>
 										<JsonEditor
 											json={jsonText}
@@ -1665,11 +1512,11 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 										/>
 									</Suspense>
 									{jsonError && (
-										<Text fontSize="sm" color="red.500">
+										<p className="text-[0.875rem] text-red-500">
 											{jsonError}
-										</Text>
+										</p>
 									)}
-								</VStack>
+								</div>
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
@@ -1677,7 +1524,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 						<EntityNotePanel entityType="host" entityKey={host.data.id} />
 					) : null}
 				</XrayModalBody>
-				<XrayModalFooter justifyContent="space-between">
+				<XrayModalFooter className="justify-between">
 					{isCloneMode ? (
 						<Button size="sm" variant="ghost" onClick={onClose}>
 							{t("hostsPage.cancel")}
@@ -1688,45 +1535,24 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 							isLoading={deleting}
 							onConfirm={() => onDelete(host.uid)}
 						>
-							<Button
-								size="sm"
-								variant="ghost"
-								colorScheme="red"
-								leftIcon={<DeleteIcon />}
-							>
+							<Button size="sm" variant="ghost" colorScheme="red" leftIcon={<DeleteIcon />}>
 								{t("delete")}
 							</Button>
 						</DeleteConfirmDialog>
 					)}
-					<HStack spacing={3}>
+					<div className="flex flex-row items-center gap-3">
 						{!isCloneMode && onClone && (
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => onClone(host.uid)}
-								isDisabled={saving || deleting}
-							>
+							<Button size="sm" variant="outline" onClick={() => onClone(host.uid)} isDisabled={saving || deleting}>
 								{t("hostsPage.clone")}
 							</Button>
 						)}
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => onReset(host.uid)}
-							isDisabled={!dirty || saving}
-						>
+						<Button size="sm" variant="outline" onClick={() => onReset(host.uid)} isDisabled={!dirty || saving}>
 							{t("reset")}
 						</Button>
-						<Button
-							size="sm"
-							colorScheme="primary"
-							onClick={() => onSave(host.uid)}
-							isDisabled={primaryDisabled}
-							isLoading={saving}
-						>
+						<Button size="sm" colorScheme="primary" onClick={() => onSave(host.uid)} isDisabled={primaryDisabled} isLoading={saving}>
 							{primaryLabel}
 						</Button>
-					</HStack>
+					</div>
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>
@@ -1868,29 +1694,21 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 	};
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			size="4xl"
-			initialFocusRef={initialRef}
-			scrollBehavior="inside"
-			isCentered
-			returnFocusOnClose={false}
-		>
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
+		<Modal isOpen={isOpen} onClose={onClose} size="4xl" initialFocusRef={initialRef} scrollBehavior="inside" isCentered returnFocusOnClose={false}>
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3 [&_.xray-dialog-section_label]:whitespace-nowrap [&_.xray-dialog-section_label]:mb-1.5">
 				<XrayModalHeader subtitle={t("hostsPage.create.description")}>
 					{t("hostsPage.create.title")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<Tabs isLazy className="xray-dialog-auto-sections" variant="unstyled">
+					<Tabs isLazy variant="unstyled" className="xray-dialog-auto-sections">
 						<TabList>
 							<Tab>{t("form")}</Tab>
 							<Tab>{t("json")}</Tab>
 						</TabList>
 						<TabPanels>
-							<TabPanel px={0}>
+							<TabPanel className="px-0">
 								<HostForm
 									data={formState}
 									inboundTag={formState.inboundTag}
@@ -1908,8 +1726,8 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 									}
 								/>
 							</TabPanel>
-							<TabPanel px={0}>
-								<VStack align="stretch" spacing={3}>
+							<TabPanel className="px-0">
+								<div className="flex flex-col items-stretch gap-3">
 									<Suspense fallback={<Spinner size="sm" />}>
 										<JsonEditor
 											json={jsonText}
@@ -1917,24 +1735,20 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 										/>
 									</Suspense>
 									{jsonError && (
-										<Text fontSize="sm" color="red.500">
+										<p className="text-[0.875rem] text-red-500">
 											{jsonError}
-										</Text>
+										</p>
 									)}
-								</VStack>
+								</div>
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
 				</XrayModalBody>
-				<XrayModalFooter justifyContent="flex-end">
-					<Button variant="ghost" onClick={onClose}>
+				<XrayModalFooter className="justify-end">
+					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("hostsPage.cancel")}
 					</Button>
-					<Button
-						colorScheme="primary"
-						onClick={handleSubmit}
-						isLoading={isSubmitting}
-						isDisabled={
+					<Button size="md" colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={
 							Boolean(jsonError) ||
 							!finalMaskValid ||
 							Boolean(hostClientSettingsError(formState.client_settings)) ||
@@ -1946,8 +1760,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 							(isWireGuardInbound &&
 								(!formState.dns_primary.trim() ||
 									!formState.dns_secondary.trim()))
-						}
-					>
+						}>
 						{t("hostsPage.create.submit")}
 					</Button>
 				</XrayModalFooter>
@@ -2600,23 +2413,18 @@ export const HostsManager: FC = () => {
 		(value: string, emptyLabel: string) => {
 			const values = rotationTextToOptions(value);
 			if (!values.length) {
-				return <Text color="panel.textMuted">{emptyLabel}</Text>;
+				return <p className="text-panel-text-muted">{emptyLabel}</p>;
 			}
 			const visible = values.slice(0, 2);
 			const hiddenCount = values.length - visible.length;
 			return (
-				<Tooltip
-					label={values.join(", ")}
-					isDisabled={values.length <= visible.length}
-					hasArrow
-					placement="top"
-				>
-					<HStack spacing={1} flexWrap="wrap" maxW="full">
+				<Tooltip label={values.join(", ")} isDisabled={values.length <= visible.length} hasArrow placement="top">
+					<div className="flex flex-row items-center gap-1 flex-wrap max-w-full">
 						{visible.map((item) => (
-							<Tag key={item} size="sm" maxW="120px">
-								<Text as="span" noOfLines={1}>
+							<Tag key={item} size="sm" className="max-w-[120px]">
+								<span className="truncate">
 									{item}
-								</Text>
+								</span>
 							</Tag>
 						))}
 						{hiddenCount > 0 && (
@@ -2624,7 +2432,7 @@ export const HostsManager: FC = () => {
 								+{hiddenCount}
 							</Tag>
 						)}
-					</HStack>
+					</div>
 				</Tooltip>
 			);
 		},
@@ -2649,28 +2457,25 @@ export const HostsManager: FC = () => {
 					const dirty = isHostDirty(host);
 					const hostName = host.data.remark || t("hostsPage.untitledHost");
 					return (
-						<Stack spacing={0.5} minW={0}>
-							<Tooltip
-								label={<AppleEmojiText>{hostName}</AppleEmojiText>}
-								isDisabled={hostName.length <= 24}
-							>
-								<Text fontWeight="semibold" noOfLines={1}>
+						<div className="flex flex-col gap-0.5 min-w-0!">
+							<Tooltip label={<AppleEmojiText>{hostName}</AppleEmojiText>} isDisabled={hostName.length <= 24}>
+								<p className="font-semibold truncate">
 									<AppleEmojiText>{hostName}</AppleEmojiText>
-								</Text>
+								</p>
 							</Tooltip>
-							<HStack spacing={1} flexWrap="wrap">
+							<div className="flex flex-row items-center gap-1 flex-wrap">
 								{host.data.id != null && (
-									<Text fontSize="xs" color="panel.textMuted">
+									<p className="text-[0.75rem] text-panel-text-muted">
 										ID: {host.data.id}
-									</Text>
+									</p>
 								)}
 								{dirty && (
 									<Tag size="sm" colorScheme="orange">
 										{t("hostsPage.unsaved")}
 									</Tag>
 								)}
-							</HStack>
-						</Stack>
+							</div>
+						</div>
 					);
 				},
 			},
@@ -2687,15 +2492,11 @@ export const HostsManager: FC = () => {
 				mobilePriority: 1,
 				mobileMetaLabel: t("usersTable.status"),
 				cell: (host) => (
-					<Text
-						fontSize="sm"
-						fontWeight="semibold"
-						color={host.data.is_disabled ? "red.400" : "green.400"}
-					>
+					<p className={cn("text-[0.875rem] font-semibold", host.data.is_disabled ? "text-red-400" : "text-green-400")}>
 						{t(
 							host.data.is_disabled ? "hostsPage.inactive" : "hostsPage.active",
 						)}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -2723,15 +2524,11 @@ export const HostsManager: FC = () => {
 				mobileMetaLabel: t("port"),
 				cell: (host) =>
 					host.data.port != null ? (
-						<Text
-							fontWeight="semibold"
-							dir="ltr"
-							sx={{ unicodeBidi: "isolate" }}
-						>
+						<p dir="ltr" className="font-semibold [unicode-bidi:isolate]">
 							{host.data.port}
-						</Text>
+						</p>
 					) : (
-						<Text color="panel.textMuted">-</Text>
+						<p className="text-panel-text-muted">-</p>
 					),
 			},
 			{
@@ -2749,21 +2546,21 @@ export const HostsManager: FC = () => {
 						(option) => option.value === host.inboundTag,
 					);
 					return (
-						<Stack spacing={0.5} minW={0}>
-							<Text fontWeight="semibold" noOfLines={1}>
+						<div className="flex flex-col gap-0.5 min-w-0!">
+							<p className="font-semibold truncate">
 								{host.inboundTag}
-							</Text>
+							</p>
 							{(!inbound || inbound.validationError) && (
 								<Tooltip label={inbound?.validationError || t("diagnostics.missingInbound", { tag: host.inboundTag })} hasArrow>
-									<Tag size="sm" colorScheme="red" w="fit-content">{t("diagnostics.broken")}</Tag>
+									<Tag size="sm" colorScheme="red" className="w-fit">{t("diagnostics.broken")}</Tag>
 								</Tooltip>
 							)}
-							<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+							<p className="text-[0.75rem] text-panel-text-muted truncate">
 								{inbound
 									? `${inbound.protocol.toUpperCase()} / ${inbound.network}`
 									: t("hostsPage.unknownInbound")}
-							</Text>
-						</Stack>
+							</p>
+						</div>
 					);
 				},
 			},
@@ -2826,9 +2623,9 @@ export const HostsManager: FC = () => {
 				id: "toggle",
 				label: isActive ? t("phpmyadmin.disableAction") : t("hostsPage.enable"),
 				icon: isActive ? (
-					<XCircleIcon width={16} />
+					<XCircleIcon className="w-16" />
 				) : (
-					<CheckCircleIcon width={16} />
+					<CheckCircleIcon className="w-16" />
 				),
 				onClick: () => toggleActive(host.uid, !isActive),
 				isDisabled: isPostLoading,
@@ -2836,7 +2633,7 @@ export const HostsManager: FC = () => {
 			{
 				id: "delete",
 				label: t("delete"),
-				icon: <TrashIcon width={16} />,
+				icon: <TrashIcon className="w-16" />,
 				isDanger: true,
 				render: (_row, onMenuClose) => (
 					<DeleteConfirmDialog
@@ -2847,12 +2644,7 @@ export const HostsManager: FC = () => {
 							onMenuClose();
 						}}
 					>
-						<MenuItem
-							icon={<TrashIcon width={16} />}
-							color="red.400"
-							isDisabled={isPostLoading}
-							onClick={(event) => event.stopPropagation()}
-						>
+						<MenuItem icon={<TrashIcon className="w-16" />} isDisabled={isPostLoading} onClick={(event) => event.stopPropagation()} className="text-red-400">
 							{t("delete")}
 						</MenuItem>
 					</DeleteConfirmDialog>
@@ -2862,21 +2654,12 @@ export const HostsManager: FC = () => {
 	};
 
 	return (
-		<VStack align="stretch" spacing={4}>
+		<div className="flex flex-col items-stretch gap-4">
 			<ResourceListCard
 				title={t("hostsPage.listHeader")}
 				summaryItems={hostSummaryItems}
 				actions={
-					<Button
-						colorScheme="primary"
-						size="sm"
-						onClick={() => setCreateOpen(true)}
-						leftIcon={<AddIcon />}
-						isDisabled={!inboundOptions.length}
-						h="36px"
-						px={3}
-						borderRadius="4px"
-					>
+					<Button colorScheme="primary" size="sm" onClick={() => setCreateOpen(true)} leftIcon={<AddIcon />} isDisabled={!inboundOptions.length} className="h-[36px] px-3 rounded-[4px]">
 						{t("hostsPage.addHost")}
 					</Button>
 				}
@@ -2884,38 +2667,23 @@ export const HostsManager: FC = () => {
 					<ResourceRefreshButton
 						aria-label={t("hostsPage.refresh")}
 						label={t("hostsPage.refresh")}
-						icon={<ArrowPathIcon width={16} />}
+						icon={<ArrowPathIcon className="w-16" />}
 						isLoading={isRefreshing}
 						onClick={fetchHosts}
 					/>
 				}
 			>
-				<Stack
-					direction={{ base: "column", sm: "row" }}
-					spacing={2}
-					align={{ base: "stretch", sm: "center" }}
-					flexWrap="wrap"
-				>
-					<SearchInput
-						value={searchQuery}
-						onChange={(event) => setSearchQuery(event.target.value)}
-						placeholder={t("hostsPage.searchPlaceholder")}
-						containerProps={{ w: { base: "full", md: "320px" } }}
-						matchOptions={searchMatch}
-						onMatchOptionsChange={setSearchMatch}
-					/>
+				<div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center flex-wrap">
+					<SearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("hostsPage.searchPlaceholder")} containerProps={{ className: "w-full md:w-[320px]" }} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} />
 					<DataTableSortMenu
 						options={buildSortOptions(hostColumns, displayedHosts)}
 						sorting={hostSorting}
 						onSortingChange={setHostSorting}
 					/>
-					<Checkbox
-						isChecked={includeDisabled}
-						onChange={(event) => setIncludeDisabled(event.target.checked)}
-					>
+					<Checkbox isChecked={includeDisabled} onChange={(event) => setIncludeDisabled(event.target.checked)}>
 						{t("hostsPage.showDisabled")}
 					</Checkbox>
-				</Stack>
+				</div>
 			</ResourceListCard>
 
 			<DataTable
@@ -2929,11 +2697,11 @@ export const HostsManager: FC = () => {
 				isLoading={isInitialLoading}
 				loadingRows={5}
 				emptyState={
-					<Box textAlign="center" color="panel.textMuted">
+					<div className="text-center text-panel-text-muted">
 						{showSearchEmptyState
 							? t("hostsPage.searchEmpty")
 							: t("hostsPage.emptyState")}
-					</Box>
+					</div>
 				}
 				rowActions={hostRowActions}
 				actionsDisplay="menu"
@@ -2956,32 +2724,18 @@ export const HostsManager: FC = () => {
 					);
 					return (
 						<>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<CheckCircleIcon width={16} />}
-								isLoading={bulkAction === "enable"}
-								isDisabled={
+							<Button size="sm" variant="outline" leftIcon={<CheckCircleIcon className="w-16" />} isLoading={bulkAction === "enable"} isDisabled={
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									enableTargets.length === 0
-								}
-								onClick={() => handleBulkToggleHosts(enableTargets, true)}
-							>
+								} onClick={() => handleBulkToggleHosts(enableTargets, true)}>
 								{t("hostsPage.enable")}
 							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								leftIcon={<XCircleIcon width={16} />}
-								isLoading={bulkAction === "disable"}
-								isDisabled={
+							<Button size="sm" variant="outline" leftIcon={<XCircleIcon className="w-16" />} isLoading={bulkAction === "disable"} isDisabled={
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									disableTargets.length === 0
-								}
-								onClick={() => handleBulkToggleHosts(disableTargets, false)}
-							>
+								} onClick={() => handleBulkToggleHosts(disableTargets, false)}>
 								{t("phpmyadmin.disableAction")}
 							</Button>
 							<DeleteConfirmDialog
@@ -2992,18 +2746,11 @@ export const HostsManager: FC = () => {
 								isDisabled={selectedRows.length === 0}
 								onConfirm={() => handleBulkDeleteHosts(selectedRows)}
 							>
-								<Button
-									size="sm"
-									variant="outline"
-									colorScheme="red"
-									leftIcon={<TrashIcon width={16} />}
-									isLoading={bulkAction === "delete"}
-									isDisabled={
+								<Button size="sm" variant="outline" colorScheme="red" leftIcon={<TrashIcon className="w-16" />} isLoading={bulkAction === "delete"} isDisabled={
 										Boolean(bulkAction) ||
 										isPostLoading ||
 										selectedRows.length === 0
-									}
-								>
+									}>
 									{t("delete")}
 								</Button>
 							</DeleteConfirmDialog>
@@ -3011,17 +2758,7 @@ export const HostsManager: FC = () => {
 					);
 				}}
 				mobileBreakpoint="md"
-				tableProps={{
-					w: "full",
-					sx: {
-						tableLayout: "fixed",
-						"& th, & td": {
-							px: { base: 2, xl: 2.5 },
-							py: 2.5,
-							verticalAlign: "middle",
-						},
-					},
-				}}
+				tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }}
 			/>
 
 			{createOpen && (
@@ -3078,7 +2815,7 @@ export const HostsManager: FC = () => {
 					nodes={nodes}
 				/>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

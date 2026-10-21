@@ -1,42 +1,18 @@
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import {
-	Alert,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	chakra,
-	Divider,
-	Flex,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	Heading,
-	HStack,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
-	ModalOverlay,
-	SimpleGrid,
-	Spinner,
-	Stack,
-	Switch,
-	Text,
-	Textarea,
-	useColorMode,
-	useColorModeValue,
-	useToast,
-	VStack,
-	IconButton,
-} from "@chakra-ui/react";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { useColorMode } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Badge } from "components/shadcn/badge";
+import { Switch } from "components/shadcn/selection";
+import { Button, IconButton } from "components/shadcn/button";
+import { Spinner } from "components/shadcn/feedback";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Textarea } from "components/shadcn/input";
+import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	ArrowPathIcon,
@@ -190,24 +166,19 @@ const TelegramSwitchRow = ({
 	control,
 }: TelegramSwitchRowProps) => (
 	<FormControl className="telegram-switch-row">
-		<Flex
-			align="center"
-			justify="space-between"
-			gap={{ base: 2, md: 3 }}
-			className="telegram-switch-row__inner"
-		>
-			<Box minW={0} flex="1">
-				<Text className="telegram-switch-row__title">{title}</Text>
+		<div className="flex items-center justify-between gap-2 md:gap-3 telegram-switch-row__inner">
+			<div className="min-w-0! flex-1">
+				<p className="telegram-switch-row__title">{title}</p>
 				{description ? (
-					<Text className="telegram-switch-row__description">
+					<p className="telegram-switch-row__description">
 						{description}
-					</Text>
+					</p>
 				) : null}
-			</Box>
-			<Box flexShrink={0} className="telegram-switch-row__control">
+			</div>
+			<div className="shrink-0 telegram-switch-row__control">
 				{control}
-			</Box>
-		</Flex>
+			</div>
+		</div>
 	</FormControl>
 );
 
@@ -525,11 +496,9 @@ type FormValues = {
 	backup_interval_unit: "minutes" | "hours" | "days";
 };
 
-const RefreshIcon = chakra(ArrowPathIcon, { baseStyle: { w: 4, h: 4 } });
-const SaveIcon = chakra(PaperAirplaneIcon, { baseStyle: { w: 4, h: 4 } });
-const ChevronDownIcon = chakra(HeroChevronDownIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
+const RefreshIcon = withClass(ArrowPathIcon, "w-4 h-4");
+const SaveIcon = withClass(PaperAirplaneIcon, "w-4 h-4");
+const ChevronDownIcon = withClass(HeroChevronDownIcon, "w-4 h-4");
 
 const buildDefaultValues = (settings: TelegramSettingsResponse): FormValues => {
 	const topics: Record<string, TopicFormValue> = {};
@@ -678,33 +647,16 @@ const DisabledCard = ({
 	message: string;
 	children: ReactNode;
 }) => (
-	<Box position="relative">
-		<Box
-			pointerEvents={disabled ? "none" : "auto"}
-			filter={disabled ? "blur(1.2px)" : "none"}
-			opacity={disabled ? 0.55 : 1}
-			transition="filter 0.2s ease, opacity 0.2s ease"
-		>
+	<div className="relative">
+		<div className={cn("[transition:filter_0.2s_ease,_opacity_0.2s_ease]", disabled ? "pointer-events-none" : "pointer-events-auto", disabled ? "[filter:blur(1.2px)]" : "[filter:none]", disabled ? "opacity-[0.55]" : "opacity-100")}>
 			{children}
-		</Box>
+		</div>
 		{disabled && (
-			<Flex
-				position="absolute"
-				inset={0}
-				align="center"
-				justify="center"
-				textAlign="center"
-				fontWeight="semibold"
-				color="white"
-				px={6}
-				borderRadius="inherit"
-				bg="blackAlpha.400"
-				backdropFilter="blur(2px)"
-			>
-				<Text>{message}</Text>
-			</Flex>
+			<div className="flex absolute inset-0 items-center justify-center text-center font-semibold text-white px-6 rounded-[inherit] bg-blackAlpha-400 [backdrop-filter:blur(2px)]">
+				<p>{message}</p>
+			</div>
 		)}
-	</Box>
+	</div>
 );
 
 const parseAdminChatIds = (value: string): number[] =>
@@ -800,10 +752,6 @@ export const IntegrationSettingsPage = () => {
 	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
 	const toast = useToast();
-	const cardBg = useColorModeValue("white", "whiteAlpha.50");
-	const subCardBg = useColorModeValue("gray.50", "whiteAlpha.100");
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const fieldBg = useColorModeValue("white", "blackAlpha.200");
 	const { userData, getUserIsSuccess } = useGetUser();
 	const isSudoOrFull =
 		userData?.role === "sudo" || userData?.role === "full_access";
@@ -1637,21 +1585,16 @@ export const IntegrationSettingsPage = () => {
 				priority: "primary",
 				mobilePriority: 0,
 				cell: (certificate) => (
-					<Stack spacing={0} minW={0} align="start">
-						<Text fontWeight="semibold" dir="ltr" noOfLines={1}>
+					<div className="flex flex-col gap-0 min-w-0! items-start">
+						<p dir="ltr" className="font-semibold truncate">
 							{certificate.domain}
-						</Text>
+						</p>
 						{certificate.alt_names?.length ? (
-							<Text
-								fontSize="xs"
-								color="panel.textMuted"
-								dir="ltr"
-								noOfLines={1}
-							>
+							<p dir="ltr" className="text-[0.75rem] text-panel-text-muted truncate">
 								SAN: {certificate.alt_names.join(", ")}
-							</Text>
+							</p>
 						) : null}
-					</Stack>
+					</div>
 				),
 			},
 			{
@@ -1662,16 +1605,14 @@ export const IntegrationSettingsPage = () => {
 				mobilePriority: 1,
 				mobileMetaLabel: t("status"),
 				cell: (certificate) => (
-					<HStack spacing={1.5} flexWrap="wrap">
-						<Badge
-							colorScheme={
+					<div className="flex flex-row items-center gap-1.5 flex-wrap">
+						<Badge colorScheme={
 								certificate.status === "active"
 									? "green"
 									: certificate.status === "expiring"
 										? "orange"
 										: "red"
-							}
-						>
+							}>
 							{certificate.status}
 						</Badge>
 						<Badge colorScheme="blue">
@@ -1682,7 +1623,7 @@ export const IntegrationSettingsPage = () => {
 								{t("settings.subscriptions.viaNode")} #{certificate.node_id}
 							</Badge>
 						) : null}
-					</HStack>
+					</div>
 				),
 			},
 			{
@@ -1693,11 +1634,11 @@ export const IntegrationSettingsPage = () => {
 				mobilePriority: 2,
 				mobileMetaLabel: t("settings.subscriptions.expiresAt"),
 				cell: (certificate) => (
-					<Text fontSize="sm">
+					<p className="text-[0.875rem]">
 						{certificate.not_after
 							? new Date(certificate.not_after).toLocaleString()
 							: t("settings.subscriptions.never")}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1708,19 +1649,19 @@ export const IntegrationSettingsPage = () => {
 				hideBelow: "xl",
 				mobileMetaLabel: t("settings.subscriptions.lastRenewed"),
 				cell: (certificate) => (
-					<Stack spacing={0}>
-						<Text fontSize="sm">
+					<div className="flex flex-col gap-0">
+						<p className="text-[0.875rem]">
 							{certificate.last_renewed_at
 								? new Date(certificate.last_renewed_at).toLocaleString()
 								: t("settings.subscriptions.never")}
-						</Text>
-						<Text fontSize="xs" color="panel.textMuted">
+						</p>
+						<p className="text-[0.75rem] text-panel-text-muted">
 							{t("settings.subscriptions.lastIssued")}:{" "}
 							{certificate.last_issued_at
 								? new Date(certificate.last_issued_at).toLocaleString()
 								: t("settings.subscriptions.never")}
-						</Text>
-					</Stack>
+						</p>
+					</div>
 				),
 			},
 			{
@@ -1731,29 +1672,24 @@ export const IntegrationSettingsPage = () => {
 				mobilePriority: 3,
 				mobileMetaLabel: t("settings.subscriptions.serveTLS"),
 				cell: (certificate) => (
-					<HStack spacing={2}>
-						<Switch
-							aria-label={t("settings.subscriptions.serveTLS")}
-							isChecked={certificate.serve_tls !== false}
-							isDisabled={
+					<div className="flex flex-row items-center gap-2">
+						<Switch aria-label={t("settings.subscriptions.serveTLS")} isChecked={certificate.serve_tls !== false} isDisabled={
 								certificateServingMutation.isLoading ||
 								(certificate.serve_tls === false &&
 									certificate.status !== "active" &&
 									certificate.status !== "expiring")
-							}
-							onChange={(event) =>
+							} onChange={(event) =>
 								certificateServingMutation.mutate({
 									domain: certificate.domain,
 									enabled: event.target.checked,
 								})
-							}
-						/>
+							} />
 						{certificate.auto_renew ? (
 							<Badge colorScheme="teal">
 								{t("settings.subscriptions.autoRenew")}
 							</Badge>
 						) : null}
-					</HStack>
+					</div>
 				),
 			},
 		],
@@ -1767,7 +1703,7 @@ export const IntegrationSettingsPage = () => {
 			actions.push({
 				id: "renew",
 				label: t("settings.subscriptions.renewAction"),
-				icon: <ArrowPathIcon width={16} height={16} />,
+				icon: <ArrowPathIcon className="w-16 h-16" />,
 				onClick: () => handleRenewCertificate(certificate.domain),
 				isDisabled:
 					renewCertificateMutation.isLoading &&
@@ -1778,7 +1714,7 @@ export const IntegrationSettingsPage = () => {
 			actions.push({
 				id: "revoke",
 				label: t("settings.subscriptions.revokeAction"),
-				icon: <NoSymbolIcon width={16} height={16} />,
+				icon: <NoSymbolIcon className="w-16 h-16" />,
 				onClick: () =>
 					setCertificateAction({ type: "revoke", domain: certificate.domain }),
 				isDanger: true,
@@ -1787,7 +1723,7 @@ export const IntegrationSettingsPage = () => {
 		actions.push({
 			id: "delete",
 			label: t("delete"),
-			icon: <TrashIcon width={16} height={16} />,
+			icon: <TrashIcon className="w-16 h-16" />,
 			onClick: () =>
 				setCertificateAction({ type: "delete", domain: certificate.domain }),
 			isDanger: true,
@@ -1799,17 +1735,17 @@ export const IntegrationSettingsPage = () => {
 		issueNodeCertificateMutation.isLoading ||
 		importCertificateMutation.isLoading;
 	const certificateManager = (
-		<Stack spacing={3}>
+		<div className="flex flex-col gap-3">
 			<ResourceListCard
 				title={
-					<Box>
-						<Heading size="sm" mb={1}>
+					<div>
+						<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
 							{t("settings.subscriptions.certificateTitle")}
-						</Heading>
-						<Text fontSize="sm" color="panel.textMuted">
+						</h2>
+						<p className="text-[0.875rem] text-panel-text-muted">
 							{t("settings.subscriptions.certificateDescription")}
-						</Text>
-					</Box>
+						</p>
+					</div>
 				}
 				summaryItems={[
 					{ label: t("total"), value: certificates.length },
@@ -1829,16 +1765,12 @@ export const IntegrationSettingsPage = () => {
 					},
 				]}
 				actions={
-					<Button
-						colorScheme="primary"
-						leftIcon={<PlusIcon width={16} height={16} />}
-						onClick={() => setCertificateDialogOpen(true)}
-					>
+					<Button size="md" colorScheme="primary" leftIcon={<PlusIcon className="w-16 h-16" />} onClick={() => setCertificateDialogOpen(true)}>
 						{t("settings.subscriptions.getNewSSL")}
 					</Button>
 				}
 			>
-				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 					<SearchInput
 							value={certificateSearch}
 							onChange={(event) => setCertificateSearch(event.target.value)}
@@ -1866,7 +1798,7 @@ export const IntegrationSettingsPage = () => {
 							{t("settings.subscriptions.expiringInSevenDays")}
 						</option>
 					</Select>
-				</SimpleGrid>
+				</div>
 			</ResourceListCard>
 			<DataTable
 					ariaLabel={t("settings.subscriptions.certificateList")}
@@ -1878,11 +1810,11 @@ export const IntegrationSettingsPage = () => {
 					getRowId={(certificate) => certificate.domain}
 					isLoading={isSubscriptionLoading}
 					emptyState={
-						<Text color="panel.textMuted">
+						<p className="text-panel-text-muted">
 							{certificateSearch || certificateFilter !== "all"
 								? t("settings.subscriptions.noMatchingCertificates")
 								: t("settings.subscriptions.noCertificates")}
-						</Text>
+						</p>
 					}
 					rowActions={certificateRowActions}
 					actionsDisplay="menu"
@@ -1891,7 +1823,7 @@ export const IntegrationSettingsPage = () => {
 					showActionsOnHover
 					mobileBreakpoint="md"
 			/>
-		</Stack>
+		</div>
 	);
 
 	if (!getUserIsSuccess) {
@@ -1900,128 +1832,19 @@ export const IntegrationSettingsPage = () => {
 
 	if (!canManageIntegrations) {
 		return (
-			<VStack spacing={4} align="stretch">
-				<Heading size="lg">{t("header.integrationSettings")}</Heading>
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+			<div className="flex flex-col gap-4 items-stretch">
+				<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("header.integrationSettings")}</h2>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("integrations.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
 	return (
-		<Box
-			px={{ base: 4, md: 8 }}
-			py={{ base: 6, md: 8 }}
-			sx={{
-				".master-settings-card": {
-					bg: cardBg,
-					border: "1px solid",
-					borderColor,
-					borderRadius: "2xl",
-					p: { base: 4, md: 5 },
-					boxShadow: "sm",
-					overflow: "hidden",
-				},
-				".master-settings-subcard": {
-					bg: subCardBg,
-					border: "1px solid",
-					borderColor,
-					borderRadius: "xl",
-					p: { base: 3, md: 4 },
-				},
-				".master-settings-action-row": {
-					display: "flex",
-					justifyContent: "flex-end",
-					gap: 3,
-					flexWrap: "wrap",
-				},
-				".master-settings-action-row > .chakra-button": {
-					minW: { base: "calc(50% - 6px)", sm: "auto" },
-				},
-				".telegram-settings-form": {
-					"--telegram-row-bg": subCardBg,
-				},
-				".telegram-switch-row__inner": {
-					bg: "var(--telegram-row-bg)",
-					border: "1px solid",
-					borderColor,
-					borderRadius: "xl",
-					px: { base: 2.5, md: 3 },
-					py: { base: 2.5, md: 3 },
-					minH: "56px",
-				},
-				".telegram-switch-row__title": {
-					fontSize: "sm",
-					fontWeight: "700",
-					color: "panel.text",
-					lineHeight: "1.2",
-				},
-				".telegram-switch-row__description": {
-					fontSize: "xs",
-					color: "panel.textMuted",
-					mt: 1,
-					lineHeight: "1.35",
-				},
-				".telegram-switch-row__control": {
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "flex-end",
-					minW: "44px",
-				},
-				".master-settings-card input, .master-settings-card select, .master-settings-card textarea, .master-settings-subcard input, .master-settings-subcard select, .master-settings-subcard textarea":
-					{
-						bg: fieldBg,
-						borderRadius: "lg",
-						fontSize: "13px",
-					},
-				".master-settings-card .chakra-form__label, .master-settings-subcard .chakra-form__label":
-					{
-						fontSize: "xs",
-						fontWeight: "semibold",
-					},
-				".master-settings-tabs": {
-					maxW: "full",
-					overflowX: "auto",
-					overflowY: "hidden",
-					flexWrap: "nowrap",
-					WebkitOverflowScrolling: "touch",
-					overscrollBehaviorInline: "contain",
-					scrollbarWidth: "none",
-					scrollPaddingInline: "8px",
-					scrollSnapType: "x proximity",
-				},
-				".master-settings-tabs::-webkit-scrollbar": {
-					display: "none",
-				},
-				".master-settings-tabs .chakra-tabs__tab": {
-					flexShrink: 0,
-					scrollSnapAlign: "start",
-					whiteSpace: "nowrap",
-					minH: { base: "40px", md: "36px" },
-					px: { base: 3, md: 4 },
-				},
-			}}
-		>
-			<Flex
-				align={{ base: "stretch", md: "center" }}
-				justify="space-between"
-				flexDirection={{ base: "column", md: "row" }}
-				gap={3}
-			>
-				<TabSystem
-					className="master-settings-tabs"
-					overflowX="auto"
-					overflowY="hidden"
-					maxW="full"
-					flex="1"
-					sx={{
-						WebkitOverflowScrolling: "touch",
-						scrollbarWidth: "none",
-						"&::-webkit-scrollbar": { display: "none" },
-						button: { flexShrink: 0 },
-					}}
-					tabs={[
+		<div className="px-4 md:px-8 py-6 md:py-8">
+			<div className="flex items-stretch md:items-center justify-between flex-col md:flex-row gap-3">
+				<TabSystem tabs={[
 						{
 							value: "panel",
 							isActive: activeIntegrationTab === 0,
@@ -2046,60 +1869,39 @@ export const IntegrationSettingsPage = () => {
 							onClick: () => handleIntegrationTabChange(3),
 							label: t("settings.ssl.tabTitle"),
 						},
-					]}
-				/>
-				<Button
-					flexShrink={0}
-					alignSelf={{ base: "flex-end", md: "center" }}
-					colorScheme="primary"
-					leftIcon={<SaveIcon />}
-					onClick={handleSaveAll}
-					isLoading={saveAllMutation.isLoading}
-					isDisabled={!hasUnsavedChanges || saveAllMutation.isLoading}
-				>
+					]} className="overflow-x-auto overflow-y-hidden max-w-full flex-1 master-settings-tabs" />
+				<Button size="md" colorScheme="primary" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={saveAllMutation.isLoading} isDisabled={!hasUnsavedChanges || saveAllMutation.isLoading} className="shrink-0 self-end md:self-center">
 					{t("settings.save")}
 				</Button>
-			</Flex>
+			</div>
 			{activeIntegrationTab === 0 && (
-				<Box px={{ base: 0, md: 2 }} mt={3}>
+				<div className="px-0 md:px-2 mt-3">
 				{isPanelLoading && panelData === undefined ? (
-					<Flex align="center" justify="center" py={12}>
+					<div className="flex items-center justify-center py-12">
 						<Spinner size="lg" />
-					</Flex>
+					</div>
 				) : (
-					<Stack spacing={6} align="stretch">
-						<Box className="master-settings-card" borderRadius="2xl">
-							<Flex
-								justify="space-between"
-								align={{ base: "flex-start", md: "center" }}
-								gap={4}
-								flexDirection={{ base: "column", md: "row" }}
-								mb={4}
-							>
-								<Box>
-									<Heading size="sm" mb={1}>
+					<div className="flex flex-col gap-6 items-stretch">
+						<div className="rounded-2xl master-settings-card">
+							<div className="flex justify-between items-start md:items-center gap-4 flex-col md:flex-row mb-4">
+								<div>
+									<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
 										{t("settings.runtime.title")}
-									</Heading>
-									<Text fontSize="sm" color="gray.500">
+									</h2>
+									<p className="text-[0.875rem] text-gray-500">
 										{t("settings.runtime.description")}
-									</Text>
-								</Box>
-								<Button
-									variant="outline"
-									size="sm"
-									leftIcon={<ArrowPathIcon width={16} height={16} />}
-									onClick={() => {
+									</p>
+								</div>
+								<Button variant="outline" size="sm" leftIcon={<ArrowPathIcon className="w-16 h-16" />} onClick={() => {
 										void refetchRuntimeSettings();
 										void refetchPanelSettings();
-									}}
-									isLoading={isRuntimeSettingsLoading || isPanelLoading}
-								>
+									}} isLoading={isRuntimeSettingsLoading || isPanelLoading}>
 									{t("refresh")}
 								</Button>
-							</Flex>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							</div>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<FormControl>
-									<FormLabel fontSize="sm">
+									<FormLabel className="text-[0.875rem]">
 										{t("settings.panel.defaultSubscriptionType")}
 									</FormLabel>
 									<Select
@@ -2134,7 +1936,7 @@ export const IntegrationSettingsPage = () => {
 									</FormHelperText>
 								</FormControl>
 								<FormControl>
-									<FormLabel fontSize="sm">
+									<FormLabel className="text-[0.875rem]">
 										{t("settings.runtime.dashboardPath")}
 									</FormLabel>
 									<Input
@@ -2156,166 +1958,116 @@ export const IntegrationSettingsPage = () => {
 									title={t("settings.runtime.subscriptionReadOnlyTitle")}
 									description={t("settings.runtime.subscriptionReadOnlyHint")}
 									control={
-										<Switch
-											isChecked={runtimeSettingsForm.subscription_read_only}
-											onChange={(event) =>
+										<Switch isChecked={runtimeSettingsForm.subscription_read_only} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													subscription_read_only: event.target.checked,
 												}))
-											}
-											isDisabled={saveAllMutation.isLoading}
-										/>
+											} isDisabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.recordNodeUsage")}
 									description={t("settings.runtime.recordNodeUsageHint")}
 									control={
-										<Switch
-											isChecked={runtimeSettingsForm.record_node_usage}
-											onChange={(event) =>
+										<Switch isChecked={runtimeSettingsForm.record_node_usage} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													record_node_usage: event.target.checked,
 												}))
-											}
-											isDisabled={saveAllMutation.isLoading}
-										/>
+											} isDisabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.recordNodeUserUsages")}
 									description={t("settings.runtime.recordNodeUserUsagesHint")}
 									control={
-										<Switch
-											isChecked={runtimeSettingsForm.record_node_user_usages}
-											onChange={(event) =>
+										<Switch isChecked={runtimeSettingsForm.record_node_user_usages} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													record_node_user_usages: event.target.checked,
 												}))
-											}
-											isDisabled={saveAllMutation.isLoading}
-										/>
+											} isDisabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.userSpeedLimit")}
 									description={t("settings.runtime.userSpeedLimitHint")}
 									control={
-										<Switch
-											isChecked={runtimeSettingsForm.user_speed_limit_enabled}
-											onChange={(event) =>
+										<Switch isChecked={runtimeSettingsForm.user_speed_limit_enabled} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													user_speed_limit_enabled: event.target.checked,
 												}))
-											}
-											isDisabled={saveAllMutation.isLoading}
-										/>
+											} isDisabled={saveAllMutation.isLoading} />
 									}
 								/>
 								<TelegramSwitchRow
 									title={t("settings.runtime.apiDocs")}
 									description={t("settings.runtime.apiDocsHint")}
 									control={
-										<Switch
-											isChecked={runtimeSettingsForm.api_docs_enabled}
-											onChange={(event) =>
+										<Switch isChecked={runtimeSettingsForm.api_docs_enabled} onChange={(event) =>
 												setRuntimeSettingsForm((prev) => ({
 													...prev,
 													api_docs_enabled: event.target.checked,
 												}))
-											}
-											isDisabled={saveAllMutation.isLoading}
-										/>
+											} isDisabled={saveAllMutation.isLoading} />
 									}
 								/>
-								<Box
-									borderWidth="1px"
-									borderColor="whiteAlpha.200"
-									borderRadius="md"
-									p={4}
-									gridColumn={{ base: "auto", md: "1 / -1" }}
-								>
-									<Flex
-										align={{ base: "flex-start", md: "center" }}
-										justify="space-between"
-										gap={4}
-										flexDirection={{ base: "column", md: "row" }}
-										mb={4}
-									>
-										<Box>
-											<Heading size="xs" mb={1}>
+								<div className="border border-whiteAlpha-200! rounded-md p-4 [grid-column:auto] md:[grid-column:1_/_-1]">
+									<div className="flex items-start md:items-center justify-between gap-4 flex-col md:flex-row mb-4">
+										<div>
+											<h2 className="font-heading font-bold text-[0.875rem] leading-[1.2] mb-1">
 												{t("phpmyadmin.title")}
-											</Heading>
-											<Text fontSize="sm" color="gray.500">
+											</h2>
+											<p className="text-[0.875rem] text-gray-500">
 												{t("phpmyadmin.settingsHint")}
-											</Text>
-										</Box>
-										<HStack spacing={2} flexWrap="wrap">
-											<Button
-												as={RouterLink}
-												to="/phpmyadmin"
-												size="sm"
-												variant="outline"
-												isDisabled={
+											</p>
+										</div>
+										<div className="flex flex-row items-center gap-2 flex-wrap">
+											<Button asChild size="sm" variant="outline" isDisabled={
 													!runtimeSettingsForm.phpmyadmin_enabled ||
 													!phpMyAdminSupported
-												}
-											>
-												{t("phpmyadmin.openPanel")}
-											</Button>
-											<Button
-												size="sm"
-												variant="outline"
-												onClick={openPHPMyAdminExternal}
-												isLoading={isOpeningPHPMyAdminExternal}
-												isDisabled={
+												}>
+																<RouterLink to="/phpmyadmin">{t("phpmyadmin.openPanel")}</RouterLink>
+															</Button>
+											<Button size="sm" variant="outline" onClick={openPHPMyAdminExternal} isLoading={isOpeningPHPMyAdminExternal} isDisabled={
 													!runtimeSettingsForm.phpmyadmin_enabled ||
 													!phpMyAdminSupported
-												}
-											>
+												}>
 												{t("phpmyadmin.openExternal")}
 											</Button>
-											<Button
-												size="sm"
-												colorScheme={
+											<Button size="sm" colorScheme={
 													runtimeSettingsForm.phpmyadmin_enabled
 														? "red"
 														: "primary"
-												}
-												onClick={() =>
+												} onClick={() =>
 													runtimeSettingsForm.phpmyadmin_enabled
 														? phpMyAdminDisableMutation.mutate()
 														: phpMyAdminEnableMutation.mutate()
-												}
-												isLoading={
+												} isLoading={
 													phpMyAdminEnableMutation.isLoading ||
 													phpMyAdminDisableMutation.isLoading
-												}
-												isDisabled={
+												} isDisabled={
 													isPHPMyAdminStatusLoading ||
 													(!runtimeSettingsForm.phpmyadmin_enabled &&
 														!phpMyAdminSupported)
-												}
-											>
+												}>
 												{runtimeSettingsForm.phpmyadmin_enabled
 													? t("phpmyadmin.disableAction")
 													: t("phpmyadmin.enableAction")}
 											</Button>
-										</HStack>
-									</Flex>
+										</div>
+									</div>
 									{!phpMyAdminSupported ? (
-										<Alert status="warning" borderRadius="md" mb={4}>
+										<Alert status="warning" className="rounded-md mb-4">
 											<AlertIcon />
 											{t("phpmyadmin.sqliteDisabled")}
 										</Alert>
 									) : null}
-									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<FormControl>
-											<FormLabel fontSize="sm">{t("path")}</FormLabel>
+											<FormLabel className="text-[0.875rem]">{t("path")}</FormLabel>
 											<Input
 												value={runtimeSettingsForm.phpmyadmin_path}
 												placeholder="/phpmyadmin/"
@@ -2335,7 +2087,7 @@ export const IntegrationSettingsPage = () => {
 											</FormHelperText>
 										</FormControl>
 										<FormControl>
-											<FormLabel fontSize="sm">
+											<FormLabel className="text-[0.875rem]">
 												{t("phpmyadmin.loginMode")}
 											</FormLabel>
 											<Select
@@ -2364,15 +2116,13 @@ export const IntegrationSettingsPage = () => {
 												{t("phpmyadmin.loginModeHint")}
 											</FormHelperText>
 										</FormControl>
-										<FormControl
-											isDisabled={
+										<FormControl isDisabled={
 												runtimeSettingsForm.phpmyadmin_login_mode !==
 													"custom" ||
 												phpMyAdminEnableMutation.isLoading ||
 												phpMyAdminDisableMutation.isLoading
-											}
-										>
-											<FormLabel fontSize="sm">
+											}>
+											<FormLabel className="text-[0.875rem]">
 												{t("phpmyadmin.username")}
 											</FormLabel>
 											<Input
@@ -2386,15 +2136,13 @@ export const IntegrationSettingsPage = () => {
 												}
 											/>
 										</FormControl>
-										<FormControl
-											isDisabled={
+										<FormControl isDisabled={
 												runtimeSettingsForm.phpmyadmin_login_mode !==
 													"custom" ||
 												phpMyAdminEnableMutation.isLoading ||
 												phpMyAdminDisableMutation.isLoading
-											}
-										>
-											<FormLabel fontSize="sm">
+											}>
+											<FormLabel className="text-[0.875rem]">
 												{t("phpmyadmin.password")}
 											</FormLabel>
 											<Input
@@ -2409,37 +2157,37 @@ export const IntegrationSettingsPage = () => {
 												}
 											/>
 										</FormControl>
-									</SimpleGrid>
-								</Box>
-							</SimpleGrid>
-						</Box>
-					</Stack>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
 				)}
-				</Box>
+				</div>
 			)}
 			{activeIntegrationTab === 3 && (
-				<Box px={{ base: 0, md: 2 }} mt={3}>
+				<div className="px-0 md:px-2 mt-3">
 				{isSubscriptionLoading && !subscriptionBundle ? (
-					<Flex align="center" justify="center" py={12}>
+					<div className="flex items-center justify-center py-12">
 						<Spinner size="lg" />
-					</Flex>
+					</div>
 				) : (
 					certificateManager
 				)}
-				</Box>
+				</div>
 			)}
 			{activeIntegrationTab === 1 && (
-				<Box px={{ base: 0, md: 2 }} mt={3}>
+				<div className="px-0 md:px-2 mt-3">
 				{isLoading && !data ? (
-					<Flex align="center" justify="center" py={12}>
+					<div className="flex items-center justify-center py-12">
 						<Spinner size="lg" />
-					</Flex>
+					</div>
 				) : (
 					<form
 						className="telegram-settings-form"
 						onSubmit={(event) => event.preventDefault()}
 					>
-						<VStack align="stretch" spacing={4}>
+						<div className="flex flex-col items-stretch gap-4">
 							<TelegramSwitchRow
 								title={t("settings.telegram.enableBot")}
 								description={t("settings.telegram.enableBotDescription")}
@@ -2448,12 +2196,9 @@ export const IntegrationSettingsPage = () => {
 										control={control}
 										name="use_telegram"
 										render={({ field }) => (
-											<Switch
-												isChecked={field.value}
-												onChange={(event) =>
+											<Switch isChecked={field.value} onChange={(event) =>
 													field.onChange(event.target.checked)
-												}
-											/>
+												} />
 										)}
 									/>
 								}
@@ -2462,8 +2207,8 @@ export const IntegrationSettingsPage = () => {
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<Box className="master-settings-card">
-									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<div className="master-settings-card">
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<FormControl>
 											<FormLabel>{t("settings.telegram.apiToken")}</FormLabel>
 											<Input
@@ -2508,12 +2253,9 @@ export const IntegrationSettingsPage = () => {
 													control={control}
 													name="logs_chat_is_forum"
 													render={({ field }) => (
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
+														<Switch isChecked={field.value} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											}
@@ -2527,19 +2269,13 @@ export const IntegrationSettingsPage = () => {
 												{...register("default_vless_flow")}
 											/>
 										</FormControl>
-									</SimpleGrid>
-									<Flex className="master-settings-action-row" mt={4}>
-										<Button
-											size="sm"
-											variant="outline"
-											leftIcon={<SaveIcon />}
-											isLoading={telegramTestMutation.isLoading}
-											onClick={() => telegramTestMutation.mutate()}
-										>
+									</div>
+									<div className="flex mt-4 master-settings-action-row">
+										<Button size="sm" variant="outline" leftIcon={<SaveIcon />} isLoading={telegramTestMutation.isLoading} onClick={() => telegramTestMutation.mutate()}>
 											{t("settings.telegram.testMessage")}
 										</Button>
-									</Flex>
-								</Box>
+									</div>
+								</div>
 							</DisabledCard>
 
 							<DisabledCard
@@ -2550,12 +2286,8 @@ export const IntegrationSettingsPage = () => {
 										: telegramDisabledMessage
 								}
 							>
-								<Box
-									id="telegram-periodic-backup"
-									className="master-settings-card"
-									scrollMarginTop="120px"
-								>
-									<Box mb={3}>
+								<div id="telegram-periodic-backup" className="[scroll-margin-top:120px] master-settings-card">
+									<div className="mb-3">
 										<TelegramSwitchRow
 											title={t("settings.telegram.backupTitle")}
 											description={t("settings.telegram.backupDescription")}
@@ -2564,18 +2296,15 @@ export const IntegrationSettingsPage = () => {
 													control={control}
 													name="backup_enabled"
 													render={({ field }) => (
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
+														<Switch isChecked={field.value} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											}
 										/>
-									</Box>
-									<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+									</div>
+									<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 										<FormControl>
 											<FormLabel>
 												{t("settings.telegram.backupChatId")}
@@ -2596,12 +2325,9 @@ export const IntegrationSettingsPage = () => {
 													control={control}
 													name="backup_chat_is_forum"
 													render={({ field }) => (
-														<Switch
-															isChecked={field.value}
-															onChange={(event) =>
+														<Switch isChecked={field.value} onChange={(event) =>
 																field.onChange(event.target.checked)
-															}
-														/>
+															} />
 													)}
 												/>
 											}
@@ -2673,74 +2399,63 @@ export const IntegrationSettingsPage = () => {
 												)}
 											/>
 										</FormControl>
-									</SimpleGrid>
-									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} mt={3}>
-										<Text fontSize="xs" color="gray.500">
+									</div>
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+										<p className="text-[0.75rem] text-gray-500">
 											{t("settings.telegram.backupLastSent")}:{" "}
 											{data?.backup_last_sent_at || "-"}
-										</Text>
+										</p>
 										{data?.backup_last_error && (
-											<Text fontSize="xs" color="red.300">
+											<p className="text-[0.75rem] text-red-300">
 												{t("settings.telegram.backupLastError")}:{" "}
 												{data.backup_last_error}
-											</Text>
+											</p>
 										)}
-									</SimpleGrid>
-									<Flex className="master-settings-action-row" mt={4}>
-										<Button
-											size="sm"
-											variant="outline"
-											leftIcon={<ArrowUpTrayIcon width={16} />}
-											isLoading={telegramBackupMutation.isLoading}
-											onClick={() =>
+									</div>
+									<div className="flex mt-4 master-settings-action-row">
+										<Button size="sm" variant="outline" leftIcon={<ArrowUpTrayIcon className="w-16" />} isLoading={telegramBackupMutation.isLoading} onClick={() =>
 												telegramBackupMutation.mutate(telegramBackupScope)
-											}
-										>
+											}>
 											{t("settings.telegram.backupSendNow")}
 										</Button>
-									</Flex>
-								</Box>
+									</div>
+								</div>
 							</DisabledCard>
 
 							<DisabledCard
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<Box className="master-settings-card">
-									<Flex
-										justify="space-between"
-										align={{ base: "flex-start", md: "center" }}
-										gap={3}
-										flexDirection={{ base: "column", md: "row" }}
-									>
-										<Box>
-											<Heading size="sm">
+								<div className="master-settings-card">
+									<div className="flex justify-between items-start md:items-center gap-3 flex-col md:flex-row">
+										<div>
+											<h2 className="font-heading font-bold text-[1rem] leading-[1.2]">
 												{t("settings.telegram.botCommandsTitle")}
-											</Heading>
-										</Box>
+											</h2>
+										</div>
 										<Badge colorScheme="yellow">
 											{t("settings.tabs.comingSoon")}
 										</Badge>
-									</Flex>
-								</Box>
+									</div>
+								</div>
 							</DisabledCard>
 
 							<DisabledCard
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<Box>
-									<Heading size="sm" mb={3}>
+								<div>
+									<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-3">
 										{t("settings.telegram.forumTopics")}
-									</Heading>
+									</h2>
 									{forumTopics && Object.keys(forumTopics).length > 0 ? (
-										<SimpleGrid columns={{ base: 1, xl: 2 }} spacing={3}>
+										<div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 											{Object.entries(forumTopics).map(([key]) => (
-												<Box className="master-settings-subcard" key={key}>
-													<Text fontSize="sm" fontWeight="medium" mb={2}>
+												<div key={key} className="master-settings-subcard">
+													<p className="text-[0.875rem] font-medium mb-2">
 														{t("settings.telegram.topicKey")}: {key}
-													</Text>
-													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+													</p>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
 															<FormLabel>
 																{t("settings.telegram.topicTitle")}
@@ -2765,36 +2480,36 @@ export const IntegrationSettingsPage = () => {
 																{t("settings.telegram.topicIdHint")}
 															</FormHelperText>
 														</FormControl>
-													</SimpleGrid>
-												</Box>
+													</div>
+												</div>
 											))}
-										</SimpleGrid>
+										</div>
 									) : (
-										<Text color="gray.500">
+										<p className="text-gray-500">
 											{t("settings.telegram.emptyTopics")}
-										</Text>
+										</p>
 									)}
-								</Box>
+								</div>
 							</DisabledCard>
 
 							<DisabledCard
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<Box>
-									<Heading size="sm" mb={2}>
+								<div>
+									<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-2">
 										{t("settings.telegram.notificationsTitle")}
-									</Heading>
-									<Text fontSize="sm" color="gray.500" mb={4}>
+									</h2>
+									<p className="text-[0.875rem] text-gray-500 mb-4">
 										{t("settings.telegram.notificationsDescription")}
-									</Text>
-									<Stack spacing={4}>
+									</p>
+									<div className="flex flex-col gap-4">
 										{EVENT_TOGGLE_GROUPS.map((group) => (
-											<Box className="master-settings-subcard" key={group.key}>
-												<Text fontWeight="semibold" mb={3}>
+											<div key={group.key} className="master-settings-subcard">
+												<p className="font-semibold mb-3">
 													{t(group.titleKey, group.defaultTitle)}
-												</Text>
-												<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+												</p>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													{group.events.map((event) => (
 														<TelegramSwitchRow
 															key={event.key}
@@ -2807,78 +2522,57 @@ export const IntegrationSettingsPage = () => {
 																		`event_toggles.${encodeToggleKey(event.key)}` as const
 																	}
 																	render={({ field }) => (
-																		<Switch
-																			isChecked={Boolean(field.value)}
-																			onChange={(e) =>
+																		<Switch isChecked={Boolean(field.value)} onChange={(e) =>
 																				field.onChange(e.target.checked)
-																			}
-																		/>
+																			} />
 																	)}
 																/>
 															}
 														/>
 													))}
-												</SimpleGrid>
-											</Box>
+												</div>
+											</div>
 										))}
-									</Stack>
-								</Box>
+									</div>
+								</div>
 							</DisabledCard>
 
-							<Flex className="master-settings-action-row">
-								<Button
-									variant="outline"
-									leftIcon={<RefreshIcon />}
-									onClick={() => refetch()}
-									isDisabled={saveAllMutation.isLoading}
-								>
+							<div className="flex master-settings-action-row">
+								<Button size="md" variant="outline" leftIcon={<RefreshIcon />} onClick={() => refetch()} isDisabled={saveAllMutation.isLoading}>
 									{t("refresh")}
 								</Button>
-							</Flex>
-						</VStack>
+							</div>
+						</div>
 					</form>
 				)}
-				</Box>
+				</div>
 			)}
 			{activeIntegrationTab === 2 && (
-				<Box px={{ base: 0, md: 2 }} mt={3}>
+				<div className="px-0 md:px-2 mt-3">
 				{isSubscriptionLoading && !subscriptionBundle ? (
-					<Flex align="center" justify="center" py={12}>
+					<div className="flex items-center justify-center py-12">
 						<Spinner size="lg" />
-					</Flex>
+					</div>
 				) : (
 					<form onSubmit={(event) => event.preventDefault()}>
-						<VStack align="stretch" spacing={6}>
-							<Box className="master-settings-card">
-								<Flex
-									justify="space-between"
-									align={{ base: "flex-start", md: "center" }}
-									flexDirection={{ base: "column", md: "row" }}
-									gap={3}
-									mb={4}
-								>
-									<Box>
-										<Heading size="sm" mb={1}>
+						<div className="flex flex-col items-stretch gap-6">
+							<div className="master-settings-card">
+								<div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-3 mb-4">
+									<div>
+										<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
 											{t("settings.subscriptions.globalTitle")}
-										</Heading>
-										<Text fontSize="sm" color="gray.500">
+										</h2>
+										<p className="text-[0.875rem] text-gray-500">
 											{t("settings.subscriptions.globalDescription")}
-										</Text>
-									</Box>
-									<HStack spacing={2}>
-										<Button
-											variant="outline"
-											size="sm"
-											leftIcon={<RefreshIcon />}
-											type="button"
-											onClick={() => refetchSubscriptionSettings()}
-											isDisabled={saveAllMutation.isLoading}
-										>
+										</p>
+									</div>
+									<div className="flex flex-row items-center gap-2">
+										<Button variant="outline" size="sm" leftIcon={<RefreshIcon />} type="button" onClick={() => refetchSubscriptionSettings()} isDisabled={saveAllMutation.isLoading}>
 											{t("refresh")}
 										</Button>
-									</HStack>
-								</Flex>
-								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+									</div>
+								</div>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.urlPrefix")}
@@ -2943,140 +2637,103 @@ export const IntegrationSettingsPage = () => {
 										<FormLabel>
 											{t("settings.subscriptions.subscriptionPageTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("subscription_page_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("subscription_page_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.homePageTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("home_page_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("home_page_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.clashTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("clash_subscription_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("clash_subscription_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.clashSettingsTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("clash_settings_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("clash_settings_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.v2rayTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("v2ray_subscription_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("v2ray_subscription_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.v2raySettingsTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("v2ray_settings_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("v2ray_settings_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.happTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("happ_subscription_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("happ_subscription_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.incyTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("incy_subscription_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("incy_subscription_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.singboxTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister(
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister(
 													"singbox_subscription_template",
-												)}
-											/>
-										</HStack>
+												)} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.singboxSettingsTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("singbox_settings_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("singbox_settings_template")} className="flex-1" />
+										</div>
 									</FormControl>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.muxTemplate")}
 										</FormLabel>
-										<HStack spacing={2} align="stretch">
-											<Input
-												flex="1"
-												{...subscriptionRegister("mux_template")}
-											/>
-										</HStack>
+										<div className="flex flex-row gap-2 items-stretch">
+											<Input {...subscriptionRegister("mux_template")} className="flex-1" />
+										</div>
 									</FormControl>
-									<Box gridColumn={{ base: "1 / -1", md: "1 / -1" }}>
-										<Divider mb={3} />
-										<Text fontSize="sm" fontWeight="semibold">
+									<div className="[grid-column:1_/_-1] md:[grid-column:1_/_-1]">
+										<hr className="mb-3 w-full border-0 border-b border-panel-border! opacity-60" />
+										<p className="text-[0.875rem] font-semibold">
 											{t("settings.subscriptions.routingSection")}
-										</Text>
-									</Box>
+										</p>
+									</div>
 									<FormControl>
 										<FormLabel>
 											{t("settings.subscriptions.subscriptionAliases")}
 										</FormLabel>
-										<Textarea
-											placeholder="/mypath/\n/test/\n/api/v1/client/subscribe?token=\n/api/v1/client/subscribe?key="
-											rows={4}
-											{...subscriptionRegister("subscription_aliases_text")}
-										/>
+										<Textarea placeholder="/mypath/\n/test/\n/api/v1/client/subscribe?token=\n/api/v1/client/subscribe?key=" rows={4} {...subscriptionRegister("subscription_aliases_text")} />
 										<FormHelperText>
 											{t("settings.subscriptions.aliasesHint")}
 										</FormHelperText>
@@ -3111,57 +2768,41 @@ export const IntegrationSettingsPage = () => {
 												: ""}
 										</FormHelperText>
 									</FormControl>
-								</SimpleGrid>
+								</div>
 
-								<Box mt={6} gridColumn={{ base: "1 / -1", md: "1 / -1" }}>
-									<Divider mb={4} />
-									<Flex justify="space-between" align={{ base: "flex-start", md: "center" }} mb={4} flexDirection={{ base: "column", sm: "row" }} gap={2}>
-										<Box>
-											<Heading size="sm" mb={1}>{t("settings.subscriptions.routingRulesTitle")}</Heading>
-											<Text fontSize="sm" color="gray.500">{t("settings.subscriptions.routingRulesDesc")}</Text>
-										</Box>
-										<Button
-											size="xs"
-											variant="outline"
-											colorScheme="orange"
-											leftIcon={<ArrowPathIcon width={14} height={14} />}
-											onClick={() => {
+								<div className="mt-6 [grid-column:1_/_-1] md:[grid-column:1_/_-1]">
+									<hr className="mb-4 w-full border-0 border-b border-panel-border! opacity-60" />
+									<div className="flex justify-between items-start md:items-center mb-4 flex-col sm:flex-row gap-2">
+										<div>
+											<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">{t("settings.subscriptions.routingRulesTitle")}</h2>
+											<p className="text-[0.875rem] text-gray-500">{t("settings.subscriptions.routingRulesDesc")}</p>
+										</div>
+										<Button size="xs" variant="outline" colorScheme="orange" leftIcon={<ArrowPathIcon className="w-14 h-14" />} onClick={() => {
 												setSubscriptionValue("client_routing_rules", DEFAULT_CLIENT_ROUTING_RULES, {
 													shouldDirty: true,
 													shouldValidate: true,
 												});
-											}}
-										>
+											}}>
 											{t("settings.subscriptions.resetToDefault")}
 										</Button>
-									</Flex>
+									</div>
 
-									<VStack spacing={3} align="stretch">
-										<Flex fontWeight="semibold" fontSize="sm" px={2} display={{ base: "none", md: "flex" }}>
-											<Box flex="1">{t("settings.subscriptions.rulePattern")}</Box>
-											<Box w="220px" ml={4}>{t("settings.subscriptions.ruleResult")}</Box>
-											<Box w="100px" ml={4}></Box>
-										</Flex>
+									<div className="flex flex-col gap-3 items-stretch">
+										<div className="font-semibold text-[0.875rem] px-2 hidden md:flex">
+											<div className="flex-1">{t("settings.subscriptions.rulePattern")}</div>
+											<div className="w-[220px] ml-4">{t("settings.subscriptions.ruleResult")}</div>
+											<div className="w-[100px] ml-4"></div>
+										</div>
 										
 										{routingRules.map((field, index) => (
-											<Flex key={field.id} gap={3} align={{ base: "stretch", md: "center" }} flexDirection={{ base: "column", md: "row" }} bg={fieldBg} p={2} borderRadius="md" borderWidth="1px">
-												<Input 
-													flex="1" 
-													placeholder="^([Cc]lash|[Ss]tash)" 
-													fontFamily="mono" 
-													fontSize="sm"
-													{...subscriptionRegister(`client_routing_rules.${index}.pattern` as const)} 
-												/>
+											<div key={field.id} className="flex gap-3 items-stretch md:items-center flex-col md:flex-row p-2 rounded-md border bg-white dark:bg-blackAlpha-200">
+												<Input placeholder="^([Cc]lash|[Ss]tash)" {...subscriptionRegister(`client_routing_rules.${index}.pattern` as const)} className="flex-1 font-mono text-[0.875rem]" />
 												
 												<Controller
 													control={subscriptionControl}
 													name={`client_routing_rules.${index}.result` as const}
 													render={({ field: controllerField }) => (
-														<Select
-															{...controllerField}
-															w={{ base: "full", md: "220px" }}
-															showSearch={false}
-														>
+														<Select {...controllerField} showSearch={false} className="w-full md:w-[220px]">
 															{CLIENT_OPTIONS.map((opt) => (
 																<option key={opt} value={opt}>
 																	{opt}
@@ -3171,169 +2812,72 @@ export const IntegrationSettingsPage = () => {
 													)}
 												/>
 
-												<HStack spacing={1} justify="flex-end">
-													<IconButton
-														aria-label="Move Up"
-														icon={<ChevronUpIcon width={16} />}
-														size="sm"
-														variant="ghost"
-														isDisabled={index === 0}
-														onClick={() => moveRoutingRule(index, index - 1)}
-													/>
-													<IconButton
-														aria-label="Move Down"
-														icon={<HeroChevronDownIcon width={16} />}
-														size="sm"
-														variant="ghost"
-														isDisabled={index === routingRules.length - 1}
-														onClick={() => moveRoutingRule(index, index + 1)}
-													/>
-													<IconButton
-														aria-label="Delete"
-														icon={<TrashIcon width={16} />}
-														size="sm"
-														colorScheme="red"
-														variant="ghost"
-														onClick={() => removeRoutingRule(index)}
-													/>
-												</HStack>
-											</Flex>
+												<div className="flex flex-row items-center gap-1 justify-end">
+													<IconButton aria-label="Move Up" icon={<ChevronUpIcon className="w-16" />} size="sm" variant="ghost" isDisabled={index === 0} onClick={() => moveRoutingRule(index, index - 1)} />
+													<IconButton aria-label="Move Down" icon={<HeroChevronDownIcon className="w-16" />} size="sm" variant="ghost" isDisabled={index === routingRules.length - 1} onClick={() => moveRoutingRule(index, index + 1)} />
+													<IconButton aria-label="Delete" icon={<TrashIcon className="w-16" />} size="sm" colorScheme="red" variant="ghost" onClick={() => removeRoutingRule(index)} />
+												</div>
+											</div>
 										))}
 										
-										<Button 
-											alignSelf="flex-start" 
-											leftIcon={<PlusIcon width={16} />} 
-											size="sm" 
-											variant="outline" 
-											onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })}
-										>
+										<Button leftIcon={<PlusIcon className="w-16" />} size="sm" variant="outline" onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })} className="self-start">
 											{t("settings.subscriptions.addRule")}
 										</Button>
-									</VStack>
-								</Box>
-							</Box>
-							<Box className="master-settings-card">
-								<Heading size="sm" mb={1}>
+									</div>
+								</div>
+							</div>
+							<div className="master-settings-card">
+								<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
 									{t("settings.subscriptions.adminsTitle")}
-								</Heading>
-								<Text fontSize="sm" color="gray.500" mb={4}>
+								</h2>
+								<p className="text-[0.875rem] text-gray-500 mb-4">
 									{t("settings.subscriptions.adminsDescription")}
-								</Text>
+								</p>
 								{Object.values(adminOverrides).length === 0 ? (
-									<Text color="gray.500">
+									<p className="text-gray-500">
 										{t("settings.subscriptions.noAdmins")}
-									</Text>
+									</p>
 								) : (
-									<Stack spacing={4}>
-										<FormControl maxW={{ base: "full", md: "280px" }}>
+									<div className="flex flex-col gap-4">
+										<FormControl className="max-w-full md:max-w-[280px]">
 											<FormLabel>
 												{t("settings.subscriptions.selectAdmin")}
 											</FormLabel>
 											<Menu>
-												<MenuButton
-													as={Button}
-													variant="outline"
-													size="sm"
-													rightIcon={<ChevronDownIcon />}
-													w="full"
-													h="36px"
-													px={3}
-													fontSize="13px"
-													fontWeight="semibold"
-													justifyContent="space-between"
-													textAlign="start"
-													borderRadius="md"
-												>
-													<Text
-														as="span"
-														noOfLines={1}
-														flex="1"
-														minW={0}
-														textAlign="start"
-													>
+												<MenuButton as={Button} variant="outline" size="sm" rightIcon={<ChevronDownIcon />} className="w-full h-[36px] px-3 text-[13px] font-semibold justify-between text-start rounded-md">
+													<span className="truncate flex-1 min-w-0! text-start">
 														{selectedAdminId && adminOverrides[selectedAdminId]
 															? adminOverrides[selectedAdminId].username
 															: t(
 																	"settings.subscriptions.selectAdminPlaceholder",
 																)}
-													</Text>
+													</span>
 												</MenuButton>
-												<MenuList
-													minW={{ base: "calc(100vw - 48px)", md: "280px" }}
-													maxW={{ base: "calc(100vw - 48px)", md: "280px" }}
-													maxH="280px"
-													overflowY="auto"
-													borderColor={borderColor}
-													boxShadow="xl"
-													sx={{
-														scrollbarWidth: "none",
-														"&::-webkit-scrollbar": {
-															display: "none",
-														},
-													}}
-												>
-													<Box
-														p={2}
-														borderBottom="1px solid"
-														borderColor="gray.200"
-													>
-														<SearchInput
-																textAlign="start"
-																placeholder={t(
+												<MenuList className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-w-[calc(100vw_-_48px)]! md:min-w-[280px]! max-w-[calc(100vw_-_48px)] md:max-w-[280px] max-h-[280px] overflow-y-auto shadow-xl border-blackAlpha-200! dark:border-whiteAlpha-200!">
+													<div className="p-2 border-b border-gray-200!">
+														<SearchInput placeholder={t(
 																	"settings.subscriptions.searchAdmin",
-																)}
-																value={adminSearchTerm}
-																onChange={(event) =>
+																)} value={adminSearchTerm} onChange={(event) =>
 																	setAdminSearchTerm(event.target.value)
-																}
-															matchOptions={adminSearchMatch}
-															onMatchOptionsChange={setAdminSearchMatch}
-															onClear={() => setAdminSearchTerm("")}
-															/>
-													</Box>
+																} matchOptions={adminSearchMatch} onMatchOptionsChange={setAdminSearchMatch} onClear={() => setAdminSearchTerm("")} className="text-start" />
+													</div>
 													{filteredAdmins.length === 0 ? (
-														<Box px={3} py={2}>
-															<Text color="gray.500">
+														<div className="px-3 py-2">
+															<p className="text-gray-500">
 																{t("settings.subscriptions.noResults")}
-															</Text>
-														</Box>
+															</p>
+														</div>
 													) : (
 														filteredAdmins.map((admin) => (
-															<MenuItem
-																key={admin.id}
-																onClick={() => setSelectedAdminId(admin.id)}
-																minH="36px"
-																py={1.5}
-																px={3}
-																bg={
-																	selectedAdminId === admin.id
-																		? "primary.50"
-																		: undefined
-																}
-																_dark={{
-																	bg:
-																		selectedAdminId === admin.id
-																			? "whiteAlpha.100"
-																			: undefined,
-																}}
-															>
-																<Flex
-																	justify="space-between"
-																	align="center"
-																	w="full"
-																>
-																	<Text>{admin.username}</Text>
+															<MenuItem key={admin.id} onClick={() => setSelectedAdminId(admin.id)} className={cn("min-h-[36px] py-1.5 px-3", selectedAdminId === admin.id ? "bg-primary-50" : "", selectedAdminId === admin.id ? "dark:bg-whiteAlpha-100" : "")}>
+																<div className="flex justify-between items-center w-full">
+																	<p>{admin.username}</p>
 																	{admin.subscription_domain ? (
-																		<Text
-																			fontSize="xs"
-																			color="gray.500"
-																			maxW="160px"
-																			isTruncated
-																		>
+																		<p className="text-[0.75rem] text-gray-500 max-w-[160px] truncate">
 																			{admin.subscription_domain}
-																		</Text>
+																		</p>
 																	) : null}
-																</Flex>
+																</div>
 															</MenuItem>
 														))
 													)}
@@ -3345,58 +2889,38 @@ export const IntegrationSettingsPage = () => {
 										</FormControl>
 										{selectedAdminId == null ||
 										!adminOverrides[selectedAdminId] ? (
-											<Text color="gray.500">
+											<p className="text-gray-500">
 												{t("settings.subscriptions.selectAdminPlaceholder")}
-											</Text>
+											</p>
 										) : (
-											<Box
-												className="master-settings-subcard"
-												key={selectedAdminId}
-											>
+											<div key={selectedAdminId} className="master-settings-subcard">
 												{(() => {
 													const admin = adminOverrides[selectedAdminId];
 													if (!admin) return null;
 													const settings = admin.subscription_settings || {};
 													return (
 														<>
-															<Flex
-																justify="space-between"
-																align={{ base: "flex-start", md: "center" }}
-																gap={3}
-																flexDirection={{
-																	base: "column",
-																	md: "row",
-																}}
-															>
-																<Box>
-																	<Text fontWeight="semibold">
+															<div className="flex justify-between items-start md:items-center gap-3 flex-col md:flex-row">
+																<div>
+																	<p className="font-semibold">
 																		{admin.username}
-																	</Text>
-																	<Text fontSize="sm" color="gray.500">
+																	</p>
+																	<p className="text-[0.875rem] text-gray-500">
 																		{t("settings.subscriptions.adminHint")}
-																	</Text>
-																</Box>
-																<HStack spacing={2}>
+																	</p>
+																</div>
+																<div className="flex flex-row items-center gap-2">
 																	{admin.subscription_domain ? (
 																		<Badge colorScheme="blue">
 																			{admin.subscription_domain}
 																		</Badge>
 																	) : null}
-																	<Button
-																		size="sm"
-																		variant="ghost"
-																		onClick={() => handleAdminReset(admin.id)}
-																		isDisabled={saveAllMutation.isLoading}
-																	>
+																	<Button size="sm" variant="ghost" onClick={() => handleAdminReset(admin.id)} isDisabled={saveAllMutation.isLoading}>
 																		{t("reset")}
 																	</Button>
-																</HStack>
-															</Flex>
-															<SimpleGrid
-																columns={{ base: 1, md: 3 }}
-																spacing={4}
-																mt={3}
-															>
+																</div>
+															</div>
+															<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
 																<FormControl>
 																	<FormLabel>
 																		{t("settings.subscriptions.adminDomain")}
@@ -3439,13 +2963,9 @@ export const IntegrationSettingsPage = () => {
 																		{t("settings.subscriptions.inheritHint")}
 																	</FormHelperText>
 																</FormControl>
-															</SimpleGrid>
+															</div>
 
-															<SimpleGrid
-																columns={{ base: 1, md: 3 }}
-																spacing={4}
-																mt={4}
-															>
+															<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
 																<FormControl>
 																	<FormLabel>
 																		{t("settings.subscriptions.profileTitle")}
@@ -3511,39 +3031,30 @@ export const IntegrationSettingsPage = () => {
 																		}
 																	/>
 																</FormControl>
-															</SimpleGrid>
+															</div>
 
-															<SimpleGrid
-																columns={{ base: 1, md: 2 }}
-																spacing={4}
-																mt={4}
-															>
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 																<FormControl>
 																	<FormLabel>
 																		{t(
 																			"settings.subscriptions.subscriptionPageTemplate",
 																		)}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.subscription_page_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.subscription_page_template ??
 																				""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"subscription_page_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
@@ -3551,48 +3062,38 @@ export const IntegrationSettingsPage = () => {
 																			"settings.subscriptions.homePageTemplate",
 																		)}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.home_page_template || ""
-																			}
-																			value={settings.home_page_template ?? ""}
-																			onChange={(event) =>
+																			} value={settings.home_page_template ?? ""} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"home_page_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
 																		{t("settings.subscriptions.clashTemplate")}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.clash_subscription_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.clash_subscription_template ??
 																				""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"clash_subscription_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
@@ -3600,50 +3101,40 @@ export const IntegrationSettingsPage = () => {
 																			"settings.subscriptions.clashSettingsTemplate",
 																		)}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.clash_settings_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.clash_settings_template ?? ""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"clash_settings_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
 																		{t("settings.subscriptions.v2rayTemplate")}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.v2ray_subscription_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.v2ray_subscription_template ??
 																				""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"v2ray_subscription_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
@@ -3651,75 +3142,60 @@ export const IntegrationSettingsPage = () => {
 																			"settings.subscriptions.v2raySettingsTemplate",
 																		)}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.v2ray_settings_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.v2ray_settings_template ?? ""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"v2ray_settings_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
 																		{t("settings.subscriptions.happTemplate")}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.happ_subscription_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.happ_subscription_template ??
 																				""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"happ_subscription_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
 																		{t("settings.subscriptions.incyTemplate")}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.incy_subscription_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.incy_subscription_template ??
 																				""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"incy_subscription_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
@@ -3727,26 +3203,21 @@ export const IntegrationSettingsPage = () => {
 																			"settings.subscriptions.singboxTemplate",
 																		)}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.singbox_subscription_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.singbox_subscription_template ??
 																				""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"singbox_subscription_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
@@ -3754,114 +3225,79 @@ export const IntegrationSettingsPage = () => {
 																			"settings.subscriptions.singboxSettingsTemplate",
 																		)}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.singbox_settings_template || ""
-																			}
-																			value={
+																			} value={
 																				settings.singbox_settings_template ?? ""
-																			}
-																			onChange={(event) =>
+																			} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"singbox_settings_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
 																<FormControl>
 																	<FormLabel>
 																		{t("settings.subscriptions.muxTemplate")}
 																	</FormLabel>
-																	<HStack spacing={2} align="stretch">
-																		<Input
-																			flex="1"
-																			placeholder={
+																	<div className="flex flex-row gap-2 items-stretch">
+																		<Input placeholder={
 																				subscriptionBundle?.settings
 																					.mux_template || ""
-																			}
-																			value={settings.mux_template ?? ""}
-																			onChange={(event) =>
+																			} value={settings.mux_template ?? ""} onChange={(event) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"mux_template",
 																					event.target.value,
 																				)
-																			}
-																		/>
-																	</HStack>
+																			} className="flex-1" />
+																	</div>
 																</FormControl>
-															</SimpleGrid>
+															</div>
 
-															<Divider my={4} />
+															<hr className="my-4 w-full border-0 border-b border-panel-border! opacity-60" />
 
-															<Flex
-																className="master-settings-action-row"
-																mt={4}
-															>
-																<Button
-																	variant="outline"
-																	leftIcon={<RefreshIcon />}
-																	onClick={() => handleAdminReset(admin.id)}
-																	isDisabled={saveAllMutation.isLoading}
-																>
+															<div className="flex mt-4 master-settings-action-row">
+																<Button size="md" variant="outline" leftIcon={<RefreshIcon />} onClick={() => handleAdminReset(admin.id)} isDisabled={saveAllMutation.isLoading}>
 																	{t("settings.subscriptions.resetOverrides")}
 																</Button>
-															</Flex>
+															</div>
 														</>
 													);
 												})()}
-											</Box>
+											</div>
 										)}
-									</Stack>
+									</div>
 								)}
-							</Box>
-						</VStack>
+							</div>
+						</div>
 					</form>
 				)}
-				</Box>
+				</div>
 			)}
-			<Modal
-				isOpen={isCertificateDialogOpen}
-				onClose={() => setCertificateDialogOpen(false)}
-				size={certificateForm.provider === "manual" ? "3xl" : "xl"}
-				isCentered
-				scrollBehavior="inside"
-				closeOnOverlayClick={!isCertificateMutationLoading}
-			>
-				<ModalOverlay bg="blackAlpha.500" />
-				<ModalContent
-					as="form"
-					onSubmit={(event) => {
+			<Modal isOpen={isCertificateDialogOpen} onClose={() => setCertificateDialogOpen(false)} size={certificateForm.provider === "manual" ? "3xl" : "xl"} isCentered scrollBehavior="inside" closeOnOverlayClick={!isCertificateMutationLoading}>
+				<ModalOverlay className="bg-blackAlpha-500" />
+				<ModalContent as="form" onSubmit={(event) => {
 						event.preventDefault();
 						handleIssueCertificate();
-					}}
-					bg={cardBg}
-					borderWidth="1px"
-					borderColor={borderColor}
-					borderRadius="2xl"
-					boxShadow="2xl"
-					overflow="hidden"
-					mx={{ base: 4, sm: 0 }}
-				>
-					<ModalHeader px={6} pt={6} pb={2}>
+					}} className="border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 bg-white dark:bg-whiteAlpha-50 border-blackAlpha-200! dark:border-whiteAlpha-200!">
+					<ModalHeader className="px-6 pt-6 pb-2">
 						{t("settings.subscriptions.getNewSSL")}
 					</ModalHeader>
 					<ModalCloseButton isDisabled={isCertificateMutationLoading} />
-					<ModalBody px={6} pb={6}>
-						<VStack align="stretch" spacing={4}>
-							<Alert status="info" variant="left-accent" borderRadius="lg">
+					<ModalBody className="px-6 pb-6">
+						<div className="flex flex-col items-stretch gap-4">
+							<Alert status="info" variant="left-accent" className="rounded-lg">
 								<AlertIcon />
-								<Text fontSize="sm">
+								<p className="text-[0.875rem]">
 									{t("settings.subscriptions.certificateSNIHint")}
-								</Text>
+								</p>
 							</Alert>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<FormControl>
 									<FormLabel>
 										{t("settings.subscriptions.certificateProvider")}
@@ -3950,7 +3386,7 @@ export const IntegrationSettingsPage = () => {
 										<FormHelperText>{t("settings.subscriptions.nodeDomainHint")}</FormHelperText>
 									</FormControl>
 								) : null}
-								<FormControl isRequired={certificateForm.provider !== "node"} display={certificateForm.provider === "node" ? "none" : undefined}>
+								<FormControl isRequired={certificateForm.provider !== "node"} className={cn(certificateForm.provider === "node" ? "hidden" : "")}>
 									<FormLabel>
 										{certificateForm.provider === "manual"
 											? t("settings.subscriptions.domain")
@@ -3976,56 +3412,36 @@ export const IntegrationSettingsPage = () => {
 										</FormHelperText>
 									) : null}
 								</FormControl>
-							</SimpleGrid>
+							</div>
 							{certificateForm.provider === "manual" ? (
-								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<FormControl isRequired>
 										<FormLabel>fullchain.pem</FormLabel>
-										<Textarea
-											dir="ltr"
-											fontFamily="mono"
-											minH="180px"
-											value={certificateForm.fullchain}
-											onChange={(event) =>
+										<Textarea dir="ltr" value={certificateForm.fullchain} onChange={(event) =>
 												setCertificateForm((previous) => ({
 													...previous,
 													fullchain: event.target.value,
 												}))
-											}
-										/>
+											} className="font-mono min-h-[180px]" />
 									</FormControl>
 									<FormControl isRequired>
 										<FormLabel>privkey.pem</FormLabel>
-										<Textarea
-											dir="ltr"
-											fontFamily="mono"
-											minH="180px"
-											value={certificateForm.privateKey}
-											onChange={(event) =>
+										<Textarea dir="ltr" value={certificateForm.privateKey} onChange={(event) =>
 												setCertificateForm((previous) => ({
 													...previous,
 													privateKey: event.target.value,
 												}))
-											}
-										/>
+											} className="font-mono min-h-[180px]" />
 									</FormControl>
-								</SimpleGrid>
+								</div>
 							) : null}
-						</VStack>
+						</div>
 					</ModalBody>
-					<ModalFooter gap={2} borderTopWidth="1px" borderColor={borderColor}>
-						<Button
-							variant="ghost"
-							onClick={() => setCertificateDialogOpen(false)}
-							isDisabled={isCertificateMutationLoading}
-						>
+					<ModalFooter className="gap-2 border-t border-blackAlpha-200! dark:border-whiteAlpha-200!">
+						<Button size="md" variant="ghost" onClick={() => setCertificateDialogOpen(false)} isDisabled={isCertificateMutationLoading}>
 							{t("cancel")}
 						</Button>
-						<Button
-							type="submit"
-							colorScheme="primary"
-							isLoading={isCertificateMutationLoading}
-						>
+						<Button size="md" type="submit" colorScheme="primary" isLoading={isCertificateMutationLoading}>
 							{certificateForm.provider === "manual"
 								? t("settings.subscriptions.importAction")
 								: t("settings.subscriptions.issueAction")}
@@ -4061,6 +3477,6 @@ export const IntegrationSettingsPage = () => {
 					deleteCertificateMutation.isLoading
 				}
 			/>
-		</Box>
+		</div>
 	);
 };

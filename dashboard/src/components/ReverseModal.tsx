@@ -1,15 +1,7 @@
-import {
-	Button,
-	FormControl,
-	FormErrorMessage,
-	FormHelperText,
-	FormLabel,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	VStack,
-} from "@chakra-ui/react";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
 import { type FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -140,8 +132,8 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent mx="3">
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{mode === "edit"
 						? t("pages.xray.reverse.edit")
@@ -150,7 +142,7 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 				<ModalCloseButton />
 				<form onSubmit={submit}>
 					<XrayModalBody>
-						<VStack spacing={4} align="stretch">
+						<div className="flex flex-col gap-4 items-stretch">
 							<XrayDialogSection title={t("pages.xray.reverse.connection")}>
 								<XrayFieldGrid>
 									<FormControl>
@@ -179,11 +171,7 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 									</FormControl>
 									<FormControl isInvalid={tagInvalid}>
 										<FormLabel>{t("pages.xray.reverse.tag")}</FormLabel>
-										<Input
-											{...form.register("tag")}
-											size="sm"
-											placeholder="reverse-1"
-										/>
+										<Input {...form.register("tag")} size="sm" placeholder="reverse-1" />
 										{tagInvalid ? (
 											<FormErrorMessage>
 												{duplicateTag
@@ -277,26 +265,17 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 													<FormLabel>
 														{t("pages.xray.reverse.credentialId")}
 													</FormLabel>
-													<Input
-														value={connectionDetails.credentialId}
-														isReadOnly
-														fontFamily="mono"
-														size="sm"
-													/>
+													<Input value={connectionDetails.credentialId} isReadOnly size="sm" className="font-mono" />
 													<FormHelperText>
 														{t("pages.xray.reverse.pairingHint")}
 													</FormHelperText>
 												</FormControl>
 												<FormControl>
 													<FormLabel>{t("userDialog.flow.label")}</FormLabel>
-													<Input
-														value={
+													<Input value={
 															connectionDetails.flow ||
 															t("userDialog.flow.none")
-														}
-														isReadOnly
-														size="sm"
-													/>
+														} isReadOnly size="sm" />
 												</FormControl>
 											</>
 										)}
@@ -331,11 +310,7 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 											<FormLabel>
 												{t("pages.xray.reverse.credentialId")}
 											</FormLabel>
-											<Input
-												{...form.register("credentialId")}
-												size="sm"
-												fontFamily="mono"
-											/>
+											<Input {...form.register("credentialId")} size="sm" className="font-mono" />
 											{credentialInvalid ? (
 												<FormErrorMessage>
 													{t("pages.xray.reverse.credentialIdError")}
@@ -391,18 +366,13 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 									</XrayFieldGrid>
 								</XrayDialogSection>
 							)}
-						</VStack>
+						</div>
 					</XrayModalBody>
-					<XrayModalFooter justifyContent="flex-end">
-						<Button variant="outline" onClick={onClose}>
+					<XrayModalFooter className="justify-end">
+						<Button size="md" variant="outline" onClick={onClose}>
 							{t("cancel")}
 						</Button>
-						<Button
-							type="submit"
-							colorScheme="primary"
-							size="sm"
-							isDisabled={!isValid}
-						>
+						<Button type="submit" colorScheme="primary" size="sm" isDisabled={!isValid}>
 							{mode === "edit" ? t("save") : t("add")}
 						</Button>
 					</XrayModalFooter>

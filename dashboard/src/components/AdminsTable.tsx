@@ -1,32 +1,15 @@
-import {
-	Box,
-	Button,
-	Collapse,
-	chakra,
-	Flex,
-	HStack,
-	IconButton,
-	Input,
-	InputGroup,
-	InputRightElement,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
-	ModalOverlay,
-	SimpleGrid,
-	Stack,
-	type TableProps,
-	Text,
-	Textarea,
-	Tooltip,
-	useBreakpointValue,
-	useColorModeValue,
-	useDisclosure,
-	useToast,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { useDisclosure } from "hooks/useDisclosure";
+import { Button, IconButton } from "components/shadcn/button";
+import { Collapse } from "components/shadcn/collapse";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { Input, InputGroup, InputRightElement, Textarea } from "components/shadcn/input";
+import { withClass } from "components/shadcn/icon";
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
 import {
 	AdjustmentsHorizontalIcon,
 	ArrowPathIcon,
@@ -107,35 +90,22 @@ const QUICK_ACTION_IDS = [
 	"delete",
 ];
 
-const iconProps = {
-	baseStyle: {
-		strokeWidth: "2px",
-		w: 3,
-		h: 3,
-	},
-};
-
-const ResetIcon = chakra(ArrowPathIcon, iconProps);
-const DisableIcon = chakra(NoSymbolIcon, iconProps);
-const EnableIcon = chakra(PlayIcon, iconProps);
-const DeleteIcon = chakra(TrashIcon, iconProps);
-const QuickPassIcon = chakra(KeyIcon, iconProps);
-const AddDataIcon = chakra(PlusCircleIcon, iconProps);
+const ResetIcon = withClass(ArrowPathIcon, "[stroke-width:2px] w-3 h-3");
+const DisableIcon = withClass(NoSymbolIcon, "[stroke-width:2px] w-3 h-3");
+const EnableIcon = withClass(PlayIcon, "[stroke-width:2px] w-3 h-3");
+const DeleteIcon = withClass(TrashIcon, "[stroke-width:2px] w-3 h-3");
+const QuickPassIcon = withClass(KeyIcon, "[stroke-width:2px] w-3 h-3");
+const AddDataIcon = withClass(PlusCircleIcon, "[stroke-width:2px] w-3 h-3");
 
 const AdminStatusBadge: FC<{ status: AdminStatus }> = ({ status }) => {
 	const { t } = useTranslation();
 
 	return (
-		<Text
-			fontSize="sm"
-			fontWeight="semibold"
-			color={status === AdminStatus.Active ? "green.400" : "red.400"}
-			textTransform="capitalize"
-		>
+		<p className={cn("text-[0.875rem] font-semibold capitalize", status === AdminStatus.Active ? "text-green-400" : "text-red-400")}>
 			{status === AdminStatus.Active
 				? t("status.active")
 				: t("admins.disabledLabel")}
-		</Text>
+		</p>
 	);
 };
 
@@ -143,37 +113,31 @@ const AdminRoleBadge: FC<{ role: AdminRole }> = ({ role }) => {
 	const { t } = useTranslation();
 	const roleStyles = {
 		[AdminRole.FullAccess]: {
-			color: "yellow.800",
-			darkColor: "yellow.200",
+			color: "text-yellow-800",
+			darkColor: "dark:text-yellow-200",
 			label: t("admins.roles.fullAccess"),
 		},
 		[AdminRole.Sudo]: {
-			color: "purple.800",
-			darkColor: "purple.200",
+			color: "text-purple-800",
+			darkColor: "dark:text-purple-200",
 			label: t("admins.roles.sudo"),
 		},
 		[AdminRole.Reseller]: {
-			color: "blue.800",
-			darkColor: "blue.200",
+			color: "text-blue-800",
+			darkColor: "dark:text-blue-200",
 			label: t("admins.roles.reseller"),
 		},
 		[AdminRole.Standard]: {
-			color: "gray.800",
-			darkColor: "gray.200",
+			color: "text-gray-800",
+			darkColor: "dark:text-gray-200",
 			label: t("admins.roles.standard"),
 		},
 	}[role];
 
 	return (
-		<Text
-			as="span"
-			fontSize="xs"
-			color={roleStyles.color}
-			fontWeight="medium"
-			_dark={{ color: roleStyles.darkColor }}
-		>
+		<span className={cn(roleStyles.color, roleStyles.darkColor, "text-[0.75rem] font-medium")}>
 			{roleStyles.label}
-		</Text>
+		</span>
 	);
 };
 
@@ -198,7 +162,7 @@ const getAdminIsLimited = (admin: Admin) =>
 		admin.data_limit > 0 &&
 		getAdminEffectiveUsage(admin) >= admin.data_limit);
 
-type AdminsTableProps = TableProps & {
+type AdminsTableProps = ComponentPropsWithoutRef<"table"> & {
 	toolbar?: ReactNode;
 	footerActions?: ReactNode;
 };
@@ -213,9 +177,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const locale = i18n.language || "en";
 	const toast = useToast();
 	const { userData } = useGetUser();
-	const dialogBg = useColorModeValue("surface.light", "surface.dark");
-	const dialogBorderColor = useColorModeValue("light-border", "gray.700");
-	const inlineMenuBg = useColorModeValue("blackAlpha.50", "whiteAlpha.50");
+	const dialogBg = useColorModeValue("bg-surface-light", "bg-surface-dark");
+	const dialogBorderColor = useColorModeValue("border-light-border!", "border-gray-700!");
+	const inlineMenuBg = useColorModeValue("bg-blackAlpha-50", "bg-whiteAlpha-50");
 	const adminOptions = useAdminsStore((state) => state.adminOptions);
 	const admins = useAdminsStore((state) => state.admins);
 	const loading = useAdminsStore((state) => state.loading);
@@ -600,32 +564,22 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			onDone?.();
 		};
 		return (
-			<Box>
-				<Button
-					variant="ghost"
-					justifyContent="flex-start"
-					w="full"
-					isLoading={contextAction?.startsWith("addData-")}
-					isDisabled={contextAction?.startsWith("addData-")}
-					aria-expanded={isOpen}
-					onClick={(event) => {
+			<div>
+				<Button size="md" variant="ghost" isLoading={contextAction?.startsWith("addData-")} isDisabled={contextAction?.startsWith("addData-")} aria-expanded={isOpen} onClick={(event) => {
 						event.preventDefault();
 						event.stopPropagation();
 						setOpenTrafficMenuFor((current) =>
 							current === admin.username ? null : admin.username,
 						);
-					}}
-				>
-					<HStack w="full" justify="space-between" spacing={3}>
-						<HStack spacing={2} minW={0}>
+					}} className="justify-start w-full">
+					<div className="flex flex-row items-center w-full justify-between gap-3">
+						<div className="flex flex-row items-center gap-2 min-w-0!">
 							<AddDataIcon />
-							<Text as="span" noOfLines={1}>
+							<span className="truncate">
 								{t("services.userActions.traffic.add")}
-							</Text>
-						</HStack>
-						<ChevronRightIcon
-							width={14}
-							style={{
+							</span>
+						</div>
+						<ChevronRightIcon style={{
 								flexShrink: 0,
 								transform: isOpen
 									? "rotate(90deg)"
@@ -633,50 +587,29 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 										? "rotate(180deg)"
 										: undefined,
 								transition: "transform 0.15s ease",
-							}}
-						/>
-					</HStack>
+							}} className="w-14" />
+					</div>
 				</Button>
 				<Collapse in={isOpen} unmountOnExit>
-					<SimpleGrid
-						columns={{ base: 2, sm: 3 }}
-						spacing={1}
-						mt={1}
-						p={2}
-						bg={inlineMenuBg}
-						borderWidth="1px"
-						borderColor={dialogBorderColor}
-						borderRadius="md"
-					>
+					<div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-1 mt-1 p-2 border rounded-md", inlineMenuBg, dialogBorderColor)}>
 						{ADMIN_TRAFFIC_OPTIONS.map((option) => (
-							<Button
-								key={option.label}
-								size="sm"
-								variant="ghost"
-								justifyContent="center"
-								onClick={(event) => {
+							<Button key={option.label} size="sm" variant="ghost" onClick={(event) => {
 									event.stopPropagation();
 									handleAddDataLimit(
 										admin,
 										option.gigabytes,
 										closeAfterSelection,
 									);
-								}}
-								isLoading={contextAction === `addData-${option.gigabytes}`}
-								isDisabled={contextAction?.startsWith("addData-")}
-							>
+								}} isLoading={contextAction === `addData-${option.gigabytes}`} isDisabled={contextAction?.startsWith("addData-")} className="justify-center">
 								{option.label}
 							</Button>
 						))}
-					</SimpleGrid>
+					</div>
 				</Collapse>
-			</Box>
+			</div>
 		);
 	};
-	const { className, sx, ...restProps } = props;
-	const normalizedSx = Array.isArray(sx)
-		? Object.assign({}, ...sx)
-		: (sx as Record<string, unknown> | undefined);
+	const { className, ...restProps } = props;
 	const baseTableSx: Record<string, unknown> = {
 		width: "100%",
 		"& th, & .rb-data-table-row > td": {
@@ -698,7 +631,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const tableProps = {
 		...restProps,
 		className: tableClassName,
-		sx: { ...baseTableSx, ...(normalizedSx || {}) },
+		sx: { ...baseTableSx },
 	};
 
 	const summaryData = useMemo(() => {
@@ -873,16 +806,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				mobilePriority: 0,
 				mobileMetaLabel: t("username"),
 				cell: (admin) => (
-					<Text
-						fontWeight="semibold"
-						noOfLines={1}
-						maxW="10rem"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate" }}
-						color="panel.text"
-					>
+					<p dir="ltr" className="font-semibold truncate max-w-[10rem] [unicode-bidi:isolate] text-panel-text">
 						{admin.username}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -914,17 +840,12 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				mobilePriority: 3,
 				mobileMetaLabel: t("admins.details.activeLabel"),
 				cell: (admin) => (
-					<Text
-						fontSize="sm"
-						fontWeight="semibold"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate" }}
-					>
+					<p dir="ltr" className="text-[0.875rem] font-semibold [unicode-bidi:isolate]">
 						{formatCount(admin.active_users ?? 0, locale)}
-						<chakra.span color="panel.textMuted" fontWeight="medium">
+						<span className="text-panel-text-muted font-medium">
 							/{formatCount(admin.users_count ?? 0, locale)}
-						</chakra.span>
-					</Text>
+						</span>
+					</p>
 				),
 			},
 			{
@@ -936,14 +857,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				mobilePriority: 4,
 				mobileMetaLabel: t("admins.details.onlineLabel"),
 				cell: (admin) => (
-					<Text
-						fontSize="sm"
-						color="green.600"
-						_dark={{ color: "green.400" }}
-						fontWeight="semibold"
-					>
+					<p className="text-[0.875rem] text-green-600 dark:text-green-400 font-semibold">
 						{formatCount(admin.online_users ?? 0, locale)}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -955,11 +871,11 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				mobilePriority: 5,
 				mobileMetaLabel: t("services.title"),
 				cell: (admin) => (
-					<Text fontSize="sm" noOfLines={1}>
+					<p className="text-[0.875rem] truncate">
 						{admin.services?.length
 							? formatCount(admin.services.length, locale)
 							: t("filters.advanced.serviceAll")}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -973,13 +889,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				mobileSummary: true,
 				mobileMetaLabel: t("usersTable.traffic"),
 				cell: (admin) => (
-					<Box maxW="32rem">
+					<div className="max-w-[32rem]">
 						<UserUsageBar
 							variant="stacked"
 							used={getAdminEffectiveUsage(admin)}
 							total={admin.data_limit ?? null}
 						/>
-					</Box>
+					</div>
 				),
 			},
 			{
@@ -992,24 +908,14 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				cell: (admin) => {
 					const speed = adminSpeeds[String(admin.id)];
 					return (
-						<Stack
-							spacing={0}
-							lineHeight="1.35"
-							whiteSpace="nowrap"
-							fontSize="xs"
-							dir="ltr"
-							sx={{
-								fontVariantNumeric: "tabular-nums",
-								unicodeBidi: "isolate",
-							}}
-						>
-							<Text color="teal.400">
+						<div dir="ltr" className="flex flex-col gap-0 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
+							<p className="text-teal-400">
 								↑ {formatBytes(speed?.upload_speed ?? 0)}/s
-							</Text>
-							<Text color="blue.400">
+							</p>
+							<p className="text-blue-400">
 								↓ {formatBytes(speed?.download_speed ?? 0)}/s
-							</Text>
-						</Stack>
+							</p>
+						</div>
 					);
 				},
 			},
@@ -1022,20 +928,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				mobilePriority: 7,
 				mobileMetaLabel: t("usersTable.remainingTraffic"),
 				cell: (admin) => (
-					<Text
-						fontSize={!admin.data_limit ? "xl" : "sm"}
-						fontWeight={!admin.data_limit ? "semibold" : undefined}
-						lineHeight="1"
-						color={!admin.data_limit ? "panel.textMuted" : "panel.text"}
-						dir="ltr"
-						aria-label={!admin.data_limit ? t("unlimited") : undefined}
-					>
+					<p dir="ltr" className={cn("leading-[1]", !admin.data_limit ? "text-[1.25rem]" : "text-[0.875rem]", !admin.data_limit ? "font-semibold" : "", !admin.data_limit ? "text-panel-text-muted" : "text-panel-text")}>
 						{!admin.data_limit
-							? "∞"
+							? <><span aria-hidden="true">∞</span><span className="sr-only">{t("unlimited")}</span></>
 							: formatBytes(
 									Math.max(admin.data_limit - getAdminEffectiveUsage(admin), 0),
 								)}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1055,37 +954,24 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				desktopVisible: showQuickActions,
 				hideOnMobile: true,
 				cell: (admin) => (
-					<HStack spacing={0.5} onClick={(event) => event.stopPropagation()}>
+					// biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control
+						// biome-ignore lint/a11y/useKeyWithClickEvents: same wrapper, no key action
+						<div onClick={(event) => event.stopPropagation()} className="flex flex-row items-center gap-0.5">
 						{rowActionsRef
 							.current(admin)
 							.filter((action) => QUICK_ACTION_IDS.includes(action.id))
 							.map((action) => (
 								<Tooltip key={action.id} label={action.label}>
 									<span>
-										<IconButton
-											className="rb-row-action"
-											aria-label={String(action.label)}
-											icon={action.icon}
-											variant="ghost"
-											size="sm"
-											minW="28px"
-											h="28px"
-											isDisabled={
+										<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={
 												typeof action.isDisabled === "function"
 													? action.isDisabled(admin)
 													: action.isDisabled
-											}
-											onClick={() => action.onClick?.(admin)}
-											sx={
-												action.isDanger
-													? { "&&&:hover": { color: "red.400 !important" } }
-													: undefined
-											}
-										/>
+											} onClick={() => action.onClick?.(admin)} className={cn("min-w-[28px]! h-[28px] rb-row-action", action.isDanger && "hover:text-red-400!")} />
 									</span>
 								</Tooltip>
 							))}
-					</HStack>
+					</div>
 				),
 			},
 		],
@@ -1101,13 +987,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				{
 					id: "edit",
 					label: t("edit"),
-					icon: <PencilIcon width={16} />,
+					icon: <PencilIcon className="w-16" />,
 					onClick: () => openAdminDialog(admin),
 				},
 				{
 					id: "permissions",
 					label: t("admins.editPermissionsButton"),
-					icon: <AdjustmentsHorizontalIcon width={16} />,
+					icon: <AdjustmentsHorizontalIcon className="w-16" />,
 					onClick: () => handleOpenPermissionsModal(admin),
 				},
 				{
@@ -1126,7 +1012,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push({
 				id: "security",
 				label: t("admins.security.action"),
-				icon: <ShieldCheckIcon width={16} />,
+				icon: <ShieldCheckIcon className="w-16" />,
 				onClick: () => {
 					setSecurityAdmin(admin);
 					securityDialog.onOpen();
@@ -1138,7 +1024,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push({
 				id: "apiKeys",
 				label: t("admins.apiKeys.action"),
-				icon: <KeyIcon width={16} />,
+				icon: <KeyIcon className="w-16" />,
 				onClick: () => {
 					setAPIKeysAdmin(admin);
 					apiKeysDialog.onOpen();
@@ -1222,46 +1108,32 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const renderExpandedAdmin = (admin: Admin) => {
 		const actions = adminRowActions(admin).filter(Boolean);
 		return (
-			<Box className="rb-resource-expanded">
+			<div className="rb-resource-expanded">
 				<AdminDetailsPanel
 					admin={admin}
 					actions={
-						<Flex
-							className="rb-resource-expanded-actions"
-							align="center"
-							justify="flex-end"
-							gap={1}
-							flexWrap="wrap"
-							onClick={(event) => event.stopPropagation()}
-						>
-							<HStack className="rb-inline-actions" spacing={1} flexWrap="wrap">
+						// biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control
+							// biome-ignore lint/a11y/useKeyWithClickEvents: same wrapper, no key action
+							<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
+							<div className="flex flex-row items-center gap-1 flex-wrap rb-inline-actions">
 								{actions.map((action) => (
 									<Tooltip key={action.id} label={action.label}>
 										<span>
-											<IconButton
-												aria-label={String(action.label)}
-												icon={action.icon}
-												variant="ghost"
-												size="sm"
-												minW="30px"
-												h="30px"
-												isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(admin) : action.isDisabled}
-												onClick={() => action.onClick?.(admin)}
-											/>
+											<IconButton aria-label={String(action.label)} icon={action.icon} variant="ghost" size="sm" isDisabled={typeof action.isDisabled === "function" ? action.isDisabled(admin) : action.isDisabled} onClick={() => action.onClick?.(admin)} className="min-w-[30px]! h-[30px]" />
 										</span>
 									</Tooltip>
 								))}
-							</HStack>
-						</Flex>
+							</div>
+						</div>
 					}
 				/>
-			</Box>
+			</div>
 		);
 	};
 
 	return (
 		<>
-			<Stack spacing={3}>
+			<div className="flex flex-col gap-3">
 				<ResourceListCard
 					title={t("admins.listHeader")}
 					summaryItems={adminSummaryItems}
@@ -1270,7 +1142,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					{toolbar}
 				</ResourceListCard>
 
-				<Box className="rb-admins-section" ref={tableSectionRef}>
+				<div ref={tableSectionRef} className="rb-admins-section">
 				<DataTable
 					ariaLabel={t("admins")}
 					data={admins}
@@ -1279,9 +1151,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					isLoading={loading}
 					loadingRows={skeletonCount}
 					emptyState={
-						<Text fontSize="sm" color="panel.textMuted" textAlign="center">
+						<p className="text-[0.875rem] text-panel-text-muted text-center">
 							{t("admins.noAdmins")}
-						</Text>
+						</p>
 					}
 					enableSelection
 					selectedRowIds={selectedAdminUsernames}
@@ -1306,8 +1178,8 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					mobileBreakpoint="md"
 					tableProps={tableProps}
 				/>
-				</Box>
-			</Stack>
+				</div>
+			</div>
 
 			<ConfirmDialog
 				isOpen={Boolean(resetConfirmation)}
@@ -1360,55 +1232,33 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			/>
 
 			<Modal isOpen={isQuickPassOpen} onClose={handleCloseQuickPass} isCentered>
-				<ModalOverlay bg="blackAlpha.500" />
-				<ModalContent
-					bg={dialogBg}
-					borderWidth="1px"
-					borderColor={dialogBorderColor}
-					borderRadius="2xl"
-					boxShadow="2xl"
-					overflow="hidden"
-					mx={{ base: 4, sm: 0 }}
-					maxW={{ base: "calc(100vw - 32px)", sm: "440px" }}
-				>
-					<ModalHeader px={6} pt={6} pb={2}>
-						<HStack spacing={3}>
-							<Box
-								display="inline-flex"
-								alignItems="center"
-								justifyContent="center"
-								w={10}
-								h={10}
-								borderRadius="full"
-								bg="primary.50"
-								color="primary.600"
-								_dark={{ bg: "primary.900", color: "primary.200" }}
-							>
+				<ModalOverlay className="bg-blackAlpha-500" />
+				<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[440px]", dialogBg, dialogBorderColor)}>
+					<ModalHeader className="px-6 pt-6 pb-2">
+						<div className="flex flex-row items-center gap-3">
+							<div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-200">
 								<QuickPassIcon />
-							</Box>
-							<Text>{t("admins.quickPasswordModal.title")}</Text>
-						</HStack>
+							</div>
+							<p>{t("admins.quickPasswordModal.title")}</p>
+						</div>
 					</ModalHeader>
 					<ModalCloseButton />
-					<ModalBody px={6} pb={2}>
-						<Stack spacing={3}>
-							<Box>
-								<Text fontSize="sm" color="gray.500">
+					<ModalBody className="px-6 pb-2">
+						<div className="flex flex-col gap-3">
+							<div>
+								<p className="text-[0.875rem] text-gray-500">
 									{t("username")}
-								</Text>
+								</p>
 								<Input value={quickPassInfo?.username ?? ""} isReadOnly />
-							</Box>
-							<Box>
-								<Text fontSize="sm" color="gray.500">
+							</div>
+							<div>
+								<p className="text-[0.875rem] text-gray-500">
 									{t("admins.quickPasswordModal.password")}
-								</Text>
+								</p>
 								<InputGroup>
 									<Input value={quickPassInfo?.password ?? ""} isReadOnly />
 									<InputRightElement>
-										<Button
-											size="sm"
-											variant="ghost"
-											onClick={async () => {
+										<Button size="sm" variant="ghost" onClick={async () => {
 												if (quickPassInfo?.password) {
 													try {
 														await copyTextToClipboard(quickPassInfo.password);
@@ -1421,27 +1271,19 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 														generateErrorMessage(error, toast);
 													}
 												}
-											}}
-										>
+											}}>
 											{t("copy")}
 										</Button>
 									</InputRightElement>
 								</InputGroup>
-							</Box>
-							<Text fontSize="xs" color="orange.400">
+							</div>
+							<p className="text-[0.75rem] text-orange-400">
 								{t("admins.quickPasswordModal.notice")}
-							</Text>
-						</Stack>
+							</p>
+						</div>
 					</ModalBody>
-					<ModalFooter
-						bg="blackAlpha.50"
-						_dark={{ bg: "whiteAlpha.50" }}
-						borderTopWidth="1px"
-						borderColor={dialogBorderColor}
-						px={6}
-						py={4}
-					>
-						<Button colorScheme="primary" onClick={handleCloseQuickPass}>
+					<ModalFooter className={cn("bg-blackAlpha-50 dark:bg-whiteAlpha-50 border-t px-6 py-4", dialogBorderColor)}>
+						<Button size="md" colorScheme="primary" onClick={handleCloseQuickPass}>
 							{t("close")}
 						</Button>
 					</ModalFooter>
@@ -1453,18 +1295,14 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				onConfirm={confirmDisableAdmin}
 				title={t("admins.disableAdminTitle")}
 				description={
-					<Stack spacing={3}>
-						<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.300" }}>
+					<div className="flex flex-col gap-3">
+						<p className="text-[0.875rem] text-gray-500 dark:text-gray-300">
 							{t("admins.disableAdminMessage", {
 								username: adminToDisable?.username ?? "",
 							})}
-						</Text>
-						<Textarea
-							value={disableReason}
-							onChange={(event) => setDisableReason(event.target.value)}
-							placeholder={t("admins.disableAdminReasonPlaceholder")}
-						/>
-					</Stack>
+						</p>
+						<Textarea value={disableReason} onChange={(event) => setDisableReason(event.target.value)} placeholder={t("admins.disableAdminReasonPlaceholder")} />
+					</div>
 				}
 				confirmLabel={t("admins.disableAdminConfirm")}
 				colorScheme="red"

@@ -1,13 +1,7 @@
-import {
-	Button,
-	FormControl,
-	FormLabel,
-	InputGroup,
-	InputRightAddon,
-	Text,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { Button } from "components/shadcn/button";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { InputGroup, InputRightAddon } from "components/shadcn/input";
 import { NumericInput } from "components/common/NumericInput";
 import { DateTimePicker } from "components/DateTimePicker";
 import { AppDialog } from "components/dialogs/AppDialog";
@@ -97,45 +91,25 @@ export const UserQuickEditModal: FC = () => {
 	const isDataLimit = field === "data_limit";
 
 	return (
-		<AppDialog
-			isCentered
-			isOpen={Boolean(quickEditUser)}
-			onClose={onClose}
-			size="sm"
-			title={
+		<AppDialog isCentered isOpen={Boolean(quickEditUser)} onClose={onClose} size="sm" title={
 				isDataLimit
 					? t("usersTable.setDataLimit")
 					: t("usersTable.setExpiry")
-			}
-			overlayProps={{ bg: "blackAlpha.300" }}
-			contentProps={{ mx: "3" }}
-			footerProps={{ gap: 3 }}
-			footer={
+			} overlayProps={{ className: "bg-blackAlpha-300" }} contentProps={{ className: "mx-3" }} footerProps={{ className: "gap-3" }} footer={
 				<>
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={onClose}
-						isDisabled={loading}
-					>
+					<Button size="sm" variant="outline" onClick={onClose} isDisabled={loading}>
 						{t("cancel")}
 					</Button>
-					<Button
-						size="sm"
-						colorScheme="primary"
-						onClick={save}
-						isLoading={loading}
-					>
+					<Button size="sm" colorScheme="primary" onClick={save} isLoading={loading}>
 						{t("save")}
 					</Button>
 				</>
-			}
-		>
-					<VStack align="stretch" spacing={3}>
+			}>
+					<div className="flex flex-col items-stretch gap-3">
 						{user && (
-							<Text fontSize="sm" color="panel.textMuted" dir="ltr">
+							<p dir="ltr" className="text-[0.875rem] text-panel-text-muted">
 								{user.username}
-							</Text>
+							</p>
 						)}
 						{isDataLimit ? (
 							<FormControl>
@@ -149,9 +123,9 @@ export const UserQuickEditModal: FC = () => {
 									/>
 									<InputRightAddon>GB</InputRightAddon>
 								</InputGroup>
-								<Text fontSize="xs" color="panel.textMuted" mt={1}>
+								<p className="text-[0.75rem] text-panel-text-muted mt-1">
 									{t("usersTable.unlimitedHint")}
-								</Text>
+								</p>
 							</FormControl>
 						) : (
 							<FormControl>
@@ -162,12 +136,12 @@ export const UserQuickEditModal: FC = () => {
 									minDate={new Date()}
 									placeholder={t("usersTable.setExpiry")}
 								/>
-								<Text fontSize="xs" color="panel.textMuted" mt={1}>
+								<p className="text-[0.75rem] text-panel-text-muted mt-1">
 									{t("usersTable.expiryClearHint")}
-								</Text>
+								</p>
 							</FormControl>
 						)}
-					</VStack>
+					</div>
 		</AppDialog>
 	);
 };

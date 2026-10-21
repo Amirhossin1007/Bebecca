@@ -1,4 +1,5 @@
-import { Box, Center, Text, useColorModeValue } from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { cn } from "lib/cn";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useHref, useSearchParams } from "react-router-dom";
@@ -9,40 +10,21 @@ export const TutorialsPage = () => {
 	const dashboardRoot = useHref("/");
 	const [searchParams] = useSearchParams();
 	const [isLoaded, setIsLoaded] = useState(false);
-	const borderColor = useColorModeValue("panel.border", "panel.border");
-	const frameBg = useColorModeValue("panel.surface", "panel.surface");
+	const borderColor = useColorModeValue("border-panel-border!", "border-panel-border!");
+	const frameBg = useColorModeValue("bg-panel-surface", "bg-panel-surface");
 	const frameSrc = getTutorialsUrl(
 		dashboardRoot,
 		i18n.language,
 		searchParams.get("doc") || "",
 	);
 	return (
-		<Box
-			borderWidth="1px"
-			borderColor={borderColor}
-			borderRadius="md"
-			overflow="hidden"
-			position="relative"
-			h={{ base: "calc(100dvh - 172px)", md: "calc(100dvh - 96px)" }}
-			minH={{ base: "420px", md: "560px" }}
-			bg={frameBg}
-		>
+		<div className={cn("border rounded-md overflow-hidden relative h-[calc(100dvh_-_172px)] md:h-[calc(100dvh_-_96px)] min-h-[420px] md:min-h-[560px]", borderColor, frameBg)}>
 			{!isLoaded ? (
-				<Center position="absolute" inset={0} bg={frameBg}>
-					<Text color="panel.textMuted">{t("loading")}...</Text>
-				</Center>
+				<div className={cn("flex items-center justify-center absolute inset-0", frameBg)}>
+					<p className="text-panel-text-muted">{t("loading")}...</p>
+				</div>
 			) : null}
-			<Box
-				as="iframe"
-				title={t("tutorials.menu")}
-				src={frameSrc}
-				w="100%"
-				h="100%"
-				border="0"
-				bg={frameBg}
-				opacity={isLoaded ? 1 : 0}
-				onLoad={() => setIsLoaded(true)}
-			/>
-		</Box>
+			<iframe title={t("tutorials.menu")} src={frameSrc} onLoad={() => setIsLoaded(true)} className={cn("w-full h-full border-0", frameBg, isLoaded ? "opacity-100" : "opacity-0")} />
+		</div>
 	);
 };

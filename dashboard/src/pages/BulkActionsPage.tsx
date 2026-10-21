@@ -1,28 +1,12 @@
-import {
-	Alert,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Checkbox,
-	CheckboxGroup,
-	Code,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	Grid,
-	GridItem,
-	HStack,
-	IconButton,
-	Input,
-	SimpleGrid,
-	Stack,
-	Text,
-	Textarea,
-	Tooltip,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Button, IconButton } from "components/shadcn/button";
+import { useToast } from "components/shadcn/toast";
+import { Badge } from "components/shadcn/badge";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input, Textarea } from "components/shadcn/input";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Checkbox, CheckboxGroup } from "components/shadcn/selection";
+import { cn } from "lib/cn";
 import {
 	CheckCircleIcon,
 	ClipboardIcon,
@@ -150,16 +134,9 @@ const runLimited = async (
 };
 
 const Surface = ({ children }: { children: React.ReactNode }) => (
-	<Box
-		borderWidth="1px"
-		borderColor="panel.border"
-		borderRadius="12px"
-		bg="panel.surface"
-		boxShadow="sm"
-		p={{ base: 4, md: 5 }}
-	>
+	<div className="border border-panel-border! rounded-[12px] bg-panel-surface shadow-sm p-4 md:p-5">
 		{children}
-	</Box>
+	</div>
 );
 
 const ResultAction = ({
@@ -175,16 +152,7 @@ const ResultAction = ({
 }) => (
 	<Tooltip label={label}>
 		<span>
-			<IconButton
-				aria-label={label}
-				icon={icon}
-				variant="ghost"
-				size="sm"
-				minW="30px"
-				h="30px"
-				isDisabled={isDisabled}
-				onClick={onClick}
-			/>
+			<IconButton aria-label={label} icon={icon} variant="ghost" size="sm" isDisabled={isDisabled} onClick={onClick} className="min-w-[30px]! h-[30px]" />
 		</span>
 	</Tooltip>
 );
@@ -261,128 +229,90 @@ const Results = ({
 	const allConfigs = live.flatMap((result) => result.links ?? []).join("\n");
 	return (
 		<Surface>
-			<HStack justify="space-between" align="flex-start" mb={3} gap={3} flexWrap="wrap">
-				<Box>
-					<Text fontWeight="semibold">{t("bulkActions.results.title")}</Text>
-					<Text color="panel.textSecondary" fontSize="sm">
+			<div className="flex flex-row justify-between items-start mb-3 gap-3 flex-wrap">
+				<div>
+					<p className="font-semibold">{t("bulkActions.results.title")}</p>
+					<p className="text-panel-text-secondary text-[0.875rem]">
 						{t("bulkActions.results.summary", {
 							success: succeeded,
 							failed: results.length - succeeded,
 						})}
-					</Text>
-				</Box>
-				<HStack spacing={2} flexWrap="wrap">
+					</p>
+				</div>
+				<div className="flex flex-row items-center gap-2 flex-wrap">
 					{allLinks && (
-						<Button
-							size="xs"
-							variant="outline"
-							leftIcon={<LinkIcon width={14} />}
-							onClick={() => void copy(allLinks)}
-						>
+						<Button size="xs" variant="outline" leftIcon={<LinkIcon className="w-14" />} onClick={() => void copy(allLinks)}>
 							{t("bulkActions.results.copyAllLinks")}
 						</Button>
 					)}
 					{allConfigs && (
-						<Button
-							size="xs"
-							variant="outline"
-							leftIcon={<ClipboardIcon width={14} />}
-							onClick={() => void copy(allConfigs)}
-						>
+						<Button size="xs" variant="outline" leftIcon={<ClipboardIcon className="w-14" />} onClick={() => void copy(allConfigs)}>
 							{t("bulkActions.results.copyAllConfigs")}
 						</Button>
 					)}
 					{canDelete && createdNames.length > 0 && (
-						<Button
-							size="xs"
-							variant="outline"
-							colorScheme="red"
-							leftIcon={<TrashIcon width={14} />}
-							isLoading={deleting}
-							onClick={() => setConfirmDelete(true)}
-						>
+						<Button size="xs" variant="outline" colorScheme="red" leftIcon={<TrashIcon className="w-14" />} isLoading={deleting} onClick={() => setConfirmDelete(true)}>
 							{t("bulkActions.results.deleteCreated")}
 						</Button>
 					)}
 					<Badge colorScheme={succeeded === results.length ? "green" : "orange"}>
 						{succeeded}/{results.length}
 					</Badge>
-				</HStack>
-			</HStack>
-			<Stack spacing={0} borderTopWidth="1px" borderColor="panel.border">
+				</div>
+			</div>
+			<div className="flex flex-col gap-0 border-t border-panel-border!">
 				{results.map((result) => {
 					const hasLinks =
 						!result.deleted &&
 						Boolean(result.subscription || result.links?.length);
 					return (
-						<HStack
-							key={result.username}
-							justify="space-between"
-							align="center"
-							gap={4}
-							py={hasLinks ? 1.5 : 2.5}
-							borderBottomWidth="1px"
-							borderColor="panel.border"
-						>
-							<HStack minW={0}>
-								<Box
-									color={
-										result.deleted
-											? "panel.textSecondary"
-											: result.ok
-												? "green.400"
-												: "red.400"
-									}
-									flexShrink={0}
-								>
+						<div key={result.username} className={cn("flex flex-row justify-between items-center gap-4 border-b border-panel-border!", hasLinks ? "py-1.5" : "py-2.5")}>
+							<div className="flex flex-row items-center gap-2 min-w-0!">
+								<div className={cn("shrink-0", result.deleted ? "text-panel-text-secondary" : (result.ok ? "text-green-400" : "text-red-400"))}>
 									{result.deleted ? (
-										<TrashIcon width={18} />
+										<TrashIcon className="w-18" />
 									) : result.ok ? (
-										<CheckCircleIcon width={18} />
+										<CheckCircleIcon className="w-18" />
 									) : (
-										<ExclamationCircleIcon width={18} />
+										<ExclamationCircleIcon className="w-18" />
 									)}
-								</Box>
-								<Code bg="transparent" color="inherit" noOfLines={1}>
+								</div>
+								<code className="truncate rounded-xs px-[0.2em] py-[0.1em] font-mono text-[0.875em] dark:bg-whiteAlpha-200 bg-transparent text-inherit">
 									{result.username}
-								</Code>
-							</HStack>
+								</code>
+							</div>
 							{result.ok && hasLinks ? (
-								<HStack spacing={1}>
+								<div className="flex flex-row items-center gap-1">
 									<ResultAction
 										label={t("usersTable.copyLink")}
-										icon={<LinkIcon width={18} />}
+										icon={<LinkIcon className="w-18" />}
 										isDisabled={!result.subscription}
 										onClick={() => void copy(result.subscription ?? "")}
 									/>
 									<ResultAction
 										label={t("usersTable.copyConfigs")}
-										icon={<ClipboardIcon width={18} />}
+										icon={<ClipboardIcon className="w-18" />}
 										isDisabled={!result.links?.length}
 										onClick={() => void copy((result.links ?? []).join("\n"))}
 									/>
 									<ResultAction
 										label={t("usersTable.qrCode")}
-										icon={<QrCodeIcon width={18} />}
+										icon={<QrCodeIcon className="w-18" />}
 										onClick={() => {
 											setQRCode(result.links ?? [], result.username);
 											setSubLink(result.subscription || null);
 										}}
 									/>
-								</HStack>
+								</div>
 							) : (
-								<Text
-									fontSize="sm"
-									color={result.ok ? "panel.textSecondary" : "red.400"}
-									textAlign="end"
-								>
+								<p className={cn("text-[0.875rem] text-end", result.ok ? "text-panel-text-secondary" : "text-red-400")}>
 									{result.deleted ? t("bulkActions.results.deleted") : result.detail}
-								</Text>
+								</p>
 							)}
-						</HStack>
+						</div>
 					);
 				})}
-			</Stack>
+			</div>
 			<ConfirmDialog
 				isOpen={confirmDelete}
 				onClose={() => setConfirmDelete(false)}
@@ -563,21 +493,18 @@ const BulkCreatePanel = ({
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" w="full">
+		<div className="flex flex-col gap-4 items-stretch w-full">
 			<Surface>
-				<Stack spacing={5}>
-					<Box>
-						<Text fontWeight="semibold">
+				<div className="flex flex-col gap-5">
+					<div>
+						<p className="font-semibold">
 							{t("bulkActions.create.usernames")}
-						</Text>
-						<Text color="panel.textSecondary" fontSize="sm" mt={1}>
+						</p>
+						<p className="text-panel-text-secondary text-[0.875rem] mt-1">
 							{t("bulkActions.create.usernamesHelp")}
-						</Text>
-					</Box>
-					<PageTabs
-						px={0}
-						justifyContent="flex-start"
-						tabs={[
+						</p>
+					</div>
+					<PageTabs tabs={[
 							{
 								value: "sequence",
 								label: t("bulkActions.create.sequence"),
@@ -590,96 +517,63 @@ const BulkCreatePanel = ({
 								isActive: mode === "list",
 								onClick: () => setMode("list"),
 							},
-						]}
-					/>
+						]} className="px-0 justify-start" />
 					{mode === "sequence" ? (
-						<Grid
-							templateColumns={{ base: "1fr", md: "repeat(6, 1fr)" }}
-							gap={3}
-						>
-							<GridItem colSpan={{ base: 1, md: 2 }}>
+						<div className="grid grid-cols-[1fr] md:grid-cols-[repeat(6,_1fr)] gap-3">
+							<div className="col-span-1 md:col-span-2">
 								<FormControl>
 									<FormLabel>{t("bulkActions.create.prefix")}</FormLabel>
-									<Input
-										value={prefix}
-										onChange={(event) => setPrefix(event.target.value)}
-									/>
+									<Input value={prefix} onChange={(event) => setPrefix(event.target.value)} />
 								</FormControl>
-							</GridItem>
-							<GridItem colSpan={{ base: 1, md: 2 }}>
+							</div>
+							<div className="col-span-1 md:col-span-2">
 								<FormControl>
 									<FormLabel>{t("bulkActions.create.suffix")}</FormLabel>
-									<Input
-										value={suffix}
-										onChange={(event) => setSuffix(event.target.value)}
-									/>
+									<Input value={suffix} onChange={(event) => setSuffix(event.target.value)} />
 								</FormControl>
-							</GridItem>
-							<GridItem colSpan={{ base: 1, md: 2 }}>
+							</div>
+							<div className="col-span-1 md:col-span-2">
 								<FormControl>
 									<FormLabel>{t("bulkActions.create.start")}</FormLabel>
-									<Input
-										type="number"
-										min={0}
-										value={start}
-										onChange={(event) => setStart(event.target.value)}
-									/>
+									<Input type="number" min={0} value={start} onChange={(event) => setStart(event.target.value)} />
 								</FormControl>
-							</GridItem>
-							<GridItem colSpan={{ base: 1, md: 2 }}>
+							</div>
+							<div className="col-span-1 md:col-span-2">
 								<FormControl>
 									<FormLabel>{t("bulkActions.create.count")}</FormLabel>
-									<Input
-										type="number"
-										min={1}
-										max={MAX_BATCH_SIZE}
-										value={count}
-										onChange={(event) => setCount(event.target.value)}
-									/>
+									<Input type="number" min={1} max={MAX_BATCH_SIZE} value={count} onChange={(event) => setCount(event.target.value)} />
 								</FormControl>
-							</GridItem>
-							<GridItem colSpan={{ base: 1, md: 2 }}>
+							</div>
+							<div className="col-span-1 md:col-span-2">
 								<FormControl>
 									<FormLabel>{t("bulkActions.create.padding")}</FormLabel>
-									<Input
-										type="number"
-										min={0}
-										max={8}
-										value={padding}
-										onChange={(event) => setPadding(event.target.value)}
-									/>
+									<Input type="number" min={0} max={8} value={padding} onChange={(event) => setPadding(event.target.value)} />
 								</FormControl>
-							</GridItem>
-						</Grid>
+							</div>
+						</div>
 					) : (
 						<FormControl>
 							<FormLabel>{t("bulkActions.create.listLabel")}</FormLabel>
-							<Textarea
-								value={list}
-								onChange={(event) => setList(event.target.value)}
-								placeholder={t("bulkActions.create.listPlaceholder")}
-								rows={7}
-								fontFamily="mono"
-							/>
+							<Textarea value={list} onChange={(event) => setList(event.target.value)} placeholder={t("bulkActions.create.listPlaceholder")} rows={7} className="font-mono" />
 							<FormHelperText>
 								{t("bulkActions.create.listHelp")}
 							</FormHelperText>
 						</FormControl>
 					)}
-				</Stack>
+				</div>
 			</Surface>
 
 			<Surface>
-				<Stack spacing={4}>
-					<Box>
-						<Text fontWeight="semibold">
+				<div className="flex flex-col gap-4">
+					<div>
+						<p className="font-semibold">
 							{t("bulkActions.create.defaults")}
-						</Text>
-						<Text color="panel.textSecondary" fontSize="sm" mt={1}>
+						</p>
+						<p className="text-panel-text-secondary text-[0.875rem] mt-1">
 							{t("bulkActions.create.defaultsHelp")}
-						</Text>
-					</Box>
-					<SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={4}>
+						</p>
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 						<FormControl isRequired>
 							<FormLabel>{t("bulkActions.create.service")}</FormLabel>
 							<Select
@@ -713,23 +607,12 @@ const BulkCreatePanel = ({
 						</FormControl>
 						<FormControl>
 							<FormLabel>{t("bulkActions.create.dataLimit")}</FormLabel>
-							<Input
-								type="number"
-								min={0}
-								step="0.1"
-								value={dataLimit}
-								onChange={(event) => setDataLimit(event.target.value)}
-							/>
+							<Input type="number" min={0} step="0.1" value={dataLimit} onChange={(event) => setDataLimit(event.target.value)} />
 							<FormHelperText>{t("bulkActions.create.gbZero")}</FormHelperText>
 						</FormControl>
 						<FormControl>
 							<FormLabel>{t("bulkActions.create.validity")}</FormLabel>
-							<Input
-								type="number"
-								min={0}
-								value={validityDays}
-								onChange={(event) => setValidityDays(event.target.value)}
-							/>
+							<Input type="number" min={0} value={validityDays} onChange={(event) => setValidityDays(event.target.value)} />
 							<FormHelperText>
 								{status === "on_hold"
 									? t("bulkActions.create.onHoldDays")
@@ -738,12 +621,7 @@ const BulkCreatePanel = ({
 						</FormControl>
 						<FormControl>
 							<FormLabel>{t("bulkActions.create.ipLimit")}</FormLabel>
-							<Input
-								type="number"
-								min={0}
-								value={ipLimit}
-								onChange={(event) => setIPLimit(event.target.value)}
-							/>
+							<Input type="number" min={0} value={ipLimit} onChange={(event) => setIPLimit(event.target.value)} />
 							<FormHelperText>
 								{t("bulkActions.create.zeroUnlimited")}
 							</FormHelperText>
@@ -774,88 +652,59 @@ const BulkCreatePanel = ({
 						</FormControl>
 						<FormControl>
 							<FormLabel>{t("bulkActions.create.autoDelete")}</FormLabel>
-							<Input
-								type="number"
-								min={0}
-								value={autoDeleteDays}
-								onChange={(event) => setAutoDeleteDays(event.target.value)}
-							/>
+							<Input type="number" min={0} value={autoDeleteDays} onChange={(event) => setAutoDeleteDays(event.target.value)} />
 							<FormHelperText>
 								{t("bulkActions.create.autoDeleteHelp")}
 							</FormHelperText>
 						</FormControl>
-					</SimpleGrid>
+					</div>
 					<FormControl>
 						<FormLabel>{t("bulkActions.create.note")}</FormLabel>
-						<Input
-							value={note}
-							onChange={(event) => setNote(event.target.value)}
-							placeholder={t("bulkActions.create.notePlaceholder")}
-						/>
+						<Input value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("bulkActions.create.notePlaceholder")} />
 						<FormHelperText>{t("bulkActions.create.noteHelp")}</FormHelperText>
 					</FormControl>
-				</Stack>
+				</div>
 			</Surface>
 
 			<Surface>
-				<HStack
-					justify="space-between"
-					align="flex-start"
-					gap={4}
-					flexWrap="wrap"
-				>
-					<Box minW={0}>
-						<Text fontWeight="semibold">
+				<div className="flex flex-row justify-between items-start gap-4 flex-wrap">
+					<div className="min-w-0!">
+						<p className="font-semibold">
 							{t("bulkActions.preview")} ({usernames.length})
-						</Text>
-						<HStack mt={2} spacing={2} flexWrap="wrap">
+						</p>
+						<div className="flex flex-row items-center mt-2 gap-2 flex-wrap">
 							{usernames.slice(0, 12).map((username) => (
-								<Code
-									key={username}
-									colorScheme={
-										USERNAME_PATTERN.test(username) &&
-										!existingNames.has(username.toLowerCase())
-											? "gray"
-											: "red"
-									}
-									title={
+								<code key={username} title={
 										existingNames.has(username.toLowerCase())
 											? t("bulkActions.create.exists")
 											: undefined
-									}
-								>
+									} className={cn(USERNAME_PATTERN.test(username) && !existingNames.has(username.toLowerCase()) ? "text-gray-600 dark:text-gray-300" : "text-red-600 dark:text-red-300", "rounded-xs bg-gray-100 px-[0.2em] py-[0.1em] font-mono text-[0.875em] dark:bg-whiteAlpha-200")}>
 									{username}
-								</Code>
+								</code>
 							))}
 							{usernames.length > 12 && (
-								<Text fontSize="sm" color="panel.textSecondary">
+								<p className="text-[0.875rem] text-panel-text-secondary">
 									+{usernames.length - 12}
-								</Text>
+								</p>
 							)}
-						</HStack>
+						</div>
 						{invalidNames.length > 0 && (
-							<Text color="red.400" fontSize="sm" mt={2}>
+							<p className="text-red-400 text-[0.875rem] mt-2">
 								{t("bulkActions.invalidUsernames", {
 									count: invalidNames.length,
 								})}
-							</Text>
+							</p>
 						)}
 						{existingCount > 0 && (
-							<Text color="red.400" fontSize="sm" mt={2}>
+							<p className="text-red-400 text-[0.875rem] mt-2">
 								{t("bulkActions.create.existing", { count: existingCount })}
-							</Text>
+							</p>
 						)}
-					</Box>
-					<Button
-						colorScheme="primary"
-						leftIcon={<PlusIcon width={18} />}
-						onClick={handleCreate}
-						isLoading={isRunning}
-						isDisabled={!canSubmit}
-					>
+					</div>
+					<Button size="md" colorScheme="primary" leftIcon={<PlusIcon className="w-18" />} onClick={handleCreate} isLoading={isRunning} isDisabled={!canSubmit}>
 						{t("bulkActions.create.submit", { count: usernames.length })}
 					</Button>
-				</HStack>
+				</div>
 			</Surface>
 			<Results
 				results={results}
@@ -870,7 +719,7 @@ const BulkCreatePanel = ({
 					)
 				}
 			/>
-		</VStack>
+		</div>
 	);
 };
 
@@ -1001,17 +850,14 @@ const BulkDeletePanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" w="full">
-			<Alert status="error" variant="subtle" borderRadius="8px">
+		<div className="flex flex-col gap-4 items-stretch w-full">
+			<Alert status="error" variant="subtle" className="rounded-[8px]">
 				<AlertIcon />
 				{t("bulkActions.delete.warning")}
 			</Alert>
 			<Surface>
-				<Stack spacing={4}>
-					<PageTabs
-						px={0}
-						justifyContent="flex-start"
-						tabs={[
+				<div className="flex flex-col gap-4">
+					<PageTabs tabs={[
 							{
 								value: "list",
 								label: t("bulkActions.delete.byUsernames"),
@@ -1030,121 +876,94 @@ const BulkDeletePanel = () => {
 									resetPreview();
 								},
 							},
-						]}
-					/>
+						]} className="px-0 justify-start" />
 					{mode === "list" ? (
 						<>
 							<FormControl>
 								<FormLabel>{t("bulkActions.delete.usernames")}</FormLabel>
-								<Textarea
-									value={list}
-									onChange={(event) => {
+								<Textarea value={list} onChange={(event) => {
 										setList(event.target.value);
 										resetPreview();
-									}}
-									rows={8}
-									fontFamily="mono"
-									placeholder={t("bulkActions.create.listPlaceholder")}
-								/>
+									}} rows={8} placeholder={t("bulkActions.create.listPlaceholder")} className="font-mono" />
 								<FormHelperText>
 									{t("bulkActions.create.listHelp")}
 								</FormHelperText>
 							</FormControl>
 							{invalidNames.length > 0 && (
-								<Text color="red.400" fontSize="sm">
+								<p className="text-red-400 text-[0.875rem]">
 									{t("bulkActions.invalidUsernames", {
 										count: invalidNames.length,
 									})}
-								</Text>
+								</p>
 							)}
 						</>
 					) : (
-						<Stack spacing={4}>
-							<Box>
-								<Text fontWeight="semibold">
+						<div className="flex flex-col gap-4">
+							<div>
+								<p className="font-semibold">
 									{t("bulkActions.delete.conditionsTitle")}
-								</Text>
-								<Text color="panel.textSecondary" fontSize="sm" mt={1}>
+								</p>
+								<p className="text-panel-text-secondary text-[0.875rem] mt-1">
 									{t("bulkActions.delete.conditionsHelp")}
-								</Text>
-							</Box>
+								</p>
+							</div>
 							{conditions.map((condition) => (
-								<Box
-									key={condition}
-									borderWidth="1px"
-									borderColor="panel.border"
-									borderRadius="6px"
-									p={3}
-								>
-									<Stack spacing={3}>
-										<HStack justify="space-between">
-											<Text fontWeight="medium">
+								<div key={condition} className="border border-panel-border! rounded-[6px] p-3">
+									<div className="flex flex-col gap-3">
+										<div className="flex flex-row items-center gap-2 justify-between">
+											<p className="font-medium">
 												{condition === "last_online"
 													? t("bulkActions.delete.lastOnline")
 													: condition === "status_age"
 														? t("bulkActions.delete.statusAge")
 														: t("bulkActions.delete.createdBefore")}
-											</Text>
-											<Button
-												size="xs"
-												variant="ghost"
-												leftIcon={<TrashIcon width={14} />}
-												onClick={() => toggleCondition(condition)}
-											>
+											</p>
+											<Button size="xs" variant="ghost" leftIcon={<TrashIcon className="w-14" />} onClick={() => toggleCondition(condition)}>
 												{t("remove")}
 											</Button>
-										</HStack>
+										</div>
 										<FormControl>
-											<FormLabel fontSize="sm">
+											<FormLabel className="text-[0.875rem]">
 												{condition === "last_online"
 													? t("bulkActions.delete.lastOnlineLabel")
 													: condition === "status_age"
 														? t("bulkActions.delete.statusAgeLabel")
 														: t("bulkActions.delete.createdBeforeLabel")}
 											</FormLabel>
-											<Input
-												type="number"
-												min={1}
-												value={
+											<Input type="number" min={1} value={
 													condition === "last_online"
 														? lastOnlineDays
 														: condition === "status_age"
 															? statusAgeDays
 															: createdBeforeDays
-												}
-												onChange={(event) => {
+												} onChange={(event) => {
 													if (condition === "last_online")
 														setLastOnlineDays(event.target.value);
 													else if (condition === "status_age")
 														setStatusAgeDays(event.target.value);
 													else setCreatedBeforeDays(event.target.value);
 													resetPreview();
-												}}
-											/>
+												}} />
 										</FormControl>
 										{condition === "status_age" && (
-											<Box>
-												<Text fontSize="sm" fontWeight="medium" mb={2}>
+											<div>
+												<p className="text-[0.875rem] font-medium mb-2">
 													{t("bulkActions.delete.statuses")}
-												</Text>
-												<HStack spacing={3} flexWrap="wrap">
+												</p>
+												<div className="flex flex-row items-center gap-3 flex-wrap">
 													{deleteStatusOptions.map((status) => (
-														<Checkbox
-															key={status}
-															isChecked={statuses.includes(status)}
-															onChange={() => toggleStatus(status)}
-														>
+														<Checkbox key={status} isChecked={statuses.includes(status)} onChange={() => toggleStatus(status)}>
 															{t(
 																`filters.advancedActions.scopeStatuses.${status}`,
 																status,
 															)}
 														</Checkbox>
 													))}
-												</HStack>
-											</Box>
+												</div>
+											</div>
 										)}
-									</Stack>
-								</Box>
+									</div>
+								</div>
 							))}
 							{conditions.length < deleteConditionOptions.length && (
 								<Select
@@ -1171,19 +990,16 @@ const BulkDeletePanel = () => {
 										))}
 								</Select>
 							)}
-						</Stack>
+						</div>
 					)}
 					{previewCount !== null && (
-						<Alert
-							status={
+						<Alert status={
 								previewCount > MAX_BATCH_SIZE
 									? "error"
 									: previewCount > 0
 										? "warning"
 										: "info"
-							}
-							borderRadius="6px"
-						>
+							} className="rounded-[6px]">
 							<AlertIcon />
 							{previewCount > MAX_BATCH_SIZE
 								? t("bulkActions.delete.tooMany", {
@@ -1193,45 +1009,30 @@ const BulkDeletePanel = () => {
 								: t("bulkActions.delete.preview", { count: previewCount })}
 						</Alert>
 					)}
-					<HStack spacing={3} flexWrap="wrap">
-						<Button
-							variant="outline"
-							onClick={handlePreview}
-							isLoading={isRunning}
-							isDisabled={!payload}
-						>
+					<div className="flex flex-row items-center gap-3 flex-wrap">
+						<Button size="md" variant="outline" onClick={handlePreview} isLoading={isRunning} isDisabled={!payload}>
 							{t("bulkActions.delete.previewAction")}
 						</Button>
 						{previewCount !== null &&
 							previewCount > 0 &&
 							previewCount <= MAX_BATCH_SIZE && (
-								<Checkbox
-									isChecked={confirmed}
-									onChange={(event) => setConfirmed(event.target.checked)}
-								>
+								<Checkbox isChecked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}>
 									{t("bulkActions.delete.confirm", { count: previewCount })}
 								</Checkbox>
 							)}
-					</HStack>
-					<Button
-						alignSelf="flex-start"
-						colorScheme="red"
-						leftIcon={<TrashIcon width={18} />}
-						isLoading={isRunning}
-						isDisabled={
+					</div>
+					<Button size="md" colorScheme="red" leftIcon={<TrashIcon className="w-18" />} isLoading={isRunning} isDisabled={
 							!confirmed ||
 							previewCount === null ||
 							previewCount === 0 ||
 							previewCount > MAX_BATCH_SIZE ||
 							!payload
-						}
-						onClick={handleDelete}
-					>
+						} onClick={handleDelete} className="self-start">
 						{t("bulkActions.delete.submit", { count: previewCount ?? 0 })}
 					</Button>
-				</Stack>
+				</div>
 			</Surface>
-		</VStack>
+		</div>
 	);
 };
 
@@ -1329,56 +1130,43 @@ const BulkPermissionsPanel = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch" w="full">
-			<Alert status="warning" borderRadius="8px">
+		<div className="flex flex-col gap-4 items-stretch w-full">
+			<Alert status="warning" className="rounded-[8px]">
 				<AlertIcon />
 				{t("admins.bulkPermissions.subtitle")}
 			</Alert>
 			<Surface>
-				<Stack spacing={5}>
-					<Box>
-						<Text fontWeight="semibold">
+				<div className="flex flex-col gap-5">
+					<div>
+						<p className="font-semibold">
 							{t("admins.bulkPermissions.title")}
-						</Text>
-						<Text color="panel.textSecondary" fontSize="sm" mt={1}>
+						</p>
+						<p className="text-panel-text-secondary text-[0.875rem] mt-1">
 							{t("admins.bulkPermissions.help")}
-						</Text>
-					</Box>
-					<CheckboxGroup
-						value={permissions}
-						onChange={(values) =>
+						</p>
+					</div>
+					<CheckboxGroup value={permissions} onChange={(values) =>
 							setPermissions(values as UserPermissionToggle[])
-						}
-					>
-						<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={3}>
+						}>
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 							{options.map((option) => (
 								<Checkbox key={option.key} value={option.key}>
 									{option.label}
 								</Checkbox>
 							))}
-						</SimpleGrid>
+						</div>
 					</CheckboxGroup>
-					<HStack spacing={3} flexWrap="wrap">
-						<Button
-							colorScheme="red"
-							onClick={() => apply("disable")}
-							isLoading={isRunning}
-							isDisabled={!permissions.length}
-						>
+					<div className="flex flex-row items-center gap-3 flex-wrap">
+						<Button size="md" colorScheme="red" onClick={() => apply("disable")} isLoading={isRunning} isDisabled={!permissions.length}>
 							{t("admins.bulkPermissions.disable")}
 						</Button>
-						<Button
-							variant="outline"
-							onClick={() => apply("restore")}
-							isLoading={isRunning}
-							isDisabled={!permissions.length}
-						>
+						<Button size="md" variant="outline" onClick={() => apply("restore")} isLoading={isRunning} isDisabled={!permissions.length}>
 							{t("admins.bulkPermissions.restore")}
 						</Button>
-					</HStack>
-				</Stack>
+					</div>
+				</div>
 			</Surface>
-		</VStack>
+		</div>
 	);
 };
 
@@ -1420,15 +1208,13 @@ export const BulkActionsPage = () => {
 	);
 
 	return (
-		<VStack spacing={5} align="stretch" dir={i18n.dir(i18n.language)} w="full">
+		<div dir={i18n.dir(i18n.language)} className="flex flex-col gap-5 items-stretch w-full">
 			<PageHeader
 				title={t("bulkActions.title")}
 				description={t("bulkActions.subtitle")}
 			/>
 			{allowedTabs.length > 0 && (
-				<PageTabs
-					justifyContent="flex-start"
-					tabs={allowedTabs.map((tab) => ({
+				<PageTabs tabs={allowedTabs.map((tab) => ({
 						value: tab,
 						label: t(
 							`bulkActions.tabs.${tab}`,
@@ -1436,11 +1222,10 @@ export const BulkActionsPage = () => {
 						),
 						isActive: activeTab === tab,
 						onClick: () => setTab(tab),
-					}))}
-				/>
+					}))} className="justify-start" />
 			)}
 			{locked && activeTab !== "permissions" ? (
-				<Alert status="warning" borderRadius="8px">
+				<Alert status="warning" className="rounded-[8px]">
 					<AlertIcon />
 					{t("bulkActions.locked")}
 				</Alert>
@@ -1455,15 +1240,15 @@ export const BulkActionsPage = () => {
 					}
 				/>
 			) : activeTab === "edit" ? (
-				<Box w="full">
+				<div className="w-full">
 					<AdvancedUserActions embedded />
-				</Box>
+				</div>
 			) : activeTab === "delete" ? (
 				<BulkDeletePanel />
 			) : activeTab === "permissions" ? (
 				<BulkPermissionsPanel />
 			) : (
-				<Alert status="info" borderRadius="8px">
+				<Alert status="info" className="rounded-[8px]">
 					<AlertIcon />
 					{t("bulkActions.noPermission")}
 				</Alert>
@@ -1473,7 +1258,7 @@ export const BulkActionsPage = () => {
 					<QRCodeDialog />
 				</Suspense>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

@@ -1,20 +1,8 @@
-import {
-	Button,
-	FormControl,
-	FormErrorMessage,
-	FormHelperText,
-	FormLabel,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	VStack,
-} from "@chakra-ui/react";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -182,8 +170,8 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent mx="3">
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{mode === "edit"
 						? t("pages.xray.balancer.editBalancer")
@@ -198,17 +186,13 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 								<Tab>{t("pages.xray.propagate.tab")}</Tab>
 							</TabList>
 							<TabPanels>
-								<TabPanel px={0}>
-									<VStack spacing={3} align="stretch">
+								<TabPanel className="px-0">
+									<div className="flex flex-col gap-3 items-stretch">
 										<XrayDialogSection title={t("pages.xray.balancer.addBalancer")}>
-											<VStack spacing={4} align="stretch">
+											<div className="flex flex-col gap-4 items-stretch">
 												<FormControl isInvalid={duplicateTag}>
 													<FormLabel>{t("pages.xray.balancer.tag")}</FormLabel>
-													<Input
-														{...modalForm.register("tag")}
-														size="sm"
-														placeholder={t("pages.xray.balancer.tagDesc")}
-													/>
+													<Input {...modalForm.register("tag")} size="sm" placeholder={t("pages.xray.balancer.tagDesc")} />
 													{duplicateTag ? (
 														<FormErrorMessage>
 															{t("pages.xray.balancer.tagError")}
@@ -310,11 +294,11 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 														}
 													/>
 												</FormControl>
-											</VStack>
+											</div>
 										</XrayDialogSection>
-									</VStack>
+									</div>
 								</TabPanel>
-								<TabPanel px={0}>
+								<TabPanel className="px-0">
 									<PropagationTargets
 										source={sourceTarget}
 										section="balancers"
@@ -327,16 +311,11 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 							</TabPanels>
 						</Tabs>
 					</XrayModalBody>
-					<XrayModalFooter justifyContent="flex-end">
-						<Button variant="outline" onClick={onClose}>
+					<XrayModalFooter className="justify-end">
+						<Button size="md" variant="outline" onClick={onClose}>
 							{t("cancel")}
 						</Button>
-						<Button
-							type="submit"
-							colorScheme="primary"
-							size="sm"
-							isDisabled={!isValid}
-						>
+						<Button type="submit" colorScheme="primary" size="sm" isDisabled={!isValid}>
 							{mode === "edit"
 								? t("pages.xray.balancer.editBalancer")
 								: t("pages.xray.balancer.addBalancer")}

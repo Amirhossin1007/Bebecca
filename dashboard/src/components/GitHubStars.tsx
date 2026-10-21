@@ -1,4 +1,4 @@
-import { Box, Text } from "@chakra-ui/react";
+import { cn } from "lib/cn";
 import { StarIcon } from "@heroicons/react/24/solid";
 import { type FC, useEffect, useState } from "react";
 
@@ -27,31 +27,7 @@ export const GitHubStars: FC = () => {
 	};
 
 	return (
-		<Box
-			as="button"
-			onClick={handleClick}
-			h="34px"
-			px={2.5}
-			borderRadius="full"
-			bg="transparent"
-			color="panel.textSecondary"
-			display="inline-flex"
-			alignItems="center"
-			gap={2}
-			cursor="pointer"
-			transition="background 0.15s ease, color 0.15s ease, transform 0.15s ease"
-			_hover={{
-				bg: "panel.elevated",
-				color: "panel.text",
-				transform: "translateY(-1px)",
-			}}
-			_active={{ transform: "translateY(0)" }}
-			_focusVisible={{
-				boxShadow: "0 0 0 2px var(--rb-panel-accent)",
-				outline: "none",
-			}}
-			aria-label="GitHub Stars"
-		>
+		<button type="button" onClick={handleClick} aria-label="GitHub Stars" className="h-[34px] px-2.5 rounded-full bg-transparent text-panel-text-secondary inline-flex items-center gap-2 cursor-pointer [transition:background_0.15s_ease,_color_0.15s_ease,_transform_0.15s_ease] hover:bg-panel-elevated hover:text-panel-text hover:[transform:translateY(-1px)] active:[transform:translateY(0)] focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)] focus-visible:outline-none">
 			<svg
 				width="16"
 				height="16"
@@ -67,19 +43,13 @@ export const GitHubStars: FC = () => {
 				/>
 			</svg>
 			<StarIcon style={{ width: "13px", height: "13px", color: "#f5b301" }} />
-			<Text
-				fontSize="xs"
-				fontWeight="semibold"
-				sx={{ fontVariantNumeric: "tabular-nums" }}
-				color={stars !== null ? "panel.text" : "panel.textMuted"}
-				lineHeight="1"
-			>
+			<p className={cn("text-[0.75rem] font-semibold [font-variant-numeric:tabular-nums] leading-[1]", stars !== null ? "text-panel-text" : "text-panel-text-muted")}>
 				{stars !== null
 					? stars > 1000
 						? `${(stars / 1000).toFixed(1)}k`
 						: stars
 					: "..."}
-			</Text>
-		</Box>
+			</p>
+		</button>
 	);
 };

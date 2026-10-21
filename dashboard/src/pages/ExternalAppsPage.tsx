@@ -1,30 +1,13 @@
-import {
-	Alert,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Checkbox,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	Heading,
-	HStack,
-	Input,
-	Link,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
-	ModalOverlay,
-	SimpleGrid,
-	Stack,
-	Text,
-	useColorModeValue,
-	useToast,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { useColorModeValue } from "lib/color-mode";
+import { Badge } from "components/shadcn/badge";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Checkbox } from "components/shadcn/selection";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
+import { cn } from "lib/cn";
 import {
 	ArrowDownTrayIcon,
 	ArrowTopRightOnSquareIcon,
@@ -94,8 +77,8 @@ export const ExternalAppsPage = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const queryClient = useQueryClient();
-	const panelBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const borderColor = useColorModeValue("panel.border", "panel.border");
+	const panelBg = useColorModeValue("bg-panel-elevated", "bg-panel-elevated");
+	const borderColor = useColorModeValue("border-panel-border!", "border-panel-border!");
 	const mutedColor = useColorModeValue(
 		"panel.textSecondary",
 		"panel.textSecondary",
@@ -384,20 +367,20 @@ export const ExternalAppsPage = () => {
 				priority: "primary",
 				mobilePriority: 0,
 				cell: (app) => (
-					<Stack spacing={0} minW={0} align="start">
-						<Text fontWeight="semibold" noOfLines={1}>
+					<div className="flex flex-col gap-0 min-w-0! items-start">
+						<p className="font-semibold truncate">
 							{app.template === "mirzabot"
 								? "MirzaBot"
 								: app.template === "faoxima"
 									? "Faoxima"
 									: app.name}
-						</Text>
-						<Text color={mutedColor} fontSize="xs" noOfLines={1}>
+						</p>
+						<p color={mutedColor} className="text-[0.75rem] truncate">
 							{app.bot_username
 								? `@${app.bot_username.replace(/^@/, "")}`
 								: app.id}
-						</Text>
-					</Stack>
+						</p>
+					</div>
 				),
 			},
 			{
@@ -408,10 +391,10 @@ export const ExternalAppsPage = () => {
 				mobilePriority: 1,
 				mobileMetaLabel: t("externalApps.domainCertificate"),
 				cell: (app) => (
-					<Text dir="ltr" noOfLines={1} title={app.public_url}>
+					<p dir="ltr" title={app.public_url} className="truncate">
 						{app.domain}
 						{app.path ? `/${app.path}` : ""}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -422,7 +405,7 @@ export const ExternalAppsPage = () => {
 				mobilePriority: 2,
 				mobileMetaLabel: t("externalApps.runtime"),
 				cell: (app) => (
-					<HStack spacing={1.5} flexWrap="wrap">
+					<div className="flex flex-row items-center gap-1.5 flex-wrap">
 						<Badge>
 							{app.template === "mirzabot"
 								? "MirzaBot"
@@ -436,7 +419,7 @@ export const ExternalAppsPage = () => {
 						{app.version ? (
 							<Badge colorScheme="blue">{app.version}</Badge>
 						) : null}
-					</HStack>
+					</div>
 				),
 			},
 			{
@@ -462,11 +445,11 @@ export const ExternalAppsPage = () => {
 				hideBelow: "xl",
 				mobileMetaLabel: t("externalApps.installedAt"),
 				cell: (app) => (
-					<Text fontSize="sm">
+					<p className="text-[0.875rem]">
 						{app.installed_at
 							? new Date(app.installed_at).toLocaleString()
 							: "—"}
-					</Text>
+					</p>
 				),
 			},
 		],
@@ -482,7 +465,7 @@ export const ExternalAppsPage = () => {
 			actions.push({
 				id: "update",
 				label: t("externalApps.update"),
-				icon: <ArrowPathIcon width={16} />,
+				icon: <ArrowPathIcon className="w-16" />,
 				onClick: () => setUpdateTarget(app),
 			});
 		}
@@ -490,7 +473,7 @@ export const ExternalAppsPage = () => {
 			actions.push({
 				id: "database-backup",
 				label: t("externalApps.downloadDatabaseBackup"),
-				icon: <ArrowDownTrayIcon width={16} />,
+				icon: <ArrowDownTrayIcon className="w-16" />,
 				onClick: () => databaseBackupMutation.mutate(app),
 				isDisabled: databaseBackupMutation.isLoading,
 			});
@@ -499,7 +482,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "files",
 				label: t("externalApps.files.button"),
-				icon: <FolderOpenIcon width={16} />,
+				icon: <FolderOpenIcon className="w-16" />,
 				onClick: () => openManager(app, "file"),
 			},
 			...(app.runtime === "php"
@@ -507,7 +490,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "php-settings",
 							label: t("externalApps.files.phpConfig"),
-							icon: <CodeBracketIcon width={16} />,
+							icon: <CodeBracketIcon className="w-16" />,
 							onClick: () => openManager(app, "php-config"),
 						},
 					]
@@ -517,7 +500,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "settings",
 							label: t("externalApps.settings"),
-							icon: <Cog6ToothIcon width={16} />,
+							icon: <Cog6ToothIcon className="w-16" />,
 							onClick: () => openSettings(app),
 						},
 					]
@@ -525,7 +508,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "open",
 				label: t("externalApps.open"),
-				icon: <ArrowTopRightOnSquareIcon width={16} />,
+				icon: <ArrowTopRightOnSquareIcon className="w-16" />,
 				onClick: () =>
 					window.open(app.public_url, "_blank", "noopener,noreferrer"),
 			},
@@ -534,7 +517,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "open-bot",
 							label: t("externalApps.openBot"),
-							icon: <PaperAirplaneIcon width={16} />,
+							icon: <PaperAirplaneIcon className="w-16" />,
 							onClick: () =>
 								window.open(
 									`https://t.me/${encodeURIComponent(botUsername)}`,
@@ -550,9 +533,9 @@ export const ExternalAppsPage = () => {
 					? t("externalApps.disable")
 					: t("externalApps.enable"),
 				icon: app.enabled ? (
-					<NoSymbolIcon width={16} />
+					<NoSymbolIcon className="w-16" />
 				) : (
-					<PlayIcon width={16} />
+					<PlayIcon className="w-16" />
 				),
 				onClick: () =>
 					toggleMutation.mutate({ id: app.id, enabled: !app.enabled }),
@@ -561,7 +544,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "delete",
 				label: t("externalApps.delete"),
-				icon: <TrashIcon width={16} />,
+				icon: <TrashIcon className="w-16" />,
 				onClick: () => confirmDelete(app),
 				isDisabled: deleteMutation.isLoading,
 				isDanger: true,
@@ -575,23 +558,23 @@ export const ExternalAppsPage = () => {
 	}
 	if (appsQuery.data?.supported === false) {
 		return (
-			<Stack spacing={5}>
-				<Box>
-					<Heading size="lg">{t("externalApps.title")}</Heading>
-					<Text color={mutedColor} mt={2}>
+			<div className="flex flex-col gap-5">
+				<div>
+					<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("externalApps.title")}</h2>
+					<p color={mutedColor} className="mt-2">
 						{t("externalApps.description")}
-					</Text>
-				</Box>
-				<Alert status="warning" borderRadius="md">
+					</p>
+				</div>
+				<Alert status="warning" className="rounded-md">
 					<AlertIcon />
-					<Text>{t("externalApps.unsupported")}</Text>
+					<p>{t("externalApps.unsupported")}</p>
 				</Alert>
-			</Stack>
+			</div>
 		);
 	}
 
 	return (
-		<Stack spacing={5}>
+		<div className="flex flex-col gap-5">
 			<ConfirmDialog
 				isOpen={Boolean(updateTarget)}
 				title={t("externalApps.update")}
@@ -609,21 +592,18 @@ export const ExternalAppsPage = () => {
 				isOpen={Boolean(deleteTarget)}
 				title={t("externalApps.delete")}
 				description={
-					<Stack spacing={3}>
-						<Text>
+					<div className="flex flex-col gap-3">
+						<p>
 							{t("externalApps.deleteConfirm", {
 								name: deleteTarget?.name,
 							})}
-						</Text>
+						</p>
 						{deleteTarget?.has_database ? (
-							<Checkbox
-								isChecked={keepDatabase}
-								onChange={(event) => setKeepDatabase(event.target.checked)}
-							>
+							<Checkbox isChecked={keepDatabase} onChange={(event) => setKeepDatabase(event.target.checked)}>
 								{t("externalApps.keepDatabase")}
 							</Checkbox>
 						) : null}
-					</Stack>
+					</div>
 				}
 				confirmLabel={t("externalApps.delete")}
 				colorScheme="red"
@@ -646,105 +626,72 @@ export const ExternalAppsPage = () => {
 					/>
 				</Suspense>
 			)}
-			<Modal
-				isOpen={Boolean(settingsTarget)}
-				onClose={() => setSettingsTarget(null)}
-				size="xl"
-			>
-				<ModalOverlay bg="blackAlpha.500" />
-				<ModalContent bg={panelBg}>
+			<Modal isOpen={Boolean(settingsTarget)} onClose={() => setSettingsTarget(null)} size="xl">
+				<ModalOverlay className="bg-blackAlpha-500" />
+				<ModalContent className={cn(panelBg)}>
 					<ModalHeader>{t("externalApps.settingsTitle")}</ModalHeader>
 					<ModalCloseButton />
 					<ModalBody>
-						<Stack spacing={4}>
-							<Heading size="xs">{t("externalApps.routingSettings")}</Heading>
+						<div className="flex flex-col gap-4">
+							<h2 className="font-heading font-bold text-[0.875rem] leading-[1.2]">{t("externalApps.routingSettings")}</h2>
 							<FormControl isRequired>
 								<FormLabel>{t("externalApps.indexFile")}</FormLabel>
-								<Input
-									value={indexFile}
-									onChange={(event) => setIndexFile(event.target.value)}
-									placeholder="index.php"
-									autoComplete="off"
-								/>
+								<Input value={indexFile} onChange={(event) => setIndexFile(event.target.value)} placeholder="index.php" autoComplete="off" />
 								<FormHelperText>
 									{t("externalApps.indexFileHint")}
 								</FormHelperText>
 							</FormControl>
-							<Checkbox
-								isChecked={fallbackToIndex}
-								onChange={(event) => setFallbackToIndex(event.target.checked)}
-							>
-								<Stack spacing={0}>
-									<Text>{t("externalApps.fallbackToIndex")}</Text>
-									<Text color={mutedColor} fontSize="sm">
+							<Checkbox isChecked={fallbackToIndex} onChange={(event) => setFallbackToIndex(event.target.checked)}>
+								<div className="flex flex-col gap-0">
+									<p>{t("externalApps.fallbackToIndex")}</p>
+									<p color={mutedColor} className="text-[0.875rem]">
 										{t("externalApps.fallbackToIndexHint")}
-									</Text>
-								</Stack>
+									</p>
+								</div>
 							</Checkbox>
 							<FormControl>
 								<FormLabel>{t("externalApps.notFoundFile")}</FormLabel>
-								<Input
-									value={notFoundFile}
-									onChange={(event) => setNotFoundFile(event.target.value)}
-									placeholder="404.html"
-									autoComplete="off"
-								/>
+								<Input value={notFoundFile} onChange={(event) => setNotFoundFile(event.target.value)} placeholder="404.html" autoComplete="off" />
 								<FormHelperText>
 									{t("externalApps.notFoundFileHint")}
 								</FormHelperText>
 							</FormControl>
-							<Heading size="xs" pt={2}>
+							<h2 className="font-heading font-bold text-[0.875rem] leading-[1.2] pt-2">
 								{t("externalApps.performanceSettings")}
-							</Heading>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							</h2>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<FormControl isRequired>
 									<FormLabel>{t("externalApps.maxRequestBody")}</FormLabel>
-									<Input
-										type="number"
-										min={1}
-										max={32}
-										value={maxRequestBodyMB}
-										onChange={(event) =>
+									<Input type="number" min={1} max={32} value={maxRequestBodyMB} onChange={(event) =>
 											setMaxRequestBodyMB(Number(event.target.value))
-										}
-									/>
+										} />
 									<FormHelperText>
 										{t("externalApps.maxRequestBodyHint")}
 									</FormHelperText>
 								</FormControl>
 								<FormControl isRequired>
 									<FormLabel>{t("externalApps.staticCache")}</FormLabel>
-									<Input
-										type="number"
-										min={0}
-										max={31536000}
-										value={staticCacheSeconds}
-										onChange={(event) =>
+									<Input type="number" min={0} max={31536000} value={staticCacheSeconds} onChange={(event) =>
 											setStaticCacheSeconds(Number(event.target.value))
-										}
-									/>
+										} />
 									<FormHelperText>
 										{t("externalApps.staticCacheHint")}
 									</FormHelperText>
 								</FormControl>
-							</SimpleGrid>
-						</Stack>
+							</div>
+						</div>
 					</ModalBody>
-					<ModalFooter gap={3}>
-						<Button variant="ghost" onClick={() => setSettingsTarget(null)}>
+					<ModalFooter className="gap-3">
+						<Button size="md" variant="ghost" onClick={() => setSettingsTarget(null)}>
 							{t("close")}
 						</Button>
-						<Button
-							colorScheme="blue"
-							isLoading={settingsMutation.isLoading}
-							isDisabled={
+						<Button size="md" colorScheme="blue" isLoading={settingsMutation.isLoading} isDisabled={
 								!indexFile.trim() ||
 								maxRequestBodyMB < 1 ||
 								maxRequestBodyMB > 32 ||
 								staticCacheSeconds < 0 ||
 								staticCacheSeconds > 31536000
-							}
-							onClick={() => {
+							} onClick={() => {
 								if (!settingsTarget) return;
 								settingsMutation.mutate({
 									id: settingsTarget.id,
@@ -754,55 +701,39 @@ export const ExternalAppsPage = () => {
 									static_cache_seconds: staticCacheSeconds,
 									not_found_file: notFoundFile.trim(),
 								});
-							}}
-						>
+							}}>
 							{t("save")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
 			</Modal>
-			<Box>
-				<Heading size="lg">{t("externalApps.title")}</Heading>
-				<Text color={mutedColor} mt={2}>
+			<div>
+				<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("externalApps.title")}</h2>
+				<p color={mutedColor} className="mt-2">
 					{t("externalApps.description")}
-				</Text>
-			</Box>
+				</p>
+			</div>
 
-			<Alert status="info" borderRadius="md">
+			<Alert status="info" className="rounded-md">
 				<AlertIcon />
-				<Text fontSize="sm">{t("externalApps.resourceHint")}</Text>
+				<p className="text-[0.875rem]">{t("externalApps.resourceHint")}</p>
 			</Alert>
 
-			<Modal
-				isOpen={createDialogOpen}
-				onClose={() => setCreateDialogOpen(false)}
-				size="3xl"
-				isCentered
-				scrollBehavior="inside"
-				closeOnOverlayClick={!installMutation.isLoading}
-			>
-				<ModalOverlay bg="blackAlpha.500" />
-				<ModalContent
-					bg={panelBg}
-					borderWidth="1px"
-					borderColor={borderColor}
-					borderRadius="2xl"
-					boxShadow="2xl"
-					overflow="hidden"
-					mx={{ base: 4, sm: 0 }}
-				>
+			<Modal isOpen={createDialogOpen} onClose={() => setCreateDialogOpen(false)} size="3xl" isCentered scrollBehavior="inside" closeOnOverlayClick={!installMutation.isLoading}>
+				<ModalOverlay className="bg-blackAlpha-500" />
+				<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0", panelBg, borderColor)}>
 					<ModalCloseButton isDisabled={installMutation.isLoading} />
-					<Box p={{ base: 5, md: 6 }}>
-						<Heading size="md" mb={4}>
+					<div className="p-5 md:p-6">
+						<h2 className="font-heading font-bold text-[1.25rem] leading-[1.2] mb-4">
 							{t("externalApps.newApp")}
-						</Heading>
+						</h2>
 						{!appsQuery.data?.supported ? (
-							<Alert status="warning" mb={4} borderRadius="md">
+							<Alert status="warning" className="mb-4 rounded-md">
 								<AlertIcon />
 								{appsQuery.data?.detail || t("externalApps.unsupported")}
 							</Alert>
 						) : null}
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<FormControl>
 								<FormLabel>{t("externalApps.template")}</FormLabel>
 								<Select
@@ -824,23 +755,14 @@ export const ExternalAppsPage = () => {
 									]}
 								/>
 								{(template === "mirzabot" || template === "faoxima") && selectedTemplate?.source_url ? (
-									<Link
-										href={selectedTemplate.source_url}
-										isExternal
-										display="inline-flex"
-										alignItems="center"
-										gap={1}
-										mt={2}
-										fontSize="sm"
-										color="blue.300"
-									>
+									<a href={selectedTemplate.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-[0.875rem] text-blue-300">
 										{t(
 											template === "faoxima"
 												? "externalApps.latestFaoximaRelease"
 												: "externalApps.latestRelease",
 										)}
-										<ArrowTopRightOnSquareIcon width={14} />
-									</Link>
+										<ArrowTopRightOnSquareIcon className="w-14" />
+									</a>
 								) : null}
 							</FormControl>
 							<FormControl isRequired>
@@ -855,41 +777,29 @@ export const ExternalAppsPage = () => {
 								/>
 								<FormHelperText>
 									{t("externalApps.certificateHint")}{" "}
-									<Link as={RouterLink} to="/settings#ssl" color="blue.300">
+									<RouterLink to="/settings#ssl" className="text-blue-300">
 										{t("externalApps.openSSLManager")}
-									</Link>
+									</RouterLink>
 								</FormHelperText>
 							</FormControl>
-						</SimpleGrid>
+						</div>
 
 						{template !== "archive" ? (
-							<Stack mt={4} spacing={3}>
-								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<div className="flex flex-col mt-4 gap-3">
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<FormControl isRequired>
 										<FormLabel>{t("externalApps.botToken")}</FormLabel>
-										<Input
-											type="password"
-											value={botToken}
-											onChange={(event) => setBotToken(event.target.value)}
-											autoComplete="off"
-										/>
+										<Input type="password" value={botToken} onChange={(event) => setBotToken(event.target.value)} autoComplete="off" />
 									</FormControl>
 									<FormControl isRequired>
 										<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
-										<Input
-											value={adminID}
-											onChange={(event) => setAdminID(event.target.value)}
-											inputMode="numeric"
-										/>
+										<Input value={adminID} onChange={(event) => setAdminID(event.target.value)} inputMode="numeric" />
 									</FormControl>
-								</SimpleGrid>
-								<Checkbox
-									isChecked={hasDatabaseBackup}
-									onChange={(event) => {
+								</div>
+								<Checkbox isChecked={hasDatabaseBackup} onChange={(event) => {
 										setHasDatabaseBackup(event.target.checked);
 										if (!event.target.checked) setDatabaseBackup(null);
-									}}
-								>
+									}}>
 									{t(
 										template === "faoxima"
 											? "externalApps.faoximaDatabaseBackupToggle"
@@ -899,30 +809,21 @@ export const ExternalAppsPage = () => {
 								{hasDatabaseBackup ? (
 									<FormControl isRequired>
 										<FormLabel>{t("externalApps.databaseBackup")}</FormLabel>
-										<Input
-											type="file"
-											accept=".sql,application/sql,text/sql,text/plain"
-											pt={1}
-											onChange={(event) =>
+										<Input type="file" accept=".sql,application/sql,text/sql,text/plain" onChange={(event) =>
 												setDatabaseBackup(event.target.files?.[0] ?? null)
-											}
-										/>
+											} className="pt-1" />
 										<FormHelperText>
 											{t("externalApps.databaseBackupHint")}
 										</FormHelperText>
 									</FormControl>
 								) : null}
-							</Stack>
+							</div>
 						) : (
-							<Stack mt={4} spacing={4}>
-								<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+							<div className="flex flex-col mt-4 gap-4">
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 									<FormControl isRequired>
 										<FormLabel>{t("externalApps.name")}</FormLabel>
-										<Input
-											value={name}
-											maxLength={80}
-											onChange={(event) => setName(event.target.value)}
-										/>
+										<Input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
 									</FormControl>
 									<FormControl isDisabled={Boolean(archive)}>
 										<FormLabel>{t("externalApps.runtime")}</FormLabel>
@@ -947,124 +848,78 @@ export const ExternalAppsPage = () => {
 												: t("externalApps.emptyRuntimeHint")}
 										</FormHelperText>
 									</FormControl>
-								</SimpleGrid>
+								</div>
 								<FormControl>
 									<FormLabel>{t("externalApps.zipArchive")}</FormLabel>
-									<Input
-										type="file"
-										accept=".zip,application/zip"
-										pt={1}
-										onChange={(event) =>
+									<Input type="file" accept=".zip,application/zip" onChange={(event) =>
 											setArchive(event.target.files?.[0] ?? null)
-										}
-									/>
+										} className="pt-1" />
 									<FormHelperText>
 										{t("externalApps.archiveHint")}
 									</FormHelperText>
 								</FormControl>
-								<Checkbox
-									isChecked={createDatabase}
-									onChange={(event) => setCreateDatabase(event.target.checked)}
-								>
+								<Checkbox isChecked={createDatabase} onChange={(event) => setCreateDatabase(event.target.checked)}>
 									{t("externalApps.createDatabase")}
 								</Checkbox>
 								{createDatabase ? (
-									<Box
-										borderWidth="1px"
-										borderColor={borderColor}
-										borderRadius="md"
-										p={4}
-									>
-										<HStack
-											justify="space-between"
-											mb={4}
-											flexWrap="wrap"
-											gap={2}
-										>
-											<HStack>
-												<CircleStackIcon width={18} />
-												<Text fontWeight="semibold">
+									<div className={cn("border rounded-md p-4", borderColor)}>
+										<div className="flex flex-row items-center justify-between mb-4 flex-wrap gap-2">
+											<div className="flex flex-row items-center gap-2">
+												<CircleStackIcon className="w-18" />
+												<p className="font-semibold">
 													{t("externalApps.databaseSettings")}
-												</Text>
-											</HStack>
-											<Button
-												size="sm"
-												variant="outline"
-												leftIcon={<SparklesIcon width={16} />}
-												onClick={generateDatabaseCredentials}
-											>
+												</p>
+											</div>
+											<Button size="sm" variant="outline" leftIcon={<SparklesIcon className="w-16" />} onClick={generateDatabaseCredentials}>
 												{t("externalApps.generateDatabaseCredentials")}
 											</Button>
-										</HStack>
-										<SimpleGrid columns={{ base: 1, lg: 3 }} spacing={4}>
+										</div>
+										<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 											<FormControl isRequired>
 												<FormLabel>{t("externalApps.databaseName")}</FormLabel>
-												<Input
-													value={database}
-													maxLength={64}
-													autoComplete="off"
-													onChange={(event) => setDatabase(event.target.value)}
-												/>
+												<Input value={database} maxLength={64} autoComplete="off" onChange={(event) => setDatabase(event.target.value)} />
 											</FormControl>
 											<FormControl isRequired>
 												<FormLabel>{t("externalApps.databaseUser")}</FormLabel>
-												<Input
-													value={databaseUser}
-													maxLength={32}
-													autoComplete="off"
-													onChange={(event) =>
+												<Input value={databaseUser} maxLength={32} autoComplete="off" onChange={(event) =>
 														setDatabaseUser(event.target.value)
-													}
-												/>
+													} />
 											</FormControl>
 											<FormControl isRequired>
 												<FormLabel>
 													{t("externalApps.databasePassword")}
 												</FormLabel>
-												<Input
-													type="text"
-													value={databasePassword}
-													maxLength={128}
-													autoComplete="new-password"
-													onChange={(event) =>
+												<Input type="text" value={databasePassword} maxLength={128} autoComplete="new-password" onChange={(event) =>
 														setDatabasePassword(event.target.value)
-													}
-												/>
+													} />
 											</FormControl>
-										</SimpleGrid>
-										<Text color={mutedColor} fontSize="sm" mt={3}>
+										</div>
+										<p color={mutedColor} className="text-[0.875rem] mt-3">
 											{t("externalApps.databaseCredentialsHint")}
-										</Text>
-									</Box>
+										</p>
+									</div>
 								) : null}
-							</Stack>
+							</div>
 						)}
 
-						<Button
-							mt={5}
-							colorScheme="blue"
-							leftIcon={<ArrowUpTrayIcon width={18} />}
-							isLoading={installMutation.isLoading}
-							isDisabled={
+						<Button size="md" colorScheme="blue" leftIcon={<ArrowUpTrayIcon className="w-18" />} isLoading={installMutation.isLoading} isDisabled={
 								!appsQuery.data?.supported ||
 								selectedTemplate?.supported === false ||
 								!domain ||
 								(template === "archive" && !name.trim())
-							}
-							onClick={() => installMutation.mutate()}
-						>
+							} onClick={() => installMutation.mutate()} className="mt-5">
 							{t("externalApps.install")}
 						</Button>
 						{selectedTemplate?.detail ? (
-							<Text color="orange.300" fontSize="sm" mt={2}>
+							<p className="text-orange-300 text-[0.875rem] mt-2">
 								{selectedTemplate.detail}
-							</Text>
+							</p>
 						) : null}
-					</Box>
+					</div>
 				</ModalContent>
 			</Modal>
 
-			<Stack spacing={3}>
+			<div className="flex flex-col gap-3">
 				<ResourceListCard
 					title={t("externalApps.installedApps")}
 					summaryItems={[
@@ -1080,11 +935,7 @@ export const ExternalAppsPage = () => {
 						},
 					]}
 					actions={
-						<Button
-							colorScheme="primary"
-							leftIcon={<PlusIcon width={16} height={16} />}
-							onClick={() => setCreateDialogOpen(true)}
-						>
+						<Button size="md" colorScheme="primary" leftIcon={<PlusIcon className="w-16 h-16" />} onClick={() => setCreateDialogOpen(true)}>
 							{t("externalApps.create")}
 						</Button>
 					}
@@ -1095,7 +946,7 @@ export const ExternalAppsPage = () => {
 					columns={appColumns}
 					getRowId={(app) => app.id}
 					isLoading={appsQuery.isLoading}
-					emptyState={<Text color={mutedColor}>{t("externalApps.empty")}</Text>}
+					emptyState={<p color={mutedColor}>{t("externalApps.empty")}</p>}
 					rowActions={appRowActions}
 					actionsDisplay="menu"
 					actionsPlacement="end"
@@ -1103,8 +954,8 @@ export const ExternalAppsPage = () => {
 					showActionsOnHover
 					mobileBreakpoint="md"
 				/>
-			</Stack>
-		</Stack>
+			</div>
+		</div>
 	);
 };
 

@@ -1,16 +1,11 @@
-import {
-	Box,
-	Button,
-	Flex,
-	HStack,
-	Text,
-	type BoxProps,
-} from "@chakra-ui/react";
+import { Button } from "components/shadcn/button";
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
 import type { FC, PropsWithChildren, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 type BulkActionBarProps = PropsWithChildren<
-	BoxProps & {
+	ComponentPropsWithoutRef<"div"> & {
 		selectedCount: number;
 		onClear?: () => void;
 		selectedLabel?: ReactNode;
@@ -27,57 +22,27 @@ export const BulkActionBar: FC<BulkActionBarProps> = ({
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const isVisible = selectedCount > 0;
-	const sidebarInset = {
-		base: "12px",
-		md: "calc(var(--rb-sidebar-offset, 0px) + 16px)",
-	};
 
 	return (
-		<Box
-			className="rb-bulk-action-bar"
-			data-visible={isVisible ? "true" : undefined}
-			aria-hidden={!isVisible}
-			position="fixed"
-			left={isRTL ? "16px" : sidebarInset}
-			right={isRTL ? sidebarInset : "16px"}
-			bottom={{ base: "84px", md: "16px" }}
-			zIndex={1200}
-			bg="panel.surface"
-			borderWidth="1px"
-			borderColor="panel.borderStrong"
-			boxShadow="0 -12px 30px rgba(0, 0, 0, 0.28)"
-			borderRadius="6px"
-			px={{ base: 4, md: 6 }}
-			py={4}
-			opacity={isVisible ? 1 : 0}
-			transform={isVisible ? "translateY(0)" : "translateY(10px)"}
-			pointerEvents={isVisible ? "auto" : "none"}
-			transition="opacity 140ms ease, transform 140ms ease, border-color 140ms ease, background-color 140ms ease"
-			{...props}
-		>
-			<Flex align="center" justify="space-between" gap={4} flexWrap="wrap">
-				<HStack spacing={4}>
-					<Text fontWeight="800" letterSpacing="0" textTransform="uppercase">
+		<div data-visible={isVisible ? "true" : undefined} aria-hidden={!isVisible} {...props} className={cn(isRTL ? "end-[12px] md:end-[calc(var(--rb-sidebar-offset,_0px)_+_16px)] start-4" : "start-[12px] md:start-[calc(var(--rb-sidebar-offset,_0px)_+_16px)] end-4", "fixed bottom-[84px] md:bottom-[16px] z-[1200] bg-panel-surface border border-panel-border-strong! shadow-[0_-12px_30px_rgba(0,_0,_0,_0.28)] rounded-[6px] px-4 md:px-6 py-4 [transition:opacity_140ms_ease,_transform_140ms_ease,_border-color_140ms_ease,_background-color_140ms_ease]", isVisible ? "opacity-100" : "opacity-0", isVisible ? "[transform:translateY(0)]" : "[transform:translateY(10px)]", isVisible ? "pointer-events-auto" : "pointer-events-none", "rb-bulk-action-bar")}>
+			<div className="flex items-center justify-between gap-4 flex-wrap">
+				<div className="flex flex-row items-center gap-4">
+					<p className="font-extrabold tracking-[0] uppercase">
 						{selectedLabel ??
 								t("usersTable.selectedCount", {
 									count: selectedCount,
 								})}
-					</Text>
+					</p>
 					{onClear && (
-						<Button
-							size="xs"
-							variant="link"
-							color="panel.textMuted"
-							onClick={onClear}
-						>
+						<Button size="xs" variant="link" onClick={onClear} className="text-panel-text-muted">
 							{t("clear")}
 						</Button>
 					)}
-				</HStack>
-				<HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" justify="flex-end">
+				</div>
+				<div className="flex flex-row items-center gap-2 md:gap-4 flex-wrap justify-end">
 					{children}
-				</HStack>
-			</Flex>
-		</Box>
+				</div>
+			</div>
+		</div>
 	);
 };

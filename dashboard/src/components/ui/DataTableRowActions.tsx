@@ -1,18 +1,15 @@
-import {
-	chakra,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-} from "@chakra-ui/react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
+import { IconButton } from "components/shadcn/button";
+import { Portal } from "components/shadcn/portal";
+import { withClass } from "components/shadcn/icon";
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import { Fragment, type FC, type ReactElement, type ReactNode } from "react";
 
-const EllipsisIcon = chakra(EllipsisHorizontalIcon, {
-	baseStyle: { w: 5, h: 5 },
-});
+const EllipsisIcon = withClass(EllipsisHorizontalIcon, "w-5 h-5");
+
+// Chakra colour token ("red.400") to a text class. The palette is safelisted in tailwind.css.
+const toneClass = (color?: string) => (color ? `text-${color.replace(".", "-")}` : undefined);
 
 export type RowActionItem = {
 	id: string;
@@ -65,47 +62,19 @@ export const RowActionsMenu: FC<RowActionsMenuProps> = ({
 		<Menu placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
 			{({ onClose }) => (
 				<>
-					<MenuButton
-						as={IconButton}
-						aria-label={label}
-						icon={<EllipsisIcon />}
-						size="sm"
-						variant="ghost"
-						className="rb-row-action"
-						minW="32px"
-						h="32px"
-						onClick={(event) => event.stopPropagation()}
-					/>
+					<MenuButton as={IconButton} aria-label={label} icon={<EllipsisIcon />} size="sm" variant="ghost" onClick={(event: ReactMouseEvent<HTMLElement>) => event.stopPropagation()} className="min-w-[32px]! h-[32px] rb-row-action" />
 					<Portal>
-						<MenuList
-							minW="220px"
-							maxW="calc(100vw - 24px)"
-							maxH="min(70vh, 420px)"
-							overflowY="auto"
-							overflowX="hidden"
-							overscrollBehavior="contain"
-							zIndex={2500}
-							borderRadius="lg"
-							boxShadow="2xl"
-						>
+						<MenuList className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500] rounded-lg shadow-2xl">
 							{orderedActions.map((action) =>
 								action.render ? (
 									<Fragment key={action.id}>
 										{action.render(onClose)}
 									</Fragment>
 								) : (
-									<MenuItem
-										key={action.id}
-										icon={action.icon}
-										onClick={(event) => {
+									<MenuItem key={action.id} icon={action.icon} onClick={(event) => {
 											event.stopPropagation();
 											action.onClick?.();
-										}}
-										isDisabled={action.isDisabled}
-										color={
-											action.color ?? (action.isDanger ? "red.400" : undefined)
-										}
-									>
+										}} isDisabled={action.isDisabled} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}>
 										{action.label}
 									</MenuItem>
 								),

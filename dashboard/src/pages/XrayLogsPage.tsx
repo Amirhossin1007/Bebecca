@@ -1,14 +1,7 @@
-import {
-	Box,
-	Button,
-	chakra,
-	HStack,
-	Stack,
-	Tag,
-	Text,
-	useColorMode,
-	VStack,
-} from "@chakra-ui/react";
+import { useColorMode } from "lib/color-mode";
+import { Tag } from "components/shadcn/badge";
+import { Button } from "components/shadcn/button";
+import { cn } from "lib/cn";
 import {
 	PanelSelect as Select,
 	type PanelSelectProps as SelectProps,
@@ -50,19 +43,7 @@ interface XrayLogsPageProps {
 }
 
 const CompactLogSelect = (props: SelectProps) => (
-	<Select
-		size="sm"
-		h="36px"
-		borderRadius="4px"
-		borderColor="panel.border"
-		bg="panel.input"
-		color="panel.text"
-		_focusVisible={{
-			borderColor: "panel.accent",
-			boxShadow: "0 0 0 1px var(--chakra-colors-panel-accent)",
-		}}
-		{...props}
-	/>
+	<Select size="sm" {...props} className="h-[36px] rounded-[4px] border-panel-border! bg-panel-input text-panel-text focus-visible:border-panel-accent! focus-visible:shadow-[0_0_0_1px_var(--rb-panel-accent)]" />
 );
 
 export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
@@ -235,7 +216,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 		};
 	}, [colorMode]);
 
-	const badgeColor = "panel.textMuted";
+	const badgeColor = "text-panel-text-muted";
 	const socketColorScheme =
 		readyState === 1 ? "green" : readyState === 0 ? "yellow" : "gray";
 	const socketStatusLabel = useMemo(() => {
@@ -327,21 +308,21 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 
 	if (!canViewXrayLogs) {
 		return (
-			<VStack spacing={4} align="stretch">
+			<div className="flex flex-col gap-4 items-stretch">
 				{showTitle && (
-					<Text as="h1" fontWeight="semibold" fontSize="2xl">
+					<h1 className="font-semibold text-[1.5rem]">
 						{t("xrayLogs.title")}
-					</Text>
+					</h1>
 				)}
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("xrayLogs.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
 	return (
-		<VStack spacing={4} align="stretch">
+		<div className="flex flex-col gap-4 items-stretch">
 			<ResourceListCard
 				title={t("xrayLogs.stream")}
 				summaryItems={[
@@ -358,39 +339,18 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 					},
 				]}
 				actions={
-					<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-						<Tag
-							size="sm"
-							colorScheme={autoScroll ? "green" : "gray"}
-							variant="subtle"
-						>
+					<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
+						<Tag size="sm" colorScheme={autoScroll ? "green" : "gray"} variant="subtle">
 							{autoScroll ? t("core.autoScrollOn") : t("core.autoScrollOff")}
 						</Tag>
-						<Button
-							size="sm"
-							variant="outline"
-							h="36px"
-							px={3}
-							isDisabled={logs.length === 0}
-							onClick={clearLogs}
-						>
+						<Button size="sm" variant="outline" isDisabled={logs.length === 0} onClick={clearLogs} className="h-[36px] px-3">
 							{t("clear")}
 						</Button>
-					</HStack>
+					</div>
 				}
 			>
-				<Stack
-					direction={{ base: "column", sm: "row" }}
-					spacing={2}
-					align={{ base: "stretch", sm: "center" }}
-					flexWrap="wrap"
-				>
-					<CompactLogSelect
-						w={{ base: "full", sm: "220px" }}
-						onChange={(e) => handleLog(e.target.value)}
-						value={selectedNode}
-						isDisabled={!nodes?.length}
-					>
+				<div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center flex-wrap">
+					<CompactLogSelect onChange={(e) => handleLog(e.target.value)} value={selectedNode} isDisabled={!nodes?.length} className="w-full sm:w-[220px]">
 						{nodes?.length ? (
 							nodes.map((node) => (
 								<option key={node.id} value={String(node.id)}>
@@ -401,12 +361,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							<option value="">{t("nodes.noNodes")}</option>
 						)}
 					</CompactLogSelect>
-					<CompactLogSelect
-						w={{ base: "full", sm: "220px" }}
-						onChange={(e) => setSelectedInbound(e.target.value)}
-						value={selectedInbound}
-						isDisabled={inboundsLoading || inbounds.length === 0}
-					>
+					<CompactLogSelect onChange={(e) => setSelectedInbound(e.target.value)} value={selectedInbound} isDisabled={inboundsLoading || inbounds.length === 0} className="w-full sm:w-[220px]">
 						<option value="">{t("xrayLogs.allInbounds")}</option>
 						{inbounds.map((inbound) => (
 							<option key={inbound.tag} value={inbound.tag}>
@@ -414,48 +369,20 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 							</option>
 						))}
 					</CompactLogSelect>
-					<SearchInput
-						containerProps={{
-							maxW: { base: "full", md: "420px" },
-							flex: { base: "1 1 100%", md: "1 1 280px" },
-							bg: "panel.input",
-						}}
-							h="36px"
-							borderRadius="4px"
-							borderColor="panel.border"
-							bg="panel.input"
-							placeholder={t("xrayLogs.searchPlaceholder")}
-							value={searchFilter}
-							onChange={(e) => setSearchFilter(e.target.value)}
-						matchOptions={searchMatch}
-						onMatchOptionsChange={setSearchMatch}
-						onClear={() => {
+					<SearchInput containerProps={{ className: "max-w-full md:max-w-[420px] flex-[1_1_100%] md:flex-[1_1_280px] bg-panel-input" }} placeholder={t("xrayLogs.searchPlaceholder")} value={searchFilter} onChange={(e) => setSearchFilter(e.target.value)} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} onClear={() => {
 										setSearchFilter("");
 										setSelectedInbound("");
-									}}
-								/>
-				</Stack>
+									}} className="h-[36px] rounded-[4px] border-panel-border! bg-panel-input" />
+				</div>
 			</ResourceListCard>
-			<Box
-				borderWidth="1px"
-				borderColor="panel.border"
-				bg="panel.surface"
-				borderRadius="6px"
-				minHeight="200px"
-				maxHeight="500px"
-				p={3}
-				overflowY="auto"
-				ref={logsDiv}
-				fontFamily="mono"
-				fontSize="sm"
-			>
-				<VStack align="stretch" spacing={2}>
+			<div ref={logsDiv} className="border border-panel-border! bg-panel-surface rounded-[6px] min-h-[200px] max-h-[500px] p-3 overflow-y-auto font-mono text-[0.875rem]">
+				<div className="flex flex-col items-stretch gap-2">
 					{filteredLogs.length === 0 ? (
-						<Box textAlign="center" py={8} color={badgeColor} fontSize="sm">
+						<div className={cn("text-center py-8 text-[0.875rem]", badgeColor)}>
 							{searchFilter
 								? t("xrayLogs.noMatchingLogs")
 								: t("xrayLogs.noLogs")}
-						</Box>
+						</div>
 					) : (
 						filteredLogs.map(({ id, message }) => {
 							const level = classifyLog(message);
@@ -481,17 +408,9 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 												})
 											) {
 												return (
-													<chakra.span
-														key={partKey}
-														bg="yellow.300"
-														color="black"
-														px={1}
-														borderRadius="sm"
-														fontWeight="semibold"
-														_dark={{ bg: "yellow.500", color: "black" }}
-													>
+													<span key={partKey} className="bg-yellow-300 text-black px-1 rounded-xs font-semibold dark:bg-yellow-500 dark:text-black">
 														{part}
-													</chakra.span>
+													</span>
 												);
 											}
 											return (
@@ -501,30 +420,17 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 									})()
 								: message;
 							return (
-								<Box
-									key={id}
-									bg={palette.bg}
-									color={palette.color}
-									borderLeftWidth={3}
-									borderLeftColor={palette.border}
-									px={3}
-									py={2}
-									borderRadius="4px"
-								>
-									<chakra.pre
-										m={0}
-										whiteSpace="pre-wrap"
-										wordBreak="break-word"
-									>
+								<div key={id} style={{ backgroundColor: palette.bg, color: palette.color, borderLeftColor: palette.border }} className="border-l-[3px] px-3 py-2 rounded-[4px]">
+									<pre className="m-0 whitespace-pre-wrap [word-break:break-word]">
 										{highlightMessage}
-									</chakra.pre>
-								</Box>
+									</pre>
+								</div>
 							);
 						})
 					)}
-				</VStack>
-			</Box>
-		</VStack>
+				</div>
+			</div>
+		</div>
 	);
 };
 

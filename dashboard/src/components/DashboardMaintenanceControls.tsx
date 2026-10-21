@@ -1,34 +1,13 @@
-import {
-	Alert,
-	AlertIcon,
-	Box,
-	Button,
-	Flex,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	IconButton,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
-	ModalOverlay,
-	Popover,
-	PopoverBody,
-	PopoverContent,
-	PopoverHeader,
-	PopoverTrigger,
-	Progress,
-	Spinner,
-	Stack,
-	Text,
-	Tooltip,
-	useColorModeValue,
-	useToast,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Popover, PopoverBody, PopoverContent, PopoverHeader, PopoverTrigger } from "components/shadcn/popover";
+import { Button, IconButton } from "components/shadcn/button";
+import { Progress, Spinner } from "components/shadcn/feedback";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { Tooltip } from "components/shadcn/tooltip";
+import { cn } from "lib/cn";
 import {
 	ArrowPathIcon,
 	ArrowsRightLeftIcon,
@@ -129,8 +108,8 @@ export const DashboardMaintenanceControls = ({
 		(userData.role === AdminRole.FullAccess ||
 			(userData.role === AdminRole.Sudo &&
 				Boolean(userData.permissions?.sudo.backups)));
-	const outputBg = useColorModeValue("gray.50", "blackAlpha.400");
-	const outputBorder = useColorModeValue("gray.200", "whiteAlpha.200");
+	const outputBg = useColorModeValue("bg-gray-50", "bg-blackAlpha-400");
+	const outputBorder = useColorModeValue("border-gray-200!", "border-whiteAlpha-200!");
 	const [selectedChannel, setSelectedChannel] =
 		useState<UpdateChannel>("current");
 	const [selectedVersion, setSelectedVersion] = useState("");
@@ -139,7 +118,7 @@ export const DashboardMaintenanceControls = ({
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
 	const [confirmAction, setConfirmAction] = useState<"restart" | "soft-reload" | "update" | null>(null);
 	const [logsCopied, setLogsCopied] = useState(false);
-	const logsContainerRef = useRef<HTMLDivElement | null>(null);
+	const logsContainerRef = useRef<HTMLPreElement | null>(null);
 	const panelReturnPollRef = useRef<number | null>(null);
 	const panelReturnSawOfflineRef = useRef(false);
 	const devUpdateTimerRef = useRef<number | null>(null);
@@ -356,134 +335,91 @@ export const DashboardMaintenanceControls = ({
 	};
 
 	const renderUpdatePopover = () => (
-		<Popover
-			placement="bottom-end"
-			closeOnBlur={true}
-			closeOnEsc={true}
-			isLazy
-		>
+		<Popover placement="bottom-end" closeOnBlur={true} closeOnEsc={true} isLazy>
 			<PopoverTrigger>
-				<Button
-					size="xs"
-					h="32px"
-					w={{ base: "full", sm: "auto" }}
-					px={3.5}
-					colorScheme={update?.available ? "primary" : "gray"}
-					variant={update?.available ? "solid" : "outline"}
-					bg={update?.available ? "var(--rb-panel-accent)" : "transparent"}
-					color={update?.available ? "white" : "panel.text"}
-					borderColor="panel.border"
-					borderRadius="full"
-					isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading}
-					whiteSpace="nowrap"
-				>
-					<HStack spacing={1.5} align="center" justify="center" w="full">
-						<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
-							<ArrowUpTrayIcon width={15} height={15} />
-						</Box>
-						<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+				<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} variant={update?.available ? "solid" : "outline"} isDisabled={!canMaintain || !hostActionsAvailable || info.isLoading} className={cn("h-[32px] w-full sm:w-auto px-3.5 border-panel-border! rounded-full whitespace-nowrap", update?.available ? "bg-[var(--rb-panel-accent)]" : "bg-transparent", update?.available ? "text-white" : "text-panel-text")}>
+					<div className="flex flex-row gap-1.5 items-center justify-center w-full">
+						<span className="inline-flex items-center justify-center shrink-0">
+							<ArrowUpTrayIcon className="w-15 h-15" />
+						</span>
+						<span className="text-[12px] font-semibold leading-none">
 							{update?.available
 								? t("dashboard.maintenance.updateAvailable")
 								: t("dashboard.maintenance.updateAction")}
-						</Text>
-					</HStack>
+						</span>
+					</div>
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent
-				w="min(480px, calc(100vw - 24px))"
-				maxW="480px"
-				borderRadius="2xl"
-				boxShadow="0 24px 60px rgba(0,0,0,0.5)"
-				bg="panel.surface"
-				borderColor="panel.border"
-				borderWidth="1px"
-				p={1}
-				onClick={(e) => e.stopPropagation()}
-			>
-				<PopoverHeader fontWeight="700" fontSize="13px" py={3} px={4} borderColor="panel.border">
-					<Flex justify="space-between" align="center" gap={3}>
-						<Text fontSize="13px" fontWeight="700" color="panel.text">{t("dashboard.maintenance.title")}</Text>
-						<Button
-							size="xs"
-							variant="ghost"
-							borderRadius="full"
-							color="panel.textMuted"
-							_hover={{ color: "panel.text", bg: "panel.elevated" }}
-							leftIcon={<ArrowPathIcon width={13} height={13} />}
-							onClick={() => info.refetch()}
-							isLoading={info.isFetching}
-						>
+			<PopoverContent onClick={(e) => e.stopPropagation()} className="w-[min(480px,_calc(100vw_-_24px))] max-w-[480px] rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.5)] bg-panel-surface border-panel-border! border p-1">
+				<PopoverHeader className="font-bold text-[13px] py-3 px-4 border-panel-border!">
+					<div className="flex justify-between items-center gap-3">
+						<p className="text-[13px] font-bold text-panel-text">{t("dashboard.maintenance.title")}</p>
+						<Button size="xs" variant="ghost" leftIcon={<ArrowPathIcon className="w-13 h-13" />} onClick={() => info.refetch()} isLoading={info.isFetching} className="rounded-full text-panel-text-muted hover:text-panel-text hover:bg-panel-elevated">
 							{t("refresh")}
 						</Button>
-					</Flex>
+					</div>
 				</PopoverHeader>
-				<PopoverBody p={4}>
-					<Stack spacing={4}>
+				<PopoverBody className="p-4">
+					<div className="flex flex-col gap-4">
 						{info.isLoading && (
-							<Flex align="center" justify="center" py={5}>
-								<Spinner size="sm" color="panel.accent" />
-							</Flex>
+							<div className="flex items-center justify-center py-5">
+								<Spinner size="sm" className="text-panel-accent" />
+							</div>
 						)}
 						{info.isError && (
-							<Alert status="error" borderRadius="xl" fontSize="13px">
+							<Alert status="error" className="rounded-xl text-[13px]">
 								<AlertIcon />
-								<Text fontSize="12px">
+								<p className="text-[12px]">
 									{t("dashboard.maintenance.updateCheckFailed", {
 										error:
 											(info.error as Error)?.message ||
 											t("dashboard.system.genericError"),
 									})}
-								</Text>
+								</p>
 							</Alert>
 						)}
-						<Box
-							p={3.5}
-							borderRadius="xl"
-							bg="panel.elevated"
-							borderWidth="1px"
-							borderColor="panel.border"
-						>
-							<Text fontSize="11px" fontWeight="600" color="panel.textMuted" mb={1}>
+						<div className="p-3.5 rounded-xl bg-panel-elevated border border-panel-border!">
+							<p className="text-[11px] font-semibold text-panel-text-muted mb-1">
 								{t("dashboard.maintenance.panelVersion")}
-							</Text>
-							<Text fontSize="13px" fontWeight="700" color="panel.text" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+							</p>
+							<p dir="ltr" className="text-[13px] font-bold text-panel-text [unicode-bidi:isolate]">
 								{panel?.image
 									? `${panel.image} (${currentVersion})`
 									: currentVersion}
-							</Text>
-						</Box>
+							</p>
+						</div>
 						{info.isSuccess && !hostActionsAvailable && (
-							<Alert status="warning" borderRadius="xl" fontSize="13px">
+							<Alert status="warning" className="rounded-xl text-[13px]">
 								<AlertIcon />
-								<Text fontSize="12px">
+								<p className="text-[12px]">
 									{t("dashboard.maintenance.binaryMigrationRequired")}
-								</Text>
+								</p>
 							</Alert>
 						)}
 						{update?.available && (
-							<Alert status="success" borderRadius="xl" fontSize="13px">
+							<Alert status="success" className="rounded-xl text-[13px]">
 								<AlertIcon />
-								<Text fontSize="12px">
+								<p className="text-[12px]">
 									{t("dashboard.maintenance.updateAvailableNotice", {
 										current: update.current || currentVersion,
 										target: selectedTarget || update.target || "-",
 									})}
-								</Text>
+								</p>
 							</Alert>
 						)}
 						{update?.error && (
-							<Alert status="warning" borderRadius="xl" fontSize="13px">
+							<Alert status="warning" className="rounded-xl text-[13px]">
 								<AlertIcon />
-								<Text fontSize="12px">
+								<p className="text-[12px]">
 									{t("dashboard.maintenance.updateCheckFailed", {
 										error: update.error,
 									})}
-								</Text>
+								</p>
 							</Alert>
 						)}
 						{hostActionsAvailable && (
 							<FormControl>
-								<FormLabel fontSize="12px" fontWeight="600" color="panel.textSecondary">
+								<FormLabel className="text-[12px] font-semibold text-panel-text-secondary">
 									{t("dashboard.maintenance.updateChannel")}
 								</FormLabel>
 								<Select
@@ -507,7 +443,7 @@ export const DashboardMaintenanceControls = ({
 										{t("dashboard.maintenance.updateChannelDev")}
 									</option>
 								</Select>
-								<FormHelperText fontSize="11px" color="panel.textMuted">
+								<FormHelperText className="text-[11px] text-panel-text-muted">
 									{selectedTarget
 										? t("dashboard.maintenance.updateTargetHint", {
 												version: selectedTarget,
@@ -524,47 +460,22 @@ export const DashboardMaintenanceControls = ({
 								/>
 							)}
 						{selectedChannel === "dev" && hostActionsAvailable && (
-							<Alert status="warning" borderRadius="xl" fontSize="12px">
+							<Alert status="warning" className="rounded-xl text-[12px]">
 								<AlertIcon />
-								<Text fontSize="12px">
+								<p className="text-[12px]">
 									{t("dashboard.maintenance.devChannelWarning")}
-								</Text>
+								</p>
 							</Alert>
 						)}
-						<Flex gap={2} flexWrap="wrap" justify="flex-end" pt={2} borderTopWidth="1px" borderColor="panel.border">
-							<Button
-								size="xs"
-								h="30px"
-								px={3.5}
-								variant="outline"
-								borderRadius="full"
-								borderColor="panel.border"
-								color="panel.text"
-								_hover={{ bg: "panel.elevated", borderColor: "panel.borderStrong" }}
-								onClick={() => setConfirmAction("soft-reload")}
-								isLoading={reloadMutation.isLoading}
-								isDisabled={!hostActionsAvailable}
-								fontSize="12px"
-								fontWeight="600"
-							>
+						<div className="flex gap-2 flex-wrap justify-end pt-2 border-t border-panel-border!">
+							<Button size="xs" variant="outline" onClick={() => setConfirmAction("soft-reload")} isLoading={reloadMutation.isLoading} isDisabled={!hostActionsAvailable} className="h-[30px] px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! text-[12px] font-semibold">
 								{t("dashboard.maintenance.softReloadAction")}
 							</Button>
-							<Button
-								size="xs"
-								h="30px"
-								px={4}
-								colorScheme={update?.available ? "primary" : "gray"}
-								borderRadius="full"
-								onClick={startUpdate}
-								isLoading={updateMutation.isLoading}
-								isDisabled={!hostActionsAvailable}
-								fontSize="12px"
-								fontWeight="600"
-							>
+							<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} onClick={startUpdate} isLoading={updateMutation.isLoading} isDisabled={!hostActionsAvailable} className="h-[30px] px-4 rounded-full text-[12px] font-semibold">
 								{t("dashboard.maintenance.updateAction")}
 							</Button>
-						</Flex>
-					</Stack>
+						</div>
+					</div>
 				</PopoverBody>
 			</PopoverContent>
 		</Popover>
@@ -573,20 +484,8 @@ export const DashboardMaintenanceControls = ({
 	const isStandardAdminOnly = !canMaintain && !canBackUp;
 
 	return (
-		<Flex
-			align="center"
-			justify={{ base: "center", sm: "flex-end" }}
-			w={{ base: "full", sm: "auto" }}
-			flexShrink={0}
-		>
-			<HStack
-				display={{ base: "none", sm: "flex" }}
-				spacing={2}
-				align="center"
-				justify="flex-end"
-				flexWrap="nowrap"
-				flexShrink={0}
-			>
+		<div className="flex items-center justify-center sm:justify-end w-full sm:w-auto shrink-0">
+			<div className="flex-row hidden sm:flex gap-2 items-center justify-end flex-nowrap shrink-0">
 				{canMaintain && renderUpdatePopover()}
 
 				{canBackUp && (
@@ -597,366 +496,166 @@ export const DashboardMaintenanceControls = ({
 				)}
 
 				{canMaintain && (
-					<Button
-						size="xs"
-						h="32px"
-						px={3.5}
-						colorScheme="red"
-						variant="outline"
-						borderColor="panel.border"
-						color="red.400"
-						_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
-						borderRadius="full"
-						onClick={() => setConfirmAction("restart")}
-						isLoading={restartMutation.isLoading}
-						isDisabled={info.isLoading || !hostActionsAvailable}
-						whiteSpace="nowrap"
-					>
-						<HStack spacing={1.5} align="center" justify="center">
-							<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
-								<ArrowsRightLeftIcon width={15} height={15} />
-							</Box>
-							<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+					<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} isLoading={restartMutation.isLoading} isDisabled={info.isLoading || !hostActionsAvailable} className="h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
+						<div className="flex flex-row gap-1.5 items-center justify-center">
+							<span className="inline-flex items-center justify-center shrink-0">
+								<ArrowsRightLeftIcon className="w-15 h-15" />
+							</span>
+							<span className="text-[12px] font-semibold leading-none">
 								{t("dashboard.maintenance.restartAction")}
-							</Text>
-						</HStack>
+							</span>
+						</div>
 					</Button>
 				)}
-			</HStack>
+			</div>
 
 			{!isStandardAdminOnly && (
-				<Stack
-					display={{ base: "flex", sm: "none" }}
-					spacing={2}
-					w="full"
-				>
-					<Box w="full">
+				<div className="flex-col flex sm:hidden gap-2 w-full">
+					<div className="w-full">
 						{renderUpdatePopover()}
-					</Box>
+					</div>
 
-					<Flex gap={2} w="full" align="center">
-						<Button
-							flex="1 1 50%"
-							h="32px"
-							size="xs"
-							px={3}
-							colorScheme="red"
-							variant="outline"
-							borderColor="panel.border"
-							color="red.400"
-							_hover={{ bg: "rgba(239, 68, 68, 0.1)", borderColor: "red.400" }}
-							borderRadius="full"
-							onClick={() => setConfirmAction("restart")}
-							isLoading={restartMutation.isLoading}
-							isDisabled={info.isLoading || !hostActionsAvailable}
-							whiteSpace="nowrap"
-						>
-							<HStack spacing={1.5} align="center" justify="center" w="full">
-								<Box as="span" display="inline-flex" alignItems="center" justifyContent="center" flexShrink={0}>
-									<ArrowsRightLeftIcon width={15} height={15} />
-								</Box>
-								<Text as="span" fontSize="12px" fontWeight="600" lineHeight="none">
+					<div className="flex gap-2 w-full items-center">
+						<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} isLoading={restartMutation.isLoading} isDisabled={info.isLoading || !hostActionsAvailable} className="flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
+							<div className="flex flex-row gap-1.5 items-center justify-center w-full">
+								<span className="inline-flex items-center justify-center shrink-0">
+									<ArrowsRightLeftIcon className="w-15 h-15" />
+								</span>
+								<span className="text-[12px] font-semibold leading-none">
 									{t("dashboard.maintenance.restartAction")}
-								</Text>
-							</HStack>
+								</span>
+							</div>
 						</Button>
 
 						{canBackUp && (
-							<Box
-								flex="1 1 50%"
-								minW={0}
-								sx={{
-									"& > button": {
-										w: "full",
-										h: "32px !important",
-										borderRadius: "full !important",
-										fontSize: "12px !important",
-										fontWeight: "600 !important",
-										borderColor: "panel.border !important",
-										color: "panel.text !important",
-										whiteSpace: "nowrap !important",
-									},
-								}}
-							>
+							<div className={"[&_>_button]:w-full [&_>_button]:h-[32px]! [&_>_button]:rounded-full! [&_>_button]:text-[12px]! [&_>_button]:font-semibold! [&_>_button]:border-panel-border! [&_>_button]:text-panel-text! [&_>_button]:whitespace-nowrap! flex-[1_1_50%] min-w-0!"}>
 								<DashboardBackupControls
 									isBinaryRuntime={hostActionsAvailable}
 									runtimeLoading={info.isLoading}
 								/>
-							</Box>
+							</div>
 						)}
-					</Flex>
-				</Stack>
+					</div>
+				</div>
 			)}
 
-			<Modal
-				isOpen={isUpdateDialogOpen}
-				onClose={() => {
+			<Modal isOpen={isUpdateDialogOpen} onClose={() => {
 					if (operation?.error) setUpdateDialogOpen(false);
-				}}
-				closeOnEsc={Boolean(operation?.error)}
-				closeOnOverlayClick={false}
-				isCentered
-				size="xl"
-			>
-				<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(16px)" />
-				<ModalContent
-					borderRadius="24px"
-					overflow="hidden"
-					bg="panel.surface"
-					borderColor="panel.border"
-					borderWidth="1px"
-					boxShadow="0 24px 60px -12px rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08)"
-					mx={4}
-				>
-					<ModalHeader
-						px={6}
-						pt={6}
-						pb={4}
-						borderBottom="1px solid"
-						borderColor="panel.border"
-					>
-						<Flex align="center" justify="space-between">
-							<HStack spacing={3}>
-								<Flex
-									w="36px"
-									h="36px"
-									align="center"
-									justify="center"
-									borderRadius="12px"
-									bg="panel.elevated"
-									color="var(--rb-panel-accent)"
-									border="1px solid"
-									borderColor="panel.border"
-								>
+				}} closeOnEsc={Boolean(operation?.error)} closeOnOverlayClick={false} isCentered size="xl">
+				<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(16px)]" />
+				<ModalContent className="rounded-[24px] overflow-hidden bg-panel-surface border-panel-border! border shadow-[0_24px_60px_-12px_rgba(0,_0,_0,_0.45),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.08)] mx-4">
+					<ModalHeader className="px-6 pt-6 pb-4 border-b border-panel-border!">
+						<div className="flex items-center justify-between">
+							<div className="flex flex-row items-center gap-3">
+								<div className="flex w-[36px] h-[36px] items-center justify-center rounded-[12px] bg-panel-elevated text-[var(--rb-panel-accent)] border border-panel-border!">
 									{operation?.error ? (
-										<ArrowPathIcon width={18} />
+										<ArrowPathIcon className="w-18" />
 									) : operation?.phase === "completed" ? (
-										<CheckIcon width={18} />
+										<CheckIcon className="w-18" />
 									) : (
 										<motion.div
 											animate={{ rotate: 360 }}
 											transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
 											style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
 										>
-											<ArrowPathIcon width={18} />
+											<ArrowPathIcon className="w-18" />
 										</motion.div>
 									)}
-								</Flex>
-								<Box>
-									<Text fontSize="15px" fontWeight="700" color="panel.text">
+								</div>
+								<div>
+									<p className="text-[15px] font-bold text-panel-text">
 										{t("dashboard.maintenance.updateProgressTitle")}
-									</Text>
-									<HStack spacing={2} mt={0.5}>
-										<Text fontSize="11px" color="panel.textMuted" fontWeight="500">
+									</p>
+									<div className="flex flex-row items-center gap-2 mt-0.5">
+										<p className="text-[11px] text-panel-text-muted font-medium">
 											{currentVersion}
-										</Text>
+										</p>
 										{selectedTarget && (
 											<>
-												<Text fontSize="11px" color="panel.textMuted">
+												<p className="text-[11px] text-panel-text-muted">
 													{document.documentElement.dir === "rtl" ? "←" : "→"}
-												</Text>
-												<Text
-													fontSize="11px"
-													color="var(--rb-panel-accent)"
-													fontWeight="700"
-													dir="ltr"
-													sx={{ unicodeBidi: "isolate" }}
-												>
+												</p>
+												<p dir="ltr" className="text-[11px] text-[var(--rb-panel-accent)] font-bold [unicode-bidi:isolate]">
 													{selectedTarget}
-												</Text>
+												</p>
 											</>
 										)}
-									</HStack>
-								</Box>
-							</HStack>
-							{operation?.error && <ModalCloseButton position="static" />}
-						</Flex>
+									</div>
+								</div>
+							</div>
+							{operation?.error && <ModalCloseButton className="static" />}
+						</div>
 					</ModalHeader>
 
-					<ModalBody px={6} py={5}>
-						<Stack spacing={4}>
-							<Box
-								p={4}
-								borderRadius="16px"
-								bg="panel.elevated"
-								border="1px solid"
-								borderColor="panel.border"
-								transition="all 0.3s ease"
-							>
-								<Flex align="center" justify="space-between" mb={2}>
-									<HStack spacing={2.5}>
-										<Flex
-											w="8px"
-											h="8px"
-											borderRadius="full"
-											bg={
-												operation?.error
-													? "red.500"
-													: operation?.phase === "completed"
-														? "green.500"
-														: "var(--rb-panel-accent)"
-											}
-											boxShadow={
-												operation?.error
-													? "0 0 10px rgba(239, 68, 68, 0.6)"
-													: operation?.phase === "completed"
-														? "0 0 10px rgba(34, 197, 94, 0.6)"
-														: "0 0 10px var(--rb-panel-accent)"
-											}
-										/>
-										<Text fontSize="13px" fontWeight="700" color="panel.text">
+					<ModalBody className="px-6 py-5">
+						<div className="flex flex-col gap-4">
+							<div className="p-4 rounded-[16px] bg-panel-elevated border border-panel-border! [transition:all_0.3s_ease]">
+								<div className="flex items-center justify-between mb-2">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className={cn("flex w-[8px] h-[8px] rounded-full", operation?.error ? "bg-red-500" : (operation?.phase === "completed" ? "bg-green-500" : "bg-[var(--rb-panel-accent)]"), operation?.error ? "shadow-[0_0_10px_rgba(239,_68,_68,_0.6)]" : (operation?.phase === "completed" ? "shadow-[0_0_10px_rgba(34,_197,_94,_0.6)]" : "shadow-[0_0_10px_var(--rb-panel-accent)]"))} />
+										<p className="text-[13px] font-bold text-panel-text">
 											{operation?.phase
 												? t(`dashboard.maintenance.phase.${operation.phase}`, operation.phase)
 												: t("dashboard.maintenance.phase.queued")}
-										</Text>
-									</HStack>
+										</p>
+									</div>
 									{typeof operation?.progress === "number" && (
-										<Text
-											fontSize="12px"
-											fontWeight="700"
-											color="var(--rb-panel-accent)"
-											dir="ltr"
-											sx={{ fontVariantNumeric: "tabular-nums" }}
-										>
+										<p dir="ltr" className="text-[12px] font-bold text-[var(--rb-panel-accent)] [font-variant-numeric:tabular-nums]">
 											{Math.round(operation.progress)}%
-										</Text>
+										</p>
 									)}
-								</Flex>
+								</div>
 
-								<Text fontSize="12px" color="panel.textSecondary" fontWeight="500" mb={3}>
+								<p className="text-[12px] text-panel-text-secondary font-medium mb-3">
 									{operation?.error
 										? operation.error
 										: operation?.message
 											? t(`dashboard.maintenance.message.${operation.message.replace(/[^a-zA-Z]/g, "")}`, operation.message)
 											: t("dashboard.maintenance.message.preparingUpdate")}
-								</Text>
+								</p>
 
-								<Progress
-									value={typeof operation?.progress === "number" ? operation.progress : undefined}
-									isIndeterminate={typeof operation?.progress !== "number" && !operation?.error && operation?.phase !== "completed"}
-									borderRadius="full"
-									h="6px"
-									bg="panel.surface"
-									sx={{
-										"& > div": {
-											background: operation?.error
-												? "var(--chakra-colors-red-500)"
-												: operation?.phase === "completed"
-													? "var(--chakra-colors-green-500)"
-													: "var(--rb-panel-accent)",
-											transition: "width 0.4s ease",
-										},
-									}}
-								/>
-							</Box>
+								<Progress value={typeof operation?.progress === "number" ? operation.progress : undefined} isIndeterminate={typeof operation?.progress !== "number" && !operation?.error && operation?.phase !== "completed"} className={cn("[&_>_div]:[transition:width_0.4s_ease]", operation?.error ? "[&_>_div]:bg-[var(--color-red-500)]" : (operation?.phase === "completed" ? "[&_>_div]:bg-[var(--color-green-500)]" : "[&_>_div]:bg-[var(--rb-panel-accent)]"), "rounded-full h-[6px] bg-panel-surface")} />
+							</div>
 
 							{waitingForAPI && (
-								<Text fontSize="12px" color="panel.textMuted" textAlign="center">
+								<p className="text-[12px] text-panel-text-muted text-center">
 									{t("dashboard.maintenance.autoRefreshAfterRestart")}
-								</Text>
+								</p>
 							)}
 
-							<Box
-								borderRadius="16px"
-								bg={outputBg}
-								border="1px solid"
-								borderColor={outputBorder}
-								overflow="hidden"
-							>
-								<Flex
-									align="center"
-									justify="space-between"
-									px={3.5}
-									py={2}
-									borderBottom="1px solid"
-									borderColor={outputBorder}
-									bg="panel.elevated"
-								>
-									<Flex align="center" gap={2}>
-										<CommandLineIcon width={14} height={14} color="var(--rb-panel-accent)" />
-										<Text fontSize="11px" fontWeight="600" color="panel.textSecondary" lineHeight="1">
+							<div className={cn("rounded-[16px] border overflow-hidden", outputBg, outputBorder)}>
+								<div className={cn("flex items-center justify-between px-3.5 py-2 border-b bg-panel-elevated", outputBorder)}>
+									<div className="flex items-center gap-2">
+										<CommandLineIcon className="w-14 h-14 text-[var(--rb-panel-accent)]" />
+										<p className="text-[11px] font-semibold text-panel-text-secondary leading-[1]">
 											{t("dashboard.maintenance.liveLogs")}
-										</Text>
-									</Flex>
-									<Tooltip
-										label={logsCopied ? t("dashboard.maintenance.logsCopied") : t("dashboard.maintenance.copyLogs")}
-										fontSize="10px"
-										openDelay={300}
-										closeOnClick={false}
-										closeOnMouseDown
-									>
-										<IconButton
-											aria-label={t("dashboard.maintenance.copyLogs")}
-											tabIndex={-1}
-											icon={logsCopied ? <CheckIcon width={13} /> : <ClipboardIcon width={13} />}
-											size="xs"
-											variant="ghost"
-											h="22px"
-											w="22px"
-											minW="22px"
-											borderRadius="6px"
-											color={logsCopied ? "green.500" : "panel.textMuted"}
-											_hover={{ color: "panel.text" }}
-											onClick={() => {
+										</p>
+									</div>
+									<Tooltip label={logsCopied ? t("dashboard.maintenance.logsCopied") : t("dashboard.maintenance.copyLogs")} openDelay={300} closeOnClick={false} closeOnMouseDown className="text-[10px]">
+										<IconButton aria-label={t("dashboard.maintenance.copyLogs")} tabIndex={-1} icon={logsCopied ? <CheckIcon className="w-13" /> : <ClipboardIcon className="w-13" />} size="xs" variant="ghost" onClick={() => {
 												const logs = cleanTerminalOutput(operation?.logs);
 												if (logs) {
 													navigator.clipboard.writeText(logs);
 													setLogsCopied(true);
 													setTimeout(() => setLogsCopied(false), 2000);
 												}
-											}}
-										/>
+											}} className={cn("h-[22px] w-[22px] min-w-[22px]! rounded-[6px] hover:text-panel-text", logsCopied ? "text-green-500" : "text-panel-text-muted")} />
 									</Tooltip>
-								</Flex>
+								</div>
 
-								<Box
-									ref={logsContainerRef}
-									as="pre"
-									maxH="220px"
-									overflowY="auto"
-									p={3.5}
-									fontSize="11px"
-									fontFamily="'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace"
-									lineHeight="1.6"
-									color="panel.text"
-									dir="ltr"
-									textAlign="left"
-									whiteSpace="pre-wrap"
-									wordBreak="break-all"
-									sx={{
-										"&::-webkit-scrollbar": {
-											width: "6px",
-										},
-										"&::-webkit-scrollbar-thumb": {
-											background: "rgba(255, 255, 255, 0.12)",
-											borderRadius: "3px",
-										},
-									}}
-								>
+								<pre ref={logsContainerRef} dir="ltr" className={"[&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-thumb]:bg-[rgba(255,_255,_255,_0.12)] [&::-webkit-scrollbar-thumb]:rounded-[3px] max-h-[220px] overflow-y-auto p-3.5 text-[11px] [font-family:'JetBrains_Mono',_'Fira_Code',_Menlo,_Monaco,_Consolas,_monospace] leading-[1.6] text-panel-text text-left whitespace-pre-wrap break-all"}>
 									{cleanTerminalOutput(operation?.logs) || t("dashboard.maintenance.waitingForOutput")}
-								</Box>
-							</Box>
-						</Stack>
+								</pre>
+							</div>
+						</div>
 					</ModalBody>
 				</ModalContent>
 			</Modal>
 
-			<Modal
-				isOpen={confirmAction !== null}
-				onClose={() => setConfirmAction(null)}
-				isCentered
-				size="md"
-			>
-				<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(6px)" />
-				<ModalContent
-					bg="panel.surface"
-					borderColor="panel.border"
-					borderWidth="1px"
-					borderRadius="2xl"
-					boxShadow="0 24px 60px rgba(0,0,0,0.4)"
-					mx={4}
-				>
-					<ModalHeader fontSize="md" fontWeight="700" color="panel.text" pb={2}>
+			<Modal isOpen={confirmAction !== null} onClose={() => setConfirmAction(null)} isCentered size="md">
+				<ModalOverlay className="bg-blackAlpha-600 [backdrop-filter:blur(6px)]" />
+				<ModalContent className="bg-panel-surface border-panel-border! border rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.4)] mx-4">
+					<ModalHeader className="text-[1rem] font-bold text-panel-text pb-2">
 						{confirmAction === "restart"
 							? t("dashboard.maintenance.restartConfirmTitle")
 							: confirmAction === "soft-reload"
@@ -964,9 +663,9 @@ export const DashboardMaintenanceControls = ({
 								: t("dashboard.maintenance.updateConfirmTitle")}
 					</ModalHeader>
 					<ModalCloseButton />
-							<ModalBody py={3}>
-								<Stack spacing={3}>
-									<Text fontSize="13px" color="panel.textSecondary" lineHeight="tall">
+							<ModalBody className="py-3">
+								<div className="flex flex-col gap-3">
+									<p className="text-[13px] text-panel-text-secondary leading-[1.625]">
 									{confirmAction === "restart"
 								? t("dashboard.maintenance.restartConfirmDescription")
 								: confirmAction === "soft-reload"
@@ -976,44 +675,31 @@ export const DashboardMaintenanceControls = ({
 										: t("dashboard.maintenance.updateConfirmDescription", {
 												target: selectedTarget || update?.target || "-",
 											})}
-									</Text>
+									</p>
 									{confirmAction === "update" && selectedVersion && (
-										<Alert status="warning" borderRadius="xl" fontSize="12px">
+										<Alert status="warning" className="rounded-xl text-[12px]">
 											<AlertIcon />
-											<Text>{t("dashboard.maintenance.versionSwitchWarning")}</Text>
+											<p>{t("dashboard.maintenance.versionSwitchWarning")}</p>
 										</Alert>
 									)}
-								</Stack>
+								</div>
 					</ModalBody>
-					<ModalFooter gap={2} pt={3}>
-						<Button
-							variant="ghost"
-							size="sm"
-							borderRadius="full"
-							color="panel.textMuted"
-							onClick={() => setConfirmAction(null)}
-						>
+					<ModalFooter className="gap-2 pt-3">
+						<Button variant="ghost" size="sm" onClick={() => setConfirmAction(null)} className="rounded-full text-panel-text-muted">
 							{t("cancel")}
 						</Button>
-						<Button
-							colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"}
-							size="sm"
-							borderRadius="full"
-							px={5}
-							isLoading={restartMutation.isLoading || reloadMutation.isLoading || updateMutation.isLoading}
-							onClick={() => {
+						<Button colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"} size="sm" isLoading={restartMutation.isLoading || reloadMutation.isLoading || updateMutation.isLoading} onClick={() => {
 								const act = confirmAction;
 								setConfirmAction(null);
 								if (act === "restart") restartMutation.mutate();
 								if (act === "soft-reload") reloadMutation.mutate();
 								if (act === "update") executeUpdate();
-							}}
-						>
+							}} className="rounded-full px-5">
 							{t("confirm")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
 			</Modal>
-		</Flex>
+		</div>
 	);
 };

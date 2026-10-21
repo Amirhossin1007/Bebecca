@@ -1,31 +1,14 @@
-import {
-	Alert,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Card,
-	CardBody,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	Heading,
-	HStack,
-	Input,
-	SimpleGrid,
-	Stack,
-	Switch,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Text,
-	useColorModeValue,
-	useToast,
-	Wrap,
-	WrapItem,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { Card, CardBody } from "components/shadcn/card";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Switch } from "components/shadcn/selection";
+import { Badge } from "components/shadcn/badge";
+import { Button } from "components/shadcn/button";
+import { Input } from "components/shadcn/input";
+import { cn } from "lib/cn";
 import { DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 import { PanelSelect } from "components/common/PanelSelect";
 import { PageLoadingSkeleton } from "components/ui";
@@ -45,9 +28,9 @@ const keyFor = (
 const PlaceholderSettingsPage = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const panelBg = useColorModeValue("whiteAlpha.800", "whiteAlpha.50");
-	const subtleBg = useColorModeValue("blackAlpha.50", "whiteAlpha.50");
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
+	const panelBg = useColorModeValue("bg-whiteAlpha-800", "bg-whiteAlpha-50");
+	const subtleBg = useColorModeValue("bg-blackAlpha-50", "bg-whiteAlpha-50");
+	const borderColor = useColorModeValue("border-blackAlpha-200!", "border-whiteAlpha-200!");
 	const query = useQuery(
 		"subscription-placeholder-settings",
 		getSubscriptionPlaceholderSettings,
@@ -130,7 +113,7 @@ const PlaceholderSettingsPage = () => {
 	}
 	if (query.isError) {
 		return (
-			<Alert status="error" borderRadius="xl">
+			<Alert status="error" className="rounded-xl">
 				<AlertIcon />
 				{t("placeholders.loadFailed")}
 			</Alert>
@@ -138,48 +121,35 @@ const PlaceholderSettingsPage = () => {
 	}
 
 	return (
-		<Stack spacing={5} maxW="1180px" mx="auto">
-			<Box>
-				<Heading size="lg">{t("placeholders.title")}</Heading>
-				<Text mt={2} color="panel.textSecondary" maxW="760px">
+		<div className="flex flex-col gap-5 max-w-[1180px] mx-auto">
+			<div>
+				<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("placeholders.title")}</h2>
+				<p className="mt-2 text-panel-text-secondary max-w-[760px]">
 					{t("placeholders.subtitle")}
-				</Text>
-			</Box>
+				</p>
+			</div>
 
 			<Tabs variant="soft-rounded" colorScheme="pink">
 				<TabList>
 					<Tab>{t("placeholders.tab")}</Tab>
 				</TabList>
 				<TabPanels>
-					<TabPanel px={0} pb={0}>
-						<Card
-							bg={panelBg}
-							border="1px solid"
-							borderColor={borderColor}
-							borderRadius="2xl"
-							boxShadow="0 18px 50px rgba(0,0,0,.12)"
-							backdropFilter="blur(18px)"
-						>
-							<CardBody p={{ base: 4, md: 7 }}>
+					<TabPanel className="px-0 pb-0">
+						<Card className={cn("border rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,.12)] [backdrop-filter:blur(18px)]", panelBg, borderColor)}>
+							<CardBody className="p-4 md:p-7">
 								{!draft ? (
-									<Box textAlign="center" py={14}>
-										<DocumentDuplicateIcon
-											width="42"
-											style={{ margin: "0 auto" }}
-										/>
-										<Heading size="sm" mt={4}>
+									<div className="text-center py-14">
+										<DocumentDuplicateIcon style={{ margin: "0 auto" }} className="w-42" />
+										<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mt-4">
 											{t("placeholders.noServices")}
-										</Heading>
-										<Text color="panel.textSecondary" mt={2}>
+										</h2>
+										<p className="text-panel-text-secondary mt-2">
 											{t("placeholders.noServicesHint")}
-										</Text>
-									</Box>
+										</p>
+									</div>
 								) : (
-									<Stack spacing={7}>
-										<SimpleGrid
-											columns={{ base: 1, md: query.data?.manage_all ? 2 : 1 }}
-											spacing={4}
-										>
+									<div className="flex flex-col gap-7">
+										<div className={cn("grid grid-cols-1 gap-4", query.data?.manage_all ? "md:grid-cols-2" : "md:grid-cols-1")}>
 											{query.data?.manage_all && (
 												<FormControl>
 													<FormLabel>{t("placeholders.scope")}</FormLabel>
@@ -204,94 +174,49 @@ const PlaceholderSettingsPage = () => {
 													}))}
 												/>
 											</FormControl>
-										</SimpleGrid>
+										</div>
 
 										{!draft.is_default && (
-											<HStack
-												bg={subtleBg}
-												border="1px solid"
-												borderColor={borderColor}
-												borderRadius="xl"
-												p={4}
-												justify="space-between"
-											>
-												<Box>
-													<Text fontWeight="semibold">{t("placeholders.inherit")}</Text>
-													<Text fontSize="sm" color="panel.textSecondary" mt={1}>{t("placeholders.inheritHint")}</Text>
-												</Box>
-												<Switch
-													colorScheme="pink"
-													isChecked={draft.inherited}
-													onChange={(event) => updateDraft("inherited", event.target.checked)}
-												/>
-											</HStack>
+											<div className={cn("flex flex-row items-center gap-2 border rounded-xl p-4 justify-between", subtleBg, borderColor)}>
+												<div>
+													<p className="font-semibold">{t("placeholders.inherit")}</p>
+													<p className="text-[0.875rem] text-panel-text-secondary mt-1">{t("placeholders.inheritHint")}</p>
+												</div>
+												<Switch colorScheme="pink" isChecked={draft.inherited} onChange={(event) => updateDraft("inherited", event.target.checked)} />
+											</div>
 										)}
 
-										<HStack
-											bg={subtleBg}
-											border="1px solid"
-											borderColor={borderColor}
-											borderRadius="xl"
-											p={4}
-											justify="space-between"
-											align="center"
-										>
-											<Box>
-												<Text fontWeight="semibold">
+										<div className={cn("flex flex-row gap-2 border rounded-xl p-4 justify-between items-center", subtleBg, borderColor)}>
+											<div>
+												<p className="font-semibold">
 													{t("placeholders.enabled")}
-												</Text>
-												<Text fontSize="sm" color="panel.textSecondary" mt={1}>
+												</p>
+												<p className="text-[0.875rem] text-panel-text-secondary mt-1">
 													{t("placeholders.enabledHint")}
-												</Text>
-											</Box>
-											<Switch
-												colorScheme="pink"
-												isChecked={draft.enabled}
-												isDisabled={draft.inherited}
-												onChange={(event) =>
+												</p>
+											</div>
+											<Switch colorScheme="pink" isChecked={draft.enabled} isDisabled={draft.inherited} onChange={(event) =>
 													updateDraft("enabled", event.target.checked)
-												}
-											/>
-										</HStack>
+												} />
+										</div>
 
-										<Stack spacing={5}>
-											<PlaceholderField
-												label={t("placeholders.expired")}
-												hint={t("placeholders.expiredHint")}
-												color="orange.400"
-												value={draft.expired_remark}
-												isDisabled={draft.inherited}
-												onChange={(value) =>
+										<div className="flex flex-col gap-5">
+											<PlaceholderField label={t("placeholders.expired")} hint={t("placeholders.expiredHint")} value={draft.expired_remark} isDisabled={draft.inherited} onChange={(value) =>
 													updateDraft("expired_remark", value)
-												}
-											/>
-											<PlaceholderField
-												label={t("placeholders.limited")}
-												hint={t("placeholders.limitedHint")}
-												color="red.400"
-												value={draft.limited_remark}
-												isDisabled={draft.inherited}
-												onChange={(value) =>
+												} className="text-orange-400" />
+											<PlaceholderField label={t("placeholders.limited")} hint={t("placeholders.limitedHint")} value={draft.limited_remark} isDisabled={draft.inherited} onChange={(value) =>
 													updateDraft("limited_remark", value)
-												}
-											/>
-											<PlaceholderField
-												label={t("placeholders.disabled")}
-												hint={t("placeholders.disabledHint")}
-												color="gray.400"
-												value={draft.disabled_remark}
-												isDisabled={draft.inherited}
-												onChange={(value) =>
+												} className="text-red-400" />
+											<PlaceholderField label={t("placeholders.disabled")} hint={t("placeholders.disabledHint")} value={draft.disabled_remark} isDisabled={draft.inherited} onChange={(value) =>
 													updateDraft("disabled_remark", value)
-												}
-											/>
-										</Stack>
+												} className="text-gray-400" />
+										</div>
 
-										<Box>
-											<Text fontSize="sm" fontWeight="semibold" mb={2}>
+										<div>
+											<p className="text-[0.875rem] font-semibold mb-2">
 												{t("placeholders.variables")}
-											</Text>
-											<Wrap>
+											</p>
+											<div className="flex flex-wrap gap-2">
 												{[
 													"{USERNAME}",
 													"{STATUS_TEXT}",
@@ -299,69 +224,55 @@ const PlaceholderSettingsPage = () => {
 													"{DATA_LIMIT}",
 													"{EXPIRE_DATE}",
 												].map((variable) => (
-													<WrapItem key={variable}>
-														<Badge
-															px={2.5}
-															py={1}
-															borderRadius="full"
-															textTransform="none"
-														>
+													<div key={variable}>
+														<Badge className="px-2.5 py-1 rounded-full normal-case">
 															{variable}
 														</Badge>
-													</WrapItem>
+													</div>
 												))}
-											</Wrap>
-											<Text color="panel.textSecondary" fontSize="sm" mt={2}>
+											</div>
+											<p className="text-panel-text-secondary text-[0.875rem] mt-2">
 												{t("placeholders.variablesHint")}
-											</Text>
-										</Box>
+											</p>
+										</div>
 
-										<HStack justify="flex-end">
-											<Button
-												colorScheme="pink"
-												isLoading={save.isLoading}
-												onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}
-											>
+										<div className="flex flex-row items-center gap-2 justify-end">
+											<Button size="md" colorScheme="pink" isLoading={save.isLoading} onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}>
 												{t("placeholders.save")}
 											</Button>
-										</HStack>
-									</Stack>
+										</div>
+									</div>
 								)}
 							</CardBody>
 						</Card>
 					</TabPanel>
 				</TabPanels>
 			</Tabs>
-		</Stack>
+		</div>
 	);
 };
 
 const PlaceholderField = ({
 	label,
 	hint,
-	color,
+	className,
 	value,
 	isDisabled,
 	onChange,
 }: {
 	label: string;
 	hint: string;
-	color: string;
+	className?: string;
 	value: string;
 	isDisabled?: boolean;
 	onChange: (value: string) => void;
 }) => (
 	<FormControl>
-		<HStack mb={2} spacing={2}>
-			<Box boxSize="8px" borderRadius="full" bg={color} />
-			<FormLabel mb={0}>{label}</FormLabel>
-		</HStack>
-		<Input
-			value={value}
-			isDisabled={isDisabled}
-			maxLength={255}
-			onChange={(event) => onChange(event.target.value)}
-		/>
+		<div className="flex flex-row items-center mb-2 gap-2">
+			<div className={cn("size-[8px] rounded-full bg-current", className)} />
+			<FormLabel className="mb-0">{label}</FormLabel>
+		</div>
+		<Input value={value} isDisabled={isDisabled} maxLength={255} onChange={(event) => onChange(event.target.value)} />
 		<FormHelperText>{hint}</FormHelperText>
 	</FormControl>
 );

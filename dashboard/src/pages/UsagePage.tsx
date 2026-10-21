@@ -1,4 +1,3 @@
-import { Box, Text, VStack } from "@chakra-ui/react";
 import AdminsUsage from "components/AdminsUsage";
 import NodesUsageAnalytics from "components/NodesUsageAnalytics";
 import ServiceUsageAnalytics from "components/ServiceUsageAnalytics";
@@ -89,14 +88,14 @@ export const UsagePage: FC = () => {
 
 	if (!canViewUsage) {
 		return (
-			<VStack spacing={4} align="stretch">
-				<Text as="h1" fontWeight="semibold" fontSize="2xl">
+			<div className="flex flex-col gap-4 items-stretch">
+				<h1 className="font-semibold text-[1.5rem]">
 					{t("usage.title")}
-				</Text>
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+				</h1>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("usage.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
@@ -106,30 +105,20 @@ export const UsagePage: FC = () => {
 
 	if (!recordNodeUsage && !recordNodeUserUsages) {
 		return (
-			<VStack spacing={4} align="stretch">
-				<Text as="h1" fontWeight="semibold" fontSize="2xl">
+			<div className="flex flex-col gap-4 items-stretch">
+				<h1 className="font-semibold text-[1.5rem]">
 					{t("usage.title")}
-				</Text>
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+				</h1>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("usage.recordingDisabled")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
 	return (
-		<VStack spacing={4} align="stretch">
-			<TabSystem
-				overflowX="auto"
-				overflowY="hidden"
-				maxW="full"
-				sx={{
-					WebkitOverflowScrolling: "touch",
-					scrollbarWidth: "none",
-					"&::-webkit-scrollbar": { display: "none" },
-					button: { flexShrink: 0 },
-				}}
-				tabs={[
+		<div className="flex flex-col gap-4 items-stretch">
+			<TabSystem tabs={[
 					...(recordNodeUserUsages
 						? [
 								{
@@ -156,24 +145,23 @@ export const UsagePage: FC = () => {
 								},
 							]
 						: []),
-				]}
-			/>
+				]} className="overflow-x-auto overflow-y-hidden max-w-full" />
 			{activeTab === 0 && (
-				<Box mt={3}>
+				<div className="mt-3">
 					<ServiceUsageAnalytics services={services} />
-				</Box>
+				</div>
 			)}
 			{activeTab === 1 && (
-				<Box mt={3}>
+				<div className="mt-3">
 					<AdminsUsage />
-				</Box>
+				</div>
 			)}
 			{activeTab === 2 && (
-				<Box mt={3}>
+				<div className="mt-3">
 					<NodesUsageAnalytics />
-				</Box>
+				</div>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

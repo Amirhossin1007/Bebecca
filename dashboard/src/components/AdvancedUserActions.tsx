@@ -1,25 +1,14 @@
-import {
-	Alert,
-	AlertIcon,
-	Box,
-	Button,
-	Checkbox,
-	chakra,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	IconButton,
-	SimpleGrid,
-	Stack,
-	Text,
-	Textarea,
-	Tooltip,
-	useBreakpointValue,
-	useDisclosure,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { useDisclosure } from "hooks/useDisclosure";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Button, IconButton } from "components/shadcn/button";
+import { Textarea } from "components/shadcn/input";
+import { Checkbox } from "components/shadcn/selection";
+import { Tooltip } from "components/shadcn/tooltip";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
@@ -43,9 +32,7 @@ import { NumericInput } from "./common/NumericInput";
 // Tailwind build step - so the raw 24x24 heroicon rendered ~2.4x oversized
 // next to the neighboring 16px icons. Size it the same way every other
 // toolbar icon in this codebase is sized, via Chakra's style props.
-const AdvancedActionsIcon = chakra(SparklesIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
+const AdvancedActionsIcon = withClass(SparklesIcon, "w-4 h-4");
 
 const cleanupOptions: AdvancedUserActionStatus[] = ["expired", "limited"];
 const scopeStatusOptions: AdvancedUserActionScopeStatus[] = [
@@ -449,17 +436,17 @@ const AdvancedUserActions = ({
 	}
 
 	const content = (
-		<VStack spacing={6} align="stretch">
-			<Alert status="warning" borderRadius="md">
+		<div className="flex flex-col gap-6 items-stretch">
+			<Alert status="warning" className="rounded-md">
 				<AlertIcon />
-				<Text>
+				<p>
 					{t("filters.advancedActions.modalDescription")}
-				</Text>
+				</p>
 			</Alert>
 
 			{hasScopeSelect && (
 				<FormControl>
-					<FormLabel fontWeight="semibold">
+					<FormLabel className="font-semibold">
 						{t("filters.advancedActions.scope.label")}
 					</FormLabel>
 					<Select
@@ -493,7 +480,7 @@ const AdvancedUserActions = ({
 								</option>
 							))}
 					</Select>
-					<FormHelperText fontSize="sm">
+					<FormHelperText className="text-[0.875rem]">
 						{t("filters.advancedActions.scope.helper")}
 					</FormHelperText>
 				</FormControl>
@@ -502,7 +489,7 @@ const AdvancedUserActions = ({
 			{canSeeServiceControls && (
 				<>
 					<FormControl>
-						<FormLabel fontWeight="semibold">
+						<FormLabel className="font-semibold">
 							{t("filters.advancedActions.service.label")}
 						</FormLabel>
 						<Select
@@ -521,20 +508,20 @@ const AdvancedUserActions = ({
 								</option>
 							))}
 						</Select>
-						<FormHelperText fontSize="sm">
+						<FormHelperText className="text-[0.875rem]">
 							{t("filters.advancedActions.service.helper")}
 						</FormHelperText>
 					</FormControl>
 
 					{!serviceTransferDisabled && (
-						<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-							<Stack spacing={3}>
-								<Text fontWeight="semibold">
+						<div className="border rounded-md px-4 py-4">
+							<div className="flex flex-col gap-3">
+								<p className="font-semibold">
 									{t("filters.advancedActions.serviceChange.title")}
-								</Text>
-								<Text fontSize="sm" color="gray.500">
+								</p>
+								<p className="text-[0.875rem] text-gray-500">
 									{t("filters.advancedActions.serviceChange.helper")}
-								</Text>
+								</p>
 								<Select
 									placeholder={t("filters.advancedActions.serviceChange.placeholder")}
 									value={targetServiceValue}
@@ -549,250 +536,163 @@ const AdvancedUserActions = ({
 										</option>
 									))}
 								</Select>
-								<Button
-									colorScheme="primary"
-									size="sm"
-									alignSelf="flex-start"
-									isLoading={isChangingService}
-									onClick={handleChangeService}
-								>
+								<Button colorScheme="primary" size="sm" isLoading={isChangingService} onClick={handleChangeService} className="self-start">
 									{t("filters.advancedActions.serviceChange.button")}
 								</Button>
-							</Stack>
-						</Box>
+							</div>
+						</div>
 					)}
 				</>
 			)}
 
-			<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-				<Stack spacing={3}>
-					<Box>
-						<Text fontWeight="semibold">
+			<div className="border rounded-md px-4 py-4">
+				<div className="flex flex-col gap-3">
+					<div>
+						<p className="font-semibold">
 							{t("filters.advancedActions.conditions.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
+						</p>
+						<p className="text-[0.875rem] text-gray-500">
 							{t("filters.advancedActions.conditions.help")}
-						</Text>
-					</Box>
+						</p>
+					</div>
 					<FormControl>
-						<FormLabel fontSize="sm">
+						<FormLabel className="text-[0.875rem]">
 							{t("filters.advancedActions.conditions.usernames")}
 						</FormLabel>
-						<Textarea
-							value={targetUsernames}
-							onChange={(event) => setTargetUsernames(event.target.value)}
-							rows={3}
-							fontFamily="mono"
-							placeholder={t("filters.advancedActions.conditions.usernamesPlaceholder")}
-						/>
+						<Textarea value={targetUsernames} onChange={(event) => setTargetUsernames(event.target.value)} rows={3} placeholder={t("filters.advancedActions.conditions.usernamesPlaceholder")} className="font-mono" />
 						<FormHelperText>
 							{t("filters.advancedActions.conditions.usernamesHelp")}
 						</FormHelperText>
 					</FormControl>
-					<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 						<FormControl>
-							<FormLabel fontSize="sm">
+							<FormLabel className="text-[0.875rem]">
 								{t("filters.advancedActions.conditions.lastOnline")}
 							</FormLabel>
-							<NumericInput
-								value={lastOnlineDays}
-								onChange={(value) => setLastOnlineDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
+							<NumericInput value={lastOnlineDays} onChange={(value) => setLastOnlineDays(value)} min={1} step={1} className="w-full" />
 						</FormControl>
 						<FormControl>
-							<FormLabel fontSize="sm">
+							<FormLabel className="text-[0.875rem]">
 								{t("filters.advancedActions.conditions.statusAge")}
 							</FormLabel>
-							<NumericInput
-								value={statusAgeDays}
-								onChange={(value) => setStatusAgeDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
+							<NumericInput value={statusAgeDays} onChange={(value) => setStatusAgeDays(value)} min={1} step={1} className="w-full" />
 						</FormControl>
 						<FormControl>
-							<FormLabel fontSize="sm">
+							<FormLabel className="text-[0.875rem]">
 								{t("filters.advancedActions.conditions.createdBefore")}
 							</FormLabel>
-							<NumericInput
-								value={createdBeforeDays}
-								onChange={(value) => setCreatedBeforeDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
+							<NumericInput value={createdBeforeDays} onChange={(value) => setCreatedBeforeDays(value)} min={1} step={1} className="w-full" />
 						</FormControl>
-					</SimpleGrid>
-				</Stack>
-			</Box>
+					</div>
+				</div>
+			</div>
 
-			<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-				<Stack spacing={2}>
-					<Text fontWeight="semibold">
+			<div className="border rounded-md px-4 py-4">
+				<div className="flex flex-col gap-2">
+					<p className="font-semibold">
 						{t("filters.advancedActions.scopeStatuses.title")}
-					</Text>
-					<Text fontSize="sm" color="gray.500">
+					</p>
+					<p className="text-[0.875rem] text-gray-500">
 						{t("filters.advancedActions.scopeStatuses.helper")}
-					</Text>
-					<HStack spacing={3} flexWrap="wrap">
+					</p>
+					<div className="flex flex-row items-center gap-3 flex-wrap">
 						{scopeStatusOptions.map((status) => (
-							<Checkbox
-								key={status}
-								isChecked={selectedScopeStatuses.includes(status)}
-								onChange={() => toggleScopeStatus(status)}
-							>
+							<Checkbox key={status} isChecked={selectedScopeStatuses.includes(status)} onChange={() => toggleScopeStatus(status)}>
 								{t(
 									`filters.advancedActions.scopeStatuses.${status}`,
 									status.replace("_", " "),
 								)}
 							</Checkbox>
 						))}
-					</HStack>
-				</Stack>
-			</Box>
+					</div>
+				</div>
+			</div>
 
-			<Stack spacing={4}>
-				<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-					<Stack spacing={2}>
-						<Text fontWeight="semibold">
+			<div className="flex flex-col gap-4">
+				<div className="border rounded-md px-4 py-4">
+					<div className="flex flex-col gap-2">
+						<p className="font-semibold">
 							{t("filters.advancedActions.expireSection.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
+						</p>
+						<p className="text-[0.875rem] text-gray-500">
 							{t("filters.advancedActions.expireSection.description")}
-						</Text>
+						</p>
 						<FormControl>
 							<FormLabel>
 								{t("filters.advancedActions.expireSection.inputLabel")}
 							</FormLabel>
-							<NumericInput
-								value={expireDays}
-								onChange={(value) => setExpireDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
+							<NumericInput value={expireDays} onChange={(value) => setExpireDays(value)} min={1} step={1} className="w-full" />
 							<FormHelperText>
 								{t("filters.advancedActions.expireSection.helper")}
 							</FormHelperText>
 						</FormControl>
-						<HStack spacing={2} flexWrap="wrap">
-							<Button
-								colorScheme="primary"
-								isLoading={isExtending}
-								flex="1"
-								minW="150px"
-								onClick={() => handleExpireAction("extend_expire")}
-							>
+						<div className="flex flex-row items-center gap-2 flex-wrap">
+							<Button size="md" colorScheme="primary" isLoading={isExtending} onClick={() => handleExpireAction("extend_expire")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.expireSection.addButton")}
 							</Button>
-							<Button
-								colorScheme="gray"
-								variant="outline"
-								isLoading={isReducing}
-								flex="1"
-								minW="150px"
-								onClick={() => handleExpireAction("reduce_expire")}
-							>
+							<Button size="md" colorScheme="gray" variant="outline" isLoading={isReducing} onClick={() => handleExpireAction("reduce_expire")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.expireSection.removeButton")}
 							</Button>
-						</HStack>
-					</Stack>
-				</Box>
+						</div>
+					</div>
+				</div>
 
-				<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-					<Stack spacing={2}>
-						<Text fontWeight="semibold">
+				<div className="border rounded-md px-4 py-4">
+					<div className="flex flex-col gap-2">
+						<p className="font-semibold">
 							{t("filters.advancedActions.trafficSection.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
+						</p>
+						<p className="text-[0.875rem] text-gray-500">
 							{t("filters.advancedActions.trafficSection.description")}
-						</Text>
+						</p>
 						<FormControl>
 							<FormLabel>
 								{t("filters.advancedActions.trafficSection.inputLabel")}
 							</FormLabel>
-							<NumericInput
-								value={trafficGb}
-								onChange={(value) => setTrafficGb(value)}
-								min={0.01}
-								step={0.1}
-								w="full"
-							/>
+							<NumericInput value={trafficGb} onChange={(value) => setTrafficGb(value)} min={0.01} step={0.1} className="w-full" />
 						</FormControl>
-						<HStack spacing={2} flexWrap="wrap">
-							<Button
-								colorScheme="primary"
-								isLoading={isIncreasingTraffic}
-								flex="1"
-								minW="150px"
-								onClick={() => handleTrafficAction("increase_traffic")}
-							>
+						<div className="flex flex-row items-center gap-2 flex-wrap">
+							<Button size="md" colorScheme="primary" isLoading={isIncreasingTraffic} onClick={() => handleTrafficAction("increase_traffic")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.trafficSection.addButton")}
 							</Button>
-							<Button
-								colorScheme="gray"
-								variant="outline"
-								isLoading={isDecreasingTraffic}
-								flex="1"
-								minW="150px"
-								onClick={() => handleTrafficAction("decrease_traffic")}
-							>
+							<Button size="md" colorScheme="gray" variant="outline" isLoading={isDecreasingTraffic} onClick={() => handleTrafficAction("decrease_traffic")} className="flex-1 min-w-[150px]!">
 								{t("filters.advancedActions.trafficSection.removeButton")}
 							</Button>
-						</HStack>
-					</Stack>
-				</Box>
+						</div>
+					</div>
+				</div>
 
-				<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-					<Stack spacing={2}>
-						<Text fontWeight="semibold">
+				<div className="border rounded-md px-4 py-4">
+					<div className="flex flex-col gap-2">
+						<p className="font-semibold">
 							{t("filters.advancedActions.cleanupSection.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
+						</p>
+						<p className="text-[0.875rem] text-gray-500">
 							{t("filters.advancedActions.cleanupSection.description")}
-						</Text>
+						</p>
 						<FormControl>
 							<FormLabel>
 								{t("filters.advancedActions.cleanupSection.daysLabel")}
 							</FormLabel>
-							<NumericInput
-								value={cleanupDays}
-								onChange={(value) => setCleanupDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
+							<NumericInput value={cleanupDays} onChange={(value) => setCleanupDays(value)} min={1} step={1} className="w-full" />
 						</FormControl>
-						<HStack spacing={3}>
+						<div className="flex flex-row items-center gap-3">
 							{cleanupOptions.map((status) => (
-								<Checkbox
-									key={status}
-									isChecked={selectedStatuses.includes(status)}
-									onChange={() => toggleStatus(status)}
-								>
+								<Checkbox key={status} isChecked={selectedStatuses.includes(status)} onChange={() => toggleStatus(status)}>
 									{t(
 										`filters.advancedActions.cleanupSection.statuses.${status}`,
 										status.charAt(0).toUpperCase() + status.slice(1),
 									)}
 								</Checkbox>
 							))}
-						</HStack>
-						<Button
-							colorScheme="primary"
-							isLoading={isCleaning}
-							w="full"
-							onClick={handleCleanup}
-						>
+						</div>
+						<Button size="md" colorScheme="primary" isLoading={isCleaning} onClick={handleCleanup} className="w-full">
 							{t("filters.advancedActions.cleanupSection.button")}
 						</Button>
-					</Stack>
-				</Box>
-			</Stack>
-		</VStack>
+					</div>
+				</div>
+			</div>
+		</div>
 	);
 
 	if (embedded) {
@@ -802,32 +702,11 @@ const AdvancedUserActions = ({
 	return (
 		<>
 			{compact ? (
-				<Tooltip
-					label={t("filters.advancedActions.button")}
-				>
-					<IconButton
-						aria-label={t("filters.advancedActions.button")}
-						icon={<AdvancedActionsIcon />}
-						onClick={onOpen}
-						variant="outline"
-						borderRadius="full"
-						w="40px"
-						h="40px"
-						flexShrink={0}
-					/>
+				<Tooltip label={t("filters.advancedActions.button")}>
+					<IconButton size="md" aria-label={t("filters.advancedActions.button")} icon={<AdvancedActionsIcon />} onClick={onOpen} variant="outline" className="rounded-full w-[40px] h-[40px] shrink-0" />
 				</Tooltip>
 			) : (
-				<Button
-					leftIcon={<AdvancedActionsIcon />}
-					onClick={onOpen}
-					size={isMobile ? "sm" : "md"}
-					variant="outline"
-					h={isMobile ? "36px" : undefined}
-					minW={isMobile ? "auto" : "8.5rem"}
-					fontSize={isMobile ? "xs" : "sm"}
-					fontWeight="semibold"
-					whiteSpace="nowrap"
-				>
+				<Button leftIcon={<AdvancedActionsIcon />} onClick={onOpen} size={isMobile ? "sm" : "md"} variant="outline" className={cn("font-semibold whitespace-nowrap", isMobile ? "h-[36px]" : "", isMobile ? "min-w-[auto]!" : "min-w-[8.5rem]!", isMobile ? "text-[0.75rem]" : "text-[0.875rem]")}>
 					{t("filters.advancedActions.button")}
 				</Button>
 			)}
@@ -838,7 +717,7 @@ const AdvancedUserActions = ({
 				size="lg"
 				title={t("filters.advancedActions.modalTitle")}
 				footer={
-					<Button variant="ghost" onClick={onClose}>
+					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("close")}
 					</Button>
 				}

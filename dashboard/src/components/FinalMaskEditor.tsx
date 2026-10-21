@@ -1,21 +1,10 @@
-import {
-	Badge,
-	Box,
-	Button,
-	Collapse,
-	Divider,
-	Flex,
-	FormControl,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input,
-	SimpleGrid,
-	Stack,
-	Switch,
-	Text,
-	Textarea,
-} from "@chakra-ui/react";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { Input, Textarea } from "components/shadcn/input";
+import { Switch } from "components/shadcn/selection";
+import { Button, IconButton } from "components/shadcn/button";
+import { Collapse } from "components/shadcn/collapse";
+import { Badge } from "components/shadcn/badge";
+import { cn } from "lib/cn";
 import {
 	ArrowDownIcon,
 	ArrowUpIcon,
@@ -109,13 +98,8 @@ const TextField: FC<{
 	placeholder?: string;
 }> = ({ label, value, onChange, placeholder }) => (
 	<FormControl>
-		<FormLabel fontSize="sm">{label}</FormLabel>
-		<Input
-			size="sm"
-			value={textValue(value)}
-			placeholder={placeholder}
-			onChange={(event) => onChange(optionalText(event.target.value))}
-		/>
+		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
+		<Input size="sm" value={textValue(value)} placeholder={placeholder} onChange={(event) => onChange(optionalText(event.target.value))} />
 	</FormControl>
 );
 
@@ -128,16 +112,8 @@ const NumberField: FC<{
 	placeholder?: string;
 }> = ({ label, value, onChange, min = 0, max, placeholder }) => (
 	<FormControl>
-		<FormLabel fontSize="sm">{label}</FormLabel>
-		<Input
-			size="sm"
-			type="number"
-			min={min}
-			max={max}
-			value={textValue(value)}
-			placeholder={placeholder}
-			onChange={(event) => onChange(optionalNumber(event.target.value))}
-		/>
+		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
+		<Input size="sm" type="number" min={min} max={max} value={textValue(value)} placeholder={placeholder} onChange={(event) => onChange(optionalNumber(event.target.value))} />
 	</FormControl>
 );
 
@@ -149,7 +125,7 @@ const SelectField: FC<{
 	placeholder?: string;
 }> = ({ label, value, options, onChange, placeholder }) => (
 	<FormControl>
-		<FormLabel fontSize="sm">{label}</FormLabel>
+		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
 		<SearchableTagSelect
 			value={textValue(value)}
 			options={options}
@@ -164,16 +140,11 @@ const BooleanField: FC<{
 	value: unknown;
 	onChange: (value: boolean) => void;
 }> = ({ label, value, onChange }) => (
-	<FormControl display="flex" alignItems="center" gap={2} w="auto">
-		<FormLabel fontSize="sm" mb={0} cursor="pointer">
+	<FormControl className="flex items-center gap-2 w-auto">
+		<FormLabel className="text-[0.875rem] mb-0 cursor-pointer">
 			{label}
 		</FormLabel>
-		<Switch
-			size="sm"
-			aria-label={typeof label === "string" ? label : undefined}
-			isChecked={Boolean(value)}
-			onChange={(event) => onChange(event.target.checked)}
-		/>
+		<Switch size="sm" aria-label={typeof label === "string" ? label : undefined} isChecked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
 	</FormControl>
 );
 
@@ -192,32 +163,11 @@ const OrderButtons: FC<{
 	disableUp = false,
 	disableDown = false,
 }) => (
-	<HStack spacing={1}>
-		<IconButton
-			size="xs"
-			variant="ghost"
-			aria-label="Move up"
-			icon={<ArrowUpIcon width={14} />}
-			isDisabled={index === 0 || disableUp}
-			onClick={() => onMove(index, index - 1)}
-		/>
-		<IconButton
-			size="xs"
-			variant="ghost"
-			aria-label="Move down"
-			icon={<ArrowDownIcon width={14} />}
-			isDisabled={index === length - 1 || disableDown}
-			onClick={() => onMove(index, index + 1)}
-		/>
-		<IconButton
-			size="xs"
-			variant="ghost"
-			colorScheme="red"
-			aria-label="Remove"
-			icon={<TrashIcon width={14} />}
-			onClick={onRemove}
-		/>
-	</HStack>
+	<div className="flex flex-row items-center gap-1">
+		<IconButton size="xs" variant="ghost" aria-label="Move up" icon={<ArrowUpIcon className="w-14" />} isDisabled={index === 0 || disableUp} onClick={() => onMove(index, index - 1)} />
+		<IconButton size="xs" variant="ghost" aria-label="Move down" icon={<ArrowDownIcon className="w-14" />} isDisabled={index === length - 1 || disableDown} onClick={() => onMove(index, index + 1)} />
+		<IconButton size="xs" variant="ghost" colorScheme="red" aria-label="Remove" icon={<TrashIcon className="w-14" />} onClick={onRemove} />
+	</div>
 );
 
 const moveItem = <T,>(items: T[], from: number, to: number) => {
@@ -284,23 +234,17 @@ const StringArrayField: FC<{
 }> = ({ label, value, onChange, placeholder }) => {
 	return (
 		<FormControl>
-			<FormLabel fontSize="sm">{label}</FormLabel>
-			<Textarea
-				size="sm"
-				rows={3}
-				value={stringArray(value).join("\n")}
-				placeholder={placeholder}
-				onChange={(event) =>
+			<FormLabel className="text-[0.875rem]">{label}</FormLabel>
+			<Textarea size="sm" rows={3} value={stringArray(value).join("\n")} placeholder={placeholder} onChange={(event) =>
 					onChange(
 						event.target.value === ""
 							? undefined
 							: event.target.value.split(/\r?\n/),
 					)
-				}
-			/>
-			<Text mt={1} fontSize="xs" color="gray.500">
+				} />
+			<p className="mt-1 text-[0.75rem] text-gray-500">
 				One value per line.
-			</Text>
+			</p>
 		</FormControl>
 	);
 };
@@ -314,46 +258,34 @@ const NumberArrayField: FC<{
 	const items = asArray(value).map((item) => Number(item) || 0);
 	const update = (next: number[]) => onChange(next.length ? next : undefined);
 	return (
-		<Stack spacing={2}>
-			<Flex align="center" justify="space-between" gap={2}>
-				<Text fontSize="sm" fontWeight="medium">
+		<div className="flex flex-col gap-2">
+			<div className="flex items-center justify-between gap-2">
+				<p className="text-[0.875rem] font-medium">
 					{label}
-				</Text>
-				<Button
-					size="xs"
-					variant="outline"
-					leftIcon={<PlusIcon width={13} />}
-					onClick={() => update([...items, 0])}
-				>
+				</p>
+				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...items, 0])}>
 					{t("add")}
 				</Button>
-			</Flex>
+			</div>
 			{items.map((item, index) => (
-				<HStack key={`${index}-${items.length}`} align="flex-start">
-					<Input
-						size="sm"
-						type="number"
-						min={0}
-						max={255}
-						value={item}
-						onChange={(event) => {
+				<div key={`${index}-${items.length}`} className="flex flex-row gap-2 items-start">
+					<Input size="sm" type="number" min={0} max={255} value={item} onChange={(event) => {
 							const next = [...items];
 							next[index] = Math.max(
 								0,
 								Math.min(255, Number(event.target.value) || 0),
 							);
 							update(next);
-						}}
-					/>
+						}} />
 					<OrderButtons
 						index={index}
 						length={items.length}
 						onMove={(from, to) => update(moveItem(items, from, to))}
 						onRemove={() => update(items.filter((_, i) => i !== index))}
 					/>
-				</HStack>
+				</div>
 			))}
-		</Stack>
+		</div>
 	);
 };
 
@@ -364,20 +296,14 @@ const PemLinesField: FC<{
 	placeholder?: string;
 }> = ({ label, value, onChange, placeholder }) => (
 	<FormControl>
-		<FormLabel fontSize="sm">{label}</FormLabel>
-		<Textarea
-			size="sm"
-			fontFamily="mono"
-			value={stringArray(value).join("\n")}
-			placeholder={placeholder}
-			onChange={(event) =>
+		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
+		<Textarea size="sm" value={stringArray(value).join("\n")} placeholder={placeholder} onChange={(event) =>
 				onChange(
 					event.target.value === ""
 						? undefined
 						: event.target.value.split(/\r?\n/),
 				)
-			}
-		/>
+			} className="font-mono" />
 	</FormControl>
 );
 
@@ -409,8 +335,8 @@ const PacketEditor: FC<PacketEditorProps> = ({
 		onChange(next);
 	};
 	return (
-		<Stack spacing={3}>
-			<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+		<div className="flex flex-col gap-3">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 				<SelectField
 					label="Content source"
 					value={source}
@@ -491,7 +417,7 @@ const PacketEditor: FC<PacketEditorProps> = ({
 						onChange={(next) => update("delay", next)}
 					/>
 				)}
-			</SimpleGrid>
+			</div>
 			{source === "packet" && packetType === "array" && (
 				<NumberArrayField
 					label="Packet bytes"
@@ -501,18 +427,13 @@ const PacketEditor: FC<PacketEditorProps> = ({
 			)}
 			{source === "packet" && packetType !== "array" && (
 				<FormControl>
-					<FormLabel fontSize="sm">Packet</FormLabel>
-					<Textarea
-						size="sm"
-						fontFamily={packetType === "str" ? undefined : "mono"}
-						value={textValue(item.packet)}
-						onChange={(event) =>
+					<FormLabel className="text-[0.875rem]">Packet</FormLabel>
+					<Textarea size="sm" value={textValue(item.packet)} onChange={(event) =>
 							update("packet", optionalText(event.target.value))
-						}
-					/>
+						} className={cn(packetType === "str" ? "" : "font-mono")} />
 				</FormControl>
 			)}
-		</Stack>
+		</div>
 	);
 };
 
@@ -528,39 +449,28 @@ const PacketListEditor: FC<{
 	const update = (next: FinalMaskSettings[]) =>
 		onChange(next.length ? next : undefined);
 	return (
-		<Stack spacing={2}>
-			<Flex align="center" justify="space-between" gap={2}>
-				<Text fontSize="sm" fontWeight="semibold">
+		<div className="flex flex-col gap-2">
+			<div className="flex items-center justify-between gap-2">
+				<p className="text-[0.875rem] font-semibold">
 					{label}
-				</Text>
-				<Button
-					size="xs"
-					variant="outline"
-					leftIcon={<PlusIcon width={13} />}
-					onClick={() => update([...items, {}])}
-				>
+				</p>
+				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...items, {}])}>
 					{t("add")}
 				</Button>
-			</Flex>
+			</div>
 			{items.map((item, index) => (
-				<Stack
-					key={`${index}-${items.length}`}
-					spacing={3}
-					borderWidth="1px"
-					borderRadius="md"
-					p={3}
-				>
-					<Flex align="center" justify="space-between">
-						<Text fontSize="xs" color="gray.500">
+				<div key={`${index}-${items.length}`} className="flex flex-col gap-3 border rounded-md p-3">
+					<div className="flex items-center justify-between">
+						<p className="text-[0.75rem] text-gray-500">
 							#{index + 1}
-						</Text>
+						</p>
 						<OrderButtons
 							index={index}
 							length={items.length}
 							onMove={(from, to) => update(moveItem(items, from, to))}
 							onRemove={() => update(items.filter((_, i) => i !== index))}
 						/>
-					</Flex>
+					</div>
 					<PacketEditor
 						value={item}
 						delay={delay}
@@ -571,9 +481,9 @@ const PacketListEditor: FC<{
 							update(next);
 						}}
 					/>
-				</Stack>
+				</div>
 			))}
-		</Stack>
+		</div>
 	);
 };
 
@@ -589,39 +499,28 @@ const TcpHeaderVariants: FC<{
 	const update = (next: FinalMaskSettings[][]) =>
 		onChange(next.length ? next : undefined);
 	return (
-		<Stack spacing={2}>
-			<Flex align="center" justify="space-between" gap={2}>
-				<Text fontSize="sm" fontWeight="semibold">
+		<div className="flex flex-col gap-2">
+			<div className="flex items-center justify-between gap-2">
+				<p className="text-[0.875rem] font-semibold">
 					{label}
-				</Text>
-				<Button
-					size="xs"
-					variant="outline"
-					leftIcon={<PlusIcon width={13} />}
-					onClick={() => update([...variants, [{}]])}
-				>
+				</p>
+				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...variants, [{}]])}>
 					{t("add")}
 				</Button>
-			</Flex>
+			</div>
 			{variants.map((variant, index) => (
-				<Stack
-					key={`${index}-${variants.length}`}
-					spacing={3}
-					borderWidth="1px"
-					borderRadius="md"
-					p={3}
-				>
-					<Flex align="center" justify="space-between">
-						<Text fontSize="xs" color="gray.500">
+				<div key={`${index}-${variants.length}`} className="flex flex-col gap-3 border rounded-md p-3">
+					<div className="flex items-center justify-between">
+						<p className="text-[0.75rem] text-gray-500">
 							Variant #{index + 1}
-						</Text>
+						</p>
 						<OrderButtons
 							index={index}
 							length={variants.length}
 							onMove={(from, to) => update(moveItem(variants, from, to))}
 							onRemove={() => update(variants.filter((_, i) => i !== index))}
 						/>
-					</Flex>
+					</div>
 					<PacketListEditor
 						label="Packet chunks"
 						value={variant}
@@ -632,9 +531,9 @@ const TcpHeaderVariants: FC<{
 							update(next);
 						}}
 					/>
-				</Stack>
+				</div>
 			))}
-		</Stack>
+		</div>
 	);
 };
 
@@ -647,7 +546,7 @@ const HeaderCustomSettings: FC<{
 		onChange(setKey(settings, key, next));
 	if (direction === "tcp") {
 		return (
-			<Stack spacing={4}>
+			<div className="flex flex-col gap-4">
 				<TcpHeaderVariants
 					label="Client variants"
 					value={settings.clients}
@@ -663,11 +562,11 @@ const HeaderCustomSettings: FC<{
 					value={settings.errors}
 					onChange={(next) => update("errors", next)}
 				/>
-			</Stack>
+			</div>
 		);
 	}
 	return (
-		<Stack spacing={4}>
+		<div className="flex flex-col gap-4">
 			<SelectField
 				label="Packet mode"
 				value={settings.mode}
@@ -688,7 +587,7 @@ const HeaderCustomSettings: FC<{
 				value={settings.server}
 				onChange={(next) => update("server", next)}
 			/>
-		</Stack>
+		</div>
 	);
 };
 
@@ -699,8 +598,8 @@ const SudokuSettings: FC<{
 	const update = (key: string, next: unknown) =>
 		onChange(setKey(settings, key, next));
 	return (
-		<Stack spacing={3}>
-			<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+		<div className="flex flex-col gap-3">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 				<TextField
 					label="Password"
 					value={settings.password}
@@ -733,13 +632,13 @@ const SudokuSettings: FC<{
 					value={settings.paddingMax}
 					onChange={(next) => update("paddingMax", next)}
 				/>
-			</SimpleGrid>
+			</div>
 			<StringArrayField
 				label="Custom tables"
 				value={settings.customTables}
 				onChange={(next) => update("customTables", next)}
 			/>
-		</Stack>
+		</div>
 	);
 };
 
@@ -750,8 +649,8 @@ const FragmentSettings: FC<{
 	const update = (key: string, next: unknown) =>
 		onChange(setKey(settings, key, next));
 	return (
-		<Stack spacing={3}>
-			<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+		<div className="flex flex-col gap-3">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 				<TextField
 					label="Packets"
 					value={settings.packets}
@@ -764,8 +663,8 @@ const FragmentSettings: FC<{
 					placeholder="3-6"
 					onChange={(next) => update("maxSplit", next)}
 				/>
-			</SimpleGrid>
-			<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+			</div>
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<StringArrayField
 					label="Fragment lengths (bytes)"
 					value={settings.lengths}
@@ -778,8 +677,8 @@ const FragmentSettings: FC<{
 					placeholder="10-20"
 					onChange={(next) => update("delays", next)}
 				/>
-			</SimpleGrid>
-		</Stack>
+			</div>
+		</div>
 	);
 };
 
@@ -792,20 +691,15 @@ const CertificateList: FC<{
 	const update = (next: FinalMaskSettings[]) =>
 		onChange(next.length ? next : undefined);
 	return (
-		<Stack spacing={3}>
-			<Flex align="center" justify="space-between">
-				<Text fontSize="sm" fontWeight="semibold">
+		<div className="flex flex-col gap-3">
+			<div className="flex items-center justify-between">
+				<p className="text-[0.875rem] font-semibold">
 					Certificates
-				</Text>
-				<Button
-					size="xs"
-					variant="outline"
-					leftIcon={<PlusIcon width={13} />}
-					onClick={() => update([...certificates, {}])}
-				>
+				</p>
+				<Button size="xs" variant="outline" leftIcon={<PlusIcon className="w-13" />} onClick={() => update([...certificates, {}])}>
 					{t("add")}
 				</Button>
-			</Flex>
+			</div>
 			{certificates.map((certificate, index) => {
 				const setCertificate = (key: string, nextValue: unknown) => {
 					const next = [...certificates];
@@ -813,17 +707,11 @@ const CertificateList: FC<{
 					update(next);
 				};
 				return (
-					<Stack
-						key={`${index}-${certificates.length}`}
-						spacing={3}
-						borderWidth="1px"
-						borderRadius="md"
-						p={3}
-					>
-						<Flex align="center" justify="space-between">
-							<Text fontSize="xs" color="gray.500">
+					<div key={`${index}-${certificates.length}`} className="flex flex-col gap-3 border rounded-md p-3">
+						<div className="flex items-center justify-between">
+							<p className="text-[0.75rem] text-gray-500">
 								Certificate #{index + 1}
-							</Text>
+							</p>
 							<OrderButtons
 								index={index}
 								length={certificates.length}
@@ -832,8 +720,8 @@ const CertificateList: FC<{
 									update(certificates.filter((_, i) => i !== index))
 								}
 							/>
-						</Flex>
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+						</div>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 							<NumberField
 								label="OCSP stapling interval (s)"
 								value={certificate.ocspStapling}
@@ -857,8 +745,8 @@ const CertificateList: FC<{
 								placeholder="/path/to/key.key"
 								onChange={(next) => setCertificate("keyFile", next)}
 							/>
-						</SimpleGrid>
-						<HStack spacing={6} flexWrap="wrap">
+						</div>
+						<div className="flex flex-row items-center gap-6 flex-wrap">
 							<BooleanField
 								label="One-time loading"
 								value={certificate.oneTimeLoading}
@@ -869,7 +757,7 @@ const CertificateList: FC<{
 								value={certificate.buildChain}
 								onChange={(next) => setCertificate("buildChain", next)}
 							/>
-						</HStack>
+						</div>
 						<PemLinesField
 							label="Certificate content"
 							value={certificate.certificate}
@@ -882,10 +770,10 @@ const CertificateList: FC<{
 							placeholder="-----BEGIN PRIVATE KEY-----"
 							onChange={(next) => setCertificate("key", next)}
 						/>
-					</Stack>
+					</div>
 				);
 			})}
-		</Stack>
+		</div>
 	);
 };
 
@@ -901,15 +789,15 @@ const RealmTlsSettings: FC<{
 	const update = (key: string, next: unknown) =>
 		onChange(setKey(compatibleSettings, key, next));
 	return (
-		<Stack spacing={3}>
+		<div className="flex flex-col gap-3">
 			<BooleanField
 				label="TLS configuration"
 				value={enabled}
 				onChange={(next) => onChange(next ? compatibleSettings : undefined)}
 			/>
 			<Collapse in={enabled} animateOpacity>
-				<Stack spacing={3} pt={1}>
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+				<div className="flex flex-col gap-3 pt-1">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<TextField
 							label="Server name"
 							value={settings.serverName}
@@ -979,8 +867,8 @@ const RealmTlsSettings: FC<{
 							value={settings.echConfigList}
 							onChange={(next) => update("echConfigList", next)}
 						/>
-					</SimpleGrid>
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<StringArrayField
 							label="ALPN"
 							value={settings.alpn}
@@ -993,8 +881,8 @@ const RealmTlsSettings: FC<{
 							placeholder="X25519"
 							onChange={(next) => update("curvePreferences", next)}
 						/>
-					</SimpleGrid>
-					<HStack spacing={6} flexWrap="wrap">
+					</div>
+					<div className="flex flex-row items-center gap-6 flex-wrap">
 						<BooleanField
 							label="Reject unknown SNI"
 							value={settings.rejectUnknownSni}
@@ -1010,14 +898,14 @@ const RealmTlsSettings: FC<{
 							value={settings.enableSessionResumption}
 							onChange={(next) => update("enableSessionResumption", next)}
 						/>
-					</HStack>
+					</div>
 					<CertificateList
 						value={settings.certificates}
 						onChange={(next) => update("certificates", next)}
 					/>
-				</Stack>
+				</div>
 			</Collapse>
-		</Stack>
+		</div>
 	);
 };
 
@@ -1032,15 +920,11 @@ const UdpSettings: FC<{
 	switch (type) {
 		case "header-custom":
 			return (
-				<HeaderCustomSettings
-					direction="udp"
-					settings={settings}
-					onChange={onChange}
-				/>
+				<HeaderCustomSettings settings={settings} onChange={onChange} direction="udp" />
 			);
 		case "mkcp-legacy":
 			return (
-				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 					<SelectField
 						label="Header"
 						value={settings.header}
@@ -1060,11 +944,11 @@ const UdpSettings: FC<{
 						value={settings.value}
 						onChange={(next) => update("value", next)}
 					/>
-				</SimpleGrid>
+				</div>
 			);
 		case "noise":
 			return (
-				<Stack spacing={3}>
+				<div className="flex flex-col gap-3">
 					<TextField
 						label="Reset interval (s)"
 						value={settings.reset}
@@ -1078,11 +962,11 @@ const UdpSettings: FC<{
 						delay="range"
 						onChange={(next) => update("noise", next)}
 					/>
-				</Stack>
+				</div>
 			);
 		case "salamander":
 			return (
-				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 					<TextField
 						label="Password"
 						value={settings.password}
@@ -1096,13 +980,13 @@ const UdpSettings: FC<{
 							onChange={(next) => update("packetSize", next)}
 						/>
 					)}
-				</SimpleGrid>
+				</div>
 			);
 		case "sudoku":
 			return <SudokuSettings settings={settings} onChange={onChange} />;
 		case "xdns":
 			return (
-				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<StringArrayField
 						label="Domains"
 						value={settings.domains}
@@ -1115,11 +999,11 @@ const UdpSettings: FC<{
 						placeholder="t.example.com+udp://8.8.8.8:53"
 						onChange={(next) => update("resolvers", next)}
 					/>
-				</SimpleGrid>
+				</div>
 			);
 		case "xicmp":
 			return (
-				<Stack spacing={3}>
+				<div className="flex flex-col gap-3">
 					<BooleanField
 						label="Datagram mode"
 						value={settings.dgram}
@@ -1131,11 +1015,11 @@ const UdpSettings: FC<{
 						placeholder="203.0.113.1"
 						onChange={(next) => update("ips", next)}
 					/>
-				</Stack>
+				</div>
 			);
 		case "realm":
 			return (
-				<Stack spacing={3}>
+				<div className="flex flex-col gap-3">
 					<TextField
 						label="Realm URL"
 						value={settings.url}
@@ -1152,7 +1036,7 @@ const UdpSettings: FC<{
 						value={settings.tlsConfig}
 						onChange={(next) => update("tlsConfig", next)}
 					/>
-				</Stack>
+				</div>
 			);
 		default:
 			return null;
@@ -1181,11 +1065,7 @@ const LayerSettings: FC<{
 	switch (layer.type) {
 		case "header-custom":
 			return (
-				<HeaderCustomSettings
-					direction="tcp"
-					settings={settings}
-					onChange={update}
-				/>
+				<HeaderCustomSettings settings={settings} onChange={update} direction="tcp" />
 			);
 		case "fragment":
 			return <FragmentSettings settings={settings} onChange={update} />;
@@ -1218,24 +1098,19 @@ const LayerCollection: FC<{
 	const emit = (layers: FinalMaskLayer[]) =>
 		onChange(direction === "udp" ? normalizeUdpLayers(layers) : layers);
 	return (
-		<Stack spacing={3}>
-			<Flex
-				align={{ base: "stretch", md: "center" }}
-				justify="space-between"
-				direction={{ base: "column", md: "row" }}
-				gap={2}
-			>
-				<Box>
-					<Text fontWeight="semibold">
+		<div className="flex flex-col gap-3">
+			<div className="flex-col md:flex-row flex items-stretch md:items-center justify-between gap-2">
+				<div>
+					<p className="font-semibold">
 						{direction === "tcp" ? "TCP connection masks" : "UDP packet masks"}
-					</Text>
-					<Text fontSize="xs" color="gray.500">
+					</p>
+					<p className="text-[0.75rem] text-gray-500">
 						Add only what you need. Layer 1 runs closest to the original
 						traffic.
-					</Text>
-				</Box>
-				<HStack align="stretch">
-					<Box minW={{ base: "0", md: "190px" }} flex="1">
+					</p>
+				</div>
+				<div className="flex flex-row gap-2 items-stretch">
+					<div className="min-w-0! md:min-w-[190px]! flex-1">
 						<SearchableTagSelect
 							value={selectedType}
 							options={availableTypes.map((type) => ({
@@ -1245,47 +1120,36 @@ const LayerCollection: FC<{
 							placeholder="Mask type"
 							onChange={(next) => setPendingType(String(next))}
 						/>
-					</Box>
-					<Button
-						size="sm"
-						leftIcon={<PlusIcon width={14} />}
-						isDisabled={!selectedType}
-						onClick={() =>
+					</div>
+					<Button variant="solid" size="sm" leftIcon={<PlusIcon className="w-14" />} isDisabled={!selectedType} onClick={() =>
 							emit([...value, createFinalMaskLayer(direction, selectedType)])
-						}
-					>
+						}>
 						{t("add")}
 					</Button>
-				</HStack>
-			</Flex>
+				</div>
+			</div>
 			{value.length === 0 && (
-				<Box borderWidth="1px" borderStyle="dashed" borderRadius="lg" p={4}>
-					<Text fontSize="sm" fontWeight="medium">
+				<div className="border border-dashed rounded-lg p-4">
+					<p className="text-[0.875rem] font-medium">
 						No {direction.toUpperCase()} mask is active
-					</Text>
-					<Text mt={1} fontSize="xs" color="gray.500">
+					</p>
+					<p className="mt-1 text-[0.75rem] text-gray-500">
 						Choose a mask type above and select Add. Safe starter values are
 						filled in automatically.
-					</Text>
-				</Box>
+					</p>
+				</div>
 			)}
 			{value.map((layer, index) => (
-				<Stack
-					key={`${layer.type}-${index}-${value.length}`}
-					spacing={3}
-					borderWidth="1px"
-					borderRadius="lg"
-					p={3}
-				>
-					<Flex align="center" justify="space-between" gap={2}>
-						<HStack>
+				<div key={`${layer.type}-${index}-${value.length}`} className="flex flex-col gap-3 border rounded-lg p-3">
+					<div className="flex items-center justify-between gap-2">
+						<div className="flex flex-row items-center gap-2">
 							<Badge colorScheme={direction === "tcp" ? "blue" : "purple"}>
 								#{index + 1}
 							</Badge>
-							<Text fontSize="sm" fontWeight="semibold">
+							<p className="text-[0.875rem] font-semibold">
 								{typeLabel(layer.type)}
-							</Text>
-						</HStack>
+							</p>
+						</div>
 						<OrderButtons
 							index={index}
 							length={value.length}
@@ -1307,11 +1171,11 @@ const LayerCollection: FC<{
 								emit(value.filter((_, itemIndex) => itemIndex !== index))
 							}
 						/>
-					</Flex>
-					<Divider />
-					<Text fontSize="xs" color="gray.500">
+					</div>
+					<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+					<p className="text-[0.75rem] text-gray-500">
 						{typeDescription(layer.type)}
-					</Text>
+					</p>
 					<LayerSettings
 						direction={direction}
 						layer={layer}
@@ -1322,9 +1186,9 @@ const LayerCollection: FC<{
 							emit(next);
 						}}
 					/>
-				</Stack>
+				</div>
 			))}
-		</Stack>
+		</div>
 	);
 };
 
@@ -1416,18 +1280,15 @@ const QuicParamsEditor: FC<{
 	const updateHop = (key: string, next: unknown) =>
 		update("udpHop", setKey(udpHop, key, next));
 	return (
-		<Stack spacing={3}>
-			<Flex align="center" justify="space-between" gap={2}>
-				<Box>
-					<Text fontWeight="semibold">QUIC parameters</Text>
-					<Text fontSize="xs" color="gray.500">
+		<div className="flex flex-col gap-3">
+			<div className="flex items-center justify-between gap-2">
+				<div>
+					<p className="font-semibold">QUIC parameters</p>
+					<p className="text-[0.75rem] text-gray-500">
 						Used by Hysteria and XHTTP H3.
-					</Text>
-				</Box>
-				<Switch
-					aria-label="Enable QUIC parameters"
-					isChecked={enabled}
-					onChange={(event) => {
+					</p>
+				</div>
+				<Switch aria-label="Enable QUIC parameters" isChecked={enabled} onChange={(event) => {
 						const activeHop = Boolean(
 							typeof udpHop.ports === "string" && udpHop.ports.trim(),
 						);
@@ -1436,12 +1297,11 @@ const QuicParamsEditor: FC<{
 								? params
 								: setKey(params, "udpHop", undefined);
 						onChange(event.target.checked ? compatible : undefined);
-					}}
-				/>
-			</Flex>
+					}} />
+			</div>
 			<Collapse in={enabled} animateOpacity>
-				<Stack spacing={3} pt={1}>
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+				<div className="flex flex-col gap-3 pt-1">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<SelectField
 							label="Congestion control"
 							value={congestion}
@@ -1482,8 +1342,8 @@ const QuicParamsEditor: FC<{
 									onChange={(next) => update("brutalDown", next)}
 								/>
 							)}
-					</SimpleGrid>
-					<HStack spacing={6} flexWrap="wrap">
+					</div>
+					<div className="flex flex-row items-center gap-6 flex-wrap">
 						<BooleanField
 							label="Debug logging"
 							value={params.debug}
@@ -1501,9 +1361,9 @@ const QuicParamsEditor: FC<{
 								onChange={(next) => update("udpHop", next ? udpHop : undefined)}
 							/>
 						)}
-					</HStack>
+					</div>
 					{allowUdpHop && udpHopEnabled && (
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 							<TextField
 								label="Hop ports"
 								value={udpHop.ports}
@@ -1516,9 +1376,9 @@ const QuicParamsEditor: FC<{
 								placeholder="5-10"
 								onChange={(next) => updateHop("interval", next)}
 							/>
-						</SimpleGrid>
+						</div>
 					)}
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						{QUIC_NUMBER_FIELDS.map((field) => (
 							<NumberField
 								key={field.key}
@@ -1530,10 +1390,10 @@ const QuicParamsEditor: FC<{
 								onChange={(next) => update(field.key, next)}
 							/>
 						))}
-					</SimpleGrid>
-				</Stack>
+					</div>
+				</div>
 			</Collapse>
-		</Stack>
+		</div>
 	);
 };
 
@@ -1575,29 +1435,18 @@ export const FinalMaskEditor: FC<FinalMaskEditorProps> = ({
 		onChange(next);
 	};
 	return (
-		<Stack spacing={4}>
-			<Box borderWidth="1px" borderRadius="lg" p={3}>
-				<Text fontSize="xs" color="gray.500">
+		<div className="flex flex-col gap-4">
+			<div className="border rounded-lg p-3">
+				<p className="text-[0.75rem] text-gray-500">
 					{t("hostsDialog.finalMaskHint")}
-				</Text>
-			</Box>
-			<Stack spacing={5}>
+				</p>
+			</div>
+			<div className="flex flex-col gap-5">
 				{capabilities.tcp && (
-					<LayerCollection
-						direction="tcp"
-						types={capabilities.tcpTypes}
-						value={Array.isArray(current.tcp) ? current.tcp : []}
-						onChange={(layers) => updateSection("tcp", layers)}
-					/>
+					<LayerCollection types={capabilities.tcpTypes} value={Array.isArray(current.tcp) ? current.tcp : []} onChange={(layers) => updateSection("tcp", layers)} direction="tcp" />
 				)}
 				{capabilities.udp && (
-					<LayerCollection
-						direction="udp"
-						types={capabilities.udpTypes}
-						value={Array.isArray(current.udp) ? current.udp : []}
-						allowGecko={capabilities.quic}
-						onChange={(layers) => updateSection("udp", layers)}
-					/>
+					<LayerCollection types={capabilities.udpTypes} value={Array.isArray(current.udp) ? current.udp : []} allowGecko={capabilities.quic} onChange={(layers) => updateSection("udp", layers)} direction="udp" />
 				)}
 				{capabilities.quic && (
 					<QuicParamsEditor
@@ -1607,7 +1456,7 @@ export const FinalMaskEditor: FC<FinalMaskEditorProps> = ({
 						onChange={updateQuic}
 					/>
 				)}
-			</Stack>
-		</Stack>
+			</div>
+		</div>
 	);
 };

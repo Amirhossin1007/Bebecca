@@ -1,4 +1,4 @@
-import { FormControl, FormHelperText, FormLabel } from "@chakra-ui/react";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { useTranslation } from "react-i18next";
 
@@ -33,7 +33,7 @@ export const BuildVersionSelect = ({
 
 	return (
 		<FormControl>
-			<FormLabel fontSize="12px" fontWeight="600" color="panel.textSecondary">
+			<FormLabel className="text-[12px] font-semibold text-panel-text-secondary">
 				{t("dashboard.maintenance.buildVersion")}
 			</FormLabel>
 			<Select
@@ -51,7 +51,7 @@ export const BuildVersionSelect = ({
 					</option>
 				))}
 			</Select>
-			<FormHelperText fontSize="11px" color="panel.textMuted">
+			<FormHelperText className="text-[11px] text-panel-text-muted">
 				{t("dashboard.maintenance.buildVersionFloor", {
 					version: catalog?.floor,
 				})}

@@ -1,18 +1,9 @@
-import {
-	Box,
-	Button,
-	HStack,
-	Icon,
-	IconButton,
-	Popover,
-	PopoverBody,
-	PopoverContent,
-	PopoverTrigger,
-	Portal,
-	Stack,
-	Text,
-	useColorModeValue,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { Popover, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
+import { Button, IconButton } from "components/shadcn/button";
+import { Icon } from "components/shadcn/icon";
+import { Portal } from "components/shadcn/portal";
+import { cn } from "lib/cn";
 import {
 	ArrowDownIcon,
 	ArrowUpIcon,
@@ -82,8 +73,8 @@ export const DataTableSortMenu = ({
 	onSortingChange,
 }: DataTableSortMenuProps) => {
 	const { t } = useTranslation();
-	const mutedColor = useColorModeValue("gray.500", "gray.400");
-	const hoverBg = useColorModeValue("gray.100", "whiteAlpha.100");
+	const mutedColor = useColorModeValue("text-gray-500", "text-gray-400");
+	const hoverBg = useColorModeValue("hover:bg-gray-100", "hover:bg-whiteAlpha-100");
 	const activeSort = sorting[0];
 
 	const directionLabels = (type: DataTableSortType): [string, string] => {
@@ -107,94 +98,46 @@ export const DataTableSortMenu = ({
 	return (
 		<Popover placement="bottom-end" isLazy>
 			<PopoverTrigger>
-				<Box position="relative" display="inline-flex" flexShrink={0}>
-					<IconButton
-						aria-label={t("dataTable.sortOptions", "Sort options")}
-						icon={<Icon as={ArrowsUpDownIcon} boxSize={4} />}
-						variant="outline"
-						size="sm"
-						borderRadius="lg"
-					/>
+				<div className="relative inline-flex shrink-0">
+					<IconButton aria-label={t("dataTable.sortOptions", "Sort options")} icon={<Icon as={ArrowsUpDownIcon} className="size-4" />} variant="outline" size="sm" className="rounded-lg" />
 					{activeSort ? (
-						<Box
-							position="absolute"
-							top="-2px"
-							insetInlineEnd="-2px"
-							w="8px"
-							h="8px"
-							borderRadius="full"
-							bg="primary.400"
-							pointerEvents="none"
-						/>
+						<div className="top-[-2px] absolute end-[-2px] w-[8px] h-[8px] rounded-full bg-primary-400 pointer-events-none" />
 					) : null}
-				</Box>
+				</div>
 			</PopoverTrigger>
 			<Portal>
-				<PopoverContent w="300px" borderRadius="xl" zIndex={2000}>
-					<PopoverBody p={2}>
-						<Text px={1} pb={1.5} fontSize="xs" fontWeight="semibold" color={mutedColor}>
+				<PopoverContent className="w-[300px] rounded-xl z-[2000]">
+					<PopoverBody className="p-2">
+						<p className={cn("px-1 pb-1.5 text-[0.75rem] font-semibold", mutedColor)}>
 							{t("sort.title", "Sort by")}
-						</Text>
-						<Stack spacing={0.5}>
+						</p>
+						<div className="flex flex-col gap-0.5">
 							{options.map((option) => {
 								const [ascLabel, descLabel] = directionLabels(option.type);
 								const isActive = activeSort?.id === option.id;
 								return (
-									<HStack
-										key={option.id}
-										justify="space-between"
-										spacing={2}
-										px={1.5}
-										py={1}
-										borderRadius="md"
-										_hover={{ bg: hoverBg }}
-									>
-										<Text
-											fontSize="xs"
-											noOfLines={1}
-											minW={0}
-											fontWeight={isActive ? "semibold" : "medium"}
-										>
+									<div key={option.id} className={cn("flex flex-row items-center justify-between gap-2 px-1.5 py-1 rounded-md", hoverBg)}>
+										<p className={cn("text-[0.75rem] truncate min-w-0!", isActive ? "font-semibold" : "font-medium")}>
 											{option.label}
-										</Text>
-										<HStack spacing={1} flexShrink={0}>
+										</p>
+										<div className="flex flex-row items-center gap-1 shrink-0">
 											{[false, true].map((desc) => {
 												const selected = isActive && activeSort?.desc === desc;
 												return (
-													<Button
-														key={String(desc)}
-														size="xs"
-														h="22px"
-														px={2}
-														fontSize="xs"
-														fontWeight="medium"
-														borderRadius="full"
-														variant={selected ? "solid" : "outline"}
-														colorScheme={selected ? "primary" : undefined}
-														aria-pressed={selected}
-														leftIcon={
-															<Icon as={desc ? ArrowDownIcon : ArrowUpIcon} boxSize={3} />
-														}
-														onClick={() => applySort(option.id, desc)}
-													>
+													<Button key={String(desc)} size="xs" variant={selected ? "solid" : "outline"} colorScheme={selected ? "primary" : undefined} aria-pressed={selected} leftIcon={
+															<Icon as={desc ? ArrowDownIcon : ArrowUpIcon} className="size-3" />
+														} onClick={() => applySort(option.id, desc)} className="h-[22px] px-2 text-[0.75rem] font-medium rounded-full">
 														{desc ? descLabel : ascLabel}
 													</Button>
 												);
 											})}
-										</HStack>
-									</HStack>
+										</div>
+									</div>
 								);
 							})}
-						</Stack>
+						</div>
 						{activeSort ? (
-							<Button
-								size="xs"
-								variant="ghost"
-								w="full"
-								mt={2}
-								leftIcon={<Icon as={XMarkIcon} boxSize={3.5} />}
-								onClick={() => onSortingChange([])}
-							>
+							<Button size="xs" variant="ghost" leftIcon={<Icon as={XMarkIcon} className="size-3.5" />} onClick={() => onSortingChange([])} className="w-full mt-2">
 								{t("sort.clear", "Clear sort")}
 							</Button>
 						) : null}

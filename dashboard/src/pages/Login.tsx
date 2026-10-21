@@ -9,7 +9,7 @@ import {
 	UserIcon,
 } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useColorMode } from "@chakra-ui/react";
+import { useColorMode } from "lib/color-mode";
 import logoUrl from "assets/logo.svg";
 import { Language } from "components/Language";
 import { Button } from "components/shadcn/button";
@@ -191,7 +191,7 @@ const LoginThemeMenu = () => {
 					)}
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="min-w-40">
+			<DropdownMenuContent className="items-end min-w-40">
 				{options.map((option) => (
 					<DropdownMenuItem key={option.key} onSelect={() => selectTheme(option.key)}>
 						{option.icon}

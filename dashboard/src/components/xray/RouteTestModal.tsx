@@ -1,20 +1,10 @@
-import {
-	Button,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Spinner,
-	Tag,
-	Text,
-	VStack,
-	Wrap,
-	WrapItem,
-} from "@chakra-ui/react";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Tag } from "components/shadcn/badge";
+import { Button } from "components/shadcn/button";
+import { Spinner } from "components/shadcn/feedback";
+import { cn } from "lib/cn";
 import { BoltIcon } from "@heroicons/react/24/outline";
 import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -134,21 +124,17 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 				<XrayModalHeader>{t("pages.xray.routeTest.title")}</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<VStack align="stretch" spacing={3}>
+					<div className="flex flex-col items-stretch gap-3">
 						<XrayDialogSection>
-							<Text fontSize="sm" color="panel.textMuted">
+							<p className="text-[0.875rem] text-panel-text-muted">
 								{isMasterTarget
 									? t("pages.xray.routeTester.nodeTargetRequired")
 									: t("pages.xray.routeTest.description", { target: targetName })}
-							</Text>
+							</p>
 						</XrayDialogSection>
 						<FormControl isRequired>
 							<FormLabel>{t("pages.xray.routeTest.url")}</FormLabel>
-							<Input
-								value={testURL}
-								placeholder="https://example.com/"
-								onChange={(event) => setTestURL(event.target.value)}
-							/>
+							<Input value={testURL} placeholder="https://example.com/" onChange={(event) => setTestURL(event.target.value)} />
 							<FormHelperText>{t("pages.xray.routeTest.urlHint")}</FormHelperText>
 						</FormControl>
 						<FormControl>
@@ -158,44 +144,39 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 						</FormControl>
 						{result && (
 							<XrayDialogSection>
-								<VStack align="stretch" spacing={2}>
-									<Text color={result.success ? "green.300" : "red.300"} fontWeight="semibold" fontSize="sm">
+								<div className="flex flex-col items-stretch gap-2">
+									<p className={cn("font-semibold text-[0.875rem]", result.success ? "text-green-300" : "text-red-300")}>
 										{result.success
 											? t("pages.xray.routeTest.success")
 											: result.error || t("pages.xray.routeTest.failed")}
-									</Text>
+									</p>
 									{result.success && (
-										<HStack spacing={2} flexWrap="wrap">
+										<div className="flex flex-row items-center gap-2 flex-wrap">
 											<Tag size="sm">{result.delay ?? 0} ms</Tag>
 											{result.statusCode ? <Tag size="sm">HTTP {result.statusCode}</Tag> : null}
 											{result.outboundTag ? <Tag size="sm" colorScheme="blue">{result.outboundTag}</Tag> : null}
 											{result.groupTags?.map((tag) => <Tag key={tag} size="sm" colorScheme="orange">{tag}</Tag>)}
-										</HStack>
+										</div>
 									)}
 									{result.outboundTraffic?.length ? (
-										<Wrap spacing={2}>
+										<div className="flex flex-wrap gap-2">
 											{result.outboundTraffic.map((traffic) => (
-												<WrapItem key={traffic.tag}>
+												<div key={traffic.tag}>
 													<Tag size="sm" colorScheme="green">
 														{traffic.tag}: {formatBytes(traffic.up + traffic.down)}
 													</Tag>
-												</WrapItem>
+												</div>
 											))}
-										</Wrap>
+										</div>
 									) : null}
-								</VStack>
+								</div>
 							</XrayDialogSection>
 						)}
-					</VStack>
+					</div>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<Button variant="ghost" onClick={onClose}>{t("close")}</Button>
-					<Button
-						leftIcon={isTesting ? <Spinner size="xs" /> : <BoltIcon />}
-						colorScheme="primary"
-						onClick={runTest}
-						isDisabled={isTesting || isMasterTarget || !testURL.trim()}
-					>
+					<Button size="md" variant="ghost" onClick={onClose}>{t("close")}</Button>
+					<Button size="md" leftIcon={isTesting ? <Spinner size="xs" /> : <BoltIcon />} colorScheme="primary" onClick={runTest} isDisabled={isTesting || isMasterTarget || !testURL.trim()}>
 						{t("pages.xray.routeTester.test")}
 					</Button>
 				</XrayModalFooter>

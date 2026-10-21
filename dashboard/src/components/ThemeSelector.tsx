@@ -1,8 +1,4 @@
-import {
-	// Chakra's color mode is the one Chakra import left in this file. The
-	// theme provider still owns colorMode; see docs/migration/chakra-removal-prompt.md.
-	useColorMode,
-} from "@chakra-ui/react";
+import { useColorMode } from "lib/color-mode";
 import {
 	CheckIcon,
 	MoonIcon,
@@ -423,12 +419,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						</span>
 					</Button>
 				</PopoverTrigger>
-				<PopoverContent
-					container={portalContainer?.current}
-					side={isWide ? "left" : "bottom"}
-					align="start"
-					className={PANEL_CLASS}
-				>
+				<PopoverContent container={portalContainer?.current} side={isWide ? "left" : "bottom"} className={cn("items-start", PANEL_CLASS)}>
 					{panel}
 				</PopoverContent>
 			</Popover>
@@ -455,7 +446,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	return (
 		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>{triggerButton}</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className={PANEL_CLASS}>
+			<DropdownMenuContent className={cn("items-start", PANEL_CLASS)}>
 				{panel}
 			</DropdownMenuContent>
 		</DropdownMenu>

@@ -1,4 +1,4 @@
-import type { CreateToastFnReturn } from "@chakra-ui/react";
+import type { ToastFunction } from "components/shadcn/toast";
 import type { FieldValues, UseFormReturn } from "react-hook-form";
 import { getAPIErrorMessage } from "service/http";
 
@@ -40,7 +40,7 @@ const getErrorMessage = (error: unknown): string | undefined => {
 
 export const generateErrorMessage = (
 	e: unknown,
-	toast: CreateToastFnReturn,
+	toast: ToastFunction,
 	form?: UseFormReturn<FieldValues | any>,
 ) => {
 	const errorRecord = asRecord(e);
@@ -83,7 +83,7 @@ export const generateErrorMessage = (
 
 export const generateSuccessMessage = (
 	message: string,
-	toast: CreateToastFnReturn,
+	toast: ToastFunction,
 ) => {
 	return toast({
 		title: message,

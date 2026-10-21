@@ -1,21 +1,11 @@
+import { cn } from "lib/cn";
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import {
-	Alert,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	ButtonGroup,
-	Divider,
-	HStack,
-	Progress,
-	SimpleGrid,
-	Stack,
-	Switch,
-	Text,
-	VStack,
-} from "@chakra-ui/react";
+import { Badge } from "components/shadcn/badge";
+import { Button, ButtonGroup } from "components/shadcn/button";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Switch } from "components/shadcn/selection";
+import { Progress } from "components/shadcn/feedback";
 import { ArrowPathIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { OperatorIdentity } from "components/OperatorIdentity";
 import { PanelSelect as Select } from "components/common/PanelSelect";
@@ -223,14 +213,14 @@ const AccessInsightsPage: FC = () => {
 				minWidth: "160px",
 				mobilePriority: 0,
 				cell: (client) => (
-					<VStack align="start" spacing={0.5} minW={0}>
-						<Text fontWeight="semibold" noOfLines={1} maxW="full">
+					<div className="flex flex-col items-start gap-0.5 min-w-0!">
+						<p className="font-semibold truncate max-w-full">
 							{client.user_label}
-						</Text>
-						<Text fontSize="xs" color="panel.textMuted">
+						</p>
+						<p className="text-[0.75rem] text-panel-text-muted">
 							{t("pages.accessInsights.connections")}: {client.connections}
-						</Text>
-					</VStack>
+						</p>
+					</div>
 				),
 			},
 			{
@@ -249,45 +239,36 @@ const AccessInsightsPage: FC = () => {
 					);
 					const sources = uniqueStrings(client.sources || []);
 					return (
-						<VStack align="stretch" spacing={2} minW={0}>
+						<div className="flex flex-col items-stretch gap-2 min-w-0!">
 							{sources.slice(0, 3).map((ip) => {
 								const operator = operatorByIP.get(ip);
 								const nodes = uniqueStrings(client.source_nodes?.[ip] || []);
 								return (
-									<HStack key={ip} align="center" spacing={2} minW={0}>
-										<Box minW="112px">
-											<Text
-												dir="ltr"
-												fontFamily="mono"
-												fontSize="xs"
-												fontWeight="semibold"
-											>
+									<div key={ip} className="flex flex-row items-center gap-2 min-w-0!">
+										<div className="min-w-[112px]!">
+											<p dir="ltr" className="font-mono text-[0.75rem] font-semibold">
 												{ip}
-											</Text>
+											</p>
 											{nodes.length ? (
-												<Text
-													fontSize="xs"
-													color="panel.textMuted"
-													noOfLines={1}
-												>
+												<p className="text-[0.75rem] text-panel-text-muted truncate">
 													{nodes.join(", ")}
-												</Text>
+												</p>
 											) : null}
-										</Box>
+										</div>
 										<OperatorIdentity
 											shortName={operator?.short_name}
 											owner={operator?.owner}
 											compact
 										/>
-									</HStack>
+									</div>
 								);
 							})}
 							{sources.length > 3 ? (
-								<Text fontSize="xs" color="panel.textMuted">
+								<p className="text-[0.75rem] text-panel-text-muted">
 									+{sources.length - 3}
-								</Text>
+								</p>
 							) : null}
-						</VStack>
+						</div>
 					);
 				},
 			},
@@ -301,17 +282,13 @@ const AccessInsightsPage: FC = () => {
 				minWidth: "170px",
 				mobilePriority: 2,
 				cell: (client) => (
-					<HStack spacing={1.5} flexWrap="wrap">
+					<div className="flex flex-row items-center gap-1.5 flex-wrap">
 						{client.platforms.map((protocol) => (
-							<Badge
-								key={protocol.platform}
-								colorScheme={protocolColor(protocol.platform)}
-								borderRadius="md"
-							>
+							<Badge key={protocol.platform} colorScheme={protocolColor(protocol.platform)} className="rounded-md">
 								{protocol.platform} · {protocol.connections}
 							</Badge>
 						))}
-					</HStack>
+					</div>
 				),
 			},
 			{
@@ -323,9 +300,9 @@ const AccessInsightsPage: FC = () => {
 				minWidth: "145px",
 				mobilePriority: 3,
 				cell: (client) => (
-					<Text dir="ltr" fontSize="xs" whiteSpace="nowrap">
+					<p dir="ltr" className="text-[0.75rem] whitespace-nowrap">
 						{dayjs(client.last_seen).format("YYYY-MM-DD HH:mm:ss")}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -336,12 +313,7 @@ const AccessInsightsPage: FC = () => {
 				minWidth: "86px",
 				mobilePriority: 4,
 				cell: (client) => (
-					<Button
-						size="xs"
-						variant="ghost"
-						leftIcon={<EyeIcon width={15} />}
-						onClick={() => setSelectedClient(client)}
-					>
+					<Button size="xs" variant="ghost" leftIcon={<EyeIcon className="w-15" />} onClick={() => setSelectedClient(client)}>
 						{t("details")}
 					</Button>
 				),
@@ -356,38 +328,32 @@ const AccessInsightsPage: FC = () => {
 
 	if (!canView) {
 		return (
-			<Box p={6}>
-				<Alert status="warning" borderRadius="md">
+			<div className="p-6">
+				<Alert status="warning" className="rounded-md">
 					<AlertIcon />
 					{t("pages.accessInsights.noPermission")}
 				</Alert>
-			</Box>
+			</div>
 		);
 	}
 
 	const pagination =
 		totalPages > 1 ? (
-			<HStack justify="space-between" w="full">
-				<Text fontSize="sm" color="panel.textMuted">
+			<div className="flex flex-row items-center gap-2 justify-between w-full">
+				<p className="text-[0.875rem] text-panel-text-muted">
 					{page + 1} / {totalPages}
-				</Text>
+				</p>
 				<ButtonGroup size="sm" isAttached variant="outline">
-					<Button
-						onClick={() => setPage((current) => Math.max(0, current - 1))}
-						isDisabled={page === 0}
-					>
+					<Button variant="solid" size="md" onClick={() => setPage((current) => Math.max(0, current - 1))} isDisabled={page === 0}>
 						{t("previous")}
 					</Button>
-					<Button
-						onClick={() =>
+					<Button variant="solid" size="md" onClick={() =>
 							setPage((current) => Math.min(totalPages - 1, current + 1))
-						}
-						isDisabled={page >= totalPages - 1}
-					>
+						} isDisabled={page >= totalPages - 1}>
 						{t("next")}
 					</Button>
 				</ButtonGroup>
-			</HStack>
+			</div>
 		) : null;
 	const selectedSources = uniqueStrings(selectedClient?.sources || []);
 	const selectedOperatorByIP = new Map(
@@ -406,13 +372,8 @@ const AccessInsightsPage: FC = () => {
 			: 0;
 
 	return (
-		<VStack
-			spacing={5}
-			align="stretch"
-			dir={isRTL ? "rtl" : "ltr"}
-			data-dir={isRTL ? "rtl" : "ltr"}
-		>
-			<Stack spacing={3}>
+		<div dir={isRTL ? "rtl" : "ltr"} data-dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-5 items-stretch">
+			<div className="flex flex-col gap-3">
 				<ResourceListCard
 					title={t("pages.accessInsights.onlineSessions")}
 					summaryItems={[
@@ -433,76 +394,51 @@ const AccessInsightsPage: FC = () => {
 						},
 					]}
 					actions={
-						<HStack spacing={3} justify={{ base: "space-between", xl: "end" }}>
-							<HStack spacing={2}>
-								<Switch
-									isChecked={autoRefresh}
-									onChange={(event) => setAutoRefresh(event.target.checked)}
-									aria-label={t("pages.accessInsights.autoRefresh")}
-								/>
-								<Text fontSize="sm">
+						<div className="flex flex-row items-center gap-3 justify-between xl:justify-end">
+							<div className="flex flex-row items-center gap-2">
+								<Switch isChecked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} aria-label={t("pages.accessInsights.autoRefresh")} />
+								<p className="text-[0.875rem]">
 									{t("pages.accessInsights.autoRefresh")}
-								</Text>
-							</HStack>
+								</p>
+							</div>
 							<ResourceRefreshButton
 								aria-label={t("refresh")}
 								label={t("refresh")}
-								icon={<ArrowPathIcon width={18} />}
+								icon={<ArrowPathIcon className="w-18" />}
 								onClick={() => void load()}
 								isLoading={loading}
 							/>
-						</HStack>
+						</div>
 					}
 					footerActions={
 						protocolTotals.length ? (
-							<HStack spacing={1.5} flexWrap="wrap">
+							<div className="flex flex-row items-center gap-1.5 flex-wrap">
 								{protocolTotals.map(([protocol, count]) => (
-									<Badge
-										key={protocol}
-										colorScheme={protocolColor(protocol)}
-										borderRadius="md"
-									>
+									<Badge key={protocol} colorScheme={protocolColor(protocol)} className="rounded-md">
 										{protocol} · {count}
 									</Badge>
 								))}
-							</HStack>
+							</div>
 						) : undefined
 					}
 				>
-					<Stack
-						direction={{ base: "column", lg: "row" }}
-						spacing={2}
-						w="full"
-						maxW="760px"
-					>
-						<SearchInput
-							containerProps={{ flex: "1" }}
-							value={search}
-							onChange={(event) => {
+					<div className="flex flex-col lg:flex-row gap-2 w-full max-w-[760px]">
+						<SearchInput containerProps={{ className: "flex-1" }} value={search} onChange={(event) => {
 								setSearch(event.target.value);
 								setPage(0);
-							}}
-							placeholder={t("pages.accessInsights.liveSearch")}
-							matchOptions={searchMatch}
-							onMatchOptionsChange={(options) => {
+							}} placeholder={t("pages.accessInsights.liveSearch")} matchOptions={searchMatch} onMatchOptionsChange={(options) => {
 								setSearchMatch(options);
 								setPage(0);
-							}}
-						/>
+							}} />
 						<DataTableSortMenu
 							options={buildSortOptions(columns, visibleItems)}
 							sorting={accessSorting}
 							onSortingChange={setAccessSorting}
 						/>
-						<Select
-							value={protocolFilter}
-							onChange={(event) => {
+						<Select value={protocolFilter} onChange={(event) => {
 								setProtocolFilter(event.target.value);
 								setPage(0);
-							}}
-							aria-label={t("pages.accessInsights.allProtocols")}
-							w={{ base: "full", md: "180px" }}
-						>
+							}} aria-label={t("pages.accessInsights.allProtocols")} className="w-full md:w-[180px]">
 							<option value="">{t("pages.accessInsights.allProtocols")}</option>
 							{protocolOptions.map((protocol) => (
 								<option key={protocol} value={protocol}>
@@ -510,15 +446,10 @@ const AccessInsightsPage: FC = () => {
 								</option>
 							))}
 						</Select>
-						<Select
-							value={nodeFilter}
-							onChange={(event) => {
+						<Select value={nodeFilter} onChange={(event) => {
 								setNodeFilter(event.target.value);
 								setPage(0);
-							}}
-							aria-label={t("pages.accessInsights.allNodes")}
-							w={{ base: "full", md: "180px" }}
-						>
+							}} aria-label={t("pages.accessInsights.allNodes")} className="w-full md:w-[180px]">
 							<option value="">{t("pages.accessInsights.allNodes")}</option>
 							{nodeOptions.map((node) => (
 								<option key={node} value={node}>
@@ -526,7 +457,7 @@ const AccessInsightsPage: FC = () => {
 								</option>
 							))}
 						</Select>
-					</Stack>
+					</div>
 				</ResourceListCard>
 
 				<DataTable
@@ -541,167 +472,125 @@ const AccessInsightsPage: FC = () => {
 					loadingRows={8}
 					error={error || undefined}
 					emptyState={
-						<Text fontSize="sm" color="panel.textMuted" textAlign="center">
+						<p className="text-[0.875rem] text-panel-text-muted text-center">
 							{t("pages.accessInsights.noData")}
-						</Text>
+						</p>
 					}
 					pagination={pagination}
 					mobileBreakpoint="md"
 					dir={isRTL ? "rtl" : "ltr"}
 					tableProps={{
-						className: isRTL ? "rb-rtl-table" : undefined,
-						w: "full",
-						sx: {
-							tableLayout: "fixed",
-							"& th, & td": {
-								px: { base: 2, xl: 2.5 },
-								py: 2.5,
-								verticalAlign: "middle",
-							},
-						},
-					}}
+						className: cn(isRTL ? "rb-rtl-table" : undefined, "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5") }}
 				/>
-			</Stack>
+			</div>
 
-			<AppDialog
-				isOpen={selectedClient !== null}
-				onClose={() => setSelectedClient(null)}
-				isCentered
-				size="xl"
-				title={`${t("details")}: ${selectedClient?.user_label || ""}`}
-				contentProps={{ maxH: "min(760px, calc(100dvh - 2rem))" }}
-				bodyProps={{ pb: 6 }}
-			>
+			<AppDialog isOpen={selectedClient !== null} onClose={() => setSelectedClient(null)} isCentered size="xl" title={`${t("details")}: ${selectedClient?.user_label || ""}`} contentProps={{ className: "max-h-[min(760px,_calc(100dvh_-_2rem))]" }} bodyProps={{ className: "pb-6" }}>
 				{selectedClient ? (
-					<Stack spacing={5}>
-						<SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
-							<Box>
-								<Text fontSize="xs" color="panel.textMuted">
+					<div className="flex flex-col gap-5">
+						<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+							<div>
+								<p className="text-[0.75rem] text-panel-text-muted">
 									{t("status")}
-								</Text>
-								<Badge
-									mt={1}
-									colorScheme={
+								</p>
+								<Badge colorScheme={
 										selectedClient.user_status === "active" ? "green" : "gray"
-									}
-								>
+									} className="mt-1">
 									{t(`status.${selectedClient.user_status || "active"}`, {
 										defaultValue: selectedClient.user_status || "-",
 									})}
 								</Badge>
-							</Box>
-							<Box>
-								<Text fontSize="xs" color="panel.textMuted">
+							</div>
+							<div>
+								<p className="text-[0.75rem] text-panel-text-muted">
 									{t("service")}
-								</Text>
-								<Text mt={1} fontSize="sm" fontWeight="semibold" noOfLines={1}>
+								</p>
+								<p className="mt-1 text-[0.875rem] font-semibold truncate">
 									{selectedClient.service_name || "-"}
-								</Text>
-							</Box>
-							<Box>
-								<Text fontSize="xs" color="panel.textMuted">
+								</p>
+							</div>
+							<div>
+								<p className="text-[0.75rem] text-panel-text-muted">
 									{t("pages.accessInsights.connections")}
-								</Text>
-								<Text mt={1} fontSize="sm" fontWeight="semibold">
+								</p>
+								<p className="mt-1 text-[0.875rem] font-semibold">
 									{selectedClient.connections}
-								</Text>
-							</Box>
-							<Box>
-								<Text fontSize="xs" color="panel.textMuted">
+								</p>
+							</div>
+							<div>
+								<p className="text-[0.75rem] text-panel-text-muted">
 									{t("expire")}
-								</Text>
-								<Text mt={1} fontSize="sm" fontWeight="semibold" dir="ltr">
+								</p>
+								<p dir="ltr" className="mt-1 text-[0.875rem] font-semibold">
 									{selectedClient.expire
 										? dayjs
 												.unix(selectedClient.expire)
 												.format("YYYY-MM-DD HH:mm")
 										: t("admins.expireNotSet")}
-								</Text>
-							</Box>
-						</SimpleGrid>
+								</p>
+							</div>
+						</div>
 
-						<Box>
-							<HStack justify="space-between" mb={2}>
-								<Text fontSize="sm" fontWeight="semibold">
+						<div>
+							<div className="flex flex-row items-center gap-2 justify-between mb-2">
+								<p className="text-[0.875rem] font-semibold">
 									{t("dataUsage")}
-								</Text>
-								<Text fontSize="xs" color="panel.textMuted" dir="ltr">
+								</p>
+								<p dir="ltr" className="text-[0.75rem] text-panel-text-muted">
 									{formatBytes(selectedUsage)} /{" "}
 									{selectedLimit > 0
 										? formatBytes(selectedLimit)
 										: t("unlimited")}
-								</Text>
-							</HStack>
-							<Progress
-								value={selectedUsagePercent}
-								isAnimated={false}
-								size="sm"
-								borderRadius="full"
-								colorScheme={selectedUsagePercent >= 90 ? "red" : "green"}
-							/>
-							<Text mt={2} fontSize="xs" color="panel.textMuted" dir="ltr">
+								</p>
+							</div>
+							<Progress value={selectedUsagePercent} isAnimated={false} size="sm" colorScheme={selectedUsagePercent >= 90 ? "red" : "green"} className="rounded-full" />
+							<p dir="ltr" className="mt-2 text-[0.75rem] text-panel-text-muted">
 								{t("remaining")}:{" "}
 								{selectedRemaining === null
 									? t("unlimited")
 									: formatBytes(selectedRemaining)}
-							</Text>
-						</Box>
+							</p>
+						</div>
 
-						<Divider />
-						<Box>
-							<HStack justify="space-between" mb={2}>
-								<Text fontSize="sm" fontWeight="semibold">
+						<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+						<div>
+							<div className="flex flex-row items-center gap-2 justify-between mb-2">
+								<p className="text-[0.875rem] font-semibold">
 									{t("pages.accessInsights.ips")}
-								</Text>
+								</p>
 								<Badge variant="subtle">{selectedSources.length}</Badge>
-							</HStack>
-							<VStack align="stretch" spacing={0} maxH="320px" overflowY="auto">
+							</div>
+							<div className="flex flex-col items-stretch gap-0 max-h-[320px] overflow-y-auto">
 								{selectedSources.map((ip) => {
 									const operator = selectedOperatorByIP.get(ip);
 									const nodes = uniqueStrings(
 										selectedClient.source_nodes?.[ip] || [],
 									);
 									return (
-										<HStack
-											key={ip}
-											py={2}
-											borderBottomWidth="1px"
-											borderColor="panel.border"
-											align="center"
-										>
-											<Box minW={{ base: "132px", md: "180px" }}>
-												<Text
-													dir="ltr"
-													fontFamily="mono"
-													fontSize="xs"
-													fontWeight="semibold"
-												>
+										<div key={ip} className="flex flex-row gap-2 py-2 border-b border-panel-border! items-center">
+											<div className="min-w-[132px]! md:min-w-[180px]!">
+												<p dir="ltr" className="font-mono text-[0.75rem] font-semibold">
 													{ip}
-												</Text>
+												</p>
 												{nodes.length ? (
-													<Text
-														fontSize="xs"
-														color="panel.textMuted"
-														noOfLines={1}
-													>
+													<p className="text-[0.75rem] text-panel-text-muted truncate">
 														{nodes.join(", ")}
-													</Text>
+													</p>
 												) : null}
-											</Box>
+											</div>
 											<OperatorIdentity
 												shortName={operator?.short_name}
 												owner={operator?.owner}
 												compact
 											/>
-										</HStack>
+										</div>
 									);
 								})}
-							</VStack>
-						</Box>
-					</Stack>
+							</div>
+						</div>
+					</div>
 				) : null}
 			</AppDialog>
-		</VStack>
+		</div>
 	);
 };
 

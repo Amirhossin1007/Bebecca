@@ -1,4 +1,4 @@
-import { Box, Button, HStack, Stack, Text } from "@chakra-ui/react";
+import { Button } from "components/shadcn/button";
 import { RequestErrors } from "components/RequestErrors";
 import {
 	SystemDiagnostics,
@@ -39,7 +39,7 @@ export default function ErrorsPage() {
 	const empty = !visibleIssues.length && (!showRequests || !requests.length);
 
 	return (
-		<Stack spacing={5}>
+		<div className="flex flex-col gap-5">
 			<PageHeader
 				title="errors"
 				description={t("diagnostics.pageDescription")}
@@ -55,23 +55,14 @@ export default function ErrorsPage() {
 				}))}
 				actions={
 					canSeeGlobal ? (
-						<Button
-							size="sm"
-							onClick={() => query.refetch()}
-							isLoading={query.isFetching}
-						>
+						<Button variant="solid" size="sm" onClick={() => query.refetch()} isLoading={query.isFetching}>
 							{t("diagnostics.refresh")}
 						</Button>
 					) : undefined
 				}
 			>
-				<HStack>
-					<Select
-						aria-label={t("diagnostics.filterLevel")}
-						value={level}
-						onChange={(event) => setLevel(event.target.value as typeof level)}
-						maxW="260px"
-					>
+				<div className="flex flex-row items-center gap-2">
+					<Select aria-label={t("diagnostics.filterLevel")} value={level} onChange={(event) => setLevel(event.target.value as typeof level)} className="max-w-[260px]">
 						<option value="all">{t("diagnostics.allLevels")}</option>
 						{levels.map((severity) => (
 							<option key={severity} value={severity}>
@@ -79,7 +70,7 @@ export default function ErrorsPage() {
 							</option>
 						))}
 					</Select>
-				</HStack>
+				</div>
 			</ResourceListCard>
 			{canSeeGlobal && query.isLoading ? (
 				<PageLoadingSkeleton />
@@ -91,12 +82,12 @@ export default function ErrorsPage() {
 					/>
 					{showRequests && <RequestErrors />}
 					{empty && !(canSeeGlobal && query.error) && (
-						<Box p={6} bg="panel.surface" borderRadius="2xl">
-							<Text color="panel.textSecondary">{t("diagnostics.empty")}</Text>
-						</Box>
+						<div className="p-6 bg-panel-surface rounded-2xl">
+							<p className="text-panel-text-secondary">{t("diagnostics.empty")}</p>
+						</div>
 					)}
 				</>
 			)}
-		</Stack>
+		</div>
 	);
 }

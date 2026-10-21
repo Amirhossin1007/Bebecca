@@ -1,16 +1,7 @@
-import {
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalFooter,
-	ModalHeader,
-	ModalOverlay,
-	type ModalProps,
-} from "@chakra-ui/react";
+import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
 import type { ComponentProps, ReactNode } from "react";
 
-export type AppDialogProps = Omit<ModalProps, "children"> & {
+export type AppDialogProps = Omit<ComponentProps<typeof Modal>, "children"> & {
 	title: ReactNode;
 	children: ReactNode;
 	footer?: ReactNode;

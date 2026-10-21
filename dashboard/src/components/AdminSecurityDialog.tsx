@@ -1,12 +1,6 @@
-import {
-	Badge,
-	Box,
-	Button,
-	HStack,
-	Stack,
-	Text,
-	useToast,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { Button } from "components/shadcn/button";
+import { Badge } from "components/shadcn/badge";
 import { AppDialog } from "components/dialogs/AppDialog";
 import dayjs from "dayjs";
 import { QRCodeCanvas } from "qrcode.react";
@@ -100,91 +94,74 @@ export const AdminSecurityDialog = ({
 			isOpen={isOpen}
 			onClose={onClose}
 			title={t("admins.security.title", { username: admin?.username ?? "" })}
-			footer={<Button onClick={onClose}>{t("close")}</Button>}
+			footer={<Button variant="solid" size="md" onClick={onClose}>{t("close")}</Button>}
 		>
-			<Stack spacing={5}>
+			<div className="flex flex-col gap-5">
 				{canManage2FA && (
-					<Box>
-						<HStack justify="space-between" mb={3}>
-							<Text fontWeight="semibold">
+					<div>
+						<div className="flex flex-row items-center gap-2 justify-between mb-3">
+							<p className="font-semibold">
 								{t("myaccount.twoFactor")}
-							</Text>
+							</p>
 							<Badge colorScheme={admin?.totp_enabled ? "green" : "gray"}>
 								{admin?.totp_enabled
 									? t("nodes.enabled")
 									: t("disabled")}
 							</Badge>
-						</HStack>
-						<Button
-							colorScheme={admin?.totp_enabled ? "red" : "primary"}
-							isLoading={loading}
-							onClick={admin?.totp_enabled ? remove2FA : enable2FA}
-							size="sm"
-						>
+						</div>
+						<Button colorScheme={admin?.totp_enabled ? "red" : "primary"} isLoading={loading} onClick={admin?.totp_enabled ? remove2FA : enable2FA} size="sm">
 							{admin?.totp_enabled
 								? t("admins.security.remove2FA")
 								: t("admins.security.setup2FA")}
 						</Button>
 						{setup && (
-							<Stack align="center" mt={4} spacing={3}>
-								<Box bg="white" borderRadius="md" p={3}>
+							<div className="flex flex-col items-center mt-4 gap-3">
+								<div className="bg-white rounded-md p-3">
 									<QRCodeCanvas value={setup.uri} size={190} />
-								</Box>
-								<Text fontFamily="mono" fontSize="xs" wordBreak="break-all">
+								</div>
+								<p className="font-mono text-[0.75rem] break-all">
 									{setup.secret}
-								</Text>
-								<Text color="orange.500" fontSize="xs">
+								</p>
+								<p className="text-orange-500 text-[0.75rem]">
 									{t("admins.security.shareSecret")}
-								</Text>
-							</Stack>
+								</p>
+							</div>
 						)}
-					</Box>
+					</div>
 				)}
 				{canManageSessions && (
-					<Box>
-						<Text fontWeight="semibold" mb={3}>
+					<div>
+						<p className="font-semibold mb-3">
 							{t("myaccount.sessions")}
-						</Text>
-						<Stack spacing={2}>
+						</p>
+						<div className="flex flex-col gap-2">
 							{sessions.map((session) => (
-								<HStack
-									key={session.id}
-									borderWidth="1px"
-									borderRadius="md"
-									justify="space-between"
-									p={3}
-								>
-									<Box minW={0}>
-										<Text fontSize="sm" fontWeight="semibold">
+								<div key={session.id} className="flex flex-row items-center gap-2 border rounded-md justify-between p-3">
+									<div className="min-w-0!">
+										<p className="text-[0.875rem] font-semibold">
 											{session.ip_address || "-"}
-										</Text>
-										<Text color="gray.500" fontSize="xs" noOfLines={1}>
+										</p>
+										<p className="text-gray-500 text-[0.75rem] truncate">
 											{session.user_agent || "-"}
-										</Text>
-										<Text color="gray.500" fontSize="xs">
+										</p>
+										<p className="text-gray-500 text-[0.75rem]">
 											{dayjs(session.last_seen_at).format("YYYY-MM-DD HH:mm")}
-										</Text>
-									</Box>
-									<Button
-										colorScheme="red"
-										isLoading={loading}
-										onClick={() => revoke(session.id)}
-										size="xs"
-										variant="ghost"
-									>
+										</p>
+									</div>
+									<Button colorScheme="red" isLoading={loading} onClick={() => revoke(session.id)} size="xs" variant="ghost">
 										{t("header.logout")}
 									</Button>
-								</HStack>
+								</div>
 							))}
 							{!sessions.length && (
-								<Text color="gray.500" fontSize="sm">
+								<p className="text-gray-500 text-[0.875rem]">
 									{t("noData")}
-								</Text>
+								</p>
 							)}
-						</Stack>
-					</Box>
+						</div>
+					</div>
 				)}
-			</Stack>
+			</div>
 		</AppDialog>
 	);
 };

@@ -1,7 +1,3 @@
-import {
-	Text,
-	VStack,
-} from "@chakra-ui/react";
 import { AdminDialog } from "components/AdminDialog";
 import { AdminsTable } from "components/AdminsTable";
 import { Filters, ReloadIcon } from "components/Filters";
@@ -37,22 +33,22 @@ export const AdminsPage: FC = () => {
 
 	if (!canViewAdmins) {
 		return (
-			<VStack spacing={4} align="stretch">
+			<div className="flex flex-col gap-4 items-stretch">
 				<PageHeader
 					title={t("admins")}
 					description={t("admins.pageDescription")}
 				/>
-				<Text color="panel.textMuted">
+				<p className="text-panel-text-muted">
 					{t("admins.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
 	return (
-		<VStack spacing={4} align="stretch">
+		<div className="flex flex-col gap-4 items-stretch">
 			<AdminsTable
-				toolbar={<Filters for="admins" py={0} showRefresh={false} />}
+				toolbar={<Filters for="admins" showRefresh={false} className="py-0" />}
 				footerActions={
 					<ResourceRefreshButton
 						aria-label={t("refresh")}
@@ -65,7 +61,7 @@ export const AdminsPage: FC = () => {
 			/>
 			<Pagination for="admins" />
 			<AdminDialog />
-		</VStack>
+		</div>
 	);
 };
 

@@ -1,33 +1,11 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Divider,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	SimpleGrid,
-	Spinner,
-	Stack,
-	Table,
-	Tag,
-	Tbody,
-	Td,
-	Text,
-	Th,
-	Thead,
-	Tr,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Spinner } from "components/shadcn/feedback";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { Badge, Tag } from "components/shadcn/badge";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
 	ArrowPathIcon,
@@ -405,116 +383,92 @@ export const NordVPNModal: FC<Props> = ({
 				<XrayModalHeader>NordVPN NordLynx</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<VStack spacing={4} align="stretch">
+					<div className="flex flex-col gap-4 items-stretch">
 						{loading && (
-							<HStack>
+							<div className="flex flex-row items-center gap-2">
 								<Spinner size="sm" />
-								<Text fontSize="sm" color="gray.500">
+								<p className="text-[0.875rem] text-gray-500">
 									{t("loading")}
-								</Text>
-							</HStack>
+								</p>
+							</div>
 						)}
 						{!nordData?.private_key ? (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-								<Box borderWidth="1px" borderRadius="md" p={4}>
-									<Stack spacing={3}>
-										<Text fontWeight="bold">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div className="border rounded-md p-4">
+									<div className="flex flex-col gap-3">
+										<p className="font-bold">
 											{t("pages.xray.warp.accessToken")}
-										</Text>
+										</p>
 										<FormControl>
 											<FormLabel>{t("userDialog.links.subscriptionToken")}</FormLabel>
-											<Input
-												value={token}
-												onChange={(event) => setToken(event.target.value)}
-												placeholder="NordVPN access token"
-											/>
+											<Input value={token} onChange={(event) => setToken(event.target.value)} placeholder="NordVPN access token" />
 											<FormHelperText>
 												{t("pages.xray.nord.tokenHelp")}
 											</FormHelperText>
 										</FormControl>
-										<Button
-											leftIcon={<KeyIcon width={16} />}
-											isLoading={loading}
-											onClick={register}
-											colorScheme="primary"
-										>
+										<Button size="md" leftIcon={<KeyIcon className="w-16" />} isLoading={loading} onClick={register} colorScheme="primary">
 											{t("login")}
 										</Button>
-									</Stack>
-								</Box>
-								<Box borderWidth="1px" borderRadius="md" p={4}>
-									<Stack spacing={3}>
-										<Text fontWeight="bold">
+									</div>
+								</div>
+								<div className="border rounded-md p-4">
+									<div className="flex flex-col gap-3">
+										<p className="font-bold">
 											{t("pages.xray.nord.manualKey")}
-										</Text>
+										</p>
 										<FormControl>
 											<FormLabel>
 												{t("inbounds.wireguard.privateKey")}
 											</FormLabel>
-											<Input
-												value={manualKey}
-												onChange={(event) => setManualKey(event.target.value)}
-												placeholder="NordLynx private key"
-											/>
+											<Input value={manualKey} onChange={(event) => setManualKey(event.target.value)} placeholder="NordLynx private key" />
 										</FormControl>
-										<Button
-											leftIcon={<CloudArrowDownIcon width={16} />}
-											isLoading={loading}
-											onClick={saveManualKey}
-										>
+										<Button variant="solid" size="md" leftIcon={<CloudArrowDownIcon className="w-16" />} isLoading={loading} onClick={saveManualKey}>
 											{t("save")}
 										</Button>
-									</Stack>
-								</Box>
-							</SimpleGrid>
+									</div>
+								</div>
+							</div>
 						) : (
-							<Stack spacing={4}>
-								<Alert status="success" borderRadius="md">
+							<div className="flex flex-col gap-4">
+								<Alert status="success" className="rounded-md">
 									<AlertIcon />
 									<AlertDescription>
 										{t("pages.xray.nord.ready")}
 									</AlertDescription>
 								</Alert>
-								<Table size="sm" variant="simple">
-									<Thead>
-										<Tr>
-											<Th>{t("field")}</Th>
-											<Th>{t("value")}</Th>
-										</Tr>
-									</Thead>
-									<Tbody>
+								<table className="w-full border-separate border-spacing-0">
+									<thead>
+										<tr>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text">{t("field")}</th>
+											<th className="bg-panel-elevated px-6 py-3 text-start text-[0.75rem] font-bold uppercase leading-4 tracking-wider text-panel-text">{t("value")}</th>
+										</tr>
+									</thead>
+									<tbody>
 										{nordData.token && (
-											<Tr>
-												<Td>{t("pages.xray.warp.accessToken")}</Td>
-												<Td>
+											<tr>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">{t("pages.xray.warp.accessToken")}</td>
+												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													<Badge colorScheme="green">
 														{t("configured")}
 													</Badge>
-												</Td>
-											</Tr>
+												</td>
+											</tr>
 										)}
-										<Tr>
-											<Td>{t("inbounds.wireguard.privateKey")}</Td>
-											<Td>
-												<Text noOfLines={1} fontFamily="mono" fontSize="xs">
+										<tr>
+											<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">{t("inbounds.wireguard.privateKey")}</td>
+											<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
+												<p className="truncate font-mono text-[0.75rem]">
 													{nordData.private_key}
-												</Text>
-											</Td>
-										</Tr>
-									</Tbody>
-								</Table>
-								<Button
-									leftIcon={<TrashIcon width={16} />}
-									colorScheme="red"
-									variant="outline"
-									alignSelf="flex-start"
-									isLoading={loading}
-									onClick={deleteData}
-								>
+												</p>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+								<Button size="md" leftIcon={<TrashIcon className="w-16" />} colorScheme="red" variant="outline" isLoading={loading} onClick={deleteData} className="self-start">
 									{t("logout.variant2")}
 								</Button>
-								<Divider />
-								<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+								<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 									<FormControl>
 										<FormLabel>{t("pages.xray.outbound.country")}</FormLabel>
 										<Select
@@ -564,42 +518,33 @@ export const NordVPNModal: FC<Props> = ({
 											))}
 										</Select>
 									</FormControl>
-								</SimpleGrid>
+								</div>
 								{selectedServer && (
-									<HStack spacing={2} flexWrap="wrap">
+									<div className="flex flex-row items-center gap-2 flex-wrap">
 										<Tag colorScheme={loadColor(selectedServer.load)}>
 											{selectedServer.load}% load
 										</Tag>
 										<Tag>{selectedServer.hostname}</Tag>
 										<Tag>{selectedServer.station}:51820</Tag>
-									</HStack>
+									</div>
 								)}
-							</Stack>
+							</div>
 						)}
-					</VStack>
+					</div>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<Button variant="ghost" onClick={onClose}>
+					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("close")}
 					</Button>
 					{nordData?.private_key && (
 						<>
-							<Button
-								leftIcon={<ArrowPathIcon width={16} />}
-								isDisabled={!serverID}
-								onClick={saveOutbound}
-								colorScheme="primary"
-							>
+							<Button size="md" leftIcon={<ArrowPathIcon className="w-16" />} isDisabled={!serverID} onClick={saveOutbound} colorScheme="primary">
 								{nordOutboundIndex >= 0
 									? t("pages.xray.nord.updateOutbound")
 									: t("pages.xray.nord.addOutbound")}
 							</Button>
 							{nordOutboundIndex >= 0 && (
-								<Button
-									colorScheme="red"
-									variant="outline"
-									onClick={() => onDelete(nordOutboundIndex)}
-								>
+								<Button size="md" colorScheme="red" variant="outline" onClick={() => onDelete(nordOutboundIndex)}>
 									{t("delete")}
 								</Button>
 							)}

@@ -1,23 +1,10 @@
-import {
-	Badge,
-	Box,
-	Button,
-	Checkbox,
-	chakra,
-	Flex,
-	IconButton,
-	Popover,
-	PopoverArrow,
-	PopoverBody,
-	PopoverCloseButton,
-	PopoverContent,
-	PopoverHeader,
-	PopoverTrigger,
-	Stack,
-	Text,
-	Tooltip,
-	useBreakpointValue,
-} from "@chakra-ui/react";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverHeader, PopoverTrigger } from "components/shadcn/popover";
+import { Button, IconButton } from "components/shadcn/button";
+import { Badge } from "components/shadcn/badge";
+import { Checkbox } from "components/shadcn/selection";
+import { withClass } from "components/shadcn/icon";
 import {
 	FunnelIcon,
 	PlusIcon,
@@ -39,16 +26,9 @@ import { useTranslation } from "react-i18next";
 import { AdminRole, AdminStatus, UserPermissionToggle } from "types/Admin";
 import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
-const iconProps = {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-};
-
-const FilterIcon = chakra(FunnelIcon, iconProps);
-const PlusIconStyled = chakra(PlusIcon, iconProps);
-const HelpIcon = chakra(QuestionMarkCircleIcon, iconProps);
+const FilterIcon = withClass(FunnelIcon, "w-4 h-4");
+const PlusIconStyled = withClass(PlusIcon, "w-4 h-4");
+const HelpIcon = withClass(QuestionMarkCircleIcon, "w-4 h-4");
 
 const formatChipCount = (value: number, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value);
@@ -226,47 +206,20 @@ export const UsersFilterBar: FC = () => {
 	const hasClearableFilters = activeFilterTotal > 0;
 
 	return (
-		<Flex align="center" gap={2} w="full" minW={0}>
-			<SearchInput
-				containerProps={{
-					flex: "1 1 auto",
-					minW: 0,
-					maxW: { base: "100%", sm: "380px" },
-				}}
-				className="rb-users-search-input"
-				placeholder={t("search")}
-				value={search}
-				onChange={onSearchChange}
-				matchOptions={matchOptions}
-				onMatchOptionsChange={(options) =>
+		<div className="flex items-center gap-2 w-full min-w-0!">
+			<SearchInput containerProps={{ className: "flex-[1_1_auto] min-w-0! max-w-[100%] sm:max-w-[380px]" }} placeholder={t("search")} value={search} onChange={onSearchChange} matchOptions={matchOptions} onMatchOptionsChange={(options) =>
 					onFilterChange({
 						matchCase: options.matchCase,
 						matchWholeWord: options.matchWholeWord,
 						offset: 0,
 					})
-				}
-				isLoading={loading}
-				onClear={clearSearch}
-				borderRadius="full"
-				borderColor="panel.border"
-				bg="panel.elevated"
-				_focusVisible={{
-					borderColor: "primary.400",
-					bg: "panel.surface",
-				}}
-				rightElement={
+				} isLoading={loading} onClear={clearSearch} rightElement={
 					<Tooltip label={t("users.searchHelp")} placement="top" hasArrow>
-						<Box
-							display="inline-flex"
-							alignItems="center"
-							color="panel.textMuted"
-							px={1}
-						>
+						<div className="inline-flex items-center text-panel-text-muted px-1">
 							<HelpIcon />
-						</Box>
+						</div>
 					</Tooltip>
-				}
-			/>
+				} className="rounded-full border-panel-border! bg-panel-elevated focus-visible:border-primary-400! focus-visible:bg-panel-surface rb-users-search-input" />
 
 			<DataTableSortMenu
 				options={userSortOptions}
@@ -276,58 +229,36 @@ export const UsersFilterBar: FC = () => {
 
 			<Popover placement="bottom-end">
 				<PopoverTrigger>
-					<Box position="relative" flexShrink={0}>
-						<IconButton
-							aria-label={t("filters.advancedButton")}
-							icon={<FilterIcon />}
-							variant="outline"
-							borderRadius="full"
-							w="40px"
-							h="40px"
-						/>
+					<div className="relative shrink-0">
+						<IconButton size="md" aria-label={t("filters.advancedButton")} icon={<FilterIcon />} variant="outline" className="rounded-full w-[40px] h-[40px]" />
 						{hasClearableFilters && (
-							<Badge
-								className="rb-users-filter-badge"
-								colorScheme="primary"
-								variant="solid"
-								borderRadius="full"
-								position="absolute"
-								top="-4px"
-								insetInlineEnd="-4px"
-								fontSize="0.6rem"
-								px={1.5}
-								pointerEvents="none"
-							>
+							<Badge colorScheme="primary" variant="solid" className="top-[-4px] rounded-full absolute end-[-4px] text-[0.6rem] px-1.5 pointer-events-none rb-users-filter-badge">
 								{formatChipCount(activeFilterTotal, locale)}
 							</Badge>
 						)}
-					</Box>
+					</div>
 				</PopoverTrigger>
-				<PopoverContent borderColor="light-border" minW="260px">
+				<PopoverContent className="border-light-border! min-w-[260px]!">
 					<PopoverArrow />
 					<PopoverCloseButton />
-					<PopoverHeader fontWeight="semibold">
+					<PopoverHeader className="font-semibold">
 						{t("filters.advancedTitle")}
 					</PopoverHeader>
 					<PopoverBody>
-						<Stack spacing={2}>
+						<div className="flex flex-col gap-2">
 							{ADVANCED_FILTER_OPTIONS.filter(
 								(option) => option.key !== "top_speed" || canViewTraffic,
 							).map((option) => (
-								<Checkbox
-									key={option.key}
-									isChecked={activeFilters.includes(option.key)}
-									onChange={() => toggleAdvancedFilter(option.key)}
-								>
+								<Checkbox key={option.key} isChecked={activeFilters.includes(option.key)} onChange={() => toggleAdvancedFilter(option.key)}>
 									{getFilterLabel(option.key)}
 								</Checkbox>
 							))}
-						</Stack>
-						<Stack spacing={3} mt={3}>
-							<Box>
-								<Text fontSize="sm" fontWeight="semibold" mb={1}>
+						</div>
+						<div className="flex flex-col gap-3 mt-3">
+							<div>
+								<p className="text-[0.875rem] font-semibold mb-1">
 									{t("filters.advanced.serviceLabel")}
-								</Text>
+								</p>
 								<Select
 									value={serviceId ? String(serviceId) : ""}
 									onChange={(event) => handleServiceChange(event.target.value)}
@@ -341,12 +272,12 @@ export const UsersFilterBar: FC = () => {
 										</option>
 									))}
 								</Select>
-							</Box>
+							</div>
 							{hasPrivilegedRole && (
-								<Box>
-									<Text fontSize="sm" fontWeight="semibold" mb={1}>
+								<div>
+									<p className="text-[0.875rem] font-semibold mb-1">
 										{t("filters.advanced.adminLabel")}
-									</Text>
+									</p>
 									<Select
 										value={ownerFilter ?? ""}
 										onChange={(event) => handleAdminChange(event.target.value)}
@@ -363,17 +294,10 @@ export const UsersFilterBar: FC = () => {
 											</option>
 										))}
 									</Select>
-								</Box>
+								</div>
 							)}
-						</Stack>
-						<Button
-							variant="ghost"
-							size="sm"
-							mt={3}
-							w="full"
-							onClick={clearAdvancedFilters}
-							isDisabled={!hasClearableFilters}
-						>
+						</div>
+						<Button variant="ghost" size="sm" onClick={clearAdvancedFilters} isDisabled={!hasClearableFilters} className="mt-3 w-full">
 							{t("filters.advancedClear")}
 						</Button>
 					</PopoverBody>
@@ -382,37 +306,15 @@ export const UsersFilterBar: FC = () => {
 
 			{/* On desktop the bulk/create actions sit at the end of the row;
 				on mobile they stay compact next to the search field. */}
-			{!isMobile && <Box flex="1 1 auto" minW={0} />}
+			{!isMobile && <div className="flex-[1_1_auto] min-w-0!" />}
 			{showCreateButton &&
 				(isMobile ? (
-					<IconButton
-						className="rb-users-create-btn"
-						aria-label={t("createUser")}
-						icon={<PlusIconStyled w={5} h={5} />}
-						colorScheme="primary"
-						borderRadius="full"
-						w="40px"
-						h="40px"
-						flexShrink={0}
-						onClick={handleCreate}
-					/>
+					<IconButton size="md" aria-label={t("createUser")} icon={<PlusIconStyled className="w-5 h-5" />} colorScheme="primary" onClick={handleCreate} className="rounded-full w-[40px] h-[40px] shrink-0 rb-users-create-btn" />
 				) : (
-					<Button
-						className="rb-users-create-btn"
-						colorScheme="primary"
-						leftIcon={<PlusIconStyled />}
-						borderRadius="full"
-						h="40px"
-						px={5}
-						fontSize="sm"
-						fontWeight="semibold"
-						whiteSpace="nowrap"
-						flexShrink={0}
-						onClick={handleCreate}
-					>
+					<Button size="md" colorScheme="primary" leftIcon={<PlusIconStyled />} onClick={handleCreate} className="rounded-full h-[40px] px-5 text-[0.875rem] font-semibold whitespace-nowrap shrink-0 rb-users-create-btn">
 						{t("createUser")}
 					</Button>
 				))}
-		</Flex>
+		</div>
 	);
 };

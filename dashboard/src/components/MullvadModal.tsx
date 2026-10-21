@@ -1,22 +1,10 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Button,
-	HStack,
-	FormControl,
-	FormErrorMessage,
-	FormHelperText,
-	FormLabel,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	SimpleGrid,
-	Textarea,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input, Textarea } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
+import { cn } from "lib/cn";
 import {
 	ArrowDownTrayIcon,
 	ArrowPathIcon,
@@ -308,14 +296,14 @@ export const MullvadModal: FC<Props> = ({
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<VStack spacing={4} align="stretch">
-						<Alert status="info" borderRadius="md">
+					<div className="flex flex-col gap-4 items-stretch">
+						<Alert status="info" className="rounded-md">
 							<AlertIcon />
-							<AlertDescription fontSize="sm">
+							<AlertDescription className="text-[0.875rem]">
 								{t("pages.xray.mullvad.oneKeyNote")}
 							</AlertDescription>
 						</Alert>
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 							{mullvadTags.length > 0 && (
 								<FormControl>
 									<FormLabel>{t("pages.xray.mullvad.editing")}</FormLabel>
@@ -332,37 +320,20 @@ export const MullvadModal: FC<Props> = ({
 							)}
 							<FormControl isInvalid={tagTaken}>
 								<FormLabel>{t("pages.xray.mullvad.name")}</FormLabel>
-								<Input
-									dir="ltr"
-									value={tag}
-									color={tagTaken ? "gray.500" : undefined}
-									onChange={(event) => setTag(event.target.value)}
-								/>
+								<Input dir="ltr" value={tag} onChange={(event) => setTag(event.target.value)} className={cn(tagTaken ? "text-gray-500" : "")} />
 								<FormErrorMessage>
 									{t("pages.xray.mullvad.nameTaken")}
 								</FormErrorMessage>
 							</FormControl>
-						</SimpleGrid>
+						</div>
 						<FormControl>
 							<FormLabel>{t("pages.xray.mullvad.config")}</FormLabel>
-							<Textarea
-								dir="ltr"
-								fontFamily="mono"
-								rows={5}
-								value={configText}
-								onChange={(event) => setConfigText(event.target.value)}
-								placeholder={"[Interface]\nPrivateKey = ...\nAddress = ...\n\n[Peer]\nPublicKey = ...\nEndpoint = ..."}
-							/>
+							<Textarea dir="ltr" rows={5} value={configText} onChange={(event) => setConfigText(event.target.value)} placeholder={"[Interface]\nPrivateKey = ...\nAddress = ...\n\n[Peer]\nPublicKey = ...\nEndpoint = ..."} className="font-mono" />
 							<FormHelperText>
 								{t("pages.xray.mullvad.configHelp")}
 							</FormHelperText>
 						</FormControl>
-						<Button
-							leftIcon={<ArrowDownTrayIcon width={16} />}
-							alignSelf="flex-start"
-							isDisabled={!configText.trim()}
-							onClick={fillFromConfig}
-						>
+						<Button variant="solid" size="md" leftIcon={<ArrowDownTrayIcon className="w-16" />} isDisabled={!configText.trim()} onClick={fillFromConfig} className="self-start">
 							{t("pages.xray.mullvad.fill")}
 						</Button>
 						<FileDropzone
@@ -374,7 +345,7 @@ export const MullvadModal: FC<Props> = ({
 							onFileSelect={(file) => void loadZip(file)}
 						/>
 						{servers.length > 0 && (
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<FormControl>
 									<FormLabel>{t("pages.xray.mullvad.country")}</FormLabel>
 									<Select
@@ -393,99 +364,61 @@ export const MullvadModal: FC<Props> = ({
 										isDisabled={!country}
 										onChange={(event) => selectServer(event.target.value)}
 									/>
-									<HStack spacing={2} mt={2}>
-										<Button
-											size="xs"
-											leftIcon={<SignalIcon width={14} />}
-											isDisabled={!canPing || !serverName || pinging}
-											onClick={() => void pingServers([serverName])}
-										>
+									<div className="flex flex-row items-center gap-2 mt-2">
+										<Button variant="solid" size="xs" leftIcon={<SignalIcon className="w-14" />} isDisabled={!canPing || !serverName || pinging} onClick={() => void pingServers([serverName])}>
 											{t("pages.xray.mullvad.ping")}
 										</Button>
-										<Button
-											size="xs"
-											leftIcon={<SignalIcon width={14} />}
-											isDisabled={!canPing || !country || pinging}
-											isLoading={pinging}
-											onClick={() => void pingServers(countryServerNames)}
-										>
+										<Button variant="solid" size="xs" leftIcon={<SignalIcon className="w-14" />} isDisabled={!canPing || !country || pinging} isLoading={pinging} onClick={() => void pingServers(countryServerNames)}>
 											{t("pages.xray.mullvad.pingAll")}
 										</Button>
-									</HStack>
+									</div>
 									{!canPing && (
 										<FormHelperText>
 											{t("pages.xray.mullvad.pingNeedsNode")}
 										</FormHelperText>
 									)}
 								</FormControl>
-							</SimpleGrid>
+							</div>
 						)}
-						<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 							<FormControl>
 								<FormLabel>{t("inbounds.wireguard.privateKey")}</FormLabel>
-								<Input
-									dir="ltr"
-									fontFamily="mono"
-									value={form.privateKey}
-									onChange={(event) =>
+								<Input dir="ltr" value={form.privateKey} onChange={(event) =>
 										updateFormField("privateKey", event.target.value)
-									}
-								/>
+									} className="font-mono" />
 							</FormControl>
 							<FormControl>
 								<FormLabel>{t("pages.xray.outbound.address")}</FormLabel>
-								<Input
-									dir="ltr"
-									fontFamily="mono"
-									value={form.address}
-									onChange={(event) =>
+								<Input dir="ltr" value={form.address} onChange={(event) =>
 										updateFormField("address", event.target.value)
-									}
-									placeholder="10.64.0.2/32, fc00:bbbb:bbbb:bb01::1:1/128"
-								/>
+									} placeholder="10.64.0.2/32, fc00:bbbb:bbbb:bb01::1:1/128" className="font-mono" />
 							</FormControl>
 							<FormControl>
 								<FormLabel>{t("pages.xray.mullvad.serverPublicKey")}</FormLabel>
-								<Input
-									dir="ltr"
-									fontFamily="mono"
-									value={form.publicKey}
-									onChange={(event) =>
+								<Input dir="ltr" value={form.publicKey} onChange={(event) =>
 										updateFormField("publicKey", event.target.value)
-									}
-								/>
+									} className="font-mono" />
 							</FormControl>
 							<FormControl>
 								<FormLabel>{t("pages.xray.warp.endpoint")}</FormLabel>
-								<Input
-									dir="ltr"
-									fontFamily="mono"
-									value={form.endpoint}
-									onChange={(event) =>
+								<Input dir="ltr" value={form.endpoint} onChange={(event) =>
 										updateFormField("endpoint", event.target.value)
-									}
-									placeholder="192.0.2.10:51820"
-								/>
+									} placeholder="192.0.2.10:51820" className="font-mono" />
 							</FormControl>
-						</SimpleGrid>
-					</VStack>
+						</div>
+					</div>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<Button variant="ghost" onClick={onClose}>
+					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("close")}
 					</Button>
-					<Button
-						leftIcon={<ArrowPathIcon width={16} />}
-						isDisabled={!tag.trim() || tagTaken || !isMullvadFormValid(form)}
-						onClick={saveOutbound}
-						colorScheme="primary"
-					>
+					<Button size="md" leftIcon={<ArrowPathIcon className="w-16" />} isDisabled={!tag.trim() || tagTaken || !isMullvadFormValid(form)} onClick={saveOutbound} colorScheme="primary">
 						{editingIndex >= 0
 							? t("pages.xray.nord.updateOutbound")
 							: t("pages.xray.outbound.addOutbound")}
 					</Button>
 					{editingIndex >= 0 && (
-						<Button colorScheme="red" variant="outline" onClick={deleteOutbound}>
+						<Button size="md" colorScheme="red" variant="outline" onClick={deleteOutbound}>
 							{t("delete")}
 						</Button>
 					)}

@@ -1,31 +1,14 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Checkbox,
-	Flex,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	IconButton,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Radio,
-	RadioGroup,
-	SimpleGrid,
-	Stack,
-	Text,
-	Tooltip,
-	useColorModeValue,
-	useDisclosure,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Badge } from "components/shadcn/badge";
+import { Checkbox, Radio, RadioGroup } from "components/shadcn/selection";
+import { Button, IconButton } from "components/shadcn/button";
+import { Tooltip } from "components/shadcn/tooltip";
+import { useDisclosure } from "hooks/useDisclosure";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { cn } from "lib/cn";
 import {
 	ArrowDownIcon,
 	ArrowPathIcon,
@@ -194,10 +177,9 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 	refreshHosts,
 }) => {
 	const { t } = useTranslation();
-	const borderColor = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-	const subtleBg = useColorModeValue("gray.50", "whiteAlpha.50");
-	const selectedBg = useColorModeValue("primary.50", "whiteAlpha.100");
-	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
+	const selectedBg = useColorModeValue("bg-primary-50", "bg-whiteAlpha-100");
+	const labelColor = "text-gray-500 dark:text-gray-400";
 	const [name, setName] = useState(initialService?.name ?? "");
 	const [description, setDescription] = useState(
 		initialService?.description ?? "",
@@ -428,31 +410,19 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent
-				mx="3"
-				sx={{
-					".service-dialog-section .chakra-form-control": {
-						display: "block",
-						gridTemplateColumns: "none",
-					},
-					".service-dialog-list": {
-						borderColor,
-						bg: subtleBg,
-					},
-				}}
-			>
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{initialService ? t("services.editTitle") : t("services.createTitle")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<Stack spacing={4}>
-						<Box className="xray-dialog-section service-dialog-section">
-							<Text fontSize="sm" fontWeight="semibold" mb={3}>
+					<div className="flex flex-col gap-4">
+						<div className="xray-dialog-section service-dialog-section">
+							<p className="text-[0.875rem] font-semibold mb-3">
 								{t("services.basicInfo")}
-							</Text>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<Input
 									label={t("services.fields.name")}
 									value={name}
@@ -477,27 +447,23 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 									value={usageCoefficient}
 									onChange={(event) => setUsageCoefficient(event.target.value)}
 								/>
-							</SimpleGrid>
-						</Box>
+							</div>
+						</div>
 
-						<Box className="xray-dialog-section service-dialog-section">
-							<Flex justify="space-between" align="center" gap={3} mb={3}>
-								<Text fontSize="sm" fontWeight="semibold">
+						<div className="xray-dialog-section service-dialog-section">
+							<div className="flex justify-between items-center gap-3 mb-3">
+								<p className="text-[0.875rem] font-semibold">
 									{t("services.fields.admins")}
-								</Text>
-								<Badge borderRadius="md" variant="subtle" colorScheme="primary">
+								</p>
+								<Badge variant="subtle" colorScheme="primary" className="rounded-md">
 									{selectedAdmins.length} / {allAdmins.length}
 								</Badge>
-							</Flex>
-							<Stack spacing={2}>
-								<Checkbox
-									isChecked={
+							</div>
+							<div className="flex flex-col gap-2">
+								<Checkbox isChecked={
 										selectedAdmins.length === allAdmins.length &&
 										allAdmins.length > 0
-									}
-									onChange={handleToggleAllAdmins}
-									isDisabled={allAdmins.length === 0}
-								>
+									} onChange={handleToggleAllAdmins} isDisabled={allAdmins.length === 0}>
 									{t("services.selectAllAdmins")}
 								</Checkbox>
 								<SearchInput
@@ -508,137 +474,86 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 									onMatchOptionsChange={setAdminSearchMatch}
 									onClear={() => setAdminSearch("")}
 								/>
-								<VStack
-									className="service-dialog-list"
-									align="stretch"
-									spacing={1.5}
-									maxH="170px"
-									overflowY="auto"
-									borderWidth="1px"
-									borderRadius="md"
-									p={2}
-								>
+								<div className="flex flex-col items-stretch gap-1.5 max-h-[170px] overflow-y-auto border rounded-md p-2 service-dialog-list">
 									{allAdmins.length === 0 ? (
-										<Text fontSize="sm" color={labelColor}>
+										<p className={cn(labelColor, "text-[0.875rem]")}>
 											{t("services.noAdminsFound")}
-										</Text>
+										</p>
 									) : filteredAdmins.length === 0 ? (
-										<Text fontSize="sm" color={labelColor}>
+										<p className={cn(labelColor, "text-[0.875rem]")}>
 											{t("services.noAdminsMatching")}
-										</Text>
+										</p>
 									) : (
 										filteredAdmins.map((admin) => {
 											const isSelected = selectedAdminsSet.has(admin.id);
 											return (
-												<Box
-													key={admin.id}
-													borderWidth="1px"
-													borderRadius="md"
-													px={2.5}
-													py={2}
-													borderColor={isSelected ? "primary.400" : borderColor}
-													bg={isSelected ? selectedBg : "transparent"}
-													_hover={{
-														borderColor: "primary.300",
-														cursor: "pointer",
-													}}
-													transition="background-color 0.1s ease-in-out, border-color 0.1s ease-in-out"
-													onClick={() => handleAdminToggle(admin.id)}
-													onKeyDown={(event) => {
+												// biome-ignore lint/a11y/useSemanticElements: card holds block content and handles keys in onKeyDown; a native button should not hold it
+												<div key={admin.id} onClick={() => handleAdminToggle(admin.id)} onKeyDown={(event) => {
 														if (event.key === "Enter" || event.key === " ") {
 															event.preventDefault();
 															handleAdminToggle(admin.id);
 														}
-													}}
-													role="button"
-													tabIndex={0}
-												>
-													<Flex align="center" justify="space-between" gap={3}>
-														<Text fontWeight="medium" noOfLines={1}>
+													}} role="button" tabIndex={0} className={cn(isSelected ? "border-primary-400!" : borderColor, "border rounded-md px-2.5 py-2 hover:border-primary-300! hover:cursor-pointer [transition:background-color_0.1s_ease-in-out,_border-color_0.1s_ease-in-out]", isSelected ? (selectedBg) : "bg-transparent")}>
+													<div className="flex items-center justify-between gap-3">
+														<p className="font-medium truncate">
 															{admin.username}
-														</Text>
+														</p>
 														{isSelected && (
-															<Badge colorScheme="primary" borderRadius="md">
+															<Badge colorScheme="primary" className="rounded-md">
 																{t("services.selected")}
 															</Badge>
 														)}
-													</Flex>
-												</Box>
+													</div>
+												</div>
 											);
 										})
 									)}
-								</VStack>
-							</Stack>
-							<Text fontSize="xs" color={labelColor} mt={2}>
+								</div>
+							</div>
+							<p className={cn(labelColor, "text-[0.75rem] mt-2")}>
 								{t("services.adminHint")}
-							</Text>
-						</Box>
+							</p>
+						</div>
 
-						<Box className="xray-dialog-section service-dialog-section">
-							<Flex
-								justify="space-between"
-								align={{ base: "flex-start", md: "center" }}
-								gap={3}
-								flexWrap="wrap"
-								mb={3}
-							>
-								<Box minW={0}>
-									<Text fontSize="sm" fontWeight="semibold">
+						<div className="xray-dialog-section service-dialog-section">
+							<div className="flex justify-between items-start md:items-center gap-3 flex-wrap mb-3">
+								<div className="min-w-0!">
+									<p className="text-[0.875rem] font-semibold">
 										{t("services.autoInbound.title")}
-									</Text>
-									<Text
-										fontFamily="mono"
-										fontSize="xs"
-										color={labelColor}
-										mt={1}
-									>
+									</p>
+									<p className={cn(labelColor, "font-mono text-[0.75rem] mt-1")}>
 										{autoInboundTag ?? t("services.autoInbound.pendingTag")}
-									</Text>
-								</Box>
-								<Badge
-									borderRadius="md"
-									colorScheme={autoInboundExists ? "green" : "gray"}
-								>
+									</p>
+								</div>
+								<Badge colorScheme={autoInboundExists ? "green" : "gray"} className="rounded-md">
 									{autoInboundExists
 										? t("services.autoInbound.statusCreated")
 										: t("services.autoInbound.statusMissing")}
 								</Badge>
-							</Flex>
-							<HStack spacing={2} flexWrap="wrap">
-								<Button
-									size="sm"
-									onClick={handleCreateAutoInbound}
-									isDisabled={
+							</div>
+							<div className="flex flex-row items-center gap-2 flex-wrap">
+								<Button variant="solid" size="sm" onClick={handleCreateAutoInbound} isDisabled={
 										!initialService?.id || autoInboundExists || autoInboundBusy
-									}
-									isLoading={autoInboundBusy}
-								>
+									} isLoading={autoInboundBusy}>
 									{t("services.autoInbound.create")}
 								</Button>
-								<Button
-									size="sm"
-									variant="outline"
-									colorScheme="red"
-									onClick={handleDeleteAutoInbound}
-									isDisabled={
+								<Button size="sm" variant="outline" colorScheme="red" onClick={handleDeleteAutoInbound} isDisabled={
 										!initialService?.id || !autoInboundExists || autoInboundBusy
-									}
-									isLoading={autoInboundBusy}
-								>
+									} isLoading={autoInboundBusy}>
 									{t("services.autoInbound.delete")}
 								</Button>
-							</HStack>
-							<Text fontSize="xs" color={labelColor} mt={2}>
+							</div>
+							<p className={cn(labelColor, "text-[0.75rem] mt-2")}>
 								{t("services.autoInbound.helper")}
-							</Text>
-						</Box>
+							</p>
+						</div>
 
-						<SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
-							<Box className="xray-dialog-section service-dialog-section">
-								<Text fontSize="sm" fontWeight="semibold" mb={3}>
+						<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							<div className="xray-dialog-section service-dialog-section">
+								<p className="text-[0.875rem] font-semibold mb-3">
 									{t("services.availableHosts")}
-								</Text>
-								<Stack spacing={2}>
+								</p>
+								<div className="flex flex-col gap-2">
 									<SearchInput
 										value={hostSearch}
 										onChange={(event) => setHostSearch(event.target.value)}
@@ -647,167 +562,97 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 										onMatchOptionsChange={setHostSearchMatch}
 										onClear={() => setHostSearch("")}
 									/>
-									<VStack
-										className="service-dialog-list"
-										align="stretch"
-										spacing={1.5}
-										maxH="260px"
-										overflowY="auto"
-										borderWidth="1px"
-										borderRadius="md"
-										p={2}
-									>
+									<div className="flex flex-col items-stretch gap-1.5 max-h-[260px] overflow-y-auto border rounded-md p-2 service-dialog-list">
 										{availableHosts.length === 0 ? (
-											<Text fontSize="sm" color={labelColor}>
+											<p className={cn(labelColor, "text-[0.875rem]")}>
 												{t("services.noHostsLeft")}
-											</Text>
+											</p>
 										) : filteredAvailableHosts.length === 0 ? (
-											<Text fontSize="sm" color={labelColor}>
+											<p className={cn(labelColor, "text-[0.875rem]")}>
 												{t("services.noHostsMatching")}
-											</Text>
+											</p>
 										) : (
 											filteredAvailableHosts.map((host) => (
-												<Box
-													key={host.id}
-													borderWidth="1px"
-													borderRadius="md"
-													px={2.5}
-													py={2}
-													borderColor={
-														hoveredHost === host.id
-															? "primary.400"
-															: borderColor
-													}
-													_hover={{
-														borderColor: "primary.300",
-														cursor: "pointer",
-													}}
-													onMouseEnter={() => setHoveredHost(host.id)}
-													onMouseLeave={() => setHoveredHost(null)}
-													onClick={() => handleHostToggle(host.id)}
-												>
-													<Text fontWeight="medium" noOfLines={1}>
+												// biome-ignore lint/a11y/noStaticElementInteractions: host card click target, unchanged from HEAD, where the Chakra box had no keyboard handler
+												// biome-ignore lint/a11y/useKeyWithClickEvents: host card click target, unchanged from HEAD, where the Chakra box had no keyboard handler
+												<div key={host.id} onMouseEnter={() => setHoveredHost(host.id)} onMouseLeave={() => setHoveredHost(null)} onClick={() => handleHostToggle(host.id)} className={cn(hoveredHost === host.id ? "border-primary-400!" : borderColor, "border rounded-md px-2.5 py-2 hover:border-primary-300! hover:cursor-pointer")}>
+													<p className="font-medium truncate">
 														<AppleEmojiText>{host.label}</AppleEmojiText>
-													</Text>
-													<Text fontSize="xs" color={labelColor}>
+													</p>
+													<p className={cn(labelColor, "text-[0.75rem]")}>
 														{host.protocol.toUpperCase()} - {host.inboundTag}
-													</Text>
-												</Box>
+													</p>
+												</div>
 											))
 										)}
-									</VStack>
-								</Stack>
-							</Box>
+									</div>
+								</div>
+							</div>
 
-							<Box className="xray-dialog-section service-dialog-section">
-								<Flex justify="space-between" align="center" gap={3} mb={3}>
-									<Text fontSize="sm" fontWeight="semibold">
+							<div className="xray-dialog-section service-dialog-section">
+								<div className="flex justify-between items-center gap-3 mb-3">
+									<p className="text-[0.875rem] font-semibold">
 										{t("services.selectedHosts")}
-									</Text>
-									<Badge borderRadius="md" variant="subtle">
+									</p>
+									<Badge variant="subtle" className="rounded-md">
 										{selectedHosts.length}
 									</Badge>
-								</Flex>
-								<VStack
-									className="service-dialog-list"
-									align="stretch"
-									spacing={1.5}
-									maxH="300px"
-									overflowY="auto"
-									borderWidth="1px"
-									borderRadius="md"
-									p={2}
-								>
+								</div>
+								<div className="flex flex-col items-stretch gap-1.5 max-h-[300px] overflow-y-auto border rounded-md p-2 service-dialog-list">
 									{selectedHosts.length === 0 && (
-										<Text fontSize="sm" color={labelColor}>
+										<p className={cn(labelColor, "text-[0.875rem]")}>
 											{t("services.noHostsSelected")}
-										</Text>
+										</p>
 									)}
 									{selectedHosts.map((hostId, index) => {
 										const host = hostMap.get(hostId);
 										if (!host) return null;
 										return (
 											<motion.div layout key={hostId}>
-												<Flex
-													align="center"
-													justify="space-between"
-													borderWidth="1px"
-													borderRadius="md"
-													borderColor={borderColor}
-													px={2.5}
-													py={2}
-													gap={3}
-												>
-													<Box minW={0}>
-														<HStack spacing={2} align="center">
-															<Text fontWeight="medium" noOfLines={1}>
+												<div className={cn(borderColor, "flex items-center justify-between border rounded-md px-2.5 py-2 gap-3")}>
+													<div className="min-w-0!">
+														<div className="flex flex-row gap-2 items-center">
+															<p className="font-medium truncate">
 																<AppleEmojiText>{host.label}</AppleEmojiText>
-															</Text>
+															</p>
 															{host.isDisabled && (
-																<Badge colorScheme="red" borderRadius="md">
+																<Badge colorScheme="red" className="rounded-md">
 																	{t("services.hostDisabled")}
 																</Badge>
 															)}
-														</HStack>
-														<Text fontSize="xs" color={labelColor}>
+														</div>
+														<p className={cn(labelColor, "text-[0.75rem]")}>
 															{host.protocol.toUpperCase()} - {host.inboundTag}
-														</Text>
-													</Box>
-													<HStack spacing={1} flexShrink={0}>
+														</p>
+													</div>
+													<div className="flex flex-row items-center gap-1 shrink-0">
 														<Tooltip label={t("services.moveToTop")}>
-															<IconButton
-																aria-label="Move to top"
-																size="sm"
-																variant="ghost"
-																icon={<ChevronDoubleUpIcon width={16} />}
-																onClick={() => moveHost(hostId, "top")}
-																isDisabled={index === 0}
-															/>
+															<IconButton aria-label="Move to top" size="sm" variant="ghost" icon={<ChevronDoubleUpIcon className="w-16" />} onClick={() => moveHost(hostId, "top")} isDisabled={index === 0} />
 														</Tooltip>
 														<Tooltip label={t("services.moveUp")}>
-															<IconButton
-																aria-label="Move up"
-																size="sm"
-																variant="ghost"
-																icon={<ArrowUpIcon width={16} />}
-																onClick={() => moveHost(hostId, "up")}
-																isDisabled={index === 0}
-															/>
+															<IconButton aria-label="Move up" size="sm" variant="ghost" icon={<ArrowUpIcon className="w-16" />} onClick={() => moveHost(hostId, "up")} isDisabled={index === 0} />
 														</Tooltip>
 														<Tooltip label={t("services.moveDown")}>
-															<IconButton
-																aria-label="Move down"
-																size="sm"
-																variant="ghost"
-																icon={<ArrowDownIcon width={16} />}
-																onClick={() => moveHost(hostId, "down")}
-																isDisabled={index === selectedHosts.length - 1}
-															/>
+															<IconButton aria-label="Move down" size="sm" variant="ghost" icon={<ArrowDownIcon className="w-16" />} onClick={() => moveHost(hostId, "down")} isDisabled={index === selectedHosts.length - 1} />
 														</Tooltip>
 														<Tooltip label={t("services.removeHost")}>
-															<IconButton
-																aria-label="Remove"
-																size="sm"
-																variant="ghost"
-																icon={<TrashIcon width={16} />}
-																onClick={() => handleHostToggle(hostId)}
-															/>
+															<IconButton aria-label="Remove" size="sm" variant="ghost" icon={<TrashIcon className="w-16" />} onClick={() => handleHostToggle(hostId)} />
 														</Tooltip>
-													</HStack>
-												</Flex>
+													</div>
+												</div>
 											</motion.div>
 										);
 									})}
-								</VStack>
-							</Box>
-						</SimpleGrid>
-					</Stack>
+								</div>
+							</div>
+						</div>
+					</div>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<Button variant="ghost" onClick={onClose}>
+					<Button size="md" variant="ghost" onClick={onClose}>
 						{t("cancel")}
 					</Button>
-					<Button colorScheme="primary" onClick={submit} isLoading={isSaving}>
+					<Button size="md" colorScheme="primary" onClick={submit} isLoading={isSaving}>
 						{initialService ? t("saveChanges") : t("create")}
 					</Button>
 				</XrayModalFooter>
@@ -818,7 +663,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 
 const ServicesPage: FC = () => {
 	const { t } = useTranslation();
-	const labelColor = useColorModeValue("gray.500", "gray.400");
+	const labelColor = "text-gray-500 dark:text-gray-400";
 	const toast = useToast();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canManageServices =
@@ -1235,7 +1080,7 @@ const ServicesPage: FC = () => {
 				mobilePriority: 1,
 				mobileMetaLabel: t("services.columns.id"),
 				cell: (service) => (
-					<Badge borderRadius="md" variant="subtle">
+					<Badge variant="subtle" className="rounded-md">
 						#{service.id}
 					</Badge>
 				),
@@ -1255,23 +1100,23 @@ const ServicesPage: FC = () => {
 				mobilePriority: 0,
 				mobileMetaLabel: t("services.columns.name"),
 				cell: (service) => (
-					<VStack spacing={0.5} align="start" textAlign="start" minW={0}>
-						<HStack spacing={2} justify="flex-start" minW={0} maxW="full">
-							<Text fontWeight="semibold" noOfLines={1}>
+					<div className="flex flex-col gap-0.5 items-start text-start min-w-0!">
+						<div className="flex flex-row items-center gap-2 justify-start min-w-0! max-w-full">
+							<p className="font-semibold truncate">
 								{service.name}
-							</Text>
+							</p>
 							{!service.has_hosts && (
-								<Badge colorScheme="red" borderRadius="md" flexShrink={0}>
+								<Badge colorScheme="red" className="rounded-md shrink-0">
 									{t("services.broken")}
 								</Badge>
 							)}
-						</HStack>
+						</div>
 						{service.description && (
-							<Text fontSize="xs" color={labelColor} noOfLines={1}>
+							<p className={cn(labelColor, "text-[0.75rem] truncate")}>
 								{service.description}
-							</Text>
+							</p>
 						)}
-					</VStack>
+					</div>
 				),
 			},
 			{
@@ -1284,7 +1129,7 @@ const ServicesPage: FC = () => {
 				mobilePriority: 2,
 				mobileMetaLabel: t("services.columns.hosts"),
 				cell: (service) => (
-					<Text fontWeight="semibold">{service.host_count}</Text>
+					<p className="font-semibold">{service.host_count}</p>
 				),
 			},
 			{
@@ -1297,7 +1142,7 @@ const ServicesPage: FC = () => {
 				mobilePriority: 3,
 				mobileMetaLabel: t("users"),
 				cell: (service) => (
-					<Text fontWeight="semibold">{service.user_count}</Text>
+					<p className="font-semibold">{service.user_count}</p>
 				),
 			},
 			{
@@ -1311,9 +1156,9 @@ const ServicesPage: FC = () => {
 				mobileSummary: true,
 				mobileMetaLabel: t("services.columns.usage"),
 				cell: (service) => (
-					<Text dir="ltr" sx={{ unicodeBidi: "isolate" }} whiteSpace="nowrap">
+					<p dir="ltr" className="[unicode-bidi:isolate] whitespace-nowrap">
 						{formatBytes(service.used_traffic)}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1327,13 +1172,13 @@ const ServicesPage: FC = () => {
 				mobilePriority: 5,
 				mobileMetaLabel: t("services.columns.lifetime"),
 				cell: (service) => (
-					<Text dir="ltr" sx={{ unicodeBidi: "isolate" }} whiteSpace="nowrap">
+					<p dir="ltr" className="[unicode-bidi:isolate] whitespace-nowrap">
 						{formatBytes(service.lifetime_used_traffic)}
-					</Text>
+					</p>
 				),
 			},
 		],
-		[labelColor, t],
+		[t],
 	);
 
 	const serviceRowActions = (
@@ -1343,7 +1188,7 @@ const ServicesPage: FC = () => {
 			{
 				id: "view",
 				label: t("services.view"),
-				icon: <EyeIcon width={16} />,
+				icon: <EyeIcon className="w-16" />,
 				onClick: () => {
 					void openServiceDetail(service.id, "admins");
 				},
@@ -1355,19 +1200,19 @@ const ServicesPage: FC = () => {
 				{
 					id: "edit",
 					label: t("edit"),
-					icon: <PencilSquareIcon width={16} />,
+					icon: <PencilSquareIcon className="w-16" />,
 					onClick: () => openEditDialog(service.id),
 				},
 				{
 					id: "reset",
 					label: t("services.resetUsage"),
-					icon: <ArrowPathIcon width={16} />,
+					icon: <ArrowPathIcon className="w-16" />,
 					onClick: () => openResetConfirmation(service.id),
 				},
 				{
 					id: "delete",
 					label: t("delete"),
-					icon: <TrashIcon width={16} />,
+					icon: <TrashIcon className="w-16" />,
 					onClick: () => beginDeleteService(service.id),
 					isDanger: true,
 				},
@@ -1539,9 +1384,9 @@ const ServicesPage: FC = () => {
 				mobilePriority: 0,
 				mobileMetaLabel: t("username"),
 				cell: (link) => (
-					<Text fontWeight="semibold" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+					<p dir="ltr" className="font-semibold [unicode-bidi:isolate]">
 						{link.username}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1555,17 +1400,12 @@ const ServicesPage: FC = () => {
 				mobileSummary: true,
 				mobileMetaLabel: t("services.columns.usage"),
 				cell: (link) => (
-					<Text
-						fontSize="sm"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate" }}
-						whiteSpace="nowrap"
-					>
+					<p dir="ltr" className="text-[0.875rem] [unicode-bidi:isolate] whitespace-nowrap">
 						{link.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic
 							? formatBytes(link.created_traffic)
 							: formatBytes(link.used_traffic)}{" "}
 						/ {formatGigabytes(link.data_limit, t("nodes.unlimited"))}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1722,7 +1562,7 @@ const ServicesPage: FC = () => {
 				cell: (link) => {
 					const coefficient = link.usage_coefficient ?? null;
 					return (
-						<HStack spacing={2}>
+						<div className="flex flex-row items-center gap-2">
 							<Select
 								size="sm"
 								value={coefficient === null ? "default" : "custom"}
@@ -1741,23 +1581,9 @@ const ServicesPage: FC = () => {
 								<option value="custom">{t("services.usageCoefficientCustom")}</option>
 							</Select>
 							{coefficient !== null ? (
-								<Input
-									key={`${link.id}-${coefficient}`}
-									size="sm"
-									type="number"
-									inputMode="decimal"
-									min={0.01}
-									max={100}
-									step={0.01}
-									w="90px"
-									precision={2}
-									defaultValue={coefficient}
-									disabled={savingAdminLimitId === link.id}
-									onClick={(event) => event.stopPropagation()}
-									onInput={(event) => {
+								<Input key={`${link.id}-${coefficient}`} size="sm" type="number" inputMode="decimal" min={0.01} max={100} step={0.01} precision={2} defaultValue={coefficient} disabled={savingAdminLimitId === link.id} onClick={(event) => event.stopPropagation()} onInput={(event) => {
 										event.currentTarget.value = sanitizeDecimalInput(event.currentTarget.value);
-									}}
-									onBlur={(event) => {
+									}} onBlur={(event) => {
 										const value = parseCoefficientInput(event.target.value);
 										if (value === null || value < 0.01 || value > 100) {
 											toast({
@@ -1770,10 +1596,9 @@ const ServicesPage: FC = () => {
 										if (value !== coefficient) {
 											saveServiceAdminLimit(link.id, { usage_coefficient: value });
 										}
-									}}
-								/>
+									}} className="w-[90px]" />
 							) : null}
-						</HStack>
+						</div>
 					);
 				},
 			},
@@ -1788,34 +1613,22 @@ const ServicesPage: FC = () => {
 				mobilePriority: 6,
 				mobileMetaLabel: t("admins.permissionsTabLabel"),
 				cell: (link) => (
-					<HStack spacing={3} justify="center" flexWrap="wrap">
-						<Checkbox
-							size="sm"
-							isChecked={link.show_user_traffic}
-							isDisabled={savingAdminLimitId === link.id}
-							onClick={(event) => event.stopPropagation()}
-							onChange={(event) =>
+					<div className="flex flex-row items-center gap-3 justify-center flex-wrap">
+						<Checkbox size="sm" isChecked={link.show_user_traffic} isDisabled={savingAdminLimitId === link.id} onClick={(event) => event.stopPropagation()} onChange={(event) =>
 								saveServiceAdminLimit(link.id, {
 									show_user_traffic: event.target.checked,
 								})
-							}
-						>
+							}>
 							{t("admins.showUserTraffic")}
 						</Checkbox>
-						<Checkbox
-							size="sm"
-							isChecked={link.delete_user_usage_limit_enabled}
-							isDisabled={savingAdminLimitId === link.id}
-							onClick={(event) => event.stopPropagation()}
-							onChange={(event) =>
+						<Checkbox size="sm" isChecked={link.delete_user_usage_limit_enabled} isDisabled={savingAdminLimitId === link.id} onClick={(event) => event.stopPropagation()} onChange={(event) =>
 								saveServiceAdminLimit(link.id, {
 									delete_user_usage_limit_enabled: event.target.checked,
 								})
-							}
-						>
+							}>
 							{t("admins.deleteUserUsageCap")}
 						</Checkbox>
-					</HStack>
+					</div>
 				),
 			},
 		],
@@ -1828,14 +1641,14 @@ const ServicesPage: FC = () => {
 		{
 			id: "editLimits",
 			label: t("services.editAdminLimits"),
-			icon: <PencilSquareIcon width={16} />,
+			icon: <PencilSquareIcon className="w-16" />,
 			onClick: () => openServiceAdminLimitEditor(link),
 			isDisabled: savingAdminLimitId === link.id,
 		},
 		{
 			id: "resetDeleted",
 			label: t("admins.resetDeletedUsage"),
-			icon: <ArrowPathIcon width={16} />,
+			icon: <ArrowPathIcon className="w-16" />,
 			onClick: () => resetServiceDeletedUsersUsage(link),
 			isDisabled:
 				link.deleted_users_usage <= 0 || savingAdminLimitId === link.id,
@@ -1857,9 +1670,9 @@ const ServicesPage: FC = () => {
 				mobilePriority: 0,
 				mobileMetaLabel: t("nodes.nodeName"),
 				cell: (host) => (
-					<Text fontWeight="semibold" noOfLines={1}>
+					<p className="font-semibold truncate">
 						<AppleEmojiText>{host.remark}</AppleEmojiText>
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1874,9 +1687,9 @@ const ServicesPage: FC = () => {
 				mobilePriority: 1,
 				mobileMetaLabel: t("inbound"),
 				cell: (host) => (
-					<Text fontSize="sm" noOfLines={1}>
+					<p className="text-[0.875rem] truncate">
 						{host.inbound_protocol.toUpperCase()} - {host.inbound_tag}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1892,9 +1705,9 @@ const ServicesPage: FC = () => {
 				mobilePriority: 2,
 				mobileMetaLabel: t("nodes.nodeAddress"),
 				cell: (host) => (
-					<Text dir="ltr" sx={{ unicodeBidi: "isolate" }} noOfLines={1}>
+					<p dir="ltr" className="[unicode-bidi:isolate] truncate">
 						{host.address || "-"}
-					</Text>
+					</p>
 				),
 			},
 			{
@@ -1906,7 +1719,7 @@ const ServicesPage: FC = () => {
 				maxWidth: "110px",
 				mobilePriority: 3,
 				mobileMetaLabel: t("port"),
-				cell: (host) => <Text>{host.port ?? "-"}</Text>,
+				cell: (host) => <p>{host.port ?? "-"}</p>,
 			},
 			{
 				id: "sort",
@@ -1918,7 +1731,7 @@ const ServicesPage: FC = () => {
 				maxWidth: "110px",
 				mobilePriority: 4,
 				mobileMetaLabel: t("services.sort"),
-				cell: (host) => <Badge borderRadius="md">#{host.sort + 1}</Badge>,
+				cell: (host) => <Badge className="rounded-md">#{host.sort + 1}</Badge>,
 			},
 		],
 		[t],
@@ -1930,41 +1743,28 @@ const ServicesPage: FC = () => {
 
 	if (!canManageServices) {
 		return (
-			<VStack spacing={3} align="stretch">
+			<div className="flex flex-col gap-3 items-stretch">
 				<PageHeader title={t("services.title")} />
-				<Text fontSize="sm" color="panel.textMuted">
+				<p className="text-[0.875rem] text-panel-text-muted">
 					{t("services.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
 	return (
-		<VStack spacing={4} align="stretch">
+		<div className="flex flex-col gap-4 items-stretch">
 			<ResourceListCard
 				title={t("services.listHeader")}
 				summaryItems={serviceSummaryItems}
 				actions={
-					<Button
-						leftIcon={<PlusIcon width={18} />}
-						colorScheme="primary"
-						onClick={openCreateDialog}
-						size="sm"
-						h="36px"
-						px={3}
-						borderRadius="4px"
-					>
+					<Button leftIcon={<PlusIcon className="w-18" />} colorScheme="primary" onClick={openCreateDialog} size="sm" className="h-[36px] px-3 rounded-[4px]">
 						{t("services.addService")}
 					</Button>
 				}
 			/>
 
-			<Input
-				value={serviceSearch}
-				onChange={(event) => setServiceSearch(event.target.value)}
-				placeholder={t("services.searchServices")}
-				maxW="320px"
-			/>
+			<Input value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} placeholder={t("services.searchServices")} className="max-w-[320px]" />
 
 			<DataTable
 				ariaLabel={t("services.title")}
@@ -1974,14 +1774,14 @@ const ServicesPage: FC = () => {
 					isLoading={isServicesLoading}
 				loadingRows={5}
 				emptyState={
-					<Box textAlign="center">
-						<Text fontWeight="semibold">
+					<div className="text-center">
+						<p className="font-semibold">
 							{t("services.noServicesAvailable")}
-						</Text>
-						<Text fontSize="sm" color={labelColor} mt={1}>
+						</p>
+						<p className={cn(labelColor, "text-[0.875rem] mt-1")}>
 							{t("services.emptyHint")}
-						</Text>
-					</Box>
+						</p>
+					</div>
 				}
 				rowActions={serviceRowActions}
 				actionsDisplay="menu"
@@ -1992,17 +1792,7 @@ const ServicesPage: FC = () => {
 					void openServiceDetail(service.id, "admins");
 				}}
 				mobileBreakpoint="md"
-				tableProps={{
-					w: "full",
-					sx: {
-						tableLayout: "fixed",
-						"& th, & td": {
-							px: { base: 2, xl: 2.5 },
-							py: 2.5,
-							verticalAlign: "middle",
-						},
-					},
-				}}
+				tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }}
 			/>
 			<Pagination
 				for="services"
@@ -2025,22 +1815,22 @@ const ServicesPage: FC = () => {
 			/>
 
 			{selectedService && (
-				<Stack spacing={3}>
+				<div className="flex flex-col gap-3">
 					<PageHeader
 						title={
-							<Text as="span" fontSize="md" fontWeight="semibold" noOfLines={1}>
+							<span className="text-[1rem] font-semibold truncate">
 								{selectedService.name}
-							</Text>
+							</span>
 						}
 						description={
 							selectedService.description ? (
-								<Text as="span" noOfLines={2}>
+								<span className="line-clamp-2">
 									{selectedService.description}
-								</Text>
+								</span>
 							) : undefined
 						}
 						actions={
-							<Badge colorScheme="primary" borderRadius="md">
+							<Badge colorScheme="primary" className="rounded-md">
 								{t("services.usersCount", {
 									count: selectedService.user_count,
 								})}
@@ -2064,97 +1854,40 @@ const ServicesPage: FC = () => {
 						]}
 					/>
 					{activeServiceTab === "admins" ? (
-						<DataTable
-							containerProps={{ mt: 3 }}
-							ariaLabel={t("services.admins")}
-							data={selectedService.admins}
-							columns={serviceAdminColumns}
-							getRowId={(link) => String(link.id)}
-							emptyState={
-								<Text fontSize="sm" color="panel.textMuted" textAlign="center">
+						<DataTable containerProps={{ className: "mt-3" }} ariaLabel={t("services.admins")} data={selectedService.admins} columns={serviceAdminColumns} getRowId={(link) => String(link.id)} emptyState={
+								<p className="text-[0.875rem] text-panel-text-muted text-center">
 									{t("services.noAdmins")}
-								</Text>
-							}
-							rowActions={serviceAdminRowActions}
-							actionsDisplay="menu"
-							actionsPlacement="end"
-							actionsColumnWidth="60px"
-							showActionsOnHover
-							mobileBreakpoint="md"
-							tableProps={{
-								w: "full",
-								sx: {
-									tableLayout: "fixed",
-									"& th, & td": {
-										px: { base: 2, xl: 2.5 },
-										py: 2.5,
-										verticalAlign: "middle",
-									},
-								},
-							}}
-						/>
+								</p>
+							} rowActions={serviceAdminRowActions} actionsDisplay="menu" actionsPlacement="end" actionsColumnWidth="60px" showActionsOnHover mobileBreakpoint="md" tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }} />
 					) : (
-						<DataTable
-							containerProps={{ mt: 3 }}
-							ariaLabel={t("services.hosts")}
-							data={selectedService.hosts}
-							columns={serviceHostColumns}
-							getRowId={(host) => String(host.id)}
-							emptyState={
-								<Text fontSize="sm" color="panel.textMuted" textAlign="center">
+						<DataTable containerProps={{ className: "mt-3" }} ariaLabel={t("services.hosts")} data={selectedService.hosts} columns={serviceHostColumns} getRowId={(host) => String(host.id)} emptyState={
+								<p className="text-[0.875rem] text-panel-text-muted text-center">
 									{t("services.noHosts")}
-								</Text>
-							}
-							mobileBreakpoint="md"
-							tableProps={{
-								w: "full",
-								sx: {
-									tableLayout: "fixed",
-									"& th, & td": {
-										px: { base: 2, xl: 2.5 },
-										py: 2.5,
-										verticalAlign: "middle",
-									},
-								},
-							}}
-						/>
+								</p>
+							} mobileBreakpoint="md" tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }} />
 					)}
-				</Stack>
+				</div>
 			)}
 
-			<AppDialog
-				isOpen={Boolean(editingServiceAdminLimit)}
-				onClose={closeServiceAdminLimitEditor}
-				size="lg"
-				scrollBehavior="inside"
-				isCentered
-				title={`${t("services.editAdminLimits")}${
+			<AppDialog isOpen={Boolean(editingServiceAdminLimit)} onClose={closeServiceAdminLimitEditor} size="lg" scrollBehavior="inside" isCentered title={`${t("services.editAdminLimits")}${
 					editingServiceAdminLimit
 						? ` - ${editingServiceAdminLimit.username}`
 						: ""
-				}`}
-				overlayProps={{ bg: "blackAlpha.300" }}
-				footerProps={{ gap: 3 }}
-				footer={
+				}`} overlayProps={{ className: "bg-blackAlpha-300" }} footerProps={{ className: "gap-3" }} footer={
 					<>
-						<Button variant="ghost" onClick={closeServiceAdminLimitEditor}>
+						<Button size="md" variant="ghost" onClick={closeServiceAdminLimitEditor}>
 							{t("cancel")}
 						</Button>
-						<Button
-							colorScheme="primary"
-							onClick={submitServiceAdminLimitEditor}
-							isLoading={
+						<Button size="md" colorScheme="primary" onClick={submitServiceAdminLimitEditor} isLoading={
 								editingServiceAdminLimit
 									? savingAdminLimitId === editingServiceAdminLimit.id
 									: false
-							}
-						>
+							}>
 							{t("save")}
 						</Button>
 					</>
-				}
-			>
-				<Stack spacing={4}>
+				}>
+				<div className="flex flex-col gap-4">
 					<FormControl>
 						<FormLabel>{t("admins.trafficMode")}</FormLabel>
 						<Select
@@ -2197,7 +1930,7 @@ const ServicesPage: FC = () => {
 							{t("services.adminUsageCoefficientHint", { value: selectedService?.usage_coefficient ?? 1 })}
 						</FormHelperText>
 					</FormControl>
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<FormControl>
 							<FormLabel>{t("admins.dataLimit")}</FormLabel>
 							<Input
@@ -2234,35 +1967,27 @@ const ServicesPage: FC = () => {
 							/>
 							<FormHelperText>{t("admins.usersLimitHint")}</FormHelperText>
 						</FormControl>
-					</SimpleGrid>
-					<Stack spacing={3}>
-						<Checkbox
-							isChecked={serviceAdminLimitForm.show_user_traffic}
-							onChange={(event) =>
+					</div>
+					<div className="flex flex-col gap-3">
+						<Checkbox isChecked={serviceAdminLimitForm.show_user_traffic} onChange={(event) =>
 								setServiceAdminLimitForm((current) => ({
 									...current,
 									show_user_traffic: event.target.checked,
 								}))
-							}
-						>
+							}>
 							{t("admins.showUserTraffic")}
 						</Checkbox>
-						<Checkbox
-							isChecked={serviceAdminLimitForm.delete_user_usage_limit_enabled}
-							onChange={(event) =>
+						<Checkbox isChecked={serviceAdminLimitForm.delete_user_usage_limit_enabled} onChange={(event) =>
 								setServiceAdminLimitForm((current) => ({
 									...current,
 									delete_user_usage_limit_enabled: event.target.checked,
 								}))
-							}
-						>
+							}>
 							{t("admins.deleteUserUsageCap")}
 						</Checkbox>
-						<FormControl
-							isDisabled={
+						<FormControl isDisabled={
 								!serviceAdminLimitForm.delete_user_usage_limit_enabled
-							}
-						>
+							}>
 							<FormLabel>{t("admins.deleteUserUsageLimit")}</FormLabel>
 							<Input
 								type="number"
@@ -2280,8 +2005,8 @@ const ServicesPage: FC = () => {
 								}
 							/>
 						</FormControl>
-					</Stack>
-				</Stack>
+					</div>
+				</div>
 			</AppDialog>
 
 			<ConfirmDialog
@@ -2298,76 +2023,57 @@ const ServicesPage: FC = () => {
 				isConfirmDisabled={resetServiceId == null}
 			/>
 
-			<AppDialog
-				isOpen={isDeleteDialogOpen}
-				onClose={handleCloseDeleteDialog}
-				size="lg"
-				title={`${t("services.deleteDialogTitle")}${
+			<AppDialog isOpen={isDeleteDialogOpen} onClose={handleCloseDeleteDialog} size="lg" title={`${t("services.deleteDialogTitle")}${
 					servicePendingDelete ? ` – ${servicePendingDelete.name}` : ""
-				}`}
-				overlayProps={{ bg: "blackAlpha.300" }}
-				footerProps={{ gap: 3 }}
-				footer={
+				}`} overlayProps={{ className: "bg-blackAlpha-300" }} footerProps={{ className: "gap-3" }} footer={
 					<>
-						<Button variant="ghost" onClick={handleCloseDeleteDialog}>
+						<Button size="md" variant="ghost" onClick={handleCloseDeleteDialog}>
 							{t("cancel")}
 						</Button>
-						<Button
-							colorScheme="red"
-							onClick={confirmDeleteService}
-							isLoading={isDeleting}
-							isDisabled={
+						<Button size="md" colorScheme="red" onClick={confirmDeleteService} isLoading={isDeleting} isDisabled={
 								!servicePendingDelete ||
 								(deleteMode === "transfer_users" &&
 									servicePendingDelete.user_count > 0 &&
 									!targetServiceId)
-							}
-						>
+							}>
 							{t("delete")}
 						</Button>
 					</>
-				}
-			>
+				}>
 				{servicePendingDelete ? (
-					<VStack align="stretch" spacing={4}>
-						<Text>
+					<div className="flex flex-col items-stretch gap-4">
+						<p>
 							{t("services.deleteDialogDescription", {
 								name: servicePendingDelete.name,
 							})}
-						</Text>
+						</p>
 						{servicePendingDelete.admin_ids.length > 0 ? (
-							<Checkbox
-								isChecked={unlinkAdmins}
-								onChange={(event) => setUnlinkAdmins(event.target.checked)}
-							>
+							<Checkbox isChecked={unlinkAdmins} onChange={(event) => setUnlinkAdmins(event.target.checked)}>
 								{t("services.unlinkAdminsOption")}
 							</Checkbox>
 						) : (
-							<Text fontSize="sm" color="gray.500">
+							<p className="text-[0.875rem] text-gray-500">
 								{t("services.noAdminsLinked")}
-							</Text>
+							</p>
 						)}
 						{servicePendingDelete.user_count > 0 ? (
-							<VStack align="stretch" spacing={3}>
-								<Text fontWeight="semibold">
+							<div className="flex flex-col items-stretch gap-3">
+								<p className="font-semibold">
 									{t("services.userDeletePrompt", {
 										count: servicePendingDelete.user_count,
 									})}
-								</Text>
-								<RadioGroup
-									value={deleteMode}
-									onChange={(value) =>
+								</p>
+								<RadioGroup value={deleteMode} onChange={(value) =>
 										setDeleteMode(value as "delete_users" | "transfer_users")
-									}
-								>
-									<Stack align="flex-start" spacing={2}>
+									}>
+									<div className="flex flex-col items-start gap-2">
 										<Radio value="delete_users">
 											{t("services.deleteUsersOption")}
 										</Radio>
 										<Radio value="transfer_users">
 											{t("services.transferUsersOption")}
 										</Radio>
-									</Stack>
+									</div>
 								</RadioGroup>
 								{deleteMode === "transfer_users" && (
 									<FormControl>
@@ -2397,18 +2103,18 @@ const ServicesPage: FC = () => {
 										</FormHelperText>
 									</FormControl>
 								)}
-							</VStack>
+							</div>
 						) : (
-							<Alert status="info" borderRadius="md">
+							<Alert status="info" className="rounded-md">
 								<AlertIcon />
 								<AlertDescription>
 									{t("services.noUsersLinked")}
 								</AlertDescription>
 							</Alert>
 						)}
-					</VStack>
+					</div>
 				) : (
-					<Text>{t("services.loading")}</Text>
+					<p>{t("services.loading")}</p>
 				)}
 			</AppDialog>
 
@@ -2426,7 +2132,7 @@ const ServicesPage: FC = () => {
 						refreshHosts={fetchHosts}
 				/>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

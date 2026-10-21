@@ -1,14 +1,4 @@
-import {
-	ButtonGroup,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-	Text,
-	Tooltip,
-} from "@chakra-ui/react";
+import { ButtonGroup } from "components/shadcn/button";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { ReloadIcon } from "components/Filters";
 import { Button } from "components/shadcn/button";
@@ -103,7 +93,7 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 						className="relative rounded-s-none px-1.5"
 						style={{ height: 32, width: 30 }}
 					>
-						<ChevronDownIcon width={14} />
+						<ChevronDownIcon className="w-14" />
 						{active ? (
 							<span
 								aria-hidden="true"
@@ -112,7 +102,7 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 						) : null}
 					</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align={i18n.dir() === "rtl" ? "start" : "end"} className="min-w-52">
+				<DropdownMenuContent className={cn(i18n.dir() === "rtl" ? "items-start" : "items-end", "min-w-52")}>
 					<DropdownMenuLabel>{labels.autoRefresh}</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem onSelect={() => onIntervalChange(0)} className={cn(!active && "font-semibold")}>

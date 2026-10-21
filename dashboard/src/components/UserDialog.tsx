@@ -1,49 +1,21 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Input as ChakraInput,
-	Collapse,
-	chakra,
-	Flex,
-	FormControl,
-	FormErrorMessage,
-	FormHelperText,
-	FormLabel,
-	Grid,
-	GridItem,
-	HStack,
-	IconButton,
-	InputGroup,
-	InputRightAddon,
-	InputRightElement,
-	Modal,
-	ModalCloseButton,
-	ModalHeader,
-	ModalOverlay,
-	SlideFade,
-	Spinner,
-	Stack,
-	Switch,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Text,
-	Textarea,
-	Tooltip,
-	useBreakpointValue,
-	useColorMode,
-	useColorModeValue,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useToast } from "components/shadcn/toast";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+import { useColorMode, useColorModeValue } from "lib/color-mode";
+import { Input as ChakraInput, InputGroup, InputRightAddon, InputRightElement, Textarea } from "components/shadcn/input";
+import { Modal, ModalCloseButton, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Tooltip } from "components/shadcn/tooltip";
+import { Button, IconButton } from "components/shadcn/button";
+import { Switch } from "components/shadcn/selection";
+import { Collapse } from "components/shadcn/collapse";
+import { Spinner } from "components/shadcn/feedback";
+import { Badge } from "components/shadcn/badge";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import { PanelSelect as Select } from "components/common/PanelSelect";
-import { keyframes } from "@emotion/react";
 import {
 	CheckIcon,
 	ClipboardIcon,
@@ -71,6 +43,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type ReactNode,
 } from "react";
 import ReactApexChart from "react-apexcharts";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
@@ -115,70 +88,23 @@ import {
 	XrayModalFooter,
 } from "./xray/XrayDialog";
 
-const AddUserIcon = chakra(UserPlusIcon, {
-	baseStyle: {
-		w: 4,
+const AddUserIcon = withClass(UserPlusIcon, "w-4 h-4");
 
-		h: 4,
-	},
-});
+const EditUserIcon = withClass(PencilIcon, "w-4 h-4");
 
-const EditUserIcon = chakra(PencilIcon, {
-	baseStyle: {
-		w: 4,
+const CopyActionIcon = withClass(ClipboardIcon, "w-4 h-4");
+const CopiedActionIcon = withClass(CheckIcon, "w-4 h-4");
+const QRActionIcon = withClass(QrCodeIcon, "w-4 h-4");
+const SubscriptionActionIcon = withClass(LinkIcon, "w-4 h-4");
 
-		h: 4,
-	},
-});
+const LimitLockIcon = withClass(LockClosedIcon, "w-16 md:w-20 h-16 md:h-20");
 
-const actionIconProps = {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-};
-
-const CopyActionIcon = chakra(ClipboardIcon, actionIconProps);
-const CopiedActionIcon = chakra(CheckIcon, actionIconProps);
-const QRActionIcon = chakra(QrCodeIcon, actionIconProps);
-const SubscriptionActionIcon = chakra(LinkIcon, actionIconProps);
-
-const LimitLockIcon = chakra(LockClosedIcon, {
-	baseStyle: {
-		w: {
-			base: 16,
-
-			md: 20,
-		},
-
-		h: {
-			base: 16,
-
-			md: 20,
-		},
-	},
-});
-
-const SectionChevronIcon = chakra(HeroChevronDownIcon, {
-	baseStyle: {
-		w: 4,
-
-		h: 4,
-	},
-});
+const SectionChevronIcon = withClass(HeroChevronDownIcon, "w-4 h-4");
 
 export type UserDialogProps = {};
 type SubmitStatus = "idle" | "loading" | "success" | "error";
 
 const SERVICE_NOTICE_DURATION_MS = 10000;
-const serviceNoticeProgress = keyframes`
-	from {
-		transform: scaleX(1);
-	}
-	to {
-		transform: scaleX(0);
-	}
-`;
 
 const createAutoRenewId = () => {
 	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -320,9 +246,22 @@ const usernameRegex = /^[A-Za-z0-9._@-]{3,32}$/;
 const BYTES_PER_GB = 1073741824;
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
-const alwaysVisibleStepper = {
-	".rb-number-stepper": { opacity: 1, pointerEvents: "auto" },
-};
+const alwaysVisibleStepper = "[&_.rb-number-stepper]:opacity-100 [&_.rb-number-stepper]:pointer-events-auto";
+
+/** Chakra's SlideFade with unmountOnExit: slides in from 8px above and fades, and reverses on close. */
+const SlideNotice = ({ open, children }: { open: boolean; children: ReactNode }) => (
+	<AnimatePresence>
+		{open && (
+			<motion.div
+				initial={{ opacity: 0, y: -8 }}
+				animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: [0, 0, 0.2, 1] } }}
+				exit={{ opacity: 0, y: -8, transition: { duration: 0.1, ease: [0.4, 0, 1, 1] } }}
+			>
+				{children}
+			</motion.div>
+		)}
+	</AnimatePresence>
+);
 
 const normalizeDecimalText = (value: string) =>
 	value
@@ -640,8 +579,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			};
 
 	const { colorMode } = useColorMode();
-	const footerBg = useColorModeValue("white", "gray.900");
-	const footerBorderColor = useColorModeValue("gray.200", "whiteAlpha.300");
+	const footerBg = useColorModeValue("bg-white", "bg-gray-900");
+	const footerBorderColor = useColorModeValue("border-gray-200!", "border-whiteAlpha-300!");
 
 	const UNIT_RADIUS = "6px";
 
@@ -654,15 +593,15 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		type?: string;
 		inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
 	}) => {
-		const addonBg = colorMode === "dark" ? "whiteAlpha.100" : "blackAlpha.50";
-		const addonBorder = colorMode === "dark" ? "gray.700" : "gray.200";
-		const addonColor = colorMode === "dark" ? "gray.200" : "gray.600";
+		const addonBg = colorMode === "dark" ? "bg-whiteAlpha-100" : "bg-blackAlpha-50";
+		const addonBorder = colorMode === "dark" ? "border-gray-700!" : "border-gray-200!";
+		const addonColor = colorMode === "dark" ? "text-gray-200" : "text-gray-600";
 
 		return (
-			<InputGroup size="sm" dir="ltr" w="full" minW={0}>
-				<Box flex="1" minW={0}>
+			<InputGroup size="sm" dir="ltr" className="w-full min-w-0!">
+				<div className="flex-1 min-w-0!">
 					<NumericInput
-						sx={alwaysVisibleStepper}
+						className={alwaysVisibleStepper}
 						value={args.value}
 						isDisabled={args.disabled}
 						min={0}
@@ -672,31 +611,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 								target: { value: valueAsString },
 							} as ChangeEvent<HTMLInputElement>);
 						}}
-						fieldProps={{
-							placeholder: args.placeholder,
-							inputMode: args.inputMode ?? "decimal",
-							borderRadius: UNIT_RADIUS,
-							borderEndRadius: "0",
-							h: "32px",
-							minH: "32px",
-							dir: "ltr",
-							textAlign: isRTL ? "right" : "left",
-						}}
+						fieldProps={{ placeholder: args.placeholder, inputMode: args.inputMode ?? "decimal", dir: "ltr", className: "h-[32px] min-h-[32px]", style: { borderRadius: UNIT_RADIUS, borderStartEndRadius: "0", borderEndEndRadius: "0", textAlign: isRTL ? "right" : "left" } }}
 					/>
-				</Box>
+				</div>
 
-				<InputRightAddon
-					bg={addonBg}
-					borderColor={addonBorder}
-					color={addonColor}
-					borderStartRadius="0"
-					borderEndRadius={UNIT_RADIUS}
-					px={3}
-					fontSize="sm"
-					h="32px"
-					minH="32px"
-					userSelect="none"
-				>
+				<InputRightAddon style={{ borderStartEndRadius: UNIT_RADIUS, borderEndEndRadius: UNIT_RADIUS }} className={cn("rounded-s-[0] px-3 text-[0.875rem] h-[32px] min-h-[32px] select-none", addonBg, addonBorder, addonColor)}>
 					{args.unit}
 				</InputRightAddon>
 			</InputGroup>
@@ -1996,47 +1915,14 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	};
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"}
-			scrollBehavior="inside"
-		>
-			<ModalOverlay bg="blackAlpha.300" />
+		<Modal isOpen={isOpen} onClose={onClose} size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"} scrollBehavior="inside">
+			<ModalOverlay className="bg-blackAlpha-300" />
 
 			<FormProvider {...form}>
-				<XrayModalContent
-					mx={{ base: 0, md: 3 }}
-					my={{ base: 0, md: "3.75rem" }}
-					position="relative"
-					overflow="hidden"
-					borderRadius={{ base: 0, md: "md" }}
-					display="flex"
-					flexDirection="column"
-					dir={isRTL ? "rtl" : "ltr"}
-				>
-					<ModalCloseButton
-						disabled={loading}
-						insetInlineEnd={4}
-						insetInlineStart="auto"
-						top={3}
-						position="absolute"
-						zIndex={2}
-						_rtl={{
-							insetInlineEnd: "auto",
-							insetInlineStart: 4,
-						}}
-					/>
+				<XrayModalContent dir={isRTL ? "rtl" : "ltr"} className="mx-0 md:mx-3 my-0 md:my-[3.75rem] relative overflow-hidden rounded-[0px] md:rounded-md flex flex-col">
+					<ModalCloseButton disabled={loading} className="end-4 start-[auto] top-3 absolute z-[2] rtl:end-[auto] rtl:start-4" />
 
-					<Box
-						pointerEvents={limitReached ? "none" : "auto"}
-						filter={limitReached ? "blur(6px)" : "none"}
-						transition="filter 0.2s ease"
-						minH={0}
-						flex="1"
-						display="flex"
-						flexDirection="column"
-					>
+					<div className={cn("[transition:filter_0.2s_ease] min-h-0 flex-1 flex flex-col", limitReached ? "pointer-events-none" : "pointer-events-auto", limitReached ? "[filter:blur(6px)]" : "[filter:none]")}>
 						<form
 							onSubmit={form.handleSubmit(submit)}
 							style={{
@@ -2046,145 +1932,61 @@ export const UserDialog: FC<UserDialogProps> = () => {
 								flexDirection: "column",
 							}}
 						>
-							<ModalHeader
-								px={{ base: 4, md: 5 }}
-								py={3}
-								pe={12}
-								position="relative"
-								display="flex"
-								alignItems="center"
-								justifyContent="flex-start"
-								gap={2}
-							>
-								<Box flexShrink={0}>
+							<ModalHeader className="px-4 md:px-5 py-3 pe-12 relative flex items-center justify-start gap-2">
+								<div className="shrink-0">
 									<Icon color="primary" size={30}>
 										{isEditing ? (
-											<EditUserIcon color="white" />
+											<EditUserIcon className="text-white" />
 										) : (
-											<AddUserIcon color="white" />
+											<AddUserIcon className="text-white" />
 										)}
 									</Icon>
-								</Box>
+								</div>
 
-								<Text fontWeight="semibold" fontSize="lg">
+								<p className="font-semibold text-[1.125rem]">
 									{isEditing
 										? `${t("userDialog.editUserTitle")}${
 												editingUser?.username ? ` ${editingUser.username}` : ""
 											}`
 										: t("createNewUser")}
-								</Text>
+								</p>
 							</ModalHeader>
 
-							<XrayModalBody
-								flex="1"
-								minH={0}
-								overflowY="auto"
-								overflowX="hidden"
-								px={{ base: 3, sm: 4, md: 5 }}
-								py={{ base: 3, md: 4 }}
-								sx={{
-									WebkitOverflowScrolling: "touch",
-									overscrollBehavior: "contain",
-								}}
-							>
+							<XrayModalBody className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 md:px-5 py-3 md:py-4 [webkit-overflow-scrolling:touch] overscroll-contain">
 								{isEditing && isServiceManagedUser && (
-									<SlideFade
-										in={serviceNoticeVisible}
-										offsetY="-8px"
-										unmountOnExit
-									>
-										<Alert
-											status="info"
-											mb={statusNotice ? 3 : 4}
-											borderRadius="md"
-											alignItems="flex-start"
-											overflow="hidden"
-											position="relative"
-										>
+									<SlideNotice open={serviceNoticeVisible}>
+										<Alert status="info" className={cn("rounded-md items-start overflow-hidden relative", statusNotice ? "mb-3" : "mb-4")}>
 											<AlertIcon />
-											<Box flex="1" minW={0}>
+											<div className="flex-1 min-w-0!">
 												<AlertDescription>
 													{t("userDialog.serviceManagedNotice", {
 														service: editingUser?.service_name ?? "",
 													})}
 												</AlertDescription>
-											</Box>
-											<Box
-												position="absolute"
-												insetInlineStart={0}
-												insetInlineEnd={0}
-												bottom={0}
-												h="2px"
-												bg="whiteAlpha.400"
-												borderRadius="full"
-												overflow="hidden"
-												pointerEvents="none"
-											>
-												<Box
-													key={serviceNoticeSeed}
-													h="full"
-													bg="whiteAlpha.800"
-													transformOrigin={
-														isRTL ? "right center" : "left center"
-													}
-													animation={`${serviceNoticeProgress} ${SERVICE_NOTICE_DURATION_MS}ms linear forwards`}
-												/>
-											</Box>
+											</div>
+											<div className="absolute start-0 end-0 bottom-0 h-[2px] bg-whiteAlpha-400 rounded-full overflow-hidden pointer-events-none">
+												<div key={serviceNoticeSeed} style={{ animation: `rb-service-notice-progress ${SERVICE_NOTICE_DURATION_MS}ms linear forwards` }} className={cn(cn("h-full bg-whiteAlpha-800", isRTL ? "[transform-origin:right_center]" : "[transform-origin:left_center]"))} />
+											</div>
 										</Alert>
-									</SlideFade>
+									</SlideNotice>
 								)}
 
 								{isEditing && statusNotice && (
-									<SlideFade
-										in={statusNoticeVisible}
-										offsetY="-8px"
-										unmountOnExit
-									>
-										<Alert
-											status="info"
-											mb={4}
-											borderRadius="md"
-											alignItems="flex-start"
-											overflow="hidden"
-											position="relative"
-										>
+									<SlideNotice open={statusNoticeVisible}>
+										<Alert status="info" className="mb-4 rounded-md items-start overflow-hidden relative">
 											<AlertIcon />
-											<Box flex="1" minW={0}>
+											<div className="flex-1 min-w-0!">
 												<AlertDescription>{statusNotice}</AlertDescription>
-											</Box>
-											<Box
-												position="absolute"
-												insetInlineStart={0}
-												insetInlineEnd={0}
-												bottom={0}
-												h="2px"
-												bg="whiteAlpha.400"
-												borderRadius="full"
-												overflow="hidden"
-												pointerEvents="none"
-											>
-												<Box
-													key={statusNoticeSeed}
-													h="full"
-													bg="whiteAlpha.800"
-													transformOrigin={
-														isRTL ? "right center" : "left center"
-													}
-													animation={`${serviceNoticeProgress} ${SERVICE_NOTICE_DURATION_MS}ms linear forwards`}
-												/>
-											</Box>
+											</div>
+											<div className="absolute start-0 end-0 bottom-0 h-[2px] bg-whiteAlpha-400 rounded-full overflow-hidden pointer-events-none">
+												<div key={statusNoticeSeed} style={{ animation: `rb-service-notice-progress ${SERVICE_NOTICE_DURATION_MS}ms linear forwards` }} className={cn(cn("h-full bg-whiteAlpha-800", isRTL ? "[transform-origin:right_center]" : "[transform-origin:left_center]"))} />
+											</div>
 										</Alert>
-									</SlideFade>
+									</SlideNotice>
 								)}
 
 								{showServiceSelector && !servicesLoading && !hasServices && (
-									<Alert
-										status="warning"
-										variant="subtle"
-										mb={4}
-										borderRadius="md"
-										w="full"
-									>
+									<Alert status="warning" variant="subtle" className="mb-4 rounded-md w-full">
 										<AlertIcon />
 										<AlertDescription>
 											{`${t("userDialog.noServicesAvailable")} ${t("userDialog.createServiceToManage")}`}
@@ -2193,7 +1995,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 								)}
 
 								{userManagementLocked && (
-									<Alert status="warning" mb={4} borderRadius="md">
+									<Alert status="warning" className="mb-4 rounded-md">
 										<AlertIcon />
 										<AlertDescription>
 											{t("userDialog.managementLocked")}
@@ -2201,127 +2003,45 @@ export const UserDialog: FC<UserDialogProps> = () => {
 									</Alert>
 								)}
 
-								<Tabs
-									index={activeTab}
-									onChange={handleTabChange}
-									className="xray-dialog-auto-sections"
-									variant="unstyled"
-									isLazy
-									w="full"
-								>
-									<TabList
-										overflowX="auto"
-										overflowY="hidden"
-										whiteSpace="nowrap"
-										sx={{
-											scrollbarWidth: "none",
-											"&::-webkit-scrollbar": { display: "none" },
-										}}
-									>
-										<Tab flexShrink={0}>{t("form")}</Tab>
+								<Tabs index={activeTab} onChange={handleTabChange} variant="unstyled" isLazy className="w-full xray-dialog-auto-sections">
+									<TabList className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden overflow-x-auto overflow-y-hidden whitespace-nowrap">
+										<Tab className="shrink-0">{t("form")}</Tab>
 										{isEditing && canViewTraffic && (
-											<Tab flexShrink={0}>{t("userDialog.tabs.usage")}</Tab>
+											<Tab className="shrink-0">{t("userDialog.tabs.usage")}</Tab>
 										)}
 										{isEditing && (
-											<Tab flexShrink={0}>{t("userDialog.tabs.links")}</Tab>
+											<Tab className="shrink-0">{t("userDialog.tabs.links")}</Tab>
 										)}
 									</TabList>
 									<TabPanels>
-										<TabPanel px={0} pt={4}>
-											<Grid
-												className="xray-dialog-section user-dialog-edit-grid"
-												templateColumns={{
-													base: "repeat(1, 1fr)",
-													md: useTwoColumns
-														? "repeat(2, 1fr)"
-														: "minmax(0, 1fr)",
-												}}
-												gap={3}
-												{...(shouldCenterForm
+										<TabPanel className="px-0 pt-4">
+											<div {...(shouldCenterForm
 													? { maxW: "720px", mx: "auto", w: "full" }
-													: {})}
-											>
-												<GridItem>
-													<VStack justifyContent="space-between">
-														<Flex
-															flexDirection="column"
-															gridAutoRows="min-content"
-															w="full"
-														>
-															<Flex flexDirection="row" w="full" gap={2}>
-																<FormControl
-																	mb={"10px"}
-																	isInvalid={
+													: {})} className={cn("grid grid-cols-[repeat(1,_1fr)] gap-3", useTwoColumns ? "md:grid-cols-[repeat(2,_1fr)]" : "md:grid-cols-[minmax(0,_1fr)]", "xray-dialog-section user-dialog-edit-grid")}>
+												<div>
+													<div className="flex flex-col items-center gap-2 justify-between">
+														<div className="flex flex-col auto-rows-[min-content] w-full">
+															<div className="flex flex-row w-full gap-2">
+																<FormControl isInvalid={
 																		!!form.formState.errors.username?.message
-																	}
-																>
-																	<FormLabel
-																		display="flex"
-																		alignItems="center"
-																		gap={2}
-																		justifyContent={
-																			isRTL ? "flex-end" : "flex-start"
-																		}
-																		flexDirection={
-																			isRTL ? "row-reverse" : "row"
-																		}
-																	>
-																		<Text>{t("username")}</Text>
-																		<Tooltip
-																			hasArrow
-																			placement="top"
-																			label={t("userDialog.usernameHint")}
-																		>
-																			<chakra.span
-																				display="inline-flex"
-																				color="gray.400"
-																				cursor="help"
-																			>
-																				<QuestionMarkCircleIcon
-																					width={16}
-																					height={16}
-																				/>
-																			</chakra.span>
+																	} className="mb-[10px]">
+																	<FormLabel className={cn("flex items-center gap-2", isRTL ? "justify-end" : "justify-start", isRTL ? "flex-row-reverse" : "flex-row")}>
+																		<p>{t("username")}</p>
+																		<Tooltip hasArrow placement="top" label={t("userDialog.usernameHint")}>
+																			<span className="inline-flex text-gray-400 cursor-help">
+																				<QuestionMarkCircleIcon className="w-16 h-16" />
+																			</span>
 																		</Tooltip>
 																	</FormLabel>
-																	<HStack align="center">
-																		<Box flex="1" minW="0">
-																			<InputGroup
-																				size="sm"
-																				dir={isRTL ? "rtl" : "ltr"}
-																			>
-																				<ChakraInput
-																					type="text"
-																					borderRadius="6px"
-																					
-																					isDisabled={disabled || isEditing}
-																					{...(!isEditing ? endPadding : {})}
-																					{...form.register("username")}
-																				/>
+																	<div className="flex flex-row gap-2 items-center">
+																		<div className="flex-1 min-w-0!">
+																			<InputGroup size="sm" dir={isRTL ? "rtl" : "ltr"}>
+																				<ChakraInput type="text" isDisabled={disabled || isEditing} {...(!isEditing ? endPadding : {})} {...form.register("username")} className="rounded-[6px]" />
 																				{!isEditing && (
-																					<InputRightElement
-														h="full"
-																						width="auto"
-																						insetInlineEnd={
-																							endAdornmentProps.insetInlineEnd
-																						}
-																						insetInlineStart={
-																							endAdornmentProps.insetInlineStart
-																						}
-																						right={endAdornmentProps.right}
-																						left={endAdornmentProps.left}
-																					>
-																						<IconButton
-																							aria-label={t(
+																					<InputRightElement style={{ insetInlineEnd: endAdornmentProps.insetInlineEnd, insetInlineStart: endAdornmentProps.insetInlineStart, right: endAdornmentProps.right, left: endAdornmentProps.left }} className="w-auto h-full">
+																						<IconButton aria-label={t(
 																								"userDialog.generateUsername",
-																							)}
-																							size="sm"
-																							variant="ghost"
-																							h="32px"
-																																																																																																						minW="32px"
-																																																																																																																																			w="32px"
-																																																																																																																										icon={<SparklesIcon width={18} />}
-																							onClick={() => {
+																							)} size="sm" variant="ghost" icon={<SparklesIcon className="w-18" />} onClick={() => {
 																								const randomUsername =
 																									createRandomUsername();
 																								form.setValue(
@@ -2338,36 +2058,26 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																										false,
 																									);
 																								}, 350);
-																							}}
-																							isLoading={randomUsernameLoading}
-																							isDisabled={disabled}
-																						/>
+																							}} isLoading={randomUsernameLoading} isDisabled={disabled} className="h-[32px] min-w-[32px]! w-[32px]" />
 																					</InputRightElement>
 																				)}
 																			</InputGroup>
-																		</Box>
+																		</div>
 																		{isEditing && (
-																			<HStack px={1}>
+																			<div className="flex flex-row items-center gap-2 px-1">
 																				<Controller
 																					name="status"
 																					control={form.control}
 																					render={({ field }) => {
 																						return (
-																							<Tooltip
-																								placement="top"
-																								label={
+																							<Tooltip placement="top" label={
 																									"status: " +
 																									t(`status.${field.value}`)
-																								}
-																								textTransform="capitalize"
-																							>
-																								<Box>
-																									<Switch
-																										colorScheme="primary"
-																										isChecked={
+																								} className="capitalize">
+																								<div>
+																									<Switch colorScheme="primary" isChecked={
 																											field.value === "active"
-																										}
-																										onChange={(e) => {
+																										} onChange={(e) => {
 																											if (e.target.checked) {
 																												field.onChange(
 																													"active",
@@ -2377,33 +2087,23 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																													"disabled",
 																												);
 																											}
-																										}}
-																									/>
-																								</Box>
+																										}} />
+																								</div>
 																							</Tooltip>
 																						);
 																					}}
 																				/>
-																			</HStack>
+																			</div>
 																		)}
-																	</HStack>
+																	</div>
 
-																	<FormHelperText
-																		fontSize="xs"
-																		color="gray.500"
-																		textAlign={isRTL ? "start" : "end"}
-																	>
+																	<FormHelperText className={cn("text-[0.75rem] text-gray-500", isRTL ? "text-start" : "text-end")}>
 																		{`${usernameValue?.length ?? 0}/32`}
 																	</FormHelperText>
 																	{isEditing &&
 																		hasPrivilegedRole &&
 																		editingUser?.admin_username && (
-																			<FormHelperText
-																				fontSize="xs"
-																				color="gray.500"
-																				mt={1}
-																				textAlign={isRTL ? "end" : "start"}
-																			>
+																			<FormHelperText className={cn("text-[0.75rem] text-gray-500 mt-1", isRTL ? "text-end" : "text-start")}>
 																				{t("userDialog.createdBy")}:{" "}
 																				{editingUser.admin_username}
 																			</FormHelperText>
@@ -2413,22 +2113,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		{form.formState.errors.username?.message}
 																	</FormErrorMessage>
 																</FormControl>
-															</Flex>
+															</div>
 
-															<Stack
-																direction="row"
-																spacing={3}
-																mb={"10px"}
-															>
-																<FormControl
-																	flex="1"
-																	isInvalid={
+															<div className="flex flex-row gap-3 mb-[10px]">
+																<FormControl isInvalid={
 																		!!form.formState.errors.data_limit?.message
-																	}
-																>
-																	<FormLabel
-																		textAlign={isRTL ? "right" : "left"}
-																	>
+																	} className="flex-1">
+																	<FormLabel className={cn(isRTL ? "text-right" : "text-left")}>
 																		{t("userDialog.dataLimit")}
 																	</FormLabel>
 																	<Controller
@@ -2446,13 +2137,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						disabled,
 																					})}
 																					{isEditing && remainingDataInfo && (
-																						<FormHelperText
-																							fontSize="xs"
-																							color="gray.500"
-																							textAlign={
-																								isRTL ? "right" : "left"
-																							}
-																						>
+																						<FormHelperText className={cn("text-[0.75rem] text-gray-500", isRTL ? "text-right" : "text-left")}>
 																							{`${remainingDataInfo.label}: ${remainingDataInfo.value}`}
 																						</FormHelperText>
 																					)}
@@ -2467,35 +2152,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		}}
 																	/>
 																</FormControl>
-																<FormControl flex="1" minW={0} isInvalid={Boolean(form.formState.errors.ip_limit)}>
-																	<FormLabel
-																		display="flex"
-																		alignItems="center"
-																		gap={2}
-																		justifyContent={
-																			isRTL ? "flex-end" : "flex-start"
-																		}
-																		flexDirection={
-																			isRTL ? "row-reverse" : "row"
-																		}
-																		textAlign={isRTL ? "right" : "left"}
-																	>
+																<FormControl isInvalid={Boolean(form.formState.errors.ip_limit)} className="flex-1 min-w-0!">
+																	<FormLabel className={cn("flex items-center gap-2", isRTL ? "justify-end" : "justify-start", isRTL ? "flex-row-reverse" : "flex-row", isRTL ? "text-right" : "text-left")}>
 																		{t("userDialog.ipLimitLabel")}
-																		<Tooltip
-																			hasArrow
-																			placement="top"
-																			label={t("userDialog.ipLimitHint")}
-																		>
-																			<chakra.span
-																				display="inline-flex"
-																				color="gray.400"
-																				cursor="help"
-																			>
-																				<QuestionMarkCircleIcon
-																					width={16}
-																					height={16}
-																				/>
-																			</chakra.span>
+																		<Tooltip hasArrow placement="top" label={t("userDialog.ipLimitHint")}>
+																			<span className="inline-flex text-gray-400 cursor-help">
+																				<QuestionMarkCircleIcon className="w-16 h-16" />
+																			</span>
 																		</Tooltip>
 																	</FormLabel>
 																	<Controller
@@ -2525,8 +2188,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		render={({ field }) => (
 																			<>
 																				<NumericInput
-																					sx={alwaysVisibleStepper}
-																					variant="outline"
+																					className={alwaysVisibleStepper}
 																					value={
 																						typeof field.value === "number" && field.value > 0
 																							? String(field.value)
@@ -2548,14 +2210,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						}
 																						field.onChange(parsed < 0 ? 0 : Math.floor(parsed));
 																					}}
-																					fieldProps={{
-																						placeholder: t("userDialog.remainingDataUnlimited"),
-																						borderRadius: "6px",
-																						h: "32px",
-																						minH: "32px",
-																						dir: "ltr",
-																						textAlign: isRTL ? "right" : "left",
-																					}}
+																					fieldProps={{ placeholder: t("userDialog.remainingDataUnlimited"), dir: "ltr", className: "h-[32px] min-h-[32px]", style: { borderRadius: "6px", textAlign: isRTL ? "right" : "left" } }}
 																				/>
 																				<FormErrorMessage>
 																					{form.formState.errors.ip_limit?.message}
@@ -2564,17 +2219,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		)}
 																	/>
 																</FormControl>
-															</Stack>
+															</div>
 
-															<Collapse
-																in={!!(dataLimit && dataLimit > 0)}
-																animateOpacity
-																style={{ width: "100%" }}
-															>
-																<FormControl height="66px">
-																	<FormLabel
-																		textAlign={isRTL ? "right" : "left"}
-																	>
+															<Collapse in={!!(dataLimit && dataLimit > 0)} animateOpacity style={{ width: "100%" }}>
+																<FormControl className="h-[66px]">
+																	<FormLabel className={cn(isRTL ? "text-right" : "text-left")}>
 																		{t("userDialog.periodicUsageReset")}
 																	</FormLabel>
 
@@ -2583,35 +2232,12 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		name="data_limit_reset_strategy"
 																		render={({ field }) => {
 																			return (
-																				<Select
-																					size="sm"
-																					{...field}
-																					disabled={
+																				<Select size="sm" {...field} disabled={
 																						disabled ||
 																						!canConfigurePeriodicUsageReset
-																					}
-																					bg={
-																						disabled ||
-																						!canConfigurePeriodicUsageReset
-																							? "gray.100"
-																							: "transparent"
-																					}
-																					_dark={{
-																						bg:
-																							disabled ||
-																							!canConfigurePeriodicUsageReset
-																								? "gray.600"
-																								: "transparent",
-																					}}
-																					sx={{
-																						option: {
-																							backgroundColor:
-																								colorMode === "dark"
-																									? "#222C3B"
-																									: "white",
-																						},
-																					}}
-																				>
+																					} className={cn(disabled ||
+																						!canConfigurePeriodicUsageReset ? "bg-gray-100" : "bg-transparent", disabled ||
+																							!canConfigurePeriodicUsageReset ? "dark:bg-gray-600" : "dark:bg-transparent")}>
 																					{resetStrategy.map((s) => {
 																						return (
 																							<option
@@ -2631,42 +2257,16 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	/>
 																</FormControl>
 															</Collapse>
-															<Stack direction="row" spacing={3} mb={"10px"}>
-																<FormControl
-																	flex="1"
-																	minW={0}
-																	isInvalid={Boolean(
+															<div className="flex flex-row gap-3 mb-[10px]">
+																<FormControl isInvalid={Boolean(
 																		form.formState.errors.speed_limit,
-																	)}
-																>
-																	<FormLabel
-																		display="flex"
-																		alignItems="center"
-																		gap={2}
-																		justifyContent={
-																			isRTL ? "flex-end" : "flex-start"
-																		}
-																		flexDirection={
-																			isRTL ? "row-reverse" : "row"
-																		}
-																		textAlign={isRTL ? "right" : "left"}
-																	>
+																	)} className="flex-1 min-w-0!">
+																	<FormLabel className={cn("flex items-center gap-2", isRTL ? "justify-end" : "justify-start", isRTL ? "flex-row-reverse" : "flex-row", isRTL ? "text-right" : "text-left")}>
 																		{t("userDialog.speedLimitLabel")}
-																		<Tooltip
-																			hasArrow
-																			placement="top"
-																			label={t("userDialog.speedLimitHint")}
-																		>
-																			<chakra.span
-																				display="inline-flex"
-																				color="gray.400"
-																				cursor="help"
-																			>
-																				<QuestionMarkCircleIcon
-																					width={16}
-																					height={16}
-																				/>
-																			</chakra.span>
+																		<Tooltip hasArrow placement="top" label={t("userDialog.speedLimitHint")}>
+																			<span className="inline-flex text-gray-400 cursor-help">
+																				<QuestionMarkCircleIcon className="w-16 h-16" />
+																			</span>
 																		</Tooltip>
 																	</FormLabel>
 																	<Controller
@@ -2727,46 +2327,24 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		)}
 																	/>
 																</FormControl>
-																<Flex flex="1" />
-															</Stack>
+																<div className="flex flex-1" />
+															</div>
 
-															<FormControl
-																mb="10px"
-																isInvalid={
+															<FormControl isInvalid={
 																	isOnHold
 																		? Boolean(
 																				form.formState.errors
 																					.on_hold_expire_duration,
 																			)
 																		: Boolean(form.formState.errors.expire)
-																}
-															>
-																<Grid
-																	templateColumns={{
-																		base: "1fr",
-																		md: "minmax(0, 1fr) auto",
-																	}}
-																	templateAreas={{
-																		base: `"label" "field" "helper" "button"`,
-																		md: `"label ."
-																			   "field button"
-																			   "helper ."`,
-																	}}
-																	rowGap={2}
-																	columnGap={{ base: 0, md: 4 }}
-																	w="full"
-																	minW={0}
-																>
-																	<FormLabel
-																		gridArea="label"
-																		mb={0}
-																		textAlign={isRTL ? "right" : "left"}
-																	>
+																} className="mb-[10px]">
+																<div className={"grid grid-cols-[1fr] md:grid-cols-[minmax(0,_1fr)_auto] [template-areas:\"label\"_\"field\"_\"helper\"_\"button\"] md:[template-areas:\"label_.\"_\"field_button\"_\"helper_.\"] gap-y-2 gap-x-0 md:gap-x-4 w-full min-w-0!"}>
+																	<FormLabel className={cn("[grid-area:label] mb-0", isRTL ? "text-right" : "text-left")}>
 																		{isOnHold
 																			? t("expires.days")
 																			: t("expires.selectDate")}
 																	</FormLabel>
-																	<Box gridArea="field" minW={0}>
+																	<div className="[grid-area:field] min-w-0!">
 																		{isOnHold ? (
 																			<Controller
 																				control={form.control}
@@ -2870,21 +2448,16 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				}}
 																			/>
 																		)}
-																	</Box>
+																	</div>
 																	{!isOnHold && expireHelperText ? (
-																		<FormHelperText gridArea="helper" mt={0}>
+																		<FormHelperText className="[grid-area:helper] mt-0">
 																			{expireHelperText}
 																		</FormHelperText>
 																	) : null}
 																	{isOnHold ? (
-																		<HStack gridArea="helper" spacing={2} flexWrap="wrap">
+																		<div className="flex flex-row items-center [grid-area:helper] gap-2 flex-wrap">
 																			{[7, 30, 60, 90, 180, 365].map((days) => (
-																				<Button
-																					key={days}
-																					size="xs"
-																					variant="outline"
-																					isDisabled={disabled}
-																					onClick={() => {
+																				<Button key={days} size="xs" variant="outline" isDisabled={disabled} onClick={() => {
 																						form.setValue("expire", null);
 																						form.setValue(
 																							"on_hold_expire_duration",
@@ -2894,19 +2467,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																								shouldValidate: true,
 																							},
 																						);
-																					}}
-																				>
+																					}}>
 																					{days}D
 																				</Button>
 																			))}
-																		</HStack>
+																		</div>
 																	) : null}
-																	<Button
-																		gridArea="button"
-																		size="sm"
-																		variant={isOnHold ? "solid" : "outline"}
-																		colorScheme={isOnHold ? "primary" : "gray"}
-																		onClick={() => {
+																	<Button size="sm" variant={isOnHold ? "solid" : "outline"} colorScheme={isOnHold ? "primary" : "gray"} onClick={() => {
 																			if (isOnHold) {
 																				form.setValue("status", "active", {
 																					shouldDirty: true,
@@ -2926,23 +2493,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					shouldDirty: true,
 																				});
 																			}
-																		}}
-																		isDisabled={disabled}
-																		minW={{ base: "100%", md: "auto" }}
-																		alignSelf={{
-																			base: "stretch",
-																			md: "end",
-																		}}
-																		justifySelf={{
-																			base: "stretch",
-																			md: "start",
-																		}}
-																		flexShrink={0}
-																		h="32px"
-																	>
+																		}} isDisabled={disabled} className="[grid-area:button] min-w-[100%]! md:min-w-[auto]! self-stretch md:self-end justify-self-stretch md:justify-self-start shrink-0 h-[32px]">
 																		{t("onHold.button")}
 																	</Button>
-																</Grid>
+																</div>
 																{isOnHold ? (
 																	<FormErrorMessage>
 																		{
@@ -2958,7 +2512,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															</FormControl>
 
 															{canSetFlow && (
-																<FormControl mb="10px">
+																<FormControl className="mb-[10px]">
 																	<FormLabel>
 																		{t("userDialog.flow.label")}
 																	</FormLabel>
@@ -2992,42 +2546,35 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	/>
 																</FormControl>
 															)}
-														</Flex>
+														</div>
 
 														{error && (
-															<Alert
-																status="error"
-																display={{ base: "none", md: "flex" }}
-															>
+															<Alert status="error" className="hidden md:flex">
 																<AlertIcon />
 
 																{error}
 															</Alert>
 														)}
-													</VStack>
-												</GridItem>
+													</div>
+												</div>
 
 												{showServiceSelector && (
-													<GridItem mt={useTwoColumns ? 0 : 4}>
+													<div className={cn(useTwoColumns ? "mt-0" : "mt-4")}>
 														<FormControl isRequired>
 															<FormLabel>
 																{t("userDialog.selectServiceLabel")}
 															</FormLabel>
 
 															{servicesLoading ? (
-																<HStack spacing={2} py={4}>
+																<div className="flex flex-row items-center gap-2 py-4">
 																	<Spinner size="sm" />
 
-																	<Text
-																		fontSize="sm"
-																		color="gray.500"
-																		_dark={{ color: "gray.400" }}
-																	>
+																	<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 																		{t("loading")}
-																	</Text>
-																</HStack>
+																	</p>
+																</div>
 															) : hasServices ? (
-																<VStack align="stretch" spacing={3}>
+																<div className="flex flex-col items-stretch gap-3">
 																	{services.map((service) => {
 																		const isSelected =
 																			selectedServiceId === service.id;
@@ -3036,16 +2583,12 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																			service.has_hosts === false;
 
 																		return (
-																			<Box
-																				key={service.id}
-																				role="button"
-																				tabIndex={
+																			// biome-ignore lint/a11y/useSemanticElements: service card holds block content; keyboard toggling is handled in onKeyDown
+																			<div key={service.id} role="button" tabIndex={
 																					serviceSelectionDisabled || isBroken
 																						? -1
 																						: 0
-																				}
-																				aria-pressed={isSelected}
-																				onKeyDown={(event) => {
+																				} aria-pressed={isSelected} onKeyDown={(event) => {
 																					if (
 																						serviceSelectionDisabled ||
 																						isBroken
@@ -3060,8 +2603,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 																						setSelectedServiceId(service.id);
 																					}
-																				}}
-																				onClick={() => {
+																				}} onClick={() => {
 																					if (
 																						serviceSelectionDisabled ||
 																						isBroken
@@ -3069,98 +2611,41 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						return;
 
 																					setSelectedServiceId(service.id);
-																				}}
-																				borderWidth="1px"
-																				borderRadius="md"
-																				p={4}
-																				borderColor={
-																					isSelected
-																						? "primary.500"
-																						: "gray.200"
-																				}
-																				bg={
-																					isSelected
-																						? "primary.50"
-																						: "transparent"
-																				}
-																				cursor={
-																					serviceSelectionDisabled || isBroken
-																						? "not-allowed"
-																						: "pointer"
-																				}
-																				pointerEvents={
-																					serviceSelectionDisabled || isBroken
-																						? "none"
-																						: "auto"
-																				}
-																				transition="border-color 0.2s ease, background-color 0.2s ease"
-																				_hover={
-																					serviceSelectionDisabled
-																						? {}
-																						: {
-																								borderColor: isSelected
-																									? "primary.500"
-																									: "gray.300",
-																							}
-																				}
-																				_dark={{
-																					borderColor: isSelected
-																						? "primary.400"
-																						: "gray.700",
-
-																					bg: isSelected
-																						? "primary.900"
-																						: "transparent",
-																				}}
-																			>
-																				<HStack
-																					justify="space-between"
-																					align="flex-start"
-																				>
-																					<VStack
-																						align="flex-start"
-																						spacing={0}
-																					>
-																						<Text fontWeight="semibold">
+																				}} className={cn(serviceSelectionDisabled ? "" : (isSelected ? "hover:border-primary-500!" : "hover:border-gray-300!"), cn("border rounded-md p-4 [transition:border-color_0.2s_ease,_background-color_0.2s_ease]", isSelected ? "border-primary-500!" : "border-gray-200!", isSelected ? "bg-primary-50" : "bg-transparent", serviceSelectionDisabled || isBroken ? "cursor-not-allowed" : "cursor-pointer", serviceSelectionDisabled || isBroken ? "pointer-events-none" : "pointer-events-auto", isSelected ? "dark:border-primary-400!" : "dark:border-gray-700!", isSelected ? "dark:bg-primary-900" : "dark:bg-transparent"))}>
+																				<div className="flex flex-row gap-2 justify-between items-start">
+																					<div className="flex flex-col items-start gap-0">
+																						<p className="font-semibold">
 																							{service.name}
-																						</Text>
+																						</p>
 
 																						{service.description && (
-																							<Text
-																								fontSize="sm"
-																								color="gray.500"
-																								_dark={{ color: "gray.400" }}
-																							>
+																							<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 																								{service.description}
-																							</Text>
+																							</p>
 																						)}
-																					</VStack>
+																					</div>
 
-																					<Text
-																						fontSize="xs"
-																						color="gray.500"
-																						_dark={{ color: "gray.400" }}
-																					>
+																					<p className="text-[0.75rem] text-gray-500 dark:text-gray-400">
 																						{t("userDialog.serviceSummary", {
 																							hosts: service.host_count,
 
 																							users: service.user_count,
 																						})}
-																					</Text>
+																					</p>
 																					{isBroken && (
-																						<Badge colorScheme="red" mt={1}>
+																						<Badge colorScheme="red" className="mt-1">
 																							{t("userDialog.brokenService")}
 																						</Badge>
 																					)}
-																				</HStack>
-																			</Box>
+																				</div>
+																			</div>
 																		);
 																	})}
-																</VStack>
+																</div>
 															) : null}
 
 															{selectedService && (
-																<FormHelperText mt={2}>
+																<FormHelperText className="mt-2">
 																	{t("userDialog.serviceSummary", {
 																		hosts: selectedService.host_count,
 
@@ -3170,52 +2655,37 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	{selectedService &&
 																		(selectedService.broken ||
 																			selectedService.has_hosts === false) && (
-																			<Text
-																				color="red.500"
-																				fontSize="sm"
-																				mt={1}
-																			>
+																			<p className="text-red-500 text-[0.875rem] mt-1">
 																				{t("userDialog.brokenServiceWarning")}
-																			</Text>
+																			</p>
 																		)}
 																</FormHelperText>
 															)}
 														</FormControl>
-													</GridItem>
+													</div>
 												)}
 
-												<GridItem
-													colSpan={{ base: 1, md: showServiceSelector ? 2 : 1 }}
-												>
+												<div className={cn("col-span-1", showServiceSelector ? "md:col-span-2" : "md:col-span-1")}>
 													{hasExistingKey && canSetCustomKey && (
 														<>
 															<FormControl className="rb-dialog-switch-row">
-																<FormLabel mb={0}>
+																<FormLabel className="mb-0">
 																	{t("userDialog.allowManualKeyEntry")}
 																</FormLabel>
 																<Controller
 																	name="manual_key_entry"
 																	control={form.control}
 																	render={({ field }) => (
-																		<Switch
-																			size="sm"
-																			colorScheme="primary"
-																			isChecked={field.value}
-																			onChange={(event) =>
+																		<Switch size="sm" colorScheme="primary" isChecked={field.value} onChange={(event) =>
 																				field.onChange(event.target.checked)
-																			}
-																			isDisabled={disabled}
-																		/>
+																			} isDisabled={disabled} />
 																	)}
 																/>
 															</FormControl>
 															{manualKeyEntryEnabled && (
-																<FormControl
-																	mt={4}
-																	isInvalid={Boolean(
+																<FormControl isInvalid={Boolean(
 																		form.formState.errors.credential_key,
-																	)}
-																>
+																	)} className="mt-4">
 																	<FormLabel>
 																		{t("userDialog.credentialKeyLabel")}
 																	</FormLabel>
@@ -3223,17 +2693,9 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		name="credential_key"
 																		control={form.control}
 																		render={({ field }) => (
-																			<ChakraInput
-																				placeholder="35e4e39c7d5c4f4b8b71558e4f37ff53"
-																				maxLength={32}
-																				value={field.value ?? ""}
-																				onChange={(event) =>
+																			<ChakraInput placeholder="35e4e39c7d5c4f4b8b71558e4f37ff53" maxLength={32} value={field.value ?? ""} onChange={(event) =>
 																					field.onChange(event.target.value)
-																				}
-																				isDisabled={disabled}
-																				dir="ltr"
-																				textAlign="left"
-																			/>
+																				} isDisabled={disabled} dir="ltr" className="text-left" />
 																		)}
 																	/>
 																	<FormHelperText>
@@ -3249,138 +2711,55 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															)}
 														</>
 													)}
-												</GridItem>
+												</div>
 
-												<GridItem
-													colSpan={{ base: 1, md: showServiceSelector ? 2 : 1 }}
-													w="full"
-													minW={0}
-												>
-													<Box
-														className="xray-dialog-section rb-dialog-collapsible-section"
-														w="full"
-														minW={0}
-														mb="10px"
-													>
-														<Flex
-															className="rb-dialog-collapsible-trigger"
-															align="center"
-															justify="space-between"
-															cursor="pointer"
-															onClick={() => setAutoRenewOpen((prev) => !prev)}
-															gap={3}
-															dir={isRTL ? "rtl" : "ltr"}
-														>
-															<HStack
-																spacing={2}
-																align="center"
-																flex="1"
-																justify="flex-start"
-															>
-																<Text
-																	className="rb-dialog-collapsible-title"
-																	fontWeight="semibold"
-																	textAlign={isRTL ? "right" : "left"}
-																	w="full"
-																>
+												<div className={cn("col-span-1 w-full min-w-0!", showServiceSelector ? "md:col-span-2" : "md:col-span-1")}>
+													<div className="w-full min-w-0! mb-[10px] xray-dialog-section rb-dialog-collapsible-section">
+														{/* biome-ignore lint/a11y/noStaticElementInteractions: collapsible header, unchanged from HEAD, where the Chakra box had no keyboard handler */}
+														{/* biome-ignore lint/a11y/useKeyWithClickEvents: collapsible header, unchanged from HEAD, where the Chakra box had no keyboard handler */}
+														<div onClick={() => setAutoRenewOpen((prev) => !prev)} dir={isRTL ? "rtl" : "ltr"} className="flex [align:center] [justify:space-between] cursor-pointer gap-3 rb-dialog-collapsible-trigger">
+															<div className="flex flex-row gap-2 items-center flex-1 justify-start">
+																<p className={cn("font-semibold w-full", isRTL ? "text-right" : "text-left", "rb-dialog-collapsible-title")}>
 																	{autoRenewTitle}
-																</Text>
+																</p>
 																{autoRenewRules.length > 0 && (
-																	<Badge colorScheme="gray" borderRadius="full">
+																	<Badge colorScheme="gray" className="rounded-full">
 																		{autoRenewRules.length}
 																	</Badge>
 																)}
-															</HStack>
-															<SectionChevronIcon
-																transform={
-																	autoRenewOpen
-																		? "rotate(-180deg)"
-																		: "rotate(0deg)"
-																}
-																transition="transform 0.2s ease"
-															/>
-														</Flex>
+															</div>
+															<SectionChevronIcon className={cn("[transition:transform_0.2s_ease]", autoRenewOpen ? "[transform:rotate(-180deg)]" : "[transform:rotate(0deg)]")} />
+														</div>
 														<Collapse in={autoRenewOpen} animateOpacity>
-															<VStack
-																className="rb-dialog-collapsible-body"
-																align="stretch"
-																spacing={4}
-																w="full"
-																minW={0}
-															>
-																<Text
-																	fontSize="sm"
-																	color="gray.500"
-																	_dark={{ color: "gray.400" }}
-																	textAlign={isRTL ? "right" : "left"}
-																>
+															<div className="flex flex-col items-stretch gap-4 w-full min-w-0! rb-dialog-collapsible-body">
+																<p className={cn("text-[0.875rem] text-gray-500 dark:text-gray-400", isRTL ? "text-right" : "text-left")}>
 																	{t("userDialog.autoRenewDescription")}
-																</Text>
+																</p>
 
 																{autoRenewRules.length === 0 ? (
-																	<VStack spacing={3} align="stretch">
-																		<Text
-																			textAlign="center"
-																			color="gray.400"
-																			fontSize="sm"
-																		>
+																	<div className="flex flex-col gap-3 items-stretch">
+																		<p className="text-center text-gray-400 text-[0.875rem]">
 																			{t("autoRenew.empty")}
-																		</Text>
-																		<Button
-																			variant="outline"
-																			onClick={startAddAutoRenew}
-																			isDisabled={disabled}
-																			w="full"
-																		>
+																		</p>
+																		<Button size="md" variant="outline" onClick={startAddAutoRenew} isDisabled={disabled} className="w-full">
 																			{t("add")}
 																		</Button>
-																	</VStack>
+																	</div>
 																) : (
 																	<>
-																		<VStack
-																			spacing={3}
-																			align="stretch"
-																			w="full"
-																		>
+																		<div className="flex flex-col gap-3 items-stretch w-full">
 																			{autoRenewRules.map((rule, idx) => {
 																				const dayText = deriveDaysFromSeconds(
 																					rule.expire,
 																				);
 																				return (
-																					<Box
-																						key={rule.id}
-																						borderWidth="1px"
-																						borderRadius="md"
-																						p={3}
-																						bg="blackAlpha.50"
-																						_dark={{ bg: "whiteAlpha.50" }}
-																						w="full"
-																						minW={0}
-																					>
-																						<Flex
-																							align={{
-																								base: "flex-start",
-																								md: "center",
-																							}}
-																							justify="space-between"
-																							gap={3}
-																							flexDirection={{
-																								base: "column",
-																								md: "row",
-																							}}
-																						>
-																							<HStack
-																								spacing={2}
-																								dir={isRTL ? "rtl" : "ltr"}
-																								align="center"
-																							>
-																								<Badge
-																									colorScheme="primary"
-																									borderRadius="full"
-																								>
+																					<div key={rule.id} className="border rounded-md p-3 bg-blackAlpha-50 dark:bg-whiteAlpha-50 w-full min-w-0!">
+																						<div className="flex [align:flex-start] md:[align:center] [justify:space-between] gap-3 flex-col md:flex-row">
+																							<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-row gap-2 items-center">
+																								<Badge colorScheme="primary" className="rounded-full">
 																									{idx + 1}
 																								</Badge>
-																								<Text fontWeight="semibold">
+																								<p className="font-semibold">
 																									{rule.dataLimit !== null &&
 																									typeof rule.dataLimit !==
 																										"undefined"
@@ -3388,110 +2767,56 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																										: t(
 																												"userDialog.autoRenewUnlimited",
 																											)}
-																								</Text>
-																								<Text
-																									color="gray.500"
-																									fontSize="sm"
-																								>
+																								</p>
+																								<p className="text-gray-500 text-[0.875rem]">
 																									{dayText !== null
 																										? `${dayText} ${DAYS_UNIT}`
 																										: t(
 																												"userDialog.autoRenewUnlimited",
 																											)}
-																								</Text>
-																							</HStack>
-																							<HStack
-																								spacing={2}
-																								justify="flex-end"
-																							>
-																								<IconButton
-																									size="sm"
-																									aria-label={t("edit")}
-																									variant="ghost"
-																									onClick={() =>
+																								</p>
+																							</div>
+																							<div className="flex flex-row items-center gap-2 justify-end">
+																								<IconButton size="sm" aria-label={t("edit")} variant="ghost" onClick={() =>
 																										startEditAutoRenew(idx)
-																									}
-																									isDisabled={disabled}
-																								>
-																									<PencilIcon width={16} />
+																									} isDisabled={disabled}>
+																									<PencilIcon className="w-16" />
 																								</IconButton>
-																								<IconButton
-																									size="sm"
-																									aria-label={t("delete")}
-																									variant="ghost"
-																									onClick={() =>
+																								<IconButton size="sm" aria-label={t("delete")} variant="ghost" onClick={() =>
 																										handleDeleteAutoRenewRule(
 																											idx,
 																										)
-																									}
-																									isDisabled={disabled}
-																								>
+																									} isDisabled={disabled}>
 																									<DeleteIcon />
 																								</IconButton>
-																							</HStack>
-																						</Flex>
+																							</div>
+																						</div>
 																						{idx > 0 && (
-																							<Text
-																								fontSize="xs"
-																								color="gray.500"
-																								mt={2}
-																							>
+																							<p className="text-[0.75rem] text-gray-500 mt-2">
 																								{t("autoRenew.queuedNote")}
-																							</Text>
+																							</p>
 																						)}
-																					</Box>
+																					</div>
 																				);
 																			})}
-																		</VStack>
-																		<Button
-																			variant="outline"
-																			onClick={startAddAutoRenew}
-																			isDisabled={disabled}
-																		>
+																		</div>
+																		<Button size="md" variant="outline" onClick={startAddAutoRenew} isDisabled={disabled}>
 																			{t("add")}
 																		</Button>
 																	</>
 																)}
 
 																{autoRenewFormMode && (
-																	<VStack
-																		align="stretch"
-																		spacing={3}
-																		borderWidth="1px"
-																		borderRadius="md"
-																		p={3}
-																		bg="blackAlpha.50"
-																		_dark={{ bg: "whiteAlpha.50" }}
-																		minW={0}
-																	>
-																		<HStack
-																			justify="space-between"
-																			align="center"
-																			w="full"
-																			flexDirection="row"
-																		>
-																			<Text fontWeight="semibold">
+																	<div className="flex flex-col items-stretch gap-3 border rounded-md p-3 bg-blackAlpha-50 dark:bg-whiteAlpha-50 min-w-0!">
+																		<div className="flex gap-2 justify-between items-center w-full flex-row">
+																			<p className="font-semibold">
 																				{t("autoRenew.new")}
-																			</Text>
-																		</HStack>
+																			</p>
+																		</div>
 
-																		<Grid
-																			templateColumns={{
-																				base: "1fr",
-																				md: "minmax(0, 1fr) 220px",
-																			}}
-																			gap={3}
-																			w="full"
-																			minW={0}
-																			dir={isRTL ? "rtl" : "ltr"}
-																			alignItems="end"
-																		>
-																			<FormControl minW={0}>
-																				<FormLabel
-																					fontSize="sm"
-																					textAlign={isRTL ? "right" : "left"}
-																					w="full"
-																				>
+																		<div dir={isRTL ? "rtl" : "ltr"} className="grid grid-cols-[1fr] md:grid-cols-[minmax(0,_1fr)_220px] gap-3 w-full min-w-0! items-end">
+																			<FormControl className="min-w-0!">
+																				<FormLabel className={cn("text-[0.875rem] w-full", isRTL ? "text-right" : "text-left")}>
 																					{t("userDialog.autoRenewDataLimit")}
 																				</FormLabel>
 																				{renderUnitInput({
@@ -3516,29 +2841,19 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				})}
 																			</FormControl>
 
-																			<Button
-																				size="sm"
-																				variant={
+																			<Button size="sm" variant={
 																					autoRenewAddRemainingValue
 																						? "solid"
 																						: "outline"
-																				}
-																				colorScheme={
+																				} colorScheme={
 																					autoRenewAddRemainingValue
 																						? "primary"
 																						: "gray"
-																				}
-																				onClick={() =>
+																				} onClick={() =>
 																					setAutoRenewAddRemainingValue(
 																						(prev) => !prev,
 																					)
-																				}
-																				isDisabled={disabled}
-																				w={{ base: "full", md: "auto" }}
-																				maxW="220px"
-																				whiteSpace="nowrap"
-																				flexShrink={0}
-																			>
+																				} isDisabled={disabled} className="w-full md:w-auto max-w-[220px] whitespace-nowrap shrink-0">
 																				{autoRenewAddRemainingValue
 																					? t(
 																							"userDialog.nextPlanAddRemainingTraffic",
@@ -3546,12 +2861,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																					: t("userDialog.autoRenewResetUsage")}
 																			</Button>
 
-																			<FormControl minW={0}>
-																				<FormLabel
-																					fontSize="sm"
-																					textAlign={isRTL ? "right" : "left"}
-																					w="full"
-																				>
+																			<FormControl className="min-w-0!">
+																				<FormLabel className={cn("text-[0.875rem] w-full", isRTL ? "text-right" : "text-left")}>
 																					{t("userDialog.autoRenewTimeLimit")}
 																				</FormLabel>
 																				{renderUnitInput({
@@ -3578,151 +2889,69 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				})}
 																			</FormControl>
 
-																			<Button
-																				size="sm"
-																				variant={
+																			<Button size="sm" variant={
 																					autoRenewFireOnEitherValue
 																						? "solid"
 																						: "outline"
-																				}
-																				colorScheme={
+																				} colorScheme={
 																					autoRenewFireOnEitherValue
 																						? "primary"
 																						: "gray"
-																				}
-																				onClick={() =>
+																				} onClick={() =>
 																					setAutoRenewFireOnEitherValue(
 																						(prev) => !prev,
 																					)
-																				}
-																				isDisabled={disabled}
-																				w={{ base: "full", md: "auto" }}
-																				maxW="220px"
-																				whiteSpace="nowrap"
-																				flexShrink={0}
-																			>
+																				} isDisabled={disabled} className="w-full md:w-auto max-w-[220px] whitespace-nowrap shrink-0">
 																				{t("userDialog.nextPlanFireOnEither")}
 																			</Button>
-																		</Grid>
+																		</div>
 
-																		<HStack
-																			spacing={3}
-																			w="full"
-																			justify={
-																				isRTL ? "flex-start" : "flex-end"
-																			}
-																			flexDirection={
-																				isRTL ? "row-reverse" : "row"
-																			}
-																			flexWrap="wrap"
-																		>
-																			<Button
-																				size="sm"
-																				variant="outline"
-																				onClick={handleCancelAutoRenewForm}
-																				isDisabled={disabled}
-																			>
+																		<div className={cn("flex flex-row items-center gap-3 w-full flex-wrap", isRTL ? "justify-start" : "justify-end", isRTL ? "flex-row-reverse" : "flex-row")}>
+																			<Button size="sm" variant="outline" onClick={handleCancelAutoRenewForm} isDisabled={disabled}>
 																				{t("cancel")}
 																			</Button>
 
-																			<Button
-																				size="sm"
-																				colorScheme="primary"
-																				onClick={handleSaveAutoRenewRule}
-																				isDisabled={disabled}
-																			>
+																			<Button size="sm" colorScheme="primary" onClick={handleSaveAutoRenewRule} isDisabled={disabled}>
 																				{autoRenewFormMode === "edit"
 																					? t("save")
 																					: t("add")}
 																			</Button>
-																		</HStack>
-																	</VStack>
+																		</div>
+																	</div>
 																)}
-															</VStack>
+															</div>
 														</Collapse>
-													</Box>
-												</GridItem>
+													</div>
+												</div>
 
-												<GridItem
-													colSpan={{ base: 1, md: 2 }}
-													w="full"
-													minW={0}
-												>
-													<Box
-														className="xray-dialog-section rb-dialog-collapsible-section"
-														w="full"
-														minW={0}
-														mb="10px"
-													>
-														<Flex
-															className="rb-dialog-collapsible-trigger"
-															align="center"
-															justify="space-between"
-															cursor="pointer"
-															onClick={() => setOtherInfoOpen((prev) => !prev)}
-															gap={3}
-														>
-															<Text
-																className="rb-dialog-collapsible-title"
-																fontWeight="semibold"
-																textAlign="start"
-																flex="1"
-															>
+												<div className="col-span-1 md:col-span-2 w-full min-w-0!">
+													<div className="w-full min-w-0! mb-[10px] xray-dialog-section rb-dialog-collapsible-section">
+														{/* biome-ignore lint/a11y/noStaticElementInteractions: collapsible header, unchanged from HEAD, where the Chakra box had no keyboard handler */}
+														{/* biome-ignore lint/a11y/useKeyWithClickEvents: collapsible header, unchanged from HEAD, where the Chakra box had no keyboard handler */}
+														<div onClick={() => setOtherInfoOpen((prev) => !prev)} className="flex [align:center] [justify:space-between] cursor-pointer gap-3 rb-dialog-collapsible-trigger">
+															<p className="font-semibold text-start flex-1 rb-dialog-collapsible-title">
 																{t("otherInfo.title")}
-															</Text>
-															<SectionChevronIcon
-																transform={
-																	otherInfoOpen
-																		? "rotate(-180deg)"
-																		: "rotate(0deg)"
-																}
-																transition="transform 0.2s ease"
-															/>
-														</Flex>
+															</p>
+															<SectionChevronIcon className={cn("[transition:transform_0.2s_ease]", otherInfoOpen ? "[transform:rotate(-180deg)]" : "[transform:rotate(0deg)]")} />
+														</div>
 														<Collapse in={otherInfoOpen} animateOpacity>
-															<VStack
-																className="rb-dialog-collapsible-body"
-																align="stretch"
-																spacing={3}
-																w="full"
-																minW={0}
-															>
-																<FormControl
-																	isInvalid={!!form.formState.errors.note}
-																	w="full"
-																>
-																	<FormLabel
-																		textAlign={isRTL ? "right" : "left"}
-																		w="full"
-																	>
+															<div className="flex flex-col items-stretch gap-3 w-full min-w-0! rb-dialog-collapsible-body">
+																<FormControl isInvalid={!!form.formState.errors.note} className="w-full">
+																	<FormLabel className={cn("w-full", isRTL ? "text-right" : "text-left")}>
 																		{t("fields.note")}
 																	</FormLabel>
-																	<Textarea
-																		{...form.register("note")}
-																		textAlign={isRTL ? "right" : "left"}
-																	/>
+																	<Textarea {...form.register("note")} className={cn(isRTL ? "text-right" : "text-left")} />
 																	<FormErrorMessage>
 																		{form.formState.errors?.note?.message}
 																	</FormErrorMessage>
 																</FormControl>
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!form.formState.errors.telegram_id
-																	}
-																	w="full"
-																>
-																	<FormLabel
-																		textAlign={isRTL ? "right" : "left"}
-																		w="full"
-																	>
+																	} className="w-full">
+																	<FormLabel className={cn("w-full", isRTL ? "text-right" : "text-left")}>
 																		{t("fields.telegramId")}
 																	</FormLabel>
-																	<ChakraInput
-																		{...form.register("telegram_id")}
-																		textAlign={isRTL ? "right" : "left"}
-																		w="full"
-																		minW={0}
-																	/>
+																	<ChakraInput {...form.register("telegram_id")} className={cn("w-full min-w-0!", isRTL ? "text-right" : "text-left")} />
 																	<FormErrorMessage>
 																		{
 																			form.formState.errors?.telegram_id
@@ -3730,24 +2959,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		}
 																	</FormErrorMessage>
 																</FormControl>
-																<FormControl
-																	isInvalid={
+																<FormControl isInvalid={
 																		!!form.formState.errors.contact_number
-																	}
-																	w="full"
-																>
-																	<FormLabel
-																		textAlign={isRTL ? "right" : "left"}
-																		w="full"
-																	>
+																	} className="w-full">
+																	<FormLabel className={cn("w-full", isRTL ? "text-right" : "text-left")}>
 																		{t("fields.contactNumber")}
 																	</FormLabel>
-																	<ChakraInput
-																		{...form.register("contact_number")}
-																		textAlign={isRTL ? "right" : "left"}
-																		w="full"
-																		minW={0}
-																	/>
+																	<ChakraInput {...form.register("contact_number")} className={cn("w-full min-w-0!", isRTL ? "text-right" : "text-left")} />
 																	<FormErrorMessage>
 																		{
 																			form.formState.errors?.contact_number
@@ -3755,18 +2973,14 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		}
 																	</FormErrorMessage>
 																</FormControl>
-															</VStack>
+															</div>
 														</Collapse>
-													</Box>
-												</GridItem>
-											</Grid>
+													</div>
+												</div>
+											</div>
 
 											{error && (
-												<Alert
-													mt="3"
-													status="error"
-													display={{ base: "flex", md: "none" }}
-												>
+												<Alert status="error" className="mt-3 flex md:hidden">
 													<AlertIcon />
 
 													{error}
@@ -3774,8 +2988,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											)}
 										</TabPanel>
 										{isEditing && canViewTraffic && (
-											<TabPanel px={0} pt={4}>
-												<VStack gap={4}>
+											<TabPanel className="px-0 pt-4">
+												<div className="flex flex-col items-center gap-4">
 													<UsageFilter
 														defaultValue={usageFilter}
 														onChange={(filter, query) => {
@@ -3785,88 +2999,54 @@ export const UserDialog: FC<UserDialogProps> = () => {
 														}}
 													/>
 
-													<Box
-														width={{ base: "100%", md: "70%" }}
-														justifySelf="center"
-													>
+													<div className="w-full md:w-[70%] justify-self-center">
 														<ReactApexChart
 															options={usage.options}
 															series={usage.series}
 															type="donut"
 														/>
-													</Box>
-												</VStack>
+													</div>
+												</div>
 											</TabPanel>
 										)}
 										{isEditing && (
-											<TabPanel px={0} pt={4}>
-												<VStack align="stretch" spacing={4}>
-													<Box
-														borderWidth="1px"
-														borderRadius="md"
-														px={4}
-														py={3}
-														bg="white"
-														_dark={{ bg: "gray.900", borderColor: "gray.700" }}
-													>
-														<HStack spacing={2} minW={0} mb={3}>
+											<TabPanel className="px-0 pt-4">
+												<div className="flex flex-col items-stretch gap-4">
+													<div className="border rounded-md px-4 py-3 bg-white dark:bg-gray-900 dark:border-gray-700!">
+														<div className="flex flex-row items-center gap-2 min-w-0! mb-3">
 															<SubscriptionActionIcon />
-															<Text fontWeight="semibold">
+															<p className="font-semibold">
 																{t("userDialog.links.subscription")}
-															</Text>
-														</HStack>
-														<VStack spacing={2} align="stretch">
+															</p>
+														</div>
+														<div className="flex flex-col gap-2 items-stretch">
 															{subscriptionLinks.length === 0 ? (
-																<Text fontSize="sm" color="gray.500">
+																<p className="text-[0.875rem] text-gray-500">
 																	{t("userDialog.links.noSubscription")}
-																</Text>
+																</p>
 															) : (
 																subscriptionLinks.map((item) => (
-																	<Box
-																		key={item.key}
-																		borderWidth="1px"
-																		borderRadius="md"
-																		px={3}
-																		py={2}
-																		bg="blackAlpha.50"
-																		_dark={{ bg: "whiteAlpha.50" }}
-																	>
-																		<HStack
-																			justify="space-between"
-																			align="center"
-																			w="full"
-																		>
-																			<HStack spacing={2} minW={0}>
-																				<Text fontWeight="medium">
+																	<div key={item.key} className="border rounded-md px-3 py-2 bg-blackAlpha-50 dark:bg-whiteAlpha-50">
+																		<div className="flex flex-row gap-2 justify-between items-center w-full">
+																			<div className="flex flex-row items-center gap-2 min-w-0!">
+																				<p className="font-medium">
 																					{item.label}
-																				</Text>
+																				</p>
 																				{item.key === "key" && (
-																					<Badge
-																						colorScheme="primary"
-																						borderRadius="full"
-																						fontSize="xs"
-																					>
+																					<Badge colorScheme="primary" className="rounded-full text-[0.75rem]">
 																						{t("userDialog.links.recommended")}
 																					</Badge>
 																				)}
-																			</HStack>
-																			<HStack spacing={1} flexShrink={0}>
-																				<Tooltip
-																					label={
+																			</div>
+																			<div className="flex flex-row items-center gap-1 shrink-0">
+																				<Tooltip label={
 																						copiedSubscriptionKey === item.key
 																							? t("copied")
 																							: t("copy")
-																					}
-																					placement="top"
-																				>
-																					<IconButton
-																						aria-label={t(
+																					} placement="top">
+																					<IconButton aria-label={t(
 																							"a11y.copySubscriptionLink",
-																						)}
-																						variant="ghost"
-																						size="sm"
-																						type="button"
-																						onClick={() => {
+																						)} variant="ghost" size="sm" type="button" onClick={() => {
 																							void copyTextToClipboard(
 																								item.url,
 																							).then(() =>
@@ -3874,8 +3054,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																									item.key,
 																								),
 																							);
-																						}}
-																					>
+																						}}>
 																						{copiedSubscriptionKey ===
 																						item.key ? (
 																							<CopiedActionIcon />
@@ -3884,133 +3063,75 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						)}
 																					</IconButton>
 																				</Tooltip>
-																				<Tooltip
-																					label={t("userDialog.links.qr")}
-																					placement="top"
-																				>
-																					<IconButton
-																						aria-label={t(
+																				<Tooltip label={t("userDialog.links.qr")} placement="top">
+																					<IconButton aria-label={t(
 																							"a11y.subscriptionQr",
-																						)}
-																						variant="ghost"
-																						size="sm"
-																						type="button"
-																						onClick={() => {
+																						)} variant="ghost" size="sm" type="button" onClick={() => {
 																							setQRCode(
 																								[],
 																								editingUser.username,
 																							);
 																							setSubLink(item.url);
-																						}}
-																					>
+																						}}>
 																						<QRActionIcon />
 																					</IconButton>
 																				</Tooltip>
-																			</HStack>
-																		</HStack>
-																	</Box>
+																			</div>
+																		</div>
+																	</div>
 																))
 															)}
-														</VStack>
-													</Box>
+														</div>
+													</div>
 
-													<Box
-														borderWidth="1px"
-														borderRadius="md"
-														px={4}
-														py={3}
-														bg="white"
-														_dark={{ bg: "gray.900", borderColor: "gray.700" }}
-													>
-														<HStack
-															justify="space-between"
-															align="center"
-															w="full"
-															mb={3}
-														>
-															<Text fontWeight="semibold">
+													<div className="border rounded-md px-4 py-3 bg-white dark:bg-gray-900 dark:border-gray-700!">
+														<div className="flex flex-row gap-2 justify-between items-center w-full mb-3">
+															<p className="font-semibold">
 																{t("userDialog.links.configs")}
-															</Text>
-															<Button
-																size="sm"
-																variant="outline"
-																type="button"
-																isDisabled={configItems.length === 0}
-																leftIcon={
+															</p>
+															<Button size="sm" variant="outline" type="button" isDisabled={configItems.length === 0} leftIcon={
 																	copiedAllConfigs ? (
 																		<CopiedActionIcon />
 																	) : (
 																		<CopyActionIcon />
 																	)
-																}
-																onClick={() => {
+																} onClick={() => {
 																	if (configItems.length === 0) return;
 																	void copyTextToClipboard(
 																		configLinksText,
 																	).then(() => setCopiedAllConfigs(true));
-																}}
-															>
+																}}>
 																{copiedAllConfigs
 																	? t("copied")
 																	: t("userDialog.links.copyAllConfigs")}
 															</Button>
-														</HStack>
+														</div>
 
-														<VStack spacing={2} align="stretch">
+														<div className="flex flex-col gap-2 items-stretch">
 															{configItems.length === 0 ? (
-																<Text fontSize="sm" color="gray.500">
+																<p className="text-[0.875rem] text-gray-500">
 																	{t("userDialog.links.noConfigs")}
-																</Text>
+																</p>
 															) : (
 																configItems.map((item, index) => (
-																	<Box
-																		key={`${item.link}-${index}`}
-																		borderWidth="1px"
-																		borderRadius="md"
-																		px={3}
-																		py={2}
-																		bg="blackAlpha.50"
-																		_dark={{ bg: "whiteAlpha.50" }}
-																	>
-																		<HStack
-																			justify="space-between"
-																			align="center"
-																			w="full"
-																			dir="ltr"
-																		>
-																			<Text
-																				fontWeight="medium"
-																				noOfLines={1}
-																				minW={0}
-																				flex="1"
-																				textAlign="left"
-																				dir="ltr"
-																				sx={{ unicodeBidi: "isolate" }}
-																			>
+																	<div key={`${item.link}-${index}`} className="border rounded-md px-3 py-2 bg-blackAlpha-50 dark:bg-whiteAlpha-50">
+																		<div dir="ltr" className="flex flex-row gap-2 justify-between items-center w-full">
+																			<p dir="ltr" className="font-medium truncate min-w-0! flex-1 text-left [unicode-bidi:isolate]">
 																				{item.label}
-																			</Text>
-																			<HStack spacing={1} flexShrink={0}>
-																				<Tooltip
-																					label={
+																			</p>
+																			<div className="flex flex-row items-center gap-1 shrink-0">
+																				<Tooltip label={
 																						copiedConfigIndex === index
 																							? t("copied")
 																							: t("copy")
-																					}
-																					placement="top"
-																				>
-																					<IconButton
-																						aria-label={t("a11y.copyConfig")}
-																						variant="ghost"
-																						size="sm"
-																						type="button"
-																						onClick={() => {
+																					} placement="top">
+																					<IconButton aria-label={t("a11y.copyConfig")} variant="ghost" size="sm" type="button" onClick={() => {
 																							void copyTextToClipboard(
 																								item.link,
 																							).then(() =>
 																								setCopiedConfigIndex(index),
 																							);
-																						}}
-																					>
+																						}}>
 																						{copiedConfigIndex === index ? (
 																							<CopiedActionIcon />
 																						) : (
@@ -4018,79 +3139,34 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																						)}
 																					</IconButton>
 																				</Tooltip>
-																				<Tooltip
-																					label={t("userDialog.links.qr")}
-																					placement="top"
-																				>
-																					<IconButton
-																						aria-label={t("a11y.configQr")}
-																						variant="ghost"
-																						size="sm"
-																						type="button"
-																						onClick={() => {
+																				<Tooltip label={t("userDialog.links.qr")} placement="top">
+																					<IconButton aria-label={t("a11y.configQr")} variant="ghost" size="sm" type="button" onClick={() => {
 																							setQRCode(
 																								[item.link],
 																								editingUser.username,
 																							);
 																							setSubLink(null);
-																						}}
-																					>
+																						}}>
 																						<QRActionIcon />
 																					</IconButton>
 																				</Tooltip>
-																			</HStack>
-																		</HStack>
-																	</Box>
+																			</div>
+																		</div>
+																	</div>
 																))
 															)}
-														</VStack>
-													</Box>
-												</VStack>
+														</div>
+													</div>
+												</div>
 											</TabPanel>
 										)}
 									</TabPanels>
 								</Tabs>
 							</XrayModalBody>
 
-							<XrayModalFooter
-								position={{ base: "sticky", md: "static" }}
-								bottom={0}
-								zIndex="sticky"
-								flexShrink={0}
-								bg={footerBg}
-								borderTopWidth="1px"
-								borderColor={footerBorderColor}
-								px={{ base: 3, sm: 4, md: 5 }}
-								pt={{ base: 2.5, md: 3 }}
-								pb={{
-									base: "var(--rb-dialog-safe-bottom)",
-									md: 3,
-								}}
-								boxShadow={{
-									base: "0 -14px 28px rgba(0, 0, 0, 0.28)",
-									md: "none",
-								}}
-							>
-								<HStack
-									justifyContent="space-between"
-									w="full"
-									gap={3}
-									flexDirection={{
-										base: "column",
-
-										sm: "row",
-									}}
-								>
-									<HStack
-										justifyContent="flex-start"
-										w={{
-											base: "full",
-
-											sm: "unset",
-										}}
-										spacing={2}
-										flexWrap="wrap"
-									>
+							<XrayModalFooter className={cn(footerBg, footerBorderColor, "sticky md:static bottom-0 z-[sticky] shrink-0 border-t px-3 sm:px-4 md:px-5 pt-2.5 md:pt-3 pb-[var(--rb-dialog-safe-bottom)] md:pb-3 shadow-[0_-14px_28px_rgba(0,_0,_0,_0.28)] md:shadow-none")}>
+								<div className="flex items-center justify-between w-full gap-3 flex-col sm:flex-row">
+									<div className="flex flex-row items-center justify-start w-full sm:w-[unset] gap-2 flex-wrap">
 										{isEditing && (
 											<>
 												{canDeleteUsersVisible && (
@@ -4102,10 +3178,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 														onConfirm={handleDeleteUser}
 													>
 														<Tooltip label={t("delete")} placement="top">
-															<IconButton
-																aria-label={t("delete")}
-																size={{ base: "md", sm: "sm" }}
-															>
+															<IconButton variant="solid" aria-label={t("delete")} size="md" className="sm:size-8">
 																<DeleteIcon />
 															</IconButton>
 														</Tooltip>
@@ -4113,33 +3186,21 @@ export const UserDialog: FC<UserDialogProps> = () => {
 												)}
 
 												{canResetUsageVisible && (
-													<Button
-														onClick={handleResetUsage}
-														size={{ base: "md", sm: "sm" }}
-														flex={{ base: "1 1 auto", sm: "0 0 auto" }}
-													>
+													<Button variant="solid" onClick={handleResetUsage} size="md" className="flex-[1_1_auto] sm:flex-[0_0_auto] sm:h-8 sm:px-3 sm:text-sm">
 														{t("userDialog.resetUsage")}
 													</Button>
 												)}
 
 												{canRevokeSubscriptionVisible && (
-													<Button
-														onClick={handleRevokeSubscription}
-														size={{ base: "md", sm: "sm" }}
-														flex={{ base: "1 1 auto", sm: "0 0 auto" }}
-													>
+													<Button variant="solid" onClick={handleRevokeSubscription} size="md" className="flex-[1_1_auto] sm:flex-[0_0_auto] sm:h-8 sm:px-3 sm:text-sm">
 														{t("userDialog.revokeSubscription")}
 													</Button>
 												)}
 											</>
 										)}
-									</HStack>
+									</div>
 
-									<Box
-										w="full"
-										maxW={{ md: "260px", base: "full" }}
-										flexShrink={0}
-									>
+									<div className="w-full md:max-w-[260px] max-w-full shrink-0">
 										<AnimatedSubmitButton
 											status={submitStatus}
 											idleContent={
@@ -4149,35 +3210,23 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											isDisabled={submitDisabled}
 											type="submit"
 										/>
-									</Box>
-								</HStack>
+									</div>
+								</div>
 							</XrayModalFooter>
 						</form>
-					</Box>
+					</div>
 
 					{limitReached && (
-						<Flex
-							position="absolute"
-							inset={0}
-							align="center"
-							justify="center"
-							direction="column"
-							gap={4}
-							bg="blackAlpha.600"
-							color="white"
-							textAlign="center"
-							p={6}
-							pointerEvents="none"
-						>
+						<div className="flex-col flex absolute inset-0 [align:center] [justify:center] gap-4 bg-blackAlpha-600 text-white text-center p-6 pointer-events-none">
 							<Icon color="primary">
 								<LimitLockIcon />
 							</Icon>
 
-							<Text fontSize="xl" fontWeight="semibold">
+							<p className="text-[1.25rem] font-semibold">
 								{t("userDialog.limitReachedTitle")}
-							</Text>
+							</p>
 
-							<Text fontSize="md" maxW="sm">
+							<p className="text-[1rem] max-w-[24rem]">
 								{usersLimit && usersLimit > 0
 									? t("userDialog.limitReachedBody", {
 											limit: usersLimit,
@@ -4185,8 +3234,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											active: activeUsersCount ?? usersLimit,
 										})
 									: t("userDialog.limitReachedContent")}
-							</Text>
-						</Flex>
+							</p>
+						</div>
 					)}
 				</XrayModalContent>
 			</FormProvider>

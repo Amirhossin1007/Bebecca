@@ -1,10 +1,10 @@
-import { Box, Text } from "@chakra-ui/react";
+import { cn } from "lib/cn";
 import type { ReactNode } from "react";
 
 export const ExpandedDetails = ({ children }: { children: ReactNode }) => (
-	<Box className="rb-resource-details" data-density="compact">
+	<div data-density="compact" className="rb-resource-details">
 		{children}
-	</Box>
+	</div>
 );
 
 export const ExpandedHeading = ({
@@ -14,16 +14,9 @@ export const ExpandedHeading = ({
 	title: ReactNode;
 	first?: boolean;
 }) => (
-	<Text
-		gridColumn="1 / -1"
-		fontSize="xs"
-		fontWeight="semibold"
-		color="panel.textSecondary"
-		pt={first ? 0 : 3}
-		pb={1}
-	>
+	<p className={cn("[grid-column:1_/_-1] text-[0.75rem] font-semibold text-panel-text-secondary pb-1", first ? "pt-0" : "pt-3")}>
 		{title}
-	</Text>
+	</p>
 );
 
 export const ExpandedMeta = ({
@@ -33,12 +26,12 @@ export const ExpandedMeta = ({
 	label: ReactNode;
 	value: ReactNode;
 }) => (
-	<Box className="rb-resource-meta" minW={0}>
-		<Text as="span" color="panel.textMuted">
+	<div className="min-w-0! rb-resource-meta">
+		<span className="text-panel-text-muted">
 			{label}
-		</Text>
-		<Box className="rb-resource-meta-value" color="panel.text">
+		</span>
+		<div className="text-panel-text rb-resource-meta-value">
 			{value}
-		</Box>
-	</Box>
+		</div>
+	</div>
 );

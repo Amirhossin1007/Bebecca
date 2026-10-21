@@ -1,4 +1,3 @@
-import { ChakraProvider, localStorageManager } from "@chakra-ui/react";
 import dayjs from "dayjs";
 import Duration from "dayjs/plugin/duration";
 import LocalizedFormat from "dayjs/plugin/localizedFormat";
@@ -11,7 +10,8 @@ import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "react-query";
 import { queryClient } from "utils/react-query";
 import { updateThemeColor } from "utils/themeColor";
-import { theme } from "../chakra.config";
+import { ColorModeProvider } from "lib/color-mode";
+import { Toaster } from "components/shadcn/toast";
 import App from "./App";
 import "index.scss";
 import "tailwind.css";
@@ -30,7 +30,7 @@ const normalizeThemeMode = (value?: string | null): ThemeMode =>
 const getInitialThemeMode = (): ThemeMode => {
 	try {
 		return normalizeThemeMode(
-			localStorage.getItem("rb-theme") || localStorageManager.get(),
+			localStorage.getItem("rb-theme") || localStorage.getItem("chakra-ui-color-mode"),
 		);
 	} catch {
 		return "dark";
@@ -63,12 +63,11 @@ applyInitialThemeMode(getInitialThemeMode());
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
-		{/* `resetCSS={false}`: Tailwind's preflight now provides the reset, so utility
-		    classes are no longer overridden by Chakra's unlayered reset. */}
-		<ChakraProvider theme={theme} colorModeManager={localStorageManager} resetCSS={false}>
+		<ColorModeProvider>
 			<QueryClientProvider client={queryClient}>
 				<App />
+				<Toaster />
 			</QueryClientProvider>
-		</ChakraProvider>
+		</ColorModeProvider>
 	</React.StrictMode>,
 );

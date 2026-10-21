@@ -1,18 +1,8 @@
-import {
-	Alert,
-	AlertIcon,
-	Box,
-	Button,
-	FormControl,
-	FormErrorMessage,
-	FormHelperText,
-	FormLabel,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	VStack,
-} from "@chakra-ui/react";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Button } from "components/shadcn/button";
 import { type FC, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -163,33 +153,18 @@ export const WindscribeProxyModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			size="xl"
-			isCentered
-			closeOnEsc={!isLoading && !isLoadingLocations}
-			closeOnOverlayClick={!isLoading && !isLoadingLocations}
-		>
+		<Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading && !isLoadingLocations} closeOnOverlayClick={!isLoading && !isLoadingLocations}>
 			<ModalOverlay />
 			<XrayModalContent>
-				<Box
-					as="form"
-					display="flex"
-					flex="1"
-					flexDirection="column"
-					minH={0}
-					overflow="hidden"
-					onSubmit={form.handleSubmit(onSubmit)}
-				>
+				<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0 overflow-hidden">
 					<XrayModalHeader subtitle={t("pages.xray.windscribe.description")}>
 						{t("pages.xray.windscribe.title")}
 					</XrayModalHeader>
 					<ModalCloseButton isDisabled={isLoading || isLoadingLocations} />
-					<XrayModalBody flex="1" minH={0} overflowY="auto">
-						<VStack spacing={3} align="stretch">
+					<XrayModalBody className="flex-1 min-h-0 overflow-y-auto">
+						<div className="flex flex-col gap-3 items-stretch">
 							{isMasterTarget && (
-								<Alert status="warning" borderRadius="sm" fontSize="sm">
+								<Alert status="warning" className="rounded-xs text-[0.875rem]">
 									<AlertIcon />
 									{t("pages.xray.windscribe.nodeRequired")}
 								</Alert>
@@ -198,59 +173,40 @@ export const WindscribeProxyModal: FC<Props> = ({
 								title={t("pages.xray.windscribe.account")}
 							>
 								<XrayFieldGrid>
-									<FormControl
-										isInvalid={Boolean(form.formState.errors.username)}
-									>
+									<FormControl isInvalid={Boolean(form.formState.errors.username)}>
 										<FormLabel>{t("username")}</FormLabel>
-										<Input
-											autoComplete="username"
-											{...form.register("username", {
+										<Input autoComplete="username" {...form.register("username", {
 												required: t("pages.xray.windscribe.usernameRequired"),
 												minLength: {
 													value: 3,
 													message: t("pages.xray.windscribe.usernameRequired"),
 												},
 												maxLength: 128,
-											})}
-										/>
+											})} />
 										<FormErrorMessage>
 											{form.formState.errors.username?.message}
 										</FormErrorMessage>
 									</FormControl>
-									<FormControl
-										isInvalid={Boolean(form.formState.errors.password)}
-									>
+									<FormControl isInvalid={Boolean(form.formState.errors.password)}>
 										<FormLabel>{t("password")}</FormLabel>
-										<Input
-											type="password"
-											autoComplete="current-password"
-											{...form.register("password", {
+										<Input type="password" autoComplete="current-password" {...form.register("password", {
 												required: t("pages.xray.windscribe.passwordRequired"),
 												minLength: {
 													value: 8,
 													message: t("pages.xray.windscribe.passwordRequired"),
 												},
 												maxLength: 256,
-											})}
-										/>
+											})} />
 										<FormErrorMessage>
 											{form.formState.errors.password?.message}
 										</FormErrorMessage>
 									</FormControl>
 								</XrayFieldGrid>
-								<Button
-									mt={3}
-									size="sm"
-									type="button"
-									variant="outline"
-									isLoading={isLoadingLocations}
-									isDisabled={isMasterTarget || isLoading}
-									onClick={loadLocations}
-								>
+								<Button size="sm" type="button" variant="outline" isLoading={isLoadingLocations} isDisabled={isMasterTarget || isLoading} onClick={loadLocations} className="mt-3">
 									{t("pages.xray.windscribe.loadLocations")}
 								</Button>
 								{loadError && (
-									<Alert mt={3} status="error" borderRadius="sm" fontSize="sm">
+									<Alert status="error" className="mt-3 rounded-xs text-[0.875rem]">
 										<AlertIcon />
 										{loadError}
 									</Alert>
@@ -260,9 +216,7 @@ export const WindscribeProxyModal: FC<Props> = ({
 							<XrayDialogSection
 								title={t("pages.xray.windscribe.proxy")}
 							>
-								<FormControl
-									isInvalid={Boolean(form.formState.errors.location)}
-								>
+								<FormControl isInvalid={Boolean(form.formState.errors.location)}>
 									<FormLabel>
 										{t("pages.xray.windscribe.location")}
 									</FormLabel>
@@ -293,15 +247,12 @@ export const WindscribeProxyModal: FC<Props> = ({
 										{form.formState.errors.location?.message}
 									</FormErrorMessage>
 								</FormControl>
-								<XrayFieldGrid mt={3}>
+								<XrayFieldGrid className="mt-3">
 									<FormControl isInvalid={Boolean(form.formState.errors.port)}>
 										<FormLabel>
 											{t("pages.xray.windscribe.port")}
 										</FormLabel>
-										<Input
-											type="number"
-											inputMode="numeric"
-											{...form.register("port", {
+										<Input type="number" inputMode="numeric" {...form.register("port", {
 												valueAsNumber: true,
 												min: {
 													value: 1024,
@@ -311,20 +262,16 @@ export const WindscribeProxyModal: FC<Props> = ({
 													value: 65535,
 													message: t("pages.xray.windscribe.portInvalid"),
 												},
-											})}
-										/>
+											})} />
 										<FormErrorMessage>
 											{form.formState.errors.port?.message}
 										</FormErrorMessage>
 									</FormControl>
-									<FormControl
-										isInvalid={Boolean(form.formState.errors.tag || duplicateTag)}
-									>
+									<FormControl isInvalid={Boolean(form.formState.errors.tag || duplicateTag)}>
 										<FormLabel>
 											{t("pages.xray.windscribe.tagPrefix")}
 										</FormLabel>
-										<Input
-											{...form.register("tag", {
+										<Input {...form.register("tag", {
 												required: t("pages.xray.windscribe.tagRequired"),
 												pattern: {
 													value: /^[a-zA-Z0-9_.-]+$/,
@@ -333,8 +280,7 @@ export const WindscribeProxyModal: FC<Props> = ({
 												validate: (value) =>
 													!existingTags.includes(value.trim()) ||
 													t("pages.xray.outbound.tagExists"),
-											})}
-										/>
+											})} />
 										<FormHelperText>
 											{t("pages.xray.windscribe.tagPrefixHint")}
 										</FormHelperText>
@@ -347,31 +293,22 @@ export const WindscribeProxyModal: FC<Props> = ({
 									</FormControl>
 								</XrayFieldGrid>
 							</XrayDialogSection>
-						</VStack>
+						</div>
 					</XrayModalBody>
-					<XrayModalFooter justifyContent="flex-end">
-						<Button
-							variant="outline"
-							onClick={onClose}
-							isDisabled={isLoading || isLoadingLocations}
-						>
+					<XrayModalFooter className="justify-end">
+						<Button size="md" variant="outline" onClick={onClose} isDisabled={isLoading || isLoadingLocations}>
 							{t("cancel")}
 						</Button>
-						<Button
-							type="submit"
-							colorScheme="primary"
-							isLoading={isLoading}
-							isDisabled={
+						<Button size="md" type="submit" colorScheme="primary" isLoading={isLoading} isDisabled={
 								isMasterTarget ||
 								locationOptions.length === 0 ||
 								isLoadingLocations ||
 								duplicateTag
-							}
-						>
+							}>
 							{t("pages.xray.windscribe.start")}
 						</Button>
 					</XrayModalFooter>
-				</Box>
+				</form>
 			</XrayModalContent>
 		</Modal>
 	);

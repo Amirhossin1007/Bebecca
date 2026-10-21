@@ -1,14 +1,6 @@
-import {
-	Alert,
-	AlertIcon,
-	AlertDescription,
-	Button,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	Stack,
-	Text,
-} from "@chakra-ui/react";
+import { Button } from "components/shadcn/button";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { useEffect, useState } from "react";
@@ -80,36 +72,27 @@ export const NodeServiceUpdateDialog = ({
 			title={title}
 			footer={
 				<>
-					<Button
-						variant="ghost"
-						mr={3}
-						onClick={onClose}
-						isDisabled={isSubmitting}
-					>
+					<Button size="md" variant="ghost" onClick={onClose} isDisabled={isSubmitting} className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button
-						colorScheme="primary"
-						onClick={() => onSubmit(channel, version || undefined)}
-						isLoading={isSubmitting}
-					>
+					<Button size="md" colorScheme="primary" onClick={() => onSubmit(channel, version || undefined)} isLoading={isSubmitting}>
 						{t("nodes.updateServiceAction")}
 					</Button>
 				</>
 			}
 		>
-			<Stack spacing={4}>
+			<div className="flex flex-col gap-4">
 				{description && (
-					<Text color="panel.textMuted" fontSize="sm">
+					<p className="text-panel-text-muted text-[0.875rem]">
 						{description}
-					</Text>
+					</p>
 				)}
 				{currentChannel && (
-					<Text fontSize="xs" color="panel.textMuted">
+					<p className="text-[0.75rem] text-panel-text-muted">
 						{t("nodes.serviceUpdateCurrentChannel", {
 							channel: currentChannelLabel,
 						})}
-					</Text>
+					</p>
 				)}
 				<FormControl>
 					<FormLabel>{t("dashboard.maintenance.updateChannel")}</FormLabel>
@@ -150,7 +133,7 @@ export const NodeServiceUpdateDialog = ({
 						}}
 					/>
 					{version && version !== targetVersion && (
-						<Alert status="warning" borderRadius="xl" fontSize="sm">
+						<Alert status="warning" className="rounded-xl text-[0.875rem]">
 							<AlertIcon />
 							<AlertDescription>
 								{t("dashboard.maintenance.versionSwitchWarning")}
@@ -158,14 +141,14 @@ export const NodeServiceUpdateDialog = ({
 						</Alert>
 					)}
 				{channel === "dev" && (
-					<Alert status="warning" borderRadius="xl" fontSize="sm">
+					<Alert status="warning" className="rounded-xl text-[0.875rem]">
 						<AlertIcon />
 						<AlertDescription>
 							{t("dashboard.maintenance.devChannelWarning")}
 						</AlertDescription>
 					</Alert>
 				)}
-			</Stack>
+			</div>
 		</AppDialog>
 	);
 };

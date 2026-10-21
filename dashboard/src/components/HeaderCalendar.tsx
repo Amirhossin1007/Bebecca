@@ -1,20 +1,9 @@
-import {
-	Badge,
-	Box,
-	Button,
-	chakra,
-	HStack,
-	IconButton,
-	Popover,
-	PopoverArrow,
-	PopoverBody,
-	PopoverContent,
-	PopoverTrigger,
-	SimpleGrid,
-	Stack,
-	Text,
-	useColorModeValue,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { Popover, PopoverArrow, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
+import { Button, IconButton } from "components/shadcn/button";
+import { Badge } from "components/shadcn/badge";
+import { withClass } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import {
 	CalendarDaysIcon,
 	ChevronLeftIcon,
@@ -25,10 +14,10 @@ import { useSeasonal } from "contexts/SeasonalContext";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-const CalendarIcon = chakra(CalendarDaysIcon, { baseStyle: { w: 4, h: 4 } });
-const Sparkles = chakra(SparklesIcon, { baseStyle: { w: 4, h: 4 } });
-const ChevronLeft = chakra(ChevronLeftIcon, { baseStyle: { w: 4, h: 4 } });
-const ChevronRight = chakra(ChevronRightIcon, { baseStyle: { w: 4, h: 4 } });
+const CalendarIcon = withClass(CalendarDaysIcon, "w-4 h-4");
+const Sparkles = withClass(SparklesIcon, "w-4 h-4");
+const ChevronLeft = withClass(ChevronLeftIcon, "w-4 h-4");
+const ChevronRight = withClass(ChevronRightIcon, "w-4 h-4");
 
 const createStableKey = () => {
 	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -107,9 +96,9 @@ export const HeaderCalendar: FC = () => {
 		? "fa-IR-u-ca-persian"
 		: `${i18n.language || "en"}-u-ca-gregory`;
 	const numberLocale = isPersian ? "fa-IR" : i18n.language || "en";
-	const badgeBg = useColorModeValue("blackAlpha.50", "whiteAlpha.100");
-	const highlight = useColorModeValue("primary.600", "primary.200");
-	const border = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
+	const badgeBg = useColorModeValue("bg-blackAlpha-50", "bg-whiteAlpha-100");
+	const highlight = useColorModeValue("border-primary-600!", "border-primary-200!");
+	const border = useColorModeValue("border-blackAlpha-200!", "border-whiteAlpha-200!");
 
 	useEffect(() => {
 		const timer = setInterval(() => setToday(new Date()), 60 * 1000);
@@ -175,113 +164,61 @@ export const HeaderCalendar: FC = () => {
 	return (
 		<Popover placement="bottom-start">
 			<PopoverTrigger>
-				<Button
-					variant="ghost"
-					size="sm"
-					display={{ base: "none", md: "inline-flex" }}
-					leftIcon={<CalendarIcon />}
-					px={3}
-				>
-					<Text noOfLines={1} maxW="320px" fontWeight="semibold" fontSize="sm">
+				<Button variant="ghost" size="sm" leftIcon={<CalendarIcon />} className="hidden md:inline-flex px-3">
+					<p className="truncate max-w-[320px] font-semibold text-[0.875rem]">
 						{formattedDate}
-					</Text>
+					</p>
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent
-				w="fit-content"
-				minW="260px"
-				borderColor={border}
-				boxShadow="lg"
-			>
+			<PopoverContent className={cn("w-fit min-w-[260px]! shadow-lg", border)}>
 				<PopoverArrow />
 				<PopoverBody>
-					<Stack spacing={3}>
-						<HStack
-							justify="space-between"
-							align="center"
-							dir={isRTL ? "rtl" : "ltr"}
-						>
-							<HStack spacing={2}>
-								<IconButton
-									size="xs"
-									variant="ghost"
-									aria-label={t("dateTimePicker.previousMonth")}
-									icon={prevIcon}
-									onClick={() => {
+					<div className="flex flex-col gap-3">
+						<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-row gap-2 justify-between items-center">
+							<div className="flex flex-row items-center gap-2">
+								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.previousMonth")} icon={prevIcon} onClick={() => {
 										const next = new Date(displayDate);
 										next.setMonth(displayDate.getMonth() - 1);
 										setDisplayDate(next);
-									}}
-								/>
-								<Text fontWeight="semibold">{monthLabel}</Text>
+									}} />
+								<p className="font-semibold">{monthLabel}</p>
 								{isChristmas && (
-									<Badge
-										colorScheme="red"
-										display="inline-flex"
-										alignItems="center"
-										gap={1}
-									>
+									<Badge colorScheme="red" className="inline-flex items-center gap-1">
 										<Sparkles />
 										{t("season.christmas")}
 									</Badge>
 								)}
-								<IconButton
-									size="xs"
-									variant="ghost"
-									aria-label={t("dateTimePicker.nextMonth")}
-									icon={nextIcon}
-									onClick={() => {
+								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.nextMonth")} icon={nextIcon} onClick={() => {
 										const next = new Date(displayDate);
 										next.setMonth(displayDate.getMonth() + 1);
 										setDisplayDate(next);
-									}}
-								/>
-							</HStack>
-						</HStack>
-						<SimpleGrid columns={7} spacing={1}>
+									}} />
+							</div>
+						</div>
+						<div className="grid grid-cols-7 gap-1">
 							{weekdayLabels.map((label) => (
-								<Text
-									key={label}
-									textAlign="center"
-									fontSize="xs"
-									color="gray.500"
-									_dark={{ color: "gray.400" }}
-									fontWeight="semibold"
-								>
+								<p key={label} className="text-center text-[0.75rem] text-gray-500 dark:text-gray-400 font-semibold">
 									{label}
-								</Text>
+								</p>
 							))}
 							{emptySlotKeys.map((key) => (
-								<Box key={key} />
+								<div key={key} />
 							))}
 							{days.map((day) => {
 								const isHoliday = weekendDays.includes(day.weekday);
 								return (
-									<Box
-										key={day.date.toISOString()}
-										textAlign="center"
-										px={2}
-										py={2}
-										borderRadius="md"
-										borderWidth={day.isToday ? "1px" : "0px"}
-										borderColor={day.isToday ? highlight : "transparent"}
-										bg={day.isToday ? badgeBg : "transparent"}
-										fontWeight={
-											day.isToday || isHoliday ? "semibold" : "normal"
-										}
-										color={isHoliday ? "red.500" : undefined}
-									>
-										<Text>{day.label}</Text>
-									</Box>
+									<div key={day.date.toISOString()} className={cn("text-center px-2 py-2 rounded-md", day.isToday ? "border" : "border-0", day.isToday ? (highlight) : "border-transparent!", day.isToday ? (badgeBg) : "bg-transparent", day.isToday || isHoliday ? "font-semibold" : "font-normal", isHoliday ? "text-red-500" : "")}>
+										<p>{day.label}</p>
+									</div>
 								);
 							})}
-						</SimpleGrid>
+						</div>
 						{isChristmas && christmasRange && (
-							<Text fontSize="xs" color="gray.500" textAlign="center">
+							<p className="text-[0.75rem] text-gray-500 text-center">
 								{t("season.window")} ({christmasRange})
-							</Text>
+							</p>
 						)}
-					</Stack>
+					</div>
 				</PopoverBody>
 			</PopoverContent>
 		</Popover>

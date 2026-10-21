@@ -1,27 +1,12 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Badge,
-	Box,
-	Button,
-	Divider,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	SimpleGrid,
-	Stack,
-	Text,
-	Textarea,
-	useColorModeValue,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import { useToast } from "components/shadcn/toast";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { Button } from "components/shadcn/button";
+import { Input, Textarea } from "components/shadcn/input";
+import { Badge } from "components/shadcn/badge";
+import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { cn } from "lib/cn";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -287,21 +272,16 @@ const formatBytes = (value?: number): string => {
 };
 
 const InfoItem: FC<{ label: string; value: string }> = ({ label, value }) => {
-	const muted = useColorModeValue("gray.500", "gray.400");
+	const muted = useColorModeValue("text-gray-500", "text-gray-400");
 	return (
-		<Box>
-			<Text
-				fontSize="xs"
-				textTransform="uppercase"
-				color={muted}
-				letterSpacing="wide"
-			>
+		<div>
+			<p className={cn("text-[0.75rem] uppercase tracking-wide", muted)}>
 				{label}
-			</Text>
-			<Text fontWeight="semibold" fontFamily="mono" overflowWrap="anywhere">
+			</p>
+			<p className="font-semibold font-mono [overflow-wrap:anywhere]">
 				{value || "-"}
-			</Text>
-		</Box>
+			</p>
+		</div>
 	);
 };
 
@@ -379,8 +359,8 @@ export const WarpModal: FC<WarpModalProps> = ({
 		setForm((prev) => ({ ...prev, [key]: value }));
 	};
 
-	const helperColor = useColorModeValue("gray.600", "gray.300");
-	const cardBorder = useColorModeValue("gray.200", "whiteAlpha.200");
+	const helperColor = useColorModeValue("text-gray-600", "text-gray-300");
+	const cardBorder = useColorModeValue("border-gray-200!", "border-whiteAlpha-200!");
 
 	const handleGenerateKeys = () => {
 		const keys = generateWireguardKeypair();
@@ -613,30 +593,25 @@ export const WarpModal: FC<WarpModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.300" />
+			<ModalOverlay className="bg-blackAlpha-300" />
 			<XrayModalContent>
 				<XrayModalHeader>
 					{t("pages.xray.warp.manage")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<XrayModalBody>
-					<VStack spacing={5} align="stretch">
-						<Alert status="info" borderRadius="md">
+					<div className="flex flex-col gap-5 items-stretch">
+						<Alert status="info" className="rounded-md">
 							<AlertIcon />
 							<AlertDescription>
 								{t("pages.xray.warp.manualNote")}
 							</AlertDescription>
 						</Alert>
 
-						<Box
-							borderWidth="1px"
-							borderColor={cardBorder}
-							borderRadius="lg"
-							p={4}
-						>
+						<div className={cn("border rounded-lg p-4", cardBorder)}>
 							{warpAccount ? (
-								<VStack spacing={4} align="stretch">
-									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<div className="flex flex-col gap-4 items-stretch">
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<InfoItem
 											label={t("pages.xray.warp.accessToken")}
 											value={warpAccount.access_token || "-"}
@@ -661,83 +636,50 @@ export const WarpModal: FC<WarpModalProps> = ({
 											label={t("pages.xray.warp.updatedAt")}
 											value={formatDate(warpAccount.updated_at)}
 										/>
-									</SimpleGrid>
-									<HStack spacing={3} flexWrap="wrap">
-										<Button
-											variant="outline"
-											onClick={handleFetchInfo}
-											isLoading={isFetchingInfo}
-										>
+									</div>
+									<div className="flex flex-row items-center gap-3 flex-wrap">
+										<Button size="md" variant="outline" onClick={handleFetchInfo} isLoading={isFetchingInfo}>
 											{t("pages.xray.warp.fetchInfo")}
 										</Button>
-										<Button
-											variant="ghost"
-											colorScheme="red"
-											onClick={handleDeleteAccount}
-											isLoading={isDeletingAccount}
-										>
+										<Button size="md" variant="ghost" colorScheme="red" onClick={handleDeleteAccount} isLoading={isDeletingAccount}>
 											{t("pages.xray.warp.removeAccount")}
 										</Button>
-									</HStack>
-								</VStack>
+									</div>
+								</div>
 							) : (
-								<VStack spacing={3} align="stretch">
-									<Text fontSize="sm" color={helperColor}>
+								<div className="flex flex-col gap-3 items-stretch">
+									<p className={cn("text-[0.875rem]", helperColor)}>
 										{t("pages.xray.warp.registerDescription")}
-									</Text>
-									<Button
-										colorScheme="primary"
-										onClick={handleRegister}
-										isLoading={isRegistering || isAccountLoading}
-									>
+									</p>
+									<Button size="md" colorScheme="primary" onClick={handleRegister} isLoading={isRegistering || isAccountLoading}>
 										{t("pages.xray.warp.registerAction")}
 									</Button>
-								</VStack>
+								</div>
 							)}
-						</Box>
+						</div>
 
 						{warpAccount && (
-							<Box
-								borderWidth="1px"
-								borderColor={cardBorder}
-								borderRadius="lg"
-								p={4}
-							>
-								<Text fontWeight="semibold" mb={2}>
+							<div className={cn("border rounded-lg p-4", cardBorder)}>
+								<p className="font-semibold mb-2">
 									{t("pages.xray.warp.licenseSection")}
-								</Text>
-								<HStack spacing={3} align="stretch" flexWrap="wrap">
-									<Input
-										value={licenseInput}
-										onChange={(event) => setLicenseInput(event.target.value)}
-										placeholder="ABCD-1234..."
-										size="sm"
-									/>
-									<Button
-										colorScheme="primary"
-										onClick={handleUpdateLicense}
-										isLoading={isUpdatingLicense}
-										isDisabled={!licenseInput.trim()}
-									>
+								</p>
+								<div className="flex flex-row gap-3 items-stretch flex-wrap">
+									<Input value={licenseInput} onChange={(event) => setLicenseInput(event.target.value)} placeholder="ABCD-1234..." size="sm" />
+									<Button size="md" colorScheme="primary" onClick={handleUpdateLicense} isLoading={isUpdatingLicense} isDisabled={!licenseInput.trim()}>
 										{t("pages.xray.warp.updateLicense")}
 									</Button>
-								</HStack>
-								<Text fontSize="xs" color={helperColor} mt={2}>
+								</div>
+								<p className={cn("text-[0.75rem] mt-2", helperColor)}>
 									{t("pages.xray.warp.licenseHint")}
-								</Text>
-							</Box>
+								</p>
+							</div>
 						)}
 
-						<Box
-							borderWidth="1px"
-							borderColor={cardBorder}
-							borderRadius="lg"
-							p={4}
-						>
-							<HStack justify="space-between" align="center" mb={2}>
-								<Text fontWeight="semibold">
+						<div className={cn("border rounded-lg p-4", cardBorder)}>
+							<div className="flex flex-row gap-2 justify-between items-center mb-2">
+								<p className="font-semibold">
 									{t("pages.xray.warp.remoteConfig")}
-								</Text>
+								</p>
 								{warpRemote ? (
 									<Badge colorScheme={warpRemote.enabled ? "green" : "yellow"}>
 										{warpRemote.enabled
@@ -747,10 +689,10 @@ export const WarpModal: FC<WarpModalProps> = ({
 								) : (
 									<Badge colorScheme="gray">{t("core.empty")}</Badge>
 								)}
-							</HStack>
+							</div>
 							{warpRemote ? (
-								<Stack spacing={4}>
-									<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+								<div className="flex flex-col gap-4">
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<InfoItem
 											label={t("nodes.nodeName")}
 											value={warpRemote.name ?? "-"}
@@ -771,11 +713,11 @@ export const WarpModal: FC<WarpModalProps> = ({
 											label={t("admins.idLabel")}
 											value={warpRemote.id ?? "-"}
 										/>
-									</SimpleGrid>
+									</div>
 									{warpRemote.account && (
 										<>
-											<Divider />
-											<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+											<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+											<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 												<InfoItem
 													label={t("inbounds.fallbacks.type")}
 													value={warpRemote.account.account_type ?? "-"}
@@ -796,112 +738,74 @@ export const WarpModal: FC<WarpModalProps> = ({
 													label={t("topAdminUsage")}
 													value={formatBytes(warpRemote.account.usage)}
 												/>
-											</SimpleGrid>
+											</div>
 										</>
 									)}
-									<HStack spacing={3} flexWrap="wrap">
-										<Button
-											colorScheme="primary"
-											onClick={applyOutboundCandidate}
-											isDisabled={!warpOutboundCandidate}
-										>
+									<div className="flex flex-row items-center gap-3 flex-wrap">
+										<Button size="md" colorScheme="primary" onClick={applyOutboundCandidate} isDisabled={!warpOutboundCandidate}>
 											{t("pages.xray.warp.applyGenerated")}
 										</Button>
-										<Button variant="ghost" onClick={() => setWarpRemote(null)}>
+										<Button size="md" variant="ghost" onClick={() => setWarpRemote(null)}>
 											{t("reset")}
 										</Button>
-									</HStack>
-								</Stack>
+									</div>
+								</div>
 							) : (
-								<Text fontSize="sm" color={helperColor}>
+								<p className={cn("text-[0.875rem]", helperColor)}>
 									{t("pages.xray.warp.remoteEmpty")}
-								</Text>
+								</p>
 							)}
-						</Box>
+						</div>
 
-						<Box
-							borderWidth="1px"
-							borderColor={cardBorder}
-							borderRadius="lg"
-							p={4}
-						>
-							<Text fontWeight="semibold" mb={2}>
+						<div className={cn("border rounded-lg p-4", cardBorder)}>
+							<p className="font-semibold mb-2">
 								{t("pages.xray.warp.manualTitle")}
-							</Text>
-							<Stack spacing={4}>
+							</p>
+							<div className="flex flex-col gap-4">
 								<FormControl isRequired>
 									<FormLabel>{t("pages.xray.outbound.tag")}</FormLabel>
-									<Input
-										size="sm"
-										value={form.tag}
-										onChange={(event) =>
+									<Input size="sm" value={form.tag} onChange={(event) =>
 											updateFormField("tag", event.target.value)
-										}
-										placeholder="warp"
-									/>
+										} placeholder="warp" />
 								</FormControl>
 
 								<FormControl isRequired>
 									<FormLabel>{t("pages.xray.warp.privateKey")}</FormLabel>
-									<Textarea
-										size="sm"
-										value={form.privateKey}
-										onChange={(event) =>
+									<Textarea size="sm" value={form.privateKey} onChange={(event) =>
 											updateFormField("privateKey", event.target.value)
-										}
-										rows={2}
-									/>
+										} rows={2} />
 								</FormControl>
 
 								<FormControl isRequired>
 									<FormLabel>{t("pages.xray.warp.publicKey")}</FormLabel>
-									<Textarea
-										size="sm"
-										value={form.publicKey}
-										onChange={(event) =>
+									<Textarea size="sm" value={form.publicKey} onChange={(event) =>
 											updateFormField("publicKey", event.target.value)
-										}
-										rows={2}
-									/>
+										} rows={2} />
 								</FormControl>
 
 								<FormControl>
-									<Button
-										size="sm"
-										colorScheme="primary"
-										onClick={handleGenerateKeys}
-									>
+									<Button size="sm" colorScheme="primary" onClick={handleGenerateKeys}>
 										{t("pages.xray.warp.generateKeys")}
 									</Button>
-									<Text fontSize="xs" color={helperColor} mt={1}>
+									<p className={cn("text-[0.75rem] mt-1", helperColor)}>
 										{t("pages.xray.warp.generateKeysHint")}
-									</Text>
+									</p>
 								</FormControl>
 
 								<FormControl isRequired>
 									<FormLabel>{t("pages.xray.warp.endpoint")}</FormLabel>
-									<Input
-										size="sm"
-										value={form.endpoint}
-										onChange={(event) =>
+									<Input size="sm" value={form.endpoint} onChange={(event) =>
 											updateFormField("endpoint", event.target.value)
-										}
-										placeholder="engage.cloudflareclient.com:2408"
-									/>
+										} placeholder="engage.cloudflareclient.com:2408" />
 								</FormControl>
 
 								<FormControl>
 									<FormLabel>
 										{t("pages.xray.warp.addressV4")}
 									</FormLabel>
-									<Input
-										size="sm"
-										value={form.addressV4}
-										onChange={(event) =>
+									<Input size="sm" value={form.addressV4} onChange={(event) =>
 											updateFormField("addressV4", event.target.value)
-										}
-										placeholder="172.16.0.2"
-									/>
+										} placeholder="172.16.0.2" />
 									<FormHelperText>
 										{t("pages.xray.warp.addressV4Hint")}
 									</FormHelperText>
@@ -911,35 +815,20 @@ export const WarpModal: FC<WarpModalProps> = ({
 									<FormLabel>
 										{t("pages.xray.warp.addressV6")}
 									</FormLabel>
-									<Input
-										size="sm"
-										value={form.addressV6}
-										onChange={(event) =>
+									<Input size="sm" value={form.addressV6} onChange={(event) =>
 											updateFormField("addressV6", event.target.value)
-										}
-										placeholder="2606:4700:****:****::****"
-									/>
+										} placeholder="2606:4700:****:****::****" />
 								</FormControl>
 
 								<FormControl>
 									<FormLabel>{t("pages.xray.warp.reserved")}</FormLabel>
-									<Input
-										size="sm"
-										value={form.reserved}
-										onChange={(event) =>
+									<Input size="sm" value={form.reserved} onChange={(event) =>
 											updateFormField("reserved", event.target.value)
-										}
-										placeholder="0,0,0"
-									/>
+										} placeholder="0,0,0" />
 									<FormHelperText>
 										{t("pages.xray.warp.reservedHint")}
 									</FormHelperText>
-									<Button
-										size="xs"
-										mt={2}
-										variant="ghost"
-										onClick={handleInsertReserved}
-									>
+									<Button size="xs" variant="ghost" onClick={handleInsertReserved} className="mt-2">
 										{t("pages.xray.warp.randomReserved")}
 									</Button>
 								</FormControl>
@@ -961,39 +850,30 @@ export const WarpModal: FC<WarpModalProps> = ({
 									<FormLabel>
 										{t("pages.xray.warp.notes")}
 									</FormLabel>
-									<Textarea
-										size="sm"
-										rows={2}
-										value={form.notes}
-										onChange={(event) =>
+									<Textarea size="sm" rows={2} value={form.notes} onChange={(event) =>
 											updateFormField("notes", event.target.value)
-										}
-									/>
+										} />
 								</FormControl>
-							</Stack>
-						</Box>
-					</VStack>
+							</div>
+						</div>
+					</div>
 				</XrayModalBody>
-				<XrayModalFooter display="flex" justifyContent="space-between">
+				<XrayModalFooter className="flex justify-between">
 					{isEditingOutbound ? (
-						<Button
-							colorScheme="red"
-							variant="outline"
-							onClick={handleManualDelete}
-						>
+						<Button size="md" colorScheme="red" variant="outline" onClick={handleManualDelete}>
 							{t("delete")}
 						</Button>
 					) : (
 						<span />
 					)}
-					<HStack spacing={3}>
-						<Button variant="ghost" onClick={onClose}>
+					<div className="flex flex-row items-center gap-3">
+						<Button size="md" variant="ghost" onClick={onClose}>
 							{t("cancel")}
 						</Button>
-						<Button colorScheme="primary" onClick={handleManualSave}>
+						<Button size="md" colorScheme="primary" onClick={handleManualSave}>
 							{isEditingOutbound ? t("save") : t("add")}
 						</Button>
-					</HStack>
+					</div>
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>

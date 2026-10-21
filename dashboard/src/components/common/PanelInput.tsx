@@ -1,11 +1,12 @@
-import {
-	Input as ChakraInput,
-	type InputProps as ChakraInputProps,
-} from "@chakra-ui/react";
+import { Input as FieldInput } from "components/shadcn/input";
+import type { ComponentPropsWithoutRef } from "react";
 import { forwardRef, type ChangeEvent } from "react";
 import { NumericInput } from "./NumericInput";
 
-export type PanelInputProps = ChakraInputProps;
+export type PanelInputProps = Omit<ComponentPropsWithoutRef<"input">, "size"> & {
+	size?: "xs" | "sm" | "md" | "lg";
+	isDisabled?: boolean;
+};
 
 export const PanelInput = forwardRef<HTMLInputElement, PanelInputProps>(
 	(
@@ -25,19 +26,7 @@ export const PanelInput = forwardRef<HTMLInputElement, PanelInputProps>(
 	) => {
 		if (type !== "number") {
 			return (
-				<ChakraInput
-					ref={ref}
-					type={type}
-					onChange={onChange}
-					value={value}
-					defaultValue={defaultValue}
-					min={min}
-					max={max}
-					step={step}
-					size={size}
-					isDisabled={isDisabled}
-					{...props}
-				/>
+				<FieldInput ref={ref} type={type} onChange={onChange} value={value} defaultValue={defaultValue} min={min} max={max} step={step} size={size} isDisabled={isDisabled} {...props} />
 			);
 		}
 

@@ -1,14 +1,8 @@
-import {
-	Button,
-	FormControl,
-	FormLabel,
-	Input,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Switch,
-	VStack,
-} from "@chakra-ui/react";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { FormControl, FormLabel } from "components/shadcn/field";
+import { Input } from "components/shadcn/input";
+import { Switch } from "components/shadcn/selection";
+import { Button } from "components/shadcn/button";
 import { type FC, useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Controller, useForm } from "react-hook-form";
@@ -182,24 +176,20 @@ export const DnsModal: FC<DnsModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.400" />
-			<XrayModalContent mx="3">
+			<ModalOverlay className="bg-blackAlpha-400" />
+			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{isEdit ? t("pages.xray.dns.edit") : t("pages.xray.dns.add")}
 				</XrayModalHeader>
 				<ModalCloseButton />
 				<form onSubmit={handleSubmit}>
 					<XrayModalBody>
-						<VStack spacing={3} align="stretch">
+						<div className="flex flex-col gap-3 items-stretch">
 							<XrayDialogSection title={t("pages.xray.dns.add")}>
 								<XrayFieldGrid>
 									<FormControl>
 										<FormLabel>{t("pages.xray.dns.address")}</FormLabel>
-										<Input
-											{...modalForm.register("address")}
-											size="sm"
-											placeholder="8.8.8.8"
-										/>
+										<Input {...modalForm.register("address")} size="sm" placeholder="8.8.8.8" />
 									</FormControl>
 									<FormControl>
 										<FormLabel>{t("port")}</FormLabel>
@@ -207,14 +197,7 @@ export const DnsModal: FC<DnsModalProps> = ({
 											control={modalForm.control}
 											name="port"
 											render={({ field }) => (
-												<NumericInput
-													value={field.value ?? ""}
-													onChange={(value) => field.onChange(value)}
-													size="sm"
-													min={1}
-													max={65535}
-													fieldProps={{ placeholder: "53" }}
-												/>
+												<NumericInput value={field.value ?? ""} onChange={(value) => field.onChange(value)} size="sm" min={1} max={65535} fieldProps={{ className: "[placeholder:53]" }} />
 											)}
 										/>
 									</FormControl>
@@ -224,15 +207,7 @@ export const DnsModal: FC<DnsModalProps> = ({
 											control={modalForm.control}
 											name="queryStrategy"
 											render={({ field }) => (
-												<SearchableTagSelect
-													mode="single"
-													options={["UseSystem", "UseIP", "UseIPv4", "UseIPv6"]}
-													value={field.value ?? ""}
-													onChange={(value) => field.onChange(value as string)}
-													placeholder={t("pages.xray.dns.strategy")}
-													searchPlaceholder={t("search")}
-													width="240px"
-												/>
+												<SearchableTagSelect mode="single" options={["UseSystem", "UseIP", "UseIPv4", "UseIPv6"].map((value) => ({ value, label: value }))} value={field.value ?? ""} onChange={(value) => field.onChange(value as string)} placeholder={t("pages.xray.dns.strategy")} searchPlaceholder={t("search")} className="w-[240px]" />
 											)}
 										/>
 									</FormControl>
@@ -285,64 +260,55 @@ export const DnsModal: FC<DnsModalProps> = ({
 								</XrayFieldGrid>
 							</XrayDialogSection>
 							<XrayDialogSection title={t("pages.xray.generalConfigs")}>
-								<VStack spacing={3} align="stretch">
-									<FormControl display="flex" alignItems="center">
-										<FormLabel mb={0}>
+								<div className="flex flex-col gap-3 items-stretch">
+									<FormControl className="flex items-center">
+										<FormLabel className="mb-0">
 											{t("pages.xray.dns.skipFallback")}
 										</FormLabel>
 										<Controller
 											name="skipFallback"
 											control={modalForm.control}
 											render={({ field }) => (
-												<Switch
-													isChecked={field.value}
-													onChange={(event) =>
+												<Switch isChecked={field.value} onChange={(event) =>
 														field.onChange(event.target.checked)
-													}
-												/>
+													} />
 											)}
 										/>
 									</FormControl>
-									<FormControl display="flex" alignItems="center">
-										<FormLabel mb={0}>
+									<FormControl className="flex items-center">
+										<FormLabel className="mb-0">
 											{t("pages.xray.dns.disableCache")}
 										</FormLabel>
 										<Controller
 											name="disableCache"
 											control={modalForm.control}
 											render={({ field }) => (
-												<Switch
-													isChecked={field.value}
-													onChange={(event) =>
+												<Switch isChecked={field.value} onChange={(event) =>
 														field.onChange(event.target.checked)
-													}
-												/>
+													} />
 											)}
 										/>
 									</FormControl>
-									<FormControl display="flex" alignItems="center">
-										<FormLabel mb={0}>
+									<FormControl className="flex items-center">
+										<FormLabel className="mb-0">
 											{t("pages.xray.dns.finalQuery")}
 										</FormLabel>
 										<Controller
 											name="finalQuery"
 											control={modalForm.control}
 											render={({ field }) => (
-												<Switch
-													isChecked={field.value}
-													onChange={(event) =>
+												<Switch isChecked={field.value} onChange={(event) =>
 														field.onChange(event.target.checked)
-													}
-												/>
+													} />
 											)}
 										/>
 									</FormControl>
-								</VStack>
+								</div>
 							</XrayDialogSection>
-						</VStack>
+						</div>
 					</XrayModalBody>
-					<XrayModalFooter justifyContent="flex-end">
-						<Button variant="outline" onClick={onClose}>
+					<XrayModalFooter className="justify-end">
+						<Button size="md" variant="outline" onClick={onClose}>
 							{t("cancel")}
 						</Button>
 						<Button type="submit" colorScheme="primary" size="sm">

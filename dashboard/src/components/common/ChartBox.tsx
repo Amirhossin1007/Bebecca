@@ -1,13 +1,9 @@
-import {
-	Box,
-	type BoxProps,
-	Flex,
-	Text,
-	useColorModeValue,
-} from "@chakra-ui/react";
+import { useColorModeValue } from "lib/color-mode";
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
 import type { FC, ReactNode } from "react";
 
-export type ChartBoxProps = Omit<BoxProps, "title"> & {
+export type ChartBoxProps = Omit<ComponentPropsWithoutRef<"div">, "title"> & {
 	title?: ReactNode;
 	children: ReactNode;
 	headerActions?: ReactNode;
@@ -19,58 +15,23 @@ export const ChartBox: FC<ChartBoxProps> = ({
 	headerActions,
 	...props
 }) => {
-	const borderColor = useColorModeValue("panel.border", "panel.border");
-	const bg = useColorModeValue("panel.surface", "panel.surface");
-	const headerBg = useColorModeValue("transparent", "transparent");
+	const borderColor = useColorModeValue("border-panel-border! border-b-panel-border!", "border-panel-border! border-b-panel-border!");
+	const bg = useColorModeValue("bg-panel-surface", "bg-panel-surface");
+	const headerBg = useColorModeValue("bg-transparent", "bg-transparent");
 
 	return (
-		<Box
-			borderWidth="1px"
-			borderColor={borderColor}
-			borderRadius="xl"
-			bg={bg}
-			overflow="hidden"
-			transition="box-shadow 0.2s ease, border-color 0.2s ease"
-			sx={{
-				"@media (prefers-reduced-motion: reduce)": {
-					transition: "none",
-				},
-			}}
-			_hover={{
-				"@media (min-width: 768px)": {
-					boxShadow: "sm",
-					borderColor: "panel.borderStrong",
-				},
-			}}
-			{...props}
-		>
+		<div {...props} className={cn(borderColor, cn("hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("border rounded-xl overflow-hidden [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", bg)))}>
 			{(title || headerActions) && (
-				<Flex
-					px={{ base: 4, md: 5 }}
-					py={4}
-					borderBottomWidth="1px"
-					borderBottomColor={borderColor}
-					bg={headerBg}
-					justifyContent="space-between"
-					alignItems={{ base: "stretch", md: "center" }}
-					gap={3}
-					flexWrap="wrap"
-				>
+				<div className={cn(borderColor, cn("flex px-4 md:px-5 py-4 border-b justify-between items-stretch md:items-center gap-3 flex-wrap", headerBg))}>
 					{title && (
-						<Text
-							fontWeight="bold"
-							fontSize={{ base: "md", md: "lg" }}
-							color="panel.text"
-							flex="1"
-							minW={{ base: "full", md: "220px" }}
-						>
+						<p className="font-bold text-[1rem] md:text-[1.125rem] text-panel-text flex-1 min-w-full! md:min-w-[220px]!">
 							{title}
-						</Text>
+						</p>
 					)}
-					{headerActions && <Box maxW="full">{headerActions}</Box>}
-				</Flex>
+					{headerActions && <div className="max-w-full">{headerActions}</div>}
+				</div>
 			)}
-			<Box p={{ base: 4, md: 5 }}>{children}</Box>
-		</Box>
+			<div className="p-4 md:p-5">{children}</div>
+		</div>
 	);
 };

@@ -1,4 +1,4 @@
-import { ChakraProvider } from "@chakra-ui/react";
+import { ColorModeProvider } from "lib/color-mode";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StaticRouter } from "react-router-dom";
@@ -26,11 +26,11 @@ const render = (role: AdminRole) => {
 		userData: { role },
 	} as any);
 	return renderToStaticMarkup(
-		<ChakraProvider>
+		<ColorModeProvider>
 			<StaticRouter basename="/dashboard" location="/dashboard/notifications">
 				<NotificationsPage />
 			</StaticRouter>
-		</ChakraProvider>,
+		</ColorModeProvider>,
 	);
 };
 

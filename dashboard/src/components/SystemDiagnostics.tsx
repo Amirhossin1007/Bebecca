@@ -1,12 +1,5 @@
-import {
-	Alert,
-	AlertIcon,
-	Box,
-	HStack,
-	Stack,
-	Tag,
-	Text,
-} from "@chakra-ui/react";
+import { Alert, AlertIcon } from "components/shadcn/alert";
+import { Tag } from "components/shadcn/badge";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "react-query";
 import { Link } from "react-router-dom";
@@ -40,77 +33,49 @@ export const SystemDiagnostics = ({
 		: issues;
 	if (!visibleIssues.length && !error) return null;
 	return (
-		<Stack spacing={3} role="alert" aria-live="polite">
-			<Text fontWeight="bold" color="red.400">
+		<div role="alert" aria-live="polite" className="flex flex-col gap-3">
+			<p className="font-bold text-red-400">
 				{t(criticalOnly ? "diagnostics.criticalTitle" : "diagnostics.title")} (
 				{visibleIssues.length})
-			</Text>
+			</p>
 			{Boolean(error) && (
-				<Alert status="error" borderRadius="xl">
+				<Alert status="error" className="rounded-xl">
 					<AlertIcon />
 					{getAPIErrorMessage(error)}
 				</Alert>
 			)}
 			{visibleIssues.map((issue, index) => (
-				<Alert
-					as={Link}
-					to={diagnosticHref(issue)}
-					role="link"
-					aria-label={`${issue.resource}: ${issue.message}`}
-					key={`${issue.target_id}-${issue.resource_type}-${index}`}
-					status={diagnosticSeverity(issue) === "warning" ? "warning" : "error"}
-					borderRadius="xl"
-					alignItems="flex-start"
-					textDecoration="none"
-					_hover={{ textDecoration: "none", boxShadow: "md" }}
-					_focusVisible={{
-						outline: "2px solid",
-						outlineColor: "blue.400",
-						outlineOffset: "2px",
-					}}
-				>
-					<AlertIcon mt={1} />
-					<Box minW={0} flex={1}>
-						<HStack flexWrap="wrap" spacing={2} mb={2}>
-							<Tag
-								colorScheme={
+				<Alert as={Link} to={diagnosticHref(issue)} role="link" aria-label={`${issue.resource}: ${issue.message}`} key={`${issue.target_id}-${issue.resource_type}-${index}`} status={diagnosticSeverity(issue) === "warning" ? "warning" : "error"} className="rounded-xl items-start no-underline hover:no-underline hover:shadow-md focus-visible:[outline:2px_solid] focus-visible:outline-blue-400 focus-visible:[outline-offset:2px]">
+					<AlertIcon className="mt-1" />
+					<div className="min-w-0! flex-1">
+						<div className="flex flex-row items-center flex-wrap gap-2 mb-2">
+							<Tag colorScheme={
 									diagnosticSeverity(issue) === "warning" ? "orange" : "red"
-								}
-								size="sm"
-							>
+								} size="sm">
 								{t(`diagnostics.level.${diagnosticSeverity(issue)}`)}
 							</Tag>
-							<Tag
-								colorScheme={
+							<Tag colorScheme={
 									diagnosticSeverity(issue) === "warning" ? "orange" : "red"
-								}
-								size="sm"
-							>
+								} size="sm">
 								{t(
 									`diagnostics.source.${issue.resource_type}`,
 									issue.resource_type,
 								)}
 							</Tag>
-							<Text fontWeight="semibold">{issue.resource}</Text>
-							<Text fontSize="xs" dir="ltr">
+							<p className="font-semibold">{issue.resource}</p>
+							<p dir="ltr" className="text-[0.75rem]">
 								{issue.target_id}
-							</Text>
-							<Text fontSize="xs" textDecoration="underline">
+							</p>
+							<p className="text-[0.75rem] underline">
 								{t("diagnostics.openSection")}
-							</Text>
-						</HStack>
-						<Text
-							fontSize="sm"
-							fontFamily="mono"
-							whiteSpace="pre-wrap"
-							wordBreak="break-word"
-							dir="auto"
-						>
+							</p>
+						</div>
+						<p dir="auto" className="text-[0.875rem] font-mono whitespace-pre-wrap [word-break:break-word]">
 							{issue.message}
-						</Text>
-					</Box>
+						</p>
+					</div>
 				</Alert>
 			))}
-		</Stack>
+		</div>
 	);
 };

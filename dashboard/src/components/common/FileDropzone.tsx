@@ -1,11 +1,5 @@
-import {
-	Box,
-	HStack,
-	Icon,
-	Text,
-	useColorModeValue,
-	VStack,
-} from "@chakra-ui/react";
+import { Icon } from "components/shadcn/icon";
+import { cn } from "lib/cn";
 import { ArrowUpTrayIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import {
 	type ChangeEvent,
@@ -58,12 +52,11 @@ export const FileDropzone = ({
 }: FileDropzoneProps) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
-	const borderColor = useColorModeValue("blackAlpha.300", "whiteAlpha.300");
-	const activeBorderColor = useColorModeValue("primary.500", "primary.300");
-	const bg = useColorModeValue("blackAlpha.50", "whiteAlpha.50");
-	const activeBg = useColorModeValue("primary.50", "whiteAlpha.100");
-	const iconBg = useColorModeValue("white", "whiteAlpha.100");
-	const mutedColor = useColorModeValue("gray.500", "gray.400");
+		const tone = isDragging ? "border-primary-500! bg-primary-50 dark:border-primary-300! dark:bg-whiteAlpha-100" : "border-blackAlpha-300! bg-blackAlpha-50 dark:border-whiteAlpha-300! dark:bg-whiteAlpha-50";
+		const hoverTone = "hover:border-primary-500! hover:bg-primary-50 dark:hover:border-primary-300! dark:hover:bg-whiteAlpha-100";
+		const iconBorder = isDragging ? "border-primary-500! dark:border-primary-300!" : "border-blackAlpha-300! dark:border-whiteAlpha-300!";
+		const iconBg = "bg-white dark:bg-whiteAlpha-100";
+		const mutedColor = "text-gray-500 dark:text-gray-400";
 
 	const hasSelection = selectedFiles
 		? selectedFiles.length > 0
@@ -128,34 +121,8 @@ export const FileDropzone = ({
 	};
 
 	return (
-		<Box
-			role="button"
-			tabIndex={isDisabled ? -1 : 0}
-			aria-disabled={isDisabled}
-			borderWidth="1px"
-			borderStyle="dashed"
-			borderColor={isDragging ? activeBorderColor : borderColor}
-			borderRadius="md"
-			bg={isDragging ? activeBg : bg}
-			cursor={isDisabled ? "not-allowed" : "pointer"}
-			opacity={isDisabled ? 0.55 : 1}
-			px={4}
-			py={4}
-			transition="background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease"
-			onClick={openFileDialog}
-			onDragLeave={handleDragLeave}
-			onDragOver={handleDragOver}
-			onDrop={handleDrop}
-			onKeyDown={handleKeyDown}
-			_hover={
-				isDisabled
-					? undefined
-					: {
-							borderColor: activeBorderColor,
-							bg: activeBg,
-						}
-			}
-		>
+		// biome-ignore lint/a11y/useSemanticElements: the drop zone holds block content; keyboard activation is handled in onKeyDown
+		<div role="button" tabIndex={isDisabled ? -1 : 0} aria-disabled={isDisabled} onClick={openFileDialog} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onKeyDown={handleKeyDown} className={cn("border border-dashed rounded-md px-4 py-4 [transition:background-color_0.15s_ease,_border-color_0.15s_ease,_opacity_0.15s_ease]", tone, !isDisabled && hoverTone, isDisabled ? "cursor-not-allowed" : "cursor-pointer", isDisabled ? "opacity-[0.55]" : "opacity-100")}>
 			<input
 				ref={inputRef}
 				type="file"
@@ -165,39 +132,24 @@ export const FileDropzone = ({
 				onChange={handleInputChange}
 				style={{ display: "none" }}
 			/>
-			<HStack spacing={4} align="center">
-				<Box
-					borderWidth="1px"
-					borderColor={isDragging ? activeBorderColor : borderColor}
-					borderRadius="md"
-					bg={iconBg}
-					p={2.5}
-				>
-					<Icon
-						as={hasSelection ? DocumentTextIcon : ArrowUpTrayIcon}
-						boxSize={5}
-						color={hasSelection ? "primary.400" : mutedColor}
-					/>
-				</Box>
-				<VStack align="stretch" spacing={1} minW={0} flex="1">
-					<Text fontSize="sm" fontWeight="semibold" noOfLines={1}>
+			<div className="flex flex-row gap-4 items-center">
+				<div className={cn("border rounded-md p-2.5", iconBorder, iconBg)}>
+					<Icon as={hasSelection ? DocumentTextIcon : ArrowUpTrayIcon} className={cn("size-5", hasSelection ? "text-primary-400" : (mutedColor))} />
+				</div>
+				<div className="flex flex-col items-stretch gap-1 min-w-0! flex-1">
+					<p className="text-[0.875rem] font-semibold truncate">
 						{selectedFile?.name || title}
-					</Text>
-					<Text fontSize="xs" color={mutedColor} noOfLines={2}>
+					</p>
+					<p className={cn("text-[0.75rem] line-clamp-2", mutedColor)}>
 						{selectedFile
 							? formatFileSize(selectedFile.size)
 							: description || emptyText}
-					</Text>
-				</VStack>
-				<Text
-					fontSize="xs"
-					fontWeight="semibold"
-					color={isDisabled ? mutedColor : "primary.300"}
-					whiteSpace="nowrap"
-				>
+					</p>
+				</div>
+				<p className={cn("text-[0.75rem] font-semibold whitespace-nowrap", isDisabled ? (mutedColor) : "text-primary-300")}>
 					{emptyText}
-				</Text>
-			</HStack>
-		</Box>
+				</p>
+			</div>
+		</div>
 	);
 };

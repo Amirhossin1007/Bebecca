@@ -1,18 +1,11 @@
-import {
-	Badge,
-	Box,
-	Button,
-	Flex,
-	HStack,
-	Icon,
-	Input,
-	Spinner,
-	Stack,
-	StackDivider,
-	Text,
-	useDisclosure,
-	useToast,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { useDisclosure } from "hooks/useDisclosure";
+import { Button } from "components/shadcn/button";
+import { Badge } from "components/shadcn/badge";
+import { Spinner } from "components/shadcn/feedback";
+import { Icon } from "components/shadcn/icon";
+import { Input } from "components/shadcn/input";
+import { cn } from "lib/cn";
 import {
 	ArrowRightStartOnRectangleIcon,
 	KeyIcon,
@@ -261,122 +254,72 @@ export const AccountSecurity = ({
 	};
 
 	return (
-		<Stack spacing={4} w="full" maxW="960px" mx="auto">
+		<div className="flex flex-col gap-4 w-full max-w-[960px] mx-auto">
 			{(canChangePassword || canManage2FA) && (
 				<ChartBox title={t("myaccount.securityControls")}>
-					<Stack
-						spacing={0}
-						divider={<StackDivider borderColor="panel.border" />}
-					>
+					<div className="flex flex-col gap-0 divide-y divide-panel-border">
 						{canChangePassword && (
-							<Flex
-								align={{ base: "stretch", sm: "center" }}
-								justify="space-between"
-								direction={{ base: "column", sm: "row" }}
-								gap={3}
-								py={2}
-							>
-								<HStack minW={0} spacing={3} align="start">
-									<Flex
-										align="center"
-										justify="center"
-										w="9"
-										h="9"
-										flexShrink={0}
-										borderRadius="6px"
-										bg="panel.elevated"
-										color="panel.accent"
-										aria-hidden="true"
-									>
-										<KeyIcon width={18} />
-									</Flex>
-									<Box minW={0}>
-										<Text fontWeight="semibold" fontSize="sm">
+							<div className="flex-col sm:flex-row flex items-stretch sm:items-center justify-between gap-3 py-2">
+								<div className="flex flex-row min-w-0! gap-3 items-start">
+									<div aria-hidden="true" className="flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated text-panel-accent">
+										<KeyIcon className="w-18" />
+									</div>
+									<div className="min-w-0!">
+										<p className="font-semibold text-[0.875rem]">
 											{t("myaccount.changePasswordCard")}
-										</Text>
-										<Text color="panel.textSecondary" fontSize="xs" mt={0.5}>
+										</p>
+										<p className="text-panel-text-secondary text-[0.75rem] mt-0.5">
 											{t("myaccount.changePasswordHint")}
-										</Text>
-									</Box>
-								</HStack>
-								<Button
-									size="sm"
-									h="10"
-									variant="outline"
-									onClick={onChangePassword}
-									alignSelf={{ base: "flex-end", sm: "center" }}
-								>
+										</p>
+									</div>
+								</div>
+								<Button size="sm" variant="outline" onClick={onChangePassword} className="h-10 self-end sm:self-center">
 									{t("myaccount.changePassword")}
 								</Button>
-							</Flex>
+							</div>
 						)}
 
 						{canManage2FA && (
-							<Flex
-								align={{ base: "stretch", sm: "center" }}
-								justify="space-between"
-								direction={{ base: "column", sm: "row" }}
-								gap={3}
-								py={2}
-							>
-								<HStack minW={0} spacing={3} align="start">
-									<Flex
-										align="center"
-										justify="center"
-										w="9"
-										h="9"
-										flexShrink={0}
-										borderRadius="6px"
-										bg="panel.elevated"
-										color={totpEnabled ? "green.400" : "panel.textMuted"}
-										aria-hidden="true"
-									>
-										<ShieldCheckIcon width={18} />
-									</Flex>
-									<Box minW={0}>
-										<HStack spacing={2} flexWrap="wrap">
-											<Text fontWeight="semibold" fontSize="sm">
+							<div className="flex-col sm:flex-row flex items-stretch sm:items-center justify-between gap-3 py-2">
+								<div className="flex flex-row min-w-0! gap-3 items-start">
+									<div aria-hidden="true" className={cn("flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated", totpEnabled ? "text-green-400" : "text-panel-text-muted")}>
+										<ShieldCheckIcon className="w-18" />
+									</div>
+									<div className="min-w-0!">
+										<div className="flex flex-row items-center gap-2 flex-wrap">
+											<p className="font-semibold text-[0.875rem]">
 												{t("myaccount.twoFactor")}
-											</Text>
+											</p>
 											<Badge colorScheme={totpEnabled ? "green" : "gray"}>
 												{totpEnabled
 													? t("nodes.enabled")
 													: t("disabled")}
 											</Badge>
-										</HStack>
-										<Text color="panel.textSecondary" fontSize="xs" mt={0.5}>
+										</div>
+										<p className="text-panel-text-secondary text-[0.75rem] mt-0.5">
 											{totpEnabled
 												? t("myaccount.twoFactorEnabledHint")
 												: t("myaccount.twoFactorDisabledHint")}
-										</Text>
-									</Box>
-								</HStack>
-								<Button
-									size="sm"
-									h="10"
-									minW={{ sm: "112px" }}
-									variant="outline"
-									colorScheme={totpEnabled ? "red" : "primary"}
-									isLoading={twoFactorLoading}
-									onClick={totpEnabled ? disableDialog.onOpen : beginSetup}
-									alignSelf={{ base: "flex-end", sm: "center" }}
-								>
+										</p>
+									</div>
+								</div>
+								<Button size="sm" variant="outline" colorScheme={totpEnabled ? "red" : "primary"} isLoading={twoFactorLoading} onClick={totpEnabled ? disableDialog.onOpen : beginSetup} className="h-10 sm:min-w-[112px]! self-end sm:self-center">
 									{totpEnabled
 										? t("myaccount.disableTwoFactor")
 										: t("myaccount.enableTwoFactor")}
 								</Button>
-							</Flex>
+							</div>
 						)}
-					</Stack>
+					</div>
 				</ChartBox>
 			)}
 			{canManageSessions && (
 				<ChartBox title={t("myaccount.sessions")}>
-					<Stack spacing={3}>
+					<div className="flex flex-col gap-3">
 						{sessions.isLoading && (
-							<Flex justify="center" py={6}>
+							<div className="flex justify-center py-6">
 								<Spinner size="sm" />
-							</Flex>
+							</div>
 						)}
 						{sessions.data?.map((session) => {
 							const client = parseSessionClient(session.user_agent);
@@ -387,101 +330,57 @@ export const AccountSecurity = ({
 								? `${client.os.name} ${client.os.version}`
 								: client.os.name;
 							return (
-								<Box
-									as="article"
-									key={session.id}
-									borderWidth="1px"
-									borderColor="panel.border"
-									borderRadius="6px"
-									p={3}
-								>
-									<Flex
-										justify="space-between"
-										align={{ base: "stretch", sm: "center" }}
-										gap={3}
-										direction={{ base: "column", sm: "row" }}
-									>
-										<HStack minW={0} spacing={3} align="start">
-											<Flex
-												align="center"
-												justify="center"
-												w="10"
-												h="10"
-												flexShrink={0}
-												borderRadius="6px"
-												bg="panel.elevated"
-												color={client.os.color}
-												aria-hidden="true"
-											>
-												<Icon as={iconAs(client.os.icon)} boxSize={5} />
-											</Flex>
-											<Box minW={0}>
-												<HStack spacing={2} flexWrap="wrap">
-													<Icon
-														as={iconAs(client.browser.icon)}
-														boxSize={4}
-														color={client.browser.color}
-														aria-hidden="true"
-													/>
-													<Text fontWeight="700" fontSize="md">
+								<article key={session.id} className="border border-panel-border! rounded-[6px] p-3">
+									<div className="flex-col sm:flex-row flex justify-between items-stretch sm:items-center gap-3">
+										<div className="flex flex-row min-w-0! gap-3 items-start">
+											<div color={client.os.color} aria-hidden="true" className="flex items-center justify-center w-10 h-10 shrink-0 rounded-[6px] bg-panel-elevated">
+												<Icon as={iconAs(client.os.icon)} className="size-5" />
+											</div>
+											<div className="min-w-0!">
+												<div className="flex flex-row items-center gap-2 flex-wrap">
+													<Icon as={iconAs(client.browser.icon)} color={client.browser.color} aria-hidden="true" className="size-4" />
+													<p className="font-bold text-[1rem]">
 														{browserLabel}
-													</Text>
+													</p>
 													{session.current && (
 														<Badge colorScheme="green">
 															{t("current")}
 														</Badge>
 													)}
-												</HStack>
-												<HStack
-													spacing={1.5}
-													color="panel.textSecondary"
-													fontSize="sm"
-													flexWrap="wrap"
-												>
-													<Icon
-														as={iconAs(client.deviceIcon)}
-														aria-hidden="true"
-													/>
-													<Text>{osLabel}</Text>
-													<Text aria-hidden="true">·</Text>
-													<Text>
+												</div>
+												<div className="flex flex-row items-center gap-1.5 text-panel-text-secondary text-[0.875rem] flex-wrap">
+													<Icon as={iconAs(client.deviceIcon)} aria-hidden="true" />
+													<p>{osLabel}</p>
+													<p aria-hidden="true">·</p>
+													<p>
 														{t(
 															`myaccount.device.${client.device}`,
 															client.device,
 														)}
-													</Text>
-												</HStack>
-												<Text color="panel.textMuted" fontSize="xs" mt={1}>
+													</p>
+												</div>
+												<p className="text-panel-text-muted text-[0.75rem] mt-1">
 													{session.ip_address || "-"} ·{" "}
 													{t("myaccount.lastSeen")}{" "}
 													{dayjs(session.last_seen_at).format(
 														"YYYY-MM-DD HH:mm",
 													)}
-												</Text>
-											</Box>
-										</HStack>
-										<Button
-											colorScheme="red"
-											isLoading={
+												</p>
+											</div>
+										</div>
+										<Button colorScheme="red" isLoading={
 												revoke.isLoading && revoke.variables === session.id
-											}
-											onClick={() => revoke.mutate(session.id)}
-											size="sm"
-											variant="ghost"
-											leftIcon={<ArrowRightStartOnRectangleIcon width={16} />}
-											alignSelf={{ base: "flex-end", sm: "center" }}
-											aria-label={`${t("header.logout")} ${browserLabel}`}
-										>
+											} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" leftIcon={<ArrowRightStartOnRectangleIcon className="w-16" />} aria-label={`${t("header.logout")} ${browserLabel}`} className="self-end sm:self-center">
 											{t("header.logout")}
 										</Button>
-									</Flex>
-								</Box>
+									</div>
+								</article>
 							);
 						})}
 						{!sessions.isLoading && !sessions.data?.length && (
-							<Text color="gray.500">{t("noData")}</Text>
+							<p className="text-gray-500">{t("noData")}</p>
 						)}
-					</Stack>
+					</div>
 				</ChartBox>
 			)}
 
@@ -490,34 +389,22 @@ export const AccountSecurity = ({
 				onClose={setupDialog.onClose}
 				title={t("myaccount.enableTwoFactor")}
 				footer={
-					<Button
-						colorScheme="primary"
-						isDisabled={code.length !== 6}
-						isLoading={twoFactorLoading}
-						onClick={confirmSetup}
-					>
+					<Button size="md" colorScheme="primary" isDisabled={code.length !== 6} isLoading={twoFactorLoading} onClick={confirmSetup}>
 						{t("confirm")}
 					</Button>
 				}
 			>
-				<Stack align="center" spacing={4}>
+				<div className="flex flex-col items-center gap-4">
 					{setup && (
-						<Box bg="white" p={3} borderRadius="md">
+						<div className="bg-white p-3 rounded-md">
 							<QRCodeCanvas value={setup.uri} size={200} />
-						</Box>
+						</div>
 					)}
-					<Text fontFamily="mono" fontSize="xs" wordBreak="break-all">
+					<p className="font-mono text-[0.75rem] break-all">
 						{setup?.secret}
-					</Text>
-					<Input
-						autoComplete="one-time-code"
-						inputMode="numeric"
-						maxLength={6}
-						textAlign="center"
-						value={code}
-						onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-					/>
-				</Stack>
+					</p>
+					<Input autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} className="text-center" />
+				</div>
 			</AppDialog>
 
 			<AppDialog
@@ -525,33 +412,16 @@ export const AccountSecurity = ({
 				onClose={disableDialog.onClose}
 				title={t("myaccount.disableTwoFactor")}
 				footer={
-					<Button
-						colorScheme="red"
-						isDisabled={!password || code.length !== 6}
-						isLoading={twoFactorLoading}
-						onClick={confirmDisable}
-					>
+					<Button size="md" colorScheme="red" isDisabled={!password || code.length !== 6} isLoading={twoFactorLoading} onClick={confirmDisable}>
 						{t("phpmyadmin.disableAction")}
 					</Button>
 				}
 			>
-				<Stack spacing={3}>
-					<Input
-						type="password"
-						placeholder={t("myaccount.currentPassword")}
-						value={password}
-						onChange={(event) => setPassword(event.target.value)}
-					/>
-					<Input
-						autoComplete="one-time-code"
-						inputMode="numeric"
-						maxLength={6}
-						placeholder={t("login.authenticationCode")}
-						value={code}
-						onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-					/>
-				</Stack>
+				<div className="flex flex-col gap-3">
+					<Input type="password" placeholder={t("myaccount.currentPassword")} value={password} onChange={(event) => setPassword(event.target.value)} />
+					<Input autoComplete="one-time-code" inputMode="numeric" maxLength={6} placeholder={t("login.authenticationCode")} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} />
+				</div>
 			</AppDialog>
-		</Stack>
+		</div>
 	);
 };

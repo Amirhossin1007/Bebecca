@@ -1,33 +1,12 @@
-import {
-	Badge,
-	Box,
-	Button,
-	Checkbox,
-	FormControl,
-	FormErrorMessage,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input,
-	InputGroup,
-	InputRightElement,
-	Modal,
-	ModalCloseButton,
-	ModalOverlay,
-	Radio,
-	RadioGroup,
-	SimpleGrid,
-	Stack,
-	Tab,
-	TabList,
-	TabPanel,
-	TabPanels,
-	Tabs,
-	Text,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
+import { useToast } from "components/shadcn/toast";
+import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
+import { Input, InputGroup, InputRightElement } from "components/shadcn/input";
+import { Button, IconButton } from "components/shadcn/button";
+import { Checkbox, Radio, RadioGroup } from "components/shadcn/selection";
+import { Badge } from "components/shadcn/badge";
+import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
+import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { cn } from "lib/cn";
 import {
 	EyeIcon,
 	EyeSlashIcon,
@@ -1057,12 +1036,12 @@ export const AdminDialog: FC = () => {
 	);
 
 	const detailsForm = (
-		<VStack spacing={4} align="stretch">
-			<Box className="xray-dialog-section">
-				<Text fontSize="sm" fontWeight="semibold" mb={3}>
+		<div className="flex flex-col gap-4 items-stretch">
+			<div className="xray-dialog-section">
+				<p className="text-[0.875rem] font-semibold mb-3">
 					{t("inbounds.accounts.label")}
-				</Text>
-				<VStack spacing={4} align="stretch">
+				</p>
+				<div className="flex flex-col gap-4 items-stretch">
 					{mode === "edit" && admin?.id !== undefined && (
 						<FormControl>
 							<FormLabel>{t("admins.idLabel")}</FormLabel>
@@ -1081,26 +1060,10 @@ export const AdminDialog: FC = () => {
 					<FormControl isInvalid={!!errors.username}>
 						<FormLabel>{t("username")}</FormLabel>
 						<InputGroup dir={isRTL ? "rtl" : "ltr"}>
-							<Input
-								placeholder={t("admins.usernamePlaceholder")}
-								{...register("username")}
-								isDisabled={mode === "edit"}
-								{...(mode === "create" ? endPadding : {})}
-							/>
+							<Input placeholder={t("admins.usernamePlaceholder")} {...register("username")} isDisabled={mode === "edit"} {...(mode === "create" ? endPadding : {})} />
 							{mode === "create" && (
-								<InputRightElement
-									insetInlineEnd={endAdornmentProps.insetInlineEnd}
-									insetInlineStart={endAdornmentProps.insetInlineStart}
-									right={endAdornmentProps.right}
-									left={endAdornmentProps.left}
-								>
-									<IconButton
-										aria-label={t("admins.generateUsername")}
-										size="sm"
-										variant="ghost"
-										icon={<SparklesIcon width={20} />}
-										onClick={handleGenerateUsername}
-									/>
+								<InputRightElement style={{ insetInlineEnd: endAdornmentProps.insetInlineEnd, insetInlineStart: endAdornmentProps.insetInlineStart, right: endAdornmentProps.right, left: endAdornmentProps.left }}>
+									<IconButton aria-label={t("admins.generateUsername")} size="sm" variant="ghost" icon={<SparklesIcon className="w-20" />} onClick={handleGenerateUsername} />
 								</InputRightElement>
 							)}
 						</InputGroup>
@@ -1110,60 +1073,37 @@ export const AdminDialog: FC = () => {
 					</FormControl>
 					<FormControl isInvalid={!!errors.password}>
 						<FormLabel>{t("password")}</FormLabel>
-						<HStack spacing={2}>
+						<div className="flex flex-row items-center gap-2">
 							<InputGroup dir={isRTL ? "rtl" : "ltr"}>
-								<Input
-									placeholder={t("admins.passwordPlaceholder")}
-									type={showPassword ? "text" : "password"}
-									{...register("password")}
-									{...endPadding}
-								/>
-								<InputRightElement
-									insetInlineEnd={endAdornmentProps.insetInlineEnd}
-									insetInlineStart={endAdornmentProps.insetInlineStart}
-									right={endAdornmentProps.right}
-									left={endAdornmentProps.left}
-								>
-									<IconButton
-										aria-label={
+								<Input placeholder={t("admins.passwordPlaceholder")} type={showPassword ? "text" : "password"} {...register("password")} {...endPadding} />
+								<InputRightElement style={{ insetInlineEnd: endAdornmentProps.insetInlineEnd, insetInlineStart: endAdornmentProps.insetInlineStart, right: endAdornmentProps.right, left: endAdornmentProps.left }}>
+									<IconButton aria-label={
 											showPassword
 												? t("admins.hidePassword")
 												: t("admins.showPassword")
-										}
-										size="sm"
-										variant="ghost"
-										icon={
+										} size="sm" variant="ghost" icon={
 											showPassword ? (
-												<EyeSlashIcon width={16} />
+												<EyeSlashIcon className="w-16" />
 											) : (
-												<EyeIcon width={16} />
+												<EyeIcon className="w-16" />
 											)
-										}
-										onClick={() => setShowPassword(!showPassword)}
-									/>
+										} onClick={() => setShowPassword(!showPassword)} />
 								</InputRightElement>
 							</InputGroup>
-							<IconButton
-								aria-label={t("admins.generatePassword")}
-								size="md"
-								variant="outline"
-								icon={<SparklesIcon width={20} />}
-								onClick={handleGeneratePassword}
-							/>
-						</HStack>
+							<IconButton aria-label={t("admins.generatePassword")} size="md" variant="outline" icon={<SparklesIcon className="w-20" />} onClick={handleGeneratePassword} />
+						</div>
 						<FormErrorMessage>
 							{errors.password?.message as string}
 						</FormErrorMessage>
 						{mode === "edit" && (
-							<Text fontSize="xs" color="gray.500" mt={1}>
+							<p className="text-[0.75rem] text-gray-500 mt-1">
 								{t("admins.passwordOptionalHint")}
-							</Text>
+							</p>
 						)}
 					</FormControl>
 					<FormControl isInvalid={!!errors.telegram_id}>
 						<FormLabel>{t("admins.telegramId")}</FormLabel>
 						<NumericInput
-							placeholder={t("admins.telegramPlaceholder")}
 							value={telegramIdValue}
 							precision={0}
 							onChange={(value) =>
@@ -1177,84 +1117,77 @@ export const AdminDialog: FC = () => {
 							{errors.telegram_id?.message as string}
 						</FormErrorMessage>
 					</FormControl>
-				</VStack>
-			</Box>
-			<Box className="xray-dialog-section">
-				<Text fontSize="sm" fontWeight="semibold" mb={3}>
+				</div>
+			</div>
+			<div className="xray-dialog-section">
+				<p className="text-[0.875rem] font-semibold mb-3">
 					{t("core.role")}
-				</Text>
-				<VStack spacing={4} align="stretch">
+				</p>
+				<div className="flex flex-col gap-4 items-stretch">
 					<FormControl>
 						<FormLabel>{t("admins.roleLabel")}</FormLabel>
-						<RadioGroup
-							value={watchRole ?? AdminRole.Standard}
-							onChange={(value) =>
+						<RadioGroup value={watchRole ?? AdminRole.Standard} onChange={(value) =>
 								setValue("role", value as AdminRole, { shouldDirty: true })
-							}
-						>
-							<VStack align="flex-start" spacing={2}>
+							}>
+							<div className="flex flex-col items-start gap-2">
 								<Radio value={AdminRole.Standard}>
-									<Text fontWeight="medium">{t("admins.roles.standard")}</Text>
-									<FormHelperText m={0}>
+									<p className="font-medium">{t("admins.roles.standard")}</p>
+									<FormHelperText className="m-0">
 										{t("admins.roles.standardDescription")}
 									</FormHelperText>
 								</Radio>
 								<Radio value={AdminRole.Reseller} isDisabled>
-									<Text fontWeight="medium">
+									<p className="font-medium">
 										{t("admins.roles.reseller")}
-										<Box as="span" ml={2} fontSize="xs" color="orange.500">
+										<span className="ml-2 text-[0.75rem] text-orange-500">
 											{t("common.comingSoon")}
-										</Box>
-									</Text>
-									<FormHelperText m={0}>
+										</span>
+									</p>
+									<FormHelperText className="m-0">
 										{t("admins.roles.resellerDescription")}
 									</FormHelperText>
 								</Radio>
 								<Radio value={AdminRole.Sudo}>
-									<Text fontWeight="medium">{t("admins.roles.sudo")}</Text>
-									<FormHelperText m={0}>
+									<p className="font-medium">{t("admins.roles.sudo")}</p>
+									<FormHelperText className="m-0">
 										{t("admins.roles.sudoDescription")}
 									</FormHelperText>
 								</Radio>
 								{canCreateFullAccess && (
 									<Radio value={AdminRole.FullAccess}>
-										<Text fontWeight="medium">
+										<p className="font-medium">
 											{t("admins.roles.fullAccess")}
-										</Text>
-										<FormHelperText m={0}>
+										</p>
+										<FormHelperText className="m-0">
 											{t("admins.roles.fullAccessDescription")}
 										</FormHelperText>
 									</Radio>
 								)}
-							</VStack>
+							</div>
 						</RadioGroup>
 					</FormControl>
-				</VStack>
-			</Box>
-			<Box className="xray-dialog-section">
-				<Text fontSize="sm" fontWeight="semibold" mb={3}>
+				</div>
+			</div>
+			<div className="xray-dialog-section">
+				<p className="text-[0.875rem] font-semibold mb-3">
 					{t("admins.limitsSection")}
-				</Text>
-				<VStack spacing={4} align="stretch">
+				</p>
+				<div className="flex flex-col gap-4 items-stretch">
 					{!isFullAccessRole && (
-						<VStack align="stretch" spacing={3}>
-							<Checkbox
-								isChecked={usePerServiceTrafficLimits}
-								onChange={(event) =>
+						<div className="flex flex-col items-stretch gap-3">
+							<Checkbox isChecked={usePerServiceTrafficLimits} onChange={(event) =>
 									setValue("use_service_traffic_limits", event.target.checked, {
 										shouldDirty: true,
 									})
-								}
-							>
+								}>
 								{t("admins.usePerServiceTrafficLimits")}
 							</Checkbox>
-						</VStack>
+						</div>
 					)}
-					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<FormControl isInvalid={!!errors.data_limit}>
 							<FormLabel>{t("admins.dataLimit")}</FormLabel>
 							<NumericInput
-								placeholder={t("admins.dataLimitPlaceholder")}
 								value={dataLimitValue}
 								precision={0}
 								isDisabled={usePerServiceTrafficLimits}
@@ -1268,14 +1201,13 @@ export const AdminDialog: FC = () => {
 							<FormErrorMessage>
 								{errors.data_limit?.message as string}
 							</FormErrorMessage>
-							<Text fontSize="xs" color="gray.500" mt={1}>
+							<p className="text-[0.75rem] text-gray-500 mt-1">
 								{t("admins.dataLimitHint")}
-							</Text>
+							</p>
 						</FormControl>
 						<FormControl isInvalid={!!errors.users_limit}>
 							<FormLabel>{t("admins.usersLimit")}</FormLabel>
 							<NumericInput
-								placeholder={t("admins.usersLimitPlaceholder")}
 								value={usersLimitValue}
 								precision={0}
 								isDisabled={usePerServiceTrafficLimits}
@@ -1289,18 +1221,16 @@ export const AdminDialog: FC = () => {
 							<FormErrorMessage>
 								{errors.users_limit?.message as string}
 							</FormErrorMessage>
-							<Text fontSize="xs" color="gray.500" mt={1}>
+							<p className="text-[0.75rem] text-gray-500 mt-1">
 								{t("admins.usersLimitHint")}
-							</Text>
+							</p>
 						</FormControl>
-					</SimpleGrid>
+					</div>
 					{!isFullAccessRole &&
 						!usePerServiceTrafficLimits &&
 						(hasGlobalDataLimit || isCreatedTrafficMode) && (
-							<VStack align="stretch" spacing={3}>
-								<Checkbox
-									isChecked={isCreatedTrafficMode}
-									onChange={(event) =>
+							<div className="flex flex-col items-stretch gap-3">
+								<Checkbox isChecked={isCreatedTrafficMode} onChange={(event) =>
 										setValue(
 											"traffic_limit_mode",
 											event.target.checked
@@ -1308,44 +1238,33 @@ export const AdminDialog: FC = () => {
 												: AdminTrafficLimitMode.UsedTraffic,
 											{ shouldDirty: true },
 										)
-									}
-								>
+									}>
 									{t("admins.limitByCreatedTraffic")}
 								</Checkbox>
 								{isCreatedTrafficMode && (
-									<Stack spacing={2} pl={1}>
-										<Checkbox
-											isChecked={Boolean(showUserTrafficValue)}
-											onChange={(event) =>
+									<div className="flex flex-col gap-2 pl-1">
+										<Checkbox isChecked={Boolean(showUserTrafficValue)} onChange={(event) =>
 												setValue("show_user_traffic", event.target.checked, {
 													shouldDirty: true,
 												})
-											}
-										>
+											}>
 											{t("admins.showUserTraffic")}
 										</Checkbox>
-										<Checkbox
-											isChecked={Boolean(permissionsValue.users.delete)}
-											onChange={(event) =>
+										<Checkbox isChecked={Boolean(permissionsValue.users.delete)} onChange={(event) =>
 												handleUserPermissionToggle(
 													"delete",
 													event.target.checked,
 												)
-											}
-										>
+											}>
 											{t("admins.permissions.deleteUser")}
 										</Checkbox>
-										<Checkbox
-											isChecked={Boolean(deleteUserUsageLimitEnabled)}
-											isDisabled={!permissionsValue.users.delete}
-											onChange={(event) =>
+										<Checkbox isChecked={Boolean(deleteUserUsageLimitEnabled)} isDisabled={!permissionsValue.users.delete} onChange={(event) =>
 												setValue(
 													"delete_user_usage_limit_enabled",
 													event.target.checked,
 													{ shouldDirty: true },
 												)
-											}
-										>
+											}>
 											{t("admins.deleteUserUsageCap")}
 										</Checkbox>
 										{deleteUserUsageLimitEnabled && (
@@ -1368,23 +1287,20 @@ export const AdminDialog: FC = () => {
 												</FormErrorMessage>
 											</FormControl>
 										)}
-										<Checkbox
-											isChecked={Boolean(permissionsValue.users.reset_usage)}
-											onChange={(event) =>
+										<Checkbox isChecked={Boolean(permissionsValue.users.reset_usage)} onChange={(event) =>
 												handleUserPermissionToggle(
 													"reset_usage",
 													event.target.checked,
 												)
-											}
-										>
+											}>
 											{t("admins.permissions.resetUsage")}
 										</Checkbox>
-										<Text fontSize="xs" color="gray.500">
+										<p className="text-[0.75rem] text-gray-500">
 											{t("admins.createdTrafficModeHint")}
-										</Text>
-									</Stack>
+										</p>
+									</div>
 								)}
-							</VStack>
+							</div>
 						)}
 					<FormControl>
 						<FormLabel>{t("admins.expireLabel")}</FormLabel>
@@ -1402,39 +1318,29 @@ export const AdminDialog: FC = () => {
 							<FormHelperText>{t("admins.expireHint")}</FormHelperText>
 						)}
 					</FormControl>
-				</VStack>
-			</Box>
-			<Box className="xray-dialog-section admin-services-section">
-				<Text fontSize="sm" fontWeight="semibold" mb={3}>
+				</div>
+			</div>
+			<div className="xray-dialog-section admin-services-section">
+				<p className="text-[0.875rem] font-semibold mb-3">
 					{t("services.title")}
-				</Text>
-				<VStack spacing={3} align="stretch">
+				</p>
+				<div className="flex flex-col gap-3 items-stretch">
 					<FormControl>
-						<VStack align="stretch" spacing={2}>
-							<HStack
-								justify="space-between"
-								align={{ base: "flex-start", sm: "center" }}
-								spacing={3}
-								flexWrap="wrap"
-							>
-								<Checkbox
-									isChecked={
+						<div className="flex flex-col items-stretch gap-2">
+							<div className="flex flex-row justify-between items-start sm:items-center gap-3 flex-wrap">
+								<Checkbox isChecked={
 										selectedServices.length === serviceOptions.length &&
 										serviceOptions.length > 0
-									}
-									isIndeterminate={
+									} isIndeterminate={
 										selectedServices.length > 0 &&
 										selectedServices.length < serviceOptions.length
-									}
-									onChange={handleToggleAllServices}
-									isDisabled={serviceOptions.length === 0}
-								>
+									} onChange={handleToggleAllServices} isDisabled={serviceOptions.length === 0}>
 									{t("admins.selectAllServices")}
 								</Checkbox>
-								<Badge borderRadius="md" variant="subtle" colorScheme="primary">
+								<Badge variant="subtle" colorScheme="primary" className="rounded-md">
 									{selectedServices.length} / {serviceOptions.length}
 								</Badge>
-							</HStack>
+							</div>
 							<SearchInput
 								value={serviceSearch}
 								onChange={(event) => setServiceSearch(event.target.value)}
@@ -1443,105 +1349,60 @@ export const AdminDialog: FC = () => {
 								onMatchOptionsChange={setServiceSearchMatch}
 								onClear={() => setServiceSearch("")}
 							/>
-							<VStack
-								className="admin-services-list"
-								align="stretch"
-								spacing={1.5}
-								maxH="150px"
-								overflowY="auto"
-								borderWidth="1px"
-								borderRadius="md"
-								p={2}
-							>
+							<div className="flex flex-col items-stretch gap-1.5 max-h-[150px] overflow-y-auto border rounded-md p-2 admin-services-list">
 								{serviceOptions.length === 0 ? (
-									<Text fontSize="sm" color="gray.500">
+									<p className="text-[0.875rem] text-gray-500">
 										{t("services.noServicesAvailable")}
-									</Text>
+									</p>
 								) : filteredServices.length === 0 ? (
-									<Text fontSize="sm" color="gray.500">
+									<p className="text-[0.875rem] text-gray-500">
 										{t("admins.noServicesMatching")}
-									</Text>
+									</p>
 								) : (
 									filteredServices.map((service) => {
 										const isSelected = selectedServicesSet.has(service.id);
 										return (
-											<Box
-												key={service.id}
-												borderWidth="1px"
-												borderRadius="md"
-												px={2.5}
-												py={2}
-												borderColor={isSelected ? "primary.400" : "gray.200"}
-												bg={isSelected ? "primary.50" : "transparent"}
-												_hover={{
-													borderColor: "primary.300",
-													cursor: "pointer",
-												}}
-												_dark={{
-													borderColor: isSelected ? "primary.300" : "gray.600",
-													bg: isSelected ? "gray.700" : "transparent",
-												}}
-												transition="background-color 140ms var(--rb-ease-out), border-color 140ms var(--rb-ease-out), box-shadow 140ms var(--rb-ease-out), transform 120ms var(--rb-ease-out)"
-												_active={{ transform: "scale(0.99)" }}
-												onClick={() => handleServiceToggle(service.id)}
-												onKeyDown={(event) => {
+											// biome-ignore lint/a11y/useSemanticElements: service card holds block content; keyboard toggling is handled in onKeyDown
+											<div key={service.id} onClick={() => handleServiceToggle(service.id)} onKeyDown={(event) => {
 													if (event.key === "Enter" || event.key === " ") {
 														event.preventDefault();
 														handleServiceToggle(service.id);
 													}
-												}}
-												role="button"
-												tabIndex={0}
-											>
-												<HStack
-													justify="space-between"
-													align="center"
-													spacing={3}
-												>
-													<Box minW={0}>
-														<Text fontWeight="medium" noOfLines={1}>
+												}} role="button" tabIndex={0} className={cn("border rounded-md px-2.5 py-2 hover:border-primary-300! hover:cursor-pointer [transition:background-color_140ms_var(--rb-ease-out),_border-color_140ms_var(--rb-ease-out),_box-shadow_140ms_var(--rb-ease-out),_transform_120ms_var(--rb-ease-out)] active:[transform:scale(0.99)]", isSelected ? "border-primary-400!" : "border-gray-200!", isSelected ? "bg-primary-50" : "bg-transparent", isSelected ? "dark:border-primary-300!" : "dark:border-gray-600!", isSelected ? "dark:bg-gray-700" : "dark:bg-transparent")}>
+												<div className="flex flex-row justify-between items-center gap-3">
+													<div className="min-w-0!">
+														<p className="font-medium truncate">
 															{service.name}
-														</Text>
-														<Text fontSize="xs" color="gray.500">
+														</p>
+														<p className="text-[0.75rem] text-gray-500">
 															{t("admins.serviceStats", {
 																users: service.user_count ?? 0,
 																hosts: service.host_count ?? 0,
 															})}
-														</Text>
-													</Box>
+														</p>
+													</div>
 													{isSelected && (
-														<Badge
-															colorScheme="primary"
-															variant="subtle"
-															borderRadius="md"
-															flexShrink={0}
-														>
+														<Badge colorScheme="primary" variant="subtle" className="rounded-md shrink-0">
 															{t("services.selected")}
 														</Badge>
 													)}
-												</HStack>
-											</Box>
+												</div>
+											</div>
 										);
 									})
 								)}
-							</VStack>
+							</div>
 							{usePerServiceTrafficLimits && selectedServices.length > 0 && (
-								<VStack align="stretch" spacing={2.5} pt={1}>
-									<HStack justify="space-between" align="center">
-										<Text fontWeight="semibold" fontSize="sm">
+								<div className="flex flex-col items-stretch gap-2.5 pt-1">
+									<div className="flex flex-row gap-2 justify-between items-center">
+										<p className="font-semibold text-[0.875rem]">
 											{t("admins.perServiceLimitsTitle")}
-										</Text>
-										<Badge borderRadius="md" variant="subtle">
+										</p>
+										<Badge variant="subtle" className="rounded-md">
 											{selectedServices.length}
 										</Badge>
-									</HStack>
-									<VStack
-										align="stretch"
-										spacing={2}
-										maxH="320px"
-										overflowY="auto"
-										pr={1}
-									>
+									</div>
+									<div className="flex flex-col items-stretch gap-2 max-h-[320px] overflow-y-auto pr-1">
 										{selectedServices.map((serviceId) => {
 											const service = serviceOptions.find(
 												(item) => item.id === serviceId,
@@ -1562,73 +1423,46 @@ export const AdminDialog: FC = () => {
 													? Math.max(configuredLimitBytes - usageBytes, 0)
 													: null;
 											return (
-												<Box
-													key={`service-limit-${serviceId}`}
-													className="admin-service-limit-card"
-													borderWidth="1px"
-													borderRadius="md"
-													p={2.5}
-												>
-													<VStack align="stretch" spacing={2.5}>
-														<HStack
-															justify="space-between"
-															align="flex-start"
-															spacing={3}
-														>
-															<Box minW={0}>
-																<Text fontWeight="medium" noOfLines={1}>
+												<div key={`service-limit-${serviceId}`} className="border rounded-md p-2.5 admin-service-limit-card">
+													<div className="flex flex-col items-stretch gap-2.5">
+														<div className="flex flex-row justify-between items-start gap-3">
+															<div className="min-w-0!">
+																<p className="font-medium truncate">
 																	{service?.name ?? `#${serviceId}`}
-																</Text>
-																<Text color="gray.400" fontSize="xs">
+																</p>
+																<p className="text-gray-400 text-[0.75rem]">
 																	{t("admins.deletedUserUsage")}:{" "}
 																	{formatBytes(
 																		Number(item.deleted_users_usage ?? 0),
 																		2,
 																	)}
-																</Text>
-															</Box>
-															<Text
-																color="primary.200"
-																fontSize="xs"
-																fontWeight="medium"
-																whiteSpace="nowrap"
-																textAlign="end"
-															>
-																<Box as="span" display="block">
+																</p>
+															</div>
+															<p className="text-primary-200 text-[0.75rem] font-medium whitespace-nowrap text-end">
+																<span className="block">
 																	{formatBytes(usageBytes, 2)} /{" "}
 																	{configuredLimitBytes > 0
 																		? formatBytes(configuredLimitBytes, 2)
 																		: t("nodes.unlimited")}
-																</Box>
-																<Box
-																	as="span"
-																	display="block"
-																	mt={0.5}
-																	color="gray.400"
-																>
+																</span>
+																<span className="block mt-0.5 text-gray-400">
 																	{t("myaccount.remainingData")}:{" "}
 																	{remainingBytes === null
 																		? t("nodes.unlimited")
 																		: formatBytes(remainingBytes, 2)}
-																</Box>
-															</Text>
-														</HStack>
-														<Checkbox
-															isChecked={isServiceCreatedMode}
-															onChange={(event) =>
+																</span>
+															</p>
+														</div>
+														<Checkbox isChecked={isServiceCreatedMode} onChange={(event) =>
 																setServiceLimitValue(serviceId, {
 																	traffic_limit_mode: event.target.checked
 																		? AdminTrafficLimitMode.CreatedTraffic
 																		: AdminTrafficLimitMode.UsedTraffic,
 																})
-															}
-														>
+															}>
 															{t("admins.limitByCreatedTraffic")}
 														</Checkbox>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={2}
-														>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
 															<FormControl>
 																<FormLabel>{t("admins.dataLimit")}</FormLabel>
 																<NumericInput
@@ -1655,32 +1489,25 @@ export const AdminDialog: FC = () => {
 																	}
 																/>
 															</FormControl>
-														</SimpleGrid>
+														</div>
 														{isServiceCreatedMode && (
-															<Stack spacing={1.5}>
-																<Checkbox
-																	isChecked={item.show_user_traffic}
-																	onChange={(event) =>
+															<div className="flex flex-col gap-1.5">
+																<Checkbox isChecked={item.show_user_traffic} onChange={(event) =>
 																		setServiceLimitValue(serviceId, {
 																			show_user_traffic: event.target.checked,
 																		})
-																	}
-																>
+																	}>
 																	{t("admins.showUserTraffic")}
 																</Checkbox>
-																<Checkbox
-																	isChecked={
+																<Checkbox isChecked={
 																		permissionsValue.users.delete &&
 																		item.delete_user_usage_limit_enabled
-																	}
-																	isDisabled={!permissionsValue.users.delete}
-																	onChange={(event) =>
+																	} isDisabled={!permissionsValue.users.delete} onChange={(event) =>
 																		setServiceLimitValue(serviceId, {
 																			delete_user_usage_limit_enabled:
 																				event.target.checked,
 																		})
-																	}
-																>
+																	}>
 																	{t("admins.deleteUserUsageCap")}
 																</Checkbox>
 																{item.delete_user_usage_limit_enabled && (
@@ -1700,25 +1527,25 @@ export const AdminDialog: FC = () => {
 																		/>
 																	</FormControl>
 																)}
-															</Stack>
+															</div>
 														)}
-													</VStack>
-												</Box>
+													</div>
+												</div>
 											);
 										})}
-									</VStack>
-								</VStack>
+									</div>
+								</div>
 							)}
-						</VStack>
+						</div>
 						<FormHelperText>{t("admins.servicesHelper")}</FormHelperText>
 					</FormControl>
-				</VStack>
-			</Box>
-		</VStack>
+				</div>
+			</div>
+		</div>
 	);
 
 	const permissionsPanel = (
-		<VStack align="stretch" spacing={4}>
+		<div className="flex flex-col items-stretch gap-4">
 			<AdminPermissionsEditor
 				value={
 					permissionsValue ?? clonePermissions(watchRole ?? AdminRole.Standard)
@@ -1745,60 +1572,24 @@ export const AdminDialog: FC = () => {
 				isReadOnly={watchRole === AdminRole.FullAccess}
 			/>
 			{canManage2FA && (
-				<Box className="xray-dialog-section">
-					<Checkbox
-						isChecked={watch("require_2fa")}
-						onChange={(event) =>
+				<div className="xray-dialog-section">
+					<Checkbox isChecked={watch("require_2fa")} onChange={(event) =>
 							setValue("require_2fa", event.target.checked, {
 								shouldDirty: true,
 							})
-						}
-					>
+						}>
 						{t("admins.security.require2FA")}
 					</Checkbox>
-				</Box>
+				</div>
 			)}
-		</VStack>
+		</div>
 	);
 
 	return (
 		<>
-			<Modal
-				isOpen={isOpen}
-				onClose={handleCloseAdminDialog}
-				size="3xl"
-				scrollBehavior="inside"
-			>
-				<ModalOverlay bg="blackAlpha.400" />
-				<XrayModalContent
-					mx="3"
-					sx={{
-						".admin-services-section .chakra-form-control": {
-							display: "block",
-							gridTemplateColumns: "none",
-						},
-						".admin-services-section .chakra-form__label": {
-							mb: 1,
-						},
-						".admin-services-section .chakra-form__helper-text, .admin-services-section .chakra-form__error-message":
-							{
-								gridColumn: "auto",
-							},
-						".admin-services-section .chakra-simple-grid": {
-							gridTemplateColumns: {
-								base: "1fr",
-								md: "repeat(2, minmax(0, 1fr))",
-							},
-						},
-						".admin-services-section .chakra-checkbox__label": {
-							fontSize: "13px",
-						},
-						".admin-service-limit-card .chakra-form-control": {
-							display: "block",
-							gridTemplateColumns: "none",
-						},
-					}}
-				>
+			<Modal isOpen={isOpen} onClose={handleCloseAdminDialog} size="3xl" scrollBehavior="inside">
+				<ModalOverlay className="bg-blackAlpha-400" />
+				<XrayModalContent className="[.admin-services-section_.chakra-form-control]:block [.admin-services-section_.chakra-form-control]:grid-cols-none [.admin-services-section_.chakra-form__label]:mb-1 [.admin-services-section_.chakra-form__helper-text,_.admin-services-section_.chakra-form__error-message]:[grid-column:auto] [.admin-services-section_.chakra-simple-grid]:grid-cols-[1fr] [.admin-services-section_.chakra-simple-grid]:md:grid-cols-[repeat(2,_minmax(0,_1fr))] [.admin-services-section_.chakra-checkbox__label]:text-[13px] [.admin-service-limit-card_.chakra-form-control]:block [.admin-service-limit-card_.chakra-form-control]:grid-cols-none mx-3">
 					<XrayModalHeader dir={isRTL ? "rtl" : "ltr"}>
 						{mode === "create"
 							? t("admins.addAdminTitle")
@@ -1806,44 +1597,26 @@ export const AdminDialog: FC = () => {
 					</XrayModalHeader>
 					<ModalCloseButton />
 					<XrayModalBody>
-						<Tabs
-							className="xray-dialog-auto-sections"
-							variant="unstyled"
-							isLazy
-							w="full"
-						>
+						<Tabs variant="unstyled" isLazy className="w-full xray-dialog-auto-sections">
 							<TabList>
 								<Tab>{t("details")}</Tab>
 								<Tab>{t("admins.permissionsTabLabel")}</Tab>
 							</TabList>
 							<TabPanels>
-								<TabPanel px={0}>{detailsForm}</TabPanel>
-								<TabPanel px={0}>{permissionsPanel}</TabPanel>
+								<TabPanel className="px-0">{detailsForm}</TabPanel>
+								<TabPanel className="px-0">{permissionsPanel}</TabPanel>
 							</TabPanels>
 						</Tabs>
 					</XrayModalBody>
 					<XrayModalFooter>
-						<HStack spacing={3} w="full" justify="flex-end" flexWrap="wrap">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={handleCloseAdminDialog}
-							>
+						<div className="flex flex-row items-center gap-3 w-full justify-end flex-wrap">
+							<Button variant="ghost" size="sm" onClick={handleCloseAdminDialog}>
 								{t("cancel")}
 							</Button>
-							<AnimatedSubmitButton
-								onClick={handleFormSubmit}
-								status={submitStatus}
-								idleContent={
+							<AnimatedSubmitButton onClick={handleFormSubmit} status={submitStatus} idleContent={
 									mode === "create" ? t("admins.addAdmin") : t("save")
-								}
-								successLabel={t("userDialog.submitSuccess")}
-								isDisabled={isSubmitting}
-								containerProps={{
-									w: { base: "full", sm: "180px" },
-								}}
-							/>
-						</HStack>
+								} successLabel={t("userDialog.submitSuccess")} isDisabled={isSubmitting} containerProps={{ className: "w-full sm:w-[180px]" }} />
+						</div>
 					</XrayModalFooter>
 				</XrayModalContent>
 			</Modal>
